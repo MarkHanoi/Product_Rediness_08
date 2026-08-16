@@ -111,10 +111,51 @@ export async function seedWorld(world: World, roomId: string): Promise<SeedOutco
     boundary: { polygon: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }],
                 height: 3, baseOffset: 0, detectionMethod: 'manual-boundary' },
   })])));
-  // opening records ride along with door/window seeding (CreateWallOpeningCommand).
-  seedOutcomes['opening'] = seedOutcomes['door'] === 'SEEDED' || seedOutcomes['window'] === 'SEEDED'
-    ? 'SEEDED (via door/window CreateWallOpeningCommand)'
-    : 'NOT SEEDED (door/window seeding failed)';
+  // ── §MT-06-SUBJECT — the `opening` kind seeds its OWN subject ──────────────
+  //
+  // THIS LINE USED TO READ:
+  //
+  //   seedOutcomes['opening'] = seedOutcomes['door'] === 'SEEDED' || … ? 'SEEDED
+  //     (via door/window CreateWallOpeningCommand)' : 'NOT SEEDED (…)'
+  //
+  // …and that is the whole of certification finding F-5 ("`persist:opening` is
+  // MISCONFIGURED for its kind"). It declared the kind SEEDED on the strength of
+  // a DOOR or a WINDOW having been created — but `capture.ts` reads the kind
+  // back through `openingStore.getAll()`, and `openingStore` has never held a
+  // door or a window in its life. The census committed alongside this change
+  // (`packages/command-registry/__tests__/openingAuthorityCensus.test.ts`,
+  // §MT-06-CENSUS) measures the two collections and finds ZERO overlap:
+  //
+  //     CreateWallOpeningCommand  -> WallData.openings[] 1, windowStore 1,
+  //                                  openingStore 0
+  //     CreateOpeningCommand      -> openingStore 1, WallData.openings[] 0
+  //
+  // and `CreateOpeningCommand.canExecute` resolves its host through `slabStore`
+  // ONLY, so a wall id is REFUSED by construction. The seed and the reader were
+  // pointed at two different kinds. The row was never measuring anything: it
+  // reported `SEEDED` and then `expectedRecords=0`, which the comparator
+  // correctly refused to call "clean".
+  //
+  // THE FIX IS AT THE INSTRUMENT, NOT AT A LEDGER, and it POLICES MORE than
+  // before rather than less. Previously `persist:opening` compared 0 records and
+  // proved nothing. Now it composes the kind `openingStore` actually holds — a
+  // standalone slab opening, the stairwell-cut / shaft / service-penetration
+  // record — through the REAL `CreateOpeningCommand`, so the row exercises
+  // ProjectSerializer's `snapshot.openings` write AND ImportProjectCommand's
+  // Step 5d restore. That load path is the one §L-B3 (DAILY-USE-AUDIT
+  // 2026-05-20) found silently dropping every stairwell cut after one autosave,
+  // and until now NOTHING in the certification suite executed it.
+  //
+  // The wall-hosted half is not orphaned by this: it is measured by the
+  // `persist:door` / `persist:window` rows, and `wall.*.openings.0.*` is a
+  // declared path in authoritative-state.cert.ts.
+  //
+  // Hosted on `cert-slab-1`, so this must stay AFTER the slab seed above.
+  seed('opening', () => cm.execute(new reg.CreateOpeningCommand({
+    id: 'cert-op-1', hostId: 'cert-slab-1', levelId: 'L0',
+    profile: [{ x: 1, y: 1 }, { x: 2.2, y: 1 }, { x: 2.2, y: 2.4 }, { x: 1, y: 2.4 }],
+    baseOffset: 0,
+  })));
 
   // ── mutate through LIVE bus verbs so persisted values are not defaults ──────
   const mutate = async (verb: string, payload: unknown): Promise<void> => {

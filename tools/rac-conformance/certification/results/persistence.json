@@ -1,6 +1,6 @@
 {
   "harness": "H1-persistence",
-  "generatedAt": "2026-08-16T09:25:44.653Z",
+  "generatedAt": "2026-08-16T17:12:51.295Z",
   "seedOutcomes": {
     "level": "SEEDED",
     "grid": "SEEDED",
@@ -19,7 +19,7 @@
     "ceiling": "SEEDED",
     "floor": "SEEDED",
     "room": "SEEDED",
-    "opening": "SEEDED (via door/window CreateWallOpeningCommand)"
+    "opening": "SEEDED"
   },
   "mutateOutcomes": {
     "roof.update": "DISPATCHED OK",
@@ -33,7 +33,7 @@
   "loadError": "",
   "loadResult": {
     "success": true,
-    "loaded": 18,
+    "loaded": 19,
     "failed": 0,
     "errors": [],
     "warnings": [
@@ -47,6 +47,7 @@
     "wall",
     "door",
     "window",
+    "opening",
     "slab",
     "roof",
     "column",
@@ -66,6 +67,7 @@
     "wall": [],
     "door": [],
     "window": [],
+    "opening": [],
     "slab": [],
     "roof": [],
     "column": [],
@@ -90,13 +92,13 @@
       },
       {
         "path": "wall.cert-wall-1.metadata.createdAt",
-        "expected": 1786872337128,
-        "actual": 1786872343146
+        "expected": 1786900339490,
+        "actual": 1786900367109
       },
       {
         "path": "wall.cert-wall-1.metadata.modifiedAt",
-        "expected": 1786872337229,
-        "actual": 1786872343146
+        "expected": 1786900340317,
+        "actual": 1786900367109
       },
       {
         "path": "wall.cert-wall-1.metadata.version",
@@ -110,13 +112,13 @@
       },
       {
         "path": "wall.cert-wall-2.metadata.createdAt",
-        "expected": 1786872337131,
-        "actual": 1786872343147
+        "expected": 1786900339522,
+        "actual": 1786900367113
       },
       {
         "path": "wall.cert-wall-2.metadata.modifiedAt",
-        "expected": 1786872337238,
-        "actual": 1786872343147
+        "expected": 1786900340437,
+        "actual": 1786900367113
       },
       {
         "path": "wall.cert-wall-2.metadata.version",
@@ -126,17 +128,18 @@
     ],
     "door": [],
     "window": [],
+    "opening": [],
     "slab": [],
     "roof": [
       {
         "path": "roof.cert-roof-1.metadata.createdAt",
-        "expected": 1786872337144,
-        "actual": 1786872343155
+        "expected": 1786900339682,
+        "actual": 1786900367222
       },
       {
         "path": "roof.cert-roof-1.metadata.modifiedAt",
-        "expected": 1786872337222,
-        "actual": 1786872343155
+        "expected": 1786900340291,
+        "actual": 1786900367222
       },
       {
         "path": "roof.cert-roof-1.metadata.version",
@@ -154,32 +157,32 @@
     "ceiling": [
       {
         "path": "ceiling.cert-ce-1.metadata.createdAt",
-        "expected": 1786872337166,
-        "actual": 1786872343149
+        "expected": 1786900340040,
+        "actual": 1786900367123
       },
       {
         "path": "ceiling.cert-ce-1.metadata.modifiedAt",
-        "expected": 1786872337192,
-        "actual": 1786872343149
+        "expected": 1786900340073,
+        "actual": 1786900367124
       }
     ],
     "floor": [
       {
         "path": "floor.cert-fl-1.metadata.createdAt",
-        "expected": 1786872337194,
-        "actual": 1786872343149
+        "expected": 1786900340119,
+        "actual": 1786900367125
       },
       {
         "path": "floor.cert-fl-1.metadata.modifiedAt",
-        "expected": 1786872337194,
-        "actual": 1786872343149
+        "expected": 1786900340119,
+        "actual": 1786900367125
       }
     ],
     "room": [
       {
-        "path": "room.713c949c-68b6-492e-a48c-2762119b62ff.metadata.modifiedAt",
-        "expected": 1786872337242,
-        "actual": 1786872343158
+        "path": "room.bf7e51dc-15e2-4f99-aa89-fc8ecc14c04e.metadata.modifiedAt",
+        "expected": 1786900340502,
+        "actual": 1786900367228
       }
     ]
   },
@@ -236,27 +239,31 @@
     },
     "door": {
       "expected": [
-        "9967e9d1-6cca-4bc9-bf9e-62d967109584"
+        "8ae295c2-b501-4606-a359-0d6c1bf09063"
       ],
       "actual": [
-        "9967e9d1-6cca-4bc9-bf9e-62d967109584"
+        "8ae295c2-b501-4606-a359-0d6c1bf09063"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "window": {
       "expected": [
-        "551bf6ed-d880-4237-b20e-834a3a51be2e"
+        "60db8040-0fcb-427f-82bb-72a6e0f61f4d"
       ],
       "actual": [
-        "551bf6ed-d880-4237-b20e-834a3a51be2e"
+        "60db8040-0fcb-427f-82bb-72a6e0f61f4d"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "opening": {
-      "expected": [],
-      "actual": [],
+      "expected": [
+        "cert-op-1"
+      ],
+      "actual": [
+        "cert-op-1"
+      ],
       "reachedExpected": true,
       "reachedActual": true
     },
@@ -282,20 +289,20 @@
     },
     "column": {
       "expected": [
-        "column_01M04Y84QV67AKDW024QGPZ2NG"
+        "column_01M05RYQ0KYEKD6G15VENKF1BF"
       ],
       "actual": [
-        "column_01M04Y84QV67AKDW024QGPZ2NG"
+        "column_01M05RYQ0KYEKD6G15VENKF1BF"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "beam": {
       "expected": [
-        "f4731516-67bb-4850-b682-4c1162cfca0e"
+        "5752b2af-1e7e-41e3-8a85-e1a2aac2c25a"
       ],
       "actual": [
-        "f4731516-67bb-4850-b682-4c1162cfca0e"
+        "5752b2af-1e7e-41e3-8a85-e1a2aac2c25a"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -372,10 +379,10 @@
     },
     "room": {
       "expected": [
-        "713c949c-68b6-492e-a48c-2762119b62ff"
+        "bf7e51dc-15e2-4f99-aa89-fc8ecc14c04e"
       ],
       "actual": [
-        "713c949c-68b6-492e-a48c-2762119b62ff"
+        "bf7e51dc-15e2-4f99-aa89-fc8ecc14c04e"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -392,11 +399,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=2",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -410,11 +417,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -428,11 +435,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=2",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -446,11 +453,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -464,11 +471,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -476,17 +483,17 @@
       "capability": "persist:opening",
       "intent": "a opening present in the model before save is identical after reload",
       "command": "ProjectSerializer.serialize → JSON → ProjectLoader.load",
-      "authoritativeState": "UNPROVEN — SEEDED (via door/window CreateWallOpeningCommand); records=0",
+      "authoritativeState": "PROVEN — 1 record(s) present in the authoritative store before save (executed read-back)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "UNPROVEN — seed reported success but the authoritative store holds 0 records (MISCONFIGURED for this kind)",
+      "persistence": "PROVEN — 1 record(s) round-tripped with 0 undocumented divergences (executed: serialize → JSON → ProjectLoader → re-read)",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
-        "seed=SEEDED (via door/window CreateWallOpeningCommand)",
-        "expectedRecords=0",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "seed=SEEDED",
+        "expectedRecords=1",
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -500,11 +507,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -518,11 +525,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -536,11 +543,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -554,11 +561,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -572,11 +579,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -590,11 +597,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -608,11 +615,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -626,11 +633,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -644,11 +651,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -662,11 +669,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -680,11 +687,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -698,11 +705,11 @@
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
-      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=18, failed=0)",
+      "report": "PROVEN — loader returned a structured LoadResult (success=true, loaded=19, failed=0)",
       "evidence": [
         "seed=SEEDED",
         "expectedRecords=1",
-        "loadResult={\"success\":true,\"loaded\":18,\"failed\":0}"
+        "loadResult={\"success\":true,\"loaded\":19,\"failed\":0}"
       ],
       "status": "PARTIALLY VERIFIED"
     },
@@ -710,16 +717,16 @@
       "capability": "persist:indexeddb-roundtrip",
       "intent": "the exact save wire and the whole-store capture survive the IndexedDB tier byte-identically (CE-03)",
       "command": "IndexedDBStore.saveSnapshot → fresh instance → loadSnapshot (+ IndexedDbBackend append → replay)",
-      "authoritativeState": "PROVEN — the EXPECTED capture held 19 records across 18 kinds before the IDB leg ran (floor 12)",
+      "authoritativeState": "PROVEN — the EXPECTED capture held 20 records across 18 kinds before the IDB leg ran (floor 12)",
       "geometry": "UNPROVEN — no fragment builders run headlessly; meshes never built in this harness",
-      "persistence": "PROVEN — the production save wire is BYTE-IDENTICAL after the IndexedDB round trip (IndexedDBStore.saveSnapshot → fresh instance → loadSnapshot), so every per-kind round-trip verdict above applies verbatim to the IndexedDB-persisted bytes; whole-store compare across the IDB leg: 19 records, ALL kinds, 0 divergences, 0 tolerances consumed; the REAL IndexedDbBackend event log round-tripped 2 events carrying the full wire, in seq order, byte-identical payload. Substrate: IndexedDB provided by fake-indexeddb, a SHIM, not a browser — nothing here proves quotas, eviction, or multi-tab behaviour. Supabase remote-save leg: UNPROVEN — zero executed client tests exist for the remote leg anywhere in the repo; this arm measures the LOCAL IndexedDB tier (C05 §1.2 tier 2.5) only and does not scope past that silently.",
+      "persistence": "PROVEN — the production save wire is BYTE-IDENTICAL after the IndexedDB round trip (IndexedDBStore.saveSnapshot → fresh instance → loadSnapshot), so every per-kind round-trip verdict above applies verbatim to the IndexedDB-persisted bytes; whole-store compare across the IDB leg: 20 records, ALL kinds, 0 divergences, 0 tolerances consumed; the REAL IndexedDbBackend event log round-tripped 2 events carrying the full wire, in seq order, byte-identical payload. Substrate: IndexedDB provided by fake-indexeddb, a SHIM, not a browser — nothing here proves quotas, eviction, or multi-tab behaviour. Supabase remote-save leg: UNPROVEN — zero executed client tests exist for the remote leg anywhere in the repo; this arm measures the LOCAL IndexedDB tier (C05 §1.2 tier 2.5) only and does not scope past that silently.",
       "undo": "n/a — measured by Harness 2",
       "redo": "n/a — measured by Harness 2",
       "collaboration": "UNPROVEN — no transport exists (L-391 leg C); by construction",
       "report": "PROVEN — every leg above returns a typed value the arm read (null for absent, thrown errors surface); the SHIM and the UNPROVEN Supabase leg are declared in the verdict, never silently scoped past",
       "evidence": [
         "substrate=fake-indexeddb (shim, not a browser); environment had native indexedDB before shim install: false",
-        "expectedCaptureRecords=19 (floor 12)",
+        "expectedCaptureRecords=20 (floor 12)",
         "wireBytesEqualThroughIdb=true",
         "wholeStoreDivergencesThroughIdb=0",
         "positiveControlFired=true",

@@ -1,6 +1,6 @@
 {
   "harness": "H3-regenerable",
-  "generatedAt": "2026-08-16T09:25:43.239Z",
+  "generatedAt": "2026-08-16T17:30:45.685Z",
   "seedOutcomes": {
     "level": "SEEDED",
     "grid": "SEEDED",
@@ -19,10 +19,10 @@
     "ceiling": "SEEDED",
     "floor": "SEEDED",
     "room": "SEEDED",
-    "opening": "SEEDED (via door/window CreateWallOpeningCommand)"
+    "opening": "SEEDED"
   },
   "roundTripErrors": [],
-  "recordsA1": 19,
+  "recordsA1": 20,
   "kindsCaptured": 18,
   "regenerable": [
     "roof.<*>.metadata.version",
