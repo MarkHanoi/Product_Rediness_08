@@ -31,9 +31,14 @@
 //   · its `canExecute` is unconditionally `{ valid: true }`; the bridge
 //     validates `levelId` — and every live dispatcher sends one
 //     (ProjectTreeSection.ts:176, GridsLevelsRailPanel.ts:246,
-//     StairLevelRequiredPanel.ts:159 and PlanViewToolOverlay.ts:800, the last
-//     two with `_skipBridge: true`, honoured identically by the bridge at
-//     initBusHandlers.ts:2097).
+//     StairLevelRequiredPanel.ts:159 and PlanViewToolOverlay.ts:800).
+//     ⚠ Corrected 2026-08-16 (`afe0cdad`): this used to say "the last two with
+//     `_skipBridge: true`". Only StairLevelRequiredPanel still sets that flag.
+//     PlanViewToolOverlay was a legacy/bus DUAL WRITE whose `_skipBridge: true`
+//     returned BEFORE the bridge's only creating statement, so deleting the
+//     legacy half ALONE would have made "Add level" silently create nothing —
+//     and no test covered it. Both the legacy call and the flag were dropped
+//     together; it now lands on the same bus-only shape as the other three.
 //
 // Authority DECLARED: the §E.5.4 bridge. The loser is DELETED, not commented
 // (095cfa10 / 95ce7932 precedent). Deleting the plugin declaration does not

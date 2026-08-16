@@ -24,8 +24,15 @@ on:
   # push trigger itself — and separately, the v278 deploy-marker recorded that a
   # push-triggered run in that era correctly died at §L-540-CI-GATE because
   # `command-manager` CI had been red since 2026-06-02. As of this change,
-  # `npm run check:commandmanager` PASSES (52/52 — zero headroom, but green), so
-  # that specific historical failure mode is gone; the CI gate below still
+  # `npm run check:commandmanager` PASSES — but read the number correctly. It
+  # said "52/52 — zero headroom, but green" here until 2026-08-16, and that 52
+  # was FALSE: the guard matched the literal string `commandManager.execute`, so
+  # every call that reached the legacy manager under an alias was invisible to
+  # it. Census: 136 real sites (literal 51 · alias 71 · indirect 14) — it was
+  # seeing 37% of its own subject. The guard now binds aliases and the honest
+  # reading is 136/136 (`598fd707`). The threshold went UP because the
+  # instrument got HONEST, not because anything regressed. So the historical
+  # failure mode is gone; the CI gate below still
   # protects prod either way. `git push origin main` is once again the primary
   # deploy path; manual `flyctl deploy` / `workflow_dispatch` remain available as
   # a fallback. See docs/04-reference/runbooks/DEPLOYMENT-PLATFORM-AUDIT.md.
