@@ -335,6 +335,42 @@ describe('§FIX-WALL-CREATE-ON-HOST-FACE — BOTH PIPELINES on the authored line
     it('V2 (default-ON) oblique — clean on the same authored line', () => {
         expect(v2Worst(oblique())).toBeLessThan(CLEAN_MM2);
     });
+
+    // ── THE ANTI-FALSE-GREEN GUARD ───────────────────────────────────────────────────────
+    //
+    // "worst overlap < 800 mm²" is ALSO what an empty polygon set returns. A mis-mapped
+    // `WallInput` (wrong field names, silently accepted through a cast) would produce
+    // degenerate footprints and a PASSING clean-ness assertion that measured nothing — the
+    // §CONTEXT-DATA-HONESTY failure, and the same shape of mistake as asserting on a return
+    // value the pipeline discards. So assert the footprints EXIST and have the area a wall of
+    // this length and thickness must have, before believing any overlap number above.
+    it('the V2 footprints are REAL — non-degenerate, and the right area', () => {
+        const walls = perpendicular();
+        const inputs = walls.map(toV2);
+        const fps = buildAllFootprints(inputs, resolveJunctions(inputs));
+
+        expect(fps).toHaveLength(2);
+        for (const fp of fps) expect(fp.polygon.length).toBeGreaterThanOrEqual(4);
+
+        const shoelace = (poly: readonly Pt[]): number => {
+            let a = 0;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                a += (poly[j]!.x + poly[i]!.x) * (poly[j]!.z - poly[i]!.z);
+            }
+            return Math.abs(a) / 2;
+        };
+
+        const part = walls.find(w => w.id === 'part')!;
+        const partLen = Math.hypot(
+            part.baseLine[1].x - part.baseLine[0].x,
+            part.baseLine[1].z - part.baseLine[0].z,
+        );
+        // The retreated partition: 3 m authored, 0.10 m of it given back to the host face.
+        expect(partLen).toBeCloseTo(2.9, 9);
+
+        const partFp = fps.find(f => (f as unknown as { id: string }).id === 'part')!;
+        expect(shoelace(partFp.polygon)).toBeCloseTo(partLen * PART_T, 2);
+    });
 });
 
 // ─── §CAP-AFTER-RETREAT — the collateral, measured ──────────────────────────────────────
