@@ -522,7 +522,14 @@ export class WindowBuilder {
         // (touch passes the same record as `win` and `prev`), take the fast path,
         // and skip the reposition — reinstating the defect through the back door.
         // Leaving it raw is what makes a moved void register as geometric.
-        win = withAuthoritativeGeometry(win, this.wallStore.hostedOpeningGeometry(win.id));
+        // OPTIONAL-CALLED, and that is not defensive noise: `wallStore` here is
+        // typed `any` because this builder accepts a DUCK-TYPED host store, and
+        // several callers pass a partial stub carrying only `getById` /
+        // `getLevelById`. A store that cannot answer the question is "no
+        // authority" — which resolves to the record unchanged, per
+        // `withAuthoritativeGeometry` §2 — and never a throw that would take the
+        // whole mesh down, nor a zero that would park the frame at the origin.
+        win = withAuthoritativeGeometry(win, this.wallStore?.hostedOpeningGeometry?.(win.id));
 
         // PLAN-06: determine add vs update BEFORE dispose() clears the map.
         const isUpdate = this.windowGroups.has(win.id);

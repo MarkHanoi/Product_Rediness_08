@@ -337,7 +337,10 @@ export class DoorBuilder {
         // build queue drains a frame later than it fills. `prev` stays raw so a
         // pure host-move still reads as a geometric change rather than being
         // waved through the property-only fast path.
-        door = withAuthoritativeGeometry(door, this.wallStore.hostedOpeningGeometry(door.id));
+        // Optional-called for the reason given in `WindowBuilder.rebuild`: the
+        // host store is duck-typed and may be a partial stub. Cannot-answer
+        // resolves to the record unchanged, never a throw and never a zero.
+        door = withAuthoritativeGeometry(door, this.wallStore?.hostedOpeningGeometry?.(door.id));
 
         // PLAN-06: determine add vs update BEFORE dispose() clears the map.
         const isUpdate = this.doorGroups.has(door.id);

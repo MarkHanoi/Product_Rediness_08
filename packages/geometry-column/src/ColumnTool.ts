@@ -404,13 +404,19 @@ export class ColumnTool {
         this._updateProfileInfo();
         this._updateOrientationInfo();
 
-        // Mode buttons
-        ['uc', 'ub', 'rect', 'circ'].forEach(mode => {
+        // Mode buttons.
+        // The button-id list and the mode map used to be two separate literals, with
+        // the map keyed by `string` — so `modeMap[mode]` was ProfileMode | undefined
+        // under noUncheckedIndexedAccess, and the two lists could drift apart without
+        // anything noticing. Keying the map by the button-id union and iterating ITS
+        // keys makes the lookup total (no undefined to assert away) and leaves one
+        // source of truth: adding a mode to the map is what adds its button.
+        const modeMap: Record<'uc' | 'ub' | 'rect' | 'circ', ProfileMode> = {
+            uc: 'UC', ub: 'UB', rect: 'rectangular', circ: 'circular',
+        };
+        (Object.keys(modeMap) as Array<keyof typeof modeMap>).forEach(mode => {
             document.getElementById(`col-mode-${mode}`)?.addEventListener('click', e => {
                 e.stopPropagation();
-                const modeMap: Record<string, ProfileMode> = {
-                    uc: 'UC', ub: 'UB', rect: 'rectangular', circ: 'circular',
-                };
                 this._profileMode = modeMap[mode];
                 if (this._profileMode === 'UC') this._steelProfileName = SteelProfileLibrary.defaultUC().name;
                 if (this._profileMode === 'UB') this._steelProfileName = SteelProfileLibrary.defaultUB().name;
