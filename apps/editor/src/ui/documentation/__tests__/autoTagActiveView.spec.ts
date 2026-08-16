@@ -35,13 +35,34 @@ vi.mock('@pryzm/core-app-model', async (orig) => {
     storeRegistry: { getStoreForType: (t: string) => (t === 'wall' ? wallStore : undefined) },
     viewDefinitionStore: { get: (id: string) => (id === 'v1' ? VIEW_DEF : undefined), has: () => true },
     elementCodeStore: { getCode: () => undefined },
-    doorSystemTypeStore: { getById: (id: string) => (id === 'dt_1' ? { name: 'Solid Timber' } : undefined) },
-    windowSystemTypeStore: { getById: (id: string) => (id === 'wt_1' ? { name: 'Timber Casement' } : undefined) },
   };
 });
 
 vi.mock('@pryzm/geometry-wall', () => ({
   wallSystemTypeStore: { getById: (id: string) => (id === 'wst_1' ? { name: 'WallA' } : undefined) },
+}));
+
+// §TOMBSTONE-HOSTED-STORE-FORK (f718d768, 2026-08-12) — the door/window system-type
+// fakes USED to be declared on the `@pryzm/core-app-model` mock above, because that is
+// where `autoTagActiveView` imported them from. That commit deleted the core forks as
+// STALE RIVALS ("it was reading a plausible-looking catalogue no door was ever a member
+// of") and re-pointed the reader at the sole owners, `@pryzm/geometry-door` /
+// `@pryzm/geometry-window` — exactly as `wallSystemTypeStore` above has always resolved.
+// It did not move these two fakes with it, so they went on describing a module nobody
+// reads: the type lookups fell through to the REAL geometry stores, which have no 'dt_1'
+// / 'wt_1', and every type-name assertion here read `undefined`. Moved to the owners.
+//
+// Spread from the original rather than replaced wholesale (unlike the geometry-wall mock
+// directly above) because these two packages carry the door/window builders the rest of
+// this file's import graph pulls in; a bare factory would blank them.
+vi.mock('@pryzm/geometry-door', async (orig) => ({
+  ...await orig<typeof import('@pryzm/geometry-door')>(),
+  doorSystemTypeStore: { getById: (id: string) => (id === 'dt_1' ? { name: 'Solid Timber' } : undefined) },
+}));
+
+vi.mock('@pryzm/geometry-window', async (orig) => ({
+  ...await orig<typeof import('@pryzm/geometry-window')>(),
+  windowSystemTypeStore: { getById: (id: string) => (id === 'wt_1' ? { name: 'Timber Casement' } : undefined) },
 }));
 
 import { annotationStore } from '@pryzm/plugin-annotations';
