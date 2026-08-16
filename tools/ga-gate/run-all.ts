@@ -437,23 +437,43 @@ const GATES: Gate[] = [
   //     happy-dom window, then MOVES A WALL and reads the effect back. It is
   //     EXECUTED and is registered in certify.ts instead.
   //
-  // TWO OF THE THIRTEEN ARE DELIBERATELY NOT REGISTERED, and the absence is recorded
-  // rather than dropped — "we looked and it was not registrable" and "nobody looked"
-  // must not print the same:
-  //   ✗ check-index-can-refuse      exit 3 STALE LEDGER at HEAD. Its own
-  //     index-can-refuse-debt.json declares DoorDependencyTracker unable to refuse
-  //     and it now can (paid, unstruck), while Ceiling/FloorHostDependencyTracker are
-  //     measured UNLEDGERED — 10 findings against a named 9.
-  //   ✗ check-region-reference-frame exit 3 RATCHET EXCEEDED at HEAD, 1 finding
-  //     against a declared HARD-0: FinishSegmentAdapter.ts:150 constructs a
-  //     hostReference edge with no readable `reference` member.
+  // TWO OF THE THIRTEEN WERE DELIBERATELY NOT REGISTERED, and the absence was
+  // recorded rather than dropped — "we looked and it was not registrable" and
+  // "nobody looked" must not print the same. ⭐ BOTH ARE NOW CLEARED (lane G2,
+  // A.12, 2026-08-16), and the reason is worth keeping: NEITHER was the breach it
+  // was recorded as. Three of the four exit-3 causes were FALSE POSITIVES OF THE
+  // GATES THEMSELVES, in the same shape both times — the gate's SUBJECT was wider
+  // than the CONTRACT'S CLAUSE, so it judged sites and symbols the clause never
+  // bound. Exactly one cause was real debt-keeping, and it was a PAID row that had
+  // never been struck.
+  //
+  //   ✓ check-region-reference-frame  exit 3 → exit 0 CLEAN. The finding
+  //     (FinishSegmentAdapter.ts:150) was a `{x,z}`↔`{x,y}` type ADAPTER that
+  //     forwards `reference: edge.reference`. C79 §3.1/§3.2 bind a region-TRACED
+  //     edge — the act of CHOOSING a frame; a translation chooses nothing. It fired
+  //     on the family that honours §3 BEST: the finish frame is refused one layer up
+  //     at reprojectFinishBoundary.ts:236-242 with the typed C78 §8.1 reason
+  //     GEOMETRY_UNPREDICTABLE, policing both arms, with its own negative test.
+  //     Registered below. §FORWARDING-IS-NOT-CHOOSING.
+  //
+  //   ● check-index-can-refuse        exit 3 → exit 1, 8 findings / named ledger 8.
+  //     ⚠ NOT REGISTERED HERE YET, and the reason is a FILE-OWNERSHIP fence, not a
+  //     gate defect: an exit-1 gate on neither ledger prints ❌ REGRESSION and
+  //     hard-fails this suite for every lane, so it needs a gate-newly-measured.json
+  //     entry — and that file had UNCOMMITTED edits from a concurrent lane when G2
+  //     ran. Committing it would have committed another lane's work in progress.
+  //     The entry JSON and the one-line row for this array were handed off intact.
+  //     Its own exit 3 was: 1 STALE ROW (DoorDependencyTracker — paid, unstruck,
+  //     now struck) + 3 UNLEDGERED that were false positives — ARM B read ONE FILE
+  //     per subject (so two constructor-only subclasses of a base THIS GATE scores
+  //     as able to refuse read as unable) and policed C78 §8.1's ELEVEN-member
+  //     closed union against a hand-copied FIVE (so RoofDependencyTracker's
+  //     ENGINE_NOT_AVAILABLE refusal was invisible). The union is now parsed from
+  //     source; the ledger was NOT grown.
+  //
   //   Exit 3 is NEVER absorbable by either ledger (§RATCHET-EXCEEDED-IS-NEVER-DEBT,
-  //   R7 / L-836 / C70 §5.1), so registering either would hard-block this suite for
-  //   every lane on a defect this registration lane's fence forbids it to fix. The
-  //   deterministic-regeneration precedent above is the rule being followed, not
-  //   bent: registration WAITS at exit 3 until the finding is fixed or its ledger is
-  //   honestly re-anchored. Each needs its own lane. Until then the orphan check
-  //   above still names them, which is the correct residual signal.
+  //   R7 / L-836 / C70 §5.1) — the rule held, and it is what forced the diagnosis
+  //   that found the false positives instead of ledgering them.
   //
   // Every row below was RE-RUN AT HEAD by the registering commit — a gate registered
   // on a reading someone else reported is a gate registered on hearsay. All floors
@@ -474,6 +494,12 @@ const GATES: Gate[] = [
   // (§2.4 / §7.6) — NOT gate-debt.json, which requires the founder.
   { name: 'provenance-export-boundary (C75 §5 · PV-04)',        script: '../rac-conformance/certification/gates/check-provenance-export-boundary.ts' },
   { name: 'region-fallback-populated (C79 §8)',                 script: '../rac-conformance/certification/gates/check-region-fallback-populated.ts' },
+  // Registered by lane G2 (A.12), RE-RUN AT HEAD by the registering commit: exit 0
+  // CLEAN, 5 sites swept, 0 findings, all floors met. STATIC — it reads committed
+  // source and needs nothing that exists only once something runs, so §2.1a/§7.4
+  // puts it in THIS runner beside region-fallback-populated, with which it shares
+  // one sweeper and one ledger. Hard-0 with no baseline: it needs no ledger entry.
+  { name: 'region-reference-frame (C79 §3 · §8)',               script: '../rac-conformance/certification/gates/check-region-reference-frame.ts' },
   { name: 'region-host-attribution (C79 §6.3)',                 script: '../rac-conformance/certification/gates/check-region-host-attribution.ts' },
   { name: 'relationship-determination (C78 §20 · U-INV-1 · BAR-3)', script: '../rac-conformance/certification/gates/check-relationship-determination.ts' },
   { name: 'no-empty-means-unknown (C78 §20 · U-INV-4 · GR-14)', script: '../rac-conformance/certification/gates/check-no-empty-means-unknown.ts' },
