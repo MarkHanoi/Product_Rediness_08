@@ -146,7 +146,7 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
  *     production caller outside RoomTopologyObserver.ts exists — e.g. an
  *     explicit user-facing "release this level" verb — not before. Seam
  *     coverage: packages/room-topology/src/__tests__/gr2UpdateSurrenderSeam.test.ts.
- * S2: PlanViewToolOverlay.ts:368, MEASURED NOT SPECIFIED: the spec named the
+ * S2: PlanViewToolOverlay.ts `_onSvpToolFocus`, MEASURED NOT SPECIFIED: the spec named the
  *     initPersistence pair alone; this is the identical shape one directory
  *     over, recorded rather than excluded, because a gate that only ever finds
  *     the sites its spec listed is a spec transcription, not a measurement.
@@ -161,7 +161,7 @@ const MEDIA_RECEIVER = /video|audio|media|player|^v$|^vid(eo)?El/i;
  */
 const LEDGER: readonly string[] = [
   'S1::packages/room-topology/src/RoomTopologyObserver.ts:clearGraphAuthoritative',
-  'S2::apps/editor/src/engine/views/PlanViewToolOverlay.ts:368',
+  'S2::apps/editor/src/engine/views/PlanViewToolOverlay.ts:_onSvpToolFocus',
   'S3::apps/editor/src/engine/WallRebuildCoordinator.ts:_wallRebuildPaused',
   'S3::apps/editor/src/engine/initCollaboration.ts:suppressOutboundVisibilityIntentEvents',
   'S3::apps/editor/src/engine/initScene.ts:_heavyShadowSuppressed',
@@ -244,7 +244,8 @@ interface Marker {
 
 interface PausePair {
   readonly file: string;
-  readonly line: number;        // the pause site
+  readonly line: number;        // the pause site — REPORTED, never the ledger key (see §S2-ANCHOR-ON-A-SYMBOL)
+  readonly enclosing: string;   // the method the pause sits in — this IS the ledger key
   readonly receiver: string;
   readonly resumeLine?: number;
   readonly hasFinallyBetween: boolean;
@@ -252,6 +253,25 @@ interface PausePair {
 }
 
 interface Finding { readonly arm: 'S1' | 'S2' | 'S3'; readonly key: string; readonly detail: string }
+
+/**
+ * §S2-ANCHOR-ON-A-SYMBOL — matches the nearest enclosing DECLARATION above a
+ * pause site: a class method / function (group 1) or an assigned arrow or
+ * function expression (group 2). Deliberately NOT a line number; see
+ * PausePair.line.
+ *
+ * Both alternatives require the line to OPEN A BLOCK (`… ) … {` at end of
+ * line). That is what separates a declaration from a call: `this.pause();`
+ * and `foo(bar);` both have a name and parens, and neither opens a block.
+ * Without that anchor this regex would resolve every pause site to itself.
+ */
+const ENCLOSING_DECL = new RegExp(
+  '^\\s*(?:(?:public|private|protected|static|async|export|declare|function)\\s+)*' +
+  '([A-Za-z_$][\\w$]*)\\s*(?:<[^>]*>)?\\([^;]*\\)\\s*(?::[^{;]*)?\\{\\s*$' +
+  '|' +
+  '^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=]*)?=\\s*' +
+  '(?:async\\s+)?(?:function\\s*)?(?:<[^>]*>)?\\([^;]*\\)\\s*(?::[^=>{]*)?(?:=>)?\\s*\\{\\s*$',
+);
 
 const SCOPE_ANNOTATION = /@suppression-scope\s+(level|batch|load-window|drag|frame|session)/;
 
@@ -359,7 +379,18 @@ function collectPausePairs(root: string, dirs: readonly string[]): { pairs: Paus
           if (/\bawait\b/.test(lines[j]!)) fallible = true;
           else if (/[A-Za-z_$][\w$]*\s*\(/.test(lines[j]!) && !/\.pause\b/.test(lines[j]!)) fallible = true;
         }
-        pairs.push({ file: rel, line: i + 1, receiver, resumeLine, hasFinallyBetween: hasFinally, fallibleBetween: fallible });
+        // §S2-ANCHOR-ON-A-SYMBOL — the enclosing method name, scanned backwards.
+        // S2 was the ONE arm in this ledger keyed on a raw line number while S1
+        // keys on a release-method name and S3 on a field name. That made every
+        // S2 row drift on any edit ABOVE it, in a file it does not own: an
+        // unrelated commit shifted this file by +22 lines and exit-3'd the whole
+        // suite. The enclosing symbol moves only when the subject itself moves.
+        let enclosing = '(top-level)';
+        for (let b = i; b >= 0 && b > i - 200; b--) {
+          const d = ENCLOSING_DECL.exec(lines[b]!);
+          if (d) { enclosing = d[1] ?? d[2] ?? '(top-level)'; break; }
+        }
+        pairs.push({ file: rel, line: i + 1, enclosing, receiver, resumeLine, hasFinallyBetween: hasFinally, fallibleBetween: fallible });
       }
     }
   }
@@ -448,7 +479,7 @@ function analyse(root: string, dirs: readonly string[], minFiles: number): Analy
     if (!p.hasFinallyBetween) {
       findings.push({
         arm: 'S2',
-        key: `S2::${p.file}:${p.line}`,
+        key: `S2::${p.file}:${p.enclosing}`,
         detail: `${p.file}:${p.line} — \`${p.receiver}.pause()\` resumes at :${p.resumeLine} across a fallible ` +
           `call with NO \`finally\`. A throw between them leaves the channel off for the rest of the session, ` +
           `silently, with everything looking fine (C72 §4.2). Wrap: pause(); try { … } finally { resume(); }.`,
