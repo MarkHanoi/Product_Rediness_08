@@ -399,15 +399,28 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'point-to-segment-distance',
     what: 'projection parameter t clamped to [0,1], then a distance to the clamped point',
-    canonical: null,
+    canonical: 'packages/geometry-kernel/src/pure/pointToSegment.ts',
     exclusions: [],
-    counted: false,
+    counted: true,
     notYetReason:
       'NOT-YET-COUNTED — C73 §3.5. Detection is tractable (the clamped-t projection is a distinctive shape — ' +
       'CesiumViewport:12836-12840 is one instance) but this family is entangled with the tolerance policy: ' +
       'most sites compare the resulting distance against a PRIVATE epsilon, so counting bodies before ' +
       'check-epsilon-policy E2 has come down would ratchet a number that a tolerance migration is about to ' +
-      'move underneath it.',
+      'move underneath it. ' +
+      '── UPDATE 2026-08-16: THE STATED BLOCKER IS REFUTED, and the refutation is the reason this family can ' +
+      'be counted now. The tolerance entanglement is REAL but it lives at the COMPARISON — `dist < myEps` — ' +
+      'which is downstream of the body and cannot add or remove one. A check-epsilon-policy E2 migration ' +
+      'rewrites those constants; the count of clamped-t projections above them does not move, so there is no ' +
+      'number about to shift underneath this ratchet. What the original reason was reaching for is a ' +
+      'DIFFERENT and sharper fact, now measured: the epsilon inside the body, guarding the divide by the ' +
+      'squared length. Anchored to the divisor (never to a nearby literal — the first cut of this census read ' +
+      '`t > 1e-6`, an INTERIOR band, as one site\'s degenerate guard, and misreported it), the rivals carry ' +
+      'FOURTEEN distinct conventions spanning `lenSq > 0` through `< 1e-20` to `< 1e-3`, with TWELVE ' +
+      'unguarded. The canonical decides that axis EXACTLY rather than by adopting one of them (§C73-P2S-' +
+      'CANONICAL, decisions 1 and 2), so counting is not waiting on a tolerance migration it does not depend ' +
+      'on. Counted at its own measured reading; the collapse itself is per-site work that must read each ' +
+      'band before folding, and two sites are named below whose band is a real domain decision.',
   },
   {
     id: 'polygon-containment-overlap',
@@ -684,6 +697,171 @@ function detectPolygonArea(root: string, dirs: readonly string[]): { bodies: Are
     }
   }
   return { bodies, noSuccessor };
+}
+
+// ─── Family "point-to-segment-distance" — the CENSUS arm (C73 §3.1) ──────────
+
+/**
+ * THE 2D/3D DOT PRODUCT `A*B + C*D [+ E*F]` — the projection numerator.
+ *
+ * ⚠ THE SIGN IS THE WHOLE CROSS-FAMILY SEPARATION. The two families already
+ * counted are built on the 2D CROSS (`A*B − C*D`); this one is built on the DOT
+ * (`A*B + C*D`). One character apart in the source, and a census that confused
+ * them would count every shoelace accumulation and every segment/segment
+ * determinant a SECOND time under a third family name — the exact double-count
+ * §3.5 forbids and the reason polygon-containment-overlap must still go last.
+ * Both directions are asserted by executed controls: this arm reads 0 over the
+ * AREA and SEGSEG fixtures, and those arms read 0 over this one's.
+ */
+const DOT_2D = `${TERM}\\s*\\*\\s*${TERM}\\s*\\+\\s*${TERM}\\s*\\*\\s*${TERM}(?:\\s*\\+\\s*${TERM}\\s*\\*\\s*${TERM})?`;
+
+/**
+ * THE PROJECTION QUOTIENT — a dot product DIVIDED by something (the squared
+ * segment length). The divisor is CAPTURED, because the degenerate-segment
+ * guard can only be read off the divisor itself; see `p2sGuardOf`.
+ */
+const PROJECT_QUOTIENT = new RegExp(`${DOT_2D}\\s*\\)?\\s*\\/\\s*(${PAREN}|${CALL}|${OPERAND})`);
+
+/**
+ * At least one factor must be a DIFFERENCE `(p - a)`. This is condition 1: a
+ * projection is a dot of DISPLACEMENTS, so a generic `w*x + y*z` ratio — a
+ * weighted average, a blend, an interpolated colour — is rejected without ever
+ * looking at its name.
+ */
+const P2S_HAS_DIFFERENCE = new RegExp(`\\(\\s*${OPERAND}\\s*-\\s*${OPERAND}\\s*\\)`);
+
+/**
+ * THE CLAMP TO [0,1] — condition 2, and the family's defining step.
+ *
+ * An UNCLAMPED projection is the point-to-LINE question: it projects onto the
+ * INFINITE line and has no notion of the segment ending. Clamping is precisely
+ * what makes it point-to-SEGMENT. So the clamp is not a stylistic detail to be
+ * tolerant about — it is the taxonomy, and it is the identical cut this gate
+ * already makes between the bounded segment/segment solve and the unbounded
+ * line/line one. Unclamped bodies are DETECTED and PRINTED as the adjacent
+ * family and NOT counted, because no collapse in this family can retire them.
+ *
+ * All four spellings below are live in this tree, and the canonical's oracle
+ * proves they compute the same value for every non-NaN input, so admitting all
+ * four is a spelling union with no behavioural axis inside it.
+ */
+const P2S_CLAMPS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['max-min', /Math\.max\s*\(\s*0(?:\.0)?\s*,\s*Math\.min\s*\(\s*1(?:\.0)?\s*,/],
+  ['min-max', /Math\.min\s*\(\s*1(?:\.0)?\s*,\s*Math\.max\s*\(\s*0(?:\.0)?\s*,/],
+  ['ternary', /<\s*0\s*\?\s*0\s*:[^;]{0,80}?>\s*1\s*\?\s*1\s*:/],
+  ['if-assign', /\bif\s*\([^)]{0,40}<\s*0\s*\)[^;]{0,40}=\s*0\s*;/],
+];
+
+/**
+ * The window in which the clamp must appear, measured from the live spread, not
+ * guessed: the widest genuine instance puts the projection on one line and the
+ * clamp four lines later (`WallRegionExtractor`, where a comment and a
+ * degenerate branch sit between). Bounded, for the reason every window here is
+ * bounded — an unbounded one would find SOME clamp in every file and the
+ * clamped/unclamped split, which IS the taxonomy, would collapse.
+ */
+const P2S_BACK = 4;
+const P2S_FWD = 6;
+
+interface P2SBody {
+  readonly file: string;
+  readonly line: number;
+  /** The degenerate-segment guard convention, read off the DIVISOR. */
+  readonly guard: string;
+  readonly clamp: string;
+  readonly text: string;
+  readonly isTest: boolean;
+}
+
+/**
+ * Read the degenerate-segment guard OFF THE DIVISOR ITSELF, never off a nearby
+ * literal.
+ *
+ * ⚠ THIS FUNCTION EXISTS BECAUSE THE OBVIOUS VERSION WAS WRONG AND WAS CAUGHT.
+ * The first cut scanned the window for any `< 1e-N` and reported the first hit.
+ * At `snapping/src/providers/SiteContextSnapProvider.ts` that read `t > 1e-6` —
+ * an INTERIOR band on the projection parameter, a completely different quantity
+ * — as the site's degenerate guard, while the real guard `lenSq <= 1e-12` two
+ * lines up was missed entirely (the pattern required `<` and the source wrote
+ * `<=`). A guard census that misreports which quantity is guarded is worse than
+ * none: it manufactures a disagreement that is not there and hides one that is.
+ * Anchoring to the captured divisor name makes the reading structural.
+ */
+function p2sGuardOf(divisor: string, near: string): string {
+  const name = divisor.trim();
+  // An INLINE divisor — `/ (dx * dx + dz * dz)` — has no name to guard, and
+  // therefore no guard, by construction. `|| 1` is the one live fallback shape.
+  if (name.startsWith('(')) {
+    const or = /\|\|\s*([\w.]+)\s*\)?\s*$/.exec(name);
+    return or ? `|| ${or[1]}` : 'NONE (inline divisor)';
+  }
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(
+    `\\b${esc}\\s*(<=|>=|<|>|===|!==)\\s*([\\w.+-]+(?:e[-+]?\\d+)?)` +
+    `|([\\w.+-]+(?:e[-+]?\\d+)?)\\s*(<=|>=|<|>)\\s*\\b${esc}\\b`,
+  );
+  const m = re.exec(near);
+  if (!m) return 'NONE';
+  return m[1] ? `${m[1]} ${m[2]}` : `${m[4]} ${m[3]} (reversed)`;
+}
+
+/**
+ * Detect point-to-segment-distance bodies.
+ *
+ * A body is a PROJECTION QUOTIENT (dot of displacements ÷ squared length) with
+ * a CLAMP to [0,1] in its window. Counting unit = the quotient occurrence, so
+ * N projections in one file are N bodies — the same (file × body) unit the
+ * point-in-polygon arm uses, and for the same reason.
+ *
+ * ── Named blind spots (C73 §5.4a) ────────────────────────────────────────────
+ *   • a projection whose dot is computed by a HELPER (`dot(pa, ab) / lenSq`)
+ *     carries no arithmetic to match, only a call. Keying on the callee NAME is
+ *     what §3.2 forbids and a rename defeats. Declared, not counted.
+ *   • a distance computed by normalising the segment direction FIRST and taking
+ *     a dot against the unit vector — same answer, no divide by a squared
+ *     length, invisible here.
+ *   • anything decided on the GPU.
+ */
+function detectPointToSegment(root: string, dirs: readonly string[]): { bodies: P2SBody[]; unclamped: P2SBody[] } {
+  const bodies: P2SBody[] = [];
+  const unclamped: P2SBody[] = [];
+  for (const dir of dirs) {
+    for (const abs of walk(join(root, dir))) {
+      const rel = relPath(root, abs);
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      const lines = stripCommentsToLines(src);
+      const isTest = isTestPath(rel);
+      for (let i = 0; i < lines.length; i++) {
+        const m = PROJECT_QUOTIENT.exec(lines[i]!);
+        if (!m) continue;
+        if (!P2S_HAS_DIFFERENCE.test(m[0])) continue;
+        const win = lines.slice(Math.max(0, i - P2S_BACK), i + P2S_FWD).join(' ');
+        let clamp: string | null = null;
+        for (const [id, re] of P2S_CLAMPS) if (re.test(win)) { clamp = id; break; }
+        // The guard window is tight and mostly BACKWARD: `lenSq` is assigned
+        // and tested above the quotient, never far below it.
+        const guardWin = lines.slice(Math.max(0, i - 4), i + 2).join(' ');
+        const body: P2SBody = {
+          file: rel,
+          line: i + 1,
+          guard: p2sGuardOf(m[1]!, guardWin),
+          clamp: clamp ?? 'unclamped',
+          text: lines[i]!.trim().slice(0, 120),
+          isTest,
+        };
+        if (clamp) bodies.push(body); else unclamped.push(body);
+      }
+    }
+  }
+  return { bodies, unclamped };
+}
+
+/** The distinct degenerate-segment conventions in play, most common first. */
+function p2sGuardTally(bodies: readonly P2SBody[]): Array<[string, number]> {
+  const t = new Map<string, number>();
+  for (const b of bodies) t.set(b.guard, (t.get(b.guard) ?? 0) + 1);
+  return [...t.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
 }
 
 // ─── Baseline ────────────────────────────────────────────────────────────────
@@ -1141,6 +1319,123 @@ function selfTest(): { ok: boolean; lines: string[] } {
     lines.push(`    CROSS-FAMILY (SEGSEG run over the AREA fixtures): ${segOnArea.bodies.length} bod(ies) — expected 0`);
     if (segOnArea.bodies.length !== 0) fail('The SEGSEG arm counted the AREA fixtures — the two censuses overlap, so a body would be counted under both family names and the ratchets would move together for one fix (C73 §3.5, the polygon-containment argument applied here).');
 
+    // ── P2S: detect all four clamp spellings, INCLUDING the canonical's ─────
+    // `canonicalTernary.ts` is §C73-P2S-CANONICAL's own shape and guard. An arm
+    // blind to its own canonical cannot assert a collapse — the identical trap
+    // the SEGSEG arm fell into with an 8-line window, pinned here in advance.
+    writeTree(join(base, 'p2s'), {
+      'packages/a/src/canonicalTernary.ts': [
+        'export function proj(px: number, py: number, ax: number, ay: number, bx: number, by: number) {',
+        '  const dx = bx - ax;',
+        '  const dy = by - ay;',
+        '  const lenSq = dx * dx + dy * dy;',
+        '  if (!(lenSq > 0)) return 0;',
+        '  const t = ((px - ax) * dx + (py - ay) * dy) / lenSq;',
+        '  return t < 0 ? 0 : t > 1 ? 1 : t;',
+        '}',
+      ].join('\n'),
+      'packages/a/src/maxMin.ts':
+        'export function d(px: number, pz: number, ax: number, az: number, dx: number, dz: number, len2: number) {\n' +
+        '  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2));\n' +
+        '  return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));\n}\n',
+      'packages/a/src/minMax.ts':
+        'export function d(px: number, pz: number, ax: number, az: number, dx: number, dz: number, l2: number) {\n' +
+        '  const t = Math.min(1, Math.max(0, ((px - ax) * dx + (pz - az) * dz) / l2));\n  return t;\n}\n',
+      'packages/a/src/ifAssign.ts': [
+        'export function d(px: number, pz: number, ax: number, az: number, dx: number, dz: number, lenSq: number) {',
+        '  let t = ((px - ax) * dx + (pz - az) * dz) / lenSq;',
+        '  if (t < 0) t = 0;',
+        '  else if (t > 1) t = 1;',
+        '  return t;',
+        '}',
+      ].join('\n'),
+    });
+    const p2s = detectPointToSegment(join(base, 'p2s'), ['packages']);
+    const p2sFiles = [...new Set(p2s.bodies.map((b) => b.file.split('/').pop()))].sort();
+    lines.push(`    P2S detect (four clamp spellings): ${p2s.bodies.length} bod(ies) in [${p2sFiles.join(', ')}]`);
+    for (const want of ['canonicalTernary.ts', 'maxMin.ts', 'minMax.ts', 'ifAssign.ts']) {
+      if (!p2sFiles.some((f) => f === want)) fail(`P2S did not detect the planted clamped-t projection in ${want} — the signature misses a live clamp spelling${want === 'canonicalTernary.ts' ? ', and this one is THE CANONICAL BODY’S OWN shape: an arm blind to its own canonical cannot assert a collapse' : ''}.`);
+    }
+    // The GUARD extractor, read back by VALUE — not merely "a guard was found".
+    // A extractor that returns a constant would still produce a tally and would
+    // still look like a measurement; only reading the value catches it. This is
+    // the same control C3 carries for the ray cast's divide guard, and it is
+    // here because the first cut of this one WAS wrong (see `p2sGuardOf`).
+    const canonGuard = p2s.bodies.find((b) => b.file.endsWith('canonicalTernary.ts'))?.guard ?? '(none found)';
+    lines.push(`    P2S guard EXTRACTOR (canonical's own \`!(lenSq > 0)\`): read "${canonGuard}"`);
+    if (!/>\s*0/.test(canonGuard)) fail(`P2S's guard extractor did not read the canonical's EXACT \`lenSq > 0\` guard off its divisor (got "${canonGuard}") — a guard census that cannot read the one guard it is meant to hold up as correct is measuring nothing.`);
+
+    // ── P2S guard extractor: the INTERIOR-BAND trap, pinned ─────────────────
+    // This fixture is `SiteContextSnapProvider`'s real shape: the degenerate
+    // guard is `lenSq <= 1e-12` (note `<=`, which a `<`-only pattern misses),
+    // and a DIFFERENT band `t > 1e-6` sits on the next line. The first cut of
+    // this census reported `1e-6` as the guard. Anchoring to the divisor NAME
+    // is what fixes it, and this control is what keeps it fixed.
+    writeTree(join(base, 'p2sguard'), {
+      'packages/g/src/interiorBand.ts': [
+        'export function nearest(px: number, pz: number, ax: number, az: number, dx: number, dz: number) {',
+        '  const lenSq = dx * dx + dz * dz;',
+        '  if (lenSq <= 1e-12) return { x: ax, z: az, interior: false };',
+        '  let t = ((px - ax) * dx + (pz - az) * dz) / lenSq;',
+        '  const interior = t > 1e-6 && t < 1 - 1e-6;',
+        '  t = Math.max(0, Math.min(1, t));',
+        '  return { x: ax + dx * t, z: az + dz * t, interior };',
+        '}',
+      ].join('\n'),
+    });
+    const gTrap = detectPointToSegment(join(base, 'p2sguard'), ['packages']);
+    const gRead = gTrap.bodies[0]?.guard ?? '(no body detected)';
+    lines.push(`    P2S guard trap (real guard \`lenSq <= 1e-12\`, decoy band \`t > 1e-6\`): read "${gRead}"`);
+    if (gTrap.bodies.length !== 1) fail(`P2S did not detect the interior-band fixture as exactly 1 body (got ${gTrap.bodies.length}) — the guard control has nothing to read.`);
+    if (/1e-6/.test(gRead)) fail(`P2S's guard extractor read the INTERIOR band \`t > 1e-6\` as the degenerate-segment guard (got "${gRead}") — it is a band on a different quantity, and misreporting which quantity is guarded manufactures a disagreement that is not there while hiding one that is.`);
+    if (!/1e-12/.test(gRead)) fail(`P2S's guard extractor missed the real guard \`lenSq <= 1e-12\` (got "${gRead}") — a \`<\`-only pattern does not see \`<=\`, and three live sites spell it that way.`);
+
+    // ── P2S reject: the UNCLAMPED projection is the ADJACENT family ──────────
+    // Point-to-LINE projects onto the infinite line. It has no [0,1] band, no
+    // "where does the segment end" verdict, and no collapse in THIS family can
+    // retire it — the identical argument the SEGSEG arm makes about line/line.
+    // It must be REPORTED (so it is decided, not forgotten) and NOT counted.
+    writeTree(join(base, 'p2sreject'), {
+      'packages/h/src/pointToLine.ts': [
+        'export function onLine(px: number, pz: number, ax: number, az: number, dx: number, dz: number, len2: number) {',
+        '  const t = ((px - ax) * dx + (pz - az) * dz) / len2;',
+        '  return { x: ax + t * dx, z: az + t * dz };',
+        '}',
+      ].join('\n'),
+      // A weighted ratio with NO displacement factor — condition 1's subject.
+      'packages/h/src/blend.ts': [
+        'export function blend(wa: number, va: number, wb: number, vb: number, total: number) {',
+        '  return Math.max(0, Math.min(1, (wa * va + wb * vb) / total));',
+        '}',
+      ].join('\n'),
+    });
+    const p2sRej = detectPointToSegment(join(base, 'p2sreject'), ['packages']);
+    lines.push(`    P2S reject (unclamped point-to-LINE / weighted blend): ${p2sRej.bodies.length} counted, ${p2sRej.unclamped.length} adjacent unclamped — expected 0 and 1`);
+    if (p2sRej.bodies.some((b) => b.file.endsWith('pointToLine.ts'))) fail('P2S counted an UNCLAMPED projection as a point-to-segment body — that is the point-to-LINE family, whose instances no collapse here can retire, and folding them in inflates this ratchet exactly as counting line/line would inflate segment/segment.');
+    if (p2sRej.bodies.some((b) => b.file.endsWith('blend.ts'))) fail('P2S counted a WEIGHTED BLEND (a ratio of products with no displacement factor) as a projection — condition 1 is what stops this census swallowing every clamped ratio in the tree.');
+    if (!p2sRej.unclamped.some((b) => b.file.endsWith('pointToLine.ts'))) fail('P2S did not REPORT the unclamped projection as the adjacent family — an excluded body must stay visible, or it is forgotten rather than decided (C73 §3.3).');
+
+    // ── P2S zero: the zero reading must be reachable ─────────────────────────
+    const p2sClean = detectPointToSegment(join(base, 'clean'), ['packages']);
+    lines.push(`    P2S zero (a tree with no projection): ${p2sClean.bodies.length} bod(ies) — expected 0`);
+    if (p2sClean.bodies.length !== 0) fail('P2S counted a body in a tree containing none — the zero reading is unreachable, so the census cannot be trusted (C73 §7.k).');
+
+    // ── CROSS-FAMILY, BOTH DIRECTIONS: dot (+) vs cross (−) ──────────────────
+    // This family is built on the DOT product; the two already counted are built
+    // on the CROSS. They are ONE CHARACTER APART in the source. If either arm
+    // saw the other's bodies, the same rival would be counted twice under two
+    // family names, three ratchets would move for one fix, and the ordering
+    // argument that keeps polygon-containment-overlap last would be void.
+    const p2sOnCross = detectPointToSegment(join(base, 'area'), ['packages']);
+    const p2sOnSeg = detectPointToSegment(join(base, 'segseg'), ['packages']);
+    const segOnP2s = detectSegmentIntersection(join(base, 'p2s'), ['packages']);
+    const areaOnP2s = detectPolygonArea(join(base, 'p2s'), ['packages']);
+    lines.push(`    CROSS-FAMILY dot-vs-cross (P2S over AREA/SEGSEG, and SEGSEG/AREA over P2S): ${p2sOnCross.bodies.length}, ${p2sOnSeg.bodies.length}, ${segOnP2s.bodies.length}, ${areaOnP2s.bodies.length} — expected 0, 0, 0, 0`);
+    if (p2sOnCross.bodies.length !== 0) fail('The P2S arm counted the AREA fixtures — a shoelace cross read as a projection dot. The two differ by ONE SIGN, and merging them would count every area body a second time under a third family name.');
+    if (p2sOnSeg.bodies.length !== 0) fail('The P2S arm counted the SEGSEG fixtures — a determinant read as a projection dot, which would double-count every segment/segment body.');
+    if (segOnP2s.bodies.length !== 0) fail('The SEGSEG arm counted the P2S fixtures — a projection dot read as a determinant. Two quotients of one divisor is NOT a segment/segment solve when the divisor is a squared LENGTH.');
+    if (areaOnP2s.bodies.length !== 0) fail('The AREA arm counted the P2S fixtures — a projection dot read as a shoelace accumulation.');
+
     // ── The CENSUS RATCHET's own comparator, watched in BOTH directions ──────
     // The two arms above prove the DETECTOR sees the right bodies. Nothing yet
     // proves the shrink-only COMPARATOR reacts to them, and a ratchet whose
@@ -1200,6 +1495,16 @@ const areaProduction = areaAll.bodies.filter((b) => !b.isTest);
 const areaRivals = areaProduction.filter((b) => b.file !== AREA_CANONICAL);
 const areaCanonical = areaProduction.filter((b) => b.file === AREA_CANONICAL);
 const areaNoSucc = areaAll.noSuccessor.filter((b) => !b.isTest);
+
+// ─── The point-to-segment CENSUS (measured, printed, recorded, COUNTED) ───────
+const P2S_CANONICAL = 'packages/geometry-kernel/src/pure/pointToSegment.ts';
+const p2sAll = detectPointToSegment(ROOT, DIRS);
+const p2sProduction = p2sAll.bodies.filter((b) => !b.isTest);
+const p2sRivals = p2sProduction.filter((b) => b.file !== P2S_CANONICAL);
+const p2sCanonical = p2sProduction.filter((b) => b.file === P2S_CANONICAL);
+const p2sUnclamped = p2sAll.unclamped.filter((b) => !b.isTest);
+const p2sGuards = p2sGuardTally(p2sRivals);
+
 const bodies = detected.bodies.filter((b) => !excluded.has(b.file));
 const production = bodies.filter((b) => !b.isTest);
 // C3 runs over ALL production bodies INCLUDING the canonical file, so a rival
@@ -1242,6 +1547,12 @@ if (WRITE) {
         test: areaAll.bodies.filter((b) => b.isTest).length,
         byFile: tallyByFile(areaRivals),
         bodies: areaRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
+      },
+      'point-to-segment-distance': {
+        production: p2sRivals.length,
+        test: p2sAll.bodies.filter((b) => b.isTest).length,
+        byFile: tallyByFile(p2sRivals),
+        bodies: p2sRivals.map((b) => `${b.file}:${b.line}::${b.clamp}::${b.guard}`),
       },
     },
   };
@@ -1406,6 +1717,70 @@ if (areaNoSucc.length) {
   for (const b of areaNoSucc.slice(0, 12)) lines.push(`        · (no-successor) ${b.file}:${b.line}  ${b.text}`);
 }
 lines.push('');
+const priorP2s = prior.census?.['point-to-segment-distance'];
+const p2sByFile = new Map<string, number>();
+for (const b of p2sRivals) p2sByFile.set(b.file, (p2sByFile.get(b.file) ?? 0) + 1);
+lines.push(
+  `CENSUS  point-to-segment-distance — ${p2sRivals.length} production rival bod(ies) across ${p2sByFile.size} file(s)` +
+  (priorP2s ? ` (recorded ${priorP2s.production})` : ' (not yet recorded)') +
+  `, + ${p2sCanonical.length} in the canonical file ${P2S_CANONICAL}, ` +
+  `+ ${p2sAll.bodies.filter((b) => b.isTest).length} in tests.`,
+);
+lines.push(
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — same standing as the two censuses above. COUNTED since ' +
+  '2026-08-16, pinned at this reading, contributing findings. An INSTRUMENT SWITCHED ON, not a regression: ' +
+  'every body predates the arm, so it belongs in gate-newly-measured.json and NOT in gate-debt.json, which ' +
+  'would backdate a decision nobody made. Raising the pin is forbidden outright.',
+);
+lines.push(
+  '        THE FAMILY IS DEFINED BY THE CLAMP, and that is the taxonomy, not a detail: an UNCLAMPED ' +
+  'projection is the point-to-LINE question (project onto the infinite line, no notion of the segment ' +
+  'ending), which no collapse here can retire — the identical cut this gate already makes between the ' +
+  'bounded segment/segment solve and the unbounded line/line one. Counted bodies also require a DISPLACEMENT ' +
+  'factor `(p - a)`, which rejects every clamped weighted ratio, and they are built on the DOT product ' +
+  '(`A*B + C*D`) where the two families above are built on the CROSS (`A*B - C*D`) — ONE CHARACTER apart, ' +
+  'so all four cross-family directions are asserted by executed controls on every run.',
+);
+lines.push(
+  `        THE DIVERGENCE THIS FAMILY ACTUALLY CARRIES — ${p2sGuards.length} DISTINCT degenerate-segment ` +
+  'guard conventions across those rivals, read off the DIVISOR (never off a nearby literal — see the ' +
+  '`p2sGuardOf` header for the misreading that control exists to prevent):',
+);
+for (const [g, n] of p2sGuards) lines.push(`        · ${String(n).padStart(3)} × ${g}`);
+lines.push(
+  '        The UNGUARDED ones are not merely untidy: `Math.max(0, Math.min(1, 0/0))` is NaN on a zero-length ' +
+  'segment, and NaN propagates into `dist < tol` as a silent FALSE — a missed hit that reads exactly like a ' +
+  'clean miss. The canonical decides this axis EXACTLY (`lenSq > 0`, no epsilon) because t = 0 IS the ' +
+  'correct answer when the segment is a point, so C73 §2.4 is satisfied without consuming a tolerance.',
+);
+lines.push(
+  '        ⚠ NOT ALL OF THESE COLLAPSE BY REPLACEMENT (roadmap §7B.5). A `lenSq < eps` guard does not mean ' +
+  '"avoid dividing by zero", it means "this segment is TOO SHORT TO PROJECT ONTO" — a caller-owned DOMAIN ' +
+  'band (C73 §2.1). Two live sites hold bands that are real decisions and must COMPOSE, never fold: ' +
+  '`plugins/annotations/src/AnnotationRenderLayer.ts` guards `lenSq < 0.001` (a 3.2 cm segment) and ' +
+  '`packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts` guards `lenSq <= 1e-6` (1 mm) — the ' +
+  'SAME annotation hit-test question, answered with bands 1000× apart. Migrating either onto the exact ' +
+  'guard is a behaviour change shipped as a cleanup, which is the one thing C73 forbids.',
+);
+for (const [file, n] of [...p2sByFile.entries()].sort()) lines.push(`        · ${file}  (${n} bod${n === 1 ? 'y' : 'ies'})`);
+if (priorP2s) {
+  const now = new Set(p2sRivals.map((b) => `${b.file}:${b.line}::${b.clamp}::${b.guard}`));
+  const grew = [...now].filter((k) => !priorP2s.bodies.includes(k));
+  const left = priorP2s.bodies.filter((k) => !now.has(k));
+  if (grew.length) lines.push(`        + ${grew.length} NEW since the recorded census: ${grew.slice(0, 8).join(' · ')}`);
+  if (left.length) lines.push(`        − ${left.length} GONE since the recorded census (rebaseline to bank it): ${left.slice(0, 8).join(' · ')}`);
+}
+lines.push(
+  `        ADJACENT, NOT COUNTED: ${p2sUnclamped.length} production UNCLAMPED projections (point-to-LINE — ` +
+  'the unbounded question). Printed so the decision is auditable and they cannot be quietly forgotten.',
+);
+for (const b of p2sUnclamped) lines.push(`        · (adjacent) ${b.file}:${b.line}`);
+lines.push(
+  '        BLIND SPOTS (C73 §5.4a): a projection whose dot is computed by a HELPER carries no arithmetic to ' +
+  'match, only a call — and keying on the callee NAME is what §3.2 forbids; so does a distance taken against ' +
+  'a PRE-NORMALISED direction, which never divides by a squared length. Declared, not counted.',
+);
+lines.push('');
 lines.push(`C3  ${disagreements.length} file(s) holding the SAME family twice with DIFFERENT degenerate-divide guards (C73 §2.4).`);
 for (const d of disagreements) lines.push(`      ✗ ${d}`);
 lines.push('');
@@ -1455,6 +1830,7 @@ const floors: Floor[] = [
   // rival count, which IS what the family exists to drive to zero.
   { what: 'segment/segment bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: segCanonical.length, min: 1 },
   { what: 'polygon-area bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: areaCanonical.length, min: 1 },
+  { what: 'point-to-segment bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: p2sCanonical.length, min: 1 },
 ];
 
 // ─── The two CENSUS families are now COUNTED ─────────────────────────────────
@@ -1470,14 +1846,16 @@ const floors: Floor[] = [
 // for one fix. It stays uncounted, and LAST.
 const segDelta = censusDelta('segment-segment-intersection', segRivals, prior.census?.['segment-segment-intersection']?.byFile);
 const areaDelta = censusDelta('polygon-area-and-winding', areaRivals, prior.census?.['polygon-area-and-winding']?.byFile);
+const p2sDelta = censusDelta('point-to-segment-distance', p2sRivals, prior.census?.['point-to-segment-distance']?.byFile);
 
 // c2Integrity is HARD — it is never part of `declared`, so any integrity
 // violation pushes findings above the declared ledger and the gate exits red.
 const findings = measured.size + c2Missing.length + c2Integrity.length + disagreements.length
-  + segRivals.length + areaRivals.length;
+  + segRivals.length + areaRivals.length + p2sRivals.length;
 const declared = priorKeys.size + prior.c2 + prior.c3.length
   + (prior.census?.['segment-segment-intersection']?.production ?? 0)
-  + (prior.census?.['polygon-area-and-winding']?.production ?? 0);
+  + (prior.census?.['polygon-area-and-winding']?.production ?? 0)
+  + (prior.census?.['point-to-segment-distance']?.production ?? 0);
 
 const result: GateResult = {
   gate: GATE,
@@ -1492,11 +1870,13 @@ const result: GateResult = {
     ...disagreements.map((d) => `C3::${d.split(' — ')[0]}`),
     ...segRivals.map((b) => `C1::${b.file}:${b.line}::segment-segment-intersection`),
     ...areaRivals.map((b) => `C1::${b.file}:${b.line}::polygon-area-and-winding`),
+    ...p2sRivals.map((b) => `C1::${b.file}:${b.line}::point-to-segment-distance`),
   ],
   stale: [
     ...stale.map((k) => `C1::${k}`),
     ...segDelta.shrunk.map((k) => `CENSUS::${k}`),
     ...areaDelta.shrunk.map((k) => `CENSUS::${k}`),
+    ...p2sDelta.shrunk.map((k) => `CENSUS::${k}`),
   ],
 };
 
