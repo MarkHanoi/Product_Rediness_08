@@ -501,7 +501,21 @@ export class ProjectLoader {
                     ifcGuid: wall.ifcData?.guid,
                     // §WALL-RAKE — mirrors apps/editor ProjectLoader.
                     rakeAngleDeg: wall.rakeAngleDeg,
-                    systemTypeId: wall.systemTypeId
+                    systemTypeId: wall.systemTypeId,
+                    // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — restore what the
+                    // AUTHOR DID at each endpoint. Mirrors apps/editor ProjectLoader and
+                    // ImportProjectCommand; these restore paths diverging is exactly how
+                    // fields get silently dropped on one loader and not another (the same
+                    // hazard the serializer twins carry a comment about).
+                    //
+                    // Unrecoverable if lost: L-923 proved no predicate over geometry, type,
+                    // thickness or createdAt separates a mitred-L-plus-newcomer from a
+                    // legitimate collinear pass-through. Absent in any pre-L-927 snapshot,
+                    // and absent is precisely the legacy behaviour — the store does not
+                    // derive during hydration rather than guessing from file order.
+                    joinIntent: (wall as {
+                        joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
+                    }).joinIntent,
                 });
                 const r = exec(cmd);
                 if (r.success) {

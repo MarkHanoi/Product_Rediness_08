@@ -157,6 +157,35 @@ const PRODUCERS = {
         'LAND HERE. Rebuilds the record from a FIELD WHITELIST rather than copying it.',
 } as const;
 
+/**
+ * §SCANNER-BLIND-SPOT — producers this file's scanner CANNOT see, listed by hand because
+ * a name-based scan structurally cannot reach them.
+ *
+ * `elementUndoStoreAdapter` is generic over element types: it resolves its target from
+ * `buildUndoStoreMap()` (performUndoRedo.ts) at RUNTIME and calls `store.add(...)` through
+ * a variable named `store`. No amount of receiver-name matching finds that, and pretending
+ * otherwise would make this census claim a completeness it does not have.
+ *
+ * Found by an independent full-repo sweep, not by this scanner — which is the point of
+ * running both. Recorded here so the denominator below is honest about its own method.
+ *
+ * Both sites are CORRECT under the L-927 design without any edit, and it is worth saying
+ * why, because it is the argument for deriving at the store rather than at N call sites:
+ *   - `:272` (redo of a create) prefers the legacy snapshot stashed at undo time, which
+ *     CARRIES `joinIntent` ⇒ preserved by guard 1. When that stash is missing it falls
+ *     back to the L1 DTO, which has none ⇒ the store re-derives against the state as it
+ *     stands at redo time, which is by definition the pre-create neighbourhood — the same
+ *     answer the original create got.
+ *   - `:277` (`replace` on a missing id) inserts the DTO ⇒ same re-derivation.
+ * A per-call-site stamping strategy would have had to find and patch both. Deriving at the
+ * store covered them before anyone knew they existed.
+ */
+const SCANNER_BLIND_SPOT = {
+    'apps/editor/src/engine/undo/elementUndoStoreAdapter.ts':
+        'Generic undo/redo adapter — resolves the store at runtime via buildUndoStoreMap() and ' +
+        'calls store.add() on a variable receiver. Two sites (redo-of-create; replace-when-absent).',
+} as const;
+
 /** Sites that RE-insert a record that already existed — they must PRESERVE, never re-derive. */
 const RESTORERS = {
     'packages/command-registry/src/walls/DeleteElementCommand.ts':
@@ -217,26 +246,64 @@ describe('§MEASURED-JOININTENT-PRODUCER-CENSUS (L-927)', () => {
     it('PINS THE DENOMINATOR: how many wall producers stamp joinIntent', () => {
         const producerFiles = Object.keys(PRODUCERS);
         const total = producerFiles.length;
+
+        // §L-927 RESOLUTION — the derivation moved DOWN to `WallStore.add()`, which every
+        // producer necessarily calls, so ALL of them are now covered at one site. The
+        // per-producer list is kept (not deleted) because it is the evidence of what the
+        // "single chokepoint" claim was actually worth, and because a future producer that
+        // bypasses the store entirely would still have to be classified here.
         const unstamped = UNSTAMPED_PRODUCERS.length;
         const stamped = total - unstamped;
 
         // eslint-disable-next-line no-console
         console.log(
             `\n§MEASURED-JOININTENT-PRODUCER-CENSUS (L-927)\n` +
-            `  wall producers (new records) : ${total}\n` +
-            `  STAMPED                      : ${stamped}\n` +
-            `  UNSTAMPED                    : ${unstamped}\n` +
-            `  restore-only (must preserve) : ${Object.keys(RESTORERS).length}\n` +
-            UNSTAMPED_PRODUCERS.map(f => `    ✗ ${f}`).join('\n') + '\n',
+            `  wall producers (new records)   : ${total}\n` +
+            `  stamping AT THEIR OWN CALL SITE: ${stamped}\n` +
+            `  relying on the store chokepoint: ${unstamped}\n` +
+            `  restore-only (must preserve)   : ${Object.keys(RESTORERS).length}\n` +
+            `  scanner blind spots (by hand)  : ${Object.keys(SCANNER_BLIND_SPOT).length}\n` +
+            `  ── covered by WallStore.add()  : ALL of the above\n`,
         );
 
-        // §SHRINK-ONLY ratchet.
+        // §SHRINK-ONLY ratchet on the per-call-site list.
         expect(
             unstamped,
             'UNSTAMPED_PRODUCERS grew. A new wall producer was added without stamping joinIntent.',
         ).toBeLessThanOrEqual(5);
+    });
 
-        expect(stamped).toBeGreaterThanOrEqual(1);
+    it('THE CHOKEPOINT IS REAL: WallStore.add() derives joinIntent, so every producer is covered', () => {
+        // This is the assertion that makes the census's conclusion checkable rather than
+        // narrated. If the derivation is ever moved back out of the store into N call
+        // sites, this fails — and the "1 of 6" defect is back by construction.
+        const storeSrc = fs.readFileSync(
+            path.join(REPO, 'packages/geometry-wall/src/WallStore.ts'), 'utf8',
+        );
+        const addBody = storeSrc.slice(
+            storeSrc.indexOf('add(rawWall: WallData)'),
+            storeSrc.indexOf('// Clone and freeze'),
+        );
+        expect(addBody).toMatch(/deriveJoinIntent/);
+        // Guard 1: an explicit (persisted / restored) intent must win over derivation.
+        expect(addBody).toMatch(/wall\.joinIntent\s*!==\s*undefined/);
+        // Guard 2: loading must not derive — file order and untrimmed baselines are not
+        // the authoring neighbourhood, so a derivation there is a guess.
+        expect(addBody).toMatch(/_hydrating/);
+
+        // The derivation lives in exactly ONE module.
+        const stampSrc = fs.readFileSync(
+            path.join(REPO, 'packages/geometry-wall/src/WallJoinIntentStamp.ts'), 'utf8',
+        );
+        expect(stampSrc).toMatch(/export function deriveJoinIntent/);
+
+        // …and CreateWallCommand no longer derives its own — it only FORWARDS a persisted one.
+        const cmdSrc = fs.readFileSync(
+            path.join(REPO, 'packages/command-registry/src/walls/CreateWallCommand.ts'), 'utf8',
+        );
+        expect(cmdSrc).toMatch(/joinIntent:\s*this\.wallData\.joinIntent/);
+        expect(cmdSrc, 'CreateWallCommand must not re-derive intent — one derivation site only')
+            .not.toMatch(/committedEndpointsAt/);
     });
 
     it('the §P2.1 bridge rebuilds the wall from a FIELD WHITELIST — the mechanism that strips joinIntent', () => {
@@ -275,7 +342,12 @@ describe('§MEASURED-JOININTENT-PRODUCER-CENSUS (L-927)', () => {
         }
     });
 
-    it('PERSISTENCE: joinIntent is absent from BOTH serializeWall whitelists — every save destroys every stamp', () => {
+    it('PERSISTENCE: BOTH serializeWall whitelists carry joinIntent — HARD-0, a save must not destroy a stamp', () => {
+        // WAS 2/2 DROPPING at the start of L-927 — the widest breakage of the lot, since it
+        // hit every project on every load: the stamp was computed correctly at creation and
+        // then thrown away by the next save. `WallJoinIntentChokepointPayoff` measures the
+        // consequence directly (drop the field, and the founder's mitre reverts to square
+        // caps purely from a reload), so this is a hard 0, not a ratchet.
         const serializers = [
             'apps/editor/src/engine/persistence/ProjectSerializer.ts',
             'packages/persistence-client/src/loader/ProjectSerializer.ts',
@@ -288,11 +360,34 @@ describe('§MEASURED-JOININTENT-PRODUCER-CENSUS (L-927)', () => {
             const body = src.slice(i, src.indexOf('\n}', i));
             if (!/joinIntent/.test(body)) missing.push(f);
         }
+        expect(missing, 'a serializer dropped joinIntent — the stamp will not survive reload').toEqual([]);
+    });
 
-        // §SHRINK-ONLY: this MUST go to [] — a stamp that does not survive reload is worthless.
-        // Documented as the widest breakage: it affects every project on every load.
-        expect(missing.length).toBeLessThanOrEqual(2);
-        // eslint-disable-next-line no-console
-        console.log(`§MEASURED-JOININTENT-PERSISTENCE — serializers dropping joinIntent: ${missing.length}/2`);
+    it('PERSISTENCE: all THREE loaders restore the persisted stamp instead of re-deriving it', () => {
+        // Three restore paths, and the one the lane brief did not name —
+        // `ImportProjectCommand` — is the DEFAULT (`_useImportCommandPath()` returns true).
+        // A field threaded through two of three is the same silent-divergence bug the
+        // serializer twins already carry a warning comment about.
+        const loaders = [
+            'packages/command-registry/src/project/ImportProjectCommand.ts',
+            'apps/editor/src/engine/persistence/ProjectLoader.ts',
+            'packages/persistence-client/src/loader/ProjectLoader.ts',
+        ];
+        for (const f of loaders) {
+            const src = fs.readFileSync(path.join(REPO, f), 'utf8');
+            expect(src, `${f} must forward the persisted joinIntent into CreateWallCommand`)
+                .toMatch(/joinIntent:\s*\(wall as/);
+        }
+
+        // And the two that own the replay loop must suppress DERIVATION while doing it,
+        // so a legacy snapshot is not assigned a guess made from file order.
+        for (const f of [
+            'packages/command-registry/src/project/ImportProjectCommand.ts',
+            'apps/editor/src/engine/persistence/ProjectLoader.ts',
+        ]) {
+            const src = fs.readFileSync(path.join(REPO, f), 'utf8');
+            expect(src, `${f} must wrap the wall replay in hydration`).toMatch(/beginHydration/);
+            expect(src, `${f} must release hydration in a finally`).toMatch(/_endHydration\?\.\(\)/);
+        }
     });
 });
