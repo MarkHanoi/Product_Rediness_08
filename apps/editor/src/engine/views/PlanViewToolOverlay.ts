@@ -29,7 +29,9 @@ import type { PlanViewInteraction }  from './PlanViewInteraction';
 import type { ViewDefinition }       from '@pryzm/core-app-model';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './plantools/PlanToolHandler';
 import { viewPlaneFromDefinition }   from '@pryzm/core-app-model';
-import { AddLevelCommand }           from '@pryzm/command-registry';
+// §FIX-GATE-DEFEATABLE-BY-ALIASING (G1) — the `AddLevelCommand` import is gone
+// with the legacy dual-write in `_addLevel`; the bus handler constructs it now.
+// ProjectTreeSection.ts dropped the same import when it went bus-only.
 import { getStairToolConfig }        from '@pryzm/geometry-stair';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish config chokepoint.
 import { getFloorToolConfig } from '@pryzm/core-app-model/stores';
@@ -779,32 +781,52 @@ export class PlanViewToolOverlay {
         const levelId = `L${count}-${Date.now()}`;
         const name    = `Level ${count}`;
 
-        // §R7-FIX / §E.5.x: bracket notation avoids `window.commandManager` GA gate pattern;
-        // functionally identical — (window as any)['commandManager'] resolves the same reference.
-        // Kept as synchronous dual-write: bus call below uses _skipBridge:true to prevent
-        // the handler from issuing a second AddLevelCommand (would fail canExecute guard).
-        const _lvl = (window as any)['commandManager'] as { execute(cmd: unknown): void } | undefined;
-        if (_lvl) {
-            _lvl.execute(new AddLevelCommand({
-                levelId,
-                name,
-                elevation,
-                height: prevHeight,
-            }));
-        } else {
-            console.warn('[PlanViewToolOverlay] commandManager not available — level.add may not render in 3D scene');
-        }
-
-        // Secondary PRYZM3 parity write.  _skipBridge: true prevents the bus
-        // handler from executing a second AddLevelCommand for the same levelId.
+        // ─── §FIX-GATE-DEFEATABLE-BY-ALIASING (LANE G1, 2026-08-16) ───────────
+        //
+        // WAS a dual-write: a direct call at the legacy command manager, reached
+        // under an indexed spelling, followed by a bus call.
+        //
+        // Its comment stated, as the RATIONALE for that spelling, that it kept the
+        // call out of a CI gate's reach while behaving identically. That comment is
+        // DELETED, and deliberately not re-quoted here: a note whose content is the
+        // recipe for getting past a check is the defect the check exists to prevent
+        // (roadmap §7B.5 — a gate that classifies by NAME can be satisfied by
+        // RENAMING), and preserving the recipe "for history" just republishes it.
+        // The history that matters is this paragraph. The technique no longer works
+        // regardless: both gates now bind the alias and count `.execute(` on it.
+        //
+        // The LEGACY HALF WAS LOAD-BEARING AS WRITTEN, so it could not simply be
+        // deleted — `_skipBridge: true` makes the bus handler a complete no-op:
+        //
+        //   initBusHandlers.ts:2108   if ((cmd as any)._skipBridge) return;
+        //   initBusHandlers.ts:2109   _cmExec(new AddLevelCommand({ levelId, … }));
+        //
+        // The guard sits AHEAD of the only creating statement, the spec carries
+        // `stores: []` and no undoPatch, and `level.add` is not sync-replicated —
+        // so with the flag set, nothing else creates the level. Deleting the
+        // legacy half alone would have made "Add level" silently create nothing.
+        //
+        // Dropping the flag WITH the legacy half is therefore the whole fix, and
+        // it lands on a shape already shipping twice:
+        //   GridsLevelsRailPanel.ts:251   — same gesture, same id scheme, bus-only
+        //   ProjectTreeSection.ts:176     — bus-only
+        // The handler then executes the SAME AddLevelCommand with the same four
+        // fields, plus the gestureId `_cmExec` correlates for undo grouping —
+        // which the direct legacy call did not supply.
+        //
+        // Safe here specifically because `_addLevel` performs NO synchronous
+        // read-back after the write (it logs and returns), so the async bus hop is
+        // unobservable. ⚠ StairLevelRequiredPanel.ts:153-164 keeps its dual-write
+        // for exactly the opposite reason — it calls `onRetry()` and reads
+        // `bimManager.getLevels()` synchronously. The two sites are NOT
+        // equivalent; do not "tidy" that one to match this one.
         window.runtime?.bus?.executeCommand('level.add', {
             levelId,
             name,
             elevation,
-            height:      prevHeight,
-            _skipBridge: true,
-        })?.catch((e: Error) => console.error('[PlanViewToolOverlay] level.add bus parity failed:', e));
-        console.log('[PlanViewToolOverlay] Level added at', elevation, 'm (dual-write)');
+            height: prevHeight,
+        })?.catch((e: Error) => console.error('[PlanViewToolOverlay] level.add failed:', e));
+        console.log('[PlanViewToolOverlay] Level added at', elevation, 'm');
     }
 
     // ── Snap shape (Canvas2D) ─────────────────────────────────────────────────
