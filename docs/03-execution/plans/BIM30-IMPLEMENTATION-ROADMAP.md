@@ -1735,6 +1735,63 @@ and adopting the shared role would have **tightened a 0.15 m band by 150×**.
 **what adopting the checked role would have done to behaviour**. Counting gates must be
 **structural**, not name-based.
 
+> ⭐ **Measured 2026-08-16 — the cost of this one, finally counted.** `check:commandmanager` matched
+> the literal string `commandManager.execute` and reported **51 · PASS · "1 headroom remaining."**
+> The true count of production calls reaching the legacy manager is **136** — literal 51 · **alias
+> 71** · **indirect 14**. **It was seeing 37 % of its own subject**, and CLAUDE.md plus
+> `deploy-fly.yml` both quoted its green as an assurance.
+>
+> **The instructive part is where the 85 came from.** Two sites *do* state gate-dodging as their
+> rationale in their own comments (`AnnotateViewCommand.ts:199` — *"Renamed from `commandManager` →
+> `_cmdMgr` to satisfy CI gate … keeping the ratchet count at threshold"*; `PlanViewToolOverlay.ts:782`).
+> **But deliberate evasion was the small half.** The largest single class — ~40 sites — is bus
+> handlers under `plugins/<pkg>/src/handlers/` opening with `const cm = window.commandManager`, in
+> the exact L6 layer the gate exists to keep clean. Nobody was hiding. **A name-based gate does not
+> merely invite evasion; it silently fails to count the ordinary case**, and the ordinary case is
+> always the bigger number.
+>
+> **The fix is structural and needed no AST**: the manager must be **bound to a name** before it can
+> be called under one, so bind-then-count over the binding's block. Arm 1 reproduces the old 51
+> exactly, which is what proves the change is pure addition rather than a re-definition.
+> `598fd707` · `afe0cdad`.
+
+### §7B.5a — ⭐ THE THIRD CATEGORY: the instrument's SUBJECT is wider than the contract's CLAUSE
+
+**Added 2026-08-16 from lane G2 (A.12).** A.12 as written splits exit 3 into two causes — *stale
+ledger* and *real breach*. **That split is incomplete, and the missing category dominated.** Across
+the two refused gates there were **four** exit-3 causes: **one** was real debt-keeping; **three were
+false positives of the gates' own analysers**, and all three had the same shape.
+
+> **The gate scored a site that the contract's clause does not bind.**
+
+- `check-region-reference-frame` fired on `FinishSegmentAdapter.ts:150` — a `{x,z}`↔`{x,y}`
+  coordinate adapter that **forwards** `edge.reference`. C79 §3.1/§3.2 bind *"a region-**traced**
+  edge"* / *"a region **path**"* — **the act of CHOOSING a frame.** Forwarding is not choosing.
+  Worse: it fired on the family that honours §3 *best* — the frame is refused one layer up in
+  `reprojectFinishBoundary.ts:236` with a typed `GEOMETRY_UNPREDICTABLE`, under its own negative test.
+- `check-index-can-refuse` scored two **constructor-only subclasses** as unable to refuse, while
+  scoring the base class they inherit everything from as **able**, in the same run — because ARM B
+  read **one file per subject**.
+- The same gate policed C78 §8.1's **eleven**-member closed union against a **hand-copied five**, so
+  a legitimate `ENGINE_NOT_AVAILABLE` refusal (member #2) was invisible.
+
+**Three rules follow, and they are the point of this entry:**
+
+1. **Diagnose an exit 3 into THREE buckets, not two** — stale ledger · real breach · **subject wider
+   than the clause**. Quote the contract's actual verb. *Traced* and *forwarded* are different acts;
+   a gate that cannot tell them apart is measuring the wrong set.
+2. **Fix a false positive AT THE INSTRUMENT, never at the ledger.** Ledgering these three would have
+   *"recorded three defects that do not exist and backdated a decision nobody made."*
+3. **Before narrowing any gate, prove you have not weakened it.** G2's discipline is the standard:
+   re-check every already-ledgered subject against the *new* rule and confirm each is still a
+   finding — then, better, make the narrowing **police more than it did**. The region gate now names
+   the upstream guard *and its regex* in the ledger and fails if that guard vanishes: **a deletion it
+   previously could not have seen at all.** ⭐ **Redirection, not exemption.**
+
+⚠ And the meta-finding: `run-all.ts`'s recorded reasons for refusing to register both gates **were
+factually wrong**. *"We looked and it was not registrable"* was itself a BY-READ claim — the thing
+C70 §0.1 forbids — sitting inside the runner that exists to stop BY-READ claims.
+
 ### §7B.6 — The mis-pin that the gate itself caught — why "0 findings" needs "N examined"
 
 > ⭐ *"Its first pin of **3** was WRONG **and the gate caught it**: that run had a failing positive
