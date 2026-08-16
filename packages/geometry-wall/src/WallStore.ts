@@ -1,5 +1,6 @@
 import { WallData, Opening, Level, ILevelProvider, WindowData, DoorData, WallJoinIntent } from './WallTypes';
 import { deriveJoinIntent, type JoinIntentCandidate } from './WallJoinIntentStamp';
+import { retreatOntoHostFaces, type HostBodyCandidate } from './WallHostBodyRetreat';
 import { Point3D } from '@pryzm/core-app-model';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
@@ -426,15 +427,78 @@ export class WallStore implements ILevelProvider {
         // Cost: O(k) in the walls on this level, off `_levelIndex` — the same cost
         // `CreateWallCommand` already paid, now paid once for every producer.
         let derivedJoinIntent: WallJoinIntent | undefined;
-        if (wall.joinIntent === undefined && !this._hydrating) {
+        // §FIX-WALL-CREATE-ON-HOST-FACE (L-929) — the authored baseline, after any endpoint
+        // that lands INSIDE a committed wall's solid has been retreated onto that wall's near
+        // FACE. Defaults to the as-drawn line and stays that way unless a body landing is
+        // found, so every non-body create is byte-identical to before.
+        let authoredBaseLine: [Point3D, Point3D] | undefined;
+        if (!this._hydrating) {
             const ids = this._levelIndex.get(levelId);
             if (ids && ids.size > 0) {
-                const siblings: JoinIntentCandidate[] = [];
+                const siblings: HostBodyCandidate[] = [];
                 for (const id of ids) {
                     const w = this.walls.get(id);
                     if (w) siblings.push(w);
                 }
-                derivedJoinIntent = deriveJoinIntent(siblings, wall);
+                if (wall.joinIntent === undefined) {
+                    derivedJoinIntent = deriveJoinIntent(siblings as JoinIntentCandidate[], wall);
+                }
+
+                // ── §FIX-WALL-CREATE-ON-HOST-FACE (L-929) ────────────────────────────
+                // THE RETREAT L-919 COMPUTED AND NEVER DELIVERED, AUTHORED INSTEAD.
+                //
+                // L-919 put a body-penetration retreat in `WallJoinResolver._applyT`. It
+                // computes correctly, at production snapRadius, bounded by the HOST's
+                // thickness rather than the camera — and `WallRebuildCoordinator._flush`
+                // discards it one hop later, so the fix shipped INERT and was proved so by
+                // an adversarial reachability audit. Only the miter normals survive, i.e. a
+                // cap-plane ORIENTATION anchored `hostHalfT` INSIDE the host solid.
+                //
+                // THE DISCARD IS THE INVARIANT WORKING. §FIX-WALL-JOIN-BASELINE-IMMUTABLE
+                // (L-44/L-46/L-47) forbids a join re-resolve from mutating a stored baseline
+                // — that write-back is exactly what shrank an unrelated wall on a nearby
+                // create, shrank a wall on a type change, and diverged a committed T from its
+                // own preview. A body-T retreat is a genuine LENGTH change, so it can never
+                // be delivered through `resolveLevel` at all.
+                //
+                // Authoring it HERE inverts the relationship: the stored line already
+                // terminates at the face, so immutability DEFENDS the retreat instead of
+                // reverting it, both render pipelines read the same corrected `baseLine`, and
+                // the result no longer depends on zoom.
+                //
+                // WHY THIS LINE AND NOT THE WALL TOOL. Same reason the `joinIntent`
+                // derivation moved here in L-927, and measured by the same census: `add()` is
+                // the only mutator that can introduce a record, so every producer necessarily
+                // passes it. The PLAN-VIEW tool — how interior partitions are actually drawn,
+                // and the surface of the founder's report — cannot supply a host id at all
+                // (`PlanSnapEngine` assigns `sourceId` only for GRID snaps), and copy /
+                // mirror / offset / `wall.batch.create` / AI generation have no gesture to
+                // read. Fixing the one tool that does know would have been 1 of 6.
+                //
+                // C83 §10.2.3 — THE SNAP POINT DOES NOT MOVE. This runs after the gesture is
+                // over, on committed records; the snap indicator and the dimension readout
+                // stay on the host CENTRELINE feature the user aimed at. Only the AUTHORED
+                // GEOMETRY terminates at the face.
+                //
+                // HYDRATION-SUPPRESSED, like the stamp above and for a stronger reason: a
+                // reload replays ALREADY-RETREATED baselines, so re-deriving would walk the
+                // geometry one face deeper on every open. (The operation is idempotent —
+                // penetration is 0 at the face — but suppressing it makes that a guarantee
+                // rather than an arithmetic accident, and keeps legacy projects byte-stable.)
+                const _retreat = retreatOntoHostFaces(siblings, wall as HostBodyCandidate);
+                if (_retreat.retreats.length > 0) {
+                    authoredBaseLine = _retreat.baseLine;
+                    if ((globalThis as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
+                        for (const r of _retreat.retreats) {
+                            // eslint-disable-next-line no-console
+                            console.log(
+                                `[WallStore] §FIX-WALL-CREATE-ON-HOST-FACE ${wall.id}(${r.end}) authored at the face of ` +
+                                `host=${r.hostId} — penetration ${(r.penetration * 1000).toFixed(1)} mm, ` +
+                                `axial retreat ${(r.alongTrim * 1000).toFixed(1)} mm`,
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -449,10 +513,14 @@ export class WallStore implements ILevelProvider {
                     ? { joinIntent: derivedJoinIntent }
                     : {}),
             // Phase B DTO migration: baseLine is [Point3D, Point3D] — plain spread.
-            baseLine: [
+            // §FIX-WALL-CREATE-ON-HOST-FACE (L-929): `authoredBaseLine` is the as-drawn line
+            // with any body-landing endpoint moved onto the host's near face. It is undefined
+            // — and this is byte-identical to the pre-L-929 spread — for every wall that did
+            // not land inside another wall's solid, i.e. for almost every wall.
+            baseLine: (authoredBaseLine ?? [
                 { x: wall.baseLine[0].x, y: wall.baseLine[0].y, z: wall.baseLine[0].z },
                 { x: wall.baseLine[1].x, y: wall.baseLine[1].y, z: wall.baseLine[1].z },
-            ] as [Point3D, Point3D],
+            ]) as [Point3D, Point3D],
             levelId: levelId,
             parentId: levelId,
             openings: wall.openings ?? [],

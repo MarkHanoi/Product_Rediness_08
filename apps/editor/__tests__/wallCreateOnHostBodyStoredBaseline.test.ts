@@ -109,17 +109,28 @@ function makeBuilderStub() {
         /** The cap-plane orientation each build was handed. */
         lastJoin: new Map<string, { startMN: unknown; endMN: unknown }>(),
         removeWall(_id: string): void { /* render seam */ },
-        buildWall(wall: WallData, adj: unknown, _renderMap: unknown, _worldY: number): void {
-            this.builds++;
+        /** Record whichever seam actually carried this wall's geometry to the renderer. */
+        _record(wall: WallData, adj: unknown): void {
             this.lastBuiltBaseLine.set(wall.id, [
                 { x: wall.baseLine[0].x, y: wall.baseLine[0].y, z: wall.baseLine[0].z },
                 { x: wall.baseLine[1].x, y: wall.baseLine[1].y, z: wall.baseLine[1].z },
             ]);
-            const a = adj as { startMN?: unknown; endMN?: unknown } | undefined;
+            const a = adj as { startMN?: unknown; endMN?: unknown } | null | undefined;
             this.lastJoin.set(wall.id, { startMN: a?.startMN ?? null, endMN: a?.endMN ?? null });
         },
+        buildWall(wall: WallData, adj: unknown, _renderMap: unknown, _worldY: number): void {
+            this.builds++;
+            this._record(wall, adj);
+        },
         recordBuiltVersion(_id: string, _w: WallData, _a: unknown, _s: number): void { /* render seam */ },
-        updateWall(_w: WallData, _j: unknown, _r: unknown, _s: number): void { /* render seam */ },
+        // §L-929: a wall the resolver returns NO adjustment for is rendered through THIS seam
+        // (`WallRebuildCoordinator._flush` :2035, `!adjustments.has(wallId)`), with null
+        // joinData. Recording it too is what makes "did the renderer get the retreated
+        // centreline?" answerable regardless of which branch carried it.
+        updateWall(wall: WallData, join: unknown, _r: unknown, _s: number): void {
+            this.builds++;
+            this._record(wall, join);
+        },
     };
 }
 
@@ -248,31 +259,129 @@ describe('§MEASURED-RETREAT-DISCARDED (L-929) — the body-T retreat must reach
         expect(resolverEndZ).toBeCloseTo(NEAR_FACE_Z, 6);
     });
 
-    it('§MEASURED-RETREAT-DISCARDED — the STORE holds the un-retreated authored centreline', () => {
+    it('§FIX-WALL-CREATE-ON-HOST-FACE — the STORE holds the endpoint AT THE HOST FACE', () => {
         const { store } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('part', AUTH_PART, PART_T)]);
 
         const storedEnd = blOf(store, 'part')[1];
 
-        // TODAY (pinned): the coordinator's §POST-RESOLVE-PRESERVE + §FIX-WALL-JOIN-BASELINE-
-        // IMMUTABLE anchor the partition back to its authored line, so the stored end sits on
-        // the host CENTRELINE — 0.10 m INSIDE a 0.20 m solid. The retreat the previous test
-        // just watched the resolver compute is nowhere in the persisted state.
+        // BEFORE (commit 097bcf1c, pinned as MEASURED): the coordinator's
+        // §POST-RESOLVE-PRESERVE + §FIX-WALL-JOIN-BASELINE-IMMUTABLE anchored the partition
+        // back to its authored line, so the stored end sat on the host CENTRELINE at z = 0.000
+        // — 0.10 m INSIDE a 0.20 m solid — while the resolver's own return value carried the
+        // retreat. Two answers, same inputs.
         //
-        // ⚠ THE FIX COMMIT FLIPS THIS ASSERTION to `NEAR_FACE_Z`. It is written as the wrong
-        // value ON PURPOSE and committed alone, so the discard is on the record as MEASURED
-        // before anything moves — the lesson of L-919, whose proof sat at the wrong layer.
-        expect(storedEnd.z).toBeCloseTo(0, 6);
-        expect(storedEnd.z).not.toBeCloseTo(NEAR_FACE_Z, 6);
+        // AFTER: the retreat is AUTHORED at creation (`WallStore.add` →
+        // `retreatOntoHostFaces`), so the stored line already terminates at the near face and
+        // immutability now DEFENDS it rather than reverting it. Nothing in the coordinator
+        // changed; the invariant is untouched and its three CONTROLs below still hold.
+        expect(storedEnd.z).toBeCloseTo(NEAR_FACE_Z, 6);
     });
 
-    it('§MEASURED-RETREAT-DISCARDED — the BUILDER extrudes from the un-retreated endpoint', () => {
+    it('§FIX-WALL-CREATE-ON-HOST-FACE — the BUILDER extrudes from the retreated endpoint', () => {
         const { builder } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('part', AUTH_PART, PART_T)]);
 
         // `buildWall` reads the centreline from `wall.baseLine` (the STORE), never from
-        // `joinData.baseLine` — so the discarded retreat never reaches the extrusion either.
+        // `joinData.baseLine` — which is exactly why the resolver-side fix could not reach it,
+        // and exactly why the creation-side fix does. This is the render half of the proof.
         const built = builder.lastBuiltBaseLine.get('part');
         expect(built).toBeDefined();
-        expect(built![1].z).toBeCloseTo(0, 6);
+        expect(built![1].z).toBeCloseTo(NEAR_FACE_Z, 6);
+    });
+
+    it('§FIX-WALL-CREATE-ON-HOST-FACE — the retreat is IDEMPOTENT across re-resolves', () => {
+        // The stored line must not walk one face deeper each time the level re-resolves. A
+        // nearby create forces a fresh whole-level `_flush`; the partition must not move.
+        const { store } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('part', AUTH_PART, PART_T)]);
+        const afterCreate = blOf(store, 'part');
+
+        editAndFlush(() => {
+            store.add(mkWall('other', [{ x: 1, y: 0, z: 2 }, { x: 3, y: 0, z: 2 }], 0.10));
+        });
+        expect(endpointDrift(blOf(store, 'part'), afterCreate)).toBeLessThanOrEqual(1e-4);
+
+        editAndFlush(() => {
+            store.update('part', { _renderVersion: 1 } as unknown as Partial<WallData>);
+        });
+        expect(endpointDrift(blOf(store, 'part'), afterCreate)).toBeLessThanOrEqual(1e-4);
+        expect(blOf(store, 'part')[1].z).toBeCloseTo(NEAR_FACE_Z, 6);
+    });
+
+    // ── 1b. THE CAP THAT COMES WITH THE RETREAT ─────────────────────────────────────────
+    //
+    // Retreating the endpoint to the face MOVES IT AWAY FROM THE HOST CENTRELINE by exactly
+    // `hostHalfT`. Body-T detection measures endpoint→host-CENTRELINE against `SNAP_RADIUS`
+    // (`WallJoinResolver.ts:2302-2303`), so at a tight zoom a correctly-authored endpoint can
+    // fall outside detection and lose its mitred cap. That is a real consequence of this fix
+    // and it is measured here rather than discovered later — the whole lesson of L-919 is
+    // that an unmeasured half is an unfixed half.
+    it('PERPENDICULAR — the retreated end butts FLUSH; a square cap is exact here', () => {
+        const { store, builder } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('part', AUTH_PART, PART_T)]);
+
+        // The partition runs along z, the host along x: the cap plane perpendicular to the
+        // partition's own axis IS the host's face plane. Mitred or square, the solid
+        // terminates on z = +0.10 with zero gap and zero overlap.
+        expect(blOf(store, 'part')[1].z).toBeCloseTo(NEAR_FACE_Z, 6);
+        expect(builder.lastBuiltBaseLine.get('part')![1].z).toBeCloseTo(NEAR_FACE_Z, 6);
+    });
+
+    it('OBLIQUE — the retreat still lands the endpoint exactly on the host face plane', () => {
+        // A 45° partition onto the same host. The endpoint retreats ALONG ITS OWN AXIS, so it
+        // travels `penetration / sin 45°` = 0.10 / 0.7071 = 0.1414 m — and must land exactly
+        // on the face plane z = +0.10, never past it and never short.
+        const oblique: BL = [{ x: 1, y: 0, z: 3 }, { x: 4, y: 0, z: 0 }];
+        const { store } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('obl', oblique, PART_T)]);
+
+        const end = blOf(store, 'obl')[1];
+        expect(end.z).toBeCloseTo(NEAR_FACE_Z, 6);
+        // Moved back along the wall's own 45° axis: dz = +0.10 ⇒ dx = -0.10.
+        expect(end.x).toBeCloseTo(3.9, 6);
+        // And LATERALLY unmoved — still on the line the user drew (x + z = 4).
+        expect(end.x + end.z).toBeCloseTo(4, 6);
+    });
+
+    // ── 1c. UNDO — one gesture, one undo, the authored line restores EXACTLY ────────────
+    //
+    // `CreateWallCommand.undo()` removes the wall; redo re-runs `execute()`, which calls
+    // `wallStore.add()` again with the ORIGINAL payload — i.e. the AS-DRAWN centreline, not
+    // the retreated one. So the retreat is RECOMPUTED on every redo, and the thing that must
+    // hold is DETERMINISM: the same gesture must land on the same stored line, byte for byte,
+    // no matter how many times it is undone and redone. If it drifted, the wall would walk one
+    // face deeper per redo — the failure mode the hydration guard exists to prevent on load.
+    it('UNDO/REDO — redoing the create reproduces the retreated baseline EXACTLY', () => {
+        const authoredRecord = mkWall('part', AUTH_PART, PART_T);
+        const { store } = setup([mkWall('host', AUTH_HOST, HOST_T), authoredRecord]);
+        const afterFirstCreate = blOf(store, 'part');
+        expect(afterFirstCreate[1].z).toBeCloseTo(NEAR_FACE_Z, 6);
+
+        // UNDO: the wall goes away and the host is untouched.
+        editAndFlush(() => { store.remove('part'); });
+        expect(store.getById('part')).toBeUndefined();
+        expect(endpointDrift(blOf(store, 'host'), AUTH_HOST)).toBeLessThanOrEqual(1e-4);
+
+        // REDO: `execute()` re-adds from the ORIGINAL as-drawn payload.
+        editAndFlush(() => {
+            store.add(mkWall('part', AUTH_PART, PART_T));
+        });
+        expect(endpointDrift(blOf(store, 'part'), afterFirstCreate)).toBeLessThanOrEqual(1e-9);
+
+        // And again, to prove it does not walk.
+        editAndFlush(() => { store.remove('part'); });
+        editAndFlush(() => { store.add(mkWall('part', AUTH_PART, PART_T)); });
+        expect(endpointDrift(blOf(store, 'part'), afterFirstCreate)).toBeLessThanOrEqual(1e-9);
+    });
+
+    it('SNAPSHOT RESTORE — re-adding at the ALREADY-retreated line does not retreat twice', () => {
+        // `CommandManagerImpl.restoreSnapshot` / `DeleteElementCommand.undo` re-add a wall at
+        // its STORED baseline, which is already at the face. Penetration is then 0, so the
+        // derivation is a no-op — the retreat is idempotent by construction, not by luck.
+        const { store } = setup([mkWall('host', AUTH_HOST, HOST_T), mkWall('part', AUTH_PART, PART_T)]);
+        const retreated = blOf(store, 'part');
+
+        editAndFlush(() => { store.remove('part'); });
+        editAndFlush(() => { store.add(mkWall('part', retreated, PART_T)); });
+
+        expect(endpointDrift(blOf(store, 'part'), retreated)).toBeLessThanOrEqual(1e-9);
+        expect(blOf(store, 'part')[1].z).toBeCloseTo(NEAR_FACE_Z, 6);
     });
 
     // ── 2. THE CONTROL — the immutability invariant must NOT move ────────────────────────
