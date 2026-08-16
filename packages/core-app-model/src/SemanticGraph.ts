@@ -333,6 +333,79 @@ export interface SemanticGraph {
     relationships: Relationship[];
 }
 
+/**
+ * §GR10-DESERIALIZE-DROP-REPORT — WHY a serialized relationship row did not
+ * become an edge. A CLOSED union: every reason a row can fail to load is named
+ * here, so a caller can branch on the cause instead of parsing prose.
+ *
+ * `duplicate-id` is on the list because the old `_rels.set(rel.id, rel)` made a
+ * repeated id a SILENT overwrite — two rows in, one edge out, and the loader
+ * logged the INPUT length as if both had survived.
+ */
+export type RelationshipDropReason =
+    | 'not-an-object'
+    | 'missing-id'
+    | 'missing-type'
+    | 'missing-sourceId'
+    | 'missing-targetId'
+    | 'duplicate-id';
+
+/**
+ * A serialized row the load REFUSED, named rather than silently discarded.
+ *
+ * `index` is carried because it is the only stable handle a row without an id
+ * has: "row 4 of the slice" is reproducible against the saved file, which is
+ * exactly what C71 §5.7 says a self-erasing defect denies its investigator.
+ */
+export interface DroppedRelationshipRow {
+    /** Position in `SemanticGraph.relationships` — always available. */
+    readonly index: number;
+    /** The row's id, or null when it carried none. */
+    readonly id: string | null;
+    /** The row's declared type as it appeared, or null when it carried none. */
+    readonly type: string | null;
+    readonly reason: RelationshipDropReason;
+    /** Human-readable amplification. Never the machine-readable channel. */
+    readonly detail: string;
+}
+
+/**
+ * §GR10-DESERIALIZE-DROP-REPORT (C71 §5.7 · C70 L-INV-1 / I-INV-3) — the typed
+ * outcome of {@link SemanticGraphManager.deserialize}.
+ *
+ * The method used to return `void`, discard every unusable row, and leave the
+ * graph's `size` as the sole observable. That made three different facts one
+ * value: a project that genuinely had N edges, a project that had N+M and lost
+ * M at load, and a project whose graph slice was unreadable altogether. Every
+ * graph measurement in this programme is taken AFTER a load, so that collision
+ * turned every edge count into an unknown understatement.
+ *
+ * FAILURE ≠ EMPTINESS (C70 L-INV-1). `absent` is non-null only when the slice
+ * itself could not be read; `dropped: []` means "every row loaded", never "I did
+ * not look". A malformed row is NEVER fatal — refusing to open a project because
+ * one edge is broken is a worse product than dropping it. The requirement is
+ * that the drop be VISIBLE and COUNTED. Report, then continue.
+ *
+ * Also STORED, not merely returned: see {@link SemanticGraphManager.lastLoadReport}.
+ * A caller reading `size` five minutes after the load can still ask what the load
+ * refused.
+ */
+export interface SemanticGraphLoadResult {
+    /** Rows that became edges. Equal to `size` immediately after the load. */
+    readonly loaded: number;
+    /** Rows presented by the slice — `loaded + dropped.length` by construction. */
+    readonly presented: number;
+    /** Every refused row, NAMED. Never a bare count (C70 §L-INV-3). */
+    readonly dropped: readonly DroppedRelationshipRow[];
+    /**
+     * Non-null when the SLICE could not be read at all, so `loaded: 0` means
+     * "nothing was readable", not "this project has no relationships".
+     * `no-slice` — nothing was passed (a v1/v2 snapshot).
+     * `relationships-not-an-array` — the key exists and is the wrong shape.
+     */
+    readonly absent: 'no-slice' | 'relationships-not-an-array' | null;
+}
+
 // ── Manager ───────────────────────────────────────────────────────────────────
 
 /**
@@ -349,6 +422,13 @@ export class SemanticGraphManager {
     private readonly _rels      = new Map<string, Relationship>();
     private readonly _bySource  = new Map<string, Set<string>>();
     private readonly _byTarget  = new Map<string, Set<string>>();
+
+    /**
+     * §GR10-DESERIALIZE-DROP-REPORT — what the last `deserialize` refused.
+     * `null` until a slice is loaded, and reset by {@link clear} so a project
+     * switch never lets one project's load report describe another's graph.
+     */
+    private _lastLoadReport: SemanticGraphLoadResult | null = null;
 
     /**
      * ADR-0321 — wall ids the `joinedTo` writer has made a DEFINITIVE statement
@@ -882,6 +962,11 @@ export class SemanticGraphManager {
         this._byTarget.clear();
         this._joinedToCovered.clear();
         this._boundaryUndetermined.clear();
+        // §GR10-DESERIALIZE-DROP-REPORT — the report describes ONE load of ONE
+        // slice. Carrying it across a clear would let a project switch answer
+        // "what did this graph's load refuse?" with the previous project's
+        // drops. `deserialize` clears first and re-records after.
+        this._lastLoadReport = null;
     }
 
     // ── Queries ───────────────────────────────────────────────────────────────
@@ -1043,17 +1128,112 @@ export class SemanticGraphManager {
     /**
      * Restore the graph from a serialised ProjectSnapshot.
      * Clears the graph before loading.
+     *
+     * §GR10-DESERIALIZE-DROP-REPORT (C71 §5.7 · C70 L-INV-1 / I-INV-3) — every
+     * row this refuses is COUNTED and NAMED in the returned
+     * {@link SemanticGraphLoadResult}, and the same report is retained on
+     * {@link lastLoadReport}. Before this, an unusable row fell through the
+     * `if` with no else and vanished: a malformed edge could be written, saved
+     * without complaint, and disappear on the next load — a defect that
+     * self-erases on reload is a defect nobody can reproduce.
+     *
+     * A malformed row is deliberately NOT fatal. This method never throws on
+     * bad data and never refuses the load: it reports, and continues. The
+     * caller decides what to do with the report; ignoring it is a caller
+     * defect, not a silence this method chose.
      */
-    deserialize(data: SemanticGraph): void {
+    deserialize(data: SemanticGraph): SemanticGraphLoadResult {
         this.clear();
-        if (!data || !Array.isArray(data.relationships)) return;
-        for (const rel of data.relationships) {
-            if (rel.id && rel.type && rel.sourceId && rel.targetId) {
-                this._rels.set(rel.id, rel);
-                this._addToIndex(this._bySource, rel.sourceId, rel.id);
-                this._addToIndex(this._byTarget, rel.targetId, rel.id);
-            }
+
+        if (!data || !Array.isArray(data.relationships)) {
+            // The slice itself is unreadable. `loaded: 0` here is NOT the same
+            // value as a project with no relationships, and saying so is the
+            // whole point (C70 L-INV-1).
+            return this._recordLoad({
+                loaded: 0,
+                presented: 0,
+                dropped: [],
+                absent: !data ? 'no-slice' : 'relationships-not-an-array',
+            });
         }
+
+        const dropped: DroppedRelationshipRow[] = [];
+        const rows = data.relationships;
+        const drop = (
+            index: number,
+            row: Partial<Relationship> | null,
+            reason: RelationshipDropReason,
+            detail: string,
+        ): void => {
+            dropped.push({
+                index,
+                id: typeof row?.id === 'string' && row.id.length > 0 ? row.id : null,
+                type: typeof row?.type === 'string' && row.type.length > 0 ? row.type : null,
+                reason,
+                detail,
+            });
+        };
+
+        for (let i = 0; i < rows.length; i++) {
+            const rel = rows[i] as Relationship | null | undefined;
+            if (rel === null || rel === undefined || typeof rel !== 'object') {
+                drop(i, null, 'not-an-object', `row ${i} is ${rel === null ? 'null' : typeof rel}, not a relationship object`);
+                continue;
+            }
+            if (!rel.id) {
+                drop(i, rel, 'missing-id', `row ${i} carries no id — it cannot be keyed, addressed or deleted`);
+                continue;
+            }
+            if (!rel.type) {
+                drop(i, rel, 'missing-type', `row ${i} (id ${rel.id}) carries no relationship type — no reader could ever match it`);
+                continue;
+            }
+            if (!rel.sourceId) {
+                drop(i, rel, 'missing-sourceId', `row ${i} (id ${rel.id}, type ${rel.type}) has no sourceId — one half of the reference is gone`);
+                continue;
+            }
+            if (!rel.targetId) {
+                drop(i, rel, 'missing-targetId', `row ${i} (id ${rel.id}, type ${rel.type}) has no targetId — one half of the reference is gone`);
+                continue;
+            }
+            if (this._rels.has(rel.id)) {
+                // Was a silent overwrite: two rows in, one edge out, and the
+                // loader printed the input length as the restored count.
+                drop(i, rel, 'duplicate-id', `row ${i} repeats id ${rel.id}, already loaded from an earlier row — the later row is refused rather than silently overwriting the earlier one`);
+                continue;
+            }
+            this._rels.set(rel.id, rel);
+            this._addToIndex(this._bySource, rel.sourceId, rel.id);
+            this._addToIndex(this._byTarget, rel.targetId, rel.id);
+        }
+
+        return this._recordLoad({
+            loaded: this._rels.size,
+            presented: rows.length,
+            dropped,
+            absent: null,
+        });
+    }
+
+    /**
+     * §GR10-DESERIALIZE-DROP-REPORT — the report from the most recent
+     * {@link deserialize}, or `null` when this graph was never loaded from a
+     * slice (a fresh session, or one cleared by a project switch).
+     *
+     * STORED, not merely returned, because the readings this defect corrupts
+     * happen LONG after the load: anything asking "why does this graph have N
+     * edges?" can now be answered with what the load refused, instead of having
+     * to trust a number nobody can audit. `null` is itself informative and is
+     * not the same value as a report with zero drops.
+     */
+    get lastLoadReport(): SemanticGraphLoadResult | null {
+        return this._lastLoadReport;
+    }
+
+    private _recordLoad(r: SemanticGraphLoadResult): SemanticGraphLoadResult {
+        const frozen: SemanticGraphLoadResult = { ...r, dropped: Object.freeze([...r.dropped]) };
+        this._lastLoadReport = frozen;
+        return frozen;
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

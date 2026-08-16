@@ -610,6 +610,14 @@ export type { JoinedToJunctionType, JoinedToJunctionInput, JoinedWallsQuery } fr
 // §SITSON-REVERSE-READER / §HOSTEDBY-REVERSE-READER (C71 §2.1 #5 / #1) — the
 // refusal-bearing result types of the two typed reverse readers.
 export type { SittingOnQuery, HostWallQuery } from './SemanticGraph.js';
+// §GR10-DESERIALIZE-DROP-REPORT (C71 §5.7) — the load outcome a caller branches
+// on. Exported because the loaders are the callers: a drop that only the graph
+// knows about is the silence this shape exists to end.
+export type {
+    SemanticGraphLoadResult,
+    DroppedRelationshipRow,
+    RelationshipDropReason,
+} from './SemanticGraph.js';
 export { SemanticGraphManager, semanticGraphManager } from './SemanticGraph.js';
 
 export type { AABB } from './SpatialIndex.js';

@@ -16,6 +16,10 @@
     "declaredFindings: pinned at the FIRST HONEST READING, 2026-08-12. Named",
     "entries only, never a bare count.",
     "",
+    "struck: rows this ledger no longer carries, kept as history so a regression",
+    "cannot be mistaken for a first sighting. A struck row names what PAID it and",
+    "what remains UNPROVEN. It is inert — the gate reads declaredFindings only.",
+    "",
     "EXIT CONDITION (C71 §6): persistOnly is empty, or every remaining row is a",
     "founder-signed exception with a named reason (C70 §6.6)."
   ],
@@ -26,7 +30,15 @@
   ],
   "declaredFindings": [
     { "key": "measuredAt/loss-not-named-at-load", "why": "The rebuild's unreconstructable set names connectedByLift and contains only; a pre-graph snapshot silently loses measuredAt edges (C70 I-INV-3). Fix: unreconstructable.push('measuredAt') with its reason, in rebuildSemanticGraph.ts." },
-    { "key": "decidedBy/loss-not-named-at-load", "why": "Same shape as measuredAt: the loss exists and is not named at load. Fix: unreconstructable.push('decidedBy') with its reason." },
-    { "key": "deserialize/silent-malformed-drop", "why": "C71 §5.7 measured this at HEAD: deserialize silently discards edges missing id/type/sourceId/targetId. Fix: count the drops and report them on the load result instead of falling through." }
+    { "key": "decidedBy/loss-not-named-at-load", "why": "Same shape as measuredAt: the loss exists and is not named at load. Fix: unreconstructable.push('decidedBy') with its reason." }
+  ],
+  "struck": [
+    {
+      "key": "deserialize/silent-malformed-drop",
+      "struckOn": "2026-08-16",
+      "paidBy": "§GR10-DESERIALIZE-DROP-REPORT — SemanticGraphManager.deserialize now returns SemanticGraphLoadResult {loaded, presented, dropped[], absent} and RETAINS it on `lastLoadReport`; every refused row is NAMED by index/id/type/reason/detail from the closed RelationshipDropReason union (not-an-object · missing-id · missing-type · missing-sourceId · missing-targetId · duplicate-id). Both loader call sites (packages/persistence-client/src/loader/ProjectLoader.ts, apps/editor/src/engine/persistence/ProjectLoader.ts) consume it and push the named refusals onto LoadResult.warnings; the log line that printed the INPUT row count as the restored count now prints what was ADMITTED. Malformed rows are still NON-FATAL — reported, then loading continues.",
+      "provenBy": "packages/core-app-model/src/SemanticGraph.malformedEdgeDrop.test.ts — 8 executed assertions on STORED state after the load (size, getAll(), lastLoadReport), plus a source-pin on both loaders. Pinned first at 6 rows in / 3 edges out / 0 places that said so.",
+      "residual": "UNPROVEN and NOT claimed: that a UI surface renders LoadResult.warnings (the same residual ARM C prints); and that an edge whose `type` is outside the declared union is unreadable-but-counted — that row is ADMITTED and not measured by anything."
+    }
   ]
 }

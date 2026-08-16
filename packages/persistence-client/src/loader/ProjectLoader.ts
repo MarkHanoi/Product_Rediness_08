@@ -1179,8 +1179,26 @@ export class ProjectLoader {
             // If absent (v1/v2 snapshots), graph remains empty — relationships will
             // be repopulated as commands are subsequently executed.
             if (snapshot.semanticGraph) {
-                semanticGraphManager.deserialize(snapshot.semanticGraph);
-                console.log(`[ProjectLoader] SemanticGraph restored (${snapshot.semanticGraph.relationships.length} relationships)`);
+                // §GR10-DESERIALIZE-DROP-REPORT (C71 §5.7 · C70 L-INV-1/I-INV-3).
+                // This log used to print `relationships.length` — the INPUT count —
+                // as the restored count, so a slice whose rows were half-refused
+                // reported full success. It now prints what was ADMITTED, and the
+                // refusals travel to result.warnings instead of vanishing.
+                const graphLoad = semanticGraphManager.deserialize(snapshot.semanticGraph);
+                console.log(`[ProjectLoader] SemanticGraph restored (${graphLoad.loaded} of ${graphLoad.presented} relationship rows admitted)`);
+                if (graphLoad.absent) {
+                    const msg = `[ProjectLoader] SemanticGraph slice present but UNREADABLE (${graphLoad.absent}) — the graph is not empty, it is UNKNOWN. Nothing was invented in its place.`;
+                    console.warn(msg);
+                    result.warnings.push(msg);
+                }
+                if (graphLoad.dropped.length > 0) {
+                    // Never a silent drop (C71 §5.7 — a defect that self-erases on
+                    // reload is a defect nobody can reproduce). Each row is NAMED
+                    // by index/id/reason, never reduced to a bare count.
+                    const msg = `[ProjectLoader] SemanticGraph: ${graphLoad.dropped.length} malformed relationship row(s) refused at load — ${graphLoad.dropped.map(d => `#${d.index} ${d.id ?? '<no id>'}: ${d.reason}`).join(' · ')}`;
+                    console.warn(msg);
+                    result.warnings.push(msg);
+                }
             } else {
                 semanticGraphManager.clear();
                 console.log('[ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)');
