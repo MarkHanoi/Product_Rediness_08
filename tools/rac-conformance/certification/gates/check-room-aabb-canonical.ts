@@ -86,11 +86,28 @@
 // an unrelated edit above the call site does not re-key the debt. Line numbers
 // are printed for humans and are never the key.
 //
-// ─── NOT ENROLLED IN certify.ts ──────────────────────────────────────────────
-// `certify.ts` runs an EXPLICIT allowlist (its `gates` array), not directory
-// discovery, and this gate is deliberately absent from it: GE-11 is an OPEN
-// defect and enrolling a red gate into the certification cover would convert a
-// measurement into a broken build. Run it directly:
+// ─── ENROLLED IN certify.ts (since `beed92b0`) ───────────────────────────────
+// ⚠ THIS BLOCK USED TO READ "NOT ENROLLED IN certify.ts", and it said the gate was
+// "deliberately absent" because "GE-11 is an OPEN defect". BOTH HALVES WERE FALSE
+// AT HEAD and had been since `beed92b0` enrolled it on 2026-08-13: the gate is in
+// certify's `gates` array, and GE-11 reads 0 findings / hard-0 / no baseline. A
+// header that tells a future reader this gate is deliberately out of the runner is
+// an invitation to REMOVE the enrolment — the L-809/L-812 class, where the prose
+// describing enforcement outlived the enforcement it described.
+//
+// RESIDENCY, by §7.4's boundary test — "does this gate need something that does not
+// exist until something runs?" — is YES, so the home is `certification/gates/` and
+// the runner is `certify.ts`. ARM B constructs a REAL `SpatialIndex` from
+// @pryzm/core-app-model and executes two queries against it; that object does not
+// exist until something runs, which is the clause deciding it. (ARM A alone would
+// have answered NO — it is a static source scan — but residency follows what the
+// gate must REACH to establish its subject, and ARM B is load-bearing: it is the
+// arm that licenses ARM A to call CIRCLE-APPROX a defect at all.)
+//
+// It carries NO `gate-newly-measured.json` entry and NO `gate-debt.json` row, and
+// needs neither: those two files exist for gates that land RED, on new defects and
+// on pre-dating ones respectively. This one lands CLEAN, so there is nothing to
+// declare. Run it directly with:
 //     npx tsx tools/rac-conformance/certification/gates/check-room-aabb-canonical.ts
 //
 // ─── WHAT THIS GATE DOES NOT PROVE — named, never green ──────────────────────
