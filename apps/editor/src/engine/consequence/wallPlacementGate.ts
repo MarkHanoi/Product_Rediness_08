@@ -89,7 +89,11 @@ import { ConfirmationCard } from '@app/ui/consequence/ConfirmationCard';
 import { getConfirmationCard } from '@app/ui/consequence/confirmationFlowComposition';
 // §C83-S1-MOVE-OFFER (L-904) — the chat half of the MOVE refusal. This file
 // already imports two `@app/ui` surfaces (card + toast), so the edge is not new.
-import { presentWallMoveClash } from '@app/ui/ai/WallMoveClashProposal';
+import { presentWallMoveClash, describeReweldRefusal } from '@app/ui/ai/WallMoveClashProposal';
+// §L-921-ATOMIC-GESTURE — the re-weld's vote, taken BEFORE the wall moves.
+import { previewMoveReweld, type MoveReweldPreflightResult } from '@pryzm/command-registry';
+import { semanticGraphManager } from '@pryzm/core-app-model';
+import { chatSay } from '@app/ui/ai/chatPromptHost';
 
 /** Headline the founder reads. Short, and it states the verdict, not a severity. */
 const HEADLINE = 'THIS WALL CANNOT GO HERE';
@@ -273,6 +277,76 @@ export function gateWallPlacement(candidate: CandidateWall): WallPlacementGateRe
 }
 
 /**
+ * §L-921-ONE-CHANNEL — the MOVE arm's evaluation, WITHOUT the card and toast.
+ *
+ * THE FOUNDER'S ASK 1, verbatim: *"WE HAVE RIGHTFULLY IMPLEMENTED THIS MESSAGE —
+ * BUT I WANT THE MESSAGE ONLY ON THE AI CHAT — THE OTHER PANEL INFORMATION
+ * SHOULD BE IN THE AI CHAT."*
+ *
+ * A blocked MOVE used to light up THREE surfaces for one refusal: the
+ * ConfirmationCard (`showSpatialRefusal`, headline "THIS WALL CANNOT GO HERE"),
+ * a toast, and then the chat offer. That is one finding told three times in
+ * three wordings, and the user has to assemble them.
+ *
+ * So the move arm no longer calls `surfaceRefusal`. It evaluates and returns;
+ * the chat is the single channel, and it now carries the CARD'S OWN SENTENCE —
+ * `wallCrossesOpeningRefusalText`, the shared renderer — so nothing the panel
+ * used to say is lost and `[OCC_CROSSES_HOSTED_OPENING]` survives the move to
+ * the new sink (§REFUSAL-IDENTITY; the identity is inside the sentence, which
+ * is what `check-refusal-identity` ARM B requires).
+ *
+ * ⚠ CREATE IS DELIBERATELY UNCHANGED. `gateWallPlacement` keeps its card and
+ * toast: the founder asked about the move refusal they were looking at, a
+ * create refusal has no chat offer flow behind it, and silently removing the
+ * only surface a create refusal has would turn ask 1 into a dead click. One
+ * gesture's surface policy is not evidence about another's.
+ */
+function evaluateMoveOnly(candidate: CandidateWall): WallPlacementVerdict | null {
+  const walls = readAuthoritativeWalls();
+  if (walls === null) return null;
+  return evaluateWallPlacement(candidate, walls);
+}
+
+/**
+ * §L-921-ATOMIC-GESTURE — would this move's junction re-weld be refused?
+ *
+ * Reads the SAME wall store the gate judges against and the SAME `joinedTo`
+ * graph `WallMoveReweldService` reads, so the pre-flight and the cascade cannot
+ * disagree about who is joined to what. `null` ⇒ not evaluable, which is never
+ * folded into "refused" (C83 §5.3: a question nobody answered refuses nothing).
+ */
+function previewReweldForMove(
+  wallId: string,
+  cur: readonly PlanPointLike[],
+  newBaseLine: readonly [PlanPointLike, PlanPointLike],
+): MoveReweldPreflightResult | null {
+  const store = storeRegistry.getStoreForType('wall') as {
+    getById?: (id: string) => unknown;
+    getAll?: () => unknown[];
+  } | undefined;
+  if (!store || typeof store.getAll !== 'function' || typeof store.getById !== 'function') {
+    return null;
+  }
+  let joined: readonly string[] | null | undefined;
+  try {
+    const q = semanticGraphManager.getJoinedWalls(wallId) as
+      | { ok: true; joinedWallIds: readonly string[] }
+      | { ok: false };
+    joined = q.ok ? q.joinedWallIds : undefined;
+  } catch {
+    joined = undefined;
+  }
+  const p = (v: PlanPointLike) => ({ x: v.x, y: v.y ?? 0, z: v.z });
+  return previewMoveReweld({
+    wallStore: store as never,
+    wallId,
+    prevBaseLine: [p(cur[0]!), p(cur[1]!)],
+    newBaseLine: [p(newBaseLine[0]), p(newBaseLine[1])],
+    joinedWallIds: joined,
+  });
+}
+
+/**
  * §C83-S1-MOVE (ISSUE-LOG L-885) — the MOVE arm of the same gate.
  *
  * ── WHY A MOVE NEEDED ITS OWN ENTRY POINT ────────────────────────────────────
@@ -314,7 +388,7 @@ export function gateWallMove(
   }
 
   const cur = subject.baseLine as readonly PlanPointLike[] | undefined;
-  const result = gateWallPlacement({
+  const verdict = evaluateMoveOnly({
     id: wallId,
     levelId: subject.levelId,
     thickness: typeof subject.thickness === 'number' ? subject.thickness : 0,
@@ -330,7 +404,9 @@ export function gateWallMove(
   });
 
   // ── §C83-S1-MOVE-OFFER (ISSUE-LOG L-904) — the refusal is not the ASK ───────
-  // The card + toast above REFUSE and EXPLAIN. The founder's twice-repeated ask
+  // §L-921-ONE-CHANNEL: there is no longer a card or a toast on this path — the
+  // chat is the whole surface, and it carries the card's own sentence. The
+  // founder's twice-repeated ask
   // is the step beyond: the chat OPENS and offers the two nearest CLEAR stations
   // (`verdict.offers`, each pre-validated by the full occupancy predicate before
   // it may be offered — C83 §4.2). Placed HERE, on the one seam both the 3D
@@ -339,20 +415,58 @@ export function gateWallMove(
   // already returned; the chat question is asynchronous by nature and NEVER
   // auto-applies (C83 §4.3) — an accepted candidate dispatches ONE ordinary
   // undoable `wall.updateBaseline` through the bus.
-  if (result.blocked && result.verdict && cur?.[0] && cur?.[1]) {
+  if (verdict === null) {
+    return { blocked: false, verdict: null, surfaced: false, skipped: 'no-wall-store' };
+  }
+
+  if (!verdict.valid && cur?.[0] && cur?.[1]) {
     console.log(
-      `[wallPlacementGate] §C83-S1-MOVE-OFFER routing refusal to chat — ` +
-      `${result.verdict.offers.length} pre-validated candidate(s) for wall ${wallId}`,
+      `[wallPlacementGate] §C83-S1-MOVE-OFFER routing refusal to chat (ONE channel — ` +
+      `§L-921-ONE-CHANNEL, no card, no toast) — ` +
+      `${verdict.offers.length} pre-validated candidate(s) for wall ${wallId}`,
     );
     void presentWallMoveClash({
       wallId,
       prevBaseLine: [cur[0], cur[1]],
       attemptedBaseLine: [newBaseLine[0], newBaseLine[1]],
-      verdict: result.verdict,
+      verdict,
     }).catch((err) => {
       console.warn('[wallPlacementGate] §C83-S1-MOVE-OFFER failed (non-fatal):', err);
     });
+    // The chat host carries its OWN §PROMPT-REACHES-A-HUMAN guarantee: it opens
+    // the panel, waits for a transcript, and falls back to a VISIBLE card rather
+    // than a console line. So in a document, routing to it IS surfacing.
+    return { blocked: true, verdict, surfaced: typeof document !== 'undefined' };
+  }
+  if (!verdict.valid) {
+    return { blocked: true, verdict, surfaced: surfaceRefusal(verdict) };
   }
 
-  return result;
+  // ── §L-921-ATOMIC-GESTURE — the SECOND question, which nobody used to ask ───
+  //
+  // The move is clear of every opening. That is not the same as "this move can
+  // be completed": the junction re-weld it depends on runs AFTERWARDS, as a
+  // store subscriber, and when it refuses the wall has already moved and the
+  // corner is left open (§MEASURED-HALF-EXECUTED pins that at 2096 mm). Under
+  // C83 §10.2.2 a re-weld may also be forbidden outright, because closing the
+  // joint would move an INCUMBENT — L-922's ~2.19 m perimeter shift.
+  //
+  // Asked HERE because this is the one chokepoint the 3D gizmo drag-end and the
+  // plan drag both funnel through, so both gestures become atomic without
+  // either growing its own wiring, and the two cannot drift apart.
+  if (cur?.[0] && cur?.[1]) {
+    const pre = previewReweldForMove(wallId, cur, newBaseLine);
+    if (pre && !pre.allowed) {
+      console.warn(
+        `[wallPlacementGate] §L-921-ATOMIC-GESTURE blocking wall ${wallId}: the move is clear of ` +
+        `every opening, but its junction re-weld cannot be done soundly ` +
+        `(cascade ok=${pre.ok}, incumbentBreach=${pre.incumbentBreach}) — nothing dispatched.`,
+        { reason: pre.reason, blockingIssues: pre.blockingIssues, incumbents: pre.incumbentWallIds },
+      );
+      chatSay(describeReweldRefusal(wallId, 'there', pre));
+      return { blocked: true, verdict, surfaced: typeof document !== 'undefined' };
+    }
+  }
+
+  return { blocked: false, verdict, surfaced: false };
 }

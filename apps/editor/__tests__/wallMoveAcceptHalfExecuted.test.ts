@@ -76,7 +76,7 @@
 // undefensible and confound the measurement.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { storeRegistry } from '@pryzm/core-app-model';
+import { storeRegistry, semanticGraphManager } from '@pryzm/core-app-model';
 import type { WallData } from '@pryzm/geometry-wall';
 import { WallMoveReweldService } from '@pryzm/geometry-wall';
 import {
@@ -136,13 +136,25 @@ function moverParked(): WallData {
   } as unknown as WallData;
 }
 
-/** The L partner, welded to the mover's z = 4 endpoint, carrying its own door. */
-function partnerWall(): WallData {
+/**
+ * The L partner, welded to the mover's z = 4 endpoint, carrying its own door.
+ *
+ * `farX` decides WHICH terminal state this fixture exercises, and it is the
+ * only thing that differs between the two cases below:
+ *
+ *   farX = 2.55 → the new corner (x = 2.905) lands ON this wall's body, so the
+ *                 SUBJECT can terminate against it and the incumbent never
+ *                 moves. The gesture proceeds. (C83 §10.1 satisfied.)
+ *   farX = 4.00 → the new corner lands 1.095 m PAST this wall's end, so closing
+ *                 the joint would mean LENGTHENING an incumbent. Forbidden by
+ *                 C83 §10.2.2 ⇒ the WHOLE gesture refuses.
+ */
+function partnerWall(farX = 2.55): WallData {
   return {
     id: PARTNER_ID,
     type: 'wall',
     levelId: LEVEL,
-    baseLine: [{ x: 5, y: 0, z: 4 }, { x: 2.55, y: 0, z: 4 }],
+    baseLine: [{ x: 5, y: 0, z: 4 }, { x: farX, y: 0, z: 4 }],
     height: 3,
     thickness: 0.2,
     childrenIds: [PARTNER_DOOR_ID],
@@ -228,9 +240,22 @@ function installHostDouble(answers: readonly boolean[]) {
  * Returns the console.warn transcript so the cascade's refusal is observable
  * exactly where it lands today — and nowhere else.
  */
-function installLiveRig() {
-  const store = makeLiveWallStore([hostWallWithDoor(), moverParked(), partnerWall()]);
+function installLiveRig(partnerFarX = 2.55) {
+  const store = makeLiveWallStore([hostWallWithDoor(), moverParked(), partnerWall(partnerFarX)]);
   storeRegistry.register('wall', store as never);
+
+  // The `joinedTo` graph, seeded the way a WallRebuildCoordinator flush seeds it
+  // (ADR-0321 §CONNECT-3). WITHOUT THIS the graph answers `{ok:true,
+  // joinedWallIds:[]}` — a POSITIVE "joins nothing" — and the pre-flight
+  // correctly concludes the move breaks no junction. That is right behaviour on
+  // a wrong fixture, and it silently made the refusal arm untestable: the first
+  // run of this suite passed the incumbent case and failed the refusal one for
+  // exactly this reason. The L corner is declared here so the pre-flight is
+  // asked the question the founder's model would ask it.
+  semanticGraphManager.replaceJoinedToForLevelWalls(
+    [HOST_ID, MOVER_ID, PARTNER_ID],
+    [{ junctionType: 'L', junctionDegree: 2, wallIds: [MOVER_ID, PARTNER_ID] }],
+  );
 
   const ctx = { stores: { wallStore: store } } as never;
   const cascadeAttempts: { entries: unknown[]; ok: boolean; reason?: string; blocking?: string[] }[] = [];
@@ -306,10 +331,29 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('§MEASURED-HALF-EXECUTED (L-921) — the accepted offer moves the wall and the repair silently refuses', () => {
-  it('MEASURES all three: the move EXECUTED, the cascade REFUSED, and NO user-visible surface carries the second refusal', async () => {
-    const rig = installLiveRig();
+describe('§MEASURED-HALF-EXECUTED (L-921) — the accepted offer is now ONE ATOMIC GESTURE', () => {
+  // ── THE PRE-FIX MEASUREMENT, for the record ─────────────────────────────────
+  //
+  // Committed on its own at `b20eb437`, before any fix, this file asserted the
+  // DEFECT: the move EXECUTED, the cascade REFUSED `OPENING_DOES_NOT_FIT`, the
+  // transcript closed with an unqualified "Done — wall … moved", and the L
+  // junction was left **open by 2096 mm**. Those numbers are the baseline this
+  // suite now measures the fix against; they live in git, not in a comment
+  // pretending to be evidence.
+  //
+  // Two contract changes closed it, and this suite pins BOTH terminal states:
+  //   · C83 §10.2.2 — a re-weld may not close a joint by moving a NON-SUBJECT
+  //     wall's baseline. So the incumbent is never dragged (L-922).
+  //   · C78 U-INV-8 / C83 §10.3 — one gesture is one atomic unit. A dependent
+  //     cascade that refuses aborts the gesture; it may not half-apply.
+
+  it('§C83-10.1: the incumbent is NOT moved, the subject adapts, and ONE gesture completes cleanly', async () => {
+    // farX = 2.55 ⇒ the new corner (x = 2.905) lands ON the partner's body.
+    const rig = installLiveRig(2.55);
     const chat = installHostDouble([true]); // accept the FIRST offer
+
+    // §C83 §10.4 — capture the incumbent BEFORE the gesture.
+    const partnerBefore = JSON.stringify(rig.store.getById(PARTNER_ID)!.baseLine);
 
     const gate = gateWallMove(MOVER_ID, draggedTo(DRAG_X));
     expect(gate.blocked).toBe(true);
@@ -321,55 +365,104 @@ describe('§MEASURED-HALF-EXECUTED (L-921) — the accepted offer moves the wall
       expect(chat.said.some((t) => t.includes('Done — wall'))).toBe(true);
     });
 
-    // ── (i) THE MOVE EXECUTED ────────────────────────────────────────────────
+    // The subject moved to the offered station.
     const moverAfter = rig.store.getById(MOVER_ID)!;
     expect(moverAfter.baseLine[0].x).toBeCloseTo(accepted.baseLine[0].x, 9);
-    expect(moverAfter.baseLine[1].x).toBeCloseTo(accepted.baseLine[1].x, 9);
     expect(moverAfter.baseLine[0].x).not.toBeCloseTo(PARKED_X, 6);
 
-    // ── (ii) THE REWELD CASCADE REFUSED ──────────────────────────────────────
-    // Exactly one cascade was proposed, for the L partner, and it was declined
-    // with the founder's reason.
-    expect(rig.cascadeAttempts).toHaveLength(1);
-    const attempt = rig.cascadeAttempts[0];
-    expect(attempt.ok).toBe(false);
-    expect(attempt.reason).toBe('OPENING_DOES_NOT_FIT');
-    expect(attempt.blocking!.join(' ')).toContain(PARTNER_ID);
+    // §C83 §10.4 — THE INCUMBENT-UNCHANGED ASSERTION. Byte-identical.
+    expect(JSON.stringify(rig.store.getById(PARTNER_ID)!.baseLine)).toBe(partnerBefore);
 
-    // The refusal landed in the console and nowhere else — the founder's line.
-    expect(
-      rig.warned.some((w) => w.includes('move-reweld cascade refused') && w.includes('OPENING_DOES_NOT_FIT')),
-    ).toBe(true);
-
-    // ── (iii) NO USER-VISIBLE SURFACE CARRIES IT ─────────────────────────────
-    // THIS IS THE DEFECT. The chat closes by claiming an unqualified success.
-    const transcript = chat.said.join('\n');
-    expect(transcript).toContain('Done — wall');
-    expect(transcript).toContain('Ctrl+Z undoes it in one step');
-    // …and says NOTHING about the junction it just left open.
-    expect(transcript).not.toContain('OPENING_DOES_NOT_FIT');
-    expect(transcript.toLowerCase()).not.toContain('junction');
-    expect(transcript.toLowerCase()).not.toContain('unrepaired');
-    expect(transcript.toLowerCase()).not.toContain('not repair');
-
-    // ── THE GAP, IN MILLIMETRES ──────────────────────────────────────────────
-    // The partner was NOT re-baselined: its welded endpoint still stands where
-    // the mover used to be, so the L corner is now open by the full travel.
+    // NO GAP. The subject's endpoint terminates on the incumbent's body, so the
+    // corner the pre-fix run left open by 2096 mm is closed — and closed
+    // WITHOUT touching the wall that was already correctly joined.
     const partnerAfter = rig.store.getById(PARTNER_ID)!;
-    expect(partnerAfter.baseLine[0].x).toBeCloseTo(PARKED_X, 9); // untouched
-    const gapM = Math.hypot(
-      partnerAfter.baseLine[0].x - moverAfter.baseLine[1].x,
-      partnerAfter.baseLine[0].z - moverAfter.baseLine[1].z,
-    );
-    const gapMm = Math.round(gapM * 1000);
-    // eslint-disable-next-line no-console
-    console.info(`§MEASURED-HALF-EXECUTED: open L junction = ${gapMm} mm`);
-    // 2096 mm, not the 2095 mm the arithmetic above predicts: the offer is
-    // placed with a small clearance epsilon PAST the door edge rather than
-    // flush against it, so the accepted station is 1 mm further back. Pinned at
-    // the MEASURED value, not the derived one.
-    expect(gapMm).toBe(2096);
+    const onBody =
+      moverAfter.baseLine[1].z === partnerAfter.baseLine[0].z &&
+      moverAfter.baseLine[1].x <= partnerAfter.baseLine[0].x &&
+      moverAfter.baseLine[1].x >= partnerAfter.baseLine[1].x;
+    expect(onBody).toBe(true);
 
+    // No cascade was ever proposed against the incumbent.
+    expect(rig.cascadeAttempts.every((a) => a.ok)).toBe(true);
+    chat.unregister();
+  }, 20000);
+
+  it('§C83-10.2.2 + C78 U-INV-8: when the joint needs the incumbent LENGTHENED, the WHOLE gesture refuses and NOTHING moves', async () => {
+    // farX = 4.0 ⇒ the new corner (x = 2.905) falls 1.095 m PAST the partner's
+    // end, so closing the joint would mean lengthening a wall the user never
+    // touched. Forbidden — and therefore the move must not happen either.
+    const rig = installLiveRig(4.0);
+    // ⚠ `[true, false]`, and the second value is load-bearing. MEASURED: with
+    // `[true]` the double answers `true` to EVERY question, so after the first
+    // offer is refused by the pre-flight the loop `continue`s — by design, "the
+    // other direction may weld perfectly well" — and the SECOND offer (x =
+    // 4.032) welds cleanly and moves the wall. The suite then failed its own
+    // "NOTHING MOVED" line while the code was behaving correctly. The user here
+    // accepts the offer under test and declines the other, so the assertion is
+    // about the C83 §10.2.2 arm and not about how many offers were on the table.
+    const chat = installHostDouble([true, false]);
+
+    const partnerBefore = JSON.stringify(rig.store.getById(PARTNER_ID)!.baseLine);
+    const moverBefore = JSON.stringify(rig.store.getById(MOVER_ID)!.baseLine);
+
+    const gate = gateWallMove(MOVER_ID, draggedTo(DRAG_X));
+    expect(gate.blocked).toBe(true);
+
+    // …and the chat comes back having done NOTHING.
+    await vi.waitFor(() => {
+      expect(chat.said.some((t) => t.includes('§10.2.2'))).toBe(true);
+    });
+
+    // ── NOTHING MOVED. Not the subject, not the incumbent. ───────────────────
+    expect(JSON.stringify(rig.store.getById(MOVER_ID)!.baseLine)).toBe(moverBefore);
+    expect(JSON.stringify(rig.store.getById(PARTNER_ID)!.baseLine)).toBe(partnerBefore);
+    // The bus was never asked to move anything.
+    expect(rig.busCalls).toHaveLength(0);
+
+    // ── AND THE USER WAS TOLD, WITH THE NUMBERS AND THE RULE ─────────────────
+    // Silence is the one forbidden outcome (C83 §10.3). The transcript names
+    // the rule, the incumbent, and how far it would have been shifted.
+    const transcript = chat.said.join('\n');
+    expect(transcript).toContain('C83 §10.2.2');
+    expect(transcript).toContain('JOINT-AUTHORITY-IS-THE-INCUMBENT');
+    expect(transcript).toContain(PARTNER_ID);
+    expect(transcript).toContain('mm');
+    expect(transcript).toContain('Nothing has changed');
+    // It never claims success.
+    expect(transcript).not.toContain('Done — wall');
+    chat.unregister();
+  }, 20000);
+
+  it('§L-921-ONE-CHANNEL: a MOVE refusal reaches the chat and NO card or toast', async () => {
+    // THE FOUNDER'S ASK 1 — *"I WANT THE MESSAGE ONLY ON THE AI CHAT — THE OTHER
+    // PANEL INFORMATION SHOULD BE IN THE AI CHAT."* A blocked move used to light
+    // up three surfaces: the ConfirmationCard, a toast, and then the chat.
+    const rig = installLiveRig(2.55);
+    const chat = installHostDouble([false, false]); // decline both offers
+
+    const gate = gateWallMove(MOVER_ID, draggedTo(DRAG_X));
+    expect(gate.blocked).toBe(true);
+    await vi.waitFor(() => {
+      expect(chat.said.some((t) => t.includes('Left as it is'))).toBe(true);
+    });
+
+    // The CARD's own sentence is now IN THE CHAT — through the shared renderer,
+    // so the refusal's IDENTITY survives the consolidation and no number is
+    // re-typed on the way (§REFUSAL-IDENTITY).
+    const finding = chat.said[0];
+    expect(finding).toContain('[OCC_CROSSES_HOSTED_OPENING]');
+    expect(finding).toContain(MOVER_ID);
+    expect(finding).toContain(DOOR_ELEMENT_ID);
+    expect(finding).toContain(HOST_ID);
+    expect(finding).toContain('3.005');   // door interval
+    expect(finding).toContain('3.931');
+    expect(finding).toContain('3.400');   // crossing interval
+    expect(finding).toContain('3.600');
+
+    // …and the panel surfaces are silent: no ConfirmationCard rendered.
+    expect(document.querySelector('.confirmation-card')).toBeNull();
+    expect(rig.busCalls).toHaveLength(0);
     chat.unregister();
   }, 20000);
 });
