@@ -1,5 +1,5 @@
 {
- "measuredAt": "2026-08-14T07:53:39.144Z",
+ "measuredAt": "2026-08-16T09:33:55.033Z",
  "seedOutcomes": {
   "level": "SEEDED",
   "grid": "SEEDED",
@@ -179,10 +179,10 @@
    "rivalCount": 1,
    "ids": {
     "authoritative": [
-     "5035d3a4-a3ab-4452-b4bf-dd40cccd5652"
+     "19d0dfbb-2fe6-4727-a66f-fbc409a45143"
     ],
     "rival": [
-     "5035d3a4-a3ab-4452-b4bf-dd40cccd5652"
+     "19d0dfbb-2fe6-4727-a66f-fbc409a45143"
     ]
    }
   },
@@ -195,10 +195,10 @@
    "rivalCount": 1,
    "ids": {
     "authoritative": [
-     "d4be72c8-8992-4aaf-820e-b4c438fe5f11"
+     "048f07bc-2e16-43ae-8ad4-e649bbbefc74"
     ],
     "rival": [
-     "d4be72c8-8992-4aaf-820e-b4c438fe5f11"
+     "048f07bc-2e16-43ae-8ad4-e649bbbefc74"
     ]
    }
   }
@@ -363,7 +363,7 @@
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.offset",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.offset",
      "generalised": "door.*.offset",
      "expected": 2.5,
      "actual": 3,
@@ -398,7 +398,7 @@
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.width",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.width",
      "generalised": "door.*.width",
      "expected": 0.9,
      "actual": 1.1,
@@ -433,7 +433,7 @@
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.offset",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.offset",
      "generalised": "window.*.offset",
      "expected": 1,
      "actual": 1.5,
@@ -468,7 +468,7 @@
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.sillHeight",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.sillHeight",
      "generalised": "window.*.sillHeight",
      "expected": 0.9,
      "actual": 1.1,
@@ -495,7 +495,7 @@
    "dispatchError": "",
    "authoritativePaths": [
     {
-     "path": "room.cd3c028c-da2c-4061-8ebc-79c150f387d9.name",
+     "path": "room.98f009ab-8d00-47ba-aac5-63d0d95f64b9.name",
      "generalised": "room.*.name",
      "expected": "Cert Room",
      "actual": "Gate Probe Room",
@@ -523,7 +523,7 @@
    "dispatchError": "",
    "authoritativePaths": [
     {
-     "path": "room.cd3c028c-da2c-4061-8ebc-79c150f387d9.roomNumber",
+     "path": "room.98f009ab-8d00-47ba-aac5-63d0d95f64b9.roomNumber",
      "generalised": "room.*.roomNumber",
      "expected": "00-001",
      "actual": "9",
@@ -551,7 +551,7 @@
    "dispatchError": "",
    "authoritativePaths": [
     {
-     "path": "room.cd3c028c-da2c-4061-8ebc-79c150f387d9.colour",
+     "path": "room.98f009ab-8d00-47ba-aac5-63d0d95f64b9.colour",
      "generalised": "room.*.colour",
      "expected": "#ff8800",
      "actual": "#00ff00",
@@ -746,35 +746,35 @@
    "dispatchError": "",
    "authoritativePaths": [
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.frameThickness",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.frameThickness",
      "generalised": "door.*.frameThickness",
      "expected": 0.05,
      "actual": 0.058,
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.frameColor",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.frameColor",
      "generalised": "door.*.frameColor",
      "expected": "#f2f0ed",
      "actual": "#c8a55a",
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.leafThickness",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.leafThickness",
      "generalised": "door.*.leafThickness",
      "expected": 0.04,
      "actual": 0.044,
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.leafColor",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.leafColor",
      "generalised": "door.*.leafColor",
      "expected": "#f2f0ed",
      "actual": "#c8a55a",
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.frameFinish",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.frameFinish",
      "generalised": "door.*.frameFinish",
      "actual": {
       "name": "Timber Frame",
@@ -784,7 +784,7 @@
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.leafFinish",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.leafFinish",
      "generalised": "door.*.leafFinish",
      "actual": {
       "name": "Timber Leaf",
@@ -794,13 +794,13 @@
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.finishMaterial",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.finishMaterial",
      "generalised": "door.*.finishMaterial",
      "actual": "Timber Leaf",
      "derived": false
     },
     {
-     "path": "door.5035d3a4-a3ab-4452-b4bf-dd40cccd5652.systemTypeId",
+     "path": "door.19d0dfbb-2fe6-4727-a66f-fbc409a45143.systemTypeId",
      "generalised": "door.*.systemTypeId",
      "actual": "dt-solid-timber",
      "derived": false
@@ -837,19 +837,19 @@
    "dispatchError": "",
    "authoritativePaths": [
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.glazingThickness",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.glazingThickness",
      "generalised": "window.*.glazingThickness",
      "actual": 0.024,
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.rebateDepth",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.rebateDepth",
      "generalised": "window.*.rebateDepth",
      "actual": 0.015,
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.frameFinish",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.frameFinish",
      "generalised": "window.*.frameFinish",
      "actual": {
       "name": "Aluminium Frame",
@@ -859,7 +859,7 @@
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.sillFinish",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.sillFinish",
      "generalised": "window.*.sillFinish",
      "actual": {
       "name": "Aluminium Sill",
@@ -869,13 +869,13 @@
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.finishMaterial",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.finishMaterial",
      "generalised": "window.*.finishMaterial",
      "actual": "Aluminium Frame",
      "derived": false
     },
     {
-     "path": "window.d4be72c8-8992-4aaf-820e-b4c438fe5f11.systemTypeId",
+     "path": "window.048f07bc-2e16-43ae-8ad4-e649bbbefc74.systemTypeId",
      "generalised": "window.*.systemTypeId",
      "actual": "wt-single-pane",
      "derived": false

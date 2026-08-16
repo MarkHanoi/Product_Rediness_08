@@ -1,6 +1,6 @@
 {
   "harness": "twoclient.cert.ts",
-  "generatedAt": "2026-08-14T07:55:30.815Z",
+  "generatedAt": "2026-08-16T09:35:28.055Z",
   "provenance": {
     "composed": [
       "two independent buildWorld() topologies — separate geometry stores, CommandBus, CommandManager undo history",
@@ -98,7 +98,7 @@
     "   after resync      B.materialColor=\"#c0ffee\"",
     "",
     "ARM 1b · RIVAL RECORD MINT — two peers first-touch the same element while partitioned",
-    "   rival mint    doc1={\"height\":5,\"materialColor\":\"#c0ffee\"}  doc2={\"height\":5,\"materialColor\":\"#c0ffee\"}",
+    "   rival mint    doc1={\"materialColor\":\"#c0ffee\",\"height\":5}  doc2={\"materialColor\":\"#c0ffee\",\"height\":5}",
     "   control       pre-replicated record → doc1={\"height\":5,\"thickness\":0.2,\"materialColor\":\"#c0ffee\"}",
     "   rival lost [nothing] · control held both edits=true",
     "",

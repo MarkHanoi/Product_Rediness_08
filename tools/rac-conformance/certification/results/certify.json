@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-08-14T07:36:44.881Z",
+  "startedAt": "2026-08-16T09:24:03.469Z",
   "vitestStatus": 0,
   "failedRows": {
     "persistence": 0,
@@ -25,10 +25,11 @@
     "check-two-client-convergence": 0,
     "check-topology-survives": 0,
     "check-derived-classification": 1,
-    "check-room-aabb-canonical": 0
+    "check-room-aabb-canonical": 0,
+    "check-move-propagation": 0
   },
   "exitCode": 1,
-  "finishedAt": "2026-08-14T07:56:18.558Z",
+  "finishedAt": "2026-08-16T09:37:54.020Z",
   "floors": {
     "persistence": {
       "floors": [

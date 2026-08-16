@@ -1,9 +1,9 @@
 {
   "harness": "H6-graph-move-invalidation",
-  "generatedAt": "2026-08-14T10:42:16.343Z",
+  "generatedAt": "2026-08-16T09:25:31.731Z",
   "row": "GR-12 — C71 §1.2 semantic 5 / §1.4 / §6.2(c)",
   "levelId": "GMV-L0",
-  "roomId": "722c267b-703a-4f98-b4b0-12aa39443b56",
+  "roomId": "15c90614-2ea8-4197-8109-d0eb8facb014",
   "seedLog": [
     "level GMV-L0: OK",
     "wall south: OK",

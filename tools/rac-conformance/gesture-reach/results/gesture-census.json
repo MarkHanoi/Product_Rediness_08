@@ -1,6 +1,6 @@
 {
   "gate": "gesture-command-census (CE-05)",
-  "generatedAt": "2026-08-15T09:19:53.812Z",
+  "generatedAt": "2026-08-16T09:26:42.855Z",
   "denominator": {
     "admittedCallSites": 230,
     "filesWithSites": 106,
@@ -11,8 +11,8 @@
       "type-declaration": 5,
       "test-file": 3
     },
-    "importEdges": 10463,
-    "filesWalked": 6621
+    "importEdges": 10485,
+    "filesWalked": 6651
   },
   "totals": {
     "executedReached": 0,
@@ -82,7 +82,7 @@
     },
     {
       "file": "apps/editor/src/ui/ai/WallMoveClashProposal.ts",
-      "line": 231,
+      "line": 398,
       "receiver": "bus",
       "firstArg": "'wall.updateBaseline'",
       "commandId": "wall.updateBaseline",

@@ -1,6 +1,6 @@
 {
   "harness": "H6-gesture-command-reachability",
-  "generatedAt": "2026-08-14T08:05:33.669Z",
+  "generatedAt": "2026-08-15T07:46:06.904Z",
   "floors": {
     "MIN_SURFACES_DRIVEN": 25,
     "MIN_PAIRS": 250
@@ -8,7 +8,7 @@
   "totals": {
     "surfaces": 30,
     "surfacesDriven": 30,
-    "surfacesUnmounted": 28,
+    "surfacesUnmounted": 30,
     "pairs": 280,
     "executedReached": 0,
     "resolvedOnly": 4,
@@ -168,9 +168,7 @@
     {
       "surface": "DrawingToolbar",
       "file": "apps/editor/src/ui/toolbar/DrawingToolbar.ts",
-      "mountedBy": [
-        "apps/editor/src/ui/platform/PlatformShell.ts"
-      ],
+      "mountedBy": [],
       "declaredButtons": 18,
       "renderedButtons": 18,
       "status": "DRIVEN"
@@ -226,9 +224,7 @@
     {
       "surface": "MainToolbar",
       "file": "apps/editor/src/ui/toolbar/MainToolbar.ts",
-      "mountedBy": [
-        "apps/editor/src/ui/platform/PlatformShell.ts"
-      ],
+      "mountedBy": [],
       "declaredButtons": 12,
       "renderedButtons": 12,
       "status": "DRIVEN"
@@ -1517,7 +1513,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1530,7 +1526,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1543,7 +1539,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1556,7 +1552,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1569,7 +1565,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1582,7 +1578,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1595,7 +1591,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1608,7 +1604,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1621,7 +1617,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1634,7 +1630,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1647,7 +1643,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1660,7 +1656,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1673,7 +1669,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1686,7 +1682,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1699,7 +1695,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1712,7 +1708,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1725,7 +1721,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -1738,7 +1734,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2422,7 +2418,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2435,7 +2431,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2456,7 +2452,7 @@
         "packages/ai-host/src/intents/ZeroTokenResolver.ts",
         "packages/command-registry/src/project/ImportProjectCommand.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2477,7 +2473,7 @@
         "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
         "packages/ai-host/src/intents/ZeroTokenResolver.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2490,7 +2486,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2510,7 +2506,7 @@
         "plugins/selection/src/index.ts",
         "packages/ai-host/src/capabilities/ChatCommandClassification.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": false,
       "verdict": "RESOLVED-ONLY",
       "detail": "dispatch EXECUTED; no handler on the harness bus; verb resolves in API-VERB-REGISTER (structural, not executed)"
@@ -2531,7 +2527,7 @@
         "plugins/selection/src/index.ts",
         "packages/ai-host/src/capabilities/ChatCommandClassification.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": false,
       "verdict": "RESOLVED-ONLY",
       "detail": "dispatch EXECUTED; no handler on the harness bus; verb resolves in API-VERB-REGISTER (structural, not executed)"
@@ -2544,7 +2540,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2557,7 +2553,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2570,7 +2566,7 @@
       "busHandler": false,
       "registerRow": false,
       "occurrences": [],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": true,
       "verdict": "NOT-REACHED",
       "detail": "button rendered DISABLED with data-unbacked and the verb named in its title — a DECLARED REFUSAL (§L-MOUNT Phase 3), not a silent no-op and not broken wiring. The verdict stays NOT-REACHED: the user still cannot reach this command."
@@ -2593,7 +2589,7 @@
         "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
         "packages/ai-host/src/intents/ZeroTokenResolver.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": false,
       "verdict": "RESOLVED-ONLY",
       "detail": "dispatch EXECUTED; no handler on the harness bus; verb resolves in API-VERB-REGISTER (structural, not executed)"
@@ -2614,7 +2610,7 @@
         "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
         "packages/ai-host/src/intents/ZeroTokenResolver.ts"
       ],
-      "surfaceMounted": true,
+      "surfaceMounted": false,
       "declaredRefusal": false,
       "verdict": "RESOLVED-ONLY",
       "detail": "dispatch EXECUTED; no handler on the harness bus; verb resolves in API-VERB-REGISTER (structural, not executed)"
