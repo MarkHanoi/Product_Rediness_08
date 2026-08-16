@@ -206,13 +206,16 @@ function levenshtein(a: string, b: string): number {
 
 // ─── Activation ──────────────────────────────────────────────────────────────
 
-/** The runtime handle the palette itself uses (`CreateRailPanel._activateTool`). */
-type PlacementWindow = {
-    runtime?: {
-        tools?: { activate?: (toolId: string, mode?: string) => void };
-    };
-};
-const win = (): PlacementWindow => window as unknown as PlacementWindow;
+// §P4-CAST-AT-SOURCE (H4, 2026-08-16) — the runtime handle the palette itself uses
+// (`CreateRailPanel._activateTool`) is now read off the TYPED global. This block
+// used to declare a local `PlacementWindow` shape and reach it with
+// `window as unknown as PlacementWindow` — a double cast through `unknown`, which
+// defeats the Window type just as completely as `(window as any)` and merely takes
+// two hops. It was one of the two sites that pushed `check-cast-unknown` (L-845)
+// past its shrink-only ceiling. The slot is declared once, narrowly, at
+// apps/editor/src/types/globals.d.ts (`Window['runtime']['tools']`), so every
+// consumer of the same seam gets the same checked type instead of re-minting a
+// private shape — the fix the gate's own remediation text asks for.
 
 const CLICK_TO_PLACE =
     'move the mouse in the canvas to preview it and click to place — nothing is created until you click';
@@ -263,7 +266,7 @@ export function activatePlacementFromChat(itemRef: string): string {
         return `${entry.name} placement is active — ${CLICK_TO_PLACE}.`;
     }
 
-    const tools = win().runtime?.tools;
+    const tools = window.runtime?.tools;
     if (typeof tools?.activate !== 'function') {
         return (
             `I resolved "${ref}" to the ${entry.name} tool, but the tool runtime ` +

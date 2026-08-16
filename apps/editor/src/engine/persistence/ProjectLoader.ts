@@ -845,12 +845,19 @@ export class ProjectLoader {
             // neither input matches authoring time, so deriving here would be a guess
             // dressed as a recovery. Legacy snapshots load with no stamp and therefore
             // behave EXACTLY as they did before this field existed.
-            const _wallStoreForHydration = (this as unknown as {
-                _stores?: { wallStore?: { beginHydration?: () => () => void } };
+            // §P4-CAST-AT-SOURCE (H4, 2026-08-16) — the window fallback reads the
+            // DECLARED global (`Window['wallStore']`, apps/editor/src/types/globals.d.ts)
+            // and narrows it once. It used to be `window as unknown as { wallStore?… }`,
+            // a double cast through `unknown` that defeats the Window type as
+            // completely as `(window as any)` — it was one of the two sites that
+            // pushed `check-cast-unknown` (L-845) past its shrink-only ceiling.
+            // Behaviour is unchanged: same property, same optional-chained call,
+            // same `undefined` when no legacy store is present.
+            type HydratableWallStore = { beginHydration?: () => () => void };
+            const _wallStoreForHydration: HydratableWallStore | undefined = (this as unknown as {
+                _stores?: { wallStore?: HydratableWallStore };
             })._stores?.wallStore
-                ?? (window as unknown as {
-                    wallStore?: { beginHydration?: () => () => void };
-                }).wallStore;
+                ?? (window.wallStore as HydratableWallStore | undefined);
             const _endHydration = _wallStoreForHydration?.beginHydration?.();
             try {
             for (const wall of snapshot.walls) {

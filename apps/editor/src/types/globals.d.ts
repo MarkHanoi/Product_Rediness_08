@@ -406,6 +406,20 @@ declare global {
                  *  narrow window slot is also written by transitional code paths
                  *  that may not include the full runtime (defensive null check). */
                 readonly familyRegistryStore?: import('@pryzm/stores').FamilyRegistryStore;
+                /** §P4-CAST-AT-SOURCE (H4, 2026-08-16) — runtime-composer Slot 5,
+                 *  `ToolsSlot` (packages/runtime-composer/src/types.ts:2181). This
+                 *  is the seam the Create palette itself calls
+                 *  (`CreateRailPanel._activateTool`) and that the chat placement
+                 *  bridge reaches; before this slot existed the ONLY route was
+                 *  `window as unknown as { runtime?: … }`, a double cast through
+                 *  `unknown` that defeats the Window type exactly as completely as
+                 *  `as any` — the blind spot `check-cast-unknown` (L-845) exists
+                 *  to close. Declared with the narrow read surface the consumers
+                 *  actually use, not the whole slot, so widening it stays a
+                 *  deliberate act. Optional for the same reason as
+                 *  `familyRegistryStore` above: transitional writers of this narrow
+                 *  window slot may not carry the full runtime. */
+                readonly tools?: { activate?: (toolId: string, mode?: string) => void };
               }
             | undefined;
         unselectAll: (() => void) | undefined;
