@@ -683,6 +683,23 @@ export interface RuntimeEvents {
      *  CreateRoofCommand.payload.baseOffset so the roof mesh sits at the correct height.
      *  Falls back to 2.7 in the bridge when omitted (legacy behaviour). */
     readonly baseOffset?: number;
+    /**
+     * §ROOF-FOLLOWS-WALL (L-924) — the walls whose centrelines produced this
+     * roof's footprint, when it was drawn in REGION mode.
+     *
+     * ⚠ Its absence was STRUCTURAL, in the same shape as `pitch` above. The
+     * plan handler traced the region, reported the attribution, and dispatched
+     * without it; the bridge re-emits a named subset of `record.payload`, so
+     * even a corrected dispatch would have been dropped here. With no
+     * attribution in the event, the §P3.2-RF mirror in `initTools.ts` had none
+     * to store, so a region roof drawn in PLAN could never follow its walls
+     * while one drawn in 3D could — the per-path divergence C79 §7.4 rates as
+     * worse than uniform absence.
+     *
+     * `undefined` = not region-traced (rectangle / polyline). NEVER `[]` for
+     * that case: `[]` means "traced, and bounded by no wall".
+     */
+    readonly boundingWallIds?: readonly string[];
   };
 
   /** Fired after `floor.create` succeeds.

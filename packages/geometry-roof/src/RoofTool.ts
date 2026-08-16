@@ -5,6 +5,7 @@ import { RoofFootprint, RoofType } from './RoofTypes.js';
 import { CommandManager } from '@pryzm/command-registry';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { traceRoofRegionAtPoint, formatRoofRegionAttributionReport } from './RoofRegionTrace.js';
+import { roofRegionReferenceFromTrace } from './RoofDependencyTracker.js';
 import { RoofSnapEngine } from './RoofSnapEngine.js';
 import { PREVIEW_COLOR, tagPreview, disposePreviewObject } from '@pryzm/core-app-model';
 
@@ -46,6 +47,17 @@ export class RoofTool {
     private wallStore: any = null;
 
     private _pendingPolygon: [number, number][] | null = null;
+    /**
+     * §ROOF-FOLLOWS-WALL (L-924) — the attribution of the pending REGION trace,
+     * held alongside `_pendingPolygon` across the CONFIRMING step.
+     *
+     * `undefined` is the correct and load-bearing value for the rectangle and
+     * polyline paths: those roofs were never region-traced, and recording `[]`
+     * for them would claim they were traced and bounded nothing. Every site that
+     * clears `_pendingPolygon` must clear this too, or a cancelled region trace
+     * would leak its walls onto the next roof drawn by hand.
+     */
+    private _pendingBoundingWallIds: string[] | undefined = undefined;
     private _selectedRoofType: string = 'gable';
     private _selectedSlope: number    = 0.3;
     private _selectedOverhang: number = 0.3;
@@ -85,6 +97,7 @@ export class RoofTool {
 
     public deactivate(): void {
         this._pendingPolygon = null;
+        this._pendingBoundingWallIds = undefined;
         this.cleanup();
         this._selectionManager?.setEnabled(true);
         this._state = RoofToolState.IDLE;
@@ -238,6 +251,9 @@ export class RoofTool {
                 [p2.x, p1.z],
             ];
             this._pendingPolygon = polygon;
+            // RECTANGLE — never region-traced, so it depends on no wall. NOT `[]`
+            // (§ROOF-FOLLOWS-WALL / C79 §7.1): that would claim it was traced.
+            this._pendingBoundingWallIds = undefined;
             this._state = RoofToolState.CONFIRMING;
             this._showConfirmingPanel();
         }
@@ -283,6 +299,13 @@ export class RoofTool {
             // user can review parameters before committing — same UX as 2-point
             // and polyline modes.  (ROOF-SYSTEM-AUDIT-2026 Bug 3 fix)
             this._pendingPolygon = traced.polygon;
+            // §ROOF-FOLLOWS-WALL (L-924) — the attribution was ALREADY COMPUTED
+            // and reported one line above; until now it was reported and thrown
+            // away, which is why a region roof could not follow its walls. The
+            // helper is the one `RoofDependencyTracker.ts` exports for exactly
+            // this call site, so the stored shape cannot drift from the shape
+            // the re-derivation filters on.
+            this._pendingBoundingWallIds = roofRegionReferenceFromTrace(traced.attribution);
             this._state = RoofToolState.CONFIRMING;
             this._showConfirmingPanel();
         } else {
@@ -328,6 +351,9 @@ export class RoofTool {
         overhang?:       number,
         thickness?:      number,
         autoBaseOffset?: boolean,
+        /** §ROOF-FOLLOWS-WALL (L-924) — REGION mode only; `undefined` for
+         *  rectangle and polyline, which depend on no wall. */
+        boundingWallIds?: string[],
     ): Promise<void> {
         // §ROOF-UPPER-LEVEL — this is the level the user DREW ON, not necessarily
         // the level the roof will belong to. The command applies the roof's level
@@ -360,6 +386,11 @@ export class RoofTool {
             // §ROOF-UPPER-LEVEL (founder ruling 2026-08-09) — interactive creation
             // declares the policy; the command resolves it.
             levelPolicy:     'upper',
+            // §ROOF-FOLLOWS-WALL (L-924) — the REGION attribution, or `undefined`
+            // for the two hand-drawn modes. This is the field that makes the roof
+            // a dependent of its walls; without it RoofDependencyTracker matches
+            // nothing and the roof cannot follow.
+            boundingWallIds,
         });
 
         // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
@@ -377,6 +408,8 @@ export class RoofTool {
     private _initConfirmPolyline(): void {
         if (this.polylineData.points.length < 3) return;
         this._pendingPolygon = this.polylineData.points.map(p => [p.x, p.z] as [number, number]);
+        // POLYLINE — hand-drawn, never region-traced. See the RECTANGLE note.
+        this._pendingBoundingWallIds = undefined;
         this._state = RoofToolState.CONFIRMING;
         this._showConfirmingPanel();
     }
@@ -475,6 +508,7 @@ export class RoofTool {
 
     private _cancelConfirming(): void {
         this._pendingPolygon = null;
+        this._pendingBoundingWallIds = undefined;
         this._state = RoofToolState.DRAWING;
         const panel = document.getElementById('rfmp-confirm-panel');
         if (panel) panel.remove();
@@ -509,7 +543,9 @@ export class RoofTool {
     private async _commitFromConfirming(): Promise<void> {
         if (!this._pendingPolygon) return;
         const polygon = this._pendingPolygon;
+        const boundingWallIds = this._pendingBoundingWallIds;
         this._pendingPolygon = null;
+        this._pendingBoundingWallIds = undefined;
 
         const roofType = this._selectedRoofType;
         const slope    = roofType !== 'flat' ? this._selectedSlope : undefined;
@@ -521,6 +557,7 @@ export class RoofTool {
             this._selectedOverhang,
             this._selectedThickness,
             this._selectedAutoBaseOffset,
+            boundingWallIds,
         );
         this.deactivate();
     }

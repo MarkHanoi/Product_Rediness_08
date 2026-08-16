@@ -53,6 +53,20 @@ export interface CreateRoofPayload {
      * inside `RoofStore.add()`, i.e. after undo had discarded the record.
      */
     ifcGuid?: string;
+    /**
+     * §ROOF-FOLLOWS-WALL (L-924) — the walls whose centrelines produced this
+     * roof's footprint, when it was created BY REGION. This is what makes the
+     * roof a DEPENDENT of those walls: `RoofDependencyTracker` filters on it, so
+     * a roof without it can never follow anything.
+     *
+     * ⚠ ABSENT IS A MEANING, AND IT IS NOT `[]`. Leave it `undefined` for the
+     * rectangle and polyline paths — those roofs were never region-traced, and a
+     * defaulted `[]` would assert of every one of them that it WAS traced and
+     * found no bounding wall. `RoofData.boundingWallIds` is `.optional()`
+     * precisely to keep those two facts distinguishable (C79 §7.1, ADR-0299),
+     * and this command must not collapse them on the way in.
+     */
+    boundingWallIds?: string[];
 }
 
 export class CreateRoofCommand implements Command {
@@ -193,6 +207,9 @@ export class CreateRoofCommand implements Command {
             autoBaseOffset: this.payload.autoBaseOffset,
             materialColor: this.payload.materialColor ?? '#c8a46e',
             materialId:    this.payload.materialId,
+            // §ROOF-FOLLOWS-WALL (L-924) — carried through UNTOUCHED, including
+            // its absence. No `?? []` here: see the payload field's doc.
+            boundingWallIds: this.payload.boundingWallIds,
             properties: {},
             metadata: {
                 createdAt:  now,

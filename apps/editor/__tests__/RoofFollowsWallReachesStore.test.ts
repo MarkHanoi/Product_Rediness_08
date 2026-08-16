@@ -239,22 +239,14 @@ describe('§ROOF-FOLLOWS-WALL — the re-derived boundary must reach the ROOF ST
             'the bus→event hop must carry boundingWallIds, or the plan path can never populate it',
         ).toContain('w-north');
 
-        // The §P3.2-RF legacy bridge in initTools.ts, at the shape it writes.
-        const n = ev.boundary!.length;
-        const cx = ev.boundary!.reduce((s, v) => s + v.x, 0) / n;
-        const cz = ev.boundary!.reduce((s, v) => s + v.z, 0) / n;
-        roofStore.add({
-            id: ev.id,
-            type: 'roof',
-            levelId: ev.levelId,
-            footprint: { polygon: ev.boundary!.map((v) => [v.x - cx, v.z - cz]), centroid: [cx, cz] },
-            roofType: 'flat',
-            overhang: ev.overhang,
-            baseOffset: 0,
-            thickness: ev.thickness,
-            boundingWallIds: (ev as { boundingWallIds?: string[] }).boundingWallIds,
-            properties: {},
-        } as never);
+        // The §P3.2-RF legacy mirror, EXECUTED — not transcribed. This is the
+        // exact function `initTools.ts` calls inside its `roof.created`
+        // subscriber; it was extracted from that closure precisely so this
+        // assertion runs production code instead of a copy of it.
+        const { roofRecordFromCreatedEvent } = await import('../src/engine/roofCreatedMirror');
+        const record = roofRecordFromCreatedEvent(ev);
+        expect(record, 'the mirror must accept a well-formed roof.created event').not.toBeNull();
+        roofStore.add(record as never);
 
         const stored = roofStore.getById(ROOF_ID);
         expect(

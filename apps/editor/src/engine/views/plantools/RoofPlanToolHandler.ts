@@ -2,6 +2,7 @@ import { createId } from '@pryzm/schemas';
 import {
     traceRoofRegionAtPoint,
     formatRoofRegionAttributionReport,
+    roofRegionReferenceFromTrace,
     type RegionWallLike,
 } from '@pryzm/geometry-roof';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
@@ -211,7 +212,13 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             `[RoofPlanToolHandler] region mode: ${traced.polygon.length}-vertex boundary detected ` +
             `(mode=${this._mode}). ${formatRoofRegionAttributionReport(traced.attribution)}`,
         );
-        this._commit(c, traced.polygon);
+        // §ROOF-FOLLOWS-WALL (L-924) — the attribution reported one line above is
+        // now CARRIED rather than logged and dropped. `roofRegionReferenceFromTrace`
+        // is the helper `RoofDependencyTracker.ts` exports for exactly this call
+        // site, so plan and 3D store the identical shape the re-derivation filters
+        // on. C79 §7.4: wiring the 3D path alone would make whether a roof follows
+        // depend on which surface it was drawn on.
+        this._commit(c, traced.polygon, roofRegionReferenceFromTrace(traced.attribution));
     }
 
     // ── Shared commit logic ───────────────────────────────────────────────────
@@ -225,7 +232,14 @@ export class RoofPlanToolHandler implements PlanToolHandler {
      * coordinates as local offsets shifts the roof by the centroid distance —
      * hence the normalisation step here (mirrors RoofTool._normalisePolygon).
      */
-    private _commit(c: PlanToolDrawContext, worldPolygon: [number, number][]): void {
+    private _commit(
+        c: PlanToolDrawContext,
+        worldPolygon: [number, number][],
+        /** §ROOF-FOLLOWS-WALL (L-924) — REGION mode only. `undefined` from
+         *  `_commitRectangle` / `_commitPolyline`, which trace no region and so
+         *  depend on no wall; NOT `[]`, which would claim they were traced. */
+        boundingWallIds?: string[],
+    ): void {
         const levelId = c.viewDef.spatial?.levelId;
         if (!levelId) {
             console.error('[RoofPlanToolHandler] ViewDefinition.spatial.levelId is missing');
@@ -278,6 +292,12 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             pitch:    Math.atan(slope),
             overhang: 0.3,
             thickness: 0.2,
+            // §ROOF-FOLLOWS-WALL (L-924) — the field that makes this roof a
+            // dependent of its walls. It survives to the store via
+            // CommandEventBridge's `roof.created` emit and the §P3.2-RF mirror in
+            // initTools.ts; all three hops had to learn it, because each one
+            // re-emits a NAMED SUBSET of what it is given.
+            boundingWallIds,
         })?.catch((e: Error) => console.error('[RoofPlanToolHandler] §P3.2-RF: roof.create failed:', e));
         console.log(
             `[RoofPlanToolHandler] §P3.2-RF: Roof dispatched ${roofId} mode=${this._mode} ` +

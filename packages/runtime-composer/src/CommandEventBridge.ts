@@ -809,6 +809,8 @@ export function wireCommandEventBridge(
             thickness?: number;
             /** §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — radians, per the L0 schema. */
             pitch?: number;
+            /** §ROOF-FOLLOWS-WALL (L-924) — the walls a REGION-mode roof was traced from. */
+            boundingWallIds?: string[];
           };
           events.emit('roof.created', {
             commandId:   record.id,
@@ -820,6 +822,13 @@ export function wireCommandEventBridge(
             overhang:    p.overhang,
             thickness:   p.thickness,
             pitch:       p.pitch,
+            // §ROOF-FOLLOWS-WALL (L-924) — forwarded UNTOUCHED, absence included.
+            // This emit is a NAMED SUBSET of `record.payload`, so a field missing
+            // from this list is dropped in flight however correctly the plan tool
+            // dispatched it — which is exactly how the plan path came to store no
+            // attribution while the 3D path could. No `?? []`: `undefined` means
+            // "not region-traced" and `[]` would mean "traced, bounded nothing".
+            boundingWallIds: p.boundingWallIds,
           });
           break;
         }

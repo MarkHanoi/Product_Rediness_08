@@ -75,7 +75,11 @@ import { WardrobeLayoutType }  from '@pryzm/geometry-furniture';
 import { WardrobeConfigPanel } from '@app/ui/wardrobe/WardrobeConfigPanel';
 import { wardrobeSectionInspector } from '@app/ui/wardrobe/WardrobeSectionInspector';
 import { wardrobeRunInspector }     from '@app/ui/wardrobe/WardrobeRunInspector';
-import { RoofTool } from '@pryzm/geometry-roof';
+import {
+    RoofTool,
+    RoofDependencyTracker,
+    type RoofBoundaryWritePayload,
+} from '@pryzm/geometry-roof';
 import { HandrailTool } from '@pryzm/geometry-stair';
 import { WallTool } from '@pryzm/geometry-wall';
 import { SlabDependencyTracker } from '@pryzm/geometry-slab';
@@ -89,7 +93,8 @@ import {
     CeilingHostDependencyTracker,
     type FinishBoundaryWritePayload,
 } from '@pryzm/finish-host-tracker';
-import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand } from '@pryzm/command-registry';
+import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
+import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
 import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
@@ -889,6 +894,41 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     );
     ceilingHostDependencyTracker.bootstrap();
 
+    // ── Roof follow — §ROOF-FOLLOWS-WALL (L-924 · GR-12 · C79 §5) ────────────
+    // The FOURTH follow path, and the reachability half of 16ef37b0: that commit
+    // landed the re-derivation and stated in its own header that it "IS NOT
+    // CONSTRUCTED ANYWHERE YET, and cannot be from inside packages/geometry-roof"
+    // — there is no registry mapping element kind → cascade handler in this
+    // repo, so every family is hand-wired here. This is roof's line.
+    //
+    // Wired in the SAME block as the finish trackers and for the same reason:
+    // `commandManagerRef.current = commandManager` is assigned earlier in this
+    // function, so both `bootstrap()` and every event-driven write reach the
+    // COMMAND path (P6) rather than a direct store write.
+    //
+    // A roof re-derives differently from the other three, and the difference is
+    // forced by the data model rather than chosen: slab re-derives by
+    // intersecting a stored per-edge SKETCH, floor/ceiling by re-applying a
+    // signed inset against the pre-mutation centreline. A roof has neither — it
+    // records the bounding-wall SET and the anchor the user clicked — so the
+    // tracker re-asks the region question at that anchor using the same
+    // production tracer that authored the boundary. Record and mesh therefore
+    // cannot diverge by construction.
+    const roofDependencyTracker = new RoofDependencyTracker(
+        roofStore, wallTool.getWallStore(),
+        // Payload maps 1:1 onto the command; only the id key differs, exactly as
+        // it does for the two finish trackers above.
+        (payload: RoofBoundaryWritePayload) => new UpdateRoofBoundaryCommand({
+            roofId: payload.roofId,
+            mode: payload.mode,
+            footprint: payload.footprint,
+            boundingWallIds: payload.boundingWallIds,
+            cause: payload.cause,
+        }),
+        commandManagerRef,
+    );
+    roofDependencyTracker.bootstrap();
+
     // ── WindowTool, DoorTool, CurtainWallTool, ColumnTool ────────────────────
     const _sharedCbs = {
         applyHighlight: (obj: any) => selectionManager.applyHighlight(obj),
@@ -1509,44 +1549,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             ) return;
             if (roofStore?.getById?.(ev.id)) return; // dedup guard
             try {
-                // RoofFragmentBuilder expects:
-                //   root.position = [cx, 0, cz]  (world centroid)
-                //   mesh vertices = centroid-relative [lx, lz] offsets
-                // Recompute from world-space Vec3[] boundary.
-                const n = ev.boundary.length;
-                const cx = ev.boundary.reduce((s, v) => s + v.x, 0) / n;
-                const cz = ev.boundary.reduce((s, v) => s + v.z, 0) / n;
-                const localPolygon: [number, number][] = ev.boundary.map(
-                    (v: { x: number; y: number; z: number }) => [v.x - cx, v.z - cz],
-                );
-                roofStore.add({
-                    id:            ev.id,
-                    type:          'roof',
-                    levelId:       ev.levelId ?? '',
-                    footprint:     { polygon: localPolygon, centroid: [cx, cz] },
-                    // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — translate the L0
-                    // schema's `shape` into the geometry package's `roofType`.
-                    // ⚠ `mono` and `shed` are the SAME roof and were spelled
-                    // differently in the two vocabularies, so `mono` fell through
-                    // `RoofGeometryBuilder.generate`'s switch to `default:` and
-                    // silently rendered FLAT. One line, one whole roof form lost.
-                    roofType:      (ev.shape === 'mono' ? 'shed' : (ev.shape ?? 'flat')) as any,
-                    // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — pitch (RADIANS, L0
-                    // schema) → slope (rise/run, geometry package). Previously not
-                    // forwarded AT ALL, so every plan-created roof was slope-less.
-                    slope:         typeof ev.pitch === 'number' && ev.pitch > 0
-                        ? Math.tan(ev.pitch)
-                        : undefined,
-                    overhang:      ev.overhang ?? 0.3,
-                    // §FT6 / BUG-6 (MASTER-IMPL-PLAN-2026-05-18 TASK-06): pass ev.baseOffset
-                    // so the caller-supplied value (e.g. from CreateRoofCommand.payload) is used.
-                    // Hardcoded 2.7 was a placeholder that ignored the command's own baseOffset,
-                    // causing all roofs to be created at the wrong elevation (2.7 m) regardless
-                    // of the actual wall height / level elevation at the draw site.
-                    baseOffset:    ev.baseOffset ?? 2.7,
-                    thickness:     ev.thickness ?? 0.2,
-                    autoBaseOffset: true,
-                } as any);
+                // §ROOF-FOLLOWS-WALL (L-924) — the field mapping now lives in
+                // `roofCreatedMirror.ts` so a test can EXECUTE it. As a closure
+                // here it was unreachable from any suite (initTools needs a THREE
+                // world and twenty stores to run one line), which left the plan
+                // creation path proven only by transcribing this mapping into a
+                // test — the copy passing, not the product. Behaviour unchanged.
+                const record = roofRecordFromCreatedEvent(ev);
+                if (!record) return;
+                roofStore.add(record as any);
                 // §FIX-PLAN-VDT-BIMMANAGER (roof): without these two calls, roof elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
