@@ -510,7 +510,10 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'roof.setPitch',
   'roof.setShape',
   'roof.setThickness',
-  'room.recomputeBoundary',
+  // 'room.recomputeBoundary' — STRUCK 2026-08-16. It qualified as UNKNOWN-liveness
+  // when its handler was an empty patch pair; `278b99e5` gave it a typed refusal,
+  // so it now measures REFUSES and the gate correctly reported the baseline as
+  // rotting. Paid debt leaves the list in the commit that observes it paid.
   'room.redetect',
   'schedule.column.add',
   'schedule.column.remove',

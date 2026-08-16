@@ -15,12 +15,12 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1248 (floor 900) |
+| Handler files read | 1257 (floor 900) |
 | **Verbs** | **325** (floor 250) |
 | LIVE | 117 |
-| REFUSES | 36 |
+| REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
-| UNKNOWN | 172 |
+| UNKNOWN | 171 |
 | authoritative store NONE or UNKNOWN | 208 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
@@ -220,7 +220,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified B |
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
-| `room.recomputeBoundary` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | n/a (not a property verb) | classified C |
+| `room.recomputeBoundary` | plugins/rooms | REFUSES | NONE | NONE (empty patch pair) | n/a (not a property verb) | classified C |
 | `room.redetect` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | classified C |
 | `room.regenerate` | plugins/rooms | REFUSES | NONE | NONE (empty patch pair) | n/a (not a property verb) | classified E |
 | `room.rename` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | capability: rename-room |

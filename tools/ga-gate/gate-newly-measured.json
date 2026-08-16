@@ -102,22 +102,6 @@
   "createdBecause": "BIM 3.0 Phase 1 Tier 1 landed three gates RED on pre-existing production defects (BIM30-READINESS-GATES §2.3), and gate-debt.json had no category that described them without lying.",
   "entries": [
     {
-      "gate": "check-solver-is-real.ts",
-      "runner": "ga-gate",
-      "addedAt": "2026-08-12",
-      "builtBy": "BIM 3.0 Phase 1 Tier 1 · BIM30-READINESS-GATES §3.13 · C74 §3.3/§3.7",
-      "firstReading": "exit 1 DECLARED-LEVEL — 4 findings against a declared level of 4. Floors met: 170 manifests (min 100), 4483 source files (min 500), 3 adapter classes declaring a kind (min 1), 1/1 executed control proven.",
-      "pinnedTo": "the `LEDGER` array in tools/ga-gate/check-solver-is-real.ts — 1 NAMED entry remaining (R2 loadRelay, ai-host), checked in both directions (an unledgered finding exits 3; a ledgered finding no longer measured exits 3). 2026-08-12 adapter-truthfulness pass (C74 §4.3, truthfulness-only, no binding work) paid 3 of the original 4: R1 (PlanegcsAdapter kind now reports the actual underlying 'mock', intent moved to a separate intendedEngine field), R2-solver (loadSolver throws on configured-but-failed; not-configured returns the labelled mock default), R3 (createWorkerHandler DELETED with its tests). Reading after: exit 1 DECLARED-LEVEL, 1 finding / 1 declared.",
-      "predatesTheGate": [
-        "R1 · PlanegcsAdapter.ts:85 declares kind='planegcs'; `planegcs` appears in ZERO package.json in the repo. Recorded in C70 §0 and C74 §0 before this gate existed.",
-        "R2 · engine.ts:463 loadSolver() returns MockSolver on BOTH the not-configured branch and the configured-but-threw branch; AnthropicRelay.ts:187 loadRelay() has the identical shape.",
-        "R3 · worker.ts exports createWorkerHandler with zero production callers."
-      ],
-      "exitCondition": "R1 green when EITHER `planegcs` becomes a declared dependency of some workspace OR PlanegcsAdapter stops naming an engine it does not run — C74 §4.3 requires the truthfulness change to land in ITS OWN COMMIT, before any binding work. R2 green when both selectors return distinguishable values for not-configured vs configured-and-failed. R3 green when createWorkerHandler is wired or deleted. When LEDGER reaches 0 entries the gate is hard-0 and this entry is struck.",
-      "territory": "packages/constraint-solver/, packages/ai-host/ — NOT tools/. This cannot be fixed by whoever owns the gate suite.",
-      "reviewBy": "2026-11-12"
-    },
-    {
       "gate": "check-provenance-not-invented.ts",
       "runner": "ga-gate",
       "addedAt": "2026-08-12",
