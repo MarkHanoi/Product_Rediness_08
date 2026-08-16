@@ -61,6 +61,55 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import type { WallData } from '../src/WallTypes';
 
+type Pt = { x: number; z: number };
+
+/** The rendered plan footprint of a legacy-resolved wall (baseLine + miter-plane caps). */
+function legacyFootprint(jd: {
+    baseLine: [THREE.Vector3, THREE.Vector3];
+    startMN: { nx: number; nz: number } | null;
+    endMN: { nx: number; nz: number } | null;
+}, thickness: number): Pt[] {
+    const [s, e] = jd.baseLine;
+    const d = new THREE.Vector3(e.x - s.x, 0, e.z - s.z).normalize();
+    const n = new THREE.Vector3(-d.z, 0, d.x).multiplyScalar(thickness / 2);
+    const raw = [
+        { px: s.x + n.x, pz: s.z + n.z, o: s, mn: jd.startMN },
+        { px: e.x + n.x, pz: e.z + n.z, o: e, mn: jd.endMN },
+        { px: e.x - n.x, pz: e.z - n.z, o: e, mn: jd.endMN },
+        { px: s.x - n.x, pz: s.z - n.z, o: s, mn: jd.startMN },
+    ];
+    return raw.map(({ px, pz, o, mn }) => {
+        if (!mn) return { x: px, z: pz };
+        const dotD = mn.nx * d.x + mn.nz * d.z;
+        if (Math.abs(dotD) < 1e-9) return { x: px, z: pz };
+        const t = (mn.nx * (o.x - px) + mn.nz * (o.z - pz)) / dotD;
+        return { x: px + t * d.x, z: pz + t * d.z };
+    });
+}
+
+function inPoly(px: number, pz: number, poly: readonly Pt[]): boolean {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        if ((a.z > pz) !== (b.z > pz) && px < ((b.x - a.x) * (pz - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+    }
+    return inside;
+}
+
+/** Overlap area in mm², sampled on a 2 mm grid — the same instrument `WallCreateOnHostBody` uses. */
+function overlapMm2(p: readonly Pt[], q: readonly Pt[]): number {
+    const STEP = 0.002;
+    const xs = [...p, ...q].map(v => v.x), zs = [...p, ...q].map(v => v.z);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+    let hits = 0;
+    for (let x = x0 + STEP / 2; x < x1; x += STEP) {
+        for (let z = z0 + STEP / 2; z < z1; z += STEP) {
+            if (inPoly(x, z, p) && inPoly(x, z, q)) hits++;
+        }
+    }
+    return hits * STEP * STEP * 1e6;
+}
+
 let _seq = 0;
 function mk(s: [number, number], e: [number, number], thickness: number): WallData {
     return {
@@ -126,19 +175,21 @@ describe('§MEASURED-EQUALITY-REFUSED — case A: penetration EXACTLY one host t
             warn: penetrationWarns[0] ?? null,
         }, null, 2));
 
-        // TODAY (pre-fix): the gate refuses at the tie. Both numbers are the SAME number.
-        expect(penetrationWarns.length).toBe(1);
-        expect(penetrationWarns[0]).toContain('penetrates host=');
-        expect(penetrationWarns[0]).toContain('by 100.0 mm');
-        expect(penetrationWarns[0]).toContain('retreat (100.0 mm)');
-        expect(penetrationWarns[0]).toContain('Left un-trimmed');
+        // BEFORE §FIX-T-JOIN-EQUALITY-BOUNDARY (measured at `17824619`, the founder's own
+        // numbers): ONE refusal, reading `penetrates … by 100.0 mm but the axial retreat
+        // (100.0 mm) exceeds one host thickness`, with 100.0 compared against a cap of 100.0.
+        // AFTER: admitted. The depth arm is unchanged (0.100 is not past 0.100 + CLASH_EPS_M);
+        // the grazing arm now reads its declared 30° ratio — cap = max(t, 2 · penetration) =
+        // 0.200 m — so a PERPENDICULAR approach clears it by 2×, not by a rounding accident.
+        expect(penetrationWarns.length).toBe(0);
 
-        // …and the join resolver did NOT seat this endpoint. It ends up at −49 mm — one
-        // INNER_OVERLAP_M inside the near face — which is the signature of the LATER
-        // `_clampEndToShellInnerFace` pass, a RESCUER, not of `_applyT`'s own trim (which
-        // would seat it at exactly −50 mm, on the face). Pinning −49 pins the fact that the
-        // emitter is broken and something downstream is covering for it (L-909a).
-        expect(mm(stemEnd.z)).toBeCloseTo(-49, 3);
+        // BEFORE: −49 mm. `_applyT` never seated this endpoint; the later
+        // `_clampEndToShellInnerFace` pass did, one INNER_OVERLAP_M inside the face — a RESCUER
+        // covering for the emitter (L-909a). AFTER: −50 mm, exactly ON the host's near face,
+        // seated by the join resolver itself. The 1 mm difference is the whole point: the rescuer
+        // is no longer the thing doing the work, and the inner-face clamp now returns early
+        // because the endpoint it would have moved is already correct.
+        expect(mm(stemEnd.z)).toBeCloseTo(-50, 3);
     });
 });
 
@@ -223,5 +274,73 @@ describe('§MEASURED-EQUALITY-REFUSED — case C: 200 mm perimeter CONTROL (foun
 
         // And the perimeter path never reaches the boundary: no refusal on this geometry.
         expect(warns.filter(w => w.includes('§FIX-T-JOIN-PENETRATION')).length).toBe(0);
+    });
+});
+
+// ── Case D — the founder's sentence, as an AREA, with no rescuer in the way ──────────────────
+//
+// Case A's endpoint was seated by `_clampEndToShellInnerFace` even while the gate refused, so
+// its clash was hidden. This case separates the two by the ONE millimetre that tells them apart:
+// `_applyT` seats an endpoint exactly ON the face, while the rescuer seats it one
+// INNER_OVERLAP_M short of it. A 120 mm partition therefore resolves to z = 4.060 if the join
+// resolver did the work, and z = 4.059 if the rescuer did.
+//
+// (A first attempt pushed the endpoint past the snap radius to make the rescuer decline
+// outright. That defeated DETECTION too — `_detect` and the rescuer read the same
+// `snapRadius` — so the pair produced no join at all and measured nothing. Recorded because
+// the null result is easy to mistake for a clean one: no entry is not the same as no clash.)
+//
+// What it measures is the founder's actual sentence:
+//
+//   "it should ALWAYS connect with the face of the wall — never create a clash — never should
+//    the created wall go THROUGH the other wall."
+describe('§MEASURED-EQUALITY-REFUSED — case D: the tie, seated by the resolver and not the rescuer', () => {
+    const HOST_T = 0.12;
+
+    it('seats the stem on the face with ZERO doubled solid, where the OLD predicate refused', () => {
+        const host = mk([0, 4], [12, 4], HOST_T);
+        // Stem approaches from the north; its start endpoint is drawn through to P's FAR
+        // (south) face at z = 4 − 0.06. Perpendicular, so retreat == penetration == thickness.
+        const stem = mk([6, 4 - HOST_T / 2], [6, 8], HOST_T);
+
+        // 0.07 m: above the 60 mm far-face offset so the pair is DETECTED as a T-join at all,
+        // and still inside the app's [0.05, 1.0] camera-derived band.
+        const { res, warns } = resolveCapturingWarns([host, stem], 0.07);
+        const stemJd = res.get(stem.id);
+
+        // THE OLD PREDICATE, REPLAYED ON THIS FIXTURE'S OWN NUMBERS. Both quantities are fixed
+        // by the geometry: a perpendicular approach whose endpoint sits on the far face has
+        // penetration = one thickness, and retreat = penetration / sin 90° = the same number.
+        const penetration = HOST_T;
+        const alongTrim = HOST_T;
+        // BEFORE: cap was the bare `hostWall.thickness`, compared with no tolerance at all.
+        expect(alongTrim > HOST_T).toBe(false);          // …and yet it refused, on rounding alone
+        // AFTER: the cap is the declared 30° ratio, so a PERPENDICULAR approach is 2× inside it
+        // and no amount of floating-point noise can flip the verdict.
+        expect(alongTrim > Math.max(HOST_T, penetration / 0.5) + 0.001).toBe(false);
+        expect(Math.max(HOST_T, penetration / 0.5)).toBe(0.24);
+
+        // No refusal, and the stem is seated on the host's NORTH face (z = 4 + 0.06) by the
+        // join resolver itself — not left through the body at z = 3.94.
+        expect(warns.filter(w => w.includes('§FIX-T-JOIN-PENETRATION')).length).toBe(0);
+        expect(stemJd).toBeDefined();
+        // 4060, NOT 4059. `_applyT` seats ON the face; `_clampEndToShellInnerFace` seats one
+        // INNER_OVERLAP_M (1 mm) short of it. This millimetre is the whole assertion: the
+        // emitter is doing its own job and the rescuer has nothing left to do.
+        expect(mm(stemJd!.baseLine[0].z)).toBeCloseTo(4060, 3);
+
+        // THE FOUNDER'S SENTENCE, AS A NUMBER: no doubled solid anywhere in the pair.
+        // The 2 mm sampler registers a thin band along a shared face; 800 mm² sits above that
+        // and orders of magnitude below the ~700 000 mm² a through-crossing 120 mm stem makes.
+        const fpHost = legacyFootprint(
+            res.get(host.id) ?? {
+                baseLine: [new THREE.Vector3(0, 0, 4), new THREE.Vector3(12, 0, 4)] as [THREE.Vector3, THREE.Vector3],
+                startMN: null, endMN: null,
+            }, HOST_T);
+        const fpStem = legacyFootprint(stemJd!, HOST_T);
+
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify({ case: 'D', clashMm2: Math.round(overlapMm2(fpHost, fpStem)) }));
+        expect(overlapMm2(fpHost, fpStem)).toBeLessThan(800);
     });
 });

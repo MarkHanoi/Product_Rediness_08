@@ -3084,13 +3084,70 @@ export class WallJoinResolver {
             // penetration of at most `hostHalfT` it admits every approach down to 30° off the
             // host axis and refuses the grazing tail. Derived from the HOST, never from the
             // camera — so the same drawing resolves identically at every zoom.
-            const PENETRATION_ALONG_CAP = hostWall.thickness;
-            if (penetration > hostWall.thickness + this.CLASH_EPS_M || alongTrim > PENETRATION_ALONG_CAP) {
+            // §FIX-T-JOIN-EQUALITY-BOUNDARY (L-928, founder) — the INTERIOR residue of L-919.
+            //   "the wall perimeter behaves really good — but the inner wall partitions not as
+            //    expected: the wall should follow along to connect — why is not happening."
+            //
+            //   TWO defects, both in the SECOND arm below, both MEASURED before this line moved
+            //   (`WallTJoinEqualityBoundary.measure.test.ts`, committed alone at `17824619`).
+            //
+            //   (1) THE ARM CARRIED NO TOLERANCE while the arm sharing its `if` carries one.
+            //       The founder's console read `penetrates … by 100.0 mm but the axial retreat
+            //       (100.0 mm) EXCEEDS one host thickness` — on a 100 mm partition. 100.0 is not
+            //       greater than 100.0. Both arms ask the same declared question ("past one host
+            //       thickness?"); the first asked it with `+ CLASH_EPS_M`, this one asked it
+            //       bare. So ON the boundary the verdict was whichever way the last bit of the
+            //       ray-plane solve rounded. That is measured, not inferred: two fixtures sitting
+            //       EXACTLY on this cap get OPPOSITE verdicts — case A (perpendicular, endpoint
+            //       on the far face) refused, case B (30° at centreline depth) admitted. A
+            //       boundary decided by rounding is not a boundary. It now consumes
+            //       `COINCIDENT_M` from `@pryzm/geometry-kernel` — C73 §2.2, the model-space
+            //       "same length" role — rather than minting a literal or, as L-919's bug class
+            //       did, letting the camera have a vote.
+            //
+            //   (2) THE CAP IS A RATIO WRITTEN AS A CONSTANT. The derivation above is an
+            //       APPROACH-ANGLE rule — clearing `penetration` costs `penetration / sin θ`
+            //       along the secondary's own axis — and it declares the admitted band as "every
+            //       approach down to 30° off the host axis". That is `alongTrim ≤ penetration /
+            //       sin 30° = 2 · penetration`: a RATIO. Fixing it at one thickness expresses
+            //       that ratio at exactly ONE depth — the `hostHalfT` the derivation itself names
+            //       (2 · hostHalfT = thickness ✓). Deeper than that, the admitted angle silently
+            //       tightens; at penetration = one full thickness (a stem drawn through to the
+            //       host's far face — ordinary where partitions chain) it collapses from 30° to
+            //       90°, so only an EXACT perpendicular survives, and then only on the tie that
+            //       defect (1) already decided by noise. Written as the ratio it always was, the
+            //       rule reads the same at every depth.
+            //
+            //   WHY `Math.max`, NOT THE BARE RATIO. The ratio alone would TIGHTEN shallow
+            //   penetrations (a 1 mm graze would get a 2 mm cap where it has a full thickness
+            //   today) and refuse geometry that resolves correctly on the build the founder has
+            //   just confirmed. `Math.max` makes this change monotone-LOOSENING: nothing the
+            //   current gate admits becomes refused. Refusals only shrink.
+            //
+            //   THE DEPTH BOUND IS UNTOUCHED. A genuine through-crossing is still refused — by
+            //   the FIRST arm, which still caps penetration at one host thickness. The two arms
+            //   now own clean, separate questions: arm 1 "how DEEP", arm 2 "how GRAZING".
+            //
+            //   The 200 mm perimeter path is provably unmoved: at its centreline-snap depth
+            //   `penetration = hostHalfT`, so `max(thickness, 2 · hostHalfT) === thickness` —
+            //   the identical number this line computed before. Pinned as exact literals,
+            //   trailing ulp included, by case C of the measurement file.
+            const GRAZING_SIN_MIN = 0.5;   // sin 30° — the approach band this gate's OWN derivation declares. A domain angle, not a tolerance (C73 §2.1: domain bands stay under their domain owner, and this one's owner is the paragraph above).
+            const PENETRATION_ALONG_CAP = Math.max(hostWall.thickness, penetration / GRAZING_SIN_MIN);
+            const tooDeep    = penetration > hostWall.thickness + this.CLASH_EPS_M;
+            const tooGrazing = alongTrim   > PENETRATION_ALONG_CAP + COINCIDENT_M;
+            if (tooDeep || tooGrazing) {
+                // C83 §10.3 — refuse with BOTH numbers AND both bounds, and name which arm
+                // fired. The old text asserted "exceeds one host thickness" for either arm,
+                // which is how a retreat sitting exactly ON the cap came to be reported as
+                // exceeding it.
                 console.warn(
                     `[WallJoinResolver] §FIX-T-JOIN-PENETRATION T-JOIN: ${secondary.wallId}(${secondary.side}) ` +
-                    `penetrates host=${hostWallId} by ${(penetration * 1000).toFixed(1)} mm but the axial ` +
-                    `retreat (${(alongTrim * 1000).toFixed(1)} mm) exceeds one host thickness — grazing or ` +
-                    `through-crossing, not a T-join. Left un-trimmed.`,
+                    `penetrates host=${hostWallId} by ${(penetration * 1000).toFixed(1)} mm ` +
+                    `(depth cap ${((hostWall.thickness + this.CLASH_EPS_M) * 1000).toFixed(1)} mm) with an axial ` +
+                    `retreat of ${(alongTrim * 1000).toFixed(1)} mm ` +
+                    `(grazing cap ${((PENETRATION_ALONG_CAP + COINCIDENT_M) * 1000).toFixed(1)} mm, 30° off the host axis) — ` +
+                    `${tooDeep ? 'through-crossing' : 'grazing'}, not a T-join. Left un-trimmed.`,
                 );
                 return;
             }
