@@ -24,7 +24,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { EPSILON_ZERO, PARALLEL_RAD } from '@pryzm/geometry-kernel';
+import { EPSILON_ZERO, PARALLEL_RAD, polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
 import { WallData }              from './WallTypes';
 import { detectJunctionClusters } from './WallJunctionClustering';
 
@@ -367,21 +367,32 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
- * Absolute area of a simple 2-D (XZ) polygon — shoelace formula, in m².
+ * Absolute area of a simple 2-D (XZ) polygon — in m².
  *
  * Used only to answer "does this polygon enclose ANY area, or is it a collinear
  * sliver?", compared against the kernel's `EPSILON_ZERO` in its declared role as
  * the degenerate-case zero guard.
+ *
+ * §C73-AREA-CANONICAL — this CONSUMES the kernel shoelace
+ * (`polygonSignedAreaOrdinates`) rather than carrying its own accumulation. It
+ * used to spell the loop out locally; that body was minted on 762f896b, AFTER
+ * the C73 §3.1 "polygon-area-and-winding" census was pinned at 77, and it is
+ * what took `check-predicate-canonical` to exit 3 (78 vs 77) — the one verdict
+ * that is never absorbable as debt. Fixed at the rival rather than by raising
+ * the pin: a ratchet you raise whenever it bites is not a ratchet.
+ *
+ * PROVENANCE CHANGE, NOT A BEHAVIOUR CHANGE, and deliberately so. The kernel
+ * returns the SIGNED half-sum over ring-successor pairs; the local body returned
+ * `Math.abs(sum) / 2` over the same pairs, so `Math.abs(kernel)` is the same
+ * number for every input, degenerate rings included (< 3 vertices read 0 in
+ * both). The only dropped element is the local `if (!p || !q) continue` sparse-
+ * array guard, which never fired: `voidVerts` is built dense by `.map()` at the
+ * one call site.
  */
 function _polygonArea2D(pts: { x: number; z: number }[]): number {
-    let a = 0;
-    for (let i = 0; i < pts.length; i++) {
-        const p = pts[i];
-        const q = pts[(i + 1) % pts.length];
-        if (!p || !q) continue;
-        a += p.x * q.z - q.x * p.z;
-    }
-    return Math.abs(a) / 2;
+    return Math.abs(
+        polygonSignedAreaOrdinates(pts.length, (i) => pts[i]!.x, (i) => pts[i]!.z),
+    );
 }
 
 /**
