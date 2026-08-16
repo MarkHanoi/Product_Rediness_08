@@ -323,4 +323,44 @@ describe('§ROOF-FOLLOWS-WALL — the re-derived boundary must reach the ROOF ST
             "the roof's STORED footprint must follow its wall — the engine returning 48 m² is not the product doing so",
         ).toBeCloseTo(48, 3);
     });
+
+    /**
+     * ARM D — STRUCTURAL PIN, and labelled as one because it is WEAKER than the
+     * three arms above and must not be mistaken for them.
+     *
+     * WHAT IT DOES NOT PROVE: that this line executes at boot. `initTools` is a
+     * ~2600-line function needing a THREE world, a components registry and
+     * twenty stores before its first statement runs, so no suite in this repo
+     * executes it. Arm C proves the tracker + command MECHANISM against the real
+     * `RoofStore` and the real `WallStore`, wired with the same four arguments;
+     * the root `tsc` proves those arguments type-check against the production
+     * store types. The residue — "does this block run at boot" — is the exact
+     * assumption the three EXISTING trackers (slab, floor, ceiling) already rest
+     * on, and it is inherited here rather than newly created.
+     *
+     * WHAT IT DOES PROVE: that the construction and its `bootstrap()` are still
+     * present. Roof's follow path has no gate of its own —
+     * `check-move-propagation`'s A7 arm is purely STRUCTURAL (it greps
+     * `RoofTypes.ts` for a field NAME), so it cannot notice this wiring
+     * disappearing. Without this pin, deleting the two lines in `initTools`
+     * would leave every arm above green and the product silently back to a roof
+     * that does not follow.
+     */
+    it('ARM D — STRUCTURAL: initTools still constructs and bootstraps the roof tracker', async () => {
+        const { readFile } = await import('node:fs/promises');
+        const src = await readFile(new URL('../src/engine/initTools.ts', import.meta.url), 'utf8');
+
+        expect(
+            /new RoofDependencyTracker\(/.test(src),
+            'initTools must CONSTRUCT the roof tracker — without it nothing subscribes to the wall store on roof\'s behalf',
+        ).toBe(true);
+        expect(
+            /roofDependencyTracker\.bootstrap\(\)/.test(src),
+            'the tracker must be BOOTSTRAPPED — roofs already in the store when the editor opens (every loaded project) register no dependency otherwise',
+        ).toBe(true);
+        expect(
+            /new UpdateRoofBoundaryCommand\(/.test(src),
+            'the factory must build the real command — a tracker with no write-back recomputes into the void',
+        ).toBe(true);
+    });
 });
