@@ -8,6 +8,17 @@
     "segment-segment-intersection": {
       "production": 11,
       "test": 2,
+      "byFile": {
+        "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts": 1,
+        "packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts": 2,
+        "packages/auto-dimension/src/geometry.ts": 1,
+        "packages/core-app-model/src/drawing/HiddenLineRemoval.ts": 1,
+        "packages/core-app-model/src/views/PlanSnapEngine.ts": 1,
+        "packages/site-parcel-data/src/geometry/insetPolygon.ts": 1,
+        "packages/site-parcel-data/src/geometry/streetWidth.ts": 1,
+        "packages/snapping/src/GeometryUtils.ts": 2,
+        "plugins/annotations/src/commands/CreateElevationMarkCommand.ts": 1
+      },
       "bodies": [
         "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts:193::parametric(2 quotients)",
         "packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts:513::parametric(2 quotients)",

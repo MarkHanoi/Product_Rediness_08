@@ -335,9 +335,9 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'segment-segment-intersection',
     what: 'proper crossing of two segments (cross-product straddle pair, or parametric t/u solve)',
-    canonical: null,
+    canonical: 'packages/geometry-kernel/src/pure/segmentIntersection.ts',
     exclusions: [],
-    counted: false,
+    counted: true,
     notYetReason:
       'NOT-YET-COUNTED as an arm, but the §3.6/§3.7 blocker is DISCHARGED (2026-08-13): the one-family ' +
       'proof (d1 = −u·D, d2 = (1−u)·D, d3 = t·D, d4 = (t−1)·D — both spellings are decision procedures over ' +
@@ -705,22 +705,86 @@ interface Baseline {
    * re-derivable and so a reviewer can diff which bodies left, WITHOUT the
    * family yet contributing findings.
    *
-   * WHY RECORDED BUT NOT RATCHETED — stated plainly rather than left to be
-   * inferred, because a gate that exits 0 while carrying known duplicates is
-   * exactly the two-facts-one-value dishonesty this repo keeps paying for:
-   * turning a census into findings would move this gate off HARD-0 (findings > 0
-   * ⇒ exit 1 for as long as the debt exists, per `verdictOf`). Whether this gate
-   * leaves hard-0 is a REGISTRATION decision — `gate-debt.json` requires an
-   * explicit founder/architect decision, and `gate-newly-measured.json` exists
-   * precisely for "the instrument arrived" — and neither is a lane's to make
-   * unilaterally. So the measurement lands, the ratchet does not, and the gate's
-   * printed output says the number out loud on every run so nobody reads its
-   * CLEAN verdict as "no duplicates". The flip is one field: `counted: true`.
+   * NOW RATCHETED (2026-08-15). Both families are `counted: true`, their bodies
+   * join `findings`, and these recorded readings join `declared` — so the gate
+   * lands at exit 1 DECLARED-LEVEL, pinned at 11 and 77, shrink-only in both
+   * directions.
+   *
+   * THIS IS AN INSTRUMENT BEING SWITCHED ON, NOT A REGRESSION. Every one of
+   * these 88 bodies predates the arms that count them, which is precisely the
+   * `gate-newly-measured.json` category: filing it as a regression would train
+   * readers to treat red as noise, and filing it as `gate-debt.json` would
+   * backdate a decision nobody made. The governing rule is
+   * BIM30-IMPLEMENTATION-ROADMAP §7 — "the founder's authority is over what we
+   * ship, not over what we are allowed to know" — so turning a counter ON does
+   * not wait for sign-off, while MOVING an entry to `gate-debt.json` or
+   * extending its `reviewBy` still does.
+   *
+   * RAISING EITHER PINNED READING IS FORBIDDEN OUTRIGHT — founder or not.
    */
-  readonly census?: Record<string, { readonly production: number; readonly test: number; readonly bodies: string[] }>;
+  readonly census?: Record<string, {
+    readonly production: number;
+    readonly test: number;
+    /**
+     * THE COMPARISON KEY — per FILE, with a body COUNT; NOT `file:line`.
+     *
+     * The point-in-polygon ledger above keys `file:line::signature` per C69 §7.c,
+     * so a reviewer sees WHICH body left rather than a number that could hide one
+     * removal and one addition. That is the right key for a ledger of 0–7 entries.
+     * It is the WRONG key for these two: 88 bodies across 79 files that many lanes
+     * edit concurrently, where any unrelated reformat shifts a line number and the
+     * gate reports a body "struck" and an identical body "new" — exit 3
+     * RATCHET-EXCEEDED / STALE, which is NEVER absorbable as debt. A gate that
+     * cries wolf on line churn gets read as noise, which is L-774 all over again.
+     *
+     * Per-file counts keep everything C69 §7.c actually asks for — the reviewer
+     * still sees which FILE moved and by how much, and one removal plus one
+     * addition in the SAME file still nets visible in `bodies` — while being
+     * immune to line churn and strict on real change: the count moves only when a
+     * body is genuinely added or removed. `bodies` is retained alongside, purely
+     * for audit and diffing.
+     */
+    readonly byFile: Record<string, number>;
+    readonly bodies: string[];
+  }>;
 }
 
 function keyOf(b: Body): string { return `${b.file}:${b.line}::point-in-polygon`; }
+
+/** Per-file body counts — the census ledger's comparison key (see `Baseline.census`). */
+function tallyByFile(bodies: ReadonlyArray<{ readonly file: string }>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of bodies) out[b.file] = (out[b.file] ?? 0) + 1;
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : 1)));
+}
+
+/**
+ * Compare a family's measured bodies against its recorded per-file census.
+ * Shrink-only, in BOTH directions (the same rule the point-in-polygon ledger
+ * runs under): a file that GREW — or that appears at all when it was not
+ * recorded — is a finding; a file that SHRANK or vanished is STALE and must
+ * leave the ledger in the commit that pays it, or the next regression hides
+ * inside the slack it left behind.
+ */
+function censusDelta(
+  family: string,
+  measured: ReadonlyArray<{ readonly file: string }>,
+  recorded: Record<string, number> | undefined,
+): { grown: string[]; shrunk: string[] } {
+  const now = tallyByFile(measured);
+  const then = recorded ?? {};
+  const grown: string[] = [];
+  const shrunk: string[] = [];
+  for (const [file, n] of Object.entries(now)) {
+    const was = then[file] ?? 0;
+    if (n > was) grown.push(`${family}::${file} ${was} → ${n}`);
+  }
+  for (const [file, was] of Object.entries(then)) {
+    const n = now[file] ?? 0;
+    if (n < was) shrunk.push(`${family}::${file} ${was} → ${n}`);
+  }
+  return { grown, shrunk };
+}
 
 // ─── Executed controls ───────────────────────────────────────────────────────
 
@@ -1076,6 +1140,33 @@ function selfTest(): { ok: boolean; lines: string[] } {
     const segOnArea = detectSegmentIntersection(join(base, 'area'), ['packages']);
     lines.push(`    CROSS-FAMILY (SEGSEG run over the AREA fixtures): ${segOnArea.bodies.length} bod(ies) — expected 0`);
     if (segOnArea.bodies.length !== 0) fail('The SEGSEG arm counted the AREA fixtures — the two censuses overlap, so a body would be counted under both family names and the ratchets would move together for one fix (C73 §3.5, the polygon-containment argument applied here).');
+
+    // ── The CENSUS RATCHET's own comparator, watched in BOTH directions ──────
+    // The two arms above prove the DETECTOR sees the right bodies. Nothing yet
+    // proves the shrink-only COMPARATOR reacts to them, and a ratchet whose
+    // comparator was never watched failing is exactly the unproven arm this
+    // file's doctrine refuses (gates doc §2.2). Both directions matter and they
+    // are NOT symmetric: growth must be a FINDING (exit 3 once it passes the
+    // pinned level), while paydown must be STALE — debt that has been paid has
+    // to leave the ledger in the commit that pays it, or the next regression
+    // hides in the slack it left behind.
+    const cxRecorded = { 'pkg/a.ts': 2, 'pkg/b.ts': 1 };
+    const cxFlat = (f: string, n: number): Array<{ file: string }> => Array.from({ length: n }, () => ({ file: f }));
+    const cxSame = censusDelta('t', [...cxFlat('pkg/a.ts', 2), ...cxFlat('pkg/b.ts', 1)], cxRecorded);
+    const cxGrew = censusDelta('t', [...cxFlat('pkg/a.ts', 3), ...cxFlat('pkg/b.ts', 1)], cxRecorded);
+    const cxPaid = censusDelta('t', [...cxFlat('pkg/a.ts', 2)], cxRecorded);
+    const cxFresh = censusDelta('t', [...cxFlat('pkg/a.ts', 2), ...cxFlat('pkg/b.ts', 1), ...cxFlat('pkg/c.ts', 1)], cxRecorded);
+    lines.push(`    CENSUS ratchet (unchanged / grew / paid / new file): ${cxSame.grown.length}+${cxSame.shrunk.length}, ${cxGrew.grown.length}+${cxGrew.shrunk.length}, ${cxPaid.grown.length}+${cxPaid.shrunk.length}, ${cxFresh.grown.length}+${cxFresh.shrunk.length} — expected 0+0, 1+0, 0+1, 1+0`);
+    if (cxSame.grown.length !== 0 || cxSame.shrunk.length !== 0) fail('CENSUS ratchet reported movement on an UNCHANGED reading — a comparator that fires on no change makes every run red and trains readers to ignore it (L-774).');
+    if (cxGrew.grown.length !== 1) fail('CENSUS ratchet did not report a file that GREW — the ratchet does not ratchet, which is the one thing it exists to do.');
+    if (cxPaid.shrunk.length !== 1) fail('CENSUS ratchet did not report a PAID-DOWN file as stale — debt that leaves the tree must leave the ledger in the same commit, or the next regression hides inside the slack.');
+    if (cxFresh.grown.length !== 1) fail('CENSUS ratchet did not report a body in a file that was NEVER recorded — a brand-new rival file is the most important growth case there is.');
+    // Line churn must NOT move it — the reason this ledger keys per FILE and not
+    // per file:line. 88 bodies across 79 concurrently-edited files would
+    // otherwise report a body "struck" and an identical one "new" on any
+    // reformat, i.e. exit 3, which is never absorbable as debt.
+    const cxChurn = censusDelta('t', [{ file: 'pkg/a.ts' }, { file: 'pkg/a.ts' }, { file: 'pkg/b.ts' }], cxRecorded);
+    if (cxChurn.grown.length !== 0 || cxChurn.shrunk.length !== 0) fail('CENSUS ratchet moved on pure LINE CHURN — the per-file key exists precisely so an unrelated reformat cannot manufacture a false RATCHET-EXCEEDED.');
   } catch (e) {
     ok = false; lines.push(`    ✗ self-test threw: ${(e as Error).message}`);
   } finally {
@@ -1143,11 +1234,13 @@ if (WRITE) {
       'segment-segment-intersection': {
         production: segRivals.length,
         test: segAll.bodies.filter((b) => b.isTest).length,
+        byFile: tallyByFile(segRivals),
         bodies: segRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
       },
       'polygon-area-and-winding': {
         production: areaRivals.length,
         test: areaAll.bodies.filter((b) => b.isTest).length,
+        byFile: tallyByFile(areaRivals),
         bodies: areaRivals.map((b) => `${b.file}:${b.line}::${b.form}`),
       },
     },
@@ -1239,13 +1332,12 @@ lines.push(
   `+ ${segAll.bodies.filter((b) => b.isTest).length} in tests.`,
 );
 lines.push(
-  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT. These bodies do NOT contribute findings, so the ' +
-  'CLEAN/hard-0 line below covers point-in-polygon ONLY — it is not a claim that this family is collapsed. ' +
-  'Ratcheting it would move this gate off hard-0 for as long as the debt exists (findings > 0 ⇒ exit 1), and ' +
-  'that is a REGISTRATION decision (gate-debt.json needs an explicit founder/architect decision; ' +
-  'gate-newly-measured.json is the "the instrument arrived" category) — not a lane\'s to take unilaterally. ' +
-  'The measurement lands so the successor inherits a number instead of a sweep. FLIP: set counted:true on the ' +
-  'family and add these to `findings`, in the commit that registers the gate\'s new state.',
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT. COUNTED since 2026-08-15: these bodies contribute ' +
+  'findings and the gate now lands at exit 1 DECLARED-LEVEL, pinned at 11. That is an INSTRUMENT SWITCHED ' +
+  'ON, not a regression — every body predates the arm — and it is registered in gate-newly-measured.json, ' +
+  'NOT gate-debt.json, which would backdate a decision nobody made. Raising the pin is forbidden outright. ' +
+  'And 0 findings here would still NOT mean "no duplicates": the arm is blind to a determinant computed by ' +
+  'a helper, and blind to correctness by design.',
 );
 for (const b of segRivals) lines.push(`        · ${b.file}:${b.line}  ${b.form}`);
 if (priorSeg) {
@@ -1281,9 +1373,12 @@ lines.push(
   `${areaRivals.filter((b) => b.form === 'trapezoid').length} trapezoid.`,
 );
 lines.push(
-  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — same standing as the segment/segment census above: these ' +
-  'bodies contribute NO findings, so the CLEAN/hard-0 verdict covers point-in-polygon ONLY. This is the ' +
-  'largest family in §3.1 and it is nowhere near collapsed.',
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — and unlike the segment/segment census above, this one is ' +
+  'STILL NOT COUNTED: these bodies contribute NO findings, so the DECLARED-LEVEL verdict below covers ' +
+  'point-in-polygon and segment/segment ONLY. Not counted here because ONE FAMILY PER COMMIT (roadmap §2.4) ' +
+  'and segment/segment is this commit\'s family — batching the two would make one review of two collapses. ' +
+  'The census is measured and recorded, so the flip is one field (counted:true) plus the two arithmetic ' +
+  'lines. This is the largest family in §3.1 and it is nowhere near collapsed.',
 );
 lines.push(
   '        THE BLOCKER THE REGISTER NAMED IS REAL AND IS DISCHARGED BY THREE CONDITIONS, NOT BY THE `+=`: a ' +
@@ -1364,10 +1459,23 @@ const floors: Floor[] = [
   { what: 'polygon-area bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: areaCanonical.length, min: 1 },
 ];
 
+// ─── segment-segment-intersection is now COUNTED (2026-08-15) ────────────────
+// Its bodies join `findings`, and the reading recorded in the baseline joins
+// `declared`, so the gate lands at exit 1 DECLARED-LEVEL — findings EQUAL to a
+// pinned level, never above it. Growth exits 3 and is never absorbable.
+//
+// ONE FAMILY PER COMMIT (roadmap §2.4). polygon-area-and-winding is measured,
+// its census is recorded, and it is deliberately NOT wired in here: it lands in
+// its own commit. Batching the two would make one review of two collapses and
+// let a regression in either hide inside the other's slack.
+const segDelta = censusDelta('segment-segment-intersection', segRivals, prior.census?.['segment-segment-intersection']?.byFile);
+
 // c2Integrity is HARD — it is never part of `declared`, so any integrity
 // violation pushes findings above the declared ledger and the gate exits red.
-const findings = measured.size + c2Missing.length + c2Integrity.length + disagreements.length;
-const declared = priorKeys.size + prior.c2 + prior.c3.length;
+const findings = measured.size + c2Missing.length + c2Integrity.length + disagreements.length
+  + segRivals.length;
+const declared = priorKeys.size + prior.c2 + prior.c3.length
+  + (prior.census?.['segment-segment-intersection']?.production ?? 0);
 
 const result: GateResult = {
   gate: GATE,
@@ -1380,8 +1488,12 @@ const result: GateResult = {
     ...c2Missing.map((f) => `C2::${f.id} has no canonical file`),
     ...c2Integrity.map((v) => `C2::${v.split(' — ')[0]} canonical-file integrity`),
     ...disagreements.map((d) => `C3::${d.split(' — ')[0]}`),
+    ...segRivals.map((b) => `C1::${b.file}:${b.line}::segment-segment-intersection`),
   ],
-  stale: stale.map((k) => `C1::${k}`),
+  stale: [
+    ...stale.map((k) => `C1::${k}`),
+    ...segDelta.shrunk.map((k) => `CENSUS::${k}`),
+  ],
 };
 
 process.exit(reportGate(result));
