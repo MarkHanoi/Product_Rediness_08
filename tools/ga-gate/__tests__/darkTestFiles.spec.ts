@@ -25,6 +25,41 @@
  *     file is debt that can never be paid off and hides the next regression
  *     inside itself — the gate's own STALE arm catches it, and this catches a
  *     ledger that was hand-edited into nonsense.
+ *  5. THE LEDGER IS A SHRINK-ONLY RATCHET. It may fall to zero freely; it may
+ *     not rise above the pinned reading without an explicit, reviewable edit to
+ *     `LEDGER_RATCHET_MAX` below.
+ *
+ * ─── §FIX-DARK-SPEC-SHRINK-HOSTILE (2026-08-16) ─────────────────────────────
+ * This spec used to end with
+ *
+ *     expect(j.firstReading?.dark).toBe(paths.length);
+ *
+ * commented "the recorded first reading must match the rows it claims to
+ * summarise". It does not, and it must not. `firstReading` is the FOUNDING
+ * measurement — 137 dark files on 2026-08-14, deliberately immutable history.
+ * `paths.length` is the LIVE row count. Equating a historical constant with a
+ * live quantity means the assertion holds in exactly one state of the world:
+ * the day the ledger was minted. Every row struck since — 137 → 65 → 13, the
+ * §L-850 drain, all of it real work — pushed the two further apart, so the spec
+ * went red BECAUSE the thing it measures IMPROVED. Measured at HEAD before this
+ * fix: `AssertionError: expected 137 to be 13`.
+ *
+ * A red suite that is red for doing the right thing teaches people to ignore
+ * the suite. It is the same defect class as the pre-2026-08-11 P8 gate: an
+ * assertion whose subject is not the thing anyone cares about.
+ *
+ * What replaces it — three arms, none of which compares history to the present:
+ *   · `firstReading` is checked for INTERNAL consistency (its own byClass sums
+ *     to its own total) and for immutability-as-a-ceiling. It is never compared
+ *     to the live count except as an upper bound.
+ *   · the live row count is cross-checked against the GATE'S OWN MEASUREMENT,
+ *     parsed out of the subprocess output. That is the check the deleted line
+ *     was reaching for — "is this number measured or typed?" — asked against a
+ *     measurement instead of against a constant, so it moves when the tree
+ *     moves and cannot go stale.
+ *   · the ratchet itself: `paths.length <= LEDGER_RATCHET_MAX`. SHRINKING IS
+ *     ALWAYS GREEN. Growing past the pin is RED and stays red until somebody
+ *     edits the constant in a reviewable commit.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -38,6 +73,21 @@ const GATE_DIR = resolve(HERE, '..');
 const ROOT = resolve(GATE_DIR, '..', '..');
 const GATE = join(GATE_DIR, 'check-no-dark-test-files.ts');
 const LEDGER = join(GATE_DIR, 'dark-test-files-ledger.json');
+
+/**
+ * §FIX-DARK-SPEC-SHRINK-HOSTILE — the shrink-only ratchet pin.
+ *
+ * MEASURED, not chosen: `npx tsx tools/ga-gate/check-no-dark-test-files.ts` on
+ * 2026-08-16 printed `DARK: 13  (no-runner 4 · excluded-by 6 · compiled-artefact 3)`
+ * against a declared ledger of 13 — exit 1, DECLARED-LEVEL, no UNLEDGERED, no STALE.
+ *
+ * Lower it whenever the ledger drains; the suite will not stop you. RAISING it is
+ * the reviewable act: it means a test file went dark and somebody chose to tolerate
+ * it, which is a founder decision under C70 §5.3 rule 2, not a chore. Never raise it
+ * to make this suite green — the gate itself already fails by NAME on an unledgered
+ * dark file, so a raise here without a matching ledger row cannot buy a green anyway.
+ */
+const LEDGER_RATCHET_MAX = 13;
 
 /** Run the gate, returning its combined output and real exit code. */
 function runGate(): { out: string; code: number } {
@@ -87,24 +137,101 @@ describe('check-no-dark-test-files (§L-850)', () => {
     expect(run.out).toContain('GLOB REACHABILITY, not CI INVOCATION');
   }, 300_000);
 
+  /** The ledger, parsed once — the same artefact for every arm below. */
+  interface LedgerShape {
+    dark?: Record<string, string>;
+    firstReading?: { dark?: number; byClass?: Record<string, number> };
+  }
+  function readLedger(): { j: LedgerShape; paths: string[] } {
+    const j = JSON.parse(readFileSync(LEDGER, 'utf8')) as LedgerShape;
+    return { j, paths: Object.keys(j.dark ?? {}) };
+  }
+
   it('ledger rows all point at files that exist and carry a class tag', () => {
     expect(existsSync(LEDGER)).toBe(true);
-    const j = JSON.parse(readFileSync(LEDGER, 'utf8')) as {
-      dark?: Record<string, string>;
-      firstReading?: { dark?: number };
-    };
-    const dark = j.dark ?? {};
-    const paths = Object.keys(dark);
-    expect(paths.length).toBeGreaterThan(0);
+    const { j, paths } = readLedger();
 
+    // NOT `paths.length > 0`. An EMPTY ledger is the goal state of a shrink-only
+    // ratchet, and a spec that fails on arrival is the same defect this file was
+    // just repaired for. What must hold is that the `dark` key EXISTS — an absent
+    // key is a malformed artefact (the gate reads `j.dark ?? {}` and would report
+    // a clean tree over a file somebody truncated), whereas `{}` is a real,
+    // measured, fully-drained ledger.
+    expect(
+      typeof j.dark === 'object' && j.dark !== null,
+      'ledger has no `dark` object — an absent key reads as "nothing is dark", which is a truncation, not a measurement',
+    ).toBe(true);
+
+    const dark = j.dark ?? {};
     const missing = paths.filter((p) => !existsSync(join(ROOT, p)));
     expect(missing, `ledger rows pointing at files that do not exist: ${missing.join(', ')}`).toEqual([]);
 
     const untagged = paths.filter((p) => !/^\[(no-runner|excluded-by|compiled-artefact|unproven-coverage)\]/.test(dark[p]!));
     expect(untagged, `ledger rows with no class tag: ${untagged.join(', ')}`).toEqual([]);
+  });
 
-    // The recorded first reading must match the rows it claims to summarise, or
-    // the header is a number somebody typed rather than a number measured.
-    expect(j.firstReading?.dark).toBe(paths.length);
+  it('the ledger row count is the GATE\'S OWN measurement, not a number somebody typed', () => {
+    // The honest form of the assertion this spec used to make against
+    // `firstReading`. The gate prints its live reading as
+    //   `DARK: 13  (no-runner 4 · excluded-by 6 · compiled-artefact 3)`
+    // and that number is recomputed by walking the tree on every run. Comparing
+    // the ledger to THAT moves when the tree moves; comparing it to a constant
+    // in the JSON header goes stale the first time anyone fixes anything.
+    const m = run.out.match(/DARK:\s*(\d+)\s*\(no-runner\s*(\d+)\s*·\s*excluded-by\s*(\d+)\s*·\s*compiled-artefact\s*(\d+)\)/);
+    expect(m, `the gate did not print a parsable DARK reading; output was:\n${run.out.slice(0, 2000)}`).not.toBeNull();
+
+    const [measured, noRunner, excludedBy, compiled] = m!.slice(1).map(Number) as [number, number, number, number];
+    const { paths } = readLedger();
+
+    // The gate's own class split must sum to its own headline, or the headline is
+    // a print statement rather than a derivation.
+    expect(noRunner + excludedBy + compiled).toBe(measured);
+
+    // …and the ledger must name exactly what the gate measured. Off in EITHER
+    // direction is a real defect the gate also catches (UNLEDGERED / STALE, exit 3);
+    // pinning it here as well means the suite says WHICH, in one line, instead of
+    // making a reader diff two lists by eye.
+    expect(
+      paths.length,
+      `ledger rows (${paths.length}) disagree with the gate's live DARK reading (${measured}). ` +
+      'Strike or add rows in the SAME commit as the include change (C70 §5.3).',
+    ).toBe(measured);
+  }, 300_000);
+
+  it('is a SHRINK-ONLY ratchet — draining is green, growing past the pin is red', () => {
+    const { j, paths } = readLedger();
+
+    // ── grow-intolerant ──────────────────────────────────────────────────────
+    // The teeth. If a test file falls dark and gets a row, this goes red until
+    // LEDGER_RATCHET_MAX is deliberately raised — which is the reviewable act.
+    expect(
+      paths.length,
+      `the dark-test ledger GREW to ${paths.length}, above the pinned ratchet of ${LEDGER_RATCHET_MAX}. ` +
+      'A test file that no runner can select reads as coverage and asserts nothing (L-849). ' +
+      'Wire it up and strike the row — do NOT raise the pin to go green.',
+    ).toBeLessThanOrEqual(LEDGER_RATCHET_MAX);
+
+    // ── shrink-tolerant ──────────────────────────────────────────────────────
+    // Deliberately NO lower bound. `paths.length` may be anything from 0 up. The
+    // whole point of the repair is that this suite must never punish a drain.
+
+    // ── the pin may only ever ratchet DOWN from the founding reading ─────────
+    const first = j.firstReading?.dark;
+    expect(typeof first, 'firstReading.dark is missing — the founding measurement is the ratchet ceiling').toBe('number');
+    expect(
+      LEDGER_RATCHET_MAX,
+      `the pin (${LEDGER_RATCHET_MAX}) is above the founding reading (${first}). ` +
+      'The ledger has only ever been allowed to shrink; a pin above its own origin is not a ratchet.',
+    ).toBeLessThanOrEqual(first!);
+
+    // ── firstReading is HISTORY, and history must be internally consistent ───
+    // This is the "number somebody typed" check applied where it belongs: to the
+    // frozen record's own two halves, never across the frozen record and the live
+    // tree. byClass is optional — but if it is present it must sum to its total.
+    const byClass = j.firstReading?.byClass;
+    if (byClass) {
+      const sum = Object.values(byClass).reduce((a, b) => a + b, 0);
+      expect(sum, `firstReading.byClass sums to ${sum} but firstReading.dark says ${first}`).toBe(first);
+    }
   });
 });
