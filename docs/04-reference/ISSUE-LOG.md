@@ -5496,3 +5496,93 @@ row if it reproduces.
 touching any framing code; prove at the layer the user experiences (the camera's resting distance
 after selecting a parcel, read from the camera, not from a framing function's return); do not add a
 fifth actor.
+
+---
+
+## L-932 — MOVE AN **ANGLED** WALL AND ITS NEIGHBOURS DO NOT FOLLOW; the room is destroyed and a patch wall is invented
+
+**Reported by the founder, 2026-08-16, PRODUCTION, with two screenshots.** Screenshot 2 is the
+**EXPECTED** result — the moved wall still joined to its neighbours. Screenshot 1 is what happened.
+**Severity: HIGH.** The founder has reported the "walls must follow" family repeatedly (L-921,
+L-922, L-925, L-926, L-928). **This is the first report where the moved wall is NOT ORTHOGONAL, and
+that is very likely why the family is still open.**
+
+### ⭐ THE SMOKING GUN, printed three times in the founder's own log
+
+```
+[WallTransform] Wall "wall_01M05RG5QA7XRQD2XRDVNXRKWG" — gizmo aligned with direction N
+[WallTransform] Wall "wall_01M05RG2MH7E7NG7JQH7BKGQKC" — gizmo aligned with direction N
+[WallTransform] Wall "wall_01M05RGB031X9VCJM7CJ8P8C3G" — gizmo aligned with direction N
+```
+
+**Every wall, whatever its angle, gets a gizmo aligned to `direction N`.** For an orthogonal wall a
+cardinal axis *is* its perpendicular, so the whole existing follow family has only ever been
+exercised where the two coincide. For an ANGLED wall they do not: dragging along a cardinal axis
+moves the baseline by a component that is **not** its normal, so the offset from each partner's
+contact point varies along the wall, and a partner re-seat computed as a perpendicular translation
+cannot preserve contact.
+
+> **HYPOTHESIS TO MEASURE FIRST, BEFORE ANY FIX:** the follow machinery is not broken in general —
+> it is keyed on an assumption (move ⟂ wall) that only holds for orthogonal walls. If so, this is
+> one defect, not a new family, and the fix is in the move VECTOR and the partner re-seat basis, not
+> in the rescuer.
+> ⚠ **REFUTE IT PROPERLY.** `direction N` may be a display label for the gizmo widget rather than
+> the applied translation basis. Read what `UPDATE_WALL_BASELINE` actually receives. If the applied
+> delta is already the true normal, this lead is dead and the defect is downstream — say so.
+
+### What the log shows happening after the move
+
+```
+1  UPDATE_WALL_BASELINE  →  CASCADE_WALL_BASELINE            ← the cascade DID run
+2  §DIAG-PARTITION-REACH reconnected guest=…B031X.start onto host=…ADAZX body
+                          — closed a 782mm dangling gap (resolver-trim recovery)
+3  §OPENED-REGION Room 00-001 (276.5 m²) is NO LONGER DETECTED AS A ROOM AT ALL.
+                  9.62 m of the boundary it used to have now has no wall on it.  (rooms 1 → 0)
+4  [OpenedRegionProposal] §OPENED-REGION accepted: wall.create on level L0 (0.20 m × 2.80 m)
+5  §DIAG-ROOM-LOOP BREAK guest=…HX29D on host=…ADAZX body — endpoint 237mm from centreline
+                  EXCEEDS hostSnap 200mm → loop will NOT close (flood/merge risk)
+6  [RoomBoundaryBuilder] Compliance overlay: 2 error room(s) tracked
+```
+
+**Read that sequence as a whole.** The cascade ran and still left a **782 mm** gap. A rescuer patched
+it. The room was destroyed anyway — **276.5 m² → no room** — and the system then **invented a new
+wall** to plug a 9.62 m hole its own move had opened. After all that, a **237 mm** endpoint still
+exceeds the **200 mm** `hostSnap`, so the loop *still* does not close.
+
+⚠ **§DIAG-PARTITION-REACH IS A RESCUER AND ITS FIRING IS EVIDENCE OF THE DEFECT, NOT OF HEALTH** —
+already recorded under L-928. Its own text says *"resolver-trim recovery"*. **Fix the emitter; do
+not tune the rescuer** (the L-909a lesson).
+
+⚠ **`OpenedRegionProposal` creating a wall is a WORKAROUND, not the behaviour.** The founder's
+expectation (screenshot 2) is that the EXISTING neighbours follow and stay joined — not that a new
+0.20 × 2.80 m wall is minted to cover the hole. A model that patches its own damage with new
+elements is accumulating geometry the user never authored.
+
+### A separate defect, riding along in the same trace — DO NOT LOSE IT
+
+```
+[YjsDocAdapter] W5-3: 'wall.create' declares subject key 'id' but the payload carried no non-empty
+                string there. Nothing was replicated for this dispatch.
+```
+**The invented patch wall was NOT replicated.** A collaborator's model would silently differ from
+the author's. That is a C08 / C70 K-INV sync-integrity defect independent of the geometry, and it is
+reachable by any `wall.create` whose payload omits `id`. **File and fix separately if it is not
+already covered.**
+
+### Governing contracts and prior art
+
+- **C83 §10 §JOINT-AUTHORITY-IS-THE-INCUMBENT** — dependents follow, incumbents never move. §10.6
+  weld authorship: the terminating endpoint is the dependent side. Whatever the fix, the wall the
+  founder moved is the mover; the ones it meets are incumbents.
+- **L-926** restored the T-stem follow via authorship bands; **L-928** found two comparison arms, one
+  with `CLASH_EPS_M` and one bare `>`. **Check both against a non-axis-aligned basis** — an epsilon
+  that is correct along an axis can be wrong along a diagonal.
+- **C73 §2.2** — the `hostSnap 200mm` in the loop-break message must be CONSUMED from
+  `@pryzm/geometry-kernel`, never minted locally. Verify. Compare with L-919's root cause, where a
+  gap was measured against a **camera-derived** snap radius.
+
+**Owner:** lane **L932**. Discipline: reproduce with an explicitly NON-orthogonal wall — an
+orthogonal fixture cannot fail this way and would give a false green; measure the applied translation
+basis before changing anything; prove at the STORED layer (the partner walls' baselines after the
+move, and the room still detected), never a function return; do not tune `§DIAG-PARTITION-REACH`;
+do not accept `OpenedRegionProposal` firing as success.
