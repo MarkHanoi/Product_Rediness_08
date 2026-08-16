@@ -235,6 +235,7 @@ export * from './rooms/roomBoundarySketch';
 export * from './roofs/CreateRoofCommand';
 export * from './roofs/DeleteRoofCommand';
 export * from './roofs/UpdateRoofCommand';
+export * from './roofs/UpdateRoofBoundaryCommand';
 
 // ─── Slabs ────────────────────────────────────────────────────────────────
 export * from './slabs/CreateAllSlabsFromLevelToAllFloorsCommand';

@@ -108,6 +108,11 @@ export enum CommandType {
     CREATE_CURTAIN_WALLS_ON_ALL_SLABS = 'CREATE_CURTAIN_WALLS_ON_ALL_SLABS',
     CREATE_ROOF = 'CREATE_ROOF',
     UPDATE_ROOF = 'UPDATE_ROOF',
+    // §ROOF-FOLLOWS-WALL (L-924) — the derived write a moved bounding wall
+    // produces. Distinct from UPDATE_ROOF, which is a user edit of roof
+    // PARAMETERS: this one rewrites the footprint that was re-derived from the
+    // walls, and its 'reproject' mode is nonUndoable for that reason.
+    UPDATE_ROOF_BOUNDARY = 'UPDATE_ROOF_BOUNDARY',
     DELETE_ROOF = 'DELETE_ROOF',
     CREATE_HANDRAIL = 'CREATE_HANDRAIL',
     DELETE_HANDRAIL = 'DELETE_HANDRAIL',

@@ -88,6 +88,10 @@ export class PlanOrdering {
         [CommandType.UPDATE_ELEMENT_PARAMETER]: 41,
         [CommandType.CREATE_ROOF]: 24,
         [CommandType.UPDATE_ROOF]: 42,
+        // §ROOF-FOLLOWS-WALL (L-924) — 41, matching UPDATE_FLOOR_BOUNDARY and
+        // UPDATE_CEILING_BOUNDARY: a derived boundary rewrite must replay BEFORE
+        // the parameter edits at 42 that may read the footprint it produces.
+        [CommandType.UPDATE_ROOF_BOUNDARY]: 41,
         [CommandType.DELETE_ROOF]: 91,
         [CommandType.CREATE_PLUMBING_FIXTURE]: 25,
         [CommandType.CREATE_OPENING]: 30,
