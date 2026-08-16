@@ -92,6 +92,11 @@ import { getConfirmationCard } from '@app/ui/consequence/confirmationFlowComposi
 import { presentWallMoveClash, describeReweldRefusal } from '@app/ui/ai/WallMoveClashProposal';
 // §L-921-ATOMIC-GESTURE — the re-weld's vote, taken BEFORE the wall moves.
 import { previewMoveReweld, type MoveReweldPreflightResult } from '@pryzm/command-registry';
+// §L-921-SLAB-PREFLIGHT — the SECOND weld's vote, taken at the same seam.
+import {
+  previewSlabConnectivityWeld,
+  type SlabWeldPreflightResult,
+} from '@pryzm/geometry-slab';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { chatSay } from '@app/ui/ai/chatPromptHost';
 
@@ -253,6 +258,40 @@ function surfaceRefusal(verdict: WallPlacementVerdict): boolean {
 }
 
 /**
+ * §L-921-ONE-CHANNEL — say a refusal into the chat, and REPORT WHETHER IT LANDED.
+ *
+ * ⚠ This exists because `surfaced` was being answered with
+ * `typeof document !== 'undefined'` — which is not a measurement of anything. It
+ * says a DOM exists, not that a sentence reached a person, and the two differ in
+ * exactly the case that matters: a refusal raised before any chat surface has
+ * been mounted. That is the same shape as the defect this whole gate exists to
+ * prevent (a gate that quietly stops surfacing is indistinguishable from a gate
+ * that stopped firing) — asserted about ITSELF this time.
+ *
+ * `chatSay` already returns the fact and every caller here was discarding it.
+ * `true` ⇒ the registered host took the line and the panel was opened. `false`
+ * in a document ⇒ the line was QUEUED against a surface that does not exist yet;
+ * `chatSay` will flush it if one appears, but at THIS instant it has reached
+ * nobody, so it is reported as a degradation and counted, rather than rounded up
+ * to success. `false` with no document at all is a node harness, not a defect.
+ */
+function speakRefusal(sentence: string): boolean {
+  const spoke = chatSay(sentence);
+  if (spoke) return true;
+  if (typeof document === 'undefined') return false;
+
+  const g = globalThis as unknown as { __pryzmC83SurfaceFailures?: number };
+  g.__pryzmC83SurfaceFailures = (g.__pryzmC83SurfaceFailures ?? 0) + 1;
+  console.error(
+    '[C83][SURFACE-UNAVAILABLE] a wall MOVE was REFUSED and no chat surface was ready to ' +
+    'take the refusal. The move did not happen, so the model is correct — but from the ' +
+    'user\'s side this is an unexplained dead drag until the queue flushes, which is the ' +
+    'defect this gate exists to prevent. Refusal text follows:\n' + sentence,
+  );
+  return false;
+}
+
+/**
  * THE gate. Evaluate a proposed wall against the live model; when it crosses an
  * existing door or window, refuse it and TELL THE USER.
  *
@@ -343,6 +382,51 @@ function previewReweldForMove(
     prevBaseLine: [p(cur[0]!), p(cur[1]!)],
     newBaseLine: [p(newBaseLine[0]), p(newBaseLine[1])],
     joinedWallIds: joined,
+  });
+}
+
+/**
+ * §L-921-SLAB-PREFLIGHT — would this move's SLAB-LOOP corner weld be refused?
+ *
+ * ── WHY THIS IS A SECOND QUESTION AND NOT THE SAME ONE ───────────────────────
+ * Two services weld a moved wall's neighbours, and they weld DIFFERENT SETS.
+ * `WallMoveReweldService` follows the `joinedTo` graph (including T junctions
+ * mid-span, which no slab loop carries). `SlabWallConnectivityService` follows
+ * a "By Pick Walls" slab's sketch outer loop (including corners the semantic
+ * graph has never been told about). Either can refuse a move the other would
+ * wave through, so asking one is not asking the other, and `allowed` from the
+ * junction pre-flight is not evidence about the slab one.
+ *
+ * ── AND IT IS THE ARM THAT USED TO HALF-EXECUTE ──────────────────────────────
+ * The slab service is a store SUBSCRIBER: it fires INSIDE the write, so its
+ * `WELD_COLLAPSES_PARTNER` refusal always arrived with the wall already moved.
+ * MEASURED at `ed29b0aa`: the wall stood at x = 6.05 having just been told the
+ * position could not be occupied. Asked here, before the command is built,
+ * nothing can be left half-applied at all.
+ *
+ * `evaluated: false` ⇒ the question could not be asked (no slab store, the wall
+ * is in no slab loop). It returns `allowed: true` and is NEVER folded into
+ * "refused" — C83 §5.3, and the same reading every other pre-flight here gives.
+ */
+function previewSlabWeldForMove(
+  wallId: string,
+  newBaseLine: readonly [PlanPointLike, PlanPointLike],
+): SlabWeldPreflightResult | null {
+  const wallStore = storeRegistry.getStoreForType('wall') as
+    | { getById?: (id: string) => unknown }
+    | undefined;
+  const slabStore = storeRegistry.getStoreForType('slab') as
+    | { getAll?: () => unknown[] }
+    | undefined;
+  if (!wallStore || typeof wallStore.getById !== 'function') return null;
+  if (!slabStore || typeof slabStore.getAll !== 'function') return null;
+
+  const p = (v: PlanPointLike) => ({ x: v.x, y: v.y ?? 0, z: v.z });
+  return previewSlabConnectivityWeld({
+    slabStore: slabStore as never,
+    wallStore: wallStore as never,
+    movedWallId: wallId,
+    newBaseLine: [p(newBaseLine[0]), p(newBaseLine[1])],
   });
 }
 
@@ -463,9 +547,42 @@ export function gateWallMove(
         `(cascade ok=${pre.ok}, incumbentBreach=${pre.incumbentBreach}) — nothing dispatched.`,
         { reason: pre.reason, blockingIssues: pre.blockingIssues, incumbents: pre.incumbentWallIds },
       );
-      chatSay(describeReweldRefusal(wallId, 'there', pre));
-      return { blocked: true, verdict, surfaced: typeof document !== 'undefined' };
+      return {
+        blocked: true,
+        verdict,
+        surfaced: speakRefusal(describeReweldRefusal(wallId, 'there', pre)),
+      };
     }
+  }
+
+  // ── §L-921-SLAB-PREFLIGHT — the THIRD question, and the last half-executor ──
+  //
+  // The move is clear of every opening AND its junction partners re-weld
+  // soundly. That is still not "this move can be completed": a "By Pick Walls"
+  // slab welds its own loop corners from a DIFFERENT neighbour set, through a
+  // DIFFERENT service, and that service is a store subscriber — so its refusal
+  // always arrived after the wall had moved. MEASURED at `ed29b0aa`: stored at
+  // x = 6.05, refused, and told "Nothing was changed".
+  //
+  // Asked LAST of the three because it is the narrowest (it fires only for walls
+  // that are in a slab loop), and asked HERE for the same reason as the other
+  // two: this is the one chokepoint the 3D gizmo drag-end and the plan drag both
+  // funnel through, so both gestures become atomic without either growing its
+  // own wiring, and the three votes cannot drift apart.
+  const slabPre = previewSlabWeldForMove(wallId, newBaseLine);
+  if (slabPre && !slabPre.allowed && slabPre.refusal) {
+    console.warn(
+      `[wallPlacementGate] §L-921-SLAB-PREFLIGHT blocking wall ${wallId}: the move is clear of ` +
+      `every opening and its junctions re-weld cleanly, but the slab-loop corner weld ` +
+      `cannot be done (${slabPre.refusal.code}) — nothing dispatched.`,
+      { wallIds: slabPre.refusal.wallIds, blockingIssues: slabPre.refusal.blockingIssues },
+    );
+    // The sentence is the service's own, minted in ONE place (`collapseSentence`)
+    // so the pre-move refusal and the post-move backstop cannot describe the same
+    // geometry with different numbers. It carries its reason code inside the
+    // prose (§REFUSAL-IDENTITY) and both numbers — what the wall would become,
+    // and the floor it breaks.
+    return { blocked: true, verdict, surfaced: speakRefusal(slabPre.refusal.sentence) };
   }
 
   return { blocked: false, verdict, surfaced: false };

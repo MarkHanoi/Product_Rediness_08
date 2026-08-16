@@ -240,21 +240,41 @@ describe('§C83-S1-MOVE (L-885) — dragging an EXISTING wall onto a door', () =
     expect(wallPlacementSurfaceFailures()).toBe(0);
   });
 
-  it('the DOM NAMES the door — this is the "without any notification" half', () => {
+  it('§L-921-ONE-CHANNEL: the MOVE refusal leaves the PANEL alone — the chat is the whole surface', () => {
+    // ⚠ THIS TEST WAS INVERTED, DELIBERATELY, and the reason is a founder
+    // instruction, not a preference. It used to assert that a blocked MOVE
+    // rendered the ConfirmationCard ("THIS WALL CANNOT GO HERE") *and* raised a
+    // toast. The founder then asked, verbatim:
+    //
+    //   "WE HAVE RIGHTFULLY IMPLEMENTED THIS MESSAGE — BUT I WANT THE MESSAGE
+    //    ONLY ON THE AI CHAT — THE OTHER PANEL INFORMATION SHOULD BE IN THE AI
+    //    CHAT."
+    //
+    // One refusal was lighting up three surfaces in three wordings and the user
+    // had to assemble them; C83 §4.1 names a proliferating surface as the
+    // failure mode. So `gateWallMove` stopped calling `surfaceRefusal`, and the
+    // chat now carries the CARD'S OWN SENTENCE through the shared renderer —
+    // nothing the panel used to say is lost, and `[OCC_CROSSES_HOSTED_OPENING]`
+    // survives the move to the new sink (§REFUSAL-IDENTITY).
+    //
+    // MEASURED, and this is why the test is inverted rather than deleted: with
+    // the old assertions in place this suite was RED (16 passing before the
+    // change, 15 after) while `wallMoveAcceptHalfExecuted.test.ts`
+    // §L-921-ONE-CHANNEL was GREEN asserting the exact opposite. Two suites in
+    // direct contradiction about one behaviour is worse than either verdict, and
+    // the founder's sentence settles which one is stale.
+    //
+    // ⚠ CREATE IS UNCHANGED and is still covered above: `gateWallPlacement`
+    // keeps its card and its toast, because a create refusal has no chat offer
+    // flow behind it and removing its only surface would turn the ask into a
+    // dead click. One gesture's surface policy is not evidence about another's.
     gateWallMove(MOVER_ID, draggedTo(3.5));
-    const text = visiblePanelText();
 
-    expect(text).toContain('THIS WALL CANNOT GO HERE');
-    expect(text).toContain(DOOR_ELEMENT_ID);
-    expect(text).toContain(HOST_ID);
-    expect(text).toContain('3.005');
-    expect(text).toContain('3.931');
-    // …and the way forward, which is what the founder actually asked for.
-    expect(text).toContain('positions that ARE clear');
+    expect(visiblePanelText()).not.toContain('THIS WALL CANNOT GO HERE');
+    expect(document.querySelector('.plat-toast')).toBeNull();
+    // …and no Confirm control anywhere: an IMPOSSIBLE finding cannot be
+    // dismissed INTO EXISTENCE (C83 §5.4).
     expect(document.querySelector('[data-role="confirm"]')).toBeNull();
-
-    const toast = document.querySelector('.plat-toast');
-    expect(toast?.textContent).toContain('Wall not placed');
   });
 
   it('resolves the moved wall\'s OWN thickness from the record', () => {
