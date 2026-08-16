@@ -107,6 +107,7 @@ import {
     PARALLEL_WALL_OVERLAP_RATIO,
 } from './PdfToBimConstraints.js';
 import { detectGeometricDoorGaps } from './WallTerminatorDoorDetector.js';
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -145,12 +146,17 @@ const DEFAULT_SLAB_THICKNESS = 0.2;
  */
 const HOST_TIEBREAK_MAX_DIST_M = 0.75;
 
-/**
- * §PDF-OCCUPANCY-PREFLIGHT: minimum clear distance between two proposed opening spans
- * on the same wall. Mirrors WallOccupancyStore.EPSILON_M (1 mm) so the pre-flight and
- * the store's canPlace() gate cannot disagree.
- */
-const OPENING_SPAN_EPSILON_M = 0.001;
+// §PDF-OCCUPANCY-PREFLIGHT / §C73-EPSILON-POLICY — minimum clear distance between
+// two proposed opening spans on the same wall.
+//
+// This used to declare a private `COINCIDENT_M = 0.001` whose comment
+// promised it "mirrors WallOccupancyStore.EPSILON_M (1 mm) so the pre-flight and
+// the store's canPlace() gate cannot disagree" — but it mirrored it by a
+// HAND-COPIED LITERAL, which is precisely how two gates drift apart while their
+// comments still claim they agree. `WallOccupancyStore` consumes the kernel's
+// `COINCIDENT_M`; consuming the same constant here makes the mirror STRUCTURAL
+// rather than a promise. The value is unchanged (0.001 === COINCIDENT_M), so the
+// pre-flight's verdicts are byte-identical.
 
 /**
  * §PDF-SCALE-EFFECTIVE: measure the EFFECTIVE metres-per-pixel through pixelToWorld()
@@ -336,8 +342,8 @@ export class FloorPlanCommandBatcher {
         const spanConflicts = (wallUUID: string, leftEdge: number, width: number): boolean => {
             const spans = proposedSpansByWall.get(wallUUID);
             if (!spans) return false;
-            const s0 = leftEdge - OPENING_SPAN_EPSILON_M;
-            const s1 = leftEdge + width + OPENING_SPAN_EPSILON_M;
+            const s0 = leftEdge - COINCIDENT_M;
+            const s1 = leftEdge + width + COINCIDENT_M;
             return spans.some(sp => s0 < sp.end && s1 > sp.start);
         };
         const claimSpan = (wallUUID: string, leftEdge: number, width: number): void => {

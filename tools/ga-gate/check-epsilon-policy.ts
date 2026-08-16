@@ -188,7 +188,22 @@ interface Baseline {
   readonly measuredAt: string;
   /** `file:NAME` → the declared value, verbatim. E2's ledger AND E4's prior values. */
   readonly declarations: Record<string, string>;
-  /** `file:NAME` of every unit-unqualified declaration. E5's ledger. */
+  /**
+   * `file:NAME` of every unit-unqualified declaration. E5's ledger.
+   *
+   * DISTINCT KEYS, not sites. E5's counting unit is (file × NAME) — the same unit
+   * `declarations` uses, and the one `priorUnq.size` compares against — so this
+   * array must hold each key ONCE. It previously stored `a.unqualified.map(keyOf)`
+   * undeduped, i.e. one entry per SITE, which let the file's array length disagree
+   * with the number the gate actually compares (measured: 74 entries / 72 keys,
+   * `HouseLayoutExecutor.ts:AXIS_EPS` and `:RECT_AREA_TOL` each written twice as
+   * local shadows). That is invisible in the arms — every comparison wraps this in
+   * a `Set` — but it defeats the SHRINK-ONLY review the ledger exists for: a real
+   * reduction from 74 keys to 72 still rendered as `74 → 74` in the diff. Nothing
+   * about what the gate polices changes here; only the stored form now matches the
+   * declared counting unit. (`declarations` was never affected — `Object.fromEntries`
+   * dedupes by construction.)
+   */
   readonly unqualified: string[];
   /** E1 is red today; 1 means "declared failing". */
   readonly e1: number;
@@ -501,7 +516,9 @@ if (WRITE) {
     recipe: RECIPE,
     measuredAt: new Date().toISOString().slice(0, 10),
     declarations: Object.fromEntries(a.production.map((d) => [keyOf(d), d.value])),
-    unqualified: a.unqualified.map(keyOf).sort(),
+    // DISTINCT keys — see the `Baseline.unqualified` field doc. One entry per
+    // (file × NAME), matching E5's counting unit and `priorUnq.size`.
+    unqualified: [...new Set(a.unqualified.map(keyOf))].sort(),
     e1: a.e1.ok ? 0 : 1,
   };
   writeFileSync(BASELINE, JSON.stringify(next, null, 2) + '\n', 'utf8');

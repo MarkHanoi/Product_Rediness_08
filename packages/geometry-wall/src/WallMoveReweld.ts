@@ -512,7 +512,7 @@ export interface MoveReweldPlan {
  * "on it". Not a new tolerance: the corner lies on the incumbent's LINE by
  * construction, so this only absorbs floating-point noise in the intersection.
  */
-const ON_SEGMENT_EPS = 1e-6;
+const ON_SEGMENT_EPS_M = 1e-6;
 
 /**
  * §C83-10.2.2 — the plan form: what the SUBJECT must do, and which joints
@@ -690,9 +690,9 @@ export function computeMoveReweldPlan(
         // without the incumbent moving, i.e. whether the corner already lies on
         // the incumbent's existing segment. `corner` is on the incumbent's LINE
         // by construction, so this distance is exactly how far past its nearer
-        // END the corner falls; ON_SEGMENT_EPS absorbs intersection noise only.
+        // END the corner falls; ON_SEGMENT_EPS_M absorbs intersection noise only.
         const beyond = distToSegment(corner, ps, pe);
-        if (beyond > ON_SEGMENT_EPS) {
+        if (beyond > ON_SEGMENT_EPS_M) {
             // Closing this joint would mean LENGTHENING the incumbent. Refused —
             // and REPORTED, because a silently dropped junction is L-921 (the
             // corner left open with nobody told), which is the same defect as

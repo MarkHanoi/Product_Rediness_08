@@ -27,6 +27,8 @@
 // No OTel span: pure helpers, like the apartment/house validators — spans live at
 // the AiPlane boundary (P8 §C09 §2.4). No I/O, no THREE, no DOM, no Math.random.
 
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
+
 const r6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 // ───────────────────────────── 1. §ROOF-CAP-ELEVATION ─────────────────────────
@@ -79,8 +81,11 @@ export function roofBaseOffsetM(floorToFloorM: number, wallHeightM?: number): nu
 export const DOOR_END_CLEAR_M = 0.15;
 /** Below this an opening isn't a usable door (matches the entrance-door MIN_DOOR_M). */
 export const MIN_DOOR_WIDTH_M = 0.7;
-/** Fit tolerance (m) — a hair of slack so float round-off doesn't drop a flush door. */
-const FIT_EPS_M = 1e-3;
+// §C73-EPSILON-POLICY — the fit tolerance (m) is a hair of slack so float round-off
+// doesn't drop a FLUSH door, i.e. "is this offset the same place as the clearance
+// line?" — model-space point sameness in metres, which is `COINCIDENT_M`'s declared
+// role. CONSUMED from the kernel rather than declared privately as `FIT_EPS_M`; the
+// value is unchanged (1e-3 === COINCIDENT_M), so no door changes verdict.
 
 /**
  * Is a door opening genuinely hosted WITHIN its wall span?
@@ -99,8 +104,8 @@ export function isDoorWithinWallSpan(
     if (!Number.isFinite(offsetM) || !Number.isFinite(widthM) || !Number.isFinite(wallLengthM)) return false;
     if (widthM <= 0 || wallLengthM <= 0) return false;
     const clear = Math.max(0, clearM);
-    return offsetM >= clear - FIT_EPS_M
-        && offsetM + widthM <= wallLengthM - clear + FIT_EPS_M;
+    return offsetM >= clear - COINCIDENT_M
+        && offsetM + widthM <= wallLengthM - clear + COINCIDENT_M;
 }
 
 /** A clamped door span (m) or null when the wall is too short to host any door. */

@@ -17,6 +17,7 @@
 
 import type { LayoutWall, LayoutWindow, RoomType, Vec2mm } from '../types.js';
 import { windowMandatoryFor, windowDesiredFor } from '../rules/programRules.js';
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 
 /**
  * §DIAG diagnostic gate. §DIAG breadcrumb logging is OFF by default (fires per-candidate
@@ -96,12 +97,14 @@ const RESCUE_PERP_TOL_M = 1.6;
  *  project within the matched shell segment span. A small float-drift tolerance; the
  *  midpoint must be essentially inside the wall it is hosted on. */
 const OVERLAP_TOL_M = 0.05;
-/** §WINDOW-IN-SHELL-FINAL (A.21.D36) — float-dust tolerance (m) for the final
- *  "opening strictly inside the shell span" invariant. 1 mm: smaller than any
- *  real clearance so it never admits a genuinely-off-wall frame, large enough to
- *  absorb projection/rounding noise so a valid centred window is not spuriously
- *  dropped. */
-const EPS_M = 0.001;
+// §WINDOW-IN-SHELL-FINAL (A.21.D36) / §C73-EPSILON-POLICY — float-dust tolerance
+// (m) for the final "opening strictly inside the shell span" invariant. This is a
+// model-space "is this edge the same place as that one" question in metres, i.e.
+// `COINCIDENT_M`'s declared role, so it is CONSUMED from the kernel rather than
+// declared privately as `COINCIDENT_M`. The value is unchanged (0.001 === COINCIDENT_M):
+// still smaller than any real clearance, so it never admits a genuinely-off-wall
+// frame, and still large enough to absorb projection/rounding noise so a valid
+// centred window is not spuriously dropped.
 
 // ── §WINDOW-CORNER-SETBACK (A.21.D45, 2026-06-08) — real masonry pier ─────────
 //
@@ -550,10 +553,10 @@ export function resolveShellWindow(
     // below (the founder's "evenly distributed, real pier" intent) rather than dropped.
     // This is what keeps the live-log corner-hugging window — and ALL distributed shell
     // windows on a long orthogonal façade — instead of silently dropping them.
-    const wasWidthClamped = widthM < (win.width / 1000) - EPS_M;
+    const wasWidthClamped = widthM < (win.width / 1000) - COINCIDENT_M;
     if (!wasWidthClamped && !match.exact) {
         const minCentre = widthM / 2 + END_CLEAR_M;
-        if (centreParam < minCentre - EPS_M || centreParam > shellDir.len - minCentre + EPS_M) return fail('cornerFitDrop');
+        if (centreParam < minCentre - COINCIDENT_M || centreParam > shellDir.len - minCentre + COINCIDENT_M) return fail('cornerFitDrop');
     }
 
     // §WINDOW-CORNER-SPAN (A.21.D40 #1, 2026-06-07) — the founder's recurring "window
@@ -569,7 +572,7 @@ export function resolveShellWindow(
     // WITH the end clearance), DROP it. No window may extend past a wall end / corner.
     let minOffsetM = END_CLEAR_M;
     let maxOffsetClearedM = shellDir.len - widthM - END_CLEAR_M;
-    if (maxOffsetClearedM < minOffsetM - EPS_M) return fail('cornerClearanceUnfittable');   // can't fit with corner clearance
+    if (maxOffsetClearedM < minOffsetM - COINCIDENT_M) return fail('cornerClearanceUnfittable');   // can't fit with corner clearance
 
     // ── §WINDOW-ROOM-INTERVAL-CLAMP (#3, founder 2026-06-12) — NEVER cross a junction ──
     // Restrict the allowed offset band to the room's OWNED interval on the shell wall (the
@@ -591,8 +594,8 @@ export function resolveShellWindow(
         };
         // Interior interval ends (not the shell corners 0 / len) get the partition half-band
         // pulled inward so the window edge never lands inside the partition footprint.
-        const loIsCorner = owned.lo <= EPS_M;
-        const hiIsCorner = owned.hi >= shellDir.len - EPS_M;
+        const loIsCorner = owned.lo <= COINCIDENT_M;
+        const hiIsCorner = owned.hi >= shellDir.len - COINCIDENT_M;
         const ivLo = owned.lo + (loIsCorner ? END_CLEAR_M : halfAtCut(owned.lo) + JUNCTION_CLEARANCE_M);
         const ivHi = owned.hi - (hiIsCorner ? END_CLEAR_M : halfAtCut(owned.hi) + JUNCTION_CLEARANCE_M);
         const ivMin = ivLo;
@@ -600,7 +603,7 @@ export function resolveShellWindow(
         // Intersect the room interval with the whole-wall corner-pier band.
         minOffsetM = Math.max(minOffsetM, ivMin);
         maxOffsetClearedM = Math.min(maxOffsetClearedM, ivMax);
-        if (maxOffsetClearedM < minOffsetM - EPS_M) {
+        if (maxOffsetClearedM < minOffsetM - COINCIDENT_M) {
             // The window can't fit inside its OWN room portion (even minimal) → drop rather
             // than emit it crossing the junction onto a neighbour.
             return fail('roomIntervalUnfittable');
@@ -621,7 +624,7 @@ export function resolveShellWindow(
     // If a degenerate clamp still left the opening crowding (or past) either corner,
     // DROP the window — a frame at / past the corner must never render. Belt-and-braces
     // over the centre-band + corner-fit guards above.
-    if (finalOffsetM < END_CLEAR_M - EPS_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + EPS_M) return fail('finalInvariantDrop');
+    if (finalOffsetM < END_CLEAR_M - COINCIDENT_M || finalOffsetM + widthM > shellDir.len - END_CLEAR_M + COINCIDENT_M) return fail('finalInvariantDrop');
 
     // §WINDOW-ROOM-INTERVAL-CLAMP post-condition — the emitted span must cross NO junction
     // (founder #3: "a window must NEVER cross a partition junction onto a neighbouring
@@ -632,7 +635,7 @@ export function resolveShellWindow(
     if (shellJunctionsM && shellJunctionsM.length > 0) {
         const lo = finalOffsetM, hi = finalOffsetM + widthM;
         for (const j of shellJunctionsM) {
-            if (j.atM > lo + EPS_M && j.atM < hi - EPS_M) return fail('crossesJunction');
+            if (j.atM > lo + COINCIDENT_M && j.atM < hi - COINCIDENT_M) return fail('crossesJunction');
         }
     }
 

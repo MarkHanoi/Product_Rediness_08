@@ -10,7 +10,7 @@
 // subdivision and untransform the result), so candidates are genuinely different
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { EPSILON_ZERO, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { ApartmentProgram, RoomType, ScoringWeights } from '../types.js';
 import { decomposeToRects, clampRectToConvexShell, polygonBBox, rectArea, rectifyConvexQuad, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, scaleProgramToShell, type BubbleGraph, type ProgramRoom, type AdjacencyEdge } from './bubbleGraph.js';
@@ -344,7 +344,11 @@ export interface TglCandidate {
     readonly corridorHallGap: boolean;
 }
 
-const EPS = 1e-9;
+// §C73-EPSILON-POLICY — every use below is a DEGENERATE/NUMERIC-ZERO guard: a
+// strict comparison made noise-tolerant, and a `lo > 0` divisor check before the
+// aspect ratio. That is `EPSILON_ZERO`s declared role, so it is CONSUMED from the
+// kernel rather than declared here. The value is unchanged (1e-9 === EPSILON_ZERO),
+// so no enumeration verdict moves.
 
 /** §STAIR-KEEPOUT (A.21.D21) — clearance ring (m) added around each stair-core
  *  keep-out before carving. Matches the subdivider's ALIGNMENT_SNAP_EPS_M (0.05 m)
@@ -657,7 +661,7 @@ export function ensuiteNot1to1RoomIds(args: {
         // (4) the host must not be shared by another ensuite (no two ensuites door to the same host).
         if ((hostCount.get(host) ?? 0) > 1) { bad.add(e.id); continue; }
         // (5) oversized — an en-suite must be the subordinate room (≤ its host's area).
-        if (areaOf(e.id) > areaOf(host) + EPS) { bad.add(e.id); continue; }
+        if (areaOf(e.id) > areaOf(host) + EPSILON_ZERO) { bad.add(e.id); continue; }
     }
     return [...bad].sort();
 }
@@ -801,7 +805,7 @@ export function corridorStairGapFor(
         (best, ko) => Math.max(best, corrPoly ? sharedWallRunPolyM(corrPoly, ko) : sharedWallRunM(corr.rect, ko)),
         0,
     );
-    return reachM < STAIR_DOOR_MIN_M - EPS;
+    return reachM < STAIR_DOOR_MIN_M - EPSILON_ZERO;
 }
 
 /**
@@ -825,7 +829,7 @@ export function corridorHallGapFor(
     const hall = placements.find(p => p.roomId === entryId);
     if (!hall) return false;                                        // hall dropped → other rules own it
     const reachM = sharedWallRunM(corr.rect, hall.rect);
-    return reachM < STAIR_DOOR_MIN_M - EPS;
+    return reachM < STAIR_DOOR_MIN_M - EPSILON_ZERO;
 }
 
 // §CORRIDOR-PURITY (founder full circulation spec, 2026-06-17) — public room types that must
@@ -886,7 +890,7 @@ export function evaluateCorridorPurity(
         const runM = (corrPoly || pPoly)
             ? sharedWallRunPolyM(corrPoly ?? corr.rect, pPoly ?? p.rect)
             : sharedWallRunM(corr.rect, p.rect);
-        if (runM < STAIR_DOOR_MIN_M - EPS) continue;   // not a door-width wall
+        if (runM < STAIR_DOOR_MIN_M - EPSILON_ZERO) continue;   // not a door-width wall
         if (t === 'ensuite') ensuiteOnCorridor = true;
         else if (CORRIDOR_PUBLIC_TYPES.has(t)) publicOnCorridor = true;
     }
@@ -894,7 +898,7 @@ export function evaluateCorridorPurity(
     const h = corr.rect.z1 - corr.rect.z0;
     const lo = Math.min(w, h);
     const hi = Math.max(w, h);
-    const corridorBlob = lo > EPS ? (hi / lo) < CORRIDOR_MIN_ASPECT - EPS : false;
+    const corridorBlob = lo > EPSILON_ZERO ? (hi / lo) < CORRIDOR_MIN_ASPECT - EPSILON_ZERO : false;
     // §INTERIOR-CORRIDOR — the corridor's LONG edge abuts the shell perimeter for a meaningful run.
     // Measured on the corridor's bbox edges vs the shell bbox (the perimeter): a corridor whose long
     // run lies on a façade has its long-axis edge coincident with a shell edge. A single-loaded
@@ -2711,13 +2715,13 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
 }
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
-/** a dominates b: ≥ on every axis and > on at least one (EPS-tolerant). */
+/** a dominates b: ≥ on every axis and > on at least one (EPSILON_ZERO-tolerant). */
 function dominates(a: ObjectiveVector, b: ObjectiveVector): boolean {
     let strictly = false;
     for (const ax of OBJECTIVE_AXES) {
         const va = round6(a[ax]), vb = round6(b[ax]);
-        if (va < vb - EPS) return false;
-        if (va > vb + EPS) strictly = true;
+        if (va < vb - EPSILON_ZERO) return false;
+        if (va > vb + EPSILON_ZERO) strictly = true;
     }
     return strictly;
 }

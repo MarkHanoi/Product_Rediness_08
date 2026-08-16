@@ -39,7 +39,7 @@ import type { Point3D } from '@pryzm/core-app-model';
 import type { WallJoinIntent } from './WallTypes';
 
 /** The endpoint-coincidence radius: 20 mm. */
-export const JOIN_INTENT_EPS = 0.02;
+export const JOIN_INTENT_EPS_M = 0.02;
 
 /** The minimum this function needs from a wall — deliberately narrow so it is trivially testable. */
 export interface JoinIntentCandidate {
@@ -70,7 +70,7 @@ export function deriveJoinIntent(
         for (const w of levelWalls) {
             for (const e of [w.baseLine[0], w.baseLine[1]]) {
                 if (!e) continue;
-                if (Math.hypot(e.x - p.x, e.z - p.z) <= JOIN_INTENT_EPS) n++;
+                if (Math.hypot(e.x - p.x, e.z - p.z) <= JOIN_INTENT_EPS_M) n++;
             }
         }
         return n;

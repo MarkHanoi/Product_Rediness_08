@@ -22,6 +22,7 @@ import type { CommandPayloadRef } from '../../types.js';
 import type { LayoutOption, Vec2mm } from './types.js';
 import { defaultDoorSystemTypeId, defaultWindowSystemTypeId, DEFAULT_DOOR_TYPE_ID } from './resolvers/defaultElementTypes.js';
 import { resolveAllShellWindows } from './windowEmission/shellWallMatch.js';
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 
 const MM_PER_M = 1000;
 
@@ -154,7 +155,12 @@ function lengthXZ(a: Vec3m, b: Vec3m): number {
     return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-const COLLINEAR_EPS_M = 0.001;          // 1 mm — tighter than the 0.05 m min-wall guard
+// §C73-EPSILON-POLICY — both questions asked below ("is this wall's extent along
+// one axis zero?" and "does one run END where the next one STARTS?") are
+// model-space point sameness in metres, which is exactly `COINCIDENT_M`'s role, so
+// this file CONSUMES it instead of declaring a private `COINCIDENT_M`. The local
+// value was 0.001 — numerically IDENTICAL to `COINCIDENT_M` — so no predicate here
+// changes verdict; it stays 1 mm, still far tighter than the 0.05 m min-wall guard.
 const round6m = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 interface AxisAlignedWall {
@@ -173,14 +179,14 @@ function classifyAxisWall(idx: number, w: WallCreateSpec): AxisAlignedWall | nul
     const [a, b] = w.baseLine;
     const dx = b.x - a.x;
     const dz = b.z - a.z;
-    if (Math.abs(dx) < COLLINEAR_EPS_M && Math.abs(dz) > COLLINEAR_EPS_M) {
+    if (Math.abs(dx) < COINCIDENT_M && Math.abs(dz) > COINCIDENT_M) {
         const lo = Math.min(a.z, b.z), hi = Math.max(a.z, b.z);
         return {
             originalIdx: idx, axis: 'v', constCoord: round6m(a.x), lo, hi,
             reversed: a.z > b.z, origBaseLine: [a, b],
         };
     }
-    if (Math.abs(dz) < COLLINEAR_EPS_M && Math.abs(dx) > COLLINEAR_EPS_M) {
+    if (Math.abs(dz) < COINCIDENT_M && Math.abs(dx) > COINCIDENT_M) {
         const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
         return {
             originalIdx: idx, axis: 'h', constCoord: round6m(a.z), lo, hi,
@@ -237,7 +243,7 @@ function mergeCollinearWalls(walls: readonly WallCreateSpec[]): {
     });
 
     // Group by line: (axis, constCoord). Within each group, sort by lo and
-    // merge adjacent runs (end of one ≈ start of next within COLLINEAR_EPS_M).
+    // merge adjacent runs (end of one ≈ start of next within COINCIDENT_M).
     const groups = new Map<string, AxisAlignedWall[]>();
     for (const aw of axisWalls) {
         const key = `${aw.axis}@${aw.constCoord}`;
@@ -280,7 +286,7 @@ function mergeCollinearWalls(walls: readonly WallCreateSpec[]): {
         for (const aw of group) {
             if (runIdx.length === 0) { runIdx.push(aw); continue; }
             const prev = runIdx[runIdx.length - 1]!;
-            if (Math.abs(aw.lo - prev.hi) < COLLINEAR_EPS_M) runIdx.push(aw);
+            if (Math.abs(aw.lo - prev.hi) < COINCIDENT_M) runIdx.push(aw);
             else { flush(); runIdx.push(aw); }
         }
         flush();

@@ -73,7 +73,7 @@
 
 import type { Point3D } from '@pryzm/core-app-model';
 import { COINCIDENT_M } from '@pryzm/geometry-kernel';
-import { JOIN_INTENT_EPS } from './WallJoinIntentStamp';
+import { JOIN_INTENT_EPS_M } from './WallJoinIntentStamp';
 
 /**
  * Mirrors `WallJoinResolver.DEFAULT_MIN_WALL_LENGTH` and `WallJoinResolver.CLASH_EPS_M`.
@@ -163,7 +163,7 @@ export function retreatOntoHostFaces(
         for (const s of siblings) {
             for (const e of [s.baseLine[0], s.baseLine[1]]) {
                 if (!e) continue;
-                if (Math.hypot(e.x - p.x, e.z - p.z) <= JOIN_INTENT_EPS) return true;
+                if (Math.hypot(e.x - p.x, e.z - p.z) <= JOIN_INTENT_EPS_M) return true;
             }
         }
         return false;

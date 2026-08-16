@@ -38,7 +38,7 @@
 // (core containment — a centred core is trivially contained); P8 (≥1 span per exported fn).
 
 import { trace } from '@opentelemetry/api';
-import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
+import { COINCIDENT_M, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 // §RESI-CORE-REWORK — derive the minimum core plan size from the stair + lift footprints +
 // the 1.2 m approach clearances (single source of truth shared with the executor).
 import { deriveCoreSizing } from './coreSizing.js';
@@ -487,10 +487,12 @@ function demandFor(a: PlannedApartment, userMinAreaM2: number): ApartmentDemand 
     };
 }
 
-/** Edge-coincidence tolerance (m) — a cell edge is on the footprint boundary when its
- *  constant coordinate is within this of the plate bbox edge. The partition rounds rects
- *  to 4 dp, so a tight tolerance is enough. */
-const FACADE_TOL_M = 1e-3;
+// §C73-EPSILON-POLICY — the edge-coincidence question ("is this cell edge on the
+// plate bbox edge?") is model-space point sameness in metres, so it CONSUMES the
+// kernel's `COINCIDENT_M` rather than declaring a private `FACADE_TOL_M`. The
+// local declaration was 1e-3, numerically IDENTICAL to `COINCIDENT_M` (0.001), so
+// this is a rename onto the declared policy and not a change of behaviour. The
+// partition rounds rects to 4 dp, so a 1 mm band remains ample.
 
 /**
  * §DIAG-PARTY-WALL (audit §7) — the TRUE EXTERIOR FAÇADE edges of an apartment cell.
@@ -508,10 +510,10 @@ function facadeEdgesFor(cell: ApartmentCell, plateBB: Rect): CellEdge[] {
     const r = cell.rect;
     const edges: CellEdge[] = [];
     const onBoundary: Record<CellEdge, boolean> = {
-        x0: Math.abs(r.x0 - plateBB.x0) <= FACADE_TOL_M,
-        x1: Math.abs(r.x1 - plateBB.x1) <= FACADE_TOL_M,
-        z0: Math.abs(r.z0 - plateBB.z0) <= FACADE_TOL_M,
-        z1: Math.abs(r.z1 - plateBB.z1) <= FACADE_TOL_M,
+        x0: Math.abs(r.x0 - plateBB.x0) <= COINCIDENT_M,
+        x1: Math.abs(r.x1 - plateBB.x1) <= COINCIDENT_M,
+        z0: Math.abs(r.z0 - plateBB.z0) <= COINCIDENT_M,
+        z1: Math.abs(r.z1 - plateBB.z1) <= COINCIDENT_M,
     };
     for (const e of ['x0', 'x1', 'z0', 'z1'] as const) {
         if (e === cell.doorEdge) continue;       // corridor side → blind by construction
