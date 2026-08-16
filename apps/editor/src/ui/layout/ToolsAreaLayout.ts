@@ -72,6 +72,19 @@ export function isDeclaredCreationMode(tool: 'floor' | 'ceiling', mode: string):
     return creationModes(tool).some(m => m.id === mode);
 }
 
+/**
+ * §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — `RoomTool.activate`'s OWN vocabulary,
+ * mirrored from its signature (packages/room-topology/src/RoomTool.ts:85) because that
+ * function is the thing that will actually receive the string.
+ *
+ * Deliberately NOT derived from `elementCreationMatrix('room')`: the two DISAGREE — the
+ * matrix declares `detect`, the tool accepts `auto-detect`. Deriving from the matrix would
+ * hand the tool an id it cannot honour and silently fall into its default, which is the
+ * exact silent-wrong shape this whole fix removes. See the `room` activator for why the
+ * mismatch is refused rather than translated.
+ */
+export const ROOM_TOOL_MODES = ['auto-detect', 'point-pick', 'manual-boundary'] as const;
+
 export function mountToolsArea(
     props: UIProps,
     service: BimService,
@@ -137,7 +150,41 @@ export function mountToolsArea(
         runtime.tools.register('ceiling:auto',  ()   => service.activateCeilingTool(undefined, 'auto'));
         runtime.tools.register('floor',         (m?) => service.activateFloorTool(undefined, m));
         runtime.tools.register('floor:auto',    ()   => service.activateFloorTool(undefined, 'auto'));
-        runtime.tools.register('room',          ()   => { const t = window.roomTool; if (t) t.activate?.(); else tm.activateRoom?.(); }); // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
+        // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — THE THIRD INSTANCE, and it was
+        // found by censusing the DECLARED capability table rather than by reading the two
+        // lines the founder's report pointed at. `room` declares THREE modes
+        // (`elementCreationMatrix`: detect | manual-boundary | point-pick) and
+        // `RoomTool.activate(mode = 'auto-detect')` genuinely accepts one
+        // (packages/room-topology/src/RoomTool.ts:85) — but this activator was declared
+        // arity 0 and swallowed it, exactly as floor and ceiling did.
+        //
+        // LATENT — explicitly NOT the founder's defect, and must not be reported as a
+        // closure of it. All three room modes stay reachable by other routes today
+        // (`room:level`, `room-bounding`, and the 'P' shortcut at initUI.ts:3067), so no
+        // user gesture is currently broken by this. It is fixed because the public
+        // `runtime.tools.activate(family, mode)` seam must not lie about what it honours.
+        //
+        // ⚠ ID DESYNC, NAMED RATHER THAN PAPERED OVER: the matrix says `detect` where the
+        // tool's vocabulary says `auto-detect`. A silent translation table here would hide
+        // that divergence permanently — and a second hand-maintained list is the very thing
+        // `isDeclaredCreationMode` above exists to avoid — so an id the TOOL does not
+        // declare is REFUSED with BOTH vocabularies printed. Close it at one of the two
+        // sources; do not add a mapping here.
+        runtime.tools.register('room',          (m?) => {
+            const t = window.roomTool; // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
+            if (!t) { tm.activateRoom?.(); return; }
+            if (m !== undefined && !(ROOM_TOOL_MODES as readonly string[]).includes(m)) {
+                console.warn(
+                    `[ToolsAreaLayout] REFUSED room activation mode "${m}" — RoomTool declares `
+                    + `[${ROOM_TOOL_MODES.join(', ')}], while elementCreationMatrix('room') declares `
+                    + `[${creationModes('room').map(x => x.id).join(', ')}]. `
+                    + `Mode NOT applied; the room tool stays in its default "auto-detect".`,
+                );
+                t.activate?.();
+                return;
+            }
+            t.activate?.(m);
+        });
         runtime.tools.register('room:level',    ()   => {
             const t     = window.roomTool; // TODO(E.16): legacy window.roomTool bridge — delete when plugins/room lands per §16.5
             const level = props.bimManager?.getActiveLevel?.();

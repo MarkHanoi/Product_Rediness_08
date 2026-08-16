@@ -13,23 +13,35 @@
  *
  * THE DEFECT
  * ──────────
- * `mountToolsArea` registers 21 activators with `runtime.tools`. Every creation
- * family forwards the activation mode — `(m?) => service.activateX(m)` — EXCEPT
- * `floor` and `ceiling`, whose activators were declared `() => service.activateX()`
- * and therefore SWALLOW the second argument of `runtime.tools.activate(family,
- * mode)`. The user picks Auto, the tool activates, the mode is gone, and the plan
- * handler stays in polygon mode: indistinguishable from "auto does not exist in
- * plan view".
+ * `mountToolsArea` registers 21 activators with `runtime.tools`, each as its own
+ * independent lambda. An activator declared `() => service.activateX()` SWALLOWS the
+ * second argument of `runtime.tools.activate(family, mode)`: the user picks Auto, the
+ * tool activates, the mode is gone, and the plan handler stays in polygon mode —
+ * indistinguishable from "auto does not exist in plan view".
  *
- * `floor:auto` / `ceiling:auto` are the pre-existing pseudo-family workaround and
- * ARE asserted here too — they are the control that proves the activation
- * ARGUMENT reaches the picker, isolating the fault to the dropped parameter.
+ * IS THE SEAM SHARED? NO — and that is the load-bearing answer. Because each activator
+ * declares its own arity there is no chokepoint, so this is N fixes rather than one, and
+ * the census below is what keeps N honest. Censused from `ELEMENT_CREATION_MATRIX`,
+ * N was THREE, not the two the founder's report pointed at:
+ *
+ *   floor    — declares 5 modes, activator was arity 0.  SHIPPED BROKEN.
+ *   ceiling  — declares 5 modes, activator was arity 0.  SHIPPED BROKEN.
+ *   room     — declares 3 modes, activator was arity 0.  LATENT (all three modes stay
+ *              reachable via `room:level`, `room-bounding` and the 'P' shortcut), so it
+ *              is NOT part of the founder's defect and must not be reported as one.
+ *
+ * `floor:auto` / `ceiling:auto` are the pre-existing pseudo-family workaround and ARE
+ * asserted here too — they are the control that proves the activation ARGUMENT reaches
+ * the picker, isolating the fault to the dropped parameter. They are also why the Create
+ * palette could still reach Auto (`CreateRailPanel.ts:712,737` call the pseudo-families,
+ * never `activate('floor','auto')`) while the generic seam was broken.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mountToolsArea } from '@app/ui/layout/ToolsAreaLayout';
 import { FloorPlanToolHandler } from '../FloorPlanToolHandler';
 import { CeilingPlanToolHandler } from '../CeilingPlanToolHandler';
+import { ELEMENT_CREATION_MATRIX } from '../elementCreationMatrix';
 import type { WorldPoint } from '../PlanToolHandler';
 
 /**
@@ -53,6 +65,22 @@ function makeToolsSlot() {
         /** Test-only introspection — how many families were registered, and which. */
         __families(): string[] { return [...activators.keys()]; },
         __has(family: string): boolean { return activators.has(family); },
+        /**
+         * The declared parameter count of the registered activator. An activator
+         * written `() => …` reports 0 and therefore CANNOT honour a mode whatever is
+         * passed to it — that is a structural fact, not a behavioural guess, which is
+         * why the census keys on it.
+         *
+         * `Function.length` is exact here: TypeScript's optional marker is erased at
+         * transform, so `(m?) => …` is plain `(m) => …` in the function this map holds
+         * and reports 1. (It would under-report only for a default or rest parameter,
+         * and `mountToolsArea` registers neither — asserted below by the fact that the
+         * twelve forwarding families all read 1.)
+         */
+        __arity(family: string): number {
+            const fn = activators.get(family);
+            return fn ? fn.length : -1;
+        },
     };
 }
 
@@ -178,14 +206,14 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
         warn.mockRestore();
     });
 
-    // ── THE CENSUS, AS AN ASSERTION ──────────────────────────────────────────
+    // ── THE BEHAVIOURAL PROBE — the two families whose mode is READABLE ───────
     //
-    // Not a hand-counted comment: every registered creation family is driven with
-    // a mode and the ones that swallow it are named in the failure message. This
-    // is the instrument that says whether the seam is shared or family-specific.
-    it('CENSUS: no registered creation family may swallow its activation mode', () => {
-        const swallowed: string[] = [];
-        // family → (mode we hand it, how to read back what the family stored)
+    // Only floor and ceiling publish their stored mode (`window.<x>ModePicker`), so
+    // only they can be checked by reading back what the activation actually stored.
+    // This is a PROBE over two families, NOT a census — see the census below, which
+    // is what the seam question is actually answered by.
+    it('READ-BACK: floor + ceiling store every mode handed to them', () => {
+        const dropped: string[] = [];
         const probes: ReadonlyArray<[string, string, () => unknown]> = [
             ['floor',   'auto',      () => window.floorModePicker?.getActiveMode()],
             ['ceiling', 'auto',      () => window.ceilingModePicker?.getActiveMode()],
@@ -195,8 +223,54 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
         for (const [family, mode, read] of probes) {
             const { tools } = mountForTest();
             tools.activate(family, mode);
-            if (read() !== mode) swallowed.push(`${family}(${mode}) → ${String(read())}`);
+            if (read() !== mode) dropped.push(`${family}(${mode}) → ${String(read())}`);
         }
-        expect(swallowed, `families that dropped the activation mode: ${swallowed.join(', ')}`).toEqual([]);
+        expect(dropped, `families that dropped the activation mode: ${dropped.join(', ')}`).toEqual([]);
+    });
+
+    // ── THE CENSUS, DRIVEN FROM THE DECLARED AUTHORITY ───────────────────────
+    //
+    // ⚠ THE PREVIOUS "CENSUS" HERE WAS THE FOUR-ROW PROBE ABOVE, RELABELLED. It drove
+    // floor and ceiling and nothing else, so it could only ever confirm the conclusion
+    // it had been written from — and it MISSED a third family (`room`) that swallows its
+    // mode in exactly the same way. A census that enumerates the hand-picked answer is
+    // not a census.
+    //
+    // THE SEAM QUESTION THIS ANSWERS: is the drop a SHARED chokepoint or per-family?
+    // `mountToolsArea` registers each activator as its own independent lambda, so each
+    // one declares its own arity and there is NO chokepoint to fix once — the honest
+    // answer is N fixes, not one. This test is therefore the only thing standing between
+    // that N and silent growth, so it enumerates from `ELEMENT_CREATION_MATRIX` (the
+    // declared capability table `DrawingModeBar` is already driven from) rather than
+    // from a list maintained here.
+    //
+    // ARITY is the instrument, deliberately: an activator declared `() => …` CANNOT
+    // honour a mode no matter what is passed. That is a structural fact about the
+    // registered function, not a behavioural guess, and it is readable for families
+    // whose mode is stored somewhere this test cannot see.
+    it('CENSUS: every tool the matrix declares with 2+ modes registers an activator that ACCEPTS a mode', () => {
+        const { tools } = mountForTest();
+        const registered = new Set(tools.__families());
+
+        const swallowing: string[] = [];
+        const unregistered: string[] = [];
+        for (const cap of ELEMENT_CREATION_MATRIX) {
+            if (cap.modes.length < 2) continue;              // single-mode tools have nothing to carry
+            if (!registered.has(cap.tool)) { unregistered.push(cap.tool); continue; }
+            if (tools.__arity(cap.tool) < 1) {
+                swallowing.push(`${cap.tool} (declares ${cap.modes.length} modes, activator arity 0)`);
+            }
+        }
+
+        expect(
+            swallowing,
+            `families that STRUCTURALLY cannot honour an activation mode: ${swallowing.join(', ')}`,
+        ).toEqual([]);
+
+        // The declared-but-unregistered set is NAMED, not silently skipped — otherwise a
+        // tool could drop off `runtime.tools` entirely and this census would read green
+        // because "it wasn't registered". `stair-path`'s modes are served by the `stair`
+        // family; `grid` has never been wired (src/main.ts:513 — "one wireup away").
+        expect(unregistered.sort()).toEqual(['grid', 'stair-path']);
     });
 });
