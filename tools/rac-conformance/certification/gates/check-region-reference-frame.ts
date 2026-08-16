@@ -51,6 +51,19 @@
 //
 // Exit 0 clean · 1 declared · 2 MISCONFIGURED · 3 exceeded (contract.ts —
 // imported, never copied). HARD-0: declared is 0 and there is no ledger baseline.
+//
+// ─── MEASURED AT HEAD 3785eae6, 2026-08-16 (lane G2, A.12) — THE PIN ─────────
+// Run DIRECTLY, exit code read from `$?` and never through a pipe (tracker §7.2):
+//
+//   → EXIT 3 · RATCHET EXCEEDED · 1 finding against a declared HARD-0.
+//     ❌ packages/finish-host-tracker/src/FinishSegmentAdapter.ts:150 — a
+//        hostReference edge is constructed with no `reference` member the sweep
+//        can read.
+//     5 construction sites swept (ledger floor 3) · 4 on centerLine @ 0.
+//
+// The sweep finds FIVE sites where the ledger's prose records three: the tree
+// grew two sites after the ledger was written — roomBoundarySketch.ts (passes)
+// and FinishSegmentAdapter.ts (the finding). Recorded BEFORE any fix, alone.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

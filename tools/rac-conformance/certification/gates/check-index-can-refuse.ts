@@ -66,6 +66,21 @@
 //
 // Exit 0 clean · 1 declared · 2 MISCONFIGURED · 3 exceeded — from contract.ts,
 // imported and never copied (C70 §5.1).
+//
+// ─── MEASURED AT HEAD 3785eae6, 2026-08-16 (lane G2, A.12) — THE PIN ─────────
+// Run DIRECTLY, exit code read from `$?` and never through a pipe (tracker §7.2):
+//
+//   → EXIT 3 · STALE LEDGER · 11 findings against a NAMED ledger of 9.
+//     · 1 STALE ROW  DoorDependencyTracker/no-typed-refusal — declared unable to
+//       refuse, now measured CAN REFUSE via `UNDETERMINED reason member`,
+//       `kind:'undetermined'`. Debt PAID and never struck.
+//     · 3 UNLEDGERED CeilingHostDependencyTracker · FloorHostDependencyTracker ·
+//       RoofDependencyTracker.
+//     · 8 ledgered findings, unchanged.
+//
+// This block is the reading the fix commits are measured AGAINST. It is recorded
+// BEFORE any fix, alone, so "what it said" and "what we did about it" are two
+// commits and not one (§7B.4: a stale pin is an uncommitted payment).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
