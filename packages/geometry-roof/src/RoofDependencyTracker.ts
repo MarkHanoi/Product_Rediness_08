@@ -89,6 +89,17 @@ export interface RoofRecordLike {
 }
 
 /**
+ * A roof whose wall attribution HAS been recorded — `boundingWallIds` is
+ * present and is an array. `[]` is a member of this type and is a real answer
+ * ("traced, attributed to no wall"); `undefined` is NOT, because it is the
+ * absence of the record rather than a value of it.
+ *
+ * Carrying that in the TYPE is what lets the re-derivation below stop writing
+ * `boundingWallIds ?? []` at every use — see `recomputeRoofForWall`.
+ */
+type AttributedRoof = RoofRecordLike & { boundingWallIds: readonly string[] };
+
+/**
  * Re-derive every roof bounded by `wallId` and REPORT one of C79 §5.2's five
  * states per roof.
  *
@@ -118,8 +129,16 @@ export function recomputeRoofForWall(
     walls: ReadonlyArray<RegionWallLike> | null | undefined,
     wallId: string,
 ): RoofRecomputeVerdict[] {
+    // §ROOF-ATTRIBUTION-IS-NARROWED, not re-defaulted (C78 §20 · U-INV-4).
+    // The predicate makes the TYPE carry what the filter already proved, so the
+    // three `boundingWallIds ?? []` that used to follow are deleted rather than
+    // re-asserted. They were unreachable — every member of `dependents` has an
+    // array by construction — but an unreachable `?? []` is still the wrong
+    // thing to write on a discovery path: a reader cannot tell it from a live
+    // default, and neither can `check-no-empty-means-unknown`.
     const dependents = roofs.filter(
-        (r) => Array.isArray(r.boundingWallIds) && r.boundingWallIds.includes(wallId),
+        (r): r is AttributedRoof =>
+            Array.isArray(r.boundingWallIds) && r.boundingWallIds.includes(wallId),
     );
     if (dependents.length === 0) return [];
 
@@ -130,7 +149,7 @@ export function recomputeRoofForWall(
         return dependents.map((roof) => classifyRoofRecompute({
             roofId: roof.id,
             previousRing: toWorldRing(roof.footprint),
-            recordedHostIds: roof.boundingWallIds ?? [],
+            recordedHostIds: roof.boundingWallIds,
             resolution: {
                 ring: null, hostWallIds: [], resolvedHostIds: [], missingHostIds: [],
                 undetermined: {
@@ -144,7 +163,7 @@ export function recomputeRoofForWall(
     const present = new Set(walls.map((w) => w.id));
 
     return dependents.map((roof) => {
-        const recordedHostIds = [...(roof.boundingWallIds ?? [])];
+        const recordedHostIds = [...roof.boundingWallIds];
         const previousRing = toWorldRing(roof.footprint);
 
         // THE ANCHOR. `footprint.centroid` is the world point the boundary is
@@ -216,6 +235,21 @@ export interface RoofStoreLike {
  */
 export class RoofDependencyTracker {
     private graph = new Map<string, Set<string>>();
+    /**
+     * Roofs whose `boundingWallIds` is ABSENT — the relationship was never
+     * recorded, so this tracker cannot say whether they depend on any wall.
+     *
+     * §ROOF-UNATTRIBUTED-IS-NOT-INDEPENDENT (C78 §20 · U-INV-4). Kept apart
+     * from `graph` because an empty graph has TWO causes that were previously
+     * one value: no roof depends on the moved wall, or no roof has an
+     * attribution to depend BY. Today that distinction is not academic — this
+     * file's own header records that step (3), populating `boundingWallIds` at
+     * creation, is unwired on BOTH creation paths, so in a real project every
+     * roof lands here and the graph is empty for every wall. Returning `[]`
+     * then reports "no roof was affected by this move", which is a claim about
+     * the model; the truth is that nothing was ever readable.
+     */
+    private unattributed = new Set<string>();
     private unsubscribeWall?: () => void;
 
     constructor(
@@ -240,14 +274,31 @@ export class RoofDependencyTracker {
     /** Fill the dependency graph from the roofs already in the store. */
     bootstrap(): void {
         this.graph.clear();
+        this.unattributed.clear();
         for (const roof of this.roofStore.getAll()) this.registerRoof(roof);
     }
 
+    /**
+     * Register one roof's attribution. The three states are BRANCHED, not
+     * defaulted — `boundingWallIds ?? []` used to make the first two the same
+     * value here, which is the exact shape `check-no-empty-means-unknown` ARM C
+     * measures:
+     *
+     *   · `undefined` — NEVER ATTRIBUTED. No edges, and the roof is remembered
+     *     as unattributed so a later "no dependents" answer can say so.
+     *   · `[]`        — ATTRIBUTED TO NO WALL. No edges either, but this is a
+     *     real, determined answer: the region was traced and bounded by nothing
+     *     with an id. It must NOT be remembered as unattributed.
+     *   · non-empty   — edges.
+     */
     registerRoof(roof: RoofData): void {
-        // `undefined` (never attributed) and `[]` (attributed to nothing) both
-        // register no edges — correctly, and for different reasons (see
-        // `recomputeRoofForWall`).
-        for (const wallId of roof.boundingWallIds ?? []) {
+        const recorded = roof.boundingWallIds;
+        if (recorded === undefined) {
+            this.unattributed.add(roof.id);
+            return;
+        }
+        this.unattributed.delete(roof.id);
+        for (const wallId of recorded) {
             let set = this.graph.get(wallId);
             if (!set) { set = new Set(); this.graph.set(wallId, set); }
             set.add(roof.id);
@@ -256,6 +307,15 @@ export class RoofDependencyTracker {
 
     unregisterRoof(roofId: string): void {
         for (const set of this.graph.values()) set.delete(roofId);
+        this.unattributed.delete(roofId);
+    }
+
+    /**
+     * Roof ids whose wall attribution was never recorded. Exposed so a caller
+     * can render or log the refusal rather than infer it from a length.
+     */
+    unattributedRoofIds(): readonly string[] {
+        return [...this.unattributed];
     }
 
     /**
@@ -270,7 +330,24 @@ export class RoofDependencyTracker {
         const roofs = dependentIds
             ? [...dependentIds].map((id) => this.roofStore.getById(id)).filter((r): r is RoofData => !!r)
             : [];
-        if (roofs.length === 0) return [];
+        if (roofs.length === 0) {
+            // §ROOF-UNATTRIBUTED-IS-NOT-INDEPENDENT. "No roof depends on this
+            // wall" is a DETERMINATION, and it may only be returned when every
+            // roof was actually readable. If any roof carries no attribution at
+            // all, that roof's fate under this move is UNDETERMINED and is
+            // reported as such — C78 §8.1 `RELATIONSHIP_NOT_RECORDED`, the
+            // member C79 §5.2 names for "the edge is a concept nobody writes".
+            if (this.unattributed.size === 0) return [];
+            return [...this.unattributed].map((roofId) => ({
+                roofId,
+                state: 'undetermined' as const,
+                reason: 'RELATIONSHIP_NOT_RECORDED' as const,
+                subReason:
+                    `roof ${roofId} carries no boundingWallIds, so whether wall ${wallId} bounds ` +
+                    `it was never recorded and cannot be read. This roof is NOT reported as ` +
+                    `unaffected by the move — nothing about it was determined.`,
+            }));
+        }
 
         const verdicts = recomputeRoofForWall(roofs, this.wallStore.getAll(), wallId);
 

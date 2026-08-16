@@ -95,12 +95,31 @@ export class CreateWindowInAllWindowsCommand implements Command {
         // §WINDOW-AUDIT-2026 W8 (WIN-BATCH-SERIALISE) — emit child window IDs so
         // remote replay can reconstruct the exact same opening identities (no
         // ID drift across collaborating sessions).
-        const childOpeningIds = this.subCommands?.map(c => (c as any).openingElementId) ?? [];
+        //
+        // §WIN-BATCH-SERIALISE-ABSENT-IS-NOT-EMPTY (C78 §20 · U-INV-4).
+        // `subCommands` is `null` until `execute()` has run, so this line used to
+        // read `this.subCommands?.map(…) ?? []` and put `childOpeningIds: []` on
+        // the wire for a command whose children DO NOT EXIST YET. That is the
+        // identical wire value a batch which genuinely created no openings
+        // emits. A replaying peer therefore could not tell "this batch made no
+        // openings" from "this batch has not run, so its opening identities are
+        // unknown" — and reconstructing zero openings from the second is exactly
+        // the ID drift the field was added to prevent.
+        //
+        // The key is OMITTED rather than emptied when the children are unknown:
+        // an ABSENT key is a readable "not determined", an empty array is a
+        // positive claim of zero. Safe to change shape — `childOpeningIds` is
+        // currently write-only (no deserialiser reads it anywhere in the tree),
+        // so no consumer is being broken; a future reader gets the honest
+        // three-state signal from the start rather than inheriting the collapse.
+        const childOpeningIds = this.subCommands === null
+            ? undefined
+            : this.subCommands.map(c => (c as any).openingElementId);
         return {
             type: this.type,
             payload: {
                 wallIds: this.processedWallIds,
-                childOpeningIds,
+                ...(childOpeningIds === undefined ? {} : { childOpeningIds }),
             },
             targetIds: this.targetIds,
             timestamp: this.timestamp,

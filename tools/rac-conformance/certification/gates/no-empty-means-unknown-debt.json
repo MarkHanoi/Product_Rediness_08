@@ -584,6 +584,11 @@
       "why": "C@33 `for (const op of (wall.openings ?? [])) {` · C@1173 `const _openings = fresh.openings ?? [];` · C@1278 `const ops = (w.openings ?? [])`"
     },
     {
+      "site": "apps/editor/src/ui/generative/BriefInputPanel.ts",
+      "arm": "C (1 site(s))",
+      "why": "C@349 `.map(adj => ({ mustBeAdjacentTo: adj })) ?? [];` — SURFACED 2026-08-16 by the nested-paren widening of BARE_OR_EMPTY, not newly written. An absent adjacencyRequirements and an explicitly empty one both reach CreateTemplateCommand as []. OUT OF LANE H3 (apps/editor/src/ui), which owns packages/ and plugins/ read paths only; named here so it is visible rather than invisible."
+    },
+    {
       "site": "packages/ai-host/src/AIReadModel.ts",
       "arm": "C (1 site(s))",
       "why": "C@50 `childrenIds: l.childrenIds || []`"
