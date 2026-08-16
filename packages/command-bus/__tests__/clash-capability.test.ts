@@ -31,10 +31,11 @@ import {
   clashCapabilityRefusal,
   createClashRefusalHandler,
   registerClashRefusalHandlers,
+  registerClashRun,
   CommandBus,
   type ClashCommandId,
-  type ClashRunOutcome,
-  type ClashRunReport,
+  type CapabilityRunOutcome,
+  type CapabilityRunReport,
 } from '../src/index.js';
 
 const baseAudit = { actorId: 'u', projectId: 'p', clientId: 'c' };
@@ -129,22 +130,29 @@ describe('GE-06 §2 — each unimplemented id refuses with identity', () => {
 
 describe('GE-06 §3 — "refused because unimplemented" is DISTINGUISHABLE from "ran, found none"', () => {
   /**
-   * The counterfactual: what a clash run that ACTUALLY RAN and found nothing
-   * would return. Nothing in the product constructs this yet — it exists here
-   * precisely so the two outcomes can be held side by side and compared.
+   * A clash run that ACTUALLY RAN and found nothing.
+   *
+   * ⚠ This used to be a hand-written counterfactual, with the note "nothing in
+   * the product constructs this yet". As of §GE-06-ROOF-WALL-WIRE something
+   * does: `createClashRunHandler` over the geometry-roof runner. The shape is
+   * now the shared `CapabilityRunReport`, and the end-to-end proof that a real
+   * detector produces it lives in
+   * `apps/editor/__tests__/RoofWallClashVerbReach.test.ts` — this file keeps
+   * the STRUCTURAL half, which is what §3 was always for.
    */
-  const ranAndFoundNothing: ClashRunReport = {
+  const ranAndFoundNothing: CapabilityRunReport = {
     kind: 'ran',
+    commandType: 'clash-run',
     findings: [],
-    checkedPairs: ['roof×wall'],
-    uncheckedPairs: [],
+    checked: ['roof×wall'],
+    unchecked: [],
   };
 
   const refused = clashCapabilityRefusal('clash-run');
 
   it('the two outcomes carry DIFFERENT discriminants', () => {
-    const a: ClashRunOutcome = ranAndFoundNothing;
-    const b: ClashRunOutcome = refused;
+    const a: CapabilityRunOutcome = ranAndFoundNothing;
+    const b: CapabilityRunOutcome = refused;
     expect(a.kind).toBe('ran');
     expect(b.kind).toBe('refused');
     expect(a.kind).not.toBe(b.kind);
@@ -161,15 +169,15 @@ describe('GE-06 §3 — "refused because unimplemented" is DISTINGUISHABLE from 
   });
 
   it('narrowing on kind is REQUIRED to reach findings — the compiler enforces it', () => {
-    const outcome: ClashRunOutcome = refused;
+    const outcome: CapabilityRunOutcome = refused;
     // @ts-expect-error — `findings` is not on the union; you must narrow first.
     void outcome.findings;
 
     // The legal read, and the reason the union is shaped this way: a caller
     // CANNOT report "0 clashes" without having proved it ran.
-    function describe(o: ClashRunOutcome): string {
+    function describe(o: CapabilityRunOutcome): string {
       return o.kind === 'ran'
-        ? `checked ${o.checkedPairs.length} pair(s), ${o.findings.length} finding(s)`
+        ? `checked ${o.checked.length} pair(s), ${o.findings.length} finding(s)`
         : `refused: ${o.reason}`;
     }
     expect(describe(ranAndFoundNothing)).toBe('checked 1 pair(s), 0 finding(s)');
@@ -228,7 +236,10 @@ describe('GE-06 §4 — the refusal survives a real dispatch', () => {
   it('registers all twelve, and each dispatches to its OWN refusal', async () => {
     const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
     const registered = registerClashRefusalHandlers(bus);
-    expect(registered).toHaveLength(UNIMPLEMENTED_CLASH_COMMAND_IDS.length);
+    // TWELVE, not eleven: on a bare bus nothing has claimed `clash-run`, so the
+    // refusal pass claims it too. Registration is keyed on what the BUS has,
+    // never on the implemented census — see the fall-back test below.
+    expect(registered).toHaveLength(CLASH_COMMAND_IDS.length);
 
     for (const id of CLASH_COMMAND_IDS) {
       expect(bus.has(id)).toBe(true);
@@ -250,7 +261,21 @@ describe('GE-06 §4 — the refusal survives a real dispatch', () => {
     });
     const registered = registerClashRefusalHandlers(bus);
     expect(registered).not.toContain('clash-run');
-    expect(registered).toHaveLength(UNIMPLEMENTED_CLASH_COMMAND_IDS.length - 1);
+    expect(registered).toHaveLength(CLASH_COMMAND_IDS.length - 1);
+  });
+
+  it('FALLS BACK — an id the census calls implemented still refuses if the bus lacks it', () => {
+    // The regression this pins: registration used to iterate the UNIMPLEMENTED
+    // census, which skipped `clash-run` unconditionally once it was declared
+    // implemented. In a build where `registerClashRun` THREW, that left the id
+    // with NO handler at all — the thrown "no handler registered for:
+    // clash-run" this module was written to retire. Registration now asks the
+    // BUS, so a failed detector degrades to an honest refusal.
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    expect(IMPLEMENTED_CLASH_COMMAND_IDS).toContain('clash-run');
+    const registered = registerClashRefusalHandlers(bus);
+    expect(registered).toContain('clash-run');
+    expect(registered).toHaveLength(12);
   });
 
   it('is idempotent — registering twice does not throw', () => {
@@ -264,35 +289,137 @@ describe('GE-06 §4 — the refusal survives a real dispatch', () => {
 // ─── 5 · The honest state of GE-06, pinned ──────────────────────────────────
 
 describe('GE-06 §5 — the row is OPEN, and the numbers say so', () => {
-  it('ZERO of the twelve clash verbs are implemented', () => {
-    expect(IMPLEMENTED_CLASH_COMMAND_IDS).toHaveLength(0);
-    expect(UNIMPLEMENTED_CLASH_COMMAND_IDS).toHaveLength(12);
-    for (const id of CLASH_COMMAND_IDS) expect(clashCommandStatus(id)).toBe('unimplemented');
+  it('ONE of the twelve clash verbs is implemented — and it is clash-run', () => {
+    // This assertion used to read `toHaveLength(0)`. It moved because a verb
+    // moved, not because a number was edited: `clash-run` detects for
+    // `roof×wall` and is reached through a dispatch in
+    // `apps/editor/__tests__/RoofWallClashVerbReach.test.ts`. Eleven still do
+    // not, and this test fails the moment someone adds a twelfth id here
+    // without that proof.
+    expect(IMPLEMENTED_CLASH_COMMAND_IDS).toEqual(['clash-run']);
+    expect(UNIMPLEMENTED_CLASH_COMMAND_IDS).toHaveLength(11);
+    expect(clashCommandStatus('clash-run')).toBe('implemented');
+    for (const id of UNIMPLEMENTED_CLASH_COMMAND_IDS) {
+      expect(clashCommandStatus(id)).toBe('unimplemented');
+    }
   });
 
-  it('ZERO element pairs have a REGISTERED detector', () => {
-    expect(REGISTERED_CLASH_PAIRS).toHaveLength(0);
-    expect(UNCHECKED_CLASH_PAIRS).toHaveLength(CLASH_PAIR_COVERAGE.length);
+  it('ONE element pair of six has a REGISTERED detector; five are still dark', () => {
+    expect(REGISTERED_CLASH_PAIRS).toEqual(['roof×wall']);
+    expect(UNCHECKED_CLASH_PAIRS).toHaveLength(CLASH_PAIR_COVERAGE.length - 1);
+    expect(UNCHECKED_CLASH_PAIRS).not.toContain('roof×wall');
   });
 
-  it('roof×wall is EXISTS_BUT_UNWIRED — a real detector that no run calls', () => {
+  it('roof×wall is REGISTERED, and its note names the site that registers it', () => {
     const roof = CLASH_PAIR_COVERAGE.find((p) => p.pair === 'roof×wall');
-    // Kept distinct from REGISTERED on purpose. geometry-roof's detector is
-    // real and oracle-tested; counting it as coverage because the code exists
-    // is the authored-but-unwired mistake this repo keeps making.
-    expect(roof?.state).toBe('EXISTS_BUT_UNWIRED');
-    expect(REGISTERED_CLASH_PAIRS).not.toContain('roof×wall');
+    expect(roof?.state).toBe('REGISTERED');
+    // A pair may claim REGISTERED only by naming where the registration
+    // happens — the difference between this state and EXISTS_BUT_UNWIRED is a
+    // call site, so the manifest must cite one.
+    expect(roof?.note).toContain('registerClashRun');
+    expect(roof?.note).toContain('engineLauncher');
   });
 
-  it('every pair in the manifest names what is missing', () => {
+  it('every pair in the manifest names what is missing, or where it is wired', () => {
     for (const p of CLASH_PAIR_COVERAGE) expect(p.note.length).toBeGreaterThan(0);
   });
 
+  it('the default refusal claims NO coverage — a build must declare what it wired', () => {
+    // The opposite lie to the one GE-06 opened on, and just as easy to ship: a
+    // refusal that boasts about a detector the running build never registered.
+    // The default is empty; coverage arrives only as the value
+    // `registerClashRun` returned.
+    const text = clashRefusalText('clash-run');
+    expect(text).toContain('this build has no clash engine');
+    expect(text).toContain('0 of 6 element pairs');
+    for (const p of CLASH_PAIR_COVERAGE) expect(text).toContain(p.pair);
+  });
+
+  it('a build that DID wire roof×wall says so, and stops calling it unchecked', () => {
+    const text = clashRefusalText('clash-report-export', ['roof×wall']);
+    expect(text).toContain('this build checks only roof×wall');
+    expect(text).toContain('1 of 6 element pairs');
+    const notChecked = /NOT CHECKED: ([^.]+)\./.exec(text)?.[1] ?? '';
+    expect(notChecked).not.toContain('roof×wall');
+    expect(notChecked).toContain('wall×wall');
+  });
+
   it('the exit condition is stated in numbers a future lane can check', () => {
-    // GE-06 closes when this flips: detectors registered > 0 and the
-    // implemented set is non-empty. Today both are zero, and that is reported,
-    // not hidden.
+    // GE-06 closes when ALL SIX pairs are registered and all twelve verbs are
+    // implemented. One and one, out of six and twelve — reported, not hidden.
+    expect(REGISTERED_CLASH_PAIRS).toHaveLength(1);
+    expect(CLASH_PAIR_COVERAGE).toHaveLength(6);
     const implemented: readonly ClashCommandId[] = IMPLEMENTED_CLASH_COMMAND_IDS;
-    expect(implemented.length + REGISTERED_CLASH_PAIRS.length).toBe(0);
+    expect(implemented).toHaveLength(1);
+    expect(implemented.length).toBeLessThan(CLASH_COMMAND_IDS.length);
+  });
+});
+
+// ─── 6 · The REAL run, at this package's own seam ───────────────────────────
+//
+// The end-to-end proof (real detector, real geometry) lives in apps/editor,
+// which is the only place that can import BOTH the bus and geometry-roof. What
+// belongs HERE is the port's own contract: what the handler does with each
+// runner outcome, including the ones a detector author gets wrong.
+
+describe('GE-06 §6 — createClashRunHandler maps every runner outcome', () => {
+  it('a runner that found nothing yields a SCOPED zero, not a bare []', async () => {
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    registerClashRun(bus, { pairs: ['roof×wall'], run: () => ({ kind: 'ran', findings: [] }) });
+    const evt = await bus.executeCommand('clash-run', {});
+    expect(evt.report?.findings).toEqual([]);
+    expect(evt.report?.checked).toEqual(['roof×wall']);
+    // Computed from the MANIFEST, not from the runner: a runner cannot shrink
+    // its own unchecked list by forgetting to mention a pair.
+    expect(evt.report?.unchecked).toHaveLength(CLASH_PAIR_COVERAGE.length - 1);
+    expect(evt.refusal).toBeUndefined();
+  });
+
+  it('a runner that could not look yields a refusal and NO report key', async () => {
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    registerClashRun(bus, {
+      pairs: ['roof×wall'],
+      run: () => ({
+        kind: 'unavailable',
+        reason: 'RELATIONSHIP_NOT_READABLE',
+        detail: 'no levels.',
+      }),
+    });
+    const evt = await bus.executeCommand('clash-run', {});
+    expect(evt.refusal?.reason).toBe('RELATIONSHIP_NOT_READABLE');
+    expect(evt.report).toBeUndefined();
+    expect(evt.refusal?.detail).toContain('This is a REFUSAL, not a clean result');
+  });
+
+  it('REJECTS a runner that claims a pair the manifest does not know', () => {
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    expect(() =>
+      registerClashRun(bus, { pairs: ['duct×beam'], run: () => ({ kind: 'ran', findings: [] }) }),
+    ).toThrow(/not in/);
+    // And the id is left free, so the refusal pass still claims it.
+    expect(bus.has('clash-run')).toBe(false);
+  });
+
+  it('REJECTS a runner that checks nothing — it must refuse instead', () => {
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    expect(() =>
+      registerClashRun(bus, { pairs: [], run: () => ({ kind: 'ran', findings: [] }) }),
+    ).toThrow(/NO pairs/);
+  });
+
+  it('REJECTS a finding attributed to a pair the run did not check', async () => {
+    // capabilityRan() enforces this at CONSTRUCTION, so an unattributable
+    // finding cannot reach a caller who would count it against the wrong pair.
+    const bus = new CommandBus({ audit: baseAudit, storesProvider: () => ({}) });
+    registerClashRun(bus, {
+      pairs: ['roof×wall'],
+      run: () => ({
+        kind: 'ran',
+        findings: [
+          { scope: 'wall×wall', aId: 'a', bId: 'b', kind: 'overlap', magnitudeM: 1, detail: 'x' },
+        ],
+      }),
+    });
+    await expect(bus.executeCommand('clash-run', {})).rejects.toThrow(/not in checked/);
   });
 });

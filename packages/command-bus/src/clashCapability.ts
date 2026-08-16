@@ -1,45 +1,53 @@
 /**
- * clashCapability — GE-06 / PR-10: the clash verbs REFUSE BY NAME.
+ * clashCapability — GE-06: ONE clash verb DETECTS; the other eleven REFUSE BY NAME.
  *
  * WHY THIS FILE EXISTS
  * ────────────────────────────────────────────────────────────────────────────
  * `commands.ts` declares TWELVE `clash-*` command ids (§392–409,
- * `ClashDetectionToolbarCommands`). **Not one of them has a handler anywhere in
- * this repository.** There is no clash engine. GE-06 in the BIM30 gap register
- * is a MISSING ALGORITHM, not missing wiring, and this file does not build it.
+ * `ClashDetectionToolbarCommands`). Until PR-10 not one had a handler anywhere
+ * in this repository. A declared id with no handler is, from outside,
+ * INDISTINGUISHABLE from a working feature that found nothing — this
+ * repository's defining defect class (ADR-0322 §5, "'found nothing' and 'could
+ * not look' are never the same value"), and the state C70 L-INV-1 names as the
+ * worst a capability can be in. A user who clicks "Run clash detection", sees
+ * no clashes, and ships the model has been lied to by silence.
  *
- * What this file fixes is narrower and, per the GE-06 recount, the cheapest
- * HONEST step available:
+ * PR-10 made all twelve REFUSE, which removed the silence without adding a
+ * capability. §GE-06-ROOF-WALL-WIRE then converted exactly ONE of them from
+ * "refuses honestly" to "detects truthfully":
  *
- *   > "make `clash-run` REFUSE EXPLICITLY instead of being a registered id with
- *   >  no handler — converts a silent capability lie into a declared refusal."
- *
- * A declared id with no handler is, from outside, INDISTINGUISHABLE from a
- * working feature that found nothing. That is this repository's defining defect
- * class — ADR-0322 §5, "'found nothing' and 'could not look' are never the same
- * value" — and C70 L-INV-1 names a registered id that silently does nothing as
- * the worst state a capability can be in. A user who clicks "Run clash
- * detection", sees no clashes, and ships the model has been lied to by silence.
+ *   `clash-run` → the `roof×wall` pair, over the oracle-tested detector in
+ *   `packages/geometry-roof/src/pure/roofWallClash.ts`, injected through the
+ *   {@link ClashRunner} port (§7) and registered by `engineLauncher`.
  *
  * WHAT THIS FILE DOES
  *   • Enumerates the twelve ids ONCE, with a compile-time bijection against the
  *     registry type, so the list cannot drift from `commands.ts` (C69's
  *     rival-list rule: never a hand-maintained parallel list).
- *   • Gives every UNIMPLEMENTED id a real `CommandHandler` whose `execute()`
- *     returns a typed {@link CapabilityRefusal} on the `HandlerResult.refusal`
- *     channel — the channel C80 §1.4 built for exactly this.
- *   • Carries the GE-06 §1 pair-coverage manifest as CODE, so the refusal text
+ *   • Gives every id with no implementation a real `CommandHandler` whose
+ *     `execute()` returns a typed {@link CapabilityRefusal} on the
+ *     `HandlerResult.refusal` channel — the channel C80 §1.4 built for this.
+ *   • Gives `clash-run` a real handler that returns a `CapabilityRunReport` on
+ *     the `HandlerResult.report` channel, whose `checked` list scopes its
+ *     `findings` — so `findings: []` means "zero clashes in roof×wall", never
+ *     "zero clashes" and never "nothing ran".
+ *   • Carries the GE-06 §1 pair-coverage manifest as CODE, so every sentence
  *     NAMES the pairs nothing has looked at, rather than waving at them.
  *
  * WHAT THIS FILE DOES **NOT** CLAIM — stated so nobody reads it as a close:
- *   • **GE-06 REMAINS OPEN.** Zero clash detectors are registered here. A
- *     refusal is not a detector; it is an honest answer while there is none.
- *   • It does not make any clash verb work, and deliberately does not stub one
- *     to return `[]`. `[]` from an engine that checked nothing is the
- *     `[]`-means-unknown defect at engine scale — the very lie being removed.
+ *   • **GE-06 REMAINS OPEN.** ONE pair of six is checked; five are NOT_BUILT,
+ *     and eleven of twelve verbs still have no implementation. A run that
+ *     reports no findings has established nothing about `wall×wall`,
+ *     `column×slab`, `stair×slab`, `furniture×clearance` or `opening×wall`,
+ *     and says so in its own `unchecked` list.
+ *   • It does not stub anything to return `[]`. `[]` from an engine that
+ *     checked nothing is the `[]`-means-unknown defect at engine scale.
  *   • It says nothing about the ClashDetectionToolbar, which declares a
- *     DIFFERENT twelve ids (only three overlap) and whose fate is the founder's
- *     mount-or-delete call. The verb seam is the surface; the toolbar is not.
+ *     DIFFERENT twelve ids (only three overlap: `clash-run`,
+ *     `clash-filter-new`, `clash-report-export`) and whose fate is the
+ *     founder's mount-or-delete call. The verb seam is the surface; the
+ *     toolbar is not. **Nine of its twelve buttons dispatch ids the registry
+ *     does not declare, so they cannot reach any verb, refusing or otherwise.**
  *
  * WHY `canExecute()` RETURNS VALID
  * A refusal routed through `canExecute({valid:false})` becomes a THROWN
@@ -149,8 +157,12 @@ export interface ClashPairCoverage {
 export const CLASH_PAIR_COVERAGE: readonly ClashPairCoverage[] = [
   {
     pair: 'roof×wall',
-    state: 'EXISTS_BUT_UNWIRED',
-    note: 'pure detector exists (packages/geometry-roof/src/pure/roofWallClash.ts, 13 oracle tests) but no clash run calls it',
+    state: 'REGISTERED',
+    note:
+      'detector: packages/geometry-roof/src/pure/roofWallClash.ts (13 oracle tests); ' +
+      'runner: pure/roofWallClashRunner.ts; registered via registerClashRun() in ' +
+      'apps/editor/src/engine/engineLauncher.ts; reached through the bus in ' +
+      'apps/editor/__tests__/RoofWallClashVerbReach.test.ts (§GE-06-ROOF-WALL-WIRE)',
   },
   {
     pair: 'wall×wall',
@@ -179,30 +191,54 @@ export const CLASH_PAIR_COVERAGE: readonly ClashPairCoverage[] = [
   },
 ] as const;
 
-/** Pairs a run would actually evaluate today. Empty — that is the point. */
+/**
+ * Pairs for which THIS REPOSITORY has a detector wired to a verb — one, today
+ * (`roof×wall`, §GE-06-ROOF-WALL-WIRE).
+ *
+ * ⚠ THIS IS NOT "what the running build checks", and it is never used as one.
+ * Registration happens in a composition root, and a build that skipped it
+ * checks nothing however much code sits in the tree — the authored-but-unwired
+ * mistake, restated as a variable. Every sentence about coverage takes its
+ * `checkedPairs` from {@link registerClashRun}'s RETURN VALUE, which is a fact
+ * about the live bus, and defaults to EMPTY when a caller does not supply it.
+ */
 export const REGISTERED_CLASH_PAIRS: readonly string[] = CLASH_PAIR_COVERAGE.filter(
   (p) => p.state === 'REGISTERED',
 ).map((p) => p.pair);
+
+/**
+ * The default `checkedPairs` for every refusal sentence: EMPTY.
+ *
+ * A build that has not told us what it registered must claim NOTHING. Defaulting
+ * to {@link REGISTERED_CLASH_PAIRS} would make an un-wired build print "this
+ * build checks roof×wall" because the code exists somewhere in the repo — the
+ * precise lie GE-06 was opened to remove, wearing the opposite sign.
+ */
+const NO_PAIRS_CHECKED: readonly string[] = [];
 
 /** Pairs NOTHING would look at. Named in every refusal, never merely counted. */
 export const UNCHECKED_CLASH_PAIRS: readonly string[] = CLASH_PAIR_COVERAGE.filter(
   (p) => p.state !== 'REGISTERED',
 ).map((p) => p.pair);
 
-// ─── 3 · Which ids are implemented (today: none) ─────────────────────────────
+// ─── 3 · Which ids are implemented (today: ONE of twelve) ────────────────────
 
 /**
  * Clash verbs backed by a REAL implementation.
  *
- * **Currently empty: zero of the twelve are implemented.** An id is added here
- * only together with a handler that does the work and the oracle tests that
- * prove it. Adding an id here without one would restore precisely the silent
- * lie this module exists to remove, so `__tests__/clash-capability.test.ts`
- * pins the count and forces this comment to be re-read.
+ * **ONE of the twelve: `clash-run`** (§GE-06-ROOF-WALL-WIRE), and only for the
+ * `roof×wall` pair, which its report names explicitly. An id is added here only
+ * together with a handler that does the work, the oracle tests that prove the
+ * algorithm, AND a test that reaches it through a dispatch — the last of those
+ * is the one this repository keeps skipping, and a green unit test on a pure
+ * function is not it (`apps/editor/__tests__/RoofWallClashVerbReach.test.ts`).
+ *
+ * ⚠ This list is a CENSUS, not a registration input. `registerClashRefusalHandlers`
+ * deliberately does not read it — see the note there.
  */
-export const IMPLEMENTED_CLASH_COMMAND_IDS: readonly ClashCommandId[] = [];
+export const IMPLEMENTED_CLASH_COMMAND_IDS: readonly ClashCommandId[] = ['clash-run'];
 
-/** Ids with no implementation — every id, today. */
+/** Ids with no implementation — eleven of twelve. */
 export const UNIMPLEMENTED_CLASH_COMMAND_IDS: readonly ClashCommandId[] =
   CLASH_COMMAND_IDS.filter((id) => !IMPLEMENTED_CLASH_COMMAND_IDS.includes(id));
 
@@ -260,7 +296,7 @@ export function clashRefusalText(
    * would make the claim depend on import order — the C69 rival-list defect
    * wearing a different hat.
    */
-  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
+  checkedPairs: readonly string[] = NO_PAIRS_CHECKED,
 ): string {
   const missing = CLASH_MISSING_CAPABILITY[commandType];
   const total = CLASH_PAIR_COVERAGE.length;
@@ -302,7 +338,7 @@ export function clashRefusalText(
 export function clashCapabilityRefusal(
   commandType: ClashCommandId,
   /** Pairs THIS BUILD checks — see {@link clashRefusalText}. */
-  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
+  checkedPairs: readonly string[] = NO_PAIRS_CHECKED,
 ): CapabilityRefusal {
   return capabilityRefused({
     commandType,
@@ -539,7 +575,7 @@ export interface ClashHandlerRegistrar {
 export function createClashRefusalHandler(
   commandType: ClashCommandId,
   /** Pairs THIS BUILD checks — see {@link clashRefusalText}. */
-  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
+  checkedPairs: readonly string[] = NO_PAIRS_CHECKED,
 ): CommandHandler<EmptyPayload> {
   const refusal = clashCapabilityRefusal(commandType, checkedPairs);
   return {
@@ -564,14 +600,29 @@ export function createClashRefusalHandler(
  * beats this, and no one has to remember to delete anything. Returns the ids
  * that were actually given a refusal handler, so a caller can log the true
  * number instead of assuming twelve.
+ *
+ * ⚠ PASS `checkedPairs` — the value {@link registerClashRun} returned. A build
+ * that genuinely checks `roof×wall` must not tell the remaining eleven verbs to
+ * say "this build has no clash engine": that is the SAME defect as the one this
+ * module removed, pointing the other way. The default is the static manifest's
+ * REGISTERED set (empty), which is correct only for a build that wired nothing.
  */
 export function registerClashRefusalHandlers(
   bus: ClashHandlerRegistrar,
+  checkedPairs: readonly string[] = NO_PAIRS_CHECKED,
 ): readonly ClashCommandId[] {
   const registered: ClashCommandId[] = [];
-  for (const id of UNIMPLEMENTED_CLASH_COMMAND_IDS) {
+  // ⚠ ITERATES ALL TWELVE, and skips on `bus.has()` — NOT on the
+  // UNIMPLEMENTED census. The two answer different questions, and keying
+  // registration on the census re-opens a hole: `clash-run` is implemented, so
+  // a census-driven loop skips it unconditionally — including in a build where
+  // `registerClashRun` THREW. That build would ship `clash-run` with NO handler
+  // at all, back to the thrown "no handler registered for: clash-run" this
+  // module was written to retire. Asking the BUS what it actually has is the
+  // only question whose answer is a fact about this process.
+  for (const id of CLASH_COMMAND_IDS) {
     if (bus.has(id)) continue;
-    bus.register(createClashRefusalHandler(id));
+    bus.register(createClashRefusalHandler(id, checkedPairs));
     registered.push(id);
   }
   return registered;

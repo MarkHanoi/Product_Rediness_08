@@ -82,9 +82,11 @@ import { registerSectionHandlers } from '@pryzm/plugin-section-view';
 import { registerViewHandlers } from '@pryzm/plugin-view';
 import { registerLevelHandlers } from '@pryzm/plugin-levels';
 import { registerSelectionHandlers, type SelectionPastePort } from '@pryzm/plugin-selection';
-// GE-06 — the twelve declared `clash-*` verbs, which have no implementation and
-// therefore REFUSE rather than dispatch into nothing. Not a clash engine.
-import { registerClashRefusalHandlers } from '@pryzm/command-bus';
+// GE-06 — the twelve declared `clash-*` verbs. `clash-run` now DETECTS for the
+// roof×wall pair (§GE-06-ROOF-WALL-WIRE); the other eleven still REFUSE rather
+// than dispatch into nothing. One pair of six is checked, and it says so.
+import { registerClashRefusalHandlers, registerClashRun } from '@pryzm/command-bus';
+import { createRoofWallClashRunner } from '@pryzm/geometry-roof';
 
 // ── Task 5.2 extracted subsystems ─────────────────────────────────────────────
 import { initAnnotationTools }        from './initAnnotationTools';
@@ -661,9 +663,41 @@ export async function bootstrap(
         //
         // Defers to any real detector: an id already registered is skipped, so
         // the lane that lands one simply wins. **GE-06 stays OPEN.**
+        //
+        // §GE-06-ROOF-WALL-WIRE — `clash-run` is the exception, as of this lane.
+        // `packages/geometry-roof/src/pure/roofWallClash.ts` has been a real,
+        // oracle-tested roof-vs-walls-beneath detector since `83c82c02`, and its
+        // ONLY consumer was the level-reconcile announcer (line ~791): no verb a
+        // user could invoke reached it. THIS is the registration that changes
+        // that, and it must run BEFORE the refusal pass so `clash-run` is taken.
+        //
+        // The `checkedPairs` value threaded into the refusal pass is not
+        // decoration: without it the other eleven verbs keep telling the user
+        // "this build has no clash engine", which is now false in the opposite
+        // direction. One pair of six is checked, and every refusal says which.
+        let checkedClashPairs: readonly string[] = [];
         try {
-            const refusing = registerClashRefusalHandlers(_bus);
-            console.log(`[EngineBootstrap] GE-06: ${refusing.length} clash verb(s) registered as REFUSING — no clash engine in this build.`);
+            checkedClashPairs = registerClashRun(_bus, createRoofWallClashRunner({
+                levelIds:       () => (bimManager?.getLevels?.() ?? []).map((l: any) => l?.id).filter((id: any): id is string => typeof id === 'string'),
+                roofsOnLevel:   (levelId) => roofStore?.getByLevel?.(levelId) ?? [],
+                wallsOnLevel:   (levelId) => wallStore?.getByLevel?.(levelId) ?? [],
+                // `undefined` on purpose when the level is unknown — the runner
+                // REFUSES on an unreadable elevation rather than measuring the
+                // roof against a fabricated 0, which would read false-CLEAN.
+                levelElevation: (levelId) => bimManager?.getLevelById?.(levelId)?.elevation,
+            }));
+            console.log(`[EngineBootstrap] GE-06: clash-run DETECTS for ${checkedClashPairs.join(', ')} — the remaining pairs are unchecked and every refusal names them.`);
+        }
+        catch (e: any) {
+            // A failed detector registration must NOT leave clash-run silently
+            // absent: fall through with an empty checked list so the refusal
+            // pass below claims the id and the verb still answers honestly.
+            checkedClashPairs = [];
+            console.error('[EngineBootstrap] GE-06: registerClashRun failed (non-fatal) — clash-run falls back to REFUSING:', e?.message ?? e);
+        }
+        try {
+            const refusing = registerClashRefusalHandlers(_bus, checkedClashPairs);
+            console.log(`[EngineBootstrap] GE-06: ${refusing.length} clash verb(s) registered as REFUSING (checked pairs: ${checkedClashPairs.length === 0 ? 'none' : checkedClashPairs.join(', ')}).`);
         }
         catch (e: any) { console.error('[EngineBootstrap] GE-06: registerClashRefusalHandlers failed (non-fatal):', e?.message ?? e); }
 
