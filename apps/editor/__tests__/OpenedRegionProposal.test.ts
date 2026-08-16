@@ -19,8 +19,14 @@ import type { OpenedRegionFinding } from '@pryzm/room-topology';
 import {
     buildOpenedRegionOffer,
     presentOpenedRegion,
+    initOpenedRegionProposals,
     __resetOpenedRegionProposalState,
 } from '../src/ui/ai/OpenedRegionProposal';
+import {
+    projectScopeRegistry,
+    listProjectScopeProbes,
+    readProjectScopeProbes,
+} from '@pryzm/core-app-model';
 import {
     registerChatPromptHost, __resetChatPromptHost, chatSay, getSurfaceDiagnostics,
 } from '../src/ui/ai/chatPromptHost';
@@ -319,6 +325,102 @@ describe('§OPENED-REGION — it asks ONCE', () => {
         await presentOpenedRegion(OPENED);
         await presentOpenedRegion(OPENED);
         expect(h.asked).toHaveLength(1);
+    });
+});
+
+/**
+ * §L-910-CLASS / ADR-0298 — the de-duplication state is PROJECT-SCOPED, and its
+ * teardown is proved THROUGH the registry the C13 path actually calls.
+ *
+ * These arms deliberately never call `clearOpenedRegionProposals()` directly.
+ * `ClearProjectCommand` calls `projectScopeRegistry.clearAll()`; the question this
+ * suite has to answer is whether THAT reaches this module — a fix that is committed,
+ * unit-tested and unregistered clears nothing on a real project switch.
+ *
+ * The user-visible symptom being pinned is a SUPPRESSION, not a stale value: if the
+ * `lastAskedKey` entry for level `L0` survives a switch, PRYZM finds a genuinely
+ * opened region on the new project's `L0` and says nothing at all.
+ */
+describe('§OPENED-REGION — project scope is reachable from the C13 teardown', () => {
+    it('registers its teardown and its probe as an IMPORT side effect', () => {
+        // No init call, no mount, no constructor: importing the module at the top of
+        // this file is the whole registration event. That is what licenses the audit
+        // to read this module's absence as "never imported, therefore holding nothing"
+        // (ADR-0298 presence: 'module-scope').
+        expect(projectScopeRegistry.has('ai.openedRegionProposal')).toBe(true);
+        expect(listProjectScopeProbes()).toContain('ai.openedRegionProposal');
+    });
+
+    it('the probe reports HELD state after an ask, and null before one', async () => {
+        const before = readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal');
+        expect(before?.owningProjectId).toBeNull();
+
+        harness(false);
+        await presentOpenedRegion(OPENED);
+
+        const after = readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal');
+        // No runtime is reachable in this harness, so the project cannot be resolved.
+        // L-713: "holding nothing" and "holding something I cannot attribute" must never
+        // share a value — this must be the explicit marker, NOT null.
+        expect(after?.owningProjectId).toBe('<proposal-project-unresolved>');
+        expect((after?.detail as { dedupedLevels?: number })?.dedupedLevels).toBe(1);
+    });
+
+    it('projectScopeRegistry.clearAll() — the call ClearProjectCommand makes — empties it', async () => {
+        harness(false);
+        await presentOpenedRegion(OPENED);
+        expect(
+            readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal')?.owningProjectId,
+        ).not.toBeNull();
+
+        const report = projectScopeRegistry.clearAll();
+        expect(report.cleared).toContain('ai.openedRegionProposal');
+        // Scoped to THIS owner, not to the whole report: the registry is a live
+        // singleton and every other store this test file transitively imported is
+        // registered in it too, several of which dispatch a DOM event from reset()
+        // and throw against the stub `window` above. Those are this harness's
+        // failures, not this scope's — asserting on the whole report would turn an
+        // unrelated import into a red arm here. `clear()` is required to be
+        // non-throwing, and this one is, which is what the arm has to prove.
+        expect(report.failures.map(f => f.scope)).not.toContain('ai.openedRegionProposal');
+
+        const after = readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal');
+        expect(after?.owningProjectId).toBeNull();
+        expect((after?.detail as { dedupedLevels?: number })?.dedupedLevels).toBe(0);
+    });
+
+    it('THE SYMPTOM: after the switch the same level can be asked again', async () => {
+        const h1 = harness(false);
+        await presentOpenedRegion(OPENED);
+        await presentOpenedRegion(OPENED);
+        expect(h1.asked).toHaveLength(1);          // de-dup works WITHIN a project
+
+        projectScopeRegistry.clearAll();            // ← the project switch
+
+        const h2 = harness(false);
+        await presentOpenedRegion(OPENED);
+        // Before the fix this was 0: Project A's `L0` entry silenced Project B's `L0`,
+        // and the only evidence was a question that never got asked.
+        expect(h2.asked).toHaveLength(1);
+    });
+
+    it('the subscription latch is NOT torn down — a switch must not re-subscribe', () => {
+        // `installed` is app-lifetime, not project state. If clearAll() reset it, the
+        // next bootstrap would subscribe a second time and every finding would be
+        // asked twice. Declared as deliberately-not-a-reset in declaredProjectScopes.ts.
+        const dispose = initOpenedRegionProposals();
+        expect(
+            (readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal')
+                ?.detail as { subscribed?: boolean })?.subscribed,
+        ).toBe(true);
+
+        projectScopeRegistry.clearAll();
+
+        expect(
+            (readProjectScopeProbes().find(p => p.scope === 'ai.openedRegionProposal')
+                ?.detail as { subscribed?: boolean })?.subscribed,
+        ).toBe(true);
+        dispose();
     });
 });
 

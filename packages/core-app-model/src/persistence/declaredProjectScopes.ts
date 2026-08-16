@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 3;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 4;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -347,6 +347,79 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 + 'marker, never null — "holding nothing" and "holding something I cannot '
                 + 'attribute" are the L-713 mistake if they share a value.',
         },
+    },
+    {
+        scope: 'ai.wallMoveClashProposal',
+        module: 'apps/editor/src/ui/ai/WallMoveClashProposal.ts',
+        why: '§L-910-CLASS — the C83 wall-move clash offer de-duplicates its questions in '
+            + 'two module-level containers keyed by WALL ID, and wall ids are not unique '
+            + 'across projects. `lastAskedKey` does not merely waste memory when it survives '
+            + "a switch: it SUPPRESSES a question — Project A's entry for wall `w-12` "
+            + "silences a genuine, defensible clash offer on Project B's unrelated `w-12`, "
+            + 'so the user drags into a real clash and the chat stays quiet. `asking` is '
+            + 'rarer and worse: a switch while a card is on screen strands the wall in the '
+            + '"already asking" set forever, because the `finally` that removes it only runs '
+            + 'when that promise settles. Both symptoms are a correct thing that silently '
+            + 'fails to happen — invisible to any audit that does not model this surface. '
+            + 'The module shipped with a probe and a registry entry in commit 895b8d49 but '
+            + 'no declaration, which is exactly the born-invisible state ADR-0298 §3 forbids; '
+            + 'this entry is the missing half.',
+        presence: 'module-scope',
+        resets: ['lastAskedKey.clear()', 'asking.clear()', '_owningProjectId = null'],
+        counts: ['lastAskedKey.size', 'asking.size', '_owningProjectId'],
+        uncounted: {
+            'lastAskedKey.clear()':
+                'COUNTED, under its read literal: the probe reads `lastAskedKey.size`, which '
+                + 'is declared in `counts`. The pair is split deliberately — `resets` carries '
+                + 'the CALL so D3 fails if the teardown step is deleted, `counts` carries the '
+                + 'READ so D4 fails if the probe stops looking. One container, both halves '
+                + 'pinned; nothing here is exempt from the L-694b symmetry rule.',
+            'asking.clear()':
+                'COUNTED, under its read literal `asking.size` in `counts`. Same split as '
+                + 'above: the call is pinned by D3, the read by D4, and neither can be removed '
+                + 'without a failure naming which half went.',
+            '_owningProjectId = null':
+                'COUNTED, under the bare identifier `_owningProjectId` in `counts` — the probe '
+                + 'returns it as the owner whenever either container is non-empty. The assignment '
+                + 'literal is declared separately so that dropping the stamp-clear from the '
+                + 'teardown (leaving a stale owner behind cleared containers) fails D3.',
+        },
+    },
+    {
+        scope: 'ai.openedRegionProposal',
+        module: 'apps/editor/src/ui/ai/OpenedRegionProposal.ts',
+        why: '§L-910-CLASS, the sibling of `ai.wallMoveClashProposal` and the second surface '
+            + 'of this family. The §OPENED-REGION offer (L-880) de-duplicates per LEVEL, and '
+            + 'level ids are not unique across projects either: a surviving `lastAskedKey` '
+            + "entry for `lvl-0` silences a genuine \"this wall move left a room standing "
+            + 'open" offer on the next project\'s `lvl-0`. It was found by this gate\'s '
+            + 'CANDIDATE SWEEP holding module-level project-scoped state with no owner at '
+            + 'all — no probe, no registry entry, no declaration — and was given all three '
+            + 'rather than baselined as debt: the sweep exists to find exactly this, and a '
+            + 'file that matches it is either declared or genuinely not project-scoped, and '
+            + 'this one is project-scoped.',
+        presence: 'module-scope',
+        resets: ['lastAskedKey.clear()', 'asking.clear()', '_owningProjectId = null'],
+        counts: ['lastAskedKey.size', 'asking.size', '_owningProjectId'],
+        uncounted: {
+            'lastAskedKey.clear()':
+                'COUNTED, under its read literal `lastAskedKey.size` in `counts`. `resets` '
+                + 'carries the CALL so D3 fails if the teardown step is deleted; `counts` '
+                + 'carries the READ so D4 fails if the probe stops looking at it.',
+            'asking.clear()':
+                'COUNTED, under its read literal `asking.size` in `counts`. Same deliberate '
+                + 'split as its sibling scope — the call is pinned by D3, the read by D4.',
+            '_owningProjectId = null':
+                'COUNTED, under the bare identifier `_owningProjectId` in `counts`. Declared '
+                + 'separately as a reset so that dropping the stamp-clear — which would leave '
+                + 'a stale owner attached to cleared containers — fails D3 rather than '
+                + 'silently degrading the report.',
+        },
+        // NOT in `resets`, and deliberately so: `installed` latches the subscription to
+        // `openedRegionNotifier`, which is app-lifetime state, not project state. Clearing
+        // it on a project switch would let the next bootstrap subscribe a SECOND time and
+        // ask every opened-region question twice. It is reported through describe()
+        // (`subscribed`) so its value is still visible in a leak report.
     },
 ];
 

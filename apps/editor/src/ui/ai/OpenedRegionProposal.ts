@@ -51,6 +51,9 @@
 import { openedRegionNotifier } from '@pryzm/room-topology';
 import type { OpenedRegionFinding } from '@pryzm/room-topology';
 import { chatSay, chatConfirm } from './chatPromptHost';
+import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import { resolveActiveProjectId } from '../site/siteDispatch';
 
 /** Fallbacks used ONLY when no surviving wall can donate the value; always disclosed. */
 const FALLBACK_THICKNESS_M = 0.10;
@@ -66,6 +69,32 @@ const lastAskedKey = new Map<string, string>();
 const asking = new Set<string>();
 
 let installed = false;
+
+/**
+ * The project whose LEVELS the two containers above describe. Stamped at WRITE
+ * time, never at read time: by the time the probe asks, the active project may
+ * already be the next one, and a read-time resolve would attribute Project A's
+ * held state to Project B — the leak dressed as cleanliness. Null means "holding
+ * nothing"; a held entry whose project could not be resolved answers with an
+ * explicit unattributed marker instead (L-713: the two must never share a value).
+ */
+let _owningProjectId: string | null = null;
+
+/**
+ * Resolve the active project through the ONE canonical resolver, never a quietly
+ * divergent second copy. Same idiom as `WallMoveClashProposal` / `mountedDrawingScope`.
+ */
+function activeProjectId(): string | null {
+    try {
+        const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as
+            PryzmRuntime | undefined;
+        return rt ? resolveActiveProjectId(rt) : null;
+    } catch {
+        // Stamping must never break an offer. A null stamp is reported honestly by
+        // the probe below — it is NOT folded into "clean".
+        return null;
+    }
+}
 
 /**
  * The browser globals, or `undefined`. Same idiom as `ZeroTokenChatBridge.win()` — a
@@ -176,6 +205,7 @@ export async function presentOpenedRegion(finding: OpenedRegionFinding): Promise
 
     if (finding.kind === 'position-unknown') {
         lastAskedKey.set(finding.levelId, key);
+        _owningProjectId = activeProjectId();
         chatSay(
             `That wall move left something open. ${finding.detail} ` +
             `I am not proposing a wall for it, because I would be guessing where it goes.`,
@@ -187,6 +217,7 @@ export async function presentOpenedRegion(finding: OpenedRegionFinding): Promise
     if (!offer) return;
 
     lastAskedKey.set(finding.levelId, key);
+    _owningProjectId = activeProjectId();
     asking.add(finding.levelId);
     try {
         // The card appends its own "This can be undone with Ctrl+Z." tail; the summary
@@ -268,9 +299,64 @@ export function initOpenedRegionProposals(): () => void {
     return () => { off(); installed = false; };
 }
 
-/** Test seam — clears the per-level de-duplication state. */
-export function __resetOpenedRegionProposalState(): void {
+// ── PROJECT SCOPE (ADR-0298) — §L-910-CLASS ──────────────────────────────────
+//
+// Both containers above are keyed by LEVEL ID, and level ids are not globally
+// unique across projects. Carried across a project switch they do not merely
+// waste memory: `lastAskedKey` SUPPRESSES a question. Project A's entry for
+// level `lvl-0` silences a genuine opened-region offer on Project B's unrelated
+// `lvl-0` — a wall move leaves a room standing open and the chat stays quiet.
+// Same shape as the L-910 stale-projection leak: state whose only symptom is a
+// correct thing that silently fails to happen.
+//
+// `asking` is rarer and worse in kind: a switch while a card is on screen can
+// strand a level permanently in the "already asking" set, because the `finally`
+// that removes it only runs when that promise settles.
+//
+// `installed` is deliberately NOT part of this teardown — see the reset list in
+// `declaredProjectScopes.ts`. It latches the subscription to `openedRegionNotifier`,
+// which is app-lifetime and MUST survive a project switch; clearing it would let
+// the next bootstrap subscribe a second time and ask every question twice.
+
+/**
+ * C13 teardown — drop every per-level de-duplication record.
+ *
+ * Idempotent, synchronous, non-throwing (the `projectScopeRegistry` contract).
+ * Clears the containers and the ownership stamp together, so the module can never
+ * be left holding entries it no longer attributes.
+ */
+export function clearOpenedRegionProposals(): void {
     lastAskedKey.clear();
     asking.clear();
+    _owningProjectId = null;
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeOpenedRegionState(): Record<string, unknown> {
+    return {
+        dedupedLevels: lastAskedKey.size,
+        askingNow: asking.size,
+        stampedProjectId: _owningProjectId,
+        subscribed: installed,
+    };
+}
+
+projectScopeRegistry.register({
+    scopeName: 'ai.openedRegionProposal',
+    clear: () => { clearOpenedRegionProposals(); },
+});
+
+registerProjectScopeProbe({
+    scope: 'ai.openedRegionProposal',
+    owningProjectId: () => {
+        if (lastAskedKey.size === 0 && asking.size === 0) return null;
+        return _owningProjectId ?? '<proposal-project-unresolved>';
+    },
+    describe: () => describeOpenedRegionState(),
+});
+
+/** Test seam — clears the per-level de-duplication state AND the subscription latch. */
+export function __resetOpenedRegionProposalState(): void {
+    clearOpenedRegionProposals();
     installed = false;
 }
