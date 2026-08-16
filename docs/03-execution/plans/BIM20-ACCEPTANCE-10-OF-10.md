@@ -51,7 +51,8 @@ Everything below this line is the plan as written on 2026-08-11.
 
 > **Measured baseline at opening**, not estimated: [`BIM20-CERTIFICATION-RESULTS.md`](../../04-reference/BIM20-CERTIFICATION-RESULTS.md)
 > — 34 operations · **0 VERIFIED · 10 PARTIAL · 24 FAILED**.
-> Evidence sources: [continuity deliverable](../../04-reference/BIM30-CONTINUITY-DELIVERABLE.md) ·
+> Evidence sources: the continuity deliverable (`BIM30-CONTINUITY-DELIVERABLE.md`, deleted in the
+> 2026-08-15 corpus collapse — see git history) ·
 > [EV-03](../../04-reference/bim30-evidence/EV-03-change-impact.md) ·
 > [EV-04](../../04-reference/bim30-evidence/EV-04-semanticgraph-write-coverage.md).
 
@@ -145,7 +146,8 @@ CLAIMED → HELD, and only then is 10/10 arithmetically available.
 ## 3. Then BIM 3.0
 
 The BIM 3.0 10/10 plan is **not** written yet, and deliberately so: its criteria are the §I gates
-in the [continuity deliverable](../../04-reference/BIM30-CONTINUITY-DELIVERABLE.md), and several
+in the continuity deliverable (`BIM30-CONTINUITY-DELIVERABLE.md`, deleted 2026-08-15 — see git
+history), and several
 of them measure things BIM 2.0 waves 1–4 are about to change. Writing them now would mean scoring
 against a moving subject. It opens when C1–C7 and C9–C10 are green.
 

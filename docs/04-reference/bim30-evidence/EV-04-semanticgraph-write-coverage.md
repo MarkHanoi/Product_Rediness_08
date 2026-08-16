@@ -1,7 +1,8 @@
 # EV-04 — SemanticGraph per-kind edge WRITE coverage
 
 > **Stamp**: 2026-08-11 · READ-ONLY evidence appendix · settles the row
-> [`BIM30-EVOLUTION-AUDIT.md`](../BIM30-EVOLUTION-AUDIT.md) §2 marked
+> `BIM30-EVOLUTION-AUDIT.md` §2 (that audit was deleted in the 2026-08-15 corpus collapse and was
+> not carried forward — see git history) marked
 > *"per-kind write coverage UNPROVEN"* and §4's *"persisted SemanticGraph edges whose per-kind
 > write coverage is UNPROVEN"*.
 >

@@ -3,10 +3,12 @@
 > **Stamp**: 2026-08-11 · **READ-ONLY evidence appendix** · **Branch**: `main` · **HEAD**: `3e04922d`
 > **This file is the agent's only repo write.** No code was edited, no commit made, no `git stash` run.
 >
-> **Extends, does not duplicate**: [`BIM30-EVOLUTION-AUDIT.md` §5](../BIM30-EVOLUTION-AUDIT.md)
-> (change-impact matrix) and its [§17.2 addendum](../BIM30-EVOLUTION-AUDIT.md) (the DOWNGRADE that
-> declared the generic cascade dead and propagation bespoke) · [`BIM30-READINESS-REPORT.md` §5](../BIM30-READINESS-REPORT.md)
-> (dependency map). Where this appendix disagrees with either, it says so at the line.
+> **Extends, does not duplicate**: `BIM30-EVOLUTION-AUDIT.md` §5 (change-impact matrix) and its
+> §17.2 addendum (the DOWNGRADE that declared the generic cascade dead and propagation bespoke) ·
+> `BIM30-READINESS-REPORT.md` §5 (dependency map). Where this appendix disagrees with either, it
+> says so at the line. ⚠ **All three were deleted in the 2026-08-15 corpus collapse and none was
+> carried forward** — they are citable from git history only, and the disagreements this file
+> records at the line are now the surviving statement of them.
 >
 > **Evidence grades**: **EXECUTED** — a probe/grep/command was run in this session and its output is
 > quoted · **BY-READ** — proven by reading source at HEAD (strong for "this code exists and says
@@ -580,7 +582,8 @@ particular R-1/R-2 were proven against `wallStore.update`/`updateWall` directly,
 commands were read line-by-line and neither adds a clamp, *no probe drove the bus verbs themselves*.
 **(2)** `SchedulePanel` staleness after a geometry change is carried from the prior audit and was
 not re-checked here. **(3)** Whether undo of a wall edit also reverses the SemanticGraph edges that
-the same command wrote — the `BIM30-READINESS-REPORT.md` §9 question — remains without a probe, and
+the same command wrote — the `BIM30-READINESS-REPORT.md` §9 question (that report was deleted
+2026-08-15; see git history) — remains without a probe, and
 R-6 makes it *more* likely to be broken, not less. **(4)** `registerTransformDragHandler.ts:672`
 was not confirmed to resume the wall-rebuild coordinator from a `finally`. **(5)** Whether
 `RoomTopologyObserver.ts:548`'s fire-and-forget `bus.executeCommand('room.update', {})` with an
