@@ -110,20 +110,67 @@ const WHOLE_STORE_RE = /\b(getAll|getAllFor(Level|Project)|getLevels|getByLevel)
 
 interface Site { file: string; line: number; arm: 'A' | 'B' | 'C'; text: string; key: string }
 
-// ── Comment-stripping (line-preserving, so line numbers stay true) ───────────
+// ── Comment + STRING stripping (line-preserving, so line numbers stay true) ──
+/**
+ * Blank everything that is PROSE rather than code: comments AND string/template
+ * literals. Line count and line numbers are preserved exactly.
+ *
+ * §GATE-DOES-NOT-READ-PROSE. Comments were stripped from the first version for
+ * the reason CONTROL 2 states — a gate that counts a comment is measuring its
+ * own changelog. Strings were NOT, and that asymmetry had a measured cost: the
+ * 65th finding at 2026-08-16 was
+ * `WallDeleteConsequencePlanner.ts:603`, the `detail:` prose of an
+ * `undetermined` refusal (`reason: 'RELATIONSHIP_NOT_RECORDED'`) that QUOTES
+ * `wall.childrenIds ?? []` in order to explain which record the commit path
+ * reads. That file has zero real read-path sites. The gate was flagging a
+ * refusal for honouring U-INV-4 and describing it in words — the precise
+ * inverse of its purpose, and a standing tax on writing good refusal copy.
+ *
+ * C78 §20's exit condition binds a **discovery path**. A sentence inside a
+ * string is not one. This is REDIRECTION, NOT EXEMPTION: re-running the
+ * analyser with strings stripped against every one of the 63 subjects already
+ * on the ledger removed exactly ONE file — the prose one — and left all 63
+ * still measured as findings.
+ *
+ * Escapes are honoured so an embedded quote (`'it\'s'`) cannot end the literal
+ * early and leak the rest of the line back into the scanned text. Template
+ * literals are tracked ACROSS lines, since they legally span them; `${…}`
+ * interpolations are blanked with the rest of the template, which is the
+ * conservative direction — an interpolation is prose scaffolding, not a
+ * discovery path.
+ */
 export function stripComments(src: string): string {
   let inBlock = false;
+  let inTemplate = false;
   return src.split('\n').map((line) => {
     let res = '';
+    let quote: string | null = null;
     for (let i = 0; i < line.length; i++) {
+      const ch = line[i]!;
       if (inBlock) {
         if (line.startsWith('*/', i)) { inBlock = false; i++; }
         continue;
       }
+      if (inTemplate) {
+        if (ch === '\\') { i++; continue; }
+        if (ch === '`') { inTemplate = false; }
+        continue;
+      }
+      if (quote !== null) {
+        if (ch === '\\') { i++; continue; }
+        if (ch === quote) { quote = null; }
+        continue;
+      }
       if (line.startsWith('/*', i)) { inBlock = true; i++; continue; }
       if (line.startsWith('//', i)) break;
-      res += line[i];
+      if (ch === '"' || ch === "'") { quote = ch; continue; }
+      if (ch === '`') { inTemplate = true; continue; }
+      res += ch;
     }
+    // A single-quoted/double-quoted literal does not survive a newline in TS, so
+    // `quote` is deliberately NOT carried to the next line: an unterminated one
+    // is a syntax error upstream, and carrying it would blank the rest of a file
+    // on any apostrophe the stripper mis-read.
     return res;
   }).join('\n');
 }
@@ -131,11 +178,34 @@ export function stripComments(src: string): string {
 /** An empty-collection literal used as an answer. */
 const EMPTY_ANSWER = /(\[\s*\]|new (?:Map|Set)\s*\(\s*\)|Object\.freeze\(\s*\[\s*\]\s*\))/;
 
+/**
+ * An argument list that may itself CONTAIN one level of parentheses.
+ *
+ * §GATE-SEES-THROUGH-NESTED-PARENS. Both arm regexes used to spell the argument
+ * list `[^)]*`, so the FIRST inner `)` ended the match and any call with a
+ * nested call, a cast or an arrow body in its arguments became invisible. That
+ * is not conservatism, it is blindness, and it hid real sites of exactly the
+ * governed shape — measured 2026-08-16:
+ *
+ *   packages/command-registry/src/windows/CreateWindowInAllWindowsCommand.ts:98
+ *     `this.subCommands?.map(c => (c as any).openingElementId) ?? []`
+ *   apps/editor/src/ui/generative/BriefInputPanel.ts:349
+ *
+ * One level is deliberate rather than a general balanced matcher: it covers the
+ * `.map(x => f(x))` / `(x as T)` shapes that occur here, and it cannot run away
+ * on a long line. The gate still under-reports at two levels and says so in
+ * UNPROVEN — but it under-reports by LESS than it did, which is the direction a
+ * shrink-only ledger requires when its instrument changes.
+ */
+const ARGS = String.raw`(?:[^()]|\([^()]*\))*`;
+
 /** ARM B — an OPTIONAL-CALLED METHOD defaulted to empty. Always a finding. */
-const OPTIONAL_METHOD_EMPTY = /\.([A-Za-z0-9_]+)\?\.\([^)]*\)\s*(?:\?\?|\|\|)\s*\[\s*\]/g;
+const OPTIONAL_METHOD_EMPTY = new RegExp(
+  String.raw`\.([A-Za-z0-9_]+)\?\.\(${ARGS}\)\s*(?:\?\?|\|\|)\s*\[\s*\]`, 'g');
 
 /** ARM C — a plain call/member defaulted to empty. */
-const BARE_OR_EMPTY = /([A-Za-z0-9_$.?]+(?:\?\.)?\([^)]*\)|[A-Za-z0-9_$]+(?:\?\.|\.)[A-Za-z0-9_$]+)\s*(?:\?\?|\|\|)\s*\[\s*\]/g;
+const BARE_OR_EMPTY = new RegExp(
+  String.raw`([A-Za-z0-9_$.?]+(?:\?\.)?\(${ARGS}\)|[A-Za-z0-9_$]+(?:\?\.|\.)[A-Za-z0-9_$]+)\s*(?:\?\?|\|\|)\s*\[\s*\]`, 'g');
 
 /**
  * ARM A — a `catch` arm that returns an empty collection.
