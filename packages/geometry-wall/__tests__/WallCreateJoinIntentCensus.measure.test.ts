@@ -35,6 +35,18 @@
  *
  * SHRINK-ONLY. `UNSTAMPED_PRODUCERS` may only ever get smaller. A new unclassified
  * `wallStore.add()` site fails this suite immediately.
+ *
+ * ⚠ KNOWN FLAKINESS SOURCE, recorded because it WAS observed (L-927, 2026-08-15). This
+ * test reads the WORKING TREE, not a build artefact. Under a multi-agent fleet another
+ * lane can write a file mid-scan, and the classification arm then fails once and passes on
+ * re-run — which is exactly what happened here: one full-suite run reported an
+ * unclassified producer, and both an isolated run and an immediate re-run were clean.
+ *
+ * So: on a failure of the classification arm, RE-RUN IT ALONE before believing it. A
+ * genuine new producer reproduces; a concurrent write does not. Do not "fix" a transient
+ * by widening the ledger — that would silently re-admit the defect this file exists to
+ * catch. The trade is deliberate: scanning the tree is what lets this census find
+ * producers nobody remembered to declare, and that is worth an occasional re-run.
  */
 
 import { describe, it, expect } from 'vitest';
