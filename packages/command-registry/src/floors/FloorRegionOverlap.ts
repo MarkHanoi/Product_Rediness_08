@@ -60,7 +60,14 @@
  * @file packages/command-registry/src/floors/FloorRegionOverlap.ts
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import { intersectPolygons2D, type Pt2 } from '@pryzm/geometry-kernel';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `SeatingDatumResolver.ts` / `roomBoundarySketch.ts` in this package.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -290,6 +297,36 @@ export function evaluateFloorFinishPlacement(
     candidate: CandidateFloorRegion,
     existing: readonly ExistingFloorRegion[],
 ): FloorRegionVerdict {
+    return _tracer().startActiveSpan('pryzm.floor.evaluateFinishPlacement', (span) => {
+        try {
+            const v = _evaluateFloorFinishPlacement(candidate, existing);
+            span.setAttribute('pryzm.floor.candidateId', candidate.id ?? '');
+            span.setAttribute('pryzm.floor.levelId', candidate.levelId);
+            span.setAttribute('pryzm.floor.existingConsidered', existing.length);
+            span.setAttribute('pryzm.floor.valid', v.valid);
+            span.setAttribute('pryzm.floor.violations', v.violations.length);
+            span.setAttribute('pryzm.floor.offers', v.offers.length);
+            // UNDETERMINED is its own axis, never folded into `valid`. A degenerate
+            // ring and a genuinely clear floor both return `valid: true`, and a
+            // trace that recorded only the verdict would make the two identical —
+            // the §CONTEXT-DATA-HONESTY shape this module was written to avoid.
+            span.setAttribute('pryzm.floor.undetermined', v.undetermined.length);
+            if (v.undetermined.length > 0) {
+                span.setAttribute('pryzm.floor.undeterminedReasons',
+                    [...new Set(v.undetermined.map((u) => u.reason))].sort().join(','));
+            }
+            if (v.violations.length > 0) span.setAttribute('pryzm.floor.code', v.violations[0]!.code);
+            return v;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _evaluateFloorFinishPlacement(
+    candidate: CandidateFloorRegion,
+    existing: readonly ExistingFloorRegion[],
+): FloorRegionVerdict {
     const undetermined: FloorRegionUndetermined[] = [];
 
     const candRing = toRing(candidate.polygon);
@@ -400,6 +437,26 @@ export function evaluateFloorFinishPlacement(
  * producer refused without saying why" is a different fact from any real code.
  */
 export function floorRegionRefusalText(
+    violations: readonly FloorRegionOverlapViolation[],
+    offers: readonly FloorRegionOffer[],
+): string {
+    return _tracer().startActiveSpan('pryzm.floor.regionRefusalText', (span) => {
+        try {
+            span.setAttribute('pryzm.floor.violations', violations.length);
+            span.setAttribute('pryzm.floor.offers', offers.length);
+            // FIN_UNIDENTIFIED is not a union member: it marks the PRODUCER
+            // refusing while naming nothing. Stamping it on the span is what lets
+            // an operator find that producer, rather than reading a sentence that
+            // looks exactly like a real refusal.
+            span.setAttribute('pryzm.floor.code', violations[0]?.code ?? 'FIN_UNIDENTIFIED');
+            return _floorRegionRefusalText(violations, offers);
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _floorRegionRefusalText(
     violations: readonly FloorRegionOverlapViolation[],
     offers: readonly FloorRegionOffer[],
 ): string {

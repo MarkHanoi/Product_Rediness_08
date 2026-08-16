@@ -64,6 +64,7 @@
  * reading `WallMoveReweldService` gives it. It is never conflated with refusal.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { Point3D } from '@pryzm/core-app-model';
 import {
     computeMoveReweldPlan,
@@ -75,6 +76,12 @@ import {
     type CascadeWallBaselineEntry,
 } from './CascadeWallBaselineCommand';
 import type { CommandContext } from '../types';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `SeatingDatumResolver.ts` / `roomBoundarySketch.ts` in this package.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 /** The three reads this pre-flight needs. Structural, so any store satisfies it. */
 export interface PreflightWallStoreRef {
@@ -159,6 +166,37 @@ function moved(a: readonly Point3D[] | undefined): a is readonly [Point3D, Point
  * manufacture a refusal (C83 §5.3: a question nobody answered refuses nothing).
  */
 export function previewMoveReweld(
+    input: MoveReweldPreflightInput,
+): MoveReweldPreflightResult {
+    return _tracer().startActiveSpan('pryzm.wall.previewMoveReweld', (span) => {
+        try {
+            const r = _previewMoveReweld(input);
+            span.setAttribute('pryzm.wall.id', input.wallId);
+            // `allowed` is the DECISION; `ok` and `incumbentBreach` are the two
+            // arms it conjoins. All three are emitted separately on purpose — a
+            // trace carrying only `allowed` cannot distinguish "the cascade
+            // objected" from "the cascade succeeded by shifting an incumbent",
+            // and L-922 is precisely the second one wearing the first one's face.
+            span.setAttribute('pryzm.preflight.allowed', r.allowed);
+            span.setAttribute('pryzm.preflight.ok', r.ok);
+            span.setAttribute('pryzm.preflight.incumbentBreach', r.incumbentBreach);
+            span.setAttribute('pryzm.preflight.maxIncumbentShiftMm', r.maxIncumbentShiftMm);
+            span.setAttribute('pryzm.preflight.entries', r.entries.length);
+            span.setAttribute('pryzm.preflight.partners', r.partnerIds.length);
+            span.setAttribute('pryzm.preflight.incumbents', r.incumbentWallIds.length);
+            // Absent reason on an allowed plan is normal; absent reason on a
+            // REFUSED one is a §REFUSAL-IDENTITY defect. Recording presence rather
+            // than substituting a sentence keeps the two readable apart.
+            span.setAttribute('pryzm.preflight.reasonStated', Boolean(r.reason));
+            if (r.reason) span.setAttribute('pryzm.preflight.reason', r.reason);
+            return r;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _previewMoveReweld(
     input: MoveReweldPreflightInput,
 ): MoveReweldPreflightResult {
     const { wallStore, wallId, prevBaseLine, newBaseLine } = input;

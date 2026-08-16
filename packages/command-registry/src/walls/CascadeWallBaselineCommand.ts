@@ -1,3 +1,4 @@
+import { trace, type Tracer } from '@opentelemetry/api';
 import {
     Command,
     CommandType,
@@ -18,6 +19,12 @@ import type { Opening, OpeningRefitPlan } from '@pryzm/geometry-wall';
 // §L-916-FRAME-RECORD-SYNC — `updateOpening` writes the VOID record only; the
 // FRAME mesh is positioned from a SECOND store this package must write itself.
 import { reseatOpeningWithFrame } from './hostedOpeningFrameSync';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `UpdateWallsRakeBatchCommand.ts` / `SeatingDatumResolver.ts` here.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 /**
  * One per-wall mutation in a cascade batch.
@@ -284,7 +291,31 @@ export class CascadeWallBaselineCommand implements Command {
         return { ok: true };
     }
 
+    /**
+     * P8 / C10 §2 — the cascade's span. Delegating rather than re-indenting a
+     * ~140-line body keeps this an ADDITIVE change to a file three lanes have
+     * touched this week; same idiom as `roomBoundarySketch.ts` in this package.
+     */
     execute(ctx: CommandContext): CommandResult {
+        return _tracer().startActiveSpan('pryzm.wall.cascadeBaseline', (span) => {
+            try {
+                span.setAttribute('pryzm.cascade.cause', this.cause);
+                span.setAttribute('pryzm.cascade.entries', this.entries.length);
+                const r = this._execute(ctx);
+                span.setAttribute('pryzm.cascade.success', r.success);
+                span.setAttribute('pryzm.cascade.affected', r.affectedElementIds.length);
+                // A refused cascade re-baselines NOTHING — success:false with zero
+                // affected ids is the atomic-abort path, not a partial write, and
+                // the reason token is what tells the two apart in a trace.
+                if (!r.success) span.setAttribute('pryzm.cascade.reason', r.error ?? r.info?.[0] ?? '');
+                return r;
+            } finally {
+                span.end();
+            }
+        });
+    }
+
+    private _execute(ctx: CommandContext): CommandResult {
         if (this.executed) {
             return { success: false, affectedElementIds: [], info: ['Command already executed'] };
         }

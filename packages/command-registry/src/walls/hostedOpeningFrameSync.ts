@@ -49,9 +49,16 @@
 //   own lane; until it lands, the two records exist and must be written
 //   together. This helper is the "written together" half, stated as such.
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { Opening } from '@pryzm/geometry-wall';
 import { windowStore } from '@pryzm/geometry-window';
 import { doorStore } from '@pryzm/geometry-door';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `SeatingDatumResolver.ts` / `roomBoundarySketch.ts` in this package.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
 
 /** The minimal WallStore surface this seam needs. Duck-typed so the helper is
  *  usable from a command that holds `ctx.stores.wallStore` without importing a
@@ -124,11 +131,34 @@ export function reseatOpeningWithFrame(
     opening: Opening,
     whereTag: string,
 ): boolean {
-    wallStore.updateOpening(wallId, opening);
+    return _tracer().startActiveSpan('pryzm.wall.reseatOpeningWithFrame', (span) => {
+        try {
+            span.setAttribute('pryzm.wall.id', wallId);
+            span.setAttribute('pryzm.opening.id', opening.id);
+            span.setAttribute('pryzm.opening.type', opening.type);
+            span.setAttribute('pryzm.reseat.where', whereTag);
+            span.setAttribute('pryzm.opening.requestedOffset', opening.offset);
 
-    const landed =
-        (wallStore.getById(wallId)?.openings ?? []).find(o => o.id === opening.id) ?? opening;
+            wallStore.updateOpening(wallId, opening);
 
-    pushToFrameRecord(landed, whereTag);
-    return true;
+            const landed =
+                (wallStore.getById(wallId)?.openings ?? []).find(o => o.id === opening.id) ?? opening;
+
+            // The LANDED offset, and whether the store's `clampToWall` moved it.
+            // A trace that reported the REQUESTED value would be blind to exactly
+            // the divergence §L-916-FRAME-RECORD-SYNC exists to close — the clamp
+            // is the mechanism by which the two records came to disagree.
+            span.setAttribute('pryzm.opening.landedOffset', landed.offset);
+            span.setAttribute('pryzm.opening.clamped', landed.offset !== opening.offset);
+            // `elementId` absent ⇒ a plain void with no frame record. That is a
+            // legitimate state, not a miss, so it is recorded rather than inferred
+            // from a silent span.
+            span.setAttribute('pryzm.opening.hasFrameRecord', Boolean(landed.elementId));
+
+            pushToFrameRecord(landed, whereTag);
+            return true;
+        } finally {
+            span.end();
+        }
+    });
 }

@@ -30,6 +30,14 @@
  * shape check-refusal-identity's CARRIES_IDENTITY_RE recognises at render sites.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
+
+// P8 / C10 §2 — every exported function carries ≥ 1 OTel span. Same tracer-name
+// idiom as `SeatingDatumResolver.ts` / `roomBoundarySketch.ts` in this package.
+function _tracer(): Tracer {
+    return trace.getTracer('@pryzm/command-registry');
+}
+
 /** The code token a silent child's refusal carries to the user. Stable; grep-able. */
 export const REFUSED_WITHOUT_REASON_CODE = 'REFUSED_WITHOUT_REASON';
 
@@ -47,7 +55,22 @@ export function childRefusalText(
     validator: string,
     subject: string,
 ): string {
-    const text = stated?.trim();
-    if (text) return text;
-    return `[${REFUSED_WITHOUT_REASON_CODE}] ${validator} declined ${subject} without stating a reason (a defect in that validator, not information about the element).`;
+    return _tracer().startActiveSpan('pryzm.refusal.childRefusalText', (span) => {
+        try {
+            const text = stated?.trim();
+            // The span carries THE distinction this module exists to preserve. A
+            // silent child and a speaking one are different facts, and `stated`
+            // is the field an operator filters on to find the under-reporting
+            // validator — which is the whole point of §REFUSAL-IDENTITY. Emitting
+            // only the rendered sentence would put the two back on one axis in
+            // the trace, exactly as they were on the user's screen before GE-09.
+            span.setAttribute('pryzm.refusal.validator', validator);
+            span.setAttribute('pryzm.refusal.stated', Boolean(text));
+            if (text) return text;
+            span.setAttribute('pryzm.refusal.code', REFUSED_WITHOUT_REASON_CODE);
+            return `[${REFUSED_WITHOUT_REASON_CODE}] ${validator} declined ${subject} without stating a reason (a defect in that validator, not information about the element).`;
+        } finally {
+            span.end();
+        }
+    });
 }
