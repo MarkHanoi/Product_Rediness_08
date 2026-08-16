@@ -33,7 +33,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { unifiedFrameLoop } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 

@@ -51,11 +51,13 @@ import { viewDefinitionStore } from '../views/ViewDefinitionStore';
 import { PLAN_VIEW_TYPES } from '../views/ViewDefinitionTypes';
 import type { Level } from '@pryzm/core-app-model';
 import { classifyElement, type ZoneClassification } from './ViewRangeClassifier';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
 import {
     resolveEffectiveViewRange,
     resolveViewRangeWorldY,
     resolveEffectivePlanDepthY,
-} from '@pryzm/core-app-model';
+} from './ViewRangeIntentResolver';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

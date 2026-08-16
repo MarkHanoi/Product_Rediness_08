@@ -28,7 +28,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { setUD, deleteUD } from './userDataSafe';
-import { temporalGraphManager } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { temporalGraphManager } from '../TemporalGraph';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

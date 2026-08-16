@@ -5,10 +5,12 @@ import { type ViewDefinition, PLAN_VIEW_TYPES } from '../views/ViewDefinitionTyp
 // §FIX-ELEVATION-CROP-CLIP (L-123) — the flat-XZ crop cull is a plan-plane concept;
 // depth-projected views must not cull straddling elements by it.
 import { resolveViewScope } from '../views/ViewScope';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
 import {
     resolveEffectiveViewRange,
     resolveViewRangeWorldY,
-} from '@pryzm/core-app-model';
+} from '../presentation/ViewRangeIntentResolver';
 
 // ── DOC-4.4: reusable scratch objects — avoids per-element heap allocations ──
 const _scratchBox = new THREE.Box3();

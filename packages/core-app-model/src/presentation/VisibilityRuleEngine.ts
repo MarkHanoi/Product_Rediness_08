@@ -28,7 +28,9 @@
  * Exposed on window as 'visibilityRuleEngine' by EngineBootstrap (Phase C).
  */
 
-import { semanticIndex } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { semanticIndex } from '../SemanticIndex';
 import type { SemanticQueryExpression } from '@pryzm/core-app-model';
 import type {
     VisibilityRule,

@@ -31,7 +31,9 @@ import {
     ElementState,
 } from './VisibilityIntentTypes';
 import { resolveSurface3DExplicit } from './IntentRuleResolver';
-import { resolveBoundIntentWithInheritance } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { resolveBoundIntentWithInheritance } from './IntentBindingResolver';
 import { viewDefinitionStore } from '../views/ViewDefinitionStore';
 
 export class ThreeDAppearanceResolver {

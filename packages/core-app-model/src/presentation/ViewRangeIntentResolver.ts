@@ -33,7 +33,13 @@ import type { Level } from '@pryzm/core-app-model';
 import type { ViewDefinition, ViewRangeBound, ViewRangeSettings } from '../views/ViewDefinitionTypes';
 import { viewIntentInstanceStore } from './ViewIntentInstanceStore';
 import { visibilityIntentStore } from './VisibilityIntentStore';
-import { computeViewRangeDefaults } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel. This module is
+// inside @pryzm/core-app-model; importing its own package index re-entered all 863
+// re-exports at load, so anyone reaching `core-app-model/presentation` transitively
+// paid for the entire package graph (@thatopen/components, command-registry,
+// plugin-annotations, room-topology, geometry-wall). Measured: this single line cost
+// 86s of vitest transform. Same rule already stated at schedules/ScheduleExtractor.ts.
+import { computeViewRangeDefaults } from '../views/ViewRangeDefaults';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

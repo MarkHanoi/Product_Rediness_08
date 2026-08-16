@@ -22,7 +22,9 @@ import { storeEventBus } from './StoreEventBus'; // TODO(TASK-08)
 // DOC-5.4 — IFC Pset adapter: augments elementProps with Pset_*.Field values
 // from IFC-imported elements so rules like { op:'eq', field:'Pset_WallCommon.FireRating', value:'2hr' }
 // resolve transparently without callers (VGSceneApplicator, VisibilityRuleEngine) needing to change.
-import { ifcPsetAdapter } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { ifcPsetAdapter } from './IFCPsetAdapter';
 
 // ── QueryExpression type (Phase A — minimal set; extended in Phase C) ─────────
 

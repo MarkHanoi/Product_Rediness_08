@@ -38,19 +38,21 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { setUD } from './userDataSafe';
 import { vgGovernanceStore, VGCategoryStyle } from './VGGovernanceStore';
-import { threeDAppearanceResolver } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative imports, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { threeDAppearanceResolver } from './ThreeDAppearanceResolver';
 /**
  * @deprecated Contract 25b — back-end implementation surface for 3D mesh
  * visibility. Will be replaced by `IntentSceneApplicator` (driven by
  * IntentRuleResolver) in a follow-up release. Do not add new importers.
  */
 import { vgInstanceOverrideStore } from './VGInstanceOverrideStore';
-import { visibilityRuleEngine } from '@pryzm/core-app-model';
+import { visibilityRuleEngine } from './VisibilityRuleEngine';
 import { viewTechnicalDrawingCache } from '../views/ViewTechnicalDrawingCache';
 import { storeRegistry } from '../StoreRegistry';
 import { viewDefinitionStore } from '../views/ViewDefinitionStore';
-import { phaseFilterStore } from '@pryzm/core-app-model';
-import { BUILT_IN_PHASE_FILTER_IDS, type PhaseDisplayStatus } from '@pryzm/core-app-model';
+import { phaseFilterStore } from '../views/PhaseFilterStore';
+import { BUILT_IN_PHASE_FILTER_IDS, type PhaseDisplayStatus } from '../views/PhaseFilterTypes';
 
 type VGCategory =
     | 'wall' | 'slab' | 'column' | 'beam'

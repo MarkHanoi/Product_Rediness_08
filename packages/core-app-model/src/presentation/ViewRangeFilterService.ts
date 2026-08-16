@@ -43,12 +43,14 @@ import { setUD, deleteUD } from './userDataSafe';
 import { viewDefinitionStore } from '../views/ViewDefinitionStore';
 import { PLAN_VIEW_TYPES } from '../views/ViewDefinitionTypes';
 import type { Level } from '@pryzm/core-app-model';
-import { elementSpatialIndex } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative imports, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { elementSpatialIndex } from '../drawing/ElementSpatialIndex';
 import {
     resolveEffectiveViewRange,
     resolveViewRangeWorldY,
     resolveEffectivePlanDepthY,
-} from '@pryzm/core-app-model';
+} from './ViewRangeIntentResolver';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

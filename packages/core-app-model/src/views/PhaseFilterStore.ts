@@ -16,7 +16,9 @@
 
 import { storeEventBus } from '../StoreEventBus'; // TODO(TASK-08)
 import type { PhaseFilter, PhaseFilterRule, PhaseFilterStoreSnapshot } from '@pryzm/core-app-model';
-import { BUILT_IN_PHASE_FILTER_IDS } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
+// presentation/ViewRangeIntentResolver.ts for the measurement).
+import { BUILT_IN_PHASE_FILTER_IDS } from './PhaseFilterTypes';
 
 // ── Built-in seed data ────────────────────────────────────────────────────────
 

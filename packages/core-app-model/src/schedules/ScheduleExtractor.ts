@@ -15,7 +15,7 @@
 
 import { WallData, WindowData, DoorData } from '@pryzm/geometry-wall';
 import { RoomRelationshipService } from '@pryzm/room-topology';
-import { resolveRoomFinishes } from '@pryzm/core-app-model';
+import { resolveRoomFinishes } from '../RoomFinishResolver.js';
 // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) — relative
 // import (not the package barrel) so this module does not re-enter its own
 // package's index at load; see MEMORY §SCC: no barrel access at module load.
