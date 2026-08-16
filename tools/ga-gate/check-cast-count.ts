@@ -123,28 +123,84 @@ function writeBaseline(n: number): void {
  *
  * This is NOT a raised baseline. The strict counter's ceiling is untouched at 0.
  * This is a new, wider counter frozen at what it actually found on its first run.
+ *
+ * ─── §FIX-P4-REPOWIDE-COUNTS-PROSE (H4/L-845b, 2026-08-16) ───────────────────
+ * ⚠ THE 215 ABOVE WAS NEVER 215 CASTS. It was 215 LINES, and MORE THAN HALF OF
+ * THEM WERE COMMENTS.
+ *
+ * L-844 fixed exactly this defect — on the STRICT arm only. `count()` above was
+ * moved to `scanFilesStripped` on 2026-08-11 because 16 of its 20 matches were
+ * prose, and almost every one was a comment ASSERTING P4 COMPLIANCE. The repo-wide
+ * arm forty lines below was left on raw `scanFiles` and nobody re-measured it.
+ *
+ * Measured 2026-08-16 with the arm's own config, run both ways:
+ *
+ *      RAW (what this arm counted)        209
+ *      STRIPPED (actual casts in code)    100
+ *      PROSE counted as code              109      ← 52% of the ceiling
+ *
+ * The 109 are lines like:
+ *      apps/component-editor/src/sketch/hitTest.ts:5   "no `(window as any)`."
+ *      apps/editor/src/engine/postFxRouting.ts:37     "P4 — no `(window as any)`"
+ *      apps/editor/src/PluginRegistry.ts:207          "Still NOT `(window as any)`"
+ *
+ * i.e. a gate that fails on the DOCUMENTATION of the rule it enforces — the exact
+ * inversion L-844 names, and the reason the self-exclusion of this very file had
+ * to be hand-written below. Three consequences, all of them bad:
+ *   • every doc edit moved the enforcement number (this fix's own two explanatory
+ *     comments moved it 207 → 209 before the arm was corrected);
+ *   • the P4 figure quoted repo-wide — CLAUDE.md P4, STR-03 §2 — was overstated by
+ *     ~2×; and
+ *   • 115 lines of illusory headroom sat above the real count, so a genuine
+ *     regression could add a hundred casts and still print OK.
+ *
+ * FIXED AT THE INSTRUMENT, and the ceiling RE-PINNED DOWNWARD, 215 → 100:
+ * old 215 (lines, half prose) → new 100 (casts, measured), reason: the instrument
+ * got honest. This is a TIGHTENING, not a relaxation — R6/§RATCHET-EXCEEDED-IS-
+ * NEVER-DEBT forbids RAISING a threshold, and the arm goes from 6 lines of slack
+ * to ZERO. Every one of the 100 is a real cast that P4 forbids, and the next one
+ * added trips the gate immediately.
+ *
+ * The raw count is still COMPUTED and PRINTED beside the enforced one, so the
+ * contamination stays visible and cannot silently return. It is never enforced.
  */
-const MAX_REPO_WIDE = Number(process.env.PRYZM_P4_MAX_REPO_WIDE ?? 215);
+const MAX_REPO_WIDE = Number(process.env.PRYZM_P4_MAX_REPO_WIDE ?? 100);
 
-function countRepoWide(): number {
+/** The repo-wide arm's scan config — shared verbatim by the enforced (stripped)
+ *  count and the reported-only raw count, so the two can never drift apart and
+ *  make the prose delta meaningless. */
+function repoWideScanConfig() {
   const dirs = ['src', 'apps', 'packages', 'plugins', 'server', 'tools']
     .filter((d) => existsSync(resolve(REPO_ROOT, d)));
-  const res = scanFiles({
+  return {
     root: REPO_ROOT,
     dirs,
     pattern: /\(\s*window\s+as\s+any\s*\)/,
     minFiles: 3000,
-    exclude: (rel) =>
+    exclude: (rel: string) =>
       rel.endsWith('.d.ts')
       || /(^|\/)(__tests__|__fixtures__|__mocks__)\//.test(rel)
       || /\.(spec|test)\.tsx?$/.test(rel)
-      // This gate file — the pattern literal and the prose both live here. Without
-      // this the gate counts itself, and every edit to its own comments moves the
-      // number it is supposed to be measuring.
+      // This gate file — the pattern literal and the prose both live here. Kept
+      // even though comment-stripping now handles the prose case, because the
+      // exclusion is free and a future edit could put the literal in live code.
       || rel === 'tools/ga-gate/check-cast-count.ts',
     label: `${LABEL}/repo-wide`,
-  });
+  };
+}
+
+function countRepoWide(): number {
+  const cfg = repoWideScanConfig();
+  // ENFORCED: comment-stripped. A comment is not a cast; P4's verb is about the
+  // CAST, not the word. §FIX-P4-REPOWIDE-COUNTS-PROSE above.
+  const res = scanFilesStripped(cfg);
+  // REPORTED ONLY: the raw line count this arm used to enforce. Printed so the
+  // prose contamination stays a visible, drift-proof number instead of a story
+  // in a comment that nobody re-measures.
+  const raw = scanFiles(cfg);
+  const prose = raw.matches.length - res.matches.length;
   console.log(`[${LABEL}] repo-wide scope: ${res.filesScanned} files · ${res.matches.length}/${MAX_REPO_WIDE} cast(s) (tests excluded)`);
+  console.log(`[${LABEL}] repo-wide prose check: ${raw.matches.length} raw line(s) − ${res.matches.length} cast(s) = ${prose} comment(s) NOT counted (L-845b; enforcement is the stripped number)`);
   if (res.matches.length > MAX_REPO_WIDE) {
     console.error(`\n  Repo-wide casts by package:`);
     for (const [k, n] of tallyBy(res.matches, (m) => m.file.split('/').slice(0, 2).join('/'))) {
