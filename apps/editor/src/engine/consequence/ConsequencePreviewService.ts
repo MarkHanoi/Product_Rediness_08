@@ -613,6 +613,65 @@ export function normalizeToWallDelete(command: PreviewCommand): SemanticCommand 
   return { type: 'wall.delete', payload: { id } };
 }
 
+// ─── wall.batch.create — the BATCH create family (2026-08-16) ─────────────────────────
+//
+// ENUMERATED FROM THE REGISTER, never hand-listed (C69's rival-list rule). Filtered by
+// check-relationship-determination's own `opClassOf` — which classes a verb `batch` when
+// `batch` is a SEGMENT of it — the register carries exactly TWELVE batch verbs, and exactly
+// ONE of them creates walls:
+//
+//   `wall.batch.create`  (row 329 · plugins/wall CreateWallBatch.ts · `{walls, levelId?}`) — HERE.
+//
+// MEASURED ABSENT: `wall.batch.update`, `wall.batch.delete`, `walls.batch.create`,
+// `wall.createBatch` exist nowhere in the tree. `curtain-wall.batch.*` is a different element
+// family (its own three verbs, its own handler, its own store).
+//
+// ⚠ FIVE WALL VERBS THE DENOMINATOR NEVER MEASURES — named, not silently absorbed. The
+// register also carries `wall.addLayerBatch`, `wall.updateColorBatch`, `wall.updateHeightBatch`,
+// `wall.updateRakeBatch` and `wall.updateSystemTypeBatch`. Each mutates N walls in one
+// dispatch, and `opClassOf` returns NULL for all five, because `Batch` there is a SUFFIX
+// inside the last segment rather than a segment of its own — so they are outside the 100-verb
+// consequential set and outside the 4,100 cells entirely. That is an INHERITED gap in the
+// gate's classifier, identical in shape to `element.deleteBatch` as the wall.delete family
+// (d572fb7e) recorded it. Mapping them here would NOT move the bar-3 number and would attach
+// a wall-CREATE planner to five UPDATE verbs, so they are recorded as a gap and left alone.
+//
+// ── NOT AN ALIAS OF `wall.create` ────────────────────────────────────────────────────
+// It would be cheap to point this verb at the `wall.create` planner key and call the family
+// landed. That would be WRONG, and the reason is the same one that settles the one-plan-or-N
+// question: a batch's junction question is a diff over the WHOLE candidate set, and no
+// per-candidate decomposition reproduces it (leave-one-out admits a false DETERMINED-unaffected
+// for a wall two candidates jointly re-cut; one-at-a-time misses every candidate↔candidate
+// junction, which is most of a generator batch). Same substrate, different question, own key.
+
+/** The `wall.batch.create` payload — `CreateWallBatchPayload`, the one live spelling. */
+interface WallBatchCreatePayload {
+  readonly walls?: unknown;
+  readonly levelId?: unknown;
+}
+
+/**
+ * `wall.batch.create` → the semantic `wall.batch.create`. The bus verb and the semantic verb
+ * are the SAME here — as they already are for `wall.create` and `wall.delete` — so this rule
+ * is a VALIDATING pass-through rather than a rename. It is still a rule and not a special
+ * case in the service, because the validation is real and because the service names no verb.
+ *
+ * Deliberately PERMISSIVE, and MORE so than `normalizeToWallCreate`: a payload whose `walls`
+ * is absent, empty, or not an array normalises THROUGH. That is not laxity — it is what keeps
+ * the planner's mirrored `walls must be a non-empty array` REFUSAL reachable. Filtering those
+ * shapes here would replace the commit path's own refusal sentence with a silent `null`,
+ * which the executor renders as "no normaliser for this verb" — a CAPABILITY GAP. A malformed
+ * batch would then be indistinguishable from an unsupported one, which is exactly the
+ * same-value defect (C78 §1.4) this family exists to remove. Only a structurally absent
+ * payload is refused, matching `normalizeToWallCreate`'s single guard.
+ */
+export function normalizeToWallBatchCreate(command: PreviewCommand): SemanticCommand | null {
+  if (command.type !== 'wall.batch.create') return null;
+  const p = command.payload as WallBatchCreatePayload | undefined | null;
+  if (p === null || p === undefined || typeof p !== 'object') return null;
+  return { type: 'wall.batch.create', payload: p };
+}
+
 /**
  * THE canonical normaliser registry — bus verb → rule. The three composition roots share
  * this ONE map, for the same reason preview and execute shared ONE normaliser function
@@ -651,6 +710,10 @@ export const CONSEQUENCE_NORMALIZERS: ReadonlyMap<string, NormalizerRule> = new 
   // its JOINED walls' mitres, and the ROOMS it bounds. `element.delete` /
   // `element.deleteBatch` are NOT mapped — they are the generic type-dispatching verbs.
   ['wall.delete', normalizeToWallDelete],
+  // The BATCH create family (2026-08-16) — ONE register verb, ONE planner key, and the first
+  // batch-class verb to reach a planner. NOT pointed at `wall.create`: same substrate, but a
+  // batch's junction question is a whole-set diff no per-candidate decomposition reproduces.
+  ['wall.batch.create', normalizeToWallBatchCreate],
 ]);
 
 /**

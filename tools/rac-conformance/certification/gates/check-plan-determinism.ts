@@ -94,6 +94,7 @@ import { OpeningMoveConsequencePlanner } from '../../../../apps/editor/src/engin
 import { WallOpeningCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallOpeningCreateConsequencePlanner.js';
 import { OpeningDeleteConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/OpeningDeleteConsequencePlanner.js';
 import { WallDeleteConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallDeleteConsequencePlanner.js';
+import { WallBatchCreateConsequencePlanner } from '../../../../apps/editor/src/engine/consequence/WallBatchCreateConsequencePlanner.js';
 import { ConsequencePreviewService } from '../../../../apps/editor/src/engine/consequence/ConsequencePreviewService.js';
 import { predictRoomGeometry } from '../../../../packages/room-topology/src/predictRoomGeometry.js';
 import { resolveJunctionsWithRecords } from '../../../../packages/geometry-wall/src/JunctionResolverV2.js';
@@ -2454,6 +2455,498 @@ async function wallDeleteHarness(): Promise<{ floors: Floor[]; lines: string[]; 
   return { floors, lines, findings };
 }
 
+// ─── wall.batch.create — the BATCH create family (the SEVENTH registered row) ────────────
+//
+// ── WHY THIS ROW EXISTS AND IS NOT THE CREATE ROW WITH A LONGER PAYLOAD ─────────────────
+// `wall.batch.create` reuses the single-create planner's THREE seams verbatim (the pure
+// resolver, the occupancy refit seed, the violation core) and its exported geometry helpers.
+// If that were the whole story this harness could be `wallCreateHarness` with an array, and
+// the family could have been an alias onto the `wall.create` planner key.
+//
+// It is not, and the difference is the one thing this harness exists to PROVE rather than
+// assert. A create's consequence question is a DIFF — "which existing walls' corners change
+// between (level) and (level + newcomer)?" — and a batch's is the SAME DIFF over the WHOLE
+// candidate set, which is NOT the union of the per-candidate diffs. Two arms below (B1, B2)
+// execute that claim; without them, the header of
+// `WallBatchCreateConsequencePlanner.ts` would be an argument nobody had run.
+//
+// ── THE stateHash CONSTRAINT, RE-DERIVED FOR THIS ROW ───────────────────────────────────
+// `fnv1a({batchCreate: payload, walls: allWalls})` — the single-create shape with the batch
+// payload in it. So ARM 2 may move neither the payload nor the wall store, and all three
+// pairs ride an INJECTED collaborator over byte-identical state, asserting stateHash
+// equality as a FLOOR. The pairs ride the two injected seams the stateHash does not cover:
+//   2a junction-set-only  (the resolver   → changed + topology.modified + indirect)
+//   2b refusal-only       (the refit seed → `refused`)
+//   2c validation-only    (the validator  → `validation.violationsCreated`)
+//   2d changed-set-only   (the refit seed → `changed`, and nothing else)
+//
+// ── VERIFIED BY MUTATION — AND THE FIRST ATTEMPT WAS REFUTED (measured 2026-08-16) ──────
+// This block first claimed, by transcription from the wall.delete row above, that each pair
+// was a SINGLE-section arm. The mutations were RUN, and the claim was WRONG. `assemble`'s
+// hashed body was stripped of one section per run and this gate re-run:
+//
+//   `refused` dropped     → 2b RED, every other arm green        ✔ single-section, as claimed
+//   `validation` dropped  → 2c RED, every other arm green        ✔ single-section, as claimed
+//   `changed` dropped     → 2a STILL GREEN                       ✘ claim refuted
+//   `topology` dropped    → 2a STILL GREEN                       ✘ claim refuted
+//   `changed` AND `topology` dropped TOGETHER → 2a STILL GREEN   ✘ claim refuted again
+//
+// 2a is a THREE-section arm. The junction solve is this planner's one derived set written
+// into three places on purpose — `changed`, `topology.modified` and `indirect` — so no state
+// moves one without moving all three, and dropping one (or two) leaves the survivor carrying
+// the hash difference. That is not a planner defect: the junction set IS the indirect impact
+// and IS the topology modification, and saying it three ways is what those sections mean. But
+// it does mean 2a alone NEVER PROVED `changed` was in the hashed body — which is exactly the
+// "two sections co-varying" hazard the wall.delete header warned this row about, arriving as
+// three.
+//
+// So ARM 2d was ADDED rather than the claim softened. The refit seed's RELOCATION arm writes
+// into `changed` and no other section (`for (const r of refit.relocations) changed.push(...)`
+// — relocations reach neither topology, nor indirect, nor refused), which isolates `changed`
+// exactly. Re-measured with 2d present:
+//
+//   `changed` dropped     → 2d RED, 2a/2b/2c green               ✔ `changed` IS in the hash
+//
+// `topology.modified` stays structurally inseparable: it is by construction a SUBSET of
+// `changed` (every id pushed to one is pushed to the other), so no world can move it alone.
+// It is covered jointly by 2a and 2d, and that limit is STATED here rather than papered over.
+// The mutations were reverted; this note is the record — "the arm printed green" is not
+// evidence the arm CAN go red, and believing that here would have shipped a false claim about
+// three sections.
+//
+// ── ORDER: WHAT IS AND IS NOT AN INVARIANT HERE, STATED SO NEITHER IS ASSUMED ───────────
+// The obvious arm — "shuffle the entries, get the same plan" — would be WRONG and is
+// deliberately absent. Entry order is SEMANTIC in this family: `execute` writes
+// `draft[w.id] = w` per entry, so for a duplicated id the LAST entry wins, and the
+// placeholder minted for an id-less entry is derived from its INDEX precisely so two
+// identical entries do not collapse onto one wall. A harness asserting entry-order
+// independence would be asserting a property the commit path does not have.
+// What IS an invariant, and is arm B3, is WALL-STORE order independence: the planner sorts
+// every resolver input by id and every room by id, so the store's iteration order — which is
+// not contractually stable — must not reach the plan's element sets.
+
+interface BatchWorld {
+  walls: any[];
+  rooms: any[];
+}
+
+/** A wall as the planner's `WallData` view expects it. Thickness matters: the junction
+ *  resolver mitres by thickness, so 0 would flatten every corner. */
+const bw = (id: string, a: [number, number], b: [number, number], thickness = 0.2): any => ({
+  id, type: 'wall', levelId: 'L1', thickness, height: 2.7, openings: [],
+  baseLine: [{ x: a[0], y: 0, z: a[1] }, { x: b[0], y: 0, z: b[1] }],
+});
+
+/** A closed 6×4 room, as on the create row — the batch below drops TWO partitions into it,
+ *  each with endpoints landing exactly ON wall-s and wall-n (a T-junction the REAL resolver
+ *  detects), so `topology.modified` carries real bytes from the real solve. */
+const freshBatchWorld = (northX = 6): BatchWorld => ({
+  walls: [
+    bw('wall-s', [0, 0], [6, 0]),
+    bw('wall-e', [6, 0], [6, 4]),
+    bw('wall-n', [northX, 4], [0, 4]),
+    bw('wall-w', [0, 4], [0, 0]),
+  ],
+  rooms: [{ id: 'room-1', levelId: 'L1', boundingWallIds: ['wall-s', 'wall-e', 'wall-n', 'wall-w'] }],
+});
+
+/** Read-only PlanningContext double. Five stores, because the violation branch clones all
+ *  five — the create row's reasoning, unchanged. */
+const batchContextFor = (world: BatchWorld) => () => ({
+  getStore(storeId: string) {
+    const items: any[] | undefined =
+      storeId === 'wall' ? world.walls
+        : storeId === 'room' ? world.rooms
+          : storeId === 'door' || storeId === 'window' || storeId === 'stair' ? []
+            : undefined;
+    if (!items) return undefined;
+    return {
+      getAll: () => items as readonly unknown[],
+      getById: (id: string) => items.find((i) => i.id === id) ?? null,
+    };
+  },
+}) as any;
+
+/** TWO 0.1 m partitions in ONE dispatch — thin on purpose, so the 0.15 m validator below
+ *  fires on BOTH and `violationsCreated` carries bytes. Both cross room-1's ring, so the
+ *  room branch names them together in one per-room entry. */
+const BATCH_COMMAND = {
+  type: 'wall.batch.create' as const,
+  payload: {
+    levelId: 'L1',
+    walls: [
+      { id: 'wall-p1', baseLine: [{ x: 2, y: 0, z: 0 }, { x: 2, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+      { id: 'wall-p2', baseLine: [{ x: 4, y: 0, z: 0 }, { x: 4, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+    ],
+  },
+};
+
+/** The mirrored `canExecute` refusal — walls[1].thickness below the 0.05 m floor. The
+ *  sentence is the handler's, verbatim; the plan is one a user is likely to be SHOWN and
+ *  unlikely to have checked, so it gets its own repeat arm. */
+const BATCH_REFUSED_COMMAND = {
+  type: 'wall.batch.create' as const,
+  payload: {
+    levelId: 'L1',
+    walls: [
+      { id: 'wall-p1', baseLine: [{ x: 2, y: 0, z: 0 }, { x: 2, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+      { id: 'wall-p2', baseLine: [{ x: 4, y: 0, z: 0 }, { x: 4, y: 0, z: 4 }], thickness: 0.01, height: 2.7 },
+      { id: 'wall-p3', baseLine: [{ x: 5, y: 0, z: 0 }, { x: 5, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+    ],
+  },
+};
+
+/** Fires on any wall thinner than 0.15 m — i.e. on BOTH new partitions and on nothing in the
+ *  before-clone, so the before/after diff yields exactly two `violationsCreated` entries. */
+const batchThicknessValidator = {
+  validateAll: (ctx: any) =>
+    (ctx.wallStore.getAll() as any[])
+      .filter((x) => typeof x.thickness === 'number' && x.thickness < 0.15)
+      .map((x) => ({ ruleId: 'WALL_MIN_THICKNESS', elementId: x.id, message: `wall thickness ${x.thickness} m is below the 0.15 m minimum` })),
+};
+
+const batchRefusingOccupancy = {
+  planOpeningRefit: () => ({ ok: false, refusals: [{ openingId: 'op-1', elementId: 'door-1', reason: 'no-space' }], relocations: [] }),
+};
+const batchSilentOccupancy = { planOpeningRefit: () => ({ ok: true, refusals: [], relocations: [] }) };
+/** The seed's OTHER arm: a RELOCATION rather than a refusal. It is the one lever in this
+ *  planner that writes into `changed` and NOTHING else (relocations reach neither `topology`,
+ *  nor `indirect`, nor `refused`), which is exactly why arm 2d uses it — see the header. */
+const batchRelocatingOccupancy = {
+  planOpeningRefit: () => ({ ok: true, refusals: [], relocations: [{ opening: { id: 'op-9', elementId: 'door-9' } }] }),
+};
+
+/**
+ * THE JOINT-BUT-NOT-INDIVIDUAL RESOLVER — arm B1's instrument, and the only scripted
+ * resolver in this file.
+ *
+ * `wall-e`'s miter signature depends on HOW MANY candidates are in the solve: unchanged at 0
+ * and at 1, changed at 2. That is the shape the batch planner's soundness argument turns on,
+ * and it is scripted rather than coaxed out of the real solver deliberately — the claim under
+ * test is about the PLANNER's composition (does it pose the diff once over the whole set, or
+ * per candidate?), not about JunctionResolverV2's mitre physics. Scripting the seam makes the
+ * arm decide exactly one thing.
+ *
+ * The shape is physically ordinary, which is why it is worth guarding: an existing wall end
+ * that stays a simple two-way join when ONE new wall arrives, and is re-cut only when the
+ * junction becomes three-way, behaves exactly like this.
+ */
+const jointOnlyResolver = (inputs: readonly any[]): any => {
+  const candidates = inputs.filter((w: any) => String(w.id).startsWith('wall-p'));
+  const changed = candidates.length >= 2;
+  return {
+    junctions: [],
+    miters: inputs.map((w: any) => ({
+      id: w.id,
+      startLeft: w.id === 'wall-e' && changed ? { x: 9, z: 9 } : { x: 0, z: 0 },
+      startRight: null, endLeft: null, endRight: null,
+      startPivot: null, endPivot: null, invalid: false,
+    })),
+  };
+};
+
+/** A resolver that reports nothing changing, ever — 2a's other side. Same inputs, same
+ *  stateHash, one different junction verdict. */
+const inertResolver = (inputs: readonly any[]): any => ({
+  junctions: [],
+  miters: inputs.map((w: any) => ({
+    id: w.id, startLeft: { x: 0, z: 0 }, startRight: null, endLeft: null, endRight: null,
+    startPivot: null, endPivot: null, invalid: false,
+  })),
+});
+
+/** Build the REAL service over the REAL batch planner. Defaults are the REAL junction
+ *  resolver + a refusing occupancy seed + the thickness validator, so the default plan
+ *  carries a populated junction set, `refused` and `violationsCreated` at once. */
+function buildBatchService(world: BatchWorld, opts?: {
+  resolve?: any;
+  occupancy?: { planOpeningRefit: (c: any) => any };
+  validator?: { validateAll: (c: any) => any[] };
+  systemTypes?: { has: (id: string) => boolean };
+  plannerWrap?: (p: WallBatchCreateConsequencePlanner) => { plan: (c: any, ctx: any) => Promise<any> };
+}): ConsequencePreviewService {
+  const planner = new WallBatchCreateConsequencePlanner({
+    resolveJunctions: (opts?.resolve ?? resolveJunctionsWithRecords) as any,
+    occupancy: (opts?.occupancy ?? batchRefusingOccupancy) as any,
+    validator: (opts?.validator ?? batchThicknessValidator) as any,
+    ...(opts?.systemTypes ? { systemTypes: opts.systemTypes } : {}),
+  });
+  const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
+  const planners = new Map<string, any>();
+  planners.set('wall.batch.create', subject);
+  return new ConsequencePreviewService(planners as any, batchContextFor(world));
+}
+
+async function wallBatchCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
+  const floors: Floor[] = [];
+  const lines: string[] = [];
+  const findings: string[] = [];
+
+  // ── ARM 1 · REPEAT — the REAL resolver, the REAL planner, the REAL service ──
+  const world = freshBatchWorld();
+  const service = buildBatchService(world);
+  const runA = await service.preview(BATCH_COMMAND);
+  const runB = await service.preview(BATCH_COMMAND);
+  floors.push({ what: 'wall.batch.create: real preview produced a plan (run A)', measured: runA ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.batch.create: real preview produced a plan (run B)', measured: runB ? 1 : 0, min: 1 });
+  if (runA && runB) {
+    // The body must actually CARRY the sections the arms claim to cover, or the byte
+    // comparison is over an empty plan and proves nothing. `topology.added` at min 2 is the
+    // batch-specific floor: at 1 this row would be the create row wearing a different name.
+    floors.push({ what: 'wall.batch.create: plan carries topology.added for MORE THAN ONE wall (this is a batch, not a create in disguise)', measured: (runA as any).topology?.added?.length ?? 0, min: 2 });
+    floors.push({ what: 'wall.batch.create: plan carries topology.modified (existing corners the batch re-cuts — the REAL whole-set junction diff)', measured: (runA as any).topology?.modified?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.batch.create: plan carries violationsCreated (validation section populated by the ADD)', measured: runA.validation.violationsCreated.length, min: 1 });
+    floors.push({ what: 'wall.batch.create: plan carries refused entries (the occupancy seed section populated)', measured: (runA as any).refused?.length ?? 0, min: 1 });
+    floors.push({ what: 'wall.batch.create: plan carries undetermined entries (declared blind spots, not silent emptiness)', measured: (runA as any).undetermined?.length ?? 0, min: 1 });
+    const c = compareRuns(runA, runB);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REPEAT [wall.batch.create][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.batch.create REPEAT: ${c.detail}`);
+  }
+
+  // ── ARM 1b · the canExecute REFUSAL plan, repeated ──────────────────────────
+  const rf1 = await buildBatchService(freshBatchWorld()).preview(BATCH_REFUSED_COMMAND);
+  const rf2 = await buildBatchService(freshBatchWorld()).preview(BATCH_REFUSED_COMMAND);
+  floors.push({ what: 'wall.batch.create: the canExecute-refusal plan carries a refusal (the mirrored sentence, not an empty plan)', measured: (rf1 as any)?.refused?.length ?? 0, min: 1 });
+  floors.push({ what: 'wall.batch.create: a refused batch adds NOTHING to topology.added — there is no partial batch', measured: ((rf1 as any)?.topology?.added?.length ?? 99) === 0 ? 1 : 0, min: 1 });
+  const refusalSentence = (rf1 as any)?.refused?.[0]?.reason ?? '';
+  floors.push({ what: 'wall.batch.create: the refusal is the handler\'s OWN sentence, verbatim (walls[1].thickness must be ≥ 0.05 m)', measured: refusalSentence === 'walls[1].thickness must be ≥ 0.05 m' ? 1 : 0, min: 1 });
+  if (rf1 && rf2) {
+    const c = compareRuns(rf1, rf2);
+    if (c.verdict !== 'identical') findings.push(`ARM 1 · REFUSAL REPEAT [wall.batch.create][${c.verdict}]: ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 1 · wall.batch.create REFUSAL repeat: ${c.detail}`);
+  }
+
+  // ── ARM 5 · NONDETERMINISM SOURCES — 30 ms apart, clock AND RNG spoofed ─────
+  const realNow = Date.now;
+  const realRandom = Math.random;
+  let clockReads = 0;
+  let rngReads = 0;
+  const planUnder = async (now: number, rand: number, cmd: any = BATCH_COMMAND): Promise<Plan | null> => {
+    Date.now = () => { clockReads++; return now; };
+    Math.random = () => { rngReads++; return rand; };
+    try { return await buildBatchService(freshBatchWorld()).preview(cmd); }
+    finally { Date.now = realNow; Math.random = realRandom; }
+  };
+  const t1 = await planUnder(1_000_000_000, 0.1111);
+  await sleep(30);
+  const t2 = await planUnder(9_999_999_999, 0.9999);
+  floors.push({ what: 'wall.batch.create: time-arm produced both plans', measured: t1 && t2 ? 1 : 0, min: 1 });
+  if (t1 && t2) {
+    const c = compareRuns(t1, t2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · TIME/RNG [wall.batch.create][${c.verdict}]: plans planned 30 ms apart under DIFFERENT spoofed Date.now/Math.random diverged. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.batch.create TIME/RNG: 30 ms apart, Date.now spoofed 1000000000 vs 9999999999, Math.random 0.1111 vs 0.9999 → ${c.verdict} (planner path observed ${clockReads} Date.now / ${rngReads} Math.random reads)`);
+  }
+
+  // ── ARM 5b · the ID-LESS batch — N ULIDs the planner may not mint ───────────
+  // Every entry omits `id`, so the planner mints N placeholders. They are derived from the
+  // entry AND its index (two identical entries are legal and must not collapse onto one
+  // wall), so this is where an index-free derivation would silently merge two walls — and
+  // where a `createId()` call would make every run differ.
+  const IDLESS = {
+    type: 'wall.batch.create' as const,
+    payload: {
+      levelId: 'L1',
+      walls: [
+        { baseLine: [{ x: 2, y: 0, z: 0 }, { x: 2, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+        { baseLine: [{ x: 2, y: 0, z: 0 }, { x: 2, y: 0, z: 4 }], thickness: 0.1, height: 2.7 },
+      ],
+    },
+  };
+  const i1 = await planUnder(1_000_000_000, 0.1111, IDLESS);
+  const i2 = await planUnder(9_999_999_999, 0.9999, IDLESS);
+  floors.push({ what: 'wall.batch.create: TWO BYTE-IDENTICAL id-less entries yield TWO distinct placeholder walls, never one (index is in the derivation)', measured: (i1 as any)?.topology?.added?.length ?? 0, min: 2 });
+  if (i1 && i2) {
+    const c = compareRuns(i1, i2);
+    if (c.verdict !== 'identical') findings.push(`ARM 5 · ID-LESS BATCH [wall.batch.create][${c.verdict}]: the placeholder ids for id-less entries are not a pure function of the payload — a random or clock source reaches them. ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 5 · wall.batch.create ID-LESS batch (2 identical entries, no ids): ${c.verdict}`);
+  }
+
+  // ── ARM 2 · SENSITIVITY — one consequential fact each, stateHash held EQUAL ──
+  const pairHash = async (
+    label: string, a: ConsequencePreviewService, b: ConsequencePreviewService,
+    fact: string, section: (p: Plan) => number,
+  ): Promise<void> => {
+    const pa = await a.preview(BATCH_COMMAND);
+    const pb = await b.preview(BATCH_COMMAND);
+    floors.push({ what: `wall.batch.create: sensitivity pair "${label}" produced both plans`, measured: pa && pb ? 1 : 0, min: 1 });
+    if (!pa || !pb) return;
+    floors.push({ what: `wall.batch.create: sensitivity pair "${label}" holds stateHash EQUAL (the difference rides in the BODY, not the state)`, measured: pa.stateHash === pb.stateHash ? 1 : 0, min: 1 });
+    floors.push({ what: `wall.batch.create: sensitivity pair "${label}" moves a section that is actually POPULATED`, measured: Math.max(section(pa), section(pb)), min: 1 });
+    const moved = pa.planHash !== pb.planHash;
+    if (!moved) findings.push(`ARM 2 · SENSITIVITY [wall.batch.create · ${label}]: ${fact} did NOT move planHash (${pa.planHash}) — that section is outside the hashed body, so a plan can change without its hash changing.`);
+    lines.push(`${moved ? '✓ ' : '❌'} ARM 2 · wall.batch.create ${label}: planHash ${moved ? `moved (${pa.planHash} → ${pb.planHash})` : `STUCK (${pa.planHash})`} on ONLY ${fact}, with stateHash equal (${pa.stateHash})`);
+  };
+
+  await pairHash(
+    'junction-set-only',
+    buildBatchService(freshBatchWorld(), { resolve: inertResolver }),
+    buildBatchService(freshBatchWorld(), { resolve: jointOnlyResolver }),
+    "the junction verdict on wall-e (the resolver's miter signature; every other seam and the payload byte-identical)",
+    (p) => (p as any).topology?.modified?.length ?? 0,
+  );
+  await pairHash(
+    'refusal-only',
+    buildBatchService(freshBatchWorld(), { occupancy: batchSilentOccupancy }),
+    buildBatchService(freshBatchWorld(), { occupancy: batchRefusingOccupancy }),
+    'the occupancy refit seed (silent vs refusing) → the `refused` section',
+    (p) => (p as any).refused?.length ?? 0,
+  );
+  await pairHash(
+    'validation-only',
+    buildBatchService(freshBatchWorld(), { validator: { validateAll: () => [] } }),
+    buildBatchService(freshBatchWorld(), { validator: batchThicknessValidator }),
+    'validation.violationsCreated (a validator that finds nothing vs the 0.15 m thickness floor tripped by BOTH partitions)',
+    (p) => p.validation.violationsCreated.length,
+  );
+  await pairHash(
+    'changed-set-only',
+    buildBatchService(freshBatchWorld(), { occupancy: batchSilentOccupancy }),
+    buildBatchService(freshBatchWorld(), { occupancy: batchRelocatingOccupancy }),
+    'the `changed` set ALONE (an opening RELOCATION from the refit seed: relocations reach `changed` and no other section — proven by mutation, see the header)',
+    (p) => (p as any).changed?.length ?? 0,
+  );
+
+  // ══ ARM B1 · THE ONE-PLAN-NOT-N PROOF — the claim this family is built on ═══════════════
+  //
+  // C78 §19.3b left "does a batch plan as one plan or N?" open for this commit. The planner
+  // answers ONE, and its header argues that N is not merely against §1.2(c)/§10.1/§12.1 but
+  // UNSOUND: a leave-one-out decomposition admits a false DETERMINED-unaffected, which is the
+  // inference §1.4 forbids by name. That argument is EXECUTED here, with the same planner and
+  // the same seam, and the whole point is that TWO of these three runs must come back EMPTY.
+  //
+  //   whole batch (p1 + p2)  → wall-e IS in topology.modified
+  //   p1 alone               → wall-e is NOT
+  //   p2 alone               → wall-e is NOT
+  //
+  // So the union of the two single-candidate plans MISSES an existing wall the batch really
+  // re-cuts. A registry that pointed `wall.batch.create` at the `wall.create` key, or a
+  // planner that looped the single planner and merged, would ship exactly that miss.
+  const oneOf = (idx: number) => ({
+    type: 'wall.batch.create' as const,
+    payload: { levelId: 'L1', walls: [BATCH_COMMAND.payload.walls[idx]!] },
+  });
+  const both = await buildBatchService(freshBatchWorld(), { resolve: jointOnlyResolver }).preview(BATCH_COMMAND);
+  const onlyP1 = await buildBatchService(freshBatchWorld(), { resolve: jointOnlyResolver }).preview(oneOf(0));
+  const onlyP2 = await buildBatchService(freshBatchWorld(), { resolve: jointOnlyResolver }).preview(oneOf(1));
+  const modifiedOf = (p: Plan | null): string[] => ((p as any)?.topology?.modified ?? []) as string[];
+  const jointSees = modifiedOf(both).includes('wall-e');
+  const p1Sees = modifiedOf(onlyP1).includes('wall-e');
+  const p2Sees = modifiedOf(onlyP2).includes('wall-e');
+  floors.push({ what: 'wall.batch.create · B1: the WHOLE-BATCH plan reports wall-e as re-cut', measured: jointSees ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.batch.create · B1: NEITHER single-candidate plan reports it — so the union of N plans would MISS it (the false DETERMINED-unaffected §1.4 forbids)', measured: !p1Sees && !p2Sees ? 1 : 0, min: 1 });
+  if (!(jointSees && !p1Sees && !p2Sees)) {
+    findings.push(`ARM B1 · ONE-PLAN-NOT-N [wall.batch.create]: the joint-vs-individual instrument did not reproduce the decomposition failure (joint=${jointSees}, p1=${p1Sees}, p2=${p2Sees}). Either the planner stopped posing the junction diff over the whole candidate set, or this arm has stopped being able to see it — both are findings.`);
+  }
+  lines.push(`${jointSees && !p1Sees && !p2Sees ? '✓ ' : '❌'} ARM B1 · wall.batch.create ONE-PLAN-NOT-N: wall-e re-cut by {p1,p2} together=${jointSees}, by p1 alone=${p1Sees}, by p2 alone=${p2Sees} — the whole-set diff sees what no per-candidate diff can`);
+
+  // ══ ARM B2 · CANDIDATE × CANDIDATE — the population no other check can reach ════════════
+  // Two walls in ONE batch crossing each other body-to-body. Neither exists yet, so no
+  // occupancy, join or clash pass in the product has ever seen the pair, and a one-at-a-time
+  // decomposition cannot: in each sub-plan the other wall does not exist. The REAL geometry
+  // predicate decides this one — nothing is scripted.
+  const CROSSING = {
+    type: 'wall.batch.create' as const,
+    payload: {
+      levelId: 'L1',
+      walls: [
+        { id: 'wall-x1', baseLine: [{ x: 1, y: 0, z: 1 }, { x: 5, y: 0, z: 3 }], thickness: 0.2, height: 2.7 },
+        { id: 'wall-x2', baseLine: [{ x: 1, y: 0, z: 3 }, { x: 5, y: 0, z: 1 }], thickness: 0.2, height: 2.7 },
+      ],
+    },
+  };
+  const crossPlan = await buildBatchService(freshBatchWorld()).preview(CROSSING);
+  const soloPlan = await buildBatchService(freshBatchWorld()).preview({
+    type: 'wall.batch.create' as const,
+    payload: { levelId: 'L1', walls: [CROSSING.payload.walls[0]!] },
+  });
+  const namesPair = (p: Plan | null): boolean =>
+    ((p as any)?.undetermined ?? []).some((u: any) =>
+      String(u.scope).includes('cross the BODY of') && String(u.scope).includes('wall-x2'));
+  floors.push({ what: 'wall.batch.create · B2: two members of ONE batch crossing each other are DECLARED (never reported as "touches nothing")', measured: namesPair(crossPlan) ? 1 : 0, min: 1 });
+  floors.push({ what: 'wall.batch.create · B2: and the single-member plan cannot declare it — the sibling does not exist in that world', measured: namesPair(soloPlan) ? 0 : 1, min: 1 });
+  lines.push(`${namesPair(crossPlan) && !namesPair(soloPlan) ? '✓ ' : '❌'} ARM B2 · wall.batch.create CANDIDATE×CANDIDATE: batch-internal X crossing declared=${namesPair(crossPlan)}, visible to a single-member plan=${namesPair(soloPlan)}`);
+
+  // ══ ARM B3 · WALL-STORE ORDER — the invariant that IS one (see the header) ══════════════
+  // The store's iteration order is not contractually stable and the resolver's clustering is
+  // documented as input-order dependent, so the planner sorts. stateHash legitimately moves
+  // (it hashes the wall list as given), so this arm compares the BODY's element sets.
+  const shuffled = freshBatchWorld();
+  shuffled.walls = [shuffled.walls[2], shuffled.walls[0], shuffled.walls[3], shuffled.walls[1]];
+  const ordered1 = await buildBatchService(freshBatchWorld()).preview(BATCH_COMMAND);
+  const ordered2 = await buildBatchService(shuffled).preview(BATCH_COMMAND);
+  const sets = (p: Plan | null): string =>
+    JSON.stringify({ changed: (p as any)?.changed, topology: (p as any)?.topology, excluded: (p as any)?.excluded });
+  const sameSets = ordered1 && ordered2 && sets(ordered1) === sets(ordered2);
+  floors.push({ what: 'wall.batch.create · B3: shuffling the WALL STORE leaves every element set identical (the planner sorts its resolver input)', measured: sameSets ? 1 : 0, min: 1 });
+  if (!sameSets) findings.push(`ARM B3 · STORE-ORDER [wall.batch.create]: the wall store's iteration order reached the plan's element sets. ${sets(ordered1)} vs ${sets(ordered2)}`);
+  lines.push(`${sameSets ? '✓ ' : '❌'} ARM B3 · wall.batch.create store-order: wall list [s,e,n,w] vs [n,s,w,e] → element sets ${sameSets ? 'identical' : 'DIVERGED'}`);
+
+  // ── ARM 3 · INSENSITIVITY — payload KEY order, then the dispatch envelope ────
+  // Entry ORDER is semantic here and is deliberately NOT varied (see the header); only the
+  // key order WITHIN each entry object is, which `stableStringify` must canonicalise away.
+  const REVERSED_KEYS = {
+    type: 'wall.batch.create' as const,
+    payload: {
+      walls: [
+        { height: 2.7, thickness: 0.1, baseLine: [{ z: 0, y: 0, x: 2 }, { z: 4, y: 0, x: 2 }], id: 'wall-p1' },
+        { height: 2.7, thickness: 0.1, baseLine: [{ z: 0, y: 0, x: 4 }, { z: 4, y: 0, x: 4 }], id: 'wall-p2' },
+      ],
+      levelId: 'L1',
+    },
+  };
+  const k1 = await buildBatchService(freshBatchWorld()).preview(BATCH_COMMAND);
+  const k2 = await buildBatchService(freshBatchWorld()).preview(REVERSED_KEYS);
+  floors.push({ what: 'wall.batch.create: key-order pair produced both plans', measured: k1 && k2 ? 1 : 0, min: 1 });
+  if (k1 && k2) {
+    const same = k1.planHash === k2.planHash;
+    if (!same) findings.push(`ARM 3 · INSENSITIVITY [wall.batch.create · key-order]: the same batch written with keys in a different order hashed differently (${k1.planHash} vs ${k2.planHash}) — stableStringify is not canonicalising key order through the entry array.`);
+    lines.push(`${same ? '✓ ' : '❌'} ARM 3 · wall.batch.create key-order: entries written {id,baseLine,thickness,height} vs fully reversed → ${same ? `same planHash (${k1.planHash})` : 'DIVERGED'}`);
+  }
+
+  const envelopes = [
+    { actor: 'human', origin: 'direct-manipulation', timestamp: 1_111_111, gestureId: 'g-human-1' },
+    { actor: 'ai', origin: 'ai-proposal', timestamp: 9_999_999, gestureId: 'g-ai-2', approval: { approvedBy: 'user-7', planHash: 'stale-cafe' } },
+  ] as const;
+  const envPlans: (Plan | null)[] = [];
+  for (const env of envelopes) {
+    Date.now = () => env.timestamp;
+    try { envPlans.push(await buildBatchService(freshBatchWorld()).preview(BATCH_COMMAND)); }
+    finally { Date.now = realNow; }
+  }
+  floors.push({ what: 'wall.batch.create: envelope pair produced both plans', measured: envPlans[0] && envPlans[1] ? 1 : 0, min: 1 });
+  if (envPlans[0] && envPlans[1]) {
+    const c = compareRuns(envPlans[0], envPlans[1]);
+    if (c.verdict !== 'identical') findings.push(`ARM 3 · INSENSITIVITY [wall.batch.create · envelope]: actor/origin/timestamp/approval differences leaked into the plan — provenance must stay OFF the plan (C78 §9). ${c.detail}`);
+    lines.push(`${c.verdict === 'identical' ? '✓ ' : '❌'} ARM 3 · wall.batch.create envelope: human/direct vs ai/proposal+approval, clocks 1111111 vs 9999999 → ${c.verdict}`);
+  }
+
+  // ── POSITIVE CONTROL (floor) — a nondeterministic batch planner MUST be flagged
+  const noisy = buildBatchService(freshBatchWorld(), {
+    plannerWrap: (real) => ({
+      plan: async (c: any, ctx: any) => {
+        const p = await real.plan(c, ctx);
+        return { ...p, undetermined: [...p.undetermined, { scope: 'noise', reason: 'ENGINE_NOT_AVAILABLE', detail: `t=${realNow()}·r=${realRandom()}` }] };
+      },
+    }),
+  });
+  const n1 = await noisy.preview(BATCH_COMMAND);
+  const n2 = await noisy.preview(BATCH_COMMAND);
+  const noisyVerdict = n1 && n2 ? compareRuns(n1, n2) : null;
+  floors.push({ what: 'POSITIVE control (wall.batch.create): a deliberately NONDETERMINISTIC planner is FLAGGED by the repeat checker', measured: noisyVerdict && noisyVerdict.verdict !== 'identical' ? 1 : 0, min: 1 });
+  floors.push({ what: 'POSITIVE control (wall.batch.create): the checker CLASSIFIES it as the hash-bug shape (bodies differ, hash equal)', measured: noisyVerdict?.verdict === 'hash-bug' ? 1 : 0, min: 1 });
+  lines.push(`${noisyVerdict && noisyVerdict.verdict !== 'identical' ? '✓ ' : '❌'} POSITIVE control (wall.batch.create): nondeterministic planner → ${noisyVerdict?.verdict ?? 'NO PLANS'}`);
+
+  // ── NEGATIVE CONTROL (floor) — genuinely different states must hash apart ────
+  const g1 = await buildBatchService(freshBatchWorld(6)).preview(BATCH_COMMAND);
+  const g2 = await buildBatchService(freshBatchWorld(9)).preview(BATCH_COMMAND);
+  const negSeen = g1 && g2 && g1.planHash !== g2.planHash ? 1 : 0;
+  floors.push({ what: 'NEGATIVE control (wall.batch.create): two GENUINELY different states produce different planHashes (the sensitivity arms can see)', measured: negSeen, min: 1 });
+  floors.push({ what: 'NEGATIVE control (wall.batch.create): and their stateHashes differ too, confirming the difference is in the AUTHORITATIVE state', measured: g1 && g2 && g1.stateHash !== g2.stateHash ? 1 : 0, min: 1 });
+  lines.push(`${negSeen ? '✓ ' : '❌'} NEGATIVE control (wall.batch.create): wall-n north edge at x=6 vs x=9 → planHash ${g1?.planHash} vs ${g2?.planHash}`);
+
+  return { floors, lines, findings };
+}
+
 const HARNESSES: Record<string, Harness> = {
   'wall.move': wallMoveHarness,
   'wall.create': wallCreateHarness,
@@ -2461,6 +2954,7 @@ const HARNESSES: Record<string, Harness> = {
   'wall.opening.create': wallOpeningCreateHarness,
   'opening.delete': openingDeleteHarness,
   'wall.delete': wallDeleteHarness,
+  'wall.batch.create': wallBatchCreateHarness,
 };
 
 // ─── Run ──────────────────────────────────────────────────────────────────────

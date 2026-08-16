@@ -158,9 +158,19 @@ export interface WallCreatePlannerDeps {
 }
 
 // ─── Deterministic hashing (G-REASON-02) ──────────────────────────────────────────────
+//
+// §BATCH-REUSES-THESE (2026-08-16). The five helpers below and the `Pt` shape are EXPORTED
+// rather than module-private because `WallBatchCreateConsequencePlanner.ts` — the
+// `wall.batch.create` family — consumes them verbatim. They were exported, never copied,
+// deliberately: `segmentsProperlyCross` already carries a note (below) recording that it is
+// a RESTATEMENT of a module-private predicate in `@pryzm/room-topology` and that the
+// duplication is "a known, closeable debt". Forking it a THIRD time would have turned one
+// closeable debt into two, and would have let the single-wall and batch planners drift on
+// the one predicate that decides whether a wall is driven THROUGH a room. Adding `export`
+// changes no behaviour and no signature; every existing caller is unaffected.
 
 /** FNV-1a 32-bit → 8-hex-char string. Deterministic, dependency-free. */
-function fnv1a(s: string): string {
+export function fnv1a(s: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -170,18 +180,18 @@ function fnv1a(s: string): string {
 }
 
 /** Unique + sorted — the ONLY way element sets enter the plan, so ordering is stable. */
-function sortedUnique(ids: readonly string[]): ElementId[] {
+export function sortedUnique(ids: readonly string[]): ElementId[] {
   return Array.from(new Set(ids)).sort();
 }
 
-const determined = (elements: readonly string[]): ImpactDetermination => ({
+export const determined = (elements: readonly string[]): ImpactDetermination => ({
   kind: 'determined',
   elements: sortedUnique(elements),
 });
 
 // ─── Geometry helpers (pure, local, no epsilon of their own beyond the stated ones) ───
 
-interface Pt {
+export interface Pt {
   readonly x: number;
   readonly z: number;
 }
@@ -200,7 +210,7 @@ interface Pt {
  * constants; if room-topology later exports it, this should be deleted in favour of the
  * import. Recorded so the duplication is a known, closeable debt rather than a silent fork.
  */
-function segmentsProperlyCross(p: Pt, p2: Pt, q: Pt, q2: Pt): boolean {
+export function segmentsProperlyCross(p: Pt, p2: Pt, q: Pt, q2: Pt): boolean {
   const d = (a: Pt, b: Pt, c: Pt): number => (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
   const E = 1e-9;
   const d1 = d(p, p2, q);
@@ -213,7 +223,7 @@ function segmentsProperlyCross(p: Pt, p2: Pt, q: Pt, q2: Pt): boolean {
 }
 
 /** Signature of one wall's miter — the comparable fingerprint for "did this corner change?". */
-function miterSignature(m: WallMiter | undefined): string {
+export function miterSignature(m: WallMiter | undefined): string {
   if (!m) return 'none';
   return stableStringify({
     startLeft: m.startLeft ?? null,

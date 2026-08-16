@@ -19,6 +19,7 @@ import { createOpeningMoveConsequencePlanner } from './openingMovePlannerComposi
 import { createWallOpeningCreateConsequencePlanner } from './wallOpeningCreatePlannerComposition.js';
 import { createOpeningDeleteConsequencePlanner } from './openingDeletePlannerComposition.js';
 import { createWallDeleteConsequencePlanner } from './wallDeletePlannerComposition.js';
+import { createWallBatchCreateConsequencePlanner } from './wallBatchCreatePlannerComposition.js';
 import { ConsequencePreviewService } from './ConsequencePreviewService.js';
 
 /**
@@ -122,6 +123,24 @@ export function createConsequencePlanners(): ReadonlyMap<string, ConsequencePlan
   planners.set(
     'wall.delete',
     createWallDeleteConsequencePlanner() as ConsequencePlanner<never>,
+  );
+  // THE SEVENTH FAMILY, 2026-08-16 — `wall.batch.create`, the family C78 §19.3b NAMES as
+  // next on the "cheapest reuse of proven substrate" rule. This ONE entry plus one
+  // normaliser rule; NO service edit, so all three surfaces (preview / execute / confirm)
+  // inherit it here. It is the FIRST batch-class verb to reach a planner at all.
+  //
+  // ONE PLAN, NOT N — the open question §19.3b left for this commit, settled from the
+  // contract AND from soundness (WallBatchCreateConsequencePlanner.ts states both at
+  // length). The short form: §1.2(c)/§10.1/U-INV-8 make the previewed and executed plan ONE
+  // artefact, §12.1/U-INV-9 make the batch ONE undo unit (measured: one produceCommand, one
+  // PatchPair, one ring entry), and — the load-bearing half — decomposing the batch into N
+  // plans is UNSOUND: leave-one-out lets two candidates each report a wall unaffected that
+  // they jointly re-cut, and one-at-a-time misses every candidate↔candidate junction, which
+  // is MOST of a generator batch. The junction diff is therefore posed once per level over
+  // the whole candidate set. Either way it counts as ONE consequential verb (§19.3b).
+  planners.set(
+    'wall.batch.create',
+    createWallBatchCreateConsequencePlanner() as ConsequencePlanner<never>,
   );
   return planners;
 }
