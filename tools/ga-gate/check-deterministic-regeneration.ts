@@ -64,9 +64,46 @@
  *     npx tsx tools/ga-gate/check-deterministic-regeneration.ts --write-baseline
  *
  * That writes `tools/ga-gate/deterministic-regeneration-baseline.json`. SHRINK-
- * ONLY: every entry is `arm::file:line::kind`, never a bare count, so a reviewer
- * sees WHICH site left rather than a number that could hide one removal and one
- * addition (C69 §7.c).
+ * ONLY: every entry is `file::symbol::kind::fingerprint`, never a bare count, so
+ * a reviewer sees WHICH site left rather than a number that could hide one
+ * removal and one addition (C69 §7.c).
+ *
+ * ─── §D-ANCHOR-ON-A-SYMBOL — why the key is NOT `file:line` ──────────────────
+ * It used to be `file:line::kind`, and that made every one of this ledger's 134
+ * rows breakable by a commit that never touched geometry determinism. Adding
+ * fifty lines to the top of `WallStore.ts` moved two D2 rows from :253/:274 to
+ * :307/:328; the gate then reported them as "no longer measured" — STALE LEDGER,
+ * exit 3 — and blocked the whole run-all suite. On the reading that produced this
+ * change, **30 of the 134 declared rows had drifted and not one of them had been
+ * paid**: D1 measured 84 against a declared 84 with 22 struck and 22 new, and D2
+ * struck 8 while gaining 11, of which 8 were the same 8 sites one line lower.
+ *
+ * The defect is the ANCHOR, not the drift. Re-pointing 253 → 307 restores green
+ * and leaves the class armed for the next commit. So the key is now the site's
+ * own IDENTITY, on three axes that an edit ABOVE it cannot move:
+ *
+ *     packages/geometry-wall/src/WallStore.ts::getLevelById::unstable-sort::const sorted = [...allLevels].sort((a, b) => a.elevation - b.elevation);
+ *     └── file ──────────────────────────────┘└─ symbol ──┘└── kind ───┘└──── normalised source fingerprint ─────┘
+ *
+ * A raw line number appears NOWHERE in a key. It is still REPORTED on every
+ * finding, because a reader needs to open the file — but it is not the identity.
+ *
+ * The fingerprint is the matched line with comments already stripped (the scan
+ * feeds on `stripCommentsToLines`) and runs of whitespace collapsed, so a
+ * re-indent does not restate the finding. When one symbol holds two sites with a
+ * byte-identical fingerprint — `storeEventBus.emit({ …, operation: 'delete', … })`
+ * twice in one method — an ordinal `#1`/`#2` is appended, assigned by ascending
+ * DISTINCT line. That ordinal is what keeps the cardinality identical to the old
+ * key: N distinct lines in, N keys out, and several reads on ONE line (see
+ * `Plant05Builder.ts:49`, three `Math.random()` in one `rotation.set(…)`) collapse
+ * to ONE key exactly as `file:line::kind` collapsed them.
+ *
+ * KNOWN RESIDUAL, stated rather than discovered later: the enclosing symbol is
+ * the nearest preceding declaration that OPENS A BLOCK, so a site inside a nested
+ * arrow resolves to the arrow, not the method, and inserting a new declaration
+ * BETWEEN the declaration and the site does move the key. That is a change inside
+ * the subject's own body, not an unrelated edit fifty lines up the file — which is
+ * the entire class this anchor exists to survive.
  *
  * ─── THE RECIPE — flow-classified, per site ──────────────────────────────────
  * For each forbidden-input READ (`Date.now()`, `new Date()`, `performance.now()`,
@@ -278,6 +315,7 @@ type Verdict = 'FLOWING' | 'DISCARDED';
 
 interface Site {
   readonly file: string;
+  /** REPORTED so a reader can open the file — NEVER the ledger key (§D-ANCHOR-ON-A-SYMBOL). */
   readonly line: number;
   readonly text: string;
   readonly kind: string;
@@ -285,15 +323,92 @@ interface Site {
   readonly verdict: Verdict;
   /** For FLOWING: which named sink it reached. For DISCARDED: where it died. */
   readonly sink: string;
+  /** The nearest enclosing declaration — half of the ledger key. */
+  readonly symbol: string;
+  /** The matched line, comment-free and whitespace-normalised — the other half. */
+  readonly fp: string;
 }
 
 interface OrderSite {
   readonly file: string;
+  /** REPORTED, never the ledger key — see Site.line. */
   readonly line: number;
   readonly text: string;
   readonly kind: string;
   readonly why: string;
+  readonly symbol: string;
+  readonly fp: string;
 }
+
+/**
+ * §D-ANCHOR-ON-A-SYMBOL — the nearest enclosing DECLARATION above a site, in three
+ * alternatives: (a) a method/function whose signature fits on one line, (b) an
+ * assigned arrow or function expression, (c) a declaration whose parameter list is
+ * still OPEN at end of line. Deliberately NOT a line number; see `Site.line`.
+ *
+ * (a) and (b) require the line to OPEN A BLOCK (`… ) … {` at end of line). That is
+ * what separates a declaration from a call: `emit({ … Date.now() });` and
+ * `foo(bar);` both have a name and parens and neither opens a block. Without that
+ * anchor this regex would resolve every site to itself — a failure mode worth
+ * naming, because it would still have produced a plausible-looking symbol key.
+ * (a) and (b) come from check-suppression-is-reversible (commit 871c7ca5), which
+ * paid for the identical anchor defect one gate over.
+ *
+ * ⚠ THIS ALTERNATION MUST NEVER CONTAIN AN EMPTY BRANCH. Written first as
+ * `…$' + '|' +` followed by a branch that ALSO opened with `|`, it compiled to
+ * `…$||^…` — and an empty alternative matches at position 0 of EVERY line, so
+ * `exec` returned a truthy match with every capture group undefined. The scan read
+ * that as "a declaration with no name", skipped it, and walked to the top of the
+ * file: six rows silently resolved to `(top-level)` while the regex looked correct
+ * in isolation. A hand-concatenated regex hides a defect that a literal would not.
+ */
+const MODIFIER = '(?:public|private|protected|static|async|export|declare|function|get|set|override)';
+const DECL_ALTERNATIVES: readonly string[] = [
+  // (a) a method / function whose whole signature is on one line. The return-type
+  //     part is `(?::.*)?` and NOT `(?::[^{]*)?` because a return type may itself
+  //     contain a brace — `): Array<{ x: number }> {`. With the narrow form that
+  //     line did not match, the scan walked PAST it to the previous function, and
+  //     the site was labelled with a symbol it is not inside; worse, it then moved
+  //     whenever anything was added between the two, which is the drift channel
+  //     this whole key exists to close.
+  `^\\s*(?:${MODIFIER}\\s+)*([A-Za-z_$][\\w$]*)\\s*(?:<[^(]*>)?\\(.*\\)\\s*(?::.*)?\\{\\s*$`,
+  // (b) an assigned arrow or function expression.
+  '^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=]*)?=\\s*' +
+  '(?:async\\s+)?(?:function\\s*)?(?:<[^(]*>)?\\(.*\\)\\s*(?::[^=>{]*)?(?:=>)?\\s*\\{\\s*$',
+  // (c) a declaration whose PARAMETER LIST IS STILL OPEN at end of line —
+  //     `export function computeCurtainCells(` with one param per line below.
+  //     This alternative demands at least ONE modifier keyword (`+`, not `*`)
+  //     because `\(\s*$` alone would also match a multi-line CALL, and a call is
+  //     not a declaration.
+  `^\\s*(?:${MODIFIER}\\s+)+([A-Za-z_$][\\w$]*)\\s*(?:<[^(]*>)?\\(\\s*$`,
+];
+const ENCLOSING_DECL = new RegExp(DECL_ALTERNATIVES.join('|'));
+
+/**
+ * CONTROL FLOW IS NOT A DECLARATION. `if (…) {`, `for (…) {`, `while (…) {` and
+ * `catch (e) {` all satisfy "a name, parens, opens a block" — so without this
+ * exclusion the first migration of this ledger resolved six geometry-store rows to
+ * the symbol `if` and three D2 rows to `for`. That is not wrong in the sense of
+ * unstable (an `if` directly above a site is local), but it is USELESS to a reader
+ * looking for the subject, and it hides the real owner. The scan therefore steps
+ * over these and keeps walking to the enclosing function.
+ */
+const NOT_A_DECL = /^(if|for|while|switch|catch|do|else|try|finally|with|return|new|delete|typeof|void|await|yield)$/;
+
+function enclosingDecl(lines: readonly string[], i: number): string {
+  for (let b = i; b >= 0; b--) {
+    const d = ENCLOSING_DECL.exec(lines[b]!);
+    if (!d) continue;
+    const name = d[1] ?? d[2] ?? d[3] ?? '';
+    if (name === '' || NOT_A_DECL.test(name)) continue;
+    return name;
+  }
+  return '(top-level)';
+}
+
+/** Comments are already stripped by the scan; collapse whitespace and bound it. */
+const FP_MAX = 120;
+const fingerprint = (line: string): string => line.replace(/\s+/g, ' ').trim().slice(0, FP_MAX);
 
 function isTestPath(rel: string): boolean {
   return /(^|\/)__tests__\//.test(rel) || /\.(test|spec|bench|cert)\.tsx?$/.test(rel) || /(^|\/)tests?\//.test(rel);
@@ -421,13 +536,19 @@ function detect(root: string, globDir: string): Detection {
             sites.push({
               file: rel, line: i + 1, text: line.trim().slice(0, 120),
               kind: f.id, clause: f.clause, verdict, sink,
+              symbol: enclosingDecl(lines, i), fp: fingerprint(line),
             });
           }
         }
         // D2 — order dependence. Interaction capture is NOT exempt here: a tool
         // that sorts unstably feeds the model an order-dependent result.
         for (const [id, why, re] of ORDER_PATTERNS) {
-          if (re.test(line)) orderSites.push({ file: rel, line: i + 1, text: line.trim().slice(0, 120), kind: id, why });
+          if (re.test(line)) {
+            orderSites.push({
+              file: rel, line: i + 1, text: line.trim().slice(0, 120), kind: id, why,
+              symbol: enclosingDecl(lines, i), fp: fingerprint(line),
+            });
+          }
         }
       }
     }
@@ -521,8 +642,45 @@ interface Baseline {
   readonly persistOrLose: string[];
 }
 
-const keyOfSite = (s: Site): string => `${s.file}:${s.line}::${s.kind}`;
-const keyOfOrder = (s: OrderSite): string => `${s.file}:${s.line}::${s.kind}`;
+/**
+ * §D-ANCHOR-ON-A-SYMBOL — the ledger key. `file::symbol::kind::fingerprint`, with
+ * an ordinal appended ONLY when one symbol holds the same fingerprint on more than
+ * one line. No line number anywhere in it.
+ *
+ * THE ORDINAL IS WHAT KEEPS CARDINALITY IDENTICAL to the old `file:line::kind`
+ * key, and it is assigned by ascending DISTINCT LINE — never per occurrence. Both
+ * halves of that matter:
+ *   • N distinct lines carrying the same fingerprint inside one symbol yield N
+ *     keys, exactly as N line numbers did. Nothing merges.
+ *   • Several reads on ONE line collapse to ONE key, exactly as one line number
+ *     collapsed them. `Plant05Builder.ts:49` is
+ *     `leafCluster.rotation.set(Math.random(), Math.random(), Math.random())` —
+ *     three reads, one line, one row in this ledger both before and after.
+ * A key-shape change that quietly moved this gate from 84 rows to 86 would have
+ * looked like a regression nobody caused; one that merged two sites into one would
+ * have been a silent weakening. Neither is possible under this rule.
+ */
+type Keyable = { readonly file: string; readonly line: number; readonly kind: string; readonly symbol: string; readonly fp: string };
+
+const baseKey = (s: Keyable): string => `${s.file}::${s.symbol}::${s.kind}::${s.fp}`;
+
+function assignKeys<T extends Keyable>(items: readonly T[]): Map<T, string> {
+  const linesOf = new Map<string, number[]>();
+  for (const s of items) {
+    const b = baseKey(s);
+    const arr = linesOf.get(b) ?? [];
+    if (!arr.includes(s.line)) arr.push(s.line);
+    linesOf.set(b, arr);
+  }
+  for (const arr of linesOf.values()) arr.sort((a, b) => a - b);
+  const out = new Map<T, string>();
+  for (const s of items) {
+    const b = baseKey(s);
+    const arr = linesOf.get(b)!;
+    out.set(s, arr.length === 1 ? b : `${b}#${arr.indexOf(s.line) + 1}`);
+  }
+  return out;
+}
 
 // ─── Executed controls ───────────────────────────────────────────────────────
 
@@ -624,6 +782,81 @@ function selfTest(): { ok: boolean; lines: string[] } {
     lines.push(`    D2 detect (numeric comparator, ties keep insertion order): ${ord.orderSites.length} site(s)`);
     if (ord.orderSites.length === 0) fail('D2 did not detect a numeric `.sort()` comparator — §1.2 requires ties broken on a stable model key, and the arm cannot see the clause it enforces.');
 
+    // ── §D-ANCHOR-ON-A-SYMBOL — the key must SURVIVE an edit above it ────────
+    // This is the control the whole re-anchor stands on, and it asserts BOTH
+    // halves, because either alone proves nothing: that the keys are unchanged
+    // after 31 lines are inserted above the subjects, AND that the sites really
+    // did move (an "unchanged" reading over a fixture that never shifted is a
+    // control watching itself). It also pins the cardinality rule that keeps this
+    // a re-anchor and not a re-count: 6 reads → 4 keys, because `triple` puts
+    // three reads on ONE line (one key, as one line number gave one key) and
+    // `twice` puts one fingerprint on TWO lines (two keys, via #1/#2).
+    const BODY = [
+      'export function stamp(el: { metadata: object }) {',
+      '  el.metadata = { modifiedAt: Date.now() };',
+      '}',
+      'export function twice(bus: { emit: (x: object) => void }) {',
+      "  bus.emit({ op: 'delete', timestamp: Date.now() });",
+      "  bus.emit({ op: 'delete', timestamp: Date.now() });",
+      '}',
+      'export function triple(mesh: { rotation: { set: (a: number, b: number, c: number) => void } }) {',
+      '  mesh.rotation.set(Math.random(), Math.random(), Math.random());',
+      '}',
+    ];
+    const PREAMBLE = [
+      'export function unrelated(n: number): number {',
+      '  return n * 2;',
+      '}',
+      ...Array.from({ length: 28 }, (_, k) => `// filler line ${k} — an edit that touches no determinism subject`),
+    ];
+    const anchorKeys = (dir: string, body: readonly string[]): { keys: string[]; lines: number[]; syms: string[] } => {
+      writeTree(join(base, dir), {
+        'packages/geometry-fixture/package.json': PKG,
+        'packages/geometry-fixture/src/anchored.ts': body.join('\n'),
+      });
+      const d = detect(join(base, dir), 'packages');
+      const fl = d.sites.filter((s) => s.verdict === 'FLOWING');
+      const km = assignKeys(fl);
+      return {
+        keys: [...new Set(fl.map((s) => km.get(s)!))].sort(),
+        lines: [...new Set(fl.map((s) => s.line))].sort((a, b) => a - b),
+        syms: [...new Set(fl.map((s) => s.symbol))].sort(),
+      };
+    };
+    const at0 = anchorKeys('anchor0', BODY);
+    const at1 = anchorKeys('anchor1', [...PREAMBLE, ...BODY]);
+    lines.push(
+      `    §D-ANCHOR — ${at0.keys.length} key(s) from 6 reads on ${at0.lines.length} line(s); symbols [${at0.syms.join(', ')}]; ` +
+      `after +${PREAMBLE.length} lines above, sites moved ${at0.lines.join('/')} → ${at1.lines.join('/')}`,
+    );
+    if (at0.keys.length !== 4) {
+      fail(
+        `the cardinality rule broke: 6 reads over 4 distinct subject lines produced ${at0.keys.length} key(s), expected 4. ` +
+        'Three reads on ONE line must collapse to one key and one fingerprint on TWO lines must split via #1/#2 — ' +
+        'otherwise this key shape silently re-counts the ledger and a "re-anchor" hides a change in level.',
+      );
+    }
+    if (JSON.stringify(at0.lines) === JSON.stringify(at1.lines)) {
+      fail('the drift fixture did not actually shift — the sites reported the same line numbers with 31 lines inserted above them, so the anchor control proves nothing.');
+    }
+    if (JSON.stringify(at0.keys) !== JSON.stringify(at1.keys)) {
+      fail(
+        'the ledger key CHANGED when unrelated lines were inserted above the subject — that is the exact defect this ' +
+        `re-anchor exists to kill (30 of 134 rows drifted this way).\n        before: ${at0.keys.join('\n                ')}\n        after:  ${at1.keys.join('\n                ')}`,
+      );
+    }
+    if (at0.keys.some((k) => /:\d+::/.test(k))) fail(`a ledger key still contains a raw line number: ${at0.keys.find((k) => /:\d+::/.test(k))}`);
+    if (JSON.stringify(at0.syms) !== JSON.stringify(['stamp', 'triple', 'twice'])) {
+      fail(`the symbol resolver named [${at0.syms.join(', ')}], expected [stamp, triple, twice] — the key's symbol half is not resolving to the enclosing function.`);
+    }
+    // The empty-alternative trap, asserted directly rather than only via the
+    // fixture: an alternation containing `||` matches the empty string, every
+    // `exec` returns truthy with no capture, and the resolver silently answers
+    // `(top-level)` for everything while reading correctly line by line.
+    if (DECL_ALTERNATIVES.some((a) => a.trim() === '') || ENCLOSING_DECL.test('')) {
+      fail('ENCLOSING_DECL matches the EMPTY STRING — the alternation has an empty branch, so every line "matches" with no captured name and the symbol half of every key degrades to (top-level).');
+    }
+
     // ── Zero must be REACHABLE, or the floor above it is decoration ──────────
     writeTree(join(base, 'clean'), {
       'packages/geometry-fixture/package.json': PKG,
@@ -659,6 +892,14 @@ const det = detect(ROOT, 'packages');
 const flowing = det.sites.filter((s) => s.verdict === 'FLOWING');
 const discarded = det.sites.filter((s) => s.verdict === 'DISCARDED');
 const d3 = readD3();
+
+// §D-ANCHOR-ON-A-SYMBOL — resolved ONCE, over the counted sets only, so the `#N`
+// ordinals are a property of what the ledger holds and cannot be perturbed by a
+// DISCARDED read that shares a fingerprint.
+const flowKey = assignKeys(flowing);
+const orderKey = assignKeys(det.orderSites);
+const keyOfSite = (s: Site): string => flowKey.get(s)!;
+const keyOfOrder = (s: OrderSite): string => orderKey.get(s)!;
 
 const RECIPE =
   'scope packages/geometry-*/src, .ts/.tsx, tests EXCLUDED, comments stripped. A forbidden-input READ is ' +
@@ -731,7 +972,7 @@ const byFile = new Map<string, Site[]>();
 for (const s of flowing) { const l = byFile.get(s.file) ?? []; l.push(s); byFile.set(s.file, l); }
 for (const [file, list] of [...byFile.entries()].sort()) {
   lines.push(`      ${file}  (${list.length})`);
-  for (const s of list) lines.push(`          :${s.line}  ${s.kind} → sink=${s.sink}   ${s.text}`);
+  for (const s of list) lines.push(`          :${s.line}  in \`${s.symbol}\`  ${s.kind} → sink=${s.sink}   ${s.text}`);
 }
 for (const k of newFlow) lines.push(`      + NEW SINCE BASELINE: ${k}`);
 lines.push('');
@@ -752,7 +993,7 @@ lines.push('');
 lines.push(
   `D2  ${mOrder.size} order-dependence site(s) (baseline ${pOrder.size}) · new: ${newOrder.length} · struck: ${staleOrder.length}`,
 );
-for (const s of det.orderSites) lines.push(`      ${s.file}:${s.line}  ${s.kind} — ${s.why}\n          ${s.text}`);
+for (const s of det.orderSites) lines.push(`      ${s.file}:${s.line}  in \`${s.symbol}\`  ${s.kind} — ${s.why}\n          ${s.text}`);
 for (const k of newOrder) lines.push(`      + NEW SINCE BASELINE: ${k}`);
 lines.push('');
 
