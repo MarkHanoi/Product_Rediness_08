@@ -93,9 +93,13 @@ export function isRoomGraphPanelOpen(): boolean {
 // ── Private: Level resolution ─────────────────────────────────────────────────
 
 function _resolveActiveLevel(): string | null {
-    const levelStore = window.levelStore ?? window.bimManager?.levelStore; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
-    if (levelStore?.getAll) {
-        const levels: any[] = levelStore.getAll();
+    // ADR-0327: this read `window.levelStore ?? window.bimManager?.levelStore` —
+    // NEITHER exists (the former is never assigned; bimManager has no `levelStore`
+    // property), so this branch was dead and resolution survived only on the room
+    // fallback below. `window.bimManager.getLevels()` is the live level authority.
+    const bim = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
+    if (bim?.getLevels) {
+        const levels: any[] = bim.getLevels();
         if (levels.length > 0) return levels[0].id;
     }
     const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot // TODO(TASK-08)
@@ -243,10 +247,12 @@ function _render(): void {
 
     // Update level title
     if (_titleSpan) {
-        const levelStore = window.levelStore; // TODO(F.6.x): legacy levelStore — replace with runtime.viewRegistry levels
+        // ADR-0327: was `window.levelStore.getById`, a phantom never assigned in
+        // production — so the title rendered the raw levelId instead of the name.
+        const bim = window.bimManager; // TODO(F.6.x): replace with runtime.viewRegistry levels
         let lvlName = levelId;
-        if (levelStore?.getById) {
-            const lvl = levelStore.getById(levelId);
+        if (bim?.getLevelById) {
+            const lvl = bim.getLevelById(levelId);
             lvlName = lvl?.name ?? levelId;
         }
         _titleSpan.textContent = `Room Graph — ${lvlName}`;
@@ -484,7 +490,9 @@ function _buildLevelBar(): HTMLElement {
     // Populate with levels
     const populateLevels = () => {
         while (sel.firstChild) sel.removeChild(sel.firstChild);
-        const levelStore = window.levelStore; // TODO(F.6.x): legacy levelStore — replace with runtime.viewRegistry levels
+        // ADR-0327: was `window.levelStore.getById`, a phantom never assigned in
+        // production — so the picker listed raw level ids instead of names.
+        const bim = window.bimManager; // TODO(F.6.x): replace with runtime.viewRegistry levels
         const rooms: any[] = window.roomStore?.getAll?.() ?? []; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
 
         // Get unique level IDs from rooms
@@ -494,8 +502,8 @@ function _buildLevelBar(): HTMLElement {
             const opt = document.createElement('option');
             opt.value = id;
             let name = id;
-            if (levelStore?.getById) {
-                const lvl = levelStore.getById(id);
+            if (bim?.getLevelById) {
+                const lvl = bim.getLevelById(id);
                 name = lvl?.name ?? id;
             }
             opt.textContent = name;
