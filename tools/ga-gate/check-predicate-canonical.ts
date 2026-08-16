@@ -433,7 +433,15 @@ const FAMILIES: readonly Family[] = [
       'BUILT OUT OF point-in-polygon (every vertex of A inside B) or out of segment/segment intersection. ' +
       'Counting it before those two families collapse would count the same rival bodies a second time under ' +
       'a different name, and the two ratchets would then move together for one fix — which reads as two ' +
-      'wins and is one. It must be counted LAST.',
+      'wins and is one. It must be counted LAST. ' +
+      '── STATUS 2026-08-16, MEASURED rather than asserted: the blocker is HALF discharged and therefore ' +
+      'still binds. Prerequisite 1, point-in-polygon, IS collapsed — C1 reads 0 production rivals against a ' +
+      'canonical holding exactly 1 body, so a containment test built on `pointInPolygonXZ` no longer hides a ' +
+      'private ray cast this arm would double-count. Prerequisite 2, segment/segment, is NOT: 11 production ' +
+      'rivals remain, and a ring-overlap body built on one of them would be counted here AND there, moving ' +
+      'two pinned readings for one fix. The remaining condition is therefore exact and checkable: ' +
+      'segment-segment-intersection reaching 0. Counting this family before then is forbidden even though ' +
+      'half its reason has gone — a partly-discharged blocker is not a discharged one.',
   },
 ];
 
