@@ -7,9 +7,28 @@
 //
 // Rules enforced here:
 //  - No `(window as any)` (rule P6).
-//  - No `requestAnimationFrame` — paints flushed via `queueMicrotask`
-//    until the global frame-scheduler lands at S55 (rule P3).
+//  - No `requestAnimationFrame` — paints flushed via `queueMicrotask` (rule P3).
 //  - No THREE import (rule P2).
+//
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ───────────────────────────────────
+// owner: @pryzm/component-editor · date: 2026-08-16 · UNSCHEDULED (C74 §4.2(c))
+//
+// ⚠ CORRECTION — the rule above used to end "until the global frame-scheduler
+//   lands at S55". STALE-FALSE: `@pryzm/frame-scheduler` HAS landed — P3 sole
+//   rAF owner (`packages/frame-scheduler/src/RafAdapter.ts`), used at
+//   `src/main.ts:15`; `src/app/AppShell.ts:19` in THIS app already said so in
+//   the present tense. A built dep called unbuilt is what bought the shortcut.
+//
+// WHAT IS FAKE — not the paint (`queueMicrotask` coalesces correctly) but an
+//   UNTAKEN DEPENDENCY: this app's package.json omits `@pryzm/frame-scheduler`,
+//   so sketch paints sit off the global frame bus, unbudgeted and untraced.
+//
+// RETIRING ASSERTION — `__tests__/sketch/SketchCanvas.test.ts`, "SCAFFOLD: this
+//   app has NOT adopted the frame bus", asserts BOTH that package.json carries
+//   no `@pryzm/frame-scheduler` dep AND that this file still calls
+//   `queueMicrotask`; adoption falsifies both. ⚠ The :65 test (no THREE / no
+//   rAF) is a P3/P2 INVARIANT, GREEN after adoption — it could never retire it.
+// EXIT — take the dep, put `schedulePaint()` on the bus. "S55" NOT re-promised.
 
 import {
   createSketchDocStore,

@@ -74,4 +74,29 @@ describe('SketchCanvas — S52 D1 mount', () => {
     expect(code).not.toMatch(/window\s+as\s+any/);
     expect(code).not.toMatch(/requestAnimationFrame\(/);
   });
+
+  // ── C74 §3.4 RETIRING ASSERTION for the SketchCanvas.ts scaffold declaration
+  // (CO-06, 2026-08-16). The test ABOVE is a P3/P2 invariant: it stays green
+  // after the frame bus is adopted, because subscribing to the bus is not
+  // calling rAF. It therefore could never retire that scaffold. This one can —
+  // both halves go false the moment adoption lands.
+  it('SCAFFOLD: this app has NOT adopted the frame bus', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const url = await import('node:url');
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+
+    // Half 1 — the dependency is untaken. `@pryzm/frame-scheduler` EXISTS (it is
+    // the P3 sole rAF owner and src/main.ts:15 consumes it); this app simply does
+    // not depend on it. Adoption adds it here and flips this assertion.
+    const pkg = JSON.parse(
+      await fs.readFile(path.join(here, '../../package.json'), 'utf8'),
+    ) as { dependencies?: Record<string, string> };
+    expect(Object.keys(pkg.dependencies ?? {})).not.toContain('@pryzm/frame-scheduler');
+
+    // Half 2 — paints are still scheduled off the bus.
+    const raw = await fs.readFile(path.join(here, '../../src/sketch/SketchCanvas.ts'), 'utf8');
+    const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    expect(code).toMatch(/queueMicrotask\(/);
+  });
 });

@@ -212,7 +212,28 @@ const LEDGER: readonly string[] = [
   //   here so the omission is deliberate; it is the next honest edit in that file.
   'M-B::apps/ai-worker/src/pdf-to-bim/stage2-openings.ts',
   'M-B::apps/bench/src/benches/constraint-solver.bench.ts',
-  'M-B::apps/component-editor/src/sketch/SketchCanvas.ts',
+  // M-B::apps/component-editor/src/sketch/SketchCanvas.ts STRUCK 2026-08-16
+  //   (CO-06 lane F9) — PAID ON THE MERITS, not by hiding the subject. The
+  //   header keeps its SCAFFOLD_MARK, so the file is STILL WATCHED by this arm;
+  //   it now carries owner + date + an executable retiring assertion. The old
+  //   text ("until the global frame-scheduler lands at S55") was STALE-FALSE:
+  //   `@pryzm/frame-scheduler` had already landed and a sibling file in the same
+  //   app said so in the present tense. What remains is the narrower, TRUE gap —
+  //   the app has not taken the dependency. Retiring assertion:
+  //   `__tests__/sketch/SketchCanvas.test.ts` "SCAFFOLD: this app has NOT
+  //   adopted the frame bus" — both halves (no dep in package.json; still calls
+  //   `queueMicrotask`) verified 2026-08-16 to FLIP on adoption.
+  //
+  // ⚠ THE OTHER TWO component-editor ROWS BELOW ARE DELIBERATELY NOT STRUCK.
+  //   Lane F9 inherited proposed declarations for both and REVERTED them:
+  //   TrimTool's cited retiring assertion ("SCAFFOLD: a circle is not
+  //   trimmable…") DID NOT EXIST in TrimTool.test.ts, and FilletTool cited
+  //   "rejects parallel lines" (:106), which is real but STAYS GREEN after the
+  //   trim/extend variant lands (its fixture is genuinely parallel, cross-
+  //   product determinant 0, so extension never yields an intersection) — an
+  //   assertion that cannot fail cannot retire anything. RETIREMENT_RE is a
+  //   prose regex and is structurally blind to both defects; these rows stay
+  //   until the assertions exist and are proven to flip.
   'M-B::apps/component-editor/src/sketch/tools/FilletTool.ts',
   'M-B::apps/component-editor/src/sketch/tools/TrimTool.ts',
   // 'M-B::apps/editor/src/familyCreatorPlaceholder.ts' — STRUCK 2026-08-15, see
