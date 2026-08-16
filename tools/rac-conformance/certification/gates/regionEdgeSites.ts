@@ -35,12 +35,33 @@ export interface EdgeSite {
   literal: string;
   /** the `reference:` value named in the literal, if any */
   reference: string | null;
+  /**
+   * The literal HAS a `reference:` key, but bound to an EXPRESSION rather than a
+   * string literal (`reference: edge.reference`). Such a site FORWARDS a frame
+   * someone else chose; it does not choose one. See §FORWARDING-IS-NOT-CHOOSING
+   * in check-region-reference-frame.ts — distinguishing this from "no reference
+   * key at all" is what separates a translation from an unreadable shape.
+   */
+  referenceIsForwarded: boolean;
   /** the `offset:` value named in the literal, if any (as written) */
   offset: string | null;
   /** whether a `fallback` is set in the literal itself */
   fallbackInLiteral: boolean;
   /** whether a `fallback` is assigned to the edge anywhere in the same file */
   fallbackInFile: boolean;
+}
+
+/**
+ * A site that FORWARDS a reference frame rather than choosing one, together with
+ * the file where that frame IS policed. This is a REDIRECTION of the check, not
+ * an exemption: the gate fails if `policedBy` stops carrying `guard`.
+ */
+export interface ForwardingSite {
+  site: string;
+  why: string;
+  policedBy: string;
+  /** Regex source that MUST match the policing file, comments stripped. */
+  guard: string;
 }
 
 export interface SiteLedger {
@@ -51,6 +72,7 @@ export interface SiteLedger {
   sweepRoots: string[];
   minConstructionSites: number;
   previewOnlySites: string[];
+  forwardingSites?: ForwardingSite[];
   fallbackFieldNames: string[];
   typeSource: string;
 }
@@ -112,6 +134,9 @@ export function findEdgeSites(repoRoot: string, ledger: SiteLedger): EdgeSite[] 
         line: code.slice(0, m.index).split('\n').length,
         literal,
         reference: ref ? ref[1]! : null,
+        // A `reference:` key that is present but NOT a string literal is a
+        // forwarded frame, not an unreadable one. The two must not print the same.
+        referenceIsForwarded: ref === null && /\breference\s*:/.test(literal),
         offset: off ? off[1]!.trim() : null,
         fallbackInLiteral: ledger.fallbackFieldNames.some((n) => new RegExp(`\\b${n}\\s*:`).test(literal)),
         fallbackInFile: ledger.fallbackFieldNames.some((n) => new RegExp(`\\.${n}\\s*=|\\b${n}\\s*:`).test(code)),

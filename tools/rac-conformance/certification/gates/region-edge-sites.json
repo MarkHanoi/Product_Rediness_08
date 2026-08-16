@@ -69,6 +69,14 @@
   "previewOnlySites": [
     "packages/geometry-slab/src/SlabPickWallsController.ts"
   ],
+  "forwardingSites": [
+    {
+      "site": "packages/finish-host-tracker/src/FinishSegmentAdapter.ts",
+      "why": "§FORWARDING-IS-NOT-CHOOSING (lane G2, A.12, 2026-08-16). finishEdgeToResolverEdge is the {x,z}->{x,y} coordinate adapter: it re-emits an edge the finish family already authored, in the resolver's type, and writes `reference: edge.reference` — a pass-through, not a choice. check-region-reference-frame reported it as 'a hostReference edge constructed with no reference member the sweep can read' and exited 3 against HARD-0. MEASURED, that was a FALSE POSITIVE, and on the family that honours §3 best in the tree: the frame for finishes is decided and REFUSED one layer up, at reprojectFinishBoundary.ts:236-242, which rejects anything that is not centerLine@0 with the typed C78 §8.1 reason GEOMETRY_UNPREDICTABLE rather than coin-flipping the side — the exact remedy C79 §3.2 reason (2) asks for. It polices BOTH arms this gate checks (reference AND offset) and carries its own negative test, 'a non-centreline reference frame refuses (GEOMETRY_UNPREDICTABLE) rather than coin-flipping the side' (reprojectFinishBoundary.test.ts:265). C79 §3.1/§3.2 bind a region-TRACED edge and a region PATH — the act of choosing a frame. A translation chooses nothing.",
+      "policedBy": "packages/finish-host-tracker/src/reprojectFinishBoundary.ts",
+      "guard": "reference\\s*!==\\s*'centerLine'"
+    }
+  ],
   "fallbackFieldNames": ["fallback"],
   "typeSource": "packages/geometry-slab/src/SketchTypes.ts"
 }

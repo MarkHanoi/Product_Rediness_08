@@ -28,6 +28,32 @@
 // ─── WHAT IT DECIDES — three arms ────────────────────────────────────────────
 //   ARM 1 · FRAME. No construction site names one of the four forbidden face
 //           members. This is the clause, directly.
+//
+//           ⚠ §FORWARDING-IS-NOT-CHOOSING (lane G2, A.12, 2026-08-16). ARM 1
+//           treated EVERY `type: 'hostReference'` literal as a site that CHOOSES
+//           a frame. C79 §3.1/§3.2 do not: they bind *"a region-traced edge"*
+//           and *"a region path"* — the act of choosing. A site that writes
+//           `reference: edge.reference` FORWARDS a frame someone else chose, and
+//           a translation cannot violate a clause about choosing.
+//
+//           The measured consequence was a FALSE POSITIVE that held this gate at
+//           exit 3 and out of every runner: `FinishSegmentAdapter.ts:150`, the
+//           `{x,z}`↔`{x,y}` coordinate adapter. And it fired on the family that
+//           honours §3 BEST in the tree — the finish frame is decided one layer
+//           up at `reprojectFinishBoundary.ts:236-242`, which refuses anything
+//           that is not `centerLine@0` with the typed C78 §8.1 reason
+//           `GEOMETRY_UNPREDICTABLE` instead of coin-flipping the side, polices
+//           BOTH arms this gate checks, and carries its own negative test.
+//
+//           A forwarding site is therefore judged by REDIRECTION, never by
+//           exemption: the ledger names the file that polices the frame and the
+//           guard that does it, and this gate FAILS if that guard disappears. It
+//           now notices a deletion it could not previously have seen at all —
+//           strictly more coverage than the false positive bought.
+//
+//           A `reference:` bound to an expression with NO ledger entry is still
+//           a finding, and a literal with no `reference:` key at all is still
+//           the original unreadable-shape finding. Three cases, three verdicts.
 //   ARM 2 · OFFSET. §3.1 says "at offset 0" — the frame and the offset are ONE
 //           decision, not two. At offset 0 the resolved segment IS the traced
 //           chord; a nonzero offset moves the edge off the line the user saw just
@@ -119,20 +145,68 @@ if (ledger) {
 
   // ── ARM 1 · FRAME · ARM 2 · OFFSET ─────────────────────────────────────────
   const forbidden = new Set(ledger.forbiddenForTracedFrame);
+  const forwarding = new Map((ledger.forwardingSites ?? []).map((f) => [f.site, f]));
+
+  // Every declared forwarding site must still EXIST and must still be found by
+  // the sweep. A declaration for a site that has vanished is a stale exemption,
+  // and a stale exemption is how a gate quietly polices less than it says.
+  const staleForwarding = [...forwarding.keys()].filter((rel) => !sites.some((s) => s.rel === rel));
+  floors.push({
+    what: 'declared forwardingSites still found by the sweep',
+    measured: forwarding.size - staleForwarding.length,
+    min: forwarding.size,
+  });
+
   let ok = 0;
 
   for (const s of sites) {
     const where = `${s.rel}:${s.line}`;
 
     if (s.reference === null) {
+      // ── §FORWARDING-IS-NOT-CHOOSING ──────────────────────────────────────
+      // A site whose `reference:` is bound to an EXPRESSION forwards a frame
+      // someone else chose. C79 §3.1/§3.2 bind "a region-traced edge" and "a
+      // region path" — the act of CHOOSING a frame. A pure type translation
+      // chooses nothing and cannot violate §3; judging it as though it did is
+      // the gate's subject being wider than the contract's clause.
+      //
+      // This is NOT an exemption. It REDIRECTS the check to the file where the
+      // frame IS decided, and FAILS if that file stops guarding it — so the
+      // gate notices a deletion it previously could not have seen at all.
+      const fwd = forwarding.get(s.rel);
+      if (fwd && s.referenceIsForwarded) {
+        const guardPath = resolve(REPO, fwd.policedBy);
+        const guardText = existsSync(guardPath) ? readFileSync(guardPath, 'utf8') : null;
+        const guarded = guardText !== null && new RegExp(fwd.guard).test(guardText);
+        if (guarded) {
+          ok++;
+          lines.push(
+            `✓  ${where}: FORWARDS a frame (\`reference:\` bound to an expression), it does not choose one. ` +
+            `The frame for this family is policed at ${fwd.policedBy} (guard \`${fwd.guard}\` present).`,
+          );
+        } else {
+          findingNames.push(`${where}:forwarded frame no longer policed at ${fwd.policedBy}`);
+          lines.push(
+            `❌ ARM 1 · ${where}: this site FORWARDS a reference frame, and the guard that polices that frame — ` +
+            `\`${fwd.guard}\` in ${fwd.policedBy} — is GONE${guardText === null ? ' (file missing)' : ''}. ` +
+            'A forwarding site is only clean while something upstream decides the frame; when that guard is deleted the ' +
+            'forward becomes the choice, and the choice is unpoliced. Restore the guard, or make this site name the frame.',
+          );
+        }
+        continue;
+      }
+
       // A construction with no `reference` at all cannot be judged against §3.1,
       // and an unjudgeable site in a HARD-0 gate is a finding, not a pass. The
       // field is required by the type, so this means the sweep found a shape it
       // does not understand — which is exactly what must not go unnoticed.
       findingNames.push(`${where}:no reference named`);
       lines.push(
-        `❌ ARM 1 · ${where}: a hostReference edge is constructed with no \`reference\` member the sweep can read. ` +
-        'C79 §3 makes the frame a CONTRACTED decision; a site whose frame cannot be read cannot be shown to honour it.',
+        `❌ ARM 1 · ${where}: a hostReference edge is constructed with no \`reference\` member the sweep can read` +
+        (s.referenceIsForwarded
+          ? ', and its `reference:` is bound to an EXPRESSION that no `forwardingSites` ledger entry declares. Declare it with the site that polices its frame, or name the frame here'
+          : ' (no `reference:` key at all)') +
+        '. C79 §3 makes the frame a CONTRACTED decision; a site whose frame cannot be read cannot be shown to honour it.',
       );
       continue;
     }
