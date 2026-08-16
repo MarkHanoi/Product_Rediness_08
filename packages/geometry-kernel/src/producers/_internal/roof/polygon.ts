@@ -13,6 +13,7 @@
 // `pryzm/no-three-in-kernel`).
 
 import { polygonSignedAreaOrdinates } from '../../../pure/polygonOffset.js';
+import { distanceSqPointToSegment } from '../../../pure/pointToSegment.js';
 
 export type Pt = readonly [number, number];
 
@@ -57,35 +58,26 @@ export function ensureCCW(pts: readonly Pt[]): Pt[] {
   return signedArea(pts) >= 0 ? pts.slice() : pts.slice().reverse();
 }
 
-/** Squared distance from point `(px, pz)` to the line segment `(ax,az) → (bx,bz)`. */
-function distSqPointToSeg(
-  px: number, pz: number,
-  ax: number, az: number,
-  bx: number, bz: number,
-): number {
-  const dx = bx - ax;
-  const dz = bz - az;
-  const lenSq = dx * dx + dz * dz;
-  if (lenSq < 1e-20) {
-    const ex = px - ax, ez = pz - az;
-    return ex * ex + ez * ez;
-  }
-  let t = ((px - ax) * dx + (pz - az) * dz) / lenSq;
-  if (t < 0) t = 0;
-  else if (t > 1) t = 1;
-  const cx = ax + t * dx;
-  const cz = az + t * dz;
-  const ex = px - cx, ez = pz - cz;
-  return ex * ex + ez * ez;
-}
-
-/** Distance from point `(px, pz)` to the line segment `(ax,az) → (bx,bz)`. */
+/**
+ * Distance from point `(px, pz)` to the line segment `(ax,az) → (bx,bz)`.
+ *
+ * §C73-P2S-CANONICAL — delegates to the kernel's ONE clamped-t projection
+ * body. This file used to carry its own copy with a private `lenSq < 1e-20`
+ * degenerate band; the canonical guard is EXACT (`lenSq > 0`), because `t = 0`
+ * is the correct answer when the segment is a point. The two differ only for
+ * segments shorter than 1e-10 m, and there by at most that length — i.e. below
+ * every band this producer's callers can observe (the nearest consumer is
+ * `inradius`, a metres-scale roof measurement). The private band is retired
+ * rather than migrated: it answered "too short to project onto", which the
+ * canonical's header records as a CALLER-owned domain question, and this
+ * caller has no such question.
+ */
 export function distPointToSeg(
   px: number, pz: number,
   ax: number, az: number,
   bx: number, bz: number,
 ): number {
-  return Math.sqrt(distSqPointToSeg(px, pz, ax, az, bx, bz));
+  return Math.sqrt(distanceSqPointToSegment(px, pz, ax, az, bx, bz));
 }
 
 /** Inradius — minimum distance from the centroid to any polygon edge.

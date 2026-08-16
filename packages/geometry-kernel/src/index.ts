@@ -80,6 +80,23 @@ export {
   pointInPolygonXY,
   type RingOrdinateAt,
 } from './pure/pointInPolygon.js';
+// §C73-P2S-CANONICAL — THE point-to-segment distance. One clamped-t projection
+// body for the whole repo. The CLAMP to [0,1] is what makes it the SEGMENT
+// question rather than the point-to-LINE one, exactly as the [0,1] band
+// separates segment/segment from line/line below. Its degenerate-segment guard
+// is EXACT (`lenSq > 0`, no epsilon) because t = 0 is the CORRECT answer when
+// the segment is a point — so no rival's private band is silently adopted, and
+// a caller whose band is a real domain decision composes it AT the call site
+// (C73 §2.1/§3.7; decided on the record in the module header).
+export {
+  projectParamOnSegment,
+  closestPointOnSegment,
+  distanceSqPointToSegment,
+  distancePointToSegment,
+  distancePointToSegmentXZ,
+  distancePointToSegmentXY,
+  distancePointToRing,
+} from './pure/pointToSegment.js';
 // §C73-SEGSEG-CANONICAL — THE segment/segment intersection. One arithmetic
 // body (four cross products) with three named boundary views — strict-interior,
 // half-open, and the parametric closed-[0,1] hit; the parametric divide is
