@@ -94,7 +94,81 @@ run moves a status.
 
 ## §1 — THE COUNTED POSITION
 
-### §1.1 — Distribution, counted over the 82 classified rows
+### §1.0 — ⭐ RESTAMP 2026-08-16 · **IT WENT DOWN, and that is the pass working**
+
+> **Stamp**: 2026-08-16 · **HEAD at measurement**: `3785eae6` · **Denominator**: 79 (§1.2)
+> ⚠ **This reading is already historical.** ~30 lane commits landed after it, several of which move
+> rows named below. It is recorded as a DATED PASS, not as "current" — quoting it as current would
+> be the exact staleness defect §0.1 exists to prevent. The next recount will differ; run it.
+
+```
+COMPLETION            53 / 79 = 67.1%     (measured-only)     ← was 59 / 79 = 74.7%
+                      54 / 79 = 68.4%     (like-for-like, carrying MT-09 as the previous stamp did)
+VERIFICATION COVERAGE 53 / 53 = 100%                          ← was 30 / 59 = 50.9%
+```
+
+**Completion fell by ~6–7 points and coverage rose to 100%. Those are the same event.** Seven
+carried closures were finally measured; **five were refuted and two more downgraded** because their
+deciding gate could not be honestly read. **Completion fell PRECISELY BECAUSE coverage rose.**
+
+> This is §1.2.1's error running in reverse. The last stamp banked closures it had not measured.
+> This one measured them and had to give six back. **A register that only ever goes up is not
+> measuring.**
+
+Coverage is 100 % **by construction, not by luck**: no closure survived this pass on a carry. Every
+carried closure that could not be re-measured was downgraded rather than inherited, and MT-09 — the
+only row still carried — is reported **NOT DETERMINED**, not CLOSED.
+
+**Quality inside that 100 %**: 43 of the 53 are held by an executed instrument's **exit code**; 10
+by an executed **source census** (GR-15, PR-04, PR-06, PR-07, PR-13, CO-05, CO-07, CO-10, PV-06,
+MT-08). The census class is not toothless — two of this pass's losses (GE-04, PV-05) came from
+source censuses — but it is the weaker half and is named as such.
+
+**Reconciliation against the previous stamp — it closes exactly, which is itself the check:**
+
+```
+previous CLOSED                                        59
+  − 7 lost CLOSED   GE-02 GE-03 GE-04 PV-05 MT-01 MT-02 MT-03
+  + 2 gained CLOSED CO-09 MT-10
+  = 54   like-for-like
+  − 1    MT-09 removed from the numerator as unmeasured
+  = 53   measured-only
+```
+
+That the arithmetic closes independently confirms the previous **59 was counting MT-09 as a carried
+closure** — which nothing in the old text said.
+
+#### Per block — C70 model-truth is the worst in the register, and it got worse
+
+| block | rows | CLOSED | OPEN | UNPROVEN | ND | closed % |
+|---|---|---|---|---|---|---|
+| C71 graph & topology (GR) | 16 | 13 | 2 | 1 | — | 81.3 % |
+| C72 propagation (PR) | 13 | 12 | 1 | — | — | **92.3 %** |
+| C73 geometry (GE) | 12 | 4 | 5 | 3 | — | 33.3 % |
+| C74 constraints (CO) | 12 | 10 | 2 | — | — | 83.3 % |
+| C75 provenance (PV) | 8 | 7 | 1 | — | — | 87.5 % |
+| C70 model-truth (MT) | 10 | **2** | 5 | 2 | 1 | **20.0 %** |
+| C08 collaboration (CB) | 5 | 2 | 2 | 1 | — | 40.0 % |
+| certification (CE) | 6 | 3 | 1 | 2 | — | 50.0 % |
+| **total** | **82** | **53** | **19** | **9** | **1** | |
+
+#### The ten rows that moved — **two up, eight down**
+
+| row | old → new | what decided it |
+|---|---|---|
+| **MT-10** | OPEN → **CLOSED** | `check-xss-guards` **exit 0** — 547 baselined findings / 142 files / 4655 scanned. The `0064df08` fix holds on a corpus **+10 files larger** with findings and files unmoved. The recount the row was waiting for. |
+| **CO-09** | OPEN → **CLOSED** | `check-constraint-honesty` **exit 1, 1 finding at declared level 1** (was 2/2). `StairValidationAuthority.spec.ts:38` classified REAL at VALIDATION; the gate struck `H3::StairValidationAuthority`, which is why the reading fell 2→1. |
+| **MT-01** | CLOSED → **UNPROVEN** | ⭐ **The green rested on the wrong runtime.** `hello-12-elements` calls `bootstrapWithEverything()` directly, never `composeRuntime`. There `getStoreForType('wall')` is unregistered, so the readback that goes green is `rt.stores.wall` — **the plugin DTO store the row itself says nobody reads.** On the composed bus: `wall: engineAttached=false` → `WALL_CREATE_UNREACHABLE`. |
+| **GR-12** | OPEN → **UNPROVEN** | Both instruments read GREEN (`check-move-propagation` [0] hard-0; H6 16/16) **and both declare the row's core question unmeasured** — H6's notMeasured carries *"SUBSCRIBER REACHABILITY — whether any production path drives a re-detect on a move"*. Green gates, unproven invariant. |
+| **GE-02** | CLOSED → **UNPROVEN** | `check-predicate-canonical` **NOT RUN** — a lane held it and its baseline dirty; running it would read a half-edited gate against a half-edited baseline. **A row lost to lane ownership, not to code.** |
+| **GE-03** | CLOSED → **UNPROVEN** | Same gate, same block. |
+| **GE-04** | CLOSED → **OPEN** | Source census refutes it: the two `WallIntersectionResolver` copies are **byte-identical** (`diff -q` clean, 527 LOC each) and **both live**. |
+| **PV-05 · MT-02 · MT-03** | CLOSED → down | see §2; each carries its own executed evidence. |
+
+⚠ **GE-02 and GE-03 are the cheapest two rows in the register to recover** — they need a clean gate
+run, not code. They are downgraded because of concurrency, and they will move on the next recount.
+
+### §1.1 — Distribution, counted over the 82 classified rows *(the 2026-08-15 pass — SUPERSEDED by §1.0)*
 
 | Class | Count | What it means here |
 |---|---|---|
@@ -148,9 +222,16 @@ Progression across stamps: **25 → 34 → 51 → 55 → 59.**
 - Remaining closable: **20** (16 OPEN + 6 UNPROVEN − 2 CB rows already inside those, per §1.2's
   deferral). 59 + 20 = 79 ✓
 
-> **Quote 59 / 79 for completion and 30 / 59 for confidence. Never quote one alone.** The earlier
-> "30 of 79" understated two sessions of real work by half, and the older habit of quoting **55**
-> without saying it was 92 commits stale is the same defect facing the other way.
+> **Quote completion and confidence TOGETHER. Never quote one alone.** The earlier "30 of 79"
+> understated two sessions of real work by half, and the older habit of quoting **55** without
+> saying it was 92 commits stale is the same defect facing the other way.
+>
+> ⚠ **SUPERSEDED — the current figures are §1.0's: 53 / 79 completion, 53 / 53 coverage.** The
+> 59 / 79 and 30 / 59 below are the 2026-08-15 pass, kept because §1.0's reconciliation arithmetic
+> cites them. **Do not quote them as current.** And note what the pairing rule looks like when it
+> actually bites: this restamp moved completion **DOWN** 59→53 while moving coverage **UP** 30→100 %.
+> Reporting either number alone would have been a lie in a different direction — one would claim a
+> collapse, the other a triumph, and both describe the same seven measurements.
 
 ### §1.3 — The 84-vs-82 reconciliation, stated once so it is never re-litigated
 
