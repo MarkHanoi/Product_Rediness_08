@@ -54,9 +54,23 @@ export class WallFaceResolver {
     /**
      * Attempt to resolve a HostReferenceEdge to its current 2D segment.
      * Returns null if the host wall cannot be found.
+     *
+     * §L-921-SLAB-PREFLIGHT — `storeOverride` is ADDITIVE and defaults to the
+     * historical `window.wallStore` read, so every existing caller resolves
+     * byte-identically. It exists for exactly one caller:
+     * `previewSlabConnectivityWeld`, which must ask "what would this edge
+     * resolve to if the moved wall stood at its PROPOSED baseline?" — a question
+     * the global store cannot answer, because the move has not happened yet and
+     * must not happen before the answer is known. Same reasoning, and the same
+     * shim shape, as `moveReweldPreflight`'s: without it a pre-flight would be a
+     * plausible-looking approximation that disagrees with the real cascade in
+     * precisely the corner cases the gate exists for.
      */
-    static resolve(edge: HostReferenceEdge): Segment2D | null {
-        const wallStore = window.wallStore; // TODO(TASK-08)
+    static resolve(
+        edge: HostReferenceEdge,
+        storeOverride?: { getById?: (id: string) => { baseLine?: readonly THREE.Vector3[]; thickness?: number } | undefined },
+    ): Segment2D | null {
+        const wallStore = storeOverride ?? window.wallStore; // TODO(TASK-08)
         if (!wallStore) return null;
 
         const wall = wallStore.getById?.(edge.hostId);

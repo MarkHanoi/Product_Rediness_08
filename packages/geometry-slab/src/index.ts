@@ -90,6 +90,16 @@ export { SlabWallConnectivityService } from './SlabWallConnectivityService';
 // throwing. Exported because the SINK lives in apps/editor (this package cannot
 // import `@app/ui`), so the composition root needs the shape to speak it.
 export type { SlabWeldRefusal } from './SlabWallConnectivityService';
+// §L-921-SLAB-PREFLIGHT — the same refusal, asked BEFORE the wall moves.
+// `gateWallMove` consults this so a slab-loop weld that cannot be done refuses
+// the whole gesture instead of leaving the wall moved with a message on top.
+export {
+    previewSlabConnectivityWeld,
+} from './SlabWallConnectivityService';
+export type {
+    SlabWeldPreflightInput,
+    SlabWeldPreflightResult,
+} from './SlabWallConnectivityService';
 
 // ── §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124 §5) — ADDITIVE ──────────────
 // The L1 ⇄ LEGACY coordinate contract for a slab hole. There are TWO `holes`
