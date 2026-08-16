@@ -316,7 +316,15 @@ describe('L-872 — interior T-junction wall follows a perimeter move', () => {
         expect(near(bl2(world, 'sh-t')[0], [10, 6])).toBe(true);
         // …but the T-abutting interior wall received NO re-baseline (founder
         // console: "no re-baseline was ever issued for the interior wall").
-        expect(near(bl2(world, 'ip')[1], [8, 3])).toBe(true);
+        //
+        // §FIX-WALL-CREATE-ON-HOST-FACE (L-929) — 7.9, NOT 8. `ip` is authored
+        // from [0,3] to [8,3], i.e. both ends land INSIDE the 200 mm shell walls'
+        // solids, on their centrelines. Since L-929 a body landing is AUTHORED AT
+        // THE HOST FACE, so `ip` is stored spanning face-to-face: x ∈ [0.1, 7.9].
+        // THE ASSERTION'S MEANING IS UNCHANGED — "the end did not move" — and the
+        // value it must not have moved FROM is now the face. See the §L-929 note
+        // on the §10.6 test below before changing any of these numbers.
+        expect(near(bl2(world, 'ip')[1], [7.9, 3])).toBe(true);
 
         // And REDETECT_ROOMS destroys a room — "Detected 1 room(s)" (was 2).
         const after = redetect(world);
@@ -374,9 +382,34 @@ describe('L-872 — interior T-junction wall follows a perimeter move', () => {
 
         // §C83 §10.6 — THE DEPENDENT FOLLOWED. Axially: the end that terminated
         // on `sh-r` moved with it, the far end did not move at all.
+        //
+        // ⚠ §FIX-WALL-CREATE-ON-HOST-FACE (L-929) MOVED THESE THREE NUMBERS, AND
+        // MOVED NOTHING ELSE. READ THIS BEFORE "CORRECTING" THEM BACK.
+        //
+        // The RULING this test encodes is untouched: `ip`'s end terminates on
+        // `sh-r`'s BODY, so it is a DEPENDENT and it FOLLOWS (§10.6) — as opposed
+        // to a corner INCUMBENT, which stays put (§10.2.2). That verdict is what
+        // `19ddf6bb` inverted and L-926 restored, and it still holds here.
+        //
+        // What changed is the DATUM the authored line uses. `ip` is drawn
+        // [0,3]→[8,3]: both ends land inside the 200 mm shell walls' solids, on
+        // their centrelines. L-919 computed a retreat onto the host FACE and
+        // `WallRebuildCoordinator._flush` discarded it (measured, `097bcf1c`);
+        // L-929 authors it at creation instead, where §FIX-WALL-JOIN-BASELINE-
+        // IMMUTABLE defends it. So a 100 mm partition between two 200 mm walls is
+        // now stored spanning FACE TO FACE rather than overlapping 100 mm into
+        // each shell — which is what a partition actually is.
+        //
+        //   before L-929        after L-929
+        //   ip = [0,3]→[8,3]    ip = [0.1,3]→[7.9,3]
+        //   follows to [10,3]   follows to [9.9,3]   ← the moved host's FACE
+        //
+        // The dependent still follows the full 2 m, the far end is still fixed,
+        // and the founder-level room assertion below is untouched and still
+        // passes. Only the offset by one host half-thickness is new.
         expect(JSON.stringify(world.wallStore.getById('ip')!.baseLine)).not.toBe(ipBefore);
-        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);  // followed
-        expect(near(bl2(world, 'ip')[0], [0, 3])).toBe(true);   // far end fixed
+        expect(near(bl2(world, 'ip')[1], [9.9, 3])).toBe(true);  // followed
+        expect(near(bl2(world, 'ip')[0], [0.1, 3])).toBe(true);  // far end fixed
 
         // THE FOUNDER-LEVEL ASSERTION: the partition still seals, so the room
         // that `19ddf6bb` destroyed is still here. 2 rooms in, 2 rooms out.
@@ -557,7 +590,11 @@ describe('L-874 — ONE undo restores the entire pre-move state (founder accepta
         // incumbent would still stay put on both passes — re-running a mutating
         // cascade against one is what would re-open L-922, and that case is
         // asserted in the §10.6 test above and in the geometry-wall goldens.)
-        expect(near(bl2(world, 'ip')[1], [10, 3])).toBe(true);
+        // §FIX-WALL-CREATE-ON-HOST-FACE (L-929) — 9.9, the moved host's FACE; see
+        // the §10.6 test above. The undo/redo property this line guards (the stem
+        // follows on redo exactly as it followed on execute) is unchanged, and the
+        // byte-equal snapshot comparisons around it are datum-independent.
+        expect(near(bl2(world, 'ip')[1], [9.9, 3])).toBe(true);
         expect(world.cm.getHistory().length).toBe(1);
 
         // …and undo works again after the redo (round-trip stability).
@@ -644,9 +681,13 @@ describe('L-875 — shared bounding walls survive a partition move across TWO re
         // of the other room) and last-wins dedupe discarded one loop's weld.
         expect(moveWall(world, 'p-mid', 0, 1).success).toBe(true);
 
-        // The partition moved…
-        expect(near(bl2(world, 'p-mid')[0], [0, 5])).toBe(true);
-        expect(near(bl2(world, 'p-mid')[1], [6, 5])).toBe(true);
+        // The partition moved… (§FIX-WALL-CREATE-ON-HOST-FACE, L-929: `p-mid` is
+        // authored [0,4]→[6,4], both ends inside the 200 mm side walls' solids, so
+        // it is stored face-to-face at x ∈ [0.1, 5.9]. The SUBJECT of this test is
+        // the z move — +1 m, asserted exactly — and the x offset is the new datum,
+        // not a drift. See the §10.6 test's §L-929 note.)
+        expect(near(bl2(world, 'p-mid')[0], [0.1, 5])).toBe(true);
+        expect(near(bl2(world, 'p-mid')[1], [5.9, 5])).toBe(true);
         // …and the shared side walls are byte-untouched — no mid-span yank:
         expect(near(bl2(world, 'p-east')[0], [6, 0])).toBe(true);
         expect(near(bl2(world, 'p-east')[1], [6, 8])).toBe(true);

@@ -485,7 +485,13 @@ export class WallStore implements ILevelProvider {
                 // geometry one face deeper on every open. (The operation is idempotent —
                 // penetration is 0 at the face — but suppressing it makes that a guarantee
                 // rather than an arithmetic accident, and keeps legacy projects byte-stable.)
-                const _retreat = retreatOntoHostFaces(siblings, wall as HostBodyCandidate);
+                // Escape hatch for diagnostics and exact-input callers, mirroring
+                // `__pryzmWallJoinBaselineImmutable` / `__pryzmPostResolvePreserve`. Default ON.
+                const _onHostFaceOn =
+                    (globalThis as { __pryzmWallCreateOnHostFace?: boolean }).__pryzmWallCreateOnHostFace !== false;
+                const _retreat = _onHostFaceOn
+                    ? retreatOntoHostFaces(siblings, wall as HostBodyCandidate)
+                    : { baseLine: undefined as never, retreats: [] as const };
                 if (_retreat.retreats.length > 0) {
                     authoredBaseLine = _retreat.baseLine;
                     if ((globalThis as { __PRYZM_WALL_JOIN_DEBUG?: boolean }).__PRYZM_WALL_JOIN_DEBUG === true) {
