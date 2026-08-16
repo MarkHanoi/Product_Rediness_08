@@ -60,12 +60,56 @@ const ARTICLE_RE = /^(?:a\s+new|another|a|an|the|new|some)\s+/;
  * to the ladders that own those shapes, never be half-claimed here.
  */
 const REF_STOPWORD_RE =
-  /\b(?:in|on|at|to|from|with|without|for|of|by|into|onto|near|under|over|every|all|each|and|or|then|this|that|it|here|there|selected|is|are|was|be|my|me|please)\b/;
+  /\b(?:in|on|at|to|from|with|without|for|of|by|between|across|along|around|through|into|onto|near|under|over|every|all|each|and|or|then|this|that|it|here|there|selected|is|are|was|be|my|me|please)\b/;
 
 /** A noun-phrase: 1–4 words of letters/hyphens/apostrophes. Digits are
  *  deliberately excluded — a number in the sentence means dimensions, counts
  *  or level elevations, all owned by other grammars. */
 const REF_SHAPE_RE = /^[a-z][a-z'-]*(?:\s+[a-z][a-z'-]*){0,3}$/;
+
+/**
+ * §FIX-PLACEMENT-OVERCLAIM — HEAD NOUNS THAT NAME A SURFACE, NOT A THING.
+ *
+ * This grammar claims an OPEN noun class, which every other tier-0 matcher in
+ * the ladder does not: the rest claim closed vocabularies. That is deliberate
+ * (the placeable enumeration is an EDITOR artefact this pure L2 module must not
+ * transcribe — see the header), but it means the only thing standing between
+ * "create <anything>" and this matcher is the shape test above, and the shape
+ * test cannot tell a chair from a schedule.
+ *
+ * Measured consequence, and the reason this exists: the eight pills
+ *   create floor plan view · create section view · create new sheet ·
+ *   create element schedule · create grid system · create structural frame ·
+ *   create visibility filter · create stairs between levels
+ * were all claimed here, standing in front of the legacy QueryEngine handlers
+ * that serve them — the exact defect shape §FIX-CHAT-HIDE-IS-NOT-NAVIGATE
+ * named ("the ladder was not covering a gap, it was STANDING IN FRONT of the
+ * path that does the right thing"). Two of them, "create floor plan view" and
+ * "create stairs between levels", were already-fixed misreads listed in
+ * QueryEngineDrain.spec.ts's DRAINED set, so this RE-OPENED a closed defect.
+ * The user-visible result was a placement refusal naming the nearest furniture
+ * ("I don't have a floor plan view — did you mean Floor finish?") in place of
+ * the documentation surface they asked for.
+ *
+ * The rule is on the HEAD noun (the last word), not the phrase: a placement
+ * noun-phrase names a physical thing you point at in the canvas, and none of
+ * these heads ever does. Verified against both enumeration sources at the time
+ * of writing — no ELEMENT_CREATION_MATRIX label and no furniture-catalogue name
+ * ends in any of them — so nothing placeable is excluded. "create grid" and
+ * "create wall" keep their tools; only "create grid system" falls through.
+ *
+ * HONEST LIMIT: this is a DECLARED list, not a derived one. There is no L2
+ * source that enumerates what is placeable (by design, C69), so a ninth surface
+ * noun would over-claim again. What makes that survivable is that the
+ * instrument exists and runs — QueryEngineDrain.spec.ts classifies every pill
+ * in COMMAND_TREE and fails on an unaccounted claim, which is how these eight
+ * were found. The structural fix is an injected `isPlaceableRef` predicate on
+ * ResolverContext (the `resolveWallSystemType` precedent), which would let the
+ * editor's ONE resolveCatalogueRef ladder decide; that is a wider change than
+ * this regression warranted and is NOT done here.
+ */
+const NON_PLACEABLE_HEAD_NOUN_RE =
+  /(?:^|\s)(?:views?|sheets?|schedules?|filters?|systems?|frames?)$/;
 
 /**
  * Extract the placement reference from a normalized utterance, or null when
@@ -89,6 +133,7 @@ export function parsePlacementRef(
   if (ref.length === 0 || ref.length > 40) return null;
   if (REF_STOPWORD_RE.test(ref)) return null;
   if (!REF_SHAPE_RE.test(ref)) return null;
+  if (NON_PLACEABLE_HEAD_NOUN_RE.test(ref)) return null;
   if (excludedNouns?.has(ref) ?? false) return null;
   return ref;
 }

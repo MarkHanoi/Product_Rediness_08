@@ -308,4 +308,39 @@ describe('tier 0 — activate-placement (L-906)', () => {
       r.kind === 'commands' || r.kind === 'local' || r.kind === 'refusal' ? r.intent : null;
     expect(intent).not.toBe('activate-placement');
   });
+
+  // §FIX-PLACEMENT-OVERCLAIM — the eight COMMAND_TREE pills this matcher
+  // swallowed when it shipped. Each names a DOCUMENTATION SURFACE or an
+  // aggregate generator served by the legacy QueryEngine, not a thing you
+  // point at in the canvas; claiming them put a placement refusal ("I don't
+  // have a floor plan view — did you mean Floor finish?") in front of the
+  // handler that answers. Two of them were already-closed misreads listed in
+  // QueryEngineDrain.spec.ts's DRAINED set, so this had RE-OPENED a fixed
+  // defect. A MISS is the correct answer here: tier 0 does not own these.
+  it.each([
+    'create floor plan view',
+    'create section view',
+    'create new sheet',
+    'create element schedule',
+    'create grid system',
+    'create structural frame',
+    'create visibility filter',
+    'create stairs between levels',
+  ])('"%s" is an honest MISS — the legacy path owns it', (utterance) => {
+    expect(resolveUtterance(utterance, baseCtx()).kind).toBe('miss');
+  });
+
+  // …and the bare nouns underneath them still activate their real tools, so
+  // the exclusion is on the SURFACE head noun, never on the element. ("create
+  // wall" is deliberately absent: the coordinate wall grammar claims it FIRST
+  // and refuses for want of endpoints — it never reached this matcher, before
+  // or after.)
+  it.each([
+    ['create grid', 'grid'],
+    ['create a stair', 'stair'],
+  ])('"%s" still activates the %s tool', (utterance, ref) => {
+    const r = expectLocal(resolveUtterance(utterance, baseCtx()));
+    expect(r.intent).toBe('activate-placement');
+    expect(r.placement?.itemRef).toBe(ref);
+  });
 });
