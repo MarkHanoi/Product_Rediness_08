@@ -366,9 +366,9 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'polygon-area-and-winding',
     what: 'shoelace signed area / orientation',
-    canonical: null,
+    canonical: 'packages/geometry-kernel/src/pure/polygonOffset.ts',
     exclusions: [],
-    counted: false,
+    counted: true,
     notYetReason:
       'NOT-YET-COUNTED — C73 §3.5. `polygonSignedArea2D` IS the canonical (pure/polygonOffset.ts, barrel-' +
       'exported), now accessor-backed as `polygonSignedAreaOrdinates` so any vertex shape reads area AND ' +
@@ -1373,12 +1373,10 @@ lines.push(
   `${areaRivals.filter((b) => b.form === 'trapezoid').length} trapezoid.`,
 );
 lines.push(
-  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — and unlike the segment/segment census above, this one is ' +
-  'STILL NOT COUNTED: these bodies contribute NO findings, so the DECLARED-LEVEL verdict below covers ' +
-  'point-in-polygon and segment/segment ONLY. Not counted here because ONE FAMILY PER COMMIT (roadmap §2.4) ' +
-  'and segment/segment is this commit\'s family — batching the two would make one review of two collapses. ' +
-  'The census is measured and recorded, so the flip is one field (counted:true) plus the two arithmetic ' +
-  'lines. This is the largest family in §3.1 and it is nowhere near collapsed.',
+  '        ⚠ THIS IS A DENOMINATOR, NOT A VERDICT — same standing as the segment/segment census above. ' +
+  'COUNTED, pinned at 77, contributing findings. This is the largest family in §3.1 and it is nowhere near ' +
+  'collapsed; 0 findings would still not mean "no duplicates", because the ring-successor condition can only ' +
+  'ever undercount and the arm is blind to correctness by design.',
 );
 lines.push(
   '        THE BLOCKER THE REGISTER NAMED IS REAL AND IS DISCHARGED BY THREE CONDITIONS, NOT BY THE `+=`: a ' +
@@ -1459,23 +1457,27 @@ const floors: Floor[] = [
   { what: 'polygon-area bodies detected in the canonical file (NOT migratable — the census liveness anchor)', measured: areaCanonical.length, min: 1 },
 ];
 
-// ─── segment-segment-intersection is now COUNTED (2026-08-15) ────────────────
-// Its bodies join `findings`, and the reading recorded in the baseline joins
+// ─── The two CENSUS families are now COUNTED ─────────────────────────────────
+// Their bodies join `findings`, and the readings recorded in the baseline join
 // `declared`, so the gate lands at exit 1 DECLARED-LEVEL — findings EQUAL to a
 // pinned level, never above it. Growth exits 3 and is never absorbable.
 //
-// ONE FAMILY PER COMMIT (roadmap §2.4). polygon-area-and-winding is measured,
-// its census is recorded, and it is deliberately NOT wired in here: it lands in
-// its own commit. Batching the two would make one review of two collapses and
-// let a regression in either hide inside the other's slack.
+// LANDED ONE FAMILY PER COMMIT (roadmap §2.4), in the binding order of C73 §3.1:
+// segment-segment-intersection first (pinned 11), polygon-area-and-winding
+// second (pinned 77). The order is not cosmetic — polygon-containment-overlap
+// is BUILT OUT OF the earlier families, so counting it before they collapse
+// would count the same bodies twice under a second name and move two ratchets
+// for one fix. It stays uncounted, and LAST.
 const segDelta = censusDelta('segment-segment-intersection', segRivals, prior.census?.['segment-segment-intersection']?.byFile);
+const areaDelta = censusDelta('polygon-area-and-winding', areaRivals, prior.census?.['polygon-area-and-winding']?.byFile);
 
 // c2Integrity is HARD — it is never part of `declared`, so any integrity
 // violation pushes findings above the declared ledger and the gate exits red.
 const findings = measured.size + c2Missing.length + c2Integrity.length + disagreements.length
-  + segRivals.length;
+  + segRivals.length + areaRivals.length;
 const declared = priorKeys.size + prior.c2 + prior.c3.length
-  + (prior.census?.['segment-segment-intersection']?.production ?? 0);
+  + (prior.census?.['segment-segment-intersection']?.production ?? 0)
+  + (prior.census?.['polygon-area-and-winding']?.production ?? 0);
 
 const result: GateResult = {
   gate: GATE,
@@ -1489,10 +1491,12 @@ const result: GateResult = {
     ...c2Integrity.map((v) => `C2::${v.split(' — ')[0]} canonical-file integrity`),
     ...disagreements.map((d) => `C3::${d.split(' — ')[0]}`),
     ...segRivals.map((b) => `C1::${b.file}:${b.line}::segment-segment-intersection`),
+    ...areaRivals.map((b) => `C1::${b.file}:${b.line}::polygon-area-and-winding`),
   ],
   stale: [
     ...stale.map((k) => `C1::${k}`),
     ...segDelta.shrunk.map((k) => `CENSUS::${k}`),
+    ...areaDelta.shrunk.map((k) => `CENSUS::${k}`),
   ],
 };
 
