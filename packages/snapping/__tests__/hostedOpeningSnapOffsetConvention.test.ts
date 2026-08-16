@@ -39,10 +39,12 @@
 // 0.9 m door. The user's cursor locks to a point that is not on the frame they
 // can see, because the frame is drawn from the other convention.
 //
-// WHY THIS IS PINNED BEFORE IT IS FIXED (repo discipline §2, and §L-581, where a
-// stated mechanism was confirmed twice and false both times): the numbers below
-// are asserted as they are TODAY. The commit that fixes the providers flips them,
-// and the flip is the evidence.
+// WHY THIS WAS PINNED BEFORE IT WAS FIXED (repo discipline §2, and §L-581, where
+// a stated mechanism was confirmed twice and false both times): the numbers were
+// first asserted as they were, WRONG, in their own commit. This is the flipped
+// half — the same six assertions, now demanding the LEFT-EDGE answers. The
+// before/after pair is the evidence, and each assertion carries the number it
+// used to return so the flip stays readable after the diff scrolls away.
 //
 // PROOF SURFACE — `getCandidates()`, the method the snap engine calls on every
 // cursor move. Not an internal field and not a pure helper's return: this is the
@@ -103,27 +105,45 @@ describe('§MT-06-SNAP-CONVENTION — window snap points vs the LEFT-EDGE offset
         expect(pts.has('winCenterBase')).toBe(true);
     });
 
-    it('PINNED WRONG — the CENTRE point sits at the LEFT EDGE, width/2 short', () => {
+    it('the CENTRE point is at offset + width/2', () => {
         const centre = pts.get('winCenterBase')!;
-        // What it should be, by the cited formula: 2.0 + 0.6 = 2.6
-        // What it is today:                        2.0
-        expect(centre.x).toBe(WIN.offset);
-        expect(centre.x).not.toBe(trueCentreX(WIN));
-        expect(trueCentreX(WIN) - centre.x).toBeCloseTo(WIN.width / 2, 12);
+        expect(centre.x).toBe(trueCentreX(WIN));           // 2.6 — was 2.0
     });
 
-    it('PINNED WRONG — the LEFT point sits width/2 BEHIND the opening, off the frame entirely', () => {
+    it('the LEFT point is at the opening\'s left edge, i.e. offset itself', () => {
         const left = pts.get('winLeftBase')!;
-        expect(left.x).toBe(WIN.offset - WIN.width / 2);   // 1.4
-        expect(left.x).not.toBe(trueLeftX(WIN));           // should be 2.0
+        expect(left.x).toBe(trueLeftX(WIN));               // 2.0 — was 1.4
     });
 
-    it('PINNED WRONG — the RIGHT point lands exactly on the true CENTRE, which is the tell', () => {
-        // 2.0 + 0.6 = 2.6 is the true CENTRE of this window. The provider offers it
-        // as the RIGHT edge. A user snapping "to the right jamb" gets mid-glass.
+    it('the RIGHT point is at offset + width, not at the centre', () => {
+        // The old code put the RIGHT point at 2.6, which is the true CENTRE: a
+        // user snapping "to the right jamb" got mid-glass. It is the tell that the
+        // whole block was one convention behind.
         const right = pts.get('winRightBase')!;
-        expect(right.x).toBe(trueCentreX(WIN));
-        expect(right.x).not.toBe(trueRightX(WIN));         // should be 3.2
+        expect(right.x).toBe(trueRightX(WIN));             // 3.2 — was 2.6
+        expect(right.x).not.toBe(trueCentreX(WIN));
+    });
+
+    it('the three along-wall points are evenly spaced by width/2, in order', () => {
+        // A guard against a future half-fix that corrects one point and not the
+        // other two: left < centre < right, and the gaps are equal.
+        const l = pts.get('winLeftBase')!.x;
+        const c = pts.get('winCenterBase')!.x;
+        const r = pts.get('winRightBase')!.x;
+        expect(c - l).toBeCloseTo(WIN.width / 2, 12);
+        expect(r - c).toBeCloseTo(WIN.width / 2, 12);
+        expect(r - l).toBeCloseTo(WIN.width, 12);
+    });
+
+    it('every one of the ten points shares the corrected along-wall triple', () => {
+        // Sill and top rows are built from the SAME lx/cx/rx, so a fix that
+        // reached only the base row would leave the other six behind.
+        for (const row of ['Base', 'Sill', 'Top'] as const) {
+            expect(pts.get(`winLeft${row}`)!.x).toBe(trueLeftX(WIN));
+            expect(pts.get(`winCenter${row}`)!.x).toBe(trueCentreX(WIN));
+            expect(pts.get(`winRight${row}`)!.x).toBe(trueRightX(WIN));
+        }
+        expect(pts.get('winCenterMid')!.x).toBe(trueCentreX(WIN));
     });
 
     it('vertical placement is NOT part of this defect — sill/top are already correct', () => {
@@ -141,10 +161,13 @@ describe('§MT-06-SNAP-CONVENTION — door snap points carry the identical defec
         expect(pts.size).toBeGreaterThan(0);
     });
 
-    it('PINNED WRONG — the CENTRE point sits at the LEFT EDGE, width/2 short', () => {
-        const centre = [...pts.entries()].find(([l]) => /center.*base/i.test(l))![1];
-        expect(centre.x).toBe(DOOR.offset);                 // 1.5
-        expect(centre.x).not.toBe(trueCentreX(DOOR));       // should be 1.95
-        expect(trueCentreX(DOOR) - centre.x).toBeCloseTo(DOOR.width / 2, 12);
+    it('the CENTRE point is at offset + width/2', () => {
+        const centre = pts.get('doorCenterBase')!;
+        expect(centre.x).toBe(trueCentreX(DOOR));           // 1.95 — was 1.5
+    });
+
+    it('the left and right points bracket the leaf at offset and offset + width', () => {
+        expect(pts.get('doorLeftBase')!.x).toBe(trueLeftX(DOOR));    // 1.5  — was 1.05
+        expect(pts.get('doorRightBase')!.x).toBe(trueRightX(DOOR));  // 2.4  — was 1.95
     });
 });

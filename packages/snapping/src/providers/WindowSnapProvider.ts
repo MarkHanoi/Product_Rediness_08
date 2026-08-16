@@ -12,8 +12,21 @@
  *   • Top  left / center / right at sillHeight+height  (ENDPOINT)
  *   • Mid-height center                                 (MIDPOINT)
  *
- * OFFSET ENCODING (PLAN-09 CENTER convention):
- *   window.offset = distance from baseLine[0] to CENTRE of opening.
+ * OFFSET ENCODING (§OPENING-OFFSET-LEFTEDGE-UNIFY, 2026-06-24):
+ *   window.offset = distance from baseLine[0] to the LEFT EDGE of the opening.
+ *   The span is [offset, offset + width]; the CENTRE is offset + width/2.
+ *
+ *   This header used to say "PLAN-09 CENTER convention: … to CENTRE of opening",
+ *   and the code below matched it. It was three months stale and it made every
+ *   snap point land width/2 short of the frame the user can see. The unified
+ *   convention is fixed by the producers, not by this file:
+ *     WallOpeningPositionResolver.ts:22   the formula, stated
+ *     WallArcParam.hostedElementFrame:415 arcFrameAt(wall, offset + width/2)
+ *     WindowBuilder.ts:799                the 3D frame
+ *     WallFragmentBuilder.ts:3023, 3205   the CSG void
+ *     CreateWallOpeningCommand.ts:72      canPlace(wall, offsetM, widthM)
+ *   Do not re-introduce a local convention here: the snap point must agree with
+ *   the geometry, and the geometry is built from the list above.
  *
  * Contracts: §B.2 (ISnapProvider), §5.1.3 (null-guard), §5.1.4 (optional subscribe)
  */
@@ -151,9 +164,16 @@ export class WindowSnapProvider implements ISnapProvider {
         dir.divideScalar(wallLen);
 
         const baseY    = start.y;
-        const centerH  = win.offset;
-        const leftH    = centerH - win.width * 0.5;
-        const rightH   = centerH + win.width * 0.5;
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24) — `offset` is the LEFT EDGE
+        // of the span [offset, offset + width]; the CENTRE is offset + width/2.
+        // This block used to read `centerH = win.offset`, the pre-unify PLAN-09
+        // CENTRE spelling, which put every point width/2 BEHIND the frame the
+        // user can see. See the header for the five producers that fix the
+        // convention, and hostedOpeningSnapOffsetConvention.test.ts for the
+        // before/after numbers.
+        const leftH    = win.offset;
+        const rightH   = win.offset + win.width;
+        const centerH  = win.offset + win.width * 0.5;
 
         const cx = start.x + dir.x * centerH;
         const cz = start.z + dir.z * centerH;

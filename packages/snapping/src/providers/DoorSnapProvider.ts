@@ -10,10 +10,23 @@
  *   • Top left  / top center / top right    (at sillHeight + height, ENDPOINT)
  *   • Mid-height center                     (at sillHeight + height/2, MIDPOINT)
  *
- * OFFSET ENCODING (PLAN-09 — CENTER convention):
- *   door.offset = distance from baseLine[0] to CENTRE of opening.
- *   LEFT_EDGE  = offset − width/2
- *   RIGHT_EDGE = offset + width/2
+ * OFFSET ENCODING (§OPENING-OFFSET-LEFTEDGE-UNIFY, 2026-06-24):
+ *   door.offset = distance from baseLine[0] to the LEFT EDGE of the opening.
+ *   LEFT_EDGE  = offset
+ *   CENTRE     = offset + width/2
+ *   RIGHT_EDGE = offset + width
+ *
+ *   This header used to say "PLAN-09 — CENTER convention", with LEFT_EDGE =
+ *   offset − width/2, and the code below matched it. It was three months stale
+ *   and it made every snap point land width/2 short of the leaf the user can
+ *   see. The unified convention is fixed by the producers, not by this file:
+ *     WallOpeningPositionResolver.ts:22   the formula, stated
+ *     WallArcParam.hostedElementFrame:415 arcFrameAt(wall, offset + width/2)
+ *     DoorBuilder.ts:479                  the 3D leaf + frame
+ *     WallFragmentBuilder.ts:3023, 3205   the CSG void
+ *     CreateWallOpeningCommand.ts:72      canPlace(wall, offsetM, widthM)
+ *   Do not re-introduce a local convention here: the snap point must agree with
+ *   the geometry, and the geometry is built from the list above.
  *
  * Contracts: §B.2 (ISnapProvider), §5.1.3 (null-guard), §5.1.4 (optional subscribe)
  */
@@ -176,9 +189,15 @@ export class DoorSnapProvider implements ISnapProvider {
         dir.divideScalar(wallLen);
 
         const baseY = start.y;
-        const centerH  = door.offset;
-        const leftH    = centerH - door.width * 0.5;
-        const rightH   = centerH + door.width * 0.5;
+        // §OPENING-OFFSET-LEFTEDGE-UNIFY (2026-06-24) — `offset` is the LEFT EDGE
+        // of the span [offset, offset + width]; the CENTRE is offset + width/2.
+        // This block used to read `centerH = door.offset`, the pre-unify PLAN-09
+        // CENTRE spelling, which put every point width/2 BEHIND the leaf the user
+        // can see. See the header for the five producers that fix the convention,
+        // and hostedOpeningSnapOffsetConvention.test.ts for the before/after.
+        const leftH    = door.offset;
+        const rightH   = door.offset + door.width;
+        const centerH  = door.offset + door.width * 0.5;
 
         const cx = start.x + dir.x * centerH;
         const cz = start.z + dir.z * centerH;
