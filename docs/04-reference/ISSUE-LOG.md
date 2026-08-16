@@ -5436,3 +5436,63 @@ testing as the trigger: a save that touches the render graph while frames are in
 **Owner:** unassigned at filing → lane **L930**. Discipline: reproduce and MEASURE the ordering
 before changing anything; prove at the layer the user experiences (the viewport survives), never at
 a function's return; do NOT weaken `§RECOVERY-MUST-REFUSE`; ADR-0297 L2 governs.
+
+---
+
+## L-931 — SELECT A PARCEL AND THE CAMERA SITS TOO FAR; the framing IS computed, then something else wins
+
+**Reported by the founder, 2026-08-16, from PRODUCTION (`app.pryzm.so`).** The user must click to
+get a usable view. **Severity: HIGH — it is the first thing a user sees after choosing their site.**
+
+### ⭐ The framing is NOT missing. It is computed, VERIFIED, and then overridden.
+
+That is the whole finding, and it is this repository's signature defect wearing a camera's clothes:
+the correct value is produced and something downstream discards it. **FOUR separate actors frame
+the 3D camera in one activation**, in this order:
+
+```
++10.5ms  _activate3DView          controls.setLookAt(target=0,0,0  dist=8000.0)   ← ORIGIN. 8 km.
++12.4ms  §CAM-FRAME-INVARIANT     auto-framed and VERIFIED  dist=6505.4m near=0.1 far=14001
+ later   §3D-FRAME-ON-VIEW-SWITCH framed 3D camera on first 3D-view activation      (initTools)
+ later   §VIEW-AUTOFRAME          framed main 3D viewport on split-view entry       (SplitViewManager)
+ LAST    [HomeView]               Returned to default viewpoint                     ← PRIME SUSPECT
+```
+
+**`[HomeView] Returned to default viewpoint` fires AFTER every framing actor has run.** If it
+restores a viewpoint computed before the parcel was known — or a static default — it discards all
+four. **MEASURE THAT FIRST**; it is one log line from being confirmed or refuted, and if it holds,
+none of the four framing actors is broken and fixing them would be wasted work.
+
+### The second, independent defect in the same trace
+
+```
+_activate3DView — ViewCameraStateStore.restore("3D") MISS
+_activate3DView — computing default framing: controls.setLookAt(target=0.0,0.0,0.0, dist=8000.0)
+```
+
+On a MISS the default framing targets **world origin at 8 km**. The parcel is not at the origin —
+`§CULL-PROBE` in the same trace reports `bvCtrMag=3189094 (want~6.38e6)`, i.e. the scene is seated
+in a geocentric frame where the origin is nowhere near the model. So the default framing is
+**structurally unable to see the model** on a restore miss, and it is only rescued by
+`§CAM-FRAME-INVARIANT` firing afterwards. That invariant is doing real work and its message says so
+in plain words — *"restored camera did not see the model"*.
+⚠ **A default that is always wrong and always rescued is a rescuer dependency, not a default.**
+L-909a's lesson applies: fix the emitter, not the rescuer.
+
+### Do not "fix" this by adding a fifth framing actor
+
+Four already compete. The deliverable is **ONE authority for the post-parcel-selection camera**, with
+the others deferring to it — not another auto-frame layered on top. Establish the order first, name
+the winner, and say why it wins.
+
+### Noted in passing, not the reported defect
+
+`[§STARTUP-BUDGET] ══ run complete (trigger=enter-canvas) — total 45198ms ══` — **45 seconds** to
+enter canvas, of which `enter-canvas` itself is only +2371ms. Not what the founder reported and not
+this row's job, but it is measured, it is in the same trace, and nobody has filed it. Worth its own
+row if it reproduces.
+
+**Owner:** unassigned at filing → lane **L931**. Discipline: settle the `HomeView` question BEFORE
+touching any framing code; prove at the layer the user experiences (the camera's resting distance
+after selecting a parcel, read from the camera, not from a framing function's return); do not add a
+fifth actor.
