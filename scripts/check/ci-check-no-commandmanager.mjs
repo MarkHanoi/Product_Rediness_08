@@ -207,14 +207,32 @@ const ROOT = resolve(__dirname, '..', '..');
  *   the raw grep scored as 64.  See "Detector fidelity" below for the arithmetic
  *   and for the one real regression this pass did NOT fix.
  *
- * ⚠ 2026-08-16 (LANE G1) — MEASUREMENT COMMIT.  The alias arms below are live and
- *   the true count is 136 (literal 51 · alias 71 · indirect 14).  THE THRESHOLD IS
- *   DELIBERATELY LEFT AT 52 IN THIS COMMIT, so the gate goes RED and the 85 calls
- *   it could not previously see are published by a FAILING run rather than
- *   absorbed by a pin nobody watched.  The re-pin is the NEXT commit, on its own,
- *   with its own reasoning.  Measure first; pin second; never in one motion.
+ * 136 (2026-08-16, LANE G1) — ⚠ THE NUMBER WENT UP AND THAT IS THE GATE BECOMING
+ *   HONEST, NOT A REGRESSION AND NOT A ROUTINE RE-PIN.  Read this before you
+ *   quote either number.
+ *
+ *     old threshold   52   · old reading  51  (PASS, "1 headroom remaining")
+ *     new threshold  136   · new reading 136  (literal 51 · alias 71 · indirect 14)
+ *
+ *   NOT ONE CALL SITE WAS ADDED.  52 was measured by a detector that could only
+ *   see the un-aliased spelling `commandManager.execute`; 136 is measured by one
+ *   that follows the manager through whatever name it travels under.  The old
+ *   number was FALSE — it described `commandManager.execute` while the gate's own
+ *   title claimed to enforce "no legacy commandManager.execute() sites", and 85
+ *   such sites were live and uncounted.  The subject did not grow; the detector
+ *   stopped lying about it.
+ *
+ *   The arm-1 count is 51 both before and after, which is the evidence that this
+ *   is pure ADDITION rather than a re-definition chosen because it is bigger.
+ *
+ *   ⚠ A CEILING TO SHRINK, NOT A BUDGET TO SPEND.  85 of these were being spent
+ *   invisibly; they are now visible and they are all still debt.  The next move
+ *   on this constant must be DOWNWARD.  The largest single class — ~40 bus
+ *   handlers under `plugins/<pkg>/src/handlers/` that fall back to
+ *   `window.commandManager` — is also the most migratable, since those files
+ *   already sit on the bus.
  */
-const THRESHOLD = parseInt(process.env.CM_EXECUTE_THRESHOLD ?? '52', 10);
+const THRESHOLD = parseInt(process.env.CM_EXECUTE_THRESHOLD ?? '136', 10);
 
 /**
  * Directories to scan.  Intentionally excludes apps/ because
