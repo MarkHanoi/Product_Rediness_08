@@ -76,23 +76,53 @@ function plannerDeps(): PlannerDeps {
     };
 }
 
+/** The sentence a deterministic tier prints, and the one a PLANNED result must
+ *  print instead. Kept as constants because the attribution is now applied two
+ *  ways (substitution, then append) and two spellings of it would be one more
+ *  thing to desync. */
+const ZERO_TOKEN_LINE = '(resolved without AI tokens)';
+const PLANNER_ATTRIBUTION =
+    '(the quick paths did not recognise this phrasing, so the AI planner read it — ' +
+    'it produced the same kind of instruction you could have typed, and it was ' +
+    're-checked before anything ran)';
+
 /**
  * The deterministic tiers print "(resolved without AI tokens)". On a PLANNED
  * result that sentence is false, and the difference is exactly the thing the
  * founder is entitled to see, so it is rewritten here rather than duplicating
  * every summary-building site in the bridge.
+ *
+ * §FIX-PLANNER-ATTRIBUTION-HOLE. Substitution ALONE was not enough, and had
+ * silently stopped being enough. `30b2e975` ("the engine was honest and the
+ * last layer rendered Done") turned `DispatchOutcome` from a boolean triple
+ * into a 5-arm union, and FOUR of those five arms — dispatch-failed, refused,
+ * partial, indeterminate — say their piece WITHOUT the zero-token parenthetical
+ * (correctly: none of them is a "Done" line). The substitution had nothing to
+ * bite on, so from that commit onward a planner-sourced reply on any arm but
+ * `applied` never told the user the AI planner had read their sentence — i.e.
+ * the token-cost disclosure this file's header promises silently disappeared on
+ * exactly the outcomes a user is most likely to question. The attribution is
+ * therefore ATTACHED, not substituted: replaced in place when the zero-token
+ * line is present, appended to the first line spoken when it is not, and never
+ * repeated within one planned run.
  */
 function plannedHooks(hooks: ZeroTokenUiHooks): ZeroTokenUiHooks {
+    let attributed = false;
     return {
         confirm: (summary) => hooks.confirm(summary),
-        say: (text) => hooks.say(
-            text.replace(
-                /\(resolved without AI tokens\)/g,
-                '(the quick paths did not recognise this phrasing, so the AI planner read it — ' +
-                'it produced the same kind of instruction you could have typed, and it was ' +
-                're-checked before anything ran)',
-            ),
-        ),
+        say: (text) => {
+            if (text.includes(ZERO_TOKEN_LINE)) {
+                attributed = true;
+                hooks.say(text.split(ZERO_TOKEN_LINE).join(PLANNER_ATTRIBUTION));
+                return;
+            }
+            if (!attributed) {
+                attributed = true;
+                hooks.say(`${text} ${PLANNER_ATTRIBUTION}`);
+                return;
+            }
+            hooks.say(text);
+        },
     };
 }
 
