@@ -16,6 +16,7 @@
 import type { Patch as ImmerPatch } from 'immer';
 import type {
   CapabilityRefusal,
+  CapabilityRunReport,
   CommandExecutionContext,
   ConsequencePlan,
   ConsequenceReport,
@@ -117,6 +118,26 @@ export interface HandlerResult {
    * same way `consequence` does, so a caller that ignores it is unchanged.
    */
   readonly refusal?: CapabilityRefusal;
+  /**
+   * C71 §4.4 / C70 L-INV-1 — the READ channel: what a QUERY verb found,
+   * returned as a value on the exact seam {@link refusal} uses.
+   *
+   * ⚠ WHY THIS IS NOT `forward` PATCHES. A clash run — and every query-shaped
+   * verb — MUTATES NOTHING. Returning its answer as patches would push a
+   * non-empty patch pair onto the ring buffer and make Ctrl+Z "undo" a
+   * QUESTION: an undo entry that restores nothing. Empty patches BESIDE a
+   * populated `report` keep the run undo-neutral (`isEmptyPatchRecord` ⇒
+   * `skipRingBuffer`, CommandBus.ts §U-B2/§U-B5) while still answering.
+   *
+   * `report` and {@link refusal} are MUTUALLY EXCLUSIVE by intent: a handler
+   * either RAN (report) or declined to (refusal). Populating both re-creates
+   * the ambiguity both fields exist to remove.
+   *
+   * The bus reads NOTHING from this field — it rides the `EventRecord` exactly
+   * as `refusal` and `consequence` do, so a caller that ignores it is
+   * unchanged.
+   */
+  readonly report?: CapabilityRunReport;
 }
 
 /**
@@ -256,4 +277,17 @@ export interface EventRecord<TPayload = unknown> {
    * a caller that ignores it behaves exactly as before.
    */
   readonly refusal?: CapabilityRefusal;
+  /**
+   * C71 §4.4 / C70 L-INV-1 — the handler's RUN REPORT, carried verbatim from
+   * `HandlerResult.report` by conditional spread exactly as `refusal` above
+   * is, so a record from a handler that produced none stays byte-identical to
+   * a pre-C71 one.
+   *
+   * PRESENT ⇒ this record's empty patch pair is a QUERY THAT RAN, and
+   * `report.findings.length === 0` means "zero results within
+   * `report.checked`" — never "nothing ran", which is what `refusal` says.
+   * A caller reads `record.report` and renders it; a caller that ignores it
+   * behaves exactly as before.
+   */
+  readonly report?: CapabilityRunReport;
 }

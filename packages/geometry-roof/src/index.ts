@@ -19,6 +19,18 @@ export {
     type RoofWallClashFinding,
     type RoofWallClashKind,
 } from './pure/roofWallClash';
+// §GE-06-ROOF-WALL-WIRE — the adapter that makes the detector reachable from
+// the `clash-run` VERB, not only from the level-reconcile announcer.
+export {
+    createRoofWallClashRunner,
+    ROOF_WALL_PAIR,
+    type RoofClashSourceRoof,
+    type RoofClashSourceWall,
+    type RoofWallClashRecord,
+    type RoofWallClashRunOutcome,
+    type RoofWallClashRunner,
+    type RoofWallClashSource,
+} from './pure/roofWallClashRunner';
 export { RoofStore } from './RoofStore';
 export { RoofLevelCleanupHandler } from './RoofLevelCleanupHandler';
 // ── §TOMBSTONE-ROOF-REGION-DETECTOR (2026-08-12, C79 §6.5) ───────────────────

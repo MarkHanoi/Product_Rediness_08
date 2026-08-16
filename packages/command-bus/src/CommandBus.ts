@@ -554,6 +554,14 @@ export class CommandBus {
           // what makes the refusal a value the caller can read instead of a
           // throw a `catch {}` can swallow (C80 §10.f).
           ...(result.refusal !== undefined ? { refusal: result.refusal } : {}),
+          // C71 §4.4 (L-INV-1) — the QUERY answer rides the record verbatim,
+          // conditionally spread for the same byte-identity reason as the
+          // three above. The bus does not branch on it: what a query found is
+          // the HANDLER's determination and rendering it is the CALLER's; the
+          // bus only carries it, which is what lets `findings: []` be read as
+          // "zero results in `checked`" instead of being indistinguishable
+          // from a verb that never ran.
+          ...(result.report !== undefined ? { report: result.report } : {}),
         };
 
         // 4. Emit to PatchEmitter subscribers (EventLogPersistor, etc.).

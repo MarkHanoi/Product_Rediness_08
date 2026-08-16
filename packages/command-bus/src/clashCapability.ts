@@ -53,7 +53,13 @@
  * · C70 L-INV-1 · ADR-0322 §5 · `docs/03-execution/plans/GE-06-CLASH-ENGINE-DECOMPOSITION.md`.
  */
 
-import { capabilityRefused, type CapabilityRefusal } from './consequence.js';
+import {
+  capabilityRan,
+  capabilityRefused,
+  type CapabilityFindingRecord,
+  type CapabilityRefusal,
+  type UndeterminedReason,
+} from './consequence.js';
 import type { ClashDetectionToolbarCommands, EmptyPayload } from './commands.js';
 import type { CommandHandler, HandlerResult, ValidationResult } from './types.js';
 
@@ -239,15 +245,37 @@ const CLASH_MISSING_CAPABILITY: Readonly<Record<ClashCommandId, string>> = {
  * the verb, what is missing, what was NOT looked at, and that this is a refusal
  * rather than a clean result.
  */
-export function clashRefusalText(commandType: ClashCommandId): string {
+export function clashRefusalText(
+  commandType: ClashCommandId,
+  /**
+   * Pairs THIS BUILD actually evaluates, because a composed runner was
+   * registered (see {@link registerClashRun}). Defaults to the static
+   * manifest's REGISTERED set — i.e. none.
+   *
+   * ⚠ This is a PARAMETER rather than a module constant on purpose. Whether
+   * `roof×wall` is checked is a property of the COMPOSED BUILD, not of the
+   * source tree: `packages/geometry-roof`'s detector exists either way, and a
+   * build that never registers the runner must not inherit a sentence claiming
+   * coverage it does not have. Reading it from a mutable module-level global
+   * would make the claim depend on import order — the C69 rival-list defect
+   * wearing a different hat.
+   */
+  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
+): string {
   const missing = CLASH_MISSING_CAPABILITY[commandType];
-  const checked = REGISTERED_CLASH_PAIRS.length;
   const total = CLASH_PAIR_COVERAGE.length;
+  const unchecked = CLASH_PAIR_COVERAGE.map((p) => p.pair).filter(
+    (p) => !checkedPairs.includes(p),
+  );
+  const engine =
+    checkedPairs.length === 0
+      ? 'this build has no clash engine'
+      : `this build checks only ${checkedPairs.join(', ')}`;
   return (
-    `"${commandType}" is declared but NOT IMPLEMENTED — this build has no clash engine. ` +
+    `"${commandType}" is declared but NOT IMPLEMENTED — ${engine}. ` +
     `It requires ${missing}. ` +
-    `${checked} of ${total} element pairs have a registered detector; ` +
-    `NOT CHECKED: ${UNCHECKED_CLASH_PAIRS.join(', ')}. ` +
+    `${checkedPairs.length} of ${total} element pairs have a registered detector; ` +
+    `NOT CHECKED: ${unchecked.join(', ')}. ` +
     `This is a REFUSAL, not a clean result — nothing was inspected, so no absence of ` +
     `clashes has been established. Tracked as GE-06 (OPEN); see ` +
     `docs/03-execution/plans/GE-06-CLASH-ENGINE-DECOMPOSITION.md.`
@@ -271,7 +299,11 @@ export function clashRefusalText(commandType: ClashCommandId): string {
  * about the whole model without naming a set. They are emphatically NOT `0`,
  * which would assert "nothing was in the way" about a model nothing examined.
  */
-export function clashCapabilityRefusal(commandType: ClashCommandId): CapabilityRefusal {
+export function clashCapabilityRefusal(
+  commandType: ClashCommandId,
+  /** Pairs THIS BUILD checks — see {@link clashRefusalText}. */
+  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
+): CapabilityRefusal {
   return capabilityRefused({
     commandType,
     reason: 'ENGINE_NOT_AVAILABLE',
@@ -280,50 +312,212 @@ export function clashCapabilityRefusal(commandType: ClashCommandId): CapabilityR
     protects:
       "the reader's ability to tell 'no clashes were found' from 'nothing looked for clashes' — " +
       'a model shipped on an unearned clean report',
-    detail: clashRefusalText(commandType),
+    detail: clashRefusalText(commandType, checkedPairs),
   });
 }
 
-// ─── 6 · The shape a REAL run would return — the differentiator ──────────────
+// ─── 6 · The shape a REAL run returns — the differentiator ───────────────────
+//
+// ⚠ HISTORY, so the deletion is not re-done as an addition. This section used
+// to declare `ClashFinding` / `ClashRunReport` / `ClashRunOutcome` locally,
+// with `checkedPairs` / `uncheckedPairs`. Wiring a real runner (§8) needed the
+// same shape to cross the bus, and TWO structurally-identical report types —
+// one clash-local, one on `HandlerResult` — is the C69 rival-list defect this
+// very file argues against three sections up. There is now ONE vocabulary,
+// `CapabilityRunReport` in `consequence.ts`, and clash uses it unrenamed:
+//
+//   ClashFinding    → CapabilityFindingRecord   (gained `scope`, `detail`)
+//   ClashRunReport  → CapabilityRunReport       (checkedPairs → checked)
+//   ClashRunOutcome → CapabilityRunOutcome
+//
+// The union property that made the old types the deliverable is UNCHANGED and
+// now enforced for every capability, not just clash: the arms discriminate on
+// `kind`, the refusal arm has NO `findings` key, and `capabilityRan()` refuses
+// to construct a report whose `checked` is empty — so "could not look" and
+// "looked, found nothing" cannot collapse into one value.
+
+/** The clash pair a finding's `scope` names when the roof→wall runner fires. */
+export const ROOF_WALL_PAIR = 'roof×wall';
+
+// ─── 7 · The REAL run — an injected detector, because L1 cannot import L2 ────
 
 /**
- * One clash finding. Present so the success shape is written down and the two
- * outcomes can be compared; nothing constructs one yet.
- */
-export interface ClashFinding {
-  readonly aId: string;
-  readonly bId: string;
-  readonly pair: string;
-  readonly kind: 'PENETRATES' | 'CLEARANCE' | 'DUPLICATE';
-  readonly magnitudeM: number;
-}
-
-/**
- * What a clash run that ACTUALLY RAN returns (GE-06 §1.2). Note `findings` is
- * reported ALONGSIDE `checkedPairs`/`uncheckedPairs`: findings only ever claim
- * the pairs in `checkedPairs`, so an empty `findings` is scoped to what was
- * genuinely evaluated and never over-claims silence.
- */
-export interface ClashRunReport {
-  readonly kind: 'ran';
-  readonly findings: readonly ClashFinding[];
-  readonly checkedPairs: readonly string[];
-  readonly uncheckedPairs: readonly string[];
-}
-
-/**
- * The two — and only two — legal answers to a clash run.
+ * The port a composed build supplies to make `clash-run` genuinely detect.
  *
- * **This union IS the deliverable.** The arms are discriminated on `kind`
- * (`'ran'` vs `'refused'`), and the refusal arm has NO `findings` field at all.
- * So "refused because unimplemented" cannot be read as "ran and found nothing"
- * even by accident: there is no empty array to mistake for an answer, and the
- * compiler rejects reading `.findings` without first narrowing on `kind`.
- * Failure and emptiness stop being the same value.
+ * ⚠ WHY A PORT AND NOT A DIRECT CALL. `command-bus` is L1; every clash
+ * detector lives at L2 or above (`geometry-roof`, `geometry-wall`, …).
+ * Importing one here would be an upward layer violation
+ * (`tools/ga-gate/check-layer-boundaries.ts`). So the geometry stays where it
+ * belongs and the composition root injects it — the P1 single-composition-root
+ * rule applied to a capability rather than to a runtime.
  */
-export type ClashRunOutcome = ClashRunReport | CapabilityRefusal;
+export interface ClashRunner {
+  /**
+   * The pairs this runner ACTUALLY evaluates. Must be non-empty and drawn from
+   * {@link CLASH_PAIR_COVERAGE}; `registerClashRun` rejects anything else, so a
+   * runner cannot claim coverage of a pair the manifest does not know about.
+   */
+  readonly pairs: readonly string[];
+  /**
+   * Run the detection.
+   *
+   * ⚠ THE CONTRACT THAT MATTERS: return `kind: 'ran'` ONLY when the model was
+   * genuinely readable. If any input needed to reach a verdict is missing,
+   * return `kind: 'unavailable'` — NEVER an empty findings array. An empty
+   * array from a runner that could not read the model is the
+   * `[]`-means-unknown defect at its most dangerous, because it is green.
+   */
+  run(): ClashRunnerOutcome;
+}
 
-// ─── 7 · The handlers, and their registration ───────────────────────────────
+/**
+ * What a {@link ClashRunner} hands back: findings it stands behind, or a
+ * statement that it could not look.
+ *
+ * ⚠ WHY THE SECOND ARM IS PLAIN DATA AND NOT A `CapabilityRefusal`. Every
+ * clash detector lives at L2+ (`geometry-roof`, `geometry-wall`, …) and this
+ * package is L1. If a runner had to CONSTRUCT a `CapabilityRefusal`, every
+ * detector package would need a dependency on `@pryzm/command-bus` purely to
+ * call `capabilityRefused()` — a new upward-facing edge per detector, bought
+ * for a constructor call. So the runner states the FACT (`reason` + `detail`)
+ * in plain data and {@link createClashRunHandler} renders the bus vocabulary.
+ * The closed C78 §8.1 reason union stays owned here, where the contract is.
+ */
+export type ClashRunnerOutcome =
+  | { readonly kind: 'ran'; readonly findings: readonly CapabilityFindingRecord[] }
+  | {
+      readonly kind: 'unavailable';
+      /**
+       * WHY the model could not be read, in the closed §8.1 vocabulary — the
+       * runner picks the member, so a detector cannot invent a twelfth reason.
+       */
+      readonly reason: UndeterminedReason;
+      /** The human sentence. The handler appends the coverage clause. */
+      readonly detail: string;
+    };
+
+/**
+ * The REAL `clash-run` handler, built over an injected {@link ClashRunner}.
+ *
+ * `unchecked` is computed HERE, from the manifest, rather than trusted from
+ * the runner: the runner knows what it looked at, but only the manifest knows
+ * the full set it was supposed to. That asymmetry is deliberate — a runner
+ * cannot shrink the unchecked list by forgetting to mention a pair.
+ *
+ * `affectedStores` is empty and both patch arrays stay empty because a clash
+ * run is a QUERY: it mutates nothing, so it must not land on the undo stack.
+ * The answer rides `HandlerResult.report` instead (see types.ts).
+ */
+export function createClashRunHandler(runner: ClashRunner): CommandHandler<EmptyPayload> {
+  const allPairs = CLASH_PAIR_COVERAGE.map((p) => p.pair);
+  const unchecked = allPairs.filter((p) => !runner.pairs.includes(p));
+  return {
+    type: 'clash-run',
+    affectedStores: [],
+    canExecute(): ValidationResult {
+      return { valid: true };
+    },
+    execute(): Promise<HandlerResult> {
+      let outcome: ClashRunnerOutcome;
+      try {
+        outcome = runner.run();
+      } catch (err) {
+        // A THROWN detector must not surface as "no clashes". Convert it into
+        // the refusal channel so the failure keeps its identity (C78 §0.e —
+        // the silent-catch defect) instead of being swallowed into a clean
+        // report by the `catch {}` this repo keeps paying for.
+        return Promise.resolve({
+          forward: [],
+          inverse: [],
+          refusal: capabilityRefused({
+            commandType: 'clash-run',
+            reason: 'PLANNER_THREW',
+            asked: undefined,
+            unaccountedFor: undefined,
+            protects:
+              "the reader's ability to tell 'no clashes were found' from 'the detector crashed' — " +
+              'a model shipped on an unearned clean report',
+            detail:
+              `"clash-run" invoked the ${runner.pairs.join(', ')} detector and it THREW: ` +
+              `${err instanceof Error ? err.message : String(err)}. ` +
+              `This is a REFUSAL, not a clean result — no absence of clashes has been established. ` +
+              `NOT CHECKED: ${allPairs.join(', ')}.`,
+          }),
+        });
+      }
+      if (outcome.kind === 'unavailable') {
+        // The runner LOOKED and could not read the model. This must reach the
+        // caller as a REFUSAL, never as `findings: []` — the two are the same
+        // bytes to a UI that only counts results (C70 L-INV-1).
+        return Promise.resolve({
+          forward: [],
+          inverse: [],
+          refusal: capabilityRefused({
+            commandType: 'clash-run',
+            reason: outcome.reason,
+            asked: undefined,
+            unaccountedFor: undefined,
+            protects:
+              "the reader's ability to tell 'no clashes were found' from 'the model could not " +
+              "be read' — a model shipped on an unearned clean report",
+            detail:
+              `"clash-run" could not run the ${runner.pairs.join(', ')} detector: ${outcome.detail} ` +
+              `This is a REFUSAL, not a clean result — no absence of clashes has been established. ` +
+              `NOT CHECKED: ${allPairs.join(', ')}.`,
+          }),
+        });
+      }
+      return Promise.resolve({
+        forward: [],
+        inverse: [],
+        report: capabilityRan({
+          commandType: 'clash-run',
+          checked: runner.pairs,
+          unchecked,
+          findings: outcome.findings,
+        }),
+      });
+    },
+  };
+}
+
+/**
+ * Register the REAL `clash-run`. Call this BEFORE
+ * {@link registerClashRefusalHandlers}, which then skips the id by its own
+ * defer-to-a-real-implementation rule.
+ *
+ * Returns the pairs now genuinely checked, so the caller can pass them to
+ * {@link registerClashRefusalHandlers} and the remaining eleven verbs refuse
+ * with an accurate coverage sentence rather than a stale "no clash engine".
+ *
+ * @throws if the runner declares no pairs, or a pair outside the manifest —
+ * both are authoring defects that would make the report over-claim.
+ */
+export function registerClashRun(
+  bus: ClashHandlerRegistrar,
+  runner: ClashRunner,
+): readonly string[] {
+  if (runner.pairs.length === 0) {
+    throw new Error(
+      'registerClashRun: the runner declares NO pairs. A run that checks nothing ' +
+      'must not be registered — leave clash-run refusing instead.',
+    );
+  }
+  const known = new Set(CLASH_PAIR_COVERAGE.map((p) => p.pair));
+  for (const p of runner.pairs) {
+    if (!known.has(p)) {
+      throw new Error(
+        `registerClashRun: runner claims pair "${p}", which is not in ` +
+        `CLASH_PAIR_COVERAGE [${[...known].join(', ')}]. Add it to the manifest first.`,
+      );
+    }
+  }
+  if (bus.has('clash-run')) return runner.pairs;
+  bus.register(createClashRunHandler(runner));
+  return runner.pairs;
+}
+
+// ─── 8 · The refusing handlers, and their registration ──────────────────────
 
 /**
  * The minimal registrar surface — structural, so this module never imports
@@ -344,8 +538,10 @@ export interface ClashHandlerRegistrar {
  */
 export function createClashRefusalHandler(
   commandType: ClashCommandId,
+  /** Pairs THIS BUILD checks — see {@link clashRefusalText}. */
+  checkedPairs: readonly string[] = REGISTERED_CLASH_PAIRS,
 ): CommandHandler<EmptyPayload> {
-  const refusal = clashCapabilityRefusal(commandType);
+  const refusal = clashCapabilityRefusal(commandType, checkedPairs);
   return {
     type: commandType,
     affectedStores: [],

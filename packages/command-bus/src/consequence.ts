@@ -807,6 +807,117 @@ export function capabilityRefused(input: {
       };
 }
 
+// ─── The OTHER arm: a verb that RAN (C71 §4.4 / C70 L-INV-1) ─────────────────
+//
+// `CapabilityRefusal` above gave "I could not look" a value. This gives "I
+// looked, here is what I found" a value — and the two are structurally
+// distinct, so they can never be read as each other.
+//
+// ⚠ THE INVARIANT THIS TYPE EXISTS TO ENFORCE (C71 §4.4, C70 L-INV-1):
+// `findings: []` means "zero results", NEVER "nothing ran". That claim is only
+// honest if the reader can see WHAT was evaluated — so `checked` is mandatory,
+// must be NON-EMPTY, and every finding must name a scope drawn from it.
+// `unchecked` carries the other half: the sub-checks nothing looked at, which
+// an empty `findings` therefore says NOTHING about. A report that omitted
+// `unchecked` would over-claim its own silence at exactly the scale this
+// repository keeps being burned by (ADR-0322 §5).
+
+/**
+ * One thing a run found. `scope` names the sub-check that produced it and MUST
+ * be a member of the report's `checked` list — a finding from a scope the
+ * report did not declare as checked is unattributable, so
+ * {@link capabilityRan} rejects it rather than emitting it.
+ */
+export interface CapabilityFindingRecord {
+  /** The sub-check that produced this, e.g. `'roof×wall'`. ∈ `checked`. */
+  readonly scope: string;
+  /** First participant's element id. */
+  readonly aId: string;
+  /** Second participant's element id. */
+  readonly bId: string;
+  /** Family-specific classification, e.g. `'penetrates'` / `'gap'`. */
+  readonly kind: string;
+  /** Magnitude in metres where the family has one. Tolerances per C73 §2.2. */
+  readonly magnitudeM?: number;
+  /** The human sentence for this single finding. */
+  readonly detail: string;
+}
+
+/**
+ * A verb that ACTUALLY RAN, reporting what it evaluated alongside what it
+ * found. The sibling of {@link CapabilityRefusal} on the `kind` discriminant.
+ */
+export interface CapabilityRunReport {
+  readonly kind: 'ran';
+  /** The verb that ran, e.g. `'clash-run'`. */
+  readonly commandType: string;
+  /**
+   * The sub-checks this run GENUINELY evaluated. MUST be non-empty: a run that
+   * evaluated nothing has no honest report to make and must refuse instead.
+   * `findings` is scoped to exactly this list and claims nothing beyond it.
+   */
+  readonly checked: readonly string[];
+  /**
+   * The sub-checks NOTHING looked at. An empty `findings` establishes no
+   * absence here — this is the half that stops a partial engine reading as a
+   * clean bill of health.
+   */
+  readonly unchecked: readonly string[];
+  /** Zero results is a RESULT — scoped to `checked`, never to `unchecked`. */
+  readonly findings: readonly CapabilityFindingRecord[];
+}
+
+/**
+ * The two — and only two — legal answers a capability run may give.
+ * Discriminated on `kind`; the refusal arm has NO `findings` field at all, so
+ * "could not look" cannot be read as "looked and found nothing" even by
+ * accident, and the compiler rejects reading `.findings` without narrowing.
+ */
+export type CapabilityRunOutcome = CapabilityRunReport | CapabilityRefusal;
+
+/**
+ * The `ran` constructor. Named so a grep for capability reporting finds one
+ * site, and so the honesty invariant is enforced at CONSTRUCTION rather than
+ * hoped for at every call site.
+ *
+ * @throws if `checked` is empty (a run that checked nothing must REFUSE), or
+ * if any finding names a `scope` outside `checked` (an unattributable finding).
+ * Both are authoring defects that would silently produce a dishonest report,
+ * which is precisely the failure this vocabulary exists to make impossible.
+ */
+export function capabilityRan(input: {
+  readonly commandType: string;
+  readonly checked: readonly string[];
+  readonly unchecked: readonly string[];
+  readonly findings: readonly CapabilityFindingRecord[];
+}): CapabilityRunReport {
+  if (input.checked.length === 0) {
+    throw new Error(
+      `capabilityRan("${input.commandType}"): checked[] is EMPTY. A run that ` +
+      `evaluated nothing has no report to make — return a CapabilityRefusal ` +
+      `instead. An empty findings[] beside an empty checked[] is the ` +
+      `"[] means unknown" defect (C71 §4.4 / C70 L-INV-1).`,
+    );
+  }
+  const checked = new Set(input.checked);
+  for (const f of input.findings) {
+    if (!checked.has(f.scope)) {
+      throw new Error(
+        `capabilityRan("${input.commandType}"): finding scope "${f.scope}" is ` +
+        `not in checked[${input.checked.join(', ')}] — a finding must be ` +
+        `attributable to a sub-check the report declares it ran.`,
+      );
+    }
+  }
+  return {
+    kind: 'ran',
+    commandType: input.commandType,
+    checked: input.checked,
+    unchecked: input.unchecked,
+    findings: input.findings,
+  };
+}
+
 // ─── ConsequenceReport (ADR-0322 §2; R5) ─────────────────────────────────────
 
 /**

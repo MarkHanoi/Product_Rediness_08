@@ -96,6 +96,12 @@ export type {
   // C80 §1.4 / GEN-GAP-1 — a VERB's typed decision not to act, returned as a
   // value rather than thrown (the `HandlerResult.refusal` channel).
   CapabilityRefusal,
+  // C71 §4.4 / C70 L-INV-1 — the OTHER arm: a verb that RAN. Exported beside
+  // the refusal because a caller that can read one and not the other is exactly
+  // the caller that reports "0 clashes" for a run that never happened.
+  CapabilityFindingRecord,
+  CapabilityRunReport,
+  CapabilityRunOutcome,
 } from './consequence.js';
 // C78 §8 — value exports: the sub-reason→parent ownership map, the typed
 // room-prediction bridge (§8.5 — explicit map, never re-labelling), and the
@@ -112,6 +118,10 @@ export {
   // C80 §1.4 — the ONE constructor for a withheld capability, so both numbers
   // and the protected subject cannot be forgotten.
   capabilityRefused,
+  // C71 §4.4 — the ONE constructor for a run that HAPPENED. It refuses to
+  // build a report whose `checked` is empty, so "found nothing" can never be
+  // constructed by something that looked at nothing.
+  capabilityRan,
 } from './consequence.js';
 // G-REASON-04's normalize rule (ADR-0324 §3) — authored in R1, gated in R7.
 export { normalizeForParity } from './parity.js';
@@ -222,13 +232,16 @@ export {
   clashCapabilityRefusal,
   createClashRefusalHandler,
   registerClashRefusalHandlers,
+  // GE-06 §7 — the REAL run: the injected-detector port and its registration.
+  ROOF_WALL_PAIR,
+  createClashRunHandler,
+  registerClashRun,
 } from './clashCapability.js';
 export type {
   ClashCommandId,
   ClashDetectorState,
   ClashPairCoverage,
-  ClashFinding,
-  ClashRunReport,
-  ClashRunOutcome,
   ClashHandlerRegistrar,
+  ClashRunner,
+  ClashRunnerOutcome,
 } from './clashCapability.js';
