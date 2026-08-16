@@ -214,10 +214,26 @@ function countRepoWide(): number {
  * §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7, L-836, 2026-08-11)
  *
  * ─── The hole this closes ────────────────────────────────────────────────────
- * This gate is on `gate-debt.json`. `run-all.ts` treats ANY non-zero exit from a
- * ledgered gate as 🟡 KNOWN-DEBT and keeps going. So once a gate is ledgered, it
- * is licensed not merely to FAIL but to GET WORSE — and nobody sees it, because
- * "declared debt" and "declared debt, now worse" print identically.
+ * ⚠ CORRECTED 2026-08-16 (H4). The sentence below read "This gate is on
+ * `gate-debt.json`" in the present tense. IT IS NOT, and has not been since
+ * §FIX-CAST-STRICT-BASELINE (L-844) struck it from the ledger on 2026-08-11 —
+ * the same day R7 was written, hours apart. `gate-debt.json.failing` today holds
+ * exactly `check-no-commandmanager.ts` and `check-custom-event-apps.ts`; verify
+ * with `node -e "console.log(require('./tools/ga-gate/gate-debt.json').failing)"`
+ * rather than trusting this comment. A gate file asserting an enforcement
+ * relationship that does not exist is the L-809/L-812 defect in miniature, so it
+ * is corrected in place rather than left to be read literally.
+ *
+ * The correction does NOT weaken R7 — it strengthens the case for it. `run-all.ts`
+ * classifies exit 3 at line ~866, BEFORE the ledger is consulted at all, so exit 3
+ * is hard-red whether or not a gate is listed. What follows is the ORIGINAL
+ * rationale, true of this gate in the days before it was struck and true of every
+ * gate still on the ledger:
+ *
+ * `run-all.ts` treats ANY non-zero exit from a ledgered gate as 🟡 KNOWN-DEBT and
+ * keeps going. So once a gate is ledgered, it is licensed not merely to FAIL but
+ * to GET WORSE — and nobody sees it, because "declared debt" and "declared debt,
+ * now worse" print identically.
  *
  * That is exactly what happened: the repo-wide `(window as any)` count went
  * 215 → 217 while sitting on this ledger, and no run ever said so. A shrink-only
