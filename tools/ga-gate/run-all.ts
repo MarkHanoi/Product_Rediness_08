@@ -500,6 +500,7 @@ const GATES: Gate[] = [
   // puts it in THIS runner beside region-fallback-populated, with which it shares
   // one sweeper and one ledger. Hard-0 with no baseline: it needs no ledger entry.
   { name: 'region-reference-frame (C79 §3 · §8)',               script: '../rac-conformance/certification/gates/check-region-reference-frame.ts' },
+  { name: 'index-can-refuse (C78 §20 · U-INV-7)',               script: '../rac-conformance/certification/gates/check-index-can-refuse.ts' },
   { name: 'region-host-attribution (C79 §6.3)',                 script: '../rac-conformance/certification/gates/check-region-host-attribution.ts' },
   { name: 'relationship-determination (C78 §20 · U-INV-1 · BAR-3)', script: '../rac-conformance/certification/gates/check-relationship-determination.ts' },
   { name: 'no-empty-means-unknown (C78 §20 · U-INV-4 · GR-14)', script: '../rac-conformance/certification/gates/check-no-empty-means-unknown.ts' },
