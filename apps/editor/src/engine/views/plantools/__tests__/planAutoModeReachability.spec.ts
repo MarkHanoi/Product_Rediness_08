@@ -37,7 +37,35 @@
  * never `activate('floor','auto')`) while the generic seam was broken.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+/**
+ * ⭐ The architect pressing CONFIRM on the finish dialogue — and NOTHING else.
+ *
+ * `_resolveThenCommit` is the ONE commit chokepoint for every plan drawing mode, and it
+ * routes through the shared finish modal (L-255). Standing in for that one human press is
+ * the only way a test can reach `_dispatchCreate`; everything load-bearing to THIS lane —
+ * which mode the click reads, which branch it takes, which polygon is derived, and what is
+ * finally handed to the bus — stays real on the far side of it.
+ *
+ * The modal is handed back its OWN seeded params, so the record committed is the one the
+ * resolver produced, not one this test invented.
+ */
+const modal = vi.hoisted(() => ({ shown: 0 }));
+vi.mock('@app/ui/ElementCreationModal', async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
+    return {
+        ...actual,
+        getFloorFinishCreationModal: () => ({
+            show: (o: { params: unknown; onConfirm: (p: unknown) => void }) => {
+                modal.shown++;
+                o.onConfirm(o.params);
+            },
+            dismiss: () => undefined,
+        }),
+    };
+});
+
 import { mountToolsArea } from '@app/ui/layout/ToolsAreaLayout';
 import { FloorPlanToolHandler } from '../FloorPlanToolHandler';
 import { CeilingPlanToolHandler } from '../CeilingPlanToolHandler';
@@ -272,5 +300,156 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
         // because "it wasn't registered". `stair-path`'s modes are served by the `stair`
         // family; `grid` has never been wired (src/main.ts:513 — "one wireup away").
         expect(unregistered.sort()).toEqual(['grid', 'stair-path']);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ⭐ THE REACHABILITY PROOF
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Everything above stops at the STORED mode or at WHICH BRANCH the click takes, and the
+// branch cases reach that verdict by stubbing `_commitFromRoomAt`. That is one layer short
+// of the claim this row exists to make. A mode can be stored correctly, be read correctly,
+// select the right branch — and still commit nothing, or commit the wrong geometry, because
+// the branch it selected is itself inert. "Committed ≠ reachable" applies to the fix as
+// much as to the feature.
+//
+// So this block removes the stub and runs the REAL path:
+//
+//   runtime.tools.activate('floor','auto')        ← the user's selection
+//     → floorModePicker.setActiveMode('auto')     ← the STORED tool state
+//     → FloorPlanToolHandler._currentMode()       ← what the commit path READS
+//     → onClick → _commitFromRoomAt → _resolveThenCommit → _dispatchCreate
+//     → window.runtime.bus.executeCommand('floor.create', …)   ← THE COMMITTED RECORD
+//
+// The assertion is on that dispatched payload — a value that leaves the handler entirely —
+// and specifically on its POLYGON, because the room boundary is obtainable ONLY from the
+// AUTO branch. A commit carrying the room's ring cannot have come from vertex-add.
+describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — ⭐ the mode reaches the COMMITTED record', () => {
+    // A 4×3 room. The click lands inside it; no vertex the user could have drawn in ONE
+    // click could produce this ring, which is what makes the polygon a mode fingerprint.
+    const ROOM_POLY = [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }];
+    const INSIDE = { worldX: 2, worldZ: 1.5 } as WorldPoint;
+
+    type Dispatched = { cmd: string; payload: Record<string, unknown> };
+
+    function installStoresAndBus(): Dispatched[] {
+        const dispatched: Dispatched[] = [];
+        const w = window as unknown as Record<string, unknown>;
+        w.runtime = {
+            bus: {
+                // Returns undefined deliberately: `_dispatchCreate` does
+                // `executeCommand(…)?.then(…)`, so the optional call short-circuits and the
+                // post-commit sketch bridge stays out of this proof's blast radius.
+                executeCommand: (cmd: string, payload: Record<string, unknown>) => {
+                    dispatched.push({ cmd, payload });
+                    return undefined;
+                },
+            },
+        };
+        w.roomStore = {
+            getAll: () => [{
+                id: 'room_1',
+                levelId: 'lvl0',
+                boundary: { polygon: ROOM_POLY },
+                // Present and non-null, so `determineBoundingWalls` reports DETERMINED and
+                // `attributeFinishRegion` attributes rather than taking the honest-refusal
+                // arm — which would abort the commit for a reason unrelated to the mode.
+                boundingWallIds: ['w1', 'w2', 'w3', 'w4'],
+            }],
+        };
+        // `window.wallStore` is deliberately LEFT ABSENT: `_innerFacePolygon` then returns
+        // the centreline unchanged, so the committed ring is EXACTLY the room boundary and
+        // the assertion needs no inner-face arithmetic of its own to compare against.
+        delete w.wallStore;
+        return dispatched;
+    }
+
+    /** A Canvas2D surface with no drawing behaviour — the handler only clears through it. */
+    function makeCtx(): unknown {
+        const noop = () => undefined;
+        const c2d = {
+            setTransform: noop, clearRect: noop, beginPath: noop, moveTo: noop, lineTo: noop,
+            closePath: noop, stroke: noop, fill: noop, arc: noop, save: noop, restore: noop,
+            fillText: noop, setLineDash: noop, rect: noop,
+        };
+        return {
+            overlayCanvas: { width: 800, height: 600 },
+            baseCanvas:    { width: 800, height: 600 },
+            ctx:           c2d,
+            planCanvas:    { worldToScreen: () => ({ x: 0, y: 0 }), getPixelsPerUnit: () => 10 },
+            interaction:   {},
+            viewDef:       { id: 'view_plan_GF', spatial: { levelId: 'lvl0' } },
+            dpr:           1,
+            viewPlane:     {},
+        };
+    }
+
+    beforeEach(() => {
+        modal.shown = 0;
+        const w = window as unknown as Record<string, unknown>;
+        delete w.floorModePicker;
+        delete w.ceilingModePicker;
+        if (!globalThis.crypto?.randomUUID) {
+            (globalThis as unknown as { crypto: { randomUUID: () => string } }).crypto = {
+                randomUUID: () => '00000000-0000-4000-8000-000000000000',
+            };
+        }
+    });
+
+    afterEach(() => {
+        const w = window as unknown as Record<string, unknown>;
+        delete w.runtime;
+        delete w.roomStore;
+    });
+
+    it('COMMITTED RECORD: one plan click after activate("floor","auto") dispatches floor.create carrying the ROOM boundary', () => {
+        const { tools } = mountForTest();
+        const dispatched = installStoresAndBus();
+
+        tools.activate('floor', 'auto');                       // the user's selection
+        expect(window.floorModePicker?.getActiveMode()).toBe('auto');   // the STORED state
+
+        const h = new FloorPlanToolHandler();
+        h.activate(makeCtx() as Parameters<FloorPlanToolHandler['activate']>[0]);
+        h.onClick(INSIDE);                                     // ONE click
+
+        expect(modal.shown, 'the shared finish modal must be the commit chokepoint').toBe(1);
+
+        const creates = dispatched.filter(d => d.cmd === 'floor.create');
+        expect(creates, 'exactly one floor.create per gesture (C16: one gesture = one undo entry)')
+            .toHaveLength(1);
+
+        const payload = creates[0].payload;
+        // THE FINGERPRINT — the ring the AUTO branch derived from the clicked room.
+        expect(payload.polygon).toEqual(ROOM_POLY);
+        expect(payload.levelId).toBe('lvl0');
+        expect(payload.hostRoomId).toBe('room_1');
+        // And the record is COMPLETE: the four fields the plan path used to drop (L-255)
+        // resolved to finite numbers, so this is a committed floor, not a husk.
+        expect(Number.isFinite(payload.baseOffset as number)).toBe(true);
+        expect(Number.isFinite(payload.thickness as number)).toBe(true);
+    });
+
+    // ── THE DIFFERENTIATOR ───────────────────────────────────────────────────
+    //
+    // Without this the test above would pass even if the handler committed from the room on
+    // EVERY mode — which would make it blind to the very substitution the defect performed
+    // (auto silently becoming linear). This drives the identical gesture in the mode the
+    // dropped-argument bug used to leave the tool in, and requires the opposite outcome.
+    it('DIFFERENTIATOR: the identical single click in LINEAR commits NOTHING — it only adds a vertex', () => {
+        const { tools } = mountForTest();
+        const dispatched = installStoresAndBus();
+
+        tools.activate('floor', 'linear');
+        expect(window.floorModePicker?.getActiveMode()).toBe('linear');
+
+        const h = new FloorPlanToolHandler();
+        h.activate(makeCtx() as Parameters<FloorPlanToolHandler['activate']>[0]);
+        h.onClick(INSIDE);
+
+        expect(dispatched.filter(d => d.cmd === 'floor.create')).toHaveLength(0);
+        expect(modal.shown).toBe(0);
+        expect((h as unknown as { _points: unknown[] })._points).toHaveLength(1);
     });
 });
