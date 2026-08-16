@@ -59,7 +59,7 @@
 //   · it says nothing about whether a subscription, once added, would be correct
 //     (scoping, per-view, undo) — only that today there is none.
 
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { ScheduleRegistry } from '@pryzm/core-app-model';
 import { SchedulePanel } from '../../ui/SchedulePanel/SchedulePanel';
 
@@ -246,21 +246,33 @@ describe('PR-12 — SchedulePanel geometry subscription (measured, not read)', (
         // window.addEventListener across a genuine construction and asserts what the
         // panel actually subscribed to. It is strictly stronger than the regex it
         // replaces — it sees literal and computed registrations alike.
+        // §P4-CAST-AT-SOURCE (H4, 2026-08-16) — the observation is UNCHANGED; only
+        // the two `(window as any)` casts are gone. This block used to hand-roll the
+        // spy by overwriting `window.addEventListener` through `(window as any)`,
+        // which is precisely the spelling `check-cast-count` exists to forbid, and
+        // it was two of the five sites holding that gate at exit 3. `vi.spyOn` is
+        // the typed equivalent and is strictly better here for two reasons beyond
+        // the cast: Vitest's spyOn CALLS THROUGH to the real listener registration
+        // by default (so the panel is genuinely constructed and its listeners
+        // genuinely registered — the same fact this case measures), and it restores
+        // the global itself rather than relying on a hand-written finally.
         const seen: string[] = [];
-        const real = window.addEventListener.bind(window);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).addEventListener = (type: string, ...rest: any[]) => {
-            seen.push(type);
-            return (real as any)(type, ...rest);
-        };
+        const spy = vi.spyOn(window, 'addEventListener');
         try {
             new SchedulePanel(null);
+            // ⚠ Read the calls INSIDE the try: `mockRestore()` below both un-patches
+            // the global AND clears `mock.calls`. Reading after it would silently
+            // observe an empty list and turn this case green-for-the-wrong-reason —
+            // the exact "never ran and passed look identical" failure this suite
+            // keeps paying for.
+            for (const call of spy.mock.calls) seen.push(String(call[0]));
         } finally {
             // Restore in a finally so a construction throw cannot leave the global
             // patched for every later case in the file.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).addEventListener = real;
+            spy.mockRestore();
         }
+        expect(seen.length, 'the spy observed no registration at all — nothing below would mean anything')
+            .toBeGreaterThan(0);
 
         const definition = seen.filter((t) => t.startsWith('sched:')).sort();
         const geometry = seen.filter((t) => /^bim-/.test(t)).sort();
