@@ -103,12 +103,13 @@ L0    packages/schemas/          — pure Zod schemas; no I/O, no THREE, no DOM
 **Stated honestly as NOT-YET-TRUE, so nobody mistakes them for settled invariants:**
 
 - **"plugins may import L6 only" is a GOAL, not an invariant** — ~630 SDK imports against
-  **181 direct bypasses**, alongside **102 layer violations** and **13 unclassified packages**
-  (measured 2026-08-11: `npx tsx tools/ga-gate/check-layer-boundaries.ts` → *"within baselines
-  (violations 102/102, unclassified 13/13, sdk-bypass 181/181)"*). This bullet said **171**, which
-  was the 2026-08-09 freeze; the gate's own header now carries the full history 171 → 172 → 173 →
-  178 → 181 and the per-target tail. **Read the gate, not this line** — it is the artefact that
-  computes these, and all three are shrink-only ratchets that move most weeks.
+  **171 direct bypasses at a baseline of 182**, alongside **102 layer violations** and
+  **13 unclassified packages** (measured **2026-08-16**: `npx tsx tools/ga-gate/check-layer-boundaries.ts`
+  → **exit 0**, *"within baselines (violations 102/102, unclassified 13/13, sdk-bypass 171/182)"*).
+  This bullet previously said **181/181**; both halves were wrong — the count is **171**, and the
+  ceiling is **182**. **Read the gate, not this line** — it is the artefact that computes these, and
+  all three are shrink-only ratchets that move most weeks. Do not treat the bypass figure as
+  monotonic: it has gone both up and down, which is precisely why a hand-copied number here rots.
   The bypass count is tracked separately from the layer count rather than folded into it, because
   `plugin → renderer-three` goes *downward*: it is a facade-encapsulation breach, not a layer
   violation, and merging the two would make both numbers unreadable.
@@ -146,8 +147,23 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    not "inside `runtime-composer`". All animation subscribes to the frame bus.
    → **hard-fail at the invariant** (`tools/ga-gate/check-raf-count.ts`, exactly 1 owner).
 4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
-   **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet, it is on
-   `tools/ga-gate/gate-debt.json`, and it is **RED today at 217 casts against a baseline of 215**.
+   **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet and is on
+   `tools/ga-gate/gate-debt.json`. It is **RED — exit 3** (measured 2026-08-16), but **not for the
+   reason this bullet used to give.** It said *"217 casts against a baseline of 215"*; the gate has
+   **two arms** and that conflated them:
+   - **repo-wide**: **209 / 215** — *within* its ceiling, i.e. this arm is not what fails.
+   - **scoped** (`src`, `apps/editor/src/engine` · 201 files): **6 / 4** — **this is the breach.**
+     `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)` makes it exit **3**, not 1: being on `gate-debt.json`
+     declares that a gate *fails*, never that it may get *worse*. **Fix the casts; never raise the
+     threshold.**
+
+   ⚠ One of the six is `apps/editor/src/engine/views/PlanViewToolOverlay.ts:786`, and it is worth
+   knowing about: `(window as any)['commandManager']` aliased to `_lvl`, then `_lvl.execute(...)`.
+   Its own comment states the rationale — *"bracket notation avoids `window.commandManager` GA gate
+   pattern"*. `check:commandmanager` greps the literal string `commandManager.execute`, so it counts
+   this site as **zero**. That is roadmap §7B.5 — *a gate that classifies by NAME can be satisfied
+   by RENAMING* — and it means **`check:commandmanager`'s 51/52 PASS is not a denominator you may
+   quote.** `check-cast-count` caught what `check:commandmanager` was built to catch and missed.
    *Exit condition:* the repo-wide count reaches 0 and the gate leaves `gate-debt.json`.
 5. **P5 — Schemas are pure.** `packages/schemas/` has zero I/O, zero THREE, zero DOM imports.
    → **hard-fail at the invariant** (`tools/ga-gate/check-domain-purity.ts`, 0 impurities / 165 files).
@@ -156,10 +172,14 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    `check-no-direct-store-writes.ts` passes *at a baseline of 37 tolerated direct writes*, not at 0.
    *Exit condition:* baseline reaches 0, then flip the gate to hard-0.
 7. **P7 — Visibility intent ≠ UI state.** `packages/visibility/` is a domain concept, not UI.
-   **PARTIALLY ENFORCED:** `check-visibility-intent-not-ui.ts` ARM A is hard-0 inside
-   `packages/visibility/src` and passes; **ARM B is a ratchet and is RED today (45 direct
-   `.visible =` assignments in UI against a baseline of 43)**; the gate's own output says
-   persistence, per-view scoping and the AI intent path are **NOT CHECKED**.
+   **PARTIALLY ENFORCED:** `check-visibility-intent-not-ui.ts` **exits 0** (measured 2026-08-16).
+   ARM A is hard-0 inside `packages/visibility/src` — **20 files, 0 UI leaks**. ARM B is a ratchet
+   and reads **40 / 43** across **772 UI files** — *within* baseline, **not RED**. This bullet said
+   *"RED today (45 … against a baseline of 43)"*; that was wrong, and wrong **pessimistically** —
+   the gate passes and the count had come down, not up. The largest single holder is
+   `ProjectVisibilitySection.ts` at 13 of the 40.
+   The gate's own output still says persistence, per-view scoping and the AI intent path are
+   **NOT CHECKED**, so *"P7 holds"* remains something this gate cannot tell you.
    *Exit condition:* ARM B reaches 0 and the three unchecked axes get arms of their own.
 8. **P8 — Explicit sync conflicts + spans.** CRDT merges that lose data surface as
    user-resolvable conflicts; **every new exported function must add ≥1 OpenTelemetry span.**
