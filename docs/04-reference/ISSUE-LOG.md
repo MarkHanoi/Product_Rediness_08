@@ -5307,3 +5307,55 @@ stem endpoint distance pinned at 773 mm class); restore the T-stem follow as its
 AUTHORSHIP, never by reverting `19ddf6bb`; the L-922 regression pin (incumbent byte-identical) MUST
 STAY GREEN throughout — both directions tested side by side in one suite so they can never be traded
 off against each other again; one gesture one undo across host+stems.
+
+---
+
+## L-928 — OPEN, FOUNDER-REPORTED — INTERIOR partitions do not follow: the T-join gate refuses at penetration EXACTLY EQUAL to host thickness, and the boundary bites thin walls only
+
+**Reported 2026-08-16 on deploy `288c65e8`.** Founder: *"the wall perimeter behaves really good — but the inner wall partitions not as expected: the wall should follow along to connect — why is not happening."* **The perimeter half of this family (L-919/920/921/922/923/925/926) is CONFIRMED WORKING by the founder** — this is the interior residue.
+
+### Mechanism 1 — the boundary comparison, and why it is interior-specific
+
+```
+[WallJoinResolver] §FIX-T-JOIN-PENETRATION T-JOIN: wall_01M04KRG9S0Y2HD0H2DKN6NW42(end)
+  penetrates host=wall_01M04KR1M0AVD1CRZCGNYFEDJK by 100.0 mm but the axial retreat
+  (100.0 mm) EXCEEDS one host thickness — grazing or through-crossing, not a T-join.
+  Left un-trimmed.
+```
+
+**100.0 mm penetration · 100.0 mm retreat · "exceeds one host thickness" — on a 100 mm partition.
+100.0 is not greater than 100.0.** The predicate is `>=` where the prose says `>` (or the retreat
+double-counts a half-thickness). Perimeter walls are 200 mm, so the equality case never arises there
+— **the defect is invisible on the walls the founder just confirmed working and fires on every thin
+interior partition.** That is why the two halves diverge.
+
+Consequence: the T-join is REFUSED, the partition is *"left un-trimmed"*, it never reaches its host,
+and the loop opens. Downstream, measured in the same session:
+
+```
+§DIAG-ROOM-LOOP BREAK guest=…NW42 on host=…ESXCF body — endpoint 975mm from centreline
+  EXCEEDS hostSnap 200mm → loop will NOT close (flood/merge risk)      (×3)
+§DIAG-PARTITION-REACH reconnected … closed a 775mm dangling gap (resolver-trim recovery)
+§DIAG-PARTITION-REACH reconnected … closed a 752mm dangling gap
+§OPENED-REGION — Room 00-001 (17.9 m²) merged into the space next to it (gap 3.39 m), rooms 5 → 4
+```
+
+⚠ **`§DIAG-PARTITION-REACH` is a RESCUER, and its own text says `resolver-trim recovery`** — it is
+patching 775 mm and 752 mm gaps the resolver should never have left. A rescuer firing is evidence of
+the defect, not of health; L-909a's lesson was that fixing the rescuer instead of the emitter leaves
+the emitter broken. **Fix the gate; do not tune the rescuer.**
+
+### Mechanism 2 — candidate, to be MEASURED not assumed
+
+The failing stems are interior-to-interior (`…NW42` on `…FEDJK`, `…NW42` on `…ESXCF`), while the
+moved wall was `…WH31`. If L-926's restored stem-follow only re-seats partners returned by the
+moved wall's OWN `joinedTo` set, a partition chained through ANOTHER partition is not in that set
+and never follows — the follow would need to be transitive across the interior chain, or the
+`§DIAG-PARTITION-REACH` gaps re-open one link down. **Measure whether the 975 mm stems are
+first-degree partners of the moved wall or second-degree; the fix differs completely.**
+
+**Owner:** lane L928. Discipline: measure both mechanisms before fixing; the boundary case gets an
+exact-equality fixture at 100 mm AND at 200 mm (so the perimeter behaviour the founder just
+confirmed is pinned as a control that must not move); no rescuer tuning; C83 §10 authorship still
+governs (dependents follow, incumbents never move); tolerances consumed from `@pryzm/geometry-kernel`
+per C73 §2.2.
