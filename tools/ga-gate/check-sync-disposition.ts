@@ -56,6 +56,39 @@
  *       is a NOTE, because a stale register is `check-verb-register`'s own hard
  *       failure and double-reporting it would teach people to ignore one of them.
  *
+ *   S7  RUNTIME PARITY. Every discovered handler type — not merely the ones whose
+ *       NAME looks like a property mutation — carries a disposition, because the
+ *       RUNTIME holds every dispatched type to one. See §FIX-SYNC-GATE-NAME-SCOPED
+ *       below; this is the arm whose absence let the gate print ✓ while production
+ *       logged the exact defect the gate exists to catch.
+ *
+ * ─── §FIX-SYNC-GATE-NAME-SCOPED (2026-08-17, L-937) — GREEN WHILE PRODUCTION WARNED ───
+ *
+ * The founder hit this twice in one live session:
+ *
+ *     [YjsDocAdapter] W5-3: command type 'generation.rooms' has NO sync disposition.
+ *     [YjsDocAdapter] W5-3: command type 'stair.createRailing' has NO sync disposition.
+ *
+ * …while THIS GATE EXITED 0. Not a discovery gap this time — S6 proved the handler
+ * set agreed with the register at 326 verbs, both directions. A SUBJECT gap:
+ *
+ *   • the RUNTIME (`YjsDocAdapter._applyDeclaredProperties`) warns for EVERY command
+ *     type it is handed, and `CommandBus` hands it every successful dispatch;
+ *   • the GATE held only the 185 verbs matching `PROPERTY_VERB_RE`, a NAME-SHAPE
+ *     heuristic. The other 141 were never asked for a disposition at all.
+ *
+ * `generation.rooms` fails the regex on its second segment; `stair.createRailing`
+ * fails it because "createRailing" begins with `create`. Neither was a hard case —
+ * they were simply OUTSIDE THE GATE'S SUBJECT, and a gate whose subject is a strict
+ * subset of the runtime's can be green while the runtime warns, forever. That is
+ * roadmap §7B.5 — A GATE THAT CLASSIFIES BY NAME CAN BE SATISFIED BY RENAMING —
+ * in its purest form: `wall.updateHeight` is held, `wall.heightUpdate` would not be.
+ *
+ * S7 closes it by making the gate's subject IDENTICAL to the runtime's: the whole
+ * discovered handler set. `isPropertyVerb` survives only as a REPORTING split, so
+ * the "property verbs" statistic the register cites stays comparable — it is no
+ * longer what decides whether a verb must be declared.
+ *
  * ─── §FIX-SYNC-GATE-UNDERSCOPED (2026-08-11) — this gate's OWN first draft ───
  *
  * Discovery originally matched the OBJECT-LITERAL handler form only
@@ -248,18 +281,37 @@ if (propertyVerbs.length < MIN_PROPERTY_VERBS) {
   );
 }
 
-// ── S1 — declared or failing ────────────────────────────────────────────────
-let undeclaredCount = 0;
-for (const type of propertyVerbs) {
+// ── S1 / S7 — declared or failing ───────────────────────────────────────────
+//
+// ONE loop over the WHOLE handler set, because that is the runtime's subject
+// (§FIX-SYNC-GATE-NAME-SCOPED). `isPropertyVerb` now only labels the failure so
+// the two populations stay legible in the report; it no longer gates whether a
+// verb must be declared. Do NOT re-narrow this loop to `propertyVerbs`.
+let undeclaredCount = 0;          // property verbs — the S1 population
+let undeclaredOtherCount = 0;     // every other handler type — the S7 population
+for (const type of [...handlerTypes.keys()].sort()) {
   if (Object.prototype.hasOwnProperty.call(SYNC_DISPOSITIONS, type)) continue;
-  undeclaredCount += 1;
-  failures.push(
-    `S1 ${type} (${handlerTypes.get(type)}): a property-mutation command with NO sync ` +
-    `disposition. Its payload does not reach the CRDT document, and nothing anywhere ` +
-    `says so — a collaborator keeps the previous value, confidently. Declare it in ` +
-    `packages/sync-client/src/syncDisposition.ts: either an { kind: 'element-property' } ` +
-    `path, or { kind: 'not-synced', reason } saying why replication is wrong here.`,
-  );
+  if (isPropertyVerb(type)) {
+    undeclaredCount += 1;
+    failures.push(
+      `S1 ${type} (${handlerTypes.get(type)}): a property-mutation command with NO sync ` +
+      `disposition. Its payload does not reach the CRDT document, and nothing anywhere ` +
+      `says so — a collaborator keeps the previous value, confidently. Declare it in ` +
+      `packages/sync-client/src/syncDisposition.ts: either an { kind: 'element-property' } ` +
+      `path, or { kind: 'not-synced', reason } saying why replication is wrong here.`,
+    );
+  } else {
+    undeclaredOtherCount += 1;
+    failures.push(
+      `S7 ${type} (${handlerTypes.get(type)}): a registered handler type with NO sync ` +
+      `disposition. Its name does not look like a property mutation, but the RUNTIME does ` +
+      `not classify by name — YjsDocAdapter._applyDeclaredProperties warns for EVERY ` +
+      `dispatched type, and CommandBus hands it every successful dispatch. This is the ` +
+      `L-937 shape: gate green, production warning. Declare it in ` +
+      `packages/sync-client/src/syncDisposition.ts: either an { kind: 'element-property' } ` +
+      `path, or { kind: 'not-synced', reason } saying why replication is wrong here.`,
+    );
+  }
 }
 
 // ── S2 / S3 / S4 — the declaration must not be hollow ───────────────────────
@@ -392,12 +444,16 @@ const lww = declared.filter(d => d.kind === 'element-property' && d.conflict ===
 
 const bar = '─'.repeat(78);
 console.log(bar);
-console.log('W5-3 §SYNC-DISPOSITION-DECLARED — every property verb declares its sync fate');
+console.log('W5-3 §SYNC-DISPOSITION-DECLARED — every REGISTERED verb declares its sync fate');
 console.log(bar);
 console.log(`Handler files read                   : ${filesRead}  (floor ${MIN_FILES})`);
 console.log(`Registered handler types found       : ${handlerTypes.size}  (floor ${MIN_HANDLER_TYPES})`);
+console.log(`  …ALL of them must declare (S7)     : ${handlerTypes.size}  ← the RUNTIME's subject`);
+console.log(`  …UNDECLARED, whole set             : ${undeclaredCount + undeclaredOtherCount}`);
 console.log(`  …classified as property mutations  : ${propertyVerbs.length}  (floor ${MIN_PROPERTY_VERBS})`);
-console.log(`  …of those, UNDECLARED              : ${undeclaredCount}`);
+console.log(`     …of those, UNDECLARED (S1)      : ${undeclaredCount}`);
+console.log(`  …NOT name-shaped as properties     : ${handlerTypes.size - propertyVerbs.length}`);
+console.log(`     …of those, UNDECLARED (S7)      : ${undeclaredOtherCount}`);
 console.log(`Declarations                         : ${declared.length}`);
 console.log(`  …with a CRDT path (element-property): ${wired}  (${lww} declared last-writer-wins)`);
 console.log(`  …declared NOT-SYNCED with a reason : ${notSynced}`);
@@ -429,5 +485,8 @@ if (failures.length > 0) {
   for (const f of failures) console.error(`   • ${f}\n`);
   process.exit(1);
 }
-console.log('\n✓ Every property-mutation command type declares its sync disposition.\n');
+console.log(
+  `\n✓ All ${handlerTypes.size} registered command types declare a sync disposition — the ` +
+  `same subject\n  the runtime holds (S7), not just the ${propertyVerbs.length} whose NAME reads as a property mutation.\n`,
+);
 process.exit(0);

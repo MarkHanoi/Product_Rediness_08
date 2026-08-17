@@ -737,6 +737,291 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'slab.setMaterial':         { kind: 'not-synced', reason: 'REFUSES (§FIX-DEAD-VERB-REFUSE): unconditional canExecute rejection; detached plugin DTO store. Live route: slab.update / slab.updateDimensions.' },
   'stair.setMaterial':        { kind: 'not-synced', reason: 'REFUSES (§FIX-DEAD-VERB-REFUSE): unconditional canExecute rejection; detached plugin DTO store. Live route: stair.updateParameters.' },
   'structural.setMaterial':   { kind: 'not-synced', reason: 'REFUSES (§FIX-DEAD-VERB-REFUSE): unconditional canExecute rejection; detached plugin DTO store. No live per-element colour route exists for structural today.' },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §FIX-SYNC-GATE-NAME-SCOPED (2026-08-17, L-937) — the 127 verbs the gate
+  // never ASKED about
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Everything above this line was authored against a gate that held only the
+  // verbs whose NAME matched `PROPERTY_VERB_RE` — 185 of the 326 registered
+  // handler types. The RUNTIME has never classified by name: `CommandBus` hands
+  // `YjsDocAdapter._applyDeclaredProperties` EVERY successful dispatch, and it
+  // warns on every type with no entry here. So the gate could sit at exit 0 while
+  // the founder watched production log this, twice in one session:
+  //
+  //     [YjsDocAdapter] W5-3: command type 'generation.rooms' has NO sync disposition.
+  //     [YjsDocAdapter] W5-3: command type 'stair.createRailing' has NO sync disposition.
+  //
+  // Neither verb was a hard case. `generation.rooms` fails the regex on its second
+  // segment; `stair.createRailing` fails it because "createRailing" starts with
+  // `create`. They were simply never in the gate's subject. 127 were not. The gate
+  // now carries S7, whose subject is the whole handler set — identical to the
+  // runtime's — so this class cannot regrow.
+  //
+  // ─── WHAT THE SWEEP FOUND, stated before the entries ────────────────────────
+  //
+  // 23 of the 127 are ELEMENT-PROPERTY. The other 104 are NOT-SYNCED, and that
+  // ratio is not a shortcut — it is the finding. Three whole LIFECYCLE families
+  // have no representation in this file's type system at all:
+  //
+  //   • DELETION (28 verbs). `ElementPropertyDisposition` replicates non-subject
+  //     payload keys as properties. A delete payload is `{ <x>Id }` and nothing
+  //     else, so the generic path extracts ZERO properties and returns early —
+  //     declaring a delete `element-property` would read as "synced" while
+  //     provably writing nothing. And there is no read-back route either:
+  //     `elementSyncReader.ts:261` says `if (change.action === 'delete') continue;
+  //     // deletion is not a property route`. Measured, not assumed. A
+  //     collaborator therefore keeps a deleted element FOREVER. That needs a
+  //     tombstone/lifecycle disposition kind; it is out of this sweep's scope and
+  //     it is named here rather than left as an absence.
+  //   • BATCH CREATION (12 verbs). `*.batch.create` takes `{ <x>s: Payload[] }`
+  //     and runs ONE `produceCommand` over the array — it does NOT re-dispatch the
+  //     singular `*.create` verbs, so the singular declarations above do not cover
+  //     it. Multi-subject, which this file cannot express (see
+  //     `element.updateDimensionsBatch`). This is the path GENERATION uses, so it
+  //     is the widest single replication gap in the table.
+  //   • DOCUMENT MOVE (`wall.changeLevel`, `roof.changeLevel`). `levelId` is
+  //     ADR-049 routing and is in GLOBAL_PROPERTY_EXCLUDES, so a level
+  //     REASSIGNMENT is precisely the mutation the property path is built to
+  //     discard.
+  //
+  // ⚠ The same caveat the §FIX-SYNC-GATE-UNDERSCOPED block states applies verbatim
+  // to every entry below: declaring a verb `element-property` asserts the MAPPING
+  // (its payload is {subject, properties} as declared), never that its local
+  // execution reaches authoritative state, and never that production replicates —
+  // no CRDT transport is deployed (L-391).
+
+  // ── ELEMENT-PROPERTY: creation verbs carrying a subject id ─────────────────
+  //
+  // Same shape and same precedent as `wall.create` / `slab.create` / `door.create`
+  // / `opening.create` / `stair.create` above: the payload's id key is OPTIONAL and
+  // the handler mints one (`cmd.id ?? createId('beam')`) when it is absent. When a
+  // caller DOES supply the id — which the tools and batch paths do — the create
+  // replicates and a later property edit merges onto the same record. When it does
+  // not, `extractElementProperties` returns null and the adapter REPORTS an
+  // unresolved subject. Declaring these not-synced would forfeit the working half
+  // to avoid a case that is already loud.
+  'annotation.create':  { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'beam.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'ceiling.create':     { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'column.create':      { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'curtain-wall.create':{ kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'dimension.create':   { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'floor.create':       { kind: 'element-property', subject: 'floorId', conflict: 'disclose' },
+  'furniture.create':   { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'grid.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'handrail.create':    { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'lighting.create':    { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'plumbing.create':    { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  // `wallIds` / `floorSlabId` / `waterId` are the pool's COMPOSITION references —
+  // properties of the pool naming its parts, not second subjects.
+  'pool.create':        { kind: 'element-property', subject: 'poolId',  conflict: 'disclose' },
+  'roof.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'room.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'structural.create':  { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+  'wall.createBetweenMarks': { kind: 'element-property', subject: 'id', conflict: 'disclose' },
+  // `wallId` / `openingId` are the window's HOST references — absolute properties
+  // of the window (C15), exactly as `handrail.setHost`'s `hostId` is.
+  'window.create':      { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
+
+  // ── ELEMENT-PROPERTY: absolute mutations the name heuristic missed ─────────
+  //
+  // Each carries a subject id and ABSOLUTE values. These are the verbs that were
+  // undeclared purely because their name does not begin with a mutation word —
+  // the clearest demonstration that the old scoping was about spelling, not shape.
+  'curtain-wall.resize': { kind: 'element-property', subject: 'curtainWallId', conflict: 'disclose' },
+  // ABSOLUTE `rotation`, not a delta — contrast `furniture.move`, which carries
+  // `delta` and is not-synced for that reason.
+  'furniture.rotate':    { kind: 'element-property', subject: 'furnitureId',   conflict: 'disclose' },
+  'stair.rotate':        { kind: 'element-property', subject: 'stairId',       conflict: 'disclose' },
+  // The recomputed `path` is the absolute new geometry. `cause` and `stairId` are
+  // RECOMPUTE PROVENANCE — why this ran and what triggered it — not handrail
+  // state; the handrail's own host reference is `hostId` (see handrail.setHost).
+  // Replicating provenance would put "cause" on the element record.
+  'handrail.recompute':  {
+    kind: 'element-property', subject: 'handrailId', exclude: ['cause', 'stairId'], conflict: 'disclose',
+  },
+  // Swaps a PLACED element's type IN PLACE, preserving id/transform/host
+  // (ADR-0105). `newTypeId` is absolute state; `elementType` is family ROUTING,
+  // excluded on the same grounds as `element.updateMark` above.
+  'element.changeType':  {
+    kind: 'element-property', subject: 'elementId', exclude: ['elementType'], conflict: 'disclose',
+  },
+
+  // ── NOT SYNCED — DELETION: no lifecycle route exists, in either direction ──
+  //
+  // Read the block comment at the head of this section first. In one line: the
+  // property path extracts zero properties from `{ <x>Id }` and returns early, and
+  // `elementSyncReader.ts:261` refuses deletion explicitly. Declaring any of these
+  // `element-property` would be the worst available answer — a CRDT path that
+  // reads as replication and demonstrably writes nothing. They are declared
+  // not-synced so the gate holds them and so the missing kind is on the record.
+  // §NEEDS-TOMBSTONE-KIND.
+  'annotation.delete':  { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: a delete is a record REMOVAL. Payload is `{annotationId}` only, so the property path extracts nothing, and elementSyncReader refuses deletion outright. Needs a tombstone disposition kind.' },
+  'beam.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{beamId}` only; no property survives extraction and no read-back route accepts a removal. See annotation.delete.' },
+  'ceiling.delete':     { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{ceilingId}` only. See annotation.delete.' },
+  'column.delete':      { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{columnId}` only. See annotation.delete.' },
+  'curtain-wall.delete':{ kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{curtainWallId}` only. See annotation.delete.' },
+  'dimension.delete':   { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{dimensionId}` only. See annotation.delete.' },
+  'door.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{doorId}` only. A hosted opening also leaves a void in its host wall, so the tombstone kind must carry the host consequence too. See annotation.delete.' },
+  'window.delete':      { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{windowId}` only; same host-void consequence as door.delete. See annotation.delete.' },
+  'element.delete':     { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: the generic single-element delete; payload is `{elementId, elementType?, source?}` — routing and provenance, no properties. See annotation.delete.' },
+  'element.deleteBatch':{ kind: 'not-synced', reason: 'LIFECYCLE + MULTI-SUBJECT: payload is `{elementIds: string[]}`. Both blockers at once — no tombstone kind exists, and one `subject` key cannot name a set. See annotation.delete and element.updateDimensionsBatch.' },
+  'furniture.delete':   { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{furnitureId}` only. See annotation.delete.' },
+  'grid.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{gridId}` only. See annotation.delete.' },
+  'handrail.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{handrailId}` only. See annotation.delete.' },
+  'lighting.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{lightingId}` only. See annotation.delete.' },
+  'plumbing.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{plumbingId}` only. See annotation.delete.' },
+  'pool.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{poolId}` only, and the handler also removes the pool\'s composed walls/slabs — a CASCADE the tombstone kind must express. See annotation.delete.' },
+  'roof.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{roofId}` only. See annotation.delete.' },
+  'room.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{roomId}` only. See annotation.delete.' },
+  'slab.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{slabId}` only. See annotation.delete.' },
+  'stair.delete':       { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{stairId}` only. See annotation.delete.' },
+  'structural.delete':  { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{structuralId}` only. See annotation.delete.' },
+  'wall.delete':        { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{id}` only. The sharpest instance — a wall a collaborator deleted stays standing in every other document, indefinitely. See annotation.delete.' },
+  'schedule.delete':    { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and also a DOCUMENTATION OBJECT whose replication is itself undecided (see schedule.setFilter / view.rename). Two independent blockers.' },
+  'section.delete':     { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and a view definition whose replication is undecided. See section.moveLine and annotation.delete.' },
+  'sheet.delete':       { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and a documentation object whose replication is undecided. See sheet.rename and annotation.delete.' },
+  'view.deleteDefinition': { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and view definitions are the OPEN QUESTION `view.rename` records. The pre-existing `view.delete` entry above declares the same thing under the other key.' },
+  'viewTemplate.delete':{ kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND, and a view template is the undecided class `viewTemplate.update` names. See view.rename.' },
+  'elementType.delete': { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND on a TYPE CATALOGUE entry — not a placed element at all. See elementType.update for the catalogue-scope kind this needs.' },
+
+  // ── NOT SYNCED — BATCH CREATION: multi-subject, and the widest gap here ────
+  //
+  // `*.batch.create` takes `{ <x>s: readonly CreatePayload[] }` and runs ONE
+  // `produceCommand` over the whole array (§batch-perf). It does NOT re-dispatch
+  // the singular `*.create` verbs, so the singular declarations above cover none
+  // of this traffic. `ElementPropertyDisposition` names exactly one `subject` key
+  // resolving to one id STRING; an array of payloads has no representation here —
+  // the same missing shape `element.updateDimensionsBatch` records.
+  //
+  // ⚠ This is the path GENERATION runs on. Every wall, slab and door a generator
+  // produces arrives through these verbs, so "generation does not replicate" is
+  // this entry, not the `generation.*` entries below.
+  // §NEEDS-MULTI-SUBJECT-KIND.
+  'beam.batch.create':        { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: payload is `{beams: CreateBeamPayload[]}` applied in ONE produceCommand; no singular create is re-dispatched. One `subject` key cannot name an array.' },
+  'ceiling.batch.create':     { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{ceilings: CreateCeilingPayload[]}`. See beam.batch.create.' },
+  'column.batch.create':      { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{columns: CreateColumnPayload[]}`. See beam.batch.create.' },
+  'curtain-wall.batch.create':{ kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{curtainWalls?: CreateCurtainWallPayload[]}`, and it can also DERIVE the set from `slabId` — so the subject may not be in the payload at all. See beam.batch.create.' },
+  'door.batch.create':        { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{doors: CreateDoorPayload[]}`. See beam.batch.create.' },
+  'furniture.batch.create':   { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{furniture: CreateFurnitureBatchEntry[]}`. See beam.batch.create.' },
+  'slab.batch.create':        { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{slabs: CreateSlabPayload[]}`. See beam.batch.create.' },
+  'stair.batch.create':       { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{stairs: CreateStairPayload[]}`. See beam.batch.create.' },
+  'wall.batch.create':        { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{walls: CreateWallPayload[]}` — the highest-traffic creation verb in the product, and the one every generator uses. See beam.batch.create.' },
+  'window.batch.create':      { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{windows: CreateWindowPayload[]}`. See beam.batch.create.' },
+  'curtain-wall.batch.update':{ kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{updates: {id, updates}[]}` — a per-element patch LIST. See beam.batch.create.' },
+  'curtain-wall.batch.delete':{ kind: 'not-synced', reason: 'MULTI-SUBJECT + LIFECYCLE: `{ids: string[]}`. Both missing kinds at once — see beam.batch.create and annotation.delete.' },
+
+  // ── NOT SYNCED — DERIVED-MULTI CREATION: the subject is minted inside ──────
+  //
+  // Each of these creates N elements whose ids are MINTED INSIDE the handler from
+  // a derived set (every slab, every floor, a slab perimeter, a wall list). The
+  // adapter cannot key records it has no ids for — the same objection `grid.add`
+  // records. Not the batch shape above: here the payload does not even carry the
+  // element payloads, only the parameters used to derive them.
+  'curtain-wall.create-on-all-slabs': { kind: 'not-synced', reason: 'DERIVED-MULTI: payload is `{height?, gridXSpacing?, gridYSpacing?}` — the SET is resolved from every slab in the local store and every id is minted inside. No subject exists in the payload; see grid.add.' },
+  'slab.create-on-all-floors':        { kind: 'not-synced', reason: 'DERIVED-MULTI: payload is placement parameters only; the target floors and the new slab ids are resolved and minted inside. See grid.add.' },
+  'wall.create-on-all-slabs':         { kind: 'not-synced', reason: 'DERIVED-MULTI: payload is `{wallHeight?, wallThickness?}`; walls and their ids are derived from every slab inside the handler. See grid.add.' },
+  'wall.createFromSlab':              { kind: 'not-synced', reason: 'DERIVED-MULTI: payload is a `perimeter` polygon; ONE wall per edge is minted inside via createId(\'wall\'). Multi-subject with no ids in the payload. See grid.add.' },
+  'dimension.createMany':             { kind: 'not-synced', reason: 'MULTI-SUBJECT: payload is `{dimensions: CreateDimensionPayload[]}` — an array, which one `subject` key cannot name. See beam.batch.create.' },
+  'window.parametricCreate':          { kind: 'not-synced', reason: 'DERIVED-MULTI + LATE-BOUND: `wallIds: string[] | "all"` selects the hosts, and N window ids are minted inside. Both the wall.updateColorBatch "all" seam and the missing multi-subject kind. See grid.add.' },
+  'plumbing.createFixture':           { kind: 'not-synced', reason: 'SUBJECT DOES NOT EXIST IN THE PAYLOAD: payload is `{fixtureType, position, …}` with no id key at all — the fixture id is minted inside CreatePlumbingFixtureHandler. Contrast plumbing.create, which accepts `id` and IS declared synced. See grid.add.' },
+  // §L-937 — one of the TWO verbs the founder saw warn live.
+  'stair.createRailing':              { kind: 'not-synced', reason: 'SUBJECT DOES NOT EXIST IN THE PAYLOAD: `stairId` is the HOST, not the subject — the railing\'s own id is minted inside CreateStairRailingCommand on the legacy commandManager path, and the bus handler returns an EMPTY patch pair. Declaring `stairId` would write the railing\'s dimensions onto the STAIR record. Needs the handler to surface the minted railing id, exactly as grid.add does.' },
+  'wall.createOpening':               { kind: 'not-synced', reason: 'COLLECTION: inserts an `opening` record into the host wall\'s opening list; the member carries its own id and the payload keys the WALL. The single-subject path would store the opening object as a property of the wall. See curtain-wall.addPanel.' },
+  'wall.opening.create':              { kind: 'not-synced', reason: 'COLLECTION: the legacy-adapter twin of wall.createOpening — `{wallId, openingData}`, a list insert on the host wall. See curtain-wall.addPanel.' },
+
+  // ── NOT SYNCED — TOPOLOGY EDITS: one subject in, different subjects out ────
+  'wall.cut':   { kind: 'not-synced', reason: 'TOPOLOGY: consumes wall `id` and produces TWO walls whose ids (`leftId`/`rightId`) are optional in the payload and minted inside otherwise. A create, a create and a delete in one dispatch — expressible by none of the three kinds this file has.' },
+  'wall.split': { kind: 'not-synced', reason: 'TOPOLOGY: the same payload and the same one-in/two-out shape as wall.cut.' },
+  'wall.join':  { kind: 'not-synced', reason: 'MULTI-SUBJECT TOPOLOGY: payload is `{idA, endpointA, idB, endpointB}` — TWO wall subjects welded at named endpoints. One `subject` key cannot name a pair, and the result mutates both.' },
+  'roof.joinRoofs': { kind: 'not-synced', reason: 'MULTI-SUBJECT TOPOLOGY: `{sourceId, targetId}` — merges the source into the target and removes the source. Two subjects plus a deletion; see wall.join and annotation.delete.' },
+  'wall.transform': { kind: 'not-synced', reason: 'RELATIVE: a discriminated union whose `move` arm carries `delta: XZPoint`, applied to the baseline. A displacement is not a property and is not base-independent — see annotation.move.' },
+  'curtain-wall.rotatePanel': { kind: 'not-synced', reason: 'COLLECTION + RELATIVE: mutates ONE panel inside the curtain wall\'s panel list, and its `deltaDeg` arm is a displacement. Both class-2 and class-3 objections apply; see curtain-wall.addPanel and annotation.move.' },
+  'curtain-wall.swapPanel':   { kind: 'not-synced', reason: 'COLLECTION: replaces the kind/material of ONE panel keyed by `panelId` inside the host wall\'s list. See curtain-wall.setPanelType, which is the same edit under another name.' },
+  'schedule.column.add':      { kind: 'not-synced', reason: 'COLLECTION on a DOCUMENTATION OBJECT: splices a column into the schedule\'s column list at `at`. Position-keyed list edits merge wrongly as scalars (see slab.removeHole), and whether schedules replicate at all is undecided (schedule.setFilter).' },
+  'schedule.column.remove':   { kind: 'not-synced', reason: 'COLLECTION on a DOCUMENTATION OBJECT: removes `columnId` from the schedule\'s column list. See schedule.column.add.' },
+  'sheet.reorder':            { kind: 'not-synced', reason: 'COLLECTION on a DOCUMENTATION OBJECT: splices the sheet to `newIndex` in the sheet ORDER — the mutated state is the list, not the sheet. See sheet.addViewport and sheet.rename.' },
+
+  // ── NOT SYNCED — DOCUMENT MOVE: levelId is routing, so a re-route is invisible ─
+  //
+  // `levelId` is in GLOBAL_PROPERTY_EXCLUDES because ADR-049 uses it to SELECT the
+  // Y.Doc. A level reassignment is therefore the one mutation the property path is
+  // built to discard: it would replicate `newElevationY` into the element's OLD
+  // document and leave the element in a level it no longer belongs to. Needs a
+  // document-move disposition kind.
+  'wall.changeLevel': { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{id, newLevelId, newElevationY}` re-homes the wall to another ADR-049 per-level doc. levelId is CRDT ROUTING, not a property, so the generic path would write the elevation into the doc the wall is leaving.' },
+  'roof.changeLevel': { kind: 'not-synced', reason: 'DOCUMENT MOVE §NEEDS-DOC-MOVE-KIND: `{roofId, levelId}` — and `levelId` is in GLOBAL_PROPERTY_EXCLUDES, so extraction yields ZERO properties and the declaration would replicate literally nothing while reading as synced. See wall.changeLevel.' },
+  'level.duplicate-floor-plan': { kind: 'not-synced', reason: 'DERIVED-MULTI ACROSS DOCS: `{sourceLevelId, targetLevelIds[]}` copies a whole level\'s elements into N other levels, minting every id inside. A level is not an element (see level.add), the target is a set, and the ids do not exist in the payload.' },
+
+  // ── NOT SYNCED — ORCHESTRATION TRIGGERS (the founder\'s other warning) ──────
+  //
+  // §L-937. `generation.rooms` was the second live warning, and the disposition is
+  // NOT a shortcut: the payload is a BRIEF (`typology`, `floors`, `bedrooms`), with
+  // no element subject anywhere in it. The generators mutate through the element
+  // and BATCH commands they dispatch downstream, so the state to replicate is
+  // those commands' — replicating the TRIGGER would sync the instruction instead,
+  // and each receiving client would RE-RUN a scored, non-deterministic generator
+  // and arrive at a DIFFERENT building. That is strictly worse than not
+  // replicating. The `room.redetect` entry records the same reasoning for a
+  // recompute.
+  //
+  // ⚠ NOT ASSERTED HERE: that the generated elements therefore reach a peer. They
+  // travel on `*.batch.create`, which is declared NOT-SYNCED above for want of a
+  // multi-subject kind. Naming the trigger correctly does not close that.
+  'generation.building':      { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is a BRIEF (`typology`, `floors`, `roofKind`) with no element subject. The state lives in the element/batch commands the generator dispatches; replicating the trigger would re-run a non-deterministic generator on each peer and produce a different building. See room.redetect.' },
+  'generation.apartment':     { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is a BRIEF (`bedrooms`, `bathrooms`, `masterEnSuite`). See generation.building.' },
+  'generation.rooms':         { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER (§L-937 — one of the two verbs the founder saw warn live): payload is a room BRIEF with no element subject; the rooms it produces are dispatched as their own commands. See generation.building.' },
+  'generation.finish-chain':  { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: chains ceiling → furnish → light over an already-generated layout. No element subject; every mutation is a downstream command. See generation.building.' },
+  'generative.applyLayout':   { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is `{layout, levelId, levelHeight}` — a whole layout DTO plus a level, not an element. The elements it materialises carry their own commands. See generation.building.' },
+  'room.regenerate':          { kind: 'not-synced', reason: 'DERIVED RECOMPUTE with a LEVEL subject: `{levelId, roomIds?, generator?}` re-derives rooms from wall geometry. Identical reasoning to room.redetect — a level is not an element, and a recompute trigger is an instruction, not state.' },
+  'room.recomputeBoundary':   { kind: 'not-synced', reason: 'DERIVED RECOMPUTE: `{roomId, cascadedFrom?, wallId?}` carries NO boundary — the new geometry is derived inside from the walls. The payload is provenance, so the generic path would replicate `cascadedFrom` and `wallId` as properties of the room. See room.redetect.' },
+
+  // ── NOT SYNCED — QUERIES: nothing is mutated, so nothing can replicate ─────
+  //
+  // These are READ verbs registered on the bus so the RAC can ask the semantic
+  // graph questions. They return an answer on the command record and mutate no
+  // store. A disposition is required (the runtime warns on every dispatched type)
+  // but replication is not merely unwired here — it is meaningless.
+  'graph.query':     { kind: 'not-synced', reason: 'QUERY, NOT A MUTATION: reads the semantic graph for `{elementId, relationshipType}` and returns the answer to the caller. It writes no store, so there is no state to replicate — each client queries its own graph.' },
+  'graph.neighbors': { kind: 'not-synced', reason: 'QUERY, NOT A MUTATION: reads adjacent elements for `elementId`. See graph.query.' },
+  'graph.path':      { kind: 'not-synced', reason: 'QUERY, NOT A MUTATION: reads a circulation path between `fromRoomId` and `toRoomId`. See graph.query.' },
+
+  // ── NOT SYNCED — PER-VIEWER / PER-USER state (P7), correctly local ─────────
+  'view.hideElement':       { kind: 'not-synced', reason: 'Per-viewer visibility override keyed by (viewId, elementId); the plugin-side twin of element.hideInView above, and local for the same reason.' },
+  'view.isolateElement':    { kind: 'not-synced', reason: 'Per-viewer isolation keyed by (viewId, elementId); the twin of element.isolateInView. Replicating it would blank a collaborator\'s view.' },
+  'view.clearOverride':     { kind: 'not-synced', reason: 'COMPOSITE SUBJECT — clears the override at (viewId, targetKind, targetId). The inverse of view.setGraphicOverride and unreplicated for the same two reasons: the path is single-subject and views are unreplicated.' },
+  'view.clearAllOverrides': { kind: 'not-synced', reason: 'Clears EVERY graphic override in one view. The subject is the VIEW, not an element, and views are unreplicated (see view.rename).' },
+  'selection.deselect':     { kind: 'not-synced', reason: 'Selection is per-user and travels over PRESENCE/awareness, not the document; the third member of selection.select / selection.clear above.' },
+  'copy-selection':         { kind: 'not-synced', reason: 'Per-user CLIPBOARD: the payload is empty (`Record<string, never>`) and the handler copies the local selection into a local clipboard buffer. Nothing about one user\'s clipboard is model state.' },
+  'paste-clipboard':        { kind: 'not-synced', reason: 'Per-user clipboard READ that creates N elements with ids minted inside (`freshId()`). Empty payload, so no subject exists to key; the pasted elements need the multi-subject kind. See copy-selection and grid.add.' },
+  'zoom-fit':               { kind: 'not-synced', reason: 'Per-viewer CAMERA fit with an empty payload; replicating it would yank a collaborator\'s camera. Same owner as view.updateCamera (C66 §4, CameraPositionService).' },
+  'zoom-selected':          { kind: 'not-synced', reason: 'Per-viewer camera fit to the local selection — doubly local, since the selection it reads is per-user too. See zoom-fit.' },
+
+  // ── NOT SYNCED — NON-ELEMENT SUBJECTS: hierarchy, catalogue, view, intent ──
+  'hierarchy.createSite':     { kind: 'not-synced', reason: 'PROJECT HIERARCHY node, not an element — the creation counterpart of hierarchy.updateNode above, and blocked by the same missing coordination-scope kind.' },
+  'hierarchy.createBuilding': { kind: 'not-synced', reason: 'PROJECT HIERARCHY node (building under a site). See hierarchy.createSite and hierarchy.updateNode.' },
+  'hierarchy.createLevel':    { kind: 'not-synced', reason: 'PROJECT HIERARCHY node, and its `bimLevelId` collides with the ADR-049 routing that level.add names. See hierarchy.updateNode.' },
+  'hierarchy.createUnit':     { kind: 'not-synced', reason: 'PROJECT HIERARCHY node (unit under a level). See hierarchy.createSite.' },
+  'data.markPropertyDerived': { kind: 'not-synced', reason: 'PROVENANCE on a hierarchy node, not a value: `{nodeId, key, reason}` marks ONE property key as derived. Same class as data.setDerivation above — the subject is a node and the payload is a key name.' },
+  'data.clearPropertyDerived':{ kind: 'not-synced', reason: 'PROVENANCE on a hierarchy node: clears the derived mark for `{nodeId, key}`. See data.markPropertyDerived.' },
+  'elementType.create':       { kind: 'not-synced', reason: 'TYPE CATALOGUE entry — project LIBRARY state, not a placed element, and keyed by (family, typeId). Needs the catalogue-scope kind elementType.update names.' },
+  'elementType.duplicate':    { kind: 'not-synced', reason: 'TYPE CATALOGUE entry cloned to a new (family, typeId). See elementType.create and elementType.update.' },
+  'template.create':          { kind: 'not-synced', reason: 'ROOM TEMPLATE — a reusable library record with a `scope`, not a placed element. Same catalogue-scope objection as elementType.create.' },
+  'template.assignToNode':    { kind: 'not-synced', reason: 'COMPOSITE SUBJECT: binds `templateId` to a HIERARCHY NODE (`nodeId`, `nodeType`). Neither end is an element — see hierarchy.updateNode and elementType.update.' },
+  'template.unassign':        { kind: 'not-synced', reason: 'Removes the template binding from hierarchy node `nodeId`. See template.assignToNode.' },
+  'viewTemplate.create':      { kind: 'not-synced', reason: 'OPEN QUESTION (documentation object): a VIEW TEMPLATE is the undecided class viewTemplate.update records. See view.rename.' },
+  'view.createDefinition':    { kind: 'not-synced', reason: 'OPEN QUESTION: a VIEW DEFINITION — precisely what view.rename declines to decide. The pre-existing `view.create` entry above declares the same thing under the other key.' },
+  'elevation.create':         { kind: 'not-synced', reason: 'OPEN QUESTION: an ELEVATION MARK creates a view definition plus a navigable marker — the same undecided class as section.moveLine and view.rename.' },
+  'section.create':           { kind: 'not-synced', reason: 'OPEN QUESTION: a SECTION is a view definition with a cut line. See section.moveLine and view.rename.' },
+  'section.mark.create':      { kind: 'not-synced', reason: 'OPEN QUESTION: creates the section VIEW DEFINITION plus its cross-reference annotation, keyed by `{sectionViewId, hostViewId}` — a pair, and both ends are views. See section.create.' },
+  'sheet.create':             { kind: 'not-synced', reason: 'OPEN QUESTION (documentation object): a SHEET is shared drawing output whose replication sheet.rename declines to decide.' },
+  'schedule.create':          { kind: 'not-synced', reason: 'OPEN QUESTION (documentation object): a SCHEDULE is a shared derived table, the class schedule.setFilter records as undecided.' },
+  'vg.createVisibilityIntent':{ kind: 'not-synced', reason: 'A VISIBILITY INTENT (P7, packages/visibility) is a domain record but not an element, and the P7 gate states its persistence and per-view scoping are NOT CHECKED. See vg.updateVisibilityIntent.' },
+  'vg.assignIntent':          { kind: 'not-synced', reason: 'COMPOSITE SUBJECT: binds `intentId` to `viewId`. Neither is an element, and views are unreplicated. See vg.updateVisibilityIntent and view.rename.' },
+  'vg.takeLatestIntentVersion': { kind: 'not-synced', reason: 'Advances ONE view to the newest version of its assigned intent — subject is `viewId`, a view, and the mutation is a version pointer. See vg.assignIntent.' },
+  'rhino.resetMaterial':      { kind: 'not-synced', reason: 'NO ELEMENT SUBJECT: restores the imported Rhino scene group\'s original materials from a snapshot. Those meshes are in no geometry store, so there is no per-element record to key — the exact objection rhino.setMaterial records.' },
 };
 
 /** Look up a command type's declared disposition, or `undefined` if undeclared. */
