@@ -1,0 +1,258 @@
+/**
+ * @pryzm/renderer-three — §RETIRE-RENDERER-DETACHES-LISTENERS  (L-948)
+ *
+ * ADR-0297 INVARIANT L2 ("DETACH now, RELEASE at the boundary") applied to the
+ * one resource nothing else detaches: **the retired renderer's own listeners on
+ * the scene's materials and geometries.**
+ *
+ * ── The defect (founder, 2026-08-17: "many elements batch created — none visible") ──
+ * A heavy batch create (1,611 walls / 457 doors / 173 windows) trips the auto-WebGL
+ * heavy-scene switch (ADR-0267); the live backend swap runs (ADR-0077,
+ * initScene §RENDERER-LIVE-SWAP); the WebGPU device is destroyed. Plan view keeps
+ * drawing the whole model — it compiles no shaders — while the 3D viewport shows
+ * only the slab shell. Console:
+ *
+ *   THREE.TSL: TypeError: Cannot read properties of undefined (reading 'usedTimes')
+ *       at NodeManager.delete → RenderObjects#onDispose → RenderObject.dispose
+ *       → RenderObject.onMaterialDispose → Material.dispatchEvent → Material.dispose
+ *       → disposeShadowMaterial → ShadowNode._reset → ShadowNode.dispose
+ *       → AnalyticLightNode.setup
+ *
+ * ── Why the listener outlives the renderer (all real three r183 source) ─────
+ *  • `RenderObject`'s constructor registers a `'dispose'` listener on the material
+ *    AND the geometry it draws (RenderObject.js:328-329). Only
+ *    `RenderObject.dispose()` takes them off again (RenderObject.js:906-907).
+ *  • `Renderer.dispose()`'s ONLY render-object teardown is `this._objects.dispose()`
+ *    (Renderer.js:2369) — and `RenderObjects.dispose()` is, in full,
+ *    `this.chainMaps = {}` (RenderObjects.js:173-177). It never disposes a single
+ *    render object, so **every one of those listeners survives the renderer.**
+ *    Compare `Geometries.dispose()` (Geometries.js:381-391), which walks
+ *    `_geometryDisposeListeners` and removes every one: upstream three saw this
+ *    hazard for geometries and closed it. The identical hazard for MATERIALS lives
+ *    one level up, in `RenderObjects`, and is still open.
+ *  • `Renderer.dispose()` then clears the very DataMaps those leaked listeners
+ *    reach into (`_nodes`/`_pipelines`/`_bindings`, Renderer.js:2371-2373;
+ *    `DataMap.dispose()` is `this.data = new WeakMap()`). A late listener therefore
+ *    lands in `NodeManager.delete()` on `this.get(object).nodeBuilderState` ===
+ *    `undefined` → `undefined.usedTimes--` (NodeManager.js:267-268) — the throw.
+ *
+ * ── Why ONE dead renderer blanks a whole model ─────────────────────────────
+ * The resources holding those listeners across a swap are three's own MODULE-GLOBAL
+ * caches, not per-renderer state: `Lighting._weakMap` is keyed by **scene**
+ * (Lighting.js:4) and `shadowMaterialLib` by **light** (ShadowFilterNode.js:12).
+ * The live swap deliberately keeps the same `THREE.Scene`, so the LightsNode, its
+ * AnalyticLightNodes, their ShadowNodes and the shadow NodeMaterial all outlive the
+ * renderer that minted their render objects. The first material compiled on the new
+ * backend runs `AnalyticLightNode.setup()`, which disposes the stale shadow node
+ * (AnalyticLightNode.js:266-270 / disposeShadow) → shadow material `dispose()` →
+ * the DEAD renderer's leaked listener → throw. `EventDispatcher.dispatchEvent` has
+ * no try/catch (EventDispatcher.js:101-126), so the throw both skips the LIVE
+ * renderer's listener and escapes into `setup()` **before** its `this.shadowNode =
+ * null` — leaving the stale node in place so the next compile throws identically.
+ * Every material needing a node build on the new backend fails to compile. Nothing
+ * new is drawn.
+ *
+ * ── The fix ────────────────────────────────────────────────────────────────
+ * A retired renderer must dispose its render objects — three's own teardown, which
+ * removes the listeners first (RenderObject.js:906-907) — **while its DataMaps are
+ * still intact**, and only then dispose itself. `RenderObjects`' chain maps are
+ * WeakMap-based (ChainMap.js) and cannot be enumerated, so the render objects are
+ * recorded as the renderer mints them: {@link trackRenderObjectsForRetirement} is
+ * installed once, at creation, and {@link retireRenderer} is the single retirement
+ * seam every dispose site must use.
+ *
+ * ── What this file deliberately does NOT do ────────────────────────────────
+ * It does not swallow the `usedTimes` TypeError. That throw is a SYMPTOM; the
+ * existing suppression of it (`ViewportCrashGuard`, `safeDispose`) is precisely why
+ * this reached the founder as "nothing is visible" instead of as a crash. Nothing
+ * here widens that suppression: the listener is REMOVED, so there is no throw to
+ * suppress. A renderer that was never tracked is reported loudly rather than
+ * silently tolerated.
+ *
+ * P2: structurally typed throughout — no THREE value or type import — so the seam
+ * is unit-testable without a GPU and carries no coupling of its own.
+ *
+ * OTel (C10 §2): consistent with `safeDispose.ts` and
+ * `RenderPipelineManager._safeDisposeRenderPipeline`, these carry no span — the
+ * gate (`tools/ga-gate/check-otel-spans.ts`) scopes to command-bus handler files in
+ * `plugins/&#42;/src/handlers/`, and the callers already own a swap/recovery span.
+ */
+
+/** The shape of `THREE.RenderObject` this module needs (three/src/renderers/common/RenderObject.js). */
+interface RenderObjectLike {
+    dispose(): void;
+    readonly material?: { removeEventListener?(type: string, listener: unknown): void } | null;
+    readonly geometry?: { removeEventListener?(type: string, listener: unknown): void } | null;
+    readonly onMaterialDispose?: unknown;
+    readonly onGeometryDispose?: unknown;
+}
+
+/** The shape of `THREE.RenderObjects` this module needs (…/common/RenderObjects.js). */
+interface RenderObjectsLike {
+    createRenderObject(...args: unknown[]): RenderObjectLike;
+}
+
+/**
+ * The shape of a three `Renderer`/`WebGPURenderer` this module needs. `_objects` is
+ * private in three but is the only handle on the render objects a renderer minted;
+ * a classic `THREE.WebGLRenderer` simply has none (see {@link retireRenderer}).
+ */
+interface RetirableRendererLike {
+    _objects?: RenderObjectsLike | null;
+    dispose?(): void;
+}
+
+/**
+ * Live render objects per renderer. A WeakMap (not a field on the renderer) so
+ * tracking adds no enumerable property to a THREE object and cannot keep a retired
+ * renderer alive.
+ */
+const _tracked = new WeakMap<object, Set<RenderObjectLike>>();
+
+/** Renderers whose `createRenderObject` we have already wrapped (idempotence). */
+const _instrumented = new WeakSet<object>();
+
+/**
+ * §RETIRE-RENDERER-DETACHES-LISTENERS — record every render object `renderer`
+ * mints, so {@link retireRenderer} can tear them down in the right order.
+ *
+ * Install ONCE, immediately after `await renderer.init()` (which is where
+ * `Renderer._objects` is created — Renderer.js:796). Idempotent: a second call on
+ * the same renderer is a no-op that still reports `true`.
+ *
+ * @returns `true` when tracking is active for this renderer; `false` when the
+ *          renderer exposes no `RenderObjects` (a classic `THREE.WebGLRenderer`,
+ *          or a renderer whose `init()` has not run yet). A `false` here is not an
+ *          error — but it does mean {@link retireRenderer} can only fall back to a
+ *          bare `dispose()`, so callers that expect tracking should install it late
+ *          enough to get `true`.
+ */
+export function trackRenderObjectsForRetirement(renderer: unknown): boolean {
+    const r = renderer as RetirableRendererLike | null | undefined;
+    const objects = r?._objects;
+    if (!objects || typeof objects.createRenderObject !== 'function') return false;
+
+    if (_instrumented.has(r as object)) return true;
+
+    const live = new Set<RenderObjectLike>();
+    _tracked.set(r as object, live);
+    _instrumented.add(r as object);
+
+    const original = objects.createRenderObject.bind(objects);
+    objects.createRenderObject = (...args: unknown[]): RenderObjectLike => {
+        const renderObject = original(...args);
+        if (renderObject && typeof renderObject.dispose === 'function') {
+            live.add(renderObject);
+            // three disposes render objects during normal churn too (a material
+            // version change — RenderObjects.js:131). Drop them from the set there
+            // as well, so the set tracks what is LIVE rather than what was ever made.
+            const disposeOnce = renderObject.dispose.bind(renderObject);
+            (renderObject as { dispose: () => void }).dispose = () => {
+                live.delete(renderObject);
+                disposeOnce();
+            };
+        }
+        return renderObject;
+    };
+    return true;
+}
+
+/** How many live render objects are currently tracked for `renderer` (diagnostics + tests). */
+export function trackedRenderObjectCount(renderer: unknown): number {
+    return _tracked.get(renderer as object)?.size ?? 0;
+}
+
+/**
+ * §RETIRE-RENDERER-DETACHES-LISTENERS — dispose every tracked render object of
+ * `renderer`, which is what removes its `'dispose'` listeners from the scene's
+ * materials and geometries (RenderObject.js:906-907).
+ *
+ * MUST run BEFORE `renderer.dispose()`: that call clears the `_nodes` /
+ * `_pipelines` / `_bindings` DataMaps these teardowns read, and after it the same
+ * teardown throws instead of completing. {@link retireRenderer} enforces the order;
+ * this function is exported for callers that already own their dispose sequencing.
+ *
+ * Never throws. If a single render object's teardown fails anyway, its two
+ * listeners are removed directly — detaching is the point, and one bad handle must
+ * not strand the rest.
+ *
+ * @returns the number of render objects torn down.
+ */
+export function disposeTrackedRenderObjects(renderer: unknown): number {
+    const live = _tracked.get(renderer as object);
+    if (!live || live.size === 0) return 0;
+
+    let released = 0;
+    for (const renderObject of Array.from(live)) {
+        try {
+            renderObject.dispose();
+        } catch (err) {
+            // The listeners come off FIRST inside RenderObject.dispose(), so by here
+            // they are almost certainly already gone; remove them anyway rather than
+            // assume. This is not error suppression — the failure is reported.
+            try { renderObject.material?.removeEventListener?.('dispose', renderObject.onMaterialDispose); } catch { /* detached already */ }
+            try { renderObject.geometry?.removeEventListener?.('dispose', renderObject.onGeometryDispose); } catch { /* detached already */ }
+            console.warn(
+                '[renderer-three] §RETIRE-RENDERER-DETACHES-LISTENERS a render object failed to tear ' +
+                'down cleanly; its dispose listeners were detached directly:',
+                err instanceof Error ? err.message : err,
+            );
+        }
+        live.delete(renderObject);
+        released++;
+    }
+    return released;
+}
+
+/**
+ * §RETIRE-RENDERER-DETACHES-LISTENERS — **the single seam for retiring a renderer.**
+ * Every site that disposes a live renderer (the ADR-0077 live backend swap, the
+ * ADR-0089 device-loss recovery, adapter teardown) must call this instead of
+ * `renderer.dispose()`.
+ *
+ * Order is the whole point (ADR-0297 INVARIANT L2): DETACH the retired renderer
+ * from every material and geometry it was listening to, and only then RELEASE the
+ * renderer. Reversing it is the L-948 defect.
+ *
+ * Never throws — a retirement failure must not abort the swap that is mid-flight.
+ *
+ * @returns the number of render objects detached (0 for a classic
+ *          `THREE.WebGLRenderer`, which mints none — its own `onMaterialDispose` is
+ *          guarded upstream at WebGLRenderer.js:1136-1140 and never produced this
+ *          throw).
+ */
+export function retireRenderer(renderer: unknown): number {
+    if (!renderer || typeof renderer !== 'object') return 0;
+
+    let detached = 0;
+    try {
+        detached = disposeTrackedRenderObjects(renderer);
+    } catch (err) {
+        console.warn(
+            '[renderer-three] §RETIRE-RENDERER-DETACHES-LISTENERS render-object teardown failed (non-fatal):',
+            err instanceof Error ? err.message : err,
+        );
+    }
+
+    const r = renderer as RetirableRendererLike;
+    // Say so when a renderer that DOES own render objects was never instrumented:
+    // its listeners are about to leak and the next material dispose will throw
+    // `usedTimes`. Loud, because a silent version of this is exactly L-948.
+    if (detached === 0 && r._objects && !_instrumented.has(renderer)) {
+        console.warn(
+            '[renderer-three] §RETIRE-RENDERER-DETACHES-LISTENERS retiring a renderer that owns ' +
+            'RenderObjects but was never tracked — its material/geometry dispose listeners will ' +
+            'outlive it (L-948). Call trackRenderObjectsForRetirement() right after renderer.init().',
+        );
+    }
+
+    try {
+        r.dispose?.();
+    } catch (err) {
+        console.warn(
+            '[renderer-three] §RETIRE-RENDERER-DETACHES-LISTENERS renderer.dispose() failed (non-fatal):',
+            err instanceof Error ? err.message : err,
+        );
+    }
+    return detached;
+}

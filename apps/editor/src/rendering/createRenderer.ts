@@ -43,6 +43,8 @@ import {
   RendererHandleFactory,
   WebGPURendererAdapter,
   WebGLRendererAdapter,
+  // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — see the recovery dispose below.
+  retireRenderer,
 } from '@pryzm/renderer-three';
 // §FEAT-SWAP-LOADING-OVERLAY (L-141) — the WebGPU device-loss recovery below
 // disposes the dead renderer and rebuilds a fresh one (a backend swap in all but
@@ -469,7 +471,15 @@ export async function createRenderer(
                         catch (e) { console.warn('[createRenderer] RPM disposePipeline failed during recovery:', e); }
 
                         // 3D-VIEW-AUDIT-2026 §F37 — dispose dead renderer before recreating.
-                        try { (threeRenderer as any).dispose?.(); }
+                        // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — via retireRenderer(), NOT a
+                        // bare dispose(). A device-loss rebuild is a renderer RETIREMENT: three r183's
+                        // `RenderObjects.dispose()` is `this.chainMaps = {}` and leaves this renderer's
+                        // per-material/per-geometry 'dispose' listeners attached to the scene, which
+                        // survives the rebuild. The recovered renderer then compiles its first material,
+                        // `AnalyticLightNode.setup()` disposes the stale shadow node, and the shadow
+                        // NodeMaterial's dispose re-enters THIS dead renderer → `usedTimes` TypeError
+                        // out of setup(), permanently, so nothing renders. Detach first, release second.
+                        try { retireRenderer(threeRenderer); }
                         catch (e) { console.warn('[createRenderer] prior renderer dispose failed during recovery:', e); }
 
                         // §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION — once safe-mode is engaged,

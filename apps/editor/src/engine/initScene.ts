@@ -91,6 +91,9 @@ import { rendererBackendToggle } from '@app/ui/overlays/RendererBackendToggle';
 // §FEAT-SWAP-LOADING-OVERLAY (L-141) — brand loading cover over the live backend swap.
 import { showRendererSwapOverlay, hideRendererSwapOverlay } from '@app/ui/overlays/RendererSwapOverlay';
 import { RenderPipelineManager } from '@pryzm/renderer-three';
+// §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the live backend swap RETIRES a
+// renderer; a bare dispose() leaves it listening on the kept scene's materials.
+import { retireRenderer } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
 import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
@@ -4382,10 +4385,38 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 window.pryzmRenderer = pryzmRenderer;
                 window.pryzmCanvas   = pryzmCanvas;
 
-                // 7. Remove the OLD canvas + dispose the OLD renderer now that the
+                // 7. RETIRE the OLD renderer + remove the OLD canvas now that the
                 //    new one is live (do this AFTER the new renderer renders-ready
                 //    so there is no blank frame).
-                try { (oldRenderer as any).dispose?.(); }
+                //
+                //    §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — `retireRenderer()`,
+                //    never a bare `dispose()`. The comment at the top of this block is
+                //    right that the scene graph is backend-agnostic CPU data and is not
+                //    rebuilt — but that is exactly what makes the bare dispose unsafe.
+                //    three r183's `RenderObject` registers a 'dispose' listener on every
+                //    material and geometry it draws (RenderObject.js:328-329), and
+                //    `Renderer.dispose()`'s only render-object teardown,
+                //    `RenderObjects.dispose()`, is `this.chainMaps = {}` — it removes
+                //    none of them (RenderObjects.js:173-177), then clears the DataMaps
+                //    those listeners read. The KEPT scene therefore keeps the DEAD
+                //    renderer subscribed. three's lighting caches are module-global and
+                //    keyed by scene/light (Lighting.js:4, ShadowFilterNode.js:12), so the
+                //    stale ShadowNode + shadow NodeMaterial survive too: the first
+                //    material compiled on the NEW backend runs `AnalyticLightNode.setup()`,
+                //    which disposes that shadow material, which re-enters the dead
+                //    renderer → `Cannot read properties of undefined (reading 'usedTimes')`
+                //    thrown OUT of setup() before its `this.shadowNode = null` — so every
+                //    subsequent compile throws identically and the viewport renders nothing
+                //    new while plan view (no shader compile) stays perfect. That is the
+                //    founder's "many elements batch created — none visible" verbatim.
+                //    DETACH here, RELEASE here (ADR-0297 INVARIANT L2).
+                try {
+                    const _detached = retireRenderer(oldRenderer);
+                    console.log(
+                        `[initScene] §RETIRE-RENDERER-DETACHES-LISTENERS old renderer retired — ` +
+                        `${_detached} render object(s) detached from their materials/geometries (L-948).`,
+                    );
+                }
                 catch (e) { console.warn('[initScene] §RENDERER-LIVE-SWAP old renderer dispose failed (non-fatal):', e); }
                 try { oldCanvas.remove(); } catch { /* already detached */ }
 

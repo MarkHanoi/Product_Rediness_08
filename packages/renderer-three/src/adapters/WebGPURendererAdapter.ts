@@ -25,6 +25,7 @@
 
 import * as THREE from 'three';
 import { setupContextLossHandlers } from '../contextLossHandlers.js';
+import { trackRenderObjectsForRetirement, retireRenderer } from '../rendererRetirement.js';
 import type { RendererHandle } from '../RendererHandle.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -162,6 +163,23 @@ export class WebGPURendererAdapter implements RendererHandle {
       // WebGPURenderer selects WebGPU or WebGL2 backend here — no extra code needed.
       await renderer.init();
 
+      // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — record the render objects this
+      // renderer mints, so retiring it can detach its per-material / per-geometry
+      // 'dispose' listeners BEFORE its DataMaps are cleared. Installed HERE because
+      // `Renderer._objects` is created by `init()` (three r183 Renderer.js:796) —
+      // any earlier and there is nothing to instrument. Without this, a live backend
+      // swap (ADR-0077) or a device-loss rebuild (ADR-0089) leaves the dead renderer
+      // listening on three's module-global shadow material, and the first material
+      // compiled on the new backend throws `usedTimes` — permanently, so the whole
+      // model stops rendering. See ../rendererRetirement.ts for the full chain.
+      if (!trackRenderObjectsForRetirement(renderer)) {
+        console.warn(
+          '[renderer-three/WebGPURendererAdapter] §RETIRE-RENDERER-DETACHES-LISTENERS could not ' +
+          'instrument this renderer (no RenderObjects after init) — retirement will not be able to ' +
+          'detach its material/geometry dispose listeners (L-948).',
+        );
+      }
+
       // backend.isWebGPUBackend = true  → native WebGPU backend (r183 API)
       // backend.isWebGPUBackend absent  → WebGL2 fallback backend (still TSL-capable)
       const backend = (renderer as unknown as { backend?: WebGPUBackend }).backend;
@@ -269,6 +287,9 @@ export class WebGPURendererAdapter implements RendererHandle {
     this._removeContextHandlers?.();
     this._lostCallbacks.clear();
     this._restoredCallbacks.clear();
-    this.threeRenderer.dispose();
+    // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — NOT `threeRenderer.dispose()`.
+    // Detach this renderer's render objects from every material/geometry they
+    // listen to FIRST (ADR-0297 INVARIANT L2), then release the renderer.
+    retireRenderer(this.threeRenderer);
   }
 }

@@ -169,6 +169,21 @@ export {
 } from './safeDispose.js';
 export type { ReallocatableLightShadow } from './safeDispose.js';
 
+// §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the single seam for retiring a
+// renderer. `retireRenderer()` replaces every bare `renderer.dispose()` on a live
+// renderer (the ADR-0077 live backend swap, the ADR-0089 device-loss rebuild,
+// adapter teardown): it detaches the renderer's render objects from the materials
+// and geometries they listen to BEFORE releasing the renderer (ADR-0297 INVARIANT
+// L2). three r183's `RenderObjects.dispose()` does not — it is `this.chainMaps = {}`
+// — so a retired renderer keeps listening on three's module-global shadow material
+// and the first material compiled on the NEW backend throws `usedTimes` forever.
+export {
+  trackRenderObjectsForRetirement,
+  trackedRenderObjectCount,
+  disposeTrackedRenderObjects,
+  retireRenderer,
+} from './rendererRetirement.js';
+
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard
 export * from './IsolationAnimator.js';
