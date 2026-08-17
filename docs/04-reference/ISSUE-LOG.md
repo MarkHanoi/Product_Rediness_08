@@ -5696,13 +5696,56 @@ segment, place the second point by snapping to the **midpoint of an existing wal
 aligned with the orthogonal projection** of the segment being drawn. The wall reaches the requested
 point — **and narrows progressively as it approaches it.**
 
-### ⭐ The mechanism to test first
+### ✅ RESOLVED 2026-08-17 — `e496ac4a` (measure) · `48aa3c4a` (plan tool) · `e2f2c9d0` (3D tool)
+
+> ⚠ **THE TAPER MECHANISM BELOW IS REFUTED. The wall never tapered.** Kept, struck through, because
+> the refutation is the useful part — and it is now a permanent test rather than a note.
+
+**MEASURED at the derived geometry, before anything was touched.** Worst corner deviation from
+±halfT: **0.0000 mm** on the two walls actually meeting, and **0.0000 mm on the exact scene the
+defect produced.** Every footprint side corner sits at exactly ±100.000 mm from its own centreline.
+`JunctionResolverV2` + `WallFootprint2D` give the wall **one** thickness, joined or not, and
+`buildMiterPrism` projects **both** side corners *along* the wall direction from ±halfT offsets — so
+its two faces are parallel **by construction**. There were never "two independently-solved side lines".
+
+⭐ **The measurement trap that would have faked a taper:** `|sL − sR|` is **NOT** the thickness — at a
+mitred end the corners slide *along* their own face lines, so that distance legitimately varies. The
+invariant separating a real miter from a taper is the **signed perpendicular offset from the
+centreline**. Measure that, or a correct miter reads as a defect.
+
+**WHAT WAS ACTUALLY WRONG — the tool committed the wall 636 mm from the click:**
+```
+snapped midpoint  (3.949434, -0.634011)
+committed end     (4.000000,  0.000000)
+MISS              636.0 mm       committed 0.000°  vs true -9.120°
+```
+`§STRICT-ORTHO` applied `_snapOrtho` **unconditionally**, resolving the conflict silently in favour
+of ortho. **636 mm is the founder's own trace number** — the gap `§DIAG-PARTITION-REACH` was
+"rescuing". A wall overshooting the wall it should have met crosses it at a shallow angle, and the
+interpenetrating bands are what read as a wedge in plan. ⭐ **The rescuer's number was the emitter's
+error all along — the same lesson as L-928 and L-932.**
+
+**WHICH CONSTRAINT WON: the snap.** Not preference — `PlanToolHandler.ts` **already declared** *"an
+explicit object snap always wins"*, the angle-step branch of the *same function* had honoured it all
+along, and `§STRICT-ORTHO` had **no contract, ADR or SPEC behind it — it was a comment** contradicting
+the interface its own handler implements. It now says so with **both numbers** (the gap ortho would
+have opened, and the off-axis angle), announced only on material disagreement.
+
+**Second finding:** `WallTool` hand-rolled the same ortho projection at **four sites**, and
+`onPointerDown` re-orthoed one line after the snap branch — so a correct fix in the snap branch alone
+would have been undone immediately. Collapsed to one `_applyOrthoLock` with the snap-strength rule
+given one home. The fuzzy 0.3 m anchor path is explicitly *not* an explicit snap, so ortho still wins
+there byte-identically.
+
+<details><summary>The original (refuted) hypothesis, kept for the record</summary>
 
 Ortho mode constrains the segment's DIRECTION; the midpoint snap constrains its END POINT. When the
 snapped point does not lie on the ortho ray, those two constraints **conflict**, and the tool
 appears to satisfy both by letting the two side offsets converge — start at full thickness, end at
 the snapped point. That is a wall built as a **quadrilateral from two independently-solved side
 lines**, rather than as a **centreline plus a constant half-thickness**.
+
+</details>
 
 > **HYPOTHESIS:** the builder is offsetting the two faces separately (or interpolating between an
 > ortho-projected end and a snapped end) instead of refusing the over-constrained input.
