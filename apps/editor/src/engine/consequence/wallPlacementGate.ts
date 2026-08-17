@@ -367,13 +367,34 @@ function previewReweldForMove(
     return null;
   }
   let joined: readonly string[] | null | undefined;
+  // §C83 §10.6 — carry the junction DISCRIMINATOR alongside the ids.
+  //
+  // ⚠ THIS LINE IS WHY L-942 SHIPPED TWICE. The first fix threaded the
+  // discriminator through `WallMoveReweldService` and proved the follow there,
+  // but THIS is the path a user's gesture takes: the gate. It read
+  // `joinedWallIds` and dropped `junctions` on the floor, so `isMutualCorner`
+  // was false for every real move, every mutual corner scored as an incumbent,
+  // and production stayed hard-blocked while the service-layer tests were green.
+  // The reader had already stopped discarding the metadata — this consumer had
+  // not started reading it.
+  let junctions:
+    | readonly { wallId: string; junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }[]
+    | undefined;
   try {
     const q = semanticGraphManager.getJoinedWalls(wallId) as
-      | { ok: true; joinedWallIds: readonly string[] }
+      | {
+        ok: true;
+        joinedWallIds: readonly string[];
+        junctions?: readonly { wallId: string; junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }[];
+      }
       | { ok: false };
     joined = q.ok ? q.joinedWallIds : undefined;
+    // Optional on the read so an older graph shape cannot throw here; absent
+    // simply means nothing follows, which is the conservative branch.
+    junctions = q.ok ? q.junctions : undefined;
   } catch {
     joined = undefined;
+    junctions = undefined;
   }
   const p = (v: PlanPointLike) => ({ x: v.x, y: v.y ?? 0, z: v.z });
   return previewMoveReweld({
@@ -382,6 +403,7 @@ function previewReweldForMove(
     prevBaseLine: [p(cur[0]!), p(cur[1]!)],
     newBaseLine: [p(newBaseLine[0]), p(newBaseLine[1])],
     joinedWallIds: joined,
+    junctions,
   });
 }
 

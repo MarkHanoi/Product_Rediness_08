@@ -105,6 +105,28 @@ export interface MoveReweldPreflightInput {
      * "joins nothing").
      */
     readonly joinedWallIds?: readonly string[] | null;
+    /**
+     * §C83 §10.6 — the per-partner junction DISCRIMINATOR, from the same
+     * `getJoinedWalls` call that produced `joinedWallIds`.
+     *
+     * ⚠ L-942 SHIPPED TWICE BECAUSE THIS FIELD DID NOT EXIST. The first fix
+     * threaded the discriminator into `WallMoveReweldService` and proved the
+     * follow at that layer — but the GATE builds its own partner list, from this
+     * input, and the user's gesture goes through the GATE. So `isMutualCorner`
+     * read false on every real move, every mutual corner was scored an
+     * incumbent, and production stayed hard-blocked while the service-layer
+     * tests were green. **`committed ≠ reachable`, at the one layer that
+     * decides whether the gesture happens.**
+     *
+     * ABSENT ⇒ DO NOT FOLLOW (§10.6.3 #1), same as everywhere else: the
+     * level-scan fallback below resolves partners geometrically and has no
+     * junction records, so it must behave byte-identically to pre-§10.6.
+     */
+    readonly junctions?: readonly {
+        readonly wallId: string;
+        readonly junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+        readonly junctionDegree?: number;
+    }[] | null;
     readonly weldTol?: number;
 }
 
@@ -233,17 +255,29 @@ function _previewMoveReweld(
         }
         if (partnerIds.length === 0) return EMPTY;
 
+        // §C83 §10.6 — index the stored discriminator by partner id. Empty when
+        // the caller supplied none (or when the level-scan fallback ran), and
+        // that emptiness IS the pre-§10.6 branch: no entry ⇒ no junctionType ⇒
+        // `isMutualCorner` false ⇒ nothing follows.
+        const junctionById = new Map<string, { junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }>();
+        if (input.junctions && input.joinedWallIds && input.joinedWallIds.length > 0) {
+            for (const j of input.junctions) junctionById.set(j.wallId, j);
+        }
+
         const partners = [];
         for (const id of partnerIds) {
             const p = wallStore.getById(id);
             if (p && moved(p.baseLine as readonly Point3D[])) {
                 const bl = p.baseLine as readonly Point3D[];
+                const j = junctionById.get(p.id);
                 partners.push({
                     id: p.id,
                     baseLine: [
                         { x: bl[0].x, y: bl[0].y, z: bl[0].z },
                         { x: bl[1].x, y: bl[1].y, z: bl[1].z },
                     ] as [Point3D, Point3D],
+                    junctionType: j?.junctionType,
+                    junctionDegree: j?.junctionDegree,
                 });
             }
         }

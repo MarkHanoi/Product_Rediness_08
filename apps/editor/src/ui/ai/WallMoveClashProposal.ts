@@ -195,14 +195,31 @@ function readWallStore(): {
  * `undefined` ⇒ the graph has no answer; the pre-flight then falls back to a
  * same-level scan exactly as the service does (C71 §4.4).
  */
-function joinedWallIdsOrNull(wallId: string): readonly string[] | null | undefined {
+type ReweldJunction = {
+    wallId: string;
+    junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+    junctionDegree?: number;
+};
+
+/**
+ * §C83 §10.6 — ids AND the junction discriminator, together.
+ *
+ * ⚠ Returned as one value rather than two helpers on purpose. L-942 shipped
+ * twice because the discriminator and the ids were resolved in different places
+ * and one consumer read only the ids; splitting them again is how that recurs.
+ * Absent `junctions` ⇒ nothing follows (§10.6.3 #1), the conservative branch.
+ */
+function joinedWallsOrNull(wallId: string): {
+    ids: readonly string[] | null | undefined;
+    junctions: readonly ReweldJunction[] | undefined;
+} {
     try {
         const q = semanticGraphManager.getJoinedWalls(wallId) as
-            | { ok: true; joinedWallIds: readonly string[] }
+            | { ok: true; joinedWallIds: readonly string[]; junctions?: readonly ReweldJunction[] }
             | { ok: false };
-        return q.ok ? q.joinedWallIds : undefined;
+        return q.ok ? { ids: q.joinedWallIds, junctions: q.junctions } : { ids: undefined, junctions: undefined };
     } catch {
-        return undefined;
+        return { ids: undefined, junctions: undefined };
     }
 }
 
@@ -364,7 +381,8 @@ export async function presentWallMoveClash(args: WallMoveClashArgs): Promise<voi
                         { x: offer.baseLine[0].x, y: offer.baseLine[0].y ?? 0, z: offer.baseLine[0].z },
                         { x: offer.baseLine[1].x, y: offer.baseLine[1].y ?? 0, z: offer.baseLine[1].z },
                     ],
-                    joinedWallIds: joinedWallIdsOrNull(wallId),
+                    joinedWallIds: joinedWallsOrNull(wallId).ids,
+                    junctions: joinedWallsOrNull(wallId).junctions,
                 });
                 // ⚠ `allowed`, NOT `ok`. MEASURED: this line read `!preflight.ok`
                 // and the L-921 incumbent case DISPATCHED THE MOVE ANYWAY —
