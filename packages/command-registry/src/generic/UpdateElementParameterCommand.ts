@@ -19,7 +19,7 @@
  *   commandManager.execute(cmd);
  */
 
-import { Command, CommandResult, CommandValidationResult, CommandContext, SerializedCommand, CommandType } from '../types';
+import { Command, CommandResult, CommandValidationResult, CommandContext, SerializedCommand, CommandType, StoreKey } from '../types';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 // TODO(TASK-08): store-unification debt (ADR-0318) — the doorStore/windowStore
@@ -47,8 +47,143 @@ export interface UpdateElementParameterInput {
     parameters: Record<string, any>;
 }
 
+/**
+ * ─── §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) ──────────────────────────────
+ *
+ * THE ONE PLACE that answers "which store does an `elementType` belong to".
+ *
+ * THE DEFECT IT CLOSES. This command used to carry
+ * `readonly affectedStores = ["wall"] as const` — HARD-CODED — while
+ * `resolveStore()` routed by `elementType` to fifteen different stores. So for
+ * every NON-WALL element type the command wrote store X and
+ * `CommandManagerImpl` snapshotted store W (it scopes the Contract 01 §2.2
+ * transaction snapshot to `command.affectedStores`, CommandManagerImpl.ts:284).
+ * The founder's console printed it one line above the write:
+ *
+ *     [CommandManager] snapshot commandType="…" scope=[wall] elapsed=0.5ms
+ *     [UpdateElementParameterCommand] Updated slab/6e4ede23-…
+ *
+ * A transaction scoped to the wrong store is a LIE IN BOTH DIRECTIONS: the
+ * store that WAS written is not protected (a half-applied write survives the
+ * rollback — the founder's "it gets corrupted and moved from the place"), and
+ * the store that was NOT written is clear()ed and re-add()ed wholesale for an
+ * edit that never touched it.
+ *
+ * WHY A TABLE AND NOT A SECOND SWITCH. Writing a parallel `elementType` switch
+ * to compute the scope would reproduce the defect one level up: two switches
+ * that must agree, with nothing forcing them to. Here the SCOPE and the STORE
+ * SELECTOR are two fields of ONE row, `resolveStore()` is a lookup into it, and
+ * `affectedStores` is read off the same row — so they cannot disagree, and a
+ * new element type cannot be routed without being scoped. The invariant is
+ * enforced observationally by
+ * `__tests__/updateElementParameterSnapshotScope.test.ts` ("every store the
+ * command WRITES is a store it DECLARED"), which executes the command per type
+ * and compares the stores that actually received a write against the
+ * declaration — so it catches drift even if this comment is ignored.
+ *
+ * C16 (command authoring) §affectedStores: the declaration is a statement about
+ * what the command touches, not a constant to be copied from a neighbour.
+ */
+interface ElementStoreRoute {
+    /**
+     * Contract 01 §2.2 snapshot scope — the `StoreKey`s CommandManager must clone
+     * before `execute()` and restore if it throws. MUST be an over-approximation
+     * of everything `applyUpdate()` writes for this element type.
+     */
+    readonly scope: readonly StoreKey[];
+    /** The store instance `execute()` reads and writes through. */
+    readonly select: (context: CommandContext) => any;
+}
+
+const EMPTY_SCOPE: readonly StoreKey[] = Object.freeze([]);
+
+const route = (scope: readonly StoreKey[], select: (context: CommandContext) => any): ElementStoreRoute =>
+    ({ scope: Object.freeze([...scope]), select });
+
+/** Openings live ON the host wall record; `updateDoor` / `updateWindow` are WallStore methods. */
+const HOST_WALL_STORE = (context: CommandContext) => context.stores.wallStore;
+/** Every furniture alias resolves through ONE selector — the `window.*` leg is the
+ *  last-resort legacy fallback the switch has always carried (TODO(TASK-07)). */
+const FURNITURE_STORE = (context: CommandContext) =>
+    (context.stores as any).furnitureStore ?? window.furnitureStore; // TODO(TASK-07)
+const HANDRAIL_STORE = (context: CommandContext) =>
+    (context.stores as any).handrailStore ?? window.handrailStore;   // TODO(TASK-07)
+
+const ELEMENT_STORE_ROUTES: Readonly<Record<string, ElementStoreRoute>> = Object.freeze({
+    wall:                 route(['wall'],   c => c.stores.wallStore),
+    slab:                 route(['slab'],   c => c.stores.slabStore),
+    column:               route(['column'], c => c.stores.columnStore),
+    beam:                 route(['beam'],   c => c.stores.beamStore),
+
+    // The declarative rebuild this dispatches (GenerateStairGeometryCommand,
+    // via ElementRebuildRegistry) runs INSIDE this command's transaction and
+    // itself declares ['stair'] — so the scope covers the nested write too.
+    stair:                route(['stair'],  c => c.stores.stairStore),
+    stairs:               route(['stair'],  c => c.stores.stairStore),
+
+    curtainwall:          route(['curtainWall'], c => c.stores.curtainWallStore),
+    'curtain-wall':       route(['curtainWall'], c => c.stores.curtainWallStore),
+    roof:                 route(['roof'],   c => (c.stores as any).roofStore),
+
+    furniture:            route(['furniture'], FURNITURE_STORE),
+    bed:                  route(['furniture'], FURNITURE_STORE),
+    table:                route(['furniture'], FURNITURE_STORE),
+    chair:                route(['furniture'], FURNITURE_STORE),
+    sofa:                 route(['furniture'], FURNITURE_STORE),
+    wardrobe:             route(['furniture'], FURNITURE_STORE),
+    wardrobe_glass_door:  route(['furniture'], FURNITURE_STORE),
+    corner_wardrobe:      route(['furniture'], FURNITURE_STORE),
+
+    handrail:             route(['handrail'], HANDRAIL_STORE),
+
+    // A door / window edit writes the HOST WALL's opening record AND, when the
+    // element is present there, the rich barrel singleton (`doorStore.update` /
+    // `windowStore.update` in `applyUpdate` below). Both legs are in scope —
+    // CommandManagerImpl snapshots those barrels under the 'door' / 'window'
+    // keys (createSnapshot's optionalStores table), so a rollback that reverts
+    // the wall's opening without reverting the barrel is exactly the desync
+    // this scope prevents.
+    window:               route(['wall', 'window'], HOST_WALL_STORE),
+    door:                 route(['wall', 'door'],   HOST_WALL_STORE),
+});
+
+/** Normalised lookup — the SAME normalisation `resolveStore()` has always applied. */
+function elementStoreRoute(elementType: string): ElementStoreRoute | undefined {
+    return ELEMENT_STORE_ROUTES[(elementType ?? '').toLowerCase().trim()];
+}
+
+/**
+ * §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) — the snapshot scope for an element
+ * type, derived from the routing table `resolveStore()` reads.
+ *
+ * An UNROUTED type returns `[]`. That is the honest answer and not a shrug:
+ * `execute()` refuses immediately for an unrouted type (`No store for
+ * elementType`) without writing anything, and CommandManagerImpl reads a
+ * length-0 declaration as "undeclared" and falls back to the all-stores
+ * snapshot — the conservative over-approximation for a path that has told it
+ * nothing. What it must never do is CLAIM a store, which is what `['wall']` did.
+ */
+export function snapshotScopeForElementType(elementType: string): readonly StoreKey[] {
+    return elementStoreRoute(elementType)?.scope ?? EMPTY_SCOPE;
+}
+
 export class UpdateElementParameterCommand implements Command {
-    readonly affectedStores = ["wall"] as const;
+    /**
+     * §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) — PER-INSTANCE, derived from the
+     * routing table above, never hard-coded.
+     *
+     * TIMING, checked rather than assumed: `CommandManagerImpl.execute()` reads
+     * `command.affectedStores` at :289 (the log) and :562 (createSnapshot's
+     * scope Set) — both AFTER the instance exists and BEFORE `execute()` runs.
+     * The payload is a constructor argument, so `elementType` is known strictly
+     * earlier than the first read. A per-instance value is therefore available
+     * at the moment the manager needs it, and no design constraint forces the
+     * declaration to be static. `CopyElementCommand` (operations/, :72) already
+     * assigns it in its constructor for the same reason; `CompositeCommand`
+     * (:78) unions children's declarations in ITS constructor, so a composed
+     * parameter edit now contributes the RIGHT store instead of 'wall'.
+     */
+    readonly affectedStores: readonly StoreKey[];
     readonly id = crypto.randomUUID();
     readonly type = UPDATE_ELEMENT_PARAMETER_TYPE;
     readonly timestamp = Date.now();
@@ -81,11 +216,22 @@ export class UpdateElementParameterCommand implements Command {
      * their own audit fields (slab, stair, roof, furniture, …) are NOT covered
      * here and are not claimed to be; giving them the same treatment means giving
      * their stores the same contract first.
+     *
+     * ⚠ The paragraph above conceded a wall-shaped gap for non-wall types, and a
+     * SECOND one of exactly that shape sat one layer down, undocumented, for
+     * months: `affectedStores` was hard-coded `["wall"]` while `resolveStore()`
+     * routed fifteen types. That is L-947 / §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE,
+     * closed at `ELEMENT_STORE_ROUTES` above. If you are reading this because a
+     * third wall-shaped assumption bit you, look for the constant that never
+     * learned the payload has an `elementType`.
      */
     private prevWallAudit: { wallId: string; metadata: unknown; renderVersion: number | undefined } | null = null;
 
     constructor(private input: UpdateElementParameterInput) {
         this.targetIds = [input.elementId];
+        // §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) — the SAME table `resolveStore()`
+        // routes through, so the snapshot and the write cannot name different stores.
+        this.affectedStores = snapshotScopeForElementType(input.elementType);
     }
 
     canExecute(_context: CommandContext): CommandValidationResult {
@@ -309,32 +455,17 @@ export class UpdateElementParameterCommand implements Command {
         };
     }
 
+    /**
+     * §FIX-SNAPSHOT-SCOPE-MATCHES-WRITE (L-947) — was a 15-branch `switch` that
+     * `affectedStores` could not see. It is now a lookup into
+     * `ELEMENT_STORE_ROUTES`, the same row the constructor read the snapshot
+     * scope from. The routing behaviour is unchanged branch for branch,
+     * including the `window.*` last-resort fallbacks for furniture / handrail
+     * and the `null` for an unrouted type; what changed is that adding a route
+     * now necessarily adds its scope, because they are one object.
+     */
     private resolveStore(elementType: string, context: CommandContext): any {
-        const t = elementType.toLowerCase().trim();
-
-        switch (t) {
-            case 'wall':           return context.stores.wallStore;
-            case 'slab':           return context.stores.slabStore;
-            case 'column':         return context.stores.columnStore;
-            case 'beam':           return context.stores.beamStore;
-            case 'stair':
-            case 'stairs':         return context.stores.stairStore;
-            case 'curtainwall':
-            case 'curtain-wall':   return context.stores.curtainWallStore;
-            case 'roof':           return (context.stores as any).roofStore;
-            case 'furniture':
-            case 'bed':
-            case 'table':
-            case 'chair':
-            case 'sofa':
-            case 'wardrobe':
-            case 'wardrobe_glass_door':
-            case 'corner_wardrobe': return (context.stores as any).furnitureStore ?? window.furnitureStore // TODO(TASK-07);
-            case 'handrail':       return (context.stores as any).handrailStore ?? window.handrailStore // TODO(TASK-07);
-            case 'window':
-            case 'door':           return context.stores.wallStore;
-            default:               return null;
-        }
+        return elementStoreRoute(elementType)?.select(context) ?? null;
     }
 
     private getElement(store: any, elementType: string, elementId: string, _context: CommandContext): any {
