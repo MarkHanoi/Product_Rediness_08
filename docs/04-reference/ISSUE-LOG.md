@@ -5952,3 +5952,124 @@ instant of the extra submit), never at `captureThumbnail()`'s return value — i
 both the healthy and the damaged path. C04 + ADR-0297 govern; P3's scope question belongs in
 STR-03 §2.
 
+
+---
+
+## L-940 — six tests are RED on `main` against a symbol that no longer exists, and no gate noticed
+
+**Found by lane Z during the pre-deploy orphan audit, 2026-08-17. Independently re-verified by the
+orchestrator before filing.** Not caused by this session's work — measured red on `main` at
+`c2e8ba00` with both test files **byte-identical to HEAD**.
+
+### The measurement
+
+`apps/editor/src/ui/living-graph/livingGraphSelection.ts:81` exports
+**`determineElementIdsForRoom`**. The name `elementIdsForRoom` exists nowhere in `apps/editor/src`.
+
+Two test files still import the old name:
+- [apps/editor/__tests__/livingGraphSelection.test.ts:10](apps/editor/__tests__/livingGraphSelection.test.ts#L10) — **5 failures**
+- [apps/editor/__tests__/livingGraphSelectionReverse.test.ts](apps/editor/__tests__/livingGraphSelectionReverse.test.ts) — **1 failure**
+
+A third file, `apps/editor/src/ui/__tests__/livingGraphSelectionHonesty.spec.ts`, imports the **new**
+name and passes — so the rename was propagated to one suite and not the other two.
+
+### Why this is worth a row rather than a one-line rename
+
+⚠ **The rename was not cosmetic, and that is the trap.** The old assertions read
+`expect(elementIdsForRoom('room_a')).toEqual([])`. The new function returns a
+`RelationshipDetermination<string>`, not an array — the whole point of `3a68da9a` / GR-10 was that
+**`[]` must stop meaning two things** (*"no elements"* and *"I could not determine"*). So a
+mechanical rename would produce a suite that compiles, runs, and asserts **the exact semantics the
+rename existed to abolish**. It would go green while pinning the defect.
+
+**The correct repair is to port the assertions to the determination shape**, which means deciding,
+per test, whether the case under test is genuinely EMPTY or genuinely UNDETERMINED — the same
+distinction [[context-data-honesty-family]] is about. That is judgement, not sed.
+
+### The second defect: nothing caught it
+
+Six tests referencing a deleted export survived a commit, a session, and a deploy. Root `tsc`
+**exits 0** — measured this turn — because `apps/editor/__tests__/**` is outside the root
+`tsconfig.json` program. `npm run test:server` does not cover `apps/editor`. There is no root-level
+job that runs `apps/editor`'s suite, so **the failure has no gate that is even looking at it**.
+
+That is the more expensive half. A renamed export with stale importers is the single easiest defect
+class for a compiler to catch, and this repo's compiler is not pointed at the files in question.
+
+**Owner:** unassigned → lane **L940**. Two arms, and the second is the one that pays:
+1. Port both suites to `RelationshipDetermination` — **do NOT rename-and-move-on**; prove each case
+   is EMPTY or UNDETERMINED on purpose.
+2. Establish why `apps/editor/__tests__/**` is typechecked and run by nothing, and close it. Census
+   which other `apps/*/__tests__` directories share the gap before choosing a fix — one suite found
+   by accident is not evidence of one suite.
+
+
+---
+
+## L-941 — the bundle proof FAILED a healthy deploy, and its own instruction forbids the retry that disproves it
+
+**Measured live during the `c2e8ba00` deploy, 2026-08-17.** Second instance of the §5.2 class, in a
+new shape. **This one is more dangerous than the first**, and the reason is one clause.
+
+### What happened
+
+`tools/deploy/fly-bundle-proof.sh` ran immediately after `flyctl deploy` reported its machines
+started. It printed:
+
+```
+FAIL  GIT_SHA — /version git_sha='49befd93…' != expected 'c2e8ba00…'
+BUNDLE PROOF FAILED — ROLL BACK NOW, DO NOT RETRY:
+```
+
+**The deploy was healthy.** Five consecutive polls of `/version` moments later returned
+`c2e8ba00` — the correct SHA — and a clean re-run passed **6/6**. The deploy script was still
+executing at the moment of the first proof; its log read *"Waiting before stopping all blue
+machines"*, with the old machines **cordoned but still serving**.
+
+**Blue-green rollout has a window in which `/version` legitimately returns the OLD sha.** The proof
+has no precondition that the cutover has completed, so it samples a race and reports the losing
+side as a deploy failure.
+
+### ⚠ Why this is worse than the 5.2 instance
+
+§5.2's defect was a probe looking in the wrong place (the bundle instead of the server). It was
+wrong about the **property**. This one is wrong about the **moment** — and it ships with:
+
+> `ROLL BACK NOW, DO NOT RETRY`
+
+**"DO NOT RETRY" forbids precisely the action that would reveal the truth.** A second run is the
+cheapest possible disambiguation between "the deploy is bad" and "the deploy is not finished", and
+the tool instructs the operator not to take it. An obedient operator — or an agent following the
+contract literally — destroys a good release and then cannot tell that they did.
+
+⭐ **A verification tool that can fail a healthy deploy is more dangerous than no tool** (§5.2's own
+words). A verification tool that *also* forbids re-verification is worse again: it converts a
+transient into a permanent, irreversible action.
+
+### The fix, in three parts
+
+1. **Gate the proof on rollout completion.** It must not sample until `flyctl` has returned AND no
+   machine is serving a prior release — `flyctl machines list -a pryzm` with every machine on the
+   new image ref, or poll `/version` until N consecutive reads agree.
+2. **Delete `DO NOT RETRY`.** Replace with: *"re-run once after 60 s; a SHA mismatch that persists
+   across two clean runs post-rollout is a real failure."* A rollback is destructive and irreversible;
+   the bar for recommending it must be higher than one sample.
+3. **Distinguish the two failures in the exit code.** `SHA_MISMATCH_DURING_ROLLOUT` and
+   `SHA_MISMATCH_SETTLED` are different states with opposite correct actions, and today they are the
+   same red text. Same defect family as the rest of this programme: two conditions rendering as one
+   value.
+
+### Discipline note for whoever reads this next
+
+The first run's verdict was read through `| tail -25`, which reported `PROOF_RC=0` — **`tail`'s exit
+code, not the proof's**. §EXIT-CODE-THROUGH-A-PIPE, misread four times in this session already. The
+printed text said FAILED while the captured code said 0; had those been trusted in the other order,
+the outcome would have been the mirror-image error. **Capture the code with `; echo "RC=$?" >> file`
+and read it from the file. Never through a pipe.**
+
+**Owner:** unassigned → lane **L941**, HIGH — this sits on the deploy path and its failure mode is a
+destructive action taken on a false positive. Contract: amend
+[DEPLOY-CONTRACT-MANUAL-FLY.md §5](../02-decisions/DEPLOY-CONTRACT-MANUAL-FLY.md) in the same PR;
+§5.2 already carries the generalisable lesson and this is its second instance, so the amendment
+belongs beside it rather than in a new section.
+

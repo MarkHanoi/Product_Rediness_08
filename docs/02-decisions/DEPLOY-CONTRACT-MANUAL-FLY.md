@@ -544,3 +544,52 @@ test:pryzm1, Playwright (same declared gap as §6).
 **Cross-references:** `.github/workflows/deploy-fly.yml` (the authority on the arg block) ·
 `Dockerfile` L32, L96–L123, L159–L166 (the authority on ARG names) · `fly.toml` ·
 `docs/04-reference/ISSUE-LOG.md` L-690 · memory `fly-production-deploy.md`
+
+## 6.7 FOURTH EXECUTION — v-next, 2026-08-17 (`c2e8ba00`), bundle proof 6/6 on the SECOND run
+
+735 commits since `52bfb2ba`. Gates at the deployed SHA: root `tsc` **RC=0 / 0 errors** ·
+`check:isolation` **RC=0** · `test:server` **613/613**. Builder `fly-builder-twilight-songbird-4866`
+**survived** this time and was still at `shared-cpu-8x:16384MB` — §6.6.2's "always check, never
+assume the app name" held, and the answer happened to be "unchanged". Context uploaded at ~330 KB/s
+(vs §4.2's ~98 KB/s) — **~11 min for ~185 MB**, so §2.2's "~130 MB" figure has grown and should be
+re-measured. Total wall-clock ≈ 25 min.
+
+### 6.7.1 ⚠ §L-941 — THE BUNDLE PROOF FAILED A HEALTHY DEPLOY, AND FORBADE THE RETRY
+
+**Second instance of the §5.2 class. Read §5.2 first, then this — the mechanism differs.**
+
+Run immediately after `flyctl` reported machines started, the proof printed:
+
+```
+FAIL  GIT_SHA — /version git_sha='49befd93…' != expected 'c2e8ba00…'
+BUNDLE PROOF FAILED — ROLL BACK NOW, DO NOT RETRY:
+```
+
+**The deploy was healthy.** The deploy script was still running (`Waiting before stopping all blue
+machines`); the blue machines were **cordoned but still serving**. Five polls of `/version` moments
+later all returned `c2e8ba00`, and a clean re-run passed **6/6**.
+
+§5.2's probe was wrong about the **property**. This one is wrong about the **moment** — and it is
+worse, because of one clause:
+
+> ⛔ **`DO NOT RETRY` forbids the single cheapest action that distinguishes "the deploy is bad" from
+> "the deploy is not finished".** An operator or agent obeying the contract literally destroys a good
+> release and cannot afterwards tell that they did. **A verification tool that can fail a healthy
+> deploy is more dangerous than no tool; one that also forbids re-verification converts a transient
+> into an irreversible action.**
+
+**Until `fly-bundle-proof.sh` is fixed (L-941), the operating rule is:**
+1. **Do not run the proof until the deploy script has EXITED.** `flyctl` reporting "machines started"
+   is not rollout completion; the blue set is still serving.
+2. **On a GIT_SHA mismatch, re-run once after 60 s** and poll `/version` several times. A mismatch
+   that persists across two clean post-rollout runs is real. **A single sample is not evidence.**
+3. **Never read the proof's verdict through a pipe.** The first run was read via `| tail -25`, which
+   reported `PROOF_RC=0` — `tail`'s code, not the proof's — while the text said FAILED.
+   §EXIT-CODE-THROUGH-A-PIPE. Capture with `; echo "RC=$?" >> file` and read the file.
+
+### 6.7.2 §6.5.6's `DOCKER_CONFIG` guard: still required, and the path must be WINDOWS-shaped
+
+Docker Desktop was running; the guard was applied and the build never saw the npipe error. ⚠ The
+MSYS form `/tmp/empty-docker-config` printed in §6.5.6 **fails silently here** — use a real Windows
+path (`C:/…/empty-docker-config`) containing `config.json` = `{}`. §6.6.1 holds unchanged: **no MSYS
+exports**, the script owns its own defence.

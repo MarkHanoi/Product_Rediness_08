@@ -1,0 +1,26 @@
+{
+  "generatedAtSha": "c2e8ba00",
+  "rowsParsed": 1,
+  "counted": 1,
+  "measured": 1,
+  "carried": 0,
+  "notDetermined": 0,
+  "closedOfMeasured": 1,
+  "ratchetBreaches": 0,
+  "rows": [
+    {
+      "id": "GR-13",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-room-identity-survives-wall-move"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-room-identity-survives-wall-move"
+      }
+    }
+  ]
+}
