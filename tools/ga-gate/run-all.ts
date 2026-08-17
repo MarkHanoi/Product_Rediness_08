@@ -520,6 +520,12 @@ const GATES: Gate[] = [
   // (~2 min) rather than reading yesterday's artefact, because a gate that reads a
   // stale results file has measured nothing. Freshness is one of its floors.
   { name: 'graph-runtime-readback (GR-09 · GR-18 · C71 §5.5/§5.8)', script: '../rac-conformance/certification/gates/check-graph-runtime-readback.ts' },
+  // Both spawn the suite their row CITES rather than reading a stale artefact,
+  // and both add the arm the suite itself cannot reach: production REACHABILITY
+  // of the registrar (GR-16), and the cross-layer `ubg`-key census that an L2
+  // test is structurally barred from performing (GR-17).
+  { name: 'graph-query-verbs (GR-16 · C70 D-INV-1/3)',           script: '../rac-conformance/certification/gates/check-graph-query-verbs.ts' },
+  { name: 'ubg-snapshot-derived (GR-17 · C71 §4 · C70 I-INV-2)', script: '../rac-conformance/certification/gates/check-ubg-snapshot-derived.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
