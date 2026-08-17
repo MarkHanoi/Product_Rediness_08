@@ -941,7 +941,17 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     };
     const windowTool     = new WindowTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
     const doorTool       = new DoorTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
-    const curtainWallTool = new CurtainWallTool(world, _sharedCbs);
+    // §MT-05 — inject the launcher's authoritative instance instead of letting the
+    // tool fall through to `window.curtainWallStore` (CurtainWallTool.ts:198).
+    // initTools already RECEIVES `curtainWallStoreInstance`; not passing it was the
+    // only path by which `(curtainWallTool as any).store` — which initUI:2227
+    // republishes onto the global — could ever become an object the launcher does
+    // not hold. With the dep injected, the tool's store IS the launcher instance by
+    // construction, so the republish is provably a no-op and the §MT-05 bootstrap
+    // guard can never fire on curtain-wall.
+    const curtainWallTool = new CurtainWallTool(world, _sharedCbs, {
+        curtainWallStore: curtainWallStoreInstance,
+    });
     // §COLUMN-AUDIT-2026 §W6: pass ColumnToolDeps so the tool resolves
     //   commandManager / bimManager / slabStore / toolManager / canvas via
     //   lazy getters instead of window-global reads.
@@ -990,8 +1000,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         stores: {
             wallStore: wallTool.getWallStore(), slabStore, columnStore, gridStore,
             stairStore, liftStore, liftTypeStore, beamStore,
-            curtainWallStore: window.curtainWallStore || {}, // TODO(TASK-08)
-            curtainPanelStore: window.curtainPanelStore, // TODO(TASK-08)
+            // §MT-05 — was `window.curtainWallStore || {}`. Two defects in one
+            // expression: (a) it read a mutable global for a store initTools already
+            // holds by injection, so commands could bind a different instance than
+            // the registry/serializer; (b) `|| {}` substituted an EMPTY OBJECT when
+            // the global was unset — a store with no getAll/get, which reads to every
+            // consumer as "this project has no curtain walls" rather than "the store
+            // was never wired" (the C70 L-INV-1 silence shape). Both gone.
+            curtainWallStore: curtainWallStoreInstance,
+            curtainPanelStore: curtainPanelStoreInstance,
             roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
             lightingStore: window.lightingStore, // TODO(TASK-08)
             wallSystemTypeStore, slabSystemTypeStore,

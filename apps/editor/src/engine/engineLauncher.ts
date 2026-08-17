@@ -28,6 +28,10 @@ import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { spatialAuthority } from '@pryzm/core-app-model';
 import { registerAllStores } from './initStores';
+// §MT-05 / ADR-0318 I-1 — the single authoritative store hand-off. See the
+// module header: one record, two derived bundles, same references by construction.
+import { toRegistryBundle, toSerializerBundle } from './authoritativeStores';
+import type { AuthoritativeStores } from './authoritativeStores';
 import { ScheduleRegistry } from '@pryzm/core-app-model';
 import { SchedulePanel } from '@app/ui/SchedulePanel/SchedulePanel';
 import { DataWorkbench } from '@app/ui/dataworkbench/DataWorkbench';
@@ -872,22 +876,48 @@ export async function bootstrap(
     });
     void wallMoveReweldService; // owned by the engine lifetime; disposed with it
 
-    // ── §3.2: StoreRegistry ───────────────────────────────────────────────────
-    registerAllStores({
-        wallStore:         wallTool.getWallStore(),
+    // ── §3.2 + §MT-05: ONE hand-off, TWO consumers ────────────────────────────
+    // ADR-0318 I-1 says the instance the StoreRegistry holds IS the instance the
+    // ProjectSerializer reads. That used to be a CONVENTION between two separate
+    // object literals ~70 lines apart — and for column / curtain-wall the two
+    // literals did not even use the same expression (the serializer half read
+    // `window.columnStore ?? columnStoreInstance`), which is the residual risk
+    // ADR-0318 named and register row MT-05 tracked.
+    //
+    // Now there is ONE record. `toRegistryBundle` and `toSerializerBundle` both
+    // derive from it by property read, so for every kind both consumers receive,
+    // they receive the SAME REFERENCE — by construction, not by guard. Asserted
+    // on the heap (`toBe`, over the real registry and the real serializer) by
+    // apps/editor/src/engine/__tests__/mt05StoreIdentityHeap.spec.ts.
+    const authoritativeStores: AuthoritativeStores = {
+        // ── shared: both the registry and the serializer receive these ────────
+        wallStore:              wallTool.getWallStore(),
         slabStore,
-        columnStore:       columnStoreInstance,
-        beamStore,         stairStore,          stairLandingStore,
-        stairRailingStore, stairTypeStore,
-        liftStore,         liftTypeStore,
-        curtainWallStore:  curtainWallStoreInstance,
-        curtainPanelStore: curtainPanelStoreInstance,
-        doorStore,         windowStore,          roofStore,
-        plumbingStore,     furnitureStore,       handrailStore,
+        columnStore:            columnStoreInstance,
+        gridStore,
+        stairStore,
+        beamStore,
+        curtainWallStore:       curtainWallStoreInstance,
+        roofStore,
+        plumbingStore,
+        furnitureStore,
+        handrailStore,
+        openingStore,
+        roomStore,
+        ceilingStore,
+        floorStore,
+        // ── serializer-only: the four system-type stores ──────────────────────
+        slabSystemTypeStore,    wallSystemTypeStore,
+        ceilingSystemTypeStore, floorSystemTypeStore,
+        // ── registry-only kinds ───────────────────────────────────────────────
+        stairLandingStore,      stairRailingStore,   stairTypeStore,
+        liftStore,              liftTypeStore,
+        curtainPanelStore:      curtainPanelStoreInstance,
+        doorStore,              windowStore,
         lightingStore,
-        openingStore,      gridStore,            roomStore,
-        ceilingStore,      floorStore,           annotationStore,
-    });
+        annotationStore,
+    };
+    registerAllStores(toRegistryBundle(authoritativeStores));
 
     initDataPlatform({ world, selectionManager, updateInspector }, runtime ?? null);
 
@@ -923,15 +953,23 @@ export async function bootstrap(
     window.workspaceController = workspaceController;
 
     // ── §MT-05 same-instance guard ────────────────────────────────────────────
-    // Bootstrap has three window-store writers (initBuilders → initTools → initUI),
-    // and initPersistence below falls back to the LOCAL instances. Today every
-    // writer provably republishes the same instance, so the fallbacks are inert —
-    // but nothing upstream enforces that. A future writer publishing a DIFFERENT
-    // instance would make persistence serialise a store the UI no longer writes:
-    // silent data loss. Fail loudly instead (precedent: CurtainWallTool
+    // NOTE (2026-08-16): the SERIALIZER half of MT-05 is now closed by
+    // construction — initPersistence below receives `toSerializerBundle(
+    // authoritativeStores)`, which reads `columnStoreInstance` /
+    // `curtainWallStoreInstance` directly and no longer touches these globals.
+    // This guard is therefore no longer protecting persistence; it protects the
+    // ~40 REMAINING legacy readers (PropertyInspector, SpatialTree, the plan
+    // tools, ScheduleExtractor, ExportIFC, AIReadModel …) that still resolve
+    // their store through `window.columnStore` / `window.curtainWallStore`.
+    // If a writer publishes a different instance, those readers and the
+    // registry/serializer disagree — the UI edits one store and the project
+    // saves another. Bootstrap has three window-store writers (initBuilders →
+    // initTools → initUI); today every writer provably republishes the same
+    // instance, but nothing upstream enforces it.
+    // Fail loudly instead (precedent: CurtainWallTool
     // §CURTAIN-WALL-AUDIT-2026 §5.1 throws rather than construct a parallel
-    // store). Unset globals are tolerated — that is what the `??` fallbacks are
-    // for; only a set-and-different global is divergence. Pinned in CI by
+    // store). An UNSET global is tolerated — the legacy readers all null-guard;
+    // only a set-and-DIFFERENT global is divergence. Pinned in CI by
     // apps/editor/src/engine/__tests__/mt05WindowStoreSameInstance.spec.ts.
     if (window.columnStore !== undefined && window.columnStore !== columnStoreInstance) {
         throw new Error('[EngineBootstrap] §MT-05: window.columnStore diverged from the launcher columnStoreInstance — a writer published a different instance.');
@@ -943,18 +981,11 @@ export async function bootstrap(
     // ── Persistence + collaboration ───────────────────────────────────────────
     initPersistence({
         world, bimManager, toolManager, unselectAll,
-        stores: {
-            wallStore:          wallTool.getWallStore(),
-            slabStore,
-            columnStore:        window.columnStore ?? columnStoreInstance, // TODO(TASK-08)
-            gridStore,          stairStore,         beamStore,
-            curtainWallStore:   window.curtainWallStore ?? curtainWallStoreInstance, // §MT-05: `??` not `||` — nullish-only fallback, matching columnStore above // TODO(TASK-08)
-            roofStore,          plumbingStore,       furnitureStore,
-            handrailStore,      openingStore,        roomStore,
-            slabSystemTypeStore, wallSystemTypeStore,
-            ceilingStore,       ceilingSystemTypeStore,
-            floorStore,         floorSystemTypeStore,
-        },
+        // §MT-05 — derived from the SAME `authoritativeStores` record that fed
+        // registerAllStores above. The two `window.*Store ?? *Instance` reads
+        // that used to sit here are DELETED: there is no longer an expression
+        // whose value could differ from the one the registry holds.
+        stores: toSerializerBundle(authoritativeStores),
         runtime: runtime ?? null,
     });
     initCollaboration({ container, commandManager, events: runtime?.events });

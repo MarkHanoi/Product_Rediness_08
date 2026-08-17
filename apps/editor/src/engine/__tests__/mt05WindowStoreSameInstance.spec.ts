@@ -1,14 +1,34 @@
-// §MT-05 — window-store same-instance guard (register row MT-05).
+// §MT-05 — window-store WRITER pin (register row MT-05).
 //
-// engineLauncher.ts wires initPersistence with `window.columnStore ?? columnStoreInstance`
-// and `window.curtainWallStore ?? curtainWallStoreInstance`. Divergence between the
-// window global and the launcher-local instance is unreachable TODAY — every writer
-// republishes the same instance — but nothing upstream enforces it, and a diverged
-// instance would make persistence serialise a store the UI no longer writes (silent
-// data loss). Enforcement is two-armed:
+// ⚠ READ THIS BEFORE TRUSTING THIS FILE. It pins STRINGS. It reads source as
+// text and cannot observe a single object on the heap. That limitation is why
+// the MT-05 register row stayed UNPROVEN while this spec passed 3/3.
 //
-//   ARM 1 (runtime, engineLauncher.ts): an identity assertion immediately before
-//     initPersistence throws loudly if a set global !== the local instance.
+// THE HEAP PROOF LIVES NEXT DOOR: `mt05StoreIdentityHeap.spec.ts` asserts with
+// `toBe` that the object the StoreRegistry holds IS the object
+// ProjectSerializer read, across all 15 shared kinds, through the real
+// production hand-off. That file is the proof of ADR-0318 I-1. This one is a
+// perimeter fence around the legacy globals, and nothing more.
+//
+// ─── What changed 2026-08-16 ────────────────────────────────────────────────
+// The SERIALIZER half of MT-05 is CLOSED BY CONSTRUCTION. engineLauncher no
+// longer passes `window.columnStore ?? columnStoreInstance` (and the curtain
+// twin) to initPersistence; it builds ONE `authoritativeStores` record and
+// derives both the registry bundle and the serializer bundle from it
+// (`apps/editor/src/engine/authoritativeStores.ts`). There is no longer an
+// expression on the persistence path whose value could differ from the one the
+// registry holds — so the third test below, which used to pin those two `??`
+// fallbacks as present, now pins them as ABSENT.
+//
+// What is NOT closed, and is what this file still guards: ~40 legacy readers
+// (PropertyInspector, SpatialTree, the plan tools, ScheduleExtractor,
+// ExportIFC, AIReadModel, BeamStore …) still resolve their store through
+// `window.columnStore` / `window.curtainWallStore` — the TASK-08 debt. If a
+// writer publishes a DIFFERENT instance there, the UI edits one store while
+// the registry and the serializer hold another. Two arms:
+//
+//   ARM 1 (runtime, engineLauncher.ts): an identity assertion at the end of
+//     bootstrap throws loudly if a set global !== the launcher instance.
 //     This spec pins that the assertion EXISTS and keeps its shape.
 //
 //   ARM 2 (this spec, CI): a writer pin. Every assignment site of
@@ -16,10 +36,6 @@
 //     enumerated and must equal the known allowlist. A future fourth writer goes
 //     RED here — forcing its author to prove same-instance and update the pin
 //     consciously — instead of silently diverging in a browser nobody is watching.
-//
-// Also pinned: both initPersistence fallbacks use `??` (nullish), never `||` —
-// the two lines used to disagree (`??` vs `||`) for no reason; the register row
-// documents both as `??`.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -83,10 +99,10 @@ function collectWriters(): Map<string, Set<string>> {
     return writers;
 }
 
-// The measured writer set (2026-08-14). If you are here because this went RED:
-// you added a writer. That is allowed ONLY if it publishes the SAME instance the
-// launcher wires into persistence (engineLauncher's §MT-05 guard will throw at
-// bootstrap otherwise). Prove it, then extend this allowlist in the same commit.
+// The measured writer set (re-measured 2026-08-16, unchanged). If you are here
+// because this went RED: you added a writer. That is allowed ONLY if it publishes
+// the SAME instance the launcher holds (engineLauncher's §MT-05 guard will throw
+// at bootstrap otherwise). Prove it, then extend this allowlist in the same commit.
 const ALLOWED_WRITERS: Record<string, string[]> = {
     columnStore: [
         'apps/editor/src/engine/initBuilders.ts',
@@ -127,10 +143,45 @@ describe('§MT-05 window-store same-instance guard', () => {
         expect(text).toMatch(/throw new Error\('\[EngineBootstrap\] §MT-05: window\.curtainWallStore diverged/);
     });
 
-    it('fallbacks are nullish (`??`), never truthy (`||`) — the row documents both as `??`', () => {
-        const text = readFileSync(LAUNCHER, 'utf8');
-        expect(text).toContain('window.columnStore ?? columnStoreInstance');
-        expect(text).toContain('window.curtainWallStore ?? curtainWallStoreInstance');
-        expect(text, 'a `||` fallback regressed on a guarded store').not.toMatch(/window\.(columnStore|curtainWallStore)\s*\|\|/);
+    it('the serializer hand-off reads NO mutable global — the `??` fallbacks are gone', () => {
+        // Comments AND string literals are stripped first. Both were measured
+        // false positives on the first two runs of this check: engineLauncher's
+        // §MT-05 block QUOTES the deleted expression while explaining why it was
+        // deleted (comment), and the guard's own `throw new Error('… window
+        // .columnStore diverged …')` names the global (string). A scanner that
+        // counts its own documentation and its own error messages as code is the
+        // P4 "52% prose" defect — the cure is to read code, not to stop writing
+        // the prose.
+        const text = readFileSync(LAUNCHER, 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, ' ')
+            .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n')
+            .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+            .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+            .replace(/`(?:[^`\\]|\\.)*`/g, '``');
+
+        expect(
+            text,
+            'a `window.columnStore ??` fallback was reintroduced — that is the MT-05 hazard: '
+            + 'the registry and the serializer would hold different objects. Pass '
+            + 'columnStoreInstance through the authoritativeStores record instead.',
+        ).not.toMatch(/window\.columnStore\s*\?\?/);
+        expect(
+            text,
+            'a `window.curtainWallStore ??` fallback was reintroduced',
+        ).not.toMatch(/window\.curtainWallStore\s*\?\?/);
+        expect(
+            text,
+            'a `||` fallback appeared on a guarded store — `||` also substitutes on falsy, '
+            + 'which is how `window.curtainWallStore || {}` used to hand commands an EMPTY '
+            + 'OBJECT that reads as "no curtain walls" (C70 L-INV-1 silence)',
+        ).not.toMatch(/window\.(columnStore|curtainWallStore)\s*\|\|/);
+
+        // The only surviving uses are the two guard comparisons.
+        const reads = [...text.matchAll(/window\.(columnStore|curtainWallStore)/g)];
+        expect(
+            reads.length,
+            'engineLauncher should touch these globals exactly 4 times — two `!== undefined` '
+            + 'checks and two `!== <instance>` comparisons, all inside the §MT-05 guard',
+        ).toBe(4);
     });
 });
