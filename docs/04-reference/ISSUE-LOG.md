@@ -5887,3 +5887,68 @@ duplication and non-consumption — three copies that can drift independently �
 
 **Owner:** unassigned → lane **L938**, low urgency. Fold into the C73 §2.2 epsilon drain (row GE-01)
 rather than opening a separate front.
+
+---
+
+## L-939 — `captureThumbnail()` is a SECOND render driver: a synchronous, off-rAF `render()` that drains the ADR-0297 L2 boundary
+
+**Found by lane L930 while closing L-930, 2026-08-17. Residue of a fix, not the fix.** L-930's own
+change is landed and proven (`59e0659f`, `65431fdc`, `3dbe7920`); this is the part it measured but
+does **not** own, because the call site is `apps/editor`'s.
+
+### The measurement
+
+[apps/editor/src/engine/initPersistence.ts:174-175](apps/editor/src/engine/initPersistence.ts#L174-L175),
+inside `captureThumbnail()` (declared :141), which `PlatformSaveController.saveInner()` calls on the
+auto-save path:
+
+```ts
+const rpm = window.renderPipelineManager;
+if (rpm) rpm.render();
+```
+
+The **only** other production callers are
+[initScene.ts:3408](apps/editor/src/engine/initScene.ts#L3408) and
+[:3426](apps/editor/src/engine/initScene.ts#L3426) — both inside the frame-bus tick, both
+`render(delta)`. This one is neither: it is **synchronous, off-rAF, and passes no delta**, fired
+from whenever the save timer happens to elapse.
+
+### Why it matters — three distinct consequences, only the first is cosmetic
+
+1. **It is a second render driver against P3.** Not literally a second `requestAnimationFrame()`
+   call — `check-raf-count.ts` still reads exactly 1 owner and is not wrong. That is the point:
+   **P3's gate counts rAF call sites, and a driver that submits frames without calling rAF is
+   invisible to it.** This is roadmap §7B.5 again — *a gate that classifies by NAME can be satisfied
+   by not using the name.* The gate is honest about what it measures; the principle is wider than
+   its instrument.
+2. **It consumes both ADR-0297 INVARIANT L2 boundary drains at an instant that is not a frame
+   boundary.** "DETACH now, RELEASE at the boundary" presumes the boundary is the frame. A save-timer
+   tick is not one, so a release can land against work the real frame still has in flight.
+3. **It is the strongest surviving lead for L-930's FIRST failure**, which remains unexplained.
+   L-930 proved the *recovery* converted that first fault into a dead viewport and fixed that; it did
+   **not** prove what started it. This interleave is a real one and the founder's crash arrived on an
+   auto-save.
+
+⚠ **The call site already knows this hazard — it guards the other branch of the same `if`.** The
+comment immediately above reads: *"Never call this in WebGL mode — it would trigger OBC's
+`WebGLShadowMap.render()`, destroying PRYZM's `ShadowDepthTexture` and causing 500× GPU validation
+errors."* Same texture, same failure family, same function. Someone reasoned about shadow-texture
+destruction here and protected the WebGL arm; the WebGPU arm got the unguarded `rpm.render()`.
+
+### Do NOT fix it by deleting the call
+
+The thumbnail needs a fresh frame or it captures a blank swapchain — :235 already handles exactly
+that (*"Read a blank/transparent frame — keeping the last good thumbnail"*). Removing the render
+trades a GPU-lifetime defect for a permanently stale thumbnail.
+
+**The shape of the fix L-930 recommends:** a `renderForCapture()` on `RenderPipelineManager` that
+submits a frame **without** draining the L2 lifetime queues, so capture cannot consume a boundary it
+did not reach. L-930 left the boundary itself closed against this caller — the ref-counted
+`§L930-SUBMIT-PAUSE-DEPTH` gate means the extra caller can no longer submit *during a rebuild* — so
+this is no longer a crash path, but it is still a second driver.
+
+**Owner:** unassigned → lane **L939**. Prove at the GPU-lifetime layer (what the queue held at the
+instant of the extra submit), never at `captureThumbnail()`'s return value — it returns a string on
+both the healthy and the damaged path. C04 + ADR-0297 govern; P3's scope question belongs in
+STR-03 §2.
+
