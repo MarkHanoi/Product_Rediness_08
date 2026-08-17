@@ -41,6 +41,7 @@ import { ProvenanceTab } from './ProvenanceTab';
 import { ProvenanceMenuOrchestrator } from './ProvenanceMenuOrchestrator';
 import { ElementMeshRegistryAdapter, type SceneLike } from './ElementMeshRegistryAdapter';
 import { buildModelElementLocations } from './buildModelElementLocations';
+import { resolveLevelAuthority } from './resolveLevelAuthority';
 import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
 import { IsolationAnimator, type FrameSchedulerLike } from '@pryzm/renderer-three';
 import type { InspectSelection } from '@pryzm/schemas';
@@ -160,10 +161,22 @@ export interface InspectPanelHandle {
  *                 (provenance shows an empty state; isolation no-ops).
  */
 export function buildInspectPanel(runtime: Runtime | null = null): InspectPanelHandle {
-    const resolvedRuntime: ModelTreeRuntime =
+    const baseRuntime: ModelTreeRuntime =
         (runtime as unknown as ModelTreeRuntime | null)
         ?? (window.runtime as unknown as ModelTreeRuntime | undefined)
         ?? {};
+
+    // MT-07 / ADR-0327 §Decision 2 — `baseRuntime.levelStore` is the C20 entity
+    // store, which no production code path ever writes (its four aggregate
+    // commands have zero production callers), so the tree's level tier and the
+    // isolation projection both read an empty store in every real session.
+    // Re-point the slot at the live authority `window.bimManager`. Pinned at
+    // dddca348; rationale and the rejected emptiness-fallback in
+    // ./resolveLevelAuthority.ts.
+    const resolvedRuntime: ModelTreeRuntime = {
+        ...baseRuntime,
+        levelStore: resolveLevelAuthority(baseRuntime.levelStore),
+    };
 
     // ── Shell ────────────────────────────────────────────────────────────────
     const root = document.createElement('div');

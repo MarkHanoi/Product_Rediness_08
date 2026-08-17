@@ -24,6 +24,7 @@
 
 import { buildModelElementLocations, type BuildModelElementLocationsRuntime } from '../inspect/buildModelElementLocations';
 import { ElementMeshRegistryAdapter, type SceneLike } from '../inspect/ElementMeshRegistryAdapter';
+import { resolveLevelAuthority } from '../inspect/resolveLevelAuthority';
 import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
 import { IsolationAnimator, type FrameSchedulerLike } from '@pryzm/renderer-three';
 import type { InspectSelection } from '@pryzm/schemas';
@@ -50,9 +51,17 @@ function sw(): SelectionWindow | undefined {
   return (typeof window !== 'undefined' ? window : undefined) as unknown as SelectionWindow | undefined;
 }
 
-/** The composed runtime, read defensively (same probe order as InspectPanel). */
+/** The composed runtime, read defensively (same probe order as InspectPanel).
+ *
+ *  MT-07 / ADR-0327 §Decision 2 — the `levelStore` slot is re-pointed at the
+ *  live authority for the same reason InspectPanel re-points it: the C20 entity
+ *  store in that slot is never written in production, so every level this
+ *  projection emitted was absent. Room→element resolution reads the SAME
+ *  projection, and a room whose level tier is missing loses its parent chain
+ *  above the room. Pinned at dddca348. */
 function resolveRuntime(): BuildModelElementLocationsRuntime {
-  return (sw()?.runtime as BuildModelElementLocationsRuntime | undefined) ?? {};
+  const base = (sw()?.runtime as BuildModelElementLocationsRuntime | undefined) ?? {};
+  return { ...base, levelStore: resolveLevelAuthority(base.levelStore) };
 }
 
 /**

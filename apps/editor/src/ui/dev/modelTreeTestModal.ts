@@ -34,6 +34,7 @@ import {
 } from '../inspect';
 import { ElementMeshRegistryAdapter, type SceneLike } from '../inspect/ElementMeshRegistryAdapter';
 import { buildModelElementLocations } from '../inspect/buildModelElementLocations';
+import { resolveLevelAuthority } from '../inspect/resolveLevelAuthority';
 import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
 import {
     IsolationAnimator,
@@ -219,8 +220,18 @@ export function openModelTreeTestModal(runtime?: ModelTreeRuntime): void {
     // apps/editor/src/types/globals.d.ts; the cast to ModelTreeRuntime is
     // safe because ModelTreeRuntime is a STRUCTURAL superset (every field
     // optional, defensive store probes inside the component).
-    const resolvedRuntime: ModelTreeRuntime =
+    const baseRuntime: ModelTreeRuntime =
         runtime ?? (window.runtime as unknown as ModelTreeRuntime | undefined) ?? {};
+
+    // MT-07 / ADR-0327 §Decision 2 — same re-point as InspectPanel: the C20
+    // `levelStore` slot is never written in production, so read levels from the
+    // live authority `window.bimManager`. This modal is the dev twin of the
+    // Inspect panel and must not diverge from it, or it becomes a second
+    // instrument reporting a different model than the shipping one.
+    const resolvedRuntime: ModelTreeRuntime = {
+        ...baseRuntime,
+        levelStore: resolveLevelAuthority(baseRuntime.levelStore),
+    };
 
     // ── <dialog> shell ───────────────────────────────────────────────────────
     const dialog = document.createElement('dialog');

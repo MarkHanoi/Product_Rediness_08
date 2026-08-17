@@ -48,6 +48,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { LevelStore } from '@pryzm/stores';
 import { ModelTreeComponent, type ModelTreeRuntime } from '../src/ui/inspect/ModelTree.js';
 import { buildModelElementLocations } from '../src/ui/inspect/buildModelElementLocations.js';
+import { resolveLevelAuthority } from '../src/ui/inspect/resolveLevelAuthority.js';
 
 /** The L0 level `BimManager`'s constructor seeds — BimKernel.ts:166, verbatim. */
 const SEEDED_GROUND = { id: 'L0', name: 'Ground', elevation: 0, childrenIds: [] as string[] };
@@ -118,27 +119,78 @@ describe('MT-07 · the C20 LevelStore is constructed, read, and permanently empt
     });
 });
 
-describe('MT-07 · what the divergence costs the user', () => {
-    it('the Inspect Model Tree renders ZERO level rows even though the live authority has one', () => {
-        installLiveAuthority();
-        const container = mountAndExpand(productionShapedRuntime());
+describe('MT-07 · the readers, once re-pointed at the live authority', () => {
+    // These assertions were the PIN (dddca348): they read `.toBe(0)` against the
+    // unmigrated readers. `resolveLevelAuthority` flips them.
+
+    it('the Inspect Model Tree renders the live authority\'s levels', () => {
+        installLiveAuthority([
+            { ...SEEDED_GROUND },
+            { id: 'L1', name: 'Level 01', elevation: 3, childrenIds: [] },
+        ]);
+        const runtime = productionShapedRuntime();
+        const container = mountAndExpand({
+            ...runtime,
+            levelStore: resolveLevelAuthority(runtime.levelStore),
+        } as ModelTreeRuntime);
 
         const levelNodes = container.querySelectorAll('li.pmt-node[data-kind="level"]');
-        // PIN — the tree's level tier is empty in every production session.
-        expect(levelNodes.length).toBe(0);
+        expect(levelNodes.length).toBe(2);   // was 0
+        const labels = [...levelNodes].map((n) => n.querySelector('.pmt-label')!.textContent);
+        expect(labels).toContain('Ground');
+        expect(labels).toContain('Level 01');
     });
 
-    it('buildModelElementLocations emits ZERO kind:"level" locations, so isolation has no level tier', () => {
+    it('buildModelElementLocations emits a kind:"level" location per live level', () => {
         installLiveAuthority();
-        const locations = buildModelElementLocations(productionShapedRuntime());
+        const runtime = productionShapedRuntime();
+        const locations = buildModelElementLocations({
+            ...runtime,
+            levelStore: resolveLevelAuthority(runtime.levelStore),
+        } as ModelTreeRuntime);
 
         const levels = locations.filter((l) => l.kind === 'level');
-        // PIN — `buildIsolationIntent` can never resolve a level scope, and
-        // rooms fall back to `firstLevelId === undefined`.
-        expect(levels.length).toBe(0);
-        // The project + synthetic building tiers DO render, which is why this
-        // reads as "a model with no floors" rather than as a broken panel.
+        expect(levels.length).toBe(1);       // was 0
+        expect(levels[0]!.elementId).toBe('L0');
         expect(locations.some((l) => l.kind === 'project')).toBe(true);
         expect(locations.some((l) => l.kind === 'building')).toBe(true);
+    });
+});
+
+describe('MT-07 · resolveLevelAuthority branches on PRESENCE, never on emptiness', () => {
+    it('hands back the runtime store unchanged when no live authority is installed', () => {
+        // No `window.bimManager` — every existing suite is in this state, and
+        // must keep exercising the store it injects.
+        const injected = { list: () => [{ id: 'lvl-1', name: 'Injected' }] };
+        expect(resolveLevelAuthority(injected)).toBe(injected);
+    });
+
+    it('prefers the live authority even when the live authority reports NO levels', () => {
+        // The load-bearing half: "the authority is absent" and "the authority
+        // says there are no levels" must not collapse into one value. An
+        // emptiness-keyed fallback would silently resurrect the empty C20 store
+        // the moment a real model had zero levels.
+        installLiveAuthority([]);
+        const injected = { list: () => [{ id: 'lvl-1', name: 'Injected' }] };
+        const resolved = resolveLevelAuthority(injected) as { list(): unknown[] };
+        expect(resolved).not.toBe(injected);
+        expect(resolved.list()).toEqual([]);
+    });
+
+    it('re-reads the authority on every list() — a level added after mount is visible', () => {
+        const levels = [{ ...SEEDED_GROUND }];
+        installLiveAuthority(levels);
+        const resolved = resolveLevelAuthority(new LevelStore()) as { list(): unknown[] };
+        expect(resolved.list().length).toBe(1);
+        levels.push({ id: 'L1', name: 'Level 01', elevation: 3, childrenIds: [] });
+        expect(resolved.list().length).toBe(2);
+    });
+
+    it('does not swallow a throwing authority — §GR-10 needs "threw" to stay distinct from "empty"', () => {
+        (globalThis as unknown as { window: Record<string, unknown> }).window['bimManager'] = {
+            getLevels: () => { throw new Error('kernel not attached'); },
+        };
+        const resolved = resolveLevelAuthority(new LevelStore()) as { list(): unknown[] };
+        expect(() => resolved.list()).toThrow('kernel not attached');
     });
 });
