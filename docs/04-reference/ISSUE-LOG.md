@@ -6443,3 +6443,111 @@ architecturally better shape and matches how the founder actually speaks.
 **Owner:** unassigned. C67 + C68 are MANDATORY for this PR (it registers a bus command and touches a
 user-visible attribute vocabulary).
 
+⭐ **AMENDED 2026-08-17 — the founder hit a SECOND wall, and it is not this one.** Asked live for
+*"Make all windows 2 meters height"*, production answered:
+
+> *"I'm not sure how to help with that yet … free-phrasing needs the AI planner, and this deploy has
+> no AI upstream configured (no CF_WORKER_URL / ANTHROPIC_API_KEY)."*
+
+MEASURED: `flyctl secrets list -a pryzm` returns ALLOWED_ORIGIN, PRYZM_OWNER_EMAIL,
+PRYZM_OWNER_PASSWORD, PUBLIC_BASE_URL, SESSION_SECRET, SUPABASE_DB_URL, SUPABASE_SERVICE_ROLE_KEY,
+SUPABASE_URL, DATAFORDELER_API_KEY — and **neither `CF_WORKER_URL` nor `ANTHROPIC_API_KEY`**.
+CLAUDE.md lists one of them as REQUIRED to run the server. **Every free-phrased request in production
+has therefore always died at the same place**; the deterministic zero-token resolver is the only
+thing that has ever worked live. ⚠ Also absent: `DATABASE_URL` (only `SUPABASE_DB_URL` is set) —
+verify whether `server.js` aliases it or that is a second gap.
+
+⭐ **CONSEQUENCE FOR THE FIX, and it changes the design:** setting the key would NOT make the
+founder's sentence work, because the planner still has to route to a capability that accepts an
+all-scope dimensional ask and none exists. **The batch capability must resolve on the ZERO-TOKEN
+path**, or it will test green and still fail the founder.
+
+Full measured trace of the four paths (zero-token), for whoever builds this:
+| founder does | result |
+|---|---|
+| says it with NOTHING selected | REFUSED — `needSelection` (`ZeroTokenResolver.ts:1482`) |
+| selects ONE window | ✅ WORKS — the compound `set-dimensions` intent already parses at 0.95 confidence |
+| selects SEVERAL | REFUSED — one-element-only BY DESIGN (`:1488`, ADR-0314 §Selection batch: *"one dispatch = one rebuild … fanning that across a selection multiplies the stale-id hazard"*) |
+| says "ALL windows …" | REFUSED — `§FIX-CHAT-DIMENSION-ALL-SCOPE` (`LocalNaturalLanguageResolver.ts:764`) |
+
+⛔ **The all-scope guard is CORRECT and must not be deleted** — it exists because *"set all slabs
+thickness to 0.2m"* used to silently resize the ONE selected wall. It must become UNNECESSARY, not
+removed.
+
+⭐ **AND THE REFUSAL ADVERTISES AN ESCAPE HATCH THAT DOES NOT EXIST.** `:1493` says *"Select one
+element, or change one dimension for all of them."* There is no all-scope dimensional capability, so
+the second half is refused too. That is L-942's rule violated in one string: **a refusing half and
+its escape hatch ship together, or neither ships.** Fix the string even if the capability waits.
+
+## L-950 — duplicating a level copies COORDINATES and drops RELATIONSHIPS
+
+**Founder-reported 2026-08-17:** *"the first floor was created by duplicate ground level to first
+floor — and those floors don't get the slab, floor finishes or ceiling moving along. But walls they
+do."* Root-caused at HEAD `2dafa121`.
+
+**TWO defects, and the second is why fixing only the first would be worse than nothing.**
+
+**(1) Floors and ceilings are never duplicated.** `DuplicateFloorPlanCommand.ts:94-97` reads exactly
+four stores — `wallStore`, `slabStore`, `columnStore`, `furnitureStore`. There is no `floorStore` and
+no `ceilingStore` anywhere in the file. The finishes are not failing to follow; **they do not exist
+on the target level.** That is why the founder's log shows no `[Dne] §C79-5.2` line and no
+`UPDATE_FLOOR_BOUNDARY` for the duplicated level, while the ground floor shows both.
+
+**(2) No reference remapping at all.** Zero occurrences of `idMap`, `remap`, `hostWallId`, `sketch`
+or `joinedTo` in the command. Walls are rebuilt from raw geometry (`start`/`end`/`height`/
+`thickness`) and openings re-created per wall.
+
+⭐ **WHY WALLS SURVIVE AND NOTHING ELSE DOES — the whole lesson.** `joinedTo` is **RE-DERIVED from
+geometry** by the junction resolver once the walls land, so the wall cascade rebuilds itself for free
+(founder's log: *"2 partner(s) via joinedTo-graph → 2 baseline re-seat(s) … partners accounted
+2/2"*). A floor's or slab's binding to its bounding walls is an **AUTHORED HOST REFERENCE**, and
+nothing rebuilds it. Duplication copies what is derivable and silently drops what is authored.
+
+This is the founder's own spec §5 violated verbatim: **"the connection is a persistent RELATIONSHIP,
+not a coincidence of coordinates."**
+
+**Owner:** lane K. ⛔ Do NOT ship (1) without (2) — floors on the duplicated level that sit inert and
+break on the first wall move are a defect that now LOOKS fixed, which is strictly worse than an
+obviously missing floor.
+
+## L-951 — the stair void is carved into the WRONG slab, by nearest centroid
+
+**Founder-reported 2026-08-17:** *"stair creation — I was expecting the slab to have a void, but it
+doesn't … I see a rectangle for cutting the slab, but it doesn't really cut."*
+
+**The void IS created. It lands in a slab the founder is not looking at.** Their log:
+
+```
+[CreateStairCommand] Auto-opening opening-stair-… created on slab slab-dup-cmd-dup-fp-…-0-0
+[SlabFragmentBuilder] opening holes slabId="slab-dup-cmd-dup-fp-…-0-0" count=2
+```
+
+while the slabs their clicks resolve to are `836ba3e3-331a-4fe2-bf24-71c4a6580d07` and
+`slab_01M08HN0H3FA5R4DAEDAKNGX3M`. The project holds **4 slabs**. The CSG genuinely ran (`count=2`)
+— hence a rectangle outline where the opening belongs and solid slab where the stair passes through.
+
+**ROOT CAUSE — `StairSlabOpeningReconciler.ts`.** `:124` filters candidates by
+`s.levelId === stair.topLevelId`, which is correct candidacy. Then `:148` calls `resolveHostSlab`,
+which at `:78-88` picks by **NEAREST CENTRE**:
+
+```js
+const dx = s.position.x - cx; const dz = s.position.z - cz;
+if (d2 < bestD2) { bestD2 = d2; host = s; }
+```
+
+**It never asks whether the stair footprint is INSIDE the slab.**
+
+⭐ **Why it fails on this model in particular:** the building is **L-SHAPED**, so a slab's centroid
+can lie OUTSIDE its own footprint — in the notch of the L. Another slab's centre is then nearer to
+the stair than the centre of the slab the stair actually stands on. Nearest-centre is only sound for
+convex, well-separated slabs, and nothing states that precondition.
+
+Same family as L-946 and L-950: a geometric proxy standing in for a real relationship.
+
+**Owner:** lane L. Fix is point-in-polygon containment; nearest-centre survives only as a TIEBREAK
+when the point is inside more than one candidate. ⛔ When it is inside NONE, refuse honestly and name
+the stair — do not silently carve the closest, which is exactly today's defect. Both reconcile
+directions (stair-side `:100`, slab-side `~:197`) must agree, or the idempotence the file claims is
+false. ⚠ Reuse an existing point-in-polygon helper: `check-predicate-canonical` counts duplicate
+geometry predicates and minting a rival may BREACH it.
+
