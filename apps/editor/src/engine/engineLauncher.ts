@@ -873,6 +873,30 @@ export async function bootstrap(
         getJoinedWalls: (wallId) => semanticGraphManager.getJoinedWalls(wallId),
         isJoinResolving: () => wallRebuildCoordinator.isJoinsResolving,
         isCascadeApplying: isCascadeWallBaselineApplying,
+        // §L-936-SINK-UNWIRED — L-921 built this sink and NOTHING EVER PASSED IT.
+        //
+        // `WallMoveReweldService.report()` is `this.deps.onConsequence?.(r)`, so an
+        // absent sink is a silent no-op, and this — the ONLY production
+        // composition of the service — omitted the field. Measured 2026-08-17
+        // (`L936InteriorLPairMove.measure.test.ts`): moving an interior wall whose
+        // L-partner cannot be followed computes
+        // `INCUMBENT_EXTENSION_REQUIRED: i-a: the new corner falls 600 mm past
+        // that wall's end …` — both numbers, the right sentence — and delivered it
+        // nowhere. That is L-921's finding ("a refusal computed and a refusal
+        // delivered printed as the same outcome") reproduced by the wiring of
+        // L-921's own fix: authored, and unreachable.
+        //
+        // Same channel as the slab service above, for the same founder sentence
+        // (§L-921-ONE-CHANNEL, *"I WANT THE MESSAGE ONLY ON THE AI CHAT"*): a
+        // junction this move cannot repair is the same gesture refused one
+        // subscriber later, and a card or toast of its own would be the fifth
+        // surface C83 §4.1 names as the failure mode.
+        onConsequence: (report) => {
+            const sentences = report.detail.length > 0
+                ? report.detail
+                : [`${report.reason} — junction(s) left unrepaired: ${report.partnerIds.join(', ')}`];
+            for (const sentence of sentences) chatSay(sentence);
+        },
     });
     void wallMoveReweldService; // owned by the engine lifetime; disposed with it
 
