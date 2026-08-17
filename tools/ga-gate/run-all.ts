@@ -516,6 +516,10 @@ const GATES: Gate[] = [
   // *"declared CLOSED — instrument is not a runnable gate"*: not evidence at HEAD.
   { name: 'source-verified-invariants (GR-15 · PR-05/06/07/13)', script: '../rac-conformance/certification/gates/check-source-verified-invariants.ts' },
   { name: 'gate-residency (GR-11 · PR-08 · GE-07 · CO-11 · PV-07)', script: '../rac-conformance/certification/gates/check-gate-residency.ts' },
+  // ⚠ SLOWEST GATE IN THIS RUNNER after per-package-compile: it SPAWNS HARNESS 5
+  // (~2 min) rather than reading yesterday's artefact, because a gate that reads a
+  // stale results file has measured nothing. Freshness is one of its floors.
+  { name: 'graph-runtime-readback (GR-09 · GR-18 · C71 §5.5/§5.8)', script: '../rac-conformance/certification/gates/check-graph-runtime-readback.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
