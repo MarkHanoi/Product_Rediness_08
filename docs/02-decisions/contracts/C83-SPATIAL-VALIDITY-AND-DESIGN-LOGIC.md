@@ -1196,10 +1196,42 @@ construction (§10.1) and can never satisfy condition 1.
 
 #### §10.6.3 — MUST NOT
 
-1. **MUST NOT** follow when the junction is `T`, degree ≥ 3, or the metadata is **absent**.
-   ⚠ **Absent metadata means DO NOT FOLLOW** — the level-scan fallback path returns no junction
-   metadata, and in that state the engine must take today's behaviour byte-identically. A missing
-   discriminator is *"I could not determine"*, never *"L"* (C70 L-INV-1).
+1. **MUST NOT** follow when the junction has **degree ≥ 3**, whether that degree is READ from the
+   stored record or MEASURED. This is the L-922 guard and it is the only load-bearing half.
+
+   ⚠⚠ **AMENDED 2026-08-17 (L-942, founder-directed), and the original text is kept because the
+   reasoning behind it was sound and only its CONSEQUENCE was wrong.** This clause read:
+
+   > *"Absent metadata means DO NOT FOLLOW — a missing discriminator is «I could not determine»,
+   > never «L» (C70 L-INV-1)."*
+
+   **Measured on the founder's own model**: production `joinedTo` edges frequently carry no
+   metadata, so a perimeter wall dragged **past a neighbour's far end** could not close the corner
+   on any gesture — the neighbour would have to lengthen, `INCUMBENT_EXTENSION_REQUIRED` refused,
+   and the founder reported it as *"everything works — only when the wall surpasses the vertex it
+   corrupts."* Inwards worked (the corner lands ON the neighbour, nothing must move); outwards did
+   not (the corner lands PAST it, the neighbour must grow).
+
+   ⭐ **THE RESOLUTION: DEGREE IS MEASURABLE, AND THE TYPE LETTER WAS NEVER THE SAFETY ARGUMENT.**
+   - **Keyed on `junctionDegree === 2`, not on `junctionType === 'L'`.** §10.6.2's argument is
+     *"degree 2 with no third wall — nobody else's authority is at stake"*, which is a statement
+     about PARTICIPANT COUNT. The letter is redundant with it, and on a real cross-shaped perimeter
+     the resolver may legitimately record a 2-wall corner under another letter for an obtuse or
+     reflex turn.
+   - **Absent record ⇒ MEASURE the degree** by counting wall endpoints within `weldTol` of the
+     welded point. **§10.6.3 #2 still stands unchanged**: the MUTUAL-vs-TERMINATING distinction may
+     never be re-derived from geometry, because those two are the same picture. **Degree is a
+     different question** — it is defined as *how many walls meet at this point*, and counting them
+     measures the same number the metadata stores. It is not a category guess, and it cannot
+     disagree with a stored record because it never runs when one exists.
+
+   **C70 L-INV-1 is not weakened.** *"I could not determine"* remains forbidden as an answer — the
+   amendment removes the need to say it, by measuring the thing that was missing rather than
+   guessing it.
+
+   *Pinned by:* `wallMoveReweldSeam.test.ts` — the `T`/degree-3 control goes **RED** when the degree
+   guard is removed (verified 2026-08-17), and an absent-metadata 2-wall corner now asserts the
+   follow, the pivot, and a closed perimeter.
 2. **MUST NOT** re-derive the mutual/terminating distinction from geometry. Both cases are "an
    endpoint near an endpoint"; that is precisely why `classifyWeldAuthorship` folds them into one
    verdict today. **The discriminator is stored — read it.**

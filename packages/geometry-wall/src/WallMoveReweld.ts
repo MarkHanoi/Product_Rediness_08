@@ -171,8 +171,58 @@ export interface MoveReweldEntry {
  * enclosed-polyline perimeter is incumbent by construction (§10.1) and can
  * never satisfy this predicate.
  */
-function isMutualCorner(partner: MoveReweldPartner): boolean {
-    return partner.junctionType === 'L' && partner.junctionDegree === 2;
+function isMutualCorner(partner: MoveReweldPartner, measuredDegree: number): boolean {
+    // ── STORED degree wins when it exists ────────────────────────────────────
+    //
+    // ⚠ KEYED ON DEGREE, NOT ON THE TYPE LETTER. §10.6.2's safety argument is
+    // *"degree 2 with no third wall — nobody else's authority is at stake"*, and
+    // that is a statement about PARTICIPANT COUNT. The `'L'` letter is redundant
+    // with it, and on a real cross-shaped perimeter (L-942, the founder's own
+    // model) the resolver may legitimately record a 2-wall corner under another
+    // letter for an obtuse or reflex turn. Requiring `'L'` refused corners that
+    // were mutual by every measure that matters.
+    if (partner.junctionDegree != null) return partner.junctionDegree === 2;
+
+    // ── No stored record ⇒ MEASURE the degree. This is not inference ─────────
+    //
+    // §10.6.3 #2 forbids re-deriving the MUTUAL-vs-TERMINATING distinction from
+    // geometry, and that prohibition stands: a mutual corner and a terminating
+    // corner are the same picture, so no shape test can separate them.
+    //
+    // ⭐ THIS IS A DIFFERENT QUESTION. Degree is defined as *how many walls meet
+    // at this point*. Counting the endpoints that meet there MEASURES exactly
+    // the quantity `junctionDegree` stores — it does not guess a category from a
+    // shape. The two are the same number computed two ways, which is why this
+    // fallback cannot disagree with a stored record (and never runs when one
+    // exists).
+    //
+    // Why it is needed at all: without it, ABSENT metadata means nothing ever
+    // follows, and the founder's perimeter walls could not close a corner on any
+    // gesture that outran a neighbour's end.
+    //
+    // ⚠ THE L-922 GUARD IS UNCHANGED AND IS THE POINT: degree >= 3 NEVER
+    // follows. An interior partition landing on a perimeter puts THREE walls at
+    // that point and is refused here exactly as it was before.
+    return measuredDegree === 2;
+}
+
+/**
+ * How many walls meet at `at` — the subject plus every partner with an endpoint
+ * within `weldTol` of it. Minimum 2 (subject + the partner being judged).
+ *
+ * This is the same count `junctionDegree` records; see `isMutualCorner`.
+ */
+function measureJunctionDegree(
+    at: Pt, partners: ReadonlyArray<MoveReweldPartner>, movedId: string, weldTol: number,
+): number {
+    let n = 1; // the subject itself
+    for (const p of partners) {
+        if (p.id === movedId) continue;
+        const s = toPt(p.baseLine[0]);
+        const e = toPt(p.baseLine[1]);
+        if (dist(s, at) <= weldTol || dist(e, at) <= weldTol) n++;
+    }
+    return n;
 }
 
 // ─── Internal 2D helpers (XZ plane; y is carried through untouched) ──────────
@@ -844,7 +894,11 @@ export function computeMoveReweldPlan(
         // 0.000 → 2.000 m and preserved its world position. Emitting the entry
         // is what buys that; a second copy of the offset maths here would be the
         // drift this file's header refuses.
-        if (isMutualCorner(partner)) {
+        // Degree is measured at the PRE-move welded point — that is where the
+        // junction currently exists and where its participants are countable.
+        // Measuring at the NEW corner would count whatever happens to be near
+        // the destination, which is a different question entirely.
+        if (isMutualCorner(partner, measureJunctionDegree(welded, partners, moved.id, weldTol))) {
             const reversed = dot2(sub(corner, far), sub(welded, far)) <= 0;
             if (reversed) {
                 refusals.push({

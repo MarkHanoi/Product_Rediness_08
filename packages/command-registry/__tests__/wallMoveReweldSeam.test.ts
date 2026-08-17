@@ -637,7 +637,28 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
     // ⚠ THIS IS THE ARM THAT WOULD FAIL SILENTLY IF ABSENCE WERE READ AS
     // PERMISSION — the exact "empty means unknown" collision this whole
     // programme exists to abolish, pointed at wall authority.
-    it('§C83-10.6.3 #1: with NO junction metadata, nothing follows — pre-§10.6 behaviour verbatim', () => {
+    // ⚠⚠ AMENDED 2026-08-17 (L-942, founder-directed) — this assertion is the
+    // INVERSE of what it was, and the reason must survive.
+    //
+    // §10.6.3 #1 originally read "ABSENT metadata ⇒ DO NOT FOLLOW", on the sound
+    // principle that a missing discriminator is "I could not determine", never
+    // "L" (C70 L-INV-1). MEASURED CONSEQUENCE on the founder's own model: a
+    // perimeter wall dragged past its neighbour's end could not close the corner
+    // on ANY gesture, because production edges frequently carry no metadata and
+    // the engine therefore refused every time. *"Everything works — only when
+    // the wall surpasses the vertex it corrupts."*
+    //
+    // ⭐ THE RESOLUTION IS THAT DEGREE IS MEASURABLE. §10.6.3 #2 forbids
+    // re-deriving the MUTUAL-vs-TERMINATING distinction from geometry, and that
+    // still stands — the two are the same picture. But `junctionDegree` is a
+    // COUNT of walls meeting at a point, and counting endpoints at that point
+    // measures the same number the metadata stores. It is not a category guess.
+    // So absence is no longer answered with a refusal; it is answered by
+    // measuring the thing that was absent.
+    //
+    // ⚠ THE L-922 GUARD IS UNCHANGED: degree >= 3 never follows, whether stored
+    // or measured. The control above pins it and goes RED without it.
+    it('§C83-10.6.3 #1 AMENDED: with NO junction metadata, degree is MEASURED and a 2-wall corner follows', () => {
         world = makeWorld({ withReweld: true });
         world.wallStore.add(wallRecord('w-south', [0, 0], [6, 0]));
         world.wallStore.add(wallRecord('w-east', [6, 0], [6, 4]));
@@ -654,15 +675,26 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
             ] as unknown as Parameters<typeof semanticGraphManager.replaceJoinedToForLevelWalls>[1],
         );
 
-        const eastBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine);
-        const westBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine);
+        // FAR ends — they must still be untouched. The follow is a PIVOT even
+        // when the degree was measured rather than read (§10.6.2 condition 4).
+        const eastFarBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine[0]);
+        const westFarBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine[1]);
 
         moveWall(world, 'w-north', 0, 2);
 
-        // Byte-identical: the SAME gesture that made them follow above must do
-        // nothing here, because the discriminator is unreadable.
-        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine)).toBe(eastBefore);
-        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine)).toBe(westBefore);
+        // THE FOLLOW HAPPENS. Each corner has exactly TWO participants —
+        // w-north and one neighbour — so the measured degree is 2 and the
+        // neighbour is a co-owner, exactly as a stored L/2 record would say.
+        expect(near(bl2(world, 'w-east')[1], [6, 6])).toBe(true);
+        expect(near(bl2(world, 'w-west')[0], [0, 6])).toBe(true);
+
+        // …and it is still a pivot, not a drag.
+        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine[0])).toBe(eastFarBefore);
+        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine[1])).toBe(westFarBefore);
+
+        // The perimeter closes — the founder's actual requirement.
+        expect(near(bl2(world, 'w-east')[1], bl2(world, 'w-north')[0])).toBe(true);
+        expect(near(bl2(world, 'w-west')[0], bl2(world, 'w-north')[1])).toBe(true);
     });
 
     it('§C83-10.2.2: the engine REPORTS the refusal rather than dropping the junction silently', () => {
@@ -674,7 +706,22 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
                 prevBaseLine: [{ x: 0, y: 0, z: 4 }, { x: 6, y: 0, z: 4 }],
                 newBaseLine:  [{ x: 0, y: 0, z: 6 }, { x: 6, y: 0, z: 6 }],
             },
-            [{ id: 'w-east', baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: 0, z: 4 }] }],
+            [
+                { id: 'w-east', baseLine: [{ x: 6, y: 0, z: 0 }, { x: 6, y: 0, z: 4 }] },
+                // ⚠ AMENDED 2026-08-17 (L-942): a THIRD wall at the same corner.
+                //
+                // This fixture used to carry w-east alone, which under the
+                // amended §10.6.3 #1 now MEASURES as degree 2 — a mutual corner
+                // — and correctly FOLLOWS instead of refusing. The test's
+                // subject is not "corners refuse"; it is "a refusal, WHEN one
+                // happens, is REPORTED rather than dropped silently" (a dropped
+                // junction with nobody told is L-921 wearing L-922's clothes).
+                //
+                // So the fixture is corrected to one that genuinely must refuse:
+                // three walls meet at (6,4), nobody owns that corner alone, and
+                // the L-922 guard holds. The assertion below is unchanged.
+                { id: 'w-stub', baseLine: [{ x: 6, y: 0, z: 4 }, { x: 9, y: 0, z: 4 }] },
+            ],
             { weldTol: 0.5 },
         );
         // NOTHING is proposed for the incumbent…
