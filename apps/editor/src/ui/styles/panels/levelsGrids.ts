@@ -17,18 +17,56 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
         font-family: var(--app-font);
     }
 
+    /* ─── §ALH-BRAND (L-933) ──────────────────────────────────────────────────
+       The badge used to be a near-opaque near-black plate
+       ('rgba(18,18,32,0.82)' + white text + a black drop shadow) — the ONE black
+       element on a canvas whose every other floating control is white + PRYZM
+       purple.  That was a bespoke palette on a single component, i.e. the actual
+       defect; the fix is to adopt the shared floating-pill language rather than
+       hand-match hexes:
+
+         · shape/elevation  — same as '.th-overlay' (toolHud.ts) and
+                              '.ann-dim-opt-bar' below: capsule radius, hairline
+                              border, soft shadow, backdrop blur.
+         · colour           — derived from the design tokens in styles/tokens.ts
+                              ('--app-accent' = the unified PRYZM purple #6600FF,
+                              '--app-panel-bg', '--app-text-2',
+                              '--app-violet-soft') via 'color-mix()', the pattern
+                              already used in dataWorkbench.ts.  NOTHING here
+                              re-declares a brand hex — change the token and this
+                              pill follows.
+
+       ⚠ THE 84% SCRIM IS A MEASURED LEGIBILITY FLOOR, NOT A TASTE CALL.
+       This pill floats over a 3-D viewport that can be a blown-out white roof or
+       a black shaded wall, so the fill has to stay translucent enough that the
+       model reads through AND opaque enough that purple-on-glass survives the
+       worst backdrop.  WCAG 2.1 contrast of the composited pill, measured:
+
+         backdrop        name (#6600FF)   elevation (#6220DA)
+         #ffffff  roof        6.98 : 1          7.67 : 1
+         #808080  mid         5.85 : 1          6.43 : 1
+         #0d1117  canvas      4.94 : 1          5.43 : 1
+         #000000  worst       4.80 : 1          5.28 : 1
+
+       Every case clears the 4.5:1 AA floor for normal text.  Dropping the scrim
+       to 80% puts the worst case at 4.35:1 and BREAKS it — if a later pass wants
+       "more transparent", it must move the text colour too, not just this
+       number.  'saturate(160%)' is what keeps the pill visibly tinted by whatever
+       is behind it at this alpha, so it still reads as glass, not as a plate.
+    ──────────────────────────────────────────────────────────────────────── */
     .alh-badge {
         display: flex;
         align-items: center;
-        gap: 6px;
-        background: rgba(18, 18, 32, 0.82);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 20px;
-        padding: 5px 12px;
-        color: #ffffff;
+        gap: 4px;
+        background: color-mix(in srgb, var(--app-panel-bg) 84%, transparent);
+        border: 1px solid color-mix(in srgb, var(--app-accent) 26%, transparent);
+        border-radius: 100px;
+        padding: 3px 8px;
+        color: var(--app-accent);
         pointer-events: auto;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.35);
-        backdrop-filter: blur(6px);
+        box-shadow: 0 2px 10px color-mix(in srgb, var(--app-accent) 16%, transparent);
+        backdrop-filter: blur(12px) saturate(160%);
+        -webkit-backdrop-filter: blur(12px) saturate(160%);
         user-select: none;
     }
 
@@ -43,34 +81,48 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
         font-size: 12px;
         font-weight: 700;
         letter-spacing: 0.03em;
-        color: #ffffff;
+        color: var(--app-accent);
         line-height: 1.2;
     }
 
     .alh-elev {
         font-size: 10px;
-        color: rgba(255,255,255,0.65);
+        /* An OPAQUE blend of two tokens, never a translucent purple — an alpha
+           here would wash out against a dark model, exactly where legibility is
+           already tightest. */
+        color: color-mix(in srgb, var(--app-accent) 70%, var(--app-text-2));
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.02em;
     }
 
+    /* §ALH-TARGET — 24×24 is the WCAG 2.2 AA SC 2.5.8 target floor and
+       'scaleDeclaration()' clamps BOX_SIZE_PROPS so the 0.85 density transform
+       cannot push it back under.  The old 'padding: 2px 4px' arrows scaled to a
+       ~12×14 hit area; do not go back to padding-only sizing. */
     .alh-arrow {
         background: none;
         border: none;
-        color: rgba(255,255,255,0.70);
-        font-size: 10px;
+        color: var(--app-accent);
+        font-size: 11px;
         cursor: pointer;
-        padding: 2px 4px;
-        border-radius: 4px;
-        transition: color 0.12s, background 0.12s;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border-radius: 100px;
+        transition: color 0.12s, background 0.12s, box-shadow 0.12s;
         line-height: 1;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
     .alh-arrow:hover:not(:disabled) {
-        color: #ffffff;
-        background: rgba(255,255,255,0.12);
+        color: var(--app-accent);
+        background: var(--app-violet-soft);
+    }
+    .alh-arrow:focus-visible {
+        outline: 2px solid var(--app-accent);
+        outline-offset: 1px;
     }
     .alh-arrow:disabled {
         opacity: 0.28;
@@ -79,8 +131,13 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
 
     /* ─── §ALH-TB: Toolbar-slot overrides ────────────────────────────────────
        When the HUD is injected into #alh-toolbar-slot (inside .plat-toolbar),
-       override the absolute-position defaults and apply the app violet palette.
-       The original .alh-* rules remain unchanged as a canvas-overlay fallback.
+       override the absolute-position defaults.  §ALH-BRAND (L-933): this block
+       used to carry a SECOND copy of the violet palette (its own gradient,
+       '#5B21B6', four 'rgba(102,0,255,…)' literals) because the base rules were
+       dark.  The base rules are now the on-brand ones, so the colour half is
+       deleted rather than kept in sync by hand — what remains is layout only.
+       The slot sits inside an opaque toolbar, so the base scrim composites to
+       solid white there and the blur is redundant, hence 'backdrop-filter:none'.
     ──────────────────────────────────────────────────────────────────────── */
     #alh-toolbar-slot {
         display: flex;
@@ -95,33 +152,22 @@ export const ACTIVE_LEVEL_HUD_STYLES = `
         align-items: center;
     }
     #alh-toolbar-slot .alh-badge {
-        background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(102,0,255,0.12) 100%);
-        border: 1.5px solid rgba(102,0,255,0.22);
-        border-radius: 20px;
-        padding: 3px 10px;
-        gap: 5px;
-        color: #5B21B6;
-        box-shadow: 0 1px 6px rgba(102,0,255,0.10);
+        padding: 2px 6px;
+        box-shadow: 0 1px 6px color-mix(in srgb, var(--app-accent) 10%, transparent);
         backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
     #alh-toolbar-slot .alh-info {
         min-width: 80px;
     }
     #alh-toolbar-slot .alh-name {
-        color: #5B21B6;
         font-size: 11.5px;
     }
     #alh-toolbar-slot .alh-elev {
-        color: rgba(102,0,255,0.60);
         font-size: 9.5px;
     }
     #alh-toolbar-slot .alh-arrow {
-        color: rgba(102,0,255,0.55);
-        font-size: 9px;
-    }
-    #alh-toolbar-slot .alh-arrow:hover:not(:disabled) {
-        color: #6600FF;
-        background: rgba(102,0,255,0.09);
+        font-size: 10px;
     }
     #alh-toolbar-slot .alh-arrow:disabled {
         opacity: 0.22;

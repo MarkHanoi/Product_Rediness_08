@@ -70,9 +70,13 @@ export class ActiveLevelHUD {
         badge.className = 'alh-badge';
 
         const btnDown = document.createElement('button');
+        btnDown.type = 'button';
         btnDown.className = 'alh-arrow';
         btnDown.textContent = '▼';
         btnDown.title = canGoDown ? `Go to ${levels[idx - 1]?.name}` : 'No lower level';
+        // §ALH-BRAND (L-933) — without this the button announces as the glyph
+        // "▼". The restyle keeps the affordance visual; this keeps it audible.
+        btnDown.setAttribute('aria-label', canGoDown ? `Go down to ${levels[idx - 1]?.name}` : 'No lower level');
         btnDown.disabled = !canGoDown;
         btnDown.addEventListener('click', () => {
             if (canGoDown) this._activateLevel(levels[idx - 1].id);
@@ -93,9 +97,11 @@ export class ActiveLevelHUD {
         info.appendChild(elevSpan);
 
         const btnUp = document.createElement('button');
+        btnUp.type = 'button';
         btnUp.className = 'alh-arrow';
         btnUp.textContent = '▲';
         btnUp.title = canGoUp ? `Go to ${levels[idx + 1]?.name}` : 'No higher level';
+        btnUp.setAttribute('aria-label', canGoUp ? `Go up to ${levels[idx + 1]?.name}` : 'No higher level');
         btnUp.disabled = !canGoUp;
         btnUp.addEventListener('click', () => {
             if (canGoUp) this._activateLevel(levels[idx + 1].id);
