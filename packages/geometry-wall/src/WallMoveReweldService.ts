@@ -314,6 +314,19 @@ export class WallMoveReweldService {
                 if (bucket) bucket.push(r); else byReason.set(r.reason, [r]);
             }
             for (const [reason, group] of byReason) {
+                // §L-936-EMITTER-HONESTY — audible EVEN WITH NO SINK. Measured
+                // 2026-08-17: `engineLauncher.ts` composes this service without
+                // `onConsequence`, so every plan-stage refusal in production
+                // went to `report()` and stopped there — no chat, no card, and
+                // (unlike the cascade-stage branch below) not even a console
+                // line. A refusal that is computed with both its numbers and
+                // then reaches nobody is L-921 verbatim, one stage earlier.
+                console.warn(
+                    `[WallMoveReweldService] §MOVE-REWELD-REFUSED: moved wall ${wall.id} — ` +
+                    `${reason} × ${group.length}; these junctions are LEFT UNREPAIRED: ` +
+                    `[${group.map(r => r.partnerId).join(', ')}]`,
+                    { detail: group.map(r => describeReweldRefusal(r)) },
+                );
                 this.report({
                     movedWallId: wall.id,
                     stage: 'plan',
@@ -323,7 +336,30 @@ export class WallMoveReweldService {
                 });
             }
         }
-        if (entries.length === 0) return;
+        if (entries.length === 0) {
+            // §L-936-EMITTER-HONESTY — THE SILENCE THAT COST SIX REPORTS.
+            //
+            // This was a bare `return`. Measured on the founder's own fixture
+            // (`L936InteriorLPairMove.measure.test.ts`): a perpendicular drag of
+            // an interior wall whose L-partner the graph HAD named produced
+            // `plans=[] consequences=[]` — an empty plan, no refusal, no line,
+            // and a 600 mm dangling corner in the store. From outside, that is
+            // indistinguishable from "this wall joins nothing", which is the
+            // one thing C71 §4.4 exists to keep distinguishable.
+            //
+            // Partners are named, because "which walls did the engine look at
+            // and decline to move" is the question six lanes could not answer
+            // from the old output.
+            if (plan.refusals.length === 0) {
+                console.warn(
+                    `[WallMoveReweldService] §MOVE-REWELD-EMPTY-PLAN: moved wall ${wall.id} — ` +
+                    `${partners.length} partner(s) considered via ${partnerSource} ` +
+                    `[${partners.map(p => p.id).join(', ')}], 0 re-weld entries and 0 refusals. ` +
+                    `Every junction this move touched was left exactly as it was.`
+                );
+            }
+            return;
+        }
 
         const cm = this.deps.commandManagerRef.current;
         if (!cm) {
@@ -364,10 +400,38 @@ export class WallMoveReweldService {
                 return;
             }
             cm.execute(cmd, { source: 'STRUCTURAL_CASCADE' });
+            // §L-936-EMITTER-HONESTY — THE COUNT THAT LIED, and the reason this
+            // family was reported six times.
+            //
+            // This line used to read `${entries.length} junction re-weld(s) via
+            // ${partnerSource} [${entries.map(e => e.wallId)}]`. `entries` is the
+            // ENGINE'S PLAN, and under C83 §10.2.2 a plan that correctly declines
+            // to move a corner INCUMBENT still contains the SUBJECT's own re-seat
+            // — so a gesture that reached a partner and deliberately left it
+            // where it was printed as **"1 junction re-weld(s) … [the moved wall
+            // itself]"**. That is a true sentence in a shape that cannot be told
+            // apart from "the graph returned nothing but me", and L-936 was
+            // opened on exactly that misreading. The partner list was never
+            // printed at all, so no reader could check.
+            //
+            // Three counts now, because they are three different facts:
+            //   partners  — what the graph/scan handed the engine
+            //   re-seated — whose baseline this cascade actually writes
+            //   refused   — junctions the engine will not close, by name
+            // and the SUBJECT is labelled, so "the mover adapted" can never
+            // again be read as "a partner followed".
+            const reseated = entries.map(e => e.wallId);
+            const subjectOnly = reseated.length === 1 && reseated[0] === wall.id;
             console.log(
                 `[WallMoveReweldService] §MOVE-REWELD-DISPATCH: moved wall ${wall.id} → ` +
-                `${entries.length} junction re-weld(s) via ${partnerSource} ` +
-                `[${entries.map(e => e.wallId).join(', ')}]`
+                `${partners.length} partner(s) via ${partnerSource} ` +
+                `[${partners.map(p => p.id).join(', ')}] → ` +
+                `${entries.length} baseline re-seat(s) [${reseated.join(', ')}]` +
+                (subjectOnly ? ' (THE SUBJECT ONLY — no partner followed)' : '') +
+                `, ${plan.refusals.length} junction(s) refused` +
+                (plan.refusals.length > 0
+                    ? ` [${plan.refusals.map(r => `${r.partnerId}:${r.reason}`).join(', ')}]`
+                    : '')
             );
         } finally {
             this.propagating = false;
