@@ -1966,7 +1966,14 @@ export class ProjectLoader {
                 // cleared first: hydrate() refuses to merge two lineages
                 // (C23 §1.9), and merging is exactly the wrong answer here.
                 this.provenanceStore.reset();
-                const prov = this.provenanceStore.hydrate((snapshot as any).provenance);
+                // C75 §2.6 — read the slice THROUGH the type, never around it.
+                // `ProjectSnapshot.provenance` is already declared as
+                // `SerializedProvenance | undefined` (ProjectSerializer.ts:290)
+                // and `hydrate()` takes exactly that, so the `as any` this line
+                // used to carry bought nothing and cost the one check that
+                // matters: it defeated the provenance union at the precise
+                // boundary the union exists to police.
+                const prov = this.provenanceStore.hydrate(snapshot.provenance);
                 if (prov.absent) {
                     // C75 §1.4 / C70 I-INV-3 — the absence is NAMED. A snapshot
                     // without the slice is not a project with no AI history; it
@@ -1992,10 +1999,14 @@ export class ProjectLoader {
                     console.warn(msg);
                     result.warnings.push(msg);
                 }
-            } else if ((snapshot as any).provenance) {
+            } else if (snapshot.provenance) {
                 // The snapshot HAS a lineage and this session cannot hold it.
                 // Saying nothing would let the next save write the key away.
-                const msg = `[ProjectLoader] Snapshot carries a C23 provenance slice (${(snapshot as any).provenance.artefacts?.length ?? 0} artefacts) but no ProvenanceStore was wired into this loader — the lineage is NOT loaded and MUST NOT be re-saved from this session.`;
+                // Bound through the TYPE (see above): `artefacts` is a required
+                // member of SerializedProvenance, so the count below is read off
+                // the declared shape rather than off an `any`.
+                const slice = snapshot.provenance;
+                const msg = `[ProjectLoader] Snapshot carries a C23 provenance slice (${slice.artefacts?.length ?? 0} artefacts) but no ProvenanceStore was wired into this loader — the lineage is NOT loaded and MUST NOT be re-saved from this session.`;
                 console.warn(msg);
                 result.warnings.push(msg);
             }
