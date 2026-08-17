@@ -561,12 +561,53 @@ export function findWallOpeningCrossings(
 
 // ─── The offer ────────────────────────────────────────────────────────────────
 
+/**
+ * An occupied span as `WallOccupancyStore.getOccupiedSpans` reports it.
+ *
+ * `openingId` is REQUIRED and not decoration: it is the stable model key the
+ * ordering below breaks ties on (C73 §1.2). The earlier shape carried only the
+ * two stations, which is precisely why the comparator could not be made total.
+ */
+interface OccupiedSpan {
+  readonly openingId: string;
+  readonly offsetM: number;
+  readonly endM: number;
+}
+
+/**
+ * A TOTAL order on occupied spans — C73 §1.2, *"ties must be broken on a stable
+ * model key, not on insertion order"*.
+ *
+ * ── WHY A TIE IS REACHABLE HERE ───────────────────────────────────────────────
+ * Two openings on one host may legally share a station: a door and a transom
+ * window stacked above it start at the same `offsetM`, and `canPlace` permits it
+ * because they do not overlap in the vertical the wall-side test does not model.
+ * On `offsetM` alone such a pair compares equal, so their relative order is
+ * whatever order `wall.openings[]` happened to hold them in.
+ *
+ * ── WHY INHERITING THAT ORDER IS NOT SAFE ─────────────────────────────────────
+ * `wall.openings[]` is an array, so within one process it is stable. It is not
+ * stable ACROSS one: it survives a persistence round-trip and a CRDT merge, and
+ * Yjs array convergence is exactly the mechanism that reorders equal-keyed
+ * siblings between two clients. A predicate whose ordering is inherited from
+ * that array is a predicate two clients can answer differently, which is the
+ * regeneration property §1.1 states as a MUST.
+ *
+ * `openingId` is unique per opening on a wall, so no pair of DISTINCT spans can
+ * return 0 from this comparator — it is total, not merely better-tiebroken.
+ */
+function byStationThenOpeningId(p: OccupiedSpan, q: OccupiedSpan): number {
+  if (p.offsetM !== q.offsetM) return p.offsetM - q.offsetM;
+  if (p.endM !== q.endM) return p.endM - q.endM;
+  return p.openingId < q.openingId ? -1 : p.openingId > q.openingId ? 1 : 0;
+}
+
 /** Merge the occupied spans into the CLEAR intervals of `[0, hostLenM]`. */
 function clearIntervals(
-  occupied: readonly { readonly offsetM: number; readonly endM: number }[],
+  occupied: readonly OccupiedSpan[],
   hostLenM: number,
 ): readonly (readonly [number, number])[] {
-  const sorted = occupied.slice().sort((p, q) => p.offsetM - q.offsetM);
+  const sorted = occupied.slice().sort(byStationThenOpeningId);
   const out: [number, number][] = [];
   let cursor = 0;
   for (const s of sorted) {
@@ -644,8 +685,22 @@ export function computeWallCrossingOffers(
     feasible.push(lo > 0 ? lo : hi < 0 ? hi : 0);
   }
 
-  const back = feasible.filter((d) => d < 0).sort((p, q) => q - p)[0];
-  const along = feasible.filter((d) => d > 0).sort((p, q) => p - q)[0];
+  // The two offers are the feasible shift NEAREST TO ZERO in each direction.
+  // That was previously spelled as "sort the whole array and read element [0]",
+  // which is an order-dependence finding under C73 §1.2 and also states the
+  // intent backwards — the sort's 99% of work is discarded by the `[0]`. A fold
+  // says what is wanted, and has NO comparator, so no tie and no insertion-order
+  // dependence can exist. `d === 0` belongs to neither side, exactly as the two
+  // strict filters it replaces had it.
+  let back: number | undefined;
+  let along: number | undefined;
+  for (const d of feasible) {
+    if (d < 0) {
+      if (back === undefined || d > back) back = d;
+    } else if (d > 0) {
+      if (along === undefined || d < along) along = d;
+    }
+  }
 
   const out: WallCrossingOffer[] = [];
   for (const delta of [back, along]) {
