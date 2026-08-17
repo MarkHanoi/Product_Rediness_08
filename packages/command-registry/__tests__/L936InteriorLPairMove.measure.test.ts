@@ -300,6 +300,55 @@ describe('L-936 STAGE A/B — is the `joinedTo` edge for the interior L-pair WRI
         expect(qa.ok && qa.joinedWallIds).not.toContain('i-a');
         expect(qb.ok && qb.joinedWallIds).not.toContain('i-b');
     });
+
+    /**
+     * ⭐ THE DISCRIMINATOR ANY FIX NEEDS, AND IT ALREADY EXISTS IN THE INDEX.
+     *
+     * A fix that lets the L-partner follow must not reopen L-922 (an interior
+     * move dragging a PERIMETER baseline 2.19 m and re-seating three doors). So
+     * it needs a measurable separation between "a mutual corner of two walls
+     * that arrived together" and "a wall terminating on an incumbent it arrived
+     * at". `JunctionResolverV2` already draws exactly that line and the graph
+     * already stores it — `replaceJoinedToForLevelWalls` writes
+     * `metadata: {junctionType, junctionDegree}` on every edge:
+     *
+     *     interior ↔ interior (the founder's L)  →  type L, degree 2
+     *     interior ↔ perimeter (both of them)    →  type T, degree 3
+     *
+     * ⚠ AND IT IS THROWN AWAY ON THE READ. `getJoinedWalls` returns bare ids;
+     * `MoveReweldPartner` is `{id, baseLine}`. So `computeMoveReweldPlan` must
+     * re-derive authorship from geometry alone (`classifyWeldAuthorship`), which
+     * cannot see the difference — both look like "an endpoint near an endpoint"
+     * — and folds the two into one `corner` verdict. The evidence that would
+     * decide the founder's case is computed at the flush and dropped one call
+     * later. Pinned here so the fix does not have to re-discover it, and so it
+     * cannot rot before the fix lands.
+     */
+    it('MEASURE: the index ALREADY separates the interior L-pair (L/2) from both interior↔perimeter joins (T/3)', () => {
+        world = makeWorld();
+        const { junctionDump } = buildFixture(world);
+
+        const find = (a: string, b: string) =>
+            junctionDump.find(l => l.includes(`${a}, ${b}`) || l.includes(`${b}, ${a}`));
+
+        const lPair = find('i-a', 'i-b');
+        const tSouth = find('p-south', 'i-a');
+        const tEast = find('i-b', 'p-east');
+        console.log(`[L-936 ⭐ discriminator] interior L-pair      : ${lPair}`);
+        console.log(`[L-936 ⭐ discriminator] i-a ↔ p-south (perim): ${tSouth}`);
+        console.log(`[L-936 ⭐ discriminator] i-b ↔ p-east  (perim): ${tEast}`);
+
+        expect(lPair).toContain('type=L degree=2');
+        expect(tSouth).toContain('type=T degree=3');
+        expect(tEast).toContain('type=T degree=3');
+
+        // …and the metadata is on the stored edge, not merely in the solve.
+        const edge = semanticGraphManager
+            .getRelationships('i-b')
+            .find(r => r.type === 'joinedTo' && r.targetId === 'i-a');
+        console.log(`[L-936 ⭐ discriminator] stored joinedTo edge metadata = ${JSON.stringify(edge?.metadata)}`);
+        expect(edge?.metadata).toMatchObject({ junctionType: 'L', junctionDegree: 2 });
+    });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
