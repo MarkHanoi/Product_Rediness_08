@@ -133,7 +133,9 @@ describe('WallMoveConsequencePlanner — impact-determination refusals (migrated
 
   it('§5 distinguishes "joins nothing" (DETERMINED empty) from "could not read" (undetermined)', async () => {
     const joinedWalls = {
-      getJoinedWalls: (wallId: string) => ({ ok: true as const, wallId, joinedWallIds: [] as string[] }),
+      // §C83 §10.6 — `junctions` pairs 1:1 with `joinedWallIds`; empty here
+      // because this stub answers "joins nothing", which is a DETERMINED empty.
+      getJoinedWalls: (wallId: string) => ({ ok: true as const, wallId, joinedWallIds: [] as string[], junctions: [] }),
     };
     const plan = await planner({ joinedWalls }).plan(command(), context());
 
@@ -148,7 +150,13 @@ describe('WallMoveConsequencePlanner — impact-determination refusals (migrated
 
   it('§6 reports the joined walls as DETERMINED — in changed and topology.modified', async () => {
     const joinedWalls = {
-      getJoinedWalls: (wallId: string) => ({ ok: true as const, wallId, joinedWallIds: ['wall-2', 'wall-3'] }),
+      // §C83 §10.6 — the ids are joined but this stub declares NO junction
+      // discriminator for them. Absent ⇒ DO NOT FOLLOW (§10.6.3 #1): the
+      // planner must treat them exactly as it did pre-§10.6.
+      getJoinedWalls: (wallId: string) => ({
+        ok: true as const, wallId, joinedWallIds: ['wall-2', 'wall-3'],
+        junctions: [{ wallId: 'wall-2' }, { wallId: 'wall-3' }],
+      }),
     };
     const plan = await planner({ joinedWalls }).plan(command(), context());
 

@@ -496,24 +496,66 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
     // Refusing is not the same as doing nothing quietly: the refusal is
     // reported to the user through the service's `onConsequence` sink, and the
     // gesture aborts at the gate (C83 §10.3).
-    it('§C83-10.2.2: a joint that needs the neighbour LENGTHENED is refused, and the neighbours are BYTE-IDENTICAL', () => {
+    // ⚠⚠ RE-REVERSED BY CONTRACT, 2026-08-17 — C83 §10.6, FOUNDER-CONFIRMED.
+    //
+    // This assertion has now flipped TWICE, and the history is the point, so it
+    // is kept rather than tidied away:
+    //
+    //   original          — the neighbour LENGTHENS to the new intersection (6,6)
+    //   2026-08-15 §10.2.2 — reversed: neighbours BYTE-IDENTICAL, refusal reported
+    //   2026-08-17 §10.6   — re-reversed FOR MUTUAL CORNERS ONLY
+    //
+    // ⭐ WHY THE FLIP-FLOP HAPPENED, so it does not happen a third time: §10.2.2
+    // was written from L-922, where an INTERIOR wall's move dragged a PERIMETER
+    // baseline 2.19 m and re-seated three hosted doors. That is a `T` junction at
+    // degree 3. THIS fixture is `buildLoop` — a CLOSED PERIMETER, whose corners
+    // are 2-wall `L` junctions. §10.2.2 was correct about L-922 and over-broad
+    // about this, because at the time NOTHING COULD TELL THE TWO APART: the
+    // discriminator was stored on the joinedTo edge and `getJoinedWalls` discarded
+    // it (L-942). With it threaded, the two cases separate BY MEASUREMENT.
+    //
+    // The founder's rule, confirmed 2026-08-17, is unambiguous for this case:
+    // *"The adjacent perimeter walls must automatically extend, shorten, rotate or
+    // reposition as necessary to maintain a closed and valid perimeter."*
+    // A closed perimeter that refuses to stay closed is not a safety property.
+    //
+    // §10.6.5 ASSERTION 1 — the follow, proven at the STORED layer.
+    it('§C83-10.6: a MUTUAL corner FOLLOWS — the neighbour pivots, its FAR end untouched', () => {
         world = makeWorld({ withReweld: true });
         buildLoop(world, false); // joinedTo graph is the ONLY connectivity source
 
-        // §10.4 — capture the incumbents BEFORE the gesture.
-        const eastBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine);
-        const westBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine);
+        // Capture the FAR ends. §10.6.2 condition 4 is that these do not move —
+        // the partner PIVOTS at the shared corner, it does not translate. That is
+        // the whole difference from L-922, which moved `baseLine[0]`, the datum
+        // every hosted opening's offset is measured from.
+        const eastFarBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine[0]);
+        const westFarBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine[1]);
 
         expect(moveWall(world, 'w-north', 0, 2).success).toBe(true);
 
-        // §C83 §10.4 — THE INCUMBENT-UNCHANGED ASSERTION.
-        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine)).toBe(eastBefore);
-        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine)).toBe(westBefore);
+        // THE FOLLOW — the welded ends are seated at the analytic intersection of
+        // each neighbour's own line with w-north's NEW line (z = 6). Asserted on
+        // the STORE, not on a plan or a return value: a plan that is computed and
+        // never applied is exactly the defect L-921 was.
+        expect(near(bl2(world, 'w-east')[1], [6, 6])).toBe(true);
+        expect(near(bl2(world, 'w-west')[0], [0, 6])).toBe(true);
 
-        // Stated positively too, so a reader sees WHERE they stayed: at their
-        // original far ends, NOT stretched to the new intersection at z = 6.
-        expect(near(bl2(world, 'w-east')[1], [6, 4])).toBe(true);
-        expect(near(bl2(world, 'w-west')[0], [0, 4])).toBe(true);
+        // THE PIVOT — far ends byte-identical, so direction is unchanged and the
+        // neighbours lengthened along their OWN axes rather than being dragged.
+        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine[0])).toBe(eastFarBefore);
+        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine[1])).toBe(westFarBefore);
+
+        // THE PERIMETER IS STILL CLOSED — the founder's actual requirement, and
+        // the thing neither the old assertion nor its reversal ever checked.
+        // Every corner coincident to within the weld tolerance, or the gesture
+        // has produced exactly the "gaps and overlapping geometry" the spec
+        // forbids.
+        // ⚠ w-north runs EAST→WEST: measured [[6,6],[0,6]], so its [0] is the
+        // EAST end and its [1] is the WEST end. Written from the measurement,
+        // not from the reading-order assumption — that assumption is what made
+        // the first draft of this assertion fail against correct geometry.
+        expect(near(bl2(world, 'w-east')[1], bl2(world, 'w-north')[0])).toBe(true);
+        expect(near(bl2(world, 'w-west')[0], bl2(world, 'w-north')[1])).toBe(true);
     });
 
     it('§C83-10.2.2: the engine REPORTS the refusal rather than dropping the junction silently', () => {
