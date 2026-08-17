@@ -128,6 +128,17 @@ export { buildPickingSlot, type PickerDelegate } from './buildPickingSlot.js';
 // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
 export { wireCommandEventBridge } from './CommandEventBridge.js';
 
+// §MT-01-COMPOSED-BUS-READBACK — ADR-0318 I-2: the composition root populates the
+// authoritative element stores. `UNMIRRORED_KINDS` is exported so a probe can
+// ASSERT the census of what is deliberately not covered (slab, room) with its
+// measured reason, instead of trusting a comment.
+export {
+  wireAuthoritativeElementMirror,
+  UNMIRRORED_KINDS,
+  type MirrorTargetStore,
+  type AuthoritativeStoreLookup,
+} from './authoritativeElementMirror.js';
+
 // Task 5.2 — ProjectLifecycleController (C13 project-isolation teardown).
 export { ProjectLifecycleController, type IBatchCoordinatorTeardown } from './ProjectLifecycleController.js';
 

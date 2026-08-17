@@ -91,6 +91,10 @@ import { buildOfficeBuildingTypologyPack } from '@pryzm/typology-pack-office-bui
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
+// §MT-01-COMPOSED-BUS-READBACK — ADR-0318 I-2: populating the authoritative
+// element stores is the COMPOSITION ROOT's job, never a plugin's. See the module
+// header for the census that showed an ATTACHED engine half is not sufficient.
+import { wireAuthoritativeElementMirror } from './authoritativeElementMirror.js';
 import { PluginHost } from './PluginHost.js';
 import { UserPreferences } from './UserPreferences.js';
 import { buildToastsSlot, type ShowAppToastFn } from './ToastController.js';
@@ -1553,6 +1557,18 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       storeRegistry.register('slab', slabStore);
       storeRegistry.register('room', roomStore);
     }
+    // §MT-01-COMPOSED-BUS-READBACK — registration alone only makes the stores
+    // READABLE. MT-01 is about them being WRITTEN: measured on this very runtime
+    // with the engine half attached, `wall.create` dispatched OK and the
+    // authoritative store stayed ABSENT, because the only write site is an L7
+    // subscriber (initTools.ts §P2.1) the command layer cannot see. ADR-0318 I-2
+    // puts that population here. Subscribed AFTER `wireCommandEventBridge`
+    // (line ~898) ON PURPOSE — PatchEmitter iterates its listener Set in insertion
+    // order and EventBus.emit is synchronous, so every consumer of the typed
+    // `*.created` events (including §P2.1, which owns the §G3-STALE-FIX ordering)
+    // has already run by the time the mirror looks, and its dedup guard then makes
+    // it a provable no-op in the browser.
+    const disposeElementMirror = wireAuthoritativeElementMirror(inner.bus.patches, storeRegistry);
     const elements: ElementStoresSlot = {
       get: (kind) => storeRegistry.getStoreForType(kind),
       has: (kind) => storeRegistry.isRegistered(kind),
@@ -1663,6 +1679,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       tornDown = true;
       // Unsubscribe S03/S04 bridges before clearing the event bus.
       disposeCommandBridge();
+      // §MT-01-COMPOSED-BUS-READBACK — drop the authoritative-store mirror with
+      // the bridges. The STORES themselves stay registered (ADR-0318 §4: registry
+      // entries are module-lifetime singletons); only this listener goes.
+      disposeElementMirror();
       disposeRingBuffer();
       disposeEventLog();
       try { events.emit('runtime.tearDown', {}); }

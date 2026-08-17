@@ -1,20 +1,52 @@
-// hello-12-elements — bus-end-to-end smoke for every element family
+// hello-12-elements — PLUGIN-CONTRIBUTION smoke for every element family
 // (W-1C-1).
 //
-// Counterpart to `tests/integration/all-12-elements.test.ts` (S14-T9)
-// which exercises every kernel PRODUCER directly.  This test exercises
-// every BUS COMMAND end-to-end through a registry-driven runtime:
+// ⚠ §MT-01-COMPOSED-BUS-READBACK — READ THIS BEFORE TRUSTING ANY GREEN BELOW.
 //
-//     bootstrapWithEverything → bus.executeCommand('<family>.create', …)
-//     → store contains the new entity.
+// This file used to describe itself as "bus-end-to-end" and claim that every
+// `*.create` "lands its entity in the corresponding store". **That claim was
+// FALSE, and it is what held MT-01 (C70 A-INV-3 · ADR-0318) closed for months
+// while the capability was unreachable.**
 //
-// Acceptance:
-//   • Every element-family `*.create` command lands its entity in the
-//     corresponding store under runtime.stores.
-//   • `view.create` lands the new ViewDefinition in runtime.viewRegistry.
+// The defect was the RUNTIME, not the assertions. This file boots
+// `bootstrapWithEverything({audit})` DIRECTLY (line ~55) — it never calls
+// `composeRuntime()`, which P1 (CLAUDE.md) makes the only way production obtains
+// a runtime. Two consequences, both measured:
+//
+//   1. NOTHING registers an authoritative element store in this process, so
+//      `CreateWallHandler`'s census (`storeRegistry.getStoreForType('wall')`)
+//      takes its `if (!s) return null` branch and the handler proceeds.
+//      §PLUGIN-BOOTSTRAP-REGISTERS-NO-AUTHORITATIVE-STORE below PINS that, so
+//      this file can never again be mistaken for an authoritative-state proof.
+//   2. `rt.stores.wall` is therefore the PLUGIN DTO STORE — the very store MT-01
+//      says nobody reads. On a composed runtime `runtime.stores` has no `.wall`
+//      key at all (its keys are elements, hydrate, project, registerHydrator,
+//      viewState).
+//
+// SO WHAT THIS FILE IS NOW, HONESTLY: a smoke test that every element plugin
+// CONTRIBUTES a working handler + DTO store to a plugins-only bootstrap, and that
+// the four verbs which must REFUSE (door, window, stair, and the opening
+// reservations) still refuse. That is a real and useful invariant. It is NOT a
+// reachability proof and it never was.
+//
+// WHY IT IS NOT SIMPLY REPOINTED AT `composeRuntime`: this suite's vitest
+// environment is `node` ON PURPOSE (`apps/editor/vitest.config.ts` — sibling
+// suites assert `globalThis.window === undefined`), and `composeRuntime` needs a
+// DOM. The reachability question therefore lives in a sibling that opts into
+// happy-dom for itself:
+//
+//     apps/editor/__tests__/composedBusElementReadback.test.ts
+//
+// — which composes via `composeRuntime()`, dispatches on THAT bus, and reads the
+// element back out of `runtime.stores.elements.get('wall')`, the module singleton
+// `ProjectSerializer` reads. Add authoritative-state claims THERE, never here.
+//
+// Counterpart to `tests/integration/all-12-elements.test.ts` (S14-T9) which
+// exercises every kernel PRODUCER directly.
 
 import { describe, expect, it } from 'vitest';
 import { createId } from '@pryzm/schemas';
+import { storeRegistry } from '@pryzm/core-app-model/store-registry';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 import type { WallStore } from '@pryzm/plugin-wall';
 import type { SlabStore } from '@pryzm/plugin-slab';
@@ -31,8 +63,25 @@ import type { CeilingStore } from '@pryzm/plugin-ceiling';
 
 const AUDIT = { actorId: 'u', projectId: 'p', clientId: 'c', timestamp: '' } as const;
 
-describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
-  it('creates one entity of every element family via the bus', async () => {
+describe('hello-12-elements — plugin-contribution smoke (W-1C-1)', () => {
+  // §PLUGIN-BOOTSTRAP-REGISTERS-NO-AUTHORITATIVE-STORE (§MT-01-COMPOSED-BUS-READBACK).
+  //
+  // The header's diagnosis, asserted rather than described. This is the line that
+  // stops this file from ever being read as a reachability proof again: in THIS
+  // process there is no authoritative store to reach, so every `rt.stores.*`
+  // assertion below is — provably — a read of the plugin DTO store.
+  //
+  // It is also the FALSIFIABILITY arm for the sibling: if a future change made
+  // `bootstrapWithEverything` register authoritative stores on its own, this
+  // expectation would go red and the reachability claim would have to move.
+  it('registers NO authoritative element store — so nothing here can be an authoritative proof', async () => {
+    await bootstrapWithEverything({ audit: AUDIT });
+    for (const kind of ['wall', 'slab', 'room', 'door', 'window']) {
+      expect(storeRegistry.getStoreForType(kind)).toBeUndefined();
+    }
+  });
+
+  it('every element plugin contributes a handler + DTO store (NOT authoritative state)', async () => {
     const rt = await bootstrapWithEverything({ audit: AUDIT });
 
     // ---- 1. wall (5 m long so opening reservations have room) ----
@@ -45,11 +94,18 @@ describe('hello-12-elements — bus-end-to-end smoke (W-1C-1)', () => {
         { x: 5, y: 0, z: 0 },
       ],
     });
+    // §MT-01: `rt.stores.wall` is the PLUGIN DTO store, NOT authoritative state.
+    // The authoritative readback for wall.create lives in the sibling named in the
+    // header — do not re-add an authoritative claim to this line.
     expect((rt.stores.wall as unknown as WallStore).get(wallId)).toBeDefined();
 
     // ---- 2. slab ----
     const slabId = createId('slab');
     await rt.bus.executeCommand('slab.create', { id: slabId, levelId: 'lvl' });
+    // §MT-01: plugin DTO store again. Slab is still readback-NEGATIVE against the
+    // authoritative SlabStore even on the composed bus — a SHAPE mismatch
+    // (`boundary` vs `polygon`/`position`), enumerated in
+    // `UNMIRRORED_KINDS` (@pryzm/runtime-composer) with its measured reason.
     expect((rt.stores.slab as unknown as SlabStore).get(slabId)).toBeDefined();
 
     // ---- 3. door (requires a wall opening to be reserved first) ----
