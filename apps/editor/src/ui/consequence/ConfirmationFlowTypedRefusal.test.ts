@@ -284,6 +284,13 @@ describe('§B.4 / C78 §9.3 — an unverifiable re-plan is TYPED, never a hash-s
     expect(shownMessages[0]).toContain('PLANNER_THREW');
     expect(shownMessages[0]).toContain('NOT a claim that the model changed');
     expect(shownMessages[0]).not.toContain('The model changed while this was on screen');
+
+    // §REFUSAL-IDENTITY (C58 §1.13 / §1.13.8, GE-09) — the refusal's OWN identity travels
+    // INSIDE the sentence, not only on the object. `showRefusal(message, replan, refusal?)`
+    // takes the typed fact OPTIONALLY, so the STRING is the only carrier guaranteed to reach
+    // every sink; a paragraph that names the §8.1 cause but never the refusal leaves the user
+    // with nothing to attribute it to.
+    expect(shownMessages[0]).toContain('[APPROVAL_STALE/unverifiable]');
   });
 
   it('CONTROL — a re-plan that SUCCEEDS and differs is still verified staleness', async () => {
@@ -311,5 +318,49 @@ describe('§B.4 / C78 §9.3 — an unverifiable re-plan is TYPED, never a hash-s
     expect(outcome.refusal.liveVerification.kind).toBe('verified');
     expect(outcome.refusal.livePlanHash).toBe('h-moved');
     expect(outcome.refusal.message).toContain('The model changed while this was on screen');
+    expect(outcome.refusal.message).toContain('[APPROVAL_STALE/verified]');
+  });
+
+  /**
+   * ⭐ THE LOAD-BEARING IDENTITY ASSERTION (§REFUSAL-IDENTITY, C58 §1.13.8 — *"the
+   * resolver's distinction MUST reach the card"*).
+   *
+   * The two `toContain` assertions above would each pass against a renderer that stamped ONE
+   * constant token on every APPROVAL_STALE refusal — and a token that does not vary with the
+   * arm carries no information, which is the same collapse one level out: the user could not
+   * tell "the model moved" from "we could not look" by the identity they are asked to quote.
+   * This is the assertion a re-collapse cannot satisfy.
+   */
+  it('DISCRIMINATION — the two arms carry DIFFERENT identities in the sentence', async () => {
+    const shown = planWithHash('h-approved', 's-approved');
+    const unverifiableFlow = flowWith(plannerThatDiesAfterFirstCall(shown));
+    await unverifiableFlow.request(GOOD);
+    const unverifiable = await unverifiableFlow.confirm('h-approved');
+
+    let calls = 0;
+    const verifiedFlow = flowWith(
+      new Map([
+        [
+          'wall.move',
+          {
+            plan: async () => {
+              calls += 1;
+              return calls > 1 ? planWithHash('h-moved', 's-moved') : planWithHash('h-shown', 's-shown');
+            },
+          },
+        ],
+      ]) as ReadonlyMap<string, ConsequencePlanner<never>>,
+    );
+    await verifiedFlow.request(GOOD);
+    const verified = await verifiedFlow.confirm('h-shown');
+
+    if (unverifiable.kind !== 'approval-stale' || verified.kind !== 'approval-stale') {
+      throw new Error(`expected both arms to refuse; got '${unverifiable.kind}' / '${verified.kind}'`);
+    }
+
+    const token = (m: string): string => m.slice(0, m.indexOf(']') + 1);
+    expect(token(unverifiable.refusal.message)).toBe('[APPROVAL_STALE/unverifiable]');
+    expect(token(verified.refusal.message)).toBe('[APPROVAL_STALE/verified]');
+    expect(token(unverifiable.refusal.message)).not.toBe(token(verified.refusal.message));
   });
 });

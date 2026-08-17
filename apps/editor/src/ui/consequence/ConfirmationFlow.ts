@@ -304,6 +304,57 @@ function noPlanMessage(commandType: string, o: PreviewUndetermined): string {
   );
 }
 
+/**
+ * ⭐ §REFUSAL-IDENTITY (C58 §1.13 / §1.13.8, ADR-0269 · GE-09) — the ONE renderer for the
+ * sentence an {@link ApprovalStaleRefusal} puts in front of a human, for BOTH of its arms.
+ *
+ * ⚠ WHAT WAS MISSING, AND WHY HERE OF ALL PLACES. Both sentences were written inline at their
+ * construction sites, and the `unverifiable` one rendered `liveVerification.reason` — a closed
+ * C78 §8.1 union member — into prose while naming NO refusal. {@link ConfirmationPrompt.showRefusal}
+ * takes the typed fact OPTIONALLY (deliberately: a test double may take the sentence alone), so
+ * the STRING is the only carrier guaranteed to reach every sink. C58 §1.13's finding is that a
+ * refusal a user cannot attribute to a rule is indistinguishable from a generic "not applicable";
+ * §1.13.8's rule is that the distinction the resolver drew MUST reach the card. This family draws
+ * it TWICE — `kind` (which refusal) and `liveVerification.kind` (whether anything was measured) —
+ * and both now travel INSIDE the sentence as a leading bracketed token, quoting the union members
+ * VERBATIM rather than restyling them, so the token a user pastes into a report greps against the
+ * type that produced it.
+ *
+ * ONE function for both arms, deliberately: these two sentences make OPPOSITE claims about the
+ * world — *"the model changed"* versus *"we could not look"* — and keeping them adjacent is what
+ * stops a later edit handing the unverifiable arm the measured arm's wording again. That is not a
+ * hypothetical: this family already shipped that exact collapse once, as the `'UNPLANNABLE'` hash
+ * sentinel C78 §9.3 struck out.
+ *
+ * Takes the refusal MINUS its message, so the sentence is built from the very fields the consumer
+ * branches on. Nothing is re-derived here and no union is widened — the token is the union
+ * members themselves.
+ */
+function approvalStaleRefusalText(f: Omit<ApprovalStaleRefusal, 'message'>): string {
+  const identity = `[${f.kind}/${f.liveVerification.kind}]`;
+
+  if (f.liveVerification.kind === 'unverifiable') {
+    const v = f.liveVerification;
+    const sub = v.subReason !== undefined ? ` / ${v.subReason}` : '';
+    return (
+      `${identity} Your approval could not be RE-VERIFIED, so nothing was executed. To honour ` +
+      `it, PRYZM re-plans over the model as it is now and checks that the result still matches ` +
+      `the plan you read — and that check could not be run: ${v.reason}${sub} (${v.detail}). ` +
+      `This is a statement about PRYZM's ability to check, and is NOT a claim that the ` +
+      `model changed — that was never measured (C78 §9.3). You approved plan ` +
+      `${f.approvedPlanHash} (state ${f.approvedStateHash}); it is still the plan on ` +
+      `screen, so you may confirm again once the check can run.`
+    );
+  }
+
+  return (
+    `${identity} The model changed while this was on screen, so your approval no longer ` +
+    `applies. You approved plan ${f.approvedPlanHash} (state ${f.approvedStateHash}); the ` +
+    `model is now at ${f.livePlanHash} (state ${f.liveStateHash}). ` +
+    `Nothing was executed. A new plan has been prepared — review it and confirm again.`
+  );
+}
+
 /** What the flow is holding between show and confirm. */
 interface Pending {
   readonly command: PreviewCommand;
@@ -394,7 +445,10 @@ export class ConfirmationFlow {
     // re-plan could not be produced at all (a capability gap — no planner, a rejected
     // payload, a planner that threw). Both refuse; only the first may say the model changed.
     if (live.kind === 'undetermined') {
-      const refusal: ApprovalStaleRefusal = {
+      // §REFUSAL-IDENTITY — the facts FIRST, the sentence FROM them. Building the message
+      // inline (as this did) is how it came to name C78 §8.1's cause without ever naming the
+      // refusal that carries it: two renderings of one fact, only one of which the user reads.
+      const facts: Omit<ApprovalStaleRefusal, 'message'> = {
         kind: 'APPROVAL_STALE',
         approvedPlanHash: pending.plan.planHash,
         // NOT a sentinel, and not a fabricated "live" reading: the approved hashes are the
@@ -410,15 +464,10 @@ export class ConfirmationFlow {
           detail: live.detail,
         },
         replan: pending.plan,
-        message:
-          `Your approval could not be RE-VERIFIED, so nothing was executed. To honour it, ` +
-          `PRYZM re-plans over the model as it is now and checks that the result still matches ` +
-          `the plan you read — and that check could not be run: ${live.reason}` +
-          `${live.subReason !== undefined ? ` / ${live.subReason}` : ''} (${live.detail}). ` +
-          `This is a statement about PRYZM's ability to check, and is NOT a claim that the ` +
-          `model changed — that was never measured (C78 §9.3). You approved plan ` +
-          `${pending.plan.planHash} (state ${pending.plan.stateHash}); it is still the plan on ` +
-          `screen, so you may confirm again once the check can run.`,
+      };
+      const refusal: ApprovalStaleRefusal = {
+        ...facts,
+        message: approvalStaleRefusalText(facts),
       };
       // ⭐ THE ESCAPE HATCH (C83 §10.6.7 — a refusing half and its way through ship together).
       // The pending plan is DELIBERATELY RETAINED here, unlike the verified-stale arm below.
@@ -435,7 +484,7 @@ export class ConfirmationFlow {
     if (live.plan.planHash !== pending.plan.planHash) {
       // R6 point 3: refuse VISIBLY, offer a NEW plan, and TELL the user why. Never silently
       // re-plan and execute — that executes something they never saw.
-      const refusal: ApprovalStaleRefusal = {
+      const facts: Omit<ApprovalStaleRefusal, 'message'> = {
         kind: 'APPROVAL_STALE',
         approvedPlanHash: pending.plan.planHash,
         livePlanHash: live.plan.planHash,
@@ -444,11 +493,13 @@ export class ConfirmationFlow {
         // MEASURED: a plan really was computed over the live state, and it differs.
         liveVerification: { kind: 'verified' },
         replan: live.plan,
-        message:
-          `The model changed while this was on screen, so your approval no longer applies. ` +
-          `You approved plan ${pending.plan.planHash} (state ${pending.plan.stateHash}); the ` +
-          `model is now at ${live.plan.planHash} (state ${live.plan.stateHash}). ` +
-          `Nothing was executed. A new plan has been prepared — review it and confirm again.`,
+      };
+      // The SAME renderer as the unverifiable arm above — so the identity token is minted
+      // from the union members in one place and the two arms cannot drift into each other's
+      // wording (§REFUSAL-IDENTITY; the C78 §9.3 collapse this family already suffered).
+      const refusal: ApprovalStaleRefusal = {
+        ...facts,
+        message: approvalStaleRefusalText(facts),
       };
       // The NEW plan becomes the pending one: the user is left with something to approve,
       // and the old hash can never be re-approved (its holder is gone).
