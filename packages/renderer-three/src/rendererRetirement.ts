@@ -103,11 +103,23 @@ interface RetirableRendererLike {
 }
 
 /**
- * Live render objects per renderer. A WeakMap (not a field on the renderer) so
- * tracking adds no enumerable property to a THREE object and cannot keep a retired
- * renderer alive.
+ * Live render objects per renderer. Two deliberate choices:
+ *
+ *  • A WeakMap keyed by the renderer (not a field ON the renderer), so tracking adds
+ *    no enumerable property to a THREE object and cannot keep a retired renderer alive.
+ *
+ *  • `WeakRef` entries, so **tracking never pins a render object.** This matters at
+ *    exactly the scale that produced L-948: a render object holds its object,
+ *    material, geometry, scene and camera, and a 1,611-wall model mints thousands of
+ *    them, per pass. A strong Set would keep every one — and its whole subtree —
+ *    alive until the renderer was retired, trading a listener-lifetime bug for a
+ *    memory-lifetime one on the heaviest scenes we have. The weak entry costs no
+ *    coverage: a render object whose material is still live is ALREADY strongly
+ *    reachable (`material._listeners.dispose` holds `renderObject.onMaterialDispose`,
+ *    an arrow closure over the render object), so anything a weak ref loses is
+ *    precisely something that registered no surviving listener to detach.
  */
-const _tracked = new WeakMap<object, Set<RenderObjectLike>>();
+const _tracked = new WeakMap<object, Set<WeakRef<RenderObjectLike>>>();
 
 /** Renderers whose `createRenderObject` we have already wrapped (idempotence). */
 const _instrumented = new WeakSet<object>();
@@ -134,7 +146,7 @@ export function trackRenderObjectsForRetirement(renderer: unknown): boolean {
 
     if (_instrumented.has(r as object)) return true;
 
-    const live = new Set<RenderObjectLike>();
+    const live = new Set<WeakRef<RenderObjectLike>>();
     _tracked.set(r as object, live);
     _instrumented.add(r as object);
 
@@ -142,13 +154,14 @@ export function trackRenderObjectsForRetirement(renderer: unknown): boolean {
     objects.createRenderObject = (...args: unknown[]): RenderObjectLike => {
         const renderObject = original(...args);
         if (renderObject && typeof renderObject.dispose === 'function') {
-            live.add(renderObject);
+            const ref = new WeakRef(renderObject);
+            live.add(ref);
             // three disposes render objects during normal churn too (a material
             // version change — RenderObjects.js:131). Drop them from the set there
             // as well, so the set tracks what is LIVE rather than what was ever made.
             const disposeOnce = renderObject.dispose.bind(renderObject);
             (renderObject as { dispose: () => void }).dispose = () => {
-                live.delete(renderObject);
+                live.delete(ref);
                 disposeOnce();
             };
         }
@@ -157,9 +170,20 @@ export function trackRenderObjectsForRetirement(renderer: unknown): boolean {
     return true;
 }
 
-/** How many live render objects are currently tracked for `renderer` (diagnostics + tests). */
+/**
+ * How many live render objects are currently tracked for `renderer` (diagnostics +
+ * tests). Prunes entries whose target has been collected, so the count is what is
+ * still detachable rather than what was ever minted.
+ */
 export function trackedRenderObjectCount(renderer: unknown): number {
-    return _tracked.get(renderer as object)?.size ?? 0;
+    const live = _tracked.get(renderer as object);
+    if (!live) return 0;
+    let n = 0;
+    for (const ref of Array.from(live)) {
+        if (ref.deref() === undefined) live.delete(ref);
+        else n++;
+    }
+    return n;
 }
 
 /**
@@ -183,7 +207,13 @@ export function disposeTrackedRenderObjects(renderer: unknown): number {
     if (!live || live.size === 0) return 0;
 
     let released = 0;
-    for (const renderObject of Array.from(live)) {
+    for (const ref of Array.from(live)) {
+        const renderObject = ref.deref();
+        if (renderObject === undefined) {
+            // Already collected — so is every listener it registered. Nothing to detach.
+            live.delete(ref);
+            continue;
+        }
         try {
             renderObject.dispose();
         } catch (err) {
@@ -198,7 +228,7 @@ export function disposeTrackedRenderObjects(renderer: unknown): number {
                 err instanceof Error ? err.message : err,
             );
         }
-        live.delete(renderObject);
+        live.delete(ref);
         released++;
     }
     return released;
