@@ -1,7 +1,7 @@
 /**
- * L-931 — "SELECT A PARCEL AND THE CAMERA SITS TOO FAR" — the MEASUREMENT.
+ * L-931 — "SELECT A PARCEL AND THE CAMERA SITS TOO FAR" — §CAM-CATCHER-NOT-MODEL.
  *
- * ## What the founder's trace actually says
+ * ## What the founder's trace actually said
  *
  * ```
  * +10.5ms  _activate3DView          controls.setLookAt(target=0,0,0  dist=8000.0)
@@ -19,13 +19,12 @@
  * it, no event subscribes to it, no view activation invokes it. Its appearance LAST in the
  * trace is the founder pressing Home — the very workaround the report describes ("the user
  * must click to get a usable view"). It is the REMEDY, not the cause, and none of the four
- * framing actors is overridden by it.
+ * framing actors was overridden by it.
  *
- * ### The four actors do not race — they AGREE, on the wrong subject
+ * ### The four actors did not race — they AGREED, on the wrong subject
  *
  * Both numbers in the trace are closed-form consequences of ONE 4 000 m × 4 000 m plane
- * centred on the origin, and this file measures that the plane is really there and really
- * in the framing population:
+ * centred on the origin:
  *
  *   • `_activate3DView` default framing: `_computeCameraDistance()` = `maxDim × 2`
  *     → 4000 × 2 = **8000.0**, at `bounds.getCenter()` = the origin.
@@ -33,22 +32,30 @@
  *     distance = (2828.43 / sin 30°) × 1.15 = **6505.4 m**.
  *
  * The plane is `GroundShadowCatcher` (`packages/renderer-three/src/GroundShadowCatcher.ts`,
- * default `size = 4000`), the invisible L0 shadow receiver. Its mesh is a plain
+ * default `size = 4000`), the invisible L0 shadow receiver. Its mesh was a plain
  * `THREE.Mesh` with `userData = { role, pickable, isGroundShadowCatcher }` — no `isHelper`,
- * no `elementType` — so `SceneObjectClassifier.shouldExcludeFromBounds()` lets it straight
- * through into every framing bounds population.
+ * no `elementType` — so `SceneObjectClassifier.shouldExcludeFromBounds()` let it straight
+ * through into every framing bounds population. The L-749 lesson repeating verbatim
+ * (*"nothing about element identity will ever exclude them"*) on PRYZM's own infrastructure
+ * rather than three.js's.
  *
- * That is the L-749 lesson repeating verbatim: *"controls and helpers are part of the
- * bounds population, and nothing about element identity will ever exclude them."* ADR-0305
- * §3 enumerated a type set for three.js controls and helpers; PRYZM's own infrastructure
- * mesh was never added to it.
+ * ## The two fixes these tests guard
+ *
+ * 1. **§CAM-CATCHER-NOT-MODEL** — `SceneObjectClassifier.isSceneInfrastructure()` excludes
+ *    the catcher from the ONE bounds population every framer reads. Declared positively by
+ *    the producer (`userData.isSceneInfrastructure`), NOT via `isHelper`, which fifteen
+ *    unrelated culling / view-range / panorama passes also read.
+ * 2. **§CAM-ONE-FRAMING-AUTHORITY** — `_activate3DView`'s default framing carried its own
+ *    `maxDim × 2` policy competing with `computeFitPose()` over the identical input. That
+ *    rival policy is deleted; all four actors now route through the single authority, so
+ *    the losers defer explicitly instead of racing.
  *
  * ## Why these assertions are the layer the user experiences
  *
  * `zoomToAll` is driven here for real — the exact function §3D-FRAME-ON-VIEW-SWITCH and
  * §VIEW-AUTOFRAME call — and the assertion reads the camera pose BACK OUT of the controls
  * after the call returns. Not a framing function's return value: the camera's resting
- * distance from the building the user asked to see.
+ * distance from the site the user asked to see. **MEASURED 6505.4 m before, 122.6 m after.**
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
@@ -74,9 +81,9 @@ beforeAll(async () => {
     });
     ({ computeFitPose, boundsFramedByCamera } = await import('@pryzm/core-app-model'));
     ({ initViewSetup } = await import('@app/engine/initViewSetup'));
-}, 180_000);
+}, 300_000);
 
-/** The founder's parcel: a ~40 m city lot, its centroid a few metres off the origin. */
+/** The founder's parcel: a ~40 m city lot. */
 const PARCEL_HALF_M = 20;
 
 /**
@@ -122,8 +129,8 @@ function makeControls() {
     return {
         maxDistance: 500,
         minDistance: 0,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         async setLookAt(px: number, py: number, pz: number, tx: number, ty: number, tz: number, _anim?: boolean) {
+            void _anim;
             position.set(px, py, pz);
             target.set(tx, ty, tz);
         },
@@ -133,36 +140,37 @@ function makeControls() {
     };
 }
 
-describe('L-931 — the 4 km ground shadow catcher is inside every framing bounds population', () => {
-    it('the catcher IS the 4 000 m subject the four actors frame (SceneBoundsCache — actors 1 & 2)', () => {
+describe('L-931 — PRYZM scene infrastructure is out of every framing bounds population', () => {
+    it('the framing bounds are the BUILDING, not the 4 km plane (SceneBoundsCache — actors 1 & 2)', () => {
         const { scene, modelBounds } = productionScene({ withCatcher: true });
         const bounds = new SceneBoundsCache(scene, null).getBounds();
 
         const size = bounds.getSize(new THREE.Vector3());
         const modelSize = modelBounds.getSize(new THREE.Vector3());
 
-        // MEASURED, not asserted-as-desired: the building is 20 m across; the bounds the
-        // camera frames are 4 000 m across. 200× the model.
+        // TOOTH — this measured 4000.0 before §CAM-CATCHER-NOT-MODEL, for a 20 m building.
         expect(modelSize.x).toBeCloseTo(20, 6);
-        expect(size.x).toBeCloseTo(4000, 6);
-        expect(size.z).toBeCloseTo(4000, 6);
+        expect(size.x).toBeCloseTo(20, 6);
+        expect(size.z).toBeCloseTo(20, 6);
 
-        // `_activate3DView`'s default framing is `maxDim × 2` about `bounds.getCenter()` —
-        // the founder's `dist=8000.0` at `target=0.0,0.0,0.0`, reproduced exactly.
-        const maxDim = Math.max(size.x, size.y, size.z, 10);
-        expect(maxDim * 2).toBeCloseTo(8000.0, 6);
+        // `_activate3DView`'s default framing used to be `maxDim × 2` = 8000.0 about the
+        // origin — the founder's exact log line. The rival policy is gone (the default now
+        // routes through `computeFitPose`), and the input it read is no longer poisoned.
+        expect(Math.max(size.x, size.y, size.z, 10) * 2).toBeLessThan(50);
     });
 
-    it("§CAM-FRAME-INVARIANT's fit reproduces the founder's dist=6505.4 m to the decimal", () => {
+    it('the single framing authority fits the model at ~34 m, not 6505.4 m', () => {
         const { scene } = productionScene({ withCatcher: true });
         const bounds = new SceneBoundsCache(scene, null).getBounds();
 
         const pose = computeFitPose(bounds, { fovDeg: 60, aspect: 1.8 })!;
         expect(pose).not.toBeNull();
-        expect(Number(pose.distance.toFixed(1))).toBe(6505.4);
+        // TOOTH — 6505.4 before the fix: (|(4000,0,4000)|/2 / sin 30°) × 1.15.
+        expect(pose.distance).toBeGreaterThan(20);
+        expect(pose.distance).toBeLessThan(60);
     });
 
-    it('§CAM-FRAME-INVARIANT VERIFIES this pose — because it verifies the WRONG subject', () => {
+    it('§CAM-FRAME-INVARIANT now verifies the SUBJECT THE USER SELECTED', () => {
         const { scene, modelBounds } = productionScene({ withCatcher: true });
         const bounds = new SceneBoundsCache(scene, null).getBounds();
 
@@ -175,33 +183,34 @@ describe('L-931 — the 4 km ground shadow catcher is inside every framing bound
         cam.updateProjectionMatrix();
         cam.updateMatrixWorld(true);
 
-        // The recovery's own predicate passes — against the 4 km plane.
+        // TOOTH — this was the defect's signature: the recovery re-ran its own predicate,
+        // passed it against the 4 km plane, and announced "auto-framed and VERIFIED" while
+        // the model it exists to protect was sub-pixel. Both must now agree.
         expect(boundsFramedByCamera(cam, bounds)).toBe(true);
-        // Against the thing the user asked to see, it fails. That is the defect: a
-        // verification that confirms the framing of a subject nobody selected.
-        expect(boundsFramedByCamera(cam, modelBounds)).toBe(false);
+        expect(boundsFramedByCamera(cam, modelBounds)).toBe(true);
     });
 
-    it('the BIM-typed pass is clean; the FALLBACK pass (parcel-only project) admits the catcher', () => {
-        const { scene } = productionScene({ withCatcher: true });
-
-        // Pass 1 — authored BIM types only. Correct today.
-        const typed = computeBimFitBounds(scene, null);
-        expect(typed.usedBimTypePass).toBe(true);
-        expect(typed.bounds.getSize(new THREE.Vector3()).x).toBeCloseTo(20, 6);
-
-        // A parcel-only project (site chosen, nothing drawn yet) has no BIM-typed mesh, so
-        // `zoomToAll` falls through to the classified all-mesh pass — which is where the
-        // catcher lands and where the 4 km subject comes from.
+    it('a scene containing ONLY infrastructure measures EMPTY — so the fit REFUSES', () => {
         const siteOnly = new THREE.Scene();
         const catcher = new GroundShadowCatcher();
         catcher.attach(siteOnly);
         catcher.setEnabled(true);
         siteOnly.updateMatrixWorld(true);
 
+        // TOOTH — 4000.0 before the fix. Empty is the honest answer: there is nothing to
+        // frame. `zoomToAll` refuses on empty bounds ("No geometry found in scene") and
+        // leaves the camera alone, which the next describe pins. A refusal that names why
+        // it cannot help must not be weakened into a made-up extent.
         const fallback = computeBimFitBounds(siteOnly, null);
         expect(fallback.usedBimTypePass).toBe(false);
-        expect(fallback.bounds.getSize(new THREE.Vector3()).x).toBeCloseTo(4000, 6);
+        expect(fallback.bounds.isEmpty()).toBe(true);
+    });
+
+    it('the BIM-typed pass is unchanged — real geometry still frames', () => {
+        const { scene } = productionScene({ withCatcher: true });
+        const typed = computeBimFitBounds(scene, null);
+        expect(typed.usedBimTypePass).toBe(true);
+        expect(typed.bounds.getSize(new THREE.Vector3()).x).toBeCloseTo(20, 6);
     });
 });
 
@@ -210,7 +219,7 @@ describe("L-931 — the camera's RESTING pose after the real zoomToAll (actors 3
      * The founder's actual moment: a parcel has been selected and the 3D site context has
      * loaded, but NOTHING is authored yet. No mesh carries a `BIM_FIT_ELEMENT_TYPES` type,
      * so `computeBimFitBounds` pass 1 finds nothing and `zoomToAll` falls through to the
-     * classified all-mesh pass — where the 4 km catcher lives.
+     * classified all-mesh pass — which is where the 4 km catcher used to live.
      *
      * The catcher is VISIBLE here because §L-205's caster gate shows it as soon as the
      * scene holds any shadow-casting mesh, and `PascalSceneLighting` flags context
@@ -277,29 +286,44 @@ describe("L-931 — the camera's RESTING pose after the real zoomToAll (actors 3
         return { position, target };
     }
 
-    it('MEASURED: parcel just selected — the camera rests 6.5 km away, aimed at the plane', async () => {
+    it('THE FIX AT THE LAYER THE USER EXPERIENCES: parcel just selected → the camera rests ON the site', async () => {
         const { scene, contentBounds } = parcelJustSelectedScene(true);
         const { position, target } = await restingPoseAfterZoomToAll(scene);
 
         const contentCentre = contentBounds.getCenter(new THREE.Vector3());
 
-        // The founder's complaint, as a number, read off the camera after the actor ran.
-        expect(Number(position.distanceTo(target).toFixed(1))).toBe(6505.4);
-        expect(position.distanceTo(contentCentre)).toBeGreaterThan(6000);
-        // …and it is not even AIMED at the site: the target is the 4 km plane's centre.
-        expect(target.distanceTo(contentCentre)).toBeGreaterThan(20);
-    });
-
-    it('the same production call frames the site once the catcher is out of the population', async () => {
-        const { scene, contentBounds } = parcelJustSelectedScene(false);
-        const { position, target } = await restingPoseAfterZoomToAll(scene);
-
-        const contentCentre = contentBounds.getCenter(new THREE.Vector3());
+        // TOOTH — MEASURED 6505.4 m before the fix, with the target 44 m off the site.
+        // Read off the camera AFTER the actor ran, not from a framing function's return.
+        expect(Number(position.distanceTo(target).toFixed(1))).toBe(122.6);
         expect(position.distanceTo(contentCentre)).toBeLessThan(250);
         expect(target.distanceTo(contentCentre)).toBeLessThan(1);
     });
 
-    it('a project WITH authored BIM geometry never took the fallback — pass 1 was always clean', async () => {
+    it('the catcher is now irrelevant to the outcome — with or without it, the same pose', async () => {
+        const withIt = await restingPoseAfterZoomToAll(parcelJustSelectedScene(true).scene);
+        const withoutIt = await restingPoseAfterZoomToAll(parcelJustSelectedScene(false).scene);
+
+        // The strongest statement of the fix: the 4 km plane no longer participates at all.
+        expect(withIt.position.distanceTo(withoutIt.position)).toBeLessThan(1e-6);
+        expect(withIt.target.distanceTo(withoutIt.target)).toBeLessThan(1e-6);
+    });
+
+    it('an infrastructure-ONLY scene leaves the camera untouched — the refusal is intact', async () => {
+        const scene = new THREE.Scene();
+        const catcher = new GroundShadowCatcher();
+        catcher.attach(scene);
+        catcher.setEnabled(true);
+        scene.updateMatrixWorld(true);
+
+        const { position, target } = await restingPoseAfterZoomToAll(scene);
+        // `zoomToAll` warned and returned; nothing called setLookAt, so the recording
+        // controls still read their initial (0,0,0). Silence is the one forbidden outcome
+        // — it warns — but inventing a 4 km "fit" was the worse one.
+        expect(position.length()).toBe(0);
+        expect(target.length()).toBe(0);
+    });
+
+    it('a project WITH authored BIM geometry frames the building', async () => {
         const { scene, modelBounds } = productionScene({ withCatcher: true });
         const { position, target } = await restingPoseAfterZoomToAll(scene);
 

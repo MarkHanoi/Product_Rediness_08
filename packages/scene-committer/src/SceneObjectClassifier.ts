@@ -109,6 +109,75 @@ export class SceneObjectClassifier {
     }
 
     /**
+     * `userData.role` values PRYZM sets on its OWN scene infrastructure — meshes that
+     * exist to support rendering and are not, and can never become, part of the model.
+     *
+     * Kept as a role set rather than a name/type test because these are PRYZM's objects:
+     * the producer declares what they are, positively, at construction. That is the
+     * opposite of the L-749 situation, where the offenders (three.js control handles) had
+     * EMPTY userData and could only be caught structurally by `.type` ancestry.
+     */
+    private static readonly INFRASTRUCTURE_ROLES: ReadonlySet<string> = new Set([
+        'ground-shadow-catcher',
+    ]);
+
+    /**
+     * Returns true if `obj` is — or descends from — PRYZM scene infrastructure: a mesh the
+     * renderer needs but that is not model content.
+     *
+     * ── §CAM-CATCHER-NOT-MODEL (L-931) — why this exists ────────────────────────
+     *
+     * FOUNDER, 2026-08-16, production: *"select a parcel and the camera sits TOO FAR — I
+     * must click to get a usable view."* Their trace:
+     *
+     *   _activate3DView          controls.setLookAt(target=0,0,0  dist=8000.0)
+     *   §CAM-FRAME-INVARIANT     auto-framed and VERIFIED  dist=6505.4m
+     *
+     * Both numbers are closed-form consequences of ONE object. `GroundShadowCatcher` is a
+     * 4000 x 4000 m invisible `ShadowMaterial` plane centred on the origin (the L0 contact-
+     * shadow receiver, ADR-0106). It made the framing bounds exactly 4 000 m across, so:
+     *
+     *   `_computeCameraDistance()` = maxDim x 2       = 4000 x 2            = 8000.0
+     *   `computeFitPose`  radius = |(4000,0,4000)|/2  = 2828.43
+     *                     distance = (2828.43 / sin 30 deg) x 1.15          = 6505.4
+     *
+     * Nothing was racing and nothing overrode anything: all four framing actors agreed,
+     * honestly framing a subject the user never selected. The camera was a correct fit of
+     * the wrong thing — which is why `§CAM-FRAME-INVARIANT` re-ran its own predicate,
+     * found the (4 km) bounds framed, and announced VERIFIED.
+     *
+     * The catcher's mesh is a plain `THREE.Mesh`; its `userData` carries `role`,
+     * `pickable` and `isGroundShadowCatcher`, but no `elementType` and no `isHelper`. So
+     * every existing arm of {@link shouldExcludeFromBounds} sailed past it — exactly the
+     * L-749 lesson (*"nothing about element identity will ever exclude them"*) recurring on
+     * PRYZM's own infrastructure instead of three.js's.
+     *
+     * ## Why the fix is here and not on the catcher's `userData.isHelper`
+     *
+     * Tagging the catcher `isHelper` would have been one line, and it would have moved
+     * FIFTEEN other subsystems that read that flag — frustum culling, level-scoped
+     * culling, view-range filtering, crop regions, panorama capture. `isHelper` means
+     * "not real, hide/skip me" far beyond bounds, and the catcher must keep rendering and
+     * keep receiving the sun shadow (L-112 / L-205). The defect is in the BOUNDS
+     * population, so the fix belongs in the bounds classifier and nowhere else.
+     *
+     * Ancestry-walked, like {@link isHelperObject}: infrastructure may be grouped.
+     * `userData.isSceneInfrastructure === true` is the open door for the next such mesh,
+     * so its author does not have to edit this set.
+     */
+    static isSceneInfrastructure(obj: THREE.Object3D): boolean {
+        let current: THREE.Object3D | null = obj;
+        for (let hops = 0; current && hops < 64; current = current.parent, hops++) {
+            if (current.userData?.isSceneInfrastructure === true) return true;
+            const role = current.userData?.role;
+            if (typeof role === 'string' && SceneObjectClassifier.INFRASTRUCTURE_ROLES.has(role)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns true if this object is a preview/cursor/ghost mesh that
      * tools place temporarily during interactive placement.
      */
@@ -142,6 +211,7 @@ export class SceneObjectClassifier {
     ): boolean {
         return SceneObjectClassifier.isGridObject(obj, gridRoot) ||
                SceneObjectClassifier.isHelperObject(obj) ||
+               SceneObjectClassifier.isSceneInfrastructure(obj) ||   // §CAM-CATCHER-NOT-MODEL (L-931)
                SceneObjectClassifier.isPreviewObject(obj) ||
                SceneObjectClassifier.isBimLevelObject(obj) ||
                SceneObjectClassifier.isBimGridElement(obj);

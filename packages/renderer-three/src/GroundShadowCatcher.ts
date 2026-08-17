@@ -77,6 +77,17 @@ export class GroundShadowCatcher {
             role: 'ground-shadow-catcher',
             pickable: false,
             isGroundShadowCatcher: true,
+            // §CAM-CATCHER-NOT-MODEL (L-931) — this plane is 4 km across and centred on
+            // the origin. Left in the camera-framing bounds population it does not merely
+            // widen the fit, it BECOMES the subject: the founder's 3D view opened at
+            // 6 505 m (a correct fit of this plane) on a parcel a few tens of metres
+            // across, and §CAM-FRAME-INVARIANT verified it, because the plane really was
+            // framed. Declared here, at the producer, so the ONE bounds classifier
+            // (`SceneObjectClassifier.isSceneInfrastructure`) excludes it everywhere
+            // rather than each framer re-discovering it. Deliberately NOT `isHelper`:
+            // fifteen unrelated culling / view-range / panorama passes read that flag and
+            // the catcher must keep rendering and keep receiving the shadow (L-112/L-205).
+            isSceneInfrastructure: true,
         };
         // Belt-and-braces: make the invisible plane transparent to every raycast so
         // it can never intercept a pick / snap / hover ray.
