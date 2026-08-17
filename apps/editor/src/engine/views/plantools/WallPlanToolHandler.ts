@@ -36,6 +36,9 @@ import {
     type AlignGuide,
 } from '@pryzm/snapping';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
+// §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the "is this actually a conflict?" test.
+// CONSUMED from the kernel's declared tolerance policy (C73 §2.2), never minted here.
+import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { computeSetOutDimensions, solveSetOutPoint, type SetOutSegment, type SetOutDimension } from './setOutDimensions';
 // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
 // wall drawn in the SPLIT plan pane carries the same layered systemTypeId as the MAIN view.
@@ -68,6 +71,11 @@ const ALIGN_GUIDE_CYAN = '#00ccff';
 // world metres per-frame via planCanvas.getPixelsPerUnit() so the "tendency to
 // stop" feels the same at every zoom level. ~10 px ≈ the 3D tool's 0.15 m feel.
 const ALIGN_SNAP_PX = 10;
+// §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the colour of the "ortho dropped for this
+// segment" chip. AMBER, not the brand purple: like §WALL-SETOUT's blue this is a
+// FUNCTIONAL statement about the constraint solve, not a creation ghost, so it is out
+// of the unified-purple preview rule (C18 §41). Amber-600, a neutral caution tint.
+const ORTHO_YIELD_AMBER = '#d97706';
 
 function _getMode(): string {
     return window.wallModePicker?.getActiveMode?.() ?? 'linear';
@@ -156,6 +164,20 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _alignGuides: AlignGuide[] = [];
     private _alignLabel: string | null = null;
 
+    /**
+     * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the record of an over-constrained
+     * second point whose conflict was resolved IN FAVOUR OF THE SNAP.
+     *
+     * Non-null only while the live/committing point is a strong object snap that does
+     * NOT lie on the ortho ray. Carries BOTH numbers the user needs to see that a
+     * constraint was dropped and by how much: the distance the ortho lock would have
+     * moved the point (`missM`) and the angle the taken segment sits off the nearest
+     * cardinal axis (`offAxisDeg`). `at` pins it to the exact point it describes, so a
+     * commit through a different path (polyline close, typed length) can never inherit
+     * a stale note.
+     */
+    private _orthoYield: { at: WorldPoint; missM: number; offAxisDeg: number } | null = null;
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._wallFirstPoint     = null;
@@ -179,6 +201,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         this._wallCursorPoint    = null;
         this._resetSetOutEdit();
         this._resetAlignGuides();
+        this._orthoYield = null;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
         this._ctx = null;
     }
 
@@ -327,6 +350,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
         this._dimInput?.reset();
         this._resetSetOutEdit();
         this._resetAlignGuides();
+        this._orthoYield = null;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -466,6 +490,25 @@ export class WallPlanToolHandler implements PlanToolHandler {
             return;
         }
 
+        // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — SAY WHICH CONSTRAINT WON, WITH BOTH
+        // NUMBERS. Logged only when THIS endpoint is the one the note describes, so a
+        // polyline close or a typed-length commit can never inherit a stale note.
+        const yielded = this._orthoYield;
+        if (
+            yielded
+            && Math.abs(yielded.at.worldX - endPt.worldX) < COINCIDENT_M
+            && Math.abs(yielded.at.worldZ - endPt.worldZ) < COINCIDENT_M
+        ) {
+            console.log(
+                '[WallPlanToolHandler] §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP — over-constrained ' +
+                'second point: ORTHO DROPPED for this segment, the %s snap WINS. ' +
+                'Ortho would have moved the end %s mm; the accepted segment sits %s° off axis.',
+                endPt.snapType ?? 'object',
+                (yielded.missM * 1000).toFixed(1),
+                yielded.offAxisDeg.toFixed(2),
+            );
+        }
+
         const wallId = createId('wall');
         window.runtime?.bus?.executeCommand('wall.create', {
             id:       wallId,
@@ -486,6 +529,8 @@ export class WallPlanToolHandler implements PlanToolHandler {
         this._dimInput?.reset();
         this._resetSetOutEdit();   // §WALL-SETOUT-TAB-INPUT — leave edit mode on commit
         this._resetAlignGuides();  // §FEAT-PLAN-WALL-ALIGN-INFERENCE — clear stale guides
+        this._orthoYield = null;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the note
+                                   // described the point just committed; it must not survive it.
         this._wallFirstPoint  = endPt;
         this._arcMidPt        = null;
         this._wallCursorPoint = null;
@@ -503,10 +548,8 @@ export class WallPlanToolHandler implements PlanToolHandler {
      * stroke's second point, shared by the live preview (`onMouseMove`) and the commit
      * (`onClick`). Order is load-bearing and mirrors what the preview has always drawn:
      *
-     *   1. §STRICT-ORTHO (Apr 2026) — ortho is an unconditional 90° lock from the start
-     *      point, even when the cursor lands on a strong object snap (the snapped point
-     *      contributes its precision; the DIRECTION is guaranteed orthogonal). Angle-step
-     *      mode (non-linear/curved/byslab) keeps "snap wins" — it is a soft hint.
+     *   1. ORTHO / ANGLE-STEP direction lock — and, on a strong object snap, THE SNAP WINS.
+     *      See §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP below.
      *   2. §04-12 typed-length lock — a typed dimension overrides geometric snap because
      *      it is even more explicit. Inert unless a positive length has been typed.
      *      (Curved state 2 — end point from arc mid — is deliberately unconstrained.)
@@ -523,10 +566,81 @@ export class WallPlanToolHandler implements PlanToolHandler {
             this._alignGuides = [];
             this._alignLabel  = null;
         }
+        this._orthoYield = null;
         if (!this._wallFirstPoint) return pt;
         let resolved = pt;
         if (mode === 'ortho') {
-            resolved = _snapOrtho(this._wallFirstPoint, pt);
+            // ── §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935, founder 2026-08-17) ──────────
+            //
+            // THE founder defect: "draw a wall polyline in ORTHOGONAL mode; on the second
+            // segment place the second point by snapping to the MIDPOINT of an existing
+            // wall that is NOT aligned with the orthogonal projection."
+            //
+            // Ortho constrains the segment's DIRECTION. The object snap constrains its END
+            // POINT. When the snapped point does not lie on the ortho ray those two
+            // constraints CONFLICT, and the input is OVER-CONSTRAINED — exactly one of them
+            // can survive. §STRICT-ORTHO (Apr 2026) resolved that conflict SILENTLY and in
+            // favour of ortho: `_snapOrtho` was applied unconditionally, so the explicit
+            // snap was discarded and the wall was committed somewhere the user never clicked.
+            //
+            // MEASURED (L935OrthoMidpointConflict.measure.spec.ts, ARM A) with the cursor on
+            // the midpoint of a wall 9.12° off the ortho ray at 4 m:
+            //     snapped midpoint  (3.949434, -0.634011)
+            //     committed end     (4.000000,  0.000000)   ← what shipped
+            //     MISS              636.0 mm
+            // That 636 mm is the same figure the founder's own trace reports
+            // §DIAG-PARTITION-REACH rescuing as a "dangling gap" — the emitter putting the
+            // end in the wrong place, with a downstream rescuer papering over it.
+            //
+            // WHICH CONSTRAINT WINS, AND WHY THE SNAP. Three independent reasons, none of
+            // them preference:
+            //   1. `PlanToolHandler.ts` ALREADY DECLARES IT, verbatim: "When a handler sees
+            //      one of the 'strong' snaps … it MUST respect the snap verbatim and skip
+            //      auxiliary constraints like ortho / angle locks — this is the Revit/AutoCAD
+            //      convention: an explicit object snap always wins." §STRICT-ORTHO contradicted
+            //      the interface the handler implements, and had no contract, ADR or SPEC
+            //      behind it — it was a comment.
+            //   2. The ANGLE-STEP branch six lines below has honoured that rule all along
+            //      (`!isStrongSnap(pt)`). Ortho was the only branch that did not; the two
+            //      branches disagreed about the same question.
+            //   3. A snap is an EXPLICIT gesture at a named feature of an existing element;
+            //      ortho is a background aid. Discarding the explicit one is the surprising
+            //      reading.
+            //
+            // AND IT SAYS SO. Silently taking the other branch would only move the surprise.
+            // `_orthoYield` records BOTH numbers — the gap ortho would have opened, and how
+            // far off-axis the accepted segment sits — which the preview chips beside the
+            // cursor and `_commitWall` logs at the dispatch.
+            //
+            // NOT A REFUSAL. The wall is buildable and unambiguous once the conflict is
+            // decided, so C83's refusal path is not engaged; the C83 §3 spatial gate in
+            // `_commitWall` still runs on the resolved point exactly as before.
+            //
+            // NOTE ON THE TAPER. The founder's report described the wall NARROWING toward the
+            // snapped point. That half was measured and REFUTED (ARM B/ARM C): the footprint's
+            // every side corner sits at exactly ±halfThickness from its own centreline whether
+            // or not a junction forms, and `buildMiterPrism` projects both side corners ALONG
+            // the wall direction so its faces are parallel by construction. The wall never had
+            // two thicknesses. What it had was an END 636 mm from the click, crossing the host
+            // it should have met — which is what reads as a wedge in plan.
+            const orthoPt = _snapOrtho(this._wallFirstPoint, pt);
+            if (isStrongSnap(pt)) {
+                resolved = pt;
+                const missM = Math.hypot(pt.worldX - orthoPt.worldX, pt.worldZ - orthoPt.worldZ);
+                // Only a MATERIAL disagreement is a dropped constraint. When the snapped point
+                // already lies on the ortho ray the two constraints agree and nothing was given
+                // up — say nothing (COINCIDENT_M, consumed from the kernel, C73 §2.2).
+                if (missM >= COINCIDENT_M) {
+                    const dx = pt.worldX - this._wallFirstPoint.worldX;
+                    const dz = pt.worldZ - this._wallFirstPoint.worldZ;
+                    const angleDeg = Math.atan2(dz, dx) / DEG;
+                    // Departure from the NEAREST cardinal axis, in [0, 45].
+                    const offAxisDeg = Math.abs(angleDeg - Math.round(angleDeg / 90) * 90);
+                    this._orthoYield = { at: pt, missM, offAxisDeg };
+                }
+            } else {
+                resolved = orthoPt;
+            }
         } else if (mode !== 'linear' && mode !== 'curved' && mode !== 'byslab' && !isStrongSnap(pt)) {
             const step = window.wallModePicker?.getAngleStep?.() ?? 15;
             resolved = _snapAngle(this._wallFirstPoint, pt, step);
@@ -621,6 +735,38 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _resetAlignGuides(): void {
         this._alignGuides = [];
         this._alignLabel  = null;
+    }
+
+    /**
+     * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the on-canvas half of "say which
+     * constraint won". An amber chip beside the cursor naming the dropped constraint
+     * and carrying BOTH numbers: the gap ortho would have opened, and how far off the
+     * cardinal axis the accepted segment sits. Drawn only while the conflict is live.
+     *
+     * Assumes the overlay transform is already the dpr transform (called from
+     * `_drawWallPreview` after the wall band's save/restore). Does its own
+     * save/restore; never clears.
+     */
+    private _drawOrthoYieldChip(): void {
+        const c = this._ctx;
+        const y = this._orthoYield;
+        if (!c || !y || !this._wallCursorPoint) return;
+        const { ctx, planCanvas } = c;
+        const p = planCanvas.worldToScreen(this._wallCursorPoint.worldX, this._wallCursorPoint.worldZ);
+        const label =
+            `ortho off · snap wins · ${y.offAxisDeg.toFixed(1)}° off axis ` +
+            `(ortho would miss ${Math.round(y.missM * 1000)} mm)`;
+
+        ctx.save();
+        ctx.font = 'bold 10px sans-serif';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = ORTHO_YIELD_AMBER;
+        ctx.fillRect(p.sx + 10, p.sy + 8, tw + 8, 15);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, p.sx + 14, p.sy + 16);
+        ctx.restore();
     }
 
     /**
@@ -771,6 +917,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
         this._resetSetOutEdit();
         this._resetAlignGuides();
+        this._orthoYield = null;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
         this._wallFirstPoint     = null;
         this._polylineFirstPoint = null;
         this._arcMidPt           = null;
@@ -932,6 +1079,11 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // own save/restore and does NOT clear (this method owns the clear at the top).
         // Not shown while the set-out numeric editor owns the overlay.
         if (!this._setOutEditActive) this._drawAlignmentGuides();
+
+        // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — name the constraint that was dropped,
+        // live, beside the cursor. Same ownership rules as the guides above: after the wall
+        // band's restore, own save/restore, never clears.
+        if (!this._setOutEditActive) this._drawOrthoYieldChip();
 
         // §WALL-SETOUT — set-out dims from the MOVING end to the surrounding walls,
         // alongside the wall's own length label. Drawn after the wall band restore;
