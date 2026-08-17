@@ -49,6 +49,9 @@ const STUB_REPORT_EVENTS: Readonly<Record<string, string>> = {
     'window.parametricCreate': 'pryzm-window-parametric-report',
     'door.updateSystemTypeBatch': 'pryzm-door-type-batch-report',
     'element.deleteBatch': 'pryzm-delete-batch-report',
+    // §FEAT-BULK-DIMENSIONS (L-949) — mirrors BATCH_REPORT_EVENTS.
+    'element.updateDimensionsBatch': 'pryzm-dimensions-batch-report',
+    'wall.updateHeightBatch': 'pryzm-wall-height-batch-report',
     'generation.rooms': 'pryzm-generation-report',
     'generation.finish-chain': 'pryzm-generation-report',
     'generation.building': 'pryzm-generation-report',

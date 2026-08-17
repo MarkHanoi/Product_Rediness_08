@@ -107,6 +107,10 @@ export * from './generic/UpdateElementParameterCommand';
 // §FEAT-SCOPED-DELETE (RAC U9.2) — N deletes, ONE undo entry; composes
 // DeleteElementCommand per id rather than re-deriving its per-kind cascade.
 export * from './generic/DeleteElementsBatchCommand';
+// §FEAT-BULK-DIMENSIONS (L-949) — N resizes, ONE undo entry; composes
+// UpdateElementParameterCommand per id with every requested dimension in one
+// child dispatch (ADR-0314 D2's "per-family batch command", not a fan-out).
+export * from './generic/UpdateElementDimensionsBatchCommand';
 // The declarative rebuild registry is the documented extension point for making a new
 // parametric element's parameter edits reach its geometry ("adding a new parametric
 // element = registering one descriptor here"), and it is what decides whether a given

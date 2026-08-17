@@ -68,6 +68,12 @@ import { CATALOGUE_FAMILIES, type CatalogueLookup } from './CatalogueFamilies.js
 // grammar. The only line this file spends on the whole family is the matcher
 // below, which delegates to the generated parser.
 import { parseDeleteScopedIntent, type DeleteFamilyIntentId } from './DeleteFamilies.js';
+// §FEAT-BULK-DIMENSIONS (L-949) — the DIMENSION FAMILIES: shared grammar +
+// generated specs, so the tier-0 path and the NL classifier read one parser.
+import {
+  parseDimensionScopedIntent,
+  type DimensionAsk,
+} from './DimensionFamilies.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -754,6 +760,28 @@ export type SemanticIntent =
       /** Type id OR name, as the user said it — resolved by the injected
        *  `ctx.resolveDoorSystemType`, or by the command when absent. */
       readonly typeRef: string;
+      /** RAC U8.1 — the full IntentScope (spatial + filter). */
+      readonly scope: IntentScope;
+    }
+  /**
+   * §FEAT-BULK-DIMENSIONS (L-949) — the founder's ask, verbatim: "bulk change
+   * any element (doors, windows, walls) dimensions (or multiple dims)".
+   * "make all windows 2 meters height" / "make all doors 2m wide by 1m high
+   * with 0.1 sill" / "set all walls 3m high".
+   *
+   * A DIMENSION FAMILY table entry (DimensionFamilies.ts): the spec, the
+   * grammar and every refusal are GENERATED, so on the resolver side this is
+   * METADATA ONLY — no case arm exists for it (C67 §4.5). Each family dispatches
+   * ONE batch verb, and `dims` carries EVERY requested field so that one
+   * element gets one dispatch and one rebuild — ADR-0314 D3's contract kept, at
+   * batch scale, which is what D2 called "the roadmap answer".
+   */
+  | {
+      readonly intent: 'set-wall-dimensions' | 'set-window-dimensions' | 'set-door-dimensions';
+      /** The requested dimensions in METRES. One or several; a field the
+       *  family's carrier cannot carry is REFUSED BY NAME in the value stage,
+       *  never silently dropped. */
+      readonly dims: DimensionAsk;
       /** RAC U8.1 — the full IntentScope (spatial + filter). */
       readonly scope: IntentScope;
     }
@@ -1481,17 +1509,30 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
     case 'set-dimensions': {
       const guard = needSelection('set-dimensions', ctx, 'set its dimensions');
       if ('refusal' in guard) return guard.refusal;
-      // ADR-0314 §Selection batch — the compound form stays ONE-element-only:
+      // ADR-0314 D3 — the KIND-AGNOSTIC compound form stays ONE-element-only:
       // its whole §FIX-CHAT-COMPOUND-DIMENSIONS contract is one dispatch = one
-      // rebuild for one element, and fanning that across a selection multiplies
-      // the stale-id hazard it exists to prevent. Refuse with the reason.
+      // rebuild for one element, and it has no way to know that a mixed
+      // selection's elements even share a store. Refuse with the reason.
+      //
+      // §FIX-DIMENSION-REFUSAL-ADVERTISED-NOTHING (L-942, L-949). This refusal
+      // used to end "Select one element, or change one dimension for all of
+      // them" — and there was NO all-scope dimension capability, so the escape
+      // hatch it offered did not exist. A refusing half whose remedy is
+      // unreachable is a regression with a contract citation attached. The
+      // remedy named below is now real: §FEAT-BULK-DIMENSIONS ships a
+      // per-family batch (DimensionFamilies.ts), which is precisely what
+      // ADR-0314 D2 called "the roadmap answer" to per-element fan-out.
       if (ctx.selection.length > 1) {
+        const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+        const noun = kinds.length === 1 ? `${kinds[0]}s` : 'windows';
         return {
           kind: 'refusal', intent: 'set-dimensions',
           reason:
             `Changing several dimensions at once works on one selected element at a time — ` +
-            `${ctx.selection.length} are selected. Select one element, or change one dimension for all of them.`,
-          suggestions: ['set height to 3m'],
+            `${ctx.selection.length} are selected, and nothing was changed. ` +
+            `Select one element, or name the family and I'll do the whole set in one go — ` +
+            `for example "make all ${noun} 2m high" (or "make the selected ${noun} 2m high").`,
+          suggestions: [`make all ${noun} 2m high`, 'set height to 3m'],
         };
       }
       const sel = guard.sel;
@@ -3298,6 +3339,12 @@ const matchRhinoMaterial: Matcher = (text) => parseRhinoMaterialIntent(text);
 // "I'm not sure" rather than a coin flip on a destructive verb.
 const matchDeleteScoped: Matcher = (text, ctx) => parseDeleteScopedIntent(text, ctx);
 
+// §FEAT-BULK-DIMENSIONS (L-949) — "make all windows 2 meters height". The ONE
+// parser, shared with the NL classifier; `toMeters` is handed in so the unit
+// rule keeps exactly one implementation (ADR-0313 §Units).
+const matchDimensionScoped: Matcher = (text, ctx) =>
+  parseDimensionScopedIntent(text, ctx, toMeters);
+
 // §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
 // "generate a 2-storey house" / "generate an office building with 5 floors".
 //
@@ -3614,6 +3661,16 @@ const MATCHERS: readonly Matcher[] = [
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.
   matchWindowsParametric,
+  // §FEAT-BULK-DIMENSIONS (L-949) — the bulk-dimension families. Placed AFTER
+  // every type / colour / rake / layer / creation grammar above and BEFORE the
+  // single-element dimension matchers below, and disjoint from both by
+  // construction: it claims only a sentence carrying a SCOPE WORD, a family
+  // NOUN and at least one (number, dimension-word) BINDING. The grammars above
+  // carry no binding ("timber casement", "white", "angled by 70 degrees" — and
+  // rake/pitch words are declined outright); the matchers below claim only the
+  // bare "this" / "the selection" shapes this parser deliberately does not
+  // match. The ordering makes that provable rather than merely true.
+  matchDimensionScoped,
   // §GEN-CHAT (RAC U5b.2) — "generate a 3-storey residential building" /
   // "…house" / "…office building with 5 floors". BEFORE matchAddLevel and
   // matchCreateWall: those share the creation verbs, but generation requires a

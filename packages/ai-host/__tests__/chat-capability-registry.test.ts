@@ -201,6 +201,13 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-room-number': ['room'],
       // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001".
       'set-room-occupancy': ['room'],
+      // §FEAT-BULK-DIMENSIONS (L-949) — the three generated bulk-dimension
+      // families. One kind each, by construction: a family's scope resolves
+      // through `{kind:'all', elementKind}` and its carrier addresses that kind
+      // and no other.
+      'set-wall-dimensions': ['wall'],
+      'set-window-dimensions': ['window'],
+      'set-door-dimensions': ['door'],
     };
     for (const cap of allChatCapabilities()) {
       if (cap.targets === 'global') continue;

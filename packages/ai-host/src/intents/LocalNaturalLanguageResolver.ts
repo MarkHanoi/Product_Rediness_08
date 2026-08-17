@@ -60,6 +60,10 @@ import {
   type WallPoint2,
   type ZeroTokenResolution,
 } from './ZeroTokenResolver.js';
+// §FEAT-BULK-DIMENSIONS (L-949) — the SHARED bulk-dimension parser, so the
+// natural and rigid paths cannot understand "make all windows 2 meters height"
+// differently (the same discipline as parseWallColorIntent above).
+import { parseDimensionScopedIntent } from './DimensionFamilies.js';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -729,6 +733,28 @@ function classify(
     }
   }
 
+  // §FEAT-BULK-DIMENSIONS (L-949) — THE ESCAPE HATCH the all-scope guard below
+  // spent its whole life pointing at and never had (L-942). "make all windows 2
+  // meters height" / "make all doors 2m wide by 1m high with 0.1 sill" / "set
+  // all walls 3m high" are SCOPED asks, not selection asks, and they resolve
+  // through the SHARED parser the tier-0 grammar uses — one reading of the
+  // sentence, two entry points.
+  //
+  // Rank 0.96 is deliberate and load-bearing: it must outrank the compound
+  // branch's 0.95, because a compound sentence carrying an ALL-SCOPE word
+  // matches both shapes and only THIS one can honour the scope. Below that
+  // rank the compound branch would win and the sentence would be answered by
+  // resizing the selection — the exact §FIX-CHAT-DIMENSION-ALL-SCOPE defect.
+  const bulkDims = parseDimensionScopedIntent(n.plain, ctx, lengthToMeters);
+  if (bulkDims !== null) {
+    push({
+      intent: bulkDims.intent,
+      confidence: 0.96,
+      evidence: ['verb:resize', 'bulk-dimensions', `scope:${scopeTag((bulkDims as { scope?: unknown }).scope)}`],
+      si: bulkDims,
+    });
+  }
+
   // §FIX-CHAT-COMPOUND-DIMENSIONS — "2 meters height, 2 meters width and 0.1
   // meters sill height" is ONE compound ask, resolved to ONE dispatch. It must
   // outrank (and suppress) the single-dimension branch, whose first-number-wins
@@ -753,14 +779,20 @@ function classify(
 
   // Dimension setting (set-height / set-thickness / set-width / set-sill-height).
   //
-  // §FIX-CHAT-DIMENSION-ALL-SCOPE (RAC U9, U10 drain). Every dimension
-  // capability is SELECTION-scoped — there is no batch dimension verb — so a
-  // sentence carrying an explicit all-scope word is asking for something this
+  // §FIX-CHAT-DIMENSION-ALL-SCOPE (RAC U9, U10 drain). A sentence carrying an
+  // explicit all-scope word is asking for something this SELECTION-scoped
   // branch cannot do. It used to claim anyway and quietly act on the SELECTION:
   // "set all slabs thickness to 0.2m" resized the one selected wall. Answering
   // a project-wide ask by mutating one element the user did not name is the
-  // worst available outcome, so the branch declines and the ladder answers
-  // honestly instead.
+  // worst available outcome, so the branch declines.
+  //
+  // §FEAT-BULK-DIMENSIONS (L-949) — THE GUARD IS NOT DELETED AND MUST NOT BE.
+  // What changed is that its decline is no longer the end of the road: the
+  // families that DO have a project-wide route (wall / window / door) are
+  // claimed above at 0.96, so this branch declining is now the correct handoff
+  // rather than a dead end. A family with no bulk route (slab, roof, ceiling,
+  // stair) still lands here and still declines — which is right, because
+  // resizing the selection would still be the wrong answer to "all slabs".
   const allScopeWord = tokens.some((t) => t === 'all' || t === 'every' || t === 'each');
   if (e.dimension !== null && !creationShape && !compound && !allScopeWord) {
     const intent = DIMENSION_INTENT[e.dimension];

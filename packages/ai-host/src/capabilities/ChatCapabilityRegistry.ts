@@ -84,6 +84,15 @@ import type { SemanticIntent } from '../intents/ZeroTokenResolver.js';
 // that generates their execution spec. One-way dependency: this module imports
 // the pure table; the table imports nothing from here.
 import { DELETE_FAMILIES, deleteFamilyTargets } from '../intents/DeleteFamilies.js';
+// §FEAT-BULK-DIMENSIONS (L-949) — same one-way discipline: this module imports
+// the pure table; the table imports NOTHING from here (a cycle would be the
+// §SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD white-screen hazard).
+import {
+  DIMENSION_FAMILIES,
+  DIMENSION_LABEL,
+  dimensionFamilyTargets,
+  type DimensionKey,
+} from '../intents/DimensionFamilies.js';
 
 const TRACER_NAME = '@pryzm/ai-host';
 let cachedTracer: Tracer | null = null;
@@ -350,10 +359,82 @@ const DELETE_FAMILY_CAPABILITIES: readonly ChatCapability[] = DELETE_FAMILIES.ma
   examples: [...family.suggestions],
 }));
 
+// ─── §FEAT-BULK-DIMENSIONS (L-949) — the DIMENSION FAMILIES, as generated metadata ─
+//
+// The founder's ask: "bulk change any element (doors, windows, walls)
+// dimensions (or multiple dims) — I want ALL elements dims to be able to be
+// changed." Three families today (wall / window / door), each ONE record in
+// `DimensionFamilies.ts` from which BOTH its execution spec and this metadata
+// are built — so `targets`, the examples and the command proof are GENERATED
+// rather than restated, and a family removed from the table is a claim removed
+// in the same edit.
+//
+// `destructive: true` is not decoration: the bridge draws a Confirm card, and
+// the generated spec's `requireResolvedIds` forces the summary that card shows
+// to carry a REAL resolved count ("This sets all 42 windows in the project to
+// height 2 m"). A mass resize is not a gesture whose extent is obvious from the
+// sentence, so it is confirmed before it runs — the same reasoning that lets
+// the scoped deletes be confirmed honestly.
+//
+// WHICH DIMENSIONS EACH FAMILY REALLY TAKES is `carries` on the table, and the
+// parameter list below is generated from it. A field a family's carrier cannot
+// carry (wall thickness, door sill) is REFUSED BY NAME with the route that can
+// do it — never advertised here and never silently dropped.
+const DIMENSION_FAMILY_CAPABILITIES: readonly ChatCapability[] = DIMENSION_FAMILIES.map((family) => ({
+  id: family.intent,
+  description: `change the ${family.elementKind} ${family.carries.map((k: DimensionKey) => DIMENSION_LABEL[k]).join(' / ')}`,
+  verbs: ['set', 'change', 'make', 'resize', 'update', 'adjust'],
+  aliases: [
+    family.elementKind,
+    family.nounPlural,
+    ...family.nounAliases,
+    ...family.carries.map((k: DimensionKey) => DIMENSION_LABEL[k]),
+  ],
+  // NO `refusalLabel`, deliberately. That field builds the "here is what I CAN
+  // do" half of a generated refusal, and it lists PROPERTIES. These families set
+  // no NEW property — height and width are already offered by `set-height` and
+  // `set-width`; what is new is the SCOPE. Adding "dimensions" to that list
+  // would read as a fourth thing the user could ask for and change the pinned
+  // copy ("I can change door height, width and door type") for no information.
+  targets: dimensionFamilyTargets(family.intent),
+  parameters: family.carries.map((k: DimensionKey) => ({
+    name: k,
+    description: `the new ${DIMENSION_LABEL[k]} (one or more may be given in the same sentence)`,
+    // NONE is individually required — the ask needs AT LEAST ONE, which the
+    // value stage enforces with a concrete example. Marking them all required
+    // would make "make all windows 2m high" look under-specified when it is
+    // exactly the founder's sentence.
+    required: false,
+    valueSource: 'measurement' as const,
+    example: k === 'sillHeight' ? '0.9m' : k === 'thickness' ? '200mm' : '2m',
+  })),
+  scope: 'all',
+  // The SELECTION form is claimed too ("make the selected windows 2m high"):
+  // unlike the scoped deletes, no other capability owns the multi-element
+  // dimension ask — `set-dimensions` refuses it by design (ADR-0314 D3) and now
+  // points here.
+  scopeModes: ['all', 'selection', 'level', 'room'],
+  destructive: true,
+  busCommand: family.busCommand,
+  // Selection-scope probe, for the same reason every batch capability uses one:
+  // proof 3a asks "does the arm accept this element kind and refuse every other
+  // one", and the selection scope is the only form that answers per-KIND. An
+  // 'all' probe refuses for every kind in the harness (no resolveScope is
+  // injected there) and would prove nothing.
+  probe: {
+    intent: family.intent,
+    dims: { [family.carries[0]!]: 2 },
+    scope: 'selection',
+  } as unknown as SemanticIntent,
+  commandProof: family.commandProof,
+  examples: [...family.examples],
+}));
+
 // ─── The capabilities ────────────────────────────────────────────────────────
 
 const CAPABILITIES: readonly ChatCapability[] = [
   ...DELETE_FAMILY_CAPABILITIES,
+  ...DIMENSION_FAMILY_CAPABILITIES,
   {
     id: 'undo',
     description: 'undo the last change',

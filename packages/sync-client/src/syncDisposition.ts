@@ -222,6 +222,24 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',
   },
+  // §FEAT-BULK-DIMENSIONS (L-949) — "make all windows 2 meters height".
+  // A DIFFERENT reason from its siblings, and it must not be conflated with
+  // theirs: this verb's subject is ALWAYS an explicit `elementIds: string[]`
+  // (there is deliberately no 'all' form — the Confirm card has to state a real
+  // count), so the late-bound seam above does NOT apply. What blocks it is that
+  // `ElementPropertyDisposition` names exactly ONE `subject` key holding ONE id
+  // string, and a MULTI-subject payload has no representation in this table at
+  // all. Declaring it with `subject: 'elementIds'` would hand the adapter an
+  // ARRAY where it expects an id and record an unresolved subject on every
+  // dispatch. The honest state is not-synced with the missing shape named.
+  'element.updateDimensionsBatch': {
+    kind: 'not-synced',
+    reason:
+      'SHAPE: subject is `elementIds: string[]` — a MULTI-subject payload, which ' +
+      'ElementPropertyDisposition (one `subject` key -> one id string) cannot express. ' +
+      'Not the late-bound "all" seam: this verb never carries "all". Needs a ' +
+      'multi-subject disposition kind, which is a sync-client change.',
+  },
   'wall.updateSystemTypeBatch': {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',

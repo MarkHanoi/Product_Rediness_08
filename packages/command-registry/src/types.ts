@@ -60,6 +60,12 @@ export enum CommandType {
     // DeleteElementCommand per id rather than re-deriving its per-kind
     // cascade/undo semantics.
     DELETE_ELEMENTS_BATCH = 'DELETE_ELEMENTS_BATCH',
+    // §FEAT-BULK-DIMENSIONS (L-949) — resize a RESOLVED id set in ONE undo
+    // step ("make all windows 2 meters height"). Composes the LIVE
+    // UpdateElementParameterCommand per id, every requested dimension in ONE
+    // child dispatch, so ADR-0314 D3's one-dispatch-one-rebuild contract holds
+    // per element while the gesture stays one undo entry.
+    UPDATE_ELEMENT_DIMENSIONS_BATCH = 'UPDATE_ELEMENT_DIMENSIONS_BATCH',
     MOVE_DOOR = 'MOVE_DOOR',
     UPDATE_WINDOW_FRAME_COLOR = 'UPDATE_WINDOW_FRAME_COLOR',
     MOVE_WINDOW = 'MOVE_WINDOW',

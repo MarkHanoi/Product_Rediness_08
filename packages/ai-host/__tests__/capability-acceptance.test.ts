@@ -155,6 +155,51 @@ const scopedSel = (elementType: string): Partial<ResolverContext> => ({
 });
 
 const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
+  // ── §FEAT-BULK-DIMENSIONS (L-949) — the founder's bulk-dimension tranche ──
+  //
+  // "I have requested the possibility to ask to bulk change any element (doors,
+  // windows, walls) dimensions (or multiple dims)." Every one of these was a
+  // MISS or a "Nothing is selected" refusal before this capability existed —
+  // and a miss falls through to an LLM that production does not have
+  // configured, so a miss here is the founder seeing "I'm not sure how to help
+  // with that yet".
+  {
+    id: 'set-window-dimensions',
+    ctx: scopedSel('window'),
+    scoped: true,
+    phrasings: [
+      'make all windows 2 meters height',
+      'make all windows 2m high',
+      'change all windows height to 2m',
+      'make all windows 1m wide and 2m high',
+      'make all windows 2 meters height, 1 meter width and 0.1 meters sill height',
+      'make the selected windows 2m high',
+      'set all windows on level 2 to 2m high',
+    ],
+  },
+  {
+    id: 'set-door-dimensions',
+    ctx: scopedSel('door'),
+    scoped: true,
+    phrasings: [
+      'make all doors 2m high',
+      'make all doors 0.9m wide and 2.1m high',
+      'change all doors width to 900mm',
+      'make the selected doors 2.1m high',
+    ],
+  },
+  {
+    id: 'set-wall-dimensions',
+    ctx: scopedSel('wall'),
+    scoped: true,
+    phrasings: [
+      'set all walls 3m high',
+      'make all walls 2.7 meters high',
+      'set all walls height to 3m',
+      'make the selected walls 3m high',
+      'set all walls on level 2 to 3.2m high',
+    ],
+  },
   // ── RAC U9.2 — the SAFE DESTRUCTIVE tranche ─────────────────────────────
   {
     id: 'delete-furniture-scoped',

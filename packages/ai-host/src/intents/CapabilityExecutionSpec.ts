@@ -73,6 +73,11 @@ import {
   deleteFamilySpec,
   type DeleteFamilyIntentId,
 } from './DeleteFamilies.js';
+import {
+  DIMENSION_FAMILIES,
+  dimensionFamilySpec,
+  type DimensionFamilyIntentId,
+} from './DimensionFamilies.js';
 import type {
   BusCommandRef,
   ResolverContext,
@@ -105,6 +110,14 @@ export type SpecDrivenIntentId =
   // different from every spec above is `destructive: true` +
   // `requireResolvedIds: true`, both set by the generator.
   | DeleteFamilyIntentId
+  // §FEAT-BULK-DIMENSIONS (L-949) — the founder's "I want ALL elements dims to
+  // be able to be changed", generated from DimensionFamilies.ts. What makes
+  // these different from every spec above is that the VALUE is a set of
+  // measurements rather than one reference, and that they are the first
+  // non-delete specs to carry `destructive: true` + `requireResolvedIds: true`
+  // — a mass RESIZE is not a gesture whose extent is obvious from the sentence,
+  // so the Confirm card must state a real count before consent.
+  | DimensionFamilyIntentId
   | 'add-wall-layer'
   // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001". The
   // FIRST fan-out spec (`fanOutPerId`): the vocabulary and the scope stage are
@@ -419,6 +432,28 @@ export const EXECUTION_SPECS: SpecTable = {
   ...(Object.fromEntries(
     DELETE_FAMILIES.map((f) => [f.intent, deleteFamilySpec(f)]),
   ) as unknown as Pick<SpecTable, DeleteFamilyIntentId>),
+
+  // ── §FEAT-BULK-DIMENSIONS (L-949) — the DIMENSION FAMILIES, generated ─────
+  //
+  // "make all windows 2 meters height" / "make all doors 2m wide by 1m high
+  // with 0.1 sill" / "set all walls 3m high" — one or several dimensions over a
+  // scope, as ONE undoable gesture. The chat could say NONE of these: every
+  // dimension capability was selection-scoped and single-element, and the
+  // all-scope guard in LocalNaturalLanguageResolver declined the sentence
+  // rather than resize whatever happened to be selected.
+  //
+  // Same generation seam as the catalogue and delete families, and the same
+  // double check on it — `DimensionFamilyIntentId` is a subset of
+  // `SpecDrivenIntentId` (a family id absent from the union fails to compile),
+  // and the registry test asserts a capability exists for every family. What
+  // the generator ADDS is the (element kind x dimension) honesty contract: the
+  // value stage consults the SINGLE form's own registry guard before accepting a
+  // field, and refuses BY NAME any field this family's ONE batch verb cannot
+  // carry. Both live in ONE place — DimensionFamilies.ts — so a fourth family
+  // cannot arrive without them.
+  ...(Object.fromEntries(
+    DIMENSION_FAMILIES.map((f) => [f.intent, dimensionFamilySpec(f)]),
+  ) as unknown as Pick<SpecTable, DimensionFamilyIntentId>),
 
   /**
    * §FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer to the inner side

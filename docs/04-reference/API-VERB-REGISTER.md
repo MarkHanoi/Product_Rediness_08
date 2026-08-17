@@ -15,9 +15,9 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1258 (floor 900) |
-| **Verbs** | **325** (floor 250) |
-| LIVE | 117 |
+| Handler files read | 1260 (floor 900) |
+| **Verbs** | **326** (floor 250) |
+| LIVE | 118 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
 | UNKNOWN | 171 |
@@ -131,6 +131,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `element.hideInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.isolateInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.setGraphicOverride` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
+| `element.updateDimensionsBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-dimensions |
 | `element.updateMark` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | classified D |
 | `element.updateParameters` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | capability: set-height |
 | `elementType.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | n/a (not a property verb) | classified C |
@@ -351,7 +352,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.updateColorBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-color |
 | `wall.updateCurtainWall` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified C |
 | `wall.updateDimensions` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | capability: set-height |
-| `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
+| `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-dimensions |
 | `wall.updateRakeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-rake |
 | `wall.updateSystemType` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | classified D |
 | `wall.updateSystemTypeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-type |

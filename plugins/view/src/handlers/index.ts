@@ -17,6 +17,7 @@ import { SetViewRangeHandler } from './SetViewRange.js';
 import { SetViewUnderlayHandler } from './SetViewUnderlay.js';
 import { DeleteElementHandler } from './DeleteElement.js';
 import { DeleteElementsBatchHandler } from './DeleteElementsBatch.js';
+import { UpdateElementDimensionsBatchHandler } from './UpdateElementDimensionsBatch.js';
 import { HideElementInViewHandler } from './HideElementInView.js';
 import { IsolateElementInViewHandler } from './IsolateElementInView.js';
 import { SetElementGraphicOverrideHandler } from './SetElementGraphicOverride.js';
@@ -38,6 +39,14 @@ export {
   type DeleteElementsBatchPayload,
   type DeleteBatchReport,
 } from './DeleteElementsBatch.js';
+// §FEAT-BULK-DIMENSIONS (L-949) — N resizes, ONE undo entry.
+export {
+  UpdateElementDimensionsBatchHandler,
+  DIMENSIONS_BATCH_REPORT_EVENT,
+  type UpdateElementDimensionsBatchPayload,
+  type UpdateElementDimensionsBatchDims,
+  type DimensionsBatchReport,
+} from './UpdateElementDimensionsBatch.js';
 export { HideElementInViewHandler, type HideElementInViewPayload } from './HideElementInView.js';
 export { IsolateElementInViewHandler, type IsolateElementInViewPayload } from './IsolateElementInView.js';
 export { SetElementGraphicOverrideHandler, type SetElementGraphicOverridePayload } from './SetElementGraphicOverride.js';
@@ -91,6 +100,7 @@ const ALL_HANDLERS = [
   // __tests__/handlers/UpdateViewDefinitionShadow.test.ts.
   DeleteElementHandler,
   DeleteElementsBatchHandler,
+  UpdateElementDimensionsBatchHandler,
   HideElementInViewHandler,
   IsolateElementInViewHandler,
   SetElementGraphicOverrideHandler,

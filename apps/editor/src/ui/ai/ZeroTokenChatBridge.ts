@@ -1217,6 +1217,16 @@ const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         // reported SEPARATELY from the N-of-M the user agreed to on the Confirm
         // card, because folding them together would overstate the ask.
         'element.deleteBatch': 'pryzm-delete-batch-report',
+        // §FEAT-BULK-DIMENSIONS (L-949) — "Changed 38 of 42 windows (height 2 m)
+        // — 4 skipped · 4x window not found". Without this row the generic
+        // "Done" line would hide exactly the information the founder needs, and
+        // a bridge that never reported would read as success
+        // (§FIX-REPORT-PAYLOAD-DISCARD).
+        'element.updateDimensionsBatch': 'pryzm-dimensions-batch-report',
+        // The wall family rides the verb that shipped in VERBS-CMD and has been
+        // dead for want of a grammar ever since; its report event already
+        // existed, only nothing could reach it.
+        'wall.updateHeightBatch': 'pryzm-wall-height-batch-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',
