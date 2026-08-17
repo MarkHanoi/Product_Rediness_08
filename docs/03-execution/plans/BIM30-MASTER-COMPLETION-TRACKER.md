@@ -791,7 +791,25 @@ negative control reading `[]`.
 
 ## §5 — ⭐ THE 13 GATES THAT RUN IN NO RUNNER
 
-**This outranks the entire table above it.** Thirteen committed gate files under
+> ⚠ **CORRECTED 2026-08-17 — THIS SECTION'S HEADLINE CLAIM IS STALE, AND IT IS NOW MECHANISED.**
+> All thirteen gates listed below **ARE registered**: twelve in `run-all.ts` by `script:` path,
+> and `check-move-propagation` in `certify.ts` by bare name. Measured, not assumed — the manifest
+> row `§5` inside **`check-gate-residency`** names all thirteen and checks, per gate, that the
+> file exists, that a runner names it, that the named path resolves, and that the file reaches a
+> verdict. Run it; do not read this paragraph:
+>
+> ```
+> npx tsx tools/rac-conformance/certification/gates/check-gate-residency.ts
+> ```
+>
+> **The text below is kept because §5.1's ANALYSIS is still correct and still valuable** — it
+> records what each gate defends and what it costs when one stops running. Only the *"registered
+> nowhere"* claim is out of date. ⭐ Being stale in the SAFE direction is luck, not a control: a
+> document cannot notice the day one of them falls out of a runner again, which is why the claim
+> was moved INTO a gate rather than edited into a different sentence. That is L-809/L-812's
+> lesson applied to this file's own §5.
+
+**AS WRITTEN AT THE LAST STAMP — SUPERSEDED BY THE BANNER ABOVE.** Thirteen committed gate files under
 `certification/gates/` are registered in **neither `run-all.ts` nor `certify.ts`**, and are
 therefore **never executed by any instrument**:
 
