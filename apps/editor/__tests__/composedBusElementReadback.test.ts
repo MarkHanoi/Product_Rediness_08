@@ -182,7 +182,12 @@ describe('MT-01 — element creates on the COMPOSED bus, read back from the AUTH
     // authoritative store demands `polygon`/`position`. Still readback-negative,
     // and that is a SHAPE defect, not a wiring one.
     const { slabStore } = await import('@pryzm/geometry-slab/store');
-    (slabStore as any).attachEngine({ activeLevelId: LEVEL_ID });
+    // The REAL ProjectContext singleton (its default activeLevelId is 'L0'), the
+    // same object initBuilders.ts:342 hands to `slabStoreSingleton.attachEngine` —
+    // no stub here, so the slab arm below measures the SHAPE, nothing else.
+    const { projectContext } = await import('@pryzm/core-app-model/context');
+    (slabStore as any).attachEngine(projectContext);
+    expect(projectContext.activeLevelId).toBe(LEVEL_ID);
     const slabId = createId('slab');
     const slabOutcome = await dispatchOutcome('slab.create', {
       id: slabId,
