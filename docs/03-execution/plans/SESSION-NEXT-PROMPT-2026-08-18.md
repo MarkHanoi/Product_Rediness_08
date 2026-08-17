@@ -6,121 +6,115 @@ Paste the block below as the first message of the next session.
 
 ## Standing discipline (carried, non-negotiable)
 
-- **Measure, never infer.** A row's stated premise was wrong more often than right this session.
-  Five of my own hypotheses were refuted by the lanes I briefed. **Every brief must carry an
-  explicit refutation path** — that is the only reason those five were caught.
-- **§EXIT-CODE-THROUGH-A-PIPE.** Never read a verdict through `| tail`/`| head`. Capture with
-  `CMD > out.txt 2>&1; echo "RC=$?" >> out.txt` and read the code from the file. **Misread five
-  times in the 2026-08-17 session**, most recently on the deploy proof where the text said FAILED
-  and the piped code said 0.
+- **MEASURE, never infer.** A stated premise lost to a measurement **four separate times** this
+  session — including twice where the premise was mine. Every brief must carry an explicit
+  refutation path.
+- **§EXIT-CODE-THROUGH-A-PIPE.** Never read a verdict through `| tail` / `| head`. Capture with
+  `CMD > out.txt 2>&1; echo "RC=$?" >> out.txt` and read the file. **Misread five times.** Once the
+  printed text said FAILED while the piped code said 0.
 - **Root tsc needs `NODE_OPTIONS=--max-old-space-size=8192`.** The default heap aborts with **exit
-  134** (SIGABRT), which is an OOM, not a type error, and prints no diagnostics. Misread four times.
+  134** (SIGABRT) — an OOM, not a type error, and it prints no diagnostics. Misread four times.
 - **Exit 3 is never absorbable** (C70 §5.1). Fix the breach; never raise the threshold.
-- **Committed ≠ reachable.** Prove at the layer the user experiences, never at a pure function's
-  return value.
-- **Never `git stash`** — the stack is global across worktrees. Agents commit scoped CODE; the
-  orchestrator owns docs and cherry-picks.
-- **Architectural soundness**: contract/ADR-mapped, no shortcuts, in every subagent brief.
+- **Committed ≠ reachable.** Prove at the layer the user experiences.
+- **Never `git stash`** — the stack is global across worktrees.
+- ⭐ **A refusing half and its escape hatch ship together, or neither ships** (C83 §10.6.7, new).
+- ⭐ **A control that cannot fail is not a control.** Watch every new assertion go red first.
 
-## Where the deploy stands
+## Deploy state
 
-**`c2e8ba00` is LIVE on Fly** (2026-08-17), bundle proof **6/6**, `DEPLOY_RC=0`. 735 commits since
-the previous release `52bfb2ba`. Hard-refresh before testing (service worker).
+**`6c676413` deploying to Fly as this session closed** (L-942 wall-move fix). Verify with
+`tools/deploy/fly-bundle-proof.sh <sha>` — and **read `DEPLOY-CONTRACT-MANUAL-FLY.md` §6.7 FIRST**:
+the proof **failed a healthy deploy** earlier today and its text says `ROLL BACK NOW, DO NOT RETRY`.
+Interim rule: do not run it until the deploy script has **exited**; on a SHA mismatch re-run after
+60 s and poll `/version` several times. **L-941 is the fix and it is HIGH** — it sits on the deploy
+path and its failure mode is a destructive action on a false positive.
 
-⚠ **Before the next deploy, read `DEPLOY-CONTRACT-MANUAL-FLY.md` §6.7 first.** The bundle proof
-**failed a healthy deploy** and its text says `ROLL BACK NOW, DO NOT RETRY`. Interim rule: do not run
-the proof until the deploy script has **exited**; on a GIT_SHA mismatch re-run once after 60 s and
-poll `/version` several times. **L-941 is the fix and it is HIGH** — it sits on the deploy path and
-its failure mode is a destructive action on a false positive.
+Earlier deploy `c2e8ba00` (735 commits) is live and proven 6/6.
 
-## The one thing I would do first
+## ⭐ FIRST THING: finish L-942's test rewrites
 
-⭐ **Wire the typed preview outcome — `apps/editor/src/engine/consequence/ConsequencePreviewService.ts:58` and `:766`.**
+A workflow was rewriting these when the session ended — **check whether it landed** (`git log`).
 
-Both halves already exist and are unwired:
-- `UndeterminedReason`, the closed 11-member union — `packages/command-bus/src/consequence.ts:109`
-- `PreviewOutcome` — `packages/command-bus/src/consequence.ts:635`
-- the production entry point still returns **`ConsequencePlan | null`**
+**9 tests fail in two files**, and every one is a *stale defect-measurement*, not a broken behaviour:
+- `packages/command-registry/__tests__/L936InteriorLPairMove.measure.test.ts` (4)
+- `packages/command-registry/__tests__/L932AngledWallMove.measure.test.ts` (3, one a CONTROL)
 
-**Why it is the highest-leverage edit on the board:** a bare `null` cannot carry a typed reason, so
-**`honestRefusalCells = 0` across all 4,100 Half 2 cells** — and C78 §4.3 rule 2 makes an honest
-refusal a **PASS**. This is a Half 1 sub-phase (**B.4**) that unblocks a Half 2 pass condition
-across the entire product. **Neither document names the dependency**, because each only documents
-its own side.
+Their own describe blocks say *"the partner is REACHED, **and then deliberately left behind**"* and
+*"the 30° junction is dropped **SILENTLY**"*. They measured the defect; the defect is gone.
 
-⚠ Not a signature swap. Every caller must handle the new shape and every return site must produce a
-typed outcome. Scope it, then land it whole (C78 §19.1).
+⛔ **Do not flip numbers until green.** Derive the expected seat analytically — the intersection of
+the partner's line with the mover's NEW line — assert the FAR endpoint byte-identical, and assert
+**the loop is still closed**. Watch each arm fail first by forcing `isMutualCorner` to `return false`
+(that is pre-§10.6 behaviour exactly), then restore.
 
-## Half 1 — the trust register
+## What L-942 was, and what shipped
 
-**53 / 79 measured-closed at the last hand stamp** (`3785eae6`, 2026-08-16) — **already historical**,
-~45 commits have landed since. **Do not quote it. Generate it:**
+**Every wall move that broke a junction was hard-blocked in production** by `c2e8ba00`. Founder-
+reported within hours. Proven a regression by measurement: `moveReweldPreflight.ts` did not exist at
+`52bfb2ba` and `wallPlacementGate` had zero `incumbentBreach` there.
+
+**Root cause: a discarded discriminator, not geometry.** A MUTUAL corner (two walls jointly own it —
+the partner must follow) and a TERMINATING corner (an incumbent — it must not move) are *the same
+picture*. The separator is STORED on the `joinedTo` edge: interior↔interior `L`/2, interior↔perimeter
+`T`/3. `getJoinedWalls` loaded it and returned `joinedWallIds` alone. Unable to tell them apart, and
+with L-922 fresh, the engine refused **both**.
+
+**Fixed at the seam** (`53f93049`, `7025c400`, `9d6ed3d8`, `6c676413`): the query carries `junctions`;
+`MoveReweldPartner` carries the discriminator; `isMutualCorner` gates a **pivot** — welded endpoint to
+the analytic intersection, **far endpoint untouched**; the gate exempts role `mutual-corner`.
+**Absent metadata ⇒ do not follow** (§10.6.3 #1).
+
+**Two of my own bugs, both caught by probes, both worth knowing:**
+1. **The follow was asymmetric.** It sat inside `beyond > ON_SEGMENT_EPS_M`, so it only fired on
+   lengthening. Drag out → followed; drag back → stayed long with a 2 m stub. The `beyond` test
+   protects *incumbents*; a co-owner of the corner isn't one.
+2. **My first L-922 control was theatre** — it stayed GREEN with the discriminator check removed,
+   because its mid-span fixture never reached the mutual-corner branch. Rewritten to vary exactly
+   one thing: same geometry, `T`/3 instead of `L`/2.
+
+**Proven green:** root tsc RC=0 · geometry-wall 664/664 · `wallMoveReweldSeam` 11/11 (incl. the
+load-bearing L-922 control) · `hostedOpeningHostMoveSeam` 9/9 (the round-trip).
+
+## The founder's PRYZM 3.0 connected-system spec — UNAUDITED
+
+The founder issued an 8-section spec (perimeter behaviour, dependent elements, interior walls,
+polylines, perimeter↔interior, hierarchy, intent-over-coordinates, MOVE→PROPAGATE→RECOMPUTE). It is
+in the conversation and should be captured to a doc.
+
+**L-942's fix delivers the wall-follow core of §1, §3, §4, §5.** A workflow auditing all 8 against
+the code was stopped before reporting. **§2 (slabs, floor finishes, ceilings, roof geometry
+regenerating on perimeter change) is the suspected large gap — audit reachability, not existence.**
+
+## Half 1 / Half 2 — generate, never quote
 
 ```bash
-npx tsx tools/bim30-status/bim30-status.ts --fast     # human table
-npx tsx tools/bim30-status/bim30-status.ts --json     # machine readable
+npx tsx tools/bim30-status/bim30-status.ts --fast
 ```
 
-**New this session.** It parses the 84 rows out of the tracker and runs each row's own deciding
-gate. Carried rows are counted **separately** and never folded into the numerator; a gate that
-cannot run yields `NOT_DETERMINED` with a typed reason, never 0. **A first full run had not
-completed at session close — run it and record the reading.**
+New this session. First reading at `c2e8ba00`: **17/38 closed of rows MEASURED, 43 CARRIED, 5 exit-3
+breaches** (GE-02, GE-03, GE-12, PV-01, PV-03). ⭐ **The headline is the 43: more than half the
+register has no gate any runner can execute.** The tracker's hand-stamped 53/79 measures a different
+thing and both are true.
 
-Worst blocks by a wide margin: **C70 model-truth 2/10** and **C73 geometry 4/12** — 24 of the 26
-open rows. C70 is the foundation, which is the uncomfortable part.
+**Half 2 (bar 3):** 4,100 cells, ledger at 124 findings. **honest-refusal cells = 0**, and it is ONE
+seam: `ConsequencePreviewService.ts:58` and `:766` still return `ConsequencePlan | null`.
+`UndeterminedReason` (11 members) and `PreviewOutcome` both EXIST and are unwired. **Wiring them is a
+Half 1 sub-phase (B.4) that unblocks a Half 2 pass condition across all 4,100 cells** — neither
+document names the dependency.
 
-**Phase A** is materially complete. **A.10 is DONE and the tracker does not say so** — all 13
-formerly-orphaned certification gates are registered in `run-all.ts`, verified by census, including
-`check-relationship-determination` (the bar-3 gate). **The tracker's §5 is STALE and should be
-rewritten or struck.** A.12 (zero exit-3s) is what remains.
-
-**Phase B.12 / MT-01 is 1 of 3 arms**: wall CLOSED; **slab OPEN** (shape mismatch — mirroring it
-would mint a second translation rival, do not); **room OPEN** (a different defect — `affectedStores:[]`,
-no patch pair exists to mirror).
-
-## Half 2 — bar 3
-
-**4,100 cells** = 100 consequential verbs × 41 relationships. Ledger:
-`tools/rac-conformance/certification/gates/relationship-determination.json`.
-
-| | first | now |
-|---|---|---|
-| findings | 134 | **124** |
-| silent cells | 4,018 | **3,649** |
-| structurally answerable | 10 | **66** |
-| **honest-refusal cells** | 0 | **0** ← see "the one thing" above |
-
-Exit condition is the ledger reaching **empty**. Landing discipline: **one verb family per PR,
-landed whole**. Next cheapest: `wall.delete` / opening-delete on existing substrate. ⚠ **Roof needs
-an L0 schema field FIRST** — Zod strips the reference in transit; that is a sequenced solo change,
-never part of a family PR.
-
-## Open rows nobody owns
+## Unowned rows
 
 | Row | What |
 |---|---|
 | **L-941** | **HIGH** — bundle proof false-failure + `DO NOT RETRY`. Deploy path. |
-| **L-940** | 6 tests RED on `main` (`elementIdsForRoom` renamed). ⚠ A mechanical rename goes green while pinning the defect. Second half: `apps/editor/__tests__/**` is typechecked and run by nothing — census the other `apps/*/__tests__` before fixing. |
-| **L-939** | `captureThumbnail()` is a second render driver (off-rAF `render()`); P3's gate counts rAF call sites and cannot see it. |
-| **L-937** | No `wall.create` replicates — a contract defect, NOT a call-site defect. Sweep `syncDisposition.ts` whole. |
-| **L-938** | `hostSnap` triplicated; fold into the C73 §2.2 epsilon drain (GE-01). |
-| — | `check-deterministic-regeneration` still exit 3, 3 real findings in `WallCrossesOpening.ts`. |
-| — | MT-01 slab + room arms (above). |
+| **L-940** | 6 tests RED on `main` (`elementIdsForRoom` renamed). ⚠ A mechanical rename goes green while pinning the defect. `apps/editor/__tests__/**` is typechecked and run by nothing. |
+| **L-939** | `captureThumbnail()` is a second render driver; P3's gate counts rAF call sites and cannot see it. |
+| **L-937 / L-938** | `wall.create` replicates nothing (contract defect — sweep `syncDisposition.ts` whole); `hostSnap` triplicated. |
+| — | `check-deterministic-regeneration` exit 3, 3 findings in `WallCrossesOpening.ts`; MT-01 slab + room arms. |
 
-## Founder decisions still open
+## Founder decisions open
 
-1. **C83 §10.6** — minted **AWAITING CONFIRMATION**. It **changes what §10.1 permits**: in a mutual
-   2-wall L junction the partner FOLLOWS. Safety rests on condition 1 (`junctionType==='L' &&
-   junctionDegree===2`), which is what stops it reopening L-922 (that was `T`/degree-3). L-936's
-   other two parts have shipped; only the follow waits. **If the founder's intent differs, §10.6 is
-   wrong and the code must not ship against it.**
-2. **Half 2 denominator** — C78 §20 vs C71 §2.3, both CANONICAL. Needs an ADR.
-3. **VisibilityIntent 3-D colour override vs a declared layer colour** — product call.
+1. **Half 2 denominator** — C78 §20 vs C71 §2.3, both CANONICAL. Needs an ADR.
+2. **VisibilityIntent 3-D colour override vs a declared layer colour** — product call.
 
-## Documentation health
-
-The prose is the strongest asset in the repo — it records what someone already got wrong, by name,
-and that **prevented a bad rollback this session**. The bookkeeping is the weakness: three fresh
-instances of *a document asserting enforcement that no longer holds* (tracker §5; the stale
-headline; the proof's rollback clause). `tools/bim30-status` closes the first class. The other two
-are L-941 and a §5 rewrite.
+*(C83 §10.6 is CONFIRMED as of 2026-08-17 — no longer open.)*
