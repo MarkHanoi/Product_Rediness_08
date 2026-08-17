@@ -1,18 +1,18 @@
 {
   "gate": "gesture-command-census (CE-05)",
-  "generatedAt": "2026-08-16T09:26:42.855Z",
+  "generatedAt": "2026-08-17T08:13:38.383Z",
   "denominator": {
     "admittedCallSites": 230,
     "filesWithSites": 106,
-    "uiFilesScanned": 769,
+    "uiFilesScanned": 770,
     "filesTouchingExecuteCommand": 134,
     "excluded": {
       "comment": 83,
       "type-declaration": 5,
       "test-file": 3
     },
-    "importEdges": 10485,
-    "filesWalked": 6651
+    "importEdges": 10527,
+    "filesWalked": 6686
   },
   "totals": {
     "executedReached": 0,
@@ -70,7 +70,7 @@
     },
     {
       "file": "apps/editor/src/ui/ai/OpenedRegionProposal.ts",
-      "line": 225,
+      "line": 256,
       "receiver": "bus",
       "firstArg": "offer.commandType",
       "commandId": null,
@@ -82,7 +82,7 @@
     },
     {
       "file": "apps/editor/src/ui/ai/WallMoveClashProposal.ts",
-      "line": 398,
+      "line": 408,
       "receiver": "bus",
       "firstArg": "'wall.updateBaseline'",
       "commandId": "wall.updateBaseline",
@@ -766,7 +766,7 @@
     },
     {
       "file": "apps/editor/src/ui/layout/ToolsAreaLayout.ts",
-      "line": 154,
+      "line": 238,
       "receiver": "any)?",
       "firstArg": "'wall.create-on-all-slabs'",
       "commandId": "wall.create-on-all-slabs",
@@ -778,7 +778,7 @@
     },
     {
       "file": "apps/editor/src/ui/layout/ToolsAreaLayout.ts",
-      "line": 194,
+      "line": 278,
       "receiver": "any)?",
       "firstArg": "'wall.create-on-all-slabs'",
       "commandId": "wall.create-on-all-slabs",
