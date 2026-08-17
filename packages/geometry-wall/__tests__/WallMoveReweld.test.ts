@@ -40,9 +40,60 @@ import { describe, it, expect } from 'vitest';
 // back — with the host THICKNESS they were always missing, since that is what
 // the discriminator is derived from and no verdict is possible without it.
 //
+// ⚠⚠⚠ RE-SCOPED 2026-08-17 (C83 §10.6.3 amendment, founder-directed at commit
+// `55a2eda3`). READ THE WHOLE HISTORY BEFORE FLIPPING ANY NUMBER BELOW — these
+// assertions have now been reversed THREE times and the only thing that keeps
+// the next reversal honest is knowing what each one was actually about:
+//
+//   original       the neighbour LENGTHENS to reach the new corner.
+//   2026-08-15     §10.2.2 reversed it: the incumbent is byte-identical.
+//                  (Cause: L-922 — an INTERIOR move dragged a PERIMETER
+//                  baseline 2.19 m and re-seated three hosted doors.)
+//   2026-08-17     §10.6 re-reversed it for MUTUAL corners.
+//   2026-08-17     §10.6.3 keyed it on junction DEGREE rather than the type
+//                  letter, and made the follow symmetric.
+//
+// ⭐ §10.2.2 WAS RIGHT ABOUT L-922's T/degree-3 AND OVER-BROAD ABOUT DEGREE-2,
+// because until the discriminator was threaded through `MoveReweldPartner`
+// nothing could tell the two apart. The founder's report is the whole
+// amendment: *"EVERYTHING WORKS — ONLY WHEN THE WALL SURPASSES THE VERTEX IT
+// CORRUPTS: if the wall moves beyond the connected wall's second point then
+// neither the slab nor the walls connect."* Inwards the new corner lands ON the
+// neighbour's body and nothing had to move; outwards it lands PAST the
+// neighbour's end, the neighbour must LENGTHEN, and INCUMBENT_EXTENSION_REQUIRED
+// refused precisely that.
+//
+// THE LINE THAT NOW SEPARATES THEM IS PARTICIPANT COUNT, NOT NAMING:
+//   degree 2  — the two walls jointly own the corner and nobody else has a
+//               stake. The partner FOLLOWS: welded endpoint → the analytic
+//               intersection of its OWN line with the mover's NEW line, FAR
+//               endpoint byte-identical, direction unchanged. A PIVOT, in BOTH
+//               directions (lengthening and shortening — an asymmetric follow
+//               does not undo itself, §Z-5).
+//   degree ≥3 — L-922's shape exactly. NEVER follows, stored or measured. Every
+//               degree-3 fixture below exists to hold that line, and each one
+//               was made degree 3 by ADDING A THIRD PARTICIPANT rather than by
+//               relaxing what it asserts.
+//
+// WHAT THAT MEANT FOR EACH TEST, recorded so the next reader can tell a
+// re-scope from a test bent to fit a bug:
+//   • the four corner tests whose fixtures had exactly TWO walls were split —
+//     two now assert the FOLLOW (they were pinning the superseded rule
+//     directly), and two had a third wall added so their subject — the
+//     incumbent's immunity — is still the thing under test;
+//   • no expected number was flipped to chase green. Every new coordinate is
+//     DERIVED from the fixture's own two lines and the arithmetic is shown at
+//     the assertion;
+//   • every follow arm additionally asserts the far endpoint is BYTE-identical,
+//     the direction is unchanged, and the endpoints stayed on the partner's own
+//     line — that trio IS §CLAMP-COSHARE-WELD's guarantee (a lateral slide of a
+//     shared baseline is what doubled walls), restated for a pivot.
+//
 // THE LESSON THIS FILE NOW CARRIES: a suite that pins one side of a branch
 // certifies a change that deletes the branch. Both directions are measured
-// together in `L926StemFollowAuthorship.measure.test.ts`.
+// together in `L926StemFollowAuthorship.measure.test.ts`, and the load-bearing
+// degree-3 refusal control lives in
+// `command-registry/__tests__/wallMoveReweldSeam.test.ts`.
 import {
   computeMoveReweld,
   computeMoveReweldPlan,
@@ -60,6 +111,16 @@ const distToLine = (p: any, a: any, b: any): number => {
   return Math.abs((p.x - a.x) * (-dz / L) + (p.z - a.z) * (dx / L));
 };
 
+/** Unit direction of a baseline — the quantity a PIVOT must leave unchanged. */
+const unitDir = (b: ReweldBaseline): { x: number; z: number } => {
+  const dx = b[1].x - b[0].x, dz = b[1].z - b[0].z;
+  const L = Math.hypot(dx, dz);
+  return { x: dx / L, z: dz / L };
+};
+
+const dist2D = (a: { x: number; z: number }, b: { x: number; z: number }): number =>
+  Math.hypot(a.x - b.x, a.z - b.z);
+
 let _seq = 0;
 function wall(id: string, baseLine: ReweldBaseline, t: number): WallData {
   return {
@@ -75,65 +136,130 @@ describe('computeMoveReweld — L-corner', () => {
   const moved = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]) };
   const partnerA = { id: 'A', baseLine: bl([0, 0], [5, 0]) };
 
-  // RECONCILED (was: "extends the partner welded endpoint to the new corner").
-  // A is (0,0)→(5,0) and the new corner is (6,0) — ONE METRE PAST A's end. The
-  // old engine lengthened A to reach it. C83 §10.2.2 forbids moving a
-  // non-subject baseline, so the joint is refused and the refusal carries the
-  // distance. The incumbent is not touched, which is the whole point.
-  it('§C83-10.2.2: a corner PAST the incumbent\'s end is REFUSED, not reached by lengthening it', () => {
+  // ── THE THIRD PARTICIPANT ────────────────────────────────────────────────
+  // C runs SOUTH out of the same point (5,0) that A and B meet at, so that
+  // point has THREE walls on it and `measureJunctionDegree` reads 3. It is a
+  // fixture element and nothing else: it is collinear with B's new line, so
+  // `intersectLines` refuses it as near-parallel and it contributes no corner,
+  // no entry and no refusal of its own. Its ONLY job is to make the junction
+  // genuinely degree 3, which is what the tests that use it are about.
+  const thirdAtCorner = { id: 'C', baseLine: bl([5, 0], [5, -4]) };
+
+  // ⭐ RE-SCOPED 2026-08-17 §10.6.3 (was: "a corner PAST the incumbent's end is
+  // REFUSED, not reached by lengthening it" — outcome (b), the test asserted
+  // the superseded rule directly and is INVERTED).
+  //
+  // A and B are the only two walls at (5,0), so this is the founder's exact
+  // report: B outruns A's second point and, before the amendment, nothing
+  // connected. A is not an incumbent here — it is a CO-OWNER of the corner — so
+  // it follows.
+  //
+  // THE EXPECTED CORNER IS DERIVED, NOT OBSERVED:
+  //   A's own infinite line:  z = 0            (through (0,0) and (5,0))
+  //   B's NEW infinite line:  x = 6            (through (6,0) and (6,5))
+  //   ⇒ intersection = (6, 0), i.e. A lengthens by exactly the 1 m B moved.
+  it('§C83-10.6.3: a 2-participant corner PAST the partner\'s end is FOLLOWED — the partner pivots and lengthens', () => {
     const plan = computeMoveReweldPlan(moved, [partnerA]);
+    expect(plan.refusals).toEqual([]);
+
+    const eA = plan.entries.find(e => e.wallId === 'A')!;
+    expect(eA).toBeTruthy();
+    expect(eA.role).toBe('mutual-corner');
+    // The welded end goes to the derived intersection…
+    expect(eA.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 0 });
+    // …and the FAR end is the pivot: byte-identical, §10.6.2 condition 4. This
+    // is the assertion that separates the amendment from L-922, which moved
+    // `baseLine[0]` — the datum every hosted opening's offset is measured from.
+    expect(eA.newBaseLine[0]).toEqual({ x: 0, y: 0, z: 0 });
+    expect(eA.prevBaseLine).toEqual([{ x: 0, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }]);
+
+    // Direction unchanged, and BOTH endpoints still on A's own original line.
+    // Together these are §CLAMP-COSHARE-WELD's guarantee restated for a pivot:
+    // the scar was a shared baseline sliding SIDEWAYS, which doubled walls. An
+    // axial lengthening about a fixed far endpoint cannot reopen it.
+    expect(unitDir(eA.newBaseLine)).toEqual(unitDir(eA.prevBaseLine));
+    for (const p of eA.newBaseLine) {
+      expect(distToLine(p, { x: 0, z: 0 }, { x: 5, z: 0 })).toBeLessThan(1e-9);
+    }
+  });
+
+  // ⭐ RE-SCOPED 2026-08-17 §10.6.3 — outcome (a): the SUBJECT of this test (an
+  // incumbent's geometry is byte-identical, and the corner is reported rather
+  // than papered over) is UNCHANGED by the amendment. Only its fixture had to
+  // move: with two walls it is a mutual corner and follows, so the third
+  // participant is added and the junction is genuinely degree 3 — L-922's own
+  // shape, where the refusal is mandatory and is proven load-bearing.
+  //
+  // The 1 m overshoot number lived on the test above before the amendment and
+  // is kept HERE, where a refusal still happens, rather than being deleted:
+  //   corner (6,0) vs A's segment [(0,0),(5,0)] ⇒ 1.000 m past A's end.
+  it('§C83-10.4 at degree 3: the incumbent\'s geometry is byte-identical, and the open corner is not papered over', () => {
+    const plan = computeMoveReweldPlan(moved, [partnerA, thirdAtCorner]);
     expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined();
     expect(plan.refusals).toHaveLength(1);
     expect(plan.refusals[0]!.partnerId).toBe('A');
     expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
     expect(plan.refusals[0]!.beyondMm).toBe(1000); // exactly the 1 m overshoot
-  });
-
-  // RECONCILED (was: "GREEN RE-STATEMENT … applying the entries closes the gap").
-  // The old test proved the gap closes AFTER A is lengthened. It cannot be
-  // restated as-is, because closing it that way is now the defect. What IS
-  // restated — and it is the honest half — is that the engine proposes NOTHING
-  // for A, so A's resolved geometry is byte-identical (C83 §10.4) and the
-  // corner is left open for the GESTURE to refuse (C83 §10.3), not for the
-  // engine to paper over.
-  it('§C83-10.4: the incumbent\'s geometry is byte-identical, and the open corner is not papered over', () => {
-    const plan = computeMoveReweldPlan(moved, [partnerA]);
-    expect(plan.entries.find(e => e.wallId === 'A')).toBeUndefined();
 
     // Resolve A exactly as it stood: unchanged in, unchanged out.
     const a = wall('A', bl([0, 0], [5, 0]), 0.2);
     const b = wall('B', moved.newBaseLine, 0.2);
+    const c = wall('C', bl([5, 0], [5, -4]), 0.2);
     const before = JSON.stringify(a.baseLine);
-    const res = WallJoinResolver.resolveLevel([a, b], { snapRadius: 0.5 });
+    const res = WallJoinResolver.resolveLevel([a, b, c], { snapRadius: 0.5 });
     expect(JSON.stringify(a.baseLine)).toBe(before);
     void res;
     // The gap is REAL and is reported, not silently welded shut.
     expect(plan.refusals.map(r => r.partnerId)).toEqual(['A']);
   });
 
-  // RECONCILED (was: "diagonal move also seats the MOVED wall endpoint").
-  // Same geometry as above: the corner (6,0) lies past A's end, so there is no
-  // joint to form and the SUBJECT must not be seated onto a point hanging off
-  // the end of the incumbent either. The subject's own adaptation is still
-  // alive and is proved positively by the test that follows.
-  it('§C83-10.2.2: with the corner past the incumbent, NEITHER wall is re-baselined', () => {
+  // ⭐ RE-SCOPED 2026-08-17 §10.6.3 (was: "with the corner past the incumbent,
+  // NEITHER wall is re-baselined" — outcome (b), INVERTED). At two participants
+  // the corner is closed from BOTH sides, and this is the assertion the founder's
+  // report was missing: it is not enough to know where each wall SAT, the two
+  // must actually MEET.
+  //
+  // DERIVED, from the fixture's own coordinates:
+  //   A's line:      z = 0                    (through (0,0),(5,0))
+  //   B's NEW line:  x = 6                    (through (6,0.5),(6,5.5))
+  //   ⇒ shared corner = (6, 0). A's welded end (5,0) → (6,0); B's start
+  //     (6,0.5) → (6,0), a 0.5 m seat along B's own line.
+  it('§C83-10.6.3: the corner is CLOSED FROM BOTH SIDES — the partner pivots to it and the subject seats on it', () => {
     const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
     const plan = computeMoveReweldPlan(diag, [partnerA]);
-    expect(plan.entries).toEqual([]);
-    expect(plan.refusals[0]!.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+    expect(plan.refusals).toEqual([]);
+
+    const eA = plan.entries.find(e => e.wallId === 'A')!;
+    const eB = plan.entries.find(e => e.wallId === 'B')!;
+    expect(eA).toBeTruthy();
+    expect(eB).toBeTruthy();
+
+    expect(eA.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 0 });
+    expect(eA.newBaseLine[0]).toEqual({ x: 0, y: 0, z: 0 }); // pivot, byte-identical
+    expect(unitDir(eA.newBaseLine)).toEqual(unitDir(eA.prevBaseLine));
+
+    expect(eB.newBaseLine[0].x).toBeCloseTo(6, 12);
+    expect(eB.newBaseLine[0].z).toBeCloseTo(0, 12);
+    expect(eB.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 5.5 }); // subject's far end untouched
+
+    // THE JOINT ACTUALLY CLOSES. Asserting the two coordinates separately is
+    // what let a "connected" corner sit 773 mm open in L-926; assert the
+    // coincidence itself.
+    expect(dist2D(eA.newBaseLine[1], eB.newBaseLine[0])).toBeLessThan(1e-9);
   });
 
-  // NEW, and it is the positive half the reconciliation owes: §10.1 says the
-  // newcomer ADAPTS to the incumbent. When the corner lands ON the incumbent's
-  // body, the SUBJECT is re-seated onto it and the incumbent never moves. This
-  // is the capability that must survive the §10.2.2 restriction, so it is
-  // asserted rather than assumed.
-  it('§C83-10.1: when the corner lands ON the incumbent\'s body, the SUBJECT adapts and the incumbent does not move', () => {
+  // ⭐ RE-SCOPED 2026-08-17 §10.6.3 — outcome (a). SUBJECT UNCHANGED: §10.1 says
+  // the newcomer ADAPTS to the incumbent and the incumbent never moves. That is
+  // still exactly right at degree 3, and every assertion below is the original
+  // one; only the third participant was added, because with two walls this same
+  // geometry is now a mutual corner (the SHORTENING leg of the follow, pinned by
+  // the closed-loop and round-trip tests instead).
+  it('§C83-10.1 at degree 3: when the corner lands ON the incumbent\'s body, the SUBJECT adapts and the incumbent does not move', () => {
     // A is welded to B's OLD start at (5,0) and runs on to x=10, so the new
     // corner (6,0) falls INSIDE A's body rather than past its end.
     const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
     const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
-    const plan = computeMoveReweldPlan(diag, [longA]);
+    const plan = computeMoveReweldPlan(diag, [longA, thirdAtCorner]);
 
     expect(plan.refusals).toEqual([]);
     // NOTHING is proposed for the incumbent…
@@ -164,6 +290,11 @@ describe('computeMoveReweld — T-junction', () => {
   // host centreline), not to the centreline. Its displacement is the host's own
   // 1.0 m; the 1.1 m the middle version pinned was the centreline distance, and
   // seating there would have lengthened a wall the user never touched by t/2.
+  //
+  // ⚠ UNTOUCHED by the 2026-08-17 §10.6.3 amendment, and that is worth stating:
+  // a stem is classified by WELD AUTHORSHIP at step 1b and returns before the
+  // corner machinery — and therefore before `isMutualCorner` — is ever reached.
+  // Degree keys the CORNER branch only.
   it('§C83-10.6: the stem TERMINATES on the host body — it is the DEPENDENT and follows, at its own seating depth', () => {
     const moved = {
       id: 'H', prevBaseLine: bl([0, 0], [10, 0]), newBaseLine: bl([0, -1], [10, -1]),
@@ -241,10 +372,20 @@ describe('computeMoveReweld — T-junction', () => {
   // subject's own seat — is preserved, but its fixture had the corner past A's
   // end. Given a full-length incumbent the seat fires exactly as before, which
   // is what the control was really asserting.
-  it('§L-872 CONTROL: the subject\'s own seat still fires against a full-length incumbent', () => {
+  //
+  // ⭐ RE-SCOPED 2026-08-17 §10.6.3 — outcome (a). ⚠ NAMING NOTE, because it
+  // misleads: this control lives in the T-junction block but ITS FIXTURE IS NOT
+  // A T. It is an L — B's welded endpoint sits at A's ENDPOINT (5,0), not on
+  // A's body — and it always was; it is here because the guard it controls is
+  // the T-SEAT-GUARD, not because the fixture has a stem. That is exactly why
+  // it went red: two walls at one point is degree 2, so A followed. The word
+  // "incumbent" in the title is only true at degree ≥3, so the third
+  // participant is added and the control asserts what it always meant to.
+  it('§L-872 CONTROL at degree 3: the subject\'s own seat still fires against a full-length incumbent', () => {
     const diag = { id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0.5], [6, 5.5]) };
     const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
-    const plan = computeMoveReweldPlan(diag, [longA]);
+    const thirdAtCorner = { id: 'C', baseLine: bl([5, 0], [5, -4]) };
+    const plan = computeMoveReweldPlan(diag, [longA, thirdAtCorner]);
     const eB = plan.entries.find(e => e.wallId === 'B')!;
     expect(eB).toBeTruthy();
     expect(eB.newBaseLine[0].x).toBeCloseTo(6, 9);
@@ -307,25 +448,124 @@ describe('computeMoveReweld — refusals (the scars)', () => {
   // Stating it unqualified is what let the T-stem follow be deleted, so the
   // scope is now in the title and the thickness is supplied so the authorship
   // branch is genuinely exercised rather than skipped for want of an input.
-  it('§C83-10.2.2 (supersedes §CLAMP-COSHARE-WELD): no CORNER partner\'s baseline is ever proposed', () => {
+  //
+  // ⭐ RE-SCOPED AGAIN 2026-08-17 §10.6.3 — outcome (a). "CORNER partner" was
+  // still too broad by one axis: at degree 2 a corner partner is a CO-OWNER and
+  // its baseline IS proposed, by design. The scar this test carries —
+  // §CLAMP-COSHARE-WELD, where moving a shared baseline DOUBLED walls — is about
+  // the INCUMBENT case, so the third participant is added and the fixture is
+  // genuinely degree 3. The scar cannot be reopened by the degree-2 follow
+  // either: that follow is a PIVOT about a byte-identical far endpoint along the
+  // partner's own line, which is asserted directly in the L-corner block above —
+  // the doubling came from a LATERAL slide, which no arm of this engine can now
+  // produce.
+  it('§C83-10.2.2 at degree 3 (supersedes §CLAMP-COSHARE-WELD): no INCUMBENT corner partner\'s baseline is ever proposed', () => {
     const moved = {
       id: 'B', prevBaseLine: bl([5, 0], [5, 5]), newBaseLine: bl([6, 0], [6, 5]),
       thickness: 0.2,
     };
     const longA = { id: 'A', baseLine: bl([5, 0], [10, 0]) };
+    // Collinear with B's new line ⇒ contributes no corner of its own; it exists
+    // only to put a THIRD wall on (5,0) so the junction is degree 3.
+    const thirdAtCorner = { id: 'C', baseLine: bl([5, 0], [5, -4]) };
     for (const partner of [partnerA, longA]) {
-      const plan = computeMoveReweldPlan(moved, [partner]);
+      // Byte-identical is asserted POSITIVELY as well as by the absence of an
+      // entry: an entry is not the only way a baseline could come back changed,
+      // and this engine's contract is that it mutates none of its inputs.
+      const before = JSON.stringify(partner.baseLine);
+      const plan = computeMoveReweldPlan(moved, [partner, thirdAtCorner]);
       expect(plan.entries.every(e => e.wallId === 'B')).toBe(true);
+      expect(JSON.stringify(partner.baseLine)).toBe(before);
     }
     // And the subject's own seat, when it fires, still lies on the incumbent's
     // axis — the anti-skew property the old assertion actually cared about.
-    const plan = computeMoveReweldPlan(moved, [longA]);
+    const plan = computeMoveReweldPlan(moved, [longA, thirdAtCorner]);
     for (const e of plan.entries) {
       const onAxis = Math.min(
         distToLine(e.newBaseLine[0], { x: 5, z: 0 }, { x: 10, z: 0 }),
         distToLine(e.newBaseLine[1], { x: 5, z: 0 }, { x: 10, z: 0 }),
       );
       expect(onAxis).toBeLessThan(1e-9);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW 2026-08-17 (§C83 §10.6.3) — THE FOUNDER'S ACTUAL REPORT, AS A FIXTURE.
+//
+// *"EVERYTHING WORKS — ONLY WHEN THE WALL SURPASSES THE VERTEX IT CORRUPTS: if
+// the wall moves beyond the connected wall's second point then neither the slab
+// nor the walls connect."*
+//
+// Every fixture above is an open pair or triple, and this family has a history
+// of asserting where walls SAT while never asserting that the building still
+// CLOSED — which is the property the founder was actually reporting on, and the
+// one a slab needs (a slab is generated from a closed wall loop; an open loop is
+// the "neither the slab nor the walls connect" half of the sentence).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('computeMoveReweld — the closed loop (the founder\'s report)', () => {
+  it('§C83-10.6.3: dragging one side of a closed room PAST both its neighbours\' ends leaves the loop CLOSED', () => {
+    // A 6 × 4 room, wound consistently so consecutive baselines share a point:
+    //   south (0,0)→(6,0) · east (6,0)→(6,4) · north (6,4)→(0,4) · west (0,4)→(0,0)
+    // The user drags NORTH outward by 2 m: (6,4)→(0,4) becomes (6,6)→(0,6).
+    // Both corners now land 2 m PAST the ends of east and west — the exact
+    // gesture that was refused before the amendment, leaving two open corners.
+    const south = { id: 'w-south', baseLine: bl([0, 0], [6, 0]) };
+    const east = { id: 'w-east', baseLine: bl([6, 0], [6, 4]) };
+    const west = { id: 'w-west', baseLine: bl([0, 4], [0, 0]) };
+    const moved = {
+      id: 'w-north',
+      prevBaseLine: bl([6, 4], [0, 4]),
+      newBaseLine: bl([6, 6], [0, 6]),
+      thickness: 0.2,
+    };
+
+    const plan = computeMoveReweldPlan(moved, [south, east, west]);
+    expect(plan.refusals).toEqual([]);
+
+    // DERIVED CORNERS — each is the partner's OWN infinite line met with the
+    // mover's NEW infinite line, and nothing else:
+    //   east's line  x = 6  ∩  north's new line  z = 6   ⇒ (6, 6)
+    //   west's line  x = 0  ∩  north's new line  z = 6   ⇒ (0, 6)
+    const eEast = plan.entries.find(e => e.wallId === 'w-east')!;
+    const eWest = plan.entries.find(e => e.wallId === 'w-west')!;
+    expect(eEast).toBeTruthy();
+    expect(eWest).toBeTruthy();
+    expect(eEast.role).toBe('mutual-corner');
+    expect(eWest.role).toBe('mutual-corner');
+
+    // east pivots about its (6,0) end — which is byte-identical…
+    expect(eEast.newBaseLine[0]).toEqual({ x: 6, y: 0, z: 0 });
+    expect(eEast.newBaseLine[1]).toEqual({ x: 6, y: 0, z: 6 });
+    // …and west pivots about its (0,0) end, which is its baseLine[1] here
+    // (the loop's winding puts west's welded endpoint at index 0).
+    expect(eWest.newBaseLine[1]).toEqual({ x: 0, y: 0, z: 0 });
+    expect(eWest.newBaseLine[0]).toEqual({ x: 0, y: 0, z: 6 });
+    // Directions unchanged — a pivot, never a rotation or a lateral slide.
+    expect(unitDir(eEast.newBaseLine)).toEqual(unitDir(eEast.prevBaseLine));
+    expect(unitDir(eWest.newBaseLine)).toEqual(unitDir(eWest.prevBaseLine));
+
+    // SOUTH is 4 m away from the moved wall's old segment: it was never welded
+    // to it, so it is not touched and does not appear.
+    expect(plan.entries.find(e => e.wallId === 'w-south')).toBeUndefined();
+
+    // ⭐ THE ASSERTION THIS FAMILY NEVER MADE: THE BUILDING STILL CLOSES.
+    // Walk the loop with every proposed entry applied and require each corner
+    // to be coincident. Before the amendment this walk had two 2 m gaps.
+    const applied = (id: string, fallback: ReweldBaseline): ReweldBaseline => {
+      const e = plan.entries.find(x => x.wallId === id);
+      return (e ? e.newBaseLine : fallback) as ReweldBaseline;
+    };
+    const loop: ReweldBaseline[] = [
+      applied('w-south', south.baseLine),
+      applied('w-east', east.baseLine),
+      applied('w-north', moved.newBaseLine),
+      applied('w-west', west.baseLine),
+    ];
+    for (let i = 0; i < loop.length; i++) {
+      const end = loop[i]![1];
+      const nextStart = loop[(i + 1) % loop.length]![0];
+      expect(dist2D(end, nextStart)).toBeLessThan(1e-9);
     }
   });
 });
