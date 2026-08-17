@@ -158,7 +158,48 @@ closure** — which nothing in the old text said.
 |---|---|---|
 | **MT-10** | OPEN → **CLOSED** | `check-xss-guards` **exit 0** — 547 baselined findings / 142 files / 4655 scanned. The `0064df08` fix holds on a corpus **+10 files larger** with findings and files unmoved. The recount the row was waiting for. |
 | **CO-09** | OPEN → **CLOSED** | `check-constraint-honesty` **exit 1, 1 finding at declared level 1** (was 2/2). `StairValidationAuthority.spec.ts:38` classified REAL at VALIDATION; the gate struck `H3::StairValidationAuthority`, which is why the reading fell 2→1. |
-| **MT-01** | CLOSED → **UNPROVEN** | ⭐ **The green rested on the wrong runtime.** `hello-12-elements` calls `bootstrapWithEverything()` directly, never `composeRuntime`. There `getStoreForType('wall')` is unregistered, so the readback that goes green is `rt.stores.wall` — **the plugin DTO store the row itself says nobody reads.** On the composed bus: `wall: engineAttached=false` → `WALL_CREATE_UNREACHABLE`. |
+| **MT-01** | CLOSED → **UNPROVEN**, then **SPLIT — see §1.0a** | ⭐ **The green rested on the wrong runtime.** `hello-12-elements` calls `bootstrapWithEverything()` directly, never `composeRuntime`. There `getStoreForType('wall')` is unregistered, so the readback that goes green is `rt.stores.wall` — **the plugin DTO store the row itself says nobody reads.** ⚠ **My DIAGNOSIS of *why* was wrong — corrected in §1.0a.** |
+
+#### §1.0a — ⚠ MT-01: THIS RESTAMP'S OWN DIAGNOSIS WAS REFUTED, and the row is THREE arms
+
+**Corrected 2026-08-17 by lane K1, which measured the thing this stamp inferred.** §1.0 said the row
+was unreachable because `engineAttached=false`. **That is only the outer skin.** Measured on the same
+composed runtime with the engine ATTACHED exactly as `initBuilders.ts:551` attaches it:
+
+```
+engineAttached wall/slab/room : true true true
+wall.create  → DISPATCH OK      AUTHORITATIVE wall readback : ABSENT
+slab.create  → DISPATCH OK      AUTHORITATIVE slab readback : ABSENT
+```
+
+> **Attaching the engine does not make the create land — it converts the honest refusal straight back
+> into a SILENT FALSE SUCCESS. The refusal was never the defect.**
+
+**The real defect:** nothing at the composition root carried a create to the authoritative store. The
+browser worked only because of an **L7 subscriber** (`initTools.ts` §P2.1 for wall, §FT1 for slab)
+that the command layer cannot see and never tests for. `CreateWall.ts`/`CreateSlab.ts` treat
+*"registered AND engine-attached"* as proof that *"the bridge completes the write"* — **an unchecked
+implication**, falsified in a process where the engine was attached and no subscriber existed.
+
+⭐ **AND MT-01 AS STATED WAS UNSATISFIABLE** — the `[[unsatisfiable-gate-decomposition-is-the-fix]]`
+pattern. A bare composed runtime has **no level authority by design** (ADR-0318 I-3), so
+`WallStore.add()` MUST refuse rather than invent a level. *"Readback-positive on a bare composed
+bus"* **can never be true.** **The decomposition IS the fix**, as two claims:
+engine **ABSENT** ⇒ refuse by name · engine **PRESENT** ⇒ readback-positive.
+
+**The row is therefore THREE arms, not one, and they must be counted separately:**
+
+| arm | status | evidence |
+|---|---|---|
+| **wall** | **CLOSED** | readback-positive on the composed bus, proven at the STORED value and pinned by IDENTITY (`toBe`) to the `geometry-wall/store` module singleton `ProjectSerializer` reads — so a copy cannot satisfy it. Watched failing first. `a287cfaa` + `7f5b8f01` |
+| **slab** | **OPEN — reclassified WIRING → SHAPE** | the committed plugin record is **REJECTED verbatim** by the authoritative store: `[{code:'invalid_type', path:['position']}]`. Authoritative shape is polygon/position/width/depth; plugin shape is `boundary`. ⚠ **Mirroring it would mint a SECOND translation rival to §FT1's** — the silent-drift defect `CreateRoom.ts` refuses on principle. |
+| **room** | **OPEN — a DISTINCT defect, not a readback one** | `CreateRoomHandler` declares `affectedStores:[]` and returns `{forward:[],inverse:[]}` — **no patch pair exists to mirror.** Its only authoritative write path is `window.commandManager`, a P1/P6 breach in its own right. ⚠ The row's stated cause (a `'room'` vs `'rooms'` storeKey mismatch) is **STALE — already fixed**. |
+
+⚠ **The false test that held this row closed is now pinned against recurrence.** `hello-12-elements`
+keeps its real job but asserts in-file that `getStoreForType(kind) === undefined` for
+wall/slab/room/door/window — **proving it has no authoritative store to reach**, so it can never
+again be read as a reachability proof. The reachability claim lives in a sibling that composes via
+`composeRuntime()`.
 | **GR-12** | OPEN → **UNPROVEN** | Both instruments read GREEN (`check-move-propagation` [0] hard-0; H6 16/16) **and both declare the row's core question unmeasured** — H6's notMeasured carries *"SUBSCRIBER REACHABILITY — whether any production path drives a re-detect on a move"*. Green gates, unproven invariant. |
 | **GE-02** | CLOSED → **UNPROVEN** | `check-predicate-canonical` **NOT RUN** — a lane held it and its baseline dirty; running it would read a half-edited gate against a half-edited baseline. **A row lost to lane ownership, not to code.** |
 | **GE-03** | CLOSED → **UNPROVEN** | Same gate, same block. |
