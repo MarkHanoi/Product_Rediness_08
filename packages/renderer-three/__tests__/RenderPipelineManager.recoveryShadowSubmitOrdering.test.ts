@@ -310,6 +310,14 @@ describe('§L930 — the recovery must not free a light-owned shadow map through
     it('M2/M3 — no frame submits against the freed texture, and THE VIEWPORT SURVIVES', async () => {
         const rig = makeRecoveryRig();
 
+        // THE EXACT SIGNAL THE CRASH GUARD BRANCHES ON. `initScene.ts:3011-3013`:
+        //     if (status.phase === 'error') viewportCrashGuard.handlePipelineError();
+        // → "Render pipeline retries exhausted — phase=error" + the dead surface the
+        // founder reported. Recording every emission proves the guard is never told,
+        // not merely that the phase happened to read 'phase4' when we looked.
+        const emitted: string[] = [];
+        rig.rpm.onStateChange = (s: { phase: string }) => { emitted.push(s.phase); };
+
         rig.rpm.recoverFromRenderFailure();
 
         // The single rAF keeps ticking through the recovery's async rebuild — it is
@@ -332,11 +340,41 @@ describe('§L930 — the recovery must not free a light-owned shadow map through
             badSubmits: 0,
             phase: 'phase4',   // THE LAYER THE USER EXPERIENCES: the surface is alive.
         });
+        // The crash guard was never notified, at any instant — not just at the end.
+        expect(emitted).not.toContain('error');
         // …and it is RENDERING again, not merely "not erroring": the pause is a
         // window, never a resting state (a stranded pause is a frozen viewport that
         // reports phase4 — the same lie in the opposite direction).
         expect(rig.rpm._shadowRebuildPaused).toBe(false);
         expect(rig.submits()).toBeGreaterThan(0);
+    });
+
+    it('the AUTO-SAVE trigger — an off-rAF render() during the recovery window submits nothing', async () => {
+        const rig = makeRecoveryRig();
+
+        // The founder's crash follows an auto-save, and the save path is NOT passive
+        // toward the render graph: `PlatformSaveController.saveInner()` →
+        // `saveAdapter.captureThumbnail()` → `initPersistence.ts:174-176` calls
+        // `window.renderPipelineManager.render()` — a SECOND, SYNCHRONOUS, off-rAF
+        // frame, driven from the save's own tick, which encodes and submits and
+        // performs both ADR-0297 L2 boundary drains at an instant that is not a frame
+        // boundary. So a save landing inside a recovery window is a real interleaving,
+        // not a hypothetical one.
+        //
+        // Whatever else that path deserves (it is apps/editor's to fix, and it is a
+        // second render driver against P3), the invariant THIS layer owes it is that
+        // an extra caller cannot submit through a closed gate.
+        rig.rpm.recoverFromRenderFailure();
+
+        rig.rpm.render(0.016);   // the rAF tick
+        rig.rpm.render();        // captureThumbnail()'s off-rAF forced render
+        rig.rpm.render(0.016);
+
+        expect(rig.badSubmits()).toBe(0);
+        expect(rig.rpm.status.phase).toBe('phase4');
+
+        await rig.finishRebuild();
+        expect(rig.rpm.status.phase).toBe('phase4');
     });
 
     it('the refusal is UNWEAKENED — a shadow fault that still reaches it fails loudly', () => {
