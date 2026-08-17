@@ -4,7 +4,6 @@
   "bodies": {
     "packages/ai-host/src/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :298 + directed-edge key :286)",
     "packages/auto-dimension/src/perimeter.ts::planar-topology-engine": "left-face half-edge trace (angular sort :258 + directed-edge key :247)",
-    "packages/core-app-model/src/ai/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :298 + directed-edge key :286)",
     "packages/geometry-kernel/src/pure/triangulatePolygon.ts:482::earcut-zorder": "hashed earcut — z-order curve bit interleave (counted once per file; the interleave is per-axis)",
     "packages/room-topology/src/PlanarTopologyEngine.ts::planar-topology-engine": "left-face half-edge trace (angular sort :123 + directed-edge key :113)"
   },
