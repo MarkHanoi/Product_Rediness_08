@@ -1,6 +1,34 @@
 /**
  * WallOccupancyStore — §OCCUPANCY Opening Placement Validator
  *
+ * ─── §NO-EMPTY-MEANS-UNKNOWN · GR-14 (C78 §1.4/§20 · U-INV-4 · C71 §4.4) ────
+ * The four `wall.openings ?? []` defaults this file used to carry are GONE, and
+ * the reason is worth stating because it is NOT the reason most of this
+ * ledger's other rows get paid.
+ *
+ * `WallData.openings` is declared `Opening[]` in `WallTypes.ts` — REQUIRED, not
+ * optional — and `WallStore.add()` normalises it on insert while
+ * `cloneWallData()` normalises it again on clone. Under `strict: true` the right
+ * branch of those `??` was therefore UNREACHABLE. They were not distinguishing
+ * "this wall has no openings" from "this wall's openings are unknown"; there is
+ * no unknown here to distinguish. They were dead defaults whose only effect was
+ * to tell a reader that a wall might arrive without its openings.
+ *
+ * That reading matters more here than almost anywhere else in the ledger, which
+ * is why this file was taken first: `canPlace` is the C74 §2 ENFORCEMENT family
+ * — the one real refusal on a real mutation path. An openings list read as
+ * empty does not merely lose a check, it PERMITS the placement. A guard that
+ * silently answers "clear" is worse than no guard at all.
+ *
+ * So this is a DELETION, not a determination, and the distinction is deliberate.
+ * Where a relationship field is genuinely optional the ratified fix is a
+ * discriminator returning a tagged union (see `determineBoundingWalls` /
+ * `boundingWallIdsOrUnknown` in `@pryzm/core-app-model`). Minting one for a
+ * field the type system already guarantees would manufacture an "undetermined"
+ * branch that cannot occur, and an unreachable refusal is its own dishonesty.
+ * If `openings` is ever made optional, this file needs the discriminator — not
+ * the `??` back.
+ *
  * MODIFICATION DECLARATION
  * Layer:          Side System (Command validation utility)
  * Phase:          Phase I — Semantic Model & Core Engine
@@ -420,7 +448,7 @@ export class WallOccupancyStore {
         const refusals:    OpeningRefusal[]    = [];
         const relocations: OpeningRelocation[] = [];
 
-        const openings: Opening[] = candidate.openings ?? [];
+        const openings: Opening[] = candidate.openings;
         if (openings.length === 0) {
             return { ok: true, refusals, relocations };
         }
@@ -555,7 +583,7 @@ export class WallOccupancyStore {
         nextBaseLine: ReadonlyArray<{ x: number; y?: number; z: number }>,
     ): OpeningRefitPlan {
         const candidate = { ...current, baseLine: nextBaseLine } as unknown as WallData;
-        const openings: Opening[] = current.openings ?? [];
+        const openings: Opening[] = current.openings;
         if (openings.length === 0) return this.planOpeningRefit(candidate);
 
         const shift = WallOccupancyStore.anchorShiftM(current.baseLine, nextBaseLine);
@@ -783,7 +811,7 @@ export class WallOccupancyStore {
         // treated as NON-overlapping so adjacent windows can share a frame edge.
 
         const conflicts: string[] = [];
-        const openings: Opening[] = wall.openings ?? [];
+        const openings: Opening[] = wall.openings;
 
         for (const existing of openings) {
             // §MOVE-EXCLUDE-SELF: skip the element's OWN slot during a move so a
@@ -844,7 +872,7 @@ export class WallOccupancyStore {
         offsetM:   number;
         endM:      number;
     }> {
-        const openings: Opening[] = wall.openings ?? [];
+        const openings: Opening[] = wall.openings;
         return openings
             .map(o => ({
                 openingId: o.id,
