@@ -17,6 +17,8 @@
   "files": ["src"],
   "scripts": {
     "test": "vitest run --passWithNoTests",
+    "//test:ci": "L-950 — deliberately WITHOUT --passWithNoTests. 47 files / 820 tests are measured green here; if that collection ever resolves to nothing, the CI runner must FAIL rather than report a pass over an empty run.",
+    "test:ci": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

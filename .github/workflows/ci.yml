@@ -227,22 +227,38 @@ jobs:
       # does not COVER. A gate you have to remember the scope of is not a gate.
       #
       # `pnpm run test:ci` is the root aggregator (`pnpm -r --if-present run test:ci`), so it
-      # now runs every workspace that declares a `test:ci` script — 14 today, including the
-      # editor. HONEST LIMIT, STATED SO NOBODY QUOTES THIS AS FULL COVERAGE: `--if-present`
-      # still SILENTLY SKIPS the ~120 workspaces that have a `test` script but no `test:ci`.
-      # Closing that is the rest of 0.5e: add `test:ci` to each, in batches, triaging the red
-      # PRODUCT-FIRST as we go — never `.skip` a test to green the board.
-      # §L-540-CI-GATE (L-543) — RATCHET ON THE `--if-present` HOLE.
+      # now runs every workspace that declares a `test:ci` script — including the editor.
+      # HONEST LIMIT, STATED SO NOBODY QUOTES THIS AS FULL COVERAGE: `--if-present` still
+      # SILENTLY SKIPS most of the estate — the workspaces that have a `test` script but no
+      # `test:ci`. The step below PRINTS the current split every run; that output is the
+      # authority, and any figure written here rots. Closing it is the rest of 0.5e: add
+      # `test:ci` in batches, each batch MEASURED green first, triaging the red PRODUCT-FIRST
+      # as we go — never `.skip` a test to green the board.
+      # §L-540-CI-GATE (L-543) — RATCHET ON THE `--if-present` HOLE, plus two more
+      # arms added by L-950. THREE WAYS CI CAN REPORT GREEN OVER TESTS IT NEVER RAN;
+      # this one step now checks all three. DO NOT quote the numbers below as current
+      # — run the gate, it prints them.
       #
-      # The aggregator above silently skips every workspace with no `test:ci`
-      # script. Measured 2026-07-21: 166 workspaces, 18 enforced, 130 skipped.
-      # The comment above has stated that honestly for a while; a comment is not
-      # a gate, and the number was free to get worse without anyone noticing.
+      #   ARM A  the aggregator above silently skips every workspace with no
+      #          `test:ci`. Ratchet against a committed baseline; fails if the
+      #          unguarded set GROWS, or if the baseline goes stale.
+      #   ARM B  §FILTER-MISSING-SCRIPT-IS-EXIT-0. `pnpm --filter <pkg> run <script>`
+      #          EXITS 0 when the script does not exist — measured, not assumed. So a
+      #          step like the `pnpm --filter @pryzm/bench run nft:ci` below can go on
+      #          printing a green tick after the script is renamed away. Hard-0.
+      #          ⚠ Dropping `--if-present` does NOT fix ARM A's hole: `pnpm -r run
+      #          <missing>` also exits 0. Measured 2026-08-17. The gate is the fix.
+      #   ARM C  §TEST-FILES-WITH-NO-SCRIPT. A package can hold test files and declare
+      #          no `test` script at all, so nothing can invoke them — and this fell
+      #          between the two existing gates, because check-no-dark-test-files
+      #          measures GLOB REACHABILITY (a vitest.config.ts reaches the files, so
+      #          it passes them) while ARM A only looked at packages that HAVE a test
+      #          script. `@pryzm/geometry-curtain-wall` sat in that gap at 25-of-46 RED.
       #
-      # This check fails if the unguarded set GROWS past the committed baseline,
-      # or if the baseline goes stale. It deliberately does NOT mass-add
-      # `test:ci` scripts — see the script header for why that was rejected.
-      # Runs AFTER the aggregator so a real test failure is reported first.
+      # It deliberately does NOT mass-add `test:ci` scripts — see the script header
+      # for why that was rejected. Broadening is batch-by-batch, each batch MEASURED
+      # green before it is claimed. Runs AFTER the aggregator so a real test failure
+      # is reported first.
       - run: pnpm run check:testci-coverage
 
   # §L-540-CI-GATE — THE ROOT VITEST SUITE WAS WIRED TO NOTHING.
