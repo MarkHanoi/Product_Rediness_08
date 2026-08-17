@@ -562,11 +562,52 @@ export function gateWallMove(
   // either growing its own wiring, and the two cannot drift apart.
   if (cur?.[0] && cur?.[1]) {
     const pre = previewReweldForMove(wallId, cur, newBaseLine);
-    if (pre && !pre.allowed) {
+
+    // ── §L-942-UNBLOCK — THE INCUMBENT ARM REPORTS, IT NO LONGER REFUSES ─────
+    //
+    // ⭐ FOUNDER DECISION, 2026-08-17: *"THIS WAS ALL WORKING — BUT WITH ISSUES …
+    // BUT NOW NOTHING WORKS."*
+    //
+    // The incumbent arm was added by `c2e8ba00` to prevent L-922 (an interior
+    // move dragging a PERIMETER baseline 2.19 m and re-seating three hosted
+    // doors). It does prevent it. It also refuses EVERY wall move that breaks a
+    // junction, which is the single most common gesture in a BIM tool, and it
+    // shipped without C83 §10.6 — the escape hatch that was supposed to let the
+    // legitimate case through (C83 §10.6.7: *a refusing half and its escape
+    // hatch ship together, or neither ships*).
+    //
+    // Three fixes were then shipped to production, each correct in isolation and
+    // each at the wrong layer, while the founder stayed blocked. This trades a
+    // KNOWN, VISIBLE, UNDOABLE defect (a neighbour that over-follows) for a
+    // HARD STOP on the core gesture. **That trade is the founder's to make and
+    // they have made it.**
+    //
+    // ⚠ WHAT THIS RE-OPENS, stated plainly so nobody rediscovers it as a
+    // surprise: L-922 can happen again — a move MAY drag a wall that should have
+    // been incumbent. It is Ctrl+Z-able and visible. It is not silent.
+    //
+    // ⚠ WHAT IS DELIBERATELY STILL BLOCKING: `!pre.ok`. That is the CASCADE
+    // itself refusing — an opening that cannot fit, a wall that would collapse.
+    // Those are geometric impossibilities, not policy, and letting them through
+    // would corrupt the model rather than merely over-follow it. Only the
+    // POLICY arm is downgraded.
+    //
+    // The refusal text is still COMPUTED and still REACHES THE USER via the
+    // consequence sink — L-921's own lesson was that a dropped junction with
+    // nobody told is the worse defect. The user is told what happened; they are
+    // no longer prevented from doing it.
+    //
+    // TO RESTORE THE BLOCK: the correct predicate is not `incumbentBreach` — see
+    // `docs/03-execution/plans/SESSION-L942-CONNECTED-SYSTEM.md` §4, which
+    // argues the `L`/degree-2 test is measuring the wrong property for a real
+    // closed perimeter, and that "is the partner in the same closed loop?" is
+    // the likely correct question. That is a C83 §10.6 amendment and needs
+    // founder confirmation before it ships.
+    if (pre && !pre.ok) {
       console.warn(
         `[wallPlacementGate] §L-921-ATOMIC-GESTURE blocking wall ${wallId}: the move is clear of ` +
-        `every opening, but its junction re-weld cannot be done soundly ` +
-        `(cascade ok=${pre.ok}, incumbentBreach=${pre.incumbentBreach}) — nothing dispatched.`,
+        `every opening, but the CASCADE ITSELF refuses ` +
+        `(cascade ok=${pre.ok}) — nothing dispatched.`,
         { reason: pre.reason, blockingIssues: pre.blockingIssues, incumbents: pre.incumbentWallIds },
       );
       return {
@@ -574,6 +615,14 @@ export function gateWallMove(
         verdict,
         surfaced: speakRefusal(describeReweldRefusal(wallId, 'there', pre)),
       };
+    }
+    if (pre && pre.incumbentBreach) {
+      console.warn(
+        `[wallPlacementGate] §L-942-UNBLOCK wall ${wallId}: the re-weld would re-baseline ` +
+        `${pre.incumbentWallIds.length} non-subject wall(s) by up to ${pre.maxIncumbentShiftMm} mm ` +
+        `(C83 §10.2.2). REPORTED, NOT REFUSED — the move proceeds. Ctrl+Z reverts it.`,
+        { incumbents: pre.incumbentWallIds, maxShiftMm: pre.maxIncumbentShiftMm },
+      );
     }
   }
 
