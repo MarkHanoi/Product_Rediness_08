@@ -983,7 +983,6 @@ export function computeMoveReweldCensus(
             // the record instead of being resolved silently in the graph's
             // disfavour (§L-945). See NOT_WELDED_TO_SUBJECT_PREV_SEGMENT.
             na(partner.id, 'NOT_WELDED_TO_SUBJECT_PREV_SEGMENT', Math.min(dS, dE), weldTol);
-            na(partner.id, 'NOT_WELDED_TO_SUBJECT_PREV_SEGMENT', Math.min(dS, dE), weldTol);
             continue;
         }
         const weldedIsStart = dS <= dE;
