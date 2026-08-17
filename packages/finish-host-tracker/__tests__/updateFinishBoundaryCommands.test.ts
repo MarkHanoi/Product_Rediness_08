@@ -95,8 +95,18 @@ beforeEach(() => {
 });
 
 describe('UpdateFloorBoundaryCommand — reproject mode', () => {
-    it('writes polygon + sketch, reports success, and is nonUndoable (derived-state maintenance)', () => {
+    // §L-943 — this test asserted `nonUndoable === true` and that undo was a
+    // no-op leaving the ring at its MOVED position. That was the contract, and
+    // the contract was the defect: it handed the reverse pass to a listener that
+    // re-derived the boundary from the restored wall, which invented 63 m² of
+    // floor on a real Ctrl+Z (ISSUE-LOG L-943; the end-to-end pin is
+    // command-registry/__tests__/floorFollowUndoRestore.test.ts). Both modes now
+    // restore, and this test asserts the restoration it used to forbid.
+    it('writes polygon + sketch, reports success, and UNDO restores the PRE-move ring verbatim (§L-943)', () => {
         seedFloor(floorStore, 'fl-1');
+        const before = floorStore.getById('fl-1')!;
+        const beforeMaxZ = Math.max(...before.boundary.polygon.map((p) => p.z));
+        const beforeSketch = JSON.stringify(before.sketch);
         const cmd = new UpdateFloorBoundaryCommand({
             floorId: 'fl-1',
             mode: 'reproject',
@@ -105,7 +115,7 @@ describe('UpdateFloorBoundaryCommand — reproject mode', () => {
             cause: { wallId: 'w-north', kind: 'wall-moved' },
         });
 
-        expect(cmd.nonUndoable).toBe(true);
+        expect(cmd.nonUndoable).toBe(false);
         expect(cmd.canExecute(context).ok).toBe(true);
 
         const result = cmd.execute(context);
@@ -115,11 +125,18 @@ describe('UpdateFloorBoundaryCommand — reproject mode', () => {
         const stored = floorStore.getById('fl-1')!;
         expect(Math.max(...stored.boundary.polygon.map((p) => p.z))).toBeCloseTo(5.9, 9);
         expect(stored.sketch!.outerLoop.edges).toHaveLength(4);
+        // The move is real — without this, the undo assertion below would pass
+        // for the wrong reason.
+        expect(beforeMaxZ).not.toBeCloseTo(5.9, 9);
 
-        // nonUndoable undo is the mandated no-op — it must not touch the store.
         const undoResult = cmd.undo(context);
         expect(undoResult.success).toBe(true);
-        expect(Math.max(...floorStore.getById('fl-1')!.boundary.polygon.map((p) => p.z))).toBeCloseTo(5.9, 9);
+        const restored = floorStore.getById('fl-1')!;
+        expect(Math.max(...restored.boundary.polygon.map((p) => p.z))).toBeCloseTo(beforeMaxZ, 9);
+        // VERBATIM, not merely close: the inverse patches carry the stored value,
+        // they do not recompute one.
+        expect(JSON.stringify(restored.sketch)).toBe(beforeSketch);
+        expect(restored.boundary.polygon).toEqual(before.boundary.polygon);
     });
 
     it('refuses a reproject without a valid polygon, naming the count', () => {
@@ -211,8 +228,11 @@ describe('UpdateFloorBoundaryCommand — degrade mode (C79 §4.2: undoable)', ()
 });
 
 describe('UpdateCeilingBoundaryCommand — the byte-identical twin', () => {
-    it('reproject writes polygon + sketch through the real CeilingStore', () => {
+    it('reproject writes polygon + sketch through the real CeilingStore, and undo restores it (§L-943, §7.4 — no drift from the floor)', () => {
         seedCeiling(ceilingStore, 'cl-1');
+        const before = ceilingStore.getById('cl-1')!;
+        const beforeMaxZ = Math.max(...before.boundary.polygon.map((p) => p.z));
+        const beforeSketch = JSON.stringify(before.sketch);
         const cmd = new UpdateCeilingBoundaryCommand({
             ceilingId: 'cl-1',
             mode: 'reproject',
@@ -220,10 +240,16 @@ describe('UpdateCeilingBoundaryCommand — the byte-identical twin', () => {
             outerLoopEdges: sketchEdges(MOVED_RING, HOSTS),
             cause: { wallId: 'w-north', kind: 'wall-moved' },
         });
-        expect(cmd.nonUndoable).toBe(true);
+        expect(cmd.nonUndoable).toBe(false);
         expect(cmd.canExecute(context).ok).toBe(true);
         expect(cmd.execute(context).success).toBe(true);
         expect(Math.max(...ceilingStore.getById('cl-1')!.boundary.polygon.map((p) => p.z))).toBeCloseTo(5.9, 9);
+        expect(beforeMaxZ).not.toBeCloseTo(5.9, 9);
+
+        expect(cmd.undo(context).success).toBe(true);
+        const restored = ceilingStore.getById('cl-1')!;
+        expect(Math.max(...restored.boundary.polygon.map((p) => p.z))).toBeCloseTo(beforeMaxZ, 9);
+        expect(JSON.stringify(restored.sketch)).toBe(beforeSketch);
     });
 
     it('degrade + undo restores the ceiling references verbatim', () => {

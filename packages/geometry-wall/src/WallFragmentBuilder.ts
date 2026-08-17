@@ -4,7 +4,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
 // §I2 — WebGPU-safe disposal for the live wall-rebuild teardown sites (a stale
 // WebGPU render object must never throw `usedTimes` and abort the rebuild).
-import { safeDisposeGeometry, safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three';
+import { safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — "DETACH now, RELEASE at the
+// boundary". See _disposeWallGroupChildren() / removeWallFragments() below.
+import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
@@ -3913,24 +3916,42 @@ export class WallFragmentBuilder {
     }
 
     /**
-     * §PHASE-3 Task 3.3: Dispose all child geometry and materials in a group,
-     * then clear the group. Used before every wall rebuild to prevent GPU memory
-     * leaks from orphaned WebGLBuffer / WebGLVertexArrayObject allocations.
+     * §PHASE-3 Task 3.3: empty a wall group before rebuilding it, releasing its
+     * children's GPU buffers so a rebuild does not leak WebGLBuffer /
+     * WebGLVertexArrayObject (WebGL) or GPUBuffer (WebGPU) allocations.
      *
-     * Handles all child types: THREE.Mesh (wall body, openings, frames) and
-     * THREE.LineSegments (edge overlays). Skips the group root itself.
-     * Materials are disposed inline — wall materials are per-wall instances,
-     * not shared singletons, so disposal is safe.
+     * §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — "DETACH now, RELEASE at the
+     * boundary" (L-944a). This method used to be
+     *
+     *     group.traverse(obj => { geometry.dispose(); material.dispose(); });
+     *     group.clear();
+     *
+     * which destroyed every child's GPU buffers WHILE the child was still parented
+     * to `group`, and `group` still parented to `this.scene`. That is INVARIANT L2(a)
+     * inverted, and it is the ordering behind the whole draw-after-free family: the
+     * furniture path's `setIndexBuffer … parameter 1 is not of type 'GPUBuffer'`, and
+     * L-944's `Vertex buffer slot 0 … was not set` after `UNDO: CASCADE_WALL_BASELINE`.
+     * The three.js backends delete their per-attribute record the instant
+     * `BufferGeometry.dispose()` runs (`Geometries.initGeometry`'s onDispose listener),
+     * so any draw encoded for a still-reachable mesh afterwards binds `undefined` and
+     * the whole CommandBuffer is invalidated.
+     *
+     * `detachAndReleaseChildren()` performs BOTH halves in the right order: it clears
+     * the group NOW (so this rebuild can repopulate it on the same tick, exactly as
+     * `group.clear()` left it) and enqueues the detached subtrees for release at the
+     * next frame boundary, where `RenderPipelineManager.render()` drains them. It is
+     * the same helper curtain-wall, slab, ceiling, stair, furniture, roof, column and
+     * InstanceGroup already use; the wall builder — the busiest rebuild path in the
+     * app — was the one that was never migrated.
+     *
+     * Materials are still released (`disposeMaterials` defaults true): wall materials
+     * are per-wall instances, not shared singletons. Anything genuinely cache-owned
+     * must be stamped with `markSharedGpuResource()` (INVARIANT L1), which makes every
+     * `safeDispose*` a no-op for it — ownership recorded on the resource, not inferred
+     * by each disposer.
      */
     private _disposeWallGroupChildren(group: THREE.Group): void {
-        group.traverse((obj: THREE.Object3D) => {
-            if (obj === group) return;
-            if (obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) {
-                safeDisposeGeometry(obj.geometry);              // §I2 — WebGPU-safe
-                safeDisposeMaterials((obj as any).material);    // §I2 — WebGPU-safe
-            }
-        });
-        group.clear();
+        detachAndReleaseChildren(group);
     }
 
     removeWallFragments(wallId: string): void {
@@ -3949,19 +3970,21 @@ export class WallFragmentBuilder {
                         fragment.mesh.parent.remove(fragment.mesh);
                     }
 
-                    // QF-2: Dispose geometry and materials for ALL fragment types,
+                    // QF-2: release geometry and materials for ALL fragment types,
                     // including 'wall-body'. The previous code excluded wall-body via
                     // an `!isWallBodyFragment` guard — this was a GPU memory leak.
                     // `scene.remove()` only detaches from the scene graph; the underlying
                     // WebGLBuffer and WebGLVertexArrayObject stay in VRAM until .dispose()
                     // is called explicitly. The isWallRoot check above already protects the
                     // persistent wallGroup root from being disposed prematurely.
-                    fragment.mesh.traverse((obj: any) => {
-                        if (obj instanceof THREE.Mesh) {
-                            safeDisposeGeometry(obj.geometry);       // §I2 — WebGPU-safe
-                            safeDisposeMaterials(obj.material);      // §I2 — WebGPU-safe
-                        }
-                    });
+                    //
+                    // §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2(b), L-944a) — the
+                    // detach above is correct, but the release used to happen HERE, on
+                    // the mutation tick. That tick is a store-event / undo tick, which has
+                    // no relationship to the frame boundary; L2 requires the release to
+                    // wait until the frame that last referenced the buffer has finished
+                    // encoding AND submitting. Enqueue instead; the frame owner drains.
+                    scheduleGpuRelease(fragment.mesh);
                 }
 
                 this.fragments.delete(fragId);

@@ -20,6 +20,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoomBoundingLineData } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
+// §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — see _dispose().
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 
 const ACTIVE_COLOR   = 0xA855F7;   // violet-500 — matches PRYZM accent palette
 const INACTIVE_COLOR = 0x94A3B8;   // slate-400 — muted/disabled
@@ -180,23 +182,32 @@ export class RoomBoundingLineBuilder {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
+  /**
+   * §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2, L-944a) — "DETACH now, RELEASE at
+   * the boundary".
+   *
+   * This method used to `traverse()` the root disposing every geometry and material
+   * and only THEN call `this._scene.remove(root)` — destroying GPU buffers while the
+   * whole subtree was still reachable from the scene. That is L2(a) inverted, and it
+   * is the same defect class as the wall builder's `_disposeWallGroupChildren`
+   * (L-944a) and the furniture path's `setIndexBuffer … not of type 'GPUBuffer'`
+   * (ADR-0297's originating report). `build()` calls this on EVERY rebuild, and room
+   * bounding lines are re-emitted whenever a wall baseline moves — including on undo.
+   *
+   * `removeFromParent()` rather than `this._scene.remove(root)`: `Object3D.remove` is
+   * a no-op when the child has been re-parented elsewhere, which would silently leave
+   * a live mesh holding a released buffer. Detaching from the ACTUAL parent cannot
+   * miss.
+   */
   private _dispose(id: string): void {
     const root = this._roots.get(id);
     if (!root) return;
 
-    root.traverse(obj => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
-        if (obj.geometry) obj.geometry.dispose();
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach((m: THREE.Material) => m.dispose());
-        } else if (obj.material) {
-          (obj.material as THREE.Material).dispose();
-        }
-      }
-    });
-
-    this._scene.remove(root);
+    // (a) DETACH — after this line nothing in the scene graph can reach the subtree.
+    root.removeFromParent();
     this._roots.delete(id);
+    // (b) RELEASE at the next frame boundary (RenderPipelineManager.render drains).
+    scheduleGpuRelease(root);
   }
 
   private _getLevelElevation(levelId: string): number {

@@ -27,6 +27,10 @@
  *  3. On wall REMOVE: degrade host references pointing at the deleted wall to
  *     freeLine edges at their last known geometry, through an UNDOABLE command
  *     (C79 §4.2) — Ctrl+Z on the wall deletion also restores the references.
+ *  4. §L-943 — do NOTHING while a revert is replaying. See `isRevertReplay()`
+ *     for the measurement; the short version is that responsibilities 2 and 3
+ *     are FORWARD mutations, and running them on the reverse pass made a wall
+ *     move non-reversible (it invented 63 m² of floor on a Ctrl+Z).
  *
  * ── §FINISH-TRACKER-EVENT-SHAPE — the payload trap, handled from birth ───────
  * The stores emit `bim-floor-*` / `bim-ceiling-*` with the F.events.17/18
@@ -101,7 +105,14 @@ export interface FinishBoundaryCommandLike {
 
 export interface FinishCommandManagerLike {
     getContext(): unknown;
-    execute(command: FinishBoundaryCommandLike): unknown;
+    /** `metadata` carries `source: 'STRUCTURAL_CASCADE'` so CommandManager composes
+     *  this write into the gesture that spawned it (§L-874-ONE-UNDO) rather than
+     *  pushing a second history entry — one wall move stays ONE Ctrl+Z. */
+    execute(command: FinishBoundaryCommandLike, metadata?: { source: 'STRUCTURAL_CASCADE' }): unknown;
+    /** §L-874 / §L-943 — true while undo()/redo() is replaying. Optional so a
+     *  probe double or an older host that lacks it degrades to the pre-fix
+     *  behaviour AUDIBLY rather than silently: see `onWallUpdated`. */
+    isReverting?(): boolean;
 }
 
 /** Same late-binding shape as the slab tracker's CommandManagerRef: constructed
@@ -239,9 +250,60 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         this.store.getAll().forEach((rec) => this.registerRecord(rec));
     }
 
+    // ── §L-943 — the revert latch ────────────────────────────────────────────
+
+    /**
+     * True while `CommandManager.undo()` / `redo()` is replaying a recorded
+     * mutation. During a revert this tracker's only correct behaviour is SILENCE
+     * — the same conclusion `SlabWallConnectivityService` and
+     * `WallMoveReweldService` reached at §L-874, arrived at here from a different
+     * symptom.
+     *
+     * THE SYMPTOM (L-943, MEASURED across one gesture and its Ctrl+Z):
+     *
+     *   MOVE: §C79-5.2 conflicted: floor "162a95a2" NOT re-projected —
+     *         re-derived ring self-intersects (75.171 m² → 12.080 m²)
+     *   UNDO: §C79-5.2 resized:    floor "162a95a2" follows wall — 75.171 → 138.262 m²
+     *
+     * The floor REFUSED forward, so nothing was written and there was nothing to
+     * reverse — and the reverse pass wrote 63 m² of floor that had never existed.
+     * Undo RESTORES; it does not RECONSTRUCT (C71), and a reconstruction can
+     * differ from a value that was never replaced. It differed in BOTH arms:
+     *
+     *   · REFUSED forward → the reverse pass consulted no refusal arm at all and
+     *     re-derived unconditionally; and
+     *   · FOLLOWED forward → `reprojectFinishBoundary` measures the edge's inset
+     *     against the wall's PRE-mutation centreline, which on the reverse pass is
+     *     the MOVED wall. The inset is measured across the whole move distance and
+     *     re-applied to the restored line, so the ring balloons (22.040 → 51.040 m²
+     *     in the executed pin, `floorFollowUndoRestore.test.ts`).
+     *
+     * THE FIX IS NOT "REFUSE ON THE REVERSE PASS TOO". Both arms would then be
+     * silent about a floor whose boundary no longer matches its walls. The write
+     * this tracker dispatches is now an UNDOABLE command composed into the
+     * spawning gesture (§L-874-ONE-UNDO), so the history restores the finish's
+     * PRE-move boundary verbatim from its own inverse patches. This latch exists
+     * to keep the tracker from writing a second, re-derived value on top of it.
+     *
+     * WHEN THE HOST CANNOT ANSWER (`isReverting` absent — a probe double, or a
+     * command manager not yet wired) this returns FALSE, i.e. the pre-fix
+     * behaviour. That is deliberate and NOT a silent default: without a command
+     * manager the tracker's writes never reach the history at all, so there is no
+     * inverse patch for a revert to replay and re-derivation is the only conduct
+     * available. The fallback is stated here so nobody reads the `?.` as an
+     * oversight.
+     */
+    private isRevertReplay(): boolean {
+        return this.commandManagerRef.current?.isReverting?.() === true;
+    }
+
     // ── Wall moved → re-project ──────────────────────────────────────────────
 
     private onWallUpdated(wall: WallSnapshotLike, prevState?: WallSnapshotLike): void {
+        // §L-943 — a REVERT is not a wall move, and re-deriving during one is how
+        // this tracker invented floor area. See `isRevertReplay()`.
+        if (this.isRevertReplay()) return;
+
         const dependents = this.graph.get(wall.id);
         if (!dependents || dependents.size === 0) return;
 
@@ -323,6 +385,14 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
     // ── Wall removed → degrade (undoable, C79 §4.2) ──────────────────────────
 
     private onWallRemoved(wall: WallSnapshotLike): void {
+        // §L-943 — same rule as onWallUpdated. Undoing a wall CREATE removes the
+        // wall; degrading the references then would be a fresh forward mutation
+        // dispatched from inside a revert. The history's own child entry restores
+        // whatever the forward pass wrote. NOTE the graph entry is still dropped
+        // below — the dependency index is bookkeeping, not a model write, and a
+        // wall that is gone must not stay indexed.
+        if (this.isRevertReplay()) { this.graph.delete(wall.id); return; }
+
         const dependents = this.graph.get(wall.id);
         if (dependents && dependents.size > 0) {
             // §FINISH-TRACKER-REENTRANT-SET — snapshot, for the same reason as
@@ -370,7 +440,15 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
                 );
                 return;
             }
-            cm.execute(cmd);
+            // §L-943 / §L-874-ONE-UNDO — this write is now UNDOABLE (both modes),
+            // so it must be told what it is: a STRUCTURAL CASCADE of the gesture
+            // currently executing, not a user gesture of its own. CommandManager
+            // attaches it to that gesture's `structuralChildren` instead of the
+            // history, which is what keeps one wall move at ONE Ctrl+Z while still
+            // giving the reverse pass a recorded value to restore. A cascade with
+            // no enclosing gesture (a store write outside any command) keeps its
+            // own entry — CommandManagerImpl's documented, unchanged behaviour.
+            cm.execute(cmd, { source: 'STRUCTURAL_CASCADE' });
             return;
         }
 

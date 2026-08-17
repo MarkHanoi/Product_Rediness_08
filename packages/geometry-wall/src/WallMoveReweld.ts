@@ -427,10 +427,24 @@ function classifyWeldAuthorship(
     return { kind: 'ambiguous', axialFromEndM, bands };
 }
 
+/**
+ * §L-945 — the third arm is no longer anonymous.
+ *
+ * `{ kind: 'none' }` used to carry nothing, and this function has SIX ways to
+ * reach it. A stem that was near-parallel to its host and a stem that was
+ * already correctly seated are opposite facts — one is a junction that cannot
+ * be re-formed, the other is a junction that is already whole — and they were
+ * indistinguishable from each other and from "this partner was never examined".
+ */
 type StemFollowResult =
     | { readonly kind: 'entry'; readonly entry: MoveReweldEntry }
     | { readonly kind: 'refusal'; readonly refusal: MoveReweldRefusal }
-    | { readonly kind: 'none' };
+    | {
+        readonly kind: 'none';
+        readonly reason: MoveReweldNotApplicableReason;
+        readonly measuredMm?: number;
+        readonly limitMm?: number;
+    };
 
 /**
  * THE DEPENDENT FOLLOWS ITS HOST — an AXIAL re-seat, and nothing else.
@@ -477,7 +491,7 @@ function computeStemFollow(
 ): StemFollowResult {
     // 1. How was it seated? Signed depth from the host's PRE-move centreline.
     const prevFrame = inSegmentFrame(welded, prevS, prevE);
-    if (!prevFrame) return { kind: 'none' };
+    if (!prevFrame) return { kind: 'none', reason: 'STEM_DEGENERATE_GEOMETRY' };
     const seatDepthM = prevFrame.offset;
 
     // 2. The host's NEW body, at that same depth: its new centreline shifted
@@ -485,7 +499,7 @@ function computeStemFollow(
     //    `inSegmentFrame` measured it in, so the sign carries).
     const dNew = sub(newE, newS);
     const lNew = len(dNew);
-    if (lNew < EPSILON_ZERO) return { kind: 'none' };
+    if (lNew < EPSILON_ZERO) return { kind: 'none', reason: 'STEM_DEGENERATE_GEOMETRY' };
     const nx = -dNew.z / lNew, nz = dNew.x / lNew;
     const seatLineA: Pt = { x: newS.x + nx * seatDepthM, z: newS.z + nz * seatDepthM };
     const seatLineB: Pt = { x: newE.x + nx * seatDepthM, z: newE.z + nz * seatDepthM };
@@ -495,13 +509,14 @@ function computeStemFollow(
     //    an extend/shrink, never a rotation and never a lateral slide
     //    (§CLAMP-COSHARE-WELD: sliding a shared baseline doubled walls).
     const seat = intersectLines(welded, far, seatLineA, seatLineB);
-    if (!seat) return { kind: 'none' }; // near-parallel: no T to re-form
+    // Near-parallel: no T to re-form. Reported, not dropped (§L-945).
+    if (!seat) return { kind: 'none', reason: 'STEM_NEAR_PARALLEL_NO_SEAT' };
 
     // 4. Is the host still UNDER the foot? A host that slid along its own axis
     //    past the stem leaves nothing to terminate on, and extending toward
     //    where it used to be is worse than leaving the stem alone.
     const seatFrame = inSegmentFrame(seat, newS, newE);
-    if (!seatFrame) return { kind: 'none' };
+    if (!seatFrame) return { kind: 'none', reason: 'STEM_DEGENERATE_GEOMETRY' };
     const overshootM = Math.max(0, -seatFrame.axial, seatFrame.axial - lNew);
     if (overshootM > weldTol) {
         return { kind: 'refusal', refusal: {
@@ -515,7 +530,14 @@ function computeStemFollow(
     // 5. §POST-RESOLVE-OVEREXTEND — a shallow-angle stem demands an extension
     //    far larger than the host's own move; never spike a wall metres out.
     const displacementM = dist(welded, seat);
-    if (displacementM < MIN_DISPLACEMENT) return { kind: 'none' }; // already seated
+    if (displacementM < MIN_DISPLACEMENT) {
+        // Already seated — a whole junction, not a missed one (§L-945).
+        return {
+            kind: 'none', reason: 'STEM_ALREADY_SEATED',
+            measuredMm: Math.round(displacementM * 1000),
+            limitMm: Math.round(MIN_DISPLACEMENT * 1000),
+        };
+    }
     if (displacementM > maxExtension) {
         return { kind: 'refusal', refusal: {
             partnerId: partner.id,
@@ -531,7 +553,7 @@ function computeStemFollow(
     //    far endpoint and the wall would come out end-for-end.
     const toWelded = sub(welded, far);
     const stemLenM = len(toWelded);
-    if (stemLenM < EPSILON_ZERO) return { kind: 'none' };
+    if (stemLenM < EPSILON_ZERO) return { kind: 'none', reason: 'STEM_DEGENERATE_GEOMETRY' };
     const toSeat = sub(seat, far);
     const newLenM = (toSeat.x * toWelded.x + toSeat.z * toWelded.z) / stemLenM;
     if (newLenM <= 0) {
@@ -626,6 +648,122 @@ export interface MoveReweldRefusal {
     readonly limitMm?: number;
 }
 
+// ─── §L-945 THE THIRD STATE: NOT-APPLICABLE, WITH A REASON ───────────────────
+//
+// THE DEFECT THIS CLOSES, measured in production on `55a2eda3`:
+//
+//     §MOVE-REWELD-DISPATCH: moved wall A → 2 partner(s) via joinedTo-graph
+//        [B, C] → 1 baseline re-seat(s) [C], 0 junction(s) refused
+//
+// Two partners considered. One re-seated. **Zero refused.** Partner B was
+// neither followed NOR refused — it left this engine through one of the loop's
+// bare `continue` statements and no record of it existed anywhere. The founder
+// saw the wall not adapt and there was nothing to read.
+//
+// That is L-921's exact defect class — *a dropped junction with nobody told is
+// L-921 wearing L-922's clothes* — one layer further in. §L-921 made the
+// REFUSALS speak; the paths below were never refusals, so they were never
+// covered by it, and "the engine looked at this partner and correctly did
+// nothing" printed identically to "the engine never looked".
+//
+// ⚠ NOT ONE DECISION CHANGES HERE. Every `continue` still continues, on the
+// same predicate, against the same number. What changes is that it leaves a
+// record. Any behavioural change would be a separate lane and is called out as
+// such in the commit message.
+//
+// THE INVARIANT, and the thing the census test asserts: **every partner handed
+// to this engine leaves it as exactly one of three things — an ENTRY, a
+// REFUSAL, or a NOT-APPLICABLE carrying its reason and its numbers.** Silence is
+// a fourth state and it is forbidden.
+
+/**
+ * Why a partner produced neither an entry nor a refusal.
+ *
+ * A REFUSAL says *"this junction should close and I will not close it"* — it is
+ * a consequence the user must be told about and it aborts the gesture (C83
+ * §10.3 / C78 U-INV-8). A NOT-APPLICABLE says *"there was nothing here to
+ * close"*, which is a normal, frequent, correct outcome. Conflating the two
+ * would either spam the user with non-events or hide real ones; keeping them in
+ * separate arrays is what lets the dispatch line state both counts honestly.
+ */
+export type MoveReweldNotApplicableReason =
+    /** The partner list contained the moved wall itself. */
+    | 'SUBJECT_ITSELF'
+    /** The whole gesture displaced the subject by less than MIN_DISPLACEMENT. */
+    | 'SUBJECT_DID_NOT_MOVE'
+    /**
+     * Neither partner endpoint was within `weldTol` of the subject's PREV
+     * centreline — the `joinedTo` edge names a relationship this engine cannot
+     * see in the geometry it was handed. ⭐ A leading suspect for the founder's
+     * dropped partner: the service reads partners from the store AT EVENT TIME,
+     * so a partner another cascade has ALREADY re-seated onto the subject's NEW
+     * line is, by then, no longer welded to its PREV line.
+     */
+    | 'NOT_WELDED_TO_SUBJECT_PREV_SEGMENT'
+    /** Partner and subject are near-parallel: no conditioned corner exists. */
+    | 'NEAR_PARALLEL_NO_CORNER'
+    /** The corner exists but lies off the subject's new segment, past its angle-derived reach. */
+    | 'CORNER_OFF_SUBJECT_SEGMENT'
+    /** The corner is already where the partner's welded endpoint is: nothing to do. */
+    | 'PARTNER_ALREADY_AT_CORNER'
+    /** The corner is further along the partner than §POST-RESOLVE-OVEREXTEND permits. */
+    | 'CORNER_BEYOND_PARTNER_REACH'
+    /** Seating the partner on the corner would shrink it below DEGENERATE_STUB_LENGTH. */
+    | 'CORNER_WOULD_COLLAPSE_PARTNER'
+    /**
+     * The corner lies ON the partner's existing body and the partner is an
+     * INCUMBENT (C83 §10.2.2): it is deliberately untouched and the SUBJECT
+     * adapts to it. **This is a success, not a miss** — but it was silent, and
+     * "the incumbent was preserved" and "the partner was never reached" were
+     * printing as the same nothing.
+     */
+    | 'INCUMBENT_PRESERVED_SUBJECT_ADAPTS'
+    /** Stem path: the subject's or the partner's baseline is degenerate. */
+    | 'STEM_DEGENERATE_GEOMETRY'
+    /** Stem path: the stem's own line is near-parallel to the host's, so there is no T to re-form. */
+    | 'STEM_NEAR_PARALLEL_NO_SEAT'
+    /** Stem path: the stem's foot is already on the host's new body. */
+    | 'STEM_ALREADY_SEATED';
+
+/**
+ * A partner this engine considered and correctly left alone, with the number
+ * that decided it. `measuredMm` / `limitMm` follow `MoveReweldRefusal`'s
+ * convention (C83 §10.3 — state what was measured AND what it had to clear);
+ * both are absent for the outcomes that are categorical rather than metric.
+ */
+export interface MoveReweldNotApplicable {
+    readonly partnerId: string;
+    readonly reason: MoveReweldNotApplicableReason;
+    readonly measuredMm?: number;
+    readonly limitMm?: number;
+}
+
+/**
+ * §L-945 — what the SUBJECT's own endpoint seat did.
+ *
+ * A separate question from the per-partner partition, and it has to be, because
+ * the subject is not a partner. It is also the half that explains the founder's
+ * signature: a partner CAN be correctly handled (`INCUMBENT_PRESERVED_
+ * SUBJECT_ADAPTS`) and the joint STILL be left open, because the subject's own
+ * seat was then declined by the §L-872 T-SEAT-GUARD one loop later. Before this
+ * field, that outcome printed as an unremarkable "1 re-seat, 0 refused".
+ */
+export interface MoveReweldSubjectSeat {
+    /** Partner ids whose corner was offered to the subject to terminate on. */
+    readonly cornersOffered: readonly string[];
+    /** Partner ids whose corner the subject actually seated an endpoint on. */
+    readonly seatedOn: readonly string[];
+    /** Corners the subject declined, each keyed by the partner that formed it. */
+    readonly declined: readonly MoveReweldNotApplicable[];
+    /** True when an entry rewriting the subject's own baseline was emitted. */
+    readonly entryEmitted: boolean;
+    /**
+     * Set when the subject DID move an endpoint but the entry was suppressed
+     * because the result would be a degenerate stub. Silent before §L-945.
+     */
+    readonly suppressed?: 'SUBJECT_WOULD_COLLAPSE';
+}
+
 export interface MoveReweldPlan {
     /**
      * The SUBJECT adapting, plus — §L-926 — the subject's DEPENDENTS following.
@@ -643,6 +781,39 @@ export interface MoveReweldPlan {
     readonly entries: MoveReweldEntry[];
     /** Junctions this engine will not close, each with the numbers that refused it. */
     readonly refusals: MoveReweldRefusal[];
+}
+
+/**
+ * §L-945 — THE PLAN PLUS THE THIRD STATE. A strict superset of `MoveReweldPlan`.
+ *
+ * ── WHY THIS IS A SEPARATE RETURN TYPE AND NOT TWO MORE FIELDS ON THE PLAN ───
+ *
+ * Stated plainly so nobody "tidies" it later: `computeMoveReweldPlan`'s
+ * serialization is PINNED. Five golden `JSON.stringify(computeMoveReweldPlan(…))`
+ * strings live in `__tests__/L926StemFollowAuthorship.measure.test.ts` — the
+ * §L-922 / §DEGREE-2 controls, minted at `8b8be0e4` and deliberately unedited
+ * since, whose whole evidential value is that they are byte-identical across
+ * three subsequent changes to this engine. Appending a key to the plan object
+ * would change all five, which is exactly the kind of "the goldens needed
+ * updating" turn that empties a golden of meaning.
+ *
+ * So the census is the wider door and the plan is the narrow one: ONE
+ * implementation, two views, and `computeMoveReweldPlan` rebuilds the two-key
+ * object explicitly so its byte shape is a property of the code rather than of
+ * what happened to be on the object.
+ */
+export interface MoveReweldCensus extends MoveReweldPlan {
+    /** Every partner id this engine was handed, in the order it was handed them. */
+    readonly consideredPartnerIds: readonly string[];
+    /**
+     * Partners that produced neither an entry nor a refusal — each with the
+     * reason and, where the decision was metric, the numbers behind it.
+     * Together with `entries` and `refusals` this PARTITIONS
+     * `consideredPartnerIds`: every id appears in exactly one of the three.
+     */
+    readonly notApplicable: readonly MoveReweldNotApplicable[];
+    /** What the subject's own endpoint seat did (see `MoveReweldSubjectSeat`). */
+    readonly subjectSeat: MoveReweldSubjectSeat;
 }
 
 /**
@@ -718,11 +889,11 @@ const ON_SEGMENT_EPS_M = 1e-6;
  * pins both corner plans as golden `JSON.stringify` strings, committed BEFORE
  * this change, and they are unchanged by it.
  */
-export function computeMoveReweldPlan(
+export function computeMoveReweldCensus(
     moved: MoveReweldMovedWall,
     partners: ReadonlyArray<MoveReweldPartner>,
     options?: MoveReweldOptions,
-): MoveReweldPlan {
+): MoveReweldCensus {
     const weldTol =
         options?.weldTol != null && Number.isFinite(options.weldTol) && options.weldTol > 0
             ? options.weldTol
@@ -748,23 +919,73 @@ export function computeMoveReweldPlan(
 
     const entries: MoveReweldEntry[] = [];
     const refusals: MoveReweldRefusal[] = [];
-    if (movedDisplacement < MIN_DISPLACEMENT) return { entries, refusals }; // nothing moved
+    const consideredPartnerIds = partners.map(p => p.id);
+    const notApplicable: MoveReweldNotApplicable[] = [];
+
+    /**
+     * §L-945 — the ONLY way a partner may leave this loop without an entry or a
+     * refusal. Every `continue` below goes through it. Written as a local so a
+     * future `continue` that forgets it is visibly different from its
+     * neighbours, and so the reason vocabulary is closed by the type.
+     */
+    const na = (
+        partnerId: string,
+        reason: MoveReweldNotApplicableReason,
+        measuredM?: number,
+        limitM?: number,
+    ): void => {
+        notApplicable.push({
+            partnerId,
+            reason,
+            ...(measuredM != null ? { measuredMm: Math.round(measuredM * 1000) } : {}),
+            ...(limitM != null ? { limitMm: Math.round(limitM * 1000) } : {}),
+        });
+    };
+
+    if (movedDisplacement < MIN_DISPLACEMENT) {
+        // Nothing moved. Previously a bare early return, which meant a caller
+        // could not tell "the subject did not move" from "the subject moved and
+        // no junction was affected" — the same absence/failure collapse this
+        // whole family is about. The DECISION is unchanged: no entries.
+        for (const p of partners) {
+            na(p.id, p.id === moved.id ? 'SUBJECT_ITSELF' : 'SUBJECT_DID_NOT_MOVE',
+                movedDisplacement, MIN_DISPLACEMENT);
+        }
+        return {
+            entries, refusals, consideredPartnerIds, notApplicable,
+            subjectSeat: {
+                cornersOffered: [], seatedOn: [], declined: [], entryEmitted: false,
+            },
+        };
+    }
 
     // Track the corners formed, so the moved wall can be seated on them too.
     // §L-932 — each carries its OWN reach, because "how far along the mover
     // could this corner have travelled" is a property of the JUNCTION's angle,
     // not a constant of the gesture (see `lineAngleFactors`).
-    const cornersOnMoved: Array<{ at: Pt; reachM: number }> = [];
+    // §L-945 — each also carries WHOSE corner it is, so the subject-seat loop's
+    // own declines can name the partner whose junction is consequently left
+    // open. Without that, "the incumbent was preserved and the subject then
+    // failed to reach it" had no reader anywhere.
+    const cornersOnMoved: Array<{ at: Pt; reachM: number; partnerId: string }> = [];
 
     for (const partner of partners) {
-        if (partner.id === moved.id) continue;
+        if (partner.id === moved.id) { na(partner.id, 'SUBJECT_ITSELF'); continue; }
         const ps = toPt(partner.baseLine[0]);
         const pe = toPt(partner.baseLine[1]);
 
         // 1. Which partner endpoint was welded to the moved wall's OLD segment?
         const dS = distToSegment(ps, prevS, prevE);
         const dE = distToSegment(pe, prevS, prevE);
-        if (dS > weldTol && dE > weldTol) continue; // was never joined here
+        if (dS > weldTol && dE > weldTol) {
+            // Was never joined here — as far as THIS geometry is concerned. The
+            // `joinedTo` graph said otherwise, and the disagreement is now on
+            // the record instead of being resolved silently in the graph's
+            // disfavour (§L-945). See NOT_WELDED_TO_SUBJECT_PREV_SEGMENT.
+            na(partner.id, 'NOT_WELDED_TO_SUBJECT_PREV_SEGMENT', Math.min(dS, dE), weldTol);
+            na(partner.id, 'NOT_WELDED_TO_SUBJECT_PREV_SEGMENT', Math.min(dS, dE), weldTol);
+            continue;
+        }
         const weldedIsStart = dS <= dE;
         const welded = weldedIsStart ? ps : pe;
         const far = weldedIsStart ? pe : ps;
@@ -796,6 +1017,12 @@ export function computeMoveReweldPlan(
             );
             if (stem.kind === 'entry') entries.push(stem.entry);
             else if (stem.kind === 'refusal') refusals.push(stem.refusal);
+            else notApplicable.push({
+                partnerId: partner.id,
+                reason: stem.reason,
+                ...(stem.measuredMm != null ? { measuredMm: stem.measuredMm } : {}),
+                ...(stem.limitMm != null ? { limitMm: stem.limitMm } : {}),
+            });
             // A stem's foot is on the host's BODY. It is NEVER pushed to
             // `cornersOnMoved`: seating the host's own endpoint on a stem's foot
             // shortens the host to that foot, which is §L-872's scar verbatim.
@@ -804,7 +1031,18 @@ export function computeMoveReweldPlan(
 
         // 2. New corner = partner centreline ∩ moved wall's NEW centreline.
         const corner = intersectLines(ps, pe, newS, newE);
-        if (!corner) continue; // near-parallel / degenerate — refuse
+        if (!corner) {
+            // Near-parallel / degenerate — no conditioned intersection exists.
+            // The DECISION is unchanged; it is now countable (§L-945).
+            //
+            // NO NUMBERS, deliberately: the quantity that decided this is an
+            // ANGLE against MIN_ANGLE_RAD, and `measuredMm`/`limitMm` are
+            // millimetres. Putting radians in a field named `Mm` would be a
+            // unit lie, which is worse than the silence it replaces. The reason
+            // code carries the whole fact here.
+            na(partner.id, 'NEAR_PARALLEL_NO_CORNER');
+            continue;
+        }
 
         // 2b. §L-932 — HOW FAR THIS JUNCTION'S CORNER CAN LEGITIMATELY HAVE
         //     TRAVELLED, which is a function of the ANGLE and was previously
@@ -833,18 +1071,35 @@ export function computeMoveReweldPlan(
         //    mover's end after a 1 m drag, so it was dropped — SILENTLY, before
         //    it could even be counted as a formed corner — while the identical
         //    gesture at 90° lands the corner exactly ON the endpoint.
-        if (distToSegment(corner, newS, newE) > alongMoverReach) continue;
+        const cornerOffMover = distToSegment(corner, newS, newE);
+        if (cornerOffMover > alongMoverReach) {
+            na(partner.id, 'CORNER_OFF_SUBJECT_SEGMENT', cornerOffMover, alongMoverReach);
+            continue;
+        }
 
         // 4. Cap the endpoint displacement (§POST-RESOLVE-OVEREXTEND).
         //    Same correction, measured along the PARTNER this time: the corner
         //    slides `m/sin θ` along it, which is `m` at 90° and grows as the
         //    junction sharpens.
         const displacement = dist(welded, corner);
-        if (displacement < MIN_DISPLACEMENT) continue; // already seated
-        if (displacement > alongPartnerReach) continue; // spike — refuse
+        if (displacement < MIN_DISPLACEMENT) {
+            // Already seated: the junction is WHOLE, not missed. Distinguishing
+            // this from the drops around it is most of §L-945's value — six
+            // lanes could not tell "nothing to do" from "nothing was done".
+            na(partner.id, 'PARTNER_ALREADY_AT_CORNER', displacement, MIN_DISPLACEMENT);
+            continue;
+        }
+        if (displacement > alongPartnerReach) {
+            na(partner.id, 'CORNER_BEYOND_PARTNER_REACH', displacement, alongPartnerReach);
+            continue; // spike
+        }
 
         // 5. Never shrink the partner into a degenerate stub.
-        if (dist(corner, far) < DEGENERATE_STUB_LENGTH) continue;
+        const wouldBeLen = dist(corner, far);
+        if (wouldBeLen < DEGENERATE_STUB_LENGTH) {
+            na(partner.id, 'CORNER_WOULD_COLLAPSE_PARTNER', wouldBeLen, DEGENERATE_STUB_LENGTH);
+            continue;
+        }
 
         // 6. §C83-10.2.2 — THE INCUMBENT IS NOT OURS TO MOVE.
         //
@@ -919,7 +1174,7 @@ export function computeMoveReweldPlan(
             });
             // The subject seats on this corner too — the follow is MUTUAL, which
             // is the name of the rule. Both walls meet there.
-            cornersOnMoved.push({ at: corner, reachM: alongMoverReach });
+            cornersOnMoved.push({ at: corner, reachM: alongMoverReach, partnerId: partner.id });
             continue;
         }
 
@@ -962,21 +1217,47 @@ export function computeMoveReweldPlan(
 
         // The corner is ON the incumbent's body: the subject can terminate
         // against it and the incumbent comes out byte-identical (C83 §10.4).
-        cornersOnMoved.push({ at: corner, reachM: alongMoverReach });
+        //
+        // §L-945 — AND THAT IS AN OUTCOME, NOT AN ABSENCE. This was the seventh
+        // silent path and it is not on the brief's list of six, because it does
+        // not `continue` — it falls out of the loop body having proposed nothing
+        // for the partner. A reader of the old dispatch line could not tell it
+        // apart from a partner that was dropped at step 1: both printed as a
+        // considered partner with no entry and no refusal. It is a SUCCESS
+        // (§10.1: the newcomer adapted, the incumbent was preserved) and it is
+        // now labelled as one. `beyond` is quoted so the reader can see the
+        // corner really is on the body rather than take it on trust.
+        na(partner.id, 'INCUMBENT_PRESERVED_SUBJECT_ADAPTS', beyond, ON_SEGMENT_EPS_M);
+        cornersOnMoved.push({ at: corner, reachM: alongMoverReach, partnerId: partner.id });
     }
 
     // ── Seat the MOVED wall's endpoints on the corners it now forms ──────────
     // (mirrors SlabWallConnectivityService._computeMovedWallEndpointsEntry:
     // for each corner, the geometrically nearest endpoint of the moved wall is
     // snapped to it — subject to the same cap and stub refusals.)
+    // §L-945 — the subject's own outcome, tracked for the same reason the
+    // partners' is: a corner can be formed correctly and the joint STILL be left
+    // open here, and before this the only trace was the subject's absence from a
+    // list it was never guaranteed to be in.
+    const seatedOn: string[] = [];
+    const seatDeclined: MoveReweldNotApplicable[] = [];
+    let subjectEntryEmitted = false;
+    let subjectSuppressed: 'SUBJECT_WOULD_COLLAPSE' | undefined;
+
     if (cornersOnMoved.length > 0) {
         let sx = newS.x, sz = newS.z, ex = newE.x, ez = newE.z;
         let changed = false;
-        for (const { at: corner, reachM } of cornersOnMoved) {
+        for (const { at: corner, reachM, partnerId } of cornersOnMoved) {
             const dToS = Math.hypot(corner.x - sx, corner.z - sz);
             const dToE = Math.hypot(corner.x - ex, corner.z - ez);
             const d = Math.min(dToS, dToE);
-            if (d < MIN_DISPLACEMENT) continue;
+            if (d < MIN_DISPLACEMENT) {
+                // The subject's endpoint is ALREADY on this corner — the joint
+                // is closed and needs no entry. Recorded so it reads as "closed"
+                // rather than as the identical-looking "declined" below.
+                seatedOn.push(partnerId);
+                continue;
+            }
             // §L-872 T-SEAT-GUARD, §L-932-CORRECTED.
             //
             // The guard's PURPOSE stands and is a scar: a corner strictly
@@ -1005,8 +1286,23 @@ export function computeMoveReweldPlan(
             // T-foot protection it has. With thickness — always, in production
             // — a T-foot has already been classified `stem` and returned at
             // step 1b, and cannot reach this loop at all.
-            if (d > reachM) continue;
+            if (d > reachM) {
+                // ⭐ §L-945 — THE OUTCOME THAT EXPLAINS "IT DID NOT ADAPT".
+                // The partner's junction was handled correctly one loop up and
+                // this is where the joint is nonetheless left open: the subject
+                // cannot reach the corner within its own angle-derived reach.
+                // Silent until now, and invisible in the dispatch line because
+                // the subject simply failed to appear among the re-seats.
+                seatDeclined.push({
+                    partnerId,
+                    reason: 'CORNER_OFF_SUBJECT_SEGMENT',
+                    measuredMm: Math.round(d * 1000),
+                    limitMm: Math.round(reachM * 1000),
+                });
+                continue;
+            }
             if (dToS <= dToE) { sx = corner.x; sz = corner.z; } else { ex = corner.x; ez = corner.z; }
+            seatedOn.push(partnerId);
             changed = true;
         }
         const newLen = Math.hypot(ex - sx, ez - sz);
@@ -1019,10 +1315,53 @@ export function computeMoveReweldPlan(
                 ],
                 prevBaseLine: [{ ...moved.newBaseLine[0] }, { ...moved.newBaseLine[1] }],
             });
+            subjectEntryEmitted = true;
+        } else if (changed) {
+            // The subject WOULD have moved but the result is a degenerate stub,
+            // so the seat is dropped. Correct, and previously unrecorded: the
+            // gesture then reported the corners as formed and the subject as
+            // unchanged, with nothing tying the two facts together.
+            subjectSuppressed = 'SUBJECT_WOULD_COLLAPSE';
         }
     }
 
-    return { entries, refusals };
+    return {
+        entries,
+        refusals,
+        consideredPartnerIds,
+        notApplicable,
+        subjectSeat: {
+            cornersOffered: cornersOnMoved.map(c => c.partnerId),
+            seatedOn,
+            declined: seatDeclined,
+            entryEmitted: subjectEntryEmitted,
+            ...(subjectSuppressed ? { suppressed: subjectSuppressed } : {}),
+        },
+    };
+}
+
+/**
+ * §C83-10.2.2 — the DISPATCHABLE plan: entries + refusals, and nothing else.
+ *
+ * ⚠ ITS SERIALIZATION IS LOAD-BEARING. Five golden `JSON.stringify` strings in
+ * `__tests__/L926StemFollowAuthorship.measure.test.ts` pin this exact two-key
+ * object, and their evidential value is that they have survived three changes to
+ * this engine unedited. The object is therefore rebuilt here explicitly rather
+ * than returned by widening the census — so the byte shape is a decision in the
+ * code, not a side effect of which fields the census happened to carry.
+ *
+ * A caller that wants to know what happened to a partner that produced NEITHER
+ * an entry NOR a refusal must call `computeMoveReweldCensus`; that question has
+ * no answer in this return value, and §L-945 exists because six lanes tried to
+ * read one out of it anyway.
+ */
+export function computeMoveReweldPlan(
+    moved: MoveReweldMovedWall,
+    partners: ReadonlyArray<MoveReweldPartner>,
+    options?: MoveReweldOptions,
+): MoveReweldPlan {
+    const census = computeMoveReweldCensus(moved, partners, options);
+    return { entries: census.entries, refusals: census.refusals };
 }
 
 /**

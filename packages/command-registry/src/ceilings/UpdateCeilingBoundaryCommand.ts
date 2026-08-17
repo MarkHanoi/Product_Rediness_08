@@ -46,11 +46,20 @@ function deepCopy<T>(value: T): T {
  * Read that file's header for the full rationale; only the family differs here.
  *
  *   'reproject' — bounding wall MOVED; boundary re-derived from host references.
- *       `nonUndoable: true` — derived-state maintenance; the wall-move undo
- *       re-projects the ceiling back by re-firing the wall 'update' event.
+ *       UNDOABLE, composed into the spawning gesture as a §L-874-ONE-UNDO
+ *       structural child (§L-943 — see below).
  *   'degrade'   — bounding wall REMOVED; host references → freeLine at last
  *       geometry, undoable per C79 §4.2, with the pre-mutation snapshot restored
  *       verbatim on undo (mirrors `DegradeSlabSketchCommand`).
+ *
+ * §L-943 — this command carried `nonUndoable: true` on 'reproject' until
+ * 2026-08-17, on the premise that undoing the wall move would re-project the
+ * ceiling back by re-firing the wall 'update' event. It did not: it RECONSTRUCTED
+ * a different boundary, and wrote one even where the forward pass had REFUSED
+ * ('conflicted'), so a wall move was not reversible. Fixed as a latched
+ * forward/inverse pair — read the full account in `UpdateFloorBoundaryCommand`'s
+ * header; the mechanism, the fix and the reasoning are the same value here, and
+ * §7.4 is the rule that says these two must not drift apart.
  *
  * Type: `CommandType.UPDATE_CEILING_BOUNDARY` (types.ts:300) — an existing enum
  * member with an existing PlanOrdering entry (PlanOrdering.ts:256) that no
@@ -76,8 +85,9 @@ export class UpdateCeilingBoundaryCommand implements Command {
     readonly timestamp: number;
     targetIds: string[];
 
-    /** See UpdateFloorBoundaryCommand — same rule, same reason. */
-    readonly nonUndoable: boolean;
+    /** §L-943 — BOTH modes are undoable. See UpdateFloorBoundaryCommand: same
+     *  rule, same reason, and §7.4 requires the same value. */
+    readonly nonUndoable: boolean = false;
 
     /**
      * Immer INVERSE PATCHES for the record this command rewrote (G-NEW-05), the
@@ -93,7 +103,6 @@ export class UpdateCeilingBoundaryCommand implements Command {
         this.id = `cmd-update-ceiling-boundary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         this.timestamp = Date.now();
         this.targetIds = [payload.ceilingId];
-        this.nonUndoable = payload.mode === 'reproject';
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
@@ -204,19 +213,16 @@ export class UpdateCeilingBoundaryCommand implements Command {
     }
 
     undo(context: CommandContext): CommandResult {
-        if (this.nonUndoable) {
-            return {
-                success: true,
-                affectedElementIds: [],
-                info: [`Re-projection of ceiling "${this.payload.ceilingId}" is nonUndoable — the wall-move undo re-projects it back.`],
-            };
-        }
+        // §L-943 — BOTH modes restore here; the `nonUndoable` early return that
+        // used to sit at the top handed the reverse pass to a LISTENER that
+        // re-derived the boundary instead of restoring it. See
+        // UpdateFloorBoundaryCommand's header for the measurement.
         const store = context.stores.ceilingStore;
         if (!store || !this.inversePatches) {
             return {
                 success: false,
                 affectedElementIds: [],
-                error: 'No pre-degradation snapshot captured — cannot undo ceiling boundary degradation.',
+                error: `No pre-mutation patches captured for ceiling "${this.payload.ceilingId}" — cannot undo the boundary ${this.payload.mode}.`,
             };
         }
         const currentNow = store.getById(this.payload.ceilingId);
@@ -237,13 +243,13 @@ export class UpdateCeilingBoundaryCommand implements Command {
         // preserveMetadata=true — an undo must not corrupt the audit trail.
         store.update(this.payload.ceilingId, prev, true);
         console.log(
-            `[UpdateCeilingBoundaryCommand] UNDO: restored sketch on ceiling "${this.payload.ceilingId}" ` +
-            `(HostReferenceEdges for wall "${this.payload.cause.wallId}" restored).`
+            `[UpdateCeilingBoundaryCommand] UNDO: restored the PRE-${this.payload.mode} boundary of ceiling ` +
+            `"${this.payload.ceilingId}" verbatim (cause: wall "${this.payload.cause.wallId}"). §L-943 — restored, not re-derived.`
         );
         return {
             success: true,
             affectedElementIds: [this.payload.ceilingId],
-            info: [`Sketch restored on ceiling "${this.payload.ceilingId}" (undo).`],
+            info: [`Ceiling "${this.payload.ceilingId}" boundary restored to its pre-${this.payload.mode} value (undo).`],
         };
     }
 

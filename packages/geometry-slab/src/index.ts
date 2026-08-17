@@ -99,6 +99,11 @@ export {
 export type {
     SlabWeldPreflightInput,
     SlabWeldPreflightResult,
+    // §L-944-PREFLIGHT-STORE-SHAPE — the store surface the pre-flight requires,
+    // named so a caller can see what it must supply instead of discovering it
+    // from a TypeError. Larger than the subscriber's, because the pre-flight
+    // hands the store to `CascadeWallBaselineCommand.canExecute`.
+    PreflightWallStoreRef,
 } from './SlabWallConnectivityService';
 
 // ── §FEAT-SWIMMING-POOL-ELEMENT (L-292, ADR-0124 §5) — ADDITIVE ──────────────

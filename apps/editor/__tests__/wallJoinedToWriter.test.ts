@@ -98,6 +98,16 @@ describe('writeJoinedToEdgesForLevel — against the REAL retained junction inde
         const q = graph.getJoinedWalls('A');
         expect(q.ok).toBe(true);
         if (q.ok) expect(q.joinedWallIds).toEqual(['B']);
+
+        // §C83 §10.6 — THE END-TO-END NARROWING CHECK, and it is the one that
+        // cannot be faked by a unit test that hand-feeds 'L'. The vocabulary
+        // here comes from the REAL retained junction index, and the reader
+        // NARROWS rather than casts: if the solver ever emitted a value outside
+        // `JoinedToJunctionType`, `junctionType` would read `undefined` and
+        // §10.6's mutual-corner pivot would silently never fire in production
+        // (absent ⇒ DO NOT FOLLOW, §10.6.3 #1). This asserts the real value
+        // survives the narrowing, not merely that metadata exists on the edge.
+        if (q.ok) expect(q.junctions).toEqual([{ wallId: 'B', junctionType: 'L', junctionDegree: 2 }]);
     });
 
     it('(b) THE STALENESS TEST — move a wall away, re-refresh, re-write → edges GONE', () => {
@@ -117,8 +127,10 @@ describe('writeJoinedToEdgesForLevel — against the REAL retained junction inde
         expect(graph.hasRelationship('A', 'B', 'joinedTo')).toBe(false);
         expect(graph.hasRelationship('B', 'A', 'joinedTo')).toBe(false);
         // Both walls remain COVERED: "joins nothing" is a positive, typed answer.
-        expect(graph.getJoinedWalls('A')).toEqual({ ok: true, wallId: 'A', joinedWallIds: [] });
-        expect(graph.getJoinedWalls('B')).toEqual({ ok: true, wallId: 'B', joinedWallIds: [] });
+        // §C83 §10.6 — and it carries an EMPTY `junctions` list, not an absent
+        // one: zero partners means zero per-partner discriminators.
+        expect(graph.getJoinedWalls('A')).toEqual({ ok: true, wallId: 'A', joinedWallIds: [], junctions: [] });
+        expect(graph.getJoinedWalls('B')).toEqual({ ok: true, wallId: 'B', joinedWallIds: [], junctions: [] });
     });
 
     it('a T junction writes pairwise edges for all three participants', () => {

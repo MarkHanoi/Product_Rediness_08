@@ -429,6 +429,20 @@ function previewReweldForMove(
  * `evaluated: false` ⇒ the question could not be asked (no slab store, the wall
  * is in no slab loop). It returns `allowed: true` and is NEVER folded into
  * "refused" — C83 §5.3, and the same reading every other pre-flight here gives.
+ *
+ * ⚠ §L-944 — that reading applies to a question that does NOT APPLY, and to
+ * nothing else. A pre-flight whose machinery THREW returns `undetermined: true`
+ * with `allowed: false`, and the caller below declines. Returning `null` here
+ * for a genuinely absent store is the same not-applicable branch and is
+ * unchanged.
+ *
+ * ⚠ AND THE STORE IS NOT SHAPE-CHECKED BEYOND WHAT IT TAKES TO ASK. A wall
+ * store that lacks a method the pre-flight needs must reach the pre-flight and
+ * make it throw — which now surfaces as UNDETERMINED and blocks. Adding
+ * `typeof store.getAll === 'function'` here would turn that into `return null`,
+ * i.e. into permission, which is the L-944 defect rebuilt at the call site with
+ * better manners. The one method checked below is `getById`, because without it
+ * there is no subject to ask about at all.
  */
 function previewSlabWeldForMove(
   wallId: string,
@@ -641,6 +655,30 @@ export function gateWallMove(
   // funnel through, so both gestures become atomic without either growing its
   // own wiring, and the three votes cannot drift apart.
   const slabPre = previewSlabWeldForMove(wallId, newBaseLine);
+
+  // ── §L-944 — UNDETERMINED IS NOT PERMISSION, AND IT IS NOT A REFUSAL EITHER ─
+  //
+  // Split out before the refusal branch so the two never share a sentence. A
+  // geometric refusal tells the user their move is impossible; this tells them
+  // PRYZM could not find out. Reporting the second as the first would send them
+  // to redesign a wall that is probably fine, which is its own species of the
+  // dishonesty this gate exists to remove.
+  //
+  // MEASURED 2026-08-17: before this lane the pre-flight threw on every
+  // non-collapsing slab-loop move (`TypeError: wallStore.getAll is not a
+  // function`), returned `allowed: true`, and this call site waved it through.
+  // The crash is fixed at its seam; this branch is what makes the NEXT one
+  // audible instead of permissive.
+  if (slabPre?.undetermined && slabPre.refusal) {
+    console.error(
+      `[wallPlacementGate] §L-921-SLAB-PREFLIGHT UNDETERMINED for wall ${wallId}: the ` +
+      `slab-loop weld check threw (${slabPre.undeterminedReason}) and therefore answered ` +
+      `NOTHING. The move is declined — an unrun check is not a passed check. Nothing ` +
+      `dispatched. This is a PRYZM fault to fix, not a user error to report.`,
+    );
+    return { blocked: true, verdict, surfaced: speakRefusal(slabPre.refusal.sentence) };
+  }
+
   if (slabPre && !slabPre.allowed && slabPre.refusal) {
     console.warn(
       `[wallPlacementGate] §L-921-SLAB-PREFLIGHT blocking wall ${wallId}: the move is clear of ` +

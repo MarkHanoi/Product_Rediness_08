@@ -52,10 +52,12 @@
 
 import type { WallData } from './WallTypes';
 import {
-    computeMoveReweldPlan,
+    computeMoveReweldCensus,
     type MoveReweldEntry,
+    type MoveReweldNotApplicable,
     type MoveReweldPartner,
     type MoveReweldRefusal,
+    type MoveReweldSubjectSeat,
     type ReweldBaseline,
 } from './WallMoveReweld';
 import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
@@ -212,6 +214,57 @@ export function describeReweldRefusal(r: MoveReweldRefusal): string {
     }
 }
 
+/**
+ * §L-945 — one compact `id:REASON(measured/limit mm)` token per partner that
+ * produced neither an entry nor a refusal.
+ *
+ * THE DEFECT THIS EXISTS FOR, verbatim from production on `55a2eda3`:
+ *
+ *     §MOVE-REWELD-DISPATCH: moved wall A → 2 partner(s) via joinedTo-graph
+ *        [B, C] → 1 baseline re-seat(s) [C], 0 junction(s) refused
+ *
+ * Two partners, one re-seat, zero refusals — and NOTHING anywhere said what
+ * became of the other one. The founder read that line and reported *"i expected
+ * it to adapt to the new position - but did not"*, and nobody could answer why,
+ * because the answer was never written down. `2 = 1 + 0` does not reconcile and
+ * the line gave the reader no way to notice.
+ *
+ * Terse on purpose: this is a per-gesture console line, not prose. The reason
+ * codes are the identity (never flattened, C71) and the two numbers are the C83
+ * §10.3 pair. `describeReweldRefusal` remains the sentence-length surface for
+ * the things a USER must be told; a not-applicable is a diagnostic, and putting
+ * it in the user's chat would bury the refusals that matter.
+ */
+export function summariseNotApplicable(n: MoveReweldNotApplicable): string {
+    const nums = n.measuredMm != null
+        ? `(${n.measuredMm}${n.limitMm != null ? `/${n.limitMm}` : ''} mm)`
+        : '';
+    return `${n.partnerId}:${n.reason}${nums}`;
+}
+
+/**
+ * §L-945 — the subject's own seat, as one readable clause.
+ *
+ * Separate from the partner census because the subject is not a partner, and
+ * because THIS is the clause that distinguishes the two ways a gesture can end
+ * with an open corner: the partner was never reached, or the partner was
+ * handled correctly and the SUBJECT then failed to reach the corner it formed.
+ * Both printed as an unremarkable absence before.
+ */
+export function summariseSubjectSeat(s: MoveReweldSubjectSeat): string {
+    if (s.cornersOffered.length === 0) return 'subject: no corner offered';
+    const parts = [
+        `subject: ${s.cornersOffered.length} corner(s) offered`,
+        `${s.seatedOn.length} seated`,
+    ];
+    if (s.declined.length > 0) {
+        parts.push(`${s.declined.length} DECLINED [${s.declined.map(summariseNotApplicable).join(', ')}]`);
+    }
+    parts.push(s.entryEmitted ? 'entry emitted' : 'NO subject entry');
+    if (s.suppressed) parts.push(`SUPPRESSED:${s.suppressed}`);
+    return parts.join(', ');
+}
+
 export class WallMoveReweldService {
     private unsubscribe?: () => void;
     /** §REENTRANT-SET: our own dispatch must not feed our own event path. */
@@ -312,7 +365,7 @@ export class WallMoveReweldService {
         }
         if (partners.length === 0) return;
 
-        const plan = computeMoveReweldPlan(
+        const plan = computeMoveReweldCensus(
             {
                 id: wall.id,
                 prevBaseLine: this.toBaseline(prevBL),
@@ -391,6 +444,14 @@ export class WallMoveReweldService {
                     `[WallMoveReweldService] §MOVE-REWELD-EMPTY-PLAN: moved wall ${wall.id} — ` +
                     `${partners.length} partner(s) considered via ${partnerSource} ` +
                     `[${partners.map(p => p.id).join(', ')}], 0 re-weld entries and 0 refusals. ` +
+                    // §L-945 — AND HERE IS WHY, PER PARTNER. This sentence used to
+                    // end at "left exactly as it was", which states the outcome
+                    // and withholds the cause; §3 of the L-942 brief called it
+                    // "the strongest unexplained clue" precisely because nothing
+                    // downstream could turn it into a question about geometry.
+                    `Per-partner outcome: ` +
+                    `[${plan.notApplicable.map(summariseNotApplicable).join(', ')}]. ` +
+                    `${summariseSubjectSeat(plan.subjectSeat)}. ` +
                     `Every junction this move touched was left exactly as it was.`
                 );
             }
@@ -456,8 +517,31 @@ export class WallMoveReweldService {
             //   refused   — junctions the engine will not close, by name
             // and the SUBJECT is labelled, so "the mover adapted" can never
             // again be read as "a partner followed".
+            //
+            // ── §L-945, THE FOURTH FACT ─────────────────────────────────────
+            //
+            // Three counts was still one short. Measured on `55a2eda3`:
+            //
+            //     moved wall A → 2 partner(s) … [B, C] → 1 baseline re-seat(s)
+            //     [C], 0 junction(s) refused
+            //
+            // **2 considered, 1 re-seated, 0 refused.** Partner B was neither
+            // followed nor refused, and no reader — including four lanes that
+            // tried — could recover what happened to it, because `entries` and
+            // `refusals` were the only two things the engine produced and B was
+            // in neither. That is L-921's defect one layer in: a dropped
+            // junction with nobody told.
+            //
+            // Every partner now appears in exactly one of the three lists, and
+            // the arithmetic is printed so a line that does NOT reconcile is
+            // visible as such rather than having to be noticed. The subject's
+            // own seat is a fourth clause because the subject is not a partner
+            // and its failure to reach a correctly-formed corner is a distinct
+            // way for the joint to end up open.
             const reseated = entries.map(e => e.wallId);
             const subjectOnly = reseated.length === 1 && reseated[0] === wall.id;
+            const partnerEntryIds = reseated.filter(id => id !== wall.id);
+            const accounted = partnerEntryIds.length + plan.refusals.length + plan.notApplicable.length;
             console.log(
                 `[WallMoveReweldService] §MOVE-REWELD-DISPATCH: moved wall ${wall.id} → ` +
                 `${partners.length} partner(s) via ${partnerSource} ` +
@@ -467,7 +551,18 @@ export class WallMoveReweldService {
                 `, ${plan.refusals.length} junction(s) refused` +
                 (plan.refusals.length > 0
                     ? ` [${plan.refusals.map(r => `${r.partnerId}:${r.reason}`).join(', ')}]`
-                    : '')
+                    : '') +
+                `, ${plan.notApplicable.length} not-applicable` +
+                (plan.notApplicable.length > 0
+                    ? ` [${plan.notApplicable.map(summariseNotApplicable).join(', ')}]`
+                    : '') +
+                ` | ${summariseSubjectSeat(plan.subjectSeat)}` +
+                ` | partners accounted ${accounted}/${partners.length}` +
+                // A control that cannot fail is not a control. The engine's own
+                // partition is asserted at the point of reading, so a future
+                // `continue` that forgets its record is loud rather than silent
+                // — which is exactly the failure this whole line is about.
+                (accounted !== partners.length ? ' ⛔ §L-945-UNACCOUNTED' : '')
             );
         } finally {
             this.propagating = false;

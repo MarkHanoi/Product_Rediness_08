@@ -7,6 +7,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — see removeRoom().
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { RoomData } from './RoomTypes';
 import { RoomColourSystem, RoomVisualisationMode } from './RoomColourSystem';
 import { BimManager } from '@pryzm/core-app-model';
@@ -295,29 +297,56 @@ export class RoomBoundaryBuilder {
     this._volumeMeshes.set(room.id, volumeMesh);
   }
 
+  /**
+   * §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2(b), L-944a) — "DETACH now,
+   * RELEASE at the boundary".
+   *
+   * ── Why this method in particular ───────────────────────────────────────────
+   * The founder's post-undo WebGPU error is
+   *
+   *   Vertex buffer slot 0 required by [RenderPipeline
+   *     "renderPipeline_MeshBasicMaterial_6268"] was not set.
+   *     - While encoding [RenderPassEncoder].Draw(48, 1, 0, 0).
+   *
+   * `Draw(48, 1, 0, 0)` is a NON-INDEXED 48-vertex draw on a MeshBasicMaterial
+   * pipeline. `ExtrudeGeometry(<n-gon>, { bevelEnabled: false })` is non-indexed and
+   * emits 12·n vertices, so 48 means n = 5 and no other n (measured against three
+   * r183 — the assertion lives in
+   * packages/room-topology/__tests__/L944RoomOverlayGpuLifetime.test.ts so a THREE
+   * upgrade that re-tessellates turns this identification RED rather than letting it
+   * rot). The room VOLUME overlay built by `_buildVolumeMesh` above is an
+   * ExtrudeGeometry + MeshBasicMaterial over the room polygon; the room FLOOR fill is
+   * a ShapeGeometry, which is INDEXED and would appear as a DrawIndexed. So the mesh
+   * that drew after its buffer was released is a five-corner ROOM overlay — and
+   * L-943 measured this same undo rewriting the room polygon (it "invented 63 m² of
+   * floor"), which is exactly what makes this builder run on `UNDO:
+   * CASCADE_WALL_BASELINE`.
+   *
+   * ── What was wrong ──────────────────────────────────────────────────────────
+   * The detach was already correct; the RELEASE was not. `dispose()` ran inline, on
+   * the mutation tick — a store-event / undo tick with no relationship to the frame
+   * boundary. INVARIANT L2 has two halves and only (a) was satisfied: a buffer may be
+   * freed only once the frame that last referenced it has finished encoding AND
+   * submitting. `scheduleGpuRelease()` defers to the one instant where that is true
+   * by construction, drained at the top of `RenderPipelineManager.render()`.
+   *
+   * `removeFromParent()` rather than `this.scene.remove(mesh)`: `Object3D.remove` is
+   * a silent no-op if the mesh has been re-parented, which would leave a live mesh
+   * holding a released buffer — the precise failure this method exists to prevent.
+   */
   removeRoom(roomId: string): void {
     const existing = this.meshes.get(roomId);
     if (existing) {
-      this.scene.remove(existing);
-      existing.geometry.dispose();
-      if (Array.isArray(existing.material)) {
-        existing.material.forEach(m => m.dispose());
-      } else {
-        (existing.material as THREE.Material).dispose();
-      }
+      existing.removeFromParent();        // (a) DETACH — unreachable from the scene now
       this.meshes.delete(roomId);
+      scheduleGpuRelease(existing);       // (b) RELEASE at the next frame boundary
     }
 
     const volume = this._volumeMeshes.get(roomId);
     if (volume) {
-      this.scene.remove(volume);
-      volume.geometry.dispose();
-      if (Array.isArray(volume.material)) {
-        volume.material.forEach(m => m.dispose());
-      } else {
-        (volume.material as THREE.Material).dispose();
-      }
+      volume.removeFromParent();
       this._volumeMeshes.delete(roomId);
+      scheduleGpuRelease(volume);
     }
   }
 

@@ -52,19 +52,58 @@ function deepCopy<T>(value: T): T {
  * TWO MODES, one enum member, and why that is deliberate:
  *
  *   'reproject' — a bounding wall MOVED and the boundary was re-derived from the
- *       sketch's host references (C79 §5.1). `nonUndoable: true`: the re-projection
- *       is DERIVED state maintenance, not a user gesture. Undoing the WALL move
- *       fires the wall store's 'update' again and the tracker re-projects back —
- *       pushing this onto the undo stack would break one-gesture-one-undo and
- *       leave the user undoing N ghost entries per wall drag. (Command.nonUndoable
- *       exists for exactly this: "automatic background operations that are
- *       side-effects of user actions", ../types.ts.)
+ *       sketch's host references (C79 §5.1). UNDOABLE, and composed into the
+ *       spawning gesture as a §L-874-ONE-UNDO structural child — see §L-943 below
+ *       for why the `nonUndoable` this carried until 2026-08-17 was a defect.
  *
  *   'degrade' — a bounding wall was REMOVED and the host references pointing at it
  *       collapse to freeLine edges at their last known geometry. C79 §4.2 REQUIRES
  *       this to be undoable ("Degradation MUST go through an undoable command"):
  *       Ctrl+Z on the wall deletion also restores the floor's HostReferenceEdges.
  *       Mirrors `DegradeSlabSketchCommand` including the pre-mutation snapshot.
+ *
+ * ── §L-943 — "undo invented 63 m² of floor" ─────────────────────────────────
+ * This header used to justify `nonUndoable: true` on 'reproject' like this:
+ * *"the re-projection is DERIVED state maintenance… undoing the WALL move fires
+ * the wall store's 'update' again and the tracker re-projects back"*. The premise
+ * was FALSE, and it made a wall move NON-REVERSIBLE. C71's rule is that undo
+ * RESTORES; it does not RECONSTRUCT — and a reconstruction on the reverse pass
+ * can differ from a value that was never replaced. Two independent ways it did:
+ *
+ *  1. RE-PROJECTION IS NOT AN INVOLUTION. `reprojectFinishBoundary` measures the
+ *     finish edge's inset against the wall's PRE-mutation centreline. On the
+ *     reverse pass that pre-mutation wall is the MOVED one, so the inset is
+ *     measured across the whole move distance and re-applied to the restored
+ *     centreline. MEASURED (floorFollowUndoRestore.test.ts, pre-fix): a 22.040 m²
+ *     floor came back as 51.040 m² from ONE Ctrl+Z. In production, 75.171 →
+ *     138.262 m² — the 63 m² of the ledger row.
+ *  2. THE FORWARD PASS HAS A REFUSAL ARM AND THE REVERSE PASS DID NOT CONSULT IT.
+ *     When the re-derived ring self-intersects or inverts, C79 §5.2.2 refuses
+ *     ('conflicted') and NOTHING is written. There was then nothing to reverse —
+ *     and the reverse pass wrote anyway. That floor is the 63 m².
+ *
+ * Even on the arm that "worked", the round trip was lossy: the reconstructed ring
+ * drifted in the last bits (0.1 → 0.09999999999999964) and `metadata.version`
+ * climbed 1 → 3 per move+undo cycle, because the reverse pass was a fresh WRITE
+ * rather than a restore.
+ *
+ * THE FIX IS A LATCHED FORWARD/INVERSE PAIR, not a second refusal. Making undo
+ * refuse too would leave both arms silent about a floor whose boundary no longer
+ * matches its walls. Instead:
+ *   · this command is undoable in BOTH modes and its Immer inverse patches
+ *     restore the PRE-move record verbatim — the value undo owes the user; and
+ *   · `FinishHostDependencyTracker` consults `CommandManager.isReverting()` and
+ *     stays SILENT during a revert, exactly as `SlabWallConnectivityService` and
+ *     `WallMoveReweldService` already do (§L-874). The history's own child entry
+ *     restores the finish; during a revert the tracker's only correct behaviour
+ *     is silence.
+ * ONE Ctrl+Z still reverts the whole gesture: the tracker dispatches with
+ * `source: 'STRUCTURAL_CASCADE'` from inside the wall command's `execute()`, so
+ * CommandManager attaches this to that gesture's `structuralChildren` rather than
+ * pushing a second history entry (§L-874-ONE-UNDO). A re-detect afterwards is
+ * free to conclude the restored boundary no longer matches its walls — that is a
+ * separate, honest verdict, and not something undo may pre-empt by inventing a
+ * ring.
  *
  * The type is `CommandType.UPDATE_FLOOR_BOUNDARY` — an existing enum member
  * (types.ts:308) with an existing PlanOrdering entry (PlanOrdering.ts:264) that no
@@ -95,9 +134,13 @@ export class UpdateFloorBoundaryCommand implements Command {
     readonly timestamp: number;
     targetIds: string[];
 
-    /** 'reproject' is derived-state maintenance and must NOT occupy an undo slot;
-     *  'degrade' is C79 §4.2-mandated undoable. See the class doc. */
-    readonly nonUndoable: boolean;
+    /** §L-943 — BOTH modes are undoable. 'reproject' carried `nonUndoable: true`
+     *  until 2026-08-17 on the premise that the wall-move undo would re-project
+     *  the floor back by itself; it did not — it RECONSTRUCTED a different ring,
+     *  and wrote one even where the forward pass had refused. Kept as a declared
+     *  field (rather than deleted) so the property stays greppable and so a future
+     *  reader meets the reasoning instead of re-deriving it. See the class doc. */
+    readonly nonUndoable: boolean = false;
 
     /**
      * Immer INVERSE PATCHES for the record this command rewrote (G-NEW-05), the
@@ -115,7 +158,6 @@ export class UpdateFloorBoundaryCommand implements Command {
         this.id = `cmd-update-floor-boundary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         this.timestamp = Date.now();
         this.targetIds = [payload.floorId];
-        this.nonUndoable = payload.mode === 'reproject';
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
@@ -226,21 +268,18 @@ export class UpdateFloorBoundaryCommand implements Command {
     }
 
     undo(context: CommandContext): CommandResult {
-        if (this.nonUndoable) {
-            // Required no-op (../types.ts): the wall-move undo re-fires the wall
-            // 'update' event and the tracker re-projects the floor back itself.
-            return {
-                success: true,
-                affectedElementIds: [],
-                info: [`Re-projection of floor "${this.payload.floorId}" is nonUndoable — the wall-move undo re-projects it back.`],
-            };
-        }
+        // §L-943 — BOTH modes restore here. There is no `nonUndoable` early
+        // return any more: the one that used to sit at the top of this method
+        // handed the reverse pass to a LISTENER that re-derived the boundary from
+        // the restored wall, which is a reconstruction, not a restoration. What
+        // the user is owed on Ctrl+Z is the boundary the floor HAD before the
+        // move — that is exactly what these inverse patches carry.
         const store = context.stores.floorStore;
         if (!store || !this.inversePatches) {
             return {
                 success: false,
                 affectedElementIds: [],
-                error: 'No pre-degradation snapshot captured — cannot undo floor boundary degradation.',
+                error: `No pre-mutation patches captured for floor "${this.payload.floorId}" — cannot undo the boundary ${this.payload.mode}.`,
             };
         }
         const currentNow = store.getById(this.payload.floorId);
@@ -262,13 +301,13 @@ export class UpdateFloorBoundaryCommand implements Command {
         // (mirrors FloorStore.restoreSnapshot).
         store.update(this.payload.floorId, prev, true);
         console.log(
-            `[UpdateFloorBoundaryCommand] UNDO: restored sketch on floor "${this.payload.floorId}" ` +
-            `(HostReferenceEdges for wall "${this.payload.cause.wallId}" restored).`
+            `[UpdateFloorBoundaryCommand] UNDO: restored the PRE-${this.payload.mode} boundary of floor ` +
+            `"${this.payload.floorId}" verbatim (cause: wall "${this.payload.cause.wallId}"). §L-943 — restored, not re-derived.`
         );
         return {
             success: true,
             affectedElementIds: [this.payload.floorId],
-            info: [`Sketch restored on floor "${this.payload.floorId}" (undo).`],
+            info: [`Floor "${this.payload.floorId}" boundary restored to its pre-${this.payload.mode} value (undo).`],
         };
     }
 

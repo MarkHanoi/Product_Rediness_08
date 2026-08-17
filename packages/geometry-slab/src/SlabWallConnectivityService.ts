@@ -151,7 +151,13 @@ export interface SlabWeldRefusal {
     readonly code:
         | 'WELD_COLLAPSES_PARTNER'
         | 'WELD_REFUSED_BY_CASCADE'
-        | 'WELD_FAILED';
+        | 'WELD_FAILED'
+        // §L-944-PREFLIGHT-UNDETERMINED — the pre-flight was APPLICABLE (this
+        // wall IS in a slab loop) and its machinery THREW. Not a geometric
+        // refusal: it is the honest report that this question has no answer,
+        // and the caller may not read it as permission. See
+        // `SlabWeldPreflightResult.undetermined`.
+        | 'SLAB_WELD_UNDETERMINED';
     /** The wall the user actually dragged. */
     readonly movedWallId: string;
     /** Every wall the refused weld would have touched. */
@@ -519,7 +525,10 @@ function collapseSentence(
     );
 }
 
-/** What a pre-flight can answer. `evaluated: false` is NEVER read as a refusal. */
+/**
+ * What a pre-flight can answer. THREE terminal states, not two — see
+ * `undetermined`.
+ */
 export interface SlabWeldPreflightResult {
     /** THE DECISION. Callers gate on this and nothing else. */
     readonly allowed: boolean;
@@ -528,18 +537,76 @@ export interface SlabWeldPreflightResult {
     /** The welds the move would require. Empty ⇒ it breaks no slab-loop corner. */
     readonly entries: readonly CascadeWallBaselineEntry[];
     /**
-     * False ⇒ the question could not be asked (no slab store, no sketch, the
-     * moved wall is in no slab loop's outer edge list, or the planner threw).
+     * False ⇒ the question was NOT APPLICABLE: no slab store, no sketch, or the
+     * moved wall is in no slab loop's outer edge list. There is nothing to weld,
+     * so `allowed: true` is the correct and complete answer.
+     *
      * §CONTEXT-DATA-HONESTY: "could not evaluate" and "evaluated and clear" are
-     * different facts and must never share a value — `allowed` is true in both,
-     * and this field is how a caller tells them apart.
+     * different facts and must never share a value.
      */
     readonly evaluated: boolean;
+    /**
+     * §L-944-PREFLIGHT-UNDETERMINED — the THIRD state, split out of the second.
+     *
+     * ── WHAT WAS WRONG ──────────────────────────────────────────────────────
+     * This field did not exist. A THROWN pre-flight returned the SAME value as
+     * a pre-flight that had nothing to check — `allowed: true, evaluated: false`
+     * — and the only caller (`wallPlacementGate.gateWallMove`) gates on
+     * `allowed`. So a crash inside the check read as permission, and the slab
+     * weld it exists to guard ran unguarded. MEASURED 2026-08-17: every
+     * non-collapsing slab-loop move in production took this path, because
+     * ARM 2 below threw `TypeError: wallStore.getAll is not a function` on
+     * every single call (see the shim in `previewSlabConnectivityWeld`).
+     *
+     * "I could not look" is not "nothing is wrong". That collision is this
+     * corpus's standing subject and it was sitting on the wall-move path.
+     *
+     * ── WHY `allowed` IS FALSE HERE, AND NOT TRUE-WITH-A-FLAG ────────────────
+     * `allowed` documents itself as the field callers gate on "and nothing
+     * else". A new advisory flag that every caller must remember to read is a
+     * flag some caller will forget, and forgetting it restores the exact defect.
+     * So the fail-safe direction is taken at the value itself: an UNDETERMINED
+     * pre-flight is not permission, and a caller that never learns this field
+     * exists still declines. Callers that want to distinguish "refused because
+     * the geometry is bad" from "refused because we could not tell" read
+     * `refusal.code === 'SLAB_WELD_UNDETERMINED'` or this flag.
+     *
+     * ⚠ This is NOT in tension with C83 §5.3 ("a question nobody answered
+     * refuses nothing"). §5.3 governs a question that was never ASKED — the
+     * `evaluated: false` arm above, which still returns `allowed: true`. A
+     * question that WAS asked and whose machinery broke is a different fact.
+     */
+    readonly undetermined: boolean;
+    /** The thrown error's message, verbatim, when `undetermined`. Else null. */
+    readonly undeterminedReason: string | null;
+}
+
+/**
+ * §L-944-PREFLIGHT-STORE-SHAPE — the wall-store surface the PRE-FLIGHT needs,
+ * which is strictly LARGER than the subscriber's `WallStoreRef`.
+ *
+ * ── THE DEFECT THIS TYPE EXISTS TO PREVENT ──────────────────────────────────
+ * The pre-flight hands its shim to the REAL `CascadeWallBaselineCommand`'s REAL
+ * `canExecute` — that faithfulness is the whole design (see ARM 2 below). But
+ * `canExecute` reads MORE of the store than this service's own planners do: as
+ * of §C83-S1-MOVE it calls `wallStore.getAll()` to build the host list for
+ * `evaluateWallPlacement` (CascadeWallBaselineCommand.ts:254). The shim
+ * implemented only `WallStoreRef` — `subscribe`/`getById`/`update` — and the
+ * context was handed over as `as never`, which erased every check that would
+ * have caught it. Result: a `TypeError` on every call, for months.
+ *
+ * Naming the surface makes the coupling a TYPE rather than a hope. When
+ * `canExecute` next grows a store read, this is the declaration that must grow
+ * with it, and the compiler says so at the shim.
+ */
+export interface PreflightWallStoreRef extends WallStoreRef {
+    /** Every wall in the model. Required by `CascadeWallBaselineCommand.canExecute`. */
+    getAll(): WallData[];
 }
 
 export interface SlabWeldPreflightInput {
     readonly slabStore: { getAll(): SlabData[] };
-    readonly wallStore: WallStoreRef;
+    readonly wallStore: PreflightWallStoreRef;
     readonly movedWallId: string;
     /** Where the wall is proposed to go. */
     readonly newBaseLine: readonly [Point3D, Point3D];
@@ -577,21 +644,29 @@ export interface SlabWeldPreflightInput {
  *  3. `prevSeg` is the wall's CURRENT stored centreline, which is exactly what
  *     the subscriber receives as `prevState` (§STEP7 / C72 §3.1).
  *
- * Never throws. An unanswerable question returns `allowed: true, evaluated:
- * false` — a pre-flight that cannot evaluate must not manufacture a refusal
- * (C83 §5.3: a question nobody answered refuses nothing).
+ * Never throws. It has THREE terminal states, and §L-944 split the third out of
+ * the second:
+ *   • NOT APPLICABLE — no slab store, or this wall is in no slab loop. There is
+ *     nothing to weld, so `allowed: true, evaluated: false` is complete
+ *     (C83 §5.3: a question nobody answered refuses nothing).
+ *   • ANSWERED — `evaluated: true`, `allowed` per the geometry.
+ *   • UNDETERMINED — the question WAS applicable and the machinery threw.
+ *     `allowed: false`, `undetermined: true`. NOT permission. See
+ *     `SlabWeldPreflightResult.undetermined` for why this is not §5.3.
  */
 export function previewSlabConnectivityWeld(
     input: SlabWeldPreflightInput,
 ): SlabWeldPreflightResult {
     const { slabStore, wallStore, movedWallId, newBaseLine } = input;
-    const NOT_EVALUATED: SlabWeldPreflightResult = {
+    /** The question does not apply — nothing to weld, nothing to refuse. */
+    const NOT_APPLICABLE: SlabWeldPreflightResult = {
         allowed: true, refusal: null, entries: [], evaluated: false,
+        undetermined: false, undeterminedReason: null,
     };
 
     try {
         const mover = wallStore.getById(movedWallId);
-        if (!mover || !mover.baseLine || mover.baseLine.length < 2) return NOT_EVALUATED;
+        if (!mover || !mover.baseLine || mover.baseLine.length < 2) return NOT_APPLICABLE;
 
         // The dependency graph, derived rather than read off the live instance:
         // the SAME predicate `registerSlab` uses (an outer-loop hostReference
@@ -602,7 +677,7 @@ export function previewSlabConnectivityWeld(
                 e => e.type === 'hostReference' && (e as HostReferenceEdge).hostId === movedWallId,
             ),
         );
-        if (slabs.length === 0) return NOT_EVALUATED;
+        if (slabs.length === 0) return NOT_APPLICABLE;
 
         // ── The shim: the model AS IT WILL BE the instant the subscriber runs ──
         const movedMover = {
@@ -612,14 +687,38 @@ export function previewSlabConnectivityWeld(
                 { x: newBaseLine[1].x, y: newBaseLine[1].y, z: newBaseLine[1].z },
             ],
         } as unknown as WallData;
-        // One object serves as both the entry builders' `WallStoreRef` and the
-        // resolver's `ResolveStoreRef` — deliberately, so the two halves of the
-        // pre-flight cannot see different walls. Declared as `WallStoreRef` and
-        // widened at the resolver call, because an intersection of two
-        // `getById` signatures is not satisfiable by one implementation.
-        const shim: WallStoreRef = {
+        // One object serves as the entry builders' `WallStoreRef`, the
+        // resolver's `ResolveStoreRef`, AND the store `CascadeWallBaselineCommand
+        // .canExecute` reads in ARM 2 — deliberately, so no half of the
+        // pre-flight can see a different world from any other half. Widened at
+        // the resolver call, because an intersection of two `getById` signatures
+        // is not satisfiable by one implementation.
+        //
+        // §L-944-PREFLIGHT-STORE-SHAPE — `getAll` is the entry that was MISSING,
+        // and its absence was the production crash: `canExecute` calls it
+        // (CascadeWallBaselineCommand.ts:254) to build the host list for
+        // `evaluateWallPlacement`, so ARM 2 threw `TypeError: wallStore.getAll
+        // is not a function` on every non-collapsing slab-loop move. Measured
+        // 2026-08-17; the `as never` at the ARM 2 call site is what let it
+        // compile.
+        //
+        // ⚠ It substitutes the mover, exactly as `getById` does, and that is
+        // NOT decoration. `evaluateWallPlacement` judges each cascade entry
+        // against this list; if the mover appeared here at its OLD baseline the
+        // pre-flight could refuse a partner for crossing an opening in a wall
+        // that is, in the world being asked about, no longer there — a FALSE
+        // refusal minted by the shim rather than the geometry. Faithfulness
+        // point 2 in this function's header is a commitment about EVERY
+        // consumer of the shim, not only the two it originally had.
+        //
+        // ⚠ And it is emphatically not `() => []`. An empty host list makes the
+        // occupancy predicate vacuously pass, which is the crash's own silent
+        // skip wearing a type-correct hat: the check would run, look at nothing,
+        // and report "clear".
+        const shim: PreflightWallStoreRef = {
             subscribe: () => () => { /* a pre-flight never subscribes */ },
             getById: (id: string) => (id === movedWallId ? movedMover : wallStore.getById(id)),
+            getAll: () => wallStore.getAll().map(w => (w.id === movedWallId ? movedMover : w)),
             update: () => { throw new Error('previewSlabConnectivityWeld must not mutate'); },
         };
         const resolveShim = shim as unknown as ResolveStoreRef;
@@ -636,12 +735,18 @@ export function previewSlabConnectivityWeld(
             planWeldEntriesForSlab(movedWallId, slab, shim, batch, prevSeg, resolveShim);
         }
         if (batch.length === 0) {
-            return { allowed: true, refusal: null, entries: [], evaluated: true };
+            return {
+                allowed: true, refusal: null, entries: [], evaluated: true,
+                undetermined: false, undeterminedReason: null,
+            };
         }
 
         const deduped = dedupeAndSuppress(batch, shim);
         if (deduped.length === 0) {
-            return { allowed: true, refusal: null, entries: [], evaluated: true };
+            return {
+                allowed: true, refusal: null, entries: [], evaluated: true,
+                undetermined: false, undeterminedReason: null,
+            };
         }
 
         const collapsing = collapsingEntries(deduped);
@@ -650,6 +755,8 @@ export function previewSlabConnectivityWeld(
                 allowed: false,
                 entries: deduped,
                 evaluated: true,
+                undetermined: false,
+                undeterminedReason: null,
                 refusal: {
                     code: 'WELD_COLLAPSES_PARTNER',
                     movedWallId,
@@ -663,6 +770,16 @@ export function previewSlabConnectivityWeld(
         // value AFTER it. The REAL command's REAL `canExecute`, against the shim
         // — so every reason code and every number below was produced by the
         // command that would otherwise have refused one subscriber too late.
+        //
+        // ⚠ §L-944 — UNTIL 2026-08-17 THIS LINE THREW ON EVERY CALL. The cast
+        // below is the widening every command context needs (a `CommandContext`
+        // names ~30 stores and a pre-flight legitimately supplies one), but the
+        // shim it widened did not implement `getAll`, which `canExecute` reads.
+        // `as never` accepts anything, so nothing objected until production.
+        // The cast is kept — it cannot be removed without a fake for every other
+        // store — but the shim is now typed `PreflightWallStoreRef`, so the
+        // surface this call depends on is DECLARED, and growing `canExecute`'s
+        // store reads now breaks the declaration rather than the runtime.
         const verdict = new CascadeWallBaselineCommand({
             entries: deduped,
             cause: 'slab-connectivity',
@@ -675,6 +792,8 @@ export function previewSlabConnectivityWeld(
                 allowed: false,
                 entries: deduped,
                 evaluated: true,
+                undetermined: false,
+                undeterminedReason: null,
                 refusal: {
                     code: 'WELD_REFUSED_BY_CASCADE',
                     movedWallId,
@@ -692,14 +811,59 @@ export function previewSlabConnectivityWeld(
             };
         }
 
-        return { allowed: true, refusal: null, entries: deduped, evaluated: true };
+        return {
+            allowed: true, refusal: null, entries: deduped, evaluated: true,
+            undetermined: false, undeterminedReason: null,
+        };
     } catch (err) {
-        // A pre-flight that crashed knows nothing, and "knows nothing" is not
-        // "refused" (§CONTEXT-DATA-HONESTY). Audible, then out of the way.
-        console.warn(
-            '[SlabWallConnectivityService] §L-921-SLAB-PREFLIGHT preview failed (non-fatal):', err,
+        // ── §L-944-PREFLIGHT-UNDETERMINED ───────────────────────────────────
+        //
+        // This arm used to say *"(non-fatal)"* and return `allowed: true`. Both
+        // halves were backwards.
+        //
+        // A pre-flight that crashed knows nothing — that much the old comment
+        // had right. What it got wrong is the next step: it concluded that
+        // "knows nothing" must therefore not REFUSE, and returned the value that
+        // means "go ahead". Those are not the same move. Declining to refuse is
+        // correct for a question that does not apply; for a question that WAS
+        // applicable and whose machinery broke, returning permission is the
+        // "I could not look" ⇒ "nothing is wrong" collision itself.
+        //
+        // And it was not hypothetical: `getAll` was missing from the shim, so
+        // this catch fired on EVERY non-collapsing slab-loop move and the weld
+        // ran with no gate at all. "(non-fatal)" described the exception's
+        // effect on the CALL STACK. Its effect on the MODEL was that the one
+        // check standing between a user drag and an unbounded corner weld was
+        // switched off, silently, for months.
+        //
+        // The message now names the consequence rather than the stack, and the
+        // return value is not permission. See `SlabWeldPreflightResult
+        // .undetermined` for why `allowed` is false rather than true-with-a-flag.
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(
+            `[SlabWallConnectivityService] §L-921-SLAB-PREFLIGHT could not answer for wall ` +
+            `${movedWallId} — the slab-loop weld check THREW, so this move is UNDETERMINED, ` +
+            `NOT cleared. The gesture is declined rather than allowed through an unasked ` +
+            `question. This is a defect in the check, not in the user's move — fix the throw.`,
+            err,
         );
-        return NOT_EVALUATED;
+        return {
+            allowed: false,
+            entries: [],
+            evaluated: false,
+            undetermined: true,
+            undeterminedReason: reason,
+            refusal: {
+                code: 'SLAB_WELD_UNDETERMINED',
+                movedWallId,
+                wallIds: [],
+                sentence:
+                    `SLAB_WELD_UNDETERMINED — that move was not completed, because the check ` +
+                    `that decides whether this wall's slab-loop corners can be repaired failed ` +
+                    `to run (${reason}). This is a fault in PRYZM, not in the move: the answer ` +
+                    `is unknown, and an unknown answer is not a yes. Nothing was changed.`,
+            },
+        };
     }
 }
 
