@@ -144,8 +144,12 @@ describe('L-934 — one wall type, two colours, decided by junction adjacency', 
             expect((w as any).systemTypeId).toBe('wt-monolithic');
             expect(JSON.stringify((w as any).layers)).toBe(JSON.stringify(MONOLITHIC.layers));
         }
-        // …and that shared layer set declares the tan the founder is seeing.
-        expect(MONOLITHIC.layers.map(l => l.materialColor)).toContain('#d4c5b0');
+        // §L934-ONE-WALL-ONE-COLOUR — the DEFAULT type used to declare '#d4c5b0', which
+        // is the tan the founder photographed: the layered arm paints the layer's own
+        // colour, so the default type was declaring the very beige §BEIGE-WALL-FIX had
+        // removed from the code. It must now declare the same white the plain arm uses.
+        expect(MONOLITHIC.layers.map(l => l.materialColor)).not.toContain('#d4c5b0');
+        expect(MONOLITHIC.layers.map(l => l.materialColor)).toEqual(['#e8e8e8']);
     });
 
     it('MEASUREMENT: the colour bound to the rendered face differs across walls of ONE type', () => {

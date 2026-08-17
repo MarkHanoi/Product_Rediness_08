@@ -82,7 +82,17 @@ const BUILTIN_TYPES: WallSystemType[] = [
     makeBuiltIn('wt-monolithic', 'Monolithic (Default)',
         'Single-material wall — identical to pre-type-system walls.',
         [
-            { name: 'Wall Body', thickness: 1.0, function: 'structure', materialColor: '#d4c5b0' }
+            // §L934-ONE-WALL-ONE-COLOUR — was '#d4c5b0'. This is the DEFAULT type, the
+            // one a user draws with before choosing any other, and its declared colour
+            // is what the layered render arms paint. §BEIGE-WALL-FIX (2026-06-08) ruled
+            // that a default wall is WHITE (`WALL_SCHEMATIC_MATERIAL` 0xe8e8e8) and
+            // purged the beige from the CODE paths — but left it here in the DATA, so
+            // the default type went on declaring the very colour that fix removed.
+            // A `wt-monolithic` wall therefore rendered white when unjoined (instanced
+            // arm, which ignored `layers`) and TAN the moment it touched a corner
+            // (layered arm, which reads this field). That is the founder's L-934 band.
+            // Aligning the data with the already-ratified decision, not minting a new one.
+            { name: 'Wall Body', thickness: 1.0, function: 'structure', materialColor: '#e8e8e8' }
         ]
         // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — NO DECLARED FUNCTION, DELIBERATELY.
         // "Monolithic (Default)" is the generic wall a user draws with before choosing a type;

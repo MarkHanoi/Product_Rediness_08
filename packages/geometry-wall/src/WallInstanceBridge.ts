@@ -27,6 +27,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import type { WallData } from './WallTypes';
 import type { InstancedElementRenderer } from './IInstancedRenderer';
 import type { JoinData } from '@pryzm/core-app-model';
+import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 
 export class WallInstanceBridge {
     constructor(private _renderer: InstancedElementRenderer) {}
@@ -74,12 +75,21 @@ export class WallInstanceBridge {
         // Rotation angle around Y to align the unit box with the baseline direction.
         const angle = -Math.atan2(direction.z, direction.x);
 
-        // §BEIGE-WALL-FIX (2026-06-08) — white default to match the standard mesh path
-        // (WALL_SCHEMATIC_MATERIAL 0xe8e8e8). Latent duplicate of the call-site default
-        // in WallFragmentBuilder; kept in lock-step so the instanced fallback is never
-        // the old '#d4c5b0' beige.
+        // §BEIGE-WALL-FIX (2026-06-08) → §L934-ONE-WALL-ONE-COLOUR (2026-08-17) — the
+        // fallback for callers that pass no material. It used to be a LATENT DUPLICATE
+        // of the call-site default, "kept in lock-step" by hand; L-934 is what
+        // hand-kept lock-step costs, so it now consumes the one declared constant.
+        //
+        // `wall.layers?.[0]` is read for the same reason `WallFragmentBuilder` reads it:
+        // a wall only reaches the instanced arm when its stack is one box or none
+        // (`isSimpleWall`, §L934-ONE-WALL-ONE-COLOUR condition 5), so layer 0 IS the
+        // whole wall — and it is what the layered arm would have painted.
         const mat = material ?? new THREE.MeshStandardMaterial({
-            color: new THREE.Color(wall.materialColor ?? '#e8e8e8'),
+            color: new THREE.Color(
+                (wall as { layers?: { materialColor?: string }[] }).layers?.[0]?.materialColor
+                ?? wall.materialColor
+                ?? WALL_DEFAULT_BODY_COLOUR,
+            ),
         });
 
         // Unit geometry: BoxGeometry(1,1,1). The actual wall dimensions are encoded

@@ -1,6 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { toCreasedNormals, mergeGeometries } from '@pryzm/renderer-three';
 import { WallData, Opening, WallLayer } from './WallTypes';
+import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 
 /**
  * §PERF-PHASE2 — wall-layer mesh-explosion cap.
@@ -409,7 +410,12 @@ export function buildLayeredWallSegmentsAroundOpenings(
         const layerCenter = layerCursor + layer.thickness / 2;
         layerCursor += layer.thickness;
 
-        const matColor: string = (layer as any).materialColor ?? wall.materialColor ?? '#d4c5b0';
+        // §L934-ONE-WALL-ONE-COLOUR — the third copy of the beige default, on the
+        // layered-WITH-OPENINGS arm. §BEIGE-WALL-FIX (2026-06-08) purged this literal
+        // from the instanced arm and left all three layered arms carrying it, so which
+        // colour a wall got depended on which arm the router picked. Imported from
+        // `WallFragmentBuilder` so there is exactly ONE declaration of the default.
+        const matColor: string = (layer as any).materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
         const geo = buildContinuousLayerGeometry(
             openingRects,
             wallLength,

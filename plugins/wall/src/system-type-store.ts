@@ -68,7 +68,12 @@ export const BUILTIN_WALL_TYPES: readonly WallSystemType[] = [
     'Monolithic (Default)',
     'Single-material wall — identical to pre-type-system walls.',
     [
-      { name: 'Wall Body', thickness: 0.1, function: 'structure', materialColor: '#d4c5b0' },
+      // §L934-ONE-WALL-ONE-COLOUR — was '#d4c5b0'. Kept in lock-step with the
+      // `wt-monolithic` entry in `packages/geometry-wall/src/WallSystemTypeStore.ts`,
+      // which carries the full reasoning: the DEFAULT type must declare the same white
+      // §BEIGE-WALL-FIX (2026-06-08) already ruled correct, or a wall changes colour
+      // the moment it touches a junction (founder, L-934).
+      { name: 'Wall Body', thickness: 0.1, function: 'structure', materialColor: '#e8e8e8' },
     ],
   ),
   makeBuiltIn(

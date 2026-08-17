@@ -6,6 +6,7 @@ import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
 // WebGPU render object must never throw `usedTimes` and abort the rebuild).
 import { safeDisposeGeometry, safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
+import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
 import { PathResolver } from './PathResolver';
@@ -1102,12 +1103,35 @@ export class WallFragmentBuilder {
         // ~70–85% of walls in a typical office building qualify. Instanced walls
         // collapse N draw calls into ~1 per (geometry × level) group.
         const _hasOpenings = wall.openings && wall.openings.length > 0;
+
+        // §L934-ONE-WALL-ONE-COLOUR — condition 5, and it is a CORRECTNESS condition,
+        // not a perf one. The instanced arm draws ONE unit box with ONE material
+        // (`WallInstanceBridge.register` → `BoxGeometry(1,1,1)`), so it can only
+        // represent a wall whose layer stack IS one box: zero layers, or one.
+        //
+        // MEASURED (L934LayeredJunctionMaterial.measure.test.ts): an UNJOINED
+        // `wt-interior-partition` — plaster / stud / plaster, three DECLARED colours —
+        // rendered as a single `#e8e8e8` box. All three declared colours were absent
+        // from the scene. Join the same wall and its stack appears. The layer stack
+        // was being silently discarded by the router, and because the router keys on
+        // join data, a JUNCTION was what decided whether the user's own wall type was
+        // drawn at all.
+        //
+        // Single-layer walls (`wt-monolithic`, the default a user draws with) still
+        // instance — one box is a faithful drawing of them — so the ~70–85% figure
+        // above is essentially untouched. They now take their colour FROM THE LAYER
+        // (below), which is what makes the two arms agree by construction rather than
+        // by two literals being kept in step by hand.
+        const _layers = (wall as { layers?: { materialColor?: string }[] }).layers;
+        const _layerCount = _layers?.length ?? 0;
+
         const isSimpleWall = (
             this._instanceBridge !== null &&
             !_hasOpenings &&
             !wall.curve &&
             !joinData?.startMN &&
-            !joinData?.endMN
+            !joinData?.endMN &&
+            _layerCount <= 1
         );
 
         if (isSimpleWall) {
@@ -1134,7 +1158,20 @@ export class WallFragmentBuilder {
             // material.uuid → a singleton InstanceGroup → zero draw-call savings). With
             // sharing, all identical-colour simple walls on a level collapse into one
             // InstancedMesh. See _getInstanceMaterial().
-            const mat = this._getInstanceMaterial(intentColour ?? wall.materialColor ?? '#e8e8e8');
+            //
+            // §L934-ONE-WALL-ONE-COLOUR — `_layers?.[0]?.materialColor` is the new term,
+            // and it is the one that closes the founder's defect. `_layerCount <= 1` is
+            // guaranteed by `isSimpleWall`, so layer 0 IS the whole wall here, and the
+            // layered arm at the other end of the router reads exactly the same field
+            // first (`layer.materialColor ?? …`). The same wall therefore resolves to
+            // the same colour whichever arm a junction sends it down — which is the
+            // invariant that was missing, not the value of any one default.
+            const mat = this._getInstanceMaterial(
+                intentColour
+                ?? _layers?.[0]?.materialColor
+                ?? wall.materialColor
+                ?? WALL_DEFAULT_BODY_COLOUR,
+            );
             this._instanceBridge!.register(wall, resolvedY, joinData, mat);
 
             // §INSTANCED-SELECTION-FIX: Add an invisible hit-proxy mesh so that
@@ -1475,7 +1512,10 @@ export class WallFragmentBuilder {
                         endMN,
                     );
 
-                const matColor = layer.materialColor ?? wall.materialColor ?? '#d4c5b0';
+                // §L934-ONE-WALL-ONE-COLOUR — was a local `'#d4c5b0'`. §BEIGE-WALL-FIX
+                // purged that beige from the instanced arm in 2026-06 and never reached
+                // here, so the two arms of one router disagreed for fourteen months.
+                const matColor = layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
                 const mat = new THREE.MeshStandardMaterial({
                     color: matColor,
                     roughness: 0.85,
@@ -1847,7 +1887,9 @@ export class WallFragmentBuilder {
                     _layeredEndCapTan
                 );
 
-                const matColor = layer.materialColor ?? wall.materialColor ?? '#d4c5b0';
+                // §L934-ONE-WALL-ONE-COLOUR — the curved-layered twin of the straight
+                // arm above; same beige, same omission from §BEIGE-WALL-FIX.
+                const matColor = layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
                 const mat = new THREE.MeshStandardMaterial({
                     color: matColor,
                     roughness: 0.85,
