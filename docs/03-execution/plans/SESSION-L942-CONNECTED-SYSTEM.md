@@ -1,244 +1,180 @@
-# SESSION BRIEF — make wall moves PROPAGATE, 100%
+# SESSION BRIEF — finish the connected-system fixes and VERIFY them
 
-**Single-objective session. Written 2026-08-17 after THREE failed production fixes.**
-Paste everything below as the first message of the next session.
+**Written 2026-08-17 at session end. Paste everything below as the first message.**
 
 ---
 
-## 0. THE MISSION — one thing, and it is not "close L-942"
+You are continuing PRYZM (BIM SaaS, pnpm monorepo). Read `CLAUDE.md`, then this.
 
-Make this true, in the browser, on the founder's own model:
+## 0. ⛔ FIRST ACTION — VERIFY, DO NOT BUILD
 
-> **A wall moves. Everything that depends on it follows. Nothing is left open, doubled,
-> floating, or silently refused.**
+**`0f88bbc6` shipped four lanes' UNVERIFIED work.** The lanes stalled mid-implementation —
+transcripts frozen at identical byte counts across three checks, journal 4 started / 0
+finished, none committed or ran its own suite. The founder directed the ship knowingly.
 
-**Do not stop at "the gate no longer blocks."** That is a symptom. Three fixes have already
-been shipped to production, each correct in isolation, each at the wrong layer, and the
-founder is still blocked. **The exit condition is the founder moving a perimeter wall in
-`app.pryzm.so` and the model staying whole.**
+**Verified before shipping:** root tsc **RC=0, 0 errors** across 29 files ·
+`wallMoveReweldSeam` **11/11** (the load-bearing L-922 degree control still holds).
 
-## 1. ⛔ READ THIS BEFORE WRITING ANY CODE — the three failures, and why each looked green
+**Not verified:** everything else.
 
-L-942: **every wall move that breaks a junction is hard-blocked in production.** The founder's
-console, unchanged across all three attempts:
+**RUN THESE FIRST, capture each exit code TO A FILE, before writing a single line of code:**
 
-```
-[wallPlacementGate] §L-921-ATOMIC-GESTURE blocking wall <id>: the move is clear of every
-opening, but its junction re-weld cannot be done soundly
-(cascade ok=true, incumbentBreach=true) — nothing dispatched.
-```
-
-⭐ **`cascade ok=true, incumbentBreach=true` means THE GEOMETRY IS SOUND AND THE POLICY
-REFUSED.** Every fix so far has been aimed at the policy. None has yet made the gesture work.
-
-| # | SHA | What was fixed | Why it was still broken |
-|---|---|---|---|
-| 1 | `c2e8ba00` | shipped the incumbent gate | its **escape hatch (C83 §10.6) was never shipped** — a gate that can only say "no" |
-| 2 | `6c676413` | threaded the discriminator into `WallMoveReweldService`; proved the follow there (11/11, 664/664, 9/9) | **a user's gesture does not go through the service.** It goes through `wallPlacementGate` → `moveReweldPreflight`, which **builds its own partner list** |
-| 3 | `9bb11a4c` | threaded it at all three gate call sites; root tsc RC=0 | **still refuses.** Typechecked, never executed at the gate layer. Root cause NOT established |
-
-> ⭐ **THE LESSON, and it is the reason this brief exists:** *proving a fix at the layer that
-> **computes** is worth nothing if the layer that **decides** keeps its own copy of the
-> inputs.* [[committed-is-not-reachable]] — three times in one day, each time with green
-> tests.
-
-**So: DO NOT WRITE A FIX FIRST. Establish the root cause first, at the layer the user
-touches.** A fourth wrong-layer fix costs another 25-minute deploy and more of the founder's
-trust.
-
-## 2. START HERE — the diagnostic, before anything else
-
-Run this in the browser console on `app.pryzm.so` (F12), project open, after a wall refuses:
-
-```js
-const g = window.semanticGraphManager;
-const wid = '<the wall id from the refusal message>';
-const q = g.getJoinedWalls(wid);
-console.log('ok:', q.ok, '| ids:', q.joinedWallIds);
-console.log('junctions:', JSON.stringify(q.junctions, null, 1));
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit --skipLibCheck -p tsconfig.json
+pnpm --filter @pryzm/geometry-wall test        # was 648/664; a lane observed 670/670
+pnpm --filter @pryzm/geometry-slab test
+pnpm --filter @pryzm/command-registry test
+pnpm --filter @pryzm/finish-host-tracker test
+pnpm --filter @pryzm/core-app-model test
+npm run check:isolation
+npm run test:server                            # expect 613/613
+npx vitest run                                 # root config
 ```
 
-**Branch on the answer — each points at a different layer, and only one of them is the
-`§10.6` logic:**
+⚠ `WallCreateJoinIntentCensus.measure` is KNOWN-FLAKY when another process writes files
+mid-scan — its own header says so. Re-run it alone before believing a failure.
+⚠ `packages/renderer-three/__tests__/depth-buffer.test.ts` has **3 PRE-EXISTING** failures
+unrelated to any of this.
 
-| Reading | Meaning | Where the bug is |
+⚠⚠ **CHECK FOR CLOBBERED ASSERTIONS.** The partner-census lane edited
+`packages/geometry-wall/__tests__/L926*`, `L932*`, `WallMoveReweld.test.ts` — files owned by a
+concurrent re-scope workflow. The `computeMoveReweldPlan → computeMoveReweldCensus` rename
+forced it, but **two workflows in one file is how work gets lost.** Diff against `21d0890e`
+before trusting those suites.
+
+## 1. WHAT EACH STALLED LANE INTENDED — their claims, not proven outcomes
+
+| Lane | Files | Intent |
 |---|---|---|
-| `junctions: undefined` | the reader change isn't live, or this isn't the object that was patched | build/bundling, or a second `SemanticGraphManager` instance |
-| `junctions: [{wallId, junctionType: undefined}]` | **edges exist but carry NO metadata** | the WRITER — `WallRebuildCoordinator._flush` is bailing (`builder-lacks-junction-index` / `index-refused`) or never running |
-| `junctionType: 'T', junctionDegree: 3` | the corner genuinely is not mutual | **§10.6 does not cover the founder's shape** — see §4, this is the likely one |
-| `junctionType: 'L', junctionDegree: 2` | metadata correct | the bug is downstream, inside the gate |
+| **L-943** floor/ceiling undo | `FinishHostDependencyTracker` ×24 · `UpdateFloorBoundaryCommand` ×20 · `UpdateCeilingBoundaryCommand` ×12 · new `floorFollowUndoRestore.test.ts` | It went to a **TRACKER — a LISTENER**, which is the suspected root: the finish follow *reacts* to the wall change instead of being a latched forward/inverse patch pair, so undo **RE-DERIVES where it should RESTORE**. ⭐ It also touched **CEILINGS**, unbriefed — same mechanism, so ceilings are almost certainly corrupting too. |
+| **L-944b** dead preflight | `wallPlacementGate` ×4 · `SlabWallConnectivityService` ×3 · `WallStore` ×1 · new `wallMoveSlabWeldPreMove.test.ts` | Smallest footprint = a contained crash fix. The `WallStore` touch is likely the real shape mismatch behind `t.getAll is not a function`. |
+| **L-944a** GPU draw-after-free | `WallFragmentBuilder` ×16 · `DiagnosticMaterialManager` ×13 · `GhostOverlayRenderer` ×7 · `SelectionBoundsRegistry` ×6 | ⚠ **WENT SOMEWHERE THE BRIEF DID NOT SAY.** Briefed at `renderer-three`/L-930's submit gate; went to fragments + overlays. If right, the buffer isn't freed by the pipeline — **a wall fragment is rebuilt on undo while an OVERLAY holds a draw reference**, which explains `MeshBasicMaterial` (an overlay material). **UNCONFIRMED — the lane's reading, not mine.** |
+| **partner census** | `WallMoveReweld.ts` ×3 + 3 test files | `computeMoveReweldPlan` → `computeMoveReweldCensus`, new `MoveReweldNotApplicable`. Every partner now leaves as entry / refusal / typed not-applicable. **Silence was the fourth state.** |
 
-⚠ **The writer HAS been verified to stamp the metadata** —
-[`WallRebuildCoordinator.ts:177-181`](../../../apps/editor/src/engine/WallRebuildCoordinator.ts#L177)
-does `junctionType: rec.type, junctionDegree: rec.degree`. But **`writeJoinedToForLevel` has
-four early-return paths** that write NOTHING (`no-walls-on-level`, `builder-lacks-junction-index`,
-`index-refused`, and a non-`ok` probe). **Nobody has checked which path production takes.**
-That is a prime suspect and it is cheap to answer.
+## 2. THE THREE DEFECTS, AS MEASURED — these are facts, unlike §1
 
-## 3. ⭐ THE STRONGEST UNEXPLAINED CLUE — do not skip this
-
-A wall move that **SUCCEEDED** logged:
+### L-943 — the undo invented 63 m²
 
 ```
-[WallMoveReweldService] §MOVE-REWELD-EMPTY-PLAN: moved wall <A> — 2 partner(s) considered
-via joinedTo-graph [<B>, <C>], 0 re-weld entries and 0 refusals.
-Every junction this move touched was left exactly as it was.
+MOVE: [Dne] §C79-5.2 conflicted: floor "162a95a2" NOT re-projected — ring self-intersects
+UNDO: [Dne] §C79-5.2 resized:    floor "162a95a2" follows wall — 75.171 → 138.262 m²
 ```
 
-**Partners were found and NOTHING was computed** — not a follow, not a stem, not a refusal.
-That is not "the discriminator said no". **That is the corner branch never being reached at
-all**, which no current theory explains.
+It **refused** going forward — nothing to reverse — and undo resized it anyway. Forward has a
+refusal arm; reverse doesn't consult it. **C71: undo RESTORES, it does not RECONSTRUCT.**
+⛔ Do NOT fix by making undo refuse too — both arms then go silent about a floor that no longer
+matches its walls. Restore the stored boundary verbatim. **HIGH: it silently changes areas the
+user bills from.** Prove at the STORED boundary across move→undo, never at the reported m².
 
-Suspects inside `computeMoveReweldPlan` (`packages/geometry-wall/src/WallMoveReweld.ts`), each
-of which `continue`s silently:
-- `if (dS > weldTol && dE > weldTol) continue;` — "was never joined here"
-- `if (!corner) continue;` — near-parallel / degenerate
-- `if (distToSegment(corner, newS, newE) > alongMoverReach) continue;`
-- `if (displacement > alongPartnerReach) continue;` — spike refusal
-- `if (dist(corner, far) < DEGENERATE_STUB_LENGTH) continue;`
-- `authorship.kind === 'ambiguous'` → refusal, but that WOULD have been reported
-
-**Every one of those is a silent drop.** Instrument them — a plan that considered 2 partners
-and emitted nothing must SAY WHY per partner. That instrumentation is worth more than the
-next fix, and it is the honest version of this codebase's own rule: *a dropped junction with
-nobody told is L-921 wearing L-922's clothes.*
-
-## 4. ⚠ THE LIKELY REAL ROOT CAUSE — §10.6 may be too narrow for real buildings
-
-C83 §10.6 permits the follow ONLY at `junctionType === 'L' && junctionDegree === 2`.
-
-**The founder's model is a cross/T-shaped perimeter** (see the screenshots in ISSUE-LOG L-942).
-Real perimeters produce corners that the junction resolver may classify as `T`, `Y`, `X` or
-`N-WAY`, not `L`. And the refusal quoted a partner shift of **6513 mm** — a 6.5 m move, which
-does not look like a simple 2-wall corner re-seat.
-
-> **So the question the next session must answer is architectural, not mechanical:**
-> **on a real closed perimeter, what junction types actually occur, and which of them SHOULD
-> follow?**
-
-The founder's rule (§5 below) says *the adjacent perimeter walls must extend, shorten, rotate
-or reposition as necessary to maintain a closed perimeter*. That is a statement about a
-**closed loop**, not about degree-2 corners. **§10.6's `L`/2 test may be measuring the wrong
-property.**
-
-⛔ **DO NOT simply widen the predicate to make it pass.** L-922 is the reason the narrow test
-exists: an interior wall's move dragged a **perimeter** baseline 2.19 m and re-seated three
-hosted doors. **Whatever replaces the test must still refuse THAT**, and
-`wallMoveReweldSeam.test.ts` holds a load-bearing control that proves it (it goes RED when the
-discriminator check is removed — verify that still holds).
-
-**A promising direction, not a decision:** the discriminator that matters may be
-*"is the partner part of the same closed loop as the subject?"* rather than the junction's
-degree. If so it is a **C83 §10.6 amendment and needs founder confirmation** — §10.6 was
-itself confirmed on 2026-08-17, and §10.6.7 records that shipping a gate without its escape
-hatch is what caused this.
-
-## 5. THE FOUNDER'S SPEC — capture this to a doc; it exists nowhere else
-
-Issued 2026-08-17, verbatim intent. **This is the definition of done for the programme, not
-just for L-942.**
-
-> **PRYZM 3.0 — Architectural Topological and Parametric Wall Behaviour.** The building model
-> must behave as a **connected architectural system**, not a collection of independent
-> geometric objects.
-
-1. **Perimeter wall behaviour.** A closed external perimeter is ONE connected boundary. Move
-   one perimeter wall: it moves **perpendicular to its own wall vector**; it stays connected;
-   **the adjacent perimeter walls extend, shorten, rotate or reposition as necessary to keep
-   the perimeter closed and valid**; corners resolve automatically. No gaps, no overlaps.
-2. **Elements dependent on the perimeter.** When the perimeter changes, regenerate: structural
-   /architectural **slabs, floor finishes, ceilings, roof geometry, roof finishes, affected
-   rooms**. Preserve thicknesses, offsets, levels unless the user changes them.
-   *(⚠ THIS IS THE SUSPECTED LARGE GAP AND IS UNAUDITED.)*
-3. **Interior walls.** Four connected interior walls define a room. Move one: connected walls
-   adapt, endpoints stay joined, **room boundary regenerates**, area and dimensions update,
-   floor finishes and ceilings adapt.
-4. **Polyline / multi-segment walls.** A polyline behaves as ONE connected system. Move a
-   segment: neighbours follow, corners stay connected, the polyline stays continuous, bounded
-   rooms update.
-5. **Perimeter ↔ interior.** An interior wall connected to the perimeter follows when the
-   perimeter moves, stays connected, and its downstream walls adapt. Never produce
-   disconnected ends, gaps, overlaps, floating walls or invalid rooms. **The connection is a
-   persistent RELATIONSHIP, not a coincidence of coordinates.**
-6. **Hierarchical dependency.** DESIGN INTENT → BUILDING PERIMETER → CONNECTED WALL NETWORK →
-   ROOM BOUNDARIES → SLABS/FLOORS/FINISHES → CEILINGS → ROOFS. A change at any level
-   propagates down. The user should not redraw dependents by hand.
-7. **Preserve intent, not coordinates.** Ask *"what architectural relationships must remain
-   true after this change?"*, not *"which objects have fixed coordinates?"*
-8. **Core principle — MOVE → PROPAGATE → RECOMPUTE.** Not MOVE → BREAK → MANUALLY REPAIR.
-
-## 6. A SECOND, SEPARATE DEFECT FOUND IN THE SAME LOG — file it
+### L-944b — a rival cascade with a dead guard
 
 ```
-[SlabWallConnectivityService] §L-921-SLAB-PREFLIGHT preview failed (non-fatal):
-TypeError: t.getAll is not a function
-  at h6.canExecute (...)
+[WallMoveReweldService]       2 partner(s) considered → 0 entries, 0 refusals
+[SlabWallConnectivityService] the new corner lies PAST this wall's far endpoint … -1.190 → -5.000
+[SlabWallConnectivityService] §L-921-SLAB-PREFLIGHT preview failed (non-fatal): t.getAll is not a function
 ```
 
-**A preflight is CRASHING on every wall move.** Marked non-fatal — but a preflight that throws
-answers nothing, and this whole programme exists because *"I could not look"* and *"nothing is
-wrong"* must never be the same value. The slab arm of the gesture is currently blind. Almost
-certainly a store-shape mismatch (something is passed a bare object where a store with
-`getAll()` is expected). File it and fix it; it is independent of the §10.6 work and may be
-masking slab-side propagation failures relevant to spec §2.
+Two services weld the same corner; compounds `-1.190 → -5.000 → -11.654` (gate reported
+**10464 mm**). ⭐ **"(non-fatal)" is exactly backwards — a check that throws has NOT ANSWERED**,
+and the weld proceeds unguarded. Also explains `§MOVE-REWELD-EMPTY-PLAN`: the reweld service
+isn't failing to compute, the slab service got there first.
+⛔ Do NOT fix with a `typeof x.getAll === 'function'` guard — that turns a crash into a silent
+skip, the same defect in a quieter coat.
+⛔ **Which service owns a corner is ARCHITECTURAL and needs the founder.** Measure and report;
+do not pick a winner.
 
-## 7. STATE — what is committed, what is proven, what is not
+### L-944a — WebGPU draw-after-free
 
-**Production: `9bb11a4c`, bundle proof 6/6.** Still refuses. `main` is ahead with test work.
+```
+uncaptured WebGPU error: Vertex buffer slot 0 required by
+  [RenderPipeline "renderPipeline_MeshBasicMaterial_6268"] was not set.
+```
+Fires immediately after `UNDO: CASCADE_WALL_BASELINE`. Same lifetime family as L-930 (that was
+the *free* side; this is the *draw* side). ADR-0297 L2 governs: *DETACH now, RELEASE at the
+boundary*. Note L-939: `captureThumbnail()` drives a second off-rAF `render()` and an auto-save
+fires on this exact gesture, so the interleave is real and documented.
 
-**Green and must stay green** (they do NOT prove the gesture works — that is the point):
-- `packages/command-registry/__tests__/wallMoveReweldSeam.test.ts` **11/11** — holds C83
-  §10.6.5's three controls incl. the **load-bearing L-922 `T`/degree-3 control**, verified to
-  go RED under negative control
-- `packages/command-registry/__tests__/hostedOpeningHostMoveSeam.test.ts` **9/9** — the
-  extend+shrink round-trip; a door's world position is preserved (`offset 0.000 → 2.000 m`)
-- `packages/geometry-wall` **664/664** · root tsc **RC=0**
+## 3. WHAT WORKS — do not regress it
 
-**Known failing — stale defect-measurements, NOT broken behaviour** (9 tests, two files):
-`L936InteriorLPairMove.measure.test.ts`, `L932AngledWallMove.measure.test.ts`. Their describe
-blocks literally say *"the partner is REACHED, **and then deliberately left behind**"*. They
-measured the defect. ⛔ **Do not flip numbers until green** — derive the expected seat
-analytically, assert the far endpoint byte-identical, assert the loop is still closed.
+**Perimeter walls close when moved OUTWARDS past a neighbour's end.** The founder diagnosed it
+in one sentence — *"inwards works, outwards doesn't"* — after three deploys had fixed the wrong
+layer. Inwards: the corner lands ON the neighbour, nothing moves. Outwards: it lands PAST the
+end, the neighbour must LENGTHEN, and that was banned outright.
 
-**A workflow (`wzxiwzxrk`) was running at session end**: a gate-layer reachability test, a
-census of every partner-construction site, and the measure-test rewrites. **Check `git log`
-and read its results before doing anything — the census in particular may already name the
-fourth call site.**
+**C83 §10.6.3, amended and founder-confirmed:** at **degree 2** the partner FOLLOWS — pivot,
+welded endpoint to the analytic intersection, **far endpoint untouched**, both directions.
+**Degree ≥ 3 NEVER follows** (the L-922 guard). Degree is READ from the stored `joinedTo` edge
+or **MEASURED** by counting endpoints when absent — counting measures the same number the
+metadata stores, so it is not the forbidden geometric inference.
 
-**⚠ There is still NO test that drives `wallPlacementGate`.** Writing one is the single
-highest-value artefact this session can produce, whatever the root cause turns out to be.
+## 4. DISCIPLINE — every rule below was broken on 2026-08-17
 
-## 8. DISCIPLINE — every one of these was broken on 2026-08-17
-
-- **MEASURE, never infer.** A stated premise lost to a measurement **six times**; four were
-  the agent's own, two inside its own fix.
-- **§EXIT-CODE-THROUGH-A-PIPE.** Never `| tail` a verdict. `CMD > out.txt 2>&1; echo "RC=$?"
-  >> out.txt`, then read the file. Misread **five times**; once the text said FAILED and the
-  piped code said 0.
-- **Root tsc: `NODE_OPTIONS=--max-old-space-size=8192`.** Exit **134** = OOM, not a type
-  error, no diagnostics printed. Misread four times.
-- **A control that cannot fail is not a control.** Watch every assertion go red first. One
-  L-922 control this session stayed GREEN with the safety check removed.
-- **A refusing half and its escape hatch ship together, or neither ships** (C83 §10.6.7).
-- **Exit 3 is never absorbable** (C70 §5.1).
+- **MEASURE, never infer.** A stated premise lost to a measurement **six times**; four were the
+  agent's own, two inside its own fix.
+- **§EXIT-CODE-THROUGH-A-PIPE.** Never `| tail` a verdict. `CMD > out.txt 2>&1; echo "RC=$?" >>
+  out.txt`, read the file. **Misread five times**; once the text said FAILED and the code said 0.
+- **Root tsc needs `--max-old-space-size=8192`.** Exit **134** = OOM, not a type error.
+- ⭐ **COMMITTED ≠ REACHABLE**, sharp form: *proving a fix at the layer that COMPUTES is worth
+  nothing if the layer that DECIDES keeps its own copy of the inputs.* **Shipped broken to
+  production three times in one day, each with green tests.**
+- ⭐ **A refusing half and its escape hatch ship together, or neither ships** (C83 §10.6.7).
+- ⭐ **A control that cannot fail is not a control.** Watch every assertion go red first — one
+  L-922 control stayed GREEN with the safety check removed.
+- ⭐ **A probe can lie.** A watch grep for "L-944" matched the agent's own issue-log commit and
+  falsely reported the fix had landed. **Read the output; never act on the match alone.**
 - **Never `git stash`** (global across worktrees). Commit scoped paths; never `git add -A`.
-- **Clean up probe artefacts** — two lanes left `__scratchProbe.test.ts` and
-  `tsconfig.__probe.json` behind, and they ran as suite failures.
-- **Deploy:** read `DEPLOY-CONTRACT-MANUAL-FLY.md` **§6.7 first**. The bundle proof failed a
+- **Deploy:** read `DEPLOY-CONTRACT-MANUAL-FLY.md` **§6.7 FIRST**. The bundle proof failed a
   HEALTHY deploy and says `ROLL BACK NOW, DO NOT RETRY`. Do not run it until the deploy script
   has EXITED. **L-941 is that fix and it is HIGH.**
 
-## 9. THE ORDER OF WORK
+## 5. THE FOUNDER'S SPEC — the definition of done
 
-1. **Diagnose** (§2 probe + §3 instrumentation). Do not fix anything yet.
-2. **Write the gate-layer test** that reproduces the founder's refusal. Watch it fail.
-3. **Establish the root cause** and say plainly which of the four §2 branches it is.
-4. **If it is §4** — the predicate is too narrow — **stop and put the amendment to the founder
-   before coding.** It changes what §10.1 permits, and that is exactly the decision that must
-   not be made on an agent's reading of intent.
-5. **Fix, prove at the gate layer, prove the L-922 control still goes red, deploy, and ask the
-   founder to confirm in the browser.**
-6. Only then: the 9 stale measure tests, the slab-preflight crash (§6), and spec §2's audit.
+**PRYZM 3.0 — Architectural Topological and Parametric Wall Behaviour.** The model must behave
+as a **connected architectural system**.
 
-**Do not report this as fixed until the founder has moved a wall and said so.** That sentence
-has been written three times today and been wrong three times.
+1. **Perimeter** — move one wall: it moves perpendicular to its own vector; neighbours
+   **extend, shorten, rotate or reposition** to keep the perimeter closed; corners resolve; no
+   gaps or overlaps. *(wall-follow core: WORKING)*
+2. **Dependent elements** — slabs, floor finishes, ceilings, roof geometry, roof finishes and
+   rooms **regenerate** to the new perimeter, preserving thickness/offset/level.
+   ⚠ **SUSPECTED LARGE GAP, UNAUDITED. Audit reachability, not existence.**
+3. **Interior walls** — four connected walls define a room; move one and the room boundary,
+   area and finishes update.
+4. **Polylines** — a multi-segment wall behaves as ONE connected system.
+5. **Perimeter ↔ interior** — a partition connected to the perimeter follows it and stays
+   connected. Never produce disconnected ends, gaps, overlaps, floating walls, invalid rooms.
+   **The connection is a persistent RELATIONSHIP, not a coincidence of coordinates.**
+6. **Hierarchy** — DESIGN INTENT → PERIMETER → WALL NETWORK → ROOMS → SLABS/FINISHES →
+   CEILINGS → ROOFS. A change propagates down; the user redraws nothing.
+7. **Preserve intent, not coordinates** — ask *"what relationships must remain true?"*
+8. ⭐ **MOVE → PROPAGATE → RECOMPUTE**, never MOVE → BREAK → MANUALLY REPAIR.
+
+## 6. UNOWNED ROWS
+
+| Row | What |
+|---|---|
+| **L-941** | **HIGH** — bundle proof false-failure + `DO NOT RETRY`. Deploy path. |
+| **L-940** | 6 tests RED on `main` (`elementIdsForRoom` renamed). ⚠ A mechanical rename goes green while pinning the defect. `apps/editor/__tests__/**` is typechecked and run by **nothing**. |
+| **L-939** | `captureThumbnail()` is a second render driver; P3's gate counts rAF call sites and can't see it. |
+| **L-937 / L-938** | `wall.create` replicates nothing (contract defect — sweep `syncDisposition.ts` whole); `hostSnap` triplicated. |
+
+## 7. HALF 1 / HALF 2 — generate, never quote
+
+```bash
+npx tsx tools/bim30-status/bim30-status.ts --fast
+```
+First reading: **17/38 closed of rows MEASURED, 43 CARRIED, 5 exit-3 breaches.** ⭐ **The
+headline is the 43: more than half the register has no gate any runner can execute.**
+⚠ The tracker's **§5 is STALE** — it claims 13 gates run in no runner; all 13 are registered.
+
+**Half 2:** 4,100 cells, 124 findings, **honest-refusal = 0** — and it is ONE seam:
+`ConsequencePreviewService.ts:58` and `:766` still return `ConsequencePlan | null`.
+`UndeterminedReason` (11 members) and `PreviewOutcome` both EXIST, unwired. **Wiring them is
+Half 1 sub-phase B.4 and it unblocks a Half 2 pass condition across all 4,100 cells.**
+
+## 8. FOUNDER DECISIONS OPEN
+
+1. **Which service owns a wall corner** — `WallMoveReweldService` vs `SlabWallConnectivityService`.
+2. **Half 2 denominator** — C78 §20 vs C71 §2.3, both CANONICAL. Needs an ADR.
+3. **`docs/03-execution/plans/` restructure** — 51 loose files; every move must rewrite its
+   inbound citations in the same commit.
