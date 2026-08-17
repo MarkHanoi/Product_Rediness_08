@@ -6174,3 +6174,97 @@ which is why the reader NARROWS the stored value and never casts it.
 in the same fixture**, and the absent-metadata byte-identity case — were **not yet written at commit
 time** and are the blocking work before deploy.
 
+
+---
+
+## L-943 — the floor re-projection is ASYMMETRIC: a refusal on the MOVE is applied on the UNDO
+
+**Founder-measured on `55a2eda3`, 2026-08-17.** *"the undo corrupted the floor finish."* Exact, from
+one gesture and its undo:
+
+```
+MOVE:
+[Dne] §C79-5.2 conflicted: floor "162a95a2" NOT re-projected — re-derived ring self-intersects
+      (75.171 m² → 12.080 m²)
+[Dne] §C79-5.2 resized:    floor "64677c8e" follows wall — 131.445 m² → 195.057 m²
+
+UNDO:
+[Dne] §C79-5.2 resized:    floor "162a95a2" follows wall — 75.171 m² → 138.262 m²   ⬅ THE DEFECT
+[Dne] §C79-5.2 resized:    floor "64677c8e" follows wall — 195.057 m² → 131.445 m²   ⬅ correct
+```
+
+⭐ **Floor `162a95a2` REFUSED to re-project on the forward move — and then GREW on the undo, from
+75.171 m² to 138.262 m².** It was never resized going forward, so there was nothing to reverse; the
+undo nonetheless applied a *"follows wall"* resize and invented 63 m² of floor finish.
+
+### The mechanism, stated as a rule
+
+**The forward pass has a refusal arm (§C79 §5.2 `conflicted` — a self-intersecting re-derived ring)
+and the reverse pass does not consult it.** Undo re-runs the follow from the restored wall position
+instead of restoring the floor's *stored* boundary, so:
+
+- forward: refuse ⇒ floor unchanged (correct — a self-intersecting ring must not be written)
+- reverse: re-derive ⇒ floor changed (**wrong — there was no forward change to undo**)
+
+⚠ **This is worse than a wrong number: it is a non-reversible gesture.** C71's verbatim-restore rule
+exists for exactly this — *undo restores, it does not reconstruct*. A reconstruction on the reverse
+pass can differ from the value that was never replaced.
+
+**Do NOT fix by making the undo refuse too.** Both arms would then be silent about a floor whose
+boundary no longer matches its walls. The floor's PRE-move boundary is the value undo owes the user;
+restore it verbatim and let a subsequent re-detect decide whether it is still valid.
+
+**Owner:** unassigned → lane **L943**, HIGH — it silently changes areas, which is a quantity the user
+bills from. Prove at the STORED boundary across move→undo, not at the reported m².
+
+---
+
+## L-944 — WebGPU vertex-buffer error after undo, and a rival cascade with a dead guard
+
+**Founder-measured on `55a2eda3`, 2026-08-17.** Two findings from the same session, both distinct
+from L-943.
+
+### (a) The viewport takes a GPU error on undo
+
+```
+[RenderPipelineManager] uncaptured WebGPU error: Vertex buffer slot 0 required by
+  [RenderPipeline "renderPipeline_MeshBasicMaterial_6268"] was not set.
+  - While encoding [RenderPassEncoder].Draw(48, 1, 0, 0).
+[RenderPipelineManager] uncaptured WebGPU error: [Invalid CommandBuffer] is invalid due to a
+  previous error.
+```
+
+Fires immediately after `UNDO: CASCADE_WALL_BASELINE`. A geometry is drawn after its vertex buffer
+is released — the mesh is rebuilt from a baseline the undo has already changed. This is the visible
+corruption in the founder's screenshot, and it is the **draw** side of the same lifetime family as
+L-930 (which was the *free* side).
+
+### (b) `SlabWallConnectivityService` is a RIVAL cascade, and its preflight is dead
+
+```
+[WallMoveReweldService] §MOVE-REWELD-EMPTY-PLAN: 2 partner(s) considered → 0 entries, 0 refusals
+[SlabWallConnectivityService] §L-925-DIRECTION-STABLE: the new corner lies PAST this wall's far
+   endpoint … span [-1.190, 5.088] → [-5.000, 5.084]
+[SlabWallConnectivityService] §L-921-SLAB-PREFLIGHT preview failed (non-fatal):
+   TypeError: t.getAll is not a function
+```
+
+**Two services weld the same corner.** The reweld service reports *"every junction this move touched
+was left exactly as it was"* while the slab service independently re-baselines it — and successive
+gestures compound: `-1.190 → -5.000 → -11.654`. The gate reported the total as **10464 mm**.
+
+⭐ **And the preflight that exists to stop it throws on EVERY move.** `t.getAll is not a function` —
+a store-shape mismatch; something is handed a plain object where a store is expected. It is logged
+*"(non-fatal)"*, which is precisely backwards: **a check that throws has not answered, and this
+corpus's whole subject is that "I could not look" must never read as "nothing is wrong."** The slab
+weld currently runs unguarded.
+
+⚠ This also explains `§MOVE-REWELD-EMPTY-PLAN`: the reweld service is not failing to compute — the
+slab service got there first and already moved the geometry, so by the time the reweld looks, the
+junction genuinely *is* unchanged.
+
+**Owner:** unassigned → lane **L944**. Fix (b) FIRST — it is a crash, it is cheap, and it is the one
+producing the runaway. Then ask the harder question the finding exposes: **two independent services
+must not own the same corner**, and which one is authoritative is an architectural decision, not a
+merge.
+
