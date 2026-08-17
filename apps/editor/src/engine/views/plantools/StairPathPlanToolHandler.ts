@@ -252,7 +252,9 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
         try {
             const ctxStores = (cm as { context?: { stores?: { wallStore?: { getLevels?: () => StairLevelInput[] } } } })
                 ?.context?.stores?.wallStore?.getLevels?.();
-            return ctxStores ?? window.levelStore?.getAll?.() ?? [];
+            // ADR-0327: the secondary was `window.levelStore`, a phantom that is never
+            // assigned in production. `window.bimManager` is the live level authority.
+            return ctxStores ?? window.bimManager?.getLevels?.() ?? [];
         } catch (e) {
             console.warn('[StairPathPlanToolHandler] level lookup failed', e);
             return [];

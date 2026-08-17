@@ -24,7 +24,7 @@ const FILL_A = 'rgba(102,0,255,0.10)';
  *   'stair.create' → §E.5.4 bridge (initBusHandlers.ts) → _cmExec(new CreateStairCommand(cmd))
  *   → legacy stair store → mesh rebuild.
  *   commandManager is retained only for level resolution in _resolveTopLevel/_getLevelHeight;
- *   both helpers fall back to window.levelStore if cm is unavailable (safe via try/catch).
+ *   both helpers fall back to window.bimManager if cm is unavailable (safe via try/catch).
  */
 export class StairPlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;
@@ -270,7 +270,9 @@ export class StairPlanToolHandler implements PlanToolHandler {
         try {
             const fromCm = (cm as { context?: { stores?: { wallStore?: { getLevels?: () => StairLevelInput[] } } } })
                 ?.context?.stores?.wallStore?.getLevels?.();
-            return fromCm ?? window.levelStore?.getAll?.() ?? [];
+            // ADR-0327: the secondary was `window.levelStore`, a phantom that is never
+            // assigned in production. `window.bimManager` is the live level authority.
+            return fromCm ?? window.bimManager?.getLevels?.() ?? [];
         } catch (e) {
             console.warn('[StairPlanToolHandler] level lookup failed', e);
             return [];

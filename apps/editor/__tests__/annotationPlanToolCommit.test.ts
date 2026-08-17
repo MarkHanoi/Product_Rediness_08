@@ -106,7 +106,10 @@ describe('§FIX-PLANANN-SUBSYSTEM-STORE-SINK — plan annotation commit', () => 
 
     it('preserves the tool-specific type, owner view, parameters and model points', () => {
         const executed = installCommandManager();
-        (window as any).levelStore = { getAll: () => [{ id: 'lvl0', name: 'Ground', elevation: 0 }] };
+        // ADR-0327: this used to stub `window.levelStore` — a global NOTHING in production
+        // ever assigns. The suite therefore passed green over a branch that could not
+        // execute. `window.bimManager` is the authority the handler actually reads.
+        (window as any).bimManager = { getLevels: () => [{ id: 'lvl0', name: 'Ground', elevation: 0 }] };
 
         const h = new LevelTagPlanToolHandler();
         const c = makeCtx('view_plan_GF');

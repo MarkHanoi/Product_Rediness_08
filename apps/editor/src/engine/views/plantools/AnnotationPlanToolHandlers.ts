@@ -320,10 +320,14 @@ function _nearestGrid(pt: WorldPoint, radius = 5.0): BimCandidate | null {
 }
 
 function _levelForView(viewDef: any): { name: string; elevation: number } | null {
-    const levelStore = window.levelStore; // TODO(TASK-08)
-    if (!levelStore?.getAll) return null;
+    // ADR-0327: this read was `window.levelStore`, which is NEVER assigned in
+    // production — so the guard below returned null every time and annotation plan
+    // views never resolved a level name or elevation. The live level authority is
+    // `window.bimManager` (assigned at engine/initScene.ts:757).
+    const bim = window.bimManager; // TODO(TASK-08): DI the level authority into PlanToolDrawContext
+    if (!bim?.getLevels) return null;
     // Try to match by levelId from viewDef
-    const levels = levelStore.getAll() as any[];
+    const levels = bim.getLevels() as any[];
     if (viewDef?.levelId) {
         const lvl = levels.find((l: any) => l.id === viewDef.levelId);
         if (lvl) return { name: lvl.name ?? lvl.label ?? 'Level', elevation: lvl.elevation ?? 0 };
