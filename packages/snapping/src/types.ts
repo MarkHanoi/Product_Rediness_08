@@ -102,6 +102,34 @@ export const DEFAULT_SNAP_PRIORITIES: Record<SnapType, number> = {
     [SnapType.GRID]:               10
 };
 
+/**
+ * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — is this snap an EXPLICIT gesture at a
+ * NAMED FEATURE of existing geometry, as opposed to a background convenience?
+ *
+ * The distinction decides an OVER-CONSTRAINED input. An ortho / angle lock constrains
+ * a segment's DIRECTION; a snap constrains its END POINT. When the snapped point does
+ * not lie on the locked ray the two cannot both hold, and exactly one must be dropped.
+ * The Revit/AutoCAD convention — and the one `PlanToolHandler.ts` already declares for
+ * the plan-view tools ("an explicit object snap always wins") — is that the explicit
+ * gesture beats the aid. This predicate is the ONE place that boundary is drawn, so
+ * the 3-D and plan tools cannot answer it differently. It lives beside `SnapType`
+ * rather than in a tool because it is a property of the snap TAXONOMY.
+ *
+ * FALSE for the three background families, and only those:
+ *   · `NEAREST`  — the low-priority "somewhere on that thing" fallback. Mirrors
+ *                  `isStrongSnap`'s single exclusion in `PlanToolHandler.ts`.
+ *   · `GRID`     — the uniform maths grid; a drawing aid, exactly like ortho itself.
+ *                  (`GRID_LINE` / `GRID_INTERSECTION` are BIM structural datums and
+ *                  sit at the TOP of `DEFAULT_SNAP_PRIORITIES` — those are explicit.)
+ *   · `FACE`/`EDGE` are deliberately TRUE: picking a wall's face is a named feature.
+ *
+ * L-935 measured what dropping the explicit one costs: an ortho lock silently ate a
+ * midpoint snap and committed a wall ending 636 mm from where the user clicked.
+ */
+export function isExplicitObjectSnap(type: SnapType): boolean {
+    return type !== SnapType.NEAREST && type !== SnapType.GRID;
+}
+
 export const DEFAULT_SNAP_SETTINGS: SnapSettings = {
     enabled: true,
     snapRadius: 0.5,

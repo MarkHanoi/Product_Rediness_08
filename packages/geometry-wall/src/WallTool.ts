@@ -13,7 +13,7 @@ import { DimensionPreview } from './DimensionPreview';
 import { WallDimensionInput } from './WallDimensionInput';
 import { WallSnapCycler } from './WallSnapCycler';
 import { VisualStyle, STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
-import { SnapManager } from '@pryzm/snapping';
+import { SnapManager, isExplicitObjectSnap } from '@pryzm/snapping';
 // §WALL-AUDIT-2026-W5: shared camera-zoom-aware tolerance — same value the
 // WallJoinResolver uses for its post-creation join pass.
 // DOC-5.2 — 2D snap on projected TechnicalDrawing edges (used in getSnappedPoint)
@@ -176,6 +176,19 @@ export class WallTool {
      * Activated by holding Shift while drawing; also toggled by Tab in ORTHO modes.
      */
     private isOrthoOverride = false;
+
+    /**
+     * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — did the LAST `getSnappedPoint()` land
+     * on an EXPLICIT object snap (a named feature of existing geometry), rather than a
+     * raw cursor point or a weak fallback?
+     *
+     * `getSnappedPoint` returns a bare `Vector3`, so the classification that decided the
+     * ortho question inside it would otherwise be lost by the time `onPointerDown`
+     * re-applies ortho to the committed point — and the commit would silently overrule
+     * the preview. This field carries the one bit across, and `onPointerDown` reads it
+     * IMMEDIATELY after its own `getSnappedPoint()` call, so it is never stale.
+     */
+    private lastSnapWasExplicitObject = false;
 
     private statusOverlay: HTMLElement | null = null;
 
@@ -514,6 +527,7 @@ export class WallTool {
         // flushes any tier escalation that was deferred during the draw exactly once.
         this.endTierDeferInteraction();
         this.isOrthoOverride = false;
+        this.lastSnapWasExplicitObject = false;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
         this.clearPreview();
         if (this.dimensionPreview) {
             this.dimensionPreview.hide();
@@ -695,6 +709,7 @@ export class WallTool {
 
         // Clear ortho override so it doesn't bleed into the next activation.
         this.isOrthoOverride = false;
+        this.lastSnapWasExplicitObject = false;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
     }
 
     private async onPointerDown(event: PointerEvent): Promise<void> {
@@ -729,25 +744,35 @@ export class WallTool {
             }
         }
 
-        const snappedPoint = currentAnchor ? currentAnchor.point.clone() : this.getSnappedPoint(worldPoint, event);
+        // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the ANCHOR branch is a FUZZY 0.3 m
+        // proximity resolution against any nearby wall, not a click on a named feature,
+        // so it is NOT an explicit object snap and ortho keeps winning over it exactly as
+        // before. `getSnappedPoint` sets the flag itself for the branch it takes.
+        let snappedPoint: THREE.Vector3;
+        if (currentAnchor) {
+            snappedPoint = currentAnchor.point.clone();
+            this.lastSnapWasExplicitObject = false;
+        } else {
+            snappedPoint = this.getSnappedPoint(worldPoint, event);
+        }
         snappedPoint.y = elevation;
 
         // Re-apply ortho constraint when the point came from an anchor snap (which bypasses
         // getSnappedPoint's built-in ortho logic). Only applies during DRAWING — the start
         // point itself has no reference, so constraining it would always snap to origin.
-        if (this.state === WallToolState.DRAWING && this.startPoint) {
-            const isOrthoMode = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
-                                this.drawingMode === WallDrawingMode.POLYLINE_ORTHO ||
-                                this.isOrthoOverride;
-            if (isOrthoMode) {
-                const odx = Math.abs(snappedPoint.x - this.startPoint.x);
-                const odz = Math.abs(snappedPoint.z - this.startPoint.z);
-                if (odx > odz) {
-                    snappedPoint.setZ(this.startPoint.z);
-                } else {
-                    snappedPoint.setX(this.startPoint.x);
-                }
-            }
+        //
+        // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — and NOT when the point came from an
+        // explicit object snap. Re-applying it there is what made the COMMIT overrule the
+        // PREVIEW: `getSnappedPoint` had already decided the over-constrained case in the
+        // snap's favour, and this block silently undid that decision one line later.
+        if (
+            this.state === WallToolState.DRAWING
+            && this.startPoint
+            && !this.lastSnapWasExplicitObject
+        ) {
+            const orthoed = this._applyOrthoLock(snappedPoint);
+            snappedPoint.setX(orthoed.x);
+            snappedPoint.setZ(orthoed.z);
         }
 
         // Ensure we strictly snap to first point if we are close to it in polyline modes
@@ -1005,7 +1030,19 @@ export class WallTool {
             // §04-15: Alignment inference guide — lower priority than snap-cycler
             // and dimension-input. Only runs when neither higher-priority lock is active.
             if (this.alignmentGuide) {
-                if (!this.snapCycler?.isActive && !this.dimensionInput?.isActive) {
+                // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — …and lower priority than an
+                // EXPLICIT OBJECT SNAP too. The guide is a soft inference; overriding a
+                // named feature the user deliberately snapped to would make this PREVIEW
+                // disagree with what `onPointerDown` commits, which is precisely the
+                // preview/commit divergence this lane exists to close. The plan tool's
+                // equivalent inference has always been gated the same way
+                // (`_alignInferenceActive` + `!isStrongSnap(pt)`); this brings the 3-D
+                // tool onto the same rule. The `else` branch clears the guide lines.
+                if (
+                    !this.snapCycler?.isActive
+                    && !this.dimensionInput?.isActive
+                    && !this.lastSnapWasExplicitObject
+                ) {
                     // §FIX-ALIGN-GUIDE-PERPENDICULAR (L-26): pass the current draw
                     // direction (start → cursor, XZ plane) so the guide prefers the
                     // axis PERPENDICULAR to the draw and suppresses meaningless
@@ -1018,21 +1055,12 @@ export class WallTool {
                         this.startPoint, snappedPoint, levelId, elevation, drawDir
                     );
                     if (inference) {
-                        effectiveEnd = inference.snappedPoint;
                         // Re-apply ortho constraint after alignment guide override.
-                        // The guide's inferred snap point can be diagonal; mode must win.
-                        const isOrthoMode = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
-                                            this.drawingMode === WallDrawingMode.POLYLINE_ORTHO ||
-                                            this.isOrthoOverride;
-                        if (isOrthoMode && this.startPoint) {
-                            const adx = Math.abs(effectiveEnd.x - this.startPoint.x);
-                            const adz = Math.abs(effectiveEnd.z - this.startPoint.z);
-                            if (adx > adz) {
-                                effectiveEnd = new THREE.Vector3(effectiveEnd.x, effectiveEnd.y, this.startPoint.z);
-                            } else {
-                                effectiveEnd = new THREE.Vector3(this.startPoint.x, effectiveEnd.y, effectiveEnd.z);
-                            }
-                        }
+                        // The guide's inferred snap point can be diagonal; mode must win —
+                        // ortho outranks a SOFT inference (unchanged), and the explicit-snap
+                        // case never reaches here (see the gate above). Same `_applyOrthoLock`
+                        // as the other two sites, so the three cannot drift apart.
+                        effectiveEnd = this._applyOrthoLock(inference.snappedPoint);
                     }
                 } else {
                     // Higher-priority lock is active — suppress guide lines.
@@ -1079,18 +1107,14 @@ export class WallTool {
             const result = this.snapManager.snap(worldPoint, screenPos, false, _snapTolerance);
             if (result.snapped) {
                 point = result.point;
-                // Ortho is applied to the snapped point and we return immediately —
-                // a BIM-store snap is always the highest-quality result.
-                const isOrthoA = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
-                                 this.drawingMode === WallDrawingMode.POLYLINE_ORTHO ||
-                                 this.isOrthoOverride;
-                if (isOrthoA && this.startPoint) {
-                    const dxa = Math.abs(point.x - this.startPoint.x);
-                    const dza = Math.abs(point.z - this.startPoint.z);
-                    if (dxa > dza) return new THREE.Vector3(point.x, point.y, this.startPoint.z);
-                    else           return new THREE.Vector3(this.startPoint.x, point.y, point.z);
-                }
-                return point;
+                // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — an EXPLICIT object snap
+                // beats the ortho lock. See `_applyOrthoLock`; the classification comes
+                // from the shared `isExplicitObjectSnap` so this tool and the plan tool
+                // cannot answer the question differently. An absent candidate cannot be
+                // classified, so it is treated as NOT explicit — the pre-L-935 behaviour.
+                this.lastSnapWasExplicitObject =
+                    !!result.candidate && isExplicitObjectSnap(result.candidate.type);
+                return this.lastSnapWasExplicitObject ? point : this._applyOrthoLock(point);
             }
             // SnapManager ran but found nothing — its visualizer is already hidden.
         }
@@ -1111,21 +1135,45 @@ export class WallTool {
             );
             if (snap2D) {
                 point = snap2D.worldPos;
+                // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — the projected-drawing snaps
+                // are the same named features as the BIM-store ones; `'on-edge'` is this
+                // service's low-priority "somewhere along that line" fallback and is the
+                // only one that is NOT an explicit gesture (the `NEAREST` of this family).
+                this.lastSnapWasExplicitObject = snap2D.snapType !== 'on-edge';
+                if (this.lastSnapWasExplicitObject) return point;
             }
         }
 
         // ── Priority 3: Ortho constraint on whatever point we ended up with ──
+        // Reached only with a RAW cursor point or a weak fallback snap: nothing explicit
+        // was given up, so ortho wins exactly as it always has.
+        this.lastSnapWasExplicitObject = false;
+        return this._applyOrthoLock(point);
+    }
+
+    /**
+     * §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935) — THE ortho lock, in one place.
+     *
+     * Projects `point` onto whichever cardinal axis through `startPoint` it is closer
+     * to. Inert when no ortho mode is active or no start point exists — the start point
+     * itself has no reference, so constraining it would always snap it to the origin.
+     *
+     * This body was copy-pasted at THREE sites in this file (the pointer-down commit,
+     * the SnapManager branch and the fallback branch), which is how the SAME question
+     * came to have different answers on the preview and on the commit — the shape of
+     * defect §FIX-WALL-PREVIEW-COMMIT-LENGTH-LOCK found in the plan tool. One function
+     * now, so preview and commit cannot diverge again.
+     */
+    private _applyOrthoLock(point: THREE.Vector3): THREE.Vector3 {
         const isOrtho = this.drawingMode === WallDrawingMode.LINE_ORTHO ||
                         this.drawingMode === WallDrawingMode.POLYLINE_ORTHO ||
                         this.isOrthoOverride;
-        if (isOrtho && this.startPoint) {
-            const dx = Math.abs(point.x - this.startPoint.x);
-            const dz = Math.abs(point.z - this.startPoint.z);
-            if (dx > dz) return new THREE.Vector3(point.x, point.y, this.startPoint.z);
-            else         return new THREE.Vector3(this.startPoint.x, point.y, point.z);
-        }
-
-        return point;
+        if (!isOrtho || !this.startPoint) return point;
+        const dx = Math.abs(point.x - this.startPoint.x);
+        const dz = Math.abs(point.z - this.startPoint.z);
+        return dx > dz
+            ? new THREE.Vector3(point.x, point.y, this.startPoint.z)
+            : new THREE.Vector3(this.startPoint.x, point.y, point.z);
     }
 
     private onKeyDown(event: KeyboardEvent): void {
