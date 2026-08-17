@@ -82,17 +82,19 @@ import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 // GE-04 (2026-08-16): the junction resolver had THREE copies; ai-host's local fork was
 // byte-identical to core-app-model's and functionally identical to this one. Collapsed onto
 // @pryzm/room-topology — the Sprint-H migration target and an already-declared ai-host dep.
+// GE-12 (2026-08-17): the planar topology engine had a second copy here. Proven
+// equivalent to room-topology's (same 5 constants, same 4 exports, same signatures;
+// identical after normalising comments, brace style, non-null assertions, console.*
+// and one local rename). Collapsed onto the same owner as the resolver above.
 import {
     resolveWallJunctions,
     splitWallsAtCrossings,
     buildWallGraph,
     type WallGraph,
-} from '@pryzm/room-topology';
-import {
     computeTopology,
     assignOpeningsToWalls,
-    DetectedRoom,
-} from './PlanarTopologyEngine.js';
+    type DetectedRoom,
+} from '@pryzm/room-topology';
 import {
     type WallDiagnosticRecord,
     type PostProcessingStats,

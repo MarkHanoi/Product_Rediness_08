@@ -760,7 +760,10 @@ export { repairAndParseJSON } from './JSONRepair.js';
 export { worldModelAdapter } from './WorldModelAdapter.js';
 export { SemanticQueryEngine, semanticQueryEngine } from './SemanticQueryEngine.js';
 export type { NLQueryResult, NLQueryRow } from './SemanticQueryEngine.js';
-export * from './PlanarTopologyEngine.js';
+// GE-12: './PlanarTopologyEngine.js' removed — collapsed onto @pryzm/room-topology,
+// which owns computeTopology / assignOpeningsToWalls / DetectedRoom / TopologyResult.
+// Not re-exported as a shim: a repo-wide symbol census found ZERO importers of those
+// four symbols from '@pryzm/ai-host'. Consumers take them from the owner.
 export * from './WallRegionExtractor.js';
 export * from './WallCandidateScorer.js';
 export * from './WallTerminatorDoorDetector.js';

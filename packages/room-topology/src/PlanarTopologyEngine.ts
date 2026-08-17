@@ -6,7 +6,7 @@
  * Original: src/engine/subsystems/ai/PlanarTopologyEngine.ts
  */
 
-import { WallGraph } from './WallIntersectionResolver';
+import type { WallGraph } from './WallIntersectionResolver'; // GE-12: type-only — keeps THREE out of this pure module
 
 const MIN_ROOM_AREA_M2 = 0.5;
 const MIN_FACE_AREA_M2 = 0.1;
@@ -33,8 +33,11 @@ function signedAreaXZ(nodeIds: string[], positions: Map<string, { x: number; z: 
     let area = 0;
     const n = nodeIds.length;
     for (let i = 0; i < n; i++) {
-        const a = positions.get(nodeIds[i]);
-        const b = positions.get(nodeIds[(i + 1) % n]);
+        // GE-12: `!` carried over from the ai-host copy deleted in this commit — it had
+        // them, this one did not, and that made this the ONLY type-erroring file in
+        // room-topology/src. Both indexes are < n by construction; runtime unchanged.
+        const a = positions.get(nodeIds[i]!);
+        const b = positions.get(nodeIds[(i + 1) % n]!);
         if (!a || !b) continue;
         area += a.x * b.z - b.x * a.z;
     }
