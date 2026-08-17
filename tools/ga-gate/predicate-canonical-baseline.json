@@ -1,6 +1,6 @@
 {
   "recipe": "a POINT-IN-POLYGON body = the even-odd VERTICAL STRADDLE test `(yi > y) !== (yj > y)` in any operand shape/direction, comment-stripped, over a 3-line window so a wrapped body is seen whole; a two-straddle AND (segment/segment crossing) is a DIFFERENT §3.1 family and is excluded structurally; counting unit = (file × body), so N straddles in one file are N bodies; dirs packages,apps,plugins,src; tests counted separately and NOT ratcheted.",
-  "measuredAt": "2026-08-16",
+  "measuredAt": "2026-08-17",
   "bodies": {},
   "c2": 0,
   "c3": [],
@@ -34,7 +34,7 @@
       ]
     },
     "polygon-area-and-winding": {
-      "production": 77,
+      "production": 76,
       "test": 47,
       "byFile": {
         "apps/editor/src/ui/ceiling-layout/CeilingLayoutExecutor.ts": 1,
@@ -74,7 +74,6 @@
         "packages/command-registry/src/floors/FloorRegionOverlap.ts": 1,
         "packages/command-registry/src/project/projectLoaderUtils.ts": 1,
         "packages/command-registry/src/walls/CreateWallsFromSlabCommand.ts": 1,
-        "packages/core-app-model/src/ai/PlanarTopologyEngine.ts": 1,
         "packages/core-app-model/src/schedules/ScheduleExtractor.ts": 1,
         "packages/core-app-model/src/stores/CeilingPolygonUtils.ts": 1,
         "packages/file-format/src/import/ifc/conversion/IfcGeometryAnalyzer.ts": 1,
@@ -133,7 +132,6 @@
         "packages/command-registry/src/floors/FloorRegionOverlap.ts:241::shoelace",
         "packages/command-registry/src/project/projectLoaderUtils.ts:161::shoelace",
         "packages/command-registry/src/walls/CreateWallsFromSlabCommand.ts:87::trapezoid",
-        "packages/core-app-model/src/ai/PlanarTopologyEngine.ts:118::shoelace",
         "packages/core-app-model/src/schedules/ScheduleExtractor.ts:58::shoelace",
         "packages/core-app-model/src/stores/CeilingPolygonUtils.ts:28::shoelace",
         "packages/file-format/src/import/ifc/conversion/IfcGeometryAnalyzer.ts:131::shoelace",
@@ -189,8 +187,8 @@
       ]
     },
     "point-to-segment-distance": {
-      "production": 58,
-      "test": 27,
+      "production": 55,
+      "test": 29,
       "byFile": {
         "apps/ai-worker/src/pdf-to-bim/adapter-floorplan.ts": 1,
         "apps/ai-worker/src/pdf-to-bim/stage2-openings.ts": 1,
@@ -210,7 +208,6 @@
         "apps/editor/src/ui/residential-building/groundFloorPlacement.ts": 1,
         "packages/ai-host/src/FloorPlanCommandBatcher.ts": 1,
         "packages/ai-host/src/PlanarTopologyEngine.ts": 1,
-        "packages/ai-host/src/WallIntersectionResolver.ts": 1,
         "packages/ai-host/src/WallRegionExtractor.ts": 1,
         "packages/ai-host/src/workflows/apartmentLayout/environment/daylightDepthField.ts": 1,
         "packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.ts": 1,
@@ -218,8 +215,6 @@
         "packages/ai-host/src/workflows/houseLayout/containmentChecks.ts": 1,
         "packages/ai-host/src/workflows/houseLayout/stairContainment.ts": 1,
         "packages/ai-host/src/workflows/houseLayout/weldPartitionsToShell.ts": 1,
-        "packages/core-app-model/src/ai/PlanarTopologyEngine.ts": 1,
-        "packages/core-app-model/src/ai/WallIntersectionResolver.ts": 1,
         "packages/core-app-model/src/geometry/curvedWallTessellation.ts": 1,
         "packages/core-app-model/src/geometry/hostedDragParam.ts": 1,
         "packages/core-app-model/src/stores/BeamStore.ts": 1,
@@ -246,9 +241,8 @@
         "plugins/plan-view/src/hit-test.ts": 1
       },
       "bodies": [
-        "packages/ai-host/src/FloorPlanCommandBatcher.ts:478::max-min::< 1e-8",
+        "packages/ai-host/src/FloorPlanCommandBatcher.ts:481::max-min::< 1e-8",
         "packages/ai-host/src/PlanarTopologyEngine.ts:172::max-min::< 1e-12",
-        "packages/ai-host/src/WallIntersectionResolver.ts:120::max-min::NONE",
         "packages/ai-host/src/WallRegionExtractor.ts:206::ternary::< 1e-12",
         "packages/ai-host/src/workflows/apartmentLayout/environment/daylightDepthField.ts:66::if-assign::NONE",
         "packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.ts:348::max-min::NONE",
@@ -256,8 +250,6 @@
         "packages/ai-host/src/workflows/houseLayout/containmentChecks.ts:27::ternary::< EPSILON_ZERO",
         "packages/ai-host/src/workflows/houseLayout/stairContainment.ts:33::ternary::< 1e-18",
         "packages/ai-host/src/workflows/houseLayout/weldPartitionsToShell.ts:387::ternary::< EPSILON_ZERO",
-        "packages/core-app-model/src/ai/PlanarTopologyEngine.ts:172::max-min::< 1e-12",
-        "packages/core-app-model/src/ai/WallIntersectionResolver.ts:120::max-min::NONE",
         "packages/core-app-model/src/geometry/curvedWallTessellation.ts:254::ternary::< 1e-18",
         "packages/core-app-model/src/geometry/hostedDragParam.ts:489::ternary::< 1e-9",
         "packages/core-app-model/src/stores/BeamStore.ts:236::max-min::NONE (inline divisor)",
@@ -269,7 +261,7 @@
         "packages/geometry-roof/src/RoofGeometryBuilder.ts:1263::max-min::< 1e-10",
         "packages/geometry-slab/src/SlabWallConnectivityService.ts:113::max-min::< 1e-12",
         "packages/geometry-wall/src/WallArcParam.ts:297::ternary::> 0",
-        "packages/geometry-wall/src/WallMoveReweld.ts:161::max-min::< EPSILON_ZERO",
+        "packages/geometry-wall/src/WallMoveReweld.ts:255::max-min::< EPSILON_ZERO",
         "packages/room-topology/src/OpenedRegionDetector.ts:264::ternary::< 1e-12",
         "packages/room-topology/src/PlanarTopologyEngine.ts:70::max-min::< 1e-12",
         "packages/room-topology/src/RoomDetectionEngine.ts:709::max-min::< 1e-9",

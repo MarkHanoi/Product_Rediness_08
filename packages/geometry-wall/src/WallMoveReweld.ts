@@ -258,26 +258,29 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 }
 
 /**
- * Intersection of the two INFINITE lines through (a1,a2) and (b1,b2).
- * Returns null when near-parallel (angle < MIN_ANGLE_RAD).
+ * What the meeting of two infinite lines yields: the POINT, and the two
+ * trigonometric factors of the LINE ANGLE the two lines form.
+ *
+ * They are returned together because they are read off the SAME three scalars —
+ * the cross, the dot and the two lengths. Deriving them twice is what let the
+ * two halves disagree about the meaning of "near-parallel"; see the ⚠ below.
  */
-function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
-    const dA = sub(a2, a1);
-    const dB = sub(b2, b1);
-    const lA = len(dA), lB = len(dB);
-    if (lA < EPSILON_ZERO || lB < EPSILON_ZERO) return null;
-    const cross = dA.x * dB.z - dA.z * dB.x;
-    const sinAngle = Math.abs(cross) / (lA * lB);
-    if (sinAngle < Math.sin(MIN_ANGLE_RAD)) return null;
-    const t = ((b1.x - a1.x) * dB.z - (b1.z - a1.z) * dB.x) / cross;
-    return { x: a1.x + dA.x * t, z: a1.z + dA.z * t };
+interface LineMeeting {
+    /** Intersection of the two infinite lines. */
+    readonly at: Pt;
+    /** `|cos θ| / sin θ` — corner travel along the MOVER, per metre moved. */
+    readonly cot: number;
+    /** `1 / sin θ` — corner travel along the PARTNER, per metre moved. */
+    readonly invSin: number;
 }
 
 /**
- * §L-932 — THE JUNCTION ANGLE, and the two displacements it induces.
+ * Intersection of the two INFINITE lines through (a1,a2) and (b1,b2), together
+ * with the angle factors of the junction they form. Returns null when
+ * near-parallel (angle < MIN_ANGLE_RAD) — below that there is no conditioned
+ * answer to EITHER question, which is why one refusal covers both.
  *
- * Returns the LINE angle θ ∈ (0°, 90°] between two directed segments, as the
- * only two trigonometric quantities this module needs:
+ * §L-932 — THE JUNCTION ANGLE, and the two displacements it induces.
  *
  *     `cot` = |cos θ| / sin θ      `invSin` = 1 / sin θ
  *
@@ -300,21 +303,38 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
  *
  * The `abs` on the dot is deliberate: a JOINT has a line angle, not a directed
  * one, and the two walls' stored winding is an authoring accident. Bounded by
- * construction — `intersectLines` has already refused anything under
- * MIN_ANGLE_RAD, so `cot ≤ ~9.97` and `invSin ≤ ~10.02`; there is no path here
- * that can spike a wall to infinity.
+ * construction — the MIN_ANGLE_RAD refusal above has already returned null for
+ * anything shallower, so `cot ≤ ~9.97` and `invSin ≤ ~10.02`; there is no path
+ * here that can spike a wall to infinity.
+ *
+ * ⚠ These two factors USED to live in a separate `lineAngleFactors()` helper,
+ * called immediately after this function at the one site that needs them, over
+ * the SAME two direction vectors — so the cross, the dot and both lengths were
+ * derived twice per junction. Worse, that helper guarded itself on
+ * `|cross| < EPSILON_ZERO`, which is NOT an angle test at all: the cross scales
+ * with |dA|·|dB|, so the same guard is loose for long walls and tight for short
+ * ones, and it therefore disagreed with the NORMALISED MIN_ANGLE_RAD refusal
+ * made three lines above it. Its own comment conceded the branch was
+ * unreachable; folding it in here makes that true by CONSTRUCTION rather than
+ * by comment. One derivation, one refusal, one definition of near-parallel.
  */
-function lineAngleFactors(d1: Pt, d2: Pt): { cot: number; invSin: number } {
-    const cross = Math.abs(d1.x * d2.z - d1.z * d2.x);
-    const dot = Math.abs(d1.x * d2.x + d1.z * d2.z);
-    const l1 = len(d1), l2 = len(d2);
-    if (cross < EPSILON_ZERO || l1 < EPSILON_ZERO || l2 < EPSILON_ZERO) {
-        // Near-parallel or degenerate. Unreachable after `intersectLines`
-        // succeeded, but returning the 90° values keeps any future caller on
-        // today's behaviour rather than handing it an infinity.
-        return { cot: 0, invSin: 1 };
-    }
-    return { cot: dot / cross, invSin: (l1 * l2) / cross };
+function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): LineMeeting | null {
+    const dA = sub(a2, a1);
+    const dB = sub(b2, b1);
+    const lA = len(dA), lB = len(dB);
+    if (lA < EPSILON_ZERO || lB < EPSILON_ZERO) return null;
+    const cross = dA.x * dB.z - dA.z * dB.x;
+    const sinAngle = Math.abs(cross) / (lA * lB);
+    if (sinAngle < Math.sin(MIN_ANGLE_RAD)) return null;
+    const t = ((b1.x - a1.x) * dB.z - (b1.z - a1.z) * dB.x) / cross;
+    return {
+        at: { x: a1.x + dA.x * t, z: a1.z + dA.z * t },
+        // Magnitude ratios about the SAME |cross| the refusal above bounded.
+        // Arithmetically identical to what the removed helper returned — the
+        // signed determinant solves for `t`; only its MAGNITUDE is a trig ratio.
+        cot: Math.abs(dot2(dA, dB)) / Math.abs(cross),
+        invSin: (lA * lB) / Math.abs(cross),
+    };
 }
 
 /**
@@ -508,9 +528,12 @@ function computeStemFollow(
     //    stored line, so the direction is preserved by construction — this is
     //    an extend/shrink, never a rotation and never a lateral slide
     //    (§CLAMP-COSHARE-WELD: sliding a shared baseline doubled walls).
-    const seat = intersectLines(welded, far, seatLineA, seatLineB);
+    const seatMeeting = intersectLines(welded, far, seatLineA, seatLineB);
     // Near-parallel: no T to re-form. Reported, not dropped (§L-945).
-    if (!seat) return { kind: 'none', reason: 'STEM_NEAR_PARALLEL_NO_SEAT' };
+    if (!seatMeeting) return { kind: 'none', reason: 'STEM_NEAR_PARALLEL_NO_SEAT' };
+    // This site wants the POINT only — a stem seat is an extend/shrink along the
+    // stem's own line, so the junction angle buys it nothing.
+    const seat = seatMeeting.at;
 
     // 4. Is the host still UNDER the foot? A host that slid along its own axis
     //    past the stem leaves nothing to terminate on, and extending toward
@@ -962,7 +985,8 @@ export function computeMoveReweldCensus(
     // Track the corners formed, so the moved wall can be seated on them too.
     // §L-932 — each carries its OWN reach, because "how far along the mover
     // could this corner have travelled" is a property of the JUNCTION's angle,
-    // not a constant of the gesture (see `lineAngleFactors`).
+    // not a constant of the gesture (see `intersectLines`, which returns the
+    // junction's angle factors alongside the corner it places).
     // §L-945 — each also carries WHOSE corner it is, so the subject-seat loop's
     // own declines can name the partner whose junction is consequently left
     // open. Without that, "the incumbent was preserved and the subject then
@@ -1029,8 +1053,8 @@ export function computeMoveReweldCensus(
         }
 
         // 2. New corner = partner centreline ∩ moved wall's NEW centreline.
-        const corner = intersectLines(ps, pe, newS, newE);
-        if (!corner) {
+        const meeting = intersectLines(ps, pe, newS, newE);
+        if (!meeting) {
             // Near-parallel / degenerate — no conditioned intersection exists.
             // The DECISION is unchanged; it is now countable (§L-945).
             //
@@ -1043,12 +1067,17 @@ export function computeMoveReweldCensus(
             continue;
         }
 
+        const corner = meeting.at;
+
         // 2b. §L-932 — HOW FAR THIS JUNCTION'S CORNER CAN LEGITIMATELY HAVE
         //     TRAVELLED, which is a function of the ANGLE and was previously
         //     assumed to be `weldTol` (its value at 90°, and nowhere else).
-        //     See `lineAngleFactors`. Both reduce EXACTLY to the old constants
-        //     when θ = 90°, so every orthogonal fixture is byte-identical.
-        const { cot, invSin } = lineAngleFactors(sub(pe, ps), sub(newE, newS));
+        //     See `intersectLines`, which derives these from the very cross and
+        //     lengths it just used to place `corner` — same two directions,
+        //     `sub(pe, ps)` and `sub(newE, newS)`, so there is nothing left to
+        //     recompute. Both reduce EXACTLY to the old constants when θ = 90°,
+        //     so every orthogonal fixture is byte-identical.
+        const { cot, invSin } = meeting;
         //     Along the MOVER. `bands === undefined` means authorship could not
         //     be asked, so a T-foot may still be sitting in this loop; that is
         //     the one case where the old distance proxy is still the only guard
