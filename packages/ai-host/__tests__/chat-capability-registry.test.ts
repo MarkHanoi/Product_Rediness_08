@@ -173,7 +173,13 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-panel-thickness': ['curtain-wall'],
       'set-baluster-spacing': ['handrail'],
       'set-baluster-width': ['handrail'],
-      'set-sill-height': ['window'],
+      // §FEAT-DOOR-SILL-DECLARED — 'door' added 2026-08-17. NOT a widening for
+      // convenience: DoorData.sillHeight is a required field, DoorBuilder reads it
+      // (`elevation + door.sillHeight + door.height / 2`), the door panel edits it,
+      // and `UpdateElementParameterCommand` already routes 'door' writes through
+      // the same generic arm as 'window'. The store could always do it; only this
+      // declaration refused.
+      'set-sill-height': ['window', 'door'],
       'set-riser-height': ['stair'],
       'set-tread-depth': ['stair'],
       'set-room-height-offset': ['room'],
@@ -304,7 +310,11 @@ describe('capability-aware refusals', () => {
     expect(r).not.toBeNull();
     expect(r!.reason).toContain("Door colour isn't connected to chat yet.");
     // RAC U4.3 — the offer list grew truthfully: set-door-type is live now.
-    expect(r!.reason).toContain('I can change door height, width and door type.');
+    // §FEAT-DOOR-SILL-DECLARED — 'sill height' joins the offer because
+    // `set-sill-height` now declares 'door'. This string is GENERATED from the
+    // registry, never hand-written, so it moving is the evidence the declaration
+    // reached the sentence the user actually reads.
+    expect(r!.reason).toContain('I can change door height, width, sill height and door type.');
   });
 
   it('does NOT manufacture a colour refusal for walls — wall colour is a live capability', () => {

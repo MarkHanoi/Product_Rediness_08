@@ -1235,11 +1235,36 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       // ADR-0314 §Selection batch — ALL-OR-NOTHING over the whole selection:
       // one non-window in the set refuses the whole ask (partial execution
       // presented as success is the §FIX-CHAT-COMPOUND-DIMENSIONS dishonesty).
-      const nonWindow = ctx.selection.find((s) => s.elementType !== 'window');
-      if (nonWindow !== undefined) {
+      // §FEAT-DOOR-SILL-DECLARED (2026-08-17) — 'door' joins 'window' here, and this
+      // guard is the reason the registry change alone was NOT the whole fix.
+      //
+      // `set-sill-height.targets` gained 'door', so `describeCapabilitiesFor('door')`
+      // began OFFERING a door sill. This arm still refused every non-window, which
+      // made the chat advertise an ability it then declined — the same defect shape
+      // as a refusal naming an escape hatch that does not exist (§L-942). The
+      // registry test `"the offer is generated from the registry, so it can never
+      // offer a refused ability"` caught exactly that, by driving every declared
+      // target through `applySemanticIntent` rather than reading the table. Kept as
+      // ONE source of truth: the accepted kinds are READ from the capability's own
+      // `targets`, so a future edit to the registry cannot silently desynchronise
+      // from this guard again.
+      //
+      // A door sill is the THRESHOLD STEP, not a window concept borrowed: it is a
+      // required `DoorData` field, `DoorBuilder` places the leaf at
+      // `elevation + door.sillHeight + door.height / 2`, and the door panel edits it.
+      // `targets` is `readonly string[] | 'global'`. 'global' means the capability
+      // is not element-scoped at all, so there is no kind to refuse — narrowed
+      // explicitly rather than cast, because a cast here would turn a future
+      // 'global' into a silent accept-everything with no reader able to see it.
+      const sillTargets = resolveChatCapability('set-sill-height')?.targets ?? ['window'];
+      const SILL_KINDS: readonly string[] = sillTargets === 'global' ? [] : sillTargets;
+      const nonSillKind = SILL_KINDS.length === 0
+        ? undefined
+        : ctx.selection.find((s) => !SILL_KINDS.includes(s.elementType));
+      if (nonSillKind !== undefined) {
         return {
           kind: 'refusal', intent: 'set-sill-height',
-          reason: `Sill height applies to windows, but the selected element is a ${nonWindow.elementType}.`,
+          reason: `Sill height applies to ${SILL_KINDS.join(' and ')}s, but the selected element is a ${nonSillKind.elementType}.`,
           suggestions: [],
         };
       }

@@ -270,32 +270,39 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
     nounPlural: 'doors',
     busCommand: 'element.updateDimensionsBatch',
     idsField: 'elementIds',
-    // NO sillHeight — and the reason is a DECLARATION gap, not a modelling one,
-    // which is exactly why the refusal copy below must not pretend otherwise.
+    // §FEAT-DOOR-SILL-DECLARED (2026-08-17) — sillHeight is CARRIED now. The
+    // follow-up this block used to name is closed; the note is kept because the
+    // REASONING is the load-bearing part, not the outcome.
     //
-    // MEASURED 2026-08-17: `DoorData.sillHeight` is a required nonnegative field
-    // (geometry-door/src/DoorTypes.ts:52), `DoorBuilder` READS it
-    // (`elevation + door.sillHeight + door.height / 2`, DoorBuilder.ts:498) and
-    // the door property panel edits it (DoorSection.ts:261, range 0-0.5 m). A
-    // door sill is real — it is the threshold step. What is missing is the
-    // DECLARATION: `set-sill-height` targets ['window'] and nothing else, so the
-    // ONE-ELEMENT ask already refuses a door sill. The batch may never
-    // out-claim the single form (see SINGLE_FORM_CAPABILITY), so it refuses too
-    // — and it says WHY truthfully rather than inventing "a door has no sill",
-    // which would be a false refusal shipped over a live field.
+    // This family shipped carrying only height+width, and the refusal it gave for
+    // a door sill was the CORRECT one: the gap was a DECLARATION gap, never a
+    // modelling one, and the copy said so instead of inventing "a door has no
+    // sill" — which would have been a false refusal shipped over a live field.
     //
-    // FOLLOW-UP, named rather than silently skipped: adding 'door' to
-    // `set-sill-height.targets` closes the founder's literal "make all doors 2m
-    // wide by 1m high with 0.1 sill". Both halves of the honesty bar are already
-    // measured above; what it needs is the registry change plus its own
-    // acceptance family, which is a change to an EXISTING capability and so a
-    // decision of its own rather than a rider on this tranche.
-    carries: ['height', 'width'],
+    // MEASURED 2026-08-17, before the declaration moved (a capability that claims
+    // a write it cannot perform is the defect this table exists to prevent):
+    //   · `DoorData.sillHeight` is a REQUIRED nonnegative field (DoorTypes.ts:52);
+    //   · `DoorBuilder` READS it — `elevation + door.sillHeight + door.height / 2`
+    //     (DoorBuilder.ts:498), so a write moves real geometry;
+    //   · the door property panel already edits it (DoorSection.ts, 0–0.5 m);
+    //   · `UpdateElementParameterCommand.applyUpdate:487-492` routes 'door' to
+    //     `store.updateDoor()` + `doorStore.update()`, passing parameters through
+    //     generically exactly as its 'window' arm does — the SAME command this
+    //     family's carrier composes;
+    //   · `WallStore`'s header names `door.setSillHeight` among the paths BIM 2.0
+    //     certification MEASURED.
+    //
+    // The store could always do it. `set-sill-height.targets` read ['window'], and
+    // SINGLE_FORM_CAPABILITY forbids the batch out-claiming the single form, so
+    // this family refused — correctly, on the declaration. That target list now
+    // reads ['window','door'], so the refusal has no subject left and the founder's
+    // literal "make all doors 2m wide by 1m high with 0.1 sill" resolves.
+    //
+    // ⛔ If a future edit narrows `set-sill-height.targets` back to windows, this
+    // MUST return to carrierGap in the same commit — a family carrying a dimension
+    // its single form refuses is exactly the out-claim the invariant forbids.
+    carries: ['height', 'width', 'sillHeight'],
     carrierGap: {
-      sillHeight:
-        'a door DOES carry one (the threshold step — the door panel edits it), but the ' +
-        'one-element "set sill height" capability is declared for windows only, so I will not ' +
-        'claim it in bulk either. Adding doors to that capability is the fix',
       thickness:
         'the one-element "set thickness" capability is declared for walls, slabs and roofs only, ' +
         'so I will not claim it in bulk either — the wall a door sits in is what carries a thickness',

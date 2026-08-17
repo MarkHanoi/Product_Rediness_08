@@ -226,22 +226,49 @@ describe('L-949 — refusals rather than cheerful no-ops', () => {
   });
 
   it('a kind LACKING the field is refused BY NAME, with the route that has it', () => {
-    // "make all doors 0.1m sill height" — a door sits on the floor. Applying the
-    // fields that DO work and staying quiet about this one would be partial
-    // execution presented as success.
-    const r = resolveFull('make all doors 2m high and 0.1m sill height', ctxOf({ resolveScope: stubScope(3) }));
+    // ⚠ RE-POINTED 2026-08-17 (§FEAT-DOOR-SILL-DECLARED), and the reason matters.
+    // This control used to use DOOR + SILL HEIGHT as its example of an unclaimed
+    // field. That example is now WRONG — `set-sill-height` declares 'door', so the
+    // ask succeeds and the arm would have gone red for the RIGHT reason. Deleting
+    // or loosening it would have thrown away a live control over an honest-refusal
+    // path; it is re-pointed at a pair that is still genuinely unclaimed instead.
+    //
+    // DOOR + THICKNESS is that pair: `set-thickness` is declared for walls, slabs
+    // and roofs, and the thing carrying a thickness around a door is the WALL it
+    // sits in — so the refusal is architecturally true as well as declarationally.
+    //
+    // Applying the fields that DO work (height) and staying quiet about this one
+    // would be partial execution presented as success.
+    const r = resolveFull('make all doors 2m high and 0.2m thick', ctxOf({ resolveScope: stubScope(3) }));
     expect(r.kind).toBe('refusal');
     if (r.kind !== 'refusal') return;
-    expect(r.reason).toContain('sill height');
-    // ⭐ The refusal states the MEASURED reason (a declaration gap), never the
-    // false modelling claim "a door has no sill" — DoorData.sillHeight is a
-    // required field the DoorBuilder reads and the door panel edits. A false
-    // refusal shipped over a live field is the same defect class as a false
-    // success shipped over a dead one.
-    expect(r.reason).toContain('a door DOES carry one');
-    expect(r.reason).toContain('declared for windows only');
-    expect(r.reason).not.toContain('has no sill');
+    expect(r.reason).toContain('thickness');
+    // ⭐ The refusal states the MEASURED reason, never a false modelling claim.
+    // A false refusal shipped over a live field is the same defect class as a
+    // false success shipped over a dead one — which is exactly why the door-sill
+    // version of this arm had to be CLOSED rather than kept as a passing test.
+    expect(r.reason).toContain('walls, slabs and roofs only');
     expect(r.reason).toContain('Nothing was changed');
+  });
+
+  it('§FEAT-DOOR-SILL-DECLARED — a door sill now RESOLVES, and the founder sentence works', () => {
+    // The founder's literal ask: "batch change dimensions of all windows and doors
+    // (width height and sill height)". Before the declaration moved this refused,
+    // honestly, on `set-sill-height.targets === ['window']`.
+    const r = resolveFull(
+      'make all doors 2m wide by 1m high with 0.1 sill',
+      ctxOf({ resolveScope: stubScope(3) }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    // ONE dispatch carrying ALL THREE dimensions — not three commands, not a
+    // partial application. The batch composes one child per element (ADR-0314).
+    expect(r.commands).toHaveLength(1);
+    const payload = r.commands[0]!.payload as { elementKind: string; dimensions: Record<string, number> };
+    expect(payload.elementKind).toBe('door');
+    expect(payload.dimensions.width).toBeCloseTo(2, 6);
+    expect(payload.dimensions.height).toBeCloseTo(1, 6);
+    expect(payload.dimensions.sillHeight).toBeCloseTo(0.1, 6);
   });
 
   it('a wall THICKNESS bulk ask refuses by name and offers the real escape hatch', () => {

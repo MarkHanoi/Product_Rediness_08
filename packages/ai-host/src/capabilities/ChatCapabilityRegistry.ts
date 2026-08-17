@@ -858,7 +858,30 @@ const CAPABILITIES: readonly ChatCapability[] = [
     verbs: ['set', 'change', 'make'],
     aliases: ['sill'],
     refusalLabel: 'sill height',
-    targets: ['window'],
+    // §FEAT-DOOR-SILL-DECLARED (2026-08-17, founder ask: "batch change dimensions of
+    // all windows AND DOORS — width, height and sill height").
+    //
+    // 'door' was ABSENT here, and the gap was a DECLARATION gap, never a modelling
+    // one. MEASURED before adding it, because a capability that claims a write it
+    // cannot perform is the defect this registry exists to prevent:
+    //   · `DoorData.sillHeight` is a REQUIRED nonnegative field (DoorTypes.ts:52) —
+    //     it is the threshold step, not a window-only concept;
+    //   · `DoorBuilder` READS it — `elevation + door.sillHeight + door.height / 2`
+    //     (DoorBuilder.ts:498), so a write moves real geometry;
+    //   · the door property panel already edits it (DoorSection.ts, range 0–0.5 m);
+    //   · the WRITE PATH through this capability's own `element.updateParameters`
+    //     is already live and exercised: `UpdateElementParameterCommand.applyUpdate`
+    //     :487-492 routes 'door' to `store.updateDoor()` + `doorStore.update()`,
+    //     passing parameters through generically exactly as the 'window' arm does;
+    //   · and `WallStore`'s own header names `door.setSillHeight` among the paths
+    //     BIM 2.0 certification MEASURED (the `_renderVersion` +2-per-undo finding).
+    //
+    // So the one-element form already worked at the store; only this line refused
+    // it. The bulk form may never out-claim the single form (SINGLE_FORM_CAPABILITY
+    // in DimensionFamilies.ts), which is why `set-door-dimensions` could not carry
+    // sillHeight while this read `['window']` — the batch was correctly refusing on
+    // a declaration, and correctly said so instead of inventing "a door has no sill".
+    targets: ['window', 'door'],
     parameters: [
       {
         name: 'sillHeight',
