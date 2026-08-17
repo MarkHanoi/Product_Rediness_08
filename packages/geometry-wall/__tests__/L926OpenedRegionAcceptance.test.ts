@@ -22,8 +22,8 @@
  * one thing the tracer does not do for itself — see its own note.
  *
  * THREE ARMS, and the third is the one that makes the first mean anything:
- *   1. §L-926-ZERO-PROPOSALS       fix on  ⇒ 3 rooms → 3, ZERO findings.
- *   2. §L-926-DETECTOR-IS-LIVE     fix off ⇒ 3 rooms → 2, the offer FIRES.
+ *   1. §L-926-ZERO-PROPOSALS       stem FOLLOWS   ⇒ 3 rooms → 3, ZERO findings.
+ *   2. §L-926-DETECTOR-IS-LIVE     follow REFUSED ⇒ 3 rooms → 2, offer FIRES.
  *   3. §L-926-GENUINE-DELETION     wall really deleted ⇒ the offer STILL FIRES.
  * Arm 1 alone is satisfiable by breaking the detector. Arms 2 and 3 prove the
  * detector was never touched: it still reports this exact geometry when the
@@ -31,12 +31,62 @@
  * cause was fixed; the messenger was not muted. `OpenedRegionDetector.ts` is
  * imported, never modified — this suite adds no file to that package.
  *
+ * ── 2026-08-17 · C83 §10.6.3 AMENDMENT · WHAT CHANGED IN ARM 2 AND WHY ───────
+ *
+ * NOTHING IN THIS FILE'S GEOMETRY MOVED. What changed is that arm 2 now hands
+ * the engine THE JUNCTION RECORDS PRODUCTION ACTUALLY STORES for this plan
+ * (`JUNCTIONS` below), instead of running it with no junction metadata at all.
+ *
+ * Why it had to: §10.6.3 keyed the mutual-corner follow on `junctionDegree`,
+ * and added a MEASURED fallback for when no record exists —
+ * `measureJunctionDegree` counts walls with an endpoint within `weldTol`. Arm 2
+ * passed no records, so the fallback ran, counted `P` + `T` = 2, called the
+ * stem's foot a mutual 2-wall corner and FOLLOWED it. The arm's whole job is to
+ * hold a configuration where the follow does NOT happen, so that the detector
+ * has an open region to find; a fixture that silently started following was no
+ * longer doing that job. Arm 2 was NOT evidence that the amendment broke
+ * anything.
+ *
+ * Why supplying the record is a FIX and not a bend-to-fit: the record is not
+ * invented here, it is quoted. `JunctionResolverV2` (~L1409-1434) derives
+ * `degree` as the number of SWEEP ENTRIES, *"passthrough counts twice"*, and
+ * types `n === 3 && passthroughCount > 0` as `'T'`. At (6, 4) the partition `P`
+ * is a passthrough (two entries) and the stem `T` terminates (one) ⇒ exactly
+ * `{ type: 'T', degree: 3 }`. `WallRebuildCoordinator.writeJoinedToEdgesForLevel`
+ * writes that verbatim onto the `joinedTo` edge, and `WallMoveReweldService`
+ * (~L295-309) threads it into `MoveReweldPartner`. Arm 2 is therefore CLOSER to
+ * production after this change than it was before, not further from it.
+ *
+ * ⚠ KNOWN DIVERGENCE, REPORTED NOT PINNED. Stored degree and measured degree do
+ * NOT agree on a T: `junctionDegree` counts sweep entries (3 here), while
+ * `measureJunctionDegree` counts walls-with-an-endpoint (2 here, because the
+ * passthrough has no endpoint at the point at all). `isMutualCorner`'s comment
+ * asserts *"the same number computed two ways … this fallback cannot disagree
+ * with a stored record"*; this fixture is a counter-example. No test in this
+ * file asserts that the divergent branch is correct — that would pin a defect.
+ *
+ * ── HISTORY OF THE FOLLOW RULE, so nobody flips it a fifth time ──────────────
+ *   original      the neighbour LENGTHENS to close the joint.
+ *   2026-08-15    C83 §10.2.2 reversed it: the incumbent is byte-identical.
+ *                 Minted from L-922 — an interior move dragged a PERIMETER
+ *                 baseline 2.19 m and re-seated three hosted doors.
+ *   2026-08-17    C83 §10.6 re-reversed it for MUTUAL corners (founder: a wall
+ *                 moved PAST its partner's second point left the corner open).
+ *   2026-08-17    C83 §10.6.3 keyed it on DEGREE, not on the `'L'` letter, and
+ *                 added the measured fallback.
+ * §10.2.2 was RIGHT about L-922's T/degree-3 and OVER-BROAD about degree-2,
+ * because nothing could tell the two apart until the discriminator was threaded.
+ *
  * @file packages/geometry-wall/__tests__/L926OpenedRegionAcceptance.test.ts
  */
 
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
-import { computeMoveReweldPlan, type ReweldBaseline } from '../src/WallMoveReweld';
+import {
+    computeMoveReweldPlan,
+    type MoveReweldPartner,
+    type ReweldBaseline,
+} from '../src/WallMoveReweld';
 // L2 → L2 (eslint.config.js: room-topology and geometry-wall are both L2), and
 // `check-layer-boundaries.ts` skips `__tests__` paths entirely. Deep relative
 // rather than the `@pryzm/room-topology` barrel on purpose: room-topology
@@ -72,6 +122,37 @@ const BEFORE: WallSpec[] = [
 
 /** P moves 0.773 m south. Founder's number, founder's direction. */
 const P_MOVED: ReweldBaseline = bl([0, 4 - 0.773], [12, 4 - 0.773]);
+
+/**
+ * THE STORED JUNCTION RECORDS FOR THIS PLAN — quoted from the resolver, not
+ * chosen. Every junction `P` takes part in is the same shape: `P`'s body or end
+ * meeting a wall that TERMINATES there.
+ *
+ *   (6, 4)   `P` passthrough (2 sweep entries) + `T` endpoint (1) ⇒ n = 3,
+ *            passthroughCount = 1 ⇒ `{ type: 'T', degree: 3 }`.
+ *   (0, 4)   `W` passthrough + `P` endpoint ⇒ the same, and likewise (12, 4)
+ *            with `E`. Neither is reachable by the engine — see below — but
+ *            production's `joinedTo` edges carry them, so the fixture does too.
+ *
+ * `N` and `S` share no junction with `P` at all and therefore carry no record;
+ * the engine drops them at its own weld test (their endpoints are 4 m from `P`),
+ * which is why `refusals` below names `T` and nothing else. `W` and `E` are
+ * dropped by the same test — an endpoint-proximity test, and their endpoints are
+ * at the building's corners — so this plan's only live partner is `T`.
+ *
+ * ⚠ THIS IS THE ONE INPUT THAT DIFFERS FROM `19ddf6bb`'s call site, and it is
+ * the difference between asking the engine a question and letting it guess. See
+ * the amendment note in the file header.
+ */
+interface StoredJunction {
+    junctionType: 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+    junctionDegree: number;
+}
+const JUNCTIONS: Readonly<Record<string, StoredJunction>> = {
+    W: { junctionType: 'T', junctionDegree: 3 },
+    E: { junctionType: 'T', junctionDegree: 3 },
+    T: { junctionType: 'T', junctionDegree: 3 },
+};
 
 // ── Rooms, DERIVED from the walls ────────────────────────────────────────────
 
@@ -151,7 +232,11 @@ const areasOf = (rooms: readonly RegionSnapshot[]): number[] =>
  * broken arm is therefore the real shipped code path, not a hand-edited fixture.
  */
 function runGesture(withAuthorship: boolean) {
-    const partners = BEFORE.filter(w => w.id !== 'P').map(w => ({ id: w.id, baseLine: bl(w.a, w.b) }));
+    const partners: MoveReweldPartner[] = BEFORE.filter(w => w.id !== 'P').map(w => {
+        const j = JUNCTIONS[w.id];
+        const base = { id: w.id, baseLine: bl(w.a, w.b) };
+        return j ? { ...base, ...j } : base;
+    });
     const plan = computeMoveReweldPlan(
         {
             id: 'P',
@@ -198,9 +283,17 @@ describe('§L-926-ZERO-PROPOSALS — the founder\'s gesture offers nothing, beca
         expect(plan.entries.map(e => e.wallId).sort()).toEqual(['T']);
 
         // The rooms are DERIVED, and they survive.
+        //   south  12 × 3.227          = 38.724
+        //   north  6 × (8 − 3.227) × 2 = 28.638 × 2
         expect(areasOf(roomsBefore)).toEqual([24, 24, 48]);
         expect(areasOf(roomsAfter)).toEqual([28.638, 28.638, 38.724]);
         expect(roomsAfter).toHaveLength(3);
+        // THE BUILDING STILL CLOSES. Three faces that tile the 12 × 8 footprint
+        // exactly is the loop-closure statement this fixture can make: a face
+        // only closes if every corner on its ring is coincident, and a missing
+        // 0.773 m at the stem's foot would leak the north pair into one face
+        // (which is precisely what arm 2 measures).
+        expect(areasOf(roomsAfter).reduce((a, b) => a + b, 0)).toBeCloseTo(12 * 8, 6);
 
         // THE ACCEPTANCE CRITERION — the user-visible symptom, absent.
         expect(scan.findings).toEqual([]);
@@ -209,18 +302,44 @@ describe('§L-926-ZERO-PROPOSALS — the founder\'s gesture offers nothing, beca
     });
 });
 
-describe('§L-926-DETECTOR-IS-LIVE — the same geometry WITHOUT the follow still fires the offer', () => {
+describe('§L-926-DETECTOR-IS-LIVE — the same geometry, the follow REFUSED, still fires the offer', () => {
     it('reproduces the founder\'s report: rooms merge and §OPENED-REGION proposes a wall', () => {
-        const { plan, scan, roomsAfter } = runGesture(false);
+        const { plan, scan, roomsAfter, after } = runGesture(false);
 
-        // `19ddf6bb`'s behaviour, reached by the engine's own no-thickness route.
+        // `19ddf6bb`'s behaviour, reached by the engine's own no-thickness route:
+        // no host thickness ⇒ no declared authorship band ⇒ the stem cannot be
+        // recognised as a stem, and it falls through to the corner path. There
+        // the C83 §10.2.2 / L-922 guard reads the STORED record — `T`, degree 3
+        // — and refuses to lengthen a 3-participant junction's partner.
         expect(plan.entries).toEqual([]);
         expect(plan.refusals.map(r => r.partnerId)).toEqual(['T']);
 
+        // THE REFUSAL CARRIES ITS NUMBER (C83 §10.3), and the number is DERIVED:
+        //   T's own line          x = 6
+        //   P's NEW line          z = 4 − 0.773 = 3.227
+        //   corner = their intersection = (6, 3.227)
+        //   T's segment is [(6, 4) … (6, 8)]; the corner lies 4 − 3.227 = 0.773 m
+        //   PAST its nearer end ⇒ closing the joint would LENGTHEN T ⇒ 773 mm.
+        const r = plan.refusals[0]!;
+        expect(r.reason).toBe('INCUMBENT_EXTENSION_REQUIRED');
+        expect(r.beyondMm).toBe(773);
+        // No second number: an incumbent's permitted extension is structurally
+        // zero, so there is no threshold to quote against it.
+        expect(r.limitMm).toBeUndefined();
+
+        // A REFUSAL LEAVES THE WALL ALONE — both endpoints, not just the far one.
+        // (When the follow DOES happen, arm 1 asserts the mirror image: the foot
+        // re-seats and the head is byte-identical.)
+        expect(after.find(w => w.id === 'T')).toEqual({ id: 'T', a: [6, 4], b: [6, 8] });
+
         // Two of three rooms merged — the founder's Room 00-005 swallowed by its
-        // neighbour, here 24 + 24 + the freed strip = 57.276 m².
+        // neighbour: 24 + 24 + the freed 12 × 0.773 strip = 57.276 m².
         expect(roomsAfter).toHaveLength(2);
         expect(areasOf(roomsAfter)).toEqual([38.724, 57.276]);
+        // The plate still TILES (38.724 + 57.276 = 96) — so the merge is a lost
+        // partition, not a leaked or double-counted face. Same statement arm 1
+        // makes about three rooms; here it is true of two, which is the defect.
+        expect(areasOf(roomsAfter).reduce((a, b) => a + b, 0)).toBeCloseTo(12 * 8, 6);
 
         // And the offer the founder saw, from an unmodified detector.
         expect(scan.findings).toHaveLength(1);
@@ -234,6 +353,12 @@ describe('§L-926-DETECTOR-IS-LIVE — the same geometry WITHOUT the follow stil
     });
 
     it('THE ZERO IS A REAL ZERO: same detector, same fixture, opposite answers', () => {
+        // THE LOAD-BEARING PAIR, and the reason this file exists. Arm 1's empty
+        // `findings` could mean "nothing opened" or "the detector is broken" —
+        // the same VALUE for a fact and for the absence of one. This pins it to
+        // the first: ONE detector, ONE set of wall coordinates, ONE set of
+        // stored junction records, and the SINGLE bit `thickness` flipped. Zero
+        // and one come out. A muted detector could not produce the one.
         expect(runGesture(true).scan.findings).toHaveLength(0);
         expect(runGesture(false).scan.findings).toHaveLength(1);
     });
