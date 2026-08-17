@@ -763,7 +763,6 @@ export type { NLQueryResult, NLQueryRow } from './SemanticQueryEngine.js';
 export * from './PlanarTopologyEngine.js';
 export * from './WallRegionExtractor.js';
 export * from './WallCandidateScorer.js';
-export * from './WallIntersectionResolver.js';
 export * from './WallTerminatorDoorDetector.js';
 export * from './DoorGapInpainter.js';
 export * from './DoorGeometricValidator.js';

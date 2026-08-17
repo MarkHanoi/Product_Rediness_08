@@ -79,12 +79,15 @@ import { FloorPlanAnalysis, DetectedWall } from './FloorPlanAIFactory.js';
 import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import { FurnitureType } from '@pryzm/geometry-furniture';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
+// GE-04 (2026-08-16): the junction resolver had THREE copies; ai-host's local fork was
+// byte-identical to core-app-model's and functionally identical to this one. Collapsed onto
+// @pryzm/room-topology — the Sprint-H migration target and an already-declared ai-host dep.
 import {
     resolveWallJunctions,
     splitWallsAtCrossings,
     buildWallGraph,
-    WallGraph,
-} from './WallIntersectionResolver.js';
+    type WallGraph,
+} from '@pryzm/room-topology';
 import {
     computeTopology,
     assignOpeningsToWalls,

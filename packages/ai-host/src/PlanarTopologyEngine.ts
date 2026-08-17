@@ -23,7 +23,7 @@
  *  - All queries on TopologyResult are read-only.
  */
 
-import { WallGraph } from './WallIntersectionResolver.js';
+import type { WallGraph } from '@pryzm/room-topology'; // GE-04: single owner (was a local fork)
 
 // ── Configuration ──────────────────────────────────────────────────────────────
 
