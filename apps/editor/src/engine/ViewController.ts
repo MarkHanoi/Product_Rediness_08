@@ -556,11 +556,27 @@ export class ViewController implements IViewController {
         this._multiViewCameraManager.clearAll();
     }
 
+    /**
+     * §CAM-ONE-FRAMING-AUTHORITY (L-931) — seeds the perspective slot through
+     * `computeFitPose()`, the same authority `_activate3DView` and Fit All use. It
+     * previously carried its own copy of the `maxDim × 2` policy, which meant the CACHE
+     * could be seeded with a pose no framer would ever compute; a restore HIT then
+     * replayed it and looked like a remembered user preference.
+     *
+     * Has no live caller today (`initScene.ts:3296` explicitly instructs callers not to
+     * use it) and is retained as public API; it is kept converged so it cannot become a
+     * rival policy the moment somebody does call it.
+     */
     seedPerspectiveCameraFromSceneBounds(): boolean {
-        const target = this._computeCameraTarget();
-        const distance = this._computeCameraDistance();
-        const position = target.clone().add(new THREE.Vector3(distance * 0.6, distance * 0.4, distance * 0.6));
-        this._multiViewCameraManager.seedPerspectiveSlot(position, target);
+        const bounds = this._getFramingBounds();
+        if (bounds.isEmpty()) return false;   // nothing to seed — refuse rather than invent
+        const perspective = this._camera.three as THREE.PerspectiveCamera;
+        const pose = computeFitPose(bounds, {
+            fovDeg: perspective.isPerspectiveCamera ? perspective.fov : 60,
+            aspect: perspective.isPerspectiveCamera ? perspective.aspect : 1,
+        });
+        if (!pose) return false;
+        this._multiViewCameraManager.seedPerspectiveSlot(pose.position, pose.target);
         return true;
     }
 
@@ -792,9 +808,9 @@ export class ViewController implements IViewController {
         // *L-378 guards the stored value; this guards the computed one.* Fixing only
         // one of them means the fallback re-creates exactly what the guard rejected.
         //
-        // This is the single choke point: `_computeCameraTarget()`,
-        // `_computeCameraDistance()` and `_ensureGeometryFramed()` all read bounds
-        // through here, so one guard covers every framing decision.
+        // This is the single choke point: `_activate3DView`'s default framing,
+        // `seedPerspectiveCameraFromSceneBounds()` and `_ensureGeometryFramed()` all read
+        // bounds through here, so one guard covers every framing decision.
         //
         // Returning EMPTY (not a clamped box) is deliberate. Every caller already has
         // a correct empty-bounds path — target (0,0,0), distance 50 m, and "do not
@@ -1071,30 +1087,17 @@ export class ViewController implements IViewController {
         );
     }
 
-    /**
-     * Get a valid camera target based on scene geometry or grid center.
-     * Reads from the shared bounds cache — no extra traversal.
+    /*
+     * §CAM-ONE-FRAMING-AUTHORITY (L-931) — `_computeCameraTarget()` and
+     * `_computeCameraDistance()` used to live here. They were the SECOND framing policy
+     * in this file (`bounds.getCenter()` + `maxDim × 2`, no depth range), competing with
+     * `computeFitPose()` over the identical input, and they disagreed with it by ~23 % on
+     * the founder's scene. Both call sites — `_activate3DView`'s default framing and
+     * `seedPerspectiveCameraFromSceneBounds()` — now go through the shared authority, so
+     * the policy is deleted rather than kept in sync. Bounds still come from
+     * `_getFramingBounds()`, which is unchanged and remains the model → SITE → constant
+     * precedence (ADR-0305 §1).
      */
-    private _computeCameraTarget(): THREE.Vector3 {
-        const bounds = this._getFramingBounds();
-        const target = new THREE.Vector3();
-        if (!bounds.isEmpty()) {
-            bounds.getCenter(target);
-        }
-        return target;
-    }
-
-    /**
-     * Compute camera distance based on scene bounds.
-     * Reads from the shared bounds cache — no extra traversal.
-     */
-    private _computeCameraDistance(): number {
-        const bounds = this._getFramingBounds();
-        if (bounds.isEmpty()) return 50;
-        const size = bounds.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z, 10);
-        return maxDim * 2;
-    }
 
     /**
      * §CAM-FRAME-INVARIANT (L-742, 2026-08-07) — supersedes §VIEW-ZOOM (2026-06-08).
@@ -1356,8 +1359,8 @@ export class ViewController implements IViewController {
         // Marks the SceneBoundsCache dirty so the next getBounds() call performs
         // a single fresh traversal. This guarantees correctness (the user may
         // have added/removed elements since the last switch) while ensuring that
-        // _computeCameraTarget() and _computeCameraDistance() — both called
-        // during this same activation — share the same traversal result.
+        // the default framing and `_ensureGeometryFramed()` — both called during
+        // this same activation — share the same traversal result.
         this._boundsCache?.invalidate();
         this._vst(`SceneBoundsCache invalidated — dirty flag set`);
 
@@ -1684,14 +1687,58 @@ export class ViewController implements IViewController {
             this._vst(`_activate3DView — ViewCameraStateStore.restore("${restoreKey3D}") ${restored3D ? 'HIT' : 'MISS'}`);
 
             if (!restored3D) {
-                this._vst(`_activate3DView — computing default framing: _computeCameraTarget() + _computeCameraDistance()`);
-                const target = this._computeCameraTarget();
-                const distance = this._computeCameraDistance();
+                // ── §CAM-ONE-FRAMING-AUTHORITY (L-931) ──────────────────────────────
+                // This block used to run its OWN framing policy — `maxDim × 2` at a
+                // (0.6, 0.4, 0.6) offset, with the depth range left untouched — while
+                // `_ensureGeometryFramed()` twelve lines below fitted the SAME bounds
+                // through `computeFitPose()`. Two policies over one input is precisely
+                // what L-742 was raised to delete, and it survived here because this path
+                // predates the authority and nothing forced them to converge.
+                //
+                // The cost was not merely cosmetic. The two disagreed by ~23 % on the
+                // founder's scene (8000.0 m here vs 6505.4 m there), so the camera was
+                // placed, then re-placed, on every restore MISS; this path seeded the
+                // perspective slot with the LOSING pose, which `_ensureGeometryFramed`
+                // then had to re-seed; and because this path never set near/far, a fit
+                // large enough to sit outside the 2000 m far plane rendered a white
+                // viewport until the authority ran.
+                //
+                // Now there is one policy. `_ensureGeometryFramed()` below re-runs the
+                // "is the model framed?" predicate and becomes a NO-OP when this pose is
+                // already correct — the loser defers explicitly instead of racing.
+                const bounds = this._getFramingBounds();
+                const perspective = this._camera.three as THREE.PerspectiveCamera;
+                const pose = bounds.isEmpty() ? null : computeFitPose(bounds, {
+                    fovDeg: perspective.isPerspectiveCamera ? perspective.fov : 60,
+                    aspect: perspective.isPerspectiveCamera ? perspective.aspect : 1,
+                });
 
-                const offset = new THREE.Vector3(distance * 0.6, distance * 0.4, distance * 0.6);
-                const position = target.clone().add(offset);
+                // No model and no site: the honest answer is the 50 m constant about the
+                // origin — an empty project must not be framed as though it were authored
+                // (ADR-0305 §1). `computeFitPose` returns null there rather than inventing
+                // an extent, and this is the one place allowed to supply the constant.
+                const target   = pose ? pose.target   : new THREE.Vector3();
+                const distance = pose ? pose.distance : 50;
+                const position = pose
+                    ? pose.position
+                    : target.clone().add(new THREE.Vector3(distance * 0.6, distance * 0.4, distance * 0.6));
 
-                this._vst(`_activate3DView — controls.setLookAt() START (target=${target.toArray().map(v=>v.toFixed(1))}, dist=${distance.toFixed(1)})`);
+                if (pose) {
+                    // The depth range travels WITH the pose (§CAM-NEAR-NEVER-CUTS) — the
+                    // half this path never had.
+                    perspective.near = pose.near;
+                    perspective.far  = pose.far;
+                    perspective.updateProjectionMatrix();
+                    if (typeof controls?.maxDistance === 'number' && controls.maxDistance < pose.distance * 1.1) {
+                        controls.maxDistance = pose.distance * 1.1;
+                    }
+                }
+
+                this._vst(
+                    `_activate3DView — §CAM-ONE-FRAMING-AUTHORITY default framing via computeFitPose ` +
+                    `(target=${target.toArray().map(v=>v.toFixed(1))}, dist=${distance.toFixed(1)}` +
+                    `${pose ? `, near=${pose.near} far=${pose.far.toFixed(0)}` : ', no model and no site — 50m constant'})`,
+                );
                 await controls.setLookAt(
                     position.x, position.y, position.z,
                     target.x, target.y, target.z,
