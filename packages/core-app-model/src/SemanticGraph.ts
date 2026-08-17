@@ -362,6 +362,56 @@ export type HostWallQuery =
     };
 
 /**
+ * §HOSTS-FORWARD-READER (C71 §2.1 #1, §4.4 · C78 §1.4 / §5.2) — the typed result
+ * of {@link SemanticGraphManager.getHostedOpenings}, the FORWARD `hosts`
+ * traversal (`wall → the openings it hosts`).
+ *
+ * This closes the second half of C71 §2.1 row 1, "the reference-shape PAIR".
+ * `hostedBy` gained {@link HostWallQuery} / `getHostWall`; `hosts` — the half
+ * written in the SAME statement pair by both writers (`CreateWallOpeningCommand`
+ * and `rebuildSemanticGraphFromSnapshot`) — was still read exclusively through
+ * bare `getTargets(wallId, 'hosts')`, which returns `[]` for BOTH "this wall
+ * hosts nothing" and "I have never heard of this wall". C78 §1.4 forbids
+ * inferring DETERMINED-unaffected from that value, so every consequential
+ * operation asking "what does this wall host?" inherited the forbidden
+ * inference no matter how well its planner was composed.
+ *
+ * FAILURE ≠ EMPTINESS (C71 §4.4). `{ok:true, openingIds:[]}` means "the `hosts`
+ * writer has covered this wall and it hosts nothing" — a positive answer a
+ * caller may act on. The two refusals are NAMED separately because they call
+ * for different repairs:
+ *
+ *   `wall-unknown-to-hosts-writer` — no `hosts` edge from this id and no
+ *     coverage mark. The id may not be a wall; the wall may have been created
+ *     but never had an opening written to it; or the project was restored by
+ *     `deserialize` and no writer has run since (see `_hostsCovered` for why
+ *     that mark is derived-not-serialized). C78 §8.1's
+ *     `RELATIONSHIP_NOT_RECORDED` is the consequence-path member this maps to.
+ *
+ *   `hosts-hostedBy-pair-broken` — a `hosts` edge exists whose INVERSE
+ *     `hostedBy` edge does not point back to this wall. Both writers emit the
+ *     two halves together, and {@link SemanticGraphManager.removeAllRelationshipsForElement}
+ *     purges them together, so a half-pair is not a state either writer can
+ *     produce — but `deserialize` drops malformed rows INDIVIDUALLY and
+ *     continues (see {@link SemanticGraphLoadResult}), so one bad row in a
+ *     saved slice is a live production path to exactly this shape. It is a
+ *     refusal rather than a filtered-down success because the two halves of the
+ *     reference pair would otherwise answer the same physical question
+ *     differently while both looked confident: `getHostedOpenings(W)` would say
+ *     "W hosts D" while `getHostWall(D)` refused or named another wall. C79
+ *     §5.3's rule applies — the element-level state is the WORST of its edges,
+ *     so a partially-corrupt edge set yields no confident partial answer.
+ */
+export type HostedOpeningsQuery =
+    | { readonly ok: true; readonly wallId: string; readonly openingIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly wallId: string;
+        readonly reason: 'wall-unknown-to-hosts-writer' | 'hosts-hostedBy-pair-broken';
+        readonly detail: string;
+    };
+
+/**
  * Plain-JSON serialisation of the SemanticGraph.
  * Stored in ProjectSnapshot.semanticGraph.
  */
@@ -479,6 +529,40 @@ export class SemanticGraphManager {
     private readonly _joinedToCovered = new Set<string>();
 
     /**
+     * §HOSTS-FORWARD-READER (C71 §2.1 #1) — wall ids the `hosts` writer has made
+     * a DEFINITIVE statement about. This is what lets
+     * {@link getHostedOpenings} distinguish "covered, hosts nothing" (a positive
+     * empty answer) from "the writer has never seen this id" (a refusal), which
+     * bare `getTargets(wallId, 'hosts')` cannot: it returns `[]` for both.
+     *
+     * MAINTAINED AT THE WRITER (C71 §3.4), which for this family is
+     * {@link addRelationship} itself — every `hosts` edge is written through it
+     * by both writers (`CreateWallOpeningCommand` and
+     * `rebuildSemanticGraphFromSnapshot`), so there is no second call site to
+     * keep in step and no way to write the edge without marking the wall.
+     * Contrast `_joinedToCovered`, whose writer is a per-level flush and so
+     * needs its own explicit marking pass.
+     *
+     * WHY THE MARK OUTLIVES THE EDGES, and why that is the whole point: when a
+     * wall's LAST opening is deleted, the cascade purges the edge keyed on the
+     * OPENING id, so the wall keeps its mark and the reader answers
+     * `{ok:true, openingIds:[]}` — "this wall is known and now hosts nothing".
+     * Without the mark that case is indistinguishable from an unknown id, and
+     * the delete would silently downgrade a determined answer to an undetermined
+     * one. Deleting the WALL does clear it (see
+     * {@link removeAllRelationshipsForElement}) — a dead id is *unknown*, not
+     * "covered, hosts nothing".
+     *
+     * Derived state, never serialized — same disposition as `_joinedToCovered`.
+     * A graph restored by {@link deserialize} (which writes the indices directly
+     * and never goes through `addRelationship`) has no marks until a writer
+     * runs. That is honest rather than unfortunate: a wall whose `hosts` edges
+     * came back from a slice still answers through the EDGE branch, and a wall
+     * with no edges genuinely cannot be told from an id that is not a wall.
+     */
+    private readonly _hostsCovered = new Set<string>();
+
+    /**
      * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — room ids
      * whose boundary conclusion is **`undetermined`**: a bounding element
      * moved, or was deleted, and no re-derivation (room detection) has run
@@ -536,6 +620,14 @@ export class SemanticGraphManager {
         // the idempotency guard on purpose: a re-derivation that reproduces an
         // existing edge byte-identically is still a re-derivation.
         if (rel.type === 'boundedBy') this._boundaryUndetermined.delete(rel.sourceId);
+
+        // §HOSTS-FORWARD-READER — writing a `hosts` edge IS the writer's
+        // definitive statement about this wall, so the coverage mark is taken
+        // here rather than in a follow-up (C71 §3.4). Before the idempotency
+        // guard on purpose: a re-emit of an existing edge is still a statement,
+        // and a wall whose only opening edge already existed must not be left
+        // unmarked by the early return below.
+        if (rel.type === 'hosts') this._hostsCovered.add(rel.sourceId);
 
         // Idempotency guard — don't duplicate the same logical relationship
         const existing = this._findExact(rel.sourceId, rel.targetId, rel.type, rel.authoredBy);
@@ -602,6 +694,14 @@ export class SemanticGraphManager {
         // answers through the edge branch; a joinless wall stays a refusal
         // until the next flush covers it — honest, per C71 §4.4.
         this._joinedToCovered.delete(elementId);
+
+        // §HOSTS-FORWARD-READER — a deleted WALL is unknown to the hosts writer
+        // again, not "covered, hosts nothing": getHostedOpenings must refuse for
+        // a dead id. Keyed on `elementId`, so deleting an OPENING never clears
+        // its host wall's mark — that is precisely the case the mark exists for
+        // (the wall is still known; it now hosts nothing). Same disposition as
+        // `_joinedToCovered` above.
+        this._hostsCovered.delete(elementId);
 
         // §GR12-BOUNDARY-INVALIDATION — a room whose every edge is purged
         // (deleted, or replaced by a detection cycle) is UNKNOWN again, not
@@ -1016,6 +1116,73 @@ export class SemanticGraphManager {
     }
 
     /**
+     * §HOSTS-FORWARD-READER — the typed `hosts` reader (C71 §2.1 #1, the other
+     * half of the reference-shape pair): "which openings does this wall host?",
+     * as a refusal-bearing graph LOOKUP rather than a bare `getTargets`.
+     *
+     * CONSUMER: `SemanticQueryEngine`'s "what's in wall X" handler
+     * (`packages/ai-host/src/SemanticQueryEngine.ts`). That handler already
+     * asked exactly this question through `getTargets(wall.id, 'hosts')` and
+     * reported the length as a fact — so a wall the graph had never heard of
+     * produced the sentence *"0 element(s) hosted in wall"*, which is the C78
+     * §1.4 forbidden inference rendered directly into user-visible prose. It now
+     * distinguishes the two, in the same shape as that engine's model-summary
+     * handler already distinguishes an empty type from an unreadable one.
+     *
+     * Refusal-bearing per C71 §4.4: see {@link HostedOpeningsQuery} for the two
+     * named refusals and why a broken pair refuses rather than filtering.
+     *
+     * WHY THE PAIR CHECK IS AFFORDABLE: it is O(k) in the openings of ONE wall
+     * — a handful — and reuses the same index the forward read already touched.
+     *
+     * Complexity: O(k) in the number of `hosts` edges from this wall.
+     */
+    getHostedOpenings(wallId: string): HostedOpeningsQuery {
+        const openingIds = [...new Set(this.getTargets(wallId, 'hosts'))];
+
+        if (openingIds.length > 0) {
+            // The inverse half must agree. Both writers emit `hosts` and
+            // `hostedBy` together; `deserialize` can drop either one alone.
+            const orphaned = openingIds.filter(
+                (id) => !this.getTargets(id, 'hostedBy').includes(wallId),
+            );
+            if (orphaned.length > 0) {
+                return {
+                    ok: false,
+                    wallId,
+                    reason: 'hosts-hostedBy-pair-broken',
+                    detail:
+                        `hosts lookup for wall ${wallId}: ${orphaned.length} of ${openingIds.length} ` +
+                        `hosted opening(s) (${orphaned.join(', ')}) carry no hostedBy edge back to ` +
+                        `this wall. C71 §2.1 row 1 writes the pair together and the delete cascade ` +
+                        `purges it together, so this edge set is corrupt — most likely a slice whose ` +
+                        `inverse row was dropped at load (see lastLoadReport). This reader does NOT ` +
+                        `return the consistent subset: getHostWall would answer differently for the ` +
+                        `orphans, and two halves of one pair disagreeing while both look confident is ` +
+                        `the defect this reader exists to prevent. NO ANSWER, not a partial one.`,
+                };
+            }
+            return { ok: true, wallId, openingIds };
+        }
+
+        // No edges. Only the coverage mark can tell "hosts nothing" from
+        // "never seen" — `[]` from the raw lookup means both.
+        if (this._hostsCovered.has(wallId)) return { ok: true, wallId, openingIds: [] };
+
+        return {
+            ok: false,
+            wallId,
+            reason: 'wall-unknown-to-hosts-writer',
+            detail:
+                `hosts lookup for wall ${wallId}: the graph holds no hosts edge from this id and ` +
+                `the opening writer has never covered it (the id may not be a wall; the wall may ` +
+                `exist but have never had an opening written to it; or the project was restored ` +
+                `from a slice and no writer has run since — the coverage mark is derived state and ` +
+                `is not serialized). This is NO ANSWER, not "hosts nothing" — C71 §4.4, C78 §1.4.`,
+        };
+    }
+
+    /**
      * Reset the graph to empty.
      * Used for full project reload.
      */
@@ -1024,6 +1191,7 @@ export class SemanticGraphManager {
         this._bySource.clear();
         this._byTarget.clear();
         this._joinedToCovered.clear();
+        this._hostsCovered.clear();
         this._boundaryUndetermined.clear();
         // §GR10-DESERIALIZE-DROP-REPORT — the report describes ONE load of ONE
         // slice. Carrying it across a clear would let a project switch answer

@@ -372,8 +372,33 @@ export class SemanticQueryEngine {
                     if (!wall) {
                         return { query: input, summary: `No wall matching "${wallHint}"`, rows: [], durationMs: 0 };
                     }
-                    const hostedIds = semanticGraphManager.getTargets(wall.id, 'hosts');
-                    const rows: NLQueryRow[] = hostedIds.map(id => ({
+                    // §HOSTS-FORWARD-READER (C71 §2.1 #1 / §4.4 · C78 §1.4) —
+                    // THE CONSUMER of the typed `hosts` reader. This used to be
+                    // `getTargets(wall.id, 'hosts')` and printed the length as a
+                    // fact, so a wall the graph had never heard of produced the
+                    // sentence "0 element(s) hosted in wall" — the forbidden
+                    // inference (DETERMINED-unaffected from missing data)
+                    // rendered straight into user-visible prose. Same treatment
+                    // as the model-summary handler above: the refusal is a
+                    // VISIBLE row and a differently-worded summary, never a
+                    // silent zero.
+                    const hosted = semanticGraphManager.getHostedOpenings(wall.id);
+                    if (!hosted.ok) {
+                        return {
+                            query: input,
+                            summary:
+                                `Cannot determine what wall ${wall.name ?? wall.id.slice(0, 8)} hosts — ` +
+                                `${hosted.reason}. This is NOT "nothing is hosted in it".`,
+                            rows: [{
+                                id: wall.id,
+                                label: 'Hosted elements: cannot determine',
+                                type: 'undetermined',
+                                meta: `${hosted.reason} — ${hosted.detail}`,
+                            }],
+                            durationMs: 0,
+                        };
+                    }
+                    const rows: NLQueryRow[] = hosted.openingIds.map(id => ({
                         id,
                         label: id.slice(0, 12),
                         type: 'opening',
