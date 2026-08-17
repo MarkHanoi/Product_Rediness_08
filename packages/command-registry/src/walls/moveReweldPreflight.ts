@@ -346,7 +346,17 @@ function _previewMoveReweld(
             // `computeMoveReweldPlan`, the only place that measured whose
             // endpoint abuts whose body. Re-testing it here would be the second
             // copy of a predicate this file's header refuses to keep.
-            if ((e as { role?: string }).role === 'dependent-stem') continue;
+            //
+            // §C83 §10.6 — a MUTUAL-CORNER partner is not an incumbent either.
+            // Same reasoning one step further out: a corner the subject and
+            // exactly ONE partner jointly own, at a stored `L`/degree-2
+            // junction, is nobody else's authority to protect. The engine
+            // stamped this role only after measuring that; re-testing it here
+            // would be the second copy of the predicate this file's header
+            // refuses to keep. L-942 is what counting it here cost — every
+            // wall-move that broke a junction was hard-blocked in production.
+            const role = (e as { role?: string }).role;
+            if (role === 'dependent-stem' || role === 'mutual-corner') continue;
             const before = wallStore.getById(e.wallId);
             const bl = before?.baseLine as readonly Point3D[] | undefined;
             if (!bl || bl.length < 2) continue;

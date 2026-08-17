@@ -180,6 +180,12 @@ export const AUTHOR_KEYED_RELATIONSHIP_TYPES: readonly RelationshipType[] = [
  * same five literals.
  */
 export type JoinedToJunctionType = 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+/**
+ * The runtime membership test for {@link JoinedToJunctionType}. Declared beside
+ * the union so a new member cannot be added to one without the other — the
+ * `satisfies` pins them together at compile time.
+ */
+export const JOINED_TO_JUNCTION_TYPES = ['L', 'T', 'Y', 'X', 'N-WAY'] as const satisfies readonly JoinedToJunctionType[];
 
 /**
  * One retained junction, as the `joinedTo` writer hands it over. Deliberately
@@ -202,13 +208,44 @@ export interface JoinedToJunctionInput {
  * A caller that conflates the two converts absent evidence into a PASS.
  */
 export type JoinedWallsQuery =
-    | { readonly ok: true; readonly wallId: string; readonly joinedWallIds: readonly string[] }
+    | {
+        readonly ok: true;
+        readonly wallId: string;
+        readonly joinedWallIds: readonly string[];
+        /**
+         * §C83 §10.6 — the per-partner junction DISCRIMINATOR, carried rather
+         * than discarded.
+         *
+         * ⚠ This reader used to return `joinedWallIds` alone, and the metadata
+         * it had already loaded went in the bin one line after being read. That
+         * cost more than tidiness: `WallMoveReweld` cannot tell a MUTUAL corner
+         * (the two walls jointly own it — the partner must follow) from a
+         * TERMINATING one (an incumbent — the partner must not move), the two
+         * are geometrically the same picture, and **the only thing that
+         * separates them is this metadata**. Without it the engine refused both,
+         * which is L-942: production wall-moves hard-blocked.
+         *
+         * One entry per id in `joinedWallIds`, same order. Fields are OPTIONAL
+         * because an edge written before the junction writer stamped metadata
+         * has none — and **absent means "I could not determine", never "L"**
+         * (C70 L-INV-1). A consumer must take its conservative branch on
+         * absence, never its permissive one.
+         */
+        readonly junctions: readonly JoinedWallJunction[];
+    }
     | {
         readonly ok: false;
         readonly wallId: string;
         readonly reason: 'wall-unknown-to-joinedTo-writer';
         readonly detail: string;
     };
+
+/** One partner's junction discriminator, as STORED on the `joinedTo` edge. */
+export interface JoinedWallJunction {
+    readonly wallId: string;
+    readonly junctionType?: JoinedToJunctionType;
+    readonly junctionDegree?: number;
+}
 
 /**
  * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — the typed
@@ -643,8 +680,34 @@ export class SemanticGraphManager {
      */
     getJoinedWalls(wallId: string): JoinedWallsQuery {
         const joinedWallIds = this.getTargets(wallId, 'joinedTo');
-        if (joinedWallIds.length > 0) return { ok: true, wallId, joinedWallIds };
-        if (this._joinedToCovered.has(wallId)) return { ok: true, wallId, joinedWallIds: [] };
+        if (joinedWallIds.length > 0) {
+            // §C83 §10.6 — carry the discriminator this reader already holds.
+            // Built by INDEXING the edges by target rather than by walking them
+            // per id: `getRelationships` is O(edges) and doing it inside the map
+            // would make a hot move-path reader quadratic in junction count.
+            const byTarget = new Map<string, Relationship>();
+            for (const r of this.getRelationships(wallId, 'joinedTo')) {
+                if (!byTarget.has(r.targetId)) byTarget.set(r.targetId, r);
+            }
+            const junctions: JoinedWallJunction[] = joinedWallIds.map(id => {
+                const m = byTarget.get(id)?.metadata;
+                const t = m?.['junctionType'];
+                const d = m?.['junctionDegree'];
+                return {
+                    wallId: id,
+                    // Narrowed, never cast: metadata is `string | number |
+                    // boolean`, so an unexpected value must read ABSENT rather
+                    // than be asserted into the union. A wrong 'L' here would
+                    // authorise moving an incumbent.
+                    junctionType: typeof t === 'string' && JOINED_TO_JUNCTION_TYPES.includes(t as JoinedToJunctionType)
+                        ? (t as JoinedToJunctionType)
+                        : undefined,
+                    junctionDegree: typeof d === 'number' && Number.isFinite(d) ? d : undefined,
+                };
+            });
+            return { ok: true, wallId, joinedWallIds, junctions };
+        }
+        if (this._joinedToCovered.has(wallId)) return { ok: true, wallId, joinedWallIds: [], junctions: [] };
         return {
             ok: false,
             wallId,

@@ -75,7 +75,23 @@ export interface ReweldWallStoreRef {
 /** Mirror of SemanticGraphManager.getJoinedWalls's typed result (C71 §4.4).
  *  Declared structurally so the graph manager is injectable, not imported. */
 export type ReweldJoinedWallsQuery =
-    | { readonly ok: true; readonly wallId: string; readonly joinedWallIds: readonly string[] }
+    | {
+        readonly ok: true;
+        readonly wallId: string;
+        readonly joinedWallIds: readonly string[];
+        /**
+         * §C83 §10.6 — per-partner junction discriminator, same order as
+         * `joinedWallIds`. OPTIONAL on this mirror so an injected graph that
+         * predates the widening still satisfies the type; absent ⇒ no partner
+         * carries metadata ⇒ nothing follows, which is the conservative branch
+         * and byte-identical to pre-§10.6 behaviour.
+         */
+        readonly junctions?: readonly {
+            readonly wallId: string;
+            readonly junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY';
+            readonly junctionDegree?: number;
+        }[];
+    }
     | { readonly ok: false; readonly wallId: string; readonly reason: string; readonly detail?: string };
 
 export interface ReweldCommandLike {
@@ -267,11 +283,31 @@ export class WallMoveReweldService {
             if (partnerIds.length === 0) return;
         }
 
+        // §C83 §10.6 — the STORED discriminator, indexed by partner id.
+        //
+        // ⚠ Populated ONLY on the `joinedTo-graph` arm. The level-scan fallback
+        // resolved its partners geometrically and the graph refused to answer
+        // for this wall, so there is no junction record to read — and §10.6.3 #1
+        // is explicit that absent metadata must take the pre-§10.6 branch
+        // byte-identically. Leaving this map empty is how that is enforced: a
+        // partner with no entry gets no `junctionType`, and `isMutualCorner`
+        // reads false. Do not "helpfully" re-derive it here.
+        const junctionById = new Map<string, { junctionType?: 'L' | 'T' | 'Y' | 'X' | 'N-WAY'; junctionDegree?: number }>();
+        if (q.ok && q.junctions) {
+            for (const j of q.junctions) junctionById.set(j.wallId, j);
+        }
+
         const partners: MoveReweldPartner[] = [];
         for (const id of partnerIds) {
             const p = this.wallStore.getById(id);
             if (p?.baseLine && p.baseLine.length >= 2) {
-                partners.push({ id: p.id, baseLine: this.toBaseline(p.baseLine) });
+                const j = junctionById.get(p.id);
+                partners.push({
+                    id: p.id,
+                    baseLine: this.toBaseline(p.baseLine),
+                    junctionType: j?.junctionType,
+                    junctionDegree: j?.junctionDegree,
+                });
             }
         }
         if (partners.length === 0) return;
