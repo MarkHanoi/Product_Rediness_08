@@ -260,12 +260,21 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
           // fabricated from an unread result carries neither and is worse than
           // silence. `'indeterminate'` — already in this file's vocabulary — is
           // the honest outcome.
-          const readable = !!result && Array.isArray(result.affectedElementIds);
-          const report: WallHeightBatchReport = readable
+          // §READABLE-IDS-NARROW — capture the array itself rather than a
+          // boolean. `const readable = !!result && Array.isArray(...)` reads
+          // correctly to a human and narrows NOTHING for the compiler: on the
+          // truthy branch `result.affectedElementIds` stayed `string[] |
+          // undefined` (it is optional on LegacyWindow) and the object was not
+          // assignable to WallHeightBatchReport. Binding the value is what
+          // carries the proof into the branch — and it is the same idea as the
+          // fix above it: read the thing, do not assert about it.
+          const readableIds =
+            result && Array.isArray(result.affectedElementIds) ? result.affectedElementIds : undefined;
+          const report: WallHeightBatchReport = result && readableIds
             ? {
                 success: result.success ?? false,
                 info: result.success ? info : (result.info ?? info),
-                affectedElementIds: result.affectedElementIds,
+                affectedElementIds: readableIds,
                 outcome: result.success ? 'applied' : 'refused',
               }
             : {
