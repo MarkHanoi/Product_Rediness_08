@@ -286,8 +286,29 @@ export class CommandManager {
             snapshot = this.createSnapshot(command);
             if (!skipLog) {
                 const __t_snap_elapsed = (performance.now() - __t_snapshot_start).toFixed(1);
-                const __t_scope = command.affectedStores ? command.affectedStores.join(',') : 'ALL(legacy)';
-                console.log(`[CommandManager] snapshot commandType="${(command as any).constructor?.name ?? 'unknown'}" scope=[${__t_scope}] elapsed=${__t_snap_elapsed}ms`);
+                // §DIAG-SNAPSHOT-LOG-IS-HONEST (L-947, separate from the L-947 fix itself)
+                //
+                // TWO defects in this one line, both of the §CONTEXT-DATA-HONESTY shape
+                // — a line that reports something OTHER than what the code did:
+                //
+                //  1. SCOPE. The guard was `command.affectedStores ? … : 'ALL(legacy)'`,
+                //     but `createSnapshot` falls back to ALL stores when the declaration
+                //     is EMPTY (`length > 0` at :562), not only when it is absent. An
+                //     empty declaration therefore printed `scope=[]` while the snapshot
+                //     covered every store. Now the two read the same condition.
+                //  2. IDENTITY. `constructor?.name` is the MINIFIED class name in a
+                //     production bundle — this is what printed `commandType="B0"` in the
+                //     founder's L-947 console, an identity no reader can grep for.
+                //     `command.type` is the CommandType enum's string value: it survives
+                //     minification because it is data, not a symbol. It leads, and the
+                //     class name follows only when it still carries information.
+                const __t_declared = command.affectedStores;
+                const __t_scope = __t_declared && __t_declared.length > 0 ? __t_declared.join(',') : 'ALL(legacy)';
+                const __t_ctor = (command as { constructor?: { name?: string } }).constructor?.name;
+                const __t_id = __t_ctor && __t_ctor !== 'Object' && __t_ctor !== String(command.type)
+                    ? `${String(command.type)} (${__t_ctor})`
+                    : String(command.type ?? 'unknown');
+                console.log(`[CommandManager] snapshot commandType="${__t_id}" scope=[${__t_scope}] elapsed=${__t_snap_elapsed}ms`);
             }
         }
 
