@@ -67,6 +67,7 @@ import { SceneBoundsCache, computeBimFitBounds } from '@pryzm/scene-committer';
 //    warmed once here (transforming the core-app-model graph costs ~20 s cold).
 let computeFitPose: typeof import('@pryzm/core-app-model')['computeFitPose'];
 let boundsFramedByCamera: typeof import('@pryzm/core-app-model')['boundsFramedByCamera'];
+let boundsFromSiteRing: typeof import('@pryzm/core-app-model')['boundsFromSiteRing'];
 let initViewSetup: typeof import('@app/engine/initViewSetup')['initViewSetup'];
 
 beforeAll(async () => {
@@ -79,7 +80,7 @@ beforeAll(async () => {
         removeEventListener: (t: string, h: () => void) => listeners.get(t)?.delete(h),
         dispatchEvent: () => true,
     });
-    ({ computeFitPose, boundsFramedByCamera } = await import('@pryzm/core-app-model'));
+    ({ computeFitPose, boundsFramedByCamera, boundsFromSiteRing } = await import('@pryzm/core-app-model'));
     ({ initViewSetup } = await import('@app/engine/initViewSetup'));
 }, 300_000);
 
@@ -211,6 +212,53 @@ describe('L-931 — PRYZM scene infrastructure is out of every framing bounds po
         const typed = computeBimFitBounds(scene, null);
         expect(typed.usedBimTypePass).toBe(true);
         expect(typed.bounds.getSize(new THREE.Vector3()).x).toBeCloseTo(20, 6);
+    });
+
+    /**
+     * The brief for this lane asked to "make the default frame the PARCEL", on the reading
+     * that the restore-MISS default was a static origin-at-8 km constant that
+     * §CAM-FRAME-INVARIANT then had to rescue.
+     *
+     * REFUTED. The default was never a constant — it read `_getFramingBounds()`, whose
+     * precedence has been model → SITE → constant since §CAM-FRAME-SITE-WHEN-NO-MODEL
+     * (L-748, ADR-0305 §1). The parcel rung was already written.
+     *
+     * What was actually broken is that the rung was UNREACHABLE. `_getFramingBounds()`
+     * only consults the site ring when the MODEL bounds are empty — and the catcher made
+     * them non-empty on every project where ground shadows were on and a caster existed,
+     * i.e. every project with geometry. The parcel rung could not fire, so the framing was
+     * a correct fit of a 4 km plane instead. Excluding the catcher does not add a parcel
+     * default; it lets the existing one run.
+     *
+     * This walks the exact chain `_getFramingBounds()` walks.
+     */
+    it('the SITE rung is now REACHABLE: an unauthored project frames the PARCEL, not the origin', () => {
+        // A parcel has been committed; nothing drawn. Ground shadows on, catcher attached.
+        const scene = new THREE.Scene();
+        const catcher = new GroundShadowCatcher();
+        catcher.attach(scene);
+        catcher.setEnabled(true);
+        scene.updateMatrixWorld(true);
+
+        // Rung 1 — MODEL. Empty, now that infrastructure is out of the population.
+        // Before the fix this measured 4000 m and short-circuited the precedence here.
+        const model = new SceneBoundsCache(scene, null).getBounds();
+        expect(model.isEmpty()).toBe(true);
+
+        // Rung 2 — SITE. The founder's parcel: ~246 m², centroid ~12.9 m off the origin.
+        const ring = Array.from({ length: 13 }, (_, i) => {
+            const a = (i / 13) * Math.PI * 2;
+            const r = Math.sqrt(246 / Math.PI);
+            return { x: 9.1 + r * Math.cos(a), z: 9.1 + r * Math.sin(a) };
+        });
+        const site = boundsFromSiteRing(ring)!;
+        expect(site).not.toBeNull();
+
+        const pose = computeFitPose(site, { fovDeg: 60, aspect: 1.8 })!;
+        // Parcel-scale, and AIMED at the parcel rather than the world origin.
+        expect(pose.distance).toBeGreaterThan(5);
+        expect(pose.distance).toBeLessThan(120);
+        expect(Math.hypot(pose.target.x, pose.target.z)).toBeGreaterThan(10);
     });
 });
 
