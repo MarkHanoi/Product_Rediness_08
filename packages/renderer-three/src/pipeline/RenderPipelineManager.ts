@@ -1160,11 +1160,28 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _shadowRebuildPaused = false;
 
     /**
+     * §L930-SUBMIT-PAUSE-DEPTH — nesting depth of {@link _beginShadowRebuildGuard}.
+     *
+     * The guard used to be a bare boolean, so the INNER of two overlapping windows
+     * un-paused submits while the OUTER one was still tearing GPU state down. That
+     * matters now that {@link _rebuildPipeline} takes the guard for every async
+     * rebuild: `scheduleShadowRebuild()` already wraps its own `_rebuildPipeline()`
+     * call in a guard, so the two nest by construction. Ref-counted like
+     * {@link setShadowReallocFrozen}, which had this shape from the start.
+     *
+     * `_shadowRebuildPaused` stays as the DERIVED boolean the frame gate reads (and
+     * that existing tests poke directly) — depth is the authority for the guard
+     * pair, the boolean is the authority for `render()`.
+     */
+    private _submitPauseDepth = 0;
+
+    /**
      * §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — enter the guarded window for an async
      * shadow rebuild: pause WebGPU submits AND freeze the shadow map (now per-light-effective,
      * see {@link _applyShadowFreezeState}). Balanced by {@link _endShadowRebuildGuard}.
      */
     private _beginShadowRebuildGuard(): void {
+        this._submitPauseDepth++;
         this._shadowRebuildPaused = true;
         this.setShadowReallocFrozen(true);
     }
@@ -1174,9 +1191,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * submits and thaw the shadow map DEFERRED one macrotask past any in-flight submit
      * (ADR-0111 / §SHADOW-DEVICE-LOSS-FIX — the single depth regen at the new state lands on
      * a clean idle frame, never in a submit).
+     *
+     * §L930-SUBMIT-PAUSE-DEPTH — only the OUTERMOST release resumes submits.
      */
     private _endShadowRebuildGuard(): void {
-        this._shadowRebuildPaused = false;
+        if (this._submitPauseDepth > 0) this._submitPauseDepth--;
+        this._shadowRebuildPaused = this._submitPauseDepth > 0;
         setTimeout(() => this.setShadowReallocFrozen(false), 0);
     }
 
@@ -2913,6 +2933,61 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._destroyedResourceReports     = 0;
         this._destroyedResourceWindowStart = 0;
         this._retryCount                   = 0;
+
+        // ── §L930-DETACH-BEFORE-FREE (founder L-930) — the ORDER below is the fix ──
+        //
+        // MEASURED, from the founder's own console, in the order it printed:
+        //   2  recoverFromRenderFailure          ← this method
+        //   3  signalled 1 shadow-casting light  ← the ShadowDepthTexture is FREED here
+        //   4  compiled node states reset (4/4)
+        //   5  old pipeline dispose error: undefined 'usedTimes'   ← teardown ABORTS
+        //   6  Phase: phase4                     ← the rebuild SUCCEEDED
+        //   7  §RECOVERY-MUST-REFUSE  destroyed ShadowDepthTexture in a submit → phase=error
+        //
+        // Two ordering breaches produced 5 and 7, and BOTH are visible in that
+        // sequence:
+        //
+        //  (a) THE SUBMIT GATE WAS OPEN WHILE THE TEXTURE WAS FREED. Step 3 frees a
+        //      light-owned GPU texture on an arbitrary tick (the crash guard's), and
+        //      `_rebuildPipeline()` then clears `_hasPipelineError` synchronously
+        //      while `_renderPipeline` still points at the OLD pipeline — whose bind
+        //      groups sample exactly that texture. Every rAF tick in the rebuild
+        //      window therefore encoded and submitted against the corpse: two render
+        //      contexts (shadow depth pass + main pass) × two frames before the
+        //      NO-FLOOD latch caught up = the founder's ×4, renderContext_1 and
+        //      renderContext_4, twice each. ADR-0297 INVARIANT L2: DETACH now,
+        //      RELEASE at the boundary — the release was ordered against NOTHING.
+        //
+        //  (b) THE OLD PIPELINE WAS TORN DOWN AFTER ITS NODE CACHES WERE WIPED.
+        //      `_resetCompiledNodeStates()` (step 4) empties the NodeManager DataMap;
+        //      `_buildPipeline()`'s `_safeDisposeRenderPipeline()` runs LATER and fans
+        //      out to `NodeManager.delete(renderObject)`, which reads
+        //      `this.get(renderObject).nodeBuilderState` — `undefined` on a wiped map
+        //      → step 5. It is logged non-fatal and it is not harmless: the teardown
+        //      ABORTS half-done, leaving precisely the stale render-object / bind-group
+        //      records that then submit the dead texture. Two lifetime defects in one
+        //      path were never two coincidences — they are one inverted order.
+        //
+        // So: CLOSE THE GATE, TEAR DOWN, then free. Nothing below weakens
+        // §RECOVERY-MUST-REFUSE — the refusal is correct and stays exactly as loud;
+        // the point is that it should no longer be REACHED, because the recovery no
+        // longer frees a resource the next submits still reference.
+
+        // 1. Close the submit gate BEFORE anything is freed. Held across the whole
+        //    recovery (the inner guard `_rebuildPipeline()` takes nests via
+        //    §L930-SUBMIT-PAUSE-DEPTH), so no frame is encoded between the free and
+        //    the new pipeline's install.
+        this._beginShadowRebuildGuard();
+
+        // 2. Tear the OLD pipeline down while its node caches are still INTACT —
+        //    the only order in which `NodeManager.delete()` can complete — and null
+        //    it, so `render()`'s gate is shut on the resource identity too, not only
+        //    on the pause flag. `_buildPipeline()`'s own `_safeDisposeRenderPipeline()`
+        //    becomes a no-op (it early-returns on a null pipeline), so this is a
+        //    REORDER, not a second teardown.
+        this._safeDisposeRenderPipeline();
+        this._renderPipeline = null;
+
         // §RECOVERY-MUST-REFUSE (ADR-0299) companion — do the ONE thing a pipeline
         // rebuild cannot: force every shadow-casting light to RE-OWN a fresh shadow
         // map. A shadow-class destroyed-resource fault ("Destroyed texture
@@ -2944,7 +3019,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         try {
             this._reconcileRenderSize();
         } catch { /* size reconcile is best-effort; the rebuild is the load-bearing part */ }
-        void this._rebuildPipeline();
+        // §L930-DETACH-BEFORE-FREE — release the OUTER pause only once the rebuild
+        // has settled and installed a pipeline whose bind groups sample the FRESH
+        // shadow map. `_rebuildPipeline()` takes (and releases) its own nested
+        // guard; the depth counter means submits resume exactly once, here.
+        void this._rebuildPipeline().finally(() => { this._endShadowRebuildGuard(); });
         return true;
     }
 
@@ -3026,13 +3105,34 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * fresh ShadowNode + ShadowDepthTexture (AnalyticLightNode.setup →
      * setupShadowNode, at the light's current `mapSize`).
      *
-     * Called only from the recovery path (never per-frame): at that point the
+     * ⚠ §L930-DETACH-BEFORE-FREE — this docblock used to assert "at that point the
      * previous frame's submits have completed, so the dispose is ordered against
-     * submission. Never throws.
+     * submission". THAT WAS FALSE, and it is the founder's L-930 crash: nothing in
+     * the recovery path ordered anything against submission. `_rebuildPipeline()`
+     * cleared `_hasPipelineError` synchronously while `_renderPipeline` still held
+     * the OLD pipeline, so the rAF kept submitting against the texture this method
+     * had just freed. The claim is TRUE only because the CALLER now closes the
+     * submit gate first (`_beginShadowRebuildGuard()` + a nulled `_renderPipeline`)
+     * and reopens it only after the rebuild installs bind groups that sample the
+     * FRESH map. The precondition is asserted below rather than assumed.
+     *
+     * PRECONDITION: submits paused and no pipeline installed. Never throws.
      *
      * @returns the number of lights signalled.
      */
     private _recreateLightOwnedShadowMaps(): number {
+        // §L930-DETACH-BEFORE-FREE — an unordered free is the whole defect, so say
+        // so at the moment it would happen rather than 4 frames later as a
+        // "Destroyed texture … used in a submit" the reader must trace backwards.
+        if (!this._shadowRebuildPaused || this._renderPipeline !== null) {
+            console.warn(
+                '[RenderPipelineManager] §L930-DETACH-BEFORE-FREE about to free light-owned shadow ' +
+                `maps with the submit gate OPEN (paused=${this._shadowRebuildPaused}, ` +
+                `pipelineInstalled=${this._renderPipeline !== null}). The next submitted frame will ` +
+                'reference a destroyed ShadowDepthTexture — call _beginShadowRebuildGuard() and null ' +
+                '_renderPipeline BEFORE this sweep (ADR-0297 INVARIANT L2).',
+            );
+        }
         let count = 0;
         try {
             this._scene?.traverse((obj) => {
@@ -3200,6 +3300,30 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private _rebuildPipeline(): Promise<void> {
         if (!this._webGpuActive) return Promise.resolve();
+
+        // ── §L930-REBUILD-WINDOW-IS-A-SUBMIT-WINDOW (founder L-930) ──────────
+        // The line below clears `_hasPipelineError` SYNCHRONOUSLY, but the new
+        // pipeline is installed only at the very END of the async build
+        // (`_buildPipeline` :2448-2452). Between those two instants `render()`'s
+        // gate — `if (!this._renderPipeline || this._hasPipelineError) return` —
+        // is OPEN and `_renderPipeline` still points at the OLD pipeline, so the
+        // single rAF keeps encoding and submitting frames against whatever the
+        // caller freed on its way in. That is precisely the window in which the
+        // founder's recovery destroyed a light-owned ShadowDepthTexture: two
+        // render contexts × two frames = the "Destroyed texture … used in a
+        // submit (renderContext_1 / renderContext_4)" ×4.
+        //
+        // `scheduleShadowRebuild()` has closed this window since L-231 — with the
+        // very same guard, and with a comment that says the same thing ("the old
+        // normal path left `_hasPipelineError=false` and kept submitting frames
+        // for the whole ~6 s rebuild, so the dispose/realloc landed mid-submit").
+        // It was applied to ONE of the five callers of this method. Hoisting it
+        // here covers all of them (retry ladder, classified reconstruction,
+        // recoverFromRenderFailure, projection/view toggles) and nests correctly
+        // with `scheduleShadowRebuild`'s outer guard via §L930-SUBMIT-PAUSE-DEPTH.
+        // C04 §SHADOW rule 7 — never dispose or rebuild the render pipeline
+        // off-frame. ADR-0297 INVARIANT L2 — RELEASE at the boundary.
+        this._beginShadowRebuildGuard();
         this._hasPipelineError = false;
 
         return this._rebuildPipelineWithCurrentState().catch((err: unknown) => {
@@ -3214,6 +3338,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
             console.error('[RenderPipelineManager] Rebuild failed:', err);
             this._phase = 'error';
             this._emitState();
+        }).finally(() => {
+            // §L930-REBUILD-WINDOW-IS-A-SUBMIT-WINDOW — resume submits ONLY once
+            // the new pipeline is installed. `finally` (never `then`) so an early
+            // return inside `_buildPipeline` (TSL not loaded), a shader-compile
+            // downgrade, or a hard failure can never strand the viewport paused.
+            this._endShadowRebuildGuard();
         });
     }
 
@@ -3245,6 +3375,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         // Build the minimal phase-2 pipeline. If even THIS throws a shader-compile
         // error the device is genuinely unusable for TSL → surface phase='error'.
+        // §L930-REBUILD-WINDOW-IS-A-SUBMIT-WINDOW — this is the sixth async build
+        // path and it reaches `_buildPipeline()` directly, bypassing the guard
+        // `_rebuildPipeline()` now takes. Guard it here so the downgrade's own
+        // dispose/install window is not a submit window either.
+        this._beginShadowRebuildGuard();
         this._buildPipeline()
             .then(() => {
                 console.log(
@@ -3256,7 +3391,8 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 console.error('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE lightweight rebuild ALSO failed — unrecoverable:', err);
                 this._phase = 'error';
                 this._emitState();
-            });
+            })
+            .finally(() => { this._endShadowRebuildGuard(); });
     }
 
     /**
