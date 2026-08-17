@@ -25,8 +25,8 @@
  *
  * ── Global dependencies (set by EngineBootstrap / initBuilders) ──────────────
  *   window.bimWorld            — OBC World (bimWorld.scene.three = THREE.Scene)
- *   window.roomStore           — RoomStore  (getAll():RoomData[]) // TODO(TASK-08)
- *   window.programmeStore      — { getAll():ProgrammeEntry[] } // TODO(TASK-08)
+ *   window.roomStore           — RoomStore  (getAll():RoomData[])
+ *   window.programmeStore      — { getAll():ProgrammeEntry[] }
  *   window.syncStateEngine     — { recompute(id):SyncState }
  */
 
@@ -225,7 +225,7 @@ class DataVisualizerService {
             return;
         }
 
-        const roomStore = window.roomStore; // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
+        const roomStore = window.roomStore; // TODO(TASK-08) TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot
         const syncEngine = window.syncStateEngine; // TODO(C.3.x): legacy syncStateEngine — replace with runtime.persistence.syncState engine
 
         scene.traverse((obj: THREE.Object3D) => {
@@ -275,7 +275,7 @@ class DataVisualizerService {
         const actual: number = room.computed?.area ?? 0;
 
         // Try to fetch the target area from programme store
-        const programme = window.programmeStore?.getAll?.() as ProgrammeEntry[] ?? []; // TODO(F.6.x): legacy programmeStore — replace with runtime.dataWorkbench.programme store
+        const programme = window.programmeStore?.getAll?.() as ProgrammeEntry[] ?? []; // TODO(TASK-08) TODO(F.6.x): legacy programmeStore — replace with runtime.dataWorkbench.programme store
         const entry = programme.find(e => e.occupancyType === room.occupancyType);
         if (!entry || entry.targetAreaM2 <= 0) {
             // No target — colour by sync-state fallback

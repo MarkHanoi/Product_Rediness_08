@@ -11,9 +11,11 @@
 //     (window) per S52 exit criteria lines 1489-1490.
 //
 // SHAPE — `matchOpeningSymbols(page, walls, scale, library)` returns
-// `OpeningCandidate[]`. Pure geometry; no AI. The AI-fallback path
-// for low-confidence opening candidates lands at S55 alongside the
-// real Vision call for page classification.
+// `OpeningCandidate[]`. Pure geometry; no AI — and that is the whole of
+// what this module IS, not a module standing in for a larger one. The
+// fact that no AI fallback re-examines a weak match is annotated INLINE
+// at the two sites that mint `confidence`, where it is load-bearing on
+// a reader, rather than as a milestone claim in this header.
 //
 // The `DEFAULT_DOOR_TEMPLATES` library covers the four common
 // single-swing widths (700/800/900/1000 mm) — enough to hit the
@@ -200,6 +202,12 @@ export function matchOpeningSymbolsWithDiagnostics(
           position: arcCenterMm(arc, scaleFactor),
           openingWidthMm: estimateOpeningWidth(arc, best.template, scaleFactor),
           hostWallCenterLine: nearestWall.centerLine,
+          // NO AI FALLBACK EXISTS for a low `best.score`: the AI re-check
+          // for low-confidence door candidates (S55, alongside the Vision
+          // page-classification call) is not written, and nothing in this
+          // package re-examines a weak match. The number is emitted
+          // verbatim, so a low value is UNDETERMINED at the caller, never
+          // an accepted door.
           confidence: best.score,
           arcEndpointsMm: [
             [
@@ -429,6 +437,9 @@ export function detectWindowBreaks(
         }
 
         // Confidence — base 0.65 + small boost for a wider opening.
+        // NO AI FALLBACK EXISTS for a low value here either (same S55 gap
+        // as the door site above): this arithmetic is the ONLY judgement
+        // any window candidate receives.
         let confidence = 0.65;
         if (overlapMm > 1000) confidence += 0.10;
         if (overlapMm > 2000) confidence += 0.05;

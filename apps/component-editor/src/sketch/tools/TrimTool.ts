@@ -7,10 +7,39 @@
 // is kept; the cut endpoint moves to the projection point via a
 // `trimLine` call on `ToolDeps`.
 //
-// LIMITATIONS — works on straight line segments only. Trimming circles
-// to arcs lands at S55. Cuts are not allowed if the click is outside
-// the segment's projection range — the tool surfaces "Click on the
-// part you want to remove" in that case.
+// LIMITATIONS — works on straight line segments only. Cuts are not
+// allowed if the click is outside the segment's projection range — the
+// tool surfaces "Click on the part you want to remove" in that case.
+//
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ──────────────────────────
+// owner: component-editor / sketch tools (S55 — trimming circles to arcs)
+// date:  2026-08-17
+//
+// WHAT IS REAL — everything this tool does for a straight `line`
+// entity: the projection, the keep/cut choice, the degenerate-cut
+// refusal, and the `trimLine` commit. That path is complete, not a
+// stand-in, and is covered by the suite below.
+//
+// WHAT IS FAKE — the tool's ANSWER FOR A CIRCLE. Trimming circles to
+// arcs lands at S55, and until it does the refusal a user gets is
+// dishonest in a specific way that must not be mistaken for a mere
+// missing feature: `hitTest` enumerates only `point` and `line`, so a
+// click exactly on a circle's circumference returns MISS and this tool
+// answers "Miss — click directly on a line." The message names the
+// wrong cause. It is BYTE-IDENTICAL to the message for a click on
+// empty space, so "there is a circle here and I cannot trim it" and
+// "there is nothing here" are THE SAME VALUE to every caller and to
+// the user (C70 L-INV-1).
+//
+// RETIRING ASSERTION (executable, and WATCHED FLIPPING 2026-08-17):
+// `__tests__/sketch/TrimTool.test.ts` — "scaffold retirement guard:
+// circles are NOT trimmable (S55)". Two assertions: the circumference
+// click is refused with that exact message and `trimLine` is never
+// called; and that refusal is indistinguishable from the empty-sketch
+// one. Implementing circle trimming REQUIRES the click to resolve to
+// the circle, so both go RED and this declaration retires with them.
+// Verified by planting a circle arm in `hitTest` plus a circle branch
+// here: 2 failed / 7 passed, then reverted byte-identical.
 
 import type { SketchEntity, SketchLine, SketchPoint } from '../entities.js';
 import { hitTest, pointToSegmentDistance } from '../hitTest.js';

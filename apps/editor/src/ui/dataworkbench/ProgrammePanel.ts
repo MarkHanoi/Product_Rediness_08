@@ -13,7 +13,7 @@
  *   - Deviation column: Δ rooms and Δ area %
  *   - Total GIA row (required vs actual)
  *   - [Import CSV] and [Export CSV]
- *   - Exposes window.programmeStore for ScheduleExtractor access // TODO(TASK-08)
+ *   - Exposes window.programmeStore for ScheduleExtractor access
  *   - Auto-refreshes on 'pryzm-sync-state-changed'
  *
  * CSS prefix: dw-
@@ -61,7 +61,7 @@ export class ProgrammePanel {
         this._container.appendChild(this._root);
 
         // Expose store globally
-        window.programmeStore = { // TODO(F.6.x): legacy programmeStore — replace with runtime.dataWorkbench.programme store
+        window.programmeStore = { // TODO(TASK-08) TODO(F.6.x): legacy programmeStore — replace with runtime.dataWorkbench.programme store
             getAll:    () => this._entries,
             getByType: (t: string) => this._entries.find(e => e.occupancyType === t),
         };

@@ -429,7 +429,65 @@ const LEDGER: readonly string[] = [
   // This is NOT struck and NOT paid — consolidating it is solver work, which
   // C74 §4.5 forbids until a family proves it needs solving. Recorded so the
   // next reader does not mistake a REAL row for a single owner.
-  'H3::annotationConstraints (VALIDATION)',
+  // ── H3::annotationConstraints STRUCK 2026-08-17 (CO-08 / CO-12, lane
+  // half1-honesty) — THE LAST H3 ROW, and the last of the three C74 §2 named
+  // families to get a witness. Witnessed by
+  // `plugins/annotations/__tests__/annotationConstraints.validation.test.ts`
+  // (21 cases) against the REAL `ConstraintStore` and `ConstraintSolver` —
+  // no substitution sits on the evaluated path; the only injected object is an
+  // EMPTY `wallStore` whose `getById` answers `undefined`, which is what an
+  // unloaded project genuinely looks like, not a replacement for the evaluator.
+  //
+  // The ledger note above said this family "lives in `packages/schemas` (L0) and
+  // is NOT this gate's lane to pay". That located it wrongly. `packages/schemas`
+  // is where the gate's NAMED_FAMILIES row points, but the family's owner is
+  // `plugins/annotations` — `ConstraintStore` mints and serialises the records,
+  // `ConstraintSolver` evaluates them, and `ProjectSerializer`/`ProjectLoader`
+  // only carry the slice. Paying it needed no schema change at all.
+  //
+  // STRUCK AT THE DECLARED STRENGTH, which is the only thing that earns a strike
+  // on a VALIDATION row. The suite does not assert `checkAll()` is callable —
+  // that passes against a gutted evaluator, the exact §1.1 defect this row
+  // measures. It asserts what VALIDATION means:
+  //   • a satisfying constraint is ACCEPTED, and that arm is proven non-vacuous
+  //     by refusing the SAME span under a stricter rule (an evaluator that
+  //     refused everything would satisfy every negative case otherwise);
+  //   • a violation is reported WITH ITS IDENTITY — the record id, its source
+  //     annotation, its own sentence, and BOTH numbers (breached limit, and the
+  //     measured value recovered from the signed delta), by exact value;
+  //   • all five operators are probed AT THE EDGE of the 1 mm tolerance, ten
+  //     cases, one step either side — a limit nobody probed at the boundary
+  //     could be `>=` where its sentence says "exceeds" and nothing would care;
+  //   • VALIDATION IS NOT ENFORCEMENT: the evaluator records a verdict and moves
+  //     no geometry, asserted on the references themselves;
+  //   • the PERSISTED half C74 §2 actually names — written to the snapshot slice
+  //     `annotationConstraints`, read back, and RE-CHECKED after the round-trip,
+  //     because a persisted rule that cannot be re-evaluated is a note.
+  //
+  // §CONTEXT-DATA-HONESTY is asserted directly, and it is the reason this row
+  // belonged in the honesty lane: an unresolvable reference must read `unknown`,
+  // never `satisfied` and never `violated` — three values, not two — and an
+  // unevaluable rule sitting beside a satisfied one must NOT make the batch read
+  // clean.
+  //
+  // C70 §5.6 EXECUTED, not asserted — WATCHED FAILING on four planted mutations,
+  // each reverted byte-identical (`git diff` empty) and the suite watched green
+  // again at 21/21:
+  //   M1 `unknown` collapsed into `satisfied`      → 2 failed / 19 passed
+  //   M2 OFF-BY-ONE at the `>=` tolerance edge     → 1 failed / 20 passed
+  //   M3 deserialize accepts an unknown version    → 1 failed / 20 passed
+  //   M4 evaluator MOVES the reference (ENFORCE)   → 2 failed / 19 passed
+  // M1 and M4 are the pair that matter: both leave `checkAll()` callable and
+  // still returning verdicts, and only an at-strength assertion catches them.
+  //
+  // ⚠ ONE DEFECT IS PINNED AS MEASURED, NOT ENDORSED, and it is this gate's own
+  // subject wearing a different coat. `ConstraintSolver.check` prefers a STALE
+  // `cachedPosition` over reporting `unknown`, so a DELETED element still reads
+  // `satisfied` — computed against where it used to be. The identical situation
+  // WITHOUT a cached coordinate correctly reads `unknown`, so whether the system
+  // admits it cannot see turns on nothing but an incidental cache. Asserted in
+  // the suite's final block so it is recorded rather than assumed; changing the
+  // behaviour is not this row's lane and wants its own decision.
   // ── H4 is deliberately absent: `check-no-hidden-mock`'s M-C arm owns it, at
   // finer resolution (per injection site). See the header. ONE DEFECT, ONE OWNER.
   // ── H5 STRUCK 2026-08-13 — the constraint-solver copy was DELETED, not

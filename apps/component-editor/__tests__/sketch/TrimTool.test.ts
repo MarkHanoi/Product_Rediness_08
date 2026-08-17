@@ -106,3 +106,47 @@ describe('TrimTool — single-click trim', () => {
     expect(() => tool.handle(ev('pointer-down', 5, 0))).toThrow(/trimLine is required/);
   });
 });
+
+// ─── C74 §3.4 RETIRING ASSERTION for TrimTool.ts's scaffold declaration ──────
+//
+// The header of `src/sketch/tools/TrimTool.ts` declares one thing FAKE: the
+// tool answers only for straight line segments, and "Trimming circles to arcs
+// lands at S55". This block is the executable assertion that retires that
+// declaration — it asserts the CURRENT REFUSAL, so it goes RED the moment
+// circle trimming lands and forces the header retired with it.
+//
+// Why it can fail (an assertion that cannot fail retires nothing): `hitTest`
+// enumerates only `point` and `line` entities, so a click exactly on a
+// circle's circumference returns MISS. Implementing circle trimming REQUIRES
+// that click to resolve to the circle — which is precisely what these
+// assertions forbid today.
+describe('TrimTool — scaffold retirement guard: circles are NOT trimmable (S55)', () => {
+  const CIRCLE_ONLY: SketchEntity[] = [
+    { id: 'c0-center' as EntityId, kind: 'point', x: 0, z: 0 },
+    { id: 'c0' as EntityId, kind: 'circle', center: 'c0-center' as EntityId, radius: 10 },
+  ];
+
+  it('a click ON the circumference is REFUSED, and trimLine is never called', () => {
+    const { deps, trimLine } = makeDeps(CIRCLE_ONLY);
+    const tool = createTrimTool(deps);
+    // (10, 0) is exactly on the circle of radius 10 centred at the origin.
+    const out = tool.handle(ev('pointer-down', 10, 0));
+    expect(trimLine).not.toHaveBeenCalled();
+    expect(out.hint).toMatch(/Miss — click directly on a line/);
+  });
+
+  it('the refusal is about the CIRCLE, not about an empty sketch', () => {
+    // Same click, same coordinates, with the circle removed. Identical
+    // refusal — which is the honest reading of today's behaviour: the tool
+    // cannot see a circle at all, so "there is a circle here" and "there is
+    // nothing here" are THE SAME VALUE to it. When circle trimming lands the
+    // first case must stop matching this second one.
+    const { deps: emptyDeps, trimLine: emptyTrim } = makeDeps([]);
+    const emptyOut = createTrimTool(emptyDeps).handle(ev('pointer-down', 10, 0));
+    const { deps, trimLine } = makeDeps(CIRCLE_ONLY);
+    const circleOut = createTrimTool(deps).handle(ev('pointer-down', 10, 0));
+    expect(emptyTrim).not.toHaveBeenCalled();
+    expect(trimLine).not.toHaveBeenCalled();
+    expect(circleOut.hint).toBe(emptyOut.hint);
+  });
+});

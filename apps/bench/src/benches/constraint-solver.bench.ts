@@ -5,10 +5,37 @@
 //     exit criterion line 1488 — "50-constraint sketch p95 < 16 ms".
 //
 // Synthetic sketch: 25 distance-pp constraints + 10 parallel + 10
-// perpendicular + 5 fixed = 50 constraints across 60 variables. The
-// MockSolver bench validates the porter / iterator overhead is
-// negligible — the real planegcs WASM bench lands at S53 D1 and
-// holds the actual 16 ms budget.
+// perpendicular + 5 fixed = 50 constraints across 60 variables.
+//
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ──────────────────────────
+// owner: constraint-solver / sketch-solver family (C74 §4.2(c) is the
+//        gate on a real binding; the same owner as PlanegcsAdapter)
+// date:  2026-08-17
+//
+// WHAT IS FAKE — the ENGINE. Every number this file prints is
+// `MockSolver` timing. MockSolver does not solve a geometric
+// constraint system; the porter and the iterator are what get
+// measured. WHAT IS REAL — the harness: the sample counts, the
+// percentile arithmetic and the JSON/markdown baseline it writes are
+// the same ones every other bench in this app uses.
+//
+// THEREFORE the p95 below IS NOT the S52 exit criterion at line 1488
+// ("50-constraint sketch p95 < 16 ms"). No planegcs WASM engine
+// exists to hold that budget, so this bench being green says nothing
+// whatever about it, and a reader must not quote its p95 against that
+// criterion. That is the precise sense in which this is a scaffold:
+// the criterion is UNMEASURED, not met.
+//
+// RETIRING ASSERTION (executable, in this file, and watched flipping):
+// `describe('scaffold retirement guard')` below asserts that the
+// adapter the sketch solver hands out — `PlanegcsAdapter` — still
+// reports `kind === 'mock'`, i.e. no real engine executes anywhere in
+// this package. `PlanegcsAdapter` derives `kind` from its underlying
+// solver, so the day an authorised binding replaces that line the
+// assertion goes RED and this header must be retired with it. It is
+// deliberately NOT `new MockSolver().kind === 'mock'`: that would
+// stay green forever after planegcs lands, and an assertion that
+// cannot fail retires nothing (C74 §3.4).
 //
 // 200 measured samples + 50 warm. Reports p50/p95/p99 + cold per
 // scenario. Writes JSON + markdown baseline.
@@ -22,6 +49,9 @@ import {
   type ConstraintSet,
   type SketchConstraint,
 } from '../../../../packages/constraint-solver/src/index.js';
+// Imported for the RETIRING ASSERTION only — never benched. See the
+// C74 §3.4 declaration in this file's header.
+import { PlanegcsAdapter } from '../../../../packages/constraint-solver/src/PlanegcsAdapter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUN_OUTPUT = resolve(__dirname, '..', '..', '.run-output');
@@ -134,6 +164,23 @@ function build50ConstraintSketch(): ConstraintSet {
     lineEndpoints,
   };
 }
+
+// ─── C74 §3.4 retiring assertion for this file's scaffold declaration ───────
+// This is the assertion the header names. It must FAIL the day a real engine
+// executes, otherwise the declaration above retires on nobody's schedule.
+describe('scaffold retirement guard — this bench does NOT hold the S52 16 ms budget', () => {
+  it('the sketch solver adapter still reports kind="mock" (C74 §3.4)', () => {
+    const adapter = new PlanegcsAdapter({ wasmUrl: 'file:///unused-by-a-scaffold/planegcs.wasm' });
+    // `kind` is derived from whatever actually executes. An authorised WASM
+    // binding changes it, this assertion goes RED, and the header's claim that
+    // the 16 ms criterion is UNMEASURED stops being true at the same moment.
+    expect(adapter.kind).toBe('mock');
+    // The intent field must stay distinct from the capability field, or the
+    // guard above could be satisfied by renaming rather than by binding.
+    expect(adapter.intendedEngine).toBe('planegcs');
+    expect(adapter.intendedEngine).not.toBe(adapter.kind);
+  });
+});
 
 describe('Bench — constraint-solver (S52 §4.1)', () => {
   it('50-constraint sketch p95 < 16 ms (MockSolver baseline)', async () => {

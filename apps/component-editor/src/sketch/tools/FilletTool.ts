@@ -15,11 +15,44 @@
 //
 // LIMITATIONS — this tool requires:
 //   • both segments to be straight lines (other entities are ignored),
-//   • the lines to actually intersect (parallel lines are rejected),
 //   • the requested radius to fit inside both segments.
 //
-// The Trim/extend variant (extending lines that don't currently meet)
-// lands at S55 alongside the parameter-binding work.
+// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ──────────────────────────
+// owner: component-editor / sketch tools (S55 — Trim/extend variant,
+//        alongside the parameter-binding work)
+// date:  2026-08-17
+//
+// WHAT IS REAL — the fillet itself for two segments that genuinely
+// meet, at a shared endpoint or at an intersection inside both: the
+// bisector construction, the tangent points, the radius-fit refusal,
+// the parallel refusal and the colinear refusal.
+//
+// WHAT IS FAKE — the tool's ANSWER FOR TWO SEGMENTS THAT DO NOT MEET,
+// and it is worse than a missing feature. This LIMITATIONS list used
+// to claim the tool "requires the lines to actually intersect
+// (parallel lines are rejected)", which reads as though non-meeting
+// lines are refused. THEY ARE NOT. `findCommonOrIntersection` solves
+// the INFINITE-line intersection with no segment-bounds check, so for
+// two non-parallel segments that do not touch the tool REPORTS
+// SUCCESS: it commits an arc tangent to a point beyond the end of a
+// segment — in empty space — extends neither line, and returns the
+// ordinary "Click first line" ready-hint. A wrong result and a correct
+// one are indistinguishable to the user. Measured 2026-08-17 with
+// A = (0,0)→(4,0) and B = (10,2)→(10,12): arc centre (8, 2) r = 2,
+// tangent to A's line at x = 8 when A ends at x = 4; commitLine and
+// trimLine both called ZERO times. This is a REAL DEFECT recorded here
+// because a §3.4 declaration must state what is fake — it is NOT
+// endorsed, and the S55 extend variant is what closes it.
+//
+// RETIRING ASSERTION (executable, and WATCHED FLIPPING 2026-08-17):
+// `__tests__/sketch/FilletTool.test.ts` — "scaffold retirement guard:
+// lines that do not meet (S55)". It pins that exact geometry and the
+// two zero call-counts. It deliberately does NOT reuse the existing
+// 'rejects parallel lines' case, whose determinant is exactly 0 so it
+// stays green after the extend variant lands — an assertion that
+// cannot fail retires nothing. Verified by planting an extend-to-
+// corner step before the fillet: 1 failed / 8 passed, then reverted
+// byte-identical.
 
 import type { SketchEntity, SketchLine, SketchPoint } from '../entities.js';
 import { hitTest } from '../hitTest.js';

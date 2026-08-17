@@ -210,8 +210,50 @@ const LEDGER: readonly string[] = [
   //   and NOT a finding — its header carries no SCAFFOLD_MARK, so M-B never saw
   //   it. That is a gap in the ARM's reach, not an estate that is clean. Recorded
   //   here so the omission is deliberate; it is the next honest edit in that file.
-  'M-B::apps/ai-worker/src/pdf-to-bim/stage2-openings.ts',
-  'M-B::apps/bench/src/benches/constraint-solver.bench.ts',
+  // ─── CO-06 lane E (half1-honesty), 2026-08-17 — THE LAST SIX M-B ROWS,
+  // PAID SIX AT A TIME BUT NOT SIX THE SAME WAY. Three were never scaffolds and
+  // are RECLASSIFIED; three are real scaffolds and got the full §3.4
+  // declaration with an executable retiring assertion WATCHED FLIPPING. The
+  // split is stated per file so this block cannot read as a bulk re-stamp.
+  //
+  // ⚠ THE ARM'S REACH DID NOT SHRINK BY THE SAME AMOUNT AS THE LEDGER. Scaffold
+  // headers found went 13 → 10 because the three RECLASSIFIED files stopped
+  // making a module-scaffold claim; the three DECLARED files keep their
+  // SCAFFOLD_MARK and are STILL WATCHED by this arm. Recorded because a header
+  // count falling is otherwise indistinguishable from an estate getting clean.
+  //
+  // M-B::apps/ai-worker/src/pdf-to-bim/stage2-openings.ts STRUCK — RECLASSIFIED.
+  //   Not a scaffold: a complete, pure-geometry symbol matcher. The marker was
+  //   "lands at S55" inside a sentence about an AI-FALLBACK PATH THAT IS NOT IN
+  //   THIS FILE — the header walk cannot tell "a future sibling capability"
+  //   from "this module stands in for production". NO NOTE WAS LOST: the fact
+  //   moved to the TWO sites that mint `confidence` (the door candidate and the
+  //   window candidate), where it is load-bearing on a reader, and it is stated
+  //   in this lane's own terms — a low confidence is UNDETERMINED at the caller,
+  //   never an accepted opening, because nothing re-examines a weak match.
+  // M-B::apps/editor/src/ui/dataworkbench/DataVisualizerService.ts STRUCK and
+  // M-B::apps/editor/src/ui/dataworkbench/ProgrammePanel.ts STRUCK —
+  //   RECLASSIFIED, the FIFTH round of the ratified `TODO(TASK-08)`-in-a-header
+  //   treatment (see the core-app-model and command-registry blocks below).
+  //   Both are live production UI modules whose header carried TASK-08 appended
+  //   to prose lines DESCRIBING window.*-store access. Paid by moving the marker
+  //   to the code, not by deleting it: `TODO(TASK-08)` now sits inline on
+  //   DataVisualizerService's `window.roomStore` read (:228) and its
+  //   `window.programmeStore` read (:278), and on ProgrammePanel's
+  //   `window.programmeStore = {` exposure site (:64), beside the pre-existing
+  //   TODO(E.18-R.S)/TODO(F.6.x) notes. The TASK-08/ADR-0318 work inventory is
+  //   unchanged and still greppable.
+  //
+  // M-B::apps/bench/src/benches/constraint-solver.bench.ts STRUCK — DECLARED.
+  //   A REAL scaffold, and the declaration says the thing that matters: every
+  //   number it prints is MockSolver timing, so its p95 IS NOT the S52 line-1488
+  //   criterion ("50-constraint sketch p95 < 16 ms"). That criterion is
+  //   UNMEASURED, not met, and a green bench must not be quoted against it.
+  //   Retiring assertion IN THE BENCH FILE: `new PlanegcsAdapter(...).kind ===
+  //   'mock'`, which is derived from whatever actually executes, so an
+  //   authorised WASM binding turns it RED. Deliberately NOT
+  //   `new MockSolver().kind === 'mock'` — that stays green forever after
+  //   planegcs lands, which is the F9 trap this block must not repeat.
   // M-B::apps/component-editor/src/sketch/SketchCanvas.ts STRUCK 2026-08-16
   //   (CO-06 lane F9) — PAID ON THE MERITS, not by hiding the subject. The
   //   header keeps its SCAFFOLD_MARK, so the file is STILL WATCHED by this arm;
@@ -234,8 +276,41 @@ const LEDGER: readonly string[] = [
   //   assertion that cannot fail cannot retire anything. RETIREMENT_RE is a
   //   prose regex and is structurally blind to both defects; these rows stay
   //   until the assertions exist and are proven to flip.
-  'M-B::apps/component-editor/src/sketch/tools/FilletTool.ts',
-  'M-B::apps/component-editor/src/sketch/tools/TrimTool.ts',
+  //
+  // ─── BOTH STRUCK 2026-08-17 (CO-06 lane E, half1-honesty) — THE ASSERTIONS
+  //   F9 REQUIRED NOW EXIST AND WERE WATCHED FLIPPING. F9's condition is met
+  //   literally: each assertion was planted against, seen RED, and the source
+  //   reverted byte-identical (`git diff` empty) with the rest of the suite
+  //   green throughout, so neither is a prose claim RETIREMENT_RE merely
+  //   matched.
+  //
+  // M-B::…/TrimTool.ts — "circles are NOT trimmable (S55)", 2 assertions. The
+  //   circumference click is refused with the exact message, `trimLine` is
+  //   never called, AND that refusal is asserted BYTE-IDENTICAL to the
+  //   empty-sketch one — which is the honest reading of today's behaviour and
+  //   this repo's own subject: `hitTest` enumerates only point and line, so
+  //   "there is a circle here I cannot trim" and "there is nothing here" ARE
+  //   THE SAME VALUE (C70 L-INV-1). Circle trimming cannot land without the
+  //   click resolving to the circle, so both go RED. WATCHED: a circle arm
+  //   planted in `hitTest` plus a circle branch in the tool → 2 failed /
+  //   7 passed.
+  //
+  // M-B::…/FilletTool.ts — "lines that do not meet (S55)", and paying this row
+  //   SURFACED A DEFECT THAT WAS PREVIOUSLY INVISIBLE, which is the finding
+  //   that matters more than the strike. The old LIMITATIONS list claimed the
+  //   tool "requires the lines to actually intersect (parallel lines are
+  //   rejected)". It does not. `findCommonOrIntersection` solves the INFINITE-
+  //   line intersection with NO segment-bounds check, so two non-parallel
+  //   segments that do not touch produce SUCCESS: an arc tangent to a point
+  //   past the end of a segment, neither line extended, and the ordinary
+  //   "Click first line" ready-hint. Measured with A = (0,0)→(4,0),
+  //   B = (10,2)→(10,12): centre (8,2) r=2, tangent to A's line at x=8 when A
+  //   ends at x=4; commitLine and trimLine both ZERO. The new assertion pins
+  //   exactly that, and NOT the 'rejects parallel lines' case F9 correctly
+  //   rejected as unfailable. WATCHED: an extend-to-corner step planted before
+  //   the fillet → 1 failed / 8 passed. The defect is PINNED, NOT ENDORSED —
+  //   it is named in the file's §3.4 declaration and closing it is the S55
+  //   extend variant's job, not this row's.
   // 'M-B::apps/editor/src/familyCreatorPlaceholder.ts' — STRUCK 2026-08-15, see
   // the CO-06 lane C4 block above.
   // ─── CO-06v2 — 6 ROWS STRUCK 2026-08-14: the FOURTH round of the same
@@ -266,8 +341,9 @@ const LEDGER: readonly string[] = [
   //     (Its "date 2026-04-08" was an unrelated fix-stamp in the MODIFICATION
   //     DECLARATION, not a scaffold decision — the same DATE_RE ambiguity the
   //     core-app-model block records.)
-  'M-B::apps/editor/src/ui/dataworkbench/DataVisualizerService.ts',
-  'M-B::apps/editor/src/ui/dataworkbench/ProgrammePanel.ts',
+  // The two dataworkbench rows that stood here — DataVisualizerService.ts and
+  // ProgrammePanel.ts — were STRUCK 2026-08-17 as the FIFTH round of this same
+  // treatment. See the CO-06 lane E (half1-honesty) block at the top.
   // M-B::packages/ai-host/src/AmbientIntelligence.ts STRUCK 2026-08-14 (CO-06,
   // lane F) — RECLASSIFIED, not deleted. Full reasoning in the lane-F block below,
   // where the other 13 rows of the same payment are recorded together.
