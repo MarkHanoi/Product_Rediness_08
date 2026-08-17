@@ -509,6 +509,13 @@ const GATES: Gate[] = [
   { name: 'graph-persistence (C71 §6 · C70 I-INV-2/3)',         script: '../rac-conformance/certification/gates/check-graph-persistence.ts' },
   { name: 'no-silent-partial (C68 §5 · batch partials)',        script: '../rac-conformance/certification/gates/check-no-silent-partial.ts' },
   { name: 'generation-is-consequential (C80 §7 · GEN-GAP-1)',   script: '../rac-conformance/certification/gates/check-generation-is-consequential.ts' },
+  // §BIM30-CARRIED-ROWS (2026-08-17). Both of these exist to convert BIM 3.0
+  // register rows out of the CARRIED class — rows whose status was inherited from
+  // prose because their "deciding instrument" was a human reading source once, or
+  // the sentence "the three gates themselves". `bim30-status` prints such a row as
+  // *"declared CLOSED — instrument is not a runnable gate"*: not evidence at HEAD.
+  { name: 'source-verified-invariants (GR-15 · PR-05/06/07/13)', script: '../rac-conformance/certification/gates/check-source-verified-invariants.ts' },
+  { name: 'gate-residency (GR-11 · PR-08 · GE-07 · CO-11 · PV-07)', script: '../rac-conformance/certification/gates/check-gate-residency.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
