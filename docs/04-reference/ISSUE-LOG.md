@@ -5586,3 +5586,188 @@ orthogonal fixture cannot fail this way and would give a false green; measure th
 basis before changing anything; prove at the STORED layer (the partner walls' baselines after the
 move, and the room still detected), never a function return; do not tune `§DIAG-PARTITION-REACH`;
 do not accept `OpenedRegionProposal` firing as success.
+
+---
+
+## L-933 — QUEUED (UI) — the centre level pill is BLACK; the rest of the chrome is white + PRYZM purple
+
+**Requested by the founder, 2026-08-17, with a screenshot.** Not a defect in behaviour — a brand
+inconsistency in the most central piece of chrome on the canvas.
+
+**What it is:** the `Ground / +0.000 m` level stepper that floats at top-centre of the 3D viewport,
+with ▼ / ▲ arrows either side.
+
+**What is wrong:** it renders as a **solid dark/near-black rounded pill**. Every other control in
+that band is white or light with **PRYZM purple `#6600FF`** as the accent — the `Author` toggle, the
+`+ Grid` button, the `Grid` / `IFC` / `V/G` chips, the left rail. The level pill is the only black
+element on the canvas.
+
+⚠ **This contradicts a standing brand rule already recorded for this product: white + purple,
+NO BLACK.** It is not a matter of taste; the palette is decided.
+
+**Asked for:**
+1. Match the rest of the UI — same shape language, same type scale, same border treatment.
+2. Use the brand colour (`#6600FF`, the unified PRYZM purple — the same token
+   `PreviewStyle.ts` uses; **consume the token, do not re-declare the hex**).
+3. **Transparent background**, so the model reads through it.
+
+**Do it properly rather than by patching one hex:**
+- Find the token/class the neighbouring chips already use and adopt it. If the level pill has its own
+  bespoke style block, that is the actual defect — one component off the design system.
+- ⚠ Transparency over a 3-D viewport must stay legible against BOTH a white plan pane and a dark
+  shaded model. Check contrast on both; a translucent white pill can vanish against a light roof.
+  If a backdrop blur or a subtle scrim is needed to keep the text readable, use one — "transparent"
+  means the model reads through, not that the text becomes unreadable.
+- The ▼ / ▲ affordances must stay obviously clickable after the restyle.
+
+**Owner:** unassigned → lane **L933**. Low risk, cosmetic, no measurement needed.
+
+---
+
+## L-934 — A LAYERED INTERIOR PARTITION NEXT TO AN L-CORNER RENDERS ONE STRETCH IN THE WRONG MATERIAL
+
+**Reported by the founder, 2026-08-17, PRODUCTION, with a screenshot.** *"a corruption of the wall
+next to first point creation — and we don't know why."*
+
+**What it looks like:** the user draws a **layered interior partition** starting near an existing
+**L-type corner junction**. In 3-D, a vertical stretch of the wall beside that corner renders in a
+**tan / beige** material while the rest of the same wall is white. The band runs the full height and
+has a clean vertical edge — **it is not a shading or AO artefact; it is a different material on a
+different face.**
+
+### ⭐ The likely mechanism, to be MEASURED not assumed
+
+The tan is almost certainly a **layer material that should not be visible** — a core or insulation
+layer showing where the finish layer belongs. Evidence that this is a LAYERED-wall problem
+specifically, from the founder's own trace:
+
+```
+[WallLayerPlanSymbolBuilder] injected layer lines for 1 layered wall(s) in plan view
+[WallLayerPlanSymbolBuilder] injected layer lines for 2 layered wall(s) in plan view
+```
+
+Both new partitions are LAYERED. This repository already records that **openings in layered walls
+take a different render path from plain walls** — plain resolves to a single CSG volume, LAYERED
+builds a per-layer grid. **A junction is the other place a layered wall's per-layer geometry gets
+cut**, and it is the place where a mitre must decide, per layer, which face is exposed.
+
+> **HYPOTHESIS:** at the L-corner the mitre/join assigns the wrong layer index (or the wrong
+> material slot) to the end face, so a core layer is painted where the finish layer should be.
+> The stretch is bounded by the join's trim distance, which is why it has a crisp vertical edge and
+> why it sits *next to the corner* rather than anywhere else.
+
+⚠ **REFUTE IT PROPERLY.** Alternative causes that must be ruled out before any fix:
+- **A degenerate/zero-length fragment at the junction that is guarded in logic but still rendered.**
+  This repo has the exact scar — `WallJoinResolver`'s multi-cluster bug, where a guard skipped a wall
+  and its mesh rendered anyway as a black spike. Same shape, different colour.
+- **A material assigned per-fragment rather than per-layer**, so a fragment split by the join inherits
+  the neighbour's slot.
+- **The wall's own type/layer set differing from its neighbour's**, i.e. the model is correct and the
+  two walls genuinely have different finishes. Check this FIRST and cheaply — if true, the defect is
+  that the tool created a partition with the wrong wall type, which is a different row entirely.
+
+### Reproduction notes from the trace
+
+The founder drew in `POLYLINE_ORTHO`, dispatched with `mode: ortho (straight)`, and the wall
+registered normally (`BimManager Registered element wall_01M075B45W…`). Room detection stayed healthy
+throughout — `detectedRooms` went 1 → 2 → 3 with `unresolvedLoopBreaks=0`. **So the topology is
+FINE; this is a rendering/material defect, not a geometry-integrity one.** That narrows it usefully.
+
+⚠ Also present in the same trace and NOT this row's job:
+`[YjsDocAdapter] W5-3: command type 'UPDATE_ANNOTATION' has NO sync disposition. Its properties are
+NOT replicated.` — an annotation move is invisible to collaborators. Related in kind to L-932's
+`wall.create` replication gap; both are undeclared sync dispositions. **Worth one lane covering the
+whole `syncDisposition.ts` gap rather than one verb at a time.**
+
+**Owner:** unassigned → lane **L934**. Discipline: check the cheap explanation first (do the two walls
+genuinely have different types?); prove at the RENDERED layer — the material actually bound to that
+face — not at a builder's return value; reproduce with a layered partition started near an L-junction,
+since a plain wall or a mid-span start may not fail.
+
+---
+
+## L-935 — A POLYLINE WALL **TAPERS** WHEN THE SECOND POINT SNAPS TO A NON-ALIGNED MIDPOINT
+
+**Reported by the founder, 2026-08-17, PRODUCTION.** **Severity: HIGH — the model is geometrically
+invalid.** A wall has ONE thickness. A wall that is thicker at one end than the other is not a wall.
+
+**Reproduction, as described:** draw a wall polyline in **ORTHOGONAL** mode. On the **second**
+segment, place the second point by snapping to the **midpoint of an existing wall that is NOT
+aligned with the orthogonal projection** of the segment being drawn. The wall reaches the requested
+point — **and narrows progressively as it approaches it.**
+
+### ⭐ The mechanism to test first
+
+Ortho mode constrains the segment's DIRECTION; the midpoint snap constrains its END POINT. When the
+snapped point does not lie on the ortho ray, those two constraints **conflict**, and the tool
+appears to satisfy both by letting the two side offsets converge — start at full thickness, end at
+the snapped point. That is a wall built as a **quadrilateral from two independently-solved side
+lines**, rather than as a **centreline plus a constant half-thickness**.
+
+> **HYPOTHESIS:** the builder is offsetting the two faces separately (or interpolating between an
+> ortho-projected end and a snapped end) instead of refusing the over-constrained input.
+> **The correct behaviour is NOT to taper.** Either drop ortho for that segment and take the true
+> direction to the snapped point, or keep ortho and refuse the snap — and SAY WHICH, with both
+> numbers. Silently producing an invalid solid is the one option that must not survive.
+
+⚠ **Do not "fix" this by clamping the thickness at the end** — that leaves the centreline wrong and
+the wall no longer reaches where the user clicked. Decide which constraint wins, at the tool.
+
+### Corroborating evidence in the same trace
+```
+§DIAG-PARTITION-REACH reconnected guest=…K08MJ.end onto host=…K36YK body
+                       — closed a 636mm dangling gap (resolver-trim recovery; loop now closes)
+```
+A **636 mm** gap needing rescue is consistent with an end that did not land where the topology
+expected. As with L-928/L-932: **a rescuer firing is evidence of the defect, not of health.**
+
+Related: `§CLAMP-COSHARE-WELD` was reverted once for surfacing doubled walls — read that history
+before touching the offset path.
+
+**Owner:** lane **L935**. Discipline: reproduce with a deliberately NON-aligned midpoint snap;
+assert on the STORED wall's thickness at both ends (they must be equal, or the command must refuse);
+tolerances consumed from `@pryzm/geometry-kernel` (C73 §2.2).
+
+---
+
+## L-936 — TWO INTERIOR WALLS IN AN L; MOVE ONE AND THE OTHER DOES NOT FOLLOW
+
+**Reported by the founder, 2026-08-17, PRODUCTION, with screenshots.** *"two interior walls connected
+on L shape — one of them gets moved — the other in this precise scenario should follow."*
+
+### ⭐⭐ THE SMOKING GUN IS IN THE FOUNDER'S OWN LOG, AND IT IS UNAMBIGUOUS
+
+```
+[WallMoveReweldService] §MOVE-REWELD-DISPATCH: moved wall wall_01M075K36YKGTQ8ZX5A6KBT30W
+                        → 1 junction re-weld(s) via joinedTo-graph [wall_01M075K36YKGTQ8ZX5A6KBT30W]
+```
+
+**The re-weld list contains exactly ONE id, and it is the MOVED WALL ITSELF.** The partner is not in
+it. The service reports "1 junction re-weld(s)" and then re-welds the mover to itself — so a count of
+1 reads like success while **zero partners were reached.**
+
+Two candidate causes, and they need different fixes:
+1. **The `joinedTo` edge was never written** for this L-pair, so the graph query returns only the
+   mover. (C71 §3 / GR-04 — `joinedTo` is the wall↔wall junction family.)
+2. **The edge exists and the query includes the subject in its own result**, so the partner is being
+   filtered out or the traversal never leaves the start node.
+
+**MEASURE WHICH.** Read the `joinedTo` edges for both walls before the move. If the edge is absent,
+the defect is in the WRITER at creation; if present, it is in the traversal. Do not guess — the two
+live in different packages.
+
+⚠ **This is almost certainly the same root as the founder's repeated "interior walls must follow"
+reports (L-921, L-922, L-925, L-926, L-928, L-932).** If the re-weld dispatch has been returning
+only the mover all along, then every previous fix in that family was working on a downstream stage
+that never received a partner to re-seat. **Check that hypothesis FIRST — it would explain why the
+family keeps reopening.**
+
+### What is behaving correctly here
+Room detection stayed healthy (`detectedRooms=4`, `unresolvedLoopBreaks=0`) and
+`§GR12-BOUNDARY-INVALIDATION` correctly invalidated **both** affected rooms. So the invalidation half
+of GR-12 works; the re-weld half is what fails.
+
+**Owner:** lane **L936** — coordinate with **L932**, they may be one root. Discipline: dump the
+`joinedTo` edge set for the pair BEFORE the move and commit that measurement alone; prove at the
+STORED layer (the partner wall's baseline after the move); C83 §10 governs authorship — the mover is
+the dependent, the incumbent's joint is not rewritten.
