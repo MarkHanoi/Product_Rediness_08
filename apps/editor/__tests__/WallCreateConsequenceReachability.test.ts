@@ -49,6 +49,11 @@ import {
 } from '../src/engine/consequence/ConsequencePreviewService';
 import { ConsequenceExecutionService } from '../src/engine/consequence/ConsequenceExecutionService';
 import { ConfirmationFlow } from '../src/ui/consequence/ConfirmationFlow';
+// §B.4 — `preview()` answers a typed `PreviewOutcome` now. This suite's subject is the
+// PLANNER'S OUTPUT, so it reads the plan-only view; see the adapter's header for why that is
+// legitimate HERE and not in a new suite. The assertion that is genuinely ABOUT the outcome
+// type (the `roof.create` negative control) reads the union directly instead.
+import { planOnly } from './_previewPlanAdapter';
 
 // ─── The world: one level with a single existing wall ─────────────────────────────────
 
@@ -153,7 +158,7 @@ describe('wall.create normalisation (the former chokepoint)', () => {
 describe('SURFACE 1 — preview answers for wall.create', () => {
   it('a wall.create dispatch produces a real ConsequencePlan (not null)', async () => {
     const walls = new Map([['w1', existingWall()]]);
-    const svc = new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
+    const svc = planOnly(new ConsequencePreviewService(plannerRegistry(), makeContext(walls)));
 
     const plan = await svc.preview(CREATE_DISPATCH);
 
@@ -166,7 +171,7 @@ describe('SURFACE 1 — preview answers for wall.create', () => {
 
   it('the plan names the NEW wall as added — a create-shaped answer, not a move-shaped one', async () => {
     const walls = new Map([['w1', existingWall()]]);
-    const svc = new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
+    const svc = planOnly(new ConsequencePreviewService(plannerRegistry(), makeContext(walls)));
 
     const plan = (await svc.preview(CREATE_DISPATCH))!;
 
@@ -179,7 +184,7 @@ describe('SURFACE 1 — preview answers for wall.create', () => {
   it('PURITY — previewing does not mutate the store (G-REASON-01)', async () => {
     const walls = new Map([['w1', existingWall()]]);
     const before = JSON.stringify([...walls.values()]);
-    const svc = new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
+    const svc = planOnly(new ConsequencePreviewService(plannerRegistry(), makeContext(walls)));
 
     await svc.preview(CREATE_DISPATCH);
 
@@ -189,7 +194,7 @@ describe('SURFACE 1 — preview answers for wall.create', () => {
 
   it('DETERMINISM — two previews of one command agree on planHash (G-REASON-02)', async () => {
     const walls = new Map([['w1', existingWall()]]);
-    const svc = new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
+    const svc = planOnly(new ConsequencePreviewService(plannerRegistry(), makeContext(walls)));
 
     const a = await svc.preview(CREATE_DISPATCH);
     const b = await svc.preview(CREATE_DISPATCH);
@@ -197,11 +202,20 @@ describe('SURFACE 1 — preview answers for wall.create', () => {
     expect(a!.planHash).toBe(b!.planHash);
   });
 
-  it('an unregistered family still previews as null — reachability was ADDED, not blanket-granted', async () => {
+  it('an unregistered family previews as a TYPED capability gap — reachability was ADDED, not blanket-granted', async () => {
     const walls = new Map([['w1', existingWall()]]);
+    // §B.4 — the RAW service, not the plan-only view: this assertion's subject IS the outcome
+    // type. It read `.toBeNull()`, and that `null` was the same value the service returned for
+    // a malformed payload and for a family that exists but is unwired. Naming the reason is
+    // what makes it a control rather than a restatement of the defect.
     const svc = new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
 
-    expect(await svc.preview({ type: 'roof.create', payload: {} })).toBeNull();
+    const outcome = await svc.preview({ type: 'roof.create', payload: {} });
+
+    expect(outcome.kind).toBe('undetermined');
+    if (outcome.kind !== 'undetermined') return;
+    expect(outcome.reason).toBe('UNSUPPORTED_ELEMENT_TYPE');
+    expect(outcome.subReason).toBe('no-normalizer-for-verb');
   });
 });
 
@@ -212,7 +226,7 @@ describe('SURFACE 2 — the confirmation flow binds a wall.create plan', () => {
     const walls = new Map([['w1', existingWall()]]);
     const flow = new ConfirmationFlow({
       planners: plannerRegistry(),
-      normalize: (c) => normalizeConsequenceCommand(c),
+      normalizers: CONSEQUENCE_NORMALIZERS, // B.4: the REGISTRY, not a collapsing callback
       context: makeContext(walls),
       executor: {
         execute: async () => ({ consequence: { kind: 'unplanned' } }) as never,
@@ -234,7 +248,7 @@ describe('SURFACE 2 — the confirmation flow binds a wall.create plan', () => {
     const walls = new Map([['w1', existingWall()]]);
     const flow = new ConfirmationFlow({
       planners: plannerRegistry(),
-      normalize: (c) => normalizeConsequenceCommand(c),
+      normalizers: CONSEQUENCE_NORMALIZERS, // B.4: the REGISTRY, not a collapsing callback
       context: makeContext(walls),
       executor: {
         execute: async () => ({ consequence: { kind: 'unplanned' } }) as never,
@@ -275,7 +289,7 @@ describe('SURFACE 3 — the executor can BIND a wall.create plan', () => {
     const { bus, dispatched } = makeBus(walls);
 
     // Mint the plan the way the confirmation flow does, then hand it to the executor.
-    const plan = (await new ConsequencePreviewService(planners, context).preview(
+    const plan = (await planOnly(new ConsequencePreviewService(planners, context)).preview(
       CREATE_DISPATCH,
     ))!;
 
@@ -298,7 +312,7 @@ describe('SURFACE 3 — the executor can BIND a wall.create plan', () => {
     const planners = plannerRegistry();
     const { bus } = makeBus(walls);
 
-    const plan = (await new ConsequencePreviewService(planners, context).preview(
+    const plan = (await planOnly(new ConsequencePreviewService(planners, context)).preview(
       CREATE_DISPATCH,
     ))!;
     const svc = new ConsequenceExecutionService({ bus, planners, context });

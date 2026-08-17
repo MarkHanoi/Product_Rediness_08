@@ -46,10 +46,12 @@
  * is verified by a layer that has no way to ask them again.
  *
  * ════ WHY THE FLOW OWNS NO DOM AND NO RUNTIME ══════════════════════════════════════════
- * Every collaborator is injected and every package import is `import type` (erased). The
- * certification gate drives THIS class with the real planner, the real executor, the real bus
- * and a scripted prompt — so what is certified is the shipped sequence, not a re-implementation
- * of it.
+ * Every collaborator is injected and the only runtime imports are two DOM-free modules —
+ * `confirmationPolicy` (a pure function of the plan) and `ConsequencePreviewService`'s
+ * `resolveConsequencePreview` (a pure router over injected maps; see `planNow` for why it is
+ * shared rather than re-implemented). The certification gate drives THIS class with the real
+ * planner, the real executor, the real bus and a scripted prompt — so what is certified is the
+ * shipped sequence, not a re-implementation of it.
  */
 
 import type {
@@ -58,10 +60,20 @@ import type {
   ConsequencePlanner,
   ExecutionConsequence,
   PlanningContext,
+  PreviewOutcome,
+  UndeterminedReason,
+  UndeterminedSubReason,
   CommandExecutionContext,
 } from '@pryzm/command-bus';
-import type { PreviewCommand } from '@app/engine/consequence/ConsequencePreviewService';
+import type {
+  NormalizerRule,
+  PreviewCommand,
+} from '@app/engine/consequence/ConsequencePreviewService';
+import { resolveConsequencePreview } from '@app/engine/consequence/ConsequencePreviewService';
 import { computeConfirmationPolicy } from './confirmationPolicy.js';
+
+/** The `undetermined` arm of {@link PreviewOutcome} — the three fields a refusal carries. */
+type PreviewUndetermined = Extract<PreviewOutcome, { readonly kind: 'undetermined' }>;
 
 // ─── The typed refusals (the §5 discipline applied to CONSENT) ─────────────────────────
 
@@ -78,15 +90,58 @@ export interface ApprovalStaleRefusal {
   readonly kind: 'APPROVAL_STALE';
   /** The hash the user was shown and approved. */
   readonly approvedPlanHash: string;
-  /** The hash of a plan computed over the state as it is NOW. */
+  /**
+   * The hash of a plan computed over the state as it is NOW — **only when
+   * {@link liveVerification} is `verified`**. When the re-plan could not be produced at all,
+   * this holds the APPROVED hash, because that is the only real hash in evidence.
+   *
+   * ⚠ C78 §9.3 / §22.c — *"a hash field may never carry a reason … a field typed to hold a
+   * hash must be unable to hold a sentence."* This field used to be minted `'UNPLANNABLE'`
+   * when the live re-plan came back `null` (C78's §8 table, row `'UNPLANNABLE'`, cites
+   * `ConfirmationFlow.ts:269–271` by line). Every consumer decides staleness by comparing
+   * this to {@link approvedPlanHash}, so a CAPABILITY GAP — no planner, a bad payload, a
+   * planner that threw — was reported to the user as *"the model moved under your plan"*: a
+   * statement about the world that was never measured. Read {@link liveVerification} FIRST;
+   * these two fields are comparable only under the `verified` arm.
+   */
   readonly livePlanHash: string;
   readonly approvedStateHash: string;
+  /** As {@link livePlanHash} — the approved state hash when the re-plan is unverifiable. */
   readonly liveStateHash: string;
-  /** The NEW plan, over current state — what the user must now be shown and asked about. */
+  /**
+   * ⭐ §B.4 / C78 §9.3 — WHETHER the live hashes are re-computations at all. `verified` means
+   * a plan really was minted over the live state and its hash differed. `unverifiable` means
+   * no live plan could be produced, carries the C78 §8.1 member saying WHY, and makes the
+   * claim "the model changed" unstateable rather than merely discouraged.
+   */
+  readonly liveVerification: LivePlanVerification;
+  /**
+   * A plan to put back in front of the user. Under `verified` this is the NEW plan over
+   * current state. Under `unverifiable` it is the plan they already approved — nothing newer
+   * exists, and offering it back is what keeps the refusal from being a dead end (see
+   * `confirm()`: the pending plan is DELIBERATELY retained on that arm so the offer works).
+   */
   readonly replan: ConsequencePlan;
-  /** A sentence naming what happened, for display. Carries both hashes. */
+  /** A sentence naming what happened, for display. Never claims more than was measured. */
   readonly message: string;
 }
+
+/**
+ * ⭐ §B.4 / C78 §9.3 — the typed statement of whether the confirm-time re-plan HAPPENED.
+ *
+ * The `unverifiable` arm is structurally {@link PreviewOutcome}'s `undetermined` arm (derived
+ * from it, so a field added at L1 arrives here rather than drifting): the same closed §8.1
+ * union, the same optional typed sub-reason, the same human-only `detail`. That identity is
+ * the point — "I could not re-plan" is the SAME kind of fact at the consent check as it is at
+ * the preview entry point, and giving it a second vocabulary here would re-open §8.8 one layer
+ * up.
+ */
+export type LivePlanVerification =
+  | {
+      /** A live plan WAS computed. {@link ApprovalStaleRefusal.livePlanHash} is its hash. */
+      readonly kind: 'verified';
+    }
+  | ({ readonly kind: 'unverifiable' } & Omit<PreviewUndetermined, 'kind'>);
 
 /**
  * The approval names a plan this flow is not holding — a confirm() for a plan that was never
@@ -101,10 +156,39 @@ export interface ApprovalUnknownRefusal {
   readonly message: string;
 }
 
-/** The flow refused to plan at all — no planner for this command type. */
+/**
+ * The flow could not produce a plan, and SAYS WHICH OF THE FOUR CAUSES it measured.
+ *
+ * ⚠ §B.4 / C78 §8.8 / U-INV-2 — this interface carried `kind`, `commandType` and `message`,
+ * and `request()` filled the message with ONE sentence unconditionally: *"No consequence
+ * planner answers for '<type>'"*. That is the N4 claim, and it was printed for all of:
+ *
+ *   N1    no verb normaliser recognises the type  (no planner FAMILY exists — N4's OPPOSITE)
+ *   N2/N3 the payload is malformed                (a fact about the CALLER, not about PRYZM)
+ *   N4    the family exists, nothing is composed  (the only case the sentence described)
+ *   N5    the planner threw                       (did not even reach the sentence — it
+ *                                                  propagated as a rejected promise)
+ *
+ * The caller could not tell them apart and — the defect that matters — could not tell any of
+ * them from *"this command genuinely affects nothing"*. {@link reason} is C78 §8.1's closed
+ * union; {@link subReason} is §8.3's typed per-family specificity; {@link detail} is free text
+ * for humans that nothing may branch on.
+ */
 export interface NoPlanRefusal {
   readonly kind: 'NO_PLAN_AVAILABLE';
   readonly commandType: string;
+  /** WHICH of the four causes was measured — C78 §8.1's closed union. */
+  readonly reason: UndeterminedReason;
+  /**
+   * C78 §8.3's typed sub-reason, where the parent member is not the whole story.
+   * `'no-normalizer-for-verb'` (N1) and `'no-planner-registered'` (N4) are what make the two
+   * semantic opposites distinguishable at a glance; N2/N3 and N5 carry none, deliberately —
+   * `INVALID_REQUEST` is not a statement about the system's capability at all.
+   */
+  readonly subReason?: UndeterminedSubReason;
+  /** Free text for humans (C78 §8.3). Never branched on; carries no typed fact. */
+  readonly detail: string;
+  /** The sentence a surface displays. Carries the typed facts rather than replacing them. */
   readonly message: string;
 }
 
@@ -159,21 +243,65 @@ export interface ConfirmingExecutor {
 export interface ConfirmationPrompt {
   /** Show the plan + its policy, and the blocking sentences it carries. */
   show(plan: ConsequencePlan, policy: ConfirmationPolicy): void;
-  /** Show a typed refusal of an approval. The user MUST be told why (R6 point 3). */
-  showRefusal(message: string, replan: ConsequencePlan | null): void;
+  /**
+   * Show a typed refusal of an approval. The user MUST be told why (R6 point 3).
+   *
+   * `refusal` is the TYPED fact, handed over so the surface can choose WORDING without
+   * re-deriving anything (the card's rule 2: *"the card renders the verdict; it never reaches
+   * one"*). It is optional only so a test double may take the message alone; production
+   * surfaces that ignore it will print the stale-approval wording for a refusal that is not
+   * staleness, which is the §9.3 defect moved into the DOM.
+   */
+  showRefusal(
+    message: string,
+    replan: ConsequencePlan | null,
+    refusal?: ApprovalStaleRefusal | ApprovalUnknownRefusal,
+  ): void;
   hide(): void;
 }
 
 export interface ConfirmationFlowDeps {
   /** Keyed by CANONICAL semantic type (`'wall.move'`) — the same map the preview/executor use. */
   readonly planners: ReadonlyMap<string, ConsequencePlanner<never>>;
-  /** Normalises a dispatched `(type, payload)` onto the semantic command. ONE rule, shared. */
-  readonly normalize: (command: PreviewCommand) => { type: string } | null;
+  /**
+   * The bus-verb → semantic-command REGISTRY (`CONSEQUENCE_NORMALIZERS`), not a normalising
+   * FUNCTION.
+   *
+   * ⚠ §B.4 — this was `normalize: (command) => {type} | null`, and that signature is itself the
+   * collapse: a function returning `null` cannot distinguish *"no rule is registered for this
+   * verb"* (N1 — a statement about PRYZM's coverage) from *"a rule ran and rejected this
+   * payload"* (N2/N3 — a statement about the CALLER). The flow could not type what it was
+   * never given. Taking the MAP moves the lookup inside, where the two facts are separable —
+   * and it is the same map preview and execution already share, so no surface can form a
+   * different semantic command for one dispatch (the G-REASON-03 divergence class).
+   */
+  readonly normalizers: ReadonlyMap<string, NormalizerRule>;
   /** Materialises read-only views over the LIVE stores at call time. */
   readonly context: () => PlanningContext;
   readonly executor: ConfirmingExecutor;
   /** Optional display surface. Absent ⇒ the flow still answers; nothing is drawn. */
   readonly prompt?: ConfirmationPrompt;
+}
+
+// ─── The sentences. Built FROM the typed facts, never instead of them ──────────────────
+
+/**
+ * The displayed sentence for a {@link NoPlanRefusal}. It names the typed reason and sub-reason
+ * verbatim, and then DENIES the reading the old blanket sentence invited.
+ *
+ * That last clause is not decoration. C78 §1.4 forbids inferring DETERMINED-unaffected from an
+ * absence, and the surface a human reads is where that inference actually gets made: a refusal
+ * that merely fails to mention consequences will be read as "there are none".
+ */
+function noPlanMessage(commandType: string, o: PreviewUndetermined): string {
+  const sub = o.subReason !== undefined ? ` / ${o.subReason}` : '';
+  return (
+    `No plan could be produced for '${commandType}' — ${o.reason}${sub}: ${o.detail}. ` +
+    `Nothing was executed and nothing was approved. Confirmation is downstream of consequences ` +
+    `(STR-06 §10) — this flow does not ask for approval of an operation it cannot describe. ` +
+    `This states what PRYZM could DETERMINE and is NOT a claim that the operation would change ` +
+    `nothing (C78 §1.4 / U-INV-2).`
+  );
 }
 
 /** What the flow is holding between show and confirm. */
@@ -204,20 +332,21 @@ export class ConfirmationFlow {
    * be approved, which is what makes `APPROVAL_UNKNOWN_PLAN` meaningful.
    */
   async request(command: PreviewCommand): Promise<ConfirmationRequest> {
-    const plan = await this.planNow(command);
-    if (!plan) {
+    const outcome = await this.planNow(command);
+    if (outcome.kind === 'undetermined') {
       this._pending = null;
       const refusal: NoPlanRefusal = {
         kind: 'NO_PLAN_AVAILABLE',
         commandType: command.type,
-        message:
-          `No consequence planner answers for '${command.type}', so no plan could be shown. ` +
-          `Confirmation is downstream of consequences (STR-06 §10) — this flow does not ask ` +
-          `for approval of an operation it cannot describe.`,
+        reason: outcome.reason,
+        ...(outcome.subReason !== undefined ? { subReason: outcome.subReason } : {}),
+        detail: outcome.detail,
+        message: noPlanMessage(command.type, outcome),
       };
       return { kind: 'refused', refusal };
     }
 
+    const plan = outcome.plan;
     const policy = computeConfirmationPolicy(plan);
     this._pending = { command, plan, policy };
 
@@ -250,7 +379,7 @@ export class ConfirmationFlow {
           `decision (${pending?.plan.planHash ?? 'none'}). Nothing was executed — an approval ` +
           `is only ever honoured for the exact plan it was shown.`,
       };
-      this.deps.prompt?.showRefusal(refusal.message, null);
+      this.deps.prompt?.showRefusal(refusal.message, null, refusal);
       return { kind: 'approval-unknown', refusal };
     }
 
@@ -259,32 +388,76 @@ export class ConfirmationFlow {
     // compare hashes. Equality ⇒ nothing the planner can see has changed ⇒ the picture the
     // user approved still describes what will happen.
     const live = await this.planNow(pending.command);
-    if (!live || live.planHash !== pending.plan.planHash) {
-      // R6 point 3: refuse VISIBLY, offer a NEW plan, and TELL the user why. Never silently
-      // re-plan and execute — that executes something they never saw.
-      const replan = live ?? pending.plan;
+
+    // ⭐ §B.4 / C78 §9.3 — the branch that used to be a HASH SENTINEL. Two facts, and they
+    // are not the same fact: the re-plan SUCCEEDED and differs (the model moved), or the
+    // re-plan could not be produced at all (a capability gap — no planner, a rejected
+    // payload, a planner that threw). Both refuse; only the first may say the model changed.
+    if (live.kind === 'undetermined') {
       const refusal: ApprovalStaleRefusal = {
         kind: 'APPROVAL_STALE',
         approvedPlanHash: pending.plan.planHash,
-        livePlanHash: live?.planHash ?? 'UNPLANNABLE',
+        // NOT a sentinel, and not a fabricated "live" reading: the approved hashes are the
+        // only hashes in evidence. `liveVerification` is what tells a consumer they are not
+        // re-computations, so comparing them can no longer manufacture a staleness claim.
+        livePlanHash: pending.plan.planHash,
         approvedStateHash: pending.plan.stateHash,
-        liveStateHash: live?.stateHash ?? 'UNPLANNABLE',
-        replan,
+        liveStateHash: pending.plan.stateHash,
+        liveVerification: {
+          kind: 'unverifiable',
+          reason: live.reason,
+          ...(live.subReason !== undefined ? { subReason: live.subReason } : {}),
+          detail: live.detail,
+        },
+        replan: pending.plan,
+        message:
+          `Your approval could not be RE-VERIFIED, so nothing was executed. To honour it, ` +
+          `PRYZM re-plans over the model as it is now and checks that the result still matches ` +
+          `the plan you read — and that check could not be run: ${live.reason}` +
+          `${live.subReason !== undefined ? ` / ${live.subReason}` : ''} (${live.detail}). ` +
+          `This is a statement about PRYZM's ability to check, and is NOT a claim that the ` +
+          `model changed — that was never measured (C78 §9.3). You approved plan ` +
+          `${pending.plan.planHash} (state ${pending.plan.stateHash}); it is still the plan on ` +
+          `screen, so you may confirm again once the check can run.`,
+      };
+      // ⭐ THE ESCAPE HATCH (C83 §10.6.7 — a refusing half and its way through ship together).
+      // The pending plan is DELIBERATELY RETAINED here, unlike the verified-stale arm below.
+      // Nothing newer exists to offer, and the failure may be transient (a store view that
+      // vanished for one frame); dropping it would leave the card's "confirm again" button
+      // bound to a hash the flow no longer holds — a dead end WITH a button, which is worse
+      // than no button. Retaining it is safe by construction: execution still happens only
+      // when a live re-plan SUCCEEDS and its hash matches, so a retry can never execute an
+      // unverified plan.
+      this.deps.prompt?.showRefusal(refusal.message, pending.plan, refusal);
+      return { kind: 'approval-stale', refusal };
+    }
+
+    if (live.plan.planHash !== pending.plan.planHash) {
+      // R6 point 3: refuse VISIBLY, offer a NEW plan, and TELL the user why. Never silently
+      // re-plan and execute — that executes something they never saw.
+      const refusal: ApprovalStaleRefusal = {
+        kind: 'APPROVAL_STALE',
+        approvedPlanHash: pending.plan.planHash,
+        livePlanHash: live.plan.planHash,
+        approvedStateHash: pending.plan.stateHash,
+        liveStateHash: live.plan.stateHash,
+        // MEASURED: a plan really was computed over the live state, and it differs.
+        liveVerification: { kind: 'verified' },
+        replan: live.plan,
         message:
           `The model changed while this was on screen, so your approval no longer applies. ` +
           `You approved plan ${pending.plan.planHash} (state ${pending.plan.stateHash}); the ` +
-          `model is now at ${live?.planHash ?? 'an unplannable state'} (state ${live?.stateHash ?? '—'}). ` +
+          `model is now at ${live.plan.planHash} (state ${live.plan.stateHash}). ` +
           `Nothing was executed. A new plan has been prepared — review it and confirm again.`,
       };
       // The NEW plan becomes the pending one: the user is left with something to approve,
       // and the old hash can never be re-approved (its holder is gone).
-      if (live) {
-        const policy = computeConfirmationPolicy(live);
-        this._pending = { command: pending.command, plan: live, policy };
-      } else {
-        this._pending = null;
-      }
-      this.deps.prompt?.showRefusal(refusal.message, live);
+      this._pending = {
+        command: pending.command,
+        plan: live.plan,
+        policy: computeConfirmationPolicy(live.plan),
+      };
+      this.deps.prompt?.showRefusal(refusal.message, live.plan, refusal);
       return { kind: 'approval-stale', refusal };
     }
 
@@ -307,16 +480,26 @@ export class ConfirmationFlow {
   }
 
   /**
-   * Mint a plan over the state AS IT IS NOW. The one place this flow computes a plan — both
-   * `request()` and `confirm()` call it, so the "shown" plan and the "live" plan are produced
-   * by the identical path and a hash difference can only mean the MODEL moved, never that two
-   * code paths disagreed.
+   * Mint a plan over the state AS IT IS NOW, or say WHY none could be minted. The one place
+   * this flow computes a plan — both `request()` and `confirm()` call it, so the "shown" plan
+   * and the "live" plan are produced by the identical path and a hash difference can only mean
+   * the MODEL moved, never that two code paths disagreed.
+   *
+   * ⚠ §B.4 / C78 §8.8 / U-INV-2 — this returned `ConsequencePlan | null` and the `null` carried
+   * the SAME four causes `preview()` collapsed, re-implemented here line for line. C78 §8.8
+   * names both sites in one sentence. The fix is therefore NOT a second typed implementation:
+   * this method delegates to `resolveConsequencePreview` — the one shared router — so the two
+   * sites cannot drift, and it additionally CATCHES the planner throw that used to escape as a
+   * rejected promise (the composition site calls `void flow.confirm(...)` from the card's click
+   * handler, so that rejection became an unhandled rejection and the card simply stopped
+   * responding).
    */
-  private async planNow(command: PreviewCommand): Promise<ConsequencePlan | null> {
-    const semantic = this.deps.normalize(command);
-    if (!semantic) return null;
-    const planner = this.deps.planners.get(semantic.type);
-    if (!planner) return null;
-    return planner.plan(semantic as never, this.deps.context());
+  private async planNow(command: PreviewCommand): Promise<PreviewOutcome> {
+    return resolveConsequencePreview(
+      command,
+      this.deps.planners,
+      this.deps.context,
+      this.deps.normalizers,
+    );
   }
 }

@@ -54,6 +54,11 @@ import {
 } from '../src/engine/consequence/ConsequencePreviewService';
 import { ConsequenceExecutionService } from '../src/engine/consequence/ConsequenceExecutionService';
 import { ConfirmationFlow } from '../src/ui/consequence/ConfirmationFlow';
+// §B.4 — `preview()` answers a typed `PreviewOutcome` now. This suite's subject is the
+// PLANNER'S OUTPUT, so it reads the plan-only view; see the adapter's header for why that is
+// legitimate HERE and not in a new suite. The two assertions that are genuinely ABOUT the
+// outcome type (the `roof.create` negative controls) read the union directly instead.
+import { planOnly, type PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The world: one 6 m wall hosting a 0.9 m door and a 1.2 m window ──────────────────
 
@@ -138,8 +143,8 @@ const DOOR_DISPATCH = {
   payload: { doorId: 'door-1', newOffset: 1.8, prevOffset: 0.5 },
 } as const;
 
-function svc(walls: Map<string, Wall>): ConsequencePreviewService {
-  return new ConsequencePreviewService(plannerRegistry(), makeContext(walls));
+function svc(walls: Map<string, Wall>): PlanOnlyPreviewProvider {
+  return planOnly(new ConsequencePreviewService(plannerRegistry(), makeContext(walls)));
 }
 
 function world(): Map<string, Wall> {
@@ -278,8 +283,20 @@ describe('SURFACE 1 — preview answers for opening.move', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it('an unregistered family still previews as null — reachability was ADDED, not blanket-granted', async () => {
-    expect(await svc(world()).preview({ type: 'roof.create', payload: {} })).toBeNull();
+  it('an unregistered family previews as a TYPED capability gap — reachability was ADDED, not blanket-granted', async () => {
+    // §B.4 — read the RAW service, not the plan-only view. This assertion is the one place in
+    // this suite whose subject IS the outcome type: it used to read `.toBeNull()`, and that
+    // `null` was the same value the service returned for a malformed payload and for a family
+    // that exists but is unwired. Asserting the reason is what makes it a control at all.
+    const outcome = await new ConsequencePreviewService(
+      plannerRegistry(),
+      makeContext(world()),
+    ).preview({ type: 'roof.create', payload: {} });
+
+    expect(outcome.kind).toBe('undetermined');
+    if (outcome.kind !== 'undetermined') return;
+    expect(outcome.reason).toBe('UNSUPPORTED_ELEMENT_TYPE');
+    expect(outcome.subReason).toBe('no-normalizer-for-verb');
   });
 });
 
@@ -481,7 +498,7 @@ describe('honest blind spots — the 11-reason union, never silence and never a 
     const bare = new Map<string, ConsequencePlanner<never>>([
       ['opening.move', new OpeningMoveConsequencePlanner({}) as unknown as ConsequencePlanner<never>],
     ]);
-    const plan = (await new ConsequencePreviewService(bare, makeContext(world())).preview(
+    const plan = (await planOnly(new ConsequencePreviewService(bare, makeContext(world()))).preview(
       DOOR_DISPATCH,
     ))!;
     const engineGaps = plan.undetermined.filter((u) => u.reason === 'ENGINE_NOT_AVAILABLE');
@@ -499,7 +516,10 @@ describe('SURFACE 2 — the confirmation flow binds an opening.move plan', () =>
   function flowOver(walls: Map<string, Wall>): ConfirmationFlow {
     return new ConfirmationFlow({
       planners: plannerRegistry(),
-      normalize: (c) => normalizeConsequenceCommand(c),
+      // §B.4 — the flow takes the normaliser REGISTRY, not a normalising function: a callback
+      // returning `null` has already collapsed "no rule for this verb" into "the rule rejected
+      // this payload" before the flow can type either.
+      normalizers: CONSEQUENCE_NORMALIZERS,
       context: makeContext(walls),
       executor: { execute: async () => ({ consequence: { kind: 'unplanned' } }) as never } as never,
     });
@@ -552,7 +572,7 @@ describe('SURFACE 3 — the executor can BIND an opening.move plan', () => {
     const planners = plannerRegistry();
     const { bus, dispatched } = makeBus(walls);
 
-    const plan = (await new ConsequencePreviewService(planners, context).preview(DOOR_DISPATCH))!;
+    const plan = (await planOnly(new ConsequencePreviewService(planners, context)).preview(DOOR_DISPATCH))!;
     const svcE = new ConsequenceExecutionService({ bus, planners, context });
     const { consequence } = await svcE.execute(DOOR_DISPATCH, { plan });
 
@@ -568,7 +588,7 @@ describe('SURFACE 3 — the executor can BIND an opening.move plan', () => {
     const planners = plannerRegistry();
     const { bus } = makeBus(walls);
 
-    const plan = (await new ConsequencePreviewService(planners, context).preview(DOOR_DISPATCH))!;
+    const plan = (await planOnly(new ConsequencePreviewService(planners, context)).preview(DOOR_DISPATCH))!;
     const svcE = new ConsequenceExecutionService({ bus, planners, context });
     const { consequence } = await svcE.execute(DOOR_DISPATCH, { plan });
 

@@ -126,8 +126,22 @@ async function run(): Promise<GateResult> {
   const world = freshWorld();
   const before = snapshot(world);
   const service = buildService(world);
-  const plan = await service.preview(COMMAND);
+  // §B.4 / C78 §8.8 — `preview()` answers a typed `PreviewOutcome`, not `ConsequencePlan | null`.
+  //
+  // ⚠ READ THROUGH THE DISCRIMINANT, NEVER THROUGH TRUTHINESS. This was
+  // `const plan = await service.preview(COMMAND); const planProduced = plan ? 1 : 0;` and an
+  // `undetermined` outcome is a truthy OBJECT — so that floor would have scored 1 while NO
+  // plan existed, which is this gate passing on the exact absence it exists to detect. (It
+  // did not silently pass in the end, but only by luck: line 159 read `.changed.length` off
+  // the wrapper and the harness died MISCONFIGURED. Luck is not a control.)
+  const outcome = await service.preview(COMMAND);
+  const plan = outcome.kind === 'planned' ? outcome.plan : null;
   const planProduced = plan ? 1 : 0;
+  if (!plan) {
+    findingNames.push(
+      `real wall.move preview produced NO plan: ${outcome.kind === 'undetermined' ? `${outcome.reason} — ${outcome.detail}` : 'unknown'}`,
+    );
+  }
   const realViolations = violations(before, world);
 
   // 2) POSITIVE controls — prove each detector has teeth on a real mutation.

@@ -27,7 +27,7 @@
 
 import type { ConsequencePlanner, PlanningContext } from '@pryzm/command-bus';
 import type { PreviewCommand } from '@app/engine/consequence/ConsequencePreviewService';
-import { normalizeConsequenceCommand } from '@app/engine/consequence/ConsequencePreviewService';
+import { CONSEQUENCE_NORMALIZERS } from '@app/engine/consequence/ConsequencePreviewService';
 import {
     buildPlanningContext,
     createConsequencePlanners,
@@ -75,11 +75,19 @@ export function getConfirmationFlow(bus: ConsequenceDispatcher): ConfirmationFlo
 
     const flow = new ConfirmationFlow({
         planners: planners as ReadonlyMap<string, ConsequencePlanner<never>>,
-        // The GENERIC normaliser (§PLANNER-REGISTRY-GENERIC): a map lookup over the ONE
-        // shared rule set, not a hard-coded wall.move call. This was the chokepoint that
-        // made the registry's genericity nominal — a `wall.create` planner in the map was
-        // still unreachable while every surface funnelled through a move-only function.
-        normalize: (c: PreviewCommand) => normalizeConsequenceCommand(c),
+        // The GENERIC normaliser REGISTRY (§PLANNER-REGISTRY-GENERIC): the ONE shared rule
+        // set, not a hard-coded wall.move call. That chokepoint made the registry's
+        // genericity nominal — a `wall.create` planner in the map was still unreachable
+        // while every surface funnelled through a move-only function.
+        //
+        // ⚠ §B.4 — this passed a normalising FUNCTION (`(c) => normalizeConsequenceCommand(c)`)
+        // and that is why the fix had to reach THIS line, not only the flow. A function
+        // returning `null` has already destroyed the distinction between "no rule for this
+        // verb" and "the rule rejected this payload": the flow can only type what it is
+        // handed, so a typed `ConfirmationFlow` composed with a collapsing callback would
+        // have shipped four causes as one — green tests, unchanged behaviour on screen.
+        // Handing over the MAP is what makes the four causes reachable in production.
+        normalizers: CONSEQUENCE_NORMALIZERS,
         context: (): PlanningContext => buildPlanningContext(),
         executor: service,
         prompt: card,

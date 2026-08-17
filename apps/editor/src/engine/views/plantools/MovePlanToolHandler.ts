@@ -570,7 +570,23 @@ export class MovePlanToolHandler implements PlanToolHandler {
         const command = { type: 'wall.updateBaseline', payload };
         try {
             const request = await requestWallMoveConfirmation(bus as never, command);
-            if (request.kind === 'refused') { dispatchDirect(request.refusal.kind); return; }
+            if (request.kind === 'refused') {
+                // ⭐ §B.4 / C78 §8.8 — THE ESCAPE HATCH, and the cause travels WITH it.
+                //
+                // This read `request.refusal.kind`, which is the constant `'NO_PLAN_AVAILABLE'`
+                // for all four causes — so the `why` recorded on the plan-less dispatch was the
+                // same string whether no planner family exists for this verb, the payload was
+                // malformed, the family exists but is unwired, or the planner threw. The typed
+                // refusal was carried to the one place a human could act on it and thrown away
+                // there. The move still goes through (a confirmation layer must never swallow
+                // an edit because its planner was missing), but the typed reason now rides
+                // along, so the `unplanned` outcome names WHICH gap it fell through.
+                const r = request.refusal;
+                dispatchDirect(
+                    `${r.reason}${r.subReason !== undefined ? `/${r.subReason}` : ''}: ${r.detail}`,
+                );
+                return;
+            }
 
             if (request.autoProceed) {
                 // Below the threshold: execute the plan the flow is holding, bound to its hash.

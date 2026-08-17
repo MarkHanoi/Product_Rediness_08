@@ -233,10 +233,26 @@ async function run(): Promise<GateResult> {
     violations: () => [],
   });
 
+  /**
+   * The normaliser REGISTRY the flow takes (§B.4). It carries the same two spellings the
+   * per-verb function did (`wall.move` — the refused-but-semantic verb, L-49 — and
+   * `wall.updateBaseline`, the live one), so the verbs this gate drives are unchanged.
+   *
+   * ⚠ WHY THIS EDIT WAS MANDATORY AND WOULD NOT HAVE FAILED TO COMPILE. The deps literal below
+   * is cast `as never`, so leaving the retired `normalize:` key here would have typechecked
+   * perfectly and handed the flow `normalizers: undefined` — every clause would then throw
+   * inside `planNow` at RUNTIME and land in `harnessErrors`. A gate that certifies a seam has
+   * to be rewired WITH the seam.
+   */
+  const normalizers = new Map<string, (c: { type: string; payload: unknown }) => unknown>([
+    ['wall.move', (c) => normalizeToWallMove(c as never)],
+    ['wall.updateBaseline', (c) => normalizeToWallMove(c as never)],
+  ]);
+
   /** A card + flow pair, fresh per clause, so no clause inherits another's pending plan. */
   const makeFlow = (card?: unknown) => new ConfirmationFlow({
     planners: planners as never,
-    normalize: (c: { type: string; payload: unknown }) => normalizeToWallMove(c as never),
+    normalizers: normalizers as never,
     context: planningContext as never,
     executor: executor as never,
     ...(card !== undefined ? { prompt: card as never } : {}),
@@ -451,7 +467,7 @@ async function run(): Promise<GateResult> {
     const card = new ConfirmationCard();
     const benignFlow = new ConfirmationFlow({
       planners: new Map([['wall.move', { plan: async () => benign }]]) as never,
-      normalize: () => ({ type: 'wall.move' }),
+      normalizers: new Map([['wall.move', () => ({ type: 'wall.move', payload: {} })]]) as never,
       context: planningContext as never,
       executor: { execute: async () => ({ consequence: { kind: 'unplanned' } }) } as never,
       prompt: card as never,

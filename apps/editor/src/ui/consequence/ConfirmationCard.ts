@@ -42,7 +42,14 @@
 
 import type { ConfirmationPolicy, ConsequencePlan, UndeterminedImpact } from '@pryzm/command-bus';
 import { escHtml } from '@pryzm/ui-base';
+import type { ApprovalStaleRefusal, ApprovalUnknownRefusal } from './ConfirmationFlow.js';
 import { blockingItems } from './confirmationPolicy.js';
+
+/**
+ * The TYPED refusal a `ConfirmationPrompt` is handed alongside the sentence. `import type`, so
+ * this file still imports no behaviour from the flow and there is no module cycle at runtime.
+ */
+type ApprovalRefusalFact = ApprovalStaleRefusal | ApprovalUnknownRefusal;
 
 const PANEL_ID = 'consequence-confirmation-card';
 
@@ -201,29 +208,82 @@ export function renderConfirmationCard(
 }
 
 /**
- * Render a typed REFUSAL of an approval — the stale-approval path (R6 point 3). The user is
- * TOLD why, and, when a fresh plan exists, is offered it immediately: a refusal that leaves
- * nothing to approve is a dead end, and dead ends teach people to click through warnings.
+ * ⭐ §B.4 / C78 §9.3 — the WORDING for one refusal, chosen from the TYPED fact.
+ *
+ * Rule 2 of this file says the card renders the verdict and never reaches one, and this
+ * function is where that rule was being broken. The heading was the literal
+ * "APPROVAL REFUSED — THE PLAN IS STALE", printed for every refusal the flow could produce —
+ * including `APPROVAL_UNKNOWN_PLAN` (not staleness at all) and, once `ConfirmationFlow` could
+ * express it, the arm where the confirm-time re-plan COULD NOT BE COMPUTED. For that last one
+ * the sentence is not merely imprecise, it is the §9.3 defect surfacing in the DOM: it reports
+ * a capability gap as a measurement of the world. The user reads "the model changed" and goes
+ * looking for the collaborator who changed it.
+ *
+ * The replan CTA is chosen the same way and for the same reason. Under the unverifiable arm the
+ * flow deliberately re-offers the plan the user ALREADY approved (it retains it as pending, so
+ * the button works) — labelling that "the NEW plan" would be a second false claim on the same
+ * panel.
+ */
+function refusalWording(refusal: ApprovalRefusalFact | undefined): {
+    headline: string;
+    footnote: string;
+    replanHeading: string;
+    replanCta: string;
+} {
+    if (refusal?.kind === 'APPROVAL_UNKNOWN_PLAN') {
+        return {
+            headline: 'APPROVAL REFUSED — THAT IS NOT THE PLAN ON SCREEN',
+            footnote: 'Nothing was executed. An approval is only ever honoured for the exact plan it was shown, so a decision naming a plan this card is not holding is refused rather than guessed at.',
+            replanHeading: '◆ the plan currently awaiting a decision',
+            replanCta: 'Review &amp; confirm',
+        };
+    }
+    if (refusal?.kind === 'APPROVAL_STALE' && refusal.liveVerification.kind === 'unverifiable') {
+        return {
+            headline: 'APPROVAL REFUSED — THE PLAN COULD NOT BE RE-VERIFIED',
+            footnote: 'Nothing was executed. PRYZM could not re-plan over the model as it is now, so it could not check that your approval still applies — and it will not act on an approval it cannot check. This is NOT a report that the model changed: that was never measured.',
+            replanHeading: '◆ the plan you approved — unchanged, and still awaiting a decision',
+            replanCta: 'Try confirming again',
+        };
+    }
+    return {
+        headline: 'APPROVAL REFUSED — THE PLAN IS STALE',
+        footnote: 'Nothing was executed. The system will not run a plan you did not see, and will not run the plan you saw over a model that has since changed.',
+        replanHeading: '◆ the NEW plan, over the model as it is now',
+        replanCta: 'Review &amp; confirm the new plan',
+    };
+}
+
+/**
+ * Render a typed REFUSAL of an approval (R6 point 3). The user is TOLD why, and, when a plan
+ * remains, is offered it immediately: a refusal that leaves nothing to approve is a dead end,
+ * and dead ends teach people to click through warnings.
+ *
+ * `refusal` is OPTIONAL so the existing three-argument call sites (and the XSS suite, which
+ * drives this renderer with hostile strings) are unchanged; omitted, the wording falls back to
+ * the stale-approval case this renderer shipped with.
  */
 export function renderConfirmationRefusal(
     panel: HTMLElement,
     message: string,
     replan: ConsequencePlan | null,
+    refusal?: ApprovalRefusalFact,
 ): void {
+    const W = refusalWording(refusal);
     const L: string[] = [
         `<div style="background:#3a1f24;border-left:3px solid #f87171;padding:8px 10px;border-radius:4px;margin-bottom:8px;">`,
-        `<div style="font-weight:700;color:#fca5a5;">APPROVAL REFUSED — THE PLAN IS STALE</div>`,
+        `<div style="font-weight:700;color:#fca5a5;">${esc(W.headline)}</div>`,
         `<div style="color:#fca5a5;font-size:11px;margin-top:3px;">${esc(message)}</div>`,
-        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">Nothing was executed. The system will not run a plan you did not see, and will not run the plan you saw over a model that has since changed.</div>`,
+        `<div style="color:#a89a6a;font-size:10px;margin-top:5px;">${esc(W.footnote)}</div>`,
         `</div>`,
     ];
     if (replan) {
-        L.push(head('◆ the NEW plan, over the model as it is now', '#a78bfa'));
+        L.push(head(esc(W.replanHeading), '#a78bfa'));
         L.push(item(`plan ${esc(replan.planHash)} · ${replan.changed.length} element(s) would change`, '#ddd6fe'));
         L.push(
             `<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">` +
             `<button type="button" data-role="cancel" style="padding:6px 14px;border-radius:6px;border:1px solid #40465c;background:transparent;color:#c9cede;font-size:12px;cursor:pointer;">Cancel</button>` +
-            `<button type="button" data-role="confirm" data-plan-hash="${esc(replan.planHash)}" style="padding:6px 14px;border-radius:6px;border:none;background:#6600FF;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">Review &amp; confirm the new plan</button>` +
+            `<button type="button" data-role="confirm" data-plan-hash="${esc(replan.planHash)}" style="padding:6px 14px;border-radius:6px;border:none;background:#6600FF;color:#fff;font-weight:600;font-size:12px;cursor:pointer;">${W.replanCta}</button>` +
             `</div>`,
         );
     } else {
@@ -391,9 +451,18 @@ export class ConfirmationCard {
         this._reveal();
     }
 
-    /** {@link ConfirmationPrompt.showRefusal} — the stale-approval path. */
-    showRefusal(message: string, replan: ConsequencePlan | null): void {
-        renderConfirmationRefusal(this._panel, message, replan);
+    /**
+     * {@link ConfirmationPrompt.showRefusal} — a typed refusal of an approval.
+     *
+     * `refusal` is forwarded so the renderer can pick wording from the FACT (§B.4 / C78 §9.3):
+     * an unverifiable re-plan and a genuinely stale one must not print the same heading.
+     */
+    showRefusal(
+        message: string,
+        replan: ConsequencePlan | null,
+        refusal?: ApprovalRefusalFact,
+    ): void {
+        renderConfirmationRefusal(this._panel, message, replan, refusal);
         this._reveal();
     }
 

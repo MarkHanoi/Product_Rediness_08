@@ -27,10 +27,17 @@
 // `PlanningContext` factory are INJECTED (see the composition file), so this file couples
 // nothing at import and is testable in a plain node env with doubles.
 
+import {
+  plannedOutcome,
+  previewInvalidRequest,
+  previewPlannerNotComposed,
+  previewPlannerThrew,
+  previewUnrecognisedVerb,
+} from '@pryzm/command-bus';
 import type {
-  ConsequencePlan,
   ConsequencePlanner,
   PlanningContext,
+  PreviewOutcome,
 } from '@pryzm/command-bus';
 import type { WallMoveCommand } from './WallMoveConsequencePlanner.js';
 
@@ -54,8 +61,19 @@ export interface PreviewCommand {
  * injects {@link ConsequencePreviewService}.
  */
 export interface ConsequencePreviewProvider {
-  /** Compute the plan for `command`, or `null` when no planner is registered for its type. */
-  preview(command: PreviewCommand): Promise<ConsequencePlan | null>;
+  /**
+   * Compute the consequence of `command` — C78 §1.1's TWO legal outcomes and no third:
+   * a plan, or a typed statement of why no plan could be produced.
+   *
+   * ⚠ §B.4 / C78 §8.8 / U-INV-2 — this used to return `ConsequencePlan | null`, and the
+   * `null` carried FOUR structurally different causes, two of them semantic opposites
+   * (N1 "no planner family exists for this verb" and N4 "the family exists but is not
+   * composed"). A caller could not tell them apart, and — the defect that matters — could
+   * not tell any of them from "this command genuinely affects nothing". Silence read as
+   * all-clear. {@link PreviewOutcome} makes the four distinct BY CONSTRUCTION; there is
+   * no arm of this type that means "I don't know" without saying why.
+   */
+  preview(command: PreviewCommand): Promise<PreviewOutcome>;
 }
 
 /** The wall.move payload as the planner expects it (`WallMoveCommand.payload`). */
@@ -732,6 +750,68 @@ export function normalizeConsequenceCommand(
   return registry.get(command.type)?.(command) ?? null;
 }
 
+/**
+ * §B.4 — THE four-cause resolution, in ONE place.
+ *
+ * ⚠ WHY THIS IS A FREE FUNCTION AND NOT A PRIVATE METHOD. C78 §8.8 names TWO sites of the
+ * four-cause `null` in one sentence — *"`null` from `preview()` (4 causes), `null` from
+ * `planNow()` (the same 4, re-implemented)"* — and the L1 contract header
+ * (`packages/command-bus/src/consequence.ts:612`) repeats it: {@link PreviewOutcome} is the
+ * shape *"the preview entry point (and `planNow`, which re-implements the same collapse) will
+ * return instead"*. Typing the two sites SEPARATELY would fix the symptom and keep the cause:
+ * two implementations of one decision, free to drift, exactly as the two normalisers could
+ * before `CONSEQUENCE_NORMALIZERS` merged them (the G-REASON-03 divergence class this file
+ * already argues against by name).
+ *
+ * So there is ONE implementation. {@link ConsequencePreviewService.preview} delegates to it and
+ * `ConfirmationFlow.planNow` delegates to it, which means a hover, a confirm-time plan and a
+ * confirm-time RE-plan cannot disagree about which of the four causes they measured.
+ *
+ * The registry lookup and the rule CALL are deliberately split apart. The module helper
+ * {@link normalizeConsequenceCommand} folds them into one `?.() ?? null`, which is correct for
+ * its own callers but is precisely what made N1 and N2/N3 the same value: "no rule is
+ * registered for this verb" and "a rule ran and rejected this payload" are different facts
+ * about different parties — the SYSTEM's coverage versus the CALLER's input — and only the
+ * first is a statement about PRYZM.
+ */
+export async function resolveConsequencePreview(
+  command: PreviewCommand,
+  planners: ReadonlyMap<string, ConsequencePlanner<never>>,
+  context: () => PlanningContext,
+  normalizers: ReadonlyMap<string, NormalizerRule> = CONSEQUENCE_NORMALIZERS,
+): Promise<PreviewOutcome> {
+  // N1 — no verb normaliser recognises this type: no planner FAMILY answers for it.
+  const rule = normalizers.get(command.type);
+  if (!rule) return previewUnrecognisedVerb(command.type);
+
+  // N2/N3 — a rule exists and REJECTED the payload. The caller's input is malformed;
+  // this is the one arm of the four that is not a PRYZM fault.
+  const normalized = rule(command);
+  if (!normalized) {
+    return previewInvalidRequest(
+      command.type,
+      `the '${command.type}' normaliser rejected the payload as structurally unusable`,
+    );
+  }
+
+  // N4 — the family is recognised but nothing is composed to answer it. The OPPOSITE of
+  // N1, and for the whole life of the bare `null` it was indistinguishable from it.
+  const planner = planners.get(normalized.type);
+  if (!planner) return previewPlannerNotComposed(normalized.type);
+
+  try {
+    // The ONE call. `plan()` is contractually pure (G-REASON-01): no dispatch, no bus, no
+    // store write, no event, no undo push. This function adds nothing on top — it routes
+    // and returns. That is the whole reason preview is not an `executeCommand` mode.
+    return plannedOutcome(await planner.plan(normalized as never, context()));
+  } catch (e) {
+    // N5 — the planner RAISED. Previously this propagated to the overlay's catch, which
+    // logged and returned, rendering identically to every other cause and to success
+    // with an empty plan. A throw is now a reported determination, not a disappearance.
+    return previewPlannerThrew(command.type, e);
+  }
+}
+
 export class ConsequencePreviewService implements ConsequencePreviewProvider {
   /**
    * @param planners      keyed by the CANONICAL (semantic) command type, e.g. `'wall.move'`.
@@ -763,19 +843,12 @@ export class ConsequencePreviewService implements ConsequencePreviewProvider {
     private readonly normalizers: ReadonlyMap<string, NormalizerRule> = CONSEQUENCE_NORMALIZERS,
   ) {}
 
-  async preview(command: PreviewCommand): Promise<ConsequencePlan | null> {
-    const normalized = this.normalize(command);
-    if (!normalized) return null;
-    const planner = this.planners.get(normalized.type);
-    if (!planner) return null;
-    // The ONE call. `plan()` is contractually pure (G-REASON-01): no dispatch, no bus, no
-    // store write, no event, no undo push. This service adds nothing on top — it routes
-    // and returns. That is the whole reason preview is not an `executeCommand` mode.
-    return planner.plan(normalized as never, this.context());
-  }
-
-  /** Delegates to the module-level GENERIC normaliser — ONE rule set, three consumers. */
-  private normalize(command: PreviewCommand): SemanticCommand | null {
-    return normalizeConsequenceCommand(command, this.normalizers);
+  /**
+   * §B.4 — the four `null` causes, separated. The decision itself lives in
+   * {@link resolveConsequencePreview}, which `ConfirmationFlow.planNow` also calls: the
+   * SECOND site C78 §8.8 names is not a second implementation, it is this one.
+   */
+  async preview(command: PreviewCommand): Promise<PreviewOutcome> {
+    return resolveConsequencePreview(command, this.planners, this.context, this.normalizers);
   }
 }

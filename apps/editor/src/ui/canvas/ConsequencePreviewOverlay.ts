@@ -24,7 +24,7 @@
  * This module is a pure DOM overlay — no Three.js dependency.
  */
 
-import type { ConsequencePlan } from '@pryzm/command-bus';
+import type { ConsequencePlan, PreviewOutcome } from '@pryzm/command-bus';
 import type {
   ConsequencePreviewProvider,
   PreviewCommand,
@@ -51,6 +51,53 @@ function buildPanel(): HTMLElement {
 
 function esc(s: string): string {
     return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+}
+
+/**
+ * Render the typed `undetermined` arm of a {@link PreviewOutcome} — the case where NO plan
+ * exists at all.
+ *
+ * ⚠ This is deliberately NOT styled like an empty plan, and that distinction is the entire
+ * point of §B.4. An empty plan is an ANSWER: "I looked, and nothing else is affected." This
+ * is the absence of an answer. Rendering them alike — or rendering this one as nothing at
+ * all, which is what the overlay did before — is the failure-as-emptiness defect at the
+ * only place the user can actually see it. Amber, not purple: it is neither a success nor
+ * a refusal, and it must not be mistaken for either.
+ */
+function renderUndetermined(
+    panel: HTMLElement,
+    reason: string,
+    subReason: string | undefined,
+    detail: string,
+): void {
+    // ⚠ BUILT AS DOM NODES, NOT `innerHTML`, and deliberately so. `detail` carries a
+    // planner's raw throw message on the N5 arm (`previewPlannerThrew`) — arbitrary text
+    // from arbitrary code, on a path that by definition only runs when something has
+    // already gone wrong. `textContent` cannot be coaxed into markup, so the sink does not
+    // exist rather than being escaped; `xssSinkScan` counts this file at 1 and this
+    // function adds none. (An `esc()`-ed template would have been safe too, and would have
+    // grown a ratchet that exists to stop exactly this kind of "just one more" — R7.)
+    const row = (text: string, css: string): HTMLElement => {
+        const d = document.createElement('div');
+        d.style.cssText = css;
+        d.textContent = text;
+        return d;
+    };
+
+    panel.replaceChildren(
+        row('▲ Consequence undetermined', 'font-weight:700;color:#fbbf24;margin-bottom:8px;'),
+        row(
+            'PRYZM could not work out what this would affect — this is NOT a claim that ' +
+            'nothing would change.',
+            'color:#fde68a;font-size:11px;margin-bottom:4px;',
+        ),
+        row('', 'height:6px;'),
+        row(
+            subReason ? `${reason} (${subReason})` : reason,
+            'color:#fbbf24;font-size:11px;font-weight:700;',
+        ),
+        row(detail, 'color:#c9b896;font-size:11px;margin-top:2px;'),
+    );
 }
 
 /**
@@ -190,17 +237,43 @@ export class ConsequencePreviewOverlay {
 
     private async _computeAndShow(command: PreviewCommand, seq: number): Promise<void> {
         if (!this._previewService) return;
-        let plan: ConsequencePlan | null = null;
+        let outcome: PreviewOutcome;
         try {
-            plan = await this._previewService.preview(command);
+            outcome = await this._previewService.preview(command);
         } catch (e) {
+            // The service now converts a planner throw into an `undetermined` outcome
+            // (N5), so reaching here means the SERVICE itself failed — a fault above the
+            // planner. Still shown rather than swallowed: §B.4's whole point is that the
+            // overlay never goes quiet about a question it could not answer.
             console.warn('[ConsequencePreviewOverlay] preview failed:', e);
+            if (seq !== this._requestSeq) return;
+            this._showUndetermined(
+                'PREVIEW_SERVICE_THREW',
+                undefined,
+                e instanceof Error ? e.message : String(e),
+            );
             return;
         }
         // A newer hover (or a hide) superseded this request while it was in flight.
         if (seq !== this._requestSeq) return;
-        if (!plan) return;
-        this._show(plan);
+
+        // ⚠ §B.4 — the branch this method used to lack. `if (!plan) return;` left the
+        // panel hidden, and a hidden panel is read as "this move affects nothing". That
+        // is the founder's defect in one line: "nothing happened" and "I could not work
+        // it out" rendered identically, and only one of them is safe to act on.
+        if (outcome.kind === 'undetermined') {
+            this._showUndetermined(outcome.reason, outcome.subReason, outcome.detail);
+            return;
+        }
+        this._show(outcome.plan);
+    }
+
+    /** Render the typed `undetermined` arm — an ANSWER, visually distinct from a plan. */
+    private _showUndetermined(reason: string, subReason: string | undefined, detail: string): void {
+        renderUndetermined(this._panel, reason, subReason, detail);
+        this._reposition(this._lastMouse.x, this._lastMouse.y);
+        this._panel.style.opacity = '1';
+        this._visible = true;
     }
 
     /** Hide immediately (call on mouseLeave). */

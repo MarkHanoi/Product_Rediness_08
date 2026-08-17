@@ -165,6 +165,38 @@ const areaValidator = {
       .map((r) => ({ ruleId: 'ROOM_MIN_AREA', elementId: r.id, message: `room area ${r.computed.area} m² is below the 20 m² minimum` })),
 };
 
+/**
+ * §B.4 / C78 §8.8 — the PLAN-ONLY view of a preview service, applied at every factory below.
+ *
+ * `ConsequencePreviewService.preview()` used to answer `ConsequencePlan | null` and now answers
+ * a typed `PreviewOutcome`. Every one of this gate's ~60 call sites reasons about the PLAN —
+ * determinism is a property of the artefact — so the factories hand back the artefact.
+ *
+ * ⚠ IT THROWS ON `undetermined` RATHER THAN ANSWERING `null`, AND THAT IS THE WHOLE POINT.
+ * Every comparison in this file asks "did two runs agree?", and two `null`s AGREE. A wrapper
+ * that coerced an undetermined outcome to `null` would report PERFECT DETERMINISM for a subject
+ * that produced no plans at all — the failure-as-emptiness defect rebuilt inside the gate that
+ * exists to catch it, and it would have been INVISIBLE (green, with clean output). A throw
+ * surfaces as `MISCONFIGURED` / exit 2, which is the honest verdict when a harness cannot
+ * establish its subject.
+ */
+function planOnly(service: ConsequencePreviewService): ConsequencePreviewService {
+  return {
+    async preview(command: { type: string; payload: unknown }) {
+      const outcome = await (service as any).preview(command);
+      if (!outcome || outcome.kind !== 'planned') {
+        throw new Error(
+          `preview('${command.type}') produced NO PLAN — ${outcome?.reason ?? 'unknown'}: ` +
+          `${outcome?.detail ?? 'no outcome at all'}. The determinism arms cannot compare what ` +
+          `was never computed, and reporting agreement between two absences would be a lie.`,
+        );
+      }
+      return outcome.plan;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any as ConsequencePreviewService;
+}
+
 /** Build the REAL service over the REAL planner, with injectable seams. */
 function buildService(world: World, opts?: {
   predictor?: (...args: any[]) => any;
@@ -180,7 +212,7 @@ function buildService(world: World, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('wall.move', subject);
-  return new ConsequencePreviewService(planners as any, contextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, contextFor(world)));
 }
 
 // ─── The comparator — full-JSON bytes AND hash, classified ───────────────────
@@ -556,7 +588,7 @@ function buildCreateService(world: CreateWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('wall.create', subject);
-  return new ConsequencePreviewService(planners as any, createContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, createContextFor(world)));
 }
 
 async function wallCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
@@ -860,7 +892,7 @@ function buildOpeningService(world: OpeningWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('opening.move', subject);
-  return new ConsequencePreviewService(planners as any, openingContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, openingContextFor(world)));
 }
 
 async function openingMoveHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
@@ -1315,7 +1347,7 @@ function buildOpeningCreateService(world: OpeningCreateWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('wall.opening.create', subject);
-  return new ConsequencePreviewService(planners as any, openingCreateContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, openingCreateContextFor(world)));
 }
 
 async function wallOpeningCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
@@ -1734,7 +1766,7 @@ function buildOpeningDeleteService(world: OpeningDeleteWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('opening.delete', subject);
-  return new ConsequencePreviewService(planners as any, openingDeleteContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, openingDeleteContextFor(world)));
 }
 
 async function openingDeleteHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
@@ -2175,7 +2207,7 @@ function buildWallDeleteService(world: WallDeleteWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('wall.delete', subject);
-  return new ConsequencePreviewService(planners as any, wallDeleteContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, wallDeleteContextFor(world)));
 }
 
 async function wallDeleteHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
@@ -2674,7 +2706,7 @@ function buildBatchService(world: BatchWorld, opts?: {
   const subject = opts?.plannerWrap ? opts.plannerWrap(planner) : planner;
   const planners = new Map<string, any>();
   planners.set('wall.batch.create', subject);
-  return new ConsequencePreviewService(planners as any, batchContextFor(world));
+  return planOnly(new ConsequencePreviewService(planners as any, batchContextFor(world)));
 }
 
 async function wallBatchCreateHarness(): Promise<{ floors: Floor[]; lines: string[]; findings: string[] }> {
