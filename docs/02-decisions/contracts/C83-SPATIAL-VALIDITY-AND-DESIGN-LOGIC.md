@@ -1235,11 +1235,38 @@ Every fix claiming §10.6 asserts, at the **STORED** layer:
 
 #### §10.6.6 — Residency and status
 
-⚠ **AWAITING FOUNDER CONFIRMATION.** This section is written from the founder's four reports and
-three direct statements, and it **changes what §10.1 permits**. It is minted now because the code
-lane is blocked on the answer and because three commits already cite the section. **If the founder's
-intent differs from §10.6.2, this section is wrong and the code must not ship against it.**
+✅ **CONFIRMED BY THE FOUNDER 2026-08-17.** This section was minted AWAITING CONFIRMATION because it
+**changes what §10.1 permits** and no lane may widen incumbent authority on an agent's reading of
+intent. The founder confirmed §10.6.2 as written, in response to a direct choice between shipping it,
+downgrading the gate to a warning, rolling the deploy back, and inventing a shift threshold.
+**§10.6 is now BINDING and §10.1 must be read as qualified by it.**
+
+#### §10.6.7 — ⚠ WHAT THE CONFIRMATION DELAY COST, recorded so the pairing rule is not learnt twice
+
+**The incumbent gate and this carve-out were designed as a PAIR and only the refusing half shipped.**
+`moveReweldPreflight` + the `incumbentBreach` arm went to production in `c2e8ba00`; §10.6 stayed
+unconfirmed. Measured at the previous release `52bfb2ba`: `moveReweldPreflight.ts` **did not exist**
+and `wallPlacementGate` contained **zero** occurrences of `incumbentBreach`.
+
+The result was **L-942 — every wall move that broke a junction hard-blocked in production**, on the
+single most common gesture in the product, reported by the founder within hours of the deploy. The
+gate's own log stated the position exactly: `cascade ok=true, incumbentBreach=true` — *the geometry
+was sound and the policy refused anyway.*
+
+> ⭐ **THE RULE, AND IT GENERALISES BEYOND THIS CONTRACT: a REFUSING half and its ESCAPE HATCH ship
+> together, or neither ships.** A gate that can only say no, whose "yes" branch is blocked on a
+> pending decision, is not a partial feature — it is a **regression with a contract citation
+> attached**. Sequence the decision BEFORE the gate, or hold the gate.
+
+⚠ And the second half, which is the cheaper lesson: **no test exercised a wall move at the GESTURE
+layer.** Every existing test drove `moveReweldPreflight` directly, so all of them passed while the
+gesture was dead — [[committed-is-not-reachable]] again, and the reason the founder found this
+rather than CI. §10.6.5's assertions are at the STORED layer for precisely this reason.
+
+#### §10.6.8 — Residency
 
 Tolerances CONSUMED from `@pryzm/geometry-kernel` per C73 §2.2 — `weldTol` and `cornerBandM` are not
-re-declared here. Open instance at mint time: **L-936**.
+re-declared here. Open instance at mint time: **L-936**. Instance that forced confirmation: **L-942**.
+Implementing commit: `53f93049` (the discriminator was already STORED; `getJoinedWalls` was
+discarding it one line after loading it).
 

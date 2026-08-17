@@ -6073,3 +6073,104 @@ destructive action taken on a false positive. Contract: amend
 §5.2 already carries the generalisable lesson and this is its second instance, so the amendment
 belongs beside it rather than in a new section.
 
+
+---
+
+## L-942 — ⭐ EVERY WALL MOVE THAT BREAKS A JUNCTION WAS HARD-BLOCKED IN PRODUCTION
+
+**Founder-reported 2026-08-17, within hours of the `c2e8ba00` deploy. Confirmed as a REGRESSION of
+that deploy by measurement, not by reasoning.** The most severe defect in this family so far, because
+it does not corrupt geometry — it **removes the product's most common gesture**.
+
+### The report
+
+> *"i moved a wall - before the slab and adjacent walls will have adapt and follow along (as core
+> principal of bim 3.0) now they dont"*
+
+Console, verbatim:
+
+```
+[wallPlacementGate] §L-921-ATOMIC-GESTURE blocking wall wall_01M07E0GTH4ZFH52DT91YJ1MWZ:
+  the move is clear of every opening, but its junction re-weld cannot be done soundly
+  (cascade ok=true, incumbentBreach=true) — nothing dispatched.
+[WallTransform] §C83-S1-MOVE REFUSED wall.updateBaseline — undefined
+```
+
+⭐ **`cascade ok=true, incumbentBreach=true` is the whole finding in one line: the geometry was
+SOUND and the POLICY refused anyway.** Nothing was dispatched. The user was told *"Nothing has
+changed."*
+
+### Regression, MEASURED — not inferred from the symptom
+
+Against the previous release `52bfb2ba`:
+
+```
+git cat-file -e 52bfb2ba:packages/command-registry/src/walls/moveReweldPreflight.ts
+  → NO — the file DID NOT EXIST
+git show 52bfb2ba:apps/editor/src/engine/consequence/wallPlacementGate.ts | grep -c incumbentBreach
+  → 0
+```
+
+Both the preflight and the gate arm are **new to production as of `c2e8ba00`**. The founder's walls
+moved and cascaded before because this gate was not there.
+
+### Root cause — a DISCARDED DISCRIMINATOR, not a geometry defect
+
+A **mutual** corner (subject + exactly one partner, jointly owned — the partner must follow) and a
+**terminating** corner (an incumbent — the partner must not move) are **geometrically the same
+picture**. That is not a shortcoming of the implementation; it is why `classifyWeldAuthorship` folds
+them into one verdict. Nothing in the geometry can separate them.
+
+**The separator is STORED**: `junctionType` / `junctionDegree` on the `joinedTo` edge. Interior↔
+interior reads `L`/degree-2; interior↔perimeter reads `T`/degree-3.
+
+> **`SemanticGraphManager.getJoinedWalls` loaded that metadata and returned `joinedWallIds` ALONE.
+> The discriminator went in the bin one line after being read.**
+
+With no way to tell the two cases apart, and L-922 fresh (an interior move dragging a **perimeter**
+baseline 2.19 m and re-seating three hosted doors, one clamped to offset 0.000), the engine refused
+**both**. Safe, and it removed wall-moving from a BIM tool.
+
+### ⚠ TWO REFUSAL PATHS, and the first proposed fix would have shipped a WORSE defect
+
+An interim "downgrade the block to a warning" was drafted and **withdrawn before shipping** after
+measuring that there are two distinct paths, neither safely unblockable:
+
+| path | state | unblocking it yields |
+|---|---|---|
+| `INCUMBENT_EXTENSION_REQUIRED` (`moveReweldPreflight.ts:286-302`) | partner entries **do not exist** — the engine refused rather than proposing | wall moves, **corner left OPEN** |
+| `incumbentBreach` (`:359-362`) | entries exist, cascade sound | partners re-baseline **wholesale — L-922 verbatim** |
+
+**Recorded because the near-miss is the lesson**: the obvious quick fix traded a refusal for either
+an open corner or the exact regression that started this family. There was no safe one-line unblock,
+and the only correct repair was the one that distinguishes the cases.
+
+### The fix — `53f93049`, C83 §10.6 (founder-CONFIRMED 2026-08-17)
+
+Fixed at the seam rather than around it: `JoinedWallsQuery` carries `junctions`; `MoveReweldPartner`
+carries the discriminator; `isMutualCorner` (`L` && degree 2) gates a **PIVOT** — welded endpoint to
+the analytic intersection, **far endpoint untouched, direction unchanged**, which is precisely what
+separates it from L-922's translation of `baseLine[0]`; `moveReweldPreflight` exempts role
+`'mutual-corner'` exactly as it already exempts `'dependent-stem'`.
+
+**Absent metadata means DO NOT FOLLOW** (§10.6.3 #1). The level-scan fallback carries no junctions,
+so every partner there behaves byte-identically to pre-§10.6. A missing discriminator is *"I could
+not determine"*, never *"L"* (C70 L-INV-1) — and a wrong `'L'` would authorise moving an incumbent,
+which is why the reader NARROWS the stored value and never casts it.
+
+### ⭐ The two process failures, stated so they are not repeated
+
+1. **A REFUSING half and its ESCAPE HATCH must ship together, or neither ships.** The gate and §10.6
+   were designed as a pair; the gate shipped while §10.6 sat awaiting confirmation. A gate whose
+   "yes" branch is blocked on a pending decision is **a regression with a contract citation
+   attached**. Now recorded as C83 §10.6.7.
+2. **No test exercised a wall move at the GESTURE layer.** Every existing test drove
+   `moveReweldPreflight` directly, so all of them passed while the gesture was dead —
+   [[committed-is-not-reachable]]. This is why the founder found it and CI did not, and why
+   §10.6.5's mandatory assertions are at the **STORED** layer.
+
+**Status:** fix committed `53f93049`; geometry-wall **664/664** (the L-922 golden controls hold);
+§10.6.5's three mandatory controls — the follow at the stored layer, the **T/degree-3 L-922 control
+in the same fixture**, and the absent-metadata byte-identity case — were **not yet written at commit
+time** and are the blocking work before deploy.
+
