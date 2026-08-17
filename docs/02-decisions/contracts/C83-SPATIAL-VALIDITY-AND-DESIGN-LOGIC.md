@@ -1139,3 +1139,107 @@ Violations are C83-taxonomy IMPOSSIBLE-class findings (§1.2 — two mutually ex
 one volume, here about one JOINT). Open instances at mint time: L-919 (CREATE), L-920 (infill),
 L-921 (gesture atomicity), L-922 (move-reweld) — each laned, each owing the §10.4 assertion.
 Tolerances touched by any fix are CONSUMED from `@pryzm/geometry-kernel` per C73 §2.2, never minted.
+
+### §10.6 — ⭐ THE MUTUAL 2-WALL L — the one case where the PARTNER follows (founder-stated; MINTED 2026-08-17)
+
+> ⚠ **This section was CITED BEFORE IT EXISTED.** Three commits — `7bccc3d3`, `73dceaff`,
+> `6183b9a3` — carry `C83 §10.6` in their subject or body while §10 ended at §10.5. That is the
+> §7B.7 defect class ("claims of enforcement that were not enforcement") pointed at a contract
+> rather than a gate: a citation that resolves to nothing reads as authority and enforces none.
+> Minting it here pays that debt. **The content below is derived from founder statements, not
+> invented to fit the citations** — the earlier commits' *use* of "§10.6" was about weld authorship
+> generally, and is subsumed by §10.1 + this section.
+
+#### §10.6.1 — Why §10.1 alone is not sufficient, stated plainly
+
+**§10.1 as written covers this gesture and gives the wrong answer for it.** *"A wall being CREATED
+onto, or MOVED against, existing walls ADAPTS to them"* — read literally, when the user drags one of
+two interior walls that meet in an L, the partner is an incumbent and MUST NOT move. Measured
+behaviour matches the text exactly: `classifyWeldAuthorship` sees the partner's endpoint inside
+`cornerBandM` of the mover's own endpoint, returns `corner`, and §10.2.2 forbids moving a non-subject
+baseline. **The engine is obeying the contract. The contract was incomplete.**
+
+The founder has reported the resulting behaviour as a defect **four times** (L-921, L-922, L-925,
+L-936) and stated the intent directly:
+
+- *"A RIGHTFULLY MOVE A PERIMETER WALL SEGMENT — THE INTERIOR WALLS WITHIN THE SCOPE SHOULD FOLLOW
+  ALLONG"*
+- *"the perimeter wall joints — NEVER should be changed after creation … no matter the mitre joint,
+  no matter the type of wall"*
+- *"two interior walls connected on L shape — one of them gets moved — the other in this precise
+  scenario should follow"*
+
+**Those two rules are not in tension; they are one rule with two sides**, and §10.1 only wrote down
+the second.
+
+#### §10.6.2 — The invariant (MUST)
+
+> **When the gesture's SUBJECT and exactly ONE partner meet at a MUTUAL corner that the two of them
+> jointly own, the partner FOLLOWS. Everywhere else §10.1 stands unchanged and the incumbent is
+> untouchable.**
+
+A corner is **MUTUAL** when all of the following hold. All four are MEASURED, none inferred:
+
+| # | condition | why it is the right test |
+|---|---|---|
+| 1 | the stored junction reads `junctionType === 'L'` **and** `junctionDegree === 2` | `JunctionResolverV2` already computes this and `replaceJoinedToForLevelWalls` already **stores** it. It is read from the model, not re-derived from geometry. |
+| 2 | the junction's participants are exactly `{subject, partner}` | degree 2 with no third wall — nobody else's authority is at stake |
+| 3 | the subject's nearer endpoint was within `weldTol` of the partner's welded endpoint **BEFORE** the move | they were joined to begin with; this is a re-weld, not a new adjacency |
+| 4 | the partner's FAR endpoint is held FIXED and its direction unchanged | the partner pivots at the shared corner; it is not translated |
+
+⭐ **Condition 1 is the whole safety argument, and it is why this carve-out cannot reopen L-922.**
+That regression — an interior move dragging a **perimeter** baseline 2.19 m and re-seating three
+hosted doors — was measured as a `T` junction at **degree 3**. Interior↔interior reads `L`/2;
+interior↔perimeter reads `T`/3. **The topology separates the two cases by measurement, not by
+naming, intent, or a wall-type flag.** An enclosed-polyline perimeter remains incumbent by
+construction (§10.1) and can never satisfy condition 1.
+
+#### §10.6.3 — MUST NOT
+
+1. **MUST NOT** follow when the junction is `T`, degree ≥ 3, or the metadata is **absent**.
+   ⚠ **Absent metadata means DO NOT FOLLOW** — the level-scan fallback path returns no junction
+   metadata, and in that state the engine must take today's behaviour byte-identically. A missing
+   discriminator is *"I could not determine"*, never *"L"* (C70 L-INV-1).
+2. **MUST NOT** re-derive the mutual/terminating distinction from geometry. Both cases are "an
+   endpoint near an endpoint"; that is precisely why `classifyWeldAuthorship` folds them into one
+   verdict today. **The discriminator is stored — read it.**
+3. **MUST NOT** move the partner's far endpoint, change its direction, or alter its length beyond
+   the seat solution.
+4. **MUST NOT** drop the existing guards. The seat is `intersectLines(welded, far, newS, newE)` and
+   `computeStemFollow`'s `STEM_REVERSAL` / `STEM_COLLAPSE` / `STEM_EXTENSION_EXCEEDS_CAP` apply
+   verbatim. A follow that would collapse or reverse the partner **REFUSES** — it does not clamp.
+5. **MUST NOT** treat this as licence to widen §10.1. This is a carve-out of one measured topology,
+   not a softening of incumbent authority.
+
+#### §10.6.4 — The refusal and reporting arm (MUST)
+
+When the follow is declined for any reason in §10.6.3, the outcome **carries identity and BOTH
+numbers** and **reaches the user**. L-936 measured why this clause is not optional: the engine
+already computed `INCUMBENT_EXTENSION_REQUIRED: the new corner falls 600 mm past that` and it
+reached nobody, because `WallMoveReweldService.report()` is `this.deps.onConsequence?.(r)` and the
+one production construction site omitted the field. **An absent sink is a silent no-op** — L-921's
+own fix, authored and unreachable (fixed `89f8d501`).
+
+⚠ **And the dispatch line must distinguish "no partner found" from "partner found and declined".**
+Those rendered as the same eleven words, and **six rows in this family were triaged against that
+misreading** (fixed `09e248c1`).
+
+#### §10.6.5 — The test this section makes mandatory
+
+Every fix claiming §10.6 asserts, at the **STORED** layer:
+- the partner's baseline in the store **DID** change, seated at the analytic intersection, on a
+  mutual `L`/degree-2 pair; **and**
+- a `T`/degree-3 interior↔perimeter pair in the **same** fixture is **byte-identical** before and
+  after — the L-922 control, which must be present or the L-922 regression is unguarded; **and**
+- an absent-metadata case takes the pre-§10.6 branch byte-identically.
+
+#### §10.6.6 — Residency and status
+
+⚠ **AWAITING FOUNDER CONFIRMATION.** This section is written from the founder's four reports and
+three direct statements, and it **changes what §10.1 permits**. It is minted now because the code
+lane is blocked on the answer and because three commits already cite the section. **If the founder's
+intent differs from §10.6.2, this section is wrong and the code must not ship against it.**
+
+Tolerances CONSUMED from `@pryzm/geometry-kernel` per C73 §2.2 — `weldTol` and `cornerBandM` are not
+re-declared here. Open instance at mint time: **L-936**.
+
