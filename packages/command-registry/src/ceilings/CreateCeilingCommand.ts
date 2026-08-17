@@ -22,7 +22,7 @@ import {
   SerializedCommand,
   CommandContext,
 } from '../types';
-import { CeilingData, CeilingBoundary, CeilingFinishSpec, CeilingLayer, CeilingHoleElement, CeilingIfcData, CeilingVertex } from '@pryzm/core-app-model';
+import { CeilingData, CeilingBoundary, CeilingFinishSpec, CeilingLayer, CeilingHoleElement, CeilingIfcData, CeilingVertex, CeilingSketch } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { ensureCeilingCCW as ensureCCW, validateCeilingPolygon as validatePolygon } from '@pryzm/core-app-model';
 // §FIX-CEILING-INNER-FACE-PARITY (2026-08-06) — the inner-face inset is a DOMAIN RULE of
@@ -74,6 +74,17 @@ export interface CreateCeilingPayload {
    * omission (the L-240 lesson).
    */
   boundarySource?: 'room-centreline' | 'explicit-polygon';
+  /**
+   * §DUP-CARRIES-THE-RELATIONSHIP (C79 §5 / §2.1) — the VERBATIM mirror of
+   * `CreateFloorPayload.hostReferences`, and a mirror by requirement rather than by
+   * taste: C79 §3.4 gives one relationship one edge shape, and §7.4 forbids a field
+   * being honoured on one family's path and not the other's. The rationale is
+   * written out once, on the floor payload; read it there.
+   */
+  hostReferences?: {
+    sketch: CeilingSketch;
+    boundingWallIds: string[];
+  };
   createdBy?: string;
 }
 
@@ -294,6 +305,16 @@ export class CreateCeilingCommand implements Command {
    * same walls (§3.4) and neither path can drift from the other (§7.4).
    */
   private _buildBoundarySketch(context: CommandContext, polygon: CeilingVertex[]) {
+    // §DUP-CARRIES-THE-RELATIONSHIP — mirrors `CreateFloorCommand._buildBoundarySketch`.
+    // First, so the room path cannot run and cannot mint a rival attribution (§7.4).
+    const carried = this._payload.hostReferences;
+    if (carried) {
+      return {
+        outerLoop: carried.sketch.outerLoop,
+        boundingWallIds: carried.boundingWallIds,
+      };
+    }
+
     const roomStore = (context.stores as any).roomStore as
       | { getById?: (id: string) => { boundingWallIds?: string[] } | undefined }
       | undefined;

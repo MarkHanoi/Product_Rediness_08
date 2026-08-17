@@ -30,6 +30,7 @@ import {
   FloorServiceHole,
   FloorIfcData,
   FloorVertex,
+  FloorSketch,
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { ensureFloorCCW as ensureCCW, validateFloorPolygon as validatePolygon } from '@pryzm/core-app-model';
@@ -110,6 +111,29 @@ export interface CreateFloorPayload {
    * rule impossible for a future tool to bypass by omission.
    */
   boundarySource?: 'room-centreline' | 'explicit-polygon';
+  /**
+   * §DUP-CARRIES-THE-RELATIONSHIP (C79 §5 / §2.1) — an ALREADY-ATTRIBUTED boundary,
+   * supplied by a caller that HOLDS the correspondence instead of one that must
+   * re-derive it. Stored VERBATIM; `hostRoomId`-based attribution is not run.
+   *
+   * WHO SUPPLIES IT, and why the room-derived path cannot serve them:
+   * `DuplicateFloorPlanCommand` MINTS the target level's walls, so it knows
+   * `sourceWallId → newWallId` as a function (§2.1 in its strongest sense). The
+   * room, by contrast, lives on the SOURCE level — nothing duplicates rooms — so
+   * `_buildBoundarySketch` would attribute a first-floor finish to GROUND-floor
+   * walls. `FinishHostDependencyTracker` keys on `hostId` alone and consults no
+   * level (FinishHostDependencyTracker.ts:237), so that finish would then follow
+   * the wrong storey's wall: strictly worse than the inert finish it replaces.
+   *
+   * BOTH FACTS TRAVEL IN ONE FIELD deliberately. `sketch` is what the follow reads;
+   * `boundingWallIds` is the §7.2(a) claim a reader and a grep-auditor see. Two
+   * optional fields could be half-supplied and would then disagree — C79 §7.4's
+   * per-path divergence. One object cannot.
+   */
+  hostReferences?: {
+    sketch: FloorSketch;
+    boundingWallIds: string[];
+  };
   createdBy?: string;
 }
 
@@ -458,6 +482,18 @@ export class CreateFloorCommand implements Command {
    * never a silently-empty `boundingWallIds` that looks like "no walls" (§2.6).
    */
   private _buildBoundarySketch(context: CommandContext, polygon: FloorVertex[]) {
+    // §DUP-CARRIES-THE-RELATIONSHIP — a caller that HOLDS the correspondence wins
+    // over re-derivation. Placed FIRST so the room path cannot run and cannot
+    // produce a second, rival attribution (§7.4). See `hostReferences` on the
+    // payload for why the room path is not merely redundant here but wrong.
+    const carried = this._payload.hostReferences;
+    if (carried) {
+      return {
+        outerLoop: carried.sketch.outerLoop,
+        boundingWallIds: carried.boundingWallIds,
+      };
+    }
+
     const roomStore = (context.stores as any).roomStore as
       | { getById?: (id: string) => { boundingWallIds?: string[] } | undefined }
       | undefined;
