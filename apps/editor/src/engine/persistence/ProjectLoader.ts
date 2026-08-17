@@ -324,7 +324,18 @@ export function snapshotHasElements(
 }
 
 export class ProjectLoader {
-    constructor(private commandManager: CommandManager) {}
+    /**
+     * @param provenanceStore PV-05 (C70 I-INV-2) §PV-05-APP-COPY — optional and
+     *   additive. This is the loader `initPersistence.ts:372` constructs, i.e.
+     *   the one PRODUCTION runs; the hydrate added at 8cab70c1 went to the
+     *   persistence-client copy, which the app never builds. Absent, a snapshot
+     *   carrying a lineage is NAMED as unloaded rather than silently dropped,
+     *   so nobody re-saves the key away unaware.
+     */
+    constructor(
+        private commandManager: CommandManager,
+        private provenanceStore?: import('@pryzm/stores').ProvenanceStore,
+    ) {}
 
     /**
      * Load a ProjectSnapshot by dispatching Create* commands through CommandManager.
@@ -1944,6 +1955,49 @@ export class ProjectLoader {
                     // the families the rebuild cannot reconstruct from authoritative state.
                     console.warn(`[ProjectLoader] SemanticGraph rebuild: ${unreconstructable.length} family/families not reconstructable from this snapshot (persist-or-lose, named per C70 I-INV-3): ${unreconstructable.join(', ')}`);
                 }
+            }
+
+            // PV-05 (C70 I-INV-2) §PV-05-APP-COPY — restore the C23 AI-lineage
+            // substrate. Kept in lock-step with the persistence-client copy of
+            // this loader (C71 §250 names the duplication); that copy had this
+            // block from 8cab70c1, this one — the one production builds — did not.
+            if (this.provenanceStore) {
+                // Project LOAD replaces the project, so the live lineage is
+                // cleared first: hydrate() refuses to merge two lineages
+                // (C23 §1.9), and merging is exactly the wrong answer here.
+                this.provenanceStore.reset();
+                const prov = this.provenanceStore.hydrate((snapshot as any).provenance);
+                if (prov.absent) {
+                    // C75 §1.4 / C70 I-INV-3 — the absence is NAMED. A snapshot
+                    // without the slice is not a project with no AI history; it
+                    // is one whose AI history predates provenance persistence
+                    // and is UNRECOVERABLE. "I could not look" is never "I
+                    // found nothing".
+                    const msg = `[ProjectLoader] Provenance slice absent (${prov.absent}) — the C23 AI-lineage log for this snapshot is NOT empty, it is UNRECOVERABLE. Nothing was invented in its place.`;
+                    console.warn(msg);
+                    result.warnings.push(msg);
+                } else {
+                    console.log(`[ProjectLoader] Provenance restored (${prov.artefacts} artefacts, ${prov.edges} edges, ${prov.contextSnapshots} context snapshots, ${prov.redactions} redactions)`);
+                }
+                if (prov.edgesUndetermined) {
+                    // §GR-10 · C78 §8.1 — a slice with NO `edges` member is not
+                    // a slice with zero edges. Named, never folded into 0.
+                    const msg = `[ProjectLoader] Provenance: lineage EDGES undetermined (${String(prov.edgesUndetermined)}) — the slice carried no edges member, which is not the same as having none.`;
+                    console.warn(msg);
+                    result.warnings.push(msg);
+                }
+                if (prov.dropped.length > 0) {
+                    // Never a silent drop (the C71 §5.7 ARM E lesson).
+                    const msg = `[ProjectLoader] Provenance: ${prov.dropped.length} malformed row(s) refused at load — ${prov.dropped.map(d => `${d.kind} ${d.id}: ${d.reason}`).join(' · ')}`;
+                    console.warn(msg);
+                    result.warnings.push(msg);
+                }
+            } else if ((snapshot as any).provenance) {
+                // The snapshot HAS a lineage and this session cannot hold it.
+                // Saying nothing would let the next save write the key away.
+                const msg = `[ProjectLoader] Snapshot carries a C23 provenance slice (${(snapshot as any).provenance.artefacts?.length ?? 0} artefacts) but no ProvenanceStore was wired into this loader — the lineage is NOT loaded and MUST NOT be re-saved from this session.`;
+                console.warn(msg);
+                result.warnings.push(msg);
             }
 
             // Phase G — G-1 (schema v4): Restore TemporalGraph mutation log.

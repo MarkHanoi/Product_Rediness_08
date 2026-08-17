@@ -84,11 +84,20 @@ export function initPersistence(params: {
     // threaded the same way so the C19 site/geospatial state (location lat/lon, parcel
     // boundary, geospatial origin, footprint) is captured in the `.pryzm` snapshot.
     // Without it, reopening a GIS project lost the real site and defaulted to Madrid.
-    const serializeStores: ProjectStores = (params.runtime?.ifcMetaStore || params.runtime?.siteModelStore)
+    //
+    // PV-05 (C70 I-INV-2) §PV-05-APP-COPY — the per-runtime C23 ProvenanceStore
+    // is threaded the same way, and it is the reason this predicate gained a
+    // third disjunct. Without it `stores.provenanceStore` is undefined, the
+    // serializer omits the `provenance` key by design, and the AI audit log is
+    // destroyed on every reload — which is exactly the state PV-05 was recorded
+    // closed in, because the fix at 8cab70c1 landed on the persistence-client
+    // copy of ProjectSerializer that this file does not import.
+    const serializeStores: ProjectStores = (params.runtime?.ifcMetaStore || params.runtime?.siteModelStore || params.runtime?.provenanceStore)
         ? {
             ...stores,
-            ifcMetaStore:   stores.ifcMetaStore   ?? params.runtime?.ifcMetaStore,
-            siteModelStore: stores.siteModelStore ?? params.runtime?.siteModelStore,
+            ifcMetaStore:    stores.ifcMetaStore    ?? params.runtime?.ifcMetaStore,
+            siteModelStore:  stores.siteModelStore  ?? params.runtime?.siteModelStore,
+            provenanceStore: stores.provenanceStore ?? params.runtime?.provenanceStore,
         }
         : stores;
 
@@ -369,7 +378,15 @@ export function initPersistence(params: {
             // must not leave topology observation and sync-state recompute off for
             // the rest of the session, silently, with the project looking fine.
             try {
-                const loader = new ProjectLoader(toolManager.commandManager);
+                // PV-05 (C70 I-INV-2) §PV-05-APP-COPY — thread the per-runtime
+                // C23 ProvenanceStore so the AI lineage written by the save
+                // half is actually restored here. Absent (pre-D.4 isolated
+                // tests with no runtime) the loader NAMES a carried lineage it
+                // cannot hold rather than dropping it silently.
+                const loader = new ProjectLoader(
+                    toolManager.commandManager,
+                    serializeStores.provenanceStore,
+                );
                 return loader.load(snapshot as any, () => cancelled);
             } finally {
                 // Resume after load (synchronous — ProjectLoader.load is sync)

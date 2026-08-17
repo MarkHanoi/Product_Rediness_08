@@ -261,6 +261,35 @@ export interface ProjectSnapshot {
     decisionRecords?: import('@pryzm/core-app-model').SerializedDecisionRecords;
 
     /**
+     * PV-05 (C70 I-INV-2) — the C23 AI-lineage substrate: artefacts, lineage
+     * edges, context snapshots and redaction records.
+     *
+     * §PV-05-APP-COPY (2026-08-17). The slice was added to
+     * `packages/persistence-client/src/loader/ProjectSerializer.ts` at 8cab70c1
+     * and PV-05 was marked closed. It was not closed: PRODUCTION imports THIS
+     * copy — `apps/editor/src/engine/initPersistence.ts:41` — and calls its
+     * `serialize()` at :100. The persistence-client copy is not on the save
+     * path, so the key was written by a serializer the app never invokes and
+     * the C23 audit log was still destroyed on every reload. Measured before
+     * this change by `apps/editor/__tests__/provenanceSliceProductionPath.test.ts`,
+     * which drove THIS serializer and found no `provenance` key at all.
+     *
+     * Optional and ADDITIVE: every snapshot written before today omits it, and
+     * omission is NOT an empty audit log. `ProvenanceStore.hydrate(undefined)`
+     * returns `absent: 'predates-provenance-persistence'` — UNKNOWN with a
+     * reason (C75 §1.4) — and the loader NAMES the loss rather than silently
+     * starting a fresh lineage.
+     *
+     * Written only when a `provenanceStore` is supplied in ProjectStores; a
+     * bootstrap that wires none omits the key entirely, so an unwired session
+     * can never write a MISLEADING empty slice over a project that has one.
+     *
+     * Kept in lock-step with the persistence-client copy (C71 §250 names the
+     * duplication). If you edit one, edit both.
+     */
+    provenance?: import('@pryzm/stores').SerializedProvenance;
+
+    /**
      * Phase L — L-1 + L-2 (schema v5).  TOMBSTONE — the in-engine lifecycle /
      * maintenance stores were deleted at S70 D8 alongside `src/lifecycle/`
      * per SPEC-27 §4.3 + ADR-030 Part D + ADR-0052 §B.7.  The field is kept
@@ -789,6 +818,20 @@ export interface ProjectStores {
      * omits `site` from the snapshot.
      */
     siteModelStore?: SiteModelStore;
+    /**
+     * PV-05 (C70 I-INV-2) — the per-runtime C23 ProvenanceStore
+     * (`runtime.provenanceStore`, created in composeRuntime.ts:1044). Threaded
+     * through here like `ifcMetaStore` / `siteModelStore` so the AI lineage can
+     * reach the snapshot.
+     *
+     * Optional ON PURPOSE, and the absence is NOT defensive slack: when no
+     * store is wired the serializer OMITS the `provenance` key rather than
+     * writing an empty slice. An empty slice is the positive claim "no AI ever
+     * touched this project" (C75 §1.4); written by an unwired bootstrap over a
+     * project that HAS a lineage, it would silently destroy the audit log C23
+     * §1.8 promises a regulator.
+     */
+    provenanceStore?: import('@pryzm/stores').ProvenanceStore;
 }
 
 
@@ -945,6 +988,7 @@ export class ProjectSerializer {
             furnitureStore, handrailStore, openingStore, roomStore,
             slabSystemTypeStore, wallSystemTypeStore, ceilingStore, ceilingSystemTypeStore,
             floorStore, floorSystemTypeStore, ifcMetaStore, siteModelStore,
+            provenanceStore,
         } = stores;
 
         // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) / §L-545 (L-489) — capture the C19
@@ -1102,6 +1146,25 @@ export class ProjectSerializer {
 
             // Phase G — G-3 (schema v4): Decision records (architect rationale)
             decisionRecords: decisionRecordStore.serialize(),
+
+            // PV-05 (C70 I-INV-2) — §PV-05-APP-COPY. The C23 AI-lineage
+            // substrate, on the copy of the serializer PRODUCTION actually
+            // calls (initPersistence.ts:100). Written ONLY when the store is
+            // wired: an unwired bootstrap omits the key rather than writing an
+            // empty slice, because an empty slice overwriting a real audit log
+            // is the claim "no AI ever touched this project" — a fabrication
+            // (C75 §1.4).
+            //
+            // NOTE the condition is on the STORE's presence, never on row
+            // COUNT. `provenanceStore.serialize()` emits all four arrays
+            // unconditionally, so a wired-but-empty store writes
+            // `{version, artefacts: [], edges: [], …}` — "this project
+            // genuinely has no lineage" — which is a DIFFERENT VALUE from an
+            // absent key ("this snapshot predates provenance persistence").
+            // A `length > 0 ? … : undefined` here would collapse the two.
+            provenance: provenanceStore
+                ? provenanceStore.serialize()
+                : undefined,
 
             // Phase L — L-1/L-2 (schema v5): TOMBSTONE.  The lifecycle /
             // maintenance stores were deleted at S70 D8 (SPEC-27 §4.3 +
