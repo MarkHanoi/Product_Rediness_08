@@ -1,13 +1,169 @@
 {
   "generatedAtSha": "c2e8ba00",
-  "rowsParsed": 1,
-  "counted": 1,
-  "measured": 1,
-  "carried": 0,
-  "notDetermined": 0,
-  "closedOfMeasured": 1,
-  "ratchetBreaches": 0,
+  "rowsParsed": 84,
+  "counted": 82,
+  "measured": 38,
+  "carried": 43,
+  "notDetermined": 1,
+  "closedOfMeasured": 17,
+  "ratchetBreaches": 5,
   "rows": [
+    {
+      "id": "GR-01",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-graph-write-coverage"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-write-coverage"
+      }
+    },
+    {
+      "id": "GR-02",
+      "block": "Graph & topology",
+      "declaredStatus": "n/a",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "n/a",
+        "note": "no deciding instrument declared"
+      }
+    },
+    {
+      "id": "GR-03",
+      "block": "Graph & topology",
+      "declaredStatus": "n/a",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "n/a",
+        "note": "no deciding instrument declared"
+      }
+    },
+    {
+      "id": "GR-04",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-topology-survives"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-topology-survives"
+      }
+    },
+    {
+      "id": "GR-05",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-graph-write-coverage"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-write-coverage"
+      }
+    },
+    {
+      "id": "GR-06",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-graph-persistence"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-persistence"
+      }
+    },
+    {
+      "id": "GR-07",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-graph-persistence"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-persistence"
+      }
+    },
+    {
+      "id": "GR-08",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-graph-persistence"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-persistence"
+      }
+    },
+    {
+      "id": "GR-09",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: H5 `graphruntime.cert`"
+      }
+    },
+    {
+      "id": "GR-10",
+      "block": "Graph & topology",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-graph-persistence"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-persistence"
+      }
+    },
+    {
+      "id": "GR-11",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the three gates themselves"
+      }
+    },
+    {
+      "id": "GR-12",
+      "block": "Graph & topology",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-move-propagation"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[SlabDependencyTracker] §C79-5.2 conflicted: slab \"sb\" — the re-derived boundary INVERTED its winding (24.000 m² → 24.000 m², on the far side of the walls it…",
+        "gate": "check-move-propagation"
+      }
+    },
     {
       "id": "GR-13",
       "block": "Graph & topology",
@@ -20,6 +176,876 @@
         "exit": 0,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-room-identity-survives-wall-move"
+      }
+    },
+    {
+      "id": "GR-14",
+      "block": "Graph & topology",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-no-empty-means-unknown"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-no-empty-means-unknown"
+      }
+    },
+    {
+      "id": "GR-15",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source verification of `PhysicsEngine.ts:380`"
+      }
+    },
+    {
+      "id": "GR-16",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: `graphQueryBusHandlers.ts` + its spec suite"
+      }
+    },
+    {
+      "id": "GR-17",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: `ubgSnapshotIsDerivedNotAuthored.test.ts`"
+      }
+    },
+    {
+      "id": "GR-18",
+      "block": "Graph & topology",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: H5 `graphruntime.cert`"
+      }
+    },
+    {
+      "id": "PR-01",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-propagation-reaches"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-propagation-reaches"
+      }
+    },
+    {
+      "id": "PR-02",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-propagation-reaches"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-propagation-reaches"
+      }
+    },
+    {
+      "id": "PR-03",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-prevstate-contract"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-prevstate-contract] executed controls (an arm never watched failing is UNPROVEN):",
+        "gate": "check-prevstate-contract"
+      }
+    },
+    {
+      "id": "PR-04",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-propagation-reaches"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-propagation-reaches"
+      }
+    },
+    {
+      "id": "PR-05",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED *(moved OPEN → CLOSED)*",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED *(moved OPEN → CLOSED)*",
+        "note": "instrument is not a runnable gate: caller census + `gr2UpdateSurrenderSeam` / `observerGraphAuthoritative` on the r"
+      }
+    },
+    {
+      "id": "PR-06",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source verification"
+      }
+    },
+    {
+      "id": "PR-07",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source verification"
+      }
+    },
+    {
+      "id": "PR-08",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: both gates"
+      }
+    },
+    {
+      "id": "PR-09",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-propagation-trackers-reach"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "THREE.WARNING: Multiple instances of Three.js being imported.",
+        "gate": "check-propagation-trackers-reach"
+      }
+    },
+    {
+      "id": "PR-10",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the roof-clash detector + its suites"
+      }
+    },
+    {
+      "id": "PR-11",
+      "block": "Propagation & prevState",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: source census of `registerCrossHandlers`"
+      }
+    },
+    {
+      "id": "PR-12",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the staleness suites"
+      }
+    },
+    {
+      "id": "PR-13",
+      "block": "Propagation & prevState",
+      "declaredStatus": "CLOSED *(moved OPEN → CLOSED; see §0.2 — it was already true at the last stamp)*",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED *(moved OPEN → CLOSED; see §0.2 — it was already true at the last stamp)*",
+        "note": "instrument is not a runnable gate: repo-wide store-file census"
+      }
+    },
+    {
+      "id": "GE-01",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-epsilon-policy"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-epsilon-policy] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-epsilon-policy"
+      }
+    },
+    {
+      "id": "GE-02",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED ⚠ CONTRADICTED AT HEAD",
+      "gates": [
+        "check-predicate-canonical"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 3,
+        "summary": "[check-predicate-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-predicate-canonical"
+      }
+    },
+    {
+      "id": "GE-03",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED ⚠ same gate is RED",
+      "gates": [
+        "check-predicate-canonical"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 3,
+        "summary": "[check-predicate-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-predicate-canonical"
+      }
+    },
+    {
+      "id": "GE-04",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source re-measure of the four families"
+      }
+    },
+    {
+      "id": "GE-05",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: `polygonBoolean.ts` + its oracle suite"
+      }
+    },
+    {
+      "id": "GE-06",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: source census of clash implementations"
+      }
+    },
+    {
+      "id": "GE-07",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the three gates"
+      }
+    },
+    {
+      "id": "GE-08",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "UNPROVEN",
+      "gates": [
+        "check-cross-process-determinism"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-cross-process-determinism] ✅ 4 fixture(s) byte-identical across 3 processes.",
+        "gate": "check-cross-process-determinism"
+      }
+    },
+    {
+      "id": "GE-09",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-refusal-identity"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-refusal-identity] §REFUSAL-IDENTITY (C58 §1.13 / §1.13.8, ADR-0269, ADR-0279)",
+        "gate": "check-refusal-identity"
+      }
+    },
+    {
+      "id": "GE-10",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: `SplitWall.ts` + the verb register"
+      }
+    },
+    {
+      "id": "GE-11",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-room-aabb-canonical"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-room-aabb-canonical"
+      }
+    },
+    {
+      "id": "GE-12",
+      "block": "Geometry determinism & tolerance",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-triangulation-canonical"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 3,
+        "summary": "[check-triangulation-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-triangulation-canonical"
+      }
+    },
+    {
+      "id": "CO-01",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-no-hidden-mock"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
+        "gate": "check-no-hidden-mock"
+      }
+    },
+    {
+      "id": "CO-02",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-solver-is-real"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-solver-is-real] executed controls (C74 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-solver-is-real"
+      }
+    },
+    {
+      "id": "CO-03",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-no-hidden-mock"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
+        "gate": "check-no-hidden-mock"
+      }
+    },
+    {
+      "id": "CO-04",
+      "block": "Constraint honesty",
+      "declaredStatus": "OPEN, and correctly unauthorised",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN, and correctly unauthorised",
+        "note": "instrument is not a runnable gate: `grep '\"planegcs\"' --include=package.json`"
+      }
+    },
+    {
+      "id": "CO-05",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source re-measure"
+      }
+    },
+    {
+      "id": "CO-06",
+      "block": "Constraint honesty",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-no-hidden-mock"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
+        "gate": "check-no-hidden-mock"
+      }
+    },
+    {
+      "id": "CO-07",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source census"
+      }
+    },
+    {
+      "id": "CO-08",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-constraint-honesty"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-constraint-honesty"
+      }
+    },
+    {
+      "id": "CO-09",
+      "block": "Constraint honesty",
+      "declaredStatus": "OPEN, correctly deferred",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN, correctly deferred",
+        "note": "instrument is not a runnable gate: one executable test naming `StairValidationAuthority` at its declared VALIDATION"
+      }
+    },
+    {
+      "id": "CO-10",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source census of `provideLiveGraphSources` callers"
+      }
+    },
+    {
+      "id": "CO-11",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the three gates"
+      }
+    },
+    {
+      "id": "CO-12",
+      "block": "Constraint honesty",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-constraint-honesty"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "[check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-constraint-honesty"
+      }
+    },
+    {
+      "id": "PV-01",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-provenance-not-invented"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 3,
+        "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-provenance-not-invented"
+      }
+    },
+    {
+      "id": "PV-02",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-provenance-coverage"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-provenance-coverage] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-provenance-coverage"
+      }
+    },
+    {
+      "id": "PV-03",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-provenance-not-invented"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 3,
+        "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-provenance-not-invented"
+      }
+    },
+    {
+      "id": "PV-04",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-provenance-export-boundary"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-provenance-export-boundary"
+      }
+    },
+    {
+      "id": "PV-05",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the serializer's `provenance` slice + suite"
+      }
+    },
+    {
+      "id": "PV-06",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: schema census"
+      }
+    },
+    {
+      "id": "PV-07",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the three gates"
+      }
+    },
+    {
+      "id": "PV-08",
+      "block": "Provenance",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-provenance-coverage"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[check-provenance-coverage] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
+        "gate": "check-provenance-coverage"
+      }
+    },
+    {
+      "id": "MT-01",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: CA-21 read-back census"
+      }
+    },
+    {
+      "id": "MT-02",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-verb-register"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "code says: | Handler files read | 1258 (floor 900) |",
+        "gate": "check-verb-register"
+      }
+    },
+    {
+      "id": "MT-03",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "CLOSED *(moved OPEN → CLOSED)*",
+      "gates": [
+        "check-verb-register"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 1,
+        "summary": "code says: | Handler files read | 1258 (floor 900) |",
+        "gate": "check-verb-register"
+      }
+    },
+    {
+      "id": "MT-04",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "OPEN *(moved UNPROVEN → OPEN, and NOT to closed)*",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN *(moved UNPROVEN → OPEN, and NOT to closed)*",
+        "note": "instrument is not a runnable gate: `adr0318.stores.probe.ts`"
+      }
+    },
+    {
+      "id": "MT-05",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "UNPROVEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "UNPROVEN",
+        "note": "instrument is not a runnable gate: a heap-identity probe — **does not exist**"
+      }
+    },
+    {
+      "id": "MT-06",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: source census of the rival stores"
+      }
+    },
+    {
+      "id": "MT-07",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: source census"
+      }
+    },
+    {
+      "id": "MT-08",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: source verification"
+      }
+    },
+    {
+      "id": "MT-09",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "OPEN",
+      "gates": [
+        "check-per-package-compile"
+      ],
+      "determination": {
+        "kind": "NOT_DETERMINED",
+        "reason": "GATE_SKIPPED_SLOW",
+        "detail": "check-per-package-compile: --fast; re-run without it"
+      }
+    },
+    {
+      "id": "MT-10",
+      "block": "Model truth, verbs & identity",
+      "declaredStatus": "OPEN at the pass reading ⚠ superseded post-pass, restamp owed",
+      "gates": [
+        "check-xss-guards"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "[xss-guards] ✅ no new unguarded HTML-sink interpolations. 547 baselined finding(s) across 142 file(s); 4662 files scanned.",
+        "gate": "check-xss-guards"
+      }
+    },
+    {
+      "id": "CB-01",
+      "block": "Collaboration",
+      "declaredStatus": "OPEN — founder-blocked",
+      "gates": [
+        "check-two-client-convergence"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-two-client-convergence"
+      }
+    },
+    {
+      "id": "CB-02",
+      "block": "Collaboration",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: source measure"
+      }
+    },
+    {
+      "id": "CB-03",
+      "block": "Collaboration",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the gate-residency rule (READINESS-GATES §2.1)"
+      }
+    },
+    {
+      "id": "CB-04",
+      "block": "Collaboration",
+      "declaredStatus": "CLOSED",
+      "gates": [
+        "check-conflict-surfacing"
+      ],
+      "determination": {
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-conflict-surfacing"
+      }
+    },
+    {
+      "id": "CB-05",
+      "block": "Collaboration",
+      "declaredStatus": "UNPROVEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "UNPROVEN",
+        "note": "instrument is not a runnable gate: per-capability convergence proofs"
+      }
+    },
+    {
+      "id": "CE-01",
+      "block": "Certification & gates",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the six named gates"
+      }
+    },
+    {
+      "id": "CE-02",
+      "block": "Certification & gates",
+      "declaredStatus": "CLOSED",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED",
+        "note": "instrument is not a runnable gate: the harness's geometry subject"
+      }
+    },
+    {
+      "id": "CE-03",
+      "block": "Certification & gates",
+      "declaredStatus": "UNPROVEN, narrowed",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "UNPROVEN, narrowed",
+        "note": "instrument is not a runnable gate: `persistence.cert.ts` CE-03 arm"
+      }
+    },
+    {
+      "id": "CE-04",
+      "block": "Certification & gates",
+      "declaredStatus": "CLOSED *(moved UNPROVEN → CLOSED; see §0.2 — already true at the last stamp)*",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "CLOSED *(moved UNPROVEN → CLOSED; see §0.2 — already true at the last stamp)*",
+        "note": "instrument is not a runnable gate: `undoredo.cert.ts` CE-04 block"
+      }
+    },
+    {
+      "id": "CE-05",
+      "block": "Certification & gates",
+      "declaredStatus": "OPEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "OPEN",
+        "note": "instrument is not a runnable gate: a gesture-reachability instrument — **does not exist**"
+      }
+    },
+    {
+      "id": "CE-06",
+      "block": "Certification & gates",
+      "declaredStatus": "UNPROVEN",
+      "gates": [],
+      "determination": {
+        "kind": "CARRIED",
+        "declared": "UNPROVEN",
+        "note": "instrument is not a runnable gate: a real user project as certification subject"
       }
     }
   ]

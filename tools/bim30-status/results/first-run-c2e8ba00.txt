@@ -1,0 +1,133 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+[1mBIM 3.0 STATUS[0m — generated, not stamped
+HEAD c2e8ba00 · 84 rows parsed from the tracker · --fast
+Running deciding gates. Rows sharing a gate run it once.
+
+[1mPER BLOCK[0m  (measured only — carried rows are listed separately and never folded in)
+────────────────────────────────────────────────────────────────────────────────────────────────
+block                               rows  meas  closed  breach  carried   ND
+Certification & gates                  6     0       0       0        6    0
+Collaboration                          5     2       2       0        3    0
+Constraint honesty                    12     6       1       0        6    0
+Geometry determinism & tolerance      12     7       3       3        5    0
+Graph & topology                      16    10       3       0        6    0
+Model truth, verbs & identity         10     3       1       0        6    1
+Propagation & prevState               13     5       4       0        8    0
+Provenance                             8     5       3       2        3    0
+
+[1mHEADLINE[0m
+────────────────────────────────────────────────────────────────────────────────────────────────
+  MEASURED-ONLY      17 / 38 closed of rows measured now
+  COUNTED ROWS       82   (tracker n/a rows excluded by rule)
+  CARRIED            43   [2m← status inherited from prose; NOT evidence at HEAD[0m
+  NOT DETERMINED     1   [2m← the gate did not yield a reading; never counted as pass or fail[0m
+  [31mRATCHET BREACHES   5   ← exit 3. Never absorbable (C70 §5.1).[0m
+
+[1;31mEXIT-3 BREACHES[0m
+────────────────────────────────────────────────────────────────────────────────────────────────
+  GE-02    check-predicate-canonical
+           [check-predicate-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):
+  GE-03    check-predicate-canonical
+           [check-predicate-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):
+  GE-12    check-triangulation-canonical
+           [check-triangulation-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):
+  PV-01    check-provenance-not-invented
+           [check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):
+  PV-03    check-provenance-not-invented
+           [check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):
+
+[1mNOT DETERMINED — why, per row[0m
+────────────────────────────────────────────────────────────────────────────────────────────────
+  MT-09    GATE_SKIPPED_SLOW        check-per-package-compile: --fast; re-run without it
+
+[1mCARRIED — no runnable gate decides these[0m
+────────────────────────────────────────────────────────────────────────────────────────────────
+  These are the rows a generated tracker cannot help with. Each needs either a
+  gate, or an explicit founder-signed exception. Until then their status is prose.
+  GR-09    declared CLOSED       instrument is not a runnable gate: H5 `graphruntime.cert`
+  GR-11    declared CLOSED       instrument is not a runnable gate: the three gates themselves
+  GR-15    declared CLOSED       instrument is not a runnable gate: source verification of `PhysicsEngine.ts:380`
+  GR-16    declared CLOSED       instrument is not a runnable gate: `graphQueryBusHandlers.ts` + its spec suite
+  GR-17    declared CLOSED       instrument is not a runnable gate: `ubgSnapshotIsDerivedNotAuthored.test.ts`
+  GR-18    declared CLOSED       instrument is not a runnable gate: H5 `graphruntime.cert`
+  PR-05    declared CLOSED *(moved OPEN → CLOSED)* instrument is not a runnable gate: caller census + `gr2UpdateSurrenderSeam` / `observerGraphAuthoritative` on the r
+  PR-06    declared CLOSED       instrument is not a runnable gate: source verification
+  PR-07    declared CLOSED       instrument is not a runnable gate: source verification
+  PR-08    declared CLOSED       instrument is not a runnable gate: both gates
+  PR-10    declared CLOSED       instrument is not a runnable gate: the roof-clash detector + its suites
+  PR-11    declared OPEN         instrument is not a runnable gate: source census of `registerCrossHandlers`
+  PR-12    declared CLOSED       instrument is not a runnable gate: the staleness suites
+  PR-13    declared CLOSED *(moved OPEN → CLOSED; see §0.2 — it was already true at the last stamp)* instrument is not a runnable gate: repo-wide store-file census
+  GE-04    declared CLOSED       instrument is not a runnable gate: source re-measure of the four families
+  GE-05    declared CLOSED       instrument is not a runnable gate: `polygonBoolean.ts` + its oracle suite
+  GE-06    declared OPEN         instrument is not a runnable gate: source census of clash implementations
+  GE-07    declared CLOSED       instrument is not a runnable gate: the three gates
+  GE-10    declared CLOSED       instrument is not a runnable gate: `SplitWall.ts` + the verb register
+  CO-04    declared OPEN, and correctly unauthorised instrument is not a runnable gate: `grep '"planegcs"' --include=package.json`
+  CO-05    declared CLOSED       instrument is not a runnable gate: source re-measure
+  CO-07    declared CLOSED       instrument is not a runnable gate: source census
+  CO-09    declared OPEN, correctly deferred instrument is not a runnable gate: one executable test naming `StairValidationAuthority` at its declared VALIDATION
+  CO-10    declared CLOSED       instrument is not a runnable gate: source census of `provideLiveGraphSources` callers
+  CO-11    declared CLOSED       instrument is not a runnable gate: the three gates
+  PV-05    declared CLOSED       instrument is not a runnable gate: the serializer's `provenance` slice + suite
+  PV-06    declared CLOSED       instrument is not a runnable gate: schema census
+  PV-07    declared CLOSED       instrument is not a runnable gate: the three gates
+  MT-01    declared CLOSED       instrument is not a runnable gate: CA-21 read-back census
+  MT-04    declared OPEN *(moved UNPROVEN → OPEN, and NOT to closed)* instrument is not a runnable gate: `adr0318.stores.probe.ts`
+  MT-05    declared UNPROVEN     instrument is not a runnable gate: a heap-identity probe — **does not exist**
+  MT-06    declared OPEN         instrument is not a runnable gate: source census of the rival stores
+  MT-07    declared OPEN         instrument is not a runnable gate: source census
+  MT-08    declared CLOSED       instrument is not a runnable gate: source verification
+  CB-02    declared OPEN         instrument is not a runnable gate: source measure
+  CB-03    declared CLOSED       instrument is not a runnable gate: the gate-residency rule (READINESS-GATES §2.1)
+  CB-05    declared UNPROVEN     instrument is not a runnable gate: per-capability convergence proofs
+  CE-01    declared CLOSED       instrument is not a runnable gate: the six named gates
+  CE-02    declared CLOSED       instrument is not a runnable gate: the harness's geometry subject
+  CE-03    declared UNPROVEN, narrowed instrument is not a runnable gate: `persistence.cert.ts` CE-03 arm
+  CE-04    declared CLOSED *(moved UNPROVEN → CLOSED; see §0.2 — already true at the last stamp)* instrument is not a runnable gate: `undoredo.cert.ts` CE-04 block
+  CE-05    declared OPEN         instrument is not a runnable gate: a gesture-reachability instrument — **does not exist**
+  CE-06    declared UNPROVEN     instrument is not a runnable gate: a real user project as certification subject
+
+[1mOPEN ROWS (measured, not closed)[0m
+────────────────────────────────────────────────────────────────────────────────────────────────
+  GR-01    [1] check-graph-write-coverage
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-05    [1] check-graph-write-coverage
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-06    [1] check-graph-persistence
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-07    [1] check-graph-persistence
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-08    [1] check-graph-persistence
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-10    [1] check-graph-persistence
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  GR-14    [1] check-no-empty-means-unknown
+           npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …
+  PR-09    [1] check-propagation-trackers-reach
+           THREE.WARNING: Multiple instances of Three.js being imported.
+  GE-01    [1] check-epsilon-policy
+           [check-epsilon-policy] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):
+  CO-01    [1] check-no-hidden-mock
+           [check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):
+  CO-03    [1] check-no-hidden-mock
+           [check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):
+  CO-06    [1] check-no-hidden-mock
+           [check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):
+  CO-08    [1] check-constraint-honesty
+           [check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):
+  CO-12    [1] check-constraint-honesty
+           [check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):
+  MT-02    [1] check-verb-register
+           code says: | Handler files read | 1258 (floor 900) |
+  MT-03    [1] check-verb-register
+           code says: | Handler files read | 1258 (floor 900) |
+
+  written → C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\tools\bim30-status\results\latest.json
+
+[2m  This reads the deciding instrument's exit code and is exactly as strong as that
+  gate. A gate passing while measuring the wrong subject still passes here.
+  The tracker's §7 is the standing list of what no gate covers.[0m
+
+STATUS_RC=1
