@@ -5771,3 +5771,76 @@ of GR-12 works; the re-weld half is what fails.
 `joinedTo` edge set for the pair BEFORE the move and commit that measurement alone; prove at the
 STORED layer (the partner wall's baseline after the move); C83 §10 governs authorship — the mover is
 the dependent, the incumbent's joint is not rewritten.
+
+---
+
+## L-937 — **NO `wall.create` REPLICATES ITS PROPERTIES.** Not the proposal path — all of them.
+
+**Found by lane L932 while closing L-932, 2026-08-17.** Filed separately because it is **not** the
+defect it was first mistaken for, and it is bigger.
+
+### How it was mis-scoped, and what it actually is
+
+L-932 recorded this line as a side-effect of the *invented patch wall*:
+```
+[YjsDocAdapter] W5-3: 'wall.create' declares subject key 'id' but the payload carried no
+                non-empty string there. Nothing was replicated for this dispatch.
+```
+The natural reading is "the `OpenedRegionProposal` path forgot to pass an `id`" — a one-line fix.
+
+**MEASURED, that is wrong.** `WallCreatePayload.id` is declared `readonly id?: string` — **optional**
+— and `plugins/wall/src/tool.ts:329`, **the ordinary wall draw tool**, omits it exactly as the
+proposal does. Meanwhile `packages/sync-client/src/syncDisposition.ts:114` declares
+`subject: 'id'` for the verb.
+
+> **So the subject key is mandatory in the disposition and optional in the payload, and the ordinary
+> user-facing draw tool does not supply it. NO `wall.create` replicates its properties — not the
+> invented one, not the hand-drawn one.** A collaborator's model silently differs from the author's
+> for every wall anyone draws.
+
+### Why this is a contract defect, not a call-site defect
+
+Three artefacts disagree and each is individually defensible:
+- the **schema** says `id` is optional,
+- the **disposition** says `id` is the replication subject,
+- the **adapter** silently drops the dispatch when the subject is absent — **and returns nothing to
+  the caller.**
+
+⚠ **The silence is the worst of the three.** A dispatch that replicates nothing and tells no one is
+the `[]`-means-unknown failure wearing sync clothes: "nothing to replicate" and "I could not
+determine a subject" are the same outcome to every observer. C70 K-INV-2 wants conflicts surfaced;
+this does not even surface a *drop*.
+
+### Do NOT fix this by patching the two call sites
+
+Adding `id` at `tool.ts:329` and in the proposal makes the symptom vanish and leaves the contract
+broken — the next `wall.create` author omits it again, and nothing complains. **Decide which of the
+three artefacts is wrong:**
+- make `id` **required** in `WallCreatePayload` (compiler enforces it, every call site fixed at once), OR
+- change the disposition's subject to a key that is always present, OR
+- keep it optional and make the adapter **REFUSE AUDIBLY** with identity and both numbers rather
+  than dropping in silence.
+
+⚠ **Then check the other verbs.** `UPDATE_ANNOTATION` was measured in the same family with a
+*different* shape — `has NO sync disposition` at all (L-934's trace). **One lane should sweep
+`syncDisposition.ts` as a whole** rather than fixing one verb at a time; two verbs found by accident
+in two unrelated traces is not evidence of two defects, it is evidence nobody has swept the file.
+
+**Owner:** unassigned → lane **L937**. Discipline: census EVERY `wall.create` dispatch site and every
+verb in `syncDisposition.ts` before choosing a fix; prove at the REPLICATED layer — a second client's
+store after the dispatch — not at the adapter's return; C08 / C70 K-INV govern.
+
+---
+
+## L-938 — `hostSnap` is a triplicated local literal, not a consumed kernel tolerance
+
+**Found by lane L932, 2026-08-17.** A **C73 §2.2 breach**: `SNAP_FLOOR = 0.20` and
+`SHELL_MARGIN = 0.02` are local literals in `RoomDetectionEngine.ts`, **triplicated at lines 575,
+681 and 1404**, rather than consumed from `@pryzm/geometry-kernel`.
+
+⚠ **Recorded with its own exoneration, so nobody over-reacts:** unlike **L-919**, this value is
+derived from **wall thickness**, not from the camera. It is not the L-919 bug. The defect is
+duplication and non-consumption — three copies that can drift independently — not a wrong basis.
+
+**Owner:** unassigned → lane **L938**, low urgency. Fold into the C73 §2.2 epsilon drain (row GE-01)
+rather than opening a separate front.
