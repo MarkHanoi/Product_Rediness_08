@@ -386,45 +386,126 @@ describe('L-932 — an ANGLED wall move leaves its 30° neighbour behind', () =>
         // joint is closed" does NOT mean "the corner is still shared" — it
         // means the mover's endpoint TERMINATES ON the incumbent's stored
         // segment. `offBody` is that question; `cornerGap` is not (a legal
-        // outcome seats the mover mid-body, 693 mm from the incumbent's end).
+        // outcome seats the mover mid-body, 693 mm from the incumbent's end,
+        // and both junctions below do exactly that).
         //
-        // The 60° junction PASSES it: its corner slid 346 mm along the mover,
-        // inside weldTol (500 mm), so every gate let it through and the mover's
-        // end was re-seated to (9.5751, 8.0000) — ON w-north. Proof that the
-        // machinery is not broken in general, and that the incumbent was never
-        // moved to achieve it.
+        // The 60° junction always passed it: its corner slid 346 mm along the
+        // mover, inside `weldTol` (500 mm), so every gate let it through. That
+        // is the control WITHIN the fixture — proof the machinery is not broken
+        // in general, and that it never had to move an incumbent to work.
         expect(offBody60).toBeLessThan(1e-9);
 
-        // The 30° junction FAILS it: its corner slid 1039 mm along the mover —
-        // OUTSIDE weldTol — so `computeMoveReweldPlan` dropped it, SILENTLY (a
-        // bare `continue`, not a `MoveReweldRefusal`), and nobody was told.
-        // The mover's start is left at the raw translation, 520 mm off
-        // w-east's body.
+        // ⭐ THE REGRESSION PIN. Its corner slid 1039 mm along the mover.
         //
-        // ⚠ THIS EXPECTATION IS THE DEFECT PIN. The fix must INVERT it.
-        expect(offBody30).toBeGreaterThan(0.2);
+        // MEASURED BEFORE THE FIX: dropped — and dropped SILENTLY (a bare
+        // `continue`, not a `MoveReweldRefusal`, so nobody was told). The
+        // mover's start was left at the raw translation, `m·cos 30° = 520 mm`
+        // off w-east's body, which is also far outside room detection's 200 mm
+        // `hostSnap` floor — so §DIAG-PARTITION-REACH could not rescue this
+        // loop the way it rescued the orthogonal control's. Both safety nets
+        // failed together, for one reason: at θ = 90° every quantity here is
+        // identically ZERO, so neither net had ever been exercised.
+        //
+        // MEASURED AFTER: the mover extends along its OWN line to the corner.
+        expect(offBody30).toBeLessThan(1e-9);
 
-        // 520 mm is also far outside room detection's 200 mm `hostSnap` floor,
-        // so §DIAG-PARTITION-REACH cannot rescue this loop the way it rescued
-        // the orthogonal control's. BOTH safety nets fail together, and both
-        // fail for one reason: at θ = 90° every quantity above is identically
-        // ZERO, so neither net has ever been exercised.
-        expect(offBody30).toBeGreaterThan(0.2);
+        // The exact seat, not merely "close enough". The corner is analytic:
+        // w-east's line is x = 12; the mover's new line passes
+        // (12 − 0.3√3, 4.7) with direction (−√3, 3); they meet at (12, 3.8).
+        // Pinning the VALUE means a future change that closes the joint by
+        // some other construction (or by nudging an incumbent) fails here.
+        expect(angle[0][0]).toBeCloseTo(12, 9);
+        expect(angle[0][1]).toBeCloseTo(3.8, 9);
+
+        // And the mover only ever EXTENDED along its own line — it did not
+        // rotate. Its direction is unchanged from the authored (−√3, 3).
+        const dirBefore = Math.atan2(3, -SQRT3);
+        const dirAfter = Math.atan2(angle[1][1] - angle[0][1], angle[1][0] - angle[0][0]);
+        expect(dirAfter).toBeCloseTo(dirBefore, 9);
+
+        // `cornerGap` is deliberately NOT asserted to be zero: seating the
+        // mover 1200 mm along w-east's body is the CONTRACT-CORRECT outcome
+        // (C83 §10.2.2 — the incumbent may not be lengthened to meet it).
         expect(corner30).toBeGreaterThan(0.5);
 
         // ── AND THE ROOM THE FOUNDER LOST ───────────────────────────────────
-        // 93.40 m² → NO ROOM AT ALL, from one wall move. The founder's report
-        // is the same event at a different size: "Room 00-001 (276.5 m²) is NO
-        // LONGER DETECTED AS A ROOM AT ALL".
+        // MEASURED BEFORE THE FIX: 93.40 m² → NO ROOM AT ALL, from one wall
+        // move. The founder's report is the same event at a different size:
+        // "Room 00-001 (276.5 m²) is NO LONGER DETECTED AS A ROOM AT ALL".
         //
         // Compare the control above: an identical 600 mm perpendicular drag on
         // an ORTHOGONAL wall left the same 600 mm dangling corners, and the
         // room survived — because there the mover's endpoints never left their
         // partners' bodies and §DIAG-PARTITION-REACH could reconnect them.
         //
-        // ⚠ DEFECT PIN. The fix must turn this back into 1 room.
+        // ⭐ THE REACHABILITY PROOF. Not a function's return value: the room
+        // set, re-derived by the REAL ReDetectRoomsCommand from the REAL
+        // stored baselines after the REAL move + cascade.
         const after = redetect(world);
         console.log(`[L-932] after: ${after.length} room(s), area ${after[0]?.area.toFixed(2) ?? '—'} m²`);
-        expect(after.length).toBe(0);
+        expect(after.length).toBe(1);
+
+        // The room SHRANK by the move (the wall came inward) rather than
+        // vanishing — the founder's screenshot-2 expectation.
+        expect(after[0]!.area).toBeGreaterThan(85);
+        expect(after[0]!.area).toBeLessThan(before[0]!.area);
+
+        // §DIAG-PARTITION-REACH must NOT have been needed here: the emitter is
+        // fixed, so the rescuer has nothing to rescue. (Its firing is evidence
+        // of the defect, not of health — L-909a / L-928.)
+    });
+
+    it('the fix is ANGLE-GENERAL, not a 30° special case — a sweep of non-axis-aligned junctions', () => {
+        // One fixture cannot prove a cot θ law. This sweeps the chamfer angle
+        // and asserts the mover terminates on BOTH incumbents every time,
+        // while both incumbents stay byte-identical.
+        for (const deg of [15, 20, 25, 35, 40, 50, 65, 75]) {
+            const rad = (deg * Math.PI) / 180;
+            // A chamfer of FIXED LENGTH (3 m) at `deg` to the vertical east
+            // wall — so the room stays non-degenerate at every angle. (A fixed
+            // RISE instead collapses the north wall to 0.8 m by 75°, at which
+            // point the corner correctly falls off the incumbent's end and the
+            // engine correctly refuses with INCUMBENT_EXTENSION_REQUIRED —
+            // C83 §10.2.2. That is a fixture artefact, not a follow failure.)
+            const run = 3 * Math.sin(rad);
+            const rise = 3 * Math.cos(rad);
+            const w = makeWorld();
+            try {
+                w.wallStore.add(wallRecord('a-south', [0, 0], [12, 0]));
+                w.wallStore.add(wallRecord('a-east', [12, 0], [12, 5]));
+                w.wallStore.add(wallRecord('a-angle', [12, 5], [12 - run, 5 + rise]));
+                w.wallStore.add(wallRecord('a-north', [12 - run, 5 + rise], [0, 5 + rise]));
+                w.wallStore.add(wallRecord('a-west', [0, 5 + rise], [0, 0]));
+                seedJoinedTo(['a-south', 'a-east', 'a-angle', 'a-north', 'a-west'], [
+                    ['a-south', 'a-east'], ['a-east', 'a-angle'],
+                    ['a-angle', 'a-north'], ['a-north', 'a-west'], ['a-west', 'a-south'],
+                ]);
+
+                const eastBefore = bl2(w, 'a-east');
+                const northBefore = bl2(w, 'a-north');
+
+                // Drag 0.4 m along the mover's own inward normal.
+                // d = (−run, rise), so n̂ = (−dz, dx)/|d| = (−cos, −sin).
+                const res = moveWall(w, 'a-angle', 0.4 * -Math.cos(rad), 0.4 * -Math.sin(rad));
+                expect(res.success).toBe(true);
+
+                const ang = bl2(w, 'a-angle');
+                const offEast = distToSegment(ang[0], ...bl2(w, 'a-east'));
+                const offNorth = distToSegment(ang[1], ...bl2(w, 'a-north'));
+                console.log(
+                    `[L-932 sweep] ${deg}° (cot=${(1 / Math.tan(rad)).toFixed(2)}) ` +
+                    `offBody east=${mm(offEast)}mm north=${mm(offNorth)}mm`,
+                );
+
+                expect(offEast).toBeLessThan(1e-9);
+                expect(offNorth).toBeLessThan(1e-9);
+                // C83 §10 — incumbents NEVER move, at any angle.
+                expect(bl2(w, 'a-east')).toEqual(eastBefore);
+                expect(bl2(w, 'a-north')).toEqual(northBefore);
+            } finally {
+                w.dispose();
+                semanticGraphManager.clear();
+            }
+        }
     });
 });

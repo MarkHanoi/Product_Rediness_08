@@ -180,6 +180,50 @@ function intersectLines(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
 }
 
 /**
+ * §L-932 — THE JUNCTION ANGLE, and the two displacements it induces.
+ *
+ * Returns the LINE angle θ ∈ (0°, 90°] between two directed segments, as the
+ * only two trigonometric quantities this module needs:
+ *
+ *     `cot` = |cos θ| / sin θ      `invSin` = 1 / sin θ
+ *
+ * WHY THEY EXIST (the whole of L-932 in four lines). Let a wall translate by
+ * `m` perpendicular to itself, and let θ be the angle to a partner it corners
+ * with. Then the NEW corner — partner's line ∩ mover's new line — sits
+ *
+ *     `m · cot θ`   further along the MOVER    than the mover's own endpoint
+ *     `m · invSin`  further along the PARTNER  than the partner's own endpoint
+ *
+ * **At θ = 90° the first quantity is exactly ZERO and the second is exactly
+ * `m`.** Every proximity gate below compared these against `weldTol` and
+ * `movedDisplacement + weldTol` respectively — which is correct at 90° and
+ * ONLY at 90°. Since a cardinal-axis wall corners at 90° with its neighbours,
+ * the entire follow family was validated on the one configuration where the
+ * geometry is degenerate, and the gates silently dropped every junction on an
+ * angled wall (measured: 30° junction, 600 mm drag, corner slid 1039 mm past
+ * the 500 mm `weldTol`; the room went from 93.40 m² to no room at all —
+ * `command-registry/__tests__/L932AngledWallMove.measure.test.ts`).
+ *
+ * The `abs` on the dot is deliberate: a JOINT has a line angle, not a directed
+ * one, and the two walls' stored winding is an authoring accident. Bounded by
+ * construction — `intersectLines` has already refused anything under
+ * MIN_ANGLE_RAD, so `cot ≤ ~9.97` and `invSin ≤ ~10.02`; there is no path here
+ * that can spike a wall to infinity.
+ */
+function lineAngleFactors(d1: Pt, d2: Pt): { cot: number; invSin: number } {
+    const cross = Math.abs(d1.x * d2.z - d1.z * d2.x);
+    const dot = Math.abs(d1.x * d2.x + d1.z * d2.z);
+    const l1 = len(d1), l2 = len(d2);
+    if (cross < EPSILON_ZERO || l1 < EPSILON_ZERO || l2 < EPSILON_ZERO) {
+        // Near-parallel or degenerate. Unreachable after `intersectLines`
+        // succeeded, but returning the 90° values keeps any future caller on
+        // today's behaviour rather than handing it an infinity.
+        return { cot: 0, invSin: 1 };
+    }
+    return { cot: dot / cross, invSin: (l1 * l2) / cross };
+}
+
+/**
  * Decompose `p` in the frame of the DIRECTED segment a→b:
  *   `axial`  — metres from `a` along the segment's own direction (may be < 0 or
  *              > |ab|: the projection is not clamped, because "off the end" is
@@ -613,7 +657,10 @@ export function computeMoveReweldPlan(
     if (movedDisplacement < MIN_DISPLACEMENT) return { entries, refusals }; // nothing moved
 
     // Track the corners formed, so the moved wall can be seated on them too.
-    const cornersOnMoved: Pt[] = [];
+    // §L-932 — each carries its OWN reach, because "how far along the mover
+    // could this corner have travelled" is a property of the JUNCTION's angle,
+    // not a constant of the gesture (see `lineAngleFactors`).
+    const cornersOnMoved: Array<{ at: Pt; reachM: number }> = [];
 
     for (const partner of partners) {
         if (partner.id === moved.id) continue;
@@ -665,16 +712,42 @@ export function computeMoveReweldPlan(
         const corner = intersectLines(ps, pe, newS, newE);
         if (!corner) continue; // near-parallel / degenerate — refuse
 
-        // 3. The corner must be a place the moved wall actually occupies now:
-        //    on (or within cap-tolerance of) its NEW segment. A wall that slid
-        //    away along its own axis intersects the partner's line at a point
-        //    it no longer covers — no re-formable junction; refuse.
-        if (distToSegment(corner, newS, newE) > weldTol) continue;
+        // 2b. §L-932 — HOW FAR THIS JUNCTION'S CORNER CAN LEGITIMATELY HAVE
+        //     TRAVELLED, which is a function of the ANGLE and was previously
+        //     assumed to be `weldTol` (its value at 90°, and nowhere else).
+        //     See `lineAngleFactors`. Both reduce EXACTLY to the old constants
+        //     when θ = 90°, so every orthogonal fixture is byte-identical.
+        const { cot, invSin } = lineAngleFactors(sub(pe, ps), sub(newE, newS));
+        //     Along the MOVER. `bands === undefined` means authorship could not
+        //     be asked, so a T-foot may still be sitting in this loop; that is
+        //     the one case where the old distance proxy is still the only guard
+        //     against §L-872, and it is left exactly as it was.
+        const alongMoverReach = bands ? movedDisplacement * cot + weldTol : weldTol;
+        //     Along the PARTNER. `maxExtension` may be a caller override, so
+        //     take the looser of the two — this correction must never TIGHTEN
+        //     a cap somebody set deliberately.
+        const alongPartnerReach = Math.max(maxExtension, movedDisplacement * invSin + weldTol);
+
+        // 3. The corner must be a place the moved wall can actually terminate:
+        //    on its NEW segment, or within reach of an end it can EXTEND to.
+        //    Extending the mover is not a concession — it is C83 §10.1, the
+        //    newcomer adapting. What must never happen is the INCUMBENT moving,
+        //    and step 6 below is what enforces that.
+        //
+        //    ⚠ This used to read `> weldTol`, and that is L-932's primary arm:
+        //    a corner on a 30° junction lands `m·cot 30° = 1.73 m` past the
+        //    mover's end after a 1 m drag, so it was dropped — SILENTLY, before
+        //    it could even be counted as a formed corner — while the identical
+        //    gesture at 90° lands the corner exactly ON the endpoint.
+        if (distToSegment(corner, newS, newE) > alongMoverReach) continue;
 
         // 4. Cap the endpoint displacement (§POST-RESOLVE-OVEREXTEND).
+        //    Same correction, measured along the PARTNER this time: the corner
+        //    slides `m/sin θ` along it, which is `m` at 90° and grows as the
+        //    junction sharpens.
         const displacement = dist(welded, corner);
         if (displacement < MIN_DISPLACEMENT) continue; // already seated
-        if (displacement > maxExtension) continue;     // spike — refuse
+        if (displacement > alongPartnerReach) continue; // spike — refuse
 
         // 5. Never shrink the partner into a degenerate stub.
         if (dist(corner, far) < DEGENERATE_STUB_LENGTH) continue;
@@ -707,7 +780,7 @@ export function computeMoveReweldPlan(
 
         // The corner is ON the incumbent's body: the subject can terminate
         // against it and the incumbent comes out byte-identical (C83 §10.4).
-        cornersOnMoved.push(corner);
+        cornersOnMoved.push({ at: corner, reachM: alongMoverReach });
     }
 
     // ── Seat the MOVED wall's endpoints on the corners it now forms ──────────
@@ -717,23 +790,40 @@ export function computeMoveReweldPlan(
     if (cornersOnMoved.length > 0) {
         let sx = newS.x, sz = newS.z, ex = newE.x, ez = newE.z;
         let changed = false;
-        for (const corner of cornersOnMoved) {
+        for (const { at: corner, reachM } of cornersOnMoved) {
             const dToS = Math.hypot(corner.x - sx, corner.z - sz);
             const dToE = Math.hypot(corner.x - ex, corner.z - ez);
             const d = Math.min(dToS, dToE);
-            if (d < MIN_DISPLACEMENT || d > maxExtension) continue;
-            // §L-872 T-SEAT-GUARD: a corner farther than weldTol from BOTH
-            // endpoints is strictly INTERIOR to the moved wall's new segment —
-            // a T-abutment on its BODY (step 3 above already guarantees every
-            // corner lies on/near the segment, so "far from both ends" can only
-            // mean "on the body"). Seating an endpoint there would SHORTEN the
-            // moved wall to the stem's foot — e.g. a host moved 1 m with a stem
-            // abutting 1 m from its end lost that metre (the displacement cap
-            // only catches stems near the middle). An L-corner's intersection
-            // always lands within weldTol of the seating endpoint (a farther
-            // corner means the wall slid along its own axis, which step 3
-            // refuses), so this guard cannot suppress a legitimate corner seat.
-            if (d > weldTol) continue;
+            if (d < MIN_DISPLACEMENT) continue;
+            // §L-872 T-SEAT-GUARD, §L-932-CORRECTED.
+            //
+            // The guard's PURPOSE stands and is a scar: a corner strictly
+            // INTERIOR to the moved wall's new segment is a T-abutment on its
+            // BODY, and seating an endpoint there SHORTENS the moved wall to
+            // the stem's foot — a host moved 1 m with a stem abutting 1 m from
+            // its end lost that metre.
+            //
+            // ⚠ Its stated JUSTIFICATION was false, and that is L-932's second
+            // arm. It read: *"An L-corner's intersection always lands within
+            // weldTol of the seating endpoint … so this guard cannot suppress
+            // a legitimate corner seat."* That is true at 90° and nowhere else
+            // — an L-corner's intersection lands `m·|cot θ|` from the seating
+            // endpoint, which is 0 at 90° and 1.73 m for a 1 m drag at 30°. The
+            // guard was therefore suppressing exactly the legitimate corner
+            // seats it promised it could not.
+            //
+            // `reachM` is that quantity, computed per junction from its own
+            // angle, and it EQUALS `weldTol` at 90° — so every orthogonal
+            // fixture takes the identical branch it took before. It also
+            // subsumes the old `d > maxExtension` arm, which could never fire
+            // ahead of `d > weldTol` (weldTol ≤ maxExtension by construction).
+            //
+            // When authorship was unanswerable (`bands === undefined`) `reachM`
+            // is pinned to `weldTol`, so the no-thickness path keeps the only
+            // T-foot protection it has. With thickness — always, in production
+            // — a T-foot has already been classified `stem` and returned at
+            // step 1b, and cannot reach this loop at all.
+            if (d > reachM) continue;
             if (dToS <= dToE) { sx = corner.x; sz = corner.z; } else { ex = corner.x; ez = corner.z; }
             changed = true;
         }
