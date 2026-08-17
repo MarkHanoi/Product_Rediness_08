@@ -48,8 +48,43 @@ beforeAll(async () => {
     ({ DataWorkbench: DataWorkbenchCtor } = await import('../DataWorkbench') as unknown as {
         DataWorkbench: new (runtime: null) => WorkbenchLike;
     });
-}, 120_000); // heavy import graph: DataCommandCenter pulls THREE, DataWorkbench pulls every
-             // panel — a cold vitest transform of that graph has been measured >54s on this repo
+}, 300_000);
+// ── WHY 300s, AND WHY THAT IS A SYMPTOM PATCH — read this before touching the number.
+//
+//    THIS IS A TREATED SYMPTOM, NOT A CLOSED DEFECT. The honest cause is named below
+//    and is NOT fixed. 120s was not a stale pin: at 120s this file passes SOLO (~75s)
+//    and TIMES OUT the moment it runs beside other spec files, which is how CI runs it
+//    — measured, three files, `Hook timed out in 120000ms`, transform 406s across the
+//    run. The import is genuinely that big; the budget was not the lie, the graph is.
+//
+// ── WHAT IT ACTUALLY COSTS, MEASURED — the previous note here said "DataCommandCenter
+//    pulls THREE".
+//    THAT WAS FALSE and it sent the next reader at the wrong module. Bisected by
+//    dynamic import, one target per process:
+//        @pryzm/renderer-three/three          108ms   ← the accused; pre-bundled, free
+//        @pryzm/core-app-model (root barrel)  95,325ms
+//    The cost is the 863-export root barrel, not THREE. Counting UNIQUE modules through
+//    a Vite transform hook (load-independent, unlike wall clock on a shared box):
+//        this beforeAll                       2,164 modules
+//        └─ ../../data/DataCommandCenter      1,580 of them
+//    and DataCommandCenter is imported here PURELY for its side effect — it is the
+//    PARKED surface, and test 2 exists to prove it stays parked. So the cost is real and
+//    the import cannot be dropped without deleting the differentiator.
+//    One cause was fixable and is FIXED (c3b39373): 13 modules inside core-app-model
+//    imported their own package index, so `core-app-model/presentation` alone cost
+//    >=1,564 modules / 43s; it is now 70 modules / 7s.
+//    The residual is a PACKAGE-LEVEL BARREL CYCLE this lane cannot close:
+//    @pryzm/command-registry has 223 value imports of the core-app-model ROOT barrel,
+//    and core-app-model depends on command-registry — so touching either loads both
+//    (308 + 269 modules). That is the L2-imports-L4 debt named in CLAUDE.md. Narrowing
+//    all six root-barrel imports in apps/editor/src/ui/data/ to subpaths was tried and
+//    MEASURED INEFFECTIVE — 1,576 → 1,580 modules — precisely because command-registry
+//    re-enters the barrel from 223 other places. The narrowing was kept (it is correct)
+//    but it buys nothing until that cycle is cut.
+//
+//    DO NOT raise this number again to make a red run green. If this times out, the
+//    graph grew: re-count it (a Vite `transform` hook that records module ids) and fix
+//    the new edge. 300s is already ~4x the solo cost; anything past it is a hang.
 
 describe('L-847 — DataWorkbench is the shipped F3 Data surface', () => {
     it('WorkspaceController data mode drives window.dataWorkbench to FULL, not hidden', () => {
@@ -104,7 +139,11 @@ describe('L-847 — DataWorkbench is the shipped F3 Data surface', () => {
         const hierPanel = el!.querySelector('[data-panel="hierarchy"]');
         expect(hierPanel).toBeTruthy();
         expect(hierPanel!.childElementCount).toBeGreaterThan(0);
-    });
+        // 60s, not the config's 10s: `new DataWorkbench(null)` builds the DOM of every
+        // bucket and constructs HierarchyTreePanel SYNCHRONOUSLY, so this body blocks
+        // for as long as the machine makes it block. Same symptom-patch caveat as the
+        // beforeAll above — measured <1s solo, >10s beside other spec files.
+    }, 60_000);
 
     it('full mode is really full: a prior panel stint must not pin an inline 420px width', () => {
         const el = document.getElementById('dw-workbench') as HTMLElement;
@@ -114,5 +153,5 @@ describe('L-847 — DataWorkbench is the shipped F3 Data surface', () => {
         // §L-847 fix clears it so full width is class-driven.
         expect(el.classList.contains('dw--full')).toBe(true);
         expect(el.style.width).toBe('');
-    });
+    }, 60_000);
 });

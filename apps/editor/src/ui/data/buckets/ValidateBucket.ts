@@ -14,7 +14,8 @@
  */
 
 import { escHtml } from '@pryzm/ui-base';
-import { requirementStore } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL (consumer half) — narrow subpath, not the root barrel.
+import { requirementStore } from '@pryzm/core-app-model/requirements';
 
 // ── STC lookup table ──────────────────────────────────────────────────────────
 

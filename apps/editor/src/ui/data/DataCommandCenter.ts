@@ -26,8 +26,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { comparisonEngine } from '@pryzm/core-app-model';
-import { requirementStore } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL (consumer half) — the NARROW subpaths, not the 863-export
+// root barrel. Importing the root index for two singletons pulled 1,564 modules
+// into this file's load graph; the two subpaths together are ~40.
+import { comparisonEngine } from '@pryzm/core-app-model/comparison';
+import { requirementStore } from '@pryzm/core-app-model/requirements';
 import { StrategizeBucket }  from './buckets/StrategizeBucket';
 import { AuditBucket }       from './buckets/AuditBucket';
 import { ValidateBucket }    from './buckets/ValidateBucket';

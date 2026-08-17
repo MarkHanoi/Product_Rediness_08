@@ -18,8 +18,9 @@
  *   - Read-only store access
  */
 
-import { comparisonEngine, DeltaEntry } from '@pryzm/core-app-model';
-import { AutoRemediateCommand } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL (consumer half) — narrow subpaths, not the root barrel.
+import { comparisonEngine, DeltaEntry } from '@pryzm/core-app-model/comparison';
+import { AutoRemediateCommand } from '@pryzm/core-app-model/remediation';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

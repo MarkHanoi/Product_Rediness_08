@@ -22,12 +22,13 @@
  * Catalog list auto-refreshes on StoreEventBus events for 'AssetCatalogEntry'.
  */
 
-import { requirementStore } from '@pryzm/core-app-model';
-import { assetCatalogStore } from '@pryzm/core-app-model';
+// §SCC-NO-SELF-BARREL (consumer half) — narrow subpaths, not the root barrel.
+import { requirementStore } from '@pryzm/core-app-model/requirements';
+import { assetCatalogStore } from '@pryzm/core-app-model/catalog';
 import { UpdateRequirementCommand } from '@pryzm/command-registry';
 import { SetRoomRequirementCommand } from '@pryzm/command-registry';
 import { AddAssetCatalogEntryCommand } from '@pryzm/command-registry';
-import { storeEventBus } from '@pryzm/core-app-model';
+import { storeEventBus } from '@pryzm/core-app-model/store-event-bus';
 
 // ── Column definitions ─────────────────────────────────────────────────────────
 
