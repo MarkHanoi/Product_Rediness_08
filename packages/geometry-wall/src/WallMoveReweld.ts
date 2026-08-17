@@ -808,9 +808,70 @@ export function computeMoveReweldPlan(
         // the incumbent's existing segment. `corner` is on the incumbent's LINE
         // by construction, so this distance is exactly how far past its nearer
         // END the corner falls; ON_SEGMENT_EPS_M absorbs intersection noise only.
+        // ── §C83 §10.6 — THE MUTUAL 2-WALL L, the one case that FOLLOWS ─────
+        //
+        // ⚠ THIS BLOCK SITS **BEFORE** THE `beyond` TEST, AND THAT IS THE WHOLE
+        // POINT. Its first draft sat inside `beyond > ON_SEGMENT_EPS_M`, i.e. it
+        // only fired when the corner fell PAST the partner's end — a
+        // LENGTHENING. Measured consequence (`§Z-5` round-trip): drag the north
+        // wall out 2 m and w-west followed correctly; drag it back and w-west
+        // stayed 6 m long with a 2 m stub poking past the corner, because on the
+        // return leg the corner lands ON the partner's body and the old code
+        // took the incumbent-preserving path. **The follow was asymmetric, and a
+        // gesture that does not undo itself is not a gesture.**
+        //
+        // The `beyond` test below exists to protect an INCUMBENT from being
+        // lengthened. A mutual partner is not an incumbent — it is a co-owner of
+        // this corner — so the test does not apply to it in EITHER direction. It
+        // re-seats to the intersection whether that shortens or lengthens it.
+        //
+        // §10.6.2 condition 4 is unchanged and is what keeps this safe: the FAR
+        // endpoint is untouched and the direction is unchanged, so this is a
+        // PIVOT about the shared corner, never a translation. L-922 moved
+        // `baseLine[0]` wholesale; this moves only the welded end, along the
+        // partner's own line.
+        //
+        // The two guards §10.6.3 #4 requires already ran ABOVE: step 4 capped
+        // `displacement` against `alongPartnerReach`, step 5 refused a corner
+        // that would collapse the partner below `DEGENERATE_STUB_LENGTH`.
+        // Reversal is checked here because it only becomes meaningful once we
+        // intend to move the endpoint.
+        //
+        // ⭐ Hosted openings are NOT this function's problem and must not be
+        // re-derived here: `CascadeWallBaselineCommand` re-bases them through
+        // `planOpeningRebase` (§HOSTED-OPENING-HOST-MOVE) for every entry it
+        // applies, which is why the extend leg already re-seated the door
+        // 0.000 → 2.000 m and preserved its world position. Emitting the entry
+        // is what buys that; a second copy of the offset maths here would be the
+        // drift this file's header refuses.
+        if (isMutualCorner(partner)) {
+            const reversed = dot2(sub(corner, far), sub(welded, far)) <= 0;
+            if (reversed) {
+                refusals.push({
+                    partnerId: partner.id,
+                    reason: 'STEM_REVERSAL',
+                    beyondMm: Math.round(dist(welded, corner) * 1000),
+                });
+                continue;
+            }
+            const newPartnerBase: ReweldBaseline = weldedIsStart
+                ? [{ ...partner.baseLine[0], x: corner.x, z: corner.z }, partner.baseLine[1]]
+                : [partner.baseLine[0], { ...partner.baseLine[1], x: corner.x, z: corner.z }];
+            entries.push({
+                wallId: partner.id,
+                newBaseLine: newPartnerBase,
+                prevBaseLine: [partner.baseLine[0], partner.baseLine[1]],
+                role: 'mutual-corner',
+            });
+            // The subject seats on this corner too — the follow is MUTUAL, which
+            // is the name of the rule. Both walls meet there.
+            cornersOnMoved.push({ at: corner, reachM: alongMoverReach });
+            continue;
+        }
+
         const beyond = distToSegment(corner, ps, pe);
         if (beyond > ON_SEGMENT_EPS_M) {
-            // ── §C83 §10.6 — THE MUTUAL 2-WALL L, the one case that FOLLOWS ───
+            // ── (the incumbent arm — a MUTUAL corner never reaches here) ──────
             //
             // Closing this joint means LENGTHENING the partner. For an incumbent
             // that is forbidden and is refused below. For a partner that shares
@@ -833,31 +894,6 @@ export function computeMoveReweldPlan(
             // checked here because it is only meaningful once we intend to move
             // the endpoint: the corner must lie on the SAME side of `far` as the
             // endpoint it replaces, or the partner would flip through itself.
-            if (isMutualCorner(partner)) {
-                const reversed = dot2(sub(corner, far), sub(welded, far)) <= 0;
-                if (reversed) {
-                    refusals.push({
-                        partnerId: partner.id,
-                        reason: 'STEM_REVERSAL',
-                        beyondMm: Math.round(beyond * 1000),
-                    });
-                    continue;
-                }
-                const newPartnerBase: ReweldBaseline = weldedIsStart
-                    ? [{ ...partner.baseLine[0], x: corner.x, z: corner.z }, partner.baseLine[1]]
-                    : [partner.baseLine[0], { ...partner.baseLine[1], x: corner.x, z: corner.z }];
-                entries.push({
-                    wallId: partner.id,
-                    newBaseLine: newPartnerBase,
-                    prevBaseLine: [partner.baseLine[0], partner.baseLine[1]],
-                    role: 'mutual-corner',
-                });
-                // The subject still seats on this corner — the follow is MUTUAL,
-                // which is the whole name of the rule. Both walls meet there.
-                cornersOnMoved.push({ at: corner, reachM: alongMoverReach });
-                continue;
-            }
-
             // Closing this joint would mean LENGTHENING the incumbent. Refused —
             // and REPORTED, because a silently dropped junction is L-921 (the
             // corner left open with nobody told), which is the same defect as
