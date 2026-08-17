@@ -42,6 +42,7 @@
 import { trace, type Tracer } from '@opentelemetry/api';
 import type { Patch } from 'immer';
 import { computeStairFootprintRect, worldXZToSlabLocal } from '@pryzm/geometry-stair';
+import { pointInPolygonXY } from '@pryzm/geometry-kernel';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { producePatchedSlice, applyPatchesToSlice } from '../PatchSnapshot';
 import { stairAutoOpeningId } from './stairOpeningId';
@@ -70,21 +71,211 @@ export interface StairOpeningCarve {
     readonly hostSlabId: string;
 }
 
+// ─── §FIX-STAIR-VOID-WRONG-SLAB (L-949) ──────────────────────────────────────
+//
+// THE DEFECT THIS SECTION EXISTS TO CLOSE, founder-measured:
+//   "I was expecting the slab to have a void, but it doesn't … I see a rectangle
+//    for cutting the slab, but it doesn't really cut."
+//
+// The void WAS created. Into the WRONG SLAB:
+//   [CreateStairCommand] Auto-opening opening-stair-… created on slab
+//                        slab-dup-cmd-dup-fp-…-0-0
+//   [SlabFragmentBuilder] opening holes slabId="slab-dup-…-0-0" count=2
+// …while the slabs the founder clicks are two OTHER ids. The CSG ran; it cut a
+// slab nobody was looking at, so the slab the stair passes through stayed solid
+// and only the opening's outline was drawn on it.
+//
+// `resolveHostSlab` used to pick the candidate whose `position` was NEAREST the
+// footprint centroid, and NEVER asked whether the footprint was INSIDE the slab.
+// Nearest-centre is only correct for convex, well-separated slabs. It fails on
+// the founder's model for two compounding reasons:
+//
+//   1. The building is L-SHAPED, so a slab's centroid can lie OUTSIDE its own
+//      footprint — in the notch of the L — and a smaller or DUPLICATED slab's
+//      centre is then nearer to the stair than the centre of the slab the stair
+//      truly stands on.
+//   2. `SlabData.position` is (0,0,0) for every slab authored through SlabTool /
+//      CreateSlabCommand (SlabFragmentBuilder's own comment: "data.position.x/z
+//      is always 0 … the centroid of the polygon IS the desired world pivot"),
+//      so on a normal project "nearest centre" degenerates to "nearest the
+//      project origin" — i.e. a tie between all slabs, won by whichever the
+//      store happens to list first.
+//
+// The determination is now CONTAINMENT (C15: the host of a hosted element is
+// determined, not guessed).
+//
+// ── WHICH PROBE, AND WHY (the choice is on the record, not implicit) ──────────
+//
+// PRIMARY PROBE = THE FOOTPRINT CENTRE. It is the architecturally meaningful
+// point: the void exists so the stair has clear headroom where it passes through
+// the slab, and where it passes through is where its centre is. A centre inside
+// slab S means the stair stands on S, whatever its corners do.
+//
+// FALLBACK PROBE = THE FOUR FOOTPRINT CORNERS, and only when the centre is
+// inside nothing. A stair whose centre sits just off a slab edge while its body
+// overhangs onto the slab is a REAL architectural condition (a stair landing
+// against an opening, a run starting at a slab edge). Refusing there would turn
+// "the centre missed" into "no void at all" — a regression with a containment
+// argument attached. So the corner count breaks the tie among candidates that
+// contain no centre, and the centre outranks ANY number of corners.
+//
+// NOT ATTEMPTED, deliberately: true polygon-clipping of the footprint against
+// each slab (largest overlap AREA wins). It would decide the same host in every
+// case these five probe points decide, at the cost of a polygon-boolean per
+// candidate per carve, and the cases where it differs are cases where the answer
+// is genuinely ambiguous and a human should be asked. Slab `holes` are likewise
+// not subtracted: a stair standing over an existing hole is a void inside a void
+// and needs its own decision, not a silent one taken here.
+//
+// ── WHY "NO OUTLINE" IS NOT "DOES NOT CONTAIN" (§L-942) ──────────────────────
+// A slab can carry a parametric `sketch` instead of a static `polygon`, and
+// resolving one needs `WallFaceResolver` (and would make this module import
+// `SlabFragmentBuilder` — geometry-slab depends on command-registry, so that
+// edge is a module-load cycle, not merely heavy). Such a slab's outline is
+// UNKNOWN, and unknown is not "outside": treating it as a non-container would
+// make every sketch-backed slab refuse. Candidates with no resolvable outline
+// are therefore kept as a separate bucket and, only when NO measured candidate
+// contains anything, the legacy nearest-centre rule picks among THOSE — never
+// among candidates measured and ruled out.
+
+/** The centre outranks any number of corners: 4 corners can never reach 100. */
+const CENTRE_PROBE_WEIGHT = 100;
+
+/** How the host was determined — recorded on the span so a carve can be audited. */
+type HostSlabBasis =
+    /** The footprint CENTRE is inside this slab. */
+    | 'contains-centre'
+    /** The centre is inside no slab; this slab holds the most footprint CORNERS. */
+    | 'overlaps-corners'
+    /** No candidate outline was resolvable; legacy nearest-centre among those. */
+    | 'no-outline-nearest-centre';
+
+interface HostSlabResolution {
+    /** null ⇒ every candidate outline was measurable and none contains the stair. */
+    readonly host: any | null;
+    readonly basis: HostSlabBasis | 'none-contains';
+    /** Ids of the candidates whose outline WAS measurable — what the refusal can cite. */
+    readonly measuredIds: readonly string[];
+}
+
 /**
- * Choose which slab on the stair's top level hosts the void: the one whose centre
- * is nearest the stair footprint's centroid. Extracted so both directions pick the
- * SAME slab given the same inputs.
+ * The slab's outline as stored: `SlabData.polygon` is `{x, y}` with `y` carrying
+ * worldZ, expressed relative to `slab.position`. Returns null when the slab has
+ * no static polygon (sketch-backed or legacy record) — UNKNOWN, not empty.
+ *
+ * A polygon with no `position` to anchor it is ALSO unknown, not "at the origin":
+ * assuming (0,0) would place the outline somewhere it may not be and then rule
+ * the stair out against that fiction. Unmeasurable is the honest verdict, and it
+ * routes the slab to the nearest-centre escape hatch instead of a false refusal.
  */
-function resolveHostSlab(candidates: any[], cx: number, cz: number): any {
-    let host = candidates[0];
+function slabOutline(slab: any): ReadonlyArray<{ x: number; y: number }> | null {
+    const poly = slab?.polygon;
+    if (!Array.isArray(poly) || poly.length < 3) return null;
+    const pos = slab?.position;
+    if (typeof pos?.x !== 'number' || typeof pos?.z !== 'number') return null;
+    return poly;
+}
+
+/**
+ * Is world-XZ point `p` inside `slab`'s outline? The world→slab-local conversion
+ * is `worldXZToSlabLocal` — literally the same function that writes the opening
+ * profile below, so the probe and the carve can never disagree about the frame.
+ * The predicate is the canonical C73 §3.1 body (`pointInPolygonXY`), not a rival.
+ */
+function slabContains(
+    slab: any,
+    outline: ReadonlyArray<{ x: number; y: number }>,
+    p: { x: number; z: number },
+): boolean {
+    const local = worldXZToSlabLocal(p, slab.position);
+    return pointInPolygonXY(local.x, local.y, outline);
+}
+
+function distance2ToCentre(slab: any, cx: number, cz: number): number {
+    const dx = (slab?.position?.x ?? 0) - cx;
+    const dz = (slab?.position?.z ?? 0) - cz;
+    return dx * dx + dz * dz;
+}
+
+/** Nearest slab `position` — the pre-L-949 rule, now only a TIEBREAK / escape hatch. */
+function nearestByCentre(slabs: readonly any[], cx: number, cz: number): any {
+    let host = slabs[0];
     let bestD2 = Infinity;
-    for (const s of candidates) {
-        const dx = s.position.x - cx;
-        const dz = s.position.z - cz;
-        const d2 = dx * dx + dz * dz;
+    for (const s of slabs) {
+        const d2 = distance2ToCentre(s, cx, cz);
         if (d2 < bestD2) { bestD2 = d2; host = s; }
     }
     return host;
+}
+
+/**
+ * Choose which slab on the stair's top level hosts the void — BY CONTAINMENT of
+ * the stair's plan footprint, per the header above. Extracted so all three
+ * reconcile directions (stair-side carve, slab-side reconcile, stair-move
+ * update) pick the SAME slab given the same inputs; a fix applied to one
+ * direction and not the others is the drift this module exists to prevent.
+ *
+ * `rect` is the stair footprint's four world-XZ corners; `cx`/`cz` its centre.
+ */
+function resolveHostSlab(
+    candidates: readonly any[],
+    rect: ReadonlyArray<{ x: number; z: number }>,
+    cx: number,
+    cz: number,
+): HostSlabResolution {
+    const measuredIds: string[] = [];
+    const unmeasured: any[] = [];
+    let best: any = null;
+    let bestScore = 0;
+    let bestD2 = Infinity;
+
+    for (const slab of candidates) {
+        const outline = slabOutline(slab);
+        if (!outline) { unmeasured.push(slab); continue; }
+        measuredIds.push(slab.id);
+
+        let score = slabContains(slab, outline, { x: cx, z: cz }) ? CENTRE_PROBE_WEIGHT : 0;
+        for (const corner of rect) if (slabContains(slab, outline, corner)) score++;
+        if (score === 0) continue;
+
+        // Ties (stacked or overlapping slabs that both contain the stair) are a
+        // legitimate place for nearest-centre — it is a tiebreak here, never the
+        // determination.
+        const d2 = distance2ToCentre(slab, cx, cz);
+        if (score > bestScore || (score === bestScore && d2 < bestD2)) {
+            best = slab; bestScore = score; bestD2 = d2;
+        }
+    }
+
+    if (best) {
+        return {
+            host: best,
+            basis: bestScore >= CENTRE_PROBE_WEIGHT ? 'contains-centre' : 'overlaps-corners',
+            measuredIds,
+        };
+    }
+    if (unmeasured.length > 0) {
+        // Escape hatch: outlines we could not read are not outlines we ruled out.
+        return { host: nearestByCentre(unmeasured, cx, cz), basis: 'no-outline-nearest-centre', measuredIds };
+    }
+    return { host: null, basis: 'none-contains', measuredIds };
+}
+
+/** The refusal, said out loud — never "carve the closest one and hope". */
+function warnNoContainingSlab(
+    stair: StairFootprintSource,
+    resolution: HostSlabResolution,
+    cx: number,
+    cz: number,
+    consequence: string,
+): void {
+    console.warn(
+        `[StairSlabOpeningReconciler] stair ${stair.id}: NO slab on top level "${stair.topLevelId}" ` +
+        `contains its footprint (centre x=${cx.toFixed(3)} z=${cz.toFixed(3)}; neither the centre nor any ` +
+        `footprint corner falls inside ${resolution.measuredIds.length} measured slab(s): ` +
+        `${resolution.measuredIds.join(', ')}). ${consequence} Carving the NEAREST slab instead would cut a ` +
+        `void through a slab the stair does not pass through — that is the L-949 defect.`,
+    );
 }
 
 /**
@@ -145,7 +336,18 @@ export function carveStairOpening(
 
         const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
         const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
-        const host = resolveHostSlab(candidates, cx, cz);
+        const resolution = resolveHostSlab(candidates, rect, cx, cz);
+        if (!resolution.host) {
+            // §FIX-STAIR-VOID-WRONG-SLAB — the honest answer, in the same
+            // vocabulary as `no-slab-on-top-level` above: NOT an error, and NOT
+            // a licence to carve the closest slab.
+            warnNoContainingSlab(stair, resolution, cx, cz, 'No opening carved.');
+            span.setAttribute('pryzm.carve.skipped', 'no-containing-slab-on-top-level');
+            span.setAttribute('pryzm.carve.candidates', candidates.length);
+            return null;
+        }
+        const host = resolution.host;
+        span.setAttribute('pryzm.carve.host_basis', resolution.basis);
 
         const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
 
@@ -345,7 +547,21 @@ export function reconcileStairOpening(
 
         const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
         const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
-        const host = resolveHostSlab(candidates, cx, cz);
+        // §FIX-STAIR-VOID-WRONG-SLAB — the SAME determination as the carve path.
+        // Fixing one direction and leaving the other on nearest-centre is exactly
+        // the drift this module's single-owner design exists to prevent.
+        const resolution = resolveHostSlab(candidates, rect, cx, cz);
+        if (!resolution.host) {
+            // The stair was moved off every slab on its top level. Leave the
+            // existing void where it is (L-581: never delete or relocate a void
+            // on a failed measure) rather than relocate it into a slab the stair
+            // does not pass through.
+            warnNoContainingSlab(stair, resolution, cx, cz, 'Existing opening left untouched.');
+            span.setAttribute('pryzm.reconcile.skipped', 'no-containing-slab-on-top-level');
+            return null;
+        }
+        const host = resolution.host;
+        span.setAttribute('pryzm.reconcile.host_basis', resolution.basis);
         const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
 
         const unchanged =
