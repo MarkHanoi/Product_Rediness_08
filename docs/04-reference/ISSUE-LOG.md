@@ -6268,3 +6268,178 @@ producing the runaway. Then ask the harder question the finding exposes: **two i
 must not own the same corner**, and which one is authoritative is an architectural decision, not a
 merge.
 
+## L-946 — changing an element's LEVEL succeeds on the bus and never reaches the rendered model
+
+**Founder-reported 2026-08-17:** *"the user selects an element (e.g. a wall) and in the properties
+panel changes the element's level — it doesn't work."* MEASURED at HEAD `370aa0bd`.
+
+**There are TWO different level controls, and one of them was never going to work.**
+
+1. `PropertyInspector.createLevelSelector()` (`apps/editor/src/ui/PropertyInspector.ts:145`) renders a
+   dropdown labelled **"Active Level (Creation Context)"**. Its change handler is
+   `ctx.activeLevelId = e.target.value` — it sets where the NEXT element is CREATED. It does not read,
+   and cannot alter, the current selection. If this is the control the founder used, no defect exists
+   in it; the defect is that it sits in a *properties* panel looking like a property of the selection.
+2. `PropertyPanelSections.ts:152-160` renders a genuine **"Change Level"** dropdown that dispatches
+   `wall.changeLevel`. Payload `{ id, newLevelId, newElevationY }` — **byte-matching** the handler's
+   `ChangeWallLevelPayload` (`plugins/wall/src/handlers/ChangeWallLevel.ts:26-30`) and its own test
+   (`plugins/wall/__tests__/s10-handlers.test.ts:537`). So the dispatch is NOT the bug.
+
+**THE BUG: the handler writes to a store the renderer does not read.**
+`ChangeWallLevelHandler.execute()` mutates `ctx.stores.wall[cmd.id]` — the PRYZM 3 plugin store
+(`plugins/wall/src/store.ts`: `WallsState = Record<string, WallData>`, its own `class WallStore
+extends Store<WallData>`). The rendered model lives in the LEGACY `packages/geometry-wall/src/WallStore.ts`,
+which is what `window.wallStore` points at and what `WallRebuildCoordinator` subscribes to.
+
+⭐ **Falsification attempted and failed to overturn it:** the two `WallStore`s are different classes in
+different packages. The bridge comment at `initTools.ts:1043-1046` confirms they are separate BY
+DESIGN — it exists precisely to *mirror* bus creates into the legacy store "so WallRebuildCoordinator's
+subscribe() fires and builds the 3D mesh".
+
+⭐ **AND THE BRIDGE ONLY EVER MIRRORS CREATES.** Every `runtime.events.on(...)` bus→legacy bridge in
+`initTools.ts` is a `.created` event — **twelve of them** (`wall.created`, `wall.opening.created`,
+`curtain-wall.created`, `ceiling.created`, `roof.created`, `column.created`, `slab.created`,
+`beam.created`, `floor.created`, `handrail.created`, `lighting.created`, `furniture.created`).
+**There is no bridge for any MUTATION.** Nothing emits or listens for a level change, so the command
+reports success, the plugin store is correct, and the legacy store — the one that renders, that plan
+view reads, that VDT and `bimManager` level membership use — never hears about it.
+
+This is [[committed-is-not-reachable]] in its purest form: the write is real, the proof would pass at
+the handler, and the layer the USER experiences keeps its own copy of the inputs.
+
+**Scope is wider than walls.** `roof.changeLevel` has the identical shape
+(`plugins/roof/src/handlers/ChangeRoofLevel.ts`) and the identical missing bridge.
+
+**Owner:** unassigned. ⚠ Do NOT fix by having the UI dual-write to both stores — that re-introduces the
+dual-write P2.1 Step C deleted. The question this exposes is the architectural one: **either the bridge
+gains a mutation channel, or the rendered model stops being a second copy.** Also worth fixing cheaply
+and separately: control (1) is labelled as a creation context but is placed where a user reads it as a
+property of their selection.
+
+## L-947 — `UpdateElementParameterCommand` snapshots the WALL store for every element type it writes
+
+**Founder-reported 2026-08-17:** *"i create a slab - i change the outline and it gets corrupted and
+moved from the place."* The founder's console carried the proof, one line above the write:
+
+```
+[CommandManager] EXECUTE: UPDATE_ELEMENT_PARAMETER
+[CommandManager] snapshot commandType="B0" scope=[wall] elapsed=0.5ms
+[UpdateElementParameterCommand] Updated slab/6e4ede23-c1df-457e-bfea-b6c8334a6047
+```
+
+**`scope=[wall]` on a SLAB write.** `UpdateElementParameterCommand.ts:51` declares
+`readonly affectedStores = ["wall"] as const` — hard-coded — while `resolveStore()` (:312-338) routes
+by `elementType` to **fifteen** different stores: `slabStore`, `columnStore`, `beamStore`,
+`stairStore`, `curtainWallStore`, `roofStore`, `furnitureStore`, `handrailStore`, and `wallStore` for
+wall/door/window.
+
+`CommandManagerImpl.ts:284-289` scopes the Contract 01 §2.2 transaction snapshot to
+`command.affectedStores`. So for every non-wall element type this command **writes store X and
+snapshots store W**. Undo then restores the wall store — which both fails to revert the slab AND
+rolls back whatever the wall store legitimately held.
+
+The file's own header (:78-85) already concedes the adjacent half: *"Element types whose stores stamp
+their own audit fields (slab, stair, roof, furniture, …) are NOT covered here and are not claimed to
+be."* The `affectedStores` defect is the same gap one layer down, and it is not stated anywhere.
+
+⚠ **`commandType="B0"` is NOT part of this defect** — it is `(command as any).constructor?.name`
+(`CommandManagerImpl.ts:290`) read from a MINIFIED production bundle. Cosmetic; the log is unreadable
+in prod but nothing behaves differently. Recorded so the next reader does not chase it.
+
+**HIGH** — this silently corrupts undo for every element family except walls.
+
+**Owner:** unassigned. The fix is to derive `affectedStores` from the SAME `elementType` switch that
+`resolveStore()` uses, so the snapshot and the write can never disagree. ⛔ A control is mandatory
+here: a test that changes a slab parameter, undoes, and asserts the SLAB record is restored — watched
+RED against the current hard-coded `["wall"]` first.
+
+## L-948 — a batch create makes the whole model invisible: GPU resources outlive their context across a renderer swap
+
+**Founder-reported 2026-08-17:** *"many elements batch created - none visible."* Screenshots show a
+Level-05 model with **1,611 walls, 457 doors, 173 windows, 21 slabs, 552 lighting fixtures** — the
+PLAN VIEW draws all of it correctly, and the 3D viewport shows only the slab/shell. **The data is
+fine; only the GPU side is dead.** The console gives the whole chain in order:
+
+```
+[initScene] §RENDERER-LIVE-SWAP live swap complete — backend now: webgl-fallback (no reload)
+THREE.TSL: TypeError: Cannot read properties of undefined (reading 'usedTimes') "tq.delete()"
+    at tq.delete → f.onDispose → X5.dispose → X5.onMaterialDispose
+    → dn.dispatchEvent → dn.dispose → tL → WT._reset → WT.dispose → TL.setup
+[renderer-three/WebGPURendererAdapter] WebGPU device lost: reason="destroyed"
+WebGL: INVALID_OPERATION: useProgram: program not valid
+347× WebGL: INVALID_OPERATION: delete: object does not belong to this context
+165× WebGL: INVALID_OPERATION: deleteVertexArray: object does not belong to this context
+```
+
+**The sequence:** a heavy batch create trips the auto-WebGL heavy-scene switch (ADR-0267) → the live
+backend swap runs (ADR-0077, `initScene.ts:4230`) → the WebGPU device is destroyed → the new WebGL
+context inherits a scene graph whose geometries and materials still carry GPU handles minted by the
+OLD context.
+
+⭐ **The stack trace names the mechanism.** `dn.dispatchEvent` is `THREE.Material.dispose()` fanning a
+`'dispose'` event out to **every renderer that ever drew that material**. The swap at
+`initScene.ts:4388` calls `oldRenderer.dispose?.()`, but **nothing detaches the old renderer's
+per-material dispose listeners**. So a later dispose — and a 1,611-wall rebuild disposes a great many —
+re-enters the DEAD renderer's `onMaterialDispose`, which deletes GL objects against a context that no
+longer owns them. Hence `object does not belong to this context`, 347 times, and `usedTimes` read off a
+program-cache entry that is already gone.
+
+This is the same family as **L-944a** (verified 2026-08-17) and it is governed by the same rule,
+**ADR-0297 INVARIANT L2 — DETACH now, RELEASE at the boundary**. It also matches
+[[render-reconstruction-boundary-gpu-reset]]: device-loss / first-load / project-switch are all
+reconstruction boundaries that require a FULL GPU reset, not a re-bind.
+
+⚠ Two amplifiers already on the record, both worth checking before designing the fix:
+[[webgpu-heavy-scene-crash-and-instancing]] — instancing is defeated by per-element UNIQUE materials,
+so 1,611 walls mint 1,611 materials, which is both why the device dies and why the dispose storm is
+enormous; and the Cesium widget fails to reconstruct on the same boundary
+(`CesiumThreeBridge.activate: no live Cesium viewer/scene available`).
+
+**HIGH** — the founder's model is invisible and the app looks empty while the data is intact.
+
+**Owner:** unassigned. ⛔ Do NOT fix by suppressing the WebGL errors — `ViewportCrashGuard` already
+suppresses the `usedTimes` throw as "non-fatal", which is why this reached a founder as *"none
+visible"* rather than as a crash. **The suppression is why it was invisible as a DEFECT, twice.**
+
+## L-949 — RAC can create windows parametrically but cannot resize them in bulk
+
+**Founder-reported 2026-08-17:** *"change all windows (or doors, any element) to 2 meters wide by 1
+meter height by 0.1 sill height — I dont believe this is possible atm via RAC"*, plus *"create X
+windows in this wall equal distance"* and *"create windows in all walls every 3 meters"*.
+
+**MEASURED — the founder is right about the first and already served on the other two.**
+
+**ALREADY POSSIBLE.** `create-windows-parametric` (`ChatCapabilityRegistry.ts:1406`) has
+`scope: 'all'`, `scopeModes: ['all','selection','level']`, rides `window.parametricCreate` →
+`CreateWindowsParametricBatchCommand`, and lists as its own examples *"create a 1x2m window every 3
+meters in all walls"* and *"create 2 windows in all the wall segments"*. Architecturally sound already:
+children are the proven `CreateWallOpeningCommand` (§OCCUPANCY `canPlace`, hosted mirroring, semantic
+graph, marks), §WINDOW-CORNER-OVERFLOW caps spans to the segment, raked hosts refuse (C15), ONE undo,
+and a Confirm card before mass creation. ⚠ Its REACHABILITY from the live chat path is not verified
+here — audit that before telling the founder it works.
+
+**THE ACTUAL GAP — dimensional verbs have no `'all'` scope.** All three are `scope: 'selection'` with
+**no `scopeModes` at all**:
+
+| capability | targets | scope |
+|---|---|---|
+| `set-width` (:694) | door, window, stair, column, beam, furniture | `'selection'` |
+| `set-height` (:579) | GENERIC_PARAMETER_TARGETS + ceiling | `'selection'` |
+| `set-sill-height` (:789) | window | `'selection'` |
+
+Nine capabilities DO carry `scope: 'all'` — `set-wall-type`, `set-wall-color`, `set-wall-rake`,
+`create-windows-parametric`, **`set-window-type`**, **`set-door-type`**, `set-slab-type`,
+`set-ceiling-type`, `execute-plan`. So "all windows" as a scope is already proven for windows and
+doors; only the DIMENSIONAL verbs lack it.
+
+**The template to mirror is exact:** `set-window-type` — `scope: 'all'`, `scopeModes: ['all','selection']`,
+`busCommand: 'window.updateSystemTypeBatch'` → `UpdateWindowsSystemTypeBatchCommand`, which resolves
+from `windowStore` and wraps the per-element `UpdateWindowSystemTypeCommand` for ONE undo.
+
+⚠ The founder asked for width AND height AND sill in ONE instruction. Three separate capabilities means
+three intents and three undo entries; a single `set-opening-dimensions` taking the triple is the
+architecturally better shape and matches how the founder actually speaks.
+
+**Owner:** unassigned. C67 + C68 are MANDATORY for this PR (it registers a bus command and touches a
+user-visible attribute vocabulary).
+
