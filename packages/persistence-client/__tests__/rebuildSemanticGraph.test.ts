@@ -211,6 +211,51 @@ describe('rebuildSemanticGraphFromSnapshot (GR-06 / GR-08)', () => {
         // stale claim — the very thing C70 I-INV-3 exists to prevent in the
         // other direction. This assertion is the guard against it coming back.
         expect(unreconstructable).not.toContain('contains');
+        // §GR07-MEASUREDAT-NAMED — the physics measurement lives in the edge's
+        // own metadata against a node that is not an element and appears in NO
+        // snapshot slice, so the rebuild genuinely cannot reconstruct it. Before
+        // this it was neither regenerated NOR named: a snapshot lacking it loaded
+        // silently, which is the exact C70 I-INV-3 breach.
+        expect(unreconstructable).toContain('measuredAt');
+        // §GR07-DECIDEDBY-REBUILD — the mirror-image assertion. `decidedBy` must
+        // NOT be named, because the loss was never real: `decisionRecords` is
+        // persisted and every record carries `elementId`. Naming a family lost
+        // while its authoritative source rides in the same snapshot is the stale
+        // claim in the direction that costs a user their audit trail.
+        expect(unreconstructable).not.toContain('decidedBy');
+    });
+
+    it('§GR07-DECIDEDBY-REBUILD — rebuilds `decidedBy` from persisted decisionRecords, and invents no edge for a record with no elementId', () => {
+        const snap = makePreGraphSnapshot() as any;
+        // The exact slice `decisionRecordStore.serialize()` emits into
+        // ProjectSnapshot v4 (SerializedDecisionRecords: { version, records }).
+        snap.decisionRecords = {
+            version: 1,
+            records: [
+                { id: 'DR1', elementId: 'W1', decisionType: 'override', dismissed: false },
+                { id: 'DR2', elementId: R1, decisionType: 'deviation', dismissed: true },
+                // Malformed — no elementId. Must contribute NOTHING rather than
+                // hang the rationale off an invented endpoint.
+                { id: 'DR3', decisionType: 'preference', dismissed: false },
+            ],
+        };
+        rebuildSemanticGraphFromSnapshot(snap);
+
+        // Direction MIRRORS the live writer (IntentPrompt): element → record.id.
+        expect(semanticGraphManager.getTargets('W1', 'decidedBy')).toEqual(['DR1']);
+        expect(semanticGraphManager.getTargets(R1, 'decidedBy')).toEqual(['DR2']);
+        // A dismissed record still earns its edge — the record is kept for audit
+        // and the graph must agree with the store, not editorialise about it.
+        expect(semanticGraphManager.getRelationships('DR3', 'decidedBy')).toEqual([]);
+    });
+
+    it('§GR07-DECIDEDBY-REBUILD — a snapshot with NO decisionRecords slice writes no decidedBy edges and does not throw', () => {
+        // Every pre-v4 snapshot, and every v4 project where nobody recorded a
+        // rationale. Absence must read as "no edges", never as a crash and never
+        // as an invented one.
+        const { added } = rebuildSemanticGraphFromSnapshot(makePreGraphSnapshot());
+        expect(added).toBe(22);
+        expect(semanticGraphManager.getTargets('W1', 'decidedBy')).toEqual([]);
     });
 
     it('§CONTAINS-FIRST-PARTY-WRITER — rebuilds `contains` from the persisted hostedSpaceId, and writes NO edge for an item that has none', () => {

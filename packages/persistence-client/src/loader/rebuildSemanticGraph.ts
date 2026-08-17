@@ -97,6 +97,7 @@ const SITS_ON_KINDS = [
  *   7. `supports`             — support element → beam (beam.startSupportId / endSupportId)
  *   8. `connectedByStair`     — base level ↔ top level (stair.baseLevelId / topLevelId)
  *   9. `contains`             — room → furniture (furniture.hostedSpaceId)
+ *  10. `decidedBy`            — element → DecisionRecord (decisionRecords.records[].elementId)
  */
 export function rebuildSemanticGraphFromSnapshot(
     snapshot: RebuildableSnapshot,
@@ -256,6 +257,43 @@ export function rebuildSemanticGraphFromSnapshot(
         addRel(item.hostedSpaceId, item.id, 'contains');
     }
 
+    // 9. Element → DecisionRecord (decidedBy) — §GR07-DECIDEDBY-REBUILD,
+    //    C70 I-INV-3 / C71 §1.2 semantic 4.
+    //
+    // Reconstructed from `decisionRecords.records[]`, the slice BOTH
+    // ProjectSerializers persist verbatim (`decisionRecordStore.serialize()` →
+    // `ProjectSnapshot.decisionRecords`, v4; MigrationEngine back-fills an empty
+    // one for older snapshots). Every `DecisionRecord` carries `elementId`
+    // authoritatively, and the live writer (`IntentPrompt`) emits exactly
+    // element → record.id — so this mirrors the live edge rather than guessing
+    // one, the same rule every family above follows.
+    //
+    // This edge was on the `unreconstructable` list's territory until now, and
+    // the reason it does NOT belong there is the `contains` reason: the loss was
+    // never real. The records survive the snapshot; only the EDGE was dropped.
+    // Naming a family as lost while its authoritative source sits in the same
+    // snapshot is the stale claim C71 §0.1 exists to prevent, in the direction
+    // that costs a user their audit trail.
+    //
+    // The rebuild reads the RAW snapshot slice, not `decisionRecordStore` — both
+    // loaders call this BEFORE `decisionRecordStore.deserialize(...)` runs, and
+    // this file's contract is "no store reads" so it stays callable before any
+    // StoreEventBus event fires.
+    //
+    // NAMED RESIDUAL, not claimed closed: the live writer also stamps
+    // `metadata: { decisionType, dismissed }` on the edge and this rebuild does
+    // not, so a rebuilt edge carries the relationship but not that duplicate. It
+    // is a duplicate — both fields are on the restored `DecisionRecord` itself,
+    // which is where every consumer reads them — but the two edges are not
+    // byte-identical and that is stated rather than glossed.
+    const decisionRecords: any[] = Array.isArray(snapshot.decisionRecords?.records)
+        ? snapshot.decisionRecords.records
+        : [];
+    for (const record of decisionRecords) {
+        if (!record?.id || !record.elementId) continue;
+        addRel(record.elementId, record.id, 'decidedBy');
+    }
+
     // ── Named, non-silent losses (C70 I-INV-3) ───────────────────────────────
     const unreconstructable: string[] = [];
 
@@ -264,6 +302,29 @@ export function rebuildSemanticGraphFromSnapshot(
     // the authoritative base/top level refs the edge derives from are absent.
     // Reconstruction is impossible from this snapshot — named, not dropped.
     unreconstructable.push('connectedByLift');
+
+    // `measuredAt` (room → `physics-result-<roomId>`): §GR07-MEASUREDAT-NAMED.
+    // The target is not an element and not a snapshot record — it is a node that
+    // exists ONLY as this edge's endpoint, and the measurement itself (thermal
+    // load, RT60, daylight factor) lives in the edge's `metadata`. Nothing in the
+    // snapshot carries it: no serializer emits a physics slice, so there is no
+    // authoritative state to recompute the edge FROM at load time. Reconstructing
+    // it here would mean re-running `PhysicsEngine._computeRoom`, which is not
+    // this function's job and would fabricate a `computedAt` that never happened.
+    //
+    // ⚠ It IS re-derived later, and that is deliberately NOT claimed as a
+    // disposition here. `initDataPlatform` enqueues every room on
+    // `pryzm-project-loaded` and the drained queue writes the edge afresh
+    // (`PhysicsEngine._loop` → `compute` → `_writeSemanticEdge`). But that path
+    // is guarded by THREE silent early-returns — `enqueueAll` returns if
+    // `window.roomStore` is absent, `_writeSemanticEdge` returns if
+    // `window.semanticGraphManager` is absent, and its body is wrapped in a bare
+    // `catch {}` — so it is a best-effort recompute, not a guarantee. Declaring
+    // `measuredAt` REGENERATED on the strength of a chain any one of those three
+    // can void silently would be a coverage claim the code does not honour. The
+    // honest reading is the one stated here: this rebuild cannot reconstruct it,
+    // so the load NAMES it instead of dropping it.
+    unreconstructable.push('measuredAt');
 
     // `contains` was named here and is NO LONGER a loss — see step 8 above. The
     // entry read: "REQUIRED (C71 §2.1) but has NO first-party writer — it is

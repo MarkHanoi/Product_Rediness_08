@@ -25,14 +25,24 @@
   ],
   "persistOnly": [
     { "family": "connectedByLift", "why": "3 live writers (CreateVerticalCirculationCommand + residential generators); lifts are NOT serialized into the snapshot at all, so the rebuild cannot reconstruct base/top level refs — named by the rebuild's unreconstructable set. The last survivor of C71 §5.4's five prose families." },
-    { "family": "measuredAt", "why": "Written by PhysicsEngine (element → performance record). Performance record nodes are not authoritative element state the rebuild can read, so a pre-graph snapshot loses the link — and the rebuild does not yet NAME the loss (see measuredAt/loss-not-named-at-load)." },
-    { "family": "decidedBy", "why": "Written by IntentPrompt (element → DecisionRecord, architect rationale). DecisionRecords are not reconstructable from element state; the rebuild does not yet NAME the loss (see decidedBy/loss-not-named-at-load)." }
+    { "family": "measuredAt", "why": "Written by PhysicsEngine (room → `physics-result-<roomId>`). The target is not an element and appears in NO snapshot slice — the measurement itself lives in the edge's metadata — so there is no authoritative state to reconstruct it from. It REMAINS persist-only and correctly stays on this ledger; what changed on 2026-08-17 is that the loss is now NAMED at load (§GR07-MEASUREDAT-NAMED), so it is no longer SILENT. A best-effort recompute does re-derive it after load (initDataPlatform enqueues every room on pryzm-project-loaded), but three silent early-returns guard that chain, so it is NOT declared REGENERATED." }
   ],
-  "declaredFindings": [
-    { "key": "measuredAt/loss-not-named-at-load", "why": "The rebuild's unreconstructable set names connectedByLift and contains only; a pre-graph snapshot silently loses measuredAt edges (C70 I-INV-3). Fix: unreconstructable.push('measuredAt') with its reason, in rebuildSemanticGraph.ts." },
-    { "key": "decidedBy/loss-not-named-at-load", "why": "Same shape as measuredAt: the loss exists and is not named at load. Fix: unreconstructable.push('decidedBy') with its reason." }
-  ],
+  "declaredFindings": [],
   "struck": [
+    {
+      "key": "measuredAt/loss-not-named-at-load",
+      "struckOn": "2026-08-17",
+      "paidBy": "§GR07-MEASUREDAT-NAMED — rebuildSemanticGraph.ts now pushes 'measuredAt' onto `unreconstructable` with its reason, so both ProjectLoaders name it in the C70 I-INV-3 warning instead of loading silently. The family stays PERSIST-ONLY on the persistOnly ledger above: naming a loss is not reconstructing it.",
+      "provenBy": "packages/persistence-client/__tests__/rebuildSemanticGraph.test.ts — 'names the families it CANNOT reconstruct instead of dropping them silently' now asserts toContain('measuredAt').",
+      "residual": "UNPROVEN and NOT claimed: that a USER ever sees the warning (the same ARM C residual the gate prints — it reaches console.warn and LoadResult.warnings, and no UI surface arm exists). Also NOT claimed: that the post-load physics recompute actually runs, which is why the REGENERATED disposition was deliberately not taken."
+    },
+    {
+      "key": "decidedBy/loss-not-named-at-load",
+      "struckOn": "2026-08-17",
+      "paidBy": "§GR07-DECIDEDBY-REBUILD — the finding's own stated fix was WRONG, and the measurement overturned it. This ledger said to push 'decidedBy' onto `unreconstructable`; measuring first showed the loss was never real. `decisionRecords` (SerializedDecisionRecords) is persisted verbatim by BOTH ProjectSerializers, back-filled for older snapshots by MigrationEngine, and every DecisionRecord carries `elementId` authoritatively — so the rebuild now RECONSTRUCTS element → record.id, mirroring the IntentPrompt writer's direction exactly. Naming it as lost would have been the `contains` mistake repeated: a stale loss claim over a family whose source rides in the same snapshot. The family therefore also LEAVES the persistOnly ledger above — it is now regenerated-by-loader, not persist-only.",
+      "provenBy": "packages/persistence-client/__tests__/rebuildSemanticGraph.test.ts — two executed cases: the edge is rebuilt in both directions asserted by getTargets, a record with no elementId contributes nothing, and a snapshot with NO decisionRecords slice writes no edges and does not throw (edge count still pinned at 22).",
+      "residual": "NAMED, not claimed closed: the live writer stamps `metadata: { decisionType, dismissed }` on the edge and the rebuild does not, so a rebuilt edge is not byte-identical to a live-written one. Both fields are on the restored DecisionRecord itself, which is where consumers read them."
+    },
     {
       "key": "deserialize/silent-malformed-drop",
       "struckOn": "2026-08-16",
