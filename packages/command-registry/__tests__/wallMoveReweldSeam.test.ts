@@ -558,6 +558,113 @@ describe('L-873 — joint follows a move beyond the neighbour\'s extent (no slab
         expect(near(bl2(world, 'w-west')[0], bl2(world, 'w-north')[1])).toBe(true);
     });
 
+    // ────────────────────────────────────────────────────────────────────────
+    // §10.6.5 ASSERTION 2 — ⭐ THE L-922 CONTROL. §10.6.5 makes this MANDATORY
+    // and says so in as many words: without it "the L-922 regression is
+    // unguarded". It is the reason the mutual-corner carve-out is safe to
+    // exist, and it must live in the SAME fixture family as the follow above so
+    // that one gesture cannot be made to pass by weakening the other.
+    //
+    // L-922, verbatim: an INTERIOR wall was moved and the cascade shifted the
+    // PERIMETER's baseline start ~2.19 m, proven by three hosted doors re-seated
+    // by the same delta — one of them clamped to offset 0.000, which is §10.2.4's
+    // named example of a clamp standing where a refusal belongs.
+    //
+    // The ONLY thing separating this from the test above is the stored
+    // discriminator: interior↔perimeter reads T/degree-3, perimeter↔perimeter
+    // reads L/degree-2. Same geometry family, same code path, opposite verdict.
+    // If this test ever goes green by the perimeter MOVING, the carve-out has
+    // widened past its contract and L-942's fix has become L-922's cause.
+    // ────────────────────────────────────────────────────────────────────────
+    // ⚠ THE FIRST DRAFT OF THIS CONTROL WAS THEATRE, and the reason is kept
+    // because it is the easiest mistake to make here twice.
+    //
+    // It built a partition landing MID-SPAN on the perimeter and moved it. That
+    // never reaches the mutual-corner branch at all — `classifyWeldAuthorship`
+    // returns `stem` for a mid-span abutment, so `isMutualCorner` is never
+    // consulted and the test passed identically with the discriminator check
+    // REMOVED. Proven by negative control: with `isMutualCorner` forced to
+    // `return true`, that draft stayed GREEN. A control that cannot fail is not
+    // a control — it is a comment that costs CI time.
+    //
+    // ⭐ THE FIX IS TO VARY EXACTLY ONE THING. This fixture is byte-for-byte the
+    // geometry of the §10.6 follow test above — same loop, same gesture, same
+    // partners reaching the same corner branch. The ONLY difference is that the
+    // junctions are stamped T/degree-3 instead of L/degree-2. So the assertion
+    // isolates the discriminator and nothing else, which is precisely §10.6.2's
+    // claim: *"the topology separates the two cases by MEASUREMENT, not by
+    // naming, intent, or a wall-type flag."*
+    it('§C83-10.6 CONTROL: same geometry, T/degree-3 instead of L/2 — the neighbours DO NOT follow', () => {
+        world = makeWorld({ withReweld: true });
+        world.wallStore.add(wallRecord('w-south', [0, 0], [6, 0]));
+        world.wallStore.add(wallRecord('w-east', [6, 0], [6, 4]));
+        world.wallStore.add(wallRecord('w-north', [6, 4], [0, 4]));
+        world.wallStore.add(wallRecord('w-west', [0, 4], [0, 0]));
+
+        seedJoinedTo(
+            ['w-south', 'w-east', 'w-north', 'w-west'],
+            [
+                { type: 'L', wallIds: ['w-south', 'w-east'] },
+                { type: 'L', wallIds: ['w-west', 'w-south'] },
+                // ⭐ THE ONLY VARIABLE. These two are the junctions w-north's
+                // move must re-weld; degree 3 means a third wall has a stake,
+                // so neither is w-north's to close. L-922 was exactly this
+                // reading answered the other way.
+                { type: 'T', wallIds: ['w-east', 'w-north'] },
+                { type: 'T', wallIds: ['w-north', 'w-west'] },
+            ],
+        );
+
+        const eastBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine);
+        const westBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine);
+
+        moveWall(world, 'w-north', 0, 2);
+
+        // §C83 §10.4 — byte-identical, not `near`. L-922 was a 2.19 m shift, but
+        // a tolerance here would pass small drags, and small drags accumulate
+        // across gestures into exactly that number.
+        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine)).toBe(eastBefore);
+        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine)).toBe(westBefore);
+    });
+
+    // §10.6.5 ASSERTION 3 — ABSENT METADATA TAKES THE PRE-§10.6 BRANCH.
+    //
+    // §10.6.3 #1 and C70 L-INV-1: a missing discriminator is "I could not
+    // determine", never "L". The level-scan fallback resolves partners
+    // geometrically and carries no junction records, so this is the state a
+    // real project sits in whenever the joinedTo writer has not yet flushed.
+    //
+    // ⚠ THIS IS THE ARM THAT WOULD FAIL SILENTLY IF ABSENCE WERE READ AS
+    // PERMISSION — the exact "empty means unknown" collision this whole
+    // programme exists to abolish, pointed at wall authority.
+    it('§C83-10.6.3 #1: with NO junction metadata, nothing follows — pre-§10.6 behaviour verbatim', () => {
+        world = makeWorld({ withReweld: true });
+        world.wallStore.add(wallRecord('w-south', [0, 0], [6, 0]));
+        world.wallStore.add(wallRecord('w-east', [6, 0], [6, 4]));
+        world.wallStore.add(wallRecord('w-north', [6, 4], [0, 4]));
+        world.wallStore.add(wallRecord('w-west', [0, 4], [0, 0]));
+
+        // The walls ARE joined — the graph is told so — but NO junctionType and
+        // NO junctionDegree is stamped for any of them.
+        semanticGraphManager.replaceJoinedToForLevelWalls(
+            ['w-south', 'w-east', 'w-north', 'w-west'],
+            [
+                { wallIds: ['w-east', 'w-north'] },
+                { wallIds: ['w-north', 'w-west'] },
+            ] as unknown as Parameters<typeof semanticGraphManager.replaceJoinedToForLevelWalls>[1],
+        );
+
+        const eastBefore = JSON.stringify(world.wallStore.getById('w-east')!.baseLine);
+        const westBefore = JSON.stringify(world.wallStore.getById('w-west')!.baseLine);
+
+        moveWall(world, 'w-north', 0, 2);
+
+        // Byte-identical: the SAME gesture that made them follow above must do
+        // nothing here, because the discriminator is unreadable.
+        expect(JSON.stringify(world.wallStore.getById('w-east')!.baseLine)).toBe(eastBefore);
+        expect(JSON.stringify(world.wallStore.getById('w-west')!.baseLine)).toBe(westBefore);
+    });
+
     it('§C83-10.2.2: the engine REPORTS the refusal rather than dropping the junction silently', () => {
         // A dropped junction with nobody told is L-921 wearing L-922's clothes.
         // The plan form carries the refusal, its partner, and the distance.
