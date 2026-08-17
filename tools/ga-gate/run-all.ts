@@ -526,6 +526,7 @@ const GATES: Gate[] = [
   // test is structurally barred from performing (GR-17).
   { name: 'graph-query-verbs (GR-16 · C70 D-INV-1/3)',           script: '../rac-conformance/certification/gates/check-graph-query-verbs.ts' },
   { name: 'ubg-snapshot-derived (GR-17 · C71 §4 · C70 I-INV-2)', script: '../rac-conformance/certification/gates/check-ubg-snapshot-derived.ts' },
+  { name: 'geometry-change-consumers (PR-10 · PR-12 · C72 §1.1)',  script: '../rac-conformance/certification/gates/check-geometry-change-consumers.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
