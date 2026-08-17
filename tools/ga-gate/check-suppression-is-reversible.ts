@@ -264,9 +264,20 @@ interface Finding { readonly arm: 'S1' | 'S2' | 'S3'; readonly key: string; read
  * line). That is what separates a declaration from a call: `this.pause();`
  * and `foo(bar);` both have a name and parens, and neither opens a block.
  * Without that anchor this regex would resolve every pause site to itself.
+ *
+ * ⚠ CONTROL FLOW ALSO OPENS A BLOCK, and that is not a hypothetical. Lane H1
+ * built the same shape for `check-deterministic-regeneration` and measured the
+ * consequence: SIX of its rows keyed on the symbol `if` and THREE on `for`.
+ * `if (x) {` has a name, parens and an opening brace, so "opens a block" is
+ * necessary and NOT sufficient. CONTROL_FLOW below is the missing half — a
+ * pause inside an `if` must key on the METHOD that contains it, never on the
+ * `if`, or two unrelated pause sites in one file collapse to one key.
+ * The `--self-test` arm proves both directions every run.
  */
+const CONTROL_FLOW = 'if|for|while|switch|catch|do|with|else';
 const ENCLOSING_DECL = new RegExp(
   '^\\s*(?:(?:public|private|protected|static|async|export|declare|function)\\s+)*' +
+  `(?!(?:${CONTROL_FLOW})\\s*\\()` +
   '([A-Za-z_$][\\w$]*)\\s*(?:<[^>]*>)?\\([^;]*\\)\\s*(?::[^{;]*)?\\{\\s*$' +
   '|' +
   '^\\s*(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=]*)?=\\s*' +
