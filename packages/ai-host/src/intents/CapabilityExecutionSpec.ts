@@ -119,6 +119,11 @@ export type SpecDrivenIntentId =
   // so the Confirm card must state a real count before consent.
   | DimensionFamilyIntentId
   | 'add-wall-layer'
+  // §FEAT-WALL-SIDE-FINISH — the founder's per-side finish ask. Sibling of
+  // 'add-wall-layer', NOT a replacement: that one ADDS a construction layer
+  // and moves wall.thickness; this changes appearance only and never moves
+  // the wall. Both remain correct for their own ask.
+  | 'set-wall-side-finish'
   // §FEAT-CHAT-ROOM-OCCUPANCY — the founder's "a bathroom in room 001". The
   // FIRST fan-out spec (`fanOutPerId`): the vocabulary and the scope stage are
   // the template's, but the bus verb it drives is singular, so see that flag's
@@ -462,6 +467,78 @@ export const EXECUTION_SPECS: SpecTable = {
    * never an LLM guess. ONE finish table (finishRef.ts) — unknown names refuse
    * by LISTING real options, never by guessing (§CONTEXT-DATA-HONESTY).
    */
+  /**
+   * §FEAT-WALL-SIDE-FINISH — "change all walls in the kitchen finish plaster" /
+   * "make all inner finishes walls in ground floor to limewash".
+   *
+   * ONE finish table (finishRef.ts, shared with add-wall-layer) — unknown names
+   * refuse by LISTING real options, never by guessing (§CONTEXT-DATA-HONESTY).
+   *
+   * `roomScoped` is carried into the payload because the ROOM scope is the one
+   * request shape that asks a GEOMETRIC question ("the face looking INTO room
+   * X"). For a partition, BOTH faces are interior and which one faces the named
+   * room is frontSide/backSide — never written in this build. The handler turns
+   * that flag into per-wall bounding-room counts and the command refuses those
+   * walls by name. The flag is computed HERE because `si.scope` is the only
+   * place the scope KIND still exists; by the time the handler runs it has been
+   * resolved to a flat id list.
+   */
+  'set-wall-side-finish': {
+    elementKind: 'wall',
+    busCommand: 'wall.setSideFinishBatch',
+    idsField: 'wallIds',
+    noSelectionReason:
+      'No walls are selected — select some walls, or say "make all inner finishes walls on the ground floor to plaster".',
+    mismatchPrefix: 'Wall finishes apply to walls',
+    suggestions: [
+      'make all inner finishes walls on the ground floor to plaster',
+      'change all walls in the kitchen finish limewash',
+    ],
+    spatialAbility: 'change all walls, the walls on a level, or the walls in a room',
+    spatialKinds: ['level', 'room'],
+    resolveValue: (si) => {
+      if (si.finishRef === null) {
+        return {
+          refusal: {
+            reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
+            suggestions: ['make all inner finishes walls on the ground floor to plaster'],
+          },
+        };
+      }
+      const finish = resolveFinishRef(si.finishRef);
+      if (finish === null) {
+        return {
+          refusal: {
+            reason:
+              `I don't know the finish "${si.finishRef}". I understand ` +
+              `${exampleFinishNames().join(', ')}.`,
+            suggestions: ['make all inner finishes walls on the ground floor to plaster'],
+          },
+        };
+      }
+      const base = si.scope !== 'all' && si.scope !== 'selection' && si.scope.kind === 'filter'
+        ? si.scope.base
+        : si.scope;
+      const roomScoped = base !== 'all' && base !== 'selection' && base.kind === 'room';
+      return {
+        payload: {
+          side: si.side,
+          finish: {
+            materialId: finish.materialId,
+            materialColor: finish.materialColor,
+            materialName: finish.name,
+          },
+          roomScoped,
+        },
+        summary: (scopeLabel, notesTail) =>
+          `Set the ${si.side} finish of ${scopeLabel} to ${finish.name}${notesTail}`,
+      };
+    },
+    // NOT destructive — one undo entry, deletes nothing, moves nothing, and the
+    // command reports "Set the … finish on N of M walls — K skipped".
+    destructive: false,
+  },
+
   'add-wall-layer': {
     elementKind: 'wall',
     busCommand: 'wall.addLayerBatch',

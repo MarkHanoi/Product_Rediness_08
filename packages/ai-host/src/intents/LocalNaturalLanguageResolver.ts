@@ -64,6 +64,10 @@ import {
 // natural and rigid paths cannot understand "make all windows 2 meters height"
 // differently (the same discipline as parseWallColorIntent above).
 import { parseDimensionScopedIntent } from './DimensionFamilies.js';
+// §FEAT-WALL-SIDE-FINISH — the SAME parser tier-0 uses, so the two tiers can
+// never disagree about what a finish sentence means (the discipline above).
+import { parseWallSideFinishIntent } from './WallSideFinishIntent.js';
+import { resolveFinishRef } from './finishRef.js';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -1098,6 +1102,24 @@ function classify(
   // the SAME function the tier-0 grammar uses. It outranks the wall-type
   // candidate below (0.95 > 0.92): "make all walls white" matches both parsers'
   // shapes, and the colour reading is the resolvable one.
+  // §FEAT-WALL-SIDE-FINISH — the founder's per-side finish ask. Pushed ABOVE
+  // wall colour at 0.96 deliberately: "change all walls in the kitchen finish
+  // plaster" also matches the COLOUR shape (with "plaster" read as a colour
+  // name), and the finish reading is the one the user actually asked for.
+  const wallSideFinish = parseWallSideFinishIntent(
+    n.plain,
+    (r) => resolveFinishRef(r) !== null,
+    ctx.resolveWallSystemType,
+  );
+  if (wallSideFinish !== null) {
+    push({
+      intent: 'set-wall-side-finish',
+      confidence: 0.96,
+      evidence: ['verb:finish', 'noun:wall', `side:${wallSideFinish.side}`, `scope:${scopeTag(wallSideFinish.scope)}`],
+      si: wallSideFinish,
+    });
+  }
+
   const wallColor = parseWallColorIntent(n.plain, ctx);
   if (wallColor !== null) {
     push({

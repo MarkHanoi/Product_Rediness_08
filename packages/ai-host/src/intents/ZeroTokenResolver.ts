@@ -89,6 +89,8 @@ import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
 import { resolveFinishRef } from './finishRef.js';
+// §FEAT-WALL-SIDE-FINISH — the per-side finish grammar, in its own pure module.
+import { parseWallSideFinishIntent, type WallSideFinishIntent } from './WallSideFinishIntent';
 import {
   isScopeError,
   type Compass4,
@@ -660,6 +662,16 @@ export type SemanticIntent =
        *  the ONE generic arm, so a capability gains them without a case arm. */
       readonly scope: IntentScope;
     }
+  /**
+   * §FEAT-WALL-SIDE-FINISH — the founder's "change / make all walls in room X
+   * finish wall Y" and "make all inner finishes walls in ground floor to X".
+   *
+   * `side` is the SEMANTIC side (the axis WallLayerFunction already declares),
+   * never the geometric frontSide/backSide — those have zero writers repo-wide.
+   * The shape is declared in WallSideFinishIntent.ts and re-stated here only
+   * because this union is spelled out literally (same as the dimension family).
+   */
+  | WallSideFinishIntent
   /**
    * §FEAT-WALL-COLOR-BATCH (ADR-0314) — "make all walls white".
    *
@@ -3269,6 +3281,11 @@ export function parseAddWallLayerIntent(text: string): Extract<SemanticIntent, {
 
 const matchAddWallLayer: Matcher = (text) => parseAddWallLayerIntent(text);
 
+// §FEAT-WALL-SIDE-FINISH — the finish table is injected so the grammar module
+// stays pure and `finishRef.ts` remains the ONE name->finish site.
+const matchWallSideFinish: Matcher = (text, ctx) =>
+  parseWallSideFinishIntent(text, (r) => resolveFinishRef(r) !== null, ctx?.resolveWallSystemType);
+
 // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a window
 // in the middle of every wall segment" / "create 2 windows in all the wall
 // segments" / "create a 1x2m window every 3 meters in the walls on the ground
@@ -3686,6 +3703,10 @@ const MATCHERS: readonly Matcher[] = [
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).
   matchAddWallLayer,
+  // §FEAT-WALL-SIDE-FINISH — AFTER matchAddWallLayer (which owns `^add`) and
+  // after matchWallType above, so "make all walls interior partition" keeps
+  // reaching the TYPE grammar. This claims only a finish ask.
+  matchWallSideFinish,
   // "create a window in the middle of every wall segment" — BEFORE
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.
