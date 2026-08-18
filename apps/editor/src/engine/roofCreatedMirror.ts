@@ -31,8 +31,54 @@ export interface RoofCreatedEventLike {
     pitch?: number;
     overhang?: number;
     thickness?: number;
-    baseOffset?: number;
     boundingWallIds?: readonly string[];
+}
+
+/**
+ * §FIX-ROOF-BRIDGE-SEATING — the floor `CreateRoofCommand.ts:144` applies to its
+ * own `autoBaseOffset` computation (`Math.max(...heights, 2.7)`), restated here
+ * as a name so the two paths cannot drift by a literal edited in one of them.
+ */
+export const ROOF_AUTO_SEATING_FLOOR_M = 2.7;
+
+/**
+ * §FIX-ROOF-BRIDGE-SEATING (C84 EI-2b · C79 §7.4 · C11 §3) — where a mirrored
+ * roof sits above its level datum.
+ *
+ * ⚠ THIS FUNCTION EXISTS BECAUSE THE FIELD IT REPLACES WAS A DEAD READ.
+ * The mapping below used to seat every roof at `ev.baseOffset ?? 2.7`, with a
+ * comment stating it was *"using the caller-supplied baseOffset"* instead of a
+ * *"hardcoded 2.7 placeholder [that] ignored the command's own value, putting
+ * every roof at the wrong elevation regardless of wall height."* `ev.baseOffset`
+ * is ALWAYS `undefined` — `packages/schemas/src/elements/Roof.ts` declares no
+ * such field (Zod `strip` deletes it in transit while `parse()` succeeds), and
+ * `CommandEventBridge`'s `roof.create` case, the ONE emitter of `roof.created`
+ * in the tree, does not list it in its named-subset emit. So the `??`'s left arm
+ * was unreachable, the literal was a CONSTANT, and the fix had been applied at a
+ * hop that never receives the field: exactly EI-2 mechanism (b), invisible to
+ * both `tsc` and review.
+ *
+ * The consequence was per-path divergence. `RoofFragmentBuilder.ts:291` seats
+ * the mesh at `level.elevation + baseOffset` and NOTHING reads `autoBaseOffset`
+ * at render time, so a roof drawn in PLAN over 3.5 m walls floated 0.8 m clear
+ * of the walls it caps, while the SAME roof drawn in 3-D — through
+ * `CreateRoofCommand`, which resolves `autoBaseOffset` from the tallest wall on
+ * the level — landed on them. C79 §7.4 rates that as worse than uniform absence.
+ *
+ * The rule is `CreateRoofCommand.ts:140-150`'s, applied verbatim, including its
+ * "no walls → keep the existing value" arm, so this is strictly narrowing: with
+ * nothing to measure the seating is unchanged from what the literal produced.
+ *
+ * @param wallHeightsOnLevel heights of every wall on the level the roof was
+ *        drawn on. `undefined` (no store reachable) and `[]` (a level with no
+ *        walls) deliberately behave the same: neither is a measurement.
+ */
+export function resolveMirroredRoofBaseOffset(
+    wallHeightsOnLevel: readonly number[] | undefined,
+): number {
+    const finite = (wallHeightsOnLevel ?? []).filter((h) => Number.isFinite(h));
+    if (finite.length === 0) return ROOF_AUTO_SEATING_FLOOR_M;
+    return Math.max(...finite, ROOF_AUTO_SEATING_FLOOR_M);
 }
 
 export interface MirroredRoofRecord {
@@ -53,7 +99,10 @@ export interface MirroredRoofRecord {
  * Build the legacy `RoofData` a `roof.created` event describes, or `null` when
  * the event carries no usable boundary (the caller's guard clause).
  */
-export function roofRecordFromCreatedEvent(ev: RoofCreatedEventLike): MirroredRoofRecord | null {
+export function roofRecordFromCreatedEvent(
+    ev: RoofCreatedEventLike,
+    wallHeightsOnLevel?: readonly number[],
+): MirroredRoofRecord | null {
     if (!ev.id || !ev.boundary || ev.boundary.length < 3) return null;
 
     // RoofFragmentBuilder expects:
@@ -83,10 +132,12 @@ export function roofRecordFromCreatedEvent(ev: RoofCreatedEventLike): MirroredRo
         // every plan-created roof was slope-less.
         slope: typeof ev.pitch === 'number' && ev.pitch > 0 ? Math.tan(ev.pitch) : undefined,
         overhang: ev.overhang ?? 0.3,
-        // §FT6 / BUG-6 (TASK-06): use the caller-supplied baseOffset. The
-        // hardcoded 2.7 placeholder ignored the command's own value, putting
-        // every roof at the wrong elevation regardless of wall height.
-        baseOffset: ev.baseOffset ?? 2.7,
+        // §FIX-ROOF-BRIDGE-SEATING — was `ev.baseOffset ?? 2.7`, whose left arm
+        // no emitter can ever populate (see `resolveMirroredRoofBaseOffset`).
+        // The seating is now MEASURED from the level's walls by the same rule
+        // `CreateRoofCommand` uses, which is what `autoBaseOffset: true` below
+        // has always claimed and never delivered on this path.
+        baseOffset: resolveMirroredRoofBaseOffset(wallHeightsOnLevel),
         thickness:  ev.thickness ?? 0.2,
         autoBaseOffset: true,
         // §ROOF-FOLLOWS-WALL (L-924) — the LAST of three hops that had to learn

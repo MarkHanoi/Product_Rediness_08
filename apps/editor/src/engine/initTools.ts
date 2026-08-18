@@ -95,6 +95,7 @@ import {
 } from '@pryzm/finish-host-tracker';
 import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
 import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
+import { beamRecordFromCreatedEvent } from './beamCreatedMirror';
 import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
@@ -1603,7 +1604,32 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // world and twenty stores to run one line), which left the plan
                 // creation path proven only by transcribing this mapping into a
                 // test — the copy passing, not the product. Behaviour unchanged.
-                const record = roofRecordFromCreatedEvent(ev);
+                // §FIX-ROOF-BRIDGE-SEATING (C84 EI-2b) — the mirror seats the roof
+                // from the tallest wall on the level it was drawn on, by the same
+                // rule `CreateRoofCommand.ts:140-150` applies on the 3-D path. It
+                // previously read `ev.baseOffset`, a field NO emitter of
+                // `roof.created` produces (the L0 Roof schema has no such field and
+                // CommandEventBridge's named-subset emit does not list it), so the
+                // `?? 2.7` literal was a constant and every plan-drawn roof floated
+                // above walls taller than 2.7 m while the 3-D one landed on them.
+                //
+                // Read at EVENT time, not at registration time: the walls this roof
+                // caps are added before it, and holding a store reference here would
+                // be a snapshot of an empty level.
+                const _roofLevelId = ev.levelId ?? '';
+                let _roofWallHeights: number[] | undefined;
+                try {
+                    _roofWallHeights = _roofLevelId
+                        ? wallTool.getWallStore().getByLevel(_roofLevelId)
+                            .map((w) => (w as { height?: number }).height ?? 0)
+                        : undefined;
+                } catch (e) {
+                    // Same disposition as CreateRoofCommand's own try/catch: a wall
+                    // lookup that fails is "nothing measured", never a wrong number.
+                    console.warn('[initTools] §FIX-ROOF-BRIDGE-SEATING: wall height lookup failed, seating falls back to the documented floor', e);
+                    _roofWallHeights = undefined;
+                }
+                const record = roofRecordFromCreatedEvent(ev, _roofWallHeights);
                 if (!record) return;
                 roofStore.add(record as any);
                 // §FIX-PLAN-VDT-BIMMANAGER (roof): without these two calls, roof elements
@@ -1779,18 +1805,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             ) return;
             if (beamStore?.get?.(ev.id)) return; // dedup guard
             try {
-                beamStore.add({
-                    id:         ev.id,
-                    levelId:    ev.levelId ?? '',
-                    startPoint: ev.startPoint,
-                    endPoint:   ev.endPoint,
-                    sectionType: (ev.shape ?? 'rectangular') as any,
-                    width:      ev.width  ?? 0.2,
-                    depth:      ev.depth  ?? 0.4,
-                    loadBearing: false,
-                    properties: {},
-                    ...(ev.materialId ? { material: ev.materialId } : {}),
-                } as any);
+                // §FIX-BEAM-BRIDGE-LOADBEARING / §FIX-BEAM-BRIDGE-SECTION (C84
+                // EI-2a + EI-2c) — the field mapping now lives in
+                // `beamCreatedMirror.ts` so a test can EXECUTE it. As a closure
+                // here it was unreachable from any suite (initTools needs a THREE
+                // world and twenty stores to run one line), which is how a
+                // hardcoded `loadBearing: false` — the OPPOSITE of what
+                // `CreateBeamCommand.ts:190` writes on every other path, and a
+                // field the IFC pset, the beam schedule and the fire-rating rule
+                // all read — survived unnoticed. Same extraction as §P3.2-RF's
+                // `roofCreatedMirror.ts`, for the same reason.
+                const record = beamRecordFromCreatedEvent(ev);
+                if (!record) return;
+                beamStore.add(record as any);
                 // §FIX-PLAN-VDT-BIMMANAGER (beam): without these two calls, beam elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 // BeamStore.ts §3.5 explicitly documents bimManager.registerElement was removed from
