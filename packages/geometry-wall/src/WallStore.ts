@@ -955,6 +955,25 @@ export class WallStore implements ILevelProvider {
             // §WALL-PROFILE — see the note in `restoreSnapshot`; this is the second of
             // the two snapshot-restore projections and both must carry the outline.
             wallProfile: wall.wallProfile,
+            // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — the per-side finish.
+            //
+            // ⚠ THIS LINE IS THE WHOLE OF L-995. `SetWallSideFinishCommand.execute()`
+            // composes `nextState.sideFinishes` and calls `updateWall(nextState)`; this
+            // whitelist did not name the field, so the store silently dropped it and the
+            // command still returned `{ success: true }`. The chat then said
+            // *"Set the interior finish of all 17 walls on Ground to Wood · Oak (Light).
+            // Done — undo with Ctrl+Z"* over a model nothing had touched — the founder's
+            // report, twice (L-960, then again on 2026-08-18).
+            //
+            // It survived L-960 because the only test driving the command used a store
+            // FAKE whose `updateWall` accepted every field it was handed, i.e. a fake
+            // strictly more capable than the real store. `L995SideFinishReachesAuthority.test.ts`
+            // drives the REAL command against THIS class and reads the record back.
+            //
+            // C84 EI-2: a whitelist that drops a field a command just wrote is silent
+            // narrowing at a hop. The field is named here, and in `restoreSnapshot`
+            // below, so the forward write and the undo restore carry the same set.
+            sideFinishes: wall.sideFinishes,
             _renderVersion: (existing._renderVersion ?? 0) + 1,
         };
 
@@ -1011,6 +1030,13 @@ export class WallStore implements ILevelProvider {
             // `WallProfileNonRegressionBaseline.test.ts` §(B1a) — not fixed here, and this
             // field is added rather than repeating it.)
             wallProfile: (snapshot as any).wallProfile,
+            // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — the undo half of the field
+            // added to `updateWall` above. Both projections MUST name it: carrying it
+            // forward and not back would make Ctrl+Z leave the new finish standing,
+            // which is a different lie with the same cause (C84 EI-7a — WRITES ⊋
+            // RESTORES). `serializeWallSnapshot` already deep-copies it per side, so the
+            // value restored here is what was there, not a shared reference.
+            sideFinishes: (snapshot as any).sideFinishes,
         } as any;
 
         // Pass preserveMetadata=true so update() retains the original audit fields.

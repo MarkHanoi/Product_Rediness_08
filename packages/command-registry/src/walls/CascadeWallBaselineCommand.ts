@@ -14,8 +14,23 @@ import { serializeWallSnapshot } from './wallSnapshotUtils';
 // too because the cascade re-baselines walls the user never aimed at.
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
 // §C83-S1-MOVE (L-885) — the wall-side occupancy predicate + its shared renderer.
-import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from '@pryzm/geometry-wall';
-import type { Opening, OpeningRefitPlan } from '@pryzm/geometry-wall';
+// §L-990 — `findWallOpeningCrossings` + `computeWallCrossingOffers` are the SAME
+// predicate and the SAME offer engine `evaluateWallPlacement` composes; they are
+// imported (rather than re-derived) so the attribution arm below cannot drift
+// from the arm it is filtering.
+import {
+    evaluateWallPlacement,
+    wallCrossesOpeningRefusalText,
+    findWallOpeningCrossings,
+    computeWallCrossingOffers,
+} from '@pryzm/geometry-wall';
+import type {
+    Opening,
+    OpeningRefitPlan,
+    WallData,
+    CandidateWall,
+    WallCrossingViolation,
+} from '@pryzm/geometry-wall';
 // §L-916-FRAME-RECORD-SYNC — `updateOpening` writes the VOID record only; the
 // FRAME mesh is positioned from a SECOND store this package must write itself.
 import { reseatOpeningWithFrame } from './hostedOpeningFrameSync';
@@ -46,6 +61,39 @@ export interface CascadeWallBaselineInput {
     entries: CascadeWallBaselineEntry[];
     /** Free-form tag (e.g. "slab-connectivity", "move-reweld") for diagnostics / inspector display. */
     cause?: string;
+    /**
+     * §L-990 — THE GESTURE'S SUBJECT, AND WHERE IT STOOD BEFORE IT.
+     *
+     * Supplied only by the move-reweld callers, who are the only ones that know
+     * it. Its ONE use is the attribution arm in `canExecute`: without the
+     * subject's pre-move baseline this command cannot reconstruct the world as
+     * it stood before the gesture, and therefore cannot tell a crossing this
+     * cascade would CREATE from one that was already standing.
+     *
+     * ⚠ ABSENT ⇒ NO ATTRIBUTION IS ATTEMPTED, and every crossing refuses exactly
+     * as it did before this field existed. That is deliberate: "I could not find
+     * out whether this is new" is not "it is not new", and the conservative
+     * branch for an unanswerable question is the pre-existing behaviour, not a
+     * guess. `SlabWallConnectivityService` omits it and is byte-identical.
+     */
+    movedSubject?: {
+        wallId: string;
+        prevBaseLine: [Point3D, Point3D];
+    };
+}
+
+/**
+ * §L-990 — how much an overlap may grow before the gesture owns it.
+ *
+ * Same order as `COINCIDENT_M` in the predicate itself: a crossing whose shared
+ * interval is unchanged to within a millimetre is the SAME crossing, not a new
+ * one. Anything that grows past this is attributable to the gesture and refuses.
+ */
+const PRE_EXISTING_TOL_M = 1e-3;
+
+/** `hostWallId|openingId` — the identity of one crossing, independent of pose. */
+function crossingKey(v: WallCrossingViolation): string {
+    return `${v.hostWallId}|${v.openingId}`;
 }
 
 /**
@@ -118,6 +166,8 @@ export class CascadeWallBaselineCommand implements Command {
 
     private readonly entries: CascadeWallBaselineEntry[];
     private readonly cause: string;
+    /** §L-990 — see `CascadeWallBaselineInput.movedSubject`. */
+    private readonly movedSubject?: { wallId: string; prevBaseLine: [Point3D, Point3D] };
 
     /**
      * One full WallData snapshot per affected wall, indexed by wallId.
@@ -157,6 +207,15 @@ export class CascadeWallBaselineCommand implements Command {
                 : undefined,
         }));
         this.cause = input.cause ?? 'cascade';
+        this.movedSubject = input.movedSubject
+            ? {
+                wallId: input.movedSubject.wallId,
+                prevBaseLine: [
+                    { ...input.movedSubject.prevBaseLine[0] },
+                    { ...input.movedSubject.prevBaseLine[1] },
+                ],
+            }
+            : undefined;
         this.targetIds = this.entries.map(e => e.wallId);
         Object.freeze(this.targetIds);
     }
@@ -251,44 +310,184 @@ export class CascadeWallBaselineCommand implements Command {
             _c83g.__pryzmProjectLoadActive !== true &&
             _c83g.__pryzmBuildingGenActive !== true
         ) {
-            const allWalls = wallStore.getAll();
+            const allWalls = wallStore.getAll() as unknown as readonly WallData[];
+            // §L-990 — the world as it stood BEFORE the gesture, or `null` when
+            // no caller told us what the gesture was. `null` disables the
+            // attribution arm entirely (see `movedSubject`).
+            const preWalls = this.preGestureWalls(allWalls);
             const crossingIssues: string[] = [];
+            const preExisting: string[] = [];
             for (const e of this.entries) {
                 const wall = wallStore.getById(e.wallId);
                 if (!wall) continue;
-                const spatial = evaluateWallPlacement(
-                    {
-                        id: e.wallId,   // excludes the subject from its own host list
-                        levelId: wall.levelId,
-                        thickness: typeof wall.thickness === 'number' ? wall.thickness : 0,
-                        baseLine: [e.newBaseLine[0], e.newBaseLine[1]],
-                        // §PRE-WELD-TRANSIENT — a cascade is ALL re-weld, so every
-                        // entry's joined neighbours are mid-correction by definition.
-                        ...(wall.baseLine?.[0] && wall.baseLine?.[1]
-                            ? { currentBaseLine: [wall.baseLine[0], wall.baseLine[1]] as const }
-                            : {}),
-                        ...((wall as { curve?: unknown }).curve !== undefined
-                            ? { curve: (wall as { curve?: unknown }).curve }
-                            : {}),
-                    },
-                    allWalls,
-                );
-                if (!spatial.valid) {
-                    crossingIssues.push(
-                        wallCrossesOpeningRefusalText(spatial.violations, spatial.offers),
-                    );
+                const candidate: CandidateWall = {
+                    id: e.wallId,   // excludes the subject from its own host list
+                    levelId: wall.levelId,
+                    thickness: typeof wall.thickness === 'number' ? wall.thickness : 0,
+                    baseLine: [e.newBaseLine[0], e.newBaseLine[1]],
+                    // §PRE-WELD-TRANSIENT — a cascade is ALL re-weld, so every
+                    // entry's joined neighbours are mid-correction by definition.
+                    ...(wall.baseLine?.[0] && wall.baseLine?.[1]
+                        ? { currentBaseLine: [wall.baseLine[0], wall.baseLine[1]] as const }
+                        : {}),
+                    ...((wall as { curve?: unknown }).curve !== undefined
+                        ? { curve: (wall as { curve?: unknown }).curve }
+                        : {}),
+                };
+                const spatial = evaluateWallPlacement(candidate, allWalls);
+                if (spatial.valid) continue;
+
+                // ── §L-990 — ATTRIBUTION: DID THIS GESTURE CREATE THE CROSSING? ──
+                //
+                // MEASURED (`L990MoveReweldHostIdentity.measure.test.ts` §A/§B,
+                // reproducing the founder's sentence to the digit): a stem `S`
+                // terminating on the BODY of a wall `M` that hosts a window at
+                // 4.000–5.000 overlaps that window by 0.063 m — and it did so
+                // BEFORE anyone touched anything. Translating `M` carries `S`
+                // with it by the same vector (§L-926 dependent-stem follow), so
+                // the station of `S` along `M` is INVARIANT and the overlap is
+                // the same 0.063 m afterwards. The old arm re-measured that
+                // standing condition, attributed it to the drag, and refused —
+                // and since no translation can change it, the wall could never
+                // be moved again by any gesture. A refusal whose stated remedy
+                // ("move the opening in the way first") is on the very wall the
+                // user is dragging is the escape hatch that is not one.
+                //
+                // ⛔ THIS IS NARROW BY CONSTRUCTION AND MUST STAY SO. Only a
+                // crossing that is the SAME crossing (same host, same opening)
+                // and NO DEEPER than it already was is downgraded. A crossing
+                // this cascade would newly create, or would deepen, still
+                // refuses with its full sentence — §B-g (a partition slid along
+                // until it passes clean through a door) is untouched, and so is
+                // every geometric impossibility. This does not weaken the
+                // predicate; it stops the predicate answering a question about
+                // the past as if it were about the gesture.
+                let novel: readonly WallCrossingViolation[] = spatial.violations;
+                if (preWalls) {
+                    // The BEFORE evaluation is static: no `currentBaseLine`,
+                    // because there is no move in progress in that world. It can
+                    // therefore only ever find MORE than the after evaluation,
+                    // never fewer — which is the safe direction for a filter.
+                    const priorCandidate: CandidateWall = {
+                        id: candidate.id!,
+                        levelId: candidate.levelId,
+                        thickness: candidate.thickness,
+                        baseLine: this.preGesturePose(e, wall),
+                        ...(candidate.curve !== undefined ? { curve: candidate.curve } : {}),
+                    };
+                    const before = findWallOpeningCrossings(priorCandidate, preWalls).violations;
+                    const priorDepth = new Map<string, number>();
+                    for (const v of before) {
+                        priorDepth.set(crossingKey(v), Math.max(priorDepth.get(crossingKey(v)) ?? 0, v.overlapM));
+                    }
+                    novel = spatial.violations.filter((v) => {
+                        const prior = priorDepth.get(crossingKey(v));
+                        return prior === undefined || v.overlapM > prior + PRE_EXISTING_TOL_M;
+                    });
                 }
+
+                if (novel.length === 0) {
+                    // REPORTED, NOT REFUSED — the same disposition §L-942-UNBLOCK
+                    // gives the incumbent arm. The fact is true and the user is
+                    // entitled to it; it is simply not a consequence of what they
+                    // just did, so it may not veto what they just did.
+                    preExisting.push(
+                        `${e.wallId}: ` +
+                        wallCrossesOpeningRefusalText(spatial.violations, []),
+                    );
+                    continue;
+                }
+
+                // §L-990 — THE CANDIDATE IS NAMED. `wallCrossesOpeningRefusalText`
+                // says "this wall" and never which; the sibling
+                // `OPENING_DOES_NOT_FIT` arm above has always prefixed `e.wallId`
+                // and this one never did. The founder therefore read a sentence
+                // about a CASCADED PARTNER as a sentence about the wall they
+                // dragged, and concluded — reasonably — that a wall was colliding
+                // with its own window. Offers are recomputed against the surviving
+                // violations so the numbers in the sentence and the numbers in the
+                // offer describe the same set (C83 §4.2).
+                crossingIssues.push(
+                    `${e.wallId}: ` +
+                    wallCrossesOpeningRefusalText(
+                        novel,
+                        novel.length === spatial.violations.length
+                            ? spatial.offers
+                            : computeWallCrossingOffers(candidate, allWalls, novel, spatial.undetermined),
+                    ),
+                );
+            }
+            if (preExisting.length > 0) {
+                console.warn(
+                    `[CascadeWallBaselineCommand] §L-990 ${preExisting.length} crossing(s) in this ` +
+                    `'${this.cause}' cascade were ALREADY STANDING before the gesture and are ` +
+                    `REPORTED, NOT REFUSED — the same disposition §L-942-UNBLOCK gives the ` +
+                    `incumbent arm. They are unchanged by this move; Ctrl+Z reverts the move but ` +
+                    `will not remove them.`,
+                    { preExisting },
+                );
             }
             if (crossingIssues.length > 0) {
                 return {
                     ok: false,
                     reason: 'OCC_CROSSES_HOSTED_OPENING',
                     blockingIssues: crossingIssues,
+                    ...(preExisting.length > 0 ? { warnings: preExisting } : {}),
                 };
+            }
+            if (preExisting.length > 0) {
+                return { ok: true, warnings: preExisting };
             }
         }
 
         return { ok: true };
+    }
+
+    /**
+     * §L-990 — the wall list AS IT STOOD BEFORE THE GESTURE, or `null` when that
+     * is not knowable.
+     *
+     * Only ONE wall differs between the cascade's world and the pre-gesture
+     * world at the moment `canExecute` runs: the SUBJECT, which has already been
+     * re-baselined (on the real path by `UpdateWallBaselineCommand`, on the
+     * pre-flight path by `moveReweldPreflight`'s shim). The cascade's own
+     * entries have not been applied yet — that is what `canExecute` means — so
+     * every other wall is already at its pre-gesture pose.
+     *
+     * Returns `null` without `movedSubject`, and the caller then attempts no
+     * attribution at all. C83 §5.3's reading, applied to this question.
+     */
+    private preGestureWalls(all: readonly WallData[]): readonly WallData[] | null {
+        const ms = this.movedSubject;
+        if (!ms) return null;
+        let found = false;
+        const out = all.map((w) => {
+            if (w.id !== ms.wallId) return w;
+            found = true;
+            return {
+                ...w,
+                baseLine: [{ ...ms.prevBaseLine[0] }, { ...ms.prevBaseLine[1] }],
+            } as WallData;
+        });
+        // The subject is not in the list this command was handed. Rather than
+        // pretend the reconstruction succeeded, decline to attribute anything.
+        return found ? out : null;
+    }
+
+    /** §L-990 — where THIS entry's wall stood before the gesture. */
+    private preGesturePose(
+        e: CascadeWallBaselineEntry,
+        wall: { baseLine?: readonly Point3D[] },
+    ): readonly [Point3D, Point3D] {
+        if (this.movedSubject && e.wallId === this.movedSubject.wallId) {
+            return this.movedSubject.prevBaseLine;
+        }
+        // A caller that supplied `prevBaseLine` did so precisely because the
+        // store was already mutated; prefer it over the store for that reason.
+        if (e.prevBaseLine) return e.prevBaseLine;
+        const bl = wall.baseLine;
+        if (bl && bl.length >= 2) return [bl[0]!, bl[1]!];
+        return [e.newBaseLine[0], e.newBaseLine[1]];
     }
 
     /**

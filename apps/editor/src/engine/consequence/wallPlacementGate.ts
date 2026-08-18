@@ -174,6 +174,28 @@ export interface WallPlacementGateResult {
   readonly surfaced: boolean;
   /** Why nothing was evaluated, when that is the case — never conflated with "clear". */
   readonly skipped?: 'suppressed' | 'no-wall-store';
+  /**
+   * §L-990 — THE REASON THIS GATE BLOCKED, whichever arm blocked.
+   *
+   * ⚠ ADDED because two call sites logged `verdict?.reason` and the founder's
+   * console read `§C83-S1-MOVE REFUSED wall.updateBaseline — undefined`. On
+   * three of this gate's five blocking arms — the re-weld cascade, the slab
+   * weld, and the slab UNDETERMINED arm — `verdict` is a **valid** verdict
+   * (the wall's own placement WAS clear) and therefore carries no `reason` at
+   * all. The refusal was never reasonless; the field the caller reached for
+   * simply belonged to a different question. A refusal that prints `undefined`
+   * is indistinguishable from a fabricated one (L-966), so the reason is now
+   * carried on the RESULT, next to `blocked`, and every arm sets it.
+   */
+  readonly refusalReason?: string;
+  /**
+   * §L-990 — facts that were TRUE BEFORE the gesture and did not refuse it.
+   *
+   * Present on an ALLOWED result. Kept out of `refusalReason` on purpose: a
+   * reported condition and a blocking one must never share a field, or the next
+   * reader cannot tell which of them stopped the move.
+   */
+  readonly reported?: readonly string[];
 }
 
 // The card used when the confirmation FLOW has not been composed in this session
@@ -312,7 +334,12 @@ export function gateWallPlacement(candidate: CandidateWall): WallPlacementGateRe
   const verdict = evaluateWallPlacement(candidate, walls);
   if (verdict.valid) return { blocked: false, verdict, surfaced: false };
 
-  return { blocked: true, verdict, surfaced: surfaceRefusal(verdict) };
+  return {
+    blocked: true,
+    verdict,
+    surfaced: surfaceRefusal(verdict),
+    refusalReason: verdict.reason ?? verdict.code ?? 'OCC_CROSSES_HOSTED_OPENING',
+  };
 }
 
 /**
@@ -556,10 +583,20 @@ export function gateWallMove(
     // The chat host carries its OWN §PROMPT-REACHES-A-HUMAN guarantee: it opens
     // the panel, waits for a transcript, and falls back to a VISIBLE card rather
     // than a console line. So in a document, routing to it IS surfacing.
-    return { blocked: true, verdict, surfaced: typeof document !== 'undefined' };
+    return {
+      blocked: true,
+      verdict,
+      surfaced: typeof document !== 'undefined',
+      refusalReason: verdict.reason ?? verdict.code ?? 'OCC_CROSSES_HOSTED_OPENING',
+    };
   }
   if (!verdict.valid) {
-    return { blocked: true, verdict, surfaced: surfaceRefusal(verdict) };
+    return {
+      blocked: true,
+      verdict,
+      surfaced: surfaceRefusal(verdict),
+      refusalReason: verdict.reason ?? verdict.code ?? 'OCC_CROSSES_HOSTED_OPENING',
+    };
   }
 
   // ── §L-921-ATOMIC-GESTURE — the SECOND question, which nobody used to ask ───
@@ -574,6 +611,8 @@ export function gateWallMove(
   // Asked HERE because this is the one chokepoint the 3D gizmo drag-end and the
   // plan drag both funnel through, so both gestures become atomic without
   // either growing its own wiring, and the two cannot drift apart.
+  // §L-990 — carried out of the re-weld block so the ALLOWED return can report it.
+  let reportedPreExisting: readonly string[] | undefined;
   if (cur?.[0] && cur?.[1]) {
     const pre = previewReweldForMove(wallId, cur, newBaseLine);
 
@@ -628,8 +667,23 @@ export function gateWallMove(
         blocked: true,
         verdict,
         surfaced: speakRefusal(describeReweldRefusal(wallId, 'there', pre)),
+        // §L-990 — the reason the CASCADE gave, not the (valid, reasonless)
+        // verdict about the wall's own placement. This is the arm the founder's
+        // `— undefined` came from.
+        refusalReason:
+          `${pre.reason ?? 'CASCADE_REFUSED'}` +
+          (pre.blockingIssues?.length ? ` — ${pre.blockingIssues.join(' | ')}` : ''),
       };
     }
+
+    // §L-990 — REPORTED, NOT REFUSED. Recorded here, SPOKEN at the allowed
+    // return below: the two later arms can still refuse this move, and telling
+    // the user "the wall moved" before those have voted would be a report about
+    // something that did not happen.
+    if (pre?.preExistingIssues?.length) {
+      reportedPreExisting = pre.preExistingIssues;
+    }
+
     if (pre && pre.incumbentBreach) {
       console.warn(
         `[wallPlacementGate] §L-942-UNBLOCK wall ${wallId}: the re-weld would re-baseline ` +
@@ -676,7 +730,12 @@ export function gateWallMove(
       `NOTHING. The move is declined — an unrun check is not a passed check. Nothing ` +
       `dispatched. This is a PRYZM fault to fix, not a user error to report.`,
     );
-    return { blocked: true, verdict, surfaced: speakRefusal(slabPre.refusal.sentence) };
+    return {
+      blocked: true,
+      verdict,
+      surfaced: speakRefusal(slabPre.refusal.sentence),
+      refusalReason: `SLAB_WELD_UNDETERMINED — ${slabPre.undeterminedReason ?? 'unstated'}`,
+    };
   }
 
   if (slabPre && !slabPre.allowed && slabPre.refusal) {
@@ -691,8 +750,46 @@ export function gateWallMove(
     // geometry with different numbers. It carries its reason code inside the
     // prose (§REFUSAL-IDENTITY) and both numbers — what the wall would become,
     // and the floor it breaks.
-    return { blocked: true, verdict, surfaced: speakRefusal(slabPre.refusal.sentence) };
+    return {
+      blocked: true,
+      verdict,
+      surfaced: speakRefusal(slabPre.refusal.sentence),
+      refusalReason:
+        `${slabPre.refusal.code}` +
+        (slabPre.refusal.blockingIssues?.length
+          ? ` — ${slabPre.refusal.blockingIssues.join(' | ')}`
+          : ''),
+    };
   }
 
-  return { blocked: false, verdict, surfaced: false };
+  // §L-990 — the move is going ahead, and it carries a fact the user is
+  // entitled to: a crossing that was ALREADY STANDING before this drag and is
+  // unchanged by it. Spoken in the same channel the refusals use
+  // (§L-921-ONE-CHANNEL) because a `console.warn` is not a user-facing message
+  // — the lesson this module's own header opens with. It is deliberately NOT
+  // phrased as a refusal: refusing it would make the wall permanently unmovable
+  // while fixing nothing, which is the L-990 defect itself.
+  if (reportedPreExisting && reportedPreExisting.length > 0) {
+    const lines = reportedPreExisting.map((issue) => `  • ${issue}`).join('
+');
+    const plural = reportedPreExisting.length === 1 ? 'A wall already crosses' : 'Walls already cross';
+    void Promise.resolve().then(() => {
+      chatSay(
+        `Moving wall ${wallId}. One thing this move did NOT cause and does NOT change: ` +
+        `${plural} a hosted opening, by exactly as much before the move as after it.
+` +
+        `${lines}
+` +
+        `Reported, not refused — refusing it would make this wall unmovable without ` +
+        `fixing anything. Each line names the wall it is about, first.`,
+      );
+    });
+  }
+
+  return {
+    blocked: false,
+    verdict,
+    surfaced: false,
+    ...(reportedPreExisting ? { reported: reportedPreExisting } : {}),
+  };
 }

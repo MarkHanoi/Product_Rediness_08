@@ -172,6 +172,16 @@ export interface MoveReweldPreflightResult {
      * this array on the floor today; nothing that consumes this result may.
      */
     readonly blockingIssues?: readonly string[];
+    /**
+     * §L-990 — crossings that were ALREADY STANDING before this gesture.
+     *
+     * True, user-relevant, and NOT a reason to refuse: the move neither creates
+     * nor deepens them. Carried separately from `blockingIssues` for the reason
+     * §CONTEXT-DATA-HONESTY states — a fact reported and a fact that refused must
+     * never arrive in the same array, or the caller cannot tell which one stopped
+     * the gesture.
+     */
+    readonly preExistingIssues?: readonly string[];
     /** Which wall ids the refused cascade would have re-welded. */
     readonly partnerIds: readonly string[];
 }
@@ -352,7 +362,24 @@ function _previewMoveReweld(
                 ).map(w => (w.id === wallId ? movedMover : w)),
         };
 
-        const cmd = new CascadeWallBaselineCommand({ entries, cause: 'move-reweld' });
+        // §L-990 — the subject and its PRE-move pose, handed to the command so
+        // its attribution arm can reconstruct the world before the gesture.
+        // Without this the shim (which presents the mover at its NEW baseline)
+        // is the ONLY world the command can see, and a crossing that was
+        // already standing is indistinguishable from one this move creates —
+        // which is exactly how a wall with a stem near its own window became
+        // permanently unmovable.
+        const cmd = new CascadeWallBaselineCommand({
+            entries,
+            cause: 'move-reweld',
+            movedSubject: {
+                wallId,
+                prevBaseLine: [
+                    { x: prevBaseLine[0].x, y: prevBaseLine[0].y, z: prevBaseLine[0].z },
+                    { x: prevBaseLine[1].x, y: prevBaseLine[1].y, z: prevBaseLine[1].z },
+                ],
+            },
+        });
         const verdict = cmd.canExecute({ stores: { wallStore: shim } } as unknown as CommandContext);
 
         // ── C83 §10.2.2 — the INCUMBENT arm ──────────────────────────────────
@@ -408,6 +435,7 @@ function _previewMoveReweld(
             entries,
             reason: verdict.reason,
             blockingIssues: (verdict as { blockingIssues?: string[] }).blockingIssues,
+            preExistingIssues: (verdict as { warnings?: string[] }).warnings,
             partnerIds: entries.map(e => e.wallId),
             incumbentWallIds: incumbent.map(i => i.id),
             incumbentBreach,

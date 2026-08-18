@@ -150,6 +150,21 @@ export interface ReweldCommandManagerRef {
 export type ReweldCascadeCommandFactory = (input: {
     entries: MoveReweldEntry[];
     cause: 'move-reweld';
+    /**
+     * §L-990 — the subject of the gesture and where it stood BEFORE it.
+     *
+     * The cascade cannot otherwise tell a crossing this re-weld CREATES from one
+     * that was already standing when the user started dragging: by the time this
+     * subscriber runs, the subject has already been re-baselined, so the world
+     * the command sees contains the move. Handing it the previous baseline is
+     * what makes the difference computable. OPTIONAL on this mirror so a narrow
+     * injected factory that predates the field still satisfies the type; absent
+     * ⇒ no attribution ⇒ pre-§L-990 behaviour, byte-identically.
+     */
+    movedSubject?: {
+        wallId: string;
+        prevBaseLine: [Point3D, Point3D];
+    };
 }) => ReweldCommandLike;
 
 export interface WallMoveReweldServiceDeps {
@@ -473,7 +488,15 @@ export class WallMoveReweldService {
 
         this.propagating = true;
         try {
-            const cmd = this.deps.makeCascadeCommand({ entries, cause: 'move-reweld' });
+            // §L-990 — the pre-move pose travels WITH the cascade. `prevBL` is
+            // the same baseline this method already handed `computeMoveReweldCensus`
+            // as the moved wall's `prevBaseLine`, so the attribution arm and the
+            // weld engine are reasoning about one and the same "before".
+            const cmd = this.deps.makeCascadeCommand({
+                entries,
+                cause: 'move-reweld',
+                movedSubject: { wallId: wall.id, prevBaseLine: this.toBaseline(prevBL) },
+            });
             const validation = cmd.canExecute(cm.getContext());
             if (!validation.ok) {
                 // §L-921 — THE FOUNDER'S SILENT LINE. This branch used to be a

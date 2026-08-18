@@ -236,10 +236,32 @@ export function describeReweldRefusal(
     offerLabel: string,
     pre: MoveReweldPreflightResult,
 ): string {
+    // §L-990 — THE SENTENCE THAT CONTRADICTED ITSELF, AND WHY IT DID.
+    //
+    // This head used to assert, flatly, *"That position is clear of every
+    // opening"* — and the arm below then printed
+    // `[OCC_CROSSES_HOSTED_OPENING] this wall cannot be placed here: it would
+    // pass straight through the window … on wall <the wall being moved>`. Both
+    // sentences were TRUE and they were about DIFFERENT SUBJECTS: the head is
+    // about the wall the user dragged, the arm is about a wall the RE-WELD would
+    // carry — and neither said so. The founder read one subject, saw their own
+    // wall named as the host of the offending window, and reasonably concluded
+    // the system thought a wall collided with its own opening.
+    //
+    // The fix is not to soften either claim. It is to say which is which, in the
+    // head, before the arms are read. `wallCrossesOpeningRefusalText` says "this
+    // wall" and names no candidate; `CascadeWallBaselineCommand` now prefixes
+    // each issue with the wall id it is about, so the arms below are readable on
+    // their own — and this head tells the user why a wall they did not touch is
+    // being discussed at all.
+    const carried = pre.partnerIds.filter((id) => id !== wallId);
     const head =
-        `I did not move wall ${wallId} ${offerLabel}. That position is clear of every opening, ` +
-        `but the junction re-weld it depends on cannot be done soundly, and moving without it ` +
-        `would leave the corner open — so I did neither. Nothing has changed.`;
+        `I did not move wall ${wallId} ${offerLabel}. **That wall's own position is clear of ` +
+        `every opening** — what follows is NOT about where you put it. Moving it requires ` +
+        `re-welding the junction${carried.length === 1 ? '' : 's'} it makes with ` +
+        `${carried.length > 0 ? carried.join(', ') : 'its neighbours'}, and that re-weld ` +
+        `cannot be done soundly; moving without it would leave the corner open — so I did ` +
+        `neither. Nothing has changed. Each line below names the wall it is about, first.`;
 
     const arms: string[] = [];
 
@@ -264,8 +286,14 @@ export function describeReweldRefusal(
 
     return (
         `${head}\n${arms.join('\n')}\n` +
+        // §L-990 — the escape hatch, stated so it can actually be reached. The
+        // old tail said "move the opening in the way first" without saying WHICH
+        // wall that opening is on — and it is frequently on the wall being
+        // dragged, which makes the advice read as impossible. Each arm above now
+        // names its host wall; this points at that name.
         `To make this position available: move the wall somewhere that breaks no existing ` +
-        `junction, or move the opening in the way first.`
+        `junction, or move the opening named above — check which WALL it says the opening ` +
+        `is on, which may be the wall you are dragging.`
     );
 }
 

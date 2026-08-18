@@ -191,9 +191,18 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                         // indistinguishable from no refusal at all.
                         const spatialMove = gateWallMove(wallId, [newStart, newEnd]);
                         if (spatialMove.blocked) {
+                            // §L-990 — THE FOUNDER'S `— undefined`. This line read
+                            // `spatialMove.verdict?.reason`, and on the arm that
+                            // actually refused their move (the §L-921 re-weld
+                            // cascade) the verdict is VALID and carries no reason:
+                            // the wall's own placement was clear, the cascade was
+                            // not. The reason was computed and thrown away one
+                            // field to the left. A refusal that prints `undefined`
+                            // is indistinguishable from a fabricated one.
                             console.warn(
                                 '[WallTransform] §C83-S1-MOVE REFUSED wall.updateBaseline —',
-                                spatialMove.verdict?.reason,
+                                spatialMove.refusalReason ?? spatialMove.verdict?.reason ?? 'UNSTATED (defect)',
+                                { verdictReason: spatialMove.verdict?.reason, surfaced: spatialMove.surfaced },
                             );
                             // Snap the MESH back to where the model still says it is.
                             // Without this the wall would sit visually across the door

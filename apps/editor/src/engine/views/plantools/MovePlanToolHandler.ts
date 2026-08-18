@@ -484,9 +484,16 @@ export class MovePlanToolHandler implements PlanToolHandler {
         // should name.
         const spatialMove = gateWallMove(id, next);
         if (spatialMove.blocked) {
+            // §L-990 — `verdict?.reason` alone printed `undefined` on three of
+            // this gate's five blocking arms, because on those arms the VERDICT
+            // is valid (the wall's own placement was clear) and the refusal came
+            // from the cascade or the slab weld. `refusalReason` is the reason
+            // whichever arm blocked; the verdict's own reason is kept beside it
+            // so the two are never conflated.
             console.warn(
                 '[MoveTool] §C83-S1-MOVE REFUSED wall move —',
-                spatialMove.verdict?.reason,
+                spatialMove.refusalReason ?? spatialMove.verdict?.reason ?? 'UNSTATED (defect)',
+                { verdictReason: spatialMove.verdict?.reason, surfaced: spatialMove.surfaced },
             );
             hideConsequencePreview();
             // Nothing dispatched: the store still holds the pre-drag baseline at this
