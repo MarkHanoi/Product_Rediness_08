@@ -11,7 +11,7 @@ import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-th
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 // §FEAT-WALL-SIDE-FINISH — the per-side override, resolved ONCE, in a pure module.
-import { resolveLayerRenderFinishColor } from './WallSideFinishResolver';
+import { resolveLayerRenderFinishColor, resolveWholeBodyFinishColor } from './WallSideFinishResolver';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
 import { PathResolver } from './PathResolver';
@@ -1240,8 +1240,28 @@ export class WallFragmentBuilder {
             // first (`layer.materialColor ?? …`). The same wall therefore resolves to
             // the same colour whichever arm a junction sends it down — which is the
             // invariant that was missing, not the value of any one default.
+            //
+            // §L960-WHOLE-BODY-FINISH — the new FIRST term, and it is the one that
+            // closes the founder's L-960. `resolveLayerRenderFinishColor` is reached
+            // only from inside the per-layer BAND loops; a plain, one-layer, unjoined,
+            // opening-free wall — the founder's — has no band and lands here, so it was
+            // told "Done" and drawn unchanged. The finish is honoured HERE rather than
+            // by excluding the wall from instancing (the L-955 rake fix) because a
+            // COLOUR IS NOT A SHEAR: a shear is not expressible in a T·R·S instance
+            // matrix, but a colour is just another material bucket, and
+            // `_getInstanceMaterial` already shares one material per distinct colour.
+            // Cost is one extra draw call per distinct FINISH, not per wall; excluding
+            // would have taken the founder's whole ground floor off the instanced arm
+            // to arrive at the identical pixels.
+            //
+            // It goes FIRST for the §L934-ONE-WALL-ONE-COLOUR reason: the layered arm's
+            // expression is `sideOverride ?? layer.materialColor ?? wall.materialColor
+            // ?? default` and consults no intent colour at all, so a finish already beats
+            // everything there. The same wall must not change colour when a neighbour
+            // mitres it and moves it to the other arm.
             const mat = this._getInstanceMaterial(
-                intentColour
+                resolveWholeBodyFinishColor(wall as never)
+                ?? intentColour
                 ?? _layers?.[0]?.materialColor
                 ?? wall.materialColor
                 ?? WALL_DEFAULT_BODY_COLOUR,
@@ -4219,6 +4239,21 @@ export class WallFragmentBuilder {
     }
 
     private createWallMaterial(wall?: WallData): THREE.Material {
+        // §L960-WHOLE-BODY-FINISH — the SECOND hole L-960 opened, measured rather
+        // than assumed. `resolveLayerRenderFinishColor` returns null for
+        // `layerCount <= 0`, and this function is the colour authority for every
+        // PLAIN (non-layered) arm — curved bodies, opening-bearing segments, the CSG
+        // and creased fallbacks. So a wall with no `layers` array at all (what
+        // `RoomFinishResolver` calls *"plain — single-volume, not layered"*) dropped
+        // its finish on the fragment path too, not only on the instanced one. Both
+        // spellings were built and measured before this line was written; both read
+        // the untouched default.
+        //
+        // A wall reaching here is drawn as ONE solid, so it has ONE surface and the
+        // whole-body rule applies verbatim — exterior wins, and the caller discloses
+        // that via `maskedSideAfterSetting` BEFORE it says "Done".
+        const finishColour = wall ? resolveWholeBodyFinishColor(wall as never) : null;
+
         // §M-H1 (DAILY-USE-AUDIT 2026-05-20) — resolve `wall.materialId` against
         // the STANDARD_MATERIAL_LIBRARY map (when both supplied) so picking
         // "Steel Stainless Polished" vs "Concrete Smooth" actually changes the
@@ -4251,7 +4286,12 @@ export class WallFragmentBuilder {
                 params.depthTest  = true;
                 // Honour the per-wall materialColor as a tint when set — lets
                 // the architect re-colour a "concrete-smooth" PBR wall to red.
-                if (wall?.materialColor && params.color === undefined) {
+                // An authored side finish is a deliberate, just-performed user action
+                // and outranks both the library colour and the per-wall tint — the
+                // alternative is a wall that silently disagrees with its own panel.
+                if (finishColour) {
+                    params.color = finishColour;
+                } else if (wall?.materialColor && params.color === undefined) {
                     params.color = wall.materialColor;
                 }
                 return new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
@@ -4270,7 +4310,7 @@ export class WallFragmentBuilder {
 
         if (this.currentVisualStyle === VisualStyle.REALISTIC && this.hdriTexture) {
             const mat = new THREE.MeshStandardMaterial({
-                color: wall?.materialColor || WALL_REALISTIC_MATERIAL.color,
+                color: finishColour || wall?.materialColor || WALL_REALISTIC_MATERIAL.color,
                 roughness: WALL_REALISTIC_MATERIAL.roughness,
                 metalness: WALL_REALISTIC_MATERIAL.metalness,
                 envMap: this.hdriTexture,
@@ -4280,7 +4320,7 @@ export class WallFragmentBuilder {
             });
             return mat;
         } else {
-            const color = wall?.materialColor || WALL_SCHEMATIC_MATERIAL.color;
+            const color = finishColour || wall?.materialColor || WALL_SCHEMATIC_MATERIAL.color;
             return new THREE.MeshStandardMaterial({
                 color: color,
                 roughness: WALL_SCHEMATIC_MATERIAL.roughness,
