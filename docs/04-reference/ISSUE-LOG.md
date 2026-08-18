@@ -7541,8 +7541,53 @@ is missing from the dead-verb table at `deadVerbAuthoritativeState.test.ts:199`;
 importers reference `baseOffset` nowhere; `DuplicateFloorPlanCommand` and `ImportProjectCommand`
 only round-trip it.
 
-**Status: OPEN.** `9c090971` is a characterisation ledger, not a fix — it records the numbers as
-they are so a real fix must come here and change them deliberately.
+**Status: CLOSED 2026-08-18 — `8f63fb6f`** (lane YD2). Verified by the orchestrator: the window
+leaf-in-hole suite is 4/4 and the rewritten ledger 10/10, both re-run independently.
+
+The fix names the thing that was missing. Six expressions computed a wall-related world Y and **none
+of them was the authority**; `WallVerticalDatum.ts` now declares two planes instead —
+**SEAT** = `level.elevation + slabBaseOffset` (the wall GROUP's origin) and **BASE** = SEAT +
+`wall.baseOffset` (the body underside, and what every world-space consumer reads).
+
+- **(A) The doubling** is gone, and notably *not* by stripping the group-local term. Five files
+  document the convention `y ∈ [baseOffset, baseOffset+height]`, and `SpatialAuthority`'s fallback at
+  `:1102` returns `elevation + baseOffset` — rewriting that convention would have been a much larger
+  and more dangerous change than seating the GROUP on the SEAT plane, which makes `baseOffset` land
+  exactly once. `WallRebuildCoordinator.ts:546` needed **no edit**: its formula was always the BASE
+  plane and was always correct.
+- **(B) Hosted leaves** cannot re-derive `slabBaseOffset` — it lives on the slab store, which neither
+  geometry package depends on and which `SlabWallCoupling`'s own contract forbids builders to read.
+  So the one site that already resolves it now *publishes* it. Their rake pivot was silently wrong on
+  a raised slab too, and now uses the same number.
+- **(C) Junction infill** reads the published base plane, so **the baseline-Y double meaning is no
+  longer load-bearing for any render datum** — the ambiguity survives but nothing renders from it.
+
+**A FOURTH defect, on no register:** `_wallGeometryChanged` in *both* dependency trackers omitted
+`baseOffset` entirely — **the edit that moved the hole never re-anchored what fills it.** Both now
+also subscribe to base-plane changes, the only channel that can carry a `slabBaseOffset` edit to a
+leaf, which additionally kills an ordering race between the `wallStore` cascade and the geometry
+flush.
+
+**Now agree (leaf-vs-hole delta = 0):** wall group · layered arm · miter-prism arm · hole band ·
+in-wall frames · instanced arm · hit proxy · junction infill · door leaf · window leaf · rake pivot.
+
+**Still divergent, named rather than quietly left** (`§STILL-DIVERGENT` at the foot of the ledger):
+(1) `SpatialAuthority.resolveWorldTransform` (`SpatialAuthority.ts:159`) never sees `slabBaseOffset`,
+delta = `slabBaseOffset` — closing it means deciding whether the spatial authority may read the slab
+store, which is a design decision, not a patch; (2) the baseline-Y double meaning, two writers, both
+outside these packages; (3) `WallLayerPlanSymbolBuilder.ts:143` places the plan cut line on the
+baseline datum — nothing visible moves, and re-seating a plan cut plane is a draughting decision with
+its own baselines; (4) cosmetic — the gizmo now sits at the seat rather than the base on a plinth
+wall; drag is delta-based, so behaviour is unchanged.
+
+**CSG arm: still OFF, and correctly so.** One of its two cited blockers is now closed. The other is
+**unmeasured**: whether the `geometry-kernel` producer honours `baseOffset` the way
+`WallHoleBodyBuilder` does. ⚠ **Founder's call — do not re-enable on the strength of the closed half.**
+
+~~`9c090971` is a characterisation ledger, not a fix — it records the numbers as
+they are so a real fix must come here and change them deliberately.~~ That is exactly what happened:
+the ledger was rewritten with the corrected numbers, and **every pre-fix reading is kept as the paired
+negative assertion, so the doubling cannot return silently.**
 
 ## L-969 — plan roofs floated 0.8 m clear of their own walls: a ternary whose left arm could never run (CLOSED)
 

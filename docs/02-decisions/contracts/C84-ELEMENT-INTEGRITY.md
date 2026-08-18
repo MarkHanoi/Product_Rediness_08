@@ -1162,8 +1162,19 @@ as *"fine"* and is indistinguishable from *"nobody looked"*).
   come here and change them deliberately. Its CONTROL case pins that **at zero offsets every datum
   collapses to one value**, which is precisely why this went unseen for so long.
 
-  ⛔ **The single-volume CSG arm (`WallFragmentBuilder.ts:2666-2689`) must stay off until these
-  converge.** Status of the underlying defect: **OPEN**.
+  ✅ **CLOSED 2026-08-18 — `8f63fb6f`.** `WallVerticalDatum.ts` now declares the two planes (SEAT =
+  `elevation + slabBaseOffset`, the group origin; BASE = SEAT + `wall.baseOffset`, the body
+  underside). Eleven datums agree and the leaf-vs-hole delta is **0**. A **fourth** defect surfaced
+  and was fixed: both dependency trackers omitted `baseOffset` from `_wallGeometryChanged`, so the
+  edit that moved a hole never re-anchored what fills it. Four divergences remain, each named with
+  its delta in `§STILL-DIVERGENT`; the largest is `SpatialAuthority.ts:159`, which cannot see
+  `slabBaseOffset` and whose closure is a design decision (may the spatial authority read the slab
+  store?), not a patch.
+
+  ⛔ **The single-volume CSG arm (`WallFragmentBuilder.ts:2666-2689`) STAYS OFF.** One of its two
+  cited blockers is closed; the other — whether the `geometry-kernel` producer honours `baseOffset`
+  the way `WallHoleBodyBuilder` does — is **unmeasured**. Re-enabling on the strength of the closed
+  half is exactly the inference this contract exists to prevent. **Founder's call.**
 
 - **`ADR-0331 §D5 — "what is Stack B for?"`** — ⛔ **A FOUNDER QUESTION, escalated, not to be resolved
   by any lane.** Three coherent end-states are costed in ADR-0331. **Until it is decided, NOTHING in
