@@ -25,7 +25,7 @@
 
 import * as THREE from 'three';
 import { setupContextLossHandlers } from '../contextLossHandlers.js';
-import { trackRenderObjectsForRetirement, retireRenderer } from '../rendererRetirement.js';
+import { trackRenderObjectsForRetirement, retireRenderer, isDeliberateDeviceDestroy } from '../rendererRetirement.js';
 import type { RendererHandle } from '../RendererHandle.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -201,6 +201,17 @@ export class WebGPURendererAdapter implements RendererHandle {
               '[renderer-three/WebGPURendererAdapter] WebGPU device lost: ' +
               `reason="${info.reason}", message="${info.message}"`,
             );
+            // §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) — `reason="destroyed"` means
+            // `device.destroy()` was CALLED, which is the last step of retireRenderer()
+            // on every live backend swap (ADR-0077) and every device-loss rebuild. It is
+            // OUR teardown, not a failure. Firing onContextLost for it kicks the app-level
+            // recovery pipeline for a fault that did not occur — which itself retires a
+            // renderer and destroys another device. `createRenderer.ts` already guarded
+            // this and stopped; this handler, on the SAME device, did not, and both
+            // printed back to back in the founder's 2026-08-18 capture. The rule now lives
+            // once, in the module that CAUSES the reason. The raw info is still logged
+            // above verbatim — nothing is suppressed, only mis-classification is.
+            if (isDeliberateDeviceDestroy(info)) return;
             // Fire onContextLost callbacks — app-level recovery wired by caller.
             adapter._lostCallbacks.forEach(cb => cb());
             // Note: onContextRestored callbacks are NOT fired for native WebGPU

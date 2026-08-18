@@ -177,12 +177,21 @@ export type { ReallocatableLightShadow } from './safeDispose.js';
 // L2). three r183's `RenderObjects.dispose()` does not — it is `this.chainMaps = {}`
 // — so a retired renderer keeps listening on three's module-global shadow material
 // and the first material compiled on the NEW backend throws `usedTimes` forever.
+// §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) — `isDeliberateDeviceDestroy()` is the
+// SINGLE authority for "did the device fail, or did we destroy it ourselves?".
+// `GPUDevice.lost` resolves for both; `reason="destroyed"` means `device.destroy()`
+// was called, which is the last step of `retireRenderer()` on every live backend
+// swap and every device-loss rebuild. Every `gpuDevice.lost` handler dispatches into
+// this instead of re-testing the literal, so a deliberate teardown can never
+// masquerade as a failure and kick recovery for a fault that did not occur.
 export {
   trackRenderObjectsForRetirement,
   trackedRenderObjectCount,
   disposeTrackedRenderObjects,
   retireRenderer,
+  isDeliberateDeviceDestroy,
 } from './rendererRetirement.js';
+export type { DeviceLostReasonLike } from './rendererRetirement.js';
 
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard

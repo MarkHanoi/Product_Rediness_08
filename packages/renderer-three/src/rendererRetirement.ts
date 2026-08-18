@@ -286,3 +286,59 @@ export function retireRenderer(renderer: unknown): number {
     }
     return detached;
 }
+
+/* ─── §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) ─────────────────────────────
+ *
+ * `GPUDevice.lost` resolves for TWO categorically different events, and the WebGPU
+ * spec distinguishes them in the one field nothing here was reading:
+ *
+ *   reason = "unknown"    — the DEVICE FAILED. The driver reset, the GPU hung, the
+ *                           browser evicted us. Nobody chose this; recovery is the
+ *                           correct response.
+ *   reason = "destroyed"  — `device.destroy()` was CALLED. That is US. It is the
+ *                           last step of {@link retireRenderer} → `renderer.dispose()`
+ *                           → `backend.destroy()`, i.e. the normal, intended end of
+ *                           every live backend swap (ADR-0077 §RENDERER-LIVE-SWAP),
+ *                           every device-loss REBUILD, and every adapter teardown.
+ *
+ * Treating the second as the first is a self-inflicted cascade: a deliberate
+ * teardown fires "context lost" at the app, which kicks the recovery pipeline, which
+ * retires a renderer, which destroys a device, which resolves another `lost`.
+ *
+ * MEASURED 2026-08-18 (founder, third production sample, alongside L-981):
+ *   [renderer-three/WebGPURendererAdapter] WebGPU device lost: reason="destroyed", …
+ *   [createRenderer] WebGPU device lost: reason="destroyed", …
+ * TWO handlers on the SAME device, printing back to back. `createRenderer.ts:391`
+ * had the guard — `if (info.reason === 'destroyed') return;` — and stopped.
+ * `WebGPURendererAdapter`'s did NOT, and fired its `onContextLost` callbacks anyway.
+ * One of the two was already right; the defect was that the rule lived as a literal
+ * inside one call site instead of as a shared, named authority both could consult.
+ *
+ * That is what this function is. It is the ONLY place the string `'destroyed'` is
+ * interpreted; both handlers dispatch into it. Deliberately here in
+ * `rendererRetirement` and not in an adapter: this module is what CAUSES the
+ * `destroyed` reason, so it is the module that gets to say the reason is ours.
+ *
+ * ⛔ NOT a suppression. Nothing is swallowed and no diagnostic is weakened — both
+ * call sites still log the raw `reason` and `message` verbatim before asking. What
+ * changes is only whether a DELIBERATE teardown is allowed to masquerade as a
+ * failure and trigger repair machinery for a fault that did not occur.
+ */
+
+/** The shape of `GPUDeviceLostInfo` this decision needs — structural, so no DOM/WebGPU lib types are required. */
+export interface DeviceLostReasonLike {
+    reason?: string;
+}
+
+/**
+ * §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) — true when a `GPUDevice.lost`
+ * resolution describes OUR OWN `device.destroy()` rather than a real device failure.
+ *
+ * Callers must still LOG the raw info; this only decides whether to run recovery.
+ *
+ * @param info the resolved `GPUDeviceLostInfo` (or anything carrying `.reason`).
+ * @returns true ⇒ deliberate teardown, do not treat as a loss and do not recover.
+ */
+export function isDeliberateDeviceDestroy(info: DeviceLostReasonLike | null | undefined): boolean {
+    return info?.reason === 'destroyed';
+}

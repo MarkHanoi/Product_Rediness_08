@@ -45,6 +45,11 @@ import {
   WebGLRendererAdapter,
   // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — see the recovery dispose below.
   retireRenderer,
+  // §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) — the single authority for "did the
+  // device fail, or did WE destroy it?". This file already had the rule right, as a
+  // literal; the identical handler in WebGPURendererAdapter did not, and both sit on
+  // the SAME device. The rule now lives once, in the module that causes the reason.
+  isDeliberateDeviceDestroy,
 } from '@pryzm/renderer-three';
 // §FEAT-SWAP-LOADING-OVERLAY (L-141) — the WebGPU device-loss recovery below
 // disposes the dead renderer and rebuilds a fresh one (a backend swap in all but
@@ -388,7 +393,11 @@ export async function createRenderer(
                         `[createRenderer] WebGPU device lost: reason="${info.reason}", message="${info.message}"`,
                     );
 
-                    if (info.reason === 'destroyed') return;
+                    // §DEVICE-DESTROY-IS-NOT-DEVICE-LOSS (L-1001) — was the literal
+                    // `info.reason === 'destroyed'`. Same decision, now taken by the
+                    // shared authority so this handler and the adapter's handler on the
+                    // SAME device cannot disagree (they did — see L-1001).
+                    if (isDeliberateDeviceDestroy(info)) return;
 
                     // §L-324 SS-FIX-RECOVERY-LOOP-TERMINAL-STATE — if we have already reached the
                     // terminal "reload required" state, do NOT attempt any further recovery: another
