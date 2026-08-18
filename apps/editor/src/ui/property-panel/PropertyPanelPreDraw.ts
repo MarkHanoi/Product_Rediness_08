@@ -20,6 +20,12 @@ import { setActiveWallSystemTypeId } from '../../engine/views/plantools/activeWa
 import { buildSlabTypeSelectorWidget } from './SlabTypeSelectorWidget';
 import { buildCeilingTypeSelectorWidget } from './CeilingTypeSelectorWidget';
 import { buildFloorTypeSelectorWidget } from './FloorTypeSelectorWidget';
+// §FEAT-CURTAIN-WALL-CREATE-TYPE (L-964) — the creation panel reads the SAME
+// registry declaration the property panel does, so it can never list a different
+// set of types than the one a selected wall offers.
+import { buildGenericTypeSelectorWidget } from './GenericTypeSelectorWidget';
+import { resolveElementTypeCatalog } from './ElementTypeCatalogRegistry';
+import { curtainWallTypeStore, resolveCurtainWallTypeFields } from '@pryzm/core-app-model';
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowSystemTypeStore } from '@pryzm/geometry-window';
 // §FEAT-HOSTED-TYPE-AUTHORING (C65) — shared Duplicate/New machinery for the
@@ -644,10 +650,80 @@ export function showCurtainWallPreDraw(host: PreDrawPanelHost, curtainWallTool: 
     let uSpacing:  number = cfg.uSpacing  ?? 1.5;
     let vSpacing:  number = cfg.vSpacing  ?? 1.0;
     let mullion:   number = cfg.mullionSize ?? 0.05;
+    // §FEAT-CURTAIN-WALL-CREATE-TYPE (L-964) — the armed type and the finish it resolves to.
+    let armedTypeId: string | undefined = cfg.systemTypeId;
+    let armedFinish: Record<string, unknown> = {};
+
+    let uField: HTMLElement | undefined;
+    let vField: HTMLElement | undefined;
+    let mField: HTMLElement | undefined;
 
     function pushConfig(): void {
-        curtainWallTool?.setPredrawConfig?.({ height, uSpacing, vSpacing, mullionSize: mullion });
+        curtainWallTool?.setPredrawConfig?.({
+            height, uSpacing, vSpacing, mullionSize: mullion,
+            systemTypeId: armedTypeId,
+            ...armedFinish,
+        });
     }
+
+    /** Push the resolved numbers back into the demoted inputs. */
+    function syncFieldInputs(): void {
+        const set = (el: HTMLElement | undefined, v: number): void => {
+            const inp = el?.querySelector('input');
+            if (inp) (inp as HTMLInputElement).value = String(v);
+        };
+        set(uField, uSpacing);
+        set(vField, vSpacing);
+        set(mField, mullion);
+    }
+
+    // ── §FEAT-CURTAIN-WALL-CREATE-TYPE (L-964) — arm a published type ────────
+    //
+    // The founder's report: the WALL creation panel offers a type dropdown and this one
+    // asked for four raw numbers. The types already existed (L-958), so this is the last
+    // mile — and the numbers this form was asking for are exactly what a type carries.
+    //
+    // ⛔ THE LIST IS NOT DUPLICATED. It comes from the SAME `ElementTypeCatalogRegistry`
+    // declaration the property panel renders, which reads `CurtainWallTypeStore`. A
+    // hand-copied list here would be a second enumeration of one fact (C84 EI-9) and would
+    // silently omit every type published later — invisible until someone asked why a type
+    // they can see when a wall is SELECTED is missing when they go to DRAW one.
+    //
+    // HEIGHT IS NOT A TYPE PROPERTY. A published type is height-agnostic:
+    // `transomCourse: undefined` means "top and bottom rails only", and the V spacing that
+    // expresses it depends on the wall's own height, because `migrateToGridSystem` computes
+    // numV = max(1, floor(height / vSpacing)). So the type is re-resolved when HEIGHT
+    // changes as well as when the TYPE changes — otherwise picking a type at 3 m and then
+    // typing 6 m would lay a transom across a facade that asked for none.
+    const armType = (rawId: string | undefined): void => {
+        const id = rawId && !rawId.startsWith('__') ? (rawId || undefined) : undefined;
+        armedTypeId = id;
+        const def = id ? curtainWallTypeStore.getById(id) : undefined;
+
+        if (def) {
+            const fields = resolveCurtainWallTypeFields(def, height) as Record<string, unknown>;
+            uSpacing = fields.gridXSpacing as number;
+            vSpacing = fields.gridYSpacing as number;
+            mullion  = fields.mullionSize as number;
+            armedFinish = {
+                panelThickness:    fields.panelThickness,
+                mullionMaterialId: fields.mullionMaterialId,
+                mullionColor:      fields.mullionColor,
+                glazingMaterialId: fields.glazingMaterialId,
+            };
+            hint.textContent = `✓ ${def.name} ready — click two points on the canvas.`;
+        } else {
+            armedFinish = {};
+            hint.textContent =
+                '✓ Plain Curtain Wall ready — click two points on the canvas. Change type below (optional).';
+        }
+        hint.style.color = 'rgba(255,255,255,0.85)';
+        // Keep the demoted fields showing what the wall will actually be built with. A
+        // stale readout here is the "panel says one thing, model does another" defect in
+        // miniature.
+        syncFieldInputs();
+        pushConfig();
+    };
 
     function makeField(labelText: string, value: number, min: number, max: number, step: number, onChange: (v: number) => void): HTMLElement {
         const wrap = document.createElement('div');
@@ -677,12 +753,54 @@ export function showCurtainWallPreDraw(host: PreDrawPanelHost, curtainWallTool: 
         return wrap;
     }
 
-    header.appendChild(makeField('Height (m)',          height,   0.5,  50, 0.1,  v => { height   = v; }));
-    header.appendChild(makeField('Grid Spacing U (m)',  uSpacing, 0.1,  10, 0.1,  v => { uSpacing = v; }));
-    header.appendChild(makeField('Grid Spacing V (m)',  vSpacing, 0.1,  10, 0.1,  v => { vSpacing = v; }));
-    header.appendChild(makeField('Mullion Size (m)',    mullion,  0.01, 0.5, 0.01, v => { mullion  = v; }));
+    // ── The TYPE picker, first — it is the primary control now ──────────────
+    const cwCatalog = resolveElementTypeCatalog('curtainwall');
+    const typeWidget = cwCatalog
+        ? buildGenericTypeSelectorWidget(
+            cwCatalog,
+            { elementType: 'curtainwall', systemTypeId: armedTypeId ?? '' },
+            (payload) => armType(payload.typeId || undefined),
+        )
+        : null;
+    if (typeWidget) {
+        header.appendChild(typeWidget);
+        // §FIX-PLAN-WALL-TYPE-ARM-ON-SELECT (L-115), same reasoning as the wall panel:
+        // SELECTION alone arms the type. Requiring an Apply click is how a panel comes to
+        // say "Plain ready" while a type is visibly chosen in the dropdown.
+        const sel = typeWidget.querySelector('select');
+        if (sel) sel.addEventListener('change', () => armType((sel as HTMLSelectElement).value));
+    }
 
-    pushConfig();
+    // ── The raw parameters, DEMOTED but not removed ─────────────────────────
+    // The founder asked for a type panel, not for the numbers to disappear. HEIGHT is an
+    // INSTANCE property and stays first-class; the other three are what a type sets, so
+    // they move below a divider as overrides for the plain / fine-tuning case.
+    header.appendChild(makeField('Height (m)', height, 0.5, 50, 0.1, v => {
+        height = v;
+        // Re-resolve: a height-agnostic type's V spacing follows the wall's height.
+        if (armedTypeId) armType(armedTypeId);
+        else pushConfig();
+    }));
+
+    const advLabel = document.createElement('div');
+    advLabel.style.cssText =
+        'font-size:9px;letter-spacing:0.05em;text-transform:uppercase;' +
+        'color:rgba(255,255,255,0.35);margin:10px 0 4px;';
+    advLabel.textContent = 'Grid & mullion';
+    header.appendChild(advLabel);
+
+    uField = makeField('Grid Spacing U (m)',  uSpacing, 0.1,  10, 0.1,  v => { uSpacing = v; });
+    vField = makeField('Grid Spacing V (m)',  vSpacing, 0.1,  10, 0.1,  v => { vSpacing = v; });
+    mField = makeField('Mullion Size (m)',    mullion,  0.01, 0.5, 0.01, v => { mullion  = v; });
+    header.appendChild(uField);
+    header.appendChild(vField);
+    header.appendChild(mField);
+
+    // Seed the armed type + label exactly as the wall panel does: a pre-selected type is
+    // armed on open, otherwise the panel says Plain and the user can draw IMMEDIATELY
+    // without touching the dropdown. That default-to-drawable behaviour is the parity the
+    // founder asked for — not merely the presence of a widget.
+    armType(armedTypeId);
 
     const escNote = document.createElement('div');
     escNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.35);margin-top:6px;';

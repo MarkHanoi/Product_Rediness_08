@@ -73,6 +73,25 @@ interface CurtainWallPredrawConfig {
     uSpacing: number;
     vSpacing: number;
     mullionSize: number;
+    /**
+     * §FEAT-CURTAIN-WALL-CREATE-TYPE (L-964) — the published type the user armed in the
+     * creation panel, plus the finish fields that type resolves to.
+     *
+     * The TOOL stays dumb on purpose: it never reads `CurtainWallTypeStore` and never
+     * resolves a type. The panel does that (it already owns the catalogue through
+     * `ElementTypeCatalogRegistry`) and pushes the resolved numbers down here. Keeping the
+     * resolution in ONE place is the §FIX-STAIR-RAILING-TYPE-PICKER lesson: when the
+     * widget and the tool each project a catalogue onto fields, they drift.
+     *
+     * All optional — a wall drawn without choosing a type is still a valid plain curtain
+     * wall, which is the default the founder asked for ("click on canvas to draw" with no
+     * dropdown interaction required).
+     */
+    systemTypeId?: string;
+    mullionMaterialId?: string;
+    mullionColor?: string;
+    glazingMaterialId?: string;
+    panelThickness?: number;
 }
 
 const CURTAIN_WALL_PREDRAW_DEFAULTS: CurtainWallPredrawConfig = {
@@ -801,6 +820,21 @@ export class CurtainWallTool {
             gridXSpacing: this._predrawConfig.uSpacing,
             gridYSpacing: this._predrawConfig.vSpacing,
             levelId: activeLevelId,
+            // §FEAT-CURTAIN-WALL-CREATE-TYPE (L-964) — carry the armed type and its finish
+            // onto the new wall.
+            //
+            // ⚠ `mullionSize` was ALREADY being collected by the pre-draw panel and then
+            // DROPPED here, so `CreateCurtainWallCommand` fell back to its 0.08 default and
+            // the user's chosen mullion size never reached a single wall they drew. That is
+            // a pre-existing bug this line also fixes; it is grouped here rather than split
+            // out because leaving it would make the new type picker look broken for exactly
+            // the types whose mullion size differs from 0.08 — which is all of them.
+            mullionSize:       this._predrawConfig.mullionSize,
+            panelThickness:    this._predrawConfig.panelThickness,
+            systemTypeId:      this._predrawConfig.systemTypeId,
+            mullionMaterialId: this._predrawConfig.mullionMaterialId,
+            mullionColor:      this._predrawConfig.mullionColor,
+            glazingMaterialId: this._predrawConfig.glazingMaterialId,
         });
 
         const manager = this._getCommandManager();
