@@ -324,7 +324,9 @@ function concaveWingFaces(roof: RoofFaceSource, footprint: ReadonlyArray<Pt2>): 
         };
     }
     const { rects, angleRad, cx, cz } = decomp;
-    const slope = roof.slope ?? 0.4;
+    // The pitch is NOT read here: each wing's gable is derived by `gableFaces`
+    // from the SAME `roof` record, so the slope default lives in exactly one
+    // place. Re-reading it here would be a second default that can drift.
     const overhang = roof.overhang ?? 0;
 
     // The wings live in the de-rotated frame when the plan is rotated off the
