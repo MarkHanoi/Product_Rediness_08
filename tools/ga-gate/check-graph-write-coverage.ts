@@ -506,58 +506,63 @@ const LEDGER: readonly LedgerEntry[] = [
   // its `sitsOn` sibling) verbatim. That is a `check-graph-delete-integrity`
   // finding on the delete path, not a write-coverage one, and it is left to
   // that gate's ledger rather than silently absorbed here.
-  {
-    key: 'partOf/reader',
-    why: 'Room→unit containment. Written ONLY by the rebuild (rebuildSemanticGraph.ts) ' +
-      'from `room.unitId` — so the edge exists only after a load, never after a live ' +
-      'command — and no production path typed-reads it. Both halves are gaps; the writer ' +
-      'half is ledgered separately below. ' +
-      '⟨DECLINED 2026-08-13, deliberately, per C71 §2.5 — a reader must be added because a ' +
-      'CONSUMER needs it, never to satisfy this gate.⟩ A census of `room.unitId` readers ' +
-      '(36 property accesses, measured) finds NO currently-worse-off consumer. The forward ' +
-      'readers (SyncStateEngine._findAffectedNodes, ScheduleExtractor, SpatialQueryPanel, ' +
-      'RoomBoundaryBuilder, IfcSemanticWriter) already hold the room and take ONE property ' +
-      'access; routing them through `getTargets(roomId,\'partOf\')` would be more ' +
-      'indirection AND LESS CORRECT, since the edge is empty until a reload while the field ' +
-      'is right immediately. The 8 reverse scans ' +
-      '(`roomStore.getAll().filter(r => r.unitId === unitId)` in SyncStateEngine:408/503/525, ' +
-      'ScheduleExtractor:540, DataSheetPanel:454/493/512/557, AnalyticsPanel:266/312, ' +
-      'HierarchyTreeAddActions:275) are the strongest candidates and still fail the bar: ' +
-      'they are always right today, they run inside passes that already scan the room store ' +
-      'for area, and their sibling `getUnassignedRooms` ' +
-      '(HierarchyTreeAddActions:279, `filter(r => ... && !r.unitId)`) needs the ABSENCE set ' +
-      '— which an unwritten edge cannot answer. WorldModelAdapter, the component that would ' +
-      'most naturally want "which rooms are in this unit", does not model units at all ' +
-      '(zero occurrences of "unit" in the file). Converting a correct O(n) scan into a graph ' +
-      'call that is empty until reload is a REGRESSION, and parking an uncalled reader is ' +
-      'the authored-but-unwired hazard. Stays ledgered.',
-  },
-  {
-    key: 'partOf/writer',
-    why: 'No LIVE command writes `partOf`. The sole writer is the loader\'s reconstruction ' +
-      'from the authoritative `room.unitId` field. A room assigned to a unit in-session ' +
-      'carries no edge until the project is reloaded, which makes the graph and the ' +
-      'authoritative field disagree for the whole session — and GraphQueryService lists ' +
-      '`partOf` as supported, so `graph.query` answers that disagreement POSITIVELY with an ' +
-      'empty set. Its `unknown-element` refusal does NOT cover this case: it fires only when ' +
-      'the id is a node of NO edge at all, and a room carries `boundedBy`/`adjacentTo` edges, ' +
-      'so the room IS a node and the `partOf` question gets a confident `[]` (C71 §4.4). ' +
-      '⟨DECLINED 2026-08-13 — needs an ADR first, per C71 §2.5.⟩ The write site is obvious ' +
-      '(AssignRoomToUnitCommand.execute/undo at ' +
-      'packages/command-registry/src/hierarchy/, beside the `room.unitId` update), and adding ' +
-      'it would end the mid-session disagreement. It is NOT written here because §2.5 ' +
-      'requires the ADR to name the first CONSUMER, and the reader row above records that ' +
-      'no consumer is currently worse off — a writer justified only by "the gate wants a ' +
-      'pair" would manufacture the `sitsOn` defect on purpose (C71 §7.a). ' +
-      'THE PRIOR QUESTION THE ADR MUST SETTLE: should hierarchy nodes ' +
-      '(unit / level / building / site) be graph citizens AT ALL, or is ' +
-      '`hierarchyStore` + `parentId` the sole hierarchy substrate? The repo answers both ' +
-      'ways at once — `partOf`/`unitOf`/`levelOf` are in the vocabulary and advertised as ' +
-      'supported by GraphQueryService, while every production hierarchy traversal goes ' +
-      'through `hierarchyStore.getChildren`/`getUnits`/`parentId`. Answering that decides ' +
-      'this row AND the two parked siblings; answering it by shipping a writer decides it ' +
-      'by accident. Stays ledgered.',
-  },
+  // ── PAID 2026-08-17 · `partOf/writer` AND `partOf/reader`, together ───────
+  // Both halves left this ledger in the commit that paid them (C78 §20), and
+  // they left TOGETHER because a projection is not a writer plus a reader — it
+  // is one mechanism whose two ends cannot be shipped separately.
+  //
+  // THE PRIOR QUESTION IS ANSWERED. The `partOf/writer` row below used to end
+  // "should hierarchy nodes be graph citizens AT ALL, or is `hierarchyStore` +
+  // `parentId` the sole hierarchy substrate?" — and recorded that shipping a
+  // writer would answer it by accident. ADR-0325 answered NO (park it, forbid
+  // the writer). The founder REOPENED and answered it the other way on
+  // 2026-08-17, and ADR-0328 records it: hierarchy nodes ARE graph citizens,
+  // `hierarchyStore` + `parentId` REMAINS the sole storage substrate, and
+  // `partOf` is the DERIVED graph semantic over it —
+  //
+  //   "Do not create a second independent hierarchy source of truth. Graph
+  //    projection should be DERIVED FROM the hierarchy store rather than
+  //    maintained independently."
+  //
+  // WHY THE OLD REASONING NO LONGER HOLDS, rather than being overruled: both
+  // declines rested on ONE measured premise — the edge is empty until a reload
+  // while the field is right immediately, so a reader would be LESS correct and
+  // a writer would mint a second, lagging record. `PartOfProjection`
+  // (packages/core-app-model/src/hierarchy/) removes that premise instead of
+  // arguing with it. It RE-DERIVES from `hierarchyStore.parentId` and
+  // `room.unitId` at the moment of the read and RECONCILES the graph to the
+  // derivation, so the edge cannot lag the field, and an edge written
+  // independently does not survive the next read. There is still exactly one
+  // hierarchy source of truth and it is still the store.
+  //
+  // The `getUnassignedRooms` objection — an ABSENCE set is not derivable from
+  // an edge that may simply be unwritten — falls with it: a projection is TOTAL
+  // over the substrate it read, so "citizen with no parent" is a POSITIVE
+  // answer and "not a citizen" is a refusal. That distinction is the reason
+  // this is not the `sitsOn` defect: the reader asks the SUBSTRATE who is a
+  // citizen, never the graph.
+  //
+  // THE FIRST CONSUMER (C71 §2.5, which is what the ADR had to name):
+  // `GraphQueryService.query(id,'partOf')` — the AI query surface, which was
+  // REFUSING the question outright (`hierarchy-not-in-graph`, ADR-0325) purely
+  // because the edge could not be trusted. A refusal whose only justification
+  // was staleness is a regression once the staleness is gone. `unitOf` /
+  // `levelOf` stay PARKED and still refuse: one family was unparked on one
+  // consumer's evidence, not by family resemblance.
+  //
+  // Proven by executed tests, both watched RED before green:
+  //   • packages/core-app-model/src/hierarchy/PartOfProjection.test.ts — REPARENT
+  //     (an emit-only writer answers with BOTH parents) and NO-SECOND-SOURCE (a
+  //     hand-written edge becomes an answer if the reader does not re-derive).
+  //   • packages/ai-host/__tests__/graphQueryServiceParkedHierarchy.test.ts —
+  //     the consumer answers, tracks a mid-session reassignment, and still
+  //     refuses an unreadable substrate rather than reporting a positive [].
+  //
+  // ⚠ THE LEDGER IS NOW EMPTY, and that is a STATE CHANGE, not a tidy-up. Per
+  // the EXIT CONDITION above, this gate is hard-0 from here: ANY finding, in
+  // ANY of the ten REQUIRED members, is UNLEDGERED and exits 3. It should also
+  // leave `gate-newly-measured.json` — see this lane's report; that file is
+  // shared with concurrent lanes and is not edited here.
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

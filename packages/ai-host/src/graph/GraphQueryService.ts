@@ -66,20 +66,47 @@
  * defect, at the AI query surface, where the `[]` leaves the type system and
  * becomes English in a prompt.
  *
- * **ADR-0325 settles the prior question the C-INV-4 ledger recorded**:
+ * **ADR-0325 settled the prior question the C-INV-4 ledger recorded**:
  * `hierarchyStore` + `parentId` is the SOLE hierarchy substrate, and
  * `room.unitId` is the authoritative unit-containment field (shipped 806292f3).
- * Hierarchy nodes are not graph citizens. The three families therefore stay in
- * `RelationshipType` (C71 §2.4 — deleting them breaks `deserialize` on snapshot
- * v3) and stay PARKED (C71 §2.3 — parked is NOT a gap), but this surface must
- * REFUSE them and NAME the substrate that can answer.
+ * The three families stay in `RelationshipType` (C71 §2.4 — deleting them breaks
+ * `deserialize` on snapshot v3), and this surface must never answer a hierarchy
+ * question with an unestablished `[]`.
+ *
+ * ── ADR-0328 SUPERSEDES THE `partOf` HALF: IT IS ANSWERED, BY DERIVATION ─────
+ *
+ * The founder ruled (2026-08-17) that hierarchy nodes ARE graph citizens and
+ * that `partOf` is the **DERIVED** graph semantic over the same sole substrate:
+ * *"Do not create a second independent hierarchy source of truth. Graph
+ * projection should be DERIVED FROM the hierarchy store rather than maintained
+ * independently."*
+ *
+ * ADR-0325's reasoning is not overturned — its PREMISE is. It refused `partOf`
+ * because the edge lagged the field until a reload, so an answer here could not
+ * be trusted. `PartOfProjection` (@pryzm/core-app-model) removes the lag by
+ * re-deriving from `hierarchyStore.parentId` + `room.unitId` at the moment of
+ * the read, so there is no second record TO disagree. A refusal whose only
+ * justification was staleness becomes a REGRESSION once the staleness is gone
+ * (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH), so `partOf` is answered here.
+ *
+ * ⚠ `unitOf` / `levelOf` are UNCHANGED — still PARKED, still refused with
+ * `hierarchy-not-in-graph`. ADR-0328 unparks one family, on one consumer's
+ * evidence, exactly as C71 §2.5 requires; it does not unpark by association.
+ *
+ * ⚠ The `partOf` answer keeps the C71 §4.4 distinction that ADR-0325 was right
+ * to insist on, and gets it from the SUBSTRATE rather than from the edge set:
+ * an id the substrate does not know REFUSES (`unknown-element`), an id it knows
+ * with no parent answers a positive `[]`, and an unreadable room store REFUSES
+ * (`hierarchy-substrate-unreadable`) instead of reporting "in no unit".
  */
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import {
   semanticGraphManager as defaultSemanticGraphManager,
+  partOfProjection as defaultPartOfProjection,
   type SemanticGraphManager,
   type RelationshipType,
+  type PartOfParentQuery,
 } from '@pryzm/core-app-model';
 import { roomGraphService as defaultRoomGraphService } from '@pryzm/spatial-index';
 
@@ -100,11 +127,19 @@ function tracer(): Tracer {
 // causal, performance, lifecycle and intent families — is PARKED and answers
 // `unsupported-relationship`.
 //
-// ⚠ `partOf` / `unitOf` / `levelOf` were removed from this set by ADR-0325 and
-// moved to PARKED_HIERARCHY_RELATIONSHIPS below. Do not put them back without
-// superseding that ADR: re-adding them restores a confident `[]` to a question
-// this graph has never been able to answer.
+// ⚠ `unitOf` / `levelOf` were removed from this set by ADR-0325 and live in
+// PARKED_HIERARCHY_RELATIONSHIPS below. Do not put them back without superseding
+// that ADR: re-adding them restores a confident `[]` to a question this graph
+// has never been able to answer.
+//
+// ⚠ `partOf` IS here, and it is the one member of this set that is NOT answered
+// by a raw `getTargets`. ADR-0328 makes it a DERIVED projection, so both `query`
+// and `neighbors` route it through `_partOf` — which re-derives from the
+// hierarchy substrate before reading. Its presence in this set is what lets it
+// appear in the untyped `neighbors` sweep; it is NOT a licence to read the edge
+// directly, and a future caller that does will read a value nobody refreshed.
 const SUPPORTED_RELATIONSHIP_TYPES = new Set<RelationshipType>([
+  'partOf',
   'hosts',
   'hostedBy',
   'connectedTo',
@@ -125,8 +160,11 @@ const SUPPORTED_RELATIONSHIP_TYPES = new Set<RelationshipType>([
 // "unsupported" families because the refusal is DIFFERENT IN KIND and the caller
 // deserves the difference: a temporal family has no answer anywhere, whereas a
 // hierarchy question has a precise, authoritative answer — in another substrate.
+//
+// ⚠ ADR-0328 removed `partOf` from this set: it is now DERIVED and answerable.
+// `unitOf` and `levelOf` remain, because no consumer has asked for either and
+// C71 §2.5 unparks a family for a CONSUMER, never by family resemblance.
 const PARKED_HIERARCHY_RELATIONSHIPS = new Set<RelationshipType>([
-  'partOf',
   'unitOf',
   'levelOf',
 ]);
@@ -165,8 +203,20 @@ export type GraphRefusalReason =
    * SemanticGraph is not the hierarchy substrate; `hierarchyStore` + `parentId`
    * is, and `room.unitId` is the authoritative unit-containment field. This is
    * NOT "no such edge": it is "this graph cannot answer that question".
+   *
+   * ⚠ ADR-0328 narrowed this to `unitOf` / `levelOf`. `partOf` is derived and
+   * answered; see `hierarchy-substrate-unreadable` for its refusal.
    */
-  | 'hierarchy-not-in-graph';
+  | 'hierarchy-not-in-graph'
+  /**
+   * ADR-0328 — a `partOf` question whose SUBSTRATE could not be read (the room
+   * store is not registered). Distinct from `hierarchy-not-in-graph`: that says
+   * "this graph never answers this family", whereas this says "this family IS
+   * answerable and the authority was unreachable right now". Distinct from a
+   * positive `[]`, which would mean "established: in no unit"
+   * (§CONTEXT-DATA-HONESTY — failure and empty are not one value).
+   */
+  | 'hierarchy-substrate-unreadable';
 
 /**
  * The refusal text for a hierarchy family — it must NAME the substrate that can
@@ -270,6 +320,23 @@ export interface GraphQueryServiceDeps {
   readonly graph?: SemanticGraphManager | null;
   /** The room BFS service. `null` models "no composed room graph". */
   readonly rooms?: RoomGraphLike | null;
+  /**
+   * ADR-0328 — the DERIVED `partOf` projection over the hierarchy substrate.
+   * Injected so a test can drive the substrate under the service; the
+   * production default is the singleton bound to `hierarchyStore` + the
+   * registered room store.
+   */
+  readonly partOf?: PartOfProjectionLike | null;
+}
+
+/**
+ * The slice of `PartOfProjection` this surface uses. Structural on purpose: the
+ * service must not be able to reach the projection's WRITER, only its
+ * refusal-bearing reads and the reconcile that keeps them honest.
+ */
+export interface PartOfProjectionLike {
+  getParentOf(elementId: string): PartOfParentQuery;
+  refresh(): unknown;
 }
 
 /**
@@ -281,10 +348,56 @@ export interface GraphQueryServiceDeps {
 export class GraphQueryService {
   private readonly _graph: SemanticGraphManager | null;
   private readonly _rooms: RoomGraphLike | null;
+  private readonly _partOf: PartOfProjectionLike | null;
 
   constructor(deps: GraphQueryServiceDeps = {}) {
     this._graph = deps.graph === undefined ? defaultSemanticGraphManager : deps.graph;
     this._rooms = deps.rooms === undefined ? defaultRoomGraphService : deps.rooms;
+    this._partOf = deps.partOf === undefined ? defaultPartOfProjection : deps.partOf;
+  }
+
+  /**
+   * ADR-0328 — `graph.query(id, 'partOf')`, answered by DERIVATION.
+   *
+   * The projection's own refusals are mapped onto this surface's vocabulary
+   * rather than flattened: `element-not-in-hierarchy-substrate` is the
+   * `unknown-element` case (the hierarchy authority does not know this id), and
+   * `hierarchy-substrate-unreadable` is its own reason because "the authority
+   * was unreachable" is not "the id is unknown".
+   *
+   * The `unknown-element` check the other families use is deliberately NOT
+   * applied here: it asks whether the element is a node of the GRAPH, and a room
+   * that is a hierarchy citizen with no edges at all would fail it while having
+   * a perfectly good answer. Citizenship for this family is the substrate's
+   * question, and the projection is the only thing entitled to answer it.
+   */
+  private _queryPartOf(elementId: string): GraphQueryResult {
+    if (this._partOf === null) {
+      return {
+        ok: false,
+        elementId,
+        relationshipType: 'partOf',
+        reason: 'graph-unavailable',
+        detail:
+          'graph.query: no composed hierarchy projection is available, so `partOf` — which is ' +
+          'DERIVED from hierarchyStore + room.unitId (ADR-0328), never read raw — cannot be answered.',
+      };
+    }
+    const answer = this._partOf.getParentOf(elementId);
+    if (answer.ok) {
+      return { ok: true, elementId, relationshipType: 'partOf', targets: answer.parentIds };
+    }
+    return {
+      ok: false,
+      elementId,
+      relationshipType: 'partOf',
+      reason:
+        answer.reason === 'hierarchy-substrate-unreadable'
+          ? 'hierarchy-substrate-unreadable'
+          : 'unknown-element',
+      undetermined: 'RELATIONSHIP_NOT_RECORDED',
+      detail: answer.detail,
+    };
   }
 
   /** Whether the element is a node of the graph (source OR target of any edge). */
@@ -310,6 +423,10 @@ export class GraphQueryService {
             detail: 'graph.query: no composed SemanticGraph is available to answer over.',
           };
         }
+        // ADR-0328 — DERIVED, so it is answered before every check below: the
+        // graph's own edge set is not the authority for this family and
+        // `unknown-element` would be asking the wrong store.
+        if (relationshipType === 'partOf') return this._queryPartOf(elementId);
         // ADR-0325 — CHECKED FIRST, and deliberately BEFORE `unknown-element`:
         // the answer does not depend on whether this element is in the graph,
         // because this graph cannot answer a hierarchy question about ANY element.
@@ -377,10 +494,21 @@ export class GraphQueryService {
             detail: 'graph.neighbors: no composed SemanticGraph is available to answer over.',
           };
         }
+        // ADR-0328 — `partOf` is DERIVED, and the sweep below reads the edge
+        // set directly. Reconcile it to the substrate FIRST, or this surface
+        // would report a `partOf` neighbour that the hierarchy no longer holds.
+        // Covers the untyped call too, which now includes `partOf` because the
+        // family is in SUPPORTED_RELATIONSHIP_TYPES.
+        if (
+          this._partOf !== null &&
+          (relationshipType === undefined || relationshipType === 'partOf')
+        ) {
+          this._partOf.refresh();
+        }
         // ADR-0325 — same precedence as `query`. Note the untyped call
         // (`relationshipType === undefined`) is unaffected: the neighbourhood
         // sweep below already filters to SUPPORTED_RELATIONSHIP_TYPES, so a
-        // hierarchy edge left over from a load can never leak into it.
+        // parked hierarchy edge left over from a load can never leak into it.
         if (
           relationshipType !== undefined &&
           PARKED_HIERARCHY_RELATIONSHIPS.has(relationshipType as RelationshipType)

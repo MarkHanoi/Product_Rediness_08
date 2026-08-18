@@ -17,3 +17,22 @@ export type {
 
 // ── Sprint G P9-W10 (2026-05-10) — HierarchyStore ────────────────────────────
 export { HierarchyStore, hierarchyStore } from './HierarchyStore.js';
+
+// ── ADR-0328 — the DERIVED `partOf` projection over the store above ──────────
+export {
+    PartOfProjection,
+    partOfProjection,
+    derivePartOfEdges,
+    partOfCitizens,
+    readHierarchySubstrate,
+} from './PartOfProjection.js';
+export type {
+    PartOfSubstrateNode,
+    PartOfSubstrateRoom,
+    PartOfSubstrateSnapshot,
+    DerivedPartOfEdge,
+    PartOfProjectionStats,
+    PartOfRefusalReason,
+    PartOfParentQuery,
+    PartOfMembersQuery,
+} from './PartOfProjection.js';

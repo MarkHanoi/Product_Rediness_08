@@ -201,6 +201,29 @@ export type {
 
 // ── Sprint G P9-W10 (2026-05-10) — HierarchyStore + SyncStateEngine ──────
 export { HierarchyStore, hierarchyStore } from './hierarchy/HierarchyStore.js';
+
+// ── ADR-0328 — `partOf` is a DERIVED PROJECTION of the hierarchy substrate ──
+// The store above stays the SOLE hierarchy source of truth; this exports the
+// graph-level semantic DERIVED from it. It is not a second store, and it holds
+// no hierarchy state of its own — see PartOfProjection.ts's header.
+export {
+    PartOfProjection,
+    partOfProjection,
+    derivePartOfEdges,
+    partOfCitizens,
+    readHierarchySubstrate,
+} from './hierarchy/PartOfProjection.js';
+export type {
+    PartOfSubstrateNode,
+    PartOfSubstrateRoom,
+    PartOfSubstrateSnapshot,
+    DerivedPartOfEdge,
+    PartOfProjectionStats,
+    PartOfRefusalReason,
+    PartOfParentQuery,
+    PartOfMembersQuery,
+} from './hierarchy/PartOfProjection.js';
+
 export type { CheckResult, SyncCheckResult } from './sync/SyncStateEngine.js';
 export { syncStateEngine } from './sync/SyncStateEngine.js';
 
