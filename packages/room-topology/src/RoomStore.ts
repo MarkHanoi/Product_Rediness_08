@@ -337,6 +337,10 @@ export class RoomStore {
         version:          updates.metadata.version    ?? existing.metadata.version,
         aiGenerated:      updates.metadata.aiGenerated      ?? existing.metadata.aiGenerated,
         detectionVersion: updates.metadata.detectionVersion ?? existing.metadata.detectionVersion,
+        // EI-7e (C84 §9) — this rebuild is a hand-written NAMED SUBSET, so a
+        // member omitted here is dropped on the next update no matter what the
+        // schema says. The user-authorship flag must be carried in BOTH branches.
+        roomNumberAuthored: updates.metadata.roomNumberAuthored ?? existing.metadata.roomNumberAuthored,
         tags:             updates.metadata.tags        ?? existing.metadata.tags,
         description:      updates.metadata.description ?? existing.metadata.description,
       };
@@ -348,6 +352,9 @@ export class RoomStore {
         version:          existing.metadata.version + 1,
         aiGenerated:      safeUpdates.metadata?.aiGenerated      ?? existing.metadata.aiGenerated,
         detectionVersion: safeUpdates.metadata?.detectionVersion ?? existing.metadata.detectionVersion,
+        // EI-7e (C84 §9) — see the twin above; omitting it here would silently
+        // un-author every room number on its next ordinary update.
+        roomNumberAuthored: safeUpdates.metadata?.roomNumberAuthored ?? existing.metadata.roomNumberAuthored,
         tags:             safeUpdates.metadata?.tags             ?? existing.metadata.tags,
         description:      safeUpdates.metadata?.description      ?? existing.metadata.description,
       };

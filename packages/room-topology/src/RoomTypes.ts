@@ -267,6 +267,28 @@ export interface RoomMetadata {
   aiGenerated?: boolean;
   /** Incremented each time boundary is re-detected. */
   detectionVersion?: number;
+  /**
+   * EI-7e (C84 §9) — TRUE when `roomNumber` was typed by a HUMAN, via
+   * `room.setNumber` → `SetRoomNumber.ts:90` → `RenameRoomCommand`.
+   *
+   * WHY A RECORDED FLAG AND NOT A SHAPE TEST. `assignUniqueRoomNumbers`
+   * previously decided authorship by REGEX — it kept a number matching
+   * `^NN-NNN$` and regenerated everything else. That inferred authorship from
+   * the value, and the inference is wrong in BOTH directions:
+   *   • a user number ('101', 'G.04' — the two forms RoomTypes documents at
+   *     `roomNumber` and the UI's own placeholder) fails the pattern and was
+   *     silently overwritten on the next re-detect;
+   *   • a GENERATOR seed ('01', '02' from the residential/house/office
+   *     executors) also fails it, and MUST be renumbered — the executors
+   *     depend on landing the '{level}-NNN' sequence.
+   * The two are indistinguishable by shape, so authorship has to be RECORDED
+   * at the moment the human acts. Absent/false ⇒ the number is
+   * system-assigned and may be renumbered freely.
+   *
+   * Cleared when the user blanks the number — that hands numbering back to the
+   * system rather than pinning an empty string.
+   */
+  roomNumberAuthored?: boolean;
   tags?: string[];
   description?: string;
 }

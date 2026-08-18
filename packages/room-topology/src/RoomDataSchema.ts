@@ -134,6 +134,11 @@ export const RoomMetadataSchema = z.object({
   version: z.number().int().min(1, { message: 'metadata.version must be ≥ 1' }),
   aiGenerated: z.boolean().optional(),
   detectionVersion: z.number().int().nonnegative().optional(),
+  // EI-7e (C84 §9) — MUST be declared here. RoomMetadataSchema is a bare
+  // z.object() with NO .passthrough(), so Zod's default `strip` mode would
+  // delete an undeclared field in transit while parse() reported success —
+  // the exact mechanism C84 §1 names. See RoomMetadata.roomNumberAuthored.
+  roomNumberAuthored: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   description: z.string().optional(),
 });

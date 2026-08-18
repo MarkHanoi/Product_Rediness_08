@@ -58,7 +58,18 @@ export class RenameRoomCommand implements Command {
 
       const patch: Partial<RoomData> = {};
       if (this.updates.name !== undefined)       patch.name       = this.updates.name;
-      if (this.updates.roomNumber !== undefined)  patch.roomNumber = this.updates.roomNumber;
+      if (this.updates.roomNumber !== undefined) {
+        patch.roomNumber = this.updates.roomNumber;
+        // EI-7e (C84 §9) — RECORD the authorship, do not leave it to be inferred
+        // from the value later. This command is the ONLY user-facing number path
+        // (`room.setNumber` → SetRoomNumber.ts:90 → here; the Property Inspector
+        // field at RoomPropertySection.ts:139 sends an arbitrary trimmed string).
+        // Without this stamp `assignUniqueRoomNumbers` cannot tell the user's
+        // '101' from a generator's '01', and re-detection overwrote both.
+        // A BLANK number hands numbering back to the system, so the flag clears.
+        const authored = this.updates.roomNumber.trim().length > 0;
+        patch.metadata = { ...(patch.metadata ?? {}), roomNumberAuthored: authored } as RoomData['metadata'];
+      }
       // §L-905 — occupancy in the SAME patch: one store update, one history
       // entry, one undo (the snapshot restore covers all three fields).
       if (this.updates.occupancyType !== undefined) patch.occupancyType = this.updates.occupancyType;
