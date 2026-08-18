@@ -6695,3 +6695,58 @@ declared the one place `cot(rake)` is computed.
 ⚠ **Non-regression is the hard part:** plain↔plain is CONFIRMED GOOD by the founder. Any change to
 `buildMiterPrism` must be proven not to move it. Pin the working case FIRST, watched RED against a
 deliberately broken shear, before touching the two failing ones.
+
+---
+
+## L-956 — "By Region" slab does nothing: the plan handler has no REGION branch, and the two mode sources disagree
+
+**Founder-reported on the live deploy `d5b8d82f`, 2026-08-18, with console logs and screenshots.**
+Severity: **HIGH** — it is the entry gesture for the parcel/garden annulus feature (ADR-0329) that
+shipped in the same build. The HUD prompts *"By Region Slab: Click an enclosed region"*, the user
+clicks the region between the parcel boundary and the building, and **nothing is created.**
+
+**TWO INDEPENDENT DEFECTS, both proven from the founder's own log.**
+
+**(1) The two mode sources disagree.** The tool and the handler that receives the click report
+different modes in the same breath:
+
+```
+[SlabTool] §SLAB-3D-PREVIEW pointermove tool=REGION_SLAB firstPointSet=false polylinePoints=0
+[SlabPlanToolHandler] activated — overlay ready, waiting for first click drawMode=linear
+```
+
+`SlabPlanToolHandler._getMode()` (`:660-667`) reads `window.slabTool?.toolMode`. The click that did
+land logged `vertex (mode=linear)` — the **polyline** branch at `:158-169` — so `_getMode()`
+returned `'polyline'` while `SlabTool` was reporting `REGION_SLAB`. The mapping itself is present
+and correct at `:663` (`if (mode === 'REGION_SLAB') return 'region'`), so **the mapping is not
+reached**: either `window.slabTool` is not the instance doing the logging, or the mode is reset
+between activation and click. The log shows heavy churn that would explain a reset — repeated
+`activateTool called for slab` / `deactivating previous tool slab` / `executing activateFn for slab`,
+and the handler `activated` → `deactivated` several times without a click between. Note
+`SlabTool.ts:1279-1280` sets `activeTool = 'REGION_SLAB'` and then routes through `setupToolUI`
+*"so REGION_SLAB gets the same…"* — if `setupToolUI` re-enters activation, it is the reset.
+
+**(2) Even with the right mode, there is no code to run.** `SlabPlanToolHandler`'s click path
+branches on `'polyline'` (`:158`) and then **falls through to the hollow branch** (`:172-179`,
+*"Hollow mode (unchanged raw polygon gesture)"*), which pushes a raw point. **There is no `region`
+arm in the click handler.** `_getMode()`'s `'region'` value is consumed only by the PREVIEW path
+(`_getPreviewPoints`, `:690`). So region mode can draw a hint and cannot commit.
+
+⭐ **The confusion is structural, and it is a C84 §4B/EI-3 instance: TWO ORTHOGONAL "MODE" CONCEPTS
+SHARE ONE WORD.** `_getMode(): SlabPlanMode` is *which tool* (`2point` | `region` | `hollow` |
+`polyline`); `_drawMode(): BoundaryDrawMode` is *which constraint* (`linear` | `ortho` | `curved`).
+The activation log at `:80` prints only `_drawMode()`, which is why the log reads `drawMode=linear`
+and looks like the mode was set — **the diagnostic prints the axis that is not the problem.** Any
+fix must log both, or the next reader repeats this.
+
+**Owner:** a dedicated lane. Fix both halves — the propagation AND the missing branch — and prove
+the gesture end-to-end at the layer that COMMITS, not at a pure function return
+([[committed-is-not-reachable]]). ⚠ Non-regression: polyline, 2-point and hollow slab creation all
+work today and the founder uses them; pin them first, watched RED.
+
+⚠ **Check the 3D path separately.** The founder clicked in the 3D viewport, not plan.
+`SlabTool.ts` carries its own `REGION_SLAB` arms (`:570`, `:762`, `:844`, `:1186`) and `:847`
+records that *"Previously REGION_SLAB had NO onPointerMove branch here, so in 3D the…"* — a prior
+partial fix on the same feature. Establish whether the 3D click path commits, or whether the plan
+handler is the only committer and 3D merely previews. **They must not be fixed independently into
+two rival region implementations** — C84 EI-9.
