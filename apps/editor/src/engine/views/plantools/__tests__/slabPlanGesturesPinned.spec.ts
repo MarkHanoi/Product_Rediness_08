@@ -35,6 +35,11 @@ vi.mock('../../../initBusHandlers', () => ({
 
 import { SlabPlanToolHandler } from '../SlabPlanToolHandler';
 import { __resetActiveSlabDrawModeForTests } from '../activeSlabDrawMode';
+import {
+    setActiveSlabFamilyMode,
+    __resetActiveSlabFamilyModeForTests,
+    type SlabFamilyMode,
+} from '../activeSlabFamilyMode';
 
 // ── happy-dom ships no Canvas2D — stub a no-op context so the real draw chain runs ──
 const ctx2d: Record<string, unknown> = new Proxy({}, {
@@ -111,12 +116,35 @@ const FOUR_WALL_ROOM = [
 
 const enterKey = () => new KeyboardEvent('keydown', { key: 'Enter' });
 
+/**
+ * Select a gesture the way a user does — DELIBERATELY THROUGH BOTH MODE SOURCES.
+ *
+ * L-956 moves the plan handler's gesture authority from the 3D tool instance
+ * (`window.slabTool.toolMode`) to the surface-independent `activeSlabFamilyMode`
+ * store. A pin written against either source alone would stop being a pin the moment
+ * the other became authoritative — it would go green for the wrong reason, or red for
+ * a reason that is not a regression. Setting both keeps these tests measuring the
+ * GESTURE, which is what they exist to protect, on either side of the fix.
+ */
+const TOOL_MODE: Record<SlabFamilyMode, string> = {
+    '2point':    'FLOOR_SKETCH',
+    polyline:    'POLYLINE_SLAB',
+    region:      'REGION_SLAB',
+    hollow:      'HOLLOW_SLAB',
+    pickWalls:   'PICK_WALLS',
+};
+function selectGesture(m: SlabFamilyMode): void {
+    setActiveSlabFamilyMode(m);
+    (win().slabTool as { toolMode: string }).toolMode = TOOL_MODE[m];
+}
+
 let slabs: SlabRecord[];
 let handler: SlabPlanToolHandler;
 
 beforeEach(() => {
     attachCalls.length = 0;
     __resetActiveSlabDrawModeForTests();
+    __resetActiveSlabFamilyModeForTests();
     slabs = installHarness(FOUR_WALL_ROOM);
     handler = new SlabPlanToolHandler();
     handler.activate(makeCtx());
@@ -129,7 +157,7 @@ afterEach(() => {
 
 describe('L-956 pins — the three gestures that already work must not move', () => {
     it('POLYLINE: four clicks + Enter commit a slab', () => {
-        (win().slabTool as { toolMode: string }).toolMode = 'POLYLINE_SLAB';
+        selectGesture('polyline');
 
         handler.onClick(pt(0, 0));
         handler.onClick(pt(6, 0));
@@ -143,7 +171,7 @@ describe('L-956 pins — the three gestures that already work must not move', ()
     });
 
     it('2-POINT: two clicks commit a rectangle', () => {
-        (win().slabTool as { toolMode: string }).toolMode = 'FLOOR_SKETCH';
+        selectGesture('2point');
 
         handler.onClick(pt(1, 1));
         handler.onClick(pt(5, 3));
@@ -154,7 +182,7 @@ describe('L-956 pins — the three gestures that already work must not move', ()
     });
 
     it('HOLLOW: raw polygon points + Enter commit a slab', () => {
-        (win().slabTool as { toolMode: string }).toolMode = 'HOLLOW_SLAB';
+        selectGesture('hollow');
 
         handler.onClick(pt(0, 0));
         handler.onClick(pt(6, 0));
@@ -169,7 +197,7 @@ describe('L-956 pins — the three gestures that already work must not move', ()
         // This is the path that works TODAY — the one L-956's founder never reached,
         // because the mode never arrived. Pinned so the propagation fix cannot
         // regress the gesture it is meant to make reachable.
-        (win().slabTool as { toolMode: string }).toolMode = 'REGION_SLAB';
+        selectGesture('region');
 
         handler.onMouseMove(pt(3, 2));
         handler.onClick(pt(3, 2));

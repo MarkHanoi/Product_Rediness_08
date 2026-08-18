@@ -19,6 +19,11 @@ import {
     setActiveSlabDrawMode,
     resolveActiveSlabDrawMode,
 } from '@app/engine/views/plantools/activeSlabDrawMode';
+// §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — the GESTURE axis. The bar below
+// displayed `resolveActiveSlabDrawMode()` after EVERY selection, so picking By Region
+// snapped the bar's highlight back to Linear while the tool really was in region mode
+// — the UI reporting the axis that had not changed, which is L-956's whole shape.
+import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
 import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';
 import type { CeilingPickerMode } from '../CeilingModePicker';
@@ -497,12 +502,12 @@ export function mountToolsArea(
         props.inspector.showSlabPreDraw?.(props.slabTool);
 
         if (slabDrawingBar.isVisible()) {
-            slabDrawingBar.setMode(resolveActiveSlabDrawMode());
+            slabDrawingBar.setMode(resolveSlabReentryMode(resolveActiveSlabDrawMode()));
         } else {
             slabDrawingBar.show({
                 label: 'Slab:',
                 modes: creationModes('slab'),
-                initialMode: resolveActiveSlabDrawMode(),
+                initialMode: resolveSlabReentryMode(resolveActiveSlabDrawMode()),
                 onSelect: (id) => {
                     if (isBoundaryDrawMode(id)) {
                         // THE POINT OF THE WHOLE CHANGE: linear/ortho/curved are polyline
@@ -518,7 +523,7 @@ export function mountToolsArea(
                     // it legitimately re-enters the tool — a half-drawn polyline cannot
                     // continue as a rectangle. This is the one sanctioned reset.
                     _origActivateSlab(id as never);
-                    slabDrawingBar.setMode(resolveActiveSlabDrawMode());
+                    slabDrawingBar.setMode(resolveSlabReentryMode(resolveActiveSlabDrawMode()));
                 },
             });
         }

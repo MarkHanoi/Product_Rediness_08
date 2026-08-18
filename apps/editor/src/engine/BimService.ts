@@ -11,6 +11,9 @@ import { setStairToolConfig, type StairShapeChoice } from '@pryzm/geometry-stair
 import type { IBimService } from '@pryzm/engine';
 import { activateStairSketchSurfaces } from './stairSketchRouting';
 import { setActiveRoofDrawMode } from './views/plantools/activeRoofDrawMode';
+// §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — the slab's GESTURE axis, the
+// one `activeSlabDrawMode` (the CONSTRAINT axis) never covered. Same cure as roof.
+import { setActiveSlabFamilyMode } from './views/plantools/activeSlabFamilyMode';
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -118,6 +121,19 @@ export class BimService implements IBimService {
     activateSlabTool(
         mode: 'linear' | 'ortho' | 'curved' | 'polyline' | '2point' | 'region' | 'hollow' | 'pickWalls',
     ) {
+        // §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — record the GESTURE in
+        // the surface-independent store BEFORE activating either surface, exactly as
+        // `activateRoofTool` records the roof mode (L-699). This method is the ONE
+        // editor-side chokepoint every slab entry point passes through — Create panel,
+        // Create rail, the persistent slab mode bar, the bottom action menu — and
+        // `ToolsAreaLayout`'s wrapper calls the bound original, so both halves of that
+        // wrapper land here too.
+        //
+        // Before this, `SlabPlanToolHandler` read the gesture off `window.slabTool
+        // .toolMode` and mapped 'NONE' onto 'polyline', so a By Region click laid a
+        // polyline vertex and created nothing. Constraint values are ignored by the
+        // store, so passing 'linear' can never erase a gesture the user chose.
+        setActiveSlabFamilyMode(mode);
         const toolManager = this.props.toolManager as any;
         if (toolManager?.activateSlab) {
             toolManager.activateSlab(mode);

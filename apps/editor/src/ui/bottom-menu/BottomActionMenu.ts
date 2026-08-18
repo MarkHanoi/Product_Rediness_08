@@ -8,6 +8,11 @@ import * as PryzmIcons from '../icons/PryzmIcons';
 // DrawingModeBar, from which every mode is reachable MID-DRAW.
 // §FEAT-PERSISTENT-MODE-BAR — the slab's shared, surface-independent mode store.
 import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
+// §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — the GESTURE half of "the mode
+// last chosen". See the call site below: that promise named By Region / Hollow /
+// Pick Walls, and `resolveActiveSlabDrawMode()`'s return type (`linear|ortho|curved`)
+// structurally cannot express any of them.
+import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
 import { resolveLevelIsolation } from '../../engine/inspect/LevelIsolationResolver';
 import { resolveNightBackground } from '../../engine/inspect/NightModeBackgroundResolver';
 // §FIX-LIGHT-NIGHT-CONTRIBUTION — the role stamped on artificial fixture lights,
@@ -346,7 +351,17 @@ export class BottomActionMenu {
                 // tool (destroying any in-progress polyline). Activate straight away in
                 // the mode last chosen — every mode, including 2-Point / By Region /
                 // Hollow / Pick Walls, stays reachable from the bar, mid-draw.
-                service.activateSlabTool(resolveActiveSlabDrawMode());
+                // §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — the comment
+                // above promised "the mode last chosen — every mode, including
+                // 2-Point / By Region / Hollow / Pick Walls". It passed
+                // `resolveActiveSlabDrawMode()`, which returns `linear|ortho|curved`
+                // and so could name NONE of those four: after choosing By Region,
+                // re-entering the slab tool silently gave a polyline. Both axes are
+                // now restored — the gesture, and (inside the polyline family only)
+                // the constraint.
+                service.activateSlabTool(
+                    resolveSlabReentryMode(resolveActiveSlabDrawMode()) as never,
+                );
                 return;
             case 'floor':
                 if (service?.activateFloorTool) service.activateFloorTool();

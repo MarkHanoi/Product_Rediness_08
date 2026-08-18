@@ -27,6 +27,12 @@ import { BoundaryPathAuthor, type BoundaryDrawMode } from '@pryzm/geometry-slab'
 // The surface-independent mode store — NOT a picker instance and NOT `window`
 // (P4). See activeSlabDrawMode.ts for why (two panels each build their own picker).
 import { resolveActiveSlabDrawMode } from './activeSlabDrawMode';
+// §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — the OTHER "mode" axis: WHICH
+// GESTURE the user chose. It used to be read off `window.slabTool.toolMode`, i.e.
+// across a surface boundary from the 3D tool's transient private state, and any
+// unrecognised value — 'NONE' included — collapsed to 'polyline'. See that module's
+// header; it is L-699's cure for roof, applied to the axis slab never got one for.
+import { resolveActiveSlabFamilyMode } from './activeSlabFamilyMode';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -75,9 +81,15 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._candidateRegion = null;
         this._candidateSketch = null;
         this._author.reset();
+        // §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — PRINT BOTH AXES.
+        // This line used to print `drawMode` alone, so the founder's console read
+        // `drawMode=linear` and looked like the mode had been set — while the axis
+        // that was actually wrong (the GESTURE) went unreported. A diagnostic that
+        // names only the axis that is not the problem costs a debugging session.
         console.log(
             '[SlabPlanToolHandler] activated — overlay ready, waiting for first click',
-            `drawMode=${this._drawMode()}`,
+            `gesture=${this._familyMode()}`,
+            `constraint=${this._constraintMode()}`,
         );
     }
 
@@ -105,7 +117,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     onMouseMove(pt: WorldPoint): void {
         this._cursorPt = pt;
 
-        if (this._getMode() === 'region') {
+        if (this._familyMode() === 'region') {
             this._candidateRegion = this._findRegionAtPoint(pt.worldX, pt.worldZ);
         }
 
@@ -114,7 +126,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
 
     onClick(pt: WorldPoint): void {
         // ── Region mode: single click commits the detected polygon ────────────
-        if (this._getMode() === 'region') {
+        if (this._familyMode() === 'region') {
             if (this._candidateRegion && this._candidateRegion.length >= 3) {
                 this._slabPoints = this._candidateRegion.map(v => ({
                     worldX: v.x,
@@ -130,7 +142,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         }
 
         // ── 2-point rectangle mode ────────────────────────────────────────────
-        if (this._getMode() === '2point') {
+        if (this._familyMode() === '2point') {
             if (this._slabPoints.length === 0) {
                 this._slabPoints = [pt];
                 this._cursorPt = pt;
@@ -155,14 +167,16 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         // §FEAT-SLAB-DRAW-MODES — the shared author applies the wall tool's ortho
         // constraint, or runs the wall tool's 3-click arc gesture, and yields the
         // boundary vertices. LINEAR is bit-identical to the old behaviour.
-        if (this._getMode() === 'polyline') {
-            const drawMode = this._drawMode();
+        if (this._familyMode() === 'polyline') {
+            const drawMode = this._constraintMode();
             const outcome  = this._author.click(drawMode, { x: pt.worldX, z: pt.worldZ });
             this._syncPointsFromAuthor();
             this._cursorPt = pt;
             this._drawPreview();
+            // L-956 — `(mode=linear)` was the line that misled the founder's report:
+            // it names the CONSTRAINT while the reader is asking about the GESTURE.
             console.log(
-                `[SlabPlanToolHandler] ${outcome} (mode=${drawMode})`,
+                `[SlabPlanToolHandler] ${outcome} (gesture=polyline constraint=${drawMode})`,
                 `worldX=${pt.worldX.toFixed(3)} worldZ=${pt.worldZ.toFixed(3)}`,
                 `total: ${this._slabPoints.length}`,
             );
@@ -180,7 +194,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     }
 
     onDoubleClick(_pt: WorldPoint): void {
-        const mode = this._getMode();
+        const mode = this._familyMode();
         console.log(`[SlabPlanToolHandler] double-click — mode=${mode} points=${this._slabPoints.length}`);
         if (mode === '2point' || mode === 'region') return;
         // §FEAT-SLAB-DRAW-MODES — a PENDING ARC MIDPOINT blocks closing, so a
@@ -194,7 +208,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     }
 
     onKeyDown(e: KeyboardEvent): boolean {
-        const mode = this._getMode();
+        const mode = this._familyMode();
 
         if (mode === '2point' || mode === 'region') {
             if (e.key === 'Backspace' && this._slabPoints.length > 0) {
@@ -272,7 +286,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
 
         // §REGION-HOST-ATTRIBUTION — captured BEFORE the async create resolves, because
         // the reset at the foot of this method clears `_candidateSketch` synchronously.
-        const regionSketch = this._getMode() === 'region' ? this._candidateSketch : null;
+        const regionSketch = this._familyMode() === 'region' ? this._candidateSketch : null;
 
         window.runtime?.bus?.executeCommand('slab.create', {
             id:       slabId,
@@ -421,7 +435,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         const cssH = overlayCanvas.height / dpr;
         ctx.clearRect(0, 0, cssW, cssH);
 
-        const mode = this._getMode();
+        const mode = this._familyMode();
 
         // ── Region mode: draw detected region fill + cursor ───────────────────
         if (mode === 'region') {
@@ -657,13 +671,30 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         c.ctx.clearRect(0, 0, c.overlayCanvas.width, c.overlayCanvas.height);
     }
 
-    private _getMode(): SlabPlanMode {
-        const mode = window.slabTool?.toolMode;
-        if (mode === 'FLOOR_SKETCH') return '2point';
-        if (mode === 'REGION_SLAB') return 'region';
-        if (mode === 'HOLLOW_SLAB') return 'hollow';
-        if (mode === 'POLYLINE_SLAB') return 'polyline';
-        return 'polyline';
+    /**
+     * §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — WHICH GESTURE is running.
+     *
+     * ⚠ THIS IS NOT `_constraintMode()`, AND CONFLATING THE TWO IS L-956 ITSELF.
+     * This axis is the GESTURE (2-point / polyline / region / hollow / pick-walls);
+     * `_constraintMode()` is how a polyline click LANDS (linear / ortho / curved).
+     * They are orthogonal, they were both called "mode", and the activation log
+     * printed only the second — so the founder's console read `drawMode=linear` and
+     * looked like the gesture had been set when it had not.
+     *
+     * This used to read `window.slabTool?.toolMode` — the 3D tool INSTANCE's
+     * transient private state — and map everything it did not recognise, including
+     * `'NONE'` and `undefined`, onto `'polyline'`. `'NONE'` is the state
+     * `ToolManager.deactivateAllInternal()` drives `SlabTool` into at the head of
+     * EVERY `activateTool` call, and `exitSketchMode()` leaves `#sketch-hud` on
+     * screen, so the HUD went on prompting "By Region Slab: Click an enclosed
+     * region" while this handler had silently become a polyline tool.
+     *
+     * The gesture is now read from the surface-independent store recorded at
+     * activation, exactly as L-699 cured the identical defect for roof. Neither
+     * surface is authoritative over the other and neither can silently narrow it.
+     */
+    private _familyMode(): SlabPlanMode {
+        return resolveActiveSlabFamilyMode();
     }
 
     /**
@@ -675,7 +706,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * from the flat create-panel list therefore behaves exactly as it did before
      * this change, rather than silently acquiring a constraint nobody chose.
      */
-    private _drawMode(): BoundaryDrawMode {
+    private _constraintMode(): BoundaryDrawMode {
         return resolveActiveSlabDrawMode();
     }
 
@@ -687,7 +718,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     }
 
     private _getPreviewPoints(): WorldPoint[] {
-        if (this._getMode() === '2point' && this._slabPoints.length === 1 && this._cursorPt) {
+        if (this._familyMode() === '2point' && this._slabPoints.length === 1 && this._cursorPt) {
             return this._rectangleFromCorners(this._slabPoints[0], this._cursorPt);
         }
         return this._slabPoints;
@@ -701,9 +732,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      */
     private _trailingPoints(): WorldPoint[] {
         if (!this._cursorPt) return [];
-        if (this._getMode() !== 'polyline') return [this._cursorPt];
+        if (this._familyMode() !== 'polyline') return [this._cursorPt];
         return this._author
-            .previewTail(this._drawMode(), { x: this._cursorPt.worldX, z: this._cursorPt.worldZ })
+            .previewTail(this._constraintMode(), { x: this._cursorPt.worldX, z: this._cursorPt.worldZ })
             .map(v => ({ worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0 })) as WorldPoint[];
     }
 
@@ -719,7 +750,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
                 : 'Click opposite corner to create slab  ·  Backspace to restart';
         }
         if (mode === 'polyline') {
-            const drawMode = this._drawMode();
+            const drawMode = this._constraintMode();
             if (drawMode === 'curved' && placed > 0) {
                 return arcPending
                     ? 'Curved · Click the arc END point  ·  Backspace to re-pick the midpoint'
