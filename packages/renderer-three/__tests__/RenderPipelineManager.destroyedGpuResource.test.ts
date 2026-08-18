@@ -61,7 +61,34 @@ function armFailingPipeline(err: Error) {
     // confident recovery and leave the viewport dark forever — the founder symptom.
     rpm._rebuildPipeline = vi.fn(async () => { /* noop */ });
     rpm.onProjectSwitch  = vi.fn();
+    // §L-966 — the LARGER repair (`recoverFromRenderFailure`) does two things a
+    // bare `_rebuildPipeline()` cannot: re-own the light-owned shadow maps and
+    // reset the compiled node-builder caches. Stub + observe them separately so
+    // these tests can distinguish "the BLIND rebuild was refused" (the ADR-0299
+    // invariant) from "no repair was attempted at all" (the L-966 defect).
+    rpm._recreateLightOwnedShadowMaps = vi.fn();
+    rpm._resetCompiledNodeStates      = vi.fn();
+    rpm._safeDisposeRenderPipeline    = vi.fn();
     return rpm;
+}
+
+/**
+ * §L-966 — re-arm a pipeline that the previous failure nulled, so the SAME fault
+ * can re-fire on a later frame. Mirrors what a (failed) rebuild would have left
+ * behind: a live pipeline object whose render() still throws.
+ */
+async function refaultOnALaterFrame(rpm: any, err: Error): Promise<void> {
+    // §L930-SUBMIT-PAUSE-DEPTH — a recovery holds the submit gate CLOSED across its
+    // whole teardown/rebuild window and pops it in a `.finally()`, i.e. on a
+    // microtask. Without this flush the next `render()` would early-return at the
+    // pause gate and the fault would never re-report — the test would "pass" by
+    // measuring a viewport that was never asked to draw. (That gate is also why a
+    // recovery in flight cannot itself generate new fault reports in production.)
+    await Promise.resolve();
+    await Promise.resolve();
+    rpm._hasPipelineError = false;
+    rpm._renderPipeline   = { render: () => { throw err; }, dispose: () => { /* noop */ } };
+    rpm.render(0.016);
 }
 
 describe('RenderPipelineManager — destroyed-GPU-resource failures never ride the retry ladder', () => {
@@ -97,35 +124,58 @@ describe('RenderPipelineManager — destroyed-GPU-resource failures never ride t
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
     });
 
-    it('performs exactly ONE full reconstruction, then stops attempting it', () => {
+    it('performs exactly ONE BLIND reconstruction — a recurrence escalates, never repeats it', async () => {
+        // §L-966 — the ADR-0281 invariant is unchanged and is what the first two
+        // assertions pin: the BLIND `_rebuildPipeline()` (post-FX graph only) is
+        // spent exactly ONCE, because a second one would repair nothing the first
+        // did not. What changed is what happens AFTER: the recurrence no longer
+        // falls straight into a dead viewport, it escalates to the strictly LARGER
+        // repair (light-owned shadow maps + compiled node caches), which the blind
+        // rebuild provably cannot reach.
         const rpm = armFailingPipeline(new Error(SET_INDEX_BUFFER_FAILURE));
 
         rpm.render(0.016);
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+        // Negative on the SAME expression: attempt 1 really was the BLIND rebuild.
+        expect(rpm._recreateLightOwnedShadowMaps).not.toHaveBeenCalled();
 
-        // The fault re-fires on a later frame; the pipeline was nulled by the first
-        // failure, so re-arm it exactly as a rebuild would have.
-        rpm._hasPipelineError = false;
-        rpm._renderPipeline = { render: () => { throw new Error(SET_INDEX_BUFFER_FAILURE); }, dispose: () => {} };
-        rpm.render(0.016);
+        await refaultOnALaterFrame(rpm, new Error(SET_INDEX_BUFFER_FAILURE));
 
-        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1); // no second attempt
+        // No SECOND blind reconstruction: the `_gpuResourceResetAttempted` latch is
+        // NOT reopened by the automatic path (only a human's "Reload viewport" may
+        // reopen it). The second rebuild is the recovery's, and it is preceded by
+        // the two repairs a blind rebuild cannot perform.
+        expect(rpm._recreateLightOwnedShadowMaps).toHaveBeenCalledTimes(1);
+        expect(rpm._resetCompiledNodeStates).toHaveBeenCalledTimes(1);
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(2);
     });
 
-    it('a recurrence fails LOUDLY (phase=error) instead of leaving a silently blocked scene', () => {
+    it('a recurrence fails LOUDLY (phase=error) once the bounded recovery budget is spent', async () => {
         const rpm = armFailingPipeline(new Error(SET_INDEX_BUFFER_FAILURE));
         const states: string[] = [];
         rpm.onStateChange = (s: any) => states.push(s.phase);
 
         rpm.render(0.016);
-        expect(rpm.status.phase).not.toBe('error'); // first: reconstruct, stay quiet
+        expect(rpm.status.phase).not.toBe('error'); // 1: the one blind reconstruction
 
-        rpm._hasPipelineError = false;
-        rpm._renderPipeline = { render: () => { throw new Error(SET_INDEX_BUFFER_FAILURE); }, dispose: () => {} };
-        rpm.render(0.016);
+        await refaultOnALaterFrame(rpm, new Error(SET_INDEX_BUFFER_FAILURE));
+        expect(rpm.status.phase).not.toBe('error'); // 2: auto-recovery 1 of 2
 
+        await refaultOnALaterFrame(rpm, new Error(SET_INDEX_BUFFER_FAILURE));
+        expect(rpm.status.phase).not.toBe('error'); // 3: auto-recovery 2 of 2
+
+        // 4: the budget (MAX_AUTO_RECOVERY_ATTEMPTS = 2) is spent. The whole point
+        // of the bound — it stops here rather than spinning, and the user is told.
+        await refaultOnALaterFrame(rpm, new Error(SET_INDEX_BUFFER_FAILURE));
         expect(rpm.status.phase).toBe('error');
         expect(states).toContain('error'); // the crash guard is actually told
+
+        // §L-966 — and it is told WHAT died, not a synthetic "retries exhausted".
+        expect(rpm.status.lastError).not.toBeNull();
+        expect(rpm.status.lastError.message).toContain('GPU resource was released');
+
+        // Bounded total work: 1 blind reconstruction + 2 recoveries. Never a loop.
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(3);
     });
 
     it('a destroyed NON-shadow texture takes the same non-retry path', () => {
@@ -206,25 +256,50 @@ describe('RenderPipelineManager — refuses a repair it cannot perform (shadow r
         'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
         '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])';
 
-    it('does NOT burn a reconstruction on a destroyed shadow depth target', () => {
+    it('never burns a BLIND reconstruction on a destroyed shadow depth target', () => {
+        // §RECOVERY-MUST-REFUSE is UNWEAKENED. The refusal was, and remains, of the
+        // BLIND `_rebuildPipeline()`: a light-owned LightShadow.map is not reachable
+        // from a post-FX rebuild, so spending one on this fault costs multi-seconds
+        // and repairs nothing.
+        //
+        // §L-966 — what the refusal never justified was attempting NOTHING. The
+        // repair that CAN reach a light-owned map re-owns it FIRST and only then
+        // rebuilds, so the ORDER below is the whole distinction: a rebuild preceded
+        // by the re-own is the recovery; a rebuild without it is the refused repair.
         const rpm = armFailingPipeline(new Error(SHADOW_FAILURE));
 
         rpm.render(0.016);
 
-        expect(rpm._rebuildPipeline).not.toHaveBeenCalled();
+        const reownOrder  = rpm._recreateLightOwnedShadowMaps.mock.invocationCallOrder[0];
+        const rebuildOrder = rpm._rebuildPipeline.mock.invocationCallOrder[0];
+        expect(reownOrder).toBeLessThan(rebuildOrder);
+        expect(rpm._resetCompiledNodeStates).toHaveBeenCalledTimes(1);
+
+        // Still no soft-recovery-through-a-lifecycle-lever, and still no retry ladder.
         expect(rpm.onProjectSwitch).not.toHaveBeenCalled();
-        expect(vi.getTimerCount()).toBe(0); // and no retry ladder either
+        expect(rpm.status.retryCount).toBe(0);
     });
 
-    it('fails loudly IMMEDIATELY rather than after a wasted rebuild', () => {
+    it('fails loudly once the bounded recovery budget is spent — never after a WASTED blind rebuild', async () => {
         const rpm = armFailingPipeline(new Error(SHADOW_FAILURE));
         const states: string[] = [];
         rpm.onStateChange = (s: any) => states.push(s.phase);
 
-        rpm.render(0.016);
+        rpm.render(0.016);                                        // auto-recovery 1 of 2
+        expect(rpm.status.phase).not.toBe('error');
+        await refaultOnALaterFrame(rpm, new Error(SHADOW_FAILURE));     // auto-recovery 2 of 2
+        expect(rpm.status.phase).not.toBe('error');
 
+        await refaultOnALaterFrame(rpm, new Error(SHADOW_FAILURE));     // budget spent
         expect(rpm.status.phase).toBe('error');
         expect(states).toContain('error');
+
+        // The bound is what makes the auto-wiring safe: exactly two recoveries, then
+        // it stops. An unbounded recover→same-fault→recover cycle would pin the GPU.
+        expect(rpm._recreateLightOwnedShadowMaps).toHaveBeenCalledTimes(2);
+
+        // And the user is told WHAT died — a refusal that explains itself.
+        expect(rpm.status.lastError.message).toContain('ShadowDepthTexture');
     });
 
     it('still reconstructs for a NON-shadow destroyed resource (refusal is scoped)', () => {

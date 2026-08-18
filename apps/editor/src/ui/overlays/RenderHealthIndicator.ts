@@ -116,6 +116,7 @@ export class RenderHealthIndicator {
      *  - WebGPU inactive → 'ok' (WebGL has no pipeline to degrade)
      *  - phase === 'error' → 'error'
      *  - retryCount > 0 and phase !== 'error' → 'degraded' (recovering)
+     *  - recoveringInFlight → 'degraded' (§L-966, see below)
      *  - everything else → 'ok'
      */
     syncFromPipelineStatus(status: PipelineStatus): void {
@@ -125,7 +126,14 @@ export class RenderHealthIndicator {
         }
         if (status.phase === 'error') {
             this.update('error');
-        } else if (status.retryCount > 0) {
+        // §L-966 — a GPU resource-lifetime fault now drives an AUTOMATIC recovery
+        // instead of going straight to the crash card. That is the right outcome,
+        // but it removed the only thing that made the repair visible: without this
+        // branch the badge reads 'ok' throughout a multi-second reconstruction in
+        // which the viewport is frozen and the submit gate is shut. `retryCount`
+        // does not cover it — the resource-lifetime path deliberately never enters
+        // the retry ladder, so that counter stays 0 for exactly this fault class.
+        } else if (status.recoveringInFlight || status.retryCount > 0) {
             this.update('degraded');
         } else {
             this.update('ok');

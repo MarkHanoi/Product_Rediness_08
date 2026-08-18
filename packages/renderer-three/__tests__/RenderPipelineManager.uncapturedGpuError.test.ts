@@ -125,15 +125,26 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         // by THREE's shadow pass — it is unreachable from _rebuildPipeline(). Per
         // ADR-0299 §RECOVERY-MUST-REFUSE, a repair that cannot perform what its name
         // promises must decline instead of burning a multi-second rebuild first.
+        //
+        // §L-966 — this test used to end `expect(phase).toBe('error')` on the FIRST
+        // report, i.e. it pinned "refuse, then do nothing" as correct. Refusing the
+        // repair that cannot work is right; attempting NO repair is what left the
+        // founder's viewport dead. The refusal below is unchanged — no BLIND rebuild
+        // is ever burned on a light-owned map — and the larger repair now runs.
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
+        rpm._recreateLightOwnedShadowMaps = vi.fn();
+        rpm._resetCompiledNodeStates      = vi.fn();
+        rpm._safeDisposeRenderPipeline    = vi.fn();
 
         device.emit(DESTROYED_SHADOW_TEXTURE);
 
-        expect(rpm._rebuildPipeline).not.toHaveBeenCalled();
         expect(rpm.onProjectSwitch).not.toHaveBeenCalled();
-        // The user is told immediately rather than after a wasted rebuild.
-        expect(rpm.status.phase).toBe('error');
+        // Any rebuild here is the RECOVERY's, and it is preceded by the light re-own
+        // — the ordering is what distinguishes it from the refused blind rebuild.
+        expect(rpm._recreateLightOwnedShadowMaps.mock.invocationCallOrder[0])
+            .toBeLessThan(rpm._rebuildPipeline.mock.invocationCallOrder[0]);
+        expect(rpm.status.phase).not.toBe('error');
     });
 
     it('a destroyed PIPELINE-owned texture still earns its ONE reconstruction', () => {
@@ -159,18 +170,34 @@ describe('RenderPipelineManager — destroyed GPU resources that never throw (§
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
     });
 
-    it('a RECURRENCE after the reconstruction fails loudly instead of staying white', () => {
+    it('a RECURRENCE escalates through a BOUNDED recovery, then fails loudly — never stays white', () => {
         const device = new FakeGpuDevice();
         const rpm = armWithDevice(device);
+        rpm._recreateLightOwnedShadowMaps = vi.fn();
+        rpm._resetCompiledNodeStates      = vi.fn();
+        rpm._safeDisposeRenderPipeline    = vi.fn();
 
-        device.emit(DESTROYED_PIPELINE_TEXTURE);        // window 1 → one reconstruction
-        // A genuinely LATER occurrence (a new window), not another line of the same
-        // flood — this is what "it happened again after we repaired it" looks like.
-        rpm._destroyedResourceWindowStart = Date.now() - 10_000;
-        device.emit(DESTROYED_PIPELINE_TEXTURE);        // window 2 → recurrence
+        /** A genuinely LATER occurrence (a new window), not another line of the same flood. */
+        const laterFrame = (): void => {
+            rpm._destroyedResourceWindowStart = Date.now() - 10_000;
+            rpm._destroyedResourceReports     = 0;
+            device.emit(DESTROYED_PIPELINE_TEXTURE);
+        };
 
-        expect(rpm.status.phase).toBe('error');
+        device.emit(DESTROYED_PIPELINE_TEXTURE);   // window 1 → the ONE blind reconstruction
         expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+        expect(rpm._recreateLightOwnedShadowMaps).not.toHaveBeenCalled();
+
+        laterFrame();                               // §L-966 auto-recovery 1 of 2
+        laterFrame();                               // §L-966 auto-recovery 2 of 2
+        expect(rpm.status.phase).not.toBe('error');
+
+        laterFrame();                               // budget spent → tell the user
+        expect(rpm.status.phase).toBe('error');
+        // Bounded: 1 blind reconstruction + 2 recoveries, then it STOPS. Unbounded
+        // retrying here would pin the GPU, which is worse than a dead viewport.
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(3);
+        expect(rpm.status.lastError?.message).toContain('GPU resource was released');
     });
 
     it('a non-lifetime uncaptured error does NOT hijack the resource-lifetime path', () => {

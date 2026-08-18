@@ -150,6 +150,62 @@ describe('ViewportCrashGuard — honest crash copy for a classified defect', () 
         guard.deactivate();
     });
 
+    // ── §L-966 — the CROSS-LAYER wire, proved end to end ────────────────────
+    //
+    // The test above passes only because of a LATCH: the guard happened to see the
+    // raw fault earlier in the session and remembered it. On the founder's actual
+    // path there was nothing to latch — the fault arrived as a WebGPU
+    // `uncapturederror` (never a window 'error' event), so the guard's FIRST and
+    // ONLY sight of it was `handlePipelineError()` called with NO argument. It then
+    // minted "Render pipeline retries exhausted — phase=error", a string with no
+    // signature, `_diagnose()` returned undefined, and the founder was shown the
+    // default card blaming their graphics driver for our resource-lifetime defect.
+    //
+    // This pins the repaired wire at the layer the user experiences it, with a REAL
+    // RenderPipelineManager driven to its terminal state — not a hand-written
+    // message that could drift from what the pipeline actually emits.
+    it('§L-966 — a real pipeline failure reaches the guard WITH its identity (no latch needed)', async () => {
+        const { RenderPipelineManager } = await import('@pryzm/renderer-three');
+        const rpm = new RenderPipelineManager() as any;
+        rpm._webGpuActive   = true;
+        rpm._renderer       = { isWebGPURenderer: true, backend: { isWebGPUBackend: true } };
+        rpm._renderPipeline = { render: () => { /* noop */ }, dispose: () => { /* noop */ } };
+        rpm._rebuildPipeline               = vi.fn(async () => { /* noop */ });
+        rpm._recreateLightOwnedShadowMaps  = vi.fn();
+        rpm._resetCompiledNodeStates       = vi.fn();
+        rpm._safeDisposeRenderPipeline     = vi.fn();
+        rpm._reconcileRenderSize           = vi.fn();
+
+        // The founder's exact fault, re-reported until the bounded recovery budget
+        // is spent and the pipeline gives up.
+        const SHADOW_FAULT =
+            'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
+            '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])';
+        for (let i = 0; i < 5; i++) {
+            rpm._destroyedResourceWindowStart = 0;
+            rpm._destroyedResourceReports     = 0;
+            rpm._onDestroyedGpuResource(SHADOW_FAULT, 'GPUDevice.uncapturederror', true);
+        }
+        expect(rpm.status.phase).toBe('error');
+
+        // This is EXACTLY the expression initScene.ts's onStateChange now evaluates.
+        const guard = new ViewportCrashGuard();
+        guard.handlePipelineError(rpm.status.lastError ?? undefined);
+
+        // A FRESH guard — nothing latched, nothing observed earlier — still gets the
+        // honest copy, because the error now carries its own signature.
+        const diagnosis = String(shown[0]?.diagnosis ?? '');
+        expect(diagnosis).toMatch(/PRYZM rendering defect/i);
+        expect(diagnosis).not.toMatch(/graphics driver.{0,40}$/i);
+
+        // And the card shows WHAT died and that we tried — not "retries exhausted",
+        // which on this path names a mechanism that never ran.
+        const shownError = shown[0]?.error as Error;
+        expect(shownError.message).not.toMatch(/retries exhausted/i);
+        expect(shownError.message).toMatch(/ShadowDepthTexture/);
+        expect(shownError.message).toMatch(/automatic repair attempts/i);
+    });
+
     it('leaves the generic copy in place when the cause is genuinely unknown', () => {
         const guard = new ViewportCrashGuard();
         guard.handlePipelineError(new Error('WebGPU device lost: driver reset'));

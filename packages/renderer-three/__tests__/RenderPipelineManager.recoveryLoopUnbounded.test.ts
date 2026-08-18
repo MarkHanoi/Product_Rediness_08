@@ -76,16 +76,28 @@ describe('RenderPipelineManager — crash-recovery is UNBOUNDED (§L-663-RECOVER
     expect(rpm.status.retryCount).toBe(0);
   });
 
-  it('DEFECT: no recovery-attempt counter exists, so crash→recover→crash never escalates', () => {
+  // §L-966 — CLOSED. This test previously asserted `recoveryCounters === []`, i.e.
+  // it pinned the ABSENCE of the bound as the status quo. The file's own header says
+  // these expectations must be REWRITTEN (not deleted) when loop protection lands.
+  // It has landed: `_autoRecoveryAttempts` bounds automatic recovery at
+  // MAX_AUTO_RECOVERY_ATTEMPTS, and is the one counter that recovery does not reset.
+  it('CLOSED: a recovery-attempt counter now exists and recovery does NOT reset it', () => {
     const rpm = new RenderPipelineManager() as any;
     rpm._webGpuActive = true;
     rpm._renderer     = fakeWebGpuRenderer();
 
-    // There is no field anywhere on the manager that counts soft recoveries. The only
-    // counters are _retryCount (reset BY recovery) and the crash guard's
-    // _consecutiveFailures (also reset by recovery), so the cycle is unbounded.
+    // Positive: the bound exists as a real field on the manager…
     const recoveryCounters = Object.keys(rpm).filter(k => /recover/i.test(k));
-    expect(recoveryCounters).toEqual([]);
+    expect(recoveryCounters).toContain('_autoRecoveryAttempts');
+    // …and its absence — the L-663 defect — is gone.
+    expect(recoveryCounters).not.toEqual([]);
+
+    // The load-bearing half: the recovery primitives must not erase their own bound.
+    rpm._autoRecoveryAttempts = 2;
+    rpm.onProjectSwitch();
+    expect(rpm._autoRecoveryAttempts).toBe(2);
+    rpm.recoverFromRenderFailure();
+    expect(rpm._autoRecoveryAttempts).toBe(2);
   });
 
   it('DEFECT: N successive recoveries each re-arm a FULL pipeline rebuild, with no ceiling', () => {

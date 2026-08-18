@@ -115,6 +115,44 @@ const MAX_RETRIES     = 3;
 const RETRY_DELAY_MS  = 500;
 
 /**
+ * §L-966-BOUNDED-AUTO-RECOVERY — how many times the manager may drive its OWN
+ * {@link RenderPipelineManager.recoverFromRenderFailure} before it stops trying
+ * and tells the user what died.
+ *
+ * WHY THIS BOUND EXISTS AT ALL. `recoverFromRenderFailure()` was reachable ONLY
+ * from a human click on the crash card's "Reload viewport". The automatic path
+ * (`_onDestroyedGpuResource`) refused the pipeline rebuild — correctly, per
+ * §RECOVERY-MUST-REFUSE: a light-owned `ShadowDepthTexture` is structurally
+ * unreachable from `_rebuildPipeline()` — and then went straight to
+ * `phase='error'` WITHOUT ever attempting the repair that CAN reach it. The
+ * founder's viewport therefore died and stayed dead (L-966). The fix is to
+ * attempt the DIFFERENT repair, never to soften the refusal.
+ *
+ * WHY 2, and not ∞ or 1:
+ *   • NOT ∞ (and not "reset by any lifecycle event") — that is L-663 verbatim:
+ *     recovery resetting the counters that bound it, so crash → recover → same
+ *     fault → crash spins forever. Each turn is a full dispose + node-cache reset
+ *     + recompose, so an unbounded loop does not merely fail to fix the viewport,
+ *     it PINS THE GPU. A dead viewport that also burns the GPU is strictly worse
+ *     than a dead viewport, which is why the counter had to land before the wiring.
+ *   • NOT 1 — the two attempts are not repeats of each other. Attempt 1 runs
+ *     against live compiled node states and frees a light-owned texture that a
+ *     still-encoding frame may reference (§L930-DETACH-BEFORE-FREE narrowed that
+ *     window; it did not prove it shut). Attempt 2 runs against an ALREADY-reset
+ *     node cache and freshly re-owned maps — genuinely different starting state,
+ *     and L-908 records recovery succeeding from exactly there.
+ *   • 2 attempts is ~2 rebuilds ≈ a perceptible stutter; 3+ is a freeze, and no
+ *     measured recovery has ever succeeded on a third attempt that failed twice.
+ *
+ * The budget is per-GPU-DEVICE, not per-session: `recoverPipeline()` (a genuinely
+ * NEW renderer after device loss — a different failure class with brand-new
+ * bookkeeping) resets it via {@link RenderPipelineManager._resetAutoRecoveryBudgetForNewDevice}.
+ * `onProjectSwitch()` deliberately does NOT — that is L-663's defect 1, an
+ * unrelated lifecycle event erasing the only bound on a live fault.
+ */
+const MAX_AUTO_RECOVERY_ATTEMPTS = 2;
+
+/**
  * §GPU-RESOURCE-LIFETIME (ADR-0297) — coalescing window for destroyed-resource
  * reports. WebGPU validation errors arrive as FLOODS (a single shadow-map rebuild
  * produced 500 "Destroyed texture … used in a submit" in the founder's log), so
@@ -150,6 +188,42 @@ export interface PipelineStatus {
     ssgiActive:      boolean;
     traaActive:      boolean;
     outlinesActive:  boolean;
+    /**
+     * §L-966 — the error that actually caused `phase === 'error'`.
+     *
+     * Before this field existed the status carried a phase and nothing else, so
+     * `ViewportCrashGuard.handlePipelineError()` was called with NO argument and
+     * minted its own placeholder — *"Render pipeline retries exhausted —
+     * phase=error"*. That string is a FABRICATION on this path: the founder's
+     * stack shows the escalation coming from `_onDestroyedGpuResource`, which
+     * sets `phase='error'` directly and never touches `_retryCount`; the retry
+     * ladder never ran. The crash guard therefore reported a mechanism that did
+     * not execute, discarded the real signature, and — because
+     * `ViewportCrashGuard._diagnose()` keys on that signature — fell back to
+     * blaming the user's graphics driver for our own resource-lifetime defect.
+     *
+     * Carrying the real error is what lets the guard tell the user WHAT died.
+     * Null whenever the pipeline is not in an error state.
+     */
+    lastError:       Error | null;
+    /**
+     * §L-966 — automatic recoveries already spent against the CURRENT GPU device,
+     * out of {@link MAX_AUTO_RECOVERY_ATTEMPTS}. Exposed so the health indicator
+     * and tests can see the bound being consumed rather than inferring it.
+     */
+    autoRecoveryAttempts: number;
+    /**
+     * §L-966 — true while a recovery rebuild is actually IN FLIGHT (submit gate
+     * held, pipeline being reconstructed).
+     *
+     * Making recovery automatic removed the one thing that made it visible: the
+     * crash card. Without this flag the health badge reports 'ok' throughout a
+     * multi-second reconstruction during which the viewport is frozen, which is the
+     * "confident message, no work" shape this whole area keeps relapsing into.
+     * Self-clearing — it is popped by the rebuild's own `finally`, so it can never
+     * latch the badge on.
+     */
+    recoveringInFlight: boolean;
 }
 
 // ── Stored outline nodes (created by OutlinePass factory) ─────────────────
@@ -231,6 +305,33 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
+
+    /**
+     * §L-966 — the error that drove `_phase = 'error'`, preserved for the crash
+     * guard. See {@link PipelineStatus.lastError} for why a phase alone was not
+     * enough. Cleared whenever the pipeline returns to a rendering phase.
+     */
+    private _lastError: Error | null = null;
+
+    /**
+     * §L-966-BOUNDED-AUTO-RECOVERY — automatic {@link recoverFromRenderFailure}
+     * attempts already spent against the CURRENT GPU device.
+     *
+     * ⚠ Deliberately NOT reset by `onProjectSwitch()`, `recoverFromRenderFailure()`
+     * or `_downgradeToLightweightPipeline()`. Every one of those resets some other
+     * counter, and L-663 is precisely the defect of recovery erasing its own bound.
+     * The ONLY sanctioned reset is {@link _resetAutoRecoveryBudgetForNewDevice},
+     * called from `recoverPipeline()` when a genuinely new renderer/device is bound
+     * — the same reasoning `_gpuResourceResetAttempted` already documents.
+     */
+    private _autoRecoveryAttempts = 0;
+
+    /**
+     * §L-966 — a recovery rebuild is in flight (see
+     * {@link PipelineStatus.recoveringInFlight}). Set by
+     * {@link _driveRecoveryRebuild}, popped by the rebuild's own `finally`.
+     */
+    private _recoveringInFlight = false;
 
     /**
      * §GPU-RESOURCE-LIFETIME (ADR-0281) — latch: a destroyed/dangling GPU-resource
@@ -380,6 +481,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
             ssgiActive:     this._ssgiActive,
             traaActive:     this._traaActive,
             outlinesActive: this._outlinesActive,
+            // §L-966 — the crash guard must be told WHAT died, not just that
+            // something did. Only meaningful while phase === 'error'.
+            lastError:      this._phase === 'error' ? this._lastError : null,
+            autoRecoveryAttempts: this._autoRecoveryAttempts,
+            recoveringInFlight:   this._recoveringInFlight,
         };
     }
 
@@ -2269,8 +2375,20 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * If WebGPU is inactive (WebGL path), this is a no-op.
      */
     onProjectSwitch(): void {
-        console.log('[RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter');
-        this._retryCount = 0;
+        // §L-966 / L-663 defect 1 — a project switch is a LIFECYCLE event, not a
+        // recovery. It may hand the INCOMING project a fresh post-FX retry ladder,
+        // but it must not erase a bound that is currently holding a FAILED pipeline:
+        // that is how "recovery resets every counter that bounds it" was built. The
+        // automatic-recovery budget (`_autoRecoveryAttempts`) is never touched here
+        // at all — only `recoverPipeline()`'s new device may restore it.
+        const holdingAFailedPipeline = this._phase === 'error';
+        console.log(
+            '[RenderPipelineManager] onProjectSwitch — clearing outline refs' +
+            (holdingAFailedPipeline
+                ? ' (retry counter PRESERVED: the pipeline is in phase=error and the bound is live)'
+                : ', resetting retry counter'),
+        );
+        if (!holdingAFailedPipeline) this._retryCount = 0;
 
         // §FIX-PROJECT-SWITCH-GPU-STATE-NOT-RESET (L-316) — a project-switch is a
         // RECONSTRUCTION BOUNDARY, not just a data reset. The DATA isolates clean
@@ -3050,8 +3168,25 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // screen under the dialog; recoverFromRenderFailure() clears the latch
             // when it drives its rebuild.
             this._hasPipelineError = true;
-            this._phase = 'error';
-            this._emitState();
+
+            // ── §L-966-BOUNDED-AUTO-RECOVERY ────────────────────────────────────
+            // The refusal above is UNCHANGED and stays exactly as loud: a blind
+            // `_rebuildPipeline()` provably cannot reach a light-owned shadow map.
+            // What was missing is what came NEXT — nothing. The path fell straight
+            // to `phase='error'` and the viewport stayed dead, while the repair that
+            // CAN reach a light-owned map (`recoverFromRenderFailure()`: re-own the
+            // maps, reset the compiled node states, THEN rebuild) sat behind a human
+            // click. Refusing one repair is not a reason to attempt none — this is
+            // the refusing half finally getting its escape hatch, bounded so it
+            // cannot become the L-663 spin.
+            if (this._attemptAutoRecovery('shadow-resource destroyed mid-submit', source)) return;
+
+            this._failLoudly(
+                `The 3D viewport could not recover: a shadow depth texture ` +
+                `(ShadowDepthTexture) was released while the GPU was still drawing with it, ` +
+                `and ${MAX_AUTO_RECOVERY_ATTEMPTS} automatic repair attempts did not fix it. ` +
+                `Original GPU report (via ${source}): "${message.slice(0, 160)}"`,
+            );
             return;
         }
 
@@ -3067,8 +3202,22 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // once we have declared the fault unrecoverable, keep the render loop from
             // re-submitting provably-failing frames behind the crash dialog.
             this._hasPipelineError = true;
-            this._phase = 'error';
-            this._emitState();
+
+            // §L-966-BOUNDED-AUTO-RECOVERY — the ONE reconstruction this branch is
+            // reporting the failure of was `_rebuildPipeline()`, which reaches the
+            // POST-FX graph and nothing else. `recoverFromRenderFailure()` is a
+            // strictly larger repair (light-owned shadow maps + the compiled
+            // node-builder/render-object/pipeline/binding caches), so "the small one
+            // failed" is not evidence that the large one will. Attempt it, within the
+            // same bound.
+            if (this._attemptAutoRecovery('destroyed GPU resource recurred', source)) return;
+
+            this._failLoudly(
+                `The 3D viewport could not recover: a GPU resource was released while the ` +
+                `renderer was still using it, and it recurred after a full reconstruction plus ` +
+                `${MAX_AUTO_RECOVERY_ATTEMPTS} automatic repair attempts. ` +
+                `Original GPU report (via ${source}): "${message.slice(0, 160)}"`,
+            );
             return;
         }
 
@@ -3088,9 +3237,106 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 'failing loudly rather than leaving a dark viewport:',
                 resetErr instanceof Error ? resetErr.message : resetErr,
             );
-            this._phase = 'error';
-            this._emitState();
+            this._failLoudly(
+                `The 3D viewport could not recover: rebuilding the render pipeline after a ` +
+                `GPU resource fault threw. ` +
+                `Rebuild error: "${(resetErr instanceof Error ? resetErr.message : String(resetErr)).slice(0, 160)}". ` +
+                `Original GPU report (via ${source}): "${message.slice(0, 160)}"`,
+            );
         }
+    }
+
+    /**
+     * §L-966-BOUNDED-AUTO-RECOVERY — attempt the repair that a pipeline rebuild
+     * cannot do, at most {@link MAX_AUTO_RECOVERY_ATTEMPTS} times per GPU device.
+     *
+     * This is the automatic half of the lever that previously existed only behind
+     * the crash card's "Reload viewport" button. Two things make it safe to call
+     * without a human in the loop, and BOTH are load-bearing:
+     *
+     *   1. The budget is bounded and is NOT reset by recovery itself, nor by any
+     *      lifecycle event (L-663). Without that, a recovery that fails re-enters
+     *      here on the next frame's fault report forever — an infinite recovery
+     *      loop is worse than a dead viewport, because a dead viewport at least
+     *      stops touching the GPU.
+     *   2. `recoverFromRenderFailure()` closes the submit gate for the whole
+     *      teardown/rebuild window (§L930-DETACH-BEFORE-FREE), so an automatic
+     *      call cannot widen the use-after-free window it is repairing.
+     *
+     * @returns true when a recovery was actually driven, so the caller must return
+     *          rather than escalating; false when the budget is spent (or there is
+     *          nothing to rebuild), so the caller must fail loudly and tell the user.
+     */
+    private _attemptAutoRecovery(faultDescription: string, source: string): boolean {
+        if (this._autoRecoveryAttempts >= MAX_AUTO_RECOVERY_ATTEMPTS) {
+            console.error(
+                `[RenderPipelineManager] §L-966-BOUNDED-AUTO-RECOVERY budget EXHAUSTED ` +
+                `(${this._autoRecoveryAttempts}/${MAX_AUTO_RECOVERY_ATTEMPTS}) for "${faultDescription}" ` +
+                `via ${source}. Not attempting a ${this._autoRecoveryAttempts + 1}th recovery: an ` +
+                'unbounded recover→same-fault→recover cycle pins the GPU and is strictly worse than ' +
+                'stopping. Failing loudly with the real error so the user is TOLD what died.',
+            );
+            return false;
+        }
+
+        this._autoRecoveryAttempts++;
+        console.warn(
+            `[RenderPipelineManager] §L-966-BOUNDED-AUTO-RECOVERY attempting automatic recovery ` +
+            `${this._autoRecoveryAttempts}/${MAX_AUTO_RECOVERY_ATTEMPTS} for "${faultDescription}" ` +
+            `via ${source} — re-owning light shadow maps + resetting compiled node states before ` +
+            'the rebuild (the repair a bare _rebuildPipeline() cannot perform).',
+        );
+
+        // `auto: true` — do NOT clear `_gpuResourceResetAttempted`. That latch is
+        // the ONE-full-reconstruction budget; the manual button may reopen it
+        // because a human has decided to spend the time, but an automatic path that
+        // reopened it would compound two budgets into an effectively unbounded one.
+        const driven = this._driveRecoveryRebuild(true);
+        if (!driven) {
+            console.error(
+                '[RenderPipelineManager] §L-966-BOUNDED-AUTO-RECOVERY nothing to rebuild ' +
+                '(no active WebGPU pipeline) — recovery is not possible for this backend state.',
+            );
+        }
+        return driven;
+    }
+
+    /**
+     * §L-966 — enter the terminal error state with the REAL cause attached.
+     *
+     * Every `phase='error'` escalation on the resource-lifetime path routes through
+     * here so that `PipelineStatus.lastError` is never empty when the crash guard
+     * reads it. The message is written for the USER: what died, that we tried, how
+     * many times, and the raw GPU report so a founder can paste it into a bug.
+     * A refusal that explains itself is a correct answer; a blank canvas is not.
+     */
+    private _failLoudly(userFacingMessage: string): void {
+        this._hasPipelineError = true;
+        this._lastError        = new Error(userFacingMessage);
+        this._phase            = 'error';
+        this._emitState();
+    }
+
+    /**
+     * §L-966 — restore the automatic-recovery budget, and ONLY for the one event
+     * that makes a spent budget genuinely stale: a brand-new GPU device.
+     *
+     * `recoverPipeline()` binds a freshly-recreated renderer after device loss.
+     * That device has new attribute / render-object bookkeeping and new light-owned
+     * resources, so faults on the OLD device say nothing about this one — exactly
+     * the reasoning `_gpuResourceResetAttempted` already carries, applied to the
+     * same boundary. Device-loss, first-load and project-switch are three different
+     * failure classes and only the first of them is a new device; giving all three
+     * a fresh budget is how L-663 was built.
+     */
+    private _resetAutoRecoveryBudgetForNewDevice(): void {
+        if (this._autoRecoveryAttempts === 0) return;
+        console.log(
+            `[RenderPipelineManager] §L-966-BOUNDED-AUTO-RECOVERY new GPU device bound — ` +
+            `resetting the spent recovery budget (${this._autoRecoveryAttempts}/${MAX_AUTO_RECOVERY_ATTEMPTS}). ` +
+            'Faults on the previous device do not bound this one.',
+        );
+        this._autoRecoveryAttempts = 0;
     }
 
     /**
@@ -3115,16 +3361,39 @@ export class RenderPipelineManager implements IViewSwitchListener {
      *          reload rather than reporting a recovery that did not happen.
      */
     recoverFromRenderFailure(): boolean {
+        // §L-966 — the MANUAL lever. Deliberately NOT bounded by
+        // MAX_AUTO_RECOVERY_ATTEMPTS: that budget exists to stop an UNATTENDED spin,
+        // never to disable the user's own retry. A human clicking "Reload viewport"
+        // has decided to spend the time, and if this returns false the crash guard
+        // falls back to a hard reload — so the user always has a way forward.
+        return this._driveRecoveryRebuild(false);
+    }
+
+    /**
+     * §L-966 — the shared body of {@link recoverFromRenderFailure}, used by both
+     * the manual lever and the bounded automatic path.
+     *
+     * @param auto true when driven by `_attemptAutoRecovery`. The ONLY difference is
+     *   that the automatic path does NOT reopen `_gpuResourceResetAttempted` (the
+     *   one-full-reconstruction budget): reopening it automatically would compound
+     *   two independent budgets into an unbounded one, which is the exact L-663
+     *   shape this work exists to remove. A human may reopen it; a loop may not.
+     */
+    private _driveRecoveryRebuild(auto: boolean): boolean {
         if (!this._webGpuActive) return false;
         console.log(
-            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME recoverFromRenderFailure — ' +
+            '[RenderPipelineManager] §GPU-RESOURCE-LIFETIME recoverFromRenderFailure ' +
+            `(${auto ? 'AUTOMATIC, bounded' : 'manual'}) — ` +
             'reconciling size and rebuilding the render pipeline (NOT onProjectSwitch, which ' +
             'defers the rebuild and would leave the viewport dark).',
         );
-        this._gpuResourceResetAttempted    = false;
+        if (!auto) this._gpuResourceResetAttempted = false;
         this._destroyedResourceReports     = 0;
         this._destroyedResourceWindowStart = 0;
         this._retryCount                   = 0;
+        // The viewport is being given another chance — drop the stale cause so a
+        // LATER, unrelated failure cannot be reported with this one's message.
+        this._lastError                    = null;
 
         // ── §L930-DETACH-BEFORE-FREE (founder L-930) — the ORDER below is the fix ──
         //
@@ -3215,7 +3484,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // has settled and installed a pipeline whose bind groups sample the FRESH
         // shadow map. `_rebuildPipeline()` takes (and releases) its own nested
         // guard; the depth counter means submits resume exactly once, here.
-        void this._rebuildPipeline().finally(() => { this._endShadowRebuildGuard(); });
+        // §L-966 — flag the in-flight window so the health badge says "recovering"
+        // instead of "ok" while the viewport is frozen mid-reconstruction, and emit
+        // NOW so the badge updates at the start of the window, not the end.
+        this._recoveringInFlight = true;
+        this._emitState();
+        void this._rebuildPipeline().finally(() => {
+            this._endShadowRebuildGuard();
+            this._recoveringInFlight = false;
+            this._emitState();
+        });
         return true;
     }
 
@@ -3625,6 +3903,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // brand-new attribute / render-object bookkeeping, so the destroyed-resource
         // latch is genuinely stale here (and ONLY here). See the field's doc.
         this._gpuResourceResetAttempted = false;
+        // §L-966 — same boundary, same reasoning: a NEW device is a different
+        // failure class from the one whose budget was spent. This is the only
+        // sanctioned reset of the automatic-recovery bound.
+        this._resetAutoRecoveryBudgetForNewDevice();
 
         try {
             await this.bind(scene, camera, renderer, 'light', backendIsWebGPU);

@@ -3049,9 +3049,21 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // §5.4 — Sync health indicator with pipeline status
             renderHealthIndicator.syncFromPipelineStatus(status);
 
-            // §5.1 — Show crash fallback when pipeline retries are exhausted
+            // §5.1 — Show crash fallback when the pipeline enters phase='error'.
+            //
+            // §L-966 — PASS THE ERROR. This call used to take no argument, although
+            // `handlePipelineError(error?: Error)` has always accepted one, so the
+            // guard minted its own placeholder — *"Render pipeline retries exhausted
+            // — phase=error"*. On the founder's actual path that string is a
+            // FABRICATION: the escalation came from `_onDestroyedGpuResource`, which
+            // sets phase='error' directly and never runs the retry ladder. Worse, the
+            // guard's `_diagnose()` keys on the error SIGNATURE to decide whether to
+            // say "this is a PRYZM defect" or the default "probably your GPU driver"
+            // — so discarding the identity here made us blame the user's hardware for
+            // our own resource-lifetime bug, and cost us the bug report. `lastError`
+            // now carries what actually died, and why recovery could not fix it.
             if (status.phase === 'error') {
-                viewportCrashGuard.handlePipelineError();
+                viewportCrashGuard.handlePipelineError(status.lastError ?? undefined);
             }
         };
 

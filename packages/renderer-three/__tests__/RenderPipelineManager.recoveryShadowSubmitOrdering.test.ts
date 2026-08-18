@@ -383,17 +383,36 @@ describe('§L930 — the recovery must not free a light-owned shadow map through
 
         // Deliver the founder's exact validation error straight down the production
         // channel, with no recovery in progress. §RECOVERY-MUST-REFUSE must still
-        // refuse, name the cause, and fail into phase='error' on the FIRST report —
-        // no retry, no swallow, no longer backoff.
-        rig.rpm._onDestroyedGpuResource(
+        // refuse the BLIND rebuild and name the cause, every single time.
+        //
+        // §L-966 — the escalation to phase='error' now happens once the bounded
+        // automatic-recovery budget is spent, not on the first report. The refusal
+        // itself is what this test guards, and it is unweakened: it still fires, and
+        // still names §RECOVERY-MUST-REFUSE, on EVERY report including the first.
+        const SHADOW_FAULT =
             'Destroyed texture [Texture "ShadowDepthTexture"] used in a submit. ' +
-            '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]]).',
-            'GPUDevice.uncapturederror',
-            true,
-        );
+            '- While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]]).';
+        const report = (): void => {
+            // Each call is a NEW window — "the next frame faulted again", not another
+            // line of the same flood (which coalesces, by design).
+            rig.rpm._destroyedResourceWindowStart = 0;
+            rig.rpm._destroyedResourceReports     = 0;
+            rig.rpm._onDestroyedGpuResource(SHADOW_FAULT, 'GPUDevice.uncapturederror', true);
+        };
+
+        report();
+        // The refusal fired on the FIRST report — unweakened.
+        expect(errSpy.mock.calls.flat().join(' ')).toContain('§RECOVERY-MUST-REFUSE');
+
+        // Spend the bounded budget; the fault never heals.
+        report();
+        report();
 
         expect(rig.rpm.status.phase).toBe('error');
         expect(errSpy.mock.calls.flat().join(' ')).toContain('§RECOVERY-MUST-REFUSE');
+        // §L-966 — and the terminal state names the resource, so the crash guard can
+        // tell the user what died instead of minting "retries exhausted".
+        expect(rig.rpm.status.lastError?.message).toContain('ShadowDepthTexture');
     });
 
     it('§L930-SUBMIT-PAUSE-DEPTH — nested guards do not let the inner release resume submits', () => {

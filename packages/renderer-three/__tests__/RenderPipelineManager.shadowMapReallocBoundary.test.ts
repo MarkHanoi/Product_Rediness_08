@@ -316,23 +316,38 @@ describe('§L-819 — dangling-shadow-node TypeError classification + non-retry 
         expect(isShadowResourceError(new Error('some transient pass failure'))).toBe(false);
     });
 
-    it('a render() throw of the TypeError REFUSES loudly instead of burning the 3× retry ladder', () => {
+    it('a render() throw of the TypeError REFUSES the retry ladder and drives the REAL repair', () => {
         // Production burned "rebuild attempt 1/3" against a fault a pipeline rebuild
         // provably cannot fix (the cached node states are not recompiled), then hit
-        // the SAME destroyed-texture error and exhausted into the modal.
+        // the SAME destroyed-texture error and exhausted into the modal. The ladder
+        // refusal below is that fix, unchanged.
+        //
+        // §L-966 — but "not the ladder" was never a reason to do NOTHING, and this
+        // test used to assert exactly that (`phase === 'error'` on the FIRST report,
+        // no rebuild at all) — i.e. it pinned the founder's dead viewport as correct.
+        // The repair that DOES heal this fault class is the one this very file's
+        // §L-819 block proves works: re-own the light maps, reset the compiled node
+        // states, then rebuild. It is now driven automatically, within a bound.
         const rpm = makeRpm();
         rpm._scene = { traverse: () => {} };
         rpm._camera = {};
         rpm._renderer.setClearAlpha = () => {};
         rpm._renderPipeline = { render: () => { throw new TypeError(DANGLING_SHADOW_NODE_TYPEERROR); }, dispose: () => {} };
         rpm._rebuildPipeline = vi.fn(async () => {});
+        rpm._recreateLightOwnedShadowMaps = vi.fn();
+        rpm._resetCompiledNodeStates      = vi.fn();
+        rpm._safeDisposeRenderPipeline    = vi.fn();
 
         rpm.render(0.016);
 
-        expect(rpm.status.phase).toBe('error');       // refused loudly → crash guard → recovery lever
+        // The ladder is still refused — that invariant is untouched.
         expect(rpm.status.retryCount).toBe(0);        // never entered the ladder
         expect(vi.getTimerCount()).toBe(0);           // no 500ms backoff armed
-        expect(rpm._rebuildPipeline).not.toHaveBeenCalled(); // no wasted rebuild either
+
+        // …and the real repair ran instead of the viewport simply dying.
+        expect(rpm._recreateLightOwnedShadowMaps).toHaveBeenCalledTimes(1);
+        expect(rpm._rebuildPipeline).toHaveBeenCalledTimes(1);
+        expect(rpm.status.phase).not.toBe('error');
     });
 });
 
