@@ -55,8 +55,31 @@
 // clash). `layerSumMismatch` reports the discrepancy so a caller can surface it rather than
 // discover it as geometry.
 
+// ─── §FEAT-RAKE-LAYERED (founder 2026-08-18) ─────────────────────────────────────────────
+//
+// "In parallel I need LAYERED walls to work with RAKED walls too."
+//
+// A layer authored `t` thick is `t` thick PERPENDICULAR to the wall face (that is what a
+// system-type layer means, and `wall.thickness` is stamped as `Σ t` — so it too is a
+// perpendicular quantity for a layered wall). Once the wall is sheared to θ, that same layer
+// occupies `t / sin θ` in PLAN. This module is where the bands are cut, so this is where the
+// conversion belongs — via the single canonical `WallRake.rakedPlanThickness`, never a local
+// `/ Math.sin(...)`.
+//
+// Everything else is unchanged. `rakeAngleDeg` is OPTIONAL and absent/90 short-circuits to the
+// exact pre-existing arithmetic (`rakedPlanThickness` returns its input at 90°), so a vertical
+// layered wall's bands are byte-identical — same `total`, same `cursor` walk, same clips.
+//
+// The CALLER is responsible for handing in a footprint whose plan half-thickness is already the
+// RAKED one (`wall.thickness / sin θ`); `WallPipelineV2.effectivePlanThickness` does that for
+// both the junction solve and the footprint, so the bands and the polygon they are clipped
+// against are built in the same frame. `layerSumMismatch` is therefore also a PLAN-space
+// quantity: it compares the plan stack against the plan footprint, and is 0 for a
+// correctly-authored stack at any rake — not just at 90°.
+
 import type { Pt2 } from './JunctionResolverV2.js';
 import type { WallFootprint } from './WallFootprint2D.js';
+import { rakedPlanThickness } from './WallRake.js';
 
 /** One layer's plan-XZ region, in the same winding as the source footprint. */
 export interface WallLayerBand {
@@ -65,9 +88,14 @@ export interface WallLayerBand {
     /** Clipped polygon in world plan-XZ. EMPTY when the band falls outside the footprint. */
     readonly polygon: readonly Pt2[];
     /** Signed lateral extents of the band along `leftPerp(direction)`, relative to the
-     *  centreline. `lo < hi`. Useful for callers that need the band's nominal position. */
+     *  centreline. `lo < hi`. Useful for callers that need the band's nominal position.
+     *  §FEAT-RAKE-LAYERED: these are PLAN extents — `hi - lo` is `t / sin θ`, not `t`. */
     readonly lateralLo: number;
     readonly lateralHi: number;
+    /** §FEAT-RAKE-LAYERED — the band's nominal PLAN width, `t_i / sin θ` (= `t_i` at 90°).
+     *  Stated explicitly so a caller asserting the founder's number does not have to
+     *  re-derive it from `hi - lo` and re-introduce the division this module owns. */
+    readonly planThickness: number;
 }
 
 export interface WallLayerBands {
@@ -152,11 +180,17 @@ function clipHalfPlane(
 export function buildWallLayerBands(
     footprint: WallFootprint,
     layerThicknesses: readonly number[],
+    rakeAngleDeg?: number | null,
 ): WallLayerBands {
+    // §FEAT-RAKE-LAYERED — PERPENDICULAR (authored) → PLAN, once, up front. At 90° this is
+    // the identity map, so every number below is the pre-rake number.
+    const planT = layerThicknesses.map(t => rakedPlanThickness(t, rakeAngleDeg));
+
     const empty = (mismatch: number): WallLayerBands => ({
         wallId: footprint.id,
-        bands: layerThicknesses.map((t, i) => ({
+        bands: planT.map((t, i) => ({
             index: i, polygon: [] as readonly Pt2[], lateralLo: 0, lateralHi: Number.isFinite(t) ? t : 0,
+            planThickness: Number.isFinite(t) ? t : 0,
         })),
         layerSumMismatch: mismatch,
     });
@@ -165,7 +199,7 @@ export function buildWallLayerBands(
         return empty(0);
     }
     let total = 0;
-    for (const t of layerThicknesses) {
+    for (const t of planT) {
         if (!Number.isFinite(t) || t <= 0) return empty(0);
         total += t;
     }
@@ -177,14 +211,14 @@ export function buildWallLayerBands(
 
     const bands: WallLayerBand[] = [];
     let cursor = -total / 2;
-    for (let i = 0; i < layerThicknesses.length; i++) {
+    for (let i = 0; i < planT.length; i++) {
         const lo = cursor;
-        const hi = cursor + layerThicknesses[i]!;
+        const hi = cursor + planT[i]!;
         cursor = hi;
         // Two half-plane clips: u >= lo, then u <= hi.
         const lower = clipHalfPlane(footprint.polygon, origin, axis, lo, +1);
         const polygon = lower.length >= 3 ? clipHalfPlane(lower, origin, axis, hi, -1) : [];
-        bands.push({ index: i, polygon, lateralLo: lo, lateralHi: hi });
+        bands.push({ index: i, polygon, lateralLo: lo, lateralHi: hi, planThickness: planT[i]! });
     }
 
     return { wallId: footprint.id, bands, layerSumMismatch: mismatch };

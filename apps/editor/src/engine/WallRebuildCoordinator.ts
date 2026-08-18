@@ -1592,7 +1592,7 @@ export class WallRebuildCoordinator {
                 // (older runtimes) — V2 then falls back to the per-call auto path.
                 try {
                     const refresh = (builder as unknown as {
-                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string; curveControlXZ?: { x: number; z: number }; rakeAngleDeg?: number }>) => void;
+                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number; systemTypeId?: string; curveControlXZ?: { x: number; z: number }; rakeAngleDeg?: number; layered?: boolean }>) => void;
                     }).refreshV2Cache;
                     if (typeof refresh === 'function') {
                         // §V2-PRETRIM-FIX (2026-05-27): feed the V2 resolver the
@@ -1639,6 +1639,15 @@ export class WallRebuildCoordinator {
                                     // floor-exact only (the ADR-0310 uniform shear). Absent / 90 ⇒
                                     // vertical, and the probe solve is skipped entirely.
                                     rakeAngleDeg: (w as unknown as { rakeAngleDeg?: number }).rakeAngleDeg,
+                                    // §FEAT-RAKE-LAYERED (founder 2026-08-18) — a LAYERED wall's
+                                    // `thickness` is stamped as `Σ layer.thickness`, i.e. a sum of
+                                    // PERPENDICULAR thicknesses, so a raked one occupies
+                                    // `thickness / sin θ` in PLAN and the junction solve must mitre
+                                    // that wider wall. Without this flag the cache would solve the
+                                    // corners of a wall narrower than the bands the builder then
+                                    // cuts, and the outer layers would be clipped away at every
+                                    // junction. FALSE for every plain wall ⇒ no rescale ⇒ no change.
+                                    layered: ((w as unknown as { layers?: unknown[] }).layers?.length ?? 0) > 1,
                                 };
                             });
                         refresh.call(builder, specs);

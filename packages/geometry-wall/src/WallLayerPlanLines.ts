@@ -19,6 +19,20 @@
 //
 // The two OUTER faces (offsets ±totalThickness/2) are the wall's own footprint edges and are
 // NOT emitted here (that would double the outline).
+//
+// §FEAT-RAKE-LAYERED (founder 2026-08-18) — A RAKED LAYERED WALL IN PLAN.
+// A plan is a horizontal SECTION at `cutRelToBase` above the wall base, so a raked wall's
+// layer lines move with the cut, and two independent corrections are needed — omit either
+// and the plan disagrees with the 3D body the same edit just started building:
+//
+//   1. WIDTH.  Each band occupies `t / sin θ` in plan, not `t` (`rakedPlanThickness` — the
+//              same helper the 3D band slicer uses, so the two cannot drift).
+//   2. POSITION. The whole section is displaced along the OUTWARD normal by
+//              `cutRelToBase · cot θ` (`rakeShearPerMetre`), because that normal IS the
+//              `leftPerp` the rake shears along — one notion of "left" in this subsystem.
+//
+// At 90° both corrections vanish exactly (`rakedPlanThickness` is the identity,
+// `rakeShearPerMetre` returns literal 0), so a vertical wall's linework is unchanged.
 
 export interface LayerLineOpening {
     /** Left-edge offset (m) from the wall start along the baseline. */
@@ -42,6 +56,9 @@ export interface LayerLineWall {
     readonly openings?: ReadonlyArray<LayerLineOpening>;
     /** Presence marks a curved wall — skipped (handled separately). */
     readonly curve?: unknown;
+    /** §FEAT-RAKE-LAYERED — `WallData.rakeAngleDeg`. Absent / 90 ⇒ vertical ⇒ this module
+     *  behaves exactly as it did before the feature, to the float. */
+    readonly rakeAngleDeg?: number;
 }
 
 /** A world-XZ line segment (endpoints). */
@@ -51,6 +68,8 @@ export interface LayerLineSeg {
     /** Signed offset of this line from the baseline along the outward normal (m). */
     readonly offset: number;
 }
+
+import { rakedPlanThickness, rakeShearPerMetre } from './WallRake.js';
 
 const PLAN_EPS_M = 1e-6;   // C73 §2.3 — 1 micron, in METRES: the degenerate-length guard for layer thicknesses, spans and zones in this file.
 /** Vertical tolerance for deciding an opening void straddles the cut plane. */
@@ -74,14 +93,18 @@ export function computeWallLayerLines(
     if (!basis) return [];
     const { sx, sz, dx, dz, ox, oz, len } = basis;
 
-    const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
+    // §FEAT-RAKE-LAYERED (1) — PERPENDICULAR (authored) → PLAN. Identity at 90°.
+    const planT = layers.map(l => rakedPlanThickness(Math.max(0, l.thickness), wall.rakeAngleDeg));
+    const total = planT.reduce((s, t) => s + t, 0);
     if (total < PLAN_EPS_M) return [];
+    // §FEAT-RAKE-LAYERED (2) — the whole SECTION slides along `outward` with the cut height.
+    const shear = cutRelToBase * rakeShearPerMetre(wall.rakeAngleDeg);
 
     // Internal boundary offsets (skip the two outer faces at ±total/2).
     const boundaries: number[] = [];
-    let cursor = -total / 2;
+    let cursor = -total / 2 + shear;
     for (let k = 0; k < layers.length - 1; k++) {
-        cursor += Math.max(0, layers[k]!.thickness);
+        cursor += planT[k]!;
         boundaries.push(cursor);
     }
 
@@ -147,15 +170,21 @@ export function computeWallLayerInsulationHatch(
     if (!basis) return [];
     const { sx, sz, dx, dz, ox, oz, len } = basis;
 
-    const total = layers.reduce((s, l) => s + (l.thickness > 0 ? l.thickness : 0), 0);
+    // §FEAT-RAKE-LAYERED — identical two corrections as `computeWallLayerLines`, so the
+    // hatch stays inside the bands those boundary lines bound at ANY rake (the ADR-121
+    // §4.2 strict-superset invariant is a property of the two using the SAME numbers).
+    const planT = layers.map(l => rakedPlanThickness(Math.max(0, l.thickness), wall.rakeAngleDeg));
+    const total = planT.reduce((s, t) => s + t, 0);
     if (total < PLAN_EPS_M) return [];
+    const shear = cutRelToBase * rakeShearPerMetre(wall.rakeAngleDeg);
 
     const keptIntervals = subtractZones(len, openingZones(wall, cutRelToBase, len));
 
     const segs: LayerLineSeg[] = [];
-    let cursor = -total / 2;
-    for (const layer of layers) {
-        const t = Math.max(0, layer.thickness);
+    let cursor = -total / 2 + shear;
+    for (let li = 0; li < layers.length; li++) {
+        const layer = layers[li]!;
+        const t = planT[li]!;
         const near = cursor;
         cursor += t;
         if (layer.function !== 'insulation' || t < PLAN_EPS_M) continue;

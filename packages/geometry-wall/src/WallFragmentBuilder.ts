@@ -38,6 +38,9 @@ import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
 import {
     WallPipelineV2Cache,
     buildWallV2Geometry,
+    // §FEAT-RAKE-LAYERED — the ONE derivation of a raked LAYERED wall's plan thickness,
+    // shared with the junction solve so the bands and the polygon agree.
+    effectivePlanThickness,
     isWallPipelineV2Enabled,
     type LevelWallSpec,
     // §CONNECT-3 — the two QUERY result types are genuinely owned by the cache module
@@ -57,7 +60,10 @@ import type { WallJunctionRecord } from './JunctionResolverV2';
 import { buildWallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion } from './WallPolygonExtruder';
 // §WALL-RAKE — sizing the §V2-SPIKE-GUARD budget for a legitimately overhanging raked wall.
-import { rakeLateralShift } from './WallRake';
+// §FEAT-RAKE-LAYERED — `rakeTopOffset` shears the layered bands; `isVerticalRake` keeps the
+// vertical path literally untouched; `rakedPlanThickness` converts a legacy prism's authored
+// (perpendicular) layer thickness into its plan width.
+import { isVerticalRake, rakedPlanThickness, rakeLateralShift, rakeTopOffset } from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
@@ -1381,7 +1387,15 @@ export class WallFragmentBuilder {
             // The miter plane normals come from wall.joinAngles (stamped by WallJoinResolver).
             // For free ends (no join), the normal defaults to the wall direction → perpendicular cut.
 
-            let cursor = -totalThickness / 2;
+            // §FEAT-RAKE-LAYERED — the LEGACY prism walk is a PLAN-space walk, so its
+            // cursor and its per-layer half-thickness must both be plan quantities. At 90°
+            // `rakedPlanThickness` is the identity, so `_layerPlanT` === the authored
+            // thicknesses and `_totalPlanThickness` === `totalThickness`, term for term.
+            const _layerPlanT: number[] = wall.layers.map(
+                (l: any) => rakedPlanThickness(l.thickness, wall.rakeAngleDeg),
+            );
+            const _totalPlanThickness = _layerPlanT.reduce((s: number, t: number) => s + t, 0);
+            let cursor = -_totalPlanThickness / 2;
 
             // §STEP4: read directly from the joinData parameter — no cache.
             const startMN = joinData?.startMN ?? null;
@@ -1411,6 +1425,30 @@ export class WallFragmentBuilder {
             // ALL-OR-NOTHING: if any band fails the spike guard, the whole wall falls back
             // to the legacy prisms. A stack must never mix the two frames — a half-migrated
             // layer stack is worse than a uniformly-legacy one.
+            //
+            // ── §FEAT-RAKE-LAYERED (founder 2026-08-18) ────────────────────────────────
+            // "In parallel I need LAYERED walls to work with RAKED walls too."
+            //
+            // THIS is the arm that makes it true, and it is true here and only here: the
+            // legacy fallback below shears its prisms but cannot inherit the V2 corners,
+            // and the openings arm above is still REFUSED at `rakeAuthorability`.
+            //
+            // Three coupled changes, none of which works alone:
+            //   1. the footprint is built at the wall's RAKED PLAN thickness
+            //      (`effectivePlanThickness` — `Σt / sin θ`), the same number
+            //      `WallPipelineV2Cache.refresh` mitred with, so the polygon is in ONE frame;
+            //   2. the bands are cut at `t / sin θ` each (`buildWallLayerBands(..., rake)`),
+            //      so every layer's PERPENDICULAR thickness comes out as authored;
+            //   3. each band is extruded with the wall's `topOffset`, so the band is a
+            //      SHEARED prism rather than a vertical one.
+            // Drop (1) and the outer bands are clipped away by a too-narrow polygon; drop
+            // (2) and the layers are the wrong thickness; drop (3) and the wall renders
+            // vertical while the model says 80 — the worst of the three.
+            //
+            // Vertical walls: `rakeTopOffset` returns null and `rakedPlanThickness` is the
+            // identity at 90°, so every expression below evaluates to its pre-existing value.
+            const _layRake = wall.rakeAngleDeg;
+            const _layIsRaked = !isVerticalRake(_layRake);
             let v2LayerGeoms: Array<THREE.BufferGeometry> | null = null;
             {
                 const _layCache = this.getEffectiveV2Cache();
@@ -1429,14 +1467,29 @@ export class WallFragmentBuilder {
                             id: wall.id,
                             start: { x: _preS.x, z: _preS.z },
                             end:   { x: _preE.x, z: _preE.z },
-                            thickness: wall.thickness,
+                            // §FEAT-RAKE-LAYERED (1) — the RAKED plan width. Identical to
+                            // `wall.thickness` at 90° and for every non-layered wall.
+                            thickness: effectivePlanThickness({
+                                thickness: wall.thickness,
+                                rakeAngleDeg: _layRake,
+                                layered: wall.layers.length > 1,
+                            }),
                             systemTypeId: wall.systemTypeId,
                         },
                         _layMiter,
                     );
+                    // §FEAT-RAKE-LAYERED (3) — the uniform shear for this wall. Deliberately
+                    // NOT the per-vertex ADR-0312 loft: `rakedTopOffsets` is index-aligned
+                    // with the WALL polygon, and a BAND polygon has different vertices (the
+                    // half-plane clip inserts its own), so consuming it here would pair
+                    // offsets with the wrong corners. Layered joints are therefore
+                    // floor-exact (ADR-0310), which is the honest state, not a silent one.
+                    const _layTopOffset = rakeTopOffset(_layRake, wallHeight, _fp.direction);
                     const _bands = buildWallLayerBands(
                         _fp,
                         wall.layers.map((l: any) => l.thickness),
+                        // §FEAT-RAKE-LAYERED (2) — `t / sin θ` per layer.
+                        _layRake,
                     ).bands;
                     // Same envelope test as §V2-SPIKE-GUARD / §LEGACY-SPIKE-GUARD, applied
                     // per band. A real layer body never exceeds the wall's own footprint.
@@ -1444,7 +1497,13 @@ export class WallFragmentBuilder {
                         wall.baseLine[1].x - wall.baseLine[0].x,
                         wall.baseLine[1].z - wall.baseLine[0].z,
                     );
-                    const _maxExtent = _baseLen + wall.thickness + 1.0;
+                    // §FEAT-RAKE-LAYERED — the guard measures the band's PLAN bounding box,
+                    // and a sheared band legitimately overhangs its base by
+                    // `height · |cot θ|`. Without this term every raked layered wall would
+                    // trip the spike guard and fall back to the legacy prisms — i.e. the
+                    // feature would silently not apply. 0 for a vertical wall.
+                    const _maxExtent =
+                        _baseLen + wall.thickness + 1.0 + rakeLateralShift(_layRake, wallHeight);
                     const _geoms: THREE.BufferGeometry[] = [];
                     let _ok = _bands.length === wall.layers.length;
                     for (const b of _bands) {
@@ -1452,7 +1511,10 @@ export class WallFragmentBuilder {
                         if (b.polygon.length < 3) { _ok = false; break; }
                         const g = buildWallExtrusion(
                             { ...(_fp as any), polygon: b.polygon },
-                            { height: wallHeight, baseOffset: wallBaseOffset, elevation: 0 },
+                            {
+                                height: wallHeight, baseOffset: wallBaseOffset, elevation: 0,
+                                topOffset: _layTopOffset,
+                            },
                         );
                         // World-XZ → wallGroup-local (the group sits at the POST-trim start).
                         g.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
@@ -1479,8 +1541,10 @@ export class WallFragmentBuilder {
             }
 
             wall.layers.forEach((layer: any, layerIdx: number) => {
-                const layerCenter = cursor + layer.thickness / 2;
-                cursor += layer.thickness;
+                // §FEAT-RAKE-LAYERED — plan width of this layer (`t / sin θ`; `t` at 90°).
+                const _planT = _layerPlanT[layerIdx]!;
+                const layerCenter = cursor + _planT / 2;
+                cursor += _planT;
 
                 // ── Layer offset from centerline ──
                 // Compute layer centerline position (offset along outward normal)
@@ -1503,19 +1567,52 @@ export class WallFragmentBuilder {
 
                 // §FIX-LAYERED-WALL-V2-PARITY — the V2 band when the pipeline produced a
                 // full, guard-passing stack for this wall; otherwise the legacy prism.
-                const geom = v2LayerGeoms
-                    ? v2LayerGeoms[layerIdx]!
-                    : buildMiterPrism(
+                let geom: THREE.BufferGeometry;
+                if (v2LayerGeoms) {
+                    geom = v2LayerGeoms[layerIdx]!;   // already sheared by the extruder
+                } else {
+                    geom = buildMiterPrism(
                         worldStart,
                         worldEnd,
                         centerlineStart,           // Miter planes at centerline
                         centerlineEnd,             // Miter planes at centerline
-                        layer.thickness / 2,       // half-thickness of this layer
+                        _planT / 2,                // §FEAT-RAKE-LAYERED — half PLAN width
                         wallHeight,
                         wallBaseOffset,
                         startMN,
                         endMN,
                     );
+                    // §FEAT-RAKE-LAYERED — THE LEGACY ARM MUST NOT RENDER A RAKED WALL
+                    // VERTICAL. `buildMiterPrism` extrudes straight up; left alone, a raked
+                    // layered wall that fell back here (V2 disabled, no miter, or a band that
+                    // tripped the spike guard) would have stood up straight while the store
+                    // held 80° — a silently-wrong wall, which is the one outcome this
+                    // subsystem refuses to ship (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH).
+                    //
+                    // A rake is an affine SHEAR about the wall's base plane, so it applies to
+                    // an already-built prism exactly: x += kx·(y − yBase), z += kz·(y − yBase).
+                    // `applyMatrix4` carries the normals through the inverse-transpose, so the
+                    // tilted faces light correctly. `rakeTopOffset(rake, 1, dir)` is the shear
+                    // PER METRE of height and is null for a vertical wall — which is why this
+                    // whole block is skipped at 90° rather than multiplying by an identity
+                    // (a no-op matrix would still rewrite every float; skipping keeps a
+                    // vertical layered wall byte-identical).
+                    if (_layIsRaked) {
+                        const _k = rakeTopOffset(wall.rakeAngleDeg, 1, {
+                            x: centerlineEnd.x - centerlineStart.x,
+                            z: centerlineEnd.z - centerlineStart.z,
+                        });
+                        if (_k) {
+                            const _y0 = wallBaseOffset;
+                            geom.applyMatrix4(new THREE.Matrix4().set(
+                                1, _k.x, 0, -_k.x * _y0,
+                                0, 1,    0, 0,
+                                0, _k.z, 1, -_k.z * _y0,
+                                0, 0,    0, 1,
+                            ));
+                        }
+                    }
+                }
 
                 // §L934-ONE-WALL-ONE-COLOUR — was a local `'#d4c5b0'`. §BEIGE-WALL-FIX
                 // purged that beige from the instanced arm in 2026-06 and never reached
@@ -3547,6 +3644,11 @@ export class WallFragmentBuilder {
                 // §WALL-RAKE — the wall's lean from the floor plane. Absent / 90 ⇒ VERTICAL,
                 // and `buildWallV2Geometry` then takes the pre-rake path unchanged.
                 rakeAngleDeg: wall.rakeAngleDeg,
+                // §FEAT-RAKE-LAYERED — a raked LAYERED wall's stored `thickness` is the
+                // PERPENDICULAR sum `Σ layer.thickness`, so its plan width is that / sin θ.
+                // `effectivePlanThickness` needs to know which kind of wall this is; false /
+                // absent leaves every other wall's thickness untouched.
+                layered: (wall.layers?.length ?? 0) > 1,
             };
             const { geometry: worldGeom, maxTopDriftM } = buildWallV2Geometry(spec, v2Cache, {
                 height: wall.height,

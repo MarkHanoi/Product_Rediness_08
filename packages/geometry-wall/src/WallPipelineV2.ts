@@ -27,7 +27,7 @@ import {
 } from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
-import { isVerticalRake, RAKE_MIN_DEG, rakeTopOffset, resolveRakeDeg } from './WallRake';
+import { isVerticalRake, RAKE_MIN_DEG, rakedPlanThickness, rakeTopOffset, resolveRakeDeg } from './WallRake';
 
 // ─── §WALL-RAKE-JOINT (ADR-0312) — the twin-solve loft constants ──────────────
 //
@@ -109,6 +109,42 @@ export interface LevelWallSpec {
      * rake is refused on walls that would expose the discrepancy.
      */
     readonly rakeAngleDeg?: number;
+    /**
+     * §FEAT-RAKE-LAYERED (founder 2026-08-18) — TRUE when this wall carries a multi-layer
+     * construction assembly (`WallData.layers.length > 1`).
+     *
+     * It exists for ONE reason: for a layered wall `thickness` is stamped as `Σ layer.thickness`
+     * (`CreateWallCommand`), and every term of that sum is a PERPENDICULAR thickness. So when
+     * such a wall is RAKED, its true PLAN thickness is `thickness / sin θ` — see
+     * {@link effectivePlanThickness}. A PLAIN wall's `thickness` is a plan quantity already and
+     * is never rescaled, which is what keeps every existing raked wall byte-identical.
+     *
+     * Absent / false ⇒ no rescale ⇒ this whole feature is a strict no-op, which is why every
+     * pre-existing caller may keep omitting it.
+     */
+    readonly layered?: boolean;
+}
+
+/**
+ * §FEAT-RAKE-LAYERED — the PLAN (horizontal, XZ) thickness this wall actually occupies.
+ *
+ * Equal to `spec.thickness` for every wall except a RAKED LAYERED one, where it widens to
+ * `thickness / sin θ` because the stored number is a perpendicular sum (see
+ * {@link LevelWallSpec.layered}).
+ *
+ * THE POINT OF PUTTING IT HERE, rather than at the two call sites: the junction solve
+ * (`refresh`) and the per-wall footprint (`buildWallV2Geometry`, and the layered branch of
+ * `WallFragmentBuilder`) MUST agree on the wall's width, or the polygon zig-zags between two
+ * frames — half its corners solved for a narrow wall, half its caps drawn for a wide one. One
+ * exported function, consumed by all of them, makes that disagreement unrepresentable.
+ */
+export function effectivePlanThickness(spec: {
+    readonly thickness: number;
+    readonly rakeAngleDeg?: number;
+    readonly layered?: boolean;
+}): number {
+    if (!spec.layered) return spec.thickness;
+    return rakedPlanThickness(spec.thickness, spec.rakeAngleDeg);
 }
 
 /**
@@ -239,7 +275,10 @@ export class WallPipelineV2Cache {
             id: w.id,
             start: w.startXZ,
             end:   w.endXZ,
-            thickness: w.thickness,
+            // §FEAT-RAKE-LAYERED — a raked LAYERED wall is genuinely wider in plan than its
+            // stored (perpendicular) thickness, so the junction solve must mitre the WIDE
+            // wall. Identity for every other wall.
+            thickness: effectivePlanThickness(w),
             systemTypeId: w.systemTypeId,
             // §FIX-WALL-ARC-LINEAR-MITRE — hand the resolver the arc's true heading at each end.
             ...curveTangents(w),
@@ -551,7 +590,9 @@ export function buildWallV2Geometry(
 } {
     const input: WallInput = {
         id: wall.id, start: wall.startXZ, end: wall.endXZ,
-        thickness: wall.thickness, systemTypeId: wall.systemTypeId,
+        // §FEAT-RAKE-LAYERED — same widening the cache's own solve used, so the footprint's
+        // square-cap defaults and the miter's junction corners are in ONE frame.
+        thickness: effectivePlanThickness(wall), systemTypeId: wall.systemTypeId,
         ...curveTangents(wall),   // §FIX-WALL-ARC-LINEAR-MITRE
     };
     const miter = cache.getMiter(wall.id);

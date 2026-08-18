@@ -42,10 +42,40 @@
 // The consequence, stated honestly: the TRUE (perpendicular) thickness of a
 // raked wall is `thickness · sin(rakeAngleDeg)` — thinner than authored. For a
 // PLAIN single-layer wall that is a cosmetic difference (0.2 m at 80° measures
-// 0.197 m perpendicular). For a LAYERED wall it is NOT cosmetic: an architect
-// authoring "100 mm blockwork" means 100 mm PERPENDICULAR, and honouring that
-// requires the footprint to widen to `t / sin θ`. That work is not done, which
-// is precisely why {@link rakeAuthorability} REFUSES a rake on a layered wall.
+// 0.197 m perpendicular), and it is left alone: the plan footprint of a plain
+// raked wall is still byte-identical to the vertical one, at every angle.
+//
+// ─── §FEAT-RAKE-LAYERED (founder 2026-08-18) — THE LAYERED CASE, NOW BUILT ────
+//
+// For a LAYERED wall the difference is NOT cosmetic: an architect authoring
+// "100 mm blockwork" means 100 mm PERPENDICULAR. This paragraph used to end
+// *"That work is not done, which is precisely why rakeAuthorability REFUSES a
+// rake on a layered wall."* It is done now, and the refusal has narrowed to the
+// one combination that is still un-built (layered × openings — see the arm).
+//
+// The construction, and WHY it is not a re-interpretation of `thickness`:
+//
+//   • A LAYERED wall's `thickness` is not authored independently — it is STAMPED
+//     from the system type as `Σ layer.thickness` (`CreateWallCommand`,
+//     `UpdateWallsSystemTypeBatchCommand`). Every term in that sum is a
+//     PERPENDICULAR thickness. So for a layered wall, `thickness` is by
+//     PROVENANCE a perpendicular quantity that merely coincides with the plan
+//     thickness at 90°, where sin θ = 1.
+//   • Therefore the PLAN width of a layer of perpendicular thickness `t` on a
+//     wall raked to θ is `t / sin θ` ({@link rakedPlanThickness}), and the PLAN
+//     thickness of the whole stack is `thickness / sin θ`. The wall genuinely
+//     occupies more floor when it leans; it is not "wider" by convention.
+//   • `sin θ` never approaches 0 in the authorable band: θ ∈ [15°, 165°] ⇒
+//     sin θ ∈ [0.2588, 1] ⇒ the widening factor is at most 3.8637. The helper
+//     still guards |sin θ| ≤ 1e-9 and returns the input unchanged rather than
+//     dividing, because it is called defensively from the geometry path.
+//
+// VERIFIED AGAINST THE SHEAR, not taken from this comment: base lateral span
+// [−T/2, +T/2] at y = 0, top span shifted by h·cot θ, so a face advances (cot θ, 1)
+// per unit rise ∝ (cos θ, sin θ) — its angle to the floor IS θ. The unit normal to
+// that face is (−sin θ, cos θ), so two faces a horizontal Δu apart are separated
+// perpendicular by |(Δu, 0)·(−sin θ, cos θ)| = Δu·sin θ. Hence Δu = t / sin θ. ∎
+// {@link perpendicularThickness} is the exact inverse and was already correct.
 //
 // ─── WHAT IS DELIBERATELY REFUSED (C65 §3.9 — no affordance without an
 //     implementation) ────────────────────────────────────────────────────────
@@ -53,7 +83,13 @@
 //   • rake × curve    — the shear direction is the wall's plan normal, which
 //                       VARIES along an arc. One shear vector is simply wrong;
 //                       the correct construction is a swept per-station frame.
-//   • rake × layers   — the perpendicular-thickness convention above.
+//                       ILL-POSED, not unbuilt: this one never lifts.
+//   • rake × layers × openings — §FEAT-RAKE-LAYERED built the layered BODY (the
+//                       V2 band path below), but a layered wall that HOSTS an
+//                       opening is built by a different function entirely
+//                       (`buildLayeredWallSegmentsAroundOpenings` → per-layer
+//                       boxes around the void), and that one has no shear. So
+//                       the layered arm narrowed rather than vanished.
 //   • rake × openings — the opening carve is a vertical band (WallHoleBodyBuilder);
 //                       under a rake it must become an inclined one.
 //
@@ -160,6 +196,34 @@ export function perpendicularThickness(
     return planThickness * Math.abs(Math.sin(resolveRakeDeg(rakeAngleDeg) * DEG2RAD));
 }
 
+/**
+ * §FEAT-RAKE-LAYERED — the exact INVERSE of {@link perpendicularThickness}: the
+ * PLAN (horizontal, XZ) extent occupied by a band whose PERPENDICULAR thickness
+ * is `perpThickness`, on a wall raked to `rakeAngleDeg`.
+ *
+ *     plan = perp / sin θ          (θ = 90 ⇒ plan = perp, exactly)
+ *
+ * This is the `t / sin θ` the layered refusal used to name as missing. It is the
+ * SINGLE place that division is spelled, so the band slicer, the fragment builder
+ * and the plan-symbol builder cannot drift apart on it.
+ *
+ * Returns `perpThickness` UNCHANGED for a vertical wall, a non-finite input, or a
+ * degenerate |sin θ| ≤ 1e-9 — never a division by ~0, never a NaN handed onward
+ * (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH). |sin θ| ≥ 0.2588 across the whole authorable
+ * band [{@link RAKE_MIN_DEG}, {@link RAKE_MAX_DEG}], so the guard is defensive
+ * only: an in-range rake widens a layer by at most ×3.8637.
+ */
+export function rakedPlanThickness(
+    perpThickness: number,
+    rakeAngleDeg: number | null | undefined,
+): number {
+    if (!Number.isFinite(perpThickness)) return perpThickness;
+    if (isVerticalRake(rakeAngleDeg)) return perpThickness;
+    const s = Math.abs(Math.sin(resolveRakeDeg(rakeAngleDeg) * DEG2RAD));
+    if (!(s > 1e-9)) return perpThickness;
+    return perpThickness / s;
+}
+
 // ─── Authorability ────────────────────────────────────────────────────────────
 
 /** The subset of a wall this module needs in order to judge a rake. */
@@ -213,14 +277,18 @@ export function rakeAuthorability(subject: RakeSubject): RakeAuthorability {
                 'the rake at 90.',
         };
     }
-    if (subject.layers !== undefined && subject.layers !== null && subject.layers.length > 1) {
+    if (subject.layers !== undefined && subject.layers !== null && subject.layers.length > 1
+        && subject.openings !== undefined && subject.openings !== null && subject.openings.length > 0) {
         return {
             ok: false,
             code: 'layered',
             reason:
-                'wall.rakeAngleDeg is not supported on a LAYERED wall: layer thicknesses are ' +
-                'authored PERPENDICULAR to the face, and the raked plan footprint that honours ' +
-                'that (t / sin θ per layer) is not implemented. Use a single-layer wall type.',
+                'wall.rakeAngleDeg is not supported on a LAYERED wall that HOSTS OPENINGS: the raked ' +
+                'layer bands are built by slicing the sheared V2 footprint (t / sin θ per layer), but a ' +
+                'layered wall with an opening is built by a different path — per-layer boxes around the ' +
+                'void — which has no shear, so the wall would render VERTICAL while the model said 80. ' +
+                'A rake on a layered wall with NO openings is supported. Remove the openings, use a ' +
+                'single-layer wall type, or leave the rake at 90.',
         };
     }
     if (subject.openings !== undefined && subject.openings !== null && subject.openings.length > 0) {

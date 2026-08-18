@@ -5,15 +5,17 @@
 //      worked example rather than shipping every raked wall leaning the wrong way.
 //   2. THE VERTICAL INVARIANT. A 90° (or absent) rake must produce the EXACT same
 //      buffer as before the feature existed — not "close", identical.
-//   3. THE REFUSALS. Curve / layers / hosted openings × rake are rejected, because
-//      the geometry for those does not exist yet (C65 §3.9).
+//   3. THE REFUSALS. Curve / layers×openings / hosted openings × rake are rejected,
+//      because the geometry for those does not exist yet (C65 §3.9).
+//      §FEAT-RAKE-LAYERED (2026-08-18): "layers" left this list on its own — a raked
+//      LAYERED wall is built now. What remains of that arm is layers × openings.
 
 import { describe, it, expect } from 'vitest';
 import {
     RAKE_VERTICAL_DEG, RAKE_MIN_DEG, RAKE_MAX_DEG,
     resolveRakeDeg, isVerticalRake, isRakeInRange,
     rakeShearPerMetre, rakeTopOffset, rakeLateralShift,
-    perpendicularThickness, rakeAuthorability,
+    perpendicularThickness, rakedPlanThickness, rakeAuthorability,
 } from '../src/WallRake';
 import { buildWallFootprint } from '../src/WallFootprint2D';
 import { buildWallExtrusion, expectedVertexCount } from '../src/WallPolygonExtruder';
@@ -108,10 +110,32 @@ describe('§WALL-RAKE — thickness semantics', () => {
     it('thickness stays HORIZONTAL; the perpendicular thickness is the derived one', () => {
         expect(perpendicularThickness(0.2, undefined)).toBe(0.2);
         expect(perpendicularThickness(0.2, 90)).toBe(0.2);
-        // 80° ⇒ 0.2 · sin80° ≈ 0.19696 — thinner than authored, and that is why a
-        // LAYERED wall (whose layers ARE authored perpendicular) refuses a rake.
+        // 80° ⇒ 0.2 · sin80° ≈ 0.19696 — thinner than authored. For a PLAIN wall that
+        // difference is left standing (the plan footprint stays byte-identical); for a
+        // LAYERED wall, whose layers ARE authored perpendicular, it is undone by widening
+        // the plan band to `t / sin θ` — see §FEAT-RAKE-LAYERED below.
         expect(perpendicularThickness(0.2, 80)).toBeCloseTo(0.19696, 5);
         expect(perpendicularThickness(0.2, 120)).toBeCloseTo(0.17321, 5);
+    });
+
+    // §FEAT-RAKE-LAYERED — the founder's formula, and the round trip that proves the two
+    // helpers are exact inverses rather than two independent spellings of "sin".
+    it('rakedPlanThickness is the exact inverse of perpendicularThickness', () => {
+        expect(rakedPlanThickness(0.2, undefined)).toBe(0.2);
+        expect(rakedPlanThickness(0.2, 90)).toBe(0.2);
+        // 0.1 m of blockwork authored PERPENDICULAR occupies 0.1 / sin80° in PLAN.
+        expect(rakedPlanThickness(0.1, 80)).toBeCloseTo(0.1 / Math.sin(80 * Math.PI / 180), 12);
+        expect(rakedPlanThickness(0.1, 80)).toBeCloseTo(0.101543, 6);
+        for (const deg of [15, 45, 80, 100, 135, 165]) {
+            expect(perpendicularThickness(rakedPlanThickness(0.1, deg), deg)).toBeCloseTo(0.1, 12);
+        }
+        // The widening is BOUNDED across the whole authorable band — never a blow-up.
+        expect(rakedPlanThickness(1, 15)).toBeCloseTo(3.8637, 4);
+        expect(rakedPlanThickness(1, 165)).toBeCloseTo(3.8637, 4);
+        // Degenerate inputs return the input, never NaN or Infinity.
+        expect(rakedPlanThickness(0.1, 0)).toBe(0.1);
+        expect(rakedPlanThickness(0.1, 180)).toBe(0.1);
+        expect(Number.isNaN(rakedPlanThickness(NaN, 80))).toBe(true);
     });
 
     it('the BASE footprint is untouched by the rake — that is what keeps junctions valid', () => {
@@ -250,14 +274,29 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         expect(a.code).toBe('curved');
     });
 
-    it('REFUSES rake × layered — layer thickness is authored perpendicular', () => {
-        const a = rakeAuthorability({ rakeAngleDeg: 80, layers: [{}, {}] });
-        expect(a.ok).toBe(false);
-        expect(a.code).toBe('layered');
+    // §FEAT-RAKE-LAYERED (founder 2026-08-18) — THIS TEST INVERTED, DELIBERATELY.
+    // It used to read "REFUSES rake × layered — layer thickness is authored perpendicular".
+    // The perpendicular convention has not changed; what changed is that the `t / sin θ`
+    // plan footprint it named as missing is now built (`WallLayerFootprint2D` +
+    // `WallPipelineV2.effectivePlanThickness`), so the refusal has no subject left.
+    it('ALLOWS rake × layered — t / sin θ per layer is now built', () => {
+        expect(rakeAuthorability({ rakeAngleDeg: 80, layers: [{}, {}] }).ok).toBe(true);
+        expect(rakeAuthorability({ rakeAngleDeg: 120, layers: [{}, {}, {}, {}, {}] }).ok).toBe(true);
     });
 
     it('allows a single-layer stack — one layer is geometrically the plain wall', () => {
         expect(rakeAuthorability({ rakeAngleDeg: 80, layers: [{}] }).ok).toBe(true);
+    });
+
+    // The layered arm did not vanish, it NARROWED — and this is the survivor. A layered
+    // wall that HOSTS AN OPENING is built by `buildLayeredWallSegmentsAroundOpenings`
+    // (per-layer boxes around the void), which has no shear at all; letting the rake
+    // through would render that wall VERTICAL while the store held 80.
+    it('REFUSES rake × layered × openings — the opening-segment path has no shear', () => {
+        const a = rakeAuthorability({ rakeAngleDeg: 80, layers: [{}, {}], openings: [{ id: 'o1' }] });
+        expect(a.ok).toBe(false);
+        expect(a.code).toBe('layered');
+        expect(a.reason).toContain('HOSTS OPENINGS');
     });
 
     it('REFUSES rake × hosted openings — the carve is a vertical band (C15 §2)', () => {
@@ -270,7 +309,7 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         for (const s of [
             { rakeAngleDeg: 400 },
             { rakeAngleDeg: 80, curve: {} },
-            { rakeAngleDeg: 80, layers: [{}, {}] },
+            { rakeAngleDeg: 80, layers: [{}, {}], openings: [{}] },
             { rakeAngleDeg: 80, openings: [{}] },
         ]) {
             const a = rakeAuthorability(s);
