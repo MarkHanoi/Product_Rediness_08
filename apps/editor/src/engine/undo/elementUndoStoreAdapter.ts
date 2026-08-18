@@ -21,12 +21,39 @@
 // duck-typed over that union and NEVER throws (C03 §4.6 U-4 — the outer applicator
 // also wraps per-store, but we guard internally so one bad op can't abort the rest).
 //
+// ⚠ CORRECTED 2026-08-18 — "`update(id, partial)`" IS FALSE FOR AT LEAST ONE OF
+// THE THIRTEEN, AND THIS PARAGRAPH IS WHY ADR-0331 §D3 WAS DECIDED ON A WRONG
+// PREMISE. `SlabStore.update(id: string, nextState: SlabData)` (`SlabStore.ts:259-273`)
+// is `structuredClone(nextState)` → `freeze` → `set(id, next)`: a WHOLE-RECORD
+// REPLACE. Handing it the one-key partial the field arm below builds leaves the
+// slab as `{ <field>: value }` — no id, no polygon, no position, no levelId, no
+// ifcData — frozen, with ZERO diagnostics. Measured, not read:
+// `apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts` ARM 4, which
+// executes a real `slab.setThickness` patch against the real store. The reason
+// this survived three years of green tests is that this suite's siblings assert
+// against hand-written Maps whose `update` merges: a fake built from this header
+// cannot falsify this header. The mutator SURFACE was verified; the mutator
+// SEMANTICS were not, and only the semantics decide whether a partial is safe.
+//
 // PATCH SHAPE (verified): every `Create<Element>Handler` does
 // `produceCommand(ctx.stores.<x>, d => d[id] = element)` over a `Record<id,T>`, so
 // patches are store-relative:
 //   • undo of create  → inverse `{ op:'remove', path:[id] }`
 //   • redo of create  → forward `{ op:'add',    path:[id], value: element }`
 //   • field edits      → `{ op:'replace', path:[id, field, …], value }`
+//
+// ⚠ THIS IS TRUE, AND IT IS NOT EVIDENCE THAT A PATCH CAN BE APPLIED. It is a
+// claim about the PATH only. `path[1]` names an L1 field; whether the LEGACY
+// record carries a field of that name is a separate question this adapter never
+// asks on the depth-2 arm (`_resolveFieldValue` returns `{ok:true}` immediately
+// when `path.length === 2`, without reading the record). The rename this file
+// documents below for curtain wall (bayWidth→gridXSpacing) is not exotic — L1
+// `roof.pitch` (radians) versus legacy `RoofData.slope` (rise/run) is the same
+// shape, and `pitch` appears ZERO times in `packages/geometry-roof/src`. Measured:
+// same probe, ARM 3 — the write lands, one mutation fires, no diagnostic is
+// emitted, and the field the builder actually reads never moves. The whole-element
+// arm is protected from this by `_undoRestoreSnapshots`; the field arm is not, and
+// a FORWARD-only application (ADR-0331 §D3) never has a snapshot at all.
 //
 // SCOPE: this covers the standard top-level element stores. HOSTED elements
 // (door/window — undo must also remove the wall opening) and LEVELS (Path-A
@@ -502,6 +529,24 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
               continue;
             }
 
+            // ⚠ §D3-FORWARD-PATCH-PROBE (2026-08-18) — THREE MEASURED DEFECTS LIVE
+            // ON THESE TWO LINES. They are recorded, not fixed, because the fix
+            // changes undo semantics for thirteen families and belongs to a lane
+            // that can watch all of them (STR-03 §12.3 — ship the probe first).
+            //   (a) `!exists` is a SILENT no-op — no warn, no error — while both
+            //       whole-element arms above warn on the identical absent id.
+            //   (b) the one-key partial is a WHOLE-RECORD REPLACE on any store
+            //       whose `update` replaces (SlabStore). Candidate fix, watched
+            //       green against ARM 4: spread the current record first —
+            //       `{ ...(_getValue(store,id) as Record<string,unknown>), [fieldName]: … }`,
+            //       which is also correct for the merge-semantics stores. It was
+            //       NOT landed here because WallStore.update has change-detection
+            //       side effects (`_sourceBaseLine` clearing) that a full-record
+            //       write may suppress, and that needs its own RED-first proof.
+            //   (c) `fieldName` is an L1 name applied to a LEGACY record that may
+            //       have no such field (roof `pitch` vs `slope`). Nothing here
+            //       checks, so the write succeeds onto a phantom key.
+            // Pinned: apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts
             if (!exists || typeof store.update !== 'function') continue;
             store.update(id, { [fieldName]: resolved.value });
           }

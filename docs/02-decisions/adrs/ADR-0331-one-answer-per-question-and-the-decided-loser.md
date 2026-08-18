@@ -144,6 +144,41 @@ the authoritative store. It inverts *which copy goes stale* instead of maintaini
 
 ### §D3 — ⭐ The structural fix that makes §D2 finite: apply the FORWARD patch through the adapter the INVERSE already uses
 
+> ⛔ **EXECUTED 2026-08-18 (lane AD1) — AND THE DECISION BELOW MUST NOT BE WIRED AS WRITTEN.**
+> This section was reasoned from two sentences in the adapter's own header. Both were run against
+> real verbs, real handlers, real forward patches and the real legacy stores, and read back out of
+> those stores (C16 CA-21):
+> `apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts`.
+>
+> - **The PATCH-SHAPE half is TRUE.** `path[0]` is the element id, not the store key.
+> - **The SURFACE-ANALYSIS half is FALSE**, and it is the half this decision rests on:
+>   `SlabStore.update(id, nextState: SlabData)` (`SlabStore.ts:259-273`) is a **whole-record
+>   replace**, so the adapter's one-key partial reduces a real slab to `{ thickness: 0.35 }` — no
+>   id, no polygon, no position, no levelId — with **zero diagnostics**.
+> - **A store-relative PATH is not a legacy FIELD.** `roof.setPitch` writes L1 `pitch` (radians);
+>   the legacy builder reads `slope` (rise/run), and `pitch` occurs **zero** times in
+>   `packages/geometry-roof/src`. The write "succeeds", fires exactly one mutation, emits nothing,
+>   and moves nothing the renderer reads.
+> - **The create shape — the only shape the header cites — cannot enter the store at all.** The L1
+>   `roof.create` value is refused by `RoofDataAddSchema` on four fields (`footprint` vs `boundary`,
+>   `roofType` vs `shape`, absent `baseOffset`, `metadata.version: 0`), and the adapter's per-op
+>   `try/catch` turns that throw into one `console.error` no caller ever sees.
+> - **The branch §D3 would meet most is mute.** A depth-2 field patch for an id the legacy store does
+>   not hold is a silent no-op, while the whole-element arm warns on the identical id.
+>
+> **Consequence for the sequencing.** §D3's three named hazards below are real but insufficient:
+> they guard against applying the write TWICE. What is measured is that applying it ONCE is
+> already wrong for two of the three families probed. **A shape-translation layer (L1 record →
+> legacy record, per family) and a merge-vs-replace declaration per store are PREREQUISITES,
+> not follow-ups.** Until both exist, §D3 converts a verb that does nothing into a verb that
+> corrupts — which C84 §1 ranks strictly worse.
+>
+> **This also lands on the UNDO path, which is not hypothetical.** `buildUndoStoreMap()` already
+> maps `slab` → `window.slabStore`; `_movePatchPair` (`initBusHandlers.ts:565-579`) emits one
+> depth-2 `replace` **per field**; `slab.movePolygon` (`stores: ['slab']`) uses it from the 3-D
+> gizmo and the plan move tool. *UNVERIFIED: no browser session was run — the store behaviour and
+> the patch shapes are measured; the dispatch→Ctrl+Z chain is read from source.*
+
 Measured, and it is the highest-leverage finding in the audit.
 `apps/editor/src/engine/undo/elementUndoStoreAdapter.ts` (365 LOC) **already gives every legacy
 geometry store an `applyPatch` surface**, duck-typed over `add`/`remove`/`update`/`getById`, verified
@@ -215,9 +250,14 @@ producers as dead; the bake worker calls them.
 
 ## Named residual risks (open, not resolved here)
 
-- **§D3 has not been executed.** It is inferred from the adapter's own header and surface analysis. The
-  roadmap sequences a read-back probe on ONE verb before any wiring — STR-03 §12.3 invariant 2,
-  *ship the probe before the fix*.
+- ~~**§D3 has not been executed.** It is inferred from the adapter's own header and surface analysis.~~
+  **EXECUTED 2026-08-18 (lane AD1) on three verbs across two families —
+  `apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts`.** The probe the roadmap
+  sequenced (STR-03 §12.3 invariant 2, *ship the probe before the fix*) is shipped, and it **refutes
+  the premise**: see the block at the head of §D3. The residual risk is no longer *"unmeasured"* —
+  it is *"§D3 needs a per-family shape translator and a merge-vs-replace declaration per store
+  before any wiring, and the adapter's field arm has three measured defects that already reach the
+  undo path."*
 - **The parity harness covers `buildMiterPrism` and `buildCurvedLayerGeometry`, not `produceWall`
   end-to-end.** The opening-carve, layered and instanced arms are **NOT MEASURED** across stacks.
 - **Slab, door and window have no cross-stack harness at all** — the other three families

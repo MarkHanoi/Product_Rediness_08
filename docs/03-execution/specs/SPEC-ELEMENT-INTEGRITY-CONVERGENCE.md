@@ -150,13 +150,29 @@ orchestrator; this lane does not edit it.**
 authoritative store, record the result. **Proof:** `check-verb-liveness` PROVEN **7 → 8**, by name
 (GROW-ONLY ratchet — it fails if a verb drops out *and* if one is proven without being listed).
 
-**S7.2 — Forward patch through `elementUndoStoreAdapter` (ADR-0331 §D3).** The adapter already gives
-every legacy geometry store an `applyPatch` surface across 13 store types and already consumes exactly
-the patch shape plugin handlers emit — **on the undo side only**. Route the forward patch through it so
-`affectedStores: ['wall']` names one object for a command's whole lifecycle.
-**Mandatory guards:** opt-in per verb; only verbs the register reads UNKNOWN; **creates excluded** until
-their `.created` bridge is retired in the same commit; hosted elements and levels keep the legacy route.
-**Proof:** PROVEN rises per PR; a double-write control asserts exactly one store mutation per dispatch.
+**S7.2 — Forward patch through `elementUndoStoreAdapter` (ADR-0331 §D3).** ⛔ **BLOCKED — the S7.1-class
+probe was run on this step 2026-08-18 and REFUTED its premise.** This paragraph used to say the adapter
+*"already consumes exactly the patch shape plugin handlers emit"*, sourced from the adapter's own header.
+Executed against real verbs and the real legacy stores
+(`apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts`): the patch **shape** matches, and
+that is all. `SlabStore.update` is a whole-record **replace**, so a one-key partial destroys the record;
+`roof.setPitch` writes L1 `pitch` onto a legacy record whose geometry field is `slope`; and the L1
+create value is rejected outright by `RoofDataAddSchema`. All three are silent — the adapter never
+throws, and two of the three emit no diagnostic at all.
+
+**S7.2 therefore acquires two PREREQUISITES, both ahead of any wiring:**
+- **S7.2a — a per-family L1→legacy shape translator**, with the field renames declared (the header
+  already documents `bayWidth→gridXSpacing`; `pitch→slope` and `boundary→footprint` were not on any list).
+- **S7.2b — a merge-vs-replace declaration per legacy store**, because `update(id, partial)` is not the
+  universal contract the adapter assumes. Fix candidate, watched green against the probe's ARM 4: spread
+  the current record into the write. Needs its own RED-first proof for `WallStore` (change-detection
+  side effects).
+
+**Then** the original guards still apply: opt-in per verb; only verbs the register reads UNKNOWN;
+**creates excluded** until their `.created` bridge is retired in the same commit; hosted elements and
+levels keep the legacy route.
+**Proof:** PROVEN rises per PR; a double-write control asserts exactly one store mutation per dispatch
+(the probe's ARM 3 already carries that control and it passes — one mutation, wrong field).
 
 **S7.3 — Retire the losing plugin handler per converged verb (§D2).** Only after S7.2 proves the route.
 **Proof:** the verb leaves UNKNOWN in the regenerated register.
