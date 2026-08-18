@@ -294,11 +294,24 @@ export class CascadeWallBaselineCommand implements Command {
         // Each entry is judged against the store as it stands. That is a
         // deliberate approximation and it is stated rather than hidden: the
         // cascade applies all entries together, so an entry is not tested against
-        // its siblings' post-cascade positions. It cannot produce a FALSE refusal
-        // (a wall landing on a door lands on it regardless of where its siblings
-        // end up — openings travel with their host), and the residual miss is a
-        // door on a sibling that is itself moving clear in the same cascade,
-        // which is rarer than the defect this closes.
+        // its siblings' post-cascade positions.
+        //
+        // ⚠ CORRECTED 2026-08-18 (L-990). This paragraph used to continue: *"It
+        // cannot produce a FALSE refusal (a wall landing on a door lands on it
+        // regardless of where its siblings end up — openings travel with their
+        // host)"*. **That sentence was reasoned, not measured, and it is FALSE.**
+        // It is true only of the SPATIAL question. It says nothing about the
+        // ATTRIBUTION question, and the arm was answering the second while
+        // claiming the authority of the first: a stem already standing 63 mm
+        // inside its host's window is "a wall landing on a door" at every
+        // position the host can occupy, so this arm refused a gesture that
+        // changed nothing and the wall could never be moved again. Measured at
+        // `4455be2c` in `L990MoveReweldHostIdentity.measure.test.ts` §A/§B.
+        // The attribution arm below is the fix; this note is here so the
+        // confident sentence is not written back.
+        //
+        // The residual miss is a door on a sibling that is itself moving clear
+        // in the same cascade, which is rarer than the defect this closes.
         //
         // ATOMIC, matching the arm above: one refused entry refuses the WHOLE
         // cascade, because a partial weld leaves a topology no user asked for.

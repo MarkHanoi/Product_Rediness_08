@@ -770,16 +770,14 @@ export function gateWallMove(
   // phrased as a refusal: refusing it would make the wall permanently unmovable
   // while fixing nothing, which is the L-990 defect itself.
   if (reportedPreExisting && reportedPreExisting.length > 0) {
-    const lines = reportedPreExisting.map((issue) => `  • ${issue}`).join('
-');
+    const NL = '\n';
+    const lines = reportedPreExisting.map((issue) => `  • ${issue}`).join(NL);
     const plural = reportedPreExisting.length === 1 ? 'A wall already crosses' : 'Walls already cross';
     void Promise.resolve().then(() => {
       chatSay(
         `Moving wall ${wallId}. One thing this move did NOT cause and does NOT change: ` +
-        `${plural} a hosted opening, by exactly as much before the move as after it.
-` +
-        `${lines}
-` +
+        `${plural} a hosted opening, by exactly as much before the move as after it.` + NL +
+        lines + NL +
         `Reported, not refused — refusing it would make this wall unmovable without ` +
         `fixing anything. Each line names the wall it is about, first.`,
       );

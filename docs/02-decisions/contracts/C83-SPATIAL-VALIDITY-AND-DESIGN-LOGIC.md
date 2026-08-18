@@ -730,6 +730,52 @@ A user dismissing an INADVISABLE finding is **information, not defeat**:
 - An IMPOSSIBLE finding **cannot** be dismissed — but it is also never merely surfaced: it refuses,
   so there is nothing to dismiss. If a rule offers a dismiss button, it was never IMPOSSIBLE.
 
+### §5.5 — ATTRIBUTION: a rule may only REFUSE a gesture the finding is attributable to (MUST)
+
+*Minted 2026-08-18 from L-990, founder-reported from production.*
+
+§5.1–§5.4 are about whether a finding is **true**. This one is about whether it is **this
+gesture's**, and the two are independent: a finding can be perfectly true, perfectly measured, and
+still have nothing to do with what the user just did.
+
+**The MUST.** Before a rule refuses a gesture, it MUST establish that the gesture **creates or
+worsens** the condition. A condition that holds **equally before and after** the gesture MAY be
+REPORTED and MUST NOT REFUSE.
+
+**Why this is not a nicety.** A refusal keyed on a standing condition is not a refusal of a move —
+it is a **permanent, unconditional stop on the element**, because no repetition of the gesture can
+clear it. L-990 measured exactly that: a stem wall standing 63 mm inside its host's window (station
+along the host **invariant** under translation, so the overlap after the move equals the overlap
+before it, 0.063 m either side) made its host wall **unmovable by any drag, forever**, while
+offering the user a remedy — *"move the opening in the way first"* — on the very wall they were
+dragging. §10.6.7's principle applies verbatim: **a refusing half and its escape hatch ship
+together, or neither ships**, and an escape hatch the gesture cannot reach is not one.
+
+**The three obligations, in order:**
+
+1. **Reconstruct the BEFORE.** The rule must be handed, or be able to derive, the world as it stood
+   before the gesture. It may not infer it. Where the caller alone knows what the gesture was, the
+   caller passes it (`CascadeWallBaselineCommand`'s `movedSubject: { wallId, prevBaseLine }` is the
+   reference shape).
+2. **Compare by IDENTITY, not by count.** Findings are matched on their stable model keys — for the
+   opening rules, `hostWallId | openingId` — and a match survives only if the finding is **no worse**
+   than it was, to the rule's own tolerance. Comparing counts, or comparing rendered sentences, is
+   not this.
+3. **UNKNOWN BEFORE ⇒ NO ATTRIBUTION ⇒ PRE-EXISTING BEHAVIOUR.** A rule that cannot reconstruct the
+   before state does **not** get to assume the finding is old. It refuses exactly as it did without
+   this section. *"I could not find out whether this is new"* is not *"it is not new"* — §5.3's
+   reading, applied to time instead of geometry.
+
+⛔ **This section is NOT a licence to soften a predicate.** A crossing the gesture creates, or
+deepens by more than the rule's tolerance, still refuses with its full sentence and its numbers.
+L-912's founder case (a partition slid along a host until it passes clean through a door) is created
+by its gesture and is untouched by this section. Any lane that widens the tolerance, or drops the
+"or worsens" arm, has converted a correct refusal into silent success — which
+[C85 §12 R-2](C85-ELEMENT-WALL.md) forbids.
+
+⚠ **A refusal that survives this test still owes §4's offer and §1.4's code.** Attribution decides
+*whether* to refuse, never *how well*.
+
 ---
 
 ## §6 — What this is NOT
