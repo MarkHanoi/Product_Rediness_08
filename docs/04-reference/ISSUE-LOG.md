@@ -7097,3 +7097,31 @@ bug, but it means every AUTO floor create costs a full plan re-projection. Note 
 **NOT MEASURED:** the exact tessellation of `curve.segments` for the founder's walls, and whether 20
 is precisely the wall count or a coincidence. Confirm by counting the room's walls and its curved
 subset before assuming the one-vertex-per-wall reading.
+
+> ## ⭐ FOUNDER ADDITION — THE REFERENCE IMPLEMENTATION IS IN THIS REPO AND IT WORKS
+>
+> **"Slabs work well — and slabs are the same concept."**
+>
+> That is the most useful sentence in this entry and it changes the shape of the work. A slab and a
+> floor finish are both *a polygon derived from a bounded region*. **One of them already handles
+> curves correctly.** So this is not "design a fix" — it is "diff two implementations of the same
+> job, one of which is right."
+>
+> **The slab evidence, measured from the founder's own earlier logs:**
+> - `§REGION-HOST-ATTRIBUTION region traced: 9 host-referenced edge(s) … 31 free edge(s) (curved=31)`
+> - a later trace: `12 host-referenced … 35 free edge(s) (curved=35)`
+> - `PROBE-B candidateLen=60 slabs=1` — a **curved-boundary** region committing with **60 points**
+>
+> The slab path emits tens of curved edges and a 60-point ring. The floor path emits **20 vertices
+> for a 19-wall room**. Same building, same walls, same curves — two orders of tessellation apart.
+>
+> **THEREFORE, before designing anything:** find what the SLAB region tracer consumes
+> (`traceRegionSketchAtPoint` and the edge-set assembly beneath it) and establish why
+> `AUTO_FROM_ROOM` does not consume the same thing. The likely answer is that the slab path traces
+> the **geometry** (wall faces, tessellated) while the floor path reads the **room record** (corner
+> points) — which is exactly the "check the room boundary first" caveat above, now with a working
+> counter-example to diff against.
+>
+> ⛔ **AND DO NOT FORK A THIRD TESSELLATION.** If the slab path is right, the floor path should CALL
+> IT, not copy it. C84 **EI-9**: two derivations of one boundary is how they come to disagree, and
+> here they already do — visibly, in the founder's screenshot.
