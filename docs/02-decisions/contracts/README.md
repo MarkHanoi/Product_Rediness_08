@@ -13,9 +13,9 @@
 1. `docs/01-strategy/STR-02-product-vision.md` — product + business vision (foundation)
 2. `docs/01-strategy/STR-03-engineering-vision.md` — engineering intent and principles (P1–P8)
 3. `docs/01-strategy/STR-04-architecture.md` — system shape, lint gates, convergence booleans
-4. **This contract suite** — per-subsystem binding contracts (**C01–C83 + C24.1**; C76 RESERVED for the element-family register, COORD-01; C61 is a RESERVED, unminted slot). *Range corrected 2026-08-14 when C82 was indexed: this row read "C01–C77" while C78–C81 files existed — keep the range current per the correction note below. Extended to **C83** the same day, in the commit that indexed it — the row and the range move together, which is the whole point of the rule. ⚠ C81 (`C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md`, CANONICAL 2026-08-13) has a file but **no row in the table below** — the C67 defect shape recurring; its row is owed by the lane that minted it.*
-5. `docs/02-decisions/adrs/` — per-decision rationale (**267** ADRs — *measured 2026-08-18; read **251**)
-6. `docs/03-execution/specs/` — per-system normative specs (**95** SPECs — *measured 2026-08-18; read **92**)
+4. **This contract suite** — per-subsystem binding contracts (**C01–C100 + C24.1**; **C61** and **C76** are RESERVED, unminted slots — C76 was reserved for the element-family register, COORD-01, and the role was taken by **C84** instead). *Range corrected **2026-08-18** — this row read "C01–C83 + C24.1" while **C84 and C85–C100 existed as files**, so seventeen contracts, including the one binding on every element-family PR, sat outside the stated ordering. Re-measure, never re-transcribe:* `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **99** *(2026-08-18; = C01–C100 minus C61 and C76, plus C24.1). The row and the range move together — that is the whole point of the rule, and it has now failed four times (C67 → C81 → C84/C85–C99 → C100).*
+5. `docs/02-decisions/adrs/` — per-decision rationale (**268** ADRs — *measured 2026-08-18 with* `ls docs/02-decisions/adrs/ADR-*.md | wc -l`*; this row has read 196, then 251, then 267. Run the command.*)
+6. `docs/03-execution/specs/` — per-system normative specs (**96** SPECs — *measured 2026-08-18 with* `find docs -name 'SPEC-*.md' | wc -l`*; this row has read 82, then 92, then 95. Run the command.*)
 
 > ## ⛔ THE RANGE IN ROW 4 AND THE COUNT IN §"69 contract files" ARE BOTH FALSE — corrected 2026-08-18.
 >
