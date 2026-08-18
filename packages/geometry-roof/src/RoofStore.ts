@@ -128,6 +128,56 @@ export class RoofStore {
         return frozen;
     }
 
+    /**
+     * §L-946 — move a roof to a different storey.
+     *
+     * `update()` deliberately REFUSES this ("levelId is immutable after
+     * creation"), which left a re-storey with only two spellings, both wrong:
+     *   • `remove()` + `add()` — 'remove' makes `initBuilders`' listener delete
+     *     the roof's slope-arrow annotations, and the following 'add' does not
+     *     bring them back. A move is not a delete.
+     *   • `restoreSnapshot()` with a doctored record — that method exists for
+     *     UNDO, and using it here would make an undo stack replay indisinguishable
+     *     from a user gesture in the event log.
+     * So the operation gets its own name, symmetric with `WallStore.changeLevel`.
+     *
+     * ONE 'update' is emitted, which is everything the renderer needs:
+     * `RoofFragmentBuilder._updateRoofSync` re-derives
+     * `worldY = getLevelById(data.levelId).elevation + data.baseOffset` and
+     * repositions the root on EVERY update, so the mesh lands on the new storey.
+     *
+     * Contract: like `WallStore.changeLevel`, the spatial-authority registration
+     * (bimManager `level.childrenIds`, the view-dependency element→level map) is
+     * NOT updated here. The caller owns it.
+     */
+    changeLevel(id: string, newLevelId: string): RoofData | undefined {
+        const existing = this._roofs.get(id);
+        if (!existing) return undefined;
+        if (!newLevelId) return undefined;
+        if (existing.levelId === newLevelId) return cloneRoofData(existing);
+
+        const cloned = cloneRoofData(existing);
+        cloned.levelId = newLevelId;
+        // `add()` sets `parentId = levelId` for a level-parented roof. Moving the
+        // level while leaving the parent behind would make the record disagree
+        // with itself; a roof parented to something ELSE (a future host) keeps it.
+        if (existing.parentId === existing.levelId) cloned.parentId = newLevelId;
+        cloned.metadata = {
+            ...cloned.metadata,
+            modifiedAt: Date.now(),
+            version:    (cloned.metadata?.version ?? 0) + 1,
+        };
+
+        const frozen = Object.freeze(cloned);
+        this._roofs.set(id, frozen);
+
+        // §STEP7: `existing` is the frozen pre-mutation record (C72 §3.5).
+        this.emit('update', frozen, existing);
+        _bus.emit('bim-roof-updated', { id: frozen.id }); // F.events.18
+        storeEventBus.emit({ elementId: id, elementType: 'roof', operation: 'update', timestamp: Date.now() });
+        return frozen;
+    }
+
     restoreSnapshot(snapshot: RoofData): void {
         const existing = this._roofs.get(snapshot.id);
         if (!existing) {

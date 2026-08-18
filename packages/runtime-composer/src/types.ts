@@ -361,6 +361,35 @@ export interface RuntimeEvents {
     }>;
   };
 
+  /**
+   * §L-946 — the MUTATION channel. Fired after any declared level-change verb
+   * succeeds (`wall.changeLevel`, `roof.changeLevel`; the set is the
+   * `LEVEL_CHANGE_VERBS` table in `CommandEventBridge.ts`).
+   *
+   * WHY IT IS FAMILY-AGNOSTIC, unlike every `<family>.created` above: those
+   * carry family-specific GEOMETRY, so one event type per family is unavoidable.
+   * A level change carries the same three facts for every family, and the twelve
+   * `.created` events are the standing demonstration of what happens when that
+   * is copy-pasted — each drifted its own set of dropped fields. One event, one
+   * subscriber, `elementKind` selecting the legacy store to mirror into.
+   *
+   * `newElevationY` is present only for families whose verb carries it (wall
+   * does; roof does not). Its ABSENCE means "this family does not state an
+   * elevation", never "the elevation is 0".
+   */
+  'element.level-changed': {
+    readonly commandId: string;
+    /** The bus verb that produced this, e.g. `'wall.changeLevel'`. */
+    readonly commandType: string;
+    /** Element family — selects the legacy store the app-side mirror writes. */
+    readonly elementKind: string;
+    readonly elementId: string;
+    /** Destination level. Guaranteed non-empty — the bridge refuses to emit
+     *  a move with no target rather than let '' reach a spatial register. */
+    readonly newLevelId: string;
+    readonly newElevationY?: number;
+  };
+
   // ── A25: Remaining-family typed domain events (C11 §5.2) ─────────────────
   // Pattern mirrors 'wall.created' from A24.  Emitted by CommandEventBridge
   // (L2) after each create command succeeds — handlers remain pure / L4.

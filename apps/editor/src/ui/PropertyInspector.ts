@@ -156,7 +156,15 @@ export class PropertyInspector {
         label.className = 'pi-label';
         label.style.marginBottom = '8px';
         label.style.fontWeight = 'bold';
-        label.textContent = 'Active Level (Creation Context)';
+        // §L-946 (RELABEL ONLY — the wiring below is deliberately untouched).
+        // This control sets `ctx.activeLevelId` and never reads or writes the
+        // SELECTION. In a properties panel that reads as "the selected element's
+        // level", which is the neighbouring control (`PropertyPanelSections.ts`
+        // "Change Level", the one the founder reported). Two dropdowns, both
+        // saying "Level", one moving the element and one not, is a UI that
+        // teaches the user the feature is broken even once it works. The name now
+        // says what it does: it chooses where the NEXT element is drawn.
+        label.textContent = 'Draw On Level (new elements)';
 
         this.levelSelector = document.createElement('select');
         this.levelSelector.className = 'pi-input';

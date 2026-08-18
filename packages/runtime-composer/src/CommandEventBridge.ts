@@ -92,11 +92,92 @@ function indexCommittedWalls(
 }
 
 /**
+ * §L-946 — THE MUTATION CHANNEL, and why it is a TABLE rather than two `case`s.
+ *
+ * Every typed event this bridge emitted until now was a `.created`. There are
+ * twelve of them and twelve matching legacy-store mirrors in `initTools.ts`, and
+ * not one covers a MUTATION — which is why changing an element's level from the
+ * properties panel succeeded at the handler, wrote the plugin store, and never
+ * reached the store the renderer reads. (Founder report L-946.)
+ *
+ * A level change is one verb per family with a DIFFERENT payload spelling in
+ * each (`wall.changeLevel` sends `{ id, newLevelId, newElevationY }`;
+ * `roof.changeLevel` sends `{ roofId, levelId }`). Written as `case` blocks that
+ * is a copy-paste per family, which is exactly how the `.created` cases drifted
+ * — see the four separate `§FIX-…` notes above, each one a field that a NAMED
+ * SUBSET emitter silently dropped for one family only.
+ *
+ * So the verbs are DECLARED, not coded: adding `slab.changeLevel` is one row
+ * here plus one row in the app-side mirror's kind table. The emitted event is
+ * family-agnostic (`element.level-changed` carries `elementKind`) so one
+ * subscriber serves all of them.
+ */
+interface LevelChangeVerbSpec {
+  /** The element family, as the app-side mirror's store table keys it. */
+  readonly kind: string;
+  /** Payload field naming the element. */
+  readonly idField: string;
+  /** Payload field naming the destination level. */
+  readonly levelField: string;
+  /** Optional payload field carrying the destination level's elevation. */
+  readonly elevationField?: string;
+}
+
+const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> = {
+  'wall.changeLevel': {
+    kind: 'wall',
+    idField: 'id',
+    levelField: 'newLevelId',
+    elevationField: 'newElevationY',
+  },
+  'roof.changeLevel': {
+    kind: 'roof',
+    idField: 'roofId',
+    levelField: 'levelId',
+  },
+};
+
+/** Emit `element.level-changed` when `record.type` is a declared level-change
+ *  verb. Returns silently for every other command type. */
+function emitLevelChange(
+  events: EventBus,
+  record: { readonly id: string; readonly type: string; readonly payload: unknown },
+): void {
+  const spec = LEVEL_CHANGE_VERBS[record.type];
+  if (spec === undefined) return;
+
+  const p = (record.payload ?? {}) as Record<string, unknown>;
+  const elementId = p[spec.idField];
+  const newLevelId = p[spec.levelField];
+  // A move with no target is not a move. Refuse rather than emit an event the
+  // mirror would have to interpret — an empty levelId reaching
+  // `bimManager.registerElement` throws a SpatialResolutionError, and one
+  // reaching the legacy wall store files the wall under '' (orphaned from every
+  // plan view). Both are the §DIAG-WALL-LEVEL failure mode.
+  if (typeof elementId !== 'string' || elementId.length === 0) return;
+  if (typeof newLevelId !== 'string' || newLevelId.length === 0) return;
+
+  const rawElevation = spec.elevationField !== undefined ? p[spec.elevationField] : undefined;
+
+  events.emit('element.level-changed', {
+    commandId: record.id,
+    commandType: record.type,
+    elementKind: spec.kind,
+    elementId,
+    newLevelId,
+    ...(typeof rawElevation === 'number' && Number.isFinite(rawElevation)
+      ? { newElevationY: rawElevation }
+      : {}),
+  });
+}
+
+/**
  * Subscribe to `patchEmitter` and re-emit typed events on `events` after
  * every successful CommandBus dispatch:
  *
  *   1. `'command.executed'` — generic relay for every dispatch.
  *   2. Family-specific typed events (e.g. `'wall.created'`) — A24 §5.1.
+ *   3. `'element.level-changed'` — the §L-946 MUTATION channel (table-driven).
  *
  * Returns a disposer — call it in `runtime.tearDown()` to unsubscribe.
  * Throwing from within the bridge is swallowed with `console.error` so
@@ -118,6 +199,17 @@ export function wireCommandEventBridge(
       });
     } catch (err) {
       console.error('[CommandEventBridge] Failed to emit command.executed for type=' +
+        record.type + ':', err);
+    }
+
+    // ── 1b. §L-946 mutation channel ──────────────────────────────────────────
+    // Its own try/catch, and BEFORE the create switch: a throw from either half
+    // must not be able to suppress the other. The create cases are relied on by
+    // twelve mirrors and predate this channel.
+    try {
+      emitLevelChange(events, record);
+    } catch (err) {
+      console.error('[CommandEventBridge] Failed to emit element.level-changed for type=' +
         record.type + ':', err);
     }
 

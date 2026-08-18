@@ -95,6 +95,7 @@ import {
 } from '@pryzm/finish-host-tracker';
 import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
 import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
+import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
 import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
@@ -1208,6 +1209,36 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // and no all-views-dirty fallback on every plan-view wall create.
         });
         console.log('[initTools] §P2.1: wall.created bus→legacy-store bridge registered.');
+    }
+
+    // §L-946 (founder: "changing an element's level in the properties panel does
+    // nothing"): bus → legacy-store bridge for a MUTATION, not a create.
+    //
+    // Every bridge above and below this one subscribes to a `.created` event —
+    // twelve of them. That is the whole defect: `wall.changeLevel` succeeded, the
+    // plugin store was right, and the legacy store the renderer reads never
+    // heard, because nothing was listening for a change. The mirror itself lives
+    // in `elementLevelChangedMirror.ts` so a suite can EXECUTE it — as a closure
+    // here it would be unreachable from any test (initTools needs a THREE world
+    // and twenty stores to run one line), which is how twelve mirrors came to be
+    // proven only by transcription. Same reason as `roofCreatedMirror.ts`.
+    //
+    // ⛔ NOT a UI dual-write: the properties panel dispatches exactly ONE bus
+    // command and nothing else. Re-introducing a second write from the panel
+    // would reinstate what P2.1 Step C deliberately removed (see the §P2.1
+    // comment above).
+    if (runtime) {
+        // No casts: the deps are typed structurally so `tsc` is what proves these
+        // are the LEGACY stores (the ones with `changeLevel`) and not the plugin
+        // DTO stores, which have no such method. A cast here would have made the
+        // wiring un-checkable in exactly the place the bug lived.
+        registerElementLevelChangeBridge(runtime.events, {
+            wallStore: wallTool.getWallStore(),
+            roofStore,
+            viewDependencyTracker,
+            bimManager,
+        });
+        console.log('[initTools] §L-946: element.level-changed bus→legacy-store MUTATION bridge registered.');
     }
 
     // §P2.3 (IMPL-PLAN-2026-05-17): bus → legacy-WallStore bridge for wall openings.

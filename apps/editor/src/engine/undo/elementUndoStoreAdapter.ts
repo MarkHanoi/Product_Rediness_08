@@ -188,6 +188,10 @@ export interface LegacyElementStoreLike {
   update?(id: string, updates: Record<string, unknown>): unknown;
   getById?(id: string): unknown;
   get?(id: string): unknown;
+  /** §L-946 — the storey move. `update()` REFUSES a levelId change in both
+   *  stores that have one (WallStore warns and ignores; RoofStore throws), so
+   *  a level change can only be reverted through this. */
+  changeLevel?(id: string, newLevelId: string): unknown;
 }
 
 /** A single Immer-reconstructed patch op (RFC-6902 subset). */
@@ -291,6 +295,37 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
             // `childrenIds` on a host wall is managed by removeOpening/addOpening above
             // — skip the generic update so it doesn't clobber what the reconciler set.
             if (String(field) === 'childrenIds' && _isWallOpeningStore(store)) continue;
+            // §L-946 — REVERTING A STOREY MOVE.
+            //
+            // `levelId` is the one field the generic `store.update()` below cannot
+            // carry: it is a spatial anchor, and both legacy stores that have one
+            // refuse to change it through `update` (WallStore warns and ignores,
+            // RoofStore throws "levelId is immutable after creation"). Before
+            // L-946 that cost nothing, because nothing ever moved an element
+            // between storeys through the bus in the first place. Now that the
+            // forward direction works, an unrouted undo would revert the PLUGIN
+            // store while the legacy record stayed on the new floor — the same
+            // two-copy divergence L-946 closed, re-opened by Ctrl+Z, and pointing
+            // the other way. Route it to the store's own move operation, which is
+            // exactly what the forward mirror uses.
+            //
+            // The spatial half moves with it: `bimManager.registerElement` is
+            // exclusive-containment, so re-registering IS the move, and the VDT
+            // element→level map must follow or every later event on this element
+            // dirties the storey it no longer sits on.
+            if (String(field) === 'levelId' && typeof store.changeLevel === 'function') {
+              const target = typeof p.value === 'string' ? p.value.trim() : '';
+              // An empty target is refused rather than defaulted — `'' → 'L0'` is
+              // the §DIAG-WALL-LEVEL trap that files elements on the ground floor.
+              if (target.length === 0) {
+                console.warn('[elementUndoStoreAdapter] §L-946 skip levelId revert — patch carries no target level for', id);
+                continue;
+              }
+              store.changeLevel(id, target);
+              try { _bim()?.registerElement?.(id, target); } catch (err) { console.warn('[elementUndoStoreAdapter] §L-946 bimManager.registerElement failed:', err); }
+              try { _vdt()?.registerElement?.(id, target); } catch (err) { console.warn('[elementUndoStoreAdapter] §L-946 vdt.registerElement failed:', err); }
+              continue;
+            }
             // Best-effort single-field update (deep sub-paths collapse to the top
             // field — sufficient for create/undo; deep field undo is the ADR-051
             // single-store-unification follow-up).
