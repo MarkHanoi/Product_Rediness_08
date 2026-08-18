@@ -610,7 +610,43 @@ ranked as defects.
 | **RENDER-DEAD / OTHER-HOST-LIVE** | No importer in host X, **live in host Y** | importer census **across all hosts** | ⛔ **NOT deletable** |
 | **TRULY DEAD** | Zero reachability on **both** axes below | the full census | deletable |
 
-### 3.5.1 — The reachability census has TWO axes, and a deletion requires BOTH
+### 3.5.1 — The reachability census has ~~TWO~~ **FOUR** axes, and a deletion requires ALL of them
+
+> ⚠ **AMENDED 2026-08-18 — this section said TWO axes and was itself an instance of the defect it
+> describes: an under-counted census, stated with confidence.** Two further axes were found by
+> measurement, each by a claim that both original axes passed and that was still wrong.
+>
+> **(c) THE BUILD-GRAPH AXIS.** A package can be load-bearing through files that contain no import
+> of it at all — a workspace manifest, a lint-config scope block, a gate's hardcoded exclusion
+> list, a release config. *Measured instance:* [C14](C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md)
+> §3 LP-09 orders `legacy-shim` **DROPPED**, asserting *"Zero importers confirmed"* three separate
+> times. It has **four live non-import references**: `package.json:158`
+> (`"@pryzm/legacy-shim": "workspace:*"`), `eslint.config.js:561` (an active scope block whose own
+> rationale at `:556` states it is *"a fixture for `pryzm/no-raf` — by design"*),
+> `tools/scripts/check-no-raf-in-pryzm2.mjs:49` (a hardcoded exclusion path), and the
+> `eslint-plugin-pryzm` integration test C14's own §3 quotes. **Neither axis (a) nor axis (b) can
+> see any of these.**
+> ⛔ **And the stakes are not academic:** `check-raf-count.ts` is the **P3 gate**, recorded in
+> C01 §1 as *hard-fail and currently FAILING*. Executing C14's deletion order would remove the
+> fixture two rAF-enforcement scripts carry hardcoded paths for — **perturbing the instrument
+> while it is already red.**
+>
+> **(d) THE CALL AXIS, distinct from (a).** A symbol can be imported, constructed and bound in
+> production and still never be *invoked*. *Measured instance:* `CommitterHost` is constructed at
+> `apps/editor/src/bootstrap.ts:106`, so axis (a) reports it live — yet
+> `CommitterHost.setViewDistance` has **zero call sites repo-wide** (three occurrences, all inside
+> its own declaration file), so the LOD tier is constant for the whole session. [C04](C04-RENDERING-AND-SCHEDULING.md)
+> §3.5.2 asserts it is *"called every frame by the render loop"*. **Axis (a) says live, axis (d)
+> says dead, and both are correct about different questions.**
+>
+> ⭐ **The generalisation, which is the point:** *"is it constructed?"*, *"is it written?"*,
+> *"is it invoked?"* and *"does the build depend on it?"* are FOUR questions. Answering one and
+> reporting it as reachability is how a CANONICAL contract came to carry a standing deletion order
+> for a live fixture, and how a per-frame system came to be documented as driven when nothing drives
+> it. **State which axes you measured. Never infer the others.**
+
+A write can arrive at a store **through a bus verb**, touching no importable symbol. A census that greps
+for **callers of the store** misses it entirely.
 
 A write can arrive at a store **through a bus verb**, touching no importable symbol. A census that greps
 for **callers of the store** misses it entirely.
@@ -619,9 +655,14 @@ for **callers of the store** misses it entirely.
 `RailingPlanToolHandler.ts:92` dispatches the bus verb `handrail.create`. The store had no callers; the
 verb had a dispatcher.
 
-> **Every reachability claim MUST state which axis it measured. A DELETION claim requires both:**
+> **Every reachability claim MUST state which axes it measured. A DELETION claim requires ALL FOUR:**
 > **(a) the import/construction axis** — who imports or `new`s it; **(b) the bus axis** — which verbs
-> write it, and whether any production surface dispatches those verbs.
+> write it, and whether any production surface dispatches those verbs; **(c) the build-graph axis** —
+> workspace manifests, lint-config scope blocks, gate exclusion lists, release config; **(d) the call
+> axis** — whether the symbol is actually *invoked*, not merely constructed.
+>
+> **A claim that names fewer than four axes is not a deletion claim.** It is a partial census, and it
+> must say so.
 
 ### 3.5.2 — The census MUST include non-editor hosts
 

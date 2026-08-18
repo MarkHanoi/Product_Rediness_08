@@ -310,7 +310,48 @@ const levels = runtime.scene.levels.getAll();
 
 ---
 
-### LP-09 — `@pryzm/legacy-shim` package (zombie package)
+### LP-09 — `@pryzm/legacy-shim` package ~~(zombie package)~~ — ⛔ **DELETION ORDER RESCINDED**
+
+> ## ⛔ DO NOT EXECUTE THIS ROW'S DROP ORDER — 2026-08-18, by measurement.
+>
+> **This row asserts *"Zero importers confirmed"* (below), *"Zero importers, DROP per Wave 12"*
+> (§Wave table), *"Zero importers; delete in Wave 12 cleanup sprint"* (§Package table) and
+> *"no importers already confirmed"* (§Wave 12). The import count is correct. THE CONCLUSION IS
+> NOT.**
+>
+> `legacy-shim` has **four live non-import references**, none of which any import census can see:
+>
+> | Reference | Kind |
+> |---|---|
+> | `package.json:158` — `"@pryzm/legacy-shim": "workspace:*"` | declared **workspace dependency** |
+> | `eslint.config.js:561` — `files: ['packages/legacy-shim/**/*.ts']` | **active lint scope block**; its own rationale at `:556` reads *"The legacy-shim package is a fixture for `pryzm/no-raf` — by design it…"* |
+> | `tools/scripts/check-no-raf-in-pryzm2.mjs:49` | **hardcoded exclusion path** in a live script — *"contains rAF.bad.ts fixture (lint-disabled there)"* |
+> | `packages/eslint-plugin-pryzm/__tests__/rules.test.ts` + `integration-config.mjs` | the **integration test this very row quotes** |
+>
+> `tools/ga-gate/check-raf-count.ts:173,191` documents the same fixture convention in its glob
+> rationale, and `.changeset/config.json:12` lists the package in release config.
+>
+> ⛔ **WHY THIS IS DANGEROUS AND NOT MERELY STALE.** `check-raf-count.ts` enforces **P3 (single
+> rAF owner)**, which [C01](C01-ARCHITECTURE-AND-GOVERNANCE.md) §1 records as **hard-fail and
+> currently FAILING** (5 owner files against a target of 1). Executing this DROP would delete the
+> fixture that two rAF-enforcement scripts carry hardcoded paths for — **perturbing the instrument
+> while the thing it measures is already red.** The package's own description
+> (*"Nothing in here ships"*) is TRUE and is not the same claim as *"nothing depends on it"*.
+> **A fixture's whole purpose is to be depended upon by a test rather than by shipping code.**
+>
+> **VERDICT under [C84](C84-ELEMENT-INTEGRITY.md) §3.5:** not TRULY DEAD. Zero *editor*
+> reachability, live in `tools/` and `tests/` — both on §3.5.2's host list — therefore
+> **RENDER-DEAD / OTHER-HOST-LIVE ⇒ NOT DELETABLE.**
+>
+> ⭐ **This row is the reason C84 §3.5.1 now has FOUR axes rather than two.** Neither the import
+> axis nor the bus axis can see a workspace manifest or a lint-config scope block. The
+> **build-graph axis (c)** was added because of this row: a CANONICAL contract carried a standing
+> deletion order, for months, against a live fixture, on the strength of a census that measured
+> the one axis on which the answer was zero.
+>
+> *Exit condition:* if the package is to go, the lint scope block, the two hardcoded exclusion
+> paths, the workspace dependency and the release-config entry go **in the same commit** — and P3
+> must be green first, so the change is not made while the gate cannot report.
 
 **Status:** Package `packages/legacy-shim/` is deprecated. `package.json` description reads: `"PRYZM 2 — fixture-only package used by pryzm/no-raf lint integration test. Nothing in here ships."` The deprecation tag recommends DROP in Wave 12.
 
@@ -401,7 +442,7 @@ These packages carry the highest concentration of pre-PRYZM3 patterns. They requ
 | `@pryzm/ai-host` | ⚠️ HIGHEST | 44+ window global accesses, 20+ CustomEvent dispatches, self-flagged CONTRACT VIOLATION in WallRegionExtractor.ts. The entire AIReadModel is a window-store reader. |
 | `@pryzm/command-registry` | ⚠️ HIGH | 165 structuredClone snapshots, commandManager:any in plan executors, one typed bridge site. The package IS the legacy mutation system. Retirement depends on Phase E.5.x completion. |
 | `@pryzm/core-app-model` | ⚠️ HIGH | 92 window access sites, active StoreEventBus (not yet replaceable by Yjs until Phase G3-T2). BatchCoordinator accepts `commandManager: any`. |
-| `@pryzm/legacy-shim` | ✅ DEPRECATED | Zero importers, DROP per Wave 12. |
+| `@pryzm/legacy-shim` | ⛔ **DROP RESCINDED** | ~~Zero importers, DROP per Wave 12.~~ The import count is right and the conclusion is wrong — **4 live non-import references; deleting it perturbs the RED P3 gate. See the LP-09 banner.** |
 
 ---
 
@@ -490,7 +531,7 @@ Scripts in `scripts/` and `tools/` are **not shipped code** but can introduce re
 | `scripts/write-prod-shim.mjs` | **Active** — generates prod-mode window shim | Must be kept in sync with `window-shim.ts` typed augmentation |
 | `tools/ga-gate/check-no-commandmanager.ts` | **Active** ⚠️ aliasing loophole | **Needs update** per G-NEW-01 above |
 | `scripts/check-pryzm3-exists.ts` | **Active** — checks convergence booleans | Update to also verify `cmdMgr.execute` count is shrinking |
-| `packages/legacy-shim/` | **Deprecated** — DROP | Zero importers; delete in Wave 12 cleanup sprint |
+| `packages/legacy-shim/` | ⛔ **DROP RESCINDED** | ~~Zero importers; delete in Wave 12 cleanup sprint~~ — live via workspace manifest, lint scope block and **2 gate exclusion paths**. See the LP-09 banner. |
 
 ---
 
@@ -507,7 +548,7 @@ The following table maps each legacy-pattern category to the PRYZM3 migration ph
 | **D.4** | LP-01, LP-08 | `window.bimManager` → `runtime.scene.*`; inject runtime into `AIReadModel` constructor | PRYZM3 runtime composed (already done) |
 | **F.ai** | LP-05 (ai-host) | Replace `window.dispatchEvent(new CustomEvent('ai-proposal-added'))` with `runtime.events.emit('ai.proposalAdded')` in QueryEngine.ts | Phase E.5.x + structured AI events spec |
 | **G3-T2** | LP-05 (StoreEventBus) | Replace `StoreEventBus` batch coordination with Yjs per-level `Y.Doc` boundary | Yjs per-level split (ADR-0249 — already implemented) |
-| **Wave 12** | LP-09 | Delete `packages/legacy-shim/` | Phase E close (no importers already confirmed) |
+| ~~**Wave 12**~~ | LP-09 | ⛔ **RESCINDED — do NOT delete `packages/legacy-shim/`** | ~~Phase E close (no importers already confirmed)~~ — the premise is TRUE and INSUFFICIENT. See the LP-09 banner. |
 
 ---
 

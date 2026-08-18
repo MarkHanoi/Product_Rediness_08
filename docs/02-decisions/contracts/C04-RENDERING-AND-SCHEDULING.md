@@ -188,6 +188,50 @@ The picking system MUST use an offscreen `WebGLRenderTarget` ID buffer for eleme
 
 **Amendment**: Wave A18-T16 · 2026-05-03 · Status: CANONICAL
 
+> ## ⛔ SUPERSEDED IN PART — 2026-08-18, by measurement. READ BEFORE §3.5.2.
+>
+> **THE LOD SYSTEM IS PROVIDED AND NEVER DRIVEN.** §3.5.2 states as fact that
+> `CommitterHost.setViewDistance(metres)` is *"called every frame by the render loop"*.
+> **It is called by nothing.** Measured repo-wide, `setViewDistance` has exactly **three**
+> occurrences and **all three are inside its own declaration file**:
+> `packages/scene-committer/src/CommitterHost.ts:43` (a comment), `:54` (a comment), `:60`
+> (the declaration). **Zero call sites** in `apps/editor`, `apps/bake-worker`,
+> `packages/render-runtime`, `apps/bench`, or any test. `LODManager` likewise has no importer
+> outside `packages/scene-committer/` itself.
+>
+> **Consequence:** `_viewDistance` never changes, so `currentLODTier` (`CommitterHost.ts:65-66`)
+> and the `computeLOD` call inside `applyDelta` (`:137`) are **constant for the entire
+> session**. Every element is committed at whatever tier the initial value selects. The MUST in
+> the paragraph below is unmet, and the 60 FPS budget it exists to protect is unprotected by
+> this mechanism.
+>
+> ⚠ **The contract and the source agree with each other and disagree with the repository** —
+> `CommitterHost.ts:54` repeats the same "called every frame" claim in its own docblock. Two
+> mutually-confirming statements, both written by the same intent, neither measured. That is
+> why reading the declaration is not evidence of the call.
+>
+> **This is the defect class C04 ITSELF NAMED**, at §SHADOW.2 rule 10: *"Know which flag you are
+> writing … Several L-205-era 'fixes' adjusted a switch wired to nothing."* It is also
+> [C65](C65-*.md) §3.9's exhibit list with a fifth entry, and
+> [C84](C84-ELEMENT-INTEGRITY.md) **EI-12** — *a registered trigger MUST name a production
+> dispatcher, proven by a call site* — applied to a per-frame setter rather than a verb table.
+>
+> ⭐ **Why a one-axis census would have missed it, and why that generalises:** the IMPORT axis
+> finds `CommitterHost` alive and constructed in production (`apps/editor/src/bootstrap.ts:106`,
+> and that file's own header at `:15` says so). Only the **CALL axis** finds the LOD input dead.
+> A census on either axis alone reports the wrong answer with confidence. *(This also corrects
+> a coarser reading elsewhere that treated the whole committer stack as dead in the editor: the
+> HOST is constructed; it is the LOD DRIVE that is not.)*
+>
+> **§3.5.1's tier table and §3.5.3's invariants STAND** — they are unimplemented, not wrong.
+> **§3.5.2 is a description of intent, not of the code.** Precedent for this repair is already
+> in this contract at **§2.2**, which carries a note that it *"previously described an API that
+> never shipped; corrected 2026-08-07"*. **This is the second instance of the same defect inside
+> C04**, which is itself the finding: one correction did not prompt a sweep of the rest.
+>
+> *Exit condition:* the render loop calls `setViewDistance` each frame, or §3.5 is restated as
+> a declared gap with a gate that fails while it remains one.
+
 The scene-committer MUST provide a 3-tier, distance-based Level-of-Detail (LOD) system for large models (≥ 500 k elements) to maintain the 60 FPS budget (NFT 4).
 
 ### §3.5.1 — LOD tiers
