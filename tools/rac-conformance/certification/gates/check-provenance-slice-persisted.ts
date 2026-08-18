@@ -127,6 +127,28 @@ export function parseIncludes(src: string): string[] {
   return globs;
 }
 
+/**
+ * §VITEST-COUNTS — parse the run summary, counting tests EXECUTED, not PASSED.
+ *
+ * ⚠ Measured wrong here first, and the mistake is this suite's own subject matter
+ * turned on itself. A green run prints `Tests  42 passed (42)`; a RED one prints
+ * `Tests  3 failed | 39 passed (42)`. A `/Tests\s+(\d+) passed/` reads the red
+ * line as **0**, which trips the test-count floor and makes the gate exit 2 —
+ * MISCONFIGURED, "I could not look" — for a suite that ran forty-two tests and
+ * failed three. That is *failure and emptiness rendering as the same value*,
+ * inside the machinery built to forbid it. Caught by breaking the real subject.
+ *
+ * Counting EXECUTED keeps the two apart: an unrunnable suite still exits 2, a
+ * failing one exits 3.
+ */
+export function parseVitestCounts(out: string): { passed: number; failed: number; executed: number } {
+  const line = out.match(/Tests\s+([^\n]*)/)?.[1] ?? '';
+  const passed = Number(line.match(/(\d+)\s+passed/)?.[1] ?? 0);
+  const failed = Number(line.match(/(\d+)\s+failed/)?.[1] ?? 0);
+  const total = Number(line.match(/\((\d+)\)/)?.[1] ?? 0);
+  return { passed, failed, executed: Math.max(total, passed + failed) };
+}
+
 export interface SerializerReading {
   /** the optional slice is DECLARED on the snapshot type */
   declaresSlice: boolean;
@@ -195,6 +217,9 @@ function selfTest(): Control[] {
     { id: 'S2c', what: 'a hydrate quoted in a comment earns no credit', pass: !readLoader(`// this.provenanceStore.hydrate(snapshot.provenance) — planned`).hydrates },
     { id: 'S3a', what: 'a `__tests__/**/*.test.ts` include claims the cited suite', pass: globToRegExp('__tests__/**/*.test.ts').test(SUITE) },
     { id: 'S3b', what: 'the same include does NOT claim a `.spec.ts` file', pass: !globToRegExp('__tests__/**/*.test.ts').test('__tests__/x.spec.ts') },
+    { id: 'S4a', what: 'a GREEN vitest summary reads 42 executed', pass: parseVitestCounts(' Tests  42 passed (42)\n').executed === 42 },
+    { id: 'S4b', what: 'a RED summary reads 42 EXECUTED, not 0 — the floor must separate "the suite failed" from "the suite never ran", or a red suite exits 2 and is called unmeasurable', pass: (() => { const c = parseVitestCounts(' Tests  3 failed | 39 passed (42)\n'); return c.executed === 42 && c.failed === 3; })() },
+    { id: 'S4c', what: 'a run that matched no files reads 0 executed', pass: parseVitestCounts('No test files found, exiting with code 1\n').executed === 0 },
   ];
 }
 
@@ -256,12 +281,12 @@ function main(): void {
   });
   const ran = r.status !== null && !r.error ? 1 : 0;
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  const passed = Number(out.match(/Tests\s+(\d+) passed/)?.[1] ?? 0);
-  if (ran && r.status !== 0) findings.push(`S4 the cited suite exited ${r.status} — PV-05's evidence no longer holds`);
+  const counts = parseVitestCounts(out);
+  if (ran && r.status !== 0 && counts.executed > 0) findings.push(`S4 the cited suite exited ${r.status} with ${counts.failed} failing test(s) of ${counts.executed} executed — PV-05's evidence no longer holds`);
   if (/No test files found/.test(out)) findings.push('S4 vitest matched NO test files — the run measured nothing');
 
   lines.push(
-    `S4  vitest exited ${r.status === null ? 'NULL (spawn failure or timeout)' : r.status} · ${passed} test(s) passed`,
+    `S4  vitest exited ${r.status === null ? 'NULL (spawn failure or timeout)' : r.status} · ${counts.executed} executed (${counts.passed} passed, ${counts.failed} failed)`,
     '',
     `executed controls (C70 §5.6 — an arm never watched failing is UNPROVEN): ${controlsPassed}/${controls.length}`,
     ...controls.map((x) => `   ${x.pass ? '✓' : '❌'} ${x.id} ${x.what}`),
@@ -280,7 +305,9 @@ function main(): void {
     { what: 'smallest serialiser bytes (MIN_SERIALIZER_BYTES)', measured: serialisersSeen ? smallestSerializer : 0, min: MIN_SERIALIZER_BYTES },
     { what: 'cited suite located', measured: suiteExists ? 1 : 0, min: 1 },
     { what: 'suite process spawned and exited', measured: ran, min: 1 },
-    { what: 'suite tests actually executed (MIN_SUITE_TESTS)', measured: passed, min: MIN_SUITE_TESTS },
+    // EXECUTED, not PASSED — see §VITEST-COUNTS. Counting passes here would make a
+    // failing suite trip this floor and be reported as unmeasurable, not as a finding.
+    { what: 'suite tests actually executed (MIN_SUITE_TESTS)', measured: counts.executed, min: MIN_SUITE_TESTS },
   ];
 
   process.exit(reportGate({ gate: GATE, floors, lines, findings: findings.length, declared: 0, findingNames: findings }));

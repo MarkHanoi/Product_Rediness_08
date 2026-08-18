@@ -111,6 +111,31 @@ export function parseIncludes(src: string): string[] {
   return globs;
 }
 
+/**
+ * §VITEST-COUNTS — parse the run summary, counting tests EXECUTED, not tests
+ * PASSED.
+ *
+ * ⚠ This was measured wrong here first, and the mistake is this gate's own
+ * subject matter turned on itself. A green run prints `Tests  42 passed (42)`;
+ * a RED one prints `Tests  3 failed | 39 passed (42)`. A `/Tests\s+(\d+) passed/`
+ * read the red line as **0**, which tripped the MIN_ORACLE_TESTS floor and made
+ * the gate exit 2 — MISCONFIGURED, "I could not look" — for a suite that ran
+ * forty-two tests and failed three. That is *failure and emptiness rendering as
+ * the same value*, inside the machinery built to forbid it. Caught by breaking
+ * the real subject: the union was made to return the intersection, and the gate
+ * said it had measured nothing.
+ *
+ * The floor now counts EXECUTED (passed + failed, or the parenthesised total),
+ * so an unrunnable suite still exits 2 while a failing one exits 3.
+ */
+export function parseVitestCounts(out: string): { passed: number; failed: number; executed: number } {
+  const line = out.match(/Tests\s+([^\n]*)/)?.[1] ?? '';
+  const passed = Number(line.match(/(\d+)\s+passed/)?.[1] ?? 0);
+  const failed = Number(line.match(/(\d+)\s+failed/)?.[1] ?? 0);
+  const total = Number(line.match(/\((\d+)\)/)?.[1] ?? 0);
+  return { passed, failed, executed: Math.max(total, passed + failed) };
+}
+
 export interface KernelReading {
   /** exported function names */
   exports: string[];
@@ -165,6 +190,9 @@ function selfTest(): Control[] {
     { id: 'B2a', what: 'a `__tests__/**/*.test.ts` include claims the oracle suite', pass: globToRegExp('__tests__/**/*.test.ts').test(SUITE) },
     { id: 'B2b', what: 'the same include does NOT claim a `.spec.ts` file', pass: !globToRegExp('__tests__/**/*.test.ts').test('__tests__/x.spec.ts') },
     { id: 'B2c', what: 'a config include list is parsed off real config text', pass: parseIncludes(`include: ['__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.ts'],`).length === 2 },
+    { id: 'B3a', what: 'a GREEN vitest summary reads 42 executed', pass: parseVitestCounts(' Tests  42 passed (42)\n').executed === 42 },
+    { id: 'B3b', what: 'a RED summary reads 42 EXECUTED, not 0 — the floor must separate "the suite failed" from "the suite never ran", or a red suite exits 2 and is called unmeasurable', pass: (() => { const c = parseVitestCounts(' Tests  3 failed | 39 passed (42)\n'); return c.executed === 42 && c.failed === 3; })() },
+    { id: 'B3c', what: 'a run that matched no files reads 0 executed', pass: parseVitestCounts('No test files found, exiting with code 1\n').executed === 0 },
   ];
 }
 
@@ -234,12 +262,12 @@ function main(): void {
   });
   const ran = r.status !== null && !r.error ? 1 : 0;
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  const passed = Number(out.match(/Tests\s+(\d+) passed/)?.[1] ?? 0);
+  const counts = parseVitestCounts(out);
   const noFiles = /No test files found/.test(out);
-  if (ran && r.status !== 0) findings.push(`B3 the cited oracle suite exited ${r.status} — GE-05's evidence no longer holds`);
+  if (ran && r.status !== 0 && counts.executed > 0) findings.push(`B3 the cited oracle suite exited ${r.status} with ${counts.failed} failing test(s) of ${counts.executed} executed — GE-05's evidence no longer holds`);
   if (noFiles) findings.push('B3 vitest matched NO test files — the run measured nothing');
   lines.push(
-    `B3  vitest exited ${r.status === null ? 'NULL (spawn failure or timeout)' : r.status} · ${passed} test(s) passed`,
+    `B3  vitest exited ${r.status === null ? 'NULL (spawn failure or timeout)' : r.status} · ${counts.executed} executed (${counts.passed} passed, ${counts.failed} failed)`,
     '',
     `executed controls (C70 §5.6 — an arm never watched failing is UNPROVEN): ${controlsPassed}/${controls.length}`,
     ...controls.map((x) => `   ${x.pass ? '✓' : '❌'} ${x.id} ${x.what}`),
@@ -256,8 +284,10 @@ function main(): void {
     { what: 'cited oracle suite located', measured: suiteExists ? 1 : 0, min: 1 },
     { what: 'suite process spawned and exited', measured: ran, min: 1 },
     // The suite process exiting 0 having run NOTHING is the empty-seed lie in its
-    // purest form. Demand a test count, not just a status.
-    { what: 'oracle tests actually executed (MIN_ORACLE_TESTS)', measured: passed, min: MIN_ORACLE_TESTS },
+    // purest form. Demand a test count, not just a status — and count EXECUTED,
+    // not PASSED, or a failing suite trips this floor and is reported as
+    // unmeasurable instead of as a finding (see §VITEST-COUNTS).
+    { what: 'oracle tests actually executed (MIN_ORACLE_TESTS)', measured: counts.executed, min: MIN_ORACLE_TESTS },
   ];
 
   process.exit(reportGate({ gate: GATE, floors, lines, findings: findings.length, declared: 0, findingNames: findings }));
