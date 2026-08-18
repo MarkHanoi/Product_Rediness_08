@@ -722,6 +722,33 @@ twelve is marked ⚠ above.
 > to coordinates and discarding wall identity before returning. The founder-facing affordance
 > exists for roofs (`CreatePanelLayout.ts:310`); the retained relationship does not. **Move a wall
 > and the roof stays put, silently** (0B §5, §5.1).
+>
+> ⚠ **CORRECTED 2026-08-18 (lane AD1) — THE MECHANISM ABOVE IS RETIRED; HALF THE CONCLUSION
+> SURVIVES, FOR A DIFFERENT REASON.** `find . -name 'WallRegionDetector.ts'` returns **nothing**:
+> the file was **deleted 2026-08-12** on this contract suite's own authority — the tombstone is
+> `packages/geometry-roof/src/index.ts:60-78`, it cites [C79 §6.5](C79-REGION-SEMANTICS.md), and
+> C79 §6.5 records the resolution at its own exit condition. So the four line numbers this row
+> cites (`:44`, `:193`, and §17.3's `:28–31,183–189`) point at no file, and the paragraph's premise
+> — *"Roof uses a **different** detector"* — is **false at HEAD**.
+>
+> **Roof now runs on the SAME tracer as slab.** `RoofTool.ts:293` calls `traceRoofRegionAtPoint`
+> (`RoofRegionTrace.ts:82`), a thin adapter with zero tracing logic over
+> `@pryzm/geometry-slab/region-tracer`'s `traceRegionSketchAtPoint` — so it inherits
+> `§REGION-HOST-ATTRIBUTION` and the three counted refusals, and it **returns** the attribution to
+> its callers rather than discarding it. The sentence *"cannot carry a host reference even in
+> principle"* no longer describes any code.
+>
+> **What survives, and it is the part that matters:** the user-visible outcome is unchanged —
+> **move a wall and the roof still stays put** — because the gap moved from TRACING to **STORAGE**.
+> `RoofData.footprint` is a bare `polygon: [number, number][]` with no reference-capable field, and
+> the plan surface dispatches `roof.create` through an L0 schema whose `boundary` is `Vec3[]`, so
+> Zod strips a reference before it can transit the bus (`RoofRegionTrace.ts:38-52`; C79 §6.3's
+> named storage row). **The attribution exists at creation and has nowhere to go.**
+>
+> This row is therefore kept, not deleted, and re-aimed: the MUST NOT above still binds, and the
+> work it orders is **a reference-capable roof boundary**, not a second tracer's retirement — which
+> is done. Recording it the other way would have an engineer retire a file that is already gone and
+> read the promise as unkept for a reason that no longer exists.
 
 > **§17.3 — MUST.** Where attribution can fail, the failures are **named and counted**, not
 > absorbed. `SlabPlanToolHandler.ts:394–404` is the model: it logs `hostEdges`, `freeEdges`,
@@ -730,6 +757,12 @@ twelve is marked ⚠ above.
 > (`'curved' | 'noWallId' | 'ambiguous'`). `WallRegionDetector.ts:28–31,183–189` gets the
 > equivalent right at its own level — it logs when it aborts on the loop cap rather than returning
 > a silent `null` (L-699). **"No closed region here" and "I gave up" are not the same value.**
+>
+> ⚠ **CORRECTED 2026-08-18 (lane AD1) — the second citation is to a DELETED FILE** (see §17.2's
+> correction). The rule stands and its subject is now stronger, not weaker: roof reaches the same
+> three typed refusals through the shared tracer, and `formatRoofRegionAttributionReport`
+> (`RoofRegionTrace.ts`) reports all five counts to the caller. The MUST is unchanged; only the
+> example needed re-pointing.
 
 > **§17.4 — MUST.** Where a region-traced relationship is **not** retained, the created element's
 > dependency answer is `RELATIONSHIP_NOT_RECORDED` (§8.1 #8) — not an empty affected set.

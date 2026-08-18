@@ -367,11 +367,42 @@ exist**) and every cited `packages/*` path (**43 distinct → 21 exist**).
 C01–C20 in the first sweep.
 
 ⚠ **Body NOT MEASURED** (gate/package axis only): C24.1, C26, C28, C30, C31, C34, C35, C37, C38,
-C40, C41, C42, C44, C45, C46, C48, C49 — and **C78, C80, C81, C82**, which received a
+C40, C41, C42, C44, C45, C46, C48, C49 — and **C80, C81, C82**, which received a
 falsehood-pattern sweep plus spot checks, not a line-by-line audit.
 
-**C78 (944 lines) against C71/C72 is the highest-value unstaffed read** — it is the largest and the
-most likely to be restating rules another contract owns.
+~~**C78 (944 lines) against C71/C72 is the highest-value unstaffed read.**~~ **PARTIALLY MEASURED
+2026-08-18 (lane AD1). C78 does NOT carry the C21–C50 disease, and its §20 is a model of the
+opposite** — but it carried a different one, and §17 was live-wrong.
+
+- **Gate axis — CLEAN, and this is the notable result.** All 16 gate names C78 cites were tested:
+  `grep -oE '(tools/ga-gate/[A-Za-z0-9._-]+\.ts|check-[a-z0-9-]+)' C78-*.md | sort -u`, each
+  resolved with `find tools scripts -name "<name>*"`. **13 of 16 exist**; the other 3
+  (`check-consequence-refusal-typing`, `check-planner-registry-generic`, `check-observer-bypass`)
+  are **declared NAMED GAPS by §20.1's own preamble**, which is the honest form. Registration was
+  read from the authority rather than by grep — `npx tsx
+  tools/rac-conformance/certification/gates/check-gate-residency.ts` → **exit 0**, *"registry
+  entries parsed … 103 · unresolvable: 0"*, with all 13 showing `✓file ✓reg ✓verdict`. **§13's
+  "97 of 99 cited gates do not exist" does not extend to C78.** (My own first pass concluded five
+  of these were unregistered; it was grepping `certify.ts` for quoted paths and missing its
+  bare-name `const gates = [...]` array at `:464`. Running the residency gate corrected it —
+  recorded because the wrong instrument produced a confident wrong answer.)
+- **Path axis — ONE real defect, and it is §13's shape (b).** Of the 4 fully-qualified source paths
+  C78 cites, 3 exist; **`packages/geometry-roof/src/WallRegionDetector.ts` does not exist anywhere
+  in the tree** (`find . -name 'WallRegionDetector.ts' -not -path '*/node_modules/*'` → empty). It
+  was **deleted 2026-08-12** on this suite's own authority — tombstone at
+  `packages/geometry-roof/src/index.ts:60-78`, citing C79 §6.5. **C78 §17.2 and §17.3 cite it at
+  four line numbers as the live roof region path**, and §17.2's premise (*"Roof uses a different
+  detector"*) is false at HEAD: `RoofTool.ts:293` runs roof-by-region on the SAME shared tracer as
+  slab, with attribution returned. The user-visible conclusion survives — a roof still does not
+  follow a moved wall — but the cause moved from TRACING to **STORAGE** (`RoofData.footprint` has
+  no reference-capable field; the L0 `Roof.boundary` is `Vec3[]` and Zod strips a reference before
+  it can transit the bus). Both rows amended in place with the surviving half re-aimed, rather than
+  deleted, so the MUST keeps binding and nobody is sent to retire a file that is already gone.
+- ⚠ **STILL NOT MEASURED for C78:** the §0 eight-failure census, §8.1's consolidated union, the
+  §19.3 living record, and the specific question this row was minted to ask — **whether C78
+  restates rules C71/C72 own.** Its bare-filename citations (34 distinct, e.g.
+  `ConsequenceExecutionService.ts`, `confirmationPolicy.ts`) were also not existence-tested; the
+  sweep covered fully-qualified paths only.
 
 ---
 
