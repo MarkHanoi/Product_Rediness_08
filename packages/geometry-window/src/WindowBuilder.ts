@@ -7,6 +7,10 @@ import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
+// §FEAT-CURVED-WINDOW-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
+// through `hostedElementFrame`. Nothing in this file re-derives it; see
+// `CurvedLeafGeometry.ts` for why that is the whole point of the feature.
+import { leafArc, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
 import {
     WallStore, hostedElementFrame, withAuthoritativeGeometry,
     // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
@@ -79,6 +83,65 @@ function addBox(
 ): void {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
+    mesh.userData.role = role;
+    parent.add(mesh);
+}
+
+/**
+ * §FEAT-CURVED-WINDOW-LEAF (L-957) — a member that must FOLLOW the host's arc.
+ *
+ * Identical arguments to {@link addBox}, and identical behaviour when `arc` is
+ * `null` — which is every straight-walled window in every project, i.e. the case
+ * slice 0 pins byte-identical. It is the same `new THREE.BoxGeometry(w, h, d)`
+ * call reached by the same branch, not a reconstruction that happens to agree.
+ *
+ * When `arc` is present the member is swept along the wall's own centreline
+ * stations instead. Use this for HORIZONTALS — head, sill, transom, the sill
+ * board, the horizontal sash members and beads. Verticals must use
+ * {@link addSeatedBox}: a vertical is a straight ruling of a vertical-axis sweep,
+ * so sweeping it would be wrong, not merely wasteful.
+ */
+function addSweptBox(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    arc: LeafArc | null,
+    w: number, h: number, d: number,
+    x: number, y: number, z: number,
+    role: WindowPartRole,
+): void {
+    if (!arc) { addBox(parent, material, w, h, d, x, y, z, role); return; }
+    const mesh = new THREE.Mesh(sweptBoxGeometry(arc, w, h, d, x, y, z), material);
+    // The sweep is authored in group-local coordinates already — the geometry
+    // carries the member's position, so the mesh sits at the group origin. A
+    // position offset here would double-count it.
+    mesh.position.set(0, 0, 0);
+    mesh.userData.role = role;
+    parent.add(mesh);
+}
+
+/**
+ * §FEAT-CURVED-WINDOW-LEAF (L-957) — a STRAIGHT member RE-SEATED onto the arc.
+ *
+ * Jambs, mullions and sash stiles stay straight boxes (see `CurvedLeafGeometry`'s
+ * header for why that is a measured property of the stored model and not a
+ * simplification), but on a curved host their plan position and heading must
+ * still follow the wall, or a mullion halfway along a wide curved window stands
+ * proud of the glass on one side and sinks into it on the other. Falls through to
+ * {@link addBox} unchanged for a straight host.
+ */
+function addSeatedBox(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    arc: LeafArc | null,
+    w: number, h: number, d: number,
+    x: number, y: number, z: number,
+    role: WindowPartRole,
+): void {
+    if (!arc) { addBox(parent, material, w, h, d, x, y, z, role); return; }
+    const seat = arcSeat(arc, x, z);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(seat.x, y, seat.z);
+    mesh.rotation.y = seat.rotationY;
     mesh.userData.role = role;
     parent.add(mesh);
 }
@@ -595,7 +658,13 @@ export class WindowBuilder {
         // trigger exactly the rebuilds it affects (and no others).
         const lod = this._lodFor(win);
         this._builtLod.set(win.id, lod);
-        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod);
+        // §FEAT-CURVED-WINDOW-LEAF (L-957) — `null` for every straight host, which
+        // is what makes the ordinary path literally the old code. The arc is
+        // resolved from the SAME `hostedElementFrame(wall, offset, width)` that
+        // `positionGroup` places the group with, so the leaf's curvature and the
+        // leaf's placement cannot be two answers.
+        const arc = leafArc(wallData, win.offset, win.width);
+        const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod, arc);
         this.windowMaterials.set(win.id, mats);
         this.positionGroup(win, group, wallData);
 
@@ -616,8 +685,18 @@ export class WindowBuilder {
         // avoid. The window keeps its real meshes instead: correct, and merely not
         // coalesced. Instancing raked leaves needs a per-instance full matrix in
         // `ElementInstanceBridge`, not a fixup here (C65 §3.9).
+        //
+        // §FEAT-CURVED-WINDOW-LEAF (L-957) — a CURVED host is excluded for the same
+        // class of reason, and it is worth stating precisely because the two
+        // exclusions are NOT the same bug. `_convertGroupToInstances` reads
+        // `(mesh.geometry as THREE.BoxGeometry).parameters` to recover each
+        // sub-box's authored size; a swept pane is a raw `BufferGeometry` and has
+        // no `parameters` at all, so the conversion would fall back to its `?? 1`
+        // guards and render every curved member as a 1 m cube. Instancing a curved
+        // leaf needs per-instance geometry keys in `ElementInstanceBridge`, not a
+        // fixup here — the same C65 §3.9 answer the rake arm gives.
         const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
-        if (this._instancingActive() && !_hostRaked) {
+        if (this._instancingActive() && !_hostRaked && !arc) {
             this._convertGroupToInstances(win, group, wallData.levelId);
         }
 
@@ -944,7 +1023,7 @@ export class WindowBuilder {
      * default). There is not one literal below. A richer HARDCODED window would be the same
      * bug at higher resolution (ADR-121 §4.4).
      */
-    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default', lod: DetailLevel = 'fine'): THREE.Material[] {
+    private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle, levelId = 'default', lod: DetailLevel = 'fine', arc: LeafArc | null = null): THREE.Material[] {
         const mats: THREE.Material[] = [];
         const { width: w, height: h, frameThickness: ft } = win;
         // Use the wall-derived depth when provided so the frame spans the full void.
@@ -998,8 +1077,8 @@ export class WindowBuilder {
         // massing window is the outer frame and ONE sheet of glass — no dividers, no sash, no
         // bead, no sill board. It exits here; every richer tier falls through and ADDS.
         if (lod === 'coarse') {
-            addBox(
-                group, glassMat,
+            addSweptBox(
+                group, glassMat, arc,
                 Math.max(innerW, 0.01), Math.max(innerH, 0.01), dims.glazingThickness,
                 0, 0, 0, 'windowGlazing',
             );
@@ -1118,7 +1197,11 @@ export class WindowBuilder {
                 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the pane is extruded at the
                 // window's REAL glazing thickness (the sealed unit), which is exactly
                 // what the plan symbol draws as its thin double line.
-                addBox(group, glassMat, glassW, glassH, dims.glazingThickness, paneCX, paneCY, 0, 'windowGlazing');
+                // §FEAT-CURVED-WINDOW-LEAF (L-957) — THE GLASS IS CURVED. On a
+                // curved host the pane is swept along the wall's OWN centreline
+                // stations, so pane and reveal share their tessellation and cannot
+                // disagree at the edge where they meet.
+                addSweptBox(group, glassMat, arc, glassW, glassH, dims.glazingThickness, paneCX, paneCY, 0, 'windowGlazing');
 
                 rowY += rh;
             }
