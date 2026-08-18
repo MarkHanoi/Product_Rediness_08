@@ -163,13 +163,32 @@ export function parseWallSideFinishIntent(
         }
     }
 
+    // ── THE UNRECOGNISED TAIL. When the scan found nothing, carry the words the
+    //    user actually typed after the connector so the refusal can QUOTE them
+    //    ("I don't know the finish \"unobtainium\"") instead of the strictly
+    //    weaker "tell me which finish", which makes the user guess whether they
+    //    were misheard or had simply omitted it. This never widens the claim:
+    //    `knownFinish` below, not this, is what the claim rule tests.
+    const knownFinish = finishRef;
+    if (finishRef === null) {
+        // The leading `^.*` is GREEDY on purpose: it consumes as far right as it
+        // can, so the connector matched is the LAST one in the sentence. Without
+        // it, leftmost-first matching anchors on "finishes" near the start and
+        // captures the entire rest of the sentence as the finish name. Capped at
+        // three words, so a runaway capture cannot be quoted back at the user as
+        // though it were something they had named.
+        const tail = /^.*\b(?:to|into|as|finish(?:es)?)\s+(?:the\s+)?([a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,2})\s*$/i.exec(t.trim());
+        const raw = tail?.[1]?.trim();
+        if (raw !== undefined && raw.length > 0 && !/^(?:walls?|finish(?:es)?)$/i.test(raw)) finishRef = raw;
+    }
+
     // ── THE CLAIM RULE. The literal word "finish" makes the ask unambiguous, so
     //    an unnamed or unknown finish still claims and refuses with real options
     //    (ADR-0313 HONESTY: recognised-but-underspecified must never reach an
     //    LLM, and here there is no LLM to reach). Without that word, a side word
     //    alone is NOT enough — "make all walls interior partition" is a wall
     //    TYPE ask, and only a resolvable finish name distinguishes the two.
-    if (!hasMarker && finishRef === null) return null;
+    if (!hasMarker && knownFinish === null) return null;
     if (!hasMarker && !hasInner && !hasOuter) return null;
 
     // ── The SIDE. Explicit words win; absent, 'interior' is the default — the

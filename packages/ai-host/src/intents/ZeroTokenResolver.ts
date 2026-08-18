@@ -3693,6 +3693,15 @@ const MATCHERS: readonly Matcher[] = [
   matchWallRake,
   // BEFORE the dimension matchers: "make all walls interior partition" must not
   // be nibbled at by "make this … " shapes.
+  // §FEAT-WALL-SIDE-FINISH — BEFORE matchWallType, and that ORDER IS LOAD-BEARING.
+  // "change all walls in the kitchen finish limewash" also matches the TYPE
+  // shape (with "finish limewash" read as a type name), and the type matcher
+  // would claim it first and refuse with the wall-type catalogue — measured.
+  // Safe in the other direction because this parser claims ONLY a finish ask:
+  // "make all walls interior partition" has no finish marker and "partition"
+  // is not in the finish table, so it falls through to the type grammar. Both
+  // directions are pinned in wall-side-finish.test.ts.
+  matchWallSideFinish,
   matchWallType,
   // Window types, same guards as wall types ("make all windows 1m wide" never
   // claimed); the word "windows"/"window type" keeps it off the wall grammars.
@@ -3703,10 +3712,6 @@ const MATCHERS: readonly Matcher[] = [
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).
   matchAddWallLayer,
-  // §FEAT-WALL-SIDE-FINISH — AFTER matchAddWallLayer (which owns `^add`) and
-  // after matchWallType above, so "make all walls interior partition" keeps
-  // reaching the TYPE grammar. This claims only a finish ask.
-  matchWallSideFinish,
   // "create a window in the middle of every wall segment" — BEFORE
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.

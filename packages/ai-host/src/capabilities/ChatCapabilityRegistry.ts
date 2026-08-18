@@ -1593,7 +1593,10 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scopeModes: ['all', 'selection'],
     destructive: false,
     busCommand: 'wall.setSideFinishBatch',
-    probe: { intent: 'set-wall-side-finish', side: 'interior', finishRef: 'plaster', scope: 'all' },
+    // scope:'selection' deliberately — the anti-ElementCapabilities guard probes
+    // by SELECTING each kind, and an 'all' probe never reaches the selection
+    // gate, so it would 'accept' all sixteen kinds and declare a lie.
+    probe: { intent: 'set-wall-side-finish', side: 'interior', finishRef: 'plaster', scope: 'selection' },
     commandProof: {
       file: 'packages/command-registry/src/walls/SetWallSideFinishCommand.ts',
       mustMention: ['wallStore', 'withWallSideFinish'],

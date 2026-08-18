@@ -197,6 +197,10 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-ceiling-type': ['ceiling'],
       // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — "add a 10mm plaster layer …".
       'add-wall-layer': ['wall'],
+      // §FEAT-WALL-SIDE-FINISH — "make all inner finishes walls in ground floor
+      // to X". Wall-only: `sideFinishes` is a WallData field, and the
+      // 'interior'/'exterior' side vocabulary is the wall LAYER-function axis.
+      'set-wall-side-finish': ['wall'],
       // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315) — "a window in every wall segment".
       'create-windows-parametric': ['wall'],
       'set-roof-pitch': ['roof'],

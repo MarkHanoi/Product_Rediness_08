@@ -540,6 +540,22 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    // §FEAT-WALL-SIDE-FINISH — the founder's per-side finish ask. Every phrasing
+    // below is a shape he actually used or an obvious neighbour of one; the
+    // family exists so a regression in the grammar's ORDER (it sits BEFORE
+    // matchWallType, deliberately) shows up here rather than in his hands.
+    id: 'set-wall-side-finish',
+    ctx: scopedSel('wall'),
+    scoped: true,
+    phrasings: [
+      'make all inner finishes walls on the ground floor to plaster',
+      'change all walls in the kitchen finish limewash',
+      'change the inner finish of all walls to microcement',
+      'change all outer finishes walls to clay plaster',
+      'Could you make all inner finishes walls on the ground floor to plaster, please?',
+    ],
+  },
+  {
     id: 'set-wall-rake',
     ctx: scopedSel('wall'),
     scoped: true,
