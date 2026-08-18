@@ -27,7 +27,7 @@
 > different process* (C84 EI-1). Confirmed here at `initBuilders.ts:77, :551-553` versus
 > `HeadlessBakeSession.ts:31, :43, :53, :131`.
 > **(2) The rake does not exist above the geometry layer.** `grep -rn rake packages/schemas/src`
-> → **ZERO hits**. `rakeAngleDeg` lives only on the legacy record (`WallTypes.ts:311`), the
+> → **ZERO hits**. `rakeAngleDeg` lives only on the legacy record (`packages/geometry-wall/src/WallTypes.ts:312` — re-measured 2026-08-18; this read `:311`), the
 > serializer (`ProjectSerializer.ts:559`) and `packages/geometry-wall`. **That is the structural
 > reason [L-955](../../04-reference/ISSUE-LOG.md)'s three body builders diverged at the corner: there
 > is no schema-level authority above them to diverge from.**
@@ -55,6 +55,21 @@
 >
 > Re-verified and **unchanged**: both headline verdicts below. `grep -rn rake packages/schemas/src`
 > → **0** (run 2026-08-18, later pass), so the rake still has no authority above the geometry layer.
+> Verdict 2's citation was corrected from `WallTypes.ts:311` to
+> `packages/geometry-wall/src/WallTypes.ts:312`.
+>
+> **CITATION RESOLVABILITY — measured, and clean.** C85 cites **67 distinct `Filename.ts:line`
+> basenames**. Every one resolves to **exactly one** file in the repo:
+>
+> ```
+> grep -oE '`[A-Za-z][A-Za-z0-9_]+\.ts:' C85-ELEMENT-WALL.md | tr -d '`:' | sort -u   # -> 67
+> # each name: find packages apps plugins -name "<name>.ts" -not -path '*/node_modules/*' | wc -l  -> 1
+> ```
+>
+> This is recorded because it is **not** true suite-wide: C78 carries 34 bare-filename citations
+> that a reader cannot resolve. A bare basename is only safe while it stays unique, so this is a
+> property to re-check, not a permanent guarantee — if a second `WallTypes.ts` or
+> `MoveWall.ts` is ever added, every citation here silently becomes ambiguous.
 
 ---
 
