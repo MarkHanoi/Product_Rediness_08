@@ -10,7 +10,7 @@ import { WindowOpening } from './WindowTypes';
 // §FEAT-CURVED-WINDOW-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
 // through `hostedElementFrame`. Nothing in this file re-derives it; see
 // `CurvedLeafGeometry.ts` for why that is the whole point of the feature.
-import { leafArc, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
+import { leafArc, curvedLeafRefusal, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
 import {
     WallStore, hostedElementFrame, withAuthoritativeGeometry,
     // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
@@ -663,7 +663,22 @@ export class WindowBuilder {
         // resolved from the SAME `hostedElementFrame(wall, offset, width)` that
         // `positionGroup` places the group with, so the leaf's curvature and the
         // leaf's placement cannot be two answers.
-        const arc = leafArc(wallData, win.offset, win.width);
+        //
+        // The refusal is CONSULTED, not restated. `curvedLeafRefusal` names the one
+        // combination a curved leaf cannot carry and returns the reason as text; the
+        // reason is stamped onto the group below so a panel can SHOW it rather than
+        // re-deriving the condition. When it fires, the leaf falls back to FLAT —
+        // a chorded pane in a curved hole is visibly wrong and therefore reportable,
+        // which is the point: "a refusal is a correct answer; a silently-wrong wall
+        // is not" (`WallRake.ts`).
+        const _leafRefusal = curvedLeafRefusal(wallData);
+        const arc = _leafRefusal ? null : leafArc(wallData, win.offset, win.width);
+        if (_leafRefusal) {
+            // Re-frozen rather than mutated: `rootUserData` is frozen above, and the
+            // field is added ONLY on the refusing path so a straight or ordinary
+            // curved window's userData is untouched.
+            group.userData = Object.freeze({ ...group.userData, curvedLeafRefusal: _leafRefusal });
+        }
         const mats = this.buildVisuals(win, group, frameDepth, vgStyle, wallData.levelId ?? 'default', lod, arc);
         this.windowMaterials.set(win.id, mats);
         this.positionGroup(win, group, wallData);
@@ -1054,15 +1069,26 @@ export class WindowBuilder {
         mats.push(frameMat, glassMat);
 
         // ── Outer Frame (EVERY LOD — it is the window's silhouette) ────────
-        // Top bar
-        addBox(group, frameMat, w, ft, fd, 0,  h / 2 - ft / 2, 0, 'windowFrame');
-        // Bottom bar
-        addBox(group, frameMat, w, ft, fd, 0, -h / 2 + ft / 2, 0, 'windowFrame');
-        // Left bar (between top and bottom)
+        //
+        // §FEAT-CURVED-WINDOW-LEAF (L-957) — THE FOUNDER'S DECOMPOSITION, APPLIED.
+        // HEAD and CILL traverse the arc and are SWEPT; the two JAMBS are vertical
+        // rulings of the host's vertical-axis sweep, so they stay straight boxes and
+        // are merely RE-SEATED onto it. Both reduce to `addBox` on a straight host.
+        //
+        // The head and cill span the full authored `w`, i.e. arc length `offset` to
+        // `offset + width` — precisely the two stations `CurvedWallOpeningBuilder`
+        // terminates its bands on. Their end caps are radial for the same reason the
+        // void's jambs are, so frame and reveal meet on ONE plane rather than two
+        // that nearly agree.
+        // Head
+        addSweptBox(group, frameMat, arc, w, ft, fd, 0,  h / 2 - ft / 2, 0, 'windowFrame');
+        // Cill
+        addSweptBox(group, frameMat, arc, w, ft, fd, 0, -h / 2 + ft / 2, 0, 'windowFrame');
+        // Left jamb (between head and cill)
         const sideH = h - 2 * ft;
-        addBox(group, frameMat, ft, sideH, fd, -(w / 2 - ft / 2), 0, 0, 'windowFrame');
-        // Right bar
-        addBox(group, frameMat, ft, sideH, fd,  (w / 2 - ft / 2), 0, 0, 'windowFrame');
+        addSeatedBox(group, frameMat, arc, ft, sideH, fd, -(w / 2 - ft / 2), 0, 0, 'windowFrame');
+        // Right jamb
+        addSeatedBox(group, frameMat, arc, ft, sideH, fd,  (w / 2 - ft / 2), 0, 0, 'windowFrame');
 
         // ── Glazing area ───────────────────────────────────────────────────
         // Inner area available for glass and dividers
@@ -1109,7 +1135,8 @@ export class WindowBuilder {
         for (let c = 0; c < nCols; c++) {
             colX += colWidths[c] ?? 0;
             if (c < nCols - 1) {
-                addBox(group, frameMat, cdt, innerH, dividerDepth, colX - cdt / 2, 0, 0, 'windowMullion');
+                // §FEAT-CURVED-WINDOW-LEAF — a MULLION is vertical: straight, re-seated.
+                addSeatedBox(group, frameMat, arc, cdt, innerH, dividerDepth, colX - cdt / 2, 0, 0, 'windowMullion');
             }
         }
 
@@ -1121,7 +1148,9 @@ export class WindowBuilder {
             for (let r = 0; r < nRows; r++) {
                 rowY += rowHeights[r] ?? 0;
                 if (r < nRows - 1) {
-                    addBox(group, frameMat, cw, rdt, dividerDepth, colX + cw / 2, rowY - rdt / 2, 0, 'windowTransom');
+                    // §FEAT-CURVED-WINDOW-LEAF — a TRANSOM is horizontal: it traverses
+                    // the arc and is swept, exactly like the head and cill.
+                    addSweptBox(group, frameMat, arc, cw, rdt, dividerDepth, colX + cw / 2, rowY - rdt / 2, 0, 'windowTransom');
                 }
             }
             colX += cw;
@@ -1171,11 +1200,13 @@ export class WindowBuilder {
                     if (st > 0) {
                         const sd = Math.min(dims.sashDepth, fd);
                         // The four sash members, mitred around the cell.
-                        addBox(group, frameMat, cellW, st, sd, paneCX, paneCY + cellH / 2 - st / 2, 0, 'windowSash');
-                        addBox(group, frameMat, cellW, st, sd, paneCX, paneCY - cellH / 2 + st / 2, 0, 'windowSash');
+                        // §FEAT-CURVED-WINDOW-LEAF — head/cill rails SWEEP, stiles are
+                        // vertical rulings and stay straight.
+                        addSweptBox(group, frameMat, arc, cellW, st, sd, paneCX, paneCY + cellH / 2 - st / 2, 0, 'windowSash');
+                        addSweptBox(group, frameMat, arc, cellW, st, sd, paneCX, paneCY - cellH / 2 + st / 2, 0, 'windowSash');
                         const sashSideH = Math.max(cellH - 2 * st, 0.001);
-                        addBox(group, frameMat, st, sashSideH, sd, paneCX - cellW / 2 + st / 2, paneCY, 0, 'windowSash');
-                        addBox(group, frameMat, st, sashSideH, sd, paneCX + cellW / 2 - st / 2, paneCY, 0, 'windowSash');
+                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, paneCX - cellW / 2 + st / 2, paneCY, 0, 'windowSash');
+                        addSeatedBox(group, frameMat, arc, st, sashSideH, sd, paneCX + cellW / 2 - st / 2, paneCY, 0, 'windowSash');
 
                         // The glass now sits in the sash's clear sight line…
                         glassW = Math.max(cellW - 2 * st, 0.01);
@@ -1188,8 +1219,10 @@ export class WindowBuilder {
                         const bead = Math.min(dims.rebateDepth, st);
                         if (bead > 0) {
                             const beadZ = dims.glazingThickness / 2 + bead / 2;
-                            addBox(group, frameMat, glassW, bead, bead, paneCX, paneCY + glassH / 2 - bead / 2, beadZ, 'windowBead');
-                            addBox(group, frameMat, glassW, bead, bead, paneCX, paneCY - glassH / 2 + bead / 2, beadZ, 'windowBead');
+                            // §FEAT-CURVED-WINDOW-LEAF — both beads are horizontal, and
+                            // they sit against the glass, so they must bow with it.
+                            addSweptBox(group, frameMat, arc, glassW, bead, bead, paneCX, paneCY + glassH / 2 - bead / 2, beadZ, 'windowBead');
+                            addSweptBox(group, frameMat, arc, glassW, bead, bead, paneCX, paneCY - glassH / 2 + bead / 2, beadZ, 'windowBead');
                         }
                     }
                 }
@@ -1215,8 +1248,12 @@ export class WindowBuilder {
             const sillMat = this._sharedFrameMaterial(levelId, this._resolveFrameColor(win), false, 1, 0.7);
             mats.push(sillMat);
             // Sill protrudes from bottom of window toward exterior (positive Z in group space)
-            addBox(
-                group, sillMat,
+            // §FEAT-CURVED-WINDOW-LEAF — the sill BOARD is the longest horizontal in
+            // the leaf and the one a viewer reads the curve off first. `hostedElementFrame`
+            // EXTRAPOLATES tangentially past a wall end rather than clamping, which is
+            // exactly what a real board does with its overhang — see `stationFrame`.
+            addSweptBox(
+                group, sillMat, arc,
                 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the board overhangs each jamb by
                 // the RESOLVED `sillOverhang` (was a bare `+ 0.04`). The plan sill line is
                 // drawn to the same overhang, so the symbol and the built board agree.

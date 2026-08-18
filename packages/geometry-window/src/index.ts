@@ -63,3 +63,11 @@ export { buildWindowSection, setWindowSectionCommandManager } from './WindowSect
 // ── Sprint Z (2026-05-12) — WindowTool + WindowPlanSymbolBuilder ─────────────
 export { WindowTool } from './WindowTool';
 export { WindowPlanSymbolBuilder, windowPlanSymbolBuilder } from './WindowPlanSymbolBuilder';
+
+// ── §FEAT-CURVED-WINDOW-LEAF (L-957) ────────────────────────────────────────
+// `curvedLeafRefusal` is exported so the property panel can IMPORT the gate the
+// builder obeys instead of restating its condition. Both directions of exactly
+// that mismatch — a panel offering what the geometry refuses, and a panel
+// refusing what the geometry builds — shipped and were caught on 2026-08-18; a
+// shared gate is the only thing that closes it.
+export { leafArc, curvedLeafRefusal, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
