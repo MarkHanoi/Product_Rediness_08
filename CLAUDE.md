@@ -148,22 +148,39 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    → **hard-fail at the invariant** (`tools/ga-gate/check-raf-count.ts`, exactly 1 owner).
 4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
    **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet and is on
-   `tools/ga-gate/gate-debt.json`. It is **RED — exit 3** (measured 2026-08-16), but **not for the
-   reason this bullet used to give.** It said *"217 casts against a baseline of 215"*; the gate has
-   **two arms** and that conflated them:
-   - **repo-wide**: **209 / 215** — *within* its ceiling, i.e. this arm is not what fails.
-   - **scoped** (`src`, `apps/editor/src/engine` · 201 files): **6 / 4** — **this is the breach.**
-     `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)` makes it exit **3**, not 1: being on `gate-debt.json`
-     declares that a gate *fails*, never that it may get *worse*. **Fix the casts; never raise the
-     threshold.**
+   `tools/ga-gate/gate-debt.json`.
+   > ⚠ **Corrected 2026-08-18 — this bullet claimed the gate was RED. It is GREEN.** It read
+   > *"**RED — exit 3** (measured 2026-08-16) … repo-wide **209 / 215** … scoped **6 / 4** — **this
+   > is the breach**"*. **Re-run:** `npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1;
+   > echo "RC=$?" >> /tmp/cast.txt` → **RC=0**, terminal line `[cast-tripwire] OK: 3 = baseline.`
+   > · scoped (`src`, `apps/editor/src/engine`) **215 files · 3 / 3** · repo-wide **4821 files ·
+   > 100 / 100** (tests excluded). **Both arms are within ceiling; neither is breached.** The
+   > earlier reading was not merely stale, it was stale *pessimistically* — it named a breach that
+   > the gate does not report, which is the same class of defect as claiming enforcement that does
+   > not exist, inverted. **Read the gate, never this line.**
 
-   ⚠ One of the six is `apps/editor/src/engine/views/PlanViewToolOverlay.ts:786`, and it is worth
-   knowing about: `(window as any)['commandManager']` aliased to `_lvl`, then `_lvl.execute(...)`.
-   Its own comment states the rationale — *"bracket notation avoids `window.commandManager` GA gate
-   pattern"*. `check:commandmanager` greps the literal string `commandManager.execute`, so it counts
-   this site as **zero**. That is roadmap §7B.5 — *a gate that classifies by NAME can be satisfied
-   by RENAMING* — and it means **`check:commandmanager`'s 51/52 PASS is not a denominator you may
-   quote.** `check-cast-count` caught what `check:commandmanager` was built to catch and missed.
+   > ⚠ **The `commandManager` sub-finding under this bullet was ALSO stale — rewritten
+   > 2026-08-18.** It read: *"one of the six is
+   > `apps/editor/src/engine/views/PlanViewToolOverlay.ts:786` … `(window as any)['commandManager']`
+   > aliased to `_lvl`, then `_lvl.execute(...)` … its own comment states the rationale — bracket
+   > notation avoids the GA gate pattern … `check:commandmanager`'s **51/52 PASS**"*.
+   > **Three of those four claims are now false.** Measured 2026-08-18:
+   > - **The cited site is GONE.** `grep -n commandManager apps/editor/src/engine/views/PlanViewToolOverlay.ts`
+   >   → **3 hits, none of them a cast and none at :786** (`:386`/`:393` comments, `:445`
+   >   `commandManager: window.commandManager, // TODO(TASK-06)`). There is no
+   >   `(window as any)['commandManager']` in that file and no `_lvl` alias.
+   > - **`check:commandmanager` is not passing.** `npm run check:commandmanager > /tmp/cm3.txt 2>&1;
+   >   echo "RC=$?" >> /tmp/cm3.txt` → **RC=1**, `FAIL -- count 139 exceeds threshold 136 (+3)`.
+   >   It resolves to `scripts/check/ci-check-no-commandmanager.mjs`, **not** a `tools/ga-gate/`
+   >   script. **Do not quote "51/52 PASS".**
+   > - **The name-blindness point SURVIVES, and is the part worth keeping.** A gate that classifies
+   >   by NAME can be satisfied by RENAMING — that is roadmap §7B.5, and it is why there are now
+   >   *three* rival commandManager counters disagreeing with each other:
+   >   `tools/ga-gate/check-no-commandmanager.ts` → **RC=1**, *"failing at its DECLARED level
+   >   (literal 11/11 · window 62/62 · cm.execute 62/62); absorbable via gate-debt.json"*;
+   >   `tools/ga-gate/check-commandmanager-any.ts` → **RC=0**, `OK: 25 / 25`; and the npm script
+   >   above → **RC=1** at 139/136. **Three denominators, three verdicts, one subject.** Name the
+   >   gate you ran, or do not quote a number.
    *Exit condition:* the repo-wide count reaches 0 and the gate leaves `gate-debt.json`.
 5. **P5 — Schemas are pure.** `packages/schemas/` has zero I/O, zero THREE, zero DOM imports.
    → **hard-fail at the invariant** (`tools/ga-gate/check-domain-purity.ts`, 0 impurities / 165 files).
@@ -183,12 +200,29 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    *Exit condition:* ARM B reaches 0 and the three unchecked axes get arms of their own.
 8. **P8 — Explicit sync conflicts + spans.** CRDT merges that lose data surface as
    user-resolvable conflicts; **every new exported function must add ≥1 OpenTelemetry span.**
-   **NOT-YET-TRUE as enforcement:** `check-otel-spans.ts` counts *handler files* (255 of 256
-   instrumented) against a `HARD_FLOOR` of **213** — 42 below the current reading, so 42 files
-   could lose their spans without the gate noticing, and the "every exported function" half is not
-   measured at all. The conflict-surfacing half has no gate.
-   *Exit condition:* the floor tracks the measured count, and the gate scopes to exported
-   functions rather than files.
+   **The two halves have DIFFERENT states — do not flatten them.**
+   - **Spans half — NOT-YET-TRUE as enforcement, and currently RED.**
+     `npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt`
+     → **RC=3** (measured 2026-08-18). The gate is **three-zone**, not the single `HARD_FLOOR: 213`
+     count this bullet used to describe: **ZONE A** (CommandBus handlers, zero tolerance)
+     **246 / 246 instrumented**; **ZONE B** (command-registry + app handlers + plugin barrels)
+     **54 uninstrumented of 70 against a baseline of 52** — *this is the failure*, 2 new files
+     (`UpdateElementParameterCommand.ts`, `lightingAuthoredParams.ts`); **ZONE C** is an
+     un-gated census — **1772 of 2023** files declaring an exported function have **no span**.
+     So *"every new exported function must add ≥1 span"* is measured for **zero** of the 2023 —
+     Zone C prints the number and gates nothing. **The baseline is shrink-only; fix the two files,
+     never extend it.**
+   - **Conflict-surfacing half — this bullet said it "has no gate". FALSE, corrected 2026-08-18.**
+     The gate is **`tools/rac-conformance/certification/gates/check-conflict-surfacing.ts`** —
+     *not* under `tools/ga-gate/`, which is why a `ls tools/ga-gate/` sweep misses it
+     (`find . -name 'check-conflict-surfacing*' -not -path '*/node_modules/*'` → **1**). It
+     **exits 0**, hard-0, no baseline: **0 findings against a NAMED ledger of 0**, driving 126
+     real `YjsDocAdapter` merges per disposition with **0 SILENT** losses. It names its own
+     unproven axes (the wire is simulated, the store leg is not measured, artefact quality is not
+     measured), so *"P8's conflict half holds"* is still not what it establishes — but *"no gate"*
+     is wrong.
+   *Exit condition:* Zone B reaches 0 **and** Zone C acquires an arm, so the "every exported
+   function" clause is measured rather than merely printed.
 
 GA-gate checks live in `tools/ga-gate/` (run via `run-all.ts`); a handful of older, non-gate
 scripts live in `scripts/` (11 files — none of them are P-gates; the four `scripts/ci-check-*.ts`
@@ -205,31 +239,45 @@ whose CI run did not succeed (§L-540-CI-GATE). Read `ci.yml`'s header before as
 
 `docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) is **the authoritative
 enumeration of the suite — always defer to it over any range written here.** It indexes
-**C01–C68 + C24.1** (C61 is a RESERVED, unminted slot), which governs every implementation
-decision.
+**C01–C100 + C24.1**; **C61 and C76 are RESERVED, unminted slots**. The suite governs every
+implementation decision.
 
-> ⚠ **Corrected 2026-08-11.** This paragraph and the conflict-resolution order below both said
-> **"C01–C15"**. The suite has been **C01–C68** for months. Fifty-three contracts were silently
-> outside the stated ordering — including **C67 (RAC capability control plane)** and **C68 (element
-> & attribute chat onboarding)**, both CANONICAL, both binding on *every* capability PR. An agent
-> reading the old sentence literally would have ranked C68 **below an ADR**. Measured with
-> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **68**.
+> ⚠ **Corrected 2026-08-18 — and this is the FOURTH recurrence of one defect shape.** This
+> paragraph and the conflict-resolution order below both read **`C01–C68 + C24.1`**, leaving
+> **thirty-two contracts outside the stated ordering** — among them **C84 (Element Integrity)**,
+> binding on *every PR touching an element family*, and the whole **C85–C99 per-element block**
+> plus **C100**. An agent reading the stale line literally ranked **C84 below an ADR**. The prior
+> correction (2026-08-11, from `C01–C15` to `C01–C68`) recorded exactly the same failure for C67
+> and C68, and the README records it again for C81; **the range keeps being written as a literal
+> and the literal keeps rotting.**
+>
+> **Re-measure, never re-transcribe:**
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **99** (2026-08-18).
+> That is C01–C100 *minus* the two unminted slots C61 and C76, *plus* C24.1. **The count and the
+> range are different facts** — a correct count with a stale range still demotes real contracts,
+> which is what happened here. **When this file and `contracts/README.md` disagree, README wins**
+> (it says so above); the durable fix is the gate README's banner names — `ls contracts/` equated
+> to the index's row set in both directions — which does not exist yet.
 
 Before non-trivial work, read the contract for the subsystem you are touching — e.g. `C03`
 (schemas/commands/state), `C04` (rendering/scheduling), `C11` (element creation pipeline), `C15`
 (hosted elements: doors/windows in walls), `C16` (command authoring), `C66` (concurrency &
 scale — **no capacity tier may be described as supported while C66 §1 marks it CLAIMED**), `C67`
 + `C68` (**mandatory** if your PR registers a bus command, adds an element kind, or adds a
-user-visible attribute).
+user-visible attribute), and **`C84` + its `C85`–`C99` per-element block** (**mandatory** if your
+PR touches an element family at all — C84 is the contract the stale `C01–C68` range above was
+demoting below an ADR; `ls docs/02-decisions/contracts/C8*.md docs/02-decisions/contracts/C9*.md`
+enumerates the block).
 
 Conflict resolution order (strongest first): `docs/01-strategy/STR-03-engineering-vision.md` →
-`docs/01-strategy/STR-04-architecture.md` → **the C01–C68 contract suite** (as enumerated by
-`docs/02-decisions/contracts/README.md`) → ADRs (`docs/02-decisions/adrs/`, 251 files) →
-SPECs (`docs/03-execution/specs/`, 92 files). **When code disagrees with a contract, the code is
+`docs/01-strategy/STR-04-architecture.md` → **the C01–C100 contract suite** (as enumerated by
+`docs/02-decisions/contracts/README.md` — **defer to it, not to this range**) → ADRs
+(`docs/02-decisions/adrs/`, **268** files) → SPECs (`docs/03-execution/specs/`, **96** files). **When code disagrees with a contract, the code is
 wrong** — fix the code, or raise a superseding ADR; never write a new `*-AUDIT.md` derivative doc.
 Edit the canonical `C0N-*.md` in place. Current migration status:
 `docs/03-execution/plans/master-execution-tracker.md`.
 
-> Counts measured 2026-08-11 · `ls docs/02-decisions/adrs/ADR-*.md | wc -l` → 251 ·
-> `find docs -name 'SPEC-*.md' | wc -l` → 92. **The SPEC path was also wrong**: this file said
+> Counts measured **2026-08-18** · `ls docs/02-decisions/adrs/ADR-*.md | wc -l` → **268** ·
+> `find docs -name 'SPEC-*.md' | wc -l` → **96**. *(They read 251 and 92 on 2026-08-11. Run the
+> commands — these two have each been wrong at least twice.)* **The SPEC path was also wrong**: this file said
 > `reference/specs/`, which does not exist; specs live at `docs/03-execution/specs/`.
