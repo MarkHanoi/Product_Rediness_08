@@ -122,6 +122,23 @@ export function normaliseFloorStyle(style: string | undefined): FloorStyle {
  * no sensible floor mapping (the caller then skips / uses the engine default).
  * `style` is the brief style; absent → 'modern'.
  */
+/**
+ * §FLOOR-DEFAULT-UNTYPED — the finish an UNTYPED room gets.
+ *
+ * Room type chooses WHICH finish; it does not decide WHETHER a floor may exist.
+ * A room that has been detected with a boundary but never tagged still has an
+ * obvious honest answer — the style's own timber, the same finish a living room
+ * or bedroom would get — and the caller REPORTS that it was a default rather
+ * than letting it pass for a considered choice.
+ *
+ * Returned by style so an untyped room in a Classic brief gets Classic walnut,
+ * not a flat fallback colour. Never null: the whole point is that there is
+ * always an answer.
+ */
+export function defaultFloorFinish(style?: string): FloorFinishChoice {
+    return TIMBER_BY_STYLE[normaliseFloorStyle(style)];
+}
+
 export function floorFinishFor(
     occupancyType: string | undefined,
     style?: string,

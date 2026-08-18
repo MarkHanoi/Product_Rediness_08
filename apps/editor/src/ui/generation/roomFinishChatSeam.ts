@@ -352,8 +352,18 @@ function describeFloors(outcome: FloorLayoutOutcome): StageResult {
         };
     }
     const n = outcome.floorsCreated;
+    // §FLOOR-DEFAULT-UNTYPED — when the command had to CHOOSE a finish (rooms
+    // with no type), it says so in `info[0]`, ungated. Carry that sentence to
+    // the transcript: a default the user is never told about is
+    // indistinguishable from a considered choice. `[floor §DIAG]` lines are the
+    // flood-gated per-room dump and are never chat material.
+    const note = outcome.info.find(
+        (l) => typeof l === 'string' && l.length > 0 && !l.startsWith('[floor §DIAG]'),
+    );
     return {
-        line: `Floor finishes ${n} room${n === 1 ? '' : 's'} (timber in living/bedroom, tile in kitchen/bathroom)`,
+        line:
+            `Floor finishes ${n} room${n === 1 ? '' : 's'} (timber in living/bedroom, tile in kitchen/bathroom)` +
+            (note !== undefined ? ` — ${note}` : ''),
         status: 'applied',
     };
 }

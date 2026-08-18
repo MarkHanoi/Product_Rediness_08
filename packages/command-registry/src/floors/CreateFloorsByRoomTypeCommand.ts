@@ -29,7 +29,7 @@ import { CreateFloorCommand } from './CreateFloorCommand';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { batchCoordinator, type FloorServiceHole } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
-import { floorFinishFor } from './floorFinish';
+import { floorFinishFor, defaultFloorFinish } from './floorFinish';
 import { resolveRoomFinishBoundary } from '@pryzm/room-topology';
 
 /** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom.
@@ -59,6 +59,37 @@ const TILE_TYPES = new Set([
  *  (passed only by the resi pipeline) drops these circulation occupancies from this pass. The house
  *  + apartment pipelines pass nothing and keep flooring corridors as timber (no merged pass there). */
 const CIRCULATION_TYPES = new Set(['corridor', 'entrance-lobby']);
+
+/**
+ * §FLOOR-DEFAULT-UNTYPED (founder-reported, 2026-08-18) — room type chooses
+ * WHICH finish; it does not gate WHETHER a floor may exist.
+ *
+ * THE REPORT. A project with exactly ONE room — detected, with a boundary, but
+ * never tagged (`RoomTagAutoPopulator` produced 0 tags for 1 live room) — asked
+ * the chat for a floor finish and got `canExecute` → "No rooms with a
+ * floor-mappable type — run Auto-Organise (tag rooms) first." Requiring a room
+ * to be classified as a *kitchen* before it may have ANY floor answers a
+ * different question from the one the user asked. An untyped room has an
+ * obvious honest answer: give it the default finish and SAY which one.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT DO. It does not default rooms whose type is
+ * KNOWN and deliberately unmapped. Those exclusions are decisions, not gaps:
+ *   • `stair` — its slab IS the stairwell void; a finish there would cover the
+ *     hole the stair punched (see `_finishCategory`).
+ *   • `corridor` / `entrance-lobby` under `skipCirculation` — the resi pipeline
+ *     lays those as ONE merged surface (§RESI-CORRIDOR-FINISH-NO-DOUBLE), and
+ *     defaulting them would re-introduce exactly the double-coating that option
+ *     exists to prevent.
+ * Only the absence of a type is treated as "choose for me".
+ */
+const DEFAULT_UNTYPED_CATEGORY = 'timber' as const;
+
+/** The finish a room gets, and whether the room's OWN type chose it. */
+type FinishPlan = {
+    readonly category: 'timber' | 'tile-stone';
+    /** True when the room carried no occupancy type and took the named default. */
+    readonly defaulted: boolean;
+};
 
 /**
  * §FLOOR-DIAG-FLOOD-GATE (2026-06-30) — the per-room `[floor §DIAG] …` line and the
@@ -131,9 +162,19 @@ export class CreateFloorsByRoomTypeCommand implements Command {
         if (rooms.length === 0) {
             return { ok: false, reason: `No rooms with a boundary on this level — detect rooms first.` };
         }
-        const typed = rooms.filter(r => this._finishCategory(r.occupancyType) !== null);
-        if (typed.length === 0) {
-            return { ok: false, reason: 'No rooms with a floor-mappable type — run Auto-Organise (tag rooms) first.' };
+        // §FLOOR-DEFAULT-UNTYPED — was `_finishCategory(...) !== null`, which
+        // refused a level whose rooms were merely UNTAGGED. An untyped room is
+        // now floorable (with the named default), so the only rooms left out are
+        // the ones whose type is a deliberate exclusion.
+        const floorable = rooms.filter(r => this._finishPlan(r.occupancyType) !== null);
+        if (floorable.length === 0) {
+            return {
+                ok: false,
+                reason:
+                    'Every room on this level has a type that takes no floor finish ' +
+                    '(a stairwell, or circulation this pipeline finishes as one merged surface) — ' +
+                    'there is nothing here to floor.',
+            };
         }
         return { ok: true };
     }
@@ -141,21 +182,31 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     execute(context: CommandContext): CommandResult {
         if (!context.stores.roomStore) return { success: false, affectedElementIds: [] };
         this._diag = []; // reset so redo doesn't accumulate stale §DIAG lines.
+        this._defaultedRooms = 0; // §FLOOR-DEFAULT-UNTYPED — same reset discipline.
         const floorStore = context.stores.floorStore as unknown as { getAll?: () => Array<{ hostRoomId?: string }> } | undefined;
         const finishStore = (context.stores as any).floorSystemTypeStore;
         const affectedIds: string[] = [];
 
         // occupancyType → floor finish; skip rooms with no mapping or an existing host floor.
         const factory = (room: PerRoomCtx): CreateFloorCommand | null => {
-            const category = this._finishCategory(room.occupancyType);
-            if (!category) return null;
+            const plan = this._finishPlan(room.occupancyType);
+            if (!plan) return null;
+            const category = plan.category;
             if (floorStore?.getAll && floorStore.getAll().some(f => f.hostRoomId === room.id)) return null;
+            if (plan.defaulted) this._defaultedRooms++;
             // §A.21.D-FLOOR — realistic, style-aware finish (wood plank / porcelain
             // tile colour + pattern + material name) instead of the flat `#D4C4A8`
             // fallback. Rooms in the auto-pipeline carry no explicit floor finish, so
             // this is what the user sees. CreateFloorCommand spreads finishSpec over
             // its default, so a believable finish always lands.
-            const finish = floorFinishFor(room.occupancyType, this.style);
+            // §FLOOR-DEFAULT-UNTYPED — an untyped room takes the style's own
+            // timber rather than `floorFinishFor`'s null (which would fall
+            // through to CreateFloorCommand's flat `#D4C4A8`). A defaulted floor
+            // must still LOOK like a floor; what makes it honest is that the
+            // result SAYS it was a default, not that it looks unfinished.
+            const finish = plan.defaulted
+                ? defaultFloorFinish(this.style)
+                : floorFinishFor(room.occupancyType, this.style);
             // §FLOOR-INNER-FACE (2026-06-10) — the room boundary runs along the wall
             // CENTRELINES (the planar face-tracer walks wall-graph nodes on
             // `wall.baseLine`). Building the floor on that polygon spans to the wall
@@ -245,13 +296,34 @@ export class CreateFloorsByRoomTypeCommand implements Command {
         return {
             success: true,
             affectedElementIds: affectedIds,
-            info: floorDiagOn()
-                ? [
-                    `Created ${affectedIds.length} floor(s) by room type on level ${this.levelId}.`,
-                    ...this._diag,
-                ]
-                : [],
+            // §FLOOR-DEFAULT-UNTYPED — the defaulted note is UNGATED, unlike the
+            // §DIAG lines. It is exactly one sentence regardless of room count
+            // (no §FLOOR-DIAG-FLOOD-GATE cost), and it is the half of this
+            // feature that keeps it honest: a default the user is not told about
+            // is indistinguishable from a considered choice.
+            info: [
+                ...this._defaultedNote(),
+                ...(floorDiagOn()
+                    ? [
+                        `Created ${affectedIds.length} floor(s) by room type on level ${this.levelId}.`,
+                        ...this._diag,
+                    ]
+                    : []),
+            ],
         };
+    }
+
+    /** The one sentence naming the default finish and how many rooms took it.
+     *  Empty when every floored room chose its own finish from its own type. */
+    private _defaultedNote(): string[] {
+        const n = this._defaultedRooms;
+        if (n <= 0) return [];
+        const material = defaultFloorFinish(this.style).materialName;
+        return [
+            `${n} room${n === 1 ? '' : 's'} had no room type set, so ${n === 1 ? 'it' : 'they'} ` +
+            `got the default ${material} finish — tag ${n === 1 ? 'the room' : 'the rooms'} ` +
+            `(Auto-Organise) to get tile in kitchens and bathrooms instead.`,
+        ];
     }
 
     undo(context: CommandContext): CommandResult {
@@ -277,6 +349,10 @@ export class CreateFloorsByRoomTypeCommand implements Command {
 
     /** §FLOOR-INNER-FACE §DIAG accumulator — one line per floored room. */
     private _diag: string[] = [];
+
+    /** §FLOOR-DEFAULT-UNTYPED — how many floors this run gave the DEFAULT finish
+     *  because their room carried no type. Drives the one ungated `info` line. */
+    private _defaultedRooms = 0;
 
     /** §FLOOR-DIAG-FLOOD-GATE — accumulate a §DIAG line ONLY when the diag flag is on.
      *  Takes a thunk so the (interpolated) string is never even built in prod. */
@@ -397,6 +473,28 @@ export class CreateFloorsByRoomTypeCommand implements Command {
         if (TIMBER_TYPES.has(occ)) return 'timber';
         if (TILE_TYPES.has(occ)) return 'tile-stone';
         return null;
+    }
+
+    /**
+     * §FLOOR-DEFAULT-UNTYPED — the finish plan for a room, which is where the
+     * "type chooses WHICH, not WHETHER" rule lives.
+     *
+     * Three outcomes, and keeping them distinct is the whole point:
+     *   • a TYPED room that maps        → its own category,      `defaulted:false`
+     *   • a TYPED room that is excluded → null (stair; skipped circulation)
+     *   • an UNTYPED room               → the default category, `defaulted:true`
+     *
+     * The middle case is why this is not simply `_finishCategory(occ) ?? default`:
+     * that would have defaulted stairwells and the resi corridors too, turning
+     * two deliberate exclusions into gaps to be filled.
+     */
+    private _finishPlan(occ: string | undefined): FinishPlan | null {
+        const typed = typeof occ === 'string' && occ.length > 0;
+        if (typed) {
+            const category = this._finishCategory(occ);
+            return category === null ? null : { category, defaulted: false };
+        }
+        return { category: DEFAULT_UNTYPED_CATEGORY, defaulted: true };
     }
 
     /**

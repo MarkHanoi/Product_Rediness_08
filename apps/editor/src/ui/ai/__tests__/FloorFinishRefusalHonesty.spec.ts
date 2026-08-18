@@ -207,3 +207,48 @@ describe('§FLOOR-FINISH-REFUSAL-HONESTY — a refused floor finish is REPORTED 
         expect(reply).toMatch(/ctrl\s*\+\s*z/i);
     });
 });
+
+// ─── §FLOOR-DEFAULT-UNTYPED — the reporting half, at the SAME layer ──────────
+//
+// `CreateFloorsByRoomTypeCommand` now floors an untyped room with a named
+// default (see apps/editor/__tests__/floorFinishUntypedRoomDefault.test.ts for
+// the command-level proof) and states which finish it chose in `info[0]`,
+// ungated. ⭐ COMMITTED ≠ REACHABLE: a note the command emits into a field
+// nobody reads is the founder's original defect wearing the opposite costume.
+// These pin that the sentence travels all the way to the transcript.
+
+describe('§FLOOR-DEFAULT-UNTYPED — the chosen default reaches the user', () => {
+    /** The exact ungated sentence the command emits for one untyped room. */
+    const DEFAULT_NOTE =
+        '1 room had no room type set, so it got the default Pale Ash / Birch Plank finish — ' +
+        'tag the room (Auto-Organise) to get tile in kitchens and bathrooms instead.';
+
+    it('names the finish it chose, and how to get a different one', async () => {
+        installFacets({ success: true, affectedElementIds: ['floor-1'], info: [DEFAULT_NOTE] });
+        const { hooks, said } = makeHooks();
+
+        await tryHandleZeroToken('create a floor finish', hooks);
+        const reply = said.join('\n');
+
+        expect(reply).toContain('no room type set');
+        expect(reply).toContain('Pale Ash / Birch Plank');
+        expect(reply).toContain('Auto-Organise');
+        // It DID happen, so the undo hint is correct here.
+        expect(reply).toMatch(/ctrl\s*\+\s*z/i);
+    });
+
+    it('the flood-gated per-room §DIAG dump never reaches the transcript', async () => {
+        // `info` also carries the §FLOOR-DIAG-FLOOD-GATE per-room lines when the
+        // diag flag is on. Those are console material, not chat material.
+        installFacets({
+            success: true,
+            affectedElementIds: ['floor-1'],
+            info: ['[floor §DIAG] room "Kitchen" boundary=inner-face', '[floor §DIAG] room "Hall" boundary=centreline'],
+        });
+        const { hooks, said } = makeHooks();
+
+        await tryHandleZeroToken('create a floor finish', hooks);
+
+        expect(said.join('\n')).not.toContain('§DIAG');
+    });
+});
