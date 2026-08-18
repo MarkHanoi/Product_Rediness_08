@@ -8,6 +8,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./pure/planarFaceWalk": "./src/pure/planarFaceWalk.ts",
     "./types/BufferGeometryDescriptor": "./src/types/BufferGeometryDescriptor.ts",
     "./types/JoinData": "./src/types/JoinData.ts",
     "./runners/headless-runner": "./src/runners/headless-runner.ts",

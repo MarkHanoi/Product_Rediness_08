@@ -2,12 +2,47 @@
 //
 // Reuse map (§SPIKE §4):
 //   • endpoint clustering  → pure port of JunctionResolverV2.clusterEndpoints (:315).
-//   • perimeter outer face → pure port of PlanarTopologyEngine.computeTopology (:98)
-//     outer-face half-edge trace (angular sort + next-clockwise walk + most-negative
-//     signed-area face). Ported (not imported) because room-topology's barrel pulls
-//     THREE — see geometry.ts header. Same algorithm, pure `{x,z}`.
+//   • perimeter outer face → IMPORTED from `@pryzm/geometry-kernel/pure/planarFaceWalk`
+//     (§C73-PTE-CANONICAL, GE-12). See the note below — this used to be a PORT.
 //   • run splitting        → collinear grouping ALONG the ordered perimeter ring
 //     (§SPIKE §6 collinear-runs), split at direction changes (15° gate).
+//
+// ── GE-12 / C73 §3.7 — THE PORT IS GONE; THIS IS NOW AN ADAPTER ────────────────
+// The half-edge face walk here was a hand PORT of `PlanarTopologyEngine.computeTopology`
+// rather than an import, and the header used to say why: room-topology's barrel pulls
+// THREE through eight files, and this package depended on `@pryzm/schemas` ALONE, so it
+// COULD NOT import the owner. A port that cannot be imported is a copy that will drift,
+// and it did — six axes apart by the time GE-12 measured it (face-area filter, angular
+// tiebreak, seed order, missing-position handling, outer-face policy, and only the
+// next-edge rule and iteration ceiling still identical).
+//
+// The founder's ruling (C73 §3.7) removes the blocker rather than the symptom: the walk
+// now lives THREE-free in the geometry kernel, so both callers import the same body.
+// What stays here is the auto-dimension DOMAIN layer — `DimGraph` in, `Ring` out — plus
+// the one semantic this package must keep and `room-topology` must not:
+//
+//   §PTE-OUTER-FACE — POLICY B, one outer face PER CONNECTED COMPONENT. That is L-268:
+//   the founder had two buildings, the singular "most-negative face of the whole graph"
+//   rule kept the larger, and the smaller was dimensioned nowhere and reported nowhere.
+//   The two policies are genuinely different ANSWERS, so the kernel refuses to pick one
+//   and each caller names the question it is asking.
+//
+// UNCHANGED BY THE EXTRACTION (measured, not assumed): this package already seeded the
+// walk in sorted wall-id order and already applied NO face-area filter, which are the
+// two settled axes that could have moved its output. `minAbsFaceAreaM2` defaults to 0 —
+// the degeneracy guard stays where it always was, at `buildings.ts:142`
+// (MIN_BUILDING_AREA_M2 = 1e-6), where "a BUILDING must enclose area" is the domain
+// statement being made.
+
+import {
+  tracePlanarFacesXZ,
+  selectOuterFaceXZ,
+  selectOuterFacePerComponentXZ,
+  planarComponentsXZ,
+  type PlanarEdgeXZ,
+  type PlanarFaceXZ,
+  type PlanarGraphXZ,
+} from '@pryzm/geometry-kernel/pure/planarFaceWalk';
 
 import type { AutoDimWall } from './types.js';
 import type { DimNode, WallRun, TickRef } from './types.js';
@@ -128,16 +163,21 @@ export interface Ring {
   readonly wallIds: readonly string[];
 }
 
-function signedArea(nodeIds: readonly string[], pos: ReadonlyMap<string, PtXZ>): number {
-  let area = 0;
-  const n = nodeIds.length;
-  for (let i = 0; i < n; i++) {
-    const a = pos.get(nodeIds[i]!);
-    const b = pos.get(nodeIds[(i + 1) % n]!);
-    if (!a || !b) continue;
-    area += a.x * b.z - b.x * a.z;
-  }
-  return area / 2;
+/**
+ * ADAPTER BOUNDARY: `DimGraph` (this package's domain type) → the kernel's
+ * `PlanarGraphXZ`. Wall ids are the edge identity carried onto the traced rings.
+ */
+function toPlanarGraph(graph: DimGraph): PlanarGraphXZ {
+  const positions = new Map<string, PtXZ>(graph.nodes.map((n) => [n.id, n.point]));
+  const edges: PlanarEdgeXZ[] = [...graph.wallNodes.entries()].map(
+    ([wallId, { startNodeId, endNodeId }]) => ({ id: wallId, startNodeId, endNodeId }),
+  );
+  return { positions, edges };
+}
+
+/** The kernel's face → this package's `Ring`. Field rename only; same arrays. */
+function toRing(face: PlanarFaceXZ): Ring {
+  return { nodeIds: face.nodeIds, wallIds: face.edgeIds };
 }
 
 /**
@@ -168,40 +208,25 @@ function signedArea(nodeIds: readonly string[], pos: ReadonlyMap<string, PtXZ>):
  * per-wall handling for it, exactly as before.
  */
 export function tracePerimeters(graph: DimGraph): Ring[] {
-  const pos = new Map<string, PtXZ>(graph.nodes.map((n) => [n.id, n.point]));
-  const faces = traceFaces(graph, pos);
-  if (faces.length === 0) return [];
+  const planar = toPlanarGraph(graph);
+  // §PTE-FILTERED — no face-area filter here, deliberately (the kernel default is 0):
+  // "small enough not to be a building" is a judgement `buildings.ts` makes downstream
+  // at 1e-6, where the domain word BUILDING is in scope. See this file's header.
+  const faces = tracePlanarFacesXZ(planar);
+  // §PTE-OUTER-FACE — POLICY B, one per component. The partition happens ALWAYS: a
+  // single building is N = 1 down the same path, because a branch is a thing a future
+  // author can forget (L-268).
+  return selectOuterFacePerComponentXZ(planar, faces).map(toRing);
+}
 
-  // ── Connected components over the wall graph (union-find, order-stable) ──────
-  const parent = new Map<string, string>();
-  const find = (a: string): string => {
-    let r = a;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    // Path compression.
-    let c = a;
-    while (parent.get(c) !== r) { const nxt = parent.get(c)!; parent.set(c, r); c = nxt; }
-    return r;
-  };
-  for (const n of graph.nodes) parent.set(n.id, n.id);
-  for (const { startNodeId: s, endNodeId: e } of graph.wallNodes.values()) {
-    const rs = find(s), re = find(e);
-    if (rs !== re) parent.set(rs < re ? re : rs, rs < re ? rs : re); // smaller id wins → stable
-  }
-
-  // ── One outer face per component: the most-negative signed area within it ────
-  const bestByComponent = new Map<string, { ring: Ring; area: number }>();
-  for (const f of faces) {
-    const anchor = f.nodeIds[0];
-    if (anchor === undefined) continue;
-    const comp = find(anchor);
-    const area = signedArea(f.nodeIds, pos);
-    const cur = bestByComponent.get(comp);
-    if (!cur || area < cur.area) bestByComponent.set(comp, { ring: f, area });
-  }
-
-  return [...bestByComponent.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([, v]) => v.ring);
+/**
+ * Connected components of a `DimGraph` as `nodeId → componentKey` (the component's
+ * lexicographically smallest node id). Re-exported through this module so that
+ * `buildings.ts` and {@link tracePerimeters} cannot disagree about what a component IS —
+ * the building id in `BuildingFootprint.id` is exactly this key.
+ */
+export function dimGraphComponents(graph: DimGraph): Map<string, string> {
+  return planarComponentsXZ(toPlanarGraph(graph));
 }
 
 /**
@@ -215,99 +240,12 @@ export function tracePerimeters(graph: DimGraph): Ring[] {
  * are exactly what the multi-building reproduction test pins down.
  */
 export function tracePerimeter(graph: DimGraph): Ring | null {
-  const pos = new Map<string, PtXZ>(graph.nodes.map((n) => [n.id, n.point]));
-  if (pos.size === 0 || graph.wallNodes.size === 0) return null;
-  const faces = traceFaces(graph, pos);
-  if (faces.length === 0) return null;
-
-  let outer: Ring | null = null;
-  let outerArea = Infinity;
-  for (const f of faces) {
-    const a = signedArea(f.nodeIds, pos);
-    if (a < outerArea) { outerArea = a; outer = f; }
-  }
-  return outer;
-}
-
-/**
- * The shared half-edge face walk — extracted so the singular `tracePerimeter` and the
- * partitioning `tracePerimeters` cannot drift apart. Returns EVERY closed face in the
- * graph (of every component); selecting among them is the caller's job.
- */
-function traceFaces(graph: DimGraph, pos: ReadonlyMap<string, PtXZ>): Ring[] {
-  if (pos.size === 0 || graph.wallNodes.size === 0) return [];
-
-  // Adjacency: node → [{neighborId, wallId}]. Half-edge wall lookup.
-  const adj = new Map<string, { neighborId: string; wallId: string }[]>();
-  for (const n of graph.nodes) adj.set(n.id, []);
-  const halfEdgeWall = new Map<string, string>();
-  for (const [wallId, { startNodeId: s, endNodeId: e }] of graph.wallNodes) {
-    adj.get(s)?.push({ neighborId: e, wallId });
-    adj.get(e)?.push({ neighborId: s, wallId });
-    halfEdgeWall.set(`${s}→${e}`, wallId);
-    halfEdgeWall.set(`${e}→${s}`, wallId);
-  }
-
-  // Angular sort each node's neighbours (atan2, id tiebreak — deterministic).
-  const adjSorted = new Map<string, { neighborId: string; wallId: string }[]>();
-  for (const [nId, neighbors] of adj) {
-    const v = pos.get(nId)!;
-    const sorted = [...neighbors].sort((a, b) => {
-      const ap = pos.get(a.neighborId)!;
-      const bp = pos.get(b.neighborId)!;
-      const aA = Math.atan2(ap.z - v.z, ap.x - v.x);
-      const bA = Math.atan2(bp.z - v.z, bp.x - v.x);
-      return aA !== bA ? aA - bA : (a.neighborId < b.neighborId ? -1 : a.neighborId > b.neighborId ? 1 : 0);
-    });
-    adjSorted.set(nId, sorted);
-  }
-
-  function nextHalfEdge(uId: string, vId: string): { nextU: string; nextV: string; wallId: string } | null {
-    const neighbors = adjSorted.get(vId) ?? [];
-    const n = neighbors.length;
-    if (n === 0) return null;
-    if (n === 1) {
-      const only = neighbors[0]!;
-      return only.neighborId === uId ? { nextU: vId, nextV: uId, wallId: only.wallId } : null;
-    }
-    const uIdx = neighbors.findIndex((nb) => nb.neighborId === uId);
-    if (uIdx === -1) {
-      const fb = neighbors.find((nb) => nb.neighborId !== uId);
-      return fb ? { nextU: vId, nextV: fb.neighborId, wallId: fb.wallId } : null;
-    }
-    const chosen = neighbors[(uIdx - 1 + n) % n]!;
-    return { nextU: vId, nextV: chosen.neighborId, wallId: chosen.wallId };
-  }
-
-  const visited = new Set<string>();
-  const maxIter = graph.wallNodes.size * 4 + 16;
-  const faces: Ring[] = [];
-  // Iterate half-edges in a deterministic order (sorted wall ids).
-  const wallIdsSorted = [...graph.wallNodes.keys()].sort();
-  for (const wid of wallIdsSorted) {
-    const { startNodeId, endNodeId } = graph.wallNodes.get(wid)!;
-    for (const [sId, eId] of [
-      [startNodeId, endNodeId],
-      [endNodeId, startNodeId],
-    ] as [string, string][]) {
-      if (visited.has(`${sId}→${eId}`)) continue;
-      const nodeIds: string[] = [];
-      const wallIds: string[] = [];
-      let curU = sId, curV = eId, iter = 0;
-      while (iter < maxIter) {
-        const key = `${curU}→${curV}`;
-        if (visited.has(key)) break;
-        visited.add(key);
-        nodeIds.push(curU);
-        wallIds.push(halfEdgeWall.get(key) ?? '');
-        const next = nextHalfEdge(curU, curV);
-        if (!next) break;
-        curU = next.nextU; curV = next.nextV; iter++;
-      }
-      if (nodeIds.length >= 3) faces.push({ nodeIds, wallIds });
-    }
-  }
-  return faces;
+  const planar = toPlanarGraph(graph);
+  if (planar.positions.size === 0 || planar.edges.length === 0) return null;
+  // §PTE-OUTER-FACE — POLICY A, the singular one. Named so a reader of THIS call site
+  // sees the L-268 defect without opening another file.
+  const outer = selectOuterFaceXZ(tracePlanarFacesXZ(planar));
+  return outer ? toRing(outer) : null;
 }
 
 // ── Run splitting (collinear grouping along the perimeter ring) ──────────────

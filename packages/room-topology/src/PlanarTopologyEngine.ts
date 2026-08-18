@@ -4,15 +4,47 @@
  *
  * Migrated to @pryzm/room-topology (Sprint H, 2026-05-10).
  * Original: src/engine/subsystems/ai/PlanarTopologyEngine.ts
+ *
+ * ── GE-12 / C73 §3.7 — THIS FILE IS NOW AN ADAPTER ─────────────────────────────
+ * The left-face half-edge walk that used to live here is THE canonical implementation
+ * at `@pryzm/geometry-kernel/pure/planarFaceWalk` (§C73-PTE-CANONICAL). What remains
+ * here is the room-topology DOMAIN layer on top of it — `WallGraph` in, `TopologyResult`
+ * out — and the three thresholds that are this domain's judgement, not the walk's:
+ *
+ *   • MIN_FACE_AREA_M2 (0.1) — passed to the walk as `minAbsFaceAreaM2`. It was a
+ *     hard-coded constant inside the walk before, which is exactly why the
+ *     `auto-dimension` port (which wants NO face filter) had to be a hand copy that
+ *     then drifted. See §PTE-FILTERED in the canonical file.
+ *   • MIN_ROOM_AREA_M2 (0.5) — promotion of a face to a ROOM. Never was the walk's.
+ *   • The OUTER-FACE POLICY — this engine asks for ONE outer face over the whole graph
+ *     (`selectOuterFaceXZ`). `auto-dimension` asks a different question, one per
+ *     connected component, and gets a different answer. Both are named at the call
+ *     site now rather than being an unlabelled property of a copied loop; see
+ *     §PTE-OUTER-FACE.
+ *
+ * BEHAVIOUR NOTE (§PTE-TIEBREAK T1/T2). Two incidental behaviours changed here, both
+ * deliberately: the angular tiebreak moved from `localeCompare` (locale-dependent) to
+ * codepoint, and seeds are now walked in sorted edge order rather than `Map` insertion
+ * order — this file's `WallGraph.edges` is keyed by a random `uuid()`, so the previous
+ * order rotated with the input. The SET of faces, their areas and their membership are
+ * invariant to both (the next-half-edge map is a bijection; faces are its orbits); the
+ * ARRAY order of `rooms` and the ROTATION of each ring can differ. Pinned by
+ * `__tests__/planarTopologyOracle.test.ts`.
  */
 
+import {
+    tracePlanarFacesXZ,
+    selectOuterFaceXZ,
+    type PlanarEdgeXZ,
+    type PlanarFaceXZ,
+    type PlanarPointXZ,
+} from '@pryzm/geometry-kernel/pure/planarFaceWalk';
 import type { WallGraph } from './WallIntersectionResolver'; // GE-12: type-only — keeps THREE out of this pure module
 
 const MIN_ROOM_AREA_M2 = 0.5;
 const MIN_FACE_AREA_M2 = 0.1;
 const EXTERIOR_HALF_THICKNESS = 0.10;
 const MAX_OPENING_WALL_DIST_M = 0.2;
-const FACE_TRACE_MAX_ITER_MULTIPLIER = 4;
 
 export interface DetectedRoom {
     id: string;
@@ -29,22 +61,7 @@ export interface TopologyResult {
     hasValidTopology: boolean;
 }
 
-function signedAreaXZ(nodeIds: string[], positions: Map<string, { x: number; z: number }>): number {
-    let area = 0;
-    const n = nodeIds.length;
-    for (let i = 0; i < n; i++) {
-        // GE-12: `!` carried over from the ai-host copy deleted in this commit — it had
-        // them, this one did not, and that made this the ONLY type-erroring file in
-        // room-topology/src. Both indexes are < n by construction; runtime unchanged.
-        const a = positions.get(nodeIds[i]!);
-        const b = positions.get(nodeIds[(i + 1) % n]!);
-        if (!a || !b) continue;
-        area += a.x * b.z - b.x * a.z;
-    }
-    return area / 2;
-}
-
-function centroidXZ(nodeIds: string[], positions: Map<string, { x: number; z: number }>): { x: number; z: number } {
+function centroidXZ(nodeIds: readonly string[], positions: ReadonlyMap<string, PlanarPointXZ>): { x: number; z: number } {
     let sx = 0; let sz = 0; let count = 0;
     for (const id of nodeIds) {
         const p = positions.get(id);
@@ -76,105 +93,38 @@ function pointToSegDistXZ(px: number, pz: number, ax: number, az: number, bx: nu
     return Math.sqrt(ex * ex + ez * ez);
 }
 
-function nextHalfEdge(
-    uId: string, vId: string,
-    adjSorted: Map<string, Array<{ neighborId: string; wallId: string }>>,
-    _positions: Map<string, { x: number; z: number }>,
-): { nextU: string; nextV: string; wallId: string } | null {
-    const neighbors = adjSorted.get(vId) ?? [];
-    const n = neighbors.length;
-    if (n === 0) return null;
-    if (n === 1) {
-        const only = neighbors[0]!;
-        return only.neighborId === uId ? { nextU: vId, nextV: uId, wallId: only.wallId } : null;
-    }
-    const uIdx = neighbors.findIndex(nb => nb.neighborId === uId);
-    if (uIdx === -1) {
-        const fallback = neighbors.find(nb => nb.neighborId !== uId);
-        return fallback ? { nextU: vId, nextV: fallback.neighborId, wallId: fallback.wallId } : null;
-    }
-    const prevIdx = (uIdx - 1 + n) % n;
-    const chosen = neighbors[prevIdx]!;
-    return { nextU: vId, nextV: chosen.neighborId, wallId: chosen.wallId };
-}
-
 export function computeTopology(wallGraph: WallGraph): TopologyResult {
     const empty: TopologyResult = { rooms: [], outerFacePolygon: null, hasValidTopology: false };
     if (wallGraph.nodes.size === 0 || wallGraph.edges.size === 0) return empty;
 
-    const positions = new Map<string, { x: number; z: number }>(
+    const positions = new Map<string, PlanarPointXZ>(
         [...wallGraph.nodes.entries()].map(([id, node]) => [id, node.position]),
     );
 
-    const adj = new Map<string, Array<{ neighborId: string; wallId: string }>>();
-    const halfEdgeWall = new Map<string, string>();
-    for (const node of wallGraph.nodes.keys()) adj.set(node, []);
-    for (const [, edge] of wallGraph.edges) {
-        const { startNodeId: s, endNodeId: e, wallId } = edge;
-        adj.get(s)?.push({ neighborId: e, wallId });
-        adj.get(e)?.push({ neighborId: s, wallId });
-        halfEdgeWall.set(`${s}→${e}`, wallId);
-        halfEdgeWall.set(`${e}→${s}`, wallId);
-    }
+    // ADAPTER BOUNDARY: `WallGraph` (this package's domain type, edge-keyed by uuid) →
+    // the kernel's `PlanarGraphXZ`. `wallId` is the edge identity that must land on the
+    // traced rings, NOT the uuid map key — several edges legitimately share one wallId
+    // when a wall is split at T-junctions, which is why the kernel's ordering key is a
+    // tuple over (id, start, end) rather than the id alone.
+    const edges: PlanarEdgeXZ[] = [...wallGraph.edges.values()].map((edge) => ({
+        id: edge.wallId,
+        startNodeId: edge.startNodeId,
+        endNodeId: edge.endNodeId,
+    }));
 
-    const adjSorted = new Map<string, Array<{ neighborId: string; wallId: string }>>();
-    for (const [nId, neighbors] of adj) {
-        const vPos = positions.get(nId)!;
-        const sorted = [...neighbors].sort((a, b) => {
-            const ap = positions.get(a.neighborId); const bp = positions.get(b.neighborId);
-            if (!ap || !bp) return 0;
-            const aA = Math.atan2(ap.z - vPos.z, ap.x - vPos.x);
-            const bA = Math.atan2(bp.z - vPos.z, bp.x - vPos.x);
-            return aA !== bA ? aA - bA : a.neighborId.localeCompare(b.neighborId);
-        });
-        adjSorted.set(nId, sorted);
-    }
-
-    const visitedHalfEdges = new Set<string>();
-    const maxIter = wallGraph.edges.size * FACE_TRACE_MAX_ITER_MULTIPLIER + 16;
-
-    interface RawFace { nodeIds: string[]; wallIds: string[]; signedArea: number; }
-    const rawFaces: RawFace[] = [];
-
-    for (const [, edge] of wallGraph.edges) {
-        for (const [startId, endId] of [
-            [edge.startNodeId, edge.endNodeId],
-            [edge.endNodeId, edge.startNodeId],
-        ] as [string, string][]) {
-            const startKey = `${startId}→${endId}`;
-            if (visitedHalfEdges.has(startKey)) continue;
-
-            const nodeIds: string[] = []; const wallIds: string[] = [];
-            let curU = startId; let curV = endId; let iter = 0;
-
-            while (iter < maxIter) {
-                const key = `${curU}→${curV}`;
-                if (visitedHalfEdges.has(key)) break;
-                visitedHalfEdges.add(key);
-                nodeIds.push(curU);
-                wallIds.push(halfEdgeWall.get(key) ?? '');
-                const next = nextHalfEdge(curU, curV, adjSorted, positions);
-                if (!next) break;
-                curU = next.nextU; curV = next.nextV; iter++;
-            }
-
-            if (nodeIds.length < 3) continue;
-            const area = signedAreaXZ(nodeIds, positions);
-            if (Math.abs(area) < MIN_FACE_AREA_M2) continue;
-            rawFaces.push({ nodeIds, wallIds, signedArea: area });
-        }
-    }
-
+    // §PTE-FILTERED — 0.1 m² is THIS domain's face threshold, stated at the call site.
+    const rawFaces = tracePlanarFacesXZ({ positions, edges }, { minAbsFaceAreaM2: MIN_FACE_AREA_M2 });
     if (rawFaces.length === 0) return { ...empty };
 
-    let outerFace: RawFace | null = null;
-    for (const face of rawFaces) {
-        if (outerFace === null || face.signedArea < outerFace.signedArea) outerFace = face;
-    }
-    const roomFaces = rawFaces.filter(f => f !== outerFace && f.signedArea > MIN_ROOM_AREA_M2);
+    // §PTE-OUTER-FACE — POLICY A: ONE outer face for the whole graph. Room detection
+    // consumes a single level's wall graph and treats it as one enclosure; a
+    // per-component answer (what `auto-dimension` asks for) would be a different
+    // question, so the policy is NAMED here rather than inherited from a copied loop.
+    const outerFace: PlanarFaceXZ | null = selectOuterFaceXZ(rawFaces);
+    const roomFaces = rawFaces.filter(f => f !== outerFace && f.signedAreaM2 > MIN_ROOM_AREA_M2);
 
     const rooms: DetectedRoom[] = roomFaces.map((face, idx) => {
-        const uniqueWalls = [...new Set(face.wallIds.filter(Boolean))];
+        const uniqueWalls = [...new Set(face.edgeIds.filter(Boolean))];
         const centroid = centroidXZ(face.nodeIds, positions);
         const rawVerts = face.nodeIds.map(id => positions.get(id)).filter(Boolean) as { x: number; z: number }[];
         const polygonVertices: { x: number; z: number }[] = [];
@@ -182,7 +132,7 @@ export function computeTopology(wallGraph: WallGraph): TopologyResult {
             const prev = polygonVertices.at(-1);
             if (!prev || Math.abs(v.x - prev.x) > 1e-4 || Math.abs(v.z - prev.z) > 1e-4) polygonVertices.push({ x: v.x, z: v.z });
         }
-        return { id: `room_${idx}_${Date.now()}`, boundaryWallIds: uniqueWalls, areaM2: Math.abs(face.signedArea), centroid, polygonVertices };
+        return { id: `room_${idx}_${Date.now()}`, boundaryWallIds: uniqueWalls, areaM2: Math.abs(face.signedAreaM2), centroid, polygonVertices };
     });
 
     let outerFacePolygon: { x: number; z: number }[] | null = null;

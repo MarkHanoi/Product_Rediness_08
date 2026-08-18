@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
+    "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/schemas": "workspace:*"
   },
   "devDependencies": {

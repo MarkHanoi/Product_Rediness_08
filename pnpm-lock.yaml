@@ -1450,6 +1450,9 @@ importers:
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:../schemas

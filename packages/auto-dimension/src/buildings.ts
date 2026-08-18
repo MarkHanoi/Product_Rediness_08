@@ -35,7 +35,7 @@
 import { withAutoDimSpan } from './tracing.js';
 import type { AutoDimWall, WallRun, DimNode } from './types.js';
 import type { PtXZ } from './geometry.js';
-import { buildGraph, tracePerimeters, splitRuns, type DimGraph } from './perimeter.js';
+import { buildGraph, tracePerimeters, splitRuns, dimGraphComponents, type DimGraph } from './perimeter.js';
 
 /**
  * ONE building on a level: a connected footprint of walls with its own closed perimeter.
@@ -224,24 +224,15 @@ function pointInPolygon(pt: PtXZ, poly: readonly PtXZ[]): boolean {
 // Order-stable: the smaller node id always wins as the representative, so the component
 // key is the lexicographically-smallest node id in the component regardless of the order
 // the walls arrived in. That is what makes `BuildingFootprint.id` deterministic.
+//
+// GE-12 / C73 §3.7 — this used to be a SECOND copy of the union-find inside
+// `tracePerimeters`, and the two had to agree for `BuildingFootprint.id` to name the same
+// component the ring came from. That agreement was a coincidence maintained by hand.
+// Both now resolve through `planarComponentsXZ` in the geometry kernel, via
+// `dimGraphComponents`, so the coincidence is a call.
 
 function buildUnionFind(graph: DimGraph): Map<string, string> {
-  const parent = new Map<string, string>();
-  for (const n of graph.nodes) parent.set(n.id, n.id);
-  const find = (a: string): string => {
-    let r = a;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    let c = a;
-    while (parent.get(c) !== r) { const nxt = parent.get(c)!; parent.set(c, r); c = nxt; }
-    return r;
-  };
-  for (const { startNodeId: s, endNodeId: e } of graph.wallNodes.values()) {
-    const rs = find(s), re = find(e);
-    if (rs !== re) parent.set(rs < re ? re : rs, rs < re ? rs : re);
-  }
-  // Fully compress so a plain `get` is the representative.
-  for (const id of [...parent.keys()]) parent.set(id, find(id));
-  return parent;
+  return dimGraphComponents(graph);
 }
 
 function componentWallIds(graph: DimGraph, parent: ReadonlyMap<string, string>): Map<string, string[]> {
