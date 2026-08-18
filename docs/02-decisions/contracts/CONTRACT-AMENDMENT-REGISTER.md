@@ -131,21 +131,40 @@ never absorbable.** A contract cannot describe as unbuilt a gate that is current
 
 ---
 
-## 5. ⛔ RANK 5 — C84 §5 QUOTES A READING FROM A MISCONFIGURED GATE
+## 5. ~~RANK 5 — C84 §5 QUOTES A READING FROM A MISCONFIGURED GATE~~ ⛔ **REFUTED 2026-08-18 — DO NOT APPLY**
 
-C84 `:981` states `check-verb-liveness` reads *"PROVEN 7 / 326; UNPROVABLE-NO-STORE 109;
-UNKNOWN 210."*
+**This amendment is wrong, and applying it would have retracted CORRECT figures from C84 §5.**
+Recorded here rather than deleted, because the way it was wrong is the more useful artefact.
 
-**Measured: REAL EXIT = 2.** The gate emits **no counts at all**. Its terminal line:
+**Re-measured 2026-08-18, twice — by lane AM1 and independently by the orchestrator:**
 
-> *"⚠ MISCONFIGURED — the read-back harness exited 1. CA-21 admits no substitute for an executed
-> dispatch, so a gate that cannot run it has NOT established its subject."*
+```
+npx tsx tools/ga-gate/check-verb-liveness.ts > /tmp/vl.txt 2>&1; echo "VL_RC=$?" >> /tmp/vl.txt
+  VL_RC=0        ✅ PASS
+  register verbs        326
+  PROVEN                7     (executed dispatch + executed read-back)
+  UNPROVABLE-NO-STORE   109   (authoritative store absent from the composed runtime)
+```
 
-Root cause: a vitest fork-worker timeout on
-`tools/rac-conformance/runtime-harness/__tests__/liveness.probe.ts`.
+Exactly the figures C84 `:981` quotes. The gate is registered at `run-all.ts:215` and exits **0**.
 
-⛔ **The quoted figures are NOT REPRODUCIBLE and must not be inherited by any C85–C99 contract** —
-C84 §6 requires all fifteen to carry per-verb liveness rows sourced from this gate.
+**What actually happened:** the `MISCONFIGURED` exit 2 this amendment observed is a **vitest
+fork-worker flake** on `tools/rac-conformance/runtime-harness/__tests__/liveness.probe.ts` — it
+reproduces intermittently and did not reproduce on either re-run.
+
+**The reasoning error is worth naming, because it is the inverse of the one the register exists to
+punish.** `MISCONFIGURED` means *the question was not asked*. It is not a reading. Concluding from a
+`MISCONFIGURED` exit that the figures are *"NOT REPRODUCIBLE"* is the **same class of mistake as
+quoting counts from one** — in both cases a gate that established nothing is treated as if it had
+established something. A gate that cannot run has not refuted its subject any more than it has
+confirmed it.
+
+Compounding it: this amendment was written from **a single sample**, which
+§EXIT-CODE-THROUGH-A-PIPE's sibling rule already forbids for deploy verdicts (*"a single sample is
+not evidence"*) and which applies with equal force to a flaky gate.
+
+⛔ **C84 §5's figures stand. C85–C99 may inherit them.** If `check-verb-liveness` exits 2 again,
+**re-run it** — an exit 2 is a reason to ask the question again, never a reason to answer it.
 
 ---
 
