@@ -1211,10 +1211,58 @@ export class RoomDetectionEngine {
 
     const threshSq = threshold * threshold;
 
+    // §FIX-ROOM-RING-ARC-COLLAPSE (L-962) — resolve each endpoint to the wall it
+    // BELONGS to, not the sub-segment it was emitted as. See the loop below.
+    const baseIdOf = (epIdx: number): string => {
+      const ep = eps[epIdx];
+      const w = ep ? result[ep.wallIdx] : undefined;
+      // Unreachable by construction (every EpRef is built from `result` above). A
+      // per-index sentinel rather than a shared one, so a hypothetical miss can never
+      // make two DIFFERENT endpoints compare equal and silently skip a real union.
+      return w ? baseWallId(w.wallUUID) : `__ep${epIdx}`;
+    };
+
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         // Never merge endpoints from the same wall segment
         if (eps[i].wallIdx === eps[j].wallIdx) continue;
+
+        // §FIX-ROOM-RING-ARC-COLLAPSE (L-962) — ...NOR FROM THE SAME WALL.
+        //
+        // The rule above has always been "never merge endpoints of one wall". It
+        // compared `wallIdx`, which is the index of an emitted SEGMENT — and a curved
+        // wall is emitted as N segments (`wallId_c0`, `_c1`, ...) carrying N different
+        // indices and ONE base id. So every arc chord looked like a different wall to
+        // this loop, and its endpoints were eligible to fuse with each other.
+        //
+        // Union-find is TRANSITIVE, so this did not merely round a corner: a chain of
+        // sub-threshold hops collapsed the ENTIRE arc to one centroid node. Measured on
+        // a 24x16 shell with r=6 corners, varying ONLY the chord length:
+        //
+        //     chord 589mm -> 68 ring vertices,  area error   -0.079 m2
+        //     chord 349mm -> 112 ring vertices, area error    0.000 m2
+        //     chord 248mm -> 20 ring vertices,  area error  -19.808 m2
+        //     chord 147mm -> 4 ring vertices,   area error -120.975 m2
+        //
+        // A 360 m2 room reported 239 m2. That is not a rendering defect — it is a wrong
+        // NUMBER, and `room.boundary.polygon` is what room area, room tags, enclosure,
+        // compliance, furniture layout, `CeilingTool` AUTO and `FloorTool` AUTO all read.
+        // The founder saw it in the floor finish because that is where it became VISIBLE
+        // (L-962: "20 vertices" in a 19-wall room — one per wall, no arc stations).
+        //
+        // ⚠ RAISING TESSELLATION MAKES THIS WORSE, WHICH IS WHY THE FIX IS HERE AND NOT
+        // IN THE DENSITY. Denser arc, shorter chords, more transitive fusion: the SAME
+        // r=6 shell gives 68 ring vertices at 16 segments and 4 at 64. Adopting the slab
+        // tracer's §ARC-DENSITY authority in room detection — which raises density to
+        // ARC_MAX_SEGMENTS = 64, and which `curvedWallTessellation.ts` already flags as
+        // pending for this file — MUST NOT land before this guard.
+        //
+        // `baseWallId` is the shared suffix-stripper already imported at the top of this
+        // file and already used for exactly this "same wall?" question in
+        // `_reconnectPartitionReach`. This is that rule applied where it was missing, and
+        // nothing wider: two endpoints of DIFFERENT walls still fuse, so the genuine
+        // near-miss corner and T-junction snapping this pass exists for is untouched.
+        if (baseIdOf(i) === baseIdOf(j)) continue;
 
         const dx = eps[i].origX - eps[j].origX;
         const dz = eps[i].origZ - eps[j].origZ;
