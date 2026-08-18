@@ -8012,3 +8012,177 @@ header", which was refuted). **Whoever answers it must run it, not reason about 
 **The declaration is wrong either way** — C84 EI-7c requires the declared set to be the written set,
 and a reverser that trusts the declaration over the command reverses half the write. Fix the
 declaration; measure before deciding whether anything downstream also needs fixing.
+
+---
+
+## L-990 — a wall with a stem near its own window can never be moved again: the move-reweld cascade refused a crossing that was ALREADY STANDING (CLOSED)
+
+**Lane WM1, 2026-08-18. Founder-reported from production: a wall move on level 3 refused, with a
+refusal that contradicted itself.**
+
+The founder dragged `wall-dup-cmd-dup-fp-1787083605523-5suu6xr-2-9` in plan and was told, in one
+message, both *"That position is clear of every opening"* **and** *"it would pass straight through
+the window `el-…-2-9-2` **on wall `wall-…-2-9`**"* — the wall they were dragging. Read literally
+that is a wall colliding with its own hosted opening, which [C15](../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md)
+makes impossible: a hosted opening lives in `wall.openings[]` and hosting IS overlap.
+
+### What was measured, and where
+
+`packages/command-registry/__tests__/L990MoveReweldHostIdentity.measure.test.ts` drives the real
+chain — `previewMoveReweld` → `computeMoveReweldPlan` → `CascadeWallBaselineCommand.canExecute` →
+`evaluateWallPlacement` — with no mock predicate. Reconstructing the two numbers the refusal carries
+(a window at 4.000–5.000 on the mover; a 0.243 m footprint at 4.937–5.180) reproduces the founder's
+sentence **to the digit** at `4455be2c`:
+
+```
+ok:             false
+reason:         'OCC_CROSSES_HOSTED_OPENING'
+blockingIssues: ['[OCC_CROSSES_HOSTED_OPENING] this wall cannot be placed here: it would pass
+                 straight through the window el-2-9-2 on wall M — that window occupies
+                 4.000–5.000 m along the wall and this wall would occupy 4.937–5.180 m,
+                 overlapping by 0.063 m. …']
+```
+
+### The self-collision reading is REFUTED. What is actually happening is worse-shaped
+
+`findWallOpeningCrossings` filters hosts with `w.levelId === candidate.levelId && w.id !== candidate.id`
+(`packages/geometry-wall/src/WallCrossesOpening.ts:404`), and `CascadeWallBaselineCommand` passes
+`id: e.wallId`. **No wall is ever tested against its own openings.** The candidate is a *cascaded
+partner* — a §L-926 dependent stem whose foot terminates on the mover's body — and the host that
+owns the window is the mover. Same window, different subjects.
+
+**The root is ATTRIBUTION, not geometry.** §B of the same file evaluates the stem where it stands
+**today**, against the model **as it stands today**, and gets the identical violation: host `M`,
+opening span 4.000–5.000, crossing span 4.937–5.180, overlap **0.063 m**. The stem was already
+63 mm inside the window before anyone touched anything. A translation carries the stem by the same
+vector as its host (the dependent-stem follow), so the stem's *station along the host* is invariant
+and the overlap after the move is the same 0.063 m. **The gate refused a gesture that changed
+nothing about the condition it named — and since no translation can change it, that wall could
+never be moved again by any gesture.** The stated remedy (*"move the opening in the way first"*)
+names an opening on the very wall being dragged, which is [[refusing-half-needs-its-escape-hatch]]
+verbatim.
+
+The comment that licensed this was reasoned, not measured. `CascadeWallBaselineCommand.ts` asserted
+of its C83 arm: *"It cannot produce a FALSE refusal (a wall landing on a door lands on it regardless
+of where its siblings end up — openings travel with their host)"*. True of the SPATIAL question,
+silent on the ATTRIBUTION question, and the arm was answering the second under the first's
+authority. The sentence is corrected in place rather than deleted, so it is not written back.
+
+### The fix — REPORTED, NOT REFUSED, and narrow by construction
+
+`CascadeWallBaselineInput` gains an optional `movedSubject: { wallId, prevBaseLine }`, supplied by
+the two move-reweld callers (`moveReweldPreflight`, `WallMoveReweldService`) — the only callers that
+know what the gesture was. With it, `canExecute` reconstructs the world as it stood **before** the
+gesture (only ONE wall differs at `canExecute` time: the subject, already re-baselined; the cascade's
+own entries have not been applied — that is what `canExecute` means) and re-runs the SAME predicate
+on it. A violation keyed `hostWallId|openingId` that already existed, and is **no deeper** than it
+was (tolerance 1 mm, the predicate's own `COINCIDENT_M` order), is reported and does not refuse.
+
+⛔ **Narrow, deliberately.** A crossing the cascade would CREATE, or would DEEPEN, still hard-refuses
+with its full sentence — §C of the measure file pins that: the same stem dragged past a *third* wall
+into that wall's window is refused, `reason: 'OCC_CROSSES_HOSTED_OPENING'`. §B-g (a partition slid
+along until it passes clean through a door — L-912's own founder case) is untouched. This does not
+weaken the predicate; it stops the predicate answering a question about the past as if it were about
+the gesture.
+
+⚠ **`movedSubject` ABSENT ⇒ NO ATTRIBUTION IS ATTEMPTED**, and every crossing refuses exactly as
+before. `SlabWallConnectivityService` omits it and is byte-identical. "I could not find out whether
+this is new" is not "it is not new" (C83 §5.3).
+
+⭐ **NEEDS FOUNDER CONFIRMATION.** This is the same trade the founder already made at §L-942-UNBLOCK
+— a policy arm that hard-blocked the core gesture, downgraded to a report — applied to a second arm.
+It is stated here rather than assumed: **a pre-existing wall-into-opening overlap now survives a
+move instead of blocking it.** It is visible, reported in the chat, and Ctrl+Z-able. If the founder
+wants the block back, the correct exit is L-993, not restoring this arm.
+
+**Reachability:** proved at the pre-flight the plan drag and the 3-D gizmo both funnel through
+(`gateWallMove` → `previewReweldForMove` → `previewMoveReweld`), not at a pure predicate.
+
+**SHAs.** ⚠ The bulk of this lane's code landed inside **`5f126d33`** (*"fix(L-995) …"*) — a
+CONCURRENT LANE SWEPT WM1's STAGED FILES INTO ITS COMMIT. The code in that SHA is WM1's; it also
+carried a syntax error (`wallPlacementGate.ts`, a single-quoted string split across two lines —
+root tsc `TS1002`). **`cc2469e4`** carries the remainder, that fix, and C83 §5.5.
+
+---
+
+## L-991 — the cascade's crossing refusal named no candidate, so the founder read a partner's refusal as their own wall's (CLOSED)
+
+**Lane WM1, 2026-08-18. The half of the founder's report that made it unreadable.**
+
+`wallCrossesOpeningRefusalText` opens *"this wall cannot be placed here"* and **never says which
+wall**. Its sibling arm in the same method has always prefixed the entry id
+(`OPENING_DOES_NOT_FIT: ${e.wallId}: …`, `CascadeWallBaselineCommand.ts:277`); the
+`OCC_CROSSES_HOSTED_OPENING` arm ten lines below it never did. So a sentence about a *cascaded
+partner* arrived naming only the HOST — which on this path is the wall the user is dragging — and
+there was no way, from the message, to tell whose placement was being refused. **The self-collision
+reading of L-990 was not a careless read; it was the only read the message supported.**
+
+Compounding it, `describeReweldRefusal` (`apps/editor/src/ui/ai/WallMoveClashProposal.ts`) opened
+with the flat claim *"That position is clear of every opening"* and then printed an arm naming an
+opening. Both sentences were TRUE and they were about DIFFERENT SUBJECTS; neither said so.
+§CONTEXT-DATA-HONESTY, in its subject form: *two subjects in one message, with neither named, is
+the same defect as failure and emptiness sharing a value.*
+
+**Fixed:**
+- every `OCC_CROSSES_HOSTED_OPENING` issue the cascade emits is now prefixed `${e.wallId}: `, so it
+  is readable standalone (measure file §A and §C both pin `startsWith('S: ')`);
+- offers are recomputed against the surviving violation set when it is filtered, so the numbers in
+  the sentence and the numbers in the offer describe the same set (C83 §4.2);
+- the head sentence now says explicitly that the wall's OWN position is clear, that what follows is
+  about the walls the re-weld would carry, names them, and tells the reader each line names its
+  wall first;
+- the tail no longer says *"move the opening in the way first"* without saying which wall the
+  opening is on — it points at the name, and warns it may be the wall being dragged.
+
+---
+
+## L-992 — `§C83-S1-MOVE REFUSED wall.updateBaseline — undefined`: the blocking reason lived on a field the log site did not read (CLOSED)
+
+**Lane WM1, 2026-08-18. Founder's console, verbatim.**
+
+Two log sites printed `spatialMove.verdict?.reason`:
+
+- `apps/editor/src/engine/registerTransformDragHandler.ts:195`
+- `apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts:488`
+
+`gateWallMove` has **five** blocking arms. On **three** of them — the §L-921 re-weld cascade, the
+§L-921-SLAB-PREFLIGHT refusal, and the §L-944 slab-UNDETERMINED arm — `verdict` is a **VALID**
+verdict carrying no `reason` at all: the wall's own placement WAS clear, and the refusal came from
+somewhere else entirely. So the founder's move printed `— undefined`. **The reason was computed and
+discarded one field to the left.** A refusal that prints `undefined` is indistinguishable from a
+fabricated one, which is L-966's shape.
+
+**Fixed:** `WallPlacementGateResult` gains `refusalReason?: string`, set by **every** blocking arm
+with that arm's own reason (the cascade's reason code plus its `blockingIssues`; the slab refusal's
+code plus its issues; the verdict's own reason on the two placement arms). Both log sites read
+`refusalReason ?? verdict?.reason ?? 'UNSTATED (defect)'` and log the verdict's reason alongside, so
+the two can never be conflated again. The result also gains `reported?: readonly string[]` for
+L-990's non-blocking facts — a reported condition and a blocking one may not share a field.
+
+---
+
+## L-993 — `DuplicateFloorPlanCommand` clones walls and their openings through NO placement gate (OPEN)
+
+**Lane WM1, 2026-08-18, found while establishing L-990's provenance.**
+
+The founder's ids are `wall-dup-cmd-dup-fp-1787083605523-5suu6xr-2-9` /
+`el-dup-cmd-dup-fp-…-2-9-2`. `cmd-dup-fp-${Date.now()}-${rand}` is minted at
+`packages/command-registry/src/levels/DuplicateFloorPlanCommand.ts:128`, so **the level the founder
+could not move a wall on was produced by Duplicate Floor Plan.**
+
+That command clones walls *and their embedded openings* (`:266-269`) and runs **no**
+`evaluateWallPlacement` / `gateWallPlacement` of any kind — `grep -n 'evaluateWallPlacement\|gateWallPlacement'`
+over the file returns nothing. So whatever wall-into-opening conditions exist on the source level are
+reproduced verbatim on the duplicate, and there is no refusal, no report and no clamp.
+
+⚠ **NOT MEASURED, and left blank on purpose:** whether the founder's SOURCE level already carried the
+63 mm stem-into-window overlap, or whether some step of the duplication introduced it. That needs
+their project, not reasoning. **What IS established** is that this path cannot detect either case,
+because it never asks.
+
+**Why it stays OPEN and why L-990 did not close it.** L-990 makes such a model *survivable* — the
+wall can be moved again and the condition is reported. It does not make the condition *go away*, and
+it should not: silently "fixing" geometry the user duplicated is exactly what
+[[spatial-validity-rules-founder-direction]] forbids (*always ASK, never auto-edit*). The exit is a
+post-duplication integrity report naming the conditions the clone inherited, which is C84 work and a
+founder decision about the surface, not this lane's.
