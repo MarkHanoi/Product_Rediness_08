@@ -1,0 +1,93 @@
+{
+  "$comment": [
+    "§ROW-GATE-REGISTRY — the registration bridge, NOT a second authority.",
+    "",
+    "`bim30-status` decides a row by reading the `check-*` tokens out of the row's",
+    "*Deciding instrument* cell in BIM30-MASTER-COMPLETION-TRACKER.md. A row whose cell",
+    "names no gate is printed CARRIED: its status is inherited from prose and is not",
+    "evidence at HEAD. That is the correct default and it must stay.",
+    "",
+    "This file attaches an EXISTING, RUNNABLE gate to a row whose markdown cell has not",
+    "yet been rewritten to name it. It exists because the gate and the prose land through",
+    "different review paths here (agents commit scoped code; the tracker prose is edited",
+    "centrally), and a gate that is built, registered in run-all.ts, and still invisible to",
+    "the status tool is authored-but-unwired in a new costume.",
+    "",
+    "RULES, enforced by the loader in bim30-status.ts and not merely written here:",
+    "  1. ADD-ONLY. An entry may add gates to a row. It can never remove one the markdown",
+    "     names, and it can never make a row CARRIED that the markdown would have measured.",
+    "  2. Every `row` must exist in the tracker. An entry naming a row that does not exist",
+    "     is a silent no-op, so it is MISCONFIGURED (exit 2) instead.",
+    "  3. Every gate must resolve to a real file under one of the two gate dirs. Same",
+    "     reason: a registration pointing at nothing must not read as a registration.",
+    "  4. Every overlay-registered row is PRINTED as such, with this file named, so no",
+    "     reader can mistake the markdown for having said it.",
+    "",
+    "`instrumentCellShouldRead` is the exact text the tracker's *Deciding instrument* cell",
+    "should adopt, so reconciling the prose is mechanical rather than a re-derivation. Each",
+    "string is fed through the tool's OWN `extractGates` on every run and must yield exactly",
+    "the `gates` array beside it — otherwise pasting it into the doc would silently change",
+    "which gate decides the row, which is precisely the failure this file must not cause.",
+    "",
+    "This registry does NOT carry statuses, readings, counts or baselines. It carries the",
+    "name of the instrument and nothing else. It is not a debt ledger."
+  ],
+  "entries": [
+    {
+      "row": "GE-04",
+      "gates": ["check-census-verified-invariants"],
+      "contract": "C73 §0.2 · §3",
+      "why": "The cell read 'source re-measure of the four families' and the reading cell read NOT DETERMINED. CV1 counts the three C73 §0.2 families on the axis each was actually duplicated along — FILE for WallIntersectionResolver and FloorPlanDiagnostics (neither declares a class, so a class census reads 0 and passes over live copies), CLASS for RoomStore (fixed by renaming the class and KEEPING the filename, so a filename census reads 2 forever).",
+      "instrumentCellShouldRead": "`check-census-verified-invariants` CV1 — the three C73 §0.2 duplicate families each resolve to ONE production authority, counted on the axis each was duplicated along"
+    },
+    {
+      "row": "GE-05",
+      "gates": ["check-polygon-boolean-canonical"],
+      "contract": "C73 §3 · §6",
+      "why": "The cell read '`polygonBoolean.ts` + its oracle suite' — two artefacts and no way to run them. The gate asserts a UNION ENTRY POINT is exported (an intersection-only kernel still cannot merge two footprints), that the oracle is claimed by an include glob, and it SPAWNS the oracle, flooring on tests EXECUTED.",
+      "instrumentCellShouldRead": "`check-polygon-boolean-canonical` — the union entry point is EXPORTED (not merely mentioned), the oracle suite is claimed by an include glob, and it executes green with a floor on tests executed"
+    },
+    {
+      "row": "GE-10",
+      "gates": ["check-census-verified-invariants"],
+      "contract": "C70 §3",
+      "why": "The cell read '`SplitWall.ts` + the verb register'. CV2 asserts three facts, because any one alone is satisfiable by a stub: a handler declares `type = 'wall.split'`, the plugin's type list contains the id, and the handler is CONSTRUCTED. An id listed with no handler is GE-06's defect, one row up the same table.",
+      "instrumentCellShouldRead": "`check-census-verified-invariants` CV2 — `wall.split` is declared by a handler, listed by the wall type register, AND constructed into the handler set"
+    },
+    {
+      "row": "CO-05",
+      "gates": ["check-census-verified-invariants"],
+      "contract": "C74 §3.8",
+      "why": "The cell read 'source re-measure' and the reading cell read NOT DETERMINED. CV3 is a hard 0 on `createWorkerHandler` in production source — the row's terminal state was DELETE, and the arm keeps it deleted.",
+      "instrumentCellShouldRead": "`check-census-verified-invariants` CV3 — `createWorkerHandler` stays at its DELETE terminal state: zero production occurrences"
+    },
+    {
+      "row": "CO-07",
+      "gates": ["check-census-verified-invariants"],
+      "contract": "C74 §2.2",
+      "why": "The cell read 'source census', reading not itemised. CV4 asserts ONE production declaration of `StairValidationAuthority` AND at least one production importer that is not a barrel — the row's own complaint is about a copy with zero importers, so counting authorities alone would miss half of it.",
+      "instrumentCellShouldRead": "`check-census-verified-invariants` CV4 — exactly one `StairValidationAuthority` authority, with a production importer that is not a re-export barrel"
+    },
+    {
+      "row": "CO-10",
+      "gates": ["check-census-verified-invariants"],
+      "contract": "C70 G-INV-3",
+      "why": "The cell read 'source census of `provideLiveGraphSources` callers'. CV5 counts production call sites and files test-only callers separately — a dev-only caller is the defect this row names, not its refutation. The call is not dot-prefixed, so `check-source-verified-invariants`' SV5 detector is structurally blind to it.",
+      "instrumentCellShouldRead": "`check-census-verified-invariants` CV5 — `provideLiveGraphSources` has a PRODUCTION call site outside its defining file; test-only callers are counted separately and never credited"
+    },
+    {
+      "row": "PV-05",
+      "gates": ["check-provenance-slice-persisted"],
+      "contract": "C70 I-INV-2 · I-INV-3 · C75",
+      "why": "The cell read 'the serializer's `provenance` slice + suite'. There are TWO serialiser/loader pairs and the cited suite pins only the persistence-client one: breaking the APP copy's hydrate leaves that suite green at 11/11 (measured). S1/S2 read BOTH pairs and require the write to be CONDITIONAL, because an unwired bootstrap writing an empty slice over a real audit log is I-INV-3.",
+      "instrumentCellShouldRead": "`check-provenance-slice-persisted` — BOTH ProjectSerializer copies write the slice conditionally and BOTH ProjectLoader copies hydrate it, plus the cited suite executes; the cited suite alone pins only the L3 copy"
+    },
+    {
+      "row": "PV-06",
+      "gates": ["check-element-confidence-declared"],
+      "contract": "C75 §1.3 · §5",
+      "why": "The cell read 'schema census'. E1 re-derives the census independently from `SCHEMA_REGISTRY`; E2 is the arm that matters — the cited suite derives IN_SCOPE from its own OUT_OF_SCOPE list, so moving a kind into that list with a plausible sentence keeps every assertion green over a smaller subject. E2 pins the exemption list to the five kinds on the record: growth is a finding, shrinkage is not.",
+      "instrumentCellShouldRead": "`check-element-confidence-declared` — every registered element kind outside the five recorded exemptions declares `confidence`, the exemption list has not grown, and the cited suite executes"
+    }
+  ]
+}

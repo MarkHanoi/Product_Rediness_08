@@ -527,6 +527,21 @@ const GATES: Gate[] = [
   { name: 'graph-query-verbs (GR-16 · C70 D-INV-1/3)',           script: '../rac-conformance/certification/gates/check-graph-query-verbs.ts' },
   { name: 'ubg-snapshot-derived (GR-17 · C71 §4 · C70 I-INV-2)', script: '../rac-conformance/certification/gates/check-ubg-snapshot-derived.ts' },
   { name: 'geometry-change-consumers (PR-10 · PR-12 · C72 §1.1)',  script: '../rac-conformance/certification/gates/check-geometry-change-consumers.ts' },
+  // §BIM30-CARRIED-ROWS, second batch (2026-08-18) — the GE/CO/PV half. Eight more
+  // register rows whose deciding instrument was the phrase "source census" /
+  // "source re-measure" / a pair of filenames, and which `bim30-status` therefore
+  // printed CARRIED. Four of the eight ALSO carried "NOT DETERMINED" in their own
+  // reading cell while the row read CLOSED.
+  { name: 'census-verified-invariants (GE-04 · GE-10 · CO-05 · CO-07 · CO-10)', script: '../rac-conformance/certification/gates/check-census-verified-invariants.ts' },
+  // The three below SPAWN the suite their row cites, and each adds the arm that
+  // suite structurally cannot reach: GE-05's union EXPORT (not a mention),
+  // PV-05's APP-copy serialiser/loader pair (the cited suite pins only the L3
+  // copy — break the app copy and it still passes 11/11), and PV-06's exemption
+  // list (the cited suite derives IN_SCOPE *from* that list, so it cannot notice
+  // the list growing under it).
+  { name: 'polygon-boolean-canonical (GE-05 · C73 §3/§6)',        script: '../rac-conformance/certification/gates/check-polygon-boolean-canonical.ts' },
+  { name: 'provenance-slice-persisted (PV-05 · C70 I-INV-2/3)',   script: '../rac-conformance/certification/gates/check-provenance-slice-persisted.ts' },
+  { name: 'element-confidence-declared (PV-06 · C75 §1.3/§5)',    script: '../rac-conformance/certification/gates/check-element-confidence-declared.ts' },
   // §R5 — the meta-gate runs LAST: its subject is the other gates.
   // §GE-08 (C73 §5.4b) — the FIRST dynamic determinism arm in this suite. Every
   // other determinism check here is a static read; this one RUNS the geometry in
