@@ -174,6 +174,11 @@ export type PartOfMembersQuery =
  * Deterministic and order-stable. Self-links (`parentId === id`) and blank ids
  * are dropped rather than emitted: a corrupt `parentId` must not become a graph
  * edge asserting that a level is part of itself.
+ *
+ * ⚠ The pair key is joined on `\u0000` — written as a SOURCE ESCAPE, never as a
+ * literal control byte in this file. A NUL cannot occur inside an element id, so
+ * it is the one separator that cannot make two different pairs collide onto one
+ * key; a raw one in the source would make the file BINARY to git and grep.
  */
 export function derivePartOfEdges(snapshot: PartOfSubstrateSnapshot): readonly DerivedPartOfEdge[] {
     const out: DerivedPartOfEdge[] = [];
@@ -182,7 +187,7 @@ export function derivePartOfEdges(snapshot: PartOfSubstrateSnapshot): readonly D
         if (typeof childId !== 'string' || childId.length === 0) return;
         if (typeof parentId !== 'string' || parentId.length === 0) return;
         if (childId === parentId) return;
-        const key = `${childId} ${parentId}`;
+        const key = `${childId}\u0000${parentId}`;
         if (seen.has(key)) return;
         seen.add(key);
         out.push({ childId, parentId });
@@ -316,7 +321,7 @@ export class PartOfProjection {
     private _reconcile(snapshot: PartOfSubstrateSnapshot): PartOfProjectionStats {
         const derived = derivePartOfEdges(snapshot);
         const wanted = new Map<string, DerivedPartOfEdge>();
-        for (const edge of derived) wanted.set(`${edge.childId} ${edge.parentId}`, edge);
+        for (const edge of derived) wanted.set(`${edge.childId}\u0000${edge.parentId}`, edge);
 
         const roomsVisible = snapshot.rooms !== null;
         const owned = roomsVisible ? null : partOfCitizens(snapshot);
@@ -326,7 +331,7 @@ export class PartOfProjection {
         for (const rel of this._graph.getAll()) {
             if (rel.type !== 'partOf') continue;
             if (owned !== null && !owned.has(rel.sourceId)) continue; // out of a narrowed scope
-            if (wanted.delete(`${rel.sourceId} ${rel.targetId}`)) continue; // already correct
+            if (wanted.delete(`${rel.sourceId}\u0000${rel.targetId}`)) continue; // already correct
             this._graph.removeRelationship(rel.id);
             removed++;
         }
