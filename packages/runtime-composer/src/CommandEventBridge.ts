@@ -739,12 +739,20 @@ export function wireCommandEventBridge(
         case 'ceiling.create': {
           // §P3.2-CL: enrich with geometry fields so the initTools.ts legacy-store bridge
           // can mirror the new-schema ceiling into CeilingStore for mesh rendering.
+          // §FIX-CEILING-BRIDGE-FINISH (L-973 · C84 EI-2a): `materialId` and
+          // `materialColor` added. Both are on the L0 `Ceiling` schema
+          // (`Ceiling.ts:54-55`) and both are accepted and seeded by
+          // `CreateCeilingHandler` — this named subset listed neither, so the
+          // §P3.2-CL bridge had nothing to read and hardcoded the whole finish
+          // specification over the top of it.
           const p = record.payload as {
             id?: string;
             levelId?: string;
             boundary?: Array<{ x: number; y: number; z: number }>;
             ceilingHeight?: number;
             thickness?: number;
+            materialId?: string;
+            materialColor?: string;
           };
           events.emit('ceiling.created', {
             commandId:    record.id,
@@ -755,6 +763,8 @@ export function wireCommandEventBridge(
             boundary:     p.boundary,
             ceilingHeight: p.ceilingHeight,
             thickness:    p.thickness,
+            materialId:   p.materialId,
+            materialColor: p.materialColor,
           });
           break;
         }
@@ -770,6 +780,7 @@ export function wireCommandEventBridge(
               ceilingHeight?: number;
               thickness?: number;
               materialId?: string;
+              materialColor?: string;
             }>;
             levelId?: string;
           };
@@ -785,6 +796,11 @@ export function wireCommandEventBridge(
               boundary:     c.boundary,
               ceilingHeight: c.ceilingHeight,
               thickness:    c.thickness,
+              // §FIX-CEILING-BRIDGE-FINISH (L-973): `materialId` was DECLARED on
+              // this payload type and then never emitted — a field the reader
+              // could see in the type and never in the event.
+              materialId:   c.materialId,
+              materialColor: c.materialColor,
             });
           }
           break;

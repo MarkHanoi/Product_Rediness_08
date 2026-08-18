@@ -597,6 +597,20 @@ export interface RuntimeEvents {
     readonly ceilingHeight?: number;
     /** §P3.2-CL: ceiling slab thickness in metres. */
     readonly thickness?: number;
+    /**
+     * §FIX-CEILING-BRIDGE-FINISH (L-973) — the L0 `Ceiling.materialId`
+     * (`Ceiling.ts:54`). Maps to legacy `CeilingFinishSpec.soffitMaterialId`.
+     *
+     * ⚠ On the schema and accepted by `CreateCeilingHandler` since it was
+     * written; absent from this named subset, which is why the §P3.2-CL bridge
+     * hardcoded the entire finish specification instead of reading one
+     * (C84 EI-2a).
+     */
+    readonly materialId?: string;
+    /** §FIX-CEILING-BRIDGE-FINISH (L-973) — the L0 `Ceiling.materialColor`
+     *  (`Ceiling.ts:55`). Maps to legacy `CeilingFinishSpec.soffitColor`, the
+     *  field `CeilingColourSystem.ts:38` colours the mesh from. */
+    readonly materialColor?: string;
   };
 
   /** Fired after `ceiling.updateLayers` succeeds (TASK-12).

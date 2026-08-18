@@ -97,6 +97,7 @@ import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBou
 import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
 import { beamRecordFromCreatedEvent } from './beamCreatedMirror';
 import { curtainWallRecordFromCreatedEvent } from './curtainWallCreatedMirror';
+import { ceilingRecordFromCreatedEvent } from './ceilingCreatedMirror';
 import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
@@ -1482,63 +1483,39 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // Immer ceiling store directly, this bridge can be removed.
     if (runtime) {
         runtime.events.on('ceiling.created', (ev) => {
-            if (
-                ev.commandType !== 'ceiling.create' ||
-                !ev.id ||
-                !ev.boundary ||
-                ev.boundary.length < 3
-            ) return;
-            if (ceilingStore?.get?.(ev.id)) return; // dedup guard
+            // §FIX-CEILING-BRIDGE-FINISH (L-973 · C84 EI-2a) — the guard AND the whole
+            // record now live in `ceilingCreatedMirror.ts` so a test can EXECUTE them.
+            // As a closure here the mapping was unreachable from any suite, which is
+            // how the ENTIRE finish specification came to be hardcoded — `label`,
+            // `ceilingNumber`, `baseOffset`, `soffitColor`, `soffitPattern`,
+            // `exposedStructure` — over an L0 schema that carries `materialId` and
+            // `materialColor`. Same extraction as §P3.2-RF's `roofCreatedMirror.ts`.
+            //
+            // The ordinal is read HERE (the mirror stays store-free) and matches
+            // `CreateCeilingCommand.ts:188` so plan-drawn and 3-D-drawn ceilings are
+            // numbered by the same rule.
+            const ceilingRecord = ceilingRecordFromCreatedEvent(ev, {
+                existingCeilingCount: (ceilingStore?.getAll?.() ?? []).length,
+            });
+            if (!ceilingRecord) return;
+            // Dedup guard (undo/redo replay). §FIX-CEILING-BRIDGE-FINISH — this read
+            // `ceilingStore?.get?.(ev.id)` and `CeilingStore` HAS NO `get`: its
+            // accessors are `getById` / `getAll` / `has`
+            // (`core-app-model/src/stores/CeilingStore.ts:318,324,341`). The optional
+            // call evaluated to `undefined` on every event, so the guard never once
+            // fired — the same constant-false shape as the curtain-wall guard in
+            // L-972, hidden by the store being typed `any` at this seam.
+            if (ceilingStore?.has?.(ceilingRecord.id)) return;
             try {
-                // Convert Vec3[] boundary (new schema: {x,y,z}) to CeilingVertex[] (legacy: {x,z}).
-                const polygon = ev.boundary.map(
-                    (v: { x: number; y: number; z: number }) => ({ x: v.x, z: v.z }),
-                );
-                const legacyCeiling = {
-                    id:            ev.id,
-                    type:          'ceiling' as const,
-                    levelId:       ev.levelId ?? '',
-                    parentId:      ev.levelId ?? '',
-                    label:         'Ceiling',
-                    ceilingNumber: '',
-                    boundary: {
-                        polygon,
-                        height:          ev.ceilingHeight ?? 2.7,
-                        thickness:       ev.thickness ?? 0.025,
-                        baseOffset:      0,
-                        detectionMethod: 'manual-polygon' as const,
-                    },
-                    finishSpec: {
-                        exposedStructure: false,
-                        soffitColor:      '#F5F5F0',
-                        soffitPattern:    'none' as const,
-                    },
-                    holeElements:    [],
-                    coveredRoomIds:  [],
-                    boundingWallIds: [],
-                    visible:         true,
-                    properties:      {},
-                    ifcData: {
-                        guid:           crypto.randomUUID(),
-                        ifcClass:       'IfcCovering',
-                        predefinedType: 'CEILING',
-                    },
-                    metadata: {
-                        createdAt:  Date.now(),
-                        modifiedAt: Date.now(),
-                        createdBy:  'user',
-                        version:    1,
-                    },
-                };
-                ceilingStore.add(legacyCeiling as any);
+                ceilingStore.add(ceilingRecord as any);
                 // §FIX-PLAN-VDT-BIMMANAGER (ceiling): without these two calls, ceiling elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 // viewDependencyTracker.registerElement → targeted dirty-marking (no §G3-STALE-EVENT).
                 // bimManager.registerElement → level.childrenIds contains ceilingId →
                 // NativeElementMeshExporter includes it in plan-view projections.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
-                console.log('[initTools] §P3.2-CL: ceiling mirrored to legacy store', ev.id);
+                viewDependencyTracker.registerElement(ceilingRecord.id, ceilingRecord.levelId);
+                try { bimManager.registerElement(ceilingRecord.id, ceilingRecord.levelId); } catch { /* non-fatal */ }
+                console.log('[initTools] §P3.2-CL: ceiling mirrored to legacy store', ceilingRecord.id);
             } catch (err) {
                 console.error(
                     '[initTools] §P3.2-CL: failed to mirror ceiling to legacy store — mesh may not build:',
