@@ -277,7 +277,15 @@ export class CurtainWallBuilder {
     private _placementWindowEvents: Map<string, any> = new Map();
 
     private readonly panelBuilder = new CurtainPanelBuilder();
-    private readonly instanceManager = new CurtainWallInstanceManager();
+    /**
+     * §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — assigned in the CONSTRUCTOR,
+     * not here as a field initialiser, because it now needs `this._deps.materialMap` and
+     * field initialisers run BEFORE the constructor body assigns `_deps`. Left as an
+     * initialiser it would have captured `undefined` forever and every panel would have
+     * silently rendered its panelType default — indistinguishable from the feature not
+     * being wired at all, which is the exact failure mode this slice exists to remove.
+     */
+    private readonly instanceManager: CurtainWallInstanceManager;
 
     // ── Task 5.2 Phase 5: rAF-sliced build queue ─────────────────────────────
     /**
@@ -658,6 +666,12 @@ export class CurtainWallBuilder {
     ) {
         this.scene = scene;
         this._deps = deps;
+
+        // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the SAME map the mullion
+        // half resolves against (`_getMullionMaterial`), handed to the panel half so a
+        // panel's `materialId` reaches the layer that decides its colour. One library,
+        // one resolver mechanism, both halves — C84 EI-9.
+        this.instanceManager = new CurtainWallInstanceManager(this._deps.materialMap);
 
         // Step 2B: register shadow reactivation callback so BatchCoordinator can
         // trigger one consolidated shadow pass after all geometry + registrations

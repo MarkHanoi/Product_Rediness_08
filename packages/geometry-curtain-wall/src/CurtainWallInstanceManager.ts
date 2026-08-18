@@ -50,6 +50,19 @@ import { CurtainCell } from './CurtainCellComputer';
 import { CurtainPanelData, PANEL_TYPE_DEFAULTS, PanelType } from './CurtainPanelTypes';
 import { isBatchable } from './CurtainPanelFactory';
 
+/**
+ * The shape of one master-library entry, structurally identical to the map
+ * `CurtainWallBuilder` already accepts for mullions
+ * (`CurtainWallBuilderDependencies.materialMap`). Declared structurally rather than
+ * imported from `@pryzm/core-app-model/material-library` so this geometry module keeps
+ * its current dependency set — the projection it describes is C100's, not a rival
+ * vocabulary.
+ */
+export interface PanelMaterialDef {
+    params?: Record<string, unknown>;
+    textures?: { color?: unknown; normal?: unknown; roughness?: unknown };
+}
+
 export interface InstanceManagerResult {
     /** InstancedMesh objects — one per distinct panel type (non-empty, no override). */
     instancedMeshes: THREE.InstancedMesh[];
@@ -106,6 +119,31 @@ export class CurtainWallInstanceManager {
     private readonly _panelMatCache = new Map<string, THREE.MeshStandardMaterial>();
 
     /**
+     * §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the master material library,
+     * injected by `CurtainWallBuilder` from its own `_deps.materialMap`.
+     *
+     * THIS IS THE WHOLE FIX. The panel path was never missing the material ID — the
+     * panels array already carried whatever was on the record. What it was missing was a
+     * RESOLVER: `_getPanelMaterial` took `panelType` and nothing else, so no material
+     * reference could survive the last hop no matter what any bridge forwarded. The
+     * mullion half has resolved ids against this exact map since §MAT-CW-MATERIAL (#53)
+     * and works today; that working half is the proof the mechanism is sound, so it is
+     * REUSED rather than re-invented (C84 EI-9 — one answer per question).
+     *
+     * Constructor-injected rather than set through a setter deliberately: a setter can be
+     * forgotten by a future call site and the failure is SILENT — every panel quietly
+     * renders its panelType default, indistinguishable from "the feature isn't wired
+     * yet". Undefined is a legitimate value (headless tests, any host without the
+     * renderer library) and simply means panels fall back to PANEL_TYPE_DEFAULTS, i.e.
+     * exactly the behaviour that shipped before this field existed.
+     */
+    private readonly _materialMap?: ReadonlyMap<string, PanelMaterialDef>;
+
+    constructor(materialMap?: ReadonlyMap<string, PanelMaterialDef>) {
+        this._materialMap = materialMap;
+    }
+
+    /**
      * §B.1.2 — Resolve a unit BoxGeometry from the cache.
      *
      * The geometry is (1, 1, thickness) — width and height are encoded into the
@@ -142,7 +180,14 @@ export class CurtainWallInstanceManager {
      * {@link disposeCache} runs on builder teardown / project switch — never disposed
      * per-wall, because a single shared material backs many walls.
      */
-    private _panelMaterialKey(panelType: PanelType): string {
+    private _panelMaterialKey(panelType: PanelType, materialId?: string): string {
+        // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — a resolved material is keyed
+        // by its ID ALONE, never folded together with the panel type. Two panels that
+        // resolve `stone-marble-carrara` are the same PSO whether one is nominally Glass
+        // and the other Opaque, so sharing the entry is correct and keeps the §L-312B
+        // one-PSO-per-appearance property intact. Prefixed so a material id can never
+        // collide with a panelType-derived key.
+        if (materialId && this._materialMap?.has(materialId)) return `mat:${materialId}`;
         const defaults = PANEL_TYPE_DEFAULTS[panelType];
         const colorStr = typeof defaults.color === 'number'
             ? defaults.color.toString(16).padStart(6, '0')
@@ -150,11 +195,46 @@ export class CurtainWallInstanceManager {
         return `${panelType}:${colorStr}:${defaults.opacity.toFixed(3)}`;
     }
 
-    private _getPanelMaterial(panelType: PanelType): THREE.MeshStandardMaterial {
-        const defaults = PANEL_TYPE_DEFAULTS[panelType];
-        const key = this._panelMaterialKey(panelType);
-        let mat = this._panelMatCache.get(key);
-        if (!mat) {
+    /**
+     * THE LAYER THAT DECIDES WHAT COLOUR A PANEL IS.
+     *
+     * Until L-958 Slice B its entire input was `PANEL_TYPE_DEFAULTS[panelType]`, which is
+     * why no per-panel or per-wall material reference could reach a rendered panel — a
+     * signature-level impossibility, not a missing field on some payload. It now resolves
+     * `materialId` against the injected master library FIRST, exactly as
+     * `CurtainWallBuilder._getMullionMaterial` has always done for the frame.
+     *
+     * ⚠ NO GLASS INVARIANTS ARE FORCED HERE, and that is the difference from
+     * `_getFallbackPanelMaterial`, which re-asserts `transparent` + DoubleSide because it
+     * only ever renders glazing. A panel may now be marble, precast concrete or glazed
+     * ceramic; forcing transparency would make every stone panel a ghost. Opacity comes
+     * from the catalogue row (C100 carries `transparent`/`opacity` per material) and
+     * `side` follows from it — the same rule the panelType path already used.
+     *
+     * A MISS FALLS THROUGH, it does not fail: an id absent from the library renders the
+     * panel type's default rather than black, invisible, or an exception mid-frame.
+     */
+    private _getPanelMaterial(panelType: PanelType, materialId?: string): THREE.MeshStandardMaterial {
+        const key = this._panelMaterialKey(panelType, materialId);
+        const cached = this._panelMatCache.get(key);
+        if (cached) return cached;
+
+        let mat: THREE.MeshStandardMaterial;
+        const matDef = materialId ? this._materialMap?.get(materialId) : undefined;
+        if (matDef) {
+            const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
+            if (matDef.textures) {
+                params.map = matDef.textures.color;
+                params.normalMap = matDef.textures.normal;
+                params.roughnessMap = matDef.textures.roughness;
+            }
+            // Both faces only when the resolved material is actually see-through.
+            params.side = params.transparent ? THREE.DoubleSide : THREE.FrontSide;
+            mat = new THREE.MeshStandardMaterial(
+                params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0],
+            );
+        } else {
+            const defaults = PANEL_TYPE_DEFAULTS[panelType];
             mat = new THREE.MeshStandardMaterial({
                 color: defaults.color,
                 transparent: defaults.transparent,
@@ -163,9 +243,9 @@ export class CurtainWallInstanceManager {
                 roughness: defaults.roughness,
                 side: defaults.transparent ? THREE.DoubleSide : THREE.FrontSide,
             });
-            mat.userData.sharedMaterial = true;
-            this._panelMatCache.set(key, mat);
         }
+        mat.userData.sharedMaterial = true;
+        this._panelMatCache.set(key, mat);
         return mat;
     }
 
@@ -219,23 +299,44 @@ export class CurtainWallInstanceManager {
             }
         }
 
-        // Group batchable panels by panelType
-        const byType = new Map<PanelType, Array<{ cell: CurtainCell; panel: CurtainPanelData }>>();
+        // Group batchable panels by (panelType, materialId).
+        //
+        // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the grouping key gained the
+        // material id. Grouping by panelType ALONE would put a marble spandrel and a
+        // glazed vision panel into one InstancedMesh, which shares a single material by
+        // construction — so the first panel's appearance would silently win for the whole
+        // group. That is the failure this change exists to prevent, and it would have
+        // looked exactly like the bug being fixed: materials set, nothing renders.
+        //
+        // A facade that uses one material still produces ONE group, so the common case
+        // costs nothing; groups multiply only where the facade genuinely varies.
+        interface PanelGroup {
+            panelType: PanelType;
+            materialId?: string;
+            entries: Array<{ cell: CurtainCell; panel: CurtainPanelData }>;
+        }
+        const byType = new Map<string, PanelGroup>();
 
         for (const panel of batchable) {
             const cell = cells.find(c => c.i === panel.cellIndex[0] && c.j === panel.cellIndex[1]);
             if (!cell) continue; // Cell was removed (grid change in flight)
 
-            if (!byType.has(panel.panelType)) {
-                byType.set(panel.panelType, []);
+            // The RENDER key, not the authored one: two ids that both MISS the library
+            // resolve to the same panelType default, so they belong in one group. Keying
+            // on the raw id would split a group that renders identically.
+            const groupKey = `${panel.panelType}::${this._panelMaterialKey(panel.panelType, panel.materialId)}`;
+            let group = byType.get(groupKey);
+            if (!group) {
+                group = { panelType: panel.panelType, materialId: panel.materialId, entries: [] };
+                byType.set(groupKey, group);
             }
-            byType.get(panel.panelType)!.push({ cell, panel });
+            group.entries.push({ cell, panel });
         }
 
         // §DIAG-IM-01: log type distribution so we can track per-panel-type geometry allocation cost
         if (byType.size > 0 || overridePanelIds.length > 0) {
-            const typeBreakdown = Array.from(byType.entries())
-                .map(([t, es]) => `${t}:${es.length}`)
+            const typeBreakdown = Array.from(byType.values())
+                .map(g => `${g.panelType}${g.materialId ? '/' + g.materialId : ''}:${g.entries.length}`)
                 .join(', ');
             console.log(
                 `[CurtainWallInstanceManager] §DIAG-IM-01 panels=${panels.length} ` +
@@ -250,7 +351,7 @@ export class CurtainWallInstanceManager {
         let __im_geo_alloc_count = 0;
         let __im_mat_alloc_count = 0;
 
-        for (const [panelType, entries] of byType.entries()) {
+        for (const { panelType, materialId, entries } of byType.values()) {
             if (entries.length === 0) continue;
 
             // §B.1.4 — Resolve geometry and material from cache instead of allocating fresh.
@@ -266,15 +367,15 @@ export class CurtainWallInstanceManager {
 
             // §L-312B — material key is panelType-derived ONLY (no thickness), so the
             // material (and its PSO) is shared across every wall of this panel type.
-            const matWasHit = this._panelMatCache.has(this._panelMaterialKey(panelType));
-            const mat = this._getPanelMaterial(panelType);
+            const matWasHit = this._panelMatCache.has(this._panelMaterialKey(panelType, materialId));
+            const mat = this._getPanelMaterial(panelType, materialId);
             if (!matWasHit) {
                 __im_mat_alloc_count++;
             }
 
             console.log(
                 `[CurtainWallInstanceManager] §DIAG-IM-02 ` +
-                `panelType=${panelType} instances=${entries.length} ` +
+                `panelType=${panelType}${materialId ? ' materialId=' + materialId : ''} instances=${entries.length} ` +
                 `geo=${geoWasHit ? '(from cache)' : 'NEW BoxGeometry'} ` +
                 `mat=${matWasHit ? '(from cache)' : 'NEW MeshStandardMaterial'} ` +
                 `resolveMs=${(performance.now() - __t_geo).toFixed(2)}ms`
@@ -316,6 +417,10 @@ export class CurtainWallInstanceManager {
             instancedMesh.userData = {
                 elementType: 'CurtainPanelInstanced',
                 panelType,
+                // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958) — stamped so a picked panel
+                // can report the material it actually rendered with, not the one someone
+                // assumes from its panelType.
+                materialId,
                 instancePanelIds,
                 isSubElement: true,
                 sharedGeometry: true,

@@ -140,6 +140,36 @@ export interface CurtainPanelData extends CoreElement {
     /** Optional hex color string override — supersedes the type default. */
     materialOverride?: string;
     /**
+     * §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the C100 master-catalogue
+     * material this panel is made of, e.g. `stone-marble-carrara`, `concrete-precast`,
+     * `tile-zellige-green`, `glass-reflective`.
+     *
+     * ── WHY THIS EXISTS AND `materialOverride` DOES NOT SERVE ───────────────────
+     *
+     * `materialOverride` is a raw hex string. C100 §2.1 forbids a hex as the HOME of a
+     * material: a colour cannot carry roughness, metalness or transparency, so a stone
+     * panel and a mirror panel with the same hue would render identically flat. It is
+     * left exactly as it is — an authored per-panel TINT, still honoured by
+     * `CurtainPanelFactory.buildFlatPanel` — and is neither extended nor migrated.
+     * This field is the material REFERENCE that a published type can carry.
+     *
+     * ── HOW IT REACHES THE PIXEL ────────────────────────────────────────────────
+     *
+     * `CurtainWallInstanceManager._getPanelMaterial(panelType, materialId)` resolves it
+     * against the SAME injected `STANDARD_MATERIAL_LIBRARY` map that the mullion half has
+     * always used successfully (`CurtainWallBuilder._getMullionMaterial`, fed from
+     * `initUI.ts:2241`). One resolver, reused — C84 EI-9, one answer per question. On a
+     * miss it falls through to `PANEL_TYPE_DEFAULTS[panelType]`, so an unknown id renders
+     * as the panel type's default rather than black or invisible.
+     *
+     * ⚠ Panels sharing a (panelType, materialId) pair still share ONE InstancedMesh and
+     * ONE material, so adding materials costs draw calls only where the facade genuinely
+     * varies. `materialOverride` still forces the individual-mesh path; `materialId` does
+     * not, and must not — a spandrel band of forty identical stone panels is the common
+     * case, not the exception.
+     */
+    materialId?: string;
+    /**
      * Phase 2: Door configuration — required when panelType === 'SystemPanel_Door'.
      * Rendered by CurtainPanelBuilder.buildDoorObject().
      */
