@@ -331,13 +331,31 @@ const levels = runtime.scene.levels.getAll();
 > `tools/ga-gate/check-raf-count.ts:173,191` documents the same fixture convention in its glob
 > rationale, and `.changeset/config.json:12` lists the package in release config.
 >
-> ⛔ **WHY THIS IS DANGEROUS AND NOT MERELY STALE.** `check-raf-count.ts` enforces **P3 (single
-> rAF owner)**, which [C01](C01-ARCHITECTURE-AND-GOVERNANCE.md) §1 records as **hard-fail and
-> currently FAILING** (5 owner files against a target of 1). Executing this DROP would delete the
-> fixture that two rAF-enforcement scripts carry hardcoded paths for — **perturbing the instrument
-> while the thing it measures is already red.** The package's own description
-> (*"Nothing in here ships"*) is TRUE and is not the same claim as *"nothing depends on it"*.
-> **A fixture's whole purpose is to be depended upon by a test rather than by shipping code.**
+> ⛔ **WHY THIS IS DANGEROUS AND NOT MERELY STALE.** Executing this DROP would delete the fixture
+> that **two rAF-enforcement scripts carry hardcoded paths for** — `check-no-raf-in-pryzm2.mjs:49`
+> and `check-raf-count.ts:173,191` — silently changing what the P3 instrument measures. The
+> package's own description (*"Nothing in here ships"*) is TRUE and is **not the same claim as
+> "nothing depends on it"**. **A fixture's whole purpose is to be depended upon by a test rather
+> than by shipping code.**
+>
+> ⚠ **CORRECTION TO THIS BANNER, 2026-08-18 — I got P3's state wrong, in the direction that
+> overstated my own case.** This paragraph first read *"perturbing the instrument while the thing
+> it measures is already red"*, citing [C01](C01-ARCHITECTURE-AND-GOVERNANCE.md) §1's
+> *"FAILING: 5 owner files, target 1"*. **P3 is GREEN.** Measured twice, independently:
+> `npx tsx tools/ga-gate/check-raf-count.ts` → **exit 0**, `[raf-tripwire] OK: 1 owner` —
+> `packages/frame-scheduler/src/RafAdapter.ts` — with *"Comment-only mentions (not owners): 4"*.
+> **C01's "5" is 1 owner plus 4 COMMENT lines**, three of which are doc comments *asserting P3
+> compliance*. `gate-debt.json` already recorded this on 2026-08-10 under
+> `§RAF-GATE-COMMENT-BLIND`: *"all four matches were COMMENT lines… the measured owner count is
+> exactly 1… the gate was counting sentences."*
+>
+> ⭐ **The lesson is sharper than the correction.** I wrote a banner condemning a contract for
+> carrying an unmeasured claim — and sourced my own justification from a *different* contract's
+> unmeasured claim, on the same day, without running the gate. **It is the read-the-matched-line
+> error, committed inside the amendment that exists to punish it.** The DROP is still correctly
+> rescinded: the four live non-import references are real and are entirely independent of P3's
+> colour. Only my *urgency argument* was false — and this banner's exit condition, *"P3 must be
+> green first"*, is **already satisfied**.
 >
 > **VERDICT under [C84](C84-ELEMENT-INTEGRITY.md) §3.5:** not TRULY DEAD. Zero *editor*
 > reachability, live in `tools/` and `tests/` — both on §3.5.2's host list — therefore

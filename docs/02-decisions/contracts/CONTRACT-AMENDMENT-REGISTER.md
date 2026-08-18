@@ -261,6 +261,84 @@ writer-vs-feature version — all stand and have a real substrate in `MigrationE
 
 ---
 
+## 11B. C01–C20 — **14 of 16 audited carry factual falsehoods**
+
+⛔ **C01 §1 is FALSE on three P-gates — and I propagated one of them into an amendment TODAY.**
+
+| | C01 says | Measured at HEAD | Exit |
+|---|---|---|---|
+| **P3** | *"FAILING: 5 owner files, target 1"* (twice) | `[raf-tripwire] OK: 1 owner` + **4 comment-only mentions** | **0 — PASSES** |
+| **P4** | *"FAILING: 20 strict / 215 repo-wide"* | `OK: 3 = baseline`; repo-wide 100/100 | **0 — PASSES** |
+| **P8** | *"PASSING (245 ≥ floor 213)"* | **FAIL (Zone B)** — 1 new uninstrumented file | **FAILS** |
+
+⭐ **The P3 "5" is 1 owner + 4 COMMENT lines**, three of which are doc comments *asserting P3
+compliance*. `gate-debt.json` recorded this on **2026-08-10** (`§RAF-GATE-COMMENT-BLIND` — *"the
+gate was counting sentences"*). C01 is dated Aug 9 and never got the memo. **CLAUDE.md's P4 bullet
+is stale in the opposite direction** — it claims RED/exit 3 where the gate exits 0.
+**STATUS: ✅ my C14 banner corrected in place.**
+
+| Contract | Verdict | Headline |
+|---|---|---|
+| **C02** | FALSE | §3.2/§3.3 mandate `getCommandManagerBridge()` — **zero production files**, and two tests *forbid* it. §1.1's `ComposeRuntimeInput` does not exist, so §5's own example cannot compile |
+| **C03** | FALSE | §6.3 documents **two** live `level.add` handlers; the second was **deleted because two existed** (`§FIX-LEVEL-ADD-SHADOW`). §3.1 says stores are **Zustand** — the manifest declares **Immer, no zustand**; **6 of 8** slice names have zero definitions. Every source anchor in §4.2/§4.5/§4.6 has drifted |
+| **C04** | FALSE | §1.1 cites `eslint-plugin-boundaries` as the P2 gate — L-809 already recorded it checks nothing. §4 attributes the render loop to `render-runtime`, whose **own manifest deprecates it for zero importers**; the real loop is `UnifiedFrameLoop.ts:284` at `pre-render`. §1.3's `CameraHandle` occurs **exactly once in the repo: on C04's own line 28** |
+| **C05** | FALSE | §2.1's ZIP layout matches **nothing**; §6 mandates `projects.user_id`, the column is `owner_id` — and §1.3.1 of the same contract says so |
+| **C06** | FALSE | `runtime.tools.register(tool)` doesn't exist; `KeyboardShortcutRegistry` — **zero files** |
+| **C07** | FALSE | `NetworkProxy` doesn't exist; all six proxy names wrong; the §3.1 permission vocabulary is fictional against the **v1-LOCKED** enum. §5's *"target 0 ✅ achieved"* measures **172** |
+| **C08** | FALSE | every rate-limit number wrong (`globalLimiter` **2000** not 200); `trust proxy 1` would **re-introduce IP collapse**; remote-factory gap is 164 and **grew 14 in eleven days** |
+| **C09** | FALSE | §4.2 cites a P7 gate file that does not exist; the real gate tolerates 40 violations |
+| **C10** | CONTRADICTORY | §2.3 states a gate as live fact that §4 of the same file says never existed. ⭐ Also **falsifies CLAUDE.md**: `check-conflict-surfacing.ts` exists, so *"the conflict-surfacing half has no gate"* is wrong |
+| **C11** | FALSE | §11's normative matrix says handrail/furniture/lighting have **"❌ No bridge"** — all three shipped (`initTools.ts:1919/2031/1967`), and §11.9/§11.11/§11.19 of the same contract say so. §11.1 carries an **OPEN work order to build one that exists**. §7.2's *"no OTel span, plugin-sdk exposes no tracer"* → `withHandlerSpan` is used in **254 files** |
+| **C15** | FALSE | §13 certifies a hardening fix that was **removed**; §9's four mandated span attributes have **zero occurrences**; §6 names `OpeningsChildrenMismatchError` — zero occurrences, so a `catch` on it is dead code |
+| **C16** | FALSE | §11.1 says CA-21 *"NOT ENFORCED"* and G-CA-A4 unbuilt — `check-verb-liveness.ts` exists, is registered, and **quotes that very row as its reason for existing**. §12 records `roof.update` as a live P0 — the register reads it **LIVE**; the five move verbs read **REFUSES**. Its own top authority (`01-VISION.md`, `02-ARCHITECTURE.md`) — **neither file exists** |
+| **C12** | STALE + CONTRADICTORY | ⛔ §9's L-631 row carries a **standing order not to enable terrain** — the founder decision was **taken and shipped**, and the code says so verbatim at `CesiumViewport.ts:7180-7185`. An engineer obeying C12 literally would **re-revert terrain for every city** |
+| **C13** | STALE (core CLEAN) | §7.2's mandated E2E fires the switch on `window.dispatchEvent` — the channel §3.9 of the same contract declares a **silent no-op and PROHIBITED**. The acceptance test for the whole teardown cannot trigger it |
+| **C14** | FALSE | LP-06 orders `storeEventBus` stripped from `command-registry` — **C13 §3.12 mandates it there**; doing so re-ships L-713. §6A declares 3 measurably RED gates *"✅ Passing"* and enumerates 15 of **82**. `global-bridge.ts` and `CommandManager.ts` — **neither exists anywhere** |
+| **C17** | STALE (framing) | headed *"before implementation"*; `batchCatalogue.ts` shipped, 634 lines, and cites C17 back |
+| **C18** | **CLEAN** | palette, paths and `PREVIEW_CSS` all verified |
+
+---
+
+## 11C. C51–C75 — the BIM 3.0 suite shares ONE authoring defect
+
+**Eleven gates across C71/C72/C73 are described as unbuilt. All eleven exist. Four are at exit 3.**
+
+| Contract | Claim | Measured |
+|---|---|---|
+| **C72** §6.2/§6.3 | *"SPECIFIED, NOT BUILT"* ×2 | both exist; `check-suppression-is-reversible` **exit 3 at 84/41 — double its ledger** |
+| **C71** §6 | *"none of the three exists at HEAD"* | all 3 exist; `check-graph-write-coverage` **exit 3**. **§5 has been citing their output since the day §6 was written** |
+| **C73** line 7 | *"three gates NOT YET BUILT"* | ⚠ **today's §5 banner did not reach the FRONT MATTER** — the first thing a reader sees still carries the falsehood |
+
+⛔ **C71 §5.2's `contains` claim is INVERTED.** It says *"`contains` is read-only… a first-party
+writer is a named Tier-2 gap."* Measured: the **writer exists**
+(`CreateFurnitureCommand.ts:249`); the gate's unledgered exit-3 finding is the **opposite** —
+*"REQUIRED family 'contains' has NO typed production reader — write-only state nobody can query."*
+**The contract sends an engineer to build the half that exists while the failing half goes
+unnamed.**
+
+⭐ **C74 and C75 are the house model and the fix to copy suite-wide:** they wrote
+*"UNBUILT **at stamp time (2026-08-12)**, stated explicitly so absence is never inferred from
+omission."* **A dated historical claim cannot rot into a falsehood.** C71/C72/C73 wrote the present
+tense and all three became false.
+
+> **THE AMENDMENT TO PROPOSE ACROSS THE ENTIRE SUITE: never write a build status in the present
+> tense. Write it dated, or cite the gate.**
+
+**Also:** C73 §3.1 orders predicate work *"in the order their measured duplication argues for"* and
+puts **point-in-polygon first — that family is at 0 and finished**. The real open families are
+polygon-area/winding (73 rivals) and segment/segment (11). An engineer following §3.1 opens a
+closed family. And **C73 §2.2 vs §5.1 E2 needs a DECISION, not a banner**: the one finding driving
+`check-epsilon-policy` to exit 3 is a site that does **exactly what §2.2 demands**
+(`const PLANAR_EPS_M = COINCIDENT_M;`) and E2 counts it as a rival declaration.
+
+**VERIFIED CLEAN:** **C66** — every falsifiable claim held, and CLAUDE.md's warning is satisfied
+(§1 still marks all tiers CLAIMED). **C69** — the best-authored contract in its range; §0.1's
+*"no number in the body"* discipline is honoured throughout. **C72 vs C03 §4** — `prevState` and
+the undo-restore set **are** genuinely different concepts; C72 does not duplicate C03
+(`grep -c affectedStores` → 0).
+
+---
+
 ## 12. COVERAGE HONESTY — what was NOT measured
 
 **Two axes were measured exhaustively across C21–C50:** every cited gate path (**99 distinct → 2
