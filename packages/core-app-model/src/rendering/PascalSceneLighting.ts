@@ -27,6 +27,64 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import {
+    getNeutralStudioEnvironment,
+    isNeutralStudioEnvironment,
+} from './NeutralStudioEnvironment';
+
+/**
+ * §FEAT-PASCAL-METAL-ENV (L-967) — the environment intensity this path applies, and the
+ * single number the founder's decision turns on. **MEASURED, NOT GUESSED.**
+ *
+ * ### What was wrong before
+ * `apply()` set `scene.environment = null`, so a `metalness: 0.9` PBR surface — which
+ * has no diffuse component worth the name and shows only what it REFLECTS — had nothing
+ * to reflect. Every high-metalness material in the product rendered black: walls,
+ * columns, beams, handrails, furniture. Curtain wall was merely where the founder
+ * pointed a metal at a large flat face and looked at it.
+ *
+ * ### The measurement (`PascalSceneLighting.metalEnvironment.test.ts`)
+ * Display bytes, ACESFilmic @ exposure 0.9 (both renderer adapters set exactly that),
+ * on an environment normalised to unit mean radiance, panel facing the camera:
+ *
+ * ```
+ *  envI   aluminium-brushed-dark   copper-new       special-mirror-silver   shadow-side wall   AO Δ
+ *   0     5,7,8   <- BLACK         3,0,0  <- BLACK  0,0,0  <- BLACK         131                21.0
+ *   0.3   26,30,33                 93,45,12         135,138,141             190                18.1
+ *   0.5   37,42,47                 129,69,22        172,174,177             208                15.0
+ *   0.75  50,56,61                 161,93,34        197,199,201             220                11.8
+ *   1.0   62,69,75                 183,113,45       211,213,215             228                10.0
+ *   2.0   100,109,116              224,165,83       234,235,236             241                 5.0
+ *  target 71,77,82                 184,115,51       223,227,232
+ * ```
+ *
+ * **1.0 is the smallest swept value at which all five metals in the founder's types land
+ * within 25 % of their own catalogue colour.** At 0.75 the copper mullion's blue channel
+ * is still 33 % low and the aluminium panel 30 % low — it reads as a dulled metal, not as
+ * the metal. Below 0.5 nothing reads as metal at all.
+ *
+ * ### What it costs, stated rather than hidden
+ * AO contrast on a shadow-side surface falls from **21.0 to 10.0 display bytes** — it
+ * retains 48 %, it does not vanish, and the shadow side lifts from 131 to 228. That is a
+ * real loss and the founder accepted it: *"I just need to see metal colours."* Metals win
+ * where the two conflict.
+ *
+ * ### Why the AO RATIO survives at all — the thing the old comment could not know
+ * `RenderPipelineManager._buildPhase3Pipeline` composites SSGI as
+ * `final = scene.rgb x AO + (zone + diffuse x GI)`. AO multiplies the **whole** beauty
+ * buffer, so the linear AO ratio (1 - AO) is preserved EXACTLY at every intensity. What
+ * shrinks above is only the *display-byte* delta, because ACES + the sRGB OETF compress
+ * contrast as luminance climbs into the shoulder. AO is dimmed by tone-mapping, not
+ * deleted by the environment.
+ *
+ * ### Why `1.0` is a LOW intensity here and was not for the HDRI
+ * The comment in `apply()` recorded that even `environmentIntensity = 0.3` washed AO out.
+ * That was measured against an **HDRI**, whose mean radiance is routinely 5-50x a white
+ * card. `NeutralStudioEnvironment` is normalised so its mean radiance is exactly **1.0**,
+ * so `1.0` here is roughly an HDRI at 0.02-0.2. Both observations are true; they are
+ * about different stimuli. Do not "reconcile" them by lowering this to 0.3.
+ */
+export const PASCAL_ENV_INTENSITY = 1.0;
 
 /**
  * §FIX-SHADOW-CASTER-DENYLIST (L-205) — a mesh whose world-space bounding radius exceeds this is
@@ -128,10 +186,14 @@ export class PascalSceneLighting {
      * Matches Pascal/packages/viewer/src/components/viewer/lights.tsx exactly:
      *   - 3 directional lights (key=4, fill=0.75, rim=1) + ambient (0.5)
      *   - Key light shadow.intensity = 0.4 (light mode — softer shadows)
-     *   - scene.environment cleared to NULL — Pascal's viewer never sets it.
+     *   - The HDRI is dropped — Pascal's viewer never sets scene.environment.
      *     HDRI IBL floods the scene with uniform ambient from all directions,
      *     making SSGI AO (~15-30% darkening) invisible against the bright base.
-     *     Pascal achieves contrast purely through directional lights; no IBL.
+     *     Pascal achieves contrast overwhelmingly through directional lights.
+     *   - §FEAT-PASCAL-METAL-ENV (L-967) — but NOT to null. A dim unit-mean neutral
+     *     environment goes in at PASCAL_ENV_INTENSITY so metals have something to
+     *     reflect; null made every metalness-0.9 material in the product render black.
+     *     The sweep and the AO cost are on PASCAL_ENV_INTENSITY.
      *
      * @param scene  - The shared THREE.Scene (world.scene.three)
      * @param config - Optional overrides (defaults match Pascal exactly)
@@ -142,21 +204,51 @@ export class PascalSceneLighting {
         const cfg = { ...DEFAULT_CONFIG, ...config };
         this._scene = scene;
 
-        // ── 1. Clear HDRI environment entirely ────────────────────────────────
+        // ── 1. Drop the HDRI; install the dim neutral baseline ────────────────
+        //
+        // THE ORIGINAL REASONING, KEPT BECAUSE IT IS STILL TRUE:
         // Pascal's viewer (lights.tsx) NEVER sets scene.environment.
         // IBL from an HDRI texture floods the scene with uniform ambient light
         // from all directions — even with environmentIntensity=0.3 this creates
         // enough flat ambient that SSGI's AO darkening (~15-30%) is nearly
         // invisible against the bright, uniformly-lit base colors.
-        //
-        // Clearing scene.environment = null makes PRYZM's scene match Pascal:
+        // Clearing the HDRI makes PRYZM's scene match Pascal:
         //   - No IBL ambient from HDRI
-        //   - Lighting comes only from the 3 directional lights + ambient below
-        //   - SSGI AO contrast (darkened corners) becomes clearly visible
+        //   - Lighting comes overwhelmingly from the 3 directional lights + ambient
+        //   - SSGI AO contrast (darkened corners) stays readable
+        //
+        // §FEAT-PASCAL-METAL-ENV (L-967) — WHAT CHANGED, AND ON WHOSE AUTHORITY.
+        // This block used to end `scene.environment = null`, and that is exactly why
+        // every high-metalness material in the product rendered BLACK. A metal has no
+        // diffuse component; it shows what it reflects; there was nothing to reflect.
+        // It was not a curtain-wall defect and not a regression — it was the stated
+        // trade-off, correctly implemented, resolved the wrong way for the product.
+        //
+        // The founder resolved it: *"I just need to see metal colours — in both WebGPU
+        // and WebGL2."* Metals win where the two conflict. So instead of NULL we install
+        // a dim, unit-mean, neutral studio environment at PASCAL_ENV_INTENSITY — whose
+        // whole derivation, the intensity sweep, and the AO cost in display bytes are in
+        // that constant's doc comment. It is NOT an HDRI: it is ~1/25th of one, and the
+        // original objection above was measured against an HDRI.
+        //
+        // WHY IT MUST BE THIS TEXTURE AND NOT `ProceduralSkyService`/`HDRIEnvironmentManager`:
+        // both build their environment with a PMREMGenerator bound to a RENDERER, and a
+        // live backend swap retires that renderer (§RETIRE-RENDERER-DETACHES-LISTENERS,
+        // L-948). Their output would be a dead texture on the next device loss and the
+        // metals would go black INTERMITTENTLY. See NeutralStudioEnvironment.ts.
+        //
+        // WE STILL YIELD. If a real provider has already claimed the slot (sky, HDRI,
+        // realtime lighting), we leave its environment alone — this baseline exists for
+        // the case where NOBODY provides one, which on the Phase 5 / WebGPU path is
+        // always, because initScene deliberately passes hdriPresetId: 'none' there.
         this._savedEnv             = scene.environment as THREE.Texture | null;
         this._savedEnvIntensity    = scene.environmentIntensity ?? 1;
-        scene.environment          = null;
-        scene.environmentIntensity = 1.0;
+        const incumbentIsRealProvider =
+            !!this._savedEnv && !isNeutralStudioEnvironment(this._savedEnv);
+        if (!incumbentIsRealProvider) {
+            scene.environment          = getNeutralStudioEnvironment();
+            scene.environmentIntensity = PASCAL_ENV_INTENSITY;
+        }
 
         // ── 2. Remove OBC's built-in lights ─────────────────────────────────
         // OBC adds its own DirectionalLight and HemisphereLight/AmbientLight
@@ -243,7 +335,9 @@ export class PascalSceneLighting {
             ', rim: ' + cfg.rimIntensity +
             ', ambient: ' + cfg.ambientIntensity +
             ', shadow.intensity: 0.4' +
-            ', scene.environment → null (HDRI cleared — Pascal has no IBL)'
+            ', scene.environment → ' + (scene.environment?.name ?? 'null') +
+            ' @ intensity ' + scene.environmentIntensity +
+            ' (§FEAT-PASCAL-METAL-ENV L-967 — metals need something to reflect)'
         );
     }
 
@@ -319,7 +413,10 @@ export class PascalSceneLighting {
         }
         this._removedLights = [];
 
-        // Restore HDRI environment (we cleared scene.environment in apply())
+        // Restore whatever owned scene.environment before apply() (usually null, or an
+        // HDRI on the OBC/WebGL path). §FEAT-PASCAL-METAL-ENV (L-967) — the neutral
+        // studio baseline is a process-wide singleton shared by every scene, so it is
+        // dropped from THIS scene here and never disposed.
         scene.environment          = this._savedEnv;
         scene.environmentIntensity = this._savedEnvIntensity;
         this._savedEnv             = null;
