@@ -43,11 +43,25 @@ export const SlabDataSchema = z.object({
             'structure',
             'substrate',
             'waterproofing',
+            // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the four landscape roles. This
+            // list and `SlabLayerFunction` are two spellings of ONE enum; they must
+            // be extended together, or a valid landscape layer is rejected at the
+            // store boundary with a ZodError the user sees as "nothing happened".
+            'growing-medium',
+            'sub-base',
+            'drainage',
+            'geotextile',
         ]),
         thickness:     z.number().positive(),
         // M4 §SLAB-SYSTEM-AUDIT-2026: Validate materialColor as a CSS hex colour
         // (#RGB or #RRGGBB) so that non-colour strings do not silently reach THREE.
         materialColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).optional(),
+        // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the master-catalogue reference.
+        // Deliberately unvalidated beyond "is a string": an id that resolves to
+        // nothing must stay DISTINGUISHABLE from one that resolves (C84 §5 /
+        // C100 §5), so the builder reports the miss instead of the schema
+        // rejecting it or inventing a substitute colour.
+        materialId:    z.string().optional(),
     })).optional(),
     width:         z.number().optional(),
     depth:         z.number().optional(),

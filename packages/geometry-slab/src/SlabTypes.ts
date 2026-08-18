@@ -23,7 +23,21 @@ export type SlabLayerFunction =
     | 'insulation'
     | 'structure'
     | 'substrate'
-    | 'waterproofing';
+    | 'waterproofing'
+    // ── §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — four LANDSCAPE build-up roles ────
+    //
+    // ⚠ WHY A LANDSCAPE LAYER MUST NOT REUSE 'finish-surface'.
+    // `RoomFinishResolver.ts:147` resolves a room's floor finish by finding the
+    // layer whose `function === 'finish-surface'` on ANY slab on the level. A
+    // garden's turf tagged that way would be reported as an interior ROOM'S
+    // FLOOR FINISH — a silent cross-element corruption wearing the costume of a
+    // convenient reuse, and one the founder would meet as "why is my bedroom
+    // floor grass?". These four roles keep a landscape build-up legible to
+    // scheduling without ever answering a question about an interior room.
+    | 'growing-medium'
+    | 'sub-base'
+    | 'drainage'
+    | 'geotextile';
 
 /**
  * §03-1.3: A single material layer within a slab system type.
@@ -34,6 +48,22 @@ export interface SlabLayer {
     thickness: number;
     function: SlabLayerFunction;
     materialColor?: string;
+    /**
+     * §FEAT-LANDSCAPE-SLAB-TYPES (L-963) / C100 §2 — a MASTER catalogue id
+     * (`MATERIAL_CATALOG` in `@pryzm/schemas/materials`), REFERENCED not copied.
+     *
+     * This is the SAME spelling `SlabData.materialId` already uses — deliberately
+     * not a sixth vocabulary (C84 EI-8). Before this field a layer could only
+     * carry `materialColor`, a hex, so publishing a lawn type meant writing
+     * `#436f2c` into the store: a materialised COPY of `landscape-grass-lawn`'s
+     * colour, which is precisely the defect C100 §0.2 was written about. The
+     * builder resolves this id to a colour at render time, so editing the master
+     * row moves every slab that names it.
+     *
+     * `materialColor` remains the fallback for layers that name no material, and
+     * every pre-existing layer is exactly that — so this field is additive.
+     */
+    materialId?: string;
 }
 
 export interface SlabData extends CoreElement {

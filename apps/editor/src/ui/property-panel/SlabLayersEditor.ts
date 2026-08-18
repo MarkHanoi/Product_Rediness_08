@@ -22,15 +22,35 @@ const LAYER_FUNCTIONS = [
     { value: 'insulation',     label: 'Insulation'       },
     { value: 'substrate',      label: 'Substrate'        },
     { value: 'waterproofing',  label: 'Waterproofing'    },
+    // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the four landscape roles, so a user
+    // editing a landscape build-up can name what each layer IS. Without these the
+    // dropdown would silently coerce every landscape layer to 'structure' on save.
+    { value: 'growing-medium', label: 'Growing Medium'   },
+    { value: 'sub-base',       label: 'Sub-base'         },
+    { value: 'drainage',       label: 'Drainage'         },
+    { value: 'geotextile',     label: 'Geotextile'       },
 ];
 
+/**
+ * LEGEND swatches for the layer-function chip — a ROLE colour, not a material.
+ *
+ * ⚠ These are deliberately NOT the master catalogue's hexes for the landscape
+ * rows. Copying `landscape-topsoil`'s colour to sit beside 'growing-medium' would
+ * mint the very duplicate C100 §0.2 exists to stop, and it would go stale the
+ * moment the master row is edited. The rendered colour comes from the layer's
+ * `materialId` resolved against the master; this map only tints a UI chip.
+ */
 const FN_COLORS: Record<string, string> = {
-    'structure':      '#909090',
-    'finish-surface': '#e8e0d8',
-    'screed':         '#c8bfa8',
-    'insulation':     '#f5e07a',
-    'substrate':      '#a0a0a0',
-    'waterproofing':  '#404040',
+    'structure':       '#909090',
+    'finish-surface':  '#e8e0d8',
+    'screed':          '#c8bfa8',
+    'insulation':      '#f5e07a',
+    'substrate':       '#a0a0a0',
+    'waterproofing':   '#404040',
+    'growing-medium':  '#6b7a5a',
+    'sub-base':        '#b0aa9c',
+    'drainage':        '#8fa3ad',
+    'geotextile':      '#d8d4c8',
 };
 
 function totalMm(layers: any[]): number {

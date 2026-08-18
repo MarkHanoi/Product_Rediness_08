@@ -145,17 +145,29 @@ export function appendSlabLayerSection(
         titleRow.appendChild(addBtn);
         layerSection.appendChild(titleRow);
 
+        // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the four landscape roles are listed
+        // here too. This is the THIRD spelling of the SlabLayerFunction enum (with
+        // `SlabTypes.ts` and `SlabValidator.ts`); all three must move together or a
+        // landscape layer opened in this inspector loses its role on save.
         const fnOptions: string[] = [
             'finish-surface', 'screed', 'insulation',
-            'structure', 'substrate', 'waterproofing'
+            'structure', 'substrate', 'waterproofing',
+            'growing-medium', 'sub-base', 'drainage', 'geotextile'
         ];
+        // Role LEGEND swatches, not materials — see the note in SlabLayersEditor.ts.
+        // The rendered colour comes from the layer's `materialId` resolved against
+        // the master catalogue; these only tint a chip in this panel.
         const fnColors: Record<string, string> = {
-            'finish-surface': '#e8e0d8',
-            'screed':         '#c8bfa8',
-            'insulation':     '#f5e07a',
-            'structure':      '#909090',
-            'substrate':      '#a0a0a0',
-            'waterproofing':  '#404040'
+            'finish-surface':  '#e8e0d8',
+            'screed':          '#c8bfa8',
+            'insulation':      '#f5e07a',
+            'structure':       '#909090',
+            'substrate':       '#a0a0a0',
+            'waterproofing':   '#404040',
+            'growing-medium':  '#6b7a5a',
+            'sub-base':        '#b0aa9c',
+            'drainage':        '#8fa3ad',
+            'geotextile':      '#d8d4c8'
         };
 
         const editableLayers: any[] = slab.layers.map((l: any) => ({ ...l }));
