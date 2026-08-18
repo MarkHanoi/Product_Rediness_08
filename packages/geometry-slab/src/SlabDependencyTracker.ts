@@ -13,6 +13,9 @@ import { polygonBoundingBox } from './SlabGeomUtils';
 // "preserved" while persisting a change, or the reverse.
 import {
     classifySlabRecompute,
+    // §REGION-ANNULUS (ADR-0329 D5) — hole identity is decided by the SAME cyclic
+    // comparison the outer ring uses, never a per-index compare.
+    ringsEqualCyclic,
     type SlabRecomputeVerdict,
 } from './slabRecomputeVerdict';
 import { DegradeSlabSketchCommand } from '@pryzm/command-registry';
@@ -286,8 +289,51 @@ export class SlabDependencyTracker {
         // spurious update. A rotation is the same boundary; a WINDING FLIP is not,
         // so an inverting move is still persisted and the record keeps agreeing
         // with what the mesh draws.
+        // §REGION-ANNULUS (ADR-0329 D5) — re-derive the HOLES before the write rule
+        // is evaluated, because they participate in it.
+        //
+        // THE DEFECT A CONTROL CAUGHT, recorded so it is not reintroduced: the write
+        // rule below is `writable && verdict.state !== 'preserved'`, and `verdict` is
+        // a classification of the OUTER ring alone. When only a HOLE's wall moves —
+        // the building grows, the parcel does not — the outer ring is genuinely
+        // unchanged, the verdict is genuinely `preserved`, and the record was
+        // therefore never written. The mesh followed and `SlabData.holes` did not,
+        // which is §FIX-SLAB-POLYGON-WRITEBACK's exact defect reproduced in the field
+        // that fix did not know about. `preserved` was true of the ring and false of
+        // the slab.
+        //
+        // Hole identity uses the SAME `ringsEqualCyclic` the outer ring uses, for the
+        // same reason: the creation-time ring and the re-derived ring walk the same
+        // boundary but may start at a different vertex, and a per-index compare reads
+        // a rotation as a change and fires a spurious update.
+        //
+        // A loop that will not resolve LIVE is OMITTED rather than kept at its old
+        // coordinates (C79 §2.3 — a wrong hole is worse than no hole), and
+        // `holesFullyLive` goes false so the same stale-fallback refusal that guards
+        // the ring guards the holes.
+        const innerLoops = slab.sketch.innerLoops ?? [];
+        let derivedHoles: { x: number; y: number }[][] | undefined;
+        let holesFullyLive = true;
+        if (innerLoops.length > 0) {
+            derivedHoles = [];
+            for (const loop of innerLoops) {
+                const holeRes = SlabFragmentBuilder.resolveLoopVerdict(loop);
+                if (holeRes.fullyLive && holeRes.ring && holeRes.ring.length >= 3) {
+                    derivedHoles.push(holeRes.ring);
+                } else {
+                    holesFullyLive = false;
+                }
+            }
+        }
+        const previousHoles = slab.holes ?? [];
+        const holesChanged =
+            derivedHoles !== undefined
+            && holesFullyLive
+            && (derivedHoles.length !== previousHoles.length
+                || derivedHoles.some((h, i) => !ringsEqualCyclic(h, previousHoles[i])));
+
         const writable = resolution.fullyLive && !!ring && ring.length >= 3;
-        if (writable && verdict.state !== 'preserved') {
+        if (writable && (verdict.state !== 'preserved' || holesChanged)) {
             // Full-replacement update through the store's sanctioned path (§01 §3.4):
             // clone the frozen record, swap the derived fields, hand it back whole.
             const next = structuredClone(slab) as SlabData;
@@ -318,15 +364,7 @@ export class SlabDependencyTracker {
             // reverse pass has no authored value to reconstruct differently. Undo
             // restores the wall; the hole re-resolves to where it was. Pinned by
             // executed control, on the stored sketch, byte-for-byte.
-            const innerLoops = slab.sketch.innerLoops ?? [];
-            if (innerLoops.length > 0) {
-                const derivedHoles: { x: number; y: number }[][] = [];
-                for (const loop of innerLoops) {
-                    const holeRes = SlabFragmentBuilder.resolveLoopVerdict(loop);
-                    if (holeRes.fullyLive && holeRes.ring && holeRes.ring.length >= 3) {
-                        derivedHoles.push(holeRes.ring);
-                    }
-                }
+            if (derivedHoles !== undefined && holesFullyLive) {
                 next.holes = derivedHoles;
             }
 
