@@ -34,11 +34,14 @@
 // most likely to catch a future regression, because collapsing `'unknown'` into
 // `'satisfied'` is invisible in every UI that only counts violations.
 //
-// ⚠ ONE DEFECT IS PINNED AS MEASURED, NOT ENDORSED — see the final block. The
-// evaluator prefers a STALE cached position over reporting `'unknown'`, so a
-// deleted element can still read `'satisfied'`. This suite asserts what the
-// code does today and names it as a defect rather than blessing it; changing
-// that behaviour is not this row's lane.
+// The final block CLOSED a defect this suite originally PINNED. The evaluator
+// preferred a STALE cached position over reporting `'unknown'`, so a deleted
+// element read a confident `'satisfied'` computed against where it used to be —
+// while the identical record without a cached coordinate correctly read
+// `'unknown'`. Whether the system admitted blindness turned on nothing but an
+// incidental cache. The solver-level fallback is gone (C74 §6.2,
+// §CONSTRAINT-STALE-CACHE-IS-NOT-SIGHT) and the block now asserts the honest
+// behaviour, including that the cached and uncached cases are THE SAME VALUE.
 
 import { describe, expect, it } from 'vitest';
 import { ConstraintStore, type ConstraintRecord } from '../src/subsystem/ConstraintStore.js';
@@ -362,18 +365,32 @@ describe('annotationConstraints — the PERSISTED half: written, read back, re-c
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('annotationConstraints — DEFECT PINNED AS MEASURED, NOT ENDORSED', () => {
-  it('⚠ a DELETED element still reads "satisfied" from its stale cached position', () => {
-    // `ConstraintSolver.check` falls back to `cachedPosition` when the live
-    // resolver answers null, and its own docstring gives "the element was
-    // deleted between placement and evaluation" as the reason. The consequence
-    // is the exact collision this suite's honesty block forbids elsewhere: the
-    // wall is GONE, and the verdict is nevertheless a confident 'satisfied'
-    // computed against where it used to be.
-    //
-    // Asserted here so the behaviour is recorded rather than assumed, and so
-    // any future fix must come past this test deliberately. It is NOT a claim
-    // that the behaviour is correct.
+// A DELETED element is BLINDNESS, and blindness does not turn on a cache.
+//
+// This block WAS a pin: `ConstraintSolver.check` fell back to `cachedPosition`
+// when the live resolver answered null — its own docstring gave "the element was
+// deleted between placement and evaluation" as the reason — so a wall that is
+// GONE produced a confident `'satisfied'` computed against where it used to be.
+// The identical case WITHOUT a cached coordinate correctly read `'unknown'`, so
+// whether the system admitted it could not see turned on nothing but an
+// incidental cache.
+//
+// It is now flipped to the CORRECT expectation (C74 §6.2, §CONTEXT-DATA-HONESTY,
+// C70 L-INV-1): a reference the live resolver cannot resolve reads `'unknown'`,
+// and the refusal NAMES the element it could not find. A stale coordinate is
+// evidence of where something used to be; it is not a measurement.
+//
+// Note what is NOT affected, because that is what makes this a fix and not a
+// capability loss: a free `'point'` reference carries its position in
+// `cachedPosition` BY CONSTRUCTION and `resolveReferenceToPoint` returns it as a
+// LIVE resolution. Every satisfied/violated case in this file uses exactly that,
+// and every one of them stays green. What is removed is only the solver-level
+// second guess taken AFTER the resolver has already reported that it could not
+// look.
+describe('annotationConstraints — a DELETED element is UNKNOWN, never a stale verdict', () => {
+  const deletedWalls: ResolverStores = { wallStore: { getById: () => undefined } };
+
+  function staleRecordStore(): ConstraintStore {
     const store = new ConstraintStore();
     const stale: StableReference = { ...wallRef('w-deleted', 'start'), cachedPosition: { x: 0, y: 0, z: 0 } };
     store.restoreRecord(record({
@@ -382,13 +399,78 @@ describe('annotationConstraints — DEFECT PINNED AS MEASURED, NOT ENDORSED', ()
       valueMetres: 1.2,
       references: [stale, pointRef('b', 5, 0, 0)],
     }));
+    return store;
+  }
 
-    new ConstraintSolver().checkAll(store, { wallStore: { getById: () => undefined } });
+  it('a deleted wall reads "unknown" even though a stale cachedPosition survives', () => {
+    const store = staleRecordStore();
 
-    expect(store.getById('stale-1')!.lastResult).toBe('satisfied');
-    // The honest answer would have been 'unknown' — the same value the
-    // no-cached-position case above correctly produces. The ONLY difference
-    // between the two is whether a stale coordinate happened to be cached.
-    expect(store.getById('stale-1')!.lastResult).not.toBe('unknown');
+    // The stale coordinate WOULD have measured 5.000 m against a ">= 1.200 m"
+    // rule, i.e. a comfortable pass. That is precisely the answer that must not
+    // be given: the wall it was measured from no longer exists.
+    const violated = new ConstraintSolver().checkAll(store, deletedWalls);
+
+    expect(store.getById('stale-1')!.lastResult).toBe('unknown');
+    expect(store.getById('stale-1')!.lastResult).not.toBe('satisfied');
+    // Nor is it reported as a breach — "I could not look" is a third value.
+    expect(violated).toHaveLength(0);
+    // And no number is invented for a measurement that never happened.
+    expect(store.getById('stale-1')!.violationDeltaMetres).toBe(0);
+  });
+
+  it('the cached and uncached cases are THE SAME VALUE — an incidental cache is not sight', () => {
+    // This is the assertion the defect was: two records identical in every way
+    // except that one happens to carry a stale coordinate. Before the fix they
+    // read 'satisfied' and 'unknown'; a cache is not a reason to answer a
+    // question the system cannot answer.
+    const cached = staleRecordStore();
+    const uncached = new ConstraintStore();
+    uncached.restoreRecord(record({
+      id: 'stale-1',
+      operator: '>=',
+      valueMetres: 1.2,
+      references: [wallRef('w-deleted', 'start'), pointRef('b', 5, 0, 0)],
+    }));
+
+    new ConstraintSolver().checkAll(cached, deletedWalls);
+    new ConstraintSolver().checkAll(uncached, deletedWalls);
+
+    expect(cached.getById('stale-1')!.lastResult).toBe(uncached.getById('stale-1')!.lastResult);
+    expect(cached.getById('stale-1')!.lastResult).toBe('unknown');
+  });
+
+  it('the refusal is TYPED — it names the element it could not resolve', () => {
+    // "Unknown" alone is honest but unactionable. The result carries WHICH
+    // reference failed, by element type and id, so the panel can say what is
+    // missing rather than that something is.
+    const solver = new ConstraintSolver();
+    const stale: StableReference = { ...wallRef('w-deleted', 'start'), cachedPosition: { x: 0, y: 0, z: 0 } };
+    const result = solver.check(
+      record({
+        id: 'typed-1',
+        operator: '>=',
+        valueMetres: 1.2,
+        references: [stale, pointRef('b', 5, 0, 0)],
+      }),
+      deletedWalls,
+    );
+
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('w-deleted');
+    expect(result.unresolved).toHaveLength(1);
+    expect(result.unresolved![0]).toMatchObject({
+      index: 0,
+      elementType: 'wall',
+      elementId: 'w-deleted',
+      subElement: 'start',
+      // The stale coordinate is REPORTED as present and DELIBERATELY not used —
+      // recorded rather than silently discarded, so a future reader can see that
+      // the fallback was a choice that was made and then unmade.
+      hadCachedPosition: true,
+    });
+    // No measurement is manufactured from the coordinate it declined to use.
+    expect(result.satisfied).toBe(false);
+    expect(result.actualMetres).toBe(0);
+    expect(result.deltaMetres).toBe(0);
   });
 });

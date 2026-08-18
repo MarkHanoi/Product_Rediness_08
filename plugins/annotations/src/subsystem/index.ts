@@ -67,6 +67,7 @@ export {
 
 export {
     type ConstraintResult,
+    type UnresolvedReference,
     ConstraintSolver,
     constraintSolver,
 } from './ConstraintSolver.js';
