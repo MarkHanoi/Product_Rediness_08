@@ -106,7 +106,7 @@ function __pryzmLoadActive(): boolean {
  */
 export type CanPlaceRefusalCode =
     | 'OCC_HOST_ZERO_LENGTH'        // degenerate host — no span exists to occupy
-    | 'OCC_HOST_RAKED'              // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH — raked host cannot carry an opening
+    | 'OCC_HOST_RAKED'              // §RAKE-HOSTED-OPENING — host rake incompatible with its own shape (curved / layered / out of range)
     | 'OCC_WIDTH_NOT_POSITIVE'      // requested width ≤ 0
     | 'OCC_OFFSET_BEFORE_WALL_START'// requested span starts before the wall
     | 'OCC_SPAN_BEYOND_WALL_END'    // requested span runs past the wall end
@@ -226,7 +226,7 @@ export function canPlaceRefusalText(result: CanPlaceResult): string | undefined 
  */
 const CAN_PLACE_DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
     OCC_HOST_ZERO_LENGTH:         'the host wall has no length, so there is no span for an opening to occupy',
-    OCC_HOST_RAKED:               'the host wall is raked and cannot carry an opening',
+    OCC_HOST_RAKED:               "the host wall's angle (rake) is not compatible with hosting an opening",
     OCC_WIDTH_NOT_POSITIVE:       'the requested opening width is not a positive number',
     OCC_OFFSET_BEFORE_WALL_START: 'the requested opening starts before the wall does',
     OCC_SPAN_BEYOND_WALL_END:     'the requested opening runs past the end of the wall',
@@ -716,6 +716,17 @@ export class WallOccupancyStore {
 
         // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) ───────────────────────
         //
+        // ⚠ §RAKE-HOSTED-OPENING (founder 2026-08-18) — READ THIS FIRST. A raked
+        // wall CAN now host doors and windows; `rakeAuthorability` no longer has a
+        // `hosted-openings` arm. The history below is kept because it is why this
+        // check lives HERE rather than only in the store, and that reason is
+        // unchanged. What this guard refuses today is narrower and still real: a
+        // host whose rake is incompatible with the rest of its own shape (curved,
+        // layered, or out of range). Such a wall should not exist — the schema
+        // refuses to mint one — so this is defence in depth against a path that
+        // wrote the wall without validating it, and it must stay a DECLINE rather
+        // than becoming a throw again.
+        //
         // A RAKED host cannot carry an opening: the carve is a vertical band and
         // the door/window transform assumes a vertical host face (C15, ADR-0310).
         // `WallStore.addOpening()` already refuses this — correctly — by THROWING
@@ -753,8 +764,18 @@ export class WallOccupancyStore {
         // home — and copy-drift is what caused this bug: the panel refused
         // rake-given-openings, nothing refused openings-given-rake. Reusing the gate
         // also means the sentence the user reads is the sentence the store authored.
+        //
+        // §RAKE-HOSTED-OPENING — the subject now carries the host's CURVE and
+        // LAYERS as well. Before, it passed `rakeAngleDeg` + a prospective opening
+        // and nothing else, which was sufficient only while "has openings" was
+        // itself a refusal. With that arm gone, a subject without `curve`/`layers`
+        // would have made this branch dead code. It is instead the honest question:
+        // is this host's rake authorable AT ALL, given everything about it?
+        const _w = wall as { rakeAngleDeg?: number; curve?: unknown; layers?: ReadonlyArray<unknown> };
         const rake = rakeAuthorability({
-            rakeAngleDeg: (wall as { rakeAngleDeg?: number }).rakeAngleDeg,
+            rakeAngleDeg: _w.rakeAngleDeg,
+            curve:        _w.curve,
+            layers:       _w.layers,
             openings:     [{}],
         } as Parameters<typeof rakeAuthorability>[0]);
         if (!rake.ok) {
@@ -763,7 +784,7 @@ export class WallOccupancyStore {
                 conflictIds: [],
                 code:        'OCC_HOST_RAKED',
                 reason:
-                    'This wall is angled (raked), so it cannot host a door or window yet — ' +
+                    "This wall's angle (rake) is not compatible with hosting a door or window — " +
                     "set the wall's Vertical Angle back to 90° first. " + (rake.reason ?? ''),
             };
         }

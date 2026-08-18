@@ -1121,11 +1121,17 @@ export class WallStore implements ILevelProvider {
         const wall = this.walls.get(wallId);
         if (!wall) return undefined;
 
-        // §WALL-RAKE — a RAKED wall cannot host an opening: the carve is a vertical band
-        // and the door/window transform is a bare Y-rotation plus a world-Y translate
-        // (C15 §2), both of which assume a vertical host face. `addOpening` bypasses
-        // `update()`, so the gate has to be repeated here — this is the third and last
-        // door into the store, and all three consult the same `rakeAuthorability` rules.
+        // §WALL-RAKE — ask the ONE gate whether this wall may hold its rake once the
+        // opening is on it. `addOpening` bypasses `update()`, so the gate has to be
+        // repeated here — this is the third and last door into the store, and all
+        // three consult the same `rakeAuthorability` rules.
+        //
+        // §RAKE-HOSTED-OPENING (founder 2026-08-18) — a raked PLAIN STRAIGHT wall now
+        // passes: the carve and the leaf both ride the wall's shear. This throw stays
+        // reachable-in-principle for a raked wall that is also curved / layered / out
+        // of range, but it is no longer what a user meets when they place a window on
+        // a leaning wall — `WallOccupancyStore.canPlace()` declines those cases first,
+        // which is the L-812 lesson and must not be undone.
         {
             const auth = rakeAuthorability({
                 rakeAngleDeg: wall.rakeAngleDeg,

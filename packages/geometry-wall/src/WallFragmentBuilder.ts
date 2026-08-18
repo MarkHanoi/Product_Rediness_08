@@ -63,7 +63,15 @@ import { buildWallExtrusion } from './WallPolygonExtruder';
 // §FEAT-RAKE-LAYERED — `rakeTopOffset` shears the layered bands; `isVerticalRake` keeps the
 // vertical path literally untouched; `rakedPlanThickness` converts a legacy prism's authored
 // (perpendicular) layer thickness into its plan width.
-import { isVerticalRake, rakedPlanThickness, rakeLateralShift, rakeTopOffset } from './WallRake';
+// §RAKE-HOSTED-OPENING — `rakeShearPerMetre` is the ONE place cot(rake) is computed;
+// the opening-bearing body path shears with it rather than minting a second copy.
+import {
+    isVerticalRake,
+    rakedPlanThickness,
+    rakeLateralShift,
+    rakeShearPerMetre,
+    rakeTopOffset,
+} from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
@@ -2181,7 +2189,21 @@ export class WallFragmentBuilder {
             // Null on any level with no raked wall (⇒ every existing project builds
             // byte-identical geometry) and on any honest degradation inside
             // `rakedTopOffsets`.
-            const _capDrift = (isWallPipelineV2Enabled() && !wall.curve)
+            //
+            // §RAKE-HOSTED-OPENING (founder 2026-08-18) — the paragraph above says "a
+            // RAKED wall cannot itself host an opening". THAT IS NO LONGER TRUE, and the
+            // consequence is this extra condition rather than a rewrite. When the wall
+            // hosting the opening is ITSELF raked, its whole body is sheared below
+            // (`_applyRakeShearToChildren`), which already displaces the top cap by
+            // `height · cot(rake)`. Consuming the twin-solve loft on top of that would
+            // count the same displacement twice and bend the wall away from its own
+            // face. So a raked opening host takes the ADR-0310 UNIFORM shear, and its
+            // joint is exact at the FLOOR only — the same honest limitation ADR-0310 §3
+            // already records for the un-lofted case, now scoped to one combination
+            // instead of being avoided by refusing it. A VERTICAL host on a raked level
+            // is unaffected and keeps the full ADR-0312 loft.
+            const _ownShearK = rakeShearPerMetre(wall.rakeAngleDeg);
+            const _capDrift = (isWallPipelineV2Enabled() && !wall.curve && _ownShearK === 0)
                 ? (this.getEffectiveV2Cache()?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
                 : null;
             const _startTopDrift = _capDrift
@@ -2431,6 +2453,26 @@ export class WallFragmentBuilder {
                 this._mergeWallBodySegments(wallGroup, wall);
             }
 
+            // §RAKE-HOSTED-OPENING (founder 2026-08-18) — THE CARVE FOLLOWS THE RAKED
+            // FACE. Everything above builds the opening-bearing body in the wall's
+            // VERTICAL frame: box segments, the mitred end prisms, the single
+            // hole-extrude body, the edge overlay and the in-wall door/window frames.
+            // The rake is then applied ONCE, here, as the shear that it is — after the
+            // body has settled, so it lands on whichever of those paths actually ran.
+            //
+            // Applying it as one linear map (rather than teaching each builder about
+            // the lean) is what makes the void correct BY CONSTRUCTION: the sheared
+            // assembly is the exact image of the vertical assembly, so the hole still
+            // fits the hole it was cut from, and the frame still fits the hole. A
+            // per-builder rake would have needed the carve and the frame to agree by
+            // recomputation — the class of mismatch ADR-0310 §2.5 refused the case to
+            // avoid. See `WallRake.ts` §RAKE-HOSTED-OPENING for the plumb-height /
+            // in-plane-leaf decision this encodes.
+            //
+            // For a vertical wall `_ownShearK === 0` and this is a no-op that touches
+            // nothing — not even a matrix flag — so the 90° path stays byte-identical.
+            this._applyRakeShearToChildren(wallGroup, wall, _ownShearK, direction, wallBaseOffset);
+
             // §WALL-AUDIT-2026-C1 (move-restore): identity is locked once at the
             // top of buildWall(); only mutable fields sync here.
             this._syncMutableWallUserData(wallGroup, wall);
@@ -2453,11 +2495,19 @@ export class WallFragmentBuilder {
         // testing ONLY by setting `window.__wallSingleVolume = true`. Do NOT flip the
         // default back until the datum mismatch is fixed AND visually verified with a
         // slab present (see DAILY-USE-FIX-LOG §WALL-CSG-DATUM, #96).
+        //
+        // §RAKE-HOSTED-OPENING — a RAKED host is excluded. The producer is handed a
+        // length/thickness/height/angle box and returns an axis-aligned solid; it has
+        // no way to express the lean, so the swap would silently replace the sheared
+        // body with a vertical one AFTER the shear was applied — a wrong wall reported
+        // as an upgrade. Rake support belongs in the producer's descriptor, not in a
+        // fixup here. Excluded rather than approximated (C65 §3.9).
         if (
             typeof window !== 'undefined' &&
             (window as { __wallSingleVolume?: boolean }).__wallSingleVolume === true &&
             this._singleVolumeProducer !== null &&
             wall.openings && wall.openings.length > 0 &&
+            rakeShearPerMetre(wall.rakeAngleDeg) === 0 &&
             !wall.curve && !(wall.layers && wall.layers.length > 0)
         ) {
             void this._tryUpgradeWallToSingleVolume(wallGroup, wall, {
@@ -2479,6 +2529,70 @@ export class WallFragmentBuilder {
 
         this.wallToFragmentsMap.set(wall.id, fragmentIds);
         return fragmentIds;
+    }
+
+    /**
+     * §RAKE-HOSTED-OPENING — shear an opening-bearing wall's built children about the
+     * wall's BASE plane, so the solid, the void, the reveals, the edge overlay and the
+     * in-wall frames all lean together.
+     *
+     * THE MAP, in the group's own frame (origin at the wall start, y = 0 at the level
+     * floor, so the wall base sits at `baseOffset`):
+     *
+     *     p ↦ p + k · (p.y − baseOffset) · leftPerp(direction),     k = cot(rake)
+     *
+     * `k` comes from `WallRake.rakeShearPerMetre` and `leftPerp` is the same
+     * `(−d.z, d.x)` every other wall module uses — no third convention is minted here.
+     * At the wall top (`p.y − baseOffset = height`) this reproduces `rakeTopOffset`
+     * exactly, which is why the opening-bearing body and the un-opened prism body of
+     * the same wall are the same solid.
+     *
+     * WHY THE CHILD MATRIX AND NOT THE VERTEX BUFFERS: a shear is not decomposable
+     * into position/quaternion/scale, so it cannot be expressed through `Object3D`'s
+     * TRS fields — the matrix has to be written directly and `matrixAutoUpdate`
+     * turned off so nothing recomposes it away. three.js handles the rest correctly:
+     * the normal matrix is the inverse-transpose of the model-view matrix, so shading
+     * follows, and `Raycaster` inverts `matrixWorld`, so picking follows. Every child
+     * is rebuilt from scratch on each `buildWall`, so the disabled flag cannot leak
+     * into a later vertical build of the same wall.
+     *
+     * NO-OP AND PROVABLY SO when `k === 0` (a vertical wall, absent or 90° rake): the
+     * method returns before touching a single child, so the 90° path is byte-identical
+     * including its matrix flags.
+     */
+    private _applyRakeShearToChildren(
+        wallGroup: THREE.Group,
+        wall: WallData,
+        k: number,
+        direction: THREE.Vector3,
+        baseOffset: number,
+    ): void {
+        if (k === 0 || !Number.isFinite(k)) return;
+        const L = Math.hypot(direction.x, direction.z);
+        if (!(L > 1e-12)) return;                       // degenerate baseline — leave it vertical
+        const dx = direction.x / L;
+        const dz = direction.z / L;
+        // leftPerp(d) = (−d.z, d.x) — the SAME left as WallFootprint2D / JunctionResolverV2.
+        const sx = k * -dz;
+        const sz = k * dx;
+        const y0 = Number.isFinite(baseOffset) ? baseOffset : 0;
+        const S = new THREE.Matrix4().set(
+            1, sx, 0, -sx * y0,
+            0, 1,  0, 0,
+            0, sz, 1, -sz * y0,
+            0, 0,  0, 1,
+        );
+        for (const child of wallGroup.children) {
+            child.updateMatrix();                       // compose the TRS the builders set
+            child.matrixAutoUpdate = false;             // …then stop it being recomposed
+            child.matrix.premultiply(S);
+            child.matrixWorldNeedsUpdate = true;
+        }
+        wallGroup.updateMatrixWorld(true);
+        // Stamped so a reader of the scene graph (and the §V2-SPIKE-GUARD budget,
+        // which already sizes for `rakeLateralShift`) can tell a sheared body from a
+        // vertical one without re-deriving it from the matrices.
+        wallGroup.userData.rakeAngleDeg = wall.rakeAngleDeg;
     }
 
     /**

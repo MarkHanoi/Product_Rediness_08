@@ -90,12 +90,90 @@
 //                       (`buildLayeredWallSegmentsAroundOpenings` → per-layer
 //                       boxes around the void), and that one has no shear. So
 //                       the layered arm narrowed rather than vanished.
-//   • rake × openings — the opening carve is a vertical band (WallHoleBodyBuilder);
-//                       under a rake it must become an inclined one.
+//
+// ⚠ `rake × openings` USED TO BE LISTED HERE AND NO LONGER IS — §RAKE-HOSTED-
+//   OPENING (below) built the inclined carve. The PLAIN (unlayered) raked wall
+//   hosts openings today. What survives above is the strictly narrower
+//   `rake × layers × openings`, which is a different function with no shear.
+//   Do not re-add the broad bullet: it would refuse a combination that now works.
 //
 // These are enforced in `WallDataSchema` (add path) and `WallStore` (update and
 // addOpening paths) so the model can never hold a combination the geometry
 // cannot render. A refusal is a correct answer; a silently-wrong wall is not.
+//
+// ─── §RAKE-HOSTED-OPENING — rake × openings IS NOW SUPPORTED, AND HOW ─────────
+//
+// Founder, 2026-08-18: *"I want to have windows placed on raked walls."* The
+// third refusal above is GONE. What replaced it — and the two conventions a
+// future reader must not re-derive — is stated here, once.
+//
+// THE MODEL: **the rake is a PURE SHEAR about the wall's base plane, and every
+// thing the wall hosts is carried by the SAME shear.** In the wall's own frame
+// (x along the baseline, y up, z on `leftPerp`) the whole wall — solid, void,
+// reveal, frame and leaf — is the image of the vertical wall under
+//
+//     (x, y, z)  ↦  (x, y, z + k·(y − yBase)),      k = cot(rakeAngleDeg)
+//
+// i.e. exactly `rakeShearPerMetre`. That is not an implementation detail; it is
+// the reason the two questions below have the answers they have, and the reason
+// a 90° wall (k = 0, the identity) is untouched vertex-for-vertex.
+//
+// ── Q1. Is an opening's HEIGHT measured PLUMB, or perpendicular to the raked
+//        face? ⇒ **PLUMB.** `sillHeight` and `height` are vertical rises above
+//        the wall base at every rake angle, and the void's sill and head faces
+//        stay HORIZONTAL.
+//
+//    WHY, and it is not a preference: this file has already committed to exactly
+//    this convention for `thickness` (see THE THICKNESS CONVENTION above) —
+//    *the authored quantity is measured in the UN-sheared frame, and the true
+//    perpendicular quantity is DERIVED*. Reading `height` in the face plane
+//    would mint a second, contradictory convention inside one module: thickness
+//    horizontal but height perpendicular. It is also what the shear gives for
+//    free (a shear preserves y), which is what makes the 90° path byte-identical
+//    and what keeps an existing opening's numbers meaning the same thing after
+//    its host is raked. And it is what an architect's schedule means: sill
+//    height and head height are measured from the finished floor, plumb.
+//
+//    The derived companion is {@link openingFaceHeight} — `height / sin θ`, the
+//    distance actually measured ALONG the raked face — exactly as
+//    {@link perpendicularThickness} is the derived companion of `thickness`.
+//    Show that in the inspector; never store it.
+//
+// ── Q2. Is the LEAF plumb, or in the inclined plane? ⇒ **IN-PLANE.**
+//
+//    WHY, and this one is forced: the void is the shear of the vertical void, so
+//    its face opening is a rectangle spanned by the wall axis and the RAKED
+//    up-direction. A plumb leaf does not fill that — it gaps at one edge and
+//    protrudes at the other by `height · |cot θ|`. The leaf therefore takes the
+//    same shear, and then fills the void exactly by construction rather than by
+//    a second calculation that has to be kept in agreement with the first.
+//
+//    Note what "in-plane" means precisely under a shear, because the alternative
+//    reading is a rigid ROTATION of the leaf into the raked plane: that is NOT
+//    what happens and must not be substituted. A rotation changes the leaf's PLAN
+//    thickness, and the plan footprint of a raked wall is fixed at its base
+//    (§2.3 / ADR-0310) — so a rotated leaf would no longer match the reveal it
+//    sits in. Under the shear the leaf's faces stay parallel to the wall's faces,
+//    its head and sill stay horizontal, and its jambs incline with the wall.
+//
+// ⚠ **Q1 IS A DEFENSIBLE DEFAULT, NOT A LAW OF NATURE — Q2 IS NOT.** Real BIM
+// tools differ on the height datum, and if the founder wants head/sill measured
+// on the face the change is confined to a `/ sin θ` at the authoring boundary
+// plus the inspector row; nothing downstream re-derives it. Q2 has no second
+// answer that is consistent with the thickness convention this module already
+// holds, so it is not offered as a choice.
+//
+// ── WHAT IS STILL NOT DONE, said plainly ─────────────────────────────────────
+//   • A raked wall that hosts an opening takes the ADR-0310 UNIFORM shear, not
+//     the ADR-0312 twin-solve loft — so its joint with a neighbour is exact at
+//     the FLOOR and approximate above it. Combining the two would double-count
+//     the top displacement; picking the loft would need the segmented opening
+//     body to become polygon-based. Named in `WallFragmentBuilder`.
+//   • PLAN view still draws the wall's BASE footprint (ADR-0310 §2.3), so a
+//     raked wall's opening SYMBOL sits over the base line, not under the window.
+//   • Window GPU instancing decomposes a world matrix into T·R·S and cannot
+//     carry a shear; `WindowBuilder` therefore keeps real meshes on a raked
+//     host rather than silently rendering an un-raked leaf.
 
 /** Plan-space 2-D point, mirroring `JunctionResolverV2.Pt2` (kept local so this module stays dependency-free). */
 export interface RakePt2 { readonly x: number; readonly z: number }
@@ -160,6 +238,12 @@ export function rakeShearPerMetre(rakeAngleDeg: number | null | undefined): numb
  * `direction` need not be normalised — it is normalised here. Returns `null`
  * for a vertical wall (and for a degenerate direction) so callers can take the
  * exact pre-existing, un-sheared code path and stay byte-identical.
+ *
+ * §RAKE-HOSTED-OPENING — this generalises, and is the ONLY function that may be
+ * used to do so: pass `height = (y − yBase)` and it returns the horizontal
+ * displacement of ANY point at plumb height `y` above the wall base, not merely
+ * the top. That is how the opening carve, the reveal and the hosted leaf are
+ * placed on a raked wall. Do not write a second cot()·leftPerp anywhere.
  */
 export function rakeTopOffset(
     rakeAngleDeg: number | null | undefined,
@@ -222,6 +306,34 @@ export function rakedPlanThickness(
     const s = Math.abs(Math.sin(resolveRakeDeg(rakeAngleDeg) * DEG2RAD));
     if (!(s > 1e-9)) return perpThickness;
     return perpThickness / s;
+}
+
+/**
+ * §RAKE-HOSTED-OPENING — the height of an opening MEASURED ALONG THE RAKED FACE,
+ * given the authored PLUMB height. Equals `plumbHeight` at 90°, and grows as
+ * `plumbHeight / sin θ` as the wall leans.
+ *
+ * The exact dual of {@link perpendicularThickness}: authored quantities are
+ * measured in the un-sheared frame, and the true face-plane quantity is DERIVED.
+ * Exposed so the inspector can show the author what they actually built — it is
+ * NOT stored, and nothing in the geometry path consumes it. See the §RAKE-HOSTED-
+ * OPENING block in this file's header for why PLUMB is the authored datum.
+ *
+ * ⚠ MERGE NOTE (§FEAT-RAKE-LAYERED × §RAKE-HOSTED-OPENING, resolved at integration).
+ * Two lanes reached this file independently and each spelled `x / sin θ` for its
+ * own quantity — a layer's plan extent, and an opening's face height. They are the
+ * SAME division on different nouns, and {@link rakedPlanThickness} already declares
+ * itself "the SINGLE place that division is spelled". So this DELEGATES rather than
+ * re-spelling it. Keeping both copies would have been the exact defect this session
+ * has been auditing for: two correct implementations that can later drift apart.
+ * Delegation also inherits the stricter guards — the non-finite check and the 1e-9
+ * floor — which this function's own 1e-12 floor did not have.
+ */
+export function openingFaceHeight(
+    plumbHeight: number,
+    rakeAngleDeg: number | null | undefined,
+): number {
+    return rakedPlanThickness(plumbHeight, rakeAngleDeg);
 }
 
 // ─── Authorability ────────────────────────────────────────────────────────────
@@ -291,15 +403,15 @@ export function rakeAuthorability(subject: RakeSubject): RakeAuthorability {
                 'single-layer wall type, or leave the rake at 90.',
         };
     }
-    if (subject.openings !== undefined && subject.openings !== null && subject.openings.length > 0) {
-        return {
-            ok: false,
-            code: 'hosted-openings',
-            reason:
-                'wall.rakeAngleDeg is not supported on a wall that HOSTS OPENINGS: the opening ' +
-                'carve is a vertical band and the door/window transform assumes a vertical host ' +
-                'face (C15). Remove the openings, or leave the rake at 90.',
-        };
-    }
+    // §RAKE-HOSTED-OPENING (founder 2026-08-18) — the `hosted-openings` arm that
+    // stood here is REMOVED. A raked wall may now host doors and windows: the carve
+    // and the leaf both ride the wall's own shear. The decision that made it
+    // possible (PLUMB height, IN-PLANE leaf) is recorded in this file's header —
+    // read it there rather than re-deriving it from the geometry.
+    //
+    // ⚠ The `code` union still carries 'hosted-openings'. That is deliberate: the
+    // literal survives in persisted telemetry and in ADR-0310/0312 prose, and
+    // deleting it would make old records unparseable while gaining nothing. No
+    // arm produces it any more.
     return OK;
 }
