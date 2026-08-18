@@ -37,7 +37,15 @@ export type SlabLayerFunction =
     | 'growing-medium'
     | 'sub-base'
     | 'drainage'
-    | 'geotextile';
+    | 'geotextile'
+    // 'surfacing' — the WEARING COURSE of a landscape build-up: artificial turf
+    // pile, the top dressing of a gravel bed, a sand bed, bark mulch, a compacted
+    // decomposed-granite path. None of these is a growing medium (nothing grows in
+    // them), none is a sub-base (they are the surface you stand on), and the one
+    // pre-existing role that fits — 'finish-surface' — is the poisonous one named
+    // above. Modelling them as anything else would put a lie in the layer record
+    // and in every schedule that reads it.
+    | 'surfacing';
 
 /**
  * §03-1.3: A single material layer within a slab system type.

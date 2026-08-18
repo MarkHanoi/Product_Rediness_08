@@ -51,6 +51,7 @@ export const SlabDataSchema = z.object({
             'sub-base',
             'drainage',
             'geotextile',
+            'surfacing',
         ]),
         thickness:     z.number().positive(),
         // M4 §SLAB-SYSTEM-AUDIT-2026: Validate materialColor as a CSS hex colour

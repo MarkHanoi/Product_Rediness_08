@@ -29,6 +29,7 @@ const LAYER_FUNCTIONS = [
     { value: 'sub-base',       label: 'Sub-base'         },
     { value: 'drainage',       label: 'Drainage'         },
     { value: 'geotextile',     label: 'Geotextile'       },
+    { value: 'surfacing',      label: 'Surfacing'        },
 ];
 
 /**
@@ -51,6 +52,7 @@ const FN_COLORS: Record<string, string> = {
     'sub-base':        '#b0aa9c',
     'drainage':        '#8fa3ad',
     'geotextile':      '#d8d4c8',
+    'surfacing':       '#9c9384',
 };
 
 function totalMm(layers: any[]): number {

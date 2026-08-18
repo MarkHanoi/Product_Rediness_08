@@ -15,6 +15,13 @@
  *  - §03: Reads from SlabSystemTypeStore (via window), never writes
  */
 
+// §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the preview strip must RESOLVE a layer's
+// master-catalogue reference. Landscape layers carry `materialId` and NO
+// `materialColor` (C100 §2 — reference, never copy), so the previous
+// `l.materialColor ?? '#ccc'` painted every landscape type a uniform grey: the
+// picker would have contradicted the slab the user was about to get.
+import { materialHexById } from '@pryzm/core-app-model/material-library';
+
 export interface SlabTypeApplyPayload {
     systemTypeId: string | null;
     layers: any[] | null;
@@ -116,7 +123,8 @@ export function buildSlabTypeSelectorWidget(
         if (!t) return;
         t.layers.forEach((l: any) => {
             const s = document.createElement('div');
-            s.style.cssText = `flex:${l.thickness};background:${l.materialColor ?? '#ccc'};`;
+            const hex = (l.materialId ? materialHexById(l.materialId) : undefined) ?? l.materialColor ?? '#ccc';
+            s.style.cssText = `flex:${l.thickness};background:${hex};`;
             s.title = `${l.name}: ${Math.round(l.thickness * 1000)}mm`;
             strip.appendChild(s);
         });

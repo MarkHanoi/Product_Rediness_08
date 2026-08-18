@@ -25,6 +25,9 @@
  *                    `null` permitted — behaviour is identical with or without a runtime.
  *                    TODO(E.slab.X/S): replace window casts with runtime.stores.slab.*
  */
+
+import { materialHexById } from '@pryzm/core-app-model/material-library';
+
 export function appendSlabLayerSection(
     content: HTMLElement,
     slab: any,
@@ -78,7 +81,11 @@ export function appendSlabLayerSection(
             if (!t) return;
             t.layers.forEach((l: any) => {
                 const s = document.createElement('div');
-                s.style.cssText = `flex:${l.thickness};background:${l.materialColor ?? '#ccc'};`;
+                // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — resolve the master reference;
+                // see the note in SlabTypeSelectorWidget.ts. Landscape layers carry
+                // `materialId` and no hex, and would otherwise all preview grey.
+                const hex = (l.materialId ? materialHexById(l.materialId) : undefined) ?? l.materialColor ?? '#ccc';
+                s.style.cssText = `flex:${l.thickness};background:${hex};`;
                 s.title = `${l.name}: ${Math.round(l.thickness * 1000)}mm`;
                 strip.appendChild(s);
             });
@@ -152,7 +159,7 @@ export function appendSlabLayerSection(
         const fnOptions: string[] = [
             'finish-surface', 'screed', 'insulation',
             'structure', 'substrate', 'waterproofing',
-            'growing-medium', 'sub-base', 'drainage', 'geotextile'
+            'growing-medium', 'sub-base', 'drainage', 'geotextile', 'surfacing'
         ];
         // Role LEGEND swatches, not materials — see the note in SlabLayersEditor.ts.
         // The rendered colour comes from the layer's `materialId` resolved against
@@ -167,7 +174,8 @@ export function appendSlabLayerSection(
             'growing-medium':  '#6b7a5a',
             'sub-base':        '#b0aa9c',
             'drainage':        '#8fa3ad',
-            'geotextile':      '#d8d4c8'
+            'geotextile':      '#d8d4c8',
+            'surfacing':       '#9c9384'
         };
 
         const editableLayers: any[] = slab.layers.map((l: any) => ({ ...l }));
