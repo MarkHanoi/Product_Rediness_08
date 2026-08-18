@@ -59,15 +59,20 @@ describe('§WALL-RAKE — the row exists and is authorable on a plain wall', () 
     });
 });
 
-describe('§WALL-RAKE — the three store refusals are MIRRORED, with a reason', () => {
+describe('§WALL-RAKE — the store refusals are MIRRORED, with a reason', () => {
+    // §RAKE-HOSTED-OPENING (founder 2026-08-18) — 'hosts an opening' left this
+    // table. The store stopped refusing that case, and a panel that kept greying
+    // the row out would have shipped the feature UNREACHABLE: the store accepts
+    // the edit, the user cannot make it. A stale mirror is not a safe mirror.
     const CASES: ReadonlyArray<readonly [string, Record<string, unknown>, RegExp]> = [
         ['curved',            { curve: { bulge: 0.4 } },                       /curved/i],
-        // §FEAT-RAKE-LAYERED (2026-08-18) — this row was `{ layers: [t, t] }` alone. A
-        // raked LAYERED wall is BUILT now (plan bands at t / sin θ), so the panel must
-        // NOT grey the control out for a layer stack; the surviving refusal is
-        // layers × openings, and the panel mirrors the gate rather than restating it.
+        // §FEAT-RAKE-LAYERED × §RAKE-HOSTED-OPENING (merge, 2026-08-18) — this table
+        // once held `{layers}` and `{openings}` as SEPARATE refusals. Each lane built
+        // one of them and deleted its own row, so only the INTERSECTION still greys the
+        // control out. Both single-factor rows are asserted POSITIVELY below: a panel
+        // that keeps refusing what the store now accepts ships the feature unreachable,
+        // which is the defect this spec exists to catch.
         ['layered + opening', { layers: [{ t: 0.1 }, { t: 0.1 }], openings: ['door_1'] }, /layered/i],
-        ['hosts an opening',  { openings: ['door_1'] },                        /door|window|opening/i],
     ];
 
     for (const [name, shape, expected] of CASES) {
@@ -104,8 +109,17 @@ describe('§WALL-RAKE — the three store refusals are MIRRORED, with a reason',
         expect(rakeRow(straightWall({ openings: [] }))!.editable).toBe(true);
     });
 
+    it('§RAKE-HOSTED-OPENING — a wall that HOSTS a door is authorable, with no hint', () => {
+        // The founder's request, at the surface he types into. This is the
+        // assertion that would have caught "shipped but unreachable": every
+        // store-level test could be green while this row stayed grey.
+        const row = rakeRow(straightWall({ openings: ['door_1'], childrenIds: ['door_1'] }))!;
+        expect(row.editable).toBe(true);
+        expect(row.hint).toBeUndefined();
+    });
+
     it('POSITIVE CONTROL — a plain wall is NOT refused, so the cases above mean something', () => {
-        // If the gate refused everything, all five assertions above would pass
+        // If the gate refused everything, all the assertions above would pass
         // while the feature was entirely unreachable. This is the L-774 lesson:
         // a check that cannot distinguish is decoration.
         const row = rakeRow(straightWall())!;

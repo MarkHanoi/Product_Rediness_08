@@ -1468,8 +1468,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // and every wall is pre-judged by geometry-wall's `rakeAuthorability`
     // single gate — the SAME policy WallStore.update enforces — because the
     // generic parameter route reports success on walls the store silently
-    // refuses (curved / layered / opening-hosting). "Raked N of M — K
-    // skipped: <reason>" is the honest report shape.
+    // refuses (curved / layered — §RAKE-HOSTED-OPENING removed the third,
+    // opening-hosting, on 2026-08-18). "Raked N of M — K skipped: <reason>"
+    // is the honest report shape.
     description: 'lean walls to an angle (90° = vertical)',
     verbs: ['make', 'set', 'angle', 'tilt', 'lean', 'rake', 'slant'],
     aliases: ['wall angle', 'vertical angle', 'wall rake', 'wall lean'],

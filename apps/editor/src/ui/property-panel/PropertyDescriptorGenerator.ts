@@ -427,7 +427,8 @@ export function generateDescriptors(elementData: Record<string, any>): PropertyD
 /**
  * §WALL-RAKE (ADR-0310 §2.5) — mirror the STORE's refusals into the panel.
  *
- * `WallStore` rejects a non-vertical rake on three wall shapes, at all three of
+ * `WallStore` rejects a non-vertical rake on two wall shapes (curved and layered
+ * — §RAKE-HOSTED-OPENING removed the third, hosted openings), at all three of
  * its doors. Those refusals are correct and are the safety property of the whole
  * feature — but if the panel offers an editable box anyway, the user types 75,
  * presses Apply, and the wall stays vertical with nothing said. A refusal and a
@@ -478,14 +479,28 @@ function rakeRefusalReason(w: Record<string, any>): string | null {
             // opening — that body is assembled by the un-sheared opening-segment path.
             return 'Not available on a layered wall that hosts a door or window — remove the opening, or use a single-layer wall type.';
         case 'hosted-openings':
-            // C15's vertical axis is not modelled: sill is a bare world-Y translate at
-            // four independent sites and `hostedElementFrame` returns a scalar rotationY.
+            // ⚠ UNREACHABLE SINCE §RAKE-HOSTED-OPENING, and kept deliberately as a
+            // TRIPWIRE rather than deleted. `rakeAuthorability` no longer emits this
+            // code — a plain raked wall hosts openings now. If it ever emits it again,
+            // the gate has regressed, and this sentence is wrong in the direction that
+            // hurts: it would grey out a row the store would happily accept, shipping a
+            // feature the user cannot reach. Delete this arm only together with the
+            // `'hosted-openings'` member of the gate's own code union, never before.
             return 'Not available while this wall hosts a door or window — hosted openings do not tilt yet.';
         default:
             // A refusal this panel has no wording for is still a refusal. Show the
             // gate's own sentence rather than quietly leaving the control editable.
             return auth.reason ?? 'Not available on this wall.';
     }
+// §RAKE-HOSTED-OPENING × §FEAT-RAKE-LAYERED (merge, 2026-08-18) — THIS FUNCTION NO
+// LONGER HAND-ROLLS ANY ARM, AND THAT IS THE POINT.
+//
+// Z1 arrived here with a hand-written layered check plus a `return null`; Z2 had
+// already routed the whole decision through `rakeAuthorability`. Keeping Z1's block
+// would have re-introduced a SECOND gate beside the canonical one — the precise
+// defect Z1's own commit subject names ("the panel held a RIVAL gate"), just with the
+// rivalry pointing the other way. The switch above reads the gate's `code` and nothing
+// else, so the panel cannot drift from the store again.
 }
 
 function applyRakeAuthorability(
