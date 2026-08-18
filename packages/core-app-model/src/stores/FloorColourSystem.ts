@@ -52,16 +52,52 @@ export const FLOOR_LAYER_COLORS: Record<string, string> = {
 };
 
 /**
+ * Resolves a master-library material id to a `#rrggbb` string.
+ *
+ * Injected rather than imported: this module is declared THREE-free (see the
+ * file header) and `materialLibrary.ts` imports THREE. Passing the master
+ * library's own `materialHexById` in here is what lets a floor read the master
+ * data set without this module taking a THREE dependency — and without a
+ * second transcribed copy of the id/hex table, which is how ai-host's
+ * `finishRef.ts` came to exist.
+ */
+export type MaterialHexResolver = (materialId: string) => string | undefined;
+
+/**
  * Resolve the primary display colour for a floor panel.
- * Follows the priority chain:
- * floor.colour → finishSpec.finishColor → systemType layer 0 → default
+ *
+ * Priority chain:
+ *   floor.colour → finishSpec.finishColor → **floor.materialId** →
+ *   layers[0].materialColor → systemType layer 0 → default
+ *
+ * §LANE-Y-FLOOR-MATERIAL-READ — the `materialId` link is new. `FloorData.materialId`
+ * (FloorTypes.ts:33) has been WRITEABLE all along and was read by nothing: no line
+ * of this chain consulted it, so choosing a library material for a floor finish
+ * changed a field and left the render untouched. That is a silent no-op, not a
+ * missing feature, and it is why a landscape material could not appear on a floor.
+ *
+ * It sits BELOW `colour` and `finishSpec.finishColor` because both of those are
+ * explicit per-instance overrides that a user set more recently than the type-level
+ * material, and ABOVE the layer/systemType defaults because a chosen library
+ * material must beat a default.
+ *
+ * `resolveMaterialHex` is optional so every existing call site keeps compiling and
+ * keeps its exact previous behaviour; a caller that does not inject it simply never
+ * reaches the new branch.
  */
 export function resolveFloorColor(
-  floor: Pick<FloorData, 'colour' | 'finishSpec' | 'layers'>,
-  systemTypeFirstLayerColor?: string
+  floor: Pick<FloorData, 'colour' | 'finishSpec' | 'layers'> & { materialId?: string },
+  systemTypeFirstLayerColor?: string,
+  resolveMaterialHex?: MaterialHexResolver
 ): string {
   if (floor.colour) return floor.colour;
   if (floor.finishSpec?.finishColor) return floor.finishSpec.finishColor;
+  if (floor.materialId && resolveMaterialHex) {
+    const hex = resolveMaterialHex(floor.materialId);
+    // A MISS falls through to the rest of the chain rather than rendering
+    // black — an unknown id must degrade to the default, not to a void.
+    if (hex) return hex;
+  }
   if (floor.layers && floor.layers.length > 0 && floor.layers[0]!.materialColor) {
     return floor.layers[0]!.materialColor;
   }
@@ -112,12 +148,21 @@ export function getPlanFillStyle(
   return { hex: FLOOR_DEFAULTS.defaultPlanFill, opacity: FLOOR_DEFAULTS.planFillOpacity };
 }
 
-/** Build a colour key for cache invalidation. */
+/**
+ * Build a colour key for cache invalidation.
+ *
+ * §LANE-Y-FLOOR-MATERIAL-READ — `materialId` MUST be in this key. It is now an
+ * input to `resolveFloorColor`, and a cache key that omits an input to the value
+ * it guards is an invalidation gate that hides the fix sitting behind it: the
+ * colour would resolve correctly and the cached panel would never be rebuilt to
+ * show it. Every field this key lists is a field the resolver reads.
+ */
 export function floorColorCacheKey(floor: FloorData): string {
   return [
     floor.colour ?? '',
     floor.finishSpec?.finishColor ?? '',
     floor.finishSpec?.finishPattern ?? '',
+    floor.materialId ?? '',
     floor.opacity ?? 1,
   ].join(':');
 }

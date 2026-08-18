@@ -671,6 +671,48 @@ export const STANDARD_MATERIAL_LIBRARY: StandardMaterialDef[] = [
 ];
 
 // ------------------------------------------------------------------
+// Master-library lookup
+// ------------------------------------------------------------------
+
+/**
+ * Index of the master library by id, built once.
+ *
+ * Why this exists: the library shipped NO lookup helper, so all 21 importers
+ * hand-roll `STANDARD_MATERIAL_LIBRARY.find(m => m.id === id)` — an O(n) scan
+ * over 200+ entries repeated per element per rebuild. The bigger cost is that
+ * a hand-rolled scan gives every call site its own miss behaviour, which is
+ * how "I set the material and nothing changed" bugs get written.
+ */
+const MATERIAL_BY_ID: ReadonlyMap<string, StandardMaterialDef> =
+    new Map(STANDARD_MATERIAL_LIBRARY.map(def => [def.id, def]));
+
+/** Look up a master-library material by id. Returns undefined on a miss. */
+export function findMaterialById(id: string): StandardMaterialDef | undefined {
+    return MATERIAL_BY_ID.get(id);
+}
+
+/**
+ * Resolve a master-library material id to a `#rrggbb` string.
+ *
+ * This is the THREE-free-FACING edge of the master library. Consumers that must
+ * stay free of THREE — colour-resolution services, the AI finish resolver —
+ * cannot import this module, and that constraint is exactly what produced the
+ * transcribed id/hex copy in ai-host's `finishRef.ts`. Passing THIS function in
+ * as a resolver lets such a consumer read the master data set without taking the
+ * THREE dependency, instead of copying the values into a rival table.
+ *
+ * Returns undefined on a miss so callers fall through their own chain — a miss
+ * must never be silently rendered as black.
+ */
+export function materialHexById(id: string): string | undefined {
+    const def = MATERIAL_BY_ID.get(id);
+    if (!def) return undefined;
+    const colour = def.params.color;
+    if (!(colour instanceof THREE.Color)) return undefined;
+    return `#${colour.getHexString()}`;
+}
+
+// ------------------------------------------------------------------
 // Wall material factories
 // ------------------------------------------------------------------
 export function createWallSchematicMaterial(): THREE.MeshStandardMaterial {

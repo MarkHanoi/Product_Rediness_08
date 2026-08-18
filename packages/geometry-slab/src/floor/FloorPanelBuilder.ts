@@ -25,6 +25,7 @@ import { safeDisposeGeometry, safeDisposeMaterials } from '@pryzm/renderer-three
 import { FloorData, FloorServiceHole, FloorVertex } from '@pryzm/core-app-model/stores';
 import { computeFloorArea as computeArea, computeFloorBoundingBox as computeBoundingBox, ensureFloorCCW as ensureCCW,  } from '@pryzm/core-app-model/stores';
 import { resolveFloorColor, resolveLayerColor,  } from '@pryzm/core-app-model/stores';
+import { materialHexById } from '@pryzm/core-app-model/material-library';
 import { BimManager } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 
@@ -212,7 +213,11 @@ export class FloorPanelBuilder {
     root: THREE.Group
   ): void {
     const shape = this._buildShapeWithHoles(polygon, floor.serviceHoles);
-    const color = resolveFloorColor(floor);
+    // §LANE-Y-FLOOR-MATERIAL-READ — inject the master library's own id→hex
+    // lookup so a floor's chosen library material actually reaches the mesh.
+    // Without this third argument `floor.materialId` resolves to nothing and a
+    // material set on a floor finish is a silent no-op.
+    const color = resolveFloorColor(floor, undefined, materialHexById);
 
     if (floor.boundary.thickness > 0.005) {
       // Extruded body — extrude from worldY_bottom upward by thickness.

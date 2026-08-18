@@ -289,6 +289,21 @@ export interface FloorData extends CoreElement {
   systemTypeId?: string;
   layers?: FloorLayer[];
 
+  /**
+   * Master-library material id for the floor as a whole (`STANDARD_MATERIAL_LIBRARY`).
+   *
+   * §LANE-Y-FLOOR-MATERIAL-READ — this field was UNDECLARED while already being
+   * written: `plugins/floor/src/handlers/SetFloorMaterial.ts:97` sets it through a
+   * `Record<string, unknown>` cast, so the write typechecked against nothing and no
+   * reader could consult it without a TS2339. `SlabData` has declared the same field
+   * (SlabTypes.ts:55) all along — which is precisely why a slab could take a library
+   * material and a floor finish could not.
+   *
+   * Distinct from `FloorLayer.materialId` (FloorTypes.ts:33), which is per-LAYER.
+   * This is the whole-element choice, and it is what `resolveFloorColor` reads.
+   */
+  materialId?: string;
+
   finishSpec: FloorFinishSpec;
   slope?: FloorSlope;
   serviceHoles: FloorServiceHole[];
