@@ -24,12 +24,48 @@ export interface CreateBeamPayload {
   readonly startPoint?: BeamData['baseLine'][0];
   readonly endPoint?: BeamData['baseLine'][1];
   readonly shape?: BeamData['shape'];
+  /**
+   * §FIX-BEAM-CEB-STEEL (L-974) — the LEGACY section vocabulary, accepted as an
+   * alias for `shape`. `CopyPlanToolHandler.ts:452` sends it, and legacy
+   * `BeamData.sectionType` is `'rectangular' | 'UB' | 'UC'` while L0 `shape` is
+   * `'rectangular' | 'i-section' | 't-section'` — two vocabularies overlapping
+   * in ONE member. Folded here, once, so the COMMITTED record speaks only L0's.
+   */
+  readonly sectionType?: 'rectangular' | 'UB' | 'UC';
   readonly width?: number;
   readonly depth?: number;
   readonly rotation?: number;
   readonly materialId?: string;
+  /** §FIX-BEAM-CEB-STEEL (L-974) — legacy spelling of `materialId`
+   *  (`CopyPlanToolHandler.ts:449` sends `material`). */
+  readonly material?: string;
   readonly systemTypeId?: string;
+  readonly loadBearing?: boolean;
+  readonly fireRating?: string;
+  readonly steelProfileName?: string;
 }
+
+/**
+ * §FIX-BEAM-CEB-STEEL (L-974) — the legacy `sectionType` → L0 `shape` map.
+ *
+ * `UB` (Universal Beam) and `UC` (Universal Column used as a beam) are both
+ * I-sections; the L0 vocabulary names the GEOMETRY, and which standard series
+ * the section belongs to is recoverable from `steelProfileName` — so `UB` folds
+ * to `i-section` without loss.
+ *
+ * `UC` is REFUSED rather than folded, and that is deliberate: folding it would
+ * make it indistinguishable from `UB` on the way back out, and the legacy mirror
+ * would hand `BeamFragmentBuilder` a `UB` for a section the author called `UC`
+ * — a silent mislabel, which is the exact defect class this change closes. No
+ * surface produces one today (`BeamTool.ts:239` offers `SteelProfileLibrary.UB`
+ * only), so a refusal costs nothing and a fold would cost the truth. If UC beams
+ * are ever wanted, the honest fix is a `shape` member or a series field, not a
+ * quiet substitution.
+ */
+const LEGACY_SECTION_TO_SHAPE: Readonly<Record<string, BeamData['shape']>> = {
+  rectangular: 'rectangular',
+  UB: 'i-section',
+};
 
 type BeamHandlerStores = Readonly<{ beam: BeamsState } & Record<string, unknown>>;
 
@@ -47,7 +83,28 @@ export class CreateBeamHandler implements CommandHandler<CreateBeamPayload, Beam
     return undefined;
   }
 
+  /** §FIX-BEAM-CEB-STEEL — `shape` (when supplied) always wins over the legacy
+   *  `sectionType` alias, mirroring `resolveBaseLine`'s precedence rule. */
+  private static resolveShape(cmd: CreateBeamPayload): BeamData['shape'] | undefined {
+    if (cmd.shape !== undefined) return cmd.shape;
+    if (cmd.sectionType === undefined) return undefined;
+    return LEGACY_SECTION_TO_SHAPE[cmd.sectionType];
+  }
+
   canExecute(_ctx: HandlerContext<BeamHandlerStores>, cmd: CreateBeamPayload): ValidationResult {
+    if (
+      cmd.shape === undefined &&
+      cmd.sectionType !== undefined &&
+      LEGACY_SECTION_TO_SHAPE[cmd.sectionType] === undefined
+    ) {
+      return {
+        valid: false,
+        reason:
+          `sectionType "${cmd.sectionType}" has no L0 Beam.shape member — 'UC' is an ` +
+          `I-section indistinguishable from 'UB' once folded, so it is refused by name ` +
+          `rather than silently downgraded (§FIX-BEAM-CEB-STEEL / L-974).`,
+      };
+    }
     const baseLine = CreateBeamHandler.resolveBaseLine(cmd);
     if (baseLine !== undefined) {
       const [a, b] = baseLine;
@@ -73,11 +130,17 @@ export class CreateBeamHandler implements CommandHandler<CreateBeamPayload, Beam
     const seed: Partial<BeamData> = {
       id,
       levelId: cmd.levelId ?? '',
-      shape: cmd.shape ?? 'rectangular',
+      shape: CreateBeamHandler.resolveShape(cmd) ?? 'rectangular',
       width: cmd.width ?? 0.2,
       depth: cmd.depth ?? 0.4,
       rotation: cmd.rotation ?? 0,
-      materialId: cmd.materialId ?? cmd.systemTypeId,
+      materialId: cmd.materialId ?? cmd.material ?? cmd.systemTypeId,
+      // §FIX-BEAM-CEB-STEEL (L-974) — omitted rather than seeded with
+      // `undefined` so the schema's own defaults own the unstated case
+      // (`loadBearing` → true, matching `CreateBeamCommand.ts:190`).
+      ...(cmd.loadBearing !== undefined ? { loadBearing: cmd.loadBearing } : {}),
+      ...(cmd.fireRating !== undefined ? { fireRating: cmd.fireRating } : {}),
+      ...(cmd.steelProfileName !== undefined ? { steelProfileName: cmd.steelProfileName } : {}),
     };
     const baseLine = CreateBeamHandler.resolveBaseLine(cmd);
     if (baseLine) seed.baseLine = baseLine;

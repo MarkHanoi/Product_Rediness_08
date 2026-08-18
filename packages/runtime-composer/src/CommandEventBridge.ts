@@ -171,6 +171,47 @@ function emitLevelChange(
   });
 }
 
+/**
+ * §FIX-BEAM-CEB-STEEL (L-974) — the committed beam as it appears in the Immer
+ * `add` patch produced by `CreateBeamHandler` (`draft[beam.id] = beam`).
+ *
+ * Reading the COMMIT rather than the REQUEST is the same move
+ * `indexCommittedWalls` makes above, and here it is what makes ONE alias table
+ * enough: `CreateBeamHandler` folds `startPoint`/`endPoint` into `baseLine`,
+ * legacy `sectionType` into `shape` and `material` into `materialId` before it
+ * commits, so the bridge relays L0's vocabulary without owning a second copy of
+ * the mapping. ADR-002 §5.
+ */
+interface CommittedBeam {
+  id?: string;
+  levelId?: string;
+  baseLine?: ReadonlyArray<{ x: number; y: number; z: number }>;
+  shape?: string;
+  width?: number;
+  depth?: number;
+  materialId?: string;
+  loadBearing?: boolean;
+  fireRating?: string;
+  steelProfileName?: string;
+}
+
+/** Index the beams this command actually COMMITTED, keyed by id. Empty when the
+ *  handler mutated through a different patch shape — callers fall back to the
+ *  payload, exactly as the wall path does. */
+function indexCommittedBeams(
+  forward: readonly { readonly op: string; readonly path: readonly (string | number)[]; readonly value?: unknown }[],
+): Map<string, CommittedBeam> {
+  const byId = new Map<string, CommittedBeam>();
+  for (const patch of forward) {
+    if (patch.op !== 'add' || patch.path.length !== 1) continue;
+    const value = patch.value as CommittedBeam | undefined;
+    if (!value || typeof value !== 'object') continue;
+    const id = String(patch.path[0]);
+    if (id.length > 0) byId.set(id, value);
+  }
+  return byId;
+}
+
 /** A point as any of the beam producers spell it. */
 interface BeamPoint { readonly x: number; readonly y: number; readonly z: number }
 
@@ -648,7 +689,18 @@ export function wireCommandEventBridge(
             depth?: number;
             materialId?: string;
           };
-          const beamEnds = resolveBeamEndpoints(p);
+          // §FIX-BEAM-CEB-STEEL (L-974): prefer the COMMITTED beam. `CopyPlanToolHandler`
+          // sends `sectionType`, `steelProfileName`, `loadBearing`, `fireRating` and
+          // `material`; this case listed NONE of them, so copying a steel UB beam
+          // yielded a plain concrete one — silently. Those fields are now on the L0
+          // schema and normalised by `CreateBeamHandler`, so relaying the commit
+          // carries them AND keeps the legacy-alias table in exactly one place.
+          const _committedBeam = p.id
+            ? indexCommittedBeams(record.forward ?? []).get(p.id)
+            : undefined;
+          const beamEnds = _committedBeam?.baseLine && _committedBeam.baseLine.length >= 2
+            ? resolveBeamEndpoints(_committedBeam)
+            : resolveBeamEndpoints(p);
           if (!beamEnds) {
             // §FIX-BEAM-CEB-BASELINE — REFUSE BY NAME. Emitting a geometry-less
             // `beam.created` is the silent drop itself: the §FT2 subscriber's guard
@@ -670,10 +722,13 @@ export function wireCommandEventBridge(
             id:           p.id,
             startPoint:   beamEnds[0],
             endPoint:     beamEnds[1],
-            shape:        p.shape,
-            width:        p.width,
-            depth:        p.depth,
-            materialId:   p.materialId,
+            shape:        _committedBeam?.shape ?? p.shape,
+            width:        _committedBeam?.width ?? p.width,
+            depth:        _committedBeam?.depth ?? p.depth,
+            materialId:   _committedBeam?.materialId ?? p.materialId,
+            loadBearing:      _committedBeam?.loadBearing,
+            fireRating:       _committedBeam?.fireRating,
+            steelProfileName: _committedBeam?.steelProfileName,
           });
           break;
         }

@@ -24,6 +24,11 @@ export interface BeamCreatedEventLike {
     width?: number;
     depth?: number;
     materialId?: string;
+    /** §FIX-BEAM-CEB-STEEL (L-974) — all three are now on the L0 `Beam` schema
+     *  and relayed from the COMMITTED record by `CommandEventBridge`. */
+    loadBearing?: boolean;
+    fireRating?: string;
+    steelProfileName?: string;
 }
 
 export interface MirroredBeamRecord {
@@ -31,12 +36,14 @@ export interface MirroredBeamRecord {
     levelId: string;
     startPoint: { x: number; y: number; z: number };
     endPoint: { x: number; y: number; z: number };
-    sectionType: 'rectangular';
+    sectionType: 'rectangular' | 'UB';
     width: number;
     depth: number;
     loadBearing: boolean;
     properties: Record<string, unknown>;
     material?: string;
+    fireRating?: string;
+    steelProfileName?: string;
 }
 
 /**
@@ -60,23 +67,40 @@ export interface MirroredBeamRecord {
  * those things. C79 §7.4 rates per-path divergence as worse than uniform
  * absence, and this one has a compliance consequence.
  *
- * ⚠ AND THE FIX IS NOT `ev.loadBearing ?? true`. `CommandEventBridge`'s
- * `beam.create` case emits a NAMED SUBSET — `id`, `startPoint`, `endPoint`,
- * `shape`, `width`, `depth`, `materialId` — and `loadBearing` is not on it, nor
- * is it on the L0 `Beam` schema. Reading a field no emitter produces is EI-2
- * mechanism (b), the very defect being repaired: it would type-check, read
- * sensibly, and be a constant. The default is named HERE, once, and the fact
- * that this hop cannot carry the authored value is stated rather than disguised.
+ * ⚠ THIS NOTE USED TO END: "AND THE FIX IS NOT `ev.loadBearing ?? true` …
+ * `loadBearing` is not on [the emitter's named subset], nor is it on the L0
+ * `Beam` schema. Reading a field no emitter produces is EI-2 mechanism (b)."
+ * That was true when written and is NO LONGER TRUE — §FIX-BEAM-CEB-STEEL
+ * (L-974) put `loadBearing` on the L0 schema, taught `CreateBeamHandler` to
+ * accept it, and made `CommandEventBridge` relay it off the COMMITTED record.
+ * The read below is `ev.loadBearing ?? BEAM_LOAD_BEARING_DEFAULT`, and its left
+ * arm now runs. This constant is the fallback for a beam whose creator said
+ * nothing — no longer a stand-in for a value the hop could not carry.
  */
 export const BEAM_LOAD_BEARING_DEFAULT = true;
 
 /**
- * The legacy `sectionType` members. `packages/core-app-model/src/stores/
- * BeamTypes.ts:34` declares `'rectangular' | 'UB' | 'UC'`, while the L0 `Beam`
- * schema declares `shape ∈ {'rectangular','i-section','t-section'}`. The two
- * vocabularies OVERLAP IN ONE MEMBER.
+ * §FIX-BEAM-CEB-STEEL (L-974) — L0 `shape` → legacy `BeamData.sectionType`.
+ *
+ * `BeamTypes.ts:34` declares `'rectangular' | 'UB' | 'UC'`; the L0 `Beam` schema
+ * declares `shape ∈ {'rectangular','i-section','t-section'}`. The two
+ * vocabularies OVERLAP IN ONE MEMBER, which is why this is a table and not a
+ * cast — `sectionType: (ev.shape ?? 'rectangular') as any` is the site C84
+ * EI-2(c) names by line number, and it is what let `'i-section'` land in a union
+ * that has no such member and render as a box.
+ *
+ * `i-section` → `UB` and not `UC`: `CreateBeamHandler` refuses
+ * `sectionType: 'UC'` at the command, precisely so nothing can arrive here as an
+ * I-section that the author called a UC. The map is therefore total over what
+ * can reach it, rather than picking one of two and hoping.
+ *
+ * `t-section` is absent deliberately — the legacy union cannot hold it, and the
+ * disposition for that is refusal, below.
  */
-const LEGACY_SECTION_TYPES = new Set(['rectangular']);
+const SHAPE_TO_LEGACY_SECTION: Readonly<Record<string, 'rectangular' | 'UB'>> = {
+    'rectangular': 'rectangular',
+    'i-section': 'UB',
+};
 
 /**
  * Build the legacy `BeamData` a `beam.created` event describes, or `null` when
@@ -109,7 +133,8 @@ export function beamRecordFromCreatedEvent(ev: BeamCreatedEventLike): MirroredBe
     if (!ev.id || !ev.startPoint || !ev.endPoint) return null;
 
     const shape = ev.shape ?? 'rectangular';
-    if (!LEGACY_SECTION_TYPES.has(shape)) {
+    const sectionType = SHAPE_TO_LEGACY_SECTION[shape];
+    if (sectionType === undefined) {
         console.error(
             `[beamCreatedMirror] §FIX-BEAM-BRIDGE-SECTION: REFUSED beam ${ev.id} — its shape ` +
             `"${shape}" has no member in the legacy BeamData.sectionType vocabulary ` +
@@ -120,19 +145,39 @@ export function beamRecordFromCreatedEvent(ev: BeamCreatedEventLike): MirroredBe
         return null;
     }
 
+    // §FIX-BEAM-CEB-STEEL (L-974) — an I-section with no profile name cannot be
+    // BUILT. `BeamFragmentBuilder.ts:253` gates its steel branch on
+    // `(sectionType === 'UB' || 'UC') && steelProfileName`, and `:438` looks the
+    // name up in `SteelProfileLibrary`; with no name it falls through to
+    // `_buildConcreteBeam` and draws a plain box for a steel member. That is the
+    // same silent-substitution defect as the `as any` above, so it takes the same
+    // disposition: refuse by name (ADR-0332 §2 precedent).
+    if (sectionType === 'UB' && !ev.steelProfileName) {
+        console.error(
+            `[beamCreatedMirror] §FIX-BEAM-CEB-STEEL: REFUSED beam ${ev.id} — its shape is ` +
+            `"i-section" but it carries no steelProfileName, and BeamFragmentBuilder cannot ` +
+            `build a steel section without one; it would have drawn a plain concrete box ` +
+            `instead. Name a SteelProfileLibrary section (e.g. "254x146x37") or draw a ` +
+            `rectangular beam.`,
+        );
+        return null;
+    }
+
     return {
         id:          ev.id,
         levelId:     ev.levelId ?? '',
         startPoint:  ev.startPoint,
         endPoint:    ev.endPoint,
-        sectionType: 'rectangular',
+        sectionType,
         width:       ev.width ?? 0.2,
         depth:       ev.depth ?? 0.4,
-        // §FIX-BEAM-BRIDGE-LOADBEARING — was the literal `false`. See the
-        // constant's own doc for why it is `true` and why it is not read off the
-        // event.
-        loadBearing: BEAM_LOAD_BEARING_DEFAULT,
+        // §FIX-BEAM-BRIDGE-LOADBEARING + §FIX-BEAM-CEB-STEEL — was the literal
+        // `false`, then the constant below unconditionally. The left arm now runs:
+        // see the constant's own doc for what changed and why.
+        loadBearing: ev.loadBearing ?? BEAM_LOAD_BEARING_DEFAULT,
         properties:  {},
         ...(ev.materialId ? { material: ev.materialId } : {}),
+        ...(ev.fireRating ? { fireRating: ev.fireRating } : {}),
+        ...(ev.steelProfileName ? { steelProfileName: ev.steelProfileName } : {}),
     };
 }

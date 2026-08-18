@@ -547,11 +547,34 @@ export interface RuntimeEvents {
     readonly startPoint?: { readonly x: number; readonly y: number; readonly z: number };
     /** §FT2: beam end endpoint in world space — matches BeamData.endPoint. */
     readonly endPoint?: { readonly x: number; readonly y: number; readonly z: number };
-    /** §FT2: section shape — 'rectangular' | 'UB' | 'UC'. Maps to BeamData.sectionType. */
+    /**
+     * §FT2 / §FIX-BEAM-CEB-STEEL (L-974): the L0 `Beam.shape` —
+     * `'rectangular' | 'i-section' | 't-section'`, as COMMITTED.
+     *
+     * ⚠ This doc used to read "'rectangular' | 'UB' | 'UC'. Maps to
+     * BeamData.sectionType", and it was wrong in a way that mattered: those are
+     * the LEGACY `sectionType` members, the emitter always carried `shape`, and
+     * the two vocabularies overlap in exactly one member. The legacy value is
+     * derived from this field plus `steelProfileName` in `beamCreatedMirror.ts`.
+     */
     readonly shape?: string;
     readonly width?: number;
     readonly depth?: number;
     readonly materialId?: string;
+    /**
+     * §FIX-BEAM-CEB-STEEL (L-974) — is this beam load-bearing, as COMMITTED.
+     * Read by the IFC `LoadBearing` pset (`BeamReader.ts:23`), the beam schedule
+     * (`ScheduleExtractor.ts:414`) and the fire-rating rule
+     * (`RuleEngine.ts:1005`). `undefined` only when the handler committed no
+     * value at all; the L0 default is `true`.
+     */
+    readonly loadBearing?: boolean;
+    /** §FIX-BEAM-CEB-STEEL (L-974) — fire-resistance rating, as COMMITTED. */
+    readonly fireRating?: string;
+    /** §FIX-BEAM-CEB-STEEL (L-974) — the `SteelProfileLibrary` section name.
+     *  `BeamFragmentBuilder.ts:253` gates its steel branch on this being
+     *  present, so dropping it here rendered every copied steel beam as a box. */
+    readonly steelProfileName?: string;
   };
 
   /** Fired after `door.create` or `door.batch.create` succeeds (Sprint A28/A29).
