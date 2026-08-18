@@ -7736,3 +7736,43 @@ own lane); `EdgeProjectorService.ts:2423`; and whether furniture's two writers a
 
 Note for anyone reading this area: `plugins/plan-view/` is a **second, unused** plan implementation
 with clean DI stores, depended on only by `plugins/sheets`. It is not the live path.
+
+## L-977 — Ctrl+Z after moving a slab DESTROYS the slab record (OPEN, live today)
+
+**Lane AD1, 2026-08-18. Pinned by `apps/editor/__tests__/SlabUndoDestroysLegacyRecord.test.ts`
+(`cb773834`) — 2/2, re-run independently by the orchestrator. The test CHARACTERISES the destruction;
+it is not a fix.**
+
+Move a slab with the 3-D gizmo (`registerTransformDragHandler.ts:638`) or the plan move tool
+(`elementMove.ts:397`), then press Ctrl+Z. The slab is left holding **`{ holes: [] }`** — no `id`, no
+polygon, no position, no `levelId`, no `ifcData`. Frozen, still under its own key, and `performUndo`
+**reports the store as applied**.
+
+**Mechanism.** `_movePatchPair` (`initBusHandlers.ts:565-579`) emits one depth-2 `replace` op **per
+field**, and `slab.movePolygon` calls it with `{polygon, holes}`. `elementUndoStoreAdapter`'s field
+arm then writes a **one-key partial** into `SlabStore.update(id, nextState)` — which is a
+**whole-record REPLACE, not a merge**. Op 1 writes the pre-move outline; op 2 replaces the whole
+record with `{holes: []}` and annihilates it. **The user does not even get the revert they asked
+for.** A one-op control yields `{polygon}`, proving this is `update`'s replace semantics rather than
+op ordering.
+
+Driven through the real `performUndo()`, `buildUndoStoreMap()`, `applyRingBufferSide` and the real
+`@pryzm/geometry-slab` `SlabStore`.
+
+**Two sibling defects in the same arm:**
+- `roof.setPitch` writes the L1 field name `pitch` onto a legacy record whose geometry field is
+  `slope` — `grep -rn '\.pitch' packages/geometry-roof/src/*.ts` → **0 matches**, and L1 is radians
+  while legacy is rise/run. One mutation, **zero diagnostics**.
+- A depth-2 patch for an **absent id** is silent, while the whole-element arm on the identical id
+  warns.
+
+**Why it survived:** `elementUndoStoreAdapter.test.ts` is green against hand-written Maps that merge
+and validate nothing. **A fake built from the header cannot falsify the header** — the fake was more
+capable than the real store, so the test proved only that the adapter works against a store that
+behaves as the comment claims.
+
+**Fix NOT landed, deliberately.** The candidate — spread the current record into the write — was
+watched green against the slab arm, but `WallStore.update` has change-detection side effects
+(`_sourceBaseLine` clearing) that a full-record write may suppress. **Eleven of the thirteen stores'
+`update` semantics are NOT MEASURED**; we know one of thirteen is a replace, not how many. This needs
+a per-store merge-vs-replace declaration with a RED-first proof per family.

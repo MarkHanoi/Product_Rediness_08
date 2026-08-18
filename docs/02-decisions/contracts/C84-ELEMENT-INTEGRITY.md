@@ -1210,7 +1210,25 @@ as *"fine"* and is indistinguishable from *"nobody looked"*).
 - **Runtime divergence of store CONTENTS** — the two construction roots and 19 TWO-LIVE families are
   proven **structurally**; no live browser session observed two stores holding different records. So
   **C78 §21 OQ7 is answered structurally, not by a runtime probe.**
-- **ADR-0331 §D3 has never been executed** — routing the forward patch through
-  `elementUndoStoreAdapter` is inferred from that file's own header and surface analysis. The SPEC
-  sequences a one-verb probe before any wiring.
+- ~~**ADR-0331 §D3 has never been executed**~~ — **EXECUTED 2026-08-18 (lane AD1, `4a812180` +
+  `cb773834`), and the premise is REFUTED.** The patch *shape* is store-relative as the adapter's
+  header claims; the *surface analysis* that claim rests on is false. `SlabStore.update` is a
+  whole-record **REPLACE**, so the adapter's one-key partial annihilates the legacy slab;
+  `roof.setPitch` writes the L1 name `pitch` onto a record whose geometry field is `slope`; and the
+  L1 create value is refused outright by `RoofDataAddSchema` on four fields. **Two of the three are
+  silent**, and the absent-id branch is silent too.
+
+  **§D3 acquires two prerequisites before any wiring** (SPEC S7.2a/S7.2b): a per-family L1→legacy
+  shape translator, and a **merge-vs-replace declaration per store**.
+
+  ⚠ **This is not only §D3's future — the mechanism already reaches Ctrl+Z today.**
+  [L-977](../../04-reference/ISSUE-LOG.md): a slab move's ring entry leaves the record as
+  `{holes: []}` through the real `performUndo`.
+
+  **Why it survived:** `elementUndoStoreAdapter.test.ts` is green against hand-written Maps that
+  merge and validate nothing — **a fake built from the header cannot falsify the header.** The fake
+  was more capable than the real store.
+
+  **Still NOT MEASURED:** eleven of the thirteen stores' `update` semantics, and any browser session.
+
 - **Gates 14–83 of `run-all.ts`** — the run was killed at ~11 min on gate 13.
