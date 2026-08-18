@@ -2,6 +2,14 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { CreateWallCommand } from './CreateWallCommand';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// L-965 §WALLS-BY-SLAB-BRANDED-ID — the SAME id factory every other wall path uses.
+// `@pryzm/schemas` is already imported from this package (`columns/CreateColumnCommand.ts`),
+// so this adds no dependency edge and no layer violation.
+import { createId } from '@pryzm/schemas';
+// §L965-RECOVER-BOUNDARY-ARCS — the ONE arc model for slab-family boundaries, read
+// in the inverse direction. `@pryzm/geometry-slab` is already a dependency of this
+// package; nothing new is introduced and the arc maths is not re-derived here.
+import { resolveBoundarySegments } from '@pryzm/geometry-slab';
 
 export interface CreateWallsFromSlabPayload {
     slabId: string;
@@ -90,22 +98,65 @@ export class CreateWallsFromSlabCommand implements Command {
         const isCW = area > 0;
         const orderedPoints = isCW ? [...points].reverse() : points;
 
-        for (let i = 0; i < orderedPoints.length; i++) {
-            const startPoint = orderedPoints[i];
-            const endPoint = orderedPoints[(i + 1) % orderedPoints.length];
+        // §L965-RECOVER-BOUNDARY-ARCS — walk DISTINCT EDGES, not tessellation stations.
+        //
+        // This loop used to run once per polygon VERTEX and emit one straight wall per
+        // chord. On a slab drawn with the tool's curved mode that is one straight wall
+        // per 1/16th of an arc: the founder's two arc gestures became 33 short walls
+        // around a drum. The cost is not only visual — several of those endpoints land
+        // inside one junction cluster, and WallJoinResolver's §SELF-CLUSTER-GUARD then
+        // SKIPS every wall with both ends in it, so the drum is also unjoinable.
+        //
+        // The slab stores no arc (a boundary is a POLYGON by schema — `boundaryArc.ts`
+        // states that decision and it is not reversed here), so the arc is RECOVERED
+        // from the uniform-t sampling that produced the vertices, in the ONE module
+        // that owns this arc model. Runs that do not verify as an arc come back as
+        // single chords and behave exactly as they did before.
+        const ring = orderedPoints.map((p: THREE.Vector2) => ({ x: p.x, z: p.y }));
+        const boundarySegments = resolveBoundarySegments(ring);
+        const arcCount = boundarySegments.filter(s => s.control).length;
+        if (arcCount > 0) {
+            console.log(
+                `[CreateWallsFromSlab] §L965-RECOVER-BOUNDARY-ARCS: ${ring.length} boundary vertices ` +
+                `→ ${boundarySegments.length} wall(s), ${arcCount} of them CURVED`
+            );
+        }
+
+        for (let i = 0; i < boundarySegments.length; i++) {
+            const segment = boundarySegments[i];
+            const startPoint = ring[segment.startIndex];
+            const endPoint = ring[segment.endIndex];
 
             // ✅ FIX C2: Wall IDs are deterministic and pre-composed from the parent command ID
             // so undo always targets the exact same IDs on every redo (Contract §2.6).
             const wallId = `wall-slab-${this.id}-${i}`;
 
+            // Contract §03-1.2: the curve rides in world space, like the wall tool's own
+            // (`WallPlanToolHandler` commits `{ control: {x, y: 0, z}, segments }`), so the
+            // slab origin has to reach the control point as well as the endpoints — an
+            // offset applied to two of the three would bend the wall off its own slab.
+            // `segments` is floored at 4 because that is the WallCurve schema minimum;
+            // a denser sampling of the SAME Bézier is the same curve, drawn smoother.
+            const curve = segment.control
+                ? {
+                    control: {
+                        x: segment.control.x + slabPos.x,
+                        y: 0,
+                        z: segment.control.z + slabPos.z,
+                    },
+                    segments: Math.max(4, segment.chords),
+                }
+                : undefined;
+
             const wallCommand = new CreateWallCommand(
                 wallId,
                 {
-                    start: { x: startPoint.x + slabPos.x, z: startPoint.y + slabPos.z },
-                    end: { x: endPoint.x + slabPos.x, z: endPoint.y + slabPos.z },
+                    start: { x: startPoint.x + slabPos.x, z: startPoint.z + slabPos.z },
+                    end: { x: endPoint.x + slabPos.x, z: endPoint.z + slabPos.z },
                     height: wallHeight,
                     thickness: wallThickness,
-                    levelId: levelId
+                    levelId: levelId,
+                    ...(curve ? { curve } : {})
                 }
             );
 
