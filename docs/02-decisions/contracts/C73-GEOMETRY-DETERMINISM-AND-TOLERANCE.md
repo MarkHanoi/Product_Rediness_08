@@ -48,8 +48,31 @@ orders of magnitude**, in one product, deciding the same question. `0.001` and `
 both metres; they differ by 50×. `1e-9` and `1e-6` are both "numerically zero"; they
 differ by 1000×. Which one a given coincidence test uses is an accident of who wrote it.
 
-- **`packages/geometry-kernel` exports no epsilon at all.** The layer that owns geometry
-  has no opinion on tolerance, so every consumer forms its own.
+- ⛔ **SUPERSEDED BY MEASUREMENT — 2026-08-18. This bullet used to read
+  *"`packages/geometry-kernel` exports no epsilon at all. The layer that owns geometry has no
+  opinion on tolerance, so every consumer forms its own."* IT IS FALSE, and has been since
+  five days after this contract was stamped.**
+  `packages/geometry-kernel/src/tolerance.ts` shipped **2026-08-13** (commits `3dba3557`,
+  `07173cdf`, `f580a721`) and declares all three roles §2.1 requires, unit-qualified per §2.3
+  — plus a fourth. Measured at HEAD:
+
+  | §2.1 role | export | line | value |
+  |---|---|---|---|
+  | numeric-zero (dimensionless) | `EPSILON_ZERO` | `:76` | `1e-9` |
+  | model-space coincidence (metres) | `COINCIDENT_M` | `:92` | `0.001` |
+  | recompute identity (metres) | `RECOMPUTE_IDENTITY_M` | `:120` | `1e-9` |
+  | parallelism (radians) | `PARALLEL_RAD` | `:139` | `1e-9` |
+
+  **The layer that owns geometry now HAS an opinion on tolerance, and it is exported.**
+  §0.1's *argument* stands untouched — 267 rival declarations across three orders of
+  magnitude — and every MUST in §2 stands. What is dead is only the claim of ABSENCE, and
+  §2.2's *"consumes the declared tolerance"* now has a real referent to name.
+
+  ⚠ **This is the C69 §0.1 defect wearing a contract instead of a gate: stamped prose
+  outliving the code it described. IT HAS ALREADY PROPAGATED** — C84 §4D was drafted on
+  2026-08-18 asserting the Stack A/B parity harness *"had none to consume"*, sourced from
+  here, and was corrected before landing. **Check the module, never a contract, for whether
+  a module exists.** *Logged as L-954.*
 - The **only** central, named tolerances in the estate are **domain-local**, not general:
   `defaultJunctionBandM()` (`packages/geometry-wall/src/JunctionResolverV2.ts:220`,
   0.20 m — a wall-junction band) and `CENTROID_MATCH_RADIUS`
@@ -244,7 +267,40 @@ The binding rule of this contract, and the one place the repo already has good p
 
 ## §5 — The gates
 
-### §5.1 — `check-epsilon-policy` — SPECIFIED, NOT BUILT
+> ## ⛔ SUPERSEDED IN PART — 2026-08-18, by measurement. READ BEFORE §5.1, §5.2 OR §5.3.
+>
+> **ALL THREE gates below are headed "SPECIFIED, NOT BUILT". ALL THREE EXIST.** Measured at
+> HEAD by `find tools -name '<gate>.ts'`:
+>
+> | Section | Gate | Path | Size | Dated |
+> |---|---|---|---|---|
+> | §5.1 | `check-epsilon-policy` | `tools/ga-gate/check-epsilon-policy.ts` | 36,188 B | 2026-08-16 |
+> | §5.2 | `check-predicate-canonical` | `tools/ga-gate/check-predicate-canonical.ts` | 119,698 B | 2026-08-16 |
+> | §5.3 | `check-deterministic-regeneration` | `tools/ga-gate/check-deterministic-regeneration.ts` | 59,674 B | 2026-08-16 |
+>
+> They are not merely present, they are **RUNNING AND REPORTING**: `check-predicate-canonical`
+> was read at **138/138, declared level** during the 2026-08-18 session, and
+> `check-deterministic-regeneration` at **exit 3 (137/134)** — a ratchet breach, which per
+> `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)` is never absorbable. A contract cannot describe as
+> unbuilt a gate that is currently **failing merge**.
+>
+> **§5.1 E1 in particular is self-refuting as written:** it asserts *"the declared tolerance
+> module exists and is exported from `packages/geometry-kernel`"* — and §0.1 simultaneously
+> claimed no such module existed. **E1's subject shipped 2026-08-13 and E1 passes it** (see
+> the §0.1 banner).
+>
+> **WHAT STANDS:** every check definition — E0–E5, the per-family arms of §5.2, D1–D2 of §5.3
+> — is unchanged and correct. Only the **BUILD STATUS HEADINGS** are false. Do not re-specify
+> what is already written; **run the gate and read its exit code**, which is the authority for
+> every number here. §0.1's own amendment already ruled the gate authoritative over the count;
+> this banner extends that to the gates' existence.
+>
+> ⚠ **Why this matters beyond bookkeeping:** a roadmap or status document reading these
+> headings would report three unbuilt gates and schedule work to build them — duplicating
+> 215 KB of shipped, running enforcement. That is the **EI-10 / "what a second implementation
+> must earn"** defect, minted by stale prose rather than by a coder. *Logged as L-954.*
+
+### §5.1 — `check-epsilon-policy` — ~~SPECIFIED, NOT BUILT~~ **BUILT — see the §5 banner**
 
 | Check | Kind | What it asserts |
 |---|---|---|
@@ -255,7 +311,7 @@ The binding rule of this contract, and the one place the repo already has good p
 | **E4** | hard | a declared tolerance's **value may only shrink or stay**; a widening is a contract violation and must be an explicit, argued change to the module (§2.5) |
 | **E5** | ratchet, **named** | unit-unqualified tolerance names (§2.3) |
 
-### §5.2 — `check-predicate-canonical` — SPECIFIED, NOT BUILT
+### §5.2 — `check-predicate-canonical` — ~~SPECIFIED, NOT BUILT~~ **BUILT — see the §5 banner**
 
 One arm per family in §3.1, each an R3-style **structural counting** gate.
 
@@ -266,7 +322,7 @@ One arm per family in §3.1, each an R3-style **structural counting** gate.
 | **C2** | hard | each family names its canonical file and its exclusions individually with reasons (§3.3) |
 | **C3** | hard | within a single file, no family may appear twice with **differing** degenerate-divide guards (§2.4) — the `CesiumViewport` finding, generalised |
 
-### §5.3 — `check-deterministic-regeneration` — SPECIFIED, NOT BUILT
+### §5.3 — `check-deterministic-regeneration` — ~~SPECIFIED, NOT BUILT~~ **BUILT, AND CURRENTLY RED — see the §5 banner**
 
 Extends the existing `check-derived-regenerable` (§1.3) from *round-trip* to *regeneration*.
 

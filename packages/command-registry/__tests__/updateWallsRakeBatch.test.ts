@@ -109,7 +109,23 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         expect(reasons).toContain('CURVED');
         expect(reasons).toContain('LAYERED');
         // §RAKE-HOSTED-OPENING — and NOTHING is skipped for hosting an opening.
-        expect(reasons).not.toContain('HOSTS OPENINGS');
+        //
+        // ⚠ THIS ASSERTION USED TO READ `expect(reasons).not.toContain('HOSTS OPENINGS')`
+        // AND IT BROKE ON THE MERGE, FOR AN INSTRUCTIVE REASON. §FEAT-RAKE-LAYERED
+        // narrowed the layered refusal and its new sentence legitimately contains the
+        // words "a LAYERED wall that HOSTS OPENINGS". So the substring matched the
+        // SURVIVING refusal, not the deleted one, and the test failed while the code
+        // was correct.
+        //
+        // A refusal message is prose: it is meant to change as the wording improves.
+        // Keying an assertion to a phrase inside it couples the test to the copy-editing
+        // rather than to the behaviour — the same defect class as a gate that classifies
+        // by NAME (roadmap §7B.5) and as the constant-ternary bug that compared against a
+        // value its own enum could not produce. Assert on IDENTITY instead: the question
+        // is whether the wall that merely HOSTS an opening was skipped, and that is a fact
+        // about ids, not about sentences.
+        expect(cmd.skipped.map(s => s.id)).not.toContain('hosting');
+        expect(cmd.skipped.map(s => s.id).sort()).toEqual(['curved', 'layered']);
     });
 
     it('90° (vertical) is a legal target on EVERY wall shape — nothing skips', () => {

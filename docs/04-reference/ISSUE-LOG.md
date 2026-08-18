@@ -6551,3 +6551,147 @@ directions (stair-side `:100`, slab-side `~:197`) must agree, or the idempotence
 false. ⚠ Reuse an existing point-in-polygon helper: `check-predicate-canonical` counts duplicate
 geometry predicates and minting a rival may BREACH it.
 
+
+---
+
+## L-952 — undo restores VALUES but never the AUDIT ENVELOPE, for eight of eleven routed families
+
+**Severity: MEDIUM** — no user-visible data loss. It makes the model **not the same model** across
+an undo, which defeats audit comparison, certification diffing and any "has this changed?" question.
+
+`UpdateElementParameterCommand.undo()` (`:379-385`) does not restore a snapshot — it **constructs a
+fresh forward command and executes it**. Audit-neutrality is delivered solely by `restoreWallAudit`,
+hard-gated at `:410-414` on `t === 'wall' | 'door' | 'window'`. The file concedes this itself at
+`:214-219`.
+
+So **eight routed families ratchet `metadata.version` forward on every undo**: `slab`, `stair`,
+`roof`, `furniture`, `column`, `beam`, `curtainwall`, `handrail`. *(C84 §4B first recorded this as
+four families; the measured figure is eight.)*
+
+⭐ **The same defect wearing a second costume, one subsystem over.**
+`RoomDetectionEngine.mergeWithExisting` (`:974-978`) stamps `modifiedAt: now` and
+`detectionVersion + 1` onto every matched room, and `ReDetectRoomsCommand.ts:65` declares
+`nonUndoable = true` — so the stamp rides along invisibly with a wall undo that triggered a
+re-detect. **`RoomStore` already carries a `preserveMetadata` contract at `:285-332`, and
+`mergeWithExisting` does not consume it.** One root: the contract exists on two stores and is
+honoured on one path.
+
+**Governed by [ADR-0319](../02-decisions/adrs/) §2 DERIVED-BUT-CAUSAL** — *"may differ across a
+restore; may NOT differ across an undo… a counter that ratchets through an undo/redo cycle means
+the model is not the same model … a real defect, not a tolerance candidate."*
+⚠ **NOT C75.** C75's scope line disclaims ADR-0319's field classification and §2.9 forbids
+restating it. Cite ADR-0319.
+
+**Fix:** extend `preserveMetadata` to the routed stores and consume it in `mergeWithExisting`.
+⛔ **Control first, watched RED:** undo a slab parameter change and assert `metadata.version` is
+byte-equal to its pre-edit value. An assertion that passes before the fix is testing nothing.
+
+---
+
+## L-953 — `createSnapshot` silently returns `{}` for TWELVE of the 26 valid `StoreKey` values
+
+**Severity: HIGH** — it is a rollback that was **promised and does not exist**. L-947, which
+corrupted a user's slab, is one instance of this class.
+
+`CommandManagerImpl.createSnapshot()` (`:578-638`) recognises **14** store keys. `types.ts:557-584`
+declares a `StoreKey` union of **26**. `:583-587` is a bare membership test — **no `else`, no
+warning, no throw** — and because a declared scope is non-null, the all-stores fallback at
+`:583-585` does not engage either. The command receives a snapshot of `{}` and `restoreSnapshot`
+(`:650`) restores nothing.
+
+**The twelve that type-check and roll back nothing:** `lighting`, `view`, `view-template`,
+`view-camera-state`, `phase-filter`, `sheet`, `schedule`, `title-block`, `vg-governance`,
+`vg-instance-override`, `visibility-rule`, `semantic-index`.
+
+**TypeScript cannot catch it** — the value is in the union, so it compiles clean. Worse, the legacy
+`Command` interface types the field `ReadonlyArray<string>`, **not `ReadonlyArray<StoreKey>`**
+(`types.ts:605`), so even a typo'd `'walls'` compiles and snapshots nothing. `types.ts:597-598`
+documents the silence as deliberate — *"unknown keys are ignored at runtime so commands declaring
+not-yet-registered stores fail safe rather than crash"* — which is the **failure-as-emptiness**
+shape: a fail-safe that cannot be distinguished from success.
+
+**Violates [C03](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) §4.6 U-2** in its
+Path-A form. See also the corrected §4.3 bullet, which until 2026-08-18 denied Path A carried
+`affectedStores` at all.
+
+**Fix:** `check-affected-stores.ts` (C84 §5) — a table-driven sweep asserting every `affectedStores`
+key declared anywhere in `packages/command-registry/src/**` and `plugins/**/commands/**` appears in
+`createSnapshot`'s `optionalStores` (`:609-625`), plus an **exit-2** diff of the `StoreKey` union
+against the recognised set. Retype the field to `ReadonlyArray<StoreKey>` so the compiler carries
+the invariant it should always have carried.
+
+---
+
+## L-954 — C73 described THREE shipped, running gates and one shipped module as "NOT BUILT"
+
+**Severity: LOW as code, HIGH as governance.** Nothing is broken. The **contract** was wrong, and a
+wrong contract is what sends the next agent to rebuild what exists.
+
+Measured 2026-08-18 against C73 (stamped 2026-08-12):
+
+| C73 claim | Reality at HEAD |
+|---|---|
+| §0.1 *"`packages/geometry-kernel` exports no epsilon at all"* | `src/tolerance.ts` shipped **2026-08-13** — `EPSILON_ZERO:76`, `COINCIDENT_M:92`, `RECOMPUTE_IDENTITY_M:120`, `PARALLEL_RAD:139`; barrel-exported at `index.ts:22-34` |
+| §5.1 `check-epsilon-policy` — *"SPECIFIED, NOT BUILT"* | `tools/ga-gate/check-epsilon-policy.ts`, 36,188 B, 2026-08-16 |
+| §5.2 `check-predicate-canonical` — *"SPECIFIED, NOT BUILT"* | 119,698 B — and **read at 138/138 declared level** this session |
+| §5.3 `check-deterministic-regeneration` — *"SPECIFIED, NOT BUILT"* | 59,674 B — and **currently exit 3 (137/134)**, a live ratchet breach |
+
+**A contract cannot describe as unbuilt a gate that is currently failing merge.** §5.1's own check
+**E1** asserts *"the declared tolerance module exists"* while §0.1 claimed it did not — the contract
+contradicted itself for five days.
+
+⭐ **It had already propagated.** C84 §4D was drafted on 2026-08-18 stating the Stack A/B parity
+harness *"had none to consume"*, sourced from §5.1 — and was corrected before landing. Had it
+landed, C84 would have justified a bespoke epsilon by citing a contract, against a canonical module
+that shipped days earlier. **This is the EI-10 defect minted by stale prose rather than by a coder:
+~215 KB of shipped enforcement rescheduled as work to be done.**
+
+**Applied:** correction banners on C73 §0.1 and §5. All check DEFINITIONS stand unchanged — only the
+build-status headings were false.
+
+**Standing rule this yields:** *check the module or run the gate; never cite a contract for whether
+code exists.* Prose has no exit code.
+
+---
+
+## L-955 — a raked wall joins soundly ONLY when it is plain: layers or an opening breaks the miter
+
+**Founder-reported on the live deploy `d5b8d82f`, 2026-08-18, with screenshots.** Severity: HIGH —
+it is visible in the viewport on the two features that shipped in that same build.
+
+**The differential is the finding, and it is unusually clean:**
+
+| Case | Join with another raked wall |
+|---|---|
+| plain raked ↔ plain raked | ✅ **SOUND** — "perfect" |
+| **layered** raked ↔ raked | ⛔ not sound |
+| raked **hosting a window** ↔ raked | ⛔ not sound |
+
+The features themselves are correct — the founder confirms layered-raked bodies and
+windows-on-raked-walls both render properly. **Only the CORNER fails.** Screenshots show the two
+walls' end faces not closing: a wedge of daylight and a spike at the junction.
+
+⭐ **Why the differential points straight at the root.** Three code paths build a raked wall body:
+the plain sheared prism, the V2 layered band slicer (§FEAT-RAKE-LAYERED), and the opening-bearing
+body (§RAKE-HOSTED-OPENING). **The miter is sound on exactly the one path that predates both.** So
+the shear reached the BODY builders and did not reach the END-FACE/miter construction on the two
+new ones — `buildMiterPrism` extrudes straight up, and `WallFragmentBuilder.ts:1594` says so in its
+own comment: *"`buildMiterPrism` extrudes straight up; left alone, a raked …"*. There is already a
+partial accommodation at `:1545` — *"a layer band failed the spike guard — falling back to legacy
+MiterPrism for the whole stack"* — which is a fallback, not a solution, and "spike" is precisely
+what the screenshots show.
+
+**This is the [C84](../02-decisions/contracts/C84-ELEMENT-INTEGRITY.md) seam predicted by §4D:**
+several builders for one element, agreeing on the body and diverging at the boundary between them.
+The rake gate was narrowed twice this session — once per lane, each removing its own refusal — and
+**neither lane owned the JOIN**, because each measured only its own body.
+
+**Owner:** a dedicated lane. ⛔ **Do NOT re-refuse the two combinations** — the bodies are correct
+and the founder has confirmed them; re-refusing would withdraw two shipped features to hide a corner
+defect. Fix the miter so the end face rides the same shear the body does, on all three paths, and
+make the shear a single authority rather than a fourth copy — `rakeShearPerMetre` is already
+declared the one place `cot(rake)` is computed.
+
+⚠ **Non-regression is the hard part:** plain↔plain is CONFIRMED GOOD by the founder. Any change to
+`buildMiterPrism` must be proven not to move it. Pin the working case FIRST, watched RED against a
+deliberately broken shear, before touching the two failing ones.

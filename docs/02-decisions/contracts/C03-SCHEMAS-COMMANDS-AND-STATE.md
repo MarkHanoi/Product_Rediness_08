@@ -183,7 +183,28 @@ not the legacy/mesh store. This split is the root of every undo bug below.
 - Used by plan-tool/property/gizmo sites that call `commandManager.execute(new UpdateXxxCommand(...))`.
 - Snapshot-based: each command object stores pre/post state and its `undo()` writes back **into
   the legacy store directly** (which drives the mesh) — so Path A undo *does* revert the mesh.
-- No `affectedStores`/patch metadata.
+- ⚠ **CORRECTED 2026-08-18. This bullet read *"No `affectedStores`/patch metadata."* — the
+  `affectedStores` HALF IS FALSE, and has been since the F4.6 audit.**
+  `packages/command-registry/src/types.ts:605` declares `affectedStores: ReadonlyArray<string>`
+  **non-optionally** on the legacy `Command` interface, and `CommandManagerImpl.createSnapshot()`
+  (`:578-638`) scopes its snapshot BY it. Path A does not merely carry `affectedStores` — its
+  rollback is *governed* by it.
+  **The `patch metadata` half STANDS**: Path A has no forward/inverse pair; its undo is
+  snapshot-based, exactly as the bullet above says.
+
+  **Why the correction matters rather than being pedantry — [L-947](../../04-reference/ISSUE-LOG.md)
+  IS AN INSTANCE OF THE HALF THIS BULLET DENIED.** `UpdateElementParameterCommand` hard-coded
+  `affectedStores = ["wall"]` while its own `resolveStore()` routed to fifteen stores, so undo
+  snapshotted one store and the edit wrote another — and it silently corrupted a user's slab. A
+  reader who believed this bullet would conclude Path A had no such declaration to get wrong.
+
+  **Two precisions that bear directly on §4.6 U-2b:**
+  - The interface carries **no `readonly` modifier** — implementations add their own, so
+    nothing structurally prevents mutation after construction.
+  - It is typed `ReadonlyArray<string>`, **NOT `ReadonlyArray<StoreKey>`**. A typo'd `'walls'`
+    type-checks cleanly and snapshots nothing. Combined with `createSnapshot`'s membership test
+    (`:583-587` — no `else`, no warning, no throw), **a misdeclared store fails silent, not
+    loud.** *See L-953.*
 
 **Path B — `CommandBus` + `RingBufferUndoStack`** (`packages/command-bus/`, `packages/runtime-undo-stack/`)
 - Used by every `runtime.commandBus.dispatch()` (the wall/room/slab/curtain-wall/level/… Immer
