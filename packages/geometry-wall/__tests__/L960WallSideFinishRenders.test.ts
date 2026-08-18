@@ -243,3 +243,53 @@ describe("L-960 §L960-FINISH-MUST-RENDER — the founder's 1-layer Plain Wall p
         expect(joined.colour, 'and it is the same colour as its unjoined twin').toBe(norm(WOOD_OAK));
     });
 });
+
+// ─── THE SECOND HOLE, MEASURED RATHER THAN ASSUMED ─────────────────────────────
+//
+// `resolveLayerRenderFinishColor` returns `null` for `layerCount <= 0`, and the plain
+// (non-layered) fragment arms take their colour from `createWallMaterial(wall)`, which
+// reads `materialId`/`materialColor` and nothing else. So a wall with NO `layers` array
+// at all — the shape `RoomFinishResolver` describes as *"plain (single-volume, not
+// layered)"* — has a THIRD arm that could drop the finish, on top of the instanced one.
+//
+// Whether that arm is reachable is a question, not a reading, so it is measured here.
+// Both the unjoined (instanced) and joined (fragment) spellings are built, because
+// only measuring both tells you which router you fixed.
+
+/** A wall with NO layers array at all — not one empty layer, absent. */
+function layerlessWall(s: [number, number], e: [number, number], sideFinishes?: { interior?: SideFinish; exterior?: SideFinish }): WallData {
+    const w = plainWall(s, e, sideFinishes) as unknown as { layers?: unknown };
+    delete w.layers;
+    return w as unknown as WallData;
+}
+
+describe('L-960 §L960-PLAIN-ARM — a wall with NO layer stack must paint its finish too', () => {
+    it('UNJOINED (instanced arm)', () => {
+        const r = paint(layerlessWall([0, 0], [5, 0], {
+            interior: { materialId: 'wood-oak', materialColor: WOOD_OAK, materialName: 'Wood · Oak (Light)' },
+        }));
+        // eslint-disable-next-line no-console
+        console.log(`[L-960] layerless UNJOINED: colour=${r.colour} instanced=${r.instanced} bodyMeshes=${r.bodyMeshes}`);
+        expect(r.colour).toBe(norm(WOOD_OAK));
+    });
+
+    it('JOINED (plain fragment arm — createWallMaterial)', () => {
+        const finishes = {
+            interior: { materialId: 'wood-oak', materialColor: WOOD_OAK, materialName: 'Wood · Oak (Light)' },
+        };
+        const r = paint(layerlessWall([0, 0], [5, 0], finishes), layerlessWall([0, 0], [0, 5], finishes));
+        // eslint-disable-next-line no-console
+        console.log(`[L-960] layerless JOINED: colour=${r.colour} instanced=${r.instanced} bodyMeshes=${r.bodyMeshes}`);
+        expect(r.instanced, 'the mitred wall left the instanced arm').toBe(0);
+        expect(r.colour).toBe(norm(WOOD_OAK));
+    });
+
+    it('CONTROL — the same layerless walls with NO finish stay the default', () => {
+        const u = paint(layerlessWall([0, 0], [5, 0]));
+        const j = paint(layerlessWall([0, 0], [5, 0]), layerlessWall([0, 0], [0, 5]));
+        // eslint-disable-next-line no-console
+        console.log(`[L-960] layerless no-finish: unjoined=${u.colour} joined=${j.colour}`);
+        expect(u.colour).toBe(norm(WALL_DEFAULT_BODY_COLOUR));
+        expect(j.colour).toBe(norm(WALL_DEFAULT_BODY_COLOUR));
+    });
+});

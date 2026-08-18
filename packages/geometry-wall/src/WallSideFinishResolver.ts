@@ -204,11 +204,16 @@ export function withWallSideFinish(
  * ships against (`side:'interior'` appends, `'exterior'` unshifts).
  *
  * ⚠ THE SINGLE-LAYER CASE IS A DISCLOSED LIMIT, NOT A SILENT GUESS.
- * `WallFragmentBuilder.ts:1254` takes the layered arm at `layers.length > 0`, so
+ * `WallFragmentBuilder` takes the layered arm at `layers.length > 0`, so
  * a `wt-monolithic` wall renders as exactly ONE mesh whose two faces share one
  * material — this renderer has no per-face material index (no `addGroup` exists
  * anywhere in geometry-wall, and the committer arm paints `THREE.DoubleSide`).
  * Two independent finishes therefore CANNOT both show on such a wall.
+ *
+ * That one-mesh rule is now stated ONCE, in {@link resolveWholeBodyFinishColor},
+ * and this function DELEGATES to it for `layerCount === 1` rather than spelling
+ * the same precedence a second time (C84 EI-8/EI-9: one answer per question).
+ * `paintsBothSidesOnOneSurface` pins the two together.
  *
  * Both values are still STORED independently and both are shown in the property
  * panel and schedules; what is limited is only what the viewport can display.
@@ -223,23 +228,97 @@ export function resolveLayerRenderFinishColor(
     layerCount: number,
 ): string | null {
     if (layerCount <= 0) return null;
+    // One band ⇒ one surface ⇒ the whole-body rule, not a second spelling of it.
+    if (layerCount === 1) return layerIdx === 0 ? resolveWholeBodyFinishColor(wall) : null;
     const sf = wall.sideFinishes;
     if (!sf) return null;
 
     // Exterior-first: index 0 is the exterior face, index n-1 the interior face.
-    // On a single-layer wall BOTH tests hit the same mesh; exterior is checked
-    // first, so it wins — see the limit note above.
     if (layerIdx === 0 && sf.exterior?.materialColor) return sf.exterior.materialColor;
     if (layerIdx === layerCount - 1 && sf.interior?.materialColor) return sf.interior.materialColor;
     return null;
 }
 
-/** `true` when this wall cannot render its two side finishes distinctly. */
+/**
+ * §L960-WHOLE-BODY-FINISH — the colour a wall drawn as ONE SOLID must paint, or
+ * `null` to leave today's expression byte-identical.
+ *
+ * ═══ WHY THIS EXISTS: L-960, AND IT IS THE THIRD INSTANCE OF ONE SHAPE ═══
+ *
+ * `resolveLayerRenderFinishColor` is reached only from inside the per-layer BAND
+ * loops. The founder's wall is a "Plain Wall" with ONE layer, unjoined and
+ * opening-free, and `isSimpleWall` routes exactly that wall to the GPU-INSTANCED
+ * arm — which has no band, and had no hook. He set an interior finish on ten such
+ * walls, was told "Done", and nothing on screen changed. (L-955 was the same shape
+ * for rake; L-951 the same shape for the canned success.)
+ *
+ * ⚠ NOT A SECOND SOURCE OF TRUTH — THE SAME RULE, ADDRESSED BY SURFACE.
+ * A wall drawn as one solid has ONE surface, so the question "which of the two
+ * finishes paints it?" has one answer and it is already ruled above: EXTERIOR
+ * WINS, deterministically, and {@link describeSingleLayerRenderLimit} is the
+ * sentence that tells the user so. This function is that rule addressed by
+ * "the whole body" instead of "band 0 of 1"; `resolveLayerRenderFinishColor`
+ * calls it rather than repeating it.
+ *
+ * ⚠ WHY THE INSTANCED ARM HONOURS THIS INSTEAD OF LEAVING INSTANCING.
+ * L-955's fix for rake was to route raked walls OFF the instanced arm, because a
+ * shear is not expressible in a T·R·S instance matrix — the bridge genuinely could
+ * not carry it. A COLOUR is not a shear. `InstancedElementRenderer` keys its groups
+ * on (geometry × material × level) and `dedupInstanceMaterial` canonicalises by
+ * VISUAL SIGNATURE, so a distinct finish colour is simply a distinct bucket: one
+ * extra draw call per distinct finish, never one per wall. Excluding finished walls
+ * would have pushed the founder's whole ground floor out of instancing to arrive at
+ * the identical pixels. Measure which limit is real before copying a fix.
+ */
+export function resolveWholeBodyFinishColor(wall: SideFinishBearingWall): string | null {
+    const sf = wall.sideFinishes;
+    if (!sf) return null;
+    return sf.exterior?.materialColor ?? sf.interior?.materialColor ?? null;
+}
+
+/**
+ * `true` when this wall cannot render its two side finishes distinctly.
+ *
+ * §L960 — the threshold is `n <= 1`, which covers BOTH the one-layer wall and the
+ * wall with no layer array at all (`RoomFinishResolver`: *"walls in the generated
+ * building are plain (single-volume, not layered)"*). Both are drawn as ONE solid,
+ * so both have exactly one surface to paint. `0` is not "no limit"; it is the same
+ * limit reached from the other side.
+ */
 export function hasSingleLayerRenderLimit(
     wall: SideFinishBearingWall & { readonly layers?: ReadonlyArray<unknown> },
 ): boolean {
     const n = wall.layers?.length ?? 0;
     return n <= 1 && Boolean(wall.sideFinishes?.interior && wall.sideFinishes?.exterior);
+}
+
+/**
+ * §L960-STEP3 — THE DISCLOSURE THAT MUST PRECEDE THE SUCCESS LINE.
+ *
+ * Which side of `wall` will NOT be visible after `side` is set to a finish, or
+ * `null` when the drawing will carry exactly what the user asked for.
+ *
+ * After the whole-body fix, EVERY wall can now show A finish, so there is no wall
+ * left to refuse outright — the arm that dropped it silently is gone. What survives
+ * is genuinely a property of the geometry and not of the renderer: a wall drawn as
+ * ONE solid has ONE surface, so if BOTH sides carry a finish only one can show.
+ * That case must be said out loud BEFORE "Done", because otherwise the chat
+ * announces a finish the drawing does not carry — which is the whole of L-960.
+ *
+ * Returns the name of the side that will be MASKED, so the caller can name it.
+ * `null` ⇒ nothing is hidden ⇒ say "Done" with a clear conscience.
+ */
+export function maskedSideAfterSetting(
+    wall: SideFinishBearingWall & { readonly layers?: ReadonlyArray<unknown> },
+    side: WallFinishSide,
+    next: WallSideFinish,
+): WallFinishSide | null {
+    const n = wall.layers?.length ?? 0;
+    if (n > 1) return null;                       // two bands ⇒ two surfaces ⇒ both show
+    const after = withWallSideFinish(wall, side, next);
+    if (!after.interior?.materialColor || !after.exterior?.materialColor) return null;
+    // One surface, two finishes: exterior wins (the rule above), so interior hides.
+    return 'interior';
 }
 
 /** The disclosure sentence for {@link hasSingleLayerRenderLimit}. */
