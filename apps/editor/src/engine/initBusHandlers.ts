@@ -2039,13 +2039,53 @@ export function initBusHandlers(
                     // The height must come from the RECORD. Reading it from the payload would
                     // let a stale caller resolve the transom course against a height the wall
                     // no longer has, and silently reintroduce an intermediate mullion.
+                    //
+                    // ⚠ `get`, NOT `getById`. The geometry `CurtainWallStore` exposes
+                    // `has` / `set` / `get` / `update` / `delete` and NO `getById`
+                    // (CurtainWallStore.ts:75-110,365). An earlier draft of this branch
+                    // read `getById` and therefore bailed on EVERY real wall while the
+                    // unit spec passed green — its `makeStore` fake happens to expose
+                    // both. `_readRecord` above is tolerant of either for exactly this
+                    // reason; this call site is deliberately tolerant the same way rather
+                    // than trusting one spelling. (The same latent hazard sits at
+                    // `initTools.ts:1451`, whose `?.getById?.()` dedup guard can never
+                    // fire — reported separately, not fixed here.)
                     const cwStore = (window as unknown as {
-                        curtainWallStore?: { getById?(id: string): { height?: number } | undefined };
+                        curtainWallStore?: {
+                            get?(id: string): { height?: number } | undefined;
+                            getById?(id: string): { height?: number } | undefined;
+                        };
                     }).curtainWallStore;
-                    const cwRec = cwStore?.getById?.(cmd.elementId);
+                    const cwRec = cwStore?.get?.(cmd.elementId) ?? cwStore?.getById?.(cmd.elementId);
                     if (!cwRec) {
                         console.warn(`[element.changeType] curtain wall "${cmd.elementId}" not in the geometry store — ignored.`);
                         return;
+                    }
+                    // ⚠ UNDO IS A MERGE, SO THE "NO TYPE" STATE MUST BE A PRESENT KEY.
+                    //
+                    // `elementUndoStoreAdapter` applies a whole-element ring `replace` as
+                    // `store.update(id, value)` (:420), and `CurtainWallStore.update` is
+                    // `{ ...existing, ...updates }` (:365-369). A merge can OVERWRITE a key
+                    // but can never DELETE one — so if the pre-swap snapshot simply lacks
+                    // `systemTypeId`, undoing the first-ever type swap leaves the type
+                    // behind: the wall reverts its geometry and still claims a type, and the
+                    // picker keeps showing it. C84 EI-7 — undo restores every store the edit
+                    // wrote, and "restores" means to the state that was there, not near it.
+                    //
+                    // Walls created through `CreateCurtainWallCommand` already carry the key
+                    // (it assigns `systemTypeId: payload.systemTypeId`, i.e. present-and-
+                    // undefined). Walls from an older snapshot do not. Normalising here makes
+                    // the absent case identical to the created case BEFORE the snapshot is
+                    // taken, so the inverse carries an explicit empty value to merge back.
+                    // Guarded so it is a no-op — and fires no store event — on every wall
+                    // that already has the key, which is all newly drawn ones.
+                    if (!('systemTypeId' in (cwRec as Record<string, unknown>))) {
+                        try {
+                            (cwStore as unknown as { update?(id: string, u: Record<string, unknown>): void })
+                                .update?.(cmd.elementId, { systemTypeId: undefined });
+                        } catch (e) {
+                            console.warn('[element.changeType] curtain wall systemTypeId normalise failed (undo may not clear the type):', e);
+                        }
                     }
                     const fields = resolveCurtainWallTypeFields(def, Number(cwRec.height));
                     _swapWithRingParity('curtainWallStore', 'curtainwall', cmd.elementId, () => {
