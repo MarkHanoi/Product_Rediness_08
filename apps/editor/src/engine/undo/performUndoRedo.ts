@@ -342,14 +342,82 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
       pool:           w.poolStore,        pools:        w.poolStore,
       water:          w.waterStore,       waters:       w.waterStore,
     }),
-    // NOTE: door / window / level are intentionally ABSENT. With the `_covered`
-    // pre-check, a store key missing from this map is "not covered" → performUndo
-    // does NOT step the ring-buffer cursor and falls straight through to
-    // commandManager.undo(). That is exactly the desired routing:
-    //   • door/window are HOSTED (the opening must also be removed from the host
-    //     wall) — the two-part undo lives in the legacy command (ADR-051 follow-up);
-    //   • level is spatial authority (Path-A AddLevelCommand / commandManager).
+    // NOTE: door / window / level are intentionally ABSENT — and so are eight
+    // other keys, for a DIFFERENT reason. Both sets are enumerated, with their
+    // reason, in UNMAPPED_BUS_STORE_KEYS below. Read it before adding a key here.
   };
+}
+
+/**
+ * §EI-7c (C84 §3) — EVERY BUS STORE KEY THAT IS NOT IN `buildUndoStoreMap()`,
+ * NAMED, WITH ITS REASON AND ITS CONSEQUENCE.
+ *
+ * THE DEFECT THIS CLOSES. `_covered()` treats a key with no adapter as "not
+ * covered", so `performUndo` does not step the ring-buffer cursor and falls
+ * through to `commandManager`. For `door`/`window`/`level` that is the DESIRED
+ * routing — the legacy stack genuinely owns those mutations, so the fallback
+ * reverts them and the user sees their Ctrl+Z work.
+ *
+ * For eight other keys there is nothing on the legacy stack either. Their
+ * handlers ARE registered in production (`engineLauncher.ts:588,606,619,622` and
+ * the `sheets`/`schedules`/`selection` registrations), the ring buffer holds a
+ * real entry, and Ctrl+Z is a TOTAL NO-OP. `performUndo` diagnosed this
+ * correctly as `{status:'stranded'}` from the day it was written — and every
+ * caller but the AI chat bridge threw the value away, so the diagnosis reached
+ * nobody. A correctly-diagnosed failure that is invisible is still a silent
+ * failure (C03 §4.6 U-4).
+ *
+ * THIS TABLE IS NOT A PERMISSION SLIP. It does not make a stranded family
+ * undoable; it makes the gap DECLARED, and `_reportStranded` below makes the
+ * keypress's failure visible to the user instead of silent. Wiring an adapter
+ * for these is the real fix and is NOT done here: their handlers write a plugin
+ * DTO store whose record shape is not the legacy record's (the §OI-054
+ * REDO-SHAPE-FIX hazard in `elementUndoStoreAdapter`), and four of the eight —
+ * `structural`, `dimension`, `section`, `selection` — have NO legacy store to
+ * adapt at all (measured: no `window.*Store` assignment site exists for any of
+ * them). Adding a map entry pointing at nothing would report coverage that does
+ * not exist, which is the one outcome worse than the current gap.
+ *
+ * MEASURED 2026-08-18 by sweeping every `affectedStores` declaration under
+ * `plugins/**‍/handlers/**` (27 distinct keys) against `buildUndoStoreMap()`'s
+ * key set. C84 §3 EI-7c names seven; the sweep found **eight** — `active-view`
+ * is the one the contract missed.
+ */
+export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 'legacy-stack' | 'nothing'; readonly reason: string }>> = {
+  // ── Deliberate: the commandManager fallback genuinely reverts these. ────────
+  door:   { owner: 'legacy-stack', reason: 'HOSTED — undo must also close the host wall opening; the two-part inverse lives in CreateWallOpeningCommand (ADR-051 follow-up).' },
+  window: { owner: 'legacy-stack', reason: 'HOSTED — as door: undo must also close the host wall opening, and the two-part inverse lives in the legacy command.' },
+  level:  { owner: 'legacy-stack', reason: 'Spatial authority — Path-A AddLevelCommand owns the inverse.' },
+  // ── Stranded: nothing reverts these. Ctrl+Z is a no-op; the user is told. ───
+  structural: { owner: 'nothing', reason: 'No legacy structural store exists (no window.structuralStore assignment site). Registered at engineLauncher.ts:588.' },
+  dimension:  { owner: 'nothing', reason: 'No legacy dimension store exists. Registered at engineLauncher.ts:606.' },
+  section:    { owner: 'nothing', reason: 'No legacy section store exists. Registered at engineLauncher.ts:619.' },
+  selection:  { owner: 'nothing', reason: 'No legacy selection store on the undo path.' },
+  sheet:      { owner: 'nothing', reason: 'window.sheetStore exists (initUI.ts:439) but holds the SHEET record, not the plugin DTO the patch was minted against — adapting it needs a shape bridge first.' },
+  schedule:   { owner: 'nothing', reason: 'window.scheduleStore exists (initUI.ts:460); same shape mismatch as sheet.' },
+  view:       { owner: 'nothing', reason: 'window.viewDefinitionStore exists (initUI.ts:675); same shape mismatch as sheet. Registered at engineLauncher.ts:622.' },
+  'active-view': { owner: 'nothing', reason: 'view.switch — the active-view pointer has no store record at all; NOT named in C84 §3 EI-7c, found by the 2026-08-18 sweep.' },
+};
+
+/**
+ * §EI-7c — make a stranded keypress VISIBLE.
+ *
+ * `{status:'stranded'}` means the user pressed Ctrl+Z, an entry was sitting
+ * there, and nothing happened. Until now that reached the console and the
+ * function's return value — which `initUI`'s keydown handler, `BimService.undo`
+ * and the HUD button all discard. Best-effort and never throws: a headless or
+ * pre-DOM caller just keeps the console line (C03 §4.6 U-4).
+ */
+function _reportStranded(direction: 'Undo' | 'Redo', reason: string, stores: readonly string[]): void {
+  const dead = stores.filter(s => UNMAPPED_BUS_STORE_KEYS[s]?.owner === 'nothing');
+  const msg = dead.length > 0
+    ? `${direction} can't revert this yet — ${dead.join(', ')} ${dead.length === 1 ? 'is' : 'are'} not on the undo path. Your change is still there.`
+    : `${direction} found a pending change it could not revert (${reason}).`;
+  try {
+    void import('@app/ui/platform/PlatformToastSystem')
+      .then(m => { try { m.showToast(msg, 'error', 6000); } catch { /* no DOM */ } })
+      .catch(() => { /* headless / bundle-split miss — the console line stands */ });
+  } catch { /* import() unavailable */ }
 }
 
 /** True when EVERY affected store has a working `applyPatch` adapter in the map.
@@ -509,6 +577,7 @@ export function performUndo(): UndoOutcome {
         span.setAttribute('pryzm.undo.stranded_reason', stranded.reason);
         console.warn('[Undo] STRANDED — a ring-buffer entry is pending but could not be reverted:',
           stranded.reason);
+        _reportStranded('Undo', stranded.reason, stranded.stores);   // §EI-7c — not just the console
         span.end();
         return { status: 'stranded', reason: stranded.reason, stores: stranded.stores };
       }
@@ -619,6 +688,8 @@ export function performRedo(): RedoOutcome {
         span.setAttribute('pryzm.redo.stranded_reason', (stranded as { reason: string }).reason);
         console.warn('[Redo] STRANDED — a ring-buffer entry is pending but could not be re-applied:',
           (stranded as { reason: string }).reason);
+        _reportStranded('Redo', (stranded as { reason: string }).reason,
+          (stranded as { stores: readonly string[] }).stores);      // §EI-7c
         span.end();
         return {
           status: 'stranded',
