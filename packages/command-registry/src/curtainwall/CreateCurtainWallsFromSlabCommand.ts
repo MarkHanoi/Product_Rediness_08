@@ -242,17 +242,24 @@ export class CreateCurtainWallsFromSlabCommand implements Command {
                 runtimeBus.executeCommand('curtain-wall.batch.create', {
                     curtainWalls: busCwSpecs,
                     height,
+                }).then(() => {
+                    // §OUTCOME-CARRIES-THE-SENTENCE (L-965) — this path already CAUGHT the
+                    // rejection, so nothing went unhandled, but the success sentence was printed
+                    // OUTSIDE the promise on the next line. A rejected batch therefore still read
+                    // as "N CW(s) committed to plugin store" followed by a warning. Catching a
+                    // failure is not the same as declining to claim the success.
+                    console.log(
+                        `[CreateCurtainWallsFromSlabCommand] §OUTCOME-CARRIES-THE-SENTENCE: ` +
+                        `curtain-wall.batch.create ACCEPTED — ${busCwSpecs.length} CW(s) committed to plugin store`
+                    );
                 }).catch((busErr: unknown) => {
-                    console.warn(
-                        '[CreateCurtainWallsFromSlabCommand] E.5.x P2e curtain-wall.batch.create bus dispatch failed ' +
-                        '(non-fatal — legacy curtainWallStore is authoritative):',
+                    console.error(
+                        `[CreateCurtainWallsFromSlabCommand] §OUTCOME-CARRIES-THE-SENTENCE: ` +
+                        `curtain-wall.batch.create REJECTED — 0 of ${busCwSpecs.length} CW(s) reached ` +
+                        `the plugin store (legacy curtainWallStore remains authoritative):`,
                         busErr,
                     );
                 });
-                console.log(
-                    `[CreateCurtainWallsFromSlabCommand] E.5.x §P2e-CW-slab: curtain-wall.batch.create dispatched — ` +
-                    `${busCwSpecs.length} CW(s) committed to plugin store`
-                );
             }
         } catch (busErr) {
             console.warn('[CreateCurtainWallsFromSlabCommand] E.5.x bus dispatch failed (non-fatal):', busErr);

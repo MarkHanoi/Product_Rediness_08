@@ -221,6 +221,7 @@ export class CreateWallsOnAllSlabsCommand implements Command {
                         materialColor?: string;
                         materialId?: string;
                         systemTypeId?: string;
+                        curve?: unknown;
                     }> = [];
                     for (const wallId of wallIds) {
                         const wall = context.stores.wallStore.getById(wallId);
@@ -236,14 +237,31 @@ export class CreateWallsOnAllSlabsCommand implements Command {
                             materialColor: wall.materialColor,
                             materialId: wall.materialId,
                             systemTypeId: wall.systemTypeId,
+                            // §L965-RECOVER-BOUNDARY-ARCS — the arc must reach the PLUGIN store
+                            // too; without it this path shipped straight walls to the bus while
+                            // the local store held curved ones.
+                            ...(wall.curve ? { curve: wall.curve } : {}),
                         });
                     }
                     if (wallSpecs.length > 0) {
-                        runtimeBus.executeCommand('wall.batch.create', { walls: wallSpecs });
-                        console.log(
-                            `[CreateWallsOnAllSlabsCommand] E.5.x P2e-walls: wall.batch.create dispatched — ` +
-                            `${wallSpecs.length} wall(s) committed to plugin store`
-                        );
+                        // §OUTCOME-CARRIES-THE-SENTENCE (L-965) — `executeCommand` is async, so
+                        // logging "committed" on the next line claimed a result the bus had not
+                        // given yet, and a rejection went unhandled. Same defect as the
+                        // single-slab path; fixed the same way.
+                        void Promise.resolve(
+                            runtimeBus.executeCommand('wall.batch.create', { walls: wallSpecs })
+                        ).then(() => {
+                            console.log(
+                                `[CreateWallsOnAllSlabsCommand] §OUTCOME-CARRIES-THE-SENTENCE: ` +
+                                `wall.batch.create ACCEPTED — ${wallSpecs.length} wall(s) committed to plugin store`
+                            );
+                        }).catch((busErr: unknown) => {
+                            console.error(
+                                `[CreateWallsOnAllSlabsCommand] §OUTCOME-CARRIES-THE-SENTENCE: ` +
+                                `wall.batch.create REJECTED — 0 of ${wallSpecs.length} wall(s) reached ` +
+                                `the plugin store:`, busErr
+                            );
+                        });
                     }
                 }
             } catch (busErr) {
