@@ -476,6 +476,14 @@ describe('buildUndoStoreMap — coverage of every create-handler affectedStores 
     // dimensions under the `annotation` key, which no longer matches the code.
     // Fixing it needs a live in-app check of which store renders a dimension.
     dimension: 'KNOWN GAP (L-693) — declared by dimension.create*, no backing store',
+    // §L-980 — pool.create/pool.delete declare ['pool','wall','slab','water'] and
+    // ARE registered (engineLauncher.ts:550), but the family is unreachable: no
+    // PoolStore/WaterStore is ever constructed and PluginRegistry declares no
+    // pool/water storeKey, so CommandBus.buildContext throws before any mutation.
+    // The map entries that used to "cover" them were `undefined`; they are now
+    // declared in UNMAPPED_BUS_STORE_KEYS instead.
+    pool:  'UNREACHABLE (L-980) — no PoolStore is constructed and no `pool` storeKey exists; pool.create throws at the bus',
+    water: 'UNREACHABLE (L-980) — as pool; the water half cannot execute either',
   };
 
   it('every affectedStores key declared by a plugin handler is covered or explicitly excused', async () => {
@@ -505,9 +513,20 @@ describe('buildUndoStoreMap — coverage of every create-handler affectedStores 
     // Install every window store buildUndoStoreMap() reads. An adapter is only
     // produced for a store that is actually present, so a missing stub would
     // read as "uncovered" and blame the map for a fixture hole.
+    //
+    // §L-980 (2026-08-18) — `'poolStore', 'waterStore', 'stairLandingStore'` USED
+    // TO BE ON THIS LINE and they are gone. Production assigns NONE of the three
+    // (measured: `initBuilders.ts:937` builds a StairLandingStore and never
+    // publishes it; `new PoolStore()` / `new WaterStore()` appear zero times
+    // repo-wide). Stubbing them here made this fixture MORE CAPABLE than the
+    // runtime it stands for, so the gate below scored pool/water covered while
+    // `_covered()` scored them uncovered — the L-977 disease exactly: a fake built
+    // from the claim cannot falsify the claim. `stairRailingStore` STAYS: it is
+    // genuinely assigned, at `initBuilders.ts:942`, two lines from its unpublished
+    // sibling.
     const ALL_WINDOW_STORES = [
       ...new Set(Object.values(KEY_TO_WINDOW_STORE)),
-      'poolStore', 'waterStore', 'stairRailingStore', 'stairLandingStore',
+      'stairRailingStore',
     ];
     for (const storeName of ALL_WINDOW_STORES) {
       (window as any)[storeName] = { add() {}, remove() {}, getById() {}, update() {} };

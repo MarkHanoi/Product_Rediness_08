@@ -29,6 +29,24 @@
 
 import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
+// §FIX-COPY-PAYLOAD-FIELD-NAMES (L-978) — the legacy-record → bus-payload mapping
+// for every element this tool copies, extracted so a test can EXECUTE it. Every
+// dispatch below sits behind a two-click canvas gesture and a `window.*Store`
+// read, so no suite could build one of these payloads — which is how FOUR wrong
+// curtain-wall field names, a dropped baseLine `y`, a zero-area slab boundary and
+// an object-shaped furniture rotation all survived unmeasured.
+import {
+    curtainWallCopyPayload,
+    wallCopyPayload,
+    slabCopyPayload,
+    columnCopyPayload,
+    furnitureCopyPayload,
+    type LegacyCurtainWallLike,
+    type LegacyWallLike,
+    type LegacySlabLike,
+    type LegacyColumnLike,
+    type LegacyFurnitureLike,
+} from './copyPayloads';
 // §P3.1 (IMPL-PLAN-2026-05-17): CreateWallCommand, CreateCurtainWallCommand, window.commandManager (P4.4).
 // All copy dispatches are now bus-only (wall.create / curtain-wall.create /
 // wall.opening.create — §FIX-COPY-HOSTED-OPENING-PAYLOAD (L-128) corrected the
@@ -257,25 +275,19 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const wall = ws.getById(id);
         if (!wall) { console.warn('[CopyTool] Wall not found:', id); return; }
 
-        const bl = wall.baseLine as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
         const newId = createId('wall');
 
-        const _wStart = { x: bl[0].x + dx, z: bl[0].z + dz };
-        const _wEnd   = { x: bl[1].x + dx, z: bl[1].z + dz };
         // §P3.1 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline.
         // The §P2.1 wall.created bridge in initTools.ts mirrors the wall into the
         // legacy WallStore → WallRebuildCoordinator → mesh rebuild. No dual-write.
-        window.runtime?.bus?.executeCommand('wall.create', {
-            id:            newId,
-            baseLine:      [_wStart, _wEnd],
-            height:        wall.height,
-            thickness:     wall.thickness,
-            levelId:       wall.levelId,
-            ...(wall.baseOffset   !== undefined ? { baseOffset:   wall.baseOffset }   : {}),
-            ...(wall.materialId   !== undefined ? { materialId:   wall.materialId }   : {}),
-            ...(wall.materialColor !== undefined ? { materialColor: wall.materialColor } : {}),
-            ...(wall.systemTypeId !== undefined ? { systemTypeId: wall.systemTypeId } : {}),
-        })?.catch((e: unknown) => console.error('[CopyTool] wall.create bus failed:', e));
+        // §FIX-COPY-PAYLOAD-FIELD-NAMES (L-978) — payload built by `wallCopyPayload`,
+        // which restores the baseLine `y` this call used to drop (`Vec3` requires it,
+        // so `Wall.parse` threw into the catch below and no wall was ever created)
+        // and carries the `curve` + `layers` a copied wall used to lose.
+        window.runtime?.bus?.executeCommand(
+            'wall.create',
+            wallCopyPayload(wall as unknown as LegacyWallLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] wall.create bus failed:', e));
         console.log('[CopyTool] Wall copied → new ID:', newId);
     }
 
@@ -287,24 +299,22 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const cw = cs.getById?.(id) ?? cs.get?.(id);
         if (!cw) { console.warn('[CopyTool] CurtainWall not found:', id); return; }
 
-        const bl = cw.baseLine as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
         const newId = createId('curtainwall');
 
-        const _cwStart = { x: bl[0].x + dx, z: bl[0].z + dz };
-        const _cwEnd   = { x: bl[1].x + dx, z: bl[1].z + dz };
-        // §P3.1 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline.
-        // The §E.5.4 curtain-wall.create bridge in initBusHandlers.ts routes to
-        // _cmExec(new CreateCurtainWallCommand(...)) → legacy store → mesh rebuild.
-        // No dual-write needed here.
-        window.runtime?.bus?.executeCommand('curtain-wall.create', {
-            id:           newId,
-            start:        _cwStart,
-            end:          _cwEnd,
-            height:       cw.height,
-            levelId:      cw.levelId,
-            gridXSpacing: cw.gridXSpacing ?? cw.panelWidth,
-            gridYSpacing: cw.gridYSpacing ?? cw.panelHeight,
-        })?.catch((e: unknown) => console.error('[CopyTool] curtain-wall.create bus failed:', e));
+        // §P3.1 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline. The
+        // `curtain-wall.created` bridge in initTools.ts mirrors the wall into the
+        // legacy CurtainWallStore → CurtainWallBuilder. No dual-write needed here.
+        //
+        // §FIX-COPY-PAYLOAD-FIELD-NAMES (L-978) — this used to send `start`, `end`,
+        // `gridXSpacing` and `gridYSpacing`. `CreateCurtainWallPayload` accepts NONE
+        // of the four, so every copied curtain wall was minted at the L0 schema's
+        // DEFAULT baseLine (0,0,0)→(4,0,0) with default bays, silently. The
+        // translation between the two vocabularies now lives in `copyPayloads.ts`,
+        // where a test can execute it.
+        window.runtime?.bus?.executeCommand(
+            'curtain-wall.create',
+            curtainWallCopyPayload(cw as unknown as LegacyCurtainWallLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] curtain-wall.create bus failed:', e));
         console.log('[CopyTool] CurtainWall copied → new ID:', newId);
     }
 
@@ -381,22 +391,17 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const col = cs.get?.(id) ?? cs.getById?.(id);
         if (!col) { console.warn('[CopyTool] Column not found:', id); return; }
 
-        const pos   = col.position as { x: number; y: number; z: number };
         const newId = createId('column');
 
         // §P3.3-CO: aligned with CreateColumnPayload — `position` → `origin`, `profile` → `shape`.
-        window.runtime?.bus?.executeCommand('column.create', {
-            id:         newId,
-            origin:     { x: pos.x + dx, y: pos.y, z: pos.z + dz },
-            height:     col.height,
-            rotation:   col.rotation,
-            shape:      col.profile,
-            width:      col.width,
-            depth:      col.depth,
-            baseOffset: col.baseOffset,
-            levelId:    col.levelId,
-            materialId: col.materialId,
-        })?.catch((e: unknown) => console.error('[CopyTool] §P3.3-CO: column.create failed:', e));
+        // ⚠ The `shape: profile` hop is LEFT AS IT WAS on purpose (C84 EI-3): a steel
+        // 'UC'/'UB' is outside the L0 ColumnShape vocabulary, so `Column.parse` throws
+        // and the copy refuses LOUDLY, which is the correct behaviour of the two.
+        // See the header of `columnCopyPayload` in `copyPayloads.ts`.
+        window.runtime?.bus?.executeCommand(
+            'column.create',
+            columnCopyPayload(col as unknown as LegacyColumnLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] §P3.3-CO: column.create failed:', e));
         console.log('[CopyTool] Column copied → new ID:', newId);
     }
 
@@ -408,25 +413,18 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const slab = ss.getById?.(id) ?? ss.get?.(id);
         if (!slab) { console.warn('[CopyTool] Slab not found:', id); return; }
 
-        const poly     = (slab.polygon as { x: number; y: number }[]);
-        const newPoly  = poly.map(pt => ({ x: pt.x + dx, y: pt.y + dz }));
-        const holes    = (slab.holes as ({ x: number; y: number }[][]) ?? [])
-            .map((h: { x: number; y: number }[]) => h.map((pt: { x: number; y: number }) => ({ x: pt.x + dx, y: pt.y + dz })));
-        const pos      = slab.position as { x: number; y: number; z: number };
         const newId    = createId('slab');
         const ifcGuid  = crypto.randomUUID();
 
-        window.runtime?.bus?.executeCommand('slab.create', {
-            id:        newId,
-            ifcGuid,
-            width:     slab.width,
-            depth:     slab.depth,
-            thickness: slab.thickness,
-            position:  { x: pos.x + dx, y: pos.y, z: pos.z + dz },
-            levelId:   slab.levelId,
-            polygon:   newPoly,
-            holes:     holes.length ? holes : undefined,
-        })?.catch((e: unknown) => console.error('[CopyTool] slab.create failed:', e));
+        // §FIX-COPY-PAYLOAD-FIELD-NAMES (L-978) — the polygon now carries worldZ in
+        // BOTH `y` and `z` (§FIX-SLAB-ZERO-AREA, C11 §7.0: without `z` the handler's
+        // `signedAreaXZ` read zero area and REFUSED every copied slab, the rejection
+        // dying in the catch below), `position` is no longer translated a SECOND time
+        // on top of the polygon, and the slab's material + type ride along.
+        window.runtime?.bus?.executeCommand(
+            'slab.create',
+            slabCopyPayload(slab as unknown as LegacySlabLike, dx, dz, newId, ifcGuid),
+        )?.catch((e: unknown) => console.error('[CopyTool] slab.create failed:', e));
         console.log('[CopyTool] Slab copied → new ID:', newId);
     }
 
@@ -464,45 +462,22 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const item = fs.get?.(id) ?? fs.getById?.(id);
         if (!item) { console.warn('[CopyTool] Furniture not found:', id); return; }
 
-        const pos   = item.position as { x: number; y: number; z: number };
         const newId = createId('furniture');
 
-        // Translate the optional anchor points used by corner sofas / L-shaped
-        // builders so the copy preserves the same relative geometry (the L
-        // origin and arms shift with the placement, otherwise the copy lands
-        // collapsed to the new position only).
-        const shiftPt = (p: { x: number; y: number; z: number } | undefined) =>
-            p ? { x: p.x + dx, y: p.y, z: p.z + dz } : undefined;
-
-        window.runtime?.bus?.executeCommand('furniture.create', {
-            id:             newId,
-            furnitureType:  item.furnitureType,
-            position:       { x: pos.x + dx, y: pos.y, z: pos.z + dz },
-            rotation:       { ...(item.rotation ?? { x: 0, y: 0, z: 0 }) },
-            levelId:        item.levelId,
-            baseOffset:     item.baseOffset ?? 0,
-            width:          item.width,
-            length:         item.length,
-            height:         item.height,
-            widthBranchTwo: item.widthBranchTwo,
-            lengthBranchTwo:item.lengthBranchTwo,
-            widthMain:      item.widthMain,
-            lengthSide:     item.lengthSide,
-            seatDepthMain:  item.seatDepthMain,
-            seatDepthSide:  item.seatDepthSide,
-            material:       item.material,
-            color:          item.color,
-            hasHeadboard:   item.hasHeadboard,
-            lo3:            item.lo3,
-            startPoint:     shiftPt(item.startPoint),
-            cornerPoint:    shiftPt(item.cornerPoint),
-            endPoint:       shiftPt(item.endPoint),
-            kitchenConfig:         item.kitchenConfig,
-            wardrobeCabinetConfig: item.wardrobeCabinetConfig,
-            wardrobeConfig:        item.wardrobeConfig,
-            furnitureCategory:     item.furnitureCategory,
-            metadata:              item.properties ?? item.metadata,
-        })?.catch((e: unknown) => console.error('[CopyTool] furniture.create failed:', e));
+        // §FIX-COPY-PAYLOAD-FIELD-NAMES (L-978) — `rotation` used to be sent as the
+        // legacy EulerDTO OBJECT. Both receivers want a SCALAR yaw: L0
+        // `Furniture.rotation` is `z.number()`, and the §FT-FURNITURE bridge in
+        // initTools.ts writes `{ x: 0, y: ev.rotation ?? 0, z: 0 }` — an object is
+        // non-nullish, so it survived the `??` and the legacy record ended up with an
+        // OBJECT nested inside its `y`. Every copied ROTATED item was mirrored with a
+        // rotation the builder cannot read. The yaw is lifted in `copyPayloads.ts`,
+        // which also NAMES the anchor-point / branch-dimension fields this call used
+        // to send to no receiver at all (the L-shaped-sofa arm geometry), instead of
+        // dropping them in silence.
+        window.runtime?.bus?.executeCommand(
+            'furniture.create',
+            furnitureCopyPayload(item as unknown as LegacyFurnitureLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] furniture.create failed:', e));
         console.log('[CopyTool] Furniture copied → new ID:', newId);
     }
 

@@ -61,6 +61,9 @@ import { PlumbingTool } from '@pryzm/geometry-plumbing';
 import { FurnitureTool } from '@pryzm/geometry-furniture';
 import { LightingTool } from '@pryzm/geometry-lighting';
 import { FurnitureType } from '@pryzm/geometry-furniture';
+import type {
+    FurnitureMaterial, FurnitureCategory, KitchenCabinetConfig, WardrobeCabinetConfig,
+} from '@pryzm/geometry-furniture';
 import { FloatingObjectCarousel } from '@app/ui/furniture-carousel/FloatingObjectCarousel';
 import { FurnitureDragDropHandler } from '@app/ui/furniture-carousel/FurnitureDragDropHandler';
 import { getDescriptorForType } from '@app/ui/furniture-carousel/FurnitureCategoryRegistry';
@@ -134,7 +137,7 @@ import {
 // the seating bridges below read. `FLOOR_MOUNTED_FIXTURES` is the SAME set
 // `CreateLightingCommand` uses, so the bus path and the command path cannot drift.
 import { FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
-import type { FloorData, CeilingData, LightingFixtureType } from '@pryzm/core-app-model';
+import type { LightingFixtureType } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { constraintStore } from '@pryzm/plugin-annotations';
 import { constraintSolver } from '@pryzm/plugin-annotations';
@@ -182,6 +185,38 @@ import type { UnderlayReferenceRotateTool as _UnderlayReferenceRotateToolImpl }
 import { MarqueeSelectionTool }        from '@pryzm/input-host';
 import { installUnderlayPersistence } from './UnderlayPersistence';
 import { projectScopedStorage } from '@pryzm/core-app-model';
+// ── §FIX-ANY-STORE-SEAM (L-980) — the store seam is TYPED ───────────────────
+// Every store below arrived as `any` from `initBuilders`, which is how
+// `curtainWallStoreInstance?.getById?.()` and `ceilingStore?.get?.()` —
+// dedup guards calling methods that DO NOT EXIST on their store classes —
+// type-checked cleanly and evaluated to `undefined` on every single event
+// for months (L-972 / L-973). `any` + optional chaining is a defect FACTORY:
+// the cast erases the method table and `?.` swallows the `undefined`, so the
+// expression reads as a guard and behaves as a no-op.
+//
+// These are `import type` only — erased by tsc, no runtime edge added. They
+// are the SAME classes `initBuilders.ts` already names in its `BuildersResult`,
+// so this seam now agrees with its own producer instead of forgetting it.
+import type { WallStore } from '@pryzm/geometry-wall';
+import type { SlabStore } from '@pryzm/geometry-slab';
+import type { ColumnStore } from '@pryzm/geometry-column';
+import type { CurtainWallStore, CurtainPanelStore, CurtainWallData } from '@pryzm/geometry-curtain-wall';
+import type { RoofStore, RoofData } from '@pryzm/geometry-roof';
+import type { PlumbingStore } from '@pryzm/geometry-plumbing';
+import type { FurnitureStore } from '@pryzm/geometry-furniture';
+import type { LightingStore } from '@pryzm/geometry-lighting';
+import type { RoomStore } from '@pryzm/room-topology';
+import type {
+    StairStore, StairTypeStore, StairLandingStore, StairRailingStore,
+} from '@pryzm/geometry-stair';
+import type { LiftStore, LiftTypeStore } from '@pryzm/geometry-lift';
+import type {
+    BeamStore, CeilingStore, FloorStore, HandrailStore, OpeningStore,
+} from '@pryzm/core-app-model/stores';
+import type { GridStore } from '@pryzm/core-app-model';
+import type { WallSystemTypeStore } from '@pryzm/geometry-wall';
+import type { SlabSystemTypeStore } from '@pryzm/geometry-slab';
+
 import { installProjectIsolationAudit } from '@pryzm/core-app-model';
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -211,31 +246,36 @@ export interface ToolsParams {
      * migrated continue to type-check.
      */
     runtime?: import('@pryzm/runtime-composer').PryzmRuntime | null;
-    // Stores from initBuilders
-    wallStore: any;
-    slabStore: any;
-    columnStoreInstance: any;
-    beamStore: any;
-    stairStore: any;
-    stairTypeStore: any;
-    stairLandingStore: any;
-    stairRailingStore: any;
-    liftStore?: any;
-    liftTypeStore?: any;
+    // Stores from initBuilders — §FIX-ANY-STORE-SEAM (L-980).
+    // These were `any`. `any` on a store is not "loose typing", it is a
+    // SILENCER: it deletes the method table, so a guard that calls a method the
+    // class does not have compiles clean and returns `undefined` forever. Two
+    // such guards (curtain-wall, ceiling) shipped and never once fired. The
+    // types below are the same classes `initBuilders.BuildersResult` declares.
+    wallStore: WallStore;
+    slabStore: SlabStore;
+    columnStoreInstance: ColumnStore;
+    beamStore: BeamStore;
+    stairStore: StairStore;
+    stairTypeStore: StairTypeStore;
+    stairLandingStore: StairLandingStore;
+    stairRailingStore: StairRailingStore;
+    liftStore?: LiftStore;
+    liftTypeStore?: LiftTypeStore;
     liftMeshBuilder?: any;
-    gridStore: any;
-    curtainWallStoreInstance: any;
-    curtainPanelStoreInstance: any;
-    roofStore: any;
-    plumbingStore: any;
-    furnitureStore: any;
-    handrailStore: any;
-    openingStore: any;
-    wallSystemTypeStore: any;
-    slabSystemTypeStore: any;
-    ceilingStore: any;
-    floorStore: any;
-    roomStore: any;
+    gridStore: GridStore;
+    curtainWallStoreInstance: CurtainWallStore;
+    curtainPanelStoreInstance: CurtainPanelStore;
+    roofStore: RoofStore;
+    plumbingStore: PlumbingStore;
+    furnitureStore: FurnitureStore;
+    handrailStore: HandrailStore;
+    openingStore: OpeningStore;
+    wallSystemTypeStore: WallSystemTypeStore;
+    slabSystemTypeStore: SlabSystemTypeStore;
+    ceilingStore: CeilingStore;
+    floorStore: FloorStore;
+    roomStore: RoomStore;
     // Builders from initBuilders
     slabBuilder: any;
     plumbingBuilder: any;
@@ -1429,7 +1469,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // call therefore evaluated to `undefined` on every single event and the
             // guard never once fired — a sixth constant-false read in this same bridge,
             // hidden by the store being typed `any` here.
-            if (curtainWallStoreInstance?.has?.(cwRecord.id)) return;
+            if (curtainWallStoreInstance.has(cwRecord.id)) return;
             // §G3-STALE-FIX-CW (OI-054 (a), 2026-05-24) — register the curtain wall in VDT +
             // bimManager BEFORE add(), mirroring the wall §P2.1 fix. curtainWallStoreInstance.add()
             // SYNCHRONOUSLY drives CurtainPanelSyncHandler, which fires a storeEventBus event per
@@ -1441,7 +1481,14 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             try { bimManager.registerElement(cwRecord.id, cwRecord.levelId); }
             catch { /* non-fatal — may already be registered */ }
             try {
-                curtainWallStoreInstance.add(cwRecord as any);
+                // §FIX-ANY-STORE-SEAM (L-980) — `as CurtainWallData`, NOT `as any`.
+                // `CurtainWallStore.add()` STAMPS `properties` (and `properties.mark`,
+                // CurtainWallStore.ts:333-338) so its parameter type overstates what it
+                // requires; the mirror legitimately omits it. A NAMED cast keeps every
+                // other field type-checked — a mis-typed `mullionSize` is still a compile
+                // error — which `as any` could never be. That distinction is the whole
+                // lesson of L-972/L-973.
+                curtainWallStoreInstance.add(cwRecord as CurtainWallData);
                 // §P3.1-CW-PLAN-FIX: CurtainWallStore.add() uses the internal this.emit() path
                 // but does NOT call storeEventBus.emit().  Only addMany() does (batch path).
                 // Without storeEventBus, ViewTechnicalDrawingCache._onStoreChange never fires,
@@ -1495,7 +1542,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // `CreateCeilingCommand.ts:188` so plan-drawn and 3-D-drawn ceilings are
             // numbered by the same rule.
             const ceilingRecord = ceilingRecordFromCreatedEvent(ev, {
-                existingCeilingCount: (ceilingStore?.getAll?.() ?? []).length,
+                existingCeilingCount: ceilingStore.getAll().length,
             });
             if (!ceilingRecord) return;
             // Dedup guard (undo/redo replay). §FIX-CEILING-BRIDGE-FINISH — this read
@@ -1505,9 +1552,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // call evaluated to `undefined` on every event, so the guard never once
             // fired — the same constant-false shape as the curtain-wall guard in
             // L-972, hidden by the store being typed `any` at this seam.
-            if (ceilingStore?.has?.(ceilingRecord.id)) return;
+            if (ceilingStore.has(ceilingRecord.id)) return;
             try {
-                ceilingStore.add(ceilingRecord as any);
+                ceilingStore.add(ceilingRecord);
                 // §FIX-PLAN-VDT-BIMMANAGER (ceiling): without these two calls, ceiling elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 // viewDependencyTracker.registerElement → targeted dirty-marking (no §G3-STALE-EVENT).
@@ -1545,7 +1592,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.boundary ||
                 ev.boundary.length < 3
             ) return;
-            if (roofStore?.getById?.(ev.id)) return; // dedup guard
+            if (roofStore.getById(ev.id)) return; // dedup guard
             try {
                 // §ROOF-FOLLOWS-WALL (L-924) — the field mapping now lives in
                 // `roofCreatedMirror.ts` so a test can EXECUTE it. As a closure
@@ -1580,7 +1627,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 }
                 const record = roofRecordFromCreatedEvent(ev, _roofWallHeights);
                 if (!record) return;
-                roofStore.add(record as any);
+                // §FIX-ANY-STORE-SEAM (L-980) — named cast, same reason as the
+                // curtain-wall mirror above: `RoofStore.add()` backfills `properties`
+                // (+ `properties.mark`) and REBUILDS `metadata` wholesale
+                // (RoofStore.ts:58-83), so both are stamped, not dropped.
+                roofStore.add(record as RoofData);
                 // §FIX-PLAN-VDT-BIMMANAGER (roof): without these two calls, roof elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
@@ -1625,7 +1676,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // so the guard never fired — CreateColumnCommand already adds the column
             // to the legacy store directly, causing the bridge to double-add (duplicate
             // Map.set → duplicate ColumnFragmentBuilder mesh in the scene).
-            if ((columnStore as any)?.get?.(ev.id)) return; // dedup guard
+            if (columnStore.get(ev.id)) return; // dedup guard
             try {
                 // Legacy ColumnData uses `position` (not `origin`) and `profile` (not `shape`).
                 (columnStore as any).add({
@@ -1691,7 +1742,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.polygon ||
                 ev.polygon.length < 3
             ) return;
-            if ((slabStore as any)?.getById?.(ev.id)) return; // dedup guard
+            if (slabStore.getById(ev.id)) return; // dedup guard
             try {
                 slabStore.add({
                     id:         ev.id,
@@ -1752,7 +1803,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.startPoint ||
                 !ev.endPoint
             ) return;
-            if (beamStore?.get?.(ev.id)) return; // dedup guard
+            if (beamStore.get(ev.id)) return; // dedup guard
             try {
                 // §FIX-BEAM-BRIDGE-LOADBEARING / §FIX-BEAM-BRIDGE-SECTION (C84
                 // EI-2a + EI-2c) — the field mapping now lives in
@@ -1766,7 +1817,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // `roofCreatedMirror.ts`, for the same reason.
                 const record = beamRecordFromCreatedEvent(ev);
                 if (!record) return;
-                beamStore.add(record as any);
+                beamStore.add(record);
                 // §FIX-PLAN-VDT-BIMMANAGER (beam): without these two calls, beam elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 // BeamStore.ts §3.5 explicitly documents bimManager.registerElement was removed from
@@ -1804,9 +1855,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.polygon ||
                 ev.polygon.length < 3
             ) return;
-            if ((floorStore as any)?.getById?.(ev.floorId)) return; // dedup guard
+            if (floorStore.getById(ev.floorId)) return; // dedup guard
             try {
-                const floorCount = ((floorStore as any)?.getAll?.() ?? []).length + 1;
+                const floorCount = floorStore.getAll().length + 1;
                 const label = ev.label ?? `Floor-${floorCount.toString().padStart(2, '0')}`;
                 const finishSpec = ev.finishSpec ?? {
                     finishColor: '#D4C4A8',
@@ -1899,7 +1950,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.path ||
                 ev.path.length < 2
             ) return;
-            if (handrailStore?.getById?.(ev.id)) return; // dedup guard
+            if (handrailStore.getById(ev.id)) return; // dedup guard
 
             // ── §FIX-HANDRAIL-BRIDGE-TRUNCATION (ADR-0332 §2 defect 1) ────────
             //
@@ -2010,9 +2061,14 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     if (runtime) {
         runtime.events.on('lighting.created', (ev) => {
             if (ev.commandType !== 'lighting.create' || !ev.id || !ev.origin) return;
-            const _ls = window.lightingStore as { add(d: unknown): void; has?(id: string): boolean } | undefined;
+            // §FIX-ANY-STORE-SEAM (L-980) — the REAL class, not a hand-written
+            // structural type. The previous shape declared `has?` OPTIONAL, which
+            // is the same silencer as `any`: had `LightingStore` lacked `has`, the
+            // guard would have compiled and never fired. It does have it — but the
+            // type must be what PROVES that, not what assumes it.
+            const _ls = window.lightingStore as LightingStore | undefined;
             if (!_ls) return;
-            if (_ls.has?.(ev.id)) return; // dedup guard
+            if (_ls.has(ev.id)) return; // dedup guard
             try {
                 // §FIX-SEATING-ONE-AUTHORITY — re-seat rather than forwarding `origin.y`.
                 // `LightingPlanToolHandler._resolveY` computes the raw structure
@@ -2034,14 +2090,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 const _seatY = FLOOR_MOUNTED_FIXTURES.has(_fixtureType)
                     ? resolveFloorSeatingDatumFrom(
                         _lvl,
-                        (floorStore as { getByLevel?: (id: string) => FloorData[] } | undefined)
-                            ?.getByLevel?.(_levelId),
+                        floorStore.getByLevel(_levelId),
                         _probe,
                     ).y
                     : resolveCeilingSeatingDatumFrom(
                         _lvl,
-                        (ceilingStore as { getByLevel?: (id: string) => CeilingData[] } | undefined)
-                            ?.getByLevel?.(_levelId),
+                        ceilingStore.getByLevel(_levelId),
                         _probe,
                     ).y;
                 _ls.add({
@@ -2074,9 +2128,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     if (runtime) {
         runtime.events.on('furniture.created', (ev) => {
             if (ev.commandType !== 'furniture.create' || !ev.id || !ev.furnitureType || !ev.position) return;
-            const _fs = window.furnitureStore as { add(d: unknown): void; get?(id: string): unknown } | undefined;
+            // §FIX-ANY-STORE-SEAM (L-980) — the REAL class; `get?` optional was
+            // the silencer (see the lighting bridge above).
+            const _fs = window.furnitureStore as FurnitureStore | undefined;
             if (!_fs) return;
-            if (_fs.get?.(ev.id)) return; // dedup guard
+            if (_fs.get(ev.id)) return; // dedup guard
             try {
                 // §LAMP-FLOAT-FIX / A.21.D15 datum contract — FurnitureFragmentBuilder
                 // applies the mount height EXACTLY ONCE: world Y = position.y + baseOffset
@@ -2116,14 +2172,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 const _levelElev = (_lvl as { elevation?: number } | undefined)?.elevation ?? 0;
                 const _floorY = resolveFloorSeatingDatumFrom(
                     _lvl as { elevation?: number; height?: number } | undefined,
-                    (floorStore as { getByLevel?: (id: string) => FloorData[] } | undefined)
-                        ?.getByLevel?.(ev.levelId ?? ''),
+                    floorStore.getByLevel(ev.levelId ?? ''),
                     { x: ev.position.x, z: ev.position.z },
                 ).y;
                 _fs.add({
                     id:             ev.id,
                     type:           'furniture',
-                    furnitureType:  ev.furnitureType,
+                    // §FIX-ANY-STORE-SEAM (L-980) — SURFACED by typing the store.
+                    // While `_fs` was `{ add(d: unknown) }`, these two arrived as bare
+                    // `string` and nothing checked them; the real `FurnitureStore.add`
+                    // takes `FurnitureData`, whose `furnitureType`/`material` are closed
+                    // unions. The bus event (`runtime-composer/types.ts:692,699`) still
+                    // declares them `string`, so this narrowing is ASSERTED, not proven —
+                    // tightening the EVENT is the real fix and it lives in L3.
+                    furnitureType:  ev.furnitureType as FurnitureType,
                     position:       { x: ev.position.x, y: _floorY, z: ev.position.z },
                     // §FIX-FURNITURE-ROTATION: the plan tool sends a SCALAR yaw;
                     // legacy FurnitureData.rotation is an EulerDTO — lift yaw into .y.
@@ -2135,15 +2197,18 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     width:          ev.width  ?? 0.6,
                     length:         ev.length ?? 0.6,
                     height:         ev.height ?? 0.9,
-                    material:       ev.material ?? 'wood',
+                    material:       (ev.material ?? 'wood') as FurnitureMaterial,
                     properties:     {},
                     // A.21.D4 — forward the style-driven colour so the builders
                     // (which read data.color) render the brief's modern/classic/
                     // minimal/warm palette. Omitted when absent (builder default).
                     ...(ev.color ? { color: ev.color } : {}),
-                    ...(ev.furnitureCategory     ? { furnitureCategory: ev.furnitureCategory } : {}),
-                    ...(ev.kitchenConfig         ? { kitchenConfig: ev.kitchenConfig } : {}),
-                    ...(ev.wardrobeCabinetConfig ? { wardrobeCabinetConfig: ev.wardrobeCabinetConfig } : {}),
+                    // Same §FIX-ANY-STORE-SEAM narrowing as `furnitureType` above: the
+                    // bus declares these `string` / `unknown`, the store declares closed
+                    // types. Asserted at the boundary, unproven until the event tightens.
+                    ...(ev.furnitureCategory     ? { furnitureCategory: ev.furnitureCategory as FurnitureCategory } : {}),
+                    ...(ev.kitchenConfig         ? { kitchenConfig: ev.kitchenConfig as KitchenCabinetConfig } : {}),
+                    ...(ev.wardrobeCabinetConfig ? { wardrobeCabinetConfig: ev.wardrobeCabinetConfig as WardrobeCabinetConfig } : {}),
                 });
                 // §FIX-PLAN-VDT-BIMMANAGER (furniture): targeted VDT dirty-marking +
                 // level.childrenIds membership — required for plan-view export.

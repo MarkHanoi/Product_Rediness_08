@@ -37,6 +37,11 @@ const { showToast } = vi.hoisted(() => ({ showToast: vi.fn() }));
 vi.mock('@app/ui/platform/PlatformToastSystem', () => ({ showToast }));
 
 import { buildUndoStoreMap, performUndo, UNMAPPED_BUS_STORE_KEYS } from '../src/engine/undo/performUndoRedo.js';
+import {
+  measureAssignedStoreGlobals,
+  installStoreGlobals,
+  clearStoreGlobals,
+} from './support/productionStoreGlobals.js';
 
 /** The monorepo root, found by walking up to `pnpm-workspace.yaml` — independent
  *  of whether vitest was invoked from `apps/editor` or from the repo root.
@@ -101,20 +106,53 @@ function declaredKeysIn(files: readonly string[]): Map<string, string[]> {
   return found;
 }
 
+/**
+ * §L-980 (2026-08-18) — "MAPPED" MEANS AN ADAPTER EXISTS, NOT THAT A KEY EXISTS.
+ *
+ * This arm used to compute `mapped` as `new Set(Object.keys(buildUndoStoreMap()))`
+ * — key PRESENCE. `adaptElementStoreMap` stores `undefined` for any key whose
+ * backing `window.*Store` is unassigned, so `pool: undefined` and `water:
+ * undefined` scored as covered here for months while `_covered()` read them as
+ * uncovered at runtime. A gate that cannot distinguish "there is an adapter" from
+ * "there is a key" cannot detect the defect it exists to detect.
+ *
+ * `mappedKeys()` now requires a working `applyPatch`, which means the window
+ * globals must be installed first — and installed from a MEASUREMENT of the real
+ * init sources rather than a hand-list, because the hand-list is the other half of
+ * how L-980 hid. See `./support/productionStoreGlobals.ts`.
+ */
+function mappedKeys(): Set<string> {
+  return new Set(
+    Object.entries(buildUndoStoreMap())
+      .filter(([, adapter]) => typeof adapter?.applyPatch === 'function')
+      .map(([k]) => k),
+  );
+}
+
 describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
   const handlerFiles = tsFilesUnder(join(REPO_ROOT, 'plugins'))
     .filter(f => f.split('\\').join('/').includes('/handlers/'));
   const declared = declaredKeysIn(handlerFiles);
+  const productionGlobals = measureAssignedStoreGlobals();
+
+  beforeEach(() => { installStoreGlobals(productionGlobals); });
+  afterEach(() => { clearStoreGlobals(productionGlobals); });
 
   it('the sweep actually swept something (guards against a vacuously green arm)', () => {
     expect(handlerFiles.length).toBeGreaterThan(100);
     expect(declared.size).toBeGreaterThan(20);
     // The key whose absence made the corrupting curtain-wall undo route at all.
     expect(declared.has('curtainwall')).toBe(true);
+    // §L-980 — and the store fixture swept something too. Without this, an empty
+    // `productionGlobals` would make EVERY key unmapped and the arm below would
+    // demand a declaration for all of them, which is a different failure wearing
+    // the same colour.
+    expect(productionGlobals.size, 'no window.*Store assignments measured').toBeGreaterThan(15);
+    expect(mappedKeys().size, 'no key resolved to a working adapter').toBeGreaterThan(20);
   });
 
   it('no bus store key is silently un-undoable', () => {
-    const mapped = new Set(Object.keys(buildUndoStoreMap()));
+    const mapped = mappedKeys();
     const undeclared = [...declared.keys()]
       .filter(k => !mapped.has(k) && UNMAPPED_BUS_STORE_KEYS[k] === undefined)
       .sort();
@@ -127,13 +165,20 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
     ).toEqual([]);
   });
 
-  it('names the eight stranded families the sweep measured — including the one C84 missed', () => {
-    const mapped = new Set(Object.keys(buildUndoStoreMap()));
+  it('names the TEN stranded families the sweep measured — including the two the key-set arm could not see', () => {
+    const mapped = mappedKeys();
     const stranded = [...declared.keys()]
       .filter(k => !mapped.has(k) && UNMAPPED_BUS_STORE_KEYS[k]?.owner === 'nothing')
       .sort();
+    // §L-980 — was eight. `pool` and `water` join not because anything changed at
+    // runtime (their adapters were already `undefined`) but because this arm now
+    // asks whether an ADAPTER exists rather than whether a KEY exists. The two are
+    // a different SHAPE of stranded from the other eight and the table says so:
+    // pool.create cannot execute at all (CommandBus.buildContext throws on the
+    // missing store), so no ring entry is minted and no keypress strands. They are
+    // declared because the map claimed them, not because Ctrl+Z fails today.
     expect(stranded).toEqual(
-      ['active-view', 'dimension', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view'],
+      ['active-view', 'dimension', 'pool', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
     );
   });
 

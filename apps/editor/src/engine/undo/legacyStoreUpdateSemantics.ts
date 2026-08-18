@@ -205,9 +205,14 @@ export const LEGACY_STORE_UPDATE_SEMANTICS: Readonly<Record<string, LegacyStoreU
     evidence: 'packages/geometry-stair/src/StairLandingStore.ts:51-69 ({ ...existing, ...updates })',
     note: '`id` and `ifcData` are locked to the existing record (:58-59). ⚠ REACHABILITY: production '
         + 'never assigns `window.stairLandingStore` (measured 2026-08-18 — `new StairLandingStore()` at '
-        + '`initBuilders.ts:937` is threaded through params only), so the `stairLanding` map entry is '
-        + 'always `undefined` and this declaration is not currently exercised. Declared anyway because '
-        + 'the class is real and the key is live in the map.',
+        + '`initBuilders.ts:937` is threaded through params only), and L-980 established the family has '
+        + 'no undo traffic at all: NO handler anywhere declares `affectedStores: [\'stairLanding\']`, and '
+        + 'nothing ever calls `StairLandingStore.add()` in production — landings live as '
+        + '`StairData.landings` inside the stair record and `CreateStairCommand.createdLandingIds` is '
+        + 'declared `= []` and never pushed to. The `stairLanding` map entry was therefore REMOVED '
+        + '(performUndoRedo.ts, L-980) rather than wired. This declaration is kept because the class is '
+        + 'real and source-measured, so it is ready if landings ever become elements; it is NOT a claim '
+        + 'that anything routes through it today.',
   },
   handrail: {
     semantics: 'merge',
@@ -255,28 +260,33 @@ export const LEGACY_STORE_UPDATE_SEMANTICS: Readonly<Record<string, LegacyStoreU
   },
 
   // ── UNMEASURED, WITH THE REASON ────────────────────────────────────────────
-  // These two keys exist in `buildUndoStoreMap()` (added for §FEAT-SWIMMING-POOL-
-  // ELEMENT, L-292 / ADR-0124) but NO production code ever assigns
-  // `window.poolStore` / `window.waterStore` — measured 2026-08-18,
-  // `grep -rn 'poolStore|waterStore' --include=*.ts apps/editor/src packages plugins src`
-  // returns exactly the two `performUndoRedo.ts` lines that read them and nothing
-  // else. So `adaptElementStoreMap` stores `undefined` for both, `_covered()`
-  // reads them as NOT covered, and every pool undo falls through to
-  // commandManager. There is no store to measure, and claiming a semantics we did
-  // not measure is the exact defect L-977 is. Left declared-as-unmeasured so the
-  // coverage suite still sees the key, and reported rather than "fixed" — a
-  // missing store is a different defect from a wrong write shape.
+  // These two keys USED TO exist in `buildUndoStoreMap()` (added for
+  // §FEAT-SWIMMING-POOL-ELEMENT, L-292 / ADR-0124) but NO production code ever
+  // assigns `window.poolStore` / `window.waterStore` — measured 2026-08-18. So
+  // `adaptElementStoreMap` stored `undefined` for both, `_covered()` read them as
+  // NOT covered, and a pool undo would have fallen through to commandManager.
+  // There is no store to measure, and claiming a semantics we did not measure is
+  // the exact defect L-977 is.
+  //
+  // ⚠ L-980 (2026-08-18) went one level further and found the FAMILY unreachable,
+  // not merely the global unassigned: `new PoolStore()` / `new WaterStore()`
+  // appear zero times repo-wide, and `PluginRegistry.ts` declares no `pool` /
+  // `water` `storeKey`, so `pool.create` throws at `CommandBus.buildContext`
+  // before mutating anything. The map entries were therefore REMOVED and the gap
+  // DECLARED in `UNMAPPED_BUS_STORE_KEYS`. These two rows stay `unmeasured` — the
+  // right answer for a store that does not exist — so that if the plugin is ever
+  // wired, the write shape must be MEASURED at that point rather than assumed.
   pool: {
     semantics: 'unmeasured',
-    store: '(none — window.poolStore is never assigned in production)',
-    evidence: 'apps/editor/src/engine/undo/performUndoRedo.ts:342',
-    note: 'The map entry is permanently `undefined`; this arm is unreachable. See L-977 report.',
+    store: '(none — PoolStore is never constructed; window.poolStore is never assigned)',
+    evidence: 'plugins/pool/src/store.ts:29 (class exists, zero construction sites); apps/editor/src/PluginRegistry.ts (no `pool` storeKey)',
+    note: 'The family is unreachable, not just unmapped: pool.create throws at CommandBus.buildContext. Declared in UNMAPPED_BUS_STORE_KEYS (L-980).',
   },
   water: {
     semantics: 'unmeasured',
-    store: '(none — window.waterStore is never assigned in production)',
-    evidence: 'apps/editor/src/engine/undo/performUndoRedo.ts:343',
-    note: 'The map entry is permanently `undefined`; this arm is unreachable. See L-977 report.',
+    store: '(none — WaterStore is never constructed; window.waterStore is never assigned)',
+    evidence: 'plugins/pool/src/store.ts:58 (class exists, zero construction sites); apps/editor/src/PluginRegistry.ts (no `water` storeKey)',
+    note: 'Same measurement as pool — the water half of pool.create cannot execute either. Declared in UNMAPPED_BUS_STORE_KEYS (L-980).',
   },
 };
 

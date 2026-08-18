@@ -413,15 +413,19 @@ const NOT_DRIVEN: ReadonlyArray<{ key: string; reason: string }> = [
   {
     key: 'pool',
     reason:
-      'UNREACHABLE IN PRODUCTION — `window.poolStore` is never assigned anywhere (measured: the only '
-      + 'two references repo-wide are the performUndoRedo.ts lines that READ it), so the map entry is '
-      + 'permanently undefined. Declared `unmeasured`; there is no store to drive.',
+      'UNREACHABLE IN PRODUCTION — and L-980 (2026-08-18) established it is the FAMILY that is '
+      + 'unreachable, not merely the global: `new PoolStore()` appears zero times repo-wide and '
+      + '`PluginRegistry.ts` declares no `pool` storeKey, so `pool.create` throws at '
+      + '`CommandBus.buildContext` before mutating anything. The `pool` map entry (permanently '
+      + '`undefined`) has been REMOVED and the gap declared in `UNMAPPED_BUS_STORE_KEYS`. Still '
+      + '`unmeasured`; there is no store to drive.',
   },
   {
     key: 'water',
     reason:
-      'UNREACHABLE IN PRODUCTION — `window.waterStore` is never assigned anywhere, same measurement as '
-      + 'pool. Declared `unmeasured`; there is no store to drive.',
+      'UNREACHABLE IN PRODUCTION — same measurement as pool (L-980): WaterStore is never '
+      + 'constructed, there is no `water` storeKey, and the map entry has been removed in favour of '
+      + 'a declared gap. `unmeasured`; there is no store to drive.',
   },
 ];
 

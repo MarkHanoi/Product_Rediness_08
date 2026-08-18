@@ -324,7 +324,20 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
       beam:           w.beamStore,        beams:        w.beamStore,
       stair:          w.stairStore,       stairs:       w.stairStore,
       stairRailing:   w.stairRailingStore,
-      stairLanding:   w.stairLandingStore,
+      // NOTE (L-980): there is deliberately NO `stairLanding` key. `window.
+      // stairLandingStore` is never assigned — `initBuilders.ts:937` builds the
+      // instance and threads it through parameters only, while its sibling two
+      // lines below (`:942`) DOES get a global — so the entry was permanently
+      // `undefined`. Removing it costs nothing: no bus handler anywhere declares
+      // `affectedStores: ['stairLanding']` (measured 2026-08-18 by sweeping every
+      // declaration under `plugins/**/handlers/**` + `initBusHandlers.ts`), and
+      // nothing in production ever calls `StairLandingStore.add()` — landings live
+      // as `StairData.landings` INSIDE the stair record, and
+      // `CreateStairCommand.createdLandingIds` is declared `= []` and never
+      // pushed to (`CreateStairCommand.ts:141,559`). Wiring the global would have
+      // manufactured coverage for a family with no traffic; this is the honest
+      // half of that pair. If landings ever become their own elements, add the
+      // global at `initBuilders.ts:937` AND the key back here, together.
       handrail:       w.handrailStore,    handrails:    w.handrailStore,
       roof:           w.roofStore,        roofs:        w.roofStore,
       floor:          w.floorStore,       floors:       w.floorStore,
@@ -333,16 +346,21 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
       lighting:       w.lightingStore,
       grid:           w.gridStore,        grids:        w.gridStore,
       annotation:     w.annotationStore,  annotations:  w.annotationStore,
-      // §FEAT-SWIMMING-POOL-ELEMENT (L-292 / ADR-0124). `pool.create` declares FOUR
-      // affectedStores — ['pool','wall','slab','water'] — and `_covered()` requires
-      // EVERY one to have an adapter before the ring-buffer cursor is stepped. Omit
-      // either of these two and a pool undo silently falls through to commandManager
-      // ("history empty") — the identical bug walls and curtain walls each shipped
-      // once (OI-054). `wall` and `slab` are already above; these complete the set.
-      pool:           w.poolStore,        pools:        w.poolStore,
-      water:          w.waterStore,       waters:       w.waterStore,
+      // §FEAT-SWIMMING-POOL-ELEMENT (L-292 / ADR-0124) — `pool` / `pools` /
+      // `water` / `waters` USED TO BE HERE, reading `w.poolStore` / `w.waterStore`.
+      //
+      // ⚠ CORRECTED 2026-08-18 (L-980). NOTHING EVER ASSIGNED THOSE GLOBALS. The
+      // four entries were `undefined` from the day they were added, so the comment
+      // they carried — "omit either of these two and a pool undo silently falls
+      // through to commandManager" — described the state the code was already in.
+      // A key that resolves to `undefined` is not coverage; it is the same
+      // `_covered()` miss as an absent key, wearing the costume of a fix.
+      //
+      // They are now DECLARED in UNMAPPED_BUS_STORE_KEYS instead, which is where
+      // `_reportStranded` looks, so the gap can reach the user rather than only
+      // the console. See that table for the full reachability measurement.
     }),
-    // NOTE: door / window / level are intentionally ABSENT — and so are eight
+    // NOTE: door / window / level are intentionally ABSENT — and so are TEN
     // other keys, for a DIFFERENT reason. Both sets are enumerated, with their
     // reason, in UNMAPPED_BUS_STORE_KEYS below. Read it before adding a key here.
   };
@@ -358,10 +376,16 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
  * routing — the legacy stack genuinely owns those mutations, so the fallback
  * reverts them and the user sees their Ctrl+Z work.
  *
- * For eight other keys there is nothing on the legacy stack either. Their
- * handlers ARE registered in production (`engineLauncher.ts:588,606,619,622` and
- * the `sheets`/`schedules`/`selection` registrations), the ring buffer holds a
- * real entry, and Ctrl+Z is a TOTAL NO-OP. `performUndo` diagnosed this
+ * For TEN other keys there is nothing on the legacy stack either. Their
+ * handlers ARE registered in production (`engineLauncher.ts:550,588,606,619,622`
+ * and the `sheets`/`schedules`/`selection` registrations), and for eight of the
+ * ten the ring buffer holds a real entry and Ctrl+Z is a TOTAL NO-OP. `pool` and
+ * `water` (added by L-980) are the exception WITHIN this group and the difference
+ * is stated rather than smoothed over: their handlers are registered but cannot
+ * execute at all — `CommandBus.buildContext` throws on the missing store before
+ * any mutation — so no ring entry is ever minted and nothing strands. They are
+ * declared here because the map used to claim them, not because a keypress
+ * currently fails. `performUndo` diagnosed the other eight
  * correctly as `{status:'stranded'}` from the day it was written — and every
  * caller but the AI chat bridge threw the value away, so the diagnosis reached
  * nobody. A correctly-diagnosed failure that is invisible is still a silent
@@ -382,6 +406,17 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
  * `plugins/**‍/handlers/**` (27 distinct keys) against `buildUndoStoreMap()`'s
  * key set. C84 §3 EI-7c names seven; the sweep found **eight** — `active-view`
  * is the one the contract missed.
+ *
+ * ⚠ AMENDED 2026-08-18 (L-980) — THE SWEEP ABOVE COMPARED AGAINST THE MAP'S KEY
+ * SET, AND A KEY SET CANNOT SEE A DEAD ADAPTER. `pool` and `water` WERE in
+ * `buildUndoStoreMap()`, so the sweep scored them covered — while
+ * `adaptElementStoreMap` had stored `undefined` for both because nothing assigns
+ * `window.poolStore` / `window.waterStore`. Presence of a key and existence of an
+ * adapter are different questions, and only the second one is coverage. The
+ * companion gate now asks the second (`undoStoreMapDeadKeys.test.ts`, which
+ * installs exactly the globals the init sources really assign and then requires
+ * every remaining entry to expose a working `applyPatch`). Measured after that
+ * change: ZERO dead keys among the eighteen remaining store globals.
  */
 export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 'legacy-stack' | 'nothing'; readonly reason: string }>> = {
   // ── Deliberate: the commandManager fallback genuinely reverts these. ────────
@@ -397,6 +432,24 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   schedule:   { owner: 'nothing', reason: 'window.scheduleStore exists (initUI.ts:460); same shape mismatch as sheet.' },
   view:       { owner: 'nothing', reason: 'window.viewDefinitionStore exists (initUI.ts:675); same shape mismatch as sheet. Registered at engineLauncher.ts:622.' },
   'active-view': { owner: 'nothing', reason: 'view.switch — the active-view pointer has no store record at all; NOT named in C84 §3 EI-7c, found by the 2026-08-18 sweep.' },
+  // §L-980 (2026-08-18) — pool + water ARRIVE here from buildUndoStoreMap(), where
+  // they had been `undefined` since L-292. The family is UNREACHABLE, measured on
+  // four independent axes, not inferred: (1) `new PoolStore()` / `new WaterStore()`
+  // appear ZERO times repo-wide — the classes in `plugins/pool/src/store.ts` are
+  // never constructed, not even by the plugin's own tests; (2) `PluginRegistry.ts`
+  // declares no `pool`/`water` `storeKey`, so `CommandBus.buildContext`
+  // (`CommandBus.ts:284-292`) THROWS `required store 'pool' is missing from
+  // HandlerContext.stores` before `pool.create` mutates anything — the handlers are
+  // registered (`engineLauncher.ts:550`) but not dispatchable; (3) no tool, toolbar
+  // entry or plan handler dispatches `pool.create` — the only call sites are
+  // `plugins/pool/__tests__/`; (4) the AI chat classifies `pool.create` as class B
+  // (`ChatCommandClassification.ts:66`, blockedBy "per-family placement grammar"),
+  // so that route refuses it too. Ctrl+Z after a pool is therefore not a live
+  // defect — but the map claiming to cover it WAS one, because a permanently
+  // `undefined` adapter and an absent key are the same value to `_covered()`, and
+  // only one of the two is visible to a reader.
+  pool:  { owner: 'nothing', reason: 'UNREACHABLE — no PoolStore is ever constructed and PluginRegistry declares no `pool` storeKey, so pool.create throws at CommandBus.buildContext before mutating anything. Wiring undo means wiring the plugin descriptor FIRST (L-980).' },
+  water: { owner: 'nothing', reason: 'UNREACHABLE — same measurement as pool: WaterStore is never constructed and there is no `water` storeKey, so the water half of pool.create cannot execute either (L-980).' },
 };
 
 /**
