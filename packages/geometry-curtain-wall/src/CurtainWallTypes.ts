@@ -54,6 +54,27 @@ export interface CurtainWallData extends CoreElement {
     mullionMaterialId?: string;
     glazingMaterialId?: string;
     /**
+     * §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the published type this wall was
+     * last assigned, or absent for a wall drawn before / outside the catalogue.
+     *
+     * A REFERENCE, not a substitute: the type's dimensions are ALSO materialised
+     * into `gridXSpacing` / `mullionSize` / … because those are what the builder
+     * reads, and a builder forced to resolve a catalogue id would couple geometry
+     * to a store it has no business knowing. This id exists so the property panel
+     * can answer "which type is this?" from the RECORD rather than by guessing back
+     * from dimensions — `ElementTypeCatalogRegistry.currentTypeId()` reads exactly
+     * this field, and §FEAT-ELEMENT-TYPE-PICKER-REGISTRY requires a current type to
+     * be read, never inferred.
+     *
+     * Named `systemTypeId` to match `Wall`, `Slab`, `Pool` and `Water`
+     * (`packages/schemas/src/elements/*.ts`) — C84 EI-8, one vocabulary per concept.
+     *
+     * ⚠ A wall whose dimensions are later hand-edited KEEPS this id, and that is
+     * correct: it records what the user chose. The panel preselects it; it is not a
+     * claim that the geometry still matches the type verbatim.
+     */
+    systemTypeId?: string;
+    /**
      * Phase 1+ Addressable Grid System.
      *
      * When present, this fully describes the U/V grid topology (non-uniform spacing

@@ -187,6 +187,10 @@ import type { PredictedRoomGeometryApplier } from './consequence/ConsequenceExec
 // and the ONE projection from a catalogue definition onto a stair railing's
 // construction fields. Both families now read the same catalogue.
 import { handrailTypeStore, storeRegistry } from '@pryzm/core-app-model';
+// §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the curtain-wall catalogue plus the
+// ONE catalogue→record projection, mirroring the stair-railing pair on the next
+// line. See the `curtainwall` branch of `element.changeType`.
+import { curtainWallTypeStore, resolveCurtainWallTypeFields } from '@pryzm/core-app-model';
 import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
 // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
 // what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
@@ -1995,6 +1999,59 @@ export function initBusHandlers(
                             // (LightingFragmentBuilder switches on it and would render
                             // nothing, silently).
                             patch: { fixtureType: cmd.newTypeId as LightingFixtureType },
+                        }));
+                    });
+                    return;
+                }
+                if (elType === 'curtainwall' || elType === 'curtain-wall') {
+                    // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the founder's report.
+                    //
+                    // This branch did not exist, and its ABSENCE was pinned by two specs
+                    // (`elementChangeTypeCoverage.spec.ts`, `elementTypePickerRegistry.spec.ts`)
+                    // that asserted curtain wall was deliberately unrouted "because it has no
+                    // type CATALOGUE". That was circular: no catalogue, therefore no route,
+                    // therefore no reason to publish a catalogue. `CurtainWallTypeStore`
+                    // breaks the circle and both specs now pin the ROUTE instead.
+                    //
+                    // ROUTE CHOICE, measured not assumed. `curtain-wall.setMaterial` REFUSES
+                    // by design (§FIX-DEAD-VERB-REFUSE W3-3) and `curtain-wall.setGrid` /
+                    // `.setPanelType` write the plugin DTO store, which no renderer, no 2-D
+                    // projector, no IFC exporter and no persistence path reads. The refusal
+                    // text of the first names the way out — "Use `wall.updateCurtainWall`
+                    // instead — it reaches the geometry record the builders read" — and that
+                    // is precisely the bridge used here, via `UpdateCurtainWallCommand`,
+                    // whose `undo()` restores the full pre-mutation snapshot with `store.set()`.
+                    //
+                    // HEIGHT-AGNOSTIC, and this is the subtle half. Every one of the founder's
+                    // types specifies "no horizontal intermediate mullion — top and bottom
+                    // rails only". That is not a `gridYSpacing` value; it is an INTENT, because
+                    // `migrateToGridSystem` computes `numV = max(1, floor(height/gridYSpacing))`
+                    // (`CurtainGridSystem.ts:90`) and the intent holds only while
+                    // `gridYSpacing >= the wall's own height`. So the TYPE stores
+                    // `transomCourse: undefined` and the number is resolved HERE against the
+                    // wall being changed. Baking a sentinel into the catalogue would produce a
+                    // record that lies to every reader and breaks on the first tall wall.
+                    const def = curtainWallTypeStore.getById(String(cmd.newTypeId));
+                    if (!def) {
+                        console.warn(`[element.changeType] no curtain wall type "${cmd.newTypeId}" in curtainWallTypeStore — ignored.`);
+                        return;
+                    }
+                    // The height must come from the RECORD. Reading it from the payload would
+                    // let a stale caller resolve the transom course against a height the wall
+                    // no longer has, and silently reintroduce an intermediate mullion.
+                    const cwStore = (window as unknown as {
+                        curtainWallStore?: { getById?(id: string): { height?: number } | undefined };
+                    }).curtainWallStore;
+                    const cwRec = cwStore?.getById?.(cmd.elementId);
+                    if (!cwRec) {
+                        console.warn(`[element.changeType] curtain wall "${cmd.elementId}" not in the geometry store — ignored.`);
+                        return;
+                    }
+                    const fields = resolveCurtainWallTypeFields(def, Number(cwRec.height));
+                    _swapWithRingParity('curtainWallStore', 'curtainwall', cmd.elementId, () => {
+                        _cmExec(new UpdateCurtainWallCommand({
+                            id: cmd.elementId,
+                            updates: fields as any,
                         }));
                     });
                     return;

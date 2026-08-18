@@ -77,6 +77,11 @@ const GEOMETRY_STORE_GLOBALS = [
     // separate store; L-623 covered only the standalone handrail, so this family fell
     // through to the `console.warn(… ignored)` default and the panel offered no picker.
     'stairRailingStore',
+    // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — curtain wall was the LAST family
+    // this surface ignored, and it was ignored for a circular reason (see the routed
+    // test below). `curtainWallStore` is the geometry store `UpdateCurtainWallCommand`
+    // writes and every curtain-wall builder subscribes to.
+    'curtainWallStore',
 ] as const;
 
 function installEnvironment(): void {
@@ -125,6 +130,13 @@ function installEnvironment(): void {
     w.roofStore     = makeStore({ id: 'rf-1',   type: 'roof',     roofType: 'flat' });
     w.lightingStore = makeStore({ id: 'lt-1',   type: 'lighting', fixtureType: 'downlight' });
     w.plumbingStore = makeStore({ id: 'pl-1',   type: 'plumbing', toiletVariant: 'wall-hung' });
+    // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958). `height` is seeded deliberately: the
+    // curtain-wall branch resolves the transom course against the WALL'S OWN height, so a
+    // record without one would silently exercise the fallback instead of the real path.
+    w.curtainWallStore = makeStore({
+        id: 'cw-1', type: 'curtain-wall', levelId: 'L0', height: 3.2,
+        gridXSpacing: 1.2, gridYSpacing: 1.5, mullionSize: 0.08, panelThickness: 0.02,
+    });
     // §FIX-STAIR-RAILING-TYPE-PICKER — a stair's railing (StairRailingConfig).
     w.stairRailingStore = makeStore({
         id: 'sr-1', stairId: 'st-1', side: 'left', railingType: 'flat-bar',
@@ -176,6 +188,9 @@ describe('element.changeType — §FIX-TYPE-SWAP-ALL-FAMILIES (L-623)', () => {
         { family: 'railing',  id: 'hr-1',  newTypeId: 'glass-guardrail', command: 'UpdateHandrailCommand',       storeKey: 'handrail' },
         { family: 'roof',     id: 'rf-1',  newTypeId: 'gable',       command: 'UpdateRoofCommand',               storeKey: 'roof'     },
         { family: 'lighting', id: 'lt-1',  newTypeId: 'pendant',     command: 'UpdateLightingParametersCommand', storeKey: 'lighting' },
+        // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958). `curtainwall` is the storeKey
+        // `buildUndoStoreMap()` covers (performUndoRedo.ts:319) — one word, lowercase.
+        { family: 'curtainwall', id: 'cw-1', newTypeId: 'cw.glazed.pitch-1000', command: 'UpdateCurtainWallCommand', storeKey: 'curtainwall' },
     ];
 
     for (const spec of NEWLY_COVERED) {
@@ -292,11 +307,71 @@ describe('element.changeType — §FIX-TYPE-SWAP-ALL-FAMILIES (L-623)', () => {
     });
 
     it('an UNROUTED family is still a no-op, and must not fabricate a ring entry', () => {
-        // Curtain wall has no type CATALOGUE, so it is deliberately not routed (see the
-        // report). The contract for an unrouted family is: warn, mutate nothing, push
-        // nothing — never a silent half-swap.
-        changeType({ elementId: 'cw-1', elementType: 'curtainwall', newTypeId: 'whatever' });
+        // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — this test USED to assert exactly
+        // that of `curtainwall`, on the stated grounds that it "has no type CATALOGUE, so
+        // it is deliberately not routed". That reasoning was circular — no catalogue
+        // therefore no route therefore no reason to publish a catalogue — and it pinned
+        // the founder's reported defect in place. Curtain wall is now routed and pinned by
+        // the matrix above; this case keeps testing the UNROUTED CONTRACT, which is still
+        // real, using a family that genuinely has no route.
+        //
+        // 'grid' is the right stand-in and not an arbitrary one: the type registry
+        // declares it `unavailableReason: 'Grids are datums, not typed elements.'` — a
+        // family that should NEVER acquire a route, so this test cannot rot into a
+        // reminder that some family is merely unfinished.
+        changeType({ elementId: 'gr-1', elementType: 'grid', newTypeId: 'whatever' });
         expect(executed).toHaveLength(0);
         expect(ringPushes).toHaveLength(0);
+    });
+
+    // ── §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the height-agnostic rule ──
+    //
+    // The matrix above proves the ROUTE. These prove what the route would be WRONG
+    // without, and none of them can pass by accident.
+    describe('curtain wall — a published type is height-agnostic', () => {
+        function lastUpdates(): Record<string, unknown> {
+            const cmd = executed[executed.length - 1] as { input?: { updates?: Record<string, unknown> } };
+            return cmd?.input?.updates ?? {};
+        }
+
+        it("resolves gridYSpacing to the WALL'S OWN height so no intermediate transom appears", () => {
+            changeType({ elementId: 'cw-1', elementType: 'curtainwall', newTypeId: 'cw.glazed.pitch-1000' });
+            const updates = lastUpdates();
+
+            // The wall is 3.2 m tall (seeded above). `migrateToGridSystem` computes
+            // numV = max(1, floor(height / gridYSpacing)), so the ONLY way to guarantee
+            // numV === 1 on a wall of ARBITRARY height is gridYSpacing >= height. All
+            // twelve of the founder's types specify "top and bottom rails only".
+            expect(updates.gridYSpacing).toBe(3.2);
+            expect(Math.max(1, Math.floor(3.2 / (updates.gridYSpacing as number)))).toBe(1);
+
+            // The pitch is the type's, unmodified — the axis a type actually varies.
+            expect(updates.gridXSpacing).toBe(1.0);
+            // And the record carries the reference so the panel can preselect it.
+            expect(updates.systemTypeId).toBe('cw.glazed.pitch-1000');
+        });
+
+        it('CLEARS any existing gridSystem, or the swap would change nothing visible', () => {
+            // A wall that has ever had a grid line added carries an explicit `gridSystem`,
+            // and `CurtainWallBuilder` reads `cw.gridSystem ?? migrateToGridSystem(...)`
+            // (:1121-1122) — so a stale gridSystem WINS over the new spacings and the type
+            // swap becomes a dead control that reports success. This is that guard.
+            changeType({ elementId: 'cw-1', elementType: 'curtainwall', newTypeId: 'cw.glazed.pitch-500' });
+            const updates = lastUpdates();
+            expect('gridSystem' in updates).toBe(true);
+            expect(updates.gridSystem).toBeUndefined();
+        });
+
+        it('REFUSES an id that is not in the catalogue rather than writing unbuildable spacings', () => {
+            changeType({ elementId: 'cw-1', elementType: 'curtainwall', newTypeId: 'not-a-curtain-wall-type' });
+            expect(executed).toHaveLength(0);
+            expect(ringPushes).toHaveLength(0);
+        });
+
+        it('REFUSES a wall that is not in the geometry store, rather than guessing a height', () => {
+            changeType({ elementId: 'cw-does-not-exist', elementType: 'curtainwall', newTypeId: 'cw.glazed.pitch-1000' });
+            expect(executed).toHaveLength(0);
+            expect(ringPushes).toHaveLength(0);
+        });
     });
 });

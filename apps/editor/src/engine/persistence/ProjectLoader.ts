@@ -1347,6 +1347,10 @@ export class ProjectLoader {
                         glazingColor:      cw.glazingColor,
                         mullionMaterialId: cw.mullionMaterialId,
                         glazingMaterialId: cw.glazingMaterialId,
+                        // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — without this the
+                        // serializer's systemTypeId is written and never read back, so a
+                        // reload forgets which type the architect chose (C84 EI-6).
+                        systemTypeId:      cw.systemTypeId,
                         // §PERSIST-L1 — non-uniform grid lines.
                         gridSystem:     cw.gridSystem,
                         // §PERSIST-L1 — architect-set mark / tags survive reload.

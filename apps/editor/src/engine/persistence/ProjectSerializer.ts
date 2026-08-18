@@ -652,6 +652,8 @@ function serializeCurtainWall(c: any): any {
         glazingColor: c.glazingColor,
         mullionMaterialId: c.mullionMaterialId,
         glazingMaterialId: c.glazingMaterialId,
+        // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the assigned published type.
+        systemTypeId: c.systemTypeId,
         gridSystem: c.gridSystem ? deepStrip(c.gridSystem) : undefined,
         properties: c.properties ? { ...c.properties } : {},
         ifcData: c.ifcData ? { ...c.ifcData } : undefined

@@ -78,6 +78,15 @@ export interface CreateCurtainWallPayload {
     mullionMaterialId?: string;
     glazingMaterialId?: string;
     /**
+     * §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the published curtain-wall type
+     * the architect assigned. Carried here for the SAME reason as the §PERSIST-L1
+     * fields above: the serializer writes it, so the loader must be able to thread
+     * it back, or every reload silently forgets which type the user chose and the
+     * property panel's picker reads blank on a wall that plainly has a type.
+     * C84 EI-6 — persistence is not optional and absence must be loud.
+     */
+    systemTypeId?: string;
+    /**
      * §PERSIST-L1 — Non-uniform grid line system. The serializer persists
      * `gridSystem` for curtain walls whose grid was edited (Add/Remove grid
      * line commands). Without round-tripping it, a reload collapses any
@@ -158,6 +167,10 @@ export class CreateCurtainWallCommand implements Command {
             glazingColor:      this.payload.glazingColor,
             mullionMaterialId: this.payload.mullionMaterialId,
             glazingMaterialId: this.payload.glazingMaterialId,
+            // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the assigned type id;
+            // undefined for a fresh CurtainWallTool draw, which has no type until
+            // the user picks one.
+            systemTypeId:      this.payload.systemTypeId,
             // §PERSIST-L1 — non-uniform grid layout round-trips when the
             // architect added/removed grid lines pre-save.
             gridSystem:     this.payload.gridSystem,

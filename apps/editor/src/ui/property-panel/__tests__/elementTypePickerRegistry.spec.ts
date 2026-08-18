@@ -96,11 +96,62 @@ describe('GenericTypeSelectorWidget', () => {
     });
 
     it('(3) renders a SENTENCE, not silence, for a family with no catalogue', () => {
-        const cw = resolveElementTypeCatalog('curtainwall')!;
-        const el = buildGenericTypeSelectorWidget(cw, { id: 'cw1' }, () => {});
+        // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — this case USED to prove the point
+        // with `curtainwall`, whose sentence read "Curtain walls have no published type
+        // catalogue — edit the grid and panels directly." That is the exact string the
+        // founder reported, and this assertion is what held it in place: the sentence-not-
+        // silence CONTRACT is real, but it was being demonstrated on a family that should
+        // have had a catalogue all along. Curtain wall now publishes one (see below);
+        // 'grid' demonstrates the same contract on a family that never will — the registry
+        // declares it "Grids are datums, not typed elements."
+        const grid = resolveElementTypeCatalog('grid')!;
+        const el = buildGenericTypeSelectorWidget(grid, { id: 'g1' }, () => {});
         expect(el).not.toBeNull();
         expect(el!.querySelector('select')).toBeNull();
-        expect(el!.textContent).toContain('no published type catalogue');
+        expect(el!.textContent).toContain('datums, not typed elements');
+    });
+
+    // ── §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the founder's report ──
+    describe('curtain wall publishes a real catalogue', () => {
+        it('renders a select + Apply, NOT the old "no published type catalogue" sentence', () => {
+            const cw = resolveElementTypeCatalog('curtainwall')!;
+            const el = buildGenericTypeSelectorWidget(cw, { id: 'cw1' }, () => {});
+            expect(el).not.toBeNull();
+            expect(el!.querySelector('select')).not.toBeNull();
+            expect(el!.textContent).toContain('Curtain Wall Type');
+            // The founder's reported string must be GONE, not merely supplemented.
+            expect(el!.textContent).not.toContain('no published type catalogue');
+        });
+
+        it("preselects the wall's CURRENT type from systemTypeId, never inferred from dimensions", () => {
+            const cw = resolveElementTypeCatalog('curtainwall')!;
+            const el = buildGenericTypeSelectorWidget(
+                cw, { id: 'cw1', systemTypeId: 'cw.glazed.pitch-750' }, () => {},
+            );
+            expect((el!.querySelector('select') as HTMLSelectElement).value).toBe('cw.glazed.pitch-750');
+        });
+
+        it('publishes ONLY types whose appearance the renderer can actually produce', () => {
+            // The guard against the defect this feature could most easily have shipped.
+            // Types 5-12 of the founder's twelve vary by PANEL material, and
+            // `CurtainWallInstanceManager._getPanelMaterial(panelType)` derives a panel's
+            // appearance from `PANEL_TYPE_DEFAULTS[panelType]` alone — its caller is not
+            // even passed the curtain wall. Publishing them now would put names in this
+            // dropdown that all render identically: an affordance with no implementation
+            // (`WallRake.ts:50-62`). No published type may name a panel material until
+            // that path exists; if a later slice adds one, this assertion must be
+            // deliberately updated alongside the renderer, never quietly deleted.
+            const types = resolveElementTypeCatalog('curtainwall')!.listTypes!();
+            expect(types.length).toBeGreaterThan(0);
+            const PANEL_MATERIAL_WORDS = /copper|inox|stainless|mirror|satin|spandrel|fritted|bronze panel/i;
+            for (const t of types) {
+                expect(
+                    PANEL_MATERIAL_WORDS.test(t.name),
+                    `curtain-wall type "${t.id}" names a panel material ("${t.name}") that the ` +
+                    'panel render path cannot yet distinguish — it would render as plain glazing',
+                ).toBe(false);
+            }
+        });
     });
 
     it('(6) preselects the element\'s CURRENT type from its record', () => {

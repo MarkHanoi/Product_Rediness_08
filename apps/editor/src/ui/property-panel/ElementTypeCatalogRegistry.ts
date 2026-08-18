@@ -38,6 +38,7 @@
  */
 
 import { BUILT_IN_LIGHTING_TYPES } from '@pryzm/geometry-lighting';
+import { curtainWallTypeStore } from '@pryzm/core-app-model/stores';
 
 /** One selectable entry in a family's type dropdown. */
 export interface TypeChoice {
@@ -141,11 +142,36 @@ const CATALOGS: ElementTypeCatalog[] = [
         readOnlyReason: 'Lift types are chosen at placement — in-place type change is not wired yet.',
     },
 
-    // ── Families with NO catalogue at all ────────────────────────────────────
+    // ── CURTAIN WALL — the founder's reported instance (L-958) ───────────────
+    // This entry replaced an `unavailableReason` reading "Curtain walls have no
+    // published type catalogue — edit the grid and panels directly." That sentence
+    // was TRUE and it was the wrong side of the fork: the catalogue mechanism has
+    // shipped for every other family, and curtain wall had simply never published
+    // one. `CurtainWallTypeStore` is that publication (see its header).
+    //
+    // ⚠ WHY EVERY TYPE HERE IS GLAZED, AND NONE NAMES A PANEL MATERIAL.
+    // The founder asked for twelve, eight of which vary by PANEL material. Those
+    // eight are NOT published yet, and the omission is deliberate and measured:
+    // `CurtainWallInstanceManager._getPanelMaterial(panelType)` derives a panel's
+    // appearance from `PANEL_TYPE_DEFAULTS[panelType]` alone, and its caller
+    // `buildInstancedMeshes(cells, panels, mullionSize, panelThickness)` is not
+    // even PASSED the curtain wall — so no wall-level material id can reach a
+    // panel, whatever the create bridge forwards. Listing "Copper" or "Mirror
+    // Green" here before that path exists would put twelve names in a dropdown
+    // that render as four appearances: an affordance with no implementation
+    // behind it (`WallRake.ts:50-62`), discoverable by the founder in seconds.
+    // The pitch axis DOES cross intact, so the pitch types ship and the rest wait.
     {
         family: 'curtainwall',
         label: 'Curtain Wall Type',
-        unavailableReason: 'Curtain walls have no published type catalogue — edit the grid and panels directly.',
+        listTypes: () => curtainWallTypeStore.getAll().map(t => ({
+            id: t.id,
+            name: t.name,
+            detail: t.transomCourse === undefined
+                ? `${t.mullionPitch.toFixed(2)} m pitch · no transom`
+                : `${t.mullionPitch.toFixed(2)} m pitch · ${t.transomCourse.toFixed(2)} m course`,
+        })),
+        currentTypeId: (d) => d.systemTypeId,
     },
     {
         family: 'curtain-panel',

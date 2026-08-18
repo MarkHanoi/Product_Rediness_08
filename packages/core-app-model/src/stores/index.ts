@@ -92,6 +92,16 @@ export { HandrailStore } from './HandrailStore.js';
 export type { HandrailTypeDefinition } from './HandrailTypeStore.js';
 export { HandrailTypeStore, handrailTypeStore } from './HandrailTypeStore.js';
 
+// §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the curtain-wall type catalogue,
+// the same shape as the handrail one above. See the store's header for why it
+// lives here rather than in `@pryzm/types-builtin`, which carries a DROP verdict.
+export type { CurtainWallTypeDefinition } from './CurtainWallTypeStore.js';
+export {
+    CurtainWallTypeStore,
+    curtainWallTypeStore,
+    resolveCurtainWallTypeFields,
+} from './CurtainWallTypeStore.js';
+
 export type { OpeningData } from './OpeningTypes.js';
 export { OpeningStore } from './OpeningStore.js';
 
