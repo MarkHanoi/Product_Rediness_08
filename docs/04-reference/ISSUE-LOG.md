@@ -6750,3 +6750,65 @@ records that *"Previously REGION_SLAB had NO onPointerMove branch here, so in 3D
 partial fix on the same feature. Establish whether the 3D click path commits, or whether the plan
 handler is the only committer and 3D merely previews. **They must not be fixed independently into
 two rival region implementations** — C84 EI-9.
+
+---
+
+## L-957 — FEATURE (founder) — CURVED WINDOWS in curved walls: the glass and the HORIZONTAL frame members follow the wall's exact arc
+
+**Founder-requested 2026-08-18, with a reference photograph of a curved glazed facade.** Status:
+**QUEUED** — lane not yet started (subagent concurrency cap reached at 20; this entry exists so the
+spec is not lost).
+
+**TODAY:** a window can be hosted in a CURVED wall and that works. But the window itself is
+**FLAT** — a planar pane chorded across the arc.
+
+**WANTED, in the founder's own words and honoured exactly:**
+- the **GLASS** is curved;
+- the **HORIZONTAL frame members** are curved — head, sill, and any horizontal transom;
+- by implication the **VERTICAL members (jambs, mullions) stay STRAIGHT** — a vertical line on a
+  vertical-axis sweep is already straight, so only the horizontals traverse the arc. *This must be
+  CONFIRMED, not assumed: the whole simplification rests on the wall's curve being a vertical-axis
+  sweep rather than a compound curve.*
+- ⭐ **the curvature must be THE SAME PRECISE CURVE AS THE WALL** — *"the same precised curved than
+  the wall"*. Not an approximation and not an independently-computed arc. **The window must CONSUME
+  the wall's own curve parameters, never re-derive them.** Two independent derivations of one arc is
+  the defect class [C84](../02-decisions/contracts/C84-ELEMENT-INTEGRITY.md) EI-9 exists to
+  eliminate, and here it would be *visible* — a seam where pane meets reveal.
+
+**THE ONE QUESTION THAT SIZES THE WHOLE FEATURE, to be answered before any code:**
+**is the VOID already curved, and only the LEAF flat?** `WallFragmentBuilder.ts:1711` already gates
+on `wall.curve && isArcHost(wall) && wall.openings.length > 0`, so a curved host with openings has
+a dedicated path. If that path already sweeps the hole along the arc, this is a **LEAF-ONLY**
+change and is small. If it cuts a straight prism through a curved wall, then **the reveal faces are
+already wrong today** and that is a separate bug to log, not part of this feature.
+
+**Precedent to follow rather than invent:** §RAKE-HOSTED-OPENING shipped today making window and
+door **leaves ride a raked host's shear** — *"the leaf tracks host geometry"* already exists as a
+pattern in this exact file.
+
+**Three surfaces must agree** (C84 §4D): Stack A (`packages/geometry-*`, viewport), Stack B
+(`packages/geometry-kernel/producers`, live in the **bake worker** for export), and
+`WindowPlanSymbolBuilder.ts` — **in plan a curved window must read as an ARC, not a straight line.**
+Do not assume the viewport is the only surface; §4D exists because those stacks already disagree.
+
+**Design ruling, to be confirmed by measurement: INHERITED, NOT AUTHORED.** Curvature is DERIVED
+from the host wall. A window in a curved wall is curved *because its host is*. A separate "curved"
+toggle would mint a second source of truth that can disagree with the wall — C84 **EI-1**, one
+authority per family — and the founder's *"same precise curve as the wall"* says the same thing in
+plainer words.
+
+**Prior art to check first:** `packages/geometry-curtain-wall` — the reference photograph is
+essentially a curved curtain wall. If curved glazed-panel geometry already exists there, **reuse
+it** (EI-10). ⚠ Read the *geometry*, not the bridge: the curtain-wall bridge is measured to
+COLLAPSE per-panel data (C84 §4B).
+
+⚠ **Two live gates constrain the implementation.** `packages/geometry-kernel/src/tolerance.ts`
+EXISTS and exports `COINCIDENT_M = 0.001` — do not invent an epsilon, `check-epsilon-policy` is
+live. And `check-predicate-canonical` counts duplicate geometry predicates: if an arc-parameter
+helper exists (`WallArcParam` was named by another lane), **call it**.
+
+**Slicing when it starts:** Slice 0 — a window in a STRAIGHT wall comes out BYTE-IDENTICAL, pinned
+and watched RED first. Slice 1 — curved glass at the SAME segment count and SAME stations as the
+host wall. Slice 2 — the horizontal frame members sweeping that arc; verticals unchanged. Refuse by
+name anything slice 1 cannot carry (curved × layered, curved × raked), with the property panel
+importing that same gate rather than restating it.
