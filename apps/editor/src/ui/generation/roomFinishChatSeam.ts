@@ -256,10 +256,34 @@ export async function runGenerationRooms(cmd: GenerationRoomsPayload): Promise<v
     // Every-floor furnishing is the SHIPPED driver, not a loop written here.
     if (cmd.allLevels === true) {
         try {
-            await triggerFurnishAllFloors(rt);
-            emitReport(true, ['Furnished every floor — the per-floor coverage report is in the console (§COVERAGE-ALL-FLOORS).']);
+            // §FURNISH-ALL-FLOORS-HONESTY — was `await triggerFurnishAllFloors(rt);`
+            // followed by an unconditional `emitReport(true, ['Furnished every
+            // floor — the per-floor coverage report is in the console'])`. That
+            // sentence was written before the driver ran and was emitted even
+            // when it refused (no runtime, no levels) or threw. The driver has
+            // always KNOWN its per-floor counts; it now hands them back.
+            const out = await triggerFurnishAllFloors(rt);
+            if (out.status === 'refused') {
+                emitReport(false, [out.reason], 'refused');
+                return;
+            }
+            const s = out.summary;
+            const rollUp =
+                `Furnished ${s.floors} floor${s.floors === 1 ? '' : 's'} — ` +
+                `${s.totalFurnished} room${s.totalFurnished === 1 ? '' : 's'}, ${s.totalPlaced} items` +
+                (s.totalSkipped > 0 ? `, ${s.totalSkipped} rooms skipped` : '') + '.';
+            // A floor whose report never arrived is NOT a furnished floor. It is
+            // named, and it downgrades the verdict to partial — never dropped.
+            if (s.timedOutFloors > 0) {
+                emitReport(true, [rollUp], 'partial', [
+                    `${s.timedOutFloors} floor${s.timedOutFloors === 1 ? '' : 's'} sent no report in budget — ` +
+                    `nothing about ${s.timedOutFloors === 1 ? 'it' : 'them'} is confirmed.`,
+                ]);
+                return;
+            }
+            emitReport(true, [rollUp], 'applied');
         } catch (err) {
-            emitReport(false, [`the all-floors furnish failed: ${String((err as Error)?.message ?? err)}`]);
+            emitReport(false, [`the all-floors furnish failed: ${String((err as Error)?.message ?? err)}`], 'refused');
         }
         return;
     }

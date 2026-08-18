@@ -20,7 +20,25 @@ import {
     driveFurnishAllFloors,
     summariseFurnishCoverage,
     type FurnishLevelCoverage,
+    type FurnishCoverageSummary,
 } from './furnishAllFloorsDriver.js';
+
+/**
+ * §FURNISH-ALL-FLOORS-HONESTY — what the every-floor pass actually did.
+ *
+ * This function used to return `Promise<void>` while computing a full
+ * `FurnishCoverageSummary` and dropping it into a toast and the console. The
+ * chat seam above therefore had nothing to consult and reported the canned
+ * "Furnished every floor — the per-floor coverage report is in the console",
+ * INCLUDING when no runtime was ready, when no levels existed, and when the
+ * driver threw. Same defect as the floor-finish one, one arm over.
+ */
+export type FurnishAllFloorsOutcome =
+    /** The driver ran and produced per-floor evidence — including a floor that
+     *  timed out, which the summary names rather than hides. */
+    | { readonly status: 'covered'; readonly summary: FurnishCoverageSummary }
+    /** Nothing ran, and this is why. */
+    | { readonly status: 'refused'; readonly reason: string };
 
 const _executor = new FurnishLayoutExecutor();
 const _scopeModal = new FurnishScopeModal();
@@ -130,16 +148,35 @@ function waitForFurnishDone(
  *  Restores the originally-active level when done. P6: mutation still flows
  *  through the executor's command-bus dispatch — this only sets the session
  *  active-level (same path ActiveLevelHUD / LevelManagerPanel use). */
-export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null): Promise<void> {
+export async function triggerFurnishAllFloors(
+    runtimeArg?: PryzmRuntime | null,
+): Promise<FurnishAllFloorsOutcome> {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
         rt?.events?.emit('pryzm:toast', { message, severity });
     };
-    if (!rt) { toast('Runtime not ready — reload the project.', 'error'); return; }
+    if (!rt) {
+        const reason = 'Runtime not ready — reload the project.';
+        toast(reason, 'error');
+        return { status: 'refused', reason };
+    }
 
     const levelIds = getAllLevelIds();
-    if (levelIds.length === 0) { toast('No levels found — open a project first.', 'error'); return; }
-    if (levelIds.length === 1) { triggerFurnishLayout(rt); return; }
+    if (levelIds.length === 0) {
+        const reason = 'No levels found — open a project first.';
+        toast(reason, 'error');
+        return { status: 'refused', reason };
+    }
+    // §FURNISH-ALL-FLOORS-HONESTY — the `levelIds.length === 1` shortcut used to
+    // call the fire-and-forget `triggerFurnishLayout` and return `void`, so a
+    // single-floor project produced NO coverage at all and the chat seam above
+    // reported the canned "Furnished every floor" for it. One level now goes
+    // through the SAME measured driver as five: `furnishOne` awaits that
+    // storey's own `furnish.layout-executed` and yields real counts. The only
+    // difference from the old shortcut is that the execute event carries an
+    // explicit `levelId` — which is exactly what every level in the multi-floor
+    // path already sends, including the active one (§FIX-FURNISH-ALL-FLOORS-
+    // COVERAGE, L-101: correctness must not hinge on the active-level switch).
 
     _executor.attach(rt);
     const pc = window.projectContext as ProjectContextLike | undefined;
@@ -149,7 +186,7 @@ export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null):
     };
 
     console.log('[furnish-layout] all-floors furnish across', levelIds.length, 'level(s):', levelIds);
-    toast(`Furnishing all ${levelIds.length} floors…`, 'info');
+    toast(levelIds.length === 1 ? 'Furnishing rooms…' : `Furnishing all ${levelIds.length} floors…`, 'info');
 
     // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): each level is furnished
     // EXPLICITLY (levelId threaded into the event) so a floor no longer depends
@@ -167,13 +204,21 @@ export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null):
     };
 
     let coverage: FurnishLevelCoverage[] = [];
+    let threw: string | null = null;
     try {
         coverage = await driveFurnishAllFloors(levelIds, furnishOne);
     } catch (err) {
         console.error('[furnish-layout] all-floors furnish threw:', err);
-        toast(`All-floors furnish failed: ${String(err)}`, 'error');
+        threw = String((err as Error)?.message ?? err);
+        toast(`All-floors furnish failed: ${threw}`, 'error');
     } finally {
         if (typeof originalActive === 'string' && originalActive.length > 0) setActive(originalActive);
+    }
+    // §FURNISH-ALL-FLOORS-HONESTY — a throw that produced no coverage is a
+    // refusal, not "furnished every floor". Previously this fell through to the
+    // summary of an EMPTY coverage array and the caller reported success.
+    if (threw !== null && coverage.length === 0) {
+        return { status: 'refused', reason: `the all-floors furnish failed: ${threw}` };
     }
 
     // Per-unit coverage report — one line per floor + a roll-up.
@@ -190,6 +235,9 @@ export async function triggerFurnishAllFloors(runtimeArg?: PryzmRuntime | null):
         (summary.timedOutFloors > 0 ? ` (${summary.timedOutFloors} floor(s) timed out)` : '') + '.',
         summary.totalSkipped > 0 || summary.timedOutFloors > 0 ? 'info' : 'success',
     );
+    // The summary is the EVIDENCE. Handing it back is what lets the chat seam
+    // report the engine's own numbers instead of a sentence written in advance.
+    return { status: 'covered', summary };
 }
 
 /** Show the scope chooser ("Active floor" vs "All floors") then run the chosen
