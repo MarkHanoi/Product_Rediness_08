@@ -10,6 +10,11 @@ import { doorSystemTypeStore } from './DoorSystemTypeStore';
 // the placed 3D frame is dimensionally identical to what the user previewed.
 import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
+// §FEAT-CURVED-DOOR-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
+// through `hostedElementFrame`. Nothing in this file re-derives it; see
+// `CurvedLeafGeometry.ts` for why that is the whole point of the feature, and
+// for the measured reason only HORIZONTAL members bend.
+import { leafArc, curvedLeafRefusal, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
 import {
     WallStore, hostedElementFrame, withAuthoritativeGeometry,
     // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
@@ -47,6 +52,77 @@ function addBox(
 ): THREE.Mesh {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(x, y, z);
+    if (role) mesh.userData.role = role;
+    parent.add(mesh);
+    return mesh;
+}
+
+/**
+ * §FEAT-CURVED-DOOR-LEAF (L-957) — a member that must FOLLOW the host's arc.
+ *
+ * Identical arguments to {@link addBox}, and identical behaviour when `arc` is
+ * `null` — which is every straight-walled door in every project, i.e. the case
+ * slice 0 pins byte-identical. It is the same `new THREE.BoxGeometry(w, h, d)`
+ * call reached by the same branch, not a reconstruction that happens to agree.
+ *
+ * When `arc` is present the member is swept along the wall's own centreline
+ * stations instead. Use this for the LEAF, its glazed lights, and every
+ * HORIZONTAL member — head, threshold, head stop, leaf rails, panels, slats and
+ * the sidelight surround. Verticals must use {@link addSeatedBox}: a vertical is
+ * a straight ruling of a vertical-axis sweep, so sweeping it would be wrong, not
+ * merely wasteful.
+ */
+function addSweptBox(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    arc: LeafArc | null,
+    w: number, h: number, d: number,
+    x: number, y: number, z: number,
+    role?: string,
+): THREE.Mesh {
+    if (!arc) return addBox(parent, material, w, h, d, x, y, z, role);
+    const mesh = new THREE.Mesh(sweptBoxGeometry(arc, w, h, d, x, y, z), material);
+    // The sweep is authored in group-local coordinates already — the geometry
+    // carries the member's position, so the mesh sits at the group origin. A
+    // position offset here would double-count it.
+    mesh.position.set(0, 0, 0);
+    if (role) mesh.userData.role = role;
+    parent.add(mesh);
+    return mesh;
+}
+
+/**
+ * §FEAT-CURVED-DOOR-LEAF (L-957) — a STRAIGHT member RE-SEATED onto the arc.
+ *
+ * Frame posts, jamb stops, leaf stiles, glazing bars, the double door's meeting
+ * mullion, the sidelight mullion and every vertical batten stay straight boxes
+ * (see `CurvedLeafGeometry`'s header for why that is a measured property of the
+ * stored model and not a simplification). They must still be RE-SEATED, though:
+ * on a curved host their plan position and heading follow the wall, or a stile
+ * halfway along a wide curved door stands proud of the panel on one side and
+ * sinks into it on the other.
+ *
+ * The door's IRONMONGERY takes this path too — hinges, lever, rose, pull bar.
+ * A handle is a manufactured rigid object; it is re-seated onto the arc, never
+ * bent along it. That is the same call `DoorPlanSymbolBuilder` already makes for
+ * the swung leaf and its hardware (§FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST:
+ * *"rigid sub-assemblies … pivot about the hinge and do not bend"*).
+ *
+ * Falls through to {@link addBox} unchanged for a straight host.
+ */
+function addSeatedBox(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    arc: LeafArc | null,
+    w: number, h: number, d: number,
+    x: number, y: number, z: number,
+    role?: string,
+): THREE.Mesh {
+    if (!arc) return addBox(parent, material, w, h, d, x, y, z, role);
+    const seat = arcSeat(arc, x, z);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(seat.x, y, seat.z);
+    mesh.rotation.y = seat.rotationY;
     if (role) mesh.userData.role = role;
     parent.add(mesh);
     return mesh;
@@ -413,7 +489,28 @@ export class DoorBuilder {
         // exactly the rebuilds it affects (and no others).
         const lod = this._lodFor(door);
         this._builtLod.set(door.id, lod);
-        const mats = this.buildVisuals(door, group, frameDepth, vgStyle, lod);
+        // §FEAT-CURVED-DOOR-LEAF (L-957) — `null` for every straight host, which
+        // is what makes the ordinary path literally the old code. The arc is
+        // resolved from the SAME `hostedElementFrame(wall, offset, width)` that
+        // `positionGroup` places the group with, so the leaf's curvature and the
+        // leaf's placement cannot be two answers.
+        //
+        // The refusal is CONSULTED, not restated. `curvedLeafRefusal` names the
+        // one combination a curved leaf cannot carry and returns the reason as
+        // text; the reason is stamped onto the group below so a panel can SHOW it
+        // rather than re-deriving the condition. When it fires, the leaf falls
+        // back to FLAT — a chorded leaf in a curved hole is visibly wrong and
+        // therefore reportable, which is the point: "a refusal is a correct
+        // answer; a silently-wrong wall is not" (`WallRake.ts`).
+        const _leafRefusal = curvedLeafRefusal(wallData, 'door');
+        const arc = _leafRefusal ? null : leafArc(wallData, door.offset, door.width);
+        if (_leafRefusal) {
+            // Re-frozen rather than mutated: `rootUserData` is frozen above, and
+            // the field is added ONLY on the refusing path so a straight or
+            // ordinary curved door's userData is untouched.
+            group.userData = Object.freeze({ ...group.userData, curvedLeafRefusal: _leafRefusal });
+        }
+        const mats = this.buildVisuals(door, group, frameDepth, vgStyle, lod, arc);
         this.doorMaterials.set(door.id, mats);
         this.positionGroup(door, group, wallData);
         group.traverse(obj => {
@@ -580,6 +677,14 @@ export class DoorBuilder {
         wallFrameDepth?: number,
         vgStyle?: VGStyle,
         lod: DetailLevel = 'fine',
+        /**
+         * §FEAT-CURVED-DOOR-LEAF (L-957) — the HOST'S arc, in this group's local
+         * frame, or `null` for a straight host (and for a refused combination).
+         * `null` routes every member below through the ordinary `addBox`, which
+         * is why a straight-walled door is byte-identical rather than merely
+         * close. Never re-derived here: see `CurvedLeafGeometry`.
+         */
+        arc: LeafArc | null = null,
     ): THREE.Material[] {
         const mats: THREE.Material[] = [];
         // §FIX-DOOR-PREVIEW-EXACT (L-127) — width/height are the authoritative void
@@ -637,17 +742,25 @@ export class DoorBuilder {
             !!sysType.sidelight && door.doorType !== 'double';
 
         // ── Frame ──────────────────────────────────────────────────────────
+        // §FEAT-CURVED-DOOR-LEAF — the founder's decomposition, member by member:
+        // the POSTS are vertical rulings of a vertical-axis sweep, so they stay
+        // straight and are only re-seated; the HEAD and the THRESHOLD traverse the
+        // arc and must bend. Both span the FULL authored width `w`, so their radial
+        // end caps land on arc lengths `offset` and `offset + width` — the exact
+        // stations `CurvedWallOpeningBuilder` terminates the void's bands on. That
+        // is the seam the founder would otherwise see, and it closes by
+        // construction rather than by agreement.
         // Left post
-        addBox(group, frameMat, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
+        addSeatedBox(group, frameMat, arc, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
         // Right post
-        addBox(group, frameMat, ft, h, fd,  (w / 2 - ft / 2), 0, 0);
+        addSeatedBox(group, frameMat, arc, ft, h, fd,  (w / 2 - ft / 2), 0, 0);
         // Head bar (top)
-        addBox(group, frameMat, w, ft, fd,  0, h / 2 - ft / 2, 0);
+        addSweptBox(group, frameMat, arc, w, ft, fd,  0, h / 2 - ft / 2, 0);
 
         // ── Threshold ──────────────────────────────────────────────────────
         if (door.threshold && door.thresholdHeight > 0) {
             const th = door.thresholdHeight;
-            addBox(group, frameMat, w, th, fd, 0, -h / 2 + th / 2, 0);
+            addSweptBox(group, frameMat, arc, w, th, fd, 0, -h / 2 + th / 2, 0);
         }
 
         // ── Leaf / Hinges / Handle ─────────────────────────────────────────
@@ -673,11 +786,14 @@ export class DoorBuilder {
             const stopProj  = ft / 3;                                        // into the opening
             const stopDepth = Math.max(leafThickness / 2, fd / 2 - leafThickness / 2);
             const stopZ     = leafThickness / 2 + stopDepth / 2;             // behind the leaf
-            // Jamb stops (both posts), running the full clear height.
-            addBox(group, frameMat, stopProj, innerH, stopDepth, -innerW / 2 + stopProj / 2, -ft / 2, stopZ);
-            addBox(group, frameMat, stopProj, innerH, stopDepth,  innerW / 2 - stopProj / 2, -ft / 2, stopZ);
-            // Head stop, spanning the clear width.
-            addBox(group, frameMat, innerW, stopProj, stopDepth, 0, innerH / 2 - ft / 2 - stopProj / 2, stopZ);
+            // Jamb stops (both posts), running the full clear height — VERTICAL,
+            // so re-seated onto the arc but not bent.
+            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth, -innerW / 2 + stopProj / 2, -ft / 2, stopZ);
+            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth,  innerW / 2 - stopProj / 2, -ft / 2, stopZ);
+            // Head stop, spanning the clear width — HORIZONTAL, so it sweeps. The
+            // leaf shuts against this bead, and the leaf now follows the arc, so a
+            // chorded stop would leave a wedge-shaped gap at one jamb.
+            addSweptBox(group, frameMat, arc, innerW, stopProj, stopDepth, 0, innerH / 2 - ft / 2 - stopProj / 2, stopZ);
         }
 
         // Leaf y-centre is ft/2 below group centre (head bar takes ft at top, no bottom frame)
@@ -715,14 +831,15 @@ export class DoorBuilder {
 
             // Left leaf (center at -halfLeafW/2 - centerMullionW/2)
             const leftLeafX = -(halfLeafW / 2 + centerMullionW / 2);
-            addBox(group, leafMat, halfLeafW, innerH, leafThickness, leftLeafX, -ft / 2, 0, 'doorLeaf');
+            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, leftLeafX, -ft / 2, 0, 'doorLeaf');
 
             // Right leaf (center at +halfLeafW/2 + centerMullionW/2)
             const rightLeafX = (halfLeafW / 2 + centerMullionW / 2);
-            addBox(group, leafMat, halfLeafW, innerH, leafThickness, rightLeafX, -ft / 2, 0, 'doorLeaf');
+            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, rightLeafX, -ft / 2, 0, 'doorLeaf');
 
-            // Center mullion (structural, full height, spans full frame depth)
-            addBox(group, frameMat, centerMullionW, innerH, fd, 0, -ft / 2, 0);
+            // Center mullion (structural, full height, spans full frame depth) —
+            // VERTICAL, so it re-seats onto the arc and stays straight.
+            addSeatedBox(group, frameMat, arc, centerMullionW, innerH, fd, 0, -ft / 2, 0);
 
             // Hinges: left leaf hinged on left outer post, right leaf on right outer post
             // §FEAT-DOOR-3D-LOD (L-266) — no ironmongery on the massing (coarse) door.
@@ -730,8 +847,8 @@ export class DoorBuilder {
             const rightHingeX =  (w / 2 - ft / 2);
             if (!isCoarse) {
                 for (const hy of hingeY) {
-                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, leftHingeX,  hy, 0);
-                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, rightHingeX, hy, 0);
+                    addSeatedBox(group, _hingeMat, arc, 0.03, 0.12, fd + 0.008, leftHingeX,  hy, 0);
+                    addSeatedBox(group, _hingeMat, arc, 0.03, 0.12, fd + 0.008, rightHingeX, hy, 0);
                 }
             }
 
@@ -743,13 +860,13 @@ export class DoorBuilder {
 
                 // Left leaf handle on right (meeting) edge
                 const leftHandleX = -(centerMullionW / 2 + 0.06);
-                addBox(group, handleMat, 0.04, 0.15, 0.01, leftHandleX, localY, leafFront + 0.005, 'doorHandle');
-                addBox(group, handleMat, 0.015, 0.10, 0.015, leftHandleX + 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
+                addSeatedBox(group, handleMat, arc, 0.04, 0.15, 0.01, leftHandleX, localY, leafFront + 0.005, 'doorHandle');
+                addSeatedBox(group, handleMat, arc, 0.015, 0.10, 0.015, leftHandleX + 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
 
                 // Right leaf handle on left (meeting) edge
                 const rightHandleX = (centerMullionW / 2 + 0.06);
-                addBox(group, handleMat, 0.04, 0.15, 0.01, rightHandleX, localY, leafFront + 0.005, 'doorHandle');
-                addBox(group, handleMat, 0.015, 0.10, 0.015, rightHandleX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
+                addSeatedBox(group, handleMat, arc, 0.04, 0.15, 0.01, rightHandleX, localY, leafFront + 0.005, 'doorHandle');
+                addSeatedBox(group, handleMat, arc, 0.015, 0.10, 0.015, rightHandleX - 0.06, localY + 0.035, leafFront + 0.025, 'doorHandle');
             }
         } else {
             // Single door — one leaf (shifted off-centre when a sidelight is present).
@@ -780,19 +897,24 @@ export class DoorBuilder {
                         cols.forEach((c, i) => {
                             const colW = glassSpan * (c / colTotal);
                             const colCX = singleLeafX + cursorL + colW / 2;
-                            // Glass pane — thinner than the leaf so the timber reads as a frame around it.
-                            addBox(group, glassMat, colW, rowH, leafThickness * 0.5, colCX, rowCY, 0, 'doorGlazing');
+                            // Glass pane — thinner than the leaf so the timber reads as a frame
+                            // around it. THE GLAZED LIGHT FOLLOWS THE ARC: this is the founder's
+                            // first clause, applied to a door's light exactly as to a window's.
+                            addSweptBox(group, glassMat, arc, colW, rowH, leafThickness * 0.5, colCX, rowCY, 0, 'doorGlazing');
                             cursorL += colW;
                             if (i < cols.length - 1) {
                                 const barCX = singleLeafX + cursorL + barW / 2;
-                                addBox(group, leafMat, barW, rowH, leafThickness, barCX, rowCY, 0, 'doorLeaf');
+                                // A glazing bar between two lights is a VERTICAL member — re-seated
+                                // onto the arc, never bent, or it would stand proud of one pane and
+                                // sink into the next.
+                                addSeatedBox(group, leafMat, arc, barW, rowH, leafThickness, barCX, rowCY, 0, 'doorLeaf');
                                 cursorL += barW;
                             }
                         });
                         // Slim timber surround framing this glazed row (top + bottom rails).
                         const railH = Math.min(0.06, rowH * 0.12);
-                        addBox(group, leafMat, singleLeafW, railH, leafThickness, singleLeafX, rowCY + rowH / 2 - railH / 2, 0, 'doorLeaf');
-                        addBox(group, leafMat, singleLeafW, railH, leafThickness, singleLeafX, rowCY - rowH / 2 + railH / 2, 0, 'doorLeaf');
+                        addSweptBox(group, leafMat, arc, singleLeafW, railH, leafThickness, singleLeafX, rowCY + rowH / 2 - railH / 2, 0, 'doorLeaf');
+                        addSweptBox(group, leafMat, arc, singleLeafW, railH, leafThickness, singleLeafX, rowCY - rowH / 2 + railH / 2, 0, 'doorLeaf');
                     } else {
                         // Opaque panel row — render as a stack of horizontal slats for the
                         // modern slatted-timber leaf reading (purely visual sub-division).
@@ -802,7 +924,7 @@ export class DoorBuilder {
                         let sTop = rowCY + rowH / 2;
                         for (let s = 0; s < slatCount; s++) {
                             const sCY = sTop - slatH / 2;
-                            addBox(group, leafMat, singleLeafW, slatH, leafThickness, singleLeafX, sCY, 0, 'doorLeaf');
+                            addSweptBox(group, leafMat, arc, singleLeafW, slatH, leafThickness, singleLeafX, sCY, 0, 'doorLeaf');
                             sTop -= slatH + gap;
                         }
                     }
@@ -817,7 +939,10 @@ export class DoorBuilder {
                 let bLeft = singleLeafX - singleLeafW / 2;   // left edge of the leaf in local X
                 for (let b = 0; b < battenCount; b++) {
                     const bCX = bLeft + battenW / 2;
-                    addBox(group, leafMat, battenW, innerH, leafThickness, bCX, leafCY, 0, 'doorLeaf');
+                    // A VERTICAL batten is a straight ruling — re-seated along the arc, not
+                    // bent. The leaf still reads as curved because each stave sits on the
+                    // wall's own curve, which is how a curved timber door is really made.
+                    addSeatedBox(group, leafMat, arc, battenW, innerH, leafThickness, bCX, leafCY, 0, 'doorLeaf');
                     bLeft += battenW + gap;
                 }
             } else if (isFine) {
@@ -848,13 +973,16 @@ export class DoorBuilder {
                 const leafBot = leafCY - innerH / 2;
                 const lx = singleLeafX;
 
-                // Stiles — full height, both edges.
-                addBox(group, leafMat, stileW, innerH, leafThickness, lx - singleLeafW / 2 + stileW / 2, leafCY, 0, 'doorLeaf');
-                addBox(group, leafMat, stileW, innerH, leafThickness, lx + singleLeafW / 2 - stileW / 2, leafCY, 0, 'doorLeaf');
-                // Top + bottom rails — between the stiles.
+                // Stiles — full height, both edges. STILES ARE VERTICAL: re-seated, straight.
+                addSeatedBox(group, leafMat, arc, stileW, innerH, leafThickness, lx - singleLeafW / 2 + stileW / 2, leafCY, 0, 'doorLeaf');
+                addSeatedBox(group, leafMat, arc, stileW, innerH, leafThickness, lx + singleLeafW / 2 - stileW / 2, leafCY, 0, 'doorLeaf');
+                // Top + bottom rails — between the stiles. RAILS ARE HORIZONTAL: they sweep.
+                // This is the founder's rule reaching the finest tier of the model: a
+                // rail-and-stile door on a curved wall has bent rails and straight stiles,
+                // which is exactly how one is actually made.
                 const railW = singleLeafW - 2 * stileW;
-                addBox(group, leafMat, railW, railH,       leafThickness, lx, leafTop - railH / 2,       0, 'doorLeaf');
-                addBox(group, leafMat, railW, bottomRailH, leafThickness, lx, leafBot + bottomRailH / 2, 0, 'doorLeaf');
+                addSweptBox(group, leafMat, arc, railW, railH,       leafThickness, lx, leafTop - railH / 2,       0, 'doorLeaf');
+                addSweptBox(group, leafMat, arc, railW, bottomRailH, leafThickness, lx, leafBot + bottomRailH / 2, 0, 'doorLeaf');
 
                 // Panels + intermediate rails, one per type segment row.
                 const panelZoneH = innerH - railH - bottomRailH - midRailH * (rowCount - 1);
@@ -863,30 +991,39 @@ export class DoorBuilder {
                 for (let i = 0; i < rowCount; i++) {
                     const share  = rows.length > 0 ? (rows[i]!.heightRatio / totalRatio) : 1;
                     const panelH = panelZoneH * share;
-                    addBox(group, leafMat, railW, panelH, panelT, lx, cursorTop - panelH / 2, 0, 'doorLeaf');
+                    addSweptBox(group, leafMat, arc, railW, panelH, panelT, lx, cursorTop - panelH / 2, 0, 'doorLeaf');
                     cursorTop -= panelH;
                     if (i < rowCount - 1) {
-                        addBox(group, leafMat, railW, midRailH, leafThickness, lx, cursorTop - midRailH / 2, 0, 'doorLeaf');
+                        addSweptBox(group, leafMat, arc, railW, midRailH, leafThickness, lx, cursorTop - midRailH / 2, 0, 'doorLeaf');
                         cursorTop -= midRailH;
                     }
                 }
             } else {
                 // Coarse / medium — one opaque leaf slab (the pre-L-266 behaviour).
-                addBox(group, leafMat, singleLeafW, innerH, leafThickness, singleLeafX, leafCY, 0, 'doorLeaf');
+                // THE LEAF FOLLOWS THE ARC. It is modelled CLOSED — `DoorBuilder` has no
+                // swing angle and no open state; the only rotation in this file is the
+                // group's own heading on the wall — so a curved leaf here is a leaf seated
+                // in a curved void, not a leaf mid-swing. See `CurvedLeafGeometry`'s header
+                // for what a future 3D open state would have to do instead.
+                addSweptBox(group, leafMat, arc, singleLeafW, innerH, leafThickness, singleLeafX, leafCY, 0, 'doorLeaf');
             }
 
             // §DOOR-GLAZING-2026 — fixed glazed sidelight + its slim mullion.
             if (sidelightSpec) {
                 const slGlassMat = makeGlassMat(sidelightSpec.glazingOpacity);
                 mats.push(slGlassMat);
-                // Slim vertical mullion between leaf and sidelight (full depth, structural).
-                addBox(group, frameMat, slMullionW, innerH, fd, slMullionX, leafCY, 0);
-                // Fixed glazed pane (thin, transparent) within a slim timber surround.
-                addBox(group, slGlassMat, slWidth, innerH, leafThickness * 0.5, slCenterX, leafCY, 0, 'doorGlazing');
+                // Slim VERTICAL mullion between leaf and sidelight (full depth, structural)
+                // — re-seated onto the arc, straight.
+                addSeatedBox(group, frameMat, arc, slMullionW, innerH, fd, slMullionX, leafCY, 0);
+                // Fixed glazed pane (thin, transparent) within a slim timber surround. The
+                // sidelight is a glazed light, so it follows the arc with the leaf — the two
+                // sit either side of one mullion and must read as one curved surface.
+                addSweptBox(group, slGlassMat, arc, slWidth, innerH, leafThickness * 0.5, slCenterX, leafCY, 0, 'doorGlazing');
                 const surround = 0.04;
-                // Sidelight surround: top + bottom rails (sides are the mullion + frame post).
-                addBox(group, frameMat, slWidth, surround, fd, slCenterX, leafCY + innerH / 2 - surround / 2, 0);
-                addBox(group, frameMat, slWidth, surround, fd, slCenterX, leafCY - innerH / 2 + surround / 2, 0);
+                // Sidelight surround: top + bottom rails (sides are the mullion + frame post)
+                // — HORIZONTAL, so they sweep.
+                addSweptBox(group, frameMat, arc, slWidth, surround, fd, slCenterX, leafCY + innerH / 2 - surround / 2, 0);
+                addSweptBox(group, frameMat, arc, slWidth, surround, fd, slCenterX, leafCY - innerH / 2 + surround / 2, 0);
             }
 
             // Hinges on the configured side (hinge against the leaf's outer post).
@@ -896,7 +1033,7 @@ export class DoorBuilder {
                 : singleLeafX + singleLeafW / 2 - 0.015;
             if (!isCoarse) {
                 for (const hy of hingeY) {
-                    addBox(group, _hingeMat, 0.03, 0.12, fd + 0.008, hingeX, hy, 0);
+                    addSeatedBox(group, _hingeMat, arc, 0.03, 0.12, fd + 0.008, hingeX, hy, 0);
                 }
             }
 
@@ -918,9 +1055,9 @@ export class DoorBuilder {
                 if (sysType?.sidelight) {
                     const barLen = Math.min(innerH * 0.55, 1.2);
                     // Vertical bar, standing proud of the leaf face on two stand-offs.
-                    addBox(group, handleMat, 0.03, barLen, 0.03, handleEdgeX, leafCY, leafFront + 0.05, 'doorHandle');
-                    addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY + barLen / 2 - 0.04, leafFront + 0.025, 'doorHandle');
-                    addBox(group, handleMat, 0.02, 0.02, 0.05, handleEdgeX, leafCY - barLen / 2 + 0.04, leafFront + 0.025, 'doorHandle');
+                    addSeatedBox(group, handleMat, arc, 0.03, barLen, 0.03, handleEdgeX, leafCY, leafFront + 0.05, 'doorHandle');
+                    addSeatedBox(group, handleMat, arc, 0.02, 0.02, 0.05, handleEdgeX, leafCY + barLen / 2 - 0.04, leafFront + 0.025, 'doorHandle');
+                    addSeatedBox(group, handleMat, arc, 0.02, 0.02, 0.05, handleEdgeX, leafCY - barLen / 2 + 0.04, leafFront + 0.025, 'doorHandle');
                 } else {
                     // ── LEVER + ESCUTCHEON ──────────────────────────────────────
                     //
@@ -944,9 +1081,9 @@ export class DoorBuilder {
                     const leverDir = door.handleSide === 'right' ? -1 : +1;
                     for (const face of (isFine ? [+1, -1] : [+1])) {
                         const z0 = face * leafFront;
-                        addBox(group, handleMat, roseW, roseH, roseD,
+                        addSeatedBox(group, handleMat, arc, roseW, roseH, roseD,
                                handleEdgeX, localY, z0 + face * (roseD / 2), 'doorHandle');
-                        addBox(group, handleMat, leverW, leverH, leverD,
+                        addSeatedBox(group, handleMat, arc, leverW, leverH, leverD,
                                handleEdgeX + leverDir * leverReach, localY + leverRise,
                                z0 + face * (roseD + leverD / 2), 'doorHandle');
                     }
