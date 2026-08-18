@@ -81,9 +81,9 @@
 |---|---|
 | L0 schema | `packages/schemas/src/elements/Wall.ts:57` — `defineElement('wall', {…})`; refinements `:141, :151, :158`; type export `:167` |
 | Plugin DTO storeKey | `'wall'` — `plugins/wall/src/store.ts:29` (`super('wall')`) |
-| Legacy record discriminator | `type: 'wall'` — `packages/geometry-wall/src/WallTypes.ts:248`; written by the bridge at `apps/editor/src/engine/initTools.ts:1149` |
+| Legacy record discriminator | `type: 'wall'` — `packages/geometry-wall/src/WallTypes.ts:249` (`:248` is the `interface WallData` line — off by one, corrected 2026-08-18); written by the bridge at `apps/editor/src/engine/initTools.ts:1192` (was `:1149`; the file grew by §FIX-ANY-STORE-SEAM, `9f14b795`) |
 | Runtime store-registry key | `'wall'` — `packages/runtime-composer/src/composeRuntime.ts:1556` (`storeRegistry.register('wall', wallStore)`) |
-| Bus verb namespace | `wall.*` — **45 verb strings** measured; registered allowlist `plugins/wall/src/handlers/index.ts:65-112` |
+| Bus verb namespace | `wall.*` — the plugin registers **28** verbs: `WALL_HANDLER_TYPES` is **27** entries (`plugins/wall/src/handlers/index.ts:64-107`) and `WALL_HANDLER_TYPES_WITH_CATALOGUE` (`:110-113`) adds `wall.setSystemType` when a catalogue is wired. ⚠ **This row read "45 verb strings" until 2026-08-18 and that number is RETRACTED: no command derives it.** Repo-wide `grep -rhoE "'wall\.[a-zA-Z][a-zA-Z.-]*'" --include=*.ts packages plugins apps src \| sort -u \| wc -l` → **60**, and that set is not the verb set — it includes 10 `*.handler` registration ids, the `wall.created` / `wall.opening.created` EVENTS, and non-verb tokens (`wall.tool`, `wall.draw`, `wall.noop`, `wall.lengthMin`, `wall.thicknessMin`, `wall.baseline`). **Quote 28 with the allowlist, or 60 with the grep — never a third number with no derivation.** |
 | `createSnapshot` key | `'wall'` — `packages/command-registry/src/CommandManagerImpl.ts:590-591` |
 | `buildUndoStoreMap` keys | `wall`, `walls` — `apps/editor/src/engine/undo/performUndoRedo.ts:312`, both → `window.wallStore` (the **legacy** singleton) |
 
@@ -121,8 +121,9 @@ explicitly per EI-1b** so it is distinguishable from *nobody looked*:
 | 5 | **Scene `userData`** | `WallFragmentBuilder.ts:560, :896, :2332`; group openings mirror `:966` | see §1 |
 
 **`window.*` globals:** `initBuilders.ts:552` (`window.wallStore = wallStore`), `:566`
-(`window.wallSystemTypeStore`), and a **second assignment** at `initTools.ts:977`
-(`window.wallStore = wallTool.getWallStore()`).
+(`window.wallSystemTypeStore`), and a **second assignment** at `initTools.ts:1020`
+(`window.wallStore = wallTool.getWallStore()`) — cited as `:977` until 2026-08-18; the line moved with
+`9f14b795`, the assignment did not.
 
 **Fields the L0 schema CANNOT express** (present on the legacy record, absent from
 `packages/schemas/src/elements/Wall.ts`): **`rakeAngleDeg`**, `sideFinishes`, `_sourceBaseLine`,
@@ -217,9 +218,13 @@ unjoined ends at Y=0 — for a model the editor renders mitred at storey elevati
 
 ## 4. PLUGIN ↔ DTO ↔ COMMAND ↔ BUILDER
 
-### AS-IS — 30 bus handlers in `plugins/wall/src/handlers/`
+### AS-IS — 28 bus handlers in `plugins/wall/src/handlers/`
 
-Registered allowlist `index.ts:65-112`.
+⚠ **This heading read "30" until 2026-08-18 and contradicted its own table.** Measured:
+`ls plugins/wall/src/handlers/*.ts | grep -v index.ts | wc -l` → **28**, the table below has **28**
+rows, and the two sets are identical in both directions (`comm` on the sorted basenames → empty
+both ways). Registered allowlist `index.ts:64-107` (27 verbs) + `:110-113` (adds
+`wall.setSystemType` with a catalogue) = **28 verbs**. The old `:65-112` range was off at both ends.
 
 | Handler | Verb (line) | `affectedStores` (line) | Lineage (C84 §4A) | Refuses? |
 |---|---|---|---|---|
@@ -286,7 +291,11 @@ Also in `operations/`: `CutWallCommand.ts:45`, `JoinWallsCommand.ts:31`, `Mirror
 - **W-P-1.** The seven refusals **SATISFY [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) and MUST
   NOT be "fixed" by restoring silent success** (C84 EI-7a, as corrected). The residual defect is the
   still-offered UI control. **NOT MEASURED**, owned by [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
-- **W-P-2.** **Eight verbs declare `affectedStores: []` and are NOT refusals** —
+- **W-P-2.** **NINE verbs declare `affectedStores: []` and are NOT refusals** — this bullet said
+  *"Eight"* while its own list enumerated nine; corrected 2026-08-18 by
+  `grep -rn affectedStores plugins/wall/src/handlers/*.ts` → **9 distinct files** (note
+  `CreateWallsOnAllSlabs.ts` declares it as a static `affectedStores = [] as const;`, which a grep
+  written for the object-literal form misses — that is why the count was low) —
   `wall.addLayerBatch`, `wall.cascadeBaseline`, `wall.create-on-all-slabs`,
   `wall.setSideFinishBatch`, `wall.updateSystemType`, `wall.updateColorBatch`,
   `wall.updateHeightBatch`, `wall.updateRakeBatch`, `wall.updateSystemTypeBatch`. Each MUST carry, in
@@ -296,7 +305,8 @@ Also in `operations/`: `CutWallCommand.ts:45`, `JoinWallsCommand.ts:31`, `Mirror
 - **W-P-3.** `wall.cascadeBaseline` (L3, `[]`) is the reweld half of a wall move whose forward half
   is `wall.updateBaseline` (L4, `['wall']`). **One user gesture, two lineages, two undo stacks**
   (C84 §4B). This MUST become one entry.
-- **W-P-4.** A complete axis-(b) dispatcher census for all 45 verbs is **OWED** (§NOT MEASURED).
+- **W-P-4.** A complete axis-(b) dispatcher census for all **28** registered verbs is **OWED**
+  (§NOT MEASURED). *(Was "45 verbs" — see §1: that number has no derivation and is retracted.)*
 
 ---
 
@@ -692,8 +702,8 @@ Ordered by what the user loses.
 | **10** ✅ **CLOSED** | ~~`elementUndoStoreAdapter.ts:295-297`'s `: []` fallback strips every opening~~ — the naive `wallStore.update(wallId, {openings})` is gone; a **hosted-aware reconciler** now diffs the wall's current openings against the undo target and routes removals through `removeOpening` (dropping and snapshotting the door/window record) rather than overwriting the array. The old trapdoor is documented in place at `elementUndoStoreAdapter.ts:540` so it cannot be reintroduced by someone reading the array write as harmless. | **every opening on the wall** | C84 **EI-7b** | ✅ pinned; and see [L-977](../../04-reference/ISSUE-LOG.md) — the same adapter's field arm was **destroying slabs on Ctrl+Z** until `81e1e9c0`, because `SlabStore.update` REPLACES rather than merges. The write shape is now declared per store. |
 | **11** | `curved-MITERED-both-ends` diverges by **9.774 m** between stacks, pinned `it.fails` — **in a worktree, not on `main`** <br>⚠ **RE-MEASURED 2026-08-18: `tests/parity/wall/stackAB-miter-parity.test.ts` is STILL ABSENT from `main`.** This row is unchanged and still open — a gate that lives in a worktree gates nothing at HEAD | nothing today; every future kernel divergence ships unseen | C84 **EI-11**, **§8.f** | land the harness; consume C73's tolerance; make the §3.7 declaration |
 | **12** | `material-bridge.ts` reads slot 3 and never slot 2 — **identical to curtain-wall's** | the material-library id | C84 **EI-2(a)**, **EI-9** | fix once for both families |
-| **13** | `baseLine.y` coerced `?? 0` at `initTools.ts:1156-1157` | the elevation convention on the bus path | C84 **EI-2** | assert against `WallTypes.ts:252-270` |
-| **14** | `window.wallStore` assigned twice (`initBuilders.ts:552`, `initTools.ts:977`); `initTools.ts:1144-1145` silently skips the mirror on id collision | non-determinism nobody can see | C84 **EI-9** | one assignment; warn on skip |
+| **13** | `baseLine.y` coerced `?? 0` at `initTools.ts:1199-1200` (was `:1156-1157`; moved by `9f14b795`) | the elevation convention on the bus path | C84 **EI-2** | assert against `WallTypes.ts:252-270` |
+| **14** | `window.wallStore` assigned twice (`initBuilders.ts:552`, `initTools.ts:1020`); `initTools.ts:1186-1187` (`alreadyMirrored` → `if (!alreadyMirrored)`) silently skips the mirror on id collision. Both citations re-measured 2026-08-18 (were `:977` / `:1144-1145`) | non-determinism nobody can see | C84 **EI-9** | one assignment; warn on skip |
 | **15** | `frontSide`/`backSide` declared in two schemas with zero writers and zero readers (`WallTypes.ts:396-404`) | nothing — but it is a measured dead affordance left standing | C84 **EI-3** | remove, or give a writer |
 | **16** | `commandId` / `wallCount` emitted, never consumed | nothing | C84 **EI-13** | consume or remove |
 
@@ -726,7 +736,7 @@ not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:227`) is already declare
 
 ### Explicitly NOT REFUSED, and that is a finding
 
-The **eight** `affectedStores: []` L3 verbs (W-P-2) execute and report success while contributing
+The **nine** `affectedStores: []` L3 verbs (W-P-2 — corrected from *eight* 2026-08-18) execute and report success while contributing
 nothing to the ring buffer. That is correct **only if** an L2 entry was pushed — and for
 `wall.cascadeBaseline` the handler returns `{forward:[],inverse:[]}` unconditionally (`:66`) with a
 `_skipBridge` short-circuit at `:52-54` that can skip the legacy bridge too. **NOT MEASURED**:
@@ -743,15 +753,26 @@ whether `_skipBridge` is ever true in production.
 2. **`canExecute` behaviour of 10 handlers** — `SplitWall`, `SetWallSystemType`, `UpdateWallBaseline`,
    `SetWallSideFinishBatch`, `UpdateWallSystemType`, `UpdateWallsColorBatch`, `UpdateWallsHeightBatch`,
    `UpdateWallsRakeBatch`, `UpdateWallsSystemTypeBatch`, and `AddWallLayerBatch` beyond `:73`.
-3. **Six of the ten wall-Y datum sites** (§10) — C84 §9's list, unchanged.
+3. ~~**Six of the ten wall-Y datum sites** (§10) — C84 §9's list, unchanged.~~ ⚠ **STALE, CLOSED
+   2026-08-18 — this row outlived its subject by a day.** §10 of this contract already records the
+   datum as **RESOLVED** (`8f63fb6f`, `WallVerticalDatum.ts`: eleven datums agree, leaf-vs-hole
+   delta **0**) and C84 §9 records the same. What actually remains is narrower and is named in
+   `§STILL-DIVERGENT`: **four** divergences, the largest `SpatialAuthority.ts:159`, which cannot see
+   `slabBaseOffset` and whose closure is a design decision, not a patch. **Read §10, not this
+   line.**
 4. **Whether `WallLayerFunction` members all survive to the builder** (EI-3 sweep).
 5. **Whether the UI still offers the seven refusing verbs** — the EI-3 control census, owned by
    [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
 6. **Whether `_skipBridge` (`CascadeWallBaseline.ts:30, :52-54`) is ever true in production.**
 7. **`plugins/plan-view`'s production constructor** — none measured; axis (b) not run, so it is
    PARKED, not dead.
-8. **Whether user-authored room name/number/finish survive `RoomTopologyObserver.resume()`** after a
-   wall undo — C84 §9's highest-value open question, unchanged.
+8. ~~**Whether user-authored room name/number/finish survive `RoomTopologyObserver.resume()`** after a
+   wall undo — C84 §9's highest-value open question, unchanged.~~ ⚠ **STALE, MEASURED 2026-08-18
+   (`7bab78ff`).** `name` and `finishes` survived (`RoomDetectionEngine.ts:962,968`); **`roomNumber`
+   did NOT** — `assignUniqueRoomNumbers` inferred authorship **by regex** and overwrote a user's
+   `'101'` with a generated `'00-001'` on any undo. Fixed by RECORDING authorship
+   (`metadata.roomNumberAuthored`) rather than inferring it. [L-975](../../04-reference/ISSUE-LOG.md).
+   **Two registers carried this row; only C84's was updated.**
 9. **ADR-0331 §D5 — *"what is Stack B for?"*** — an escalated **founder** question. ⛔ Not to be
    resolved by any lane.
 10. **`packages/persistence-client/src/loader/`** — deliberately not measured; declared DEAD.

@@ -7857,3 +7857,117 @@ every ceiling from either path.
 ⚠ **Deliberately not fixed one-sided.** The bridge was left matching `CreateCeilingCommand.ts:210`
 because fixing one creator alone converts a **shared** defect into a **per-path divergence**, which
 C79 §7.4 rates as worse. Both creators must change together.
+
+## L-981 — opening a project crashes the viewport: a light-owned ShadowDepthTexture is destroyed mid-submit (OPEN, FOUNDER-REPORTED, RECURRING)
+
+**Reported by the founder 2026-08-18 from production (`app.pryzm.so`, bundle
+`domain-engine-CJ7HtQXR.js` / `engineLauncher-hULAPH30.js`), and explicitly "reported numerous
+times" before.** Opening *some* projects ends in a frozen viewport and the crash card.
+
+**The GPU's own words, via `GPUDevice.uncapturederror`:**
+
+```
+Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])
+```
+
+**What the product did with it — and this half is CORRECT, do not "fix" it.**
+`RenderPipelineManager._onDestroyedGpuResource` classified the fault as SHADOW-owned and
+**refused** the pipeline reconstruction (`§RECOVERY-MUST-REFUSE`), naming why a rebuild cannot
+help: *"a light-owned shadow map is not reachable from `_rebuildPipeline()`"*. The bounded
+auto-recovery ladder (`§L-966-BOUNDED-AUTO-RECOVERY`) then spent its 2/2 budget and failed loudly
+rather than pinning the GPU. `§L900-FRAME-SKIP-ATTRIBUTION` reported 120 consecutive declined
+frames at gate `pipelineError` — so the user is looking at a frozen frame, correctly attributed.
+**Every diagnostic in this chain worked. What is missing is the ORDERING it is diagnosing.**
+
+**Root cause named by the code itself, and NOT implemented:** *"a shadow-map realloc not ordered
+against submission — see `§GPU-RESOURCE-LIFETIME L2`"*. The candidate owners are all present and
+all already carry this fault in their headers:
+`packages/core-app-model/src/rendering/ShadowQualityUpgrader.ts:167, :196, :368-375` (the
+allocate/dispose cycle at the source), `RenderingPipelineCoordinator.ts:495, :517, :758, :808`,
+`SceneQualityTierManager.ts:147, :226`, `RenderPerformanceService.ts:22, :129`,
+`LevelVisualizer.ts:54`, `RealSunService.ts:598`. `ShadowQualityUpgrader.mapReallocOrdering.test.ts`
+and `LevelVisualizer.disposeDefer.test.ts` exist — **so parts of this were pinned and the fault
+still ships**, which is the first thing to measure: which caster is firing on the PROJECT-OPEN path
+specifically, since that is when the founder sees it.
+
+**Three things this entry deliberately does NOT claim:**
+1. **Which** of the seven candidate sites reallocs on project open. Not measured. The stack the
+   browser gives is minified to `_onDestroyedGpuResource`, which is the REPORTER, not the culprit.
+2. That it is the same defect as [L-966](#). L-966 was a *message* defect (a fabricated
+   "retries exhausted" string minted by a default argument, fixed `551e7131`) — and ⚠ the founder's
+   console shows `Error: Render pipeline retries exhausted — phase=error` from
+   `handlePipelineError` **again**, on the manual-retry path. **Open question: is the deployed
+   bundle older than `551e7131`, or is there a second minting site the L-966 fix did not reach?**
+   Answer that by SHA before treating it as a regression.
+3. That "some projects" is a project-content property. Unmeasured. The one console excerpt has
+   `walls=6`, `12 elements` — a *small* project — which argues against the caster-count tier
+   theories in `SceneQualityTierManager.ts:147` and `ShadowQualityUpgrader.ts:135`, and toward a
+   pure ORDERING race on load. **That is a lead, not a finding.**
+
+**Collateral already visible in the same log:** `captureThumbnail` reads a blank frame twice and
+`PlatformSaveController` keeps the old thumbnail — so a crashed open also silently freezes the
+project's thumbnail. That is correct degradation, but it means **the thumbnail is evidence**: a
+project whose thumbnail stopped updating may be a project that has been crashing on open for a
+while.
+
+**Owner:** unassigned. **Priority:** the founder cannot open some of their own projects.
+
+## L-1030 — the region slab can only be drawn in PLAN; the 3-D viewport never completes the gesture (OPEN, FOUNDER-REPORTED)
+
+**Reported by the founder 2026-08-18, as a note on the now-working boundary slab.** *"Slab around the
+boundary is finally working — but I could only create it on plan view, I was not able to create it in
+3D view."*
+
+**Plan works, end to end.** `SlabPlanToolHandler` traces the region, mints the slab, mirrors it to the
+legacy store, attaches the sketch and re-projects:
+
+```
+[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION region traced: 3 host-referenced edge(s) across
+   3 wall(s), 81 free edge(s) (curved=76, no-wall-id=5, ambiguous=0) …
+[initTools] §FT1: slab mirrored to legacy store slab_01M0B8V86BXXF052WWXHADDZ44
+[CommandManager] EXECUTE: UPDATE_SLAB_SKETCH
+[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION sketch attached — slab now follows its host walls.
+```
+
+**3-D produces exactly one line and then nothing:**
+
+```
+[SlabTool] §SLAB-3D-PREVIEW pointermove tool=REGION_SLAB firstPointSet=false polylinePoints=0
+```
+
+`firstPointSet=false` with `polylinePoints=0` on a **pointermove** says the 3-D tool is alive and
+receiving motion in `REGION_SLAB` mode but **no click ever set a first point** — so the gesture never
+starts. There is no refusal, no warning, and no error: the founder clicks and nothing happens. Under
+this repo's governing sentence that is the worst of the three states.
+
+**Two candidate shapes, NOT yet distinguished — measure before fixing:**
+1. **The 3-D tool has no REGION branch at all.** `REGION_SLAB` may be a mode the plan handler
+   implements and `SlabTool` only *accepts*, in which case the correct first move is a **refusal that
+   names the plan route** (C16 CA-18), not a silent no-op — and then implementing it.
+2. **The click never reaches the tool in 3-D.** Region tracing needs a pick against the wall/parcel
+   edge graph; if the 3-D pick path returns nothing for a click on empty ground, `firstPointSet`
+   never flips. The plan handler's own log shows it searching `[5 wall(s), 5 slab edge(s), parcel
+   boundary present (5 edge(s))]` — **establish whether the 3-D path has access to that same edge
+   set**, since the parcel boundary is what the founder is tracing around.
+
+**A second, independent defect in the same capture — do not fold it into the first:**
+
+```
+[VDT] §G3-STALE-EVENT for unregistered element slab_01M0B8V86BXXF052WWXHADDZ44 type= slab
+   — fallback to store-type view only
+[BimManager] Registered element slab_… to level L0        ← registration happens AFTER
+```
+The `ViewDependencyTracker` sees the store event **before** the element is registered, so it cannot
+do targeted dirty-marking and falls back to a store-type sweep. That is the ordering the wall path
+already fixed (`§P2.1` / `§FIX-PLAN-VDT-BIMMANAGER`: register in VDT + bimManager **before** `add()`).
+The slab region path does it in the other order. It is a performance and correctness-of-invalidation
+defect, not a visual one, and it is cheap to close by copying the wall ordering.
+
+**Third observation, recorded not claimed:** `§REGION-HOST-ATTRIBUTION` reports the free-edge count
+oscillating between **81** (`no-wall-id=5`) and **76** (`no-wall-id=0`) across consecutive
+pointermoves at nearby points. The five `no-wall-id` edges appear and disappear with cursor position.
+Whether that is correct proximity filtering or an unstable host attribution is **NOT MEASURED**.
+
+**Owner:** unassigned. Not urgent — the capability is reachable in plan — but the silent no-op in 3-D
+must become either a working gesture or a refusal that names the plan route.
