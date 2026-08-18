@@ -554,6 +554,19 @@ declare global {
                  */
                 setShadowReallocFrozen?: (frozen: boolean) => void;
                 /**
+                 * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — run a mutation that
+                 * changes the shadow CASTER SET (any `light.castShadow` flip) with WebGPU
+                 * submits PAUSED, resuming deferred past the in-flight submit.
+                 *
+                 * NOT interchangeable with setShadowReallocFrozen: a freeze suppresses the
+                 * depth PASS (right for a mapSize realloc), but a caster-set change has no
+                 * depth pass left to suppress — three releases the ShadowDepthTexture when
+                 * the light stops casting, on its own schedule, inside the next render().
+                 * Only pausing submits orders that release against frames in flight.
+                 * Never disposes a GPU resource. No-op on WebGL / inactive.
+                 */
+                runShadowCasterMutation?: (mutate: () => void) => void;
+                /**
                  * §FIX-WEBGPU-GROUND-SHADOW-DEVICE-LOSS (founder L-197) — freeze-AWARE
                  * single shadow-map refresh for the L-171 ground-shadow re-home. Sets
                  * `shadowMap.needsUpdate=true` ONLY when no freeze latch is active (the

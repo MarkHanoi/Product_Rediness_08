@@ -502,6 +502,46 @@ export class RenderingPipelineCoordinator {
     private _onShadowRealloc?: (mutate: () => void) => void;
 
     /**
+     * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — the shadow-CASTER-SET guard.
+     *
+     * A SIBLING of {@link _onShadowRealloc}, deliberately NOT the same hook, because the
+     * two mutations need different orderings and conflating them would under-protect one
+     * of them:
+     *
+     *  - a REALLOC (`mapSize`) needs the map FROZEN so THREE cannot resize it mid-encode.
+     *    `§SHADOW-MAP-REALLOC-AT-BOUNDARY` + `§SHADOW-MAPSIZE-WRITE-AT-BOUNDARY` (L-819)
+     *    already make that ordered by construction, and that half is CLEAN.
+     *  - a CASTER-SET change (`light.castShadow` flipping) needs SUBMITS PAUSED. Freezing
+     *    is not enough and never was: `autoUpdate=false` suppresses the depth PASS, but
+     *    when a light stops casting THREE drops its `ShadowNode` and releases the
+     *    `ShadowDepthTexture` on its own schedule, inside the next `render()` — which is
+     *    the L-25 mechanism verbatim. The only ordering that helps is "submit nothing
+     *    until the previous frames have drained, THEN let the destroy happen".
+     *
+     * initScene wires this to `RenderPipelineManager.runShadowCasterMutation()`. Kept as
+     * an injected callback (not a direct import) so the coordinator takes no dependency on
+     * renderer-three/app wiring. No-op-safe: when never injected the mutation runs
+     * unwrapped (the WebGL2 fallback, which owns its own shadowMap and needs no pause).
+     */
+    private _onShadowCasterMutation?: (mutate: () => void) => void;
+
+    /**
+     * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — last resolved `shadowsOff`, so
+     * the caster guard opens ONLY on a real transition.
+     *
+     * This matters more than it looks. `applyTierForMeshCount` runs on EVERY geometry
+     * event — its own throttle comment above records **188× during one generation** — and
+     * the guard PAUSES WebGPU submits for a macrotask. Opening it unconditionally would
+     * turn a device-loss fix into a 188-stutter perf defect. The levers themselves are
+     * already internally idempotent (`ShadowQualityUpgrader.setShadowsEnabled` and
+     * `PascalSceneLighting.setShadowsSuppressed` both early-return when the state already
+     * holds), so a non-transition call has nothing to order and needs no window.
+     *
+     * Seeded `false` = "shadows ON", the cold-start state, so a small scene never pauses.
+     */
+    private _lastShadowsOff = false;
+
+    /**
      * §PERF-WEBGPU-FRAGMENT — tier-log throttle state. The tier is re-evaluated on
      * every geometry-add (it can fire 100+ times during one generation), so we MUST
      * NOT log every call. We log: (1) ALWAYS on a real tier CHANGE, and (2) at most
@@ -585,6 +625,30 @@ export class RenderingPipelineCoordinator {
     }
 
     /**
+     * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — inject the shadow-CASTER-SET
+     * guard. The guard receives a `mutate` thunk (the `castShadow` flips) and must run it
+     * with WebGPU submits PAUSED, resuming DEFERRED past the in-flight submit.
+     * No-op-safe: if never injected, {@link _casterGuard} runs the mutation directly.
+     */
+    setShadowCasterGuardHook(hook: (mutate: () => void) => void): void {
+        this._onShadowCasterMutation = hook;
+    }
+
+    /**
+     * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — run a shadow-caster-set mutation
+     * through the injected guard (pause → mutate → deferred resume) when wired, else run
+     * it directly. Exceptions from `mutate` propagate unchanged; the guard owns
+     * try/finally so a throwing lever can never strand the viewport paused.
+     */
+    private _casterGuard(mutate: () => void): void {
+        if (this._onShadowCasterMutation) {
+            this._onShadowCasterMutation(mutate);
+        } else {
+            mutate();
+        }
+    }
+
+    /**
      * Apply the render quality tier implied by the current scene mesh count
      * (ADR-0076 Axis 1). Conservative + hysteretic: on small/normal scenes the
      * tier stays cinematic/balanced (today's behaviour, zero change); only
@@ -646,26 +710,65 @@ export class RenderingPipelineCoordinator {
         const shadowsOff =
             !settings.shadows ||
             meshCount >= RenderingPipelineCoordinator._LARGE_SCENE_SHADOWS_OFF_MESH_COUNT;
-        if (this._shadowUpgrader.applied) {
-            try {
-                this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
-            } catch (err) {
-                console.warn('[RenderingPipelineCoordinator] §SHADOW-DEVICE-LOSS-FIX shadow-enable gate error:', err);
+
+        /**
+         * The two levers below both flip `light.castShadow`, and BOTH used to run bare.
+         * They are hoisted into one thunk so a single guarded window covers both — two
+         * windows would leave a gap between them, which is how this family keeps
+         * regressing (L-25 closed the nav lever, L-64 the wall-commit lever, and the tier
+         * lever surfaced next).
+         */
+        const applyCasterGate = (): void => {
+            if (this._shadowUpgrader.applied) {
+                try {
+                    this._shadowUpgrader.setShadowsEnabled(!shadowsOff);
+                } catch (err) {
+                    console.warn('[RenderingPipelineCoordinator] §SHADOW-DEVICE-LOSS-FIX shadow-enable gate error:', err);
+                }
             }
-        }
-        // §PERF-HEAVY-SHADOW-OFF — the ShadowQualityUpgrader above is bound to the OBC
-        // WebGL renderer (silenced in Phase 5) and only touches lights it snapshotted,
-        // so it never reaches the Pascal key light nor the live PRYZM WebGPU renderer
-        // that actually draws the shadow pass — the ≥8000-caster ceiling never fired on
-        // the 40-storey office (13,652 meshes, 12,737 shadow-flagged, tier=performance).
-        // Drive the REAL scene-shadow lever unconditionally (idempotent; not gated on
-        // _shadowUpgrader.applied). Evaluated every call because the 8000 ceiling can
-        // cross WITHIN the `performance` tier (2500–15000) where `changed` is false.
-        try {
-            this._onTierSceneShadow?.(shadowsOff);
-        } catch (err) {
-            console.warn('[RenderingPipelineCoordinator] §PERF-HEAVY-SHADOW-OFF scene-shadow hook error:', err);
-        }
+            // §PERF-HEAVY-SHADOW-OFF — the ShadowQualityUpgrader above is bound to the OBC
+            // WebGL renderer (silenced in Phase 5) and only touches lights it snapshotted,
+            // so it never reaches the Pascal key light nor the live PRYZM WebGPU renderer
+            // that actually draws the shadow pass — the ≥8000-caster ceiling never fired on
+            // the 40-storey office (13,652 meshes, 12,737 shadow-flagged, tier=performance).
+            // Drive the REAL scene-shadow lever unconditionally (idempotent; not gated on
+            // _shadowUpgrader.applied). Evaluated every call because the 8000 ceiling can
+            // cross WITHIN the `performance` tier (2500–15000) where `changed` is false.
+            try {
+                this._onTierSceneShadow?.(shadowsOff);
+            } catch (err) {
+                console.warn('[RenderingPipelineCoordinator] §PERF-HEAVY-SHADOW-OFF scene-shadow hook error:', err);
+            }
+        };
+
+        // ── §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) ──────────────────────
+        // Order the caster-set change against submission on a REAL crossing only.
+        //
+        // This is L-908's trigger and it is three lines across two files:
+        //   (1) `initScene.setPostBatchCallback(...)` calls this method at BATCH END;
+        //   (2) the levers above flip `castShadow` bare, gated on the raw mesh count
+        //       crossing 8000 — which a generation batch crosses exactly ONCE, at exactly
+        //       the moment `batchAutoFrame` is submitting frames; and
+        //   (3) `initScene.ts` — `if (batchCoordinator.isBatching) return;` — means
+        //       §FIX-SHADOW-WALLCOMMIT-DESTROY, the one latch that would have covered
+        //       this, NEVER ARMS DURING A BATCH AT ALL.
+        //
+        // The guard PAUSES WebGPU submits (never a freeze — a freeze suppresses the depth
+        // pass, and a caster-set change has no depth pass left to suppress; three releases
+        // the ShadowDepthTexture when the light stops casting, on its own schedule inside
+        // the next render()). See RenderPipelineManager.runShadowCasterMutation.
+        //
+        // ⚠ ONLY on a transition. This method runs on EVERY geometry event — 188× during
+        // one generation, per the throttle comment above — and the guard costs a
+        // macrotask of paused submits. Guarding unconditionally would trade a device-loss
+        // crash for a 188-stutter perf defect. The levers are internally idempotent, so a
+        // non-transition call has nothing to order; `applyCasterGate` still runs EVERY
+        // time (the §PERF-HEAVY-SHADOW-OFF contract is an idempotent re-assert, never a
+        // one-shot latch — pinned by RenderingPipelineCoordinator.heavyShadowGate.test.ts).
+        const casterSetTransitions = shadowsOff !== this._lastShadowsOff;
+        this._lastShadowsOff = shadowsOff;
+        if (casterSetTransitions) this._casterGuard(applyCasterGate);
+        else applyCasterGate();
 
         // Only (re)apply the THREE-side mutators when the tier actually changed —
         // applying identical settings every batch is wasted work + flicker risk.
@@ -779,6 +882,11 @@ export class RenderingPipelineCoordinator {
         // logs its first tier decision immediately.
         this._lastLoggedTier = undefined;
         this._lastUnchangedLogAtMs = 0;
+        // §FIX-SHADOW-TIER-CASTER-DESTROY (L-908) — forget the caster-gate state too, so
+        // the next project's first crossing is a real transition and takes the guard. A
+        // latch that survives a project switch would silently skip the FIRST heavy scene
+        // of the next project — the exact case the guard exists for.
+        this._lastShadowsOff = false;
     }
 
     // ── Private ────────────────────────────────────────────────────────────

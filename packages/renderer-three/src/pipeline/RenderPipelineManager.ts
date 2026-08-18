@@ -649,6 +649,99 @@ export class RenderPipelineManager implements IViewSwitchListener {
         }
     }
 
+    // ── §L900-FRAME-SKIP-ATTRIBUTION (founder L-900) — the instrument, not the fix ──
+    /**
+     * Total frames declined, per early-return gate in {@link render}.
+     *
+     * WHY THIS EXISTS. L-900 is "the 3D viewport is STALE after a wall move" — the plan
+     * view is correct, so the scene graph is already right and only the PRESENTED FRAME
+     * is old. Every candidate explanation for that ends at the same place: one of
+     * `render()`'s early returns is being taken. Until now they were indistinguishable
+     * from each other AND from a healthy idle scheduler, so the defect could only be
+     * chased by reading code — which is how L-900 accumulated two refuted leads.
+     *
+     * ⚠ The severity of that is higher than it looks, and higher than the code used to
+     * claim. There is NO second rAF loop painting a base frame underneath this one
+     * (`UnifiedFrameLoop.setObcRenderCallback` has no caller — see the corrected comment
+     * on the FrameCoordinator gate below), so a declined frame is a FROZEN VIEWPORT, not
+     * a dropped post-FX pass.
+     *
+     * WHAT IT MEASURES. A transient skip is normal — a view switch, a rebuild, a
+     * zero-size pane during layout all legitimately decline frames. A STUCK skip is the
+     * defect. So the load-bearing number is not the total, it is
+     * {@link _consecutiveSkips}: how many frames IN A ROW one gate has declined. That
+     * turns "the 3D is stale" into "gate `shadowRebuildPaused` has declined 600
+     * consecutive frames", which discriminates every remaining L-900 candidate in one
+     * reading and costs an integer increment per frame.
+     *
+     * This is an INSTRUMENT. It changes no control flow, decides nothing, and repairs
+     * nothing — deliberately, because L-900's next step is a measurement and guessing at
+     * the fix is how L-107 shipped.
+     */
+    private _frameSkips: Record<string, number> = Object.create(null) as Record<string, number>;
+    private _lastSkipReason: string | null = null;
+    private _consecutiveSkips = 0;
+    /** Frames presented since the last declined frame (0 while stalled). */
+    private _framesPresented = 0;
+    /** One WARN per stall, at this consecutive-skip count (~2 s at 60 fps). Re-armed on recovery. */
+    private static readonly _STALL_WARN_FRAMES = 120;
+    private _stallWarned = false;
+
+    /**
+     * §L900-FRAME-SKIP-ATTRIBUTION — record that this frame was declined, and why.
+     * Returns void so call sites can `return this._skipFrame('reason');` inline.
+     */
+    private _skipFrame(reason: string): void {
+        this._frameSkips[reason] = (this._frameSkips[reason] ?? 0) + 1;
+        this._consecutiveSkips = reason === this._lastSkipReason ? this._consecutiveSkips + 1 : 1;
+        this._lastSkipReason = reason;
+        this._framesPresented = 0;
+        // Say it ONCE per stall. A viewport that has declined 120 frames in a row for the
+        // same reason is not busy, it is stuck — and the user is looking at a frozen
+        // image with no other signal that anything is wrong.
+        if (!this._stallWarned && this._consecutiveSkips >= RenderPipelineManager._STALL_WARN_FRAMES) {
+            this._stallWarned = true;
+            console.warn(
+                `[RenderPipelineManager] §L900-FRAME-SKIP-ATTRIBUTION the viewport has declined ` +
+                `${this._consecutiveSkips} consecutive frames at gate "${reason}". Nothing else ` +
+                `repaints the canvas, so the user is looking at a FROZEN frame. If this gate is a ` +
+                `latch (shadowRebuildPaused / suspended / pipelineError) it has leaked; call ` +
+                `getFrameSkipReport() for the full attribution.`,
+            );
+        }
+    }
+
+    /** §L900-FRAME-SKIP-ATTRIBUTION — mark this frame as actually presented. */
+    private _markFramePresented(): void {
+        this._framesPresented++;
+        this._consecutiveSkips = 0;
+        this._lastSkipReason   = null;
+        this._stallWarned      = false;
+    }
+
+    /**
+     * §L900-FRAME-SKIP-ATTRIBUTION — the attribution report.
+     *
+     * `consecutiveSkips` is the diagnostic: > 0 with a `lastSkipReason` means the
+     * viewport is CURRENTLY stalled at that gate and the image on screen is stale.
+     * `framesPresented > 0` means the pipeline is live and any staleness is upstream of
+     * this class (a mesh that was never rebuilt, or a scheduler that was never woken).
+     * That single distinction is what L-900 needs and could not previously obtain.
+     */
+    getFrameSkipReport(): {
+        skips: Record<string, number>;
+        lastSkipReason: string | null;
+        consecutiveSkips: number;
+        framesPresented: number;
+    } {
+        return {
+            skips: { ...this._frameSkips },
+            lastSkipReason:   this._lastSkipReason,
+            consecutiveSkips: this._consecutiveSkips,
+            framesPresented:  this._framesPresented,
+        };
+    }
+
     render(delta = 0.016): void {
         // ── §GPU-RESOURCE-LIFETIME (ADR-0281, INVARIANT L2) ───────────────────
         // THE FRAME BOUNDARY. Element mutations (a furniture type swap, a wall
@@ -693,7 +786,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // resumes automatically once layout lands. This is the single change that stops the
         // device loss. C04 §2 (the frame owner owns the submit); P3 (the single rAF still
         // ticks, it simply skips this frame's submit). Reflow-free — see helper.
-        if (this._isRenderTargetZeroSize()) return;
+        if (this._isRenderTargetZeroSize()) return this._skipFrame('renderTargetZeroSize');
 
         // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────────
         // Lightweight WebGL2 path: the TSL pipeline is OFF (_webGpuActive=false)
@@ -701,11 +794,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // render every frame so orbit/pan/zoom repaints continuously. This branch
         // is taken BEFORE the _webGpuActive early-return below.
         if (this._lightweightWebGlActive) {
-            if (this._suspended) return; // honour heavy-op suspension (IFC load, etc.)
+            if (this._suspended) return this._skipFrame('suspended:lightweight'); // heavy-op suspension (IFC load, etc.)
             const renderer = this._renderer;
             const scene    = this._scene;
             const camera   = this._camera;
-            if (!renderer || !scene || !camera) return;
+            if (!renderer || !scene || !camera) return this._skipFrame('unbound:lightweight');
             try {
                 // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — clear/invalidate
                 // the silenced OBC base framebuffer per move-frame BEFORE painting
@@ -729,7 +822,9 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 // setClearAlpha(0) (transparent) — the exact channel the base bled through.
                 (renderer as any).setClearColor?.(this._lightweightBgColor, 1);
                 renderer.render(scene, camera);
+                this._markFramePresented();
             } catch (err: unknown) {
+                this._skipFrame('lightweightRenderThrew');
                 console.error(
                     '[RenderPipelineManager] §PERF-WEBGL2-RENDER-ON-MOVE lightweight render failed:',
                     err instanceof Error ? err.message : err,
@@ -738,12 +833,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
             return;
         }
 
-        if (!this._webGpuActive) return;
+        if (!this._webGpuActive) return this._skipFrame('webGpuInactive');
 
         // Tick background uniform lerp every frame regardless of pipeline state
         this._backgroundUniform?.tick(delta);
 
-        if (!this._renderPipeline || this._hasPipelineError) return;
+        if (!this._renderPipeline || this._hasPipelineError) {
+            return this._skipFrame(this._hasPipelineError ? 'pipelineError' : 'noPipeline');
+        }
 
         // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (L-231) — do NOT submit a WebGPU frame while
         // an async shadow rebuild is in flight. Submitting during the rebuild's pipeline
@@ -751,19 +848,43 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // trigger) is what destroyed the `ShadowDepthTexture` mid-submit → device loss.
         // The last-rendered frame stays on screen for the rebuild's duration (mirrors the
         // `_fullRebuild` plan-view path's `_hasPipelineError` pause). C04 §SHADOW rule 7.
-        if (this._shadowRebuildPaused) return;
+        if (this._shadowRebuildPaused) return this._skipFrame('shadowRebuildPaused');
 
         // Skip expensive post-FX passes while suspended (e.g. during IFC geometry streaming).
-        if (this._suspended) return;
+        if (this._suspended) return this._skipFrame('suspended');
 
         // ── Phase 2 Performance: FrameCoordinator guard ────────────────────
         // Skip PASCAL post-processing passes while a view switch is in progress.
-        // The OBC base render (driven by the other rAF loop) still runs normally
-        // so the display never goes blank. This is the companion to the existing
-        // _viewSwitchInProgress outline guard — it provides a coarser but earlier
-        // bail-out for the entire pipeline when coordinated by ViewController.
+        // Companion to the existing `_viewSwitchInProgress` outline guard — a coarser
+        // but earlier bail-out for the entire pipeline when coordinated by ViewController.
+        //
+        // ⚠ CORRECTED 2026-08-18 (L-908 lane, measured). This comment used to end:
+        // "The OBC base render (driven by the other rAF loop) still runs normally so the
+        // display never goes blank." THAT IS FALSE, and it is false for EVERY early
+        // return above as well as this one.
+        //
+        // `UnifiedFrameLoop.setObcRenderCallback()` (UnifiedFrameLoop.ts:206) has NO
+        // CALLER anywhere in apps/, packages/ or plugins/ — measured, not inferred. So
+        // `_obcCallback` is permanently null and the OBC-render block it gates
+        // (UnifiedFrameLoop.ts:527-535) is dead code. There is no second rAF loop painting
+        // a base frame underneath us. When this method returns early, NOTHING repaints:
+        // the last presented frame stays frozen on screen until some later event resumes
+        // submits. Every `return` above is therefore a TOTAL VIEWPORT FREEZE for its
+        // duration, not a "skip the expensive passes" — and any latch that leaks strands
+        // the user on a stale frame indefinitely (L-900 is the open report of exactly
+        // that shape).
+        //
+        // This is the DECLARED-BUT-NEVER-CALLED defect class — C84 §3.5.1 axis (d), the
+        // CALL axis, distinct from import and construction. It is now the third measured
+        // instance: `setObcRenderCallback` here, C04 §3.5's LOD `setViewDistance` (zero
+        // callers while the contract says "called every frame"), and this comment's own
+        // claim. A comment asserting a safety net that does not exist is worse than no
+        // comment, because it tells the next reader not to worry — the L-809/L-812 class.
+        //
+        // Do NOT re-add the old sentence. If a base-render fallback is ever wanted, wire
+        // `setObcRenderCallback` first and cite the call site here.
         if (this._frameCoordinator && !this._frameCoordinator.shouldRenderPascalPass()) {
-            return;
+            return this._skipFrame('frameCoordinatorViewSwitch');
         }
 
         // §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — NEVER begin a WebGPU render
@@ -793,6 +914,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
             (this._renderer as any)?.setClearAlpha?.(0);
             rp.render();
+            // §L900-FRAME-SKIP-ATTRIBUTION — the ONE place a WebGPU frame is actually
+            // submitted. Everything before this is a gate; reaching here is the only
+            // evidence the user's viewport is live.
+            this._markFramePresented();
 
             if (this._viewSwitchInProgress) {
                 this._outlinesActive = outlinesWereActive;
@@ -1385,6 +1510,73 @@ export class RenderPipelineManager implements IViewSwitchListener {
             return; // already fully thawed — nothing to pop
         }
         this._applyShadowFreezeState();
+    }
+
+    /**
+     * §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — run a mutation that changes the
+     * shadow CASTER SET (any `light.castShadow` flip) with WebGPU submits PAUSED, resuming
+     * DEFERRED past the in-flight submit.
+     *
+     * ── WHY A FREEZE IS NOT ENOUGH, AND NEVER WAS ────────────────────────────────
+     * {@link setShadowReallocFrozen} / {@link setShadowPassSuppressed} set
+     * `autoUpdate=false`, which suppresses the depth PASS. That is exactly the right lever
+     * for a `mapSize` realloc, and that half of the problem is now clean by construction
+     * (§SHADOW-MAP-REALLOC-AT-BOUNDARY + §SHADOW-MAPSIZE-WRITE-AT-BOUNDARY, L-819 — the
+     * mapSize write AND the resize both land in `drainShadowMapReallocQueue`).
+     *
+     * A CASTER-SET change is a different failure. When a light stops casting, three's
+     * `AnalyticLightNode` drops its `ShadowNode` and releases the `ShadowDepthTexture` on
+     * its OWN schedule, inside the next `render()` — a release gated on nothing this class
+     * writes. `autoUpdate=false` cannot defer it, because there is no depth pass left to
+     * defer. That is the L-25 mechanism verbatim (ADR-0111 §Context: "when a light stops
+     * casting, THREE's shadow renderer DESTROYS that light's ShadowDepthTexture inside the
+     * very next `rp.render()`"), and ADR-0111's remedy was to stop the NAV gate pulling
+     * that lever — not to make the lever safe for everyone else.
+     *
+     * The lever is still pulled, by a DIFFERENT gate (the mesh-count shadow ceiling). The
+     * only ordering that helps is the one §L930-DETACH-BEFORE-FREE established for the
+     * recovery path: submit nothing until the previous frames have drained, THEN let the
+     * destroy happen. So this reuses the SAME ref-counted pair (`_begin`/
+     * `_endShadowRebuildGuard`, §L930-SUBMIT-PAUSE-DEPTH) instead of inventing a fifth
+     * latch — it therefore composes with the nav, whole-load, wall-commit and rebuild
+     * windows by construction.
+     *
+     * ⚠ THIS DOES NOT OVERTURN ADR-0111. ADR-0111 permits a PERSISTENT `castShadow` clear
+     * on the heavy-tier gate, justified because it "happens once and stays". The tier
+     * caller never met that precondition: `RenderingPipelineCoordinator
+     * .applyTierForMeshCount()` is re-evaluated on EVERY geometry event (its own throttle
+     * comment records 188× during one generation) and its gate is keyed on the raw mesh
+     * count crossing 8000 — which a generation batch crosses exactly once, at exactly the
+     * moment `batchAutoFrame` is submitting frames. The ADR's rule stands; that call site
+     * was never inside it.
+     *
+     * Ordering, in three macrotasks:
+     *   T+0  pause submits + freeze, then run `mutate` (the `castShadow` flips)
+     *   T+1  resume submits — the next `render()` is the first frame that may carry
+     *        three's release, and every pre-pause submit has drained by then
+     *   T+2  thaw the freeze (`_endShadowRebuildGuard`'s own deferred pop), so the single
+     *        depth regen at the NEW caster set lands on an idle frame
+     *
+     * NEVER disposes a GPU resource itself — it only ORDERS three's own release (ADR-0111
+     * / C04 §SHADOW rule 6; ADR-0297 INVARIANT L2, RELEASE at the boundary). Touches no
+     * receiver and no attachment: the ground shadow-catcher is not presence-gated, not
+     * late-attached, and not read here at all (L-107/L-112 — never re-introduce that).
+     * P3-clean: `setTimeout`, no new `requestAnimationFrame`.
+     *
+     * Inert on the WebGL2 fallback, which owns its own shadowMap — the mutation runs
+     * unwrapped. `try/finally` so a throwing lever can never strand the viewport paused.
+     */
+    runShadowCasterMutation(mutate: () => void): void {
+        if (!this._webGpuActive) { mutate(); return; }
+        this._beginShadowRebuildGuard();
+        try {
+            mutate();
+        } finally {
+            // Deferred release: resuming SYNCHRONOUSLY here would put the very next frame
+            // — and three's release with it — back inside the window a pre-pause submit
+            // may still occupy, which is the whole defect.
+            setTimeout(() => { this._endShadowRebuildGuard(); }, 0);
+        }
     }
 
     /**

@@ -2417,6 +2417,45 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
         });
 
+        // §FIX-SHADOW-TIER-CASTER-DESTROY (founder L-908) — shadow-CASTER-SET guard.
+        //
+        // The SIBLING of the realloc guard above, and deliberately a SEPARATE seam. The
+        // realloc guard freezes (`autoUpdate=false`) so THREE cannot resize the map
+        // mid-encode — correct for a mapSize change, and useless for this one. When the
+        // tier's ≥8000-mesh ceiling clears `keyLight.castShadow`, three drops the light's
+        // ShadowNode and releases the ShadowDepthTexture on its OWN schedule inside the
+        // next render(); there is no depth pass left for a freeze to suppress. Only
+        // PAUSING SUBMITS orders that release against the frames still in flight — the
+        // same remedy §L930-DETACH-BEFORE-FREE established for the recovery path.
+        //
+        // Wired to the RPM's ref-counted submit-pause pair, so it composes with the nav
+        // (L-25), whole-load (L-39), wall-commit (L-64) and rebuild (L-231/L-930) windows
+        // rather than adding a fifth independent latch. Falls back to running the mutation
+        // unwrapped when the RPM is absent or on the WebGL2 fallback (which owns its own
+        // shadowMap and needs no pause) — the coordinator is no-op-safe either way.
+        renderingCoordinator.setShadowCasterGuardHook((mutate) => {
+            const rpm = window.renderPipelineManager;
+            if (!rpm?.runShadowCasterMutation) { mutate(); return; }
+            try {
+                rpm.runShadowCasterMutation(mutate);
+            } catch (e) {
+                console.warn('[initScene] §FIX-SHADOW-TIER-CASTER-DESTROY caster guard error:', e);
+            }
+            // Wake the loop once the guard's deferred resume AND thaw have both landed,
+            // so the single depth regen at the NEW caster set is actually drawn before
+            // the scheduler idles. The RPM resumes submits at T+1 and pops the freeze at
+            // T+2, so the wake is NESTED to land at T+2 — a single setTimeout(0) here
+            // would fire at T+1, repaint against a still-frozen map, and leave the
+            // post-thaw `needsUpdate` with nothing to wake it (P3: no new rAF — this
+            // reuses the frame bus).
+            setTimeout(() => {
+                setTimeout(() => {
+                    try { getFrameScheduler().markDirty('shadow-caster-thaw'); }
+                    catch { /* scheduler not ready — next interaction repaints */ }
+                }, 0);
+            }, 0);
+        });
+
         // §PERF-NAV-LOD — drop the shadow PASS DURING active camera motion and
         // restore it once the camera settles. This is a real per-frame win on the
         // mid-heavy band (2500–8000 meshes) that the heavy ceiling does NOT cover
