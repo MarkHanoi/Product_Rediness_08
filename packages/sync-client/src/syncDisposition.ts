@@ -218,6 +218,17 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',
   },
+  // §FEAT-WALL-SIDE-FINISH — same late-bound subject as the two batches below
+  // and above: `wallIds: string[] | 'all'`, resolved INSIDE
+  // SetWallSideFinishBatchCommand. The adapter cannot enumerate 'all' without
+  // reading a store, which is forbidden at L3.
+  'wall.setSideFinishBatch': {
+    kind: 'not-synced',
+    reason:
+      'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch. ' +
+      'Needs the handler to surface affectedElementIds on the command record — ' +
+      'plugins/wall handler change.',
+  },
   'wall.addLayerBatch': {
     kind: 'not-synced',
     reason: 'SEAM: same late-bound `wallIds: "all"` subject as wall.updateColorBatch.',

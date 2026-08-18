@@ -27,6 +27,7 @@ import { SplitWallHandler } from './SplitWall.js';
 import { UpdateWallSystemTypeHandler } from './UpdateWallSystemType.js';
 import { UpdateWallsSystemTypeBatchHandler } from './UpdateWallsSystemTypeBatch.js';
 import { UpdateWallsColorBatchHandler } from './UpdateWallsColorBatch.js';
+import { SetWallSideFinishBatchHandler } from './SetWallSideFinishBatch.js';
 import { UpdateWallsRakeBatchHandler } from './UpdateWallsRakeBatch.js';
 import { UpdateWallsHeightBatchHandler } from './UpdateWallsHeightBatch.js';
 import { AddWallLayerBatchHandler } from './AddWallLayerBatch.js';
@@ -85,6 +86,7 @@ export const WALL_HANDLER_TYPES = [
   'wall.updateSystemTypeBatch',
   // §FEAT-WALL-COLOR-BATCH (ADR-0314) — batch recolour ('all' or explicit ids), one undo entry.
   'wall.updateColorBatch',
+  'wall.setSideFinishBatch',
   // §FEAT-WALL-RAKE-BATCH (ADR-0315) — batch rake ('all' or explicit ids), one undo
   // entry, per-wall rakeAuthorability refusals reported honestly.
   'wall.updateRakeBatch',
@@ -150,6 +152,7 @@ export function buildWallHandlerSet(
     UpdateWallSystemTypeHandler as unknown as CommandHandler<unknown>,
     UpdateWallsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsColorBatchHandler as unknown as CommandHandler<unknown>,
+    SetWallSideFinishBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsRakeBatchHandler as unknown as CommandHandler<unknown>,
     UpdateWallsHeightBatchHandler as unknown as CommandHandler<unknown>,
     AddWallLayerBatchHandler as unknown as CommandHandler<unknown>,

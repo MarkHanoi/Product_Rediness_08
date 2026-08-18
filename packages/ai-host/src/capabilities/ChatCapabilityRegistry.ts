@@ -1554,6 +1554,58 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'set-wall-side-finish',
+    // §FEAT-WALL-SIDE-FINISH — the founder's "change / make all walls in room X
+    // finish wall Y" and "make all inner finishes walls in ground floor to X".
+    //
+    // SIBLING of add-wall-layer, not a replacement. That one ADDS a construction
+    // layer and therefore MOVES wall.thickness (§03-WALL-THICKNESS-CONTRACT §1);
+    // this one changes appearance only and never moves the wall. Both are
+    // correct for their own ask, and they share ONE finish table (finishRef.ts).
+    //
+    // The side is the SEMANTIC side — the axis WallLayerFunction already
+    // declares ('finish-interior' / 'finish-exterior') — never the geometric
+    // frontSide/backSide, which have zero writers repo-wide. A ROOM scope
+    // against a PARTITION (both faces interior) refuses by name rather than
+    // guessing which face looks into the named room.
+    description: 'change the finish material on one side of walls',
+    verbs: ['make', 'change', 'set', 'finish'],
+    aliases: ['wall finish', 'inner finish', 'outer finish', 'interior finish', 'exterior finish'],
+    refusalLabel: 'wall side finish',
+    targets: ['wall'],
+    parameters: [
+      {
+        name: 'finish',
+        description: 'the finish, by name (plaster, limewash, microcement, …)',
+        required: true,
+        valueSource: 'finish',
+        example: 'plaster',
+      },
+      {
+        name: 'side',
+        description: 'inner (default) or outer face',
+        required: false,
+        valueSource: 'user-text',
+        example: 'inner finishes',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection'],
+    destructive: false,
+    busCommand: 'wall.setSideFinishBatch',
+    probe: { intent: 'set-wall-side-finish', side: 'interior', finishRef: 'plaster', scope: 'all' },
+    commandProof: {
+      file: 'packages/command-registry/src/walls/SetWallSideFinishCommand.ts',
+      mustMention: ['wallStore', 'withWallSideFinish'],
+      note: "_resolveWallIds reads ctx.stores.wallStore and nothing else, so the command's reachable set is walls only; per wall it writes WallData.sideFinishes through the geometry store (fragment rebuild), composing the next value with withWallSideFinish so the untouched side is copied BY VALUE and the two sides can never collapse into one shared field.",
+    },
+    examples: [
+      'make all inner finishes walls on the ground floor to plaster',
+      'change all walls in the kitchen finish limewash',
+      'change all outer finishes walls to clay plaster',
+    ],
+  },
+  {
     id: 'add-wall-layer',
     // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315, founder ask #2) — "add a 10mm
     // plaster finish to the inner side of the selected wall". Rides
