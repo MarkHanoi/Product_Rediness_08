@@ -6,6 +6,7 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 // in the inverse direction. `@pryzm/geometry-slab` is already a dependency of this
 // package; nothing new is introduced and the arc maths is not re-derived here.
 import { resolveBoundarySegments } from '@pryzm/geometry-slab/boundary-arc';
+import { createId } from '@pryzm/schemas';
 
 export interface CreateWallsFromSlabPayload {
     slabId: string;
@@ -20,6 +21,16 @@ export class CreateWallsFromSlabCommand implements Command {
     readonly timestamp: number;
     targetIds: string[] = [];
     private createdWallIds: string[] = [];
+    /**
+     * §WALLS-BY-SLAB-BRANDED-ID (L-965) — the id set, minted ONCE and reused on every
+     * redo. This exists because §2.6 stability and the wall schema pull in opposite
+     * directions: composing `wall-slab-${this.id}-${i}` was stable across redo, and
+     * `wall.batch.create` REJECTED it, so the batch failed while the command still
+     * reported success. Memoising a branded id gives both — `createId('wall')` is
+     * random, so re-deriving it per execute() would break redo the way the composed
+     * form broke the schema.
+     */
+    private plannedWallIds: string[] = [];
 
     constructor(private payload: CreateWallsFromSlabPayload) {
         this.id = `cmd-walls-from-slab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -123,9 +134,8 @@ export class CreateWallsFromSlabCommand implements Command {
             const startPoint = ring[segment.startIndex];
             const endPoint = ring[segment.endIndex];
 
-            // ✅ FIX C2: Wall IDs are deterministic and pre-composed from the parent command ID
-            // so undo always targets the exact same IDs on every redo (Contract §2.6).
-            const wallId = `wall-slab-${this.id}-${i}`;
+            // §WALLS-BY-SLAB-BRANDED-ID — branded AND stable; see plannedWallIds.
+            const wallId = (this.plannedWallIds[i] ??= createId('wall'));
 
             // Contract §03-1.2: the curve rides in world space, like the wall tool's own
             // (`WallPlanToolHandler` commits `{ control: {x, y: 0, z}, segments }`), so the
@@ -196,13 +206,32 @@ export class CreateWallsFromSlabCommand implements Command {
                         materialColor: wall.materialColor,
                         materialId:   wall.materialId,
                         systemTypeId: wall.systemTypeId,
+                        // §L965-RECOVER-BOUNDARY-ARCS — the arc has to reach the PLUGIN store too.
+                        // Without this the local store held curved walls and `wall.batch.create`
+                        // received straight ones, so the arc survived undo/redo and vanished on
+                        // anything that reads the plugin copy.
+                        ...(wall.curve ? { curve: wall.curve } : {}),
                     }));
                 if (wallSpecs.length > 0) {
-                    runtimeBus.executeCommand('wall.batch.create', { walls: wallSpecs });
-                    console.log(
-                        `[CreateWallsFromSlabCommand] E.5.x §P2e-wall-slab: wall.batch.create dispatched — ` +
-                        `${wallSpecs.length} wall(s) committed to plugin store`
-                    );
+                    // §OUTCOME-CARRIES-THE-SENTENCE (L-965) — `executeCommand` is async, so the
+                    // old fire-and-forget call printed "committed to plugin store" BEFORE the bus
+                    // had answered. When the schema rejected the batch the founder read a success
+                    // line for a dispatch that created nothing, and the rejection surfaced only as
+                    // an unhandled promise. The sentence now comes from the branch that knows.
+                    void Promise.resolve(
+                        runtimeBus.executeCommand('wall.batch.create', { walls: wallSpecs })
+                    ).then(() => {
+                        console.log(
+                            `[CreateWallsFromSlabCommand] §OUTCOME-CARRIES-THE-SENTENCE: wall.batch.create ` +
+                            `ACCEPTED — ${wallSpecs.length} wall(s) committed to plugin store`
+                        );
+                    }).catch((busErr: unknown) => {
+                        console.error(
+                            `[CreateWallsFromSlabCommand] §OUTCOME-CARRIES-THE-SENTENCE: wall.batch.create ` +
+                            `REJECTED — 0 of ${wallSpecs.length} wall(s) reached the plugin store:`,
+                            busErr
+                        );
+                    });
                 }
             }
         } catch (busErr) {
