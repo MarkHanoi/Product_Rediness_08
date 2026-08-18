@@ -2,10 +2,15 @@
 //
 // Two-click flow:
 //   1. Pick line A   → preview highlights A.
-//   2. Pick line B   → if A & B share an endpoint OR meet at a finite
-//                       intersection point, compute the fillet arc with
-//                       the supplied radius, trim both lines, and commit
-//                       the arc.
+//   2. Pick line B   → if A & B share an endpoint OR cross at a point
+//                       inside BOTH segments, compute the fillet arc
+//                       with the supplied radius and commit it.
+//
+// It commits the ARC ONLY. This line used to read "trim both lines, and
+// commit the arc"; no trim has ever been issued — `trimLine` is never
+// called from this file — so the two segments keep their full length and
+// run past the arc. That is a missing feature, stated rather than
+// claimed, and it is a separate one from the extend gap below.
 //
 // Geometry — for two lines meeting at point `O` with unit direction
 // vectors `u` and `v` pointing away from `O` along each line, the
@@ -15,44 +20,45 @@
 //
 // LIMITATIONS — this tool requires:
 //   • both segments to be straight lines (other entities are ignored),
-//   • the requested radius to fit inside both segments.
+//   • the two segments to ACTUALLY TOUCH — at a shared endpoint, or at
+//     a crossing that lies inside both. Segments whose extensions meet
+//     somewhere neither of them reaches are REFUSED, with the distance
+//     past each end measured and quoted (see §FILLET-SEGMENT-BOUNDS),
+//   • the requested radius to fit inside the run of each segment that
+//     actually leads away from the corner.
 //
-// ─── C74 §3.4 SCAFFOLD DECLARATION (CO-06) ──────────────────────────
-// owner: component-editor / sketch tools (S55 — Trim/extend variant,
-//        alongside the parameter-binding work)
-// date:  2026-08-17
+// ─── §FILLET-SEGMENT-BOUNDS (2026-08-17) — what this refusal replaced ─
+// The LIMITATIONS list above used to claim the tool "requires the lines
+// to actually intersect (parallel lines are rejected)". IT DID NOT.
+// `findCommonOrIntersection` solved the INFINITE-line intersection with
+// no segment-bounds check, so two non-parallel segments that never touch
+// REPORTED SUCCESS: an arc tangent to a point beyond the end of a
+// segment — in empty space — with neither line extended and the ordinary
+// "Click first line" ready-hint returned. A wrong result and a correct
+// one were indistinguishable to the user. Measured with A = (0,0)→(4,0)
+// and B = (10,2)→(10,12): arc centre (8, 2) r = 2, tangent to A's line
+// at x = 8 when A ends at x = 4; commitLine and trimLine both ZERO.
 //
-// WHAT IS REAL — the fillet itself for two segments that genuinely
-// meet, at a shared endpoint or at an intersection inside both: the
-// bisector construction, the tangent points, the radius-fit refusal,
-// the parallel refusal and the colinear refusal.
+// Both routes to an off-segment tangent point are now closed, because
+// the segment-bounds check alone closes only the first:
+//   1. the CORNER out of reach — the infinite lines cross where neither
+//      segment goes. Refused, quoting the overshoot past each end.
+//   2. the TANGENT POINT out of reach — the corner is genuinely on both
+//      segments (an X-crossing), but the radius pushes the tangent point
+//      past the far end. The old fit test compared `t` against the WHOLE
+//      segment length, which over-states the run available in the one
+//      direction that matters; it now compares against the run from the
+//      corner to the endpoint the arc is actually built toward.
 //
-// WHAT IS FAKE — the tool's ANSWER FOR TWO SEGMENTS THAT DO NOT MEET,
-// and it is worse than a missing feature. This LIMITATIONS list used
-// to claim the tool "requires the lines to actually intersect
-// (parallel lines are rejected)", which reads as though non-meeting
-// lines are refused. THEY ARE NOT. `findCommonOrIntersection` solves
-// the INFINITE-line intersection with no segment-bounds check, so for
-// two non-parallel segments that do not touch the tool REPORTS
-// SUCCESS: it commits an arc tangent to a point beyond the end of a
-// segment — in empty space — extends neither line, and returns the
-// ordinary "Click first line" ready-hint. A wrong result and a correct
-// one are indistinguishable to the user. Measured 2026-08-17 with
-// A = (0,0)→(4,0) and B = (10,2)→(10,12): arc centre (8, 2) r = 2,
-// tangent to A's line at x = 8 when A ends at x = 4; commitLine and
-// trimLine both called ZERO times. This is a REAL DEFECT recorded here
-// because a §3.4 declaration must state what is fake — it is NOT
-// endorsed, and the S55 extend variant is what closes it.
-//
-// RETIRING ASSERTION (executable, and WATCHED FLIPPING 2026-08-17):
-// `__tests__/sketch/FilletTool.test.ts` — "scaffold retirement guard:
-// lines that do not meet (S55)". It pins that exact geometry and the
-// two zero call-counts. It deliberately does NOT reuse the existing
-// 'rejects parallel lines' case, whose determinant is exactly 0 so it
-// stays green after the extend variant lands — an assertion that
-// cannot fail retires nothing. Verified by planting an extend-to-
-// corner step before the fillet: 1 failed / 8 passed, then reverted
-// byte-identical.
+// EXTENDING the segments to a virtual corner is a real capability and is
+// still ABSENT: this tool refuses, it does not repair. That refusal is
+// the honest reading of what it can do, not a stand-in for the extend
+// variant — the user's route today is to redraw or trim the lines so
+// they touch. Asserted in `__tests__/sketch/FilletTool.test.ts`,
+// "segments that do NOT meet are REFUSED with the measured gap", which
+// also carries the non-vacuity control (an X-crossing inside both
+// segments must STILL fillet — a tool that refused everything would
+// satisfy the refusal assertion on its own).
 
 import type { SketchEntity, SketchLine, SketchPoint } from '../entities.js';
 import { hitTest } from '../hitTest.js';
@@ -169,19 +175,52 @@ function applyFillet(
   if (!a1 || !a2 || !b1 || !b2) throw new Error('Selected lines reference missing points.');
 
   const corner = findCommonOrIntersection(a1, a2, b1, b2);
-  if (!corner) throw new Error('Lines are parallel or do not meet — cannot fillet.');
-  const ua = unitFrom(corner, farther(a1, a2, corner));
-  const ub = unitFrom(corner, farther(b1, b2, corner));
+  // Parallel is now its OWN sentence. It used to read "parallel or do not
+  // meet", which merged two different facts into one refusal and let the
+  // non-meeting case go unnoticed — it never reached this branch at all.
+  if (!corner) throw new Error('Lines are parallel — they never meet, so there is no corner to fillet.');
+  // §FILLET-SEGMENT-BOUNDS route 1 — the corner is out of reach. Refuse, and
+  // say by how much, per segment: a refusal naming one end tells the user to
+  // fix half a problem.
+  //
+  // `1e-6` mm is the SAME coincidence epsilon `findCommonOrIntersection` uses
+  // for a shared endpoint, and it is written as a literal on purpose. C73 §2 /
+  // `check-epsilon-policy` E1 wants tolerances imported from one declared
+  // policy module; `packages/geometry-kernel` does not export one yet, and
+  // minting another private named tolerance here ratchets that gate the wrong
+  // way — measured 2026-08-17, a `MEET_TOL_MM` const took it 318 → 319, exit 3.
+  // So this reuses the file's existing definition rather than adding a rival
+  // one, and moves to the policy module when there is one to move to.
+  if (corner.beyondA > 1e-6 || corner.beyondB > 1e-6) {
+    const parts: string[] = [];
+    if (corner.beyondA > 1e-6) parts.push(`${corner.beyondA.toFixed(1)} mm past the end of the first line`);
+    if (corner.beyondB > 1e-6) parts.push(`${corner.beyondB.toFixed(1)} mm past the end of the second`);
+    throw new Error(
+      `Lines do not meet — their extensions cross at a corner ${parts.join(' and ')}. ` +
+      'Redraw or trim them so they touch, then fillet.',
+    );
+  }
+  const farA = farther(a1, a2, corner);
+  const farB = farther(b1, b2, corner);
+  const ua = unitFrom(corner, farA);
+  const ub = unitFrom(corner, farB);
   const cosT = ua.x * ub.x + ua.z * ub.z;
   const theta = Math.acos(Math.max(-1, Math.min(1, cosT)));
   if (theta < 1e-3 || theta > Math.PI - 1e-3) {
     throw new Error('Lines too colinear — fillet undefined.');
   }
   const t = radius / Math.tan(theta / 2);
-  const lenA = Math.hypot(a1.x - a2.x, a1.z - a2.z);
-  const lenB = Math.hypot(b1.x - b2.x, b1.z - b2.z);
-  if (t >= lenA || t >= lenB) {
-    throw new Error('Fillet radius too large for one of the segments.');
+  // §FILLET-SEGMENT-BOUNDS route 2 — the run that matters is from the CORNER
+  // to the endpoint the arc is built toward, not the whole segment. For a
+  // corner at a shared endpoint the two are equal; for an X-crossing the whole
+  // length over-states it, and the tangent point lands off the segment again.
+  const runA = Math.hypot(farA.x - corner.x, farA.z - corner.z);
+  const runB = Math.hypot(farB.x - corner.x, farB.z - corner.z);
+  if (t >= runA || t >= runB) {
+    throw new Error(
+      `Fillet radius too large — the tangent point would land ${t.toFixed(1)} mm from the corner, ` +
+      `but only ${Math.min(runA, runB).toFixed(1)} mm of segment runs that way.`,
+    );
   }
   const tangentA = { x: corner.x + ua.x * t, z: corner.z + ua.z * t };
   const tangentB = { x: corner.x + ub.x * t, z: corner.z + ub.z * t };
@@ -196,21 +235,54 @@ function applyFillet(
   deps.commitArc({ cx, cz, radius, startAngle, endAngle });
 }
 
+/**
+ * The corner two segments turn about, plus HOW FAR OUT OF REACH it is.
+ *
+ * `beyondA` / `beyondB` are 0 when the corner lies on that segment, and
+ * otherwise the distance in mm from the corner to the nearer end of it. The
+ * caller decides what to do with a non-zero value; this function does not
+ * silently clamp, and it does not report reach it does not have.
+ */
+interface Corner {
+  readonly x: number;
+  readonly z: number;
+  readonly beyondA: number;
+  readonly beyondB: number;
+}
+
 function findCommonOrIntersection(
   a1: SketchPoint, a2: SketchPoint, b1: SketchPoint, b2: SketchPoint,
-): { x: number; z: number } | null {
+): Corner | null {
   for (const ap of [a1, a2]) for (const bp of [b1, b2]) {
-    if (Math.hypot(ap.x - bp.x, ap.z - bp.z) < 1e-6) return { x: ap.x, z: ap.z };
+    if (Math.hypot(ap.x - bp.x, ap.z - bp.z) < 1e-6) {
+      return { x: ap.x, z: ap.z, beyondA: 0, beyondB: 0 };
+    }
   }
-  // Two-line intersection (handle parallel by determinant ≈ 0).
+  // Two-line intersection (handle parallel by determinant ≈ 0). This solves the
+  // INFINITE lines, which is correct as far as it goes — what was missing is
+  // that it says nothing about whether the SEGMENTS reach the answer. Both
+  // parameters are therefore returned as distances, not discarded.
   const r = { x: a2.x - a1.x, z: a2.z - a1.z };
   const s = { x: b2.x - b1.x, z: b2.z - b1.z };
   const det = r.x * s.z - r.z * s.x;
   if (Math.abs(det) < 1e-9) return null;
   const dx = b1.x - a1.x;
   const dz = b1.z - a1.z;
-  const t = (dx * s.z - dz * s.x) / det;
-  return { x: a1.x + r.x * t, z: a1.z + r.z * t };
+  const t = (dx * s.z - dz * s.x) / det;   // param along A: a1 + r·t
+  const u = (dx * r.z - dz * r.x) / det;   // param along B: b1 + s·u
+  return {
+    x: a1.x + r.x * t,
+    z: a1.z + r.z * t,
+    beyondA: overshootMm(t, Math.hypot(r.x, r.z)),
+    beyondB: overshootMm(u, Math.hypot(s.x, s.z)),
+  };
+}
+
+/** Distance in mm by which param `p` falls outside [0,1] on a segment of length `len`. */
+function overshootMm(p: number, len: number): number {
+  if (p < 0) return -p * len;
+  if (p > 1) return (p - 1) * len;
+  return 0;
 }
 
 function farther(p1: SketchPoint, p2: SketchPoint, ref: { x: number; z: number }): SketchPoint {

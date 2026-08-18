@@ -135,36 +135,35 @@ describe('FilletTool — two-click flow', () => {
   });
 });
 
-// ─── C74 §3.4 RETIRING ASSERTION for FilletTool.ts's scaffold declaration ────
+// ─── SEGMENT BOUNDS — the tool may not answer about geometry it cannot reach ──
 //
-// The header of `src/sketch/tools/FilletTool.ts` declares the Trim/extend
-// variant — "extending lines that don't currently meet" — as landing at S55.
-// This block is the executable assertion that retires that declaration.
+// This block WAS a C74 §3.4 retiring assertion pinning a measured defect: for
+// two NON-parallel segments that do not touch, `findCommonOrIntersection` solved
+// the INFINITE-line intersection with no segment-bounds check, so the tool
+// REPORTED SUCCESS — it committed an arc tangent to a point beyond the end of
+// segment A, in empty space, extended neither line, and returned the ordinary
+// "Click first line" ready-hint. A wrong result and a correct one were
+// indistinguishable to the user.
 //
-// It deliberately does NOT reuse the existing 'rejects parallel lines' case.
-// That fixture's cross-product determinant is exactly 0, so its lines never
-// intersect however far they are extended: it stays green after the extend
-// variant lands, and an assertion that cannot fail retires nothing.
+// It is now flipped to the CORRECT expectation. The tool REFUSES, and the
+// refusal carries BOTH measured overshoots, so "I cannot do this" can never
+// again be rendered as "done". Extending the segments to their virtual corner
+// is a real capability and is still absent — that remains the S55 extend
+// variant's job — but the tool no longer pretends to have done it.
 //
-// ⚠ WHAT THIS PINS IS A MEASURED DEFECT, PINNED AND NOT ENDORSED. The header's
-// LIMITATIONS section reads as though non-meeting lines are refused. They are
-// not. For two NON-parallel segments that do not touch, `findCommonOrIntersection`
-// solves the INFINITE-line intersection with no segment-bounds check, so the
-// tool reports success and commits an arc tangent to a point that lies beyond
-// the end of segment A — in empty space — while extending neither line. The
-// user is told "Click first line", the normal ready-hint, so nothing whatever
-// signals that the result is disconnected from the geometry it was asked about.
-// "I cannot do this yet" is being rendered as "done".
-describe('FilletTool — scaffold retirement guard: lines that do not meet (S55)', () => {
+// The parallel case is NOT what this pins: that fixture's cross-product
+// determinant is exactly 0, so it was already refused for a different reason
+// and could never have caught this.
+describe('FilletTool — segments that do NOT meet are REFUSED with the measured gap', () => {
   // A: (0,0)→(4,0). B: (10,2)→(10,12). Perpendicular, non-parallel, and they
   // do NOT touch — their extensions meet at the virtual corner (10, 0), which
-  // is 6 mm past A's far endpoint.
+  // is 6 mm past A's far endpoint and 2 mm past B's near endpoint.
   const NOT_MEETING: SketchEntity[] = [
     PT('a0', 0, 0), PT('a1', 4, 0), LN('lA', 'a0', 'a1'),
     PT('b0', 10, 2), PT('b1', 10, 12), LN('lB', 'b0', 'b1'),
   ];
 
-  it('commits an arc tangent to a point BEYOND segment A, and extends nothing', () => {
+  it('commits NOTHING and names how far past each segment the corner lies', () => {
     const commitArc = vi.fn();
     const commitLine = vi.fn();
     const trimLine = vi.fn();
@@ -178,31 +177,74 @@ describe('FilletTool — scaffold retirement guard: lines that do not meet (S55)
     tool.handle(ev('pointer-down', 2, 0));
     const out = tool.handle(ev('pointer-down', 10, 7));
 
-    // The arc IS committed — this is not a refusal.
-    expect(commitArc).toHaveBeenCalledTimes(1);
-    const arc = commitArc.mock.calls[0]![0];
-    expect(arc.cx).toBeCloseTo(8, 6);
-    expect(arc.cz).toBeCloseTo(2, 6);
-    expect(arc.radius).toBeCloseTo(2, 6);
-
-    // A lies on z = 0 and the centre is (8, 2) with radius 2, so the arc is
-    // tangent to A's INFINITE line at (8, 0). Segment A ends at x = 4, so that
-    // tangent point sits 4 mm past the end of the segment and the arc touches
-    // nothing that exists. THIS is the assertion the S55 extend variant must
-    // break: extending A up to the corner is exactly what it exists to do.
-    const tangentAx = arc.cx;
-    const tangentAz = arc.cz - arc.radius;
-    expect(tangentAz).toBeCloseTo(0, 6);   // genuinely tangent to A's line…
-    expect(tangentAx).toBeCloseTo(8, 6);
-    expect(tangentAx).toBeGreaterThan(4);  // …but beyond A's far endpoint (x = 4)
-
-    // Neither line is lengthened or shortened — no extend, no trim.
+    // No arc. The old behaviour committed one, tangent to (8, 0) — 4 mm past
+    // the end of a segment that stops at x = 4.
+    expect(commitArc).not.toHaveBeenCalled();
+    // And still no extend and no trim: refusing is not silently repairing.
     expect(commitLine).not.toHaveBeenCalled();
     expect(trimLine).not.toHaveBeenCalled();
 
-    // And nothing tells the user. The hint is the ordinary ready state, not a
-    // refusal, so a wrong result and a correct one read identically.
+    // The refusal says WHY, and it says it in numbers. BOTH overshoots are
+    // required: a refusal that names one segment tells the user to fix half a
+    // problem. 6 mm past A's far end (x = 4 → corner x = 10), 2 mm past B's
+    // near end (z = 2 → corner z = 0).
+    expect(out.hint).toMatch(/do not meet/i);
+    expect(out.hint).toContain('6.0 mm');
+    expect(out.hint).toContain('2.0 mm');
+
+    // And it is NOT the ordinary ready-hint. This is the assertion that would
+    // have caught the original defect on its own.
+    expect(out.hint).not.toBe('Click first line');
+  });
+
+  it('the refusal is not vacuous — an X-crossing INSIDE both segments still fillets', () => {
+    // A: (0,0)→(10,0) crossed at its midpoint by B: (5,-5)→(5,5). The corner
+    // (5, 0) is strictly interior to BOTH, so nothing here is out of reach and
+    // the bounds check must not fire. Without this case a tool that refused
+    // every non-shared-endpoint pair would satisfy the assertion above.
+    const CROSSING: SketchEntity[] = [
+      PT('a0', 0, 0), PT('a1', 10, 0), LN('lA', 'a0', 'a1'),
+      PT('b0', 5, -5), PT('b1', 5, 5), LN('lB', 'b0', 'b1'),
+    ];
+    const { deps, commitArc } = makeDeps(CROSSING, 2);
+    const tool = createFilletTool(deps);
+    // Both clicks are >1 mm (the tolerance) from every vertex — `hitTest` tries
+    // points before lines, so a click nearer a vertex than the tolerance would
+    // resolve to the point and the tool would answer "Miss" for the wrong reason.
+    tool.handle(ev('pointer-down', 3, 0));
+    const out = tool.handle(ev('pointer-down', 5, -2));
+
+    expect(commitArc).toHaveBeenCalledTimes(1);
+    const arc = commitArc.mock.calls[0]![0];
+    // Quadrant chosen by `farther`: away from (10,0) along A and away from
+    // (5,5) along B, so the centre lands at (3, −2) and the tangent point on A
+    // is (3, 0) — inside the segment, which is the whole point.
+    expect(arc.cx).toBeCloseTo(3, 6);
+    expect(arc.cz).toBeCloseTo(-2, 6);
+    expect(arc.radius).toBeCloseTo(2, 6);
     expect(out.hint).toBe('Click first line');
-    expect(out.hint).not.toMatch(/do not meet|cannot|extend/i);
+  });
+
+  it('a radius whose tangent point would overrun the available run is refused', () => {
+    // The SAME defect by a second route, and the one the segment-bounds check
+    // alone does not close. The corner (5,0) is interior to A, so only 5 mm of
+    // A runs from the corner to its far end — but `lenA` is 10. A radius of 4
+    // puts the tangent point 4 mm along a 5 mm run (fine), a radius of 8 puts
+    // it at 8 mm along that same 5 mm run: off the segment again, while the
+    // old `t >= lenA` test compared 8 against 10 and passed it.
+    const CROSSING: SketchEntity[] = [
+      PT('a0', 0, 0), PT('a1', 10, 0), LN('lA', 'a0', 'a1'),
+      PT('b0', 5, -5), PT('b1', 5, 5), LN('lB', 'b0', 'b1'),
+    ];
+    const { deps, commitArc } = makeDeps(CROSSING, 8);
+    const tool = createFilletTool(deps);
+    // Both clicks are >1 mm (the tolerance) from every vertex — `hitTest` tries
+    // points before lines, so a click nearer a vertex than the tolerance would
+    // resolve to the point and the tool would answer "Miss" for the wrong reason.
+    tool.handle(ev('pointer-down', 3, 0));
+    const out = tool.handle(ev('pointer-down', 5, -2));
+
+    expect(commitArc).not.toHaveBeenCalled();
+    expect(out.hint).toMatch(/too large/i);
   });
 });
