@@ -201,11 +201,18 @@ function makeFace(
     plane: { a: number; b: number; c: number },
 ): RoofFace {
     // Gradient of the height field is the plan direction of steepest ascent.
+    //
+    // ⚠ A HORIZONTAL face has NO steepest direction, and a zero vector here is
+    // not a harmless placeholder: `faceUVToPlan` would multiply `v` by it and
+    // collapse every authored rectangle to a LINE — a flat roof would accept a
+    // skylight and cut nothing. A horizontal face therefore gets a DETERMINED
+    // orthonormal plan frame (u = +X, v = +Z) rather than a degenerate one. Any
+    // level direction is as good as any other on a flat roof; what matters is
+    // that the frame is a frame, and that it is reproducible.
     const g = Math.hypot(plane.a, plane.b);
-    const upSlopePlan: Pt2 = g > 0 ? [plane.a / g, plane.b / g] : [0, 0];
+    const upSlopePlan: Pt2 = g > 0 ? [plane.a / g, plane.b / g] : [0, 1];
     // Eave direction = the level direction in the plane: perpendicular to the
-    // gradient in plan. For a horizontal face any direction is level; +X is the
-    // determined choice so a flat roof's (u,v) frame is stable and reproducible.
+    // gradient in plan.
     const eaveDirPlan: Pt2 = g > 0 ? [-upSlopePlan[1], upSlopePlan[0]] : [1, 0];
     return {
         index,
