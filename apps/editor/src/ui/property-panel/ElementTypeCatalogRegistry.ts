@@ -164,13 +164,22 @@ const CATALOGS: ElementTypeCatalog[] = [
     {
         family: 'curtainwall',
         label: 'Curtain Wall Type',
-        listTypes: () => curtainWallTypeStore.getAll().map(t => ({
-            id: t.id,
-            name: t.name,
-            detail: t.transomCourse === undefined
+        listTypes: () => curtainWallTypeStore.getAll().map(t => {
+            const grid = t.transomCourse === undefined
                 ? `${t.mullionPitch.toFixed(2)} m pitch · no transom`
-                : `${t.mullionPitch.toFixed(2)} m pitch · ${t.transomCourse.toFixed(2)} m course`,
-        })),
+                : `${t.mullionPitch.toFixed(2)} m pitch · ${t.transomCourse.toFixed(2)} m course`;
+            // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958) — the substitution is shown to the
+            // USER, not buried in a commit message. Three of the founder's twelve name a
+            // material the master catalogue does not carry yet, and the ruling was to use
+            // the nearest existing row FOR NOW. A type called "Mirror glass, green" that
+            // quietly renders as plain reflective glass is the silent-substitution defect;
+            // one that says so is a stand-in the user can make an informed choice about.
+            return {
+                id: t.id,
+                name: t.name,
+                detail: t.substitutionNote ? `${grid} · ⚠ ${t.substitutionNote}` : grid,
+            };
+        }),
         currentTypeId: (d) => d.systemTypeId,
     },
     {

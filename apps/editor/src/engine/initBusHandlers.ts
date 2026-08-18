@@ -2083,12 +2083,24 @@ export function initBusHandlers(
                     // taken, so the inverse carries an explicit empty value to merge back.
                     // Guarded so it is a no-op — and fires no store event — on every wall
                     // that already has the key, which is all newly drawn ones.
+                    //
+                    // `glazingMaterialId` needs the identical treatment for the identical
+                    // reason — it is the wall's default PANEL material (L-958 Slice B), so
+                    // without it undoing the first stone/metal type leaves the facade
+                    // material behind on a wall that has reverted to plain glazing.
+                    const _cwNormalise: Record<string, unknown> = {};
                     if (!('systemTypeId' in (cwRec as Record<string, unknown>))) {
+                        _cwNormalise.systemTypeId = undefined;
+                    }
+                    if (!('glazingMaterialId' in (cwRec as Record<string, unknown>))) {
+                        _cwNormalise.glazingMaterialId = undefined;
+                    }
+                    if (Object.keys(_cwNormalise).length > 0) {
                         try {
                             (cwStore as unknown as { update?(id: string, u: Record<string, unknown>): void })
-                                .update?.(cmd.elementId, { systemTypeId: undefined });
+                                .update?.(cmd.elementId, _cwNormalise);
                         } catch (e) {
-                            console.warn('[element.changeType] curtain wall systemTypeId normalise failed (undo may not clear the type):', e);
+                            console.warn('[element.changeType] curtain wall normalise failed (undo may not clear the type/material):', e);
                         }
                     }
                     const fields = resolveCurtainWallTypeFields(def, Number(cwRec.height));

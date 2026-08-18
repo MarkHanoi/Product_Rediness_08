@@ -100,6 +100,7 @@ export {
     CurtainWallTypeStore,
     curtainWallTypeStore,
     resolveCurtainWallTypeFields,
+    resolveCurtainWallTypePanelFields,
 } from './CurtainWallTypeStore.js';
 
 export type { OpeningData } from './OpeningTypes.js';

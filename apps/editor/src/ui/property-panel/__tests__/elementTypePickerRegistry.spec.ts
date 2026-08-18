@@ -28,6 +28,8 @@ import {
     resolveElementTypeCatalog,
 } from '../ElementTypeCatalogRegistry';
 import { buildGenericTypeSelectorWidget } from '../GenericTypeSelectorWidget';
+import { curtainWallTypeStore } from '@pryzm/core-app-model';
+import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 import { _buildTypeSelector } from '../PropertyPanelTypeSelector';
 
 // ── (1)(2) the declaration contract ──────────────────────────────────────────
@@ -132,24 +134,83 @@ describe('GenericTypeSelectorWidget', () => {
         });
 
         it('publishes ONLY types whose appearance the renderer can actually produce', () => {
-            // The guard against the defect this feature could most easily have shipped.
-            // Types 5-12 of the founder's twelve vary by PANEL material, and
-            // `CurtainWallInstanceManager._getPanelMaterial(panelType)` derives a panel's
-            // appearance from `PANEL_TYPE_DEFAULTS[panelType]` alone — its caller is not
-            // even passed the curtain wall. Publishing them now would put names in this
-            // dropdown that all render identically: an affordance with no implementation
-            // (`WallRake.ts:50-62`). No published type may name a panel material until
-            // that path exists; if a later slice adds one, this assertion must be
-            // deliberately updated alongside the renderer, never quietly deleted.
+            // ── DELIBERATELY UPDATED IN SLICE B, exactly as its predecessor demanded ──
+            //
+            // This assertion used to forbid any published type from NAMING a panel
+            // material, because `_getPanelMaterial(panelType)` derived a panel's
+            // appearance from `PANEL_TYPE_DEFAULTS[panelType]` alone and such a type
+            // would have rendered as plain glazing — an affordance with no
+            // implementation (`WallRake.ts:50-62`). It carried an instruction: if a
+            // later slice adds the path, update this alongside the renderer, never
+            // quietly delete it. Slice B added the path
+            // (`CurtainWallInstanceManager` now resolves `CurtainPanelData.materialId`
+            // through the master library), so the ban is lifted and replaced by the
+            // obligation that REPLACES it — the reason the ban existed at all.
+            //
+            // THE INVARIANT IS UNCHANGED: a published type must never claim an
+            // appearance the user will not get. What changed is that naming a material
+            // is now a promise the renderer keeps, provided the id is real and any
+            // stand-in is declared.
             const types = resolveElementTypeCatalog('curtainwall')!.listTypes!();
             expect(types.length).toBeGreaterThan(0);
-            const PANEL_MATERIAL_WORDS = /copper|inox|stainless|mirror|satin|spandrel|fritted|bronze panel/i;
-            for (const t of types) {
+
+            const catalogueIds = new Set(MATERIAL_CATALOG.map(m => m.id));
+            for (const def of curtainWallTypeStore.getAll()) {
+                if (def.panelMaterialId === undefined) continue;
+                // (a) The material must be a REAL C100 row. An id that misses the library
+                // silently falls back to the panelType default, which is precisely the
+                // "names a finish, renders as glazing" defect wearing a new hat.
                 expect(
-                    PANEL_MATERIAL_WORDS.test(t.name),
-                    `curtain-wall type "${t.id}" names a panel material ("${t.name}") that the ` +
-                    'panel render path cannot yet distinguish — it would render as plain glazing',
-                ).toBe(false);
+                    catalogueIds.has(def.panelMaterialId),
+                    `curtain-wall type "${def.id}" names panel material ` +
+                    `"${def.panelMaterialId}", which is not a row in MATERIAL_CATALOG — ` +
+                    'it would silently render as the panel type default',
+                ).toBe(true);
+                // (b) Same for the frame.
+                if (def.mullionMaterialId !== undefined) {
+                    expect(catalogueIds.has(def.mullionMaterialId), `${def.id} mullion`).toBe(true);
+                }
+            }
+
+            // (c) Any type that is a STAND-IN must SAY SO where the user can read it.
+            // The founder ruled that green mirror / grey shiny mirror / white satin may
+            // use nearest-row substitutes "for now"; an undeclared substitute is the
+            // silent-substitution defect this session keeps finding.
+            for (const def of curtainWallTypeStore.getAll()) {
+                if (!def.substitutionNote) continue;
+                const shown = types.find(t => t.id === def.id);
+                expect(shown, `${def.id} is not listed at all`).toBeTruthy();
+                expect(
+                    shown!.detail ?? '',
+                    `curtain-wall type "${def.id}" substitutes a material but the picker ` +
+                    'does not show the note — the substitution would be invisible',
+                ).toContain(def.substitutionNote);
+            }
+        });
+
+        it('two types that render IDENTICALLY must both say why', () => {
+            // The sharpest form of the original ban. Publishing twelve names that produce
+            // four appearances was the failure mode refused in Phase A. Distinct panel
+            // materials are now genuinely distinct — except where the catalogue has no row
+            // and a stand-in collides with another type. That is tolerable ONLY while both
+            // colliding types declare it; otherwise the founder finds two identical
+            // facades under two different names, which is the original defect exactly.
+            const defs = curtainWallTypeStore.getAll().filter(d => d.panelMaterialId !== undefined);
+            const byMaterial = new Map<string, typeof defs>();
+            for (const d of defs) {
+                const k = `${d.panelMaterialId}|${d.mullionMaterialId ?? ''}`;
+                byMaterial.set(k, [...(byMaterial.get(k) ?? []), d]);
+            }
+            for (const [key, group] of byMaterial) {
+                if (group.length < 2) continue;
+                for (const d of group) {
+                    expect(
+                        d.substitutionNote,
+                        `curtain-wall types [${group.map(g => g.id).join(', ')}] all render as ` +
+                        `"${key}" but "${d.id}" does not declare a substitution — the user ` +
+                        'would see identical facades under different names',
+                    ).toBeTruthy();
+                }
             }
         });
     });

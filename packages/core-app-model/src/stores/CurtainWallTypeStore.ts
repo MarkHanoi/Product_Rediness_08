@@ -189,6 +189,150 @@ const BUILT_IN_TYPES: CurtainWallTypeDefinition[] = [
         mullionMaterialId: 'aluminium-anodised-silver',
         mullionColor: '#8c8f92',
     },
+    // ── The founder's 5-8: metal panels, the MULLION is what varies ──────────
+    // Read the source table carefully — the columns are pitch | PANEL | MULLION, so
+    // these four share one metal panel and differ by frame finish. All "small" mullions,
+    // i.e. 40 mm rather than the 50 mm general-purpose section.
+    {
+        id: 'cw.metal.copper-frame',
+        name: 'Metal panel — copper frame',
+        description:
+            'Brushed dark metal panels in a slim 40 mm copper frame, 1.0 m vertical pitch. ' +
+            'Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'copper-new',
+        mullionColor: '#b87333',
+        panelMaterialId: 'aluminium-brushed-dark',
+    },
+    {
+        id: 'cw.metal.inox-frame',
+        name: 'Metal panel — stainless (inox) frame',
+        description:
+            'Brushed dark metal panels in a slim 40 mm brushed stainless frame, 1.0 m ' +
+            'vertical pitch. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'steel-stainless-brushed',
+        mullionColor: '#c8cdd4',
+        panelMaterialId: 'aluminium-brushed-dark',
+    },
+    {
+        id: 'cw.metal.timber-frame',
+        name: 'Metal panel — timber frame',
+        description:
+            'Brushed dark metal panels in a slim 40 mm oak frame, 1.0 m vertical pitch. ' +
+            'Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'wood-oak',
+        mullionColor: '#b8945f',
+        panelMaterialId: 'aluminium-brushed-dark',
+    },
+    {
+        id: 'cw.metal.blackened-frame',
+        name: 'Metal panel — blackened steel frame',
+        description:
+            'Brushed dark metal panels in a slim 40 mm blackened steel frame, 1.0 m ' +
+            'vertical pitch. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'steel-blackened',
+        mullionColor: '#2b2b2b',
+        panelMaterialId: 'aluminium-brushed-dark',
+    },
+
+    // ── The founder's 9-12: the PANEL varies, all on a blackened frame ───────
+    // ⚠ Three of these name a material the master catalogue does not yet carry. The
+    // founder ruled: use the nearest existing row FOR NOW — and `substitutionNote` makes
+    // that ruling something the user reads in the picker, not something only this comment
+    // knows. C84 EI-8: no local material is minted here, every id below is a C100 row.
+    {
+        id: 'cw.mirror.blackened-frame',
+        name: 'Mirror glass — blackened steel frame',
+        description:
+            'Reflective mirror glazing in a slim 40 mm blackened steel frame, 1.0 m ' +
+            'vertical pitch. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'steel-blackened',
+        mullionColor: '#2b2b2b',
+        panelMaterialId: 'glass-reflective',
+    },
+    {
+        id: 'cw.mirror-green.blackened-frame',
+        name: 'Mirror glass, green — blackened steel frame',
+        description:
+            'Green-tinted mirror glazing in a slim 40 mm blackened steel frame, 1.0 m ' +
+            'vertical pitch. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'steel-blackened',
+        mullionColor: '#2b2b2b',
+        panelMaterialId: 'glass-reflective',
+        // The honest form of the founder's "use a stand-in for now": the catalogue has no
+        // green glazing row at all, so this currently renders IDENTICALLY to the plain
+        // Mirror type above. Saying so is the difference between a stand-in and a lie.
+        substitutionNote:
+            'green mirror is not in the material catalogue yet — currently renders as ' +
+            'plain reflective glass, identical to "Mirror glass"',
+    },
+    {
+        id: 'cw.mirror-grey.blackened-frame',
+        name: 'Mirror glass, grey shiny — blackened steel frame',
+        description:
+            'Grey-tinted mirror glazing in a slim 40 mm blackened steel frame, 1.0 m ' +
+            'vertical pitch. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'steel-blackened',
+        mullionColor: '#2b2b2b',
+        panelMaterialId: 'glass-tinted-grey',
+        substitutionNote:
+            'grey shiny mirror is not in the material catalogue yet — shown as grey ' +
+            'tinted glass, which is a genuinely distinct finish but less reflective',
+    },
+    {
+        id: 'cw.white-satin',
+        name: 'White satin — matching frame',
+        description:
+            'White satin panels with a matching 40 mm white frame, 1.0 m vertical pitch. ' +
+            'Top and bottom rails only. The frame is the same material as the panel, as ' +
+            'specified.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        // "same material as panel" — the one type whose frame is not a contrast.
+        mullionMaterialId: 'aluminium-powder-coated-white',
+        mullionColor: '#eceae4',
+        panelMaterialId: 'aluminium-powder-coated-white',
+        substitutionNote:
+            'white satin is not in the material catalogue yet — shown as white ' +
+            'powder-coated aluminium, which is close in tone but flatter',
+    },
 ];
 
 export class CurtainWallTypeStore {
