@@ -1,4 +1,4 @@
-# C85 — The Master Material Database
+# C100 — The Master Material Database
 
 > **Stamp**: 2026-08-18 · **Status**: DRAFT (governance authored; §8 records which slices are BUILT
 > at stamp time and which are UNBUILT — an unbuilt slice is UNPROVEN, never an inherited green).
@@ -18,7 +18,7 @@
 > copied the colour. The fix is not discipline; it is making the name reachable from every layer that
 > needs it.
 > **Authority**: subordinate to `STR-03-engineering-vision.md` / `STR-04-architecture.md`, to
-> [C65](C65-ELEMENT-TYPE-SYSTEM.md) (ACTIVE — owns the tier model and the catalogue rules; **C85
+> [C65](C65-ELEMENT-TYPE-SYSTEM.md) (ACTIVE — owns the tier model and the catalogue rules; **C100
 > mints no rival tier vocabulary**) and to [C70](C70-BIM30-TARGET-AND-GOLDEN-CHAIN.md) §7.1.
 > **EXTENDS and does not supersede [ADR-0217](../adrs/ADR-0217-type-catalog-scope.md) +
 > [SPEC-05](../../03-execution/specs/SPEC-05-TYPE-CATALOG.md) §4**, which already decided the
@@ -174,7 +174,7 @@ catalogue. Concurrent-lane compatibility is a **MUST**, not a courtesy (§8.3).
   *"A wall layer references a material by `materialId`… **Single source of truth; no duplication in
   the wall type.**"*
 
-**C85 does not re-decide this and MUST NOT be cited as having done so.** What ADR-0217 and SPEC-05
+**C100 does not re-decide this and MUST NOT be cited as having done so.** What ADR-0217 and SPEC-05
 never stated — and what the code therefore answered six different ways — is **what happens when the
 reference cannot be resolved**, and **whether a stored hex beside the id is legal**. §2.1 states only
 that.
@@ -405,7 +405,7 @@ corrected **in that file**:
 - §0 blesses the inline keyword bridges as *"Kept inline (L7→L6 boundary)"* — **no such boundary
   exists** (§4.3). This file is the origin of the false justification.
 - its header and §4 step 7 both name the promotion target **"C16-MATERIALS-CONTRACT"**. **C16 is
-  taken** (Command Authoring Protocol, CANONICAL). The target is **C85**.
+  taken** (Command Authoring Protocol, CANONICAL). The target is **C100**.
 
 ⚠ Its §4 phase 1 (*resolve a fallback timber/library colour when the type is missing*) **contradicts
 C65 §3.4** and is overridden by §5 below.
