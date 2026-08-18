@@ -1,0 +1,730 @@
+# C87 — ELEMENT: CURTAIN-WALL
+
+- **Status**: CANONICAL — binding on every PR that touches the curtain-wall family
+- **Date**: 2026-08-18
+- **Spawned by**: [C84 §6](C84-ELEMENT-INTEGRITY.md) — the per-element contract for `curtainwall`.
+  The **twelve mandatory sections** below are C84 §6's, in C84 §6's order.
+- **Constrained by** (these own the mechanisms; C87 only APPLIES them per family, per C84 EI-9 —
+  *one answer per question*):
+  [C03 §4.4/§4.5/§4.6](C03-SCHEMAS-COMMANDS-AND-STATE.md) (store layers · `ctx.stores` is a snapshot ·
+  U-2/U-2b `affectedStores`) · [C11](C11-ELEMENT-CREATION-PIPELINE.md) (creation pipeline) ·
+  [C16](C16-COMMAND-AUTHORING-PROTOCOL.md) (CA-17/CA-18/CA-19/CA-21) ·
+  [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) (determinism + tolerance) ·
+  [ADR-0319 §2](../adrs/) (audit-field behaviour across undo — **NOT C75**, whose scope line
+  disclaims it) · [C82](C82-RIBBON-CAPABILITY-SURFACE.md) (the UI-control census)
+- **Evidence**: measured in the MAIN worktree on 2026-08-18 by `grep -n` / line-numbered `Read`.
+  Every claim carries `file:line`. An unverifiable cell reads the literal string **NOT MEASURED** —
+  a finding, not a gap. **No cell is blank**: C84 §6 — *a blank reads as "fine", and that is how every
+  defect in C84 §4 survived.*
+- **Persistence pair measured**: `apps/editor/src/engine/persistence/` — the **LIVE** one.
+  `packages/persistence-client/src/loader/` was **not** measured; it is the DEAD copy the app never
+  builds (its own source says so at `ProjectSerializer.ts:271`, `ProjectLoader.ts:331`).
+- **Reachability axes**: both of C84 §3.5.1 were run — **(a)** importer/constructor census and
+  **(b)** the bus-verb census. Each claim below states which axis it rests on.
+
+> **THE ONE-LINE VERDICT.** Curtain-wall is the only family in the repo whose **undo actively
+> corrupts the model rather than failing to restore it**, and the corruption is *enabled by the
+> family's undo wiring being CORRECT*: `performUndoRedo.ts:319-321` resolves the key, `_covered()`
+> passes, the ring-buffer cursor steps, and `elementUndoStoreAdapter.ts:289` then discards the array
+> index. A **missing** map entry would have failed loudly. A **present** one fails silently.
+
+---
+
+## 1. IDENTITY
+
+### AS-IS — measured
+
+| Axis | Measured |
+|---|---|
+| L0 schema | `packages/schemas/src/elements/CurtainWall.ts:25` — `defineElement('curtainwall', {…})` |
+| Discriminator | `'curtainwall'` (one word, lowercase) — `CurtainWall.ts:25` |
+| Plugin DTO storeKey | `'curtainwall'` — `plugins/curtain-wall/src/store.ts:11` (`super('curtainwall')`) |
+| Legacy record `type` | `'curtain-wall'` (**hyphenated**) — `packages/geometry-curtain-wall/src/CurtainWallTypes.ts:19`; written at `apps/editor/src/engine/initTools.ts:1453` |
+| Bus verb namespace | `curtain-wall.*` (**hyphenated**), 21 verbs — `plugins/curtain-wall/src/handlers/index.ts:34-79`. Every verb also carries a deprecated `curtainwall.*` alias (§FIX-COMMAND-NAMESPACE L-796), e.g. `ReplacePanel.ts:60`, `MoveCurtainWall.ts:26` |
+| `affectedStores` key declared by handlers | `'curtainwall'` — every handler, e.g. `AddPanel.ts:55` |
+| `createSnapshot` key | `'curtainWall'` (**camelCase**) — `packages/command-registry/src/CommandManagerImpl.ts:613` |
+| L2 legacy command key | `"curtainWall"` / `"curtainPanel"` — `CreateCurtainWallCommand.ts:102`, `AddCurtainGridLineCommand.ts:69` |
+| Panel store registry key | `'curtain-panel'` — `apps/editor/src/engine/initStores.ts:119` |
+
+**`userData.elementType` spellings — TEN, across four casings.** C84 §4E recorded curtain-wall as
+`NOT MEASURED`; it is measurable, and this contract supplies the measurement:
+
+| Literal | Producer site |
+|---|---|
+| `'CurtainWall'` | `CurtainWallBuilder.ts:1321`, `:1848` — the root group |
+| `'CurtainWallPart'` | `CurtainWallBuilder.ts:1215, :1253, :1284, :2020, :2042, :2073` — panels **and** mullions |
+| `'CurtainPanel'` | `CurtainPanelFactory.ts:195` (inside `stampUserData`, opened `:193`) |
+| `'CurtainPanelInstanced'` | `CurtainWallInstanceManager.ts:317` |
+| `'curtainwall'` | `CurtainWallStore.ts:237, :279, :300, :407`; `initTools.ts:1478` — storeEventBus |
+| `'curtain-panel'` | `CurtainPanelStore.ts:294` — storeEventBus; `CurtainPanelTypes.ts:129` — record `type` |
+| `'curtain-wall'` | `CurtainWallTypes.ts:19`; `initTools.ts:1453` — record `type` |
+| `'curtainpanel'` | `PropertyDescriptorGenerator.ts:404` (accepted alias); `GLBExporter.ts:190` |
+| `'curtain-mullion'` | `PropertyPanel.ts:753` — **selection-layer only; no builder stamps it** |
+| *(no mullion tag)* | mullion InstancedMeshes are stamped `'CurtainWallPart'` — `CurtainWallBuilder.ts:1252, :1283` |
+
+Consumer that must survive this: `EdgeProjectorService.ts:2389-2394` gates the plan projector on
+`(g.userData?.elementType)?.toLowerCase() === 'curtainwall'` — so `'CurtainWallPart'`,
+`'CurtainPanel'` and `'CurtainPanelInstanced'` **do not match it**. Whether that exclusion is
+intentional is **NOT MEASURED**.
+
+### TO-BE — normative
+
+- **CW-ID-1.** The canonical `userData.elementType` for this family is **`'CurtainWall'`**, frozen,
+  compared case-insensitively per [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md). It is the ONLY family
+  tag. `'CurtainWallPart'`, `'CurtainPanel'`, `'CurtainPanelInstanced'` and `'curtain-mullion'` are
+  **sub-parts**, and MUST be declared as sub-parts using C15 §12's existing mechanism —
+  `userData.role = 'geometry'` + `parentId` — **not as new element-type tags** (C84 §4E, as
+  corrected against C15 §12). Ten spellings is the violation; two casings of one spelling is not.
+- **CW-ID-2.** The four **key spellings** — `'curtainwall'` (schema, DTO, bus `affectedStores`),
+  `'curtain-wall'` (legacy `type`, verb namespace), `'curtainWall'` (`createSnapshot`),
+  `'curtain-panel'` (registry) — MUST be reduced to ONE per role and each role's spelling MUST be
+  declared here. Until then, **every new store-key comparison MUST be exact-match-audited against
+  this table** (see §7 CW-U-2: one of these spellings is already silently voiding a rollback).
+
+---
+
+## 2. STORES — and which is THE AUTHORITY
+
+### AS-IS — measured. There are **FOUR** representations, and they disagree on field names.
+
+| # | Representation | File:line | Fields |
+|---|---|---|---|
+| 1 | **L0 Zod schema** | `packages/schemas/src/elements/CurtainWall.ts:25` | `id`, `type`, `parentId`, `childrenIds`, `metadata`, `ifcData` (BaseNode, `base/BaseNode.ts:11-20,45-48`) + `provenance:41`, `confidence:57`, `levelId:58`, `baseLine:59`, `height:63`, `mullionThickness:65`, `bayWidth:67`, `bayHeight:69`, `panels:70`, `materialId:71`; refine `:72-75` (panel-id uniqueness) |
+| 2 | **Plugin DTO store** | `plugins/curtain-wall/src/store.ts:11` — `super('curtainwall')`; state `Record<string, CurtainWallData>` `:8`, `CurtainWallData = CurtainWallSchemaInfer` `:6` | identical to (1) |
+| 3 | **Legacy geometry store** | `packages/geometry-curtain-wall/src/CurtainWallStore.ts`; singleton `apps/editor/src/engine/initBuilders.ts:328`; interface `CurtainWallTypes.ts:18-64` | `type:19`, `levelId:20`, `baseLine:26`, `height:27`, `baseOffset:28`, `gridXSpacing:30`, `gridYSpacing:32`, `mullionSize:33`, `panelThickness:34`, `mullionColor?:35`, `glazingColor?:43`, `mullionMaterialId?:54`, `glazingMaterialId?:55`, `gridSystem?:63` + `CoreElement` base. **NO `panels` field.** |
+| 4 | **Panel store** | `packages/geometry-curtain-wall/src/CurtainPanelStore.ts:75`; singleton `initBuilders.ts:331`; interface `CurtainPanelTypes.ts:128-` | `type:129`, `curtainWallId:131`, `cellIndex:137`, `panelType:139`, `materialOverride?:141`, `hostedDoor:143+` |
+| 5 | **Kernel producer record** | `packages/geometry-kernel/src/producers/curtainwall.ts:30-34` | reads the L0 shape via `@pryzm/protocol` (`:17`) — including `panels` |
+| 6 | **Scene `userData`** | `CurtainPanelFactory.ts:187-206` (`stampUserData`); `CurtainWallBuilder.ts:1321` | see §1 |
+
+**Three field names are RENAMED between (1)/(2) and (3), at exactly one site
+(`initTools.ts:1461, :1462, :1468`):** `bayWidth`→`gridXSpacing`, `bayHeight`→`gridYSpacing`,
+`mullionThickness`→`mullionSize`. That rename is *load-bearing for redo* and is documented as such
+at `elementUndoStoreAdapter.ts:231-238`.
+
+**A FIFTH field escapes the schema entirely.** `gridSystem` is written by
+`AddCurtainGridLine.ts:90` and `RemoveCurtainGridLine.ts:98` as **`(cw as any).gridSystem = …`** — an
+`as any` cast onto a field the L0 schema (`CurtainWall.ts:25-75`) does not declare. It exists only in
+`CurtainGridSystem.ts:70-73` and `CurtainWallTypes.ts:63`. Grid lines are therefore **not
+schema-representable**, are invisible to `CurtainWall.parse()`, and are a live instance of C84
+EI-2(c) — `as any` at the write site is what blinds `tsc`.
+
+### THE AUTHORITY
+
+> **`CurtainWallStore` (representation 3) is the AUTHORITY for the wall; `CurtainPanelStore`
+> (representation 4) is the AUTHORITY for the panels.**
+
+Measured basis: renderer, plan view, persistence, IFC export, GLB export and the geometry worker all
+read (3)/(4) — §3. **The plugin DTO store (2) has ZERO production readers** on either axis; its own
+handler says so at `SetCurtainWallMaterial.ts:32-35` — *"the bus's storesProvider hands it a snapshot
+of the FRESH plugin DTO store built by PluginRegistry — not the legacy geometry singleton that the
+fragment builders, the 2-D plan projector, the IFC exporter and persistence all read. Only
+`*.created` is mirrored across (initTools.ts); there is no update bridge in either direction."*
+
+### TO-BE — normative
+
+- **CW-S-1 (EI-1).** `CurtainWallStore` + `CurtainPanelStore` are the declared authority. Every
+  consumer MUST read them. A consumer reading the plugin DTO store is a merge blocker.
+- **CW-S-2 (EI-5a).** The plugin DTO store is a **declared write-only shadow**, not a rival.
+  ⛔ Do NOT add a mirror, purge or reconciliation pass — C84 §8.c. `plugins/curtain-wall/src/store.ts`
+  MUST carry the `plugins/rooms/src/store.ts:1-29` header form naming the winner, the reader count
+  (**0**) and the retirement path. This disposition **inverts the moment any reader is found**.
+- **CW-S-3 (EI-1a / C03 §4.6 U-2b).** The key `'curtainwall'` resolves at WRITE time to the plugin
+  DTO snapshot (`bootstrap.ts` `storesAsRecordView`) and at UNDO time to `window.curtainWallStore`
+  (`performUndoRedo.ts:319`). **They are not the same object.** That divergence is hereby DECLARED,
+  and it is the mechanism §7 CW-U-1 exploits. It MUST NOT be resolved by making the undo map point
+  at the DTO store; the permitted exits are C16 CA-17 (route the write) or `affectedStores: []`.
+- **CW-S-4.** `gridSystem` MUST be declared in the L0 schema, and the two `(cw as any)` casts
+  (`AddCurtainGridLine.ts:90`, `RemoveCurtainGridLine.ts:98`) removed. A field that only exists
+  behind `as any` cannot be validated, bridged, or gated.
+
+---
+
+## 3. CONSUMERS — the split-brain check
+
+`✅` reads the authority · `⚠️` reads something else · `?` NOT MEASURED
+
+| Consumer | Reads | Evidence | Verdict |
+|---|---|---|---|
+| **Renderer (3-D)** | (3) + (4) via `CurtainWallBuilder` | `initBuilders.ts:328` constructs `CurtainWallStore`, `:331` `CurtainPanelStore`; `:22, :325` record that `CurtainWallBuilder` is *owned by its tool*, not registered in `initBuilders`. `CurtainPanelBuilder` is invoked from `CurtainWallBuilder.build()` — pipeline at `CurtainPanelBuilder.ts:9-14` | ✅ |
+| **Plan view** | mesh `userData` stamped by (3)'s builder | `EdgeProjectorService.ts:2389-2394`, cache key `:2441`; `views/plantools/CurtainWallPlanToolHandler.ts`. Liveness depends on `initTools.ts:1477-1482` firing storeEventBus **manually**, because `CurtainWallStore.add()` does not (`:1471-1474`) | ✅ (fragile — see CW-C-2) |
+| **Persistence — save** | (3) ONLY | LIVE `apps/editor/src/engine/persistence/ProjectSerializer.ts:41` (import), `:643-659` `serializeCurtainWall()`, `:1019` `curtainWallStore.getAll().map(serializeCurtainWall)`, `:1104` | ⚠️ **panels lost** |
+| **Persistence — load** | writes (3) via L2 commands | LIVE `ProjectLoader.ts:103` imports `CreateCurtainWallCommand`; Step 11 loop `:1310-1354`, command construction `:1324-1348` — **17 fields, no `panels`** | ⚠️ |
+| **IFC export** | (3) ONLY | `packages/file-format/src/export/ifc/readers/CurtainWallReader.ts:1` imports `CurtainWallStore`, `:7` ctor, `:11` `this.store.getAll()`, `:36` `ifcClass:'IfcCurtainWall'`. Geometry via `ctx.findMesh(item.id)` `:15`, `continue` if absent `:17` | ✅ |
+| **GLB export** | scene meshes | `GLBExporter.ts:188-190` name set `'curtainwall'`/`'curtain-wall'`/`'curtainpanel'`, ancestor check `:200` | ✅ |
+| **Bake worker** | **NOTHING** | `apps/bake-worker/src/session/HeadlessBakeSession.ts` handles `wall` only (C84 EI-1). No curtain-wall producer call site measured | — capability absent |
+| **Geometry worker** | (3) | `apps/editor/src/workers/geometry.worker.ts:3, :20, :265` — curtain-wall fallback-glass; on error `CurtainWallBuilder` falls back to sync `build()` | ✅ |
+| **AI read model** | (3) | `packages/ai-host/src/AIReadModel.ts:21, :334, :402` | ✅ |
+| **Solar** | meshes | `packages/renderer-three/src/solar/solarSurfaceFilter.ts:59-60` excludes `'curtainwallglass'`, `'curtainglass'` | ✅ |
+| **Plugin DTO store (2)** | — | **zero production readers, both axes** | n/a |
+
+**No two consumers read different stores. Curtain-wall is NOT a split-brain family** — C84 §4 records
+it `✅ legacy` and this contract confirms it on all six C84 EI-1b consumers. **Recorded `✅`
+explicitly, per EI-1b**, so it is distinguishable from *nobody looked*.
+
+### TO-BE — normative
+
+- **CW-C-1.** The authority set is closed at (3) + (4). Any new consumer MUST read them.
+- **CW-C-2.** `CurtainWallStore.add()` MUST emit its own storeEventBus event. A store whose event is
+  fired by its *caller* (`initTools.ts:1477-1482`) is one caller away from a silently invisible
+  curtain wall, and there is now more than one caller (load, import, undo-redo re-add).
+
+---
+
+## 4. PLUGIN ↔ DTO ↔ COMMAND ↔ BUILDER
+
+### AS-IS — the 21 registered bus handlers
+
+`plugins/curtain-wall/src/handlers/index.ts:34-79` (verb list) · `:84-112`
+(`buildCurtainWallHandlerSet`) · `:115-118` (`registerCurtainWallHandlers`) · registered in
+production at `apps/editor/src/engine/engineLauncher.ts:552`.
+
+| Handler | Verb | `affectedStores` | Lineage (C84 §4A) | Refuses? |
+|---|---|---|---|---|
+| `CreateCurtainWall.ts` | `curtain-wall.create` | `['curtainwall']` `:37` | L1 | no |
+| `CreateCurtainWallBatch.ts` | `curtain-wall.batch.create` | `['curtainwall']` `:56` | L1 | no |
+| `DeleteCurtainWall.ts` | `curtain-wall.delete` | `['curtainwall']` `:24` | L1 | no |
+| `DeleteCurtainWallBatch.ts` | `curtain-wall.batch.delete` | `['curtainwall']` `:48` | L1 | no |
+| `UpdateCurtainWallBatch.ts` | `curtain-wall.batch.update` | `['curtainwall']` `:53` | L1 | no |
+| `MoveCurtainWall.ts` | `curtain-wall.move` | `['curtainwall']` `:27` | L1, mutates `baseLine` points in place `:48-50` | no |
+| `ResizeCurtainWall.ts` | `curtain-wall.resize` | `['curtainwall']` `:32` | L1 | no |
+| `SetCurtainWallGrid.ts` | `curtain-wall.setGrid` | `['curtainwall']` `:29` | L1 | no |
+| `SetCurtainWallOutline.ts` | `curtain-wall.setOutline` | `['curtainwall']` `:33` | L1 | no |
+| `SetCurtainWallMullionType.ts` | `curtain-wall.setMullionType` | `['curtainwall']` `:35` | L1 | no |
+| `SetCurtainWallTransomType.ts` | `curtain-wall.setTransomType` | `['curtainwall']` `:36` | L1 | no |
+| `SetCurtainWallPanelType.ts` | `curtain-wall.setPanelType` | `['curtainwall']` `:37` | L1, push `:73` / field mutate `:82-84` | no |
+| `SetCurtainWallMaterial.ts` | `curtain-wall.setMaterial` | `['curtainwall']` `:65` | L1 (`execute` unreachable) | ⛔ **YES — unconditional**, `:85` |
+| `AddPanel.ts` | `curtain-wall.addPanel` | `['curtainwall']` `:55` | L1, array push `:97` | no |
+| `RemovePanel.ts` | `curtain-wall.removePanel` | `['curtainwall']` `:27` | L1, splice `:57` | no |
+| `SwapPanel.ts` | `curtain-wall.swapPanel` | `['curtainwall']` `:35` | L1, find+mutate `:67` | no |
+| `RotatePanel.ts` | `curtain-wall.rotatePanel` | `['curtainwall']` `:48` | L1, find+mutate `:90` | no |
+| `ReplacePanel.ts` | `curtain-wall.replacePanel` | **`[] as const` `:66`** | **L6 — direct store write `:137`** | no |
+| `AddCurtainGridLine.ts` | `curtain-wall.addGridLine` | `['curtainwall']` `:46` | L1, `(cw as any).gridSystem =` `:90` | no |
+| `RemoveCurtainGridLine.ts` | `curtain-wall.removeGridLine` | `['curtainwall']` `:46` | L1, same cast `:98` | no |
+| `CreateCurtainWallsOnAllSlabs.ts` | `curtain-wall.create-on-all-slabs` | **`[] as const` `:35`** | fan-out bridge | no |
+
+**RETIRED verb, recorded so nobody re-mints it:** `wall.updateCurtainWall` — `handlers/index.ts:54-69`
+documents that `UpdateCurtainWallHandler` was **deleted** and the verb re-owned by the
+`initBusHandlers.ts` bridge → `UpdateCurtainWallCommand` → the geometry store
+(`engineLauncher.ts:305, :774, :824` per that comment). **This is the only curtain-wall verb whose
+write reaches the authority directly, and it is the L3 lineage.**
+
+### The nine L2 legacy commands — `packages/command-registry/src/curtainwall/`
+
+`CreateCurtainWallCommand.ts:102` `["curtainWall"]` · `CreateCurtainWallsFromSlabCommand.ts:54`
+`["curtainWall"]` · `CreateCurtainWallsOnAllSlabsCommand.ts:72` `["curtainWall"]` ·
+`UpdateCurtainWallCommand.ts:47` `["curtainWall"]` · `UpdateAllCurtainWallsCommand.ts:30`
+`["curtainWall"]` · `AddCurtainGridLineCommand.ts:69` `["curtainWall","curtainPanel"]` ·
+`RemoveCurtainGridLineCommand.ts:53` `["curtainWall","curtainPanel"]` ·
+`ReplacePanelTypeCommand.ts:56` `["curtainPanel"]` · `ReplacePanelWithDoorCommand.ts:62`
+`["curtainPanel"]`.
+
+### UI-control reachability — the EI-3 half
+
+**NOT MEASURED**, and it is the half C16 CA-18 does not reach (C84 EI-7a, as corrected).
+`curtain-wall.setMaterial` refuses unconditionally at `SetCurtainWallMaterial.ts:85`; whether the
+ribbon/property-panel control that dispatches it is still **offered** was not measured here and is
+owned by [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
+
+### TO-BE — normative
+
+- **CW-P-1.** The refusal at `SetCurtainWallMaterial.ts:85` **SATISFIES C16 CA-18 and MUST NOT be
+  "fixed" by restoring silent success.** The residual defect is the still-offered control. Two exits:
+  route the write (C16 CA-17) and re-enable it, or disable the control while the verb refuses.
+- **CW-P-2.** `ReplacePanel.ts:66`'s `affectedStores: []` is **honest** about lineage L6 and
+  **dishonest** about outcome: the verb reports `success` for an irreversible write. Until the
+  `CurtainPanelStore → Store<CurtainPanelData>` migration its own `:62-65` names, it MUST either
+  route through the panel store's patch pair or **refuse under CA-18** naming irreversibility.
+- **CW-P-3.** No new curtain-wall verb may declare `affectedStores: []` without a CA-18 refusal or a
+  named, dated retirement condition (EI-10(d)).
+
+---
+
+## 5. THE BRIDGE FIELD MAP — **THE LOAD-BEARING SECTION**
+
+One row per payload field. Every field has a declared destination: **CARRIED**, **TRANSFORMED**, or
+**DROPPED (DELIBERATE)**. Omission is forbidden (C84 EI-2). This is the table the future
+`check-bridge-field-coverage.ts` gate consumes.
+
+**Hops measured:** `curtain-wall.create` payload → `CommandEventBridge.ts:412-443` (`p` cast
+`:421-429`, emit `:430-441`) → `initTools.ts:1408-1495` subscriber (guard `:1426-1438`, record
+`:1451-1470`) → `CurtainWallStore` → `ProjectSerializer.ts:643-659`.
+
+| # | L0 field (`CurtainWall.ts`) | CEB reads? | CEB emits | initTools → legacy field | Serialised? | **Disposition** |
+|---|---|---|---|---|---|---|
+| 1 | `id` `:—` (BaseNode `:45`) | ✅ `:422` | `id` `:435` | `id` `:1452` | ✅ `:645` | **CARRIED** |
+| 2 | `type` (BaseNode `:48`) | ⛔ | — | literal `'curtain-wall'` `:1453` | ✅ `:645` | **TRANSFORMED** — discriminator rewritten `'curtainwall'`→`'curtain-wall'` |
+| 3 | `parentId` (BaseNode `:12`) | ⛔ | — | — | ✅ `:645` (from legacy `CoreElement`) | **DROPPED (SILENT)** — never bridged; the serialised value comes from the legacy default, not the payload |
+| 4 | `childrenIds` (BaseNode `:13`) | ⛔ | — | — | ⛔ | **DROPPED (SILENT)** |
+| 5 | `metadata` (BaseNode `:18`) | ⛔ | — | — | ⛔ | **DROPPED (SILENT)** — see ADR-0319 §2 |
+| 6 | `ifcData` (BaseNode `:19`) | ⛔ | — | — | ✅ `:657` (legacy value) | **DROPPED (SILENT)** in flight |
+| 7 | `provenance` `:41` | ⛔ | — | — | ⛔ | **DROPPED (SILENT)** — C75 §2.4 field never reaches the record persistence writes |
+| 8 | `confidence` `:57` | ⛔ | — | — | ⛔ | **DROPPED (SILENT)** |
+| 9 | `levelId` `:58` | ✅ `:423` | `levelId ?? ''` `:433` | `levelId` `:1454` | ✅ `:645` | **CARRIED** |
+| 10 | `baseLine` `:59` | ✅ `:424` | `baseLine` `:436` | `baseLine` (y defaulted 0) `:1455-1458` | ✅ `:646` | **TRANSFORMED** — the `y` ordinate is defaulted to `0` at `:1455-1458` |
+| 11 | `height` `:63` | ✅ `:425` | `height` `:437` | `height` (default 3) `:1459` | ✅ `:647` | **CARRIED** |
+| 12 | `mullionThickness` `:65` | ✅ `:428` | `?? 0.05` `:440` | **`mullionSize`** `:1468` | ✅ `:649` | **TRANSFORMED (RENAMED)** — rationale `:1463-1467`; the pre-fix bug was `cw.mullionSize.toFixed(4)` throwing on `undefined` |
+| 13 | `bayWidth` `:67` | ✅ `:426` | `?? 1.2` `:438` | **`gridXSpacing`** `:1461` | ✅ `:648` | **TRANSFORMED (RENAMED)** |
+| 14 | `bayHeight` `:69` | ✅ `:427` | `?? 1.5` `:439` | **`gridYSpacing`** `:1462` | ✅ `:648` | **TRANSFORMED (RENAMED)** |
+| 15 | **`panels` `:70`** | ⛔ **not in the `:421-429` cast** | — | — | ⛔ **no `panels` key in `:644-658`** | ⛔ **DROPPED (SILENT) AT EVERY HOP** — see below |
+| 15a | ↳ `panels[].id` `:15` | ⛔ | — | — | ⛔ | **DROPPED** |
+| 15b | ↳ `panels[].row` `:16` | ⛔ | — | — | ⛔ | **DROPPED** |
+| 15c | ↳ `panels[].col` `:17` | ⛔ | — | — | ⛔ | **DROPPED** |
+| 15d | ↳ `panels[].kind` `:18` | ⛔ | — | — | ⛔ | **DROPPED** — spandrel band, door panel, opaque infill all become default glazing |
+| 15e | ↳ `panels[].materialId` `:19` | ⛔ | — | — | ⛔ | **DROPPED** |
+| 15f | ↳ `panels[].rotation` `:22` | ⛔ | — | — | ⛔ | **DROPPED** |
+| 16 | `materialId` `:71` | ⛔ | — | — | ⛔ (legacy has `mullionMaterialId`/`glazingMaterialId` instead, `:653-654`) | ⛔ **DROPPED (SILENT)** — the wall-level material never reaches the renderer |
+| — | *(no L0 field)* | — | — | `baseOffset` (default 0) `:1460` | ✅ `:647` | **INVENTED AT THE BRIDGE** — legacy-only, no schema source |
+| — | *(no L0 field)* | — | — | `panelThickness` (default 0.05) `:1469` | ✅ `:649` | **INVENTED AT THE BRIDGE** |
+| — | *(no L0 field)* | — | — | — | ✅ `mullionColor:650`, `glazingColor:652`, `mullionMaterialId:653`, `glazingMaterialId:654` | **LEGACY-ONLY** — unreachable from the bus |
+| — | *(no L0 field — `as any`)* | — | — | — | ✅ `gridSystem:655` | **LEGACY-ONLY**, written only by `AddCurtainGridLine.ts:90` / `RemoveCurtainGridLine.ts:98` |
+| — | `CurtainPanelData.hostedDoor` `CurtainPanelTypes.ts:143-145` (6 sub-fields `:89-105`) | ⛔ | — | — | ⛔ | ⛔ **DROPPED (SILENT)** — a configured curtain-wall door loses `frameColor`, `leafColor`, `hingesSide`, `swingDirection`, `sillHeight`, `frameThickness` on save |
+
+**The batch arm (`CommandEventBridge.ts:445-473`) is identical in loss**: the per-element cast at
+`:451-456` also lacks `panels` and `materialId`.
+
+**Why `panels` is not merely "collapsed".** C84 §4 records *"per-panel kind/material/rotation
+collapsed"*. Measured, it is worse: `panels` is **never read at all** — the cast at `:421-429`
+declares seven fields and structurally erases the eighth before `emit`. `CreateCurtainWall.ts:79`
+(`panels: cmd.panels ?? []`) and `CreateCurtainWallBatch.ts:119` write a full array into the DTO
+store; the legacy `CurtainWallData` (`CurtainWallTypes.ts:18-64`) has **no `panels` field to receive
+it**; and `migrateToGridSystem` (below) regenerates a uniform grid instead. The contrast is on the
+same page: the wall arm carries `materialId: s.materialId ?? s.systemTypeId` at `:406`. Walls carry
+material through this bridge. Curtain walls carry none.
+
+**`migrateToGridSystem` — `packages/geometry-curtain-wall/src/CurtainGridSystem.ts:83-103`.** Called
+from **nine** sites as a `??` fallback: `AddCurtainGridLine.ts:88`, `RemoveCurtainGridLine.ts:96`,
+`CurtainWallBuilder.ts:1122`, `:1800`, `CurtainPanelSyncHandler.ts:89`, `AIReadModel.ts:334`, `:402`,
+`AddCurtainGridLineCommand.ts:121`, `RemoveCurtainGridLineCommand.ts:109`. It takes **two scalars**
+and returns `{uLines, vLines}` only (`:70-73`) — pure topology, **no per-cell kind or material**.
+So a non-uniform grid cannot be reconstructed, and a spandrel band cannot exist in its output.
+
+> ⚠ **AND IT MINTS FRESH IDS EVERY TIME.** `CurtainGridSystem.ts:94` and `:99` call
+> `crypto.randomUUID()` inside the generation loops. Every one of the nine `??` call sites therefore
+> produces a **different grid-line id set** for the same wall whenever `gridSystem` is absent. Any
+> payload holding a `gridLineId` — e.g. `RemoveCurtainGridLine.ts:35` — is orphaned by the next
+> rebuild. **This is a [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) violation** (*"geometry
+> is a pure function of authoritative model state; given the same model, a regeneration produces the
+> same geometry"*) and it is not in C84.
+
+### TO-BE — normative
+
+- **CW-B-1 (EI-2).** Every row above marked **DROPPED (SILENT)** MUST become either CARRIED or
+  **DROPPED (DECLARED)** — named in the bridge source at the drop site, with the reason. Silence is
+  the defect.
+- **CW-B-2.** `panels` and `materialId` MUST reach the authority. Rows 15/15a-f and 16 are the
+  minimum bar: a curtain wall the user authored with a door panel MUST render, export and reload
+  with a door panel.
+- **CW-B-3.** `migrateToGridSystem` MUST NOT mint ids. Grid-line ids MUST be derived
+  deterministically from the wall id and the line index, or the function MUST refuse when
+  `gridSystem` is absent. Consuming C73's tolerance/determinism contract is mandatory; a
+  `crypto.randomUUID()` in a regeneration path cannot satisfy C73 §1.1.
+- **CW-B-4.** The two **INVENTED AT THE BRIDGE** rows (`baseOffset`, `panelThickness`) MUST gain L0
+  schema fields, or the bridge MUST stop inventing them. A default minted at a bridge is a value the
+  model never authored (C84 §1 — *"every `??` default fires and `parse()` succeeds"*).
+
+---
+
+## 6. VERBS
+
+`W` = stores WRITTEN · `R` = stores RESTORED on undo · **`=`** = the two sets are equal.
+
+| Verb | Lineage | W | R | `=`? | Note |
+|---|---|---|---|---|---|
+| `curtain-wall.create` | L1 | DTO `curtainwall` (+ legacy via CEB→initTools bridge) | legacy `curtainWallStore` only | ⛔ | EI-7a: the DTO record survives undo forever |
+| `curtain-wall.batch.create` | L1 | same | same | ⛔ | CEB rewrites `commandType` to the single spelling `:432`, `:459` — the `!== '*.batch.create'` guards downstream are dead code (C84 §4B) |
+| `curtain-wall.delete` | L1 | DTO | legacy | ⛔ | 21-of-22 orphaned-DTO class (C84 EI-5). ⚠ **DORMANT** — C84 §3.5.3: no UI path dispatches it; real deletes reach `DeleteElementCommand` |
+| `curtain-wall.batch.delete` | L1 | DTO | legacy | ⛔ | dormant |
+| `curtain-wall.batch.update` | L1 | DTO | legacy | ⛔ | — |
+| **`curtain-wall.move`** | L1 | DTO `baseLine[i].x` `:48-50` | legacy — **CORRUPTS**, see §7 | ⛔ | patch path is 4 segments `[cwId,'baseLine',0,'x']` |
+| `curtain-wall.resize` | L1 | DTO | legacy | ⛔ | — |
+| `curtain-wall.setGrid` | L1 | DTO | legacy | ⛔ | — |
+| `curtain-wall.setOutline` | L1 | DTO | legacy | ⛔ | — |
+| `curtain-wall.setMullionType` | L1 | DTO | legacy | ⛔ | — |
+| `curtain-wall.setTransomType` | L1 | DTO | legacy | ⛔ | — |
+| **`curtain-wall.setPanelType`** | L1 | DTO `panels[i].kind` `:82-84` | legacy — **CORRUPTS** | ⛔ | — |
+| **`curtain-wall.setMaterial`** | L1 | **nothing — refuses** `:85` | n/a | ✅ vacuously | C16 CA-18 conformant. `:97` also notes `materialColor` is *"accepted for uniform shape but not applied"* |
+| **`curtain-wall.addPanel`** | L1 | DTO `panels` push `:97` | legacy — **CORRUPTS** | ⛔ | the headline |
+| **`curtain-wall.removePanel`** | L1 | DTO `panels` splice `:57` | legacy — **CORRUPTS** | ⛔ | — |
+| **`curtain-wall.swapPanel`** | L1 | DTO `panels[i]` `:67` | legacy — **CORRUPTS** | ⛔ | — |
+| **`curtain-wall.rotatePanel`** | L1 | DTO `panels[i].rotation` `:90` | legacy — **CORRUPTS** | ⛔ | — |
+| `curtain-wall.addGridLine` | L1 | DTO `gridSystem` (whole object) `:90` | legacy `gridSystem` | ⚠ partial | **2-segment path — survives the flatten.** `store.update(id,{gridSystem:{…}})` lands on the real legacy field `CurtainWallTypes.ts:63` |
+| `curtain-wall.removeGridLine` | L1 | same | same | ⚠ partial | as above |
+| **`curtain-wall.replacePanel`** | **L6** | `CurtainPanelStore` direct `:137` | **NEITHER STACK** | ⛔ | `affectedStores: []` `:66`; patches produced against a throwaway literal `:113-118` |
+| `curtain-wall.create-on-all-slabs` | fan-out | delegates | delegates | ? NOT MEASURED | `affectedStores: [] :35` |
+| **`wall.updateCurtainWall`** (retired verb, L3 bridge) | L3 | legacy via `UpdateCurtainWallCommand` | L2 `commandManager` stack | ✅ | `handlers/index.ts:54-69`. **The only curtain-wall write that reaches the authority.** |
+
+**No `rotate` (whole-wall) verb exists.** `curtain-wall.rotatePanel` rotates a panel within its cell,
+not the wall. **NOT MEASURED**: whether any UI offers whole-curtain-wall rotation.
+**No `colour` verb exists** distinct from `setMaterial`. **No level-change verb exists** — a curtain
+wall cannot be moved between storeys through the bus; **NOT MEASURED** whether any legacy path can.
+
+### TO-BE — normative
+
+- **CW-V-1.** Every verb row must reach `=` ✅. The interim disposition for the eight **CORRUPTS**
+  rows is §7 CW-U-1: **fix the adapter, not the verbs.**
+- **CW-V-2.** `curtain-wall.replacePanel` (L6) and any future L6 verb are **unconditional C84 EI-7
+  violations**. L6 is not an available lineage for new work.
+
+---
+
+## 7. UNDO / REDO
+
+### CW-U-1 — **THE CORRUPTION.** Live, reachable, non-refusing, and enabled by correct wiring.
+
+The chain, every link measured:
+
+1. `AddPanel.ts:92-106` — `produceCommand<CurtainWallsState>(ctx.stores.curtainwall, draft => { … c.panels.push({…}) })`. State is `Record<string, CurtainWallData>`, so Immer's forward patch path is **`[cwId,'panels',N]`** and its **inverse for an append is `{op:'replace', path:[cwId,'panels','length'], value:oldLen}`**.
+2. `AddPanel.ts:55` — `affectedStores = ['curtainwall']`.
+3. `performUndoRedo.ts:319` — `curtainwall: w.curtainWallStore`. `_covered()` (`:358-364`) passes. **The ring-buffer cursor steps.**
+4. `elementUndoStoreAdapter.ts:287` — the else-branch, commented *"Field-level op: path = [id, field, …]"*.
+5. `elementUndoStoreAdapter.ts:289` — **`const field = p.path[1];`** — takes segment 1 **at any depth** and discards everything after it.
+6. `elementUndoStoreAdapter.ts:337-338` — `store.update(id, { [String(field)]: p.value });`
+
+**Both directions are destructive, and they are destructive differently:**
+
+| Direction | Patch | `p.path[1]` | Executed | Result |
+|---|---|---|---|---|
+| **UNDO** | `{op:'replace', path:[cwId,'panels','length'], value:3}` | `'panels'` | `update(cwId, {panels: 3})` | **the array becomes the NUMBER 3** |
+| **REDO** | `{op:'add', path:[cwId,'panels',3], value:{id,row,col,kind,…}}` | `'panels'` | `update(cwId, {panels: {…}})` | **the array becomes a single OBJECT** |
+
+*(C84 EI-7b records the undo half. The redo half is recorded here for the first time; both flow from
+the same `p.path[1]`.)*
+
+**The identical hazard was recognised ONE LINE AWAY and guarded — for a different family.**
+`elementUndoStoreAdapter.ts:295-297`:
+
+```ts
+if (String(field) === 'openings' && _isWallOpeningStore(store)) {
+  _reconcileWallOpenings(store, id, Array.isArray(p.value) ? (p.value as OpeningLike[]) : []);
+  continue;
+}
+```
+
+`childrenIds` gets an explicit skip at `:301`; `levelId` gets a fully routed path at `:321-332`
+(§L-946). **`panels` gets nothing** — no array check, no reconciler, no `continue`. And `:295-297`'s
+own ternary is itself a trapdoor: when the patch value is a *single* opening object (exactly what a
+`[id,'openings',N]` index patch carries) it falls to `[]` and **strips every opening from the wall**.
+
+**Eight verbs feed index-bearing patches into this path:** `addPanel` (`:97`), `removePanel` (`:57`),
+`swapPanel` (`:67`), `rotatePanel` (`:90`), `setPanelType` (`:73`, `:82-84`), `move`
+(`:48-50` — 4-segment `[cwId,'baseLine',0,'x']`, so **a move undo writes a scalar into `baseLine`**),
+plus the two batch verbs that fan out to them. Two verbs (`addGridLine`, `removeGridLine`) emit
+2-segment paths and survive.
+
+**Compounding, measured:** the legacy `CurtainWallData` interface (`CurtainWallTypes.ts:18-64`) has
+**no `panels` field at all**, so `store.update(cwId, {panels: …})` writes a foreign key onto the
+authoritative record in every case above.
+
+### CW-U-2 — `createSnapshot` cannot roll back this family. **TWO independent holes.**
+
+`CommandManagerImpl.createSnapshot()` (`:578-638`); `wants()` (`:587`) is `scope.has(key)` — **exact,
+case-sensitive string match**.
+
+- **(a) `'curtainPanel'` is ABSENT from `optionalStores` (`:609-625`).** Four L2 commands declare it:
+  `AddCurtainGridLineCommand.ts:69`, `RemoveCurtainGridLineCommand.ts:53`,
+  `ReplacePanelTypeCommand.ts:56`, `ReplacePanelWithDoorCommand.ts:62`. The last two declare **only**
+  `["curtainPanel"]`, so their entire snapshot is `{}` and `restoreSnapshot` restores nothing, with
+  **no warning** (C84 EI-7d · L-953).
+- **(b) The recognised key is `'curtainWall'` (camelCase, `:613`) while every bus handler declares
+  `['curtainwall']` (lowercase).** Exact-match ⇒ `wants('curtainWall')` is `false` for any command
+  scoped by the bus spelling. **This is a NEW measurement, not in C84 or L-953.** It is C84 EI-1a /
+  C03 §4.6 U-2b in its purest form: *one key, two resolutions.*
+
+### CW-U-3 — redo restores; the fix is partial and does not reach the corruption
+
+`elementUndoStoreAdapter.ts:231-241` (§OI-054 REDO-SHAPE-FIX) stashes the removed **legacy** object
+so redo re-adds it rather than the L1-shaped forward value — the fix exists *because* of the
+`bayWidth→gridXSpacing` rename (§5 rows 12-14): re-adding the L1 value skipped the rename,
+`migrateToGridSystem` read `undefined`, and *"redo did nothing"* (`:236-238` verbatim). The stash is
+`:241`, consumed `:277`, deleted `:280`. **It runs only on the whole-element create/delete branch
+(`:278-281`) — never on the field-level branch `:287-339` where CW-U-1 lives.**
+
+### CW-U-4 — audit envelope (ADR-0319 §2)
+
+`UpdateElementParameterCommand.undo()` (`:379-385`) constructs and executes a fresh **forward**
+command; audit-neutrality is delivered only by `restoreWallAudit`, hard-gated at `:410-414` on
+`t === 'wall' | 'door' | 'window'`. `curtainwall` is one of the **eight** routed families outside
+that gate (L-952), so **`metadata.version` ratchets forward on every curtain-wall undo**. Per
+ADR-0319 §2 DERIVED-BUT-CAUSAL, *"a counter that ratchets through an undo/redo cycle means the model
+is not the same model … a real defect, not a tolerance candidate."*
+
+### TO-BE — normative
+
+- **CW-U-1n.** `elementUndoStoreAdapter` MUST NOT apply a patch whose path is deeper than
+  `[id, field]` through the generic `store.update` at `:337-338`. A deep patch MUST be either
+  (i) applied structurally against the record, or (ii) **refused loudly**. ⛔ **The current
+  `p.path[1]` collapse is not "best-effort"; it is a write of the wrong type into an authoritative
+  field, and C84's governing sentence applies — a refusal is a correct answer, a silently-wrong
+  model is not.**
+- **CW-U-2n.** `'curtainPanel'` MUST gain a `createSnapshot` entry, and the `'curtainWall'` /
+  `'curtainwall'` spelling divergence MUST be closed at the **key registry**, not by adding a second
+  alias (C84 EI-9 — one answer per question). Gated by `check-affected-stores.ts` (C84 §5).
+- **CW-U-3n.** The §OI-054 redo stash MUST cover the field-level branch, or the field-level branch
+  MUST refuse for renamed-field families.
+- **CW-U-4n.** Curtain-wall MUST be added to `restoreWallAudit`'s gate, or the gate MUST be replaced
+  by a store-agnostic `preserveMetadata` (L-952's stated fix).
+- **CW-U-5n — CONTROL FIRST, WATCHED RED.** `curtainWallPanelUndoDepth.test.ts` (C84 §5, named and
+  **not yet existing**): feed the adapter `{op:'replace', path:[id,'panels','length'], value:0}` and
+  assert `panels` is still an array. **It MUST be watched failing against HEAD before the fix.** Add
+  the redo twin: `{op:'add', path:[id,'panels',3], value:{…}}`.
+
+---
+
+## 8. CASCADES
+
+| Cascade | Trigger | Reversed by undo? | Evidence |
+|---|---|---|---|
+| **Panel rebuild on `replacePanel`** | `panelStore.update()` `ReplacePanel.ts:137` → storeEventBus `'curtain-panel'` | ⛔ **NO** — `affectedStores: []` `:66` | Emit side CONFIRMED at `CurtainPanelStore.ts:292-294`. **The subscriber named at `ReplacePanel.ts:131-132` (*"EngineBootstrap subscriber calls curtainWallBuilder.updateCurtainWall(cw)"*) was NOT LOCATED** — grep of `apps/editor/src` for `curtain-panel` returns `initStores.ts:119`, `authoritativeStores.ts:73`, `PropertyDescriptorGenerator.ts:351, :404`, `ElementTypeCatalogRegistry.ts:151`, `PropertyPanel.ts:753`; none subscribes. **This is C84 EI-12 shape: a trigger whose dispatcher is unproven.** |
+| **Panel storm on wall add** | `curtainWallStore.add()` synchronously drives `CurtainPanelSyncHandler`, one storeEventBus event per panel (`<cwId>::row:col`) | n/a (creation) | `initTools.ts:1440-1445`. Mitigated by hoisting VDT+bimManager registration to `:1446-1449`; batch suppression `CurtainPanelStore.ts:279-290` (§P1-A39); adapter-side mitigation `elementUndoStoreAdapter.ts:65`, `:279` |
+| **Redo-shape rename** | ring-buffer redo of a create | ✅ for whole-element ops only | `elementUndoStoreAdapter.ts:231-241, :277, :280` — see CW-U-3 |
+| **Shadow re-activation** | mesh build | n/a | `RenderPipelineManager.ts:1466, :1548`; flags `CurtainWallBuilder.ts:1424, :1537, :2091` |
+| **Worker fallback** | geometry worker error | n/a | `apps/editor/src/workers/geometry.worker.ts:20, :265`; async path `CurtainWallBuilder.ts:1767-2091`, early userData stamp `:1844-1845` |
+| **Grid-line regeneration** | any `??` fallback to `migrateToGridSystem` | ⛔ **NOT REVERSIBLE — it is not even DETERMINISTIC** | `CurtainGridSystem.ts:94, :99` — see §5 CW-B-3 |
+| Curtain-wall → wall / slab / room | — | — | **NOT MEASURED** — no cross-family cascade rule for curtain-wall was located |
+
+### TO-BE — normative
+
+- **CW-X-1 (EI-12).** `ReplacePanel.ts:131-132` MUST either name a proven production dispatcher with
+  a call site, or be rewritten to declare the cascade **dormant** with the condition under which it
+  becomes live. *A trigger with no dispatcher and a dispatcher with no runner fail identically —
+  silently — and read the same to a reviewer.*
+- **CW-X-2.** Every event-driven cascade above that mutates state MUST be inside patch capture or
+  declared outside it in the handler header.
+
+---
+
+## 9. VOCABULARIES
+
+### THREE incompatible panel vocabularies — measured
+
+| # | Vocabulary | Site | Members |
+|---|---|---|---|
+| V-A | L0 `PanelKind` | `packages/schemas/src/elements/CurtainWall.ts:7` | **4** — `'glazed'`, `'spandrel'`, `'door'`, `'opaque'`. Default `'glazed'` `:18`. Written by `AddPanel.ts:101`, `SetCurtainWallPanelType.ts:77` |
+| V-B | Geometry `PanelType` | `packages/geometry-curtain-wall/src/CurtainPanelTypes.ts:61-74` | **13** — `SystemPanel_Glass:62`, `_Opaque:63`, `_Empty:64`, `_Door:65`, `_SlatsVerticalFramed:66`, `_SlatsVerticalDense:67`, `_SlatsVerticalOpen:68`, `_SlatsHorizontal:69`, `_CurtainCornerFold:70`, `_CurtainFlat:71`, `_CurtainOrganic:72`, `_CurtainSide:73`, `_CurtainDoubleMixed:74` |
+| V-C | Material-bridge slots | `plugins/curtain-wall/src/committer/material-bridge.ts:11-18, :20` | **6** — `mullion`, `transom`, `glazed`, `spandrel`, `door`, `opaque` |
+
+**EI-3 violation, measured: NINE of thirteen `PanelType` members have no L0 representation.**
+The Phase-3 slat family (`:66-69`, 4 members), the Phase-4 fabric family (`:70-74`, 5 members) and
+`SystemPanel_Empty` (`:64`) cannot be expressed as a `PanelKind`. Going the other way, `'spandrel'`
+has no `PanelType` counterpart. **Four of thirteen survive the round trip.** The nine are therefore
+unrepresentable in L0 (§2), unbridgeable (§5) and unpersistable (§3) — they exist only as long as the
+session does.
+
+**And the refusal message is stale.** `ReplacePanel.ts:74-80` validates against all 13 via
+`isValidPanelType`, but its refusal at `:77-79` names only three:
+*"Valid values: SystemPanel_Glass, SystemPanel_Opaque, SystemPanel_Empty"*. A user given that message
+cannot discover the ten that would have worked.
+
+**`hostedDoor` (`CurtainPanelTypes.ts:143-145`, shape `:89-105`, defaults `:107-114`)** — required
+when `panelType === 'SystemPanel_Door'`, carrying `frameColor`, `leafColor`, `hingesSide`,
+`swingDirection`, `sillHeight`, `frameThickness`. It appears in **no** L0 field, **no** serialiser
+field (`ProjectSerializer.ts:644-658`) and **no** bridge payload (`CommandEventBridge.ts:421-429`).
+
+### Material vocabulary (C84 EI-8)
+
+`plugins/curtain-wall/src/committer/material-bridge.ts` — **note the path: it is under
+`committer/`, not directly under `src/`.** Re-exported `plugins/curtain-wall/src/index.ts:63-65`.
+Key format `:3-5`: `curtainwall|<systemTypeId>|<materialId>|<color>|<slot>`.
+`FALLBACK_COLOURS` `:11-18`; `CurtainWallSlot` `:20`.
+
+> ⚠ **PARTIAL REFUTATION of C84 EI-8's `_key`-discard claim, for this file.** C84 EI-8 reports
+> *"18 independent per-plugin `material-bridge.ts` palettes (three of which take `_key` and **discard
+> it**)"*. **Curtain-wall's is NOT one of the three.** `grep _key plugins/curtain-wall/src/` →
+> **zero hits**; all three exports take a live `key: string` and read it —
+> `slotOfCurtainWallMaterialKey:22-27` reads `parts[4]`, `colorOfCurtainWallMaterialKey:29-35` reads
+> `parts[3]`, `makeCurtainWallMaterialFactory:37-39` calls both. C84's count is not challenged; only
+> the membership of this file in it.
+
+**The real loss here is narrower and was not previously recorded: `parts[2]` — the `<materialId>`
+segment — is never read.** `:24` reads `parts[4]`, `:30-33` reads `parts[3]`. So
+`mullionMaterialId` / `glazingMaterialId` (`CurtainWallTypes.ts:54-55`, described `:44-53` as
+resolving to *"a real PBR material (e.g. anodised-aluminium mullions, tempered-glass glazing)"*)
+**cannot reach this factory** — only the raw hex survives. And an unrecognised slot silently renders
+as glass: `:26` `return 'glazed';`, with no warning; likewise `:31` (`parts.length < 5`) and `:34`
+(empty colour).
+
+### TO-BE — normative
+
+- **CW-Voc-1 (EI-3).** Either V-A gains the nine missing members, or the nine MUST be removed from
+  the UI and from `isValidPanelType`. **An enum member the UI can select and the pipeline cannot
+  carry is an affordance without an implementation.**
+- **CW-Voc-2 (EI-9).** V-A and V-B answer one question — *"what kind of panel is this?"* — twice.
+  One MUST become the master and the other a **pinned, tested** projection (EI-8a: a comment is not
+  a synchronisation mechanism; that mechanism has already failed twice, measured).
+- **CW-Voc-3.** `ReplacePanel.ts:77-79`'s refusal MUST enumerate the union it actually validates
+  against, generated from it rather than transcribed.
+- **CW-Voc-4.** `material-bridge.ts` MUST consume `parts[2]`, or MUST refuse a key that carries a
+  `materialId` it will ignore. Silently downgrading anodised aluminium to a hex is EI-2(a).
+
+---
+
+## 10. GEOMETRY
+
+### Stack A — the viewport (`packages/geometry-curtain-wall`)
+
+`CurtainWallBuilder.ts` (root, ~2280 lines) → `computeCurtainCells()` (`CurtainCellComputer`) →
+`CurtainWallInstanceManager` (batches uniform flat panels) → `CurtainPanelBuilder.buildPanelMesh()`
+— pipeline documented `CurtainPanelBuilder.ts:9-14`.
+
+`CurtainPanelBuilder.ts:4-5` self-describes: *"Thin façade over
+`CurtainPanelFactory.buildPanelObject()` — kept for backward compatibility"*, importing it at `:30`.
+Under C84 §3.5 this is verdict **STAGE** (one calls the other) and needs **no EI-10 licence** — C84
+§3.5.3 and EI-10a already rule it so; recorded here to close the question, not to re-open it.
+`:16-17`: all LOD-400 systems (spider glass, wood louvres, rattan arch, arched glass) live in
+`CurtainPanelFactory`.
+
+### Stack B — the kernel (`packages/geometry-kernel/src/producers/curtainwall.ts`)
+
+`:30-34` `CurtainWallProducer = (cw, joinData, worldY) => BufferGeometryDescriptor`; reads the L0
+shape via `@pryzm/protocol` `:17` — **including `panels`, which Stack A never receives (§5 row 15).**
+Delegates to `_internal/curtain-wall/`: `buildPanels:24`, `buildMullions:27`, `buildTransoms:28`.
+Hash: `composeCurtainWallGeometryHash.ts`. ADR: `ADR-0011-curtain-wall-triage-and-producer-split.md`
+(`:13-15`).
+
+### Datum convention — **the two stacks do not share one**
+
+| | Stack A | Stack B |
+|---|---|---|
+| Wall origin | **NOT MEASURED** as a single site; panel-local geometry is **CENTRE**-datumed — `CurtainPanelFactory.cellRect():174-184`, midpoints `:180-181` | **START endpoint** — `curtainWallBasis():57` `origin: {x: s.x, y: s.y + worldY, z: s.z}` |
+| Length | **NOT MEASURED** | XZ-plane only — `:53` `Math.hypot(dx, dz) \|\| 1`; `y` ignored |
+| Axis / normal | **NOT MEASURED** | `y` forced to `0` — `:55`, `:56` |
+| Vertical datum field | `baseOffset` (`CurtainWallTypes.ts:28`) | `worldY` parameter (`:33`) |
+| Cell indexing | `(0,0)` = bottom-left; `[i]`=U col, `[j]`=V row — `CurtainPanelTypes.ts:137`. Boundary lines at `t=0`/`t=1` always present — `CurtainGridSystem.ts:63-65` | same grid model, `_internal/curtain-wall/` |
+
+**Whether `worldY` and `baseOffset` agree: NOT MEASURED.** No line reconciling them was found.
+
+### Are the stacks proven to agree? **NO.**
+
+A parity directory exists — `tests/parity/curtain-wall/` (`cw-snapshot.test.ts`, 23+ fixtures
+`cw-01`…`cw-23`, `snapshots/`, `vitest.config.ts`) — and **it is Stack-B-against-itself**, which C84
+§8.e names as an anti-pattern:
+
+- `cw-snapshot.test.ts:19` imports **only** `produceCurtainWall` from the kernel.
+- `:1-6`: *"Curtain-wall self-snapshot — S13-T7 … first run captures … subsequent runs gate
+  byte-equality on every typed array."*
+- `:11-13` verbatim: *"This is the kernel-side parity gate; cross-engine PRYZM 1 reference captures
+  land in S14 once the PRYZM 1 façade harness is online (see
+  `scripts/capture-pryzm1-curtain-wall-references.ts`, **not yet written**)."*
+- `:9`/`:27` — `CURTAIN_WALL_SNAPSHOT_REFRESH=1` blesses any drift away with an env var.
+
+**Census of every curtain-wall test in the repo:**
+`packages/geometry-curtain-wall/__tests__/CurtainWallBuilderGpuLifetime.test.ts`,
+`CurtainWallInstanceManager.matshare.test.ts`,
+`packages/geometry-kernel/__tests__/curtain-wall.robustness.test.ts`,
+`tests/curtainPanelStoreIndexInvariants.spec.test.ts`, `tests/curtainPanelTypeDrift.spec.test.ts`,
+`tests/curtainWallBuilderFastPath.spec.test.ts`, `tests/curtainWallToolStaticImport.spec.test.ts`,
+`apps/editor/__tests__/CurtainWallUpdateReachesGeometryStore.test.ts`,
+`plugins/curtain-wall/__tests__/*`, `packages/ai-host/__tests__/f111Curtains.test.ts`.
+**No file imports both a Stack-A builder and `produceCurtainWall`.**
+
+### TO-BE — normative
+
+- **CW-G-1 (EI-11).** A Stack A ↔ Stack B parity harness is **OWED** — C84 §5 lists the slab, door
+  and window harnesses as owed and does not name curtain-wall; this contract adds it. It MUST
+  consume [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md)'s declared, unit-qualified tolerance
+  (`packages/geometry-kernel/src/tolerance.ts`, shipped 2026-08-13 per L-954) and MUST NOT ship a
+  bare call-site `TOL` literal — the mistake the wall harness made (C84 §5).
+- **CW-G-2 (C73 §2.5).** `CURTAIN_WALL_SNAPSHOT_REFRESH=1` is a tolerance-widening escape hatch by
+  another name. It MUST NOT be used to bless a divergence; a divergence is pinned `it.fails` with a
+  §-tag, per C84 §8.f — *"9.774 m is not a tolerance."*
+- **CW-G-3.** The datum question — `worldY` vs `baseOffset`, START vs CENTRE origin — MUST be
+  measured and declared before CW-G-1 can produce a meaningful number. **Today it is NOT MEASURED,
+  and a parity harness built on an unreconciled datum measures the datum, not the geometry.**
+
+---
+
+## 11. THE DELTA
+
+Ordered by what the user loses, not by site count.
+
+| # | Defect | User loses | Invariant | Proof required |
+|---|---|---|---|---|
+| **1** | `elementUndoStoreAdapter.ts:289/337-338` flattens index patches; **eight** curtain-wall verbs feed it. Undo writes a **number** into `panels`; redo writes an **object** | **the model**, silently, on Ctrl+Z | C84 **EI-7b** | `curtainWallPanelUndoDepth.test.ts` (C84 §5 #2) + a redo twin, **both watched RED against HEAD** |
+| **2** | `curtain-wall.replacePanel` is lineage **L6**: `affectedStores: [] :66`, patches diffed against a throwaway literal `:113-118`, sole authoritative write `:137` | **every panel-type change**, unrecoverably | C84 **EI-7**, §4A L6 | dispatch, `performUndo()`, read back `panelStore` |
+| **3** | `panels[]` never crosses the bridge (`CEB:421-429`) and is never serialised (`ProjectSerializer.ts:644-658`) | **the façade the user composed** — spandrel bands and door panels reload as uniform glazing | C84 **EI-2(a)**, **EI-6** | round-trip a wall with a `'door'` panel through save/load |
+| **4** | `createSnapshot`: `'curtainPanel'` absent `:609-625`; `'curtainWall'` ≠ `'curtainwall'` `:613` | **the rollback that was promised** | C84 **EI-7d**, **EI-1a** / C03 U-2b · L-953 | `check-affected-stores.ts` (C84 §5) |
+| **5** | `migrateToGridSystem:94, :99` mints `crypto.randomUUID()` on nine `??` call sites | **grid-line identity** — every held `gridLineId` orphaned on rebuild | [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) | call twice on one wall, assert id-set equality |
+| **6** | Nine of thirteen `PanelType` members have no `PanelKind`; `ReplacePanel.ts:77-79` names three | **ten panel systems** the tool builds and nothing can save | C84 **EI-3**, **EI-9** | enumerate both unions in one test |
+| **7** | `hostedDoor`'s six fields (`CurtainPanelTypes.ts:89-105`) reach no schema, no bridge, no serialiser | **hinge side, swing, sill, both colours** of a curtain-wall door | C84 **EI-2**, **EI-6** | save/load a configured curtain door |
+| **8** | `curtainwall` is outside `restoreWallAudit`'s `wall\|door\|window` gate (`UpdateElementParameterCommand.ts:410-414`) | audit comparability — the model is not the same model across an undo | [ADR-0319 §2](../adrs/) · **L-952** | undo a parameter change, assert `metadata.version` byte-equal |
+| **9** | `material-bridge.ts` never reads `parts[2]`; unrecognised slot silently returns `'glazed'` `:26` | **the specified PBR material** | C84 **EI-2(a)** | key with a `materialId`, assert it is honoured or refused |
+| **10** | No Stack A ↔ Stack B parity; `tests/parity/curtain-wall/cw-snapshot.test.ts:19` compares Stack B to itself | nothing today — but every future kernel divergence ships unseen | C84 **EI-11**, **§8.e** | build CW-G-1 |
+| **11** | `ReplacePanel.ts:131-132` names a cascade subscriber that **was not located** | a rebuild that may never run | C84 **EI-12** | name the dispatcher with a call site, or declare dormant |
+| **12** | Ten `elementType` spellings (§1); `EdgeProjectorService.ts:2389-2394` matches one | plan-view fidelity for sub-parts | C84 **§4E** + [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | declare one tag + `role`/`parentId` sub-parts |
+| **13** | `gridSystem` written through `(cw as any)` (`AddCurtainGridLine.ts:90`, `RemoveCurtainGridLine.ts:98`) | type safety on the one field that survives undo correctly | C84 **EI-2(c)** | declare it in the L0 schema; remove both casts |
+| **14** | `CurtainWallStore.add()` does not emit; `initTools.ts:1477-1482` emits on its behalf | plan-view visibility, on any second caller | — (CW-C-2) | add the emit inside the store |
+
+⚠ **Non-regression note on #1.** The 2-segment `gridSystem` path (`addGridLine`/`removeGridLine`)
+**works today**. Any change to `elementUndoStoreAdapter.ts:287-339` MUST be proven not to move it —
+pin the working case first, watched RED against a deliberately broken adapter, before touching the
+eight failing ones. This is the [L-955](../../04-reference/ISSUE-LOG.md) discipline applied here.
+
+---
+
+## 12. REFUSALS — what this family deliberately does NOT support
+
+A refusal is a correct answer. An undocumented one is not.
+
+| # | Refusal | Where | Status |
+|---|---|---|---|
+| **R-1** | `curtain-wall.setMaterial` refuses **unconditionally** after payload validation | `SetCurtainWallMaterial.ts:85`; reason `:56-57`; rationale `:28-54` | ✅ **CORRECT AND REQUIRED** under [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) / `CA-DOCTRINE-A`. ⛔ MUST NOT be "fixed" by restoring silent success. The residual defect is the still-offered control (C82) |
+| **R-2** | `materialColor` is *"accepted for uniform shape but not applied"* | `SetCurtainWallMaterial.ts:97` | ⚠ **A DECLARED NO-OP, NOT A REFUSAL.** Accepting a field and discarding it is EI-2(a). Either apply it or reject the payload |
+| **R-3** | `RemoveCurtainGridLine` refuses to remove a boundary line or the last interior line | `RemoveCurtainGridLine.ts:65, :68, :71` | ✅ correct — the grid invariant `CurtainGridSystem.ts:63-65` (≥2 uLines, ≥2 vLines) |
+| **R-4** | `ReplacePanel` refuses an invalid `PanelType` | `ReplacePanel.ts:74-80` | ⚠ correct in kind, **stale in content** — see CW-Voc-3 |
+| **R-5** | `AddPanel` throws typed errors rather than returning `success` | `AddPanel.ts:81, :86, :88` | ✅ correct |
+| **R-6** | The bake worker does **not** build curtain walls | `HeadlessBakeSession` handles `wall` only | ⚠ **UNDECLARED.** Not a refusal — an absence. It MUST be declared: a self-host bake of a glazed façade silently omits the façade |
+| **R-7** | No whole-curtain-wall **rotate** verb; no **colour** verb; no **level-change** verb | §6 | ⚠ **UNDECLARED ABSENCES.** Each MUST be declared here as deliberate, or minted |
+| **R-8** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ **Do not delete them** — they are the PRYZM 3 target vocabulary |
+| **R-9** | Curtain-wall has no Stack B **editor** render path | C84 §4D — `bootstrapRenderEverything` unreachable, `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — ADR-0331 §D5 is an **open founder question** (C84 §9) |
+
+### Explicitly NOT REFUSED, and that is the finding
+
+Every one of the eight corrupting verbs in §6 executes, reports `success: true`, and returns. Under
+C84's governing sentence — `WallRake.ts:50-62`, *"no affordance without an implementation… A refusal
+is a correct answer; a silently-wrong wall is not"* — **each of them ought to refuse today, and none
+does.** That, and not the missing gate, is why C87 is CANONICAL rather than aspirational.
+
+---
+
+## NOT MEASURED — the honest register for this family
+
+⛔ Gaps, not clearances. None may be recorded `✅` until measured (C84 EI-1b).
+
+1. **The `ReplacePanel.ts:131-132` cascade subscriber** — searched `apps/editor/src` and
+   `engineLauncher.ts`; not found. Either it does not exist or it lives somewhere not searched.
+2. **Whether `worldY` (Stack B `:33`) and `baseOffset` (`CurtainWallTypes.ts:28`) agree** — no
+   reconciling line found. Blocks CW-G-1.
+3. **Stack A's wall-origin datum as a single site** — panel-local is centre-datumed
+   (`CurtainPanelFactory.ts:174-184`); the wall-level origin was not resolved to one line.
+4. **Whether the UI still offers `curtain-wall.setMaterial`** — the EI-3 control census. Owned by
+   [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
+5. **Whether whole-curtain-wall rotation or level change is offered anywhere** — no verb exists;
+   whether a legacy path does was not measured.
+6. **`curtain-wall.create-on-all-slabs`** (`affectedStores: [] :35`) — its delegate's write and
+   restore sets.
+7. **Whether `EdgeProjectorService.ts:2389-2394`'s exclusion of `'CurtainWallPart'` /
+   `'CurtainPanel'` is intentional.**
+8. **Plan-view store authority** — C84 §9 records this as unmeasured for *every* family; curtain-wall
+   is no exception. `plugins/plan-view` injects its own source stores, which may be a third read
+   path.
+9. **Whether any curtain-wall cross-family cascade exists** (to wall, slab or room).
+10. **The `packages/persistence-client/src/loader/` pair** — deliberately not measured; declared DEAD
+    (C84 authoring rules).
+
+---
+
+## Appendix — C84 claims this contract CONFIRMED, REFINED or REFUTED
+
+| C84 claim | Verdict |
+|---|---|
+| `curtain-wall` EI-1 authority `✅ legacy` (§4) | **CONFIRMED**, on all six EI-1b consumers |
+| per-panel kind/material/rotation "collapsed" at `CEB:421-441` | **CONFIRMED AND SHARPENED** — arm is `:412-443`; `panels` is not collapsed, it is **never read**; `materialId` is dropped too |
+| `AddPanel.ts:97` pushes to `c.panels` | **CONFIRMED** verbatim |
+| `elementUndoStoreAdapter.ts:289, :337-338` take `field = path[1]` at any depth | **CONFIRMED** verbatim; the **redo** direction is added here |
+| same shape in `SetCurtainWallPanelType`, `AddCurtainGridLine`, `RemoveCurtainGridLine` | **REFINED** — `SetCurtainWallPanelType` yes; the two gridline verbs emit **2-segment** paths and **survive**. The real additional victims are `removePanel`, `swapPanel`, `rotatePanel` and `move` |
+| `ReplacePanel.ts` is L6, fake literal at `:114-127`, `affectedStores: []` | **CONFIRMED** — measured `:113-118` (literal), `:120-128` (produce), `:137` (write), `:66` (declaration) |
+| `migrateToGridSystem` regenerates a uniform grid | **CONFIRMED AND EXTENDED** — it also mints fresh UUIDs (`:94`, `:99`), a C73 §1.1 determinism defect not previously recorded |
+| `curtainPanel` is a `createSnapshot` hole (EI-7d) | **CONFIRMED** — plus a **new** finding: `'curtainWall'` ≠ `'curtainwall'` |
+| `curtain-wall` elementType `NOT MEASURED` (§4E) | **MEASURED HERE** — ten spellings, §1 |
+| three `material-bridge.ts` files take `_key` and discard it (EI-8) | **NOT THIS ONE** — `grep _key plugins/curtain-wall/src/` → 0 hits. C84's count is not challenged, only this file's membership |
+| `CurtainPanelBuilder` → **STAGE**, no licence needed (§3.5.3, EI-10a) | **CONFIRMED** — `:4-5` façade, `:30` import |
