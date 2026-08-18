@@ -3984,6 +3984,54 @@ export class WallFragmentBuilder {
             }
         }
 
+        // ── §L955-LEGACY-PLAIN-SHEAR (founder 2026-08-18) ───────────────────────
+        // THE LEGACY ARM MUST NOT RENDER A RAKED WALL VERTICAL. `buildMiterPrism`
+        // extrudes straight up, and this branch — unlike every other rake-capable body
+        // path — had nothing downstream to lean it: `buildWall`'s
+        // `wall.openings.length === 0` branch (:2123) returns without ever reaching
+        // `_applyRakeShearToChildren`, which only the opening-bearing branch calls. So a
+        // plain raked wall that fell back here (V2 disabled, or a §V2-SPIKE-GUARD
+        // rejection) stood bolt upright while the store held 80° — a silently-wrong wall
+        // reported as a success, which is the one outcome this subsystem refuses to ship
+        // (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH).
+        //
+        // This is the SAME correction §FEAT-RAKE-LAYERED already made to the LAYERED
+        // legacy fallback (:1608-1622) and it is deliberately the same eight lines: a
+        // rake is an affine SHEAR about the wall's base plane, so it applies to an
+        // already-built prism exactly — x += kx·(y − yBase), z += kz·(y − yBase).
+        // `applyMatrix4` carries the normals through the inverse-transpose, so the tilted
+        // faces light correctly.
+        //
+        // WHY IT IS SAFE TO DO IT HERE AND NOT IN `buildMiterPrism`: the miter builder's
+        // signature stays untouched (a per-end TOP DESCRIPTION is a different feature and
+        // belongs to whoever needs profiled end cuts), and the shear is applied AFTER the
+        // §LEGACY-SPIKE-GUARD has measured the un-sheared body — so the guard keeps
+        // judging the miter it was written to judge, not a leaning bounding box.
+        //
+        // NOT THE INSTANCED ARM. A plain, single-layer, opening-free, UNJOINED wall never
+        // reaches this function at all — `isSimpleWall` (:1147) routes it to
+        // `WallInstanceBridge`, which reads no rake. That arm drops the lean too, and it
+        // is a DIFFERENT defect with a different owner; this fix neither closes it nor
+        // hides it. The two are disjoint by construction: `isSimpleWall` requires
+        // `!joinData?.startMN && !joinData?.endMN`, and L-955 is a JOINED corner.
+        //
+        // `rakeTopOffset(rake, 1, dir)` is the shear PER METRE and is null for a vertical
+        // wall — which is why the block is SKIPPED at 90° rather than multiplying by an
+        // identity (a no-op matrix would still rewrite every float; skipping keeps a
+        // vertical wall byte-identical).
+        if (!isVerticalRake(wall.rakeAngleDeg)) {
+            const _k = rakeTopOffset(wall.rakeAngleDeg, 1, { x: worldEnd.x, z: worldEnd.z });
+            if (_k) {
+                const _y0 = wall.baseOffset ?? 0;
+                geometry.applyMatrix4(new THREE.Matrix4().set(
+                    1, _k.x, 0, -_k.x * _y0,
+                    0, 1,    0, 0,
+                    0, _k.z, 1, -_k.z * _y0,
+                    0, 0,    0, 1,
+                ));
+            }
+        }
+
         const mesh = new THREE.Mesh(geometry, material);
         mesh.userData = {
             id: wall.id,

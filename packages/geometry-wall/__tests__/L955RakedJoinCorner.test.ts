@@ -42,7 +42,7 @@
  * that cannot fail is not a control.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 
@@ -347,6 +347,102 @@ describe('L-955 — LAYERED raked ↔ raked must close at the corner', () => {
         }
         expect(reads.reduce((s, r) => s + r.span, 0), 'the stack still tiles Σt / sin θ')
             .toBeCloseTo(T_LAYERED / sin, 6);
+    });
+});
+
+// ─── §L955-LEGACY-PLAIN-SHEAR — the arm that dropped the rake entirely ────────
+//
+// A SEPARATE DEFECT ON THE SAME SUBJECT, found while answering "which legacy arm
+// renders a raked wall vertical?". It is NOT the layered fallback at :1543 — that one
+// shears at :1608-1622 and `RakedLayeredWallBands.measure.test.ts:232` already pins it.
+// It is `createWallBodyFragment`'s own fallback (:3942/:3974), reached from `buildWall`'s
+// `wall.openings.length === 0` branch (:2123), which returns without ever calling
+// `_applyRakeShearToChildren` — that method is invoked only from the opening-bearing
+// branch. So a PLAIN raked wall that fell back here stood bolt upright.
+//
+// ⚠ REACHABILITY, MEASURED BEFORE THE FIX WAS WRITTEN. A plain, single-layer,
+// opening-free, UNJOINED wall never reaches this function at all: `isSimpleWall`
+// (:1147) routes it to `WallInstanceBridge`, which reads no rake and drops the lean too
+// — a DIFFERENT defect with a different owner. The two are disjoint BY CONSTRUCTION,
+// because `isSimpleWall` requires `!joinData?.startMN && !joinData?.endMN`. The scene
+// below is therefore a JOINED corner (which is also the founder's L-955 case), and the
+// `theInstancedArmDoesNotInterceptThisCase` assertion holds that reasoning to a
+// measurement rather than to a reading of the source.
+
+/** Lateral lean (along the wall's own leftPerp) of the top ring vs the base ring. */
+function legacyArmLean(
+    rake: number,
+    withBridge: boolean,
+): { lean: number; reachedFn: boolean; instanced: number } {
+    (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 = false;
+    const A = mk([0, 0], [5, 0], { rake });
+    const B = mk([0, 0], [0, 5], { rake });
+    const scene = new THREE.Scene();
+    const builder = new WallFragmentBuilder(scene, levelProvider() as never);
+    let instanced = 0;
+    if (withBridge) {
+        // A minimal bridge — enough for `isSimpleWall`'s `this._instanceBridge !== null`
+        // to be TRUE, so the router's instancing arm is genuinely in play, and enough for
+        // the standard-mesh path's `isInstanced`/`unregister` probe (:1235) not to throw.
+        // `register` COUNTS, so "the instancing arm declined this wall" is a measurement
+        // and not an inference from where an exception happened to land.
+        (builder as unknown as { _instanceBridge: unknown })._instanceBridge = {
+            register: () => { instanced++; },
+            isInstanced: () => false,
+            unregister: () => { /* no-op */ },
+        };
+    }
+    builder.refreshV2Cache([A, B].map(specOf));
+    const joins = WallJoinResolver.resolveLevel([A, B].map(w => ({ ...w })), { snapRadius: 0.5 });
+    builder.buildWall(A, (joins.get(A.id) ?? null) as never, undefined, 0);
+
+    const verts = bodyVertices(builder.getWallRoot(A.id) as unknown as THREE.Object3D);
+    if (verts.length === 0) return { lean: NaN, reachedFn: false, instanced };
+    // A runs along +X ⇒ leftPerp((1,0)) = (0,1) ⇒ the lateral axis IS +Z.
+    const at = (y: number): number[] => verts.filter(v => Math.abs(v.y - y) < 1e-6).map(v => v.z);
+    const mid = (v: number[]): number => (Math.min(...v) + Math.max(...v)) / 2;
+    return { lean: mid(at(H)) - mid(at(0)), reachedFn: true, instanced };
+}
+
+describe('L-955 §L955-LEGACY-PLAIN-SHEAR — the plain legacy arm must not stand a raked wall up', () => {
+    afterEach(() => { delete (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2; });
+
+    it('leans by h·cot θ on the legacy MiterPrism arm — at 80° AND at 110°, opposite signs', () => {
+        // TWO angles of opposite sign, deliberately. A dropped shear reads 0 for both; a
+        // hard-coded or sign-blind one cannot satisfy both. The measurement is the
+        // canonical predicate's own value, so this cannot pass against a second spelling
+        // of the trigonometry either.
+        for (const rake of [80, 110]) {
+            const { lean, reachedFn } = legacyArmLean(rake, false);
+            const expected = H * rakeShearPerMetre(rake);
+            // eslint-disable-next-line no-console
+            console.log(`[L-955] legacy plain arm @ ${rake}°: lean ${lean.toFixed(9)} m, h·cotθ = ${expected.toFixed(9)} m`);
+            expect(reachedFn, `${rake}°: the legacy arm produced a body`).toBe(true);
+            expect(lean, `${rake}°: the legacy prism leans by h · cot θ`).toBeCloseTo(expected, 6);
+        }
+        // Signs really are opposite — so "both close to expected" is not two zeroes.
+        expect(H * rakeShearPerMetre(80)).toBeGreaterThan(0);
+        expect(H * rakeShearPerMetre(110)).toBeLessThan(0);
+    });
+
+    it('a 90° wall on the same arm does not move — the shear block is SKIPPED, not multiplied by identity', () => {
+        const { lean } = legacyArmLean(90, false);
+        // eslint-disable-next-line no-console
+        console.log(`[L-955] legacy plain arm @ 90°: lean ${lean.toFixed(12)} m`);
+        expect(lean).toBe(0);
+    });
+
+    it('theInstancedArmDoesNotInterceptThisCase — a JOINED wall still reaches the fragment path', () => {
+        // With an instance bridge present, `isSimpleWall` is decided by the join: this
+        // wall is mitred at its start, so `joinData.startMN` is set and the instancing
+        // arm declines it. If that ever changes, the lean vanishes and this test says so —
+        // which is the honest failure mode, because the shear would then never run.
+        const { lean, reachedFn, instanced } = legacyArmLean(RAKE, true);
+        // eslint-disable-next-line no-console
+        console.log(`[L-955] legacy plain arm @ ${RAKE}° WITH instance bridge: reached=${reachedFn} register() calls=${instanced} lean ${lean.toFixed(9)} m`);
+        expect(instanced, 'the instancing arm declined this wall — register() never called').toBe(0);
+        expect(reachedFn, 'the joined wall did NOT go down the instanced arm').toBe(true);
+        expect(lean).toBeCloseTo(H * K, 6);
     });
 });
 
