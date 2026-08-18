@@ -62,7 +62,11 @@ describe('§WALL-RAKE — the row exists and is authorable on a plain wall', () 
 describe('§WALL-RAKE — the three store refusals are MIRRORED, with a reason', () => {
     const CASES: ReadonlyArray<readonly [string, Record<string, unknown>, RegExp]> = [
         ['curved',            { curve: { bulge: 0.4 } },                       /curved/i],
-        ['layered',           { layers: [{ t: 0.1 }, { t: 0.1 }] },            /layered/i],
+        // §FEAT-RAKE-LAYERED (2026-08-18) — this row was `{ layers: [t, t] }` alone. A
+        // raked LAYERED wall is BUILT now (plan bands at t / sin θ), so the panel must
+        // NOT grey the control out for a layer stack; the surviving refusal is
+        // layers × openings, and the panel mirrors the gate rather than restating it.
+        ['layered + opening', { layers: [{ t: 0.1 }, { t: 0.1 }], openings: ['door_1'] }, /layered/i],
         ['hosts an opening',  { openings: ['door_1'] },                        /door|window|opening/i],
     ];
 
@@ -82,6 +86,17 @@ describe('§WALL-RAKE — the three store refusals are MIRRORED, with a reason',
         // no stack to re-thicken. Over-refusing would quietly remove the feature
         // from most real walls.
         expect(rakeRow(straightWall({ layers: [{ t: 0.2 }] }))!.editable).toBe(true);
+    });
+
+    it('§FEAT-RAKE-LAYERED — a MULTI-layer wall with no openings is authorable in the PANEL', () => {
+        // The founder's feature has to be reachable from the control the founder uses.
+        // The panel mirrors `rakeAuthorability`, so a stale mirror here would leave the
+        // Vertical Angle field greyed out on every layered wall and the whole lane would
+        // be unreachable from the UI while every geometry test passed.
+        expect(rakeRow(straightWall({ layers: [{ t: 0.1 }, { t: 0.075 }, { t: 0.0125 }] }))!.editable)
+            .toBe(true);
+        expect(rakeRow(straightWall({ layers: [{ t: 0.1 }, { t: 0.1 }], openings: [] }))!.editable)
+            .toBe(true);
     });
 
     it('an EMPTY openings array does not refuse', () => {

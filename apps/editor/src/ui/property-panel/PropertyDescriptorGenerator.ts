@@ -16,7 +16,9 @@ import { PropertyDescriptor, PropertyInputType } from './types';
 import { STAIR_CONSTRAINTS, STAIR_MATERIALS, STAIR_NOSING_TYPES, STAIR_STRINGER_TYPES } from '@pryzm/geometry-stair';
 // §WALL-RAKE — bounds come from the ONE authority (ADR-0310 §2.4). Re-typing 15/165
 // here would be the second copy of a policy, which is how this repo's drift starts.
-import { RAKE_MIN_DEG, RAKE_MAX_DEG } from '@pryzm/geometry-wall';
+// §FEAT-RAKE-LAYERED — `rakeAuthorability` is imported so this panel STOPS holding a
+// second copy of the refusal rules. See `rakeRefusalReason` for why that copy was a bug.
+import { RAKE_MIN_DEG, RAKE_MAX_DEG, rakeAuthorability } from '@pryzm/geometry-wall';
 // §PROP-BEAM-PANEL-LIE — the PUBLISHED beam bounds, never re-typed here.
 import { BEAM_CONSTRAINTS } from '@pryzm/core-app-model/stores';
 
@@ -435,30 +437,55 @@ export function generateDescriptors(elementData: Record<string, any>): PropertyD
  * So the panel does not TEST anything the store does not; it REPORTS the same
  * decision, with the reason, and drops to read-only.
  *
- * ⚠ These predicates must track `WallStore`'s. If a fourth refusal is added there
- * and not here, the panel silently starts lying again — which is why the spec
- * beside this file asserts the pairing rather than the wording.
+ * ── §FEAT-RAKE-LAYERED (founder 2026-08-18) — THIS FUNCTION WAS A RIVAL GATE ──
+ *
+ * The warning above ("these predicates must track `WallStore`'s… the panel silently
+ * starts lying again") described the risk. It then HAPPENED: `t / sin θ` was built,
+ * `rakeAuthorability` stopped refusing a plain layered wall, and this hand-copied
+ * chain went on greying the Vertical Angle box out on every layered wall — the
+ * feature shipped and was unreachable from the control the user actually touches.
+ *
+ * So the copy is gone. The DECISION now comes from `rakeAuthorability`, the one gate
+ * (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH, L-812 — three earlier copies caused a real bug);
+ * only the WORDING is local, keyed off the gate's machine-readable `code`. A future
+ * fourth refusal can no longer be missed here: it arrives as an unmapped code and
+ * falls through to the gate's own sentence rather than to silence.
+ *
+ * The gate answers "may this wall HOLD this rake?", and returns OK for a vertical
+ * wall whatever its shape — so it is asked with a PROBE angle. Any in-range,
+ * non-vertical value gives the same shape-based verdict, and `RAKE_MIN_DEG` is one
+ * that exists as a constant rather than as a magic number.
  */
 function rakeRefusalReason(w: Record<string, any>): string | null {
-    if (w.curve) {
-        // The shear direction is the wall's plan normal, which VARIES along an arc:
-        // one shear vector is right at a single station and wrong everywhere else.
-        return 'Not available on curved walls — the lean would only be correct at one point along the arc.';
+    const auth = rakeAuthorability({
+        rakeAngleDeg: RAKE_MIN_DEG,          // probe: "if this wall were raked at all…"
+        curve:    w.curve,
+        // Same tolerant field reading as before: the panel is fed both live records
+        // and selection snapshots, which spell these two differently.
+        layers:   w.layers ?? w.wallType?.layers,
+        openings: w.openings ?? w.childrenIds,
+    });
+    if (auth.ok) return null;
+
+    switch (auth.code) {
+        case 'curved':
+            // The shear direction is the wall's plan normal, which VARIES along an arc:
+            // one shear vector is right at a single station and wrong everywhere else.
+            return 'Not available on curved walls — the lean would only be correct at one point along the arc.';
+        case 'layered':
+            // NARROWED with the gate: a layered wall leans fine now (its bands are cut
+            // at t / sin θ). What cannot be built is a layered wall that also hosts an
+            // opening — that body is assembled by the un-sheared opening-segment path.
+            return 'Not available on a layered wall that hosts a door or window — remove the opening, or use a single-layer wall type.';
+        case 'hosted-openings':
+            // C15's vertical axis is not modelled: sill is a bare world-Y translate at
+            // four independent sites and `hostedElementFrame` returns a scalar rotationY.
+            return 'Not available while this wall hosts a door or window — hosted openings do not tilt yet.';
+        default:
+            // A refusal this panel has no wording for is still a refusal. Show the
+            // gate's own sentence rather than quietly leaving the control editable.
+            return auth.reason ?? 'Not available on this wall.';
     }
-    const layers = w.layers ?? w.wallType?.layers;
-    if (Array.isArray(layers) && layers.length > 1) {
-        // Layers are authored PERPENDICULAR; honouring that needs t/sin θ threaded
-        // through resolver + footprint + occupancy, or every layered wall silently
-        // re-thickens.
-        return 'Not available on layered walls — layer thicknesses are measured perpendicular to the wall.';
-    }
-    const openings = w.openings ?? w.childrenIds;
-    if (Array.isArray(openings) && openings.length > 0) {
-        // C15's vertical axis is not modelled: sill is a bare world-Y translate at
-        // four independent sites and `hostedElementFrame` returns a scalar rotationY.
-        return 'Not available while this wall hosts a door or window — hosted openings do not tilt yet.';
-    }
-    return null;
 }
 
 function applyRakeAuthorability(

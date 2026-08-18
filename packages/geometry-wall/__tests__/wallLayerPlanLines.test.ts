@@ -87,4 +87,58 @@ describe('computeWallLayerLines (L-62)', () => {
     expect(segs[0]!.ax).toBeCloseTo(3, 6);
     expect(segs[0]!.bx).toBeCloseTo(3, 6);
   });
+
+  // ─── §FEAT-RAKE-LAYERED (founder 2026-08-18) ────────────────────────────────────────
+  // A plan IS a horizontal section at `cutRelToBase`. Once the wall leans, the section
+  // through it both MOVES and the bands WIDEN. Both corrections, or plan and 3D disagree —
+  // and the whole point of L-62 was that plan and 3D must show the same wall.
+
+  it('a RAKED layered wall: bands widen to t / sin θ AND the section slides by cut · cot θ', () => {
+    const RAKE = 80;
+    const sin = Math.sin((RAKE * Math.PI) / 180);
+    const cot = Math.cos((RAKE * Math.PI) / 180) / sin;
+    const segs = computeWallLayerLines(threeLayerWall({ rakeAngleDeg: RAKE }), CUT);
+
+    const total = 0.2 / sin;
+    const shear = CUT * cot;
+    const expected = [
+      -total / 2 + shear + 0.02 / sin,
+      -total / 2 + shear + 0.02 / sin + 0.16 / sin,
+    ];
+    const offsets = [...new Set(segs.map(s => s.offset))].sort((a, b) => a - b);
+    expect(offsets).toHaveLength(2);
+    expect(offsets[0]).toBeCloseTo(expected[0]!, 12);
+    expect(offsets[1]).toBeCloseTo(expected[1]!, 12);
+
+    // The two corrections are INDEPENDENT and both present: the SPACING between the
+    // boundaries is the middle layer's widened plan thickness…
+    expect(offsets[1]! - offsets[0]!).toBeCloseTo(0.16 / sin, 12);
+    expect(offsets[1]! - offsets[0]!).toBeGreaterThan(0.16);      // strictly wider than authored
+    // …and their MIDPOINT is the SHEARED centreline, not the un-sheared one.
+    expect((offsets[0]! + offsets[1]!) / 2).toBeCloseTo(shear, 12);
+    expect(shear).toBeCloseTo(0.211592, 6);
+  });
+
+  it('the plan section is CUT-HEIGHT dependent under a rake, and only under a rake', () => {
+    const at = (cut: number, rake?: number): number[] =>
+      [...new Set(computeWallLayerLines(threeLayerWall({ rakeAngleDeg: rake }), cut).map(s => s.offset))]
+        .sort((a, b) => a - b);
+    // Vertical: the same two lines at any cut height — today's drawing, unmoved.
+    expect(at(0.5)).toEqual(at(2.5));
+    // Rounded to 4 dp for the same reason the L-62 case above rounds: the cursor walk
+    // accumulates in binary, so −0.1 + 0.02 has always been −0.07999999999999999 here.
+    // That is pre-existing arithmetic, not something this feature introduced — the
+    // identity test below compares raw values against the un-raked output and passes.
+    expect(at(1.2).map(v => Number(v.toFixed(4)))).toEqual([-0.08, 0.08]);
+    // Raked: a higher cut sits further along the outward normal, by exactly Δcut · cot θ.
+    const cot80 = Math.cos((80 * Math.PI) / 180) / Math.sin((80 * Math.PI) / 180);
+    expect(at(2.5, 80)[0]! - at(0.5, 80)[0]!).toBeCloseTo(2.0 * cot80, 12);
+  });
+
+  it('a 90° / absent rake is the IDENTITY — the pre-feature drawing, to the last bit', () => {
+    const plain = computeWallLayerLines(threeLayerWall(), CUT);
+    for (const r of [90, undefined]) {
+      expect(computeWallLayerLines(threeLayerWall({ rakeAngleDeg: r }), CUT)).toEqual(plain);
+    }
+  });
 });
