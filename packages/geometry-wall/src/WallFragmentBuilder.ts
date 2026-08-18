@@ -10,6 +10,8 @@ import { safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three
 import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
+// §FEAT-WALL-SIDE-FINISH — the per-side override, resolved ONCE, in a pure module.
+import { resolveLayerRenderFinishColor } from './WallSideFinishResolver';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
 import { PathResolver } from './PathResolver';
@@ -1518,7 +1520,17 @@ export class WallFragmentBuilder {
                 // §L934-ONE-WALL-ONE-COLOUR — was a local `'#d4c5b0'`. §BEIGE-WALL-FIX
                 // purged that beige from the instanced arm in 2026-06 and never reached
                 // here, so the two arms of one router disagreed for fourteen months.
-                const matColor = layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
+                // §FEAT-WALL-SIDE-FINISH — rung 1 of the ladder, applied at the ONE place
+                // the layer band's colour is decided. `layers[0]` is the exterior-most
+                // band and `layers[n-1]` the interior-most (authored EXTERIOR-FIRST; the
+                // builder lays them out from cursor = -totalThickness/2 along `outward`),
+                // so this is an AUTHORED mapping, never a normal or winding-order guess.
+                // `null` leaves today's expression byte-identical — zero regression on
+                // every wall that has no side finish authored, which is all of them today.
+                const sideOverride = resolveLayerRenderFinishColor(
+                    wall as any, layerIdx, wall.layers!.length,
+                );
+                const matColor = sideOverride ?? layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
                 const mat = new THREE.MeshStandardMaterial({
                     color: matColor,
                     roughness: 0.85,
@@ -1892,7 +1904,17 @@ export class WallFragmentBuilder {
 
                 // §L934-ONE-WALL-ONE-COLOUR — the curved-layered twin of the straight
                 // arm above; same beige, same omission from §BEIGE-WALL-FIX.
-                const matColor = layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
+                // §FEAT-WALL-SIDE-FINISH — rung 1 of the ladder, applied at the ONE place
+                // the layer band's colour is decided. `layers[0]` is the exterior-most
+                // band and `layers[n-1]` the interior-most (authored EXTERIOR-FIRST; the
+                // builder lays them out from cursor = -totalThickness/2 along `outward`),
+                // so this is an AUTHORED mapping, never a normal or winding-order guess.
+                // `null` leaves today's expression byte-identical — zero regression on
+                // every wall that has no side finish authored, which is all of them today.
+                const sideOverride = resolveLayerRenderFinishColor(
+                    wall as any, layerIdx, wall.layers!.length,
+                );
+                const matColor = sideOverride ?? layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
                 const mat = new THREE.MeshStandardMaterial({
                     color: matColor,
                     roughness: 0.85,

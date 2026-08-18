@@ -2,6 +2,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { toCreasedNormals, mergeGeometries } from '@pryzm/renderer-three';
 import { WallData, Opening, WallLayer } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
+import { resolveLayerRenderFinishColor } from './WallSideFinishResolver';
 
 /**
  * §PERF-PHASE2 — wall-layer mesh-explosion cap.
@@ -415,7 +416,14 @@ export function buildLayeredWallSegmentsAroundOpenings(
         // from the instanced arm and left all three layered arms carrying it, so which
         // colour a wall got depended on which arm the router picked. Imported from
         // `WallFragmentBuilder` so there is exactly ONE declaration of the default.
-        const matColor: string = (layer as any).materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
+        // §FEAT-WALL-SIDE-FINISH — the third layered arm (layers WITH openings).
+        // Patched alongside the two in WallFragmentBuilder so a side finish does not
+        // depend on whether the wall happens to hold a door: L-934 is precisely the
+        // defect of one router's arms disagreeing about a colour.
+        const sideOverride = resolveLayerRenderFinishColor(
+            wall as any, layerIndex, (wall.layers as WallLayer[]).length,
+        );
+        const matColor: string = sideOverride ?? (layer as any).materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
         const geo = buildContinuousLayerGeometry(
             openingRects,
             wallLength,
