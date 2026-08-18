@@ -171,6 +171,56 @@ function emitLevelChange(
   });
 }
 
+/** A point as any of the beam producers spell it. */
+interface BeamPoint { readonly x: number; readonly y: number; readonly z: number }
+
+/** The geometry fields a `beam.create` payload may carry, in EITHER spelling. */
+export interface BeamGeometryPayload {
+  /** The L0 `Beam` schema's own field (`Beam.ts:46`) — the canonical shape. */
+  readonly baseLine?: ReadonlyArray<BeamPoint>;
+  /** Legacy alias pair. `CreateBeamHandler.resolveBaseLine()` folds it into
+   *  `baseLine` before committing, so it never reaches the store record. */
+  readonly startPoint?: BeamPoint;
+  readonly endPoint?: BeamPoint;
+}
+
+/**
+ * §FIX-BEAM-CEB-BASELINE (L-971 · C84 EI-2b · ADR-002 §5) — resolve the two
+ * endpoints a `beam.create` payload describes, in whichever of the two spellings
+ * its producer used, or `null` when it describes none.
+ *
+ * ⚠ THIS BRIDGE USED TO SUPPORT ONE SHAPE WHILE TWO PRODUCERS EXISTED.
+ * `beam.create` is dispatched by `apps/editor/.../BeamPlanToolHandler.ts:95`
+ * (`startPoint` + `endPoint`) AND by `plugins/beam/src/tool.ts:62`
+ * (`baseLine: [a, b]`). `CreateBeamHandler.resolveBaseLine()` accepts both —
+ * so both COMMIT correctly — but the single `beam.create` case here read only
+ * `startPoint`/`endPoint`. A beam drawn with the beam plugin's own tool
+ * therefore emitted `beam.created` with `startPoint === undefined`, the §FT2
+ * mirror's guard in `initTools.ts` dropped it, `BeamStore.add()` was never
+ * called and **no mesh was ever built — with no error anywhere**. Only the
+ * `beam.batch.create` case below converted `baseLine`, which is why batch
+ * creation worked and the interactive tool did not.
+ *
+ * `baseLine` WINS when both are present, matching `resolveBaseLine()` exactly:
+ * the bridge must describe what the handler committed, not a rival reading.
+ *
+ * ─── WHY THIS IS A TOP-LEVEL EXPORT AND NOT A LINE IN THE SWITCH ────────────
+ * The switch lives inside `wireCommandEventBridge`'s subscriber closure, so a
+ * test could only reach this mapping by driving the whole bridge. Exported, the
+ * rule is executable on its own AND is the one production code runs — the same
+ * extraction `beamCreatedMirror.ts` / `roofCreatedMirror.ts` made app-side, for
+ * the same reason: a bridge body no test can reach is a bridge body no test can
+ * measure.
+ */
+export function resolveBeamEndpoints(p: BeamGeometryPayload): readonly [BeamPoint, BeamPoint] | null {
+  if (p.baseLine && p.baseLine.length >= 2) {
+    const [a, b] = p.baseLine as ReadonlyArray<BeamPoint>;
+    if (a && b) return [a, b];
+  }
+  if (p.startPoint && p.endPoint) return [p.startPoint, p.endPoint];
+  return null;
+}
+
 /**
  * Subscribe to `patchEmitter` and re-emit typed events on `events` after
  * every successful CommandBus dispatch:
@@ -558,25 +608,40 @@ export function wireCommandEventBridge(
           // §FT2 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): enrich with geometry fields so
           // the initTools.ts legacy-store bridge can mirror the beam into BeamStore and
           // trigger BeamFragmentBuilder mesh rebuild — same pattern as §P3.2-RF roof.create.
-          // BeamData uses startPoint/endPoint (3D Vec3) — matches BeamPlanToolHandler dispatch.
-          const p = record.payload as {
+          // §FIX-BEAM-CEB-BASELINE (L-971): the endpoints now come from
+          // `resolveBeamEndpoints`, which reads BOTH producers' spellings. This case
+          // used to read only `startPoint`/`endPoint`, so every beam drawn with the
+          // beam plugin's own tool (`baseLine`) was dropped without a trace.
+          const p = record.payload as BeamGeometryPayload & {
             id?: string;
             levelId?: string;
-            startPoint?: { x: number; y: number; z: number };
-            endPoint?: { x: number; y: number; z: number };
             shape?: string;
             width?: number;
             depth?: number;
             materialId?: string;
           };
+          const beamEnds = resolveBeamEndpoints(p);
+          if (!beamEnds) {
+            // §FIX-BEAM-CEB-BASELINE — REFUSE BY NAME. Emitting a geometry-less
+            // `beam.created` is the silent drop itself: the §FT2 subscriber's guard
+            // swallows it and nothing anywhere says a beam went missing.
+            console.error(
+              `[CommandEventBridge] §FIX-BEAM-CEB-BASELINE: REFUSED beam ${p.id ?? '<no id>'} — ` +
+              `its beam.create payload carries neither \`baseLine\` (the L0 Beam schema's own ` +
+              `field, dispatched by plugins/beam) nor the \`startPoint\`/\`endPoint\` legacy alias ` +
+              `(dispatched by BeamPlanToolHandler), so no beam.created was emitted and no mesh ` +
+              `will be built. The command itself may still have committed.`,
+            );
+            break;
+          }
           events.emit('beam.created', {
             commandId:    record.id,
             commandType:  'beam.create',
             levelId:      p.levelId ?? '',
             elementCount: 1,
             id:           p.id,
-            startPoint:   p.startPoint,
-            endPoint:     p.endPoint,
+            startPoint:   beamEnds[0],
+            endPoint:     beamEnds[1],
             shape:        p.shape,
             width:        p.width,
             depth:        p.depth,
@@ -591,10 +656,9 @@ export function wireCommandEventBridge(
           // CreateBeamPayload uses `baseLine` ([start, end] Vec3) but the initTools subscriber
           // and BeamStore.add() use startPoint/endPoint — converted here.
           const p = record.payload as {
-            beams?: Array<{
+            beams?: Array<BeamGeometryPayload & {
               id?: string;
               levelId?: string;
-              baseLine?: ReadonlyArray<{ x: number; y: number; z: number }>;
               shape?: string;
               width?: number;
               depth?: number;
@@ -605,15 +669,29 @@ export function wireCommandEventBridge(
           };
           const _batchBeamLevelId = p.levelId ?? '';
           for (const b of (p.beams ?? [])) {
-            if (!b.id || !b.baseLine || b.baseLine.length < 2) continue;
+            if (!b.id) continue;
+            // §FIX-BEAM-CEB-BASELINE (L-971) — one resolver for both cases, so the
+            // batch path and the single path can never again support different
+            // producer spellings. A member with no usable geometry is refused BY
+            // NAME rather than `continue`d past: a batch that silently mints N-1
+            // beams is the same defect at a different arity.
+            const bEnds = resolveBeamEndpoints(b);
+            if (!bEnds) {
+              console.error(
+                `[CommandEventBridge] §FIX-BEAM-CEB-BASELINE: SKIPPED beam ${b.id} in ` +
+                `beam.batch.create — it carries neither \`baseLine\` nor \`startPoint\`/\`endPoint\`, ` +
+                `so no beam.created was emitted for it and no mesh will be built.`,
+              );
+              continue;
+            }
             events.emit('beam.created', {
               commandId:    record.id,
               commandType:  'beam.create',
               levelId:      b.levelId ?? _batchBeamLevelId,
               elementCount: 1,
               id:           b.id,
-              startPoint:   b.baseLine[0] as { x: number; y: number; z: number },
-              endPoint:     b.baseLine[1] as { x: number; y: number; z: number },
+              startPoint:   bEnds[0],
+              endPoint:     bEnds[1],
               shape:        b.shape,
               width:        b.width,
               depth:        b.depth,
