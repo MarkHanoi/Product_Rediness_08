@@ -7406,3 +7406,42 @@ silently change. The defect is the missing environment, not the material.
 session** (`WebGPU device lost: reason="destroyed"`). That is [L-966](#l-966)/[L-908](#l-908)
 territory and may be incidental to this — but if the environment map is being dropped by the swap,
 the two are the SAME bug. Check before treating them separately.
+
+> ## ⭐ MEASURED — `scene.environment` IS DELIBERATELY `null`. EVERY METAL IN THE PRODUCT IS AFFECTED.
+>
+> Branch (1) of the fix direction above is answered, and it is the wider of the two.
+>
+> **`PascalSceneLighting.ts:158` sets `scene.environment = null` ON PURPOSE**, and states why at
+> `:148-155`:
+>
+> > *"Clearing `scene.environment = null` makes PRYZM's scene match Pascal: no IBL ambient from
+> > HDRI; lighting comes only from the 3 directional lights + ambient below; **SSGI AO contrast
+> > (darkened corners) becomes clearly visible**."*
+>
+> `initScene.ts:2962` reinforces it: *"HDRI IBL must NOT be loaded in this path because it floods
+> the scene with uniform ambient light that makes SSGI AO (~15-30% darkening) invisible."*
+>
+> **So this is not a curtain-wall defect and not a regression.** On the WebGPU/Pascal path there is
+> no environment, so **every `metalness`-high material in the product renders black or near-black** —
+> walls, columns, beams, handrails, furniture. Curtain wall is simply the first place a founder
+> pointed a metal at a large flat face and looked at it.
+>
+> ⚠ **AND IT IS A GENUINE TRADE-OFF, NOT AN OVERSIGHT.** The two goals are in direct tension:
+> an environment map makes metals read correctly and **destroys the SSGI ambient-occlusion contrast
+> `PascalSceneLighting` exists to preserve**. Whoever takes this is choosing between two things the
+> product wants, so **it is a founder decision, not a lane's.**
+>
+> **The options, stated so the choice is informed:**
+> 1. **A low-intensity environment** — `scene.environment` set with a small `environmentIntensity`.
+>    Metals resolve; AO contrast is reduced by however much intensity is dialled in. The comment at
+>    `:148-150` records that even `0.3` was judged enough to wash out AO, so this needs measuring
+>    rather than assuming a number.
+> 2. **Metals get a fallback treatment** that does not depend on IBL — e.g. a modest reflectivity
+>    floor or a cheap synthetic environment applied only to high-`metalness` materials, leaving the
+>    scene's global lighting untouched. Narrower blast radius; less physically honest.
+> 3. **Accept it and stop shipping high-metalness materials as panel defaults** — which would mean
+>    the founder's types 5-12 cannot look as specified, so this is the option to reject unless the
+>    other two are impossible.
+>
+> ⛔ **Options 1 and 2 are both plausible and they trade different things. Do not pick one in a
+> lane.** Bring the measurement to the founder with a rendered comparison.
