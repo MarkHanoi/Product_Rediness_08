@@ -89,5 +89,47 @@
       "why": "The cell read 'schema census'. E1 re-derives the census independently from `SCHEMA_REGISTRY`; E2 is the arm that matters — the cited suite derives IN_SCOPE from its own OUT_OF_SCOPE list, so moving a kind into that list with a plausible sentence keeps every assertion green over a smaller subject. E2 pins the exemption list to the five kinds on the record: growth is a finding, shrinkage is not.",
       "instrumentCellShouldRead": "`check-element-confidence-declared` — every registered element kind outside the five recorded exemptions declares `confidence`, the exemption list has not grown, and the cited suite executes"
     }
+  ],
+  "deliberatelyUnregisteredComment": [
+    "Rows examined and left CARRIED ON PURPOSE. This section attaches no gate and never",
+    "will; it exists so the next lane does not 'helpfully' gate one of them and mint a",
+    "breach the register can never absorb.",
+    "",
+    "The shape is the same in all three cases. These rows are LEGITIMATELY OPEN — the",
+    "capability they name is absent, and absent CORRECTLY. Both gate shapes available are",
+    "forbidden here:",
+    "  • hard-0 (`declared: 0`) — the defect stands, so findings >= 1, so the gate exits 3.",
+    "    Exit 3 is RATCHET EXCEEDED and is NEVER absorbable (C70 §5.1). That mints a",
+    "    permanent breach for a row that is behaving as designed.",
+    "  • a declared level > 0 — that is a tolerated-failure baseline, i.e. minting debt for",
+    "    work nobody has authorised.",
+    "",
+    "A third shape was considered and rejected for each: asserting something adjacent that",
+    "IS currently true (e.g. 'the unimplemented verbs refuse BY NAME') would exit 0 and make",
+    "the register print the row CLOSED. The row would then read as resolved while the",
+    "capability it names is still missing — which is the exact defect this whole register",
+    "exists to remove, committed by the instrument meant to remove it.",
+    "",
+    "Leaving them carried, with the reason, is the correct answer."
+  ],
+  "deliberatelyUnregistered": [
+    {
+      "row": "CO-04",
+      "contract": "C74 §4.1 · §4.5",
+      "declared": "OPEN, and correctly unauthorised",
+      "why": "`planegcs` is a dependency of no workspace, and C74 §4.5 FORBIDS solver work until a constraint family proves it needs solving. The cheapest next action is correctly none. The row's instrument (`grep '\"planegcs\"' --include=package.json`) is mechanically runnable and would read 0 hits — but a gate over it exits 0, which prints the row CLOSED, asserting a solver capability that does not exist and is not authorised to exist."
+    },
+    {
+      "row": "CO-09",
+      "contract": "C74 §4.2",
+      "declared": "OPEN, correctly deferred",
+      "why": "Blocked on CO-08 reaching §4.2(c) with evidence: one family has evidence, the rest do not. The instrument names 'one executable test naming `StairValidationAuthority` at its declared VALIDATION strength' — a test that is deliberately not written yet. Gating hard-0 mints an exit-3 breach for a deferral that is correct."
+    },
+    {
+      "row": "GE-06",
+      "contract": "C70 L-INV-1",
+      "declared": "OPEN",
+      "why": "Eleven of the twelve declared clash verbs still have no detector, so the row is correctly OPEN and a hard-0 gate would mint an exit-3 breach. ⚠ Its printed READING is nonetheless stale and should be corrected centrally: the cell says '0 clash-engine implementations; `clash-run` remains a registered id with no handler', but at HEAD §GE-06-ROOF-WALL-WIRE gives `clash-run` a real roof x wall detector, `IMPLEMENTED_CLASH_COMMAND_IDS` in packages/command-bus/src/clashCapability.ts reads ['clash-run'], and apps/editor/__tests__/RoofWallClashVerbReach.test.ts drives it through a real bus. The honest reading is 1 of 12, not 0 of 12. A grow-only ratchet on that count is the natural instrument once someone is authorised to declare a floor."
+    }
   ]
 }
