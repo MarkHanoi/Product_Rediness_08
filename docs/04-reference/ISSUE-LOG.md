@@ -7349,3 +7349,60 @@ in production. **This report may be a THIRD trigger, or one of the two firing on
 reach.** Establish which before assuming the closed ones regressed. V1's own enumeration of
 remaining `castShadow` writers (`RealSunService.ts:589`, `ShadowQualityUpgrader.restore():304`) is
 the place to start.
+
+---
+
+## L-967 — metal curtain-wall panels render BLACK: metalness 0.9 with nothing to reflect
+
+**Founder-reported on the live deploy `bd772ba3`, 2026-08-18, with screenshots.** URGENT — it
+breaks types 5-8, four of the twenty the founder asked for.
+
+**Symptom:** *"Metal panel — copper frame"* renders **completely black**, with *"a copper touch on
+the top of the panel"* and nothing else.
+
+### The type definition is CORRECT. This is physics, not data.
+
+`CurtainWallTypeStore.ts:196-210` — `cw.metal.copper-frame` carries `mullionMaterialId:
+'copper-new'` and `panelMaterialId: 'aluminium-brushed-dark'`. Both resolve. The founder's log
+confirms the resolution reached the renderer:
+
+```
+§DIAG-IM-01 distribution=[SystemPanel_Glass/aluminium-brushed-dark:25]
+§DIAG-IM-02 panelType=SystemPanel_Glass materialId=aluminium-brushed-dark instances=25
+```
+
+⭐ **`aluminium-brushed-dark` is `#474d52` with `metalness: 0.9`** (`materialCatalog.ts:112`).
+**A near-fully-metallic PBR surface has NO DIFFUSE COMPONENT — it renders only what it REFLECTS.**
+`_getPanelMaterial` builds a `MeshStandardMaterial`
+(`CurtainWallInstanceManager.ts:217`), and `grep -rn "envMap"` over
+`packages/geometry-curtain-wall/src/` returns **nothing**. **With no environment to reflect, a
+metal renders black.** That is correct PBR behaviour and a wrong product outcome.
+
+It also explains the founder's exact observation: the thin **mullion** catches the directional
+light at a grazing angle — hence the copper glint on top — while the broad flat **panel** faces
+reflect nothing.
+
+### The second, smaller finding in the same log
+`panelType=SystemPanel_Glass` for a METAL type. The panel's *material* changed; its *type* did not.
+Establish whether that matters — if any glass-specific treatment (transparency, opacity, a
+spandrel/vision distinction) keys off `panelType`, a metal panel is being built as a glass panel
+that happens to be opaque.
+
+### Fix direction — establish which of these is true FIRST
+1. **Does the scene set `scene.environment`?** THREE applies it to every PBR material
+   automatically, so if it is set and metals still render black, it is being LOST — plausibly
+   across the renderer swap the founder's log shows (WebGPU → WebGL fallback → WebGPU, with
+   `§RETIRE-RENDERER-DETACHES-LISTENERS old renderer retired — 132 render object(s) detached`).
+   `RealEnvironmentService` / `§FEAT-REAL-ENVIRONMENT` is the place to look.
+2. **If there is no scene environment at all**, then EVERY metal in the product renders black and
+   this is far wider than curtain wall — walls, columns and beams with metal materials would be
+   equally dead. **Measure that before scoping.**
+
+⛔ **DO NOT "FIX" THIS BY LOWERING METALNESS IN THE CATALOGUE.** `metalness: 0.9` is physically
+correct for brushed anodised aluminium, C100 owns that row, and every other consumer of it would
+silently change. The defect is the missing environment, not the material.
+
+⚠ **The founder's log also shows a WebGPU device loss and a live renderer swap in the same
+session** (`WebGPU device lost: reason="destroyed"`). That is [L-966](#l-966)/[L-908](#l-908)
+territory and may be incidental to this — but if the environment map is being dropped by the swap,
+the two are the SAME bug. Check before treating them separately.
