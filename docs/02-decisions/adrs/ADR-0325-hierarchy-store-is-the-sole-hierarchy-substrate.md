@@ -1,6 +1,48 @@
 # ADR-0325 — `hierarchyStore` + `parentId` is the sole hierarchy substrate; hierarchy nodes are not graph citizens
 
-- **Status**: ACCEPTED — founder decision, 2026-08-14
+> ## ⛔ SUPERSEDED IN PART — 2026-08-17, founder decision. READ THIS BEFORE THE BODY.
+>
+> **The title's second clause is REVERSED.** Hierarchy nodes **ARE** graph citizens. Superseded by
+> **[ADR-0328](ADR-0328-partof-is-a-derived-projection-of-the-hierarchy-store.md)**, which is now
+> the governing decision for `partOf`.
+>
+> **The first clause STANDS, and is the reason this ADR is only PARTLY superseded:**
+> `hierarchyStore` + `parentId` remains the **sole hierarchy SUBSTRATE** — the storage source of
+> truth. The founder's ruling, verbatim:
+>
+> > *"parentId = storage/implementation substrate. partOf = graph-level semantic relationship.
+> > **Do not create a second independent hierarchy source of truth. Graph projection should be
+> > DERIVED FROM the hierarchy store rather than maintained independently.**"*
+>
+> **WHAT IS NO LONGER TRUE — do not act on these clauses:**
+> - **§2 "`partOf` moves from REQUIRED to PARKED"** — it is answered, by projection.
+> - **§4 "No writer. Writing a `partOf` edge is now forbidden"** — ⚠ this is the clause that most
+>   needs reading in context. Writing an **INDEPENDENTLY AUTHORED** `partOf` edge is *still*
+>   forbidden, and that prohibition is the load-bearing half of this ADR. What is permitted is a
+>   **derived projection** that re-derives from the substrate at read and reconciles — holding no
+>   hierarchy state of its own, and removing any `partOf` edge the substrate does not imply.
+>
+> ⭐ **WHY THE ORIGINAL REASONING WAS SOUND AND ITS CONCLUSION STILL WRONG.** Both DECLINED rows
+> rested on ONE measured premise: *the edge is empty until a reload while the field is right
+> immediately.* That is true — of an independently authored edge, which was the only implementation
+> anyone had proposed. This ADR's own ¶5 already conceded the projection shape for the loader's
+> reconstruction — *"a projection of the substrate, not a rival to it"* — but permitted it at ONE
+> instant and forbade it at every other. **The lag it objected to is precisely the interval between
+> those instants.** A projection does not argue with the premise; it removes it.
+>
+> The absence objection falls with it: this ADR held that `getUnassignedRooms` needs a set *"an
+> unwritten edge cannot answer at all"*. A projection is TOTAL over the substrate it read, so
+> "citizen with no parent" is a positive `[]` and "not a citizen" is a refusal.
+>
+> **MEASURED at HEAD:** `check-graph-write-coverage` went `[1] DECLARED-LEVEL, 2 findings` →
+> **`[0] CLEAN, 0 findings, hard-0, no baseline`**; the C-INV-1 matrix for `partOf` went
+> `✗ / ✗ / ●1` → `●1 writer / ●3 reader / ●1 rebuild`. The C-INV-4 ledger is now **empty**.
+>
+> **The body below is preserved unedited** — its census and its reasoning are the evidence
+> ADR-0328 consumes, and rewriting them would destroy the record of how a sound argument reached a
+> wrong conclusion.
+
+- **Status**: ⛔ **SUPERSEDED IN PART by [ADR-0328](ADR-0328-partof-is-a-derived-projection-of-the-hierarchy-store.md)** (2026-08-17, founder decision) — the *substrate* clause stands; the *"not graph citizens"* clause is reversed. Originally ACCEPTED — founder decision, 2026-08-14
 - **Date**: 2026-08-14
 - **Evidence**: `npx tsx tools/ga-gate/check-graph-write-coverage.ts` — the **C-INV-4 ledger**,
   whose two DECLINED rows (`partOf/writer`, `partOf/reader`) carry the full census this ADR
