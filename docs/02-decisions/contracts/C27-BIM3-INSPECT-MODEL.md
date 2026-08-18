@@ -6,7 +6,69 @@
 > **Downstream**: [C28](C28-DATA-PANEL-AND-AUTOMATION.md) (Data grid selection sync), [C24](C24-SHEET-COMPOSITION-ENGINE.md) (Sheet viewport view picker reuses tree).
 > **Key principles**: **P3** (isolation animator subscribes FrameScheduler), **P6** (commands only), **P7** (isolation IS a visibility intent — not a parallel flag), **P8** (every Inspect operation has a span).
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md Part V](../03-execution/plans/master-implementation-plan.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.5](../03-execution/status/prior-art-audit-2026-05-31.md). **Verdict: GENUINELY NEW** with a migration plan for existing `PropertyInspector.ts` (80 files).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.5](../03-execution/status/prior-art-audit-2026-05-31.md). **Verdict: GENUINELY NEW** with a migration plan for existing `PropertyInspector.ts` (~~80 files~~ — **RETRACTED, the real figure is 14; see §0.0**).
+
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §9 ORDERS A LIVE COMPONENT DELETED IN FAVOUR OF A REPLACEMENT THAT DOES NOT EXIST
+
+**Do not execute §9 Phases γ or δ.** They deprecate and then *remove* `PropertyInspector` "in
+favour of `ElementInstanceDashboard`". Measured at HEAD, **2026-08-18**:
+
+| Claim | Where | Measured |
+|---|---|---|
+| `ElementInstanceDashboard` is the replacement | §6 table, §9 Phase γ | **ZERO occurrences in any code file.** `grep -rIl ElementInstanceDashboard` matches **3 files, all Markdown** — this contract, the amendment register, and a superseded 2026-06-01 plan. |
+| the seven §6 dashboards | §6 | `ls apps/editor/src/ui/inspect/dashboards` → **No such file or directory**. **None of the seven was built.** |
+| `SpatialRelationshipResolver` (§5) | `packages/spatial-index/` | **ZERO code occurrences** (4 matches, all Markdown). `IsolationStateStore` is specified as *derived from* it. |
+| `InspectBridge` (§5) | `apps/editor/src/engine/` | **ZERO code occurrences** (Markdown only). |
+| *"`PropertyInspector.ts` (80 files)"* | §0 prior-art line, §9 opening | **WRONG BY ~6×.** `ls apps/editor/src/ui/property-inspector/*.ts \| wc -l` → **13**, plus `apps/editor/src/ui/PropertyInspector.ts` = **14**. The migration was sized against a number six times the real one. |
+
+⛔ **`PropertyInspector` is LIVE on three independent axes**, and a single import census sees only
+the first:
+
+1. **import axis** — it hosts 13 live specialist submodules under
+   `apps/editor/src/ui/property-inspector/` (`WallLayerSection`, `SlabLayerSection`,
+   `FloorPropertySection`, `CeilingPropertySection`, `FurniturePropertySection`,
+   `MaterialDispatch`, `RoomPathfinderPanel`, …), each with live callers.
+2. **build-graph axis** — named in `apps/editor/migrations/sunset-pryzm1.json:50` as
+   `"file": "src/ui/PropertyInspector.ts"`. **No import census sees a JSON manifest.**
+3. **call axis** — mirrored by `apps/editor/src/ui/property-panel/PropertyPanelAdapter.ts:5,60,68`
+   (*"Mirrors `PropertyInspector.hide()`"*, *"Mirrors `PropertyInspector.update(obj)`"*).
+
+This is defect shape **B — one-axis reachability**: the "zero importers" style count is arithmetically
+correct and the deletion conclusion drawn from it is not.
+
+### What C27 has ALREADY SHIPPED while labelling it "(NEW)"
+
+The `(NEW)` markers in §5's table are **stale, not aspirational** — five of the named artefacts
+exist, with tests:
+
+- `packages/stores/src/InspectSelectionStore.ts` (+ `packages/stores/__tests__/InspectSelectionStore.test.ts`)
+- `packages/stores/src/IsolationStateStore.ts` (+ `packages/stores/__tests__/isolationStateStore.test.ts`)
+- `packages/visibility/src/intents/IsolationIntent.ts`
+- `packages/renderer-three/src/IsolationAnimator.ts` (+ `packages/renderer-three/__tests__/isolationAnimator.test.ts`)
+- `packages/schemas/src/inspect/selection.ts`, and a live `apps/editor/src/ui/inspect/ModelTree.ts`
+
+**Genuinely absent: `SpatialRelationshipResolver` and `InspectBridge`** — which is precisely the
+edge C27 §5 says `IsolationStateStore` derives from, so the isolation tiering that ships today is
+not the one this contract specifies. That, not the PropertyInspector deletion, is the real open
+work.
+
+**Re-measure rather than trusting this table** — every count above rots:
+
+```
+grep -rIl "ElementInstanceDashboard" --exclude-dir=node_modules --exclude-dir=.git .
+ls apps/editor/src/ui/property-inspector/*.ts | wc -l
+ls apps/editor/src/ui/inspect/dashboards
+```
+
+**AMENDMENT:** §9 Phases γ and δ are **SUSPENDED** until `ElementInstanceDashboard` exists and
+reaches parity on all three axes above; the *"(80 files)"* figure is **retracted** in both places
+it appears; §5's `(NEW)` markers are retracted for the five shipped artefacts and stand only for
+`SpatialRelationshipResolver` and `InspectBridge`. **Status remains DRAFT** — nothing here is
+ACTIVE, and per the README status ladder a DRAFT contract binds nothing, which is the only reason
+this deletion order has not yet been executed.
 
 ---
 
@@ -149,12 +211,12 @@ The Sheets tab ([C24](C24-SHEET-COMPOSITION-ENGINE.md)) reuses the model tree as
 
 ## §9 — Migration plan for existing PropertyInspector
 
-`apps/editor/src/ui/PropertyInspector.ts` + `apps/editor/src/ui/property-inspector/` (80 files) currently implement a flat property inspector with element-specific sections. Migration:
+`apps/editor/src/ui/PropertyInspector.ts` + `apps/editor/src/ui/property-inspector/` (~~80 files~~ — **RETRACTED: 13 + 1 = 14, measured `ls apps/editor/src/ui/property-inspector/*.ts | wc -l` → 13; see §0.0**) currently implement a flat property inspector with element-specific sections. Migration:
 
 1. **Phase α**: keep `PropertyInspector` working alongside new Inspect tab. New tab is opt-in (toggle).
 2. **Phase β**: integrate `plugins/ifc-inspector/` as the element-instance dashboard (per §6 row 7).
-3. **Phase γ**: deprecate `PropertyInspector` in favour of `ElementInstanceDashboard`. Move the per-element-type specialist sections (e.g. `WallLayerSection`, `SlabLayerSection`) into composable dashboard components.
-4. **Phase δ**: remove `apps/editor/src/ui/PropertyInspector.ts` once feature parity reached + user feedback positive.
+3. **Phase γ** — ⛔ **SUSPENDED per §0.0: the replacement has zero code occurrences.** deprecate `PropertyInspector` in favour of `ElementInstanceDashboard`. Move the per-element-type specialist sections (e.g. `WallLayerSection`, `SlabLayerSection`) into composable dashboard components.
+4. **Phase δ** — ⛔ **SUSPENDED per §0.0: do not delete a component live on three axes.** remove `apps/editor/src/ui/PropertyInspector.ts` once feature parity reached + user feedback positive.
 
 ---
 
