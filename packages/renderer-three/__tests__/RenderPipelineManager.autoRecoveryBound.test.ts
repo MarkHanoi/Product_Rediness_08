@@ -76,7 +76,7 @@ function dispatchGpuError(device: EventTarget, message: string): void {
  * stubbed so the test observes the DECISION (was recovery driven? how many times?)
  * rather than a GPU it does not have.
  */
-function makeRig(opts: { recoveryHeals?: boolean } = {}) {
+function makeRig() {
     const rpm = new RenderPipelineManager() as any;
     const device = makeDevice();
 
@@ -111,11 +111,6 @@ function makeRig(opts: { recoveryHeals?: boolean } = {}) {
 
     // Attach the real uncapturederror listener to our device.
     rpm._attachUncapturedGpuErrorListener();
-
-    if (opts.recoveryHeals === false) {
-        // A recovery that does NOT heal: the very next frame re-reports the fault.
-        // This is the case that must NOT spin.
-    }
 
     return {
         rpm,
