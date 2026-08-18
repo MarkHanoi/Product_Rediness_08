@@ -68,6 +68,15 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     private _candidateSketch: SlabSketch | null = null;
 
     /**
+     * §FIX-REGION-CLICK-SELF-SUFFICIENT (L-959) — the last region REFUSAL, shown on
+     * the overlay until the user moves somewhere that DOES resolve. Held rather than
+     * drawn once, because a toast can be missed and the cursor does not necessarily
+     * move after a click: without this the only surviving trace of the refusal is a
+     * console line the founder was never going to read mid-gesture.
+     */
+    private _refusalHint: string | null = null;
+
+    /**
      * §FEAT-SLAB-DRAW-MODES — the shared linear/ortho/curved path state machine.
      * Owns the boundary ONLY while the polyline family is active; the 2-point,
      * region, hollow and pick-walls modes keep their own (unchanged) gestures.
@@ -80,6 +89,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
+        this._refusalHint = null;
         this._author.reset();
         // §FIX-SLAB-FAMILY-MODE-SURFACE-INDEPENDENT (L-956) — PRINT BOTH AXES.
         // This line used to print `drawMode` alone, so the founder's console read
@@ -99,6 +109,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
+        this._refusalHint = null;
         this._author.reset();
         this._ctx        = null;
         console.log('[SlabPlanToolHandler] deactivated');
@@ -119,16 +130,53 @@ export class SlabPlanToolHandler implements PlanToolHandler {
 
         if (this._familyMode() === 'region') {
             this._candidateRegion = this._findRegionAtPoint(pt.worldX, pt.worldZ);
+            // Moving somewhere that DOES resolve retires the refusal — a stale
+            // "no region here" sitting over a region that is now highlighted would be
+            // the same misattribution the refusal exists to end.
+            if (this._candidateRegion) this._refusalHint = null;
         }
 
         this._drawPreview();
     }
 
     onClick(pt: WorldPoint): void {
-        // ── Region mode: single click commits the detected polygon ────────────
+        // ── Region mode: the CLICK resolves its own region ───────────────────
         if (this._familyMode() === 'region') {
-            if (this._candidateRegion && this._candidateRegion.length >= 3) {
-                this._slabPoints = this._candidateRegion.map(v => ({
+            // §FIX-REGION-CLICK-SELF-SUFFICIENT (L-959) — RE-TRACE AT THE CLICK POINT.
+            //
+            // This used to commit `this._candidateRegion`, which only `onMouseMove`
+            // ever set. That made the gesture depend on HOVER STATE SURVIVING UNTIL
+            // THE CLICK — and it does not. MEASURED: hover sets the candidate, one
+            // activate/deactivate cycle nulls it (`deactivate()` clears it by
+            // design), and the click then sees `null` and builds nothing.
+            //
+            // ⭐ THAT CYCLE IS L-956'S OWN CHURN, ONE LAYER UP.
+            // `ToolManager.deactivateAllInternal()` runs at the head of EVERY
+            // `activateTool` call, and the plan overlay deactivates + reactivates its
+            // handler on each one. L-956 moved the GESTURE into a surface-independent
+            // store so it survives that churn; `_candidateRegion` never got the same
+            // treatment. **Fixing the mode moved the victim, not the churn.** Any
+            // per-instance state a plan handler carries across a hover→click gesture
+            // is exposed to it; the mode was merely the first one anyone noticed.
+            //
+            // WHY RE-TRACE rather than persist the candidate or suppress the churn:
+            // a click already knows where it is, so the hover dependency was never
+            // earned. Re-tracing is immune to EVERY cause of a lost candidate, not
+            // just the one measured here, and it needs no new store and no change to
+            // `ToolManager`'s shared deactivation — whose blast radius is every tool.
+            // It also makes the ring and the sketch provably one trace AT THE CLICK
+            // POINT: before this, a cursor that moved between hover and click
+            // committed the region the user was no longer pointing at.
+            //
+            // COST: one extra trace per click. The hover path already traces on every
+            // mousemove, so a trace is demonstrably cheap enough to run at pointer
+            // rate; once more on click is nothing.
+            const region = this._findRegionAtPoint(pt.worldX, pt.worldZ);
+            this._candidateRegion = region;
+            this._cursorPt = pt;
+
+            if (region && region.length >= 3) {
+                this._slabPoints = region.map(v => ({
                     worldX: v.x,
                     worldZ: v.y,
                     screenX: 0,
@@ -136,7 +184,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
                 }));
                 this._commitSlab();
             } else {
-                console.log('[SlabPlanToolHandler] region click — no closed wall region detected at cursor');
+                this._refuseRegion(pt, region);
             }
             return;
         }
@@ -251,6 +299,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
+        this._refusalHint = null;
         this._author.reset();
         this._clearOverlay();
     }
@@ -365,8 +414,51 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
+        this._refusalHint = null;
         this._author.reset();
         this._clearOverlay();
+    }
+
+    /**
+     * §FIX-REGION-CLICK-SELF-SUFFICIENT (L-959) — A REFUSAL IS A CORRECT ANSWER.
+     *
+     * The founder clicked repeatedly on a region the tool had already traced and got
+     * **no slab, no error and no reason.** The old else-arm wrote one `console.log`
+     * and stopped, and that line said *"no closed wall region detected at cursor"* —
+     * which was not merely quiet, it was WRONG: a region HAD been detected on hover
+     * and then wiped. A diagnostic that misattributes the cause sends the reader to
+     * look for the wrong problem, which is worse than saying nothing.
+     *
+     * The rule this follows is `WallRake.ts`'s: a refusal is a correct answer, and it
+     * must carry the MEASUREMENT that produced it, never a bare "failed". So the two
+     * distinguishable ways a region click can fail get two different answers:
+     *
+     *   • NO loop encloses the point       — the walls here do not close.
+     *   • A loop closes but is DEGENERATE  — fewer than 3 distinct vertices.
+     *
+     * Surfaced on the shared `pryzm:toast` channel, which is precisely what
+     * `StairPathPlanToolHandler` was given for the identical defect ("No stair, no
+     * toast, no error — the tool just silently did nothing").
+     */
+    private _refuseRegion(pt: WorldPoint, region: V2[] | null): void {
+        const at = `(${pt.worldX.toFixed(2)}, ${pt.worldZ.toFixed(2)})`;
+        const wallCount = (window.wallStore?.getAll?.() ?? []).length; // TODO(TASK-08)
+
+        const message = region === null
+            ? `No enclosed region at this point. The walls around ${at} do not close a `
+              + `loop — ${wallCount} wall(s) on this level were searched. Check for gaps at `
+              + `wall junctions, or draw the boundary by hand with Polyline.`
+            : `The region at ${at} is degenerate — it closed with ${region.length} `
+              + `distinct point(s), and a slab needs 3. Check for duplicate or `
+              + `zero-length walls at that junction.`;
+
+        console.warn(`[SlabPlanToolHandler] §FIX-REGION-CLICK-SELF-SUFFICIENT region click REFUSED — ${message}`);
+        // F.events.15 — the shared toast channel the stair handlers already use.
+        window.runtime?.events?.emit('pryzm:toast', { message, severity: 'warning' });
+
+        // …and say it on the overlay too, where the user's eyes already are.
+        this._refusalHint = message;
+        this._drawPreview();
     }
 
     // ─── region detection (shared curve-aware tracer) ────────────────────────
@@ -599,9 +691,14 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         }
 
         // ── Hint text ─────────────────────────────────────────────────────────
-        const hint = hasRegion
-            ? 'Click to create slab from detected region'
-            : 'Move cursor inside a closed wall region';
+        // §FIX-REGION-CLICK-SELF-SUFFICIENT (L-959) — a refusal outranks the generic
+        // prompt. "Move cursor inside a closed wall region" told the founder to do
+        // the thing he had just done.
+        const hint = this._refusalHint
+            ? this._refusalHint
+            : hasRegion
+                ? 'Click to create slab from detected region'
+                : 'Move cursor inside a closed wall region';
         this._drawHint(ctx, hint, cssW, cssH);
 
         ctx.restore();
