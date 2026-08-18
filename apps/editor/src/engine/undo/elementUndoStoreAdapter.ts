@@ -212,6 +212,142 @@ export interface PatchApplicableAdapter {
   applyPatch(patches: readonly unknown[]): void;
 }
 
+// ── §EI-7b DEEP-PATCH (C84 §3, severity 2) ────────────────────────────────────
+// A PATCH DEEPER THAN THIS ADAPTER CAN APPLY MUST NEVER BE FLATTENED INTO A
+// TOP-LEVEL WRITE.
+//
+// THE DEFECT THIS CLOSES. The field arm below used to read `field = p.path[1]`
+// and write `store.update(id, { [field]: p.value })` for a patch of ANY depth,
+// under a comment calling it "best-effort". It was not an omission — it was a
+// corrupting write. Immer's inverse for an array append is ONE length patch
+// (`generateArrayPatches`: "one inverse patch for the length change"):
+//
+//     c.panels.push({…})            → inverse { op:'replace',
+//                                               path:[cwId,'panels','length'],
+//                                               value: <old length> }
+//
+// so `curtain-wall.addPanel` + Ctrl+Z executed `update(cwId, { panels: 3 })`
+// and THE PANELS ARRAY BECAME A NUMBER — live, reachable, non-refusing, and
+// shared by `SetCurtainWallPanelType` (`{panels:'glazed'}` from
+// `[…,'panels',idx,'kind']`), `AddCurtainGridLine` and `RemoveCurtainGridLine`.
+//
+// THE RULE (C84 §1, quoting `packages/geometry-wall/src/WallRake.ts:50-62`):
+// "A refusal is a correct answer; a silently-wrong wall is not." So the sub-path
+// is APPLIED where the legacy record can carry it, and REFUSED LOUDLY — record
+// untouched — where it cannot. Corrupting is strictly worse than refusing.
+//
+// WHY REFUSAL IS A REAL BRANCH AND NOT A FORMALITY: the legacy record is
+// bridge-mapped and is NOT the L1 record the patch was minted against (see
+// §OI-054 REDO-SHAPE-FIX above — bayWidth→gridXSpacing, and the legacy curtain
+// wall may hold no `panels` array at all). A sub-path with no anchor in the
+// legacy record cannot be applied to it, and inventing the anchor is exactly the
+// class of write this section exists to stop.
+
+/** What a top-level field must become after a patch — or why it cannot be known. */
+type FieldResolution =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly reason: string };
+
+/** Plain data we may path-copy. Class instances / exotic objects are REFUSED
+ *  rather than half-cloned — a partial clone of a live record is a corruption
+ *  with extra steps. */
+function _isPathCopyable(v: unknown): boolean {
+  if (Array.isArray(v)) return true;
+  if (typeof v !== 'object' || v === null) return false;
+  const proto = Object.getPrototypeOf(v) as unknown;
+  return proto === Object.prototype || proto === null;
+}
+
+function _shallowCopy(node: unknown): Record<string, unknown> | unknown[] {
+  return Array.isArray(node) ? node.slice() : { ...(node as Record<string, unknown>) };
+}
+
+/**
+ * Apply ONE RFC-6902 op at `segs` inside `node`, returning a path-copied clone
+ * (only the nodes along the path are copied; siblings keep their identity).
+ * Mirrors Immer's own `applyPatches` semantics for arrays — `add` splices in,
+ * `remove` splices out, and a `length` leaf truncates — so an inverse patch this
+ * adapter applies lands on the same value Immer's applicator would produce.
+ */
+function _applyAtPath(
+  node: unknown,
+  segs: ReadonlyArray<string | number>,
+  op: UndoPatchOp['op'],
+  value: unknown,
+): FieldResolution {
+  if (!_isPathCopyable(node)) {
+    return { ok: false, reason: `sub-path anchor is ${node === undefined ? 'absent' : `a ${typeof node}`}, not a plain object/array` };
+  }
+  const seg = segs[0];
+  if (seg == null) return { ok: false, reason: 'empty sub-path' };
+  const key = String(seg);
+  const copy = _shallowCopy(node);
+
+  // ── Descend ────────────────────────────────────────────────────────────────
+  if (segs.length > 1) {
+    if (Array.isArray(copy)) {
+      const i = Number(key);
+      if (!Number.isInteger(i) || i < 0 || i >= copy.length) {
+        return { ok: false, reason: `array index '${key}' is out of range (length ${copy.length})` };
+      }
+      const child = _applyAtPath(copy[i], segs.slice(1), op, value);
+      if (!child.ok) return child;
+      copy[i] = child.value;
+    } else {
+      const child = _applyAtPath((copy as Record<string, unknown>)[key], segs.slice(1), op, value);
+      if (!child.ok) return child;
+      (copy as Record<string, unknown>)[key] = child.value;
+    }
+    return { ok: true, value: copy };
+  }
+
+  // ── Leaf ───────────────────────────────────────────────────────────────────
+  if (Array.isArray(copy)) {
+    if (key === 'length') {
+      // THE CURTAIN-WALL CASE. Immer's inverse for an array that GREW.
+      if (op === 'remove') return { ok: false, reason: "cannot 'remove' an array length" };
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+        return { ok: false, reason: `array length must be a non-negative integer, got ${JSON.stringify(value) ?? String(value)}` };
+      }
+      copy.length = value;
+      return { ok: true, value: copy };
+    }
+    const i = Number(key);
+    if (!Number.isInteger(i) || i < 0) return { ok: false, reason: `'${key}' is not an array index` };
+    if (op === 'remove') {
+      if (i >= copy.length) return { ok: false, reason: `cannot remove index ${i} (length ${copy.length})` };
+      copy.splice(i, 1);
+    } else if (op === 'add') {
+      if (i > copy.length) return { ok: false, reason: `cannot insert at index ${i} (length ${copy.length})` };
+      copy.splice(i, 0, value);
+    } else {
+      if (i > copy.length) return { ok: false, reason: `cannot replace index ${i} (length ${copy.length})` };
+      copy[i] = value;
+    }
+    return { ok: true, value: copy };
+  }
+  if (op === 'remove') delete (copy as Record<string, unknown>)[key];
+  else (copy as Record<string, unknown>)[key] = value;
+  return { ok: true, value: copy };
+}
+
+/**
+ * Resolve the value the record's TOP-LEVEL field `path[1]` must hold after `p`.
+ * Depth 2 is the value itself; deeper is the sub-path applied inside the field's
+ * CURRENT value read from the legacy store — which is why a record that does not
+ * carry that field is a refusal rather than a write.
+ */
+function _resolveFieldValue(store: LegacyElementStoreLike, id: string, p: UndoPatchOp): FieldResolution {
+  const fieldName = String(p.path[1]);
+  if (p.path.length === 2) {
+    return { ok: true, value: p.op === 'remove' ? undefined : p.value };
+  }
+  const rec = _getValue(store, id) as Record<string, unknown> | null | undefined;
+  if (rec == null) return { ok: false, reason: `element '${id}' is not in this store` };
+  const r = _applyAtPath(rec[fieldName], p.path.slice(2), p.op, p.value);
+  return r.ok ? r : { ok: false, reason: `${fieldName}: ${r.reason}` };
+}
+
 function _getValue(store: LegacyElementStoreLike, id: string): unknown {
   const getter = typeof store.getById === 'function' ? store.getById
     : typeof store.get === 'function' ? store.get
@@ -288,17 +424,10 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
             // Field-level op: path = [id, field, …].
             const field = p.path[1];
             if (field == null) continue;
-            // §HOSTED-OPENING-UNDO (OI-054 (b)) — reverting a host wall's `openings`
-            // array is a TWO-PART operation (close the hole + remove the hosted
-            // door/window mesh). The generic update() below is the wrong API for it
-            // (WallStore warns + the door stays). Route to the hosted-aware reconciler.
-            if (String(field) === 'openings' && _isWallOpeningStore(store)) {
-              _reconcileWallOpenings(store, id, Array.isArray(p.value) ? (p.value as OpeningLike[]) : []);
-              continue;
-            }
-            // `childrenIds` on a host wall is managed by removeOpening/addOpening above
+            const fieldName = String(field);
+            // `childrenIds` on a host wall is managed by removeOpening/addOpening
             // — skip the generic update so it doesn't clobber what the reconciler set.
-            if (String(field) === 'childrenIds' && _isWallOpeningStore(store)) continue;
+            if (fieldName === 'childrenIds' && _isWallOpeningStore(store)) continue;
             // §L-946 — REVERTING A STOREY MOVE.
             //
             // `levelId` is the one field the generic `store.update()` below cannot
@@ -318,7 +447,7 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
             // exclusive-containment, so re-registering IS the move, and the VDT
             // element→level map must follow or every later event on this element
             // dirties the storey it no longer sits on.
-            if (String(field) === 'levelId' && typeof store.changeLevel === 'function') {
+            if (fieldName === 'levelId' && p.path.length === 2 && typeof store.changeLevel === 'function') {
               const target = typeof p.value === 'string' ? p.value.trim() : '';
               // An empty target is refused rather than defaulted — `'' → 'L0'` is
               // the §DIAG-WALL-LEVEL trap that files elements on the ground floor.
@@ -331,11 +460,50 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
               try { _vdt()?.registerElement?.(id, target); } catch (err) { console.warn('[elementUndoStoreAdapter] §L-946 vdt.registerElement failed:', err); }
               continue;
             }
-            // Best-effort single-field update (deep sub-paths collapse to the top
-            // field — sufficient for create/undo; deep field undo is the ADR-051
-            // single-store-unification follow-up).
+            // §EI-7b — resolve what this field must BECOME. Depth 2 is the patch
+            // value; deeper is the sub-path applied inside the field's current
+            // value. A sub-path the legacy record cannot carry REFUSES here and
+            // the record is left exactly as it was (C84 §3 EI-7b).
+            const resolved = _resolveFieldValue(store, id, p);
+            if (!resolved.ok) {
+              console.error(
+                `[elementUndoStoreAdapter] §EI-7b REFUSED — cannot apply a depth-${p.path.length} ` +
+                `'${p.op}' patch at [${p.path.join('/')}]: ${resolved.reason}. ` +
+                'The record was NOT modified (C84 §3 EI-7b — a refusal is a correct answer; ' +
+                'a silently-wrong record is not).',
+              );
+              continue;
+            }
+
+            // §HOSTED-OPENING-UNDO (OI-054 (b)) — reverting a host wall's `openings`
+            // is a TWO-PART operation (close the hole + remove the hosted door/window
+            // mesh). The generic update() below is the wrong API for it (WallStore
+            // warns + the door stays). Route the RESOLVED array to the hosted-aware
+            // reconciler.
+            //
+            // §EI-7b TRAPDOOR: this used to read `Array.isArray(p.value) ? … : []`
+            // on the RAW patch value at any depth, so a deep `openings` patch
+            // (`[wallId,'openings','length']`, `[wallId,'openings',0,'width']`) — whose
+            // value is a number, never an array — reconciled the wall to ZERO
+            // openings and STRIPPED EVERY DOOR AND WINDOW FROM IT. `resolved.value`
+            // is the full post-patch array, so the deep cases now reconcile
+            // correctly; a value that is still not an array is REFUSED, never
+            // read as "remove them all".
+            if (fieldName === 'openings' && _isWallOpeningStore(store)) {
+              if (!Array.isArray(resolved.value)) {
+                console.error(
+                  `[elementUndoStoreAdapter] §EI-7b REFUSED — 'openings' patch at [${p.path.join('/')}] ` +
+                  `resolved to a ${typeof resolved.value}, not an array. Every opening on wall '${id}' ` +
+                  'was left in place (an empty target would have stripped them all).',
+                );
+                continue;
+              }
+              _reconcileWallOpenings(store, id, resolved.value as OpeningLike[]);
+              continue;
+            }
+
             if (!exists || typeof store.update !== 'function') continue;
-            store.update(id, { [String(field)]: p.value });
+            store.update(id, { [fieldName]: resolved.value });
           }
         } catch (err) {
           console.error('[elementUndoStoreAdapter] op failed (skipped):', p, err);

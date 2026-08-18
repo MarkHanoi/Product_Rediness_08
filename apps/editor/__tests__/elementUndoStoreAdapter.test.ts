@@ -158,3 +158,172 @@ describe('elementUndoStoreAdapter', () => {
     expect(s.map.has(EL.id)).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §EI-7b (C84 §3) — A PATCH DEEPER THAN THE ADAPTER CAN APPLY MUST NEVER BE
+// FLATTENED INTO A TOP-LEVEL WRITE.
+//
+// THE DEFECT THESE PIN. The field-level arm took `field = p.path[1]` and wrote
+// `store.update(id, { [field]: p.value })` for a patch of ANY depth. Immer's
+// inverse for an array append is `{op:'replace', path:[id,'panels','length'],
+// value: oldLen}` (`generateArrayPatches` — "one inverse patch for the length
+// change"), so `curtain-wall.addPanel` + Ctrl+Z executed
+// `curtainWallStore.update(cwId, { panels: 3 })` and THE PANELS ARRAY BECAME A
+// NUMBER. Live, reachable, non-refusing — `plugins/curtain-wall`
+// `AddPanel.ts:97` (`c.panels.push`), `SetCurtainWallPanelType.ts:73,83-85`,
+// `AddCurtainGridLine.ts:90`, `RemoveCurtainGridLine.ts:98`.
+//
+// The second trapdoor: the `openings` arm coerced ANY non-array patch value to
+// `[]` before handing it to the hosted reconciler, so a deep `openings` patch
+// (`[wallId,'openings','length']`, `[wallId,'openings',0,'width']`) reconciled
+// the wall to ZERO openings — stripping every door and window from it.
+//
+// C84's governing sentence, from `packages/geometry-wall/src/WallRake.ts:50-62`:
+// "A refusal is a correct answer; a silently-wrong wall is not." Corrupting is
+// strictly worse than refusing — so the fix APPLIES the sub-path where it can,
+// and REFUSES LOUDLY (record untouched) where it cannot.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A curtain wall as the legacy store holds it — `panels` is an ARRAY. */
+function seedCurtainWall() {
+  return {
+    id: 'curtainwall_EI7B',
+    type: 'curtain-wall',
+    levelId: 'L0',
+    panels: [
+      { id: 'panel_a', row: 0, col: 0, kind: 'glazed', rotation: 0 },
+      { id: 'panel_b', row: 0, col: 1, kind: 'spandrel', rotation: 0 },
+      { id: 'panel_c', row: 1, col: 0, kind: 'glazed', rotation: 0 },
+    ],
+  };
+}
+
+describe('§EI-7b — deep patches must not be flattened into a top-level write', () => {
+  it('curtain-wall addPanel undo: {path:[id,"panels","length"], value:2} keeps panels an ARRAY', () => {
+    const s = makeStandardStore();
+    s.add(seedCurtainWall());
+    // The EXACT inverse Immer mints for `c.panels.push(...)` on a 2-panel wall.
+    elementUndoStoreAdapter(s).applyPatch([
+      { op: 'replace', path: ['curtainwall_EI7B', 'panels', 'length'], value: 2 },
+    ]);
+    const cw = s.map.get('curtainwall_EI7B');
+    // THE ASSERTION THE DEFECT FAILS: pre-fix `panels` is the NUMBER 2.
+    expect(Array.isArray(cw.panels)).toBe(true);
+    // …and the append is actually reverted: the third panel is gone, the first
+    // two survive untouched.
+    expect(cw.panels).toHaveLength(2);
+    expect(cw.panels.map((p: any) => p.id)).toEqual(['panel_a', 'panel_b']);
+  });
+
+  it('setPanelType undo: {path:[id,"panels",1,"kind"], value:"glazed"} edits the PANEL, not the array', () => {
+    const s = makeStandardStore();
+    s.add(seedCurtainWall());
+    elementUndoStoreAdapter(s).applyPatch([
+      { op: 'replace', path: ['curtainwall_EI7B', 'panels', 1, 'kind'], value: 'glazed' },
+    ]);
+    const cw = s.map.get('curtainwall_EI7B');
+    // Pre-fix this wrote `{ panels: 'glazed' }` — the array became a STRING.
+    expect(Array.isArray(cw.panels)).toBe(true);
+    expect(cw.panels).toHaveLength(3);
+    expect(cw.panels[1].kind).toBe('glazed');
+    expect(cw.panels[0]).toEqual(seedCurtainWall().panels[0]);   // neighbours untouched
+    expect(cw.panels[2]).toEqual(seedCurtainWall().panels[2]);
+  });
+
+  it('addGridLine undo: a nested object sub-path is applied in place', () => {
+    const s = makeStandardStore();
+    s.add({ id: 'cw2', type: 'curtain-wall', levelId: 'L0', gridSystem: { uLines: [{ id: 'u0', t: 0 }], vLines: [] } });
+    elementUndoStoreAdapter(s).applyPatch([
+      { op: 'replace', path: ['cw2', 'gridSystem', 'uLines'], value: [{ id: 'u0', t: 0 }, { id: 'u1', t: 0.5 }] },
+    ]);
+    const cw = s.map.get('cw2');
+    expect(cw.gridSystem.uLines).toHaveLength(2);
+    expect(cw.gridSystem.vLines).toEqual([]);   // sibling preserved, not clobbered
+  });
+
+  it('REFUSES (leaves the record untouched) when the sub-path has no anchor in the legacy record', () => {
+    // The legacy curtain-wall record is bridge-mapped (gridXSpacing…) and may hold
+    // NO `panels` array at all — §OI-054 REDO-SHAPE-FIX. A deep patch into a field
+    // the record does not have cannot be applied; inventing one is the corruption.
+    const s = makeStandardStore();
+    const legacy = { id: 'cw3', type: 'curtain-wall', levelId: 'L0', gridXSpacing: 1.2 };
+    s.add({ ...legacy });
+    elementUndoStoreAdapter(s).applyPatch([
+      { op: 'replace', path: ['cw3', 'panels', 'length'], value: 2 },
+    ]);
+    expect(s.map.get('cw3')).toEqual(legacy);   // byte-identical — nothing invented
+    expect(s.map.get('cw3').panels).toBeUndefined();
+  });
+
+  it('never lets a deep patch write a non-container over a container (the whole class)', () => {
+    for (const value of [3, 'glazed', null, true]) {
+      const s = makeStandardStore();
+      s.add(seedCurtainWall());
+      elementUndoStoreAdapter(s).applyPatch([
+        { op: 'replace', path: ['curtainwall_EI7B', 'panels', 'length'], value },
+      ]);
+      expect(Array.isArray(s.map.get('curtainwall_EI7B').panels), `value=${String(value)}`).toBe(true);
+    }
+  });
+});
+
+describe('§EI-7b — the `openings` trapdoor: a non-array value must never strip every opening', () => {
+  /** Host-wall store with the hosted-opening mutators the reconciler drives. */
+  function makeWallOpeningStore(wall: any) {
+    return {
+      wall,
+      getById: (id: string) => (id === wall.id ? wall : undefined),
+      update: () => { throw new Error('generic update() must NOT be used for openings'); },
+      removeOpening: (_w: string, oid: string) => { wall.openings = wall.openings.filter((o: any) => o.id !== oid); },
+      addOpening: (_w: string, o: any) => { wall.openings = [...wall.openings, o]; },
+    };
+  }
+
+  it('{path:[wallId,"openings","length"], value:1} truncates to ONE opening — it does not strip both', () => {
+    const wall: any = {
+      id: 'W_EI7B',
+      openings: [{ id: 'o1', elementId: 'd1', type: 'door' }, { id: 'o2', elementId: 'w1', type: 'window' }],
+    };
+    const store = makeWallOpeningStore(wall);
+    // Immer's inverse for "a second opening was pushed onto a 1-opening wall".
+    elementUndoStoreAdapter(store as any).applyPatch([
+      { op: 'replace', path: ['W_EI7B', 'openings', 'length'], value: 1 },
+    ]);
+    // Pre-fix: `Array.isArray(1)` is false → target `[]` → BOTH openings removed.
+    expect(wall.openings.map((o: any) => o.id)).toEqual(['o1']);
+  });
+
+  it('{path:[wallId,"openings",0,"width"], value:0.9} keeps both openings', () => {
+    const wall: any = {
+      id: 'W_EI7B',
+      openings: [{ id: 'o1', elementId: 'd1', type: 'door', width: 1.2 }, { id: 'o2', elementId: 'w1', type: 'window' }],
+    };
+    const store = makeWallOpeningStore(wall);
+    elementUndoStoreAdapter(store as any).applyPatch([
+      { op: 'replace', path: ['W_EI7B', 'openings', 0, 'width'], value: 0.9 },
+    ]);
+    // Pre-fix: `Array.isArray(0.9)` is false → target `[]` → the wall lost its
+    // door AND its window because a door got 30 cm narrower.
+    expect(wall.openings.map((o: any) => o.id)).toEqual(['o1', 'o2']);
+  });
+
+  it('a depth-2 `openings` replace carrying a NON-array value is REFUSED, not read as []', () => {
+    const wall: any = { id: 'W_EI7B', openings: [{ id: 'o1', elementId: 'd1', type: 'door' }] };
+    const store = makeWallOpeningStore(wall);
+    elementUndoStoreAdapter(store as any).applyPatch([
+      { op: 'replace', path: ['W_EI7B', 'openings'], value: 7 as unknown },
+    ]);
+    expect(wall.openings.map((o: any) => o.id)).toEqual(['o1']);   // untouched
+  });
+
+  it('POSITIVE CONTROL — a well-formed depth-2 `openings` array still reconciles to empty', () => {
+    // Proves the arms above measure the DEPTH/SHAPE guard and not a blanket
+    // "openings are never removed" — the legitimate undo still closes the hole.
+    const wall: any = { id: 'W_EI7B', openings: [{ id: 'o1', type: 'door' }] };
+    const store = makeWallOpeningStore(wall);
+    elementUndoStoreAdapter(store as any).applyPatch([
+      { op: 'replace', path: ['W_EI7B', 'openings'], value: [] },
+    ]);
+    expect(wall.openings).toEqual([]);
+  });
+});
