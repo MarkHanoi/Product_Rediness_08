@@ -6942,3 +6942,58 @@ parcel boundary contributes 31 curved free edges. Whether `_commitSlab` or the s
 region whose free edges are curved is unestablished. **Prove the candidate is null at click time
 before assuming the churn is the whole story** — if it is non-null and the commit still refuses, the
 cause is downstream and this entry is wrong about the mechanism.
+
+---
+
+## L-960 — the chat sets a wall's interior finish, reports success, and NOTHING RENDERS
+
+**Founder-reported on the live deploy, 2026-08-18.** Typed *"make all inner finishes walls on the
+ground floor to wood"*; the assistant replied **"Set the interior finish of all 10 walls on Ground
+to Insulation · Wood Fibre Board. Done — undo with Ctrl+Z."** No wall changed.
+
+Severity: **HIGH.** This is the L-951 family — **a canned success over a no-op** — and it is worse
+here because the write genuinely happens. The command stores `sideFinishes`; the renderer never
+shows it. The user is told the model changed, and it did; they are implicitly told the *drawing*
+changed, and it did not.
+
+### DEFECT 1 — the override is applied ONLY inside the LAYERED band loop
+
+`resolveLayerRenderFinishColor` is imported by the builder (`WallFragmentBuilder.ts:14`) and called
+at `:1703` and `:2087` — **both inside the per-layer band loop**, keyed on
+`wall.layers!.length`. `§FEAT-WALL-SIDE-FINISH`'s own commit says it *"honours the override on all
+three **LAYERED** arms."*
+
+**The founder's wall is a "Plain Wall" with ONE layer** (screenshot: `Layer 1 · Structure · 100 mm`).
+A single-layer wall does not take a layered arm at all — and worse, `isSimpleWall`
+(`WallFragmentBuilder.ts:1147-1154`) routes a plain, unjoined, opening-free wall with
+`_layerCount <= 1` to the **GPU-INSTANCED** path, which has no per-layer band and no override hook.
+
+⭐ **This is the same shape [L-955](#l-955) just closed for rake**, and it is now the *third*
+instance: a property is authored, stored, and honoured on one render arm while a *different* arm
+draws the wall the user actually has. J1 measured that the instanced arm silently dropped the rake;
+this is the same arm silently dropping the finish. **A per-wall visual property MUST be honoured on
+EVERY arm that can draw that wall, or the arm must refuse to draw it.**
+
+### DEFECT 2 — "wood" resolved to *Insulation · Wood Fibre Board*
+
+An insulation product, not a wood finish, offered to a user asking for a visible interior surface.
+The catalogue contains `wood-oak`, `timber-veneer-oak`, `timber-glulam` and more. Whatever ranks a
+bare `"wood"` is matching on substring rather than on **category + visible-surface suitability**.
+⚠ Fixing this ALONE would be the worst outcome: the finish would then resolve correctly and *still*
+not render, so the false success would survive with better wording.
+
+### What must be true before this is called fixed
+
+1. The founder's exact sentence changes his **1-layer Plain Wall** in the viewport.
+2. A wall the renderer cannot honour is **REFUSED, by name, before the success line is written** —
+   see `packages/geometry-wall/src/WallRake.ts:50-62`. The chat must never announce a finish the
+   drawing does not carry.
+3. `"wood"` resolves to a wood SURFACE.
+4. ⛔ Prove it at the layer that DECIDES the wall's colour, not at the store. The write already
+   works — that is precisely why the reply says "Done".
+
+**Related, and the same underlying gap:** the property panel has **no material row for a wall at
+all**. The layer table exposes Name / Function / MM only, and `Color Override` is a hex tint, not a
+material — while `WallLayer.materialId` (`WallTypes.ts:120`) and `wall.materialId` (`:323`) both
+exist in the model. The founder has asked for per-layer, per-side material control from the panel as
+well as from chat. Same `materialId → master catalogue` resolution path; same proof obligation.
