@@ -71,10 +71,6 @@ import {
     rakeLateralShift,
     rakeShearPerMetre,
     rakeTopOffset,
-    // §L955-ONE-CORNER-RULE — the §WALL-RAKE-JOINT-STALE-CACHE comparison, now that the
-    // layered and opening-host paths consume the twin-solve loft too. Normalising through
-    // the canonical resolver is what makes "absent" and "90" the same rake, once.
-    resolveRakeDeg,
 } from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
@@ -1524,11 +1520,7 @@ export class WallFragmentBuilder {
                     // rakes the cache was REFRESHED with, so replaying them after the store
                     // moved THIS wall's rake would render the previous angle's joint. On a
                     // mismatch, uniform shear at the CURRENT angle.
-                    const _layCacheRake = _layCache.rakeUsedFor(wall.id);
-                    const _layRakeFresh =
-                        _layCacheRake !== null
-                        && Math.abs(_layCacheRake - resolveRakeDeg(_layRake)) <= 1e-9;
-                    const _bandOffsets = _layRakeFresh
+                    const _bandOffsets = _layCache.rakeIsFreshFor(wall.id, _layRake)
                         ? _layCache.rakedLayerBandTopOffsets(
                             wall.id, _fp, _layThicknesses, _layRake, wallHeight,
                         )
@@ -2280,10 +2272,7 @@ export class WallFragmentBuilder {
             // previous angle's joint.
             const _ownShearK = rakeShearPerMetre(wall.rakeAngleDeg);
             const _capCache = this.getEffectiveV2Cache();
-            const _capCacheRake = _capCache?.rakeUsedFor(wall.id) ?? null;
-            const _capRakeFresh =
-                _capCacheRake !== null
-                && Math.abs(_capCacheRake - resolveRakeDeg(wall.rakeAngleDeg)) <= 1e-9;
+            const _capRakeFresh = _capCache?.rakeIsFreshFor(wall.id, wall.rakeAngleDeg) ?? false;
             const _capDriftTotal = (isWallPipelineV2Enabled() && !wall.curve && _capRakeFresh)
                 ? (_capCache?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
                 : null;

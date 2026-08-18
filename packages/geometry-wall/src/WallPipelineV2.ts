@@ -57,6 +57,12 @@ const RAKE_JOINT_PROBE_H = 2e-5;
 const RAKE_JOINT_MAX_DRIFT_PER_M =
     (2 * Math.abs(1 / Math.tan((RAKE_MIN_DEG * Math.PI) / 180))) / 0.05;
 
+/** §WALL-RAKE-JOINT-STALE-CACHE — the float-noise floor for "this DEGREE field has not
+ *  moved". Deliberately not a `@pryzm/geometry-kernel` role: those are metre- and
+ *  radian-valued model-space questions (C73 §2.4) and this one is neither. See
+ *  {@link WallPipelineV2Cache.rakeIsFreshFor}, its only consumer. */
+const RAKE_DEG_IDENTITY = 1e-9;
+
 /** Shoelace signed area — the orientation test both loft consumers apply. */
 function signedArea(pts: ReadonlyArray<Pt2>): number {
     let a2 = 0;
@@ -414,6 +420,29 @@ export class WallPipelineV2Cache {
     }
 
     /**
+     * §WALL-RAKE-JOINT-STALE-CACHE — TRUE when this cache's solves were run at the rake
+     * the caller is about to build with, so its twin-solve loft may be consumed.
+     *
+     * §L955-ONE-CORNER-RULE folded three spellings of this comparison into one. The test
+     * is a normalised-DEGREE identity, not a model-space tolerance: `resolveRakeDeg` maps
+     * absent/null/non-finite to 90 first, so the only difference it can see is a real
+     * authored change. That is why the band is a bare float-noise floor and not a
+     * `@pryzm/geometry-kernel` role — those are metres and radians (C73 §2.4), and this
+     * asks "did the stored degree field move at all". Keeping it on the cache also means
+     * a caller cannot forget it: `buildWallV2Geometry`, the layered band arm and the
+     * opening-host cap drift all ask the same question of the same object.
+     *
+     * FALSE when the wall was not part of the last `refresh()` — absent evidence is not a
+     * pass. Callers read FALSE as "use the ADR-0310 uniform shear at the CURRENT angle",
+     * never as "no rake".
+     */
+    rakeIsFreshFor(wallId: string, rakeAngleDeg: number | null | undefined): boolean {
+        const used = this._rakeUsed.get(wallId);
+        if (used === undefined) return false;
+        return Math.abs(used - resolveRakeDeg(rakeAngleDeg)) <= RAKE_DEG_IDENTITY;
+    }
+
+    /**
      * §WALL-RAKE-JOINT — the PER-VERTEX top-polygon offsets for one wall, or null
      * when the uniform ADR-0310 shear should be used instead.
      *
@@ -710,9 +739,10 @@ export function buildWallV2Geometry(
     // per-wall rebuild path). On a mismatch: uniform shear at the CURRENT angle —
     // the wall's own lean is always honoured, and the joint refinement lands when the
     // coordinator's flush re-refreshes the cache in the same mutation cycle.
-    const _cacheRake = cache.rakeUsedFor(wall.id);
-    const _cacheRakeFresh =
-        _cacheRake !== null && Math.abs(_cacheRake - resolveRakeDeg(wall.rakeAngleDeg)) <= 1e-9;
+    // §L955-ONE-CORNER-RULE — this comparison used to be spelled here; it now lives on the
+    // cache as `rakeIsFreshFor`, so the three consumers of the loft cannot disagree about
+    // when it is safe to consume. Behaviour is unchanged.
+    const _cacheRakeFresh = cache.rakeIsFreshFor(wall.id, wall.rakeAngleDeg);
     const topOffsets = opts.topOffset !== undefined || opts.topOffsets !== undefined
         ? opts.topOffsets ?? null
         : _cacheRakeFresh
