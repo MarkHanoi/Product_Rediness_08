@@ -1,253 +1,303 @@
-# ADR-0332 — The handrail is a wall with a different infill
+# ADR-0332 — Handrail: the deep audit, and what may be built on it
 
-- **Status:** ACCEPTED
+- **Status:** PHASE-A AUDIT ACCEPTED · PHASE-B PLAN PROPOSED · **NOTHING IMPLEMENTED**
 - **Date:** 2026-08-18
 - **Lane:** Z9 · §HANDRAIL-WALL-PARITY
-- **Supersedes:** nothing. **Amended by:** nothing.
-- **Contracts consulted:** C03 (schemas/commands/state), C11 (element creation pipeline),
-  C16 (command authoring), C65 §3.9 (no affordance without an implementation),
-  C67 (RAC capability control plane), C68 (element & attribute chat onboarding),
-  C73 (geometry determinism & tolerance), C83 §10 (spatial validity).
+- **Contracts consulted:** C03, C11, C15, C16, C65 §3.9, C67, C68, C73, C83 §10.
+- **Related:** LANE Z8 (rival-store census, repo-wide) · ADR-0105 (one command per geometry
+  store) · ADR-0076 Axis 3 (element instancing) · L-946 / L-947 (dispatch succeeds, renderer
+  never hears).
 
 ---
 
-## 1 — Context: the founder's ask
+## 0 — Why this ADR is an audit and not a design
 
-> *"The handrail element is really basic — but it should work exactly like the WALL element:
-> its structure, characteristics, physiology… ORTHO, LINEAR, CURVED, BY SLAB… RAKED on demand
-> and CURVED on demand… fully parametric… create new types, save them."*
+The founder asked for handrail/wall parity: ORTHO/LINEAR/CURVED/BY-SLAB creation modes, raked
+and curved on demand, full parametric control, user-authored types. A first pass produced a
+source-declaration census and a plan. The founder then directed:
 
-Taken literally, "exactly like the wall" is an **architectural** instruction, not a cosmetic
-one. A handrail and a wall are the same object under the skin: a **base line** (straight or
-arced), a **height**, a **rake**, a **cross-section**, and a **type** that materialises a named
-set of those values into the record. The wall differs only in that its infill is solid and the
-handrail's is balusters, glass, or a panel.
+> *"This needs to be AUDITED — properly, DEEPLY. No quick assumptions… so we don't create new
+> issues or bugs."*
 
-The ask therefore resolves to: *reuse the wall's constructions, do not fork them.*
+That was correct, and the audit overturned **two conclusions this document previously stated as
+fact**. Both are recorded below rather than quietly edited, because the way they were wrong is
+the useful part.
 
-## 2 — The measured starting state (this is the load-bearing part)
+> ⚠ **RETRACTED #1.** This ADR previously said the plugin pipeline had *"NO production call site
+> found"*. **False.** `RailingPlanToolHandler.ts:92` dispatches bus `handrail.create` — it is the
+> live 2-D plan railing tool. The pipeline is registered **twice**
+> (`PluginRegistry.ts:317-322`, `engineLauncher.ts:578`) and is on the critical path for every
+> railing drawn in plan. A grep for *callers of the store* found nothing; the store is written
+> through a **bus verb**, so the grep asked the wrong question.
+>
+> ⚠ **RETRACTED #2.** This ADR previously implied "rake" for a handrail meant the wall's
+> `rakeAngleDeg` (leaning off-vertical). **That is probably not what the founder means** — see
+> §5, which is now an open question rather than a design.
 
-Before designing anything this lane measured what already exists. The result changed the plan
-twice, and is recorded here because the numbers are the justification.
+---
 
-### 2.1 — There are TWO rival handrail models, and only one is live
+## 1 — PHASE A · Which store does each consumer read?
 
-| | Pipeline A — **LIVE** | Pipeline B — dormant |
+The question that outranks every feature. Z8 found that for **walls** the answer differs per
+consumer (kernel producers live for bake/export, legacy live for the viewport). **For handrails
+it does not.**
+
+| Consumer | Store read | Evidence |
 |---|---|---|
-| Type | `HandrailData` — `packages/core-app-model/src/stores/HandrailTypes.ts` | `Handrail` zod — `packages/schemas/src/elements/Handrail.ts` |
-| Shape | `baseLine` (2 pts) · `thickness` · `fillType` · `baluster*` · `railStructure` | `path` (polyline) · `shape` · `diameter` |
-| Builder | `packages/geometry-stair/src/HandrailFragmentBuilder.ts` | `packages/geometry-kernel/src/producers/handrail.ts` |
-| Store | `core-app-model/HandrailStore` | `plugins/handrail/src/store.ts` |
-| Commands | `command-registry/src/handrails/*` (`CommandType.CREATE_HANDRAIL`) | bus verbs `handrail.create` / `setPath` / `setShape` |
-| Reached by the editor? | **YES** — `initBuilders.ts:876`, `initTools.ts`, `HandrailModePicker` | **NO** production call site found |
+| (a) 3-D viewport | **LEGACY** | `initBuilders.ts:105,872,876,897-899` → `HandrailFragmentBuilder.ts:9,136` |
+| (b) Plan view (2-D) | **LEGACY** | projects THREE groups by `userData.elementType` (`EdgeProjectorService.ts:1954,2452`), stamped at `HandrailFragmentBuilder.ts:172-186`. Direct read: `MovePlanToolHandler.ts:352-353` — *"the GEOMETRY stores … NOT the detached plugin DTO stores"* |
+| (c) Persistence | **LEGACY** | `ProjectSerializer.ts:45,713`; `ProjectLoader.ts:81,743-754` → `CreateHandrailCommand.ts:104` |
+| (d) IFC export | **LEGACY** | `HandrailReader.ts:1,7,24-25`; `FragmentReader.ts:117`; `ExportIFC.ts:50` |
+| (d) GLB export | neither → **LEGACY transitively** | `GLBExporter.ts` has zero handrail refs; exports by `userData.elementType` stamped by the legacy builder |
+| (e) Bake worker | **NEITHER — handrail is absent** | `apps/bake-worker` has zero matches for `andrail`; `HeadlessBakeSession.ts:23` imports `produceWall` only |
+| (f) Schedules | **LEGACY** | `ScheduleExtractor.ts:475,477` |
 
-The bus verbs named in the brief (`handrail.setPath`, `handrail.setShape`) belong to **Pipeline
-B** and operate on a DTO the live builder never sees. `HandrailTool.ts:158` fires
-`bus.executeCommand('handrail.create', {})` with an **empty payload** as fire-and-forget
-telemetry, then does the real work through `commandManager.execute(new CreateHandrailCommand(…))`.
+**✅ No two consumers disagree.** Unlike walls, the handrail has no per-consumer divergence. That
+is the single most reassuring fact in this audit and it is why a carefully-scoped feature is
+safe here.
 
-**DECISION: build on Pipeline A.** It is the one the user's screen is drawn from. Pipeline B is
-left untouched — it is not deleted here because deleting it is a separate, larger decision with
-its own parity-test surface (`tests/parity/handrail/`), and this lane will not mint a
-half-removal.
+### 1.1 — The plugin store has ZERO production readers
 
-### 2.2 — The reachability audit (the deliverable table)
+`produceHandrail` (`geometry-kernel/src/producers/handrail.ts:82`) is called only by
+`plugins/handrail/src/committer/handrail-committer.ts:54,72,86`, a bench, and tests.
+**`HandrailCommitter` is never instantiated** — `grep "new HandrailCommitter"` across
+`apps packages plugins src` → **zero hits**; `bootstrap.render.everything.ts:135-158` registers
+only Wall/Slab/Door/Window committers.
 
-For every field the brief listed, measured three ways: does the **builder** read it, can the
-**user** set it, does **chat** reach it.
+So the plugin store is a **write-only sink**. It is load-bearing for exactly one thing: being
+the object `handrail.create` passes through before the bridge converts it.
 
-"User can set" means through the **property panel or the creation tool** — the surfaces the
-founder means by "the UI". "Chat reaches" was measured against `ChatCapabilityRegistry` and
-traced through to the store write, not merely to a declared capability.
+---
 
-| `HandrailData` field | Builder reads? | User can set? | Chat reaches? |
+## 2 — PHASE A · The bridge, and four silent defects (RUNTIME-MEASURED)
+
+`initTools.ts:1909-1955` mirrors bus→legacy, create-only, one-way. It is 30 lines and it loses
+data four ways. **Each is proved by a passing probe**, committed at
+`packages/geometry-stair/src/__tests__/HandrailBridgeDivergenceProbe.spec.ts` — 5/5 GREEN.
+Every `expect` there asserts CURRENT behaviour, including behaviour that is wrong.
+
+| # | Defect | Mechanism | Probe |
 |---|---|---|---|
-| `baseLine` | **YES** `HandrailFragmentBuilder.ts:136` | YES — 2-click tool; `handrail.moveBaseLine` | **NO** — class `B_GEOMETRY_EDIT`, blocked on sub-entity reference resolution |
-| `height` | **YES** `:222,229,237,246,252,301` | YES — panel + type | **NO** — handrail absent from `DimensionFamilies` |
-| `thickness` | **PARTIAL** `:226` — *only* the `rectangular` rail branch; ignored when `railProfile==='round'` | YES — panel + type | **NO** — same |
-| `baseOffset` | **YES** `:145` | YES — panel + type | **YES** — `set-base-offset` |
-| `materialColor` | **YES** `:220,227,255` | YES — panel + type | **NO** — `handrail.updateColor` refuses: *"not connected to chat yet"* |
-| `materialId` | **NO** — no material-library lookup exists | YES (writes a field nothing reads) | NO — `handrail.setMaterial` recorded DEAD |
-| `fillType` | **PARTIAL** `:235` glass, `:249` baluster. **`'panel'` and `'open'` build NOTHING** | YES — type swap only | NO |
-| `railProfile` | **YES** `:213` | YES — type swap only | NO |
-| `railDiameter` | **YES** `:217` (round only) | YES — type swap only | NO |
-| `postSpacing` | **YES** `:338` | YES — type swap only | NO |
-| `balusterSpacing` | **YES** `:250` | **NO** — absent from `HandrailTypeDefinition` *and* `UpdateHandrailPayload` *and* the panel descriptor | **YES** — `set-baluster-spacing` → `element.updateParameters` → generic merge (`UpdateElementParameterCommand.ts:515`) → `bim-handrail-updated` |
-| `balusterShape` | **YES** `:253` | **NO** — same | NO |
-| `balusterWidth` | **YES** `:254` | **NO** — same | **YES** — `set-baluster-width`, same route |
-| `railStructure` | **NO** — zero reads repo-wide; declaration only | NO | NO |
-| `curve` | **ABSENT from the model** | NO | NO |
-| `rakeAngleDeg` | **ABSENT from the model** | NO | NO |
+| 1 | **N-point paths silently truncated** | `:1927-1928` takes `path[0]` and `path[length-1]`. The schema allows `path: Vec3[].min(2)`, so a 3-point railing is VALID. The middle vertex is discarded with no warning, no refusal, no log | PROBE 1 — a corner drawn at z=3 leaves nothing built beyond z>1e-6 |
+| 2 | **An impossible comparison** | `:1941` `railProfile: ev.shape === 'rectangular' ? 'rectangular' : 'round'`. `Handrail.ts:7` declares the enum `['round','square','flat']`. `'rectangular'` is not a member, so the ternary is a **constant** | PROBE 2 — square and flat both arrive as `'round'` |
+| 3 | **The authored diameter is unreachable** | `:1940` writes `thickness: ev.diameter`. The builder's ROUND branch (`:217`) reads `railDiameter ?? 0.04` and never `thickness`; only the RECTANGULAR branch reads `thickness` — and per #2 that branch is never selected | PROBE 3 — authored 0.05 renders at radius 0.02 |
+| 4 | **No infill at all** | the bridge never sets `fillType`; the builder's infill block is `if glass … else if baluster …` with **no else** | PROBE 4 — a plan-drawn railing is exactly 3 meshes: one tube, two end posts |
 
-⚠ **The inversion is the headline.** `balusterSpacing` and `balusterWidth` are the *only* two
-parametric fields chat can drive, and they are exactly the two the **property panel cannot**.
-A founder who types *"set the baluster spacing to 100mm"* gets a correct result; the same
-founder looking for the control in the panel finds nothing. That is the reverse of the usual
-authored-but-unwired shape and it means the cheapest, highest-value fix in this lane is a panel
-widening, not a new capability.
+**Consequence (PROBE 5): the same line drawn in PLAN and in 3-D builds different geometry.**
+The 3-D tool (`HandrailTool.ts:143-156`) passes the selected type's fields to the legacy command
+directly; the plan tool goes through the bridge and loses all of them.
 
-**Three distinct defect classes fall out, and they need different fixes:**
+> This is why the audit had to precede the feature. Adding `curve` and `rakeAngleDeg` to the
+> model without knowing this would have shipped two more fields into a translation that already
+> drops four.
 
-1. **Read-but-unauthorable** (`balusterSpacing`, `balusterShape`, `balusterWidth`) — the builder
-   already draws them correctly; nothing can set them, so they are pinned to hardcoded defaults
-   (`0.11`, `'rectangular'`, `0.02`). **This is the cheapest win in the lane** and the brief
-   predicted it exactly. Fix = widen `HandrailTypeDefinition` and `UpdateHandrailPayload`.
-2. **Authorable-but-unread** (`railStructure`, `materialId`, `fillType:'panel'`) — the inverse,
-   and the one C65 §3.9 forbids. A `fillType` of `'panel'` is selectable today and produces a
-   handrail with **no infill at all, silently**. Fix = implement, or refuse.
-3. **Absent** (`curve`, `rakeAngleDeg`) — genuinely new capability.
+---
 
-### 2.3 — A pre-existing persistence data-loss bug, found while measuring
+## 3 — PHASE A · The enumerated divergent states
 
-`ProjectSerializer.serializeHandrail` (`packages/persistence-client/src/loader/ProjectSerializer.ts:607`)
-is an **allowlist** that writes only `id, type, levelId, parentId, baseLine, height, thickness,
-baseOffset, materialId, materialColor, properties, ifcData`.
+| Write path | Legacy store | Plugin store | User-visible result |
+|---|---|---|---|
+| 3-D tool (`CreateHandrailCommand`) | record ✅ | **junk record** — `HandrailTool.ts:158` fires `handrail.create` with an **empty payload**; `CreateHandrail.ts:47-56` seeds `id=createId()`, `path=[{0,0,0},{1,0,0}]`. The bridge's `path.length < 2` guard discards the *mirror*, but the plugin record is already written | a ghost 1 m rail at the origin accumulates in the plugin store per 3-D handrail drawn |
+| Plan tool (bus `handrail.create`) | record ✅ (lossy, §2) | record ✅ (faithful) | the two records **disagree from birth** |
+| Bus edit (`setPath`/`setShape`/`setHost`/`recompute`) | **unchanged** | updated | **nothing re-renders, persists or exports.** And `syncDisposition.ts:509-511,842` declares these `element-property` — i.e. **SYNCED** — so a collaborator applies them too, invisibly on both sides. This is the L-946 shape |
+| Legacy edit (`UpdateHandrailCommand`) | updated ✅ | **frozen at creation values** | correct on screen; plugin store drifts permanently |
+| Delete (`element.delete`) | purged ✅ `DeleteElementCommand.ts:529` | **stale record leaks** | plugin store grows monotonically; `canExecute` of every plugin handler then validates against ghosts |
+| Project load | N records ✅ | **0 records** | `ProjectLoader.ts:743` uses the legacy command directly, so `handrail.created` never fires |
 
-`ProjectLoader` (`:743`) then rebuilds each handrail passing only `id, start, end, height,
-thickness, levelId, baseOffset, ifcGuid`.
+**Undo.** `CommandEventBridge` emits **no `.deleted` event of any kind** (grep `\.deleted'` → zero
+hits) and its only handrail case is `handrail.create` (`:707,722`). The bridge's
+`handrailStore.add()` runs in an event subscriber **outside the command transaction**. Therefore
+undoing a plan-drawn railing reverses the plugin patch and **leaves the legacy record and its
+mesh in place**. *(Measured structurally — no emitter exists to notify the bridge — **not**
+executed end-to-end in a browser. Stated as NOT RUNTIME-CONFIRMED.)*
 
-Therefore **`fillType`, `railProfile`, `railDiameter`, `postSpacing` and `materialColor` are
-destroyed by a save/reload round-trip today.** A Glass Guardrail reloads as the
-`CreateHandrailCommand` default — `fillType: 'baluster'`, no profile, no diameter, no spacing.
-This is not caused by this lane's feature; it is caused by an allowlist that was never widened
-when those fields were added. It is fixed here because the founder's control *"a saved custom
-type round-trips through persistence"* is unprovable while it stands, and because every field
-this ADR adds would land in the same hole.
+**Bus verbs cannot see 3-D-drawn handrails.** `SetHandrailPath.ts:29-31,36` refuses with
+`handrail not found`. That refusal is **honest and loud** — good — but it means the entire bus
+surface is usable only for plan-drawn railings.
 
-### 2.4 — Custom types cannot be created
+`handrail.delete` has **no production caller anywhere** — the real delete path is
+`element.delete` → `DeleteElement.ts:57` → `DeleteElementCommand.ts:512-531` (legacy).
 
-`handrailTypeStore.add()` exists (`HandrailTypeStore.ts:130`) and **has no production caller** —
-measured across `packages/`, `apps/`, `plugins/`; the only callers are tests. There is no
-persistence for custom handrail types either: `ProjectSerializer` persists custom
-`wallSystemTypes`, `slabSystemTypes`, `ceilingSystemTypes`, `floorSystemTypes` — and no handrail
-types. `HandrailModePicker` is a **type** picker despite its name; it offers the five built-ins
-and no way to author a sixth.
+---
 
-### 2.5 — Creation modes
+## 4 — PHASE A · There are THREE railing concepts, not two
 
-`WallPickerMode = 'linear' | 'ortho' | 'curved' | 'byslab'` (`apps/editor/src/ui/WallModePicker.ts:25`)
-— precisely the founder's list. `HandrailTool` is a **two-click straight segment** with no mode
-concept at all.
+| | **HandrailData** (legacy) | **StairRailingConfig** | **protocol `Handrail`** |
+|---|---|---|---|
+| path | `baseLine` 2 pts, **`y` ignored** | none — derived from stair flights | `path: Vec3[]` (≥2, full 3-D) |
+| store | `HandrailStore` | `StairRailingStore` | none |
+| catalogue | `handrailTypeStore` (5) | same 5, **projected** | `BUILTIN_HANDRAIL_TYPES` (3, disjoint) |
+| **slope** | **NO** | **YES** — quaternion, per flight | **YES** — 3-D frame sweep |
+| **curve** | **NO** | no (chorded upstream) | **YES** — polyline sweep |
+| selectable | true | **false** | n/a |
+| IFC class | `IfcRailing` | `IfcRailing` | n/a |
+| wired | yes | yes | **no** |
 
-## 3 — Decision
+**They are SIBLINGS that are RIVAL representations of one real-world thing.** Decisive evidence:
+`IfcRailingToNativeConverter.ts:1,15,28` — an imported `IfcRailing` **always** becomes a
+`HandrailData`; there is no branch producing a `StairRailingConfig`. So a stair railing exported
+to IFC re-imports as a standalone handrail. The round-trip is lossy and the two collapse at the
+interchange boundary.
 
-### D1 — Reuse the wall's arc parameterisation. Do not mint a second one.
+### 4.1 — ⭐ The capability the founder asked for already exists TWICE, and is unreachable both times
 
-`packages/geometry-wall/src/WallArcParam.ts` is PURE and **structurally typed**:
+- **Slope** is implemented and correct in `StairRailingBuilder.ts:1127-1131,1145-1150` — no rake
+  variable, no trigonometry: two 3-D endpoints whose `y` differ, and
+  `quaternion.setFromUnitVectors` does the work. Glass follows the slope as an explicit
+  four-corner parallelogram (`:602-637`). Balusters stay plumb and equal-length while their bases
+  ride the stringer (`:450-462`).
+- **Slope AND curve** are both implemented in `produceHandrail`
+  (`geometry-kernel/src/producers/handrail.ts:82-165`) — a full 3-D frame sweep along an
+  arbitrary polyline, with averaged tangents at corners and a Y-parallel fallback. **It is dead
+  code.**
+- `HandrailFragmentBuilder` is **strictly horizontal**: `:137-140` computes length and angle from
+  x/z only; `:146,188` set one `worldY` for the whole root. `baseLine[i].y` exists and is never
+  read.
 
-```ts
-export interface ArcHostWall {
-    readonly baseLine: readonly [ArcPointXZ, ArcPointXZ];
-    readonly curve?: { control: ArcPointXZ; segments: number } | null;
-}
-```
+**So "raked on demand, curved on demand" is not a new capability. It is a capability that exists
+in two places, neither reachable from the handrail the user draws.**
 
-A `HandrailData` carrying a `curve` of the same shape **satisfies this interface as-is**. So
-`wallCentreline`, `arcFrameAt`, `arcLengthAtPointXZ` and `hostedElementFrame` serve the handrail
-with **zero new geometry bodies**. `packages/geometry-stair` already declares
-`@pryzm/geometry-wall` as a dependency, so this costs no manifest change and no lockfile churn.
+### 4.2 — Measured dead ends inside the stair-railing family
 
-This is deliberate compliance with `check-predicate-canonical` (138/138): a second arc
-parameterisation would be a duplicate geometry body and would breach it.
+- `resolveStairRailingTypeFields` derives `balusterShape` (`StairRailingTypeMapping.ts:96,102`)
+  — and `grep balusterShape` over `StairRailingBuilder.ts` returns **zero hits**. The builder
+  picks round-vs-box from the construction form alone (`:1064`, `:531` vs `:460`). A derived
+  field nothing reads.
+- `handrailHeight` (`StairRailingTypes.ts:10`) — never read by the builder.
+- `balusterSpacing` is **not mapped at all** by the projection (absent from the `Pick<>` at
+  `:63-66`), although the stair-railing builder does use it.
+- `StairRailingTypes.ts` exists **twice** — `packages/geometry-stair/src/` (live) and
+  `packages/core-app-model/src/stores/` (byte-identical minus `typeId`, apparently orphaned).
+  *NOT MEASURED: whether the fork was intentional.*
 
-The handrail's `curve` field is declared with the **same shape and the same `segments ≥ 4`
-floor** as `WallData.curve`, so the two remain substitutable rather than merely similar.
+---
 
-### D2 — Write a handrail-side rake gate in the wall's SHAPE. Do not edit `WallRake.ts`.
+## 5 — ⚠ OPEN QUESTION FOR THE FOUNDER — "raked" is ambiguous, and I will not guess
 
-`WallRake.rakeAuthorability` is being edited concurrently by two other lanes. Its header records
-why it has exactly one home: *"copy-drift is what caused this bug — the panel refused
-rake-given-openings, nothing refused openings-given-rake."*
+For a **wall**, `rakeAngleDeg` means **leaning off-vertical** (`WallRake.ts` sign convention).
+For a **railing**, standard architectural usage of *"raked balustrade"* means **following the
+stair/ramp slope** — the rail climbs.
 
-The instruction there is that **one subject must have one gate**, not that all subjects share one
-function. A handrail's refusals are not a wall's:
+These are different geometries and the audit shows the product already treats them differently:
+`StairRailingBuilder` implements the **sloping** sense; nothing implements the **leaning** sense
+for a railing.
 
-- a wall refuses rake × **layers** (perpendicular layer thickness) — a handrail has no layers;
-- a wall refuses rake × **hosted openings** (C15 vertical carve) — a handrail hosts nothing;
-- a handrail must refuse rake × **glass infill**, which a wall has no concept of.
+Given the founder's sentence was *"it should work exactly like the WALL element … RAKED on
+demand"*, either reading is defensible. **Building the wrong one is a week of work aimed at the
+wrong geometry**, so this is escalated rather than assumed. My recommendation, stated as a
+recommendation:
 
-So a shared function would need a union of irrelevant fields and would answer questions about
-walls that no handrail can ask. **DECISION: `handrailRakeAuthorability()` lives in its own pure
-module, in the same shape (`{ ok, code, reason }`, typed codes, never rejects a vertical
-subject), and it IMPORTS the pure trigonometry** (`rakeTopOffset`, `resolveRakeDeg`,
-`isVerticalRake`, `RAKE_MIN_DEG`/`RAKE_MAX_DEG`) from `WallRake` rather than restating it. The
-*maths* is shared; the *policy* is per-element. **No line of `WallRake.ts` is modified**, so the
-two concurrent lanes are not collided with.
+> **SLOPED is almost certainly what is wanted** (a rail that climbs a ramp or stair), because
+> `baseLine` already carries an unread `y` on both endpoints — the model is *already shaped* for
+> it, and it needs no new field. **LEANING** would need a new `rakeAngleDeg` field and is a rarer
+> real-world railing.
+>
+> Cheapest honest answer: **do both, in that order** — SLOPE first (no new field, honours data
+> the model already holds), LEANING second (new field, gated).
 
-### D3 — Refuse what is not built, in writing, at the gate
+---
 
-Per C65 §3.9. This lane implements rake × straight and rake × curved-refusal, and:
+## 6 — PHASE B · The proposed plan (NOT YET BUILT)
 
-- **rake × curve is REFUSED** — the same reason the wall gives: the shear direction is the plan
-  normal, which varies along an arc, so one shear vector is correct at exactly one station.
-- **rake × glass infill is REFUSED** — the glass panel is a single box swept on the rail axis;
-  under a rake it must become a sheared parallelogram, which is not built.
-- **`fillType: 'panel'` is IMPLEMENTED** rather than refused — it is a solid infill board, a
-  strictly simpler case of the glass panel that is already built, so refusing it would be
-  refusing something a two-line change draws correctly.
-- **`railStructure` is REFUSED for now** and left declared-but-unread — building an N-layer rail
-  stack is a genuine feature (each layer has its own height/profile/thickness/diameter/colour and
-  its own junction behaviour), not a wiring gap. It is named in §6 as remaining work rather than
-  half-built. **No UI control is shipped for it** — that is the exact failure mode this ADR
-  exists to avoid.
+Per the standing constraints: **do not unify the two systems** (Z8's roadmap), **do not create a
+third path**, **do not edit `WallRake.ts`** (two lanes are in it), **do not edit
+`HandrailTypeStore.ts`'s `materialName` enum** (LANE ZA owns the material database).
 
-### D4 — Widen the authoring surface to what the builder ALREADY draws
+Every item states **which store it writes** and therefore **which consumer sees it**.
 
-`HandrailTypeDefinition` and `UpdateHandrailPayload` both gain `balusterSpacing`,
-`balusterShape`, `balusterWidth`. No builder change is needed for these — the builder has read
-them since it was written. This is pure reachability.
+### Tier 0 — Fix the bridge. Nothing else is safe until this is done.
+| # | Change | Store written | Seen by |
+|---|---|---|---|
+| 0.1 | Refuse an N>2-point path at the bridge with a named error instead of truncating, **or** carry the polyline (see 0.5) | — | removes silent data loss |
+| 0.2 | Delete the impossible `'rectangular'` comparison; map `square`/`flat`→`rectangular`, `round`→`round` | legacy | 3-D, plan, IFC, GLB, schedules |
+| 0.3 | Write `railDiameter` (not only `thickness`) so the authored diameter is reachable | legacy | 3-D |
+| 0.4 | Carry `fillType` (and a default) so a plan-drawn railing has infill | legacy | 3-D |
+| 0.5 | Make the plan tool honour the selected handrail type, as the 3-D tool does (`RailingPlanToolHandler.ts:15-16` hard-codes 1.1 / 0.05) | legacy via bridge | all |
+| 0.6 | Remove the empty-payload telemetry call at `HandrailTool.ts:158` that mints a junk plugin record per 3-D handrail | plugin | stops the leak at its source |
 
-### D5 — Persistence carries the whole record
+⛔ **0.7 — NOT PROPOSED HERE.** The plugin-store delete leak and the missing undo bridge are
+**Z8's territory** (its census: 12 `.created` subscriptions, 1 mutation bridge, 0 delete
+bridges). Fixing them handrail-only would mint a pattern Z8 has to undo. **Reported to the
+coordinator for Z8 instead.**
 
-`serializeHandrail` stops being a hand-maintained allowlist of a *subset* and carries every
-geometric field; `ProjectLoader` passes them back through `CreateHandrailCommand`. Custom
-handrail types are persisted and restored using the **same construction** as custom wall system
-types (`ProjectSerializer` filters `!isBuiltIn`, `ProjectLoader` re-`add`s by id, skipping
-already-present ids), so there is one pattern for custom types across the product.
+### Tier 1 — Reachability: fields the builder ALREADY draws
+`balusterSpacing`, `balusterShape`, `balusterWidth` are read by the builder
+(`HandrailFragmentBuilder.ts:250,253,254`) and settable by **nothing** — absent from
+`HandrailTypeDefinition`, from `UpdateHandrailPayload`, and from the panel descriptor
+(`PropertyDescriptorGenerator.ts:284-296`). Widening those three surfaces needs **no builder
+change**. Writes the **legacy** store via `UpdateHandrailCommand` → seen by all six consumers.
 
-### D6 — Chat resolves on the ZERO-TOKEN path
+⭐ **The inversion worth naming:** chat can already set `balusterSpacing`/`balusterWidth`
+(`ChatCapabilityRegistry.ts:1233-1312` → `element.updateParameters` → generic merge at
+`UpdateElementParameterCommand.ts:515` → `bim-handrail-updated`), and the **property panel
+cannot**. A founder who types *"set the baluster spacing to 100 mm"* succeeds; the same founder
+looking for the control finds none.
 
-Production has no AI upstream (`CF_WORKER_URL` / `ANTHROPIC_API_KEY` unset). A capability that
-only an LLM can reach tests green and fails the founder. Handrail attributes are therefore
-registered in the same **table-driven** manner as `DimensionFamilies` — one table entry per
-attribute, no new resolver arm — so "make the balusters 100mm apart" resolves with no tokens.
+### Tier 2 — Geometry: slope, then curve
+Both land in `HandrailFragmentBuilder` (**legacy** store → all six consumers).
+- **Slope** — honour `baseLine[i].y`, using the **quaternion technique from
+  `StairRailingBuilder.ts:1127-1131`**, not a new derivation. No new model field.
+- **Curve** — add `curve` with the **same shape as `WallData.curve`** and delegate arc-length
+  work to `WallArcParam` (its `ArcHostWall` is structurally typed, so a handrail satisfies it
+  as-is). **No second Bézier body** — `check-predicate-canonical` is at 138/138.
+- The pure module for this is already written and committed **inert** at
+  `packages/geometry-stair/src/HandrailRunGeometry.ts`; its rake trigonometry *imports* from
+  `WallRake` and modifies nothing there. Its policy gate refuses out-of-range, rake×curve and
+  rake×glass, in both authoring directions.
 
-## 4 — Consequences
+### Tier 3 — Types
+Three gaps that must move **together** or the feature is a lie:
+`handrailTypeStore.add/update/remove` have no production caller · `ElementTypeAuthoringRegistry.ts:211`
+explicitly declares railing types not user-authorable · there is **no persistence snapshot
+field** (walls have one at `ProjectSerializer.ts:767-769` / `ProjectLoader.ts:945-975`).
 
-**Good.** The handrail's parametric fields become reachable; curved and raked handrails become
-possible using the wall's own proven constructions; a save/reload stops destroying railing
-appearance; custom types become authorable and durable.
+**DECISION — keep MATERIALISATION, do not add `typeId`.** `HandrailData` has none;
+`CatalogueFamilies.ts:55-57` documents materialisation as a deliberate, *different* capability.
+Adding a `typeId` would change the chat catalogue family's shape mid-flight. Materialisation is
+already how `element.changeType` handles this family (`initBusHandlers.ts:1928-1957`).
 
-**Costs, stated honestly.**
-- `HandrailData` grows two optional fields. Both are absent-means-legacy (`curve === undefined`
-  ⇒ straight; `rakeAngleDeg === undefined` ⇒ 90° vertical), so every existing snapshot loads and
-  re-serialises **byte-identically**. This is asserted, not asserted-by-hope.
-- The handrail rake gate is a second gate with the same shape as the wall's. That is a
-  copy-drift risk and it is accepted deliberately, with the shared trigonometry imported rather
-  than copied so that only the *policy* can drift, and the policy is genuinely different.
-- Pipeline B remains, unreferenced. Its removal is deferred, not decided.
+### Tier 4 — Creation modes
+Mirror `WallTool`'s machinery rather than inventing one; `switchDrawingMode`
+(`WallTool.ts:600-660`) already preserves polyline continuity through a live mid-draw switch.
+`elementCreationMatrix.ts:312-313` declares one mode (`polyline`) against the wall's four.
 
-## 5 — Compliance
+### Tier 5 — Chat
+⛔ **NO `DimensionFamilies` row.** That file's own header requires a family to have a real
+**batch carrier**, and handrail has only per-element `element.updateParameters`. A row without a
+carrier violates the invariant `SINGLE_FORM_CAPABILITY`'s out-claim guard exists to catch.
+✅ Instead, add **sibling entries in `ChatCapabilityRegistry`** beside the existing
+`set-baluster-spacing` — the same zero-token, one-table pattern, no new resolver arm — for
+whichever fields Tier 1/2 actually make buildable, and **no others**.
 
-- **C03** — new fields are optional with legacy-safe defaults; commands remain the only mutation
-  path; undo restores via the existing JSON snapshot, which carries new fields automatically.
-- **C11 / C16** — no new command *types* are minted. The existing `CREATE_HANDRAIL` /
-  `UPDATE_HANDRAIL` payloads are widened, and validation is added in `canExecute` so an
-  unbuildable combination cannot reach the store. This deliberately keeps
-  `check-verb-register` / `check-sync-disposition` unchanged.
-- **C65 §3.9** — every new authorable field is drawn by the builder; every combination that is
-  not drawn is refused with a typed code and a human-readable reason.
-- **C73** — no new geometry body; the arc is sampled at the host's own `segments`, so the
-  station maths and the built polyline are the same polyline by construction.
-- **C83 §10** — refusals name both the subject and the reason.
+---
 
-## 6 — What is NOT done (named, not hidden)
+## 7 — Deliberate refusals (C65 §3.9)
 
-1. **`railStructure` multi-layer rail stacks** — declared, unread, no UI. §3 D3.
-2. **`materialId` → material library** — the builder has no catalogue lookup; only
-   `materialColor` is honoured. Unchanged by this lane.
-3. **`byslab` creation mode** — the wall derives a path from a slab boundary; the handrail
-   equivalent (rail around a slab edge) needs an edge-selection interaction that does not exist.
-4. **Pipeline B removal.**
-5. **`thickness` under `railProfile: 'round'`** — still ignored; the round rail is driven by
-   `railDiameter` alone.
+- **`railStructure`** — declared (`HandrailTypes.ts:36`), **zero reads repo-wide**. Multi-layer
+  rail stacks are a real feature, not a wiring gap. **No UI control will be shipped for it.**
+- **`materialId` on a handrail** — the builder has no catalogue lookup and reads only
+  `materialColor`. ⚠ The existing refusal text at `SetHandrailMaterial.ts:57` says a materialId
+  *"cannot be shown on a handrail at all"* — that is **STALE**: `ScheduleExtractor.ts:496`
+  surfaces it in the Handrail schedule's Material column, and `initTools.ts:1943` writes it at
+  create time. It is **live-but-render-inert**, not dead. The wording should be corrected.
+- **`fillType: 'panel'`** — selectable today, builds **nothing**. To be implemented (it is a
+  strictly simpler case of the glass panel), never left silent.
+- **`byslab` creation mode** — needs a slab-edge selection interaction that does not exist.
+- **Unifying the three railing concepts** — explicitly out of scope; Z8 owns it.
+
+---
+
+## 8 — What this lane has actually produced
+
+**Nothing user-visible. By instruction.** Three commits, all inert or evidential:
+
+1. `54c34a83` — the first reachability audit (superseded by this document).
+2. `8cdb492b` — `HandrailRunGeometry.ts` (pure, **nothing imports it**) + `HandrailWallParity.spec.ts`
+   (**RED by design**, 7/14 failing — the controls recorded before any fix).
+3. `ced5aad0` — `HandrailBridgeDivergenceProbe.spec.ts`, **5/5 GREEN** — the four bridge defects
+   as runtime facts.
+
+Root `tsc --noEmit` **RC=0**. `check-sync-disposition` **RC=0**. `check-predicate-canonical`
+**138/138, at its declared level**. `check-verb-register` was **already RC=1 before this lane
+touched anything** (`API-VERB-REGISTER.md` stale by 2 in its handler-file count, from another
+lane) — this lane adds no verb, so it does not move that number.
