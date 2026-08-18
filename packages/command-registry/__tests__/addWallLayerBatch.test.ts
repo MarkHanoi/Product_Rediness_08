@@ -77,7 +77,11 @@ describe('AddWallLayerBatchCommand — honest batch layer add', () => {
                 ],
                 thickness: 0.1125,
             }),
-            wall('raked', { rakeAngleDeg: 70 }),                       // refuses layers (L-812 gate)
+            // §FEAT-RAKE-LAYERED (2026-08-18) — was `{ rakeAngleDeg: 70 }` alone,
+            // "refuses layers (L-812 gate)". A raked wall ACCEPTS layers now; what still
+            // refuses them is a raked wall that HOSTS AN OPENING, because the layered
+            // opening-segment builder has no shear. Same L-812 gate, narrower subject.
+            wall('raked', { rakeAngleDeg: 70, openings: [{ id: 'o1' }] }),
         ]);
         ctx = makeCtx(store);
     });

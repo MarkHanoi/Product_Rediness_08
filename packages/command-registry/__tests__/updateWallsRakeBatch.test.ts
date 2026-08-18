@@ -73,8 +73,15 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
             wall('w2', { rakeAngleDeg: 75 }),
             wall('w3', { levelId: 'L1' }),                    // other level — 'all' must reach it
             wall('curved', { curve: { r: 3 } }),              // refused: curved
-            wall('layered', { layers: [{}, {}] }),            // refused: >1 layer
+            // §FEAT-RAKE-LAYERED (2026-08-18) — this fixture read `{ layers: [{}, {}] }`,
+            // "refused: >1 layer". A raked LAYERED wall is BUILT now (plan bands at
+            // t / sin θ), so layers ALONE no longer refuse. What still refuses is layers ×
+            // openings — the opening-segment builder has no shear — so the fixture carries
+            // an opening and this batch keeps its three refusers.
+            wall('layered', { layers: [{}, {}], openings: [{ id: 'o1' }] }),
             wall('hosting', { openings: [{ id: 'o1' }] }),    // refused: hosted openings
+            // …and the NEW capability, in the same batch: plain layers, no openings, rakes.
+            wall('layeredOk', { layers: [{}, {}, {}] }),
         ]);
         ctx = makeCtx(store);
     });
@@ -83,13 +90,15 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         const cmd = new UpdateWallsRakeBatchCommand({ wallIds: 'all', rakeAngleDeg: 70 });
         const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(true);
-        expect(v.warnings?.length).toBe(3);                   // curved + layered + hosting pre-announced
+        expect(v.warnings?.length).toBe(3);                   // curved + layered×openings + hosting
         const r = cmd.execute(ctx);
         expect(r.success).toBe(true);
-        expect(r.affectedElementIds.sort()).toEqual(['w1', 'w2', 'w3']);
-        expect(r.info?.[0]).toContain('Raked 3 of 6');
+        // §FEAT-RAKE-LAYERED — `layeredOk` is in this list, and that is the founder's
+        // feature arriving at the command layer: a multi-layer wall now takes a rake.
+        expect(r.affectedElementIds.sort()).toEqual(['layeredOk', 'w1', 'w2', 'w3']);
+        expect(r.info?.[0]).toContain('Raked 4 of 7');
         expect(r.info?.[0]).toContain('3 skipped');
-        for (const id of ['w1', 'w2', 'w3']) {
+        for (const id of ['w1', 'w2', 'w3', 'layeredOk']) {
             expect(store.getById(id)?.rakeAngleDeg).toBe(70);
         }
         // The refused walls are UNTOUCHED and each skip carries the gate's reason.
@@ -105,7 +114,7 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         expect(cmd.canExecute(ctx).ok).toBe(true);
         const r = cmd.execute(ctx);
         expect(r.success).toBe(true);
-        expect(r.affectedElementIds.length).toBe(6);
+        expect(r.affectedElementIds.length).toBe(7);
         expect(cmd.skipped.length).toBe(0);
         expect(r.info?.[0]).toContain('(vertical)');
     });

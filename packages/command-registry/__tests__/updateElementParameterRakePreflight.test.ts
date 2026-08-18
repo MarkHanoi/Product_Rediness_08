@@ -40,14 +40,20 @@ function makeCtx(walls: W[]): CommandContext {
                     const next = { ...cur, ...partial };
                     // Mirror WallStore.update's §WALL-RAKE throw so a missing
                     // pre-flight would surface here exactly as it does in production.
+                    // §FEAT-RAKE-LAYERED (2026-08-18) — the mirrored condition gained the
+                    // `openings` clause because the real gate did: a raked LAYERED wall is
+                    // BUILT now, and only layers × openings throws. Left un-narrowed, this
+                    // mock would keep "failing" a case production accepts — the fixture
+                    // would become the thing under test.
                     if (
                         next.rakeAngleDeg !== undefined &&
                         next.rakeAngleDeg !== 90 &&
-                        (next.layers?.length ?? 0) > 1
+                        (next.layers?.length ?? 0) > 1 &&
+                        (next.openings?.length ?? 0) > 0
                     ) {
                         throw new Error(
                             `[WallStore.update] §WALL-RAKE rejected for wall ${id}: ` +
-                            'wall.rakeAngleDeg is not supported on a LAYERED wall',
+                            'wall.rakeAngleDeg is not supported on a LAYERED wall that HOSTS OPENINGS',
                         );
                     }
                     map.set(id, next);
@@ -66,8 +72,12 @@ function rakeCmd(wallId: string, deg: number): UpdateElementParameterCommand {
 }
 
 describe('UpdateElementParameterCommand — §WALL-RAKE pre-flight (refusal, not crash)', () => {
-    it('REFUSES a rake on a LAYERED wall at canExecute — the store is never reached', () => {
-        const ctx = makeCtx([{ id: 'w-layered', layers: [{}, {}], openings: [] }]);
+    // §FEAT-RAKE-LAYERED (2026-08-18) — the SUBJECT of this pre-flight narrowed with the
+    // gate it mirrors. `layers` alone is buildable now (bands at t / sin θ); `layers ×
+    // openings` is not, and it is the case the production crash of 2026-08-10 was really
+    // about — a replayed rake landing on a wall whose type had since changed under it.
+    it('REFUSES a rake on a LAYERED OPENING-HOSTING wall at canExecute — store never reached', () => {
+        const ctx = makeCtx([{ id: 'w-layered', layers: [{}, {}], openings: [{ id: 'o1' }] }]);
         const v = rakeCmd('w-layered', 120).canExecute(ctx);
 
         expect(v.ok).toBe(false);
@@ -76,8 +86,16 @@ describe('UpdateElementParameterCommand — §WALL-RAKE pre-flight (refusal, not
         expect(v.reason).toMatch(/angled \(raked\)/i);
     });
 
+    it('ALLOWS a rake on a plain LAYERED wall — the feature reaches the generic param path', () => {
+        const ctx = makeCtx([{ id: 'w-layered', layers: [{}, {}, {}], openings: [] }]);
+        const cmd = rakeCmd('w-layered', 120);
+        expect(cmd.canExecute(ctx).ok).toBe(true);
+        expect(cmd.execute(ctx).success).toBe(true);
+        expect((ctx.stores as any).wallStore.getById('w-layered').rakeAngleDeg).toBe(120);
+    });
+
     it('the refusal replaces what used to be a FATAL throw from inside execute()', () => {
-        const ctx = makeCtx([{ id: 'w-layered', layers: [{}, {}], openings: [] }]);
+        const ctx = makeCtx([{ id: 'w-layered', layers: [{}, {}], openings: [{ id: 'o1' }] }]);
         const cmd = rakeCmd('w-layered', 140);
 
         // Pre-flight refuses…

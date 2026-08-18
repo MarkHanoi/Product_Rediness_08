@@ -103,7 +103,14 @@ describe('UpdateWallsSystemTypeBatchCommand — §CONTEXT-DATA-HONESTY batch sem
     beforeEach(() => {
         store = makeWallStore([
             wall('w1'),
-            wall('w2', { rakeAngleDeg: 45 }),           // raked → refuses a layered type (ADR-0310)
+            // §FEAT-RAKE-LAYERED (2026-08-18) — this was `{ rakeAngleDeg: 45 }` alone,
+            // "raked → refuses a layered type (ADR-0310)". A raked wall TAKES a layered
+            // type now (t / sin θ bands are built), so the refuser has to be the
+            // combination that is still unbuilt: raked × layered × HOSTS AN OPENING, whose
+            // body would be assembled by the un-sheared opening-segment builder. The
+            // contract point under test — partial failure is visible, never a crash and
+            // never a silent skip — is unchanged; only the refusing shape moved.
+            wall('w2', { rakeAngleDeg: 45, openings: [{ id: 'o1' }] }),
             wall('w3', { levelId: 'L1' }),              // different level — 'all' must reach it
         ]);
         ctx = makeCtx(store);
@@ -176,9 +183,11 @@ describe('UpdateWallsSystemTypeBatchCommand — §CONTEXT-DATA-HONESTY batch sem
     });
 
     it('ALL-refused batch is a visible NO-OP with a message — never a thrown error', () => {
+        // §FEAT-RAKE-LAYERED — both refusers carry an opening for the same reason as
+        // `w2` above: a rake alone no longer refuses a layered type.
         const rakedOnly = makeWallStore([
-            wall('r1', { rakeAngleDeg: 45 }),
-            wall('r2', { rakeAngleDeg: 60 }),
+            wall('r1', { rakeAngleDeg: 45, openings: [{ id: 'o1' }] }),
+            wall('r2', { rakeAngleDeg: 60, openings: [{ id: 'o2' }] }),
         ]);
         const rakedCtx = makeCtx(rakedOnly);
         const beforeState = canon(rakedOnly.getAll());

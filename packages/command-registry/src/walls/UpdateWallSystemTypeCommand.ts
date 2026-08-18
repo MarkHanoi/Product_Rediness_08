@@ -44,31 +44,55 @@ export class UpdateWallSystemTypeCommand implements Command {
         //    [WallStore.update] §WALL-RAKE rejected … not supported on a LAYERED wall`
         // and the user read it as "layered walls are broken".
         //
-        // The refusal is correct (ADR-0310: layer thicknesses are authored
+        // The refusal was correct (ADR-0310: layer thicknesses are authored
         // PERPENDICULAR to the face, and the raked footprint that honours that —
-        // t/sin θ per layer — is not implemented). Delivering it as a crash is not.
+        // t/sin θ per layer — was not implemented). Delivering it as a crash was not.
+        //
+        // ── §FEAT-RAKE-LAYERED (founder 2026-08-18) — THE REFUSAL NARROWED ────
+        // `t / sin θ` IS implemented now, so a raked wall taking a layered type is
+        // ordinarily FINE and this gate lets it through. What is still refused is a
+        // raked LAYERED wall that HOSTS AN OPENING, because that body is built by
+        // `buildLayeredWallSegmentsAroundOpenings` (per-layer boxes around the void)
+        // which has no shear. Nothing here decides that — `rakeAuthorability` does,
+        // and it is still the single gate.
         //
         // `canExecute` is the declared pre-flight gate for exactly this and already
-        // carries a human-readable `reason`, so the refusal now arrives as an
-        // ordinary validation failure the UI can show. The store's throw stays as
-        // defence in depth for any path that skips validation.
+        // carries a human-readable `reason`, so the refusal arrives as an ordinary
+        // validation failure the UI can show. The store's throw stays as defence in
+        // depth for any path that skips validation.
         //
         // Asked against the MERGED next state, not the input: the rake lives on the
         // existing record while the layers arrive in the patch, so neither half
         // alone can see the combination — the same reasoning WallStore.update
         // documents for checking `nextState`.
+        //
+        // `openings` comes from the RECORD and is now passed — but ONLY when the
+        // incoming stack is layered, and that conditional is load-bearing:
+        //   · it must be passed for a LAYERED stack, or the moment the
+        //     `hosted-openings` arm lifts (Lane Z1) a raked layered opening-hosting
+        //     wall would sail through here and render VERTICAL. A gate that holds only
+        //     because a NEIGHBOURING gate happens to hold is not a gate.
+        //   · it must NOT be passed for a SINGLE-layer stack, or the `hosted-openings`
+        //     arm fires on a question nobody asked. That arm guards a RAKE WRITE; this
+        //     command writes a TYPE. Refusing "give this raked wall a monolithic type"
+        //     because the wall has a window is an over-refusal on an unrelated axis.
+        // So the openings dimension is admitted exactly where the LAYERED arm needs it.
+        const nextLayers = this.input.layers ?? undefined;
         const rake = rakeAuthorability({
             rakeAngleDeg: (wall as { rakeAngleDeg?: number }).rakeAngleDeg,
-            layers:       this.input.layers ?? undefined,
+            layers:       nextLayers,
             curve:        (wall as { curve?: unknown }).curve,
+            openings:     (nextLayers?.length ?? 0) > 1
+                ? (wall as { openings?: unknown[] }).openings
+                : undefined,
         } as Parameters<typeof rakeAuthorability>[0]);
         if (!rake.ok) {
             return {
                 ok: false,
                 reason:
-                    `This wall is angled (raked), so it cannot use a layered wall type yet — ` +
-                    `set its Vertical Angle back to 90° first, or pick a single-layer type. ` +
-                    `${rake.reason ?? ''}`,
+                    `This wall is angled (raked), so it cannot take this wall type — ` +
+                    `set its Vertical Angle back to 90° first, remove its openings, or pick a ` +
+                    `single-layer type. ${rake.reason ?? ''}`,
             };
         }
 
