@@ -139,6 +139,66 @@ describe('auto-dimension ⇄ planarFaceWalk — the SAME known answer as the roo
     expect(p1.buildings).toHaveLength(2);
   });
 
+  // ── ARM F: the TRAVERSAL RULE, which no rectangle in this file can see ──────
+  it('ARM F — an interior partition (degree-3 nodes) still yields ONE −24 m² perimeter, not an interior 12 m² face', () => {
+    // WHY THIS ARM EXISTS, MEASURED NOT ASSUMED. With the next-half-edge rule
+    // deliberately broken from `(uIdx - 1 + n) % n` to `(uIdx + 1) % n`, the
+    // room-topology oracle went RED on three arms and EVERY arm in this file stayed
+    // GREEN. Every fixture here was a rectangle, and a rectangle has only degree-2
+    // nodes — there is no "immediately clockwise of where I came from" to get wrong
+    // when there is only one other way to go. The engine's own header has said so since
+    // ARM 2 was written; this file had not taken the point, and auto-dimension is the
+    // half that SHIPS (applyAutoDimensions.ts:50 → planAutoDimensions →
+    // buildings.ts:103 → tracePerimeters).
+    //
+    // THE KNOWN ANSWER. A 6×4 rectangle with a spine wall at x = 3:
+    //   A(0,0) M1(3,0) B(6,0) C(6,4) M2(3,4) D(0,4), plus the spine M1–M2.
+    // Three faces: two interior cells of exactly 12 m² each, and the enclosing face at
+    // exactly −24 m². `tracePerimeters` must return the ENCLOSING one — one component,
+    // one perimeter, six corners. Returning a 12 m² cell would mean dimensioning an
+    // interior room as though it were the building.
+    const walls: AutoDimWall[] = ([
+      ['A', 0, 0, 3, 0], ['M1', 3, 0, 6, 0], ['B', 6, 0, 6, 4],
+      ['C', 6, 4, 3, 4], ['M2', 3, 4, 0, 4], ['D', 0, 4, 0, 0],
+      ['S', 3, 0, 3, 4], // the spine — this is what makes M1 and M2 degree-3
+    ] as Array<[string, number, number, number, number]>).map(([id, ax, az, bx, bz]) => ({
+      id: `sp_${id}`,
+      a: { x: ax, z: az },
+      b: { x: bx, z: bz },
+      thickness: 0.2,
+      levelId: 'L0',
+      openings: [],
+    }));
+
+    const graph = buildGraph(walls, 0.05);
+
+    // The walk sees all three faces, and they sum to zero — no area invented, none lost.
+    const pos = new Map(graph.nodes.map((n) => [n.id, n.point]));
+    const faces = tracePlanarFacesXZ({
+      positions: pos,
+      edges: [...graph.wallNodes.entries()].map(([id, e]) => ({ id, ...e })),
+    });
+    expect(faces.map((f) => Number(f.signedAreaM2.toFixed(6))).sort((a, b) => a - b))
+      .toEqual([-24, 12, 12]);
+    expect(faces.reduce((s, f) => s + f.signedAreaM2, 0)).toBeCloseTo(0, 9);
+
+    // ONE building, and its perimeter is the OUTER ring — six nodes, −24 m². Not a
+    // 12 m² interior cell.
+    const rings = tracePerimeters(graph);
+    expect(rings).toHaveLength(1);
+    expect(ringArea(rings[0]!, graph)).toBeCloseTo(-24, 9);
+    expect(rings[0]!.nodeIds).toHaveLength(6);
+    // The spine is interior: it bounds no part of the perimeter ring.
+    expect(rings[0]!.wallIds).not.toContain('sp_S');
+
+    const { buildings, hasPerimeter } = partitionBuildings(walls, 0.05);
+    expect(hasPerimeter).toBe(true);
+    expect(buildings).toHaveLength(1);
+    // "This building's walls" means ALL of them, the interior partition included.
+    expect(buildings[0]!.wallIds).toContain('sp_S');
+    expect(buildings[0]!.wallIds).toHaveLength(7);
+  });
+
   // ── ARM E: the refusing half — and WHERE the refusal lives ──────────────────
   it('ARM E — an open polyline traces a DEGENERATE zero-area ring, and the BUILDING guard is what refuses', () => {
     // The mirror of the room-topology oracle's ARM 5, one adapter over — but the two

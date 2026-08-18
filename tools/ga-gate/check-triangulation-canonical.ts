@@ -310,11 +310,53 @@ const FAMILIES: readonly Family[] = [
   {
     id: 'planar-topology-engine',
     what: 'WallGraph → planar faces → rooms (left-face half-edge trace)',
-    // NOT designated. room-topology is the layered home (L3, and the trimmed
-    // 220-line copy lives there) but the two 477-line copies are the ones with
-    // the fuller header contract — WHICH copy is canon is exactly the drift
-    // question the collapse PR must answer, not this gate.
-    canonical: null,
+    // DESIGNATED by the GE-12 collapse PR (2026-08-18, C73 §3.6/§3.7). This field
+    // WAS `null`, and the C2 finding said why: "there is no canonical implementation
+    // to collapse onto yet ... the collapse PR must identify the shipping consumers
+    // by name and state which behaviour is canonical and why". The founder has now
+    // ruled, so both halves go on the record here.
+    //
+    // WHY IT COULD NOT COLLAPSE BEFORE. Not neglect: `@pryzm/auto-dimension` depended
+    // on `@pryzm/schemas` ALONE while `room-topology`'s barrel pulls THREE through
+    // eight files, so its copy COULD NOT import the owner. A copy that cannot be
+    // replaced by an import is a copy that will drift. The ruling removes the blocker
+    // rather than the symptom — a THREE-free home in the kernel.
+    //
+    // SHIPPING CONSUMERS, BY NAME (§3.6):
+    //   • room-topology/RoomDetectionEngine.ts:438 → computeTopology (room detection);
+    //   • ai-host/FloorPlanCommandBatcher.ts:808 → computeTopology (PDF→BIM);
+    //   • auto-dimension/buildings.ts:103 → tracePerimeters, reachable from
+    //     apps/editor/.../applyAutoDimensions.ts:50 → planAutoDimensions. THIS ONE
+    //     DRAWS NUMBERS ON A SHEET, which is why the §3.7 decision refuses a silent
+    //     winner on the one axis that would change them.
+    //
+    // §3.7 DECISION — NEITHER drifted body "carries the correct thresholds", because
+    // the thresholds were never the walk's to carry. Six axes had drifted: four are
+    // SETTLED in the canonical file, one is a PARAMETER, one deliberately has no
+    // winner. All six are documented in that file's header under §PTE-FILTERED /
+    // §PTE-TIEBREAK / §PTE-OUTER-FACE, each with its reason:
+    //   · angular tiebreak → codepoint, not `localeCompare` (ICU-dependent: the same
+    //     wall graph could decompose differently on a different machine);
+    //   · seed order → sorted over (id, start, end), not Map insertion over a
+    //     uuid-KEYED map;
+    //   · missing position → the edge is DROPPED as a precondition (room-topology
+    //     computed a silently wrong area from the hole; auto-dimension would NaN);
+    //   · duplicate half-edge → smallest edge id, not last-writer-wins;
+    //   · face-area filter → a PARAMETER, default 0. room-topology passes 0.1,
+    //     auto-dimension passes nothing. An area threshold is a judgement about what
+    //     a face MEANS, not a fact about topology.
+    //   · OUTER FACE → NO WINNER, deliberately. single-most-negative and
+    //     one-per-component are different ANSWERS, not styles: collapsing them was
+    //     MEASURED to turn 7 tests red, the entire L-268 two-buildings regression
+    //     suite among them. Shipped as two named policies, `selectOuterFaceXZ` /
+    //     `selectOuterFacePerComponentXZ`, so each call site NAMES its question.
+    //
+    // The canonical file is COUNTED (its walk is the family's one remaining copy) —
+    // the exit condition reads 1, not 0. ORACLE (§6): pinned from BOTH adapters at
+    // the same hand-computed answer — room-topology/src/__tests__/
+    // planarTopologyOracle.test.ts (arms 6-9) and auto-dimension/__tests__/
+    // planarFaceWalkOracle.test.ts (arms A-F).
+    canonical: 'packages/geometry-kernel/src/pure/planarFaceWalk.ts',
     exclusions: [
       [
         'packages/room-topology/src/RoomDetectionEngine.ts',
