@@ -343,6 +343,138 @@ const BUILT_IN_TYPES: CurtainWallTypeDefinition[] = [
             'white satin is not in the material catalogue yet — shown as white ' +
             'powder-coated aluminium, which is close in tone but flatter',
     },
+
+    // ── 13-20: the eight approved beyond the founder's twelve ────────────────
+    // Chosen from standard practice and confined to axes measured to work end to end:
+    // pitch, transom course, mullion size and material. Deliberately NOT included were a
+    // fritted/translucent and a spandrel-plus-vision composite — both need PER-PANEL
+    // variation within one wall, which is a different capability from a per-wall panel
+    // material and is not built.
+    //
+    // ⚠ 13 and 14 are the first types in the catalogue with a HORIZONTAL transom course.
+    // Every one of the founder's twelve specifies "top and bottom rails only", so nothing
+    // shipped so far has exercised `transomCourse` as a real number rather than
+    // `undefined`. If that path is broken these are how it gets found.
+    {
+        id: 'cw.ribbon.1000',
+        name: 'Ribbon / stacked — 1.0 m courses',
+        description:
+            'Stacked ribbon glazing on a 1.0 m vertical pitch with 1.0 m horizontal ' +
+            'transom courses. Anodised silver aluminium frame.',
+        isBuiltIn: true,
+        mullionPitch: 1.0,
+        transomCourse: 1.0,
+        mullionSize: 0.05,
+        panelThickness: 0.024,
+        mullionMaterialId: 'aluminium-anodised-silver',
+        mullionColor: '#8c8f92',
+        panelMaterialId: 'glass-low-e',
+    },
+    {
+        id: 'cw.ribbon.1500',
+        name: 'Ribbon / stacked — 1.5 m courses',
+        description:
+            'Stacked ribbon glazing on a 1.5 m vertical pitch with 1.5 m horizontal ' +
+            'transom courses. Anodised silver aluminium frame.',
+        isBuiltIn: true,
+        mullionPitch: 1.5,
+        transomCourse: 1.5,
+        mullionSize: 0.05,
+        panelThickness: 0.024,
+        mullionMaterialId: 'aluminium-anodised-silver',
+        mullionColor: '#8c8f92',
+        panelMaterialId: 'glass-low-e',
+    },
+    {
+        id: 'cw.structural-glazing',
+        name: 'Structural glazing — silicone-jointed',
+        description:
+            'Silicone-jointed structural glazing on a 1.5 m pitch with a minimal 20 mm ' +
+            'concealed frame, for a near-frameless facade. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.5,
+        transomCourse: undefined,
+        mullionSize: 0.02,
+        panelThickness: 0.028,
+        mullionMaterialId: 'aluminium-brushed-dark',
+        mullionColor: '#474d52',
+        panelMaterialId: 'glass-structural',
+    },
+    {
+        id: 'cw.double-height.3000',
+        name: 'Double-height / atrium — 3.0 m pitch',
+        description:
+            'Large-format atrium glazing on a 3.0 m vertical pitch with a deep 100 mm ' +
+            'structural steel mullion. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 3.0,
+        transomCourse: undefined,
+        mullionSize: 0.1,
+        panelThickness: 0.032,
+        mullionMaterialId: 'steel-structural',
+        mullionColor: '#9aa0a8',
+        panelMaterialId: 'glass-low-e',
+    },
+    {
+        id: 'cw.storefront',
+        name: 'Storefront / shopfront — 0.9 m pitch',
+        description:
+            'Ground-floor shopfront glazing on a 0.9 m pitch with a slim 40 mm anodised ' +
+            'frame and clear glass. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 0.9,
+        transomCourse: undefined,
+        mullionSize: 0.04,
+        panelThickness: 0.024,
+        mullionMaterialId: 'aluminium-anodised-silver',
+        mullionColor: '#8c8f92',
+        panelMaterialId: 'glass-clear',
+    },
+    {
+        id: 'cw.spider.point-fixed',
+        name: 'Spider / point-fixed glazing',
+        description:
+            'Point-fixed glazing on a 1.5 m pitch with 30 mm polished stainless fittings ' +
+            'and ultra-clear low-iron glass. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.5,
+        transomCourse: undefined,
+        mullionSize: 0.03,
+        panelThickness: 0.019,
+        mullionMaterialId: 'steel-stainless-polished',
+        mullionColor: '#dce0e8',
+        panelMaterialId: 'glass-ultra-clear',
+    },
+    {
+        id: 'cw.timber-glulam',
+        name: 'Timber-framed — glulam',
+        description:
+            'Glulam timber curtain wall on a 1.2 m pitch with a 60 mm laminated frame. ' +
+            'Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.2,
+        transomCourse: undefined,
+        mullionSize: 0.06,
+        panelThickness: 0.024,
+        mullionMaterialId: 'timber-glulam',
+        mullionColor: '#c19a6b',
+        panelMaterialId: 'glass-low-e',
+    },
+    {
+        id: 'cw.unitised.bronze-anodised',
+        name: 'Unitised — bronze anodised',
+        description:
+            'Unitised bronze-anodised system on a 1.5 m pitch with a 50 mm frame and ' +
+            'bronze-tinted glazing. Top and bottom rails only.',
+        isBuiltIn: true,
+        mullionPitch: 1.5,
+        transomCourse: undefined,
+        mullionSize: 0.05,
+        panelThickness: 0.024,
+        mullionMaterialId: 'aluminium-bronze-anodised',
+        mullionColor: '#8c6239',
+        panelMaterialId: 'glass-tinted-bronze',
+    },
 ];
 
 export class CurtainWallTypeStore {

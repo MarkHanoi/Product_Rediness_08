@@ -198,7 +198,15 @@ describe('GenericTypeSelectorWidget', () => {
             const defs = curtainWallTypeStore.getAll().filter(d => d.panelMaterialId !== undefined);
             const byMaterial = new Map<string, typeof defs>();
             for (const d of defs) {
-                const k = `${d.panelMaterialId}|${d.mullionMaterialId ?? ''}`;
+                // The identity is EVERYTHING the user sees, not the materials alone.
+                // Types 13 and 14 (ribbon at 1.0 m and 1.5 m courses) share a glass and a
+                // frame and are plainly different facades; keying on material alone would
+                // have demanded they declare a "substitution" that is not one, and the
+                // pressure would then be to weaken this guard rather than fix the key.
+                const k = [
+                    d.panelMaterialId, d.mullionMaterialId ?? '',
+                    d.mullionPitch, d.transomCourse ?? 'none', d.mullionSize,
+                ].join('|');
                 byMaterial.set(k, [...(byMaterial.get(k) ?? []), d]);
             }
             for (const [key, group] of byMaterial) {
