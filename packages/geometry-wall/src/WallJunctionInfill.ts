@@ -27,6 +27,14 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { EPSILON_ZERO, PARALLEL_RAD, polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
 import { WallData }              from './WallTypes';
 import { detectJunctionClusters } from './WallJunctionClustering';
+// §WALL-Y-DATUM (L-968 defect B) — the infill patch must sit on the SAME plane as
+// the wall bodies it patches. It used to read the wall BASELINE Y, which is a
+// different number on both axes: it never saw `slabBaseOffset`, and the baseline
+// itself means different things depending on which route created the wall
+// (`CreateWallCommand.ts:341` stamps `elevation + baseOffset`; the plugin bridge
+// stamps `ev.baseLine[i].y ?? 0`). Reading the published base plane makes the
+// infill independent of that unresolved ambiguity instead of hostage to it.
+import { resolveWallBaseY } from './WallVerticalDatum';
 
 // Must stay in sync with WallJoinResolver.SNAP_RADIUS.
 //
@@ -51,7 +59,14 @@ export interface JunctionInfillData {
     clusterKey: string;
     /** 2-D void polygon vertices (XZ), in CCW angular order. */
     vertices:   { x: number; z: number }[];
-    /** Floor Y (level elevation). */
+    /**
+     * The world BASE plane the prism is extruded from.
+     *
+     * §WALL-Y-DATUM (L-968) — this is the wall BODY's underside
+     * (`level.elevation + slabBaseOffset + wall.baseOffset`), obtained from
+     * `WallVerticalDatum`. It was previously the wall BASELINE Y, which agreed
+     * with the body only when both offsets were zero.
+     */
     elevation:  number;
     /** Extrusion height (average of wall heights in cluster). */
     height:     number;
@@ -174,12 +189,20 @@ export function computeJunctionInfillsDetailed(walls: WallData[]): JunctionInfil
             const thickness = (w as any).width ?? (w as any).thickness ?? 0.2;
             const height    = (w as any).height ?? 2.8;
 
+            // §WALL-Y-DATUM (L-968) — the published world BASE plane of THIS wall.
+            // `undefined` means the wall has not been built yet, which is NOT the
+            // same fact as "its base is at the baseline"; the baseline reading is
+            // kept only as the honest fallback for that un-built case, and it is
+            // the pre-L-968 behaviour exactly, so nothing regresses when the
+            // publication is absent.
+            const baseY = resolveWallBaseY(wallId) ?? consensusPoint.y;
+
             entries.push({
                 direction: rawDir,
                 outward,
                 thickness,
                 height,
-                elevation: consensusPoint.y,
+                elevation: baseY,
             });
         }
 

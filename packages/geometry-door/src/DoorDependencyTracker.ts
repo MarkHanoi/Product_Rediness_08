@@ -1,6 +1,12 @@
 import { doorStore } from './DoorStore';
 import type { WallStore } from '@pryzm/geometry-wall';
 import type { WallData } from '@pryzm/geometry-wall';
+// §WALL-Y-DATUM (L-968) — a host wall's BASE plane can move for a reason NO diff of
+// the wall record can see: `slabBaseOffset` lives on the SLAB, not on the wall. The
+// datum authority notifies on change, so a hosted leaf re-anchors after the number
+// it depends on has moved — which also removes the ordering race between this
+// cascade (fired from `wallStore.update()`) and the wall's geometry flush.
+import { onWallBaseYChanged } from '@pryzm/geometry-wall';
 
 /**
  * §DOOR-AUDIT-2026 P2 #12 — DoorDependencyTracker
@@ -62,6 +68,7 @@ export class DoorDependencyTracker {
      */
     private home = new Map<string, string>();
     private unsubscribeWall?: () => void;
+    private unsubscribeBaseY?: () => void;
     private unsubscribeDoor?: () => void;
 
     constructor(_commandManagerRef: DoorTrackerCommandManagerRef, wallStore: WallStoreRef) {
@@ -125,12 +132,38 @@ export class DoorDependencyTracker {
                 }
             }
         });
+
+        // §WALL-Y-DATUM (L-968) — re-anchor on a host BASE-PLANE move.
+        //
+        // The wall-record cascade above cannot see a `slabBaseOffset` change: that
+        // value lives on the SLAB and reaches the wall only through
+        // `SlabWallCoupling.resolveSlabBaseOffsetForWall` at rebuild time. Nor can it
+        // guarantee ORDER — it fires synchronously inside `wallStore.update()`, which
+        // can precede the geometry flush that recomputes the plane. Subscribing to the
+        // published datum answers both: the notification is emitted only when the
+        // number actually changed, and only after it changed.
+        this.unsubscribeBaseY = onWallBaseYChanged((wallId) => {
+            const ids = this.graph.get(wallId);
+            if (!ids || ids.size === 0) return;
+            // Iterate a SNAPSHOT — §FIX-HOSTWALL-CASCADE-SET-REENTRANCY applies here
+            // for exactly the same reason it applies above.
+            for (const doorId of [...ids]) {
+                try { doorStore.touch(doorId); }
+                catch (err) { console.warn(`[DoorDependencyTracker] base-Y touch(${doorId}) failed:`, err); }
+            }
+        });
     }
 
     /** §WALL-DEEP-2026 O2 — wall geometry change detector (mirrors WindowDependencyTracker). */
     private _wallGeometryChanged(prev: WallData, next: WallData): boolean {
         if (prev.height !== next.height) return true;
         if (prev.thickness !== next.thickness) return true;
+        // §WALL-Y-DATUM (L-968) — `baseOffset` moves the wall body AND the hole cut in
+        // it. It was absent from this list, so editing "Base Offset" in the property
+        // panel (an editable row, `PropertyDescriptorGenerator.ts:64`) moved the hole
+        // and left every hosted leaf where it was. A field that moves the void MUST
+        // be a field that re-anchors what fills it.
+        if ((prev.baseOffset ?? 0) !== (next.baseOffset ?? 0)) return true;
         const a = prev.baseLine, b = next.baseLine;
         return (
             a[0].x !== b[0].x || a[0].y !== b[0].y || a[0].z !== b[0].z ||
@@ -263,6 +296,7 @@ export class DoorDependencyTracker {
     dispose(): void {
         this.unsubscribeWall?.();
         this.unsubscribeDoor?.();
+        this.unsubscribeBaseY?.();
         this.graph.clear();
         this.home.clear();
     }

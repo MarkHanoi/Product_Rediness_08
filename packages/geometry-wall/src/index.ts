@@ -63,6 +63,10 @@ export * from './CurvedWallLayerBuilder';
 export * from './CurvedWallCapMiter';
 export * from './MiterPrismBuilder';
 export * from './WallHoleBodyBuilder';
+// §WALL-Y-DATUM (L-968) — THE wall vertical-datum authority. Exported because the
+// hosted-element packages (`@pryzm/geometry-door`, `@pryzm/geometry-window`) are
+// world-space consumers of the wall's BASE plane and must not re-derive it.
+export * from './WallVerticalDatum';
 
 // ── ADR-0055 Pascal-style wall junction pipeline ─────────────────────────────
 // New L/T/X-clean geometry: P1 resolver → P2 footprint → P3a extruder → P3b shim.

@@ -31,6 +31,11 @@ import { hasWallProfile } from './WallProfile';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
 // straight wall with openings (one continuous ExtrudeGeometry, no segment seams).
 import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
+// §WALL-Y-DATUM (L-968) — THE wall vertical datum authority. This builder is the
+// ONE writer: it resolves the world BASE plane and publishes it so the hosted
+// leaves, the junction infill and the instanced arm all read one number instead of
+// re-deriving four. See `WallVerticalDatum.ts` for the two named planes.
+import { publishWallBaseY, forgetWallBaseY } from './WallVerticalDatum';
 // ADR-0055 — Pascal-style wall pipeline (default ON since 2026-05-27).
 // The orchestrator (`WallRebuildCoordinator._flush`) calls `refreshV2Cache()`
 // once per level rebuild with the same `levelWalls` slice it feeds to
@@ -817,6 +822,11 @@ export class WallFragmentBuilder {
         // §PHASE-3: Unregister from GPU instancing if the wall was on the instanced path.
         this._instanceBridge?.unregister(wallId);
 
+        // §WALL-Y-DATUM (L-968) — drop the published base plane. A stale entry would
+        // let a re-created wall's hosted leaf anchor to the DELETED wall's datum,
+        // which is exactly the class of ghost this file's removal path exists to kill.
+        forgetWallBaseY(wallId);
+
         // §PHASE-4 Task 4.2: Remove plan symbol to prevent ghost outlines in plan view
         // after wall deletion or undo. Safe no-op if planSymbolCache is not yet wired.
         try { window.__planSymbolCache?.invalidate?.(wallId); } catch { /* noop */ }
@@ -1110,8 +1120,34 @@ export class WallFragmentBuilder {
             }
         }
 
-        // Position root at start point + elevation
-        wallGroup.position.set(start.x, resolvedY, start.z);
+        // ── §WALL-Y-DATUM (L-968 defect A) — the group sits on the SEAT plane ──
+        //
+        // `resolvedY` is the wall's world BASE plane
+        // (`level.elevation + slabBaseOffset + wall.baseOffset`, :745 / the restatement
+        // in `WallRebuildCoordinator`). It used to be written straight onto the group
+        // origin — and EVERY child is authored in the group-local convention
+        // `y ∈ [baseOffset, baseOffset + height]` (`WallHoleBodyBuilder.ts:26`,
+        // `MiterPrismBuilder.ts:99`, `CurvedWallLayerBuilder.ts:49`,
+        // `LayeredWallOpeningBuilder.ts:206`, and the hosted frames at :3455/:3637).
+        // So `wall.baseOffset` was applied at TWO levels of one transform hierarchy
+        // and the body rendered at `elevation + slabBaseOffset + 2 × baseOffset`.
+        // That doubling is why C84 §9's leaf-vs-hole delta carried a factor of 2.
+        //
+        // The group's origin is therefore the SEAT plane — the finished floor the wall
+        // stands on — and `baseOffset` is applied exactly once, by the children that
+        // already apply it. The alternative (strip `baseOffset` from ~14 local sites)
+        // would have had to change the documented local convention in five files AND
+        // the SpatialAuthority fallback below, which returns `elevation + baseOffset`;
+        // this way both branches of `resolvedY` stay meaningful and unchanged.
+        const _seatY = resolvedY - (wall.baseOffset ?? 0);
+        wallGroup.position.set(start.x, _seatY, start.z);
+
+        // PUBLISH the base plane for every world-space consumer that is NOT a child
+        // of this group: the instanced body, the junction infill, and the hosted
+        // door/window leaves in `@pryzm/geometry-door` / `@pryzm/geometry-window`
+        // (which cannot read the slab store and so cannot re-derive it — see
+        // `SlabWallCoupling`'s no-store-read contract).
+        publishWallBaseY(wall.id, resolvedY);
 
         // ── §PHASE-3 Task 3.3: Routing Decision ─────────────────────────────────────
         // A wall is eligible for GPU instancing when:

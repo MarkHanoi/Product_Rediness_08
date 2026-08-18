@@ -16,6 +16,11 @@ import {
     // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
     // function. Nothing here re-derives either; see `WallRake.ts` for the decision.
     rakeShearPerMetre, rakeTopOffset,
+    // §WALL-Y-DATUM (L-968) — THE wall vertical-datum authority. The leaf's world Y
+    // is the host wall's BASE plane plus its own sill; nothing here re-derives that
+    // plane, because a hosted element "has no independent world-space coordinate in
+    // the store" (C15 §2) and the slab term is unreachable from this package.
+    resolveWallBaseYOrLevel, hostedLeafCentreY,
 } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -924,7 +929,27 @@ export class WindowBuilder {
             );
         }
         const elevation = (levelData as any).elevation;
-        const y = elevation + win.sillHeight + win.height / 2;
+        // ── §WALL-Y-DATUM (L-968) — the leaf sits in the HOST WALL's hole ────────
+        //
+        // This was `elevation + sillHeight + height / 2`: it read neither
+        // `slabBaseOffset` (0 occurrences in this package, by C84 §9's own count) nor
+        // `wall.baseOffset`. The wall body's carve puts the void band at
+        // `wallBaseY + sillHeight`, so a wall on a raised slab, or with a plinth,
+        // moved its hole and left the leaf behind — one "set the base offset to
+        // 150 mm" displaced every window on that wall by `slabBaseOffset + 2 ×
+        // baseOffset` (the factor of 2 being the doubling fixed in
+        // `WallFragmentBuilder`).
+        //
+        // `resolveWallBaseYOrLevel` returns the plane the wall builder PUBLISHED. Its
+        // fallback (host never built) omits only the slab term, which this package
+        // has no lawful way to read — it is not silently equal to the published
+        // value and is not pretended to be.
+        const wallBaseY = resolveWallBaseYOrLevel(
+            wallData.id,
+            elevation,
+            (wallData as { baseOffset?: number }).baseOffset,
+        );
+        const y = hostedLeafCentreY(wallBaseY, win.sillHeight, win.height);
 
         group.position.set(centre.x, y, centre.z);
         group.rotation.y = _hf.rotationY;
@@ -950,10 +975,13 @@ export class WindowBuilder {
         // function — pass the rise instead of the wall height (see its doc comment).
         const [bs, be] = wallData.baseLine as ReadonlyArray<{ x: number; y: number; z: number }>;
         const dir = { x: be.x - bs.x, z: be.z - bs.z };
-        const baseY = elevation + ((wallData as { baseOffset?: number }).baseOffset ?? 0);
+        // §WALL-Y-DATUM (L-968) — the shear pivots about the wall's BASE plane, and
+        // that is the same one number the leaf was just seated from. It used to be
+        // re-derived here as `elevation + baseOffset`, i.e. WITHOUT the slab term,
+        // so on a raised slab the rake displacement was computed from the wrong rise.
         const off = rakeTopOffset(
             (wallData as { rakeAngleDeg?: number }).rakeAngleDeg,
-            y - baseY,
+            y - wallBaseY,
             dir,
         );
         if (!off) return;                       // degenerate baseline — leave the leaf plumb

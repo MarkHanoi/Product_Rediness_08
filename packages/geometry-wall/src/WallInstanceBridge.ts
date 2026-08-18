@@ -39,7 +39,9 @@ export class WallInstanceBridge {
      * for the instanced path (no openings, not curved, no miter join data).
      *
      * The instance matrix encodes translation × rotation × scale:
-     *   T = midpoint of the wall baseline at worldY + height/2 + baseOffset
+     *   T = midpoint of the wall baseline at worldY + height/2, where `worldY` is
+     *       the wall's world BASE plane and ALREADY contains `wall.baseOffset`
+     *       (§WALL-Y-DATUM / L-968 — adding it again here was the doubling)
      *   R = rotation around Y-axis to align with the baseline direction
      *   S = [wallLength, wallHeight, wallThickness]
      *
@@ -102,7 +104,14 @@ export class WallInstanceBridge {
             .multiplyScalar(0.5);
 
         const tx = midpoint.x;
-        const ty = worldY + wall.height / 2 + (wall.baseOffset ?? 0);
+        // §WALL-Y-DATUM (L-968 defect A) — `worldY` IS the wall's world BASE plane
+        // (`level.elevation + slabBaseOffset + wall.baseOffset`, published by
+        // `WallFragmentBuilder` through `WallVerticalDatum`). The instanced body is
+        // NOT a child of the wall group, so it takes no group transform — and it used
+        // to add `wall.baseOffset` a SECOND time on top of a value that already
+        // contained it, floating every instanced wall one plinth too high. The centre
+        // of a body whose base is `worldY` is `worldY + height / 2`, full stop.
+        const ty = worldY + wall.height / 2;
         const tz = midpoint.z;
 
         const matrix = new THREE.Matrix4()
@@ -144,7 +153,9 @@ export class WallInstanceBridge {
         const matrix = new THREE.Matrix4()
             .makeTranslation(
                 midpoint.x,
-                worldY + wall.height / 2 + (wall.baseOffset ?? 0),
+                // §WALL-Y-DATUM (L-968) — same single-count reading as `register`.
+                // These two arms are ONE datum and must move together.
+                worldY + wall.height / 2,
                 midpoint.z,
             )
             .multiply(new THREE.Matrix4().makeRotationY(angle))
