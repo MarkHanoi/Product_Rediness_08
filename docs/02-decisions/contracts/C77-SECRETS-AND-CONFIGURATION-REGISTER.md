@@ -17,16 +17,67 @@
 > secret unlocks, not the secret), **C69** (owns the verb register — the exact register+gate
 > pattern this contract copies to the config surface), **C13** (project isolation — a leaked
 > service-role key breaks it), **C67**/**C68** (chat — the AI key path). Supersedes nothing.
-> **Register artefact**: `docs/04-reference/SECRETS-REGISTER.md` — **generated** (SPECIFIED, not
-> yet built; §6).
+> **Register artefact**: `docs/04-reference/SECRETS-REGISTER.md` — **generated. BUILT and on
+> disk** (22,689 B; `ls -la docs/04-reference/SECRETS-REGISTER.md`). *Read "SPECIFIED, not yet
+> built" here until 2026-08-18 — see the §0.0 correction banner.*
 > **Evidence appendix**: `BIM30-SECRETS-MAPPING-AUDIT.md` — the read-only audit that found the
 > surface unowned. **Deleted in the 2026-08-15 corpus collapse and not carried forward; citable
 > from git history only.** The inventory it seeded lives on in the register artefact above, which
 > is generated from the read-sites and is the thing to read.
-> **Gate**: `tools/ga-gate/check-secrets-register.ts` — **UNBUILT at stamp time** (§6).
+> **Gate**: `tools/ga-gate/check-secrets-register.ts` — **BUILT, REGISTERED, and RED at
+> `[3] RATCHET EXCEEDED`** (measured 2026-08-18; §6). *Read "UNBUILT at stamp time" here until
+> 2026-08-18 — see the §0.0 correction banner immediately below.*
 > **Changelog**: 2026-08-12 — created, in answer to the founder's ask *"make sure all the secrets
 > are contractually mapped — check all contracts"*, after a `SESSION_SECRET` misreading went
 > uncaught for lack of a map.
+
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: this contract described its own gate as UNBUILT while that gate was BLOCKING MERGE
+
+**Every normative clause of C77 stands unchanged** — §1.2, §1.3, §2.2, §2.3, §2.4 are correct and
+binding. **Only the build-status lines were false**, and they were false in the most expensive
+direction: they told a reader that the enforcement did not exist, for a gate that is currently
+exiting **3**.
+
+**Re-measure — do not trust this paragraph either:**
+
+```
+npx tsx tools/ga-gate/check-secrets-register.ts > /tmp/sec.txt 2>&1; echo "RC=$?" >> /tmp/sec.txt
+```
+
+**RC=3** (2026-08-18). Terminal line, verbatim:
+
+> `→ [3] RATCHET EXCEEDED — check-secrets-register: 13 finding(s) against a declared level of 12.`
+> `The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.`
+
+**The 13 = 12 × `FINDING A` (undeclared env reads) + 1 × `DRIFT`** — derive it with
+`grep -c 'FINDING A' /tmp/sec.txt` → **12**. The `DRIFT` finding is
+`docs/04-reference/SECRETS-REGISTER.md is STALE (a measured column moved)`, regenerable with
+`--write`, and it is explicitly flagged `⚠ NOT ON THE LEDGER`.
+
+The twelve undeclared names include `WORKER_CONCURRENCY` (`apps/bake-worker/Dockerfile:32`),
+`OTEL_RESOURCE_ATTRIBUTES` (`fly.toml:80`), `PNPM_HOME` (`Dockerfile:53`), `SHARD`
+(`.github/workflows/terrain-bake-all.yml:91`), and four `PRYZM_*` publisher/marketplace names in
+`packages/plugin-sdk/src/dev/`. Each is exactly the unowned-config state §0 exists to end.
+
+**Both artefacts exist.** Gate: `tools/ga-gate/check-secrets-register.ts`, landed by
+`6b3aa6bd` (2026-08-13) — *one day after this contract was stamped*, which is how the status line
+rotted. Register: `docs/04-reference/SECRETS-REGISTER.md`, 22,689 B.
+
+⛔ **Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`, exit 3 is never absorbable.** Do not add this to
+`tools/ga-gate/gate-debt.json` and **do not raise the declared level from 12**. Fix the twelve by
+adding declaration rows to `tools/ga-gate/secrets-declarations.json`, and clear the DRIFT by
+regenerating the register.
+
+⭐ **The authoring lesson, which is C74/C75's and which C77 half-applied.** §6's body wrote
+*"UNBUILT at stamp time (2026-08-12)"* — **dated, and therefore honest**: a dated historical claim
+cannot rot into a falsehood. The front-matter line wrote *"UNBUILT at stamp time"* with the date
+**dropped**, and the register artefact line wrote *"SPECIFIED, not yet built"* in the **present
+tense**. Same contract, same fact, three tenses — and the two undated spellings are the two that
+became false. **Never write a build status in the present tense. Write it dated, or cite the
+gate's exit code.**
 
 ---
 
@@ -187,7 +238,10 @@ which is the whole argument for this contract in one sentence.
 ## §6 — The gate
 
 `tools/ga-gate/check-secrets-register.ts` — **UNBUILT at stamp time (2026-08-12)**, stated so
-absence is never inferred from omission. When built, four exit codes from
+absence is never inferred from omission. **It was built the next day (`6b3aa6bd`, 2026-08-13) and
+reads RC=3 at 13/12 as of 2026-08-18 — see §0.0.** This dated sentence is the one spelling in this
+contract that did *not* rot; the two undated ones did. The design below is what shipped: four exit
+codes from
 `tools/rac-conformance/certification/contract.ts` (never its own), a subject floor (env-read
 sites scanned ≥ a minimum, else exit 2), and:
 
