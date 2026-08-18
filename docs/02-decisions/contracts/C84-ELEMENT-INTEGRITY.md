@@ -11,6 +11,45 @@
   [C15](C15-HOSTED-ELEMENTS.md) · [C16](C16-COMMAND-AUTHORING.md) ·
   [C67](C67-RAC-CAPABILITY-CONTROL-PLANE.md) · [C68](C68-ELEMENT-ATTRIBUTE-CHAT-ONBOARDING.md)
 - **Spawns**: the per-element contracts **C85–C99**, one per family (§6)
+- **Merged 2026-08-18 from two independent derivations.** EI-1…EI-8 and §4 came from the four-audit
+  sweep. **EI-9…EI-13, §3.5, §8 and every amendment marked `[Z8]` came from the lane Z8 repo-wide
+  duplication audit**, whose draft is preserved verbatim at
+  [`Z8-SOURCE-DRAFT-one-answer-per-question.md`](../../03-execution/plans/Z8-SOURCE-DRAFT-one-answer-per-question.md).
+  Where the two disagreed, **both readings are recorded** (§0) rather than silently reconciled —
+  which of two measurements is wrong is itself evidence.
+- **Implemented by**: [SPEC-ELEMENT-INTEGRITY-CONVERGENCE](../../03-execution/specs/SPEC-ELEMENT-INTEGRITY-CONVERGENCE.md) ·
+  **decided by** [ADR-0331](../adrs/ADR-0331-one-answer-per-question-and-the-decided-loser.md) ·
+  **evidence** in [DUPLICATION-AUDIT-AND-CONVERGENCE-ROADMAP](../../03-execution/plans/DUPLICATION-AUDIT-AND-CONVERGENCE-ROADMAP.md)
+
+---
+
+## 0. The merge, and the two disagreements it resolved
+
+> **This contract was minted TWICE on the same day, under the same number, by two agents who had each
+> been told to write it.** The anti-duplication contract was itself duplicated. It is recorded here
+> rather than tidied away, because it is a clean instance of the failure class C84 governs: **two
+> derivations of one answer, both correct, neither aware of the other, and nothing in the process
+> would have caught it.** The cause was the same as every defect in §4 — *no declared authority*: the
+> number was allocated in one place and consumed in another with no register between them.
+
+**Resolution:** `C84-ELEMENT-INTEGRITY` keeps the number (it was already on `main` and already cited by
+two running fix lanes). Lane Z8's thirteen invariants were folded in; where Z8's was sharper it won.
+ADR-0331, the SPEC and the roadmap keep their own identities and are **not** folded into a contract.
+
+### The two disagreements, both resolved AGAINST the Z8 draft
+
+Recorded because a merge that hides which side was wrong destroys the evidence.
+
+| # | Claim | Z8 draft | Four-audit sweep | Verdict |
+|---|---|---|---|---|
+| 1 | `DeleteElementCommand`'s fall-through line | `:651` | `:650` | **Sweep correct.** Re-measured: `:650` is the `return { success:false … }`; `:651` is the closing brace. Z8 was off by one |
+| 2 | Which kinds `DeleteElementCommand` lacks a branch for | "no `lighting`, no bare-`opening`" | "no `lighting`, `room` **or** `opening`" | **Sweep correct and more complete.** `grep -n roomStore packages/command-registry/src/walls/DeleteElementCommand.ts` → **zero matches**. Z8 never checked `room` |
+
+### The one disagreement resolved IN FAVOUR of the Z8 draft
+
+| Claim | Four-audit sweep | Z8 | Verdict |
+|---|---|---|---|
+| Lighting persistence | *"zero matches in **both** `ProjectSerializer.ts` and `ProjectLoader.ts`"* | `ProjectSerializer` **0**; `ProjectLoader` **18** | **Z8 correct.** `grep -ci "lighting"` on the serializer → `0`, and `grep -in "light"` → **0 matches**; the loader → **18**. **The LOAD half exists and the SAVE half does not** — which is precisely why it looks wired, and why a lane was about to write a loader that already exists. EI-6's citation is corrected below |
 
 ---
 
@@ -43,14 +82,13 @@ success"*.
    `??` default fires, `Furniture.parse` **succeeds**, and the store receives
    `catalogId:''`, `origin:{0,0,0}`, `representations:{}` for every item. Four `as any`
    casts at the dispatch sites are why `tsc` never saw it.
-2. **Lighting is never SAVED — and that is worse than "never persisted".**
-   `grep -ci "lighting"` on `ProjectSerializer.ts` → **0**. The same grep on
-   `ProjectLoader.ts` → **18**. ⚠ *This corrects an earlier reading in this very document
-   that claimed zero in both files.* **The load half exists and the save half does not**,
-   which is precisely why the feature looks wired: every code-reading review finds lighting
-   in the persistence layer and stops. Nothing is ever written for the loader to find.
-   Every light the user places is destroyed on save. **An asymmetric pipeline reads as a
-   complete one — check both halves, never one.**
+2. **Lighting is never persisted.** `grep -ci "lighting"` over `ProjectSerializer.ts` returns
+   **0** — and `grep -in "light"` over the same file returns **0 matches**, so it is not a
+   spelling artefact. Every light the user places is destroyed on save.
+   **`[Z8]` correction:** this bullet previously read *"zero matches in **both** … and
+   `ProjectLoader.ts`"*. `ProjectLoader.ts` carries **18** `lighting` hits. **The LOAD half exists;
+   the SAVE half does not** — which is exactly why the wiring looks complete from the loader end, and
+   why a remediation lane was about to write a loader that already exists. See §0.
 3. **Delete is path-dependent.** The keyboard path reads `elementType`
    (`initUI.ts:2449` → `DeleteElement.ts:51`); the delete **button** does not
    (`BimService.ts:159-179` constructs `DeleteElementCommand(id)` unconditionally, never
@@ -101,6 +139,21 @@ Each family's per-element contract (§6) MUST name exactly one authoritative sto
 openings embedded on the wall record at `WindowDoorReader.ts:1,7,12`). **Two records for
 one door, and nothing reconciles them.**
 
+**`[Z8]` EI-1a — a store KEY must name the SAME OBJECT for a command's whole lifecycle.** At write time
+`affectedStores: ['wall']` resolves to the plugin DTO snapshot; at undo time `buildUndoStoreMap()`
+(`performUndoRedo.ts:308-353`) resolves the same key to `window.wallStore` — 24 keys, 21 globals, all
+geometry. `_covered()` therefore passes, the ring-buffer path runs, and **an inverse patch is applied to
+a store that never received the forward.** C16 CA-19 names this hazard for command authors; EI-1a binds
+the **store owner** as well. *(The mechanism is deeper than two stores — see the EI-7a `[Z8]` note.)*
+
+**`[Z8]` EI-1b — a CLEAN family must be RECORDED as clean.** The consumer set to answer for, every
+time: **renderer · plan view · persistence · IFC export · GLB export · bake worker.** A family whose
+consumers all read one store is conformant and is recorded `✅` — **never left blank**, because a blank
+reads as *"fine"* and is indistinguishable from *"nobody looked"*. *Measured example:* `handrail` — 3-D,
+plan, persistence, IFC, GLB and schedules **all read legacy**; its plugin store has **zero** production
+readers; `produceHandrail` and `HandrailCommitter` are never instantiated. **CLEAN**, and the split is
+therefore **per-family, not repo-wide.**
+
 ### EI-2 — NO SILENT NARROWING AT ANY HOP
 
 When a source field cannot reach its destination, the code MUST either carry it or
@@ -147,6 +200,19 @@ that succeeds from the keyboard and fails from the button is a violation.
 `DeleteElementCommand` has **no** `lighting`, `room` or `opening` branch and falls to
 `:650` `{success:false, info:['Element not found in any store']}`.
 
+> **`[Z8]` EI-4a — CLOSED 2026-08-18 (`§FIX-ONE-DELETE-PATH`), and the SHAPE of the fix is normative.**
+> The repair was to **delete the second route**, not to copy the `elementType` switch into it. Copying
+> would have minted the second answer EI-9 forbids, and the next kind to gain a specialised command
+> would have diverged again. `BimService.deleteSelected()` now dispatches the same `element.delete`
+> verb the keyboard dispatches, resolving `elementType` by the same parent-walk `initUI.ts:2440-2442`
+> uses; `DeleteElementHandler` remains the only place mapping a kind to a command. Pinned by
+> `apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` (5/5), **watched RED first** — 3 failed
+> against HEAD, and the 2 negative controls correctly passed both ways.
+>
+> **Generalised: ONE ROUTE PER USER INTENT.** Two UI surfaces expressing the same intent MUST reach the
+> store by the same route. A second surface may not construct its own command, apply its own routing,
+> or read a different field set.
+
 ### EI-5 — CREATE AND DELETE MUST BE SYMMETRIC ACROSS STORES
 
 Whatever a create writes, the matching delete MUST remove — from every store it wrote.
@@ -157,15 +223,41 @@ record is orphaned by every user delete of every family. `plugins/floor` declare
 generators — never from the Delete key or the delete button, both of which return
 `success:false` for a room.
 
+> ### `[Z8]` EI-5a — THE DISPOSITION: a write-only shadow is DECLARED, not reconciled
+>
+> EI-5 states the asymmetry. This states what to **do** about it, because the obvious repair is wrong.
+>
+> ⛔ **Do NOT add a purge, a mirror, or a reconciliation pass to keep the DTO record consistent with the
+> legacy store.** That makes both copies look authoritative and neither trustworthy (§8.c), and it
+> contradicts ADR-0318 I-1 (*"never a copy, never a rival"*) and ADR-0331 §D1.
+>
+> **And the DTO record is worth even less than "orphaned" suggests.** The `.created` bridges are
+> one-way and create-only; every subsequent edit goes legacy-only with no write-back
+> (`PropertyInspectorApply.ts:446`, `initBusHandlers.ts:1136`); and `ProjectLoader.ts:743` reloads a
+> project through legacy commands **with no bus event**. **So after any project load, every plugin DTO
+> store is EMPTY while the legacy stores hold N records.** Reconciling a store that is empty half the
+> time is maintaining a fiction.
+>
+> **DECLARE instead.** Each `plugins/*/src/store.ts` header names the winner, states its reader and
+> writer counts, and gives the retirement path — the `plugins/rooms/src/store.ts:1-29` form, which is
+> already exemplary. The shadow stops being a shadow when ADR-0331 §D2 retires its write.
+>
+> ⚠ **This disposition is sound ONLY while the reader count is zero.** If any consumer is found reading
+> a DTO store, it inverts and reconciliation becomes mandatory. The census must therefore be re-run on
+> **both** axes of §3.5.1.
+
 ### EI-6 — PERSISTENCE IS NOT OPTIONAL, AND ABSENCE MUST BE LOUD
 
 Every family that can be created MUST round-trip through save/load, or the creation
 affordance MUST be removed. Silent non-persistence is the most severe defect this contract
 governs: the user's work is destroyed with no error.
 
-*Measured:* `lighting` — zero matches in `ProjectSerializer.ts` and `ProjectLoader.ts`.
+*Measured:* `lighting` — **`ProjectSerializer.ts` = 0 matches** for both `lighting` and the broader
+`light`; **`ProjectLoader.ts` = 18**. The save half is absent, the load half is not (§0, `[Z8]`).
 Also `ceiling`, `floor` and `lighting` have **no IFC reader** in
-`packages/file-format/src/export/ifc/readers/`; they vanish from IFC export with no refusal.
+`packages/file-format/src/export/ifc/readers/` (directory listed: Beam, Column, CurtainWall, Furniture,
+Handrail, Plumbing, Roof, Room, Slab, Stair, Wall, WindowDoor); they vanish from IFC export with no
+refusal.
 
 ### EI-7 — UNDO RESTORES EVERY STORE THE EDIT WROTE
 
@@ -189,6 +281,44 @@ This is not inferred from silence — it is named "THE UNDO HAZARD" verbatim in 
 handler headers**. Sixteen verbs were then made to **refuse in `canExecute`** rather than
 have their routing fixed. **Containing a hazard by disabling the verb is not conformance**;
 those verbs are dead affordances and each one is an EI-3 violation.
+
+> ### `[Z8]` EI-7a is UNDERSTATED. `ctx.stores.wall` IS NOT A STORE.
+>
+> EI-7a above describes the inequality as *plugin DTO store* vs *legacy store* — two stores, one
+> written, one restored. **Measured, it is worse than that, and the difference changes what a fix
+> must do.**
+>
+> `runtime.stores` is a `StoresSlot` — `{ elements, registerHydrator, hydrate, viewState, project }`
+> (`composeRuntime.ts:1581-1583`). `elements` is the ADR-0318 live view over `storeRegistry`, and
+> `composeRuntime.ts:1549-1559` registers the **geometry singletons** into it. **The plugin DTO stores
+> never appear on `runtime.stores` at all.** They reach a handler by a different channel entirely:
+> `CommandBus`'s `storesProvider` (`apps/editor/src/bootstrap.ts:94`) → `storesAsRecordView(stores)`.
+>
+> And `storesAsRecordView` (`apps/editor/src/bootstrap.ts:148-159`) is:
+>
+> ```ts
+> out[key] = Object.fromEntries(store.getState());
+> ```
+>
+> **So `ctx.stores.wall` is a plain-object SNAPSHOT of a DTO store's state, rebuilt on every
+> dispatch.** A handler's `produceCommand(ctx.stores.wall, …)` does not produce patches against a
+> store — it produces them against a **throwaway view**, which `attachStores` then replays into the
+> real DTO `Store` instance.
+>
+> **Why this matters rather than being a curiosity.** "The DTO store is a write-only sink" implies the
+> repair is *route the write to the other store*. But the object the handler is handed is not a store
+> and has no identity to re-point: it is materialised per dispatch from whichever `Store` the
+> `PluginRegistry` built. Any fix must change **what the provider hands the handler**, not merely
+> which store a patch lands in. This is why ADR-0331 §D3 proposes routing the FORWARD patch through
+> `elementUndoStoreAdapter` — the adapter is the only thing in the repo that already turns these exact
+> patches into geometry-store mutations, and it already runs on the inverse side.
+>
+> **The code comments are not lying; they answer a different question.** `composeRuntime.ts:1540-1543`
+> claims the registered instance IS the one `registerAllStores()` registers and `ProjectSerializer`
+> reads — that is **Root A internal identity**, it is true, and it is heap-proven with `toBe` across
+> 15 kinds by `mt05StoreIdentityHeap.spec.ts`. Nothing there ever claimed `ctx.stores.wall`
+> unification. A reader scanning for reassurance would take it as such. **That is precisely why
+> EI-10(b) requires an executed proof and not a comment.**
 
 **EI-7b — undo may never corrupt.** `elementUndoStoreAdapter.ts:289,337-338` takes
 `field = p.path[1]` and writes `store.update(id, {[field]: p.value})` **for a patch of any
@@ -241,6 +371,181 @@ library recolours a finish, update the hex here in the same commit"*; and the 6-
 > `HandrailTypeStore.ts:19-26`: *"`materialColor` is a render tint; it is not a material…
 > the name carries roughness / metalness / transparency"*. Any unification that collapses
 > it to a hex **loses information** and is forbidden.
+
+**`[Z8]` EI-8a — a licensed copy is pinned by a TEST, never by a comment.** Where EI-10 licenses a
+transcribed table, that copy MUST be pinned to its master by an executed test comparing **every**
+value. A comment stating the maintenance obligation — `finishRef.ts:14`, *"update the hex here in the
+same commit"* — **is the mechanism that has already failed twice, measured**: colour names drifted
+(`black` = `#333333` at `QueryEngine.ts:1139` vs `#000000` in five other tables; `green` = `#008000` at
+`PropertyRenderer.ts:209` vs `#00ff00` in four), and style aliases drifted (`rustic` → mediterranean at
+`styleFinish.ts:246` vs farmhouse at `StyleRegistry.ts:283`).
+*The compliant example to copy:* the five `*Determination` modules
+(`windowOpeningStoreDetermination.ts`, `boundingWallDetermination`, `wallRoomAdjacencyDetermination`,
+`storeReadDetermination`, `roomStoreDetermination`) each restate one member of the closed
+`UndeterminedReason` union because `@pryzm/command-bus` is not a declared dependency — **and each is
+pinned by a companion test against the command-bus source.**
+
+---
+
+### `[Z8]` EI-9 — ONE ANSWER PER QUESTION
+
+EI-1 governs **stores**. This governs **every other kind of answer**: a geometry function, a predicate,
+a constant table, a routing decision.
+
+> For any question the system answers — *"where does this wall start vertically"*, *"what hex is
+> black"*, *"which command deletes this kind"* — there is exactly ONE implementation, and every
+> consumer reaches it.
+
+A second implementation is a violation unless it satisfies EI-10 in full.
+
+*Measured violations:* `buildCurvedLayerGeometry` exists **three times**
+(`CurvedWallLayerBuilder.ts:36`; an inline near-verbatim duplicate at `WallFragmentBuilder.ts:1607-1838`,
+both live and split by a layer-count branch; and `producers/_internal/buildCurvedLayer.ts:56`) ·
+`buildMiterPrism` twice (`MiterPrismBuilder.ts:53`, `producers/_internal/buildMiterPrism.ts:21`) ·
+the `ElementType` union **four** times (`schemas/Id.ts:79` 30 members · `CoreElement.ts:7` 18 ·
+`AITypes.ts:16` 11 · `ai/types.ts:16` 11, byte-identical to the third) · six colour-name tables ·
+the wall's world-base-Y, computed at **ten** independent sites.
+
+### `[Z8]` EI-10 — WHAT A SECOND IMPLEMENTATION MUST EARN
+
+A second implementation of one question is admissible **only** with all four of:
+
+- **(a) A NAMED REASON** in the file header, stating what the first cannot do — a layer boundary, a
+  purity constraint, a runtime that cannot host it. *"Convenience"* and silence are not reasons.
+  *Compliant:* `packages/ai-host/src/intents/finishRef.ts:8-14` — transcribes 15 hexes because
+  `materialLibrary.ts` constructs `THREE.Color` at module load and the resolver must stay pure.
+- **(b) AN EXECUTED EQUIVALENCE PROOF** — identical inputs into both, compared numerically. **Reading
+  two files and judging them equivalent does not satisfy (b)**; C16 CA-21's rule applies unchanged.
+  *Compliant:* `tests/parity/wall/stackAB-miter-parity.test.ts`.
+- **(c) A DECLARED DIVERGENCE LIST** — every input on which they legitimately differ, and why. An empty
+  list means byte-identical, and must be **asserted**, not assumed.
+- **(d) A RETIREMENT CONDITION.** A second implementation with no exit is permanent debt with a comment
+  attached.
+
+> **EI-10a — the licence is per-QUESTION, not per-FILE.** `CurtainPanelBuilder.ts:4` (*"thin façade over
+> `CurtainPanelFactory.buildPanelObject()`"*, importing it at `:30`) needs no licence: it answers a
+> different question and calls the other. Use §3.5 to tell the cases apart.
+
+### `[Z8]` EI-11 — WHAT THE USER SEES AND WHAT THE SYSTEM EXPORTS MUST BE THE SAME CODE
+
+> The geometry a user SEES and the geometry the system EXPORTS, BAKES or PERSISTS must come from the
+> **same function**, on the **same inputs**.
+
+This repository builds wall geometry twice: **Stack A** (`packages/geometry-wall` → `WallFragmentBuilder`
+→ `initBuilders.ts` → the viewport) and **Stack B** (`packages/geometry-kernel/src/producers` →
+`produceWall` → `HeadlessBakeSession.ts:124` → `RebakeChunkJob.ts:79`, shipped in
+`pryzm-selfhost/docker-compose.yml:94`).
+
+**Nothing compared them until 2026-08-18.** `tests/parity/wall/wall-snapshot.test.ts` snapshots Stack B
+against *itself*; `wall-headless-node.test.ts` compares Stack B in-process to Stack B in a
+`worker_thread`. **Both are Stack-B-only.** A parity harness that compares a stack to itself does not
+satisfy this invariant.
+
+*Measured on identical inputs* (`stackAB-miter-parity.test.ts`): 9 of 10 cases agree to ≤2.2e-7 m —
+float32 storage noise — and **`curved-MITERED-both-ends` diverges by 9.774 m** on a 5 m-radius arc.
+Stack A (`CurvedWallLayerBuilder.ts:69-83`, `§FIX-CURVED-WALL-MITER-WATERTIGHT`) projects the miter
+plane and **writes back into the corner table its face loops consume**; Stack B
+(`buildCurvedLayer.ts:133-137, 159-165`) projects the cap quad only and its face loops (`:95-118`)
+consume unprojected stations. **9.774 m is a defect, not a tolerance.**
+
+> **EI-11a — a caller may not silently substitute inputs.** `HeadlessBakeSession.ts:139` calls
+> `produceWall(w, NO_JOINS, 0)` — neighbour joins discarded, level elevation forced to zero, both
+> self-documented *"v0"*. **Identical code with substituted inputs is not the same answer.** A
+> substituted input must be declared under EI-10(c) and must refuse loudly rather than bake a plausible
+> wall at the wrong height.
+
+### `[Z8]` EI-12 — A REGISTERED TRIGGER MUST HAVE A PROVEN DISPATCHER
+
+A cascade rule, consequence planner, event subscriber or trigger table keyed on a verb MUST name a
+production dispatcher of that verb, proven by a call site — **or declare itself dormant** with the
+condition under which it becomes live.
+
+*The worked example, and it nearly bought a wrong fix.* `plugins/cross/src/wall-room.ts:53,61` registers
+`wall.delete` as the wall→room cascade trigger, and nothing dispatches `wall.delete`. The obvious repair
+— make the delete path dispatch it — **would have changed nothing**: `new CascadeRunner()` occurs only
+in `packages/command-bus/__tests__/cascade.test.ts`, `cascade-promotion.test.ts` and
+`plugins/cross/__tests__/handlers.test.ts`; `buildWallRoomCascadeRule` has **zero** non-test call sites;
+the registration example at `wall-room.ts:45` is **commented out**. The real gap is the unregistered
+cascade subsystem, already dispositioned to BIM30 plan R2 (ADR-0322 / STR-06 §18, recorded verbatim at
+`plugins/rooms/src/handlers/RecomputeRoomBoundary.ts:39-45`).
+
+> **A trigger with no dispatcher and a dispatcher with no runner fail identically — silently — and read
+> the same to a reviewer. Name which one you have.**
+
+### `[Z8]` EI-13 — AN EMITTER WITH NO CONSUMER IS A DECLARED GAP
+
+Either wire the consumer or delete the emitter; an unconsumed emitter that stays must carry the reason
+inline.
+
+*Measured:* nine events emitted by `CommandEventBridge.ts` have **zero** `events.on` subscribers
+repo-wide — `slab.layer-updated:937`, `ceiling.layer-updated:957`, `floor.layer-updated:977`,
+`room.created:689`, `grid.created:699`, `plumbing.created:854`, `structural.created:864`,
+`annotation.created:874`, `dimension.created:884`. The three `*.layer-updated` are the **only**
+mutation-shaped events the bridge emits besides `element.level-changed`, and all three fall on the
+floor. *The precedent for the fix is in the same file:* `CommandEventBridge.ts:627-631` records
+`door.created` / `window.created` / `stair.created` being **deleted** for exactly this reason.
+
+---
+
+## 3.5 `[Z8]` The classification test — *"duplicated" or "CO-LIVING"?*
+
+⛔ **Nothing may be deleted, merged, or called a duplicate on a name match.** Apply this test and record
+the evidence. It exists because applying it **downgraded four findings** that a name-match census had
+ranked as defects.
+
+| Verdict | The test | Evidence required | Action |
+|---|---|---|---|
+| **CO-LIVING** | Both reachable; they answer **different questions** | different inputs **or** different outputs, cited | none — record why |
+| **STAGE** | One **calls** the other | the import + the call site | none |
+| **LIVE FORK** | Both reachable, **same question**, selected by a branch | the branch condition, `file:line` | EI-10 licence, or converge |
+| **PARKED** | Behind a flag, default off, reason recorded | the flag + the recorded reason | loaded gun — log it, do not delete |
+| **RENDER-DEAD / OTHER-HOST-LIVE** | No importer in host X, **live in host Y** | importer census **across all hosts** | ⛔ **NOT deletable** |
+| **TRULY DEAD** | Zero reachability on **both** axes below | the full census | deletable |
+
+### 3.5.1 — The reachability census has TWO axes, and a deletion requires BOTH
+
+A write can arrive at a store **through a bus verb**, touching no importable symbol. A census that greps
+for **callers of the store** misses it entirely.
+
+*Measured instance:* a lane reported a plugin pipeline had *"no production call site"*. **False** —
+`RailingPlanToolHandler.ts:92` dispatches the bus verb `handrail.create`. The store had no callers; the
+verb had a dispatcher.
+
+> **Every reachability claim MUST state which axis it measured. A DELETION claim requires both:**
+> **(a) the import/construction axis** — who imports or `new`s it; **(b) the bus axis** — which verbs
+> write it, and whether any production surface dispatches those verbs.
+
+### 3.5.2 — The census MUST include non-editor hosts
+
+`apps/bake-worker` · `apps/sync-server` · `apps/api-gateway` · `apps/marketplace-api` · `apps/headless` ·
+`apps/bench` · `pryzm-selfhost/` · `server/` · `tools/` · `tests/`.
+
+**Not hypothetical.** All **26** `geometry-kernel/src/producers/*.ts` have zero *editor* render call
+sites and read as dead — `bootstrapRenderEverything` is never invoked because `src/main.ts:407` passes
+`canvas: null`, and no production `runtime.scene.mount(` call site exists. But
+`HeadlessBakeSession.ts:23,131` calls `produceWall` for real, and that worker ships in
+`pryzm-selfhost/docker-compose.yml:94`. **An editor-only census would have deleted the self-host bake
+pipeline.**
+
+⚠ **Membership is per-family, not blanket:** `produceHandrail` and `HandrailCommitter` **are** genuinely
+dead — never instantiated, and handrail is absent from the bake worker entirely. Wall's answer does not
+transfer.
+
+### 3.5.3 — Worked verdicts, so the test is not abstract
+
+- `SlabFragmentBuilder` / `FloorPanelBuilder` / `CeilingPanelBuilder` → **CO-LIVING** (structural slab vs
+  floor finish vs ceiling finish; all live at `initBuilders.ts:348, 422, 391`).
+- `CurtainPanelBuilder` → **STAGE** (`:4` self-describes as a façade; imports the factory at `:30`).
+- `StairPreviewRenderer` / `CurvedStairRenderer` → **CO-LIVING** (Canvas2D overlay previews,
+  `getContext` at `:77`/`:49` — not 3-D geometry).
+- `buildCurvedLayerGeometry` #1 vs #2 → **LIVE FORK** (`WallFragmentBuilder.ts:1607` vs `:1844`, split on
+  layer count; identical output at `layerOffset = 0`).
+- **The ten `<kind>.delete` bus verbs → DORMANT, not latent bugs.** No UI, chat or collab path dispatches
+  any; every real delete reaches `DeleteElementCommand`. ⛔ **Do not delete them** — they are the
+  PRYZM 3 target vocabulary. *This verdict downgraded the audit's own highest-ranked finding.*
+- `RENDER_MATERIAL_LIBRARY` → **UNWIRED OVERLAY, not a rival master** — 16 entries, one display-only
+  importer (`MaterialsBucket.ts:16`), **zero** call sites for its functional exports. Inflating this into
+  a rivalry costs the audit credibility on the findings that are real.
 
 ---
 
@@ -448,6 +753,17 @@ Every per-element contract MUST declare its canonical tag, and the spellings MUS
 | `check-persistence-coverage.ts` | EI-6 | TO BUILD — hard-0; no family may be unsaved |
 | `check-affected-stores.ts` | EI-7d | TO BUILD — **highest value single check.** Table-driven sweep asserting every `affectedStores` key declared anywhere in `packages/command-registry/src/**` and `plugins/**/commands/**` appears in `createSnapshot`'s `optionalStores` (`CommandManagerImpl.ts:609-625`). Generalises the one existing test from 1 command to ~190 |
 | `check-undo-store-coverage.ts` | EI-7c | TO BUILD — hard-0: every registered bus store key has a `buildUndoStoreMap` entry, or a DECLARED, documented exemption |
+| `[Z8]` `tests/parity/wall/stackAB-miter-parity.test.ts` | **EI-11** | **EXISTS** — 10 pass, 1 pinned `it.fails` (`§Z8-CURVED-MITER-BAKE-DIVERGENCE`). Slab / door / window harnesses **OWED** |
+| `[Z8]` `apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` | **EI-4a** | **EXISTS** — 5/5, watched RED. Delete only |
+| `[Z8]` `tools/ga-gate/check-verb-liveness.ts` | EI-1 / EI-7a route liveness | **EXISTS — GROW-ONLY ratchet.** Reading: **PROVEN 7 / 326**; UNPROVABLE-NO-STORE 109; UNKNOWN 210. Its own words: *"Neither is a pass; both are the work"* |
+| `[Z8]` `check-emitter-has-consumer` | **EI-13** | TO BUILD — hard-0 once the nine are resolved |
+| `[Z8]` `check-constant-copy-pinned` | **EI-8a** | TO BUILD — hard-0 |
+| `[Z8]` `check-trigger-has-dispatcher` | **EI-12** | TO BUILD — ratchet |
+| `[Z8]` `check-verb-register.ts` **fix** | instrument correctness | **BUG**: `TYPE_DECL_RE` (`:135-139`) anchors on `type\s*` and so misses `{ type: '…'`. `stair.batch.create` is declared at `CreateStairBatch.ts:61` **and** `initBusHandlers.ts:445`, so **SHADOWED reads 0 and should read 1.** Every step graded by this gate inherits the error |
+
+> **`[Z8]` Nine of the eighteen invariants have no gate.** Stated rather than left to inference (the
+> C68 §6.3 idiom): EI-1b, EI-5a, EI-8a, EI-9, EI-10, EI-11a, EI-12, EI-13 and §3.5 are **review
+> judgements today**. C84 is therefore **CANONICAL, not ACTIVE**.
 
 **Three tests are named here because they were specified by measurement and do not yet
 exist.** Each must be watched failing before it is believed — a control that cannot fail
@@ -498,7 +814,6 @@ Each section carries **AS-IS** (measured, `file:line`) and **TO-BE** (normative)
 - **Grep both halves.** Lighting survived because the loader existed and the serializer did not,
   so one grep found it and stopped (§1.2).
 - **Beware the name-based census.** A reachability census that greps for *store* callers misses
-  writes arriving through a *bus verb*. That error was made and corrected once already.
 
 | # | Family | # | Family | # | Family |
 |---|---|---|---|---|---|
@@ -522,3 +837,58 @@ trusting prose — and which was adopted precisely because the prose-based rule
 "silently checked nothing" (L-809).
 
 A field must be **carried** or **declared dropped**. Never omitted.
+
+---
+
+## 8. `[Z8]` Anti-patterns
+
+- **§8.a — Counting files whose names are similar.** ADR-0327 refuted its own row this way: four
+  "LevelStore" files were three different kinds of object. Apply §3.5.
+- **§8.b — Deleting on an editor-only importer census.** §3.5.2 — it would have deleted the bake
+  pipeline.
+- **§8.c — Mirroring state between two stores as an end state.** A mirror makes both copies
+  authoritative and neither trustworthy. Retire the loser's **write** (EI-5a).
+- **§8.d — A comment as the synchronisation mechanism.** EI-8a. Measured to have failed twice.
+- **§8.e — A parity test that compares a stack to itself.** EI-11.
+- **§8.f — Reporting a tolerance where a defect belongs.** 9.774 m is not a tolerance.
+- **§8.g — Inflating an unwired overlay into a live rivalry.** §3.5.3. Over-reporting costs the audit
+  its credibility on the findings that are real.
+- **§8.h — Fixing a symptom whose mechanism you have not measured.** Dispatching `wall.delete` to
+  "repair" the room cascade would have shipped a no-op with a success report — the exact defect class
+  this contract governs (EI-12).
+
+---
+
+## 9. `[Z8]` NOT MEASURED — the honest register
+
+⛔ **These are gaps, not clearances. None may be recorded as `✅` until measured** (EI-1b: a blank reads
+as *"fine"* and is indistinguishable from *"nobody looked"*).
+
+- **The eleven unread `.created` bridge bodies** — `initTools.ts:1059, 1260, 1408, 1511, 1591, 1636,
+  1708, 1773, 1824, 1967, 2031`. Only the handrail bridge was read in full. They are **NOT clean**;
+  they are unmeasured, specifically for EI-2's four mechanisms — above all **(b) the constant-ternary
+  dead branch**, which is invisible to both `tsc` and review.
+- **Six of the ten wall Y-datum sites** — `WallInstanceBridge.ts:105,111,147,151`;
+  `WallJunctionInfillManager.ts:122-123`; `LayeredWallOpeningBuilder.ts:140-141,205`;
+  `WallFragmentBuilder.ts:1237/2112/2138/2186/2233/2371-2390`. Input divergence unchecked.
+  *(The measured half: wall body Y is `level.elevation + slabBaseOffset + wall.baseOffset`
+  — `WallFragmentBuilder.ts:728` — while hosted leaves compute `elevation + sillHeight + height/2`
+  — `DoorBuilder.ts:498`, `WindowBuilder.ts:818` — and `slabBaseOffset` occurrences across
+  `geometry-door/src` + `geometry-window/src` = **0**. Delta = `slabBaseOffset + 2 × wall.baseOffset`.
+  **LATENT** — nothing authors either offset non-zero today — but it is the recorded reason the CSG arm
+  is switched off, `WallFragmentBuilder.ts:2326-2333`.)*
+- **`ADR-0331 §D5 — "what is Stack B for?"`** — ⛔ **A FOUNDER QUESTION, escalated, not to be resolved
+  by any lane.** Three coherent end-states are costed in ADR-0331. **Until it is decided, NOTHING in
+  `packages/geometry-kernel/src/producers/` or `plugins/*/src/committer/` may be deleted** (§3.5.2).
+- **Which door representation wins** (EI-1, `wall.opening`) — a persistence-format decision with a
+  migration; needs the founder.
+- **EI-7e** — whether user-authored room name / number / finish survive
+  `RoomTopologyObserver.resume()`'s post-undo recompute.
+- **Plan-view store authority, per family** — unmeasured for every family.
+- **Runtime divergence of store CONTENTS** — the two construction roots and 19 TWO-LIVE families are
+  proven **structurally**; no live browser session observed two stores holding different records. So
+  **C78 §21 OQ7 is answered structurally, not by a runtime probe.**
+- **ADR-0331 §D3 has never been executed** — routing the forward patch through
+  `elementUndoStoreAdapter` is inferred from that file's own header and surface analysis. The SPEC
+  sequences a one-verb probe before any wiring.
+- **Gates 14–83 of `run-all.ts`** — the run was killed at ~11 min on gate 13.
