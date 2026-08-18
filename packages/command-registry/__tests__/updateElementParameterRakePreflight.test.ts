@@ -105,14 +105,19 @@ describe('UpdateElementParameterCommand — §WALL-RAKE pre-flight (refusal, not
         expect(() => cmd.execute(ctx)).toThrow(/§WALL-RAKE/);
     });
 
-    it('REFUSES a rake on a CURVED wall and on an OPENING-HOSTING wall', () => {
-        const ctx = makeCtx([
-            { id: 'w-curved', curve: { r: 3 }, openings: [] },
-            { id: 'w-hosting', openings: [{ id: 'o1' }] },
-        ]);
+    it('REFUSES a rake on a CURVED wall — the arm that survives', () => {
+        const ctx = makeCtx([{ id: 'w-curved', curve: { r: 3 }, openings: [] }]);
         expect(rakeCmd('w-curved', 70).canExecute(ctx).ok).toBe(false);
         expect(rakeCmd('w-curved', 70).canExecute(ctx).reason).toMatch(/CURVED/i);
-        expect(rakeCmd('w-hosting', 70).canExecute(ctx).ok).toBe(false);
+    });
+
+    it('ALLOWS a rake on an OPENING-HOSTING wall — §RAKE-HOSTED-OPENING', () => {
+        // This assertion used to read `.ok === false`. The founder's 2026-08-18 ask
+        // is exactly this direction of the rule: the panel row that refused to rake
+        // a wall carrying a window now goes through, because the carve follows the
+        // raked face and the leaf sits in it.
+        const ctx = makeCtx([{ id: 'w-hosting', openings: [{ id: 'o1' }] }]);
+        expect(rakeCmd('w-hosting', 70).canExecute(ctx).ok).toBe(true);
     });
 
     it('ALLOWS an authorable rake on a plain single-layer wall, and executes it', () => {

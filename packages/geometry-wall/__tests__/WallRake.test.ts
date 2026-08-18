@@ -288,6 +288,11 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         expect(rakeAuthorability({ rakeAngleDeg: 80, layers: [{}] }).ok).toBe(true);
     });
 
+    // ⚠ TWO LANES MET HERE. §FEAT-RAKE-LAYERED made `layered` buildable; §RAKE-HOSTED-
+    // OPENING made `openings` buildable. Each lane's own suite therefore deleted the
+    // OTHER's refusal as stale — so taking either side wholesale would have re-opened a
+    // combination nobody built. What actually survives is the INTERSECTION, and only it.
+    //
     // The layered arm did not vanish, it NARROWED — and this is the survivor. A layered
     // wall that HOSTS AN OPENING is built by `buildLayeredWallSegmentsAroundOpenings`
     // (per-layer boxes around the void), which has no shear at all; letting the rake
@@ -299,18 +304,38 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         expect(a.reason).toContain('HOSTS OPENINGS');
     });
 
-    it('REFUSES rake × hosted openings — the carve is a vertical band (C15 §2)', () => {
+    it('ALLOWS rake × hosted openings — §RAKE-HOSTED-OPENING (founder 2026-08-18)', () => {
+        // This test used to assert the OPPOSITE, citing "the carve is a vertical band
+        // (C15 §2)". The carve is no longer a vertical band: the wall's whole
+        // assembly — solid, void, reveal and leaf — rides one shear about the base,
+        // so the hole follows the raked face by construction. The decision that made
+        // it possible (PLUMB height, IN-PLANE leaf) is documented in `WallRake.ts`;
+        // it is measured end-to-end in `RakedHostedOpening.test.ts` and, for the
+        // window element itself, in geometry-window's `RakedHostWindowLeaf.test.ts`.
+        // NOTE the subject below is UNLAYERED — a layered host is the test above.
         const a = rakeAuthorability({ rakeAngleDeg: 80, openings: [{ id: 'o1' }] });
-        expect(a.ok).toBe(false);
-        expect(a.code).toBe('hosted-openings');
+        expect(a.ok).toBe(true);
+        expect(a.code).toBeUndefined();
+    });
+
+    it('a CURVED host still refuses even when it hosts openings — the arm that stayed', () => {
+        // Non-vacuity for the change above: removing one arm must not have removed
+        // the guard. A single shear vector cannot be right along an arc, so that
+        // refusal is ill-posedness rather than missing work and is permanent.
+        expect(rakeAuthorability({ rakeAngleDeg: 80, curve: {}, openings: [{ id: 'o1' }] }).code)
+            .toBe('curved');
     });
 
     it('every refusal carries a reason a UI can show — never a bare false', () => {
+        // §RAKE-HOSTED-OPENING — `{ openings: [{}] }` left this list when the
+        // hosted-openings arm was removed; it is no longer a refusal at all.
         for (const s of [
             { rakeAngleDeg: 400 },
             { rakeAngleDeg: 80, curve: {} },
+            // Both single-factor subjects LEFT this list, each removed by the lane that
+            // built it: `{layers}` by §FEAT-RAKE-LAYERED, `{openings}` by §RAKE-HOSTED-
+            // OPENING. Only their intersection is still unbuilt, so only it belongs here.
             { rakeAngleDeg: 80, layers: [{}, {}], openings: [{}] },
-            { rakeAngleDeg: 80, openings: [{}] },
         ]) {
             const a = rakeAuthorability(s);
             expect(a.ok).toBe(false);

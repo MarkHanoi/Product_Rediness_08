@@ -115,11 +115,24 @@ describe('§REFUSAL-IDENTITY-CANPLACE — the six command consumers carry the co
         expect(v.reason).toMatch(/^\[OCC_OVERLAPS_SIBLING\]/);
     });
 
-    it('CreateWallOpeningCommand: a RAKED host refuses AS [OCC_HOST_RAKED]', () => {
-        const ctx = ctxOf([wall('w1', 8, [], { rakeAngleDeg: 70 })]);
+    it('CreateWallOpeningCommand: a raked host whose rake is UNBUILDABLE refuses AS [OCC_HOST_RAKED]', () => {
+        // §RAKE-HOSTED-OPENING (founder 2026-08-18) — a plain raked host is now
+        // ACCEPTED (the case below), so the subject here is a raked host whose rake
+        // cannot be built at all. The point of this suite is the CODE, not the rule:
+        // the refusal must stay attributable to its own arm.
+        const ctx = ctxOf([wall('w1', 8, [], { rakeAngleDeg: 70, curve: { control: { x: 4, y: 0, z: 1 }, segments: 12 } })]);
         const v = new CreateWallOpeningCommand({ wallId: 'w1', openingData: { type: 'door', width: 1, offset: 1 } }).canExecute(ctx);
         expect(v.ok).toBe(false);
         expect(v.reason).toMatch(/^\[OCC_HOST_RAKED\]/);
+    });
+
+    it('CreateWallOpeningCommand: a plain RAKED host is ACCEPTED — §RAKE-HOSTED-OPENING', () => {
+        // Non-vacuity for the change above: OCC_HOST_RAKED must not have become a
+        // code that fires on every leaning wall, which would make the founder's
+        // feature unreachable while this suite still went green on the code.
+        const ctx = ctxOf([wall('w1', 8, [], { rakeAngleDeg: 70 })]);
+        const v = new CreateWallOpeningCommand({ wallId: 'w1', openingData: { type: 'window', width: 1, offset: 1 } }).canExecute(ctx);
+        expect(v.ok).toBe(true);
     });
 
     it('CreateWallOpeningCommand: a non-positive width refuses AS [OCC_WIDTH_NOT_POSITIVE]', () => {

@@ -10,7 +10,12 @@ import { doorSystemTypeStore } from './DoorSystemTypeStore';
 // the placed 3D frame is dimensionally identical to what the user previewed.
 import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
-import { WallStore, hostedElementFrame, withAuthoritativeGeometry } from '@pryzm/geometry-wall';
+import {
+    WallStore, hostedElementFrame, withAuthoritativeGeometry,
+    // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
+    // function. Nothing here re-derives either; see `WallRake.ts` for the decision.
+    rakeShearPerMetre, rakeTopOffset,
+} from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-DOOR-3D-LOD (L-266) — the 3D door is a DetailLevel consumer, through the SAME
@@ -499,6 +504,47 @@ export class DoorBuilder {
 
         group.position.set(centre.x, y, centre.z);
         group.rotation.y = _hf.rotationY;
+
+        // ── §RAKE-HOSTED-OPENING (founder 2026-08-18) ────────────────────────
+        //
+        // The window's fix, applied here for the same reason and by the same map.
+        // The founder asked for WINDOWS, but the gate that refused them refused
+        // doors identically and now admits both — so a door hosted on a raked wall
+        // is reachable, and leaving it plumb would put a vertical leaf in a leaning
+        // hole. The wall's carve is the shear `z ↦ z + cot(rake)·(y − yBase)` in the
+        // wall's own frame; the leaf takes the same one and fills the void exactly.
+        // Decision and its justification: `WallRake.ts` §RAKE-HOSTED-OPENING.
+        //
+        // Zero for a vertical host ⇒ everything below is skipped and the group keeps
+        // ordinary TRS placement, byte-identical to before.
+        const k = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg);
+        if (k === 0) return;
+
+        const [bs, be] = wallData.baseLine as ReadonlyArray<{ x: number; y: number; z: number }>;
+        const dir = { x: be.x - bs.x, z: be.z - bs.z };
+        const baseY = elevation + ((wallData as { baseOffset?: number }).baseOffset ?? 0);
+        const off = rakeTopOffset(
+            (wallData as { rakeAngleDeg?: number }).rakeAngleDeg,
+            y - baseY,
+            dir,
+        );
+        if (!off) return;                       // degenerate baseline — leave the leaf plumb
+        group.position.set(centre.x + off.x, y, centre.z + off.z);
+
+        // A shear has no TRS decomposition, so the matrix is written directly and
+        // `matrixAutoUpdate` disabled. three.js shades it correctly (normal matrix =
+        // inverse-transpose of model-view) and picks it correctly (`Raycaster`
+        // inverts `matrixWorld`). In the group's LOCAL frame — +X along the wall, +Z
+        // on `leftPerp` after `rotationY` — the lean is exactly `z ↦ z + k·y`.
+        group.updateMatrix();
+        group.matrixAutoUpdate = false;
+        group.matrix.multiply(new THREE.Matrix4().set(
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, k, 1, 0,
+            0, 0, 0, 1,
+        ));
+        group.matrixWorldNeedsUpdate = true;
     }
 
     /**

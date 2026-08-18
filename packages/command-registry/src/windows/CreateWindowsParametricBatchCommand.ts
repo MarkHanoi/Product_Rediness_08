@@ -12,8 +12,9 @@
 //      mark generation. This file only computes WHERE.
 //   2. ONE undo entry — undo() replays each created opening's undo in reverse.
 //   3. §CONTEXT-DATA-HONESTY — per-window refusals are recorded and grouped:
-//      occupancy conflicts, too-short walls, raked hosts (openings do not tilt
-//      yet — the child's addOpening path enforces it; we pre-name it), curved
+//      occupancy conflicts, too-short walls, a host whose rake is unbuildable
+//      (§RAKE-HOSTED-OPENING: a raked host is FINE now — only curved/layered/
+//      out-of-range rakes drop), curved
 //      handling via the centreline length. "Created N of M planned windows —
 //      K skipped: <reason>". All-skipped = visible no-op via canExecute.
 //
@@ -132,15 +133,25 @@ export class CreateWindowsParametricBatchCommand implements Command {
 
     /** Window START offsets for one wall, honest about why any were dropped. */
     private _offsetsFor(w: WallRecordLike): { offsets: number[]; dropReason: string | null } {
-        // Hosted openings do not tilt (C15) — a raked host refuses whole-wall.
+        // §RAKE-HOSTED-OPENING (founder 2026-08-18) — a RAKED host no longer drops.
+        // This branch used to read `code === 'hosted-openings'` and return
+        // *"wall is raked — hosted openings do not tilt yet (C15)"*. They tilt now:
+        // the wall's carve and the window's leaf ride one shear about the wall base
+        // (see `WallRake.ts` §RAKE-HOSTED-OPENING). Since this command is a
+        // whole-wall window generator, that stale drop was the difference between
+        // "batch-glaze this leaning facade" working and silently producing nothing.
+        //
+        // The gate is still consulted, and still drops — for the reasons that
+        // SURVIVED. A curved raked wall (or one raked out of range) cannot be built,
+        // so planning windows into it would promise geometry nobody can render.
         const rake = rakeAuthorability({
             rakeAngleDeg: w.rakeAngleDeg,
             curve: w.curve,
             layers: undefined,
             openings: [{}],
         } as Parameters<typeof rakeAuthorability>[0]);
-        if (!rake.ok && rake.code === 'hosted-openings') {
-            return { offsets: [], dropReason: 'wall is raked — hosted openings do not tilt yet (C15)' };
+        if (!rake.ok) {
+            return { offsets: [], dropReason: `wall cannot hold its angle (rake): ${rake.reason ?? rake.code}` };
         }
 
         let length: number;

@@ -116,8 +116,12 @@ describe('§WALL-RAKE round-trip — a NEW raked wall survives', () => {
         expect(r.success).toBe(false);
     });
 
-    it('the schema REFUSES a persisted raked wall that also hosts an opening', () => {
-        const bad = {
+    it('the schema ACCEPTS a persisted raked wall that hosts an opening', () => {
+        // §RAKE-HOSTED-OPENING (founder 2026-08-18) — this used to expect `false`.
+        // It matters at the PERSISTENCE boundary specifically: a project saved after
+        // the feature must reload, and the refusal it asserted would have rejected
+        // the whole wall on load rather than degrading it.
+        const ok = {
             ...legacySnapshotWall(),
             rakeAngleDeg: 80,
             openings: [{
@@ -126,7 +130,7 @@ describe('§WALL-RAKE round-trip — a NEW raked wall survives', () => {
             }],
             childrenIds: ['win-1'],
         };
-        expect(WallDataAddSchema.safeParse(bad).success).toBe(false);
+        expect(WallDataAddSchema.safeParse(ok).success).toBe(true);
     });
 
     it('the schema REFUSES a persisted raked wall that is also curved', () => {

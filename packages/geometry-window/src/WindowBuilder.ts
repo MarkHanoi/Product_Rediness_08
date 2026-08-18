@@ -7,7 +7,12 @@ import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
-import { WallStore, hostedElementFrame, withAuthoritativeGeometry } from '@pryzm/geometry-wall';
+import {
+    WallStore, hostedElementFrame, withAuthoritativeGeometry,
+    // §RAKE-HOSTED-OPENING — the ONE cot(rake) predicate and the ONE displacement
+    // function. Nothing here re-derives either; see `WallRake.ts` for the decision.
+    rakeShearPerMetre, rakeTopOffset,
+} from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
 // §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — the 3D window is a DetailLevel consumer, through
@@ -602,7 +607,17 @@ export class WindowBuilder {
         // After conversion the group holds a single invisible hit-proxy so
         // SelectionManager raycasting still resolves the window. Default-off path
         // keeps every real sub-mesh (unchanged behaviour).
-        if (this._instancingActive()) {
+        //
+        // §RAKE-HOSTED-OPENING — a RAKED host is excluded, deliberately and visibly.
+        // `_convertGroupToInstances` decomposes each sub-mesh's `matrixWorld` into
+        // translate × rotateY × scale; a shear survives none of those three, so the
+        // conversion would render a PLUMB leaf in a leaning hole while reporting
+        // success — the silently-wrong geometry ADR-0310 refused the whole case to
+        // avoid. The window keeps its real meshes instead: correct, and merely not
+        // coalesced. Instancing raked leaves needs a per-instance full matrix in
+        // `ElementInstanceBridge`, not a fixup here (C65 §3.9).
+        const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
+        if (this._instancingActive() && !_hostRaked) {
             this._convertGroupToInstances(win, group, wallData.levelId);
         }
 
@@ -819,6 +834,55 @@ export class WindowBuilder {
 
         group.position.set(centre.x, y, centre.z);
         group.rotation.y = _hf.rotationY;
+
+        // ── §RAKE-HOSTED-OPENING (founder 2026-08-18) ────────────────────────
+        //
+        // ADR-0310 §2.5 refused a hosted opening on a raked wall partly because of
+        // THIS function: *"sill is a bare world-Y translate … `hostedElementFrame`
+        // returns a scalar rotationY"*, i.e. the vertical axis was not modelled. It
+        // is now — as the same shear the wall's own body takes, so the leaf fills
+        // the void exactly rather than by a second calculation kept in agreement
+        // with the first. See `WallRake.ts` §RAKE-HOSTED-OPENING for why the leaf is
+        // IN-PLANE (forced) and the height PLUMB (a documented default).
+        //
+        // `k` is `cot(rake)` from the ONE canonical predicate — never re-derived.
+        // Zero for a vertical wall, and then everything below is skipped and the
+        // group keeps ordinary TRS placement, byte-identical to before.
+        const k = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg);
+        if (k === 0) return;
+
+        // The wall pivots about its BASE, so the leaf's centre is displaced by the
+        // shear evaluated at its own height above that base. `rakeTopOffset` IS that
+        // function — pass the rise instead of the wall height (see its doc comment).
+        const [bs, be] = wallData.baseLine as ReadonlyArray<{ x: number; y: number; z: number }>;
+        const dir = { x: be.x - bs.x, z: be.z - bs.z };
+        const baseY = elevation + ((wallData as { baseOffset?: number }).baseOffset ?? 0);
+        const off = rakeTopOffset(
+            (wallData as { rakeAngleDeg?: number }).rakeAngleDeg,
+            y - baseY,
+            dir,
+        );
+        if (!off) return;                       // degenerate baseline — leave the leaf plumb
+        group.position.set(centre.x + off.x, y, centre.z + off.z);
+
+        // …and the leaf's own body leans with the wall. In the group's LOCAL frame
+        // (+X along the wall, +Z on `leftPerp` after `rotationY`) the lean is the
+        // one-element shear `z ↦ z + k·y`. A shear has no TRS decomposition, so the
+        // matrix is written directly and `matrixAutoUpdate` disabled — three.js still
+        // shades it correctly (the normal matrix is the inverse-transpose of the
+        // model-view matrix) and still picks it correctly (`Raycaster` inverts
+        // `matrixWorld`). Every rebuild re-enters this function, so the flag cannot
+        // strand a window that is later straightened: `k === 0` returns above with
+        // `matrixAutoUpdate` already restored to true by `rebuild`'s fresh group.
+        group.updateMatrix();
+        group.matrixAutoUpdate = false;
+        group.matrix.multiply(new THREE.Matrix4().set(
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, k, 1, 0,
+            0, 0, 0, 1,
+        ));
+        group.matrixWorldNeedsUpdate = true;
     }
 
     /**

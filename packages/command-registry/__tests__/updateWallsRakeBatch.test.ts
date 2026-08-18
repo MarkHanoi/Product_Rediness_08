@@ -73,14 +73,15 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
             wall('w2', { rakeAngleDeg: 75 }),
             wall('w3', { levelId: 'L1' }),                    // other level — 'all' must reach it
             wall('curved', { curve: { r: 3 } }),              // refused: curved
-            // §FEAT-RAKE-LAYERED (2026-08-18) — this fixture read `{ layers: [{}, {}] }`,
-            // "refused: >1 layer". A raked LAYERED wall is BUILT now (plan bands at
-            // t / sin θ), so layers ALONE no longer refuse. What still refuses is layers ×
-            // openings — the opening-segment builder has no shear — so the fixture carries
-            // an opening and this batch keeps its three refusers.
-            wall('layered', { layers: [{}, {}], openings: [{ id: 'o1' }] }),
-            wall('hosting', { openings: [{ id: 'o1' }] }),    // refused: hosted openings
-            // …and the NEW capability, in the same batch: plain layers, no openings, rakes.
+            // ⚠ TWO LANES REWROTE THIS FIXTURE. §FEAT-RAKE-LAYERED made `layers` alone
+            // buildable (plan bands at t / sin θ); §RAKE-HOSTED-OPENING made `openings`
+            // alone buildable (the carve rides the wall's own shear). Each lane deleted
+            // the other's refuser as stale. Merged, the batch carries BOTH new capabilities
+            // and keeps exactly ONE geometry refuser — their intersection.
+            wall('layered', { layers: [{}, {}], openings: [{ id: 'o1' }] }), // refused: the ∩
+            // …and the two NEW capabilities, measured in the same batch so the command is
+            // proven to RAKE them rather than silently skip them.
+            wall('hosting', { openings: [{ id: 'o1' }] }),
             wall('layeredOk', { layers: [{}, {}, {}] }),
         ]);
         ctx = makeCtx(store);
@@ -90,15 +91,16 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         const cmd = new UpdateWallsRakeBatchCommand({ wallIds: 'all', rakeAngleDeg: 70 });
         const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(true);
-        expect(v.warnings?.length).toBe(3);                   // curved + layered×openings + hosting
+        expect(v.warnings?.length).toBe(2);                   // curved + layered×openings
         const r = cmd.execute(ctx);
         expect(r.success).toBe(true);
-        // §FEAT-RAKE-LAYERED — `layeredOk` is in this list, and that is the founder's
-        // feature arriving at the command layer: a multi-layer wall now takes a rake.
-        expect(r.affectedElementIds.sort()).toEqual(['layeredOk', 'w1', 'w2', 'w3']);
-        expect(r.info?.[0]).toContain('Raked 4 of 7');
-        expect(r.info?.[0]).toContain('3 skipped');
-        for (const id of ['w1', 'w2', 'w3', 'layeredOk']) {
+        // Both founder features arrive at the COMMAND layer here: `layeredOk` (a
+        // multi-layer wall) and `hosting` (a wall carrying a window) each now take a
+        // rake. 7 walls in the fixture, 2 refused, so 5 raked.
+        expect(r.affectedElementIds.sort()).toEqual(['hosting', 'layeredOk', 'w1', 'w2', 'w3']);
+        expect(r.info?.[0]).toContain('Raked 5 of 7');
+        expect(r.info?.[0]).toContain('2 skipped');
+        for (const id of ['w1', 'w2', 'w3', 'hosting', 'layeredOk']) {
             expect(store.getById(id)?.rakeAngleDeg).toBe(70);
         }
         // The refused walls are UNTOUCHED and each skip carries the gate's reason.
@@ -106,7 +108,8 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         const reasons = cmd.skipped.map(s => s.reason).join(' | ');
         expect(reasons).toContain('CURVED');
         expect(reasons).toContain('LAYERED');
-        expect(reasons).toContain('HOSTS OPENINGS');
+        // §RAKE-HOSTED-OPENING — and NOTHING is skipped for hosting an opening.
+        expect(reasons).not.toContain('HOSTS OPENINGS');
     });
 
     it('90° (vertical) is a legal target on EVERY wall shape — nothing skips', () => {

@@ -73,14 +73,31 @@ describe('CreateWindowsParametricBatchCommand — planning honesty', () => {
         expect(cmd.planCount(ctx)).toBe(1);
     });
 
-    it('a RAKED wall refuses whole-wall — hosted openings do not tilt (C15)', () => {
+    it('a RAKED wall is PLANNED, not dropped — §RAKE-HOSTED-OPENING (founder 2026-08-18)', () => {
+        // This test used to expect a whole-wall refusal reading "hosted openings do
+        // not tilt (C15)". They tilt now — the carve and the leaf ride the wall's
+        // own shear — so batch-glazing a leaning facade must actually plan windows
+        // instead of silently producing none.
         const cmd = new CreateWindowsParametricBatchCommand({
             wallIds: ['r1'], mode: { kind: 'count', count: 1 }, width: 1, height: 1.2,
         });
         const ctx = ctxOf([wall('r1', 8, { rakeAngleDeg: 70 })]);
         const v = cmd.canExecute(ctx);
+        expect(v.ok).toBe(true);
+        expect(cmd.planCount(ctx)).toBe(1);
+    });
+
+    it('a raked wall whose rake is UNBUILDABLE still drops, naming why', () => {
+        // Non-vacuity: the gate is still consulted. A curved raked wall cannot be
+        // rendered at all, so planning windows into it would promise geometry
+        // nobody can build.
+        const cmd = new CreateWindowsParametricBatchCommand({
+            wallIds: ['r2'], mode: { kind: 'count', count: 1 }, width: 1, height: 1.2,
+        });
+        const ctx = ctxOf([wall('r2', 8, { rakeAngleDeg: 70, curve: { control: { x: 4, y: 0, z: 1 }, segments: 12 } })]);
+        const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(false);
-        expect(v.reason).toMatch(/raked|tilt/i);
+        expect(v.reason).toMatch(/rake|angle/i);
     });
 
     it('value guards refuse VISIBLY: bad dimensions, absurd count, spacing < width, empty scope', () => {
