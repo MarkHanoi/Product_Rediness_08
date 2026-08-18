@@ -6,11 +6,11 @@
 //                       inside BOTH segments, compute the fillet arc
 //                       with the supplied radius and commit it.
 //
-// It commits the ARC ONLY. This line used to read "trim both lines, and
-// commit the arc"; no trim has ever been issued — `trimLine` is never
-// called from this file — so the two segments keep their full length and
-// run past the arc. That is a missing feature, stated rather than
-// claimed, and it is a separate one from the extend gap below.
+// It commits the ARC ONLY. That line used to read "trim both lines, and
+// commit the arc"; `trimLine` has never been called from this file, so
+// both segments keep their full length and run past the arc. A missing
+// feature, stated rather than claimed — and a different one from the
+// extend gap below.
 //
 // Geometry — for two lines meeting at point `O` with unit direction
 // vectors `u` and `v` pointing away from `O` along each line, the
@@ -28,37 +28,35 @@
 //     actually leads away from the corner.
 //
 // ─── §FILLET-SEGMENT-BOUNDS (2026-08-17) — what this refusal replaced ─
-// The LIMITATIONS list above used to claim the tool "requires the lines
-// to actually intersect (parallel lines are rejected)". IT DID NOT.
+// The LIMITATIONS list used to claim the tool "requires the lines to
+// actually intersect (parallel lines are rejected)". IT DID NOT.
 // `findCommonOrIntersection` solved the INFINITE-line intersection with
 // no segment-bounds check, so two non-parallel segments that never touch
 // REPORTED SUCCESS: an arc tangent to a point beyond the end of a
-// segment — in empty space — with neither line extended and the ordinary
+// segment — in empty space — neither line extended, and the ordinary
 // "Click first line" ready-hint returned. A wrong result and a correct
 // one were indistinguishable to the user. Measured with A = (0,0)→(4,0)
-// and B = (10,2)→(10,12): arc centre (8, 2) r = 2, tangent to A's line
-// at x = 8 when A ends at x = 4; commitLine and trimLine both ZERO.
+// and B = (10,2)→(10,12): centre (8, 2) r = 2, tangent to A's line at
+// x = 8 when A ends at x = 4; commitLine and trimLine both ZERO.
 //
-// Both routes to an off-segment tangent point are now closed, because
-// the segment-bounds check alone closes only the first:
+// Both routes to an off-segment tangent point are now closed — the
+// segment-bounds check alone closes only the first:
 //   1. the CORNER out of reach — the infinite lines cross where neither
 //      segment goes. Refused, quoting the overshoot past each end.
 //   2. the TANGENT POINT out of reach — the corner is genuinely on both
 //      segments (an X-crossing), but the radius pushes the tangent point
 //      past the far end. The old fit test compared `t` against the WHOLE
-//      segment length, which over-states the run available in the one
-//      direction that matters; it now compares against the run from the
-//      corner to the endpoint the arc is actually built toward.
+//      segment length, over-stating the run available in the one
+//      direction that matters; it now compares against corner → the
+//      endpoint the arc is actually built toward.
 //
 // EXTENDING the segments to a virtual corner is a real capability and is
-// still ABSENT: this tool refuses, it does not repair. That refusal is
-// the honest reading of what it can do, not a stand-in for the extend
-// variant — the user's route today is to redraw or trim the lines so
-// they touch. Asserted in `__tests__/sketch/FilletTool.test.ts`,
-// "segments that do NOT meet are REFUSED with the measured gap", which
-// also carries the non-vacuity control (an X-crossing inside both
-// segments must STILL fillet — a tool that refused everything would
-// satisfy the refusal assertion on its own).
+// still ABSENT: this tool refuses, it does not repair. The user's route
+// today is to redraw or trim the lines so they touch. Asserted in
+// `__tests__/sketch/FilletTool.test.ts`, "segments that do NOT meet are
+// REFUSED with the measured gap", which also carries the non-vacuity
+// control (an X-crossing inside both must STILL fillet — a tool that
+// refused everything would satisfy the refusal assertion on its own).
 
 import type { SketchEntity, SketchLine, SketchPoint } from '../entities.js';
 import { hitTest } from '../hitTest.js';
