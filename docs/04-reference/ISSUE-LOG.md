@@ -7211,3 +7211,70 @@ panel, not for the mode chips to change. **Leave the modes alone** unless they a
 
 **Owner:** the curtain-wall lane — it built the store, the registry entry and the swap branch, so
 this is the last mile of work it already did, not new territory.
+
+---
+
+## L-965 — "walls by slab" ignores the slab's CURVES, and its `wall.batch.create` is REJECTED by the schema
+
+**Founder-reported on the live deploy, 2026-08-18, with two screenshots.** TWO defects in one
+gesture. Wanted in the next deployment.
+
+### DEFECT 1 — the curve is discarded; one straight wall per polygon edge
+
+The founder can author curved walls (plan and elevation) and curved slabs. But **walls-by-slab
+produces a faceted polygon**, not curved walls. The screenshots show a visibly segmented drum where
+the slab is a smooth curve.
+
+**The log gives the arithmetic:** the slab was drawn with `polylinePoints=17`, and
+`[CreateWallsOnAllSlabsCommand] slab="…" walls=33`. So `CreateWallsFromSlab` walks the slab's
+**tessellated boundary vertices** and emits **one straight wall per edge**. It never consults the
+slab's curve data — the founder's read ("probably legacy code — before the walls were not perfect
+curves as they are now") is almost certainly right.
+
+**The consequence beyond looks** is in the same log: `[WallJoinResolver] §SELF-CLUSTER-GUARD:
+skipped 8 endpoint(s) from 4 wall(s) whose BOTH ends are in this cluster`, then two
+`§WJR-INVALID skipped … self-cluster`. Thirty-three short walls around a tight arc put multiple
+endpoints inside one junction cluster, so the join resolver cannot resolve them and skips. **A
+faceted drum is not merely ugly — it defeats the junction solver.**
+
+**Fix direction:** a curved slab edge must produce a **curved wall**, carrying the same
+`WallCurve {control, segments}` the wall model already supports and that the founder authors by hand
+today. ⛔ Do NOT "improve" this by raising the tessellation — more, smaller straight walls is the
+same defect with a bigger number, and it makes the join clustering worse.
+
+### DEFECT 2 — ⛔ `wall.batch.create` is REJECTED, and the log reports success anyway
+
+```
+[CreateWallsFromSlabCommand] E.5.x §P2e-wall-slab: wall.batch.create dispatched —
+33 wall(s) committed to plugin store
+...
+Uncaught (in promise) WallSchemaError: wall.batch.create rejected — schema validation
+failed for walls[0] (id=wall-slab-cmd-walls-from-slab-1787060979572-uhw7qjanx-0)
+Caused by: ZodError: pattern "/^wall_[0-9A-HJKMNP-TV-Z]{26}$/" — Expected wall_<ulid> id
+```
+
+**The ids are wrong.** Walls created by this path are named
+`wall-slab-cmd-walls-from-slab-<ts>-<rand>-<n>`; the schema requires `wall_<ULID>`. Every
+hand-drawn wall in the same session gets a correct id (`wall_01M0AJ4AH99864KNX3355SRT4G`), so this
+generator alone is non-conformant.
+
+⭐ **AND THE LOG LINE CLAIMING SUCCESS IS PRINTED BEFORE THE VALIDATION THROWS** — *"33 wall(s)
+committed to plugin store"* is written, then the dispatch is rejected. The walls DO exist (the
+snapshot records 36 walls) because the **legacy** command still wrote them; only the **bus** half
+failed. So this is the [L-951](#l-951)/[L-960](#l-960) family again: **a success sentence emitted
+independently of the outcome it describes.** The founder saw no error banner; it surfaced only as an
+uncaught promise rejection in the console.
+
+**Consequence:** the plugin DTO store never receives these walls, so anything reading that store
+sees 0 of 33. See C84 §EI-1 and the write-only-sink finding.
+
+### What must be true before this is called fixed
+1. A curved slab edge yields a **curved wall**, not N straight ones.
+2. `wall.batch.create` **validates** — ids are `wall_<ULID>` from the same generator every other
+   path uses. ⛔ Do not relax the schema to accept the malformed id; fix the generator.
+3. The success log is emitted **from the outcome**, not beside it — WF1 did exactly this for the
+   wall-finish sentence in L-960; copy that shape.
+4. The join resolver resolves the result without `§SELF-CLUSTER-GUARD` skips.
+
+**NOT MEASURED:** whether a *straight-edged* slab still produces correct walls-by-slab (it should —
+do not regress it), and whether the malformed id also breaks undo for this command.
