@@ -9,17 +9,83 @@
 > **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §14 (Phase 6.4 operational)](../03-execution/plans/master-implementation-plan.md).
 > **Audit-source**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.5 (audit removed 2026-08-09 — recoverable from git history).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §1.1 MANDATES A VERSIONING SCHEME THE SHIPPED FORMAT DOES NOT USE — AND C05 GOVERNS
+
+§1.1 requires every `.pryzm` file to carry **`formatVersion: SemVer`** (`MAJOR.MINOR.PATCH`,
+§1.2). **No shipped artefact does this.** Measured at HEAD, 2026-08-18:
+
+| Field the code actually writes | Where | Type |
+|---|---|---|
+| `schemaVersion: z.literal(1)` | `packages/persistence-client/src/manifest.ts:105` | **monotonic INTEGER** |
+| `formatVersion: z.literal('pryzm-v1')` | `packages/persistence-client/src/manifest.ts:109` | **an opaque STRING TAG — not SemVer, not a number** |
+| `schemaVersion: typeof PRYZM_ARCHIVE_VERSION` | `packages/persistence-client/src/PryzmArchive.ts:25`, written `:103`, **rejected on mismatch `:135`** | integer, `PRYZM_ARCHIVE_VERSION = 1 as const` (`:22`) |
+| `SNAPSHOT_SCHEMA_VERSION = 5` | `packages/persistence-client/src/loader/ProjectSerializer.ts:74`, `packages/core-app-model/src/persistence/SnapshotConstants.ts:15` | **a THIRD, separate monotonic integer**, migrated `1→2→3→4→5` by `MigrationEngine.ts` |
+| `formatVersion: '1.0'` | family-pack format, `packages/file-format/src/family-migrations/**` | `z.literal('1.0')` — **a literal, not a SemVer range** |
+
+```
+grep -rn "formatVersion" --include=*.ts --exclude-dir=node_modules packages apps
+grep -rn "SNAPSHOT_SCHEMA_VERSION *=" --include=*.ts --exclude-dir=node_modules packages apps
+```
+
+⚠ **A prior statement of this defect was itself wrong and is corrected here**: it claimed *"the
+only `formatVersion` in the repo is on the family-pack schema"*. **False** — the `.pryzm` manifest
+carries a `formatVersion` too (`manifest.ts:109`), and it is `'pryzm-v1'`: an opaque tag that is
+neither SemVer nor comparable, so **§1.2's `MAJOR`/`MINOR`/`PATCH` comparison and §1.4's
+forward-compatibility rule cannot be evaluated against it at all.** That is a sharper finding than
+"the field is missing", and it was invisible while the wrong version of the claim held attention.
+
+### Governance resolution — C05 wins, C47 §1.1/§1.2/§2 are a PROPOSAL
+
+**[C05](./C05-PERSISTENCE-AND-FILE-FORMAT.md) owns the `.pryzm` envelope** by its own §Scope
+(`packages/persistence-client/` L4, `packages/file-format/` L5). C47 legislated a rival version
+scheme **without superseding C05 and without citing it as an authority** —
+`grep -c "C47" C05-…md` → **0** (C05 does not know C47 exists; C47 mentions C05 four times).
+
+Resolution by the governance order (STR-03 → STR-04 → C01–C100 → ADRs → SPECs): both are in the
+same tier, so the tie breaks on the
+[status ladder](./README.md#contract-status-vocabulary--tier-1-launch-gate-l-347) —
+**C05 is CANONICAL, C47 is DRAFT, and a DRAFT contract binds nothing.**
+
+> ⭐ **C05 GOVERNS the version field. C47 §1.1, §1.2 and §2 are a PROPOSAL, not a requirement, and
+> MUST NOT be cited to justify changing the shipped field.** Until an ADR reconciles them, do not
+> introduce `formatVersion: SemVer` into the `.pryzm` envelope.
+
+### What of C47 SURVIVES, unchanged and binding-in-intent
+
+The *policy* half has a real substrate in `packages/persistence-client/src/loader/MigrationEngine.ts`
+and stands as written: **§1.3** migration-chain irreversibility and composability (implemented —
+`schemaVersion` 1→5 chain), the **12-month deprecation window**, the
+**writer-version-vs-feature-version** distinction, the rollback safety net, and the customer
+communication rules. **Only the identifier's TYPE and NAME are contested.**
+
+### ⚠ Owed work, named so its absence is not read as agreement
+
+**C05 does not specify the version field either** — `grep -n "schemaVersion\|formatVersion"` in
+C05 → **0 matches**. So the winner of this conflict is currently silent on the thing it won, and
+**the shipped code is the only description of it**. Reconciliation — an ADR choosing between the
+integer and SemVer, and C05 gaining an explicit § for the field — **is owed and is NOT discharged
+by this banner.** Three separate monotonic counters (`manifest.schemaVersion` = 1,
+`PRYZM_ARCHIVE_VERSION` = 1, `SNAPSHOT_SCHEMA_VERSION` = 5) plus one opaque tag is not a scheme
+anyone designed; it is four decisions taken independently.
+
 ---
 
 ## §1 — Invariants
 
 ### §1.1 — The `.pryzm` file carries `formatVersion` as a top-level field
 
+> ⛔ **PROPOSAL ONLY — C05 GOVERNS. Do not implement. See §0.0.** The shipped envelope uses a monotonic INTEGER `schemaVersion` plus an opaque `formatVersion: 'pryzm-v1'` tag.
+
 Every `.pryzm` file MUST carry `formatVersion: SemVer` at the top of the JSON payload (before the `project` or any element data). The format-version is the binding signal: a reader inspects it FIRST + dispatches to the appropriate parser / migrator. Files without `formatVersion` are pre-versioning legacy and treated as `formatVersion: 1.0.0` (the implicit baseline).
 
 The format-version is SEPARATE from the application version. App version `5.3.2` may write `formatVersion: 2.4.0`; app version `5.3.3` (a bug-fix release) writes the same `formatVersion`.
 
 ### §1.2 — SemVer semantics: major = breaking, minor = additive, patch = clarifying
+
+> ⛔ **PROPOSAL ONLY — not evaluable against the shipped tag `'pryzm-v1'`. See §0.0.**
 
 ```
 formatVersion = MAJOR.MINOR.PATCH

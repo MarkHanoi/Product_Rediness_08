@@ -150,14 +150,43 @@ A regression in any of these three levels is a **P0 security incident**.
 
 ### §2.1 — Format identity
 
-`.pryzm` is a ZIP container. It holds:
+`.pryzm` is a ZIP container.
+
+> ⛔ **CORRECTED 2026-08-18 — the layout previously written here matched NOTHING on disk.** It
+> listed `project.json` / `metadata.json` / `assets/` / `ifc/`. **Not one of those four entries is
+> written by the shipped writer**, and no reader looks for them. Measured against
+> `packages/persistence-client/src/PryzmArchive.ts:13-17` (the format comment) and the
+> `PryzmArchiveManifest` interface at `:24-31`. The aspirational layout is preserved below the real
+> one so the gap is visible rather than silently overwritten.
+
+**SHIPPED (`.pryzm`, ZIP-DEFLATE level 6)** — `packages/persistence-client/src/PryzmArchive.ts`:
 
 ```
-project.json          — Zod-validated project schema (ElementStore snapshot)
-metadata.json         — version, app version, creation/update timestamps
-assets/               — binary assets (images, GLBs) referenced by elements
-ifc/                  — optional embedded IFC file (for round-trip fidelity)
+manifest.json         — { schemaVersion, projectId, projectName, exportedAt,
+                          highestSeq, hasSnapshot }        (PryzmArchive.ts:24-31)
+snapshot.json         — OPTIONAL; present iff a snapshotProvider supplied one
+events.ndjson         — one PersistedEvent per line, JsonCodec form
 ```
+
+`PRYZM_ARCHIVE_VERSION = 1 as const` (`:22`); a manifest whose `schemaVersion` differs is
+**rejected**, not migrated (`:135-137`). The version field itself is governed here and **not** by
+[C47](./C47-FILE-FORMAT-VERSIONING.md) — see C47 §0.0, where that conflict is resolved in this
+contract's favour on the status ladder (C05 CANONICAL vs C47 DRAFT). ⚠ **This contract does not
+yet specify the field it owns** (`grep -n "schemaVersion\|formatVersion"` in C05 → **0** before
+this amendment) — an explicit § for it is **owed work**, not a settled question.
+
+**ASPIRATIONAL, NOT BUILT** (retained for the round-trip intent in §2.2, which depends on `ifc/`):
+
+```
+project.json          — Zod-validated project schema (ElementStore snapshot)   ⛔ NOT WRITTEN
+metadata.json         — version, app version, creation/update timestamps       ⛔ NOT WRITTEN
+assets/               — binary assets (images, GLBs) referenced by elements    ⛔ NOT WRITTEN
+ifc/                  — optional embedded IFC file (for round-trip fidelity)   ⛔ NOT WRITTEN
+```
+
+⚠ **§2.2's IFC round-trip requirement therefore has no substrate**: it mandates preserving the
+source at `ifc/source.ifc`, and the shipped container has no `ifc/` entry. Read §2.2 as
+**NOT-YET-TRUE**, never as a description of running behaviour.
 
 ### §2.2 — IFC round-trip (Differentiator D1)
 
@@ -241,7 +270,7 @@ The render gallery stores photorealistic render outputs (PNG, < 50 MB per image)
 
 The canonical database schema is in `reference/DATABASE-SCHEMA.md` (informational). The following invariants are normative:
 
-- `projects.user_id` MUST always be set; orphaned projects (no owner) are disallowed.
+- ~~`projects.user_id`~~ → **`projects.owner_id`** MUST always be set; orphaned projects (no owner) are disallowed. ⛔ **CORRECTED 2026-08-18: the column is `owner_id`, and §1.3.1 of THIS CONTRACT already said so** (`"projects.owner_id MUST NOT carry a PostgreSQL foreign-key constraint"`, and *"the DDL in `server/dbMigrate.js` declares `owner_id TEXT NOT NULL`"*). Verify: `grep -n "owner_id" server/dbMigrate.js` → the index at `:65`, the hot-query index at `:70`, and the FK drop at `:516`; **`projects.user_id` does not exist**. A contract contradicting itself across two sections is the cheapest defect to catch and the most expensive to inherit — an engineer reading §6 alone writes a query that errors at runtime.
 - `project_versions.snapshot` MUST be a valid `project.json` blob (Zod-validated on write).
 - `project_command_log` rows MUST be purged after 24 hours (TTL enforced probabilistically server-side and deterministically by a nightly job).
 - All timestamps are UTC ISO 8601 strings; no UNIX epoch integers in the schema.
