@@ -273,6 +273,16 @@ const BUILT_IN_TYPES: CurtainWallTypeDefinition[] = [
         mullionMaterialId: 'steel-blackened',
         mullionColor: '#2b2b2b',
         panelMaterialId: 'glass-reflective',
+        // ⚠ CAUGHT BY THE GUARD, NOT BY ME. This type was published without a note on
+        // the reasoning that "Mirror" was the real thing and only the green and grey
+        // variants were stand-ins. The coverage spec's "two types that render IDENTICALLY
+        // must both say why" arm rejected that: the master catalogue has no true mirror
+        // row at all (`special-mirror-silver` is opaque and not even in the Glass
+        // category), so THIS is a stand-in too — and the honest one to declare, since it
+        // and the green variant currently resolve to the same material.
+        substitutionNote:
+            'a dedicated mirror-glass row is not in the material catalogue yet — shown ' +
+            'as reflective curtain-wall glazing, the nearest available finish',
     },
     {
         id: 'cw.mirror-green.blackened-frame',
