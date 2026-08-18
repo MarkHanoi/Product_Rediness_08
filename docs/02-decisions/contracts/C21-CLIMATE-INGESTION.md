@@ -634,9 +634,41 @@ The `<WindRose />` UI component MUST render in under 16 ms (one frame at 60 Hz) 
 - `packages/core-app-model/src/rendering/RealSunService.ts` — the NOAA solar position algorithm + Three.js DirectionalLight management. Already used by the viewport.
 - `packages/ai-host/src/workflows/apartmentLayout/environment/facadeValueField.ts` — hard-coded mid-latitude sunlight scores by cardinal direction (§1.10 — discipline-neutral defaults).
 - `packages/ai-host/src/workflows/apartmentLayout/environment/daylightDepthField.ts` — daylight-depth approximation; NOT yet climate-aware.
-- No EPW reader.
-- No NOAA reader.
-- No `ClimateStore`, no `ClimateHost`.
+- ~~No EPW reader.~~ ⛔ **FALSE at HEAD** — `packages/climate-host/src/epwParser.ts` **and**
+  `epwHeader.ts` exist, with `packages/climate-host/__tests__/epwHeader.test.ts`.
+- ~~No NOAA reader.~~ ⛔ **FALSE at HEAD** — `packages/climate-host/src/noaaNormalsReader.ts`
+  exists, alongside `liveNormalsAdapter.ts` and `bundledNormals.ts`.
+- ~~No `ClimateStore`~~ ⛔ **FALSE at HEAD** — `ClimateStore` is imported at
+  `packages/runtime-composer/src/composeRuntime.ts:54`, **constructed at `:1020`**, exposed on the
+  runtime object at **`:1818`**, disposed at **`:1715`**, and typed at
+  `packages/runtime-composer/src/types.ts:3789`.
+- **No `ClimateHost`** — ✅ **this one is STILL TRUE.** `grep -rn "ClimateHost" --include=*.ts
+  --exclude-dir=node_modules packages apps plugins` → **0 occurrences.**
+
+> ⛔ **CORRECTION 2026-08-18 — §8.1 is a "today's substrate" snapshot that stopped being today.**
+> **Three of its four gap claims are false**; only `ClimateHost` remains genuinely absent, and
+> §8.2's migration steps **3, 4, 5 and 6 are therefore substantially DONE**. An engineer executing
+> §8.2 top-to-bottom rebuilds ~1,100 LOC of shipped, tested code — defect shape **A**, a "NOT BUILT"
+> outliving the code.
+>
+> ```
+> ls packages/climate-host/src/
+> # bundledNormals.ts degreeDaysBuilder.ts designTempsBuilder.ts epwHeader.ts epwParser.ts
+> # fallbackDataset.ts index.ts liveNormalsAdapter.ts monthlyNormalsBuilder.ts
+> # noaaNormalsReader.ts solarPath.ts windRoseBuilder.ts        (12 files)
+> ```
+>
+> ⚠ **And the runtime property is NOT `runtime.climate`.** §8.2 steps 1 and 6 both name
+> `runtime.climate`; the shipped name is **`runtime.climateStore`**, and it is genuinely reached —
+> `grep -rn "runtime\.climate" --include=*.ts --exclude-dir=node_modules packages apps plugins`
+> → **6 live sites**, all in `apps/editor/src/ui/` (`climate/ClimatePanel.ts:18`,
+> `climate/ensureSiteClimate.ts:7,131,156`, `geospatial/FormaSiteAnalysisControls.ts:268`,
+> `tools-panel/panels/GISRailPanel.ts:150`). **Cite `runtime.climateStore`; `runtime.climate`
+> resolves to nothing.**
+>
+> ⭐ **The status of this subsystem was stated three different ways in one contract** — CANONICAL in
+> the front matter, "no reader exists" here in §8.1, and a migration plan in §8.2 written as though
+> none of it had started. **Re-run the `ls` before quoting any of the three.**
 
 ### §8.2 — Migration steps (aligned with PG0.5)
 

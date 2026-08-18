@@ -397,7 +397,28 @@ not have — or (b) threading an id channel through `WallRegionDetector`'s walk 
 > duplicate MUST be **retired onto the shared tracer**, not extended in parallel. Two tracers is
 > how one fix reaches one family: `e6c8cb58` closed the defect in `SlabRegionTracer` and roof —
 > which has the identical defect and the identical user-facing promise — did not move at all.
-> Extending `WallRegionDetector` with an id channel satisfies §6.1 while leaving the
+> ✅ **RESOLVED 2026-08-18 — DO NOT DO THIS. The other option was taken, and §6.5's exit condition
+> is DISCHARGED.** `WallRegionDetector` was **DELETED**, not extended:
+>
+> ```
+> find packages apps plugins -name 'WallRegionDetector*' -not -path '*/node_modules/*'   # -> 0
+> git log --oneline --diff-filter=D -- packages/geometry-roof/src/WallRegionDetector.ts
+> # 625a9926 refactor(roof): C79 s6.5 - roof-by-region ported to shared slab region tracer;
+> #          WallRegionDetector retired
+> ```
+>
+> The deletion commit **cites this contract's own §6.5 as its authority**. Roof-by-region now runs
+> through `packages/geometry-roof/src/RoofRegionTrace.ts` on the shared slab tracer
+> (`RoofTool.ts:290`), with a tombstone left at `packages/geometry-roof/src/index.ts:62` so the name
+> does not get re-minted. **§6.5's exit condition — *"the second tracer is retired …
+> `WallRegionDetector` has zero callers"* — is MET**, and §6's conformance table rows for
+> `RoofTool` and `RoofPlanToolHandler._commitRegion` are **stale**: re-measure them against
+> `RoofRegionTrace` before quoting *"1 conforming region path of 6"*.
+>
+> ⚠ **The proposal below is retained as the REJECTED alternative, so the decision stays legible** —
+> not as work to do.
+>
+> ~~Extending `WallRegionDetector` with an id channel satisfies §6.1 while leaving the~~
 > second-copy disease in place, and is therefore the **non-preferred** option.
 
 > **§6.6 — MUST NOT.** A new region-capable path MUST NOT ship without host references on the

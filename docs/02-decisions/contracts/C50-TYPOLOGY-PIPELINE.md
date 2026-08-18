@@ -8,6 +8,36 @@
 > **Master plan**: [typology-expansion-roadmap.md §4-§6](../../03-execution/plans/typology-expansion-roadmap.md), [master-execution-tracker.md A.1 + A.3 + A.4 + A.20](../../03-execution/plans/master-execution-tracker.md), [roadmap-phase-1-alpha.md §3](../../03-execution/plans/roadmap-phase-1-alpha.md).
 > **Audit context**: written 2026-06-01 to codify the invariants the A.1 implementation (`packages/typology-pipeline/`, commit `172fc8c`) embeds. C50 supersedes the implicit "apartment is the one workflow" assumption in early `@pryzm/ai-host` code.
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: EVERY `.tsx` PATH IN THIS CONTRACT IS FICTIONAL. THIS IS A VANILLA-TS DOM CODEBASE.
+
+`find apps/editor/src -name '*.tsx' | wc -l` → **1**, and it is
+`apps/editor/src/ui/ProjectBrowser/ProjectBrowser.tsx` — **unrelated to this contract**. There is no
+React surface here.
+
+| C50 cites | Exists? | The REAL file |
+|---|---|---|
+| `apps/editor/src/ui/onboarding/RACChatbot.tsx` (§0 Downstream, §…:371) | ❌ **ABSENT**, no `.ts` variant either | **`apps/editor/src/ui/onboarding/RACChatbotPanel.ts`** |
+| `apps/editor/src/ui/onboarding/TypologyPicker.tsx` (A.6) | ❌ **ABSENT** | **`apps/editor/src/ui/onboarding/TypologyPickerPanel.ts`** |
+| `apps/editor/src/ui/inspect/TypologyDispatchPanel.tsx` (A.24) | ❌ **ABSENT**, and no `.ts` variant — **genuinely unbuilt** | — |
+
+```
+ls apps/editor/src/ui/onboarding/
+# BriefSchemaForm.ts  GlobeHeroSearch.ts  OnboardingStepController.ts  RACChatbotPanel.ts
+# TypologyPickerPanel.ts  briefBootstrap.ts  drawIdleWatchdog.ts  onboardingStyles.ts
+# siteRevealSequence.ts  typologyChoiceModel.ts
+```
+
+⚠ **The names are wrong as well as the extensions** — the shipped files carry a `Panel` suffix. A
+reader who "fixes" only the extension still finds nothing. And **two of the three DO exist** under
+their real names, so the contract simultaneously mis-names shipped work *and* hides which of the
+three is genuinely absent (`TypologyDispatchPanel`).
+
+**Every `.tsx` reference in the body below is to be read as naming a CONCEPT, never a path.** Do not
+create React components to satisfy them.
+
 ---
 
 ## §1 — Invariants

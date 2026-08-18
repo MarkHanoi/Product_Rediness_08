@@ -6,6 +6,49 @@
 > **Downstream**: every server module that reads or writes user data (`server/authStore.js`, `server/projectStore.js`, `server/auditLogMiddleware.js`, `server/telemetry.js`, the persistence client, the AI host). Every UI surface that displays an email address or invites a user.
 > **Key principles**: P8 (every public function emits a span — this contract extends P8 with `pryzm.pii.*` span requirements).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: THIS CONTRACT ASSERTS DB COLUMNS AND TABLES THAT DO NOT EXIST
+
+C22 is **DRAFT**, and the README's Tier-1 table already records it as *"DRAFT, unimplemented
+(L-345)"*. **But the body is written in the normative present tense against named DB objects**, so a
+reader arrives believing the schema is in place. It is not. Measured against `server/dbMigrate.js`
+(the DDL applied on startup), 2026-08-18:
+
+```
+grep -n -A 16 "CREATE TABLE IF NOT EXISTS pryzm_users" server/dbMigrate.js
+```
+
+**`pryzm_users` has exactly TEN columns** (`:30-41`):
+`id` · `email` · `name` · `password_hash` · `plan` · `plan_status` · `oauth_provider` ·
+`stripe_customer_id` · `stripe_subscription_id` · `created_at`.
+
+| C22 asserts | Section | Measured |
+|---|---|---|
+| `pryzm_users.regionPreference` | §1.4 | ❌ **absent** |
+| `pryzm_users.byok_enabled` | §1.5 | ❌ **absent** |
+| `pryzm_users.affected_by_incident_id` | GDPR Art. 34 clause | ❌ **absent** |
+| `pryzm_users.display_name`, `.given_name`, `.family_name` | §1.11 PII floor | ❌ **absent** — the column is `name` |
+| `audit_log` (the table, and `audit_log.tier`) | §0, §6 | ❌ **NO SUCH TABLE.** `grep -n "audit_log" server/dbMigrate.js` matches only **`version_audit_log`** (`:140`), a project-version history table with a different subject. **Do not mistake it for this one.** |
+| `packages/schemas/src/pii-registry.ts` — *"the single source of truth"* | §1.11, §6.5, §6.6, §8 step 3 | ❌ **FILE DOES NOT EXIST.** `find . -name 'pii-registry*' -not -path '*/node_modules/*'` → **0 matches.** |
+
+⛔ **Consequence, stated plainly.** §1.11 makes `pii-registry.ts` *"the single source of truth"* for
+PII classification, and §6.5/§6.6 build two CI gates on top of it — the span-coverage analysis and
+the DB-migration linter. **All three rest on a file that has never existed**, so, per item:
+
+- **NOT-YET-TRUE** — no PII field is classified anywhere; there is no registry to classify into.
+- **NOT-YET-TRUE** — `check-pii-classification` (§6.6) does not exist and cannot; nothing refuses a
+  migration that adds an unclassified column.
+- **NOT-YET-TRUE** — the `pryzm.pii.*` span requirement (§6.5) has no enforcement and no subject list.
+
+**Read every §1 and §6 clause as a REQUIREMENT ON FUTURE WORK, never as a description of the
+running system.** §8's migration plan is the honest part of this contract and is where work starts;
+**step 3 (create `pii-registry.ts`) is the unblocked prerequisite for everything else.**
+
+⚠ **Do not cite C22 as evidence of GDPR/DSAR posture.** The residency guarantee (§1.4), BYOK
+(§1.5) and the Article 34 breach modal all name columns that are not in the schema.
+
 ---
 
 ## §1 — Invariants
