@@ -468,14 +468,26 @@ export function wireCommandEventBridge(
           // the initTools.ts §P3.1-CW bridge can pass grid spacing to curtainWallStoreInstance.
           // Without these fields, migrateToGridSystem() receives undefined spacings → NaN → 0
           // curtain-wall cells → empty mesh (CONFIRMED CRITICAL finding ASSUMED-D).
+          // §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972 · C84 EI-2a/EI-2b): `baseOffset`,
+          // `panelThickness`, `materialId` and `panels` added. The first two were
+          // TESTED FOR by the §P3.1-CW bridge (`typeof _cwEv['baseOffset'] ===
+          // 'number'`) against an emitter that never listed them and a schema that
+          // never declared them — a guard that could not be true, so an authored
+          // value could never take effect. The last two are on the L0 schema
+          // (`CurtainWall.ts`) and were dropped here outright.
           const p = record.payload as {
             id?: string;
             levelId?: string;
             baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
             height?: number;
+            baseOffset?: number;
             bayWidth?: number;
             bayHeight?: number;
             mullionThickness?: number;
+            panelThickness?: number;
+            materialId?: string;
+            systemTypeId?: string;
+            panels?: ReadonlyArray<{ id: string }>;
           };
           events.emit('curtain-wall.created', {
             commandId:        record.id,
@@ -485,9 +497,16 @@ export function wireCommandEventBridge(
             id:               p.id,
             baseLine:         p.baseLine,
             height:           p.height,
+            baseOffset:       p.baseOffset,
             bayWidth:         p.bayWidth ?? 1.2,
             bayHeight:        p.bayHeight ?? 1.5,
             mullionThickness: p.mullionThickness ?? 0.05,
+            panelThickness:   p.panelThickness,
+            // `CreateCurtainWallHandler` seeds `materialId ?? systemTypeId`, so the
+            // same fold is applied here — otherwise the event and the committed
+            // record would disagree for a producer that sent only `systemTypeId`.
+            materialId:       p.materialId ?? p.systemTypeId,
+            panels:           p.panels,
           });
           break;
         }
@@ -503,9 +522,14 @@ export function wireCommandEventBridge(
               levelId?: string;
               baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
               height?: number;
+              baseOffset?: number;
               bayWidth?: number;
               bayHeight?: number;
               mullionThickness?: number;
+              panelThickness?: number;
+              materialId?: string;
+              systemTypeId?: string;
+              panels?: ReadonlyArray<{ id: string }>;
             }>;
             levelId?: string;
             height?: number;
@@ -522,9 +546,13 @@ export function wireCommandEventBridge(
               id:               cw.id,
               baseLine:         cw.baseLine,
               height:           cw.height ?? _batchCWDefaultHeight,
+              baseOffset:       cw.baseOffset,
               bayWidth:         cw.bayWidth ?? 1.2,
               bayHeight:        cw.bayHeight ?? 1.5,
               mullionThickness: cw.mullionThickness ?? 0.05,
+              panelThickness:   cw.panelThickness,
+              materialId:       cw.materialId ?? cw.systemTypeId,
+              panels:           cw.panels,
             });
           }
           break;

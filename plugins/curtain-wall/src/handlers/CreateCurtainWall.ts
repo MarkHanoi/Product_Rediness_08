@@ -18,7 +18,11 @@ export interface CreateCurtainWallPayload {
   readonly levelId?: string;
   readonly baseLine?: CurtainWallData['baseLine'];
   readonly height?: number;
+  /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — signed base offset in metres. */
+  readonly baseOffset?: number;
   readonly mullionThickness?: number;
+  /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — panel build thickness in metres. */
+  readonly panelThickness?: number;
   readonly bayWidth?: number;
   readonly bayHeight?: number;
   readonly panels?: CurtainWallData['panels'];
@@ -46,11 +50,17 @@ export class CreateCurtainWallHandler
         return { valid: false, reason: 'baseLine endpoints must differ' };
       }
     }
-    for (const k of ['height', 'mullionThickness', 'bayWidth', 'bayHeight'] as const) {
+    // §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972): `baseOffset` is deliberately NOT in
+    // this list — it is signed (a recessed curtain wall sits BELOW the slab), so a
+    // `> 0` guard would refuse a legitimate wall. It is finiteness-checked below.
+    for (const k of ['height', 'mullionThickness', 'bayWidth', 'bayHeight', 'panelThickness'] as const) {
       const v = cmd[k];
       if (v !== undefined && (!Number.isFinite(v) || v <= 0)) {
         return { valid: false, reason: `${k} must be > 0` };
       }
+    }
+    if (cmd.baseOffset !== undefined && !Number.isFinite(cmd.baseOffset)) {
+      return { valid: false, reason: 'baseOffset must be finite' };
     }
     if (cmd.panels) {
       const ids = new Set<string>();
@@ -73,7 +83,9 @@ export class CreateCurtainWallHandler
       id,
       levelId: cmd.levelId ?? '',
       height: cmd.height ?? 3,
+      baseOffset: cmd.baseOffset ?? 0,
       mullionThickness: cmd.mullionThickness ?? 0.05,
+      panelThickness: cmd.panelThickness ?? 0.05,
       bayWidth: cmd.bayWidth ?? 1.2,
       bayHeight: cmd.bayHeight ?? 1.5,
       panels: cmd.panels ?? [],

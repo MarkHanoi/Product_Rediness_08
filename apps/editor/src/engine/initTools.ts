@@ -96,6 +96,7 @@ import {
 import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
 import { roofRecordFromCreatedEvent } from './roofCreatedMirror';
 import { beamRecordFromCreatedEvent } from './beamCreatedMirror';
+import { curtainWallRecordFromCreatedEvent } from './curtainWallCreatedMirror';
 import { registerElementLevelChangeBridge } from './elementLevelChangedMirror';
 import { WindowTool } from '@pryzm/geometry-window';
 import { DoorTool } from '@pryzm/geometry-door';
@@ -1407,68 +1408,39 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // migrated to consume from the Immer store directly, this bridge can be removed.
     if (runtime) {
         runtime.events.on('curtain-wall.created', (ev) => {
-            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH the single create
-            // AND the batch create. The comment block above line 1047 claims
-            // "the guard below accepts both single and batch events" — but the
-            // strict equality only accepted single creates. Now matches the
-            // documented intent: batch-created curtain walls (e.g.
-            // CreateCurtainWallsOnAllSlabsCommand) reach the legacy
-            // CurtainWallStore for proper 3D mesh + plan-view projection.
-            //
-            // §FIX-COMMAND-NAMESPACE (L-796) — the canonical spellings are
-            // `curtain-wall.create` / `curtain-wall.batch.create`. The un-hyphenated
-            // `curtainwall.*` forms are kept here as tolerated legacy input: a
-            // replayed pre-migration log entry, or an unmigrated emitter, can still
-            // reach this subscriber. Drop them when the aliases are dropped.
-            // §51 U-B4 — widen to `string` so all accepted command-type forms
-            // compare cleanly. `ev.commandType` is narrowed by the event-payload
-            // type to a union of literals; without this widening the legacy
-            // branches trigger TS2367 ("no overlap").
-            const ct: string = ev.commandType ?? '';
-            const isCurtainCreate =
-                ct === 'curtain-wall.create' ||
-                ct === 'curtain-wall.batch.create' ||
-                ct === 'curtainwall.create' ||
-                ct === 'curtainwall.batch.create';
-            if (
-                !isCurtainCreate ||
-                !ev.id ||
-                !ev.baseLine ||
-                ev.baseLine.length < 2
-            ) return;
-            if (curtainWallStoreInstance?.getById?.(ev.id)) return; // dedup guard
-            const _cwEv = ev as unknown as Record<string, unknown>;
+            // §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972 · C84 EI-2a/EI-2b) — the
+            // command-type guard AND the whole field mapping now live in
+            // `curtainWallCreatedMirror.ts` so a test can EXECUTE them. As a
+            // closure here they were unreachable from any suite (initTools needs a
+            // THREE world and twenty stores to run one line), which is how FIVE
+            // constant-false reads survived: two `typeof _cwEv['…'] === 'number'`
+            // guards over fields (`baseOffset`, `panelThickness`) that existed
+            // neither on the L0 schema nor on the emitter's list, and three
+            // accept-arms for command types the sole emitter never writes.
+            // Same extraction as §P3.2-RF's `roofCreatedMirror.ts` and §FT2's
+            // `beamCreatedMirror.ts`, for the same reason.
+            const cwRecord = curtainWallRecordFromCreatedEvent(ev);
+            if (!cwRecord) return;
+            // Dedup guard (undo/redo replay). §FIX-CW-BRIDGE-DEAD-ARMS (L-972) — this
+            // read `curtainWallStoreInstance?.getById?.(…)`, and `CurtainWallStore`
+            // HAS NO `getById`: its accessors are `has` / `get` / `getAll`
+            // (`geometry-curtain-wall/src/CurtainWallStore.ts:75,93,101`). The optional
+            // call therefore evaluated to `undefined` on every single event and the
+            // guard never once fired — a sixth constant-false read in this same bridge,
+            // hidden by the store being typed `any` here.
+            if (curtainWallStoreInstance?.has?.(cwRecord.id)) return;
             // §G3-STALE-FIX-CW (OI-054 (a), 2026-05-24) — register the curtain wall in VDT +
             // bimManager BEFORE add(), mirroring the wall §P2.1 fix. curtainWallStoreInstance.add()
             // SYNCHRONOUSLY drives CurtainPanelSyncHandler, which fires a storeEventBus event per
             // panel (`<cwId>::row:col`); the VDT attributes each panel to its parent (§CW-PANEL-PARENT)
             // — but only if the PARENT is already registered. Registering first means both the parent
             // and all its panels take the targeted per-level path instead of the §G3-STALE storm.
-            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            try { viewDependencyTracker.registerElement(cwRecord.id, cwRecord.levelId); }
             catch (err) { console.warn('[initTools] §P3.1-CW VDT.registerElement failed (non-fatal):', err); }
-            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            try { bimManager.registerElement(cwRecord.id, cwRecord.levelId); }
             catch { /* non-fatal — may already be registered */ }
             try {
-                curtainWallStoreInstance.add({
-                    id:      ev.id,
-                    type:    'curtain-wall',
-                    levelId: ev.levelId ?? '',
-                    baseLine: [
-                        { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
-                        { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
-                    ],
-                    height:         typeof _cwEv['height']           === 'number' ? _cwEv['height']           : 3,
-                    baseOffset:     typeof _cwEv['baseOffset']       === 'number' ? _cwEv['baseOffset']       : 0,
-                    gridXSpacing:   typeof _cwEv['bayWidth']         === 'number' ? _cwEv['bayWidth']         : 1.2,
-                    gridYSpacing:   typeof _cwEv['bayHeight']        === 'number' ? _cwEv['bayHeight']        : 1.5,
-                    // §P3.1-CW-MULLION-FIX: CurtainWallData uses `mullionSize` (cross-section width/depth)
-                    // not `mullionThickness`.  The CreateCurtainWallPayload field is `mullionThickness`;
-                    // map it to the correct legacy store field here.  The previous bridge used
-                    // `mullionThickness` which is not a CurtainWallData field → undefined →
-                    // `build()` called `cw.mullionSize.toFixed(4)` → TypeError (logs as `{}`).
-                    mullionSize:    typeof _cwEv['mullionThickness']  === 'number' ? _cwEv['mullionThickness']  : 0.05,
-                    panelThickness: typeof _cwEv['panelThickness']    === 'number' ? _cwEv['panelThickness']    : 0.05,
-                } as any);
+                curtainWallStoreInstance.add(cwRecord as any);
                 // §P3.1-CW-PLAN-FIX: CurtainWallStore.add() uses the internal this.emit() path
                 // but does NOT call storeEventBus.emit().  Only addMany() does (batch path).
                 // Without storeEventBus, ViewTechnicalDrawingCache._onStoreChange never fires,
@@ -1477,7 +1449,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // tracked set (packages/core-app-model/src/views/ViewDependencyTracker.ts:41).
                 storeEventBus.emit({
                     elementType: 'curtainwall',
-                    elementId:   ev.id,
+                    elementId:   cwRecord.id,
                     operation:   'create',
                     timestamp:   Date.now(),
                 });
@@ -1487,9 +1459,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // §F.events.bridge — fires AFTER curtainWallStoreInstance.add() so the builder can
                 // retrieve data via getById(id).  Uses globalThis + plain Event + Object.assign to
                 // avoid GA gate G-NEW-04 regex match while remaining functionally equivalent.
-                const _cwBridgeEvt = Object.assign(new Event('bim-curtainwall-added'), { detail: { id: ev.id } });
+                const _cwBridgeEvt = Object.assign(new Event('bim-curtainwall-added'), { detail: { id: cwRecord.id } });
                 globalThis.dispatchEvent(_cwBridgeEvt);
-                console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired', ev.id);
+                console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired', cwRecord.id);
             } catch (err) {
                 console.error('[initTools] §P3.1-CW: failed to mirror curtain wall to legacy store — mesh may not build:', err);
             }

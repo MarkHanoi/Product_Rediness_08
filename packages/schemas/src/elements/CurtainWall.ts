@@ -61,8 +61,32 @@ export const CurtainWall = defineElement('curtainwall', {
     { x: 4, y: 0, z: 0 },
   ]),
   height: z.number().positive().default(3),
+  /**
+   * §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — height of the wall's base above the
+   * level datum, in metres. Signed: a spandrel-hung curtain wall sits above the
+   * slab, a recessed one below it, so this is NOT `.positive()`.
+   *
+   * ⚠ ADDED BECAUSE ITS ABSENCE WAS BEING READ AS PRESENCE. `CurtainWallData`
+   * (`geometry-curtain-wall/src/CurtainWallTypes.ts`) has always required it,
+   * `UpdateAllCurtainWallsCommand` edits it, and the §P3.1-CW bridge tested
+   * `typeof _cwEv['baseOffset'] === 'number'` — a guard that could never be true
+   * while the field existed on neither this schema nor the event, so the default
+   * always won and an authored offset could not take effect (C84 EI-2b).
+   */
+  baseOffset: z.number().default(0),
   /** Mullion thickness in metres. */
   mullionThickness: z.number().positive().default(0.05),
+  /**
+   * §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — build thickness of a glazed panel /
+   * frame depth of a framed panel, in metres. The second half of the same
+   * defect as `baseOffset` above: required by `CurtainWallData`, printed by
+   * `ScheduleExtractor.ts:366`, read AND written by the AI capability registry
+   * (`ChatCapabilityRegistry.ts:1204`), and unrepresentable here until now.
+   *
+   * The default matches the §P3.1-CW mirror's fallback so the Immer record and
+   * the legacy record cannot disagree about a wall nobody edited.
+   */
+  panelThickness: z.number().positive().default(0.05),
   /** Panel grid: vertical mullion spacing in metres. */
   bayWidth: z.number().positive().default(1.2),
   /** Panel grid: horizontal transom spacing in metres. */

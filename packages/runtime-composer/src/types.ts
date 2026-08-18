@@ -458,7 +458,17 @@ export interface RuntimeEvents {
    *  fix the empty-mesh bug (migrateToGridSystem() NaN-spacing → 0 mullion cells). */
   'curtain-wall.created': {
     readonly commandId: string;
-    readonly commandType: 'curtain-wall.create' | 'curtain-wall.batch.create';
+    /**
+     * §FIX-CW-BRIDGE-DEAD-ARMS (L-972 · C84 EI-2b) — ONE literal, deliberately.
+     * `CommandEventBridge` writes `'curtain-wall.create'` on BOTH its single and
+     * its batch case (the batch loop sets the single-create value on purpose, so
+     * one subscriber guard serves both). Declaring `'curtain-wall.batch.create'`
+     * here as well made three unreachable accept-arms in the §P3.1-CW bridge
+     * type-check and read as deliberate tolerance. Narrowed so a future arm for a
+     * value no emitter writes fails compilation (TS2367) instead of surviving as
+     * dead code.
+     */
+    readonly commandType: 'curtain-wall.create';
     readonly levelId: string;
     readonly elementCount: number;
     /** Curtain wall id. */
@@ -475,6 +485,26 @@ export interface RuntimeEvents {
     readonly bayHeight?: number;
     /** Mullion profile thickness in metres. */
     readonly mullionThickness?: number;
+    /**
+     * §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — signed base offset in metres.
+     * Maps to legacy `CurtainWallData.baseOffset`.
+     *
+     * ⚠ The §P3.1-CW bridge TESTED FOR this field for months
+     * (`typeof _cwEv['baseOffset'] === 'number'`) while neither this event nor
+     * the L0 `CurtainWall` schema declared it — a guard that could never be
+     * true, so the default always won (C84 EI-2b).
+     */
+    readonly baseOffset?: number;
+    /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — panel build thickness in metres.
+     *  The second half of the same defect; maps to legacy `panelThickness`. */
+    readonly panelThickness?: number;
+    /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — the L0 `CurtainWall.materialId`
+     *  (folded with `systemTypeId` exactly as `CreateCurtainWallHandler` folds
+     *  them). On the schema, previously dropped here outright. */
+    readonly materialId?: string;
+    /** §FIX-CW-BRIDGE-AUTHORED-VALUES (L-972) — the L0 `CurtainWall.panels`
+     *  (`CurtainWall.ts:70`), previously dropped here outright. */
+    readonly panels?: ReadonlyArray<{ readonly id: string }>;
   };
 
   /** Fired after `column.create` or `column.batch.create` succeeds (Sprint A28/A29).
