@@ -289,6 +289,155 @@ the shape the other fourteen must reach.
 
 ---
 
+## 4A. THE MUTATION LINEAGES — there are SIX, not two
+
+Every per-element contract MUST state which lineage each of its verbs travels. Measured:
+
+| # | Lineage | Undo stack | Representative site |
+|---|---|---|---|
+| **L1** | Bus verb + `produceCommand` Immer patches | ring buffer | `plugins/wall/src/handlers/CreateWall.ts:329` |
+| **L2** | Legacy `Command` on `commandManager` | `CommandManagerImpl.history:132` | `packages/command-registry/src/walls/CreateWallCommand.ts:59` |
+| **L3** | Bus verb declaring `affectedStores: []`, bridging to L2 via `_cmExec` | L2's stack only | `initBusHandlers.ts:595` — **~30 handlers** |
+| **L4** | Hand-forged `PatchPair` pushed straight to the ring buffer | ring buffer | `UpdateWallBaseline.ts:38-41` |
+| **L5** | `CustomEvent` → PRYZM-1 command | **neither** | `plugins/rooms/src/handlers/RedetectRooms.ts:82-90` |
+| **L6** | Direct store write, zero capture, `affectedStores: []` | **neither** | `plugins/curtain-wall/src/handlers/ReplacePanel.ts:137` |
+
+**L5 and L6 are unconditional violations of EI-7.** Ctrl+Z skips straight over them. `ReplacePanel`
+additionally produces its patches against a **fake 2-field literal** (`:114-127`) while the real
+write goes elsewhere — patches that describe a mutation that did not happen.
+
+> ⚠ **`ctx.stores.<key>` IS NOT A STORE.** `bootstrap.ts:148` `storesAsRecordView` returns
+> `Object.fromEntries(store.getState())` — **a plain-object snapshot rebuilt every dispatch**.
+> So L1 handlers produce patches against a *throwaway view*. This is stronger than
+> "the DTO store is a write-only sink" and it reframes EI-7a: the inverse patch has no
+> durable target, not merely the wrong one.
+
+---
+
+## 4B. THE VERB AXES — per-verb conformance
+
+Every per-element contract MUST carry this table for its family. Cross-cutting findings:
+
+### CREATE
+Bridged for **12** families via `.created` (`initTools.ts:1059, 1260, 1408, 1511, 1591, 1636,
+1708, 1773, 1824, 1919, 1967, 2031`). **`stair` and `room/space` have no `.created` bridge** —
+`CommandEventBridge.ts:626-631` deliberately removed door/window/stair; `room.created`
+(`:687-694`) carries `levelId` and nothing else **and has no subscriber**. Every create writes
+BOTH the DTO view and the legacy store; every undo restores only legacy.
+
+### BATCH CREATE
+CEB rewrites batch `commandType` to the single-create spelling (`:282, 397, 469, 540, 611, 675,
+811`), so the `!== '*.batch.create'` guards in the wall/column/slab bridges are **dead code**.
+Batch slabs lose `width`/`depth` and are forced to `position:{0,0,0}` (`:392-407`), then defaulted
+to **1 m extents** at `initTools.ts:1728-1729`. One patch pair covers N elements — correct.
+
+### DELETE
+Two UI paths that disagree — see EI-4. `DeleteElementCommand` has **14 branches**, none for
+`lighting`, `room` or bare `opening`; the fallback at `:650` returns `success:false`.
+**21 of 22** plugin `*.delete` verbs have no production caller; `plugins/floor` declares none at
+all. *(A fix landing this session removes the second route rather than duplicating its routing
+table — the correct direction: one path, not two agreeing ones.)*
+
+### MOVE / TRANSFORM
+**Sixteen move-class verbs REFUSE in `canExecute`** rather than route correctly — `wall.move`,
+`wall.transform`, `door.move`, `window.move`, `slab.move`, `roof.move`, `column.move`,
+`beam.move`, `furniture.move`, `lighting.move` and more. Containment by disabling is **not**
+conformance; each is a dead affordance and an EI-3 violation. The live move paths are L4
+(`UpdateWallBaseline`, `UpdateFurnitureParameters`) — correct by accident, not by design.
+Their reweld cascade is a **separate L3 verb** (`CascadeWallBaseline.ts:35,58`,
+`affectedStores: []`), so **one gesture produces two undo entries on two different stacks**.
+
+### ROTATE
+`Beam.rotation` exists in the payload and **`BeamData` has no rotation field at all**
+(`CEB:572-584`) — a rotated beam un-rotates. A genuine representational gap, not an omission.
+`stair.rotate` (L1) writes the DTO view only. `furniture.rotate` refuses.
+
+### PARAMETER / DIMENSION CHANGE
+`UpdateElementParameterCommand` post-L-947 routes by `ELEMENT_STORE_ROUTES:112-148` and restores
+correctly — **but the audit-neutral restore covers `wall`/`door`/`window` ONLY**. Its own
+`:213-218` concedes that slab, stair, roof and furniture **stamp a fresh `metadata.version` on
+undo**, so undo is not audit-neutral for four families.
+
+### MATERIAL / COLOUR
+**Every `*.setMaterial` verb refuses** — six of them. The live paths are L2/L3. `wall.materialId`
+is dropped at the bridge though both ends hold the field (`CEB:236-256`); `ceiling.materialId` is
+read into the cast at `:666` then dropped at `:673-682`. Handrail's committer
+(`material-bridge.ts:5-7`) returns a **constant hex** regardless of key.
+
+### LEVEL CHANGE
+`ChangeWallLevel` / `ChangeRoofLevel` (L1) write the DTO view; undo routes via `changeLevel()`
+(`elementUndoStoreAdapter.ts:321-332`, §L-946) and re-registers `bimManager` + VDT. **Neither
+writes a LevelStore** — stated in `ChangeWallLevel.ts:8-13`.
+
+---
+
+## 4C. CASCADES — what a mutation triggers, and whether undo reverses it
+
+| Cascade | Reversed? | Evidence |
+|---|---|---|
+| hosted openings on wall delete (L2) | ✅ | `DeleteElementCommand.ts:243,250-267`; restored via `_restoreRelationships` |
+| hosted openings on wall delete (**L1 bus verb**) | ⛔ **no cascade at all** | `DeleteWall.ts:14-17` — openings and `childrenIds` orphaned |
+| slab openings on slab delete | ✅ | `DeleteSlabCommand.ts:85-92`, restored `:145-157` |
+| wall joins on delete | ⚠ snapshot only | `:218-232`; header `:34-40` concedes the resolver "cannot guarantee the EXACT pre-delete trim" |
+| ceiling holes on ceiling delete | ⚠ partial | `:586-591` unregisters, **no store removal** |
+| room `boundingWallIds` on wall delete | ⛔ **field has no writer anywhere** | `boundingWallDetermination.ts:5-10,120` — "names a dependency that no producer wrote" |
+| `joinedToRoofIds` back-refs on roof delete | ⛔ dangling | — |
+| semantic graph edges | ✅ every family | captured by `_captureRelationships`, restored on undo |
+| stair → railing re-sample | ⛔ event-driven, never reversed | `MoveStair.ts:98-101` |
+| curtain panel rebuild | ⛔ event-driven, never reversed | `ReplacePanel.ts:133-135` |
+| room topology after ANY wall undo | ⛔ **recomputed, not restored** | `RoomTopologyObserver.ts:513-520` discharges on `resume()` |
+
+**Only THREE services consult `isReverting()`** — `WallMoveReweldService.ts:298`,
+`SlabWallConnectivityService.ts:1047`, `FinishHostDependencyTracker.ts:297`. Every other reactive
+observer runs forward during an undo.
+
+---
+
+## 4D. BUILDERS AND THE TWO GEOMETRY STACKS
+
+**Stack A** = `packages/geometry-*` fragment builders — live in the viewport.
+**Stack B** = `packages/geometry-kernel/producers` + committers — **dead in the editor, live in
+the bake worker** (`HeadlessBakeSession.ts:131`, shipped in `pryzm-selfhost/docker-compose.yml:94`).
+Stack B is reachable only via `composeRuntime.ts:1391 bootstrapScene` inside `runScene(canvas,…)`;
+production boot passes `canvas: null` (`src/main.ts:407`).
+
+**First-ever A/B parity harness** (`tests/parity/wall/stackAB-miter-parity.test.ts`): **9 of 10
+cases agree to ≤2.2e-7 m**; `curved-MITERED-both-ends` **diverges by 9.774 m** — Stack A projects
+the miter plane into the corner table its loops consume
+(`CurvedWallLayerBuilder.ts:69-83`); Stack B projects the cap quad only and its loops consume
+unprojected stations (`buildCurvedLayer.ts:133-137,159-165`). **Stack B predates a fix Stack A
+shipped.** Pinned `it.fails`.
+
+> ⛔ **OPEN FOUNDER QUESTION — blocks every deletion in `geometry-kernel`:** *what is Stack B
+> for?* Until answered, no producer may be deleted as "dead" — it is live for bake/export.
+
+**The wall-Y datum** — `WallFragmentBuilder.ts:728` folds `wall.baseOffset` into `worldY`,
+`:1097` puts that on the group, and every geometry site adds it **again**; `DoorBuilder.ts:498`
+and `WindowBuilder.ts:818` omit `slabBaseOffset` entirely. Leaf-vs-hole delta =
+`slabBaseOffset + 2×baseOffset`. **Latent** — measured: nothing assigns `slabBaseOffset`
+non-zero and no wall path authors `baseOffset ≠ 0`. The fix is ONE wall-Y authority, not deduping
+the extrusion builders — those were measured **bit-identical** and are mutually exclusive by
+construction (`WallFragmentBuilder.ts:2301-2307`).
+
+---
+
+## 4E. ELEMENT-TYPE TAGGING — the delete routing depends on it
+
+`userData.elementType` is what the keyboard delete path reads. Measured spellings are
+**inconsistent and case-mixed**, surviving only because `DeleteElement.ts:51` lowercases:
+`'wall'`, `'beam'`, `'Column'`, `'Handrail'`, `'Lighting'`, `'RoofPart'`, `'door'`/`'Door'`,
+`'window'`, `'Furniture'`, and slab in **four** spellings — `'slab'`/`'Slab'`/`'SlabPart'`/
+`'SlabEdges'`.
+
+- **`'opening'` has NO producer.** The comparison exists (`DeleteElement.ts:52`) and three
+  `storeEventBus.emit` calls use it (`OpeningStore.ts:29,37,48`), but **no fragment builder tags
+  a mesh** `'opening'`. That branch has no measured producer.
+- **ceiling, floor and curtain-wall**: NOT MEASURED — no `elementType` assignment surfaced.
+
+Every per-element contract MUST declare its canonical tag, and the spellings MUST converge.
+
+---
+
 ## 5. Gates
 
 | Gate | Enforces | Status |
@@ -319,12 +468,37 @@ Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`: **never raise a threshold to pass.*
 
 ## 6. The per-element contracts — C85–C99
 
-Each family gets its own contract, structured identically:
+Each family gets its own contract. **The structure below is MANDATORY and identical across all
+fifteen** — a contract that omits a section is incomplete, and a cell that is unknown must read
+`NOT MEASURED`, never blank. *A blank reads as "fine"; that is how every defect in §4 survived.*
 
-1. **AS-IS** — measured, `file:line`, every representation the family actually has
-2. **MUST-BE** — the authority, the full field map, the delete path, the undo set
-3. **THE DELTA** — a numbered, ordered fix list
-4. **REFUSALS** — what this family deliberately does not support, and why
+Each section carries **AS-IS** (measured, `file:line`) and **TO-BE** (normative), side by side.
+
+| § | Section | Must state |
+|---|---|---|
+| **1** | **Identity** | canonical `elementType` tag(s) and every spelling in use (§4E); the L0 schema; the bus verb namespace |
+| **2** | **Stores** | every representation the family has — L0 schema, plugin DTO, legacy geometry, scene `userData`, kernel producer — and **which one is the AUTHORITY** (EI-1) |
+| **3** | **Consumers** | what renderer, plan view, persistence, IFC export, GLB export and bake worker each read. Any two differing = split-brain, and it goes at the top |
+| **4** | **Plugin ↔ DTO ↔ command ↔ builder** | the full wiring: which handlers exist, which are registered in production, which are **reachable from a UI control**, and which are dead |
+| **5** | **The bridge field map** | **EVERY field of the payload**, and for each: carried, transformed, or DELIBERATELY DROPPED. Omission is forbidden (EI-2). This section is the one the future `check-bridge-field-coverage` gate consumes |
+| **6** | **Verbs** | one row per verb — create · batch create · delete · move · transform · **rotate** · parameter/**dimension** change · **material** · **colour** · level change · family-specific. Each row: lineage L1–L6 (§4A), stores WRITTEN, stores RESTORED on undo, and whether those two sets are **equal** |
+| **7** | **Undo / redo** | the `affectedStores` declaration vs the measured write set (EI-7); whether `createSnapshot` covers every declared key (EI-7d); whether redo restores or **recomputes** (EI-7e) |
+| **8** | **Cascades** | what each mutation triggers, and whether undo reverses it (§4C). Event-driven cascades outside patch capture MUST be named |
+| **9** | **Vocabularies** | material vocabulary (which of V1–V5, §EI-8), profile/shape enums, and every enum whose members the pipeline cannot carry (EI-3) |
+| **10** | **Geometry** | Stack A builder, Stack B producer, whether they are proven to agree, and the datum convention |
+| **11** | **THE DELTA** | a numbered, ordered fix list, each item naming its invariant and its proof |
+| **12** | **REFUSALS** | what this family deliberately does NOT support, and why. A refusal is a correct answer — an undocumented one is not |
+
+**Authoring rules, binding:**
+
+- **Measure, do not infer.** Every claim carries `file:line`. A claim you could not verify is
+  `NOT MEASURED` — which is a finding, not a gap in the document.
+- **Record retractions.** Four audits retracted claims after measuring; each retraction was more
+  valuable than the claim. Keep them.
+- **Grep both halves.** Lighting survived because the loader existed and the serializer did not,
+  so one grep found it and stopped (§1.2).
+- **Beware the name-based census.** A reachability census that greps for *store* callers misses
+  writes arriving through a *bus verb*. That error was made and corrected once already.
 
 | # | Family | # | Family | # | Family |
 |---|---|---|---|---|---|
