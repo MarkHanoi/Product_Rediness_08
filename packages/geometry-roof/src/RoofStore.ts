@@ -137,7 +137,7 @@ export class RoofStore {
      *     the roof's slope-arrow annotations, and the following 'add' does not
      *     bring them back. A move is not a delete.
      *   • `restoreSnapshot()` with a doctored record — that method exists for
-     *     UNDO, and using it here would make an undo stack replay indisinguishable
+     *     UNDO, and using it here would make an undo-stack replay indistinguishable
      *     from a user gesture in the event log.
      * So the operation gets its own name, symmetric with `WallStore.changeLevel`.
      *

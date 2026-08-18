@@ -189,8 +189,12 @@ export interface LegacyElementStoreLike {
   getById?(id: string): unknown;
   get?(id: string): unknown;
   /** §L-946 — the storey move. `update()` REFUSES a levelId change in both
-   *  stores that have one (WallStore warns and ignores; RoofStore throws), so
-   *  a level change can only be reverted through this. */
+   *  stores that have one, and BOTH refuse by THROWING (`WallStore.ts:781`
+   *  "Wall levelId cannot be modified after creation"; `RoofStore.ts:109`
+   *  "levelId is immutable after creation"), so a level change can only be
+   *  reverted through this. The throw is why the pre-L-946 failure was
+   *  invisible: it landed in the per-patch try/catch below as one console.error
+   *  while the keypress reported success. */
   changeLevel?(id: string, newLevelId: string): unknown;
 }
 
@@ -299,8 +303,9 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
             //
             // `levelId` is the one field the generic `store.update()` below cannot
             // carry: it is a spatial anchor, and both legacy stores that have one
-            // refuse to change it through `update` (WallStore warns and ignores,
-            // RoofStore throws "levelId is immutable after creation"). Before
+            // refuse to change it through `update` — by THROWING, which is why the
+            // failure was invisible: the throw landed in this loop's own try/catch
+            // as one console.error while the keypress reported success. Before
             // L-946 that cost nothing, because nothing ever moved an element
             // between storeys through the bus in the first place. Now that the
             // forward direction works, an unrouted undo would revert the PLUGIN
