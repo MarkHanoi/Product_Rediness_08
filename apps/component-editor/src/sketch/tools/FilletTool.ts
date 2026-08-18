@@ -58,6 +58,8 @@
 // control (an X-crossing inside both must STILL fillet — a tool that
 // refused everything would satisfy the refusal assertion on its own).
 
+import { intersectLines2D } from '@pryzm/geometry-kernel';
+
 import type { SketchEntity, SketchLine, SketchPoint } from '../entities.js';
 import { hitTest } from '../hitTest.js';
 import {
@@ -256,23 +258,18 @@ function findCommonOrIntersection(
       return { x: ap.x, z: ap.z, beyondA: 0, beyondB: 0 };
     }
   }
-  // Two-line intersection (handle parallel by determinant ≈ 0). This solves the
-  // INFINITE lines, which is correct as far as it goes — what was missing is
-  // that it says nothing about whether the SEGMENTS reach the answer. Both
-  // parameters are therefore returned as distances, not discarded.
-  const r = { x: a2.x - a1.x, z: a2.z - a1.z };
-  const s = { x: b2.x - b1.x, z: b2.z - b1.z };
-  const det = r.x * s.z - r.z * s.x;
-  if (Math.abs(det) < 1e-9) return null;
-  const dx = b1.x - a1.x;
-  const dz = b1.z - a1.z;
-  const t = (dx * s.z - dz * s.x) / det;   // param along A: a1 + r·t
-  const u = (dx * r.z - dz * r.x) / det;   // param along B: b1 + s·u
+  // THE canonical §C73-SEGSEG predicate, NOT a private t/u solve. `null` here
+  // means parallel/collinear ONLY: the unbounded view keeps "they cross out of
+  // reach" as a reported distance rather than merging it into the same `null`,
+  // which is what lets this refusal quote a number. Plan (x, z) maps onto the
+  // kernel's dimensionless planar pair.
+  const hit = intersectLines2D(a1.x, a1.z, a2.x, a2.z, b1.x, b1.z, b2.x, b2.z);
+  if (!hit) return null;
   return {
-    x: a1.x + r.x * t,
-    z: a1.z + r.z * t,
-    beyondA: overshootMm(t, Math.hypot(r.x, r.z)),
-    beyondB: overshootMm(u, Math.hypot(s.x, s.z)),
+    x: hit.x,
+    z: hit.y,
+    beyondA: overshootMm(hit.t, Math.hypot(a2.x - a1.x, a2.z - a1.z)),
+    beyondB: overshootMm(hit.u, Math.hypot(b2.x - b1.x, b2.z - b1.z)),
   };
 }
 

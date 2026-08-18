@@ -98,15 +98,21 @@ export {
   distancePointToRing,
 } from './pure/pointToSegment.js';
 // §C73-SEGSEG-CANONICAL — THE segment/segment intersection. One arithmetic
-// body (four cross products) with three named boundary views — strict-interior,
-// half-open, and the parametric closed-[0,1] hit; the parametric divide is
-// guarded by the declared EPSILON_ZERO, never a per-call-site literal. The
-// cross-product and t/u spellings are proven ONE family in the module header
-// and executed as such in __tests__/segmentIntersection.oracle.test.ts.
+// body (four cross products) with FOUR named boundary views — strict-interior,
+// half-open, the parametric closed-[0,1] hit, and (added 2026-08-17) the
+// UNBOUNDED solve `intersectLines2D` returning t/u unclamped; the parametric
+// divide is guarded by the declared EPSILON_ZERO, never a per-call-site
+// literal. The fourth view exists because a caller needing to know how far PAST
+// an end a corner lies previously had to spell the solve privately — which is
+// how this family reached fourteen rival definitions. The cross-product and t/u
+// spellings are proven ONE family in the module header and executed as such in
+// __tests__/segmentIntersection.oracle.test.ts.
 export {
+  intersectLines2D,
   intersectSegments2D,
   segmentsCrossHalfOpen2D,
   segmentsProperlyCross2D,
+  type LineIntersection2D,
   type SegmentIntersection2D,
 } from './pure/segmentIntersection.js';
 // §C73-POLY-BOOLEAN — THE 2-D polygon boolean (GE-05). Before it, the tree had

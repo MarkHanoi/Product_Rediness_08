@@ -120,6 +120,24 @@
 
 import { EPSILON_ZERO } from '../tolerance.js';
 
+/**
+ * An UNBOUNDED line/line hit — see {@link intersectLines2D}. Same four fields
+ * as {@link SegmentIntersection2D}; the difference is entirely in the RANGE of
+ * `t`/`u`, which is why it is a separate type rather than a reused one. A
+ * doc-comment promising `[0, 1]` on a value that is routinely 2.5 is the class
+ * of defect this family exists to remove.
+ */
+export interface LineIntersection2D {
+  /** Parameter along a→b. UNRESTRICTED: `< 0` is behind `a`, `> 1` is beyond `b`. */
+  readonly t: number;
+  /** Parameter along c→d. UNRESTRICTED: `< 0` is behind `c`, `> 1` is beyond `d`. */
+  readonly u: number;
+  /** Intersection point, first ordinate (evaluated along a→b at t). */
+  readonly x: number;
+  /** Intersection point, second ordinate (plan z / screen y). */
+  readonly y: number;
+}
+
 /** A parametric segment/segment hit — see {@link intersectSegments2D}. */
 export interface SegmentIntersection2D {
   /** Parameter along a→b, in [0, 1] (0 = a, 1 = b). */
@@ -203,6 +221,41 @@ export function intersectSegments2D(
   ax: number, ay: number, bx: number, by: number,
   cx: number, cy: number, dx: number, dy: number,
 ): SegmentIntersection2D | null {
+  // Derived, not re-spelled: the [0,1] filter is the ONLY thing this view adds
+  // over the unbounded solve (§3.7 axis 4 — one body, several named boundary
+  // questions). Behaviour is bit-identical to the previous inline arithmetic.
+  const hit = intersectLines2D(ax, ay, bx, by, cx, cy, dx, dy);
+  if (hit === null) return null;
+  if (hit.t < 0 || hit.t > 1 || hit.u < 0 || hit.u > 1) return null;
+  return hit;
+}
+
+/**
+ * The UNBOUNDED parametric solve: where the INFINITE lines through a→b and
+ * c→d cross, with `t` and `u` returned unclamped, or `null` when they are
+ * parallel/collinear (|D| < `EPSILON_ZERO` — the one declared degenerate-divide
+ * guard, C73 §2.4).
+ *
+ * ── WHY THIS VIEW EXISTS (added 2026-08-17) ─────────────────────────────────
+ * `intersectSegments2D` answers "do these two SEGMENTS meet, and where"; when
+ * the answer is no it returns `null`, which deliberately merges *parallel* with
+ * *they cross somewhere neither reaches*. That merge is correct for a crossing
+ * test and WRONG for the extend/fillet question, where the caller must tell the
+ * two apart and quote HOW FAR out of reach the corner is
+ * (§CONTEXT-DATA-HONESTY: "no crossing" and "a crossing 6 mm past the end" are
+ * different facts, and a refusal that cannot quote the number cannot be acted
+ * on). Its first consumer is `FilletTool`'s §FILLET-SEGMENT-BOUNDS refusal.
+ *
+ * Offered here rather than left to the call site precisely because a caller who
+ * needs unclamped `t`/`u` has, until now, had no choice but to spell the solve
+ * privately — which is how this family reached fourteen rival definitions. The
+ * `null` on parallel is retained: a parallel pair has no unique crossing at any
+ * distance, and inventing one would be geometry fabrication (§3.7 axis 3).
+ */
+export function intersectLines2D(
+  ax: number, ay: number, bx: number, by: number,
+  cx: number, cy: number, dx: number, dy: number,
+): LineIntersection2D | null {
   const rx = bx - ax, ry = by - ay;
   const sx = dx - cx, sy = dy - cy;
   const D = rx * sy - ry * sx;
@@ -214,6 +267,5 @@ export function intersectSegments2D(
   // `+ 0` canonicalises IEEE −0 (from −d1/D at d1 = 0) to +0, so a touch at a
   // segment start reports u = 0, not −0; exact identity for every other value.
   const u = -d1 / D + 0;
-  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
   return { t, u, x: ax + t * rx, y: ay + t * ry };
 }

@@ -29,6 +29,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  intersectLines2D,
   intersectSegments2D,
   segmentsCrossHalfOpen2D,
   segmentsProperlyCross2D,
@@ -257,5 +258,68 @@ describe('segmentIntersection — the one-family proof, executed against both ri
       expect(segmentsProperlyCross2D(ax, ay, bx, by, cx, cy, dx, dy)).toBe(want);
       expect(segmentsCrossHalfOpen2D(ax, ay, bx, by, cx, cy, dx, dy)).toBe(want);
     }
+  });
+});
+
+// ─── intersectLines2D — the UNBOUNDED view (added 2026-08-17) ────────────────
+//
+// Its whole reason to exist is that `intersectSegments2D` returns `null` for
+// BOTH "parallel" and "they cross somewhere neither segment reaches", and a
+// caller that must tell those apart — and quote how far out of reach the corner
+// is — otherwise has to spell the t/u solve privately. That is how this family
+// reached fourteen rival definitions, so the discrimination is asserted here
+// rather than assumed.
+describe('intersectLines2D — unbounded parameters, and the distinction that earns it', () => {
+  it('reports the crossing of the INFINITE lines with t and u UNCLAMPED', () => {
+    // The FilletTool §FILLET-SEGMENT-BOUNDS fixture, in the kernel's own terms:
+    // A = (0,0)→(4,0), B = (10,2)→(10,12). The lines cross at (10, 0), which is
+    // 1.5 segment-lengths along A and 0.2 lengths BEHIND the start of B.
+    const hit = intersectLines2D(0, 0, 4, 0, 10, 2, 10, 12);
+    expect(hit).not.toBeNull();
+    expect(hit!.t).toBeCloseTo(2.5, 12);
+    expect(hit!.u).toBeCloseTo(-0.2, 12);
+    expect(hit!.x).toBeCloseTo(10, 12);
+    expect(hit!.y).toBeCloseTo(0, 12);
+  });
+
+  it('THE DISCRIMINATION: the same input that makes the segment view say null', () => {
+    // One value from the bounded view, two different facts from the unbounded
+    // one. This is the assertion the fourth view exists for.
+    expect(intersectSegments2D(0, 0, 4, 0, 10, 2, 10, 12)).toBeNull();   // out of reach
+    expect(intersectSegments2D(0, 0, 4, 0, 0, 5, 4, 5)).toBeNull();      // parallel
+    expect(intersectLines2D(0, 0, 4, 0, 10, 2, 10, 12)).not.toBeNull();  // …reaches at t = 2.5
+    expect(intersectLines2D(0, 0, 4, 0, 0, 5, 4, 5)).toBeNull();         // …genuinely never
+  });
+
+  it('still REFUSES parallel and collinear — an unbounded solve is not an unguarded one', () => {
+    expect(intersectLines2D(0, 0, 10, 0, 0, 5, 10, 5)).toBeNull();   // parallel
+    expect(intersectLines2D(0, 0, 10, 0, 20, 0, 30, 0)).toBeNull();  // collinear
+    expect(intersectLines2D(0, 0, 0, 0, 0, 5, 10, 5)).toBeNull();    // zero-length
+  });
+
+  it('agrees with intersectSegments2D EXACTLY wherever the hit is in range', () => {
+    // The bounded view is now DERIVED from this one, so the two must not be
+    // able to disagree in range. Asserted by value, not by truthiness, over a
+    // grid that includes both endpoint touches (t/u ∈ {0,1}) and interiors.
+    const cases: ReadonlyArray<readonly [number, number, number, number, number, number, number, number]> = [
+      [0, 0, 2, 2, 0, 2, 2, 0],     // X at (1,1), t = u = 0.5
+      [0, 0, 10, 0, 5, -5, 5, 5],   // T-ish crossing at (5,0)
+      [0, 0, 10, 0, 0, 0, 0, 10],   // shared start: t = 0, u = 0
+      [0, 0, 10, 0, 10, 0, 10, 10], // endpoint touch: t = 1, u = 0
+    ];
+    for (const c of cases) {
+      const bounded = intersectSegments2D(...c);
+      const unbounded = intersectLines2D(...c);
+      expect(bounded).not.toBeNull();
+      expect(unbounded).toEqual(bounded);
+    }
+  });
+
+  it('the near-parallel refusal band is the DECLARED epsilon, not a private one', () => {
+    // |D| just under EPSILON_ZERO refuses; comfortably over it resolves. Same
+    // guard as the bounded view because it is literally the same divide.
+    const belowGuard = EPSILON_ZERO / 10;
+    expect(intersectLines2D(0, 0, 1, 0, 0, 1, 1, 1 + belowGuard)).toBeNull();
+    expect(intersectLines2D(0, 0, 1, 0, 0, 1, 1, 1 + EPSILON_ZERO * 1000)).not.toBeNull();
   });
 });
