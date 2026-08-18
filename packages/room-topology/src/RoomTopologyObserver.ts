@@ -835,11 +835,53 @@ export class RoomTopologyObserver {
 
   /**
    * §FIX-ROOMREDETECT-NOPROGRESS-GUARD (L-63) — a cheap, stable signature of the level's
-   * wall geometry (id + baseline endpoints @ mm + thickness). Room re-detection is a pure
-   * function of this (plus curtain walls / slabs, which drive their own subscriptions), so
-   * an unchanged signature means a fresh redetect can make no progress. Returns '' when the
-   * wall store cannot be read (e.g. a minimal test harness with no `getByLevel`), which
-   * disables both no-progress gates — behaviour is then exactly as before this guard.
+   * wall geometry (id + baseline X/Z @ mm + thickness @ mm + HEIGHT @ mm). Room re-detection
+   * is a pure function of this (plus curtain walls / slabs, which drive their own
+   * subscriptions), so an unchanged signature means a fresh redetect can make no progress.
+   * Returns '' when the wall store cannot be read (e.g. a minimal test harness with no
+   * `getByLevel`), which disables both no-progress gates — behaviour is then exactly as
+   * before this guard.
+   *
+   * ─── §PR-09-WALLSIG-HEIGHT (founder ruling, 2026-08-17) ────────────────────────────────
+   * `height` is IN. `check-propagation-trackers-reach` arm A8 measured the divergence that
+   * put it here: `DoorDependencyTracker._wallGeometryChanged` (DoorDependencyTracker.ts:131-139
+   * and the window twin) treats a height change as a real move and RE-ANCHORS every hosted
+   * opening for it, while this signature omitted height entirely. One edit, two verdicts —
+   * "a move" to the trackers, "byte-identical geometry" to the observer — so a height-only
+   * edit was DROPPED by the committed-path no-progress gate (`_onWallMutationCommitted`) and
+   * counted as a same-signature repeat toward the execution circuit-breaker below. The
+   * founder's ruling: *"a height change is a geometric identity change … it must invalidate
+   * the signature."*
+   *
+   * ENCODING, and why it cannot fluctuate. The founder's caveat was *"use the
+   * canonical/normalized wall height — NOT a derived value that can fluctuate because of
+   * representation or floating-point noise."* So height is folded through the SAME `mm()`
+   * quantiser the baseline coordinates and thickness already use — `Math.round(metres * 1000)`,
+   * an INTEGER number of millimetres — off `WallData.height`, the required, authored,
+   * metres-valued store field (WallTypes.ts:258). It is never re-derived from a level, a
+   * slab offset, a rake projection or a built mesh. Rounding to integer mm means two doubles
+   * that differ only in their last bits (`3` vs `0.1 + 0.2 + 2.7`) produce the SAME token,
+   * while a genuine 1 mm authoring change produces a different one. Separator `^` is used so
+   * the height field cannot be confused with `#` (thickness), `>` (endpoint) or `|` (wall).
+   *
+   * BASELINE `y` IS DELIBERATELY STILL ABSENT — it is a SEPARATE ruling, not an oversight.
+   * The founder ruled on HEIGHT. A wall's authored vertical placement is `baseOffset`
+   * (worldY = level.elevation + slabBaseOffset + baseOffset, SlabWallCoupling.ts:61), and
+   * `baseLine[*].y` is documented by WallTypes.ts §WALL-AUDIT-2026-M7 as a world-space MIRROR
+   * of `level.elevation` that goes STALE when a level moves and that the builder re-projects
+   * away at render time — "only the persisted DTO value is misleading". Folding that field in
+   * would satisfy the gate arm while encoding the value its own canonical-convention note
+   * calls misleading, and would leave `baseOffset` — which NEITHER this signature NOR
+   * `_wallGeometryChanged` reads — still unmeasured. That question stays a declared finding
+   * on tools/rac-conformance/certification/gates/tracker-pairs.json rather than being closed
+   * on a ruling nobody made.
+   *
+   * OVER-INVALIDATION IS THE OTHER FAILURE. This signature feeds two gates that exist to STOP
+   * runaway redetect loops, so a field that flickers would be as harmful as a field that is
+   * missing. Both directions are pinned in
+   * `src/__tests__/roomRedetectNoProgressGuard.test.ts` §PR-09-WALLSIG-HEIGHT: a height-only
+   * edit MUST change the signature; float noise, a `properties` patch and a `materialId`
+   * change MUST NOT.
    */
   /**
    * §OPENED-REGION (L-880) — read the level's current rooms as plain
@@ -957,7 +999,7 @@ export class RoomTopologyObserver {
 
   private _computeWallSig(levelId: string): string {
     try {
-      const ws = this.wallStore as { getByLevel?: (id: string) => Array<{ id?: string; baseLine?: ReadonlyArray<{ x?: number; z?: number }>; thickness?: number }> };
+      const ws = this.wallStore as { getByLevel?: (id: string) => Array<{ id?: string; baseLine?: ReadonlyArray<{ x?: number; z?: number }>; thickness?: number; height?: number }> };
       if (typeof ws?.getByLevel !== 'function') return '';
       const walls = ws.getByLevel(levelId) ?? [];
       if (!Array.isArray(walls)) return '';
@@ -966,7 +1008,7 @@ export class RoomTopologyObserver {
       for (const w of walls) {
         const bl = w?.baseLine;
         if (!bl || bl.length < 2) continue;
-        parts.push(`${w.id ?? '?'}:${mm(bl[0]?.x)},${mm(bl[0]?.z)}>${mm(bl[1]?.x)},${mm(bl[1]?.z)}#${mm(w.thickness)}`);
+        parts.push(`${w.id ?? '?'}:${mm(bl[0]?.x)},${mm(bl[0]?.z)}>${mm(bl[1]?.x)},${mm(bl[1]?.z)}#${mm(w.thickness)}^${mm(w.height)}`);
       }
       parts.sort();
       return `n${walls.length}|${parts.join('|')}`;

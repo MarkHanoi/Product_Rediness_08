@@ -470,18 +470,29 @@ async function run(): Promise<void> {
 
   // ══ A8 · the no-progress SIGNATURE must cover the fields that re-anchor ══
   // RoomTopologyObserver gates redetects on `_computeWallSig` — id, baseline X/Z,
-  // thickness. `height` and baseline `y` are ABSENT from it, while BOTH trackers
-  // treat height and y as geometry-changing (_wallGeometryChanged). So a wall edit
-  // that the opening cascade considers a real move is, to the observer, byte-
-  // identical geometry: the committed-path no-progress gate drops it, and it
-  // counts toward the same-signature circuit breaker. Asserted as an arm because
-  // it is a divergence between two halves of one propagation spine, measured, not
-  // argued.
+  // thickness, and (since §PR-09-WALLSIG-HEIGHT, 2026-08-17) HEIGHT. Baseline `y`
+  // is still ABSENT from it, while BOTH trackers treat height and y as
+  // geometry-changing (_wallGeometryChanged). So a wall edit that the opening
+  // cascade considers a real move is, to the observer, byte-identical geometry:
+  // the committed-path no-progress gate drops it, and it counts toward the
+  // same-signature circuit breaker. Asserted as an arm because it is a divergence
+  // between two halves of one propagation spine, measured, not argued.
   try {
     reset();
     const wid = seedHostWall();
     const sigOf = (): string =>
       (observer as unknown as { _computeWallSig(l: string): string })._computeWallSig(LEVEL);
+    // ⚠ EACH PROBE IS COMPARED AGAINST THE SIGNATURE TAKEN IMMEDIATELY BEFORE ITS OWN EDIT,
+    // never against `base`. This arm used to read `afterY !== base` and `afterThickness !==
+    // base`, which measures the ACCUMULATED edits, not the field named in the sentence: the
+    // height edit is still applied when the y probe runs, so the moment height entered the
+    // signature the y and thickness readings went `true` FOR FREE and the whole arm went
+    // green on an artefact. MEASURED 2026-08-17, the run §PR-09-WALLSIG-HEIGHT landed:
+    // `height-only edit changes it: true; baseline-y-only edit changes it: true` against a
+    // printed signature of "n1|w_9:0,0>5000,0#200^3000" — which contains no y term at all.
+    // A comparator that cannot distinguish "this field is covered" from "some earlier field
+    // is covered" is not a comparator (C70 §5.6). Tightened, never loosened: this can only
+    // turn readings from true to false.
     const base = sigOf();
     wallStore.update(wid, { height: 4.9 } as never);
     const afterHeight = sigOf();
@@ -489,15 +500,24 @@ async function run(): Promise<void> {
     const afterY = sigOf();
     wallStore.update(wid, { thickness: 0.4 } as never);
     const afterThickness = sigOf();
-    const covered = afterHeight !== base && afterY !== base;
+    const heightCovered = afterHeight !== base;
+    const yCovered = afterY !== afterHeight;
+    const thicknessCovered = afterThickness !== afterY;
+    const covered = heightCovered && yCovered;
     arm('pair:room-topology · no-progress signature covers the re-anchor fields', covered,
-      `_computeWallSig = ${JSON.stringify(base)}. height-only edit changes it: ${afterHeight !== base}; ` +
-      `baseline-y-only edit changes it: ${afterY !== base}; thickness edit changes it: ${afterThickness !== base}. ` +
-      'Both trackers rebuild hosted openings for height and y (DoorDependencyTracker.ts:112-119), so an ' +
+      `_computeWallSig = ${JSON.stringify(base)} → ${JSON.stringify(afterThickness)}. ` +
+      `height-only edit changes it: ${heightCovered}; ` +
+      `baseline-y-only edit changes it: ${yCovered}; thickness edit changes it: ${thicknessCovered} ` +
+      '(each measured against the signature immediately BEFORE that edit, so the readings are ' +
+      'per-field and not cumulative). ' +
+      'Both trackers rebuild hosted openings for height and y (DoorDependencyTracker.ts:131-139), so an ' +
       'edit that is a real geometry change to the cascade is invisible to the observer\'s no-progress gate ' +
       '(RoomTopologyObserver.ts:255-258) and to its circuit breaker (:525-539). REPORTED, NOT WORKED AROUND: ' +
-      'the fix is a decision about whether wall height belongs in the signature, and it is not this gate\'s ' +
-      'to make — see the handoff in tracker-pairs.json.');
+      'HEIGHT was ruled in by the founder and is now covered (§PR-09-WALLSIG-HEIGHT, folded as integer ' +
+      'millimetres). BASELINE `y` is a SEPARATE ruling — WallTypes.ts §WALL-AUDIT-2026-M7 calls ' +
+      '`baseLine[*].y` a stale world-space mirror of `level.elevation`, and the authored vertical ' +
+      'placement is `baseOffset`, which neither this signature nor `_wallGeometryChanged` reads — ' +
+      'see the handoff in tracker-pairs.json.');
   } catch (e) { harnessErrors.push('A8: ' + String(e).slice(0, 300)); }
 
   try { observer?.dispose(); } catch { /* teardown */ }
