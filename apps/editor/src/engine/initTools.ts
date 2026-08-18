@@ -1924,9 +1924,62 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 ev.path.length < 2
             ) return;
             if (handrailStore?.getById?.(ev.id)) return; // dedup guard
+
+            // ── §FIX-HANDRAIL-BRIDGE-TRUNCATION (ADR-0332 §2 defect 1) ────────
+            //
+            // WAS: `const p1 = ev.path[ev.path.length - 1]` — every vertex between
+            // the first and the last was DISCARDED, with no warning, no refusal and
+            // no log. The plugin schema declares `path: z.array(Vec3).min(2)`, so a
+            // 3-point railing is a VALID record; the legacy `baseLine` is a 2-tuple,
+            // and the mismatch was resolved by silently throwing data away. The user
+            // got a shape they did not draw.
+            //
+            // A REFUSAL IS A CORRECT ANSWER; A SILENTLY-WRONG ELEMENT IS NOT
+            // (`WallRake.ts:50-62`). Until `HandrailData` can hold a polyline —
+            // ADR-0332 Tier 4, the ORTHO/LINEAR/CURVED creation-mode work — the
+            // honest response to an N>2 path is to decline it BY NAME and leave no
+            // record, rather than build a straight rail between the endpoints and let
+            // the author believe the corner survived.
+            if (ev.path.length > 2) {
+                console.error(
+                    `[initTools] §FIX-HANDRAIL-BRIDGE-TRUNCATION: REFUSED handrail ${ev.id} — ` +
+                    `its path has ${ev.path.length} points and the legacy HandrailData.baseLine ` +
+                    `holds exactly 2. Multi-segment handrails are not built yet (ADR-0332 Tier 4). ` +
+                    `No handrail was created; previously the middle ${ev.path.length - 2} point(s) ` +
+                    `were discarded silently and a straight rail drawn between the endpoints.`,
+                );
+                return;
+            }
+
             try {
                 const p0 = ev.path[0];
-                const p1 = ev.path[ev.path.length - 1];
+                const p1 = ev.path[1];
+
+                // ── §FIX-HANDRAIL-BRIDGE-PROFILE (ADR-0332 §2 defect 2) ───────
+                //
+                // WAS: `ev.shape === 'rectangular' ? 'rectangular' : 'round'`.
+                // `packages/schemas/src/elements/Handrail.ts:7` declares the shape
+                // enum as ['round','square','flat'] — 'rectangular' is NOT a member,
+                // so the comparison could never be true and the ternary was a
+                // CONSTANT. Every bus-created handrail became a round rail, and a
+                // 'square' or 'flat' one silently lost its profile.
+                //
+                // The legacy vocabulary is 'rectangular' | 'round', so the mapping is
+                // total in the correct direction: round→round, square/flat→rectangular.
+                const railProfile = (ev.shape === undefined || ev.shape === 'round')
+                    ? 'round'
+                    : 'rectangular';
+
+                // ── §FIX-HANDRAIL-BRIDGE-DIAMETER (ADR-0332 §2 defect 3) ──────
+                //
+                // WAS: only `thickness: ev.diameter`. `HandrailFragmentBuilder`'s
+                // ROUND branch reads `railDiameter ?? 0.04` and NEVER reads
+                // `thickness` (only the RECTANGULAR branch does) — and per defect 2
+                // the profile was always round, so the authored diameter was
+                // unreachable and every bridged rail rendered at the 0.04 default.
+                // Both fields are written because each profile reads a different one.
+                const diameter = ev.diameter ?? 0.04;
+
                 handrailStore.add({
                     id:        ev.id,
                     type:      'handrail',
@@ -1936,10 +1989,25 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         { x: p0.x, y: p0.y ?? 0, z: p0.z },
                         { x: p1.x, y: p1.y ?? 0, z: p1.z },
                     ],
-                    height:     ev.height   ?? 1.0,
-                    thickness:  ev.diameter ?? 0.04,
-                    baseOffset: 0,
-                    railProfile: ev.shape === 'rectangular' ? 'rectangular' : 'round',
+                    height:       ev.height ?? 1.0,
+                    thickness:    diameter,
+                    railDiameter: diameter,
+                    baseOffset:   0,
+                    railProfile,
+                    // ── §FIX-HANDRAIL-BRIDGE-FILL (ADR-0332 §2 defect 4) ──────
+                    //
+                    // WAS: absent. The builder's infill block is
+                    // `if glass … else if baluster …` with NO else, so an undefined
+                    // fillType built NOTHING: a plan-drawn railing was three meshes —
+                    // one tube and two end posts — while the same line drawn with the
+                    // 3-D tool got a full balustrade. THAT DIVERGENCE WAS THE HEADLINE
+                    // DEFECT OF THIS LANE.
+                    //
+                    // 'baluster' is not a new default invented here: it is the one
+                    // `CreateHandrailCommand.execute` already applies
+                    // (`CreateHandrailCommand.ts:76` — `fillType ?? 'baluster'`), which
+                    // is the path the 3-D tool goes through. Both surfaces now agree.
+                    fillType:     'baluster',
                     ...(ev.materialId ? { materialId: ev.materialId } : {}),
                     properties: {},
                 } as any);

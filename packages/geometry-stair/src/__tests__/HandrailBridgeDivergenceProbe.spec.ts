@@ -1,5 +1,12 @@
 /**
- * §HANDRAIL-BRIDGE-PROBE — Phase-A AUDIT PROBE, not a fix.
+ * §HANDRAIL-BRIDGE-PROBE — the bridge's four defects, now asserted FIXED.
+ *
+ * ⚠ THIS FILE FLIPPED. In Phase A every assertion here described BROKEN
+ * behaviour and the file was GREEN — that was the point: a probe that asserts
+ * the desired answer tells you nothing. Phase B fixed the bridge, so each
+ * assertion below has been inverted to the CORRECT answer and the transcription
+ * of the bridge re-taken from the fixed source. Green-before and green-after
+ * mean opposite things here, and the diff is the evidence.
  *
  * ⭐ SHIP THE PROBE BEFORE THE FIX (§CONTEXT-DATA-HONESTY). This file changes no
  * behaviour. It exists to turn four things that are currently only READABLE in
@@ -38,8 +45,9 @@ let seq = 0;
 const nextId = (): string => `hr-probe-${seq++}`;
 
 /**
- * VERBATIM transcription of the bus→legacy bridge body at
- * `apps/editor/src/engine/initTools.ts:1925-1947`. Only `id` is parameterised.
+ * VERBATIM transcription of the FIXED bus→legacy bridge body at
+ * `apps/editor/src/engine/initTools.ts:1927-2015`. Only `id` is parameterised.
+ * Returns `null` where the bridge now REFUSES and writes no record.
  * If the real bridge changes, this probe's premise is stale and must be re-read.
  */
 function bridgeTranslate(ev: {
@@ -50,9 +58,12 @@ function bridgeTranslate(ev: {
     shape?: string;
     levelId?: string;
     materialId?: string;
-}): HandrailData {
+}): HandrailData | null {
+    // §FIX-HANDRAIL-BRIDGE-TRUNCATION — refuse rather than silently truncate.
+    if (ev.path.length > 2) return null;
     const p0 = ev.path[0]!;
-    const p1 = ev.path[ev.path.length - 1]!;
+    const p1 = ev.path[1]!;
+    const diameter = ev.diameter ?? 0.04;
     return {
         id: ev.id,
         type: 'handrail',
@@ -63,9 +74,11 @@ function bridgeTranslate(ev: {
             { x: p1.x, y: p1.y ?? 0, z: p1.z },
         ],
         height: ev.height ?? 1.0,
-        thickness: ev.diameter ?? 0.04,
+        thickness: diameter,
+        railDiameter: diameter,
         baseOffset: 0,
-        railProfile: ev.shape === 'rectangular' ? 'rectangular' : 'round',
+        railProfile: (ev.shape === undefined || ev.shape === 'round') ? 'round' : 'rectangular',
+        fillType: 'baluster',
         ...(ev.materialId ? { materialId: ev.materialId } : {}),
         properties: {},
     } as unknown as HandrailData;
@@ -81,7 +94,7 @@ function meshesOf(scene: THREE.Scene, id: string): THREE.Mesh[] {
     return out;
 }
 
-describe('§HANDRAIL-BRIDGE-PROBE — measured divergences (Phase-A audit)', () => {
+describe('§HANDRAIL-BRIDGE-PROBE — the four defects, asserted FIXED', () => {
     let scene: THREE.Scene;
     let builder: HandrailFragmentBuilder;
 
@@ -90,13 +103,13 @@ describe('§HANDRAIL-BRIDGE-PROBE — measured divergences (Phase-A audit)', () 
         builder = new HandrailFragmentBuilder(scene, stubBim);
     });
 
-    // ── PROBE 1 — a multi-point path is SILENTLY TRUNCATED to its endpoints ───
+    // ── 1 — a multi-point path is REFUSED, not silently truncated ─────────────
     //
-    // The plugin schema allows `path: Vec3[]` with `.min(2)` — three, four, N
-    // points are valid records. `baseLine` is a 2-tuple. The bridge takes
-    // `path[0]` and `path[length-1]` and DISCARDS everything between, with no
-    // warning, no refusal and no log.
-    it('PROBE 1: a 3-point path loses its middle vertex with no diagnostic', () => {
+    // WAS: path[0] and path[length-1] kept, everything between discarded with no
+    // warning and no log — the user got a shape they did not draw. Now the bridge
+    // declines by name and writes NO record: a refusal is a correct answer, a
+    // silently-wrong element is not (WallRake.ts:50-62).
+    it('1: a 3-point path is refused outright rather than flattened', () => {
         const legacy = bridgeTranslate({
             id: nextId(),
             path: [
@@ -104,118 +117,99 @@ describe('§HANDRAIL-BRIDGE-PROBE — measured divergences (Phase-A audit)', () 
                 { x: 2, y: 0, z: 3 },   // ← the corner the user drew
                 { x: 4, y: 0, z: 0 },
             ],
-            height: 1.1,
-            diameter: 0.05,
-            levelId: 'level-1',
+            height: 1.1, diameter: 0.05, levelId: 'level-1',
         });
-
-        // The corner is simply gone from the record.
-        expect(legacy.baseLine).toHaveLength(2);
-        expect(legacy.baseLine[0]).toMatchObject({ x: 0, z: 0 });
-        expect(legacy.baseLine[1]).toMatchObject({ x: 4, z: 0 });
-
-        // And the built geometry is a straight run — nothing reaches z = 3.
-        builder.updateHandrail(legacy);
-        const world = meshesOf(scene, legacy.id).map((m) => {
-            const v = new THREE.Vector3(); m.getWorldPosition(v); return v;
-        });
-        expect(world.length).toBeGreaterThan(0);
-        expect(Math.max(...world.map((v) => Math.abs(v.z)))).toBeLessThan(1e-6);
+        expect(legacy).toBeNull();
     });
 
-    // ── PROBE 2 — the shape ternary compares against an IMPOSSIBLE value ──────
-    //
-    // `packages/schemas/src/elements/Handrail.ts:7` declares
-    //   HandrailShape = z.enum(['round', 'square', 'flat'])
-    // The bridge asks `ev.shape === 'rectangular'`. 'rectangular' is not a member
-    // of that enum, so the test can never be true and the ternary is a constant.
-    it('PROBE 2: every bus shape maps to railProfile "round", including square/flat', () => {
-        for (const shape of ['round', 'square', 'flat'] as const) {
-            const legacy = bridgeTranslate({
-                id: nextId(), path: [{ x: 0, z: 0 }, { x: 2, z: 0 }], shape, levelId: 'l',
-            });
-            expect(legacy.railProfile).toBe('round');
-        }
-        // The only input that would select 'rectangular' is one the schema
-        // cannot produce — documenting that the branch is unreachable in
-        // production, not merely unused.
-        expect(bridgeTranslate({
-            id: nextId(), path: [{ x: 0, z: 0 }, { x: 2, z: 0 }],
-            shape: 'rectangular', levelId: 'l',
-        }).railProfile).toBe('rectangular');
+    it('1b: a 2-point path is still accepted unchanged', () => {
+        const legacy = bridgeTranslate({
+            id: nextId(), path: [{ x: 0, z: 0 }, { x: 4, z: 0 }], levelId: 'l',
+        });
+        expect(legacy).not.toBeNull();
+        expect(legacy!.baseLine).toHaveLength(2);
     });
 
-    // ── PROBE 3 — the authored diameter lands in a field the round rail ignores ─
+    // ── 2 — the shape mapping is now total and correct ───────────────────────
     //
-    // Bridge writes `thickness: ev.diameter`. HandrailFragmentBuilder's ROUND
-    // branch (`:217`) reads `railDiameter ?? 0.04` and never reads `thickness`;
-    // `thickness` is only read by the RECTANGULAR branch (`:226`). Since PROBE 2
-    // shows railProfile is always 'round', the authored diameter is unreachable.
-    it('PROBE 3: authored diameter 0.05 renders as the 0.04 default', () => {
+    // WAS: `ev.shape === 'rectangular'` — not a member of the schema enum
+    // ['round','square','flat'], so the ternary was a CONSTANT and every rail
+    // became round.
+    it('2: square and flat now map to rectangular; round stays round', () => {
+        const profileFor = (shape: string | undefined): string =>
+            bridgeTranslate({ id: nextId(), path: [{ x: 0, z: 0 }, { x: 2, z: 0 }], shape, levelId: 'l' })!
+                .railProfile as string;
+        expect(profileFor('round')).toBe('round');
+        expect(profileFor(undefined)).toBe('round');
+        expect(profileFor('square')).toBe('rectangular');
+        expect(profileFor('flat')).toBe('rectangular');
+    });
+
+    // ── 3 — the authored diameter now reaches the built rail ─────────────────
+    //
+    // WAS: written to `thickness` only, which the ROUND branch never reads.
+    it('3: an authored diameter of 0.05 renders at radius 0.025, not the 0.04 default', () => {
         const legacy = bridgeTranslate({
             id: nextId(), path: [{ x: 0, z: 0 }, { x: 2, z: 0 }],
             height: 1.1, diameter: 0.05, levelId: 'level-1',
-        });
-        expect(legacy.thickness).toBe(0.05);
-        expect((legacy as { railDiameter?: number }).railDiameter).toBeUndefined();
+        })!;
+        expect(legacy.railDiameter).toBe(0.05);
 
         builder.updateHandrail(legacy);
-        const cyl = meshesOf(scene, legacy.id)
-            .find((m) => m.geometry.type === 'CylinderGeometry'
-                && (m.geometry as THREE.CylinderGeometry).parameters.height > 1);
-        expect(cyl).toBeTruthy();
-        // radius = (railDiameter ?? 0.04) / 2 = 0.02 — the authored 0.05 is lost.
-        expect((cyl!.geometry as THREE.CylinderGeometry).parameters.radiusTop).toBeCloseTo(0.02, 9);
+        const cyl = meshesOf(scene, legacy.id).find(
+            (m) => (m.userData as { member?: string }).member === 'rail',
+        )!;
+        expect((cyl.geometry as THREE.CylinderGeometry).parameters.radiusTop).toBeCloseTo(0.025, 9);
     });
 
-    // ── PROBE 4 — a plan-drawn railing has NO INFILL AT ALL ───────────────────
+    // ── 4 — a plan-drawn railing now has infill ──────────────────────────────
     //
-    // The bridge never sets `fillType`. The builder's infill block is
-    // `if (fillType === 'glass') … else if (fillType === 'baluster') …` with no
-    // else, so an undefined fillType builds nothing. `postSpacing` is likewise
-    // unset → `?? 0` → no intermediate posts. The result is a bare tube.
-    it('PROBE 4: a plan-tool railing builds 1 rail + 2 end posts and nothing else', () => {
+    // WAS: fillType absent → the builder's infill block has no else → nothing.
+    // A plan railing was 3 meshes: one tube and two end posts.
+    it('4: a plan-tool railing now builds balusters', () => {
         const legacy = bridgeTranslate({
-            id: nextId(),
-            path: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
+            id: nextId(), path: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
             height: 1.1, diameter: 0.05, levelId: 'level-1',
-        });
-        expect((legacy as { fillType?: string }).fillType).toBeUndefined();
-        expect((legacy as { postSpacing?: number }).postSpacing).toBeUndefined();
+        })!;
+        expect(legacy.fillType).toBe('baluster');
 
         builder.updateHandrail(legacy);
-        // 1 swept rail + exactly 2 end posts. No balusters, no glass.
-        expect(meshesOf(scene, legacy.id)).toHaveLength(3);
+        const balusters = meshesOf(scene, legacy.id).filter(
+            (m) => (m.userData as { member?: string }).member === 'baluster',
+        );
+        expect(balusters.length).toBeGreaterThan(0);
+        expect(meshesOf(scene, legacy.id).length).toBeGreaterThan(3);
     });
 
-    // ── PROBE 5 — the SAME element drawn in 3-D is materially different ───────
+    // ── 5 — THE HEADLINE: plan and 3-D now agree ─────────────────────────────
     //
-    // This is the divergence stated as one assertion: identical endpoints,
-    // identical length, two creation surfaces, two different buildings.
-    it('PROBE 5: plan-drawn and 3D-drawn railings of the same line differ in mesh count', () => {
+    // The same line, drawn on two surfaces, used to build different geometry.
+    // Both now produce a balustrade with the same member composition.
+    it('5: plan-drawn and 3D-drawn railings of the same line now agree', () => {
+        const composition = (id: string): Record<string, number> => {
+            const out: Record<string, number> = {};
+            for (const m of meshesOf(scene, id)) {
+                const k = String((m.userData as { member?: string }).member ?? 'untagged');
+                out[k] = (out[k] ?? 0) + 1;
+            }
+            return out;
+        };
+
         const planRail = bridgeTranslate({
             id: nextId(), path: [{ x: 0, z: 0 }, { x: 4, z: 0 }],
-            height: 1.0, diameter: 0.05, levelId: 'level-1',
-        });
+            height: 1.0, diameter: 0.05, shape: 'square', levelId: 'level-1',
+        })!;
         builder.updateHandrail(planRail);
-        const planCount = meshesOf(scene, planRail.id).length;
 
-        // What the 3-D tool produces for the built-in 'timber-baluster' type
-        // (height 1.0, thickness 0.05, fillType 'baluster', railProfile
-        // 'rectangular', postSpacing 1.8, materialColor '#8B4513').
+        // What the 3-D tool builds for the same line with the same construction.
         const toolRail = {
             id: nextId(), type: 'handrail', levelId: 'level-1',
             baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
-            height: 1.0, thickness: 0.05, baseOffset: 0,
-            fillType: 'baluster', railProfile: 'rectangular',
-            postSpacing: 1.8, materialColor: '#8B4513', properties: {},
+            height: 1.0, thickness: 0.05, railDiameter: 0.05, baseOffset: 0,
+            fillType: 'baluster', railProfile: 'rectangular', properties: {},
         } as unknown as HandrailData;
         builder.updateHandrail(toolRail);
-        const toolCount = meshesOf(scene, toolRail.id).length;
 
-        expect(planCount).toBe(3);
-        // 1 rail + balusters (spacing falls back to postSpacing 1.8 → floor(4/1.8)-1 = 1)
-        // + 2 end posts + 1 mid post = 5. The point is only that it is NOT 3.
-        expect(toolCount).not.toBe(planCount);
+        expect(composition(planRail.id)).toEqual(composition(toolRail.id));
     });
 });

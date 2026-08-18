@@ -1,6 +1,6 @@
 # ADR-0332 — Handrail: the deep audit, and what may be built on it
 
-- **Status:** PHASE-A AUDIT ACCEPTED · PHASE-B PLAN PROPOSED · **NOTHING IMPLEMENTED**
+- **Status:** PHASE-A AUDIT ACCEPTED · **PHASE-B TIER 0 + SLOPE IMPLEMENTED** · curve / leaning-rake / types / modes / chat outstanding
 - **Date:** 2026-08-18
 - **Lane:** Z9 · §HANDRAIL-WALL-PARITY
 - **Contracts consulted:** C03, C11, C15, C16, C65 §3.9, C67, C68, C73, C83 §10.
@@ -286,6 +286,40 @@ whichever fields Tier 1/2 actually make buildable, and **no others**.
 - **Unifying the three railing concepts** — explicitly out of scope; Z8 owns it.
 
 ---
+
+## 7A — PHASE B · What was built, and what each change is worth
+
+The founder's "raked" ambiguity (§5) resolved to an **ordering, not a fork**: SLOPED first
+because the model already holds the data; CURVED second by harvesting the dead `produceHandrail`;
+LEANING third behind a gate. Only the first is built here.
+
+| Change | File | Effect |
+|---|---|---|
+| Refuse N>2 paths by name | `initTools.ts` bridge | silent truncation → a named `console.error` and **no record**. The user can no longer get a shape they did not draw |
+| Fix the impossible ternary | same | `square`/`flat` → `rectangular`, `round` → `round`. The dead branch is gone |
+| Write `railDiameter` | same | the authored diameter reaches the built rail (0.05 now renders at r=0.025, was pinned at r=0.02) |
+| Carry `fillType: 'baluster'` | same | **plan-drawn railings now have infill.** Default taken from `CreateHandrailCommand.ts:76`, not invented, so the two surfaces agree by construction |
+| `fillType: 'panel'` | `HandrailFragmentBuilder` | implemented as a solid infill board — the glass panel's geometry without the transparency |
+| `fillType: 'open'` | same | explicit named branch. Building nothing is CORRECT for an open railing; it now reads as a decision rather than a missing `else` |
+| `resolveColour()` | same | `materialId` resolves through `userMaterialStore` (existing hex-colour repository). **No new vocabulary** — one function, so LANE ZA has exactly one site to re-point |
+| **SLOPE** | same | `baseLine[i].y` is read for the first time. Rail and infill pitch and lengthen to the incline; posts and balusters stay **plumb** with bases riding it — `StairRailingBuilder`'s rules, not a new derivation |
+| `userData.member` tags | same | every sub-mesh is labelled `rail`/`baluster`/`post`/`infill`, which is what makes any of this assertable |
+
+**Non-regression is structural, not hoped for.** `rise === 0` ⇒ `slopeAngle = 0`,
+`slopeLength = length`, `riseAt() = 0` — every existing handrail (`CreateHandrailCommand` writes
+`y: 0` on both endpoints) takes an arithmetically identical path. Asserted member-for-member
+against positions computed by hand from the pre-change algorithm.
+
+**The controls were falsified, not merely passed.** With `isSloped` forced to `false`, exactly
+the 3 slope controls fail and the other 247 pass — so they can fail, and they fail for the right
+reason. Before Phase B, 7 of the built-geometry controls were RED.
+
+⚠ **Residual divergence, stated honestly.** Plan and 3-D now build the same member composition
+for the same construction, but the two tools still choose different *defaults*
+(`RailingPlanToolHandler.ts:15-16` hard-codes height 1.1 / thickness 0.05; the 3-D tool reads the
+selected `HandrailTypeDefinition`). That is **Tier 0.5 — not a translation defect but a tool
+defect** — and it is NOT fixed here. A plan railing and a 3-D railing drawn with default settings
+still differ in height.
 
 ## 8 — What this lane has actually produced
 

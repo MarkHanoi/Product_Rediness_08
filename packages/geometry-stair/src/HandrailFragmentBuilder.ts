@@ -8,6 +8,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { detachAndReleaseChildren } from '@pryzm/renderer-three';
 import { HandrailData } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
+// §FIX-HANDRAIL-MATERIAL-ID (ADR-0332 §7) — the EXISTING Materials Repository, the
+// only id→colour lookup this builder may honour today. See `resolveColour`.
+import { userMaterialStore } from '@pryzm/core-app-model';
 import { elementRegistry, StoreType } from '@pryzm/core-app-model/element-registry';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — optional
 // GPU-instancing bridge. Mirrors ColumnFragmentBuilder / BeamFragmentBuilder: when
@@ -132,12 +135,83 @@ export class HandrailFragmentBuilder {
         detachAndReleaseChildren(root);
     }
 
+    /**
+     * §FIX-HANDRAIL-MATERIAL-ID (ADR-0332 §7) — the colour this handrail can
+     * actually be drawn in TODAY.
+     *
+     * `materialColor` is an explicit tint and always wins. `materialId` was
+     * WRITTEN by three paths (the IFC importer, `initTools`' bus bridge, the
+     * update command) and read by NONE of them for rendering — it surfaced only
+     * in the Handrail schedule's Material column (`ScheduleExtractor.ts:496`), so
+     * a railing assigned a material showed that material in a table and stayed
+     * grey on screen.
+     *
+     * ⚠ NO NEW VOCABULARY IS INVENTED HERE. This resolves through
+     * `userMaterialStore` — the existing Materials Repository, whose `color` is
+     * already a plain hex string — and nothing else. The rival material
+     * vocabularies in this repo (including `HandrailTypeDefinition.materialName`,
+     * which this lane is barred from touching) are LANE ZA's to unify. When ZA
+     * lands, this is the ONLY place a handrail resolves a colour, so it is the
+     * only place ZA has to re-point.
+     */
+    private resolveColour(handrail: Readonly<HandrailData>, fallback: string): string {
+        if (handrail.materialColor) return handrail.materialColor;
+        const id = handrail.materialId;
+        if (id) {
+            try {
+                const mat = userMaterialStore.get(id);
+                if (mat?.color) return mat.color;
+            } catch { /* store unavailable (headless/test) — fall through */ }
+        }
+        return fallback;
+    }
+
     private buildHandrail(handrail: Readonly<HandrailData>): void {
         const [start, end] = handrail.baseLine;
         const dx = end.x - start.x;
         const dz = end.z - start.z;
         const length = Math.sqrt(dx * dx + dz * dz);
         const angle = Math.atan2(dz, dx);
+
+        // ── §FEAT-HANDRAIL-SLOPE (ADR-0332 Tier 2 / §4.1) ────────────────────
+        //
+        // `HandrailData.baseLine` has ALWAYS carried a `y` on both endpoints and
+        // this builder has never read either — every rail was forced horizontal by
+        // `length = hypot(dx, dz)` and one `worldY` for the whole root. A handrail
+        // that climbs a stair or a ramp was therefore unrepresentable even though
+        // the model already held the data for it. That is why SLOPE needs no new
+        // field and no migration: the field was there all along.
+        //
+        // The construction is `StairRailingBuilder`'s, not a new derivation — that
+        // builder has drawn correct sloping railings for as long as it has existed
+        // (`StairRailingBuilder.ts:1127-1131`, endpoint-to-endpoint orientation).
+        // Its two structural rules are reproduced here:
+        //
+        //   • the RAIL and the INFILL follow the slope — rotated about the run's
+        //     local Z by the pitch, and lengthened from PLAN length to SLOPE
+        //     length. A rail that kept its plan length would fall short of the
+        //     top post.
+        //   • the POSTS and BALUSTERS stay PLUMB and equal-length, with their
+        //     BASES riding the incline. That is what a real balustrade does, and
+        //     it is why their tops trace a line parallel to the rail and meet it.
+        //
+        // ⚠ SCOPE, STATED DELIBERATELY: only the RELATIVE rise between the two
+        // endpoints is honoured. The ABSOLUTE `start.y` stays ignored, exactly as
+        // before, because `baseOffset` is this element's vertical control and
+        // consuming `start.y` would silently relocate every IFC-imported rail
+        // carrying a non-zero absolute y. A rail with y = [0, 0] — which is what
+        // `CreateHandrailCommand` writes, and therefore what every existing
+        // project holds — has `rise === 0` and takes a bit-identical path through
+        // everything below.
+        const rise = (end.y ?? 0) - (start.y ?? 0);
+        const isSloped = Math.abs(rise) > 1e-9;
+        /** Pitch of the run, radians. Exactly 0 for every existing handrail. */
+        const slopeAngle = isSloped ? Math.atan2(rise, length) : 0;
+        /** True length along the incline. Equals `length` when flat. */
+        const slopeLength = isSloped ? Math.hypot(length, rise) : length;
+        /** Height gained at plan-distance `lx` along the run. 0 when flat. */
+        const riseAt = (lx: number): number =>
+            isSloped && length > 1e-12 ? (lx / length) * rise : 0;
 
         const levelId = handrail.levelId;
         const level = this.bimManager.getLevelById(levelId);
@@ -213,46 +287,87 @@ export class HandrailFragmentBuilder {
         const railProfile = handrail.railProfile ?? 'rectangular';
 
         // ── Top rail (single swept body — stays a fragment) ───────────────────────
+        //
+        // §FEAT-HANDRAIL-SLOPE — the rail spans `slopeLength` (not the plan length),
+        // sits at the MID height of the run, and is pitched about local Z. All three
+        // reduce to today's values when the run is flat.
+        const railColour = this.resolveColour(handrail, '#cccccc');
         if (railProfile === 'round') {
             const radius = (handrail.railDiameter ?? 0.04) / 2;
-            const railGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
+            const railGeo = new THREE.CylinderGeometry(radius, radius, slopeLength, 8);
             railGeo.rotateZ(Math.PI / 2);
-            const railMat = new THREE.MeshStandardMaterial({ color: handrail.materialColor || '#cccccc' });
+            const railMat = new THREE.MeshStandardMaterial({ color: railColour });
             const railMesh = new THREE.Mesh(railGeo, railMat);
-            railMesh.position.set(length / 2, handrail.height, 0);
-            railMesh.userData = { role: 'geometry', selectable: false };
+            railMesh.position.set(length / 2, handrail.height + rise / 2, 0);
+            if (isSloped) railMesh.rotation.z = slopeAngle;
+            railMesh.userData = { role: 'geometry', selectable: false, member: 'rail' };
             root.add(railMesh);
         } else {
-            const geo = new THREE.BoxGeometry(length, 0.05, handrail.thickness);
-            const mat = new THREE.MeshStandardMaterial({ color: handrail.materialColor || '#cccccc' });
+            const geo = new THREE.BoxGeometry(slopeLength, 0.05, handrail.thickness);
+            const mat = new THREE.MeshStandardMaterial({ color: railColour });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(length / 2, handrail.height, 0);
-            mesh.userData = { role: 'geometry', selectable: false };
+            mesh.position.set(length / 2, handrail.height + rise / 2, 0);
+            if (isSloped) mesh.rotation.z = slopeAngle;
+            mesh.userData = { role: 'geometry', selectable: false, member: 'rail' };
             root.add(mesh);
         }
 
         // ── Infill ────────────────────────────────────────────────────────────────
-        if (handrail.fillType === 'glass') {
-            // Single swept glass panel — stays a fragment (not a repeated primitive).
-            const glassGeo = new THREE.BoxGeometry(length, handrail.height - 0.1, 0.01);
-            const glassMat = new THREE.MeshStandardMaterial({
-                color: '#88ccff',
-                transparent: true,
-                opacity: 0.3,
-                metalness: 0.1,
-                roughness: 0.1
-            });
-            const glassMesh = new THREE.Mesh(glassGeo, glassMat);
-            glassMesh.position.set(length / 2, handrail.height / 2, 0);
-            glassMesh.userData = { role: 'geometry', selectable: false };
-            root.add(glassMesh);
-        } else if (handrail.fillType === 'baluster') {
+        //
+        // §FIX-HANDRAIL-FILLTYPE-PANEL (ADR-0332 §7) — `HandrailFillType` declares
+        // FOUR members and this block implemented TWO. 'panel' was selectable in
+        // the type picker and built NOTHING — an affordance with no implementation
+        // (C65 §3.9), and silent, which is the worst form of it. It is implemented
+        // below: a panel is a solid infill board, i.e. the glass panel's geometry
+        // without the transparency, so refusing it would have been refusing
+        // something two lines already draw.
+        //
+        // 'open' also builds no infill — and that is CORRECT, not a gap: an open
+        // railing is posts and a rail with nothing between them (the built-in
+        // "Stainless Steel Handrail" and "Steel Guardrail" types are exactly that).
+        // It is given an explicit, named branch below so that the absence of
+        // geometry is a DECISION a reader can see, rather than an `else` nobody
+        // wrote. That distinction — deliberate emptiness vs forgotten case — is the
+        // whole point of §CONTEXT-DATA-HONESTY.
+        const fill = handrail.fillType;
+        if (fill === 'glass' || fill === 'panel') {
+            // A single swept infill sheet — one fragment, not a repeated primitive.
+            // §FEAT-HANDRAIL-SLOPE — spans the incline and is pitched with the rail.
+            const infillGeo = new THREE.BoxGeometry(
+                slopeLength,
+                handrail.height - 0.1,
+                fill === 'glass' ? 0.01 : Math.max(0.01, handrail.thickness * 0.4),
+            );
+            const infillMat = fill === 'glass'
+                ? new THREE.MeshStandardMaterial({
+                    color: '#88ccff',
+                    transparent: true,
+                    opacity: 0.3,
+                    metalness: 0.1,
+                    roughness: 0.1,
+                })
+                : new THREE.MeshStandardMaterial({
+                    // A solid panel is made of the railing's own material, unlike
+                    // glass which has an appearance of its own.
+                    color: this.resolveColour(handrail, '#b8b8b8'),
+                    roughness: 0.8,
+                    metalness: 0.0,
+                });
+            const infillMesh = new THREE.Mesh(infillGeo, infillMat);
+            infillMesh.position.set(length / 2, handrail.height / 2 + rise / 2, 0);
+            if (isSloped) infillMesh.rotation.z = slopeAngle;
+            infillMesh.userData = { role: 'geometry', selectable: false, member: 'infill' };
+            root.add(infillMesh);
+        } else if (fill === 'open') {
+            // Deliberately empty — see the note above. No infill is the definition
+            // of an open railing, so there is nothing to build and nothing missing.
+        } else if (fill === 'baluster') {
             const balusterSpacing = handrail.balusterSpacing ?? handrail.postSpacing ?? 0.11;
             if (balusterSpacing > 0 && length > balusterSpacing) {
                 const bHeight = handrail.height - 0.05;
                 const bShape = handrail.balusterShape ?? 'rectangular';
                 const bWidth = handrail.balusterWidth ?? 0.02;
-                const bMat = new THREE.MeshStandardMaterial({ color: handrail.materialColor || '#888888' });
+                const bMat = new THREE.MeshStandardMaterial({ color: this.resolveColour(handrail, '#888888') });
                 const isRound = bShape === 'round';
                 // Local extents → bridge size. Round baluster: X/Z = diameter (= bWidth),
                 // matching CylinderGeometry(bWidth/2, bWidth/2, bHeight). Box baluster:
@@ -265,8 +380,12 @@ export class HandrailFragmentBuilder {
                         : new THREE.BoxGeometry(bWidth, bHeight, bWidth))
                     : null;
                 for (let i = 1; i <= count; i++) {
-                    const lx = i * balusterSpacing;     // along the rail
-                    const lyCentre = bHeight / 2;        // base at local y=0 → centre at half-height
+                    const lx = i * balusterSpacing;     // along the rail (PLAN distance)
+                    // §FEAT-HANDRAIL-SLOPE — the baluster stays PLUMB and keeps its
+                    // full length; only its BASE rides the incline, so its top meets
+                    // the pitched rail. `riseAt` is 0 on a flat run, which restores
+                    // the previous `bHeight / 2` exactly.
+                    const lyCentre = riseAt(lx) + bHeight / 2;
                     if (instancingActive) {
                         const instId = `${handrail.id}#bal-${i}`;
                         this._instanceBridge!.register(
@@ -289,7 +408,7 @@ export class HandrailFragmentBuilder {
                     } else {
                         const bMesh = new THREE.Mesh(bGeo!, bMat);
                         bMesh.position.set(lx, lyCentre, 0);
-                        bMesh.userData = { role: 'geometry', selectable: false };
+                        bMesh.userData = { role: 'geometry', selectable: false, member: 'baluster' };
                         root.add(bMesh);
                     }
                 }
@@ -305,7 +424,9 @@ export class HandrailFragmentBuilder {
             : null;
 
         const emitPost = (lx: number, suffix: string): void => {
-            const lyCentre = postHeight / 2;
+            // §FEAT-HANDRAIL-SLOPE — posts stay PLUMB, full height, bases on the
+            // incline. `riseAt` is 0 on a flat run → previous behaviour exactly.
+            const lyCentre = riseAt(lx) + postHeight / 2;
             if (instancingActive) {
                 const instId = `${handrail.id}#post-${suffix}`;
                 this._instanceBridge!.register(
@@ -325,7 +446,7 @@ export class HandrailFragmentBuilder {
             } else {
                 const post = new THREE.Mesh(postGeo!, postMat);
                 post.position.set(lx, lyCentre, 0);
-                post.userData = { role: 'geometry', selectable: false };
+                post.userData = { role: 'geometry', selectable: false, member: 'post' };
                 root.add(post);
             }
         };
