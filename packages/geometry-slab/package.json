@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./geom-utils": "./src/SlabGeomUtils.ts",
     "./store": "./src/SlabStore.ts",
-    "./region-tracer": "./src/SlabRegionTracer.ts"
+    "./region-tracer": "./src/SlabRegionTracer.ts",
+    "./region-boundary": "./src/RegionBoundarySources.ts"
   },
   "files": [
     "src"

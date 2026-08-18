@@ -33,6 +33,16 @@ import { resolveActiveSlabDrawMode } from './activeSlabDrawMode';
 // unrecognised value — 'NONE' included — collapsed to 'polyline'. See that module's
 // header; it is L-699's cure for roof, applied to the axis slab never got one for.
 import { resolveActiveSlabFamilyMode } from './activeSlabFamilyMode';
+// §FIX-REGION-BOUNDARY-SOURCES — the ONE assembler for "what encloses this point".
+// Walls were never the whole answer: the founder's garden is bounded OUTSIDE by the
+// PARCEL BOUNDARY and a terrace/podium is bounded by a SLAB EDGE. Adding those inline
+// here would be the third instance of the C84 EI-9 defect this issue has already
+// produced twice, so a new source is added in that module, once, for every consumer.
+import {
+    assembleRegionBoundary,
+    describeRegionBoundaryCounts,
+    type RegionBoundaryCounts,
+} from '@pryzm/geometry-slab/region-boundary';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -75,6 +85,15 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * console line the founder was never going to read mid-gesture.
      */
     private _refusalHint: string | null = null;
+
+    /**
+     * §FIX-REGION-BOUNDARY-SOURCES — what the last search actually looked at, so a
+     * REFUSAL can name its INPUTS and not merely its conclusion. "13 wall(s) were
+     * searched" is exactly what made L-959's successor diagnosable in one round trip;
+     * as the edge set widens, the message must widen with it or the next failure is
+     * as opaque as the first was.
+     */
+    private _lastBoundaryCounts: RegionBoundaryCounts | null = null;
 
     /**
      * §FEAT-SLAB-DRAW-MODES — the shared linear/ortho/curved path state machine.
@@ -442,12 +461,19 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      */
     private _refuseRegion(pt: WorldPoint, region: V2[] | null): void {
         const at = `(${pt.worldX.toFixed(2)}, ${pt.worldZ.toFixed(2)})`;
-        const wallCount = (window.wallStore?.getAll?.() ?? []).length; // TODO(TASK-08)
+        // §FIX-REGION-BOUNDARY-SOURCES — name EVERY source searched, not just walls.
+        // The previous text said "13 wall(s) were searched", which was true and was
+        // precisely what revealed that slabs and the parcel boundary were not in the
+        // search at all. A refusal that names its inputs is worth more than one that
+        // names its conclusion — so this list grows whenever the edge set does.
+        const searched = this._lastBoundaryCounts
+            ? describeRegionBoundaryCounts(this._lastBoundaryCounts)
+            : 'nothing (the boundary search did not run)';
 
         const message = region === null
-            ? `No enclosed region at this point. The walls around ${at} do not close a `
-              + `loop — ${wallCount} wall(s) on this level were searched. Check for gaps at `
-              + `wall junctions, or draw the boundary by hand with Polyline.`
+            ? `No enclosed region at this point. The boundaries around ${at} do not `
+              + `close a loop — searched ${searched}. Check for gaps at wall junctions, `
+              + `or draw the boundary by hand with Polyline.`
             : `The region at ${at} is degenerate — it closed with ${region.length} `
               + `distinct point(s), and a slab needs 3. Check for duplicate or `
               + `zero-length walls at that junction.`;
@@ -473,8 +499,38 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * inline tracer read each wall as a single straight baseLine chord and dropped
      * the curve, so curved-wall regions never closed.
      */
+    /**
+     * Gather every boundary source the editor has loaded and hand them to the ONE
+     * assembler. This is the only place the stores are read; the assembler is the only
+     * place they are turned into edges.
+     */
+    private _boundaryEdgeSet() {
+        const rt = window.runtime as
+            | { siteModelStore?: { getParcelBoundary?: () => { polygon?: { x: number; z: number }[] } | null } }
+            | undefined;
+        let parcelBoundary: { x: number; z: number }[] | null = null;
+        try {
+            parcelBoundary = rt?.siteModelStore?.getParcelBoundary?.()?.polygon ?? null;
+        } catch {
+            // A boundary that cannot be read is ABSENT, and the refusal says ABSENT
+            // rather than silently searching a smaller world (§CONTEXT-DATA-HONESTY).
+            parcelBoundary = null;
+        }
+        return assembleRegionBoundary({
+            walls: (window.wallStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
+            slabs: (window.slabStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
+            parcelBoundary,
+        });
+    }
+
     private _findRegionAtPoint(wx: number, wz: number): V2[] | null {
-        const walls = (window.wallStore?.getAll?.() ?? []) as ReadonlyArray<{
+        // §FIX-REGION-BOUNDARY-SOURCES — ONE edge set, assembled ONCE, for BOTH the
+        // hover preview and the click commit. Both already call this function, so
+        // widening it here is what makes them provably the same search — the C84 EI-9
+        // property L-956 (gesture) and L-959 (region) each lost in turn.
+        const { segments, counts } = this._boundaryEdgeSet();
+        this._lastBoundaryCounts = counts;
+        const walls = segments as ReadonlyArray<{
             // §REGION-HOST-ATTRIBUTION — the wall id was ALWAYS on these records; only
             // this local type omitted it, so the tracer could not carry it to the
             // sketch and the region slab silently failed to follow its walls.
@@ -503,6 +559,11 @@ export class SlabPlanToolHandler implements PlanToolHandler {
                     + `${a.freeEdges} free edge(s) `
                     + `(curved=${a.curvedFallbacks}, no-wall-id=${a.missingIdFallbacks}, `
                     + `ambiguous=${a.ambiguousFallbacks}). Free edges do NOT follow a wall.`,
+                    // L-959 cost a round trip because this line named neither WHERE it
+                    // traced nor WHAT it searched, so a hover success and a click
+                    // refusal could not be compared. Both now print both.
+                    `at=(${wx.toFixed(2)}, ${wz.toFixed(2)})`,
+                    `searched=[${describeRegionBoundaryCounts(counts)}]`,
                 );
             }
             return traced.ring.length >= 3 ? traced.ring : null;

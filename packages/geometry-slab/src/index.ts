@@ -24,6 +24,7 @@ export * from './SlabSnapUtils';
 
 // ── §SLAB-REGION-CURVED — shared curve-aware region tracer (pure, THREE-free) ─
 export * from './SlabRegionTracer';
+export * from './RegionBoundarySources';
 
 // ── §FEAT-BOUNDARY-CURVE-DRAW (2026-08-06) — the ONE arc model for curved boundary
 // drawing (floors / ceilings / slabs), reusing the wall tool's midpoint-Bézier
