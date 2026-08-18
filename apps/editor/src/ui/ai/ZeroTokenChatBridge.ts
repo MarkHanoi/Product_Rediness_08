@@ -1440,22 +1440,57 @@ async function runLocal(
     let failText: string | null = null;
     await withChatDispatchSpan(async () => {
         switch (r.action) {
+            // §FLOOR-FINISH-REFUSAL-HONESTY sweep — these two DISCARDED their
+            // result and then fell through to `${r.summary}. (resolved without AI
+            // tokens)`, i.e. "Undo the last change." with an empty history and
+            // nothing undone. `performUndo` stopped returning `void` precisely so
+            // this could not happen: its own doc says "'nothing to undo', 'I
+            // reverted something' and 'an entry is pending and I could NOT revert
+            // it' are no longer the same value" — and this caller made them the
+            // same value again by ignoring it.
             case 'undo': {
                 const m = await import('../../engine/undo/performUndoRedo.js');
-                m.performUndo();
+                const out = m.performUndo();
+                if (out.status === 'nothing-to-undo') {
+                    failText = 'There is nothing to undo — nothing was changed.';
+                } else if (out.status === 'stranded') {
+                    failText =
+                        `I could NOT undo that: ${out.reason}. Nothing was changed — ` +
+                        `the change is still pending in the history.`;
+                } else if (out.status === 'error') {
+                    failText = `Undo failed: ${out.reason}. Nothing was changed.`;
+                }
                 break;
             }
             case 'redo': {
                 const m = await import('../../engine/undo/performUndoRedo.js');
-                m.performRedo();
+                const out = m.performRedo();
+                if (out.status === 'nothing-to-redo') {
+                    failText = 'There is nothing to redo — nothing was changed.';
+                } else if (out.status === 'stranded') {
+                    failText =
+                        `I could NOT redo that: ${out.reason}. Nothing was changed — ` +
+                        `the change is still pending in the history.`;
+                } else if (out.status === 'error') {
+                    failText = `Redo failed: ${out.reason}. Nothing was changed.`;
+                }
                 break;
             }
             case 'setActiveLevel': {
-                if (r.levelId !== undefined) {
-                    const w = win();
-                    if (w.projectContext) w.projectContext.activeLevelId = r.levelId;
-                    w.runtime?.events?.emit('pryzm-active-level-changed', { levelId: r.levelId });
+                // Same sweep: an absent `levelId`, or a shell with no
+                // `projectContext`, moved nothing — and still reported the
+                // resolver's "Switch to <level>" summary as if it had.
+                if (r.levelId === undefined) {
+                    failText = 'I could not tell which level to switch to — the active level is unchanged.';
+                    break;
                 }
+                const w = win();
+                if (!w.projectContext) {
+                    failText = 'The project is not open yet, so the active level was not changed.';
+                    break;
+                }
+                w.projectContext.activeLevelId = r.levelId;
+                w.runtime?.events?.emit('pryzm-active-level-changed', { levelId: r.levelId });
                 break;
             }
             // §GATE-VIS-INTENT — dispatch + project (see runVisibilityIntent).
