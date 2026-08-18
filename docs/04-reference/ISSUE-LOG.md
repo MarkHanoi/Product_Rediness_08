@@ -7125,3 +7125,49 @@ subset before assuming the one-vertex-per-wall reading.
 > ⛔ **AND DO NOT FORK A THIRD TESSELLATION.** If the slab path is right, the floor path should CALL
 > IT, not copy it. C84 **EI-9**: two derivations of one boundary is how they come to disagree, and
 > here they already do — visibly, in the founder's screenshot.
+
+---
+
+## L-963 — FEATURE (founder) — LANDSCAPE SLAB TYPES: grass and soil families
+
+**Founder-requested 2026-08-18.** *"For the slab — I need more slab types for landscape with grass
+types and soil types."* QUEUED behind the in-flight work.
+
+### Start by measuring what already exists — TWO of the three pieces are probably built
+
+1. **The MATERIALS likely exist.** `§LANE-Y` added **26 landscape materials** under a
+   `Landscape & Ground` category to `MATERIAL_CATALOG` (`packages/schemas/src/materials/materialCatalog.ts`).
+   ⚠ That work was nearly missed once already: a grep "proved" the category did not exist because it
+   was **quote-anchored** to the wrong quote style. **Search for the category, not for a literal.**
+   Establish which grass and soil rows are present before proposing new ones.
+2. **The TYPE-PUBLISHING MECHANISM exists and is proven.** `ElementTypeCatalogRegistry` +
+   `element.changeType` + a `*TypeStore` mirroring `HandrailTypeStore` is exactly what
+   [L-958](#l-958) Slice A shipped for curtain wall today, end to end and with the deciding-layer
+   proof. **Follow that; do not invent a second publishing path.**
+3. **What is almost certainly missing is the SLAB TYPE CATALOGUE itself.** Check
+   `ElementTypeCatalogRegistry` for a `slab` entry — if it carries an `unavailableReason` like the
+   curtain-wall one did, this is the same publishing gap and the same fix shape.
+
+### What a landscape slab type must carry beyond a material
+
+A grass or soil slab is not a concrete slab with a green tint, and the type should say so:
+- **thickness** — a topsoil build-up is not a 200 mm structural slab;
+- **the layer stack** — soil types are naturally layered (topsoil over subsoil over drainage);
+- **whether it is structural at all** — `loadBearing` false, and it should not be offered where a
+  structural slab is required;
+- **the material**, resolved through the MASTER catalogue (contract **C100**). ⛔ Do NOT mint a
+  material vocabulary and do NOT touch `materialName` — C84 **EI-8** forbids a sixth.
+
+**Proposed families, for founder approval before publishing** — grass: lawn / meadow / wildflower /
+artificial turf / sports turf. Soil: topsoil / subsoil / gravel / sand / bark mulch / decomposed
+granite. Report which of these already resolve in the master catalogue and which need new rows.
+
+### ⚠ Two live defects this feature will land on top of — read them first
+
+- **[L-962](#l-962)** — the AUTO floor finish chords across curved walls, while the SLAB path
+  tessellates correctly (`curved=31`, a 60-point curved ring). A landscape slab on a curved parcel
+  edge will exercise exactly that path.
+- **[L-956](#l-956)/[L-959](#l-959)** — "By Region" slab creation is still under repair. A landscape
+  slab is most naturally authored BY REGION (the garden between the parcel boundary and the
+  building), so **this feature is downstream of that fix** and should not ship before it, or it will
+  be published and unreachable.
