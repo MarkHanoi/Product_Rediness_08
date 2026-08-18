@@ -105,10 +105,34 @@ export class UpdateWallSystemTypeCommand implements Command {
 
         this.prevSnapshot = serializeWallSnapshot(wall);
 
+        // §FIX-PLAIN-WALL-TYPE-THROWS (L-997) — `undefined`, NOT `null`.
+        //
+        // Founder-reported 2026-08-18: selecting a wall and choosing type "Plain Wall"
+        // produced, twice, on the same wall:
+        //   `[CommandManager] FATAL ERROR DURING EXECUTION WallSchemaError:
+        //    [WallStore.update] Schema validation failed … layers: Invalid input
+        //    ZodError: { expected: "array", code: "invalid_type", path: ["layers"] }`
+        //
+        // `WallData.layers` is `WallLayer[] | undefined` and `WallDataUpdateSchema`
+        // declares `z.array(WallLayerSchema).optional()` — which accepts an array or
+        // `undefined`, and rejects `null` as the WRONG TYPE rather than as absence.
+        // A type with NO layer stack ("Plain Wall") arrives here as `layers: null`
+        // (PropertyPanelTypeSelector.ts:88 `payload.layers ?? null`), so `?? null` on
+        // this line handed the store a value its own schema forbids and the whole
+        // command died INSIDE the store. Every LAYERED type worked, which is why this
+        // read as "Plain Wall is broken" rather than as a clearing bug.
+        //
+        // `canExecute` two methods up already normalises the same input as
+        // `this.input.layers ?? undefined` — the two halves of one command disagreed
+        // about how "no layers" is spelled, and the validating half was the correct one.
+        //
+        // `undefined` is what CLEARS the stack: `updateWall`'s projection forwards
+        // `layers: undefined`, `_updateImpl` spreads it over the record, and the wall
+        // becomes plain — which is exactly what choosing "Plain Wall" means.
         const nextState: any = {
             ...serializeWallSnapshot(wall),
             systemTypeId: this.input.systemTypeId ?? null,
-            layers: this.input.layers ?? null
+            layers: this.input.layers ?? undefined
         };
         if (this.input.thickness !== undefined) {
             nextState.thickness = this.input.thickness;
