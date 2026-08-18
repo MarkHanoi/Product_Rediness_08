@@ -7745,7 +7745,55 @@ own lane); `EdgeProjectorService.ts:2423`; and whether furniture's two writers a
 Note for anyone reading this area: `plugins/plan-view/` is a **second, unused** plan implementation
 with clean DI stores, depended on only by `plugins/sheets`. It is not the live path.
 
-## L-977 — Ctrl+Z after moving a slab DESTROYS the slab record (OPEN, live today)
+## L-977 — Ctrl+Z after moving a slab DESTROYS the slab record (CLOSED)
+
+**STATUS: CLOSED 2026-08-18 — `81e1e9c0` (lane UA1).** Verified by the orchestrator: 2/2 through the
+real `performUndo` and the real `SlabStore`.
+
+**The blanket spread was NOT landed.** The write shape now comes from a per-store declaration
+(`apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts`) that the adapter reads by store key.
+
+**The header undercounted its own subject: 21 stores, not 13** — `buildUndoStoreMap()` hands the
+adapter 21 distinct globals. Measured twice independently, agreeing on every row.
+
+**And it was FOUR replace-stores, not one:**
+
+| key | evidence | what a partial did |
+|---|---|---|
+| slab | `SlabStore.ts:259-273` | `structuredClone`→freeze→set — annihilates the record |
+| column | `ColumnStore.ts:215-243` | **THROWS** *"cannot clear column.levelId"* |
+| furniture | `FurnitureStore.ts:27-36` | emits `bim-furniture-updated` with `snap.id` → `undefined` |
+| plumbing | `PlumbingStore.ts:27-31` | **no existence check at all** — would MINT a record |
+
+Seventeen merge. And the blanket spread would have been actively unsafe: `WallStore.update` clears
+`_sourceBaseLine`, warns-and-drops `openings`, **deletes hosted door/window children** when
+`childrenIds` is present, and Zod-validates its own argument; `RoomStore` throws on `id`/`type`/
+`levelId`; `GridStore` silently drops geometry keys on a pinned grid. **Presence of a key is itself a
+signal in these stores** — which is exactly why "just spread the record" was the wrong shape.
+
+RED-first per family: ARM B reddened against the HEAD adapter for **exactly** slab, column, furniture
+and plumbing; **ARM C reddens only under the rejected blanket spread**, everything else staying green
+under it — which is why ARM C had to exist at all.
+
+Sibling defects closed: `roof.pitch` is now **REFUSED with both names and both units cited** (plus a
+positive control proving `slope` still writes) rather than translated — translation is SPEC S7.2a, a
+§D3 prerequisite, not this lane's call. The absent-id depth-2 patch now warns and names the path that
+reverted nothing.
+
+The characterising tests were **inverted with the reasoning in their headers**; leaving them green and
+routing around would have pinned the data loss as the contract.
+
+**Still open:** ADR-0331 §D3's *create* arm — the legacy Zod add-schema refuses the L1 value on four
+fields (probe ARM 2). L-977 closed only the reachable-today undo half.
+
+## L-980 — three undo store keys are permanently undefined, so pool undo silently routes elsewhere (OPEN)
+
+**Lane UA1, 2026-08-18.** `window.poolStore`, `window.waterStore` and `window.stairLandingStore` are
+**never assigned in production**. Their entries in `buildUndoStoreMap()` are therefore permanently
+`undefined`, so `_covered()` fails and pool undo falls through to `commandManager` — exactly the route
+`performUndoRedo.ts`'s own comment warns against.
+
+This is a **missing store**, not a wrong write shape, so it was correctly left out of L-977's fix.
 
 **Lane AD1, 2026-08-18. Pinned by `apps/editor/__tests__/SlabUndoDestroysLegacyRecord.test.ts`
 (`cb773834`) — 2/2, re-run independently by the orchestrator. The test CHARACTERISES the destruction;
