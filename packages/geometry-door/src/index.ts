@@ -56,6 +56,18 @@ export type { DoorTrackerDetermination } from './DoorDependencyTracker';
 export { DoorLevelCleanupHandler } from './DoorLevelCleanupHandler';
 export { buildDoorSection, injectDwStyles, setDoorSectionCommandManager } from './DoorSection';
 
+// ── §FEAT-CURVED-WINDOW-LEAF / §FEAT-CURVED-DOOR-LEAF (L-957) ───────────────
+// The SHARED curved-hosted-leaf geometry, consumed by `DoorBuilder` here and by
+// `WindowBuilder` through a re-export shim in `@pryzm/geometry-window` (that
+// package already depends on this one — "dw" = doors/windows — so this is the
+// only placement that gives both ONE implementation; see the module header).
+//
+// `curvedLeafRefusal` is exported so a property panel can IMPORT the gate the
+// builder obeys instead of restating its condition. Both directions of exactly
+// that mismatch — a panel offering what the geometry refuses, and a panel
+// refusing what the geometry builds — shipped and were caught on 2026-08-18.
+export { leafArc, curvedLeafRefusal, sweptBoxGeometry, arcSeat, type LeafArc } from './CurvedLeafGeometry';
+
 // ── Sprint Z (2026-05-12) — DoorTool + DoorPlanSymbolBuilder ─────────────────
 export { DoorTool } from './DoorTool';
 export {
