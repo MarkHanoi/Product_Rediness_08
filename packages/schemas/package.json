@@ -27,7 +27,8 @@
     "./aggregates": "./src/aggregates/index.ts",
     "./provenance": "./src/provenance/index.ts",
     "./privacy": "./src/privacy/index.ts",
-    "./ifc": "./src/ifc/index.ts"
+    "./ifc": "./src/ifc/index.ts",
+    "./materials": "./src/materials/index.ts"
   },
   "files": ["src", "dist"],
   "scripts": {

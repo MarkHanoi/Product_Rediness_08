@@ -17,6 +17,16 @@
 // legacy enum value `'UPDATE_FLOOR'` (no bus handler) — both wrong. Same
 // class of defect as the ProjectBrowser "Add level" button (OI-055).
 
+// C85 §6.1 — the swatch resolves through the master, never a hand-written palette.
+import { findMaterialRecord } from '@pryzm/schemas/materials';
+
+/**
+ * Rendered when a layer's `materialId` names nothing in the master. Magenta on
+ * purpose: it must NOT be mistakable for a building material. C85 §5 / C65 §3.4 —
+ * "your material was lost" and "this layer is beige" must never be the same value.
+ */
+const UNRESOLVED_SWATCH = '#ff00ff';
+
 type AddPropFn = (
     parent: HTMLElement,
     label: string,
@@ -49,6 +59,15 @@ export function appendFloorIdentitySection(
         'finish', 'adhesive', 'screed', 'underfloor-heating',
         'insulation', 'tanking', 'substrate'
     ];
+    // C85 §6.1 — LAST-RESORT tint per layer FUNCTION, used only when the layer names
+    // no material at all. It is NOT a material palette and MUST NOT grow into one.
+    //
+    // It used to win over `layer.materialColor`, which meant this panel could not
+    // display a master material even when one was correctly assigned — a swatch that
+    // showed what KIND of layer it was while claiming to show what it was MADE OF.
+    // The precedence is inverted below, per C85 §2.1: override → materialId resolved
+    // → function tint. Adding a row here to represent a material is the §7 gate's
+    // ARM C violation; add it to MATERIAL_CATALOG instead.
     const floorFnColors: Record<string, string> = {
         'finish':             '#e8d5b0',
         'adhesive':           '#c8b89a',
@@ -57,6 +76,29 @@ export function appendFloorIdentitySection(
         'insulation':         '#f5e07a',
         'tanking':            '#4a5240',
         'substrate':          '#a0a0a0',
+    };
+
+    /**
+     * C85 §2.1 / §5 — resolve ONE layer's swatch, and say which of the four states
+     * produced it. The states are kept apart on purpose: a broken reference must never
+     * look like a deliberate choice (§NO-EMPTY-MEANS-UNKNOWN).
+     */
+    const resolveLayerSwatch = (layer: any): { color: string; title: string; isOverride: boolean } => {
+        const override = layer?.materialColor;
+        if (typeof override === 'string' && override.length > 0) {
+            return { color: override, title: `Override — ${override} (set on this layer; a library edit will NOT change it)`, isOverride: true };
+        }
+        const id = layer?.materialId;
+        if (typeof id === 'string' && id.length > 0) {
+            const record = findMaterialRecord(id);
+            if (record) return { color: record.color, title: `${record.label} — from the material library (${id})`, isOverride: false };
+            // A reference that names nothing. Visibly wrong, and it says which id failed.
+            return { color: UNRESOLVED_SWATCH, title: `Unresolved material "${id}" — this layer references a material that is not in the library`, isOverride: false };
+        }
+        const fn = floorFnColors[layer?.function];
+        return fn
+            ? { color: fn, title: `No material assigned — tinted by layer function "${layer.function}"`, isOverride: false }
+            : { color: '#ccc', title: 'No material assigned', isOverride: false };
     };
 
     const layerSection = document.createElement('div');
@@ -105,8 +147,16 @@ export function appendFloorIdentitySection(
             row.style.cssText = 'display:grid;grid-template-columns:18px 1fr 80px 46px 18px;gap:3px;align-items:center;padding:2px 0;border-bottom:1px solid var(--app-border-light,#f0f0f0);';
 
             const swatch = document.createElement('div');
-            const swatchColor = floorFnColors[layer.function] ?? layer.materialColor ?? '#ccc';
-            swatch.style.cssText = `width:14px;height:14px;border-radius:3px;background:${swatchColor};border:1px solid var(--app-border,#ddd);flex-shrink:0;`;
+            // C85 §2.1 precedence: explicit user override → materialId resolved against
+            // the master → function tint. Was `floorFnColors[fn] ?? layer.materialColor`,
+            // i.e. exactly backwards — the function tint always won, so an assigned master
+            // material was unreachable from this panel.
+            const resolved = resolveLayerSwatch(layer);
+            swatch.style.cssText = `width:14px;height:14px;border-radius:3px;background:${resolved.color};border:1px solid var(--app-border,#ddd);flex-shrink:0;`;
+            // C85 §2.2 — an override the user cannot SEE is indistinguishable from a stale
+            // copy, and that ambiguity is the whole reason reference-vs-copy had to be ruled on.
+            swatch.title = resolved.title;
+            if (resolved.isOverride) swatch.style.outline = '2px dotted var(--app-accent,#6600FF)';
             row.appendChild(swatch);
 
             const nameInput = document.createElement('input');

@@ -3,90 +3,76 @@
 // The exact colorRef.ts pattern one file over: the chat resolver owns the
 // LANGUAGE ("plaster", "paint") and hands the command RESOLVED values
 // ({name, materialColor, materialId}); `AddWallLayerBatchCommand` deliberately
-// owns no name table, so there is exactly one name→finish site.
+// owns no name table, so there is exactly one name-to-finish site.
 //
-// Every entry's materialId + hex is transcribed VERBATIM from the standard
-// material library (`packages/core-app-model/src/materialLibrary.ts` — the
-// authority; its ids are the free-form `WallLayer.materialId` vocabulary the
-// inspector displays). Transcribed, not imported: materialLibrary constructs
-// `THREE.Color` instances at module load, and this resolver is pure — no
-// THREE, no DOM, no stores (P5-adjacent purity, same ruling as colorRef).
-// If the library recolours a finish, update the hex here in the same commit.
+// --- C85 section 4.4 / ADR-0333: the hexes are DERIVED now, not transcribed ---
+// This file used to carry `materialColor` and `name` for all 15 finishes,
+// transcribed by hand from the master library, under a header that instructed
+// future authors: "If the library recolours a finish, update the hex here in the
+// same commit." A maintenance obligation written in a comment is the weakest
+// possible gate - it is drift with a due date.
 //
-// PURE — no I/O, no stores; safe for tier-0 and the NL layer.
+// The reason it was transcribed was real, and it is now GONE: the master used to
+// build `THREE.Color` at module load, so a pure resolver could not import it. The
+// data has moved to `@pryzm/schemas/materials` (L0, plain scalars), so this file
+// reads the master directly and stays exactly as pure as before - no THREE, no
+// DOM, no stores. What remains local is the ALIASES, which is correct: the
+// language belongs to the resolver, the values belong to the master (C68 5.d).
+//
+// PURE - no I/O, no stores; safe for tier-0 and the NL layer.
+
+import { findMaterialRecord } from '@pryzm/schemas/materials';
 
 export interface ResolvedFinish {
   /** Display name for the layer row (the library's label). */
   readonly name: string;
-  /** '#rrggbb' — what WallFragmentBuilder actually renders. */
+  /** '#rrggbb' - what WallFragmentBuilder actually renders. */
   readonly materialColor: string;
   /** The material library id, kept on the layer for the inspector. */
   readonly materialId: string;
 }
 
-/** Alias → finish. First name in each group is the canonical suggestion. */
-const FINISHES: ReadonlyArray<{ aliases: readonly string[]; finish: ResolvedFinish }> = [
-  {
-    aliases: ['plaster', 'skim', 'skim coat', 'plaster skim'],
-    finish: { name: 'Plaster · Skim Coat (Painted)', materialColor: '#f5f5f0', materialId: 'gypsum-skim' },
-  },
-  {
-    aliases: ['plasterboard', 'drywall', 'gypsum', 'gypsum board', 'sheetrock'],
-    finish: { name: 'Plasterboard · Standard', materialColor: '#f0eeea', materialId: 'gypsum-plasterboard' },
-  },
-  {
-    aliases: ['acoustic plasterboard', 'acoustic board'],
-    finish: { name: 'Plasterboard · Acoustic', materialColor: '#eceae6', materialId: 'gypsum-acoustic' },
-  },
-  {
-    aliases: ['venetian plaster', 'polished plaster'],
-    finish: { name: 'Plaster · Venetian (Polished)', materialColor: '#e8e4d8', materialId: 'gypsum-venetian' },
-  },
-  {
-    aliases: ['clay plaster', 'clay', 'natural clay'],
-    finish: { name: 'Plaster · Natural Clay', materialColor: '#c6aa8b', materialId: 'plaster-clay-natural' },
-  },
-  {
-    aliases: ['tadelakt'],
-    finish: { name: 'Plaster · Tadelakt', materialColor: '#d2c1a5', materialId: 'plaster-tadelakt' },
-  },
-  {
-    aliases: ['fire rated plasterboard', 'fire board', 'fire rated'],
-    finish: { name: 'Plasterboard · Fire Rated Pink', materialColor: '#e5b4ad', materialId: 'gypsum-fire-rated-pink' },
-  },
-  {
-    aliases: ['moisture resistant plasterboard', 'moisture board', 'green board'],
-    finish: { name: 'Plasterboard · Moisture Resistant Green', materialColor: '#b8c9b2', materialId: 'gypsum-moisture-green' },
-  },
-  {
-    aliases: ['paint', 'matte white paint', 'white paint'],
-    finish: { name: 'Paint · Matte White', materialColor: '#f7f5ef', materialId: 'paint-matte-white' },
-  },
-  {
-    aliases: ['eggshell paint', 'warm eggshell'],
-    finish: { name: 'Paint · Warm Eggshell', materialColor: '#eee4d2', materialId: 'paint-eggshell-warm' },
-  },
-  {
-    aliases: ['charcoal paint', 'satin charcoal', 'dark paint'],
-    finish: { name: 'Paint · Satin Charcoal', materialColor: '#303236', materialId: 'paint-satin-charcoal' },
-  },
-  {
-    aliases: ['limewash', 'limewash cream', 'lime wash'],
-    finish: { name: 'Paint · Limewash Cream', materialColor: '#e9ddc8', materialId: 'paint-limewash-cream' },
-  },
-  {
-    aliases: ['microcement', 'micro cement'],
-    finish: { name: 'Coating · Microcement Warm Grey', materialColor: '#bcb5aa', materialId: 'paint-microcement-warm-grey' },
-  },
-  {
-    aliases: ['cellulose insulation', 'blown cellulose'],
-    finish: { name: 'Insulation · Blown Cellulose', materialColor: '#bca57d', materialId: 'insulation-cellulose' },
-  },
-  {
-    aliases: ['wood fibre insulation', 'wood fiber insulation', 'wood fibre'],
-    finish: { name: 'Insulation · Wood Fibre Board', materialColor: '#c6a66a', materialId: 'insulation-wood-fibre' },
-  },
+/**
+ * Alias -> master material id. THE ONLY hand-maintained column left.
+ *
+ * An id here that names nothing in the master is a BUG, not a fallback: the entry
+ * is dropped and {@link finishRefIntegrityErrors} reports it by name. Silently
+ * resolving it to a plausible colour is the NO-EMPTY-MEANS-UNKNOWN failure this
+ * contract exists to remove (C85 section 5).
+ */
+const FINISH_ALIASES: ReadonlyArray<{ readonly id: string; readonly aliases: readonly string[] }> = [
+  { id: 'gypsum-skim', aliases: ['plaster', 'skim', 'skim coat', 'plaster skim'] },
+  { id: 'gypsum-plasterboard', aliases: ['plasterboard', 'drywall', 'gypsum', 'gypsum board', 'sheetrock'] },
+  { id: 'gypsum-acoustic', aliases: ['acoustic plasterboard', 'acoustic board'] },
+  { id: 'gypsum-venetian', aliases: ['venetian plaster', 'polished plaster'] },
+  { id: 'plaster-clay-natural', aliases: ['clay plaster', 'clay', 'natural clay'] },
+  { id: 'plaster-tadelakt', aliases: ['tadelakt'] },
+  { id: 'gypsum-fire-rated-pink', aliases: ['fire rated plasterboard', 'fire board', 'fire rated'] },
+  { id: 'gypsum-moisture-green', aliases: ['moisture resistant plasterboard', 'moisture board', 'green board'] },
+  { id: 'paint-matte-white', aliases: ['paint', 'matte white paint', 'white paint'] },
+  { id: 'paint-eggshell-warm', aliases: ['eggshell paint', 'warm eggshell'] },
+  { id: 'paint-satin-charcoal', aliases: ['charcoal paint', 'satin charcoal', 'dark paint'] },
+  { id: 'paint-limewash-cream', aliases: ['limewash', 'limewash cream', 'lime wash'] },
+  { id: 'paint-microcement-warm-grey', aliases: ['microcement', 'micro cement'] },
+  { id: 'insulation-cellulose', aliases: ['cellulose insulation', 'blown cellulose'] },
+  { id: 'insulation-wood-fibre', aliases: ['wood fibre insulation', 'wood fiber insulation', 'wood fibre'] },
 ];
+
+/** Entries whose material id is absent from the master. Empty in a healthy build. */
+export function finishRefIntegrityErrors(): string[] {
+  return FINISH_ALIASES.filter((e) => !findMaterialRecord(e.id)).map((e) => e.id);
+}
+
+/** Alias -> finish, DERIVED from the master. First alias in each group is the canonical suggestion. */
+const FINISHES: ReadonlyArray<{ aliases: readonly string[]; finish: ResolvedFinish }> =
+  FINISH_ALIASES.flatMap((entry) => {
+    const record = findMaterialRecord(entry.id);
+    if (!record) return [];
+    return [{
+      aliases: entry.aliases,
+      finish: { name: record.label, materialColor: record.color, materialId: record.id },
+    }];
+  });
 
 const normalize = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
