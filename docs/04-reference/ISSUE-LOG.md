@@ -7042,3 +7042,58 @@ reference survives the thing it points at.
 **NOT MEASURED:** whether the same detach occurs on every rebuild-triggering edit (moving a wall,
 changing height, adding a door) or only on opening-create. If it is every rebuild, the blast radius
 is much wider than the founder's report and this entry understates it.
+
+---
+
+## L-962 — AUTO floor finish chords across curved walls: ~one vertex per wall, not per arc station
+
+**Founder-reported on the live deploy `ce400c09`, 2026-08-18, with a screenshot.** QUEUED —
+the founder explicitly asked for this to be taken **after** the in-flight work lands.
+
+**Symptom:** `Floor → AUTO` works well on a simple curved room, but in a room with MANY curved
+walls the finish does not follow the curve. The screenshot shows the finish edge cutting a
+**straight chord** where the wall arcs, leaving wedge-shaped gaps between the finish and the
+curved wall face.
+
+⭐ **The log gives the number, and it is the whole diagnosis:**
+
+```
+[FloorTool] Floor created: 9e411549-491f-44cc-9c7f-31ec969f0b7e with 20 vertices.
+```
+
+**20 vertices for a 19-wall room.** Roughly ONE VERTEX PER WALL. A straight wall needs exactly one
+vertex per end and survives that; a curved wall needs its **arc stations**, and gets a single chord
+instead. So `AUTO_FROM_ROOM` is deriving the polygon from the room boundary's **corner points**
+rather than from the tessellated centreline the wall itself is built on.
+
+**This is why it "works well" in the simple case and fails here** — with one curve the chord error
+is small and reads as a rounding; with many curves it is unmistakable, and the founder's screenshot
+is the proof.
+
+### The fix direction — the machinery already exists, do not re-derive it
+
+`packages/geometry-wall/src/WallArcParam.ts` owns the arc math and already samples at
+`curve.segments`, the SAME resolution the wall solid is built at. `hostedElementFrame().run(s0,s1,n)`
+samples at the host's own stations, and the curved-window lane (`§FEAT-CURVED-WINDOW-LEAF`) shipped
+by calling exactly that rather than re-deriving a Bézier.
+
+**The floor polygon must be sampled at the wall's own stations, so the finish edge and the wall face
+cannot disagree.** Anything else re-introduces the chord error at a different tolerance — and two
+derivations of one arc is C84 **EI-9**.
+
+⚠ **CHECK THE ROOM BOUNDARY FIRST, because the defect may not be in the floor tool at all.** If
+`room.boundingWallIds` / the room polygon is itself stored as corner points, then EVERY consumer of
+a room boundary chords across curves — room area, room tags, the finish, and anything computing
+enclosure. That would make this far wider than a floor bug. Establish whether the under-tessellation
+is introduced by the FLOOR tool or inherited from the ROOM.
+
+### Also in the founder's log, unrelated but worth recording
+
+`[VDT] §G3-STALE-EVENT for unregistered element … type= floor — fallback to store-type view only`
+— the floor is created and the ViewDependencyTracker does not yet know it, so the plan view falls
+back to a FULL re-projection (`§DIAG-GRAFT-FALLTHROUGH … no-graft-ids`). Correct behaviour, not a
+bug, but it means every AUTO floor create costs a full plan re-projection. Note only.
+
+**NOT MEASURED:** the exact tessellation of `curve.segments` for the founder's walls, and whether 20
+is precisely the wall count or a coincidence. Confirm by counting the room's walls and its curved
+subset before assuming the one-vertex-per-wall reading.
