@@ -31,6 +31,27 @@ export {
     type RoofWallClashRunner,
     type RoofWallClashSource,
 } from './pure/roofWallClashRunner';
+// §ROOF-HOSTED-OPENINGS — the roof's planar-face decomposition and the
+// face-plane-local coordinate model a hosted skylight ("lucernario") is authored
+// in. Pure; see the module header for the architectural decision and for what
+// refuses.
+export {
+    computeRoofFaces,
+    faceYAt,
+    faceUVToPlan,
+    planToFaceUV,
+    faceRectToPlanProfile,
+    resolveHostFace,
+    worldXZToRoofLocal,
+    roofLocalToWorldXZ,
+    type FaceRect,
+    type FaceUV,
+    type HostFaceResolution,
+    type RoofFace,
+    type RoofFaceRefusalReason,
+    type RoofFaceSet,
+    type RoofFaceSource,
+} from './pure/roofFaces';
 export { RoofStore } from './RoofStore';
 export { RoofLevelCleanupHandler } from './RoofLevelCleanupHandler';
 // ── §TOMBSTONE-ROOF-REGION-DETECTOR (2026-08-12, C79 §6.5) ───────────────────

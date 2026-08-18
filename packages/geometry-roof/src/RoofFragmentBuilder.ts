@@ -50,6 +50,21 @@ export interface RoofBuilderMaterialDef {
     textures?: { color?: unknown; normal?: unknown; roughness?: unknown };
 }
 
+/**
+ * §ROOF-HOSTED-OPENINGS — post-construction dependency injection, deliberately
+ * the SAME shape as `SlabFragmentBuilder.setDeps`.
+ *
+ * ⚠ The slab twin carries a comment worth repeating here because it names the
+ * exact way this feature can be "committed but not reachable": without the
+ * `setDeps` call the store reference is `undefined`, the read is skipped, zero
+ * holes reach the geometry builder, and *the create command still succeeds*.
+ * The opening is in the store and the roof renders solid. That is why the wiring
+ * in `initBuilders.ts` is part of this change and not a follow-up.
+ */
+export interface RoofBuilderDeps {
+    openingStore?: { getByHostId(hostId: string): Array<{ profile?: Array<{ x: number; y: number }> }> };
+}
+
 export class RoofFragmentBuilder {
     private scene: THREE.Scene;
     private _bimManager: BimManager;
@@ -86,6 +101,35 @@ export class RoofFragmentBuilder {
         this._bimManager  = bimManager;
         this._registry    = registry;
         this._materialMap = materialMap ?? null;
+    }
+
+    /** §ROOF-HOSTED-OPENINGS — inject the opening store. See `RoofBuilderDeps`. */
+    private _deps: RoofBuilderDeps = {};
+    setDeps(deps: RoofBuilderDeps): void {
+        this._deps = { ...this._deps, ...deps };
+    }
+
+    /**
+     * The skylight profiles hosted on this roof, as plan polygons in roof-local
+     * XZ — the frame `RoofData.footprint.polygon` is stored in.
+     *
+     * `OpeningData.profile` is `{x, y}` where `y` carries the Z ordinate (the
+     * slab convention, kept identical so one opening record shape serves both
+     * hosts). Returns an empty array when the store is absent — and that is the
+     * one place this method can LIE by omission, which is precisely why
+     * `setDeps` is called at wiring time and warned about above.
+     */
+    private _openingHoles(roofId: string): Array<Array<[number, number]>> {
+        const store = this._deps.openingStore;
+        if (!store) return [];
+        const out: Array<Array<[number, number]>> = [];
+        for (const opening of store.getByHostId(roofId) ?? []) {
+            const profile = opening?.profile;
+            if (Array.isArray(profile) && profile.length >= 3) {
+                out.push(profile.map(p => [p.x, p.y] as [number, number]));
+            }
+        }
+        return out;
     }
 
     private _createMaterials(data: RoofData): THREE.Material[] {
@@ -246,8 +290,15 @@ export class RoofFragmentBuilder {
         const level  = this._bimManager.getLevelById(data.levelId);
         const worldY = level ? (level.elevation + data.baseOffset) : data.baseOffset;
 
-        const geo       = RoofGeometryBuilder.generate(data);
+        // §ROOF-HOSTED-OPENINGS — an empty array takes the ORIGINAL generate()
+        // path inside RoofGeometryBuilder (non-vacuity: a roof with no skylights
+        // is byte-identical to before this feature).
+        const holes     = this._openingHoles(data.id);
+        const geo       = RoofGeometryBuilder.generate(data, holes);
         const materials = this._createMaterials(data);
+        if (holes.length > 0) {
+            console.log(`[RoofFragmentBuilder] opening holes roofId="${data.id}" count=${holes.length} cut=${geo.userData.pryzmRoofOpeningsCut ?? 0}`);
+        }
         const mesh      = new THREE.Mesh(geo, materials);
 
         mesh.userData.elementType = 'RoofPart';

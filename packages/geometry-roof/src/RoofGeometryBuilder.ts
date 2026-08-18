@@ -10,6 +10,9 @@ import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from
 // which is pinned at 0 rivals.
 import { offsetPolygon, offsetPolygonOrSelf, type Pt2 as OffsetPt2 } from './pure/polygonOffset.js';
 import { pitchedRingsFromOffsets, type PitchedRingStack } from './pure/pitchedFromOffsets.js';
+// §ROOF-HOSTED-OPENINGS — the planar-face decomposition a hosted skylight is
+// authored against. Pure; the builder consumes it rather than re-deriving planes.
+import { computeRoofFaces, faceYAt, resolveHostFace, type RoofFace } from './pure/roofFaces.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -91,7 +94,23 @@ export class RoofGeometryBuilder {
         return this.generateFlat(data);
     }
 
-    static generate(data: Readonly<RoofData>): THREE.BufferGeometry {
+    /**
+     * §ROOF-HOSTED-OPENINGS — build the roof mesh, optionally with skylight
+     * ("lucernario") voids cut through it.
+     *
+     * `holes` are PLAN polygons in roof-local XZ — the same frame as
+     * `footprint.polygon` — produced by `faceRectToPlanProfile` from the
+     * face-plane rectangle the architect actually authored. See
+     * `pure/roofFaces.ts` for the coordinate model, and for why the authored
+     * size is face-plane-local rather than projected from plan.
+     *
+     * ⚠ NON-VACUITY, by construction: when `holes` is absent or empty this
+     * method takes the ORIGINAL `_generateInner` path, untouched. A roof with no
+     * openings is byte-identical to before this feature existed — the hole path
+     * is not merely a no-op, it is not entered.
+     */
+    static generate(data: Readonly<RoofData>, holes?: ReadonlyArray<ReadonlyArray<Pt>>): THREE.BufferGeometry {
+        if (holes && holes.length > 0) return this._generateWithHoles(data, holes);
         if (this._genDepth === 0) this._degradations = [];
         this._genDepth++;
         try {
@@ -104,6 +123,214 @@ export class RoofGeometryBuilder {
         } finally {
             this._genDepth--;
         }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // §ROOF-HOSTED-OPENINGS — the hole path
+    //
+    // ONE builder covers every roof form this codebase can decompose into planes,
+    // instead of teaching each of the nine `generateX` methods to punch holes.
+    // The insight it rests on: the top surface of a decomposable roof is a GRAPH
+    // over plan — one Y per plan point — so a face can be re-triangulated with
+    // `THREE.ShapeUtils.triangulateShape(facePlan, holesOnThatFace)` and every
+    // resulting vertex lifted by the face's own plane. That is exactly what
+    // `SlabFragmentBuilder.buildSlabGeometry` does for a flat slab, generalised
+    // from one horizontal plane to N inclined ones.
+    //
+    // ⚠ WHY THIS DOES NOT DUPLICATE THE EXISTING BUILDERS. It is not a rival
+    // roof-form algorithm: it takes the planes as INPUT from `computeRoofFaces`,
+    // which derives them from the same `gableRidge` / longest-edge / overhang
+    // primitives the generators use, and which REFUSES for every form it cannot
+    // describe exactly. When it refuses, this path is not taken — the roof is
+    // built by the original code and the caller is told no opening can be hosted.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private static _generateWithHoles(
+        data: Readonly<RoofData>,
+        holes: ReadonlyArray<ReadonlyArray<Pt>>,
+    ): THREE.BufferGeometry {
+        const faceSet = computeRoofFaces({
+            id:          data.id,
+            roofType:    data.roofType,
+            polygon:     this._resolvePolygon(data),
+            slope:       data.slope,
+            overhang:    data.overhang,
+            thickness:   data.thickness,
+            segments:    data.segments,
+            slopeArrows: data.slopeArrows,
+        });
+
+        if (!faceSet.ok) {
+            // §CONTEXT-DATA-HONESTY — the openings EXIST in the store; this
+            // builder cannot cut them. Rendering a solid roof silently would be
+            // "no openings" and "I could not cut the openings" collapsed into the
+            // same picture, which is the failure-vs-empty conflation this repo
+            // treats as a defect class. Record it on the geometry, where the
+            // degradation channel already reaches the caller.
+            this._degradations = [];
+            this._noteDegradation(
+                `${holes.length} roof opening(s) could NOT be cut: ${faceSet.detail} ` +
+                `(reason=${faceSet.reason}). The rendered roof is SOLID; do not read it as ` +
+                `"this roof has no skylights".`,
+            );
+            const geo = this._generateInner(data);
+            geo.userData.pryzmRoofDegraded = true;
+            geo.userData.pryzmRoofDegradations = [...this._degradations];
+            geo.userData.pryzmRoofOpeningsUncut = holes.length;
+            return geo;
+        }
+
+        return this._buildFacetedWithHoles(faceSet.faces, faceSet.eaveRing, data.thickness, holes);
+    }
+
+    /** Exact-ish plan vertex key for the shared-edge test — 0.1 mm buckets. */
+    private static _vkey(p: Pt): string {
+        return `${Math.round(p[0] * 1e4)}|${Math.round(p[1] * 1e4)}`;
+    }
+
+    /**
+     * Build the roof from its planar faces, cutting `holes` (plan polygons,
+     * roof-local XZ) through the surface, the soffit and the thickness between.
+     *
+     * A hole is assigned to the face whose plan polygon CONTAINS its centroid —
+     * the same containment determination the command used to choose the host, so
+     * the two cannot disagree. A hole belonging to no face is skipped and said
+     * out loud rather than being cut through an arbitrary plane.
+     *
+     * Vertical trim (fascia, gable ends) is emitted for every face-polygon edge
+     * that is NOT shared with another face. That topological test replaces any
+     * segment-vs-segment geometry: the ridge of a gable appears in both faces
+     * with opposite orientation and is therefore interior, while each half of a
+     * gable end appears once and is therefore trim. It needs no new predicate.
+     */
+    private static _buildFacetedWithHoles(
+        faces: ReadonlyArray<RoofFace>,
+        eaveRing: ReadonlyArray<Pt>,
+        thickness: number,
+        holes: ReadonlyArray<ReadonlyArray<Pt>>,
+    ): THREE.BufferGeometry {
+        const positions: number[] = [];
+        const indices:   number[] = [];
+        const groups:    Group[]  = [];
+        let   cursor = 0;
+
+        const validHoles = holes.filter(h => h.length >= 3).map(h => h.map(p => [p[0], p[1]] as Pt));
+
+        // ── Assign each hole to its containing face (containment, never nearest) ──
+        const holesByFace = new Map<number, Pt[][]>();
+        const placedHoles: Pt[][] = [];
+        for (const hole of validHoles) {
+            let hx = 0, hz = 0;
+            for (const [x, z] of hole) { hx += x; hz += z; }
+            const centre: Pt = [hx / hole.length, hz / hole.length];
+            const res = resolveHostFace('(render)', faces, centre);
+            if (!res.ok) {
+                console.warn(`[RoofGeometryBuilder] §ROOF-HOSTED-OPENINGS skipping an opening at plan (${centre[0].toFixed(3)}, ${centre[1].toFixed(3)}): ${res.detail}`);
+                continue;
+            }
+            const list = holesByFace.get(res.face.index) ?? [];
+            list.push(hole);
+            holesByFace.set(res.face.index, list);
+            placedHoles.push(hole);
+        }
+
+        // ── Top surface, face by face — slot 3 (shingle) ─────────────────────
+        const topStart = cursor;
+        for (const face of faces) {
+            const outer = face.planPolygon.map(([x, z]) => [x, z] as Pt);
+            const faceHoles = holesByFace.get(face.index) ?? [];
+            const allPts: Pt[] = [...outer];
+            for (const h of faceHoles) allPts.push(...h);
+
+            const triIdx = THREE.ShapeUtils.triangulateShape(
+                outer.map(([x, z]) => new THREE.Vector2(x, z)),
+                faceHoles.map(h => h.map(([x, z]) => new THREE.Vector2(x, z))),
+            );
+
+            const base = positions.length / 3;
+            for (const [x, z] of allPts) positions.push(x, faceYAt(face, x, z), z);
+            for (const t of triIdx) {
+                indices.push(base + t[0]!, base + t[1]!, base + t[2]!);
+                cursor += 3;
+            }
+        }
+        groups.push({ start: topStart, count: cursor - topStart, materialIndex: 3 });
+
+        // ── Soffit at y = −thickness, same holes — slot 1 (deck) ─────────────
+        const soffitStart = cursor;
+        {
+            const outer = eaveRing.map(([x, z]) => [x, z] as Pt);
+            const allPts: Pt[] = [...outer];
+            for (const h of placedHoles) allPts.push(...h);
+            const triIdx = THREE.ShapeUtils.triangulateShape(
+                outer.map(([x, z]) => new THREE.Vector2(x, z)),
+                placedHoles.map(h => h.map(([x, z]) => new THREE.Vector2(x, z))),
+            );
+            const base = positions.length / 3;
+            for (const [x, z] of allPts) positions.push(x, -thickness, z);
+            // Reversed winding so the soffit normal points down, as every other
+            // builder's bottom cap does.
+            for (const t of triIdx) {
+                indices.push(base + t[2]!, base + t[1]!, base + t[0]!);
+                cursor += 3;
+            }
+        }
+        groups.push({ start: soffitStart, count: cursor - soffitStart, materialIndex: 1 });
+
+        // ── Trim: fascia + gable ends, from every UNSHARED face edge — slot 0 ─
+        const trimStart = cursor;
+        const edgeCount = new Map<string, number>();
+        for (const face of faces) {
+            const poly = face.planPolygon;
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+                const ka = this._vkey(a), kb = this._vkey(b);
+                const key = ka < kb ? `${ka}~${kb}` : `${kb}~${ka}`;
+                edgeCount.set(key, (edgeCount.get(key) ?? 0) + 1);
+            }
+        }
+        for (const face of faces) {
+            const poly = face.planPolygon;
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+                const ka = this._vkey(a), kb = this._vkey(b);
+                const key = ka < kb ? `${ka}~${kb}` : `${kb}~${ka}`;
+                if ((edgeCount.get(key) ?? 0) !== 1) continue; // interior (ridge / valley)
+                const base = positions.length / 3;
+                positions.push(a[0], faceYAt(face, a[0], a[1]), a[1]); // 0 top-a
+                positions.push(b[0], faceYAt(face, b[0], b[1]), b[1]); // 1 top-b
+                positions.push(b[0], -thickness,                b[1]); // 2 bot-b
+                positions.push(a[0], -thickness,                a[1]); // 3 bot-a
+                indices.push(base + 0, base + 2, base + 1);
+                indices.push(base + 0, base + 3, base + 2);
+                cursor += 6;
+            }
+        }
+        groups.push({ start: trimStart, count: cursor - trimStart, materialIndex: 0 });
+
+        // ── The void reveals — the sides of every skylight, slot 0 ───────────
+        const revealStart = cursor;
+        for (const [faceIndex, faceHoles] of holesByFace) {
+            const face = faces[faceIndex]!;
+            for (const hole of faceHoles) {
+                for (let i = 0; i < hole.length; i++) {
+                    const a = hole[i]!, b = hole[(i + 1) % hole.length]!;
+                    const base = positions.length / 3;
+                    positions.push(a[0], faceYAt(face, a[0], a[1]), a[1]);
+                    positions.push(b[0], faceYAt(face, b[0], b[1]), b[1]);
+                    positions.push(b[0], -thickness,                b[1]);
+                    positions.push(a[0], -thickness,                a[1]);
+                    indices.push(base + 0, base + 1, base + 2);
+                    indices.push(base + 0, base + 2, base + 3);
+                    cursor += 6;
+                }
+            }
+        }
+        groups.push({ start: revealStart, count: cursor - revealStart, materialIndex: 0 });
+
+        const geo = this._toGeo(positions, indices, groups);
+        geo.userData.pryzmRoofOpeningsCut = placedHoles.length;
+        return geo;
     }
 
     private static _generateInner(data: Readonly<RoofData>): THREE.BufferGeometry {
