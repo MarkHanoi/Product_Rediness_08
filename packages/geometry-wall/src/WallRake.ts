@@ -164,11 +164,29 @@
 // holds, so it is not offered as a choice.
 //
 // ── WHAT IS STILL NOT DONE, said plainly ─────────────────────────────────────
-//   • A raked wall that hosts an opening takes the ADR-0310 UNIFORM shear, not
-//     the ADR-0312 twin-solve loft — so its joint with a neighbour is exact at
-//     the FLOOR and approximate above it. Combining the two would double-count
-//     the top displacement; picking the loft would need the segmented opening
-//     body to become polygon-based. Named in `WallFragmentBuilder`.
+//   • ⚠ CORRECTED 2026-08-18 (L-955). This bullet used to read: *"A raked wall
+//     that hosts an opening takes the ADR-0310 UNIFORM shear, not the ADR-0312
+//     twin-solve loft — so its joint with a neighbour is exact at the FLOOR and
+//     approximate above it. Combining the two would double-count the top
+//     displacement; picking the loft would need the segmented opening body to
+//     become polygon-based."*
+//
+//     THE FOUNDER FOUND THE CONSEQUENCE ON THE LIVE DEPLOY: a raked wall joins
+//     soundly ONLY when it is plain — a wedge of daylight at the corner the
+//     moment it hosts a window or carries layers. "Exact at the floor and
+//     approximate above it" is what that reads like in a viewport, and the
+//     approximation is not small: 0.385 m at 3 m of height and 80°.
+//
+//     THE DOUBLE-COUNT WAS REAL; THE CONCLUSION WAS NOT. The loft is the TOTAL
+//     top-corner travel and the uniform shear is the PART OF IT the child-matrix
+//     shear contributes, so they are not rivals to choose between — subtract, and
+//     the residual is what the mitred cap must add. And the polygon rewrite is not
+//     needed: `buildMiterPrism`'s `startTopDrift`/`endTopDrift` are HORIZONTAL
+//     top-cap displacements, and a loft minus a shear is a horizontal vector.
+//     §L955-ONE-CORNER-RULE in `WallFragmentBuilder` is that subtraction; the
+//     layered band path gets the same loft through
+//     `WallPipelineV2Cache.rakedLayerBandTopOffsets`. All three rake-capable body
+//     paths now place a shared top corner by ONE rule.
 //   • PLAN view still draws the wall's BASE footprint (ADR-0310 §2.3), so a
 //     raked wall's opening SYMBOL sits over the base line, not under the window.
 //   • Window GPU instancing decomposes a world matrix into T·R·S and cannot

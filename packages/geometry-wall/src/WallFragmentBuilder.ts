@@ -71,6 +71,10 @@ import {
     rakeLateralShift,
     rakeShearPerMetre,
     rakeTopOffset,
+    // §L955-ONE-CORNER-RULE — the §WALL-RAKE-JOINT-STALE-CACHE comparison, now that the
+    // layered and opening-host paths consume the twin-solve loft too. Normalising through
+    // the canonical resolver is what makes "absent" and "90" the same rake, once.
+    resolveRakeDeg,
 } from './WallRake';
 import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
@@ -1486,19 +1490,49 @@ export class WallFragmentBuilder {
                         },
                         _layMiter,
                     );
-                    // §FEAT-RAKE-LAYERED (3) — the uniform shear for this wall. Deliberately
-                    // NOT the per-vertex ADR-0312 loft: `rakedTopOffsets` is index-aligned
-                    // with the WALL polygon, and a BAND polygon has different vertices (the
-                    // half-plane clip inserts its own), so consuming it here would pair
-                    // offsets with the wrong corners. Layered joints are therefore
-                    // floor-exact (ADR-0310), which is the honest state, not a silent one.
+                    // §FEAT-RAKE-LAYERED (3) — the uniform shear for this wall. It remains
+                    // the FALLBACK (and is byte-identical at 90°, where it is null).
                     const _layTopOffset = rakeTopOffset(_layRake, wallHeight, _fp.direction);
+                    const _layThicknesses = wall.layers.map((l: any) => l.thickness);
                     const _bands = buildWallLayerBands(
                         _fp,
-                        wall.layers.map((l: any) => l.thickness),
+                        _layThicknesses,
                         // §FEAT-RAKE-LAYERED (2) — `t / sin θ` per layer.
                         _layRake,
                     ).bands;
+                    // ── §L955-ONE-CORNER-RULE (founder 2026-08-18) ─────────────────────
+                    // This block used to read "Deliberately NOT the per-vertex ADR-0312
+                    // loft: `rakedTopOffsets` is index-aligned with the WALL polygon, and a
+                    // BAND polygon has different vertices … so consuming it here would pair
+                    // offsets with the wrong corners." Every clause was TRUE of
+                    // `rakedTopOffsets`; the conclusion — take the uniform shear instead —
+                    // is what the founder photographed. A layered raked wall placed its
+                    // shared top corner by a DIFFERENT RULE from its plain raked neighbour,
+                    // so the two ends agreed only at the floor and parted company upward:
+                    // the wedge of daylight, widening with height, with a spike at the top.
+                    //
+                    // The answer is not to pair the WALL polygon's offsets with a band; it
+                    // is to run the SAME twin solve on the BAND decomposition —
+                    // `rakedLayerBandTopOffsets` slices the probe footprint with the same
+                    // thicknesses and the same rake, so band vertex i has a genuine twin.
+                    // Null (topology bifurcated, drift out of bounds, unknown wall, or an
+                    // unraked level) ⇒ `topOffsets` is null and the uniform shear runs
+                    // exactly as before, so a vertical layered wall stays byte-identical.
+                    //
+                    // §WALL-RAKE-JOINT-STALE-CACHE applies here for the same reason it
+                    // applies in `buildWallV2Geometry`: the offsets are a function of the
+                    // rakes the cache was REFRESHED with, so replaying them after the store
+                    // moved THIS wall's rake would render the previous angle's joint. On a
+                    // mismatch, uniform shear at the CURRENT angle.
+                    const _layCacheRake = _layCache.rakeUsedFor(wall.id);
+                    const _layRakeFresh =
+                        _layCacheRake !== null
+                        && Math.abs(_layCacheRake - resolveRakeDeg(_layRake)) <= 1e-9;
+                    const _bandOffsets = _layRakeFresh
+                        ? _layCache.rakedLayerBandTopOffsets(
+                            wall.id, _fp, _layThicknesses, _layRake, wallHeight,
+                        )
+                        : null;
                     // Same envelope test as §V2-SPIKE-GUARD / §LEGACY-SPIKE-GUARD, applied
                     // per band. A real layer body never exceeds the wall's own footprint.
                     const _baseLen = Math.hypot(
@@ -1510,18 +1544,38 @@ export class WallFragmentBuilder {
                     // `height · |cot θ|`. Without this term every raked layered wall would
                     // trip the spike guard and fall back to the legacy prisms — i.e. the
                     // feature would silently not apply. 0 for a vertical wall.
+                    // §L955-ONE-CORNER-RULE — a LOFTED corner can legitimately travel FARTHER
+                    // than the wall's own shear (two opposing rakes meeting at a shallow plan
+                    // angle push the shared mitre corner out along the mitre line), exactly as
+                    // §V2-SPIKE-GUARD already records for the plain path — which is why that
+                    // guard budgets with `maxTopDriftM` rather than with `rakeLateralShift`
+                    // alone. Budget with the ACTUAL worst band drift for the same reason: a
+                    // guard that rejects the correct geometry sends the whole stack to the
+                    // legacy prisms, i.e. reinstates the defect it was asked to prevent.
+                    const _maxBandDrift = _bandOffsets
+                        ? Math.max(0, ...(_bandOffsets.flat().map(o => Math.hypot(o.x, o.z))))
+                        : 0;
                     const _maxExtent =
-                        _baseLen + wall.thickness + 1.0 + rakeLateralShift(_layRake, wallHeight);
+                        _baseLen + wall.thickness + 1.0
+                        + Math.max(rakeLateralShift(_layRake, wallHeight), _maxBandDrift);
                     const _geoms: THREE.BufferGeometry[] = [];
                     let _ok = _bands.length === wall.layers.length;
-                    for (const b of _bands) {
+                    for (let _bi = 0; _bi < _bands.length; _bi++) {
+                        const b = _bands[_bi]!;
                         if (!_ok) break;
                         if (b.polygon.length < 3) { _ok = false; break; }
+                        const _bandTop = _bandOffsets?.[_bi] ?? null;
                         const g = buildWallExtrusion(
                             { ...(_fp as any), polygon: b.polygon },
                             {
                                 height: wallHeight, baseOffset: wallBaseOffset, elevation: 0,
+                                // §L955-ONE-CORNER-RULE — the per-vertex loft when the twin
+                                // solve produced one for THIS band; the uniform shear when it
+                                // honestly degraded. `buildWallExtrusion` prefers `topOffsets`
+                                // only when it is index-aligned and finite, so a disagreement
+                                // between the two is ignored rather than thrown.
                                 topOffset: _layTopOffset,
+                                topOffsets: _bandTop,
                             },
                         );
                         // World-XZ → wallGroup-local (the group sits at the POST-trim start).
@@ -2191,20 +2245,63 @@ export class WallFragmentBuilder {
             // `rakedTopOffsets`.
             //
             // §RAKE-HOSTED-OPENING (founder 2026-08-18) — the paragraph above says "a
-            // RAKED wall cannot itself host an opening". THAT IS NO LONGER TRUE, and the
-            // consequence is this extra condition rather than a rewrite. When the wall
-            // hosting the opening is ITSELF raked, its whole body is sheared below
-            // (`_applyRakeShearToChildren`), which already displaces the top cap by
-            // `height · cot(rake)`. Consuming the twin-solve loft on top of that would
-            // count the same displacement twice and bend the wall away from its own
-            // face. So a raked opening host takes the ADR-0310 UNIFORM shear, and its
-            // joint is exact at the FLOOR only — the same honest limitation ADR-0310 §3
-            // already records for the un-lofted case, now scoped to one combination
-            // instead of being avoided by refusing it. A VERTICAL host on a raked level
-            // is unaffected and keeps the full ADR-0312 loft.
+            // RAKED wall cannot itself host an opening". THAT IS NO LONGER TRUE.
+            //
+            // ── §L955-ONE-CORNER-RULE (founder 2026-08-18, live `d5b8d82f`) ──────────
+            // This condition used to read `_ownShearK === 0`, i.e. a RAKED host was
+            // denied the loft outright, on the ground that `_applyRakeShearToChildren`
+            // already displaces the top cap by `height · cot(rake)` and "consuming the
+            // twin-solve loft on top of that would count the same displacement twice".
+            //
+            // THE DOUBLE-COUNT WAS REAL; THE CONCLUSION WAS NOT. The two displacements
+            // are not rivals — the loft is the TOTAL top-corner travel, and the uniform
+            // shear is the part of it the child matrix contributes. Subtract, and the
+            // RESIDUAL is exactly what the cap must add on top:
+            //
+            //     final = base + residual + uniform = base + capDrift          ∎
+            //
+            // So the host now places its shared top corner by the SAME rule as its plain
+            // neighbour, which is the whole of L-955: it is not that the end face was
+            // un-sheared (it was sheared, at :2474), it is that the two ends of one
+            // corner obeyed two different rules and therefore met only at the floor.
+            //
+            // NOTE WHAT THIS DOES **NOT** REQUIRE. `WallRake.ts` records that "picking
+            // the loft would need the segmented opening body to become polygon-based".
+            // It does not: `buildMiterPrism`'s `startTopDrift`/`endTopDrift` are
+            // HORIZONTAL top-cap displacements, and every quantity here is horizontal —
+            // the loft moves a corner in plan, the shear moves it in plan, and the
+            // difference of two plan vectors is a plan vector. No signature change, no
+            // polygon rewrite, and the opening carve and reveals are untouched because
+            // the residual lands only on the two mitred END segments' TOP ring.
+            //
+            // §WALL-RAKE-JOINT-STALE-CACHE now applies here too, and did not before: a
+            // VERTICAL host's own rake could not go stale, a raked one's can. On a
+            // mismatch take the uniform shear at the CURRENT angle rather than replay the
+            // previous angle's joint.
             const _ownShearK = rakeShearPerMetre(wall.rakeAngleDeg);
-            const _capDrift = (isWallPipelineV2Enabled() && !wall.curve && _ownShearK === 0)
-                ? (this.getEffectiveV2Cache()?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
+            const _capCache = this.getEffectiveV2Cache();
+            const _capCacheRake = _capCache?.rakeUsedFor(wall.id) ?? null;
+            const _capRakeFresh =
+                _capCacheRake !== null
+                && Math.abs(_capCacheRake - resolveRakeDeg(wall.rakeAngleDeg)) <= 1e-9;
+            const _capDriftTotal = (isWallPipelineV2Enabled() && !wall.curve && _capRakeFresh)
+                ? (_capCache?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
+                : null;
+            // The uniform part `_applyRakeShearToChildren` will add at the top ring.
+            // `rakeTopOffset` is the ONE place this is computed — never a second cot().
+            // Null for a vertical host ⇒ the residual IS the drift ⇒ byte-identical.
+            const _capUniform = rakeTopOffset(wall.rakeAngleDeg, wallHeight, {
+                x: direction.x, z: direction.z,
+            });
+            const _capResidual = (p: { x: number; z: number }): { x: number; z: number } =>
+                _capUniform ? { x: p.x - _capUniform.x, z: p.z - _capUniform.z } : p;
+            const _capDrift = _capDriftTotal
+                ? {
+                    startLeft:  _capResidual(_capDriftTotal.startLeft),
+                    startRight: _capResidual(_capDriftTotal.startRight),
+                    endLeft:    _capResidual(_capDriftTotal.endLeft),
+                    endRight:   _capResidual(_capDriftTotal.endRight),
+                }
                 : null;
             const _startTopDrift = _capDrift
                 ? { left: _capDrift.startLeft, right: _capDrift.startRight }

@@ -26,6 +26,10 @@ import {
     type Pt2, type WallInput, type WallJunctionRecord, type WallMiter,
 } from './JunctionResolverV2';
 import { buildWallFootprint, type WallFootprint } from './WallFootprint2D';
+// §L955-ONE-CORNER-RULE — the band slicer, so the LAYERED path can be lofted by the
+// SAME twin solve the plain path uses. Pure 2-D; no cycle (WallLayerFootprint2D imports
+// only types from JunctionResolverV2/WallFootprint2D plus WallRake).
+import { buildWallLayerBands } from './WallLayerFootprint2D';
 import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
 import { isVerticalRake, RAKE_MIN_DEG, rakedPlanThickness, rakeTopOffset, resolveRakeDeg } from './WallRake';
 
@@ -52,6 +56,55 @@ const RAKE_JOINT_PROBE_H = 2e-5;
  *  it is a degenerate probe artefact → fall back to the uniform shear. */
 const RAKE_JOINT_MAX_DRIFT_PER_M =
     (2 * Math.abs(1 / Math.tan((RAKE_MIN_DEG * Math.PI) / 180))) / 0.05;
+
+/** Shoelace signed area — the orientation test both loft consumers apply. */
+function signedArea(pts: ReadonlyArray<Pt2>): number {
+    let a2 = 0;
+    for (let i = 0; i < pts.length; i++) {
+        const p = pts[i]!;
+        const q = pts[(i + 1) % pts.length]!;
+        a2 += p.x * q.z - q.x * p.z;
+    }
+    return a2 / 2;
+}
+
+/**
+ * §L955-ONE-CORNER-RULE — THE loft: difference a base polygon against its probe-solve
+ * twin and scale the per-metre drift to `height`.
+ *
+ * Extracted so the WALL polygon ({@link WallPipelineV2Cache.rakedTopOffsets}) and the
+ * per-LAYER band polygons ({@link WallPipelineV2Cache.rakedLayerBandTopOffsets}) place
+ * a shared corner by ONE rule and cannot drift apart — the defect class L-955 is. It is
+ * also why neither consumer spells `cot(rake)`: the shear reached these polygons through
+ * the probe walls `refresh()` built with `WallRake.rakeTopOffset`, the single authority.
+ *
+ * Returns null — never a throw — on a non-finite drift, a drift past the geometric bound
+ * ({@link RAKE_JOINT_MAX_DRIFT_PER_M}), or a lofted polygon whose orientation flips (an
+ * inside-out top). Callers read null as "use the ADR-0310 uniform shear".
+ */
+function loftOffsets(
+    base: ReadonlyArray<Pt2>,
+    probe: ReadonlyArray<Pt2>,
+    height: number,
+): Pt2[] | null {
+    if (probe.length !== base.length) return null;
+    const offsets: Pt2[] = [];
+    for (let i = 0; i < base.length; i++) {
+        const b = base[i]!;
+        const p = probe[i]!;
+        const vx = (p.x - b.x) / RAKE_JOINT_PROBE_H;   // drift per metre of height
+        const vz = (p.z - b.z) / RAKE_JOINT_PROBE_H;
+        if (!Number.isFinite(vx) || !Number.isFinite(vz)) return null;
+        if (Math.hypot(vx, vz) > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
+        offsets.push({ x: vx * height, z: vz * height });
+    }
+    // The lofted top polygon must keep the base polygon's orientation — an inverted
+    // (bow-tie / negative-area) top would render inside-out. On flip, degrade.
+    const baseArea = signedArea(base);
+    const topArea = signedArea(base.map((p, i) => ({ x: p.x + offsets[i]!.x, z: p.z + offsets[i]!.z })));
+    if (!(Math.sign(topArea) === Math.sign(baseArea) && Math.abs(topArea) > 1e-9)) return null;
+    return offsets;
+}
 
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
@@ -389,34 +442,75 @@ export class WallPipelineV2Cache {
         const probeFp = buildWallFootprint(probeWall, this._probeMiters.get(wallId) ?? null);
         if (probeFp.invalid || probeFp.polygon.length !== base.length) return null;
 
-        const offsets: Pt2[] = [];
-        for (let i = 0; i < base.length; i++) {
-            const b = base[i]!;
-            const p = probeFp.polygon[i]!;
-            const vx = (p.x - b.x) / RAKE_JOINT_PROBE_H;   // drift per metre of height
-            const vz = (p.z - b.z) / RAKE_JOINT_PROBE_H;
-            if (!Number.isFinite(vx) || !Number.isFinite(vz)) return null;
-            if (Math.hypot(vx, vz) > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
-            offsets.push({ x: vx * height, z: vz * height });
+        return loftOffsets(base, probeFp.polygon, height);
+    }
+
+    /**
+     * §L955-ONE-CORNER-RULE (founder 2026-08-18) — the SAME twin-solve loft as
+     * {@link rakedTopOffsets}, sliced into the per-LAYER bands a layered wall's body is
+     * actually built from. One entry per band, each index-aligned with that band's own
+     * polygon.
+     *
+     * ── WHY THIS EXISTS ────────────────────────────────────────────────────────────
+     * The founder reported (live `d5b8d82f`) that a raked wall joins soundly ONLY when
+     * it is plain. The layered path had OPTED OUT of the loft, in its own words
+     * *"Deliberately NOT the per-vertex ADR-0312 loft: `rakedTopOffsets` is index-aligned
+     * with the WALL polygon, and a BAND polygon has different vertices"* — a true
+     * statement about `rakedTopOffsets`, answered here rather than accepted. Two walls
+     * that place their shared top corner by DIFFERENT rules disagree above the floor,
+     * and the disagreement grows with height: the founder's wedge of daylight.
+     *
+     * ── WHY IT IS EXACT AND NOT AN INTERPOLATION ───────────────────────────────────
+     * The band slicer is a pair of half-plane clips of the wall footprint. Clipping
+     * commutes with the affine base→probe map that the twin solve differences, so
+     * slicing the PROBE footprint with the SAME thicknesses and the SAME rake yields
+     * band polygons that correspond vertex-for-vertex with the base bands whenever the
+     * junction topology is unchanged — which the probe elevation
+     * ({@link RAKE_JOINT_PROBE_H}, ≈0.075 mm of displacement) is chosen to guarantee.
+     * No new geometry predicate is introduced and no trigonometry is respelled: the
+     * shear enters only through the probe walls, which `refresh()` displaced with
+     * `WallRake.rakeTopOffset`.
+     *
+     * ── HONEST DEGRADATION (⇒ caller keeps the ADR-0310 uniform shear) ─────────────
+     * Any of: no raked wall on the level; this wall unknown to the probe solve; the
+     * probe footprint not index-aligned with `baseFootprint`; a band count or band
+     * vertex-count mismatch between the two slices; a drift beyond the geometric bound
+     * or non-finite; a band's lofted top polygon inverting. Never a throw
+     * (§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH).
+     *
+     * `baseFootprint` MUST be the footprint the caller will band-slice and extrude, and
+     * `layerThicknesses` / `rakeAngleDeg` MUST be the ones it will slice with — this
+     * returns offsets for THAT decomposition, not for a re-derived one.
+     */
+    rakedLayerBandTopOffsets(
+        wallId: string,
+        baseFootprint: WallFootprint,
+        layerThicknesses: readonly number[],
+        rakeAngleDeg: number | null | undefined,
+        height: number,
+    ): Pt2[][] | null {
+        if (!this._hasRake || !Number.isFinite(height) || height === 0) return null;
+        if (layerThicknesses.length === 0) return null;
+        const probeWall = this._probeWalls.get(wallId);
+        if (!probeWall) return null;
+        if (baseFootprint.invalid || baseFootprint.polygon.length < 3) return null;
+        const probeFp = buildWallFootprint(probeWall, this._probeMiters.get(wallId) ?? null);
+        if (probeFp.invalid || probeFp.polygon.length !== baseFootprint.polygon.length) return null;
+
+        const baseBands  = buildWallLayerBands(baseFootprint, layerThicknesses, rakeAngleDeg).bands;
+        const probeBands = buildWallLayerBands(probeFp,       layerThicknesses, rakeAngleDeg).bands;
+        if (baseBands.length !== probeBands.length || baseBands.length !== layerThicknesses.length) return null;
+
+        const out: Pt2[][] = [];
+        for (let i = 0; i < baseBands.length; i++) {
+            const b = baseBands[i]!.polygon;
+            const p = probeBands[i]!.polygon;
+            if (b.length < 3 || p.length !== b.length) return null;
+            const offs = loftOffsets(b, p, height);
+            if (!offs) return null;
+            out.push(offs);
         }
-
-        // The lofted top polygon must keep the base polygon's orientation — an
-        // inverted (bow-tie / negative-area) top would render inside-out. Compare
-        // shoelace signs; on flip, degrade to the uniform shear.
-        const area = (pts: ReadonlyArray<Pt2>): number => {
-            let a2 = 0;
-            for (let i = 0; i < pts.length; i++) {
-                const p = pts[i]!;
-                const q = pts[(i + 1) % pts.length]!;
-                a2 += p.x * q.z - q.x * p.z;
-            }
-            return a2 / 2;
-        };
-        const baseArea = area(base);
-        const topArea = area(base.map((p, i) => ({ x: p.x + offsets[i]!.x, z: p.z + offsets[i]!.z })));
-        if (!(Math.sign(topArea) === Math.sign(baseArea) && Math.abs(topArea) > 1e-9)) return null;
-
-        return offsets;
+        return out;
     }
 
     /**

@@ -43,6 +43,19 @@ let _miterPrismNanWarned = false;
  * side below), which is the SAME convention `WallPipelineV2Cache.rakeJointCapDrift`
  * reports — the two must not drift apart. Absent ⇒ byte-identical geometry.
  *
+ * §L955-ONE-CORNER-RULE (founder 2026-08-18) — the caller may pass a RESIDUAL rather
+ * than the full loft, and this builder neither knows nor needs to. When the host wall is
+ * ITSELF raked, `WallFragmentBuilder` shears the whole built assembly afterwards
+ * (`_applyRakeShearToChildren`), which already moves the top ring by `height · cot θ`;
+ * it therefore hands in `capDrift − rakeTopOffset(...)` so the two contributions sum to
+ * the loft exactly once. The parameter's meaning is unchanged — "displace this end's two
+ * TOP cap vertices by this much in plan" — which is precisely why one horizontal vector
+ * serves both callers. THE MITER PLANE ITSELF STAYS VERTICAL: `project()` solves in XZ
+ * and returns `base[1]` untouched, and `loft()` never writes `p[1]`. A feature needing a
+ * per-end TOP DESCRIPTION (a raked or profiled end cut) changes this signature; L-955
+ * deliberately did not, because a plan displacement was sufficient and a rake-only
+ * special case would have pre-empted that generalisation with the wrong shape.
+ *
  * The drift is HORIZONTAL only, so the top face stays flat and its (0,1,0) normal
  * stays exact. For an ORTHOGONAL joint the drift is purely along the wall axis, so
  * the side quads also stay planar and their normals stay exact; at an oblique joint
