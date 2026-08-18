@@ -7971,3 +7971,44 @@ Whether that is correct proximity filtering or an unstable host attribution is *
 
 **Owner:** unassigned. Not urgent — the capability is reachable in plan — but the silent no-op in 3-D
 must become either a working gesture or a refusal that names the plan route.
+
+## L-1031 — the canonical hosted-opening CREATE command declares one store and writes three (OPEN, declaration defect)
+
+**Orchestrator, 2026-08-18, while making C86 sound.**
+
+`packages/command-registry/src/walls/CreateWallOpeningCommand.ts:12` declares:
+
+```ts
+readonly affectedStores = ["wall"] as const;
+```
+
+and then writes **`doorStore.add()`** (`:155`) and **`windowStore.add()`** (`:204`), removing from
+both on undo (`:288-289`). `packages/command-registry/src/windows/CreateWindowsParametricBatchCommand.ts:89`
+declares `['wall']` and delegates to N of these children (`:199`, `:301`), replaying their undo in
+reverse (`:347-348`) — so it inherits the same gap.
+
+**Why this one matters more than an ordinary mis-declaration.** This is the command
+[C86 §12 R-1](../02-decisions/contracts/C86-ELEMENT-WALL-OPENING.md) names as *"the one atomic
+command"*: `door.create` and `window.create` both REFUSE and point every caller here. It is the
+single create path for a hosted opening in the whole product.
+
+**How it was found:**
+```
+grep -rhoE 'affectedStores[^;]*' packages/command-registry/src/{doors,windows}/*.ts | sort | uniq -c
+  → doors   12/12  ["door","wall"]
+  → windows 12/13  ["window","wall"]  +  ONE  ['wall']
+```
+C86 recorded the doors half as *"correct across the board"* — true — and never enumerated the
+`windows/` directory at all, which is where the outlier sits. The outlier then pointed at its parent.
+
+⚠ **NOT CLAIMED: that a door is lost today.** The command's own `undo()` clears both stores, so
+nothing reverses through the snapshot as far as this entry establishes. **What is NOT MEASURED is
+whether any path reverses it through `createSnapshot`/`affectedStores` instead**, and that is the
+question that decides live-vs-latent. It is left blank on purpose: this suite has twice paid for a
+confident sentence written in place of a measurement (the wall Y-datum "LATENT — nothing authors
+either offset non-zero", which was live; ADR-0331 §D3's premise "inferred from the file's own
+header", which was refuted). **Whoever answers it must run it, not reason about it.**
+
+**The declaration is wrong either way** — C84 EI-7c requires the declared set to be the written set,
+and a reverser that trusts the declaration over the command reverses half the write. Fix the
+declaration; measure before deciding whether anything downstream also needs fixing.

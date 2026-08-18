@@ -240,13 +240,50 @@ done today; **the declaration is nonetheless wrong** and would be a live C15 §8
 moment either is re-enabled. `MoveDoor.ts:51-52` and `MoveWindow.ts:50-51` name the undo hazard the
 refusal closes.
 
-### The 13 L2 door/window command families in `packages/command-registry/`
+### The L2 door/window commands — **25**, in TWO directories
 
-`doors/`: `MoveDoorCommand:26`, `SetDoorOffsetCommand:24`, `UpdateDoorAccessibilityTypeCommand:5`,
+⚠ **This heading said "The 13 L2 door/window command families" and then enumerated TWELVE, all of
+them doors — the entire `windows/` directory was missing from a section whose title promises both.**
+Corrected 2026-08-18. `ls packages/command-registry/src/doors/*.ts | wc -l` → **12**;
+`ls packages/command-registry/src/windows/*.ts | wc -l` → **13**; total **25**.
+
+`doors/` (12): `MoveDoorCommand:26`, `SetDoorOffsetCommand:24`, `UpdateDoorAccessibilityTypeCommand:5`,
 `UpdateDoorFireRatingCommand:5`, `UpdateDoorFrameColorCommand:5`, `UpdateDoorHeightCommand:5`,
 `UpdateDoorLeafColorCommand:5`, `UpdateDoorParameterCommand:48`, `UpdateDoorSillHeightCommand:5`,
 `UpdateDoorsSystemTypeBatchCommand:96`, `UpdateDoorSystemTypeCommand:67`, `UpdateDoorWidthCommand:5`
-— **all declare `["door","wall"]`.** ✅ The declaration is correct across the board.
+— **all 12 declare `["door","wall"]`.** ✅ Correct across the board.
+
+`windows/` (13): `CenterWindowInWallCommand`, `CreateWindowInAllWindowsCommand`,
+`CreateWindowsParametricBatchCommand`, `MoveWindowCommand`, `SetWindowOffsetCommand`,
+`UpdateWindowFireRatingCommand`, `UpdateWindowFrameColorCommand`, `UpdateWindowHeightCommand`,
+`UpdateWindowParameterCommand`, `UpdateWindowSillHeightCommand`, `UpdateWindowSystemTypeCommand`,
+`UpdateWindowWidthCommand`, `UpdateWindowsSystemTypeBatchCommand` — **12 of 13 declare
+`["window","wall"]`. ONE does not**, and it was on no register until now.
+
+#### ⛔ NEW 2026-08-18 — the canonical CREATE path under-declares its own write set
+
+`grep -rhoE 'affectedStores[^;]*' packages/command-registry/src/{doors,windows}/*.ts | sort | uniq -c`
+→ doors **12/12** `["door","wall"]`; windows **12/13** `["window","wall"]` plus **one
+`['wall']`**: `CreateWindowsParametricBatchCommand.ts:89`. Following it down finds the real subject:
+
+| Command | Declares | Actually writes | |
+|---|---|---|---|
+| `walls/CreateWallOpeningCommand.ts:12` | **`["wall"]`** | `doorStore.add()` `:155`, `windowStore.add()` `:204`; removes **both** on undo `:288-289` | ⛔ **under-declared** |
+| `windows/CreateWindowsParametricBatchCommand.ts:89` | **`['wall']`** | delegates to N `CreateWallOpeningCommand` children (`:199`, `:301`), replaying their undo in reverse (`:347-348`) | ⛔ inherits the same gap |
+
+**Why this matters, and exactly how far the measurement goes.** `CreateWallOpeningCommand` is the
+command every refusing verb in §12 R-1 is told to route to — *"the one atomic command"* for creating
+a hosted opening. It adds a record to `doorStore` / `windowStore` while declaring only `wall`, so the
+snapshot scope that `affectedStores` drives **excludes a store it writes**. Its own `undo()` removes
+from both stores explicitly (`:288-289`), which is why this has not surfaced as a lost door: the
+command does not rely on the snapshot to reverse itself.
+
+⚠ **NOT MEASURED: whether any path reverses this command through the SNAPSHOT rather than through its
+own `undo()`.** That is the question that decides whether this is a live defect or a latent one, and
+this contract does not answer it. **Do not record a verdict here without running it** — a confident
+sentence in place of a measurement is the failure C84 EI-1b exists to prevent, and it has already
+cost this suite twice (the wall Y-datum "LATENT"; ADR-0331 §D3's "inferred from the header"). The
+DECLARATION is wrong either way: EI-7c requires the declared set to be the written set.
 
 ### UI-control reachability
 
@@ -367,6 +404,12 @@ default divergence.
 | `windows/UpdateWindowParameterCommand.ts` | `:160` | `:93`, `:102` | ✅ HONOURS |
 | `doors/UpdateDoorParameterCommand.ts` | `:124` | `:96`, `:105` | ✅ HONOURS |
 | **`packages/core-app-model/src/views/PlanElementDragController.ts`** | **`:570` `ws.updateDoor(state.elementId, { offset: slide.offset })`, `:571` `ws.updateWindow(…)`, `:713`, `:715` (revert)** | ⛔ **NONE — the file contains ZERO occurrences of `doorStore`, `windowStore`, `@pryzm/geometry-door` or `@pryzm/geometry-window`** | ⛔ **VIOLATES C15 §8.1 — AND IT IS THE LIVE 2-D PLAN-VIEW DRAG PATH** |
+
+✅ **RE-MEASURED 2026-08-18 and the row is exact, line for line** —
+`grep -n 'updateDoor\|updateWindow' PlanElementDragController.ts` → **`:570`, `:571`, `:713`, `:715`,
+and nothing else**; `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-window'` → **0**.
+Recorded because a citation that survives re-measurement unchanged is worth as much as one that does
+not: this census is the sharpest measurement in this contract and it is still true.
 
 **Thirteen more commands mutate the record on one side only** (non-`offset`, so outside C15 §8.1's
 literal words, but they desync the same pair):
@@ -648,6 +691,7 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **14** | The bake worker handles no openings — three comments describing future work | in self-host bake: **walls with no voids and no leaves** | C84 **EI-6**-adjacent | declare or implement |
 | **15** | `door.move`/`window.move` declare `['door']`/`['window']`, omitting `wall` | nothing while they refuse; a live C15 §8.1 violation the moment they do not | C84 **EI-7**, C15 §8.1 | correct the declaration before re-enabling |
 | **16** | The batch-create verbs do **not** refuse while their single twins do | a caller routes around the refusal | C84 **EI-4a**, [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) | make them consistent |
+| **17** | **`CreateWallOpeningCommand.ts:12` declares `affectedStores = ["wall"]` while adding to `doorStore` (`:155`) and `windowStore` (`:204`)** — and `CreateWindowsParametricBatchCommand.ts:89` inherits it as `['wall']`. This is the command §12 R-1 names as *"the one atomic command"*, so every refusing create verb points at it | nothing yet that we have measured — its own `undo()` clears both stores at `:288-289`. **What it loses is the guarantee**: any reverser that trusts the declaration instead of the command reverses half the write | C84 **EI-7c** — the declared set MUST be the written set | measure whether ANY path reverses this command through the snapshot rather than its own `undo()`, then correct the declaration regardless [L-1031](../../04-reference/ISSUE-LOG.md) |
 
 ---
 
@@ -695,6 +739,10 @@ sentence (`WallRake.ts:50-62`) that is the worst of the three states.
    [C82](C82-RIBBON-CAPABILITY-SURFACE.md). ⚠ A verb-only control census would miss this family's
    live mutation path, which is off-bus.
 10. **`packages/persistence-client/src/loader/`** — deliberately not measured; DEAD.
+11. **Whether any path reverses `CreateWallOpeningCommand` through `createSnapshot` rather than
+    through the command's own `undo()`** (§4, §11 #17). This is the only question that separates a
+    LATENT declaration defect from a live one, and it is deliberately left blank rather than
+    reasoned about — see [L-1031](../../04-reference/ISSUE-LOG.md).
 
 ---
 

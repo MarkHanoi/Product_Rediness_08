@@ -245,9 +245,24 @@ One row per payload field. Every field has a declared destination: **CARRIED**, 
 **DROPPED (DELIBERATE)**. Omission is forbidden (C84 EI-2). This is the table the future
 `check-bridge-field-coverage.ts` gate consumes.
 
-**Hops measured:** `curtain-wall.create` payload → `CommandEventBridge.ts:412-443` (`p` cast
-`:421-429`, emit `:430-441`) → `initTools.ts:1408-1495` subscriber (guard `:1426-1438`, record
-`:1451-1470`) → `CurtainWallStore` → `ProjectSerializer.ts:643-659`.
+> ⚠ **RE-MEASURED 2026-08-18 — EVERY HOP CITATION IN THIS SECTION HAD MOVED, AND TWO OF ITS
+> VERDICTS ARE NO LONGER TRUE.** The table below described a bridge that no longer exists in that
+> shape: `bd182447` (L-972) added the missing fields to the CEB cast and **EXTRACTED the legacy
+> field mapping out of the `initTools` closure into its own module**, and `9f14b795` moved
+> `initTools` again. The rows are corrected in place and the two changed verdicts are marked; the
+> retracted text is kept per C84 §6.
+
+**Hops measured (2026-08-18):** `curtain-wall.create` payload →
+`CommandEventBridge.ts:503-553` (`p` cast **`:519-532`**, emit **`:533-551`**) and the batch arm
+`:555-600` (cast `:560-577`, emit `:582-597`) → `initTools.ts:1451` subscriber (dedup guard
+`:1472`, `add()` `:1491`) → **`apps/editor/src/engine/curtainWallCreatedMirror.ts:147-168`**, which
+is where the legacy record is now built → `CurtainWallStore` → `ProjectSerializer.ts:643-659`.
+
+**The extraction is the point, not an incidental refactor.** As a closure inside `initTools`, this
+mapping was unreachable from any suite — which is precisely how six constant-false reads survived in
+it (L-972). It is now a module a test can execute, exactly as `roofCreatedMirror` /
+`beamCreatedMirror` were extracted for the same reason. **Cite the mirror, not `initTools`, for any
+field's destination.**
 
 | # | L0 field (`CurtainWall.ts`) | CEB reads? | CEB emits | initTools → legacy field | Serialised? | **Disposition** |
 |---|---|---|---|---|---|---|
@@ -265,16 +280,16 @@ One row per payload field. Every field has a declared destination: **CARRIED**, 
 | 12 | `mullionThickness` `:65` | ✅ `:428` | `?? 0.05` `:440` | **`mullionSize`** `:1468` | ✅ `:649` | **TRANSFORMED (RENAMED)** — rationale `:1463-1467`; the pre-fix bug was `cw.mullionSize.toFixed(4)` throwing on `undefined` |
 | 13 | `bayWidth` `:67` | ✅ `:426` | `?? 1.2` `:438` | **`gridXSpacing`** `:1461` | ✅ `:648` | **TRANSFORMED (RENAMED)** |
 | 14 | `bayHeight` `:69` | ✅ `:427` | `?? 1.5` `:439` | **`gridYSpacing`** `:1462` | ✅ `:648` | **TRANSFORMED (RENAMED)** |
-| 15 | **`panels` `:70`** | ⛔ **not in the `:421-429` cast** | — | — | ⛔ **no `panels` key in `:644-658`** | ⛔ **DROPPED (SILENT) AT EVERY HOP** — see below |
+| 15 | **`panels` `:70`** | ✅ **`:531`** *(was: "not in the `:421-429` cast" — **RETRACTED**, `bd182447` added it)* | `panels` `:550` (batch `:596`) | ⛔ **not mapped** — `curtainWallCreatedMirror.ts:147-168` returns no `panels` key | ⛔ no `panels` key in `:644-658` | ⚠ **DROPPED (DECLARED) AT ONE HOP** — no longer "silent at every hop". The CEB carries it; the mirror drops it and **says so at the drop site** (`curtainWallCreatedMirror.ts:138-144`: *"carries N authored panel(s). The legacy `CurtainWallData` derives panels from `gridSystem` via `CurtainPanelSyncHandler` and cannot accept a list, so the wall is mirrored with its GRID only and those panel overrides are not reflected in 3-D."*). **CW-B-1 is SATISFIED for this row; CW-B-2 is NOT** — the user's door panel still does not render |
 | 15a | ↳ `panels[].id` `:15` | ⛔ | — | — | ⛔ | **DROPPED** |
 | 15b | ↳ `panels[].row` `:16` | ⛔ | — | — | ⛔ | **DROPPED** |
 | 15c | ↳ `panels[].col` `:17` | ⛔ | — | — | ⛔ | **DROPPED** |
 | 15d | ↳ `panels[].kind` `:18` | ⛔ | — | — | ⛔ | **DROPPED** — spandrel band, door panel, opaque infill all become default glazing |
 | 15e | ↳ `panels[].materialId` `:19` | ⛔ | — | — | ⛔ | **DROPPED** |
 | 15f | ↳ `panels[].rotation` `:22` | ⛔ | — | — | ⛔ | **DROPPED** |
-| 16 | `materialId` `:71` | ⛔ | — | — | ⛔ (legacy has `mullionMaterialId`/`glazingMaterialId` instead, `:653-654`) | ⛔ **DROPPED (SILENT)** — the wall-level material never reaches the renderer |
-| — | *(no L0 field)* | — | — | `baseOffset` (default 0) `:1460` | ✅ `:647` | **INVENTED AT THE BRIDGE** — legacy-only, no schema source |
-| — | *(no L0 field)* | — | — | `panelThickness` (default 0.05) `:1469` | ✅ `:649` | **INVENTED AT THE BRIDGE** |
+| 16 | `materialId` `:95` *(was cited `:71`)* | ✅ **`:529`** *(**RETRACTED** — it is read now)* | `p.materialId ?? p.systemTypeId` `:549` (batch `:595`) | ⛔ **not mapped** by the mirror | ⛔ (legacy has `mullionMaterialId`/`glazingMaterialId` instead, `:653-654`) | ⚠ **DROPPED (DECLARED)** — `curtainWallCreatedMirror.ts:129-133` warns, and `:118-122` gives the reason that makes this a DESIGN question rather than an oversight: *"`materialId` is a SINGLE generic id. The legacy model has THREE … so the id's intent is not recoverable here."* **One id cannot be split into three slots without a rule, and no rule exists. That rule is the deliverable, not a patch** |
+| 17 | **`baseOffset` `CurtainWall.ts:76`** | ✅ `:524` | `baseOffset` `:541` | `baseOffset` `curtainWallCreatedMirror.ts:157` | ✅ `:647` | ✅ **CARRIED** — ⛔ **this row said "INVENTED AT THE BRIDGE — no schema source". That is REFUTED: `baseOffset` IS an L0 field (`CurtainWall.ts:76`) and a legacy field (`CurtainWallTypes.ts:28`), and it is now carried end to end** |
+| 18 | **`panelThickness` `CurtainWall.ts:89`** | ✅ `:528` | `panelThickness` `:545` | `panelThickness` `curtainWallCreatedMirror.ts:167` | ✅ `:649` | ✅ **CARRIED** — same retraction: L0 `:89`, legacy `CurtainWallTypes.ts:34`. **CW-B-4's demand that these two "MUST gain L0 schema fields" was already satisfied when it was written** |
 | — | *(no L0 field)* | — | — | — | ✅ `mullionColor:650`, `glazingColor:652`, `mullionMaterialId:653`, `glazingMaterialId:654` | **LEGACY-ONLY** — unreachable from the bus |
 | — | *(no L0 field — `as any`)* | — | — | — | ✅ `gridSystem:655` | **LEGACY-ONLY**, written only by `AddCurtainGridLine.ts:90` / `RemoveCurtainGridLine.ts:98` |
 | — | `CurtainPanelData.hostedDoor` `CurtainPanelTypes.ts:143-145` (6 sub-fields `:89-105`) | ⛔ | — | — | ⛔ | ⛔ **DROPPED (SILENT)** — a configured curtain-wall door loses `frameColor`, `leafColor`, `hingesSide`, `swingDirection`, `sillHeight`, `frameThickness` on save |
@@ -311,6 +326,12 @@ So a non-uniform grid cannot be reconstructed, and a spandrel band cannot exist 
 - **CW-B-1 (EI-2).** Every row above marked **DROPPED (SILENT)** MUST become either CARRIED or
   **DROPPED (DECLARED)** — named in the bridge source at the drop site, with the reason. Silence is
   the defect.
+  > ✅ **PARTIALLY DISCHARGED 2026-08-18 (`bd182447`, L-972).** Rows **15** (`panels`) and **16**
+  > (`materialId`) are now DECLARED at the drop site with their reasons
+  > (`curtainWallCreatedMirror.ts:129-133`, `:138-144`), and rows **17**/**18**
+  > (`baseOffset`, `panelThickness`) turned out to be **CARRIED**, not invented. **Rows 3–8 remain
+  > SILENT** (`parentId`, `childrenIds`, `metadata`, `ifcData`, `provenance`, `confidence`) and are
+  > what is left of this bullet. Do not read the partial discharge as closure.
 - **CW-B-2.** `panels` and `materialId` MUST reach the authority. Rows 15/15a-f and 16 are the
   minimum bar: a curtain wall the user authored with a door panel MUST render, export and reload
   with a door panel.
@@ -318,9 +339,17 @@ So a non-uniform grid cannot be reconstructed, and a spandrel band cannot exist 
   deterministically from the wall id and the line index, or the function MUST refuse when
   `gridSystem` is absent. Consuming C73's tolerance/determinism contract is mandatory; a
   `crypto.randomUUID()` in a regeneration path cannot satisfy C73 §1.1.
-- **CW-B-4.** The two **INVENTED AT THE BRIDGE** rows (`baseOffset`, `panelThickness`) MUST gain L0
-  schema fields, or the bridge MUST stop inventing them. A default minted at a bridge is a value the
-  model never authored (C84 §1 — *"every `??` default fires and `parse()` succeeds"*).
+- ~~**CW-B-4.** The two **INVENTED AT THE BRIDGE** rows (`baseOffset`, `panelThickness`) MUST gain L0
+  schema fields, or the bridge MUST stop inventing them.~~
+  ⛔ **RETRACTED 2026-08-18 — THE PREMISE WAS FALSE WHEN WRITTEN.** Both fields were already on the
+  L0 schema (`CurtainWall.ts:76`, `:89`) and on the legacy record (`CurtainWallTypes.ts:28`, `:34`).
+  They are now read by the CEB (`:524`, `:528`), emitted (`:541`, `:545`) and mapped
+  (`curtainWallCreatedMirror.ts:157`, `:167`) — **CARRIED end to end**. The requirement it was
+  derived from stands and is restated so it is not lost: *a default minted at a bridge is a value the
+  model never authored* (C84 §1 — *"every `??` default fires and `parse()` succeeds"*), and the
+  mirror's `CURTAIN_WALL_MIRROR_DEFAULTS` (`:89-97`) still fires when the event omits a field.
+  **What is NOT MEASURED is whether any producer omits them in practice** — that is the question this
+  bullet should have asked.
 
 ---
 
@@ -641,7 +670,7 @@ Ordered by what the user loses, not by site count.
 |---|---|---|---|---|
 | **1** | `elementUndoStoreAdapter.ts:289/337-338` flattens index patches; **eight** curtain-wall verbs feed it. Undo writes a **number** into `panels`; redo writes an **object** | **the model**, silently, on Ctrl+Z | C84 **EI-7b** | `curtainWallPanelUndoDepth.test.ts` (C84 §5 #2) + a redo twin, **both watched RED against HEAD** |
 | **2** | `curtain-wall.replacePanel` is lineage **L6**: `affectedStores: [] :66`, patches diffed against a throwaway literal `:113-118`, sole authoritative write `:137` | **every panel-type change**, unrecoverably | C84 **EI-7**, §4A L6 | dispatch, `performUndo()`, read back `panelStore` |
-| **3** | `panels[]` never crosses the bridge (`CEB:421-429`) and is never serialised (`ProjectSerializer.ts:644-658`) | **the façade the user composed** — spandrel bands and door panels reload as uniform glazing | C84 **EI-2(a)**, **EI-6** | round-trip a wall with a `'door'` panel through save/load |
+| **3** ⚠ **HALF CLOSED** | ~~`panels[]` never crosses the bridge (`CEB:421-429`)~~ — **RETRACTED 2026-08-18: it crosses now** (`CEB:531` reads, `:550` emits, `bd182447`/L-972). It is dropped ONE hop later, at `curtainWallCreatedMirror.ts:147-168`, **and the drop now announces itself** (`:138-144`). It is still never serialised (`ProjectSerializer.ts:644-658`). **The user still loses the same thing; what changed is that the loss is now visible in the console instead of nowhere** | **the façade the user composed** — spandrel bands and door panels reload as uniform glazing | C84 **EI-2(a)**, **EI-6** | round-trip a wall with a `'door'` panel through save/load |
 | **4** | `createSnapshot`: `'curtainPanel'` absent `:609-625`; `'curtainWall'` ≠ `'curtainwall'` `:613` | **the rollback that was promised** | C84 **EI-7d**, **EI-1a** / C03 U-2b · L-953 | `check-affected-stores.ts` (C84 §5) |
 | **5** | `migrateToGridSystem:94, :99` mints `crypto.randomUUID()` on nine `??` call sites | **grid-line identity** — every held `gridLineId` orphaned on rebuild | [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) | call twice on one wall, assert id-set equality |
 | **6** | Nine of thirteen `PanelType` members have no `PanelKind`; `ReplacePanel.ts:77-79` names three | **ten panel systems** the tool builds and nothing can save | C84 **EI-3**, **EI-9** | enumerate both unions in one test |
@@ -653,6 +682,7 @@ Ordered by what the user loses, not by site count.
 | **12** | Ten `elementType` spellings (§1); `EdgeProjectorService.ts:2389-2394` matches one | plan-view fidelity for sub-parts | C84 **§4E** + [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | declare one tag + `role`/`parentId` sub-parts |
 | **13** | `gridSystem` written through `(cw as any)` (`AddCurtainGridLine.ts:90`, `RemoveCurtainGridLine.ts:98`) | type safety on the one field that survives undo correctly | C84 **EI-2(c)** | declare it in the L0 schema; remove both casts |
 | **14** | `CurtainWallStore.add()` does not emit; `initTools.ts:1477-1482` emits on its behalf | plan-view visibility, on any second caller | — (CW-C-2) | add the emit inside the store |
+| **15** ✅ **CLOSED** | ~~**A COPIED curtain wall was minted at the origin with default bays, silently.**~~ `CopyPlanToolHandler._copyCurtainWall` dispatched `curtain-wall.create` with `start`, `end`, `gridXSpacing`, `gridYSpacing` — **`CreateCurtainWallPayload` accepts NONE of the four**, so every copy landed at the L0 default baseLine `(0,0,0)→(4,0,0)` with default spacings, wherever the original stood, **with no error at all**. [L-978](../../04-reference/ISSUE-LOG.md) | **the copy** — position, extent and grid, all four | C84 **EI-2(a)**, **EI-3** | ✅ **CLOSED `9f14b795`.** The mapping moved to `apps/editor/src/engine/views/plantools/copyPayloads.ts` as a value a test can execute, and is pinned by `apps/editor/__tests__/CopiedElementKeepsPlaceAndProperties.test.ts`. **The lesson generalises past this family: a payload built behind a two-click canvas gesture is a payload no suite can reach** — the same reachability gap that hid L-972 in this very bridge |
 
 ⚠ **Non-regression note on #1.** The 2-segment `gridSystem` path (`addGridLine`/`removeGridLine`)
 **works today**. Any change to `elementUndoStoreAdapter.ts:287-339` MUST be proven not to move it —
