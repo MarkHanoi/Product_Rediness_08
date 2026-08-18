@@ -15,6 +15,9 @@ export * from './WallDataSchema';
 // The drawing layer weights the pen by it, so the eye can find the building's envelope.
 // It is a property of the TYPE (declared), never of the wall's thickness (inferred).
 export * from './WallFunction';
+// §FEAT-WALL-SIDE-FINISH — the per-side finish ladder, the render override and
+// the SIDE_CLASSIFICATION_UNKNOWN refusal. Pure; no store, no THREE, no DOM.
+export * from './WallSideFinishResolver';
 
 // ── ADR-057 P1 (OI-053h) — rebuild delta classifier (openings-only fast path) ─
 export * from './WallDeltaClassifier';

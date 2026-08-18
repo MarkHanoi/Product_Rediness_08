@@ -187,6 +187,70 @@ export function withWallSideFinish(
     return next;
 }
 
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+
+/**
+ * The override colour the layer mesh at `layerIdx` should paint, or `null` to
+ * leave today's behaviour (`layer.materialColor ?? wall.materialColor ?? body`)
+ * completely untouched.
+ *
+ * WHICH LAYER IS WHICH SIDE. Layer arrays are authored EXTERIOR-FIRST
+ * (`WallTypeEditorModal` labels the editor "Layers (exterior face first)";
+ * `WallLayerFootprint2D` says "authored stack, exterior→interior"), and
+ * `WallFragmentBuilder` lays them out from `cursor = -totalThickness/2` along
+ * `outward = (-dir.z, 0, dir.x)`. So `layers[0]` is the exterior-most band and
+ * `layers[n-1]` the interior-most. That ordering is an AUTHORED fact, not a
+ * geometric inference — it is the same one `AddWallLayerBatchCommand` already
+ * ships against (`side:'interior'` appends, `'exterior'` unshifts).
+ *
+ * ⚠ THE SINGLE-LAYER CASE IS A DISCLOSED LIMIT, NOT A SILENT GUESS.
+ * `WallFragmentBuilder.ts:1254` takes the layered arm at `layers.length > 0`, so
+ * a `wt-monolithic` wall renders as exactly ONE mesh whose two faces share one
+ * material — this renderer has no per-face material index (no `addGroup` exists
+ * anywhere in geometry-wall, and the committer arm paints `THREE.DoubleSide`).
+ * Two independent finishes therefore CANNOT both show on such a wall.
+ *
+ * Both values are still STORED independently and both are shown in the property
+ * panel and schedules; what is limited is only what the viewport can display.
+ * The exterior override wins the single mesh, deterministically, and
+ * `describeSingleLayerRenderLimit()` gives the UI the sentence to say so. The
+ * discipline being kept is that the user is TOLD, rather than shown a wall that
+ * quietly disagrees with its own data.
+ */
+export function resolveLayerRenderFinishColor(
+    wall: SideFinishBearingWall,
+    layerIdx: number,
+    layerCount: number,
+): string | null {
+    if (layerCount <= 0) return null;
+    const sf = wall.sideFinishes;
+    if (!sf) return null;
+
+    // Exterior-first: index 0 is the exterior face, index n-1 the interior face.
+    // On a single-layer wall BOTH tests hit the same mesh; exterior is checked
+    // first, so it wins — see the limit note above.
+    if (layerIdx === 0 && sf.exterior?.materialColor) return sf.exterior.materialColor;
+    if (layerIdx === layerCount - 1 && sf.interior?.materialColor) return sf.interior.materialColor;
+    return null;
+}
+
+/** `true` when this wall cannot render its two side finishes distinctly. */
+export function hasSingleLayerRenderLimit(
+    wall: SideFinishBearingWall & { readonly layers?: ReadonlyArray<unknown> },
+): boolean {
+    const n = wall.layers?.length ?? 0;
+    return n <= 1 && Boolean(wall.sideFinishes?.interior && wall.sideFinishes?.exterior);
+}
+
+/** The disclosure sentence for {@link hasSingleLayerRenderLimit}. */
+export function describeSingleLayerRenderLimit(): string {
+    return (
+        'Both finishes are saved, but this wall has a single layer — its two faces are one ' +
+        'surface in the 3D view, so only the exterior finish is painted there. Add a layer ' +
+        '(Wall Type → Layers) to show them separately.'
+    );
+}
+
 // ─── THE HONEST REFUSAL ──────────────────────────────────────────────────────
 
 /**

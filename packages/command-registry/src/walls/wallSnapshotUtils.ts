@@ -19,7 +19,19 @@ export function serializeWallSnapshot(wall: WallData): any {
             { ...wall.baseLine[1] },
         ],
         openings: wall.openings ? wall.openings.map(o => ({ ...o })) : [],
-        childrenIds: wall.childrenIds ? [...wall.childrenIds] : []
+        childrenIds: wall.childrenIds ? [...wall.childrenIds] : [],
+        // §FEAT-WALL-SIDE-FINISH — `...wall` above is SHALLOW, so without this
+        // the snapshot would share the live wall's `sideFinishes` object BY
+        // REFERENCE, and an in-place edit would silently rewrite the undo state
+        // too. Deep-copied per side, so undo restores what was actually there.
+        ...(wall.sideFinishes
+            ? {
+                sideFinishes: {
+                    ...(wall.sideFinishes.interior ? { interior: { ...wall.sideFinishes.interior } } : {}),
+                    ...(wall.sideFinishes.exterior ? { exterior: { ...wall.sideFinishes.exterior } } : {}),
+                },
+            }
+            : {}),
     };
 }
 

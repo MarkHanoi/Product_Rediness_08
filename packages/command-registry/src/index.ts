@@ -397,6 +397,7 @@ export * from './walls/UpdateWallsSystemTypeBatchCommand';
 export * from './walls/UpdateWallsColorBatchCommand';
 export * from './walls/UpdateWallsRakeBatchCommand';
 export * from './walls/AddWallLayerBatchCommand';
+export * from './walls/SetWallSideFinishCommand';
 // ADR-0314 §Reference resolution — the generic catalogue ref resolver (wall resolver delegates).
 export * from './catalogue/resolveCatalogueRef';
 export * from './walls/wallSnapshotUtils';

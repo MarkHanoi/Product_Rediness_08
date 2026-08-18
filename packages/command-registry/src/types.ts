@@ -86,6 +86,12 @@ export enum CommandType {
     UPDATE_WALLS_RAKE_BATCH = 'UPDATE_WALLS_RAKE_BATCH',
     // §FEAT-WALL-LAYER-ADD-BATCH (ADR-0315) — add a finish layer to MANY walls in ONE undo step.
     ADD_WALL_LAYER_BATCH = 'ADD_WALL_LAYER_BATCH',
+    // §FEAT-WALL-SIDE-FINISH — set the finish MATERIAL on one SEMANTIC side
+    // ('interior'/'exterior') of a wall. Distinct from ADD_WALL_LAYER_BATCH:
+    // that ADDS a construction layer and moves wall.thickness; this changes
+    // appearance only and never moves the wall.
+    SET_WALL_SIDE_FINISH = 'SET_WALL_SIDE_FINISH',
+    SET_WALL_SIDE_FINISH_BATCH = 'SET_WALL_SIDE_FINISH_BATCH',
     UPDATE_ELEMENT_PARAMETER = 'UPDATE_ELEMENT_PARAMETER',
     CHANGE_WALL_LEVEL = 'CHANGE_WALL_LEVEL',
     UPDATE_WALL_BASELINE = 'UPDATE_WALL_BASELINE',

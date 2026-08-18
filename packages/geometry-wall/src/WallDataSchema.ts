@@ -134,6 +134,40 @@ export const WallLayerSchema = z.object({
 
 export type WallLayerInput = z.infer<typeof WallLayerSchema>;
 
+// ─── §FEAT-WALL-SIDE-FINISH: per-side finish sub-schema ──────────────────────
+
+/** '#rrggbb' — the same spelling `AddWallLayerBatchCommand` validates. */
+const SIDE_FINISH_HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+/** One side's authored finish. `materialId` is the library key; the colour and
+ *  name are RESOLVED SNAPSHOTS so the render fast path and schedules need no
+ *  library read (and so Lane Y's master-library work cannot orphan the data). */
+export const WallSideFinishSchema = z.object({
+    materialId:    z.string().min(1, 'sideFinish.materialId is required'),
+    materialColor: z.string().regex(SIDE_FINISH_HEX6, 'sideFinish.materialColor must be #rrggbb').optional(),
+    materialName:  z.string().optional(),
+});
+
+/**
+ * The two sides, as SEPARATE optional keys.
+ *
+ * `.strict()` deliberately: the point of this record is that exactly two named,
+ * INDEPENDENT sides exist. A typo'd third key silently absorbed would be an
+ * authored finish that never renders and never round-trips.
+ *
+ * The side vocabulary is SEMANTIC ('interior' / 'exterior' — the axis
+ * `WallLayerFunction` already declares). It is NOT the geometric
+ * `frontSide`/`backSide` below, which have zero writers repo-wide.
+ */
+export const WallSideFinishesSchema = z
+    .object({
+        interior: WallSideFinishSchema.optional(),
+        exterior: WallSideFinishSchema.optional(),
+    })
+    .strict();
+
+export type WallSideFinishesInput = z.infer<typeof WallSideFinishesSchema>;
+
 // ─── WallCurve sub-schema ──────────────────────────────────────────────────────
 
 /**
@@ -185,6 +219,8 @@ export const WallDataAddSchema = z
         // §STEP6: Interior/Exterior side classification (Pascal Pattern Area 5)
         frontSide:  WallSideClassificationSchema.optional(),
         backSide:   WallSideClassificationSchema.optional(),
+        // §FEAT-WALL-SIDE-FINISH — per-side finish, keyed on the SEMANTIC side.
+        sideFinishes: WallSideFinishesSchema.optional(),
     })
     .passthrough()
     // §WALL-AUDIT-2026 (RESOLVED 2026-04-24) — schema-level enforcement of the
@@ -293,8 +329,14 @@ export const WallDataUpdateSchema = z
         rakeAngleDeg: z.number().finite({ message: 'rakeAngleDeg must be finite' }).optional(),
         metadata:   WallMetadataSchema.optional(),
         // §STEP6: Topology Layer stamps frontSide/backSide via update() after space analysis
+        // ⚠ measured 2026-08-18: nothing does. Zero writers, zero readers repo-wide.
         frontSide:  WallSideClassificationSchema.optional(),
         backSide:   WallSideClassificationSchema.optional(),
+        // §FEAT-WALL-SIDE-FINISH — the update path SetWallSideFinishCommand uses.
+        // A partial update replaces the whole record, so the command composes the
+        // next value with `withWallSideFinish()` (which copies the untouched side
+        // BY VALUE) rather than letting a caller send a half record.
+        sideFinishes: WallSideFinishesSchema.optional(),
     })
     .passthrough()
     // §WALL-AUDIT-2026 (RESOLVED 2026-04-24) — same baseline invariants as the
