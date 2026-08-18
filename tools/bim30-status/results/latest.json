@@ -1,12 +1,12 @@
 {
-  "generatedAtSha": "c2e8ba00",
+  "generatedAtSha": "a296069d",
   "rowsParsed": 84,
   "counted": 82,
-  "measured": 38,
-  "carried": 43,
+  "measured": 54,
+  "carried": 27,
   "notDetermined": 1,
-  "closedOfMeasured": 17,
-  "ratchetBreaches": 5,
+  "closedOfMeasured": 43,
+  "ratchetBreaches": 3,
   "rows": [
     {
       "id": "GR-01",
@@ -81,7 +81,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-persistence"
       }
@@ -95,7 +95,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-persistence"
       }
@@ -109,7 +109,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-persistence"
       }
@@ -118,11 +118,14 @@
       "id": "GR-09",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-graph-runtime-readback"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: H5 `graphruntime.cert`"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-runtime-readback"
       }
     },
     {
@@ -134,7 +137,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-graph-persistence"
       }
@@ -143,11 +146,14 @@
       "id": "GR-11",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-gate-residency"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the three gates themselves"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-gate-residency"
       }
     },
     {
@@ -196,44 +202,56 @@
       "id": "GR-15",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-source-verified-invariants"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source verification of `PhysicsEngine.ts:380`"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-source-verified-invariants"
       }
     },
     {
       "id": "GR-16",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-graph-query-verbs"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: `graphQueryBusHandlers.ts` + its spec suite"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-query-verbs"
       }
     },
     {
       "id": "GR-17",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-ubg-snapshot-derived"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: `ubgSnapshotIsDerivedNotAuthored.test.ts`"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-ubg-snapshot-derived"
       }
     },
     {
       "id": "GR-18",
       "block": "Graph & topology",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-graph-runtime-readback"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: H5 `graphruntime.cert`"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-graph-runtime-readback"
       }
     },
     {
@@ -296,44 +314,56 @@
       "id": "PR-05",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED *(moved OPEN → CLOSED)*",
-      "gates": [],
+      "gates": [
+        "check-source-verified-invariants"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED *(moved OPEN → CLOSED)*",
-        "note": "instrument is not a runnable gate: caller census + `gr2UpdateSurrenderSeam` / `observerGraphAuthoritative` on the r"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-source-verified-invariants"
       }
     },
     {
       "id": "PR-06",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-source-verified-invariants"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source verification"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-source-verified-invariants"
       }
     },
     {
       "id": "PR-07",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-source-verified-invariants"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: source verification"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-source-verified-invariants"
       }
     },
     {
       "id": "PR-08",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-gate-residency"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: both gates"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-gate-residency"
       }
     },
     {
@@ -354,11 +384,14 @@
       "id": "PR-10",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-geometry-change-consumers"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the roof-clash detector + its suites"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-geometry-change-consumers"
       }
     },
     {
@@ -376,22 +409,28 @@
       "id": "PR-12",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-geometry-change-consumers"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the staleness suites"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-geometry-change-consumers"
       }
     },
     {
       "id": "PR-13",
       "block": "Propagation & prevState",
       "declaredStatus": "CLOSED *(moved OPEN → CLOSED; see §0.2 — it was already true at the last stamp)*",
-      "gates": [],
+      "gates": [
+        "check-source-verified-invariants"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED *(moved OPEN → CLOSED; see §0.2 — it was already true at the last stamp)*",
-        "note": "instrument is not a runnable gate: repo-wide store-file census"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-source-verified-invariants"
       }
     },
     {
@@ -473,11 +512,14 @@
       "id": "GE-07",
       "block": "Geometry determinism & tolerance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-gate-residency"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the three gates"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-gate-residency"
       }
     },
     {
@@ -503,7 +545,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 0,
+        "exit": 3,
         "summary": "[check-refusal-identity] §REFUSAL-IDENTITY (C58 §1.13 / §1.13.8, ADR-0269, ADR-0279)",
         "gate": "check-refusal-identity"
       }
@@ -542,7 +584,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 3,
+        "exit": 1,
         "summary": "[check-triangulation-canonical] executed controls (gates doc §2.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-triangulation-canonical"
       }
@@ -556,7 +598,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
         "gate": "check-no-hidden-mock"
       }
@@ -584,7 +626,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
         "gate": "check-no-hidden-mock"
       }
@@ -620,7 +662,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "[check-no-hidden-mock] executed controls (an arm never watched failing is UNPROVEN):",
         "gate": "check-no-hidden-mock"
       }
@@ -645,7 +687,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "[check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-constraint-honesty"
       }
@@ -676,11 +718,14 @@
       "id": "CO-11",
       "block": "Constraint honesty",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-gate-residency"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the three gates"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-gate-residency"
       }
     },
     {
@@ -692,7 +737,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
+        "exit": 0,
         "summary": "[check-constraint-honesty] EXECUTED CONTROLS (C74 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-constraint-honesty"
       }
@@ -706,7 +751,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 3,
+        "exit": 1,
         "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-provenance-not-invented"
       }
@@ -734,7 +779,7 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 3,
+        "exit": 1,
         "summary": "[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):",
         "gate": "check-provenance-not-invented"
       }
@@ -779,11 +824,14 @@
       "id": "PV-07",
       "block": "Provenance",
       "declaredStatus": "CLOSED",
-      "gates": [],
+      "gates": [
+        "check-gate-residency"
+      ],
       "determination": {
-        "kind": "CARRIED",
-        "declared": "CLOSED",
-        "note": "instrument is not a runnable gate: the three gates"
+        "kind": "MEASURED",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
+        "gate": "check-gate-residency"
       }
     },
     {
@@ -820,8 +868,8 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
-        "summary": "code says: | Handler files read | 1258 (floor 900) |",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-verb-register"
       }
     },
@@ -834,8 +882,8 @@
       ],
       "determination": {
         "kind": "MEASURED",
-        "exit": 1,
-        "summary": "code says: | Handler files read | 1258 (floor 900) |",
+        "exit": 0,
+        "summary": "npm warn Unknown project config \"package-manager-strict\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config …",
         "gate": "check-verb-register"
       }
     },
@@ -917,7 +965,7 @@
       "determination": {
         "kind": "MEASURED",
         "exit": 0,
-        "summary": "[xss-guards] ✅ no new unguarded HTML-sink interpolations. 547 baselined finding(s) across 142 file(s); 4662 files scanned.",
+        "summary": "[xss-guards] ✅ no new unguarded HTML-sink interpolations. 547 baselined finding(s) across 142 file(s); 4661 files scanned.",
         "gate": "check-xss-guards"
       }
     },

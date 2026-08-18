@@ -1,6 +1,6 @@
 {
   "harness": "H5-graph-runtime-readback",
-  "generatedAt": "2026-08-16T09:25:31.644Z",
+  "generatedAt": "2026-08-17T17:59:15.593Z",
   "seedLog": [
     "level GRT-L0: OK"
   ],
@@ -60,7 +60,7 @@
       "edgeType": "sitsOn",
       "declared": "NOT-REACHED",
       "measured": "NOT-REACHED",
-      "detail": "getTargets('grt-never-created-puh9hoadcai','sitsOn')=[] hasRelationship('grt-never-created-puh9hoadcai'→'GRT-L0')=false"
+      "detail": "getTargets('grt-never-created-92kooxcycjv','sitsOn')=[] hasRelationship('grt-never-created-92kooxcycjv'→'GRT-L0')=false"
     }
   ]
 }
