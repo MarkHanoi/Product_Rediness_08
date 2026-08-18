@@ -622,6 +622,46 @@ export const STANDARD_MATERIAL_LIBRARY: StandardMaterialDef[] = [
     { id: "landscape-sand", label: "Landscape · Sand", category: "Landscape & Ground", params: { color: new THREE.Color("#d2b982"), metalness: 0, roughness: 1.0 } },
     { id: "landscape-asphalt-new", label: "Ground · New Asphalt", category: "Landscape & Ground", params: { color: new THREE.Color("#202326"), metalness: 0, roughness: 0.78 } },
     { id: "landscape-asphalt-worn", label: "Ground · Worn Asphalt", category: "Landscape & Ground", params: { color: new THREE.Color("#474a4a"), metalness: 0, roughness: 0.92 } },
+
+    // ── LANDSCAPE & GROUND · PLANTING ────────────────────────────────────────
+    // Albedo note: real turf is far darker and less saturated than the "grass
+    // green" reflex — a mown lawn measures around #3f6b2e in daylight, not
+    // #00ff00.  Roughness is held at 0.94–0.99 because a leaf canopy is a
+    // near-Lambertian scatterer; the only entry given a specular lift is the
+    // synthetic turf, whose polyethylene filaments genuinely do glint.
+    { id: "landscape-grass-lawn", label: "Landscape · Mown Lawn", category: "Landscape & Ground", params: { color: new THREE.Color("#436f2c"), metalness: 0, roughness: 0.96 } },
+    { id: "landscape-grass-ryegrass", label: "Landscape · Ryegrass Turf", category: "Landscape & Ground", params: { color: new THREE.Color("#3d6b31"), metalness: 0, roughness: 0.95 } },
+    { id: "landscape-grass-fescue-fine", label: "Landscape · Fine Fescue (Blue-Green)", category: "Landscape & Ground", params: { color: new THREE.Color("#4a7050"), metalness: 0, roughness: 0.96 } },
+    { id: "landscape-grass-meadow", label: "Landscape · Wildflower Meadow", category: "Landscape & Ground", params: { color: new THREE.Color("#6b7a3c"), metalness: 0, roughness: 0.98 } },
+    { id: "landscape-grass-tall-ornamental", label: "Landscape · Tall Ornamental Grass", category: "Landscape & Ground", params: { color: new THREE.Color("#8a8a4e"), metalness: 0, roughness: 0.98 } },
+    { id: "landscape-grass-dry", label: "Landscape · Drought-Dormant Grass", category: "Landscape & Ground", params: { color: new THREE.Color("#a2914f"), metalness: 0, roughness: 0.99 } },
+    { id: "landscape-grass-artificial", label: "Landscape · Artificial Turf", category: "Landscape & Ground", params: { color: new THREE.Color("#4e8438"), metalness: 0, roughness: 0.80 } },
+    { id: "landscape-moss", label: "Landscape · Moss", category: "Landscape & Ground", params: { color: new THREE.Color("#4c6330"), metalness: 0, roughness: 0.99 } },
+    { id: "landscape-groundcover-shrub", label: "Landscape · Low Shrub Groundcover", category: "Landscape & Ground", params: { color: new THREE.Color("#37542c"), metalness: 0, roughness: 0.97 } },
+
+    // ── LANDSCAPE & GROUND · SOIL ───────────────────────────────────────────
+    { id: "landscape-topsoil", label: "Landscape · Screened Topsoil", category: "Landscape & Ground", params: { color: new THREE.Color("#4a3a2b"), metalness: 0, roughness: 1.0 } },
+    { id: "landscape-soil-clay", label: "Landscape · Clay Subsoil", category: "Landscape & Ground", params: { color: new THREE.Color("#6d4834"), metalness: 0, roughness: 0.98 } },
+    { id: "landscape-soil-sandy-loam", label: "Landscape · Sandy Loam", category: "Landscape & Ground", params: { color: new THREE.Color("#8a6f4c"), metalness: 0, roughness: 1.0 } },
+    { id: "landscape-bark-mulch", label: "Landscape · Bark Mulch", category: "Landscape & Ground", params: { color: new THREE.Color("#5b3a26"), metalness: 0, roughness: 0.99 } },
+    { id: "landscape-compost-dressing", label: "Landscape · Compost Dressing", category: "Landscape & Ground", params: { color: new THREE.Color("#33291f"), metalness: 0, roughness: 1.0 } },
+
+    // ── LANDSCAPE & GROUND · SOLID PATHS & HARDSCAPE ────────────────────────
+    // Bound paving sits lower in roughness than loose aggregate: a sawn granite
+    // slab returns a broad specular lobe (0.55) where compacted decomposed
+    // granite stays fully diffuse (0.97).
+    { id: "ground-decomposed-granite", label: "Ground · Compacted Decomposed Granite", category: "Landscape & Ground", params: { color: new THREE.Color("#ab8f68"), metalness: 0, roughness: 0.97 } },
+    { id: "ground-hoggin-path", label: "Ground · Bound Hoggin Path", category: "Landscape & Ground", params: { color: new THREE.Color("#9c8256"), metalness: 0, roughness: 0.95 } },
+    { id: "ground-paving-granite", label: "Ground · Sawn Granite Paving", category: "Landscape & Ground", params: { color: new THREE.Color("#8e8f8c"), metalness: 0, roughness: 0.55 } },
+    { id: "ground-paving-sandstone", label: "Ground · Sandstone Flag Paving", category: "Landscape & Ground", params: { color: new THREE.Color("#c3a983"), metalness: 0, roughness: 0.74 } },
+    { id: "ground-paving-limestone", label: "Ground · Limestone Flag Paving", category: "Landscape & Ground", params: { color: new THREE.Color("#cdc7b6"), metalness: 0, roughness: 0.68 } },
+    { id: "ground-cobble-setts", label: "Ground · Granite Cobble Setts", category: "Landscape & Ground", params: { color: new THREE.Color("#6e6b66"), metalness: 0, roughness: 0.72 } },
+    { id: "ground-brick-paver", label: "Ground · Clay Brick Paver", category: "Landscape & Ground", params: { color: new THREE.Color("#9c5a41"), metalness: 0, roughness: 0.80 } },
+    { id: "ground-concrete-path", label: "Ground · Broom-Finished Concrete Path", category: "Landscape & Ground", params: { color: new THREE.Color("#c2beb6"), metalness: 0, roughness: 0.90 } },
+    { id: "ground-concrete-paver-grey", label: "Ground · Grey Concrete Paver", category: "Landscape & Ground", params: { color: new THREE.Color("#a8a7a2"), metalness: 0, roughness: 0.86 } },
+    { id: "ground-resin-bound-gravel", label: "Ground · Resin-Bound Gravel", category: "Landscape & Ground", params: { color: new THREE.Color("#9a8a6f"), metalness: 0, roughness: 0.62 } },
+    { id: "ground-timber-decking", label: "Ground · Timber Deck Boards", category: "Landscape & Ground", params: { color: new THREE.Color("#9a7c55"), metalness: 0, roughness: 0.82 } },
+    { id: "ground-stepping-stone", label: "Ground · Stepping Stones in Turf", category: "Landscape & Ground", params: { color: new THREE.Color("#8a8781"), metalness: 0, roughness: 0.76 } },
     { id: "special-mirror-silver", label: "Special · Silver Mirror", category: "Specialty Surfaces", params: { color: new THREE.Color("#dfe3e8"), metalness: 1, roughness: 0.0 } },
     { id: "special-black-gloss", label: "Special · Piano Black Gloss", category: "Specialty Surfaces", params: { color: new THREE.Color("#050505"), metalness: 0, roughness: 0.02 } },
     { id: "special-white-solid-surface", label: "Special · White Solid Surface", category: "Specialty Surfaces", params: { color: new THREE.Color("#f3f1ec"), metalness: 0, roughness: 0.30 } },
