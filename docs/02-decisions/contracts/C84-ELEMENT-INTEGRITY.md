@@ -43,9 +43,14 @@ success"*.
    `??` default fires, `Furniture.parse` **succeeds**, and the store receives
    `catalogId:''`, `origin:{0,0,0}`, `representations:{}` for every item. Four `as any`
    casts at the dispatch sites are why `tsc` never saw it.
-2. **Lighting is never persisted.** `grep -n "[Ll]ighting"` over `ProjectSerializer.ts`
-   **and** `ProjectLoader.ts` returns **zero matches in both**. Every light the user places
-   is destroyed on save.
+2. **Lighting is never SAVED — and that is worse than "never persisted".**
+   `grep -ci "lighting"` on `ProjectSerializer.ts` → **0**. The same grep on
+   `ProjectLoader.ts` → **18**. ⚠ *This corrects an earlier reading in this very document
+   that claimed zero in both files.* **The load half exists and the save half does not**,
+   which is precisely why the feature looks wired: every code-reading review finds lighting
+   in the persistence layer and stops. Nothing is ever written for the loader to find.
+   Every light the user places is destroyed on save. **An asymmetric pipeline reads as a
+   complete one — check both halves, never one.**
 3. **Delete is path-dependent.** The keyboard path reads `elementType`
    (`initUI.ts:2449` → `DeleteElement.ts:51`); the delete **button** does not
    (`BimService.ts:159-179` constructs `DeleteElementCommand(id)` unconditionally, never
