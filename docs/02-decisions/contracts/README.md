@@ -14,8 +14,36 @@
 2. `docs/01-strategy/STR-03-engineering-vision.md` — engineering intent and principles (P1–P8)
 3. `docs/01-strategy/STR-04-architecture.md` — system shape, lint gates, convergence booleans
 4. **This contract suite** — per-subsystem binding contracts (**C01–C83 + C24.1**; C76 RESERVED for the element-family register, COORD-01; C61 is a RESERVED, unminted slot). *Range corrected 2026-08-14 when C82 was indexed: this row read "C01–C77" while C78–C81 files existed — keep the range current per the correction note below. Extended to **C83** the same day, in the commit that indexed it — the row and the range move together, which is the whole point of the rule. ⚠ C81 (`C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md`, CANONICAL 2026-08-13) has a file but **no row in the table below** — the C67 defect shape recurring; its row is owed by the lane that minted it.*
-5. `docs/02-decisions/adrs/` — per-decision rationale (**251** ADRs)
-6. `docs/03-execution/specs/` — per-system normative specs (**92** SPECs)
+5. `docs/02-decisions/adrs/` — per-decision rationale (**267** ADRs — *measured 2026-08-18; read **251**)
+6. `docs/03-execution/specs/` — per-system normative specs (**95** SPECs — *measured 2026-08-18; read **92**)
+
+> ## ⛔ THE RANGE IN ROW 4 AND THE COUNT IN §"69 contract files" ARE BOTH FALSE — corrected 2026-08-18.
+>
+> **Measured** — `ls docs/02-decisions/contracts/C*.md | wc -l` → **98**, not 69.
+> `ls ../adrs/ADR-*.md | wc -l` → **267**, not 251. `find docs -name 'SPEC-*.md' | wc -l` → **95**, not 92.
+>
+> **Row 4 reads `C01–C83 + C24.1`. At least fifteen contracts sit outside that range**, including
+> **[C84 — ELEMENT INTEGRITY](./C84-ELEMENT-INTEGRITY.md)**, which is binding on *every PR touching
+> an element family*, and the **C85–C99 per-element block** C84 §6 allocates — of which C85, C87,
+> C88, C89, C90, C91, C92, C93, C94, C95, C96, C97, C98 and C99 have landed as files with **no row
+> in the table below**.
+>
+> ⚠ **CLAUDE.md is wrong in the same way and by more**: its Governance section states the suite is
+> `C01–C68 + C24.1`, leaving **thirty contracts outside the stated ordering**. An agent reading it
+> literally would rank C84 *below an ADR*. That is the identical failure this row already records
+> for C67 and C68 — and it has now recurred three times (C67 → C81 → C84/C85–C99), which is the
+> finding: **the rule "the row and the range move together" is stated here and is not enforced by
+> anything.**
+>
+> **DO NOT RE-TRANSCRIBE THESE NUMBERS.** Every count in rows 4–6 has been wrong at least twice.
+> Run the command. Per [C69 §0.1](./C69-API-VERB-REGISTER.md)'s rule for the verb register — cite
+> the generated artefact, never copy it — the same applies here.
+>
+> *Exit condition:* a gate asserts `ls contracts/` equals this table's row set **in both
+> directions**, so neither a file without a row nor a row without a file can survive a commit.
+> Until that gate exists, this banner is the only thing standing between the index and its next
+> drift. **See [CONTRACT-AMENDMENT-REGISTER.md](./CONTRACT-AMENDMENT-REGISTER.md) for the full
+> list of measured contract defects awaiting amendment.**
 
 > ⚠ **Corrected 2026-08-11.** Row 4 read **"C01–C56"**, row 5 **"196 ADRs"**, row 6 **"82 SPECs"**.
 > This list is **the authoritative ordering statement that `CLAUDE.md` defers to**, so a stale

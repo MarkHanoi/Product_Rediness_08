@@ -296,6 +296,47 @@ Default `LayerMapTable` (AIA / NCS standard) ships in `packages/schemas/src/dxf/
 
 ---
 
+> ## ⛔ SUPERSEDED IN PART — 2026-08-18, by measurement. READ BEFORE §3.1–§3.5 AND §7.
+>
+> **§7's premise is right and its conclusion is wrong.** `plugins/dxf/` IS a near-empty scaffold
+> (5 `.ts` files, measured). **But DXF and DWG import SHIPPED — in `packages/file-format`, a
+> package this contract never names.**
+>
+> | Shipped at HEAD | The §3 row that orders it built again |
+> |---|---|
+> | `packages/file-format/src/DxfParser.ts` + `src/import/dxf/DxfParserExt.ts` | §3.1 `DxfImporter` |
+> | `packages/file-format/src/DxfGeometryBuilder.ts` | §3.1 |
+> | `packages/file-format/src/import/dxf/DwgImportAdapter.ts` | §3.3 `DwgImporter` |
+> | `packages/file-format/src/import/dxf/DxfLayerStore.ts` | §3.4 `LayerMapStore` |
+> | `DxfOverlayStore.ts` · `DxfPlanViewProjector.ts` · `DxfToBimTracer.ts` | **not in this contract at all** |
+>
+> Public API at `packages/file-format/src/index.ts:80-83`; dependency `dxf@^5.3.1` at
+> `package.json:259`.
+>
+> ⛔ **THE DWG LICENCE SECTION IS DECIDED, AND NOT AS WRITTEN.** This contract's
+> ODA-Teigha-vs-LibreDWG tier split is **not what shipped**. `DwgImportAdapter.ts:1-16` uploads to
+> **`POST /api/import/dwg`**, live at `server.js:2676`, backed by **Autodesk Platform Services**
+> (`APS_CLIENT_ID` / `APS_CLIENT_SECRET`, `server.js:2682-2686`). **Neither ODA nor LibreDWG is a
+> dependency. Do not procure a DWG licence against this contract without re-deciding it.**
+>
+> **WHAT STILL STANDS, and is the valuable half:** the DXF entity-mapping tables, the
+> layer / line-type / text-style / dim-style bijection rule, the plot-style (CTB/STB) fidelity
+> requirement, and the paperspace/viewport translation semantics are unchanged — and are now the
+> specification the SHIPPED code should be audited AGAINST rather than built from. Only the
+> **LOCATION**, the **BUILD STATUS** and the **DWG BACKEND DECISION** are false.
+>
+> ⚠ **The P2 boundary rule needs restating for the real host.** `DxfGeometryBuilder.ts:18` imports
+> `* as THREE from '@pryzm/renderer-three/three'`; the §2 rule as written scoped only to
+> `plugins/dxf/` and did not anticipate this host.
+>
+> ⚠ **A SECOND DEFECT THIS EXPOSES, IN THE CODE:** `DxfParser.ts` and `DxfGeometryBuilder.ts`
+> exist **TWICE** — at `packages/file-format/src/` and again under `src/import/dxf/`. Reconciling
+> that pair is prerequisite to any §3 work.
+>
+> *Exit condition:* §3 is rewritten to name `packages/file-format/src/import/dxf/` as the host,
+> the duplicate pair is reconciled, and the DWG section is re-decided as APS or explicitly
+> superseded by an ADR. *Logged as L-958.*
+
 ## §3 — Stores / API surface
 
 The DXF/DWG round-trip exposes three runtime surfaces.

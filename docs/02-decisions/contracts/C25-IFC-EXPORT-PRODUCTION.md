@@ -32,7 +32,30 @@ IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey → IfcSpace (per R
 
 `IfcSpace` MUST be generated from every Room. `IfcZone` MUST group rooms per apartment with a custom `Pset_ApartmentData` carrying unit number, score breakdown (from cognition-stack objective vector), and gross/net floor area.
 
-**Current state**: `plugins/ifc-export/src/hierarchy.ts` implements IfcProject → IfcBuilding → IfcBuildingStorey. **IfcSite is empty; IfcSpace is absent; IfcZone is absent.** These are the master plan IFC-α-1/α-2/α-3 gap-fill phases.
+> ⚠ **CORRECTED 2026-08-18, by measurement.** The sentence below — *"IfcSite is empty; IfcSpace is
+> absent; IfcZone is absent"* — is **FALSE ON ALL THREE COUNTS**, and the three gap-fill phases it
+> schedules (IFC-α-1 / α-2 / α-3) are **already delivered**:
+>
+> | Claim | Measured at HEAD |
+> |---|---|
+> | *"IfcSite is empty"* | `plugins/ifc-export/src/hierarchy.ts:283,318` emits `IFCSITE`, populating `RefLatitude` / `RefLongitude` / `RefElevation` / `LandTitleNumber` / `SiteAddress` (`:256-258`) with a documented project-origin fallback and warning (`:311`) |
+> | *"IfcSpace is absent"* | `plugins/ifc-export/src/exporters/space.ts` + `__tests__/space.test.ts` |
+> | *"IfcZone is absent"* | `plugins/ifc-export/src/exporters/zone.ts` + `__tests__/zone.test.ts` |
+>
+> **WHAT STILL STANDS:** the spatial-structure COMPLETENESS invariant this paragraph exists to
+> assert — every element resolves to a storey, every storey to a building, every building to the
+> site — is unchanged. It is now something to **VERIFY against the shipped exporters**, not to
+> build. The §5 file inventory is otherwise accurate: all nine listed paths exist.
+>
+> ⭐ **This is the same defect class as C73's "SPECIFIED, NOT BUILT" gates and C32's DXF section:
+> a contract stamped before the work landed, never re-read after.** Three phases of an execution
+> plan were pointed at code that already shipped. *Logged as L-959.*
+>
+> *Exit condition:* the three α-phases are struck from the master execution tracker, and this
+> paragraph becomes a coverage audit of the shipped `space.ts` / `zone.ts` / `hierarchy.ts`
+> against the §3 Pset table.
+
+**Current state**: `plugins/ifc-export/src/hierarchy.ts` implements IfcProject → IfcBuilding → IfcBuildingStorey. ~~**IfcSite is empty; IfcSpace is absent; IfcZone is absent.** These are the master plan IFC-α-1/α-2/α-3 gap-fill phases.~~ **← SUPERSEDED, see the banner above.**
 
 ### §1.4 — IfcSite full attributes
 
