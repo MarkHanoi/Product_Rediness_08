@@ -132,8 +132,15 @@ returns `undetermined` and sets `totals.exact = false` (`:203-212`) rather than 
    *bounded by nothing*. **This is the `[]`-means-unknown collapse C71 §4.4 forbids, inside the family
    this contract's first draft called the mature one.**
 2. **"Maintained" is FALSE on generated levels.** `markGraphAuthoritative` has four production callers
-   (the four building executors); `clearGraphAuthoritative` has **0 production callers** — stated by
-   the gate itself, `tools/ga-gate/check-suppression-is-reversible.ts:13`, row S1. So on a generated
+   (the four building executors); `clearGraphAuthoritative` has ~~**0 production callers**~~ — ⛔ **CORRECTED 2026-08-18: it has ONE**,
+   `packages/room-topology/src/RoomTopologyObserver.ts:351`
+   (`grep -rn clearGraphAuthoritative --include=*.ts packages apps plugins | grep -v __tests__`).
+   **The conclusion below is UNAFFECTED and still holds**: that caller is the same narrow GR2 branch,
+   refactored under `§PR-05-ONE-RELEASE-AUTHORITY` to delegate to the one release method rather than
+   keep an inline `.delete(…)` twin — **consolidated, not widened**, and still gated on
+   `!isBatching && !__pryzmBuildingGenActive()`. On a generated level the suppression still never
+   releases. ⚠ **Do not mark this fixed on the caller count.** See [C72 §4.1](./C72-PROPAGATION-AND-PREVSTATE.md),
+   which carried the identical false claim and is corrected in the same pass — So on a generated
    level a hand wall move deletes the edges (`WallRebuildCoordinator.ts:1496`) and the corrective
    re-detect is suppressed at `RoomTopologyObserver.ts:728-731` — **permanently.**
 3. **Hand-drawn rooms start empty.** `RoomPlanToolHandler.ts:127` creates rooms with

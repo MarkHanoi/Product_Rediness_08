@@ -216,6 +216,28 @@ authored-but-unwired class one level up: not an unreached handler, but an unreac
 Propagation is switched off in two places in this repository, and **both switch-offs
 outlive their reason**.
 
+> ⛔ **CORRECTED 2026-08-18 — the COUNT is now wrong, and the DEFECT is unchanged. Read both halves.**
+>
+> ```
+> grep -rn "clearGraphAuthoritative" --include=*.ts --exclude-dir=node_modules packages apps plugins >   | grep -v "__tests__\|\.test\.\|\.spec\."
+> ```
+>
+> → **`packages/room-topology/src/RoomTopologyObserver.ts:351` calls it.** The claim
+> *"0 production callers"* is **FALSE at HEAD**; it is **1**.
+>
+> ⚠ **But do NOT close the finding on that count.** The new caller is the *same* narrow GR2 branch
+> this section already described, refactored under `§PR-05-ONE-RELEASE-AUTHORITY` to **delegate to
+> the one release method instead of keeping an inline `.delete(…)` twin** (see the comment at
+> `:349-350`). It is a **self-call inside the observer**, guarded by
+> `!batchCoordinator.isBatching && !__pryzmBuildingGenActive() && this._graphAuthoritativeLevels.has(…)`.
+> **The release path was CONSOLIDATED, not WIDENED.**
+>
+> ⭐ **Therefore every substantive consequence stated here still holds:** an `update`, a batched
+> mutation, or a level the user never structurally edits **stays frozen for the session**, and every
+> generated level keeps its rooms suppressed by default. **The number moved; the behaviour did not.**
+> A reader who checks only the caller count marks this fixed and ships the bug — which is why the
+> count is corrected *and* the conclusion is retained.
+
 > **§4.1 — MUST.** Every suppression flag has a **reachable release path in production
 > code**. `RoomTopologyObserver._graphAuthoritativeLevels` (`packages/room-topology/src/
 > RoomTopologyObserver.ts:101`) is marked from four production sites
@@ -318,7 +340,12 @@ has not grown", **not** "propagation works".
 > only, and the bespoke trackers are ungated today. **UNPROVEN: no gate asserts that the
 > bespoke trackers still reach their pairs.**
 
-### §6.2 — `check-prevstate-contract` — SPECIFIED, NOT BUILT
+### §6.2 — `check-prevstate-contract` — ~~SPECIFIED, NOT BUILT~~ **BUILT**
+
+> ⛔ **CORRECTED 2026-08-18.** `ls tools/ga-gate/check-prevstate-contract.ts` → **it exists.** The
+> heading was written in the **present tense** and rotted. The design below is what shipped; verify
+> its current reading by running it, never by reading this heading:
+> `npx tsx tools/ga-gate/check-prevstate-contract.ts > /tmp/pvs.txt 2>&1; echo "RC=$?" >> /tmp/pvs.txt`
 
 Subject: every store whose subscribers make diff-based decisions (§3.1), and every
 change-notification type such a subscriber consumes (§3.2).
@@ -333,7 +360,25 @@ change-notification type such a subscriber consumes (§3.2).
 Baselines must be pinned **at the measured reading**, per `check-offset-implementations.ts`'s
 own correction: a ratchet sitting above its reading is not a ratchet, it is free slots.
 
-### §6.3 — `check-suppression-is-reversible` — SPECIFIED, NOT BUILT
+### §6.3 — `check-suppression-is-reversible` — ~~SPECIFIED, NOT BUILT~~ **BUILT, and RED at DOUBLE its ledger**
+
+> ⛔ **CORRECTED 2026-08-18.** The gate exists at `tools/ga-gate/check-suppression-is-reversible.ts`
+> and is **failing merge**:
+>
+> ```
+> npx tsx tools/ga-gate/check-suppression-is-reversible.ts > /tmp/sir.txt 2>&1; echo "RC=$?" >> /tmp/sir.txt
+> ```
+>
+> **RC=3** — `→ [3] RATCHET EXCEEDED — check-suppression-is-reversible: 84 finding(s) against a
+> declared level of 41.` **More than double the ledger**, with an unledgered S3 at
+> `packages/renderer-three/src/pipeline/RenderPipelineManager.ts:_submitPauseDepth`. Sample S3
+> findings: `CesiumViewport.ts:1298` (`facadeSuppressingMassing`), `SaveOrchestrator.ts:156`
+> (`_loadSuppressActive`), `LivingGraphOverlay.ts:190` (`frozen`), `GISAreaLayout.ts:250`,
+> `ViewportCrashGuard.ts:107`, `HouseLayoutModal.ts:911` — each a suppression flag declaring **no
+> scope**, i.e. a lifetime bounded by the process rather than by a scope (§4.4).
+>
+> ⛔ Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)` this is **not absorbable**: fix the flags, and
+> **never raise the level from 41**.
 
 Subject: every suppression flag, pause/resume pair and authority marker.
 

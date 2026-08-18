@@ -237,6 +237,37 @@ carry no first-party write path (EV-04 §1). ➜ `check-graph-write-coverage`.
 > the widest write-only family in the estate. A write-only family is a §1.3 declaration, not a
 > capability, and C71 §4.3 forbids inferring coverage from the writer alone.
 
+> ⛔ **§5.2 IS INVERTED — corrected 2026-08-18. Read this before acting on it.**
+>
+> §5.2 concludes that *"a first-party `contains` writer is a **named Tier-2 gap**"*. **The writer
+> exists.** `grep -n "contains" packages/command-registry/src/furniture/CreateFurnitureCommand.ts`
+> → the edge is written at **`:250`** (`type: 'contains'`), and the comment block at **`:212-243`
+> cites C71 §5.2 itself as its motivation** — this section was ACTED ON, and then not updated.
+>
+> **The live failure is the OPPOSITE half, and this contract does not name it.**
+> `npx tsx tools/ga-gate/check-graph-write-coverage.ts` → **RC=3**, and all four unledgered
+> findings are *missing typed READERS*, not missing writers:
+>
+> > `⛔ UNLEDGERED contains/reader — REQUIRED family 'contains' has NO typed production reader —`
+> > `write-only state nobody can query. (1 allowlist-only mention at`
+> > `packages/ai-host/src/graph/GraphQueryService.ts:148 — an allowlist for a dynamic reader is not`
+> > `a typed reader, C71 §1.3)`
+>
+> The same finding stands for **`hosts` (`:143`)**, **`boundedBy` (`:147`)** and
+> **`connectedTo` (`:145`)** — **four REQUIRED families, all write-only.** §5.2's own §1.3 rule is
+> what disqualifies the reads it counted: an allowlist entry in a dynamic dispatcher is not a typed
+> reader.
+>
+> ⛔ **An engineer following §5.2 literally builds the half that already exists while the failing
+> half stays unnamed.** The Tier-2 gap to close is **a typed production reader for each of the four
+> families**, and the ledger is **SHRINK-ONLY at 0** — do not raise it.
+>
+> ⚠ **Knock-on:** [C83](./C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) §0.2.3 states the `contains`
+> edge *"does not exist on ANY path"*. That was true when C83 was written and is **now stale on the
+> write side** — though C83's operative instruction (*"C83 rules MUST resolve containment
+> geometrically and MUST NOT read the edge"*) is **unaffected and still correct**, because the
+> reader the rules would need is exactly what the gate says is missing.
+
 **§5.2 — `contains` is read-only, and the read is worse than it looks.** Two production surfaces
 read it — the AI world model, and the hierarchy tree. On any project not imported from IFC both
 ask a question always answered "nothing", and **cannot distinguish that from "this room contains
@@ -301,8 +332,32 @@ equivalent of the CA-21 read-back discipline that exists for verbs (EV-05 §4).
 
 Three gates, each naming **which graph** it measures (§4.3), each under C70 §5's four-exit-code
 contract with a declared floor. All three belong beside the BIM 3.0 certification gates at
-`tools/rac-conformance/certification/gates/`. **Measured 2026-08-12: none of the three exists at
-HEAD** — they are specified here, and until they exist the invariants they decide are UNPROVEN.
+`tools/rac-conformance/certification/gates/`. ~~**Measured 2026-08-12: none of the three exists at
+HEAD** — they are specified here, and until they exist the invariants they decide are UNPROVEN.~~
+
+> ⛔ **CORRECTED 2026-08-18 — ALL THREE EXIST, AND ONE IS RED.** The sentence above was written in
+> the **present tense**, so it rotted; the dated half was true on 2026-08-12 and is retained for
+> that reason. Measured:
+>
+> ```
+> ls tools/ga-gate/check-graph-write-coverage.ts >    tools/rac-conformance/certification/gates/check-graph-persistence.ts >    tools/rac-conformance/certification/gates/check-graph-delete-integrity.ts
+> npx tsx tools/ga-gate/check-graph-write-coverage.ts > /tmp/gwc.txt 2>&1; echo "RC=$?" >> /tmp/gwc.txt
+> ```
+>
+> `check-graph-write-coverage` landed under **`tools/ga-gate/`**, not the certification directory
+> this section names — look in both places before concluding a gate is missing. It reads **RC=3**:
+>
+> > `→ [3] RATCHET EXCEEDED — check-graph-write-coverage (C71 §6 · C70 C-INV-1/C-INV-4): 4 finding(s) against a declared level of 0.`
+>
+> ⚠ **§5 has been citing these gates' output since before §6 declared them unbuilt.** A contract
+> that quotes a gate's findings in one section and calls it non-existent in another is telling the
+> reader two incompatible things; the quoting section was right.
+>
+> ⭐ **The authoring rule this section broke, and the fix to copy:** C74 and C75 wrote
+> *"UNBUILT **at stamp time (2026-08-12)**, stated explicitly so absence is never inferred from
+> omission."* **A dated historical claim cannot rot into a falsehood.** C71, C72 and C73 all wrote
+> the present tense and all three became false. **Never write a build status in the present tense.
+> Write it dated, or cite the gate's exit code.**
 
 ### `check-graph-write-coverage` — the vocabulary is scoped, and shrinking
 
