@@ -133,6 +133,8 @@ import { UpdateCurtainWallCommand } from '@pryzm/command-registry';
 import { CreateRoofCommand } from '@pryzm/command-registry';
 import { UpdateRoofCommand } from '@pryzm/command-registry';
 import { DeleteRoofCommand } from '@pryzm/command-registry';
+// §ROOF-HOSTED-OPENINGS — skylight ('lucernario') hosted on a roof FACE.
+import { CreateRoofOpeningCommand } from '@pryzm/command-registry';
 
 // ── Stair commands ─────────────────────────────────────────────────────────────
 import { CreateStairCommand } from '@pryzm/command-registry';
@@ -386,6 +388,10 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['UPDATE_ROOF', (s) => new UpdateRoofCommand(s.payload.roofId, s.payload.updates)],
     // §ELEMENT-REPLAY-AUDIT Phase 1 — DELETE was unreplayable for these element types.
     ['DELETE_ROOF', (s) => new DeleteRoofCommand(s.payload.roofId as string)],
+    // §ROOF-HOSTED-OPENINGS — makes the skylight path REPLAYABLE and reachable
+    // through the same registry every other command is dispatched by. Without a
+    // factory here the command exists and nothing can run it.
+    ['CREATE_ROOF_OPENING', (s) => new CreateRoofOpeningCommand(s.payload as any)],
 
     // ── Stairs ────────────────────────────────────────────────────────────────
     ['CREATE_STAIR', (s) => new CreateStairCommand(s.payload as any)],

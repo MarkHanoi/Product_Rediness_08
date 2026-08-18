@@ -36,6 +36,7 @@ export {
 // in. Pure; see the module header for the architectural decision and for what
 // refuses.
 export {
+    checkOpeningWithinFace,
     computeRoofFaces,
     faceYAt,
     faceUVToPlan,
@@ -44,9 +45,11 @@ export {
     resolveHostFace,
     worldXZToRoofLocal,
     roofLocalToWorldXZ,
+    type FaceContainmentFrame,
     type FaceRect,
     type FaceUV,
     type HostFaceResolution,
+    type StraddleVerdict,
     type RoofFace,
     type RoofFaceRefusalReason,
     type RoofFaceSet,

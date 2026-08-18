@@ -119,6 +119,11 @@ export enum CommandType {
     // PARAMETERS: this one rewrites the footprint that was re-derived from the
     // walls, and its 'reproject' mode is nonUndoable for that reason.
     UPDATE_ROOF_BOUNDARY = 'UPDATE_ROOF_BOUNDARY',
+    // §ROOF-HOSTED-OPENINGS — a skylight ("lucernario") void hosted on ONE
+    // planar face of a roof. Distinct from CREATE_OPENING, which is the SLAB
+    // opening and hard-codes `slabStore.getById(hostId)` in its validation: the
+    // opening RECORD shape is shared, the host determination is not.
+    CREATE_ROOF_OPENING = 'CREATE_ROOF_OPENING',
     DELETE_ROOF = 'DELETE_ROOF',
     CREATE_HANDRAIL = 'CREATE_HANDRAIL',
     DELETE_HANDRAIL = 'DELETE_HANDRAIL',

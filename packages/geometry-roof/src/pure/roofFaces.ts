@@ -82,6 +82,7 @@
 import { COINCIDENT_M, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { dedupeRing, offsetPolygonOrSelf, type Pt2 } from './polygonOffset.js';
 import { gableRidge, isConvexPolygon } from '../roofRidgeAxis.js';
+import { decomposeInPrincipalFrame, rectToPolygon, rotatePolyXZ, type Rect2 } from '../roofDecompose.js';
 
 export type { Pt2 };
 
@@ -134,12 +135,16 @@ export type RoofFaceSet =
         readonly ok: true;
         readonly faces: ReadonlyArray<RoofFace>;
         /**
-         * The EAVE ring the faces tile — `footprint.polygon` with the overhang
-         * applied, i.e. the exact ring `RoofGeometryBuilder` builds over. The
-         * soffit and the fascia are built from it, so it is returned rather than
-         * re-derived by each caller.
+         * The EAVE ring(s) the faces tile — `footprint.polygon` with the overhang
+         * applied, i.e. the exact ring(s) `RoofGeometryBuilder` builds over. The
+         * soffit is built from them, so they are returned rather than re-derived.
+         *
+         * A LIST, not one ring, because §ROOF-CONCAVE-DECOMPOSE builds an L/T/U
+         * roof as one gable PER WING, each with its own eave rectangle and its own
+         * soffit. Collapsing that to a single ring would be a lie about what the
+         * generator emits.
          */
-        readonly eaveRing: ReadonlyArray<Pt2>;
+        readonly eaveRings: ReadonlyArray<ReadonlyArray<Pt2>>;
     }
     | { readonly ok: false; readonly reason: RoofFaceRefusalReason; readonly detail: string };
 
@@ -257,26 +262,31 @@ export function computeRoofFaces(roof: RoofFaceSource): RoofFaceSet {
     const ringXZ = ring.map(([x, z]) => ({ x, z }));
 
     if (isPitchedType(roof.roofType)) {
-        // Mirror `_generateInner`'s pre-switch routing exactly — those roofs are
-        // NOT built by the closed-form builder this module models.
-        if (!isConvexPolygon(ring.map(([x, z]) => ({ x, z })))) {
-            return { ok: false, reason: 'concave-footprint', detail: `roof ${roof.id}: a concave footprint is built by §ROOF-CONCAVE-DECOMPOSE / the general offset builder, which emit a ring stack this module cannot decompose` };
+        // Mirror `_generateInner`'s pre-switch routing exactly — these roofs are
+        // NOT built by the closed-form builder the switch below models.
+        const convex = isConvexPolygon(footprint.map(([x, z]) => ({ x, z })));
+        if (!convex) {
+            // §ROOF-CONCAVE-DECOMPOSE — THE FOUNDER'S CASE: a pitched roof over an
+            // L / T / U plan. The generator does NOT build a hip here; it splits
+            // the plan into rectangular wings and puts a GABLE on each, so the
+            // emitted surface is 2 planes per wing. That is derivable exactly.
+            return concaveWingFaces(roof, footprint);
         }
-        if (ring.length > TRACED_VERTEX_THRESHOLD) {
-            return { ok: false, reason: 'traced-footprint', detail: `roof ${roof.id}: ${ring.length} vertices exceeds the §ROOF-ENGINE-STAGE-1 threshold of ${TRACED_VERTEX_THRESHOLD}, so the general pitched builder runs instead of the closed-form one` };
+        if (footprint.length > TRACED_VERTEX_THRESHOLD) {
+            return { ok: false, reason: 'traced-footprint', detail: `roof ${roof.id}: ${footprint.length} vertices exceeds the §ROOF-ENGINE-STAGE-1 threshold of ${TRACED_VERTEX_THRESHOLD}, so the general offset builder (a ring STACK, not a plane set) runs instead of the closed-form one` };
         }
     }
 
     switch (roof.roofType) {
         case 'flat': {
             // One horizontal face at y = 0 over the whole footprint.
-            return { ok: true, faces: [makeFace(0, ring, { a: 0, b: 0, c: 0 })], eaveRing: ring };
+            return { ok: true, faces: [makeFace(0, ring, { a: 0, b: 0, c: 0 })], eaveRings: [ring] };
         }
         case 'shed': {
             // `generateShed`: height(p) = slope × (p · slopeDir) — linear ⇒ planar.
             const slope = roof.slope ?? 0.05;
             const [dx, dz] = shedSlopeDir(ring);
-            return { ok: true, faces: [makeFace(0, ring, { a: slope * dx, b: slope * dz, c: 0 })], eaveRing: ring };
+            return { ok: true, faces: [makeFace(0, ring, { a: slope * dx, b: slope * dz, c: 0 })], eaveRings: [ring] };
         }
         case 'gable':
             return gableFaces(roof, ring, ringXZ);
@@ -287,6 +297,121 @@ export function computeRoofFaces(roof: RoofFaceSource): RoofFaceSet {
                 detail: `roof ${roof.id}: roofType "${roof.roofType}" has no planar-face decomposition yet — its faces exist only as generator triangles, so no host face can be determined`,
             };
     }
+}
+
+/**
+ * §ROOF-CONCAVE-DECOMPOSE FACES — the founder's case: a SLOPED roof over an
+ * L-shaped (non-convex) plan.
+ *
+ * ⚠ WORTH KNOWING, and measured rather than assumed: for a `roofType` of 'hip'
+ * over a concave plan the generator does NOT build a hip. `_generateInner` routes
+ * every pitched type through `_buildConcavePitched`, which splits the plan into
+ * rectangular wings and puts a GABLE on each at the same pitch — its own diagnostic
+ * says `requestedKind=hip chosenKind=gable-per-wing`. So the surface a user is
+ * looking at is 2 planes per wing, meeting at valleys where wings abut. This
+ * function mirrors that decomposition step for step — the same
+ * `decomposeInPrincipalFrame`, the same per-edge outer test for the overhang, the
+ * same `gableRidge` per wing, the same rotation back — so the faces it reports are
+ * the faces that were built, not an idealisation of them.
+ */
+function concaveWingFaces(roof: RoofFaceSource, footprint: ReadonlyArray<Pt2>): RoofFaceSet {
+    const decomp = decomposeInPrincipalFrame(footprint as Pt2[]);
+    if (!decomp || decomp.rects.length === 0) {
+        return {
+            ok: false,
+            reason: 'concave-footprint',
+            detail: `roof ${roof.id}: the concave plan admits no rectilinear decomposition, so the generator falls through to the general offset builder — a ring STACK whose strips are not planes. No host face can be determined.`,
+        };
+    }
+    const { rects, angleRad, cx, cz } = decomp;
+    const slope = roof.slope ?? 0.4;
+    const overhang = roof.overhang ?? 0;
+
+    // The wings live in the de-rotated frame when the plan is rotated off the
+    // world axes; the probe polygon must live in the SAME frame.
+    const framePoly: Pt2[] = angleRad === 0
+        ? (footprint as Pt2[])
+        : (rotatePolyXZ(footprint as Pt2[], -angleRad, cx, cz) as Pt2[]);
+
+    const faces: RoofFace[] = [];
+    const eaveRings: Pt2[][] = [];
+
+    for (const r of rects) {
+        const eMinX = isOuterEdge(framePoly, r.minX, 'minX', r.minZ, r.maxZ) ? r.minX - overhang : r.minX;
+        const eMaxX = isOuterEdge(framePoly, r.maxX, 'maxX', r.minZ, r.maxZ) ? r.maxX + overhang : r.maxX;
+        const eMinZ = isOuterEdge(framePoly, r.minZ, 'minZ', r.minX, r.maxX) ? r.minZ - overhang : r.minZ;
+        const eMaxZ = isOuterEdge(framePoly, r.maxZ, 'maxZ', r.minX, r.maxX) ? r.maxZ + overhang : r.maxZ;
+        const rect: Rect2 = { minX: eMinX, maxX: eMaxX, minZ: eMinZ, maxZ: eMaxZ };
+        const eavePts = rectToPolygon(rect);
+
+        // Per-wing gable, in the wing's own frame — identical machinery.
+        const sub = gableFaces({ ...roof, polygon: eavePts, overhang: 0 }, eavePts, eavePts.map(([x, z]) => ({ x, z })));
+        if (!sub.ok) return sub;
+
+        // Rotate the wing's plan polygons back to the footprint's true orientation
+        // (a no-op on an axis-aligned plan), exactly as `_rotateGeometryXZ` does to
+        // the finished mesh. The PLANES must follow: rebuild each face from its
+        // rotated polygon and its rotated gradient rather than reusing the plane
+        // coefficients, which are expressed in the de-rotated frame.
+        for (const f of sub.faces) {
+            const poly = angleRad === 0 ? f.planPolygon as Pt2[] : rotatePolyXZ(f.planPolygon as Pt2[], angleRad, cx, cz);
+            faces.push(makeFace(faces.length, poly, angleRad === 0 ? f.plane : rotatePlane(f.plane, angleRad, cx, cz)));
+        }
+        eaveRings.push(angleRad === 0 ? eavePts : rotatePolyXZ(eavePts, angleRad, cx, cz));
+    }
+
+    return { ok: true, faces, eaveRings };
+}
+
+/**
+ * Rotate a height field y = a·x + b·z + c by `theta` about (cx, cz) in plan.
+ * The height at a rotated point must equal the height at the original point, so
+ * the gradient rotates with the geometry.
+ */
+function rotatePlane(
+    plane: { a: number; b: number; c: number },
+    theta: number,
+    cx: number,
+    cz: number,
+): { a: number; b: number; c: number } {
+    const cos = Math.cos(theta), sin = Math.sin(theta);
+    // Inverse rotation of a point p' back to p: p = R(−θ)(p' − centre) + centre.
+    // y(p') = a·px + b·pz + c with px, pz written in terms of p'.
+    const a2 =  plane.a * cos + plane.b * sin;
+    const b2 = -plane.a * sin + plane.b * cos;
+    const c2 = plane.c + plane.a * cx + plane.b * cz - (a2 * cx + b2 * cz);
+    return { a: a2, b: b2, c: c2 };
+}
+
+/**
+ * Is the rect edge at `v` on side `side` (spanning `s0..s1`) on the footprint's
+ * OUTER boundary? Mirrors `RoofGeometryBuilder._isOuterEdge`: probe just past the
+ * edge at several stations; if any probe lands inside the footprint the edge is
+ * an internal valley shared with another wing, so no overhang is applied there.
+ * Uses the canonical `pointInPolygonXZ` — no rival ray cast.
+ */
+function isOuterEdge(
+    poly: ReadonlyArray<Pt2>,
+    v: number,
+    side: 'minX' | 'maxX' | 'minZ' | 'maxZ',
+    s0: number,
+    s1: number,
+): boolean {
+    const probe = 0.05;
+    const samples = 5;
+    const ringXZ = poly.map(([x, z]) => ({ x, z }));
+    for (let i = 0; i <= samples; i++) {
+        const s = s0 + ((s1 - s0) * i) / samples;
+        let px: number, pz: number;
+        switch (side) {
+            case 'minX': px = v - probe; pz = s; break;
+            case 'maxX': px = v + probe; pz = s; break;
+            case 'minZ': pz = v - probe; px = s; break;
+            default:     pz = v + probe; px = s; break;
+        }
+        if (pointInPolygonXZ(px, pz, ringXZ)) return false;
+    }
+    return true;
 }
 
 /**
@@ -365,7 +490,7 @@ function gableFaces(
         [toPlan(uMin, vMid), toPlan(uMax, vMid), toPlan(uMax, vMax), toPlan(uMin, vMax)],
         mkPlane(-1, vMax),
     );
-    return { ok: true, faces: [faceLow, faceHigh], eaveRing: ring };
+    return { ok: true, faces: [faceLow, faceHigh], eaveRings: [ring] };
 }
 
 /** Roof-local Y of the top surface at a plan point on `face`. */
@@ -442,6 +567,27 @@ export type HostFaceResolution =
     | { readonly ok: false; readonly detail: string };
 
 /**
+ * WHICH FRAME CONTAINMENT IS TESTED IN, and why the answer is PLAN — stated
+ * because it is a real question with a wrong answer available.
+ *
+ * The worry is legitimate in general: on a surface where two faces overlap in
+ * plan, a plan-projected test claims a point is on both at once. That cannot
+ * happen for the roofs this module returns, and not by luck — every one of them
+ * is a HEIGHT FIELD, one Y per plan point (`_buildExtrudedPolygon`,
+ * `_buildVariableHeightRoof` and `_buildMultiLevel` all emit a single top vertex
+ * per plan vertex). Their faces therefore TILE the plan; they do not overlap in
+ * it. Testing a face's own inclined plane would be the identical test composed
+ * with an invertible projection, and would additionally have to answer "which
+ * plane do I project the query point onto?" — which is the question being asked.
+ *
+ * So plan is the frame, and the tiling property is not assumed: `resolveHostFace`
+ * collects EVERY face containing the point and refuses if more than one does.
+ * Should a future roof form break single-valuedness, this becomes a loud refusal
+ * rather than a silently arbitrary pick.
+ */
+export type FaceContainmentFrame = 'plan-xz-roof-local';
+
+/**
  * WHICH FACE HOSTS THIS POINT — by CONTAINMENT of the plan point in the face's
  * own plan polygon, never by nearest-anything.
  *
@@ -463,9 +609,17 @@ export function resolveHostFace(
     faces: ReadonlyArray<RoofFace>,
     planPoint: Pt2,
 ): HostFaceResolution {
-    for (const face of faces) {
-        const ringXZ = face.planPolygon.map(([x, z]) => ({ x, z }));
-        if (pointInPolygonXZ(planPoint[0], planPoint[1], ringXZ)) return { ok: true, face };
+    const hits = facesContaining(faces, planPoint);
+    if (hits.length === 1) return { ok: true, face: hits[0]! };
+    if (hits.length > 1) {
+        return {
+            ok: false,
+            detail:
+                `roof ${roofId}: plan point (x=${planPoint[0].toFixed(3)} z=${planPoint[1].toFixed(3)}, roof-local) ` +
+                `is inside ${hits.length} faces at once (${hits.map(f => `#${f.index}`).join(', ')}). The host is ` +
+                `AMBIGUOUS and no opening was created. Picking one would be the arbitrary choice this ` +
+                `determination exists to prevent.`,
+        };
     }
     return {
         ok: false,
@@ -474,5 +628,68 @@ export function resolveHostFace(
             `is inside NONE of the ${faces.length} face(s) of this roof. No opening created. ` +
             `Hosting it on the nearest face would cut a skylight through a slope the point is not on — ` +
             `the L-949 defect, in its roof form.`,
+    };
+}
+
+function facesContaining(faces: ReadonlyArray<RoofFace>, p: Pt2): RoofFace[] {
+    const out: RoofFace[] = [];
+    for (const face of faces) {
+        const ringXZ = face.planPolygon.map(([x, z]) => ({ x, z }));
+        if (pointInPolygonXZ(p[0], p[1], ringXZ)) out.push(face);
+    }
+    return out;
+}
+
+export type StraddleVerdict =
+    | { readonly ok: true }
+    | { readonly ok: false; readonly detail: string };
+
+/**
+ * §ROOF-OPENING-STRADDLE — does this skylight stay INSIDE its host face, or does
+ * it cross a ridge, a hip or a valley onto the next slope?
+ *
+ * THE DECISION, taken and recorded rather than left implicit: a straddling
+ * skylight is REFUSED, and the refusal names both slopes.
+ *
+ * WHY REFUSE RATHER THAN CLIP. The opening is a RECTANGLE IN ONE INCLINED PLANE
+ * — that is what `properties.roofFace` records and what the reveal walls are
+ * built perpendicular to. A rectangle that crosses a ridge is not a rectangle in
+ * any plane: half of it would float above the far slope and the other half would
+ * be buried under it, and the cut would leave a rim that does not touch the roof.
+ * Clipping to the host face would silently deliver a DIFFERENT, smaller opening
+ * than the architect drew — a plausible wrong answer with no error attached,
+ * which is the failure shape this repo keeps paying for. A rooflight that spans a
+ * ridge is a real product, but it is a ridge rooflight: a different element with
+ * two planes and a folded frame, not this one placed carelessly.
+ *
+ * The test is per CORNER of the plan profile, because a rectangle can cross an
+ * edge without either its centre or any single probe noticing.
+ */
+export function checkOpeningWithinFace(
+    roofId: string,
+    faces: ReadonlyArray<RoofFace>,
+    host: RoofFace,
+    planProfile: ReadonlyArray<Pt2>,
+): StraddleVerdict {
+    const hostRing = host.planPolygon.map(([x, z]) => ({ x, z }));
+    const strayed: string[] = [];
+    for (const corner of planProfile) {
+        if (pointInPolygonXZ(corner[0], corner[1], hostRing)) continue;
+        const others = facesContaining(faces, corner).filter(f => f.index !== host.index);
+        strayed.push(
+            others.length > 0
+                ? `(${corner[0].toFixed(3)}, ${corner[1].toFixed(3)}) → face #${others.map(f => f.index).join('/#')}`
+                : `(${corner[0].toFixed(3)}, ${corner[1].toFixed(3)}) → off the roof entirely`,
+        );
+    }
+    if (strayed.length === 0) return { ok: true };
+    return {
+        ok: false,
+        detail:
+            `roof ${roofId}: the skylight does not fit inside face #${host.index} — ${strayed.length} of its ` +
+            `${planProfile.length} corners cross onto another surface: ${strayed.join('; ')}. A skylight is a ` +
+            `rectangle in ONE inclined plane, so one spanning a ridge, hip or valley is refused rather than ` +
+            `clipped: clipping would deliver a smaller opening than was drawn, with nothing to say so. ` +
+            `Move it clear of the edge, make it smaller, or author two skylights.`,
     };
 }

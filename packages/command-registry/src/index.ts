@@ -240,6 +240,8 @@ export * from './roofs/CreateRoofCommand';
 export * from './roofs/DeleteRoofCommand';
 export * from './roofs/UpdateRoofCommand';
 export * from './roofs/UpdateRoofBoundaryCommand';
+// §ROOF-HOSTED-OPENINGS — skylight ('lucernario') hosted on a roof FACE.
+export * from './roofs/CreateRoofOpeningCommand';
 
 // ─── Slabs ────────────────────────────────────────────────────────────────
 export * from './slabs/CreateAllSlabsFromLevelToAllFloorsCommand';

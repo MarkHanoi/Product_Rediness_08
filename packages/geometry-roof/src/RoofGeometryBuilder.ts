@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
-import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
+import { pointInRingEvenOdd, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { gableRidge, isConvexPolygon } from './roofRidgeAxis.js';
 import { decomposeInPrincipalFrame, rotatePolyXZ, rectToPolygon, type Pt2 } from './roofDecompose.js';
 // `offsetPolygon` (strict, returns a discriminated OffsetResult) is used by
@@ -180,7 +180,7 @@ export class RoofGeometryBuilder {
             return geo;
         }
 
-        return this._buildFacetedWithHoles(faceSet.faces, faceSet.eaveRing, data.thickness, holes);
+        return this._buildFacetedWithHoles(faceSet.faces, faceSet.eaveRings, data.thickness, holes);
     }
 
     /** Exact-ish plan vertex key for the shared-edge test — 0.1 mm buckets. */
@@ -205,7 +205,7 @@ export class RoofGeometryBuilder {
      */
     private static _buildFacetedWithHoles(
         faces: ReadonlyArray<RoofFace>,
-        eaveRing: ReadonlyArray<Pt>,
+        eaveRings: ReadonlyArray<ReadonlyArray<Pt>>,
         thickness: number,
         holes: ReadonlyArray<ReadonlyArray<Pt>>,
     ): THREE.BufferGeometry {
@@ -257,14 +257,26 @@ export class RoofGeometryBuilder {
         groups.push({ start: topStart, count: cursor - topStart, materialIndex: 3 });
 
         // ── Soffit at y = −thickness, same holes — slot 1 (deck) ─────────────
+        //
+        // ONE soffit per eave ring: §ROOF-CONCAVE-DECOMPOSE builds an L/T/U roof
+        // as one gable PER WING, each with its own soffit, and this mirrors that.
+        // A hole is punched into the ring whose plan polygon contains its centre —
+        // punching every hole into every ring would perforate wings the skylight
+        // is nowhere near.
         const soffitStart = cursor;
-        {
-            const outer = eaveRing.map(([x, z]) => [x, z] as Pt);
+        for (const ring of eaveRings) {
+            const outer = ring.map(([x, z]) => [x, z] as Pt);
+            const outerXZ = outer.map(([x, z]) => ({ x, z }));
+            const ringHoles = placedHoles.filter(h => {
+                let hx = 0, hz = 0;
+                for (const [x, z] of h) { hx += x; hz += z; }
+                return pointInPolygonXZ(hx / h.length, hz / h.length, outerXZ);
+            });
             const allPts: Pt[] = [...outer];
-            for (const h of placedHoles) allPts.push(...h);
+            for (const h of ringHoles) allPts.push(...h);
             const triIdx = THREE.ShapeUtils.triangulateShape(
                 outer.map(([x, z]) => new THREE.Vector2(x, z)),
-                placedHoles.map(h => h.map(([x, z]) => new THREE.Vector2(x, z))),
+                ringHoles.map(h => h.map(([x, z]) => new THREE.Vector2(x, z))),
             );
             const base = positions.length / 3;
             for (const [x, z] of allPts) positions.push(x, -thickness, z);

@@ -692,7 +692,15 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // empty and buildSlabGeometry() receives zero holes — no hole is ever punched
     // into the slab geometry even though CreateOpeningCommand runs successfully.
     slabBuilder.setDeps({ openingStore });
-    console.log('[initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder');
+    // §ROOF-HOSTED-OPENINGS — the SAME injection for the roof builder, for the
+    // same reason spelled out above. `CreateRoofOpeningCommand` writes the
+    // skylight into `openingStore`; without this line `RoofFragmentBuilder`
+    // cannot read it back, `RoofGeometryBuilder.generate` receives zero holes and
+    // takes the untouched original path, and the roof renders SOLID while the
+    // command reports success. §COMMITTED-IS-NOT-REACHABLE — this line is what
+    // makes the feature exist for the user rather than only for the store.
+    roofBuilder.setDeps({ openingStore });
+    console.log('[initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder + roofBuilder');
 
     // ── Door + Window builders ─────────────────────────────────────────────────
     // Both builders self-subscribe to their respective stores via activate().

@@ -21,6 +21,7 @@ import {
     faceUVToPlan,
     planToFaceUV,
     faceRectToPlanProfile,
+    checkOpeningWithinFace,
     resolveHostFace,
     worldXZToRoofLocal,
     type RoofFaceSource,
@@ -108,11 +109,19 @@ describe('computeRoofFaces — what it REFUSES, and why that is the point', () =
         if (!arrows.ok) expect(arrows.reason).toBe('slope-arrows');
     });
 
-    it('a concave footprint refuses — the generator routes it away from the closed-form builder', () => {
-        const L: Array<[number, number]> = [[0, 0], [6, 0], [6, 3], [3, 3], [3, 6], [0, 6]];
-        const set = computeRoofFaces(roof({ roofType: 'gable', slope: 0.4, polygon: L }));
-        expect(set.ok).toBe(false);
-        if (!set.ok) expect(set.reason).toBe('concave-footprint');
+    it('an L-SHAPED pitched roof decomposes into per-wing gable faces — the founder case', () => {
+        // §ROOF-CONCAVE-DECOMPOSE: the generator builds ONE GABLE PER WING here,
+        // even when roofType is hip (its own diagnostic says chosenKind=gable-per-wing).
+        const L: Array<[number, number]> = [[0, 0], [12, 0], [12, 6], [6, 6], [6, 14], [0, 14]];
+        const set = computeRoofFaces(roof({ roofType: 'hip', slope: 0.4, polygon: L }));
+        expect(set.ok).toBe(true);
+        if (!set.ok) return;
+        // Two wings x two slopes each.
+        expect(set.faces.length).toBeGreaterThanOrEqual(4);
+        expect(set.faces.length % 2).toBe(0);
+        expect(set.eaveRings.length).toBe(set.faces.length / 2);
+        // Every face is genuinely pitched, and every eave sits at y = 0.
+        for (const f of set.faces) expect(f.slope).toBeCloseTo(0.4, 6);
     });
 });
 
@@ -213,6 +222,49 @@ describe('face-plane-local authoring — the architectural decision, pinned', ()
         const y1 = faceYAt(face, profile[1]![0], profile[1]![1]);
         const y2 = faceYAt(face, profile[2]![0], profile[2]![1]);
         expect(Math.hypot(upSlopePlan, y2 - y1)).toBeCloseTo(1.2, 9);
+    });
+});
+
+describe('§ROOF-OPENING-STRADDLE — a skylight crossing a ridge is REFUSED, not clipped', () => {
+    it('names the face it strayed onto, so the user knows which edge it crossed', () => {
+        const set = computeRoofFaces(roof({ roofType: 'gable', slope: 0.5 }));
+        if (!set.ok) throw new Error('expected faces');
+
+        // Centre 0.3 m south of the ridge, but 2 m tall up the slope → crosses it.
+        const host = resolveHostFace('roof-1', set.faces, [0, -0.3]);
+        if (!host.ok) throw new Error('expected a host face');
+        const uv = planToFaceUV(host.face, [0, -0.3]);
+        const straddling = faceRectToPlanProfile(host.face, { uM: uv.u, vM: uv.v, widthM: 1, heightM: 2 });
+
+        const verdict = checkOpeningWithinFace('roof-1', set.faces, host.face, straddling);
+        expect(verdict.ok).toBe(false);
+        if (verdict.ok) return;
+        expect(verdict.detail).toContain('roof-1');
+        expect(verdict.detail).toContain(`face #${host.face.index}`);
+        expect(verdict.detail).toMatch(/face #1|face #0/);
+        expect(verdict.detail).toMatch(/refused rather than\s+clipped/);
+    });
+
+    it('a skylight that fits inside its face passes', () => {
+        const set = computeRoofFaces(roof({ roofType: 'gable', slope: 0.5 }));
+        if (!set.ok) throw new Error('expected faces');
+        const host = resolveHostFace('roof-1', set.faces, [0, -1.6]);
+        if (!host.ok) throw new Error('expected a host face');
+        const uv = planToFaceUV(host.face, [0, -1.6]);
+        const fits = faceRectToPlanProfile(host.face, { uM: uv.u, vM: uv.v, widthM: 1, heightM: 1 });
+        expect(checkOpeningWithinFace('roof-1', set.faces, host.face, fits).ok).toBe(true);
+    });
+
+    it('a skylight hanging off the roof entirely says so, rather than naming a face', () => {
+        const set = computeRoofFaces(roof({ roofType: 'flat' }));
+        if (!set.ok) throw new Error('expected faces');
+        const host = set.faces[0]!;
+        // Centred 0.2 m inside the east edge, 2 m wide → half of it is off the roof.
+        const uv = planToFaceUV(host, [4.8, 0]);
+        const overhanging = faceRectToPlanProfile(host, { uM: uv.u, vM: uv.v, widthM: 1, heightM: 2 });
+        const verdict = checkOpeningWithinFace('roof-1', set.faces, host, overhanging);
+        expect(verdict.ok).toBe(false);
+        if (!verdict.ok) expect(verdict.detail).toContain('off the roof entirely');
     });
 });
 
