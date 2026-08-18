@@ -6812,3 +6812,67 @@ and watched RED first. Slice 1 — curved glass at the SAME segment count and SA
 host wall. Slice 2 — the horizontal frame members sweeping that arc; verticals unchanged. Refuse by
 name anything slice 1 cannot carry (curved × layered, curved × raked), with the property panel
 importing that same gate rather than restating it.
+
+---
+
+## L-958 — FEATURE (founder, URGENT) — CURTAIN WALL has no published type catalogue: author ≥20 standard types
+
+**Founder-requested 2026-08-18 with a screenshot.** The property panel shows, verbatim:
+*"Curtain walls have no published type catalogue — edit the grid and panels directly."*
+
+**That string is `ElementTypeCatalogRegistry.ts:148`.** So the catalogue MECHANISM exists and is
+shared with every other family — curtain-wall simply has an `unavailableReason` where its entry
+should be (`:146-148`, plus `curtain-panel` `:151-153` and `curtain-mullion` `:156`). **This is a
+publishing gap, not a missing subsystem. Do not build a second catalogue.**
+
+### The founder's twelve, verbatim
+
+All twelve share: **NO horizontal intermediate mullion — top and bottom rails only.**
+
+| # | Vertical pitch | Panel | Mullion |
+|---|---|---|---|
+| 1 | 1.0 m | glass | (default) |
+| 2 | 0.5 m | glass | (default) |
+| 3 | 0.75 m | glass | (default) |
+| 4 | 2.0 m | glass | (default) |
+| 5 | 1.0 m | metal | **copper**, small |
+| 6 | 1.0 m | metal | **inox**, small |
+| 7 | 1.0 m | metal | **wood**, small |
+| 8 | 1.0 m | metal | **black metal**, small |
+| 9 | 1.0 m | **mirror glass** | black metal, small |
+| 10 | 1.0 m | **mirror glass, green** | black metal, small |
+| 11 | 1.0 m | **mirror glass, grey shiny** | black metal, small |
+| 12 | 1.0 m | **white satin** | *same material as panel*, small |
+
+**Eight more are needed to reach the founder's "at least 20" and are NOT yet specified.** Propose
+them from architectural standard practice and get them approved before publishing — do not invent
+silently. Obvious candidates: a horizontal-mullion (stacked/ribbon) family at 1.0 m and 1.5 m
+courses; a structural-glazing type with no visible vertical mullion; spandrel-plus-vision
+composites; a double-height 3.0 m pitch; a fritted/translucent panel; and a timber-framed variant.
+
+### ⛔ THE BLOCKER THAT MUST BE MEASURED FIRST
+
+**Eight of the twelve types (5–12) differ ONLY by PANEL MATERIAL — and per-panel material is
+measured to be DROPPED at the bridge.** [C84](../02-decisions/contracts/C84-ELEMENT-INTEGRITY.md)
+§4B and C87: `CommandEventBridge.ts:421-441` forwards only `gridXSpacing`/`gridYSpacing`; the
+per-panel `kind` / `materialId` / `rotation` never cross, and `migrateToGridSystem()` then
+**regenerates a uniform grid**. A facade authored with spandrel bands and a door panel renders as
+uniform glazing today.
+
+**So types 5–12 would all render IDENTICALLY unless that bridge carries material.** Publishing
+twelve types that produce four distinct appearances is worse than publishing none — it is an
+affordance without an implementation (`WallRake.ts:50-62`). **Measure the bridge FIRST.** If
+per-panel material cannot cross yet, ship types 1–4 (which vary only pitch, and pitch DOES cross)
+and refuse the rest BY NAME with the reason, rather than shipping twelve that look like four.
+
+⚠ Related, already fixed and merged this session: curtain-wall **undo** wrote a *number* into the
+`panels` array (C84 EI-7b, depth-3 patch flattened to a top-level write). Any type-swap that
+replaces the panel array must be re-tested against that path.
+
+### Prior art to reuse rather than reinvent
+
+`ElementTypeCatalogRegistry.ts` is the registry. `CeilingSystemTypeStore`, `FloorSystemTypeStore`
+and `HandrailTypeStore` are the shipped shapes of a published type set — follow whichever the
+registry already consumes. ⚠ Do NOT touch the `materialName` enum or mint a material vocabulary:
+lane ZA owns the master material database (C100), and C84 **EI-8** forbids a sixth vocabulary.
+Copper / inox / wood / black metal / mirror / satin must resolve through the master catalogue.
