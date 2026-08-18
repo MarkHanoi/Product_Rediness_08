@@ -132,19 +132,62 @@ Each family's per-element contract (§6) MUST name exactly one authoritative sto
 **every** consumer MUST read it. Two consumers of one family reading different stores is a
 **split-brain** and is a merge blocker.
 
+> **The reader set this invariant answers to is NOT C84's own.** It is
+> [C16 §5.1](C16-COMMAND-AUTHORING-PROTOCOL.md)'s AUTHORITATIVE-STATE table — **RENDER · PERSIST ·
+> EXPORT** — and [C03 §4.4](C03-SCHEMAS-COMMANDS-AND-STATE.md)'s three store layers, whose
+> *"Drives the 3D mesh?"* column already names the legacy store `Yes` and the L1 bus store `No`.
+> EI-1 **adds two readers those tables do not enumerate** — the **plan view** and the **bake
+> worker** — and requires the answer to be recorded *per family* rather than per repo. It does not
+> re-decide which layer is authoritative; C03 §4.4 and its U-7 end-state (ADR-0251) already did.
+
 *Measured violations:* `wall` (viewport reads the `geometry-wall` singleton at
 `initBuilders.ts:77,553`; the bake worker reads a plugin DTO `WallStore` at
-`HeadlessBakeSession.ts:31,51,131`) · `wall.opening` (persistence reads
-`doorStore`/`windowStore` at `ProjectSerializer.ts:47-48,704-705`; IFC export reads
-openings embedded on the wall record at `WindowDoorReader.ts:1,7,12`). **Two records for
-one door, and nothing reconciles them.**
+`HeadlessBakeSession.ts:31,51,131`).
 
-**`[Z8]` EI-1a — a store KEY must name the SAME OBJECT for a command's whole lifecycle.** At write time
-`affectedStores: ['wall']` resolves to the plugin DTO snapshot; at undo time `buildUndoStoreMap()`
-(`performUndoRedo.ts:308-353`) resolves the same key to `window.wallStore` — 24 keys, 21 globals, all
-geometry. `_covered()` therefore passes, the ring-buffer path runs, and **an inverse patch is applied to
-a store that never received the forward.** C16 CA-19 names this hazard for command authors; EI-1a binds
-the **store owner** as well. *(The mechanism is deeper than two stores — see the EI-7a `[Z8]` note.)*
+`wall.opening` — persistence reads `doorStore`/`windowStore` at
+`ProjectSerializer.ts:47-48,704-705`; IFC export reads openings embedded on the wall record at
+`WindowDoorReader.ts:1,7,12`. **Two records for one door, read by two different consumers.**
+
+> ⚠ **CORRECTED 2026-08-18 against C15 — this bullet previously ended *"and nothing reconciles
+> them"*. That was FALSE, and the correction narrows the finding rather than dropping it.**
+> [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) (*Dual-Store Rule for Offset Mutations*, Fix DW-14)
+> **mandates** the reconciliation verbatim: *"Every command that mutates a hosted element's
+> `offset` MUST write to **both**"* — `wallStore.updateDoor()/updateWindow()` **and**
+> `doorStore.update()/windowStore.update()` — and names the bug that occurs when a command forgets.
+> **What is actually measured is narrower and still a defect:** the pairing is enforced by C15's
+> own words as *"a code-review checklist item"* and by **no gate**, and the two consumers above
+> pick **different sides of the pair**. The split-brain is therefore not *unreconciled*; it is
+> *reconciled by review only, on the write path, and not at all on the read path.*
+>
+> **And the authority question is DECIDED, not open.** [C15 §1](C15-HOSTED-ELEMENT-CONTRACT.md)
+> defines the host wall as *"the `Wall` entity (in `WallStore`) that contains the hosted element in
+> its `openings[]` array"*, and **C15 §2** states a hosted element *"has no independent world-space
+> coordinate in the store"*. `wall.openings[]` **is** the authority for `wall.opening`; `doorStore`
+> / `windowStore` are the derived side that C15 §8.1 keeps in sync for `DoorBuilder`/`WindowBuilder`
+> only. C84 may not re-open this — see the correction to §9.
+
+**`[Z8]` EI-1a — a store KEY must name the SAME OBJECT for a command's whole lifecycle.**
+
+> ⛔ **THE MECHANISM IS NOT C84's. DO NOT CITE C84 FOR IT.** It is
+> [C03 §4.6 **U-2b**](C03-SCHEMAS-COMMANDS-AND-STATE.md) (*store IDENTITY, not just store NAME*),
+> which states it canonically — *"the key is **overloaded across time**… the entry therefore passes
+> the §4.5 step-2 coverage pre-check, the ring-buffer path runs, and **an inverse patch is applied
+> to a store that never received the forward.** That is not a failed undo; it is a mutation of
+> authoritative state derived from a different store's history"* — and fixes the two permitted
+> exits: **(a)** route the write to the mapped store (C16 **CA-17**), or **(b)** declare
+> `affectedStores: [] as const`. [C16 **CA-19**](C16-COMMAND-AUTHORING-PROTOCOL.md) is the same rule
+> stated as an authoring obligation. Its gate is C16 §11.1's **G-CA-A3**, which does not exist yet.
+
+**EI-1a is the third binding of that one rule, and the only one aimed at the STORE OWNER rather
+than the command author.** C03 U-2b and C16 CA-19 both tell the author *"do not declare a key whose
+undo target differs from your write target"*. Neither tells the **owner of a store key** that the
+key is a shared name with two resolutions, so neither prevents the next key from being minted
+overloaded. EI-1a: **a store key is part of the family's declared identity (§6 row 2); the family's
+contract MUST state, for every key it declares, which object that key resolves to at WRITE time and
+which at UNDO time, and they MUST be the same object or the divergence MUST be declared.**
+
+*Measured:* `buildUndoStoreMap()` (`performUndoRedo.ts:308-353`) resolves 24 keys to 21 `window.*`
+globals, all geometry, while the write side resolves the same keys to plugin DTO snapshots.
 
 **`[Z8]` EI-1b — a CLEAN family must be RECORDED as clean.** The consumer set to answer for, every
 time: **renderer · plan view · persistence · IFC export · GLB export · bake worker.** A family whose
@@ -279,14 +322,48 @@ and **stays in the plugin store forever**.
 
 This is not inferred from silence — it is named "THE UNDO HAZARD" verbatim in **fourteen
 handler headers**. Sixteen verbs were then made to **refuse in `canExecute`** rather than
-have their routing fixed. **Containing a hazard by disabling the verb is not conformance**;
-those verbs are dead affordances and each one is an EI-3 violation.
+have their routing fixed.
+
+> ⚠ **CORRECTED 2026-08-18 against C16 §5.1. This paragraph previously read: *"Containing a hazard
+> by disabling the verb is not conformance; those verbs are dead affordances and each one is an
+> EI-3 violation."* As written, C84 called COMPLIANCE WITH A CORE CONTRACT a violation, and that
+> is C84 being wrong, not C16.**
+>
+> [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) is unambiguous and it outranks C84 on command
+> authoring: *"A verb that cannot reach authoritative state MUST fail `canExecute` with a `reason`
+> naming the mechanism"*, under `CA-DOCTRINE-A`: *"A refusal that names its reason is strictly
+> better than a silent lie, and both are better than a `success: true` over nothing."* **The
+> sixteen refusals are the REQUIRED interim state.** A lane that "fixes" them by restoring silent
+> success regresses C16, and C84 must not be citable as licence for that.
+>
+> **What C84 adds — and it is the half C16 does not reach — is the OTHER END of the verb.**
+> CA-18 binds the *command author*; it says nothing about the **UI control that still offers the
+> gesture**. The residual defect is therefore precisely and only this: **a ribbon/gizmo/panel
+> affordance that remains OFFERED while its verb refuses.** That is the EI-3 violation — the
+> control, not the refusal. The two exits are (a) route the write (C16 **CA-17**) and re-enable the
+> control, or (b) **disable or remove the control** for as long as the verb refuses, so the user is
+> never offered a gesture the system will decline. Silence in the UI while the handler refuses in
+> the log is the worst of the three states and is what is shipping today.
+>
+> *Sixteen refusing verbs is therefore SIXTEEN C16-CONFORMANT HANDLERS and an UNKNOWN number of
+> still-offered controls.* The control census is **NOT MEASURED** (§9) and is owned by
+> [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
 
 > ### `[Z8]` EI-7a is UNDERSTATED. `ctx.stores.wall` IS NOT A STORE.
 >
-> EI-7a above describes the inequality as *plugin DTO store* vs *legacy store* — two stores, one
-> written, one restored. **Measured, it is worse than that, and the difference changes what a fix
-> must do.**
+> ⚠ **HALF OF THIS BLOCK IS C03's, NOT C84's, AND IS CITED RATHER THAN RE-DERIVED (2026-08-18).**
+> [C03 §4.5](C03-SCHEMAS-COMMANDS-AND-STATE.md) — *"Why not `runtime.undoStack`?"* — already states
+> the mechanism in the same terms: `bus.fetchStores` = `storesProvider` =
+> `storesAsRecordView(stores)` = `Object.fromEntries(store.getState())` = *"plain **snapshot
+> Records with no `applyPatch`**, and even if they had one they are the **L1** store, not the
+> mesh-driving legacy store (§4.4)."* **C84 does not discover this and must never be read as the
+> source of it.** [C03 §4.4](C03-SCHEMAS-COMMANDS-AND-STATE.md)'s three-layer table is the
+> canonical statement that the L1 bus store does not drive the mesh; C03 **U-7** is the
+> already-ratified end-state (ADR-0251) in which the split folds away.
+>
+> **What C84 adds, and C03 does not state, is the ROUTING half:** the plugin DTO stores do not
+> appear on `runtime.stores` at all, so a fix cannot re-point them there. That is the measurement
+> below, and it is the only part of this block C84 owns.
 >
 > `runtime.stores` is a `StoresSlot` — `{ elements, registerHydrator, hydrate, viewState, project }`
 > (`composeRuntime.ts:1581-1583`). `elements` is the ADR-0318 live view over `storeRegistry`, and
@@ -431,6 +508,16 @@ A second implementation of one question is admissible **only** with all four of:
 > The geometry a user SEES and the geometry the system EXPORTS, BAKES or PERSISTS must come from the
 > **same function**, on the **same inputs**.
 
+> **This sentence is [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) + [C73 §3.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md)
+> specialised to one family, and it is cited, not coined.** C73 §1.1: *"Geometry is a **pure function
+> of authoritative model state**. Given the same model, a regeneration produces the same geometry."*
+> C73 §3.1: *"Each **predicate family** has exactly **one** implementation, in one named canonical
+> file."* **What EI-11 adds is the CONSUMER axis** — C73 ranges over implementations of one
+> *predicate*; EI-11 ranges over the *surfaces* (viewport vs bake vs export vs persist) that may each
+> reach a different implementation. ⚠ C73 §3.1's enumerated in-scope family list does **not** contain
+> the wall-layer or miter families, which is where the divergence below lives; that is a gap in
+> C73's list, reported in §10.
+
 This repository builds wall geometry twice: **Stack A** (`packages/geometry-wall` → `WallFragmentBuilder`
 → `initBuilders.ts` → the viewport) and **Stack B** (`packages/geometry-kernel/src/producers` →
 `produceWall` → `HeadlessBakeSession.ts:124` → `RebakeChunkJob.ts:79`, shipped in
@@ -441,12 +528,33 @@ against *itself*; `wall-headless-node.test.ts` compares Stack B in-process to St
 `worker_thread`. **Both are Stack-B-only.** A parity harness that compares a stack to itself does not
 satisfy this invariant.
 
-*Measured on identical inputs* (`stackAB-miter-parity.test.ts`): 9 of 10 cases agree to ≤2.2e-7 m —
-float32 storage noise — and **`curved-MITERED-both-ends` diverges by 9.774 m** on a 5 m-radius arc.
+*Measured on identical inputs* (`stackAB-miter-parity.test.ts`): 9 of 10 cases agree, with an
+**observed worst spread of 2.2e-7 m** — float32 storage noise — and **`curved-MITERED-both-ends`
+diverges by 9.774 m** on a 5 m-radius arc.
+
+> ⚠ **`2.2e-7` IS AN OBSERVATION, NOT THE GATE. Corrected 2026-08-18.** This bullet previously read
+> *"agree to ≤2.2e-7 m"*, which states an observed spread as though it were the accepted threshold.
+> The harness's actual threshold is `const TOL = 1e-4` (`:107`) plus `toBeCloseTo(…, 4)` = 5e-5 —
+> **three orders of magnitude looser than the number C84 quoted.** Reporting the tightest observation
+> as the tolerance is the mirror image of §8.f (reporting a defect as a tolerance) and is equally
+> misleading: it makes the harness look far stricter than it is. Neither number is
+> [C73](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md)'s — C73 §5.1 **E1** records that the canonical
+> tolerance module is **specified and not yet built**, so this harness had none to consume. **When
+> it lands, it MUST consume C73's declared, unit-qualified tolerance and MUST NOT ship `TOL`.**
 Stack A (`CurvedWallLayerBuilder.ts:69-83`, `§FIX-CURVED-WALL-MITER-WATERTIGHT`) projects the miter
 plane and **writes back into the corner table its face loops consume**; Stack B
 (`buildCurvedLayer.ts:133-137, 159-165`) projects the cap quad only and its face loops (`:95-118`)
-consume unprojected stations. **9.774 m is a defect, not a tolerance.**
+consume unprojected stations. **9.774 m is a defect, not a tolerance** — and the compliant response
+is the `it.fails` pin, because [C73 §2.5](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) forbids the
+alternative: *"A tolerance may not be **widened** to make a test, a gate, or a user-visible artefact
+pass."*
+
+> ⛔ **[C73 §3.7](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) IS NOT YET SATISFIED HERE, AND C84 MUST
+> NOT READ AS THOUGH IT WERE.** §3.7: *"Where copies **disagree**, the collapse states which
+> behaviour is canonical and why. A silent pick is a behaviour change shipped as a refactor."*
+> C84 records the divergence and pins it; **it never declares which stack is right.** Stack A carries
+> `§FIX-CURVED-WALL-MITER-WATERTIGHT` and Stack B predates it, which is evidence but not a
+> declaration. **The C73 §3.7 declaration is OWED** and is listed in §10.
 
 > **EI-11a — a caller may not silently substitute inputs.** `HeadlessBakeSession.ts:139` calls
 > `produceWall(w, NO_JOINS, 0)` — neighbour joins discarded, level elevation forced to zero, both
@@ -611,11 +719,12 @@ Every per-element contract MUST state which lineage each of its verbs travels. M
 additionally produces its patches against a **fake 2-field literal** (`:114-127`) while the real
 write goes elsewhere — patches that describe a mutation that did not happen.
 
-> ⚠ **`ctx.stores.<key>` IS NOT A STORE.** `bootstrap.ts:148` `storesAsRecordView` returns
-> `Object.fromEntries(store.getState())` — **a plain-object snapshot rebuilt every dispatch**.
-> So L1 handlers produce patches against a *throwaway view*. This is stronger than
-> "the DTO store is a write-only sink" and it reframes EI-7a: the inverse patch has no
-> durable target, not merely the wrong one.
+> ⚠ **`ctx.stores.<key>` IS NOT A STORE — stated once, under EI-7a, and cited here.**
+> The mechanism is [C03 §4.5](C03-SCHEMAS-COMMANDS-AND-STATE.md)'s (`storesAsRecordView` →
+> `Object.fromEntries(store.getState())` → *"plain snapshot Records with no `applyPatch`"*); the
+> routing consequence is the `[Z8]` block under **EI-7a**. *(This paragraph previously restated
+> both in full — the third statement of one fact inside one contract. Removed 2026-08-18 under
+> EI-9: **one answer per question** binds C84's own prose before it binds anyone's code.)*
 
 ---
 
@@ -646,8 +755,10 @@ table — the correct direction: one path, not two agreeing ones.)*
 ### MOVE / TRANSFORM
 **Sixteen move-class verbs REFUSE in `canExecute`** rather than route correctly — `wall.move`,
 `wall.transform`, `door.move`, `window.move`, `slab.move`, `roof.move`, `column.move`,
-`beam.move`, `furniture.move`, `lighting.move` and more. Containment by disabling is **not**
-conformance; each is a dead affordance and an EI-3 violation. The live move paths are L4
+`beam.move`, `furniture.move`, `lighting.move` and more. **Each refusal SATISFIES
+[C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) and must not be "fixed" by restoring silent
+success** — see the correction under EI-7a. The EI-3 violation is the **still-offered UI control**,
+not the refusal. The live move paths are L4
 (`UpdateWallBaseline`, `UpdateFurnitureParameters`) — correct by accident, not by design.
 Their reweld cascade is a **separate L3 verb** (`CascadeWallBaseline.ts:35,58`,
 `affectedStores: []`), so **one gesture produces two undo entries on two different stacks**.
@@ -685,16 +796,53 @@ writes a LevelStore** — stated in `ChangeWallLevel.ts:8-13`.
 | slab openings on slab delete | ✅ | `DeleteSlabCommand.ts:85-92`, restored `:145-157` |
 | wall joins on delete | ⚠ snapshot only | `:218-232`; header `:34-40` concedes the resolver "cannot guarantee the EXACT pre-delete trim" |
 | ceiling holes on ceiling delete | ⚠ partial | `:586-591` unregisters, **no store removal** |
-| room `boundingWallIds` on wall delete | ⛔ **field has no writer anywhere** | `boundingWallDetermination.ts:5-10,120` — "names a dependency that no producer wrote" |
-| `joinedToRoofIds` back-refs on roof delete | ⛔ dangling | — |
-| semantic graph edges | ✅ every family | captured by `_captureRelationships`, restored on undo |
+| ~~room `boundingWallIds` on wall delete~~ → **floor/ceiling** `boundingWallIds` | ✅ **CLOSED** | ⚠ **C84 WAS WRONG ON THE FAMILY AND STALE — see correction below.** [C79 §9.3](C79-REGION-SEMANTICS.md) |
+| `joinedToRoofIds` back-refs on roof delete | ⛔ dangling | Same class as above; owner is [C79 §7.2](C79-REGION-SEMANTICS.md) — POPULATE, REMOVE or DECLARE. Still open |
+| semantic graph edges | **? UNPROVEN** | ⚠ **was `✅ every family` — C84 awarded a pass BY READ. See correction below.** [C71 §5.8](C71-GRAPH-AND-TOPOLOGY.md) |
 | stair → railing re-sample | ⛔ event-driven, never reversed | `MoveStair.ts:98-101` |
 | curtain panel rebuild | ⛔ event-driven, never reversed | `ReplacePanel.ts:133-135` |
 | room topology after ANY wall undo | ⛔ **recomputed, not restored** | `RoomTopologyObserver.ts:513-520` discharges on `resume()` |
 
+> ### ⚠ TWO CELLS OF THIS TABLE WERE WRONG. Corrected 2026-08-18; the retractions are kept, per §0.
+>
+> **(a) `semantic graph edges | ✅ every family` was a PASS AWARDED BY READ, and the awarding
+> contract forbids exactly that.** [C71 §5.8](C71-GRAPH-AND-TOPOLOGY.md): *"**UNPROVEN, and named as
+> such.** … **whether undo of an edit reverses the SemanticGraph edges the same command wrote** …
+> **no runtime probe has been executed against a live graph**."* C71 §6's
+> `check-graph-delete-integrity` — which **does not exist at HEAD** — requires *"the undo half proven
+> by **executed read-back rather than by the presence of a restore call**."* C84's whole evidence was
+> the presence of a restore call. **That is the precise thing EI-10(b) and
+> [C16 CA-21](C16-COMMAND-AUTHORING-PROTOCOL.md) forbid, committed by C84 in its own conformance
+> table.**
+> **And it is not merely unproven — it is measurably not universal:** `_captureRelationships` occurs
+> in **seven** L2 `packages/command-registry` delete commands (`RemoveCeilingCommand`,
+> `RemoveFloorCommand`, `DeleteHandrailCommand`, `DeleteLevelCommand`, `DeleteRoofCommand`,
+> `DeleteStairCommand`, `DeleteElementCommand`) and in **zero** L1 plugin `*.delete` handlers — which
+> the row two lines above already says (`DeleteWall.ts:14-17`, *"no cascade at all"*). `✅ every
+> family` cannot hold across 15 families and six lineages when the mechanism lives in seven legacy
+> commands.
+> **Newly recorded, and C84 had missed it: those seven copies are themselves an EI-9 violation** —
+> one question (*"what edges did this delete strand?"*), seven private implementations, no licence
+> under EI-10.
+>
+> **(b) `room boundingWallIds … field has no writer anywhere` was wrong on the FAMILY, wrong on the
+> CLAIM, and five days stale.** The header C84 cites — `boundingWallDetermination.ts:5-10` — names
+> **`CreateFloorCommand` / `CreateCeilingCommand`**, not room. Room's array **is** populated by
+> construction: `RoomDetectionEngine.ts:518`, `UpdateRoomBoundaryCommand.ts:61`, and
+> `RoomDataSchema.ts:177` declares it **required**. [C79 §7.1](C79-REGION-SEMANTICS.md) says so
+> verbatim — *"but only for rooms, whose array is populated"* — and **[C79 §9.3] records the floor and
+> ceiling half CLOSED on 2026-08-13 via (a) POPULATE**, before C84 was written. C84 read a
+> determination module's *reader* rationale as a *writer* census. **§8.a in a new costume: the file
+> was named for the field, not for the family.**
+> *The surviving, real finding from C79 §10.3, which C84 should have had:* the array **is** populated
+> but as a `Set` — `PlanarTopologyEngine:174` does `[...new Set(face.wallIds.filter(Boolean))]`,
+> **collapsing the ordered, index-aligned per-half-edge record the walk had into unordered
+> membership.** That is an EI-2(d) *collapse-a-sequence* violation, and it is live.
+
 **Only THREE services consult `isReverting()`** — `WallMoveReweldService.ts:298`,
 `SlabWallConnectivityService.ts:1047`, `FinishHostDependencyTracker.ts:297`. Every other reactive
-observer runs forward during an undo.
+observer runs forward during an undo. **The suppression protocol itself is
+[C72 §4](C72-PROPAGATION-AND-PREVSTATE.md)'s, not C84's** — see the EI-7e correction.
 
 ---
 
@@ -739,11 +887,45 @@ construction (`WallFragmentBuilder.ts:2301-2307`).
   a mesh** `'opening'`. That branch has no measured producer.
 - **ceiling, floor and curtain-wall**: NOT MEASURED — no `elementType` assignment surfaced.
 
-Every per-element contract MUST declare its canonical tag, and the spellings MUST converge.
+> ⚠ **CORRECTED 2026-08-18 against C15 §12. This section previously ended *"and the spellings MUST
+> converge."* C15 FORBIDS that for door and window, in those words, and C15 wins.**
+>
+> [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) (*Casing note, §WINDOW-AUDIT-2026 W10*):
+> *"The canonical `elementType` is PascalCase (`'Door'`, `'Window'`). All consumers that perform
+> equality checks MUST normalise via `.toLowerCase()` before comparing… **Do NOT change the stored
+> casing — it is frozen.**"* C15 therefore already decided the general mechanism, and it is
+> **DECLARE + NORMALISE, not converge**: the producer freezes one spelling per family and every
+> comparing consumer lowercases. `DeleteElement.ts:51`'s lowercase is not the accident C84 read it
+> as — **it is the C15 §12 mechanism working as specified.**
+>
+> **The measured defect survives the correction, and is sharper for it.** C15 §12 requires *one*
+> frozen canonical tag per family. Slab has **four** (`'slab'`/`'Slab'`/`'SlabPart'`/`'SlabEdges'`),
+> which no amount of `.toLowerCase()` collapses — `'slabpart'` ≠ `'slab'`. Door already has two
+> (`'door'`/`'Door'`) where C15 froze exactly one. **Restated normatively:**
+>
+> **Every family MUST declare exactly ONE canonical `userData.elementType` tag in its per-element
+> contract, and every consumer MUST compare it case-insensitively per C15 §12. Multiple *spellings*
+> of one family (slab's four, door's two) are the violation; multiple *casings* of one spelling are
+> not.** Sub-part tags (`'SlabPart'`, `'SlabEdges'`, `'RoofPart'`) MUST be declared as sub-parts
+> with their parent named — C15 §12's `userData.role = 'geometry'` + `parentId` is the existing
+> mechanism for exactly this and MUST be used rather than a new tag.
 
 ---
 
 ## 5. Gates
+
+> ⛔ **CORRECTED 2026-08-18 — "EXISTS" IN THIS TABLE WAS WORKTREE-SCOPED AND READ AS HEAD-SCOPED.**
+> Measured in the main tree (`Product_Rediness_08`) on 2026-08-18:
+> `tests/parity/wall/stackAB-miter-parity.test.ts` → **ABSENT**;
+> `apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` → **ABSENT**. Both exist only in the
+> lane worktree `C:/ClaudeWorktrees/Product_Rediness_08/z8-dupaudit`. Their rows now read
+> **EXISTS (lane worktree — NOT ON `main`)**.
+>
+> **This is C84's own governed defect class, committed by C84.** It is §8.b's shape — a census taken
+> in one host and reported as universal — and it is the reason [C72 §0.1](C72-PROPAGATION-AND-PREVSTATE.md)
+> says *"a typed declaration is not wiring"*. A gate that exists in a worktree gates nothing at HEAD.
+> **A row may read `EXISTS` only after the file is on `main`.** Recorded rather than quietly amended,
+> per §0.
 
 | Gate | Enforces | Status |
 |---|---|---|
@@ -751,10 +933,10 @@ Every per-element contract MUST declare its canonical tag, and the spellings MUS
 | `check-bridge-field-coverage.ts` | EI-2 | TO BUILD — **the load-bearing one** (§7) |
 | `check-delete-symmetry.ts` | EI-4 / EI-5 | TO BUILD |
 | `check-persistence-coverage.ts` | EI-6 | TO BUILD — hard-0; no family may be unsaved |
-| `check-affected-stores.ts` | EI-7d | TO BUILD — **highest value single check.** Table-driven sweep asserting every `affectedStores` key declared anywhere in `packages/command-registry/src/**` and `plugins/**/commands/**` appears in `createSnapshot`'s `optionalStores` (`CommandManagerImpl.ts:609-625`). Generalises the one existing test from 1 command to ~190 |
-| `check-undo-store-coverage.ts` | EI-7c | TO BUILD — hard-0: every registered bus store key has a `buildUndoStoreMap` entry, or a DECLARED, documented exemption |
-| `[Z8]` `tests/parity/wall/stackAB-miter-parity.test.ts` | **EI-11** | **EXISTS** — 10 pass, 1 pinned `it.fails` (`§Z8-CURVED-MITER-BAKE-DIVERGENCE`). Slab / door / window harnesses **OWED** |
-| `[Z8]` `apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` | **EI-4a** | **EXISTS** — 5/5, watched RED. Delete only |
+| `check-affected-stores.ts` | EI-7d | TO BUILD — **highest value single check.** Table-driven sweep asserting every `affectedStores` key declared anywhere in `packages/command-registry/src/**` and `plugins/**/commands/**` appears in `createSnapshot`'s `optionalStores` (`CommandManagerImpl.ts:609-625`). Generalises the one existing test from 1 command to ~190. ⚠ **DISTINCT FROM [C16 §11.1 G-CA-A3](C16-COMMAND-AUTHORING-PROTOCOL.md)** — G-CA-A3 compares a declared key to the store the handler WROTE (EI-1a / C03 U-2b); this compares it to the store `createSnapshot` can ROLL BACK. Two different tables, two different failures. Build both; do not merge them |
+| `check-undo-store-coverage.ts` | EI-7c | TO BUILD — hard-0: every registered bus store key has a `buildUndoStoreMap` entry, or a DECLARED, documented exemption. Extends the existing coverage test [C03 §4.8](C03-SCHEMAS-COMMANDS-AND-STATE.md) names from *create-handler* keys to **every** registered key |
+| `[Z8]` `tests/parity/wall/stackAB-miter-parity.test.ts` | **EI-11** | **EXISTS (lane worktree `z8-dupaudit` — NOT ON `main`, measured 2026-08-18)** — 10 pass, 1 pinned `it.fails` (`§Z8-CURVED-MITER-BAKE-DIVERGENCE`). ⚠ Its threshold is a bare `const TOL = 1e-4` at `:107` — an unnamed, unit-unqualified call-site literal, which is precisely what [C73 §2.2/§2.3](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) forbids and what C73 §5.1 **E2**'s shrink-only ratchet counts. **This gate violates the contract it is evidence for, and must consume C73's declared tolerance before it lands on `main`.** Slab / door / window harnesses **OWED** |
+| `[Z8]` `apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts` | **EI-4a** | **EXISTS (lane worktree `z8-dupaudit` — NOT ON `main`, measured 2026-08-18)** — 5/5, watched RED. Delete only |
 | `[Z8]` `tools/ga-gate/check-verb-liveness.ts` | EI-1 / EI-7a route liveness | **EXISTS — GROW-ONLY ratchet.** Reading: **PROVEN 7 / 326**; UNPROVABLE-NO-STORE 109; UNKNOWN 210. Its own words: *"Neither is a pass; both are the work"* |
 | `[Z8]` `check-emitter-has-consumer` | **EI-13** | TO BUILD — hard-0 once the nine are resolved |
 | `[Z8]` `check-constant-copy-pinned` | **EI-8a** | TO BUILD — hard-0 |
@@ -846,8 +1028,20 @@ A field must be **carried** or **declared dropped**. Never omitted.
   "LevelStore" files were three different kinds of object. Apply §3.5.
 - **§8.b — Deleting on an editor-only importer census.** §3.5.2 — it would have deleted the bake
   pipeline.
-- **§8.c — Mirroring state between two stores as an end state.** A mirror makes both copies
-  authoritative and neither trustworthy. Retire the loser's **write** (EI-5a).
+- **§8.c — Mirroring state between two stores as an end state, WHERE ONE SIDE HAS NO READERS.**
+  A mirror makes both copies authoritative and neither trustworthy. Retire the loser's **write**
+  (EI-5a).
+  > ⚠ **SCOPED 2026-08-18. As first written this bullet was unqualified, and unqualified it
+  > forbids what [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) MANDATES** — *"Every command that
+  > mutates a hosted element's `offset` MUST write to **both**"* `wall.openings[i].offset` **and**
+  > `doorStore`/`windowStore`. C15 wins, and it is right to: **both** of its stores have live
+  > readers (`WallFragmentBuilder` reads `wall.openings` for the void; `DoorBuilder`/`WindowBuilder`
+  > read the standalone store for the frame), so retiring either write breaks a renderer. That is
+  > the **inversion EI-5a already anticipates** — *"sound ONLY while the reader count is zero"*.
+  > **The anti-pattern is a mirror maintained to keep a ZERO-READER shadow plausible.** A mirror
+  > between two stores that each have a live reader is not this anti-pattern; it is a **declared
+  > co-living pair** under §3.5, and its obligation is a **gate**, not a retirement — C15 §8.1's
+  > own enforcement is *"a code-review checklist item"*, which is §8.d in another costume.
 - **§8.d — A comment as the synchronisation mechanism.** EI-8a. Measured to have failed twice.
 - **§8.e — A parity test that compares a stack to itself.** EI-11.
 - **§8.f — Reporting a tolerance where a defect belongs.** 9.774 m is not a tolerance.
@@ -880,8 +1074,17 @@ as *"fine"* and is indistinguishable from *"nobody looked"*).
 - **`ADR-0331 §D5 — "what is Stack B for?"`** — ⛔ **A FOUNDER QUESTION, escalated, not to be resolved
   by any lane.** Three coherent end-states are costed in ADR-0331. **Until it is decided, NOTHING in
   `packages/geometry-kernel/src/producers/` or `plugins/*/src/committer/` may be deleted** (§3.5.2).
-- **Which door representation wins** (EI-1, `wall.opening`) — a persistence-format decision with a
-  migration; needs the founder.
+- ~~**Which door representation wins** (EI-1, `wall.opening`) — a persistence-format decision with a
+  migration; needs the founder.~~
+  ⚠ **RETRACTED 2026-08-18 — this was ESCALATED TO THE FOUNDER A QUESTION C15 HAS ALREADY
+  ANSWERED**, which is the §8.h failure mode applied to governance instead of to code.
+  [C15 §1 + §2](C15-HOSTED-ELEMENT-CONTRACT.md) decide it: the opening lives in `wall.openings[]`
+  on the host `Wall`, and a hosted element *"has no independent world-space coordinate in the
+  store"*. **The authority is the wall record.** What remains open is strictly narrower and is an
+  engineering question, not a founder one: **`ProjectSerializer.ts:47-48,704-705` persists the
+  DERIVED side** (`doorStore`/`windowStore`) rather than the authority, so a save/load round-trip
+  is authoritative-by-accident via C15 §8.1's mandated paired write. The open item is the
+  **persistence migration to serialise `wall.openings[]`**, and it is owned by C05, not by C84.
 - **EI-7e** — whether user-authored room name / number / finish survive
   `RoomTopologyObserver.resume()`'s post-undo recompute.
 - **Plan-view store authority, per family** — unmeasured for every family.
