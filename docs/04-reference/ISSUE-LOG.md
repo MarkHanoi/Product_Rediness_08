@@ -7171,3 +7171,43 @@ granite. Report which of these already resolve in the master catalogue and which
   slab is most naturally authored BY REGION (the garden between the parcel boundary and the
   building), so **this feature is downstream of that fix** and should not ship before it, or it will
   be published and unreachable.
+
+---
+
+## L-964 — the curtain-wall CREATION panel asks for raw parameters where the wall panel offers a TYPE
+
+**Founder-requested 2026-08-18, with two screenshots.** Small change, wanted in the next deployment.
+
+**The wall creation panel** (screenshot 1) reads *"Plain Wall ready — click on canvas to draw.
+Change type below (optional)."* with a **WALL TYPE dropdown** + Apply, alongside the mode chips
+(Linear / Orthogonal / Curved / By Slab).
+
+**The curtain-wall creation panel** (screenshot 2) instead asks for four raw numbers — `HEIGHT (M)`,
+`GRID SPACING U (M)`, `GRID SPACING V (M)`, `MULLION SIZE (M)`. The founder's words: *"I want a type
+panel — simpler — with all the 4 existing panels + all the new panels coming."*
+
+⭐ **THIS IS NOW A SMALL CHANGE BECAUSE THE TYPES EXIST.** [L-958](#l-958) Slice A shipped
+`CurtainWallTypeStore` beside `HandrailTypeStore`, published types 1-4 through
+`ElementTypeCatalogRegistry`, and wired the `element.changeType` branch — all with a
+deciding-layer proof. **The creation panel should read the SAME store.** The parameters the form
+currently asks for are precisely what a type already carries.
+
+### What it must do
+1. Offer a **type dropdown**, defaulting like the wall panel does (*"… ready — click on canvas to
+   draw. Change type below (optional)."*) so a user can draw immediately without choosing.
+2. List **every published type** — the 4 today, and 5-20 automatically as they land. ⛔ It must read
+   the store, **never a hard-coded list**: a second enumeration is how the picker and the catalogue
+   come to disagree, and a hand-copied list would silently omit every future type.
+3. **Do not lose the raw parameters — demote them.** `HEIGHT` in particular is an INSTANCE property,
+   not a type property: a type is height-agnostic (see L-958's `gridYSpacing` note — the swap
+   handler computes it from the wall's own height, and a type carrying a sentinel would give a 3 m
+   wall transoms nobody asked for). Keep height authorable; the grid/mullion values come from the
+   chosen type.
+
+### ⚠ One thing to verify, not assume
+The wall panel's mode chips are **Linear / Orthogonal / Curved / By Slab**; the curtain-wall panel's
+are **Single / Linear / Orthogonal / Curved / By Slab**. The founder asked for parity of the TYPE
+panel, not for the mode chips to change. **Leave the modes alone** unless they ask.
+
+**Owner:** the curtain-wall lane — it built the store, the registry entry and the swap branch, so
+this is the last mile of work it already did, not new territory.
