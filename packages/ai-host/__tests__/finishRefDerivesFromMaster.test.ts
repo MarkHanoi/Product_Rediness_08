@@ -49,3 +49,63 @@ describe('finishRef derives its values from the master catalogue', () => {
     expect(byAlias!.materialId).toBe('gypsum-skim');
   });
 });
+
+// ─── L-960 DEFECT 2 — "wood" resolved to Insulation · Wood Fibre Board ─────────
+//
+// Founder-reported: *"make all inner finishes walls on the ground floor to wood"* was
+// answered *"Set the interior finish of all 10 walls on Ground to Insulation · Wood
+// Fibre Board."* The mechanism was not ambiguity — it was ABSENCE. 'wood' matched no
+// alias, fell to the substring arm, and the only aliases containing it belonged to
+// `insulation-wood-fibre`, so `partial.length === 1` made a buried product look like
+// an unambiguous hit.
+//
+// ⛔ These assertions are worthless on their own and were never shipped on their own:
+// a finish that resolves correctly and still does not render is the same false success
+// with better wording. `L960WallSideFinishRenders.test.ts` is the other half.
+
+describe('L-960 §L960-WOOD-IS-A-SURFACE — a bare finish word resolves to a VISIBLE surface', () => {
+  it('"wood" is a wood SURFACE, not an insulation product', () => {
+    const f = resolveFinishRef('wood');
+    expect(f, '"wood" resolves at all').not.toBeNull();
+    expect(f!.materialId).not.toBe('insulation-wood-fibre');
+    const record = findMaterialRecord(f!.materialId);
+    expect(record!.category, `"wood" resolved to ${f!.name}`).toBe('Wood');
+  });
+
+  it('the words a person actually says for a wood wall all land in Wood or Timber Engineered', () => {
+    for (const word of ['wood', 'timber', 'oak', 'walnut', 'pine', 'plywood', 'bamboo', 'veneer', 'glulam']) {
+      const f = resolveFinishRef(word);
+      expect(f, `"${word}" resolved to nothing`).not.toBeNull();
+      const record = findMaterialRecord(f!.materialId);
+      expect(['Wood', 'Timber Engineered'], `"${word}" → ${f!.name}`).toContain(record!.category);
+    }
+  });
+
+  it('asking for the insulation BY NAME still gets the insulation — vocabulary was added, not removed', () => {
+    // The guard filters loose CANDIDATES; an exact alias is a request by name and is
+    // never overruled. Narrowing the matcher instead of adding the surfaces would
+    // have cost this.
+    for (const word of ['wood fibre', 'wood fibre insulation', 'wood fiber insulation']) {
+      expect(resolveFinishRef(word)!.materialId, word).toBe('insulation-wood-fibre');
+    }
+    expect(resolveFinishRef('cellulose insulation')!.materialId).toBe('insulation-cellulose');
+  });
+
+  it('the pre-L-960 finishes are unmoved', () => {
+    expect(resolveFinishRef('plaster')!.materialId).toBe('gypsum-skim');
+    expect(resolveFinishRef('limewash')!.materialId).toBe('paint-limewash-cream');
+    expect(resolveFinishRef('microcement')!.materialId).toBe('paint-microcement-warm-grey');
+    expect(resolveFinishRef('drywall')!.materialId).toBe('gypsum-plasterboard');
+    expect(resolveFinishRef('paint')!.materialId).toBe('paint-matte-white');
+  });
+
+  it('DISCLOSED CONSEQUENCE — "white" is now genuinely ambiguous and refuses', () => {
+    // It matches white paint AND whitewashed oak. C85's rule is "ambiguity ⇒ null,
+    // never a coin-flip", so a refusal that lists real options is the correct answer
+    // and not a regression to paper over. Recorded here so the change is visible
+    // rather than discovered.
+    expect(resolveFinishRef('white')).toBeNull();
+    expect(resolveFinishRef('white paint')!.materialId).toBe('paint-matte-white');
+    expect(resolveFinishRef('whitewashed oak')!.materialId).toBe('wood-oak-whitewashed');
+  });
+});

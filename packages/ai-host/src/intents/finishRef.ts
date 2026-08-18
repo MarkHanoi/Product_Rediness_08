@@ -56,7 +56,65 @@ const FINISH_ALIASES: ReadonlyArray<{ readonly id: string; readonly aliases: rea
   { id: 'paint-microcement-warm-grey', aliases: ['microcement', 'micro cement'] },
   { id: 'insulation-cellulose', aliases: ['cellulose insulation', 'blown cellulose'] },
   { id: 'insulation-wood-fibre', aliases: ['wood fibre insulation', 'wood fiber insulation', 'wood fibre'] },
+
+  // ─── §L960-WOOD-IS-A-SURFACE (founder, 2026-08-18) ─────────────────────────
+  // He typed *"make all inner finishes walls on the ground floor to wood"* and was
+  // told the walls were now `Insulation · Wood Fibre Board`. The mechanism, exactly:
+  // 'wood' matched no alias, fell to the substring arm, and the ONLY aliases
+  // containing it were the three on `insulation-wood-fibre` — one group, so
+  // `partial.length === 1` and the resolver returned it as an unambiguous hit.
+  //
+  // It was not an ambiguity bug. It was an ABSENCE: the master carries 21 visible
+  // WOOD and TIMBER ENGINEERED surfaces and this table listed none of them, so the
+  // buried insulation product was the only thing in the room that could answer. The
+  // fix is therefore to ADD the surfaces (plus the category guard below for when a
+  // future word straddles both), not to narrow the matcher.
+  { id: 'wood-oak', aliases: ['wood', 'oak', 'timber', 'wood oak', 'oak wood', 'light oak'] },
+  { id: 'wood-walnut', aliases: ['walnut', 'dark wood', 'walnut wood'] },
+  { id: 'wood-pine', aliases: ['pine', 'pine wood'] },
+  { id: 'wood-birch', aliases: ['birch', 'birch wood'] },
+  { id: 'wood-teak', aliases: ['teak'] },
+  { id: 'wood-ash', aliases: ['ash', 'ash wood'] },
+  { id: 'wood-maple', aliases: ['maple'] },
+  { id: 'wood-cherry', aliases: ['cherry'] },
+  { id: 'wood-mahogany', aliases: ['mahogany'] },
+  { id: 'wood-ebony', aliases: ['ebony'] },
+  { id: 'wood-cedar-red', aliases: ['cedar', 'red cedar'] },
+  { id: 'wood-oak-smoked', aliases: ['smoked oak'] },
+  // 'white oak' is deliberately NOT an alias here: it is a different species from
+  // whitewashed oak, and it would widen the 'white' collision below for no gain.
+  { id: 'wood-oak-whitewashed', aliases: ['whitewashed oak'] },
+  { id: 'wood-reclaimed', aliases: ['reclaimed wood', 'weathered wood'] },
+  { id: 'wood-painted-white', aliases: ['painted wood', 'white painted wood'] },
+  { id: 'wood-charred-shou-sugi-ban', aliases: ['charred wood', 'shou sugi ban', 'charred timber'] },
+  { id: 'wood-thermowood', aliases: ['thermowood', 'thermally modified wood'] },
+  { id: 'timber-veneer-oak', aliases: ['oak veneer', 'veneer', 'timber veneer', 'veneer panel'] },
+  { id: 'timber-plywood', aliases: ['plywood', 'birch ply', 'ply'] },
+  { id: 'timber-clt', aliases: ['clt', 'cross laminated timber'] },
+  { id: 'timber-glulam', aliases: ['glulam', 'glued laminated timber'] },
+  { id: 'timber-bamboo', aliases: ['bamboo'] },
+  { id: 'timber-osb', aliases: ['osb', 'oriented strand board'] },
+  { id: 'timber-mdf', aliases: ['mdf'] },
 ];
+
+/**
+ * §L960-WOOD-IS-A-SURFACE — categories that are BURIED inside the construction and
+ * are never the visible face of a wall.
+ *
+ * A wall FINISH is by definition a visible surface, so when a bare word matches both
+ * a visible-surface row and a concealed one, the concealed one is not a candidate —
+ * it is the wrong KIND of answer, regardless of how well the letters line up. This
+ * is the "category + visible-surface suitability" the substring arm was missing.
+ *
+ * ⚠ It filters CANDIDATES, it does not delete vocabulary: `'wood fibre insulation'`
+ * still resolves, because an EXACT alias is a request for that product BY NAME and
+ * is never overruled here. A user who asks for insulation gets insulation; a user who
+ * asks for "wood" gets wood.
+ */
+const CONCEALED_CATEGORIES: ReadonlySet<string> = new Set([
+  'Insulation',
+  'Membrane & Waterproofing',
+]);
 
 /** Entries whose material id is absent from the master. Empty in a healthy build. */
 export function finishRefIntegrityErrors(): string[] {
@@ -64,12 +122,15 @@ export function finishRefIntegrityErrors(): string[] {
 }
 
 /** Alias -> finish, DERIVED from the master. First alias in each group is the canonical suggestion. */
-const FINISHES: ReadonlyArray<{ aliases: readonly string[]; finish: ResolvedFinish }> =
+const FINISHES: ReadonlyArray<{ aliases: readonly string[]; category: string; finish: ResolvedFinish }> =
   FINISH_ALIASES.flatMap((entry) => {
     const record = findMaterialRecord(entry.id);
     if (!record) return [];
     return [{
       aliases: entry.aliases,
+      // Carried from the master, never restated here — it is what makes the
+      // visible-surface guard a property of the CATALOGUE and not of this table.
+      category: record.category,
       finish: { name: record.label, materialColor: record.color, materialId: record.id },
     }];
   });
@@ -92,7 +153,13 @@ export function resolveFinishRef(ref: string): ResolvedFinish | null {
   // inside longer aliases ("all" inside "drywall" was the live false positive).
   if (n.length < 4) return null;
   const partial = FINISHES.filter((e) => e.aliases.some((a) => a.includes(n) || n.includes(a)));
-  return partial.length === 1 ? partial[0]!.finish : null;
+  // §L960-WOOD-IS-A-SURFACE — a finish is a VISIBLE face, so a buried product is
+  // not a candidate for a loose match while a real surface also matches. When only
+  // concealed rows match, they stay the answer (nothing else was asked for), so this
+  // narrows the coin-flip rather than removing vocabulary.
+  const visible = partial.filter((e) => !CONCEALED_CATEGORIES.has(e.category));
+  const pool = visible.length > 0 ? visible : partial;
+  return pool.length === 1 ? pool[0]!.finish : null;
 }
 
 /** Canonical names for refusal copy (first alias of each group). */
