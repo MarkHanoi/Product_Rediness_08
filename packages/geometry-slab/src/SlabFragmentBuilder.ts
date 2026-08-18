@@ -1076,8 +1076,46 @@ export class SlabFragmentBuilder {
                 : (data.polygon ?? null);
 
         // ── Collect all holes to punch through the slab geometry ──────────
-        // Source 1: SlabData.holes — set by HOLLOW_SLAB tool at creation time.
-        const semanticHoles: { x: number; y: number }[][] = data.holes ?? [];
+        // Source 1: SlabData.holes — set by HOLLOW_SLAB tool at creation time —
+        // OR, when the record carries a parametric sketch with inner loops, the
+        // RESOLVED inner loops instead.
+        //
+        // §REGION-ANNULUS (ADR-0329 D4) — THE ENTIRE "DYNAMIC" REQUIREMENT IS THIS
+        // LINE. `sketch.innerLoops` was declared at `SketchTypes.ts:62`, registered
+        // into the wall→slab dependency graph (`SlabDependencyTracker:140`), degraded
+        // on wall delete (`:362`), deep-copied (`DuplicateFloorPlanCommand:331`) and
+        // persisted — and read by NO geometry producer. C79 §7.4 names exactly that
+        // shape: a field honoured on one path and empty on another "looks honoured to
+        // whoever checks first". This is its §7.2(a) POPULATE disposition.
+        //
+        // THE POLICY IS THE OUTER LOOP'S, ONE LEVEL DOWN. Two lines above, a sketch's
+        // `outerLoop` is resolved IN PREFERENCE TO the static `data.polygon`. Inner
+        // loops take the identical precedence over the static `data.holes`, so a
+        // reader who knows one rule knows both.
+        //
+        // REPLACEMENT, NOT ADDITION, and that is deliberate: punching the same contour
+        // twice would hand duplicate hole rings to `THREE.ShapeUtils.triangulateShape`
+        // below. The rule is superset-safe — HOLLOW_SLAB is the only writer of
+        // `data.holes` and it never writes a sketch, so the two cannot co-occur except
+        // on a record something new has authored.
+        //
+        // WHY THE HOLE FOLLOWS A WALL WITH NO NEW MACHINERY: `resolveLoop` calls
+        // `WallFaceResolver` per edge on EVERY rebuild, and the dependency graph
+        // already carries the inner-loop hosts, so a wall move already reaches
+        // `triggerRebuild` and the hole re-resolves from live wall geometry. Nothing
+        // new subscribes to anything (C72 §2.4 — do not build a second tracker).
+        const sketchInnerLoops = data.sketch?.innerLoops ?? [];
+        const resolvedInnerLoops: { x: number; y: number }[][] = [];
+        for (const loop of sketchInnerLoops) {
+            const resolved = SlabFragmentBuilder.resolveLoop(loop);
+            // A loop that will not resolve is DROPPED, not substituted. C79 §2.3 —
+            // a wrong hole is strictly worse than no hole: no hole leaves the slab
+            // solid, which is visible and correctable; an invented one silently
+            // removes floor area the model says exists.
+            if (resolved && resolved.length >= 3) resolvedInnerLoops.push(resolved);
+        }
+        const semanticHoles: { x: number; y: number }[][] =
+            resolvedInnerLoops.length > 0 ? resolvedInnerLoops : (data.holes ?? []);
 
         // Source 2: OpeningStore — holes added post-creation via the Opening tool.
         // Builder reads openingStore read-only for projection purposes only (§01 §4.3).

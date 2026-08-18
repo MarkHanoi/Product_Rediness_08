@@ -295,6 +295,41 @@ export class SlabDependencyTracker {
             const { width, depth } = polygonBoundingBox(ring!);
             next.width = parseFloat(width.toFixed(6));
             next.depth = parseFloat(depth.toFixed(6));
+
+            // §REGION-ANNULUS (ADR-0329 D5) — the HOLES are re-derived alongside the
+            // outer ring, for the same reason the outer ring is written at all.
+            //
+            // WITHOUT THIS the record would claim the whole parcel (1600 m² on the
+            // reference fixture) while the mesh drew the garden (1200), which is
+            // precisely the record-vs-mesh divergence §FIX-SLAB-POLYGON-WRITEBACK
+            // exists to close — *"'it follows' was true of the picture and false of
+            // the record"* — reproduced one field along. Every consumer that reads
+            // POLYGON without HOLES (schedules, area take-off, IFC/DXF export) would
+            // over-report the slab by the footprint of the building standing on it.
+            //
+            // SAME WRITE RULE AS THE RING, deliberately: only a `fullyLive` loop is
+            // persisted, so a hole assembled from a stale authoring-time fallback is
+            // never laundered into the record as though it had been re-measured. A
+            // loop that will not resolve live is OMITTED rather than kept at its old
+            // coordinates — C79 §2.3, a wrong hole is worse than no hole.
+            //
+            // THIS DOES NOT TOUCH `sketch`. That is the L-943 property: the authored
+            // references — outer and inner — are never rewritten by a move, so the
+            // reverse pass has no authored value to reconstruct differently. Undo
+            // restores the wall; the hole re-resolves to where it was. Pinned by
+            // executed control, on the stored sketch, byte-for-byte.
+            const innerLoops = slab.sketch.innerLoops ?? [];
+            if (innerLoops.length > 0) {
+                const derivedHoles: { x: number; y: number }[][] = [];
+                for (const loop of innerLoops) {
+                    const holeRes = SlabFragmentBuilder.resolveLoopVerdict(loop);
+                    if (holeRes.fullyLive && holeRes.ring && holeRes.ring.length >= 3) {
+                        derivedHoles.push(holeRes.ring);
+                    }
+                }
+                next.holes = derivedHoles;
+            }
+
             this.slabStore.update(slabId, next);
         }
 

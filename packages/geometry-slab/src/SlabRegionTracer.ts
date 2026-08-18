@@ -604,6 +604,157 @@ export function polygonArea(poly: ReadonlyArray<RegionPoint2D>): number {
 }
 
 /**
+ * §REGION-ANNULUS (ADR-0329 D2) — a CANONICAL FORM for "is this the same boundary?".
+ *
+ * The graph walk emits every boundary TWICE, once per traversal direction. On the
+ * reference fixture (a 40x40 parcel around a 20x20 building) it returns four loops:
+ * the parcel at ±1600 m² and the building at ±400 m². The two members of each pair
+ * are the SAME boundary and must collapse to one hole.
+ *
+ * They are collapsed by a canonical KEY, not by a proximity match — C79 §2.2 forbids
+ * the latter, and it forbids it for a reason that applies here: two DIFFERENT holes
+ * that happen to sit close together must stay two holes. The key is exact:
+ *
+ *   1. winding normalised (reverse when the signed area is negative), so direction
+ *      cannot distinguish two spellings of one boundary;
+ *   2. rotated to start at the lexicographically smallest vertex, so the start index
+ *      cannot either — the same rotation-insensitivity `ringsEqualCyclic` already
+ *      applies on the re-projection path, and for the same reason;
+ *   3. ordinates quantised at {@link REGION_WELD_TOLERANCE_M} — the SAME band the
+ *      walk already welded its nodes at, so a key can never split two vertices the
+ *      graph itself treated as one node (C73 §2.1: the band is the caller's declared
+ *      domain tolerance, and reusing it is what keeps the two decisions consistent).
+ *
+ * A WINDING FLIP IS NOT A DIFFERENT BOUNDARY HERE. That is the opposite of the rule
+ * `reprojectStoredPolygon` applies to the outer ring, and deliberately so: there,
+ * winding carries the authored inside/outside sense of one ring; here, the two
+ * windings are two outputs of one undirected walk over one undirected edge set.
+ */
+function canonicalRingKey(ring: ReadonlyArray<RegionPoint2D>): string {
+    const q = (n: number): number => Math.round(n / REGION_WELD_TOLERANCE_M);
+    const oriented = polygonArea(ring) < 0 ? [...ring].reverse() : [...ring];
+
+    let startIdx = 0;
+    for (let i = 1; i < oriented.length; i++) {
+        const a = oriented[i]!, b = oriented[startIdx]!;
+        const [ax, ay, bx, by] = [q(a.x), q(a.y), q(b.x), q(b.y)];
+        if (ax < bx || (ax === bx && ay < by)) startIdx = i;
+    }
+
+    const parts: string[] = [];
+    for (let k = 0; k < oriented.length; k++) {
+        const p = oriented[(startIdx + k) % oriented.length]!;
+        parts.push(`${q(p.x)},${q(p.y)}`);
+    }
+    return parts.join(';');
+}
+
+/**
+ * §REGION-ANNULUS (ADR-0329 D2) — outer ring plus the holes inside it.
+ *
+ * Every field is a ring the SAME walk produced; nothing here is re-derived and no
+ * polygon boolean is involved (see the ADR's §5 alternative 1, and the standing
+ * refusal at `polygonBoolean.ts:45-49`).
+ */
+export interface AttributedRegionWithHoles {
+    /** The smallest loop enclosing the click — byte-identical to the old return. */
+    outer: AttributedRingVertex[];
+    /** Loops strictly inside `outer` that do NOT enclose the click. Often empty. */
+    holes: AttributedRingVertex[][];
+}
+
+/**
+ * §REGION-ANNULUS (ADR-0329 D2) — the annulus-aware twin of
+ * {@link findAttributedRegionAtPoint}.
+ *
+ * THE FOUNDER'S APPROACH, and the reason no polygon DIFFERENCE is needed: *"create a
+ * slab within the perimeter of the boundary, then create a dynamic hole from within
+ * the space defined by the walls of the building."* The outer ring is the parcel
+ * boundary; the hole is the building footprint. Both are loops
+ * {@link buildAttributedClosedLoops} already returns — MEASURED on the reference
+ * fixture, which yields the building ring at ±400 m² attributed to `bldg-*` walls.
+ * `findAttributedRegionAtPoint` keeps the smallest ENCLOSING loop and drops the rest,
+ * which is C79 §0's "computed, correct, discarded on the way out" one function
+ * further out than the wall ids that defect was about.
+ *
+ * THE SELECTION RULE, stated so it is checkable rather than implied:
+ *
+ *   outer  = the smallest-area loop CONTAINING the click.  Unchanged. A click inside
+ *            a room still yields that room, with no holes, exactly as before.
+ *   holes  = every other loop that is STRICTLY INSIDE `outer` and does NOT contain
+ *            the click, after (a) collapsing winding twins by {@link canonicalRingKey}
+ *            and (b) keeping only the OUTERMOST such loops.
+ *
+ * (b) is load-bearing and is not an optimisation. A loop nested inside a hole
+ * candidate is a ROOM INSIDE THE BUILDING — the building's own interior partitions
+ * are in the same wall set — and punching it would turn one honest hole into a sieve
+ * of overlapping contours. Keeping only the outermost is what makes the hole "the
+ * building", which is what the user pointed at.
+ *
+ * "Strictly inside" is decided by a vertex probe against `outer` using the kernel's
+ * canonical even-odd body (via {@link pointInPolygon}) — no new predicate is minted
+ * here, and `check-predicate-canonical` does not move.
+ */
+export function findAttributedRegionWithHolesAtPoint(
+    walls: ReadonlyArray<RegionWallLike>,
+    x: number,
+    z: number,
+): AttributedRegionWithHoles | null {
+    if (!walls || walls.length === 0) return null;
+    const segments = wallsToAttributedSegments(walls);
+    if (segments.length === 0) return null;
+
+    const loops = buildAttributedClosedLoops(segments);
+    const click: RegionPoint2D = { x, y: z };
+
+    let outer: AttributedRingVertex[] | null = null;
+    let outerArea = Infinity;
+    for (const loop of loops) {
+        const ring = loop.map(v => v.point);
+        if (!pointInPolygon(click, ring)) continue;
+        const area = Math.abs(polygonArea(ring));
+        if (area < outerArea) {
+            outerArea = area;
+            outer = loop;
+        }
+    }
+    if (!outer || outer.length < 3) return null;
+
+    const outerRing = outer.map(v => v.point);
+    const outerKey = canonicalRingKey(outerRing);
+
+    // Pass 1 — candidates: strictly inside `outer`, not enclosing the click, winding
+    // twins collapsed. `contained` requires EVERY vertex inside so a ring that merely
+    // brushes the outer boundary is not silently adopted as a hole.
+    const seen = new Set<string>([outerKey]);
+    const candidates: { loop: AttributedRingVertex[]; ring: RegionPoint2D[]; area: number }[] = [];
+    for (const loop of loops) {
+        if (loop.length < 3) continue;
+        const ring = loop.map(v => v.point);
+        const key = canonicalRingKey(ring);
+        if (seen.has(key)) continue;
+        if (pointInPolygon(click, ring)) continue;
+        if (!ring.every(p => pointInPolygon(p, outerRing))) continue;
+        seen.add(key);
+        candidates.push({ loop, ring, area: Math.abs(polygonArea(ring)) });
+    }
+
+    // Pass 2 — keep only the OUTERMOST candidates. A candidate contained by a strictly
+    // larger candidate is a room inside the building, not a second hole of the garden.
+    const holes: AttributedRingVertex[][] = [];
+    for (const c of candidates) {
+        const nestedInAnother = candidates.some(
+            other => other !== c
+                && other.area > c.area
+                && c.ring.every(p => pointInPolygon(p, other.ring)),
+        );
+        if (!nestedInAnother) holes.push(c.loop);
+    }
+
+    return { outer, holes };
+}
+
+/**
  * §REGION-HOST-ATTRIBUTION — why a chord was NOT attributed, counted per reason.
  * Reported by {@link buildRegionSketch} so a fallback is a MEASUREMENT, never a
  * silent gap (§CONTEXT-DATA-HONESTY / ADR-0299: a refusal and an empty result must
@@ -631,8 +782,17 @@ export interface RegionSketchAttribution {
 /** Result of {@link buildRegionSketch}. */
 export interface RegionSketchResult {
     sketch: SlabSketch;
-    /** The ring geometry, unchanged — for the polygon/preview path. */
+    /** The OUTER ring geometry, unchanged — for the polygon/preview path. */
     ring: RegionPoint2D[];
+    /**
+     * §REGION-ANNULUS (ADR-0329 D3) — the hole rings, in the same frame as `ring`.
+     *
+     * ALWAYS PRESENT, `[]` when the region has no holes — never `undefined`. An empty
+     * array means "measured, and there are none"; the field's absence would be the
+     * failure-as-emptiness shape §CONTEXT-DATA-HONESTY forbids. `ring` keeps its exact
+     * previous meaning so every existing caller is unaffected.
+     */
+    innerRings: RegionPoint2D[][];
     attribution: RegionSketchAttribution;
 }
 
@@ -665,51 +825,80 @@ export interface RegionSketchResult {
  */
 export function buildRegionSketch(
     ring: ReadonlyArray<AttributedRingVertex>,
+    innerRings: ReadonlyArray<ReadonlyArray<AttributedRingVertex>> = [],
 ): RegionSketchResult | null {
     if (!ring || ring.length < 3) return null;
 
-    const edges: SketchEdge[] = [];
     const hostWallIds = new Set<string>();
     let hostEdges = 0;
     let curvedFallbacks = 0;
     let missingIdFallbacks = 0;
     let ambiguousFallbacks = 0;
+    let totalEdges = 0;
 
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i]!;
-        const b = ring[(i + 1) % ring.length]!;
-        const start = { x: a.point.x, y: a.point.y };
-        const end = { x: b.point.x, y: b.point.y };
+    /**
+     * §REGION-ANNULUS (ADR-0329 D3) — ONE loop→edges body, applied to the outer ring
+     * and to every inner ring.
+     *
+     * This is C79 §3.4 taken literally: *"A region path's edge shape MUST be
+     * byte-identical to the already-working non-region path"* — and the cheapest way
+     * to guarantee an inner edge is byte-identical to an outer one is for there to be
+     * exactly one place that mints either. A second construction site for hole edges
+     * is how two shapes for one relationship come into existence (C79 §0).
+     * Attribution counts accumulate across ALL loops, so a fallback in a hole edge is
+     * REPORTED, never absorbed (C79 §2.5/§2.6).
+     */
+    const loopToEdges = (loop: ReadonlyArray<AttributedRingVertex>): SketchEdge[] => {
+        const edges: SketchEdge[] = [];
+        for (let i = 0; i < loop.length; i++) {
+            const a = loop[i]!;
+            const b = loop[(i + 1) % loop.length]!;
+            const start = { x: a.point.x, y: a.point.y };
+            const end = { x: b.point.x, y: b.point.y };
 
-        if (a.hostId) {
-            const edge: HostReferenceEdge = {
-                type: 'hostReference',
-                hostId: a.hostId,
-                hostType: 'wall',
-                reference: 'centerLine',
-                offset: 0,
-                // Non-destructive degradation (SketchTypes §03): an edge with no
-                // fallback degrades to nothing when its wall is deleted.
-                fallback: { start, end },
-            };
-            edges.push(edge);
-            hostWallIds.add(a.hostId);
-            hostEdges++;
-        } else {
-            const edge: FreeLineEdge = { type: 'freeLine', start, end };
-            edges.push(edge);
-            if (a.reason === 'curved') curvedFallbacks++;
-            else if (a.reason === 'ambiguous') ambiguousFallbacks++;
-            else missingIdFallbacks++;
+            if (a.hostId) {
+                const edge: HostReferenceEdge = {
+                    type: 'hostReference',
+                    hostId: a.hostId,
+                    hostType: 'wall',
+                    reference: 'centerLine',
+                    offset: 0,
+                    // Non-destructive degradation (SketchTypes §03): an edge with no
+                    // fallback degrades to nothing when its wall is deleted.
+                    fallback: { start, end },
+                };
+                edges.push(edge);
+                hostWallIds.add(a.hostId);
+                hostEdges++;
+            } else {
+                const edge: FreeLineEdge = { type: 'freeLine', start, end };
+                edges.push(edge);
+                if (a.reason === 'curved') curvedFallbacks++;
+                else if (a.reason === 'ambiguous') ambiguousFallbacks++;
+                else missingIdFallbacks++;
+            }
+            totalEdges++;
         }
-    }
+        return edges;
+    };
+
+    const outerEdges = loopToEdges(ring);
+    const usableInner = innerRings.filter(l => l && l.length >= 3);
+    const innerLoops = usableInner.map(l => ({ edges: loopToEdges(l) }));
 
     return {
-        sketch: { outerLoop: { edges } },
+        // `innerLoops` is OMITTED rather than written `[]` when there are no holes, so
+        // a plain region's sketch stays byte-identical to what it was before ADR-0329
+        // — the field is optional in `SlabSketch` and an empty array is a different
+        // value from an absent one to every equality check downstream.
+        sketch: innerLoops.length > 0
+            ? { outerLoop: { edges: outerEdges }, innerLoops }
+            : { outerLoop: { edges: outerEdges } },
         ring: ring.map(v => ({ x: v.point.x, y: v.point.y })),
+        innerRings: usableInner.map(l => l.map(v => ({ x: v.point.x, y: v.point.y }))),
         attribution: {
             hostEdges,
-            freeEdges: edges.length - hostEdges,
+            freeEdges: totalEdges - hostEdges,
             curvedFallbacks,
             missingIdFallbacks,
             ambiguousFallbacks,
@@ -726,13 +915,20 @@ export function buildRegionSketch(
  * edges reference the walls that produced them. Returns `null` when no region
  * encloses the point — the same answer, and the same shape of answer, as
  * {@link findRegionAtPoint}.
+ *
+ * §REGION-ANNULUS (ADR-0329) — it now routes through
+ * {@link findAttributedRegionWithHolesAtPoint}, so the returned sketch carries
+ * `innerLoops` when the traced region has holes. **The outer ring is selected by the
+ * identical rule as before** (smallest loop enclosing the click), so a click inside a
+ * room returns exactly what it returned yesterday, with `innerRings: []` and no
+ * `innerLoops` on the sketch.
  */
 export function traceRegionSketchAtPoint(
     walls: ReadonlyArray<RegionWallLike>,
     x: number,
     z: number,
 ): RegionSketchResult | null {
-    const ring = findAttributedRegionAtPoint(walls, x, z);
-    if (!ring || ring.length < 3) return null;
-    return buildRegionSketch(ring);
+    const region = findAttributedRegionWithHolesAtPoint(walls, x, z);
+    if (!region || region.outer.length < 3) return null;
+    return buildRegionSketch(region.outer, region.holes);
 }
