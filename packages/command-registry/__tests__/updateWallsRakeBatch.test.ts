@@ -124,8 +124,16 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         // value its own enum could not produce. Assert on IDENTITY instead: the question
         // is whether the wall that merely HOSTS an opening was skipped, and that is a fact
         // about ids, not about sentences.
-        expect(cmd.skipped.map(s => s.id)).not.toContain('hosting');
-        expect(cmd.skipped.map(s => s.id).sort()).toEqual(['curved', 'layered']);
+        // ⚠ The field is `wallId`, not `id` — `WallRakeBatchSkip` is
+        // `{ wallId, reason }` (UpdateWallsRakeBatchCommand.ts:80,127). Reading `.id`
+        // yielded `[undefined, undefined]`, which `.not.toContain('hosting')` passed
+        // VACUOUSLY: an array of undefineds contains no 'hosting'. The negative
+        // assertion was green for the wrong reason and only the positive one failed.
+        // That is the §NEGATIVE-ASSERTION-PASSES-VACUOUSLY shape — a `not.toContain`
+        // over a mis-spelled field can never fail, so pair it with a positive
+        // assertion on the SAME expression, which is what caught this.
+        expect(cmd.skipped.map(s => s.wallId)).not.toContain('hosting');
+        expect(cmd.skipped.map(s => s.wallId).sort()).toEqual(['curved', 'layered']);
     });
 
     it('90° (vertical) is a legal target on EVERY wall shape — nothing skips', () => {
