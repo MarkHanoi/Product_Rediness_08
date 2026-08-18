@@ -5,7 +5,7 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 // §L965-RECOVER-BOUNDARY-ARCS — the ONE arc model for slab-family boundaries, read
 // in the inverse direction. `@pryzm/geometry-slab` is already a dependency of this
 // package; nothing new is introduced and the arc maths is not re-derived here.
-import { resolveBoundarySegments } from '@pryzm/geometry-slab';
+import { resolveBoundarySegments } from '@pryzm/geometry-slab/boundary-arc';
 
 export interface CreateWallsFromSlabPayload {
     slabId: string;

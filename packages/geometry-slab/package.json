@@ -11,7 +11,8 @@
     "./geom-utils": "./src/SlabGeomUtils.ts",
     "./store": "./src/SlabStore.ts",
     "./region-tracer": "./src/SlabRegionTracer.ts",
-    "./region-boundary": "./src/RegionBoundarySources.ts"
+    "./region-boundary": "./src/RegionBoundarySources.ts",
+    "./boundary-arc": "./src/boundaryArc.ts"
   },
   "files": [
     "src"
