@@ -78,3 +78,7 @@ export { HandrailFragmentBuilder }    from './HandrailFragmentBuilder';
 export { HandrailLevelCleanupHandler } from './HandrailLevelCleanupHandler';
 export { serializeHandrailSnapshot, deserializeHandrailSnapshot } from './handrailSnapshotUtils';
 export { HandrailTool }               from './HandrailTool';
+
+// §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — pure run geometry for the handrail
+// creation modes (linear / ortho / curved / by-slab / square / circular / ellipse).
+export * from './handrailRunGenerators';

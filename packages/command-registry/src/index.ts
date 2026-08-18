@@ -139,6 +139,8 @@ export * from './grids/UpdateGridCommand';
 
 // ─── Handrails ────────────────────────────────────────────────────────────
 export * from './handrails/CreateHandrailCommand';
+// §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — a multi-segment run as ONE undo entry.
+export * from './handrails/CreateHandrailRunCommand';
 export * from './handrails/DeleteHandrailCommand';
 export * from './handrails/UpdateHandrailCommand';
 

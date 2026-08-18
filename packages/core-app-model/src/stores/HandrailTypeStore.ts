@@ -1,4 +1,4 @@
-import { HandrailFillType, HandrailRailProfile } from './HandrailTypes';
+import { HandrailBalusterShape, HandrailFillType, HandrailRailProfile } from './HandrailTypes';
 
 export interface HandrailTypeDefinition {
     id: string;
@@ -26,6 +26,22 @@ export interface HandrailTypeDefinition {
      * existing consumer that reads `materialColor` is unaffected.
      */
     materialName?: 'steel' | 'chrome' | 'wood' | 'timber' | 'concrete' | 'glass';
+    /**
+     * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members, so a catalogue
+     * type can describe a BALUSTRADE and not merely "something with balusters".
+     * All four reach `HandrailData` unchanged through `CreateHandrailCommand` and
+     * are read by `HandrailFragmentBuilder`.
+     */
+    balusterShape?: HandrailBalusterShape;
+    balusterWidth?: number;
+    balusterSpacing?: number;
+    /**
+     * Maximum CLEAR opening between adjacent balusters, in metres — the code rule
+     * ("a 100 mm sphere must not pass" -> 0.099). See `HandrailData.infillMaxGap`:
+     * this is the CONSTRAINT, `balusterSpacing` is the resulting centre pitch, and
+     * the builder derives the pitch from it only when no explicit pitch is given.
+     */
+    infillMaxGap?: number;
 }
 
 const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
@@ -101,7 +117,290 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         postSpacing: 0,
         materialColor: '#888888',
         materialName: 'steel'
-    }
+    },
+
+    // -------------------------------------------------------------------------
+    // §FEAT-HANDRAIL-TYPE-LIBRARY-20 (founder 2026-08-18; C95 D5)
+    //
+    // THE FOUNDER, in substance: "the railing is conceptually really similar to the
+    // wall element ... the user could select from a number of railings (please
+    // create 20 types)". Wall's catalogue is `WallSystemTypeStore`; this is its
+    // handrail twin, and -- exactly as there -- the CREATION panel reads THIS store,
+    // so the pre-draw dropdown can never list a set the property panel does not
+    // offer (C84 EI-9: one question, one answer).
+    //
+    // THE FIVE TYPES ABOVE ARE NOT REPLACED. They keep their ids because saved
+    // projects reference them; deleting an id to make room for a nicer name would be
+    // a silent data loss (C84 EI-6 -- absence must be loud). The library is the 5
+    // pre-existing plus 15 new = 20.
+    //
+    // -- WHAT A TYPE CAN AND CANNOT SAY, MEASURED, NOT ASSUMED ------------------
+    // `HandrailFragmentBuilder` implements FOUR infills: `glass` (transparent
+    // sheet), `panel` (solid sheet), `baluster` (repeated vertical members) and
+    // `open` (nothing, deliberately). Several real railing families have an infill
+    // outside that set, and a catalogue that pretended otherwise would be an
+    // affordance with no implementation (C65 §3.9 / C84 EI-3). They are mapped to
+    // the nearest BUILDABLE infill and the substitution is stated in the description
+    // the user reads, never hidden:
+    //
+    //   * CABLE            -> `open`.  Posts and graspable rail are real; the
+    //                        horizontal strands are NOT modelled. `infillMaxGap`
+    //                        still carries the code constraint for schedules.
+    //   * MESH/PERFORATED  -> `panel`. A solid board stands in for the sheet; the
+    //                        weave / perforation pattern is not modelled.
+    //   * PIPE mid-rails   -> `open`.  Intermediate horizontal rails not modelled.
+    //
+    // These three substitutions are recorded in C95 §12 as DECLARED refusals.
+    //
+    // -- `thickness` IS THE RAIL SECTION, NOT THE GLASS -------------------------
+    // Measured in `HandrailFragmentBuilder`: the rectangular top rail is
+    // `BoxGeometry(len, 0.05, handrail.thickness)`, i.e. `thickness` is the rail's
+    // cross-section DEPTH; the glass infill's depth is a hard-coded 0.01 and a solid
+    // panel's is `thickness * 0.4`. A glass type therefore cannot express "17.6 mm
+    // laminated" -- recorded in C95 §12, not faked here.
+    //
+    // -- GRASPABLE-RAIL PROFILE -------------------------------------------------
+    // The founder's list names a "graspable-rail profile". It is deliberately NOT
+    // minted as a new field: `railProfile` plus (`railDiameter` | `thickness`)
+    // ALREADY IS the graspable rail's profile and section, and a second vocabulary
+    // for one fact is exactly what C84 EI-8 forbids. Circular graspable rails here
+    // are 0.040-0.050 m diameter, the range the common codes require.
+    // -------------------------------------------------------------------------
+
+    {
+        id: 'metal-balustrade-square',
+        name: 'Metal Balustrade -- Square Bar',
+        description: 'Square-bar steel balusters at a 100 mm-sphere-compliant pitch under a flat capping rail, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        balusterShape: 'rectangular',
+        balusterWidth: 0.016,
+        infillMaxGap: 0.099,
+        materialColor: '#5a5f66',
+        materialName: 'steel'
+    },
+    {
+        id: 'metal-balustrade-round',
+        name: 'Metal Balustrade -- Round Bar',
+        description: 'Round-bar steel balusters with a 42 mm circular graspable rail, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.042,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'round',
+        railDiameter: 0.042,
+        postSpacing: 1.5,
+        balusterShape: 'round',
+        balusterWidth: 0.016,
+        infillMaxGap: 0.099,
+        materialColor: '#5a5f66',
+        materialName: 'steel'
+    },
+    {
+        id: 'glass-frameless',
+        name: 'Frameless Glass Balustrade',
+        description: 'Structural glass with no intermediate posts under a slim circular cap rail, 1100 mm. Glass thickness is not modelled -- see the type-library note.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.042,
+        baseOffset: 0.0,
+        fillType: 'glass',
+        railProfile: 'round',
+        railDiameter: 0.042,
+        postSpacing: 0,
+        materialColor: '#cfe4f2',
+        materialName: 'glass'
+    },
+    {
+        id: 'glass-clamped',
+        name: 'Clamped Glass Balustrade',
+        description: 'Point-fixed glass on stainless posts at 1200 mm centres with a circular cap rail, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.042,
+        baseOffset: 0.0,
+        fillType: 'glass',
+        railProfile: 'round',
+        railDiameter: 0.042,
+        postSpacing: 1.2,
+        materialColor: '#cfe4f2',
+        materialName: 'chrome'
+    },
+    {
+        id: 'glass-channel',
+        name: 'Channel-Fixed Glass Balustrade',
+        description: 'Glass set in a continuous base shoe (30 mm base offset), no intermediate posts, rectangular cap, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.03,
+        fillType: 'glass',
+        railProfile: 'rectangular',
+        postSpacing: 0,
+        materialColor: '#cfe4f2',
+        materialName: 'glass'
+    },
+    {
+        id: 'cable-stainless',
+        name: 'Stainless Cable Railing',
+        description: 'Stainless posts at 1070 mm with a 48 mm circular rail, 1070 mm high. The horizontal cable strands are NOT modelled -- posts and rail only.',
+        isBuiltIn: true,
+        height: 1.07,
+        thickness: 0.048,
+        baseOffset: 0.0,
+        fillType: 'open',
+        railProfile: 'round',
+        railDiameter: 0.048,
+        postSpacing: 1.07,
+        infillMaxGap: 0.089,
+        materialColor: '#b8bcc0',
+        materialName: 'chrome'
+    },
+    {
+        id: 'timber-picket',
+        name: 'Timber Picket Railing',
+        description: 'Sawn timber pickets at a 100 mm-sphere-compliant pitch between 1800 mm posts, 1000 mm.',
+        isBuiltIn: true,
+        height: 1.0,
+        thickness: 0.07,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'rectangular',
+        postSpacing: 1.8,
+        balusterShape: 'rectangular',
+        balusterWidth: 0.038,
+        infillMaxGap: 0.099,
+        materialColor: '#8B5E3C',
+        materialName: 'timber'
+    },
+    {
+        id: 'timber-glass-hybrid',
+        name: 'Timber & Glass Balustrade',
+        description: 'Mixed construction -- glass infill between timber posts under a timber capping rail, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.07,
+        baseOffset: 0.0,
+        fillType: 'glass',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        materialColor: '#8B5E3C',
+        materialName: 'timber'
+    },
+    {
+        id: 'wrought-iron-classic',
+        name: 'Wrought Iron Balustrade',
+        description: 'Slim round wrought-iron bars under a flat iron capping rail, 1000 mm.',
+        isBuiltIn: true,
+        height: 1.0,
+        thickness: 0.04,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        balusterShape: 'round',
+        balusterWidth: 0.014,
+        infillMaxGap: 0.099,
+        materialColor: '#2b2b2b',
+        materialName: 'steel'
+    },
+    {
+        id: 'wrought-iron-ornamental',
+        name: 'Ornamental Wrought Iron Guard',
+        description: 'Close-pitched square iron bars to a 90 mm sphere rule, 1100 mm. Scrollwork is not modelled.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.045,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'rectangular',
+        postSpacing: 1.2,
+        balusterShape: 'rectangular',
+        balusterWidth: 0.014,
+        infillMaxGap: 0.089,
+        materialColor: '#1f1f1f',
+        materialName: 'steel'
+    },
+    {
+        id: 'steel-picket-flat',
+        name: 'Flat-Bar Steel Picket Railing',
+        description: 'Flat-bar steel pickets on edge under a rectangular capping rail, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        balusterShape: 'rectangular',
+        balusterWidth: 0.012,
+        infillMaxGap: 0.099,
+        materialColor: '#6b7280',
+        materialName: 'steel'
+    },
+    {
+        id: 'mesh-infill',
+        name: 'Woven Mesh Infill Guard',
+        description: 'Woven stainless mesh between steel posts, 1100 mm. Modelled as a solid infill panel -- the weave is not modelled.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.0,
+        fillType: 'panel',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        materialColor: '#7d848c',
+        materialName: 'steel'
+    },
+    {
+        id: 'perforated-panel',
+        name: 'Perforated Metal Panel Guard',
+        description: 'Perforated sheet infill between posts, 1100 mm. Modelled as a solid infill panel -- the perforation pattern is not modelled.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.0,
+        fillType: 'panel',
+        railProfile: 'rectangular',
+        postSpacing: 1.5,
+        materialColor: '#9aa1a9',
+        materialName: 'steel'
+    },
+    {
+        id: 'industrial-pipe',
+        name: 'Industrial Pipe Guardrail',
+        description: '48.3 mm tubular steel guardrail on 1500 mm posts, 1100 mm. Intermediate horizontal mid-rails are NOT modelled.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.0483,
+        baseOffset: 0.0,
+        fillType: 'open',
+        railProfile: 'round',
+        railDiameter: 0.0483,
+        postSpacing: 1.5,
+        materialColor: '#d9a300',
+        materialName: 'steel'
+    },
+    {
+        id: 'cw-integrated-glass',
+        name: 'Curtain-Wall Integrated Glass Guard',
+        description: 'Glass guard set into a curtain-wall spandrel line -- no posts, rectangular transom cap, 1100 mm.',
+        isBuiltIn: true,
+        height: 1.1,
+        thickness: 0.05,
+        baseOffset: 0.0,
+        fillType: 'glass',
+        railProfile: 'rectangular',
+        postSpacing: 0,
+        materialColor: '#cfe4f2',
+        materialName: 'glass'
+    },
 ];
 
 export class HandrailTypeStore {

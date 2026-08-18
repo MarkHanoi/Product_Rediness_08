@@ -27,6 +27,35 @@ export class CreateHandrailCommand implements Command {
             postSpacing?: number,
             materialColor?: string,
             /**
+             * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members and the
+             * code constraint a catalogue type carries.
+             *
+             * ⛔ EI-2: these are not decoration. `HandrailTypeDefinition` declares
+             * them, `HandrailFragmentBuilder` reads them, and before this command
+             * accepted them a user who picked "Timber Picket Railing" got its
+             * HEIGHT and its POST spacing but 20 mm generic balusters at the
+             * historical 0.11 m pitch, because the only path from the catalogue to
+             * the record dropped them on the floor. A field the pipeline drops is
+             * an EI-2 defect whether or not anyone notices the shape.
+             */
+            balusterShape?: 'rectangular' | 'round',
+            balusterWidth?: number,
+            balusterSpacing?: number,
+            infillMaxGap?: number,
+            /**
+             * The Materials-Repository id. `HandrailFragmentBuilder.resolveColour`
+             * reads it (after `materialColor`, which always wins), so a handrail
+             * assigned a repository material is drawn in that material's colour.
+             */
+            materialId?: string,
+            /**
+             * §FEAT-HANDRAIL-RUN-JOIN (C95 D4) — suppress this segment's START
+             * post because a neighbouring segment in the same run already posts
+             * that vertex. Set only by `CreateHandrailRunCommand`; absent for a
+             * hand-drawn single rail, which is bit-identical to before.
+             */
+            suppressStartPost?: boolean,
+            /**
              * §PERSIST-L1 (W1-2) — the handrail's ORIGINAL IFC GUID. `ifcData.guid`
              * is the IFC round-trip join key: it is what an exported IFC file, a
              * BCF issue or a Revit round-trip uses to find this railing again. It
@@ -93,6 +122,16 @@ export class CreateHandrailCommand implements Command {
             railDiameter:  this.data.railDiameter,
             postSpacing:   this.data.postSpacing,
             materialColor: this.data.materialColor,
+            // §FEAT-HANDRAIL-TYPE-LIBRARY-20 / §FEAT-HANDRAIL-RUN-JOIN — see the
+            // constructor's field notes. Written unconditionally (an undefined
+            // stays undefined) so the record's shape does not depend on which
+            // surface authored it (C84 EI-9).
+            balusterShape:     this.data.balusterShape,
+            balusterWidth:     this.data.balusterWidth,
+            balusterSpacing:   this.data.balusterSpacing,
+            infillMaxGap:      this.data.infillMaxGap,
+            materialId:        this.data.materialId,
+            suppressStartPost: this.data.suppressStartPost,
             properties: {},
             // §PERSIST-L1 (W1-2) — the ifcClass/predefinedType still come from the
             // canonical mapper; only the guid is overridden with the one resolved at

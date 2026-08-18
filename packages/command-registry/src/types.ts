@@ -132,6 +132,11 @@ export enum CommandType {
     CREATE_ROOF_OPENING = 'CREATE_ROOF_OPENING',
     DELETE_ROOF = 'DELETE_ROOF',
     CREATE_HANDRAIL = 'CREATE_HANDRAIL',
+    // §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — a multi-segment handrail RUN
+    // (L-shaped rail, closed square / circular / elliptical guard, or a slab
+    // perimeter) committed as ONE command, so one gesture is ONE undo entry
+    // (C16 §8.6). Its children are the ordinary CREATE_HANDRAIL commands.
+    CREATE_HANDRAIL_RUN = 'CREATE_HANDRAIL_RUN',
     DELETE_HANDRAIL = 'DELETE_HANDRAIL',
     MOVE_HANDRAIL = 'MOVE_HANDRAIL',
     UPDATE_FURNITURE_PARAMETERS = 'UPDATE_FURNITURE_PARAMETERS',

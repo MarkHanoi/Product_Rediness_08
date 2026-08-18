@@ -362,7 +362,25 @@ export class HandrailFragmentBuilder {
             // Deliberately empty — see the note above. No infill is the definition
             // of an open railing, so there is nothing to build and nothing missing.
         } else if (fill === 'baluster') {
-            const balusterSpacing = handrail.balusterSpacing ?? handrail.postSpacing ?? 0.11;
+            // §FEAT-HANDRAIL-INFILL-MAX-GAP (C95 D5) -- the CODE constraint, honoured.
+            //
+            // An authored PITCH always wins: `balusterSpacing`, then `postSpacing`,
+            // exactly as before, so no existing handrail changes shape. Only when
+            // NEITHER is present does `infillMaxGap` derive one, and the derivation
+            // is the definition of the rule rather than a guess:
+            //
+            //     clear gap = pitch - balusterWidth   =>   pitch = maxGap + width
+            //
+            // i.e. a 0.099 m "100 mm sphere" limit with 0.016 m bars gives a
+            // 0.115 m centre pitch, whose CLEAR opening is exactly 0.099 m. Falling
+            // through to the historical 0.11 m literal when nothing at all is
+            // declared keeps the previous default intact.
+            const _authoredPitch = handrail.balusterSpacing ?? handrail.postSpacing;
+            const _bWidthForPitch = handrail.balusterWidth ?? 0.02;
+            const balusterSpacing = _authoredPitch
+                ?? (handrail.infillMaxGap !== undefined && handrail.infillMaxGap > 0
+                    ? handrail.infillMaxGap + _bWidthForPitch
+                    : 0.11);
             if (balusterSpacing > 0 && length > balusterSpacing) {
                 const bHeight = handrail.height - 0.05;
                 const bShape = handrail.balusterShape ?? 'rectangular';
@@ -451,8 +469,24 @@ export class HandrailFragmentBuilder {
             }
         };
 
-        // Two end posts.
-        emitPost(0, 'start');
+        // ---- End posts, and the RUN JOIN --------------------------------------
+        //
+        // §FEAT-HANDRAIL-RUN-JOIN (C95 D4). A multi-segment run -- an L-shaped
+        // rail, or a closed square / circular / elliptical guard -- is stored as N
+        // two-point handrails that SHARE their interior vertices. Emitting an end
+        // post at both ends of every segment therefore put TWO coincident posts on
+        // every shared vertex: visibly thickened, z-fighting, and double-counted in
+        // any schedule.
+        //
+        // The generator makes each vertex the responsibility of exactly ONE
+        // segment (see `handrailRunGenerators.ts`): every segment after the first
+        // suppresses its START post, and in a CLOSED loop the first suppresses its
+        // too because the last segment's END post already stands there. So the run
+        // has exactly one post per vertex, no gap and no doubling.
+        //
+        // Absent / false -- which is every handrail that existed before this
+        // field -- takes the identical path it always did.
+        if (!handrail.suppressStartPost) emitPost(0, 'start');
         emitPost(length, 'end');
 
         // Intermediate posts.
