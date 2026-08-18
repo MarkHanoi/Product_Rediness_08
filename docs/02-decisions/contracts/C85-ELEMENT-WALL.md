@@ -32,6 +32,30 @@
 > reason [L-955](../../04-reference/ISSUE-LOG.md)'s three body builders diverged at the corner: there
 > is no schema-level authority above them to diverge from.**
 
+> ## REVISION — 2026-08-18 (later the same day)
+>
+> C85 was authored in the morning and **four of its statements were overtaken by measurement before
+> the day ended.** They are corrected in place, with the retraction visible, per C84 §6.
+>
+> **The correction that matters most is §10's.** It recorded the wall-Y delta as **LATENT**, and
+> justified that with *"nothing authors either offset non-zero today"*. **Nobody had tested that
+> clause.** Both offsets are editable from the property panel and settable from a shipped chat
+> capability; the defect was **LIVE**, and one *"set the base offset to 150 mm"* put every door and
+> window on that wall outside its own hole ([L-968](../../04-reference/ISSUE-LOG.md)).
+>
+> That is the failure mode this whole contract suite exists to catch, and C85 committed it: **a
+> rationale written in prose reads like evidence and stops the next reader from measuring.** An
+> honest *NOT MEASURED* would have been safer than a justified *LATENT*. Where this document says a
+> thing is latent, dormant, unreachable or harmless **because nothing does X**, treat that as the
+> first claim to attack, not the last.
+>
+> Corrected: **§10 wall-Y datum** (LATENT → LIVE, now RESOLVED — `8f63fb6f`) · **W-G-4** (satisfied) ·
+> **R-8** (line numbers re-measured; **its stated reason is now half stale**) · **DELTA rows 1 and 10**
+> (closed) and **row 11** (re-verified still open — the parity harness is *still* absent from `main`).
+>
+> Re-verified and **unchanged**: both headline verdicts below. `grep -rn rake packages/schemas/src`
+> → **0** (run 2026-08-18, later pass), so the rake still has no authority above the geometry layer.
+
 ---
 
 ## 1. IDENTITY
@@ -549,22 +573,74 @@ internal reuse `:253`, `:267`. Consumers:
 Sibling helpers: `rakeTopOffset:248`, `rakeLateralShift:265`, `perpendicularThickness:275`,
 `rakedPlanThickness:300`, `openingFaceHeight:332`.
 
-### The wall-Y datum — TEN sites, ONE measured
+### The wall-Y datum — ~~TEN sites, ONE measured~~ ✅ **RESOLVED 2026-08-18, `8f63fb6f`**
 
-`WallFragmentBuilder.ts:728` folds `wall.baseOffset` into `worldY`; `:1097` puts that on the group;
-every geometry site adds it **again**. Delta against hosted leaves =
-`slabBaseOffset + 2 × wall.baseOffset` — **LATENT**, because nothing authors either offset non-zero
-today, and it is the recorded reason the CSG arm is switched off
-(`WallFragmentBuilder.ts:2326-2333`, §5 of C86). **Six of the ten sites are NOT MEASURED** (C84 §9):
-`WallInstanceBridge.ts:105, :111, :147, :151`; `WallJunctionInfillManager.ts:122-123`;
-`LayeredWallOpeningBuilder.ts:140-141, :205`;
-`WallFragmentBuilder.ts:1237/2112/2138/2186/2233/2371-2390`.
+⚠ **This section previously recorded the delta as LATENT, on the ground that "nothing authors either
+offset non-zero today". That ground was never tested and it was FALSE.** Both `wall.baseOffset` and
+`slab.baseOffset` are editable from the property panel (`PropertyDescriptorGenerator.ts:64` wall,
+`:89` slab — argument 4 of `NUMBER` is `editable`, `:30`, and both pass `true`) and settable from the
+shipped `set-base-offset` chat capability (`ChatCapabilityRegistry.ts:1097`). Both reach the geometry
+stores via `UpdateElementParameterCommand.ts:113-114`, and both serializers persist them. The defect
+was **LIVE**: one *"set the base offset to 150 mm"* displaced every door and window on that wall from
+its own hole. See [L-968](../../04-reference/ISSUE-LOG.md).
 
-`slabBaseOffset` (a **wall-side and column-side** concept — it never appears in
-`geometry-slab/src/SlabFragmentBuilder.ts` or `producers/slab.ts`) appears at
-`WallFragmentBuilder.ts:128, :163, :184, :187, :583, :599, :603, :605`;
-`composeWallGeometryHash.ts:23, :99, :107, :147`; `SlabWallCoupling.ts:61`;
-`WallRebuildCoordinator.ts:274, :295`.
+**The root cause was not a datum disagreement — it was the absence of a datum.** Six expressions
+computed a wall-related world Y and **none of them was the authority**.
+
+**THE AUTHORITY is now `packages/geometry-wall/src/WallVerticalDatum.ts`**, which declares two planes:
+
+| plane | value | meaning |
+|---|---|---|
+| **SEAT** — `wallSeatY():86` | `level.elevation + slabBaseOffset` | the wall GROUP's origin |
+| **BASE** — `wallBaseY():103` | SEAT + `wall.baseOffset` | the body underside; what every world-space consumer reads |
+
+Hosted leaves **cannot** re-derive `slabBaseOffset` — it lives on the slab store, which neither
+`geometry-door` nor `geometry-window` depends on and which `SlabWallCoupling`'s own contract forbids
+builders to read. So the one site that already resolves it **publishes** it
+(`publishWallBaseY`, called at `WallFragmentBuilder.ts:1150`) and the leaf builders read it back
+(`resolveWallBaseYOrLevel` + `hostedLeafCentreY` — `DoorBuilder.ts:620,625`,
+`WindowBuilder.ts:~943`). ⚠ **That publish/resolve pair is a process-global side channel, not a
+parameter.** It is the shape the package boundary permits; it is declared here so no reader mistakes
+it for ordinary dependency injection, and so the ordering requirement (the wall must build before its
+leaves) is visible rather than discovered.
+
+**The doubling is gone, and NOT by stripping the group-local term.** Five files document the
+convention `y ∈ [baseOffset, baseOffset+height]` and `SpatialAuthority`'s fallback returns
+`elevation + baseOffset`; stripping it would have rewritten a convention across five files and broken
+a fallback in order to fix a doubling. Seating the GROUP on the SEAT plane makes `baseOffset` land
+exactly once. `WallRebuildCoordinator.ts:546` required **no edit** — its formula was always the BASE
+plane and was always correct.
+
+**A FOURTH defect surfaced, on no register:** `_wallGeometryChanged` in **both** dependency trackers
+omitted `baseOffset` — **the edit that moved a hole never re-anchored what fills it.** Both now also
+subscribe to base-plane changes, the only channel that can carry a `slabBaseOffset` edit to a leaf,
+which additionally closes an ordering race between the `wallStore` cascade and the geometry flush.
+
+**Eleven datums now agree; leaf-vs-hole delta = 0** — wall group · layered arm · miter-prism arm ·
+hole band · in-wall frames · instanced arm · hit proxy · junction infill · door leaf · window leaf ·
+rake pivot. Pinned by `packages/geometry-wall/__tests__/WallYDatumAgreement.test.ts` (10/10, every
+pre-fix reading retained as the paired negative so the doubling cannot return silently) and by
+`geometry-window/__tests__/HostedLeafSitsInItsHole.test.ts` + the `geometry-door` twin (4/4 each,
+comparing built geometry to built geometry — the hole read as a real y-break in the wall's vertex
+buffers).
+
+**FOUR divergences remain, named rather than quietly left** (`§STILL-DIVERGENT` at the foot of the
+ledger):
+
+1. `SpatialAuthority.resolveWorldTransform` (`SpatialAuthority.ts:159`) never sees `slabBaseOffset`.
+   Delta = `slabBaseOffset`. In `@pryzm/core-app-model`; closing it means **deciding whether the
+   spatial authority may read the slab store** — a design decision, not a patch.
+2. The baseline-Y double meaning: `CreateWallCommand.ts:341` stamps `elevation + baseOffset`, the
+   plugin bridge stamps `0`. **Two writers, one field, two meanings.** No render datum depends on it
+   any more, so it is no longer load-bearing — but it is still ambiguous.
+3. `WallLayerPlanSymbolBuilder.ts:143` places the plan cut line on the baseline datum. Delta =
+   `slabBaseOffset`; nothing visible moves (its sibling at `:134` is correctly base-relative).
+   Re-seating a plan cut plane is a draughting decision with its own baselines.
+4. Cosmetic: the gizmo now sits at the SEAT rather than the BASE on a plinth wall. Drag is
+   delta-based, so behaviour is unchanged.
+
+`slabBaseOffset` remains a **wall-side and column-side** concept — it appears nowhere in
+`geometry-slab/src/SlabFragmentBuilder.ts` or `producers/slab.ts`.
 
 ### TO-BE — normative
 
@@ -575,9 +651,11 @@ today, and it is the recorded reason the CSG arm is switched off
 - **W-G-3 (EI-9 / EI-10).** The three `buildCurvedLayerGeometry` copies and two `buildMiterPrism`
   copies MUST each earn an EI-10 licence — (a) named reason, (b) **executed** equivalence proof,
   (c) declared divergence list, (d) retirement condition — or converge.
-- **W-G-4.** ONE wall-Y authority. C84 §4D is explicit that the fix is **not** deduping the
-  extrusion builders (measured bit-identical, mutually exclusive by construction at
-  `WallFragmentBuilder.ts:2301-2307`) but establishing a single datum function.
+- ~~**W-G-4.** ONE wall-Y authority.~~ ✅ **SATISFIED 2026-08-18, `8f63fb6f`** —
+  `WallVerticalDatum.ts` is that single datum function, and C84 §4D's judgement was right: the fix
+  was **not** deduping the extrusion builders (measured bit-identical, mutually exclusive by
+  construction) but declaring the datum. Four divergences remain, each named above with its delta;
+  the largest (`SpatialAuthority.ts:159`) is a design decision, not a patch.
 
 ---
 
@@ -587,7 +665,7 @@ Ordered by what the user loses.
 
 | # | Defect | User loses | Invariant | Proof required |
 |---|---|---|---|---|
-| **1** | **[L-955](../../04-reference/ISSUE-LOG.md) — a raked wall joins soundly ONLY when plain.** Three body builders — the plain sheared prism (`WallFragmentBuilder.ts:1584-1600`), the V2 layered band slicer (§FEAT-RAKE-LAYERED, `WallRebuildCoordinator.ts:1642`), the opening-bearing body (§RAKE-HOSTED-OPENING, `WallFragmentBuilder.ts:66`, `WindowBuilder.ts:611, :838, :845`) — and **one miter that predates two of them**. `WallFragmentBuilder.ts:1594` verbatim: *"`buildMiterPrism` extrudes straight up; left alone, a raked …"*. The existing accommodation at `:1545` — *"a layer band failed the spike guard — falling back to legacy MiterPrism for the whole stack"* — is a fallback, and *"spike"* is what the founder's screenshots show | **the corner**, visibly, on both features that shipped in `d5b8d82f` | C84 **EI-9** (one question — *"where is the end face?"* — three answers) + **§4D** (several builders agreeing on the body, diverging at the boundary) | ⛔ **Pin plain↔plain FIRST, watched RED against a deliberately broken shear**, then the two failing combinations. **⛔ Do NOT re-refuse the two combinations** — the bodies are correct and the founder has confirmed them; re-refusing withdraws two shipped features to hide a corner defect |
+| **1** ✅ **CLOSED** | **[L-955](../../04-reference/ISSUE-LOG.md) — a raked wall joins soundly ONLY when plain.** Three body builders — the plain sheared prism (`WallFragmentBuilder.ts:1584-1600`), the V2 layered band slicer (§FEAT-RAKE-LAYERED, `WallRebuildCoordinator.ts:1642`), the opening-bearing body (§RAKE-HOSTED-OPENING, `WallFragmentBuilder.ts:66`, `WindowBuilder.ts:611, :838, :845`) — and **one miter that predates two of them**. `WallFragmentBuilder.ts:1594` verbatim: *"`buildMiterPrism` extrudes straight up; left alone, a raked …"*. The existing accommodation at `:1545` — *"a layer band failed the spike guard — falling back to legacy MiterPrism for the whole stack"* — is a fallback, and *"spike"* is what the founder's screenshots show | **the corner**, visibly, on both features that shipped in `d5b8d82f` | C84 **EI-9** (one question — *"where is the end face?"* — three answers) + **§4D** (several builders agreeing on the body, diverging at the boundary) | ⛔ **Pin plain↔plain FIRST, watched RED against a deliberately broken shear**, then the two failing combinations. **⛔ Do NOT re-refuse the two combinations** — the bodies are correct and the founder has confirmed them; re-refusing withdraws two shipped features to hide a corner defect | <br>✅ **CLOSED 2026-08-18** — lane J1 landed and is in production. One corner rule now serves all three body paths. Retained rather than deleted, per C84 §6 (*record retractions*), because R-9 below still binds: the two combinations must NOT be re-refused.
 | **2** | **The rake has no L0 representation** — `grep rake packages/schemas/src` → 0. Authored only by `wall.updateRakeBatch` (L3, `affectedStores: []`) | nothing today — **but it is the structural reason #1 was possible**: no authority above the geometry layer to diverge from | C84 **EI-2**, **§4A** | add `rakeAngleDeg` to `Wall.ts`, or declare the rake legacy-only and remove the bus verb |
 | **3** | `joinIntent` is dropped at the bridge (§5 row 14) though the serializer's own `:559-573` calls it *"the ONLY field on a wall that cannot be recovered if it is dropped"* | **the author's corner gesture** — the founder's mitred L reverts to square | C84 **EI-2(a)** · L-923 / L-927 | create through the bus with a `joinIntent`, save, reload, assert |
 | **4** | `materialId` dropped at `CEB:236-256` though both ends hold it and slab/ceiling/beam arms carry it | **the specified material**; the wall renders its fallback | C84 **EI-2(a)** | round-trip a `materialId` through `wall.create` |
@@ -596,8 +674,8 @@ Ordered by what the user loses.
 | **7** | `DeleteElementCommand.ts:55` declares 15 keys; `createSnapshot` recognises `'plumbing'` nowhere | **a rollback that was promised** | C84 **EI-7d** · L-953 | `check-affected-stores.ts` |
 | **8** | `WRITES ⊋ RESTORES` on every `['wall']` bus verb (W-U-1) | the DTO record survives undo forever | C84 **EI-7a** | `busCreateUndoLeavesPluginStore.test.ts` — **will pass today; watch it** |
 | **9** | Bake worker reads the plugin DTO store and calls `produceWall(w, NO_JOINS, 0)` | in self-host bake: **unjoined ends at Y=0** | C84 **EI-1**, **EI-11a** | declare in `HeadlessBakeSession`'s header; refuse the substitution |
-| **10** | `elementUndoStoreAdapter.ts:295-297`'s `: []` fallback strips every opening | **every opening on the wall** | C84 **EI-7b** | feed a single-object `openings` patch; assert |
-| **11** | `curved-MITERED-both-ends` diverges by **9.774 m** between stacks, pinned `it.fails` — **in a worktree, not on `main`** | nothing today; every future kernel divergence ships unseen | C84 **EI-11**, **§8.f** | land the harness; consume C73's tolerance; make the §3.7 declaration |
+| **10** ✅ **CLOSED** | ~~`elementUndoStoreAdapter.ts:295-297`'s `: []` fallback strips every opening~~ — the naive `wallStore.update(wallId, {openings})` is gone; a **hosted-aware reconciler** now diffs the wall's current openings against the undo target and routes removals through `removeOpening` (dropping and snapshotting the door/window record) rather than overwriting the array. The old trapdoor is documented in place at `elementUndoStoreAdapter.ts:540` so it cannot be reintroduced by someone reading the array write as harmless. | **every opening on the wall** | C84 **EI-7b** | ✅ pinned; and see [L-977](../../04-reference/ISSUE-LOG.md) — the same adapter's field arm was **destroying slabs on Ctrl+Z** until `81e1e9c0`, because `SlabStore.update` REPLACES rather than merges. The write shape is now declared per store. |
+| **11** | `curved-MITERED-both-ends` diverges by **9.774 m** between stacks, pinned `it.fails` — **in a worktree, not on `main`** <br>⚠ **RE-MEASURED 2026-08-18: `tests/parity/wall/stackAB-miter-parity.test.ts` is STILL ABSENT from `main`.** This row is unchanged and still open — a gate that lives in a worktree gates nothing at HEAD | nothing today; every future kernel divergence ships unseen | C84 **EI-11**, **§8.f** | land the harness; consume C73's tolerance; make the §3.7 declaration |
 | **12** | `material-bridge.ts` reads slot 3 and never slot 2 — **identical to curtain-wall's** | the material-library id | C84 **EI-2(a)**, **EI-9** | fix once for both families |
 | **13** | `baseLine.y` coerced `?? 0` at `initTools.ts:1156-1157` | the elevation convention on the bus path | C84 **EI-2** | assert against `WallTypes.ts:252-270` |
 | **14** | `window.wallStore` assigned twice (`initBuilders.ts:552`, `initTools.ts:977`); `initTools.ts:1144-1145` silently skips the mirror on id collision | non-determinism nobody can see | C84 **EI-9** | one assignment; warn on skip |
@@ -626,7 +704,7 @@ not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:227`) is already declare
 | **R-5** | **`canExecute` MUST be the LAST method before `execute`** | `MoveWall.ts:94-103` | ⚠ **A GATE'S PARSER SHAPING THE SOURCE.** `tools/ga-gate/check-verb-register.ts` classifies REFUSES by slicing source from `canExecute` to the next `execute(`; `validatePayload` in between mis-reports the verb as UNKNOWN. C84 §7B.5's shape — *a gate that classifies by NAME can be satisfied by RENAMING*. Declared, not hidden |
 | **R-6** | `produceWall` refuses a degenerate baseline | `producers/wall.ts:78-81` | ✅ correct |
 | **R-7** | `wallVoids.ts` is **deliberately not wired** into `WallFragmentBuilder`/`LayeredWallOpeningBuilder` | `wallVoids.ts:10-15` | ✅ **DECLARED PARKED**, with the phase, the flag and the fallback named. The compliant form of C84 §3.5's PARKED verdict |
-| **R-8** | The CSG single-volume arm is switched off | `WallFragmentBuilder.ts:2326-2333`, `:2481`, `:2489` (*"experiment (§96-DEFAULT-ON) shipped a malformed cut in production"*), `:2686-2688` (*"CSG failed — keep the segmented mesh (SPEC §4: never an empty wall)"*) | ✅ declared, with its incident cited |
+| **R-8** | The CSG single-volume arm is switched off (`§96-OPT-IN`, 2026-05-24) | `WallFragmentBuilder.ts:2683-2692` (line numbers re-measured 2026-08-18; the file has grown), `:2883` (*"CSG failed — keep the segmented mesh (SPEC §4: never an empty wall)"*) | ✅ declared, with its incident cited. ⚠ **BUT ITS STATED REASON IS NOW HALF STALE.** The comment cites two blockers, and the second — *"DoorBuilder/WindowBuilder place the leaf at `level.elevation + sillHeight` without slab/baseOffset"* — was **closed by `8f63fb6f`** (see §10). The first, whether the `geometry-kernel` producer honours `baseOffset` the way `WallHoleBodyBuilder` does, is **NOT MEASURED**. ⛔ **The arm stays OFF, and must not be re-enabled on the strength of the closed half** — that inference is exactly what C84 exists to prevent. The code comment needs correcting so it stops asserting a blocker that no longer exists |
 | **R-9** | ⛔ **DO NOT re-refuse layered-raked or opening-on-raked walls** | [L-955](../../04-reference/ISSUE-LOG.md) | ✅ **BINDING.** The bodies are correct and founder-confirmed. Re-refusing withdraws two shipped features to hide a corner defect |
 | **R-10** | No `wall.rotate` verb | §6 | ⚠ **DECLARED HERE**: rotation is expressed as a baseline edit. Previously an undeclared absence |
 | **R-11** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
