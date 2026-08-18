@@ -142,9 +142,37 @@ export function parseWallSideFinishIntent(
     const lifted = parseFilterClauses(text, 'wall', resolveWallSystemType);
     const t = lifted.stripped;
 
+    // §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998) — A MISSING SCOPE WORD IS NOT A
+    // MISSING CAPABILITY.
+    //
+    // This used to be `if (!isAll && !isSel) return null;`. Founder-reported
+    // 2026-08-18: *"change wall finish to plaster white"* — a sentence with a
+    // finish verb, the word "wall", the literal word "finish" and a resolvable
+    // finish name — carried no scope word, so the grammar declined, the ask fell
+    // through to `capabilityGapRefusal`, and the product answered
+    //
+    //   "Wall material isn't connected to chat yet. I can change wall height,
+    //    thickness, base offset, type, colour, wall angle, window creation,
+    //    WALL SIDE FINISH and FINISH LAYER."
+    //
+    // — a refusal that advertises the very capability it is refusing, in its own
+    // sentence. (The list is GENERATED from the registry, so the contradiction is
+    // real and self-evident; the other half of that defect is fixed in
+    // `CapabilityRefusal.ts`.)
+    //
+    // WHAT DOES **NOT** CHANGE, and it is the part worth guarding: a scope-less
+    // sentence still never means "the whole building". `base` below resolves it to
+    // 'selection', so with walls selected it does the obvious thing, and with
+    // nothing selected the spec's `noSelectionReason` refuses BY NAMING THE LIVE
+    // ROUTE (C16 CA-18) — "select some walls, or say 'make all inner finishes walls
+    // on the ground floor to plaster'". Either outcome is honest; the old one was
+    // not, and "advertises it and refuses it" is a third state the contract forbids.
+    //
+    // The CLAIM RULE below is untouched, and it is what still protects the three
+    // neighbouring grammars: a bare side word is not enough, and a sentence with
+    // neither the word "finish" nor a resolvable finish NAME is not claimed at all.
     const isAll = SCOPE_ALL.test(t);
     const isSel = SCOPE_SEL.test(t);
-    if (!isAll && !isSel) return null;
 
     const hasMarker = FINISH_MARKER.test(t);
     const hasInner = INNER_WORD.test(t);
@@ -198,13 +226,17 @@ export function parseWallSideFinishIntent(
     if (hasInner && hasOuter) return null;
     const side: WallFinishSideRef = hasOuter ? 'exterior' : 'interior';
 
-    // ── The SPATIAL scope. Composes with ALL only: pairing it with
-    //    "these/selected" would contradict the live selection, and that reading
-    //    is not claimed (byte-identical rule to `wallScopeBase`).
+    // ── The SPATIAL scope. Refused only against "these/selected", which would
+    //    contradict the live selection. §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998)
+    //    widened this from `isAll && !isSel` to `!isSel`: with the scope word no
+    //    longer required to claim, "change wall finish on the ground floor to
+    //    plaster" has a spatial phrase and no "all", and dropping the phrase would
+    //    silently narrow a LEVEL ask to the selection — a quieter version of the
+    //    same defect. The phrase the user typed wins over the default.
     let base: 'all' | 'selection' | IntentSpatialScope;
     const sp = SPATIAL_RE.exec(t);
     const phrase = sp?.[1]?.trim();
-    if (phrase !== undefined && phrase.length > 0 && isAll && !isSel) {
+    if (phrase !== undefined && phrase.length > 0 && !isSel) {
         base = LEVEL_PHRASE.test(` ${phrase} `)
             ? { kind: 'level', levelQuery: normaliseLevelQuery(phrase) }
             : { kind: 'room', roomRef: phrase };

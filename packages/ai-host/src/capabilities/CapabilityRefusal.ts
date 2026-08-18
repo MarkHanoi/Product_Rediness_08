@@ -435,9 +435,52 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     excludeKinds: ['wall'],
   },
   {
+    // §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998) — SPLIT FROM 'finish', below.
+    //
+    // This entry used to match `finish|finishes|render|cladding` as well, and
+    // carried NO `excludeKinds`. Founder-reported 2026-08-18: *"change wall finish
+    // to plaster white"* was answered *"Wall material isn't connected to chat yet.
+    // I can change wall height, thickness, base offset, type, colour, wall angle,
+    // window creation, WALL SIDE FINISH and FINISH LAYER."* — a refusal that
+    // advertises the capability it is refusing, in the same sentence.
+    //
+    // The list is not hand-written: `describeCapabilitiesFor` builds it from the
+    // registry's `refusalLabel`s. So the contradiction was real and visible —
+    // the TOPIC TABLE was denying what the REGISTRY was offering, which is the
+    // manufactured-false-refusal lie this table's own header forbids.
+    //
+    // `material` itself stays a genuine gap for a wall: C85 §4 measures that
+    // `materialId` cannot be set through any bus verb that reaches the authority.
+    // So "change the wall material" is still refused honestly, and only the FINISH
+    // vocabulary — which IS live — moves out.
     label: 'material',
-    match: /\b(?:material|materials|finish|finishes|texture|textures|render|cladding|brickwork)\b/,
+    match: /\b(?:material|materials|texture|textures|brickwork)\b/,
     commands: ['slab.setMaterial', 'roof.setMaterial', 'room.setMaterial'],
+  },
+  {
+    // §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998) — the finish vocabulary, which for
+    // a WALL is live twice over: `set-wall-side-finish` → `wall.setSideFinishBatch`
+    // and `add-wall-layer` → `wall.addLayerBatch`. Both are advertised by
+    // `describeCapabilitiesFor('wall')` as "wall side finish" and "finish layer",
+    // so a refusal naming either for a wall contradicts the registry.
+    //
+    // For every OTHER kind the gap is real and unchanged — a slab, roof or room
+    // finish still has no chat route — which is why this is a SPLIT and not a
+    // deletion. Vocabulary was moved, never removed (RAC free-form doctrine).
+    //
+    // ⚠ THE LABEL IS 'surface finish', NOT 'finish', AND THAT IS NOT COSMETIC.
+    // The bare word `finish` is a VERB of the GLOBAL capability
+    // `finish-apartment-chain` ("finish this floor"), and the ADR-0314 collision
+    // invariant in `chat-capability-registry.test.ts` forbids a topic label that a
+    // live GLOBAL capability answers to — a global capability has no `targets` to
+    // exclude, so such a topic can never be made safe. Measured: labelling this
+    // 'finish' turned that guard RED immediately. The label is only ever the
+    // sentence noun ("Slab surface finish isn't connected to chat yet"), so it can
+    // be precise without narrowing the `match` regex by a single word.
+    label: 'surface finish',
+    match: /\b(?:finish|finishes|render|cladding)\b/,
+    commands: ['slab.setMaterial', 'roof.setMaterial', 'room.setMaterial'],
+    excludeKinds: ['wall'],
   },
   {
     label: 'position',
