@@ -446,6 +446,65 @@ describe('L-955 §L955-LEGACY-PLAIN-SHEAR — the plain legacy arm must not stan
     });
 });
 
+// ─── §L955-INSTANCED-ARM-DROPS-RAKE — the UNJOINED half of the same subject ───
+//
+// The fix above lands in `createWallBodyFragment`, and `isSimpleWall` (:1147) decides
+// whether that function is reached at all. Its five conditions do NOT include the rake,
+// and `WallInstanceBridge.register` reads `rakeAngleDeg` nowhere — so a plain,
+// single-layer, opening-free, UNJOINED raked wall was routed to the instanced arm and
+// rendered VERTICAL while the store held 80°. The shear could not run, because the
+// function that applies it was never called.
+//
+// This is the sub-case the JOINED test above does NOT cover, and stating the split
+// exactly is the point: `isSimpleWall` requires `!startMN && !endMN`, so
+//   · JOINED  (L-955's own corner) → fragment path → §L955-LEGACY-PLAIN-SHEAR applies;
+//   · UNJOINED                     → instanced path → the shear was unreachable.
+// One defect, two routers, and only measuring both tells you which one you fixed.
+
+/** A SINGLE unjoined raked wall, built with an instance bridge present. */
+function unjoinedRakedWall(rake: number): { lean: number; bodyMeshes: number; instanced: number } {
+    (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 = false;
+    const A = mk([0, 0], [5, 0], { rake });
+    const builder = new WallFragmentBuilder(new THREE.Scene(), levelProvider() as never);
+    let instanced = 0;
+    (builder as unknown as { _instanceBridge: unknown })._instanceBridge = {
+        register: () => { instanced++; },
+        isInstanced: () => false,
+        unregister: () => { /* no-op */ },
+    };
+    builder.refreshV2Cache([A].map(specOf));
+    // No neighbour ⇒ no join data ⇒ `!startMN && !endMN` ⇒ `isSimpleWall` is live.
+    builder.buildWall(A, null as never, undefined, 0);
+
+    const verts = bodyVertices(builder.getWallRoot(A.id) as unknown as THREE.Object3D);
+    if (verts.length === 0) return { lean: NaN, bodyMeshes: 0, instanced };
+    const at = (y: number): number[] => verts.filter(v => Math.abs(v.y - y) < 1e-6).map(v => v.z);
+    const mid = (v: number[]): number => (Math.min(...v) + Math.max(...v)) / 2;
+    return { lean: mid(at(H)) - mid(at(0)), bodyMeshes: verts.length, instanced };
+}
+
+describe('L-955 §L955-INSTANCED-ARM-DROPS-RAKE — a raked wall must leave the instanced path', () => {
+    afterEach(() => { delete (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2; });
+
+    it('an UNJOINED raked wall is declined by the instanced arm and leans by h·cot θ', () => {
+        const r = unjoinedRakedWall(RAKE);
+        // eslint-disable-next-line no-console
+        console.log(`[L-955] unjoined raked wall: register() calls=${r.instanced}, body verts=${r.bodyMeshes}, lean ${r.lean.toFixed(9)} m (h·cotθ = ${(H * K).toFixed(9)})`);
+        expect(r.instanced, 'the instanced arm declined the RAKED wall').toBe(0);
+        expect(r.bodyMeshes, 'a real body mesh was built, not an instance + hit proxy').toBeGreaterThan(0);
+        expect(r.lean, 'and it leans').toBeCloseTo(H * K, 6);
+    });
+
+    it('a VERTICAL wall in the same shape STILL instances — the exclusion is rake-only', () => {
+        // The perf property `isSimpleWall` exists for must survive: excluding raked walls
+        // must not quietly exclude the ~70-85% of ordinary walls that instance today.
+        const r = unjoinedRakedWall(90);
+        // eslint-disable-next-line no-console
+        console.log(`[L-955] unjoined VERTICAL wall: register() calls=${r.instanced} (expected 1 — still instanced)`);
+        expect(r.instanced, 'a vertical wall still takes the instanced arm').toBe(1);
+    });
+});
+
 // ─── STEP 5 — DOES THE SPIKE GUARD FIRE? ──────────────────────────────────────
 //
 // `WallFragmentBuilder.ts:1543` logs *"a layer band failed the spike guard — falling

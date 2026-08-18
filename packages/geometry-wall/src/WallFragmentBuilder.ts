@@ -1144,12 +1144,34 @@ export class WallFragmentBuilder {
         const _layers = (wall as { layers?: { materialColor?: string }[] }).layers;
         const _layerCount = _layers?.length ?? 0;
 
+        // §L955-INSTANCED-ARM-DROPS-RAKE (founder 2026-08-18) — A RAKED WALL LEAVES THE
+        // INSTANCED PATH. This list tested five conditions and the rake was not among
+        // them, while `WallInstanceBridge.register` reads `rakeAngleDeg` NOWHERE: a plain,
+        // single-layer, opening-free, UNJOINED raked wall was drawn as an upright box
+        // while the store held 80°. Measured before the fix — `register()` called once,
+        // ZERO body vertices in the wall's group, so there was not even a wrong body to
+        // correct: the shear could not run because the function that applies it
+        // (`createWallBodyFragment`) was never reached.
+        //
+        // EXCLUDING IS THE HONEST FIX, NOT TEACHING THE BRIDGE TO SHEAR. GPU instancing
+        // decomposes a world matrix into T·R·S and a shear is not expressible in TRS —
+        // the same reason `WindowBuilder` keeps real meshes on a raked host (see
+        // `WallRake.ts`, last bullet). So the bridge COULD not carry the lean without
+        // per-instance geometry, which is the thing instancing exists to avoid. One
+        // condition here routes the wall to the arm that already draws it correctly.
+        //
+        // THE PERF PROPERTY SURVIVES: `isVerticalRake` is TRUE for an absent, null or 90°
+        // rake, which is every wall in every existing project, so the ~70-85% instanced
+        // share is untouched. Only a genuinely leaning wall opts out, and it opts out to
+        // be drawn RIGHT. Pinned both ways — a raked wall must NOT instance, a vertical
+        // one MUST — so a later "optimisation" cannot quietly re-admit the raked case.
         const isSimpleWall = (
             this._instanceBridge !== null &&
             !_hasOpenings &&
             !wall.curve &&
             !joinData?.startMN &&
             !joinData?.endMN &&
+            isVerticalRake((wall as { rakeAngleDeg?: number }).rakeAngleDeg) &&
             _layerCount <= 1
         );
 
