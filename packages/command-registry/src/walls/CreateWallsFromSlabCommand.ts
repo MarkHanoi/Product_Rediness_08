@@ -2,10 +2,6 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { CreateWallCommand } from './CreateWallCommand';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-// L-965 §WALLS-BY-SLAB-BRANDED-ID — the SAME id factory every other wall path uses.
-// `@pryzm/schemas` is already imported from this package (`columns/CreateColumnCommand.ts`),
-// so this adds no dependency edge and no layer violation.
-import { createId } from '@pryzm/schemas';
 // §L965-RECOVER-BOUNDARY-ARCS — the ONE arc model for slab-family boundaries, read
 // in the inverse direction. `@pryzm/geometry-slab` is already a dependency of this
 // package; nothing new is introduced and the arc maths is not re-derived here.
