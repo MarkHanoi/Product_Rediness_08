@@ -12,6 +12,50 @@
 > **2026-05-19 Comprehensive Audit Rev 5**: §7.0 updated with **FIX-EVENTBUS-DISPOSABLE-CALL** — the *true* root cause behind FIX-DEACTIVATE-GUARD (Rev 3). `runtime.events.on()` (the `EventBus`, C02) returns a `Disposable` (`{ dispose() }`), **not** an unsubscribe function. `SplitViewManager` and `PlanViewManager` stored that return in `(() => void) | null` fields and invoked it as `unsub?.()`, throwing `TypeError: … is not a function` and aborting `deactivate()` — this wedged the split-view toggle button and, pre-FIX-DEACTIVATE-GUARD, blocked 3D-view activation. FIX-DEACTIVATE-GUARD's `try/catch` only masked the symptom (and silently leaked every listener/timer/DOM node below the throw site). Rev 5 fixes the throw at source and retypes the unsub fields `{ dispose(): void } | null` so the misuse is compiler-caught. The FIX-DEACTIVATE-GUARD row carries a Rev 5 correction note.
 > **2026-05-19 Comprehensive Audit Rev 6**: §7.0 updated with **FIX-VIEWSWITCH-DROP** — `WallRebuildCoordinator._scheduleFlush()` dropped wall mutations that arrived during a view switch (the early-return ran *before* the event was queued, with no re-queue path). Events are now always queued; the `_viewSwitchInProgress` check only defers the flush, and the `view-activated` clear handler drains the queue. New **§12 — Split-View 3D Synchronization & Camera Framing** added: documents the split-view 3D-pane (canvas-mirror) architecture, the bus→builder 3D-mesh path for plan-pane element creation, and the normative first-element camera-framing rule.
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §11's MATRIX ORDERS THREE BRIDGES BUILT THAT SHIPPED — AND THIS CONTRACT ALREADY SAID SO
+
+§11's normative matrix marks **handrail**, **furniture** and **lighting** as **"❌ No bridge"**, and
+**§11.1 carries an OPEN work order to build one of them.** All three are live in
+`apps/editor/src/engine/initTools.ts`:
+
+| Family | Registration log line | Measured `file:line` |
+|---|---|---|
+| handrail | `[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.` | `initTools.ts:2050` |
+| lighting | `[initTools] §FT-LIGHTING: lighting.created bus→legacy-store bridge registered.` | `initTools.ts:2111` |
+| furniture | `[initTools] §FT-FURNITURE: furniture.created bus→legacy-store bridge registered.` | `initTools.ts:2217` |
+
+```
+grep -n "bridge registered" apps/editor/src/engine/initTools.ts
+```
+
+⚠ **Cite these line numbers only after re-running that grep** — `initTools.ts` is under active edit
+and the numbers move; an earlier statement of this same finding cited `:1919/:1967/:2031`, which now
+point at unrelated lines. **The `§FT-*` tags are stable; the line numbers are not. Grep the tag.**
+
+⭐ **§11.9, §11.11 and §11.19 of THIS CONTRACT already describe these bridges as existing.** C11
+contradicts itself, and the matrix — the part an engineer reads to decide what to build — is the
+half that is wrong. **§11.1's work order is DISCHARGED; do not execute it.**
+
+### §7.2's "no OTel span" claim is also false
+
+§7.2 states there is *"no OTel span, and `plugin-sdk` exposes no tracer"*. Measured:
+
+```
+grep -rIl "withHandlerSpan" --include=*.ts --exclude-dir=node_modules packages apps plugins | wc -l
+# -> 253
+```
+
+**`withHandlerSpan` is used in 253 files.** The tracer is exposed and used at scale.
+
+⚠ **But do not read that as P8 satisfied** — the two facts are independent. The span *gate*
+(`tools/ga-gate/check-otel-spans.ts`) is **RC=3**: Zone A 246/246, **Zone B 54 uninstrumented of 70
+against a shrink-only baseline of 52**, and Zone C (the "every exported function" clause) is
+**ungated** at 1772 of 2023 without a span. **The plumbing exists; the coverage invariant does not
+hold.** State both.
+
 ---
 
 ## §1 — Why this contract exists

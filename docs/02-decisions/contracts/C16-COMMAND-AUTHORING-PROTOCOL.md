@@ -28,10 +28,10 @@
 > minted as **C69** by a concurrent stream). C16 states what is REQUIRED; the register measures what
 > IS. Cite the register; never transcribe its rows.
 > **Authority**: this contract governs **how a new command is created** in PRYZM 3 — the anatomy, the pipeline it must obey, and the two doctrines (level-oriented, semantic-first) every command MUST honour. It is the single **front door** for command authoring; it does not restate the depth held by the contracts it cites.
-> **Tier**: contract (C00-INDEX tier 3). Where the Vision (`archive/pryzm3-internal/01-VISION.md`) or Architecture (`02-ARCHITECTURE.md`) disagree, they win — amend this contract.
+> **Tier**: contract (C00-INDEX tier 3). Where the Vision or Architecture disagree, they win — amend this contract. ⛔ **CORRECTED 2026-08-18: the two files this contract named as its own superiors DO NOT EXIST.** `find . -name '01-VISION.md' -o -name '02-ARCHITECTURE.md' -not -path '*/node_modules/*'` → **0 matches**, in `docs/archive/pryzm3-internal/` or anywhere else. **The live authorities are [`docs/01-strategy/STR-03-engineering-vision.md`](../../01-strategy/STR-03-engineering-vision.md) and [`docs/01-strategy/STR-04-architecture.md`](../../01-strategy/STR-04-architecture.md)**, per the governance order in [README](./README.md). A contract that cannot resolve its own tie-breaker has no tie-breaker — which is worse than having the wrong one, because the failure is silent.
 
 > **Anchors (read alongside, do not duplicate):**
-> - `01-VISION.md §2` — the 8 principles (P1–P8); this contract operationalises **P6** (commands are the only mutation path) and **P8** (every new exported fn ≥ 1 OTel span).
+> - ~~`01-VISION.md §2`~~ → **`docs/01-strategy/STR-03-engineering-vision.md` §2** (the cited file does not exist — see the Tier note) — the 8 principles (P1–P8); this contract operationalises **P6** (commands are the only mutation path) and **P8** (every new exported fn ≥ 1 OTel span).
 > - **C03** — the command **interface**, store model, and undo/redo (`§2`, `§4.5` `performUndoRedo`).
 > - **C11** — the end-to-end **creation pipeline** (UI / AI / remote entry → bus → handler → geometry → room redetect), the per-element compliance matrix, and the §11.2 "add a new element type" checklist.
 > - **C15** — hosted elements (doors/windows in walls) author a *two-part* command (host + opening).
@@ -425,7 +425,7 @@ the same** — STR-03 §2 once cited four gate files that do not exist, all mark
 | **CA-18** refusal | `tools/ga-gate/check-refusal-identity.ts` (refusals carry an identifying code) · the register's `REFUSES` verdict, derived from a `canExecute` ending in an unconditional `{valid:false}` (§FIX-DEAD-VERB-REFUSE) | 🔶 **PARTLY.** Both see a refusal that IS written. **Nothing detects a verb that should refuse and instead returns success** — that is CA-17's `UNKNOWN` class, and closing it is the same work. |
 | **CA-19** `affectedStores` | `apps/editor/__tests__/performUndoRedo.test.ts` — "coverage of every create-handler affectedStores key" (C03 §4.8) | 🔶 **PARTLY.** It proves every declared key **resolves** in `buildUndoStoreMap`. It does **not** prove the resolved store is the one the handler wrote — which is exactly the corrupting case (C03 §4.6 U-2b). |
 | **CA-20** registration order | the register's `SHADOWED` verdict + `SHADOWED_BASELINE`, named and shrink-only in both directions | ✅ for verbs with two **statically discoverable** declaring sites. Blind to runtime-only registration — the gate's own header says so. |
-| **CA-21** executed read-back | ❌ **NOT ENFORCED.** `tools/rac-conformance/` scores **V3 authoritative state** per operation, but its own §9.6 records that *"every V4 (persist), every V5 (undo), and every V3 outside category 8 are UNPROVEN — no browser, no renderer, no save/reload"*. | ❌ **NOT-YET-TRUE.** Static analysis can prove a verb is dead; it cannot prove a live one is alive. |
+| **CA-21** executed read-back | ⚠ ~~❌ **NOT ENFORCED.**~~ → **A GATE NOW EXISTS AND PASSES, and it quotes THIS ROW as its reason for existing.** `tools/ga-gate/check-verb-liveness.ts`, registered at `tools/ga-gate/run-all.ts:215` as *"verb-liveness (C16 §5.1 CA-21)"*. Measured 2026-08-18: `npx tsx tools/ga-gate/check-verb-liveness.ts > /tmp/vl.txt 2>&1; echo "RC=$?" >> /tmp/vl.txt` → **RC=0** — `✅ PASS — all 7 baseline verbs still prove their write by an executed read-back` (**GROW-ONLY** ratchet, baseline 7, measured 7). | ❌ **STILL NOT-YET-TRUE — and the gate says so itself.** `register verbs **326**` · `PROVEN **7**` (executed dispatch + executed read-back) · **109 UNPROVABLE-NO-STORE** · **210 UNKNOWN**, and its own line: *"Neither is a pass; both are the work."* **7 of 326 is 2%.** The verdict is unchanged; only its *reason* is — it is no longer "no gate", it is "a gate proving 2%". |
 
 **Exit conditions — named, so this table can be closed rather than admired:**
 
@@ -444,6 +444,21 @@ the same** — STR-03 §2 once cited four gate files that do not exist, all mark
   a verb and reads the property back out of the authoritative store in a real browser, so V3/V4 can
   read PASS instead of UNPROVEN. **ISSUE-LOG §9.6 names this as the single largest outstanding piece
   of work identified by the RAC conformance exercise**, and this contract agrees with that ranking.
+  > ⚠ **UPDATED 2026-08-18 — PARTLY BUILT, and the exit condition is now MEASURABLE rather than
+  > absent.** `check-verb-liveness.ts` exists, is registered, and **PASSES (RC=0)** with **PROVEN = 7
+  > of 326**. The exit condition should now be read numerically: **G-CA-A4 closes when PROVEN
+  > approaches 326**, i.e. when the **109 UNPROVABLE-NO-STORE** verbs acquire an authoritative store
+  > and the **210 UNKNOWN** are classified. The ratchet is **GROW-ONLY** — PROVEN may only increase,
+  > so a regression that un-proves a verb fails the gate. **Do not lower the baseline of 7.**
+  >
+  > ⭐ **A caution, because this gate has misreported before.** A run earlier on 2026-08-18 exited
+  > **2** with *"MISCONFIGURED — the read-back harness exited 1"* and **emitted no counts at all**,
+  > caused by a vitest fork-worker timeout on
+  > `tools/rac-conformance/runtime-harness/__tests__/liveness.probe.ts` — an environmental flake, not
+  > a finding. **This gate can fail for reasons that have nothing to do with its subject.** Always
+  > read its terminal line: `MISCONFIGURED` means *the question was not asked*, which is neither a
+  > pass nor a fail, and **quoting counts from a MISCONFIGURED run — or concluding from one that the
+  > figures are irreproducible — are both errors.**
 
 Until all four exit conditions are met, **§5.1 is CANONICAL but NOT ACTIVE** in the C00 status
 ladder: it is binding intent with partial machine coverage, and it does **not** certify that shipped
@@ -492,4 +507,4 @@ defect, and this contract will not repeat it.
 - C11 §2 (pipeline), §5 (handler contract), §10 (two-layer bridge), §11.2 (add element type), §11.5 (wall = reference).
 - C15 (hosted two-part commands). C09 (AI). C10 (NFTs/OTel). C13 (project isolation). §41 (preview).
 - **C17** (Batch Creation Catalogue & Panel Binding) — the registry of batch prompts that each resolve to a §8/CA-12 command and surface in the CREATE panel.
-- `01-VISION.md §2` (P1–P8). Memory: `batch-creation-perf-pattern`, `undo-architecture-three-stores`, `gpu-pick-resolution-and-highlight`.
+- ~~`01-VISION.md §2`~~ → **`docs/01-strategy/STR-03-engineering-vision.md` §2** (P1–P8; the cited file does not exist). Memory: `batch-creation-perf-pattern`, `undo-architecture-three-stores`, `gpu-pick-resolution-and-highlight`.

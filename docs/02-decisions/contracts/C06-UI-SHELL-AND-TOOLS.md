@@ -4,6 +4,26 @@
 > **Scope**: `PlatformRouter`, panel management, tool registration, keyboard shortcuts, camera integration, the 2D plan-view / section-view rendering pipeline, **and UI layering / overlap (z-index)**.  
 > **Key principles**: P1 (single composition root), P4 (no `window as any`), P6 (commands only).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: TWO NAMED APIs IN THIS CONTRACT DO NOT EXIST
+
+| C06 names | Measured |
+|---|---|
+| `KeyboardShortcutRegistry` | ❌ **ZERO occurrences repo-wide.** `grep -rIl "KeyboardShortcutRegistry" --include=*.ts --exclude-dir=node_modules packages apps plugins` → nothing. |
+| `runtime.tools.register(tool)` | ❌ **NO PRODUCTION REGISTRATION SITE.** `grep -rn "tools\.register(" --include=*.ts --exclude-dir=node_modules packages apps plugins` → **4 matches, all non-executing**: a doc-comment (`packages/geometry-slab/src/SlabTool.ts:76`), two planning comments (`packages/input-host/src/ToolBindings.ts:5,74`), and a **codegen string template** (`packages/plugin-sdk/src/dev/create-command.ts:201`). |
+
+⭐ **The `create-command.ts:201` match is the trap worth naming.** It is a *scaffold emitter* — a
+string that a generator writes into new files. A name-shaped grep counts it as evidence the API
+exists; it is evidence that **new code will be told to call an API that does not**. This is defect
+shape **C — declared but never called**, with an extra hop: the declaration is inside a string.
+
+**Read every `runtime.tools.register` and `KeyboardShortcutRegistry` clause below as NOT-YET-TRUE.**
+`packages/input-host/src/ToolBindings.ts` is where the real tool-binding table lives and is the
+place to start; its own header (`:5`) describes moving *"the 20 `runtime.tools.register(...)`
+calls"* — **a migration whose source side does not exist**, so that note is stale in the same way.
+
 ---
 
 ## §1 — PlatformRouter

@@ -5,6 +5,39 @@
 > **Authority**: Governs the parametric offset model, the opening-void geometry lifecycle, drag constraints, and all wall-baseline mutation paths that carry hosted elements.  
 > **Related contracts**: C02 §3.3 (wall baseline update dual-write), C03 §4 (command bus), C11 (element creation pipeline).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §6 NAMES AN ERROR TYPE THAT DOES NOT EXIST, SO A `catch` ON IT IS DEAD CODE
+
+```
+grep -rn "OpeningsChildrenMismatchError" --include=*.ts --exclude-dir=node_modules packages apps plugins | wc -l
+# -> 0
+```
+
+**Zero occurrences repo-wide.** §6 specifies it as the typed failure for an openings/children
+mismatch. **Any handler written to `catch (e) { if (e instanceof OpeningsChildrenMismatchError) … }`
+against this clause is a branch that can never be entered** — and, worse, a mismatch that C15 says
+must be *surfaced* is currently surfaced as nothing, or as an untyped throw indistinguishable from
+any other. **§6 is NOT-YET-TRUE.** Mint the error type, or restate §6 against the failure signal
+that actually ships — but **do not write the `catch` first**.
+
+### ⚠ UNVERIFIED in this pass — stated so a blank is not read as "fine"
+
+Two further defects were reported against this contract and **could not be settled here**:
+
+- **§13 certifies a hardening fix that was reportedly REMOVED.** Not re-derived — the report named
+  no commit and no deriving command, so there is nothing to re-run. **Treat §13's certification as
+  UNPROVEN, not as confirmed and not as refuted.** Settling it needs the fix named, then
+  `git log -S'<symbol>' -- <path>`.
+- **§9's four mandated span attributes reportedly have zero occurrences.** The four attribute
+  literals are **not enumerated in §9 in a form this pass could extract**, so no grep was run.
+  **UNMEASURED.** Whoever states this must paste the four literals and the
+  `grep -rn "<literal>" --include=*.ts --exclude-dir=node_modules` that settles each.
+
+**An unverified row left blank reads as "fine" and is indistinguishable from "nobody looked."** Both
+rows above are the latter.
+
 ---
 
 ## §1 — Definitions

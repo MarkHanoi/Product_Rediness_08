@@ -100,7 +100,20 @@ const span = tracer.startSpan('pryzm.<package>.<operation>');
 
 ### §2.3 — CI gate
 
-`scripts/ci-check-spans.ts` runs on every PR. It diffs the changed files for new `export` declarations and checks that at least one `tracer.startSpan` call exists in the same function scope.
+~~`scripts/ci-check-spans.ts` runs on every PR. It diffs the changed files for new `export` declarations and checks that at least one `tracer.startSpan` call exists in the same function scope.~~
+
+> ⛔ **CORRECTED 2026-08-18 — §2.3 STATED AS LIVE FACT A GATE THAT §5 OF THIS SAME FILE RECORDS AS NEVER HAVING EXISTED.** `ls scripts/ci-check-spans.ts` → **No such file or directory.** §5's row was amended months ago; **this section was not, so the contract contradicted itself and the present-tense sentence is the one readers reached first** — fifteen other contracts then cited it onward (see the †PHANTOM-GATE footnotes now carried by C31, C33–C36 and C38–C49).
+>
+> **The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts), and it does NOT do what the struck sentence describes.** It does not diff changed files, and it does not scope to function bodies. Measured:
+> `npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt` → **RC=3**
+>
+> | Zone | Subject | Reading |
+> |---|---|---|
+> | **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+> | **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **the failure**, 2 new files |
+> | **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+>
+> ⛔ **P8's "every new exported function" clause is therefore measured for ZERO files** — it lives entirely in the ungated Zone C. State it as **NOT-YET-TRUE**. Zone B's baseline is **shrink-only**; fix the two files, never widen it.
 
 ### §2.4 — User-facing observability events (toasts + polls)
 

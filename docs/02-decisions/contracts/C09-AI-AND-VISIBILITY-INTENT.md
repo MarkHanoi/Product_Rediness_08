@@ -181,7 +181,21 @@ Pareto ranks within the chosen tier over the 8-axis ObjectiveVector: `efficiency
 
 `packages/visibility/` (L1) owns the intent model. It is a **domain concept**, not a UI concern. Plugins and AI MUST express visibility changes as intent deltas dispatched via the command bus — never by setting UI state directly.
 
-**CI gate**: `packages/visibility/__tests__/intent-not-ui.test.ts` (hard-fail, P7).
+**CI gate**: ~~`packages/visibility/__tests__/intent-not-ui.test.ts` (hard-fail, P7)~~ ⛔ **CORRECTED 2026-08-18 — THAT FILE DOES NOT EXIST, AND THE REAL GATE IS NOT HARD-FAIL.**
+
+> ```
+> ls packages/visibility/__tests__/intent-not-ui.test.ts   # -> No such file or directory
+> ls packages/visibility/__tests__/                        # IsolationIntent.test.ts
+> #   intent-path-alive.test.ts  visibility-intent.test.ts  waves
+> ```
+>
+> **The real P7 gate is [`tools/ga-gate/check-visibility-intent-not-ui.ts`](../../../tools/ga-gate/check-visibility-intent-not-ui.ts).**
+> `npx tsx tools/ga-gate/check-visibility-intent-not-ui.ts > /tmp/vis.txt 2>&1; echo "RC=$?" >> /tmp/vis.txt`
+> → **RC=0**, `✓ arm A clean (0), arm B within baseline (**40/43**)`.
+>
+> ⛔ **It is hard-fail on ONE arm only.** ARM A is hard-0 inside `packages/visibility/src`. **ARM B is a RATCHET that currently TOLERATES 40 violations** across the UI tree. Describing P7 as *"hard-fail"* flatly is the L-812 error: it reads as an invariant and is a ceiling.
+>
+> ⚠ The gate's own output further names **persistence, per-view scoping and the AI intent path as NOT CHECKED** — so *"P7 holds"* is not something this gate can tell you, whichever arm you quote.
 
 ### §4.3 — Rendering equation
 

@@ -7,6 +7,25 @@
 
 ---
 
+## §0.0 — ⛔ CORRECTION 2026-08-18: `NetworkProxy` DOES NOT EXIST
+
+```
+grep -rIl "NetworkProxy" --include=*.ts --exclude-dir=node_modules packages apps plugins   # -> 0
+```
+
+**Zero occurrences repo-wide.** Every clause below that names `NetworkProxy` as the sandbox's
+network mediator is **NOT-YET-TRUE** — there is no such object, so nothing mediates plugin network
+access by that route today. ⚠ **Do not cite C07 as evidence that plugin network egress is
+sandboxed.**
+
+The §3.1 permission vocabulary and the §5 SDK-bypass figure are corrected inline below at their own
+sections. **UNVERIFIED in this pass:** the six individual proxy names §3 enumerates were not each
+checked — only `NetworkProxy` was measured. Treat the other five as **unmeasured, not as present**;
+`grep -rIl "<Name>" --include=*.ts --exclude-dir=node_modules packages apps plugins` settles each in
+one command.
+
+---
+
 ## §1 — Layer 8: The SDK Facade
 
 ### §1.1 — Purpose
@@ -128,7 +147,14 @@ Permissions MUST be minimally scoped. A plugin requesting `elements.write` but o
 
 ## §5 — First-party plugins
 
-The 47 plugins in `plugins/` are first-party (developed by the PRYZM team). They MAY import from `@pryzm/plugin-sdk` or, during the transitional period, from lower layers directly — tracked by `eslint-plugin-pryzm` boundary rule (target: 0 ✅ achieved Wave 12). With the SDK now at v1.0.0, even first-party plugins MUST use only the SDK surface.
+The ~~47~~ **48** plugins in `plugins/` are first-party (developed by the PRYZM team). (`ls plugins | wc -l` → **48**, 2026-08-18.) They MAY import from `@pryzm/plugin-sdk` or, during the transitional period, from lower layers directly — ~~tracked by `eslint-plugin-pryzm` boundary rule (target: 0 ✅ achieved Wave 12)~~.
+
+> ⛔ **CORRECTED 2026-08-18 — "target: 0 ✅ achieved" IS FALSE, AND THE NAMED TRACKER IS NOT THE AUTHORITY.**
+> Measured: `npx tsx tools/ga-gate/check-layer-boundaries.ts > /tmp/lb.txt 2>&1; echo "RC=$?" >> /tmp/lb.txt`
+> → **RC=0**, `✓ within baselines (violations 102/102, unclassified 13/13, **sdk-bypass 172/182**)`.
+> **172 direct bypasses, not 0.** The gate passes because 172 is *within* a ceiling of 182 — **a ratchet holding, not a target achieved.** Do not read `RC=0` as `0 bypasses`.
+>
+> ⚠ **And `eslint-plugin-pryzm` is not the gate.** Per CLAUDE.md / **L-809**, `eslint.config.js` configured no `import/resolver`, so boundary rules could not resolve `@pryzm/*` specifiers — which is how essentially every cross-package import here is written — and **silently checked nothing for them**. **The authority is `tools/ga-gate/check-layer-boundaries.ts`.** Cite it, and quote the three numbers it prints rather than a ✅. With the SDK now at v1.0.0, even first-party plugins MUST use only the SDK surface.
 
 ---
 

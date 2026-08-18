@@ -5,6 +5,44 @@
 > **Key principles**: P8 (sync conflicts explicit).  
 > **References**: [ADR-0202] CRDT bridge, [SPEC-03] sync, [ADR-0219] soft-locks, [ADR-0237/038] sovereignty/BYOK, [SPEC-34/35] enterprise security.
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: THE RATE-LIMIT NUMBERS ARE WRONG, AND ONE "FIX" WOULD RE-INTRODUCE THE BUG IT NAMES
+
+**`globalLimiter` is 2000 per 15 min, not 200.** Measured in `server/rateLimiter.js:48-55`:
+
+```
+grep -n -A 8 "export const globalLimiter" server/rateLimiter.js
+#  max: 2000,
+```
+
+⭐ **The file's OWN contract header still says 200** (`server/rateLimiter.js:7`:
+*"globalLimiter: 200 requests per 15 minutes per IP"*), and the code comment at `:50-54` explains
+exactly why it was raised: *"200/15min (~13/min) was tuned for a low-traffic public API, but the
+EDITOR is an interactive SPA … legit users got HTTP 429 on create/delete (2026-06-03)."* **A header
+comment and its own module disagreeing by 10×, in one file, is where this contract's number came
+from.** Read the `max:` literal, never the header.
+
+⛔ **DO NOT SET `trust proxy` TO `1`.** Any clause below prescribing it is **withdrawn**. The
+shipped value is a **tunable hop count**, `server.js:322-327`:
+
+```
+const TRUST_PROXY_HOPS = process.env.TRUST_PROXY_HOPS ? parseInt(process.env.TRUST_PROXY_HOPS, 10) : <default>;
+app.set('trust proxy', TRUST_PROXY_HOPS);
+```
+
+The code's own comment at `:315-320` (`§ADR-055-PHASE-A-PREFLIP`) states the hazard in one line —
+a wrong hop count *"trusts everyone OR protects no one"*. **Setting it to 1 under the real proxy
+chain collapses every client to the same forwarded IP**, which is the precise failure the rate
+limiter exists to prevent: one abuser then rate-limits all users, or every user shares one bucket.
+**Change this value only with the deployed hop count measured, never from a contract literal.**
+
+⚠ **UNVERIFIED in this pass:** the *remote-factory gap* figure (reported as 164, and as having
+grown 14 in eleven days) was **not re-derived** here — the deriving command was not recorded with
+the claim, so it cannot be re-run. **Treat it as unmeasured, not as confirmed.** Whoever restates it
+must paste the command alongside.
+
 ---
 
 ## §1 — Authentication

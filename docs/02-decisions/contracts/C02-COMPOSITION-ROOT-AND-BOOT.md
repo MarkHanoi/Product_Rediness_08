@@ -5,6 +5,32 @@
 > **Key principles**: P1 (single composition root), P3 (single rAF), P4 (no `window as any`).  
 > **Owner package**: `packages/runtime-composer/` (L3, 3,912 LOC).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §§3.2/3.3 MANDATE A FUNCTION WITH ZERO PRODUCTION CALLERS; §1.1's TYPE DOES NOT EXIST
+
+```
+grep -rIl "getCommandManagerBridge" --include=*.ts --exclude-dir=node_modules packages apps plugins   # -> 0
+grep -rIl "ComposeRuntimeInput"     --include=*.ts --exclude-dir=node_modules packages apps plugins   # -> 0
+```
+
+- **`getCommandManagerBridge()` — ZERO occurrences repo-wide**, production *or* test. §3.2 (F-1.2
+  creation dual-write) and §3.3 (baseline-update dual-write) both mandate it. **These two clauses are
+  NOT-YET-TRUE**: nothing calls the function they require, and the hosted-element void correctness
+  they claim to secure is secured by something else or not at all. ⚠ **Establish which, before
+  writing the function** — minting it to satisfy the contract is the C84 EI-10 defect (build the
+  half that exists elsewhere).
+- **`ComposeRuntimeInput` — ZERO occurrences.** §1.1 names it as `composeRuntime()`'s parameter type,
+  so **§5's own worked example cannot compile as written.** A reader who types §5 into an editor gets
+  an unresolved-symbol error, which is the cheapest possible signal that a contract's example was
+  never run.
+
+**Everything in this contract that concerns P1 — the single composition root — is INTACT and
+enforced**: `npx tsx tools/ga-gate/check-single-compose.ts` is a hard-fail at the invariant
+(1 definition / 0 rivals). **The defect is confined to the two dual-write clauses and one type
+name.** Do not read this banner as weakening P1.
+
 ---
 
 ## §1 — The Composition Root Contract
