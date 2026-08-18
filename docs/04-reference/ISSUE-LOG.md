@@ -7626,3 +7626,68 @@ them. Copying a steel UB beam yields a plain concrete beam, silently.
 The column half of the same file (`:393`, `shape: col.profile`) is **not** this defect: `'UC'`/`'UB'`
 are not L0 `Column` members, so `Column.parse` throws and the copy refuses loudly. That is EI-3, not
 EI-2 — and it is the correct behaviour of the two.
+
+## L-975 — a user-typed room NUMBER was destroyed by every post-undo room recompute (CLOSED)
+
+**Lane RM1, 2026-08-18, `7bab78ff`.** *(Proposed by the lane as L-969; renumbered — that number was
+already taken by the roof seating defect.)*
+
+Type a room number in the Property Inspector (`room.setNumber`, whose own placeholder reads
+*"e.g. 101"*), then press Ctrl+Z anywhere on the level: the number was silently replaced with a
+generated `00-001`. `RoomTopologyObserver.resume()` discharges suppressed commits into
+`ReDetectRoomsCommand`, and its `assignUniqueRoomNumbers` ran *after* `mergeWithExisting` had
+correctly preserved the value — and threw it away.
+
+**The root cause is the interesting part: it decided authorship by REGEX.** Keep `^NN-NNN$`,
+regenerate everything else. That inference is wrong in **both** directions — a human's `'101'` is the
+inspector's own placeholder and `RoomTypes.ts:286` documents `'G.04'` as valid, while a generator's
+`'01'` seed also fails the pattern and *must* be renumbered (`ResidentialBuildingExecutor.ts:2863`
+depends on it). The two cases are **indistinguishable by shape**, so "just keep what the user typed"
+would have broken generation. Provenance cannot be recovered from a value; it has to be recorded when
+the human acts.
+
+**Fix:** `metadata.roomNumberAuthored`, stamped by `RenameRoomCommand` (the one user-facing number
+path) and read by the numberer, which reserves authored numbers in a pass 0 before generating.
+Blanking the number surrenders authorship back to the system. `RoomNumbering.ts:35` now states it:
+*"Authorship is READ, never inferred."*
+
+Two traps the lane had to clear, both worth remembering: `RoomMetadataSchema` is a bare `z.object()`
+with **no `.passthrough()`**, so an undeclared field would have been stripped in transit while
+`parse()` reported success — **the exact C84 section 1 mechanism**; and `RoomStore.update` rebuilds
+metadata as a hand-written named subset in **both** branches, so missing either would have silently
+un-authored every number on its next ordinary update.
+
+`name` and `finishes` were never affected (`RoomDetectionEngine.ts:962,968`).
+
+**Class:** silent data loss with no error message, caused by inferring provenance from a value instead
+of recording it.
+
+## L-976 — plan view and 3D read DIFFERENT stores for windows and stairs (OPEN, measured structurally)
+
+**Lane RM1, 2026-08-18.** All 16 families measured for plan-view store authority. Two genuine
+divergences:
+
+- **window** — plan reads `wallStore.getAllWindows()`, 3D and persistence read `windowStore`
+  (`WindowPlanSymbolBuilder.ts:129-131`). The builder's own comment explains why: *"Prefer
+  wallStore.getAllWindows() — authoritative after project reload. windowStore singleton is only
+  populated during the current session."* **Per C15 sections 1/2 the plan view is reading the CORRECT
+  authority and the 3D/persistence path the derived one** — so the fix is not to align plan with 3D.
+- **stair** — divergent *in kind*: plan reads `stairPlanSymbolRegistry`, a registry of THREE objects,
+  not a DTO store (`StairSymbolTechnicalDrawingBridge.ts:56`).
+
+**The MT-05 guard covers only 2 of the 6 `window.*` plan readers** (`engineLauncher.ts:999-1002` —
+`columnStore` and `curtainWallStore`). Room, wall, furniture and lighting are same-instance by
+construction but **unenforced**; the guard's own comment concedes *"today every writer provably
+republishes the same instance, but nothing upstream enforces it."*
+
+Five families (slab, floor, ceiling, beam, handrail) read **no store at all** in plan — mesh
+projection only, via `elementRegistry.getRoot()`.
+
+NOT reached, stated so no row looks measured that isn't: the roof-slope builder's injection
+argument; whether the stair bridge is invoked at all (no `.inject(` call site was found — worth its
+own lane); `EdgeProjectorService.ts:2423`; and whether furniture's two writers are the same binding.
+**All of the above is structural — no runtime session was observed**, the same limitation C84 section 9's
+"Runtime divergence of store CONTENTS" bullet already records.
+
+Note for anyone reading this area: `plugins/plan-view/` is a **second, unused** plan implementation
+with clean DI stores, depended on only by `plugins/sheets`. It is not the live path.

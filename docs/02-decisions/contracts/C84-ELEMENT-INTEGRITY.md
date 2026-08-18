@@ -1179,9 +1179,23 @@ as *"fine"* and is indistinguishable from *"nobody looked"*).
   DERIVED side** (`doorStore`/`windowStore`) rather than the authority, so a save/load round-trip
   is authoritative-by-accident via C15 §8.1's mandated paired write. The open item is the
   **persistence migration to serialise `wall.openings[]`**, and it is owned by C05, not by C84.
-- **EI-7e** — whether user-authored room name / number / finish survive
-  `RoomTopologyObserver.resume()`'s post-undo recompute.
-- **Plan-view store authority, per family** — unmeasured for every family.
+- ~~**EI-7e** — whether user-authored room name / number / finish survive
+  `RoomTopologyObserver.resume()`'s post-undo recompute.~~ **MEASURED 2026-08-18, `7bab78ff`.**
+  `name` and `finishes` survived (`RoomDetectionEngine.ts:962,968`); **`roomNumber` did not** —
+  `assignUniqueRoomNumbers` (`RoomNumbering.ts`) inferred authorship **by regex** and overwrote a
+  user's `'101'` / `'G.04'` with a generated `'00-001'` on any undo. The inference was wrong in both
+  directions: generator seeds fail the same pattern and must be renumbered, so the two cases are
+  indistinguishable by shape. Fixed by RECORDING authorship (`metadata.roomNumberAuthored`) rather
+  than inferring it. [L-975](../../04-reference/ISSUE-LOG.md).
+- ~~**Plan-view store authority, per family** — unmeasured for every family.~~ **MEASURED
+  STRUCTURALLY 2026-08-18 for all 16.** Two genuine divergences: **window** (plan reads
+  `wallStore.getAllWindows()`, 3D/persistence read `windowStore` — and **C15 makes the PLAN VIEW
+  the correct one**, so this does not get "fixed" by aligning plan to 3D) and **stair** (plan reads a
+  THREE-object registry, not a DTO store). Six families read `window.*` globals while the **MT-05
+  guard covers only two of them**; the other four are same-instance by construction but unenforced.
+  Five families read no store at all in plan — mesh projection only. Four items NOT reached, and
+  **no runtime session was observed** — this is structural evidence only.
+  [L-976](../../04-reference/ISSUE-LOG.md).
 - **Runtime divergence of store CONTENTS** — the two construction roots and 19 TWO-LIVE families are
   proven **structurally**; no live browser session observed two stores holding different records. So
   **C78 §21 OQ7 is answered structurally, not by a runtime probe.**
