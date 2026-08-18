@@ -1264,7 +1264,11 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       if (nonSillKind !== undefined) {
         return {
           kind: 'refusal', intent: 'set-sill-height',
-          reason: `Sill height applies to ${SILL_KINDS.join(' and ')}s, but the selected element is a ${nonSillKind.elementType}.`,
+          // ⚠ Pluralise EACH kind, then join. `join(' and ') + 's'` pluralises only
+          // the LAST one — it shipped "window and doors" to users in 4b2fd142, and
+          // read correctly only while the list held exactly one entry. Any
+          // list-to-prose helper that appends a suffix after a join has this bug.
+          reason: `Sill height applies to ${SILL_KINDS.map((k) => `${k}s`).join(' and ')}, but the selected element is a ${nonSillKind.elementType}.`,
           suggestions: [],
         };
       }
