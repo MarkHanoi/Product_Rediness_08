@@ -6876,3 +6876,69 @@ and `HandrailTypeStore` are the shipped shapes of a published type set — follo
 registry already consumes. ⚠ Do NOT touch the `materialName` enum or mint a material vocabulary:
 lane ZA owns the master material database (C100), and C84 **EI-8** forbids a sixth vocabulary.
 Copper / inox / wood / black metal / mirror / satin must resolve through the master catalogue.
+
+---
+
+## L-959 — "By Region" now RESOLVES the region and still creates nothing: the candidate is wiped between hover and click
+
+**Founder-reported on the live deploy `ad488904`, 2026-08-18, with console log and screenshot.**
+Severity: **HIGH** — it is the same user-visible symptom as [L-956](#l-956), with a **different
+mechanism**, and L-956's fix is confirmed WORKING.
+
+**What the log proves is FIXED** — the gesture now arrives. L-956's defect was
+`_getMode()` falling through to `polyline`; the log now reads
+`activated — overlay ready, waiting for first click gesture=region constraint=linear`. That half is
+closed, and the new two-axis diagnostic (`gesture=` **and** `constraint=`) is what made this next
+layer legible at all.
+
+**What the log proves is STILL BROKEN** — the region is FOUND and never COMMITTED:
+
+```
+§REGION-HOST-ATTRIBUTION region traced: 9 host-referenced edge(s) across 9 wall(s),
+31 free edge(s) (curved=31, no-wall-id=0, ambiguous=0). Free edges do NOT follow a wall.
+```
+
+⭐ **There is NO `CREATE_SLAB` anywhere in the founder's log.** Contrast the working polyline case,
+which logs `[CommandManager] EXECUTE: CREATE_SLAB`. The tracer succeeds — 40 edges resolved, zero
+ambiguous — and nothing is built.
+
+### The mechanism, and it is the SAME churn wearing a new costume
+
+`SlabPlanToolHandler.onMouseMove` (`:117-121`) sets `this._candidateRegion` on **HOVER**.
+`onClick` (`:127-130`) commits only `if (this._candidateRegion && this._candidateRegion.length >= 3)`.
+So the candidate must SURVIVE from hover to click.
+
+**It does not.** The founder's log shows, repeatedly:
+
+```
+activated — … gesture=region …
+§REGION-HOST-ATTRIBUTION region traced: …
+deactivated
+```
+
+The handler **deactivates immediately after every trace**. `_candidateRegion` is per-instance state,
+so an activate/deactivate cycle between the hover that sets it and the click that reads it leaves the
+click with `null` — and the `if` fails **silently**, with no refusal and no log.
+
+⭐ **This is L-956's own root cause, one layer up.** L-956 was `ToolManager.deactivateAllInternal()`
+running `exitSketchMode()` at the head of **every** `activateTool` call, which reset the mode while
+leaving the HUD prompting. The mode is now read from a surface-independent store and survives that
+churn — **but `_candidateRegion` is still instance state and does not.** Fixing the mode moved the
+victim, not the churn.
+
+**Owner:** the slab lane. **Fix direction, not prescription:** either the candidate region survives
+the churn the same way the gesture now does, or the churn stops for a tool re-activating itself, or
+`onClick` re-traces at the click point instead of trusting hover state. The third is the smallest and
+probably the most honest — a click already knows where it is, and depending on a prior hover is what
+made this fragile.
+
+⛔ **AND IT MUST NOT FAIL SILENTLY.** `onClick`'s `if` currently does nothing when the candidate is
+missing. Whatever the fix, a region click that cannot resolve a region MUST say so — the founder
+clicked repeatedly and got no slab, no error and no reason. Read
+`packages/geometry-wall/src/WallRake.ts:50-62`: *a refusal is a correct answer.*
+
+⚠ **NOT MEASURED, and it may be a second cause rather than an alternative:** `curved=31` — the
+parcel boundary contributes 31 curved free edges. Whether `_commitSlab` or the sketch path rejects a
+region whose free edges are curved is unestablished. **Prove the candidate is null at click time
+before assuming the churn is the whole story** — if it is non-null and the commit still refuses, the
+cause is downstream and this entry is wrong about the mechanism.
