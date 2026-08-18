@@ -48,8 +48,8 @@ import type { WallData } from '../src/WallTypes';
 const SERIALISED_WALL_FIELDS = [
     'id', 'type', 'levelId', 'parentId', 'baseLine', 'height', 'thickness',
     'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
-    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'joinIntent', 'properties',
-    'ifcData', 'metadata', 'loadBearing',
+    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'wallProfile', 'joinIntent',
+    'properties', 'ifcData', 'metadata', 'loadBearing',
 ] as const;
 
 /** Emit only the whitelisted fields, dropping `undefined` exactly as JSON.stringify does. */

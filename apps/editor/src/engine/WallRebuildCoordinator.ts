@@ -1292,9 +1292,33 @@ export class WallRebuildCoordinator {
                 // finally got built. Absent ⇒ 90 (vertical), so no existing level's
                 // signature changes value for a wall that has never been raked.
                 const rk = mm(w.rakeAngleDeg ?? 90);
+                // §WALL-PROFILE — the outline is a GEOMETRY input for exactly the reason the
+                // rake note directly above gives, and it is the THIRD of three invalidation
+                // gates in series (the other two are `composeWallGeometryHash` and
+                // `WallDeltaClassifier`). L-813 is the recorded case of a field that reached
+                // two of three and was silently stale through the survivor, so all three are
+                // changed in this one commit.
+                //
+                // Absent ⇒ the literal 'r', so no existing level's signature changes value
+                // for a wall that has never been profiled — the same additive guarantee the
+                // rake term above gives with 90.
+                //
+                // NOT added to the V2 `LevelWallSpec` below, and that is deliberate rather
+                // than an omission (C84 EI-2: dropped DELIBERATELY and named): the V2 cache
+                // solves MITRES, which are a function of the PLAN footprint, and a profile
+                // cuts only the ELEVATION — it leaves the plan footprint byte-identical, in
+                // the same way `WallRake.ts:33-40` explains a rake does. Feeding it there
+                // would invalidate the join solve on an edit that cannot change a join.
+                const pf = (() => {
+                    const ring = (w as unknown as {
+                        wallProfile?: { ring?: ReadonlyArray<{ u: number; v: number }> };
+                    }).wallProfile?.ring;
+                    if (!ring || ring.length === 0) return '';
+                    return ring.map(v => `${mm(v.u)},${mm(v.v)}`).join(';');
+                })();
                 parts.push(
                     `${w.id}:${mm(bl[0].x)},${mm(bl[0].z)}>${mm(bl[1].x)},${mm(bl[1].z)}` +
-                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]|r[${rk}]`,
+                    `#${mm(w.thickness)}h${mm(w.height)}b${mm(w.baseOffset)}|o[${ops}]|l[${lys}]|c[${cv}]|m[${mat}]|r[${rk}${pf}]`,
                 );
             }
             parts.sort();

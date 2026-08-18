@@ -30,7 +30,7 @@ import { windowStore } from '@pryzm/geometry-window';
 import { resolveElementRebuildDescriptor, isGeometryAffectingChange } from './ElementRebuildRegistry';
 // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812/L-814) — the SINGLE rake gate, shared with
 // WallDataSchema / WallStore.update / WallStore.addOpening / UpdateWallSystemTypeCommand.
-import { rakeAuthorability } from '@pryzm/geometry-wall';
+import { rakeAuthorability, profileAuthorability, wallOccupancyStore } from '@pryzm/geometry-wall';
 // §REFUSAL-IDENTITY (GE-09, C58 §1.13.8) — the ONE renderer for a refusal arriving
 // from a validator this command orchestrates but does not own (`validateParameters`,
 // `rakeAuthorability`). A stated reason passes VERBATIM; a silent validator is NAMED
@@ -268,7 +268,130 @@ export class UpdateElementParameterCommand implements Command {
         const rakeCheck = this.checkRakeAuthorability(_context);
         if (rakeCheck) return rakeCheck;
 
+        // §WALL-PROFILE — the same seam, the same doctrine. `WallStore.update` throws a
+        // WallSchemaError for an unauthorable profile exactly as it does for a rake, so the
+        // generic parameter path needs the same pre-flight or a stale collaboration replay
+        // becomes a crash rather than a refusal. Added in the SAME slice as the field, so
+        // the crash this prevents never has a window in which to occur.
+        const profileCheck = this.checkProfileAuthorability(_context);
+        if (profileCheck) return profileCheck;
+
+        // §FIX-PANEL-HEIGHT-STRANDS-OPENINGS — a LIVE BUG this slice closes, and it is the
+        // same defect as the feature: a write boundary that reaches `WallStore.update`
+        // without asking whether the edit is survivable.
+        const heightCheck = this.checkWallHeightOpeningFit(_context);
+        if (heightCheck) return heightCheck;
+
         return { ok: true };
+    }
+
+    /**
+     * §WALL-PROFILE — returns a refusal when the merged wall would hold an unauthorable
+     * profile, or `null` when there is nothing to refuse. Deliberately the same shape as
+     * {@link checkRakeAuthorability}: two gates, one seam, one refusal idiom.
+     */
+    private checkProfileAuthorability(context: CommandContext): CommandValidationResult | null {
+        if (this.input.elementType?.toLowerCase().trim() !== 'wall') return null;
+        if (!('wallProfile' in (this.input.parameters ?? {}))) return null;
+
+        const wallStore = (context?.stores as { wallStore?: { getById?(id: string): unknown } } | undefined)?.wallStore;
+        const wall = wallStore?.getById?.(this.input.elementId) as
+            | { curve?: unknown; layers?: unknown[]; openings?: unknown[]; height?: number; baseLine?: unknown }
+            | undefined
+            | null;
+        if (!wall) return null;
+
+        const auth = profileAuthorability({
+            wallProfile: this.input.parameters['wallProfile'],
+            baseLine:    wall.baseLine,
+            height:      wall.height,
+            curve:       wall.curve,
+            layers:      wall.layers,
+            openings:    wall.openings,
+        } as Parameters<typeof profileAuthorability>[0]);
+        if (auth.ok) return null;
+
+        // §REFUSAL-IDENTITY (GE-09) — the gate's own sentence reaches the user verbatim;
+        // this command orchestrates the validator, it does not own the reason.
+        return {
+            ok: false,
+            reason:
+                `This wall's outline can't be edited as it is now — ` +
+                childRefusalText(
+                    auth.reason,
+                    'profileAuthorability',
+                    `wall ${this.input.elementId}`,
+                ),
+        };
+    }
+
+    /**
+     * §FIX-PANEL-HEIGHT-STRANDS-OPENINGS — refuse a wall HEIGHT change that would leave a
+     * hosted door or window outside its host.
+     *
+     * THE BUG THIS CLOSES, measured 2026-08-18. `UpdateWallHeightCommand` has consulted
+     * `planOpeningRefit` since EV-03 (`:98`, `:140`) — but the PROPERTY PANEL does not go
+     * through that command. It goes
+     * `PropertyDescriptorGenerator.ts:57` → `PropertyPanel.ts:953` →
+     * `initBusHandlers.ts:2022-2028` → THIS command → `WallStore.update`, whose only
+     * height validation is NaN/negative (`WallStore.ts:746-762`). So the exact defect
+     * EV-03 fixed — "lowering a 3.0 m wall to 1.0 m left a 2.1 m door exceeding its host
+     * by 1.1 m" — was still reachable, silently, from the panel a user actually uses.
+     *
+     * ⛔ NO SECOND PREDICATE. This calls the SAME `planOpeningRefit` with the SAME
+     * candidate-wall construction `UpdateWallHeightCommand:98` uses. C84 EI-9 is one
+     * answer per question, and "does this opening still fit its host" is one question;
+     * a private containment check here would be the second implementation that later
+     * disagrees with the first.
+     *
+     * Returns `null` when there is nothing to refuse — not a wall, no height in the
+     * patch, wall not found, no openings, or every opening still fits.
+     */
+    private checkWallHeightOpeningFit(context: CommandContext): CommandValidationResult | null {
+        if (this.input.elementType?.toLowerCase().trim() !== 'wall') return null;
+        const params = this.input.parameters ?? {};
+        if (!('height' in params)) return null;
+        const nextHeight = params['height'];
+        if (typeof nextHeight !== 'number' || !Number.isFinite(nextHeight)) return null;
+
+        const wallStore = (context?.stores as { wallStore?: { getById?(id: string): unknown } } | undefined)?.wallStore;
+        const wall = wallStore?.getById?.(this.input.elementId) as
+            | { openings?: unknown[] }
+            | undefined
+            | null;
+        if (!wall) return null;
+        if (!Array.isArray(wall.openings) || wall.openings.length === 0) return null;
+
+        let refit;
+        try {
+            refit = wallOccupancyStore.planOpeningRefit(
+                { ...(wall as object), height: nextHeight } as Parameters<
+                    typeof wallOccupancyStore.planOpeningRefit
+                >[0],
+            );
+        } catch {
+            // §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH — a gate that throws must not become the
+            // crash it exists to prevent. An unexpected shape means "cannot judge", and
+            // "cannot judge" is not "refuse": fall through to the store, which still has
+            // its own defence in depth.
+            return null;
+        }
+        if (refit.ok) return null;
+
+        // §REFUSAL-IDENTITY (GE-09) — `planOpeningRefit` states BOTH numbers ("a 2.1 m door
+        // in a 1.0 m wall"), which is the whole value of the refusal. Pass them through
+        // verbatim; a paraphrase here would restate the premise as the cause.
+        const detail = refit.refusals.map(r => r.reason).join(' · ');
+        return {
+            ok: false,
+            reason:
+                `This wall can't be ${nextHeight} m tall while it hosts what it hosts — ` +
+                childRefusalText(
+                    detail,
+                    'planOpeningRefit',
+                    `wall ${this.input.elementId}`,
+                ),
+        };
     }
 
     /**

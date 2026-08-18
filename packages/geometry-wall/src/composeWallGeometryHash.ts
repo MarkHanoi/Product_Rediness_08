@@ -139,6 +139,20 @@ export function composeWallGeometryHash(
 
     // Layered-wall snapshot — Contract §03-1.3. When layers differ, the wall
     // builds with a completely different multi-layer geometry path.
+    // §WALL-PROFILE — the outline is a GEOMETRY input, so it must be in the cache key or
+    // a profile edit re-uses the previous build's geometry. This is one of THREE
+    // invalidation gates in series (this hash, `WallDeltaClassifier`, and
+    // `WallRebuildCoordinator`'s V2 spec); L-813 is the recorded case of a field that
+    // reached two of the three and was silently stale through the survivor. Absent ⇒ the
+    // literal 'no-profile', so a wall that has never been profiled hashes exactly as it
+    // did before this field existed.
+    const profileStr = (() => {
+        const ring = (wall as { wallProfile?: { ring?: ReadonlyArray<{ u: number; v: number }> } })
+            .wallProfile?.ring;
+        if (!ring || ring.length === 0) return 'no-profile';
+        return ring.map(p => `${f(p.u)}:${f(p.v)}`).join(',');
+    })();
+
     const layersStr = wall.layers && wall.layers.length > 0
         ? wall.layers.map(l => `${l.thickness ?? 0}:${l.materialId ?? '_'}`).join(',')
         : 'no-layers';
@@ -155,6 +169,7 @@ export function composeWallGeometryHash(
         openingsStr,
         sys,
         layersStr,
+        profileStr,
         join,
         slabTag,
     ].join('|');

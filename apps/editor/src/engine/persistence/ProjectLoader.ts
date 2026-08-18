@@ -890,6 +890,14 @@ export class ProjectLoader {
                     // §WALL-RAKE — restore the lean. Absent in every pre-rake snapshot,
                     // and `undefined` resolves to 90° (vertical) in WallRake.resolveRakeDeg.
                     rakeAngleDeg: wall.rakeAngleDeg,
+                    // §WALL-PROFILE — restore the authored outline. This is the LOAD half,
+                    // and it is the half most easily forgotten: a field can be serialised
+                    // perfectly and still be destroyed on reload, because this loop rebuilds
+                    // every wall through `CreateWallCommand` and passes a hand-written option
+                    // list. `baseLine[i].y` is the standing proof — the serialiser preserves it
+                    // via `stripVec3` and this loop reads only `.x` / `.z` (:877-878).
+                    // Absent in every pre-profile snapshot, and absent ⇒ the rectangle.
+                    wallProfile: (wall as { wallProfile?: { ring: { u: number; v: number }[] } }).wallProfile,
                     systemTypeId: wall.systemTypeId,
                     // §FIX-WALL-LAYERS-PLAN-VS-3D-CREATION (L-239, P4 backfill) — thread the
                     // PERSISTED layer stack back in. ProjectSerializer has always written

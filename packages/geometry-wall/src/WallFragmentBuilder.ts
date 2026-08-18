@@ -27,6 +27,7 @@ import {
 } from './CurvedWallOpeningBuilder';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
+import { hasWallProfile } from './WallProfile';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
 // straight wall with openings (one continuous ExtrudeGeometry, no segment seams).
 import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
@@ -1144,6 +1145,7 @@ export class WallFragmentBuilder {
         const _layers = (wall as { layers?: { materialColor?: string }[] }).layers;
         const _layerCount = _layers?.length ?? 0;
 
+<<<<<<< HEAD
         // §L955-INSTANCED-ARM-DROPS-RAKE (founder 2026-08-18) — A RAKED WALL LEAVES THE
         // INSTANCED PATH. This list tested five conditions and the rake was not among
         // them, while `WallInstanceBridge.register` reads `rakeAngleDeg` NOWHERE: a plain,
@@ -1165,6 +1167,38 @@ export class WallFragmentBuilder {
         // share is untouched. Only a genuinely leaning wall opts out, and it opts out to
         // be drawn RIGHT. Pinned both ways — a raked wall must NOT instance, a vertical
         // one MUST — so a later "optimisation" cannot quietly re-admit the raked case.
+=======
+        // §WALL-PROFILE — condition 6, and it is a CORRECTNESS condition like condition 5.
+        // The instanced arm draws a unit BoxGeometry positioned by ONE Matrix4 built as
+        // translation × rotationY × scale (`WallInstanceBridge.ts:104-112`). A T·R·S product
+        // cannot express a non-rectangular silhouette, so a profiled wall routed here would
+        // render as a FULL RECTANGLE while the model said otherwise — the exact class of
+        // defect `WallRake.ts:102` forbids ("a silently-wrong wall").
+        //
+        // INERT TODAY, DELIBERATELY. Nothing in the repo authors `wallProfile` yet, so this
+        // condition never fires and the instanced baselines are unchanged — pinned by
+        // §(A2a) of `WallProfileNonRegressionBaseline.test.ts`. It is added in the SAME slice
+        // as the field rather than the slice that draws it, because the router is what
+        // decides whether a profile is silently discarded, and a guard that arrives after
+        // the field is a guard that arrives after the bug.
+        //
+        // ⚠ UPDATED AT INTEGRATION: this comment said "the identical guard for RAKE is
+        // MISSING and that IS a live defect". It WAS, and it is now CLOSED — see the
+        // §L955-INSTANCED-ARM-DROPS-RAKE block above, landed the same day from a sibling
+        // lane. Two lanes reached this router independently, hours apart, each adding a
+        // correctness exclusion for a different property, and each measuring the same
+        // root: a T·R·S matrix cannot express what its property needs. Rake needs a
+        // SHEAR; a profile needs a NON-RECTANGULAR SILHOUETTE. Neither is a product of
+        // translate, rotate and scale.
+        //
+        // ⭐ THAT CONVERGENCE IS THE FINDING, and it is why both conditions belong here
+        // rather than in one merged "isComplexWall" predicate: each states its own reason,
+        // each is pinned both ways by its own suite, and a future property that also
+        // cannot survive T·R·S gets a third line rather than a re-derivation.
+        const _hasWallProfile = hasWallProfile(
+            (wall as { wallProfile?: unknown }).wallProfile,
+        );
+
         const isSimpleWall = (
             this._instanceBridge !== null &&
             !_hasOpenings &&
@@ -1172,7 +1206,8 @@ export class WallFragmentBuilder {
             !joinData?.startMN &&
             !joinData?.endMN &&
             isVerticalRake((wall as { rakeAngleDeg?: number }).rakeAngleDeg) &&
-            _layerCount <= 1
+            _layerCount <= 1 &&
+            !_hasWallProfile
         );
 
         if (isSimpleWall) {

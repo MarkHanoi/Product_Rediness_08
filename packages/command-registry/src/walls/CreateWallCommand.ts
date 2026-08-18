@@ -106,6 +106,13 @@ export class CreateWallCommand implements Command {
              * Sign convention and refused combinations: `@pryzm/geometry-wall` → `WallRake.ts`.
              */
             rakeAngleDeg?: number,
+            /**
+             * §WALL-PROFILE — the wall's authored ELEVATION OUTLINE, a closed ring of
+             * `{u, v}` in the wall's own plane. Omit for a normal rectangular wall,
+             * which is every wall this repository has ever created. Conventions and
+             * refused combinations: `@pryzm/geometry-wall` → `WallProfile.ts`.
+             */
+            wallProfile?: { ring: { u: number; v: number }[] },
             /** Contract §03-1.3: optional wall system type ID. Omit for plain walls. */
             systemTypeId?: string,
             /**
@@ -352,6 +359,11 @@ export class CreateWallCommand implements Command {
             // asked for a lean. WallStore.add()'s Zod refinement is the gate that
             // rejects an out-of-range angle or a refused combination.
             rakeAngleDeg: this.wallData.rakeAngleDeg,
+            // §WALL-PROFILE — carried straight through, exactly as the rake above.
+            // `undefined` ⇒ the implicit rectangle, so the stamped wall is byte-identical
+            // to a pre-profile wall unless the author supplied an outline. `WallStore.add()`'s
+            // Zod refinement is the gate that rejects a malformed or refused profile.
+            wallProfile: this.wallData.wallProfile,
 
             height: this.wallData.height,
             thickness: resolvedThickness,

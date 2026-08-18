@@ -478,13 +478,26 @@ export class ContextualEditBar {
             const show = !!elementType && canDo(elementType, opId as OperationId);
             btn.style.display = show ? '' : 'none';
         }
-        // §EDIT-PROFILE — show the profile editor button only for the polygonal
-        // sketch-based families (slab / floor / ceiling).
+        // §EDIT-PROFILE — show the profile editor button only where an editor ACTUALLY
+        // EXISTS.
+        //
+        // ⚠ CORRECTED 2026-08-18 (§FIX-DEAD-EDIT-PROFILE-BUTTON). This list used to read
+        // `slab || floor || ceiling`, and TWO of those three were a lie: neither
+        // `FloorTool` nor `CeilingTool` implements `enterProfileEditMode`, so the button
+        // appeared, the user pressed it, and `_activateProfileEditForContext` fell through
+        // to a `console.warn` the user never sees. That is an affordance without an
+        // implementation — `WallRake.ts:50-62`, *"no affordance without an implementation…
+        // A refusal is a correct answer; a silently-wrong wall is not."* A button that does
+        // nothing is the worst of the three states: it is not even a refusal, because the
+        // user is never told anything.
+        //
+        // The list is now DERIVED from the dispatch table rather than hand-kept beside it
+        // (C84 §8.d — a comment is not a synchronisation mechanism), so wiring
+        // `enterProfileEditMode` on a tool is the ONE act that makes its button appear, and
+        // the two can no longer disagree.
         if (this._editProfileBtn) {
-            const showProfile = elementType === 'slab'
-                || elementType === 'floor'
-                || elementType === 'ceiling';
-            this._editProfileBtn.style.display = showProfile ? '' : 'none';
+            this._editProfileBtn.style.display =
+                this._profileEditToolFor(elementType) ? '' : 'none';
         }
         this._clearActiveOpHighlight();
     }
@@ -960,26 +973,53 @@ export class ContextualEditBar {
         // Cast through `unknown`: globals.d.ts types floorTool/ceilingTool as
         // `unknown` and slabTool with an `(slab: object)` signature — a local
         // shape keeps this call site clean without touching the global decl.
+        const tool = this._profileEditToolFor(type);
+        if (tool) {
+            void tool.enterProfileEditMode!(id);
+            console.log(`[ContextualEditBar] Edit Profile → ${type} ${id}`);
+            return;
+        }
+        // Unreachable while the button is gated by the SAME resolver (above), and kept as
+        // defence in depth for a keyboard shortcut that bypasses the button. It stays a
+        // `console.warn` rather than becoming a user-facing refusal precisely because the
+        // user can no longer get here by any offered gesture — the fix was to stop
+        // OFFERING the action, which is better than refusing it politely.
+        console.warn(
+            `[ContextualEditBar] Edit Profile not available for type=${type} ` +
+            `(no tool implements enterProfileEditMode)`,
+        );
+    }
+
+    /**
+     * §FIX-DEAD-EDIT-PROFILE-BUTTON — the ONE resolver that decides whether "Edit Profile"
+     * is available for an element type: it returns the tool only when that tool actually
+     * implements `enterProfileEditMode`.
+     *
+     * Both the button's visibility and its click handler consult this, so the offered
+     * affordance and the implemented action cannot drift apart — which is exactly how
+     * floor and ceiling came to show a button that did nothing.
+     *
+     * ⚠ WALL is deliberately ABSENT. §WALL-PROFILE Slice 1 adds the wall's `wallProfile`
+     * MODEL, its authorability gate and its persistence — but no editor. Listing `wall`
+     * here before `WallTool.enterProfileEditMode` exists would recreate, in the same
+     * commit, the exact defect the paragraph above is fixing.
+     */
+    private _profileEditToolFor(
+        type: string | null | undefined,
+    ): { enterProfileEditMode?: (id: string) => unknown } | null {
+        if (!type) return null;
         const w = window as unknown as {
             slabTool?:    { enterProfileEditMode?: (id: string) => unknown };
             floorTool?:   { enterProfileEditMode?: (id: string) => unknown };
             ceilingTool?: { enterProfileEditMode?: (id: string) => unknown };
         };
-        const toolFor: Record<string, { enterProfileEditMode?: (id: string) => unknown } | undefined> = {
+        const candidates: Record<string, { enterProfileEditMode?: (id: string) => unknown } | undefined> = {
             slab:    w.slabTool,
             floor:   w.floorTool,
             ceiling: w.ceilingTool,
         };
-        const tool = toolFor[type];
-        if (tool && typeof tool.enterProfileEditMode === 'function') {
-            void tool.enterProfileEditMode(id);
-            console.log(`[ContextualEditBar] Edit Profile → ${type} ${id}`);
-        } else {
-            console.warn(
-                `[ContextualEditBar] Edit Profile not yet available for type=${type} ` +
-                `(tool.enterProfileEditMode missing — slab is supported; floor/ceiling pending)`,
-            );
-        }
+        const tool = candidates[type];
+        return tool && typeof tool.enterProfileEditMode === 'function' ? tool : null;
     }
 
     setVisible(visible: boolean): void {

@@ -32,6 +32,7 @@
  */
 
 import { COINCIDENT_M } from '@pryzm/geometry-kernel';
+import { resolveWallProfile } from './WallProfile';
 import type { WallData, Opening } from './WallTypes';
 
 // §C73-EPSILON-POLICY — "did this endpoint move, or is it still the same
@@ -133,6 +134,25 @@ export function joinGeometryChanged(prev: WallData, next: WallData): boolean {
  * exactly what it returned before (`baselineMoved || thisFunction`), so the
  * openings-only fast path is gated identically. Nothing is loosened.
  */
+
+/**
+ * §WALL-PROFILE — structural equality of two elevation outlines. Absent and absent are
+ * EQUAL (the implicit rectangle), which is what keeps every pre-profile wall out of this
+ * gate. Spelled once here rather than inline so the classifier and any future consumer
+ * cannot disagree about what "the profile changed" means.
+ */
+function wallProfilesEqual(a: unknown, b: unknown): boolean {
+    const ra = resolveWallProfile(a)?.ring;
+    const rb = resolveWallProfile(b)?.ring;
+    if (!ra && !rb) return true;
+    if (!ra || !rb) return false;
+    if (ra.length !== rb.length) return false;
+    for (let i = 0; i < ra.length; i++) {
+        if (ra[i]!.u !== rb[i]!.u || ra[i]!.v !== rb[i]!.v) return false;
+    }
+    return true;
+}
+
 export function joinGeometryChangedExcludingBaseline(prev: WallData, next: WallData): boolean {
     if ((prev.thickness ?? 0) !== (next.thickness ?? 0)) return true;
     // §WALL-RAKE-JOINT-ONE-EDIT-BEHIND (founder 2026-08-09, ADR-0312 follow-up) —
@@ -147,6 +167,16 @@ export function joinGeometryChangedExcludingBaseline(prev: WallData, next: WallD
     // "the joint arrives one edit late". Absent ⇒ 90 (vertical), so a wall that
     // has never been raked cannot fail this gate.
     if ((prev.rakeAngleDeg ?? 90) !== (next.rakeAngleDeg ?? 90)) return true;
+    // §WALL-PROFILE — the outline changes the wall's SILHOUETTE, which the join geometry
+    // reads through the same top-of-wall path the rake does, so a profile-only edit may not
+    // be classified `openings-only`. That classification skips `refreshV2Cache` and never
+    // rebuilds a neighbour — the founder's "the joint arrives one edit late", recorded
+    // directly above for rake. Absent on both sides ⇒ unchanged, so a wall that has never
+    // been profiled cannot fail this gate.
+    if (!wallProfilesEqual(
+        (prev as { wallProfile?: unknown }).wallProfile,
+        (next as { wallProfile?: unknown }).wallProfile,
+    )) return true;
     // Layered-wall geometry feeds the infill/footprint path — any change is unsafe.
     if ((prev.layers?.length ?? 0) !== (next.layers?.length ?? 0)) return true;
     // Curve presence/shape changes the baseline path → join geometry changes.

@@ -3,6 +3,7 @@ import { CoreElement } from '@pryzm/core-app-model';
 import { Point3D } from '@pryzm/core-app-model';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
 import { WallStore } from './WallStore';
+import type { WallProfile } from './WallProfile';
 
 export enum WallToolState {
     IDLE = 'IDLE',
@@ -309,6 +310,30 @@ export interface WallData extends CoreElement {
      * (C65 §3.6), which is never what an author means by one raked feature wall.
      */
     rakeAngleDeg?: number;
+
+    /**
+     * §WALL-PROFILE — the wall's authored ELEVATION OUTLINE, in the wall's own plane.
+     * A closed ring of `{u, v}` vertices where `u` runs along the baseline from
+     * `baseLine[0]` and `v` is height above the wall's base plane, both in metres and
+     * both measured in the UN-SHEARED frame (so a profile and a rake compose).
+     *
+     * ABSENT ⇒ the implicit rectangle `[0, L] × [0, height]`, which is what every wall
+     * ever authored is. That is the round-trip guarantee: an old snapshot loads as the
+     * rectangle and re-serialises without the key (C47 §1.2 — additive optional field).
+     *
+     * A profile may only CUT the rectangle down; `height` remains the wall's bounding
+     * height, so every consumer that already reads `height` stays correct.
+     *
+     * REFUSED COMBINATIONS (C65 §3.9 — no affordance without an implementation): a
+     * profile is rejected at every write boundary on a CURVED wall, a LAYERED wall, or
+     * a wall that HOSTS OPENINGS. See `WallProfile.profileAuthorability` for the
+     * reasons — and note the curved refusal is UNBUILT, not ill-posed, which is a
+     * different claim from rake's.
+     *
+     * INSTANCE state, not TYPE state: an outline is a per-placement decision, exactly
+     * as a rake is (C65 §3.6).
+     */
+    wallProfile?: WallProfile;
 
     height: number;
     thickness: number;

@@ -700,13 +700,18 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             'baseLine', 'height', 'thickness', 'baseOffset', 'materialId', 'materialColor',
             'properties', 'curve', 'layers', 'systemTypeId', 'metadata',
             '_renderVersion', '_sourceBaseLine',
+            // §WALL-PROFILE Slice 1. This pin FAILED when the field was added, which is the
+            // pin working: a new authored field must be a deliberate, visible edit here.
+            'wallProfile',
         ]);
     });
 
     it('B1b — WallStore.updateWall emits exactly the fields it emits today', () => {
         expect(updateWallKeys()).toEqual([
             'baseLine', 'height', 'thickness', 'baseOffset', 'materialId', 'materialColor',
-            'properties', 'curve', 'layers', 'systemTypeId', '_renderVersion',
+            'properties', 'curve', 'layers', 'systemTypeId',
+            'wallProfile',   // §WALL-PROFILE Slice 1 — see B1
+            '_renderVersion',
         ]);
     });
 
@@ -734,7 +739,9 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
         expect(keys).toEqual([
             'id', 'type', 'levelId', 'parentId', 'baseLine', 'height', 'thickness',
             'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
-            'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'joinIntent',
+            'layers', 'systemTypeId', 'curve', 'rakeAngleDeg',
+            'wallProfile',   // §WALL-PROFILE Slice 1 — C84 EI-6: authored data MUST round-trip
+            'joinIntent',
             'properties', 'ifcData', 'metadata', 'loadBearing',
         ]);
     });
@@ -750,6 +757,7 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
         expect(keys).toEqual([
             'start', 'end', 'height', 'thickness', 'levelId', 'baseOffset',
             'materialId', 'materialColor', 'curve', 'ifcGuid', 'rakeAngleDeg',
+            'wallProfile',   // §WALL-PROFILE Slice 1 — the LOAD half, the one most easily missed
             'systemTypeId', 'layers', 'joinIntent',
         ]);
     });

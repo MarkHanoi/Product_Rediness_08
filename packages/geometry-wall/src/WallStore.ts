@@ -8,6 +8,7 @@ import { storeEventBus } from '@pryzm/core-app-model';
 import { WallDataAddSchema, WallDataUpdateSchema, OpeningSchema, formatZodError } from './WallDataSchema';
 import { wallOccupancyStore } from './WallOccupancyStore';
 import { rakeAuthorability } from './WallRake';
+import { profileAuthorability } from './WallProfile';
 import type { HostedOpeningGeometry } from './HostedOpeningAuthority';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -837,6 +838,20 @@ export class WallStore implements ILevelProvider {
             }
         }
 
+        // §WALL-PROFILE — the same construction as the rake gate directly above, and it
+        // must stay directly above/below it: both validate against `nextState` (the
+        // MERGED wall) precisely so the two-call bypass is closed. Setting a profile and
+        // then adding a curve in a second call is the same hole as setting a rake and
+        // then adding a curve, and it is closed the same way.
+        {
+            const auth = profileAuthorability(nextState as unknown as Parameters<typeof profileAuthorability>[0]);
+            if (!auth.ok) {
+                throw new WallSchemaError(
+                    `[WallStore.update] §WALL-PROFILE rejected for wall ${wallId}: ${auth.reason}`,
+                );
+            }
+        }
+
         // Clean up child elements that are being removed
         if (safeUpdates.childrenIds !== undefined) {
             const nextChildrenIds = safeUpdates.childrenIds;
@@ -937,6 +952,9 @@ export class WallStore implements ILevelProvider {
             // WallFragmentBuilder can skip redundant view-switch-triggered rebuilds.
             // Reads the current in-store version (not the caller's snapshot) to
             // guarantee a monotonically increasing sequence even across undo/redo.
+            // §WALL-PROFILE — see the note in `restoreSnapshot`; this is the second of
+            // the two snapshot-restore projections and both must carry the outline.
+            wallProfile: wall.wallProfile,
             _renderVersion: (existing._renderVersion ?? 0) + 1,
         };
 
@@ -986,6 +1004,13 @@ export class WallStore implements ILevelProvider {
             // include the field so the hook's `'_sourceBaseLine' in safeUpdates`
             // check sees it (even when the value is undefined for legacy snapshots).
             _sourceBaseLine: (snapshot as any)._sourceBaseLine,
+            // §WALL-PROFILE — the wall's authored outline is exactly the class of field
+            // this whitelist exists to carry: it cannot be re-derived from anything else on
+            // the record, so omitting it would make undo silently un-profile a wall. (The
+            // same omission for `rakeAngleDeg` is a live defect pinned in
+            // `WallProfileNonRegressionBaseline.test.ts` §(B1a) — not fixed here, and this
+            // field is added rather than repeating it.)
+            wallProfile: (snapshot as any).wallProfile,
         } as any;
 
         // Pass preserveMetadata=true so update() retains the original audit fields.
@@ -1142,6 +1167,27 @@ export class WallStore implements ILevelProvider {
             if (!auth.ok) {
                 throw new WallSchemaError(
                     `[WallStore.addOpening] §WALL-RAKE rejected for wall ${wallId}: ${auth.reason}`,
+                );
+            }
+        }
+
+        // §WALL-PROFILE — the third door, for the same reason the rake gate is repeated
+        // here: `addOpening` bypasses `update()`. Unlike rake, a profile has NOT had its
+        // hosted-opening arm lifted — profile × openings is UNBUILT — so this throw is
+        // the one a user would actually meet if they placed a window on a profiled wall,
+        // and it must name that reason rather than a generic failure.
+        {
+            const auth = profileAuthorability({
+                wallProfile: wall.wallProfile,
+                baseLine: wall.baseLine as unknown as Parameters<typeof profileAuthorability>[0]['baseLine'],
+                height: wall.height,
+                curve: wall.curve,
+                layers: wall.layers,
+                openings: [opening],   // the opening being added is what makes it hosted
+            });
+            if (!auth.ok) {
+                throw new WallSchemaError(
+                    `[WallStore.addOpening] §WALL-PROFILE rejected for wall ${wallId}: ${auth.reason}`,
                 );
             }
         }

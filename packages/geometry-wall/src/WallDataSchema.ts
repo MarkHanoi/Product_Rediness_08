@@ -25,6 +25,7 @@
 
 import { z } from 'zod';
 import { rakeAuthorability } from './WallRake';
+import { profileAuthorability } from './WallProfile';
 
 // ─── §WALL-AUDIT-2026 (RESOLVED 2026-04-24): semantic invariant constants ─────
 
@@ -195,6 +196,27 @@ export const WallCurveSchema = z.object({
  * parentId, childrenIds, etc.) so the full WallData is forwarded unchanged
  * after validation succeeds.
  */
+/**
+ * §WALL-PROFILE — the SHAPE only. Every rule that depends on the rest of the wall
+ * (bounds, degeneracy, and the curve / layer / opening refusals) lives in
+ * `WallProfile.profileAuthorability` and is applied in the superRefine below, so
+ * create, edit and add-opening all consult ONE definition.
+ *
+ * `.strict()` deliberately: the ring is the whole content of a profile today, and an
+ * unknown key here is far more likely to be a misspelt `ring` than a forward-compatible
+ * extension. Inner loops, when they land, add a NAMED field and this stays strict.
+ */
+export const WallProfileVertexSchema = z.object({
+    u: z.number().finite({ message: 'wallProfile vertex u must be finite' }),
+    v: z.number().finite({ message: 'wallProfile vertex v must be finite' }),
+}).strict();
+
+export const WallProfileSchema = z.object({
+    ring: z.array(WallProfileVertexSchema),
+}).strict();
+
+export type WallProfileInput = z.infer<typeof WallProfileSchema>;
+
 export const WallDataAddSchema = z
     .object({
         id:         z.string().min(1, 'wall.id is required'),
@@ -215,6 +237,10 @@ export const WallDataAddSchema = z
         // curve/layer/opening refusals are enforced in the superRefine below, because
         // they depend on the REST of the wall and cannot be expressed field-locally.
         rakeAngleDeg: z.number().finite({ message: 'wall.rakeAngleDeg must be finite' }).optional(),
+        // §WALL-PROFILE — the wall's elevation outline. Absent ⇒ the implicit rectangle,
+        // which is what every pre-profile wall is. Bounds and the unbuilt-combination
+        // refusals need the WHOLE wall, so they are in the superRefine below.
+        wallProfile: WallProfileSchema.optional(),
         metadata:   WallMetadataSchema.optional(),
         // §STEP6: Interior/Exterior side classification (Pascal Pattern Area 5)
         frontSide:  WallSideClassificationSchema.optional(),
@@ -272,6 +298,17 @@ export const WallDataAddSchema = z
                 ctx.addIssue({ code: 'custom', path: ['rakeAngleDeg'], message: auth.reason! });
             }
         }
+        // (2c) §WALL-PROFILE — same construction as (2b) and for the same reason: the
+        //      rule set lives in `WallProfile.profileAuthorability` so that create, edit
+        //      and add-opening cannot drift apart. A wall with NO profile is never
+        //      rejected, so this is a strict no-op for every wall authored before the
+        //      field existed — which is every wall that exists.
+        {
+            const auth = profileAuthorability(wall as Parameters<typeof profileAuthorability>[0]);
+            if (!auth.ok) {
+                ctx.addIssue({ code: 'custom', path: ['wallProfile'], message: auth.reason! });
+            }
+        }
         // (3) Derived-index invariant: childrenIds must be a set-superset of
         //     openings[*].elementId. The runtime check in WallStore is a
         //     belt-and-braces guard against bypass code paths; this Zod-level
@@ -327,6 +364,10 @@ export const WallDataUpdateSchema = z
         // `nextState` instead. Validating a half-wall here would let a rake through
         // whenever the author changed the rake and the curve in two separate calls.
         rakeAngleDeg: z.number().finite({ message: 'rakeAngleDeg must be finite' }).optional(),
+        // §WALL-PROFILE — field-local shape only, exactly as `rakeAngleDeg` above: the
+        // compatibility rules need the MERGED wall, which a partial update does not
+        // have, so `WallStore.update()` runs `profileAuthorability` against `nextState`.
+        wallProfile: WallProfileSchema.optional(),
         metadata:   WallMetadataSchema.optional(),
         // §STEP6: Topology Layer stamps frontSide/backSide via update() after space analysis
         // ⚠ measured 2026-08-18: nothing does. Zero writers, zero readers repo-wide.

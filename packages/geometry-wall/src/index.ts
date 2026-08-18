@@ -82,6 +82,7 @@ export * from './WallPolygonExtruder';
 export * from './WallPipelineV2';
 // §WALL-RAKE — the sign convention, the shear maths, and the single authorability gate.
 export * from './WallRake';
+export * from './WallProfile';
 // §FIX-LAYERED-WALL-V2-PARITY — P2 for LAYERED walls: slice the V2 footprint into per-layer
 // bands so a layered wall inherits the resolver's clash-free corners instead of re-deriving
 // them with the legacy per-layer miter projection.

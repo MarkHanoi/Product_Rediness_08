@@ -558,6 +558,17 @@ function serializeWall(wall: any): any {
         // has never been raked re-serialises byte-identically to a pre-rake snapshot
         // (C47 §1.2: an additive optional field is forward-compatible, no MAJOR bump).
         rakeAngleDeg: wall.rakeAngleDeg,
+        // §WALL-PROFILE — the wall's authored elevation outline. AUTHORED DATA: it cannot
+        // be re-derived from anything else on the record, so C84 EI-6 makes persistence a
+        // precondition of the affordance existing at all. Emitted only when present, so a
+        // wall that has never been profiled re-serialises byte-identically to a
+        // pre-profile snapshot (C47 §1.2 — additive optional field, no MAJOR bump).
+        //
+        // Deep-copied rather than referenced: the ring is nested, and `{...wall}` would
+        // hand the snapshot a live reference into the store.
+        wallProfile: wall.wallProfile
+            ? { ring: (wall.wallProfile.ring ?? []).map((v: any) => ({ u: v.u, v: v.v })) }
+            : undefined,
         // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — what the AUTHOR DID at each
         // endpoint: 'butt' (snapped onto an already-committed junction) or 'through'
         // (continuing a run). This is the ONLY field on a wall that cannot be recovered
