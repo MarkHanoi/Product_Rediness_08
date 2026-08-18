@@ -53,6 +53,10 @@
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import * as THREE from '@pryzm/renderer-three/three';
+// §FIX-K2-PREWARM-CASTER-TEARDOWN (L-908) / ADR-0297 INVARIANT L2 — the §K.2 prewarm
+// probes are detached synchronously and RELEASED at the next frame boundary; an in-place
+// dispose on a command-handler tick is the L-948 `usedTimes` family at its source.
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { CurtainWallData } from '@pryzm/geometry-curtain-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { batchCoordinator } from '@pryzm/core-app-model';
@@ -1011,14 +1015,65 @@ export class CreateCurtainWallsOnAllSlabsCommand implements Command {
                             '[CreateCurtainWallsOnAllSlabsCommand] §K2 shadow PSO prewarm failed (non-fatal):', _k2Err
                         );
                     } finally {
-                        mullionIM.castShadow = false;  // restore before finally-block probe removal
-                        glassIM.castShadow  = false;
-                        if (_k2ShadowGroundProbe) {
-                            scene.remove(_k2ShadowGroundProbe);
-                            (_k2ShadowGroundProbe.geometry as THREE.BufferGeometry).dispose();
-                            (_k2ShadowGroundProbe.material as THREE.Material).dispose();
+                        // ── §FIX-K2-PREWARM-CASTER-TEARDOWN (founder L-908) ──────────
+                        // The SETUP above is fine: adding a caster and SUBMITTING a frame
+                        // is the entire point of a PSO prewarm. The TEARDOWN was the
+                        // defect, and it had two halves, both unordered against the
+                        // prewarm submit that had just executed on the line above:
+                        //
+                        //  (a) CASTER-SET RELEASE. Removing `_k2ShadowLight` from the
+                        //      scene and clearing `castShadow` on the two live probe
+                        //      InstancedMeshes makes three drop the light's ShadowNode
+                        //      and release its ShadowDepthTexture on its OWN schedule,
+                        //      inside the next render() — while `rpm.render(0)`'s command
+                        //      buffer, which referenced that texture, may still be
+                        //      draining. That is "Destroyed texture [ShadowDepthTexture]
+                        //      used in a submit" (L-25/L-908) minted from a batch create,
+                        //      which is exactly the context L-908 was reported in.
+                        //      Now routed through the submit-pause guard.
+                        //
+                        //  (b) SYNCHRONOUS GPU DISPOSE. `geometry.dispose()` /
+                        //      `material.dispose()` ran in-place, on a command-handler
+                        //      tick, on resources the prewarm frame had just drawn.
+                        //      `Material.dispose()` fans a 'dispose' event to EVERY
+                        //      renderer that ever drew it (L-948), so an in-place dispose
+                        //      here is the `usedTimes` / "object does not belong to this
+                        //      context" family at its source. ADR-0297 INVARIANT L2 —
+                        //      DETACH now, RELEASE at the boundary. The detach stays
+                        //      synchronous; only the release moves.
+                        //
+                        // ⚠ Deliberately NOT wrapping the prewarm renders themselves:
+                        // `runShadowCasterMutation` pauses submits, so wrapping the
+                        // render(0) calls would silently turn the prewarm into a no-op —
+                        // a "fix" that satisfies itself by disabling the thing it exists
+                        // to do, and the 1,591 ms Cluster-B LONGTASK would come back
+                        // invisibly. Only the teardown is ordered.
+                        const _k2Teardown = (): void => {
+                            mullionIM.castShadow = false;
+                            glassIM.castShadow  = false;
+                            if (_k2ShadowGroundProbe) scene.remove(_k2ShadowGroundProbe);
+                            if (_k2ShadowLight)       scene.remove(_k2ShadowLight);
+                        };
+                        try {
+                            if (typeof rpm?.runShadowCasterMutation === 'function') {
+                                rpm.runShadowCasterMutation(_k2Teardown);
+                            } else {
+                                // No RPM / WebGL2 fallback — the fallback owns its own
+                                // shadowMap and needs no pause. Never skip the teardown.
+                                _k2Teardown();
+                            }
+                        } catch (_k2TeardownErr) {
+                            console.warn(
+                                '[CreateCurtainWallsOnAllSlabsCommand] §FIX-K2-PREWARM-CASTER-TEARDOWN ' +
+                                'guarded teardown failed (non-fatal):', _k2TeardownErr,
+                            );
+                            _k2Teardown();
                         }
-                        if (_k2ShadowLight) scene.remove(_k2ShadowLight);
+                        // (b) — detached above, released at the next frame boundary.
+                        if (_k2ShadowGroundProbe) {
+                            scheduleGpuRelease(_k2ShadowGroundProbe.geometry as THREE.BufferGeometry);
+                            scheduleGpuRelease(_k2ShadowGroundProbe.material as THREE.Material);
+                        }
                     }
 
                     __prewarmRenderMs = performance.now() - __prewarmRenderStart;
