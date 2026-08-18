@@ -31,22 +31,42 @@
 //          (`registerTransformDragHandler.ts:638`) and the plan move tool
 //          (`elementMove.ts:397`) whenever `_recordUndo` is set.
 //
-// ─── THE FINDING ─────────────────────────────────────────────────────────────
+// ─── THE FINDING (2026-08-18, lane AD1) ──────────────────────────────────────
 // `SlabStore.update(id, nextState: SlabData)` (`SlabStore.ts:259-273`) REPLACES
-// the record. The adapter writes one-key partials. Two fields ⇒ two replaces ⇒ the
-// slab that was moved is left holding its LAST patched field and nothing else:
+// the record. The adapter wrote one-key partials. Two fields ⇒ two replaces ⇒ the
+// slab that was moved was left holding its LAST patched field and nothing else:
 // no id, no polygon, no position, no levelId, no ifcData, no thickness. Frozen,
-// still under its own key, and `performUndo` reports the store as APPLIED.
+// still under its own key, and `performUndo` reported the store as APPLIED.
 //
-// This is a CHARACTERISATION LEDGER (C84 §9, the `WallYDatumAgreement` form): it
-// records what Ctrl+Z does today so a fix has to come here and change it.
+// ─── CLOSED 2026-08-18 (L-977, lane UA1) — AND THIS FILE CHANGED SIDES ───────
+// ⚠ THE ASSERTIONS BELOW WERE INVERTED DELIBERATELY. This began as a
+// CHARACTERISATION LEDGER (C84 §9, the `WallYDatumAgreement` form): it recorded
+// what Ctrl+Z DID so a fix would have to come here and change it. The fix came,
+// so it changed it. Leaving the old expectations and routing around them would
+// have pinned the data loss as the contract.
+//
+// WHAT THE FIX WAS, AND WHY IT IS NOT THE OBVIOUS ONE. The candidate this file's
+// old header describes — "spread the current record first" — is correct for a
+// REPLACE store and WRONG for several MERGE stores, whose `update()` branches on
+// WHICH KEYS ARE PRESENT (`WallStore` clears `_sourceBaseLine` on `'baseLine' in
+// updates`, warns-and-drops `openings`, deletes hosted children on `childrenIds`,
+// and Zod-validates the ARGUMENT). All twenty-one stores the adapter is handed
+// were therefore MEASURED, and the write shape now comes from a per-store
+// declaration carrying its file:line evidence:
+// `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts`.
+// FOUR replace — slab, column, furniture, plumbing — not the one that was known.
+//
+// WHAT THIS FILE ASSERTS NOW: the same keypress, on the same real store, through
+// the same real `performUndo`, leaves a WHOLE slab whose polygon is the pre-move
+// outline. Both halves are asserted — the record's completeness AND the revert
+// value — because a fix that restored the record but lost the revert would have
+// satisfied the old ledger's inverse just as well.
 //
 // ─── WATCHED RED ─────────────────────────────────────────────────────────────
-// With `elementUndoStoreAdapter.ts`'s field write changed to spread the current
-// record first, this suite FAILS at "the record is gone" — the slab survives with
-// its polygon reverted, which is what a working undo looks like. Restored; the
-// candidate fix is documented at that line and is NOT landed here (WallStore's
-// change-detection side effects need their own RED-first proof).
+// Reverting `legacyStoreUpdateSemantics.ts`'s `slab` row from 'replace' to
+// 'merge' puts both cases below back to red at "the record survived whole",
+// leaving `{ holes: [] }` — i.e. this suite fails if the declaration ever stops
+// telling the truth about `SlabStore`, not merely if the adapter is edited.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { performUndo } from '../src/engine/undo/performUndoRedo.js';
@@ -131,7 +151,7 @@ function makeCommandManager() {
     };
 }
 
-describe('§D3 ARM 6 — Ctrl+Z on a moved slab, through the REAL performUndo and the REAL legacy store', () => {
+describe('§L-977 / §D3 ARM 6 — Ctrl+Z on a moved slab, through the REAL performUndo and the REAL legacy store', () => {
     beforeEach(() => {
         __resetUndoRestoreSnapshots();
         delete (window as unknown as AnyRec).runtime;
@@ -139,7 +159,7 @@ describe('§D3 ARM 6 — Ctrl+Z on a moved slab, through the REAL performUndo an
         delete (window as unknown as AnyRec).slabStore;
     });
 
-    it('leaves the slab record holding ONE field and nothing else — silently, and reported as applied', () => {
+    it('reverts the outline and leaves the slab WHOLE — every field it had before the keypress', () => {
         const legacy = new LegacySlabStore({ activeLevelId: L0 } as never);
         legacy.add(legacySlab(MOVED_POLYGON) as never);
 
@@ -164,29 +184,37 @@ describe('§D3 ARM 6 — Ctrl+Z on a moved slab, through the REAL performUndo an
         expect(result, 'performUndo did not refuse').toBeTruthy();
         expect(after, 'the key is still occupied — this is not a delete').toBeTruthy();
 
-        // Negative, on the same record: everything that made it a slab is gone.
-        // `holes` is last in the entry, so it is the survivor.
-        expect(Object.keys(after!), 'the LAST patched field is the whole record now').toEqual(['holes']);
-        expect(after!.id, 'no id').toBeUndefined();
-        expect(after!.polygon, 'no outline — the field the undo was FOR').toBeUndefined();
-        expect(after!.position, 'no position').toBeUndefined();
-        expect(after!.levelId, 'no storey').toBeUndefined();
-        expect(after!.thickness, 'no thickness').toBeUndefined();
-        expect(after!.ifcData, 'no IFC identity — the GUID an export needs').toBeUndefined();
+        // HALF ONE — THE RECORD SURVIVED. Asserted as the full key set against the
+        // pre-keypress record, not as a spot-check, so a fix that saved six fields
+        // and dropped the seventh cannot pass.
+        expect(Object.keys(after!), 'every field it had before the keypress').toEqual(Object.keys(before));
+        expect(after!.id, 'it still knows its own id').toBe(SLAB_ID);
+        expect(after!.position, 'still has a position').toEqual({ x: 0, y: 0, z: 0 });
+        expect(after!.levelId, 'still knows its storey').toBe(L0);
+        expect(after!.thickness, 'still has a thickness').toBe(0.25);
+        expect(after!.ifcData, 'still has the IFC identity an export needs')
+            .toEqual({ guid: 'arm6-guid', ifcClass: 'IfcSlab' });
 
-        // And the thing the user pressed Ctrl+Z to get back is NOT back: the
-        // pre-move polygon was written and then destroyed by the very next op.
-        expect(after!.polygon, 'the revert did not survive its own patch list').not.toEqual(PREV_POLYGON);
+        // HALF TWO — AND THE USER GOT THE REVERT THEY ASKED FOR. The old defect
+        // failed BOTH halves; a fix that restored the record while losing the
+        // revert would fail only this one, so it is asserted separately.
+        expect(after!.polygon, 'the pre-move outline is back').toEqual(PREV_POLYGON);
+        expect(after!.polygon, 'and it is not the moved one').not.toEqual(MOVED_POLYGON);
+        // `holes` is the LAST op in the entry — the field that used to be the whole
+        // record. It landed as its own value, not as a replacement for everything.
+        expect(after!.holes, 'the second op wrote its own field ...').toEqual([]);
     });
 
     /**
      * CONTROL — the SAME store, the SAME adapter, a ONE-op entry.
      *
-     * Without this the suite would prove only "two ops clobber each other". With
-     * it the finding is exact: even a single field patch replaces the record, so
-     * the defect is `update`'s REPLACE semantics and not op ordering.
+     * Without this the suite would prove only "two ops no longer clobber each
+     * other" — which multi-op batching, op de-duplication or a dozen other changes
+     * could also produce. With it the claim is exact: the single-field case, which
+     * has no ordering to get wrong, is correct too. That is the difference between
+     * "the ops stopped fighting" and "the WRITE SHAPE is right".
      */
-    it('CONTROL — a ONE-field entry destroys the record too, so this is REPLACE semantics, not op ordering', () => {
+    it('CONTROL — a ONE-field entry keeps the record whole, so the write shape is right, not just the op order', () => {
         const legacy = new LegacySlabStore({ activeLevelId: L0 } as never);
         legacy.add(legacySlab(MOVED_POLYGON) as never);
 
@@ -204,7 +232,12 @@ describe('§D3 ARM 6 — Ctrl+Z on a moved slab, through the REAL performUndo an
         const after = legacy.getById(SLAB_ID) as unknown as AnyRec | undefined;
         // Positive: the revert VALUE is correct — the adapter resolved the patch right.
         expect(after!.polygon, 'the pre-move outline is restored ...').toEqual(PREV_POLYGON);
-        // Negative, same record: and it is now the only thing the slab has.
-        expect(Object.keys(after!), '... onto a record with nothing else left').toEqual(['polygon']);
+        // Positive, same record: onto a slab that still has everything else.
+        expect(Object.keys(after!), '... onto a record that kept every other field')
+            .toEqual(Object.keys(legacySlab(MOVED_POLYGON)));
+        expect(after!.ifcData, 'including the IFC identity')
+            .toEqual({ guid: 'arm6-guid', ifcClass: 'IfcSlab' });
+        // Negative, same record: nothing was invented either.
+        expect(Object.keys(after!), 'and gained no phantom keys').not.toContain('pitch');
     });
 });

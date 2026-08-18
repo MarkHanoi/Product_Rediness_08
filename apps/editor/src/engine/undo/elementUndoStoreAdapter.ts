@@ -21,13 +21,26 @@
 // duck-typed over that union and NEVER throws (C03 §4.6 U-4 — the outer applicator
 // also wraps per-store, but we guard internally so one bad op can't abort the rest).
 //
-// ⚠ CORRECTED 2026-08-18 — "`update(id, partial)`" IS FALSE FOR AT LEAST ONE OF
-// THE THIRTEEN, AND THIS PARAGRAPH IS WHY ADR-0331 §D3 WAS DECIDED ON A WRONG
-// PREMISE. `SlabStore.update(id: string, nextState: SlabData)` (`SlabStore.ts:259-273`)
-// is `structuredClone(nextState)` → `freeze` → `set(id, next)`: a WHOLE-RECORD
-// REPLACE. Handing it the one-key partial the field arm below builds leaves the
-// slab as `{ <field>: value }` — no id, no polygon, no position, no levelId, no
-// ifcData — frozen, with ZERO diagnostics. Measured, not read:
+// ⚠ CORRECTED 2026-08-18 — "`update(id, partial)`" IS FALSE FOR FOUR OF THE
+// TWENTY-ONE STORES THIS ADAPTER IS HANDED, AND THIS PARAGRAPH IS WHY ADR-0331
+// §D3 WAS DECIDED ON A WRONG PREMISE. `SlabStore.update(id: string, nextState:
+// SlabData)` (`SlabStore.ts:259-273`) is `structuredClone(nextState)` → `freeze`
+// → `set(id, next)`: a WHOLE-RECORD REPLACE. Handing it the one-key partial the
+// field arm below builds leaves the slab as `{ <field>: value }` — no id, no
+// polygon, no position, no levelId, no ifcData — frozen, with ZERO diagnostics.
+//
+// §L-977 CLOSED 2026-08-18 — ALL TWENTY-ONE MEASURED, NOT ASSUMED. The surface
+// audit above ("all expose update(id, partial)") is a claim about a SIGNATURE;
+// only the SEMANTICS decide whether a partial is safe, and they were never read.
+// Measured: FOUR stores REPLACE — `slab`, `column`, `furniture`, `plumbing`. The
+// other seventeen merge, and several of THEM branch on which keys are present
+// (`WallStore` clears `_sourceBaseLine`, drops `openings` and Zod-validates the
+// ARGUMENT), so the obvious fix — always spread the record in — trades a
+// slab-shaped data loss for a wall-shaped behaviour change. The write shape is
+// therefore chosen from a per-store DECLARATION carrying its file:line evidence
+// (`./legacyStoreUpdateSemantics.ts`), re-derived from the REAL stores by
+// `apps/editor/__tests__/LegacyStoreUpdateSemantics.measured.test.ts`. The
+// original evidence for the slab arm:
 // `apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts` ARM 4, which
 // executes a real `slab.setThickness` patch against the real store. The reason
 // this survived three years of green tests is that this suite's siblings assert
@@ -61,6 +74,10 @@
 // fall through to the B3 `commandManager.undo()` fallback. See ADR-051.
 
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import {
+  resolveLegacyStoreUpdateDeclaration,
+  type LegacyStoreUpdateDeclaration,
+} from './legacyStoreUpdateSemantics.js';
 
 // §OI-054 SPATIAL-CLEANUP (2026-05-24) — when the unified undo path
 // (performUndoRedo.ts) reverts a CREATE via the ring buffer, it shadow-drops the
@@ -413,8 +430,20 @@ export function __resetUndoRestoreSnapshots(): void {
 /**
  * Wrap a live legacy element store so undo/redo inverse/forward patches drive the
  * mesh through `add`/`remove`/`update`. Symmetric — handles both directions.
+ *
+ * @param storeKey  The bus `affectedStores` key this store is bound to in
+ *   `buildUndoStoreMap()`. §L-977: it is how the field arm looks up whether this
+ *   store's `update()` MERGES or REPLACES. Omitting it does not silently pick a
+ *   shape — the field arm reports the omission on every op it writes (see
+ *   `§L-977 UNDECLARED`). Optional only so the deprecated single-argument
+ *   `wallUndoStoreAdapter` alias keeps compiling.
  */
-export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApplicableAdapter {
+export function elementUndoStoreAdapter(
+  store: LegacyElementStoreLike,
+  storeKey?: string,
+): PatchApplicableAdapter {
+  const declaration: LegacyStoreUpdateDeclaration | undefined =
+    resolveLegacyStoreUpdateDeclaration(storeKey);
   return {
     applyPatch(patches: readonly unknown[]): void {
       for (const raw of patches) {
@@ -529,26 +558,100 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
               continue;
             }
 
-            // ⚠ §D3-FORWARD-PATCH-PROBE (2026-08-18) — THREE MEASURED DEFECTS LIVE
-            // ON THESE TWO LINES. They are recorded, not fixed, because the fix
-            // changes undo semantics for thirteen families and belongs to a lane
-            // that can watch all of them (STR-03 §12.3 — ship the probe first).
-            //   (a) `!exists` is a SILENT no-op — no warn, no error — while both
-            //       whole-element arms above warn on the identical absent id.
-            //   (b) the one-key partial is a WHOLE-RECORD REPLACE on any store
-            //       whose `update` replaces (SlabStore). Candidate fix, watched
-            //       green against ARM 4: spread the current record first —
-            //       `{ ...(_getValue(store,id) as Record<string,unknown>), [fieldName]: … }`,
-            //       which is also correct for the merge-semantics stores. It was
-            //       NOT landed here because WallStore.update has change-detection
-            //       side effects (`_sourceBaseLine` clearing) that a full-record
-            //       write may suppress, and that needs its own RED-first proof.
-            //   (c) `fieldName` is an L1 name applied to a LEGACY record that may
-            //       have no such field (roof `pitch` vs `slope`). Nothing here
-            //       checks, so the write succeeds onto a phantom key.
-            // Pinned: apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts
-            if (!exists || typeof store.update !== 'function') continue;
-            store.update(id, { [fieldName]: resolved.value });
+            // ── §L-977 — THE FIELD WRITE. Three defects lived on the two lines
+            // this block replaces; all three are closed here.
+            //
+            // (a) THE SILENT ABSENT-ID BRANCH. `if (!exists) continue` said
+            //     nothing, while BOTH whole-element arms above warn on the
+            //     identical id. A patch that reverts nothing must not look like a
+            //     patch that reverted something — `performUndo` reports the store
+            //     as applied either way, so the console is the only channel left.
+            if (!exists) {
+              console.warn(
+                `[elementUndoStoreAdapter] §L-977 skip field patch — element '${id}' is not in the ` +
+                `'${storeKey ?? '<unkeyed>'}' store, so the depth-${p.path.length} '${p.op}' at ` +
+                `[${p.path.join('/')}] reverted NOTHING. (The whole-element arms warn on the same ` +
+                'absent id; this branch used to be silent.)',
+              );
+              continue;
+            }
+            if (typeof store.update !== 'function') {
+              console.warn(
+                `[elementUndoStoreAdapter] §L-977 skip field patch — the '${storeKey ?? '<unkeyed>'}' ` +
+                `store has no update() to route [${p.path.join('/')}] through.`,
+              );
+              continue;
+            }
+
+            // (b) AN L1 FIELD NAME THE LEGACY RECORD DOES NOT HAVE.
+            //     `roof.setPitch` mints `[id,'pitch']` in RADIANS; the legacy roof
+            //     record's geometry field is `slope`, in rise/run — `pitch`
+            //     appears ZERO times in `packages/geometry-roof/src`. The old code
+            //     wrote it anyway: one mutation, zero diagnostics, and the field
+            //     the builder actually reads never moved. A unit mismatch written
+            //     under a name the target does not have is silent corruption, so a
+            //     MEASURED divergence is refused outright (C84 §1 — a refusal is a
+            //     correct answer). Translating instead is the per-family
+            //     L1→legacy translator SPEC S7.2a makes a PREREQUISITE of
+            //     ADR-0331 §D3; it is not minted here one field at a time.
+            const divergentTo = declaration?.divergentL1Fields?.[fieldName];
+            if (divergentTo != null) {
+              console.error(
+                `[elementUndoStoreAdapter] §L-977 REFUSED — '${fieldName}' is an L1 field name that the ` +
+                `legacy '${storeKey}' record does not carry; its counterpart is '${divergentTo}', and the ` +
+                'two do not share a unit (roof: L1 `pitch` is RADIANS, legacy `slope` is rise/run). ' +
+                `Writing it would land on a phantom key while '${divergentTo}' never moved. The record ` +
+                'was NOT modified — this needs the per-family L1→legacy translator (SPEC S7.2a), not a ' +
+                'guess at the conversion.',
+              );
+              continue;
+            }
+            // A name that is merely ABSENT — not a measured divergence — is still
+            // applied (a legitimately-optional field is written for the first time
+            // this way), but it no longer happens quietly.
+            const currentRecord = _getValue(store, id) as Record<string, unknown> | null | undefined;
+            if (currentRecord != null && !(fieldName in currentRecord)) {
+              console.warn(
+                `[elementUndoStoreAdapter] §L-977 field '${fieldName}' is not present on the legacy ` +
+                `'${storeKey ?? '<unkeyed>'}' record '${id}' (it holds: ${Object.keys(currentRecord).join(', ')}). ` +
+                'Applying anyway — an optional field may be written for the first time — but if this is ' +
+                'an L1-vs-legacy NAME divergence the revert is landing on a phantom key. Declare it in ' +
+                'legacyStoreUpdateSemantics.ts `divergentL1Fields` if so.',
+              );
+            }
+
+            // (c) MERGE VS REPLACE. `store.update(id, { [field]: value })` is a
+            //     WHOLE-RECORD REPLACE on the four stores whose `update` takes a
+            //     next-state rather than a patch (slab, column, furniture,
+            //     plumbing) — that is L-977: Ctrl+Z after a slab move left the
+            //     record as `{holes: []}`. It is equally wrong to spread the whole
+            //     record into a MERGE store: `WallStore.update` clears
+            //     `_sourceBaseLine` on `'baseLine' in updates`, warns-and-drops
+            //     `openings`, deletes hosted children on `childrenIds`, and
+            //     Zod-validates the ARGUMENT. So the shape comes from the measured
+            //     declaration, never from a guess.
+            if (declaration == null) {
+              console.error(
+                `[elementUndoStoreAdapter] §L-977 UNDECLARED STORE '${storeKey ?? '<unkeyed>'}' — no ` +
+                'measured merge-vs-replace declaration, so the write shape is unknown. Falling back to ' +
+                `the historical one-key partial for [${p.path.join('/')}], which DESTROYS the record if ` +
+                'this store replaces. Measure its update() and add a row to ' +
+                'apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts.',
+              );
+              store.update(id, { [fieldName]: resolved.value });
+            } else if (declaration.semantics === 'replace') {
+              // The store's own contract (SlabStore.ts:255-258): "Commands must
+              // construct and pass a complete replacement object — no partial
+              // patches." Build it. A depth-2 'remove' DELETES the key rather than
+              // writing `undefined`, so the replacement is the record the patch
+              // describes and not a record with a hole in it.
+              const nextState: Record<string, unknown> = { ...(currentRecord ?? {}) };
+              if (p.op === 'remove' && p.path.length === 2) delete nextState[fieldName];
+              else nextState[fieldName] = resolved.value;
+              store.update(id, nextState);
+            } else {
+              store.update(id, { [fieldName]: resolved.value });
+            }
           }
         } catch (err) {
           console.error('[elementUndoStoreAdapter] op failed (skipped):', p, err);
@@ -569,7 +672,7 @@ export function adaptElementStoreMap(
 ): Record<string, PatchApplicableAdapter | undefined> {
   const out: Record<string, PatchApplicableAdapter | undefined> = {};
   for (const [key, store] of Object.entries(raw)) {
-    out[key] = store ? elementUndoStoreAdapter(store as LegacyElementStoreLike) : undefined;
+    out[key] = store ? elementUndoStoreAdapter(store as LegacyElementStoreLike, key) : undefined;
   }
   return out;
 }

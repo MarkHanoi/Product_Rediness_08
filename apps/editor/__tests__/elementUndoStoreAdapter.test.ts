@@ -4,6 +4,22 @@
 // Proves undo (remove) + redo (add) drive the legacy store's mutators across the
 // duck-typed surface variants (getById vs get, remove vs delete) so Ctrl+Z / Ctrl+Y
 // revert both data and geometry for every element type.
+//
+// ⚠ WHAT THIS SUITE CANNOT TELL YOU (§L-977, 2026-08-18). `makeStandardStore` and
+// `makeVariantStore` below are hand-written Maps whose `update` MERGES and which
+// validate nothing. That is not what the real stores do: `SlabStore`,
+// `ColumnStore`, `FurnitureStore` and `PlumbingStore` REPLACE the whole record,
+// `ColumnStore` and `RoomStore` THROW on some arguments, and `WallStore` branches
+// on which keys are PRESENT. These fakes were MORE CAPABLE than their subjects, so
+// this file stayed green for three years while Ctrl+Z after a slab move left the
+// record as `{holes: []}` — A FAKE BUILT FROM THE HEADER CANNOT FALSIFY THE
+// HEADER.
+//
+// It is kept, deliberately: the duck-typed SURFACE (which accessor, which
+// mutator, snapshot/restore ordering) is genuinely what it tests, and a fake is
+// the right instrument for that. The SEMANTICS — merge vs replace, refusals, and
+// the field write itself — are proved against the REAL stores in
+// `LegacyStoreUpdateSemantics.measured.test.ts`. Do not add a semantics case here.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import {

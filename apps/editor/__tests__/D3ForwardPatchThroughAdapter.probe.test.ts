@@ -48,6 +48,32 @@
  *                      arms warn. §D3's own premise is that the legacy store may not
  *                      have received the create, so this is the branch it would meet.
  *
+ * ⚠ UPDATED 2026-08-18 (L-977). ARMS 3, 4 and 5 NOW ASSERT THE FIXED BEHAVIOUR,
+ * DELIBERATELY — they are not "regressions worked around". The three defects they
+ * characterised were closed in `elementUndoStoreAdapter.ts`'s field arm, so an
+ * unchanged ARM would have gone red against its own subject's repair. What each
+ * one asserts NOW, and why the arm is still worth keeping:
+ *
+ *   ARM 3  the `pitch` write is REFUSED with a cited diagnostic, `slope` is
+ *          untouched, and the record is whole. The arm still proves the NAME
+ *          divergence is real — it just proves the adapter now says so instead of
+ *          writing through it. It is deliberately NOT translated: the per-family
+ *          L1->legacy shape translator is SPEC S7.2a, a PREREQUISITE of §D3, and
+ *          minting a `tan()` here one field at a time is how a translator ends up
+ *          existing in thirteen half-versions.
+ *   ARM 4  the slab SURVIVES with every field, because the adapter now builds the
+ *          complete replacement object `SlabStore`'s own contract asks for. It is
+ *          also the arm that proves the fix is KEY-DRIVEN: `elementUndoStoreAdapter`
+ *          is called with the store key `'slab'`, exactly as `adaptElementStoreMap`
+ *          calls it. Called WITHOUT a key it still falls back to the historical
+ *          one-key partial, loudly — asserted below, because a direct caller
+ *          (which is what a future §D3 forward route would be) MUST pass its key.
+ *   ARM 5  the field arm now warns on the absent id, like the whole-element arm
+ *          beside it. §D3's premise is that this branch is the ORDINARY case.
+ *
+ * §D3's SURFACE-ANALYSIS verdict is UNCHANGED: it was false, and ARM 2 (the create
+ * refusal) is still open. What L-977 closed is the reachable-today undo half.
+ *
  * ARMS 3-5 ARE NOT HYPOTHETICAL FUTURE STATE — ARM 4's MECHANISM IS ON THE UNDO
  * PATH TODAY. `buildUndoStoreMap()` (`performUndoRedo.ts:308-353`) already maps
  * `slab`->`window.slabStore` and `roof`->`window.roofStore`, so the INVERSE of any
@@ -73,12 +99,19 @@
  * below is a specification of desired behaviour.
  *
  * ─── WATCHED RED ─────────────────────────────────────────────────────────────
- * Break A — `elementUndoStoreAdapter.ts:506` `store.update(id, { [fieldName]: v })`
- *   -> `store.update(id, { ...(_getValue(store,id) as object), [fieldName]: v })`
- *   (the candidate fix): ARM 4 FAILS (the record survives). Restored.
  * Break B — `RoofStore.add`'s `RoofDataAddSchema.safeParse` guard bypassed:
- *   ARM 2 FAILS (the L1 value lands). Restored.
- * Both recorded in the lane report; neither is committed.
+ *   ARM 2 FAILS (the L1 value lands). Restored, not committed.
+ *
+ * ⚠ Break A is HISTORY, not a live control. It read: change the field write to
+ * spread the current record first (the candidate fix) and ARM 4 fails because the
+ * record survives. That candidate was measured against ALL the stores in L-977 and
+ * REJECTED — correct for the four replace stores, wrong for the merge stores whose
+ * `update()` branches on key PRESENCE. What shipped instead is a per-store
+ * declaration (`src/engine/undo/legacyStoreUpdateSemantics.ts`), and ARM 4 now
+ * asserts the surviving record deliberately. The live RED controls for the shipped
+ * fix are in `LegacyStoreUpdateSemantics.measured.test.ts`: reverting the adapter
+ * reddens ARM B for slab/column/furniture/plumbing, and installing the REJECTED
+ * blanket spread reddens ARM C — and ONLY ARM C, which is why ARM C exists.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -251,7 +284,7 @@ describe('ADR-0331 §D3 — the forward patch, EXECUTED through elementUndoStore
      * only on the whole-element `add` path, and only via a snapshot that a
      * forward-only dispatch has never captured.
      */
-    it('ARM 3 — a real field patch lands SILENTLY on a phantom key while the geometry field never moves', async () => {
+    it('ARM 3 — §L-977: the L1 `pitch` name is REFUSED with a cited diagnostic; `slope` and the record are untouched', async () => {
         __resetUndoRestoreSnapshots();
         const plugin = new PluginRoofStore();
         const { bus, records } = makeBus<RoofsState>('roof', plugin, buildRoofHandlerSet());
@@ -272,27 +305,43 @@ describe('ADR-0331 §D3 — the forward patch, EXECUTED through elementUndoStore
             op: 'replace', path: [id, 'pitch'], value: 0.55,
         });
 
+        // The record AS THE STORE HOLDS IT (add() backfills defaults), captured
+        // before the patch so "unchanged" is measured against the real prior and
+        // not against the seed literal.
+        const beforeRoof = legacy.getById(id) as unknown as AnyRec;
+        expect(Object.keys(beforeRoof), 'seeded and holding slope').toContain('slope');
+
         const mutations: string[] = [];
         legacy.on('add', () => mutations.push('add'));
         legacy.on('update', () => mutations.push('update'));
         legacy.on('remove', () => mutations.push('remove'));
 
         const diagnostics = captureDiagnostics(() => {
-            elementUndoStoreAdapter(legacy as never).applyPatch(forward);
+            // `'roof'` is the bus store key `buildUndoStoreMap()` binds this store
+            // to; it is how the adapter reaches the measured declaration.
+            elementUndoStoreAdapter(legacy as never, 'roof').applyPatch(forward);
         });
         const after = legacy.getById(id) as unknown as AnyRec;
 
-        // S7.2's mandated double-write control: exactly ONE store mutation.
-        expect(mutations, 'exactly one mutation per dispatch').toEqual(['update']);
-        // And it reported no problem whatsoever.
-        expect(diagnostics, 'ZERO diagnostics — this is what makes it dangerous').toEqual([]);
+        // §L-977. The refusal is real and it is CITED — both names and both units.
+        expect(diagnostics, 'the refusal exists — this branch used to be mute').toHaveLength(1);
+        const why = diagnostics.join(' | ');
+        expect(why).toContain('§L-977 REFUSED');
+        expect(why, 'names the L1 field').toContain("'pitch'");
+        expect(why, 'names the legacy counterpart').toContain("'slope'");
+        expect(why, 'names the unit mismatch').toContain('RADIANS');
+
+        // S7.2's mandated double-write control, inverted: the refusal means ZERO
+        // store mutations, not one. Stated positively too — `mutations` is a live
+        // recorder, and it did capture the seeding `add` before it was reset.
+        expect(mutations, 'a refusal writes NOTHING').toEqual([]);
 
         // Positive and negative on the SAME record:
-        expect(after.pitch, 'the write LANDED ...').toBe(0.55);
-        expect(after.slope, '... on a key nothing reads, while the field the builder DOES read never moved').toBe(0.3);
+        expect(after.slope, 'the field the builder reads is untouched ...').toBe(0.3);
+        expect(after.pitch, '... and the phantom key was never minted').toBeUndefined();
         // Stated as membership on both sides, so a future rename cannot pass this
         // by making both undefined.
-        expect(Object.keys(after)).toContain('pitch');
+        expect(Object.keys(after), 'the record is whole').toEqual(Object.keys(beforeRoof));
         expect(Object.keys(legacyRoofSeed(id)), 'pitch was never part of the legacy record').not.toContain('pitch');
     });
 
@@ -306,7 +355,7 @@ describe('ADR-0331 §D3 — the forward patch, EXECUTED through elementUndoStore
      * "verified ... across [13 stores]: all expose ... `update(id, partial)`" —
      * being false for one of the thirteen, and it is the sentence §D3 rests on.
      */
-    it('ARM 4 — on a REPLACE-semantics store the one-key partial ANNIHILATES the legacy record, silently', async () => {
+    it('ARM 4 — §L-977: on a REPLACE-semantics store the KEYED adapter writes a complete replacement and the slab survives', async () => {
         __resetUndoRestoreSnapshots();
         const plugin = new PluginSlabStore();
         const { bus, records } = makeBus<SlabsState>('slab', plugin, buildSlabHandlerSet());
@@ -338,34 +387,56 @@ describe('ADR-0331 §D3 — the forward patch, EXECUTED through elementUndoStore
         expect(forward[0]).toMatchObject({ op: 'replace', path: [id, 'thickness'], value: 0.35 });
 
         const diagnostics = captureDiagnostics(() => {
-            elementUndoStoreAdapter(legacy as never).applyPatch(forward);
+            elementUndoStoreAdapter(legacy as never, 'slab').applyPatch(forward);
         });
         const after = legacy.getById(id) as unknown as AnyRec;
 
-        expect(diagnostics, 'ZERO diagnostics for a destroyed record').toEqual([]);
-        // Positive and negative on the SAME expression: the patched field is there,
-        // and it is the ONLY thing there.
+        expect(diagnostics, 'a correct write needs no diagnostic').toEqual([]);
+        // Positive and negative on the SAME expression: the patched field landed,
+        // and it is NOT the only thing there any more.
         expect(after.thickness, 'the patched field landed ...').toBe(0.35);
-        expect(Object.keys(after), '... and it is the whole record now').toEqual(['thickness']);
-        expect(after.id, 'the slab no longer knows its own id').toBeUndefined();
-        expect(after.polygon, 'nor its outline').toBeUndefined();
-        expect(after.levelId, 'nor which storey it is on').toBeUndefined();
+        expect(Object.keys(after), '... onto a record that kept everything else').toEqual(Object.keys(before));
+        expect(after.id, 'the slab still knows its own id').toBe(id);
+        expect(after.polygon, 'still has its outline').toEqual(before.polygon);
+        expect(after.levelId, 'still knows which storey it is on').toBe(L0);
+
+        // ── THE KEY IS LOAD-BEARING, AND AN UNKEYED CALLER IS TOLD SO ──────────
+        // The declaration is reached by store key. A direct caller that omits it —
+        // which is precisely what a future §D3 forward route would be if it copied
+        // ARM 4's old call — gets the historical one-key partial back, and the
+        // adapter says so on the console rather than destroying the record quietly.
+        const legacy2 = new LegacySlabStore({ activeLevelId: L0 } as never);
+        legacy2.add(legacySlabSeed(id) as never);
+        const unkeyed = captureDiagnostics(() => {
+            elementUndoStoreAdapter(legacy2 as never).applyPatch(forward);
+        });
+        expect(unkeyed.join(' | '), 'the omission is REPORTED, not guessed at')
+            .toContain('§L-977 UNDECLARED STORE');
+        expect(Object.keys(legacy2.getById(id) as unknown as AnyRec),
+            'and the historical destruction is what it falls back to — hence the error')
+            .toEqual(['thickness']);
     });
 
     /**
      * ARM 5 — THE BRANCH §D3 WOULD MEET MOST, AND IT IS MUTE.
      *
-     * `applyPatch`'s field arm ends `if (!exists || typeof store.update !== 'function') continue;`
-     * — no warn, no error. Both whole-element arms DO warn ("skip remove — not
-     * found in store", "skip add — exists?"). §D3's entire premise is that the
-     * forward write currently lands in the DTO store and NOT in the legacy one, so
-     * "the id is absent here" is the ordinary case, not the exotic one; routing
-     * forward patches through this arm converts a visible no-op into an invisible one.
+     * `applyPatch`'s field arm USED TO END `if (!exists || typeof store.update !==
+     * 'function') continue;` — no warn, no error. Both whole-element arms DO warn
+     * ("skip remove — not found in store", "skip add — exists?"). §D3's entire
+     * premise is that the forward write currently lands in the DTO store and NOT in
+     * the legacy one, so "the id is absent here" is the ordinary case, not the
+     * exotic one; routing forward patches through a mute arm converts a visible
+     * no-op into an invisible one.
+     *
+     * §L-977 gave the field arm a voice. This arm now asserts that BOTH branches
+     * speak on the identical absent id — the asymmetry was the defect, so the
+     * assertion is stated as a comparison between the two arms and not as a bare
+     * "it warns", which a future silencing of BOTH would still satisfy.
      */
-    it('ARM 5 — a field patch for an id the legacy store does not hold is a SILENT no-op (the whole-element arm warns; this one does not)', () => {
+    it('ARM 5 — §L-977: a field patch for an absent id now SPEAKS, like the whole-element arm beside it', () => {
         __resetUndoRestoreSnapshots();
         const legacy = new LegacyRoofStore({ activeLevelId: L0 } as never);
-        const adapter = elementUndoStoreAdapter(legacy as never);
+        const adapter = elementUndoStoreAdapter(legacy as never, 'roof');
 
         const fieldArm = captureDiagnostics(() => {
             adapter.applyPatch([{ op: 'replace', path: ['roof_ABSENT', 'slope'], value: 0.9 }]);
@@ -374,10 +445,14 @@ describe('ADR-0331 §D3 — the forward patch, EXECUTED through elementUndoStore
             adapter.applyPatch([{ op: 'remove', path: ['roof_ABSENT'] }]);
         });
 
-        expect(legacy.getById('roof_ABSENT')).toBeUndefined();
-        // Negative and positive on the SAME adapter, same absent id, same call:
-        expect(fieldArm, 'the field arm says nothing at all').toEqual([]);
-        expect(wholeElementArm.join(' '), 'the whole-element arm, on the identical id, does')
+        expect(legacy.getById('roof_ABSENT'), 'nothing was created by either arm').toBeUndefined();
+        // Both arms, same adapter, same absent id — and the field arm names the id
+        // and the path so the reader can tell WHICH revert did nothing.
+        expect(fieldArm, 'the field arm is no longer mute').toHaveLength(1);
+        expect(fieldArm.join(' '), 'and it says what did not happen')
+            .toContain('reverted NOTHING');
+        expect(fieldArm.join(' '), 'naming the id').toContain('roof_ABSENT');
+        expect(wholeElementArm.join(' '), 'the whole-element arm, on the identical id, still does too')
             .toContain('skip remove');
     });
 });
