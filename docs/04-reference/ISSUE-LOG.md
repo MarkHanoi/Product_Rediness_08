@@ -7544,3 +7544,85 @@ only round-trip it.
 **Status: OPEN.** `9c090971` is a characterisation ledger, not a fix — it records the numbers as
 they are so a real fix must come here and change them deliberately.
 
+## L-969 — plan roofs floated 0.8 m clear of their own walls: a ternary whose left arm could never run (CLOSED)
+
+**Lane EB1, 2026-08-18, `bd1ccdbb`.** `roofCreatedMirror.ts:89` read `ev.baseOffset ?? 2.7`. The L0
+`Roof` schema has **no `baseOffset` field**, and `CommandEventBridge.ts:905-925` — the *only* emitter
+of `roof.created` — does not list one. So the left arm was unreachable and `2.7` was a **constant**.
+
+`RoofFragmentBuilder.ts:291` seats at `level.elevation + baseOffset`, and nothing reads
+`autoBaseOffset` at render time. A plan-drawn roof over 3.5 m walls therefore floated **0.8 m clear**,
+while the same roof created through the 3-D path (`CreateRoofCommand.ts:140-150`) landed correctly.
+
+This is EI-2b — the constant-ternary dead branch — and it is the **same shape as the handrail defect**
+that motivated the whole audit. It is invisible to `tsc` (the code is well-typed) and to review (it
+reads as a sensible default). Now measured from the level's walls by the same rule the 3-D path uses.
+
+Pinned by `RoofPlanSeatingParity.test.ts` (4/4), ARM 1 watched RED at HEAD — *expected 2.7 to be 3.5*.
+The MECHANISM arm drives the real `CommandEventBridge` and proves `roof.created` carries `thickness`
+but never `baseOffset`, so the test fails if anyone re-introduces the field without wiring it.
+
+## L-970 — every plan-created beam claimed it was non-load-bearing (CLOSED)
+
+**Lane EB1, 2026-08-18, `bd1ccdbb`.** The beam bridge hardcoded `loadBearing: false` — the **opposite**
+of `CreateBeamCommand.ts:190` (`?? true`) and `BeamCommandPlan.ts:204`.
+
+That field is not decorative. It is read by `BeamReader.ts:23` (the IFC `LoadBearing` pset),
+`ScheduleExtractor.ts:414` (the beam schedule's Yes/No column) and `RuleEngine.ts:1005`, whose
+fire-rating filter was therefore **skipped for every plan-drawn beam**. An exported IFC asserted the
+structural role incorrectly.
+
+Also fixed alongside: `sectionType: (ev.shape ?? 'rectangular') as any` cast L0's
+`{rectangular, i-section, t-section}` into the legacy `{rectangular, UB, UC}`; `BeamFragmentBuilder:120`
+matched neither and silently drew a box. Unknown section types are now **refused by name**, following
+the handrail/ADR-0332 precedent — a refusal is a correct answer, a silently-wrong beam is not.
+
+Pinned by `BeamPlanLoadBearingParity.test.ts` (5/5); ARMs 1 and 2 both watched RED.
+
+## L-971 — a beam drawn with the BEAM PLUGIN'S OWN TOOL produces no geometry at all (OPEN)
+
+**Lane EB1, 2026-08-18. Verified independently by the orchestrator before logging.**
+
+`CommandEventBridge.ts:561-583` handles single `beam.create` by reading `p.startPoint` / `p.endPoint`.
+Its own comment says *"matches BeamPlanToolHandler dispatch"* — and it does. But the L0 `Beam` schema
+declares **`baseLine`** (`Beam.ts:46`), and `plugins/beam/src/tool.ts:62` dispatches
+`baseLine: [this.firstPoint, p]`.
+
+So there are **two producers and only one supported shape.** A beam created from the beam plugin's own
+tool arrives with `startPoint`/`endPoint` undefined; the bridge emits `beam.created` carrying no
+geometry and the record is dropped **silently** — no legacy record, no 3-D mesh, no error. Only the
+*batch* case (`:596-618`) converts `baseLine`.
+
+The fix belongs in `packages/runtime-composer` (accept `baseLine`, the schema's own field). Not
+assigned to a lane yet.
+
+## L-972 — curtain-wall bridge: five constant-false reads and two dropped schema fields (OPEN)
+
+**Lane EB1, 2026-08-18.** `initTools.ts:1460` tests `_cwEv['baseOffset']` and `:1466`
+`_cwEv['panelThickness']`. **Neither field exists on the L0 `CurtainWall` schema and neither is on
+CommandEventBridge's emit list**, so both `typeof … === 'number'` guards are constant-false and the
+defaults (0 and 0.05) always win — an authored value could never take effect.
+
+Three further accept-arms at `:1429-1432` (`curtain-wall.batch.create`, `curtainwall.create`,
+`curtainwall.batch.create`) are dead: CEB emits only `'curtain-wall.create'`.
+
+The bridge also drops `panels[]` and `materialId`, both of which ARE on the L0 schema
+(`CurtainWall.ts:70-71`) — and neither is emitted by CEB either, so this needs deciding at L0 and CEB
+before the bridge's ternaries can become live.
+
+## L-973 — the ceiling bridge hardcodes the entire finish specification (OPEN)
+
+**Lane EB1, 2026-08-18.** The ceiling bridge hardcodes `label:'Ceiling'`, `ceilingNumber:''`,
+`baseOffset:0` and the whole `finishSpec` — `soffitColor:'#F5F5F0'`, `soffitPattern:'none'`,
+`exposedStructure:false`. Any authored ceiling finish is discarded at the bridge. EI-2a
+(named-subset re-emit).
+
+## L-974 — the copy tool silently downgrades steel beams to plain concrete (OPEN)
+
+**Lane EB1, 2026-08-18.** `CopyPlanToolHandler.ts:444-454` sends `sectionType`, `steelProfileName`,
+`loadBearing`, `fireRating` and `material` on `beam.create`; `CommandEventBridge` lists **none** of
+them. Copying a steel UB beam yields a plain concrete beam, silently.
+
+The column half of the same file (`:393`, `shape: col.profile`) is **not** this defect: `'UC'`/`'UB'`
+are not L0 `Column` members, so `Column.parse` throws and the copy refuses loudly. That is EI-3, not
+EI-2 — and it is the correct behaviour of the two.

@@ -1099,10 +1099,35 @@ A field must be **carried** or **declared dropped**. Never omitted.
 ⛔ **These are gaps, not clearances. None may be recorded as `✅` until measured** (EI-1b: a blank reads
 as *"fine"* and is indistinguishable from *"nobody looked"*).
 
-- **The eleven unread `.created` bridge bodies** — `initTools.ts:1059, 1260, 1408, 1511, 1591, 1636,
-  1708, 1773, 1824, 1967, 2031`. Only the handrail bridge was read in full. They are **NOT clean**;
-  they are unmeasured, specifically for EI-2's four mechanisms — above all **(b) the constant-ternary
-  dead branch**, which is invisible to both `tsc` and review.
+- ~~**The eleven unread `.created` bridge bodies**~~ — **MEASURED 2026-08-18 (lane EB1, `bd1ccdbb`).**
+  All eleven read in full against EI-2 (a)–(d); per-bridge verdicts are in that commit body.
+
+  **Two live defects, both fixed RED-first at the deciding store:**
+  - **roof** — `roofCreatedMirror.ts:89` `ev.baseOffset ?? 2.7` was a **constant**: no `baseOffset` on
+    the L0 `Roof` schema, and none on `CommandEventBridge.ts:905-925`, its sole emitter. Every
+    plan-drawn roof seated 0.8 m clear of its own 3.5 m walls while the 3-D path landed. **EI-2b, and
+    the same shape as the handrail defect that motivated this audit** — invisible to `tsc` and to
+    review alike. [L-969](../../04-reference/ISSUE-LOG.md).
+  - **beam** — `loadBearing: false` hardcoded against `CreateBeamCommand.ts:190`'s `?? true`, reaching
+    the IFC `LoadBearing` pset, the beam schedule and the fire-rating rule. **EI-2a.**
+    [L-970](../../04-reference/ISSUE-LOG.md).
+
+  Both mappings were **extracted from their closures** so the suites execute production code rather
+  than a transcription of it — that reachability gap is precisely why both survived earlier review.
+
+  **Four defects remain OPEN and were correctly not fixed by this lane** (each needs a decision at L0
+  or in `runtime-composer`, not at the bridge): [L-971](../../04-reference/ISSUE-LOG.md) beam geometry
+  dropped for the beam plugin's own tool (`baseLine` vs `startPoint`) — **a beam that renders nothing,
+  silently**; [L-972](../../04-reference/ISSUE-LOG.md) curtain-wall's five constant-false reads and
+  dropped `panels[]`/`materialId`; [L-973](../../04-reference/ISSUE-LOG.md) ceiling's hardcoded
+  `finishSpec`; [L-974](../../04-reference/ISSUE-LOG.md) the copy tool's silent steel→concrete beam
+  downgrade. Plus one **latent** cast: `column`'s `i-section` → box, unreachable today because no UI
+  emits it.
+
+  Four `*.batch.create` accept-arms (wall, slab, column, curtain-wall) are **provably dead** — CEB
+  rewrites every batch fan-out to the single-create literal. Harmless, but **their comments claim live
+  behaviour**, which is how a dead arm survives a reading.
+
 - ~~**Six of the ten wall Y-datum sites** — unmeasured.~~ ⚠ **MEASURED 2026-08-18 (lane YD1) — and the
   row's verdict was WRONG, not merely incomplete. See [L-968](../../04-reference/ISSUE-LOG.md).**
 
