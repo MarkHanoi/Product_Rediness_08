@@ -334,7 +334,7 @@ For programmatic catalogue authoring (e.g. a construction firm's internal rate l
 | `check-cost-source-cited` | `tools/ga-gate/check-cost-source-cited.ts` | Every `CostItem` in fixtures + tests has a non-null `source.catalogueId` (per §1.1) |
 | `check-takeoff-c25-trace` | `tools/ga-gate/check-takeoff-c25-trace.ts` | Every `TakeoffRule.qtoSource.psetName` resolves to a Pset defined in the [C25](C25-IFC-EXPORT-PRODUCTION.md) Pset registry (per §1.4) |
 | `check-cost-currency-explicit` | `tools/ga-gate/check-cost-currency-explicit.ts` | Every `PricingTable` + `Estimate` carries a non-null `currency: ISO4217Code` (per §1.2) |
-| `check-cost-spans` | extends `check-spans.ts` | Every public `packages/cost-engine` boundary function carries an OTel span (per §1.5 + P8) |
+| `check-cost-spans` | extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **this row said `check-spans.ts`, which NEVER EXISTED; and the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE** | Every public `packages/cost-engine` boundary function carries an OTel span (per §1.5 + P8) |
 | `check-cost-schemas-pure` | extends existing schema-purity check | `packages/schemas/src/cost/` has zero I/O, zero THREE, zero DOM imports (per P5) |
 | `check-cost-rollup-taxonomy` | runtime — schema validator | Every `Estimate.taxonomy` is one of the three reserved values (per §1.3) |
 | `check-cost-override-justification` | runtime — schema validator | Every `ItemOverride.justification.length >= 16` (per §1.8) |
@@ -502,3 +502,47 @@ Per [C25](C25-IFC-EXPORT-PRODUCTION.md) test convention: every takeoff-rule + ev
 ---
 
 *End — C38 Cost / 5D, 2026-06-01 — DRAFT.*
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+

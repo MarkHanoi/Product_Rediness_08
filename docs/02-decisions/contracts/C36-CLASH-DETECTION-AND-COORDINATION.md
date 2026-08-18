@@ -491,8 +491,8 @@ Lives at `packages/clash-engine/__tests__/`:
 | `tools/ga-gate/check-bcf-roundtrip-fidelity.ts` | Round-trip benchmark over 50 fixture issues + a real BIMcollab-exported sample. |
 | `tools/ga-gate/check-issue-state-machine.ts` | Static-analyses every `clash.transition` call-site; replays every fixture history. |
 | `tools/ga-gate/check-clash-rule-fp-rate.ts` | Re-runs the benchmark from `false-positive-rate.test.ts`; fails if any production-status rule exceeds its declared target. |
-| `tools/ga-gate/check-clash-spans.ts` | Asserts every public export in `packages/clash-engine/` + `plugins/bcf/src/clash-bridge.ts` opens an OTel span (extends the existing `check-spans.ts`). |
-| `tools/ga-gate/check-visibility-intent.ts` | Already exists for C27; C36 adds `ClashIsolationVisibilityIntent` to its allowlist; direct `material.opacity` writes outside the intent path remain forbidden. |
+| `tools/ga-gate/check-clash-spans.ts` | Asserts every public export in `packages/clash-engine/` + `plugins/bcf/src/clash-bridge.ts` opens an OTel span (extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **`check-spans.ts` NEVER EXISTED; the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE**). |
+| ~~`tools/ga-gate/check-visibility-intent.ts`~~ → [`check-visibility-intent-not-ui.ts`](../../../tools/ga-gate/check-visibility-intent-not-ui.ts) | ⛔ **"Already exists for C27" is FALSE on the cited path** — `ls tools/ga-gate/check-visibility-intent.ts` → No such file. The real gate is a RATCHET (arm B 40/43), not hard-0; †GATE-ALIAS. Formerly: C36 adds `ClashIsolationVisibilityIntent` to its allowlist; direct `material.opacity` writes outside the intent path remain forbidden. |
 
 ---
 
@@ -605,3 +605,74 @@ LLM-classified clashes (e.g. "this looks like a coordination problem but no rule
 A `proposed` state in front of `open` is the leading proposal; deferred to a follow-up ADR.
 
 ---
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+
+
+---
+
+## †GATE-ALIAS — correction 2026-08-18: cited gate names that DO NOT RESOLVE
+
+The gate name(s) cited above **do not exist on disk**. In every case the gate **is real** but is
+**spelled differently** — so the correct action is *use the real name*, and ⛔ **never build a
+second copy**.
+
+```
+ls tools/ga-gate/check-schema-purity.ts tools/ga-gate/check-direct-store-writes.ts    tools/ga-gate/check-three-import-boundary.ts tools/ga-gate/check-commandmanager.ts    tools/ga-gate/check-visibility-intent.ts
+# -> No such file or directory (ALL FIVE)
+```
+
+| Cited (does not exist) | Real gate | Measured 2026-08-18 |
+|---|---|---|
+| `check-schema-purity.ts` | **`tools/ga-gate/check-domain-purity.ts`** | P5, hard-fail at the invariant |
+| `check-direct-store-writes.ts` | **`tools/ga-gate/check-no-direct-store-writes.ts`** | **RC=0, `within baseline (37/37)`** — a ratchet, **NOT** hard-0. P6 is **NOT-YET-TRUE as enforcement**. |
+| `check-three-import-boundary.ts` | **`tools/ga-gate/check-three-imports.ts`** | P2, hard-fail at the invariant |
+| `check-commandmanager.ts` | **`tools/ga-gate/check-no-commandmanager.ts`** *and* **`tools/ga-gate/check-commandmanager-any.ts`** — two gates, not one | `check-no-commandmanager` **RC=1** (*"failing at its DECLARED level: literal 11/11 · window 62/62 · cm.execute 62/62"*); `check-commandmanager-any` **RC=0** (`OK: 25 / 25`); and the npm script `check:commandmanager` → `scripts/check/ci-check-no-commandmanager.mjs` **RC=1** at **139/136**. ⚠ **Three counters, three verdicts, one subject — name the gate you ran or quote no number.** |
+| `check-visibility-intent.ts` | **`tools/ga-gate/check-visibility-intent-not-ui.ts`** | **RC=0**, `arm A clean (0), arm B within baseline (40/43)` — a ratchet tolerating **40** violations, **not** the hard-0 a reader would assume |
+
+⚠ **"Extends an existing gate" is a claim about a gate you must be able to name and run.** Three of
+the five real gates above are **ratchets with non-zero baselines**, so extending them does **not**
+produce the hard-fail these clauses imply. Any clause above that reads as running enforcement is
+**NOT-YET-TRUE** until re-stated against the real gate's actual arms.
+

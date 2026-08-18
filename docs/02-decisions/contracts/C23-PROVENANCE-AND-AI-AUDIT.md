@@ -7,6 +7,74 @@
 > **Key principles**: P5 (schemas are pure) · P6 (commands are the only mutation path) · P8 (every exported function adds ≥ 1 OpenTelemetry span; every AI artefact is auditable)
 > **Authority**: this contract is binding on every PR that touches an AI code path. Violations block merge per [C00 Index](./README.md).
 
+
+---
+
+## §0.0 — ⛔ CORRECTION 2026-08-18: §1.7's "no new gate" DECLARES P8 COVERAGE FOR THE WHOLE AI AUDIT TRAIL VIA A FILE THAT NEVER EXISTED
+
+This is the **worst instance** of the L-812 phantom-gate class in the suite, because it is the only
+one whose conclusion is *"therefore nothing further is needed"*.
+
+**The false line** — `§1.7`:
+
+> *"CI gate: the existing `scripts/ci-check-spans.ts` ([C10 §2.3](./C10-PERFORMANCE-AND-OBSERVABILITY.md))
+> covers this — **no new gate**."*
+
+**Measured** — `ls scripts/ci-check-spans.ts tools/ga-gate/check-spans.ts` → **No such file or
+directory, both.** CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths never
+existed (L-812), and **C10 §5 was amended to redirect to the real gate months ago — the correction
+never reached this line.** So the sentence that closes P8 coverage for the entire AI audit trail
+rests on a file that has never been on disk, and *"no new gate"* was the operative conclusion.
+
+**The real span gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts)**,
+and it does **not** cover this subject:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+→ **RC=3**. Zone A (CommandBus handlers) **246/246**; Zone B **54 uninstrumented of 70** against a
+shrink-only baseline of 52 — the failure; Zone C, the *"every exported function"* clause §1.7 is
+actually written against, is a **NOT GATED census** reading **1772 of 2023**. **§1.7's clause is
+measured for zero of the 2023 files.**
+
+### ⛔ And §1.1's central invariant is NOT-YET-TRUE at HEAD
+
+§1.1 states *"Every AI call MUST write an `AIArtefact` before returning"*. Measured 2026-08-18:
+
+```
+grep -rn "provenance\|Provenance" packages/ai-host/src/ | wc -l   # -> 5
+find packages/ai-host/src -name '*.ts' | wc -l                     # -> 262
+```
+
+**All five matches are prose or a field name** — three comments in
+`capabilities/ChatCommandClassification.ts` (`:352`, `:360`, `:370`), one comment in `index.ts:658`,
+and one doc-comment on a diagnostics field in `workflows/residentialBuilding/unitPlan.ts:60`.
+**There is not one provenance-recording CALL in 262 source files of the package this contract names
+as its primary downstream.** **AI calls are not audited.** §1.1 is a requirement, not a description
+— read it as **NOT-YET-TRUE**, never as running behaviour.
+
+⚠ **The gate that could have caught this explicitly declines the subject.**
+`npx tsx tools/ga-gate/check-provenance-coverage.ts` → **RC=0, `0 findings, hard-0, no baseline`** —
+but its own output names what it does not measure: *"the site/context/climate/zoning/**AI-artefact**
+domains — **NOT MEASURED HERE, stated so silence is never read as coverage**"*. **A green
+provenance gate is not evidence for §1.1.** Do not cite it as such.
+
+### ⚠ C23 and C75 are rival provenance vocabularies with ZERO cross-citation
+
+```
+grep -c "C75" C23-PROVENANCE-AND-AI-AUDIT.md   # -> 0
+grep -c "C23" C75-PROVENANCE.md                # -> 0
+```
+
+**C75 is CANONICAL; C23 is DRAFT.** Per the governance order both sit in the same tier
+(STR-03 → STR-04 → C01–C100 → ADRs → SPECs), so the tie breaks on the status ladder in
+[README](./README.md#contract-status-vocabulary--tier-1-launch-gate-l-347): **a DRAFT contract binds
+nothing, a CANONICAL one binds.** → **Where C23 and C75 disagree on provenance vocabulary, C75
+wins, and C23 is the loser of record.** C23's distinctive and non-duplicated subject is the
+**AI-specific** artefact — model, prompt, context-hash, cost, reproducibility — which C75 does not
+own; that half stands. **Reconciling the two is owed work and is not discharged by this banner.**
+
 ---
 
 ## §1 — Invariants
@@ -113,7 +181,7 @@ Each span MUST set the standard attributes from [C10 §2.2](./C10-PERFORMANCE-AN
 
 The audit-trail itself is auditable: the spans land in Honeycomb alongside `pryzm.ai.cost.usd`. An operator can answer "who asked for this project's AI provenance, when?" without leaving the observability stack.
 
-CI gate: the existing `scripts/ci-check-spans.ts` ([C10 §2.3](./C10-PERFORMANCE-AND-OBSERVABILITY.md)) covers this — no new gate.
+CI gate: ~~the existing `scripts/ci-check-spans.ts` ([C10 §2.3](./C10-PERFORMANCE-AND-OBSERVABILITY.md)) covers this — no new gate.~~ ⛔ **RETRACTED 2026-08-18 — `scripts/ci-check-spans.ts` NEVER EXISTED, so *"no new gate"* declared P8 coverage for the entire AI audit trail via a file that has never been on disk. The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts), it is **RED at RC=3**, and the *"every exported function"* clause lives in its **UNGATED** Zone C. A NEW GATE IS OWED. See §0.0.**
 
 ### §1.8 — Customer-facing export of provenance MUST be available per project
 

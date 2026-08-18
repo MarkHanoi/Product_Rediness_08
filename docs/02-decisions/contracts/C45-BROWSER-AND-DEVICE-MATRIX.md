@@ -381,7 +381,7 @@ The browser-related surfaces are all primarily form / link interactions; keyboar
 | `check-cutoff-30d-notice` | runtime — schema validator | Every `CutoffScheduleEntry.effectiveDate >= announcedAt + 30 days` (per §1.12) |
 | `check-polyfill-size-budget` | `tools/ga-gate/check-polyfill-size-budget.ts` | Every `PolyfillManifestEntry.sizeKB <= 10` (per §1.7) |
 | `check-feature-detection-fallback` | runtime — boundary | Every feature-gated code path has a documented fallback (per §1.6) |
-| `check-browser-support-spans` | extends `check-spans.ts` | Every public `packages/browser-support/` boundary function carries an OTel span (per §1.11) |
+| `check-browser-support-spans` | extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **this row said `check-spans.ts`, which NEVER EXISTED; and the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE** | Every public `packages/browser-support/` boundary function carries an OTel span (per §1.11) |
 | `check-browser-support-schemas-pure` | extends schema-purity check | `packages/schemas/src/browser/` has zero I/O, zero THREE, zero DOM (per P5) |
 | `check-device-fleet-matrix-current` | `tools/ga-gate/check-device-fleet-matrix-current.ts` | The published device-fleet matrix has been refreshed within the last 90 days |
 | `check-public-page-derived` | `tools/ga-gate/check-public-page-derived.ts` | `apps/docs-site/src/supported-browsers.tsx` is derived from the registry, not hand-edited |
@@ -512,3 +512,47 @@ Per [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) test convention. Every UA-string in
 ---
 
 *End — C45 Browser & Device Matrix, 2026-06-01 — DRAFT.*
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+

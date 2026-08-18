@@ -395,7 +395,7 @@ WCAG 2.2 AA per [C43](C43-ACCESSIBILITY.md) — every CTA reachable by keyboard;
 | `check-ticket-state-machine` | `tools/ga-gate/check-ticket-state-machine.ts` | `TicketState` transitions follow the documented graph |
 | `check-breakglass-justification` | runtime — schema validator | Every `BreakGlassSession.justification.length >= 40` (per §1.5) |
 | `check-refund-authority` | runtime — schema validator | `RefundOrCredit.amountCents` within the approving agent's authority (per §1.14) |
-| `check-support-spans` | extends `check-spans.ts` | Every public `packages/support/` boundary function carries an OTel span (per §1.6) |
+| `check-support-spans` | extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **this row said `check-spans.ts`, which NEVER EXISTED; and the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE** | Every public `packages/support/` boundary function carries an OTel span (per §1.6) |
 | `check-support-schemas-pure` | extends schema-purity check | `packages/schemas/src/support/` has zero I/O, zero THREE, zero DOM (per P5) |
 | `check-sev1-pmi-deadline` | scheduled job + alert | Every resolved SEV-1 has a published PMI within 5 business days; misses alert head-of-support |
 | `check-breakglass-rate-limit` | runtime — boundary | Per-agent max 5 active break-glass sessions enforced (per §1.5) |
@@ -561,3 +561,47 @@ Per [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) test convention. Every state transi
 ---
 
 *End — C42 Customer Support Tier, 2026-06-01 — DRAFT.*
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+

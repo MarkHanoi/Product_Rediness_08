@@ -88,7 +88,7 @@ CI gate: new `tools/ga-gate/check-model-tree-count.ts`.
 
 Selection-driven isolation routes through `packages/visibility/` (P7). It is NOT a parallel UI flag, NOT direct opacity mutation, NOT a custom `mesh.material.opacity = 0.2` write somewhere in editor code. The `IsolationVisibilityIntent` is dispatched into `packages/visibility/` and applied by `packages/scene-committer/` via THREE material opacity ([C04 §3](C04-RENDERING-AND-SCHEDULING.md)).
 
-CI gate: new `tools/ga-gate/check-visibility-intent.ts` — any direct `material.opacity = N` outside `IsolationAnimator` is a violation.
+CI gate: ~~new `tools/ga-gate/check-visibility-intent.ts`~~ — ⚠ **still UNBUILT under that name; the nearest real gate is [`check-visibility-intent-not-ui.ts`](../../../tools/ga-gate/check-visibility-intent-not-ui.ts), a RATCHET at arm B 40/43 with a DIFFERENT subject (UI leakage, not `material.opacity`). See †GATE-ALIAS.** Specified: — any direct `material.opacity = N` outside `IsolationAnimator` is a violation.
 
 ### §1.4 — Isolation animator subscribes to the frame bus
 
@@ -225,7 +225,7 @@ The Sheets tab ([C24](C24-SHEET-COMPOSITION-ENGINE.md)) reuses the model tree as
 | Gate | What it checks | Implementation |
 |---|---|---|
 | One model tree | Only one `ModelTreeComponent` import path | NEW `tools/ga-gate/check-model-tree-count.ts` |
-| Visibility intent only | No direct `material.opacity` outside `IsolationAnimator` | NEW `tools/ga-gate/check-visibility-intent.ts` |
+| Visibility intent only | No direct `material.opacity` outside `IsolationAnimator` | ⚠ ~~NEW `tools/ga-gate/check-visibility-intent.ts`~~ — **UNBUILT; †GATE-ALIAS** |
 | Commands only | UI dispatches via `commandBus` | extend existing |
 | Contract presence | Every new file references C27 | extend existing |
 | Inspect schemas purity | `packages/schemas/src/inspect/` has no I/O / DOM / THREE | extend existing |
@@ -261,3 +261,31 @@ Master plan [§11.4](../03-execution/plans/master-implementation-plan.md) INS-α
 ---
 
 *End — C27 BIM 3.0 Inspect Model, 2026-05-31.*
+
+
+---
+
+## †GATE-ALIAS — correction 2026-08-18: cited gate names that DO NOT RESOLVE
+
+The gate name(s) cited above **do not exist on disk**. In every case the gate **is real** but is
+**spelled differently** — so the correct action is *use the real name*, and ⛔ **never build a
+second copy**.
+
+```
+ls tools/ga-gate/check-schema-purity.ts tools/ga-gate/check-direct-store-writes.ts    tools/ga-gate/check-three-import-boundary.ts tools/ga-gate/check-commandmanager.ts    tools/ga-gate/check-visibility-intent.ts
+# -> No such file or directory (ALL FIVE)
+```
+
+| Cited (does not exist) | Real gate | Measured 2026-08-18 |
+|---|---|---|
+| `check-schema-purity.ts` | **`tools/ga-gate/check-domain-purity.ts`** | P5, hard-fail at the invariant |
+| `check-direct-store-writes.ts` | **`tools/ga-gate/check-no-direct-store-writes.ts`** | **RC=0, `within baseline (37/37)`** — a ratchet, **NOT** hard-0. P6 is **NOT-YET-TRUE as enforcement**. |
+| `check-three-import-boundary.ts` | **`tools/ga-gate/check-three-imports.ts`** | P2, hard-fail at the invariant |
+| `check-commandmanager.ts` | **`tools/ga-gate/check-no-commandmanager.ts`** *and* **`tools/ga-gate/check-commandmanager-any.ts`** — two gates, not one | `check-no-commandmanager` **RC=1** (*"failing at its DECLARED level: literal 11/11 · window 62/62 · cm.execute 62/62"*); `check-commandmanager-any` **RC=0** (`OK: 25 / 25`); and the npm script `check:commandmanager` → `scripts/check/ci-check-no-commandmanager.mjs` **RC=1** at **139/136**. ⚠ **Three counters, three verdicts, one subject — name the gate you ran or quote no number.** |
+| `check-visibility-intent.ts` | **`tools/ga-gate/check-visibility-intent-not-ui.ts`** | **RC=0**, `arm A clean (0), arm B within baseline (40/43)` — a ratchet tolerating **40** violations, **not** the hard-0 a reader would assume |
+
+⚠ **"Extends an existing gate" is a claim about a gate you must be able to name and run.** Three of
+the five real gates above are **ratchets with non-zero baselines**, so extending them does **not**
+produce the hard-fail these clauses imply. Any clause above that reads as running enforcement is
+**NOT-YET-TRUE** until re-stated against the real gate's actual arms.
+

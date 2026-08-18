@@ -46,7 +46,7 @@ When exporting to IFC4 4D MVD, every `IfcTask` MUST be linked to the elements it
 
 Every mutation to `ScheduleStore` MUST be expressed as a command on the bus per [C03 §3](C03-SCHEMAS-COMMANDS-AND-STATE.md) + [C16](C16-COMMAND-AUTHORING-PROTOCOL.md). UI MUST NOT call `scheduleStore.setTask(...)` directly. The eight commands in §4 are the only public mutation surface.
 
-**CI gate**: extends existing `check-commandmanager.ts` — `packages/schedule-4d/` and `plugins/schedules/` UI surfaces are forbidden from importing `ScheduleStore` setters.
+**CI gate**: extends ~~existing `check-commandmanager.ts`~~ — ⚠ **that path does not exist; there are TWO real gates plus a rival npm script, disagreeing. See †GATE-ALIAS.** Real: — `packages/schedule-4d/` and `plugins/schedules/` UI surfaces are forbidden from importing `ScheduleStore` setters.
 
 ### §1.7 — Every exported function opens a span (P8)
 
@@ -355,7 +355,7 @@ Per [C18](C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md), no preview applies to schedul
 | `check-schedule-single-assignment` | No element appears in two tasks (§1.1) | NEW | At C37 ratification |
 | `check-schedule-critical-path-determinism` | Same `(tasks, dependencies)` input → same `criticalTaskIds` output across runs (§1.8) | NEW | At C37 ratification |
 | `check-schedule-no-direct-raf` | `packages/schedule-4d/` does not import `requestAnimationFrame`, `setInterval`, or `setTimeout` for playback (§1.4) | extends `check-raf-count.ts` | At C37 ratification |
-| `check-schedule-no-direct-store-writes` | UI does not import `ScheduleStore` setters (§1.6) | extends `check-commandmanager.ts` | At C37 ratification |
+| `check-schedule-no-direct-store-writes` | UI does not import `ScheduleStore` setters (§1.6) | extends ~~`check-commandmanager.ts`~~ — ⚠ **†GATE-ALIAS** | At C37 ratification |
 | `check-schedule-ifc4d-task-linkage` | Every `IfcTask` in a 4D MVD export resolves all assigned element ids and dependencies (§1.5) | NEW | At C37 ratification + IFC-α completion |
 | XER round-trip | Export → re-import preserves `TaskId` ↔ `task_code` (§1.12) | NEW — `schedule-xer-roundtrip.test.ts` | At C37 ratification |
 
@@ -522,3 +522,31 @@ Deferred to post-ratification.
 ---
 
 *End — C37 Schedule / 4D, 2026-06-01.*
+
+
+---
+
+## †GATE-ALIAS — correction 2026-08-18: cited gate names that DO NOT RESOLVE
+
+The gate name(s) cited above **do not exist on disk**. In every case the gate **is real** but is
+**spelled differently** — so the correct action is *use the real name*, and ⛔ **never build a
+second copy**.
+
+```
+ls tools/ga-gate/check-schema-purity.ts tools/ga-gate/check-direct-store-writes.ts    tools/ga-gate/check-three-import-boundary.ts tools/ga-gate/check-commandmanager.ts    tools/ga-gate/check-visibility-intent.ts
+# -> No such file or directory (ALL FIVE)
+```
+
+| Cited (does not exist) | Real gate | Measured 2026-08-18 |
+|---|---|---|
+| `check-schema-purity.ts` | **`tools/ga-gate/check-domain-purity.ts`** | P5, hard-fail at the invariant |
+| `check-direct-store-writes.ts` | **`tools/ga-gate/check-no-direct-store-writes.ts`** | **RC=0, `within baseline (37/37)`** — a ratchet, **NOT** hard-0. P6 is **NOT-YET-TRUE as enforcement**. |
+| `check-three-import-boundary.ts` | **`tools/ga-gate/check-three-imports.ts`** | P2, hard-fail at the invariant |
+| `check-commandmanager.ts` | **`tools/ga-gate/check-no-commandmanager.ts`** *and* **`tools/ga-gate/check-commandmanager-any.ts`** — two gates, not one | `check-no-commandmanager` **RC=1** (*"failing at its DECLARED level: literal 11/11 · window 62/62 · cm.execute 62/62"*); `check-commandmanager-any` **RC=0** (`OK: 25 / 25`); and the npm script `check:commandmanager` → `scripts/check/ci-check-no-commandmanager.mjs` **RC=1** at **139/136**. ⚠ **Three counters, three verdicts, one subject — name the gate you ran or quote no number.** |
+| `check-visibility-intent.ts` | **`tools/ga-gate/check-visibility-intent-not-ui.ts`** | **RC=0**, `arm A clean (0), arm B within baseline (40/43)` — a ratchet tolerating **40** violations, **not** the hard-0 a reader would assume |
+
+⚠ **"Extends an existing gate" is a claim about a gate you must be able to name and run.** Three of
+the five real gates above are **ratchets with non-zero baselines**, so extending them does **not**
+produce the hard-fail these clauses imply. Any clause above that reads as running enforcement is
+**NOT-YET-TRUE** until re-stated against the real gate's actual arms.
+

@@ -180,9 +180,9 @@ Compatibility target: AutoCAD 2018+, AutoCAD LT, BricsCAD, DraftSight. XREF-comp
 | Gate | What it checks | Implementation |
 |---|---|---|
 | Sheet renderer P2 | No THREE imports in `plugins/sheets/` or `packages/sheet-renderer/` | extend `tools/ga-gate/check-three-imports.ts` |
-| Sheet schemas purity | No I/O / DOM / THREE in `packages/schemas/src/sheet/` | extend `tools/ga-gate/check-schema-purity.ts` |
+| Sheet schemas purity | No I/O / DOM / THREE in `packages/schemas/src/sheet/` | extend [`tools/ga-gate/check-domain-purity.ts`](../../../tools/ga-gate/check-domain-purity.ts) — ⚠ **cited as `check-schema-purity.ts`, which does not exist; see †GATE-ALIAS** |
 | Vector-only export | No raster fallback in sheet PDF / DXF pipeline | `tools/ga-gate/check-vector-pdf.ts` (NEW — owned by [C29](C29-PDF-VECTOR-EXPORT.md)) |
-| Commands-only mutation | UI dispatches via `commandBus` | extend `tools/ga-gate/check-direct-store-writes.ts` |
+| Commands-only mutation | UI dispatches via `commandBus` | extend [`tools/ga-gate/check-no-direct-store-writes.ts`](../../../tools/ga-gate/check-no-direct-store-writes.ts) — ⚠ **cited as `check-direct-store-writes.ts`, which does not exist; and the real gate is a RATCHET at 37/37, not hard-0. See †GATE-ALIAS** |
 | Contract presence | Every new exported file in sheet path cross-links to C24 | extend contract-coverage check |
 | One sheet renderer | No parallel render implementations | new check `check-single-sheet-renderer.ts` |
 
@@ -201,3 +201,31 @@ Compatibility target: AutoCAD 2018+, AutoCAD LT, BricsCAD, DraftSight. XREF-comp
 ---
 
 *End — C24 Sheet Composition Engine, 2026-05-31.*
+
+
+---
+
+## †GATE-ALIAS — correction 2026-08-18: cited gate names that DO NOT RESOLVE
+
+The gate name(s) cited above **do not exist on disk**. In every case the gate **is real** but is
+**spelled differently** — so the correct action is *use the real name*, and ⛔ **never build a
+second copy**.
+
+```
+ls tools/ga-gate/check-schema-purity.ts tools/ga-gate/check-direct-store-writes.ts    tools/ga-gate/check-three-import-boundary.ts tools/ga-gate/check-commandmanager.ts    tools/ga-gate/check-visibility-intent.ts
+# -> No such file or directory (ALL FIVE)
+```
+
+| Cited (does not exist) | Real gate | Measured 2026-08-18 |
+|---|---|---|
+| `check-schema-purity.ts` | **`tools/ga-gate/check-domain-purity.ts`** | P5, hard-fail at the invariant |
+| `check-direct-store-writes.ts` | **`tools/ga-gate/check-no-direct-store-writes.ts`** | **RC=0, `within baseline (37/37)`** — a ratchet, **NOT** hard-0. P6 is **NOT-YET-TRUE as enforcement**. |
+| `check-three-import-boundary.ts` | **`tools/ga-gate/check-three-imports.ts`** | P2, hard-fail at the invariant |
+| `check-commandmanager.ts` | **`tools/ga-gate/check-no-commandmanager.ts`** *and* **`tools/ga-gate/check-commandmanager-any.ts`** — two gates, not one | `check-no-commandmanager` **RC=1** (*"failing at its DECLARED level: literal 11/11 · window 62/62 · cm.execute 62/62"*); `check-commandmanager-any` **RC=0** (`OK: 25 / 25`); and the npm script `check:commandmanager` → `scripts/check/ci-check-no-commandmanager.mjs` **RC=1** at **139/136**. ⚠ **Three counters, three verdicts, one subject — name the gate you ran or quote no number.** |
+| `check-visibility-intent.ts` | **`tools/ga-gate/check-visibility-intent-not-ui.ts`** | **RC=0**, `arm A clean (0), arm B within baseline (40/43)` — a ratchet tolerating **40** violations, **not** the hard-0 a reader would assume |
+
+⚠ **"Extends an existing gate" is a claim about a gate you must be able to name and run.** Three of
+the five real gates above are **ratchets with non-zero baselines**, so extending them does **not**
+produce the hard-fail these clauses imply. Any clause above that reads as running enforcement is
+**NOT-YET-TRUE** until re-stated against the real gate's actual arms.
+

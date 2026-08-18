@@ -457,7 +457,7 @@ Where the wizard renders status indicators (validation passed / warned / failed)
 | **`check-cobie-mvd-ifc-validity`** | The MVD output passes the C25 IFC4 schema validator. Reuses `check-ifc-validate` (C25 §8). | extends C25's gate |
 | **`check-cobie-join-consistency`** | For every row in the MVD with a `GlobalId`, the matching workbook row's `ExtIdentifier` is identical. Per §1.9. | NEW — `tools/ga-gate/check-cobie-join.ts` |
 | **`check-cobie-catalogue-coverage`** | Every `ElementType` union member is mapped in `FmEquipmentCatalogue` (compile-time `never`-check + runtime exhaustivity). | NEW — `tools/ga-gate/check-cobie-catalogue-coverage.ts` |
-| **`check-cobie-spans`** | Every public function in `packages/cobie-export/` opens ≥ 1 span (P8). | extends existing `check-spans` |
+| **`check-cobie-spans`** | Every public function in `packages/cobie-export/` opens ≥ 1 span (P8). | extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **this row said `check-spans`, which NEVER EXISTED; the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE** |
 | **`check-cobie-schema-pure`** | `packages/schemas/cobie/` carries no I/O, no THREE, no DOM (P5). | extends existing `check-schemas-pure` |
 
 ### §6.1 — Conformance fixtures
@@ -585,3 +585,47 @@ The buildingSMART COBie validator is canonical but proprietary and not embeddabl
 ---
 
 *End — C35 COBie FM Handover, 2026-06-01.*
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+

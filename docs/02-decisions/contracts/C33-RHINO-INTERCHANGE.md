@@ -401,7 +401,7 @@ Import preview ghost geometry MUST use the unified PRYZM preview style per [C18 
 | `check-rhino-units` | Import a 3DM authored in feet with `tolerance = 0.001 ft`. Assert the in-memory `absoluteTolerance` is `0.3048 mm`. Assert every element's `_provenance.sourceUnit === 'feet'`. Hard-fail. |
 | `check-gh-bridge-purity` | The `GhDefinitionBridge` MUST NOT import any of: `rhino3dm` at top level (lazy only), `child_process`, `node:fs`, `node:net`, `@grasshopper/*`. The bridge is a pure translator. Hard-fail. |
 | `check-rhino-roundtrip` | Run the 12-file reference suite through `readRhino3dm → writeRhino3dm → readRhino3dm` and diff layer count / curve count / NURBS control points / annotations / views. Soft-fail (deltas reported, hard-fail at 100%-coverage milestone). |
-| `check-rhino-spans` | Static AST check: every exported function in `@pryzm/plugin-rhino-{import,export,grasshopper-bridge}` opens at least one OTel span. Hard-fail. Extends existing `check-spans.ts`. |
+| `check-rhino-spans` | Static AST check: every exported function in `@pryzm/plugin-rhino-{import,export,grasshopper-bridge}` opens at least one OTel span. Hard-fail. Extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts). ⚠ **This row said `check-spans.ts`, which NEVER EXISTED; the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE.** |
 | `check-rhino-layer-preserve` | Round-trip a file with 50 nested layers and assert byte-identical layer tree on the way out. Hard-fail. |
 
 ### §6.3 — Unit tests
@@ -502,3 +502,47 @@ Total estimated effort: **~15 dev-days** to full C33 conformance.
 ---
 
 > **C33 Cross-link target for [C00 INDEX](README.md)**: add row after C32 — "Rhino Interchange · `.3dm` reader + writer + Grasshopper bridge via P0 families · DRAFT 2026-06-01 · 11 invariants · P5, P6, P7, P8".
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+

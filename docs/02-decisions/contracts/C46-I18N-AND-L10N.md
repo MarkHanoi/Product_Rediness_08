@@ -424,7 +424,7 @@ Locale switching is keyboard-accessible via the settings page; no special locale
 | `check-no-imperial-in-storage` | `tools/ga-gate/check-no-imperial-in-storage.ts` | No code path writes a non-SI value to the `.pryzm` file (per §1.1) |
 | `check-key-not-renamed` | `tools/ga-gate/check-key-not-renamed.ts` | git-diff fails if a MessageKey is removed (vs deprecated + replacedBy) |
 | `check-locale-detection-fallback` | runtime — boundary | Every locale resolution has a documented fallback path |
-| `check-i18n-spans` | extends `check-spans.ts` | Every public `packages/i18n/` boundary function carries an OTel span (per §1.11) |
+| `check-i18n-spans` | extends [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts) — ⚠ **this row said `check-spans.ts`, which NEVER EXISTED; and the real gate is RED at RC=3 and counts FILES, not exported functions. See †PHANTOM-GATE** | Every public `packages/i18n/` boundary function carries an OTel span (per §1.11) |
 | `check-i18n-schemas-pure` | extends schema-purity check | `packages/schemas/src/i18n/` has zero I/O, zero THREE, zero DOM (per P5) |
 | `check-message-keys-pattern` | runtime — schema validator | Every key matches the `area.subarea.label` regex (per §2.2) |
 | `check-discipline-neutral-i18n` | manual review | No locale's translation introduces discipline-specific terminology (per §1.13) |
@@ -576,3 +576,47 @@ Per [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) test convention. Every locale + eve
 ---
 
 *End — C46 i18n & L10n, 2026-06-01 — DRAFT.*
+
+
+---
+
+## †PHANTOM-GATE — correction 2026-08-18 (L-960 class)
+
+**`check-spans.ts` and `scripts/ci-check-spans.ts` DO NOT EXIST and never have.** Measured:
+
+```
+ls tools/ga-gate/check-spans.ts scripts/ci-check-spans.ts
+# -> No such file or directory (both)
+grep -rn "check-spans" docs/02-decisions/contracts/   # -> 21 contracts cite it
+```
+
+CLAUDE.md already records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*,
+and **[C10 §5](./C10-PERFORMANCE-AND-OBSERVABILITY.md) was amended to redirect to the real gate.
+The correction never propagated to the other twenty citations — this is one of them.**
+
+**The real gate is [`tools/ga-gate/check-otel-spans.ts`](../../../tools/ga-gate/check-otel-spans.ts).**
+Re-measure, never transcribe:
+
+```
+npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?" >> /tmp/otel.txt
+```
+
+**RC=3** (2026-08-18) — it is **RED**, not passing:
+
+| Zone | Subject | Reading |
+|---|---|---|
+| **A** | CommandBus handlers, zero tolerance | **246 / 246** instrumented |
+| **B** | command-registry + app handlers + plugin barrels | **54 uninstrumented of 70**, baseline **52** — **this is the failure** |
+| **C** | §CENSUS, **NOT GATED** | **1772 of 2023** files declaring an exported function have **NO span** |
+
+⛔ **"Extends the existing gate" is NOT a one-line change, and any clause above that says so is
+NOT-YET-TRUE.** Two independent reasons:
+
+1. The real gate's gated zones count **handler FILES**. This contract's clause is written against
+   **every exported function** — that is Zone C, which **prints a number and enforces nothing**.
+   The clause as written is measured for **zero** of the 2023 files.
+2. Zone B's baseline is **shrink-only**. A new package cannot be added by widening it.
+
+**Do not cite this row as live enforcement. Do not raise the Zone B baseline. Do not add a second
+copy of the gate.**
+
