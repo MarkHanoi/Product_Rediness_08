@@ -123,6 +123,61 @@ export interface WallLayer {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─── §FEAT-WALL-SIDE-FINISH (founder ask: per-side finish material) ──────────
+//
+// THE SIDE THIS NAMES IS THE **SEMANTIC** SIDE, NOT A GEOMETRIC FACE.
+//
+// `WallData.frontSide` / `backSide` (below, §STEP6) name the two GEOMETRIC faces
+// of the baseline and answer "which face points into the enclosed space". They
+// are, measured 2026-08-18, written by NOTHING and read by NOTHING — three
+// declaration sites (WallTypes, WallDataSchema, schemas/elements/Wall) and no
+// producer, so at runtime they are `undefined`, not even the `'unknown'` the
+// comment promises. A per-side finish MUST NOT be keyed on them.
+//
+// This vocabulary is keyed on the same axis the LAYER STACK already declares and
+// the shipped `AddWallLayerBatchCommand` already uses: `'interior'` / `'exterior'`
+// as an AUTHORED fact (`WallLayerFunction` is literally `'finish-interior'` /
+// `'finish-exterior'`, and layer arrays are authored EXTERIOR-FIRST). Nothing
+// here is inferred from winding order, camera direction or normals — a render-time
+// heuristic is fine for cutaway shading and catastrophic for authored data.
+export type WallFinishSide = 'interior' | 'exterior';
+
+/** The two sides, in authored stack order (exterior-first), for iteration. */
+export const WALL_FINISH_SIDES: readonly WallFinishSide[] = ['exterior', 'interior'];
+
+/**
+ * An authored finish assignment for ONE side of a wall.
+ *
+ * `materialId` references the `@pryzm/core-app-model` material library. Lane Y
+ * owns that library's shape; this record stores the id only and resolves through
+ * the library's read accessors, so a library re-org cannot orphan authored data.
+ */
+export interface WallSideFinish {
+    /** Material library id, e.g. `'gypsum-skim'`. */
+    materialId: string;
+    /** Resolved '#rrggbb' snapshot so the render fast path needs no library read. */
+    materialColor?: string;
+    /** Display name snapshot, for schedules and the property panel. */
+    materialName?: string;
+}
+
+/**
+ * Per-side finish assignments, BESIDE the layer stack (see
+ * `WallSideFinishResolver` for the precedence ladder and the reasoning).
+ *
+ * The two sides are SEPARATE OPTIONAL FIELDS on purpose: a single-layer
+ * (`wt-monolithic`) wall — the type the founder draws with by default — has one
+ * layer that is simultaneously the outermost layer on BOTH sides. Storing the
+ * finish IN that layer would make interior and exterior the same value, i.e.
+ * painting one face would silently paint the other. That is the exact failure a
+ * naive "it round-trips" test passes.
+ */
+export interface WallSideFinishes {
+    interior?: WallSideFinish;
+    exterior?: WallSideFinish;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Contract §03-1.2 curved-wall placement descriptor.
  *
@@ -338,6 +393,25 @@ export interface WallData extends CoreElement {
     // WallStore.update() allows topology patches to stamp the side classification.
     frontSide?: WallSideClassification;
     backSide?:  WallSideClassification;
+    // ⚠ MEASURED 2026-08-18 (§FEAT-WALL-SIDE-FINISH): the two fields directly
+    // above have ZERO write sites and ZERO read sites in the entire repo. The
+    // "Topology Layer (Phase 2)" named as their producer exists
+    // (`packages/room-topology/src/TopologyLayer.ts`, wired at
+    // `apps/editor/src/engine/initScene.ts:441`) but computes bounding-box
+    // ADJACENCY only and is documented read-only, so it structurally cannot
+    // stamp them. The count of walls carrying a resolved side classification is
+    // therefore 0 — not "few", 0, and 0 by construction. `sideFinishes` below
+    // is keyed on the SEMANTIC side instead, and never on these.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ─── §FEAT-WALL-SIDE-FINISH: per-side finish material ────────────────────
+    // Authored, persisted, and INDEPENDENT per side. Rung 1 of the ladder in
+    // `WallSideFinishResolver.resolveWallSideFinish` — it overrides the finish
+    // layer's own material when both are present, so the layer stack stays the
+    // CONSTRUCTION truth and this stays the APPEARANCE truth (repainting a face
+    // must not move it by 12mm, which an in-stack model would do: wall.thickness
+    // must equal the layer sum, §03-WALL-THICKNESS-CONTRACT §1).
+    sideFinishes?: WallSideFinishes;
     // ─────────────────────────────────────────────────────────────────────────
 
     // ─── §VIEW-DIRTY-CHECK: Incremental render version ───────────────────────
