@@ -7278,3 +7278,74 @@ sees 0 of 33. See C84 §EI-1 and the write-only-sink finding.
 
 **NOT MEASURED:** whether a *straight-edged* slab still produces correct walls-by-slab (it should —
 do not regress it), and whether the malformed id also breaks undo for this command.
+
+---
+
+## L-966 — "Render pipeline retries exhausted — phase=error": the viewport dies and stays dead
+
+**Founder-reported on the live deploy, 2026-08-18.** QUEUED behind the in-flight work.
+
+```
+Error: Render pipeline retries exhausted — phase=error
+  at handlePipelineError        (engineLauncher…:1877)
+  at onStateChange              (engineLauncher…:1884)
+  at _emitState                 (domain-engine…:147)
+  at _onDestroyedGpuResource    (domain-engine…:147)
+  at GPUDevice.t                (domain-engine…:147)
+```
+
+**This is the [L-908](#l-908)/[L-930](#l-930) family reaching its terminal state**, and the stack is
+the `§RECOVERY-MUST-REFUSE` path exactly as lane V1 measured it: a WebGPU resource is destroyed →
+`_onDestroyedGpuResource` classifies it → the guard **refuses** the blind rebuild → `phase='error'`
+→ retries exhaust → the viewport is dead until the user clicks *"Reload viewport"*.
+
+### The refusal is CORRECT. The gap is what happens next.
+
+V1's measurement, verbatim in substance: `_onDestroyedGpuResource` refuses `_rebuildPipeline()`
+because **a light-owned `LightShadow.map` is structurally unreachable from a pipeline rebuild** —
+the rebuild touches the pipeline, the repair must touch the lights, and they are different objects.
+That reasoning is sound and the guard must not be weakened.
+
+⭐ **But the premise is true of `_rebuildPipeline()` and FALSE of `recoverFromRenderFailure()`,
+which CAN re-own light shadow maps — that is precisely what it was built to do, and L-908 records
+it SUCCEEDING.** So the automatic path refuses the repair that cannot help, never attempts the one
+that can, and the working repair sits behind a human click
+(`ViewportCrashGuard.ts:346`). This is [[refusing-half-needs-its-escape-hatch]]: **the hatch
+exists and is manual.**
+
+### Why it was deliberately NOT auto-wired, and what must land first
+
+I instructed V1 not to auto-wire it, and that still holds — but the reason is now the work item.
+**C04 §RECOVERY / L-663 is an open P1 violation for exactly this: recovery RESETS every counter
+that bounds it and adds none of its own.** Auto-calling the working repair without a bounded
+attempt counter builds an infinite recovery loop, which is worse than a dead viewport because it
+is a dead viewport that also burns the GPU.
+
+**So the order is: bounded counter FIRST, then auto-wire.** Not the reverse.
+
+### Three measured defects in this exact path, all still standing
+
+Re-measured by V1 against HEAD; only the line numbers had drifted from C04's text:
+1. **`onProjectSwitch()` zeroes `_retryCount`** (`RenderPipelineManager.ts:2081`) — the bound is
+   erased by an unrelated event.
+2. **`handlePipelineError()` is called with NO ARGUMENT** (`initScene.ts:3015`) although it accepts
+   `error?: Error` (`ViewportCrashGuard.ts:206`) — **the error identity is discarded at the moment
+   it matters most.**
+3. **`PipelineStatus` carries no `lastError`** (`:146-153`) — so the crash guard destroys the
+   evidence of its own trigger. That is C04 §RECOVERY's own stated subject, and it is why this
+   founder report gives us a phase and a stack but not the resource that died.
+
+### What must be true before this is called fixed
+1. A bounded, non-resettable attempt counter that `onProjectSwitch` cannot erase.
+2. `recoverFromRenderFailure()` attempted automatically **within that bound** before `phase='error'`.
+3. The error reaches the guard — pass the argument, and put `lastError` on `PipelineStatus`.
+4. ⛔ **`§RECOVERY-MUST-REFUSE` is NOT weakened.** It refuses a repair that provably cannot work;
+   the fix is to attempt a DIFFERENT repair, not to soften the refusal.
+5. When retries genuinely exhaust, the user is told **what died and why**, not just that it did.
+
+⚠ **NOT MEASURED — the trigger.** V1 closed two device-loss triggers today (the tier caster-set
+flip ordered against submission, and the curtain-wall PSO prewarm's mid-submit teardown), both live
+in production. **This report may be a THIRD trigger, or one of the two firing on a path V1 did not
+reach.** Establish which before assuming the closed ones regressed. V1's own enumeration of
+remaining `castShadow` writers (`RealSunService.ts:589`, `ShadowQualityUpgrader.restore():304`) is
+the place to start.
