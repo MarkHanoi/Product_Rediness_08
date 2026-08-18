@@ -139,6 +139,16 @@ export class ShadowQualityUpgrader {
      * and restore(). Null until apply() runs.
      */
     private _shadowsEnabled = true;
+    /**
+     * §SHADOW-ENABLE-IS-NOT-OURS (L-1000) — RETAINED FOR DIAGNOSTICS ONLY.
+     *
+     * This used to be a save/restore slot for `renderer.shadowMap.enabled`. It is
+     * no longer written back to the renderer by ANY method on this class; see the
+     * §SHADOW-ENABLE-IS-NOT-OURS block on {@link apply}. It is kept because the
+     * value observed at bind time is genuine evidence (a `true` here on the OBC
+     * renderer means somebody else has already breached the L-205 invariant) and
+     * because deleting it would silently drop that signal.
+     */
     private _prevShadowMapEnabled: boolean | null = null;
     /** Lights whose castShadow we cleared while shadows are OFF (to restore later). */
     private _lightsShadowDisabled: (THREE.DirectionalLight | THREE.SpotLight | THREE.PointLight)[] = [];
@@ -234,11 +244,67 @@ export class ShadowQualityUpgrader {
 
         const cfg = QUALITY_CONFIGS[level];
 
-        // Save renderer shadow map type + enabled flag, upgrade it
+        // ── §SHADOW-ENABLE-IS-NOT-OURS (L-1000, founder P0 2026-08-18 / L-981) ──
+        //
+        // `renderer.shadowMap.enabled` is NOT WRITTEN HERE. This line used to read
+        // `renderer.shadowMap.enabled = true`, and that single write is the whole of
+        // the founder's project-open crash.
+        //
+        // WHICH RENDERER THIS IS. `RenderingPipelineCoordinator` constructs the only
+        // ShadowQualityUpgrader in the app and binds it to whatever renderer
+        // `initScene.ts:2310` hands `coordinator.bind(scene, renderer)` — which is
+        // `postproductionRenderer.three`: **OBC's WebGL renderer**, not the live PRYZM
+        // WebGPU renderer. The coordinator's own header says so
+        // (`RenderingPipelineCoordinator.ts:472`, §PERF-HEAVY-SHADOW-OFF).
+        //
+        // WHY THE WRITE IS FATAL. Both renderers draw the SAME scene, so both see the
+        // same Pascal key light, and a THREE light has exactly ONE `LightShadow.map`
+        // slot. In three r183 `WebGLShadowMap.render()`:
+        //     :93   if ( scope.enabled === false ) return;      ← the gate we re-armed
+        //     :203  if ( shadow.map === null || typeChanged ) {
+        //     :209      shadow.map.depthTexture.dispose();
+        //     :214      shadow.map.dispose();   ← frees the LIVE WebGPU target
+        //     :227      shadow.map = new WebGLRenderTarget( … );
+        // The WebGPU `ShadowNode` holds its OWN reference to that target
+        // (ShadowNode.js:563-564) and keeps sampling it every frame, so the free lands
+        // as "Destroyed texture [Texture \"ShadowDepthTexture\"] used in a submit" —
+        // and it happens on an OBC frame: outside `RenderPipelineManager.render()`,
+        // outside every freeze latch, outside BOTH boundary queues, and unreachable
+        // from `_rebuildPipeline()`. That last property is exactly why
+        // §RECOVERY-MUST-REFUSE correctly refuses and why L-981's bounded ladder
+        // spends 2/2 and the viewport still dies.
+        //
+        // FOUR OTHER MODULES ALREADY DECLARE THIS INVARIANT, and this class was the
+        // one violator: `BimWorld.ts:117` (§FIX-SHADOWMAP-DUAL-RENDERER-CLAIM, L-205 —
+        // "MUST stay false"), `initScene.ts:1948/1979/2057` (asserted three times over
+        // the Phase-5 hand-over), `ViewController.ts:2486` ("BUG-FIX (bug 1):
+        // shadowMap.enabled MUST remain false"), and
+        // `RenderPipelineManager._applyShadowEnabledState()` — the L1 THREE owner
+        // (P2), which names itself "THE ONLY writer of `renderer.shadowMap.enabled`"
+        // and composes user preferences with ref-counted transient suppressions.
+        // THAT is the single declared authority for "may a shadow pass run"; an L4
+        // quality service is not. Callers that genuinely need shadows on or off
+        // dispatch into `setShadowsEnabledPreference()` / the suppression API there
+        // (as `initUI.ts:2798`'s Cast-shadows toggle already does).
+        //
+        // The RESOLUTION half of this class is unaffected and still lands, ordered,
+        // through §SHADOW-MAP-REALLOC-AT-BOUNDARY below.
         this._prevShadowType         = renderer.shadowMap.type;
         this._prevShadowMapEnabled   = renderer.shadowMap.enabled;
+        if (this._prevShadowMapEnabled) {
+            console.warn(
+                '[ShadowQualityUpgrader] §SHADOW-ENABLE-IS-NOT-OURS the bound renderer already has ' +
+                'shadowMap.enabled=true. This class no longer writes that flag, so it was armed by ' +
+                'someone else — if this renderer is OBC\'s WebGL one, that is the L-205 dual-renderer ' +
+                'claim and it will free the live WebGPU ShadowDepthTexture. See BimWorld.ts:117.',
+            );
+        }
+        // §FIX-SHADOW-SAMPLER-TYPE-PARITY — the TYPE write is retained. It is safe in a
+        // way the `enabled` write never was: every QUALITY_CONFIGS tier names
+        // PCFShadowMap, which is also THREE's default, so this assignment is a no-op
+        // against the value the renderer already carries and can never flip
+        // `typeChanged` (WebGLShadowMap.js:203) on a foreign pass.
         renderer.shadowMap.type     = cfg.shadowType;
-        renderer.shadowMap.enabled  = true;
 
         // Traverse scene, upgrade every shadow-capable light
         scene.traverse((obj) => {
@@ -295,12 +361,13 @@ export class ShadowQualityUpgrader {
         if (this._prevShadowType !== null) {
             this._renderer.shadowMap.type = this._prevShadowType;
         }
-        // §SHADOW-DEVICE-LOSS-FIX — restore the renderer's shadowMap.enabled flag
-        // (the survival shadows-off gate may have turned it off) and re-arm any
-        // lights whose castShadow we cleared.
-        if (this._prevShadowMapEnabled !== null) {
-            this._renderer.shadowMap.enabled = this._prevShadowMapEnabled;
-        }
+        // §SHADOW-ENABLE-IS-NOT-OURS (L-1000) — `shadowMap.enabled` is NOT restored
+        // here either. There is nothing to restore: apply() no longer changes it, so
+        // writing it back could only ever CLOBBER a value the real owner
+        // (RenderPipelineManager._applyShadowEnabledState) has since computed from the
+        // live preference + suppression latches. A restore of a value we never took is
+        // not symmetry, it is a second writer with a stale snapshot.
+        // Re-arm any lights whose castShadow we cleared — that lever IS ours.
         for (const light of this._lightsShadowDisabled) light.castShadow = true;
         this._lightsShadowDisabled = [];
 
@@ -369,12 +436,20 @@ export class ShadowQualityUpgrader {
      * shadows OFF removes the shadow pass entirely — a big perf win AND it stops the
      * ShadowDepthTexture allocate/dispose cycle at the source.
      *
-     * `enabled=false`:
-     *   - sets `renderer.shadowMap.enabled = false` (no shadow pass runs), and
-     *   - clears `castShadow` on every upgraded light so THREE does not even attempt
-     *     to allocate a shadow map for them; each light's old ShadowDepthTexture is
-     *     released via the deferred (post-submit) path — never mid-submit.
-     * `enabled=true` reverses both.
+     * `enabled=false` clears `castShadow` on every upgraded light so THREE does not
+     * even attempt to allocate a shadow map for them; each light's old
+     * ShadowDepthTexture is released by THREE on its own schedule, ordered by
+     * `RenderPipelineManager.runShadowCasterMutation()` (the coordinator wraps this
+     * call in it — §FIX-SHADOW-TIER-CASTER-DESTROY, L-908). `enabled=true` reverses it.
+     *
+     * §SHADOW-ENABLE-IS-NOT-OURS (L-1000) — this method NO LONGER writes
+     * `renderer.shadowMap.enabled`. It used to write it on the OBC WebGL renderer the
+     * coordinator binds, which re-armed the gate at WebGLShadowMap.js:93 and let a
+     * second renderer free the live WebGPU ShadowDepthTexture (see apply()). `castShadow`
+     * was always the lever that actually does the work on the WebGPU path — the flag
+     * write added nothing but the crash. The renderer-level flag belongs to
+     * `RenderPipelineManager._applyShadowEnabledState()`, the L1 THREE owner (P2), which
+     * is the single declared authority for it.
      *
      * Requires apply() to have run. Idempotent. Reversed by restore()/dispose().
      */
@@ -382,8 +457,6 @@ export class ShadowQualityUpgrader {
         if (!this._isApplied || !this._renderer) return;
         if (enabled === this._shadowsEnabled) return;
         this._shadowsEnabled = enabled;
-
-        this._renderer.shadowMap.enabled = enabled;
 
         if (!enabled) {
             // Turn shadows OFF: clear castShadow on the upgraded lights. The light-owned
