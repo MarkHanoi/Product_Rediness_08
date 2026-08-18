@@ -7283,6 +7283,50 @@ do not regress it), and whether the malformed id also breaks undo for this comma
 
 ## L-966 — "Render pipeline retries exhausted — phase=error": the viewport dies and stays dead
 
+**STATUS: CLOSED (response half) — 2026-08-18, `551e7131` + `a3c1ddf6`. TRIGGER STILL NOT MEASURED.**
+
+⚠ **The reported message was a FABRICATION.** `initScene.ts:3054` called
+`ViewportCrashGuard.handlePipelineError()` with **no argument**, so the guard minted its own default
+string — *"Render pipeline retries exhausted"*. `_retryCount` was **0** and the retry ladder never
+ran; the escalation came from `_onDestroyedGpuResource` setting `phase='error'` directly. The
+headline named a mechanism that did not execute and discarded the one that did. Anyone debugging
+from that sentence would have gone looking for a loop that was never entered.
+
+**Root cause: not an unbounded loop but a MISSING one.** Asking the L-716 question — *can the
+condition this loop waits on ever become true?* — found there was no loop to bound. Both branches
+reaching `phase='error'` did so after **zero** repair attempts: `§RECOVERY-MUST-REFUSE` correctly
+refused the blind `_rebuildPipeline()` (which cannot reach a light-owned `LightShadow.map`), and the
+recurrence branch did nothing at all. `recoverFromRenderFailure()` *can* repair the first case — that
+is what it was built for — but was reachable only from a human click. **The automatic path refused
+the repair that cannot help and never attempted the one that can.** Bounding a counter would have
+fixed nothing.
+
+A real contributor was the three failure classes sharing one policy: `onProjectSwitch()` zeroed
+`_retryCount`, so a lifecycle event erased the only bound on a live fault (L-663 defect 1).
+
+**The fix.** `MAX_AUTO_RECOVERY_ATTEMPTS = 2`, with the reasoning in the constant — not ∞ (pins the
+GPU, worse than a dead viewport), not 1 (attempt 2 runs against an already-reset node cache, a
+genuinely different starting state). `_autoRecoveryAttempts` is **per-GPU-device** and is never reset
+by recovery, `onProjectSwitch()`, or the downgrade — only by `recoverPipeline()` binding a new
+device. `PipelineStatus.lastError` + `_failLoudly()` mean every escalation now names what died, how
+many repairs were tried, and the raw GPU report; this also repaired `_diagnose()`, which keys on the
+error SIGNATURE and — with the identity discarded — had been **blaming the user's graphics driver for
+our own defect**. `§RECOVERY-MUST-REFUSE` is unweakened and still fires on every report. The manual
+lever is deliberately NOT bounded: the budget stops an unattended spin, never the user's own retry.
+
+Six existing tests asserted "fail loudly IMMEDIATELY" — they had pinned the dead viewport as correct.
+Their invariants are preserved and relocated: the blind rebuild is still refused every time, now
+proved by CALL ORDER (re-own before rebuild) rather than by absence.
+
+**Also closes L-663** (recovery resetting the counters that bound it).
+
+**STILL OPEN — the trigger.** This fixed the RESPONSE to the fault, not its cause. Whether this is a
+third device-loss trigger or one of V1's two firing on a new path is unmeasured;
+`RealSunService.ts:589` and `ShadowQualityUpgrader.restore():304` remain the unexamined `castShadow`
+writers. A recurrence now degrades to a bounded stutter plus an honest crash card rather than a dead
+viewport, so it is no longer a session-loss bug — but the fault itself is not fixed.
+
+
 **Founder-reported on the live deploy, 2026-08-18.** QUEUED behind the in-flight work.
 
 ```
@@ -7445,3 +7489,58 @@ the two are the SAME bug. Check before treating them separately.
 >
 > ⛔ **Options 1 and 2 are both plausible and they trade different things. Do not pick one in a
 > lane.** Bring the measurement to the founder with a rendered comparison.
+
+## L-968 — wall Y-datum: hosted openings sit OUTSIDE their own holes whenever a base offset is set (LIVE — was mis-recorded LATENT)
+
+**Reported by:** lane YD1, 2026-08-18. **Characterisation test:** `packages/geometry-wall/__tests__/WallYDatumAgreement.test.ts` (`9c090971`).
+
+C84 §9 recorded this delta as **LATENT**, on the stated ground that *"nothing authors either
+offset non-zero"*. **That ground is false, and it was never tested** — it was an assumption carried
+in the register as if it were a measurement, which is the precise shape §9 exists to prevent.
+
+Both offsets are authorable to any finite value from **two shipped user surfaces**, and both reach
+the geometry stores the builders read:
+
+- **Property panel** — `PropertyDescriptorGenerator.ts:64` (wall) and `:89` (slab) declare
+  `baseOffset: NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' })`. Argument 4 of
+  `NUMBER` is `editable` (`:30`), and both pass `true`. Committed via `PropertyPanel.ts:953` →
+  `element.updateParameters`.
+- **Chat** — `set-base-offset` is a live capability (`ChatCapabilityRegistry.ts:1097`, probe value
+  `0.15`), targeting wall, slab, column, roof, curtain-wall, furniture and handrail.
+- Both land in authoritative state via `UpdateElementParameterCommand.ts:113-114`
+  (`wall → wallStore`, `slab → slabStore`) and both `ProjectSerializer`s persist the value, so a
+  non-zero offset survives reload.
+
+**Consequence:** one *"set the base offset to 150 mm"* displaces every door and window on that wall
+from its own hole by `slabBaseOffset + 2 × wall.baseOffset`. Wall bodies render at
+`elevation + slabBaseOffset + 2 × wall.baseOffset`; hosted leaves at
+`elevation + sillHeight + height/2` (`DoorBuilder.ts:600`, `WindowBuilder.ts:927` —
+`slabBaseOffset` occurrences across `geometry-door/src` + `geometry-window/src` = **0**).
+
+**Two contributing defects that were on no register:**
+
+- **(A) `wall.baseOffset` is applied TWICE to the body.** `WallFragmentBuilder.ts:745` (and its
+  verbatim twin `WallRebuildCoordinator.ts:546`) folds it into `worldY`, which becomes the GROUP
+  ORIGIN at `:1114` — and every body arm then adds it again in group-local space. This is *why*
+  C84's leaf delta carries a factor of 2; the doubling itself had never been named.
+- **(B) Junction infill sits on a FOURTH datum.** `WallJunctionInfillManager.ts:122-123` reads the
+  wall BASELINE Y and the mesh is added untransformed. `CreateWallCommand.ts:341` stamps baseline Y
+  as `elevation + baseOffset`, while the plugin bridge stamps `ev.baseLine[i].y ?? 0` — **the same
+  field means two different things depending on which route created the wall.**
+
+**Why nobody saw it:** at zero offsets every datum collapses to a single value. The test pins that
+collapse as a CONTROL case, which is what makes the divergence visible at all.
+
+**Blocks:** re-enabling the single-volume CSG arm (`WallFragmentBuilder.ts:2666-2689`), which is
+switched off citing exactly this.
+
+**Paths checked and cleared**, so the finding is not overstated: `wall.setDimensions` refuses
+(`WALL_SET_DIMENSIONS_UNREACHABLE`); `slab.setBaseOffset` is a **dead verb** —
+`CommandEventBridge` has no case for it, so its DTO write never reaches the geometry store, and it
+is missing from the dead-verb table at `deadVerbAuthoritativeState.test.ts:199`; IFC/DXF/Rhino
+importers reference `baseOffset` nowhere; `DuplicateFloorPlanCommand` and `ImportProjectCommand`
+only round-trip it.
+
+**Status: OPEN.** `9c090971` is a characterisation ledger, not a fix — it records the numbers as
+they are so a real fix must come here and change them deliberately.
+
