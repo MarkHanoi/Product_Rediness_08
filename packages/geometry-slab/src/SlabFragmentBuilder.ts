@@ -10,6 +10,13 @@ import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-th
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { SlabData } from './SlabTypes';
 import { BimManager } from '@pryzm/core-app-model';
+// §FEAT-LANDSCAPE-SLAB-TYPES (L-963) / C100 — the THREE-free-facing edge of the
+// master material catalogue. `materialHexById` is the sanctioned way to read a
+// master row's colour without transcribing it (see materialLibrary.ts's header);
+// it returns undefined on a miss so a lost material stays distinguishable from a
+// grey one. `@pryzm/core-app-model` is already a dependency of this package, so
+// this reference costs no new edge and no lockfile change.
+import { materialHexById } from '@pryzm/core-app-model/material-library';
 // §FEAT-SLAB-LOD (L-286) — the SLAB row of ADR-121's LOD matrix. The slab's LOD consumer
 // is the MESH, because a slab has no plan symbol: in plan it lies BELOW the cut plane
 // (ADR-121 §3.1, "— (below cut)"), and its section and elevation are PROJECTIONS OF THIS
@@ -517,11 +524,41 @@ export class SlabFragmentBuilder {
                 const layerThickness = layer.thickness;
                 if (!layerThickness || layerThickness <= 0) continue;
                 const yBottom = yOffset - layerThickness;
+                // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) / C100 §2 — RESOLVE the layer's
+                // master-catalogue reference instead of discarding it.
+                //
+                // This line used to read `materialId: undefined, // per-layer colour
+                // overrides materialId`, and with `SlabLayer` carrying no id at all
+                // that was self-consistent: a layer could only ever be a hex. It is
+                // also why a landscape type could not be published honestly — the only
+                // way to make turf green was to COPY `landscape-grass-lawn`'s hex into
+                // the store, minting the duplicate C100 §0.2 exists to stop.
+                //
+                // Both fields are now forwarded, and they are two INDEPENDENT routes to
+                // the same master row: `materialId` takes the `materialMap` branch in
+                // `createSlabMeshWithEdges` (full params — metalness, roughness, and
+                // textures when they land), while `materialColor` carries the hex the
+                // master resolves to, for the case where no map is injected. The
+                // master decides the colour either way; neither route transcribes it.
+                //
+                // A layer that names NO material is untouched: both resolve to
+                // undefined and the stored hex is used exactly as before, which is what
+                // keeps the four structural built-ins byte-identical.
+                const layerMasterHex = layer.materialId ? materialHexById(layer.materialId) : undefined;
+                if (layer.materialId && !layerMasterHex) {
+                    // C84 §5 / C100 §5 — a miss is REPORTED, never silently substituted.
+                    // Falling through to the stored hex without saying so is how "this
+                    // material was lost" and "this layer is grey" become one value.
+                    console.warn(
+                        `[SlabFragmentBuilder] §FEAT-LANDSCAPE-SLAB-TYPES layer "${layer.name}" on slab "${data.id}" ` +
+                        `names material "${layer.materialId}", which is not in the master catalogue — falling back to its stored colour.`
+                    );
+                }
                 const layerData = {
                     ...data,
                     thickness: layerThickness,
-                    materialColor: layer.materialColor ?? data.materialColor ?? '#909090',
-                    materialId: undefined, // per-layer colour overrides materialId
+                    materialColor: layerMasterHex ?? layer.materialColor ?? data.materialColor ?? '#909090',
+                    materialId: layer.materialId,
                 };
                 const { mesh: lMesh, edges: lEdges } = SlabFragmentBuilder.createSlabMeshWithEdges(layerData, {}, this._deps);
                 // Shift sub-mesh up to the correct vertical band, and laterally to

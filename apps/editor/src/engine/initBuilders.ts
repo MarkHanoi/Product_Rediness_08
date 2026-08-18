@@ -585,9 +585,14 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // a renderer-layer library at module load time; the map is module-scoped
     // + immutable so a single resolution per builder suffices.
     let _roofMaterialMap: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | undefined;
+    // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — the SAME map, for the slab builder.
+    // `SlabBuilderDeps.materialMap` is typed `Map`, not `ReadonlyMap`, so it gets
+    // its own binding rather than a cast. Injected at the setDeps call below.
+    let _slabMaterialMap: Map<string, any> | undefined;
     try {
         const matLib = await import('@pryzm/core-app-model/material-library');
         _roofMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
+        _slabMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
     } catch (err) {
         console.warn('[initBuilders] §M-H1 roof materialMap unavailable (non-fatal):', err);
     }
@@ -691,7 +696,20 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // at SlabFragmentBuilder.ts:654 is always false, so openingHoles[] stays
     // empty and buildSlabGeometry() receives zero holes — no hole is ever punched
     // into the slab geometry even though CreateOpeningCommand runs successfully.
-    slabBuilder.setDeps({ openingStore });
+    // §FEAT-LANDSCAPE-SLAB-TYPES (L-963) — `materialMap` is injected HERE, and it
+    // never was before. `SlabBuilderDeps` has declared it since FIX-5, and
+    // `SlabFragmentBuilder`'s material branch reads
+    //   `if (data.materialId && materialMap)`
+    // — but the only construction of this builder (above) passes no deps and the
+    // only setDeps call was this line with `{ openingStore }` alone. So the map was
+    // ALWAYS undefined, that branch was DEAD IN PRODUCTION, and every slab in the
+    // product has been rendering from a raw hex with the master catalogue's
+    // metalness/roughness discarded. The roof builder four hundred lines up already
+    // threads the identical map (§M-H1); the slab was simply never given it.
+    //
+    // Routing around a dead branch the feature needs would have meant resolving
+    // colours in the builder and quietly leaving the PBR half broken.
+    slabBuilder.setDeps({ openingStore, materialMap: _slabMaterialMap });
     // §ROOF-HOSTED-OPENINGS — the SAME injection for the roof builder, for the
     // same reason spelled out above. `CreateRoofOpeningCommand` writes the
     // skylight into `openingStore`; without this line `RoofFragmentBuilder`
