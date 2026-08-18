@@ -55,6 +55,8 @@ import { serializeWallSnapshot } from './wallSnapshotUtils';
 import {
     withWallSideFinish,
     authoriseRoomScopedSideFinish,
+    maskedSideAfterSetting,
+    describeSingleLayerRenderLimit,
     type WallFinishSide,
     type WallSideFinish,
 } from '@pryzm/geometry-wall';
@@ -181,6 +183,19 @@ export interface WallSideFinishBatchSkip {
     reason: string;
 }
 
+/**
+ * §L960-STEP3 — a wall whose finish WAS written but which the 3D view cannot show.
+ *
+ * NOT a skip: the write is correct, wanted, undoable and visible in the property
+ * panel and in schedules. What is missing is the PIXELS, and that is precisely the
+ * half L-960 was about — the chat said "Done" and the drawing did not change.
+ */
+export interface WallSideFinishBatchMasked {
+    wallId: string;
+    /** The side that will NOT be visible in 3D once this write lands. */
+    maskedSide: WallFinishSide;
+}
+
 export class SetWallSideFinishBatchCommand implements Command {
     readonly affectedStores = ['wall'] as const;
     id = crypto.randomUUID();
@@ -190,6 +205,7 @@ export class SetWallSideFinishBatchCommand implements Command {
 
     private executedChildren: SetWallSideFinishCommand[] = [];
     private _skipped: WallSideFinishBatchSkip[] = [];
+    private _masked: WallSideFinishBatchMasked[] = [];
 
     constructor(private input: SetWallSideFinishBatchInput) {
         this.targetIds = input.wallIds === 'all' ? [] : [...input.wallIds];
@@ -197,6 +213,22 @@ export class SetWallSideFinishBatchCommand implements Command {
 
     /** Skips recorded by the most recent execute() (empty before execution). */
     get skipped(): readonly WallSideFinishBatchSkip[] { return this._skipped; }
+
+    /**
+     * Walls written successfully whose finish the 3D view cannot show (§L960-STEP3).
+     *
+     * ⚠ THIS IS A TRIPWIRE, NOT A LIVE PATH — and saying which it is, is the point.
+     * Before L-960 the GPU-instanced arm and every plain fragment arm dropped the
+     * finish silently, so ANY 1-layer wall landed here in spirit and the user was
+     * told "Done" anyway. Those arms honour it now, so a wall that carries ONE
+     * finish always renders it and this list stays EMPTY.
+     *
+     * What survives is a property of the GEOMETRY and not of the renderer: a wall
+     * drawn as one solid has ONE surface, so if BOTH sides carry a finish only one
+     * of them can be painted. That case is real, and it must be said in the same
+     * breath as "Done" rather than discovered from a render.
+     */
+    get masked(): readonly WallSideFinishBatchMasked[] { return this._masked; }
 
     private _resolveWallIds(ctx: CommandContext): string[] {
         if (this.input.wallIds === 'all') {
@@ -275,6 +307,7 @@ export class SetWallSideFinishBatchCommand implements Command {
                 // Redo re-runs execute() on the same instance — reset, don't throw.
                 this.executedChildren = [];
                 this._skipped = [];
+                this._masked = [];
 
                 const ids = this._resolveWallIds(ctx);
                 this.targetIds = [...ids];
@@ -295,10 +328,19 @@ export class SetWallSideFinishBatchCommand implements Command {
                         });
                         continue;
                     }
+                    // §L960-STEP3 — asked BEFORE the child writes, because the
+                    // question is "what will this wall look like afterwards" and
+                    // `maskedSideAfterSetting` composes the next value itself.
+                    const maskedSide = maskedSideAfterSetting(
+                        (ctx.stores.wallStore.getById(wallId) ?? {}) as never,
+                        this.input.side,
+                        this.input.finish,
+                    );
                     const r = child.execute(ctx);
                     if (r.success) {
                         this.executedChildren.push(child);
                         affected.push(wallId);
+                        if (maskedSide) this._masked.push({ wallId, maskedSide });
                     } else {
                         this._skipped.push({
                             wallId,
@@ -320,13 +362,36 @@ export class SetWallSideFinishBatchCommand implements Command {
                     ([reason, count]) => `${count}× ${reason}`,
                 );
 
+                // §L960-STEP3 — THE DISCLOSURE RIDES THE SUCCESS SENTENCE ITSELF.
+                //
+                // Deliberately concatenated into `summary` rather than appended as a
+                // separate `info` line: L-960 is a chat that announced a change the
+                // drawing did not carry, and a caveat on a line a UI may not render is
+                // the same defect with an alibi. Whoever shows the success sentence
+                // shows the caveat, or shows neither.
+                //
+                // The wording is `describeSingleLayerRenderLimit()` VERBATIM — the one
+                // place that sentence is written (C84 EI-8) — with a lead-in that names
+                // WHICH side is lost, because "interior" and "exterior" are not
+                // interchangeable to the person who just asked for one of them.
+                const maskedCount = this._masked.length;
+                const maskedTail = maskedCount === 0
+                    ? ''
+                    : this.input.side === 'interior'
+                        ? ` — ⚠ on ${maskedCount} of them the 3D view will NOT show it: ` +
+                          `${describeSingleLayerRenderLimit()}`
+                        : ` — ⚠ on ${maskedCount} of them this now covers the interior finish ` +
+                          `in the 3D view: ${describeSingleLayerRenderLimit()}`;
+
                 const summary =
                     `Set the ${this._valueLabel()} on ${changed} of ${total} wall${total === 1 ? '' : 's'}` +
-                    (skippedCount > 0 ? ` — ${skippedCount} skipped` : '');
+                    (skippedCount > 0 ? ` — ${skippedCount} skipped` : '') +
+                    maskedTail;
 
                 span.setAttribute('pryzm.wall.sideFinishBatch.total', total);
                 span.setAttribute('pryzm.wall.sideFinishBatch.changed', changed);
                 span.setAttribute('pryzm.wall.sideFinishBatch.skipped', skippedCount);
+                span.setAttribute('pryzm.wall.sideFinishBatch.maskedInView', maskedCount);
                 span.setAttribute('pryzm.wall.sideFinishBatch.side', this.input.side);
                 span.setAttribute('pryzm.wall.sideFinishBatch.scope', this.input.wallIds === 'all' ? 'all' : 'ids');
 
