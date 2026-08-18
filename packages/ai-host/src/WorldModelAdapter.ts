@@ -150,9 +150,21 @@ export interface BuildingContext {
         /** `null` when `boundingWallIds` was never written (C79 §7.1) — NOT 0,
          *  which would assert the room is unbounded. */
         boundingWallCount: CountOrUnknown;
-        adjacentRoomIds: string[];
-        connectedRoomIds: string[];
-        containedElementIds: string[];
+        /** §GR13-ADJACENCY-READER — `null` when the graph REFUSED to answer for
+         *  this room (never covered by a detection pass, or its region
+         *  conclusion invalidated by a bounding element that moved or was
+         *  deleted). NOT `[]`, which asserts the room touches nothing. */
+        adjacentRoomIds: readonly string[] | null;
+        /** §GR13-ADJACENCY-READER — `null` = undetermined. `[]` here is the
+         *  strong claim "no door connects this room to another"; the two must
+         *  never reach an AI prompt as the same value. */
+        connectedRoomIds: readonly string[] | null;
+        /** §GR13-CONTAINS-READER — `null` when the furniture writer has never
+         *  covered this room. NOT `[]`, which asserts the room is empty. */
+        containedElementIds: readonly string[] | null;
+        /** The named refusal reasons behind any `null` above (C78 §5 — the
+         *  model must be told WHAT it was not told). */
+        undeterminedRelationships: ReadonlyArray<{ readonly family: string; readonly reason: string }>;
     }>;
 }
 
@@ -195,9 +207,24 @@ class WorldModelAdapterImpl {
         }
 
         const roomSummaries = rooms.map((room: any) => {
-            const adjacentRoomIds = semanticGraphManager.getTargets(room.id, 'adjacentTo');
-            const connectedRoomIds = semanticGraphManager.getTargets(room.id, 'connectedTo');
-            const containedIds = semanticGraphManager.getTargets(room.id, 'contains');
+            // §GR13-ADJACENCY-READER / §GR13-CONTAINS-READER (C71 §4.4 · C78
+            // §1.4) — these three were bare `getTargets`, whose `[]` means both
+            // "this room touches/contains nothing" and "nobody has ever
+            // determined that", and the result went verbatim into an AI prompt
+            // as fact. Same treatment the store reads above already get: the
+            // refusal survives as `null` plus a NAMED reason, and the prompt
+            // serialiser renders it as the word "unknown".
+            const adjQ = semanticGraphManager.getAdjacentRooms(room.id);
+            const connQ = semanticGraphManager.getConnectedRooms(room.id);
+            const containsQ = semanticGraphManager.getContainedElements(room.id);
+            const adjacentRoomIds = adjQ.ok ? adjQ.adjacentRoomIds : null;
+            const connectedRoomIds = connQ.ok ? connQ.connectedRoomIds : null;
+            const containedIds = containsQ.ok ? containsQ.containedIds : null;
+            const undeterminedRelationships = [
+                ...(adjQ.ok ? [] : [{ family: 'adjacentTo', reason: adjQ.reason }]),
+                ...(connQ.ok ? [] : [{ family: 'connectedTo', reason: connQ.reason }]),
+                ...(containsQ.ok ? [] : [{ family: 'contains', reason: containsQ.reason }]),
+            ];
 
             // Update level summary area
             const levelEntry = levelMap.get(room.levelId);
@@ -216,6 +243,7 @@ class WorldModelAdapterImpl {
                 adjacentRoomIds:      adjacentRoomIds,
                 connectedRoomIds:     connectedRoomIds,
                 containedElementIds:  containedIds,
+                undeterminedRelationships,
             };
         });
 
@@ -426,8 +454,16 @@ class WorldModelAdapterImpl {
                 name:        r.name,
                 type:        r.occupancyType,
                 areaMtSq:   r.areaM2.toFixed(1),
-                adjacentTo:  r.adjacentRoomIds.map(id => id.substring(0, 8)),
-                connectedTo: r.connectedRoomIds.map(id => id.substring(0, 8)),
+                // §GR13-ADJACENCY-READER — the LLM-facing half. `null` reaches
+                // the model as the WORD "unknown", exactly as `renderCount`
+                // already does for the store counts below: an empty ARRAY here
+                // reads to a model as "this room borders nothing", which is a
+                // conclusion no one drew.
+                adjacentTo:  r.adjacentRoomIds === null ? 'unknown' : r.adjacentRoomIds.map(id => id.substring(0, 8)),
+                connectedTo: r.connectedRoomIds === null ? 'unknown' : r.connectedRoomIds.map(id => id.substring(0, 8)),
+                ...(r.undeterminedRelationships.length > 0
+                    ? { couldNotDetermine: r.undeterminedRelationships.map(u => `${u.family} (${u.reason})`) }
+                    : {}),
             })),
             semanticRelationships: ctx.semanticRelationshipCount,
             // §C78-U-INV-4 — the LLM-facing half of the fix. An unknown count

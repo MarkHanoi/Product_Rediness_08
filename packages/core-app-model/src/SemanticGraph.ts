@@ -412,6 +412,82 @@ export type HostedOpeningsQuery =
     };
 
 /**
+ * §GR13-ADJACENCY-READER — the shared refusal vocabulary of the two ROOM↔ROOM
+ * region-derived families, `adjacentTo` and `connectedTo`.
+ *
+ * These are CONCLUSIONS of a detection pass, not id-keyed facts, so they have
+ * exactly the three failure modes `boundedBy` has plus one of their own:
+ *
+ *  · `adjacency-undetermined-after-element-move` / `…-after-element-delete` —
+ *    forwarded verbatim from {@link BoundaryUndeterminedReason}, because the
+ *    region conclusion is ONE conclusion: the writer that marks the boundary
+ *    undetermined has, by the same act, made the room's adjacency undetermined.
+ *    On the DELETE path this is the load-bearing member — the `adjacentTo` /
+ *    `connectedTo` edges SURVIVE the purge (both endpoints are rooms, so the
+ *    deleted wall appears in no index) and harness H7 measured them not merely
+ *    unverified but FALSE. A bare `getTargets` hands those false edges back
+ *    looking confident; this reader refuses instead.
+ *
+ *  · `room-unknown-to-adjacency-writer` — no covered mark and no edges: the
+ *    detection pass has never completed over this room (or the id is not a
+ *    room). NOT "adjacent to nothing".
+ */
+export type AdjacencyUndeterminedReason =
+    | BoundaryUndeterminedReason
+    | 'room-unknown-to-adjacency-writer';
+
+/**
+ * §GR13-ADJACENCY-READER — typed result of
+ * {@link SemanticGraphManager.getAdjacentRooms}. FAILURE ≠ EMPTINESS (C71
+ * §4.4): `{ok:true, adjacentRoomIds:[]}` means "a detection pass covered this
+ * room and it touches no other room" — a positive, actionable answer.
+ * `{ok:false}` means the graph cannot answer, and names why.
+ */
+export type AdjacentRoomsQuery =
+    | { readonly ok: true; readonly roomId: string; readonly adjacentRoomIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly roomId: string;
+        readonly reason: AdjacencyUndeterminedReason;
+        readonly detail: string;
+    };
+
+/**
+ * §GR13-ADJACENCY-READER — typed result of
+ * {@link SemanticGraphManager.getConnectedRooms}. `{ok:true,
+ * connectedRoomIds:[]}` is the answer the "rooms without a door" query has
+ * always needed and never had: "a detection pass covered this room and no door
+ * connects it to any other room". `{ok:false}` is the answer that query used to
+ * render — silently — as the same sentence.
+ */
+export type ConnectedRoomsQuery =
+    | { readonly ok: true; readonly roomId: string; readonly connectedRoomIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly roomId: string;
+        readonly reason: AdjacencyUndeterminedReason;
+        readonly detail: string;
+    };
+
+/**
+ * §GR13-CONTAINS-READER — typed result of
+ * {@link SemanticGraphManager.getContainedElements}. `contains` is ID-KEYED
+ * (room → furniture/equipment), so unlike the two adjacency families it does
+ * NOT consult the region-invalidation mark: a moved bounding wall leaves the
+ * furniture in the room, and surviving a move is this family's CORRECT
+ * behaviour (see {@link SemanticGraphManager.invalidateRegionConclusionsForMovedElement}).
+ * Its only refusal is the `hosts` one: the writer has never covered this id.
+ */
+export type ContainedElementsQuery =
+    | { readonly ok: true; readonly roomId: string; readonly containedIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly roomId: string;
+        readonly reason: 'room-unknown-to-contains-writer';
+        readonly detail: string;
+    };
+
+/**
  * Plain-JSON serialisation of the SemanticGraph.
  * Stored in ProjectSnapshot.semanticGraph.
  */
@@ -563,6 +639,46 @@ export class SemanticGraphManager {
     private readonly _hostsCovered = new Set<string>();
 
     /**
+     * §GR13-CONTAINS-READER — room ids the `contains` writer
+     * (`CreateFurnitureCommand`) has made a DEFINITIVE statement about. Exactly
+     * the `_hostsCovered` disposition and for exactly the same reason: every
+     * `contains` edge is written through {@link addRelationship}, so the mark is
+     * taken at the writer with no second call site to keep in step, and it
+     * OUTLIVES the edges — a room whose last piece of furniture is deleted stays
+     * marked and answers `{ok:true, containedIds:[]}`, "known, and now contains
+     * nothing". Deleting the ROOM clears it (a dead id is unknown).
+     *
+     * Derived state, never serialized — same disposition as `_joinedToCovered`.
+     */
+    private readonly _containsCovered = new Set<string>();
+
+    /**
+     * §GR13-ADJACENCY-READER — room ids a COMPLETED room-detection adjacency
+     * pass has made a definitive statement about, letting
+     * {@link getAdjacentRooms} / {@link getConnectedRooms} distinguish "covered,
+     * touches nothing" from "no pass has ever covered this id".
+     *
+     * WHY AN EXPLICIT MARK AND NOT A PROXY. The obvious proxy — "the room holds
+     * `boundedBy` edges, so detection ran" — is UNSOUND against the writer as it
+     * is actually written: `DetectAllRoomsCommand` emits `boundedBy` per room in
+     * one try/catch and computes the pairwise adjacency scan in a SECOND,
+     * separate try/catch that warns and swallows. A pass whose adjacency half
+     * threw leaves every room bounded and none adjacent, and the proxy would
+     * read that as a confident "adjacent to nothing" for the whole level —
+     * manufacturing precisely the determined-from-missing-data answer this
+     * reader exists to prevent. The mark is therefore taken by
+     * {@link markAdjacencyCoverage}, which the writer calls only AFTER the scan
+     * completes; the `_joinedToCovered` idiom, whose writer is likewise a
+     * whole-level flush rather than a per-edge insert.
+     *
+     * It is NOT consulted before {@link _boundaryUndetermined}: an invalidated
+     * room is undetermined even though a pass once covered it.
+     *
+     * Derived state, never serialized — same disposition as `_joinedToCovered`.
+     */
+    private readonly _adjacencyCovered = new Set<string>();
+
+    /**
      * §GR12-BOUNDARY-INVALIDATION (C71 §1.2 semantic 5, C79 §5.2) — room ids
      * whose boundary conclusion is **`undetermined`**: a bounding element
      * moved, or was deleted, and no re-derivation (room detection) has run
@@ -628,6 +744,12 @@ export class SemanticGraphManager {
         // and a wall whose only opening edge already existed must not be left
         // unmarked by the early return below.
         if (rel.type === 'hosts') this._hostsCovered.add(rel.sourceId);
+
+        // §GR13-CONTAINS-READER — same shape, same reason: writing a `contains`
+        // edge IS the furniture writer's definitive statement about this room,
+        // and a re-emit of an existing edge is still a statement, so the mark
+        // precedes the idempotency guard.
+        if (rel.type === 'contains') this._containsCovered.add(rel.sourceId);
 
         // Idempotency guard — don't duplicate the same logical relationship
         const existing = this._findExact(rel.sourceId, rel.targetId, rel.type, rel.authoredBy);
@@ -703,6 +825,17 @@ export class SemanticGraphManager {
         // `_joinedToCovered` above.
         this._hostsCovered.delete(elementId);
 
+        // §GR13-CONTAINS-READER / §GR13-ADJACENCY-READER — a deleted ROOM is
+        // unknown to both writers again, not "covered, contains/touches
+        // nothing". Keyed on `elementId`, so deleting a piece of FURNITURE never
+        // clears its room's contains mark — that is the case the mark exists for
+        // — and deleting a WALL never clears a room's adjacency mark here (the
+        // wall is not the room; the delete-time invalidation above is what
+        // downgrades that room, and it downgrades it to UNDETERMINED, which is a
+        // different and stronger statement than "unknown").
+        this._containsCovered.delete(elementId);
+        this._adjacencyCovered.delete(elementId);
+
         // §GR12-BOUNDARY-INVALIDATION — a room whose every edge is purged
         // (deleted, or replaced by a detection cycle) is UNKNOWN again, not
         // undetermined: `getBoundingWalls` must refuse with
@@ -770,6 +903,177 @@ export class SemanticGraphManager {
         // 3) Coverage — every wall in this flush now has a definitive answer,
         //    including the ones that join nothing.
         for (const wallId of onLevel) this._joinedToCovered.add(wallId);
+    }
+
+    /**
+     * §GR13-ADJACENCY-READER (C71 §3.4 — maintain derived state AT the writer)
+     * — the room-detection adjacency pass declaring which rooms it has just made
+     * a definitive `adjacentTo` / `connectedTo` statement about.
+     *
+     * CALLED BY `DetectAllRoomsCommand` and `ReDetectRoomsCommand`, at the END
+     * of the pairwise scan and INSIDE its try block, so a scan that throws
+     * part-way marks nothing and every room on the level keeps refusing. That
+     * placement is the whole point (see {@link _adjacencyCovered}): both
+     * commands wrap the scan in a catch that logs a warning and continues, so a
+     * half-run pass is a live production state, not a hypothetical.
+     *
+     * Idempotent. Marking does NOT clear an undetermined boundary mark — only a
+     * fresh `boundedBy` write does that (see {@link addRelationship}) — so the
+     * two marks cannot be used to talk each other out of a refusal.
+     */
+    markAdjacencyCoverage(roomIds: readonly string[]): void {
+        for (const roomId of roomIds) this._adjacencyCovered.add(roomId);
+    }
+
+    /**
+     * §GR13-ADJACENCY-READER — the typed, refusal-bearing `adjacentTo` reader
+     * ("which rooms share a wall with room R?").
+     *
+     * THE ROW THIS CLOSES, named in this file before it was written — see
+     * {@link invalidateRegionConclusionsForDeletedElement}'s "NOT CLOSED BY THIS
+     * WRITER" note: `adjacentTo` / `connectedTo` survive a delete of the wall
+     * that authored them, because both endpoints are rooms and the deleted id
+     * appears in no index. Harness H7 proved those survivors FALSE, and the
+     * delete writer deliberately left them rather than trade a stale TRUE-shaped
+     * answer for a silent empty one — *"That needs its own reader first."* This
+     * is that reader: the undetermined mark is checked BEFORE the edges, so a
+     * room whose bounding element was deleted or moved refuses even while the
+     * stale edges are still there to be handed back.
+     *
+     * CONSUMERS: `SemanticQueryEngine`'s "rooms adjacent to X" handler, which
+     * printed `${adjacent.length} room(s) adjacent to "X"` straight from the bare
+     * lookup — so an undetermined room rendered as *"0 room(s) adjacent"*, C78
+     * §1.4's forbidden inference in user-visible prose; and
+     * `WorldModelAdapter`'s room summary, which fed the same `[]` to an AI
+     * prompt as fact.
+     *
+     * Order of decision, and none of it is interchangeable:
+     *   1. undetermined mark → refuse (dominates edges: the delete case has
+     *      edges AND is wrong).
+     *   2. edges → answer.
+     *   3. covered, no edges → the positive empty answer.
+     *   4. neither → refuse, unknown id.
+     *
+     * Complexity: O(k) in the edges from this room.
+     */
+    getAdjacentRooms(roomId: string): AdjacentRoomsQuery {
+        const undetermined = this._boundaryUndetermined.get(roomId);
+        if (undetermined !== undefined) {
+            return {
+                ok: false,
+                roomId,
+                reason: undetermined.reason,
+                detail:
+                    `adjacentTo lookup for room ${roomId}: the room's region conclusion is ` +
+                    `UNDETERMINED — ` + undetermined.detail +
+                    ` Adjacency is part of that ONE conclusion (C79 §5.3 — the element-level ` +
+                    `state is the WORST of its edges), so any adjacentTo edges still present ` +
+                    `are UNVERIFIED and, on the delete path, measured FALSE. This is NOT ` +
+                    `"adjacent to nothing" and NOT a preserved adjacency.`,
+            };
+        }
+        const adjacentRoomIds = [...new Set(this.getTargets(roomId, 'adjacentTo'))];
+        if (adjacentRoomIds.length > 0) return { ok: true, roomId, adjacentRoomIds };
+        if (this._adjacencyCovered.has(roomId)) return { ok: true, roomId, adjacentRoomIds: [] };
+        return {
+            ok: false,
+            roomId,
+            reason: 'room-unknown-to-adjacency-writer',
+            detail:
+                `adjacentTo lookup for room ${roomId}: the graph holds no adjacentTo edge from ` +
+                `this id, no undetermined mark, and no completed detection pass has covered it ` +
+                `(the id may not be a room; the project may have been restored from a slice with ` +
+                `no detection run since — the coverage mark is derived state and is not ` +
+                `serialized; or the pass's adjacency scan threw and was swallowed). This is NO ` +
+                `ANSWER, not "adjacent to nothing" — C71 §4.4, C78 §1.4.`,
+        };
+    }
+
+    /**
+     * §GR13-ADJACENCY-READER — the typed, refusal-bearing `connectedTo` reader
+     * ("which rooms does a door connect this room to?"). Same four-step decision
+     * as {@link getAdjacentRooms} and the same marks, because ONE detection pass
+     * writes both families in one loop: `connectedTo` is emitted for exactly the
+     * adjacent pairs whose shared wall carries a door.
+     *
+     * CONSUMER: `SemanticQueryEngine`'s "rooms without a door" handler. It read
+     * `getTargets(r.id, 'connectedTo')`, found `[]`, and listed the room under
+     * *"N room(s) without a door"* — a COMPLIANCE-SHAPED claim (a room with no
+     * door is an egress defect) manufactured from missing data. Before any
+     * detection has run, that handler indicted every room in the project.
+     *
+     * WHY THE EMPTY SUCCESS MATTERS MORE HERE THAN ANYWHERE ELSE: `{ok:true,
+     * connectedRoomIds:[]}` is that query's actual subject. The reader must be
+     * able to say it — refusing for every room would destroy the feature just as
+     * surely as answering `[]` for every room defamed it.
+     *
+     * Complexity: O(k) in the edges from this room.
+     */
+    getConnectedRooms(roomId: string): ConnectedRoomsQuery {
+        const undetermined = this._boundaryUndetermined.get(roomId);
+        if (undetermined !== undefined) {
+            return {
+                ok: false,
+                roomId,
+                reason: undetermined.reason,
+                detail:
+                    `connectedTo lookup for room ${roomId}: the room's region conclusion is ` +
+                    `UNDETERMINED — ` + undetermined.detail +
+                    ` Door connectivity is part of that ONE conclusion: the very wall that ` +
+                    `moved or was deleted may be the one that carried the door. This is NOT ` +
+                    `"connected to nothing", and a caller must not report it as a room ` +
+                    `without a door.`,
+            };
+        }
+        const connectedRoomIds = [...new Set(this.getTargets(roomId, 'connectedTo'))];
+        if (connectedRoomIds.length > 0) return { ok: true, roomId, connectedRoomIds };
+        if (this._adjacencyCovered.has(roomId)) return { ok: true, roomId, connectedRoomIds: [] };
+        return {
+            ok: false,
+            roomId,
+            reason: 'room-unknown-to-adjacency-writer',
+            detail:
+                `connectedTo lookup for room ${roomId}: the graph holds no connectedTo edge ` +
+                `from this id, no undetermined mark, and no completed detection pass has ` +
+                `covered it. This is NO ANSWER, not "no door connects this room" — reporting ` +
+                `it as a room without a door is C78 §1.4's forbidden inference dressed as a ` +
+                `compliance finding.`,
+        };
+    }
+
+    /**
+     * §GR13-CONTAINS-READER — the typed, refusal-bearing `contains` reader
+     * ("which furniture/equipment is in room R?").
+     *
+     * CONSUMERS: `WorldModelAdapter`'s room summary (`containedElementIds`, fed
+     * verbatim into AI prompts) and `HierarchyTreePanel`, which renders the
+     * room's children in the data workbench tree. Both read the bare lookup, so
+     * a room the furniture writer had never touched displayed as an EMPTY room
+     * rather than an unknown one.
+     *
+     * NO BOUNDARY MARK IS CONSULTED, deliberately: `contains` is id-keyed, and
+     * {@link invalidateRegionConclusionsForMovedElement} names it among the
+     * families a move must leave alone — a moved bounding wall does not move the
+     * furniture. Its only refusal is the `hosts` one.
+     *
+     * Complexity: O(k) in the edges from this room.
+     */
+    getContainedElements(roomId: string): ContainedElementsQuery {
+        const containedIds = [...new Set(this.getTargets(roomId, 'contains'))];
+        if (containedIds.length > 0) return { ok: true, roomId, containedIds };
+        if (this._containsCovered.has(roomId)) return { ok: true, roomId, containedIds: [] };
+        return {
+            ok: false,
+            roomId,
+            reason: 'room-unknown-to-contains-writer',
+            detail:
+                `contains lookup for room ${roomId}: the graph holds no contains edge from this ` +
+                `id and the furniture writer has never covered it (the id may not be a room; the ` +
+                `room may exist and have never had anything placed in it; or the project was ` +
+                `restored from a slice and no writer has run since — the coverage mark is ` +
+                `derived state and is not serialized). This is NO ANSWER, not "the room is ` +
+                `empty" — C71 §4.4, C78 §1.4.`,
+        };
     }
 
     /**
@@ -1192,6 +1496,8 @@ export class SemanticGraphManager {
         this._byTarget.clear();
         this._joinedToCovered.clear();
         this._hostsCovered.clear();
+        this._containsCovered.clear();
+        this._adjacencyCovered.clear();
         this._boundaryUndetermined.clear();
         // §GR10-DESERIALIZE-DROP-REPORT — the report describes ONE load of ONE
         // slice. Carrying it across a clear would let a project switch answer

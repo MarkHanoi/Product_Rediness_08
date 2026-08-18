@@ -571,7 +571,32 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         // the IFC importer emits it. So on a natively-authored project this group stays
         // empty for want of DATA, which is a different and now-visible problem from
         // calling a method that does not exist.
-        const containedIds: string[] = sg.getTargets(room.id, 'contains');
+        //
+        // §GR13-CONTAINS-READER (C71 §4.4 · C78 §1.4) — and that caveat is exactly
+        // why the bare read was wrong here: `getTargets(room.id, 'contains')` returned
+        // `[]` for "this room is empty" AND for "no writer has ever covered this room",
+        // and the early return below rendered NOTHING in both cases. A user reading the
+        // hierarchy tree could not tell an empty room from an unanswered one. The typed
+        // reader splits them; the refusal gets a VISIBLE row, per the
+        // `window.semanticGraphManager` contract in `src/global-window.d.ts`
+        // ("REFUSE with a named reason … never return []").
+        if (typeof sg.getContainedElements !== 'function') return;
+        const contained = sg.getContainedElements(room.id);
+        if (!contained.ok) {
+            wrapper.appendChild(this._renderElementGroup({
+                groupLabel: 'Furniture: cannot determine',
+                icon: '❔',
+                elements: [{
+                    id: `${room.id}:contains-undetermined`,
+                    elementType: 'furniture' as const,
+                    label: contained.reason,
+                    code: '—',
+                    meta: undefined,
+                }],
+            }, depth + 1));
+            return;
+        }
+        const containedIds: readonly string[] = contained.containedIds;
         if (containedIds.length === 0) return;
 
         const furnitureElements: RoomElement[] = containedIds

@@ -143,22 +143,75 @@ export class SemanticQueryEngine {
                     /rooms?\s+(?:that\s+have\s+)?no\s+door/,
                 ],
                 handler: (input) => {
-                    const rooms = this._getAll('room').filter((r: any) => {
-                        const targets = semanticGraphManager.getTargets(r.id, 'connectedTo');
-                        const doors = semanticGraphManager.getTargets(r.id, 'boundedBy').flatMap(wallId =>
-                            semanticGraphManager.getTargets(wallId, 'hosts').filter(tid => {
-                                const doorStore = storeRegistry.getStoreForType?.('door');
-                                return doorStore ? doorStore.getAll().some((d: any) => d.id === tid) : false;
-                            })
-                        );
-                        return doors.length === 0 && targets.length === 0;
-                    });
-                    return this._makeResult(input, `${rooms.length} room(s) without a door`, rooms, (r) => ({
+                    // §GR13-ADJACENCY-READER (C71 §4.4 · C78 §1.4 / §5.2) — THE
+                    // CONSUMER of the typed `connectedTo` reader, and the worst
+                    // of the bare-lookup sites this file had: it read
+                    // `getTargets(r.id, 'connectedTo')`, saw `[]`, and listed
+                    // the room under "N room(s) without a door" — a
+                    // COMPLIANCE-SHAPED claim (a room with no door is an egress
+                    // defect) manufactured from missing data. Before any
+                    // detection pass has run, or after a bounding wall moved,
+                    // every room in the project was indicted.
+                    //
+                    // The three answers are now kept apart: a room is accused
+                    // only on a DETERMINED empty, and a room the graph cannot
+                    // answer for becomes a VISIBLE `undetermined` row with the
+                    // named reason — never silently folded into the count
+                    // either way.
+                    const withoutDoor: any[] = [];
+                    const undetermined: Array<{ room: any; reason: string; detail: string }> = [];
+                    for (const r of this._getAll('room') as any[]) {
+                        const connected = semanticGraphManager.getConnectedRooms(r.id);
+                        if (!connected.ok) {
+                            undetermined.push({ room: r, reason: connected.reason, detail: connected.detail });
+                            continue;
+                        }
+                        if (connected.connectedRoomIds.length > 0) continue;
+
+                        // A room can also meet a door on a bounding wall without
+                        // that door joining it to a second room (an entrance
+                        // door). Both halves of that check are typed too: an
+                        // undetermined boundary, or a wall the hosts writer has
+                        // never covered, must not read as "no door on it".
+                        const bounding = semanticGraphManager.getBoundingWalls(r.id);
+                        if (!bounding.ok) {
+                            undetermined.push({ room: r, reason: bounding.reason, detail: bounding.detail });
+                            continue;
+                        }
+                        const doorStore = storeRegistry.getStoreForType?.('door');
+                        let doorCount = 0;
+                        let wallRefusal: { reason: string; detail: string } | null = null;
+                        for (const wallId of bounding.boundingWallIds) {
+                            const hosted = semanticGraphManager.getHostedOpenings(wallId);
+                            if (!hosted.ok) { wallRefusal = { reason: hosted.reason, detail: hosted.detail }; break; }
+                            doorCount += hosted.openingIds.filter(tid =>
+                                doorStore ? doorStore.getAll().some((d: any) => d.id === tid) : false,
+                            ).length;
+                        }
+                        if (wallRefusal) { undetermined.push({ room: r, ...wallRefusal }); continue; }
+                        if (doorCount === 0) withoutDoor.push(r);
+                    }
+
+                    const rows: NLQueryRow[] = withoutDoor.map((r: any) => ({
                         id: r.id,
                         label: r.name ?? 'Room',
                         type: 'room',
                         meta: 'no door found',
                     }));
+                    for (const u of undetermined) {
+                        rows.push({
+                            id: u.room.id,
+                            label: `${u.room.name ?? 'Room'}: cannot determine`,
+                            type: 'undetermined',
+                            meta: `${u.reason} — ${u.detail}`,
+                        });
+                    }
+                    const summary = undetermined.length === 0
+                        ? `${withoutDoor.length} room(s) without a door`
+                        : `${withoutDoor.length} room(s) without a door; ${undetermined.length} room(s) ` +
+                          `CANNOT BE DETERMINED and are NOT included in that count — this is not ` +
+                          `"they have a door", and it is not "they do not".`;
+                    return { query: input, summary, rows, durationMs: 0 };
                 },
             },
 
@@ -217,7 +270,30 @@ export class SemanticQueryEngine {
                     if (!anchor) {
                         return { query: input, summary: `No room named "${targetName}" found`, rows: [], durationMs: 0 };
                     }
-                    const adjacentIds = semanticGraphManager.getTargets(anchor.id, 'adjacentTo');
+                    // §GR13-ADJACENCY-READER — THE CONSUMER of the typed
+                    // `adjacentTo` reader. This printed `${adjacent.length}
+                    // room(s) adjacent to "X"` straight from the bare lookup,
+                    // so a room no detection pass had covered — and, worse, a
+                    // room whose bounding wall had just been DELETED, whose
+                    // surviving adjacentTo edges harness H7 measured FALSE —
+                    // answered with a confident number.
+                    const adj = semanticGraphManager.getAdjacentRooms(anchor.id);
+                    if (!adj.ok) {
+                        return {
+                            query: input,
+                            summary:
+                                `Cannot determine what "${anchor.name}" is adjacent to — ${adj.reason}. ` +
+                                `This is NOT "0 rooms adjacent to it".`,
+                            rows: [{
+                                id: anchor.id,
+                                label: 'Adjacent rooms: cannot determine',
+                                type: 'undetermined',
+                                meta: `${adj.reason} — ${adj.detail}`,
+                            }],
+                            durationMs: 0,
+                        };
+                    }
+                    const adjacentIds = adj.adjacentRoomIds;
                     const adjacent = allRooms.filter((r: any) => adjacentIds.includes(r.id));
                     return this._makeResult(input, `${adjacent.length} room(s) adjacent to "${anchor.name}"`, adjacent, (r) => ({
                         id: r.id,

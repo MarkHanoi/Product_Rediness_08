@@ -223,6 +223,15 @@ export class DetectAllRoomsCommand implements Command {
               }
             }
           }
+
+          // §GR13-ADJACENCY-READER (C71 §3.4) — this level's pairwise scan
+          // COMPLETED, so every room on it now has a definitive adjacency
+          // answer, including the ones that share a wall with nobody. Marked
+          // per level, inside the try: the catch below logs and continues, so a
+          // scan that threw part-way must leave the remaining levels UNCOVERED
+          // and refusing rather than let `getAdjacentRooms` manufacture
+          // "touches nothing" for rooms it never compared.
+          semanticGraphManager.markAdjacencyCoverage(created.map(r => r.id));
         }
       } catch (err) {
         console.warn('[DetectAllRoomsCommand] SemanticGraph adjacency write failed:', err);

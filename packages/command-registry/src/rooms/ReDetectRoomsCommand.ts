@@ -226,6 +226,15 @@ export class ReDetectRoomsCommand implements Command {
             }
           }
         }
+
+        // §GR13-ADJACENCY-READER (C71 §3.4) — the pairwise scan COMPLETED, so
+        // every room it compared now has a definitive adjacency answer,
+        // including the ones it wrote no edge for. Inside the try and after the
+        // loop on purpose: the catch below logs and continues, so a scan that
+        // threw part-way must leave the level UNCOVERED and refusing rather
+        // than let `getAdjacentRooms` report "touches nothing" for rooms it
+        // never reached.
+        semanticGraphManager.markAdjacencyCoverage(created.map(r => r.id));
       } catch (err) {
         console.warn('[ReDetectRoomsCommand] SemanticGraph adjacency write failed:', err);
       }
