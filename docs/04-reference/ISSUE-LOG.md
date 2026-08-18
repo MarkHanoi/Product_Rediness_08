@@ -7626,6 +7626,8 @@ Pinned by `BeamPlanLoadBearingParity.test.ts` (5/5); ARMs 1 and 2 both watched R
 
 ## L-971 — a beam drawn with the BEAM PLUGIN'S OWN TOOL produces no geometry at all (OPEN)
 
+**STATUS: CLOSED 2026-08-18 — `a1af61d4` (lane CEB1), RED-first.**
+
 **Lane EB1, 2026-08-18. Verified independently by the orchestrator before logging.**
 
 `CommandEventBridge.ts:561-583` handles single `beam.create` by reading `p.startPoint` / `p.endPoint`.
@@ -7643,6 +7645,8 @@ assigned to a lane yet.
 
 ## L-972 — curtain-wall bridge: five constant-false reads and two dropped schema fields (OPEN)
 
+**STATUS: CLOSED 2026-08-18 — `bd182447` (lane CEB1), RED-first.**
+
 **Lane EB1, 2026-08-18.** `initTools.ts:1460` tests `_cwEv['baseOffset']` and `:1466`
 `_cwEv['panelThickness']`. **Neither field exists on the L0 `CurtainWall` schema and neither is on
 CommandEventBridge's emit list**, so both `typeof … === 'number'` guards are constant-false and the
@@ -7657,12 +7661,16 @@ before the bridge's ternaries can become live.
 
 ## L-973 — the ceiling bridge hardcodes the entire finish specification (OPEN)
 
+**STATUS: CLOSED 2026-08-18 — `2259d75d` (lane CEB1), RED-first.**
+
 **Lane EB1, 2026-08-18.** The ceiling bridge hardcodes `label:'Ceiling'`, `ceilingNumber:''`,
 `baseOffset:0` and the whole `finishSpec` — `soffitColor:'#F5F5F0'`, `soffitPattern:'none'`,
 `exposedStructure:false`. Any authored ceiling finish is discarded at the bridge. EI-2a
 (named-subset re-emit).
 
 ## L-974 — the copy tool silently downgrades steel beams to plain concrete (OPEN)
+
+**STATUS: CLOSED 2026-08-18 — `3d5facb2` (lane CEB1), RED-first.**
 
 **Lane EB1, 2026-08-18.** `CopyPlanToolHandler.ts:444-454` sends `sectionType`, `steelProfileName`,
 `loadBearing`, `fireRating` and `material` on `beam.create`; `CommandEventBridge` lists **none** of
@@ -7776,3 +7784,28 @@ watched green against the slab arm, but `WallStore.update` has change-detection 
 (`_sourceBaseLine` clearing) that a full-record write may suppress. **Eleven of the thirteen stores'
 `update` semantics are NOT MEASURED**; we know one of thirteen is a replace, not how many. This needs
 a per-store merge-vs-replace declaration with a RED-first proof per family.
+
+## L-978 — a COPIED curtain wall is minted at the origin with default spacings, silently (OPEN)
+
+**Lane CEB1, 2026-08-18.** `CopyPlanToolHandler._copyCurtainWall` (`:299-307`) dispatches
+`curtain-wall.create` with `start`, `end`, `gridXSpacing`, `gridYSpacing`.
+**`CreateCurtainWallPayload` accepts none of those four** — it wants `baseLine`, `bayWidth`,
+`bayHeight`.
+
+So a copied curtain wall is minted at the schema's **default** baseLine `(0,0,0)→(4,0,0)` with
+default spacings, **regardless of where the original was or how it was divided**, and with no error.
+
+Same family as [L-974](#) and it lands in the same file, but a distinct defect: L-974's beam half is
+closed by `3d5facb2`. The column half of that file (`:393`) is **not** a defect — `Column.parse`
+throws and the copy refuses loudly, which is EI-3 and is the correct behaviour of the two.
+
+## L-979 — every ceiling prints an EMPTY mark in the ceiling schedule (OPEN, both creators)
+
+**Lane CEB1, 2026-08-18.** `ScheduleExtractor.ts:158` reads
+`properties?.mark ?? ceilingNumber ?? 'CG###'`. Both ceiling creators set `ceilingNumber: ''`, and
+**`''` is a value to `??`** — so the fallback never fires and the schedule prints an empty mark for
+every ceiling from either path.
+
+⚠ **Deliberately not fixed one-sided.** The bridge was left matching `CreateCeilingCommand.ts:210`
+because fixing one creator alone converts a **shared** defect into a **per-path divergence**, which
+C79 §7.4 rates as worse. Both creators must change together.
