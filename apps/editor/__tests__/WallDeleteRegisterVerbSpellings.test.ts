@@ -37,6 +37,8 @@ import {
   normalizeConsequenceCommand,
   CONSEQUENCE_NORMALIZERS,
 } from '../src/engine/consequence/ConsequencePreviewService';
+import { planOnly } from './_previewPlanAdapter';
+import type { PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The closed union (C78 §8.1), transcribed ONCE so a new member cannot slip in ─────
 const CLOSED_REASONS = [
@@ -222,10 +224,10 @@ function planner(opts: Opts = {}): WallDeleteConsequencePlanner {
 }
 
 /** The REAL preview service over the REAL planner, keyed exactly as the composition keys it. */
-function service(world: World, opts: Opts = {}): ConsequencePreviewService {
+function service(world: World, opts: Opts = {}): PlanOnlyPreviewProvider {
   const planners = new Map<string, ConsequencePlanner<never>>();
   planners.set('wall.delete', planner(opts) as unknown as ConsequencePlanner<never>);
-  return new ConsequencePreviewService(planners, contextFor(world));
+  return planOnly(new ConsequencePreviewService(planners, contextFor(world)));
 }
 
 const CMD = { type: 'wall.delete', payload: { id: 'wall-1' } };

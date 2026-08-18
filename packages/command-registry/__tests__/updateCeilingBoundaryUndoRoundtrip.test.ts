@@ -217,12 +217,31 @@ describe('UpdateCeilingBoundaryCommand — undo restores the pre-execute record 
         expect(bytes(store.raw('c1'))).toBe(written);
     });
 
-    it('(d) reproject: boundary polygon AND sketch are rewritten; undo is the documented nonUndoable no-op', () => {
+    /**
+     * ── INVERTED 2026-08-17 by §L-943, for the reasons set out at length in
+     *    `updateFloorBoundaryUndoRoundtrip.test.ts` (d). ────────────────────────
+     *
+     * ⭐ CEILINGS WERE NOT IN THE BRIEF. The ledger row named floors only, because
+     * a floor is what the founder saw change — 75.171 → 138.262 m². Ceilings run
+     * the SAME reproject-on-host-move mechanism through the SAME tracker, so they
+     * were corrupting identically and silently, with nobody looking at a ceiling's
+     * area to notice. The lane touched them unasked and was right to.
+     *
+     * That is the general shape worth remembering: a defect reported against one
+     * element type is a defect in the MECHANISM, and the mechanism's other
+     * consumers are already broken — they just have no witness.
+     *
+     * ⚠ C79 §5.1 still says `nonUndoable` for 'reproject'; the contract is what
+     * needs amending, not this test.
+     */
+    it('(d) reproject: boundary polygon AND sketch are rewritten; undo RESTORES the pre-execute record verbatim', () => {
         const store = makeCloningCeilingStore(makeCeiling('c1'));
         const ctx = makeCtx(store);
 
+        const before = bytes(store.raw('c1'));
+
         const cmd = new UpdateCeilingBoundaryCommand(reprojectPayload());
-        expect(cmd.nonUndoable).toBe(true);
+        expect(cmd.nonUndoable).toBe(false);
         expect(cmd.execute(ctx).success).toBe(true);
 
         const after = store.raw('c1');
@@ -232,11 +251,13 @@ describe('UpdateCeilingBoundaryCommand — undo restores the pre-execute record 
         expect(after.sketch.outerLoop.edges).toHaveLength(4);
         expect(after.sketch.innerLoops).toEqual(makeCeiling('c1').sketch.innerLoops);
 
-        const postExecute = bytes(after);
+        // ⭐ Byte-equality against the PRE-execute record — a restore, not a
+        //    re-derivation. Asserted at the STORED boundary, never at a reported
+        //    area.
         const undoRes = cmd.undo(ctx);
         expect(undoRes.success).toBe(true);
-        expect(undoRes.affectedElementIds).toEqual([]);
-        expect(bytes(store.raw('c1'))).toBe(postExecute);
+        expect(undoRes.affectedElementIds).toEqual(['c1']);
+        expect(bytes(store.raw('c1'))).toBe(before);
     });
 
     it('(e) §NO-EMPTY-MEANS-UNKNOWN: a short edge payload is refused and the store is untouched', () => {

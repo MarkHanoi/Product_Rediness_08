@@ -32,6 +32,8 @@ import {
   normalizeConsequenceCommand,
   CONSEQUENCE_NORMALIZERS,
 } from '../src/engine/consequence/ConsequencePreviewService';
+import { planOnly } from './_previewPlanAdapter';
+import type { PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The world: same fixture geometry as the reachability suite ───────────────────────
 
@@ -97,11 +99,11 @@ function realPlanner(): ConsequencePlanner<never> {
   }) as unknown as ConsequencePlanner<never>;
 }
 
-function svc(walls: Map<string, Wall>): ConsequencePreviewService {
-  return new ConsequencePreviewService(
+function svc(walls: Map<string, Wall>): PlanOnlyPreviewProvider {
+  return planOnly(new ConsequencePreviewService(
     new Map<string, ConsequencePlanner<never>>([['opening.move', realPlanner()]]),
     makeContext(walls),
-  );
+  ));
 }
 
 function world(): Map<string, Wall> {

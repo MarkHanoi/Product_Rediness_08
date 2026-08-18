@@ -251,16 +251,33 @@ describe('§C83-10.6 at the GATE — a mutual L/degree-2 corner is NOT blocked',
 // ARM 2 — ⭐ THE L-922 CONTROL, at the gate layer
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('§C83-10.6 CONTROL at the GATE — T/degree-3 is still blocked', () => {
+describe('§C83-10.6 CONTROL at the GATE — T/degree-3 is DETECTED and REPORTED, no longer refused', () => {
   /**
    * L-922, verbatim: an INTERIOR wall was moved and the cascade shifted the
    * PERIMETER's baseline start ~2.19 m, proven by three hosted doors re-seated
    * by the same delta — one clamped to offset 0.000, §10.2.4's named example of
    * a clamp standing where a refusal belongs.
    *
-   * The mutual-corner carve-out is only safe BECAUSE this stays blocked. If
-   * this test ever goes green by the gate allowing the move, L-942's fix has
-   * become L-922's cause.
+   * ⚠ THIS ARM WAS INVERTED ON 2026-08-17, AND THE HISTORY MATTERS MORE THAN
+   *   THE CURRENT VALUE — read it before flipping it back.
+   *
+   *   11:10  this arm was written, pinning `blocked === true`. Its own note read:
+   *          *"if this test ever goes green by the gate allowing the move, L-942's
+   *          fix has become L-922's cause."*
+   *   11:34  `b9f9d3b2`, a FOUNDER DECISION, made the incumbent arm REPORT rather
+   *          than REFUSE — 24 minutes later. Founder: *"THIS WAS ALL WORKING —
+   *          BUT WITH ISSUES … BUT NOW NOTHING WORKS."* The refusal was blocking
+   *          every wall move that breaks a junction, and it had shipped without
+   *          its escape hatch (C83 §10.6.7).
+   *
+   * So the sentence above was overtaken by a decision it could not have known
+   * about, and this arm sat RED — not because the gate regressed, but because a
+   * control outlived its law. The re-scope pins the DECISION, not the symptom:
+   * the breach is still detected and still named, and it is now also REPORTED.
+   *
+   * ⚠ The trade is deliberate and its cost is real: L-922 CAN happen again here.
+   * It is Ctrl+Z-able and it is not silent. If you are reverting this arm, you
+   * are reverting `b9f9d3b2`, which is the founder's call and not a test edit.
    *
    * ⚠ THE FIXTURE IS BYTE-FOR-BYTE ARM 1's. An earlier control in this family
    * was theatre: it used a mid-span partition, which `classifyWeldAuthorship`
@@ -280,15 +297,41 @@ describe('§C83-10.6 CONTROL at the GATE — T/degree-3 is still blocked', () =>
       { type: 'T', wallIds: ['w-north', 'w-west'] },
     ]);
 
+    const warns: string[] = [];
+    const warnSpy = vi.spyOn(console, 'warn')
+      .mockImplementation((...a: unknown[]) => { warns.push(a.map(String).join(' ')); });
     const res = dragNorthOut();
+    warnSpy.mockRestore();
 
-    expect(res.blocked).toBe(true);
+    // ── RE-SCOPED 2026-08-17 to `b9f9d3b2` (§L-942-UNBLOCK), a FOUNDER DECISION
+    //    taken 24 minutes after this arm was written. ────────────────────────────
+    // The gate no longer refuses on `incumbentBreach` (POLICY); it refuses only on
+    // `!pre.ok` (geometric impossibility). The founder took that trade knowingly —
+    // a known, visible, Ctrl+Z-able over-follow, against a hard stop on the single
+    // most common gesture in a BIM tool. The commit states the re-opening in
+    // advance: *"L-922 can happen again."*
+    //
+    // ⚠ WHAT THIS ARM STILL CONTROLS, and why it is not weaker than before: every
+    // assertion below is UNCHANGED. The preflight must still DETECT the breach,
+    // still name it, and still propose nothing for the incumbents. Only who ACTS
+    // on that detection moved. If the detection itself regresses, this goes red.
+    expect(res.blocked).toBe(false);
     expect(res.skipped).toBeUndefined();
-    // ⭐ AND THE BLOCK CAME FROM THE RE-WELD ARM, NOT THE OCCUPANCY PREDICATE.
-    // Without this line the test would pass if the walls merely crossed a door
-    // — a right answer for the wrong reason, which is the failure mode this
-    // whole lane exists to stop.
+    // ⭐ AND THE PASS CAME FROM THE POLICY ARM, NOT FROM A GEOMETRIC ALL-CLEAR.
+    // Without this line the test would pass if the re-weld had silently succeeded
+    // — a right answer for the wrong reason, which is the failure mode this whole
+    // lane exists to stop.
     expect(res.verdict?.valid).toBe(true);
+
+    // ⭐ THE HALF THAT MAKES THE TRADE SAFE. The founder's condition was not "let
+    // it through", it was "let it through AND TELL THEM". A permitted breach that
+    // says nothing is the L-921 defect wearing L-942's clothes, so the report is
+    // pinned here with its numbers — not merely asserted to be non-empty.
+    const unblock = warns.find(w => w.includes('§L-942-UNBLOCK'));
+    expect(unblock, 'a permitted incumbent breach must not be silent').toBeDefined();
+    expect(unblock).toContain('REPORTED, NOT REFUSED');
+    expect(unblock).toContain('Ctrl+Z');
+    expect(unblock).toContain('2 non-subject wall(s)');
 
     expect(preflight.calls).toHaveLength(1);
     const call = preflight.calls[0]!;
@@ -335,7 +378,16 @@ describe('§C83-10.6.3 #1 at the GATE — absent discriminator does NOT follow',
 
     const res = dragNorthOut();
 
-    expect(res.blocked).toBe(true);
+    // ── RE-SCOPED 2026-08-17 to `b9f9d3b2`, exactly as the T/3 arm above, and for
+    //    the same reason: the gate stopped refusing on POLICY. ──────────────────
+    // ⚠ ONLY THIS LINE MOVED. Everything below is the §10.6.3 #1 control proper —
+    // *a missing discriminator is "I could not determine", never "L"* — and it is
+    // deliberately left exactly as written. `b9f9d3b2` changed who ACTS on the
+    // breach; it did not license reading absence as permission. If the assertions
+    // below now fail, that is NOT this decision: it is the open §10.6.3 #1-vs-#2
+    // question (does an absent discriminator get MEASURED and followed?), which is
+    // a C83 amendment for the founder, not something to settle by editing a test.
+    expect(res.blocked).toBe(false);
     expect(res.skipped).toBeUndefined();
     expect(res.verdict?.valid).toBe(true);
 

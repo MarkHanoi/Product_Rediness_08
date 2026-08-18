@@ -59,6 +59,8 @@ import {
   normalizeConsequenceCommand,
   CONSEQUENCE_NORMALIZERS,
 } from '../src/engine/consequence/ConsequencePreviewService';
+import { planOnly } from './_previewPlanAdapter';
+import type { PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The closed union (C78 §8.1), transcribed ONCE so a new member cannot slip in ─────
 const CLOSED_REASONS = [
@@ -174,7 +176,7 @@ const quietValidator = { validateAll: () => [] as never[] };
 function buildService(
   world: World,
   opts: { systemTypes?: { has: (id: string) => boolean }; omitResolver?: boolean } = {},
-): ConsequencePreviewService {
+): PlanOnlyPreviewProvider {
   const planner = new WallBatchCreateConsequencePlanner({
     ...(opts.omitResolver ? {} : { resolveJunctions: junctionDouble as never }),
     occupancy: silentOccupancy as never,
@@ -187,7 +189,7 @@ function buildService(
   // the REAL normaliser registry, which is what makes this a reachability test and not a
   // direct planner call.
   planners.set('wall.batch.create', planner as unknown as ConsequencePlanner<never>);
-  return new ConsequencePreviewService(planners, contextFor(world));
+  return planOnly(new ConsequencePreviewService(planners, contextFor(world)));
 }
 
 /** Two partitions across room-1, both crossing wall-s and wall-n. */

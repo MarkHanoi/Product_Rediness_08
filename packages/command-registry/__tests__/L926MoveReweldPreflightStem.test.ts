@@ -92,6 +92,35 @@ describe('§L-926-REACH — the pre-flight lets the founder\'s gesture through',
         expect(r.entries[0]!.newBaseLine[1].z).toBeCloseTo(8, 9);
     });
 
+    /**
+     * ⚠ RED SINCE 2026-08-17, AND DELIBERATELY NOT RE-SCOPED. Read this before
+     *   "fixing" it — the fix is a founder ruling, not a test edit.
+     *
+     * MEASURED: `r.allowed` is now `true` where this pins `false`.
+     *
+     * WHY IT IS NOT THE §L-942-UNBLOCK DECISION. `b9f9d3b2` made the GATE stop
+     * acting on `incumbentBreach`; it did not change what the PRE-FLIGHT answers.
+     * This arm calls `previewMoveReweld` directly, so that decision cannot reach
+     * it. Checked, not assumed.
+     *
+     * WHAT IT IS. This fixture passes `joinedWallIds: ['A']` and **no `junctions`
+     * metadata at all**, so it lands on the absent-discriminator path — and C83
+     * §10.6.3 currently says two contradictory things about that path:
+     *
+     *   #1  a missing discriminator is *"I could not determine"*, never *"L"* —
+     *       so nothing may follow, and this refusal stands.
+     *   #2  degree is READ from the stored edge or **MEASURED** by counting
+     *       endpoints when absent — counting gives 2 here, so the partner
+     *       FOLLOWS and the refusal is wrong.
+     *
+     * Both are canonical. Under #2 this arm is stale; under #1 the engine has a
+     * real defect. **The same question makes `wallMoveGateMutualCorner.spec.ts`'s
+     * absent-discriminator arm and `L936InteriorLPairMove.measure.test.ts` (a)
+     * and (b) red — four failures, one unresolved contract.** Flipping any of
+     * them on the symptom is how this family cost six reports (C83 §10.6 history).
+     *
+     * Leave RED until the amendment lands, then close all four in one commit.
+     */
     it('a CORNER incumbent is still refused — the L-922 gate did not move', () => {
         // B moves 1 m east; A's endpoint sits AT B's old endpoint (a corner),
         // and the new corner falls 1 m past A's far end. Lengthening A is

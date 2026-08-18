@@ -38,6 +38,8 @@ import {
   normalizeConsequenceCommand,
   CONSEQUENCE_NORMALIZERS,
 } from '../src/engine/consequence/ConsequencePreviewService';
+import { planOnly } from './_previewPlanAdapter';
+import type { PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The world ────────────────────────────────────────────────────────────────────────
 
@@ -137,7 +139,7 @@ function buildService(
     omitValidator?: boolean;
     normalizers?: typeof CONSEQUENCE_NORMALIZERS;
   },
-): ConsequencePreviewService {
+): PlanOnlyPreviewProvider {
   const planner = new OpeningDeleteConsequencePlanner({
     ...(opts?.omitRelationships
       ? {}
@@ -148,7 +150,7 @@ function buildService(
   });
   const planners = new Map<string, ConsequencePlanner<never>>();
   planners.set('opening.delete', planner as unknown as ConsequencePlanner<never>);
-  return new ConsequencePreviewService(planners, contextFor(world), opts?.normalizers);
+  return planOnly(new ConsequencePreviewService(planners, contextFor(world), opts?.normalizers));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════

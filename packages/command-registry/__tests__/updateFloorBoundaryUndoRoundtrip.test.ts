@@ -209,12 +209,47 @@ describe('UpdateFloorBoundaryCommand — undo restores the pre-execute record by
         expect(bytes(store.raw('f1'))).toBe(written);
     });
 
-    it('(d) reproject: boundary polygon AND sketch are rewritten; undo is the documented nonUndoable no-op', () => {
+    /**
+     * ── INVERTED 2026-08-17 by §L-943. The old arm pinned the DEFECT. ──────────
+     *
+     * It read *"undo is the documented nonUndoable no-op"* and asserted the store
+     * still held the POST-execute bytes after `undo()`. That is "undo does
+     * nothing", asserted as correct, on the one command whose job is to put a
+     * floor boundary back.
+     *
+     * The premise behind `nonUndoable: true` was that undoing the WALL move would
+     * re-project the floor back by itself. It did not — it RECONSTRUCTED, and a
+     * reconstruction is not a restore (C71). Two measured ways it differed:
+     *   1. re-projection is not an involution: the inset is measured against the
+     *      PRE-mutation centreline, which on the reverse pass is the MOVED wall.
+     *      `floorFollowUndoRestore.test.ts` measured 22.040 m² → 51.040 m² from a
+     *      single Ctrl+Z; production showed 75.171 → 138.262 m².
+     *   2. the forward pass REFUSES a self-intersecting ring and writes nothing —
+     *      and the reverse pass wrote anyway. Nothing to reverse, reversed.
+     * Even the "working" arm was lossy: 0.1 → 0.09999999999999964, and
+     * `metadata.version` climbed 1 → 3 per move+undo cycle.
+     *
+     * ⚠ ONE Ctrl+Z still reverts the whole gesture. That was the real concern
+     * behind `nonUndoable`, and it is preserved by a different mechanism: the
+     * tracker dispatches with `source: 'STRUCTURAL_CASCADE'`, so this lands in the
+     * spawning gesture's `structuralChildren` rather than as its own history entry
+     * (§L-874-ONE-UNDO). Undoability and one-gesture-one-undo were never actually
+     * in tension; the old header assumed they were.
+     *
+     * ⚠ C79 §5.1 still SAYS `nonUndoable` for 'reproject'. The contract is what is
+     * now out of date, not this test — flagged for amendment, not silently left.
+     */
+    it('(d) reproject: boundary polygon AND sketch are rewritten; undo RESTORES the pre-execute record verbatim', () => {
         const store = makeCloningFloorStore(makeFloor('f1'));
         const ctx = makeCtx(store);
 
+        // The value undo owes the user, captured BEFORE anything runs. The old
+        // arm never took this snapshot — which is precisely why it could assert
+        // "unchanged since execute" and call that a pass.
+        const before = bytes(store.raw('f1'));
+
         const cmd = new UpdateFloorBoundaryCommand(reprojectPayload());
-        expect(cmd.nonUndoable).toBe(true);
+        expect(cmd.nonUndoable).toBe(false);
         expect(cmd.execute(ctx).success).toBe(true);
 
         const after = store.raw('f1');
@@ -224,11 +259,14 @@ describe('UpdateFloorBoundaryCommand — undo restores the pre-execute record by
         expect(after.sketch.outerLoop.edges).toHaveLength(4);
         expect(after.sketch.innerLoops).toEqual(makeFloor('f1').sketch.innerLoops);
 
-        const postExecute = bytes(after);
+        // ⭐ THE ASSERTION THE 63 m² GOT THROUGH. Byte-equality against the
+        //    PRE-execute record — a restore, not a re-derivation that merely
+        //    lands somewhere plausible. Measured at the STORED boundary, never at
+        //    a reported area, because the reported area is what looked fine.
         const undoRes = cmd.undo(ctx);
         expect(undoRes.success).toBe(true);
-        expect(undoRes.affectedElementIds).toEqual([]);
-        expect(bytes(store.raw('f1'))).toBe(postExecute);  // no-op, per C79 §5.1
+        expect(undoRes.affectedElementIds).toEqual(['f1']);
+        expect(bytes(store.raw('f1'))).toBe(before);
     });
 
     it('(e) §NO-EMPTY-MEANS-UNKNOWN: a short edge payload is refused and the store is untouched', () => {

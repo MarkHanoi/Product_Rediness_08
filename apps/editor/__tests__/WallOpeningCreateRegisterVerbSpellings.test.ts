@@ -35,6 +35,8 @@ import {
   normalizeConsequenceCommand,
   CONSEQUENCE_NORMALIZERS,
 } from '../src/engine/consequence/ConsequencePreviewService';
+import { planOnly } from './_previewPlanAdapter';
+import type { PlanOnlyPreviewProvider } from './_previewPlanAdapter';
 
 // ─── The world: same fixture geometry as the opening.move suites ──────────────────────
 
@@ -101,11 +103,11 @@ function realPlanner(): ConsequencePlanner<never> {
   }) as unknown as ConsequencePlanner<never>;
 }
 
-function svc(walls: Map<string, Wall>): ConsequencePreviewService {
-  return new ConsequencePreviewService(
+function svc(walls: Map<string, Wall>): PlanOnlyPreviewProvider {
+  return planOnly(new ConsequencePreviewService(
     new Map<string, ConsequencePlanner<never>>([['wall.opening.create', realPlanner()]]),
     makeContext(walls),
-  );
+  ));
 }
 
 function world(): Map<string, Wall> {
@@ -330,12 +332,12 @@ describe('preview answers for the create spellings — real planner, real occupa
   });
 
   it('an ABSENT occupancy reader is ENGINE_NOT_AVAILABLE — "not checked", never "checked and clear"', async () => {
-    const bare = new ConsequencePreviewService(
+    const bare = planOnly(new ConsequencePreviewService(
       new Map<string, ConsequencePlanner<never>>([
         ['wall.opening.create', new WallOpeningCreateConsequencePlanner({}) as unknown as ConsequencePlanner<never>],
       ]),
       makeContext(world()),
-    );
+    ));
     const plan = (await bare.preview(VIA_ADAPTER))!;
     const u = plan.undetermined.find((x) => x.reason === 'ENGINE_NOT_AVAILABLE');
     expect(u).toBeDefined();
