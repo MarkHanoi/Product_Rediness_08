@@ -1145,7 +1145,6 @@ export class WallFragmentBuilder {
         const _layers = (wall as { layers?: { materialColor?: string }[] }).layers;
         const _layerCount = _layers?.length ?? 0;
 
-<<<<<<< HEAD
         // §L955-INSTANCED-ARM-DROPS-RAKE (founder 2026-08-18) — A RAKED WALL LEAVES THE
         // INSTANCED PATH. This list tested five conditions and the rake was not among
         // them, while `WallInstanceBridge.register` reads `rakeAngleDeg` NOWHERE: a plain,
@@ -1167,7 +1166,6 @@ export class WallFragmentBuilder {
         // share is untouched. Only a genuinely leaning wall opts out, and it opts out to
         // be drawn RIGHT. Pinned both ways — a raked wall must NOT instance, a vertical
         // one MUST — so a later "optimisation" cannot quietly re-admit the raked case.
-=======
         // §WALL-PROFILE — condition 6, and it is a CORRECTNESS condition like condition 5.
         // The instanced arm draws a unit BoxGeometry positioned by ONE Matrix4 built as
         // translation × rotationY × scale (`WallInstanceBridge.ts:104-112`). A T·R·S product
