@@ -772,14 +772,74 @@ export class SelectionManager implements ISelectionManager {
             this.applyHighlight(sel);
             // Re-attach the gizmo in case the guard above detached it.
             const elemType = (sel.userData?.elementType ?? sel.userData?.type ?? '').toLowerCase();
-            if (elemType !== 'room') this.transformControls.attach(sel);
+            if (elemType !== 'room') {
+                this.transformControls.attach(sel);
+                // §SELECT-GIZMO-REATTACH (L-961) — THE ROOT is that the line above
+                // is not, on its own, a re-bind. For most element types the gizmo
+                // does drive the root directly, but for the ones with a dedicated
+                // controller it does NOT: a WALL's gizmo lives on
+                // WallTransformController's invisible, wall-ALIGNED proxy, a
+                // STAIR's on StairTransformController's, and a hosted door/window
+                // is a 1-axis local-space binding configured by
+                // HostedElementDragController. Those controllers re-bind on an
+                // EVENT, and this branch emitted none — so every rebuild that
+                // reused its root ripped the gizmo off the proxy onto the raw
+                // group, silently dropping setSpace('local') and the wall's axis
+                // alignment. The founder hit it by adding a window to a selected
+                // wall, but MEASURED (SelectionManager.gizmoRebindOnRebuild
+                // PROBE 3) it is EVERY wall rebuild — move, height, type, or a
+                // neighbour's join — because WallFragmentBuilder keeps a
+                // PERSISTENT root in `wallRoots` and registerRoot() is idempotent
+                // on it, so a wall NEVER fires onRootSwapped and ALWAYS lands here.
+                this._reanchorTransformControllers(sel);
+            }
             return;
         }
 
         // Builder swapped in a brand-new root → re-select it. select() resets
         // selectedObject, re-applies highlight, re-attaches the gizmo, and
         // re-fires bim-selection-changed so the per-type controllers re-bind.
+        //
+        // NOTE — deliberately NO _reanchorTransformControllers() call on this arm.
+        // select() already dispatches `bim-selection-changed`, which runs the same
+        // wall/stair/endpoint/hosted activateFor() chain; re-anchoring here as well
+        // would run it twice per rebuild.
         this.select(freshRoot);
+    }
+
+    /**
+     * §SELECT-GIZMO-REATTACH (L-961) — tell the per-type transform controllers to
+     * re-bind their gizmo to `obj` after a rebuild that REUSED the element's root.
+     *
+     * `pryzm-reanchor-transform` is the channel that already exists for exactly
+     * this: `registerTransformDragHandler` subscribes it and re-runs
+     * `wallTransformController` / `stairTransformController` /
+     * `wallEndpointController` / `hostedDragController` `.activateFor(obj)`, which
+     * is what re-seats a wall's oriented proxy and a hosted element's 1-axis
+     * constraint. `LevelExplodeController._refreshSelectionAnchor()` emits the same
+     * event for the same reason after an explode lift.
+     *
+     * It is emitted here rather than `bim-selection-changed` on purpose: this fires
+     * on EVERY rebuild of the selected element, and `bim-selection-changed`
+     * re-populates every property panel — which would make an edit-in-progress
+     * (a value the architect is typing into the panel) churn on each rebuild.
+     * `pryzm-reanchor-transform` moves the gizmo and nothing else, and that
+     * distinction is stated in the explode controller's own comment.
+     *
+     * Never called with a detached object: both call sites have already proved
+     * `_isAttachedToScene(obj)`. That matters — re-arming `activateFor()` on a
+     * detached object is precisely what L-233 P4 found re-creating the per-frame
+     * "must be a part of the scene graph" flood the guard exists to stop.
+     */
+    private _reanchorTransformControllers(obj: THREE.Object3D): void {
+        try {
+            (window as { runtime?: { events?: { emit?: (e: string, p: unknown) => void } } })
+                .runtime?.events?.emit?.('pryzm-reanchor-transform', { object: obj });
+        } catch (err) {
+            // A controller that throws must never break re-resolution: the
+            // selection and highlight above are already correct.
+            console.warn('[SelectionManager] §SELECT-GIZMO-REATTACH re-anchor emit failed:', err);
+        }
     }
 
     /**

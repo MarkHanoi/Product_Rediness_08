@@ -84,6 +84,10 @@ function makeDom(): HTMLElement {
   } as unknown as HTMLElement;
 }
 
+type RuntimeWindow = {
+  runtime: { events: { on: (e: string, cb: (p: unknown) => void) => void; emit: (e: string, p: unknown) => void } };
+};
+
 // ── The independent oracle ───────────────────────────────────────────────────
 
 /** Walks the parent chain by hand. Shares no code with the subject. */
@@ -143,6 +147,7 @@ describe('L-961 — does re-resolution re-BIND the gizmo, or only the selection?
   let priv: { selectedObject: THREE.Object3D | null; select: (o: THREE.Object3D) => void };
   let selectionEvents: Array<THREE.Object3D | null>;
   let selectionListener: (e: Event) => void;
+  let reanchors: THREE.Object3D[];
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -179,11 +184,31 @@ describe('L-961 — does re-resolution re-BIND the gizmo, or only the selection?
     };
     window.addEventListener('bim-selection-changed', selectionListener);
 
+    // The runtime bus, carrying the two subscriptions registerTransformDragHandler
+    // registers on it. `pryzm-reanchor-transform` is the production re-bind channel
+    // and exists ONLY here, so a test that omitted it could not see the fix work.
+    reanchors = [];
+    const handlers: Record<string, Array<(p: unknown) => void>> = {};
+    (window as unknown as { runtime: unknown }).runtime = {
+      events: {
+        on: (evt: string, cb: (p: unknown) => void) => { (handlers[evt] ??= []).push(cb); },
+        emit: (evt: string, p: unknown) => { for (const cb of handlers[evt] ?? []) cb(p); },
+      },
+    };
+    (window as unknown as RuntimeWindow).runtime.events.on('pryzm-reanchor-transform', (payload) => {
+      const obj = (payload as { object?: THREE.Object3D | null })?.object
+        ?? (mgr as unknown as { selectedObject: THREE.Object3D | null }).selectedObject;
+      if (!obj) return;
+      reanchors.push(obj);
+      wallCtl.activateFor(obj);   // the wall arm of the four-controller chain
+    });
+
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     window.removeEventListener('bim-selection-changed', selectionListener);
+    delete (window as unknown as { runtime?: unknown }).runtime;
     warnSpy.mockRestore();
     vi.useRealTimers();
     elementRegistry.clear();
@@ -209,7 +234,8 @@ describe('L-961 — does re-resolution re-BIND the gizmo, or only the selection?
     expect(isWallProxy(tc.object)).toBe(true);
     expect(isInSceneGraph(scene, tc.object)).toBe(true);
 
-    const eventsBefore = selectionEvents.length;
+    const eventsBefore    = selectionEvents.length;
+    const reanchorsBefore  = reanchors.length;
 
     // Rebuild: children disposed + rebuilt, SAME root re-registered, store emits.
     wall.clear();
@@ -223,9 +249,12 @@ describe('L-961 — does re-resolution re-BIND the gizmo, or only the selection?
     expect(isWallProxy(tc.object)).toBe(true);
 
     // MECHANISM — stated separately so a regression names its own cause: the
-    // per-type controllers re-bind ONLY on `bim-selection-changed`. A re-resolve
-    // that re-attaches the gizmo itself and emits nothing cannot reach them.
-    expect(selectionEvents.length).toBeGreaterThan(eventsBefore);
+    // per-type controllers re-bind ONLY on an event. A re-resolve that
+    // re-attaches the gizmo itself and emits nothing cannot reach them.
+    expect(reanchors.length).toBeGreaterThan(reanchorsBefore);
+    // ...and it must be the CHEAP channel: `bim-selection-changed` re-populates
+    // every property panel, and this fires on every rebuild of the selection.
+    expect(selectionEvents.length).toBe(eventsBefore);
   });
 
   // ── PROBE 2 — the WINDOW arm (fresh-root builders) ────────────────────────
