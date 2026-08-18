@@ -6997,3 +6997,48 @@ all**. The layer table exposes Name / Function / MM only, and `Color Override` i
 material — while `WallLayer.materialId` (`WallTypes.ts:120`) and `wall.materialId` (`:323`) both
 exist in the model. The founder has asked for per-layer, per-side material control from the panel as
 well as from chat. Same `materialId → master catalogue` resolution path; same proof obligation.
+
+---
+
+## L-961 — creating a window detaches the selection gizmo from its own wall
+
+**Founder-reported on the live deploy `ce400c09`, 2026-08-18.** Creating a window produces:
+
+```
+[SelectionManager] §SELECT-GIZMO-REATTACH gizmo attached to a detached object —
+detaching to stop the per-frame flood
+  guardTransformControlsAttachment ← _reresolveSelectionAfterRebuild ← registerRoot
+  ← rebuild ← _drainBuildQueue ← (frame tick)
+```
+
+⚠ **The enormous rAF stack in the founder's console is Chrome's async trace, not a repeated
+error.** It is ONE occurrence. Do not chase a "flood" — the guard's own name says it EXISTS to
+stop one.
+
+**The chain, read off the trace:** creating a window rebuilds the host wall →
+`_drainBuildQueue` → `rebuild` → `registerRoot` → the wall's old THREE object is replaced →
+`_reresolveSelectionAfterRebuild` runs → finds the `TransformControls` gizmo still attached to
+the **detached** old object → `guardTransformControlsAttachment` detaches it.
+
+**The guard is correct and is not the bug.** Detaching beats a gizmo driving a corpse at 60 fps.
+But it is a SYMPTOM SUPPRESSOR: the user selected a wall, added a window to it, and lost the
+selection handles on the wall they are still working on. The re-resolution should **re-bind the
+gizmo to the NEW mesh**, since the element identity is unchanged — only its THREE object was
+replaced.
+
+⭐ **Same family as the audits' recurring theme:** a rebuild swaps the object under a holder that
+keeps a direct reference. Compare [L-948](#l-948) (GPU resources outliving their context across a
+renderer swap) and the §SELECT-GIZMO-REATTACH guard's own existence — three places now where a
+reference survives the thing it points at.
+
+### What must be true before this is called fixed
+1. Select a wall, create a window in it — **the gizmo stays on the wall**, re-bound to the new mesh.
+2. If re-binding is genuinely impossible for some element kinds, the guard stays and the SELECTION
+   is cleared **visibly**, not silently — the user must not be left with an element that looks
+   selected and has no handles.
+3. ⚠ **Do not "fix" this by removing the guard.** It is the only thing preventing a per-frame
+   flood against a detached object, and its own comment says so.
+
+**NOT MEASURED:** whether the same detach occurs on every rebuild-triggering edit (moving a wall,
+changing height, adding a door) or only on opening-create. If it is every rebuild, the blast radius
+is much wider than the founder's report and this entry understates it.
