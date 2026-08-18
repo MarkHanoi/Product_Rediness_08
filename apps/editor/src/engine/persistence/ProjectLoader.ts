@@ -110,6 +110,7 @@ import { CreateAIElementCommand, buildAIElementRestorePayload } from '@pryzm/com
 import { CreateHandrailCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { CreateLightingCommand } from '@pryzm/command-registry'; // §PERSIST-LIGHTING
+import { pickAuthoredLightingParams } from '@pryzm/command-registry'; // §PERSIST-LIGHTING-PARAMS
 import { CreateColumnCommand } from '@pryzm/command-registry';
 import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
@@ -1292,6 +1293,13 @@ export class ProjectLoader {
                             hostId: lt.hostId,
                             tags: lt.tags,
                             properties: lt.properties,
+                            // §PERSIST-LIGHTING-PARAMS (F1, 2026-08-18) — the 12 parametric
+                            // blocks + `emission`. Serialized all along, dropped here: this
+                            // list was 9 fields wide, so every authored dimension, colour
+                            // and brightness reverted to the fixture default on reopen.
+                            // Same shared key list the fast path uses, so the two restore
+                            // paths cannot drift apart again.
+                            ...pickAuthoredLightingParams(lt),
                         });
                         const r = exec(cmd);
                         r.success ? result.loaded++ : this.recordFail(result, `Lighting ${lt.id}`, r);

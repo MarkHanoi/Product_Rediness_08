@@ -22,7 +22,21 @@ import { DOMEventBus } from '@pryzm/event-bus';
 import { stableCreatedId } from '../StableCreatedId';
 const _bus = new DOMEventBus();
 
-export interface CreateLightingPayload {
+// §PERSIST-LIGHTING-PARAMS (F1, 2026-08-18) — the authored-state key list lives in its own
+// runtime-free module so `projectLoaderUtils` (a deliberately PURE helper, see its :13
+// comment) can import the picker without dragging this command's geometry/barrel graph in.
+// Re-exported here so the package's public surface is unchanged.
+import {
+    pickAuthoredLightingParams,
+    type LightingAuthoredParams,
+} from './lightingAuthoredParams';
+export {
+    LIGHTING_AUTHORED_PARAM_KEYS,
+    pickAuthoredLightingParams,
+} from './lightingAuthoredParams';
+export type { LightingAuthoredParams } from './lightingAuthoredParams';
+
+export interface CreateLightingPayload extends LightingAuthoredParams {
     id?: string;
     fixtureType: LightingFixtureType;
     position: { x: number; y: number; z: number };
@@ -116,6 +130,10 @@ export class CreateLightingCommand implements Command {
                 hostId: this.payload.hostId,
                 tags: this.payload.tags ? [...this.payload.tags] : undefined,
                 properties: this.payload.properties ?? {},
+                // §PERSIST-LIGHTING-PARAMS — the authored parametric geometry + emission
+                // override. Spread LAST so it cannot be clobbered by a defaulted key, and
+                // omitted-when-absent so a fixture that authored none stays at defaults.
+                ...pickAuthoredLightingParams(this.payload),
             };
 
             const store    = (context.stores as any).lightingStore   ?? window.lightingStore; // TODO(TASK-08)

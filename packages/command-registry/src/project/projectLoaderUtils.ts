@@ -16,6 +16,11 @@ import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
 import type { CreateFurniturePayload } from '../furniture/CreateFurnitureCommand';
 import type { CreateAIElementPayload } from '../furniture/CreateAIElementCommand';
 import type { CreateLightingPayload } from '../lighting/CreateLightingCommand';
+// §PERSIST-LIGHTING-PARAMS (F1) — a VALUE import, but from a runtime-free module whose only
+// dependency is a type-only one. It does NOT breach the rule above: importing the picker
+// from `CreateLightingCommand` itself would have pulled that graph in, which is precisely
+// why the shared key list was extracted into its own module.
+import { pickAuthoredLightingParams } from '../lighting/lightingAuthoredParams';
 
 /**
  * §PERSIST-OPENING-NO-SUPERSET (W1-5, 2026-08-11) — back-fill the wall-opening
@@ -360,6 +365,13 @@ export function buildLightingRestorePayload(lt: any): CreateLightingPayload | nu
         hostId:      lt.hostId,
         tags:        lt.tags,
         properties:  lt.properties,
+        // §PERSIST-LIGHTING-PARAMS (F1, 2026-08-18) — the 12 parametric blocks +
+        // `emission`. The serializer has always WRITTEN these (`deepStrip` is
+        // key-preserving), but this mapper listed 9 fields and dropped the other 13, so
+        // every authored dimension, colour and brightness was replaced by the fixture's
+        // code defaults on reopen. Sourced from the shared key list on
+        // `CreateLightingCommand` so a new parametric family is restored by construction.
+        ...pickAuthoredLightingParams(lt),
     };
 }
 
