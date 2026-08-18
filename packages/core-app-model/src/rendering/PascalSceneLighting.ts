@@ -58,10 +58,23 @@ import {
  *  target 71,77,82                 184,115,51       223,227,232
  * ```
  *
- * **1.0 is the smallest swept value at which all five metals in the founder's types land
- * within 25 % of their own catalogue colour.** At 0.75 the copper mullion's blue channel
- * is still 33 % low and the aluminium panel 30 % low — it reads as a dulled metal, not as
- * the metal. Below 0.5 nothing reads as metal at all.
+ * A row "reads as its metal" when every channel is within 25 % of the catalogue byte OR
+ * within 15 display bytes of it. The second clause is not slack: `steel-blackened` is
+ * `#1d1f20`, a deliberately near-black metal, and a scale-free ratio would reject a
+ * ten-byte error nobody can see. The sweep's FAILING column, measured:
+ *
+ * ```
+ *   0     alu, copper, steel, mirror-silver     0.75  alu, copper
+ *   0.3   alu, copper, steel, mirror-silver     1.0   none          <- shipped
+ *   0.5   alu, copper, steel                    1.5   copper (OVERSHOOTS)
+ *                                               2.0   alu, copper (OVERSHOOT)
+ * ```
+ *
+ * **1.0 is not merely a floor — the window is [1.0, ~1.2] and closes again above it**,
+ * because past ~1.5 the metals blow through the top of the 25 % band and copper turns
+ * pale. At 0.75 the copper mullion's blue channel is still 33 % low and the aluminium
+ * panel 30 % low: it reads as a dulled metal, not as the metal. Below 0.5 nothing reads
+ * as metal at all. There is exactly one value in the swept set that clears all five.
  *
  * ### What it costs, stated rather than hidden
  * AO contrast on a shadow-side surface falls from **21.0 to 10.0 display bytes** — it
