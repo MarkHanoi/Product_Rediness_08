@@ -24,15 +24,32 @@ import type { WallData } from '../src/WallTypes';
 
 /**
  * The wall fields `ProjectSerializer.serializeWall` emits, in order. Mirrored from
- * `apps/editor/src/engine/persistence/ProjectSerializer.ts` (and its
- * `packages/persistence-client` twin). Kept as data so the round-trip below is a
- * real allow-list walk, not a spread that would pass vacuously.
+ * the LIVE serialiser, `apps/editor/src/engine/persistence/ProjectSerializer.ts`.
+ * Kept as data so the round-trip below is a real allow-list walk, not a spread that
+ * would pass vacuously.
+ *
+ * ⚠ THIS LIST IS A COPY, AND A COPY MAINTAINED BY A COMMENT IS C84 §8.d — the
+ * anti-pattern C84 EI-8a records as having already failed twice in this repo.
+ * IT FAILED A THIRD TIME HERE: `joinIntent` was added to the serialiser by L-927
+ * (§PERSIST-JOININTENT) and never added to this mirror, so from that day until
+ * 2026-08-18 this suite walked 20 of the serialiser's 21 fields and reported a
+ * complete round-trip. The drift was found by
+ * `WallProfileNonRegressionBaseline.test.ts` §(B4), which reads the real literal
+ * out of the serialiser source and compares every entry.
+ *
+ * ⛔ DO NOT hand-edit this list to match a change you just made to the serialiser
+ * and consider the job done — that is precisely the mechanism that failed. §(B4)
+ * is the gate; this is the data it checks.
+ *
+ * The `packages/persistence-client/src/loader/` twin is deliberately NOT mirrored:
+ * it is not on the save path (`ProjectSerializer.ts:267-275`), and pinning a dead
+ * copy would give a false sense that persistence was covered.
  */
 const SERIALISED_WALL_FIELDS = [
     'id', 'type', 'levelId', 'parentId', 'baseLine', 'height', 'thickness',
     'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
-    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'properties', 'ifcData',
-    'metadata', 'loadBearing',
+    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'joinIntent', 'properties',
+    'ifcData', 'metadata', 'loadBearing',
 ] as const;
 
 /** Emit only the whitelisted fields, dropping `undefined` exactly as JSON.stringify does. */
