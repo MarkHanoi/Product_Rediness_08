@@ -190,7 +190,11 @@ import { handrailTypeStore, storeRegistry } from '@pryzm/core-app-model';
 // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the curtain-wall catalogue plus the
 // ONE catalogue→record projection, mirroring the stair-railing pair on the next
 // line. See the `curtainwall` branch of `element.changeType`.
-import { curtainWallTypeStore, resolveCurtainWallTypeFields } from '@pryzm/core-app-model';
+import {
+    curtainWallTypeStore,
+    resolveCurtainWallTypeFields,
+    resolveCurtainWallTypePanelFields,
+} from '@pryzm/core-app-model';
 import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
 // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
 // what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
@@ -2094,6 +2098,51 @@ export function initBusHandlers(
                             updates: fields as any,
                         }));
                     });
+
+                    // ── §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — THE WRITER ──
+                    //
+                    // The wall update above sets the wall's DEFAULT panel material, which
+                    // newly generated cells inherit. It changes nothing on screen by
+                    // itself: `CurtainWallInstanceManager._getPanelMaterial` resolves the
+                    // PANEL's `materialId`, so the panels that already exist must be
+                    // written too. A resolver with no writer is authored capacity with no
+                    // surface to reach it — the shape this whole feature exists to close.
+                    //
+                    // ORDER MATTERS. This runs AFTER the wall update, because
+                    // `curtainWallStore.update` synchronously drives
+                    // `CurtainPanelSyncHandler`, which adds/removes panels for the new
+                    // grid. Writing panels first would patch a set that the wall update
+                    // then regenerates, and the founder would see the old material back.
+                    //
+                    // Panels the sync handler JUST created already carry the material by
+                    // inheritance; this loop is what re-materialises the ones that
+                    // survived. Both paths are needed and neither covers the other.
+                    try {
+                        const panelStore = (window as unknown as {
+                            curtainPanelStore?: {
+                                getByCurtainWallId?(cwId: string): Array<{ id: string; materialId?: string }>;
+                                update?(id: string, u: Record<string, unknown>): void;
+                            };
+                        }).curtainPanelStore;
+                        const panelPatch = resolveCurtainWallTypePanelFields(def);
+                        for (const panel of panelStore?.getByCurtainWallId?.(cmd.elementId) ?? []) {
+                            // Skip the no-op writes: each `update` emits a storeEventBus
+                            // event and a facade can hold hundreds of panels, so patching
+                            // ones that already match would fire a rebuild storm for
+                            // nothing (the §PERF-2026 batching rationale in the sync
+                            // handler is the same concern from the other side).
+                            if (panel.materialId === panelPatch.materialId) continue;
+                            panelStore?.update?.(panel.id, panelPatch);
+                        }
+                    } catch (e) {
+                        // Non-fatal and LOUD: the wall kept its type and its geometry, but
+                        // the panels did not re-materialise, so the user sees the pitch
+                        // change without the finish. Never swallowed into a success.
+                        console.error(
+                            '[element.changeType] curtain wall panel material write FAILED — ' +
+                            'the type applied but its panels did not change finish:', e,
+                        );
+                    }
                     return;
                 }
                 console.warn(`[element.changeType] no change-type route for elementType="${elType}" — ignored.`);

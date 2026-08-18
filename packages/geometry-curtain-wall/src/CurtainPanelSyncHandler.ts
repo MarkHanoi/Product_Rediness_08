@@ -129,6 +129,27 @@ export class CurtainPanelSyncHandler {
                         curtainWallId: cw.id,
                         cellIndex: [cell.i, cell.j],
                         panelType: 'SystemPanel_Glass',
+                        // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — INHERIT the
+                        // wall's default panel material.
+                        //
+                        // THIS LINE IS THE WHOLE REASON A FACADE SURVIVES AN EDIT. This
+                        // block runs on every 'add' AND every 'update', and a grid change
+                        // (`gridXSpacing` 1.5 → 0.75) doubles the columns: cells that did
+                        // not exist before are created HERE. Hard-coding the material out
+                        // — as this did, minting bare `SystemPanel_Glass` — meant a user
+                        // could set a marble facade, nudge the spacing by 50 mm, and watch
+                        // every new panel come back as glass, with the wall still claiming
+                        // its type. The material has to live on the WALL as a default, not
+                        // only on the panels, precisely because panels are regenerated and
+                        // the wall is not.
+                        //
+                        // Panels that already exist are NOT touched by this branch (the
+                        // `if (!existing)` guard above), so a hand-authored per-panel
+                        // material survives a grid change untouched — only genuinely new
+                        // cells inherit, which is the correct default for a new cell.
+                        ...(cw.glazingMaterialId !== undefined
+                            ? { materialId: cw.glazingMaterialId }
+                            : {}),
                         properties: {
                             mark: `Panel-${cw.id.slice(0, 4)}-${cell.i}-${cell.j}`
                         },

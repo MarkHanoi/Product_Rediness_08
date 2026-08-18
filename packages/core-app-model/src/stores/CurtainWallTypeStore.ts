@@ -96,6 +96,31 @@ export interface CurtainWallTypeDefinition {
     mullionMaterialId?: string;
     /** Fallback frame tint when no library map is injected. Not a vocabulary. */
     mullionColor?: string;
+    /**
+     * §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the C100 master-catalogue id
+     * every panel of this type is made of. `undefined` means "leave the panels alone",
+     * which is what the plain-glazed types 1-4 want: they render the
+     * `PANEL_TYPE_DEFAULTS.SystemPanel_Glass` appearance that shipped before this field.
+     *
+     * Applying a type writes this to BOTH the wall (`CurtainWallData.glazingMaterialId`,
+     * the wall's default) and to every existing panel (`CurtainPanelData.materialId`).
+     * Both writes are needed and neither is redundant: the per-panel write is what the
+     * renderer reads TODAY, and the wall-level default is what newly generated cells
+     * inherit when the grid changes — without it a stone facade silently reverts to glass
+     * on the next spacing nudge.
+     */
+    panelMaterialId?: string;
+    /**
+     * A visible, user-facing note when `panelMaterialId` is a STAND-IN for a material the
+     * master catalogue does not yet carry (founder ruling, L-958: green mirror, grey
+     * shiny mirror and white satin are absent; use the nearest existing row for now).
+     *
+     * ⚠ It is appended to the type's `detail` line in the picker, so the substitution is
+     * VISIBLE. A type called "Mirror Green" that quietly renders as reflective glass is
+     * the silent-substitution defect this session keeps finding; "for now" has to be
+     * something the user can read, not something only the commit message knows.
+     */
+    substitutionNote?: string;
 }
 
 /**
@@ -259,6 +284,44 @@ export function resolveCurtainWallTypeFields(
         panelThickness: def.panelThickness,
         ...(def.mullionMaterialId !== undefined ? { mullionMaterialId: def.mullionMaterialId } : {}),
         ...(def.mullionColor !== undefined ? { mullionColor: def.mullionColor } : {}),
+        // §FEAT-CURTAIN-WALL-PANEL-MATERIAL (L-958 Slice B) — the wall's DEFAULT panel
+        // material, inherited by any cell the grid generates later.
+        //
+        // ⚠ THE FIELD IS `glazingMaterialId`, AND THE NAME IS NOW A MISNOMER. It is
+        // reused rather than replaced deliberately: it already exists on
+        // `CurtainWallData`, already round-trips through both serializers and
+        // `CreateCurtainWallPayload`, and — until this slice — was read by exactly one
+        // function that production never reaches (`_getFallbackPanelMaterial`, live only
+        // when a wall has zero panels, which `CurtainPanelSyncHandler` guarantees never
+        // happens). Adding a second wall-level panel-material field beside a dead one
+        // would be two answers to one question (C84 EI-9). So the dead field is REVIVED
+        // and now means "the wall's default panel material" — which for stone, concrete
+        // and ceramic panels the name describes badly. Renaming it touches persistence
+        // and both serializers; logged as debt rather than smuggled into this slice.
+        //
+        // ALWAYS WRITTEN, including as `undefined`: `CurtainWallStore.update` MERGES
+        // (:365-369), so omitting the key would leave a previous type's material behind
+        // when swapping to a plain-glazed one — the same merge-cannot-delete trap that
+        // Slice A's `systemTypeId` undo hit.
+        glazingMaterialId: def.panelMaterialId,
         gridSystem: undefined,
     };
+}
+
+/**
+ * The per-panel patch that applies a type's panel material.
+ *
+ * Separate from {@link resolveCurtainWallTypeFields} because it targets a DIFFERENT
+ * store — `CurtainPanelStore`, not `CurtainWallStore` — and the caller must write both.
+ * `materialId` is what `CurtainWallInstanceManager._getPanelMaterial` resolves; the
+ * wall-level default alone would render nothing differently, because the renderer reads
+ * the PANEL.
+ *
+ * `materialOverride` is deliberately NOT touched. It is an authored per-panel hex tint
+ * and a published type has no business silently discarding one a user set by hand.
+ */
+export function resolveCurtainWallTypePanelFields(
+    def: CurtainWallTypeDefinition,
+): Record<string, unknown> {
+    return { materialId: def.panelMaterialId };
 }
