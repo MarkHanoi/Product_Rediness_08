@@ -1198,9 +1198,39 @@ async function dispatchCommands(
 // "Done" line would hide exactly the information the founder needs, so when a
 // report arrives it REPLACES that line.
 // ADR-0314 — one command→event table instead of a per-command listener.
-const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
+// §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — EXPORTED so the completeness guard can
+// read it. A table that decides whether the chat tells the truth, and that nothing
+// could enumerate, is how `wall.setSideFinishBatch` sat unsubscribed since it shipped.
+export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         'wall.updateSystemTypeBatch': 'pryzm-wall-type-batch-report',
         'wall.updateColorBatch': 'pryzm-wall-color-batch-report',
+        // §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — §FEAT-WALL-SIDE-FINISH.
+        //
+        // ⚠ THIS ROW'S ABSENCE IS THE SECOND HALF OF THE FOUNDER'S FALSE "Done".
+        // `SetWallSideFinishBatchHandler` has ALWAYS emitted
+        // `pryzm-wall-side-finish-batch-report` — carrying the command's real
+        // "Set the interior finish … on N of M walls — K skipped", the grouped
+        // refusal reasons, the §L960-STEP3 masked-in-3D caveat, and the
+        // `outcome:'indeterminate'` payload for a bridge that never ran. Nothing
+        // subscribed. `reportEvents` was therefore empty, `expectsReport` was
+        // FALSE, and `classifyDispatch` returned `{kind:'applied', lines:[]}` —
+        // the branch that prints the resolver's PLANNED summary followed by
+        // "Done — undo with Ctrl+Z". So the transcript said
+        // *"Set the interior finish of all 17 walls on Ground to Wood · Oak
+        // (Light). Done"* whether the command changed 17 walls, 0 walls, or was
+        // never reached at all. FAILURE AND EMPTINESS WERE THE SAME VALUE — the
+        // exact defect the union above was built to remove, escaping through a
+        // missing table row rather than through a missing state.
+        'wall.setSideFinishBatch': 'pryzm-wall-side-finish-batch-report',
+        // §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — the same omission, measured
+        // across the whole table rather than patched for the one verb the founder
+        // hit. `slab.updateSystemTypeBatch` and `ceiling.updateSystemTypeBatch`
+        // both export a report event and both were unsubscribed, so both printed
+        // the canned "Done" over whatever they actually did. Pinned by
+        // `batchReportEventsCompleteness.spec.ts`, which enumerates the exported
+        // `*_REPORT_EVENT` constants and fails on any that this table omits.
+        'slab.updateSystemTypeBatch': 'pryzm-slab-type-batch-report',
+        'ceiling.updateSystemTypeBatch': 'pryzm-ceiling-type-batch-report',
         // §FEAT-WALL-RAKE-BATCH — "Raked N of M — K skipped: <reason>" from the
         // batch command's rakeAuthorability pass.
         'wall.updateRakeBatch': 'pryzm-wall-rake-batch-report',
