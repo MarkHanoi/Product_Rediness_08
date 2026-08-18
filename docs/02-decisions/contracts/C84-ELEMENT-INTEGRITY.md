@@ -1103,15 +1103,43 @@ as *"fine"* and is indistinguishable from *"nobody looked"*).
   1708, 1773, 1824, 1967, 2031`. Only the handrail bridge was read in full. They are **NOT clean**;
   they are unmeasured, specifically for EI-2's four mechanisms — above all **(b) the constant-ternary
   dead branch**, which is invisible to both `tsc` and review.
-- **Six of the ten wall Y-datum sites** — `WallInstanceBridge.ts:105,111,147,151`;
-  `WallJunctionInfillManager.ts:122-123`; `LayeredWallOpeningBuilder.ts:140-141,205`;
-  `WallFragmentBuilder.ts:1237/2112/2138/2186/2233/2371-2390`. Input divergence unchecked.
-  *(The measured half: wall body Y is `level.elevation + slabBaseOffset + wall.baseOffset`
-  — `WallFragmentBuilder.ts:728` — while hosted leaves compute `elevation + sillHeight + height/2`
-  — `DoorBuilder.ts:498`, `WindowBuilder.ts:818` — and `slabBaseOffset` occurrences across
-  `geometry-door/src` + `geometry-window/src` = **0**. Delta = `slabBaseOffset + 2 × wall.baseOffset`.
-  **LATENT** — nothing authors either offset non-zero today — but it is the recorded reason the CSG arm
-  is switched off, `WallFragmentBuilder.ts:2326-2333`.)*
+- ~~**Six of the ten wall Y-datum sites** — unmeasured.~~ ⚠ **MEASURED 2026-08-18 (lane YD1) — and the
+  row's verdict was WRONG, not merely incomplete. See [L-968](../../04-reference/ISSUE-LOG.md).**
+
+  This row previously called the leaf-vs-body delta **LATENT**, on the stated ground that *"nothing
+  authors either offset non-zero"*. **Nobody had tested that ground.** It was an assumption recorded
+  in the NOT-MEASURED register as though it were a measurement — the exact failure EI-1b names, and
+  the reason this register exists.
+
+  **The delta is LIVE.** `wall.baseOffset` and `slab.baseOffset` are both editable from the property
+  panel (`PropertyDescriptorGenerator.ts:64` wall, `:89` slab — argument 4 of `NUMBER` is `editable`,
+  `:30`, and both pass `true`; committed via `PropertyPanel.ts:953` → `element.updateParameters`) and
+  from the shipped `set-base-offset` chat capability (`ChatCapabilityRegistry.ts:1097`). Both reach
+  authoritative state through `UpdateElementParameterCommand.ts:113-114`, and both serializers persist
+  the value. **One "set the base offset to 150 mm" displaces every door and window on that wall from
+  its own hole.**
+
+  Measured datums: wall bodies render at `elevation + slabBaseOffset + 2 × wall.baseOffset` —
+  `WallFragmentBuilder.ts:745` computes the GROUP ORIGIN (`:1114`) and every body arm re-applies
+  `wall.baseOffset` in group-local space. Hosted leaves use `elevation + sillHeight + height/2`
+  (`DoorBuilder.ts:600`, `WindowBuilder.ts:927`; `slabBaseOffset` occurrences across
+  `geometry-door/src` + `geometry-window/src` = **0**). Leaf-vs-hole delta =
+  `slabBaseOffset + 2 × wall.baseOffset`.
+
+  Two defects that were on no register: **(A)** `wall.baseOffset` is applied **twice** — this is why
+  the delta carries a factor of 2, and the doubling itself had never been named; **(B)** junction
+  infill sits on a **fourth** datum (`WallJunctionInfillManager.ts:122-123` reads the wall BASELINE
+  Y), and that baseline means different things depending on creation route —
+  `CreateWallCommand.ts:341` stamps `elevation + baseOffset`, the plugin bridge stamps `0`.
+
+  Pinned by `packages/geometry-wall/__tests__/WallYDatumAgreement.test.ts` (`9c090971`) — a
+  **characterisation ledger, not an approval**: it records the numbers as they are so a real fix must
+  come here and change them deliberately. Its CONTROL case pins that **at zero offsets every datum
+  collapses to one value**, which is precisely why this went unseen for so long.
+
+  ⛔ **The single-volume CSG arm (`WallFragmentBuilder.ts:2666-2689`) must stay off until these
+  converge.** Status of the underlying defect: **OPEN**.
+
 - **`ADR-0331 §D5 — "what is Stack B for?"`** — ⛔ **A FOUNDER QUESTION, escalated, not to be resolved
   by any lane.** Three coherent end-states are costed in ADR-0331. **Until it is decided, NOTHING in
   `packages/geometry-kernel/src/producers/` or `plugins/*/src/committer/` may be deleted** (§3.5.2).
