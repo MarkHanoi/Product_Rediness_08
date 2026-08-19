@@ -716,6 +716,8 @@ Ordered by what the user loses.
 | **14** | `window.wallStore` assigned twice (`initBuilders.ts:552`, `initTools.ts:1020`); `initTools.ts:1186-1187` (`alreadyMirrored` → `if (!alreadyMirrored)`) silently skips the mirror on id collision. Both citations re-measured 2026-08-18 (were `:977` / `:1144-1145`) | non-determinism nobody can see | C84 **EI-9** | one assignment; warn on skip |
 | **15** | `frontSide`/`backSide` declared in two schemas with zero writers and zero readers (`WallTypes.ts:396-404`) | nothing — but it is a measured dead affordance left standing | C84 **EI-3** | remove, or give a writer |
 | **16** | `commandId` / `wallCount` emitted, never consumed | nothing | C84 **EI-13** | consume or remove |
+| **17** ⛔ **NEW** | **[L-1066](../../04-reference/ISSUE-LOG.md) — a curved raked wall's JOINTS are floor-exact only.** Bodies lean correctly and `baseSep = 0.000` at every neighbour, but `topSep` measures **0.555 m** against a same-lean neighbour. **Cause: the ADR-0312 twin-solve loft never runs for an arc** — `rakeJointCapDrift` is gated `!wall.curve`, and `WallPipelineV2Cache.refresh` takes straight `startXZ`/`endXZ` specs. So a curved raked wall places its shared top corner by **ADR-0310's** rule while its straight neighbour uses the **lofted** one | **the corner**, at the top edge, on exactly the combination the founder asked for | C84 **EI-9** — ⚠ **two rules at one corner: verbatim the L-955 defect class, one shape further out** | pinned `it.fails`. Closing it means teaching the V2 probe-solve about arcs — **larger than the cone sweep itself**, and deliberately not attempted inside it |
+| **18** ✅ **CLOSED** | ~~**[L-1068](../../04-reference/ISSUE-LOG.md) — a hosted leaf on a curved raked wall used the wall's CHORD**, not its local tangent frame.~~ Correct while a raked host could not be curved; wrong the moment the cone shipped. ⚠ **The instructive part: `hostedElementFrame`'s own header forbids re-deriving direction from `baseLine` — *"a fourth copy of this rule is the mistake that produced the defect in the first place."* This was the FIFTH copy, sixty lines below that warning, in the same file.** A rule written down is not a rule enforced | the leaf's placement on every curved raked host | C84 **EI-9** | ✅ fixed to `_hf.frame.tx/tz`; `RakedHostWindowLeaf`, `HostedLeafSitsInItsHole` and `StraightHostLeafByteIdentical` all pass |
 
 ⚠ **Non-regression, binding on #1.** plain↔plain is **CONFIRMED GOOD by the founder**. Any change to
 `buildMiterPrism` must be proven not to move it. And the shear must become a **single authority**,
@@ -791,11 +793,22 @@ whether `_skipBridge` is ever true in production.
 9. **ADR-0331 §D5 — *"what is Stack B for?"*** — an escalated **founder** question. ⛔ Not to be
    resolved by any lane.
 10. **`packages/persistence-client/src/loader/`** — deliberately not measured; declared DEAD.
-11. **PROFILE × RAKE geometry has never been built** ([L-1065](../../04-reference/ISSUE-LOG.md)).
-    `profileAuthorability` refuses curved / layered / openings and **has no rake arm at all** —
-    `ProfileSubject` does not even carry `rakeAngleDeg`. So a **curved** wall never offers *Edit
-    Profile*, but a **raked** wall IS offered it, and what that produces is unmeasured. **An offered,
-    unverified affordance is worse than a refusal with a reason** (C84 EI-3).
+11. ⛔ ~~**PROFILE × RAKE geometry has never been built**~~ — **MEASURED 2026-08-19 (lane RK1), and the
+    answer is WORSE than "unverified": A PROFILE DRAWS NOTHING ON ANY WALL SHAPE.**
+    Census: `wallProfile` is consumed by the schema, the store, the delta classifier, the geometry
+    hash and an instanced-arm exclusion — **and by NO body builder at all.**
+    `WallFragmentBuilder`'s own comment states it: *"INERT TODAY, DELIBERATELY."*
+    So authoring a profile makes the wall **rebuild**, makes it **leave the instanced path**, and
+    then renders **the identical rectangle**. ⚠ **That is worse than a refusal, because a refusal
+    says why nothing happened** — here the user pays the cost of a rebuild and receives no geometry
+    and no explanation. The hole is not profile×rake; **it is profile, full stop.**
+    Pinned by **AXIS 6** (builds with and without a profile, asserts the bodies identical), carrying
+    an instruction to **invert rather than delete** the assertion when a lane builds the body.
+    Offered/refused per shape today: plain vertical **OFFERED** · plain raked **OFFERED** ·
+    curved / layered / openings **REFUSED**.
+    ⚠ **And treat the `curved` profile refusal with suspicion**: it is argued as *ill-posed* in
+    exactly the words the curved **rake** refusal used — and that one turned out to be
+    **unbuilt, not impossible**. Same argument, same shape, already wrong once.
 12. **X-junctions** — RK1's hull metric returned an arithmetically impossible 2.4 m for overlapping
     rectangles. Printed, marked **UNEXPLAINED**, and **no conclusion drawn** — the honest handling of
     an instrument that disagrees with arithmetic.
