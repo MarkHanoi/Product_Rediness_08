@@ -64,16 +64,22 @@ describe('§WALL-RAKE — the store refusals are MIRRORED, with a reason', () =>
     // table. The store stopped refusing that case, and a panel that kept greying
     // the row out would have shipped the feature UNREACHABLE: the store accepts
     // the edit, the user cannot make it. A stale mirror is not a safe mirror.
-    const CASES: ReadonlyArray<readonly [string, Record<string, unknown>, RegExp]> = [
-        ['curved',            { curve: { bulge: 0.4 } },                       /curved/i],
-        // §FEAT-RAKE-LAYERED × §RAKE-HOSTED-OPENING (merge, 2026-08-18) — this table
-        // once held `{layers}` and `{openings}` as SEPARATE refusals. Each lane built
-        // one of them and deleted its own row, so only the INTERSECTION still greys the
-        // control out. Both single-factor rows are asserted POSITIVELY below: a panel
-        // that keeps refusing what the store now accepts ships the feature unreachable,
-        // which is the defect this spec exists to catch.
-        ['layered + opening', { layers: [{ t: 0.1 }, { t: 0.1 }], openings: ['door_1'] }, /layered/i],
-    ];
+    // ⚠ THIS TABLE IS NOW EMPTY OF SHAPE-BASED REFUSALS, AND THAT IS THE FINDING.
+    //
+    // It has lost a row to every lane that BUILT the thing it refused: `{openings}` to
+    // §RAKE-HOSTED-OPENING, `{layers}` to §FEAT-RAKE-LAYERED, `layered + opening` to
+    // §FEAT-RAKE-LAYERED-OPENINGS (L-1064), and `curved` to §FEAT-RAKE-CURVED under the
+    // founder's 2026-08-19 mandate. **No wall SHAPE greys the Vertical Angle control any
+    // more.**
+    //
+    // The one refusal that survives is not a shape but a NUMBER — a curved lean deeper
+    // than the wall's own turn radius — and this PANEL CANNOT RAISE IT. The panel judges a
+    // selected wall without resolving its centreline, so it supplies neither `height` nor
+    // `curveMinRadiusM`, and `rakeAuthorability` answers "unjudgeable ⇒ allow". That is
+    // the correct answer for this caller and it is asserted below rather than left
+    // implicit, because the alternative — a panel that greys out every curved wall to be
+    // safe — is exactly the stale-mirror defect this spec was written to catch.
+    const CASES: ReadonlyArray<readonly [string, Record<string, unknown>, RegExp]> = [];
 
     for (const [name, shape, expected] of CASES) {
         it(`${name}: read-only AND says why`, () => {
@@ -85,6 +91,32 @@ describe('§WALL-RAKE — the store refusals are MIRRORED, with a reason', () =>
             expect(row.hint).toMatch(expected);
         });
     }
+
+    it('§FEAT-RAKE-CURVED — a CURVED wall is now EDITABLE in the panel', () => {
+        // The founder asked for curved raked walls by name. A panel that kept greying the
+        // control out would ship the feature unreachable while every geometry test passed
+        // — the §AUTHORED-BUT-UNWIRED failure this file exists to prevent.
+        expect(rakeRow(straightWall({ curve: { bulge: 0.4 } }))!.editable).toBe(true);
+    });
+
+    it('L-1064 — a LAYERED wall that hosts an opening is editable, at ONE layer and at THREE', () => {
+        // Asserted at both counts together: the arm that stood here was off by one
+        // (`layers.length > 1`) against a body path entered on `> 0`, so the panel greyed
+        // out the three-layer wall and offered the one-layer wall for geometry that is
+        // identical.
+        expect(rakeRow(straightWall({ layers: [{ t: 0.2 }], openings: ['door_1'] }))!.editable).toBe(true);
+        expect(rakeRow(straightWall({
+            layers: [{ t: 0.1 }, { t: 0.1 }, { t: 0.05 }], openings: ['door_1'],
+        }))!.editable).toBe(true);
+    });
+
+    it('the panel does NOT invent the collapse refusal it cannot judge', () => {
+        // A curved wall whose lean WOULD collapse is still editable HERE, because the
+        // panel holds no radius. The refusal belongs to the write boundary that does
+        // (`UpdateWallsRakeBatchCommand` supplies `height` + `curveMinRadiusM`). A panel
+        // that guessed would refuse walls that build correctly.
+        expect(rakeRow(straightWall({ curve: { bulge: 4 } }))!.editable).toBe(true);
+    });
 
     it('a layered wall with a SINGLE layer is still authorable', () => {
         // The refusal is about layers being measured perpendicular; one layer has

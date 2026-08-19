@@ -642,8 +642,31 @@ export class DoorBuilder {
         const k = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg);
         if (k === 0) return;
 
-        const [bs, be] = wallData.baseLine as ReadonlyArray<{ x: number; y: number; z: number }>;
-        const dir = { x: be.x - bs.x, z: be.z - bs.z };
+        // ── §FEAT-RAKE-CURVED (RK1, 2026-08-19) — THE CHORD WAS THE WRONG DIRECTION ──
+        //
+        // This read `const dir = { x: be.x - bs.x, z: be.z - bs.z }` — the wall's CHORD,
+        // re-derived from `baseLine`. On a straight host the chord IS the tangent, so it
+        // was correct and stayed correct for as long as a raked host could not be curved.
+        // A curved host may now be raked (the conical sweep), and there the two differ:
+        // the WALL's void at this station is displaced along the LOCAL station normal,
+        // while the leaf was displaced along the chord's normal. The leaf drifted out of
+        // its own hole by the angle between them, growing with the arc.
+        //
+        // ⚠ `hostedElementFrame`'s own header already forbade this, in these words:
+        //   *"These are the ONLY arc maths in the hosted-symbol path. Nothing downstream
+        //    may re-derive a direction from `baseLine`; a fourth copy of this rule is the
+        //    mistake that produced the defect in the first place."*
+        //   This was the FIFTH copy, sitting sixty lines below that warning in the same
+        //   file. It is deleted rather than corrected in place.
+        //
+        // `_hf.frame` is the local station frame the leaf is ALREADY rotated by
+        // (`group.rotation.y = _hf.rotationY`), so taking the direction from it is what
+        // makes the displacement agree with the heading instead of contradicting it.
+        // `rakeTopOffset` is unchanged and still the single authority: it takes a
+        // DIRECTION and applies `leftPerp` internally, and `leftPerp(localTangent)` is
+        // exactly the station normal `computeStations` gives the wall's own body. On a
+        // straight wall the local tangent equals the chord, so this is byte-identical.
+        const dir = { x: _hf.frame.tx, z: _hf.frame.tz };
         // §WALL-Y-DATUM (L-968) — the shear pivots about the wall's BASE plane, and
         // that is the same one number the leaf was just seated from. It used to be
         // re-derived here as `elevation + baseOffset`, i.e. WITHOUT the slab term,

@@ -56,6 +56,7 @@ import {
 import { trace, type Tracer } from '@opentelemetry/api';
 import {
     rakeAuthorability,
+    arcMinTurnRadius,
     isRakeInRange,
     RAKE_MIN_DEG,
     RAKE_MAX_DEG,
@@ -95,6 +96,30 @@ interface WallRecordLike {
     readonly childrenIds?: ReadonlyArray<unknown>;
 }
 
+/**
+ * §FEAT-RAKE-CURVED — the wall's tightest centreline turn radius, or `undefined` when this
+ * record cannot answer (straight wall, malformed curve, missing baseline).
+ *
+ * `undefined` is deliberate and is NOT `Infinity`: it means *"this record did not tell
+ * me"*, which `rakeAuthorability` reads as unjudgeable. A STRAIGHT wall never needs a
+ * radius because the collapse arm does not apply to it at all — so returning `undefined`
+ * there costs nothing and avoids asserting a fact about a curve that does not exist.
+ */
+function _curveMinRadius(w: WallRecordLike): number | undefined {
+    const rec = w as unknown as {
+        baseLine?: ReadonlyArray<{ x: number; z: number }>;
+        curve?: { control?: { x: number; z: number }; segments?: number } | null;
+    };
+    if (!rec.curve || !rec.curve.control || !rec.baseLine || rec.baseLine.length < 2) return undefined;
+    try {
+        const r = arcMinTurnRadius(rec as never);
+        return Number.isFinite(r) ? r : undefined;
+    } catch {
+        // A radius we cannot compute is a radius we must not pretend to know.
+        return undefined;
+    }
+}
+
 export class UpdateWallsRakeBatchCommand implements Command {
     readonly affectedStores = ['wall'] as const;
     id = crypto.randomUUID();
@@ -132,11 +157,23 @@ export class UpdateWallsRakeBatchCommand implements Command {
     /** The store's OWN refusal policy, applied to the TARGET angle on this
      *  wall's actual shape — never a re-typed copy of the rules. */
     private _refusal(w: WallRecordLike): string | null {
+        // §FEAT-RAKE-CURVED — `height` and `curveMinRadiusM` are supplied HERE, and this is
+        // not optional politeness. `rakeAuthorability`'s curved-collapse arm needs both to
+        // run, and it treats "absent" as UNJUDGEABLE and lets the wall through — the
+        // §CONTEXT-DATA-HONESTY shape. That is right for a caller that holds neither (a
+        // property panel judging a wall TYPE) and WRONG for this one: a batch command holds
+        // the actual wall records, so omitting them would silently disable the only
+        // geometric refusal a curved rake still has. `RakeSubject.height` states that the
+        // authoritative caller must supply both; this is that caller.
         const subject: RakeSubject = {
             rakeAngleDeg: this.input.rakeAngleDeg,
             curve: w.curve,
             layers: w.layers ?? w.wallType?.layers,
             openings: w.openings ?? w.childrenIds,
+            height: typeof (w as { height?: number }).height === 'number'
+                ? (w as { height?: number }).height
+                : undefined,
+            curveMinRadiusM: _curveMinRadius(w),
         };
         const verdict = rakeAuthorability(subject);
         return verdict.ok ? null : (verdict.reason ?? verdict.code ?? 'refused');

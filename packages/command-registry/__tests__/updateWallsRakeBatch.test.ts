@@ -72,15 +72,26 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
             wall('w1'),
             wall('w2', { rakeAngleDeg: 75 }),
             wall('w3', { levelId: 'L1' }),                    // other level — 'all' must reach it
-            wall('curved', { curve: { r: 3 } }),              // refused: curved
-            // ⚠ TWO LANES REWROTE THIS FIXTURE. §FEAT-RAKE-LAYERED made `layers` alone
-            // buildable (plan bands at t / sin θ); §RAKE-HOSTED-OPENING made `openings`
-            // alone buildable (the carve rides the wall's own shear). Each lane deleted
-            // the other's refuser as stale. Merged, the batch carries BOTH new capabilities
-            // and keeps exactly ONE geometry refuser — their intersection.
-            wall('layered', { layers: [{}, {}], openings: [{ id: 'o1' }] }), // refused: the ∩
-            // …and the two NEW capabilities, measured in the same batch so the command is
-            // proven to RAKE them rather than silently skip them.
+            // ⚠ THIS FIXTURE HAS NOW BEEN REWRITTEN BY FOUR LANES, and the sequence is the
+            // point: §FEAT-RAKE-LAYERED made `layers` alone buildable, §RAKE-HOSTED-OPENING
+            // made `openings` alone buildable, §FEAT-RAKE-LAYERED-OPENINGS (L-1064) made
+            // their intersection buildable, and §FEAT-RAKE-CURVED made `curve` buildable.
+            // EVERY SHAPE-BASED REFUSER THIS FIXTURE EVER HELD IS NOW AUTHORABLE.
+            //
+            // What replaced them is NOT a shape but a NUMBER: a curved wall whose lean
+            // would push its top arc through its own centre of curvature. `curvedTight` is
+            // that wall — a 3 m-high wall on a hairpin whose turn radius is far under the
+            // 8.24 m a 20° rake would shift it. It refuses only because this command
+            // SUPPLIES `height` and `curveMinRadiusM`; a caller that omits them gets
+            // "unjudgeable ⇒ proceed", which is why this test is also the proof that the
+            // command supplies them.
+            wall('curved', { curve: { control: p(2.5, 1), segments: 16 } }),
+            wall('curvedTight', {
+                baseLine: [p(0, 0), p(0.4, 0)],
+                curve: { control: p(0.2, 1.6), segments: 16 },
+                height: 3,
+            }),
+            wall('layered', { layers: [{}, {}], openings: [{ id: 'o1' }] }),
             wall('hosting', { openings: [{ id: 'o1' }] }),
             wall('layeredOk', { layers: [{}, {}, {}] }),
         ]);
@@ -88,26 +99,32 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
     });
 
     it("'all' rakes every AUTHORABLE wall across ALL levels; refusers are skipped with the store's own reasons", () => {
+        // 70° on a 3 m wall shifts the top by 3·cot(70°) ≈ 1.09 m — fine on the open
+        // `curved` arc, impossible on `curvedTight`.
         const cmd = new UpdateWallsRakeBatchCommand({ wallIds: 'all', rakeAngleDeg: 70 });
         const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(true);
-        expect(v.warnings?.length).toBe(2);                   // curved + layered×openings
+        expect(v.warnings?.length).toBe(1);                   // curvedTight only
         const r = cmd.execute(ctx);
         expect(r.success).toBe(true);
-        // Both founder features arrive at the COMMAND layer here: `layeredOk` (a
-        // multi-layer wall) and `hosting` (a wall carrying a window) each now take a
-        // rake. 7 walls in the fixture, 2 refused, so 5 raked.
-        expect(r.affectedElementIds.sort()).toEqual(['hosting', 'layeredOk', 'w1', 'w2', 'w3']);
-        expect(r.info?.[0]).toContain('Raked 5 of 7');
-        expect(r.info?.[0]).toContain('2 skipped');
-        for (const id of ['w1', 'w2', 'w3', 'hosting', 'layeredOk']) {
+        // FOUR founder features now arrive at the COMMAND layer: `layeredOk` (multi-layer),
+        // `hosting` (carrying a window), `layered` (BOTH — L-1064) and `curved` (the
+        // conical sweep). 8 walls in the fixture, ONE refused, so 7 raked. Every id is
+        // listed rather than counted, so a wall silently dropping out is a failure and not
+        // an off-by-one nobody reads.
+        expect(r.affectedElementIds.sort())
+            .toEqual(['curved', 'hosting', 'layered', 'layeredOk', 'w1', 'w2', 'w3']);
+        expect(r.info?.[0]).toContain('Raked 7 of 8');
+        expect(r.info?.[0]).toContain('1 skipped');
+        for (const id of ['w1', 'w2', 'w3', 'hosting', 'layeredOk', 'layered', 'curved']) {
             expect(store.getById(id)?.rakeAngleDeg).toBe(70);
         }
-        // The refused walls are UNTOUCHED and each skip carries the gate's reason.
-        expect(store.getById('curved')?.rakeAngleDeg).toBeUndefined();
+        // The refused wall is UNTOUCHED and its skip carries the gate's reason — which is
+        // now about NUMBERS, not about the wall's shape.
+        expect(store.getById('curvedTight')?.rakeAngleDeg).toBeUndefined();
         const reasons = cmd.skipped.map(s => s.reason).join(' | ');
-        expect(reasons).toContain('CURVED');
-        expect(reasons).toContain('LAYERED');
+        expect(reasons).toContain('turn radius');
+        expect(reasons).toContain('radially');
         // §RAKE-HOSTED-OPENING — and NOTHING is skipped for hosting an opening.
         //
         // ⚠ THIS ASSERTION USED TO READ `expect(reasons).not.toContain('HOSTS OPENINGS')`
@@ -133,7 +150,11 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         // over a mis-spelled field can never fail, so pair it with a positive
         // assertion on the SAME expression, which is what caught this.
         expect(cmd.skipped.map(s => s.wallId)).not.toContain('hosting');
-        expect(cmd.skipped.map(s => s.wallId).sort()).toEqual(['curved', 'layered']);
+        expect(cmd.skipped.map(s => s.wallId).sort()).toEqual(['curvedTight']);
+        // The refusal must carry BOTH numbers, per the founder's standing direction —
+        // never a bare "invalid".
+        expect(cmd.skipped[0]!.reason).toMatch(/radially/);
+        expect(cmd.skipped[0]!.reason).toMatch(/turn radius/);
     });
 
     it('90° (vertical) is a legal target on EVERY wall shape — nothing skips', () => {
@@ -141,7 +162,7 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
         expect(cmd.canExecute(ctx).ok).toBe(true);
         const r = cmd.execute(ctx);
         expect(r.success).toBe(true);
-        expect(r.affectedElementIds.length).toBe(7);
+        expect(r.affectedElementIds.length).toBe(8);
         expect(cmd.skipped.length).toBe(0);
         expect(r.info?.[0]).toContain('(vertical)');
     });
@@ -168,10 +189,25 @@ describe('UpdateWallsRakeBatchCommand — honest batch rake', () => {
     });
 
     it('ALL-refused scope is a visible no-op via canExecute with the first refusal shown', () => {
-        const cmd = new UpdateWallsRakeBatchCommand({ wallIds: ['curved', 'layered'], rakeAngleDeg: 70 });
+        // Scoped to the ONE wall that still refuses. `curved` and `layered` were the
+        // refusers here until §FEAT-RAKE-CURVED and L-1064; both are now authorable, so
+        // using them would have made this assertion pass for the wrong reason.
+        const cmd = new UpdateWallsRakeBatchCommand({ wallIds: ['curvedTight'], rakeAngleDeg: 70 });
         const v = cmd.canExecute(ctx);
         expect(v.ok).toBe(false);
-        expect(v.reason).toContain('None of the 2 walls');
+        // The message is generated with the real count, so the substring is asserted
+        // exactly as it reads rather than as it was assumed to read.
+        expect(v.reason).toContain('None of the 1 wall');
+        expect(v.reason).toContain('turn radius');
+    });
+
+    it('§FEAT-RAKE-CURVED — an OPEN curve is raked, not skipped: the arm is a number, not a shape', () => {
+        // Non-vacuity for the skip above. Same command, same angle, a curve that fits.
+        const cmd = new UpdateWallsRakeBatchCommand({ wallIds: ['curved'], rakeAngleDeg: 70 });
+        expect(cmd.canExecute(ctx).ok).toBe(true);
+        expect(cmd.execute(ctx).success).toBe(true);
+        expect(store.getById('curved')?.rakeAngleDeg).toBe(70);
+        expect(cmd.skipped.length).toBe(0);
     });
 
     it('vanished ids skip with a reason; duplicates are de-duped; empty scope declines', () => {
