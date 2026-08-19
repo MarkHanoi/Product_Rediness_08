@@ -30,6 +30,10 @@ import { AddCurtainGridLineHandler } from './AddCurtainGridLine.js';
 import { RemoveCurtainGridLineHandler } from './RemoveCurtainGridLine.js';
 import { ReplacePanelHandler } from './ReplacePanel.js';
 import { SetCurtainWallMaterialHandler } from './SetCurtainWallMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
+// §L-1032 — the storey move. Registered in the ONE register at
+// `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
+// level change must complete before this row may exist.
+import { ChangeCurtainWallLevelHandler } from './ChangeCurtainWallLevel.js';
 
 export const CURTAIN_WALL_HANDLER_TYPES = [
   // S12 (9)
@@ -76,6 +80,21 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   'curtain-wall.removeGridLine',
   'curtain-wall.replacePanel',
   'curtain-wall.setMaterial',
+  // §L-1032 — move a curtain wall between storeys (founder-requested).
+  //
+  // CAMEL-CASED, and deliberately out of step with every other row above:
+  // `packages/command-bus/src/levelChangeVerbs.ts:184-193` declares the verb as
+  // 'curtainWall.changeLevel', and that register is what the event bridge, the
+  // property panel and the chat registration all read. A hyphenated spelling
+  // here would be a verb the register matches nothing for — the command would
+  // report success and the renderer would keep its own copy.
+  //
+  // The legacy `CurtainWallStore.changeLevel` MUST exist before this verb does
+  // (`packages/geometry-curtain-wall/src/CurtainWallStore.ts`): the undo
+  // adapter routes a `levelId` inverse by testing for that METHOD, and a family
+  // without it also loses the bimManager / view-dependency re-registration the
+  // adapter performs alongside the call.
+  'curtainWall.changeLevel',
 ] as const;
 
 export type CurtainWallHandlerType = (typeof CURTAIN_WALL_HANDLER_TYPES)[number];
@@ -109,6 +128,7 @@ export function buildCurtainWallHandlerSet() {
     RemoveCurtainGridLineHandler as unknown as CommandHandler<unknown>,
     ReplacePanelHandler as unknown as CommandHandler<unknown>,
     new SetCurtainWallMaterialHandler() as unknown as CommandHandler<unknown>,
+    new ChangeCurtainWallLevelHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -177,3 +197,7 @@ export {
   SetCurtainWallMaterialHandler,
   type SetCurtainWallMaterialPayload,
 } from './SetCurtainWallMaterial.js';
+export {
+  ChangeCurtainWallLevelHandler,
+  type ChangeCurtainWallLevelPayload,
+} from './ChangeCurtainWallLevel.js';
