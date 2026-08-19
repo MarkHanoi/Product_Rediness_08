@@ -13360,3 +13360,49 @@ Stair is otherwise **ready** to join the chat type-change set: `StairTypeDefinit
 "architectural" until it is measured. **Fails**: n/a (the capability is not published yet).
 
 ---
+
+## L-1065 — CLOSED 2026-08-19 (wall profile edit gate is per-VARIANT, not per-element-type)
+
+**Closed by WPE1 `36ad95eb`.** The gate asked *"is this a wall?"* — and a wall is not one thing. A
+RAKED wall was OFFERED the profile editor while profile × rake geometry had never been asserted,
+which is C84 EI-3 (UI offers ⇒ pipeline accepts) live in production, and the exact defect
+`ContextualEditBar`'s own comment warns about ("floor and ceiling came to show a button that did
+nothing").
+
+`WallProfileVariants.ts` is now a data table of independent axes (raked, curved, layered,
+hosted-openings), each with a status and an owner; availability is the CONJUNCTION over a wall's
+active axes. Matrix at close: `plain` OFFERED; `raked`, `curved`, `curved+raked`, `layered`,
+`hosting-opening` all CLOSED and all marked **unbuilt**.
+
+⭐ **A test asserts `impossible` is UNUSED.** Declaring a combination impossible now requires saying
+so out loud, in code. That is L-1067's discipline made mechanical rather than editorial — and it is
+the direct answer to the founder's point that this family has produced three refusals that read as
+laws and meant "not yet".
+
+**Open, and named rather than left blank:** (a) no browser run — reachability is proven at the
+resolver, the window handle, the overlay in the document and the store, but the deployed-editor axis
+is only closable by a click; (b) a COLLAB gap — clearing a profile sends `undefined`, which does not
+survive JSON, so a *clear* replayed across the wire is a remote no-op; the durable fix is
+`.nullable()` in `WallDataSchema`, a Slice-1 model change deliberately not made inside an authoring
+lane; (c) profile × rake may ALREADY compose — `WallFragmentBuilder`'s profile arm already calls
+`_applyRakeShearToChildren` — but nothing asserts it, so the cell stays closed. Row assigned to WJ1.
+
+## L-1075 — MY OWN RECORD WAS INVERTED: the curtain-wall door decision is PANEL KIND, not hosted opening (CORRECTED 2026-08-19)
+
+⛔ **The error is the orchestrator's, in `e2ca533d`'s commit message, and it propagated into two lane
+briefs before a lane caught it.** That message states the C15 decision as *"a curtain-wall door is a
+HOSTED OPENING in the curtain wall, not a panel KIND"*. **That is backwards.**
+
+**Three artefacts agree against one prose summary:** C87 §13.5 CW-Door-1, the C15 §0.1 clause
+*inside that same commit*, and the shipped code — `hostedDoor` is a field **on the panel record** —
+all say **panel KIND**, with five measured reasons. CW2 found the contradiction, declined to
+silently pick a side, recorded it in C87, and built on what exists. That was the right call twice
+over: it did not re-litigate a decision, and it did not let a wrong summary quietly become the
+decision.
+
+⭐ **Why this matters beyond one door.** A commit message is IMMUTABLE. I wrote a summary of a dying
+lane's half-written work, got its polarity wrong, and that summary then travelled into briefs as if
+it were the decision — while the contract and the code said the opposite the whole time. The
+artefacts were never wrong; the *narration of them* was. **Prefer the contract and the code over any
+prose summary of them, including mine, and including a commit message that sounds authoritative.**
+This is the same failure the contract-count corrections keep recording, arriving through a new door.
