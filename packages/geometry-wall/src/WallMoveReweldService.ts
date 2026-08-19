@@ -163,7 +163,11 @@ export type ReweldCascadeCommandFactory = (input: {
      */
     movedSubject?: {
         wallId: string;
-        prevBaseLine: [Point3D, Point3D];
+        /** `ReweldBaseline` — the SAME pair type `computeMoveReweldCensus` takes,
+         *  so the pre-flight, the engine and the cascade all name one shape.
+         *  (`Point3D` is not in scope in this module; naming it here was a root-tsc
+         *  error, `TS2304`, that the package-local tsconfig did not surface.) */
+        prevBaseLine: ReweldBaseline;
     };
 }) => ReweldCommandLike;
 
