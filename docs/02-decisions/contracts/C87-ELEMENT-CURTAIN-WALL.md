@@ -1581,50 +1581,42 @@ Type · material · finish · **offset from centreline**.
 
 ### 13.9 — CW-7: SLAB-BY-REGION INSIDE A CURTAIN WALL
 
-> ⛔ **NOT IMPLEMENTED (lane CW2, 2026-08-19). MEASURED ONLY — and the measurement found L-1030's
-> root, which changes the ORDER of this work.** Recorded here so the next lane starts from the
-> finding rather than re-deriving it.
->
-> **The edge set is ONE function and it has exactly THREE sources.**
-> `assembleRegionBoundary()` (`packages/geometry-slab/src/RegionBoundarySources.ts:130-159`) takes
-> **walls · slabs · parcel boundary**. **Curtain walls are ABSENT, not merely unwired** — zero
-> occurrences of `curtainWallStore` anywhere in `packages/geometry-slab/src`. That file's own §20
-> note says a new source is added **there, once**, so the insertion point is unambiguous.
->
-> ⛔ **AND THE OBVIOUS IMPLEMENTATION WOULD MINT A WRONG HOST REFERENCE — C84 EI-2, exactly what
-> CW-Region-2 warns about.** `CurtainWallData` is structurally compatible (`baseLine` is read as
-> `{x, z}`), so passing curtain walls straight through **compiles and traces**. But
-> `SlabRegionTracer.ts:314` attributes a chord to `w.id` with **no `hostType` discrimination**, and
-> `WallFaceResolver.ts:73-76` then looks that id up in **`window.wallStore` only** — so a
-> `curtainwall_<ulid>` resolves to **nothing**. The region would be traced and the host silently
-> lost. **A `hostType` must travel with the edge, or the tracer must refuse.**
->
-> ⭐ **L-1030's ROOT IS FOUND, and it is NOT "the 3-D tool has no REGION branch" — that candidate is
-> REFUTED** (`SlabTool.ts` has full REGION_SLAB branches at `:762`, `:844`, `:570`, `:1279`).
-> **The 3-D path never adopted the widened edge set.** `SlabTool.findRegionAtPoint()` (`:1462-1478`)
-> calls `traceRegionSketchAtPoint(walls, …)` directly on **`wallStore.getAll()`** and **never
-> imports `RegionBoundarySources` at all**. So 3-D still runs the wall-only edge set that
-> `RegionBoundarySources` was written to replace — the plan half got §FIX-REGION-BOUNDARY-SOURCES
-> (L-959) and the 3-D half did not. The founder was tracing **around the parcel boundary**, which
-> is in the plan set and not the 3-D set.
-> **And the failure is silent BY CONSTRUCTION:** `:766-768` and `:1450-1452` have **no `else`
-> branch, no warn, no refusal**, and `_reportRegionAttribution()` (`:1496`) returns early when there
-> is no attribution — **so even the diagnostic never prints.**
->
-> **THE ORDER THIS IMPLIES, and it is the opposite of the naive one:** CW-Region-2 is right that
-> adding curtain walls while L-1030 holds multiplies a silent failure across a second family — but
-> the fix for L-1030 (**point `SlabTool` at `assembleRegionBoundary`**) is *also* the change that
-> makes curtain walls reachable from both surfaces at once. **Fix the shared assembler first; add
-> the curtain-wall source second; add the refusal third.** ⚠ Lane SL1 owns `geometry-slab`.
+- ✅ **CW-Region-1 — DELIVERED 2026-08-19, BY LANE SL1 (`7adba049`, L-1125), NOT BY CW2.**
+  A curtain wall is now a **first-class source in the ONE assembler**,
+  `assembleRegionBoundary()` (`packages/geometry-slab/src/RegionBoundarySources.ts:89,196-203`),
+  with its own `curtainWallEdges` count. **And `SlabTool` now calls that assembler** (`:51`, `:1548`)
+  instead of the raw `wallStore.getAll()` it used before, so the plan and 3-D surfaces finally ask
+  the same question.
 
-- **CW-Region-1.** `SlabPlanToolHandler`'s `§REGION-HOST-ATTRIBUTION` edge set MUST include curtain
-  walls, so a click inside a curtain-wall enclosure produces a region slab exactly as it does for
-  walls.
-- ⚠ **CW-Region-2 (BINDING).** **L-1030 is open: the region slab works in plan and silently does
-  nothing in 3-D.** Adding curtain walls to the edge set while that holds **multiplies a silent
-  failure across a second family.** CW-7 MUST NOT be marked done until the 3-D half is proven for
-  the curtain-wall case, and **a region trace that cannot attribute a host MUST refuse rather than
-  claim one** (C84 EI-2).
+- ⚠ **CW-Region-2 IS SATISFIED, AND BY SOMETHING STRONGER THAN THE REFUSAL IT ASKED FOR.**
+  This section demanded that *"a region trace that cannot attribute a host MUST refuse rather than
+  claim one"*. SL1 did better: curtain-wall spines are contributed **ANONYMOUSLY** — they bound the
+  region but carry **no id** — and the edges are **COUNTED**, so *"this boundary does not follow its
+  curtain wall"* is a **reported fact** rather than a silence (C84 EI-6). That is exactly the trap
+  CW2's measurement flagged: `SlabRegionTracer` has no `hostType` discrimination and
+  `WallFaceResolver` looks ids up in **`window.wallStore` only**, so passing a `curtainwall_<ulid>`
+  through **would have compiled, traced, and silently lost the host**.
+
+- ⛔ **WHAT REMAINS IS EXPLICITLY THIS FAMILY'S HALF, AND SL1 NAMED IT AS OURS.** A curtain-wall edge
+  does not yet **FOLLOW** its host. Doing so needs a `hostType: 'curtainWall'` arm inside
+  `WallFaceResolver` **and a curtain-wall FACE MODEL to resolve against** — the second is the real
+  work, and it does not exist. Until it does, a region slab bounded by a curtain wall will **not**
+  re-trace when that wall moves (see §13.10).
+
+> ⚠ **A CORRECTION TO CW2's OWN FIRST WRITE-UP OF THIS SECTION, MADE THE SAME DAY — AND IT IS THE
+> [confident-register-rows](../../04-reference/ISSUE-LOG.md) SHAPE.** CW2 first wrote here that
+> **"L-1030's ROOT IS FOUND"**, naming `SlabTool.findRegionAtPoint()`'s raw `wallStore.getAll()` as
+> the cause. **That was overclaimed.** It was a *code-reading hypothesis* produced by a search, and
+> it was stated with the confidence of a measurement. **SL1 ran an actual probe across five region
+> shapes — clean room, collinear split, L, T-junction, and the 3-D payload shape — and ALL FIVE
+> traced, resolved and triangulated correctly. The founder's gesture was NOT reproduced.**
+> The edge-set divergence was real and is now fixed, but it was **one of FIVE silent paths to the
+> same symptom** (L-1121…L-1126: zero-dimension records collapsing to `BoxGeometry(0,t,0)`, two
+> inverse ring reads inside one function, a re-entrant `pause()` discarding buffered builds, a
+> cached absolute Y in `LevelExplodeController`, and a failed reconcile wiping the restore map).
+> **An executed probe outranks a confident reading of the same code, and the reading was mine.**
+> Recorded rather than quietly edited, because the failure mode — a plausible single root, asserted
+> from a grep, for a defect with five contributors — is the one this repo keeps paying for.
 
 ### 13.10 — CW-8: MOVE → PROPAGATE → RECOMPUTE
 
