@@ -1133,7 +1133,7 @@ export class CurtainWallBuilder {
         // ── 4. Resolve CurtainGridSystem ─────────────────────────────────────
         const __did_migrate = !cw.gridSystem;
         const grid = cw.gridSystem
-            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing);
+            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id);
         const __t_grid_done = performance.now();
 
         // ── 5. Compute cells ──────────────────────────────────────────────────
@@ -1811,7 +1811,7 @@ export class CurtainWallBuilder {
 
         // ── Resolve grid + cells (cached) ─────────────────────────────────
         const grid = cw.gridSystem
-            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing);
+            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id);
         const cells = this._getCells(grid, length, cw.height);
 
         // ── Shadow deferral — same logic as build() ───────────────────────

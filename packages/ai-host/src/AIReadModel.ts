@@ -331,7 +331,7 @@ export class AIReadModel {
             // Resolve grid topology for AI façade reasoning
             const grid = cw.gridSystem
                 ?? (length > 0.001
-                    ? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing)
+                    ? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id)
                     : null);
 
             const uLineCount = grid ? grid.uLines.length : 0;
@@ -399,7 +399,7 @@ export class AIReadModel {
         // Compute cell areas for AI area reporting
         const grid = cw.gridSystem
             ?? (length > 0.001
-                ? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing)
+                ? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id)
                 : null);
 
         const cells = grid ? computeCurtainCells(grid, length, cw.height) : [];

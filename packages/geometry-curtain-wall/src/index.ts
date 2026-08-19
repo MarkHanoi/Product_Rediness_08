@@ -1,6 +1,7 @@
 export type { CurtainGridLine, CurtainGridSystem } from './CurtainGridSystem.js';
 export {
     migrateToGridSystem,
+    derivedGridLineId,
     insertGridLine,
     removeGridLine,
     validateGridSystem,

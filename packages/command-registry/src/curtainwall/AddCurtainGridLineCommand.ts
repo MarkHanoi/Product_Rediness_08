@@ -118,7 +118,7 @@ export class AddCurtainGridLineCommand implements Command {
 
         // Resolve current gridSystem (or migrate from scalar spacing)
         const currentGrid: CurtainGridSystem = cw.gridSystem
-            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing);
+            ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id);
 
         // §MI-01 FIX: Capture FULL CurtainWallData snapshot before mutation.
         // store.get() returns a deep clone — safe as undo snapshot.

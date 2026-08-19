@@ -84,8 +84,24 @@ export const AddCurtainGridLineHandler: CommandHandler<AddCurtainGridLinePayload
         const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
         // Resolve current grid system (or migrate from scalar spacing fields).
+        //
+        // §L-1052 — THESE TWO ARGUMENTS USED TO BE `(cw as any).gridXSpacing` /
+        // `.gridYSpacing`, AND THEY WERE `undefined` ON EVERY EXECUTION. `cw` here
+        // is `ctx.stores.curtainwall[id]` — the L0-parsed DTO record
+        // (`CreateCurtainWall.ts:99` does `CurtainWall.parse(seed)`), whose spacing
+        // fields are `bayWidth` / `bayHeight`
+        // (`packages/schemas/src/elements/CurtainWall.ts:91,93`). `gridXSpacing` is
+        // the LEGACY name and appears nowhere on that schema; the `as any` at both
+        // reads is what stopped `tsc` saying so (C84 EI-2c). The consequence was
+        // not a wrong number but an INVALID grid: `length / undefined` is NaN,
+        // `Math.max(1, NaN)` is NaN, and the generation loop never ran, so the
+        // migration returned `{uLines: [], vLines: []}` — below this module's own
+        // >=2-lines invariant — and that is what got written to the store and
+        // carried to the AUTHORITATIVE legacy record by the 2-segment undo path
+        // (C87 §6, the row that reads "works today"). Reading the real fields also
+        // removes the two casts.
         const currentGrid: CurtainGridSystem = (cw as any).gridSystem
-          ?? migrateToGridSystem(length, cw.height, (cw as any).gridXSpacing, (cw as any).gridYSpacing);
+          ?? migrateToGridSystem(length, cw.height, cw.bayWidth, cw.bayHeight, cmd.curtainWallId);
 
         (cw as any).gridSystem = {
           uLines: cmd.axis === 'u'

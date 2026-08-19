@@ -86,7 +86,7 @@ export class CurtainPanelSyncHandler {
         if (length < 0.001) return;
 
         // Resolve the grid: use stored gridSystem or migrate from scalar spacing
-        const grid = cw.gridSystem ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing);
+        const grid = cw.gridSystem ?? migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cw.id);
         const cells = computeCurtainCells(grid, length, cw.height);
 
         // Build a set of expected cell keys: "cwId:i:j"

@@ -51,7 +51,11 @@ function resolveGrid(cwId: string, ctx?: CurtainPropertyPanelContext): CurtainGr
     const length = typeof start.distanceTo === 'function'
         ? start.distanceTo(end)
         : Math.hypot(end.x - start.x, end.z - start.z);
-    return migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing);
+    // §L-1051 — `cwId` is passed so the ids drawn on the × buttons here are the
+    // SAME ids `RemoveCurtainGridLine` recomputes for its lookup. Before that,
+    // both sides migrated independently with `crypto.randomUUID()` and the
+    // button dispatched an id the handler could never match.
+    return migrateToGridSystem(length, cw.height, cw.gridXSpacing, cw.gridYSpacing, cwId);
 }
 
 function getPanelType(cwId: string, i: number, j: number, ctx?: CurtainPropertyPanelContext): PanelType {

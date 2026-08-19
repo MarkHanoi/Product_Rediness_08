@@ -43,7 +43,23 @@
  *   parameter. `AddCurtainGridLineCommand` pre-generates the new line's ID in its
  *   constructor and passes it here, making the ID stable across redo cycles.
  *   When no preGeneratedId is supplied the function still generates one internally
- *   (used by `migrateToGridSystem` and any other ad-hoc callers).
+ *   (used by any ad-hoc callers).
+ *
+ * §L-1051 FIX (2026-08-19, C87 §11 #5 / CW-B-3): `migrateToGridSystem()` USED TO
+ *   mint `crypto.randomUUID()` per line, and it is reached from ELEVEN `??`
+ *   fallback sites (C87 said nine; `CurtainGridEditor.ts:52` and
+ *   `CurtainPanelEditor.ts:54` were missed). Every one of them therefore produced
+ *   a DIFFERENT grid-line id set for the same wall whenever `gridSystem` was
+ *   absent — which is the default for every wall the user has never added a line
+ *   to. That is a [C73 §1.1] violation verbatim ("geometry is a pure function of
+ *   authoritative model state; given the same model, a regeneration produces the
+ *   same geometry"), and its user-visible face was that the property panel's
+ *   grid-line × button did NOTHING: `CurtainGridEditor.resolveGrid()` migrated to
+ *   get the ids it drew, `RemoveCurtainGridLine` migrated AGAIN to get the ids it
+ *   searched, the two sets were disjoint, `removeGridLine()` matched nothing, and
+ *   the verb reported success. Ids are now derived from `ownerId` + axis + index
+ *   via {@link derivedGridLineId}. Ids already PERSISTED in a project file are
+ *   unaffected — this path only runs when there is no stored grid to read.
  */
 
 export interface CurtainGridLine {
@@ -84,22 +100,73 @@ export function migrateToGridSystem(
     length: number,
     height: number,
     gridXSpacing: number,
-    gridYSpacing: number
+    gridYSpacing: number,
+    ownerId?: string
 ): CurtainGridSystem {
-    const numU = Math.max(1, Math.floor(length / gridXSpacing));
-    const numV = Math.max(1, Math.floor(height / gridYSpacing));
+    const numU = _bayCount(length, gridXSpacing, 'u', ownerId);
+    const numV = _bayCount(height, gridYSpacing, 'v', ownerId);
 
     const uLines: CurtainGridLine[] = [];
     for (let i = 0; i <= numU; i++) {
-        uLines.push({ id: crypto.randomUUID(), t: i / numU });
+        uLines.push({ id: derivedGridLineId(ownerId, 'u', i), t: i / numU });
     }
 
     const vLines: CurtainGridLine[] = [];
     for (let j = 0; j <= numV; j++) {
-        vLines.push({ id: crypto.randomUUID(), t: j / numV });
+        vLines.push({ id: derivedGridLineId(ownerId, 'v', j), t: j / numV });
     }
 
     return { uLines, vLines };
+}
+
+/**
+ * §L-1051 — the deterministic id `migrateToGridSystem` assigns to the line at
+ * `index` on `axis` of the wall `ownerId`.
+ *
+ * Exported so a caller that needs to name a migrated line (a test, a future
+ * grid-drag tool) derives it rather than transcribing the format — C84 EI-9,
+ * one answer per question.
+ *
+ * `ownerId` is optional because three of the eleven `??` call sites are pure
+ * read paths (`AIReadModel.ts:334,:402`) that only ever count cells. When it is
+ * omitted the ids are unique WITHIN the returned grid but NOT across walls, and
+ * that is the honest weaker guarantee — the ids of a migration nobody can
+ * address are not addressable. Every call site that can reach a mutation passes
+ * the wall id.
+ */
+export function derivedGridLineId(ownerId: string | undefined, axis: 'u' | 'v', index: number): string {
+    return `${ownerId ?? 'cw'}:${axis}:${index}`;
+}
+
+/**
+ * §L-1052 — bays along one axis, refusing to return an INVALID grid.
+ *
+ * `Math.max(1, Math.floor(length / spacing))` is NaN whenever `spacing` is
+ * `undefined` or `0`, and `for (i = 0; i <= NaN; i++)` never executes — so the
+ * pre-fix function returned `{uLines: [], vLines: []}`, which violates this
+ * module's own stated invariant ("Must always have at least 2 uLines and 2
+ * vLines", :63-65) and which `validateGridSystem` would reject. It was written
+ * to the store anyway, and `CurtainWallBuilder` reads a present-but-empty
+ * `gridSystem` as truthy and builds ZERO cells.
+ *
+ * A silently-invalid grid is worse than a loud fallback (C84 §1, quoting
+ * `WallRake.ts:50-62`). So an unusable spacing is REPORTED and the axis falls
+ * back to a single bay — the minimum grid that is valid — rather than to none.
+ */
+function _bayCount(extent: number, spacing: number, axis: 'u' | 'v', ownerId?: string): number {
+    if (!Number.isFinite(extent) || extent <= 0 || !Number.isFinite(spacing) || spacing <= 0) {
+        console.error(
+            `[CurtainGridSystem] §L-1052 migrateToGridSystem(${axis}-axis) got an unusable ` +
+            `extent/spacing pair (extent=${String(extent)}, spacing=${String(spacing)})` +
+            (ownerId ? ` for curtain wall '${ownerId}'` : '') +
+            '. Falling back to ONE bay. This used to produce an EMPTY line array — an invalid ' +
+            'grid by this module\'s own >=2-lines invariant (:63-65) — which the builder turns ' +
+            'into zero cells. If you are a caller reading a DTO record, the L0 spacing fields ' +
+            'are `bayWidth` / `bayHeight`, NOT `gridXSpacing` / `gridYSpacing`.',
+        );
+        return 1;
+    }
+    return Math.max(1, Math.floor(extent / spacing));
 }
 
 /**
