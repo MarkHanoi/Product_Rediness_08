@@ -39,7 +39,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 
 ## 2. Allocation table
 
-**Highest number allocated: `L-1309`.** Next free block starts at **`L-1310`**.
+**Highest number allocated: `L-1319`.** Next free block starts at **`L-1320`**.
 
 | Block | Lane | Session | State |
 |---|---|---|---|
