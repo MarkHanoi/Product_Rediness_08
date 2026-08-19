@@ -9,8 +9,14 @@
 
 import type { RawGroup } from '../rawGeometry.js';
 import { asMaterialKey, type MaterialKey } from '../../../types/MaterialKey.js';
+import type { CurtainPanelKindName } from '@pryzm/schemas';
 
-export type PanelKind = 'glazed' | 'spandrel' | 'door' | 'opaque';
+// §CW-2a / C87 §13.2 — DERIVED, NOT TRANSCRIBED. This was a hand-written union,
+// one of FOUR independent copies of the same four members (C84 EI-9). This package
+// DOES depend on `@pryzm/schemas`, so it takes the master directly rather than
+// being licensed as a copy under EI-10 — an import beats a pinned transcription
+// whenever the dependency exists.
+export type PanelKind = CurtainPanelKindName;
 
 export interface PanelRect {
   /** Cell column index from the bay grid. */

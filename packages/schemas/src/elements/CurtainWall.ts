@@ -3,8 +3,14 @@ import { defineElement } from '../base/BaseNode.js';
 import { RetrofittedProvenanceSchema } from '../provenance/ValueOrigin.js';
 import { RetrofittedConfidenceSchema } from '../provenance/ElementConfidence.js';
 import { Vec3 } from '../base/primitives.js';
+import { CURTAIN_PANEL_KINDS } from './CurtainPanelVocabulary.js';
 
-const PanelKind = z.enum(['glazed', 'spandrel', 'door', 'opaque']);
+// §CW-2a / C87 §13.2 — DERIVED, NOT TRANSCRIBED. This was
+// `z.enum(['glazed','spandrel','door','opaque'])`, one of FOUR independent
+// hand-written copies of the same four members (C84 EI-9). It now reads the master
+// in `./CurtainPanelVocabulary.js`, so a member added there cannot fail to appear
+// here — which a comment could never guarantee (C84 EI-8a).
+const PanelKind = z.enum(CURTAIN_PANEL_KINDS);
 
 /**
  * Curtain wall — an extruded grid of mullions and panels along a baseline.

@@ -4,6 +4,20 @@ export { Door } from './Door.js';
 export { Window } from './Window.js';
 export { Roof, Skylight } from './Roof.js';
 export { CurtainWall } from './CurtainWall.js';
+// §CW-2a / C87 §13.2 — THE MASTER curtain-panel vocabulary. L0 because it is the
+// only layer every consumer can import downward; see the file header for why
+// `geometry-curtain-wall` could not hold it (C87 CW-Voc-5 is corrected there).
+export {
+    CURTAIN_PANEL_TYPES,
+    CURTAIN_PANEL_KINDS,
+    CURTAIN_PANEL_TYPE_TO_KIND,
+    CURTAIN_PANEL_KINDS_WITHOUT_A_TYPE,
+    curtainPanelKindOf,
+    curtainPanelTypesLosingIdentityInKind,
+    isCurtainPanelType,
+    isCurtainPanelKind,
+} from './CurtainPanelVocabulary.js';
+export type { CurtainPanelTypeName, CurtainPanelKindName } from './CurtainPanelVocabulary.js';
 export { Grid } from './Grid.js';
 export { Column } from './Column.js';
 export { Beam } from './Beam.js';
