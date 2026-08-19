@@ -501,6 +501,13 @@ export class ProjectLoader {
                     ifcGuid: wall.ifcData?.guid,
                     // §WALL-RAKE — mirrors apps/editor ProjectLoader.
                     rakeAngleDeg: wall.rakeAngleDeg,
+                    // §FIX-SIDEFINISH-PERSISTS (L-999) — restore the per-side finish. THE LOAD
+                    // HALF, and the half most easily forgotten: a field can be serialised
+                    // perfectly and still be destroyed on reload, because this loop rebuilds
+                    // every wall through `CreateWallCommand` and passes a hand-written option
+                    // list. Absent in every pre-L-995 snapshot, and absent ⇒ no authored
+                    // finish, which is exactly the legacy behaviour.
+                    sideFinishes: (wall as { sideFinishes?: Record<string, unknown> }).sideFinishes,
                     systemTypeId: wall.systemTypeId,
                     // §WALL-JOIN-INTENT / §PERSIST-JOININTENT (L-927) — restore what the
                     // AUTHOR DID at each endpoint. Mirrors apps/editor ProjectLoader and

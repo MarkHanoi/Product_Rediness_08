@@ -174,6 +174,20 @@ export class CreateWallCommand implements Command {
              * Same shape and same rationale as `layers` above: persisted-value-wins.
              */
             joinIntent?: WallJoinIntent,
+            /**
+             * §FIX-SIDEFINISH-PERSISTS (L-999) — the per-side finish, on the RELOAD path.
+             *
+             * Supplied ONLY by the project loaders, which rebuild every persisted wall
+             * through this command and pass a hand-written option list. Absent for every
+             * interactive create — a new wall has no authored finish, and absent stays
+             * exactly the legacy behaviour.
+             *
+             * Threaded here for the same reason `joinIntent` and `wallProfile` are: this
+             * constructor's `wallData` literal is a WHITELIST, so a field the serializer
+             * writes correctly still dies one frame after the loader reads it unless it is
+             * named on both sides. C84 EI-6.
+             */
+            sideFinishes?: Record<string, unknown>,
         }
     ) {
         this.targetIds = [wallId];
@@ -403,6 +417,13 @@ export class CreateWallCommand implements Command {
             // materialColor, layers and curve elsewhere in this pipeline — so the field has
             // to be named here or the loader's value dies one frame after it is read.
             joinIntent: this.wallData.joinIntent,
+
+            // §FIX-SIDEFINISH-PERSISTS (L-999) — the per-side finish, restored from the
+            // snapshot. `undefined` for every interactive create, which is byte-identical
+            // to a pre-L-995 wall. The same whitelist warning the comment above gives
+            // applies verbatim: this literal is the only thing carrying the loader's value
+            // onto the record.
+            sideFinishes: this.wallData.sideFinishes,
 
             // §VIEW-DIRTY-CHECK §2.2: stamp initial render version = 1 so the
             // builder's dirty check can distinguish this wall from an un-versioned

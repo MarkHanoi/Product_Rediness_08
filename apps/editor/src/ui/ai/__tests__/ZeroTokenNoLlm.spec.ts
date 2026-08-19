@@ -52,6 +52,14 @@ const STUB_REPORT_EVENTS: Readonly<Record<string, string>> = {
     // §FEAT-BULK-DIMENSIONS (L-949) — mirrors BATCH_REPORT_EVENTS.
     'element.updateDimensionsBatch': 'pryzm-dimensions-batch-report',
     'wall.updateHeightBatch': 'pryzm-wall-height-batch-report',
+    // §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — the three verbs whose handlers had
+    // ALWAYS broadcast and which BATCH_REPORT_EVENTS never subscribed to. Mirrored
+    // here in the same commit: a stub that stays silent where the real handler
+    // reports would now drive the bridge into 'indeterminate' and test a state the
+    // product cannot produce — which is what this stub's own header forbids.
+    'wall.setSideFinishBatch': 'pryzm-wall-side-finish-batch-report',
+    'slab.updateSystemTypeBatch': 'pryzm-slab-type-batch-report',
+    'ceiling.updateSystemTypeBatch': 'pryzm-ceiling-type-batch-report',
     'generation.rooms': 'pryzm-generation-report',
     'generation.finish-chain': 'pryzm-generation-report',
     'generation.building': 'pryzm-generation-report',

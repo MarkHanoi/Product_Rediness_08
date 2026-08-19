@@ -439,6 +439,25 @@ function serializeWall(wall: any): any {
         // destroyed by the next save, so the founder's mitred corner came back square on
         // every reload. Emitted only when present ⇒ byte-identical to a pre-L-927 snapshot
         // for any wall that never got a stamp (C47 §1.2 additive-optional).
+        // §FIX-SIDEFINISH-PERSISTS (L-999) — the per-side finish. AUTHORED DATA:
+        // `sideFinishes` records a choice the user made face by face and nothing on the
+        // record can re-derive it, so C84 EI-6 makes persistence a precondition of the
+        // affordance existing at all. C85 §5 row 23 and §11 row 6 both pinned it as
+        // NEVER SERIALISED, i.e. a finish did not survive a save/load — so once L-995
+        // made the write land, "Done" would have been true until the next reload and
+        // false afterwards, which is the same false success with a delay fuse.
+        //
+        // Deep-copied per side rather than referenced: `{...wall}` would hand the
+        // snapshot a live reference into the store, and the two sides must stay
+        // independent values (the whole point of the feature). Emitted only when
+        // present, so a wall that never got a finish re-serialises byte-identically to
+        // a pre-L-995 snapshot (C47 §1.2 — additive optional field, no MAJOR bump).
+        sideFinishes: wall.sideFinishes
+            ? {
+                ...(wall.sideFinishes.interior ? { interior: { ...wall.sideFinishes.interior } } : {}),
+                ...(wall.sideFinishes.exterior ? { exterior: { ...wall.sideFinishes.exterior } } : {}),
+            }
+            : undefined,
         joinIntent: wall.joinIntent,
         properties: wall.properties ? { ...wall.properties } : {},
         ifcData: wall.ifcData ? { ...wall.ifcData } : undefined,
