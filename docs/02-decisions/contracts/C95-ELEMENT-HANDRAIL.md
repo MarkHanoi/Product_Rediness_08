@@ -1,6 +1,9 @@
 # C95 — ELEMENT: HANDRAIL
 
-> **Stamp**: 2026-08-18, **re-measured 2026-08-19 (lane HR1)** · **Status**: CANONICAL — binding on every PR touching the handrail family
+> **Stamp**: 2026-08-18, **re-measured 2026-08-19 (lane HR1)** · **Status**: CANONICAL
+> ⭐ **§15 carries the founder's FULL railing specification (2026-08-19) and is NORMATIVE.**
+> It supersedes the narrower 2026-08-18 brief §§1-14 were measured against. Read §15 first if
+> you are implementing; read §§1-14 first if you are auditing what is there today. — binding on every PR touching the handrail family
 > **Parent**: [C84 §6](C84-ELEMENT-INTEGRITY.md). C84 owns `EI-1…EI-13`; C95 owns their application
 > to handrail. **Structure**: C84 §6's twelve mandatory sections, in order, **AS-IS** (measured,
 > `file:line`, HEAD `3384f076`) beside **TO-BE** (normative).
@@ -819,3 +822,374 @@ CONCEPTS: `StairRailingBuilder` is a genuinely different family that belongs in 
 for every concurrent lane) plus four import sites, two of them in orchestrator-owned files.
 **Decision required: create `packages/geometry-handrail`, or record the co-location as deliberate
 with a stated reason.** The one answer that must not stand is the current one — no reason recorded.
+
+---
+
+# 15. THE FULL RAILING SPECIFICATION — founder, 2026-08-19
+
+> **Status: NORMATIVE (TO-BE). This section supersedes the narrower 2026-08-18 brief.**
+> Every clause is marked **MUST** / **MUST NOT** / **SHOULD**, and every AS-IS statement carries a
+> `file:line` that was opened. Where a decision is the founder's to make, it is raised as a
+> **⛔ DECISION** and **not silently picked** — that is the C84 §8.d failure this family has already
+> paid for twice (the garbage-collect pass that does not exist; the cascade that logs "activated"
+> while refusing).
+
+**The request, in substance:**
+
+> *"The handrail element should behave for STAIRS **and** as a STANDALONE element. It should have
+> **all the capabilities the wall element has** — creation via UI (line, ortho, curved, same panel),
+> handrail type selection with the 20+ types, and the possibility to **duplicate and create NEW
+> types**. The handrail could be **raked, curved**, etc. The user should be able to change the
+> **distance between the vertical railings — like mullions on a curtain wall** — every 10 cm, every
+> 20 cm. The user should be able to decide **if there is panelling within the vertical mullions**,
+> and the **materials**. All of this via the **properties panel** and via **RAC**. Materials from
+> the **material library — check C100**. The user could select a slab and ask via RAC: **'create a
+> railing on the edge of this slab'** / **'…on the edge of the slab that doesn't have walls'**.
+> **BIM 3.0 oriented — conscious about every other element.**"*
+
+---
+
+## 15.0 THE TWO QUESTIONS THE PREVIOUS BRIEF LEFT OWED — ANSWERED
+
+### Q1. Is handrail living inside `packages/geometry-stair/` a defect or deliberate co-location?
+
+**A DEFECT. Measured, both directions, zero coupling either way** — full evidence in §14.2.
+Five handrail files sit in `packages/geometry-stair/src/` and import **nothing** from any `./Stair*`
+module; the only `./Handrail*` references in the whole package are **five re-export lines in
+`index.ts`**. The two stair files that mention "Handrail" read `HandrailTypeDefinition` from
+`@pryzm/core-app-model` — the shared catalogue, not the neighbour.
+
+⭐ **RECOMMENDATION, and this section is why it changed from "cosmetic" to "load-bearing":** the
+founder now requires handrail to be a **first-class standalone family with wall-parity capability**
+— its own creation modes, its own type authoring, its own rake/curve model, its own panel model, its
+own RAC surface. That is a *family-sized* subsystem living inside another family's package, and
+every item in §15 makes the mismatch worse. **Create `packages/geometry-handrail`.**
+
+⚠ **Cost, stated so the decision is informed, not sold:** a new workspace manifest + tsconfig, a
+`pnpm-lock` sync (**an unsynced lockfile breaks `--frozen-lockfile` for every concurrent lane**), and
+four import sites — **two of them in orchestrator-owned files** (`initBuilders.ts` ×2,
+`initTools.ts` ×1). It is a mechanical change with a coordination cost, not a risky one.
+⛔ **Not started without a decision** (ISSUE-LOG L-988).
+
+### Q2. Does `HandrailStore.update` MERGE or REPLACE, and is it declared correctly?
+
+**MERGE — and the declaration is CORRECT.** Measured 2026-08-19:
+
+```
+packages/core-app-model/src/stores/HandrailStore.ts:56-66
+    update(id, updates: Partial<HandrailData>) {
+        const handrail = this.handrails.get(id);
+        if (!handrail) return undefined;
+        const updated = structuredClone(handrail);   // :60
+        Object.assign(updated, updates);             // :61  ← MERGE
+        …
+```
+
+`apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts:217-221` declares
+`handrail: { semantics: 'merge', evidence: 'HandrailStore.ts:56-66 (structuredClone + Object.assign)' }`.
+**The declaration names the exact lines and the exact mechanism, and both are right.**
+
+⇒ **L-977's failure mode CANNOT occur on this family.** That defect is a store whose `update()`
+REPLACES being handed a one-key partial by the undo adapter, leaving the record as `{ <field>: v }`.
+Handrail is **not** among the four REPLACE stores (slab, column, furniture, plumbing). **"Ctrl+Z on a
+railing edit destroys the record" is REFUTED.**
+
+⚠ **Two honest qualifications, because the clean answer is the one most likely to be over-read:**
+1. The two live L2 undo paths **do not go through `update()` at all** —
+   `UpdateHandrailCommand.undo` and `DeleteHandrailCommand.undo` both call `restoreSnapshot`, a
+   whole-record `set` from a JSON snapshot proven whitelist-free (L-987). The merge semantics matter
+   for the **patch-adapter** path (`performUndoRedo.ts:341`).
+2. **NOT MEASURED:** an end-to-end runtime undo driven through `performUndo` with a live ring
+   buffer (§13 item 8). A direct `.undo()` call is proven; the adapter path is declared.
+
+---
+
+## 15.1 R1 — STANDALONE **and** STAIR-HOSTED, with the difference DECLARED
+
+**AS-IS.** There are three railing concepts and only one is this family (§1.1). The free-standing
+`HandrailFragmentBuilder` family is the subject here. `HandrailData` carries **no `hostId`** — the
+field exists on the *plugin DTO* (`plugins/handrail/src/store.ts`) and is **DROPPED by the bridge**
+(§5), so **no handrail in the authoritative store has ever had a host**. That is why §8's cascades
+could not find one even if they ran.
+
+| Property | Standalone | Stair-hosted (TO-BE) |
+|---|---|---|
+| `baseLine` | authored | **DERIVED** from the stair's flight edge; re-sampled on stair move |
+| `height` | authored / from type | authored / from type (independent) |
+| `baseOffset` | authored / from type | **DERIVED** — rides the tread nosing line |
+| rake / slope | authored (§15.4) | **DERIVED** — equals the flight pitch |
+| type, spacing, infill, materials | authored | authored (independent) |
+| level | authored | **DERIVED** from the host |
+
+**MUST**: `HandrailData` gains `hostId?: string` and `hostKind?: 'stair' | 'slab'`, and the bridge
+and every creation path carry it (it is an EI-2 drop today).
+**MUST**: a hosted railing's DERIVED properties are recomputed, never authored — a user edit to a
+derived property **MUST refuse by name** and say which host owns it (C16 CA-18).
+**MUST (EI-5)**: deleting the host deletes its hosted railings **in the same undo entry**.
+⛔ §8.2's comment claims a garbage-collect pass does this. **No such pass exists.** Delete the
+comment or build the pass — a comment naming a mechanism that does not exist is worse than silence.
+**MUST (EI-12)**: the stair→handrail cascade **MUST NOT** be "fixed" by dispatching
+`handrail.recompute`; the CascadeRunner does not exist (§8.1) and that would ship a no-op with a
+success report. The real gap is the unregistered cascade subsystem (BIM30 R2 / ADR-0322).
+
+---
+
+## 15.2 R2 — CREATION UI AT WALL PARITY ✅ **LANDED**, with the mode set reconciled
+
+The founder named **line, ortho, curved**. The lane shipped **seven** (§14.1). Reconciliation,
+stated so nobody has to guess which were asked for:
+
+| Mode | Origin | Status |
+|---|---|---|
+| Linear · Orthogonal · Curved | **founder-named**, spread from wall's `WALL_DRAW_MODES` | ✅ landed |
+| By Slab | wall's own ACTION, and R8's UI-side twin | ✅ landed |
+| Square · Circular · Ellipse | **added by this lane** (2026-08-18 brief) | ✅ landed |
+
+**MUST**: the panel is the wall panel's shape (badge, ready-hint naming the armed type, dropdown fed
+**from the store**, Esc note) — ✅ `showHandrailPreDraw`.
+⛔ **NOT DONE:** the **3-D tool still has ONE gesture** (§13 item 13). The matrix row claims
+`views: ['plan','3d']`, which is **true of the tool and false of the modes**.
+
+---
+
+## 15.3 R5 — POST SPACING, PARAMETRIC — ⛔ THE END CONDITION IS A DECISION, NOT AN IMPLEMENTATION
+
+**AS-IS, and it is worse than "unspecified".** `HandrailFragmentBuilder` places posts at
+`i * spacing` for `i` in `1..floor(length/spacing) - 1`, plus the two ends. **The `- 1` is
+unexplained and it is wrong at the boundary:** on a 4.0 m run at 1.0 m spacing it emits interior
+posts at 1, 2 and 3 m — correct — but on a 4.001 m run it emits the same three, leaving a 2.001 m
+final bay. **The last bay is silently up to twice the authored spacing.** The same `- 1` governs
+balusters.
+
+**⛔ DECISION REQUIRED — three defensible conventions, and they give different buildings:**
+
+| | Rule | Consequence |
+|---|---|---|
+| **A · FIXED PITCH, short last bay** | posts every `s`; the remainder is one short bay | spacing is exactly as authored; the end bay is ragged |
+| **B · REDISTRIBUTE** | `n = ceil(L/s)` bays of `L/n` each | every bay equal, actual pitch ≤ authored — **this is what most guarding schedules assume** |
+| **C · CENTRED** | fixed pitch, equal short bays at BOTH ends | symmetrical; two odd bays |
+
+**SHOULD: B**, because the founder's framing is *"every 10 cm, every 20 cm"* — a **maximum** clear
+spacing, which is also how `infillMaxGap` already reads the code rule (§9.3). Under B the authored
+value is an upper bound that is never exceeded, which is the safe direction for a guard.
+⛔ **Not applied without the founder's word**, because A is what the code does today and switching
+silently would move every existing baluster.
+
+**MUST**: post positions are a **PURE FUNCTION** of `(run, spacing, endCondition)`.
+⛔ **MUST NOT** copy `migrateToGridSystem`'s shape: it mints `crypto.randomUUID()` on nine `??` call
+sites, a **C73 §1.1** determinism violation that L-1051 proved made a delete button dead for every
+wall with no stored grid. **A railing's posts get no identity from a random source.** If a post ever
+needs an id it is `derivedPostId(railId, index)`, exported so no caller transcribes the format —
+exactly the fix CW1 landed for grid lines.
+**MUST**: `postSpacing` and `balusterSpacing` are authored on the INSTANCE, not only on the type
+(the founder's "the user should be able to change…"), and reach the record through the same command
+that carries the rest of the type (`UpdateHandrailCommand` already has both).
+
+---
+
+## 15.4 R4 — RAKED AND CURVED — ⛔ ONE DECISION, AND ONE MODULE TO WIRE RATHER THAN REWRITE
+
+**AS-IS: three stacks, and the capability exists twice unreachably (§10).**
+`HandrailFragmentBuilder` gained endpoint slope (`§FEAT-HANDRAIL-SLOPE`) — the LIVE builder can
+follow a rise. **But every authoring path writes `y = 0`**, so no user can produce one (§12 R18).
+
+⭐ **`HandrailRunGeometry.ts` ALREADY IMPORTS `rakeShearPerMetre`** — measured: it is one of the
+eight consumers of `WallRake.ts:245`. **So R4 is a WIRING task, not a geometry task**, and the
+instruction "do not mint a ninth copy of `cot(rake)`" is already satisfied by the module that exists.
+⛔ **MUST NOT** write a new rake helper. **MUST** either wire `HandrailRunGeometry` or delete it and
+move its rake consumption into the live builder — §11 row 25 requires that decision anyway, and
+`handrailRunGenerators.ts` now occupies part of its intended ground. **A fourth stack is forbidden.**
+
+> ### ⛔ DECISION — a rake on an ARC is a CONICAL SURFACE, not a shear
+> RK1 measured the wall case: `WallRake`'s vocabulary takes a **single `direction`**, an arc has
+> none, and all four curved×raked wall cells measure `lean = 0.000`. **The identical question
+> applies to a curved raked railing**, and the two answers build different objects:
+> - **KEEP THE RADIUS** — the rail leans outward by `k·h` along the *local* normal at every station,
+>   so the top rail is a circle of radius `r + k·h` in a higher plane. Simple, and each post leans
+>   the same amount.
+> - **SWEEP CONICALLY** — the run is a frustum element; the top rail's radius varies if the rake
+>   direction is not radial, and posts are not parallel.
+>
+> **This is the founder's call. It is raised, not picked.** Whichever is chosen MUST be recorded here
+> before implementation, and the *other* MUST be refused by name if a user asks for it.
+
+---
+
+## 15.5 R6 — INFILL PANELLING — AND THE HOP IT MUST NOT DIE AT
+
+**The founder's analogy is exact:** *"like mullions on a curtain wall"* — posts are mullions, the
+infill between them is a panel. **MUST reuse C87's vocabulary** (bay/spacing, panel kind, per-panel
+material), **MUST NOT** mint a rival one (C84 EI-8).
+
+**AS-IS.** `HandrailFillType` is `'glass' | 'baluster' | 'panel' | 'open'` — **one value for the
+WHOLE run**. There is no per-bay panel, no per-panel kind and no per-panel material.
+
+**TO-BE — MUST:**
+- `HandrailData.panels?: HandrailPanel[]`, one per bay, each `{ index, kind, materialId?,
+  overrideColor? }`, where `kind` reuses the curtain-wall panel vocabulary.
+- **absent `panels`** means "uniform, per `fillType`" — so every existing handrail is unchanged and
+  the field is additive (C47 §1.2, no MAJOR bump).
+- the panel array is **DERIVED-INDEXED, not id-keyed** — see §15.3's prohibition on random ids.
+
+> ### ⛔ THE TRAP, MEASURED ON THE NEIGHBOUR, AND IT IS THE MOST LIKELY WAY THIS FEATURE FAILS
+> C87 records that curtain-wall `panels[]` **crosses the bridge and is then dropped one hop later
+> because the legacy record has no field to receive it** — a curtain wall authored with a door panel
+> reloads as uniform glazing. Handrail is *primed for the identical failure*: §5 already measures
+> **nine DROPPED fields**, all for the same reason (no slot on the receiving shape).
+>
+> **MUST: the acceptance test for R6 is a ROUND TRIP, not a write.** Author a per-bay panel →
+> serialize → load → read back the panel's `kind` and `materialId` from the authoritative store.
+> ⚠ **§13 item 9 is the standing warning:** persistence of the fields this lane ALREADY added is
+> **not measured**, and L-999 is that exact defect on wall — four hand-written whitelists, all
+> omitting one field. **R6 MUST NOT be reported as landed on a session-only proof.**
+
+---
+
+## 15.6 MATERIALS — C100 IS BINDING, AND THE 20 TYPES CURRENTLY VIOLATE IT
+
+**C100 §2.1, verbatim:** *"An element REFERENCES a material by `materialId`. A resolved colour is a
+CACHE, never an authority. A stored hex is legal in exactly ONE role — an explicit, user-authored
+OVERRIDE."* And: *"**MUST NOT**: a family store only a hex and call it a material."*
+
+**AS-IS — MEASURED, AND IT IS A VIOLATION THIS LANE INTRODUCED AT SCALE:** all **20** built-in
+`HandrailTypeDefinition`s carry `materialColor` (a hex) and `materialName` (the V5 six-member enum,
+§9.2). **None carries a `materialId`.** So applying a catalogue type **materialises a hex**, which
+is precisely C100's MUST NOT. ⚠ Recorded against this lane's own work rather than inherited: the
+five pre-existing types had the same shape, and adding fifteen more multiplied it.
+
+⚠ **The builder's resolution ORDER is already C100-correct** —
+`HandrailFragmentBuilder.resolveColour` reads `materialColor` first (the override), then
+`materialId` via `userMaterialStore`. What is missing is **step 3**: C100 §2.1 requires a **NAMED
+UNRESOLVED state**, never a silent default; the builder falls through to `'#cccccc'` / `'#888888'`.
+
+**TO-BE — MUST:**
+1. every `HandrailTypeDefinition` carries a **`materialId` from `MATERIAL_CATALOG`**
+   (`packages/schemas/src/materials/materialCatalog.ts`) — real ids exist for every one of the 20:
+   `steel-stainless-brushed`, `steel-structural`, `steel-galvanised`, `aluminium-powder-coated-dark`,
+   `cast-iron`, `wood-oak`, `wood-teak`, `glass-clear`, `glass-structural`, `glass-frosted`, …
+2. `materialColor` is **demoted to an explicit override** and MUST be distinguishable as one in the
+   UI (C100 §6.1 — *"an invisible override is indistinguishable from a stale copy"*).
+3. an unresolved `materialId` produces the **named** state, not a grey rail.
+4. ⛔ **`materialName` (V5) MUST NOT be collapsed into the hex.** §9.2 already records why: it is the
+   only vocabulary carrying physical intent, its stated justification is contradicted by its own
+   implementation (a bare hex map where `wood === timber`, and `glass: 0xaaddff` is **opaque**), and
+   erasing it would make the loss permanent. **Lane ZA owns the V1–V5 unification.** This section
+   owes ZA one more fact: **a sixth vocabulary was NOT minted here** — the 20 types reuse V5's exact
+   six members.
+
+---
+
+## 15.7 R3 — TYPE AUTHORING (duplicate / new) — FOLLOW THE ONE EXISTING PATTERN
+
+**AS-IS.** `HandrailTypeStore` already has `add()` / `update()` / `remove()` with built-in
+protection, and `clearCustomTypes()` registered on `projectScopeRegistry`. **The machinery exists;
+the UI does not offer it.** The door/window pre-draw pickers already have the shared
+`appendTypeAuthoringOptions` / `handleFinishTypeAuthoring` (`FinishTypeAuthoringActions.ts`,
+§FEAT-HOSTED-TYPE-AUTHORING / C65).
+
+**MUST**: reuse that machinery, gated by `ElementTypeAuthoringRegistry`, so there is **one** authoring
+pattern rather than a handrail-shaped second one (C84 EI-9).
+**MUST**: user types **PERSIST**. ⚠ `clearCustomTypes()` proves the store expects project scoping;
+whether custom handrail types are **saved and reloaded** is **NOT MEASURED** and is the same hop
+§15.5 warns about.
+**MUST**: duplicating copies the source type's fields **including** `materialId` and the infill
+members, or it reproduces L-983's half-application on a new surface.
+
+---
+
+## 15.8 R8 — SLAB-EDGE DERIVATION VIA RAC — THE SIMPLE CASE, AND AN HONEST REFUSAL FOR THE HARD ONE
+
+**Case A — *"create a railing on the edge of this slab"*.** ✅ The geometry is LANDED and proven:
+`slabOutlineSegments()` + the By-Slab mode, reading the ring the way `CreateWallsFromSlabCommand`
+does (`polygon` + `slab.position`, re-wound). **What is missing is only the RAC verb.**
+
+**Case B — *"…on the edges of the slab that don't have walls"*.** ⛔ **This is a real spatial query
+and it is NOT implemented.** It requires, per edge: is there a wall whose baseline lies within
+tolerance of and roughly parallel to that edge, on this level?
+
+**MUST**: Case B **refuses by name** until the query exists — naming the edge count it could not
+classify and offering Case A as the live alternative (C16 CA-18). ⛔ **MUST NOT guess an edge set.**
+A guard placed on the wrong edges of a balcony is a **safety-relevant** wrong answer, and this
+repo's §CONTEXT-DATA-HONESTY lesson — *failure and emptiness are the same value* — applies with
+force: "no walls found" and "wall query failed" **MUST NOT** both produce a railing on every edge.
+
+---
+
+## 15.9 R7 — PANEL **and** RAC, ONE AUTHORITY PER CAPABILITY
+
+**MUST (EI-9)**: each capability has **one** command; the panel and the chat both dispatch **it**.
+⛔ **MUST NOT** grow a panel path and a chat path that diverge — §10.1 is this family's own worked
+example of what that costs.
+
+> ### ⛔ V3 IS THE BAR, AND IT IS NOT THE ONE MOST LANES CLEAR
+> RC1 measured that the chat ladder proves **V1 RESOLVE** and **V2 DISPATCH** only — **V3, the write
+> reaching the AUTHORITATIVE store, is gated for 18 verbs of 325.** Four founder-visible defects in
+> one day were V3/V7 failures. **MUST: every railing capability added here is proven by EXECUTED
+> READ-BACK from `window.handrailStore`** (C16 CA-21), not by a `success: true`, and not by a return
+> value. ⚠ This family has a specific reason to distrust dispatch-level proof: **seven bus verbs
+> exist, all write a store with zero readers, and until 2026-08-19 one of them was live** (§3.1b).
+> A V2-level proof on `handrail.create` would have been GREEN for a write nothing rendered.
+
+**Capability → verb map (TO-BE).** ⛔ **MUST NOT** be built on the seven DORMANT plugin verbs
+(§6): they write the inert DTO store. New capabilities extend the **L2 commands**, which is where
+the authority is.
+
+| Capability | Command | Panel | RAC | Status |
+|---|---|---|---|---|
+| create (line/ortho/curved) | `CreateHandrailCommand` / `CreateHandrailRunCommand` | ✅ pre-draw | ⛔ blocked class B | plan ✅ |
+| retype | `UpdateHandrailCommand` via `element.changeType` | ✅ | ⛔ | ✅ |
+| post / baluster spacing | `UpdateHandrailCommand` | ⛔ | ⛔ | **R5** |
+| infill panels + per-panel material | **NEW** | ⛔ | ⛔ | **R6** |
+| material (C100) | `UpdateHandrailCommand` + `materialId` | ⛔ | ⛔ | **§15.6** |
+| rake / slope | **NEW** | ⛔ | ⛔ | **R4** |
+| duplicate / new type | `HandrailTypeStore.add` | ⛔ | ⛔ | **R3** |
+| railing on slab edge | `CreateHandrailRunCommand` | ✅ By Slab | ⛔ | **R8** |
+
+⚠ `handrail.create` is class **B — "needs design"** in `ChatCommandClassification.ts:59-72`, blocked
+on a per-family placement grammar. **The RAC column is ⛔ for every row, and that is the honest
+starting position** — R7 is not a wiring task on top of a working chat surface; the grammar has to
+be written first.
+
+---
+
+## 15.10 BIM 3.0 — "CONSCIOUS ABOUT EVERY OTHER ELEMENT"
+
+The axes every family must participate in, with handrail's measured state:
+
+| Axis | State | Where |
+|---|---|---|
+| hosting | ⛔ **`hostId` never reaches the authoritative store** | §5, §15.1 |
+| cascades (host moves / deletes) | ⛔ **never registers**; the refusal is swallowed and the console still prints "activated" | §8.1, §8.2 |
+| level change | ⚠ **NOT MEASURED** | §13 item 11 |
+| undo | ✅ covered; ⚠ not audit-neutral (`metadata.version` ratchets) | §7.1, §7.3 |
+| persistence | ⚠ **the new fields are NOT MEASURED across save/load** | §13 item 9 |
+| schedules | ✅ | §3 |
+| IFC | ⚠ export ✅; **import re-classifies every stair railing as a handrail** | §3.3 |
+| plan projection | ✅ | §3 |
+| semantic graph | ✅ `sitsOn`, captured and restored verbatim on delete | §8 |
+| bake worker | ⛔ **absent, undeclared** | §12 R19 |
+
+⇒ **Four of ten axes are broken or unmeasured, and three of them (hosting, cascades, persistence)
+are prerequisites for R1 and R6.** ⛔ **R1 and R6 MUST NOT be reported as landed while `hostId` is
+dropped at the bridge and persistence is unmeasured** — that would be the "committed ≠ reachable"
+failure with a contract citation attached.
+
+---
+
+## 15.11 IMPLEMENTATION ORDER, AND WHAT BLOCKS WHAT
+
+Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the blockers measured above:
+
+| # | Item | Blocked by |
+|---|---|---|
+| **R2** | creation UI | ✅ **LANDED** (plan). 3-D modes outstanding |
+| **R5** | post spacing | ⛔ **the end-condition DECISION** (§15.3) — implementable the moment it is made |
+| **R6** | infill panels | ⚠ **must not be started before the persistence hop is measured** (§13 item 9), or it inherits C87's exact failure |
+| **R3** | type authoring | ⚠ needs the same persistence answer; machinery already exists |
+| **R8** | slab edge | Case A implementable now; **Case B refuses by name** until the wall-occupancy query exists |
+| **R4** | rake / curve | ⛔ **the conical-vs-radius DECISION** (§15.4) + the `HandrailRunGeometry` wire-or-delete decision (§11 row 25) |
+
+⭐ **THE ONE ITEM NOT ON THE FOUNDER'S LIST THAT OUTRANKS MOST OF IT:** §11 row 12 —
+**deleting a stair still leaves its handrails floating**, and the comment claiming a
+garbage-collect pass handles it names a mechanism that does not exist. That is a live,
+user-visible data defect on the very interaction (*"behave for STAIRS"*) R1 is about.
