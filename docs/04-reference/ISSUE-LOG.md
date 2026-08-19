@@ -12100,3 +12100,111 @@ remaining hand-written field lists is owed as a shrink-only ratchet.**
 ⚠ **`C05` owns the file format** and this changes how a snapshot is produced. The decision is
 recorded here; **C05 must carry it as normative before the first family migrates**, or the next
 reader will find two answers to one question.
+
+## L-1038 — MEASURED: no material information reaches IFC at all, four families lose `materialId` at save, and door/window have none to lose (OPEN, census, 2026-08-19)
+
+**Measured by an MT1 sub-lane before the session limit ended it; recorded by the orchestrator so the
+census is not lost.** It answers the founder's question — *"are all elements consuming from the master
+material database?"* — and the answer is **no, in four distinct ways.**
+
+### The structural finding, which must be read before the rest
+
+**There are TWO parallel element vocabularies, and only one is persisted.** The **L0 Zod schemas**
+(`packages/schemas/src/elements/*.ts`) have **no persistence or export consumer at all**. What the
+serializer reads is the **runtime store types** (`packages/geometry-*/src/*Types.ts`).
+⚠ **So a `materialId` declared in the Zod schema that the runtime type lacks CANNOT round-trip** —
+the mechanism behind every row below, and invisible to anyone auditing the schemas alone.
+
+### The four ways a material is lost
+
+1. **DROPPED AT SAVE — `beam`, `furniture`, `plumbing`** (explicit serializers omitting it:
+   `ProjectSerializer.ts:686`, `:765`, `:818`). Each family's handler already says so —
+   `SetBeamMaterial.ts:56-57`: *"BeamData carries neither materialId nor materialColor."* Plus
+   **curtain-wall**, whose schema-level `materialId` is written by nobody (`:706-707` writes only the
+   mullion/glazing variants).
+2. **NOT PERSISTED AT ALL — `lift`, `lighting`, `structural`**, and materially `dimension`.
+   Corroborated at `rebuildSemanticGraph.ts:300-301`: *"lifts are NOT serialized into the snapshot at all."*
+3. ⚠ **NO `materialId` EXISTS TO LOSE — `door` and `window`.** `Door.ts:59-60` has `frameColor` +
+   `leafColor`; `Window.ts:57` has `frameColor`. **Colour without an id is C100 §2.1's explicit MUST
+   NOT** — in the L0 schema, for two of the most-used families in the product.
+4. **NO MATERIAL REACHES IFC — AT ALL.** `grep -i "IfcMaterial|IFCMATERIAL"` across every `.ts` →
+   **no matches.** Neither IFC path emits `IfcMaterial`, `IfcMaterialLayerSet` or
+   `IfcRelAssociatesMaterial`. What is exported is a **raw colour scraped off the THREE mesh**
+   (`FragmentReader.ts:364-382` → `IfcGeometryWriter.ts:87-111` → `IFCSTYLEDITEM`). The only material
+   *strings* reaching IFC are free-text pset values — **prose, not catalogue ids.** GLB is the same.
+
+### What is RIGHT, and worth defending
+
+`MATERIAL_CATALOG` is real (**204 rows**). `materialLibrary.ts` is **DERIVED, not transcribed** —
+`STANDARD_MATERIAL_LIBRARY = MATERIAL_CATALOG.map(project)`, its header recording that it once held
+204 literals and now holds none. `finishRef.ts` is clean: alias→master-id, zero hex literals.
+⚠ **But `materialLibrary.ts:110-142` still hard-codes wall hexes in `0x` form, and the gate only checks
+`#rrggbb` string literals — so they pass. A gate that checks one spelling of a value does not check
+the value.**
+
+### ⛔ The gate declares this gap in its own output
+
+`check-material-single-source.ts:167-171` states NOT CHECKED: *"whether a stored materialId EXISTS in
+the catalogue … whether a family USES the master rather than merely minting no rival; **persistence
+round-trip of material references**."* **Every drop above is outside the gate by its own admission** —
+and the gate itself was found **unregistered in `run-all.ts`**: C100 §7's own gate is an orphan.
+
+### The 18 bridges, and why they exist
+
+Eighteen `plugins/*/src/committer/material-bridge.ts`, one per family, each with its own key format.
+The instructive one is door's: `DOOR_KEYWORD_COLORS`, a local regex keyword→hex table whose header
+states it exists because *"inline keyword colours respect the L7→L6 boundary (no core-app-model
+import)"* — ⚠ **a copy made because the master was UNREACHABLE from that layer.** Not carelessness: a
+layering constraint manufacturing rival vocabularies, and it will keep doing so until the master is
+reachable from L7.
+
+**Owner: unassigned (MT1 terminated).** Convergence plan, gate extension and fixes all still owed.
+
+## L-1039 — MEASURED: the wall has TWO junction solvers, and curved-raked has no junction branch at all (OPEN, census, 2026-08-19)
+
+**Measured by a WA1 sub-lane before the session limit; recorded so it is not lost.**
+
+### Two solvers, one corner
+
+Straight walls (plain / raked / layered / openings) are mitred by
+**`JunctionResolverV2.resolveJunctionsWithRecords`** (`JunctionResolverV2.ts:1467`). **Curved walls are
+mitred by `WallJoinResolver.resolveLevel`** (`WallJoinResolver.ts:215`) + `projectCapVertex`
+(`CurvedWallCapMiter.ts:44`) — they `return fragmentIds` **before ever reaching the V2 branch**.
+⚠ **So whenever a curve meets a straight, two different solvers place one corner** — C84 **EI-9**, the
+same shape as L-955.
+
+### Variant handling
+
+- **curve — HANDLED**, by tangent rather than chord (`JunctionResolverV2.ts:450`; tangents derived at
+  `WallPipelineV2.ts:215-227`). The resolver is deliberately shape-agnostic: *"it never learns what a
+  'curve' is, it is simply told the heading."* ✅
+- **rake — STRAIGHT WALLS ONLY**, and not by the miter solve: via the **ADR-0312 twin/probe solve**
+  (`WallPipelineV2.ts:358-390`), which runs the resolver a **second** time on ε-sheared endpoints.
+  Gated `!wall.curve` at `WallFragmentBuilder.ts:2385`.
+- **layers — ONE miter, then CLIPPED**: *"Non-overlap with the neighbours is INHERITED, not
+  re-derived. There is no second miter solver to disagree with the first."* ✅ Exactly right —
+  **except layered-CURVED**, which mitres **per band** on the legacy path.
+- ⛔ **curved + raked — NO JUNCTION BRANCH EXISTS.** Zero `cone` references in any junction file; the
+  cone is **body-only**. At an L, 80°, h=3: `baseSep 0.000` / **`topSep 0.555 m`**. **This is L-1066.**
+
+### Move → reweld
+
+Predicate: partner endpoint within `weldTol` of the moved wall's **pre-move straight baseline segment**
+(`WallMoveReweld.ts:1002-1010`), **`weldTol = 0.5 m` in production** — ⚠ and the doc comment calling it
+*"camera/zoom-aware"* is **false of this wiring**; `engineLauncher.ts:870` injects no supplier.
+⛔ **ZERO curve awareness** — subject and partners are two-point straight baselines, so an arc's bulge
+is invisible and the computed corner is not on the arc. **T and X are DETECTED but never FOLLOWED**
+(only `junctionDegree === 2`) — a deliberate L-922 guard, but the header claiming *"covers L corners
+AND T/Y/X abutments"* describes candidate **discovery**, not follow.
+
+### Coverage — with a warning about the matrix itself
+
+**L is well covered per variant. T is covered for PLAIN ONLY.** ⚠ **AXIS 2 of the matrix `record()`s
+and `dump()`s every kind × L/T/X and ASSERTS NOTHING** — only AXIS 4b and one pinned `it.fails`
+assert, and both are **L only**. The matrix disclaims its own X rows: *"THE X ROWS ARE NOT A RESULT.
+They are UNEXPLAINED and must not be quoted."* ⛔ **MOVE-time reweld × any non-plain variant is
+entirely NOT MEASURED.**
+
+**Runs:** 11 files / 124 passed + 1 expected fail (the L-1066 pin) · 10 files / 69 passed.
+
+**Owner: unassigned (WA1 terminated).**
