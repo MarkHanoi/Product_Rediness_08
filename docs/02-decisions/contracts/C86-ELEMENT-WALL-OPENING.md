@@ -464,7 +464,7 @@ default divergence.
 | `windows/UpdateWindowParameterCommand.ts` | `:160` | `:93`, `:102` | ✅ HONOURS |
 | `doors/UpdateDoorParameterCommand.ts` | `:124` | `:96`, `:105` | ✅ HONOURS |
 | **`packages/core-app-model/src/views/PlanElementDragController.ts`** | **`:570` `ws.updateDoor(state.elementId, { offset: slide.offset })`, `:571` `ws.updateWindow(…)`, `:713`, `:715` (revert)** | ⛔ **NONE — the file contains ZERO occurrences of `doorStore`, `windowStore`, `@pryzm/geometry-door` or `@pryzm/geometry-window`** | ⛔ **VIOLATES C15 §8.1 — AND IT IS THE LIVE 2-D PLAN-VIEW DRAG PATH** |
-| **`apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts`** — ⛔ **NEW 2026-08-19, [L-1042](../../04-reference/ISSUE-LOG.md); this census did not contain it** | **NINE sites: `:155` `updateWindow(width)`, `:160` `(height)`, `:165` `(sillHeight)`, `:170` `(fireRating)`, `:178` `updateDoor(width)`, `:183` `(height)`, `:188` `(fireRating)`, `:193` `(accessibilityType)`, `:203` `(swingDirection)`** | ⛔ **NONE — `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-window'` over the file was **0** before this lane's `mapSwingToLegacy` import** | ⛔ **VIOLATES the pairing on EIGHT fields. It is the PROPERTY PANEL — the second most-used mutation surface in the family** |
+| **`apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts`** — ⛔ **NEW 2026-08-19, [L-1042](../../04-reference/ISSUE-LOG.md); this census did not contain it** | **NINE sites, re-measured by the gate after this lane's own import shifted them by +4: `:159` `updateWindow(width)`, `:164` `(height)`, `:169` `(sillHeight)`, `:174` `(fireRating)`, `:182` `updateDoor(width)`, `:187` `(height)`, `:192` `(fireRating)`, `:197` `(accessibilityType)`, `:238` `updateDoor(mapped.legacy)`** | ⛔ **NONE — `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-window'` over the file was **0** before this lane's `mapSwingToLegacy` import** | ⛔ **VIOLATES the pairing on EIGHT fields. It is the PROPERTY PANEL — the second most-used mutation surface in the family** |
 
 > ⛔ **THE CENSUS WAS INCOMPLETE, AND THE OMISSION IS INSTRUCTIVE (added 2026-08-19).** C86 built
 > this table by sweeping **COMMANDS** (`packages/command-registry/src/{doors,windows}/*.ts`) and
@@ -481,16 +481,48 @@ and nothing else**; `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-wi
 Recorded because a citation that survives re-measurement unchanged is worth as much as one that does
 not: this census is the sharpest measurement in this contract and it is still true.
 
-**Thirteen more commands mutate the record on one side only** (non-`offset`, so outside C15 §8.1's
-literal words, but they desync the same pair):
-`UpdateWindowWidthCommand:29,:39` · `UpdateWindowSillHeightCommand:34,:44` ·
-`UpdateWindowHeightCommand:34,:44` · `UpdateWindowFrameColorCommand:28,:38` ·
-`UpdateWindowFireRatingCommand:27,:36` · `UpdateDoorWidthCommand:33,:44` ·
-`UpdateDoorSillHeightCommand:36,:46` · `UpdateDoorHeightCommand:36,:46` ·
-`UpdateDoorLeafColorCommand:32,:42` · `UpdateDoorFrameColorCommand:32,:42` ·
-`UpdateDoorFireRatingCommand:27,:36` · `UpdateDoorAccessibilityTypeCommand:27,:36` ·
-`UpdateElementMarkCommand:56,:57`. **A grep of each for `doorStore`/`windowStore` produced no hits.**
-They desync **width, height, sill, colour, fire rating and mark** between the two records.
+### ⛔ ~~Thirteen more commands mutate the record on one side only~~ — **REFUTED. TWELVE OF THE THIRTEEN PAIR CORRECTLY.**
+
+> ⛔ **RETRACTED 2026-08-19 (C84 §6), and this is the most consequential correction in this pass.**
+> This paragraph read: *"**Thirteen more commands mutate the record on one side only** … **A grep of
+> each for `doorStore`/`windowStore` produced no hits.** They desync width, height, sill, colour,
+> fire rating and mark between the two records."*
+>
+> **The grep result is not reproducible. Run it:**
+> ```
+> grep -c "doorStore\.update(\|windowStore\.update(" <each of the thirteen>
+> → 2 2 2 2 2 2 2 2 2 2 2 2 0
+> ```
+> **Twelve of the thirteen call the paired write on BOTH legs**, each in exactly the C15 §8.1 form,
+> guard included — e.g. `UpdateDoorWidthCommand.ts:34-35` / `:45-46`:
+> ```
+> if (doorStore.has(this.doorId)) {
+>     doorStore.update(this.doorId, { width: this.newValue });
+> ```
+> and the import is at `:2`. Same shape in `UpdateDoorFireRatingCommand:28-29,:37-38`,
+> `UpdateWindowHeightCommand:35-36,:45-46`, and the other nine.
+>
+> ⭐ **AND IT IS NOT DRIFT SINCE C86 WAS WRITTEN.**
+> `git log -S "windowStore.update" -- packages/command-registry/src/windows/UpdateWindowHeightCommand.ts`
+> → **`8613866a Initial commit`**. The pairing has been there from the beginning, so this is not a
+> stale measurement that decayed — **the claimed grep cannot have been run.**
+>
+> ⛔ **THE LESSON, AND IT IS THIS CONTRACT'S OWN STATED ONE, TURNED ON ITSELF.** C86 warns that *"a
+> confident sentence in place of a measurement is the failure C84 EI-1b exists to prevent"* — and
+> then carries a thirteen-item list whose justification is a grep that returns the opposite. It was
+> wrong by a factor of four, **in the direction that makes the repo look worse than it is**, which is
+> the direction that gets believed. It took an executed instrument
+> (`tools/ga-gate/check-hosted-dual-write.ts`) to find out.
+
+**ONE command is genuinely one-sided**, and it is the one that was buried at the end of the list:
+
+| Site | Writes | Pairs? |
+|---|---|---|
+| `packages/command-registry/src/UpdateElementMarkCommand.ts:56` (`window`), `:57` (`door`) | `wallStore.updateWindow/updateDoor(elementId, { properties: updatedProperties })` | ⛔ **NO** — the file contains zero `doorStore`/`windowStore` references. `mark` is a legacy-store field (§5 field map, written at `CreateWallOpeningCommand.ts:172`), so **`mark` desyncs between the two records** |
+
+✅ **So the measured C15 §8.1 compliance for COMMANDS is 20 of 21.** The family's command layer is
+in far better shape than this contract claimed; **the violations are on the two UI surfaces**
+(§11 #1, §11 #18), which is exactly where a command-shaped census cannot look.
 
 ### TO-BE — normative
 
@@ -818,8 +850,8 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | # | Defect | User loses | Invariant | Proof required |
 |---|---|---|---|---|
 | **1** | **`PlanElementDragController.ts:570-571, :713, :715` writes `wallStore.updateDoor/updateWindow` and NEVER the standalone store** — zero occurrences of `doorStore`/`windowStore` in the file. **The live 2-D plan drag violates [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md)** | **the frame and the void diverge** — the leaf stays where it was, the hole moves | [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) · C84 **EI-1** | ⛔ **control first, watched RED**: drag a door in plan, rebuild the wall, assert frame and void share one offset |
-| **2** | C15 §8.1's enforcement is *"a code-review checklist item"* and **no gate** | every future command repeats #1 | C84 **§8.d** — *a comment as the synchronisation mechanism* | build `check-hosted-dual-write.ts` (WO-B-3) |
-| **3** | **Thirteen** one-sided update commands desync `width`, `height`, `sillHeight`, `frameColor`, `leafColor`, `fireRating`, `mark` between the two records | any of those fields, on whichever consumer reads the stale side | C84 **EI-1**, **EI-2** | C15 §8.1's scope MUST widen past `offset`, or WO-C-2's migration MUST land |
+| ~~**2**~~ | ✅ **CLOSED 2026-08-19 (`cdc32c9e`) — the gate exists.** `tools/ga-gate/check-hosted-dual-write.ts`, registered in `run-all.ts`, shrink-only at **3**, `MIN_FILES` honesty floor, one EXEMPT entry with its reason. Measured: **4657 files, 55 write sites in 23 files, 20 PAIRED, 3 UNPAIRED.** It keys on **call sites of `wallStore.updateDoor/updateWindow`**, not on command declarations — because two of the three live surfaces are neither commands nor bus verbs, and a declaration-shaped census passed this repo while both violated. ⚠ Its `?.()` blind spot is pinned by `__tests__/hostedDualWriteGate.spec.ts` (4/4) with the naive pattern kept as a live negative control: the first draft missed all nine property-panel sites | — | C84 **§8.d** — satisfied | ⛔ **Exit condition: baseline 0**, then flip to hard-0. ⚠ Declared unsoundness (C84 EI-10(c)): pairing is judged at FILE granularity, so a **partially**-paired file reads as PAIRED |
+| ~~**3**~~ | ⛔ **REFUTED 2026-08-19 — TWELVE OF THE THIRTEEN PAIR CORRECTLY.** The row's justification was *"A grep of each for `doorStore`/`windowStore` produced no hits"*; `grep -c "doorStore\.update(\|windowStore\.update("` over the thirteen returns `2` for twelve of them and `0` for one, each in the C15 §8.1 `if (store.has(id)) store.update(id, …)` form on **both** legs. `git log -S` dates the pairing to the **Initial commit**, so this is not drift — the claimed grep cannot have been run. **Wrong by a factor of four, in the direction that makes the repo look worse.** Found by building `check-hosted-dual-write.ts`, not by re-reading | **only `mark`**, via the one true violator `UpdateElementMarkCommand.ts:56-57` | C84 **EI-1** | ✅ the gate now measures this continuously; the residual single command is inside its baseline of 3 |
 | **4** | Persistence writes **both** records (`ProjectSerializer.ts:552` and `:1013-1014`) and reconciles neither; IFC reads only the embedded one (`WindowDoorReader.ts:12, :56`) | nothing while the pair agrees — **everything the moment it does not**, and #1/#3 guarantee it does not | C84 **EI-1** | the persistence migration — **owned by [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md)** (C84 §9, as retracted) |
 | **5** | `wall.delete` (L1) has **no** hosted cascade; the L2 path does (`DeleteElementCommand.ts:265-266`) | orphaned door/window records **and their 3-D meshes** | C84 **EI-4a**, **EI-5** | delegate, do not copy |
 | **6** | `frameThickness`, `frameWidth`, `fireRating`, `accessibilityType` are schema fields the create path **silently discards** (§5 rows 10, 11, 14, 15) | four authored door properties, at creation | C84 **EI-2(a)** | round-trip each through `wall.createOpening` |
@@ -833,7 +865,7 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **14** | The bake worker handles no openings — three comments describing future work | in self-host bake: **walls with no voids and no leaves** | C84 **EI-6**-adjacent | declare or implement |
 | **15** | `door.move`/`window.move` declare `['door']`/`['window']`, omitting `wall` | nothing while they refuse; a live C15 §8.1 violation the moment they do not | C84 **EI-7**, C15 §8.1 | correct the declaration before re-enabling |
 | **16** | The batch-create verbs do **not** refuse while their single twins do | a caller routes around the refusal | C84 **EI-4a**, [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) | make them consistent |
-| **18** | ⛔ **NEW — `apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts` writes `wallStore.updateDoor/updateWindow` at NINE sites (`:155, :160, :165, :170, :178, :183, :188, :193, :203`) and the standalone store at NONE.** The file had zero `doorStore`/`windowStore` occurrences. **This census did not contain it**, because C86 built the table by sweeping COMMANDS and this is a UI apply path | `width`, `height`, `sillHeight`, `fireRating`, `accessibilityType` edited from the property panel leave the 3-D leaf stale — the same divergence as #1, from the second most-used surface in the family | [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) · C84 **EI-1** | the WO-B-3 gate MUST key on call sites of `wallStore.updateDoor/updateWindow` repo-wide, **not** on command declarations — a command-shaped census misses BOTH live surfaces. [L-1042](../../04-reference/ISSUE-LOG.md) |
+| **18** | ⛔ **NEW — `apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts` writes `wallStore.updateDoor/updateWindow` at NINE sites (`:159, :164, :169, :174, :182, :187, :192, :197, :238` — re-measured by the gate) and the standalone store at NONE.** The file had zero `doorStore`/`windowStore` occurrences. **This census did not contain it**, because C86 built the table by sweeping COMMANDS and this is a UI apply path | `width`, `height`, `sillHeight`, `fireRating`, `accessibilityType` edited from the property panel leave the 3-D leaf stale — the same divergence as #1, from the second most-used surface in the family | [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) · C84 **EI-1** | ✅ **the gate is BUILT** (`check-hosted-dual-write.ts`, `cdc32c9e`) and keys on call sites repo-wide, **not** on command declarations — a command-shaped census misses BOTH live surfaces. This file is 1 of its 3 baseline entries; **the pairing itself is still OWED** — eight more paired writes is a property-panel behaviour change and belongs with the gate that keeps it paired, not ahead of it. [L-1042](../../04-reference/ISSUE-LOG.md) |
 | **19** | ⛔ **NEW — `DoorCommitter` is never constructed in production, so the whole plugin-committer arm of `door.setSwing` reaches nothing.** It is `new`-ed only at `bootstrap.render.everything.ts:140`, reached only via `SceneBootstrap.bootstrapScene`, which **requires** a canvas (`SceneBootstrap.ts:61`); `src/main.ts:402` boots `canvas: null` → the idle path (`SceneBootstrap.ts:226`). `PropertyInspectorApply`'s comment asserted the opposite chain (*"→ DoorCommitter.onUpdate() → produceDoor() rebuild → updated mesh"*) | nothing beyond what #3/#18 already cost — but it means a reader auditing `door.setSwing` finds a comment describing a live pipeline that does not run | C84 **§3.5.1(d)** — the CALL axis | the comment is corrected at the site ([L-1040](../../04-reference/ISSUE-LOG.md)). Whether the committer arm should be wired or declared dormant is **C84 §3.5 PARKED work, not C86's** |
 | **20** | ⚠ **NEW — `DoorBuilder.ts:526` stamps a THIRD tag, `'DoorLeaf'`, that C15 §12 never enumerated**, and both builders ship both casings (`DoorBuilder.ts:271` `'door'` vs `:476`/`:526` `'Door'`; `WindowBuilder.ts:376` vs `:646`/`:730`), in four files across two families | nothing today — every comparing consumer lowercases (`GLBExporter.ts:217`, `DeleteElement.ts:51`) | [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | ⚠ **severity DOWNGRADED from #10**: the lowercase emits are inside the view-definition subscription (`DoorBuilder.ts:252`, `WindowBuilder.ts:357`), not the mesh stamp. The freeze is still broken from four files, and `'DoorLeaf'` must be DECLARED as a sub-part tag (WO-ID-2's shape) |
 | **17** | **`CreateWallOpeningCommand.ts:12` declares `affectedStores = ["wall"]` while adding to `doorStore` (`:155`) and `windowStore` (`:204`)** — and `CreateWindowsParametricBatchCommand.ts:89` inherits it as `['wall']`. This is the command §12 R-1 names as *"the one atomic command"*, so every refusing create verb points at it | ✅ **ANSWERED AND FIXED 2026-08-19 (`37c416ff`).** `restoreSnapshot` has exactly TWO call sites, **both inside `execute()`** — `CommandManagerImpl.ts:325` (`success:false`) and `:428` (threw); its own header `:641` says *"rollback on failed execute only"*. `undo()` (`:743`) and `redo()` (`:794`) call the command's own methods directly and never build or apply a snapshot; `performUndoRedo.ts` has **zero** `napshot` occurrences. **So NO UNDO PATH WAS EVER AT RISK — the exposure is the execute-failure ROLLBACK.** For `CreateWallOpeningCommand` that is **LATENT** (its only `success:false` returns are `:91`, `:96`, `:114`, all BEFORE the write, and both store writes plus the graph write sit in swallowing try/catch at `:184`, `:228`, `:248`). For **`CreateWindowsParametricBatchCommand` it is REACHABLE**: `:299` `child.execute(ctx)` writes N windowStore records, then `:337` `throw err` re-raises from the post-loop summary/span block → `CommandManagerImpl:428` → a `['wall']`-scoped restore returns the walls without their openings while windowStore keeps N records and WindowBuilder keeps N meshes | C84 **EI-7c** — the declared set MUST be the written set | ✅ **DONE.** Declarations corrected to `["wall","door","window"]` and `['wall','window']`. Widening cannot perturb undo routing: `performUndoRedo.ts:553` reads `pair?.affectedStores` from the BUS PatchPair, and `:555-559` names this command commandManager-only by design, so `_covered()` (`:479`) never sees it [L-1031](../../04-reference/ISSUE-LOG.md) |
