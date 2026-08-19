@@ -614,29 +614,58 @@ mesh: `WallFragmentBuilder.ts:2326-2333`.
 
 **The FRAME** — built by `DoorBuilder` / `WindowBuilder` from the standalone stores.
 
-### ⛔ THE FRAME AND THE VOID USE DIFFERENT Y DATUMS
+### ✅ THE FRAME AND THE VOID SHARE ONE Y DATUM — **CLOSED, and this section was WRONG**
 
-| Site | Formula |
+> ⛔ **RETRACTED IN FULL (C84 §6). This heading read “⛔ THE FRAME AND THE VOID USE DIFFERENT Y
+> DATUMS” and graded the divergence **LATENT**. Both halves were false on the day C86 was written.**
+> The defect was fixed by **`8f63fb6f`** (*“fix(L-968/§WALL-Y-DATUM): a base offset moved the hole and
+> left every door and window behind”*) — a commit **already on `main`**, already cited by
+> [C85 §10](C85-ELEMENT-WALL.md), which records the datum **RESOLVED**: eleven datums agree,
+> leaf-vs-hole delta **0**. C86 carried the open row anyway.
+>
+> ⭐ **Two registers carried one row; one was updated and the other was not.** C85 §10 further
+> records that the ground C86 used to justify **LATENT** — *“nothing authors either offset non-zero
+> today”* — *“was never tested and it was FALSE”*: both `wall.baseOffset` and `slab.baseOffset` are
+> property-panel editable. **C86 re-derived a justification C85 had already retracted.** A confident
+> row backed by prose is worse than a blank: the blank invites the measurement, the prose forecloses
+> it.
+
+**Re-measured 2026-08-19 in the MAIN worktree.** Every line number in the old table had also rotted
+(`WindowBuilder.ts` is 1347 lines today; `DoorBuilder.ts` 1158):
+
+| Site | Measured today |
 |---|---|
-| `packages/geometry-door/src/DoorBuilder.ts:503` | `const y = elevation + door.sillHeight + door.height / 2;` |
-| `packages/geometry-window/src/WindowBuilder.ts:833` | `const y = elevation + win.sillHeight + win.height / 2;` |
-| `DoorBuilder.ts:525` / `WindowBuilder.ts:859` | `const baseY = elevation + ((wallData as {baseOffset?: number}).baseOffset ?? 0);` |
-| The VOID | `LayeredWallOpeningBuilder.ts:206` `positions.push(horizontal.x, wallBaseOffset + y, horizontal.z);`; `WallFragmentBuilder.ts:2339` `positionLocal(headerMesh, headerCenterX, currentY + finalHeaderHeight/2 + wallBaseOffset);` |
+| `packages/geometry-door/src/DoorBuilder.ts:620-625` | `const wallBaseY = resolveWallBaseYOrLevel(wallData.id, elevation, (wallData as { baseOffset?: number }).baseOffset);` then `const y = hostedLeafCentreY(wallBaseY, door.sillHeight, door.height);` |
+| `packages/geometry-window/src/WindowBuilder.ts:947-952` | byte-parallel — `resolveWallBaseYOrLevel(…)` then `hostedLeafCentreY(wallBaseY, win.sillHeight, win.height)` |
+| **THE AUTHORITY** | `packages/geometry-wall/src/WallVerticalDatum.ts` — `wallBaseY():103`, `hostedLeafCentreY():119`, `resolveWallBaseYOrLevel():174` |
 
-> **The frame datum at `:503`/`:833` uses `elevation` ONLY — it does NOT add `wall.baseOffset`, while
-> the same files' `baseY` at `:525`/`:859` does, and the void does.** On any wall with a non-zero
-> `baseOffset`, frame and void are at different heights.
-> **`grep -rn slabBaseOffset packages/geometry-door/src` → 0; `packages/geometry-window/src` → 0.**
-> C84 §9's measured half is CONFIRMED: leaf-vs-hole delta = `slabBaseOffset + 2 × wall.baseOffset`.
-> **LATENT** — nothing authors either offset non-zero today — and it is the recorded reason the CSG
-> arm is switched off ([C85 §12 R-8](C85-ELEMENT-WALL.md)).
+Both builders carry the same `§WALL-Y-DATUM (L-968)` header (`DoorBuilder.ts:605-619`,
+`WindowBuilder.ts:932-946`) naming the old formula as the defect — *“This was `elevation + sillHeight
++ height / 2`: it read neither `slabBaseOffset` … nor `wall.baseOffset`”* — and stating the
+consequence in the founder's own terms: *“one ‘set the base offset to 150 mm’ displaced every door on
+that wall by `slabBaseOffset + 2 × baseOffset`”*. ✅ **WO-G-1 IS SATISFIED**: there is one datum, it
+is the host wall's, and the frame consumes it rather than recomputing it.
 
-⚠ **C84 cites `DoorBuilder.ts:498` and `WindowBuilder.ts:818` as the Y-datum sites. They are not —
-they are the SPATIAL-AUTHORITY GUARDS**, and they are exemplary:
-`DoorBuilder.ts:496-501` throws `SpatialAuthorityError` — *"level … has no elevation — refusing to
-place at Y=0"*; `WindowBuilder.ts:817-825` (§WINDOW-AUDIT-2026 C2, WIN-SPATIAL-FALLBACK) —
-*"never silently default to Y=0 … misconfigured levelId must produce a loud error, not a ghost window
-at floor level."* **The datum lines are `:503` and `:833`.** Recorded per C84 §6.
+⚠ **The `slabBaseOffset` residue is DECLARED, not hidden** — `DoorBuilder.ts:616-619`:
+*“`resolveWallBaseYOrLevel` returns the plane the wall builder PUBLISHED. Its fallback (host never
+built) omits only the slab term, which this package has no lawful way to read — it is not silently
+equal to the published value and is not pretended to be.”* That is the compliant C84 EI-2 form: the
+one term that cannot be carried is named at the site instead of dropped by omission.
+
+⚠ **CONSEQUENTIAL FOR [C85 §12 R-8](C85-ELEMENT-WALL.md), WHICH ALREADY SAYS SO.** The CSG
+single-volume arm's switched-off comment cites two blockers; the second — *“DoorBuilder/WindowBuilder
+place the leaf at `level.elevation + sillHeight` without slab/baseOffset”* — no longer exists.
+⛔ **The arm still stays OFF.** The first blocker (whether the `geometry-kernel` producer honours
+`baseOffset` the way `WallHoleBodyBuilder` does) is NOT MEASURED, and re-enabling on the strength of
+the closed half is precisely the inference C84 exists to prevent.
+
+⚠ **C84 cites `DoorBuilder.ts:498` / `WindowBuilder.ts:818` as the Y-datum sites. They are not —
+they are the SPATIAL-AUTHORITY GUARDS**, and they are exemplary refusals. Their numbers have moved
+too: measured 2026-08-19, `DoorBuilder.ts:594-602` throws `SpatialAuthorityError` (*“level … has no
+elevation — refusing to place at Y=0”*) and `WindowBuilder.ts:921-931` is its §WINDOW-AUDIT-2026 C2
+twin. **C86's own replacement citations `:503`/`:833` are equally stale** — it corrected C84's numbers
+and then rotted the same way, which is the argument for citing the `§`-tag (`§WALL-Y-DATUM`) rather
+than the line.
 
 ### Stack B — exists, and is deliberately unwired
 
@@ -682,7 +711,7 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **5** | `wall.delete` (L1) has **no** hosted cascade; the L2 path does (`DeleteElementCommand.ts:265-266`) | orphaned door/window records **and their 3-D meshes** | C84 **EI-4a**, **EI-5** | delegate, do not copy |
 | **6** | `frameThickness`, `frameWidth`, `fireRating`, `accessibilityType` are schema fields the create path **silently discards** (§5 rows 10, 11, 14, 15) | four authored door properties, at creation | C84 **EI-2(a)** | round-trip each through `wall.createOpening` |
 | **7** | `swing` has 5 members; the legacy record has a 2×2. **`'sliding'` is unrepresentable** | **a sliding door becomes a hinged door**, silently | C84 **EI-3** | enumerate both vocabularies in one test |
-| **8** | Frame Y (`DoorBuilder.ts:503`, `WindowBuilder.ts:833`) omits `wall.baseOffset`; the void adds it; the same files' `baseY` (`:525`/`:859`) adds it | latent — leaf and hole at different heights on any offset wall | C84 **§4D** | one datum authority ([C85 §10](C85-ELEMENT-WALL.md)) |
+| ~~**8**~~ | ✅ **CLOSED — STRUCK 2026-08-19; the row was stale AND its justification was one C85 had already retracted.** Frame Y is now `hostedLeafCentreY(resolveWallBaseYOrLevel(…), sill, height)` at `DoorBuilder.ts:620-625` / `WindowBuilder.ts:947-952`, both consuming `WallVerticalDatum.ts` (`:103`, `:119`, `:174`). Fixed by **`8f63fb6f`**, already on `main` and already recorded RESOLVED by [C85 §10](C85-ELEMENT-WALL.md) (eleven datums agree, leaf-vs-hole delta **0**). C86's cited lines had all rotted, and its **LATENT** grading rested on *"nothing authors either offset non-zero today"*, which C85 §10 records as *"never tested and … FALSE"* | nothing — closed | C84 **§4D** — satisfied | — (see §10) |
 | **9** | Default divergence: `width` 0.9 (schema) vs 1.0 (command); window `sillHeight` 0.9 vs 1.0 | a created opening differs from `parse({})` in a field neither reports | C84 **EI-9** | one default per field |
 | **10** | `WindowBuilder` ships both `'window'` (`:308`) and `'Window'` (`:578, :631`) against a C15 §12 **freeze of one** | nothing today (consumers lowercase) — the freeze is already broken | [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | one spelling from the producer |
 | **11** | `QueryEngine.ts:320, :575` synthesise `doorType` values outside `'single'\|'double'` | an AI-authored door fails to parse | C84 **EI-3** | correct the values or widen the union |
@@ -758,7 +787,8 @@ sentence (`WallRake.ts:50-62`) that is the worst of the three states.
 | `performUndoRedo.ts:345-352` — the door/window/level absences are deliberate and documented | **CONFIRMED** verbatim at `:345-351` |
 | `DeleteElementCommand.ts:243, :250-267` reverses the hosted cascade; `DeleteWall.ts:14-17` has none | **CONFIRMED** both, and **sharpened**: `DeleteWall.ts` blames an S11 that has arrived, and `DeleteElementCommand.ts:264` admits the cascade is **blind** |
 | `'opening'` has NO producer (§4E) | **CONFIRMED**, and **sharpened**: the three hits are `OpeningStore.ts:29, :37, :48`, all storeEventBus — and `OpeningStore` is the **SLAB/ROOF** hole store, so `DeleteElement.ts:52-53` routes the literal to a different family's command |
-| `DoorBuilder.ts:498` / `WindowBuilder.ts:818` are the Y-datum sites (§4D, §9) | ⛔ **REFUTED — they are the SPATIAL-AUTHORITY GUARDS** (`:496-501`, `:817-825`), and they are exemplary refusals. **The datum lines are `:503` and `:833`** |
+| `DoorBuilder.ts:498` / `WindowBuilder.ts:818` are the Y-datum sites (§4D, §9) | ⛔ **REFUTED — they are the SPATIAL-AUTHORITY GUARDS**, and they are exemplary refusals. ⚠ **C86's own replacement citations (`:503`/`:833`) have since rotted too** — measured 2026-08-19 the guards are `DoorBuilder.ts:594-602` / `WindowBuilder.ts:921-931` and the datum is `DoorBuilder.ts:620-625` / `WindowBuilder.ts:947-952`. Cite the `§WALL-Y-DATUM` tag, not the line |
+| The frame/void Y-datum divergence is **LATENT** (§10, §11 #8) | ⛔ **RETRACTED — the row was CLOSED before C86 was written.** `8f63fb6f` fixed it and [C85 §10](C85-ELEMENT-WALL.md) recorded it RESOLVED. The **LATENT** grading also rested on a ground C85 §10 had already measured FALSE. Struck in §10 and §11 |
 | `slabBaseOffset` occurrences in `geometry-door/src` + `geometry-window/src` = **0** | **CONFIRMED** |
 | door/window/slab parity harnesses OWED (§5) | **CONFIRMED for door and window** — no file imports both a Stack-A builder and a Stack-B producer |
 | — (not in C84) | **NEW:** `door.create`/`window.create` **REFUSE**, naming `wall.createOpening` — the correct EI-4a shape; `PlanElementDragController` violates C15 §8.1; 13 commands desync outside §8.1's scope; `'sliding'` is unrepresentable; two default divergences; `WindowBuilder` breaks C15 §12's freeze from one file |
