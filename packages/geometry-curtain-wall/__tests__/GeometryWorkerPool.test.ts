@@ -21,7 +21,7 @@
 //   ✓ Timeout is cleared when the worker responds normally (no timer leak).
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { GeometryWorkerRequest, GeometryWorkerResult } from '@pryzm/geometry-curtain-wall';
+import type { GeometryWorkerRequest, GeometryWorkerResult } from '../src/GeometryWorkerTypes';
 
 // ---------------------------------------------------------------------------
 // Mock Worker
@@ -85,7 +85,19 @@ class MockWorker implements MockWorkerInstance {
 // Import helper — load pool after stubbing Worker
 // ---------------------------------------------------------------------------
 
-let GeometryWorkerPool: typeof import('@pryzm/geometry-curtain-wall').GeometryWorkerPool;
+// §CW4-CW-SUITE-VISIBLE (L-1163) — THE SUBMODULE, NOT THE BARREL.
+//
+// This file re-imported `@pryzm/geometry-curtain-wall` — the whole package barrel —
+// inside a `beforeEach` that also calls `vi.resetModules()`, so the ENTIRE dependency
+// graph (CurtainWallTool -> @pryzm/command-registry -> THREE -> @thatopen/components)
+// was re-evaluated once per test, 25 times. Every one of the 21 failures was a TIMEOUT:
+// "Hook timed out in 10000ms", never an assertion. The pool class itself imports two
+// things (`@opentelemetry/api` and a local type file) and needs none of that graph.
+//
+// This is [[scc-no-barrel-access-at-module-load]] wearing a stopwatch, and it mattered
+// because the package had no `test`/`test:ci` script, so `pnpm -r run test:ci` never
+// ran the suite and 21 red tests were indistinguishable from 21 that did not exist.
+let GeometryWorkerPool: typeof import('../src/GeometryWorkerPool').GeometryWorkerPool;
 
 beforeEach(async () => {
   mockWorkerInstances.length = 0;
@@ -93,7 +105,7 @@ beforeEach(async () => {
 
   // Reset module so each test gets a fresh pool class with the mocked Worker.
   vi.resetModules();
-  const mod = await import('@pryzm/geometry-curtain-wall');
+  const mod = await import('../src/GeometryWorkerPool');
   GeometryWorkerPool = mod.GeometryWorkerPool;
 });
 
@@ -270,7 +282,7 @@ describe('GeometryWorkerPool — pool size from localStorage', () => {
     vi.stubGlobal('localStorage', storageMock);
 
     vi.resetModules();
-    const mod = await import('@pryzm/geometry-curtain-wall');
+    const mod = await import('../src/GeometryWorkerPool');
     new mod.GeometryWorkerPool();
     expect(mockWorkerInstances).toHaveLength(4);
 
@@ -283,7 +295,7 @@ describe('GeometryWorkerPool — pool size from localStorage', () => {
     vi.stubGlobal('localStorage', storageMock);
 
     vi.resetModules();
-    const mod = await import('@pryzm/geometry-curtain-wall');
+    const mod = await import('../src/GeometryWorkerPool');
     new mod.GeometryWorkerPool();
     expect(mockWorkerInstances).toHaveLength(2);
 
@@ -438,10 +450,17 @@ describe('GeometryWorkerPool — §4.2-ROBUST-FALLBACK dispatch timeout', () => 
     const req     = makeRequest();
     const promise = pool.dispatch(req);
 
+    // §CW4-CW-SUITE-VISIBLE (L-1163) — THE HANDLER IS ATTACHED BEFORE THE CLOCK MOVES.
+    // `advanceTimersByTimeAsync` yields to the microtask queue, so a rejection fired
+    // inside it with no handler yet attached is reported as an UNHANDLED REJECTION.
+    // Every test here passed while the file exited 1 on three of them — 25/25 green and
+    // RC=1 is precisely the state where "the suite passes" and "CI is red" are both true.
+    const rejects = expect(promise).rejects.toThrow(/timeout after 10000ms/);
+
     // Advance past the 10-second timeout window.
     await vi.advanceTimersByTimeAsync(10_001);
 
-    await expect(promise).rejects.toThrow(/timeout after 10000ms/);
+    await rejects;
   });
 
   it('timeout is cleared when the worker responds normally (no timer leak)', async () => {
@@ -474,10 +493,14 @@ describe('GeometryWorkerPool — §4.2-ROBUST-FALLBACK dispatch timeout', () => 
     const p1 = pool.dispatch(req1);
     const p2 = pool.dispatch(req2);
 
+    // See the note above: both handlers attach before the clock moves.
+    const r1 = expect(p1).rejects.toThrow(/timeout/);
+    const r2 = expect(p2).rejects.toThrow(/timeout/);
+
     await vi.advanceTimersByTimeAsync(10_001);
 
-    await expect(p1).rejects.toThrow(/timeout/);
-    await expect(p2).rejects.toThrow(/timeout/);
+    await r1;
+    await r2;
   });
 
   it('timeout is cleared when worker fails with an error result (no double-reject)', async () => {
