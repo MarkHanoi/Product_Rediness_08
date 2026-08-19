@@ -16398,3 +16398,72 @@ is what happens to a consumer that does not.**
 `FloorPanelBuilder` / `geometry-slab` neighbourhood is held by another lane. Also open: the dead
 `'opening'` entry, the two curtain-panel asymmetries, stair-railing's flag-dependent pickability,
 grid, and the scene-committer question above.
+
+## L-1196 — THE HANDRAIL PROPERTIES PANEL OFFERED 4 OF THE FIELDS IT CAN AUTHOR; EVERY FIELD THE FOUNDER ASKED FOR ALREADY EXISTED ✅ FIXED 2026-08-19 (lane HR5)
+
+**Founder, with a screenshot of HANDRAIL HR046 ("Glass Guardrail", Level 1):** *"In the properties
+panel the handrail should have the properties enough to change: PROFILE of handrail · DIMENSION ·
+CIRCULAR / SQUARE · MATERIAL · HOW OFTEN VERTICAL BARS · PANELS YES OR NO · how often, material,
+etc."*
+
+⭐ **THIS WAS A WIRING JOB, AND IT WAS MEASURED AS ONE BEFORE ANYTHING WAS BUILT.** Every field he
+named already existed on `HandrailData`, was already materialised by `resolveHandrailTypeFields`
+(thirteen fields), was already accepted by `UpdateHandrailPayload`, was already read by
+`HandrailFragmentBuilder`, and already round-tripped **29 authored / 29 survived / 0 lost / 0
+changed** through the real store → serializer → JSON boundary → payload builder → command → a
+second store. **The panel exposed FOUR.** This is [[authored-but-unwired-is-the-bottleneck]] at the
+UI layer: the capability was complete at both ends and had no control in the middle.
+
+**Now offered (12 authorable rows):** `railProfile` · `railDiameter` · `fillType` · `postSpacing` ·
+`postEndCondition` · `balusterShape` · `balusterWidth` · `balusterSpacing` · `infillMaxGap` ·
+`materialId`, alongside the existing `height` · `thickness` · `baseOffset` · `materialColor`.
+
+**The override model, decided and written into C95 §15.15:** a per-instance edit is a **free-form
+write, and the next type-Apply overwrites it**. That is the only reading the data model admits —
+`HandrailData` carries no live link to its type; applying one MATERIALISES thirteen fields onto the
+record. There is nowhere to record *"this instance overrides its type"*. ⛔ **No "overridden" badge
+and no detach affordance until `typeId` becomes a live reference**: a badge over a materialised
+copy would claim a relationship the record cannot hold, and it would be believed.
+
+**Material — the C100 §2.1 axis this family already got wrong once** (20 railing types carrying a
+hex and no `materialId`, fixed at `10513bf4`): a picker bound to `materialId` now sits **above** the
+hex, grouped by catalogue category, with *"— None (type default) —"* as a real clearing option and a
+visible `⚠ <id> (not in catalogue)` row for a stale reference. ⛔ **The order and the hint are
+load-bearing:** `resolveMaterialColour` resolves the OVERRIDE FIRST, so a stale hex makes a material
+pick change nothing on screen while every surface agrees it was applied. The retype-clears-the-hex
+behaviour (`materialColor ?? null`) is untouched.
+
+**A live panel-vs-command drift, found and closed:** the panel offered `Height` as **0.5 – 2.0 m**
+while `UpdateHandrailCommand.canExecute` refuses only outside **0.3 – 2.5 m** — the panel silently
+narrowed a range the model accepts and chat could reach, so a 0.4 m planter-edge rail was authorable
+one way and not the other. Both now read `HANDRAIL_CONSTRAINTS`, which labels each bound **ENFORCED**
+or **ADVISORY** so nobody hardens a spinner hint into a refusal the command does not make (L-942).
+
+**Vocabularies are now READ, not re-typed:** the three enums were TYPE-only unions that vanish at
+compile time, so any picker had to re-type their members. They are now runtime `as const` arrays with
+the unions DERIVED from them — `'centred'` mistyped as `'centered'` would have been a dropdown
+writing a value no consumer recognises, with no error anywhere.
+
+### 🔴 RAC PARITY IS **NOT** MET — measured, and deliberately not hidden
+
+The write route is already shared: the panel dispatches `element.updateParameters`, the **same bus
+verb** the chat vocabulary routes to. But `PropertyVocabulary.ts` reaches only **THREE** handrail
+properties (the only entries whose `kinds` include `handrail`): `baseOffset`, `balusterSpacing`,
+`balusterWidth`. **Twelve offered in the panel, three reachable from chat.**
+
+The four ENUM-valued ones (`railProfile`, `balusterShape`, `fillType`, `postEndCondition`) need value
+parsing the numeric `generic(field)` route does not provide — *"make it round"* must resolve to a
+member of the published array — so they are a design step, not a copy-paste of the three existing
+rows. The seven numeric/reference ones are closer to mechanical. ⛔ **Do not claim C95 §15.9
+satisfied for this family until that list is empty.**
+
+### Test shape
+
+`apps/editor/src/ui/property-panel/__tests__/HandrailPropertyFields.spec.ts` — **a SWEEP, not an
+assertion list** (L-1037: *"a field-by-field test is the whitelist defect wearing a test's
+clothes"*). It enumerates every editable descriptor the REAL generator produces and drives each
+through the REAL `UpdateElementParameterCommand` into a REAL `HandrailStore`, because the gap
+round-trip persistence cannot see is that **a row can be added to the panel and write nowhere at
+all**. Negative controls assert the pre-write value differs, so a no-op cannot pass. The existing
+`handrailPersistenceRoundTrip` harness is used as-is and deliberately not duplicated. 19/19 green;
+root tsc RC=0.
