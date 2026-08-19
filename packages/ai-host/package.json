@@ -26,6 +26,7 @@
     "@pryzm/geometry-kernel": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@pryzm/ai-cost": "workspace:*",
+    "@pryzm/command-bus": "workspace:*",
     "@pryzm/command-registry": "workspace:*",
     "@pryzm/constraint-solver": "workspace:*",
     "@pryzm/core-app-model": "workspace:*",

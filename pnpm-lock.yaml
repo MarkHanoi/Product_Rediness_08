@@ -1342,6 +1342,9 @@ importers:
       '@pryzm/ai-cost':
         specifier: workspace:*
         version: link:../ai-cost
+      '@pryzm/command-bus':
+        specifier: workspace:*
+        version: link:../command-bus
       '@pryzm/command-registry':
         specifier: workspace:*
         version: link:../command-registry

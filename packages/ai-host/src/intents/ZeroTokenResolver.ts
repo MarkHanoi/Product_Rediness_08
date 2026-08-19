@@ -59,6 +59,17 @@ import { resolveOccupancyRef } from './roomOccupancyRef.js';
 // dependency runs ONE way (this file → VisibilityIntents); that module
 // imports only TYPES back, so there is no load-order cycle.
 import { applyVisibilityIntent, asVisibilityIntent } from './VisibilityIntents.js';
+// §L-1032 — the LEVEL-CHANGE family module, on exactly the same seam as
+// VisibilityIntents: the value dependency runs ONE way (this file → that
+// module), which imports only TYPES back, so there is no load-order cycle. Its
+// element-family table is not its own — it reads `LEVEL_CHANGE_VERBS` /
+// `LEVEL_CHANGE_REFUSALS` out of `@pryzm/command-bus`, the L1 register the
+// property panel and the L3 event bridge read too (C84 EI-9).
+import {
+  applyMoveToLevelIntent,
+  asMoveToLevelIntent,
+  levelChangeKnownKinds,
+} from './LevelChangeIntents.js';
 // RAC U7.2 — catalogue families (window / door / slab / ceiling) are TABLE
 // ENTRIES: one record generates both the CapabilityExecutionSpec and the
 // grammar below. Adding a family costs zero lines in this file.
@@ -635,6 +646,35 @@ export type SemanticIntent =
       readonly sourceQuery: string;
       readonly targetQueries: readonly string[];
     }
+  /**
+   * §L-1032 — "move the slab to level 2" / "change this wall's level to Ground"
+   * / "move slab from Level 1 to Level 2" (the founder's three phrasings).
+   *
+   * The FAMILY table is `LEVEL_CHANGE_VERBS` / `LEVEL_CHANGE_REFUSALS` in
+   * `@pryzm/command-bus`; the arm is `LevelChangeIntents.applyMoveToLevelIntent`
+   * and it answers THREE ways — dispatch, the family's declared refusal
+   * (a door belongs to its host wall), or an honest "I don't know" for a family
+   * in neither table.
+   */
+  | {
+      readonly intent: 'move-to-level';
+      /** The DESTINATION, as said. Resolved by `findLevel` — the same authority
+       *  `go-to-level` and `duplicate-level` use; never a second matcher. */
+      readonly levelQuery: string;
+      /** A STATED origin ("…from Level 1"). It is not a filter: the selection
+       *  carries no level, so the arm resolves it, reports it as the user's own
+       *  statement, and never claims to have verified it. */
+      readonly fromLevelQuery?: string;
+      /** The element noun the user said ("slab"), if any. It decides the family
+       *  verdict BEFORE the selection is consulted, so "move this door to level
+       *  2" answers why a door has no storey even with nothing selected. */
+      readonly nounRef?: string;
+      /** The user said "all"/"every". The arm moves the SELECTION and nothing
+       *  else, so this REFUSES by name rather than quietly narrowing the ask —
+       *  reading "all walls" as "the one selected wall" and reporting success is
+       *  the §L-995…L-998 over-claim. */
+      readonly projectScopeAsked?: true;
+    }
   | {
       readonly intent: 'create-wall';
       readonly start?: WallPoint2;
@@ -1181,6 +1221,12 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
   // property vocabulary: a family, not four new hand-written case arms).
   const vis = asVisibilityIntent(si);
   if (vis !== null) return applyVisibilityIntent(vis, ctx);
+  // §L-1032 — the level-change family, routed the same way and for the same
+  // reason. `findLevel` is passed IN so the value dependency stays one-way; it
+  // is this file's own function, so a level name means exactly what it means to
+  // "go to level 2" (one level-name resolver, C84 EI-9).
+  const mtl = asMoveToLevelIntent(si);
+  if (mtl !== null) return applyMoveToLevelIntent(mtl, ctx, findLevel);
   switch (si.intent) {
     case 'undo':
       return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
@@ -2843,6 +2889,162 @@ const matchRoomOccupancy: Matcher = (text) => {
   return null;
 };
 
+// ─── §L-1032 — "move the slab to level 2" ────────────────────────────────────
+//
+// The founder's three phrasings, verbatim from the report:
+//
+//   "move the slab to level 2"            — FORM A, the move verb
+//   "change this wall's level to Ground"   — FORM B, the possessive
+//   "move slab from Level 1 to Level 2"    — FORM A with a STATED origin
+//
+// WHAT IT MUST NOT CLAIM, and how each is declined:
+//
+//   "move the wall 2m to the left"  — FORM A matches structurally, so the
+//        DESTINATION must be level-shaped (it names a storey noun, is a bare
+//        number, or resolves against the project's own level list) or this is a
+//        miss. A miss is the right answer: it lets the `position` unconnected
+//        topic answer honestly that planar moving is not connected, which is
+//        still true. Claiming it would produce "No level called 'the left'".
+//   "change the floor to oak"       — FORM B matches structurally ("floor to"),
+//        so the HEAD must reduce to a real element reference (a known family
+//        noun, or a demonstrative / "selected"). "the" reduces to nothing and
+//        the sentence is declined, leaving the finish grammars untouched.
+//   "move all walls to level 2"     — CLAIMED, and REFUSED by name. The arm
+//        moves the SELECTION; silently re-reading "all" as "the selection" and
+//        reporting success is precisely the over-claim §L-995…L-998 were.
+//
+// The level-name lookup is `findLevel` — the SAME authority `go-to-level` and
+// `duplicate-level` use. There is no second level resolver here (C84 EI-9).
+const MTL_LEVEL_NOUN = String.raw`(?:levels?|storeys?|stories|story|floors?)`;
+const MTL_MOVE_VERB = String.raw`(?:move|put|send|relocate|transfer)`;
+const MTL_EDIT_VERB = String.raw`(?:change|set|update|switch|reassign|move)`;
+
+/** "change the level of this slab [from level 1] to level 2". */
+const MTL_LEVEL_OF_RE = new RegExp(
+  `^${MTL_EDIT_VERB}\\s+(?:the\\s+)?${MTL_LEVEL_NOUN}\\s+of\\s+(.+?)\\s+(?:from\\s+(.+?)\\s+)?to\\s+(.+)$`,
+);
+/** "change this wall's level [from level 1] to ground". */
+const MTL_POSSESSIVE_RE = new RegExp(
+  `^${MTL_EDIT_VERB}\\s+(.+?)(?:'s|s')?\\s+${MTL_LEVEL_NOUN}\\s+(?:from\\s+(.+?)\\s+)?to\\s+(.+)$`,
+);
+/** "move the slab [from level 1] to level 2". */
+const MTL_MOVE_RE = new RegExp(
+  `^${MTL_MOVE_VERB}\\s+(.*?)(?:\\s+from\\s+(.+?))?\\s+(?:on ?to|over to|up to|down to|into|onto|to|on)\\s+(.+)$`,
+);
+
+/** Words that carry no element identity — stripped before a head is read as a
+ *  family noun. "elements" is here on purpose: "move the selected elements to
+ *  level 2" names no family and must not be checked against one. */
+const MTL_HEAD_NOISE =
+  /\b(?:the|a|an|this|that|these|those|my|its|it|them|selected|selection|currently|of|element|elements|item|items|object|objects)\b/g;
+
+/** Scope words the SELECTION cannot honour — see the header. */
+const MTL_ALL_SCOPE = /\b(?:all|every|each|whole|entire)\b/;
+
+/** A head that is a real element reference: a family noun, or a demonstrative
+ *  that means "what is selected". Form B needs one; without it "change the
+ *  floor to oak" would be read as a storey change. */
+const MTL_DEMONSTRATIVE = /\b(?:this|that|these|those|it|them|selected|selection)\b/;
+
+function mtlNoun(head: string): string | undefined {
+  const cleaned = head
+    .replace(MTL_HEAD_NOISE, ' ')
+    .replace(MTL_ALL_SCOPE, ' ')
+    .replace(/[^a-z\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleaned.length === 0) return undefined;
+  // Multi-word families are hyphenated ("curtain wall" → "curtain-wall"), which
+  // is the spelling `normalizeElementKind` and the register's `panelTypes`
+  // already agree on. An unknown noun is simply IGNORED by the arm, never a
+  // guess — the family verdict comes from the selection in that case.
+  return singular(cleaned.replace(/\s+/g, '-'));
+}
+
+/** Strip a leading storey noun off a level reference ("level 2" → "2"). */
+function mtlLevelQuery(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^the\s+/, '')
+    .replace(new RegExp(`^${MTL_LEVEL_NOUN}\\s*`), '')
+    .trim();
+}
+
+/**
+ * Parse a level-change ask into the semantic intent — SHARED by the tier-0
+ * grammar and (via `resolveUtteranceIntent`) the compound-plan executor, so the
+ * rigid and natural paths cannot read the sentence differently.
+ */
+export function parseMoveToLevelIntent(
+  text: string,
+  ctx: ResolverContext,
+): Extract<SemanticIntent, { intent: 'move-to-level' }> | null {
+  const t = text.trim().replace(/[.?!]+$/, '');
+
+  let head: string;
+  let fromRaw: string | undefined;
+  let destRaw: string;
+  let form: 'move' | 'edit';
+
+  const ofForm = MTL_LEVEL_OF_RE.exec(t);
+  const possForm = ofForm === null ? MTL_POSSESSIVE_RE.exec(t) : null;
+  const moveForm = ofForm === null && possForm === null ? MTL_MOVE_RE.exec(t) : null;
+
+  if (ofForm !== null) {
+    head = ofForm[1]!; fromRaw = ofForm[2]; destRaw = ofForm[3]!; form = 'edit';
+  } else if (possForm !== null) {
+    head = possForm[1]!; fromRaw = possForm[2]; destRaw = possForm[3]!; form = 'edit';
+  } else if (moveForm !== null) {
+    head = moveForm[1]!; fromRaw = moveForm[2]; destRaw = moveForm[3]!; form = 'move';
+  } else {
+    return null;
+  }
+
+  const levelQuery = mtlLevelQuery(destRaw);
+  if (levelQuery.length === 0) return null;
+
+  const noun = mtlNoun(head);
+
+  const destNamesLevel = new RegExp(`(?:^|\\s)${MTL_LEVEL_NOUN}(?:\\s|$)`).test(destRaw);
+  const destLooksLikeLevel =
+    destNamesLevel || /^\d+$/.test(levelQuery) || findLevel(levelQuery, ctx.levels) !== undefined;
+
+  if (form === 'edit') {
+    // The sentence already carries the storey noun structurally, so what it
+    // needs is proof that the storey noun is the SUBJECT and not the object:
+    //
+    //   "change this slab's level to level 1" — the head names a FAMILY. Claim.
+    //   "change its level to level 2"         — the head is a demonstrative AND
+    //                                           the destination is level-shaped.
+    //                                           Claim.
+    //   "change this floor to oak"            — bare demonstrative, and "oak" is
+    //                                           no level. MISS, and the slab-type
+    //                                           grammar gets the sentence.
+    //
+    // Measured 2026-08-19: without the second clause this parser claimed
+    // "change this floor to oak" and refused it with "No level called oak" — a
+    // manufactured refusal over a working catalogue ask.
+    const namesFamily = noun !== undefined && levelChangeKnownKinds().includes(noun);
+    if (!namesFamily && !(MTL_DEMONSTRATIVE.test(head) && destLooksLikeLevel)) return null;
+  } else {
+    // FORM A carries no storey noun of its own, so the DESTINATION has to be
+    // level-shaped — matchGoToLevel's discipline, for the same reason.
+    if (!destLooksLikeLevel) return null;
+  }
+
+  return {
+    intent: 'move-to-level',
+    levelQuery,
+    ...(fromRaw !== undefined && mtlLevelQuery(fromRaw).length > 0
+      ? { fromLevelQuery: mtlLevelQuery(fromRaw) }
+      : {}),
+    ...(noun !== undefined ? { nounRef: noun } : {}),
+    ...(MTL_ALL_SCOPE.test(head) ? { projectScopeAsked: true } : {}),
+  };
+}
+
+const matchMoveToLevel: Matcher = (text, ctx) => parseMoveToLevelIntent(text, ctx);
+
 const matchGoToLevel: Matcher = (text, ctx) => {
   const m = /^(?:go to|open|show) (?:the )?(?:level|levels)?\s*(.+)$/.exec(text);
   if (!m) return null;
@@ -3708,6 +3910,22 @@ const MATCHERS: readonly Matcher[] = [
   // RAC U7.2 — every CATALOGUE FAMILY's type grammar, generated from the table
   // (window, door, slab, ceiling). They sit exactly where matchWindowType and
   // matchDoorType sat: after the wall grammars, before the dimension family.
+  // §L-1032 — BEFORE the catalogue families, and the order is LOAD-BEARING.
+  // MEASURED 2026-08-19: "change this slab's level to level 1" was claimed by
+  // the SLAB catalogue grammar with `typeRef = "level to level 1"` — its scoped
+  // shape reads `this` + `slab` + `'s` + everything after the next space as a
+  // type name — and the reply refused with the slab-type catalogue. That is the
+  // §FIX-CHAT-TYPEREF-SWALLOW shape again, and the founder's own possessive
+  // phrasing walked straight into it.
+  //
+  // Safe in the other direction BY CONSTRUCTION, not by luck: this parser claims
+  // only a sentence whose storey noun is IMMEDIATELY followed by "to" ("…'s
+  // LEVEL TO x"), which no catalogue phrasing produces ("on level 2 to fire
+  // doors" has "level 2 to", not "level to"), and only when the head names a
+  // real element family or the destination resolves as a level. "change this
+  // floor to oak", "change the slab type to concrete" and "change all doors on
+  // level 2 to fire doors" are pinned as misses in moveToLevel.test.ts.
+  matchMoveToLevel,
   ...CATALOGUE_FAMILY_MATCHERS,
   // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
   // it off every other grammar; claims even when underspecified (honest asks).

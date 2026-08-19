@@ -649,6 +649,23 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     ],
   },
   {
+    // §L-1032 — the founder's phrasings, with a SLAB selected because "move the
+    // slab to level 2" is the sentence he wrote. The refused families (door,
+    // window, room, stair, …) are pinned separately in moveToLevel.test.ts:
+    // this family exists to prove the phrasings LAND, and that suite exists to
+    // prove the refusals SPEAK.
+    id: 'move-to-level',
+    ctx: sel('slab'),
+    phrasings: [
+      'move the slab to level 2',
+      'move slab from level 0 to level 2',
+      'move this to level 2',
+      "change this slab's level to level 1",
+      'change the level of this slab to level 2',
+      'put the slab on level 1',
+    ],
+  },
+  {
     id: 'create-wall',
     ctx: {},
     phrasings: [
@@ -1236,6 +1253,16 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'Created a bed and a sofa',
     'what if I place a sofa here?',
     'maybe we should add a wardrobe',
+    // §L-1032 — the level-change grammar's own pins. `move-to-level` claims a
+    // very common verb ("move"), so the negation / hypothetical / question /
+    // paste-back shapes around it are the ones that would silently re-storey a
+    // wall. The last two are the paste-back class: a report of a move already
+    // made is not an instruction to make it again.
+    "don't move the slab to level 2",
+    'what would happen if I moved this wall to level 2?',
+    'which level is this slab on?',
+    'Moved the slab to Level 2',
+    'maybe I should move this to level 2',
   ])('"%s" produces no command and no local action', (utterance) => {
     const ctx = ctxOf(sel('wall'));
     expect(mutating(resolveUtterance(utterance, ctx)), 'tier 0/1 mutated').toBe(false);

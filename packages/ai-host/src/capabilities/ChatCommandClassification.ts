@@ -161,7 +161,19 @@ const B_VIEWS = family(
 
 const B_MISC = [
   ...family('B', 'Copy needs a paste, and paste needs a target position the chat cannot infer — a pointer workflow end to end.', ['copy-selection', 'paste-clipboard'], { blockedBy: 'a placement model for the pasted content' }),
-  ...family('B', 'Changing an element\'s level is chat-shaped ("move this to level 2") but re-hosting semantics (joins, openings, hosted children) need a per-family design before chat may drive it.', ['wall.changeLevel', 'roof.changeLevel'], { potentialCapability: 'move-to-level', blockedBy: 'defined re-hosting semantics per element family' }),
+  // §L-1032 — DELETED, not moved. This row deferred `wall.changeLevel` and
+  // `roof.changeLevel` as class B with
+  // `blockedBy: 'defined re-hosting semantics per element family'`.
+  //
+  // That blocker is DISCHARGED by the thing it named: the per-family semantics
+  // are now written down once, in `LEVEL_CHANGE_VERBS` (twelve families, each
+  // with its verb and its payload spelling) and `LEVEL_CHANGE_REFUSALS` (nine
+  // families that must NOT get it, each with the clause that decides it), in
+  // `@pryzm/command-bus/src/levelChangeVerbs.ts`. The `move-to-level`
+  // capability in `ChatCapabilityRegistry.ts` declares all twelve verbs and the
+  // deletion is in the SAME commit — a verb declared both as a capability and
+  // as a classification fails the coverage gate's disjointness check, which is
+  // exactly the guard that should stop a half-finished promotion.
   // ADR-0315 U5a: level.duplicate-floor-plan LEFT this family — it is now the
   // duplicate-level capability; the "multi-parameter clarification flow" its
   // blocker demanded is exactly what the conversation provides.

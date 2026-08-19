@@ -93,6 +93,13 @@ import {
   dimensionFamilyTargets,
   type DimensionKey,
 } from '../intents/DimensionFamilies.js';
+// §L-1032 — THE LEVEL-CHANGE REGISTER, read straight out of L1. The same rows
+// the L7 property panel offers its control from and the L3 event bridge builds
+// `element.level-changed` from, so "which families can change storey, and by
+// which verb" is answered in exactly one place (C84 EI-9). Importing the
+// register here rather than restating it is what makes a row added to
+// `LEVEL_CHANGE_VERBS` a chat target in the SAME edit.
+import { LEVEL_CHANGE_REFUSALS, LEVEL_CHANGE_VERBS } from '@pryzm/command-bus';
 
 const TRACER_NAME = '@pryzm/ai-host';
 let cachedTracer: Tracer | null = null;
@@ -429,6 +436,31 @@ const DIMENSION_FAMILY_CAPABILITIES: readonly ChatCapability[] = DIMENSION_FAMIL
   commandProof: family.commandProof,
   examples: [...family.examples],
 }));
+
+// ─── §L-1032 — the LEVEL-CHANGE family, derived from the L1 register ─────────
+//
+// Both lists are COMPUTED from `LEVEL_CHANGE_VERBS`, never transcribed. The
+// register's `panelTypes` are the property panel's `normalizeType()` spellings
+// and the chat's are `PROBE_ELEMENT_KINDS`'; the only difference is hyphenation
+// ('curtainwall' → 'curtain-wall'), which `normalizeElementKind` — the function
+// the gate itself checks targets with — already reconciles.
+//
+// A family whose row exists but whose handler is not registered will be caught
+// by the coverage gate's PHANTOM check ("claims a command that is not a
+// registered bus command"), which is the correct place for that to surface: the
+// register's own header says a row is a claim that the verb IS registered.
+
+/** Every element kind the chat can really re-storey. */
+export const MOVE_TO_LEVEL_TARGETS: readonly string[] = Object.freeze([
+  ...new Set(
+    Object.values(LEVEL_CHANGE_VERBS).flatMap((s) => s.panelTypes.map(normalizeElementKind)),
+  ),
+]);
+
+/** Every bus verb `move-to-level` can dispatch — the register's key set. */
+export const MOVE_TO_LEVEL_BUS_COMMANDS: readonly string[] = Object.freeze(
+  Object.keys(LEVEL_CHANGE_VERBS),
+);
 
 // ─── The capabilities ────────────────────────────────────────────────────────
 
@@ -1947,6 +1979,99 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    // §L-1032 — the founder's ask: *"Every element needs to be possible to be
+    // changed the level via properties panel … and via chat: e.g. 'Move/Change
+    // slab from Level 1 to Level 2'."* The panel half shipped in 40494b09 /
+    // d6a80d02; this is the chat half.
+    //
+    // ── WHY THIS IS NOW A CAPABILITY AND NOT A CLASS-B DEFERRAL ─────────────
+    // `ChatCommandClassification` deferred `wall.changeLevel` / `roof.changeLevel`
+    // with `blockedBy: 'defined re-hosting semantics per element family'`. That
+    // blocker is DISCHARGED, and by the named thing: the per-family semantics
+    // are now written down, once, in `LEVEL_CHANGE_VERBS` (the families that
+    // move, each with its verb and its payload spelling) and
+    // `LEVEL_CHANGE_REFUSALS` (the families that must NOT get the control, each
+    // with the clause that decides it). The class-B entry was deleted in the
+    // same commit — the coverage gate fails a verb declared twice, and rightly.
+    //
+    // ⚠ DO NOT COUNT THE FAMILIES HERE. The register moves: L-1087 demoted
+    // beam / furniture / lighting / plumbing from movable to DEFERRED on
+    // 2026-08-19 (their fragment builders seat the mesh at a stored absolute Y,
+    // so a storey change re-files the record and leaves the mesh hovering at the
+    // old floor). Everything below is derived from the register precisely so a
+    // move like that costs zero lines here — read `LEVEL_CHANGE_VERBS`, never a
+    // number in this comment.
+    //
+    // ── THE REFUSALS ARE THE POINT ─────────────────────────────────────────
+    // "Move this door to level 2" answers *"A door belongs to its host wall.
+    // Move the wall and the door goes with it."* — the family's own sentence
+    // out of the register, not "I can't do that" and emphatically not a
+    // success. `targets` therefore excludes door / window / room / grid /
+    // annotation / dimension / stair / lift / pool, and `applyMoveToLevelIntent`
+    // refuses each with its declared reason rather than the generated
+    // capability-gap copy.
+    id: 'move-to-level',
+    description: 'move the selected element to another level',
+    verbs: ['move', 'change', 'put', 'send', 'relocate', 'transfer'],
+    // ⚠ NO 'move'-family word may appear in `aliases` or `refusalLabel`. The
+    // L998 contradiction invariant tests the `position` unconnected topic's
+    // regex against exactly those two fields, and `position` still matches
+    // /move|relocate|shift|…/ — deliberately, because PLANAR repositioning
+    // really is unconnected. The topic was NARROWED (a level-shaped sentence no
+    // longer fires it) rather than excluded, so both statements stay true: a
+    // storey change is live, a planar move is not.
+    aliases: ['level', 'storey', 'floor', 'level change'],
+    refusalLabel: 'level',
+    targets: MOVE_TO_LEVEL_TARGETS,
+    parameters: [
+      {
+        name: 'level',
+        description: 'the level to move the element onto',
+        required: true,
+        valueSource: 'project-levels',
+        example: 'Level 2',
+      },
+    ],
+    scope: 'selection',
+    // NOT 'all', and the arm refuses "move all walls to level 2" by name: every
+    // row in the register is ONE element per command, so a project-wide claim
+    // would be an over-claim with no verb behind it (§L-995…L-998).
+    destructive: false,
+    busCommand: 'wall.changeLevel',
+    // The other eleven families, generated from the register — never typed out.
+    alsoDispatches: MOVE_TO_LEVEL_BUS_COMMANDS.filter((v) => v !== 'wall.changeLevel'),
+    probe: { intent: 'move-to-level', levelQuery: '0' },
+    commandProof: {
+      // The move's LIVENESS question is not "did the bus verb run" — it is
+      // "did the storey change reach the store the renderer reads". That is
+      // exactly what this mirror does, one row per family, and it is under
+      // apps/editor so the gate classifies it as an execution authority.
+      //
+      // The literals are GENERATED from the register, so the proof covers
+      // exactly the families this capability claims and no more. A family that
+      // leaves `LEVEL_CHANGE_VERBS` stops being claimed AND stops being proven
+      // in the same edit — which is what happened to beam / furniture /
+      // lighting / plumbing under L-1087, and the reason this must not be a
+      // hand-typed list.
+      file: 'apps/editor/src/engine/elementLevelChangedMirror.ts',
+      mustMention: Object.values(LEVEL_CHANGE_VERBS).map(
+        (spec) => `${spec.kind}: (deps) => deps.${spec.kind}Store`,
+      ),
+      note:
+        'LEGACY_LEVEL_MOVERS — the bus verb\'s `element.level-changed` event is mirrored into the ' +
+        'LEGACY store the renderer actually reads, one row per family, and the mirror refuses BY NAME ' +
+        'into the log when a store is unwired rather than no-opping silently. A family present in the ' +
+        'register but absent here is the silent half of L-1032: the command succeeds, the plugin store ' +
+        'is right, and the renderer keeps its own unchanged copy.',
+    },
+    examples: [
+      'move the slab to level 2',
+      'move slab from level 0 to level 2',
+      "change this slab's level to level 1",
+      'change the level of this slab to level 2',
+    ],
+  },
+  {
     id: 'create-wall',
     description: 'create a wall between two coordinates',
     verbs: ['create', 'draw', 'add', 'build'],
@@ -2497,6 +2622,32 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['selection.select', 'The chat acts on what you have selected; it does not change the selection.'],
   ['selection.deselect', 'The chat acts on what you have selected; it does not change the selection.'],
   ['selection.clear', 'The chat acts on what you have selected; it does not change the selection.'],
+
+  // ── §L-1032 / §L-1087 — LEVEL CHANGES THAT ARE BUILT BUT WITHHELD ────────
+  //
+  // These four verbs ARE registered, their store move works and their undo
+  // route passes. They are still not offered, and the reason is measured, not
+  // stylistic: their fragment builders seat the mesh at an absolute Y stamped
+  // into the record at create time, so a storey change re-files the element and
+  // leaves the 3-D mesh hovering at the OLD floor's height with nothing
+  // reporting a failure. `LEVEL_CHANGE_REFUSALS` carries the per-family
+  // evidence; the SENTENCE below is read out of that same row, so the chat's
+  // refusal and the property panel's are literally the same string.
+  //
+  // WHY THE FOUR KINDS ARE NAMED HERE AND NOT DERIVED: the register does not
+  // record "a verb exists for this refused family" — refusals like `door` and
+  // `grid` have no verb at all, and inventing `door.changeLevel` would be a
+  // phantom. The list is self-correcting rather than trusted: if a row moves
+  // back into `LEVEL_CHANGE_VERBS`, `move-to-level` claims its verb through
+  // `alsoDispatches` and the "nothing is both exposed and deferred" invariant in
+  // `chat-capability-registry.test.ts` goes RED until this entry is removed.
+  ...(['beam', 'furniture', 'lighting', 'plumbing'] as const).flatMap((kind) => {
+    const row = LEVEL_CHANGE_REFUSALS[kind];
+    // A row that vanished is NOT silently skipped into a covered state: dropping
+    // it leaves the verb undeclared, which is exactly what the coverage gate
+    // exists to shout about.
+    return row === undefined ? [] : [[`${kind}.changeLevel`, row.reason] as const];
+  }),
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

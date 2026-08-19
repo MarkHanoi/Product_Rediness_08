@@ -96,7 +96,12 @@ const HYPOTHETICAL =
  *  imperative form ("built" vs "build", "added" vs "add"), so claiming them
  *  costs the user no expressiveness. */
 const PAST_TENSE_REPORT_OPENER =
-  /^\s*(?:built|created|generated|added|duplicated|furnished|lit|placed|inserted|updated|changed|deleted|removed|renamed|painted|raked|drew|laid|done|finished|completed|applied|resolved|undid|redid|nothing was (?:changed|added|created))\b/i;
+  // §L-1032 added `moved`: `move-to-level` shipped an imperative "move …" and
+  // the report line for it is "Moved the slab to Level 2". Without this, tier-1
+  // typo correction is one edit away from rewriting the report's own past tense
+  // back into the imperative — which is exactly the mechanism that turned
+  // "Built 6 floors" into a created level (§FIX-CHAT-REPORT-PASTEBACK).
+  /^\s*(?:built|created|generated|added|duplicated|furnished|lit|placed|inserted|updated|changed|deleted|removed|renamed|painted|raked|drew|laid|moved|done|finished|completed|applied|resolved|undid|redid|nothing was (?:changed|added|created))\b/i;
 
 /** Report SHAPE anywhere in the text — statistics, percentages, and the chat's
  *  own transcript furniture. These are things our reports say, not things a
@@ -483,8 +488,42 @@ const UNCONNECTED_TOPICS: readonly UnconnectedTopic[] = [
     excludeKinds: ['wall'],
   },
   {
+    // §L-1032 — NARROWED (not excluded), 2026-08-19.
+    //
+    // `move-to-level` is now LIVE for twelve element families, and it is reached
+    // by "move the slab to level 2". This topic matched the bare verb `move`,
+    // so any level-shaped sentence the grammar happened to miss — a phrasing
+    // one word off, a level name with a typo — would have been answered
+    // *"Slab position isn't connected to chat yet"*, which is now FALSE. That is
+    // the §FIX-BARE-FINISH-SELF-CONTRADICTS defect (L-998) exactly: the TOPIC
+    // TABLE denying what the REGISTRY offers.
+    //
+    // ── WHY NOT `excludeKinds` ─────────────────────────────────────────────
+    // `excludeKinds` is per-KIND and would have had to name all twelve movable
+    // families — which would silently delete the honest refusal for PLANAR
+    // moving ("move the wall 2m to the left"), a gap that is still completely
+    // real: `wall.move` / `door.move` / `window.move` / `room.move` remain in
+    // CHAT_UNAVAILABLE and no capability drives them. The distinction is not the
+    // KIND, it is the SENTENCE — a storey change is live, a planar move is not —
+    // so the narrowing is a lookahead for level vocabulary and nothing else. No
+    // word was removed from the match: "move the wall 2m left" still refuses,
+    // with the same copy it always did (RAC free-form doctrine — vocabulary is
+    // moved, never deleted).
+    //
+    // A level-shaped sentence the grammar misses is therefore a MISS and reaches
+    // the LLM, which is the honest outcome: better an "I'm not sure" than a
+    // confident denial of something the chat can do.
+    //
+    // Bare "floor"/"floors" is deliberately NOT in the lookahead — "move the
+    // floor 2m north" is a planar ask about a floor SLAB, and it must keep its
+    // refusal. Only the ordinal/named storey phrasings are level-shaped.
     label: 'position',
-    match: /\b(?:move|moves|moving|reposition|relocate|shift|nudge|slide|drag)\b/,
+    match: new RegExp(
+      String.raw`^(?![\s\S]*\b(?:levels?|storeys?|stories|story|upstairs|downstairs|` +
+      String.raw`(?:ground|first|second|third|fourth|fifth|sixth|top|upper|lower|next|another)\s+floors?|` +
+      String.raw`floors?\s+\d+)\b)` +
+      String.raw`[\s\S]*\b(?:move|moves|moving|reposition|relocate|shift|nudge|slide|drag)\b`,
+    ),
     commands: ['wall.move', 'door.move', 'window.move', 'room.move'],
   },
   {
