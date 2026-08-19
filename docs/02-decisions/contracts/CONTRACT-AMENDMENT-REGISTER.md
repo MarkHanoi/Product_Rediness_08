@@ -1,5 +1,29 @@
 # CONTRACT AMENDMENT REGISTER — measured defects awaiting amendment
 
+> ## THIS REGISTER'S OWN MEASUREMENT DATE: **2026-08-19** (lane RG1) · opened 2026-08-18
+>
+> **Every row below carries one of FOUR verdicts, and they are not two:**
+> **STANDS** (re-measured, still true) · **CLOSED** (fixed — SHA cited) ·
+> **SUPERSEDED** (the defect changed shape) · **NOT RE-MEASURED** (nobody checked — not a pass).
+> **NOT RE-MEASURED is not CLOSED. UNPROVEN is not FAIL is not PASS.** A row with no verdict is
+> stale by definition — the point of this banner is that its age is visible at a glance.
+>
+> **Re-derive the suite count before citing it — never transcribe it:**
+>
+> ```
+> ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'     # -> 100  (2026-08-19)
+> ls docs/02-decisions/adrs/ADR-*.md | wc -l              # -> 268  (2026-08-19)
+> find docs -name 'SPEC-*.md' | wc -l                     # -> 96   (2026-08-19)
+> ```
+>
+> **= C01–C100 minus C61, plus C24.1. `C61` is now the ONLY reserved, unminted slot** — **C76 was
+> MINTED 2026-08-19** (`baa98eba`), which is exactly why the command is printed instead of its
+> answer. The suite has now had the count/range staleness failure **FIVE times**
+> (C67 → C81 → C84/C85–C99 → C100 → C76). **A register that cannot say how old it is would be the sixth.**
+>
+> **Retractions are struck and annotated, NEVER deleted** (C84 §6). A closed row is evidence about
+> *what kind of defect this suite keeps producing*, which is half of what this file is for.
+
 - **Status**: LIVE WORKING REGISTER — not a contract. It records what is **measured to be wrong**
   in the contract suite, so the amendments can be applied in priority order rather than all at once.
 - **Date opened**: 2026-08-18
@@ -35,6 +59,28 @@ that **every `tools/ga-gate/*.ts` and `packages/*/` path cited anywhere in
 
 ## 1. ⛔ RANK 1 — THE INDEX ITSELF
 
+> ### **CLOSED (README half) · SUPERSEDED (CLAUDE.md half)** — re-measured 2026-08-19, lane RG1
+>
+> **README — CLOSED** by `fb403310` (*"the contract index stated C01–C83 while C84–C100 existed as
+> files"*), updated again by `baa98eba` when C76 was minted. Verified at HEAD: `README.md:16` reads
+> **C01–C100 + C24.1**, prints **100**, and cites the derivation command; rows 5–6 read **268** /
+> **96**, matching `ls docs/02-decisions/adrs/ADR-*.md | wc -l` -> **268** and
+> `find docs -name 'SPEC-*.md' | wc -l` -> **96**.
+>
+> **CLAUDE.md — the RANGE is CLOSED** by `657abdba`; **a NEW defect of the identical shape opened the
+> same day.** `CLAUDE.md:242` reads *"**C61 and C76 are RESERVED, unminted slots**"* and `:256`
+> derives the count as *"C01–C100 minus the **two** unminted slots"* -> **99**. **C76 was minted
+> 2026-08-19** and `C76-PLATFORM-AND-API-SURFACE.md` is on disk;
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` -> **100**. **This is the FIFTH recurrence,
+> and it recurred within a day of the fourth being corrected** — the strongest available evidence
+> that the rule *"the row and the range move together"* is stated in three places and enforced by
+> nothing. **AMENDMENT OWED: CLAUDE.md §Governance. OWNER: no live lane holds it.** [L-1130]
+>
+> **Also STANDS, unamended:** `README.md:219` still opens *"**69 contract files exist (C01–C60 +
+> C62–C69 + C24.1); C61 is a RESERVED slot**"* — undated, present tense, in changelog prose.
+> (`README.md:20–24`'s banner still prints 98 / 267 / 95, but it is **dated 2026-08-18**, so it is
+> historical rather than false. **The `:219` sentence is neither.**) **OWNER: README (C00), unclaimed.** [L-1131]
+
 > **This is the highest blast radius in the suite.** CLAUDE.md calls
 > `contracts/README.md` *"the authoritative enumeration — always defer to it over any range
 > written here."* An index that is wrong outranks any single wrong contract.
@@ -59,6 +105,32 @@ same shape (C67 → C81 → C84/C85–C99).
 ---
 
 ## 2. ⛔ RANK 2 — C84's OWN #1 SEVERITY ROW IS FALSE
+
+> ### **STANDS — UNAMENDED.** Re-measured 2026-08-19, lane RG1. **This is now the highest-blast-radius
+> row in the file**, because a second contract has since formally retracted it and C84 still says it.
+>
+> ```
+> grep -ci lighting apps/editor/src/engine/persistence/ProjectSerializer.ts       # LIVE -> 10
+> grep -ci lighting packages/persistence-client/src/loader/ProjectSerializer.ts   # DEAD -> 0
+> ```
+>
+> **C96 §3.1 RETRACTED the claim 2026-08-18 (`87c711ac`) — C84 was never updated.** At HEAD C84 still
+> carries it in **five places**: `:52` (§0 audit table), `:85–89`, `:298`, **`:734`** (§4 row
+> `lighting` — EI-1 *"renders, never saves"*, EI-6 **"NEVER"**) and **`:753`** (severity **#1**,
+> *"Lighting never persisted — loses the work itself, on every save"*).
+>
+> **Two contracts now answer one question in opposite directions.** Under the suite's own conflict
+> rule that is not a tie — it is a defect with a known correct side, and the wrong side is the one
+> ranked severity #1 of the entire element-integrity programme.
+>
+> **And C96's own citation has already rotted.** C96 §3.1 (and this row) cite
+> `ProjectSerializer.ts:1025-1031`. Measured 2026-08-19: `§PERSIST-LIGHTING` sits at **`:1138–1143`**,
+> the field declaration at **`:149–150`**, the emit at **`:1219`**; C96 prints `grep -ic` = **9**, it
+> now reads **10**. **The retraction is right and its evidence is one day stale** — the same
+> rotted-citation shape `174f8206` recorded for C85's eight `file:line` cites.
+>
+> **AMENDMENTS OWED (unchanged, plus one): retract §4 row `lighting` EI-6 and severity row 1 citing
+> C96 §3.1; re-anchor C96 §3.1's line numbers. OWNER: C84/C85 orchestrator lane — RG1 must not edit C84.** [L-1133]
 
 **C84 §4 ranks *"lighting never persisted"* as severity 1 — "the work itself, lost on every save".
 It is false, and has been for three months.**
@@ -94,6 +166,17 @@ severity table from what survives.
 
 ## 3. ⛔ RANK 3 — C84 EI-11 INVERTS THE SECTION IT CITES
 
+> ### **STANDS — UNAMENDED.** Re-measured 2026-08-19, lane RG1.
+>
+> `C84:541-542` still reads *"C73 §5.1 **E1** records that the canonical tolerance module is
+> **specified and not yet built**"*. `C73:308` still reads *"**E1** | hard | the declared tolerance
+> module **exists and is exported** from `packages/geometry-kernel`"*.
+> `ls -la packages/geometry-kernel/src/tolerance.ts` -> **10,389 B**. The inversion is intact.
+>
+> The surviving half — the harness's `const TOL = 1e-4` cited at `C84:996` — is intact and is now
+> **binding rather than aspirational**, because C73's front-matter excuse was struck by `2c141297`:
+> `C73:7` now reads `~~Three gates are specified here and NOT YET BUILT~~`. **OWNER: C84 orchestrator lane.**
+
 C84 `:542` states C73 §5.1 **E1** *"records that the canonical tolerance module is specified and not
 yet built"*.
 
@@ -113,6 +196,24 @@ and §5.1 **E2**'s ratchet counts. **There is no longer an "unbuilt module" excu
 ---
 
 ## 4. ⛔ RANK 4 — C77 CALLS A GATE UNBUILT; IT IS FAILING MERGE
+
+> ### **CLOSED by `c5446d9a`** — *"the contract called its own gate UNBUILT; the gate is RED and
+> blocking merge"* — **and the gate itself re-measured 2026-08-19: still RED, same level.**
+>
+> `C77:27-28` now reads *"**BUILT, REGISTERED, and RED at `[3] RATCHET EXCEEDED`**"*, with §0.0
+> carrying the derivation. The surviving `:240` *"UNBUILT at stamp time (2026-08-12)"* is the
+> **dated** form and is correct — §11C already names that as the house model.
+>
+> ```
+> npx tsx tools/ga-gate/check-secrets-register.ts     # RC=3  (2026-08-19)
+>   -> [3] RATCHET EXCEEDED — 13 finding(s) against a declared level of 12
+>   FINDING A x3 — PRYZM_PUBLISHER_TOKEN, SHARD, WORKER_CONCURRENCY: read, no declaration row
+>   DRIFT — docs/04-reference/SECRETS-REGISTER.md is STALE
+> ```
+>
+> **The CONTRACT defect is closed; the ENGINEERING defect is not.** 13/12 is unchanged from
+> 2026-08-18 — nobody fixed the three undeclared vars. Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`
+> that is still blocking. This register does not own it; it is named so it is not lost. [L-1134]
 
 C77 `:26` / `:189` (and **propagated verbatim to README:148**):
 *"`tools/ga-gate/check-secrets-register.ts` — **UNBUILT at stamp time (2026-08-12)**"*.
@@ -170,6 +271,15 @@ not evidence"*) and which applies with equal force to a flaky gate.
 
 ## 6. ⛔ RANK 6 — C32: DXF **AND DWG** SHIPPED ELSEWHERE; THE CONTRACT ORDERS BOTH BUILT
 
+> ### **CLOSED** — banner verified at HEAD 2026-08-19: `C32:299` *"SUPERSEDED IN PART — 2026-08-18,
+> by measurement. READ BEFORE §3.1–§3.5 AND §7"*, with the DWG-licence ruling at `C32:316`.
+>
+> **RESIDUAL — NEW, and it is §11C's own shape: the banner did not reach the FRONT MATTER.**
+> `C32:8` still reads *"Effort estimate: ~2 sprint-weeks (DXF) + **~3 sprint-weeks (DWG via ODA
+> Teigha or LibreDWG)**"* — a procurement instruction against a decision already taken differently
+> (Autodesk Platform Services, `server.js:2676`). **This is verbatim the failure §11C recorded for
+> C73 line 7: the first thing a reader sees still carries the falsehood.** **OWNER: C32, unclaimed.** [L-1132]
+
 C32 §7 calls `plugins/dxf/` a scaffold *"contributing nothing"*. **True** (5 `.ts` files). **The
 conclusion is false** — the subsystem shipped in **`packages/file-format`**, a package C32 never
 names: `DxfParser.ts`, `DxfGeometryBuilder.ts`, `import/dxf/DwgImportAdapter.ts`,
@@ -190,6 +300,10 @@ licence against this contract.**
 
 ## 7. ⛔ RANK 7 — C25: THREE IFC PHASES ORDERED AGAINST DELIVERED CODE
 
+> ### **CLOSED** — banner verified at HEAD 2026-08-19: `C25:35`, *"CORRECTED 2026-08-18, by
+> measurement"*, striking the IfcSite / IfcSpace / IfcZone sentence. The body's other claims were
+> **NOT RE-MEASURED** today; the amendment this row asked for is applied.
+
 C25 §2:35 — *"IfcSite is empty; IfcSpace is absent; IfcZone is absent. These are the master plan
 IFC-α-1/α-2/α-3 gap-fill phases."* **All three false**: `hierarchy.ts:283,318` emits `IFCSITE` with
 full attributes; `exporters/space.ts` and `exporters/zone.ts` both exist **with tests**.
@@ -199,6 +313,17 @@ full attributes; `exporters/space.ts` and `exporters/zone.ts` both exist **with 
 ---
 
 ## 8. ⛔ RANK 8 — C27: DELETE A LIVE COMPONENT FOR A REPLACEMENT THAT DOES NOT EXIST
+
+> ### **CLOSED by `eaaa51dc`** — verified at HEAD 2026-08-19, and the dangerous half is
+> **structurally disarmed**, not merely annotated:
+>
+> - `C27:14` — §0.0 correction banner.
+> - `C27:218` Phase γ and `C27:219` Phase δ now both read **SUSPENDED**. **The delete order no longer
+>   stands.** That is the outcome this row existed to force.
+> - `C27:9` and `C27:214` — *"(~~80 files~~ — **RETRACTED**, the real figure is 14)"*.
+>
+> Re-measured: `grep -rn 'ElementInstanceDashboard' --include=*.ts --include=*.tsx apps packages
+> plugins | wc -l` -> **0**. The replacement still does not exist; **the contract now says so.**
 
 C27 §9 Phases γ/δ order `PropertyInspector` deprecated then **deleted**, in favour of
 `ElementInstanceDashboard`.
@@ -219,6 +344,46 @@ C27 §9 Phases γ/δ order `PropertyInspector` deprecated then **deleted**, in f
 ---
 
 ## 9. ⛔ RANK 9 — SYSTEMIC: 15 CONTRACTS EXTEND A GATE THAT NEVER EXISTED
+
+> ### **CLOSED by `34821d57`** — **and the number in this row's own heading was wrong TWICE.**
+>
+> This row says **15**. `34821d57` says **22**. Measured 2026-08-19:
+> `grep -rln 'PHANTOM-GATE\|GATE-ALIAS' docs/02-decisions/contracts/ | wc -l` -> **24**
+> (C10, C24, C24.1, C26, C27, C31, C32–C49). **15 -> 22 -> 24 is itself the finding**, not a
+> bookkeeping nit: the row was sized from a sample and the sweep found half again as many.
+> *An honest blank invites measurement; a confident count forecloses it.*
+>
+> **Residual, which the banner sweep does not cover:**
+>
+> ```
+> for f in $(grep -rl 'ci-check-spans\|ga-gate/check-spans' docs/02-decisions/contracts/); do
+>   grep -q 'PHANTOM-GATE' "$f" || echo "NO-BANNER: $f"; done
+>   -> C01-ARCHITECTURE-AND-GOVERNANCE.md · C23-PROVENANCE-AND-AI-AUDIT.md · (this register)
+> ```
+>
+> - **C23 — actually addressed**, by a different instrument: `C23:13` §0.0 plus the strike at
+>   `C23:184` (*"RETRACTED … a NEW GATE IS OWED"*). It carries no `†PHANTOM-GATE` header, which is
+>   why a name-keyed sweep misses it. **A sweep that classifies by BANNER NAME can be defeated by
+>   using a different banner** — the same name-blindness CLAUDE.md records for the three rival
+>   `commandManager` counters.
+> - **C01 — STANDS, UNAMENDED.** See §11B. `C01:22` and `C01:201` still assert P8
+>   **"PASSING (245 ≥ floor 213)"**, and `C01:160` still names `ci-check-spans.ts` as the P8 gate.
+>
+> **THIS ROW'S OWN DESCRIPTION OF THE REAL GATE IS SUPERSEDED.** It says *"`check-otel-spans.ts` …
+> counts handler FILES (255/256) against a `HARD_FLOOR` of 213"*. **There is no single `HARD_FLOOR`
+> reading.** Measured 2026-08-19, `npx tsx tools/ga-gate/check-otel-spans.ts` -> **RC=3**, three zones:
+>
+> ```
+> ZONE A (CommandBus handlers, zero tolerance)          256 / 256 instrumented (294 read, 38 excluded)
+> ZONE B (command-registry + app handlers + barrels)     54 uninstrumented of 70 (baseline 52)  <- THE FAILURE
+> ZONE C §CENSUS (NOT GATED)                           1788 / 2040 files with an exported fn have NO span
+> FAIL (Zone B):  packages/command-registry/src/generic/UpdateElementParameterCommand.ts
+>                 packages/command-registry/src/lighting/lightingAuthoredParams.ts
+> ```
+>
+> **So *"every new exported function MUST add >=1 span"* is measured for ZERO of the 2040.**
+> Extending this gate is not a one-line change — that half of the row **STANDS, and is stronger than
+> written.** (CLAUDE.md's P8 bullet quotes 246/246 and 1772/2023; both moved. Read the gate.)
 
 `scripts/ci-check-spans.ts` and `tools/ga-gate/check-spans.ts` — **both ABSENT**. CLAUDE.md already
 records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*, and **C10:158 was
@@ -244,6 +409,19 @@ one-line change.
 ---
 
 ## 10. ⛔ RANK 10 — C47 vs C05: A VERSIONING SCHEME THE FORMAT DOES NOT USE
+
+> ### **CLOSED by `36a4b556`** — **and the closure REFUTED a sentence of this row.**
+>
+> Verified at HEAD: `C47:15` §0.0 (*"§1.1 MANDATES A VERSIONING SCHEME THE SHIPPED FORMAT DOES NOT
+> USE — AND C05 GOVERNS"*); `C47:80` and `C47:88` now carry **PROPOSAL ONLY — C05 GOVERNS. Do not
+> implement.**; `C05:273` strikes `projects.user_id` -> **`owner_id`**, citing C05 §1.3.1 against itself.
+>
+> **REFUTED:** this row asserted *"the **only** `formatVersion` in the repo is on the family-pack
+> schema"*. `C47:23` measured otherwise — the `.pryzm` manifest carries one too,
+> `packages/persistence-client/src/manifest.ts:109`, as **`z.literal('pryzm-v1')`: an opaque STRING
+> TAG**, neither SemVer nor an integer. The **conclusion survives unchanged** (the shipped format is
+> not SemVer; C05 governs); **the supporting fact was wrong, and the fix is what found it.** Recorded
+> per C84 §6 rather than quietly edited — **this register is not exempt from its own rule.**
 
 C47 §1.1 mandates `formatVersion: SemVer`. **The shipped format uses a monotonic INTEGER named
 `schemaVersion`**: `manifest.ts:105` (`z.literal(1)`), `PryzmArchive.ts:25,103,135`,
