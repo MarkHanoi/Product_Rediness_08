@@ -7858,7 +7858,7 @@ every ceiling from either path.
 because fixing one creator alone converts a **shared** defect into a **per-path divergence**, which
 C79 §7.4 rates as worse. Both creators must change together.
 
-## L-981 — opening a project crashes the viewport: a light-owned ShadowDepthTexture is destroyed mid-submit (OPEN, FOUNDER-REPORTED, RECURRING)
+## L-981 — opening a project crashes the viewport: a light-owned ShadowDepthTexture is destroyed mid-submit (ROOT CAUSE FOUND + FIXED 2026-08-19, AWAITING FOUNDER CONFIRMATION ON PROD)
 
 **Reported by the founder 2026-08-18 from production (`app.pryzm.so`, bundle
 `domain-engine-CJ7HtQXR.js` / `engineLauncher-hULAPH30.js`), and explicitly "reported numerous
@@ -7878,40 +7878,174 @@ help: *"a light-owned shadow map is not reachable from `_rebuildPipeline()`"*. T
 auto-recovery ladder (`§L-966-BOUNDED-AUTO-RECOVERY`) then spent its 2/2 budget and failed loudly
 rather than pinning the GPU. `§L900-FRAME-SKIP-ATTRIBUTION` reported 120 consecutive declined
 frames at gate `pipelineError` — so the user is looking at a frozen frame, correctly attributed.
-**Every diagnostic in this chain worked. What is missing is the ORDERING it is diagnosing.**
+**Every diagnostic in this chain worked, and every one of them was right.** In particular
+`§RECOVERY-MUST-REFUSE` was not merely defensible, it was *literally true* — and the reason it was
+true IS the root cause: the destroy did not come from this renderer at all.
 
-**Root cause named by the code itself, and NOT implemented:** *"a shadow-map realloc not ordered
-against submission — see `§GPU-RESOURCE-LIFETIME L2`"*. The candidate owners are all present and
-all already carry this fault in their headers:
-`packages/core-app-model/src/rendering/ShadowQualityUpgrader.ts:167, :196, :368-375` (the
-allocate/dispose cycle at the source), `RenderingPipelineCoordinator.ts:495, :517, :758, :808`,
-`SceneQualityTierManager.ts:147, :226`, `RenderPerformanceService.ts:22, :129`,
-`LevelVisualizer.ts:54`, `RealSunService.ts:598`. `ShadowQualityUpgrader.mapReallocOrdering.test.ts`
-and `LevelVisualizer.disposeDefer.test.ts` exist — **so parts of this were pinned and the fault
-still ships**, which is the first thing to measure: which caster is firing on the PROJECT-OPEN path
-specifically, since that is when the founder sees it.
+---
 
-**Three things this entry deliberately does NOT claim:**
-1. **Which** of the seven candidate sites reallocs on project open. Not measured. The stack the
-   browser gives is minified to `_onDestroyedGpuResource`, which is the REPORTER, not the culprit.
-2. That it is the same defect as [L-966](#). L-966 was a *message* defect (a fabricated
-   "retries exhausted" string minted by a default argument, fixed `551e7131`) — and ⚠ the founder's
-   console shows `Error: Render pipeline retries exhausted — phase=error` from
-   `handlePipelineError` **again**, on the manual-retry path. **Open question: is the deployed
-   bundle older than `551e7131`, or is there a second minting site the L-966 fix did not reach?**
-   Answer that by SHA before treating it as a regression.
-3. That "some projects" is a project-content property. Unmeasured. The one console excerpt has
-   `walls=6`, `12 elements` — a *small* project — which argues against the caster-count tier
-   theories in `SceneQualityTierManager.ts:147` and `ShadowQualityUpgrader.ts:135`, and toward a
-   pure ORDERING race on load. **That is a lead, not a finding.**
+### ROOT CAUSE — MEASURED 2026-08-19 (lane GL1). An OWNERSHIP breach, not a timing race.
+
+**`ShadowQualityUpgrader.apply()` wrote `renderer.shadowMap.enabled = true` on a renderer it does
+not own.**
+
+The renderer it holds is not the live one. `RenderingPipelineCoordinator` constructs the only
+`ShadowQualityUpgrader` in the app, and `initScene.ts:2310` binds that coordinator to
+`postproductionRenderer.three` — **OBC's WebGL renderer**, not the PRYZM WebGPU renderer that
+actually draws. The coordinator's own header already says so (`RenderingPipelineCoordinator.ts:472`).
+
+Both renderers draw the SAME scene, so both see the Pascal key light, and a THREE light has
+exactly ONE `LightShadow.map` slot. In three r183 `WebGLShadowMap.render()`:
+
+```
+:93   if ( scope.enabled === false ) return;        <- the gate that write re-armed
+:203  if ( shadow.map === null || typeChanged === true ) {
+:209      shadow.map.depthTexture.dispose();
+:214      shadow.map.dispose();                     <- frees the LIVE WebGPU target
+:227      shadow.map = new WebGLRenderTarget( ... ); <- claims the slot
+```
+
+The WebGPU `ShadowNode` keeps its OWN reference to that target (`ShadowNode.js:563-564`) and never
+re-reads `shadow.map`, so it goes on rendering into and sampling a destroyed texture on every
+subsequent submit — permanently, because the destroyed target's size still matches `mapSize`, so
+`ShadowNode.renderShadow()`'s own `setSize` never re-creates it.
+
+**And the free happens on an OBC frame** — outside `RenderPipelineManager.render()`, outside every
+freeze latch, outside BOTH boundary queues, and unreachable from `_rebuildPipeline()`. That last
+property is *exactly* why `§RECOVERY-MUST-REFUSE` was right to refuse and why the bounded 2/2
+ladder could not help. The diagnostics were describing a real structural fact, not failing.
+
+**Why an OBC frame happens at all in Phase 5**, despite initScene locking OBC to MANUAL:
+`ViewController._forceRendererUpdate()` (`:1457`) and `ViewController._setupViewListeners()`
+(`:2526`) both set `world.renderer.needsUpdate = true` with **no Phase-5 guard**, so any view
+switch or camera update after one is enough.
+
+**FOUR modules already declared this invariant; this class was the sole violator:**
+
+| Site | What it says |
+| --- | --- |
+| `BimWorld.ts:117` | `world.renderer.three.shadowMap.enabled = false` — §FIX-SHADOWMAP-DUAL-RENDERER-CLAIM (L-205), **"MUST stay false"**, with the full mechanism spelled out |
+| `initScene.ts:1948 / :1979 / :2057` | asserts it false three times across the Phase-5 hand-over |
+| `ViewController.ts:2486` | *"BUG-FIX (bug 1): shadowMap.enabled MUST remain false"* on every 3D-view restore |
+| `RenderPipelineManager._applyShadowEnabledState()` | *"THE ONLY writer of `renderer.shadowMap.enabled`"* — the L1 THREE owner (P2) |
+
+That last one is the single declared authority, and it composes user preferences with
+ref-counted transient suppressions. An L4 quality service is not entitled to that flag.
+
+**FIXED `20051ff8`** (`§SHADOW-ENABLE-IS-NOT-OURS`, L-1000) — three writes removed, nothing added:
+`apply()`, `setShadowsEnabled()` and `restore()` no longer touch `shadowMap.enabled`. The snapshot
+field is retained and now WARNS if the bound renderer arrives already armed, because that is real
+evidence of a breach by somebody else. The `shadowMap.type` write is KEPT
+(§FIX-SHADOW-SAMPLER-TYPE-PARITY): every tier names `PCFShadowMap`, which is THREE's default, so it
+is a no-op against the live value and can never flip `typeChanged`. **Not a timing fix and not a
+feature removal** — the tier change still happens, at the same moment, through the same
+`§SHADOW-MAP-REALLOC-AT-BOUNDARY` queue, and a non-regression block pins that resolution, bias,
+radius and the PCF type all still land.
+
+**Credit where due:** a dead fleet lane (`salvage/z6-shadowmap`, commit `d1df612b`) reached this
+conclusion first and left an unreviewed probe. It was right. This entry records it re-derived and
+independently corroborated against the four invariant sites above.
+
+---
+
+### The three things this entry deliberately did NOT claim — now resolved
+
+1. **~~Which of the seven candidate sites reallocs on project open.~~ ANSWERED — none of them.**
+   All seven were the wrong suspects. `ShadowQualityUpgrader`'s *realloc* half was already clean by
+   construction (`§SHADOW-MAP-REALLOC-AT-BOUNDARY` + `§SHADOW-MAPSIZE-WRITE-AT-BOUNDARY`, L-819):
+   both the `mapSize` write and the resize land in `drainShadowMapReallocQueue()` at the frame
+   boundary. `PascalSceneLighting.ts:293` and `RealSunService.ts:478` *do* write `shadow.mapSize`
+   directly, but both do so at LIGHT CONSTRUCTION, before any `shadow.map` exists — so there is
+   nothing to destroy. **The destroying write was `shadowMap.enabled`, not any `mapSize` at all**,
+   which is why seven sites' worth of realloc auditing kept finding nothing.
+2. **~~Is the "retries exhausted" string a stale bundle, or a second minting site?~~ ANSWERED —
+   SECOND MINTING SITE, six of them, and the bundle is NEWER, not older.** See **L-1003**. Proof of
+   bundle age: the founder's console prints `§L-966-BOUNDED-AUTO-RECOVERY ... 2/2`, and
+   `git show 551e7131 -- packages/renderer-three/src/pipeline/RenderPipelineManager.ts` shows every
+   one of those console strings as a `+` line — a build that prints them cannot predate them. So it
+   is neither a stale deploy nor a regression of the L-966 fix; it is territory that fix never
+   reached. **FIXED `982657f2`.**
+3. **~~Whether "some projects" is a project-content property.~~ STILL NOT MEASURED — but the lead
+   is now explained.** The entry's own observation — `walls=6`, `12 elements`, a *small* project —
+   argued against the caster-count tier theories, and that was correct: the root cause is
+   content-independent. It fires on the tier escalation that runs `apply()` on project open, which
+   happens on every open regardless of size. **What remains unexplained is why only SOME projects
+   crash.** The honest hypothesis is that it depends on whether an OBC frame is triggered (a view
+   switch / camera update) while the flag is armed. **That ordering is NOT measured. Leave open.**
+
+---
+
+### Two SIBLING defects found in the same organism, same session
+
+- **L-1001 `§DEVICE-DESTROY-IS-NOT-DEVICE-LOSS`** (FIXED `014961c0`) — `WebGPURendererAdapter`'s
+  `gpuDevice.lost` handler fired `onContextLost` for `reason="destroyed"`, i.e. for OUR OWN
+  `device.destroy()` at the end of `retireRenderer()`. `createRenderer.ts:391` had the guard and
+  stopped; the adapter's handler, on the SAME device, did not — and both printed back to back in
+  the founder's capture. Recovery machinery ran for a fault that had not occurred. The defect was
+  not that one handler was wrong; it was that the rule lived as a literal in one call site instead
+  of as a shared authority, so the two could disagree about one device.
+- **L-1002 `§SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY`** (FIXED `35ed3cfa`) — the `usedTimes` symptom
+  filed alongside this entry. See the A-vs-B table below.
+
+---
+
+### Are symptom A (this entry) and symptom B (`usedTimes` on selection change) ONE organism?
+
+**They share one INVARIANT and are two DIFFERENT defects. Fixing either does not fix the other.**
+
+Both are *"a GPU resource released while the renderer is still using it"* — ADR-0297 INVARIANT L2 /
+`§GPU-RESOURCE-LIFETIME`. But the mechanisms are distinct and the fixes touch different packages:
+
+| | **A** (this entry) | **B** (L-1002) |
+| --- | --- | --- |
+| Resource | light-owned `ShadowDepthTexture` | highlight-clone `Material` / `BufferGeometry` |
+| Breach | **ownership** — a second renderer permitted to free it | **boundary** — freed synchronously inside a click handler |
+| Trigger | tier escalation on project open, plus any OBC frame | every selection change, via `unselectAll()` |
+| Fix | stop arming the foreign renderer (`core-app-model`) | route through `scheduleGpuRelease` (`input-host`) |
+
+So: **not one root cause, but one root RULE, broken in two places.** Treating them as a single
+defect would have left one of them shipping — which is close to what happened, because B already
+had a partial defence (`§SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD`) that **swallowed** the `usedTimes`
+throw rather than ORDERING the release. Swallowing is not ordering: the resource was still freed
+while the renderer referenced it, and the throw is merely the loudest outcome of doing so. The
+quiet outcome is a corrupted program cache and a mesh that stops drawing, and nothing was watching
+for that one.
+
+---
+
+### Why the two pre-existing suites did not catch this
+
+Both exist, both are green, and the fault shipped anyway — so the first question was what they do
+NOT cover. Measured:
+
+- **`ShadowQualityUpgrader.mapReallocOrdering.test.ts`** — its `fakeRenderer()` is literally
+  `{ shadowMap: { type, enabled: false } }`. **A stub with no shadow pass accepts `enabled = true`
+  silently and can never falsify a claim about who is allowed to run one.** It also models ONE
+  renderer, and this defect requires two. It is the "fake more capable than the real thing" shape
+  inverted: it pinned the realloc half perfectly and was structurally blind to the ownership half.
+- **`LevelVisualizer.disposeDefer.test.ts`** — pins `deferDisposePastSubmit`, a **`setTimeout(0)`**
+  defer, not the renderer-owned frame boundary. It proves disposal is not SYNCHRONOUS; it cannot
+  prove disposal is ORDERED against a submit, because nothing in it ever submits. It is also scoped
+  to `LevelVisualizer` and says nothing about the selection path where B actually lives.
+
+The new `ShadowQualityUpgrader.foreignRendererClaim.test.ts` closes the first gap by driving a
+faithful reduction of the three `WebGLShadowMap.render()` branches that touch `shadow.map`, at the
+line numbers cited above — **and carries a NEGATIVE CONTROL** that arms the flag deliberately and
+asserts the free DOES happen. If that control ever passes clean, the harness has stopped modelling
+three and every other assertion in the file is worthless.
+
+---
 
 **Collateral already visible in the same log:** `captureThumbnail` reads a blank frame twice and
 `PlatformSaveController` keeps the old thumbnail — so a crashed open also silently freezes the
 project's thumbnail. That is correct degradation, but it means **the thumbnail is evidence**: a
 project whose thumbnail stopped updating may be a project that has been crashing on open for a
-while.
+while. **Not verified against the founder's project list.**
 
-**Owner:** unassigned. **Priority:** the founder cannot open some of their own projects.
+**Owner:** GL1. **Status:** root cause fixed at the invariant in `20051ff8`; two siblings fixed in
+`014961c0` / `35ed3cfa`; the diagnostic fabrication fixed in `982657f2`. **NOT YET CONFIRMED ON
+PRODUCTION** — none of this is proven at the layer the founder experiences until a project opens
+cleanly on a deployed build. *Committed ≠ reachable.*
 
 ## L-1030 — the region slab can only be drawn in PLAN; the 3-D viewport never completes the gesture (OPEN, FOUNDER-REPORTED)
 
@@ -8186,3 +8320,737 @@ it should not: silently "fixing" geometry the user duplicated is exactly what
 [[spatial-validity-rules-founder-direction]] forbids (*always ASK, never auto-edit*). The exit is a
 post-duplication integrity report naming the conditions the clone inherited, which is C84 work and a
 founder decision about the surface, not this lane's.
+---
+
+## L-995 — the chat says "Done", and the wall authority never receives the finish ✅ CLOSED
+
+**Founder-reported on the live deploy 2026-08-18 — the SECOND sighting of the [L-960](#l-960)
+sentence.** Typed *"make all inner finishes walls on the ground floor to wood"*; answered
+
+> "Set the interior finish of all 17 walls on Ground to Wood · Oak (Light). **Done — undo with
+> Ctrl+Z.** (resolved without AI tokens)"
+
+**Nothing changed in the viewport.**
+
+### THE ROOT — `WallStore.updateWall()` drops the field, and the command never looks
+
+`SetWallSideFinishCommand.execute()` (`packages/command-registry/src/walls/SetWallSideFinishCommand.ts:133`)
+composes the next value with `withWallSideFinish()` and calls
+`ctx.stores.wallStore.updateWall(nextState)`. The real `WallStore.updateWall()`
+(`packages/geometry-wall/src/WallStore.ts:929`) does not write the snapshot — it **projects it onto
+a twelve-field editable whitelist** and forwards that. `sideFinishes` was not on the list. The store
+returned normally, the command returned `{ success: true }`, and the record held `undefined`.
+`restoreSnapshot()` had the identical omission, so undo would have left the new value standing
+(C84 **EI-7a** — WRITES ⊋ RESTORES).
+
+### ⭐ WHY L-960 "PROVED" THE WRITE AND WAS WRONG
+
+`packages/command-registry/__tests__/L960SideFinishDisclosure.test.ts:60` drives the batch command
+against a hand-written store whose whole update method is
+
+```ts
+updateWall(next: W) { map.set(next.id, structuredClone(next)); }
+```
+
+— a fake that accepts **every field it is handed**, against a real store that accepts twelve. That
+test asserts *"the value is genuinely stored"* and passes, for a store that is not the one
+production uses. **A fake more capable than the real thing cannot falsify the real thing.**
+
+### MEASURED — `packages/geometry-wall/__tests__/L995SideFinishReachesAuthority.test.ts`
+
+Real command, real `WallStore`, executed read-back (C16 **CA-21**):
+
+```
+RED   4/4 failed  · "expected undefined to be 'wood-oak'"
+                  · resolveWholeBodyFinishColor(record) -> null
+GREEN 4/4 passed  · write · render-colour · undo-restores-previous · other-side-intact
+```
+
+**Fixed** in `5f126d33` (`§FIX-SIDEFINISH-REACHES-AUTHORITY`). C84 **EI-2** — a whitelist that
+drops a field a command just wrote is silent narrowing at a hop.
+
+⚠ **C85 §4 (`:403`) says this verb writes *"legacy `sideFinishes`"*. That was FALSE until this
+commit** — it wrote nothing. The persistence column on the same row (*"not persisted"*) was true;
+see [L-999](#l-999).
+
+**The RENDER leg was already sound and is NOT part of this defect** — `resolveWholeBodyFinishColor`
+/ `resolveLayerRenderFinishColor` are consumed by `WallFragmentBuilder` (`:1299`, `:1792`, `:2176`,
+`:4291`) and `LayeredWallOpeningBuilder` (`:423`), i.e. the instanced, layered and plain arms all
+read the field. L-960 closed that half correctly. It simply had nothing to read.
+
+---
+
+## L-996 — the chat discards the batch report and prints a canned "Done" — THREE verbs ✅ CLOSED
+
+**Same founder sentence as [L-995](#l-995), second independent cause.** `SetWallSideFinishBatchHandler`
+has always broadcast `pryzm-wall-side-finish-batch-report` carrying the command's real
+*"Set the … finish on N of M walls — K skipped"*, the grouped refusal reasons, the §L960-STEP3
+masked-in-3D caveat, and `outcome:'indeterminate'` for a bridge that never ran.
+
+**`BATCH_REPORT_EVENTS` (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1201`) did not name the
+verb.** So `reportEvents` was empty → `expectsReport` **false** → `classifyDispatch` returned
+`{kind:'applied', lines:[]}` → the branch that prints the resolver's **PLANNED** summary plus
+"Done — undo with Ctrl+Z". The transcript said the same sentence for 17-of-17, 0-of-17 and
+never-ran. **Failure and emptiness were the same value** — precisely the defect
+`§FIX-REPORT-PAYLOAD-DISCARD` (W2-B) built the five-state union to remove, escaping through a
+missing table ROW rather than a missing STATE.
+
+**MEASURED over the whole table, not just the founder's verb** — enumerating the exported
+`*_REPORT_EVENT` constants against the table found **three unsubscribed verbs**:
+
+| verb | event | founder-reported? |
+|---|---|---|
+| `wall.setSideFinishBatch` | `pryzm-wall-side-finish-batch-report` | **yes** |
+| `slab.updateSystemTypeBatch` | `pryzm-slab-type-batch-report` | no — same canned "Done" |
+| `ceiling.updateSystemTypeBatch` | `pryzm-ceiling-type-batch-report` | no — same canned "Done" |
+
+All three rows added. **The row was MISSING, not wrong**, so no assertion about the wall verb could
+have caught it — only an assertion about the TABLE. `BATCH_REPORT_EVENTS` is now exported and
+`apps/editor/src/ui/ai/__tests__/batchReportEventsCompleteness.spec.ts` derives the required key set
+from the handlers themselves (every exported `*_REPORT_EVENT` paired with the `type:` its own file
+declares), and fails both on an omission and on a vacuous scan.
+
+---
+
+## L-997 — changing a wall's type to "Plain Wall" throws inside the store ✅ CLOSED
+
+**Founder-reported on the live deploy 2026-08-18**, twice against the same wall
+`wall_01M0B91DJ26FDKAHPTWRDDRH43`:
+
+```
+[CommandManager] EXECUTE: UPDATE_WALL_SYSTEM_TYPE
+[CommandManager] snapshot commandType="UPDATE_WALL_SYSTEM_TYPE" scope=[wall] elapsed=1.1ms
+[CommandManager] FATAL ERROR DURING EXECUTION
+  WallSchemaError: [WallStore.update] Schema validation failed … layers: Invalid input
+  ZodError: [{ "expected": "array", "code": "invalid_type", "path": ["layers"] }]
+```
+
+### THE EXACT VALUE — `null`, and the schema wants `array | undefined`
+
+`WallData.layers` is `WallLayer[] | undefined`; `WallDataUpdateSchema` declares
+`z.array(WallLayerSchema).optional()`, which rejects `null` as the **wrong type**, not as absence.
+A wall type carrying no layer stack reaches the command as `layers: null`
+(`apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts:88` — `payload.layers ?? null`),
+and `UpdateWallSystemTypeCommand.execute()` forwarded it verbatim with its own `?? null`.
+
+⭐ **`canExecute()`, thirty lines up in the SAME FILE, already normalised the identical input as
+`this.input.layers ?? undefined`.** The two halves of one command disagreed about how "no layers" is
+spelled, and the validating half was the correct one.
+
+### NOT the type library — measured, not assumed
+
+Driving a **LAYERED** type through the same command works and always did (asserted in the test), so
+"Plain Wall" is not a malformed entry: the defect is the *clear-the-stack* spelling, and it breaks
+**every** type that carries no layers.
+
+### The snapshot before the throw — checked, and it is fine
+
+`CommandManagerImpl.execute()` pushes to `history` **after** `command.execute()` returns; a throw
+skips that, and the `catch` runs `restoreSnapshot(snapshot)` (`:428`). The logged snapshot is the
+rollback buffer, consumed. **No bogus undo entry is left for the user to step onto.**
+
+**Fixed** in `bf135764` (`§FIX-PLAIN-WALL-TYPE-THROWS`). Pinned by
+`packages/geometry-wall/__tests__/L997PlainWallTypeThrows.test.ts` — real command, real store,
+because a fake that skips Zod hides this defect completely.
+
+---
+
+## L-998 — a refusal that advertises the capability it is refusing, in its own sentence ✅ CLOSED
+
+**Founder-reported on the live deploy 2026-08-18.** Typed *"change wall finish to plaster white"*;
+answered:
+
+> "Wall material isn't connected to chat yet. I can change wall height, thickness, base offset,
+> type, colour, wall angle, window creation, **wall side finish and finish layer**. Try: 'set all
+> walls 3m high' …"
+
+⛔ **The "what I CAN do" half is GENERATED, not hand-written.** `describeCapabilitiesFor()`
+(`packages/ai-host/src/capabilities/CapabilityRefusal.ts`) builds it from
+`capabilitiesForElement(kind)` — the C67/C68 registry — and the nine labels it printed are exactly
+the nine wall capabilities carrying a `refusalLabel`. So this was not a stale inventory: the
+**topic table was denying what the registry was offering**, which is the sharper of the two
+possibilities, and it is the one that was true.
+
+### TWO causes, both closed
+
+1. **`UNCONNECTED_TOPICS['material']` matched `finish|finishes|render|cladding` with NO
+   `excludeKinds`** — unlike `colour`, which gained `excludeKinds:['wall']` when wall colour went
+   live. Split into `material` (`material|materials|texture|textures|brickwork` — still a genuine
+   gap for a wall: **C85 §4** measures that `materialId` cannot be set through any bus verb that
+   reaches the authority) and **`surface finish`** (`finish|finishes|render|cladding`, excluding
+   `wall`; still a real gap for slab/roof/room). ⚠ The label is `surface finish` and not `finish`
+   because the bare word is a VERB of the GLOBAL capability `finish-apartment-chain` — labelling it
+   `finish` turned the ADR-0314 collision guard RED on the first run, correctly.
+2. **`parseWallSideFinishIntent` REQUIRED a scope word** (`all`/`every`/`these`/`selected`), so a
+   bare "change wall finish to X" never claimed and fell through to the refusal above. It now
+   claims with a **SELECTION** scope — never `'all'`, so a scope-less sentence still cannot
+   re-finish the whole building — and with nothing selected the spec's `noSelectionReason` refuses
+   by **naming the live route** (C16 **CA-18**). A spatial phrase without "all" is now honoured too
+   instead of being silently narrowed to the selection.
+
+### Advertised vs routable — BOTH directions
+
+* **Advertised but unroutable: one, now zero.** `wall side finish` was advertised and unreachable
+  for scope-less phrasings; that is this entry. The other eight wall labels each carry a
+  `busCommand` and declared `examples`, and `wall-side-finish.test.ts` /
+  `capability-acceptance.test.ts` resolve every declared example through the real ladder.
+* **Routable but unadvertised: the wall ACTIONS — ⚠ OPEN.** `describeCapabilitiesFor` returns the
+  property list **or** the action list, never both (early return once `properties.length > 0`). For
+  a wall the property branch always wins, so `create-wall`, `delete-selected` and
+  `activate-placement` are never named in any wall refusal. **Not a lie — an incomplete inventory.**
+  Left open deliberately: changing the sentence shape is a copy decision, not a defect fix.
+
+Pinned by `packages/ai-host/__tests__/L998BareWallFinishRoutes.test.ts`, whose ⭐ invariant is
+stated over the topic's **match regex** against each kind's own advertised vocabulary — the naive
+label-comparison form would NOT have caught this, because the label was `material` and no wall
+capability advertises that word.
+
+---
+
+## L-999 — a wall's per-side finish does not survive save/load ✅ CLOSED (save half proven by source parity)
+
+**C85 §5 row 23 and §11 row 6 pinned this as ⛔ NEVER SERIALISED; C85 §12 W-B-3 names it binding.**
+Both were correct. It stayed invisible because, until [L-995](#l-995), the field never reached the
+store either — so nobody could observe the second half.
+
+⭐ **This becomes urgent the moment L-995 lands.** With the write fixed and persistence absent,
+"Done — undo with Ctrl+Z" is TRUE for the session and FALSE after the next reload: the same false
+success with a delay fuse. C84 **EI-6** — persistence is not optional and absence must be LOUD.
+
+**FOUR hand-written whitelists** all omitted the field; all four now carry it:
+
+| file | half |
+|---|---|
+| `packages/persistence-client/src/loader/ProjectSerializer.ts` | save |
+| `apps/editor/src/engine/persistence/ProjectSerializer.ts` | save |
+| `packages/persistence-client/src/loader/ProjectLoader.ts` | load |
+| `apps/editor/src/engine/persistence/ProjectLoader.ts` | load |
+
+plus `CreateWallCommand` — the chokepoint both loaders rebuild every persisted wall through, whose
+`wallData` literal is itself a whitelist (its own `joinIntent` comment says exactly this). Emitted
+only when present, so a wall that never got a finish re-serialises byte-identically to a pre-L-995
+snapshot (C47 §1.2 — additive optional, no MAJOR bump).
+
+### ⚠ WHAT IS PROVEN AND WHAT IS NOT — stated, because the difference is the point
+
+* **PROVEN BEHAVIOURALLY: the RELOAD half.** `apps/editor/__tests__/L999SideFinishSurvivesReload.test.ts`
+  authors a finish through the real `SetWallSideFinishBatchCommand` against the real `WallStore`,
+  applies the serializer's own per-side projection, rebuilds through the real `CreateWallCommand`,
+  and reads the record back.
+* **PROVEN BY SOURCE PARITY ONLY: the SAVE half.** Executing `ProjectSerializer.serialize` needs a
+  ~20-store bundle plus `window`; hand-building those neighbours would be exactly the
+  fake-more-capable trap that let L-960 through. The four whitelists are asserted over their real
+  source text instead. **NOT MEASURED: an executed `serialize()` over a live store.** The residual
+  risk is a serializer that names the field and mis-shapes it — small, and named rather than hidden.
+
+**C85 §5 row 23, §11 row 6 and §12 W-B-3 are now stale** and should be re-measured by whoever owns
+C85 (this lane must not edit it).
+
+## L-1000 — the project-open viewport crash: an L4 quality service armed a SECOND renderer over the one shadow-map slot (FIXED `20051ff8`)
+
+**This is the ROOT CAUSE of [L-981](#l-981), recorded separately because it is a reusable lesson
+about ownership, not about shadows.** Full mechanism, the four invariant sites it violated, and the
+three-branch reduction of `WebGLShadowMap.render()` are in L-981 — do not duplicate them here.
+
+**The shape, stated generally:** a module at L4 wrote a flag whose declared single owner is at L1,
+on an object it had been handed but did not own. `ShadowQualityUpgrader` is bound by
+`RenderingPipelineCoordinator` to *OBC's WebGL renderer*, not the live WebGPU one — a fact the
+coordinator's own header records — and wrote `shadowMap.enabled = true` on it. That flag is the
+gate at `WebGLShadowMap.js:93`, so it licensed a second renderer to free the live renderer's
+`ShadowDepthTexture`.
+
+**Four separate modules already forbade exactly this** (`BimWorld.ts:117` L-205,
+`initScene.ts:1948/:1979/:2057`, `ViewController.ts:2486`,
+`RenderPipelineManager._applyShadowEnabledState()` — *"THE ONLY writer"*). The invariant was not
+missing, undocumented or subtle. **It was declared four times and enforced zero times**, because
+nothing in the repo equated "declared owner" with "sole writer" at build or test time.
+
+**LESSON — a single-owner invariant that is only written in comments is not an invariant, it is a
+wish.** Four prose declarations lost to one assignment. The durable fix is a gate that fails when
+a non-owner writes an owned flag; that gate does not exist and is **NOT** created by this entry.
+**OPEN QUESTION for whoever picks that up:** the same shape almost certainly exists for
+`shadowMap.autoUpdate` (`_applyShadowFreezeState` claims *"the ONLY writer of `autoUpdate`"*) and
+for `light.castShadow`. **Neither was audited here.**
+
+**Fix:** three writes removed (`apply()`, `setShadowsEnabled()`, `restore()`). The snapshot field is
+retained and now WARNS when the bound renderer arrives already armed. `shadowMap.type` is
+deliberately KEPT (§FIX-SHADOW-SAMPLER-TYPE-PARITY) — every tier names `PCFShadowMap`, THREE's
+default, so it is a no-op against the live value and can never flip `typeChanged`.
+
+**Test:** `packages/core-app-model/src/rendering/ShadowQualityUpgrader.foreignRendererClaim.test.ts`
+— RED before (3 failed / 6 passed), GREEN after (9 passed), with a NEGATIVE CONTROL that arms the
+flag deliberately and asserts the free DOES happen. Two pre-existing shadow suites still green
+(20/20 across three files).
+
+---
+
+## L-1001 — a device we destroyed on purpose was reported to the app as a device that failed (FIXED `014961c0`)
+
+**Founder production capture 2026-08-18, third sample alongside L-981:**
+
+```
+[renderer-three/WebGPURendererAdapter] WebGPU device lost: reason="destroyed", ...
+[createRenderer] WebGPU device lost: reason="destroyed", ...
+```
+
+**Two `gpuDevice.lost` handlers on the SAME device, back to back — and they disagreed.**
+
+`reason="destroyed"` is not ambiguous and is not a driver event: per the WebGPU spec it means
+`device.destroy()` was CALLED. In this codebase that is the last step of `retireRenderer()` ->
+`renderer.dispose()` -> `backend.destroy()` — the normal end of every live backend swap (ADR-0077
+§RENDERER-LIVE-SWAP), every device-loss REBUILD, and every adapter teardown. It is ours.
+
+`createRenderer.ts:391` knew that and returned. `WebGPURendererAdapter`'s handler had no such guard
+and fired `onContextLost` anyway, kicking the app-level recovery pipeline (CW-prewarm reset -> 5 s
+cooldown -> dispose the dead RPM pipeline and the old renderer -> recreate -> rebind) **for a fault
+that did not occur**. That pipeline retires a renderer, which destroys a device, which resolves
+another `lost`.
+
+**THE DEFECT WAS NOT THAT ONE HANDLER WAS WRONG.** It was that the rule lived as a **literal inside
+one call site** instead of as a named authority both could consult, so two handlers on one device
+could — and did — disagree. Same disease as L-1000 (a rule with no single home), different organ.
+
+**Fix:** `isDeliberateDeviceDestroy(info)` in `rendererRetirement.ts` — the single place the string
+`'destroyed'` is interpreted, housed deliberately in the module that CAUSES the reason. Both
+handlers now dispatch into it.
+
+⛔ **Not a suppression.** Both handlers still log the raw `reason` and `message` verbatim BEFORE
+consulting the predicate; the founder would still see both lines. The predicate **fails toward
+recovery**: an absent, empty or unreadable reason is treated as a real loss, and only the exact
+spec token matches (no substrings, no case variants) — `reason="unknown"`, which is how a driver
+reset / GPU hang / browser eviction arrives, still recovers.
+
+**Test:** `packages/renderer-three/__tests__/deviceDestroyIsNotDeviceLoss.test.ts` (6 tests),
+including the over-classification arm, which is the only real risk in the change.
+
+**NOT MEASURED:** how often this fired in production, or whether any founder-visible symptom is
+attributable to it specifically. It was found by reading, in the same organism, not by a report of
+its own.
+
+---
+
+## L-1002 — the selection path freed GPU resources inside the click handler, and the existing guard only made it quiet (FIXED `35ed3cfa`)
+
+**Founder production 2026-08-18 — symptom B, filed alongside L-981:**
+
+```
+[runtime-composer/EventBus] listener for "bim-selection-changed" threw:
+TypeError: Cannot read properties of undefined (reading 'usedTimes')
+    at NodeManager.delete (vendor-three) ... at RenderObject.onMaterialDispose
+    ... at Material.dispatchEvent ... at Material.dispose ... at Object3D.traverse
+emit -> unselectAll -> select -> performSelection
+```
+then, twelve times: `[ViewportCrashGuard] §I3 suppressed non-fatal GPU internal (window.onerror) 1/12`.
+
+`usedTimes` undefined inside three's renderer bookkeeping means a material was disposed while the
+renderer still held a `RenderObject` for it. `unselectAll()` is named in the stack, and it reaches
+`clearHighlight()`, which traversed the just-detached highlight subtree and disposed every geometry
+and material as it went — synchronously, inside the click handler, with the previous frame's
+command buffer potentially still in flight. Same shape in `_clearMarqueeHighlights()` and the three
+sub-element clears (`cw`/`kc`/`wd`), all of which `unselectAll()` also reaches.
+
+**WHY THE EXISTING GUARD WAS NOT ENOUGH — the part worth keeping.**
+`§SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD` already routed these through `safeDisposeMaterial` /
+`safeDisposeGeometry`, whose job is to SWALLOW the `usedTimes` TypeError so a throw cannot abort the
+GPU pick. That was a real fix for a real problem and is retained. **But swallowing is not
+ORDERING.** The resource was still freed while the renderer referenced it; the throw is merely the
+LOUDEST outcome. The quiet outcome is a corrupted program cache and a mesh that stops drawing —
+and nothing was watching for that one.
+
+**LESSON — a `catch` around a use-after-free converts a crash into a silent corruption and calls it
+a fix.** When the remedy for "X threw" is "stop X throwing", ask what X was doing when it threw.
+
+**Fix:** the ordering already declared — ADR-0297 INVARIANT L2, DETACH now / RELEASE at the frame
+boundary the RENDERER owns. `scheduleGpuRelease()` enqueues in O(1) and touches no GPU state, so it
+is safe from a click handler; `RenderPipelineManager.render()` drains at the top of a frame. Same
+queue every fragment builder already uses — **not a fifth local workaround.**
+
+Resources are enqueued INDIVIDUALLY, not as one subtree: §SELECT-HIGHLIGHT-GEOMETRY means a clone
+flagged `sharedGeometry` reuses a LIVE element's buffers, which `safeDisposeObject3D` cannot know.
+Handing the whole group to the queue would have traded this defect for a worse one.
+
+**Two sites are deliberately left synchronous and are now annotated as such** rather than left
+looking like an oversight: `_buildGeometryHighlight`'s unused material and
+`applyMarqueeHighlights`'s scratch `BoxGeometry` were never added to the scene and never uploaded,
+so no encoded frame can reference them. Only resources that WERE being drawn need the boundary.
+
+**Test:** `packages/input-host/__tests__/SelectionManager.highlightReleaseAtBoundary.test.ts` — RED
+before (2 failed / 4 passed), GREEN after (6 passed). The teeth are NOT "dispose was called": every
+test asserts ZERO disposals immediately after the synchronous call returns and exactly one after
+the drain. It also pins the two rules a naive conversion would have broken.
+
+**NOT MEASURED:** the founder's throw reached `window.onerror`, i.e. it ESCAPED a try/catch — but
+`safeDisposeMaterial` catches synchronously, so **at least one dispose on that path is still not
+routed through the safe helpers, and this entry did not find it.** The `§I3` suppressions were
+attributed to `RedetectRoomsCommand`'s update -> DOM emit path; the room-boundary builders
+themselves already use `scheduleGpuRelease`, so the likely link is room churn invalidating
+selection -> `unselectAll()`. **That link is inferred, not measured. LEFT OPEN.**
+
+---
+
+## L-1003 — "Render pipeline retries exhausted" came back because L-966 fixed one of SEVEN escalation paths (FIXED `982657f2`)
+
+**Answers [L-981](#l-981)'s open question #2 by SHA.** The verdict is NEITHER of the two the entry
+offered.
+
+**The bundle POSTDATES `551e7131` — proven, not assumed.** The founder's console prints
+`§L-966-BOUNDED-AUTO-RECOVERY ... 2/2`. `git show 551e7131 --
+packages/renderer-three/src/pipeline/RenderPipelineManager.ts` shows every one of those console
+strings as a `+` line: they were INTRODUCED by that commit. **A build that prints them cannot
+predate them.** So it is not a stale deploy, and not a regression of the L-966 fix.
+
+**It is a SECOND minting site — six of them.** `ViewportCrashGuard.handlePipelineError` still mints
+`error ?? new Error('Render pipeline retries exhausted — phase=error')`, which is correct as a last
+resort, and `initScene.ts:3070` passes `status.lastError ?? undefined`. So the string appears
+exactly when `lastError` is null. L-966 routed ONE of the seven `phase='error'` paths (the
+resource-lifetime escalation, via `_failLoudly`) through `_lastError`. The other six set the phase
+and emitted with the slot still empty:
+
+| Line | Path |
+| --- | --- |
+| `:617` | pipeline init failure |
+| `:1119` | post-FX retry ladder spent |
+| `:1486` | post-plan-view full rebuild failure |
+| `:2287` | camera / view-change rebuild failure |
+| `:3809` | **rebuild failure — THE FOUNDER'S PATH** |
+| `:3862` | lightweight-downgrade failure |
+
+`:3809` is the worst of the six. `_driveRecoveryRebuild()` deliberately CLEARS `_lastError` on the
+way in — *"drop the stale cause so a LATER, unrelated failure cannot be reported with this one's
+message"*, which is RIGHT — and the rebuild's own `.catch` never set a new one. So on the manual
+*"Reload viewport"* path the slot was **guaranteed** empty at the exact moment the escalation was
+published. **The fabrication was not a leftover; it was structural.**
+
+**NOT COSMETIC.** `ViewportCrashGuard._diagnose()` keys on the error SIGNATURE to decide whether to
+say *"this is a PRYZM rendering defect"* or fall through to *"probably your graphics driver"*. An
+escalation with no identity does not merely under-inform — **it misattributes our own defect to the
+user's hardware and costs us the report.** That is L-966's own reasoning, applied to the six paths
+it did not reach.
+
+**LESSON — when a fix closes "the site" that mints a bad value, count the sites first.** L-966
+diagnosed one path correctly and generalised from it; the same defect had six more homes, one of
+which was on the very lever L-966 built.
+
+**Fix:** `_failWithCause(message, cause)`, deliberately SEPARATE from `_failLoudly()`. The latter
+also latches `_hasPipelineError = true` to stop the render loop re-submitting provably-failing
+frames — right for a destroyed-GPU-resource fault, WRONG as a blanket change to six unrelated build
+failures. `_failWithCause` changes only what the user is TOLD. `_phase = 'error'` now has exactly
+two writers and both carry a cause.
+
+One of the six deserves note: `:1119` is the ONLY path on which *"retries exhausted"* was ever
+literally true — and it was still wrong, because it named the whole viewport when the subject is
+the POST-FX ladder, and that branch renders on without post-FX. It now says which.
+
+⛔ `§RECOVERY-MUST-REFUSE`, the bounded 2/2 ladder and `§L900-FRAME-SKIP-ATTRIBUTION` are
+**untouched**. They are the only reason L-981 was diagnosable.
+
+**Test:** `packages/renderer-three/__tests__/RenderPipelineManager.secondMintingSite.test.ts` (4
+tests). **RED PROVEN** by running it against `git show HEAD:` of the same file: 3 failed / 1 passed,
+every failure `expected undefined to be defined` — the empty-slot mechanism itself. GREEN after:
+4/4. The one that passed in both directions is the NEGATIVE CONTROL (`lastError` is null while
+healthy), which is what stops the other three passing vacuously. Five sibling recovery suites still
+green (44/44 across six files).
+
+---
+
+## L-1010
+
+**CLOSED (8130afb1)** — *Exploding then collapsing the level stack strands a slab in mid-air.*
+**Founder, prod 2026-08-18:** "I exploded the level stack, worked, then collapsed it. One slab
+stayed at its exploded height and does not relocate — it hangs in the air above the building."
+
+### The count balanced and the model was still wrong
+
+```
+[§LEVEL-STACK] exploded: offset roots per level — Ground=85(rm2+lbl1+fur0), Level 1=85, Level 2=85,
+   Level 3=85, Level 4=0, Level 5=0 (total 340; rooms 8, labels 4, furniture 0)
+[§LEVEL-STACK] collapse: restored 340 root Y positions (rooms 8, labels 4, furniture 0)
+```
+
+340 offset, 340 restored. **The collapse genuinely did write the model Y back onto that slab.** A
+balanced count was never the thing to measure, and chasing it is what made this look like a
+restore-map defect for as long as it did.
+
+### BOTH hypothesised failure shapes are REFUTED
+
+The brief proposed two opposite shapes — a rebuilt mesh that MISSED the offset, or one BORN at the
+exploded Y and then "restored" to it — on the theory that the mid-session rebuild
+(`UPDATE_WINDOWS_SYSTEM_TYPE_BATCH` + a 68-wall `rebuildWalls`) replaced the object the restore map
+was keyed on. **Neither is what happened, and for slabs the premise itself is false:**
+
+* `SlabFragmentBuilder._buildSlab` (`packages/geometry-slab/src/SlabFragmentBuilder.ts:406`) looks
+  its root up in `this.slabRoots` and constructs a `THREE.Group` only when there is none.
+  `this.scene.add(root)` appears **exactly once in the file**, inside that `if (!root)` branch. A
+  rebuild calls `detachAndReleaseChildren(root)` and re-adds CHILDREN. **The root object survives, so
+  a Map keyed on it survives, and the collapse does reach the slab.** Pinned by a source assertion in
+  `LevelPlaneConstraintExplodeOffset.test.ts` so a future change to a root swap breaks loudly.
+* "Born at the exploded Y" is impossible for a slab: `resolveWorldY`
+  (`SlabFragmentBuilder.ts:700`) derives Y from `BimManager.getLevelById(levelId).elevation`, and its
+  own contract header forbids a fallback to stored `position.y`. A rebuilt slab root is always born
+  at model Y.
+
+### ROOT CAUSE — a THIRD writer of `position.y`, and it is not in the level-stack code at all
+
+`LevelPlaneConstraint.attach()` (`packages/input-host/src/LevelPlaneConstraint.ts`) captured
+`obj.position.y` **raw** as the element's immutable "level plane". While the stack is exploded that
+value is MODEL Y + a pure view offset. `onTransformChange()` — which fires on **every**
+TransformControls `change` — and `enforce()` then write it straight back.
+
+So: select the slab while exploded → the constraint latches the screen height → collapse restores the
+model Y → **the still-attached constraint immediately hauls it back up, and keeps doing it.** That is
+the "does not relocate / never comes back". The element is *pinned*, not stranded.
+
+The founder's own log carries the signature: `Locked Y=7.8000` and `Locked Y=23.8000` for two slabs
+of the same duplication (`…-0-0` and `…-2-0`). **These are two different elements, not one picked
+twice** — worth stating, because reading them as one element's history is what suggests a drift.
+
+`LevelExplodeController` already publishes the per-object explode offset for exactly this purpose
+(its header: a move commit "treats [the offset] as a pure view transform (never persisted)") and
+`SelectionManager` consults it for the highlight box. `LevelPlaneConstraint`, **in the same
+package**, never did.
+
+### Why the obvious fix would have been INERT — two rival explode owners, one oracle
+
+There are **two** independent level-stack implementations:
+`apps/editor/src/engine/inspect/LevelExplodeController.ts` (inspect mode) and
+`apps/editor/src/ui/bottom-menu/BottomActionMenu.ts` (the Level-Stack button). They have separate
+offset maps, separate animation loops and separate diagnostics. The founder's console shows only
+BottomActionMenu's wording (`exploded: offset roots per level`), and **none** of
+LevelExplodeController's (`Built N level groups`) — so inspect mode was inactive, and
+`window.pryzmLevelExplodeOffsetForObject` was returning **0 for a model that was genuinely lifted**.
+"No explode active" and "offset is zero" were the same value.
+
+### Fix
+
+* The lock is now a **model** value (offset subtracted at attach), re-derived as
+  `lockedModelY + CURRENT offset` at every enforcement — so an explode or collapse *during* a live
+  selection tracks correctly instead of pinning.
+* An offset that **cannot be determined** (provider throws / non-finite) **refuses to lock** and says
+  so, rather than being read as 0.
+* `BottomActionMenu` publishes its own offset on its own global; `initTransformControllers.ts` **sums
+  both owners**. Two globals summed cannot race on init order the way two writers of one global would.
+
+**Test:** `packages/input-host/__tests__/LevelPlaneConstraintExplodeOffset.test.ts` — **7/7**, of
+which **5 were RED** before the change. Covers the founder's sequence, that the Y lock is not
+weakened against a drag, and that rotate still skips the clamp.
+
+### NOT MEASURED
+
+The fix is proven at the constraint, wired at the composition root, and the two publishers are
+source-verified — but **it has not been exercised in a running browser**. The end-to-end proof the
+founder cares about (explode → edit → collapse → slab at its level's Y) still wants one manual pass.
+
+---
+
+## L-1011
+
+**OPEN** — *Duplicate-born elements are registered with the level stack DIFFERENTLY from
+originally-drawn ones.* (Asked directly in the L-1010 brief; answered here rather than in-line.)
+
+`DuplicateFloorPlanCommand` (`packages/command-registry/src/levels/DuplicateFloorPlanCommand.ts`)
+creates every duplicated wall/slab/column/furniture with `levelId: targetLevelId`, but **never adds
+any created id to the target level's `childrenIds`**. `grep -n childrenIds` over that file returns
+**one** hit — `wall.childrenIds` at :674, for openings, unrelated.
+
+Both level-stack implementations bucket roots from **two** sources: `level.childrenIds`, and a scene
+sweep for `userData.levelId`. Duplicates therefore reach the stack **only via the scene tag**. Today
+that works. It means:
+
+1. Any consumer that trusts `childrenIds` as the level's membership list under-counts every
+   duplicated element.
+2. `_buildLevelRootMap`'s GR-10 honesty flag cannot catch it. That flag distinguishes `childrenIds`
+   **UNRECORDED** from **empty** — but here the list is *recorded and incomplete*, which is strictly
+   worse and prints no marker. The founder's log shows **no** `[childrenIds UNRECORDED]` marker on any
+   level, so every level claimed a recorded child list while four of them were missing their
+   duplicates.
+
+**Not the cause of L-1010** — a real divergence found while answering the question, and a latent trap
+for anything that starts trusting `childrenIds`.
+
+---
+
+## L-1012
+
+**CLOSED (8130afb1)** — *`[§LEVEL-STACK] collapse: restored N` counted roots nobody can see.*
+
+`BottomActionMenu._restoreLevelTransforms` iterated `_levelOriginalY` and incremented `restored` for
+every entry. That map holds every root captured at explode time **including roots a rebuild has since
+detached from the scene**. Writing `position.y` on a detached `Object3D` changes nothing observable,
+and it still counted. A total that cannot be wrong is a total that measures nothing — which is
+precisely why 340/340 balanced while the model was visibly broken.
+
+Now split into **LIVE** vs **STALE** (parent chain walked to the live scene root), with the stale
+count named in the log and the ghosts dropped instead of leaking into the next explode.
+
+---
+
+## L-1013
+
+**OPEN** — *`BottomActionMenu` has NO rebuild reconcile; the identical bug was fixed in the sibling
+implementation and left here.*
+
+`LevelExplodeController` listens to THREE's `childadded`/`childremoved` on the scene root and
+re-buckets (§FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES, **L-233**, with its own regression suite
+`apps/editor/__tests__/levelExplodeReconcileAllTypes.test.ts`). That fix exists **because rebuilt
+roots strand otherwise** — it is the same founder report, one implementation over.
+
+`BottomActionMenu` has no such listener. `_applyLevelTransforms()` is called from exactly one place
+(the toggle, `BottomActionMenu.ts:402`) and the capture never updates. So while exploded:
+
+* a root SWAPPED by a rebuild (walls, rooms, labels — builders that do `scene.remove`/`scene.add`)
+  leaves its ghost in the map and its live replacement is never lifted → **it sits LOW, at its true
+  elevation, while its storey is lifted away**;
+* a root REUSED in place whose builder rewrites `root.position.y` — slabs do exactly this at
+  `SlabFragmentBuilder.ts:608`, on every rebuild — is knocked out of the stack the same way.
+
+**Deliberately not fixed in this lane.** The sign is opposite to the founder's report (low, not high),
+the correct fix is almost certainly to delete this second implementation and delegate to
+`LevelExplodeController` rather than to grow a second reconcile, and that refactor crosses lanes. The
+L-1012 diagnostic now *names* this case when it occurs, so the next report arrives with evidence.
+
+---
+
+## L-1014
+
+**CLOSED (dc047c36)** — *`CREATE_FLOORS_BY_ROOM_TYPE` refused a legal operation, and the refusal was
+FALSE about the founder's model.*
+
+**VERDICT: the refusal was FALSE.** On a level where `RoomDetectionEngine` reported **one** room, the
+founder got:
+
+> Every room on this level has a type that takes no floor finish (a stairwell, or circulation this
+> pipeline finishes as one merged surface) — there is nothing here to floor.
+
+His room was neither a stairwell nor circulation. It was **untagged**.
+
+### Root cause — the vocabulary's own word for "untyped" was read as a type
+
+§FLOOR-DEFAULT-UNTYPED had already established the right rule ("room type chooses WHICH finish, not
+WHETHER one may exist") and implemented `_finishPlan` to default an untyped room. It detected untyped
+as `!occ` — i.e. `undefined` or `''`. **The room store emits neither.** `RoomDetectionEngine` stamps
+every detected room `occupancyType: 'unclassified'`, a real non-empty string which is the **last
+member of the `RoomOccupancyType` union, sitting under that union's own `── Default ──` heading**
+(`packages/room-topology/src/RoomTypes.ts`). So the room took the TYPED branch, matched neither finish
+set, fell through an unlabelled `return null`, and was reported to the user as a stairwell.
+
+**The guarding test could not catch it**: it built its "untyped" room by *omitting* the field — a state
+production cannot produce. Committed ≠ reachable, in test-fixture form.
+
+### The larger half
+
+That same `return null` was the destination for **every canonical occupancy absent from the two
+hard-coded finish sets** — `classroom`, `patient-room`, `warehouse`, `restaurant`, `open-office` and
+~30 more. The exclusion set was **the complement of two incomplete lookup tables**. A classroom could
+not have a floor, and was told it was a stairwell.
+
+Exclusions are now a **named** set (`stairwell`/`stair`, plus circulation under `skipCirculation`),
+each with its stated reason; an unmapped-but-known type takes the default like any other gap.
+
+Also fixed, same honesty family:
+* the refusal **names the types it actually found** instead of asserting a cause it never measured;
+* type matching is lowercased, matching its sibling `floorFinish` resolver, which it silently
+  disagreed with on `'Kitchen'`;
+* the "had no room type set — run Auto-Organise" note **split in two**: a tagged classroom that took
+  the default was being told it was untagged and sent to a fix that could not help it.
+
+**Test:** `packages/command-registry/__tests__/floorRefusalIsTrueNotAssumed.test.ts` — **8/8**, of
+which **6 were RED**.
+
+---
+
+## L-1015
+
+**CLOSED (6cc799bd)** — *A 64-window batch drove ~5 whole-level room re-detections inside one gesture.*
+
+```
+[RoomTopologyObserver] forced fire (deadline=2000ms, elapsed≈90ms, resets=12)
+```
+
+**Two separate defects.**
+
+**(1) The storm.** `WallStore.updateWindow` rewrites the host wall's `openings[]` and emits a wall
+`'update'` — **once per window**. `RoomTopologyObserver.attach`'s subscription discriminated on the
+event **name** only, so 64 window edits were indistinguishable from 64 structural wall edits: the
+150 ms debounce was reset 13 times and the anti-starvation deadline force-fired a redetect, five times
+over.
+
+A window is an **aperture in** a wall; room boundaries are wall centrelines/faces, so an opening
+cannot change room topology. **This file already asserted that** — `_computeWallSig`, the no-progress
+signature, hashes `id + baseline + thickness + height` and deliberately omits openings, and ADR-0129
+states the same invariant in prose. `WallStore.emit` has passed the pre-mutation wall as its **third
+argument** ever since `WallDeltaClassifier` needed it for this exact distinction, and **this listener
+was dropping it on the floor.**
+
+Openings-only deltas now return early. The asymmetry is deliberate: **no prevState means we cannot
+tell what changed, and "unknown" is not read as "harmless"** — those updates still schedule. Only a
+delta positively measured as openings-only is skipped. Skipping the ADR-0069 GR2 authority surrender
+too is the same judgement: that rule fires on a "genuine MANUAL **structural** wall edit".
+
+**(2) The log named a cause it had not measured.** `elapsed≈90ms` against `deadline=2000ms` reads as
+self-contradictory. It is not — the forced fire has **two** arms
+(`elapsed >= MAX_DEADLINE_MS || resets >= MAX_DEBOUNCE_RESETS`) and the message **hard-coded the
+deadline regardless of which one tripped**. It was the RESETS arm. Every reader was sent hunting a
+two-second stall that never happened. Now prints `reason=resets|deadline` with both counters against
+their limits.
+
+**Measured: 64 window edits → 5 forced fires BEFORE, 0 AFTER.**
+**Test:** `packages/room-topology/src/__tests__/openingsOnlyDoesNotRedetect.test.ts`. Package redetect
+suites green: **4 files, 25/25**, including the three pre-existing guards
+(`roomRedetectNoProgressGuard`, `wallMoveRedetectDefer`, `planCoveredRedetectSuppression`).
+
+---
+
+## L-1016
+
+**CLOSED** — *Every command refusal was printed TWICE, concatenated with an em dash.*
+
+The founder's console carried the whole `CREATE_FLOORS_BY_ROOM_TYPE` sentence twice in one line. Not
+a copy-paste: two **real** fields that usually hold the same string. `CommandManagerImpl` logs
+`validation.reason` followed by `_human`, where
+`_human = childRefusalText(blockingIssues[0] || reason, …)`, and `childRefusalText` **returns
+`stated.trim()` verbatim** when non-empty (`packages/command-registry/src/refusal/childRefusalText.ts:69`).
+A command that sets `reason` and no `blockingIssues` therefore renders identical halves.
+
+**Fixed as a comparison, not a deletion** — per the brief, one half can carry detail the other lacks,
+and both such cases survive:
+* **L-813**: the human sentence in `blockingIssues[0]` while `reason` holds the machine token an
+  operator greps for → both still print.
+* **GE-09**: the command refused stating *nothing*, so `_human` is the named `REFUSED_WITHOUT_REASON`
+  attribution and `reason` is `'unspecified'` → both still print.
+
+Only the literal duplicate is suppressed.
+
+**Test:** `packages/command-registry/__tests__/refusalPrintedOnce.test.ts`.
+
+---
+
+## L-1017
+
+**CLOSED** — *`AUTO_FROM_ROOM: no room found at clicked point` on a level that has a room.*
+
+**Two defects, and the first explains the founder's report.**
+
+**(1) The tool and the room store disagreed about which storey they were on.**
+`FloorTool._resolveElevation()` is called from **exactly one place — `activate()`
+(`FloorTool.ts:324`)** — and `_levelElevation` is never refreshed afterwards. The `ffl: 9.075` the
+founder saw is printed on the very next line, **at activation**. But the room filter in the room-pick
+handler reads `projectContext.activeLevelId` **live**. Change the active level with the tool still
+armed and the pick ray is cast through the **old** storey's ground plane while rooms are filtered by
+the **new** storey's id. For any camera that is not perfectly overhead, a plane at the wrong Y returns
+a laterally **displaced** x/z — so a click well inside a room lands outside its polygon. (`ffl 9.075`
+against level-plane locks at 7.8 in the same session is exactly this gap.) The elevation is now
+re-resolved **on every pick**.
+
+**(2) FOUR different facts shared ONE sentence.** "no room found at clicked point" was emitted for:
+this level has no rooms at all; it has rooms but none carries a boundary polygon; it has bounded rooms
+and the click genuinely missed; **and** — the fourth — the ray never met the plane, which `return`ed
+**silently, printing nothing at all**. Only the third is about where the user clicked. Each now says
+which, with counts and the tested point.
+
+Also: `_resolveElevation` returned `level?.elevation ?? 0`, so an **unresolvable** level and a level
+genuinely at datum produced the same `0`, and the tool silently cast through the ground plane of a
+storey that does not exist. It now reports `null` and the caller refuses with a distinct message.
+
+**NOT MEASURED:** no automated test — this path needs a renderer DOM, a camera and a raycast. The
+level-staleness mechanism is proven by **call-site enumeration** (one call site, at activation), not
+by execution.
