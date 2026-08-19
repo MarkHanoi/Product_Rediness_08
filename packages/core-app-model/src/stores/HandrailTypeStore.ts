@@ -1,4 +1,9 @@
 import { HandrailBalusterShape, HandrailFillType, HandrailRailProfile } from './HandrailTypes';
+// §FEAT-HANDRAIL-BAR-GUARD-MATRIX (C100 §2.1) — the MASTER catalogue. The bar-guard
+// matrix below REFERENCES ids from it and mints nothing; the label is read from here so a
+// preset can never advertise a material name the catalogue does not agree with.
+// L0 data package — plain scalars, no THREE, no DOM.
+import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 
 export interface HandrailTypeDefinition {
     id: string;
@@ -108,6 +113,18 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'baluster',
         railProfile: 'rectangular',
         postSpacing: 1.8,
+        balusterShape: 'rectangular',
+        balusterWidth: 0.02,
+        infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.119,
         materialId: 'wood-oak',
         materialName: 'timber'
     },
@@ -203,6 +220,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.016,
         infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.115,
         materialId: 'steel-structural',
         materialName: 'steel'
     },
@@ -221,6 +247,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'round',
         balusterWidth: 0.016,
         infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.115,
         materialId: 'steel-structural',
         materialName: 'steel'
     },
@@ -298,6 +333,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.038,
         infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.137,
         materialId: 'wood-pine',
         materialName: 'timber'
     },
@@ -329,6 +373,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'round',
         balusterWidth: 0.014,
         infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.113,
         materialId: 'cast-iron',
         materialName: 'steel'
     },
@@ -346,6 +399,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.014,
         infillMaxGap: 0.089,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.103,
         materialId: 'cast-iron',
         materialName: 'steel'
     },
@@ -363,6 +425,15 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.012,
         infillMaxGap: 0.099,
+        // ⛔ §FIX-HANDRAIL-INFILLMAXGAP-DEAD (C95 §15.16) — `balusterSpacing` IS THE
+        // FIX, AND ITS ABSENCE WAS A CHILD-SAFETY DEFECT. `HandrailFragmentBuilder`
+        // resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+        // so this type — which set `postSpacing` and omitted `balusterSpacing` — NEVER
+        // REACHED `infillMaxGap`: its balusters were built at the POST spacing. The
+        // description below has always claimed a 100 mm-sphere-compliant pitch; measured,
+        // it shipped a clear opening of over a metre. The pitch is now stated explicitly
+        // as `infillMaxGap + balusterWidth`, which is the identity the rule defines.
+        balusterSpacing: 0.111,
         materialId: 'steel-structural',
         materialName: 'steel'
     },
@@ -425,11 +496,278 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
     },
 ];
 
+// ===========================================================================
+// §FEAT-HANDRAIL-BAR-GUARD-MATRIX (C95 §15.16) — VERTICAL-BAR GUARDS, DERIVED
+// FROM THE C100 MASTER CATALOGUE RATHER THAN HAND-WRITTEN.
+//
+// Founder: "Please create +20 more handrail types — with 5 to 10 cm vertical
+// bars, in all possible materials including metal, copper… etc."
+//
+// --- ⚠ THE AMBIGUITY, RESOLVED IN THE OPEN --------------------------------
+// "5 to 10 cm vertical bars" has two readings: bar WIDTH 50-100 mm, or bars
+// EVERY 50-100 mm. This set reads it as BAR WIDTH, because that is what the
+// words say, and because a bar every 50 mm with any real section is a
+// near-solid screen rather than a balustrade.
+//
+// ⭐ THE READING IS ENCODED IN EVERY TYPE NAME — "Copper - New (Bright) — Bar
+// Guard 60 mm" — so the founder sees which axis the number landed on the moment
+// he opens the picker, and can correct it in one sentence. A silent guess on a
+// 24-type batch is 24 wrong types.
+//
+// --- WHY A MATRIX AND NOT 24 LITERAL ROWS ---------------------------------
+// This week's recurring defect in this repo is an ENUMERATED list that must be
+// REMEMBERED rather than DERIVED: the hand-written shadow-freeze list that froze
+// the viewport with eleven families missing (L-1189), and the `bim-railing-*`
+// dead key that made handrails unpickable in 3D (L-1190). A 24-row literal is
+// that defect with a picker attached — the next material silently falls out.
+//
+// So ONE row here is a (material, bar size, section shape) triple, and
+// EVERYTHING else — name, description, height, thickness, rail profile, rail
+// diameter, post spacing, end condition, baluster pitch, the legacy material
+// name — is DERIVED. Adding a material is one line, and it cannot arrive
+// missing a field.
+//
+// --- ⛔ NOT ONE NEW MATERIAL IS MINTED ------------------------------------
+// Lane HR4 measured that ONE circular gesture minted 93 materials and the device
+// dies near 100. Every row below REFERENCES an existing `MATERIAL_CATALOG` id
+// (C100 §2.1), and `handrailBarGuardTypes.spec.ts` fails the build if any id is
+// absent from the live catalogue. Nothing here carries a hex: a hex resolves
+// FIRST and would make every later material pick a silent no-op (C100 §2.1,
+// L-1196).
+//
+// MEASURED BEFORE DESIGNING, because "all possible materials" means all the ones
+// that EXIST: the catalogue holds 24 Metal rows, including `copper-new` AND
+// `copper-patinated`, `brass-polished`, `bronze-aged`, `cast-iron`, seven steels,
+// two zincs and five aluminiums. The founder's "including metal, copper" is
+// fully servable from what already exists, so NO master material needed minting.
+// That is the finding, not a shortcut.
+//
+// --- ⭐ SAFETY: THE PITCH IS COMPUTED, NEVER TYPED ------------------------
+// A barred guard is a child-safety element. The governing rule is that a 100 mm
+// sphere must not pass through it. `infillMaxGap` is the CONSTRAINT and
+// `balusterSpacing` is the resulting CENTRE pitch, related by
+//
+//     clear gap = pitch - bar width   =>   pitch = gap + bar width
+//
+// and this file computes the pitch from that identity on every row. A preset
+// therefore cannot be internally inconsistent, and a bar size cannot be changed
+// without the pitch following it.
+//
+// ⛔ AND `balusterSpacing` IS SET EXPLICITLY, WHICH IS LOAD-BEARING — see
+// §FIX-HANDRAIL-INFILLMAXGAP-DEAD on the built-ins above. `HandrailFragmentBuilder`
+// resolves the pitch as `balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`,
+// so a type that sets `postSpacing` and omits `balusterSpacing` NEVER REACHES
+// `infillMaxGap` — its balusters land at the POST spacing.
+//
+// The 90 mm gap used here sits under the 100 mm sphere rule with margin rather
+// than on the 99 mm line, because a shipped preset should not be one rounding
+// away from non-compliant.
+//
+// ⚠ ADVISORY, NOT ENFORCED, AND THE DIFFERENCE IS MEASURED. NO layer in this
+// repository evaluates a guard or balustrade rule. `packages/ordinance-extraction`
+// is the PLANNING/zoning layer (envelopes, setbacks, heights) and says nothing
+// about guards; `StairValidationAuthority` is region-aware (AS-1657 / EUROPEAN /
+// IBC-USA) but contains ZERO references to railing, guard, baluster or handrail.
+// The 100 mm sphere rule therefore lives in this repo only as prose and as the
+// arithmetic below. These presets are code-PLAUSIBLE as shipped and tested to
+// stay that way; they are NOT a compliance verdict, and the real verdict belongs
+// to a jurisdiction authority that does not yet see this family.
+// `StairValidationAuthority` is the precedent shape when one is built.
+// ===========================================================================
+
+/** The clear opening every shipped barred guard is built to, in metres. */
+const BAR_GUARD_CLEAR_GAP_M = 0.09;
+
+/** Guard height for a barred balustrade, in metres. */
+const BAR_GUARD_HEIGHT_M = 1.1;
+
+/** Cap-rail diameter for a ROUND-profile guard, in metres. */
+const BAR_GUARD_ROUND_RAIL_DIA_M = 0.042;
+
+/** One row of the matrix: a material, a bar size, and the bar's section shape. */
+interface BarGuardRow {
+    /** A `MATERIAL_CATALOG` id (C100 §2.1). Verified against the live catalogue. */
+    readonly materialId: string;
+    /** Bar width across the flat, or bar diameter, in MILLIMETRES — the founder's axis. */
+    readonly barMm: number;
+    readonly shape: HandrailBalusterShape;
+}
+
+/**
+ * THE MATRIX. Bar sizes span the founder's 50-100 mm, and the size on each row is
+ * an architectural judgement about the material rather than a filler value:
+ *   - soft decorative metals (copper, brass, bronze) carry more section;
+ *   - structural and stainless steels read better slimmer;
+ *   - cast iron is traditionally chunky;
+ *   - aluminium needs more section than steel for the same stiffness;
+ *   - timber needs the most.
+ */
+const BAR_GUARD_ROWS: readonly BarGuardRow[] = [
+    // -- Copper, brass, bronze — the founder named copper by name ----------
+    { materialId: 'copper-new',                    barMm: 60,  shape: 'round' },
+    { materialId: 'copper-patinated',              barMm: 60,  shape: 'round' },
+    { materialId: 'brass-polished',                barMm: 50,  shape: 'round' },
+    { materialId: 'bronze-aged',                   barMm: 60,  shape: 'rectangular' },
+    { materialId: 'aluminium-bronze-anodised',     barMm: 70,  shape: 'rectangular' },
+
+    // -- Steels ------------------------------------------------------------
+    { materialId: 'steel-structural',              barMm: 50,  shape: 'rectangular' },
+    { materialId: 'steel-blackened',               barMm: 50,  shape: 'rectangular' },
+    { materialId: 'steel-blackened',               barMm: 80,  shape: 'rectangular' },
+    { materialId: 'steel-stainless-brushed',       barMm: 50,  shape: 'round' },
+    { materialId: 'steel-stainless-polished',      barMm: 50,  shape: 'round' },
+    { materialId: 'steel-galvanised',              barMm: 60,  shape: 'rectangular' },
+    { materialId: 'steel-corten',                  barMm: 80,  shape: 'rectangular' },
+    { materialId: 'steel-blue-tempered',           barMm: 50,  shape: 'rectangular' },
+    { materialId: 'steel-painted-red-oxide',       barMm: 60,  shape: 'rectangular' },
+    { materialId: 'cast-iron',                     barMm: 80,  shape: 'round' },
+
+    // -- Zinc --------------------------------------------------------------
+    { materialId: 'zinc-natural',                  barMm: 70,  shape: 'rectangular' },
+    { materialId: 'zinc-preweathered-bluegrey',    barMm: 70,  shape: 'rectangular' },
+
+    // -- Aluminium ---------------------------------------------------------
+    { materialId: 'aluminium-anodised-silver',     barMm: 60,  shape: 'round' },
+    { materialId: 'aluminium-brushed-dark',        barMm: 70,  shape: 'rectangular' },
+    { materialId: 'aluminium-powder-coated-dark',  barMm: 80,  shape: 'rectangular' },
+    { materialId: 'aluminium-powder-coated-white', barMm: 80,  shape: 'rectangular' },
+
+    // -- Timber — the "etc." -----------------------------------------------
+    { materialId: 'wood-oak',                      barMm: 90,  shape: 'rectangular' },
+    { materialId: 'wood-walnut',                   barMm: 90,  shape: 'rectangular' },
+    { materialId: 'wood-teak',                     barMm: 100, shape: 'rectangular' },
+];
+
+/**
+ * The LEGACY `materialName` vocabulary (`StairRailingBuilder.makeMaterial`), derived
+ * by RULE rather than typed per row so it cannot drift from `materialId`.
+ *
+ * ⚠ This is one of the rival material vocabularies C100 is unifying. It is populated
+ * here only so a bar guard applied to a STAIR railing does not keep the previous
+ * material (the half-applied-type defect). When C100's unification lands, this
+ * function is the single place to delete.
+ */
+function legacyMaterialName(materialId: string): NonNullable<HandrailTypeDefinition['materialName']> {
+    if (materialId.startsWith('wood-')) return 'timber';
+    if (materialId.endsWith('-polished')) return 'chrome';
+    return 'steel';
+}
+
+/** Round to 4 dp so a derived pitch is a clean number rather than float noise. */
+function round4(v: number): number {
+    return Math.round(v * 1e4) / 1e4;
+}
+
+/**
+ * Expand one matrix row into a COMPLETE `HandrailTypeDefinition`.
+ *
+ * ⭐ EVERY FIELD IS SET. C95 §15.15 records that applying a type MATERIALISES its
+ * fields onto the record, and a user cannot see which value came from the type and
+ * which from a builder default — so a preset that leaves a field implicit is a
+ * preset whose result nobody can predict.
+ *
+ * `railDiameter` is the ONE deliberate omission, and only on rectangular profiles:
+ * `HandrailFragmentBuilder` does not read it there (a rectangular cap rail is sized
+ * from `thickness` and a fixed 0.05 depth), so setting it would ship a field that
+ * looks authoritative and changes nothing.
+ */
+function expandBarGuard(row: BarGuardRow, label: string): HandrailTypeDefinition {
+    const barWidth = round4(row.barMm / 1000);
+    // clear gap = pitch - bar width  =>  pitch = gap + bar width. Computed, never typed.
+    const balusterSpacing = round4(barWidth + BAR_GUARD_CLEAR_GAP_M);
+    const isRound = row.shape === 'round';
+    const isTimber = row.materialId.startsWith('wood-');
+    const sectionWord = isRound ? 'round bar' : 'square bar';
+
+    return {
+        id: `bar-guard-${row.materialId}-${row.barMm}`,
+        name: `${label} — Bar Guard ${row.barMm} mm`,
+        description:
+            `${row.barMm} mm ${sectionWord} vertical balusters at ${Math.round(balusterSpacing * 1000)} mm centres — a `
+            + `${Math.round(BAR_GUARD_CLEAR_GAP_M * 1000)} mm clear opening, under the 100 mm sphere rule. `
+            + `${Math.round(BAR_GUARD_HEIGHT_M * 1000)} mm guard height. Material referenced from the master catalogue.`,
+        isBuiltIn: true,
+        height: BAR_GUARD_HEIGHT_M,
+        // The cap rail's section. Timber caps are broader than metal ones.
+        thickness: isTimber ? 0.07 : 0.05,
+        baseOffset: 0.0,
+        fillType: 'baluster',
+        railProfile: isRound ? 'round' : 'rectangular',
+        ...(isRound ? { railDiameter: BAR_GUARD_ROUND_RAIL_DIA_M } : {}),
+        // Structural post spacing — timber spans further between posts by convention.
+        postSpacing: isTimber ? 1.8 : 1.5,
+        // ⚠ `postEndCondition` IS DELIBERATELY ABSENT, AND THIS IS THE ONE PLACE THE
+        // "no implicit defaults" rule above is knowingly broken — because setting it
+        // would be WORSE than omitting it.
+        //
+        // `HandrailTypeDefinition` does not carry the field, and `resolveHandrailTypeFields`
+        // does not project it (it moves thirteen fields; this is not one of them). Adding
+        // it to the type would therefore ship a field that is authored on the preset and
+        // MATERIALISES NOWHERE — the authored-but-unwired defect this lane has now hit
+        // three times (L-1190's dead event key, L-1196's four-of-twenty-nine panel).
+        //
+        // Absent means `'redistribute'`, which is exactly the intent: the pitch is treated
+        // as a MAXIMUM and the run divides into equal bays that never exceed it. On a
+        // child-safety guard that is the only correct convention — `'fixed'` would leave
+        // one short end bay, which is harmless, but nothing here should silently choose a
+        // convention. ⛔ To make it authorable, widen the PROJECTION first, then the type.
+        balusterShape: row.shape,
+        balusterWidth: barWidth,
+        // ⛔ EXPLICIT ON PURPOSE — see §FIX-HANDRAIL-INFILLMAXGAP-DEAD. Omitting it
+        // lets the builder fall through to `postSpacing`, putting the balusters
+        // 1.5 m apart on a child-safety guard.
+        balusterSpacing,
+        infillMaxGap: BAR_GUARD_CLEAR_GAP_M,
+        materialId: row.materialId,
+        materialName: legacyMaterialName(row.materialId),
+    };
+}
+
+/**
+ * The bar-guard family, built from the matrix.
+ *
+ * The display name comes from the CATALOGUE's own label, so a type can never
+ * advertise a material name the catalogue does not agree with. An id absent from the
+ * catalogue is a HARD THROW at module load rather than a row named `undefined`: a
+ * preset naming a missing material renders grey and silently (L-1203's exact
+ * symptom), so it must never reach a picker.
+ */
+function buildBarGuardTypes(): HandrailTypeDefinition[] {
+    return BAR_GUARD_ROWS.map((row) => {
+        const record = MATERIAL_CATALOG.find((m) => m.id === row.materialId);
+        if (!record) {
+            throw new Error(
+                '[HandrailTypeStore] §FEAT-HANDRAIL-BAR-GUARD-MATRIX bar-guard row references materialId '
+                + `'${row.materialId}', which is not in MATERIAL_CATALOG. A preset naming a missing `
+                + 'material renders grey with no error (C100 §5).',
+            );
+        }
+        return expandBarGuard(row, record.label);
+    });
+}
+
+/**
+ * §FEAT-HANDRAIL-BAR-GUARD-MATRIX — the built-in set the store seeds from.
+ *
+ * Kept as ONE exported array so `HandrailTypeStore`'s constructor and
+ * `clearCustomTypes()` keep their existing single source, and so a test can sweep
+ * every shipped preset without knowing how the set was assembled.
+ */
+const ALL_BUILT_IN_TYPES: HandrailTypeDefinition[] = [
+    ...BUILT_IN_TYPES,
+    ...buildBarGuardTypes(),
+];
+
 export class HandrailTypeStore {
     private types: Map<string, HandrailTypeDefinition> = new Map();
 
     constructor() {
-        BUILT_IN_TYPES.forEach(t => this.types.set(t.id, { ...t }));
+        // §FEAT-HANDRAIL-BAR-GUARD-MATRIX — the hand-authored built-ins PLUS the derived
+        // bar-guard matrix. Built-ins are CODE, re-seeded on every construction and
+        // preserved by `clearCustomTypes()`, so a preset cannot be lost by a save/load or a
+        // project switch; and `add()` throws on an id collision, so a founder's custom type
+        // can never silently shadow one of these (nor the reverse).
+        ALL_BUILT_IN_TYPES.forEach(t => this.types.set(t.id, { ...t }));
     }
 
     getAll(): HandrailTypeDefinition[] {

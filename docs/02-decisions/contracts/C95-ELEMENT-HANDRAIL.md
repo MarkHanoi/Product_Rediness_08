@@ -1818,3 +1818,124 @@ can be added to the panel and write nowhere at all.** Add a row and forget the w
 fails, with no one having to remember to add a line. Negative controls assert the pre-write value
 differs, so a no-op cannot pass. The existing `handrailPersistenceRoundTrip` harness is used as-is
 and deliberately not duplicated.
+
+---
+
+## 15.16 THE VERTICAL-BAR GUARD MATRIX — 24 TYPES DERIVED FROM C100, AND THE `infillMaxGap` THAT WAS DEAD ON EVERY BALUSTRADE ✅ **DECIDED + LANDED** (L-1202, 2026-08-19, lane HR5)
+
+**Founder:** *"Please create +20 more handrail types — with 5 to 10 cm vertical bars, in all possible
+materials including metal, copper… etc."*
+
+**Shipped: 24 types across 23 catalogue materials. Built-ins 20 → 44.**
+
+### THE AMBIGUITY IS ENCODED IN THE NAMES, NOT RESOLVED IN SILENCE
+
+*"5 to 10 cm vertical bars"* reads either as bar **WIDTH** 50–100 mm or as bars **every** 50–100 mm.
+This set takes **bar WIDTH** — that is what the words say, and a bar every 50 mm at any real section
+is a solid screen. ⭐ **Every type name carries the number** (*"Copper – New (Bright) — Bar Guard
+60 mm"*), so the reading is visible in the picker and correctable in one sentence. A silent guess on
+a 24-type batch is 24 wrong types.
+
+### ⛔ 15.16.1 — `infillMaxGap` WAS DEAD ON ALL SEVEN SHIPPED BALUSTRADES
+
+`HandrailFragmentBuilder.ts:403-408` resolves the baluster pitch as
+
+```
+balusterSpacing ?? postSpacing ?? (infillMaxGap + balusterWidth) ?? 0.11
+```
+
+Every baluster built-in set `postSpacing` and **omitted `balusterSpacing`**, so **`infillMaxGap` was
+never reached** and the balusters were built at the POST spacing. Measured clear openings as shipped:
+`timber-baluster` **1780 mm** · `timber-picket` **1762 mm** · `steel-picket-flat` **1488 mm** ·
+`wrought-iron-classic` **1486 mm** · `metal-balustrade-square` / `-round` **1484 mm** ·
+`wrought-iron-ornamental` **1186 mm** — each with a description asserting a 100 mm-sphere-compliant
+pitch.
+
+⛔ **A documented-but-untrue safety claim, on a child-safety element.** Fixed by stating
+`balusterSpacing` explicitly on all seven as **`infillMaxGap + balusterWidth`** — the identity the
+rule defines. Re-measured: **0 of 7 breaching**. The builder's precedence is deliberately UNCHANGED,
+so no existing record reshapes; only new and re-typed railings pick up the corrected pitch.
+
+⭐ **THE BINDING RULE, for every future baluster type:** a baluster type **MUST** set
+`balusterSpacing` explicitly. Omitting it does not fall through to `infillMaxGap` — it falls through
+to `postSpacing`. `HandrailBarGuardTypes.test.ts` fails the build on any preset that omits it, and
+**source-pins the builder's precedence line** so the test's replica cannot drift into agreeing with a
+builder that no longer behaves that way.
+
+### 15.16.2 — THE SET IS DERIVED, NOT ENUMERATED
+
+One row is a **(materialId, barMm, shape)** triple; name (read from the catalogue's own label),
+description, height, thickness, rail profile, rail diameter, post spacing, baluster pitch and the
+legacy `materialName` are all derived. Adding a material is one line and cannot arrive missing a
+field. This is deliberate: the week's recurring defect is an enumerated list that must be REMEMBERED
+rather than DERIVED (L-1189's shadow list, L-1190's dead event key), and a 24-row literal is that
+defect with a picker attached.
+
+- **Sizes:** 50 ×6 · 60 ×6 · 70 ×4 · 80 ×5 · 90 ×2 · 100 ×1 mm.
+- **⭐ Pitch is COMPUTED:** `pitch = clear gap + bar width`, every type at a **90 mm** clear opening —
+  under the sphere rule with margin, not on the 99 mm line.
+
+**Two deliberate omissions, both stated so neither reads as an oversight:**
+- `railDiameter` on rectangular profiles — the builder does not read it there (a rectangular cap rail
+  is sized from `thickness` and a fixed 0.05 depth), so setting it would ship an authoritative-looking
+  field that changes nothing.
+- `postEndCondition` on **all** rows — `HandrailTypeDefinition` does not carry it and
+  `resolveHandrailTypeFields` does not project it, so authoring it on a preset would materialise
+  NOWHERE: the authored-but-unwired defect. Absent means `'redistribute'` (pitch as a MAXIMUM), which
+  is the intended convention. ⛔ **To make it authorable, widen the PROJECTION first, then the type.**
+
+### 15.16.3 — NOT ONE NEW MATERIAL WAS MINTED
+
+Lane HR4 measured that one circular gesture minted **93 materials** and the device dies near 100. The
+catalogue was therefore enumerated **before** the matrix was designed: **24 Metal rows**, including
+**`copper-new` and `copper-patinated`** — the founder named copper by name — plus `brass-polished`,
+`bronze-aged`, `cast-iron`, seven steels, two zincs and five aluminiums.
+
+⇒ *"All possible materials"* was **fully servable from what already exists**; no master material
+needed minting. Every type REFERENCES a `materialId` and **none carries a hex** (C100 §2.1), because
+a hex resolves FIRST and would make every later material pick a silent no-op (§15.15, L-1196). An
+id absent from the catalogue is a **hard throw at module load**, never a row that renders grey.
+
+### 15.16.4 — SAFETY IS **ADVISORY**, AND THAT VERDICT IS MEASURED
+
+**No layer in this repository evaluates a guard or balustrade rule.**
+`packages/ordinance-extraction` is the **planning/zoning** layer (envelopes, setbacks, heights) and
+says nothing about guards. `StairValidationAuthority` **is** region-aware
+(`AS-1657` / `EUROPEAN` / `IBC-USA`, `StairValidationAuthority.ts:36-45`) but contains **zero**
+references to railing, guard, baluster or handrail.
+
+⇒ These presets are **code-PLAUSIBLE as shipped and tested to stay that way**. They are **NOT a
+compliance verdict**, and this contract does not claim one. The real verdict belongs to a
+jurisdiction authority that does not yet see this family; `StairValidationAuthority` is the precedent
+shape when one is built. **An honest ADVISORY beats a fabricated ENFORCED.**
+
+### 15.16.5 — PERF AND PERSISTENCE, MEASURED
+
+`HandrailFragmentBuilder` allocates `new THREE.MeshStandardMaterial` **per mesh** at six sites
+(`:324, :332, :367, :374, :413, :477`) — pre-existing, and **not per-type**. These 24 types therefore
+add **zero** new material objects beyond what any handrail already costs, and mint **zero** catalogue
+entries, which is the axis that killed the device at ~100. ⚠ Real GPU material sharing for handrails
+is achieved by **no** type today; it belongs to the `ElementInstanceBridge` path
+(`§PERF-RAIL-INSTANCING`), not to the catalogue.
+
+Built-ins are **code** — re-seeded on construction, preserved by `clearCustomTypes()` — so a preset
+survives save/load and project switch by construction, and `add()` throws on an id collision so a
+custom type can never silently shadow one (nor the reverse). Both asserted.
+
+### 🔴 15.16.6 — OPEN: TWO REMEMBERED COUNTS IN ANOTHER LANE'S PACKAGE
+
+`packages/command-registry/__tests__/handrailPersistenceRoundTrip.test.ts:357` and
+`…/handrailTypeMaterialisationAndRun.test.ts:96` pin the built-in count as an exact literal
+(`toHaveLength(20)`) and now read 44. **That package is lane NL1's fence and was not touched.**
+Neither invariant is harmed — the first line's real assertion is the next one
+(`serializeCatalogue()` → `toHaveLength(0)`, built-ins are never persisted), the second's is the
+legacy-id list that follows. **Both should become `toBeGreaterThanOrEqual(20)`**; they are themselves
+instances of the remembered-count defect §15.16.2 exists to avoid.
+
+### 🔴 15.16.7 — OPEN: the generators still produce grey guards (L-1203)
+
+Four auto-generators (`ResidentialBuildingExecutor` ×3, `HouseLayoutExecutor` ×1) hand-list their
+handrail payload and **never consult this catalogue at all**, so they emit records with no
+`materialId` — ~145 in the founder's current session. All 44 built-ins carry one, so a generator that
+named a TYPE would inherit both the material and the corrected pitch. See L-1203 for the full route
+census and for why defaulting `materialId` inside `CreateHandrailCommand` would be the wrong fix.

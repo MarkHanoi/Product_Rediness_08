@@ -15487,7 +15487,7 @@ would need the derivation completed rather than another exception). The HIDE row
 
 **➡ L-1187 IS UNBLOCKED.** Its sequencing note below depended on this row.
 
-## L-1187 — THE FLOATING SITE BUTTON STACK BELONGS IN THE GIS PANEL, AND THE GIS PANEL'S CURRENT CONTENTS ARE LEGACY (OPEN, founder-directed 2026-08-19)
+## L-1187 — THE FLOATING SITE BUTTON STACK BELONGS IN THE GIS PANEL, AND THE GIS PANEL'S CURRENT CONTENTS ARE LEGACY (⭐ PHASE 1 LANDED 2026-08-19 — the 19 boxed controls are 14 actions under 19 names; registry + guard shipped, legacy removal BLOCKED on a shared file)
 
 **Founder, with two screenshots:** the floating stack at the bottom-left of the canvas —
 **Buildable Envelope · Site Analysis · Living Graph · Graph · Plan + Site · PRYZM Earth** (plus
@@ -15523,6 +15523,188 @@ live replacement (C16 CA-18 — a refusal or a retirement must name what replace
 migrate into the GIS panel behind the ONE surface; (4) retire the legacy controls in place with
 a tombstone, never a silent delete. Contract home: C13/C58 for site scope, plus whichever UI
 contract owns panel composition.
+
+### ⭐ PHASE 1 AUDIT — 2026-08-19 (lane GIS1) — THE 19 BOXED CONTROLS ARE 14 ACTIONS UNDER 19 NAMES
+
+**Founder's third screenshot boxed THREE surfaces**, not one, and drew arrows from all of them to
+the GIS panel's globe icon:
+
+- **BOX 1** — top-centre upper row (3 pills): `3D + plan` · `3D globe` · `3D Site` *(active)*
+- **BOX 2** — top-centre lower row (9 pills): `3D Site` · `2D Map` · `Plan` · `3D` · `Zoom to Site` ·
+  `Analysis` · `Real` · `Massing` · `All floors`
+- **BOX 3** — bottom-left floating stack (7): `⟲` · `Buildable Envelope` · `Site Analysis` ·
+  `Living Graph` · `Graph` · `Plan + Site` · `PRYZM Earth`
+
+⛔ **A bulk move would have shipped the confusion in a tidier box.** These are not 19 controls.
+
+#### 1 — INVENTORY + DUPLICATION TABLE (control → surface → file:line → action dispatched)
+
+| # | Control (as shown) | Surface | file:line | Action dispatched |
+|---|---|---|---|---|
+| 1 | `◧ 3D + plan` | view-mode switch | `GISAreaLayout.ts:1201` | `applyResultView('2D')` → `applyBimDualPane()` |
+| 2 | `◉ 3D globe` | view-mode switch | `GISAreaLayout.ts:1202` | `applyResultView('3D')` → photoreal globe |
+| 3 | `◉ 3D Site` | view-mode switch | `GISAreaLayout.ts:1216` | `mountFormaViewToggle('3d')` |
+| 4 | `◉ Real` | view-mode switch (globe only) | `GISAreaLayout.ts:1272` | `setGlobeBuildingFidelity('real')` |
+| 5 | `▢ Massing` | view-mode switch (globe only) | `GISAreaLayout.ts:1273` | `setGlobeBuildingFidelity('massing')` |
+| 6 | `⤢ Zoom to Site` | view-mode switch (globe only) | `GISAreaLayout.ts:1297` | `reframeSiteIn3D()` |
+| 7 | `▶ Fly tour` | view-mode switch (globe only) | `GISAreaLayout.ts:1319` | `cesiumViewport.flyTour()` |
+| 8 | `3D Site` | Forma sub-bar | `GISAreaLayout.ts:4009` | **NONE — it is a `<span>`, not a button** |
+| 9 | `▦ 2D Map` | Forma sub-bar | `GISAreaLayout.ts:4019` | `applyFormaView('map2d')` |
+| 10 | `◳ Plan` | Forma sub-bar | `GISAreaLayout.ts:4020` | `applyFormaView('plan')` |
+| 11 | `◉ 3D` | Forma sub-bar | `GISAreaLayout.ts:4021` | `applyFormaView('3d')` |
+| 12 | `⤢ Zoom to Site` | Forma sub-bar | `GISAreaLayout.ts:4033` | `flyToFormaPlan()` / `flyToFormaSite()` |
+| 13 | `☀ Analysis` | Forma sub-bar | `GISAreaLayout.ts:4057` | `formaAnalysis.toggle()` (else `applyFormaView('plan')`) |
+| 14 | `◉ Real` | Forma sub-bar | `GISAreaLayout.ts:4108` | `setFormaBuildingFidelity('real')` |
+| 15 | `▢ Massing` | Forma sub-bar | `GISAreaLayout.ts:4109` | `setFormaBuildingFidelity('massing')` |
+| 16 | `All floors` | Forma sub-bar (a `<select>`) | `GISAreaLayout.ts:4128` | `cesiumViewport.setVisibleFormaLevels(null \| [n])` |
+| 17 | `◉ PRYZM Earth` | launcher rail slot 1 | `GISAreaLayout.ts:4539` | `pryzmEnterSiteView('plan')` → `mountFormaViewToggle('plan')` |
+| 18 | `▦ Plan + Site` | launcher rail slot 2 | `GISAreaLayout.ts:4581` | `pryzmEnterPlanViewGis()` |
+| 19 | `⚛ Graph` | launcher rail slot 3 | `ui/graph/index.ts:69` | `BuildingGraphOverlay.toggle()` |
+| 20 | `✦ Living Graph` | launcher rail slot 4 | `ui/living-graph/index.ts:101` | `LivingGraphOverlay.toggle()` |
+| 21 | `☀ Site Analysis` | launcher rail slot 5 | `GISAreaLayout.ts:4645` | `formaAnalysis.toggle()` (else `applyFormaView('plan')`) |
+| 22 | `▧ Buildable Envelope` | launcher rail slot 6 | `GISAreaLayout.ts:4655` | `toggleEnvelopeCard()` |
+| 23 | `⟲` | launcher rail slot 7 | `GISAreaLayout.ts:4704` | `resetPanelLayout()` |
+
+**Which controls dispatch the SAME action:**
+
+| Duplicate set | Verdict |
+|---|---|
+| **#3 `3D Site` = #17 `PRYZM Earth`** — both `mountFormaViewToggle`, differing only in landing mode | SAME ACTION, two names |
+| **#3/#17 also = #11 `3D` (Forma sub-bar)** — `mountFormaViewToggle` rebuilds the bar then calls `applyFormaView` | SAME ACTION |
+| **#13 `Analysis` = #21 `Site Analysis`** — handler bodies are line-for-line identical | SAME ACTION, two names |
+| **#4 `Real` vs #14 `Real`** — same label, **two different state variables** (`globeBuildingFidelity` / `formaBuildingFidelity`) | SAME NAME, two actions |
+| **#5 `Massing` vs #15 `Massing`** — as above | SAME NAME, two actions |
+| **#6 `Zoom to Site` vs #12 `Zoom to Site`** — same label, different camera targets | SAME NAME, two actions |
+| **#3 `3D Site` vs #8 `3D Site`** — one is a button, one is a non-interactive `<span>` label | SAME NAME, one is not a control at all |
+
+⭐ **THE FOUNDER'S THREE HYPOTHESES, ANSWERED — and one of them is INVERTED, not merely wrong:**
+
+- *"`3D Site` appears twice"* — **YES, and worse:** one of the two (#8) is not a control. It is a
+  muted context caption. He has been reading a caption as a button.
+- *"`3D globe` vs `PRYZM Earth` — same view under a marketing name and a technical one"* —
+  ⛔ **NO. THE NAMES ARE INVERTED.** `PRYZM Earth` (#17) opens the **Forma / massing** site
+  surface. `3D globe` (#2) opens the **photoreal-tiles** result view. They are different actions.
+  The one that IS a duplicate of `PRYZM Earth` is the one spelled **`3D Site`**. Two surfaces
+  agreed on the action and disagreed on the name; a third disagreed on both.
+- *"`Analysis` vs `Site Analysis`"* — **YES, identical handler.**
+- *"`3D + plan` vs `Plan + Site` vs `Plan`"* — **NO, three genuinely different things**
+  (BIM dual-pane · plan-over-aerial · Cesium plan-oblique). This is a naming collision, not a
+  duplication: three unrelated capabilities share the word "plan".
+- *"`Graph` and `Living Graph` — two buttons, one concept?"* — **Two overlays, two entry points.**
+  But `living-graph/index.ts` states in its OWN header that it "is intended to **SUPERSEDE** the
+  static `⚛ Graph` view as the primary graph UI — see the SPEC for the exact button-wiring
+  reconciliation step". **That reconciliation was authored and never performed.** Retiring `Graph`
+  deletes a live capability, so it is verdict (b) and needs a founder call.
+
+⭐ **A DEFECT NEITHER SCREENSHOT SHOWS.** #3 and #17 are the same action with **different landing
+viewpoints** — the pill passes `'plan'`, the segment passes `DEFAULT_3D_SITE_VIEW` (`'3d'`). The
+constant named `§SITE-VIEWPOINT-CONSISTENT` exists to declare that default, and one of its two
+callers ignores it.
+
+#### 2 — PER-CONTROL VERDICT TABLE (a / b / c / d)
+
+| # | Control | Verdict | Reasoning |
+|---|---|---|---|
+| 3 | `3D Site` (switch) | **(a) DUPLICATE** | Same `mountFormaViewToggle` as `PRYZM Earth`. Surviving spelling = `PRYZM Earth` (the PRD-mandated product name, PRYZM-EARTH-ONBOARDING §10). |
+| 8 | `3D Site` (sub-bar caption) | **(a) DUPLICATE** | Not a control. A `<span>`. Delete on sight — it is the source of the "twice" report. |
+| 11 | `3D` (sub-bar) | **(a) DUPLICATE** | `applyFormaView('3d')` ⊂ `pryzmEnterSiteView('3d')`. |
+| 9 | `2D Map` (sub-bar) | **(a) DUPLICATE** | ⊂ `pryzmEnterSiteView('map2d')`. |
+| 10 | `Plan` (sub-bar) | **(a) DUPLICATE** | ⊂ `pryzmEnterSiteView('plan')`. |
+| 13 | `Analysis` (sub-bar) | **(a) DUPLICATE** | Identical handler to #21. |
+| 4/5 | `Real` / `Massing` (globe) | **(a) DUPLICATE** *after* consolidation | Two state variables, one user intent. The registry's single `Real`/`Massing` action sets BOTH — each setter is internally guarded to re-render only while its own surface is active, so dispatching both is safe and makes the two surfaces agree instead of drift. |
+| 14/15 | `Real` / `Massing` (sub-bar) | **(a) DUPLICATE** *after* consolidation | As above. |
+| 6/12 | `Zoom to Site` ×2 | **(b) SOLE ROUTE** *(and (d))* | Two different camera targets, neither reachable elsewhere. ⛔ Blocked: no registered entry point exists. **Also (d): this is a CAMERA action** — long-term home is Camera & Render. |
+| 21 | `Site Analysis` (pill) | **(b) SOLE ROUTE** | The surviving spelling of the pair. ⛔ Blocked: `formaAnalysis` is a closure inside `mountGISArea`. |
+| 22 | `Buildable Envelope` | **(b) SOLE ROUTE** | `toggleEnvelopeCard` is a closure; the card's own ✕ is the only other route and it only CLOSES. ⛔ Blocked. |
+| 16 | `All floors` | **(b) SOLE ROUTE** *(and (d))* | ⛔ Blocked: closure. **Also (d): a LEVEL FILTER, not GIS** — home is Levels & Grids, reading the same level intent (P7: visibility intent is a domain concept, not per-surface UI state). |
+| 1 | `3D + plan` | **(b) SOLE ROUTE** | Only entry to the BIM dual pane. Re-hosted; legacy removal follows. |
+| 2 | `3D globe` | **(b) SOLE ROUTE** | Only entry to the photoreal result view. Re-hosted; legacy removal follows. |
+| 17 | `PRYZM Earth` | **(b) SOLE ROUTE** | The surviving spelling of the #3/#11/#17 set. Re-hosted. |
+| 18 | `Plan + Site` | **(b) SOLE ROUTE — ⚠ UNDER REPAIR** | Re-hosted only. Its handler is owned by the L-1197 lane while the import-overlay scoping defect is fixed. **Not rewired, not deleted.** |
+| 19 | `Graph` | **(b) SOLE ROUTE** | Distinct overlay. Its own module says the Living Graph supersedes it; that retirement is a **founder decision**, not a lane's. |
+| 20 | `Living Graph` | **(b) SOLE ROUTE** | Distinct overlay. |
+| 23 | `⟲` reset panel layout | **(d) NOT GIS** | It resets *panel* layout across the whole app — it is the recovery route for any dragged-off-screen panel (§UX1-PANEL-DEFAULTS D2). Belongs with the launcher rail it serves, not under a globe. **Recommend: leave in place.** |
+| 7 | `Fly tour` | **(b) SOLE ROUTE** | Not boxed by the founder (hidden on the active segment). Cinematic flythrough; no other route. |
+
+⭐ **A CONTROL NOT IN ANY BOX, AND THE WORST FINDING OF THE PASS.**
+`apps/editor/src/ui/tools-panel/panels/GISRailPanel.ts` was a **fifth** GIS surface — 305 lines,
+a full rival button list — with **ZERO importers anywhere in the repo**. It was never instantiated,
+so none of it ever rendered. **Verdict (c) ALREADY DEAD → DELETED.** But it was not empty:
+
+- ⛔ **`Site Inspector` (A.8.f — the authored C19 SiteModel: address, lat/lon, parcel area,
+  boundary thumbnail) had exactly ONE caller in the entire app, and it was this dead class.**
+  So the Site Inspector has been **unreachable**, not merely buried — a verdict-(b) sole route
+  stranded on a verdict-(c) corpse. Deleting the file without restoring it would have deleted the
+  capability along with the corpse. **Its route is restored in the live GIS panel in the same
+  commit.**
+- `Climate Analysis` — **survives**: also reachable from `FormaSiteAnalysisControls.ts:713` and
+  `SiteInspectorPanel.ts:290`.
+- `Manual Zone Entry (admin)` — **survives**: auto-opened by `pryzmEnterSiteView`.
+- `Draw Site Boundary` / `Generate Apartment` / `Fly To` / `Place BIM on Earth` — all have live
+  routes elsewhere (onboarding flow, `ProjectBrowserPanel` props).
+
+⚠ **CORRECTION TO A PRIOR LANE'S FINDING.** Lane CHR1 reported that `ProjectBrowserPanel` "wires
+three GIS actions to NO-OP DEFAULTS". **Measured: FALSE.** The no-ops at
+`ProjectBrowserPanel.ts:138-143` belong to the `renderProps` **adapter object built for
+`RenderRailPanel`**, which renders no GIS controls. The GIS panel's own actions are wired to real
+`GISCallbacks` at `NavigationAreaLayout.ts:146-156`. **`ProjectBrowserPanel` is the LIVE surface
+behind the globe icon; `GISRailPanel` was the dead one.** Establishing which of the two the founder
+was clicking was the precondition for every deletion, and it inverted the assumption.
+
+#### 3 — THE FIX: ONE DECLARED ACTION REGISTRY, EVERY SURFACE RENDERS IT
+
+Commit `03d3217e`. **A panel is a HOST; the action is the AUTHORITY.**
+
+- `apps/editor/src/ui/gis/gisActionRegistry.ts` — the ONE declaration: id, label, icon, group,
+  entry points, and **the retired spellings each action absorbs** (the de-duplication ledger kept in
+  CODE, not in a doc). `dispatch` calls the EXISTING `window.pryzm*` entry points; **no handler
+  logic is copied**, because copying is precisely how the two rival GIS panels came to disagree
+  with one of them silently no-op.
+- `apps/editor/src/ui/gis/renderGisActions.ts` — DERIVES the panel from the registry. A new action
+  appears with no panel edit. Group order is derived from first appearance, so a new group cannot
+  be left unrendered.
+- `ProjectBrowserPanel._buildGISPanel()` renders it, grouped (Site views · Site display · Graphs) —
+  **not one flat list of 19**.
+- **Honest unavailability:** the four actions whose handlers are closures with no registered entry
+  point (`Zoom to Site`, `Site Analysis`, `Buildable Envelope`, `Floors shown`) render **DISABLED
+  with their reason on the control**, never as live buttons. *"Nothing happened and I don't know
+  why"* is the state this removes.
+
+⭐ **THE EXECUTABLE GUARD** — `apps/editor/__tests__/gisActionRegistry.test.ts`, 12 assertions,
+modelled on this repo's Delete census (where a new selectable kind fails the BUILD until Delete
+handles or refuses it). It fails the build if:
+a declared action names an entry point its `dispatch` does not call · a dispatch calls an
+**undeclared** entry point · two actions share a label (C84 EI-8 one-vocabulary) · two actions both
+claim a retired spelling · an action with no entry points carries no stated reason · a resolvable
+action is painted disabled or an unresolvable one is painted live · a surface drops a declared
+action. **It does not stub the registry** — the subject is the real `GIS_ACTIONS` and the real
+renderer; the only fake is the `window`-shaped host, which is the environment, not the subject.
+**Falsified before landing:** breaking one dispatch to a no-op reproduced the exact
+GISRailPanel/ProjectBrowserPanel failure mode and turned the suite red
+(`site.plan-oblique declares pryzmEnterSiteView but never calls it`).
+
+#### 4 — ⛔ WHAT IS *NOT* DONE, AND WHY — THE LEGACY PILLS ARE STILL MOUNTED
+
+**The verdict-(a) and verdict-(c) removals inside `GISAreaLayout.ts` are NOT in this commit.**
+Every one of the 19 legacy controls is mounted from that one file, and it currently carries
+**another lane's uncommitted `§UND-VIEW-SCOPE` (L-1197) hunk at line ~4473**. A scoped
+`git commit --only` on that path commits the file's whole working-tree state and would sweep in
+work that is not this lane's to land. ⛔ Per the standing multi-agent rule, that is a stop-and-report,
+not a conflict to resolve unilaterally.
+
+**Phase 2, once `GISAreaLayout.ts` is clear:**
+1. Register the four missing entry points (`pryzmToggleSiteAnalysis`, `pryzmToggleEnvelopeCard`,
+   `pryzmZoomToSite`, `pryzmSetVisibleSiteLevels`) so those actions resolve live. The guard already
+   demands their reasons; registering them is what removes the reasons.
+2. Delete the verdict-(a) controls: the `3D Site` caption (#8), the sub-bar's `2D Map`/`Plan`/`3D`
+   (#9–#11), `Analysis` (#13), and ONE of each `Real`/`Massing`/`Zoom to Site` pair.
+3. Fix `§SITE-VIEWPOINT-CONSISTENT`: the `PRYZM Earth` pill must pass the declared default.
+4. Retain the launcher rail's `⟲` (verdict d) and move `All floors` to Levels & Grids (verdict d).
+
+**Founder decisions this audit surfaces and does NOT take:**
+- **Retire `⚛ Graph` in favour of `✦ Living Graph`?** Its own module says yes; nobody has decided.
+- **Should `Zoom to Site` and `All floors` live under the globe at all**, or with Camera and with
+  Levels & Grids? The recommendation is the latter; the founder's boxing says the former.
 
 ## L-1188 — "Envelope: OFF" deleted the GROUND FOOTPRINT along with the volume — a REGRESSION FROM L-1170, correct in kind, over-suppressing in degree ✅ FIXED 2026-08-19 (lane ENV2)
 
@@ -16986,3 +17168,198 @@ TO BUILD, named in rule 16.
 **built from the REAL store shapes** (windows keyed to walls by `wallId`, walls carrying `levelId`)
 running the REAL `resolveLevelScopeByHost`, not a stub returning N ids. A stub would have reported
 the founder's sentence GREEN while he saw *"There are no windows on Level 2"*.
+
+## L-1202 — +24 VERTICAL-BAR HANDRAIL TYPES, DERIVED FROM THE C100 CATALOGUE — AND SEVEN SHIPPED BALUSTRADES WERE BUILDING A 1.5 m GAP WHILE CLAIMING 100 mm COMPLIANCE ✅ FIXED 2026-08-19 (lane HR5)
+
+**Founder:** *"Please create +20 more handrail types — with 5 to 10 cm vertical bars, in all possible
+materials including metal, copper… etc."*
+
+**Shipped: 24 new types across 23 catalogue materials. Built-ins 20 → 44.**
+
+### ⚠ THE AMBIGUITY, RESOLVED IN THE OPEN RATHER THAN GUESSED
+
+*"5 to 10 cm vertical bars"* has two readings — bar **WIDTH** 50–100 mm, or bars **every** 50–100 mm.
+This set reads it as **bar WIDTH**, because that is what the words say and because a bar every 50 mm
+at any real section is a near-solid screen, not a balustrade. ⭐ **The reading is encoded in every
+type NAME** — *"Copper – New (Bright) — Bar Guard 60 mm"* — so the founder sees which axis the number
+landed on the moment he opens the picker and can correct it in one sentence. A silent guess on a
+24-type batch is 24 wrong types.
+
+### ⭐⭐ THE SAFETY DEFECT FOUND ON THE WAY IN — SEVEN TYPES, ALL BREACHING
+
+`HandrailFragmentBuilder` resolves the baluster pitch as
+**`balusterSpacing ?? postSpacing ?? (infillMaxGap + width)`** (`HandrailFragmentBuilder.ts:403-408`).
+
+**Every shipped baluster type set `postSpacing` and omitted `balusterSpacing`, so `infillMaxGap` was
+NEVER REACHED.** The balusters were built at the POST spacing. Measured 2026-08-19:
+
+| type | claimed | ACTUAL clear gap as shipped |
+|---|---|---|
+| `timber-baluster` | "100 mm-sphere-compliant pitch" | **1780 mm** |
+| `timber-picket` | "100 mm-sphere-compliant pitch" | **1762 mm** |
+| `steel-picket-flat` | "100 mm-sphere-compliant pitch" | **1488 mm** |
+| `wrought-iron-classic` | "100 mm-sphere-compliant pitch" | **1486 mm** |
+| `metal-balustrade-square` | "100 mm-sphere-compliant pitch" | **1484 mm** |
+| `metal-balustrade-round` | "100 mm-sphere-compliant pitch" | **1484 mm** |
+| `wrought-iron-ornamental` | "90 mm sphere" | **1186 mm** |
+
+⛔ **`infillMaxGap` was a DEAD FIELD on every single one of them** — authored, documented in the
+type's own description, and never consulted. A **documented-but-untrue safety claim** is the worst
+class of defect, and on a **child-safety element** it is the worst instance of it: a guard shipping a
+1.5 m clear opening while its description asserts a 100 mm sphere cannot pass.
+
+**Fixed** by stating `balusterSpacing` explicitly on all seven as `infillMaxGap + balusterWidth` —
+the identity the rule defines. Re-measured: **0 of 7 breaching**, clear gaps now 89–99 mm exactly as
+described. ⚠ The builder's precedence is UNCHANGED (its file is another lane's), so no existing
+handrail record reshapes; only newly created and re-typed railings pick up the corrected pitch.
+
+### THE MATRIX — derived, not hand-written
+
+This week's recurring defect is an **enumerated list that must be REMEMBERED rather than DERIVED** —
+it caused the viewport freeze (hand-written shadow list, eleven families missing, L-1189) and the
+`bim-railing-*` dead key that made handrails unpickable (L-1190). A 24-row literal is that defect
+with a picker attached.
+
+So one row is a **(materialId, barMm, shape)** triple and everything else is derived: name (from the
+catalogue's own label), description, height, thickness, rail profile, rail diameter, post spacing,
+baluster pitch, and the legacy `materialName`. **Adding a material is one line, and it cannot arrive
+missing a field.**
+
+- **Bar sizes:** 50 mm ×6 · 60 mm ×6 · 70 mm ×4 · 80 mm ×5 · 90 mm ×2 · 100 mm ×1 — the full range,
+  each size an architectural judgement about the material (soft metals carry more section; stainless
+  reads slimmer; timber needs the most).
+- **⭐ The pitch is COMPUTED, never typed:** `clear gap = pitch − bar width`, so every one of the 24
+  ships a **90 mm clear opening** — under the 100 mm sphere rule with margin rather than on the 99 mm
+  line, because a preset should not be one rounding away from non-compliant.
+
+### ⛔ NOT ONE NEW MATERIAL WAS MINTED — and the catalogue was measured first
+
+Lane HR4 measured that ONE circular gesture minted **93 materials** and the device dies near 100. So
+the catalogue was enumerated **before** the matrix was designed: **24 Metal rows**, including
+**`copper-new` AND `copper-patinated`** — the founder named copper by name — plus `brass-polished`,
+`bronze-aged`, `cast-iron`, seven steels (structural, blackened, stainless brushed/polished,
+galvanised, corten, blue-tempered, red-oxide), two zincs and five aluminiums.
+
+⇒ **"All possible materials" was fully servable from what already exists. No master material needed
+minting** — that is the finding, not a shortcut. Every type REFERENCES a `materialId`; **none carries
+a hex**, because a hex resolves FIRST and would make every later material pick a silent no-op
+(C100 §2.1, L-1196).
+
+### ⚠ SAFETY IS **ADVISORY**, AND THE VERDICT IS MEASURED, NOT ASSUMED
+
+**No layer in this repository evaluates a guard or balustrade rule.** `packages/ordinance-extraction`
+is the **planning/zoning** layer (envelopes, setbacks, heights) and says nothing about guards;
+`StairValidationAuthority` **is** region-aware (`AS-1657` / `EUROPEAN` / `IBC-USA`,
+`StairValidationAuthority.ts:36-45`) but contains **zero** references to railing, guard, baluster or
+handrail. The 100 mm sphere rule therefore lives in this repo only as prose and as the arithmetic in
+the matrix.
+
+⇒ These presets are **code-PLAUSIBLE as shipped and tested to stay that way**; they are **NOT a
+compliance verdict**. The real verdict belongs to a jurisdiction authority that does not yet see this
+family — `StairValidationAuthority` is the precedent shape when one is built. An honest ADVISORY
+beats a fabricated ENFORCED.
+
+### Perf, measured rather than asserted
+
+`HandrailFragmentBuilder` allocates `new THREE.MeshStandardMaterial` **per mesh** at six sites
+(`:324, :332, :367, :374, :413, :477`). That is pre-existing and is not per-TYPE — so these 24 types
+add **zero** new material objects beyond what any handrail already costs, and crucially mint **zero**
+catalogue entries, which is the axis that killed the device at ~100. ⚠ Genuine GPU material sharing
+for handrails is not achieved by ANY type today; it belongs to the `ElementInstanceBridge` path
+(`§PERF-RAIL-INSTANCING`), not to the catalogue.
+
+### Persistence
+
+Built-ins are **code**, re-seeded on every `HandrailTypeStore` construction and preserved by
+`clearCustomTypes()`, so a preset cannot be lost to a save/load or a project switch; and `add()`
+throws on an id collision, so a founder's custom type can never silently shadow one of these (nor the
+reverse). Both are asserted.
+
+### 🔴 BLOCKER FOR THE DEPLOY — two one-line assertions in ANOTHER LANE'S package
+
+Two pre-existing tests pin the built-in count as an **exact literal** and now read 44 against 20:
+
+- `packages/command-registry/__tests__/handrailPersistenceRoundTrip.test.ts:357`
+  `expect(handrailTypeStore.getBuiltIn()).toHaveLength(20);`
+- `packages/command-registry/__tests__/handrailTypeMaterialisationAndRun.test.ts:96`
+  `expect(all).toHaveLength(20);`
+
+⚠ **`packages/command-registry` is lane NL1's fence, so this lane did not touch them.** Neither
+invariant is harmed: the first line's real assertion is the NEXT one (`serializeCatalogue()` →
+`toHaveLength(0)` — built-ins are never persisted), and the second's is the legacy-id list that
+follows it. **Both should become `toBeGreaterThanOrEqual(20)`** — they are themselves instances of
+the "remembered count" defect this row is about. Until NL1 lands that, those two suites are RED.
+
+### Evidence
+
+`packages/core-app-model/src/stores/HandrailTypeStore.ts` (the matrix + the seven fixes) ·
+`packages/core-app-model/src/stores/HandrailBarGuardTypes.test.ts` (19 cases — every preset resolves
+its `materialId` against the **live, un-stubbed** `MATERIAL_CATALOG`; every baluster preset passes the
+sphere rule; the builder's pitch precedence is **source-pinned** so the test's replica cannot drift
+into agreeing with a builder that no longer behaves that way). Root tsc RC=0.
+
+## L-1203 — ~145 HANDRAILS RENDER GREY: FOUR AUTO-GENERATORS HAND-LIST THEIR PAYLOAD AND BYPASS THE TYPE CATALOGUE ENTIRELY 🔴 OPEN — measured, not fixed (lane HR5, 2026-08-19)
+
+**Founder's console, right now:** roughly **145** lines of
+
+> `[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID handrail <id> has NO RESOLVABLE MATERIAL —
+> no materialId and no colour override — this element names no material. Falling back to #cccccc`
+
+⭐ **The diagnostic is working exactly as designed.** `resolveColour` refuses to fall back silently
+(C100 §5), so the grey is *named* rather than merely rendered — which is why this is measurable at
+all. The defect is upstream: ~145 `HandrailData` records exist carrying **neither** `materialId` nor
+`materialColor`.
+
+### THE ROUTE — measured across every creation path in the repo
+
+`CreateHandrailCommand` is a **faithful amplifier**: it accepts `materialId`
+(`CreateHandrailCommand.ts:50`), writes it unconditionally (`:168`) and **deliberately does not
+default it** — compare `:139` (`baseOffset ?? 0`) and `:140` (`fillType ?? 'baluster'`), which DO
+default. So every caller that omits it mints a record with no material.
+
+| route | sets `materialId`? | file:line |
+|---|---|---|
+| `CreateHandrailCommand` / `…RunCommand` / `…RunOnSlabCommand` | **yes**, pass-through, no default | `CreateHandrailCommand.ts:50,168` |
+| plan tool · 3-D tool · By Slab (`dispatchHandrailRun`, `executeHandrailBySlab`) | **yes**, when a catalogue type is armed | `handrailCommit.ts:80,202` · `handrailSpec.ts:123` |
+| `ProjectLoader` (both copies) | **yes** — faithful, carries absence forward | `handrailPersistence.ts:167,190` |
+| ⚠ **`resolveArmedHandrailSpec` untyped fallback** | **NO** | `handrailSpec.ts:68-76` |
+| 🔴 **`ResidentialBuildingExecutor` — balcony 3-edge guard** | **NO** | `ResidentialBuildingExecutor.ts:2347-2356` |
+| 🔴 **`ResidentialBuildingExecutor` — roof-garden perimeter guard** | **NO** | `…:1979-1988` |
+| 🔴 **`ResidentialBuildingExecutor` — stair-void fall rail** | **NO** | `…:2769-2778` |
+| 🔴 **`HouseLayoutExecutor` — stairwell-void guardrail** | **NO** | `HouseLayoutExecutor.ts:2877-2886` |
+| ⚠ **IFC importer** (`IfcRailingToNativeConverter`) | **NO** (`materialColor` only, from psets) | `IfcRailingToNativeConverter.ts:27-37` |
+| ⚠ **`ImportProjectCommand`** (legacy snapshot import) | **NO — and it DESTROYS an existing one** | `ImportProjectCommand.ts:971-981` |
+| ⚠ `initTools.ts` bus bridge | conditional; never writes `materialColor` | `initTools.ts:2107` |
+| copy/paste + duplicate-to-level | propagates the gap; drops `materialColor` by name | `copyPayloads.ts:1224`, `:1110-1113` |
+
+### ⭐ THE SHAPE — this is NOT "takes a typeId and drops materialId"
+
+**The four generators never consult the catalogue at all.** They hand-list 8–9 literal fields
+(`{id, start, end, height, thickness, levelId, baseOffset, fillType, railProfile}`) and reference
+neither `handrailTypeStore` nor `resolveArmedHandrailSpec`. That is why widening a projection would
+not help them — there is no type in their hands to project.
+
+All **44** built-in types carry a `materialId` (asserted by `HandrailBarGuardTypes.test.ts`), so any
+generator that named one would inherit a material for free.
+
+**The bulk source is `ResidentialBuildingExecutor._createBalconies`** — **3 guard edges per upper
+apartment** (`:2341-2343`), which is the only route in the repo that emits handrails at this order of
+magnitude in one gesture. 145 ≈ 3 × 48. ⚠ **The exact split is NOT MEASURED**: the count is
+data-driven from `balconyCandidates`, not hardcoded. **Diagnostic:** grep the same console session for
+`§RESI-BALCONY`, `§RESI-ROOF-GARDEN perimeter guard` and `§RESI-STAIR-GUARD-CONTAIN` — those three
+lines carry the counts and will sum to the 145.
+
+### ⚠ WHY THIS IS LOGGED AND NOT YET FIXED
+
+The +24 bar-guard types (L-1202) ship into a catalogue these routes do not read, so **they neither
+inherit nor worsen this hole** — but a founder placing a generated building still gets grey guards.
+
+**The fix is to make the generators name a TYPE** rather than hand-list fields, so they inherit
+`materialId` and the corrected baluster pitch together. `ResidentialBuildingExecutor` and
+`HouseLayoutExecutor` are in `apps/editor` and reachable; `ImportProjectCommand` is in
+**`packages/command-registry`, which is lane NL1's fence**, and `handrailSpec.ts`'s untyped fallback
+wants a decision about what "no armed type" should mean rather than a silent default.
+
+⛔ **Do not fix this by defaulting `materialId` inside `CreateHandrailCommand`.** That would paper
+over four distinct callers with one invented value and destroy the very diagnostic that made this
+measurable — the command's refusal to invent is correct.
