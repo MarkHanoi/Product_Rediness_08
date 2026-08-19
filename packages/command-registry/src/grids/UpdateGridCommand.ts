@@ -67,6 +67,44 @@ export class UpdateGridCommand implements Command {
             return { ok: false, reason: 'extentMin must be less than extentMax.' };
         }
 
+        // ── §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1110) ────────────
+        // This command reported `success: true, info: ['Grid "A" updated.']` for an
+        // edit the STORE had already refused.
+        //
+        // `GridStore.update()` carries the §40 §3 PIN guard: on a pinned grid it
+        // deletes every geometry key from the patch, `console.warn`s, and returns.
+        // `canExecute` never asked about `isPinned`, and `execute` does not compare
+        // before/after — so the whole refusal existed only in a console line the user
+        // never sees, while the toast said the grid had been updated. Dragging or
+        // retyping the position of a pinned grid moved nothing and said it worked.
+        //
+        // That is the same defect class as the L-1109 delete census: an operation that
+        // changes nothing while reporting that it did. It is reachable from FOUR live
+        // surfaces today — the Grid Properties position field, the Grid Manager row,
+        // the plan-canvas inline dimension editor, and the `grid.update` bus verb.
+        //
+        // The guard belongs HERE rather than in the store because the store's drop-and-
+        // continue behaviour is deliberate (a pinned grid may still be renamed,
+        // recoloured and hidden) and because `canExecute` is the seam whose refusal
+        // reaches a user (C16 CA-18). The store keeps its `_force` escape hatch, which
+        // is how TogglePinGridCommand and undo still write geometry.
+        const pinnedTarget = gridStore.get(this.payload.gridId);
+        if (pinnedTarget?.isPinned && (updates as { _force?: boolean })._force !== true) {
+            // The SAME key list the store enforces. Named here rather than imported
+            // because the store's copy is a private const; the two are pinned together
+            // by GridPinnedRefusal.test.ts, which drives this through the real store.
+            const GEOM_KEYS = ['axis', 'position', 'extentMin', 'extentMax',
+                               'mode', 'startX', 'startZ', 'endX', 'endZ'] as const;
+            const blocked = GEOM_KEYS.filter((k) => k in (updates as Record<string, unknown>));
+            if (blocked.length > 0) {
+                return {
+                    ok: false,
+                    reason: `Grid "${pinnedTarget.name}" is PINNED, so ${blocked.join(', ')} cannot be changed. ` +
+                            'Unpin the grid first — its name, colour and visibility can still be edited while pinned.',
+                };
+            }
+        }
+
         return { ok: true };
     }
 
@@ -105,7 +143,15 @@ export class UpdateGridCommand implements Command {
         const { gridStore } = context.stores;
 
         // §01 §2.3 + §2.7: Restore full snapshot through the store only.
-        gridStore.update(this.payload.gridId, this.prevSnapshot);
+        //
+        // §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1110) — `_force` because UNDO
+        // is not a user geometry edit, it is the restoration of a state this command
+        // already captured. Without it the store's pin guard silently drops every
+        // geometry key whenever the grid was pinned AFTER this command ran, and undo
+        // half-applies: `isPinned` comes back from the snapshot while the position it
+        // was meant to restore is dropped, reporting success either way. TogglePinGrid
+        // uses the same escape hatch for the same reason.
+        gridStore.update(this.payload.gridId, { ...this.prevSnapshot, _force: true });
 
         _bus.emit('grid-updated', { id: this.payload.gridId }); // F.events.17
 
