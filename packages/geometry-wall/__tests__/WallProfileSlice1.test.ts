@@ -429,9 +429,25 @@ describe('§WALL-PROFILE (8) — "Edit Profile" is offered only where it is impl
         expect(src()).toMatch(/typeof tool\.enterProfileEditMode === 'function' \? tool : null/);
     });
 
-    it('WALL is deliberately absent — Slice 1 ships no editor', () => {
+    // ⚠ REPLACED 2026-08-19 (§FEAT-WALL-PROFILE-EDIT). This test asserted *"WALL is
+    // deliberately absent — Slice 1 ships no editor"*. That was the RIGHT assertion while
+    // no editor existed, and it is the WRONG one now that `WallTool.enterProfileEditMode`
+    // does: kept as-is it would have forbidden the feature it was written to protect the
+    // user from the absence of. The INVARIANT it encoded is unchanged and is what is
+    // asserted below — *listed there IF AND ONLY IF implemented here* — so the two halves
+    // still cannot drift, and neither half can be satisfied alone.
+    it('WALL is listed — and only because WallTool implements the method (both halves)', () => {
         const s = src();
         const resolver = s.slice(s.indexOf('_profileEditToolFor('));
-        expect(resolver.slice(0, 1800)).not.toMatch(/^\s*wall:/m);
+        expect(resolver.slice(0, 1800)).toMatch(/^\s*wall:\s*w\.wallTool,/m);
+
+        const tool = fs.readFileSync(
+            path.join(REPO, 'packages/geometry-wall/src/WallTool.ts'),
+            'utf8',
+        );
+        expect(tool).toMatch(/public async enterProfileEditMode\(wallId: string\)/);
+        // …and the commit is a COMMAND, not a store write (P6).
+        expect(tool).toMatch(/element\.updateParameters|UpdateElementParameterCommand/);
+        expect(tool).not.toMatch(/wallStore\.update\(/);
     });
 });

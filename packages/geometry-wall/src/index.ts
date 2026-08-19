@@ -144,3 +144,5 @@ export { OpeningCleanupHandler }    from './OpeningCleanupHandler';
 // ── Room Bounding Lines (Sprint T-3) ──────────────────────────────────────────
 export { RoomBoundingLineBuilder }  from './RoomBoundingLineBuilder';
 export { RoomBoundingLineTool }     from './RoomBoundingLineTool';
+
+export * from './WallProfileEditor';

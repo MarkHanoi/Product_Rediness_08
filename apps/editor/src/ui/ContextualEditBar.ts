@@ -97,8 +97,11 @@ export class ContextualEditBar {
     /**
      * §EDIT-PROFILE (2026-05-22) — the "Edit Profile" button. Not an
      * ElementCapabilities operation (it launches a polygon editor, not a
-     * transform), so its visibility is gated manually by element type
-     * (slab / floor / ceiling) in _refreshButtonVisibility() rather than via canDo().
+     * transform), so its visibility is DERIVED from `_profileEditToolFor()` in
+     * _refreshButtonVisibility() rather than from canDo() — one resolver, so the
+     * offered affordance and the implemented action cannot drift. Wall joined
+     * slab there on 2026-08-19 (§FEAT-WALL-PROFILE-EDIT); floor and ceiling still
+     * have no editor and are therefore still not offered.
      */
     private _editProfileBtn: HTMLElement | null = null;
 
@@ -164,8 +167,9 @@ export class ContextualEditBar {
             inner.appendChild(this._buildBtn(action));
         }
 
-        // §EDIT-PROFILE — the "Edit Profile" button is built here, hidden by
-        // default, and shown only for slab/floor/ceiling in _refreshButtonVisibility().
+        // §EDIT-PROFILE — the "Edit Profile" button is built here, hidden by default, and
+        // shown by _refreshButtonVisibility() only for types whose tool actually implements
+        // `enterProfileEditMode` (slab and, since §FEAT-WALL-PROFILE-EDIT, wall).
         for (const action of this._getProfileActions()) {
             const btn = this._buildBtn(action);
             if (action.id === 'edit-profile') {
@@ -268,8 +272,9 @@ export class ContextualEditBar {
     }
 
     /**
-     * §EDIT-PROFILE (2026-05-22) — "Edit Profile" launches the polygon profile
-     * editor for the selected slab / floor / ceiling. The architect requested
+     * §EDIT-PROFILE (2026-05-22) — "Edit Profile" launches the profile editor for the
+     * selected element: the polygon editor for a slab, and (§FEAT-WALL-PROFILE-EDIT,
+     * 2026-08-19) the elevation editor for a wall. The architect requested
      * this as a toolbar action (previously only reachable by double-clicking a
      * slab). Visibility is gated by element type in _refreshButtonVisibility().
      */
@@ -966,7 +971,15 @@ export class ContextualEditBar {
      * existing double-click-on-slab path (SelectionManager) as a toolbar action.
      */
     private _activateProfileEditForContext(): void {
-        const id = this._selectedObj?.userData?.id as string | undefined;
+        // §FEAT-WALL-PROFILE-EDIT — prefer the RESOLVED element id, exactly as the
+        // selection handler does at `:450` (§FIX-SELECTION-PAYLOAD-INSTANCED-ID / L-813).
+        // `userData.id` alone was survivable while this button only ever served slabs, which
+        // are not instanced. A plain wall IS: its Object3D is the shared InstancedMesh whose
+        // `userData.id` is the synthetic `instanced-group-<key>` handle and NOT a store row,
+        // so reading it here would hand `WallTool.enterProfileEditMode` an id no store can
+        // resolve — a button that opens nothing in 3D while working in plan. That is the
+        // dead-button defect this whole section exists to prevent, wearing different clothes.
+        const id = (this._selectedElementId ?? this._selectedObj?.userData?.id) as string | undefined;
         if (!id) return;
         const type = this._elementType;
 
@@ -999,10 +1012,15 @@ export class ContextualEditBar {
      * affordance and the implemented action cannot drift apart — which is exactly how
      * floor and ceiling came to show a button that did nothing.
      *
-     * ⚠ WALL is deliberately ABSENT. §WALL-PROFILE Slice 1 adds the wall's `wallProfile`
-     * MODEL, its authorability gate and its persistence — but no editor. Listing `wall`
-     * here before `WallTool.enterProfileEditMode` exists would recreate, in the same
-     * commit, the exact defect the paragraph above is fixing.
+     * ⚠ WALL WAS deliberately ABSENT, and is now PRESENT — §FEAT-WALL-PROFILE-EDIT,
+     * 2026-08-19. The paragraph that stood here said wall must stay out *"before
+     * `WallTool.enterProfileEditMode` exists"*. It now exists
+     * (`packages/geometry-wall/src/WallTool.ts`, opening `WallProfileEditor` on the wall's
+     * own elevation and committing through `element.updateParameters`), so the condition
+     * that justified the absence no longer holds. The rule itself is unchanged and still
+     * binding: a type is listed here IF AND ONLY IF its tool implements the method — which
+     * the `typeof … === 'function'` guard below enforces at runtime regardless of this map,
+     * so a wrong entry disables the button rather than resurrecting a dead one.
      */
     private _profileEditToolFor(
         type: string | null | undefined,
@@ -1012,11 +1030,13 @@ export class ContextualEditBar {
             slabTool?:    { enterProfileEditMode?: (id: string) => unknown };
             floorTool?:   { enterProfileEditMode?: (id: string) => unknown };
             ceilingTool?: { enterProfileEditMode?: (id: string) => unknown };
+            wallTool?:    { enterProfileEditMode?: (id: string) => unknown };
         };
         const candidates: Record<string, { enterProfileEditMode?: (id: string) => unknown } | undefined> = {
             slab:    w.slabTool,
             floor:   w.floorTool,
             ceiling: w.ceilingTool,
+            wall:    w.wallTool,
         };
         const tool = candidates[type];
         return tool && typeof tool.enterProfileEditMode === 'function' ? tool : null;

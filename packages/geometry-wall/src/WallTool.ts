@@ -36,6 +36,18 @@ import { WallAlignmentGuide } from './WallAlignmentGuide';
 // hosted openings). Same package; the predicate is pure and takes the wall list
 // as a parameter, so this import couples nothing.
 import { evaluateWallPlacement, wallCrossesOpeningRefusalText } from './WallCrossesOpening';
+// §FEAT-WALL-PROFILE-EDIT — the authoring surface for `wallProfile`. The gate is imported
+// rather than re-stated: `profileAuthorability` is the SAME function `WallStore.update` and
+// `UpdateElementParameterCommand.canExecute` consult, so the refusal the user reads here and
+// the refusal the command would produce cannot drift (C84 EI-9, one answer per question).
+import { WallProfileEditor } from './WallProfileEditor';
+import {
+    profileAuthorability,
+    resolveWallProfile,
+    wallProfilePlanarLength,
+    type WallProfileVertex,
+} from './WallProfile';
+import { UpdateElementParameterCommand } from '@pryzm/command-registry';
 
 /**
  * §C83-S1 / C83 §3.1 — the two suppression flags, honoured because C83 makes it
@@ -2016,6 +2028,191 @@ export class WallTool {
     updateVisualStyle(style: VisualStyle): void {
         this.fragmentBuilder.setVisualStyle(style);
         this.fragmentBuilder.updateAllMaterials();
+    }
+
+    // ────────────────────────────────────────────────
+    // §FEAT-WALL-PROFILE-EDIT — WALL PROFILE EDIT MODE
+    //
+    // The founder's ask, unmet for two days: "I REQUIRED A PROFILE EDIT FEATURE (MODE)".
+    // Modelled on `SlabTool.enterProfileEditMode` (`SlabTool.ts:1591`) and deliberately
+    // keeping its four moving parts in the same order: resolve the element FROM THE STORE
+    // (never from scene userData), refuse early if the edit cannot be committed, lazily
+    // create ONE reusable editor, and commit through a COMMAND so undo is free.
+    //
+    // ⚠ WHERE IT DIVERGES, and why. SlabTool degrades a Pick-Walls sketch before editing
+    // (`SlabTool.ts:1621`) so that undo restores the wall constraints. A wall profile has no
+    // such upstream constraint object — `wallProfile` is ONE optional field on the wall
+    // record — so there is nothing to degrade and no second store to restore. Undo therefore
+    // needs exactly what `UpdateElementParameterCommand` already gives: the previous value of
+    // the one field written, replayed as a forward write
+    // (`UpdateElementParameterCommand.ts:497`). That is the whole of C84 EI-7 for this edit,
+    // because it is the whole of the write.
+    // ────────────────────────────────────────────────
+
+    /** TRUE while the wall profile editor overlay is open. */
+    public isInProfileEditMode = false;
+    /** The wall currently being profile-edited, or null. */
+    public profileEditWallId: string | null = null;
+    /** Lazily created on first `enterProfileEditMode()` and reused thereafter. */
+    private profileEditor: WallProfileEditor | null = null;
+
+    /**
+     * Enter profile edit mode for the given wall.
+     *
+     * This is the method whose ABSENCE `ContextualEditBar._profileEditToolFor` documented,
+     * and whose absence kept `wall` out of that map. Registering `wall` there without this
+     * would have recreated the dead floor/ceiling button; shipping this without registering
+     * `wall` there would leave it unreachable. They land together, by design.
+     */
+    public async enterProfileEditMode(wallId: string): Promise<void> {
+        if (this.isInProfileEditMode && this.profileEditWallId === wallId) return;
+        if (this.isInProfileEditMode) this.exitProfileEditMode();
+
+        // From the STORE, never from scene userData.
+        const wall = this.wallStore.getById(wallId) as unknown as {
+            baseLine?: readonly [{ x: number; z: number }, { x: number; z: number }];
+            height?: number;
+            curve?: unknown;
+            layers?: ReadonlyArray<unknown>;
+            openings?: ReadonlyArray<unknown>;
+            wallProfile?: unknown;
+        } | null | undefined;
+        if (!wall) {
+            console.warn('[WallTool] enterProfileEditMode: wall not found in store:', wallId);
+            return;
+        }
+
+        const length = wallProfilePlanarLength(wall.baseLine);
+        const height = wall.height;
+        if (!Number.isFinite(length) || length <= 0 || typeof height !== 'number' || !(height > 0)) {
+            this.showStatus(
+                'This wall has no usable length or height, so there is no elevation to draw a profile on.',
+            );
+            return;
+        }
+
+        // ── REFUSE BEFORE OPENING, with the gate's OWN sentence ──────────────
+        // A curved / layered / opening-hosting wall cannot hold a profile. Opening an editor
+        // whose Apply can only ever fail is an affordance without an implementation — the
+        // exact defect the withheld button existed to avoid. So the refusal happens HERE,
+        // before any overlay, and it is `profileAuthorability`'s wording verbatim.
+        //
+        // The probe profile is a real, well-formed, in-bounds triangle inside the wall's own
+        // extent, so the only arms that can fire are the WALL-SHAPE arms — precisely the ones
+        // that make the whole feature unavailable for this wall.
+        const probe = profileAuthorability({
+            wallProfile: { ring: [{ u: 0, v: 0 }, { u: length, v: 0 }, { u: length, v: height }] },
+            baseLine:    wall.baseLine,
+            height,
+            curve:       wall.curve,
+            layers:      wall.layers,
+            openings:    wall.openings,
+        } as Parameters<typeof profileAuthorability>[0]);
+        if (!probe.ok) {
+            this.showStatus(probe.reason ?? 'This wall cannot hold an edited profile.');
+            console.warn('[WallTool] §FEAT-WALL-PROFILE-EDIT refused —', probe.code, probe.reason);
+            return;
+        }
+
+        this.profileEditor ??= new WallProfileEditor();
+        this.isInProfileEditMode = true;
+        this.profileEditWallId = wallId;
+        this.profileEditor.activate(
+            {
+                wallId,
+                length,
+                height,
+                ring: resolveWallProfile(wall.wallProfile)?.ring ?? null,
+            },
+            {
+                onCommit: (ring) => { void this._commitWallProfile(ring); },
+                onCancel: () => this.exitProfileEditMode(),
+            },
+        );
+        console.log(`[WallTool] §FEAT-WALL-PROFILE-EDIT entered — wall: ${wallId}`);
+    }
+
+    /** Close the profile editor. Idempotent. */
+    public exitProfileEditMode(): void {
+        this.profileEditor?.deactivate();
+        this.isInProfileEditMode = false;
+        this.profileEditWallId = null;
+    }
+
+    /** Alias for symmetry with `SlabTool.finishProfileEditMode`. */
+    public finishProfileEditMode(): void {
+        this.exitProfileEditMode();
+    }
+
+    /**
+     * Commit the authored ring THROUGH A COMMAND (P6 — commands are the only mutation path).
+     * `null` clears the field, restoring the implicit rectangle every wall already is.
+     *
+     * Preferred route is `runtime.bus.executeCommand('element.updateParameters', ...)`, the
+     * same seam the property panel uses; the legacy `commandManager.execute` path is the
+     * fallback, for the same reason `createWall` keeps one — the bus handler may not be
+     * registered in every host. BOTH routes end in `UpdateElementParameterCommand`, so undo
+     * behaviour is identical whichever one runs.
+     */
+    private async _commitWallProfile(ring: WallProfileVertex[] | null): Promise<void> {
+        const wallId = this.profileEditWallId;
+        if (!wallId) return;
+
+        const parameters = {
+            wallProfile: ring ? { ring: ring.map((p) => ({ u: p.u, v: p.v })) } : null,
+        };
+
+        // Last gate call before the write, against the wall's REAL current state — the editor
+        // only checked what it could answer locally (vertex count, enclosed area). Same
+        // function, not a rival predicate.
+        const wall = this.wallStore.getById(wallId) as unknown as {
+            baseLine?: readonly [{ x: number; z: number }, { x: number; z: number }];
+            height?: number;
+            curve?: unknown;
+            layers?: ReadonlyArray<unknown>;
+            openings?: ReadonlyArray<unknown>;
+        } | null | undefined;
+        if (wall && ring) {
+            const auth = profileAuthorability({
+                wallProfile: parameters.wallProfile,
+                baseLine:    wall.baseLine,
+                height:      wall.height,
+                curve:       wall.curve,
+                layers:      wall.layers,
+                openings:    wall.openings,
+            } as Parameters<typeof profileAuthorability>[0]);
+            if (!auth.ok) {
+                this.profileEditor?.showRefusal(auth.reason ?? 'This outline cannot be applied.');
+                return;
+            }
+        }
+
+        const runtime = this.callbacks.runtime;
+        try {
+            if (runtime && runtime.bus.registry.has('element.updateParameters')) {
+                await runtime.bus.executeCommand('element.updateParameters', {
+                    elementId:   wallId,
+                    elementType: 'wall',
+                    parameters,
+                } as never);
+            } else {
+                this.commandManager.execute(
+                    new UpdateElementParameterCommand({
+                        elementId:   wallId,
+                        elementType: 'wall',
+                        parameters:  parameters as Record<string, unknown>,
+                    } as never),
+                );
+            }
+        } catch (err) {
+            console.error('[WallTool] §FEAT-WALL-PROFILE-EDIT commit failed:', err);
+            this.profileEditor?.showRefusal(
+                'The profile could not be applied: ' + ((err as Error)?.message ?? String(err)),
+            );
+            return;
+        }
+
+        this.exitProfileEditMode();
     }
 
     async updateHdriTexture(): Promise<void> {
