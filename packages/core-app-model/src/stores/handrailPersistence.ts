@@ -146,6 +146,7 @@ export interface HandrailCreatePayload {
     hostId?: string;
     hostKind?: 'stair' | 'slab';
     suppressStartPost?: boolean;
+    postEndCondition?: 'redistribute' | 'fixed' | 'centred';
     ifcGuid?: string;
     parentId?: string;
     properties?: Record<string, unknown>;
@@ -165,7 +166,7 @@ const CARRIED_FIELDS = [
     'fillType', 'railProfile', 'railDiameter', 'postSpacing',
     'materialColor', 'materialId',
     'balusterShape', 'balusterWidth', 'balusterSpacing', 'infillMaxGap',
-    'hostId', 'hostKind', 'suppressStartPost',
+    'hostId', 'hostKind', 'suppressStartPost', 'postEndCondition',
     'parentId', 'properties', 'railStructure', 'parameters', 'metadata',
     'spatialRelationship', 'childrenIds',
 ] as const;

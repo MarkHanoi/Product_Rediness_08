@@ -51,6 +51,12 @@ export { HandrailTool } from './HandrailTool';
 // No store, no THREE, no DOM, so every mode is provable by a unit test that runs
 // the same function the plan tool runs.
 export * from './handrailRunGenerators';
+// §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — the ONE pure station
+// function, its three end conditions, and the DERIVED post id. Named exports,
+// not a wildcard: a `export *` cannot be audited by grepping for the names you
+// know, which cost this lane a red tree once already.
+export { postStations, derivedPostId, DEFAULT_HANDRAIL_END_CONDITION } from './postStations';
+export type { HandrailEndCondition } from './postStations';
 
 // ⚠ `HandrailRunGeometry.ts` is NOT exported. It is C95 §11 row 25's open item:
 // 338 lines, 282 of them specification, with exactly ONE importer — its own test —

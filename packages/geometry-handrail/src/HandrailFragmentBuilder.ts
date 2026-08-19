@@ -1,4 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
+import { postStations, DEFAULT_HANDRAIL_END_CONDITION } from './postStations';
 // §FIX-BUILDER-ISOLATION-LEAK (L-320) / §I2 — WebGPU-safe deep-dispose so the
 // `usedTimes` device-loss throw (L-303 family) can never abort a handrail
 // teardown mid-traverse and leak the root into the next project.
@@ -414,7 +415,16 @@ export class HandrailFragmentBuilder {
                 // Local extents → bridge size. Round baluster: X/Z = diameter (= bWidth),
                 // matching CylinderGeometry(bWidth/2, bWidth/2, bHeight). Box baluster:
                 // X = Z = bWidth, Y = bHeight, matching BoxGeometry(bWidth, bHeight, bWidth).
-                const count = Math.floor(length / balusterSpacing) - 1;
+                // §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — the stations
+                // come from the ONE pure function. The `Math.floor(...) - 1` that
+                // stood here left a final bay of up to TWICE the authored pitch
+                // (a 4.001 m run at 1.0 m got the same three balusters a 4.000 m
+                // run got), which for a guard is the one gap a 100 mm sphere
+                // passes through. See `postStations.ts` for the decision.
+                const _endCondition = (handrail as { postEndCondition?: typeof DEFAULT_HANDRAIL_END_CONDITION }).postEndCondition
+                    ?? DEFAULT_HANDRAIL_END_CONDITION;
+                const _balStations = postStations(length, balusterSpacing, _endCondition);
+                const count = _balStations.length;
                 // Fragment-path geometry shared across this handrail's balusters.
                 const bGeo = !instancingActive
                     ? (isRound
@@ -422,7 +432,7 @@ export class HandrailFragmentBuilder {
                         : new THREE.BoxGeometry(bWidth, bHeight, bWidth))
                     : null;
                 for (let i = 1; i <= count; i++) {
-                    const lx = i * balusterSpacing;     // along the rail (PLAN distance)
+                    const lx = _balStations[i - 1];     // along the rail (PLAN distance)
                     // §FEAT-HANDRAIL-SLOPE — the baluster stays PLUMB and keeps its
                     // full length; only its BASE rides the incline, so its top meets
                     // the pitched rail. `riseAt` is 0 on a flat run, which restores
@@ -514,13 +524,14 @@ export class HandrailFragmentBuilder {
         emitPost(length, 'end');
 
         // Intermediate posts.
+        // §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — same pure function,
+        // same end condition, so posts and balusters can never disagree about
+        // where the run divides.
         const spacing = handrail.postSpacing ?? 0;
-        if (spacing > 0 && length > spacing) {
-            const count = Math.floor(length / spacing) - 1;
-            for (let i = 1; i <= count; i++) {
-                emitPost(i * spacing, `mid-${i}`);
-            }
-        }
+        const postEndCondition = (handrail as { postEndCondition?: typeof DEFAULT_HANDRAIL_END_CONDITION }).postEndCondition
+            ?? DEFAULT_HANDRAIL_END_CONDITION;
+        const stations = postStations(length, spacing, postEndCondition);
+        stations.forEach((x, i) => emitPost(x, `mid-${i + 1}`));
 
         if (registeredIds.length > 0) {
             this._instanceIds.set(handrail.id, registeredIds);

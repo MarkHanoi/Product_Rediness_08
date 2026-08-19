@@ -91,6 +91,26 @@ export interface HandrailData extends CoreElement {
      * bit-identical, so every existing handrail is unaffected.
      */
     suppressStartPost?: boolean;
+    /**
+     * §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — HOW the run divides.
+     *
+     * `'redistribute'` (the DEFAULT, and what absent means) treats `postSpacing`
+     * / `balusterSpacing` as a MAXIMUM: `n = ceil(L/s)` equal bays of `L/n`, so
+     * the authored value is an upper bound that is never exceeded. That is what
+     * the founder's *"every 10 cm, every 20 cm"* asks for and what
+     * `infillMaxGap` already means (§9.3).
+     *
+     * `'fixed'` keeps the exact authored pitch and accepts one short end bay;
+     * `'centred'` keeps the pitch and splits the remainder into two equal short
+     * end bays. Both are real conventions and both must be ASKED FOR BY NAME —
+     * the convention is never an accident.
+     *
+     * ⚠ Absent no longer means the historical `Math.floor(L/s) - 1`, which was an
+     * off-by-one that left a final bay of up to TWICE the authored spacing. That
+     * is a defect, not an authored intent, so it is not preserved. See
+     * `packages/geometry-handrail/src/postStations.ts`.
+     */
+    postEndCondition?: 'redistribute' | 'fixed' | 'centred';
     railStructure?: HandrailRailLayer[];
     parameters?: Record<string, unknown>;
     metadata?: Record<string, unknown>;

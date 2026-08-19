@@ -64,6 +64,12 @@ export class CreateHandrailCommand implements Command {
              */
             suppressStartPost?: boolean,
             /**
+             * §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — how the run
+             * divides. Absent → 'redistribute', which treats the authored spacing
+             * as a MAXIMUM never exceeded.
+             */
+            postEndCondition?: 'redistribute' | 'fixed' | 'centred',
+            /**
              * §PERSIST-L1 (W1-2) — the handrail's ORIGINAL IFC GUID. `ifcData.guid`
              * is the IFC round-trip join key: it is what an exported IFC file, a
              * BCF issue or a Revit round-trip uses to find this railing again. It
@@ -161,6 +167,7 @@ export class CreateHandrailCommand implements Command {
             infillMaxGap:      this.data.infillMaxGap,
             materialId:        this.data.materialId,
             suppressStartPost: this.data.suppressStartPost,
+            postEndCondition:  this.data.postEndCondition,
             hostId:            this.data.hostId,
             hostKind:          this.data.hostKind,
             // §L-1102 — the saved `properties` (mark, phase, user parameters) when
