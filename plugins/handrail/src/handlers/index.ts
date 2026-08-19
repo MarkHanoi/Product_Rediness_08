@@ -8,6 +8,10 @@ import { SetHandrailShapeHandler } from './SetHandrailShape.js';
 import { SetHandrailHostHandler } from './SetHandrailHost.js';
 import { RecomputeHandrailHandler } from './RecomputeHandrail.js';
 import { SetHandrailMaterialHandler } from './SetHandrailMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
+// §L-1032 — the storey move. Registered in the ONE register at
+// `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
+// level change must complete before this row may exist.
+import { ChangeHandrailLevelHandler } from './ChangeHandrailLevel.js';
 
 export const HANDRAIL_HANDLER_TYPES = [
   'handrail.create',
@@ -17,6 +21,12 @@ export const HANDRAIL_HANDLER_TYPES = [
   'handrail.setHost',
   'handrail.recompute',
   'handrail.setMaterial',
+  // §L-1032 — move a handrail between storeys (founder-requested). The legacy
+  // `HandrailStore.changeLevel` MUST exist before this verb does: without it the
+  // §L-946 arm in `elementUndoStoreAdapter` cannot route the inverse patch, and
+  // Ctrl+Z reverts `levelId` while leaving `parentId` and `spatialRelationship`
+  // on the storey the handrail left.
+  'handrail.changeLevel',
 ] as const;
 
 export type HandrailHandlerType = (typeof HANDRAIL_HANDLER_TYPES)[number];
@@ -30,6 +40,7 @@ export function buildHandrailHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetHandrailHostHandler() as unknown as CommandHandler<unknown>,
     new RecomputeHandrailHandler() as unknown as CommandHandler<unknown>,
     new SetHandrailMaterialHandler() as unknown as CommandHandler<unknown>,
+    new ChangeHandrailLevelHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -45,3 +56,4 @@ export { SetHandrailShapeHandler, type SetHandrailShapePayload } from './SetHand
 export { SetHandrailHostHandler, type SetHandrailHostPayload } from './SetHandrailHost.js';
 export { RecomputeHandrailHandler, type RecomputeHandrailPayload } from './RecomputeHandrail.js';
 export { SetHandrailMaterialHandler, type SetHandrailMaterialPayload } from './SetHandrailMaterial.js';
+export { ChangeHandrailLevelHandler, type ChangeHandrailLevelPayload } from './ChangeHandrailLevel.js';

@@ -65,6 +65,89 @@ export class HandrailStore {
         return updated;
     }
 
+    /**
+     * §L-1032 — MOVE a handrail to a different storey.
+     *
+     * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ───────
+     * `update()` above is a MERGE — `structuredClone` + `Object.assign`
+     * (`HandrailStore.ts:56-66`), the semantics
+     * `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts` declares for
+     * this store (`handrail: { semantics: 'merge', evidence:
+     * 'HandrailStore.ts:56-66 (structuredClone + Object.assign)' }`, re-derived
+     * from the real class by `LegacyStoreUpdateSemantics.measured.test.ts`). So,
+     * unlike the REPLACE stores, a one-key `{levelId}` partial would not
+     * annihilate the record — and it is still the wrong write, for three reasons
+     * a caller cannot see:
+     *
+     *   • `add()` parents every handrail to its storey (`handrail.parentId =
+     *     levelId`, `:42`). A `{levelId}` merge leaves `parentId` on the storey
+     *     the handrail just left, so the record disagrees with itself.
+     *   • `HandrailData extends CoreElement`, whose `spatialRelationship` MIRRORS
+     *     BimManager's `Level.childrenIds` contract (`CoreElement.ts:46-52`) and
+     *     is what IFC export reads for storey containment. A merge leaves it on
+     *     the old storey — a second copy of the same fact, disagreeing.
+     *   • `elementUndoStoreAdapter`'s §L-946 arm tests
+     *     `typeof store.changeLevel === 'function'` BEFORE routing a `levelId`
+     *     inverse patch. Without this method Ctrl+Z after a storey move falls
+     *     through to the generic `update()` write and reproduces both defects
+     *     above on the undo leg only, where nobody is looking.
+     *
+     * So the operation gets its own name, symmetric with `SlabStore.changeLevel`
+     * (`packages/geometry-slab/src/SlabStore.ts:314`) and `RoofStore.changeLevel`
+     * (`packages/geometry-roof/src/RoofStore.ts:153`).
+     *
+     * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ──────────────────────────
+     * `add()` mints `properties.mark` from `this.handrails.size` (`:46-48`), so a
+     * remove+add round trip would RENUMBER the handrail; and 'remove' would tear
+     * the fragment down along with any run-join state the neighbouring segments
+     * depend on (`suppressStartPost`, C95 §D4). A move is not a delete. One
+     * 'update' is everything the renderer needs: the fragment builder re-derives
+     * world Y from `level.elevation` on every update.
+     *
+     * ─── WHAT THIS DOES NOT DO ──────────────────────────────────────────────
+     * Spatial-authority registration (bimManager `level.childrenIds`, the
+     * view-dependency element→level map) is NOT updated here — identical to the
+     * contract `SlabStore.changeLevel` and `RoofStore.changeLevel` both state.
+     * `apps/editor/src/engine/elementLevelChangedMirror.ts` owns that half for
+     * every family, so the ordering rule lives in one place rather than in
+     * thirteen stores.
+     *
+     * `metadata` is deliberately NOT stamped: no method in this store has ever
+     * written it, so bumping a version counter here would mint a field this
+     * family does not carry.
+     *
+     * Returns the moved record, or `undefined` when there is nothing to move —
+     * failure and emptiness must not be the same value (§context-data-honesty).
+     */
+    changeLevel(id: string, newLevelId: string): HandrailData | undefined {
+        const existing = this.handrails.get(id);
+        if (!existing) return undefined;
+        // An empty destination is REFUSED, never defaulted to the active level.
+        // `add()` may do `handrail.levelId || activeLevelId` (`:38`) because a NEW
+        // handrail has no storey yet; the same fallback on a MOVE is the
+        // §DIAG-WALL-LEVEL trap that files the element on the ground floor.
+        if (!newLevelId) return undefined;
+        if (existing.levelId === newLevelId) return existing;
+
+        // §3.4: same structuredClone shape `update()` uses, so a move and a field
+        // edit leave the map holding structurally identical objects.
+        const moved: HandrailData = structuredClone(existing);
+        moved.levelId = newLevelId;
+        // A handrail parented to something ELSE than its storey keeps that parent.
+        if (existing.parentId === existing.levelId) moved.parentId = newLevelId;
+        // Only rewritten when already PRESENT: minting one here would invent a
+        // containment the record never asserted.
+        if (moved.spatialRelationship) {
+            moved.spatialRelationship = { ...moved.spatialRelationship, levelId: newLevelId };
+        }
+
+        this.handrails.set(id, moved);
+        // §STEP7: `existing` is the pre-mutation record, captured before the clone,
+        // so diff-based subscribers can dirty the storey being VACATED (C72 §3.5).
+        this.emit('update', moved, existing);
+        return moved;
+    }
+
     restoreSnapshot(id: string, snapshot: HandrailData): void {
         // §STEP7: capture the stored prior BEFORE the write — a post-write read
         // would diff the snapshot against itself (C72 §3.5). Undefined when no
