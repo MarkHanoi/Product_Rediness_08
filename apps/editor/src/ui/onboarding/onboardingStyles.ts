@@ -492,6 +492,10 @@ export const ONBOARDING_STYLES = `
       the values below are AUTHORED sizes and the effective size is value × 0.85.
       The 'vh'/'vw' clamps are deliberately left alone — they measure the real
       viewport and must not drift. */
+/* §UX1-DRAW-PHASE-GATE — the UA stylesheet's [hidden] display:none is LOWER precedence
+   than this block's own display:flex, so setting the hidden ATTRIBUTE would change
+   nothing on screen. Author it here, or the gate is decorative. */
+.os-onboarding-overlay[hidden] { display: none !important; }
 .os-onboarding-overlay {
   position: fixed;
   /* §PANEL-SIZE-FIX (2026-06-03): transform-centre, not inset:0 + margin:auto —

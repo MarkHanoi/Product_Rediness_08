@@ -177,7 +177,26 @@ export interface OnboardingStepControllerOptions {
     readonly briefMetadata?: Record<string, unknown>;
 }
 
-type StepId = 'location' | 'site' | 'confirm' | 'generating';
+/**
+ * §UX1-DRAW-PHASE-GATE — how long to wait for a drawable surface before showing the
+ * draw banner regardless. This is a SAFETY CEILING, not a budget: its only job is to
+ * guarantee the banner's "← Back" / "Skip drawing" exits can always be reached, even
+ * if the map never loads. 45 s is deliberately longer than the slowest observed tile
+ * stream (§CTX-RANGE-COALESCE / L-716 logged 27 s "taking too long" cases) so a slow
+ * network shows the RIGHT screen rather than an instruction it cannot honour.
+ */
+const DRAW_SURFACE_READY_TIMEOUT_MS = 45_000;
+
+/** §UX1-DRAW-PHASE-GATE — poll interval for the readiness stamp. */
+const DRAW_SURFACE_POLL_MS = 200;
+
+/* §UX1-DRAW-PHASE-GATE — 'awaiting-draw-surface' and 'draw' are NEW, and their
+   absence was the defect. The draw step never set `step` at all, so the flow's
+   own state said "site" while the drawing INSTRUCTIONS were on screen; there was
+   no value the code could test to answer "are we drawing yet?", which is why the
+   banner was mounted at dispatch time rather than at readiness. Naming the two
+   phases separately is the fix — the CSS change would only have hidden it. */
+type StepId = 'location' | 'site' | 'awaiting-draw-surface' | 'draw' | 'confirm' | 'generating';
 
 /**
  * Launch the guided onboarding step flow. Mounts a small overlay, drives
@@ -1229,7 +1248,17 @@ export class OnboardingStepController {
 
         // 2) Arm the boundary-set listener + idle offer BEFORE starting the draw so
         //    we never miss the commit event.
-        this.renderDrawingStep();
+        //
+        // §UX1-DRAW-PHASE-GATE (founder 2026-08-19: "exclude the bottom panel from the
+        // loading screen") — this line used to be `this.renderDrawingStep()`, i.e. the
+        // banner reading "Click each corner · Ctrl+Z undo · double-click or Enter to
+        // close" was mounted HERE, several seconds before `pryzmMountSiteAuthoringPanes()`
+        // below has even started the map, and stayed up over "Opening the 3D Site —
+        // streaming terrain & 3D tiles… 49%". The user was being instructed to perform an
+        // action the app could not yet accept. That is a phase leak, not a styling slip:
+        // the drawing phase's UI was mounted at DISPATCH time instead of at READINESS.
+        // See `enterDrawPhaseWhenSurfaceReady` for the signal it now waits on.
+        this.enterDrawPhaseWhenSurfaceReady();
         this.armBoundaryCommitWait();
 
         // 3) Activate GIS + start the draw tool via the window-hook handoff.
@@ -1651,7 +1680,82 @@ export class OnboardingStepController {
      * the one-line instruction + the "Skip drawing" escape hatch, inline in the
      * banner. The step chip ("Step 2 of 4 · Draw your plot") stays in the header.
      */
+    /**
+     * §UX1-DRAW-PHASE-GATE — hold the onboarding overlay OUT of the drawing phase
+     * until there is genuinely something to draw on.
+     *
+     * THE SIGNAL ALREADY EXISTED and was already trusted for exactly this question.
+     * `window.pryzmBoundaryDrawSurfaceReadyAt` is stamped by SiteBoundaryMap2D at
+     * MapLibre `load` — "the 2D boundary-draw surface finished loading and became
+     * genuinely drawable" — and cleared when there is nothing to draw on. The idle
+     * watchdog (§FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR, ADR-0299) already starts its clock
+     * from it precisely so a slow tile load is not charged to the user's patience. So
+     * the repo had already decided where the drawing phase BEGINS; the banner was the
+     * one consumer that ignored it.
+     *
+     * While waiting, the overlay is `hidden` — the attribute, not a CSS class, so it
+     * leaves the accessibility tree too and a screen reader is not read an instruction
+     * the sighted user cannot act on either. Nothing of the drawing step is rendered:
+     * the phase is 'awaiting-draw-surface' and the body stays empty, so the state and
+     * the pixels agree. The loading overlay ("Opening the 3D Site") is already telling
+     * the user what is happening; a second panel saying something different is the bug.
+     *
+     * THE ESCAPE HATCH IS THE PART THAT MUST NOT BE LOST. A gate whose "yes" branch can
+     * never fire is a strictly worse bug than the one it fixes, so:
+     *   · the poll gives up after {@link DRAW_SURFACE_READY_TIMEOUT_MS} and shows the
+     *     banner anyway — with "← Back" and "Skip drawing — use a default plot" intact,
+     *     which are the same two exits the user has always had;
+     *   · a surface that is ALREADY ready (re-draw after "← Back to drawing", where the
+     *     map is still mounted) shows the banner on the first tick, not after a delay.
+     */
+    private enterDrawPhaseWhenSurfaceReady(): void {
+        this.step = 'awaiting-draw-surface';
+        // Take the drawing PRESENTATION now (it clears any dragged inline geometry), but
+        // render none of its content and keep the overlay out of the tree until the phase
+        // is real.
+        this.setDrawingPresentation(true);
+        this.clearBody();
+        if (this.overlay) this.overlay.hidden = true;
+
+        const startedAt = Date.now();
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const stop = (): void => { if (timer) { clearTimeout(timer); timer = null; } };
+        this.addCleanup(stop);
+
+        const reveal = (why: 'surface-ready' | 'timeout'): void => {
+            stop();
+            if (this.disposed) return;
+            // A later step may have taken over while we waited (BACK, Skip, a commit).
+            if (this.step !== 'awaiting-draw-surface') return;
+            const waited = Date.now() - startedAt;
+            console.log(`[onboarding-step] §UX1-DRAW-PHASE-GATE: entering the draw phase (${why}, waited ${waited} ms).`);
+            if (this.overlay) this.overlay.hidden = false;
+            this.renderDrawingStep();
+        };
+
+        const tick = (): void => {
+            if (this.disposed) return;
+            if (this.step !== 'awaiting-draw-surface') { stop(); return; }
+            const w = window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number };
+            if (typeof w.pryzmBoundaryDrawSurfaceReadyAt === 'number') { reveal('surface-ready'); return; }
+            if (Date.now() - startedAt >= DRAW_SURFACE_READY_TIMEOUT_MS) {
+                console.warn('[onboarding-step] §UX1-DRAW-PHASE-GATE: no drawable surface after '
+                    + `${DRAW_SURFACE_READY_TIMEOUT_MS} ms — showing the draw banner anyway so its `
+                    + 'Back / Skip exits stay reachable. Nothing auto-commits.');
+                reveal('timeout');
+                return;
+            }
+            timer = setTimeout(tick, DRAW_SURFACE_POLL_MS);
+        };
+        tick();
+    }
+
     private renderDrawingStep(): void {
+        this.step = 'draw';
+        // Re-entry from "← Back to drawing" arrives here directly (the map is already
+        // mounted, so there is nothing to wait for) — make sure the gate's `hidden` is
+        // released on every path into the phase, not only the gate's own.
+        if (this.overlay) this.overlay.hidden = false;
         this.setDrawingPresentation(true);
         this.setStepIndicator(2, 'Draw your plot');
         const body = this.clearBody();
