@@ -30,13 +30,10 @@ import type { ToolsPanelProps, CreateLayer } from '../ToolsPanelTypes';
 // DrawingModeBar, from which every mode is reachable MID-DRAW.
 // §FEAT-PERSISTENT-MODE-BAR — the slab's shared, surface-independent mode store.
 import { resolveActiveSlabDrawMode } from '@app/engine/views/plantools/activeSlabDrawMode';
-import { HandrailModePicker } from '../../HandrailModePicker';
 import { ColumnModePicker } from '../../ColumnModePicker';
 import { BeamModePicker } from '../../BeamModePicker';
 import { OpeningModePicker } from '../../OpeningModePicker';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
-import { handrailTypeStore } from '@pryzm/core-app-model/stores';
-import { resolveMaterialColour } from '@pryzm/core-app-model';
 import * as PryzmIcons from '../../icons/PryzmIcons';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
@@ -78,7 +75,6 @@ const MAX_OPEN_SECTIONS = 2;
 export class CreateRailPanel {
     private _navStack: CreateLayer[] = [];
 
-    private readonly _handrailModePicker = new HandrailModePicker();
     private readonly _columnModePicker   = new ColumnModePicker();
     private readonly _beamModePicker     = new BeamModePicker();
     private readonly _openingModePicker  = new OpeningModePicker();
@@ -661,34 +657,31 @@ export class CreateRailPanel {
                         label:    'Handrail',
                         shortcut: 'Alt+H',
                         icon:     PryzmIcons.pryzmHandrail,
+                        // §FIX-HANDRAIL-PANEL-ORDER (L-1104, C95 §15.5) — ACTIVATE ON THE
+                        // FIRST CLICK, exactly as the Wall tile above does.
+                        //
+                        // FOUNDER: *"The handrail today puts TYPE FIRST and MODE SECOND.
+                        // That is wrong. Make the handrail match the wall exactly."*
+                        //
+                        // ⛔ THIS TILE USED TO OPEN A BLOCKING PRE-FLIGHT `HandrailModePicker`
+                        // — a centred modal list of types at `top:54px; z-index:9999`, i.e.
+                        // ON TOP OF and 14px ABOVE where the mode bar renders — and the tool
+                        // activated only from its `onSelectType`. So the user saw TYPE alone,
+                        // dismissed it, and only then got the mode bar: the exact inversion
+                        // reported. The wall never had a pre-flight; it activates here and the
+                        // mode bar + "NEW WALL" card appear together, side by side, in one
+                        // frame (`PropertyPanel._positionWallPreDrawBesideModeBar` pins the
+                        // card to `.wdh-bar`'s right edge at the same top).
+                        //
+                        // ⚠ NO CAPABILITY IS LOST. The picker's ONLY unique job was choosing a
+                        // type before drawing, and the pre-draw card does that with the SAME
+                        // catalogue through `buildRailingTypeSelectorWidget` — while the tool
+                        // is live, so the type can be changed between segments instead of only
+                        // before the first one. That is strictly more, not less.
                         action: () => {
-                            this._handrailModePicker.show({
-                                handrailTypes: handrailTypeStore.getAll().map(t => ({
-                                    id:            t.id,
-                                    name:          t.name,
-                                    description:   t.description,
-                                    height:        t.height,
-                                    fillType:      t.fillType,
-                                    // §C100-HANDRAIL-MATERIAL-ID — the swatch is a
-                                    // CACHE of the referenced material's colour, resolved
-                                    // through the ONE C100 §2.1 ladder. Reading
-                                    // `t.materialColor` directly went blank the moment the
-                                    // catalogue stopped shipping hexes, which is the point:
-                                    // a type REFERENCES a material, it does not carry one.
-                                    materialColor: (() => {
-                                        const r = resolveMaterialColour(t.materialId, t.materialColor);
-                                        return r.state === 'unresolved' ? undefined : r.hex;
-                                    })(),
-                                })),
-                                currentHandrailTypeId: this._selectedHandrailTypeId,
-                                onHandrailTypeChange:  (id) => { this._selectedHandrailTypeId = id; },
-                                onSelectType: (id) => {
-                                    this._selectedHandrailTypeId = id;
-                                    if (!this._activateTool('handrail', id)) {
-                                        service.activateHandrailTool(id);
-                                    }
-                                },
-                            });
+                            if (!this._activateTool('handrail', this._selectedHandrailTypeId)) {
+                                service.activateHandrailTool(this._selectedHandrailTypeId);
+                            }
                         },
                     },
                     {

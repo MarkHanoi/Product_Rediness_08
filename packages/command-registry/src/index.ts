@@ -141,6 +141,9 @@ export * from './grids/UpdateGridCommand';
 export * from './handrails/CreateHandrailCommand';
 // §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — a multi-segment run as ONE undo entry.
 export * from './handrails/CreateHandrailRunCommand';
+// §FIX-HANDRAIL-BY-SLAB (L-1103) — By Slab as a slabId-taking COMMAND, the wall's
+// proven shape, not a canvas gesture against a selection the tool already cleared.
+export * from './handrails/CreateHandrailRunOnSlabCommand';
 export * from './handrails/DeleteHandrailCommand';
 export * from './handrails/UpdateHandrailCommand';
 

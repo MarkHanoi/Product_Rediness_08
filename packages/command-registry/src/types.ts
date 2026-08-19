@@ -137,6 +137,20 @@ export enum CommandType {
     // perimeter) committed as ONE command, so one gesture is ONE undo entry
     // (C16 §8.6). Its children are the ordinary CREATE_HANDRAIL commands.
     CREATE_HANDRAIL_RUN = 'CREATE_HANDRAIL_RUN',
+    // §FIX-HANDRAIL-BY-SLAB (L-1103) — the railing's BY SLAB action, expressed as
+    // the WALL's proven shape: a command that takes a `slabId` and derives the
+    // whole run from the slab's own boundary. It is NOT a canvas gesture.
+    //
+    // ⛔ THE GESTURE FORM WAS UNSATISFIABLE. The plan handler read the LIVE
+    // selection at click time, but `ToolManager.activateTool` calls
+    // `selectionManager.setEnabled(false)` — which clears `selectedObject` —
+    // BEFORE the user can click anything. So "is a slab selected?" could never be
+    // true once the railing tool was active, and By Slab refused 100% of the time.
+    // The wall solved this in 2026 with a pre-activation SNAPSHOT plus an explicit
+    // pick-a-slab mode; the railing mirrored neither. A slabId-taking command is
+    // the form that cannot regress into that trap, and it is the same form the RAC
+    // path (R8, "create a railing on the edge of this slab") needs.
+    CREATE_HANDRAIL_RUN_ON_SLAB = 'CREATE_HANDRAIL_RUN_ON_SLAB',
     DELETE_HANDRAIL = 'DELETE_HANDRAIL',
     MOVE_HANDRAIL = 'MOVE_HANDRAIL',
     UPDATE_FURNITURE_PARAMETERS = 'UPDATE_FURNITURE_PARAMETERS',

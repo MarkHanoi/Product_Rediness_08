@@ -67,13 +67,15 @@ import { createId } from '@pryzm/schemas';
 import {
     CreateHandrailCommand,
     CreateHandrailRunCommand,
+    CreateHandrailRunOnSlabCommand,
     type HandrailRunSegmentSpec,
 } from '@pryzm/command-registry';
 import { handrailTypeStore, type HandrailTypeDefinition } from '@pryzm/core-app-model/stores';
-import { applyOrthoConstraint, curvedRunVertices, isHandrailLoopMode, loopSegmentsForMode, segmentsFromVertices, slabOutlineSegments, type HandrailRunPoint, type HandrailRunSegment } from '@pryzm/geometry-handrail';
+import { applyOrthoConstraint, curvedRunVertices, isHandrailLoopMode, loopSegmentsForMode, segmentsFromVertices, type HandrailRunPoint, type HandrailRunSegment } from '@pryzm/geometry-handrail';
 import {
     resolveActiveHandrailDrawMode,
     resolveActiveHandrailTypeId,
+    resolveHandrailBySlabTarget,
     type HandrailDrawMode,
 } from './activeHandrailAuthoring';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
@@ -359,33 +361,17 @@ export class RailingPlanToolHandler implements PlanToolHandler {
     }
 
     /**
-     * BY SLAB — wall's action, in handrail form: guard the perimeter of the slab
-     * the user had selected when the tool was activated.
+     * BY SLAB — kept as a MODE branch only for the programmatic path (RAC, or a
+     * caller that arms the mode directly). The interactive route no longer needs a
+     * canvas click at all: the bar's By Slab pill is an ACTION that runs
+     * {@link executeHandrailBySlab} immediately, exactly as wall's does.
+     *
+     * ⛔ IT NO LONGER READS THE LIVE SELECTION. See §FIX-HANDRAIL-BY-SLAB (L-1103)
+     * on `executeHandrailBySlab` — the tool's own activation had already cleared it.
      */
     private _commitBySlab(): void {
-        const levelId = this._levelId();
-        if (!levelId) return;
-
-        const outline = readSelectedSlabOutline();
-        if (!outline) {
-            // C16 CA-18: name the mechanism and the live alternative.
-            console.warn(
-                '[RailingPlanToolHandler] BY SLAB REFUSED — no slab is selected, or the ' +
-                'selected slab exposes no boundary this tool can read. Select a slab first, ' +
-                'or draw the guard with Linear / Orthogonal. Nothing was created.',
-            );
-            return;
-        }
-        const { segments } = slabOutlineSegments(outline);
-        if (segments.length === 0) {
-            console.warn(
-                '[RailingPlanToolHandler] BY SLAB REFUSED — the selected slab’s boundary ' +
-                'produced no edge of at least 0.1 m. Nothing was created.',
-            );
-            return;
-        }
-        this._dispatchRun(segments, levelId, 'Handrail by slab');
-        this._clearOverlay();
+        const result = executeHandrailBySlab(undefined, this._ctx?.commandManager);
+        if (result.ok) this._clearOverlay();
     }
 
     /**
@@ -569,58 +555,140 @@ export class RailingPlanToolHandler implements PlanToolHandler {
 }
 
 /**
- * The selected slab's boundary, in world XZ, or null.
+ * §FIX-HANDRAIL-BY-SLAB (L-1103) — `readSelectedSlabOutline()` USED TO LIVE HERE
+ * AND IS DELETED, NOT DEPRECATED.
  *
- * ⚠ TYPED SEAM, NOT `any` (L-972/L-973). `store?.method?.()` where `method` does
- * not exist type-checks clean and evaluates `undefined` forever — that shipped
- * twice in this repo. The shape below declares `getById` REQUIRED, so if
- * `SlabStore` ever loses it this stops compiling instead of silently returning
- * null on every By-Slab click.
+ * It read `window.selectionManager.selectedObject` to find the slab. That is the
+ * exact read the tool's own activation had already invalidated
+ * (`ToolManager.activateTool` → `selectionManager.setEnabled(false)`), so it
+ * returned `null` on every By-Slab attempt. Leaving it in place as a second,
+ * losing answer to "which slab are we guarding?" is C84 EI-9 — the shape that
+ * costs a family a week — so the read now happens in exactly one place,
+ * `resolveHandrailBySlabTarget()` in `activeHandrailAuthoring`, which prefers the
+ * PRE-ACTIVATION snapshot. The ring construction (local `{x,y}` + `position`,
+ * re-wound to CCW so segment order and post ownership do not depend on how the
+ * slab was drawn) moved with it, into `slabWorldRing` on
+ * `CreateHandrailRunOnSlabCommand`.
  */
-interface SlabBoundarySource {
-    getById(id: string): {
-        polygon?: ReadonlyArray<{ x: number; y: number }>;
-        position?: { x: number; y: number; z: number };
-    } | undefined;
+
+
+/** What {@link executeHandrailBySlab} did, so the caller can offer the pick flow. */
+export interface HandrailBySlabOutcome {
+    /** True only when handrails were actually created. */
+    readonly ok: boolean;
+    /**
+     * `'no-slab'` — nothing to guard was named, so the caller should ASK
+     * (pick-a-slab), not report a failure. Every other value is a real refusal
+     * whose `reason` is already user-facing.
+     */
+    readonly kind: 'created' | 'no-slab' | 'refused' | 'no-dispatch';
+    readonly reason?: string;
+    readonly createdIds?: readonly string[];
 }
 
 /**
- * BY SLAB reads the slab the SAME way `CreateWallsFromSlabCommand` does — the
- * one place in the repo that already answers "which ring is this slab's
- * perimeter, in world coordinates?".
+ * §FIX-HANDRAIL-BY-SLAB (L-1103) — THE ONE BY-SLAB EXECUTOR, for every surface.
  *
- * Two details are copied from it rather than re-derived, because getting either
- * wrong puts the guard somewhere the slab is not:
- *   - `SlabData.polygon` is `{x, y}` in the SLAB'S OWN frame, where `y` is world
- *     Z. World position is the polygon point PLUS `slab.position`.
- *   - the ring is re-wound to a consistent (CCW) order, so the run's segment
- *     order and therefore its post ownership do not depend on how the slab
- *     happened to be drawn.
+ * ─── THE DEFECT THIS REPLACES ───────────────────────────────────────────────
+ * Founder, from a live session: *"Handrail by slab doesn't work. The same
+ * happened with curtain walls. Walls work correctly."*
+ *
+ * By Slab used to be a canvas GESTURE: the plan handler waited for a click and
+ * then asked `readSelectedSlabOutline()` for the LIVE selection. But
+ * `ToolManager.activateTool()` runs `selectionManager.setEnabled(false)` while
+ * activating ANY tool, which clears `selectedObject` — so at click time there was
+ * never a selection, and the tool consuming the clicks meant one could never be
+ * acquired either. The guard was UNSATISFIABLE: not flaky, never true. Selecting
+ * the slab first did not help, because the act of choosing the railing tool threw
+ * that selection away.
+ *
+ * ─── WHY THIS SHAPE ─────────────────────────────────────────────────────────
+ * The founder named the reference — the WALL works — so this mirrors what the
+ * wall does rather than inventing a third answer. Wall's By Slab is not a gesture
+ * either: `ToolsAreaLayout._execWallBySlab` dispatches a command with a
+ * `{ slabId }` payload, taken from a snapshot captured BEFORE activation, and
+ * when there is no snapshot it enters an explicit pick-a-slab mode that
+ * re-enables selection. Both halves are mirrored here, and the id resolution
+ * lives in `activeHandrailAuthoring` so the plan handler, the 3-D tool and RAC
+ * all read the same answer (L-98).
+ *
+ * ⚠ IT DISPATCHES A COMMAND, NEVER A STORE WRITE (P6/C11): the run is built by
+ * `CreateHandrailRunOnSlabCommand` → `CreateHandrailRunCommand` →
+ * `CreateHandrailCommand`, so a by-slab guard's records are byte-identical to a
+ * hand-drawn rail's and ONE Ctrl+Z removes the whole perimeter (C16 §8.6).
+ *
+ * ⚠ `hostId`/`hostKind` are set by the command, not here — a guard created on a
+ * slab is HOSTED BY that slab (C95 §15.1), which is what lets the model answer
+ * "which railings guard this slab?" and what a future slab-delete cascade needs.
  */
-export function readSelectedSlabOutline(): HandrailRunPoint[] | null {
-    const w = window as {
-        selectionManager?: { selectedObject?: { userData?: { id?: string; elementType?: string } } };
-        slabStore?: SlabBoundarySource;
-    };
-    const sel = w.selectionManager?.selectedObject;
-    // SlabFragmentBuilder writes 'Slab' (capital S); callers historically compared
-    // against lowercase. Normalised, per C15 §12.
-    const elType = sel?.userData?.elementType?.toLowerCase();
-    const slabId = sel?.userData?.id;
-    if (!slabId || elType !== 'slab') return null;
+export function executeHandrailBySlab(
+    slabId?: string,
+    commandManager?: { execute(cmd: unknown): unknown },
+): HandrailBySlabOutcome {
+    const target = slabId ?? resolveHandrailBySlabTarget();
+    if (!target) {
+        // NOT an error: the user has simply not said WHICH slab. The caller offers
+        // the pick flow, exactly as wall's By Slab does with no pre-selection.
+        return {
+            ok: false,
+            kind: 'no-slab',
+            reason: 'No slab named for BY SLAB — ask the user to pick one.',
+        };
+    }
 
-    const slab = w.slabStore?.getById(slabId);
-    const polygon = slab?.polygon;
-    if (!polygon || polygon.length < 3) return null;
+    const cm = (commandManager
+        ?? (window as unknown as { commandManager?: { execute(cmd: unknown): unknown } }).commandManager) as
+        | { execute(cmd: unknown): { success?: boolean; affectedElementIds?: string[]; info?: string[] } }
+        | undefined;
+    if (!cm?.execute) {
+        console.error(
+            '[handrail/by-slab] REFUSED — no commandManager is reachable, so the guard cannot be ' +
+            'created through the command path. Nothing was created and nothing was written directly ' +
+            'to a store.',
+        );
+        return { ok: false, kind: 'no-dispatch', reason: 'No command dispatcher available.' };
+    }
 
-    const origin = slab?.position ?? { x: 0, y: 0, z: 0 };
-    const ring = polygon.map((p) => ({ x: p.x + origin.x, z: p.y + origin.z }));
+    const spec = resolveArmedHandrailSpec();
+    const cmd = new CreateHandrailRunOnSlabCommand({
+        slabId: target,
+        height: spec.height,
+        thickness: spec.thickness,
+        baseOffset: spec.baseOffset,
+        fillType: spec.fillType,
+        railProfile: spec.railProfile,
+        railDiameter: spec.railDiameter,
+        postSpacing: spec.postSpacing,
+        balusterShape: spec.balusterShape,
+        balusterWidth: spec.balusterWidth,
+        balusterSpacing: spec.balusterSpacing,
+        infillMaxGap: spec.infillMaxGap,
+        materialColor: spec.materialColor,
+        materialId: spec.materialId,
+        label: `Handrail by slab — ${spec.typeName}`,
+    });
 
-    // Signed area in XZ; positive means clockwise under this summation, which is
-    // the exact test CreateWallsFromSlabCommand uses before reversing.
-    const area = ring.reduce((acc, p, i) => {
-        const next = ring[(i + 1) % ring.length]!;
-        return acc + (next.x - p.x) * (next.z + p.z);
-    }, 0);
-    return area > 0 ? [...ring].reverse() : ring;
+    const res = cm.execute(cmd) as { success?: boolean; affectedElementIds?: string[]; info?: string[] } | undefined;
+
+    // ⚠ A DISPATCHER THAT RETURNS NOTHING IS NOT A REFUSAL. `CommandManagerImpl`
+    // returns a `CommandResult`, but the `execute` seam is typed loosely and other
+    // dispatchers (and test doubles) return `void`. Reading "no result" as "it
+    // failed" would print a REFUSED line over a command that ran — reporting the
+    // opposite of what happened, which is worse than saying nothing. The command
+    // has already logged its own refusal by name if there was one.
+    if (res === undefined) {
+        return { ok: true, kind: 'created', reason: 'Dispatched; the dispatcher reported no result.' };
+    }
+
+    const created = res?.affectedElementIds ?? [];
+    if (res?.success && created.length > 0) {
+        console.log(
+            `[handrail/by-slab] ${created.length} handrail(s) created on slab ${target} — ` +
+            `type "${spec.typeName}", ONE undo entry.`,
+        );
+        return { ok: true, kind: 'created', createdIds: created };
+    }
+    const reason = (res?.info ?? []).join('; ') || `Slab ${target} produced no guard.`;
+    console.warn(`[handrail/by-slab] REFUSED — ${reason}`);
+    return { ok: false, kind: 'refused', reason };
 }

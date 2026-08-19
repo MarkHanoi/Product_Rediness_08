@@ -31,7 +31,12 @@ import {
     resolveActiveHandrailDrawMode,
     setActiveHandrailTypeId,
     isHandrailDrawMode,
+    captureHandrailBySlabSelection,
+    setHandrailBySlabTarget,
 } from '@app/engine/views/plantools/activeHandrailAuthoring';
+// §FIX-HANDRAIL-BY-SLAB (L-1103) — the ONE by-slab executor, shared with the plan
+// handler and (via the command it dispatches) with RAC.
+import { executeHandrailBySlab } from '@app/engine/views/plantools/RailingPlanToolHandler';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';
@@ -269,38 +274,35 @@ export function mountToolsArea(
     // cleared. We snapshot it here and use it in _execWallBySlab instead.
     let _bySlabCapture: any = null;
 
-    const _execWallBySlab = () => {
-        // Prefer the pre-activation snapshot; fall back to live selection.
-        // elementType comparison is case-insensitive: SlabFragmentBuilder writes 'Slab'
-        // (capital S) but callers historically checked against lowercase 'slab'.
-        const sel    = _bySlabCapture ?? props.selectionManager?.selectedObject;
-        const slabId = sel?.userData?.id as string | undefined;
-        const elType = (sel?.userData?.elementType as string | undefined)?.toLowerCase();
+    /**
+     * §FIX-HANDRAIL-BY-SLAB (L-1103) — THE PICK-A-SLAB FLOW, ONCE.
+     *
+     * This was the wall's private body. It is extracted because the railing needs
+     * exactly it and the founder's report is what happens when a family mirrors a
+     * FEATURE without mirroring its MECHANISM: railing's By Slab had the pill, the
+     * label and the accelerator, and none of the two things that make wall's work.
+     * A second copy would have been the third — curtain wall is the other one — so
+     * there is now one flow and the families differ only in what they do with the
+     * picked id.
+     *
+     * ⚠ IT DEACTIVATES THE ACTIVE TOOL FIRST, and that is not tidiness. While a
+     * drawing tool is active `SelectionManager` is DISABLED
+     * (`ToolManager.activateTool` → `setEnabled(false)`), so the user physically
+     * cannot select the slab we are asking them to select. `deactivateAll()` is the
+     * call that sets it back to `true` (`ToolManager.ts:1145`). Without this the
+     * overlay would sit there asking for something the app had made impossible —
+     * which is the defect being fixed, wearing a prompt.
+     */
+    const _pickSlabThen = (message: string, onSlab: (slabId: string) => void): void => {
+        void (props.toolManager as { deactivateAll?: () => Promise<void> } | undefined)?.deactivateAll?.();
 
-        if (slabId && elType === 'slab') {
-            // ── Pre-selection path: slab known, execute immediately ───────────
-            // P6 fix (Wave 14 FILE 3): route through runtime.commandBus.dispatch
-            // instead of legacy commandManager.execute().
-            // F-1.4: bus-primary dispatch (wall.create-on-all-slabs registered, doc-33 P0).
-            (window.runtime?.bus as any)?.executeCommand('wall.create-on-all-slabs', { slabId })
-                .catch((e: unknown) => console.error('[ToolsAreaLayout] wall.create-on-all-slabs failed:', e)); // §E.5.x: commandManager fallback removed
-            // Deactivate the wall drawing tool — creation session is complete.
-            props.wallTool?.deactivate?.();
-            return;
-        }
-
-        // ── No pre-selection: enter pick-a-slab mode ──────────────────────────
-        // Deactivate the wall drawing tool so SelectionManager is re-enabled and
-        // the user can click a slab in the scene.
-        props.wallTool?.deactivate?.();
-
-        // Show a non-blocking status overlay (pointer-events: none, so it doesn't
+        // A non-blocking status overlay (pointer-events: none, so it does not
         // interfere with scene clicks).
         const overlay = document.createElement('div');
         overlay.className = 'bsp-overlay';
         overlay.innerHTML = `
             <span class="bsp-icon">&#9699;</span>
-            <span class="bsp-msg">Click a slab in the scene to create walls from its perimeter</span>
+            <span class="bsp-msg">${message}</span>
             <span class="bsp-esc">ESC to cancel</span>
         `;
         document.body.appendChild(overlay);
@@ -316,15 +318,14 @@ export function mountToolsArea(
         };
 
         const _onSelectionChanged = () => {
-            const picked   = props.selectionManager?.selectedObject;
+            const picked    = props.selectionManager?.selectedObject;
             const pickedId  = picked?.userData?.id as string | undefined;
+            // Case-insensitive: SlabFragmentBuilder writes 'Slab' (capital S) but
+            // callers historically checked lowercase 'slab' (C15 §12).
             const pickedTyp = (picked?.userData?.elementType as string | undefined)?.toLowerCase();
             if (!pickedId || pickedTyp !== 'slab') return;
-            // P6 fix (Wave 14 FILE 3): route through runtime.commandBus.dispatch
-            // F-1.4: bus-primary dispatch (wall.create-on-all-slabs registered, doc-33 P0).
-            (window.runtime?.bus as any)?.executeCommand('wall.create-on-all-slabs', { slabId: pickedId })
-                .catch((e: unknown) => console.error('[ToolsAreaLayout] wall.create-on-all-slabs (pick) failed:', e)); // §E.5.x: commandManager fallback removed
             _cleanup();
+            onSlab(pickedId);
         };
 
         const _onEsc = (e: KeyboardEvent) => {
@@ -338,6 +339,52 @@ export function mountToolsArea(
         _unsubSelectionChanged = window.runtime?.events?.on('bim-selection-changed', () => _onSelectionChanged()) ?? null;
         // Capture phase so ESC is caught before other handlers dismiss the overlay
         window.addEventListener('keydown', _onEsc, { capture: true });
+    };
+
+    const _execWallBySlab = () => {
+        // Prefer the pre-activation snapshot; fall back to live selection.
+        // elementType comparison is case-insensitive: SlabFragmentBuilder writes 'Slab'
+        // (capital S) but callers historically checked against lowercase 'slab'.
+        const sel    = _bySlabCapture ?? props.selectionManager?.selectedObject;
+        const slabId = sel?.userData?.id as string | undefined;
+        const elType = (sel?.userData?.elementType as string | undefined)?.toLowerCase();
+
+        // P6 fix (Wave 14 FILE 3): route through runtime.commandBus.dispatch instead of
+        // legacy commandManager.execute(). F-1.4: bus-primary dispatch
+        // (wall.create-on-all-slabs registered, doc-33 P0).
+        const _dispatch = (id: string) => {
+            (window.runtime?.bus as any)?.executeCommand('wall.create-on-all-slabs', { slabId: id })
+                .catch((e: unknown) => console.error('[ToolsAreaLayout] wall.create-on-all-slabs failed:', e)); // §E.5.x: commandManager fallback removed
+        };
+
+        if (slabId && elType === 'slab') {
+            // ── Pre-selection path: slab known, execute immediately ───────────
+            _dispatch(slabId);
+            // Deactivate the wall drawing tool — creation session is complete.
+            props.wallTool?.deactivate?.();
+            return;
+        }
+
+        // ── No pre-selection: enter pick-a-slab mode ──────────────────────────
+        props.wallTool?.deactivate?.();
+        _pickSlabThen('Click a slab in the scene to create walls from its perimeter', _dispatch);
+    };
+
+    /**
+     * §FIX-HANDRAIL-BY-SLAB (L-1103) — the railing's By Slab, wall's shape exactly.
+     *
+     * Pre-selection ⇒ create now. No pre-selection ⇒ ASK, then create. A refusal for
+     * any OTHER reason (the slab has no polygon, no level, no edge ≥ 0.1 m) has
+     * already been logged by name by the executor and is NOT turned into a prompt:
+     * asking the user to pick again would be a lie about what went wrong (C16 CA-18).
+     */
+    const _execHandrailBySlab = () => {
+        const first = executeHandrailBySlab();
+        if (first.kind !== 'no-slab') return;
+        _pickSlabThen('Click a slab in the scene to guard its perimeter with a railing', (id) => {
+            setHandrailBySlabTarget(id);
+            executeHandrailBySlab(id);
+        });
     };
 
     /** Map 3D WallDrawingMode enum → WallPickerMode string read by plan-view handlers. */
@@ -418,6 +465,14 @@ export function mountToolsArea(
         if (toolName === 'slab')    slabDrawingBar.dismiss();
         if (toolName === 'door')   doorModePicker.dismiss();
         if (toolName === 'window') windowModePicker.dismiss();
+        // §FIX-HANDRAIL-BY-SLAB / §FIX-HANDRAIL-PANEL-ORDER — the railing bar was the
+        // ONLY mode bar with no teardown here, so it survived a tool switch and went on
+        // advertising modes the now-active tool does not have. The by-slab snapshot is
+        // released with it, so the next session cannot inherit a stale slab.
+        if (toolName === 'handrail' || toolName === 'railing') {
+            handrailDrawingBar.dismiss();
+            setHandrailBySlabTarget(undefined);
+        }
     });
 
     // ─── Slab activation wrapper — §FEAT-PERSISTENT-MODE-BAR (founder 2026-08-07)
@@ -601,29 +656,70 @@ export function mountToolsArea(
     //   and NOTHING else; `RailingPlanToolHandler` re-reads it on the next click, so
     //   the vertices already placed survive.
     //
-    // BY SLAB is the one exception and is declared `isAction` in the creation matrix:
-    // it consumes the current selection immediately rather than constraining the next
-    // click, exactly as wall's By Slab does. It still only writes the store — the
-    // handler performs the action on the user's next click, so no re-activation.
+    // §FIX-HANDRAIL-BY-SLAB (L-1103) + §FIX-HANDRAIL-PANEL-ORDER (L-1104) — TWO
+    // FOUNDER-REPORTED DEFECTS, BOTH CLOSED BY MIRRORING THE WALL RATHER THAN
+    // INVENTING A THIRD SHAPE.
+    //
+    // BY SLAB (L-1103). Founder: *"Handrail by slab doesn't work. The same happened
+    // with curtain walls. Walls work correctly."* The railing's By Slab waited for a
+    // canvas click and then read the LIVE selection — but `ToolManager.activateTool`
+    // calls `selectionManager.setEnabled(false)` while activating ANY tool, so the
+    // selection is already gone before the first click can happen, and the tool
+    // consuming the clicks means one can never be re-acquired. UNSATISFIABLE: not
+    // flaky, never true. The wall has both cures and the railing had neither, so both
+    // are mirrored here — the pre-activation SNAPSHOT (`_bySlabCapture`'s twin, but in
+    // the shared authoring store so the 3-D tool and RAC see it too), and the explicit
+    // PICK-A-SLAB mode for when there is no pre-selection. By Slab now EXECUTES on the
+    // pill, like wall's, instead of arming a mode that waits for a click.
+    //
+    // PANEL ORDER (L-1104). The mode bar is shown FIRST and the type card is deferred
+    // one scheduler tick, byte-for-byte the wall's order at `activateWallTool` — so
+    // `PropertyPanel.positionBesideModeBar` measures a `.wdh-bar` that is already laid
+    // out and pins the card to its right edge at the same top. The bar's label is
+    // `'Mode:'`, the wall's word, not a second word for the same thing (C84 EI-8).
+    //
+    //   ⛔ A MODE SWITCH MUST NEVER CALL AN `activate*` FUNCTION. `activateTool`
+    //   routes through `deactivateAllInternal()` and destroys the in-progress
+    //   polyline, so switching mode would mean starting the run over — the whole
+    //   defect the shared bar exists to remove. `onSelect` writes the shared store
+    //   and NOTHING else; `RailingPlanToolHandler` re-reads it on the next click, so
+    //   the vertices already placed survive.
     const _origActivateHandrail = service.activateHandrailTool.bind(service);
     service.activateHandrailTool = (typeId?: string) => {
+        // ⚠ BEFORE `_origActivateHandrail`, AND THAT ORDERING IS THE WHOLE FIX.
+        // Activation disables SelectionManager, which clears `selectedObject`. Read it
+        // after, and By Slab is asking a question whose answer this very line destroyed.
+        captureHandrailBySlabSelection(props.selectionManager?.selectedObject);
+
         _origActivateHandrail(typeId);
         // An activation that names a type ARMS it surface-independently (L-98), so a
         // type chosen from the ARCHITECTURE palette reaches the plan handler too.
         if (typeId) setActiveHandrailTypeId(typeId);
 
-        props.inspector.showHandrailPreDraw?.(window.handrailTool);
-
         if (handrailDrawingBar.isVisible()) {
             handrailDrawingBar.setMode(resolveActiveHandrailDrawMode());
         } else {
             handrailDrawingBar.show({
-                label: 'Handrail:',
+                label: 'Mode:',
                 modes: creationModes('railing'),
                 initialMode: resolveActiveHandrailDrawMode(),
-                onSelect: (id) => { setActiveHandrailDrawMode(id); },
+                onSelect: (id) => {
+                    // 'byslab' is declared `isAction` in the creation matrix, so
+                    // `DrawingModeBar` deliberately does NOT make it the active mode —
+                    // it just calls back. Treat it as the ACTION it is; writing it to
+                    // the mode store instead would leave every later click retrying
+                    // by-slab while the bar still highlighted Linear (L-956's shape).
+                    if (id === 'byslab') { _execHandrailBySlab(); return; }
+                    setActiveHandrailDrawMode(id);
+                },
             });
         }
+
+        // The type card comes SECOND and one tick late — the wall's exact order, so the
+        // card measures a bar that is already on screen and lands beside it.
+        getFrameScheduler().scheduleOnce('layout-handrail-tool-pre-draw', () => {
+            props.inspector.showHandrailPreDraw?.(window.handrailTool);
+        });
 
         const escHandlerHr = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {

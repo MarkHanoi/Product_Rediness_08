@@ -938,12 +938,15 @@ export function showHandrailPreDraw(host: PreDrawPanelHost, handrailTool: unknow
     // Default and the user can draw IMMEDIATELY without touching the dropdown.
     armHandrailType(currentTypeId);
 
-    const modeNote = document.createElement('div');
-    modeNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.45);margin-top:6px;line-height:1.4;';
-    modeNote.textContent =
-        'Modes (bar below): L Linear \u00b7 O Orthogonal \u00b7 C Curved \u00b7 '
-        + 'S By Slab \u00b7 Q Square \u00b7 R Circular \u00b7 E Ellipse';
-    header.appendChild(modeNote);
+    // §FIX-HANDRAIL-PANEL-ORDER (L-1104) — the mode LIST is deleted from this card.
+    //
+    // It named all seven modes and their accelerators and said "bar below". That was
+    // both a second, rival statement of what `DrawingModeBar` already renders (C84
+    // EI-9 — one question, two answers, and this copy rots the moment the creation
+    // matrix changes) and a claim about LAYOUT that the fix falsifies: the bar is not
+    // below, it is BESIDE, at the same top, which is the wall's arrangement the
+    // founder asked for. The wall's card carries no such list. The bar is the one
+    // authority for what the modes are.
 
     const escNote = document.createElement('div');
     escNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.35);margin-top:6px;';

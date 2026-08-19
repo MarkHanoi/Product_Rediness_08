@@ -28,10 +28,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { CreateHandrailCommand, CreateHandrailRunCommand } from '@pryzm/command-registry';
+import {
+    CreateHandrailCommand,
+    CreateHandrailRunCommand,
+    CreateHandrailRunOnSlabCommand,
+    slabWorldRing,
+    closedRingSegments,
+} from '@pryzm/command-registry';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { creationModes } from '../src/engine/views/plantools/elementCreationMatrix';
-import { RailingPlanToolHandler } from '../src/engine/views/plantools/RailingPlanToolHandler';
+import { RailingPlanToolHandler, executeHandrailBySlab } from '../src/engine/views/plantools/RailingPlanToolHandler';
 import { showHandrailPreDraw } from '../src/ui/property-panel/PropertyPanelPreDraw';
 import { DrawingModeBar } from '../src/ui/DrawingModeBar';
 import {
@@ -40,13 +46,14 @@ import {
     resolveActiveHandrailTypeId,
     resolveActiveHandrailDrawMode,
     __resetActiveHandrailAuthoringForTests,
+    setHandrailBySlabTarget,
 } from '../src/engine/views/plantools/activeHandrailAuthoring';
 
 type AnyRec = Record<string, unknown>;
 type Pt = { x: number; z: number };
 
 // ── Recorder, not re-implementation ──────────────────────────────────────────
-const executed: Array<CreateHandrailCommand | CreateHandrailRunCommand> = [];
+const executed: Array<CreateHandrailCommand | CreateHandrailRunCommand | CreateHandrailRunOnSlabCommand> = [];
 const commandManager = { execute: (c: never) => { executed.push(c); } };
 
 function payloadOf(i: number): AnyRec {
@@ -372,41 +379,66 @@ describe('4. EVERY MODE dispatches a real command carrying the ARMED type', () =
         }
     });
 
-    it('BY SLAB: with a slab selected, one click → ONE run around its WORLD-space ring', () => {
-        setActiveHandrailDrawMode('byslab');
-        (window as unknown as AnyRec).selectionManager = {
-            selectedObject: { userData: { id: 'slab-1', elementType: 'Slab' } },
-        };
-        (window as unknown as AnyRec).slabStore = {
-            getById: () => ({
-                polygon: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 4 }, { x: 0, y: 4 }],
-                position: { x: 10, y: 0, z: 20 },
-            }),
-        };
-        try {
-            const h = activate();
-            h.onClick(P(0, 0));
-            expect(executed).toHaveLength(1);
-            const segs = segmentsOf(0);
-            expect(segs).toHaveLength(4);
-            // polygon + slab.position, exactly as CreateWallsFromSlabCommand resolves it.
-            const xs = segs.map((s) => (s.start as Pt).x);
-            const zs = segs.map((s) => (s.start as Pt).z);
-            expect(Math.min(...xs)).toBe(10);
-            expect(Math.max(...xs)).toBe(16);
-            expect(Math.min(...zs)).toBe(20);
-            expect(Math.max(...zs)).toBe(24);
-        } finally {
-            delete (window as unknown as AnyRec).selectionManager;
-            delete (window as unknown as AnyRec).slabStore;
-        }
+    /**
+     * §FIX-HANDRAIL-BY-SLAB (L-1103) — THIS TEST CHANGED SHAPE BECAUSE THE DEFECT
+     * WAS THE SHAPE.
+     *
+     * It used to arm `byslab`, stub `window.selectionManager`, and click. It PASSED,
+     * and By Slab was broken for every real user — because in the editor
+     * `ToolManager.activateTool` calls `selectionManager.setEnabled(false)` while
+     * activating the railing tool, so the selection the test hand-installed does not
+     * exist by the time a real click arrives. The stub made an unsatisfiable
+     * condition satisfiable: [[fake-more-capable-than-real]], exactly.
+     *
+     * By Slab is now the WALL's shape — an ACTION on a `slabId`, taken from the
+     * PRE-ACTIVATION snapshot — so this asserts what the product now does: the
+     * executor dispatches ONE `CreateHandrailRunOnSlabCommand` naming the slab, and
+     * that command turns the slab's own boundary into a closed world-space ring.
+     */
+    it('BY SLAB dispatches ONE slab-naming command, and its ring is the slab’s WORLD boundary', () => {
+        setHandrailBySlabTarget('slab-1');
+        const outcome = executeHandrailBySlab(undefined, commandManager as never);
+
+        expect(outcome.ok).toBe(true);
+        expect(executed).toHaveLength(1);
+        expect(executed[0]).toBeInstanceOf(CreateHandrailRunOnSlabCommand);
+        expect(payloadOf(0).slabId).toBe('slab-1');
+
+        // The world ring, from the SAME projection the command uses at execute time:
+        // polygon is LOCAL {x,y} (y = plan Z) and `position` is the world origin.
+        const ring = slabWorldRing({
+            polygon: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 4 }, { x: 0, y: 4 }],
+            position: { x: 10, y: 0, z: 20 },
+        })!;
+        const segs = closedRingSegments(ring, (i) => `s${i}`);
+        expect(segs).toHaveLength(4);
+        const xs = segs.map((sg) => sg.start.x);
+        const zs = segs.map((sg) => sg.start.z);
+        expect(Math.min(...xs)).toBe(10);
+        expect(Math.max(...xs)).toBe(16);
+        expect(Math.min(...zs)).toBe(20);
+        expect(Math.max(...zs)).toBe(24);
+        // Every vertex of a CLOSED loop is posted exactly once (C95 §D4) — the last
+        // segment's END post stands on segment 0's start.
+        expect(segs.every((sg) => sg.suppressStartPost === true)).toBe(true);
     });
 
-    it('BY SLAB with NO slab selected REFUSES and creates nothing (C16 CA-18)', () => {
-        setActiveHandrailDrawMode('byslab');
-        const h = activate();
-        h.onClick(P(0, 0));
+    it('BY SLAB with NO slab named ASKS rather than failing — it never invents one (C16 CA-18)', () => {
+        const outcome = executeHandrailBySlab(undefined, commandManager as never);
+        // `no-slab` is the signal the caller turns into the pick-a-slab overlay. It is
+        // deliberately NOT `refused`: nothing went wrong, the user has not said which.
+        expect(outcome.kind).toBe('no-slab');
         expect(executed).toHaveLength(0);
+    });
+
+    it('BY SLAB is an ACTION on the bar, so it never becomes the armed draw mode', () => {
+        const bySlab = creationModes('railing').find((m) => m.id === 'byslab')!;
+        expect(bySlab.isAction).toBe(true);
+        // The pill firing must not leave 'byslab' armed for every later click.
+        setActiveHandrailDrawMode('linear');
+        setHandrailBySlabTarget('slab-1');
+        executeHandrailBySlab(undefined, commandManager as never);
+        expect(resolveActiveHandrailDrawMode()).toBe('linear');
     });
 
     it('a sub-100 mm segment REFUSES rather than dispatching what the command would reject', () => {
