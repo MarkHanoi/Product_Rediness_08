@@ -14804,3 +14804,18 @@ drag lock) passes in **both** states — a non-regression control, not a fix art
    `expect(true).toBe(true)`; the entire value was in the numbers they printed. A green probe is not
    a green invariant.
 
+
+## L-762 addendum — FOUNDER DEFERRED (2026-08-19): the Cesium ion tier stays as-is for now
+
+The founder read the measured position — "Upgrade for commercial use" is ion's
+server describing the token's FREE/COMMUNITY tier; Google Photorealistic tiles
+stream through that token; the direct Google Maps path exists but is shadowed by
+the ion→google branch order — and said: **"we dont for now."**
+
+So: NO account upgrade, NO token unset, NO branch-order change today. The stamp
+stays visible (restyled, not removed, per UX2). This addendum exists so the
+deferral is a RECORDED DECISION rather than a forgotten finding: L-762's own
+text says "P0 FOR TAKING MONEY", so the deferral is fine exactly until the first
+paying customer, and the two known fixes are already written down (upgrade the
+ion plan, or unset VITE_CESIUM_TOKEN to fall through to the billed Google path).
+C55's missing attribution gate (`check-geodata-attribution.ts`) remains unbuilt.
