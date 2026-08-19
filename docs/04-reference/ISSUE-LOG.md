@@ -15572,7 +15572,7 @@ Overpass failure is in fact why the OFF screenshot has so little else on the gro
 
 ---
 
-## L-1188 — changing a HANDRAIL TYPE freezes the viewport: the shadow-freeze list is a hand-written literal and eleven element families are in NEITHER copy of it ✅ FIXED — 2026-08-19 (lane GPU1)
+## L-1189 — changing a HANDRAIL TYPE freezes the viewport: the shadow-freeze list is a hand-written literal and eleven element families are in NEITHER copy of it ✅ FIXED — 2026-08-19 (lane GPU1)
 
 **FOUNDER-REPORTED, PRODUCTION, HARD CRASH.** Gesture: **change a handrail type**. Result:
 `phase=error`, the bounded auto-recovery spends 2/2, the viewport freezes on a stale frame.
@@ -15700,3 +15700,92 @@ the two events. Restored: **5 passed**.
 **Files:** `apps/editor/src/engine/geometryMutationEvents.ts` (new) ·
 `apps/editor/src/engine/initScene.ts` · `apps/editor/__tests__/geometryCasterEvents.test.ts` (new).
 **Contracts:** C04 §SHADOW · ADR-0111 · ADR-0297 (L1/L2) · C84 EI-4a · C95 §15.5.
+
+## L-1190 — HANDRAIL SELECTION IN 3D IS IMPOSSIBLE: the selectable-cache listener fires on `bim-railing-added`, which NOTHING EMITS ✅ FIXED 2026-08-19 (lane HR5)
+
+**Founder-reported:** *"Handrail selection on 3D view seems not possible."*
+
+⭐ **HIS OWN SCREENSHOT NARROWED IT BEFORE ANY TRACING.** The property panel in the same
+capture IS showing a handrail — HANDRAIL, HR046, Level 1, "Glass Guardrail". So the record, the
+mesh, the store and the panel binding all work, and he can select it *somehow* (plan view, or
+the browser tree). Only the **3-D viewport pick** fails. That is a PICK-PATH defect, not a
+selection defect and not a panel defect.
+
+### The root cause — an instrument that could never fire, again
+
+`SelectionManager.init()` invalidates `_selectableCache` on a hand-written list of
+`bim-<family>-added/removed/updated` events. The railing family's two entries were
+**`bim-railing-added`** and **`bim-railing-removed`**.
+
+**Measured 2026-08-19 across `packages/ apps/ plugins/ src/`: both have ZERO emitters.** Nothing
+in this repository has ever dispatched either. The family emits **`bim-handrail-added` /
+`-removed` / `-updated`** (`HandrailStore.emit`, ll.202-204; `UpdateElementParameterCommand:826`),
+which that list did not contain. The listener whose entire job is to keep the 3-D pick caches
+honest for railings was **UNSATISFIABLE BY CONSTRUCTION**.
+
+This is **L-989's "the railing family has TWO keys"** recurring, and it is the same shape as
+**§PICKDIAG-CASING (L-1173)**, where `doorsRegistered=0` was believed for months and **L-912 /
+L-913 were both concluded from a counter hard-wired to zero.** The lesson keeps being the same
+one: *ask whether the thing telling you so CAN ever say otherwise.*
+
+### Why a dead invalidation key makes the click miss
+
+`_selectableCache` is built **ONCE**, lazily, on the first hover or click, and rebuilt **only**
+on those events. **Both 3-D pick paths read it and nothing else:**
+
+- `_buildElementRegistry()` — the GPU pick's element registry. An id absent from it has **no
+  clone in the pick scene**, so the pixel under the cursor belongs to whatever is *behind* the
+  railing (the slab or stair it stands on). The GPU pick is consulted FIRST and its hit is
+  authoritative, so the click resolves to the host and never falls through.
+- `_rebuildBVHFromCache()` — the ray-prune AABBs for the CPU fallback. Same blindness.
+
+So a handrail drawn after that first hover entered **neither** structure, and no railing event
+could ever invalidate the cache to let it in. Plan view and the browser tree select **by id**
+and bypass both caches — which is precisely why the panel could show HR046 while the 3-D click
+could not reach it.
+
+`-updated` was added as well, and it is not redundant: `HandrailFragmentBuilder` disposes and
+rebuilds the root's **children** on every retype while keeping the root object, so the cached
+BVH AABB is captured from the OLD children and a stale box can prune a rebuilt railing out of
+the candidate set. `rebuiltEventToType` gained `bim-handrail-updated → handrail` for the same
+reason — a handrail whose mesh was rebuilt never re-bound its gizmo (§SELECT-GIZMO-REATTACH).
+
+The identical dead key was copied into `registerTransformDragHandler`'s camera maxDistance
+guard; fixed there too.
+
+### What was NOT wrong — recorded so nobody re-investigates it
+
+- **The builder's userData is correct.** `HandrailFragmentBuilder` stamps `id`,
+  `elementType: 'Handrail'`, `selectable: true` on the root and `role: 'geometry',
+  selectable: false` on the sub-meshes.
+- **`SEMANTIC_TYPES` already contains `'handrail'`** (since §SELECT-SEMANTIC-TYPE-NAMES).
+- **`findSelectableRoot` already resolves a handrail sub-mesh to its root.** The fourth test
+  asserts exactly that and **PASSES on the pre-fix code** — that leg was never broken.
+- Hypotheses *"multi-mesh group with no owner id"*, *"hosted pick priority / occlusion"* and
+  *"thin-geometry pick resolution"* are **not implicated**. (`hostedPickPriority`'s
+  `HOSTED_KINDS` is `{door, window, opening}` — a handrail is neither host nor hosted there, so
+  the promotion path is a no-op for this family either way.)
+
+### Evidence and fix
+
+`packages/input-host/src/SelectionManager.ts` (the invalidation list + `rebuiltEventToType`) ·
+`apps/editor/src/engine/registerTransformDragHandler.ts` (the copied list) ·
+`packages/input-host/__tests__/SelectionManager.handrailPickCache.test.ts` (new).
+
+The test drives the **real** path — real `init()` listener registration, real
+`_ensureSelectableCache` scene traversal, real `_buildElementRegistry` / `findSelectableRoot`,
+and a handrail root whose userData mirrors what the builder actually stamps. Nothing under test
+is stubbed; only the OBC world / camera / DOM, reusing `SelectionManager.selectPick.test.ts`'s
+fakes. **Every test asserts the NEGATIVE control first** (the cache really is stale, the
+registry really is blind) so it cannot pass vacuously. **Verified by reverting the one-line
+fix: 3 of 4 FAIL without it; 4 of 4 pass with it; the whole SelectionManager suite is 47/47
+green; root tsc RC=0.**
+
+### Residue — NOT fixed here, and worth its own look
+
+`LevelScoped3DCullingService.DEBOUNCED_EVENTS` and `FrustumCullingService.TRIGGERING_EVENTS`
+list wall/slab/ceiling/floor/column/beam/roof/stair/curtainwall/furniture and **omit the railing
+family entirely — under either spelling.** Those services re-derive on level change so this is
+not the pick defect, but a family absent from a culling service's trigger list is the same
+hand-written-literal defect class as L-1189's shadow-freeze list.
+
