@@ -193,7 +193,27 @@ describe('§FLOOR-DEFAULT-UNTYPED — the DELIBERATE exclusions survive', () => 
         const v = new CreateFloorsByRoomTypeCommand(LEVEL_ID).canExecute(ctx);
 
         expect(v.ok).toBe(false);
-        expect(String(v.reason)).toMatch(/nothing here to floor/i);
+        // §FLOOR-REFUSAL-IS-FALSE (L-1014) — this used to assert the literal
+        // phrase "nothing here to floor". That sentence was RETIRED because it
+        // asserted a cause it had not measured: it told the founder his ONE
+        // untagged room was "a stairwell, or circulation", which was false about
+        // his model. The refusal now REPORTS WHAT IT FOUND. The intent of this
+        // test — "the reason names WHY" — is unchanged and is asserted harder:
+        // the excluded type itself must appear.
+        expect(String(v.reason)).toMatch(/stair/i);
+        expect(String(v.reason)).toMatch(/excluded/i);
+    });
+
+    it('the room store OWN untyped token (unclassified) is floorable - L-1014', () => {
+        // THE GAP THIS FILE HAD. Every "untyped" fixture above builds its room by
+        // OMITTING occupancyType. The room store never emits that:
+        // RoomDetectionEngine stamps 'unclassified'. So this suite passed while
+        // the founder was refused, which is why the defect shipped.
+        const { ctx, floors } = makeContext([{ id: 'room-u', occupancyType: 'unclassified' }]);
+        const cmd = new CreateFloorsByRoomTypeCommand(LEVEL_ID);
+        expect(cmd.canExecute(ctx).ok).toBe(true);
+        cmd.execute(ctx);
+        expect(floors).toHaveLength(1);
     });
 
     it('a room with NO boundary still refuses with the boundary reason — unchanged', () => {

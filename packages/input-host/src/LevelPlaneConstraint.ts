@@ -128,6 +128,13 @@ export class LevelPlaneConstraint {
         if (offset === null) {
             this.lockedObj = null;
             this.lockedModelYValue = null;
+            // We cannot compute a plane, so we must not WRITE one — but the
+            // vertical-drag prohibition is not ours to relax either. Hide the Y
+            // handle anyway: no affordance is the safe failure, whereas leaving it
+            // visible would hand the user a free Y drag on exactly the elements we
+            // just admitted we cannot reason about. Rotate still needs its ring.
+            const mode = (this.transformControls as any).mode ?? 'translate';
+            (this.transformControls as any).showY = (mode === 'rotate');
             return;
         }
 
