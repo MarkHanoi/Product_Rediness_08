@@ -12441,3 +12441,150 @@ today; the measurement says the verb behind both surfaces cannot execute. **Both
 recorded in C87 §12** and only the founder can settle it. This change is safe under **both**
 readings, which is why it did not wait: routing a dead verb to a live command is correct whether the
 verb was dead or merely unreliable.
+
+---
+
+## L-1066 — CLOSED — the curved raked joint closes at the top, and the ORDER was the whole fix (RK1, 2026-08-19)
+
+**Founder, verbatim:** *"no matter if the wall is curved, raked, curved-raked, layered etc.,
+MOVE → PROPAGATE → RECOMPUTE should always work and always be sound — this is especially important
+for the WALL JOINTS."*
+
+**Before:** bodies leaned correctly, `baseSep = 0.000` everywhere, **`topSep = 0.555 m`** against a
+same-lean neighbour. **After:** `openUp = 0.000` at **every** neighbour, and `topGap == baseGap`
+exactly — the corner does not move between floor and top at all.
+
+```
+L curved@80 vs straight plain VERTICAL      base gap 3.756e-2 sep 0   TOP gap 3.756e-2 sep 0   openUp 0
+L curved@80 vs straight plain RAKED same    base gap 3.756e-2 sep 0   TOP gap 3.756e-2 sep 0   openUp 0
+L curved@80 vs straight plain RAKED opp.    base gap 3.756e-2 sep 0   TOP gap 3.756e-2 sep 0   openUp 0
+L curved@80 vs straight LAYERED raked       base gap 2.135e-2 sep 0   TOP gap 2.135e-2 sep 0   openUp 0
+L curved@80 vs straight raked + WINDOW      base sh 2 gap 6.0e-6      TOP sh 2 gap 6.0e-6      openUp 0
+L curved@80 vs CURVED unraked               base sh 2 gap 0           TOP sep 0                openUp 0
+L curved@80 vs CURVED raked                 base sh 2 gap 0           TOP sh 2 gap 0           openUp 0
+L curved@80 vs CURVED layered raked         base gap 2.582e-3 sep 0   TOP gap 2.582e-3 sep 0   openUp 0
+```
+
+`curved raked ↔ curved raked` now **shares two top corners exactly**, as it already did at the base.
+
+### The mechanism, and it reused everything
+
+Two pieces, no new authority:
+
+1. **The probe solve learned that a cone's two ends lean in different directions.** It displaced both
+   endpoints by ONE shared vector — the chord rule, and the identical mistake L-1068 found in the
+   leaf. Each endpoint now moves along **its own** normal, `leftPerp(startDir)` / `leftPerp(endDir)`,
+   which are the tangents `curveTangents` already derives. **The headings are unchanged**, because a
+   concentric arc has the same tangent direction at every corresponding station as the arc it
+   offsets — so the resolver still sees what it saw, and a STRAIGHT wall falls back to the chord and
+   is bit-identical.
+2. **`curvedRakeCapDrift`** differences the base miter's four corner POINTS against the probe
+   miter's, scaled ε → height. A curved wall has no footprint polygon, so `rakeJointCapDrift`'s
+   route (`buildWallFootprint`) cannot serve it — but the miter record already carries the corners,
+   which is the shape the curved builder consumes anyway.
+
+**Measured, and this is what made it believable before it worked:** for the founder's L, A's
+`curvedRakeCapDrift` is `(−0.5290, +0.3845)` and B's `rakeJointCapDrift` for the *same shared corner*
+is the **identical vector**. The two walls agree on where the top corner goes; the only question was
+getting A's cap to that point.
+
+### ⚠ THREE DRAFTS, AND THE TWO WRONG ONES ARE THE RECORD WORTH KEEPING
+
+Neither wrong draft was obviously wrong, and both produced a *plausible* scene.
+
+- **Draft 1 — ADDED the loft to the already-coned corner.** `openUp` did not move (0.555 m) while
+  the measured lean jumped 0.497 → 0.773. **Signature: one displacement counted twice.** The cone
+  already moves the top ring radially; the loft is the TOTAL top-corner travel, not an increment.
+  Same algebra §L955-ONE-CORNER-RULE spells out for the straight opening host.
+- **Draft 2 — replaced the cone, but applied the loft BEFORE `projectCapVertex`.** `openUp` came
+  back **bit-identical to the pre-fix run** while the lean fell to 0.295. **That bit-identity was
+  the tell:** the projection *solves* for the along-axis coordinate on the base mitre plane, so any
+  drift applied beforehand is simply overwritten. My own comment defending that order — *"applying
+  it afterwards would push the corner off the plane it was just cut to"* — was the wrong worry. The
+  top cap of a raked joint is **supposed** to leave the base cap's plane, because the end face
+  leans. Watertightness is preserved by there being ONE corner table that every face group and the
+  cap read, **not** by the top and base caps sharing a plane.
+- **Draft 3 — strip the cone from the cap columns, project, THEN add the loft.** The top cap corner
+  is `base mitre corner + loft`.
+
+⭐ **The lesson is about the metric, not the geometry.** Draft 2 was caught only because `openUp`
+came back *bit-identical* rather than merely wrong. A metric that had moved slightly would have read
+as "closer, keep tuning". **Exact non-movement is evidence of a write being discarded**, and it is
+worth looking for deliberately.
+
+### What this does NOT close
+
+⛔ **L-1039 stands, and this fix does not paper over it.** The curved body's base caps are still cut
+by `WallJoinResolver` + `projectCapVertex` while the loft comes from `JunctionResolverV2` — two
+solvers, one corner. This is sound because only the **delta** crosses between them, and the two
+solvers are measured to agree well enough at the base that every `baseSep` is 0. **The residual
+`baseGap` of 21–38 mm on curve↔straight rows IS that disagreement, visible.** It is unchanged by this
+work, it is now carried identically to the top rather than compounding with height, and **closing it
+is L-1039's job, not this accessor's.**
+
+⛔ **T and X for curved-raked are still not asserted**, and MOVE-time reweld × any non-plain variant
+remains entirely unmeasured (L-1039's own coverage warning). This closes the **L** corner the founder
+photographed; the founder's sentence names MOVE → PROPAGATE → RECOMPUTE, and only RECOMPUTE is
+measured here.
+
+---
+
+## L-1069 — I claimed "root tsc RC=0" in two commits and the artefact says RC=2; and the editor does not typecheck ⚠ CORRECTION + OPEN (CW1, 2026-08-19)
+
+**Two defects, and the first is mine.**
+
+### (a) THREE FALSE VERIFICATION CLAIMS — retracted here rather than quietly re-run
+
+I ran root `tsc` in the background as
+`npx tsc … > /tmp/f.txt 2>&1; echo "RC=$?" >> /tmp/f.txt`, and then read the **background task's own
+exit code** from the harness notification instead of the `RC=` line inside the file. **That wrapper
+always exits 0**, because its last statement is the `echo`. So a red typecheck reported itself as
+green, three times:
+
+| Run | What I said | What the file says |
+|---|---|---|
+| `tsc5` (baseline after the tree changed) | *"RC=0 — merged tree is clean"* (in conversation) | **RC=2, 16 errors** |
+| `tsc6` (commit `88c3e5e6`, the vocabulary) | *"Verified: root tsc RC=0"* | **RC=2, 16 errors** |
+| `tsc7` (commit `c19004eb`, the L-1054 routing) | *"Verified: root tsc RC=0"* | **RC=2, 16 errors** |
+
+**The substance survives and the form does not, and the difference is the whole point.** All 16
+errors are in files this lane has never edited — `RailingPlanToolHandler.ts` ×11, `initBuilders.ts`
+×2, `ToolsAreaLayout.ts`, `activeHandrailAuthoring.ts`, `initTools.ts:86` — every one of them
+last-touched by an `HR1/*` commit. **Zero are in any file this lane wrote.** So *"my change does not
+break the typecheck"* is still true; *"root tsc is green"* was false, and I asserted the second while
+only having evidence for the first.
+
+⭐ **THE LESSON, AND IT IS THE ONE THIS LANE HAS BEEN FINDING ALL SESSION, TURNED ON ITSELF: I READ
+THE WRAPPER'S ANSWER INSTEAD OF THE INSTRUMENT'S.** A harness exit code and a compiler exit code are
+**two different questions**, and the wrapper answers the one that is always `0`. That is
+structurally identical to L-1053 (a parser whose failure branch returns a plausible value cannot
+report that it never succeeded) and to L-1052 (a migration whose bad-input branch returns an empty
+array cannot report that its inputs were `undefined`). **A verification harness that cannot fail is
+not a verification.**
+**The rule this earns:** never quote an exit code you did not read out of the artefact. Runs
+`cw1-tsc.txt`, `tsc2`, `tsc3` and `tsc4` were read correctly (0 / 1-error-of-mine / 0 / 0), so the
+persistence commit `8b3ec6e8`'s *"root tsc RC=0"* claim **is** supported — that one was measured, not
+assumed, and the difference is visible only because the `RC=` line was written into the file.
+
+### (b) OPEN, AND NOT MINE: THE EDITOR DOES NOT TYPECHECK
+
+Between `tsc4` (**RC=0, 0 errors**, ~08:19) and `tsc5` the count went to **16**. The cause is the
+handrail extraction:
+
+- `apps/editor/src/engine/initTools.ts:86` — **`Cannot find module '@pryzm/geometry-handrail'`**;
+- `RailingPlanToolHandler.ts` / `activeHandrailAuthoring.ts` — eight `TS2305`s for handrail symbols
+  `@pryzm/geometry-stair` no longer exports (`HandrailRunMode`, `applyOrthoConstraint`,
+  `curvedRunVertices`, `isHandrailLoopMode`, `loopSegmentsForMode`, `segmentsFromVertices`,
+  `slabOutlineSegments`, `HandrailRunPoint`, `HandrailRunSegment`), plus three `TS7006`s that follow
+  from them;
+- `initBuilders.ts` ×2 and `ToolsAreaLayout.ts` ×1.
+
+⚠ `9acf58d3` is titled *"complete the handrail extraction — the barrel, the two importers, the
+manifest and the lockfile"*. **Measured, it is not complete:** the new package does not resolve from
+`apps/editor`, and the old package no longer exports what the editor still imports. **The repo was at
+2 errors per the coordinator's own note and is now at 16.** Reported for routing; this lane has not
+touched any of those files and will not.
+
+**Consequence for everyone, which is why this is logged rather than mentioned:** `npm run build`
+runs `tsc --skipLibCheck` before `vite build`, so **while this stands, nobody's work can be built or
+deployed** — and any lane using root tsc as its gate will read a red tree it did not cause.
