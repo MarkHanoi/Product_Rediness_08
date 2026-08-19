@@ -15260,3 +15260,78 @@ pass by coincidence.
 
 Suite: geometry-slab **26 files / 220 tests PASS**. Root tsc: zero errors in the five files
 touched.
+
+---
+
+## L-1183 — the founder's canonical generation prompt is CLAIMED AS A PASTED REPORT: "75%" fires the paste-back guard and the ENTIRE deterministic ladder stands aside 🔴 OPEN (lane AUD1, read-only audit — measured, not fixed)
+
+**Lane AUD1 · 2026-08-19 · §FIX-CHAT-REPORT-PASTEBACK vs the L-911 family ("a capability that
+cannot be spelled at is a capability that does not exist").**
+
+The founder's own benchmark prompt —
+
+> *"Generate a residential building on this parcel. • Respect the planning envelope and required
+> setbacks • Maximum height: 5 floors • Target 75% net-to-gross efficiency • Prioritise 1- and
+> 2-bedroom apartments • Provide daylight and compliant room dimensions • Optimise the floorplate
+> for sellable area"*
+
+— resolves to **`{ kind: 'miss' }`**. Not a refusal, not a Confirm card: a miss, which means the
+sentence silently falls PAST every zero-token rung to the LLM planner (token cost, model-dependent
+outcome) or, on a deploy with no AI upstream, to *"I'm not sure how to help with that yet."*
+
+**Measured 2026-08-19** (tsx over the real modules, no mocks):
+
+| probe | result |
+|---|---|
+| `parseGenerateBuildingIntent(normalized)` | **CLAIMS IT**: `{typology:'residential-building', floors:5, mix:{T2:true}}` |
+| `descriptiveReportReason(prompt)` | `'descriptive'` — this is the killer |
+| `resolveUtterance(prompt, ctx)` | `{kind:'miss'}` |
+| `resolveNaturalLanguage(prompt, ctx)` | miss, evidence `["typo-corrected:1","descriptive"]` |
+| `capabilityGapRefusal(prompt, [])` | **`null`** — not even an honest refusal |
+| same prompt with `75%` → `75 percent` | **tier-0 resolves**: Confirm card + `generation.building {floors:5, typologies:{T2}}` |
+
+**Root cause** — `packages/ai-host/src/capabilities/CapabilityRefusal.ts:109` (`REPORT_SHAPE`):
+the `\d\s*%` alternation treats ANY percentage anywhere in the text as "the chat's own transcript
+furniture". The guard was written (correctly) for the founder pasting back *"Built 6 floors — 18
+apartments … (apartments 72% of the plate)"* — but every real paste-back in that family carries a
+`PAST_TENSE_REPORT_OPENER` (`:98`). An utterance whose opener is an IMPERATIVE creation verb
+("Generate …") is not report-shaped, and a user stating a **target** percentage is the opposite of
+quoting a report. The guard fires on shape alone, `resolveUtterance` consults it before any
+grammar (`ZeroTokenResolver.ts` entry), and §FIX-CHAT-REPORT-PASTEBACK is deliberately honoured by
+BOTH the tier-0/1 path and the NL layer — so one over-broad regex arm silences the whole ladder at
+once. `capabilityGapRefusal` returning `null` on a sentence that names a REGISTERED capability
+(`generate-building`, ChatCapabilityRegistry.ts:2302-2380) compounds it: the drop is invisible.
+
+**Why this is the WORST class, not a feature gap.** The generation capability exists, is
+registered, is reachable (§GEN-CHAT-SEAM → `runGenerationBuilding` →
+`ResidentialBuildingController.request(autoBuild)` — the whole chain is live and flag-free), and
+the grammar PARSES this very sentence. One clause's phrasing disables the other five clauses'
+working path. That is L-911's shape at ladder scale: half-tolerance producing a confident
+non-answer to a question nobody asked — except here the non-answer is silence plus token spend.
+
+**Sharpest available fix** (one line of intent): `REPORT_SHAPE`'s statistics arms (`\d\s*%`,
+`on average`, `— \d`) should only claim when the OPENER is not an unambiguous imperative — e.g.
+require `PAST_TENSE_REPORT_OPENER` to co-fire for the percent arm, or exempt utterances matching
+the creation-verb openers the generation grammars already define. The transcript-furniture arms
+(`of the plate`, `resolved without ai tokens`, `undo with ctrl+z`) can stay unconditional — no
+user instruction contains those.
+
+---
+
+## L-1184 — "1- and 2-bedroom apartments" silently drops the 1-bed: the mix grammar cannot read elliptical coordination 🔴 OPEN (lane AUD1, read-only audit — measured, not fixed)
+
+**Lane AUD1 · 2026-08-19 · the L-911 half-tolerance family, in the §GEN-CHAT mix grammar.**
+
+`GEN_MIX_RE` (`packages/ai-host/src/intents/ZeroTokenResolver.ts:3612`) =
+`/\b([1-4]|one|two|three|four)[\s-]bed(?:room)?s?\b|\bt([1-4])\b/g` requires the digit to touch
+`bed` through exactly one `[\s-]`. English ellipsis — *"1- and 2-bedroom"*, *"1 and 2 bedroom"*,
+*"one and two bed"* — puts a conjunction between the first number and the shared noun, so the
+first number NEVER matches. **Measured 2026-08-19**: *"Generate a 5-storey residential building
+with 1- and 2-bedroom apartments"* → `mix:{T1:false, T2:true, T3:false, T4:false}` → the payload
+enables T2 ONLY (`typologyBedrooms`: T1→1-bed … `apartmentPacker.ts:43`). The Confirm card says
+*"with 2-bed apartments"* — technically visible, but nothing says *"I could not read the 1-bed"*,
+and a user who asked to PRIORITISE 1- and 2-beds gets a building with zero 1-beds and no warning.
+L-911's own rule applies verbatim: half-tolerance is worse than none. The fix is the same shape as
+L-911's: let the number bind FORWARD across a conjunction to the shared "bed(room)" head — e.g.
+match `([1-4])\s*[-]?\s*(?:and|&|,|\+)\s*(?=[1-4][\s-]?bed)` as an additional capture, or
+pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
