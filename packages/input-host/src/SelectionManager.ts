@@ -17,6 +17,10 @@ import type { BVHElement } from '@pryzm/spatial-index';
 import type { PickStrategy, PickContext, GpuPickRenderer, ElementRegistry, ElementKind } from '@pryzm/picking';
 // §FIX-3D-DOOR-PICK-PRIORITY (L-99b) — let a wall-hosted door/window win over its host.
 import { resolveHostedPickPriority } from '@pryzm/picking';
+// §PRYZM-PERF (INSTR1) — a self-heal that runs OFTEN is a bug wearing a bandage.
+// ADR-0299 catalogues this family as a CONCEALING recovery: every fire is a
+// suppressed defect, and until now nothing counted the fires.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -727,6 +731,7 @@ export class SelectionManager implements ISelectionManager {
         if (window.isCameraDragging) { window.isCameraDragging = false; healed = true; }
         this._pointerDraggedThisGesture = false;
         if (healed) {
+            bumpPerf(PERF_KEYS.SELECT_SELFHEAL);
             console.warn(`[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL cleared stale interaction flags (${reason}) — selection un-wedged`);
         }
     }
@@ -1438,10 +1443,12 @@ export class SelectionManager implements ISelectionManager {
         this._pointerDownClientY = null;
 
         if (this.isTransforming && !gizmoLiveDragging) {
+            bumpPerf(PERF_KEYS.SELECT_SELFHEAL);
             console.warn('[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL stale isTransforming cleared (no live gizmo drag) — selection un-wedged');
             this.isTransforming = false;
         }
         if (window.isCameraDragging && !userDraggedThisGesture) {
+            bumpPerf(PERF_KEYS.SELECT_SELFHEAL);
             console.warn('[SelectionManager] §SELECT-STUCK-STATE-SELFHEAL stale isCameraDragging cleared (click without a real pointer drag) — selection un-wedged');
             window.isCameraDragging = false;
         }

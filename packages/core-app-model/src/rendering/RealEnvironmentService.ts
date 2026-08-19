@@ -29,6 +29,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §PRYZM-PERF (INSTR1) — full-scene traversal attribution.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { GroundShadowCatcher } from '@pryzm/renderer-three';
 import { RealSunService, type KeyLightHost, type SunMode } from './RealSunService.js';
 
@@ -209,6 +211,8 @@ export class RealEnvironmentService {
     updateGroundCatcherVisibility(): void {
         if (!this._enabled || !this._scene) return;
         const catcher = this._ground.mesh;
+        // §PRYZM-PERF (INSTR1) — full-scene walk, attributed to this call site.
+        bumpPerf(PERF_KEYS.TRAVERSE_REAL_ENV);
         let hasCaster = false;
         this._scene.traverse((obj) => {
             if (hasCaster) return;

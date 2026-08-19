@@ -498,16 +498,38 @@ export class UnifiedFrameLoop {
 
         // §PERF-TRACE: One-shot log for the first render tick after batch suppression lifts.
         // This tick is where OBC+PASCAL will compile all deferred CW shaders — the LONGTASK.
+        //
+        // ⚠ CORRECTED 2026-08-19 (INSTR1) — this line used to end
+        // "(WebGPU PSO compile LONGTASK begins here)" with **WebGPU as a HARDCODED
+        // STRING LITERAL**. This block reads no backend state whatsoever — the class
+        // holds no backend flag and never consults `isRealWebGPUBackend` or
+        // `status.webGpuActive` — so it printed "WebGPU" on every WebGL2 session too.
+        //
+        // That is not a stale comment. It is an INSTRUMENT NAMING THE WRONG
+        // SUBSYSTEM, and it did real harm: a perf investigation read this line in a
+        // session whose backend was NOT WebGPU and went looking for a WebGPU pipeline
+        // problem that could not exist. A misattributing instrument is worse than no
+        // instrument, because it does not merely fail to inform — it spends someone's
+        // afternoon.
+        //
+        // The label is now DERIVED at log time from `window.pryzmRendererBackend`,
+        // the resolved backend string written by `createRenderer` at the moment the
+        // backend is chosen. When it is absent we print "unknown-backend" rather than
+        // guessing: a shader compile is real on either backend, and the honest form of
+        // "I do not know which" is saying so.
         if (this._firstRenderPostSuppress) {
             this._firstRenderPostSuppress = false;
             const postSuppressMs = this._batchSuppressStartTime > 0
                 ? (performance.now() - this._batchSuppressStartTime).toFixed(1)
                 : '?';
+            const backend =
+                (globalThis as { pryzmRendererBackend?: string }).pryzmRendererBackend
+                ?? 'unknown-backend';
             console.log(
                 `[UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS ` +
                 `totalSuppressedMs=${postSuppressMs}ms ` +
                 `frameCount=${this._frameCount} ` +
-                `— OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)`
+                `— OBC+PASCAL about to execute (${backend} shader/PSO compile LONGTASK begins here)`
             );
         }
 

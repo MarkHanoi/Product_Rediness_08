@@ -75,6 +75,9 @@ import { wallCentrelineLength } from './WallArcParam';
 // store's last-line guard cannot drift apart, and the user reads the SAME
 // sentence the store would have thrown.
 import { rakeAuthorability } from './WallRake';
+// §PRYZM-PERF (INSTR1) — canPlace ran on EVERY pointermove and logged every time.
+// Counters replace that flood; see the block at the OK return in canPlace().
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 /**
  * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
@@ -694,6 +697,13 @@ export class WallOccupancyStore {
         excludeId?: string,
     ): CanPlaceResult {
 
+        // §PRYZM-PERF (INSTR1) — total invocations. Counted at ENTRY rather than at
+        // each of the six rejection returns: one call site cannot drift out of step
+        // with the others, and BLOCKED is then derived as (calls - ok) in the report,
+        // which is arithmetically guaranteed to reconcile. The rate is the finding —
+        // "canPlace ran 2,847 times during that drag" — not any individual verdict.
+        bumpPerf(PERF_KEYS.OCCUPANCY_CANPLACE_CALLS);
+
         // ── Compute wall length ────────────────────────────────────────────
         // §FEAT-HOSTED-ON-CURVED-WALL — the occupancy interval [offset, offset+width]
         // is measured along the wall CENTRELINE. For a curved host that is the ARC
@@ -870,7 +880,32 @@ export class WallOccupancyStore {
             };
         }
 
-        if (!__pryzmLoadActive()) {
+        // ── §PRYZM-PERF (INSTR1) — THE INSTRUMENT MUST NOT BECOME THE PROBLEM ──
+        //
+        // This was an UNCONDITIONAL `console.log` with THREE `toFixed(3)` calls and a
+        // template concatenation, firing on EVERY POINTERMOVE while an opening is
+        // being placed — dozens of console writes per second in the hottest path in
+        // the app. The founder's own capture is full of them.
+        //
+        // WHY THE EXISTING GUARD DID NOT SAVE IT. `__pryzmLoadActive()` covers project
+        // LOAD and building GENERATION only. It does not cover the interactive
+        // pointermove path (there is no flag set there — that IS the user), and it
+        // does not cover the whole-level wall rebuild in `WallRebuildCoordinator._flush`,
+        // which ADR-0261 §45 names by this exact line as "the canPlace OK flood".
+        // Three known floods, one guard, covering the two that matter least.
+        //
+        // Demoted to a counter, per the founder's instruction that the measuring
+        // apparatus must not be a measurable cost. The information is not lost — it
+        // is now `waste.occupancyCanPlaceOk` / `...Blocked` in `pryzmPerf.report()`,
+        // where a rate is more useful than a transcript anyway: nobody was reading
+        // 400 individual OK lines, but "canPlace ran 2,847 times during that drag"
+        // is a finding.
+        //
+        // The per-call detail remains available on demand, behind the SAME opt-in flag
+        // `WallFragmentBuilder` already uses for this purpose (`__pryzmDebugWalls`) —
+        // reusing the established debug switch rather than minting a second one.
+        bumpPerf(PERF_KEYS.OCCUPANCY_CANPLACE_OK);
+        if ((globalThis as { __pryzmDebugWalls?: boolean }).__pryzmDebugWalls === true) {
             console.log(
                 `[WallOccupancyStore] canPlace OK: wall=${wall.id} ` +
                 `offset=${offsetM.toFixed(3)}m width=${widthM.toFixed(3)}m ` +

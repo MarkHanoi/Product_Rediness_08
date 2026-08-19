@@ -671,9 +671,12 @@ function printReport(r: PryzmPerfReport): void {
         const heal = c[PERF_KEYS.SELECT_SELFHEAL] ?? 0;
         p(row('§SELECT-STUCK-STATE self-heals', num(heal),
             heal > 0 ? '⚠ a self-heal that runs often is a bug wearing a bandage' : ''));
-        p(row('WallOccupancy canPlace OK', num(c[PERF_KEYS.OCCUPANCY_CANPLACE_OK] ?? 0),
-            '← was a console.log on EVERY pointermove; now this counter'));
-        p(row('WallOccupancy canPlace blocked', num(c[PERF_KEYS.OCCUPANCY_CANPLACE_BLOCKED] ?? 0)));
+        // Counted at ENTRY, so blocked is derived and always reconciles.
+        const cpCalls = c[PERF_KEYS.OCCUPANCY_CANPLACE_CALLS] ?? 0;
+        const cpOk = c[PERF_KEYS.OCCUPANCY_CANPLACE_OK] ?? 0;
+        p(row('WallOccupancy canPlace calls', num(cpCalls),
+            '← was a console.log on EVERY pointermove; now a counter'));
+        p(row('  …permitted / refused', `${num(cpOk)} / ${num(cpCalls - cpOk)}`));
     }
     p(LINE);
 

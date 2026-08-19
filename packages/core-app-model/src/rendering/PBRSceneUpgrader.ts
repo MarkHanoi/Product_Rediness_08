@@ -29,6 +29,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §PRYZM-PERF (INSTR1) — this pass has a RECORDED 38.7 s wall-clock on a real
+// 4073-mesh building (RenderingPipelineCoordinator.ts:852, ADR-0076), which makes
+// it the single largest named cost in the product — and nothing timed it at the
+// point of use, so it could never be separated from the rest of a batch.
+import { bumpPerf, addPerfTime, isPerfOn, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +79,14 @@ export class PBRSceneUpgrader {
      *                 (pass scene.environment after applying HDRI)
      */
     apply(scene: THREE.Scene, envMap?: THREE.Texture | null): void {
+        // §PRYZM-PERF (INSTR1) — the 38.7 s pass, timed at the point of use.
+        // `isPerfOn()` is read ONCE here rather than per-traversed-node: this method
+        // walks the whole scene, so a per-node flag check would be the one place the
+        // instrument could plausibly show up in its own measurement.
+        const _perfOn = isPerfOn();
+        const _t0 = _perfOn ? performance.now() : 0;
+        bumpPerf(PERF_KEYS.TRAVERSE_PBR_UPGRADER);
+
         const stats: PBRUpgradeStats = {
             totalMeshes: 0, totalMaterials: 0,
             metalMaterials: 0, glassMaterials: 0,
@@ -153,6 +166,8 @@ export class PBRSceneUpgrader {
         this._stats     = stats;
         this._isApplied = true;
 
+        if (_perfOn) addPerfTime(PERF_KEYS.PHASE_PBR_UPGRADE, performance.now() - _t0);
+
         console.log(
             `[PBRSceneUpgrader] Applied — meshes: ${stats.totalMeshes}` +
             ` materials: ${stats.totalMaterials}` +
@@ -167,6 +182,10 @@ export class PBRSceneUpgrader {
      */
     restore(scene: THREE.Scene): void {
         if (!this._isApplied) return;
+
+        // The restore walk is a SECOND full traversal of the same scene — counted
+        // under the same key so the report's traversal total is the true walk count.
+        bumpPerf(PERF_KEYS.TRAVERSE_PBR_UPGRADER);
 
         const visited = new Set<string>();
 

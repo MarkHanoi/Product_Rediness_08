@@ -27,6 +27,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §PRYZM-PERF (INSTR1) — full-scene traversal attribution.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import {
     getNeutralStudioEnvironment,
     isNeutralStudioEnvironment,
@@ -455,6 +457,8 @@ export class PascalSceneLighting {
      * Safe to call multiple times — no-op for meshes already flagged.
      */
     private _enableShadowsOnScene(scene: THREE.Scene): void {
+        // §PRYZM-PERF (INSTR1) — full-scene walk, attributed to this call site.
+        bumpPerf(PERF_KEYS.TRAVERSE_SCENE_LIGHTING);
         let count = 0;
         /** §FIX-SHADOW-CASTER-DENYLIST (L-205) — offenders demoted this pass, for the log. */
         const demoted: string[] = [];

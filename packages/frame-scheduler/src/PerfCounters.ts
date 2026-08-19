@@ -313,8 +313,8 @@ export const PERF_KEYS = {
   REDETECT_ROOMS_AFTER_THROW: 'waste.redetectRoomsAfterThrow',
   REDETECT_ROOMS_MS: 'waste.redetectRoomsMs',
   SELECT_SELFHEAL: 'waste.selectStuckSelfHeal',
+  OCCUPANCY_CANPLACE_CALLS: 'waste.occupancyCanPlaceCalls',
   OCCUPANCY_CANPLACE_OK: 'waste.occupancyCanPlaceOk',
-  OCCUPANCY_CANPLACE_BLOCKED: 'waste.occupancyCanPlaceBlocked',
 
   // ── One-shot notes ────────────────────────────────────────────────────────
   NOTE_IN_BATCH: 'note.gestureRanInsideBatch',

@@ -53,6 +53,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §PRYZM-PERF (INSTR1) — full-scene traversal attribution.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -240,6 +242,13 @@ export class FrustumCullingService {
 
         const count = this.getElementCount();
         if (!force && count < LARGE_MODEL_THRESHOLD) return;
+
+        // §PRYZM-PERF (INSTR1) — counted ONCE PER AUDIT, not per child. The walk
+        // below is `child.traverse()` inside a loop over scene children, so it is
+        // O(scene) in aggregate but is ONE logical pass; counting per child would
+        // inflate the traversal total by the element count and make this site look
+        // like the dominant cost purely as an artefact of how it is written.
+        bumpPerf(PERF_KEYS.TRAVERSE_FRUSTUM_CULL);
 
         let meshCount = 0;
         let fixedCount = 0;
