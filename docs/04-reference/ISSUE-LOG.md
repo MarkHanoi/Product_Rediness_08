@@ -12750,3 +12750,71 @@ that builder exists to punch holes and declines a wall with none — so the test
 null to be truthy", measuring the control's own precondition instead of the profile. Feeding the
 RECTANGLE ring through the SAME builder is the stronger control anyway: it isolates the one variable
 that matters.
+
+---
+
+## L-1074 — "BY SLAB does nothing" — ONE root, THREE families, and the working one differs by a single parameter ✅ CURTAIN-WALL HALF CLOSED · ⚠ HANDRAIL HALF ROUTED (CW2, 2026-08-19)
+
+**FOUNDER-REPORTED from a live production session:** *"BY SLAB does not work for handrails — and the
+same thing happened with curtain walls,"* alongside *"walls work correctly."* All three halves of
+that report are **confirmed by measurement**, including the part that sounded like recollection.
+
+### The root — an ORDERING fact, not a missing feature
+
+`ToolManager.activateTool()` (`packages/input-host/src/ToolManager.ts:543-552`) runs:
+
+1. `deactivateAllInternal()`
+2. `activateFn()` → the tool's own `activate()`  ← **selection still LIVE**
+3. `this.selectionManager.setEnabled(false)`     ← **and here it is DESTROYED**
+
+and `SelectionManager.setEnabled(false)` calls `unselectAll()`. **By-Slab is a gesture whose entire
+input is the current selection, and the tool lifecycle erases that input one statement after handing
+control to the tool.**
+
+### Why the wall survives it and the other two do not — the whole difference is a PARAMETER
+
+| Family | Entry point | Takes the slab as an argument? | Result |
+|---|---|---|---|
+| **Wall** | `WallTool.createFromSelectedSlab(targetSlab?)` `:1678` | ✅ **YES**, and `ToolsAreaLayout` snapshots the selection *before* activating (`_bySlabCapture` `:270,:361`) | **WORKS** |
+| **Curtain wall** | `CurtainWallTool.createFromSelectedSlab()` `:370` | ⛔ **NO** — read `selectionManager.selectedObject` live | **ALWAYS refused** |
+| **Handrail** | `RailingPlanToolHandler._commitBySlab()` `:365` → `readSelectedSlabOutline()` `:600` | ⛔ **NO** — reads `window.selectionManager.selectedObject` live, at the user's **next viewport click**, later still | **ALWAYS refused** |
+
+⭐ **THE REFUSALS WERE CORRECT. THEIR INPUT HAD BEEN ERASED.** Nothing was wrong with
+`CreateCurtainWallsFromSlabCommand`, the stores, or the geometry — **they were never reached.** Both
+broken families print an honest message (*"Please select a slab first"* / *"BY SLAB REFUSED — no slab
+is selected"*) at a user who had selected a slab one click earlier. **A correct refusal reading a
+destroyed input is indistinguishable, from the user's chair, from a broken feature** — and it is
+worse than a crash, because it blames the user.
+
+### Fixed here (curtain wall only)
+
+`981a12d7` — `_bySlabCapture` written in `CurtainWallTool.activate()`, i.e. inside step 2, the window
+where the selection is still live; `createFromSelectedSlab(targetSlab?)` now resolves **explicit
+argument → snapshot → live selection**; the snapshot is released on `deactivate()` because a stale
+slab silently building walls in the wrong place is worse than the refusal it prevents. Done **inside
+the tool** rather than in `ToolsAreaLayout` deliberately — three other lanes were editing that file
+the same day, and step 2 makes the in-tool rescue sufficient.
+
+### ⚠ NOT fixed here — routed, not closed
+
+- **Handrail** — `packages/geometry-handrail` + `RailingPlanToolHandler` belong to lane HR2. The fix
+  is the same shape: give `_commitBySlab` / `readSelectedSlabOutline` an argument and snapshot at
+  activation. **It is strictly harder than the curtain wall's**, because the railing defers the
+  action to the user's *next click* (`RailingPlanToolHandler.ts:213`) rather than performing it
+  immediately, so the snapshot must survive longer.
+- **The generalisation, which is the part worth keeping:** `elementCreationMatrix.ts` declares
+  `isAction: true` for By-Slab on `wall` (`:221`) and `railing` (`:338`), and `DrawingModeBar`
+  honours it correctly (`:176-177`). **The bar is not the bug.** The bug is that "action" was taken
+  to mean *"consume the live selection"* by two families and *"accept the selection as a
+  parameter"* by one — and only the third is compatible with a tool lifecycle that clears selection
+  on activation. **Any future By-Slab-shaped verb must take its subject as an argument.**
+- **`CurtainWallModePicker.show()` and `curtainWallDrawingHUD.show()` have ZERO call sites** —
+  both surfaces declare a By-Slab affordance that is never displayed. The reachable one is the mode
+  bar `CurtainWallTool` builds itself (`:1017`, key `B`). Declared so the dead pair is not mistaken
+  for the live path.
+- **`elementCreationMatrix`'s `curtain-wall` row omits `byslab` entirely and declares
+  `gap: 'NOT IMPLEMENTED — no derive-from-context mode'`. That declaration is FALSE** —
+  `CreateCurtainWallsFromSlabCommand` and `CreateCurtainWallsOnAllSlabsCommand` both exist, the
+  latter with full undo/redo. Not corrected here because the row also collides on the `S`
+  accelerator (curtain wall uses `S` for *Single*; wall and railing use `S` for *By Slab*), and
+  picking a winner is a UX decision, not a lane decision.
