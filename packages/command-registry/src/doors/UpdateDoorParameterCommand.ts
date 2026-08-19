@@ -2,6 +2,9 @@ import {
     Command, CommandContext, CommandType,
     CommandValidationResult, CommandResult, SerializedCommand,
 } from '../types';
+// §OPENING-PROFILE (L-1252) — the ONE gate the builders obey, so the panel's refusal and the
+// geometry cannot disagree about which hosts can carry a curved head.
+import { openingProfileRefusal } from '@pryzm/geometry-wall';
 import { doorStore } from '@pryzm/geometry-door';
 import { DoorOpening, DoorOpeningSchema } from '@pryzm/geometry-door';
 
@@ -93,6 +96,24 @@ export class UpdateDoorParameterCommand implements Command {
             this.prev = deepFreeze(captured);
             this.prevCapturedAtExecute = true;
         }
+        // §OPENING-PROFILE (L-1252) — changing the HEAD SHAPE of a door already placed.
+        // ⛔ A host that cannot carry it refuses with the reason and the live alternative
+        // (C16 CA-18), rather than the panel reporting success over a wall that kept its
+        // square head. No squaring arm: a door cannot be circular at all.
+        if ('openingProfile' in this.patch) {
+            const wall = context.stores?.wallStore?.getById?.(current.wallId);
+            const reason = openingProfileRefusal({
+                profile:    (this.patch as { openingProfile?: unknown }).openingProfile,
+                width:      current.width,
+                height:     current.height,
+                sillHeight: current.sillHeight,
+                host:       wall ?? null,
+            });
+            if (reason) {
+                return { success: false, affectedElementIds: [], info: [reason] };
+            }
+        }
+
         doorStore.update(this.doorId, this.patch);
         this._syncWallStore(context, this.patch);
         return { success: true, affectedElementIds: [this.doorId] };
@@ -122,6 +143,28 @@ export class UpdateDoorParameterCommand implements Command {
             const ws = context.stores.wallStore;
             if (!ws.getDoor(this.doorId)) return;
             ws.updateDoor(this.doorId, delta as any);
+
+            // §OPENING-PROFILE (L-1252) — THE HOP `updateDoor` CANNOT MAKE. Measured: it copies
+            // exactly FOUR fields onto `wall.openings[]` (width / height / sillHeight / offset),
+            // so a head-shape change would write the doorStore, report success, and leave the
+            // WALL still cutting a square head — frame and void diverging (C86 §11 #1).
+            // `updateOpening` replaces the whole `Opening` and `cloneOpening` is a spread, so the
+            // new field survives; it is the sanctioned public route and keeps this lane out of
+            // `WallStore.ts`, which another lane holds.
+            if (delta && 'openingProfile' in (delta as Record<string, unknown>)) {
+                const dr = ws.getDoor(this.doorId);
+                const wall = dr ? ws.getById?.(dr.wallId) : null;
+                const existing = wall?.openings?.find(
+                    (o: { elementId?: string; id?: string }) =>
+                        o.elementId === this.doorId || o.id === dr?.openingId,
+                );
+                if (wall && existing) {
+                    ws.updateOpening(wall.id, {
+                        ...existing,
+                        openingProfile: (delta as Record<string, unknown>).openingProfile,
+                    } as never);
+                }
+            }
         } catch (err) {
             // §HONESTY — this used to be silent. The wall store holds a MIRROR of the
             // door opening; if the mirror write fails the two stores disagree and the

@@ -12,6 +12,7 @@
  */
 
 import { doorStore } from './DoorStore';
+import { openingProfilesFor, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO } from '@pryzm/geometry-wall';
 import { DoorOpening } from './DoorTypes';
 import { UpdateDoorParameterCommand } from '@pryzm/command-registry';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
@@ -266,6 +267,27 @@ export function buildDoorSection(doorId: string): HTMLElement | null {
             [{ value: 'single', label: 'Single' }, { value: 'double', label: 'Double' }],
             door.doorType,
             v => dispatch(doorId, { doorType: v as 'single' | 'double' })
+        )
+    ));
+
+    // §OPENING-PROFILE (L-1252) — the HEAD SHAPE of a door already placed, mirroring the window
+    // panel. ⛔ THREE options, not four: `openingProfilesFor('door')` excludes `circular` because
+    // a floor-reaching opening has no jambs for a circle to spring from (C84 EI-3 — do not offer
+    // what the pipeline must refuse). A curved host is refused by `UpdateDoorParameterCommand`
+    // with the reason and the live alternative.
+    //
+    // ⚠ The segmental rise (1/6 of the span) is printed in the option itself: it is a DECLARED
+    // default with no authored source, and NOT MEASURED against an architect's expectation.
+    body.appendChild(makeField('Head Shape',
+        makeSelect(
+            openingProfilesFor('door').map(k => ({
+                value: k,
+                label: k === 'segmental-arch'
+                    ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
+                    : OPENING_PROFILE_LABELS[k],
+            })),
+            (door as { openingProfile?: string }).openingProfile ?? 'rectangular',
+            v => dispatch(doorId, { openingProfile: v as never })
         )
     ));
 

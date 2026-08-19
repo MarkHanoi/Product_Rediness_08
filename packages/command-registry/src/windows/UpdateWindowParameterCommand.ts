@@ -5,6 +5,9 @@ import {
 import { windowStore } from '@pryzm/geometry-window';
 import { WindowOpening, WindowOpeningSchema } from '@pryzm/geometry-window';
 import { wallOccupancyStore } from '@pryzm/geometry-wall';
+// §OPENING-PROFILE (L-1252) — the ONE gate the builders obey, so the panel's refusal and
+// the geometry cannot disagree about which hosts can carry a curved void.
+import { openingProfileRefusal, isRectangularProfile } from '@pryzm/geometry-wall';
 
 /**
  * D4 — UpdateWindowParameterCommand
@@ -79,7 +82,27 @@ export class UpdateWindowParameterCommand implements Command {
         // neither recover nor be deleted. The clamp may add fields the caller did
         // not send (e.g. a too-wide width forces the offset inward), so prev is
         // captured over the EFFECTIVE patch keys — keeping the derived shift undoable.
-        const patch = this._clampPatchToWall(context, current, this.patch);
+        // ── §OPENING-PROFILE (L-1252) — CHANGING THE SHAPE OF AN OPENING THAT ALREADY EXISTS ──
+        //
+        // ⭐ THIS IS THE HALF THE MODE BAR CANNOT REACH. The bar authors NEW openings; the founder
+        // has 85 windows already placed, and an authoring-only capability reads as broken.
+        //
+        // Two things have to happen that a plain field patch does not do:
+        //   1. REFUSE what the host cannot carry — the same predicate the builders obey, so a
+        //      curved host declines with the reason and the live alternative (C16 CA-18) instead
+        //      of the panel reporting success over a wall that kept its rectangle.
+        //   2. SQUARE THE BOX for `circular`. C86 §10.1 PR-8 has no radius field — the width IS
+        //      the diameter — so flipping an existing 1.2 x 1.5 window to Circular must carry the
+        //      height with it, or the very next validation refuses the user's own record.
+        const _profilePatch = this._resolveProfilePatch(context, current);
+        if (typeof _profilePatch === 'string') {
+            // ⛔ A REFUSAL, NOT A SILENT NO-OP. `success:false` with the reason is what lets the
+            // panel surface it; returning success here would be the "committed ≠ reachable"
+            // defect wearing a green tick.
+            return { success: false, affectedElementIds: [], info: [_profilePatch] };
+        }
+
+        const patch = this._clampPatchToWall(context, current, _profilePatch);
 
         if (!this.prevCapturedAtExecute) {
             const captured: Partial<WindowOpening> = {};
@@ -153,11 +176,75 @@ export class UpdateWindowParameterCommand implements Command {
         return out;
     }
 
+    /**
+     * §OPENING-PROFILE (L-1252) — validate a profile change and carry its consequences.
+     *
+     * Returns the effective patch, or a REFUSAL STRING when the change cannot be made good.
+     * A patch that does not touch `openingProfile` is returned untouched, so every existing
+     * edit keeps its exact previous behaviour.
+     */
+    private _resolveProfilePatch(
+        context: CommandContext,
+        current: WindowOpening,
+    ): Partial<WindowOpening> | string {
+        const patch = this.patch;
+        if (!('openingProfile' in patch)) return patch;
+
+        const nextProfile = patch.openingProfile;
+        const out: Partial<WindowOpening> = { ...patch };
+
+        // A circle's bounding box is square, and `width` is the diameter. Carrying the height
+        // here — rather than asking the user to set it — is the C84 EI-3 rule applied to an EDIT:
+        // the panel offered the profile, so the pipeline makes the offer good.
+        if (!isRectangularProfile(nextProfile) && nextProfile === 'circular') {
+            const w = (patch.width ?? current.width) as number;
+            out.width  = w;
+            out.height = w;
+        }
+
+        const wall = context.stores?.wallStore?.getById?.(current.wallId);
+        const reason = openingProfileRefusal({
+            profile:    nextProfile,
+            width:      (out.width      ?? current.width)      as number,
+            height:     (out.height     ?? current.height)     as number,
+            sillHeight: (out.sillHeight ?? current.sillHeight) as number,
+            host:       wall ?? null,
+        });
+        return reason ?? out;
+    }
+
     private _syncWallStore(context: CommandContext, delta: Partial<WindowOpening>): void {
         try {
             const ws = context.stores.wallStore;
             if (!ws.getWindow(this.windowId)) return;
             ws.updateWindow(this.windowId, delta as any);
+
+            // ── §OPENING-PROFILE (L-1252) — THE HOP `updateWindow` CANNOT MAKE ───────────
+            //
+            // ⛔ MEASURED, NOT ASSUMED: `WallStore.updateWindow` copies exactly FOUR fields onto
+            // `wall.openings[]` — width, height, sillHeight, offset. A profile change would write
+            // the windowStore, report success, and leave the WALL still cutting a rectangle: the
+            // frame and the void diverge (C86 §11 #1), and the panel shows a circle the model
+            // does not have.
+            //
+            // ⭐ `updateOpening` is the sanctioned public route that DOES reach the wall record —
+            // it replaces the whole `Opening`, and `cloneOpening` is a spread, so the new field
+            // survives. Using it here rather than widening `updateWindow`'s field list keeps this
+            // lane out of `WallStore.ts`, which another lane holds.
+            if (delta && 'openingProfile' in (delta as Record<string, unknown>)) {
+                const win = ws.getWindow(this.windowId);
+                const wall = win ? ws.getById?.(win.wallId) : null;
+                const existing = wall?.openings?.find(
+                    (o: { elementId?: string; id?: string }) =>
+                        o.elementId === this.windowId || o.id === win?.openingId,
+                );
+                if (wall && existing) {
+                    ws.updateOpening(wall.id, {
+                        ...existing,
+                        openingProfile: (delta as Record<string, unknown>).openingProfile,
+                    } as never);
+                }
+            }
         } catch (err) {
             // §HONESTY — this used to be silent. The wall store holds a MIRROR of the
             // window opening; if the mirror write fails the two stores disagree and the

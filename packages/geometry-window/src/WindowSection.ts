@@ -12,6 +12,7 @@
  */
 
 import { windowStore } from './WindowStore';
+import { OPENING_PROFILE_KINDS, OPENING_PROFILE_LABELS, SEGMENTAL_RISE_RATIO } from '@pryzm/geometry-wall';
 import { WindowOpening } from './WindowTypes';
 import { UpdateWindowParameterCommand } from '@pryzm/command-registry';
 import { injectDwStyles } from '@pryzm/geometry-door';
@@ -218,6 +219,33 @@ export function buildWindowSection(windowId: string): HTMLElement | null {
             [{ value: 'single', label: 'Single' }, { value: 'double', label: 'Double' }],
             win.windowType,
             v => dispatch(windowId, { windowType: v as 'single' | 'double' })
+        )
+    ));
+
+    // §OPENING-PROFILE (L-1252) — THE SHAPE OF AN OPENING THE USER HAS ALREADY PLACED.
+    //
+    // ⭐ The mode bar authors NEW windows; this reaches the 85 already in the model. An
+    // authoring-only capability reads as broken, which is the "authored-but-unwired" bottleneck
+    // this repo has recorded more than once.
+    //
+    // ⚠ THE SEGMENTAL RISE IS PRINTED IN THE OPTION ITSELF, not only in a tooltip: C86 §10.1
+    // PR-8 forbids a dimension field beside width/height, so the rise takes a DECLARED default of
+    // 1/6 of the span, and whether that matches an architect's expectation is NOT MEASURED. The
+    // number is on screen so it can be corrected in one sentence.
+    //
+    // ⛔ A change the host cannot carry (a curved wall) is REFUSED by
+    // `UpdateWindowParameterCommand` with the reason and the live alternative — never a silent
+    // no-op, and never a rectangle substituted quietly.
+    body.appendChild(makeField('Shape',
+        makeSelect(
+            OPENING_PROFILE_KINDS.map(k => ({
+                value: k,
+                label: k === 'segmental-arch'
+                    ? `${OPENING_PROFILE_LABELS[k]} (rise 1/${Math.round(1 / SEGMENTAL_RISE_RATIO)} of width)`
+                    : OPENING_PROFILE_LABELS[k],
+            })),
+            win.openingProfile ?? 'rectangular',
+            v => dispatch(windowId, { openingProfile: v as never })
         )
     ));
 
