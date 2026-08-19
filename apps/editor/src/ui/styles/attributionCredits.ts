@@ -126,6 +126,18 @@ export const ATTRIBUTION_CREDITS_STYLES = `
   backdrop-filter: var(--app-panel-glass-blur, blur(18px) saturate(1.35));
   -webkit-backdrop-filter: var(--app-panel-glass-blur, blur(18px) saturate(1.35));
   box-shadow: 0 1px 6px rgba(20, 10, 60, 0.10);
+  /* Typography declared on the CONTAINER as well as on '.cesium-widget-credits',
+     and that redundancy is deliberate. Cesium builds the credit DOM in two
+     shapes: the Viewer hands its own 'bottomContainer' to the widget as
+     'creditContainer', in which case the logo/text/expand children are appended
+     DIRECTLY here and no '.cesium-widget-credits' wrapper is in the tree. Styling
+     only the wrapper would then style nothing, and the chip would inherit the
+     page font at whatever size the host set. Children inherit these. */
+  color: var(--app-text-2, #5a6a85);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  line-height: 1.35;
+  text-shadow: none;
   /* Never a pointer trap over the globe — but the links inside stay clickable,
      which the terms require: "Data attribution" is the route to the full
      provider list and must remain reachable. */
