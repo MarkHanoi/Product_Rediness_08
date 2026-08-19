@@ -60,39 +60,122 @@
 // fully guarded: a storage failure degrades to the in-memory default (visible),
 // never to a throw on a render path.
 
-/** The persisted key. Namespaced so it can never collide with project data. */
+// ════════════════════════════════════════════════════════════════════════════
+// §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — ONE AUTHORITY, TWO AXES.
+// ════════════════════════════════════════════════════════════════════════════
+//
+// THE FOUNDER'S REPORT (2026-08-19, production, Barcelona 424 m² parcel):
+//   "When the envelope is OFF we should see this shade on the GROUND."
+//
+// L-1170's gate suppressed the WHOLE envelope solid, so hiding the VOLUME also
+// hid the only ground-plane answer. The two representations answer DIFFERENT
+// questions and one is useful precisely when the other is off:
+//   • VOLUME    — "what mass may I build?"  Obstructive; turned off to see the design.
+//   • FOOTPRINT — "what area may I build on?"  Flat; occludes nothing.
+//
+// ⛔ THE FIX IS NOT A SECOND AUTHORITY — that is the exact shape L-1170 removed.
+// It is THIS module carrying TWO booleans, one subscription, and one pure
+// projection rule in L2 (`applyEnvelopeVisibilityAxes`) that BOTH rasterisers
+// read. The `Envelope: ON/OFF` control writes the VOLUME axis only; the FOOTPRINT
+// axis exists so "hide everything" is expressible without a fifth authority, and
+// so a future control has exactly one place to write.
+
+// ⚠ TYPE-ONLY, deliberately. This module is a ZERO-RUNTIME-DEPENDENCY leaf (that is what lets the
+// Cesium viewport and the BIM renderer both import it by file with no cycle risk), and a
+// `import type` is erased at compile — it adds no runtime edge. The SHAPE of the axes belongs with
+// the pure L2 rule that consumes them (`applyEnvelopeVisibilityAxes`), not re-declared here, or the
+// authority and the rule could disagree about what a pair of booleans means.
+import type { EnvelopeVisibilityAxes } from '@pryzm/site-parcel-data';
+
+/** The persisted key for the VOLUME axis. Namespaced so it can never collide with project data.
+ *  ⚠ NAME UNCHANGED — an existing user's "off" must survive this change; it was, and remains,
+ *  the answer to "is the extruded envelope volume on screen?". */
 const STORAGE_KEY = 'pryzm.site.buildableEnvelopeVisible';
+
+/** §ENVELOPE-TWO-AXES — the persisted key for the GROUND FOOTPRINT axis. */
+const FOOTPRINT_STORAGE_KEY = 'pryzm.site.buildableEnvelopeFootprintVisible';
 
 /** Default ON — C58 §1.4: an envelope that silently fails to arrive reads as
  *  "there is no constraint here", which is the false negative the contract
  *  forbids. Only an explicit user "off" may hide it. */
 const DEFAULT_VISIBLE = true;
 
-type Listener = (visible: boolean) => void;
+/**
+ * §ENVELOPE-TWO-AXES — the FOOTPRINT default. ON, and for a stronger reason than §1.4's general
+ * false-negative rule: the whole point of L-1188 is that hiding the volume must not delete the
+ * ground answer. A user who has never expressed an opinion about the footprint has certainly not
+ * asked for it to vanish when they dismiss the box.
+ */
+const DEFAULT_FOOTPRINT_VISIBLE = true;
+
+/** ⚠ The listener signature takes NO argument. It used to take the volume boolean, which quietly
+ *  invited a subscriber to render from THAT rather than re-asking — a snapshot, i.e. the L-1170
+ *  defect one level down. With two axes a single boolean cannot describe the answer at all, so the
+ *  notification says only "it changed; re-ask". */
+type Listener = () => void;
 
 const listeners = new Set<Listener>();
 
 /** Read the persisted preference. Never throws (private mode / disabled storage). */
-function readPersisted(): boolean {
+function readPersisted(key: string, fallback: boolean): boolean {
     try {
-        if (typeof localStorage === 'undefined') return DEFAULT_VISIBLE;
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw === null) return DEFAULT_VISIBLE;
+        if (typeof localStorage === 'undefined') return fallback;
+        const raw = localStorage.getItem(key);
+        if (raw === null) return fallback;
         return raw !== '0';
     } catch {
-        return DEFAULT_VISIBLE;
+        return fallback;
     }
 }
 
-let visible: boolean = readPersisted();
+/** Write one axis's preference. Best-effort — a storage failure never reaches a render path. */
+function writePersisted(key: string, value: boolean): void {
+    try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(key, value ? '1' : '0');
+    } catch { /* preference persistence is best-effort; the live flag still holds */ }
+}
+
+/** Notify every subscribed surface that the answer changed. A listener that throws is logged and
+ *  skipped — one broken surface must never stop the others honouring the user's choice. */
+function notify(): void {
+    for (const fn of [...listeners]) {
+        try { fn(); }
+        catch (e) { console.warn('[gis][c58] §ENVELOPE-ONE-VISIBILITY listener threw (non-fatal):', e); }
+    }
+}
+
+let visible: boolean = readPersisted(STORAGE_KEY, DEFAULT_VISIBLE);
+let footprintVisible: boolean = readPersisted(FOOTPRINT_STORAGE_KEY, DEFAULT_FOOTPRINT_VISIBLE);
 
 /**
- * ⭐ THE ONE READ. Every surface that can put a buildable-envelope solid on screen
- * — the Cesium §1.14 rasteriser, the BIM/plan three.js volume, and the resolver
- * that feeds them — asks THIS and nothing else.
+ * ⭐ THE ONE READ — the VOLUME axis. "Is the extruded buildable-envelope solid on screen?"
+ *
+ * ⚠ §ENVELOPE-TWO-AXES (L-1188) — this is NOT "is the envelope on screen?" any more. Hiding the
+ * volume leaves the GROUND FOOTPRINT shade, which is the whole point of L-1188. A rasteriser must
+ * therefore read `getBuildableEnvelopeAxes()` and hand it to the L2 `applyEnvelopeVisibilityAxes`,
+ * NOT branch on this boolean — a renderer that branches here re-decides the projection rule locally,
+ * which is how the globe and the BIM scene drift apart. Kept as the named read for the CONTROL
+ * (which owns exactly this axis) and for the §1.15 structural pin.
  */
 export function isBuildableEnvelopeVisible(): boolean {
     return visible;
+}
+
+/**
+ * §ENVELOPE-TWO-AXES — the FOOTPRINT axis. "Should the flat ground shade be drawn when the volume
+ * is not?" Default ON; no control writes it today (see the header) — it exists so that "hide
+ * everything" is expressible without minting a second authority.
+ */
+export function isBuildableEnvelopeFootprintVisible(): boolean {
+    return footprintVisible;
+}
+
+/**
+ * ⭐ THE ONE READ A RASTERISER USES. Both axes, together, as the L2
+ * `applyEnvelopeVisibilityAxes(solids, axes)` consumes them.
+ */
+export function getBuildableEnvelopeAxes(): EnvelopeVisibilityAxes {
+    return { volume: visible, footprint: footprintVisible };
 }
 
 /**
@@ -104,23 +187,35 @@ export function isBuildableEnvelopeVisible(): boolean {
  *
  * No-ops (and notifies nobody) when the value is unchanged, so an idempotent
  * re-assert cannot cost a Cesium re-render.
+ *
+ * §ENVELOPE-TWO-AXES — writes the VOLUME axis ONLY. It does not touch the footprint: "I do not want
+ * the box over my design" is not a statement about the buildable AREA.
  */
 export function setBuildableEnvelopeVisible(next: boolean): void {
     if (visible === next) return;
     visible = next;
-    try {
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-        }
-    } catch { /* preference persistence is best-effort; the live flag still holds */ }
+    writePersisted(STORAGE_KEY, next);
     console.log(
-        `[gis][c58] §ENVELOPE-ONE-VISIBILITY — buildable envelope set ${next ? 'VISIBLE' : 'HIDDEN'} ` +
-            `by the user; ${listeners.size} surface(s) notified.`,
+        `[gis][c58] §ENVELOPE-ONE-VISIBILITY — buildable envelope VOLUME set ${next ? 'VISIBLE' : 'HIDDEN'} ` +
+            `by the user (ground footprint shade ${footprintVisible ? 'STAYS — §ENVELOPE-TWO-AXES' : 'also hidden'}); ` +
+            `${listeners.size} surface(s) notified.`,
     );
-    for (const fn of [...listeners]) {
-        try { fn(next); }
-        catch (e) { console.warn('[gis][c58] §ENVELOPE-ONE-VISIBILITY listener threw (non-fatal):', e); }
-    }
+    notify();
+}
+
+/**
+ * §ENVELOPE-TWO-AXES — write the FOOTPRINT axis. Same contract as the volume write: it only writes,
+ * and the surfaces repaint from the subscription.
+ */
+export function setBuildableEnvelopeFootprintVisible(next: boolean): void {
+    if (footprintVisible === next) return;
+    footprintVisible = next;
+    writePersisted(FOOTPRINT_STORAGE_KEY, next);
+    console.log(
+        `[gis][c58] §ENVELOPE-TWO-AXES — buildable envelope GROUND FOOTPRINT set ` +
+            `${next ? 'VISIBLE' : 'HIDDEN'} by the user; ${listeners.size} surface(s) notified.`,
+    );
+    notify();
 }
 
 /**
@@ -135,11 +230,15 @@ export function subscribeBuildableEnvelopeVisibility(fn: Listener): () => void {
     return () => { listeners.delete(fn); };
 }
 
-/** Test-only reset — restores the default and drops every subscriber. */
+/** Test-only reset — restores BOTH defaults and drops every subscriber. */
 export function __resetBuildableEnvelopeVisibilityForTests(): void {
     visible = DEFAULT_VISIBLE;
+    footprintVisible = DEFAULT_FOOTPRINT_VISIBLE;
     listeners.clear();
     try {
-        if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(FOOTPRINT_STORAGE_KEY);
+        }
     } catch { /* nothing to clean up */ }
 }

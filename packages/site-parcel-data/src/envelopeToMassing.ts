@@ -476,3 +476,134 @@ export function totalMassingVolumeM3(solids: ReadonlyArray<MassingSolid>): numbe
     for (const s of solids) v += massingSolidVolumeM3(s);
     return v;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — ONE AUTHORITY, TWO VISIBILITY AXES.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE FOUNDER'S REPORT (2026-08-19, production, Barcelona 424 m² parcel): *"When the envelope is
+// OFF we should see this shade on the GROUND."*
+//
+// A buildable envelope has TWO representations that answer DIFFERENT questions:
+//   • the VOLUME    — "what mass may I build?"  Obstructive in 3D; the user turns it off precisely
+//                     so they can see their own design.
+//   • the FOOTPRINT — "what AREA may I build on?"  A flat ground shade; useful EXACTLY WHEN the
+//                     volume is off, because it occludes nothing.
+// §1.15 collapsed four rival visibility authorities into one gate — correct in kind — but that gate
+// suppressed the WHOLE solid, so hiding the volume also hid the only ground answer. Turning the
+// volume off is not a statement that the buildable AREA stopped being interesting.
+//
+// ⛔ THE FIX IS NOT A SECOND AUTHORITY. That is the exact defect §1.15 spent a lane removing. It is
+// ONE authority carrying TWO axes, and ONE pure projection rule — here — that both rasterisers read.
+//
+// ⭐ WHY THIS CANNOT OVERSTATE (§L-616 / §1.16 / L-1171). The shade is a PROJECTION OF SOLIDS THAT
+// ALREADY EXIST. It is never derived from the parcel, from a setback, or from any scalar: if
+// `envelopeToMassing` refused (a §1.16 zero-inset, a `status !== 'ok'`, a degenerate ring) there are
+// no solids, so there is no shade. A ground shade can therefore never appear where the volume would
+// not have — no new claim can be minted by hiding something. It carries the SAME hue and the SAME
+// honesty flags as the solid it projects (a "Default rule pack" envelope shades in the provisional
+// grey, never the confident violet), and `claimsVolume: false` keeps it out of the §1.14.4
+// never-overstate sum by construction.
+
+/** §ENVELOPE-TWO-AXES — the flat ground shade's thickness (m). Deliberately sub-visual: it reads as
+ *  a shade on the ground, not as the 0.5 m `FOOTPRINT_ONLY_HEIGHT_M` "no height claimed" SLAB, which
+ *  is a different statement (that one says an envelope exists whose height is unpublished).
+ *  ⚠ NOT ZERO, and not 0.05: the Cesium parcel-boundary fill sits at `base + 0.05`, so a coplanar
+ *  shade z-fights it into a shimmering mess. 0.12 clears it and is still invisible in section. */
+export const GROUND_SHADE_HEIGHT_M = 0.12;
+
+/** §ENVELOPE-TWO-AXES — the ground shade's fill. Heavier than the near-wireframe study alphas (it is
+ *  the ONLY thing on screen for this envelope) and lighter than the opaque `SOLID_FILL_ALPHA` (it is
+ *  a shade, not a mass). An upper-bound / open-top envelope keeps its near-wireframe weight. */
+export const GROUND_SHADE_FILL_ALPHA = 0.22;
+
+/**
+ * The two independent things a user can ask to see. Held by the ONE view authority
+ * (`apps/editor/src/ui/site/envelopeVisibility.ts`); this module only says what each COMBINATION
+ * means as geometry.
+ */
+export interface EnvelopeVisibilityAxes {
+    /** The extruded study VOLUME — "what mass may I build?" The `Envelope: ON/OFF` control. */
+    readonly volume: boolean;
+    /** The flat GROUND FOOTPRINT shade — "what area may I build on?" */
+    readonly footprint: boolean;
+}
+
+/** What a rasteriser should actually draw, given the axes. */
+export type EnvelopeDrawMode = 'volume' | 'ground-shade' | 'none';
+
+/**
+ * The ONE rule mapping the two axes to what gets drawn. Both rasterisers (the Cesium §1.14 loop and
+ * the three.js `ParcelBoundarySceneRenderer`) read THIS — not the axes directly — so the two surfaces
+ * cannot drift into different readings of the same preference.
+ *
+ * ⚠ `volume` WINS. When the volume is drawn its own base already IS the footprint, so drawing a
+ * separate coplanar shade under it buys nothing and z-fights.
+ */
+export function envelopeDrawMode(axes: EnvelopeVisibilityAxes): EnvelopeDrawMode {
+    if (axes.volume) return 'volume';
+    return axes.footprint ? 'ground-shade' : 'none';
+}
+
+/**
+ * Project a solved envelope's solids onto the ground: ONE flat shade at the maximal ground-touching
+ * extent. Returns `[]` when there is nothing to project.
+ *
+ * WHICH RING. The largest-area solid that TOUCHES THE GROUND (`baseHeightM === 0`) — for a tiered
+ * envelope (§1.7b.4) that is the ground tier, which is the buildable ground area; for the
+ * single-prism and §L-616 shell+FAR cases every solid shares one ring, so the choice is trivially
+ * the same ring the volume stands on. A solid that starts ABOVE the ground (an upper tier) is
+ * deliberately NOT projected: it is not ground you may build on.
+ */
+export function envelopeGroundShade(solids: ReadonlyArray<MassingSolid>): MassingSolid[] {
+    let best: MassingSolid | null = null;
+    for (const s of solids) {
+        if (s.baseHeightM > 1e-6) continue;
+        if (!s.ring || s.ring.length < 3) continue;
+        if (best === null || s.areaM2 > best.areaM2) best = s;
+    }
+    if (best === null) return [];
+    const nearWireframe = best.style.footprintUpperBound || best.style.openTop;
+    return [{
+        id: 'pryzm-forma-envelope-ground-shade',
+        ring: best.ring,
+        areaM2: best.areaM2,
+        baseHeightM: 0,
+        topHeightM: GROUND_SHADE_HEIGHT_M,
+        role: 'footprint-slab',
+        // ⭐ NEVER a volume claim. A shade says "this is the AREA", never "this is the MASS", so it
+        // contributes 0 to the §1.14.4 never-overstate sum whatever its source solid claimed.
+        claimsVolume: false,
+        style: {
+            hue: best.style.hue,
+            fillAlpha: nearWireframe ? UPPER_BOUND_FILL_ALPHA : GROUND_SHADE_FILL_ALPHA,
+            complete: best.style.complete,
+            footprintUpperBound: best.style.footprintUpperBound,
+            // A flat shade has no top to leave open — the open-top DISCLOSURE belongs to the volume.
+            // The flag is carried (so a consumer can still read the posture) but the geometry is flat.
+            openTop: best.style.openTop,
+            reason: `ground footprint shade (volume hidden) — ${best.style.reason}`,
+        },
+    }];
+}
+
+/**
+ * ⭐ THE ONE PLACE the user's two axes become geometry. Both rasterisers call this with the solids
+ * `envelopeToMassing` produced and the axes the view authority holds.
+ *
+ * PURITY: pure (C58 §1.9). Deterministic; returns the INPUT ARRAY unchanged when the volume is shown,
+ * so the `volume: true` path is byte-identical to the pre-L-1188 behaviour.
+ */
+export function applyEnvelopeVisibilityAxes(
+    solids: ReadonlyArray<MassingSolid>,
+    axes: EnvelopeVisibilityAxes,
+): MassingSolid[] {
+    switch (envelopeDrawMode(axes)) {
+        case 'volume':
+            return solids as MassingSolid[];
+        case 'ground-shade':
+            return envelopeGroundShade(solids);
+        default:
+            return [];
+    }
+}

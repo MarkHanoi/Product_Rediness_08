@@ -15443,6 +15443,133 @@ migrate into the GIS panel behind the ONE surface; (4) retire the legacy control
 a tombstone, never a silent delete. Contract home: C13/C58 for site scope, plus whichever UI
 contract owns panel composition.
 
+## L-1188 — "Envelope: OFF" deleted the GROUND FOOTPRINT along with the volume — a REGRESSION FROM L-1170, correct in kind, over-suppressing in degree ✅ FIXED 2026-08-19 (lane ENV2)
+
+**Founder, deployed build, 3D Site / Forma, Barcelona parcel (424 m² lot, 272 m² buildable,
+max height 19.1 m, "Default rule pack — real DK/ES zoning coming"), three screenshots + a console
+capture:** *"When the envelope is OFF we should see this shade on the GROUND. Analyse — review —
+amend — fix."*
+
+### PHASE 0 — WHAT THE GREY PLANE IS, MEASURED, BEFORE ANY FIX
+
+The ask was ambiguous in a way that changed the fix completely, so it was resolved from his own log
+rather than from the pixels:
+
+```
+OFF: §ENVELOPE-ONE-VISIBILITY — 1 envelope solid(s) in this payload SUPPRESSED
+     §ENVELOPE-VIA-MASSING render diag: envelope present=n, envelope entities added=0,
+                                        total massing entities=2
+ON : §ENVELOPE-VIA-MASSING (§1.14 rasteriser) drew 1/1 solid(s): [massing@19.1m] · provisional grey
+```
+
+- ⭐ **`envelope entities added=0` settles it.** With the envelope OFF the buildable envelope
+  contributes **zero** objects to the scene. **The grey plane in the OFF screenshot is NOT the
+  envelope footprint.**
+- **`total massing entities=2` names what IS there**, exhaustively — the Forma flat-ground path adds
+  exactly two ground objects: `pryzm-forma-parcel-boundary` (the faint translucent fill,
+  `CesiumViewport.ts:5493`) and `pryzm-forma-parcel-boundary-line` (the dashed ring, `:5508`). Both
+  describe the **424 m² PARCEL**. The buildable **272 m²** has no representation at all in that
+  state.
+- Answer **(b)** of the three candidates the brief posed: a *different object entirely*, and the
+  envelope footprint is genuinely **missing** when OFF. Not **(a)** (it is not already rendering)
+  and not **(c)** (not a stale replay — the suppression line proves a live gate ran on a live
+  answer; the payload was stale, the decision was not).
+- ⚠ **Answered only NEGATIVELY, and deliberately left there.** Whether the specific grey he arrowed
+  is the parcel fill or the Forma ground plate is **not measured** — the two are not distinguishable
+  from a screenshot description, and it does not change the verdict: either way the shade on screen
+  answers *"where is the LOT?"* while the founder is asking *"where may I BUILD?"*, and those are
+  424 m² and 272 m² respectively.
+
+### ROOT CAUSE — AND IT IS YESTERDAY'S FIX
+
+**L-1170 (lane ENV1, `160f84f4`, C58 §1.15) is the direct cause, and it was correct in kind.** It
+collapsed four rival envelope-visibility authorities into ONE gate at the §1.14 rasteriser — the
+right architecture, and it fixed a real "I cannot hide this box" defect. But the gate it installed
+suppressed **the whole envelope solid**:
+
+```ts
+const envHidden = !isBuildableEnvelopeVisible();
+const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
+```
+
+and the whole solid was the **only** thing the envelope ever drew. So "hide the volume" silently
+also meant "delete the ground answer". **This row exists to say that plainly: ENV1 over-suppressed.
+The one-authority collapse should not be undone, and the fix must not re-introduce a rival.**
+
+A second, independent blocker sat upstream and would have made any rasteriser-side fix
+**unsatisfiable**: `GISAreaLayout.resolveFormaEnvelope` returned `null` when the toggle was off, so
+the payload carried no solids to project. (§1.15.2 already forbade that caller-side gate; it was
+merely harmless while "off" meant "draw nothing".) Ask whether the condition can EVER be true
+before deep-tracing — two of the three edits here exist because it could not.
+
+### THE DECISION (C58 §1.17) — ONE AUTHORITY, TWO AXES
+
+A buildable envelope has **two representations that answer different questions**, and one is useful
+*precisely* when the other is off:
+
+| | question | form | |
+|---|---|---|---|
+| **VOLUME** | *"what MASS may I build?"* | extruded solid | obstructive — turned off to see one's own design |
+| **FOOTPRINT** | *"what AREA may I build on?"* | flat ground shade | occludes nothing — useful exactly when the volume is hidden |
+
+**`Envelope: OFF` now means "hide the volume, keep the footprint."** Implemented as ONE authority
+carrying TWO booleans plus ONE pure L2 rule both rasterisers read —
+`applyEnvelopeVisibilityAxes(solids, axes)` / `envelopeDrawMode(axes)` beside the §1.14 seam.
+⛔ **Not a second authority**, which is the exact shape ENV1 spent a lane removing.
+
+### WHY THIS CANNOT RE-OPEN THE §L-616 / L-1171 OVERSTATEMENT
+
+⭐ **The shade is a PROJECTION of solids that already exist — never a new derivation.** It takes the
+ring, the hue and every honesty flag from the largest **ground-touching** solid `envelopeToMassing`
+produced. A refused envelope, a §1.16 zero-inset, a degenerate ring ⇒ **no solids ⇒ no shade**, by
+construction, in every axis combination. **Hiding something can never mint a claim.** It carries
+`claimsVolume: false` (0 in the §1.14.4 never-overstate sum), keeps the provisional grey on a
+"Default rule pack" parcel, and keeps the near-wireframe fill weight when the footprint is
+upper-bound: *the doubt does not become less doubtful because the volume was hidden.* The card now
+also states in words that the volume is hidden, the footprint is still shaded, and it carries **the
+same confidence as the figures above it**.
+
+### FILES
+
+- `packages/site-parcel-data/src/envelopeToMassing.ts` — the two-axis types + the pure projection
+  rule (`envelopeDrawMode`, `envelopeGroundShade`, `applyEnvelopeVisibilityAxes`,
+  `GROUND_SHADE_HEIGHT_M = 0.12`, `GROUND_SHADE_FILL_ALPHA`); exported from `src/index.ts`.
+- `apps/editor/src/ui/site/envelopeVisibility.ts` — the ONE authority gains the `footprint` axis,
+  `getBuildableEnvelopeAxes()`, its own persisted key; the listener signature drops its boolean
+  argument so a subscriber must **re-ask** rather than render from a handed-in snapshot.
+- `apps/editor/src/ui/geospatial/CesiumViewport.ts` — the §1.14 chokepoint derives solids from the
+  axes through the L2 rule.
+- `apps/editor/src/ui/site/ParcelBoundarySceneRenderer.ts` — same rule, same decision, in the
+  BIM/plan three.js scene (flat shade, no open-top cap — a flat slab has no top to leave open).
+- `apps/editor/src/ui/layout/GISAreaLayout.ts` — the caller-side gate removed; the toggle caption
+  says what OFF does.
+- `docs/02-decisions/contracts/C58-…md` — **§1.17** added; **§1.15 amended in place** (its quoted
+  one-axis code block is now marked MUST-NOT-RESTORE).
+
+### PROOF
+
+`apps/editor/__tests__/envelopeOneVisibility.test.ts` — **23 cases, all green** (13 pre-existing
+L-1170 cases, updated to the two-axis shape; 10 new). The behavioural cases drive the **real** path:
+they call `setBuildableEnvelopeVisible` — the exact function the card's button calls — and push the
+result through the **same** `applyEnvelopeVisibilityAxes` both rasterisers call. Nothing about
+visibility is stubbed; a test that stubs the thing under test proves nothing. **Verified RED before
+the fix**: with `applyEnvelopeVisibilityAxes` reverted to the one-axis behaviour, 4 of the 10 fail,
+led by *"OFF still draws a FLAT GROUND SHADE at the buildable ring"* (`toHaveLength(1)` against the
+`[]` ENV1 produced). Three structural pins guard the shape: the one-axis gate must not return; both
+rasterisers must read the shared rule and neither may branch on the volume boolean; the caller-side
+gate must stay gone. `packages/site-parcel-data` 3,139 tests green (the one failing suite,
+`bcnClau18OvRouteEndToEnd`, is pre-existing and unrelated — a missing `server/` module).
+Root `tsc --noEmit --skipLibCheck`: **COMPILER_RC=0, 0 errors**.
+
+⚠ **NOT ESTABLISHED:** not verified in a browser by this lane. And the Phase-0 identification is
+negative-only (see above) — *what* the grey plane was is not measured, only that it was not the
+envelope.
+
+**RELATED:** L-1170 / L-1171 (ENV1, the same code path, yesterday). The founder's log also carried
+`§OVERPASS-CLIENT-FAILOVER` (every upstream mirror 429/timeout — it correctly refuses to read empty
+as "no context") and the sea layer's honest no-op; **neither is related to this defect**, and the
+Overpass failure is in fact why the OFF screenshot has so little else on the ground.
+
 ---
 
 ## L-1188 — changing a HANDRAIL TYPE freezes the viewport: the shadow-freeze list is a hand-written literal and eleven element families are in NEITHER copy of it ✅ FIXED — 2026-08-19 (lane GPU1)

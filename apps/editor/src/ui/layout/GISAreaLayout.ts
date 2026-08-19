@@ -2194,9 +2194,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // deploy-test cycle: the wiring was statically correct, so reading the code could not
         // distinguish them — exactly the L-446 lesson that a correct read chain plus wrong
         // behaviour means runtime STATE, and only a probe names it.
+        // ⛔ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — THE EARLY RETURN THAT USED TO BE HERE IS GONE.
+        //
+        // It read `if (!isBuildableEnvelopeVisible()) return null;` — a CALLER-side gate, which
+        // §1.15.2 already forbids (the gate belongs at the rasteriser, because a replayed payload is
+        // a caller nobody re-asked). Harmless while "off" meant "draw nothing"; actively wrong now
+        // that "off" means "draw the GROUND FOOTPRINT instead of the volume": starving the payload
+        // of solids here would leave the chokepoint with nothing to project, and the founder's ground
+        // shade could never appear however correct the rasteriser was.
+        //
+        // ⭐ This function's job is to choose the SOURCE envelope. Whether — and as what — it is
+        // DRAWN is the rasteriser's, via the one authority. Do not re-add a visibility branch here.
         if (!isBuildableEnvelopeVisible()) {
-            console.log('[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope OFF (user toggle); not rendered.');
-            return null;
+            console.log(
+                '[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope VOLUME is OFF (user toggle); still ' +
+                    'resolving the envelope so the §1.14 rasteriser can draw the GROUND FOOTPRINT ' +
+                    'shade (§ENVELOPE-TWO-AXES). The rasteriser, not this resolver, decides.',
+            );
         }
         // C58 §1.14 / STRUCTURAL-SEAM-1 — the 4-field narrowing is GONE. When this session solved a
         // full envelope we pass the WHOLE `BuildableEnvelope` to the pure `envelopeToMassing`, so
@@ -2331,9 +2345,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  mirror of it), so the control can never display a state the renderers disagree with. */
     const envelopeToggleHtml = (): string => {
         const on = isBuildableEnvelopeVisible();
+        // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — SAY WHAT "OFF" ACTUALLY DOES. It hides the
+        // VOLUME and leaves the flat ground footprint shade. A control labelled bare "OFF" beside a
+        // shade that is still on screen invites the user to read the shade as something else
+        // (terrain, the parcel fill) — which is exactly the ambiguity the founder's report had to
+        // be disambiguated out of. The caption is ESTIMATED-qualified for the same reason the card's
+        // chip is: the shade is drawn from the same provisional determination the card describes,
+        // so its honesty caveat travels with it (§L-616 / §1.16 — a shade that reads authoritative
+        // on a default rule pack is the overstatement defect wearing a new shape).
+        const sub = on
+            ? ''
+            : `<div style="margin-top:5px;font:500 10px system-ui;color:#8a83a0;line-height:1.35;">
+                 Volume hidden — buildable <b>footprint</b> still shaded on the ground, at the same
+                 confidence as the figures above.
+               </div>`;
         return `<button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${on ? '#6600FF' : '#ffffff'};color:${on ? '#ffffff' : '#6600FF'};">
            Envelope: ${on ? 'ON' : 'OFF'}
-         </button>`;
+         </button>${sub}`;
     };
 
     const wireEnvelopeToggle = (panel: HTMLDivElement): void => {

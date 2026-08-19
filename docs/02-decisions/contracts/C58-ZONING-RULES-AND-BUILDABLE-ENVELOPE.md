@@ -525,16 +525,24 @@ protects what is already there, and (4) never looks.
 
 1. There MUST be exactly ONE authority for *"is the buildable envelope on screen?"*
    (`apps/editor/src/ui/site/envelopeVisibility.ts` — `isBuildableEnvelopeVisible()` /
-   `setBuildableEnvelopeVisible()` / `subscribeBuildableEnvelopeVisibility()`). A surface MUST NOT
+   `setBuildableEnvelopeVisible()` / `subscribeBuildableEnvelopeVisibility()`; since §1.17 it also
+   carries the FOOTPRINT axis and `getBuildableEnvelopeAxes()`, **on the same one authority**). A surface MUST NOT
    hold a local mirror of it, and a payload carrying envelope solids MUST NOT be treated as
    evidence that they should be drawn.
 2. ⭐ **THE GATE SITS AT THE RASTERISER, NOT AT THE CALLERS.** `renderFormaMassing` MUST consult the
    authority *before* the entity-add loop, because every re-render route converges there. Gating at
    the callers instead re-creates the N-answers shape: a caller can be added without the gate, and
    a **replayed** payload is by construction a caller nobody re-asked.
+   > ⚠ **AMENDED 2026-08-19 by [§1.17](#117--the-envelope-has-two-representations-and-two-visibility-axes-hiding-the-volume-must-not-delete-the-ground-footprint-l-1188).**
+   > This clause used to quote the literal two-line gate
+   > `const envHidden = !isBuildableEnvelopeVisible(); const envSolids = envHidden ? [] : (…)`.
+   > **That gate is gone and MUST NOT be restored** — it suppressed the whole solid, which deleted
+   > the ground footprint along with the volume (L-1188). The *placement* rule below is unchanged
+   > and is the part that matters; only the expression changed:
    ```ts
-   const envHidden = !isBuildableEnvelopeVisible();
-   const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
+   const envAxes = getBuildableEnvelopeAxes();
+   const envPayloadSolids = input.envelope?.solids ?? [];
+   const envSolids = applyEnvelopeVisibilityAxes(envPayloadSolids, envAxes);
    ```
    The payload may be stale; the **answer** may not be. The same rule binds every other surface
    that can put an envelope solid on screen — today `ParcelBoundarySceneRenderer`.
@@ -604,6 +612,100 @@ produced the zeros. Whoever owns the BCN rule pack must establish whether a zero
 written deliberately — if it is, §1.16 will be hiding a legitimate envelope and the distinction
 must move into the data (an explicit "no setbacks apply" marker) rather than being inferred from
 three zeroes.
+
+---
+
+### §1.17 — The envelope has TWO representations and TWO visibility axes; hiding the VOLUME must not delete the GROUND FOOTPRINT (L-1188)
+
+**Added 2026-08-19 (lane ENV2). Grounded in a founder report on the deployed build, with three
+screenshots and a console capture:** *"When the envelope is OFF we should see this shade on the
+GROUND."*
+
+**This is a regression from [§1.15](#115--the-envelope-has-one-visibility-authority-and-the-gate-sits-at-the-rasteriser-not-at-the-callers-l-1170)
+— correct in kind, over-suppressing in degree.** §1.15 collapsed four rival authorities into one
+gate at the §1.14 rasteriser. That gate suppressed **the whole envelope solid**, and the whole
+envelope solid was the only thing the envelope ever drew — so "hide the volume" silently also meant
+"delete the ground answer".
+
+**The founder's own log is the measurement, and it is unambiguous:**
+
+| state | log |
+|---|---|
+| **OFF** | `§ENVELOPE-ONE-VISIBILITY — 1 envelope solid(s) in this payload SUPPRESSED` · `render diag: envelope present=n, envelope entities added=0, total massing entities=2` |
+| **ON** | `§ENVELOPE-VIA-MASSING (§1.14 rasteriser) drew 1/1 solid(s): [massing@19.1m] · provisional grey` |
+
+`entities added=0` **is** the finding: with the volume off the envelope contributes **nothing** to
+the ground. The two surviving entities are `pryzm-forma-parcel-boundary` (the faint fill) and
+`pryzm-forma-parcel-boundary-line` (the dashed ring) — i.e. the **424 m² PARCEL**, not the
+**272 m² BUILDABLE** area. Whatever grey the user sees when the envelope is off, it is answering a
+different question from the one they asked.
+
+**The two representations answer different questions, and one is useful precisely when the other
+is off:**
+
+| | question | form | when it helps |
+|---|---|---|---|
+| **VOLUME** | *"what MASS may I build?"* | extruded study solid | while studying capacity; **obstructive** — it is turned off to see one's own design |
+| **FOOTPRINT** | *"what AREA may I build on?"* | flat ground shade | **exactly when the volume is off** — it occludes nothing |
+
+**Normative:**
+
+1. The one authority (§1.15.1) MUST carry **TWO axes** — `volume` and `footprint` — not one
+   boolean. `apps/editor/src/ui/site/envelopeVisibility.ts` exposes
+   `getBuildableEnvelopeAxes()` alongside the per-axis reads/writes.
+   ⛔ **A SECOND AUTHORITY IS NOT AN ACCEPTABLE IMPLEMENTATION.** Re-introducing a rival
+   visibility source is the exact defect §1.15 spent a lane removing; two axes on one authority is
+   the fix, and it is the *only* one this section permits.
+2. **The two axes become geometry in exactly ONE pure L2 place** —
+   `applyEnvelopeVisibilityAxes(solids, axes)` / `envelopeDrawMode(axes)` in
+   `@pryzm/site-parcel-data/envelopeToMassing.ts`, beside the §1.14 seam. **Both** rasterisers (the
+   Cesium §1.14 loop and the three.js `ParcelBoundarySceneRenderer`) call it. A surface that
+   branches locally on one boolean is a second authority in the only sense that matters: it decides
+   for itself what "off" means, and the globe and the BIM scene drift.
+3. **The default meaning of the `Envelope: ON/OFF` control is: hide the VOLUME, keep the FOOTPRINT.**
+   The control writes the `volume` axis only. `footprint` defaults ON. "Hide everything" stays
+   expressible (`{volume:false, footprint:false}` ⇒ `'none'`) so no future need mints a fifth
+   authority.
+4. ⭐ **THE FOOTPRINT SHADE IS A PROJECTION OF SOLIDS THAT ALREADY EXIST — NEVER A NEW DERIVATION.**
+   It takes the ring, the hue and every honesty flag from the largest **ground-touching**
+   (`baseHeightM === 0`) solid `envelopeToMassing` produced. This is what makes it safe under
+   [§1.16](#116--a-zero-setback-re-inset-is-the-parcel-not-an-envelope-and-must-be-refused-l-1171)
+   and §L-616: a refused / zero-inset / degenerate envelope produces **no solids**, therefore **no
+   shade**, by construction. *Hiding something can never mint a claim.* It MUST NOT be derived from
+   the parcel ring, from a setback, or from any scalar.
+5. The shade MUST carry **`claimsVolume: false`** — it says "this is the AREA", never "this is the
+   MASS" — so it contributes 0 to the §1.14.4 never-overstate sum however tall its source solid was.
+   It MUST keep the source solid's hue (a "Default rule pack" envelope shades in the provisional
+   grey, never the confident violet) and MUST keep the near-wireframe fill weight when
+   `footprintUpperBound` or `openTop` is set: **the doubt does not become less doubtful because the
+   volume was hidden.**
+6. **The control MUST SAY what "OFF" does.** A button labelled bare `OFF` beside a shade that is
+   still on screen invites the user to read the shade as terrain or as the parcel fill — the exact
+   ambiguity the founder's report had to be disambiguated out of before it could be fixed. The card
+   states that the volume is hidden, that the buildable **footprint** is still shaded, and that it
+   carries the **same confidence** as the figures above it (§L-616: a shade that reads authoritative
+   on a default rule pack is the overstatement defect wearing a new shape).
+7. **A caller MUST NOT withhold the envelope from the render payload.** `resolveFormaEnvelope`'s
+   `if (!isBuildableEnvelopeVisible()) return null;` was already forbidden by §1.15.2 and was merely
+   harmless while "off" meant "draw nothing"; under this section it makes the ground shade
+   **unsatisfiable** — the chokepoint would have nothing to project, however correct it was. This
+   resolver chooses the SOURCE envelope; the rasteriser decides what is drawn.
+
+> ⚠ **NOT ESTABLISHED.** Not verified in a browser by this lane. And **what the grey plane in the
+> founder's OFF screenshot actually was is answered only negatively**: the envelope contributed
+> **zero** entities in that state (`added=0`), so it was *not* the buildable footprint — it was the
+> parcel fill and/or the Forma ground. Which of the two he pointed at is not measured, and does not
+> change this section: either way the buildable **area** had no representation while the volume was
+> off, and now it does.
+
+**Binding artefact:** `apps/editor/__tests__/envelopeOneVisibility.test.ts` — 10 new cases driving
+the **real** toggle (`setBuildableEnvelopeVisible`, the exact function the card's button calls)
+through the **real** pure rule, plus three structural pins: the one-axis gate must not return; both
+rasterisers must read the shared L2 rule and neither may branch on the volume boolean; and the
+caller-side gate must stay gone. Verified RED before the fix (4 of the 10 fail on a one-axis
+`applyEnvelopeVisibilityAxes`), GREEN after.
+
+---
 
 ## §2 — Schema
 
@@ -905,6 +1007,7 @@ External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (a
 
 | Date | Change |
 |---|---|
+| 2026-08-19 | **§1.17 added — the envelope has TWO representations and §1.15's one-axis gate deleted one of them (lane ENV2, L-1188).** Founder, deployed build, Barcelona 424 m² parcel: *"When the envelope is OFF we should see this shade on the GROUND."* His log measures it: OFF ⇒ `envelope entities added=0, total massing entities=2` — the two being the PARCEL fill + dashed ring (424 m²), not the BUILDABLE area (272 m²). **A regression from §1.15, correct in kind and over-suppressing in degree:** the one-axis gate suppressed the whole solid, and the whole solid was the only ground answer. §1.17 splits the question into a VOLUME axis (*"what mass may I build?"* — obstructive, turned off to see one's design) and a FOOTPRINT axis (*"what area may I build on?"* — flat, occludes nothing, useful precisely when the volume is off), on **ONE authority** (⛔ never a second — that is the shape §1.15 removed) with **ONE pure L2 rule** (`applyEnvelopeVisibilityAxes`) both rasterisers read. ⭐ The shade is a **PROJECTION of solids that already exist**, never a new derivation, so a refused / §1.16 zero-inset envelope produces no solids and therefore no shade: **hiding something can never mint a claim** (§L-616). It carries `claimsVolume: false`, the source solid's hue, and the near-wireframe weight when the footprint is upper-bound. Also removes `resolveFormaEnvelope`'s caller-side gate, which §1.15.2 already forbade and which made the shade UNSATISFIABLE. ⚠ Not browser-verified; and what the grey plane in his OFF screenshot WAS is answered only negatively (`added=0` ⇒ not the envelope). |
 | 2026-08-19 | **§1.15 + §1.16 added — the envelope's VISIBILITY had four authorities, and its 0/0/0 re-inset was an overstatement (lane ENV1, L-1170/L-1171).** Founder on the deployed build: *"I selected the Level 15 top level for roof creation and an ENVELOPE showed up — I tried to hide it but it did not work."* §1.14 makes the drawn solid's SHAPE a pure function of the envelope and says nothing about **whether it is drawn**; that question had FOUR answers (a `let` inside `mountGISArea`'s closure; the `formaLastMassingInput.envelope` SNAPSHOT replayed by the floor selector and three other routes; the §SITE-OVERLAY-NOT-BUILDING survival set; and `ParcelBoundarySceneRenderer`, which consulted no toggle at all) — C84 EI-1/EI-9. **§1.15** mandates ONE authority (`ui/site/envelopeVisibility.ts`) with the gate **at the rasteriser, not at the callers**, because a replayed payload is by construction a caller nobody re-asked; the control may only WRITE; the choice must survive a re-render, a level switch and a page reload; default ON per §1.4. **§1.16** refuses the all-zero re-inset — §1.7a's numbers-only guard is satisfiable by a default, and `insetPolygonPerEdge` at 0/0/0 is the identity, so the drawn "envelope" was the parcel boundary wearing a claim that you may build to the lot edge (§L-616 overstatement). Narrow by design: a PARTIAL zero still re-insets, and a zero-setback jurisdiction that persisted its ring is untouched. Binding artefacts: `apps/editor/__tests__/envelopeOneVisibility.test.ts` (part STRUCTURAL — a behavioural test of a visibility flag is the defect this repo repeats) and three new cases in `buildableEnvelopeRehydrate.test.ts`. ⚠ Neither section is browser-VERIFIED, and **why a Barcelona parcel holds `0/0/0` rather than `null` is unanswered** — §1.16 closes the render, not the data defect. |
 | 2026-07-29 | **Phase 1 (generic-engine leverage) implemented — §10.3 per-edge honesty caveat + §1.11 provider-stamped granularity.** The per-edge front/side/rear setback GEOMETRY was already wired (`insetPolygonPerEdge`/`setbackForClass` key each edge to its own value); the real gap was HONESTY — the uniform-fallback caveat (§10.3) fired only when ALL edges were unclassified, so a uniform value silently substituting on SOME edges went unflagged. Now the caveat fires whenever the fallback is actually applied (gate `allUnclassified`→`anyUnclassified`, `ZoningRulesEngine.ts:266`). §1.11 granularity: the engine now reads `ZoningRecord.granularity ?? 'parcel'` (`:902`) instead of hard-coding `'parcel'`; a coarse provider (Madrid VEDA *ámbito*, Valencia sector) stamps its own granularity, which the engine passes through to `BuildableEnvelope.granularity`. `ZoningRecord` gains an optional `granularity` field (byte-identical serialisation when absent). Barcelona NOT regressed (its setbacks are null → caveat never fires; no granularity stamp → 'parcel'); full `@pryzm/site-parcel-data` suite 948/948, both typechecks clean. |
 | 2026-07-29 | **The envelope PIPELINE is now a ratified per-city REPLICATION STANDARD (ADR-0279).** Barcelona's proven flow is documented end-to-end (stages P0–P11) in the new canonical [`ENVELOPE-REPLICATION-STANDARD.md`](../../04-reference/standards/ENVELOPE-REPLICATION-STANDARD.md) — the envelope sibling of the terrain `CITY-REPLICATION-STANDARD.md`. Ratifies: the generic spine (`computeBuildableEnvelope` + the `GeometricRule` union + the two registries) is invariant; onboarding a city is a data addition at FIVE slots (parcel provider, router predicate, zone source, curated rule pack, registration) + one dispatcher branch, the rule pack being the entire human-gated legal cost; building heights are NOT an envelope prerequisite (ordinance-derived height vs context-scene measured height — the `clau 12b` crossover stays HELD); the three-axis honesty model is non-negotiable. **Records the highest-priority tracked debt: the merge-blocking CI fidelity-label gate mandated by §6 + ADR-0269 does NOT exist** (`tools/ga-gate/check-zoning-fidelity-label.ts` absent) — the "estimate never rendered as authoritative" guarantee rides on convention, not CI. No runtime change; documentation + sign-off gate before new-jurisdiction implementation. |

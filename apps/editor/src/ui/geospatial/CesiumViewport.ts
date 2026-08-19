@@ -59,14 +59,20 @@ import {
 // C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
 import { zCss } from "../layout/zLayers";
 // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the C58 buildable
-// envelope on screen?". A zero-dependency leaf module, imported by file (never a barrel),
-// so it can create no cycle with the site/GIS layer. See its header for the four rival
-// answers it replaced. This viewport reads it at ONE place (the §1.14 rasteriser) and
+// envelope on screen?". A zero-RUNTIME-dependency leaf module, imported by file (never a
+// barrel), so it can create no cycle with the site/GIS layer. See its header for the four
+// rival answers it replaced. This viewport reads it at ONE place (the §1.14 rasteriser) and
 // subscribes so a toggle repaints the globe without the card reaching in here.
+// §ENVELOPE-TWO-AXES (L-1188) — that ONE read is now `getBuildableEnvelopeAxes()`: "off" hides
+// the VOLUME and keeps the GROUND FOOTPRINT, so one boolean can no longer describe the answer.
 import {
-  isBuildableEnvelopeVisible,
+  getBuildableEnvelopeAxes,
   subscribeBuildableEnvelopeVisibility,
 } from "../site/envelopeVisibility";
+// ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the PURE projection rule that turns the user's two
+// visibility axes into the solids to draw. It lives in L2 beside `envelopeToMassing` (the §1.14
+// seam) so BOTH rasterisers obey ONE rule; this viewport holds no opinion about what "off" means.
+import { applyEnvelopeVisibilityAxes, envelopeDrawMode } from "@pryzm/site-parcel-data";
 // §FIX-FORMA-OPENINGS-UNKNOWN (GR-10, the []-means-unknown drain) — the pure
 // openings decision: an OMITTED openings array (older callers) is UNKNOWN,
 // never a determined "this building has no openings"; the envelope subject's
@@ -5568,13 +5574,29 @@ export class CesiumViewport {
     //
     // ⛔ DO NOT "optimise" this by gating at the callers instead. That re-creates exactly
     // the N-answers-to-one-question shape (C84 EI-1) this replaced.
-    const envHidden = !isBuildableEnvelopeVisible();
-    const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
-    if (envHidden && (input.envelope?.solids?.length ?? 0) > 0) {
+    //
+    // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — THE GATE HAS TWO AXES, NOT ONE. Founder,
+    // 2026-08-19: "When the envelope is OFF we should see this shade on the GROUND." L-1170's gate
+    // suppressed the WHOLE solid, so hiding the VOLUME ("what mass may I build?") also deleted the
+    // FOOTPRINT ("what area may I build on?") — the one representation that is useful PRECISELY
+    // when the volume is off, because it occludes nothing. Still ONE authority and ONE chokepoint;
+    // the projection rule lives in the pure L2 `applyEnvelopeVisibilityAxes`, so this rasteriser
+    // stays dumb and the BIM/plan surface cannot read the same preference differently.
+    const envAxes = getBuildableEnvelopeAxes();
+    const envPayloadSolids = input.envelope?.solids ?? [];
+    const envSolids = applyEnvelopeVisibilityAxes(envPayloadSolids, envAxes);
+    if (envPayloadSolids.length > 0 && envSolids !== envPayloadSolids) {
+      const drawMode = envelopeDrawMode(envAxes);
       console.log(
-        `[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY — ${input.envelope!.solids.length} envelope ` +
-          `solid(s) in this payload SUPPRESSED: the user has the buildable envelope hidden. ` +
-          `(Payload was a replay of an earlier render; the visibility authority is live.)`,
+        `[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY — ${envPayloadSolids.length} envelope ` +
+          `solid(s) in this payload → mode=${drawMode}: the user has the buildable envelope VOLUME ` +
+          `hidden` +
+          (drawMode === 'ground-shade'
+            ? `; drawing ${envSolids.length} flat GROUND FOOTPRINT shade(s) instead ` +
+              `(§ENVELOPE-TWO-AXES — the buildable AREA is still an answer, and the shade is a ` +
+              `PROJECTION of these same solids, so it can never claim ground the volume did not)`
+            : ' and the ground footprint hidden too') +
+          `. (Payload was a replay of an earlier render; the visibility authority is live.)`,
       );
     }
     const envelopePresent = envSolids.length > 0;

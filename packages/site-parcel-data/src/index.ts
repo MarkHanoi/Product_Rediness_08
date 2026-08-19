@@ -41,6 +41,17 @@ export {
     SOLID_FILL_ALPHA,
     UPPER_BOUND_FILL_ALPHA,
     SHELL_FILL_ALPHA,
+    // §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the VOLUME and the GROUND FOOTPRINT are two answers
+    // to two different questions ("what mass may I build?" / "what area may I build on?"). ONE
+    // authority holds both axes; this is the ONE pure rule that says what each combination DRAWS,
+    // read by BOTH rasterisers so the globe and the BIM scene cannot read one preference two ways.
+    applyEnvelopeVisibilityAxes,
+    envelopeDrawMode,
+    envelopeGroundShade,
+    GROUND_SHADE_HEIGHT_M,
+    GROUND_SHADE_FILL_ALPHA,
+    type EnvelopeVisibilityAxes,
+    type EnvelopeDrawMode,
     type MassingSolid,
     type MassingSolidRole,
     type MassingSolidStyle,

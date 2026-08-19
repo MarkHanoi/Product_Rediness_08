@@ -65,9 +65,13 @@ import { envelopeRenderStyle } from './envelopeRenderStyle';
 // this renderer reads the same function, so it drew nothing that session. Same family, different
 // instance; fixed on its own merits, not credited with his symptom.
 import {
-    isBuildableEnvelopeVisible,
+    getBuildableEnvelopeAxes,
     subscribeBuildableEnvelopeVisibility,
 } from './envelopeVisibility';
+// ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the PURE rule for what the user's two visibility axes
+// mean as geometry. Read HERE rather than re-implemented, so this surface and the Cesium §1.14
+// rasteriser cannot read one preference two different ways (which is the L-1170 shape one level down).
+import { envelopeDrawMode, GROUND_SHADE_HEIGHT_M, GROUND_SHADE_FILL_ALPHA } from '@pryzm/site-parcel-data';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -323,14 +327,29 @@ export class ParcelBoundarySceneRenderer {
             // geometry exists. Returning null here is what makes the user's "hide" reach the
             // BIM/plan scene at all; `refresh()` is re-driven by the subscription in the
             // constructor, so this is re-evaluated the moment the answer changes.
-            if (!isBuildableEnvelopeVisible()) return null;
+            // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — TWO AXES, ONE RULE. "Envelope: OFF" hides
+            // the VOLUME ("what mass may I build?"); it does not answer "what AREA may I build on?",
+            // and the flat ground shade is useful precisely then because it occludes nothing.
+            // `envelopeDrawMode` is the SAME pure L2 decision the globe rasteriser makes — this
+            // surface must not have its own idea of what "off" means.
+            const drawMode = envelopeDrawMode(getBuildableEnvelopeAxes());
+            if (drawMode === 'none') return null;
             const env = getLastBuildableEnvelope();
             if (!env || env.status !== 'ok') return null;
             const ring = env.insetPolygon;
             if (!Array.isArray(ring) || ring.length < 3) return null;
             const hasRealHeight =
                 typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0;
-            const height = hasRealHeight ? env.maxHeight_m! : ENVELOPE_FALLBACK_HEIGHT_M;
+            // §ENVELOPE-TWO-AXES — a ground shade is the SAME ring at a sub-visual thickness. It is a
+            // PROJECTION of a volume that already passed every §1.4/§1.16 honesty gate above (an
+            // envelope that refused returns `status !== 'ok'` and we are already gone), so it can
+            // never assert ground the volume would not have.
+            const groundShade = drawMode === 'ground-shade';
+            const height = groundShade
+                ? GROUND_SHADE_HEIGHT_M
+                : hasRealHeight
+                  ? env.maxHeight_m!
+                  : ENVELOPE_FALLBACK_HEIGHT_M;
             // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination renders in the
             // unified violet; an estimate or a flat (no-confirmed-height) envelope renders in a muted
             // grey so a "couldn't complete" fallback can never look like a surveyed answer.
@@ -378,7 +397,15 @@ export class ParcelBoundarySceneRenderer {
                 // §OPEN-TOP-INDICATIVE — an indicative volume takes the SAME near-wireframe weight:
                 // both are study extents, and giving the posture its own opacity would let the two
                 // drift until one read as confident.
-                opacity: style.footprintUpperBound || style.openTop ? 0.05 : 0.16,
+                // §ENVELOPE-TWO-AXES — the ground shade is the ONLY thing on screen for this
+                // envelope, so it carries its own (heavier) alpha; an upper-bound / open-top
+                // envelope keeps the near-wireframe weight in BOTH modes — the doubt does not
+                // become less doubtful because the volume was hidden.
+                opacity: style.footprintUpperBound || style.openTop
+                    ? 0.05
+                    : groundShade
+                      ? GROUND_SHADE_FILL_ALPHA
+                      : 0.16,
                 depthWrite: false,
                 side: THREE.DoubleSide,
             });
@@ -390,7 +417,10 @@ export class ParcelBoundarySceneRenderer {
             // ⚠ Guarded on the group count rather than assumed: if a future THREE emits a single
             // group we fall back to the closed prism, which is merely the pre-existing look, never a
             // wrong claim — the grey hue and the card's caveats still carry the disclosure.
-            const capMat = style.openTop
+            // §OPEN-TOP-INDICATIVE × §ENVELOPE-TWO-AXES — a FLAT SHADE HAS NO TOP TO LEAVE OPEN.
+            // Stripping the cap off a 0.12 m slab would delete the only face anyone can see and
+            // draw nothing at all, turning a disclosure into a disappearance.
+            const capMat = style.openTop && !groundShade
                 ? new THREE.MeshBasicMaterial({
                       color: style.hex,
                       transparent: true,
@@ -402,7 +432,12 @@ export class ParcelBoundarySceneRenderer {
             const useOpenTop = capMat !== null && geo.groups.length >= 2;
             const mesh = new THREE.Mesh(geo, useOpenTop ? [capMat!, mat] : mat);
             if (capMat !== null && !useOpenTop) capMat.dispose();
-            mesh.name = 'pryzm-buildable-envelope-volume';
+            mesh.name = groundShade
+                ? 'pryzm-buildable-envelope-ground-shade'
+                : 'pryzm-buildable-envelope-volume';
+            // §ENVELOPE-TWO-AXES — which of the two representations this mesh IS, readable by a
+            // screenshot test / a11y layer without re-deriving it from the height.
+            mesh.userData.envelopeGroundShade = groundShade;
             mesh.userData.envelopeConfidenceComplete = style.complete;
             // §OPEN-TOP-INDICATIVE — the posture on the mesh, so a screenshot test / a11y layer can
             // assert "this volume claims no buildable right" without re-deriving it.
