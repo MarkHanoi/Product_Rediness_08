@@ -9902,3 +9902,249 @@ SHAs, and the naive reading is that something is missing.
 
 **Owner:** RK1 for the geometry matrix (items 1–3 and the profile intersections); the profile-edit
 completeness question is recorded here rather than assigned, pending RK1's measurement.
+
+---
+
+# OP1 — WALL.OPENING (door · window), 2026-08-19
+
+**Band: L-1031, L-1040…L-1049.** Contract: [C86](../02-decisions/contracts/C86-ELEMENT-WALL-OPENING.md).
+
+⚠ **Numbering note, so a `grep` for these ids lands correctly.** `L-1040`–`L-1042` also appear in the
+subject/body of HR1's commit `0e8f1078`. Per the *HR1 NUMBERING CORRECTION* table above those are
+**superseded** and canonically **L-982 / L-984 / L-985**; the ids are OP1's band and are used below as
+their canonical owners. There is no clash, only a stale subject line HR1 chose not to rebase.
+
+---
+
+## L-1031 — the one atomic opening command declared one store and wrote three ✅ CLOSED
+
+**Commit `37c416ff`.** C84 **EI-7c**; C86 §4, §11 #17.
+
+`packages/command-registry/src/walls/CreateWallOpeningCommand.ts:12` declared
+`affectedStores = ["wall"]` while `execute()` adds to `doorStore` (`:155`) and `windowStore` (`:204`),
+and `undo()` removes from both (`:288-289`). `windows/CreateWindowsParametricBatchCommand.ts:89`
+inherited it as `['wall']`. This is the command every refusing create verb in C86 §12 R-1 is told to
+route to — *"the one atomic command"*.
+
+**C86 left the load-bearing question deliberately blank and told the next lane to run it rather than
+reason about it. Run:**
+
+```
+grep -n "this.restoreSnapshot\|this.createSnapshot" packages/command-registry/src/CommandManagerImpl.ts
+→ :286 createSnapshot · :325 restoreSnapshot · :428 restoreSnapshot — and nothing else
+grep -c "napshot" apps/editor/src/engine/undo/performUndoRedo.ts   → 0
+```
+
+**Both restore sites are INSIDE `execute()`** — `:325` when execute returns `success:false`, `:428`
+when it throws. The method's own header at `:641` says so: *"SCOPED RESTORE (rollback on failed
+execute only)"*. `undo()` (`:743`) calls `entry.command.undo(this.context)` directly and `redo()`
+(`:794`) calls `entry.command.execute(this.context)` directly; **neither builds or applies a
+snapshot.**
+
+**So the answer is: NO UNDO PATH WAS EVER AT RISK.** C86 §11 #17's phrasing — *"any reverser that
+trusts the declaration instead of the command reverses half the write"* — is right in principle and
+names the wrong reverser. The live one is the **execute-failure rollback**.
+
+| Command | Rollback exposure | Why |
+|---|---|---|
+| `CreateWallOpeningCommand` | **LATENT** | Its only `success:false` returns are `:91`, `:96`, `:114` — **all before** the doorStore write at `:155`. Both store writes (`:184`, `:228`) and the semantic-graph write (`:248`) sit inside swallowing `try/catch`. It cannot fail after writing, so the rollback never fired on a half-written pair |
+| `CreateWindowsParametricBatchCommand` | ⛔ **REACHABLE** | `:299` `child.execute(ctx)` writes N windowStore records; `:337` `throw err` re-raises anything the post-loop summary/span block throws — **after** those N writes. That reaches `CommandManagerImpl:428`, and a `['wall']`-scoped restore brings the walls back **without their openings while windowStore keeps N records and `WindowBuilder` keeps N meshes** |
+
+**Fixed regardless of reachability, because EI-7c is about the declaration:**
+`["wall","door","window"]` and `['wall','window']`.
+
+**Widening cannot perturb undo routing, and this was checked before changing it** — it is the obvious
+way to turn a declaration fix into a regression. `performUndoRedo.ts:553` reads `pair?.affectedStores`
+from the **BUS PatchPair**, not from an L2 command; `_covered()` (`:479`) uses `.every()`, so a
+partially-mapped set routes to `commandManager` anyway; and `:555-559` names this command
+commandManager-only **by design** (§UNDO-CROSS-STACK-ORDER — *"a commandManager-only hosted
+door/window (ADD_OPENING)"*). The declaration is never seen by that path.
+
+**Cost, measured rather than assumed:** the wider scope adds a `structuredClone` of doorStore +
+windowStore per snapshot. `CommandManagerImpl:283-284` skips the snapshot entirely for `PROJECT_LOAD`
+and for generation batches (`inGenBatch`) — the bulk paths — so it lands only on single interactive
+placements.
+
+---
+
+## L-1040 — the property panel wrote a `swing` value into `swingDirection`, and NONE of the five members is in that union ✅ CLOSED (containment)
+
+**Commit `3722744e`.** C84 **EI-3 · EI-8 · EI-9 · EI-2**; C86 §11 #7, WO-Voc-1; C16 CA-DOCTRINE-A.
+
+C86 §11 #7 read: *"`swing` has 5 members; the legacy record has a 2×2. `'sliding'` is
+unrepresentable"*, citing `CreateWallOpeningCommand.ts:167-170`. **Both halves are wrong, and the
+truth is worse.**
+
+**1. `CreateWallOpeningCommand` never reads `swing`.** It reads `opening.hingesSide` and
+`opening.swingDirection` directly (`:167-170`) — the legacy pair arrives **already split**, from
+`packages/core-app-model/src/preview/DoorPlacementFlip.ts:50-53`, the canonical 4-state table. There
+is no 5-into-2×2 transform at that site, so *"four of five map"* was never what the code did.
+
+**2. The real transform was in the UI.** `apps/editor/src/ui/property-inspector/
+PropertyInspectorApply.ts` assigned `updates.swing` straight into a `swingDirection` key on
+`wallStore.updateDoor`. Its own comment claimed this *"keeps legacy wallStore in sync (C15 §8.1) using
+swingDirection — the field name used by the legacy DoorData shape"*. **It matched the FIELD NAME and
+not the VOCABULARY:**
+
+| | Members |
+|---|---|
+| `Door.swing` (`packages/schemas/src/elements/Door.ts:67`) | `'left-in' \| 'left-out' \| 'right-in' \| 'right-out' \| 'sliding'` |
+| `swingDirection` (`packages/geometry-door/src/DoorTypes.ts:64`) | `z.enum(['inward','outward'])` |
+
+**THE INTERSECTION IS EMPTY.** Not *"sliding is lost"* — **every swing the user set** wrote an
+out-of-union value into the legacy record, silently, with no parse and no guard at the site.
+
+**3. And the branch's other arm reached nothing either.** The same comment asserted
+*"SetDoorSwingHandler writes to the Immer door store → DoorCommitter.onUpdate() … → produceDoor()
+rebuild → updated mesh"*. `DoorCommitter` is `new`-ed **only** at
+`apps/editor/src/bootstrap.render.everything.ts:140`, reached **only** via
+`SceneBootstrap.bootstrapScene`, which **requires** a canvas (`SceneBootstrap.ts:61`). `src/main.ts:402`
+boots `canvas: null` → the idle path (`SceneBootstrap.ts:226`). **So one arm wrote a store nothing
+reads and the other wrote a value nothing can hold.** The verb is KEPT — PRYZM 3 target vocabulary,
+named by chat's capability register (C84 §3.5.3).
+
+**THE FIX.** `packages/geometry-door/src/DoorSwingVocabulary.ts` — `mapSwingToLegacy` is now the ONE
+translation (C84 EI-9), living beside the legacy vocabulary it defends. It **REFUSES** `'sliding'`
+with a reason naming the mechanism rather than picking a plausible hinge, and gives an unknown value a
+**different** reason from an unrepresentable one, so a typo cannot read as a capability gap.
+
+⚠ **CONTAINMENT, NOT CLOSURE. C86 WO-Voc-1 stands OPEN:** `'sliding'` must gain a legacy
+representation or leave `Door.swing`. The refusal makes the loss visible; it does not restore the
+sliding door.
+
+**A THIRD vocabulary, recorded (C84 EI-8):** `packages/schemas/src/family-request/geometry.ts:70`
+declares `swingDirection: z.enum(['inward','outward','sliding','none'])` — same field name, different
+member set, and it **can** hold `'sliding'`.
+
+**Pinned:** `packages/geometry-door/__tests__/SwingVocabularyCensus.test.ts`, **7/7**. Guard C was
+**watched RED** — it first failed against my own replacement comment, which quoted the defective line
+verbatim, because **prose is source text** (the hazard `MoveDoor.ts:56-58` documents for the verb
+register); the comment now describes the line instead of quoting it. Test D is a negative control that
+reads the pre-fix file out of git at `6a6c99b1` and **throws** rather than passing if git is
+unavailable.
+
+---
+
+## L-1041 — `QueryEngine.ts:575` writes a wardrobe door type outside its own union ⛔ OPEN — **FURNITURE FAMILY, NOT C86**
+
+Reported, not fixed: this is not OP1's territory.
+
+`packages/ai-host/src/QueryEngine.ts:575` writes `doorType: 'hinged-left'` onto a wardrobe section.
+`WardrobeSectionDoorType` (`packages/core-app-model/src/stores/WardrobeCabinetTypes.ts:35-40`) is
+`'double-hinged' | 'sliding' | 'glass' | 'mirror' | 'none'`. **`'hinged-left'` is not a member.** The
+site is typed `any` (`const section: any`, pushed into an `any[]`), which is why `tsc` never saw it —
+C84 EI-2(c).
+
+⚠ **This id exists because C86 asserted a violation that was measured to be in a different family.**
+C86 §9's *"EI-3 VIOLATION #2"* graded `QueryEngine.ts:320` and `:575` against the **door** union
+`'single'|'double'`. `:320`'s `'double-hinged'` **is** a valid `WardrobeSectionDoorType` — no defect at
+all — and `:575` is a real defect on the **wardrobe** axis. Neither reaches `Door.parse` or
+`wall.openings[]`. C86 §9's own name-collision note had already said this and lost the argument to the
+more confident paragraph above it. **A row that names the wrong denominator is worse than a blank,
+because it looks measured.** Retracted in C86 §9 and §11 #11.
+
+---
+
+## L-1042 — the property panel is a SECOND live C15 §8.1 violator, and the census could not see it ⛔ OPEN
+
+C86 §5, §11 #18; C15 §8.1; C84 EI-1.
+
+`apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts` calls
+`ctx.wallStore.updateDoor/updateWindow` at **nine** sites — `:155` (window width), `:160` (height),
+`:165` (sillHeight), `:170` (fireRating), `:178` (door width), `:183` (height), `:188` (fireRating),
+`:193` (accessibilityType), `:203` (swingDirection) — and the standalone store at **none**. A grep of
+the file for `doorStore|windowStore|geometry-door|geometry-window` returned **0** before L-1040 added
+the `mapSwingToLegacy` import.
+
+**The user-visible shape is the same as C86 §11 #1:** edit a door's width in the property panel and
+the void moves while the 3-D leaf stays, because `DoorBuilder` reads the standalone record.
+
+⭐ **WHY THIS WAS INVISIBLE, WHICH IS THE PART WORTH KEEPING.** C86 built its §5 dual-write census by
+sweeping **commands** (`packages/command-registry/src/{doors,windows}/*.ts`) and then adding the one
+non-command surface it happened to know about (`PlanElementDragController`). `PropertyInspectorApply`
+is a **UI apply path**: it calls `wallStore.updateDoor` directly, exactly as the drag controller does,
+and a command-shaped census cannot see it. **Two of this family's three most-used mutation surfaces
+are off-bus AND off-command.**
+
+**Consequence for the OWED gate (C86 WO-B-3):** `check-hosted-dual-write.ts` MUST key on **call sites
+of `wallStore.updateDoor` / `wallStore.updateWindow`, repo-wide**, and not on command declarations. A
+declaration-shaped gate would have passed this repo while both live surfaces violated.
+
+**Not fixed here.** Pairing eight more writes is a behaviour change on the property panel and belongs
+with the gate that would keep it paired, not ahead of it.
+
+---
+
+## L-1043 — `DoorCommitter` is constructed on a path production never takes ⛔ OPEN — committer architecture, not C86
+
+C84 **§3.5.1(d)** — the CALL axis; C86 §11 #19.
+
+`new DoorCommitter({…})` occurs once, at `apps/editor/src/bootstrap.render.everything.ts:140`.
+`bootstrapRenderEverything` is invoked only from `packages/renderer/src/SceneBootstrap.ts:184-185`,
+inside `bootstrapScene`, whose input **requires** `canvas: HTMLCanvasElement` (`:61`). The production
+entry `src/main.ts:399-413` calls `composeRuntime({ … canvas: null … })` — self-documented at `:400`
+as *"No canvas in the white-UI boot path"* — which takes `SceneBootstrap.ts:226`'s *"synchronous
+'idle' path: no canvas was supplied"*.
+
+**So axis (a) says the committer is live and axis (d) says it never runs** — the exact pair C84
+§3.5.1(d) was amended to catch, and the same shape as `CommitterHost.setViewDistance`.
+
+⚠ Recorded because a comment at `PropertyInspectorApply.ts` asserted the opposite chain as fact. That
+comment is corrected (L-1040). **Whether the committer arm should be wired or declared dormant is not
+C86's to decide** — it belongs to the committer architecture, and C84 §3.5's PARKED form requires a
+named flag, phase and fallback, none of which this has.
+
+---
+
+## L-1044 — `'DoorLeaf'` is a third `elementType` tag C15 §12 never enumerated ⛔ OPEN
+
+C15 §12; C86 §1, §11 #20.
+
+`packages/geometry-door/src/DoorBuilder.ts:526` stamps
+`elementType: isLeaf ? 'DoorLeaf' : 'Door'`. C15 §12 freezes `'Door'` / `'Window'` and enumerates no
+sub-part tags; C86 §1 recorded `'WallPart'` as the wall's sub-part tag (WO-ID-2) and did not know about
+this one.
+
+**And the casing freeze is broken from four files, not one.** C86 recorded it for `WindowBuilder`
+only; measured 2026-08-19 both families do it:
+
+| | lowercase | PascalCase |
+|---|---|---|
+| `DoorBuilder.ts` | `:271` `'door'` | `:476`, `:526` `'Door'` |
+| `WindowBuilder.ts` | `:376` `'window'` | `:646`, `:730` `'Window'` |
+| `DoorPlanSymbolBuilder.ts` | `:289` `'door'` | `:302`, `:315`, `:330` `'Door'` |
+| `WindowPlanSymbolBuilder.ts` | (C86's `:145`/`:158`/`:171` — not re-measured) | |
+
+⚠ **SEVERITY DOWNGRADED from C86 §11 #10, and the downgrade is itself a measurement.** The lowercase
+emits at `DoorBuilder.ts:271` / `WindowBuilder.ts:376` are inside the **view-definition
+subscription** (guarded at `:252` / `:357` by `e.elementType !== 'view-definition'`), **not** the mesh
+stamp — `DoorBuilder.ts:473` calls `:476` *"canonical 'Door' elementType case for both root group and
+child meshes"*. So the `userData` a consumer picks or exports is already canonical. Nothing is broken
+today: every comparing consumer lowercases (`GLBExporter.ts:217`, `DeleteElement.ts:51`). **The freeze
+is still broken, and a reader cannot tell the two site classes apart without opening both files —
+which is what a frozen vocabulary exists to prevent.**
+
+**Open question (C86 register item 14):** does anything read `'DoorLeaf'`? If not it is an EI-13
+emitter with no consumer; if so, C15 §12's enumeration is incomplete.
+
+---
+
+## ⚠ OP1 — every C86 citation that had ROTTED, in one place
+
+Recorded per C84 §6 rather than silently corrected, because the *rate* is the finding: C86 was written
+**2026-08-18** and measured **2026-08-19**, one day later, in the same worktree.
+
+| C86 said | Measured 2026-08-19 |
+|---|---|
+| `WindowBuilder.ts:308` `'window'` | **`:376`** |
+| `WindowBuilder.ts:578`, `:631` `'Window'` | **`:646`, `:730`** |
+| `WindowBuilder.ts:833` Y datum | **`:947-952`**, and the formula is different — it now consumes `WallVerticalDatum` |
+| `WindowBuilder.ts:817-825` spatial guard | **`:921-931`** |
+| `DoorBuilder.ts:503` Y datum | **`:620-625`**, same |
+| `DoorBuilder.ts:496-501` spatial guard | **`:594-602`** |
+| `DoorBuilder.ts:525` / `WindowBuilder.ts:859` `baseY` | **gone** — replaced by `resolveWallBaseYOrLevel` |
+
+⭐ **Five of the seven are in two files that a different lane is actively editing.** The durable fix is
+the one C85 already reached for: **cite the `§`-tag** (`§WALL-Y-DATUM`, `§WINDOW-AUDIT-2026 C2`),
+which is greppable and survives edits, rather than the line. C86's Y-datum block had *corrected C84's
+line numbers and then rotted in exactly the same way within a day.*
