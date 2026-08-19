@@ -222,7 +222,7 @@ explicitly, per EI-1b**, so it is distinguishable from *nobody looked*.
 
 ## 4. PLUGIN ↔ DTO ↔ COMMAND ↔ BUILDER
 
-### AS-IS — the 21 registered bus handlers
+### AS-IS — the registered bus handlers (**22** as of 2026-08-19, was 21 — see §6)
 
 `plugins/curtain-wall/src/handlers/index.ts:34-79` (verb list) · `:84-112`
 (`buildCurtainWallHandlerSet`) · `:115-118` (`registerCurtainWallHandlers`) · registered in
@@ -467,8 +467,33 @@ output. That half stands unchanged.
 
 **No `rotate` (whole-wall) verb exists.** `curtain-wall.rotatePanel` rotates a panel within its cell,
 not the wall. **NOT MEASURED**: whether any UI offers whole-curtain-wall rotation.
-**No `colour` verb exists** distinct from `setMaterial`. **No level-change verb exists** — a curtain
-wall cannot be moved between storeys through the bus; **NOT MEASURED** whether any legacy path can.
+**No `colour` verb exists** distinct from `setMaterial`.
+
+> ⛔ **~~No level-change verb exists~~ — FALSE AS OF `5420ee55` (L-1032, same day), CORRECTED
+> 2026-08-19.** `ChangeCurtainWallLevelHandler`
+> (`plugins/curtain-wall/src/handlers/ChangeCurtainWallLevel.ts:76`) registers
+> **`curtainWall.changeLevel`** with `affectedStores: ['curtainwall']` (`:96`) and **deliberately no
+> hyphenated alias** (`:80`). The handler count in §4 is therefore **22, not 21**, and
+> `CURTAIN_WALL_HANDLER_TYPES` lists **22** verbs.
+>
+> ⚠ **NOTE THE SPELLING, AND NOTE THAT IT IS A THIRD ONE.** Every other verb in this family is
+> `curtain-wall.*` (hyphenated); this one is `curtainWall.*` (camelCase), matching the L2 command
+> key rather than the bus namespace. §1 CW-ID-2's requirement — *"every new store-key comparison MUST
+> be exact-match-audited against this table"* — now has a **verb**-namespace twin that CW-ID-2 does
+> not cover. **A fourth spelling entered the family the same day this contract enumerated three.**
+> Whether that is right (it aligns the verb with `wall.changeLevel`, the reference implementation the
+> handler cites at `:11`) or wrong (it splits this family's own namespace) is a **decision C87 owes**,
+> not a defect to be filed against the lane that landed it.
+>
+> ⭐ **AND THE ROT ITSELF IS THE FINDING.** This section was measured on 2026-08-18 and was false
+> within a day, because a verb was added to `plugins/curtain-wall/` by a lane that did not own C87
+> and had no reason to know §6 asserted its absence. **A contract that enumerates a verb set by hand
+> is stale the moment anyone registers a verb.** The durable fix is a gate equating
+> `CURTAIN_WALL_HANDLER_TYPES` to §4's table in both directions; it does not exist.
+> **Re-derive, do not re-transcribe:**
+> `grep -c "^  'curtain" plugins/curtain-wall/src/handlers/index.ts`.
+
+**NOT MEASURED** whether any legacy path can also move a curtain wall between storeys.
 
 ### TO-BE — normative
 
@@ -936,7 +961,7 @@ A refusal is a correct answer. An undocumented one is not.
 | **R-4** | `ReplacePanel` refuses an invalid `PanelType` | `ReplacePanel.ts:74-80` | ✅ **CORRECT AND NOW COMPLETE** (`648b443d`) — the message is generated from `VALID_PANEL_TYPES`, so all thirteen members are named. It previously listed three (CW-Voc-3). ⚠ **But the verb refuses for an entirely different reason FIRST** — see §11 #17: `curtainPanelStore` is not on the context, so no dispatch ever reaches this check |
 | **R-5** | `AddPanel` throws typed errors rather than returning `success` | `AddPanel.ts:81, :86, :88` | ✅ correct |
 | **R-6** | The bake worker does **not** build curtain walls | `HeadlessBakeSession` handles `wall` only | ⚠ **UNDECLARED.** Not a refusal — an absence. It MUST be declared: a self-host bake of a glazed façade silently omits the façade |
-| **R-7** | No whole-curtain-wall **rotate** verb; no **colour** verb; no **level-change** verb | §6 | ⚠ **UNDECLARED ABSENCES.** Each MUST be declared here as deliberate, or minted |
+| **R-7** | No whole-curtain-wall **rotate** verb; no **colour** verb distinct from `setMaterial` | §6 | ⚠ **UNDECLARED ABSENCES.** Each MUST be declared here as deliberate, or minted. ⛔ **The third item, "no level-change verb", was REMOVED 2026-08-19: `curtainWall.changeLevel` exists** (`5420ee55`). It is now a spelling question, not an absence — see §6 |
 | **R-8** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ **Do not delete them** — they are the PRYZM 3 target vocabulary |
 | **R-9** | Curtain-wall has no Stack B **editor** render path | C84 §4D — `bootstrapRenderEverything` unreachable, `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — ADR-0331 §D5 is an **open founder question** (C84 §9) |
 
