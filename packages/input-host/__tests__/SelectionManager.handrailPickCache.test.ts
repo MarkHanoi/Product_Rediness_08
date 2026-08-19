@@ -251,7 +251,7 @@ describe('§FIX-HANDRAIL-3D-PICK-CACHE — the 3-D pick caches must see a handra
     scene.remove(root);
   });
 
-  // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1191) — the GENERALISATION of the above ──
+  // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1194) — the GENERALISATION of the above ──
   //
   // The fix above added three literals to a hand-written list. That list is keyed on a
   // DOM event vocabulary stores are actively LEAVING, so the SAME defect was already

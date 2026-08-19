@@ -16107,3 +16107,213 @@ and the `bag.*Visible` maps come out, retiring 13 ARM-B violations and 8 travers
   UNDOABLE · NOT REPLICATED. Consolidation not attempted.
 - **A hidden element's hit-testing is UNMEASURED** — the pen route drives `opacity → 0`; whether a
   zero-opacity line still selects in plan is not established either way.
+
+## L-1194 — THE PICK-CACHE INVALIDATION LIST IS A HAND-WRITTEN LITERAL, AND COLUMN + BEAM HAD THE HANDRAIL DEFECT ALL ALONG ✅ FIXED 2026-08-19 (lane HR5)
+
+L-1190 fixed handrail by **adding three literals** to `SelectionManager.init()`'s
+`cacheInvalidationEvents`. That is a fix for one family, not for the defect — and the defect had
+already claimed two more.
+
+**Measured 2026-08-19, emitters counted across `packages/ apps/ plugins/ src/`:**
+
+| key in the list | emitters | what the store actually does |
+|---|---|---|
+| `bim-railing-added` / `-removed` | **0** | family emits `bim-handrail-*` (L-1190) |
+| `bim-column-added` / `-removed` | **0** | `ColumnStore` header: *"deliberately does NOT dispatch a legacy `bim-column-*` DOM CustomEvent (§COLUMN-SYSTEM-AUDIT-2026 §M14 — no dual-channel drift surface). All consumers must subscribe via `subscribe()` or via `storeEventBus`."* |
+| `bim-beam-added` / `-removed` | **0** | `BeamStore` publishes to `storeEventBus` only (`BeamStore.ts:91/144/158/308`) |
+
+⇒ **A column or a beam created after the selectable cache warmed was absent from the GPU pick
+element registry and the BVH prune AABBs** — the same "unselectable in 3D" the founder reported
+for handrails, sitting there waiting to be reported for two more families. `ColumnStore` even
+NAMES the migration that broke it; this listener is simply one of the consumers that did not get
+the message. **Every store that leaves the DOM channel next acquires the defect silently.**
+
+**The fix is not two more literals.** That is the "enumerated arms" shape this repo keeps paying
+for — L-1189's shadow-freeze list was the same thing with eleven families missing, and L-1191
+(lane RN2) closed a requirement enumerated across four arms on the same day.
+`storeEventBus` is the **family-agnostic authority**: Master Architecture §3.5 requires EVERY
+ElementStore to publish create/update/delete through it, with no-drop and ordered-delivery
+guarantees. **One subscription covers every family that exists and every family added later**,
+with nothing to keep in sync. The dead literals are left in place (a no-op listener costs
+nothing) but are documented as dead so nobody reads them as coverage.
+
+**Cost, checked rather than assumed:** invalidation is three field writes and the rebuild stays
+lazy, so a 3,000-element import costs 3,000 null-writes and exactly ONE traversal at the next
+click — precisely what the existing wall/slab entries already cost.
+
+**Tests** (in the L-1190 file, nested in the same `describe` because `init()` registers a
+FrameScheduler tick listener under a fixed id and throws on a second call — the class's real
+lifetime contract, respected rather than stubbed): one drives a COLUMN, whose store emits no DOM
+event at all; one drives a deliberately made-up `elementType` to pin that the subscription never
+inspects the family. **Neither dispatches a DOM event anywhere** — that is the point. Both assert
+the negative control first. 6/6 green; root tsc RC=0.
+
+⚠ **Numbering note:** the code comments and the fix commit carry `§FIX-PICK-CACHE-STORE-BUS
+(L-1191)`. L-1191 was claimed concurrently by lane RN2; this row is the authoritative number.
+
+## L-1195 — PICK-COVERAGE CENSUS: element family × view type. TWO PIPELINES, NOT ONE — and the 2D one has a tie-break a floor finish can never win 🟡 MEASURED 2026-08-19 (lane HR5) — fixes tracked separately
+
+Two founder reports in one day — *"Handrail selection on 3D view seems not possible"* (L-1190) and
+*"why am I not able to select a FLOOR FINISH on PLAN VIEW no matter how hard I try?"* — with the
+same symptom and, it turns out, **different mechanisms in different pipelines**. This row is the
+census that says how big the class is. **EI-1b: no cell is blank. Where a cell is unmeasured it
+says NOT MEASURED.**
+
+### ⭐ FINDING 0 — 3D AND 2D PICKING ARE ENTIRELY SEPARATE PIPELINES
+
+This is the fact both reports were being read against the wrong model of.
+
+- **3D viewport** — `SelectionManager.performSelection` → GPU pick over a pick-scene built from
+  `_selectableCache` (`SelectionManager.ts:3643-3663`), BVH+raycaster fallback. **Candidacy is
+  decided by `userData`.**
+- **Plan / elevation / section** — `PlanViewInteraction._onMouseUp` (`:733`) →
+  `PlanViewCanvas.hitTest(sx, sy, 10)` (`packages/core-app-model/src/views/PlanViewCanvas.ts:1410`).
+  **No raycaster, no THREE scene.** It walks the cached *projected 2D linework*
+  (`viewTechnicalDrawingCache`), tests point-to-segment distance in SCREEN PIXELS over every
+  `THREE.LineSegments`, and resolves the id via `DrawingSelectionIndex.lookupElementUUID`
+  (`DrawingSelectionIndex.ts:67`). The 3D scene is only used AFTERWARDS to echo the result
+  (`selectionBus.select` → `SelectionManager.selectById`, `SelectionManager.ts:2116`).
+  All three 2D view types share this one canvas — `PlanViewManager` merely calls
+  `setViewType` / `setSectionAxes` for elevation and section (`PlanViewManager.ts:730-744`).
+
+⇒ **A fix in one pipeline does nothing for the other.** L-1190/L-1191 fixed 3D; they do not touch
+plan view, and nothing in them addresses the floor-finish report.
+
+### ⭐ FINDING 1 — 2D CANDIDACY IS TYPE-AGNOSTIC. The type-keyed lists are NOT gates.
+
+Three per-type structures exist in the 2D path and **none of them excludes a family**:
+
+- **ISO layer map** (`EdgeProjectorService.ts:133-170`) — has a FALLBACK
+  (`FALLBACK_NATIVE_LAYER = 'projection-visible'`, `:173`), so an unmatched type is still drawn.
+- **`CACHEABLE_ELEMENT_TYPES`** (`:1914-1974`) — a *projection cache* gate. A miss just runs the
+  full pipeline (`:2504-2514`); nothing is dropped.
+- **`CUT_ELIGIBLE_PLAN_LAYERS`** (`:365-372`) — poché/cut styling only.
+
+What DOES decide 2D membership, in order:
+1. **Level overlap**, CLOSED interval `[minY,maxY]` — `NativeElementMeshExporter.ts:252-254`.
+2. **Geometry KIND** — `THREE.Line` / `LineSegments` are **explicitly dropped** (`NME:573`). Only
+   Mesh / InstancedMesh become proxies (`:461`, `:543`).
+3. **Per-`role` plan skips** — `doorLeaf` (when not visible in plan), `doorHandle`,
+   `legacyDoorFrame`, `legacyWindowFrame`, `userData.skipInPlan === true`
+   (`EdgeProjectorService.ts:2545-2582`). Keyed on ROLE, not type.
+4. **Per-mesh AABB band**, CLOSED `[planBelowY, far + 0.5]` (`:2625-2628`) — skipped entirely when
+   the intent sets `belowLevelDepth = 0`.
+5. **Per-segment `classifyByVertexY`** — beyond zone `[belowY−ε, floorY−ε)`, **half-open at the
+   top**; segments below the floor with `belowY === null` are **dropped outright** (`:972-974`).
+
+### ⭐⭐ FINDING 2 — THE FLOOR FINISH: it IS a candidate, and it can still never win
+
+**The floor is structurally sound at every gate.** `FloorPanelBuilder.ts:145-160` stamps
+`id: floor.id`, `elementType: 'floor'`, `type: 'floor'`, `selectable: true`, plus `hostSlabId`.
+`'floor'` is in `SEMANTIC_TYPES` (`SelectionManager.ts:379`), in `CACHEABLE_ELEMENT_TYPES`
+(`:1968`), mapped to `A-FLOR` (`:140`), and `A-FLOR` is cut-eligible (`:370`). It registers a
+scene root (`FloorPanelBuilder.ts:113`) and joins the level's `childrenIds`
+(`CreateFloorCommand.ts:368`). **There is no allowlist anywhere that excludes it.** C89 records
+`'floor'` as the ONLY spelling — *"Other spellings: NONE FOUND"* — so hypothesis 1
+(kind-string / two-key mismatch, the L-989 shape) is **REFUTED for this family**.
+
+**Two concrete mechanisms remain, both code-backed:**
+
+**(2a) ⭐ THE COINCIDENT-EDGE TIE-BREAK — a floor finish can NEVER win it.**
+`PlanViewCanvas.ts:1451` is `if (dist < bestDist)` — **strictly** less-than. On exactly coincident
+projected segments the **first-traversed** LineSegments wins, and traversal order is the level's
+`childrenIds` order. A floor finish is created ON its host slab and therefore **always later** in
+that order. Its outline is the slab's outline. So for a finish drawn coincident with its host,
+**the slab wins every time, at every cursor position** — which is exactly *"no matter how hard I
+try"*, and exactly the founder's eleven identical `hover-anchor hit=6ec56959` lines followed by
+`candidates=[Slab:6ec56959@6.29]` with **ONE entry**.
+⇒ **UNSATISFIABLE, not mis-ranked.** This is the same class as L-1190 in a different pipeline.
+
+**(2b) `baseOffset === 0` drops the finish's own edges.** With FFL at the level datum, the body's
+lower and side edges have `avgY < floorY − ε` and are dropped whenever `belowY === null`
+(`EdgeProjectorService.ts:972-974`), leaving only the exactly-at-`floorY` top ring — which is the
+coincident ring from (2a). The historical plan-drawn case is called out at
+`floorFinishDefaults.ts:24-27`; defaults today are `baseOffset = 75 mm`, `thickness = 15 mm`.
+
+**NOT MEASURED:** whether, in the founder's live session, `A-FLOR` LineSegments for that floor are
+actually present in `viewTechnicalDrawingCache`. Measuring it: log `child.name` +
+`lookupElementUUID(...)` for every traversed LineSegments inside `PlanViewCanvas.hitTest`
+(`:1416-1432`), or enable `EPS_VERBOSE` and read the `§DIAG-EPS-01` per-mesh line
+(`EdgeProjectorService.ts:2645-2651`). **Ship that probe before the next fix** — (2a) and (2b)
+predict *different* candidate dumps, and this repo has twice "confirmed" two rival theories that
+were both wrong.
+
+⚠ **The proposed fix for (2a) is a HOSTED-PRIORITY tie-break, and the precedent already exists:**
+`resolveHostedPickPriority` (`packages/picking/src/hostedPickPriority.ts`) does exactly this for
+3D door-vs-wall. `FloorPanelBuilder` already stamps `hostSlabId`, so the hosted relationship is
+DECLARED and does not need inferring. It is not landed here — see the sequencing note at the end.
+
+⚠ **One caveat on the founder's log, stated rather than glossed:** the lines he pasted
+(`[PickResolver] §97 click hit type=Slab … strategy=gpu-pick`, `[PickDiag] §L-99b winner=Slab`)
+are emitted by `SelectionManager.performSelection` — the **3D** path — while his words say plan
+view. Either he clicked the 3D pane of a split view, or a plan pane forwarded to the 3D pick.
+**Which surface produced those lines is NOT MEASURED**, and the probe above must record it.
+
+### THE MATRIX — family × view
+
+`3D` = satisfies `_ensureSelectableCache` AND carries `userData.id` (required by
+`_buildElementRegistry`, `SelectionManager.ts:461`). `2D` = plan/elevation/section, one shared
+mechanism (Finding 0), so one column.
+
+| Family | 3D viewport | 2D (plan/elev/section) | Mechanism · file:line |
+|---|---|---|---|
+| wall | **YES** | **YES** | `WallFragmentBuilder.ts:921` `elementType:'wall'`, `selectable:true` |
+| slab | **YES** | **YES** | `SlabFragmentBuilder.ts:531` `'Slab'` (PascalCase, lowercased by the predicate) + `selectable` |
+| **floor (finish)** | **YES** | **YES as a candidate — but LOSES every coincident tie** | `FloorPanelBuilder.ts:145-160`; tie-break `PlanViewCanvas.ts:1451`. **See Finding 2.** |
+| ceiling | **YES** | NOT MEASURED per family | `CeilingPanelBuilder.ts:239` `'ceiling'`, `selectable:true` |
+| roof | **YES** | NOT MEASURED per family | `RoofFragmentBuilder.ts:267-278` |
+| door | **YES** | **YES**, minus `doorLeaf`/`doorHandle` roles | `DoorBuilder.ts:535-549` `'Door'`; skips `EdgeProjectorService.ts:2545-2559` |
+| window | **YES** | **YES**, minus `legacyWindowFrame` | `WindowBuilder.ts:671-684` `'Window'`; skip `:2565` |
+| opening | **NO OBJECT EXISTS** | **NO OBJECT EXISTS** | Openings are boolean voids + store events (`OpeningStore.ts:29`). ⚠ `'opening'` in `SEMANTIC_TYPES` (`SelectionManager.ts:380`) is a **DEAD ENTRY** — no builder ever stamps it. |
+| curtain wall | **YES** | NOT MEASURED per family | `CurtainWallBuilder.ts:1332/1859` `'CurtainWall'` |
+| curtain PANEL (non-instanced) | ⚠ **CACHE YES / GPU-PICK NO** | NOT MEASURED | `CurtainPanelFactory.ts:193-205` stamps `elementId` but **NO `userData.id`** → enters `_selectableCache` via `selectable:true`, but `_buildElementRegistry` **skips it** (`if (!id) continue`). The BVH leg can reach it; the GPU leg — which runs FIRST and is authoritative — cannot. |
+| curtain PANEL (instanced) | ⚠ **NO** | NOT MEASURED | `CurtainWallInstanceManager.ts:425-436` `'CurtainPanelInstanced'`, no `selectable`, no `isInstancedGroup`. **Same sub-element, two different outcomes depending on the instancing flag.** |
+| curtain MULLION | **NO** (by design) | NOT MEASURED | `CurtainWallBuilder.ts:1228/1266/1297` `'CurtainWallPart'` — parent group is the pick target |
+| **handrail** | **YES** ✅ *fixed L-1190* | NOT MEASURED per family | `HandrailFragmentBuilder.ts:271-277` `'Handrail'` + `selectable:true`. Was blocked by a dead invalidation key, not by userData. |
+| stair | **YES** | NOT MEASURED per family | `StairMeshBuilder.ts:152-184` `'Stair'`, `selectable:!isPreview` |
+| stair-railing | ⚠ **NO as a fragment / YES when instanced** | NOT MEASURED | `StairRailingBuilder.ts:266-286` `'stair-railing'`, `selectable:false` (deliberate, `SelectionManager.ts:365-367`) — but the instanced aggregate is admitted by `isInstancedGroup` (`StairRailingBuilder.ts:210`). **The same railing picks differently depending on a perf flag.** |
+| stair-landing | ⚠ **NO** | NOT MEASURED | `StairLandingBuilder.ts:62-69` `'stair-landing'`, `selectable:false` |
+| column | **YES** ✅ *invalidation fixed L-1191* | NOT MEASURED per family | `ColumnFragmentBuilder.ts:290/388`; `role:'hit-proxy'` mesh at `:425` |
+| beam | **YES** ✅ *invalidation fixed L-1191* | NOT MEASURED per family | `BeamFragmentBuilder.ts:367/483`; hit-proxy `:518` |
+| furniture | **YES** | NOT MEASURED per family | `FurnitureFragmentBuilder.ts:96-113` `'Furniture'` |
+| lighting | **YES** | NOT MEASURED per family | `LightingFragmentBuilder.ts:332-337` |
+| plumbing | ⚠ **YES, but only via `selectable:true`** | NOT MEASURED | `PlumbingFragmentBuilder.ts:26-37` `'PlumbingFixture'` — **not in `SEMANTIC_TYPES`**. Drop that one flag and the family goes dark. |
+| grid | ⚠ **NO** | ⚠ **NO** | `BimGridRenderer.ts:167/230` `'BimGrid'`, **no `selectable` key at all**; and grid geometry is `Line`, which NME drops (`:573`) — unpickable in BOTH pipelines. |
+| room (floor overlay) | ⚠ **YES via `selectable:true` only** | NOT MEASURED | `RoomBoundaryBuilder.ts:222-230` — `'room'` is **not** in `SEMANTIC_TYPES` |
+| room (volume mesh) | ⚠ **NO** | NOT MEASURED | `RoomBoundaryBuilder.ts:287-293`, `selectable:false` |
+
+### ⚠ THE SECOND, PARALLEL PIPELINE — plugin scene-committers
+
+Every `plugins/<x>/src/committer/<x>-committer.ts` stamps **only** `userData.elementId` and
+`userData.primitiveType` — no `id`, no `elementType`, no `selectable`, no `isInstancedGroup`. So
+**every object from that pipeline fails the 3D predicate outright**, across all 17 families that
+have one (`slab:86` · `ceiling:58` · `roof:88` · `door:154` · `window:125` · `curtain-wall:79` ·
+`handrail:58` · `stair:70` · `column:69` · `beam:66` · `furniture:78` · `lighting:109` ·
+`plumbing:70` · `grid:65` · `rooms:109` · `structural:70` · `dimensions:129`; wall is different —
+`wall-committer.ts:190` sets only `descriptorHash`).
+
+**NOT MEASURED: whether this pipeline is live alongside the legacy builders.** If it is, this is a
+17-family coverage hole; if it is dormant, it is a landmine for the migration. **This is the
+single most consequential unmeasured cell in the census** — settle it before counting anything
+else.
+
+### Casing traps, verbatim (for any consumer doing a raw `===`)
+
+PascalCase stamped: `'Slab'` `'Door'` `'Window'` `'Handrail'` `'Stair'` `'Column'` `'Furniture'`
+`'Lighting'` `'CurtainWall'` `'CurtainPanel'` `'PlumbingFixture'` `'BimGrid'`
+`'CurtainPanelInstanced'` `'CurtainWallPart'`.
+lowercase stamped: `'wall'` `'floor'` `'ceiling'` `'roof'` `'beam'` `'room'` `'stair-railing'`
+`'stair-landing'`, plus the legacy in-wall `'door'`/`'window'`.
+`_ensureSelectableCache` lowercases before comparing, so it is safe — **§PICKDIAG-CASING (L-1173)
+is what happens to a consumer that does not.**
+
+### Sequencing — what is fixed and what is not
+
+✅ **Fixed:** L-1190 (handrail 3D — dead invalidation key) · L-1194 (the generalisation —
+`storeEventBus` replaces the enumerated DOM-event literal, which also silently fixed **column** and
+**beam**).
+
+🔴 **NOT fixed here:** the floor-finish 2D tie-break (Finding 2a) — needs the probe first, and the
+`FloorPanelBuilder` / `geometry-slab` neighbourhood is held by another lane. Also open: the dead
+`'opening'` entry, the two curtain-panel asymmetries, stair-railing's flag-dependent pickability,
+grid, and the scene-committer question above.

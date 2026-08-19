@@ -24,7 +24,7 @@ import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/element-registry';
-// §FIX-PICK-CACHE-STORE-BUS (L-1191) — the family-agnostic store channel every
+// §FIX-PICK-CACHE-STORE-BUS (L-1194) — the family-agnostic store channel every
 // ElementStore must publish through (§3.5). Replaces enumerating DOM event names.
 import { storeEventBus } from '@pryzm/core-app-model';
 import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './SelectionBoundsRegistry.js';
@@ -1019,7 +1019,7 @@ export class SelectionManager implements ISelectionManager {
             window.addEventListener(evt, invalidateSelectableCache)
         );
 
-        // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1191) — STOP ENUMERATING FAMILIES ─────
+        // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1194) — STOP ENUMERATING FAMILIES ─────
         //
         // The list above is a HAND-WRITTEN LITERAL of DOM event names, and a family
         // missing from it is UNPICKABLE IN 3-D until some unrelated element changes
