@@ -271,7 +271,31 @@ export class CommandManager {
                 `${commandIdentity(command)}.canExecute`,
                 commandSubject(command),
             );
-            console.warn(`[CommandManager] REFUSED ${command.type}: ${validation.reason ?? 'unspecified'} — ${_human}`);
+            // §REFUSAL-PRINTED-TWICE (L-1016) — print the second half ONLY when it
+            // says something the first did not.
+            //
+            // The founder's console carried the whole refusal sentence twice,
+            // concatenated with an em dash. Not a copy-paste: these are two REAL
+            // fields that usually hold the same string. `_human` is
+            // `childRefusalText(blockingIssues[0] || reason, …)`, and that function
+            // returns `stated.trim()` verbatim when it is non-empty — so for the
+            // common case of a command that sets `reason` and no `blockingIssues`,
+            // the two halves are literally identical.
+            //
+            // Deleting either half unconditionally would have destroyed real
+            // information, which is why this is a comparison and not a deletion.
+            // The halves genuinely differ in the two cases that matter, and both
+            // survive: when the command put its human sentence in
+            // `blockingIssues[0]` and a machine token in `reason` (L-813 — the
+            // token is the field an operator greps for), and when the command
+            // refused stating NOTHING, where `_human` is the named
+            // REFUSED_WITHOUT_REASON attribution and `reason` is 'unspecified'
+            // (GE-09 — the absence must stay visible and attributed).
+            const _rawReason = validation.reason?.trim();
+            console.warn(
+                `[CommandManager] REFUSED ${command.type}: ${validation.reason ?? 'unspecified'}`
+                + (_human && _human !== _rawReason ? ` — ${_human}` : ''),
+            );
             return { success: false, affectedElementIds: [], info: [_human] };
         }
 
@@ -611,6 +635,19 @@ export class CommandManager {
             ['beam',        'beamStore',        ctx.stores.beamStore],
             ['roof',        'roofStore',        (ctx.stores as any).roofStore],
             ['curtainWall', 'curtainWallStore', ctx.stores.curtainWallStore],
+            // §L-1050 / C87 §7 CW-U-2(a) — `curtainPanel` was a DECLARED-BUT-ABSENT
+            // rollback scope (C84 EI-7d). FOUR commands declare it —
+            // `AddCurtainGridLineCommand.ts:69` and `RemoveCurtainGridLineCommand.ts:53`
+            // as `["curtainWall","curtainPanel"]`, and `ReplacePanelTypeCommand.ts:56` /
+            // `ReplacePanelWithDoorCommand.ts:62` as `["curtainPanel"]` ALONE. For the
+            // last two `scope` was non-null and matched NO row here, so the whole
+            // snapshot was `{}`, `restoreSnapshot` restored nothing, and a failed
+            // execute left the panel store holding the half-applied change — silently.
+            // That is L-947's exact shape, in the rollback table rather than the
+            // undo one. `curtainPanelStore` is already on the context
+            // (`command-registry/src/types.ts:467`) and exposes getAll/add/remove, so
+            // the generic loop in `restoreSnapshot` handles it unchanged.
+            ['curtainPanel', 'curtainPanelStore', (ctx.stores as any).curtainPanelStore],
             ['furniture',   'furnitureStore',   (ctx.stores as any).furnitureStore],
             ['handrail',    'handrailStore',    (ctx.stores as any).handrailStore],
             ['stair',       'stairStore',       ctx.stores.stairStore],
@@ -683,6 +720,11 @@ export class CommandManager {
             ['beamStore',        ctx.stores.beamStore],
             ['roofStore',        (ctx.stores as any).roofStore],
             ['curtainWallStore', ctx.stores.curtainWallStore],
+            // §L-1050 — the restore half of the `curtainPanel` scope added to
+            // createSnapshot above. Order matters: the wall is restored BEFORE its
+            // panels, so `CurtainPanelStore.set()`'s `byWallId` re-index
+            // (`CurtainPanelStore.ts:107-119`) lands against a wall that exists.
+            ['curtainPanelStore', (ctx.stores as any).curtainPanelStore],
             ['furnitureStore',   (ctx.stores as any).furnitureStore],
             ['handrailStore',    (ctx.stores as any).handrailStore],
             ['stairStore',       ctx.stores.stairStore],
