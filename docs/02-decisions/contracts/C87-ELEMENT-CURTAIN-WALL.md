@@ -985,6 +985,339 @@ the missing gate, is why C87 is CANONICAL rather than aspirational.
 
 ---
 
+---
+
+## 13. THE FOUNDER'S SPECIFICATION — NORMATIVE TO-BE (2026-08-19)
+
+- **Status**: NORMATIVE. Written **before** implementation, so each piece is measured against
+  something rather than described after the fact.
+- **Source**: founder request, 2026-08-19, relayed verbatim in substance. Nothing below is inferred
+  from it silently — where the request is under-specified this section says **DECISION OWED** and
+  names who owes it.
+- **Constrained by**: [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md) (persistence) ·
+  [C15](C15-HOSTED-ELEMENT-CONTRACT.md) (hosting) · [C16](C16-COMMAND-AUTHORING-PROTOCOL.md)
+  (CA-17/CA-18/CA-21) · [C67](C67-RAC-CAPABILITY-CONTROL-PLANE.md) (RAC) ·
+  [C69](C69-WIRE-PROTOCOL.md) §1.1 (verb names are wire identifiers) ·
+  [C83](C83-CROSS-ELEMENT-CASCADES.md) §5.5 (the wall move cascade) · C84 EI-2/EI-3/EI-6/EI-8/EI-9.
+
+> ### 13.0 — THE ORDERING CONSTRAINT, AND WHY IT IS NOT NEGOTIABLE
+>
+> **Every headline item in this specification is a PER-PANEL AUTHORED ATTRIBUTE**: panel type per
+> cell, material per cell, finish per cell, offset-from-centreline per cell, a door in a *specific*
+> cell. **[§11 #19 / L-1057](#) establishes that the store those attributes live in is never
+> persisted and never loaded**, and that the loss hides because panels are regenerated as
+> `SystemPanel_Glass`, returning a plausible façade with the correct cell count.
+>
+> **Building any of CW-1…CW-5 before L-1057 is closed ships the false-success family deliberately:**
+> the user authors a façade, saves, reloads, and gets uniform glass with no error. **Persistence is
+> therefore step one, and it is a precondition, not a parallel workstream.**
+>
+> The second precondition is **the vocabulary** (§13.2). CW-2 asks for *"a dropdown of all possible
+> panels"*. §9 measures **three incompatible panel vocabularies** and **nine of thirteen `PanelType`
+> members with no `PanelKind`**. A dropdown built on that offers the user values the pipeline cannot
+> carry — **C84 EI-3, an affordance without an implementation**, minted knowingly. **Unify first,
+> surface second.**
+
+### 13.1 — CW-P (PREREQUISITE): panel authoring MUST round-trip, as SPARSE OVERRIDES
+
+> **DECIDED — [L-1035](../../04-reference/ISSUE-LOG.md) (`e2fe2b8d`). Persist only the panels that
+> DIVERGE from what the grid would generate.** A panel with no authored attribute is not written at
+> all; it is regenerated from its type's defaults on load. The tables are in L-1035 and are not
+> restated here. The founder's constraint was explicit — *"it needs to be well performanced"* — and
+> the decision is recorded with its argument because a decision without one gets re-litigated.
+
+**The argument that carries it, and it is the one worth remembering:** *this design turns today's
+failure mechanism into the load path.* L-1057 hides **because** panels are already silently
+regenerated on load — that is exactly why a reload returns the right cell count and a plausible
+façade. **Regeneration is not the bug; the absence of anything to re-apply on top of it is.** So the
+mechanism that already works is kept and the missing layer added, rather than a working mechanism
+being replaced by a heavier one.
+
+It is also what the model already commits to. The grid is a **pure function** of
+`(baseLine, height, bayWidth, bayHeight, gridSystem)`. Persisting every derived cell stores a
+function's *output* beside its *inputs*, so a save can contradict its own model — the same disease as
+the denormalised `levelName` / `levelElevation` copies that go stale on a level move.
+
+- **CW-P-A.** The authored **delta** of `CurtainPanelStore` MUST survive save/load. A panel is
+  *authored* iff any of: `panelType !== 'SystemPanel_Glass'`, `materialOverride !== undefined`,
+  `hostedDoor !== undefined`, or (once CW-2 lands) a non-default `offsetFromCentreline`. Everything
+  else is derived and MUST NOT be written.
+- **CW-P-B — KEY ON THE BOUNDING GRID-LINE PAIR (`uLineId`, `vLineId`), NEVER ON `(row, col)`.**
+  Row/column indices shift the moment an unrelated grid line is inserted, which would silently
+  re-target every override downstream of the insertion. **A door quietly moving to the wrong cell is
+  worse than losing it.** `gridSystem` is already serialised (`ProjectSerializer.ts:655`), so line
+  identity already has a home in the file.
+- **CW-P-C — RE-APPLY AFTER REGENERATION, BY CELL RESOLUTION.** The loader MUST NOT insert panel
+  records directly. `CurtainWallStore.add()` synchronously drives `CurtainPanelSyncHandler`, which
+  mints a panel per cell with a deterministic id (`${cwId}::${i}:${j}`) and **skips cells that
+  already have one**. The restore therefore runs **after** the wall exists, resolves each override's
+  `(uLineId, vLineId)` back to a cell, and **updates** the regenerated panel there.
+- **CW-P-D — THE ONE REFUSAL THIS DESIGN OWES.** On load, an override whose bounding lines no longer
+  exist — because the grid was edited between save and load — **MUST be reported by name, never
+  silently dropped** (C84 EI-6: absence must be loud). The acceptance criterion is a report naming
+  the wall and the lost override; **a silent `catch` is not acceptable and is the single place this
+  design can lose data.**
+- **CW-P-E — NO SCHEMA BUMP, AND THE REASON IS MEASURED, NOT ASSUMED.**
+  > ⚠ **The instruction that spawned this work named `packages/file-format/src/migrations/index.ts`
+  > and a `toVersion === fromVersion + 1` step. That is the WRONG framework for this change, and
+  > following it would have produced a migration nothing runs.** There are **two** version axes:
+  > - `PRYZM_FORMAT_SCHEMA_VERSION = 1` (`packages/file-format/src/types.ts:28`) — the `.pryzm`
+  >   **ZIP** format, migrated by `file-format/src/migrations/index.ts`, whose only registered step
+  >   is the v0→v1 `MigrationStubError`;
+  > - `SNAPSHOT_SCHEMA_VERSION = 5` (`ProjectSerializer.ts:103`) — the **ProjectSnapshot JSON** the
+  >   live serializer/loader pair actually reads and writes, migrated by a **different** engine,
+  >   `apps/editor/src/engine/persistence/MigrationEngine.ts`, with steps 1…5.
+  >
+  > L-1057 lives entirely in the **second**, and within it the governing precedent is already in the
+  > file: **`§PERSIST-LIGHTING` added `snapshot.lighting` as an ADDITIVE OPTIONAL ARRAY with no bump
+  > and no migration step** (`MIGRATIONS[5]` is about `lifecycle`, unrelated), and `integrity?`
+  > states the rule outright — *"an additive optional field — old builds ignore it, so no
+  > file-format bump."*
+  >
+  > **So `curtainPanels?: CurtainPanelOverride[]` is additive and optional, and a bump would be
+  > wrong:** an old snapshot simply lacks the key and falls back to regenerate-from-grid, which IS
+  > the current behaviour and is therefore a correct migration by construction. **A version bump
+  > with an empty migration step is a lie about compatibility.** A bump becomes REQUIRED the moment
+  > the field stops being optional or a reader must reject a file lacking it — neither is true here,
+  > and both must be re-checked before CW-2 changes the shape.
+- **CW-P-F — WHAT IS EXPLICITLY NOT DECIDED.** **Runtime materialisation is unchanged**: every cell
+  still exists in memory for rendering and picking. This is a **storage and load** decision only.
+  Whether the *runtime* store should also become sparse is **NOT MEASURED** and MUST NOT be answered
+  until panel-store memory has been measured on a real project — the same discipline
+  [C66](C66-CONCURRENCY-AND-SCALE.md) applies to capacity claims.
+
+> ### CW-P-G — WHY CW-B-3 IS A PRECONDITION, AND WHY IT IS ALREADY MET
+>
+> **An override is only sparse if the thing it keys to is STABLE.** With `crypto.randomUUID()` grid
+> lines, every override would be orphaned by the next rebuild and this design degrades into exactly
+> the data loss it exists to prevent. **CW-B-3 was therefore promoted to step 0 — and it is
+> ✅ CLOSED (`ab8b4248`, L-1051):** ids are derived as `derivedGridLineId(ownerId, axis, index)`.
+>
+> ⚠ **BUT THE STABILITY GUARANTEE IS NARROWER THAN "ids are deterministic", AND THE DIFFERENCE IS
+> LOAD-BEARING FOR THIS DESIGN. State it, do not assume it:**
+> - Derived ids are **stable under regeneration with the same inputs** — which is C73 §1.1 and is
+>   exactly what CW-P-B needs.
+> - They are **index-derived, so they are NOT stable under a change of bay spacing.** Re-spacing a
+>   wall with no stored `gridSystem` from `bayWidth 1.5` to `0.75` produces a different line count
+>   and the derived ids shift.
+> - **That is CORRECT, not a hole.** A re-spaced grid has genuinely different cells; an override
+>   pinned to a cell that no longer exists must not be silently re-targeted onto a different one.
+>   **CW-P-D's refusal is the right answer there, and this is the case it exists for.**
+> - The window is also narrow in practice: the moment any grid line is inserted, `gridSystem` becomes
+>   PRESENT and is persisted, `migrateToGridSystem` never runs for that wall again, and
+>   `insertGridLine` mints a fresh id **only for the new line** while preserving every existing one.
+>   **Stored ids win over derived ones for the whole remaining life of the wall.**
+
+### 13.2 — CW-2a (PREREQUISITE): ONE panel vocabulary (C84 EI-8/EI-9)
+
+§9 measures three: L0 `PanelKind` (**4**), geometry `PanelType` (**13**), material-bridge slots
+(**6**, now parsed correctly per L-1053). **Four of thirteen survive a round trip.**
+
+- **CW-Voc-5 (NORMATIVE).** `PanelType` (`CurtainPanelTypes.ts:61-74`) is **THE MASTER** — it is what
+  the builder, the panel store, the property panel and the refusal message already speak, it is the
+  widest, and it is the only one that can express the Phase-3 slat and Phase-4 fabric families.
+  `PanelKind` becomes a **pinned projection** of it, generated and tested against the master
+  (C84 EI-8a — a comment is not a synchronisation mechanism), **never a hand-written second list.**
+- **CW-Voc-6.** The CW-2 dropdown MUST be generated from the master. **It MUST NOT offer a member
+  that cannot round-trip**; until a member persists, exports and reloads, it is either absent from
+  the dropdown or present-and-disabled with the reason shown. *An enum member the UI can select and
+  the pipeline cannot carry is EI-3, and minting one knowingly is worse than inheriting one.*
+- **DECISION OWED — the nine.** Either L0 gains the nine missing members (a schema change), or the
+  nine are declared session-only and removed from the dropdown. **This is a product decision, not an
+  engineering one:** it asks whether spider-glass, louvre and fabric systems are shippable or
+  demo-only. C87 states the choice and does not make it.
+
+### 13.3 — CW-1: SUB-ELEMENT SELECTION VIA TAB (Revit behaviour)
+
+> ⚠ **MEASURED FIRST — MOST OF THIS ALREADY EXISTS, AND THE MISSING PART IS SMALLER AND SHARPER
+> THAN "build a sub-element selection model".** A census before design (C84 §3.5.1 axis (a)):
+> - `PropertyPanel.showElement()` (`:742-775`) already has a **sub-element branch**: it consumes
+>   `window.__curtainSubElement`, retargets `state.selectedElementType` to `'curtain-panel'` /
+>   `'curtain-mullion'`, and renders `CurtainSubElementPanel` with a "show parent" escape.
+> - `CurtainSubElementPanel.ts` already exists and already renders a type picker and a colour
+>   override for a panel.
+> - `SelectionManager` already writes `window.__curtainSubElement` **on a direct mesh click**.
+>
+> **So the property panel retargeting the founder asks for is BUILT. What is missing is (a) TAB as
+> the cycling gesture, (b) mullions being editable rather than read-only, and (c) the mutation path
+> actually reaching a store — see §13.4.**
+
+- **CW-Sel-1.** With a curtain wall selected, **TAB** cycles the *sub-element focus*:
+  `wall → panel → mullion → wall`, in a **stable, declared order** (panel order = cell index
+  row-major; mullion order = u-lines then v-lines by `t`). The order MUST be derived from the grid,
+  never from scene-graph child order, which is build-order-dependent and therefore not stable across
+  a rebuild (C73 §1.1 applies to *identity*, not only to vertices).
+- **CW-Sel-2.** TAB changes **focus, not the transform target.** The parent wall remains
+  `SelectionManager`'s selected object so the gizmo keeps operating on the wall —
+  `CurtainSubElementPanel.ts:13-15` already states this invariant and it is retained deliberately.
+  **A sub-element is a property-editing focus, not a transformable element**, until CW-8 says
+  otherwise.
+- **CW-Sel-3 — `window.__curtainSubElement` IS THE WRONG CARRIER AND MUST BE RETIRED.** It is a
+  `(window as any)` slot (P4), it is **consumed-and-cleared on read** (`PropertyPanel.ts:754-755`),
+  so it is a one-shot message and not state — which means nothing else can ask *"what is focused?"*,
+  and TAB needs exactly that. The focus MUST become **addressable state** with an explicit
+  `{ hostId, kind: 'panel'|'mullion', ref }` shape. ⛔ This is the real architectural work in CW-1,
+  and it is **not** "SelectionManager cannot hold a sub-element identity" — it is that the identity
+  it holds is a self-erasing global.
+- **CW-Sel-4 (BINDING, from L-1002).** `SelectionManager` freed GPU resources inside the click
+  handler (L-1002, fixed by GL1). **No work may be added inside the click handler by this lane.**
+  TAB handling and focus resolution belong outside it; the grid-derived order is computed from the
+  store, not by traversing the scene.
+
+### 13.4 — CW-2: PANEL INSTANCE ATTRIBUTES
+
+Type · material · finish · **offset from centreline**.
+
+- **CW-Attr-1.** `offsetFromCentreline` is a **new authored field on `CurtainPanelData`**, signed,
+  metres, default `0`, measured along the panel's own outward normal. It MUST be: on the panel
+  record; in the CW-P-B authored-delta test; consumed by `CurtainPanelFactory` when it places the
+  panel rect; and carried by the RAC capability. **A field that renders but does not persist is
+  L-1057 repeated with a new name.**
+- **CW-Attr-2 — "material" and "finish" are TWO axes and MUST NOT be collapsed.** C84 EI-8's warning
+  is explicit: `materialName` *"carries roughness / metalness / transparency"* and collapsing it to a
+  hex **loses information**. `materialOverride` (existing) is the render tint; a *finish* is the PBR
+  material. The panel needs both, named differently, or one of them declared absent.
+- **CW-Attr-3.** Every attribute added here MUST have a declared destination at every hop
+  (C84 EI-2) — record, serialiser, loader restore, builder read, RAC capability — **stated in §5's
+  table before the field is added**, not after.
+
+### 13.5 — CW-3: CURTAIN-WALL DOORS
+
+The six `hostedDoor` fields exist (`CurtainPanelTypes.ts:89-105`) and reach **no schema, no bridge,
+no serialiser** (§11 #7 — which L-1057 shows is the *same* defect, not a second one).
+
+- ⛔ **CW-Door-1 — THE HOSTING QUESTION MUST BE ANSWERED BEFORE ANY CODE, AND C87 MAY NOT ANSWER IT
+  ALONE.** [C15 §1](C15-HOSTED-ELEMENT-CONTRACT.md) defines the host as *"the `Wall` entity (in
+  `WallStore`) that contains the hosted element in its `openings[]` array"*, and **C15 §2** states a
+  hosted element *"has no independent world-space coordinate in the store"*. **A curtain-wall door is
+  hosted by a PANEL, not by a wall.** A panel is not a `Wall`, has no `openings[]`, and its own
+  position is derived from its cell. So one of exactly two things is true, and **C87 must not pick
+  silently** (C84 EI-9 — one answer per question):
+  - **(a) C15's host semantics generalise**, and C15 is amended so a host is *"the entity whose
+    record contains the hosted element"* — `wall.openings[]` and `panel.hostedDoor` being two
+    instances of one rule; **or**
+  - **(b) this is a genuinely different relationship** — a panel is *replaced by* a door rather than
+    *perforated by* one — and it needs its own contract clause, because `SystemPanel_Door` is a panel
+    **type**, not an opening cut into a panel.
+  > **The measured evidence favours (b):** there is no opening, no cut, and no second element — the
+  > cell's panel simply *is* a door. **But (b) means a curtain-wall door is not a `door` for C86's
+  > purposes**, and every consumer that enumerates doors (schedules, IFC, the door property panel)
+  > must be told which answer holds. **DECISION OWED — founder/orchestrator, and it blocks CW-3.**
+- **CW-Door-2.** Whichever answer holds, the six fields MUST round-trip (CW-P) and the door MUST be
+  visible to **IFC export** or its absence declared. Today `CurtainWallReader.ts` reads store (3)
+  only, so a curtain-wall door is invisible to IFC — **unmeasured until now, and stated here so it is
+  not discovered after shipping.**
+
+### 13.6 — CW-4: MULLIONS AS FIRST-CLASS SUB-ELEMENTS
+
+- **CW-Mul-1.** Mullions become selectable (CW-Sel-1) and editable — material, finish, profile size.
+  `CurtainSubElementPanel.ts:21` currently declares mullion editing *"Phase 2 (read-only in Phase 1)"*;
+  this section is Phase 2 and that line must go.
+- **CW-Mul-2 — A MULLION HAS NO RECORD, AND THAT IS THE REAL WORK.** Panels have
+  `CurtainPanelStore`; mullions have **nothing** — they are drawn from the grid by
+  `CurtainWallBuilder` and stamped `'CurtainWallPart'` (§1). **Per-mullion authored attributes
+  therefore have nowhere to live.** Either a mullion store is minted (matching the panel store's
+  deterministic-id discipline, keyed by `${cwId}::u:${i}`), or per-mullion authoring is **refused**
+  and only per-wall mullion attributes are offered. ⛔ **Do not invent per-mullion state on the scene
+  object** — `userData` is not a store, and C84 §4E is the record of what that costs.
+- **CW-Mul-3 (BINDING, from L-1053).** Mullion material MUST be proven **end to end** — authored →
+  stored → built → rendered — by an executed test. Every mullion was built as translucent glass for
+  the life of `material-bridge.ts` because both ends compiled and the fallback was plausible.
+  **An assumption about mullion material is exactly the assumption that already failed here.**
+
+### 13.7 — CW-5: RAC FOR ALL OF IT ("always RAC enabled")
+
+- **CW-RAC-1 (C16 CA-21 / C67).** Every capability added MUST prove **V3** — the write reaching the
+  **authoritative** store — by **executed read-back**, not by a successful dispatch. RC1's
+  measurement stands as the warning: the chat ladder proves V1 RESOLVE and V2 DISPATCH, and V3 is
+  gated for **18 verbs of 325**. A curtain-wall capability that proves V2 only is a capability that
+  reports success and changes nothing — **the exact family this contract's own verdict names.**
+- ⛔ **CW-RAC-2 — THE NAMING PROBLEM IS REAL AND MAY NOT BE PAPERED OVER.** A sub-element capability
+  must let a user *name a panel in language*: *"the third panel from the left"*, *"the panel with the
+  door"*, *"the top row"*. Cell indices are `[i, j]` from the wall's **start** endpoint, so
+  *"from the left"* depends on which way the wall was drawn — **a curtain wall drawn right-to-left
+  inverts every ordinal**, and the user has no way to know which way they drew it.
+  **NORMATIVE:** a resolver that cannot establish the viewer-relative frame MUST **refuse and say
+  so**, naming both readings — never pick one. *A verb that resolves to the wrong cell and reports
+  success is strictly worse than a refusal, and this family has already shipped three of those.*
+  Ordinal resolution is therefore **gated behind an explicit frame** (a selected wall + a camera
+  direction, or an explicit "as seen from outside"), and until that exists the capability accepts
+  **cell coordinates and selection references only**.
+
+### 13.8 — CW-6: POLYLINE + ENTER CLOSES THE LOOP
+
+- **CW-Poly-1.** Curtain-wall polyline drawing MUST close on **ENTER** the way wall does.
+  ⛔ **Reuse wall's closure rule; do not write a second one** (C84 EI-9). `CurtainWallDrawingMode`
+  already declares `POLYLINE` and `ORTHO` (`CurtainWallTypes.ts:16`), so the mode vocabulary exists —
+  **what must be measured before implementing is whether wall's closure lives in a reusable function
+  or inside its tool handler's closure**, because the second case is the `initTools` lesson (L-972)
+  and the answer is to extract it, not to copy it.
+- **CW-Poly-2.** A closed loop MUST produce walls that **join**, not merely walls that touch —
+  otherwise CW-7 has no watertight region to trace.
+
+### 13.9 — CW-7: SLAB-BY-REGION INSIDE A CURTAIN WALL
+
+- **CW-Region-1.** `SlabPlanToolHandler`'s `§REGION-HOST-ATTRIBUTION` edge set MUST include curtain
+  walls, so a click inside a curtain-wall enclosure produces a region slab exactly as it does for
+  walls.
+- ⚠ **CW-Region-2 (BINDING).** **L-1030 is open: the region slab works in plan and silently does
+  nothing in 3-D.** Adding curtain walls to the edge set while that holds **multiplies a silent
+  failure across a second family.** CW-7 MUST NOT be marked done until the 3-D half is proven for
+  the curtain-wall case, and **a region trace that cannot attribute a host MUST refuse rather than
+  claim one** (C84 EI-2).
+
+### 13.10 — CW-8: MOVE → PROPAGATE → RECOMPUTE
+
+- **CW-Move-1.** ⛔ **FOLLOW THE WALL PATH; DO NOT FORK A SECOND CASCADE.** WM1's finished work —
+  `§L-921-ATOMIC-GESTURE`, `CascadeWallBaselineCommand`, [C83 §5.5](C83-CROSS-ELEMENT-CASCADES.md) —
+  is the shape. A second cascade engine for curtain walls is C84 EI-9 at its most expensive.
+- **CW-Move-2.** `curtain-wall.move` today mutates `baseLine` points in place (`MoveCurtainWall.ts:48-50`)
+  and propagates nothing. Under MOVE → PROPAGATE → RECOMPUTE it must: move the baseline, propagate to
+  dependents (panels re-cell, hosted doors follow, any region slab bounded by it re-traces), and
+  recompute geometry — **as one atomic gesture with one undo entry.**
+- ⚠ **SCOPE.** Curtain wall is this lane's. **Floors, roofs and ceilings are NOT** — findings there
+  are reported for routing, not implemented here.
+
+### 13.11 — TWO DECISIONS THIS SECTION MAKES, AS INSTRUCTED
+
+- **CW-Dec-1 — `curtain-wall.replacePanel` (L6) is declared DEAD, and the UI is repointed.** §11 #17
+  measures it refusing on every dispatch. **The two property-panel surfaces MUST dispatch a verb that
+  reaches a real store** (C16 **CA-17**, route the write), and the controls stay **enabled** — the
+  founder uses them.
+  > ⚠ **MEASURED, AND IT CONTRADICTS THE PREMISE OF THE INSTRUCTION — STATED PLAINLY RATHER THAN
+  > QUIETLY WORKED AROUND.** The routing instruction assumed the L2 `ReplacePanelTypeCommand` is what
+  > the properties panel uses today (*"they say they can swap panels"*). It is not used by anything:
+  > `grep -rn "ReplacePanelTypeCommand\|ReplacePanelWithDoorCommand" apps/editor/src packages/ai-host/src`
+  > → **three hits, all COMMENTS** (`initUI.ts:2264`, `CurtainSubElementPanel.ts:19`, `:20`), **zero
+  > constructions.** `CurtainSubElementPanel.ts:319` and `CurtainPanelEditor.ts:250` both dispatch the
+  > **dead bus verb**, and `CommandBus` **throws** on a `canExecute` refusal (`CommandBus.ts:428-431`),
+  > so the promise rejects and the button renders **"✗ Failed — check console"**.
+  > **Panel swapping does not work today from any surface.** `CurtainSubElementPanel`'s own header
+  > (`:19-20`) says it routes through `ReplacePanelTypeCommand`; the code eight lines of scrolling
+  > away does not — **the same comment-versus-code divergence that produced L-1054, L-1055 and
+  > L-1056, in a fourth place.**
+- **CW-Dec-2 — ONE VERB SPELLING: `curtain-wall.*`.** `curtainWall.changeLevel` (camelCase,
+  `5420ee55`) is the minority arrival against a registered majority of 21.
+  [C69 §1.1](C69-WIRE-PROTOCOL.md) makes a verb name a **wire identifier**, so the correction is an
+  **alias**, not a rename: register `curtain-wall.changeLevel` as the canonical type and keep
+  `curtainWall.changeLevel` as a **deprecated alias** — the vehicle §FIX-COMMAND-NAMESPACE (L-796)
+  already uses for the other 21. ⚠ Coordinate with the lane that landed it; the handler's own
+  `:41` comment argues *for* camelCase on the grounds that it matches `wall.changeLevel`, and that
+  argument is not silly — **but it makes the FAMILY inconsistent to make the AXIS consistent, and
+  C84 EI-8 is a per-concept rule, so the family wins.**
+
+### 13.12 — DELIVERY ORDER (binding)
+
+**(0)** ✅ **CW-B-3 deterministic grid-line ids — CLOSED `ab8b4248` (L-1051)**, promoted to step 0
+because a sparse override keyed on an unstable id is the data loss it exists to prevent (CW-P-G) ·
+**(1)** CW-P persistence as sparse overrides · **(2)** CW-2a vocabulary · **(3)** CW-Dec-1 routing ·
+**(4)** CW-1 selection/TAB · **(5)** CW-2 attributes · **(6)** CW-4 mullions · **(7)** CW-3 doors ·
+**(8)** CW-6 polyline close · **(9)** CW-7 region slab · **(10)** CW-8 move/propagate/recompute ·
+**(11)** CW-5 RAC across all of it.
+
+Each step is **RED-first** and each carries an executed proof at the layer the user reaches
+(§committed-is-not-reachable). **A step is not done because it compiles.**
+
 ## NOT MEASURED — the honest register for this family
 
 ⛔ Gaps, not clearances. None may be recorded `✅` until measured (C84 EI-1b).
