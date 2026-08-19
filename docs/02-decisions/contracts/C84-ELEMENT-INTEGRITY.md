@@ -970,6 +970,339 @@ construction (`WallFragmentBuilder.ts:2301-2307`).
 
 ---
 
+## 4F. THE RAC AXIS — *"can the user ASK for this in chat?"* — measured 2026-08-19 (lane RAC1)
+
+> **Why this section exists, verbatim from the founder (2026-08-19):**
+> *"IN THE RAC AT THE MOMENT I CAN SAY: 'CHANGE ALL WINDOWS TYPE TO ….' BUT DOESN'T WORK FOR:
+> 'CHANGE HANDRAIL TYPE TO FRAMELESS GLASS BALUSTRADE'. I WANT ALL ELEMENTS TO BE CHANGEABLE —
+> BY LEVEL, BY ROOM, ETC. DO AN AUDIT — DOCUMENT — PER ELEMENT CONTRACT — AND FIX IT."*
+>
+> This is the cross-family summary; each family's own row-set lives in its C85–C99 **§RAC** section.
+> Scored on the **C67 §1.0 seven-verdict vector** (V1 RESOLVE · V2 DISPATCH · V3 STATE · V4 PERSIST ·
+> V5 UNDO · V6 SYNC · V7 REPORT), never as a boolean. `NOT MEASURED` is written out in full wherever
+> it applies — **EI-1b: a blank reads as "fine".**
+
+### 4F.0 — THE ONE-SENTENCE FINDING
+
+> ⭐ **The type-change EXECUTOR is already universal. The RAC WIRING is not.**
+> `element.changeType` (registered at `apps/editor/src/engine/initBusHandlers.ts:1518`) carries
+> **SIXTEEN family branches** — wall `:1536` · furniture `:1549` · floor `:1600` · slab · door ·
+> window · ceiling · plumbing `:1802` · stair `:1850` · column `:1858` · beam `:1883` ·
+> stair-railing `:1901` · **handrail `:1936`** · roof `:1979` · lighting `:1991` ·
+> curtain-wall `:2022` — each writing the **geometry store the builders, the plan projector and
+> persistence read**, each with ring-buffer undo parity via `_swapWithRingParity`, and the whole set
+> pinned executable by `apps/editor/src/engine/__tests__/elementChangeTypeCoverage.spec.ts:178-194`.
+>
+> **The chat reaches FIVE families** — wall, window, door, slab, ceiling — through five *separate*
+> `*.updateSystemTypeBatch` verbs that **do not use `element.changeType` at all**.
+>
+> **Eleven families therefore have a live, panel-reachable, undoable, persisting type-change that the
+> chat cannot reach.** That is a **C84 EI-3 breach at family scale** — *what the UI offers, the
+> pipeline must accept* — and the founder's handrail sentence is one instance of it, not a
+> one-family bug.
+
+### 4F.1 — THE ROOT CAUSE: A DEFERRAL THAT INHERITED A REASON THAT IS NO LONGER TRUE
+
+`element.changeType` is classified **Class B "needs design"** at
+`packages/ai-host/src/capabilities/ChatCommandClassification.ts:98`, inside the family `B_CATALOGUE`
+whose stated reason (`:76`) is:
+
+> *"The value is a project-catalogue reference (type / section / rating / system). The set-wall-type
+> pattern applies — an injected resolver per catalogue — but **those catalogues are not injected into
+> the resolver context yet**."* · `blockedBy: 'catalogue value-source injection'` (`:101`)
+
+**Three measurements say that reason is not true for the verb it is blocking:**
+
+1. **The catalogues exist, in the `{id, name}` shape `resolveCatalogueRef` requires.**
+   `HandrailTypeStore.ts` — **20 built-ins**, and `:227-241` is
+   **`id: 'glass-frameless'`, `name: 'Frameless Glass Balustrade'`** — the founder's exact phrase,
+   already resolvable by `resolveCatalogueRef` tier-2 (exact name) and tier-4 (word subset), **with
+   zero adaptation**. `CurtainWallTypeStore.ts` — **20**. `FloorSystemTypeStore.ts` — **22**.
+   `LightingTypeDefinitions.ts:54` — **12**. `StairTypeDefinitions.ts` — **5**.
+   `ElementTypeCatalogRegistry.ts:112-126` — **8 roof types** with id+name.
+2. **The injection CHANNEL exists too, and has NO production writer.**
+   `ResolverContext.catalogues?: Readonly<Record<string, CatalogueLookup>>`
+   (`packages/ai-host/src/intents/ZeroTokenResolver.ts:199`) is read by `CatalogueFamilies.ts:105-110`.
+   Measured repo-wide, **its only writer is a test**
+   (`packages/ai-host/__tests__/chat-capability-registry.test.ts:272`).
+   `ZeroTokenChatBridge.buildContext()` (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:841-936`)
+   injects wall/window/door through their **named legacy fields** and **never sets `catalogues` at
+   all**. ⭐ **A repo-wide sweep confirms `ZeroTokenChatBridge.ts:922-954` is the ONLY
+   `ResolverContext` construction site that exists** — there is no second builder that could
+   silently miss the injection, and no third that already has it. The "not injected yet" blocker is
+   **~6 lines in one function**.
+3. **The file already documents this exact failure mode, three lines above the offending entry.**
+   `ChatCommandClassification.ts:84-95` records that `room.setOccupancy` sat in this same family
+   inheriting this same reason while the dependency *did not apply to it* — *"the founder's rooms read
+   `unclassified` while a LIVE, undoable verb sat one sentence away"* — and ends:
+   > *"The lesson generalises — when a deferral names a dependency, check the dependency is real for
+   > THAT verb before inheriting the family's reason."*
+
+   **`element.changeType` is on line 98.** The lesson was written and then not applied to the next
+   entry of the same array.
+
+⛔ **This is the [[unsatisfiable-gate-decomposition-is-the-fix]] / [[authored-but-unwired-is-the-bottleneck]]
+shape, and NO GATE CAN SEE IT.** `npx tsx tools/ga-gate/check-chat-capability-coverage.ts` (run
+2026-08-19) reports `explicitly deferred (CHAT_UNAVAILABLE): 52` and `B needs-design 131` and is
+**green on both** — *a deferral is invisible to a coverage gate by construction*. **Nothing in this
+repository asks whether a deferral's stated blocker is still true.**
+
+### 4F.2 — THE CROSS-FAMILY MATRIX — TYPE CHANGE
+
+Legend — **V1** RESOLVE · **V2** DISPATCH · **V3** STATE · **V4** PERSIST · **V5** UNDO · **V6** SYNC ·
+**V7** REPORT. `—` = the question does not arise because V1 already fails.
+**"Fails how"** is the load-bearing column: a family that refuses honestly is a missing feature; a
+family that **reports success while changing nothing** is the L-995 class and outranks it.
+
+| Family | RAC type-change today | V1 | V2 | V3 | V4 | V5 | V6 | V7 | Fails how | `element.changeType` branch |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **wall** (C85) | ✅ `set-wall-type` → `wall.updateSystemTypeBatch` | PASS | PASS | PASS `wallStore` | PASS | PASS · 1 entry | FAIL¹ | PASS² | — | ✅ `:1536` |
+| **window** (C86) | ✅ `set-window-type` | PASS | PASS | PASS `windowStore` | PASS | PASS · 1 entry | FAIL¹ | PASS² | — | ✅ |
+| **door** (C86) | ✅ `set-door-type` | PASS | PASS | PASS `doorStore` | PASS | PASS · 1 entry | FAIL¹ | PASS² | — | ✅ |
+| **slab** (C92) | ✅ `set-slab-type` | PASS | PASS | PASS `slabStore` | PASS | PASS · 1 entry | FAIL¹ | PASS² | — | ✅ |
+| **ceiling** (C88) | ✅ `set-ceiling-type` | PASS | PASS | PASS `ceilingStore` | PASS | PASS · 1 entry | FAIL¹ | PASS² | — | ✅ |
+| **handrail** (C95) | ⛔ **NONE** | **FAIL** | — | — | — | — | — | — | **refuses** (falls through to the topic table) | ✅ `:1936` → `UpdateHandrailCommand` → `handrailStore` · catalogue **20** |
+| **curtain-wall** (C87) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:2022` → `UpdateCurtainWallCommand` · catalogue **20** · record carries `systemTypeId` |
+| **floor** (C89) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1600` → `UpdateFloorLayersCommand` · catalogue **22** · `systemTypeId` |
+| **lighting** (C96) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1991` → `UpdateLightingParametersCommand` · catalogue **12** · **validates the id** at `:2004` |
+| **stair** (C98) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1850` · catalogue **5** · ⚠ `StairTypeStore` exposes `get()` **not** `getById()` → fails `CatalogueReader` |
+| **stair-railing** (C95/C98) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1901` · **resolves fields from `newTypeId` ALONE** (`resolveStairRailingTypeFields`) — the pattern to copy |
+| **roof** (C90) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1979` · **8** {id,name} at `ElementTypeCatalogRegistry.ts:115-124` |
+| **furniture** (C97) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1549` → `ChangeFurnitureTypeCommand` · ⛔ type is a bare **string union**, no display names |
+| **plumbing** (C99) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1802` → `UpdatePlumbingParametersCommand` · ⛔ bare unions, no names |
+| **column** (C91) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1858` · ⛔ `profile` enum, no catalogue |
+| **beam** (C93) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ✅ `:1883` · ⛔ `sectionType` enum, no catalogue |
+| **curtain-wall PANEL** (C87) | ⛔ NONE | **FAIL** | — | — | — | — | — | — | refuses | ❌ **none** — `ReplacePanelTypeCommand.ts:1` is literally `TODO(E.5.x): ORPHANED` |
+| **room/space** (C94) | ✅ `set-room-occupancy` (occupancy, not type) | PASS | PASS | NOT MEASURED | NOT MEASURED | NOT MEASURED | FAIL¹ | NOT MEASURED | — | n/a — ⭐ **the ONE family where chat ≥ panel** (the panel declares `readOnlyReason`) |
+
+¹ **V6 is FAIL on every row for ONE reason, and it is not this axis's**: the CRDT read-back leg does
+not exist (`YjsDocAdapter` has zero `.observe`) and the transport defaults OFF — C67 §1.0 and the
+cat-6-10 scorecard §1.7. Recorded so no blank reads as "fine"; **not** a per-family defect, and
+**not re-derived by this lane**.
+² V7 passes **for the chat transcript only**, via the `BATCH_REPORT_EVENTS` subscription. See 4F.3 —
+**it does NOT pass at the bus boundary.**
+
+### 4F.3 — ⛔ THE SILENT-SUCCESS FINDING: four of the five WORKING verbs lie at the bus boundary
+
+**The L-995 defect class, still live, in the families the founder says work.**
+
+`window` / `door` / `ceiling` / `wall` `.updateSystemTypeBatch` all end `execute()` with an
+**unconditional** `return { forward: [], inverse: [] }`:
+
+| Verb | Handler | Line |
+|---|---|---|
+| `window.updateSystemTypeBatch` | `plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts` | `:161` |
+| `door.updateSystemTypeBatch` | `plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts` | `:161` |
+| `ceiling.updateSystemTypeBatch` | `plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts` | `:145` |
+| `wall.updateSystemTypeBatch` | `plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts` | `:169` |
+
+That return is reached **identically** on four different outcomes: (a) N elements changed; (b) the
+command **refused everything** — `CommandManagerImpl.execute()` returns `{success:false, info:[reason]}`
+**without throwing**; (c) the bridge **threw** (caught, then only `console.error`); (d)
+`window.commandManager` was **absent**. So `bus.executeCommand('window.updateSystemTypeBatch', …)`
+**resolves successfully for *"there is no such window type"*, *"no windows exist"*, *"the bridge
+threw"* and *"there is no command manager"* alike.** **FAILURE AND EMPTINESS ARE THE SAME VALUE.**
+
+⭐ **`slab` is the ONE that was fixed, and its own header names the rule the other four break** —
+`plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:27-40`, quoting **C16 §5.1 CA-18**:
+*"`{forward:[], inverse:[]}` returned as the outcome of a mutation the user asked for"*. It reads
+`report.success`, keeps `report.info[0]` as `refusal`, and **throws** (`:192-194, 204-209`).
+**The fix is already written. It was applied to one of five siblings.**
+
+**Why the CHAT transcript is nevertheless honest — and why that is not a defence.** All five *also*
+emit a `CustomEvent` carrying the command's real `{success, info}`, and all five rows are present in
+`BATCH_REPORT_EVENTS` (`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:1205, 1232, 1233, 1238, 1240`),
+so `classifyDispatch` turns `success:false` into *"Nothing was changed — …"*. **The RAC is honest by
+a downstream subscription, not by the bus contract.** Every other caller — plugin-SDK consumers,
+`packages/sync-client/src/syncDisposition.ts:254-274` (which registers all five as `element-property`
+mutations), tests, any future call site — sees an **unconditional success**. Note also
+`affectedStores: [] as const` on all five: the bus records no store effect and no bus-level undo
+entry. A truthful transcript layered over a lying verb is the arrangement that let L-995 survive a
+week — see [[fake-more-capable-than-real]] and [[committed-is-not-reachable]].
+
+### 4F.4 — THE SCOPING AXIS: all / by level / by room / by selection / by filter
+
+**The scope ALGEBRA is strong and is NOT the gap.** `ScopeDescriptor.ts` defines six base forms —
+`selection` · `ids` · `all` · `level` · `room` · `orientation` — plus a one-level `filter` wrapper
+(`FilterScope.ts`: property and type predicates, with honest `filterStats` extrema). The shared type
+grammar `makeHostedTypeParser` (`ZeroTokenResolver.ts:3340`) already captures **`on level N`** and
+**`in the <room>`** for **every** catalogue family for free, and `parseFilterClauses` lifts filter
+clauses out before the capability grammar runs.
+
+**The gap is DECLARATION, not reach.** `check-chat-capability-coverage.ts` (2026-08-19, **RC=3**):
+
+```
+FAIL — 26 spatial mode(s) the ARM honours without declaring, baseline 24.
+      set-window-type  honours "level" / "room" / "orientation" without declaring it
+      set-door-type    honours "level" / "room" / "orientation" without declaring it
+      set-slab-type    honours "level" / "room" / "orientation" without declaring it
+      set-ceiling-type honours "level" / "room" / "orientation" without declaring it
+      set-wall-type · set-wall-side-finish · add-wall-layer · create-windows-parametric ·
+      delete-{furniture,windows,doors,columns}-scoped …                       (26 in total)
+```
+
+⭐ **So "by level" and "by room" ALREADY WORK for all four catalogue families and are NOT DECLARED.**
+The registry is the source the *"what I CAN do"* answer is generated from, so the system
+**under-reports its own capability to the user** — an **EI-9 violation in the reporting direction**,
+and the mirror image of L-998 (*a refusal that advertised the capability it was refusing*). Both are
+one-answer-per-question failures. **Fix = add the modes to `scopeModes`. No new machinery.**
+
+### 4F.5 — THE SELECTION-CONTEXT AXIS — the claim *"the RAC has no selection context"* is **FALSIFIED**
+
+Measured against the founder's report that *"CREATE WALLS BY SLAB"*, with a slab selected, was refused
+with *"I need start and end coordinates to place a wall from chat"*
+(`ZeroTokenResolver.ts:1992-2012`):
+
+- **`ResolverContext.selection` is a first-class, non-optional field** carrying **both id and kind** —
+  `ZeroTokenResolver.ts:143-145`, `:124-127`.
+- **It is rebuilt on EVERY message** from the full multi-selection —
+  `ZeroTokenChatBridge.ts:159-175` (`selectionBus.currentIds` → `elementTypeOf()`, unclassifiable ids
+  **dropped rather than guessed**) → injected at `:923`.
+- **36 of 57 capabilities are selection-reachable** — 24 with `scope:'selection'` as their default,
+  12 more via `scopeModes`.
+- The one genuine hole is cosmetic: `resolveScope({kind:'selection'})` is a stub returning
+  *"That scope isn't wired into chat yet"* (`ZeroTokenChatBridge.ts:501-502`) — unreachable, because
+  `CapabilityExecutionSpec.ts:759-762` pre-resolves a selection base to an `ids` descriptor first.
+
+**The real defect is narrower and sharper.** `create-wall`'s `SemanticIntent`
+(`ZeroTokenResolver.ts:678-684`) carries **`start` / `end` / `height` / `thickness` and no subject
+axis at all** — no `scope`, no `sourceId`. Its registry entry declares **`scope: 'global'`**
+(`ChatCapabilityRegistry.ts:2096`), the same bucket as `undo` and `zoom-fit`. The grammar never
+inspects the token *"slab"* (`LocalNaturalLanguageResolver.ts:1081-1098` — the word is discarded and
+the sentence is parsed as a bare create-wall-without-coordinates at confidence 0.82).
+**`create-wall` is structurally incapable of expressing a geometry source**, while every sibling
+creation capability that takes a subject (`create-windows-parametric`,
+`scopeModes: ['all','selection','level']`) already accepts one.
+
+⛔ **THE WRONG-REFUSAL DEFECT CLASS — a correct-looking refusal for a capability that EXISTS.**
+It satisfies C16 CA-18 *in form* (it names an alternative and gives worked examples) while denying an
+ask the system can satisfy. **Recorded as its own class**, because a well-formed refusal is *harder*
+to spot than a broken one: it reads as a designed limit. Compare
+[[refusing-half-needs-its-escape-hatch]] — *a gate whose "yes" branch awaits a decision is a
+regression with a contract citation attached.*
+
+### 4F.6 — ⛔ THE EXECUTOR IT SHOULD ROUTE TO EXISTS **FOUR TIMES OVER** (P6 / EI-4a, before the RAC adds anything)
+
+| # | Path | Where | Mechanism |
+|---|---|---|---|
+| 1 | Legacy command — takes `slabId`, **recovers boundary ARCS** (§L965), full undo | `packages/command-registry/src/walls/CreateWallsFromSlabCommand.ts` | `CommandType.CREATE_WALLS_FROM_SLAB` (`apps/editor/src/engine/CommandRegistry.ts:255`) |
+| 2 | Plugin handler — takes a pre-resolved `perimeter`, Immer, single-undo | `plugins/wall/src/handlers/CreateWallsFromSlab.ts` | bus **`wall.createFromSlab`** (`packages/command-bus/src/commands.ts:945`) |
+| 3 | **The Wall tool's own "By Slab" button** | `apps/editor/src/ui/layout/ToolsAreaLayout.ts:285, 325` | bus `wall.create-on-all-slabs` |
+| 4 | Legacy AI path | `packages/ai-host/src/AIService.ts:247` | constructs #1 directly |
+| — | Batch-catalogue pills (UI) | `apps/editor/src/ui/create/batchCatalogue.ts:186` | constructs #1 directly |
+
+Path #2 is fenced off from chat *by policy, not by absence*: `ChatCommandClassification.ts:241-250`
+puts `wall.createFromSlab` in `C_BATCH` — *"exposing the raw batch verb to chat would be a footgun"*.
+
+> ### ⛔⛔ AND #3 — THE ONE CALLED "WORKING" — IS ITSELF BROKEN, SILENTLY
+> `_execWallBySlab` resolves the selected slab and dispatches
+> `executeCommand('wall.create-on-all-slabs', { slabId })`. **`wall.create-on-all-slabs` has no
+> `slabId` in its payload** (`packages/command-bus/src/commands.ts:1134-1137` —
+> `{ wallHeight?, wallThickness? }`); its handler reads only height/thickness
+> (`plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:43-63`); and
+> `CreateWallsOnAllSlabsCommand.ts:40` does `slabStore.getAll()`.
+> **`slabId` is dropped at three layers. Select ONE slab, press `S`, get perimeter walls on EVERY
+> slab in the project.**
+>
+> ⭐ **The RAC MUST NOT be routed to path #3.** Had the RAC been wired to "the working tool mode"
+> without measuring it, chat would have inherited a silent over-application — the
+> [[committed-is-not-reachable]] lesson applied to a *fix* rather than to a feature.
+>
+> **Normative:** the RAC routes to **#2 `wall.createFromSlab`** — the only bus-native, Immer,
+> single-undo path — and **#3 is repointed at the same verb in the same change**, collapsing two of
+> the four paths. ⛔ **MUST NOT mint a fifth implementation** (P6; EI-4a: ONE route per intent).
+
+### 4F.7 — THE SECOND DISPATCH ROUTE **INSIDE THE AI PANEL ITSELF** (EI-4a)
+
+`apps/editor/src/ui/create/batchCatalogue.ts` holds **23 batch entries, 17 of them `status:'live'`**,
+each carrying a natural-language `prompt` string — *"Create walls from the selected slab"*,
+*"Create walls on all slabs"*, *"Create curtain walls from the selected slab"* — and a `precondition`
+that **reads the selection** (`resolveSelectedSlabId(d)`).
+
+`AIPanel.ts:1279-1318` surfaces them as **clickable pills** whose `action` calls
+`dispatchBatchEntry(e, batchDeps)` — **bypassing the resolver ladder entirely**.
+
+⛔ **So inside ONE panel: CLICK *"Create walls from the selected slab"* and it works; TYPE the same
+sentence and it is refused.** Two authorities for one intent, in one surface — the exact EI-4a shape,
+and an EI-3 breach with the offered affordance and the refusing verb **rendered side by side**. The
+`prompt` strings are already written natural language; **nothing consumes them as language.**
+
+### 4F.8 — NOT MEASURED (explicit, per EI-1b)
+
+- **V6 SYNC for every family** — inherited from C67 §1.0, **not re-derived by this lane**.
+- **V3 / V4 / V5 for the eleven dark families through the CHAT** — unmeasurable while V1 fails.
+  They are measured *through the panel* in each family's own contract; whether the **same** verdict
+  holds once chat drives `element.changeType` is **NOT MEASURED** and must be proven by **executed
+  read-back** (C16 CA-21), never inferred from the panel's passing.
+- **No utterance was typed into a live editor by this lane.** Every verdict above is source-measured.
+- **`room/space` V3–V7** — `set-room-occupancy` was not traced.
+- **The other 181 deferrals.** Only `element.changeType`'s and `wall.createFromSlab`'s stated
+  blockers were re-checked, out of **131 Class-B + 52 CHAT_UNAVAILABLE**. 4F.1 establishes that a
+  stale blocker is invisible to every gate, so **this is a gap, not a clearance.**
+- **Whether `set-slab-type` / `set-ceiling-type` fuzzy-match correctly in production.** Because
+  `ctx.catalogues` has no writer, both take the raw-string fallback (`CatalogueFamilies.ts:209-214`)
+  and are resolved command-side. That refuses honestly rather than no-opping — but the family's own
+  `mismatchPrefix` / `suggestions` copy is **dead code at runtime**, and a near-miss ref that
+  `resolveCatalogueRef` fuzzy-matches will retype elements to a name **the user never said, with no
+  chat-side confirmation of the resolved name**. NOT MEASURED against a real project.
+
+### 4F.9 — THE DELTA (ordered; each item names its invariant and its proof)
+
+1. **Route `element.changeType` to the chat for the eleven dark families** — EI-3, EI-4a.
+   Proof: **executed read-back of the geometry store per family** (C16 CA-21), never `success:true`.
+   Start with **handrail** — the founder's named case.
+   ⚠ **The handrail branch does NOT resolve `newTypeId` → fields; the CALLER materialises the type
+   whole** (13 fields; the pattern is `RailingTypeSelectorWidget.ts:117-145`, including
+   `materialColor: def.materialColor ?? null`, which **clears** a user hex override — omit it and the
+   old colour shadows the new `materialId` forever, C100 §2.1). **A RAC dispatch carrying only
+   `newTypeId` would run `UpdateHandrailCommand` with no field changes and report success having
+   changed nothing** — 4F.3's defect, re-minted at a new site.
+   ⚠ **And the catalogue injection (item 2) is LOAD-BEARING for handrail specifically, not merely
+   nice-to-have.** Slab and ceiling survive its absence because their batch COMMANDS re-resolve the
+   raw string and refuse by listing real names; `element.changeType`'s railing branch has **no name
+   ladder at all** — it trusts the caller's materialised fields. Skipping item 2 would make *"change
+   all handrails to frameless glass balustrade"* die on a `console.warn` instead of refusing with
+   the 20 real names. **Items 1 and 2 ship together or not at all.**
+   ⭐ **Preferred shape:** mirror `resolveStairRailingTypeFields` (`initBusHandlers.ts:1923`) — put the
+   catalogue→fields projection in `packages/geometry-handrail` so the branch resolves from
+   `newTypeId` alone. That makes handrail behave exactly like stair-railing, deletes the widget's
+   duplicate projection (EI-9), and reduces the chat payload to `{elementId, elementType, newTypeId}`.
+   **`packages/geometry-handrail/**` and C95 are lane HR2's — coordinate, do not edit.**
+2. **Write `ctx.catalogues` in `ZeroTokenChatBridge.buildContext()`** — unblocks the stated
+   `blockedBy` for the whole `B_CATALOGUE` family and makes `set-slab-type` / `set-ceiling-type`
+   refuse with their *own* declared copy. ~6 lines.
+3. **Apply the slab CA-18 fix to its four siblings** — C16 CA-18, EI-9. Proof: a bus-level test that
+   a refused batch **rejects**, dispatched with **no** CustomEvent subscriber.
+4. **Declare the spatial modes the arms already honour** — EI-9. Proof: the gate's
+   `undeclared spatial reach` ratchet falls **26 → 0**.
+5. **Give `create-wall` a subject axis and route it to `wall.createFromSlab`** — EI-4a. Proof: the
+   selected-slab utterance creates walls **and** the tool button (#3) is repointed at the same verb in
+   the same change.
+6. **Feed `batchCatalogue`'s 17 live `prompt` strings to the resolver** — EI-4a, EI-3.
+7. **Fix the four families whose type is a NAMELESS union** — furniture, plumbing, column, beam. A
+   refusal cannot list options that have no display names, so these need `{id,name}` catalogues
+   *before* they can join, and that is a C65 element-type question, not a RAC one. **Declared, not
+   silently missing.**
+8. ⭐ **A gate that RE-VALIDATES DEFERRAL BLOCKERS.** ⛔ *Nothing today asks whether a Class-B
+   `blockedBy` is still true.* 4F.1 is what that costs, and the same file records the same miss for
+   `room.setOccupancy`. **This is the durable fix; items 1–7 are its backlog.**
+
+### 4F.10 — STALE CLAIMS CORRECTED IN `CatalogueFamilies.ts:39-57`
+
+That header is this repository's own honest register of *"families the chat cannot drive, said out
+loud"* — and **four of its five stated reasons have expired**. Recorded here rather than silently
+edited, because the retraction is the finding (C84 §6 authoring rules):
+
+| Claim (`CatalogueFamilies.ts`) | Measured 2026-08-19 |
+|---|---|
+| `:46` curtain-wall — *"its command is marked ORPHANED, and `element.changeType` has no curtain-wall branch"* | **FALSE since L-958.** Branch at `initBusHandlers.ts:2022`; catalogue `CurtainWallTypeStore.ts` (20); record carries `systemTypeId`. The ORPHANED command is `ReplacePanelTypeCommand` — **panel-level, a different capability** |
+| `:47` floor — *"`floorSystemTypeStore`, 14 built-ins"* | **22** built-ins |
+| `:41-44` *"roof, column, beam — no named type CATALOGUE exists at all"* | **True for column and beam. FALSE for roof** — 8 {id,name} entries at `ElementTypeCatalogRegistry.ts:115-124` |
+| `:52-54` furniture — *"a string UNION with no display names … a refusal could not list anything"* | **ACCURATE** |
+| `:55` handrail — *"the catalogue exists but `HandrailData` has no typeId: a type must be MATERIALISED whole into its fields"* | **ACCURATE, and the only one whose reason fully holds** — but materialisation is a *payload* question, not a blocker: the panel does it today in 13 lines |
+
+---
+
 ## 5. Gates
 
 > ⛔ **CORRECTED 2026-08-18 — "EXISTS" IN THIS TABLE WAS WORKTREE-SCOPED AND READ AS HEAD-SCOPED.**
