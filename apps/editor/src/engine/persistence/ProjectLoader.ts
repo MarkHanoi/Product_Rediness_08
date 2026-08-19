@@ -1510,6 +1510,12 @@ export class ProjectLoader {
                         depth: b.depth,
                         levelId: b.levelId,
                         material: b.material,
+                        // ⭐ C100 §2.1 / L-1127 ARM D+E — the MASTER material, READ BACK.
+                        // ARM E exists because `serializeSlab` wrote an id that no loader
+                        // payload listed, so the material was right in the file and gone
+                        // from the reloaded element. Writing without reading is the same
+                        // defect; both halves land together here.
+                        materialId: b.materialId,
                         loadBearing: b.loadBearing,
                         fireRating: b.fireRating,
                         // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC

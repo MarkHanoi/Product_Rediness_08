@@ -699,7 +699,15 @@ function serializeBeam(b: any): any {
         width: b.width, depth: b.depth,
         startSupportId: b.startSupportId, endSupportId: b.endSupportId,
         startSupportType: b.startSupportType, endSupportType: b.endSupportType,
-        material: b.material, loadBearing: b.loadBearing,
+        material: b.material,
+        // ⭐ C100 §2.1 / L-1127 ARM D — the MASTER material reference. `material`
+        // beside it is a free-form descriptive string that nothing resolves; this
+        // is the id `BeamFragmentBuilder` renders from, and it is PERSIST-OR-LOSE.
+        // Written here AND read back by `ProjectLoader`'s CreateBeamCommand
+        // payload — writing without reading is the slab defect (ARM E), where the
+        // id sat correctly in the saved file and the reloaded element had none.
+        materialId: b.materialId,
+        loadBearing: b.loadBearing,
         fireRating: b.fireRating,
         properties: b.properties ? { ...b.properties } : {},
         ifcData: b.ifcData ? { ...b.ifcData } : undefined,

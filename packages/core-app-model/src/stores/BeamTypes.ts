@@ -15,6 +15,28 @@ export interface BeamData {
     endSupportType?: 'column' | 'wall' | 'beam';
 
     material?: string;
+
+    /**
+     * ⭐ C100 §2.1 / L-1127 ARM F — THE MASTER MATERIAL THIS BEAM REFERENCES.
+     *
+     * ⛔ WHY THIS FIELD DID NOT EXIST, and why "there is no field to drop" is a
+     * DIFFERENT defect from "the serializer drops it" (C100 §9.7). The L0
+     * `Beam.ts` schema has carried `materialId` all along; this record — the one
+     * `ProjectSerializer`, `BeamFragmentBuilder`, the plan projector and the IFC
+     * exporter actually read — did not. So the id existed where nothing persists
+     * and was absent where everything does.
+     *
+     * ⚠ `material` above is NOT this. It is a free-form descriptive string
+     * (`b.material`, serialised and echoed into `userData`) that nothing resolves
+     * against the master and nothing renders from. It stays, because schedules and
+     * IFC read it; it is not a material REFERENCE.
+     *
+     * Per C100 §2.1 this is PERSIST-OR-LOSE, and it is only meaningful because
+     * `BeamFragmentBuilder` now resolves it — a field nobody reads would be the
+     * "dead field on a detached record" that `SetBeamMaterial`'s refusal warns of.
+     */
+    materialId?: string;
+
     loadBearing: boolean;
     fireRating?: string;
 

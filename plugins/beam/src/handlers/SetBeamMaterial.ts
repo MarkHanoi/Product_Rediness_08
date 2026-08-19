@@ -53,8 +53,41 @@ type BeamHandlerStores = Readonly<{ beam: BeamsState } & Record<string, unknown>
  * `execute()` is left intact: it is a correct plugin-store mutation for a host that binds
  * the authoritative store under this key. `canExecute` is the gate the bus actually honours.
  */
+/**
+ * ⚠ UPDATED 2026-08-19 (MT4 / L-1127 ARM D+F) — HALF OF THIS REFUSAL'S STATED
+ * REASON BECAME FALSE, AND A REFUSAL THAT LIES IS THE `ElementCapabilities.ts`
+ * DEFECT WEARING THE OTHER FACE (C68 §2.2).
+ *
+ * It used to read, verbatim: *"Beams have no per-beam material at all:
+ * BeamFragmentBuilder picks between two module-scoped shared materials
+ * (_steelMat / _concreteMat) from `sectionType` and never reads a material field,
+ * and BeamData carries neither materialId nor materialColor. Writing one would put
+ * a dead field on a detached record."*
+ *
+ * ⭐ ALL THREE OF THOSE CLAUSES ARE NOW OUT OF DATE. `BeamData` carries
+ * `materialId`; `BeamFragmentBuilder.resolveBeamMaterial` resolves it through the
+ * ONE master authority into a per-COLOUR shared material; `serializeBeam` writes
+ * it and `ProjectLoader` reads it back. The field is neither dead nor detached.
+ *
+ * ⛔ AND YET THE VERB STILL REFUSES, because the OTHER reason — the one this
+ * lane did NOT fix — is untouched and is on its own sufficient. The bus's
+ * storesProvider hands this handler a snapshot of the FRESH plugin DTO store built
+ * by `PluginRegistry`, not the legacy geometry singleton that
+ * `BeamFragmentBuilder`, the plan projector, the IFC exporter and persistence all
+ * read. There is still no update bridge in either direction. Writing here would
+ * still change nothing a user can see, and would still report success while doing
+ * it — §FIX-CHAT-DEAD-ROUTES, thirteen out of thirteen.
+ *
+ * ⚠ SO THE REFUSAL IS NARROWED, NOT LIFTED. Lifting it because the rendering half
+ * now works would resurrect exactly the dead verb §FIX-DEAD-VERB-REFUSE killed —
+ * "Done" over an unchanged model. What changed is that the REMAINING obstacle is
+ * now a routing problem with a known shape (bridge the plugin store to the
+ * geometry store, as L-815 did for `wall.updateDimensions`) rather than a missing
+ * data model. The escape hatch this refusal was waiting on is half-built; naming
+ * which half is the point (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH).
+ */
 const BEAM_MATERIAL_UNREACHABLE =
-  "Beams have no per-beam material at all: BeamFragmentBuilder picks between two module-scoped shared materials (_steelMat / _concreteMat) from `sectionType` and never reads a material field, and BeamData carries neither materialId nor materialColor. Writing one would put a dead field on a detached record. Change the beam SECTION TYPE, or track the per-beam material under Gate G7.";
+  "A beam's material now resolves and persists (BeamData.materialId is rendered by BeamFragmentBuilder and round-trips through save/load), but THIS command still cannot reach it: the bus hands this handler a detached plugin DTO store, not the geometry store the builder and persistence read, and there is no bridge between them. Writing here would report success and change nothing you could see. Set the material through a command in packages/command-registry (CreateBeamCommand accepts materialId), or bridge this verb to the geometry store as L-815 did for wall.updateDimensions.";
 
 export class SetBeamMaterialHandler
   implements CommandHandler<SetBeamMaterialPayload, BeamHandlerStores>

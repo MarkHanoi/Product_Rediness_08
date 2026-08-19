@@ -24,6 +24,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { BeamData } from '@pryzm/core-app-model/stores';
+// ⭐ C100 §9.6.a — THE resolution authority, the same one `resolveDoorFinishColour`,
+// `resolveWindowFrameColour` and `HandrailFragmentBuilder.resolveColour` call. NOT
+// re-implemented here: a private T2+T1 chain is how C100 §1.1 traces four of the
+// eight rival material vocabularies in this repository.
+import { resolveMaterialColour } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
 import { createBeamLOD } from '@pryzm/plugin-structural';
@@ -57,6 +62,96 @@ const _concreteMat = new THREE.MeshStandardMaterial({
 const _SHARED_MATERIALS = new WeakSet<THREE.Material>();
 _SHARED_MATERIALS.add(_steelMat);
 _SHARED_MATERIALS.add(_concreteMat);
+
+/**
+ * Painted when a beam names a material that resolves to nothing. The same magenta
+ * every S16/S17 family uses — C100 §5: visibly wrong on purpose, because a
+ * believable structural grey would render "your material was deleted" as "this
+ * beam is steel", which is a claim about the STRUCTURE.
+ */
+const BEAM_UNRESOLVED_MATERIAL_COLOR = '#ff00ff';
+
+/**
+ * ⭐ C100 §2.1 — per-COLOUR shared beam materials, and the "per colour" is the
+ * whole point.
+ *
+ * ⛔ WHAT WAS WRONG. Every beam in the product got one of exactly TWO
+ * module-scoped singletons, chosen from `sectionType` and nothing else:
+ * `_steelMat` (0x2a5080) or `_concreteMat` (**0x2196f3 — Material Design Blue
+ * 500**). A concrete beam is not bright blue, no beam could ever be anything
+ * else, and `BeamData` carried no material field for one to be read from. The
+ * master's 205 rows were unreachable to the single most structural family there
+ * is.
+ *
+ * ⭐ AND THE FIX MUST NOT MINT ONE MATERIAL PER BEAM. Beams register through
+ * `ElementInstanceBridge`, and `InstancedElementRenderer`'s group key ends in
+ * `materialUuid` — so a per-beam material would give a size-1 instance group per
+ * beam and silently destroy instancing for the family. This cache is keyed by
+ * (colour, metalness, roughness), exactly as `WindowBuilder._sharedFrameMaterial`
+ * is, so the material count tracks DISTINCT COLOURS and never the beam count.
+ * Entries join `_SHARED_MATERIALS` so `_disposeMesh` never disposes one out from
+ * under its siblings (§BEAM-AUDIT-2026-C3).
+ */
+const _sharedBeamMats = new Map<string, THREE.MeshStandardMaterial>();
+
+function _sharedBeamMaterial(color: string, metalness: number, roughness: number): THREE.MeshStandardMaterial {
+    const key = `${new THREE.Color(color).getHexString()}|m${metalness}|r${roughness}`;
+    let mat = _sharedBeamMats.get(key);
+    if (!mat) {
+        mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), metalness, roughness });
+        _sharedBeamMats.set(key, mat);
+        _SHARED_MATERIALS.add(mat);
+    }
+    return mat;
+}
+
+/** Beams whose unresolved id has already been reported — see `resolveBeamMaterial`. */
+const _unresolvedBeamReported = new Set<string>();
+
+/**
+ * ⭐ C100 §2.1's ladder for a beam, and it is ADDITIVE (§9.6.b).
+ *
+ *   1. `materialId` resolved through the ONE authority -> the MASTER's colour;
+ *   2. an id that names nothing -> MAGENTA, named out loud (§5);
+ *   3. no id at all -> the EXISTING `_steelMat` / `_concreteMat` singleton for the
+ *      section type, byte-identically.
+ *
+ * Rung 3 is every beam in every existing project — `BeamData.materialId` did not
+ * exist until this commit — so nothing can repaint unless a beam names a master
+ * material. §9.6.b met by construction rather than by hope.
+ *
+ * The section type still chooses the SCALARS (a steel beam stays metallic, a
+ * concrete one matte) because those describe the section, not the colour; only
+ * the COLOUR moves to the master.
+ */
+function resolveBeamMaterial(beam: BeamData): THREE.MeshStandardMaterial {
+    const isSteel = beam.sectionType === 'UB' || beam.sectionType === 'UC';
+    const fallback = isSteel ? _steelMat : _concreteMat;
+
+    const id = beam.materialId?.trim();
+    if (!id) return fallback;
+
+    const metalness = isSteel ? 0.7 : 0.5;
+    const roughness = isSteel ? 0.3 : 0.2;
+
+    const r = resolveMaterialColour(id, undefined);
+    if (r.state === 'unresolved') {
+        // ⚠ Once per beam+id, never once per build: a beam rebuilds on every
+        // support cascade, and an undeduplicated warn across a full frame is the
+        // L-1157 defect where the warning announcing a flood WAS the flood.
+        const k = `${beam.id}|${id}`;
+        if (!_unresolvedBeamReported.has(k)) {
+            _unresolvedBeamReported.add(k);
+            console.warn(
+                `[BeamFragmentBuilder] C100 §5 — beam ${beam.id} names material '${id}' ` +
+                `which resolves to nothing; painting magenta rather than a plausible ` +
+                `structural colour. ${r.reason}`,
+            );
+        }
+        return _sharedBeamMaterial(BEAM_UNRESOLVED_MATERIAL_COLOR, metalness, roughness);
+    }
+    return _sharedBeamMaterial(r.hex, metalness, roughness);
+}
 
 // Local Z axis constant
 const _localZ = new THREE.Vector3(0, 0, 1);
@@ -370,7 +465,16 @@ export class BeamFragmentBuilder {
                 // (along axis) — identical to BoxGeometry(width, depth, length).
                 size: { x: beam.width, y: beam.depth, z: length },
             },
-            _concreteMat,
+            // ⭐ C100 §2.1 — the MASTER's material, SHARED per colour. This argument
+            // is what lands in `InstancedElementRenderer`'s group key as
+            // `materialUuid`, so it must be the shared instance and never a
+            // per-beam clone, or every beam becomes its own size-1 group.
+            //
+            // ⚠ It was `_concreteMat` UNCONDITIONALLY here — so an instanced STEEL
+            // beam took the concrete blue while the non-instanced path gave it
+            // `_steelMat`. The two paths disagreed, and `resolveBeamMaterial`
+            // (which reads `sectionType` for its fallback) closes that too.
+            resolveBeamMaterial(beam),
             'box',
         );
 
@@ -441,7 +545,8 @@ export class BeamFragmentBuilder {
             return this._buildConcreteBeam(beam, start, end, length);
         }
 
-        const lod = createBeamLOD(profile, length, _steelMat);
+        // ⭐ C100 §2.1 — the MASTER when the beam names one, `_steelMat` when it does not.
+        const lod = createBeamLOD(profile, length, resolveBeamMaterial(beam));
 
         lod.traverse(obj => {
             if ((obj as THREE.Mesh).isMesh) {
@@ -475,7 +580,8 @@ export class BeamFragmentBuilder {
         length: number,
     ): THREE.Object3D {
         const geometry = new THREE.BoxGeometry(beam.width, beam.depth, length);
-        const mesh = new THREE.Mesh(geometry, _concreteMat);
+        // ⭐ C100 §2.1 — the MASTER when the beam names one, `_concreteMat` when it does not.
+        const mesh = new THREE.Mesh(geometry, resolveBeamMaterial(beam));
 
         const center = start.clone().add(end).multiplyScalar(0.5);
         mesh.position.copy(center);

@@ -38,6 +38,18 @@ export interface CreateBeamInput {
     startSupportType?: 'column' | 'wall' | 'beam';
     endSupportType?: 'column' | 'wall' | 'beam';
     material?: string;
+    /**
+     * ⭐ C100 §2.1 / L-1127 ARM D+F — the MASTER material this beam references.
+     *
+     * Distinct from `material` above, which is a free-form descriptive string that
+     * nothing resolves and nothing renders from. This is a reference into
+     * `MATERIAL_CATALOG`, resolved by `BeamFragmentBuilder.resolveBeamMaterial`.
+     *
+     * PERSIST-OR-LOSE: `serializeBeam` writes it and `ProjectLoader` reads it back
+     * through this field. Without that round trip it would be exactly the "dead
+     * field on a detached record" that `SetBeamMaterial`'s refusal warns about.
+     */
+    materialId?: string;
     loadBearing?: boolean;
     fireRating?: string;
     /** Steel profile name (e.g. "254x146x37") — set when sectionType is 'UB' or 'UC'. */
@@ -187,6 +199,7 @@ export class CreateBeamCommand implements Command {
             startSupportType: this.input.startSupportType,
             endSupportType: this.input.endSupportType,
             material: this.input.material,
+            materialId: this.input.materialId,
             loadBearing: this.input.loadBearing ?? true,
             fireRating: this.input.fireRating,
             steelProfileName: this.input.steelProfileName,
