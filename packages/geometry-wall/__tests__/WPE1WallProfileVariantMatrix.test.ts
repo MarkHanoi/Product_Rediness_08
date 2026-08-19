@@ -57,14 +57,20 @@ describe('§FEAT-WALL-PROFILE-EDIT-MATRIX — what is OFFERED, per variant', () 
             .toBe(true);
     });
 
-    it('RAKED is CLOSED — L-1065, the cell that was offered with nothing behind it', () => {
+    /**
+     * ✅ INVERTED 2026-08-19 by WJ1, not deleted — the same discipline RK1 used on AXIS 6
+     * and for the same reason: a pin that records a defect is safe to touch only when it
+     * says what its own green day looks like. This one recorded L-1065 (*"the cell that was
+     * offered with nothing behind it"*) and the fix was a TEST, because the geometry had
+     * been there all along.
+     *
+     * It now asserts the OPPOSITE and keeps the history, so nobody re-closes the cell
+     * without noticing what the row cost to open.
+     */
+    it('RAKED is OPEN — L-1065 closed by MEASURING, not by building', () => {
         const v = wallProfileVariantAvailability(VARIANTS['raked'] as never);
-        expect(v.ok).toBe(false);
-        expect(v.blockedBy).toEqual(['raked']);
-        expect(v.status).toBe('unbuilt');
-        // and the refusal must not read like a law
-        expect(v.reason).toMatch(/NOT YET/);
-        expect(v.reason).toMatch(/not because it is impossible/i);
+        expect(v.ok, v.reason ?? 'refused').toBe(true);
+        expect(v.blockedBy).toEqual([]);
     });
 
     it('a wall raked to exactly 90 (or not raked at all) is VERTICAL and stays open', () => {
@@ -73,15 +79,29 @@ describe('§FEAT-WALL-PROFILE-EDIT-MATRIX — what is OFFERED, per variant', () 
         expect(wallProfileVariantAvailability({ ...BASE, rakeAngleDeg: NaN } as never).ok).toBe(true);
     });
 
-    it('CURVED, CURVED+RAKED, LAYERED and HOSTING are all CLOSED', () => {
-        for (const key of ['curved', 'curved + raked', 'layered (> 1 band)', 'hosting an opening'] as const) {
-            expect(wallProfileVariantAvailability(VARIANTS[key] as never).ok, key).toBe(false);
+    it('CURVED and CURVED+RAKED are OPEN — §FEAT-WALL-PROFILE-CURVED (WJ1)', () => {
+        for (const key of ['curved', 'curved + raked'] as const) {
+            const v = wallProfileVariantAvailability(VARIANTS[key] as never);
+            expect(v.ok, `${key}: ${v.reason ?? ''}`).toBe(true);
         }
     });
 
-    it('CURVED + RAKED names BOTH axes — a compound refusal is not one axis silently winning', () => {
-        const v = wallProfileVariantAvailability(VARIANTS['curved + raked'] as never);
-        expect([...v.blockedBy].sort()).toEqual(['curved', 'raked']);
+    it('LAYERED and HOSTING are still CLOSED, and still UNBUILT rather than impossible', () => {
+        for (const key of ['layered (> 1 band)', 'hosting an opening'] as const) {
+            const v = wallProfileVariantAvailability(VARIANTS[key] as never);
+            expect(v.ok, key).toBe(false);
+            expect(v.status, key).toBe('unbuilt');
+        }
+    });
+
+    it('a COMPOUND refusal still names BOTH axes — one axis must not silently win', () => {
+        // The property `curved + raked` used to demonstrate; it now demonstrates on the
+        // two rows that are still closed, so the guarantee survives the flip rather than
+        // being deleted along with the cell that happened to exercise it.
+        const v = wallProfileVariantAvailability({
+            ...BASE, layers: [{}, {}], openings: [{}],
+        } as never);
+        expect([...v.blockedBy].sort()).toEqual(['hosted-openings', 'layered']);
     });
 
     it('a single layer is NOT layered — the axis keys on more than one band', () => {
@@ -113,12 +133,21 @@ describe('§FEAT-WALL-PROFILE-EDIT-MATRIX — properties of the matrix itself', 
 
     it('the gate owns its own sentences — curved/layered/openings text is NOT copied here', () => {
         // Each of these comes back from `profileAuthorability` verbatim…
-        for (const axis of ['curved', 'layered', 'hosted-openings'] as const) {
+        // `curved` LEFT THIS LIST when WJ1 opened it — an OPEN axis has no refusal
+        // sentence, so it can no longer demonstrate that the gate owns its wording. The
+        // property is unchanged and the two rows still closed continue to demonstrate it.
+        for (const axis of ['layered', 'hosted-openings'] as const) {
             expect(gateSentenceForAxis(axis), axis).toBeTruthy();
         }
         // …and RAKE returns null, which is the fact that made L-1065 possible: the store gate
         // has no rake arm, so it would ACCEPT a profile on a raked wall.
         expect(gateSentenceForAxis('raked')).toBeNull();
+        // ⚠ AND `curved` IS NOW NULL TOO, for the OPPOSITE reason — the distinction the
+        //   module header makes and the one a reader of this null must not lose. `raked` is
+        //   null because the gate has no rake arm at all (the L-1065 gap). `curved` is null
+        //   because the gate ADMITS it: an open axis has no refusal sentence. Only the
+        //   row's `status` separates "unarmed" from "open"; the null never does.
+        expect(gateSentenceForAxis('curved')).toBeNull();
 
         const src = fs.readFileSync(path.join(REPO, 'packages/geometry-wall/src/WallProfileVariants.ts'), 'utf8');
         expect(src).not.toContain('developable surface');   // the curved sentence

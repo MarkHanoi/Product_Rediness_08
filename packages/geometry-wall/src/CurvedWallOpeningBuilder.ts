@@ -279,6 +279,63 @@ export function sliceStations(
 }
 
 /**
+ * §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) — return the station list with EXTRA stations
+ * inserted at each arc length in `sList`, keeping the list sorted and duplicate-free.
+ *
+ * A swept curved wall is only as sharp as its stations. A profile corner at `u = 2.5`,
+ * sampled by stations at 2.40 and 2.61, renders as a BEVEL — the authored corner is simply
+ * not in the geometry, and no amount of correct height evaluation puts it back. This is the
+ * same exactness `sliceStations` gives an opening jamb, for the same reason and by the same
+ * interpolation: an inserted station inherits the NORMAL of the chord it lies on, because
+ * that chord's normal is the true face plane there.
+ *
+ * ⚠ THE SEGMENT COUNT IS NOT RAISED. Inserting where the profile has a corner is exact
+ *   where it matters and costs one station per corner; raising `curve.segments` globally
+ *   would cost the whole arc and still not land ON the corner.
+ */
+export function insertStationsAt(
+    stations: ReadonlyArray<Station>,
+    cum: ReadonlyArray<number>,
+    sList: ReadonlyArray<number>,
+): Station[] {
+    const n = stations.length;
+    if (n < 2) return stations.slice();
+    const total = cum[n - 1]!;
+
+    const at = (s: number): Station => {
+        let i = n - 2;
+        for (let k = 1; k < n; k++) {
+            if (cum[k]! >= s - ARC_EPSILON_M) { i = k - 1; break; }
+        }
+        const p0 = stations[i]!;
+        const p1 = stations[i + 1]!;
+        const segLen = cum[i + 1]! - cum[i]!;
+        const u = segLen > ARC_EPSILON_M ? (s - cum[i]!) / segLen : 0;
+        return { cx: p0.cx + (p1.cx - p0.cx) * u, cz: p0.cz + (p1.cz - p0.cz) * u, nx: p0.nx, nz: p0.nz };
+    };
+
+    const wanted = [...sList]
+        .filter(v => Number.isFinite(v) && v > ARC_EPSILON_M && v < total - ARC_EPSILON_M)
+        .sort((a, b) => a - b);
+    if (wanted.length === 0) return stations.slice();
+
+    const out: Station[] = [];
+    let w = 0;
+    for (let i = 0; i < n; i++) {
+        // Anything strictly before this existing station, and not already ON it.
+        while (w < wanted.length && wanted[w]! < cum[i]! - ARC_EPSILON_M) {
+            out.push(at(wanted[w]!));
+            w++;
+        }
+        // Consume any request that coincides with this station — it is already there.
+        while (w < wanted.length && Math.abs(wanted[w]! - cum[i]!) <= ARC_EPSILON_M) w++;
+        out.push(stations[i]!);
+    }
+    while (w < wanted.length) { out.push(at(wanted[w]!)); w++; }
+    return out;
+}
+
+/**
  * Unit tangent of the chord a band terminates on, used as the cap tangent for
  * that band's start / end face so the jamb is radial.
  */

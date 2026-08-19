@@ -180,23 +180,46 @@ describe('§WALL-PROFILE (2) — profileAuthorability', () => {
         expect(a.reason).toMatch(/\[0, 3\]/);
     });
 
-    it('the three UNBUILT combinations are refused, each by its own code', () => {
+    /**
+     * ✅ REWRITTEN 2026-08-19 by WJ1 — the CURVED arm is LIFTED (§FEAT-WALL-PROFILE-CURVED,
+     * L-1072), so TWO unbuilt combinations remain, not three.
+     *
+     * ⭐ THE TEST BELOW IT WAS RIGHT, AND THAT IS WHY THIS ONE COULD CHANGE. It asserted
+     *   that the curved refusal be worded as UNBUILT rather than ill-posed, and it PASSED
+     *   every day it ran. The wording was honest; the refusal still held for months, because
+     *   honest wording is not the same as an actionable one. What finally moved it was
+     *   someone reading the module header — *"A profile on a curve is NOT ill-posed … This
+     *   one CAN lift"* — and doing it.
+     */
+    it('the TWO remaining unbuilt combinations are refused, each by its own code', () => {
         const base = { wallProfile: GABLE, baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] as const, height: 3 };
-        expect(profileAuthorability({ ...base, curve: { radius: 4 } }).code).toBe('curved');
         expect(profileAuthorability({ ...base, layers: [{}, {}] }).code).toBe('layered');
         expect(profileAuthorability({ ...base, openings: [{}] }).code).toBe('hosted-openings');
+        // …and CURVED is no longer one of them.
+        expect(profileAuthorability({
+            ...base, curve: { control: { x: 3, y: 0, z: 1.2 }, segments: 12 },
+        }).ok, 'a curved wall now takes a profile').toBe(true);
     });
 
-    it('the CURVED refusal is worded as UNBUILT, not as ill-posed', () => {
-        // ⚠ This is a real distinction, not pedantry. Rake × curve is ILL-POSED and
-        // "never lifts" (WallRake.ts:83-86). Profile × curve CAN lift — curved × LAYERED
-        // is already built — so inheriting rake's wording would state a claim about this
-        // repo that is false, and would tell a future lane not to attempt something it can.
-        const r = profileAuthorability({
-            wallProfile: GABLE, baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }], height: 3, curve: { radius: 4 },
-        }).reason ?? '';
-        expect(r).toMatch(/developable surface/);
-        expect(r).not.toMatch(/ill-posed|never lifts/i);
+    it('the two REMAINING refusals are worded as UNBUILT, not as ill-posed', () => {
+        // ⚠ A REAL DISTINCTION, AND THE FILE THAT PROVES IT IS THIS ONE'S OWN HISTORY. This
+        //   test used to police the CURVED sentence; that sentence has since been retired
+        //   because the combination was built. Both survivors describe MISSING MACHINERY
+        //   (*"the bands have no per-station top"*, *"the occupancy check is purely
+        //   horizontal"*), which is what makes them lift-able too.
+        //
+        //   ⛔ THE OLD COMMENT HERE CITED `WallRake.ts:83-86` — *"Rake × curve is ILL-POSED
+        //     and never lifts"* — as its contrast case. THAT CITATION IS DEAD:
+        //     `rakeAuthorability` lifted its own curved arm on 2026-08-19 and a raked curved
+        //     wall now ships as a cone. There is currently NO ill-posed refusal in this
+        //     family to contrast against, which is itself the point.
+        const base = { wallProfile: GABLE, baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] as const, height: 3 };
+        for (const subj of [{ ...base, layers: [{}, {}] }, { ...base, openings: [{}] }]) {
+            const r = profileAuthorability(subj).reason ?? '';
+            expect(r).not.toMatch(/ill-posed|never lifts|impossible/i);
+        }
+        expect(profileAuthorability({ ...base, layers: [{}, {}] }).reason)
+            .toMatch(/no per-station top/);
     });
 
     it('a single-layer wall is NOT "layered" — the refusal keys on >1 band', () => {
@@ -212,11 +235,16 @@ describe('§WALL-PROFILE (2) — profileAuthorability', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('§WALL-PROFILE (3) — the four write boundaries', () => {
-    it('SCHEMA (create) accepts a profiled plain wall and refuses a curved one', () => {
+    it('SCHEMA (create) accepts a profiled plain wall, a profiled CURVED wall, and refuses a LAYERED one', () => {
+        // The curved half of this test was inverted by §FEAT-WALL-PROFILE-CURVED. The
+        // PROPERTY it exists to prove — that the schema consults the same gate rather than
+        // having its own opinion — is unchanged, and is now carried by the layered case.
         expect(WallDataAddSchema.safeParse(mk({ profile: GABLE })).success).toBe(true);
-        const bad = WallDataAddSchema.safeParse(mk({ profile: GABLE, curve: true }));
+        expect(WallDataAddSchema.safeParse(mk({ profile: GABLE, curve: true })).success,
+            'a curved profiled wall is admitted at create').toBe(true);
+        const bad = WallDataAddSchema.safeParse(mk({ profile: GABLE, layers: [0.1, 0.05, 0.1] }));
         expect(bad.success).toBe(false);
-        expect(JSON.stringify((bad as { error?: unknown }).error)).toMatch(/CURVED wall/);
+        expect(JSON.stringify((bad as { error?: unknown }).error)).toMatch(/LAYERED wall/);
     });
 
     it('SCHEMA refuses a profile that escapes the wall extent', () => {
@@ -226,13 +254,30 @@ describe('§WALL-PROFILE (3) — the four write boundaries', () => {
         expect(bad.success).toBe(false);
     });
 
+    /**
+     * THE PROPERTY IS THE MERGE, NOT THE ATTRIBUTE USED TO DEMONSTRATE IT.
+     *
+     * This used to store a profile and then make the wall CURVED: the patch alone looks
+     * fine, and only the MERGED wall is refusable. Curved is legal now
+     * (§FEAT-WALL-PROFILE-CURVED), and the two other disqualifiers are not reachable
+     * through `update` at all — `layers` is refused earlier by the patch schema, and an
+     * opening arrives through `addOpening`, which has its own test below. So the
+     * demonstration moved to SHRINKING THE WALL UNDER ITS OWN PROFILE.
+     *
+     * ⭐ That is a better example than the one it replaces, because it is a live editing
+     *   hazard rather than a contrived pair: `{ height: 1 }` is an ordinary, valid patch,
+     *   and it is only wrong because a ring already stored reaches v = 3. A gate that
+     *   judged the PATCH would wave it through and leave a wall whose profile escapes it.
+     */
     it('STORE.update refuses against the MERGED wall, closing the two-call bypass', () => {
-        // Set the profile first, then try to make it curved — the patch alone looks fine.
         const store = newStore();
         store.add(mk({ profile: GABLE }));
-        expect(() => store.update('w-1', {
-            curve: { control: { x: 3, y: 0, z: 1.2 }, segments: 12 },
-        } as never)).toThrow(/WALL-PROFILE/);
+        expect(() => store.update('w-1', { height: 1 } as never)).toThrow(/WALL-PROFILE/);
+        // CONTROL — the SAME patch on a wall with NO profile is accepted, so the refusal
+        // above is about the merge and not about `height` being unwelcome.
+        const plain = newStore();
+        plain.add(mk({}));
+        expect(() => plain.update('w-1', { height: 1 } as never)).not.toThrow();
     });
 
     it('STORE.update refuses adding a profile to an already-layered wall', () => {

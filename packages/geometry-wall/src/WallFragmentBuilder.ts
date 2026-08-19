@@ -14,18 +14,19 @@ import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 import { resolveLayerRenderFinishColor, resolveWholeBodyFinishColor } from './WallSideFinishResolver';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
-import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuilder';
+import { buildCurvedLayerGeometry, computeStations, type CurvedProfileHeights } from './CurvedWallLayerBuilder';
 // §FEAT-HOSTED-ON-CURVED-WALL — arc-length parameterisation + radial-band carve.
 import { isArcHost, wallCentrelineLength, hostedElementFrame } from './WallArcParam';
 import {
     computeCurvedWallBands,
     stationArcLengths,
+    insertStationsAt,
     sliceStations,
     bandCapTangents,
 } from './CurvedWallOpeningBuilder';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
-import { hasWallProfile, resolveWallProfile } from './WallProfile';
+import { hasWallProfile, resolveWallProfile, wallProfileVertexUs, wallProfileExtentAt } from './WallProfile';
 // §FEAT-WALL-PROFILE-BODY (L-1067) — the builder that finally DRAWS the authored ring.
 import { buildWallProfileBodyGeometry } from './WallProfileBodyBuilder';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
@@ -1993,7 +1994,14 @@ export class WallFragmentBuilder {
         //    `x = x0 − (n_lat/n_axial)·z` with no `y` in it — a per-vertex shear the
         //    extruded outline takes fine. `joinData`'s normals are handed straight in;
         //    absent them the ends stay perpendicular and the geometry is unchanged.
-        if (_hasWallProfile) {
+        //
+        // ⚠ A CURVED PROFILED WALL DOES NOT COME HERE (§FEAT-WALL-PROFILE-CURVED,
+        //   L-1072). This arm extrudes a FLAT `THREE.Shape` through the thickness; an arc
+        //   has no such plane. Its profile is applied where its body is actually built —
+        //   as a per-station top/bottom on the swept solid, below. Routing it here would
+        //   have drawn a straight wall in place of the arc, which is worse than the
+        //   refusal it replaces because it draws something plausible.
+        if (_hasWallProfile && !(wall.curve && isArcHost(wall))) {
             const _profile = resolveWallProfile((wall as { wallProfile?: unknown }).wallProfile);
             const _pGeo = _profile
                 ? buildWallProfileBodyGeometry({
@@ -2113,7 +2121,51 @@ export class WallFragmentBuilder {
             // and projection are character-identical to what stood here, so this is expected
             // to be vertex-for-vertex unchanged at 90° — asserted, not assumed, by
             // `P3-curved-plain` in `WallProfileNonRegressionBaseline`.
-            const stations = computeStations(start, end, ctrl, wall.curve.segments);
+            let stations = computeStations(start, end, ctrl, wall.curve.segments);
+
+            // ── §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) ───────────────────────────
+            //
+            // THE REFUSAL THIS LIFTS, VERBATIM: *"a straight profile edge is not straight
+            // in space, so every edge would have to be tessellated per station and the
+            // curved builder has no per-station top."* Both clauses name MISSING CODE.
+            // This is that code, and it is eleven lines, because everything it needs
+            // already existed:
+            //   · `u` on an arc means ARC LENGTH — `WallArcParam` has said so since the
+            //     hosted-on-curved work, and `stationArcLengths` measures the very
+            //     polyline the solid is made of;
+            //   · "tessellated per station" is `insertStationsAt`, the same surgery
+            //     `sliceStations` does for an opening jamb;
+            //   · "no per-station top" is now `CurvedProfileHeights`.
+            //
+            // ⭐ THE CHORD IS NOT THE ARC, and this is the one place that could have gone
+            //   silently wrong. `wallProfilePlanarLength` — which the authorability gate
+            //   uses for its `u ∈ [0, L]` bound — is `Math.hypot` on the two endpoints,
+            //   i.e. the CHORD. On an arc the chord is SHORTER than the run, so a ring
+            //   authored across the full wall would be evaluated against the wrong `L`
+            //   and every profile would end early. The gate is corrected in `WallProfile`
+            //   to use the arc; this evaluation uses the station polyline, which is the
+            //   same number by construction.
+            let _profileY: CurvedProfileHeights | null = null;
+            if (_hasWallProfile) {
+                const _ring = resolveWallProfile((wall as { wallProfile?: unknown }).wallProfile)?.ring;
+                if (_ring && _ring.length >= 3) {
+                    const _cum0 = stationArcLengths(stations);
+                    stations = insertStationsAt(stations, _cum0, wallProfileVertexUs(_ring));
+                    const _cum = stationArcLengths(stations);
+                    const _topY: number[] = [];
+                    const _botY: number[] = [];
+                    for (let i = 0; i < stations.length; i++) {
+                        const ext = wallProfileExtentAt(_ring, _cum[i]!);
+                        // A station the ring does not cover keeps the flat planes rather
+                        // than collapsing to zero height: a hole in the middle of a wall
+                        // is not something a single-interval sweep can express, and
+                        // drawing nothing there would be a silent, invisible refusal.
+                        _topY.push(ext ? wallBaseOffset + ext.top : wallBaseOffset + wallHeight);
+                        _botY.push(ext ? wallBaseOffset + ext.bottom : wallBaseOffset);
+                    }
+                    _profileY = { topY: _topY, botY: _botY };
+                }
+            }
 
             const curvedStartMN = joinData?.startMN ?? null;
             const curvedEndMN   = joinData?.endMN   ?? null;
@@ -2147,6 +2199,9 @@ export class WallFragmentBuilder {
                     datumY: wallBaseOffset,
                     capDrift: this._curvedCapDrift(wall, wallHeight),
                 },
+                // §FEAT-WALL-PROFILE-CURVED — null on every unprofiled wall, and the
+                // builder then never allocates the arrays: byte-identical geometry.
+                _profileY,
             );
 
             const material = this.createWallMaterial(wall);

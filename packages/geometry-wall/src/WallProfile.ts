@@ -54,6 +54,19 @@
 // ─── WHAT IS DELIBERATELY REFUSED (C65 §3.9 — no affordance without an
 //     implementation) ────────────────────────────────────────────────────────────
 //
+//   ✅ profile x curve   — BUILT (§FEAT-WALL-PROFILE-CURVED, WJ1 2026-08-19, L-1072).
+//                         The paragraph below was RIGHT about the diagnosis and it is kept
+//                         because it is the reasoning that let the arm be lifted: it said
+//                         plainly *"A profile on a curve is NOT ill-posed … It is refused
+//                         because it is UNBUILT … This one CAN lift."* It lifted. `u` is
+//                         ARC LENGTH (`wallCentrelineLength`), the per-station tessellation
+//                         is `insertStationsAt`, and the missing per-station top is
+//                         `CurvedProfileHeights`. What survives is the narrower
+//                         `curved-multi-interval` refusal — a swept solid carries ONE
+//                         vertical span per station.
+//                         ⚠ The cross-reference below to rake's ill-posedness is DEAD TEXT:
+//                         `rakeAuthorability` lifted its own `curved` arm on 2026-08-19 and
+//                         a raked curved wall now ships as a CONE. Do not cite it.
 //   • profile x curve   — REFUSED, and NOT for the reason rake is refused on a curve.
 //                         Rake x curve is ILL-POSED (`WallRake.ts:83-86`, "never
 //                         lifts") because one shear vector cannot follow an arc.
@@ -107,6 +120,15 @@
 // authoring path exists, which is the only ordering in which a refusal can never be
 // reached too late. A profile that could be stored but not drawn would be exactly the
 // silently-wrong wall `WallRake.ts:102` forbids.
+
+// ⚠ THE ONE IMPORT, AND IT DOES NOT COST THIS MODULE ITS PURITY. `WallArcParam` imports
+//   nothing at all — no THREE, no DOM, no store — so `WallProfile` remains the pure module
+//   its header promises and stays safe for `WallDataSchema` and the store gates to call.
+//   It is imported rather than re-derived because "how long is this wall along its run?" is
+//   a question this package must answer in exactly ONE place: a second arc-length formula
+//   here would disagree with the polyline the solid is actually built from the moment
+//   either changed, and `u` would then mean two things (C84 EI-9).
+import { wallCentrelineLength } from './WallArcParam';
 
 /** One vertex of a wall's elevation profile, in the wall's local (u, v) frame. */
 export interface WallProfileVertex {
@@ -202,6 +224,97 @@ export function wallProfileSignedArea2(ring: ReadonlyArray<WallProfileVertex>): 
     return acc;
 }
 
+// ─── The ring as an ENVELOPE — §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) ──────────
+//
+// A STRAIGHT wall consumes the ring as a `THREE.Shape` and extrudes it — the whole ring,
+// exactly as authored, no sampling. A CURVED wall cannot: its body is a swept solid built
+// from a station polyline, and the thing a sweep needs at each station is a TOP height and
+// a BOTTOM height, not a polygon.
+//
+// ⭐ THAT IS THE ENTIRE CONTENT OF "the curved builder has no per-station top". It names a
+//   MISSING FUNCTION, not a contradiction — and this is that function.
+//
+// ⚠ WHAT AN ENVELOPE CAN AND CANNOT REPRESENT, SAID BEFORE IT IS DISCOVERED. `topAt(u)`
+//   is the HIGHEST point of the ring boundary at `u` and `bottomAt(u)` the lowest. For any
+//   ring whose vertical extent at each `u` is a single interval — which is every profile a
+//   draughtsman draws as a wall elevation, and every ring the editor can currently author
+//   — the envelope IS the ring, losslessly. A ring with a re-entrant middle (a porthole, an
+//   hourglass) has two intervals at some `u`, and the envelope fills the gap between them:
+//   the curved wall would be SOLID where the ring is empty. That is a real limitation, it
+//   is a limitation of the SWEEP and not of this function, and the honest place to fix it
+//   is a per-station multi-interval sweep. It is declared in C85 rather than hidden here.
+
+/**
+ * The ring's vertical extent at `u`: `[bottom, top]`, or `null` when `u` lies outside the
+ * ring's `u` range entirely.
+ *
+ * Computed by intersecting the vertical line at `u` with every EDGE of the closed ring and
+ * taking the extremes of the crossings. Vertices are included by construction (an edge
+ * ending at `u` contributes its endpoint), which is what makes a station placed EXACTLY on
+ * a profile vertex land on the vertex rather than near it.
+ *
+ * ⚠ A vertical edge (`a.u === b.u`) contributes BOTH its endpoints rather than being
+ *   skipped as a zero-length crossing. Skipping it is the obvious implementation and it is
+ *   wrong at precisely the place it matters most: the ring's two END edges are vertical,
+ *   so a skipped vertical edge makes `topAt(0)` and `topAt(L)` return null and the wall
+ *   lose both its ends.
+ */
+export function wallProfileExtentAt(
+    ring: ReadonlyArray<WallProfileVertex>,
+    u: number,
+): { bottom: number; top: number } | null {
+    if (!Array.isArray(ring) || ring.length < PROFILE_MIN_VERTICES) return null;
+    if (!Number.isFinite(u)) return null;
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % ring.length]!;
+        const du = b.u - a.u;
+        if (Math.abs(du) <= PROFILE_BOUND_EPS_M) {
+            // Vertical edge — contributes its whole span when `u` is on it.
+            if (Math.abs(a.u - u) <= PROFILE_U_TOL_M) {
+                lo = Math.min(lo, a.v, b.v);
+                hi = Math.max(hi, a.v, b.v);
+            }
+            continue;
+        }
+        const t = (u - a.u) / du;
+        if (t < -PROFILE_BOUND_EPS_M || t > 1 + PROFILE_BOUND_EPS_M) continue;
+        const v = a.v + (b.v - a.v) * Math.max(0, Math.min(1, t));
+        lo = Math.min(lo, v);
+        hi = Math.max(hi, v);
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null;
+    return { bottom: lo, top: hi };
+}
+
+/**
+ * Tolerance for "this `u` is ON that vertical edge", metres.
+ *
+ * NOT `PROFILE_BOUND_EPS_M` (1e-9): that is a bounds-check epsilon for exact arithmetic,
+ * and a station's arc length is the accumulation of dozens of `Math.hypot` chords, so it
+ * reaches the wall's far end micrometres off `L`. At 1e-9 the end station missed the end
+ * edge and the wall lost its last cap. A micrometre is far below anything a wall models.
+ */
+export const PROFILE_U_TOL_M = 1e-6;
+
+/**
+ * The distinct `u` values at which the ring has a VERTEX, sorted.
+ *
+ * A swept curved wall is only as sharp as its stations: a ring corner at `u = 2.5` sampled
+ * by stations at 2.4 and 2.6 renders as a bevel, not a corner. The caller inserts a station
+ * at each of these so the authored corners survive the sweep — the same exactness
+ * `sliceStations` gives an opening jamb, for the same reason.
+ */
+export function wallProfileVertexUs(ring: ReadonlyArray<WallProfileVertex>): number[] {
+    const out: number[] = [];
+    for (const p of ring) {
+        if (!Number.isFinite(p.u)) continue;
+        if (!out.some(q => Math.abs(q - p.u) <= PROFILE_U_TOL_M)) out.push(p.u);
+    }
+    return out.sort((a, b) => a - b);
+}
+
 // ─── Authorability ────────────────────────────────────────────────────────────
 
 /** The subset of a wall this module needs in order to judge a profile. */
@@ -218,9 +331,52 @@ export type ProfileRefusalCode =
     | 'malformed'
     | 'degenerate'
     | 'out-of-bounds'
+    /**
+     * ⚠ RETIRED, NOT REMOVED (§FEAT-WALL-PROFILE-CURVED, WJ1, L-1072). No arm returns
+     * this any more — a profile on a curved wall is BUILT. The member survives so a
+     * persisted refusal record or a downstream `switch` written against it still compiles
+     * and can be recognised as historical rather than silently falling through a default.
+     */
     | 'curved'
+    /**
+     * The one thing a SWEPT solid genuinely cannot express: a ring that is empty in its
+     * middle at some `u`. Named separately from `curved` precisely so nobody can read the
+     * lifting of `curved` as "curves take any profile now".
+     */
+    | 'curved-multi-interval'
     | 'layered'
     | 'hosted-openings';
+
+/**
+ * The first `u` at which the ring encloses TWO OR MORE separate vertical spans, or null.
+ *
+ * Detected by counting the ring's crossings of the vertical line at `u`: a simple polygon
+ * crossed by a line encloses `crossings / 2` intervals, so four or more crossings at one
+ * `u` means at least two intervals. Sampled at the MIDPOINT of every gap between
+ * consecutive vertex `u` values — not at the vertices themselves, where a crossing count
+ * is ambiguous by definition (the line passes exactly through a corner).
+ *
+ * ⚠ THIS IS A SUFFICIENT TEST, NOT A COMPLETE ONE, and saying so matters more than the
+ *   test does: it samples one `u` per gap, which catches every multi-interval region an
+ *   authored ring can have (a region is bounded by vertices, so it contains a whole gap),
+ *   but a ring built by a future generator with sub-gap structure could slip through. It
+ *   errs toward ADMITTING, and what an admitted bad ring produces is a solid where a void
+ *   was drawn — visible and reversible, not corrupt.
+ */
+function firstMultiIntervalU(ring: ReadonlyArray<WallProfileVertex>): number | null {
+    const us = wallProfileVertexUs(ring);
+    for (let g = 0; g + 1 < us.length; g++) {
+        const u = (us[g]! + us[g + 1]!) / 2;
+        let crossings = 0;
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;
+            if ((a.u <= u && b.u > u) || (b.u <= u && a.u > u)) crossings++;
+        }
+        if (crossings >= 4) return u;
+    }
+    return null;
+}
 
 export interface ProfileAuthorability {
     readonly ok: boolean;
@@ -281,7 +437,17 @@ export function profileAuthorability(subject: ProfileSubject): ProfileAuthorabil
     // (2) OUT OF BOUNDS — the profile SUBTRACTS from [0, L] x [0, height]; it never
     //     grows it. See the header: this is what keeps `wall.height` meaning the same
     //     thing to every consumer that already reads it.
-    const L = wallProfilePlanarLength(subject.baseLine);
+    // ⭐ §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) — THE CHORD IS NOT THE ARC. Until the
+    //   curved arm was built this line could only ever see a straight wall, so `u`'s upper
+    //   bound and the wall's chord were the same number. They are NOT the same number on an
+    //   arc: the chord is strictly shorter than the run, so a ring authored across the full
+    //   curved wall would have been refused as out-of-bounds at the far end — a refusal
+    //   with a correct-sounding message and a wrong `L` in it, which is the hardest kind to
+    //   see. `wallCentrelineLength` returns the arc for a curved wall and the chord for a
+    //   straight one, and it measures the SAME polyline the solid is built from.
+    const L = subject.curve != null
+        ? wallCentrelineLength({ baseLine: subject.baseLine, curve: subject.curve } as never)
+        : wallProfilePlanarLength(subject.baseLine);
     const H = subject.height;
     if (Number.isFinite(L) && typeof H === 'number' && Number.isFinite(H)) {
         for (let i = 0; i < ring.length; i++) {
@@ -303,17 +469,50 @@ export function profileAuthorability(subject: ProfileSubject): ProfileAuthorabil
 
     // (3) THE UNBUILT COMBINATIONS. Order affects only which reason the author is shown
     //     first; each is independently sufficient.
+    //
+    // ✅ THE `curved` ARM IS LIFTED (§FEAT-WALL-PROFILE-CURVED, WJ1, L-1072), AND ITS TEXT
+    //    IS KEPT SO THE RETRACTION IS LEGIBLE (C84 §6) — the same courtesy `WallRake.ts`
+    //    extends to the curved-rake refusal it lifted the same way. It read:
+    //
+    //      "wall.wallProfile is not supported on a CURVED wall: the profile is authored in
+    //       the wall's own plane, and a curved wall's face is a developable surface — a
+    //       straight profile edge is not straight in space, so every edge would have to be
+    //       tessellated per station and the curved builder has no per-station top.
+    //       Straighten the wall, or leave the profile unset."
+    //
+    //    EVERY CLAUSE OF THAT IS TRUE AND THE CONCLUSION WAS THE WRONG ONE — for the third
+    //    time in this family, and in the same shape each time. "A straight edge in (u,v) is
+    //    not straight in space" is a reason to TESSELLATE, and `insertStationsAt` does.
+    //    "The curved builder has no per-station top" was a fact about eight lines of
+    //    `CurvedWallLayerBuilder`, and `CurvedProfileHeights` is those eight lines. Neither
+    //    clause asserts a contradiction; both describe absent code.
+    //
+    //    ⭐ THE HEADER OF THIS FILE ALREADY SAID SO, and that is the part worth carrying
+    //      forward: it read *"A profile on a curve is NOT ill-posed … It is refused because
+    //      it is UNBUILT … This one CAN lift."* The module knew. What made the refusal
+    //      persist was the user-facing STRING, which reads like a law — and downstream
+    //      readers quote strings, not headers. **A refusal must say which kind it is IN THE
+    //      TEXT THE AUTHOR SEES**, or it will be read as impossible whatever the header says.
+    //
+    // ⛔ WHAT IS STILL REFUSED ON A CURVE, and it is a genuine limitation of the SWEEP:
+    //    see `curved-multi-interval` below. A swept solid carries ONE vertical interval per
+    //    station, so a ring that is empty in its middle at some `u` (a porthole, an
+    //    hourglass) cannot be expressed and would render SOLID where the author drew a
+    //    void. That is refused rather than approximated.
     if (subject.curve !== undefined && subject.curve !== null) {
-        return {
-            ok: false,
-            code: 'curved',
-            reason:
-                'wall.wallProfile is not supported on a CURVED wall: the profile is authored in ' +
-                "the wall's own plane, and a curved wall's face is a developable surface — a " +
-                'straight profile edge is not straight in space, so every edge would have to be ' +
-                'tessellated per station and the curved builder has no per-station top. ' +
-                'Straighten the wall, or leave the profile unset.',
-        };
+        const bad = firstMultiIntervalU(ring);
+        if (bad !== null) {
+            return {
+                ok: false,
+                code: 'curved-multi-interval',
+                reason:
+                    `wall.wallProfile cannot be applied to a CURVED wall at u=${bad.toFixed(4)}: the ` +
+                    'ring encloses TWO separate vertical spans there (a void with material above and ' +
+                    'below it). A curved wall is built as a swept solid, which carries one top and ' +
+                    'one bottom per station, so the void would render as solid material. Straighten ' +
+                    'the wall, or author the void as a window opening instead.',
+            };
+        }
     }
     if (subject.layers !== undefined && subject.layers !== null && subject.layers.length > 1) {
         return {

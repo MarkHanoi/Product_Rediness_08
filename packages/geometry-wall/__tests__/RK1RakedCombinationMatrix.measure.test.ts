@@ -713,10 +713,22 @@ describe('RK1 §RK1-MATRIX -- AXIS 5: L-1034 #4, profile-edit reachability by wa
         // refusal. A raked wall is therefore offered the profile editor.
         expect(profileAuthorability({ ...base, rakeAngleDeg: RAKE } as never).ok,
             'a RAKED wall IS offered profile edit — the gate cannot even see the rake').toBe(true);
-        expect(profileAuthorability({ ...base, curve } as never).code,
-            'a CURVED wall is refused, as curved').toBe('curved');
-        expect(profileAuthorability({ ...base, curve, rakeAngleDeg: RAKE } as never).code,
-            'CURVED + RAKED is refused for being curved — the rake is not why').toBe('curved');
+        // ✅ THE TWO CURVED CELLS INVERTED 2026-08-19 (§FEAT-WALL-PROFILE-CURVED, WJ1,
+        //    L-1072). They read `REFUSED:curved` when this axis was written, and that was
+        //    the finding of the day — *"a curved wall never offers profile edit, raked or
+        //    not"* (L-1065). The refusal has since been LIFTED, not worked around: `u` on an
+        //    arc is arc length, the per-station tessellation is `insertStationsAt`, and the
+        //    per-station top the refusal said the builder lacked is `CurvedProfileHeights`.
+        //    Inverted rather than deleted, so the cell keeps its history.
+        expect(profileAuthorability({ ...base, curve } as never).ok,
+            'a CURVED wall is now OFFERED profile edit').toBe(true);
+        expect(profileAuthorability({ ...base, curve, rakeAngleDeg: RAKE } as never).ok,
+            'CURVED + RAKED too — and the rake was never why either was refused').toBe(true);
+        // The two axes that are still closed, so this cell can still go red for a reason.
+        expect(profileAuthorability({ ...base, layers: [{}, {}, {}] } as never).code)
+            .toBe('layered');
+        expect(profileAuthorability({ ...base, openings: [{ id: 'o' }] } as never).code)
+            .toBe('hosted-openings');
     });
 });
 

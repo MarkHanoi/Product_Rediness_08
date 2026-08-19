@@ -93,6 +93,27 @@ type V6 = [number, number, number, number, number, number];
  * @param halfT - Half-thickness of the layer
  * @returns BufferGeometry for this layer
  */
+/**
+ * §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) — the wall's authored ELEVATION OUTLINE, already
+ * evaluated at THIS call's stations and expressed in WORLD Y.
+ *
+ * ⭐ THE EVALUATION IS THE CALLER'S JOB, DELIBERATELY. This builder knows stations, not
+ *   arc length, not `u`, and not what a ring is; handing it a ring would have made it the
+ *   second place in the package that decides what `u` means on an arc, and the first
+ *   (`WallProfile`/`WallArcParam`) already answers that. Two answers to "where along the
+ *   wall is this?" is the shape of every join defect this subsystem has had.
+ *
+ * Either array may be absent; a non-finite entry falls back to that end's flat plane. The
+ * arrays MUST be `stations.length` long — a shorter one is ignored rather than partially
+ * applied, because a half-applied profile is a wall with a cliff in it.
+ */
+export interface CurvedProfileHeights {
+  /** World Y of the TOP ring at each station. */
+  readonly topY?: ReadonlyArray<number> | null;
+  /** World Y of the BOTTOM ring at each station. */
+  readonly botY?: ReadonlyArray<number> | null;
+}
+
 export function buildCurvedLayerGeometry(
   _layer: WallLayer,
   layerOffset: number,
@@ -106,10 +127,33 @@ export function buildCurvedLayerGeometry(
   endCapTan?:    { x: number; z: number } | null,
   // §FEAT-RAKE-CURVED — absent ⇒ byte-identical geometry, including normals.
   rake?:         CurvedRakeOption | null,
+  // §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) — absent ⇒ byte-identical geometry.
+  profileY?:     CurvedProfileHeights | null,
 ): THREE.BufferGeometry {
   const n = stations.length;
   const yBot = wallBaseOffset;
   const yTop = wallBaseOffset + wallHeight;
+
+  // ── §FEAT-WALL-PROFILE-CURVED (WJ1, L-1072) — THE PER-STATION TOP EXISTS NOW ──────
+  //
+  // The `curved` profile refusal read: *"a straight profile edge is not straight in space,
+  // so every edge would have to be tessellated per station and the curved builder has no
+  // per-station top."* Both halves are statements about MISSING CODE, and this is the
+  // second half. `yTop`/`yBot` were two scalars; they are now two accessors, and the
+  // caller supplies a Y per station by evaluating the authored ring at that station's ARC
+  // LENGTH. Nothing else about the sweep changes — which is the point: a swept solid whose
+  // top ring already varies in PLAN (that is what the cone is) varies in HEIGHT by exactly
+  // the same mechanism.
+  //
+  // ⚠ ABSENT ⇒ THE SCALARS, and the arrays are never allocated. A profiled curved wall is
+  //   rare; every other curved wall in the model must cost and render exactly what it did.
+  const _pTop = profileY?.topY;
+  const _pBot = profileY?.botY;
+  const _hasProfile = !!(_pTop && _pTop.length === n) || !!(_pBot && _pBot.length === n);
+  const yTopAt = (i: number): number =>
+    (_pTop && Number.isFinite(_pTop[i]!) ? _pTop[i]! : yTop);
+  const yBotAt = (i: number): number =>
+    (_pBot && Number.isFinite(_pBot[i]!) ? _pBot[i]! : yBot);
 
   // ── Offset stations for this layer ──
   // Each station's centerline is shifted by layerOffset along the outward normal
@@ -155,11 +199,19 @@ export function buildCurvedLayerGeometry(
   const _rakeDatum = rake ? rake.datumY : yBot;
   const dBot = _rakeK === 0 ? 0 : _rakeK * (yBot - _rakeDatum);
   const dTop = _rakeK === 0 ? 0 : _rakeK * (yTop - _rakeDatum);
+  // §FEAT-WALL-PROFILE-CURVED — THE RAKE FOLLOWS THE PROFILE, and it must. The lean at a
+  // station is `k · (that station's height above the datum)`; a station the profile cut
+  // down to 1 m leans by `k · 1`, not by `k · 3`. Using the uniform `dTop` there would
+  // have leaned a short column as far as a tall one, which reads as a TWISTED top edge —
+  // the exact defect a per-station quantity computed from a whole-wall constant produces.
+  // With no profile these are the scalars and the arithmetic is unchanged.
+  const dBotAt = (i: number): number => (_rakeK === 0 ? 0 : _hasProfile ? _rakeK * (yBotAt(i) - _rakeDatum) : dBot);
+  const dTopAt = (i: number): number => (_rakeK === 0 ? 0 : _hasProfile ? _rakeK * (yTopAt(i) - _rakeDatum) : dTop);
 
-  const outerPt:    Array<[number, number]> = layerStations.map(s => [s.cx + s.nx * (halfT + dBot), s.cz + s.nz * (halfT + dBot)]);
-  const innerPt:    Array<[number, number]> = layerStations.map(s => [s.cx - s.nx * halfT + s.nx * dBot, s.cz - s.nz * halfT + s.nz * dBot]);
-  const outerPtTop: Array<[number, number]> = layerStations.map(s => [s.cx + s.nx * (halfT + dTop), s.cz + s.nz * (halfT + dTop)]);
-  const innerPtTop: Array<[number, number]> = layerStations.map(s => [s.cx - s.nx * halfT + s.nx * dTop, s.cz - s.nz * halfT + s.nz * dTop]);
+  const outerPt:    Array<[number, number]> = layerStations.map((s, i) => [s.cx + s.nx * (halfT + dBotAt(i)), s.cz + s.nz * (halfT + dBotAt(i))]);
+  const innerPt:    Array<[number, number]> = layerStations.map((s, i) => [s.cx - s.nx * halfT + s.nx * dBotAt(i), s.cz - s.nz * halfT + s.nz * dBotAt(i)]);
+  const outerPtTop: Array<[number, number]> = layerStations.map((s, i) => [s.cx + s.nx * (halfT + dTopAt(i)), s.cz + s.nz * (halfT + dTopAt(i))]);
+  const innerPtTop: Array<[number, number]> = layerStations.map((s, i) => [s.cx - s.nx * halfT + s.nx * dTopAt(i), s.cz - s.nz * halfT + s.nz * dTopAt(i)]);
 
   // Cap tangents — exact Bézier tangents when provided (§CURVED-STRAIGHT-FIX:
   // identical to WallJoinResolver._wallDirAtJoin), station chords otherwise.
@@ -231,8 +283,8 @@ export function buildCurvedLayerGeometry(
     const _hasFull = typeof _fullH === 'number' && Number.isFinite(_fullH) && Math.abs(_fullH) > 1e-12;
     // A band takes its PROPORTIONAL share at each ring, so stacked bands still meet: the
     // lower band's top cap corner IS the upper band's bottom cap corner.
-    const rBot = _hasFull ? (yBot - _rakeDatum) / (_fullH as number) : 0;
-    const rTop = _hasFull ? (yTop - _rakeDatum) / (_fullH as number) : 1;
+    const rBotAt = (ci: number) => (_hasFull ? (yBotAt(ci) - _rakeDatum) / (_fullH as number) : 0);
+    const rTopAt = (ci: number) => (_hasFull ? (yTopAt(ci) - _rakeDatum) / (_fullH as number) : 1);
 
     // Where this band's two faces sit across the wall: 0 at the RIGHT face, 1 at the LEFT
     // (`outward = leftPerp(tangent)`, so `+n` is LEFT). EXACT, not an approximation: the
@@ -266,8 +318,8 @@ export function buildCurvedLayerGeometry(
     _applyCapLoft = () => {
       for (const [ci, dR, dL] of caps) {
         if (!finite(dR) || !finite(dL)) continue;
-        const dOB = mix(dR, dL, tOuter, rBot), dOT = mix(dR, dL, tOuter, rTop);
-        const dIB = mix(dR, dL, tInner, rBot), dIT = mix(dR, dL, tInner, rTop);
+        const dOB = mix(dR, dL, tOuter, rBotAt(ci)), dOT = mix(dR, dL, tOuter, rTopAt(ci));
+        const dIB = mix(dR, dL, tInner, rBotAt(ci)), dIT = mix(dR, dL, tInner, rTopAt(ci));
         outerPt[ci]    = [outerPt[ci]![0]    + dOB.x, outerPt[ci]![1]    + dOB.z];
         outerPtTop[ci] = [outerPtTop[ci]![0] + dOT.x, outerPtTop[ci]![1] + dOT.z];
         innerPt[ci]    = [innerPt[ci]![0]    + dIB.x, innerPt[ci]![1]    + dIB.z];
@@ -324,34 +376,42 @@ export function buildCurvedLayerGeometry(
 
   function outerVBot(i: number): V6 {
     const s = layerStations[i];
-    return [outerPt[i][0], yBot, outerPt[i][1], s.nx * _nrmScale, _nrmY, s.nz * _nrmScale];
+    return [outerPt[i][0], yBotAt(i), outerPt[i][1], s.nx * _nrmScale, _nrmY, s.nz * _nrmScale];
   }
   function outerVTop(i: number): V6 {
     const s = layerStations[i];
-    return [outerPtTop[i]![0], yTop, outerPtTop[i]![1], s.nx * _nrmScale, _nrmY, s.nz * _nrmScale];
+    return [outerPtTop[i]![0], yTopAt(i), outerPtTop[i]![1], s.nx * _nrmScale, _nrmY, s.nz * _nrmScale];
   }
   function innerVBot(i: number): V6 {
     const s = layerStations[i];
-    return [innerPt[i][0], yBot, innerPt[i][1], -s.nx * _nrmScale, -_nrmY, -s.nz * _nrmScale];
+    return [innerPt[i][0], yBotAt(i), innerPt[i][1], -s.nx * _nrmScale, -_nrmY, -s.nz * _nrmScale];
   }
   function innerVTop(i: number): V6 {
     const s = layerStations[i];
-    return [innerPtTop[i]![0], yTop, innerPtTop[i]![1], -s.nx * _nrmScale, -_nrmY, -s.nz * _nrmScale];
+    return [innerPtTop[i]![0], yTopAt(i), innerPtTop[i]![1], -s.nx * _nrmScale, -_nrmY, -s.nz * _nrmScale];
   }
 
   // The top and bottom faces stay HORIZONTAL — a rake moves the top ring sideways, it
   // does not tilt the cap — so their normals are unchanged at every angle.
+  //
+  // ⚠ §FEAT-WALL-PROFILE-CURVED — A PROFILE *DOES* TILT THEM, and a flat `(0,1,0)` on a
+  //   sloping top edge is a shading lie: the strip would light as though horizontal while
+  //   climbing, which is the "it built but it looks wrong" outcome. When a profile is
+  //   present the whole geometry's normals are recomputed once at assembly instead (the
+  //   outline is arbitrary, so which strips slope is not knowable cheaply — the same
+  //   decision `WallProfileBodyBuilder`'s mitre makes for the same reason). With no
+  //   profile these stay exactly the constants they were.
   function topOuter(i: number): V6 {
-    return [outerPtTop[i]![0], yTop, outerPtTop[i]![1], 0, 1, 0];
+    return [outerPtTop[i]![0], yTopAt(i), outerPtTop[i]![1], 0, 1, 0];
   }
   function topInner(i: number): V6 {
-    return [innerPtTop[i]![0], yTop, innerPtTop[i]![1], 0, 1, 0];
+    return [innerPtTop[i]![0], yTopAt(i), innerPtTop[i]![1], 0, 1, 0];
   }
   function botOuter(i: number): V6 {
-    return [outerPt[i][0], yBot, outerPt[i][1], 0, -1, 0];
+    return [outerPt[i][0], yBotAt(i), outerPt[i][1], 0, -1, 0];
   }
   function botInner(i: number): V6 {
-    return [innerPt[i][0], yBot, innerPt[i][1], 0, -1, 0];
+    return [innerPt[i][0], yBotAt(i), innerPt[i][1], 0, -1, 0];
   }
 
   // ── outer curved face ─────────────────────────────────────────────────
@@ -393,10 +453,10 @@ export function buildCurvedLayerGeometry(
     const [iX, iZ] = innerPt[0];
     const [oXt, oZt] = outerPtTop[0]!;
     const [iXt, iZt] = innerPtTop[0]!;
-    const oBo: V6 = [oX,  yBot, oZ,  cnx, 0, cnz];
-    const oTo: V6 = [oXt, yTop, oZt, cnx, 0, cnz];
-    const iBo: V6 = [iX,  yBot, iZ,  cnx, 0, cnz];
-    const iTo: V6 = [iXt, yTop, iZt, cnx, 0, cnz];
+    const oBo: V6 = [oX,  yBotAt(0), oZ,  cnx, 0, cnz];
+    const oTo: V6 = [oXt, yTopAt(0), oZt, cnx, 0, cnz];
+    const iBo: V6 = [iX,  yBotAt(0), iZ,  cnx, 0, cnz];
+    const iTo: V6 = [iXt, yTopAt(0), iZt, cnx, 0, cnz];
     pushTri(oBo, oTo, iTo);
     pushTri(oBo, iTo, iBo);
   }
@@ -409,10 +469,10 @@ export function buildCurvedLayerGeometry(
     const [iX, iZ] = innerPt[n - 1];
     const [oXt, oZt] = outerPtTop[n - 1]!;
     const [iXt, iZt] = innerPtTop[n - 1]!;
-    const oBo: V6 = [oX,  yBot, oZ,  cnx, 0, cnz];
-    const oTo: V6 = [oXt, yTop, oZt, cnx, 0, cnz];
-    const iBo: V6 = [iX,  yBot, iZ,  cnx, 0, cnz];
-    const iTo: V6 = [iXt, yTop, iZt, cnx, 0, cnz];
+    const oBo: V6 = [oX,  yBotAt(n - 1), oZ,  cnx, 0, cnz];
+    const oTo: V6 = [oXt, yTopAt(n - 1), oZt, cnx, 0, cnz];
+    const iBo: V6 = [iX,  yBotAt(n - 1), iZ,  cnx, 0, cnz];
+    const iTo: V6 = [iXt, yTopAt(n - 1), iZt, cnx, 0, cnz];
     pushTri(oBo, iTo, oTo);
     pushTri(oBo, iBo, iTo);
   }
@@ -421,6 +481,9 @@ export function buildCurvedLayerGeometry(
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  // §FEAT-WALL-PROFILE-CURVED — see `topOuter`. Only when a profile is present, so every
+  // unprofiled curved wall keeps the hand-written normals character-for-character.
+  if (_hasProfile) geom.computeVertexNormals();
 
   return geom;
 }

@@ -41,6 +41,19 @@
  * verbatim, and cannot drift from the refusal the command would produce (C84 EI-9,
  * §REFUSAL-IDENTITY). Only `raked` is written here, because the gate has no rake arm at
  * all: the store would ACCEPT a profile on a raked wall. That gap is precisely L-1065.
+ *
+ * ─── STATE 2026-08-19, AFTER WJ1 ──────────────────────────────────────────
+ *
+ * `raked` and `curved` are OPEN. Two of the four rows lasted less than a day, and the
+ * table's own prior — *"the honest prior is therefore that MOST of these cells open
+ * shortly"* — was right. `raked` needed a TEST, not a build. `curved` needed a build, and
+ * the refusal that had held it shut described missing code in the grammar of a law.
+ *
+ * ⚠ `gateSentenceForAxis('curved')` now returns NULL, exactly as `'raked'` always did,
+ *   and for the same reason: an OPEN axis has no refusal sentence. That function's contract
+ *   is "the gate's own words for this axis, or null when the gate has none" — null now
+ *   means OPEN for `curved` where it means UNARMED for `raked`. The two are distinguished
+ *   by the row's `status`, never by the null.
  */
 
 import { profileAuthorability, type ProfilePt2 } from './WallProfile';
@@ -79,19 +92,32 @@ export interface WallProfileAxisRow {
  * beyond the plain wall (which is the absence of every axis and needs no row).
  */
 export const WALL_PROFILE_AXES: ReadonlyArray<WallProfileAxisRow> = [
-    {
-        axis: 'raked',
-        status: 'unbuilt',
-        owner: 'WJ1 — profile × rake',
-        ownReason:
-            'Editing the outline of a RAKED (leaning) wall is not available YET — not because ' +
-            'it is impossible, but because it has not been measured. The wall body already ' +
-            'applies the lean to the profiled solid, and the profile is authored in the ' +
-            'un-sheared frame precisely so the two compose — but no test has yet built a wall ' +
-            'carrying BOTH, and an unverified promise is worse than a stated wait. It is being ' +
-            'built now. Straighten the wall to vertical to edit its outline today.',
-    },
-    { axis: 'curved',          status: 'unbuilt', owner: 'WJ1 — profile × curved' },
+    // ✅ OPENED 2026-08-19 by WJ1, and the two rows were opened for DIFFERENT REASONS —
+    //    which is the finding, not a formality.
+    //
+    //    `raked` was ALREADY BUILT and merely UNASSERTED. `WallFragmentBuilder`'s profile
+    //    arm has always ended by calling `_applyRakeShearToChildren`, and the ring is
+    //    authored in the un-sheared frame precisely so the two compose. Nothing was
+    //    written to open it; a test was. Its closed text said so honestly — *"no test has
+    //    yet built a wall carrying BOTH, and an unverified promise is worse than a stated
+    //    wait"* — and that is exactly the state that was fixed.
+    //    Assertions: `WJ1ProfileVariantGeometry.test.ts` → *"the RING IS CUT on a raked
+    //    wall"* + *"AND IT LEANS"*, on ONE wall, so neither half can pass alone.
+    //
+    //    `curved` was GENUINELY UNBUILT and its refusal read like a law. Built as
+    //    §FEAT-WALL-PROFILE-CURVED: `u` is ARC LENGTH, the per-station tessellation is
+    //    `insertStationsAt`, the missing per-station top is `CurvedProfileHeights`.
+    //    Assertions: same file → *"THE CUT IS CONTINUOUS ALONG THE ARC"* (seven samples
+    //    against a reference re-derived from the Bézier) + *"it is STILL AN ARC"*.
+    //
+    //    ⚠ `curved + raked` needed NO row of its own and got none: availability is the
+    //      conjunction over active axes, so opening both opens the pair. It is asserted
+    //      separately all the same (*"a profiled cone"*), because a conjunction that holds
+    //      in the table can still fail in the geometry — and one term of it, the rake
+    //      displacement following the PER-STATION height, is a real term that had to be
+    //      written (`dTopAt`).
+    { axis: 'raked',  status: 'available' },
+    { axis: 'curved', status: 'available' },
     { axis: 'layered',         status: 'unbuilt', owner: 'WJ1 — profile × layers' },
     { axis: 'hosted-openings', status: 'unbuilt', owner: 'WJ1 — profile × openings' },
 ];
