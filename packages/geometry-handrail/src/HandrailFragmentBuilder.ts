@@ -50,6 +50,32 @@ export class HandrailFragmentBuilder {
      * than once per rail + infill + post + baluster.
      */
     private _unresolvedReported: Set<string> = new Set();
+    /**
+     * §C100-HANDRAIL-MATERIAL-ID / §FIX-HANDRAIL-MATERIAL-WARN-AGGREGATE (L-1292)
+     * — unresolved-material reports, buffered and keyed on the **REASON**.
+     *
+     * ⭐ AGGREGATED ON THE REASON, NOT ON THE ELEMENT ID, AND THE MESSAGE SURVIVES
+     * INTACT. `_unresolvedReported` above already collapsed 30 balusters into one
+     * line per ELEMENT; that is the wrong axis for the founder's console, which
+     * carries ~145 of these per load (L-1203 / C95 §15.16.7) because ~145 records
+     * genuinely name no material. Collapsing further BY ID would just be a shorter
+     * list of the same thing. Collapsing by REASON says the one thing a reader
+     * needs — *how many* elements, failing *the same way*, with samples to chase.
+     *
+     * ⛔ THE DIAGNOSTIC IS NOT THE DEFECT AND MUST NOT BE WEAKENED. C100 §5 forbids
+     * a silent grey fallback precisely because it makes "the material was deleted",
+     * "the id is stale" and "this rail names no material" the same pixel — and this
+     * warning is the only reason the four generator defects in `generatedGuardSpec`
+     * were measurable at all. Every word of the message is retained; only the
+     * REPETITION is removed.
+     *
+     * ⚠ Whether the 145 stack captures were expensive is **NOT MEASURED** — PERF1
+     * counted the lines, not their cost. This is a legibility fix; do not record it
+     * as a perf win.
+     */
+    private _unresolvedByReason: Map<string, { count: number; fallback: string; samples: string[] }> = new Map();
+    /** Trailing-edge debounce so one LOAD produces one line per reason. */
+    private _unresolvedFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(scene: THREE.Scene, bimManager: BimManager) {
         this.scene = scene;
@@ -132,6 +158,12 @@ export class HandrailFragmentBuilder {
         this.handrailRoots.clear();
         this._instanceIds.clear();
         this._unresolvedReported.clear();
+        // §FIX-HANDRAIL-MATERIAL-WARN-AGGREGATE (L-1292) — SAY IT, THEN FORGET IT.
+        // Dropping the buffer silently would make a project switch during the
+        // debounce window swallow the whole report, which is the C100 §5 silent
+        // fallback with an extra step. Flush first (a no-op when empty), then clear.
+        this.flushUnresolvedMaterialReports();
+        this._unresolvedByReason.clear();
     }
 
     private disposeRoot(root: THREE.Group): void {
@@ -178,13 +210,56 @@ export class HandrailFragmentBuilder {
         // balusters does not print 30 lines.
         if (!this._unresolvedReported.has(handrail.id)) {
             this._unresolvedReported.add(handrail.id);
-            console.warn(
-                `[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID handrail ${handrail.id} ` +
-                `has NO RESOLVABLE MATERIAL — ${r.reason}. Falling back to ${fallback}; ` +
-                'the colour on screen is NOT this element’s material.',
-            );
+            this._bufferUnresolvedMaterial(handrail.id, r.reason, fallback);
         }
         return fallback;
+    }
+
+    /**
+     * §FIX-HANDRAIL-MATERIAL-WARN-AGGREGATE (L-1292) — buffer one unresolved-material
+     * report under its REASON and re-arm the trailing flush.
+     */
+    private _bufferUnresolvedMaterial(id: string, reason: string, fallback: string): void {
+        let bucket = this._unresolvedByReason.get(reason);
+        if (!bucket) {
+            bucket = { count: 0, fallback, samples: [] };
+            this._unresolvedByReason.set(reason, bucket);
+        }
+        bucket.count += 1;
+        // Three ids is enough to chase one; a full list is the 145 lines again.
+        if (bucket.samples.length < 3) bucket.samples.push(id);
+        if (this._unresolvedFlushTimer !== null) clearTimeout(this._unresolvedFlushTimer);
+        this._unresolvedFlushTimer = setTimeout(() => { this.flushUnresolvedMaterialReports(); }, 250);
+    }
+
+    /**
+     * Emit ONE warning per distinct reason, carrying the count and up to three
+     * sample ids. Public so a test can drive it without waiting on a timer, and so
+     * a caller that knows a load has finished can flush deterministically.
+     *
+     * @returns the number of lines emitted (0 when there was nothing buffered).
+     */
+    flushUnresolvedMaterialReports(): number {
+        if (this._unresolvedFlushTimer !== null) {
+            clearTimeout(this._unresolvedFlushTimer);
+            this._unresolvedFlushTimer = null;
+        }
+        if (this._unresolvedByReason.size === 0) return 0;
+        let lines = 0;
+        for (const [reason, b] of this._unresolvedByReason) {
+            const plural  = b.count === 1 ? 'handrail' : 'handrails';
+            const posses  = b.count === 1 ? 'this element’s' : 'these elements’';
+            const hidden  = b.count - b.samples.length;
+            const samples = `${b.samples.join(', ')}${hidden > 0 ? ` (+${hidden} more)` : ''}`;
+            console.warn(
+                `[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID ${b.count} ${plural} ` +
+                `have NO RESOLVABLE MATERIAL — ${reason}. Falling back to ${b.fallback}; ` +
+                `the colour on screen is NOT ${posses} material. Sample ids: ${samples}.`,
+            );
+            lines += 1;
+        }
+        this._unresolvedByReason.clear();
+        return lines;
     }
 
     private buildHandrail(handrail: Readonly<HandrailData>): void {
