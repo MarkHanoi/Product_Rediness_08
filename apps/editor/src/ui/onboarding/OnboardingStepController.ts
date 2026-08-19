@@ -698,10 +698,16 @@ export class OnboardingStepController {
         };
         form.addEventListener('submit', onSubmit);
         skip.addEventListener('click', () => {
-            console.log('[onboarding-step] location skipped (no location).');
+            // §UX1-SKIP-TO-CANVAS (founder 2026-08-19). This USED to go to
+            // `renderSiteStep()` — "Step 2 of 4 · Your plot". The founder's point is
+            // that a user who has just said "no location" is telling us they do not
+            // want to define a site at all, and answering that with a plot-definition
+            // step is the product not listening. Skip now asks for a NAME and opens
+            // the canvas.
+            console.log('[onboarding-step] location skipped (no location) -> name, then canvas.');
             this.picked = null;
             this.leaveLocationStep();
-            this.renderSiteStep();
+            this.renderNameThenCanvasStep();
         });
         this.addCleanup(() => form.removeEventListener('submit', onSubmit));
 
@@ -926,6 +932,133 @@ export class OnboardingStepController {
     }
 
     // ── Step 2: Site (draw-or-skip) ────────────────────────────────────────────
+
+    /**
+     * §UX1-SKIP-TO-CANVAS — the terminal step of the "Skip — no location" branch:
+     * name the project, then open the white BIM canvas.
+     *
+     * ── Why a NAME prompt here, when PRD §4.3 says "no user-typed name" ─────────
+     * These do not conflict, and the reconciliation matters. PRD §4.3 / Milestone 1
+     * remove the New-Project modal and AUTO-name the project — but the naming
+     * SOURCE it specifies is location data: address, parcel refcat, municipality,
+     * "all already available at the moment of parcel selection". On THIS branch the
+     * user has just declined to give a location, so that source will never exist,
+     * and `projectAutoName.generateUntitledSiteName()`'s placeholder
+     * ("Untitled Site — <stamp>") is not a placeholder here — it is PERMANENT.
+     * `projectAutoName.ts` says so itself: the placeholder "is expected to be
+     * REPLACED once location/parcel data resolves". Asking is therefore the only
+     * way this branch ever gets a real name, and it is a DECLARED BRANCH of the
+     * PRD's rule rather than an exception to it. Logged as L-1027.
+     *
+     * ── ⛔ What this step deliberately does NOT do ─────────────────────────────
+     * It mints NOTHING. No `createSite`, no `createSiteFromRect`, no `ensureSite`.
+     * The 10 × 8 m default footprint is an explicit CHOICE the user makes on the
+     * plot step; taking it on their behalf when they asked to skip would be the
+     * silent-default defect, and `createSiteFromRect` would additionally
+     * georeference the project at lat/lon 0,0 — Null Island — because its inputs
+     * are `opts.lat ?? 0`. ADR-0299 ("a recovery that conceals is a defect") is the
+     * governing precedent: the honest outcome of skipping is an empty canvas.
+     *
+     * The project is left in `siteCapture.status: 'none'`, which is a FIRST-CLASS
+     * supported state, not a gap — `ProjectSerializer.resolveSiteCapture` names it
+     * and reasons "No site and no geometry — nothing was lost (a plain non-GIS
+     * project)". Plain BIM work has no parcel and never will.
+     */
+    private renderNameThenCanvasStep(): void {
+        this.step = 'site';
+        this.setDrawingPresentation(false);
+        // Not "2 of 4": skipping location removes the plot and confirm steps from
+        // this branch entirely. Claiming four steps when two remain is the same
+        // class of untruth as a progress bar that never reaches the end.
+        if (this.stepLabelEl) this.stepLabelEl.textContent = 'Step 2 of 2 \u00b7 Name';
+        const body = this.clearBody();
+
+        const prompt = document.createElement('p');
+        prompt.className = 'os-prompt';
+        prompt.textContent = 'Name your project';
+        body.appendChild(prompt);
+
+        const hint = document.createElement('p');
+        hint.className = 'os-hint';
+        hint.textContent =
+            'No location, no plot \u2014 you will land on an empty canvas and can add a site later '
+            + 'from PRYZM Earth.';
+        body.appendChild(hint);
+
+        const row = document.createElement('div');
+        row.className = 'os-input-row';
+        const input = document.createElement('input');
+        input.className = 'os-input';
+        input.type = 'text';
+        input.setAttribute('data-testid', 'onboarding-project-name');
+        input.placeholder = 'Untitled project';
+        input.value = this.resolveCurrentProjectName();
+        row.appendChild(input);
+        body.appendChild(row);
+
+        const status = document.createElement('p');
+        status.className = 'os-status';
+        body.appendChild(status);
+
+        const footer = document.createElement('div');
+        footer.className = 'os-footer';
+        const go = document.createElement('button');
+        go.className = 'os-btn os-btn--primary';
+        go.setAttribute('data-testid', 'onboarding-name-continue');
+        go.textContent = 'Open the canvas \u2192';
+        footer.appendChild(go);
+        body.appendChild(footer);
+
+        const submit = (): void => {
+            go.disabled = true;
+            const name = input.value.trim();
+            status.textContent = 'Opening the canvas\u2026';
+            // Rename is BEST-EFFORT and never gates the transition. A failed rename
+            // must not strand the user on an onboarding card — they asked for the
+            // canvas, and the project keeps its existing name if the call fails.
+            void this.applyProjectName(name)
+                .catch((e) => console.warn('[onboarding-step] project rename failed (non-fatal):', e))
+                .finally(() => { void this.landInCanvasWithUnderlay(); });
+        };
+        go.addEventListener('click', submit);
+        const onKey = (e: KeyboardEvent): void => { if (e.key === 'Enter') submit(); };
+        input.addEventListener('keydown', onKey);
+        this.addCleanup(() => input.removeEventListener('keydown', onKey));
+
+        try { input.focus(); input.select(); } catch { /* ignore */ }
+    }
+
+    /** The name currently on the project, for pre-filling the prompt. */
+    private resolveCurrentProjectName(): string {
+        try {
+            const el = document.getElementById('plat-project-name') as HTMLInputElement | null;
+            const v = el?.value?.trim();
+            if (v) return v;
+        } catch { /* not mounted */ }
+        return '';
+    }
+
+    /**
+     * Persist the typed name through the SAME path the hub's rename modal uses —
+     * `runtime.persistence.client.rename(projectId, name)` — rather than inventing
+     * a second write. An empty name is a no-op, not a write of "".
+     */
+    private async applyProjectName(name: string): Promise<void> {
+        if (!name) return;
+        const client = (this.runtime as unknown as {
+            persistence?: { client?: { rename?: (id: string, n: string) => Promise<unknown> } };
+        }).persistence?.client;
+        const projectId = (window as unknown as { currentProjectId?: string }).currentProjectId;
+        if (!client?.rename || !projectId) {
+            console.warn('[onboarding-step] no rename path available - keeping the existing project name.');
+            return;
+        }
+        await client.rename(projectId, name);
+        try {
+            const el = document.getElementById('plat-project-name') as HTMLInputElement | null;
+            if (el) el.value = name;
+        } catch { /* not mounted */ }
+    }
 
     private renderSiteStep(): void {
         this.step = 'site';
