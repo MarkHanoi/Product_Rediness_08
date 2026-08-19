@@ -152,15 +152,25 @@ if (/new THREE\.Color\(\s*[\d.]+\s*,/.test(projSrc)) {
  * the same defect shape the gate's own header warns about for COUNTS (a grep that
  * cannot see an id cannot govern it), recurring for LITERALS.
  *
- * These four occurrences are DECLARED DEBT with an owning slice, not permission:
- * they are wall render presets, and C100 §1.3's "no colour literal in the
- * projection" is absolute, but folding them means deciding whether a schematic /
- * realistic wall preset is a MATERIAL (a master row) or a VIEW STYLE (C04's
- * territory, and then they do not belong in this file at all). That is a design
- * decision — guessing it would mint the rival this gate exists to prevent.
- * Owner: C100 §9 slice S13. SHRINK-ONLY.
+ * ⭐ RESOLVED 2026-08-19 — S13 was DECIDED, and the baseline is now HARD ZERO.
+ * The four occurrences were declared debt because folding them required deciding
+ * whether a schematic / realistic wall preset is a MATERIAL (a master row) or a
+ * VIEW STYLE (C04's territory, and then they do not belong in this file at all).
+ * C100 §9.9 decided **view style**, on four measurements — two rows for one
+ * surface chosen by render mode; last in §2.1's precedence chain; no id, label or
+ * category, so nothing can reference them; and promoting them would put
+ * "unstyled" in the catalogue as something a user can PICK, which is the
+ * beige-default failure §1.2 traces. They moved to
+ * `packages/core-app-model/src/wallViewStyleMaterials.ts`, which carries the
+ * reasoning; `materialLibrary.ts` re-exports the four names unchanged.
+ *
+ * ⚠ The move did NOT delete a literal — a view style's colour is a rendering
+ * constant and C100 §3 permits family render constants. What it removed is a
+ * colour literal from the PROJECTION, which §1.3 forbids absolutely. Zero here
+ * is therefore a real invariant, not a tidied number: a new `0x` in this file is
+ * a new rival, and the ceiling no longer has room for one.
  */
-const PROJECTION_0X_BASELINE = 4;
+const PROJECTION_0X_BASELINE = 0;
 const proj0x = projSrc.match(/\b0x[0-9a-fA-F]{6}\b/g) ?? [];
 if (proj0x.length > PROJECTION_0X_BASELINE) {
   fail(
@@ -194,7 +204,7 @@ for (const r of KNOWN_RIVALS) {
 
 console.log('material-single-source');
 console.log(`  catalogue : ${entries.length} rows, ${new Set(ids).size} unique ids  [${CATALOG}]`);
-console.log(`  projection: ${projHexes.length} '#rrggbb' literals (must be 0), ${proj0x.length}/${PROJECTION_0X_BASELINE} '0x' literals (declared debt, C100 §9 S13)  [${PROJECTION}]`);
+console.log(`  projection: ${projHexes.length} '#rrggbb' literals (must be 0), ${proj0x.length}/${PROJECTION_0X_BASELINE} '0x' literals (must be 0 - C100 §9.9 / S13 DECIDED)  [${PROJECTION}]`);
 console.log(`  finishRef : ${finishHexes.length} hex literals (must be 0)  [${FINISH_REF}]`);
 console.log(`  ledger    : ${KNOWN_RIVALS.length} declared rival(s), each with an owning slice:`);
 for (const r of KNOWN_RIVALS) console.log(`      - ${r.file} : ${r.why} (${r.slice})`);

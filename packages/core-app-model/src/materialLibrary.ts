@@ -106,35 +106,23 @@ export function materialHexById(id: string): string | undefined {
 }
 
 // ------------------------------------------------------------------
-// Wall material factories
+// Wall view-style materials — MOVED OUT (C100 §9.9 / S13, 2026-08-19)
 // ------------------------------------------------------------------
-export function createWallSchematicMaterial(): THREE.MeshStandardMaterial {
-    return new THREE.MeshStandardMaterial({
-        color:     0xe8e8e8,
-        roughness: 0.9,
-        metalness: 0.0,
-    });
-}
-
-export function createWallRealisticMaterial(): THREE.MeshStandardMaterial {
-    return new THREE.MeshStandardMaterial({
-        color:     0xf5f5f5,
-        roughness: 0.85,
-        metalness: 0.0,
-    });
-}
-
-export const WALL_SCHEMATIC_MATERIAL = {
-    color:     0xe8e8e8,
-    roughness: 0.9,
-    metalness: 0.0,
-};
-
-export const WALL_REALISTIC_MATERIAL = {
-    color:     0xf5f5f5,
-    roughness: 0.85,
-    metalness: 0.0,
-};
+// These four used to be DEFINED here, and their `0x` hexes were the literals
+// C100 §9.7 found sitting inside the projection where a `#rrggbb` gate could
+// not see them. S13 asked whether they were master rows or a C04 view style;
+// §9.9 DECIDED **view style**, on four measurements, and moved them to
+// `wallViewStyleMaterials.ts` — which carries the reasoning in full.
+//
+// They are RE-EXPORTED, not re-declared: this file holds no colour data of its
+// own (C84 §1.3), and 21 importers plus a concurrent lane depend on the names
+// resolving from `@pryzm/core-app-model/material-library` exactly as before.
+export {
+    WALL_SCHEMATIC_MATERIAL,
+    WALL_REALISTIC_MATERIAL,
+    createWallSchematicMaterial,
+    createWallRealisticMaterial,
+} from './wallViewStyleMaterials';
 
 export function disposeLibraryTextures(): void {
     STANDARD_MATERIAL_LIBRARY.forEach(def => {

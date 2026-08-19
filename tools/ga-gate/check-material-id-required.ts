@@ -61,18 +61,21 @@ const EXIT_RATCHET = 3;
 const BASELINE_A_COLOUR_WITHOUT_ID = 2; // Door, Window
 const BASELINE_B_UNRESOLVABLE_IDS = 0; // 8 -> 0, L-1038 S14 (2026-08-19): all eight were dot-case ids types-builtin minted; reconciled to master ids, plus one genuinely-missing master row (steel-grating). HARD ZERO now — this arm has no debt left to shrink.
 const BASELINE_C_UNROUTED_PRODUCERS = 17;
-const BASELINE_D_SERIALIZERS_DROPPING_ID = 5;
+const BASELINE_D_SERIALIZERS_DROPPING_ID = 3; // 5 -> 3, L-1038 S15 (2026-08-19): stair (deepStrip), handrail (delegated) and curtain-wall (prefixed ids) were FALSE POSITIVES of a one-spelling test, not fixes. The three that remain are real, and are ARM A's shape one layer down, at the runtime store type.
+const BASELINE_E_IDS_NEVER_READ_BACK = 1; // ARM E, new 2026-08-19: `slab`. The serializer writes materialId + materialColor; ProjectLoader's CreateSlabCommand payload lists neither, so a slab's material dies on reload. Owned by the persistence/slab lane (C100 §9.6.c step 2) - MEASURED here, fixed there.
 
 // Subject floors — if we scan fewer than this, we are misconfigured.
 const FLOOR_SCHEMAS = 20;
 const FLOOR_ID_SITES = 40;
 const FLOOR_PRODUCERS = 8;
 const FLOOR_SERIALIZERS = 8;
+const FLOOR_ID_WRITERS = 4; // ARM E: fewer id-writing serializers than this means the scan broke.
 
 const CATALOG_REL = 'packages/schemas/src/materials/materialCatalog.ts';
 const SCHEMA_DIR_REL = 'packages/schemas/src/elements';
 const PRODUCER_DIR_REL = 'packages/geometry-kernel/src/producers';
 const SERIALIZER_REL = 'apps/editor/src/engine/persistence/ProjectSerializer.ts';
+const LOADER_REL = 'apps/editor/src/engine/persistence/ProjectLoader.ts';
 
 /**
  * Families whose elements are ANNOTATION, not building fabric: they carry a
@@ -372,6 +375,109 @@ function armD(): number {
     return src.slice(open);
   };
 
+
+  /**
+   * Does this serializer body persist a material reference?
+   *
+   * ⚠ THREE WAYS IT CAN, and the first version of this arm saw only ONE.
+   * Re-measured 2026-08-19 (L-1038 S15): the literal `body.includes('materialId')`
+   * test flagged SIX serializers and was WRONG about THREE of them, in three
+   * different ways. A proxy that is wrong in half its findings is not a
+   * measurement, and every one of the three failed in the direction that
+   * manufactures work.
+   *
+   *  1. LITERAL, possibly PREFIXED. `serializeCurtainWall` writes
+   *     `mullionMaterialId` and `glazingMaterialId` — capital M, so a
+   *     case-sensitive `materialId` substring test misses both. The curtain
+   *     WALL record has no plain `materialId` to write; its panel ids live on
+   *     the panel store and persist separately. Match `[Ww]?materialId` on a
+   *     word boundary instead of one spelling. ⭐ The same defect shape as
+   *     C100 §9.7's `#rrggbb`-only arm: a gate that checks one spelling of a
+   *     name does not check the name.
+   *  2. DELEGATED. `serializeHandrail` is `return serializeHandrailRecord(h)`.
+   *     The id is persisted — one module away, by the ONE save/load pair
+   *     L-1102 built. Follow the call into the module that exports it.
+   *  3. WHOLE-OBJECT. `serializeStair` is `return deepStrip(s)`, a recursive
+   *     copy of every own key. It cannot drop a field it never enumerates.
+   *
+   * ⛔ CASE 3 IS WHY THIS ARM IS NAMED FOR THE WRITE SIDE ONLY. `deepStrip`
+   * writes whatever the record holds — which for `StairData` is NOTHING, because
+   * the live stair record has no `materialId` at all (`SetStairMaterial.ts:57`
+   * refuses with exactly that). "The serializer drops it" and "there is no field
+   * to drop" are DIFFERENT DEFECTS with different fixes, and ARM D can only see
+   * the first. The second is ARM A's shape one layer down, at the runtime store
+   * type, where no arm looks yet.
+   */
+  const DELEGATION_RE = /return\s+(serialize[A-Za-z0-9_]*Record|[a-z][A-Za-z0-9_]*Payload)\s*\(/;
+  /**
+   * A body that copies EVERY own key of its input rather than listing fields.
+   * Two shapes exist here: `deepStrip(x)` (ProjectSerializer) and an
+   * `Object.entries(src)` loop with a TRANSIENT deny-list
+   * (`serializeHandrailRecord`, whose own header says "every other key survives,
+   * including keys this file has never heard of").
+   *
+   * ⚠ THE RESIDUAL RISK, stated rather than hidden: this cannot tell a
+   * whole-object copy from a partial one that happens to iterate. It is the
+   * looser half of this arm. It is accepted because the alternative measured
+   * WORSE — the literal test called `serializeStair` and `serializeHandrail`
+   * defects when neither is one, and a gate that manufactures four false
+   * findings out of six teaches people to ignore it.
+   */
+  const WHOLE_OBJECT_RE = /return\s+deepStrip\s*\(|Object\.(entries|keys)\s*\(/;
+  const ID_TOKEN_RE = /[A-Za-z]*[Mm]aterialId[^A-Za-z0-9_]/;
+
+  const delegateSources = new Map<string, string>();
+  const collectDelegates = (dir: string, depth = 0): void => {
+    if (depth > 4) return;
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const e of entries) {
+      if (e === 'node_modules' || e === 'dist' || e === '__tests__') continue;
+      const full = join(dir, e);
+      let st;
+      try { st = statSync(full); } catch { continue; }
+      if (st.isDirectory()) collectDelegates(full, depth + 1);
+      else if (e.endsWith('.ts') && !e.endsWith('.d.ts') && /[Pp]ersistence|[Ss]erial/.test(e)) {
+        try { delegateSources.set(full, readFileSync(full, 'utf8')); } catch { /* unreadable */ }
+      }
+    }
+  };
+  collectDelegates(join(REPO_ROOT, 'packages', 'core-app-model', 'src'));
+  collectDelegates(join(REPO_ROOT, 'packages', 'persistence-client', 'src'));
+
+  const persistsAnId = (body: string, family: string): boolean => {
+    if (ID_TOKEN_RE.test(body)) return true;
+    if (WHOLE_OBJECT_RE.test(body)) return true;
+    const d = DELEGATION_RE.exec(body);
+    if (d) {
+      const callee = d[1]!;
+      for (const [, src] of delegateSources) {
+        const at = src.indexOf(`function ${callee}`);
+        if (at < 0) continue;
+        // The delegate's own body, brace-matched from its opening `{`.
+        const open = src.indexOf('{', at);
+        if (open < 0) continue;
+        let depth = 0;
+        for (let k = open; k < src.length; k++) {
+          const ch = src[k];
+          if (ch === '{') depth++;
+          else if (ch === '}') {
+            depth--;
+            if (depth === 0) {
+              const dbody = src.slice(open, k + 1);
+              return ID_TOKEN_RE.test(dbody) || WHOLE_OBJECT_RE.test(dbody);
+            }
+          }
+        }
+      }
+      misconfigured.push(
+        `ARM D: serialize${family}() delegates to ${callee}() and the gate could not find its body — ` +
+          `refusing to guess (a delegated persist must be READ, never assumed).`,
+      );
+    }
+    return false;
+  };
+
   let dropping = 0;
   for (let i = 0; i < marks.length; i++) {
     const body = bodyOf(marks[i]!.at);
@@ -379,7 +485,7 @@ function armD(): number {
       misconfigured.push(`ARM D: could not brace-match serialize${marks[i]!.family}()`);
       return 0;
     }
-    if (body.includes('materialId')) continue;
+    if (persistsAnId(body, marks[i]!.family)) continue;
     dropping++;
     errors.push(
       `  x [ARM D] ${SERIALIZER_REL} serialize${marks[i]!.family}() writes no materialId - ` +
@@ -394,6 +500,156 @@ function armD(): number {
 }
 
 // ---------------------------------------------------------------------------
+/**
+ * A rebuild block may not name the field itself: `snapshot.roofs` is rebuilt by
+ * `migrateRoofSnapshotToCommand(roof)`, a same-file helper 1000 lines earlier
+ * that carries `materialId: roof.materialId`. Measured, not assumed - ARM E
+ * called roof a defect on its first run and roof was READING the id correctly.
+ *
+ * ⛔ ONE HOP ONLY, DELIBERATELY. Following an arbitrary call graph would let
+ * this arm answer "read" from a mention anywhere in the file, which is the
+ * whole-file grep ARM D's header rejects. One hop covers the shape that exists
+ * (loop -> per-family builder) and refuses to guess past it.
+ */
+function readsViaHelper(load: string, block: string, idTok: RegExp): boolean {
+  const called = new Set<string>();
+  for (const m of block.matchAll(/([a-z][A-Za-z0-9_]*)\s*\(/g)) called.add(m[1]!);
+  for (const name of called) {
+    const at = load.indexOf(`function ${name}(`);
+    if (at < 0) continue;
+    const open = load.indexOf('{', at);
+    if (open < 0) continue;
+    let depth = 0;
+    for (let k = open; k < load.length; k++) {
+      if (load[k] === '{') depth++;
+      else if (load[k] === '}') {
+        depth--;
+        if (depth === 0) {
+          if (idTok.test(load.slice(open, k + 1))) return true;
+          break;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// ARM E - the READ side of the round trip
+// ---------------------------------------------------------------------------
+/**
+ * C100 §9.7 names this as an axis the gate does NOT check, in its own words:
+ * *"it does not check `ProjectLoader`'s read side, only the write side."*
+ * That is this arm, and it was not theoretical - it found a live loss on its
+ * first run.
+ *
+ * ⛔ WHY THE WRITE SIDE ALONE IS NOT THE MEASUREMENT. §COMMITTED-IS-NOT-REACHABLE.
+ * A serializer that faithfully writes `materialId` into the snapshot, paired with
+ * a loader that rebuilds the element from a hand-listed set of fields NOT
+ * including it, loses the material exactly as completely as a serializer that
+ * never wrote it - and loses it INVISIBLY, because the file on disk looks
+ * correct. Open the JSON, find the id, conclude the material persisted. It did
+ * not. The user's evidence is the reload, never the file.
+ *
+ * The subject is the PAIRING, not either file: for every family whose
+ * `serialize<Family>()` explicitly persists a `*materialId`, `ProjectLoader`
+ * must mention one inside the block that rebuilds that family.
+ *
+ * ⚠ WHAT THIS ARM DOES NOT PROVE, so it is never read as coverage: that the
+ * loader hands the id to a command that STORES it, that the store feeds a
+ * producer, or that any of it reaches a pixel. It proves the id is READ. That is
+ * ONE link, and naming it as one link is the point - the write-side arm proved
+ * one link and was quoted as though it proved the chain.
+ */
+function armE(): number {
+  const serAbs = join(REPO_ROOT, SERIALIZER_REL);
+  const loadAbs = join(REPO_ROOT, LOADER_REL);
+  if (!existsSync(serAbs) || !existsSync(loadAbs)) {
+    misconfigured.push(`ARM E: serializer or loader not found (${SERIALIZER_REL} / ${LOADER_REL})`);
+    return 0;
+  }
+  const ser = readFileSync(serAbs, 'utf8');
+  const load = readFileSync(loadAbs, 'utf8');
+  const idTok = /[A-Za-z]*[Mm]aterialId[^A-Za-z0-9_]/;
+
+  // Families whose WRITE side persists an id - only these can be lost on read.
+  const writers: string[] = [];
+  const re = /function\s+serialize([A-Z][A-Za-z0-9_]*)\s*\(/g;
+  const marks: Array<{ family: string; at: number }> = [];
+  for (const m of ser.matchAll(re)) marks.push({ family: m[1]!, at: m.index! });
+  if (marks.length < FLOOR_SERIALIZERS) {
+    misconfigured.push(`ARM E subject floor: ${marks.length} serializers, expected >= ${FLOOR_SERIALIZERS}`);
+    return 0;
+  }
+  for (let i = 0; i < marks.length; i++) {
+    const open = ser.indexOf('{', marks[i]!.at);
+    let depth = 0;
+    let body = '';
+    for (let k = open; k < ser.length; k++) {
+      if (ser[k] === '{') depth++;
+      else if (ser[k] === '}') { depth--; if (depth === 0) { body = ser.slice(open, k + 1); break; } }
+    }
+    // Only an EXPLICIT id write makes a family a subject here. A whole-object
+    // copy is NOT evidence the record holds an id (`StairData` holds none), so
+    // pairing a loader against one would invent a defect rather than find one.
+    if (idTok.test(body)) writers.push(marks[i]!.family);
+  }
+  if (writers.length < FLOOR_ID_WRITERS) {
+    misconfigured.push(
+      `ARM E subject floor: only ${writers.length} serializers write an id, expected >= ${FLOOR_ID_WRITERS}`,
+    );
+    return 0;
+  }
+
+  /**
+   * The loader's per-family block, located by the collection it iterates and
+   * bounded by the NEXT `snapshot.<other>` reference - not by a fixed window, so
+   * a long block is never truncated and a short one never borrows its
+   * neighbour's mention. That span defect has already been paid for once in ARM
+   * D, where two cheap bounds each under-reported by exactly one and both
+   * produced a plausible number.
+   */
+  const COLLECTION: Readonly<Record<string, string>> = Object.freeze({
+    Wall: 'walls', Slab: 'slabs', Column: 'columns', Roof: 'roofs',
+    CurtainWall: 'curtainWalls', Handrail: 'handrails', Stair: 'stairs',
+    Beam: 'beams', Furniture: 'furniture', Plumbing: 'plumbing',
+  });
+  const bounds: Array<{ name: string; at: number }> = [];
+  for (const m of load.matchAll(/snapshot\.([A-Za-z]+)/g)) {
+    bounds.push({ name: m[1]!, at: m.index! });
+  }
+
+  let missing = 0;
+  for (const family of writers) {
+    const coll = COLLECTION[family];
+    if (!coll) {
+      misconfigured.push(
+        `ARM E: serialize${family}() writes an id but no loader collection is mapped for it - ` +
+          `map it, or the arm silently ignores the family.`,
+      );
+      return 0;
+    }
+    const loopRe = new RegExp(`for\\s*\\(\\s*const\\s+\\w+\\s+of\\s+snapshot\\.${coll}[^A-Za-z0-9_]`);
+    const lm = loopRe.exec(load);
+    if (!lm) {
+      misconfigured.push(`ARM E: no rebuild loop found for snapshot.${coll} - cannot measure ${family}.`);
+      return 0;
+    }
+    const start = lm.index;
+    const next = bounds.find((b) => b.at > start + 40 && b.name !== coll);
+    const block = load.slice(start, next ? next.at : Math.min(load.length, start + 6000));
+    if (idTok.test(block) || readsViaHelper(load, block, idTok)) continue;
+    missing++;
+    errors.push(
+      `  x [ARM E] ${SERIALIZER_REL} serialize${family}() WRITES a materialId and ` +
+        `${LOADER_REL} never READS one back for snapshot.${coll} - the id is in the saved ` +
+        `file and the reloaded element does not have it (C100 §2.1; §COMMITTED-IS-NOT-REACHABLE).`,
+    );
+  }
+  console.log(`  · [ARM E] ${writers.length} serializers write an id, ${writers.length - missing} are read back`);
+  return missing;
+}
+
 function main(): number {
   console.log('[material-id-required] C100 §2.1 — elements REFERENCE materials by id');
 
@@ -411,6 +667,7 @@ function main(): number {
   const b = armB(master);
   const c = armC();
   const d = armD();
+  const e = armE();
 
   if (misconfigured.length > 0) {
     for (const m of misconfigured) console.error(`  ! MISCONFIGURED: ${m}`);
@@ -423,13 +680,15 @@ function main(): number {
     a > BASELINE_A_COLOUR_WITHOUT_ID ||
     b > BASELINE_B_UNRESOLVABLE_IDS ||
     c > BASELINE_C_UNROUTED_PRODUCERS ||
-    d > BASELINE_D_SERIALIZERS_DROPPING_ID;
+    d > BASELINE_D_SERIALIZERS_DROPPING_ID ||
+    e > BASELINE_E_IDS_NEVER_READ_BACK;
 
   const line =
     `ARM A colour-without-id ${a}/${BASELINE_A_COLOUR_WITHOUT_ID} · ` +
     `ARM B unresolvable-ids ${b}/${BASELINE_B_UNRESOLVABLE_IDS} · ` +
     `ARM C unrouted-producers ${c}/${BASELINE_C_UNROUTED_PRODUCERS} · ` +
-    `ARM D serializers-dropping-id ${d}/${BASELINE_D_SERIALIZERS_DROPPING_ID}`;
+    `ARM D serializers-dropping-id ${d}/${BASELINE_D_SERIALIZERS_DROPPING_ID} · ` +
+    `ARM E ids-never-read-back ${e}/${BASELINE_E_IDS_NEVER_READ_BACK}`;
 
   if (over) {
     console.error(`[material-id-required] RATCHET EXCEEDED: ${line}`);
@@ -443,7 +702,8 @@ function main(): number {
     a < BASELINE_A_COLOUR_WITHOUT_ID ||
     b < BASELINE_B_UNRESOLVABLE_IDS ||
     c < BASELINE_C_UNROUTED_PRODUCERS ||
-    d < BASELINE_D_SERIALIZERS_DROPPING_ID
+    d < BASELINE_D_SERIALIZERS_DROPPING_ID ||
+    e < BASELINE_E_IDS_NEVER_READ_BACK
   ) {
     console.log(`[material-id-required] OK — BELOW baseline: ${line}`);
     console.log('  Lower the baseline in this file in the same commit (gate-debt rule 2).');

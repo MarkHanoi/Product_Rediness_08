@@ -751,10 +751,42 @@ copy" while the master is unreachable from where it stands. That rule is unsatis
 ### §9.7 — The gate
 
 **`tools/ga-gate/check-material-id-required.ts`** — §2.1's MUST NOT shipped **violated**, and a rule
-with no gate is a wish. Four shrink-only arms, baselined at the 2026-08-19 measurement:
+with no gate is a wish. **FIVE** shrink-only arms:
 **ARM A** a schema with a colour field and no `materialId` · **ARM B** a stored `materialId` that
 resolves to nothing · **ARM C** a producer minting a key without the master resolver · **ARM D** a
-per-family serializer that does not persist `materialId`.
+per-family serializer that does not persist `materialId` · **ARM E** *(added 2026-08-19, S15)* a
+serializer that **writes** an id which `ProjectLoader` **never reads back**.
+
+⚠ **ARM E is the axis this section's own closing paragraph declared NOT CHECKED** — *"it does not
+check `ProjectLoader`'s read side, only the write side"*. It was not a theoretical gap. On its first
+run it found **`slab`**: `serializeSlab()` writes `materialId` **and** `materialColor`, and the
+loader's `CreateSlabCommand` payload lists **neither** — so a slab's material is present in the
+saved file and **absent from the reloaded slab**. ⭐ **That is the worst shape a persistence defect
+can take**, because the evidence a reviewer reaches for — open the JSON, find the id — says it
+worked. §COMMITTED-IS-NOT-REACHABLE: the user's evidence is the reload, never the file.
+
+⛔ **AND ARM D's FIRST READING WAS WRONG ABOUT THREE OF ITS SIX FINDINGS.** It tested
+`body.includes('materialId')` — **one spelling, on the direct body only** — and by that test:
+- **`serializeCurtainWall` was a false positive.** It writes `mullionMaterialId` and
+  `glazingMaterialId`; capital **M**, so a case-sensitive substring test misses both. The curtain
+  **wall** record has no plain `materialId` to write, and its **panel** ids live on the panel store
+  and persist separately. *(This is the correction the CW lane raised, and it is now measured rather
+  than argued.)*
+- **`serializeHandrail` was a false positive.** It is `return serializeHandrailRecord(h)`, and that
+  function copies **every** own key (L-1102's one save/load pair). The id persists — one module away.
+- **`serializeStair` was a false positive AS AN ARM D FINDING, and a REAL defect of another kind.**
+  It is `return deepStrip(s)`, which cannot drop a field it never enumerates. It writes no id because
+  the **live `StairData` has no `materialId` at all** — `SetStairMaterial.ts:57` refuses with exactly
+  that sentence. ⭐ **"The serializer drops it" and "there is no field to drop" are different defects
+  with different fixes**, and ARM D can only ever see the first. The second is **ARM A's shape one
+  layer down**, at the runtime store type, where **no arm looks yet** — and per §9's own structural
+  finding, the runtime store type is the vocabulary that persistence actually reads.
+
+⭐ **The generalisation, which is the third recurrence of one shape in this contract alone**
+(§0.3's counting hole, §9.7's `#rrggbb`-only projection arm, and now this): **a gate that checks one
+spelling of a thing does not check the thing.** ARM D now matches `[A-Za-z]*[Mm]aterialId`, follows a
+delegated `serialize*Record()` call one hop, and recognises whole-object copies. Its ceiling dropped
+**5 → 3** — and **not one of those two was a fix**; they were measurement errors being removed.
 
 Exit **0** within baseline · **2** MISCONFIGURED · **3** ratchet exceeded — never aliased, so
 *could-not-measure* is never mistaken for *measured-a-failure*. Each arm carries a subject floor
@@ -774,17 +806,69 @@ a **view style** (C04), and guessing would mint the rival the gate exists to pre
 
 ⛔ **What §9's gate still does NOT decide** — stated so it is never read as coverage. It does not
 prove a resolved colour reaches a **pixel** (ARM C proves the import, not the frame); it does not
-check `ProjectLoader`'s read side, only the write side; it does not measure IFC/GLB material export
-at all; and it cannot tell a *deliberate* family default from a *forgotten* one. Per C70 §7.1 those
-four axes are **UNPROVEN**, never green.
+measure IFC/GLB material export at all; it cannot tell a *deliberate* family default from a
+*forgotten* one; and **ARM E proves only that the loader READS the id** — not that it hands it to a
+command that STORES it, nor that the store feeds a producer. Per C70 §7.1 those axes are
+**UNPROVEN**, never green.
+
+⚠ **One axis was moved OFF this list and into ARM E**, and the move is the point: *"does not check
+`ProjectLoader`'s read side"* stood here as declared debt, and declared debt that nobody converts
+into an arm is indistinguishable from debt nobody found. It cost one arm and caught a live loss.
+
+⚠ **A NEW blind spot is declared in its place, because ARM D's correction exposed it.** No arm
+inspects the **runtime store types** (`packages/geometry-*/src/*Types.ts`, `core-app-model/src/stores/*Types.ts`).
+ARM A reads the **L0 Zod schemas**, which §9's own structural finding records as having **no
+persistence consumer at all**. So `stair`, `beam`, `furniture` and `plumbing` — whose live records
+carry **no `materialId`** — are invisible to ARM A *and* mis-described by ARM D. **That is an ARM F,
+and it is unbuilt.**
 
 ### §9.8 — Slices
 
 | slice | what | state |
 |---|---|---|
-| **S13** | `materialLibrary.ts`'s four `0x` wall presets: master row, or C04 view style? | NAMED, blocked on a design decision |
-| **S14** | Reconcile drifted ids to master ids (ARM B → 0) | OPEN — prerequisite for S16 |
-| **S15** | Persist `materialId` in the five serializers that drop it (ARM D → 0) | OPEN — coordinated with the persistence lane |
+| **S13** | `materialLibrary.ts`'s four `0x` wall presets: master row, or C04 view style? | **DECIDED 2026-08-19 — §9.9. They are a C04 VIEW STYLE, not material rows.** |
+| **S14** | Reconcile drifted ids to master ids (ARM B → 0) | ✅ **CLOSED 2026-08-19** — eight dot-case ids reconciled; one genuinely-missing master row minted (`steel-grating`); a **closed** eight-entry legacy alias map keeps pre-existing saves resolvable. ARM B's ceiling is now **hard 0**. |
+| **S15** | Persist `materialId` in the serializers that drop it (ARM D → 0) | **PARTLY CLOSED / RESCOPED 2026-08-19.** Three of the five named were **measurement errors, not defects** (see §9.7); ARM D 5 → 3. The three that remain (`beam`, `furniture`, `plumbing`) have **no `materialId` on the runtime record to persist** — they are ARM F work, not serializer work. **ARM E (new) found the real loss: `slab`** — written, never read back. Owned by the persistence/slab lane. |
 | **S16** | Route every producer's colour slot through the resolver (ARM C → 0) | OPEN — blocked on S14 |
 | **S17** | `door` + `window` gain `materialId` (ARM A → 0), with a real carrier per §6.2 | OPEN — largest, and C67/C68-bound |
 | **S18** | IFC `IfcRelAssociatesMaterial` (C25) | OPEN — nothing reaches export today |
+
+### §9.9 — S13 DECIDED: the four `0x` wall presets are a **C04 VIEW STYLE**, not master rows
+
+**Decided 2026-08-19 under the founder's standing instruction to decide rather than defer.** §9.7
+found `color: 0xe8e8e8` and `0xf5f5f5` (four occurrences) inside `materialLibrary.ts` — the file
+C84 §1.3 declares a **projection that holds no material data of its own** — and named the fold as
+blocked on a design question: *master row, or view style?* Guessing would have minted the rival
+vocabulary this contract exists to prevent, so it was **measured**.
+
+**Four measurements, each falsifiable:**
+
+1. ⛔ **Two of them exist for ONE physical surface, selected by render mode.**
+   `WallFragmentBuilder.ts:4521` and `:4531` choose `WALL_REALISTIC_MATERIAL` or
+   `WALL_SCHEMATIC_MATERIAL` by `VisualStyle`. **A material cannot be two colours depending on how
+   you are looking at it.** That is the definition of a view style and the definition of *not* a
+   material.
+2. ⛔ **They are LAST in the precedence chain** — applied after `finishColour || wall.materialColor`.
+   §2.1's ladder makes an authored material or an explicit override win every time, so as a
+   "material" they could never be *chosen*, only *fallen back to*.
+3. ⛔ **They are unnameable and unassignable** — no id, no label, no category. §2.1 says an element
+   REFERENCES a material by `materialId`; **nothing can reference these**, and nothing ever could.
+4. ⛔ **Promoting them would put "unstyled" into the catalogue as something a user can PICK**, making
+   *"this wall has no material"* and *"this wall is light grey"* the same value — deliberately, in
+   the master. That is exactly the beige-default failure §1.2 traces.
+
+**Consequences, and the one thing this does NOT settle:**
+
+- ✅ **NOT folded into `MATERIAL_CATALOG`.** The catalogue stays 205 rows of things a user can name.
+- ✅ **MOVED to `packages/core-app-model/src/wallViewStyleMaterials.ts`**, which carries the reasoning
+  above in full. `materialLibrary.ts` **re-exports all four names unchanged**, so
+  `@pryzm/core-app-model/material-library` importers — `geometry-wall` among them, concurrent-lane
+  owned — are untouched (C84 §8.3).
+- ✅ **The hexes stay literal, and that is not a compromise.** A view style's colour is a rendering
+  constant, and C100 §3 already permits family render constants; what §1.3 forbids absolutely is a
+  colour literal **in the projection**. `check-material-single-source.ts`'s `0x` arm therefore drops
+  from a declared-debt baseline of **4 to hard 0** — a real invariant now, not a tidied number.
+- ⚠ **NOT DECIDED HERE: whether an unmaterialled wall should render as light grey at all**, rather
+  than as §5's NAMED unresolved state. That is a product question about the default appearance of
+  unauthored fabric, it is far larger than a file move, and settling it by relocation would be the
+  guess this slice refused to make.
