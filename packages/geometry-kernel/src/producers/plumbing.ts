@@ -23,6 +23,8 @@ import {
   type StructuralProfile,
 } from './_shared/linear-structural.js';
 import { asMaterialKey } from '../types/MaterialKey.js';
+// ⭐ C100 §9.6.a / S16 — THE resolution authority. Not re-implemented here.
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import {
   composePlumbingGeometryHash,
   PLUMBING_HASH_SCHEMA_VERSION,
@@ -43,8 +45,42 @@ const SYSTEM_COLORS: Record<string, string> = {
 };
 const FALLBACK_COLOR = '#7a8392';
 
+/**
+ * Material key shape:
+ *   `plumbing|<kind>|<systemTag>|<color>|<materialId>|body`
+ *
+ * ─── ⛔ THE DEFECT THIS CLOSES (C100 §2.1 / L-1127 S16) ─────────────────────
+ *
+ * `materialId` has sat in slot 4 since this key was written and nothing has ever
+ * read it — `colorOfPlumbingMaterialKey` returns slot 3, and slot 3 was always
+ * `SYSTEM_COLORS[p.systemTag]`. So a run named `metal-copper` and a run named
+ * `plastic-pvc` on the same service painted IDENTICALLY, because the only thing
+ * consulted was the service tag.
+ *
+ * ⚠ THE SERVICE COLOUR IS NOT A BUG AND IS NOT BEING REMOVED. Blue for cold water
+ * and red for hot is a real engineering convention and it is the right answer for
+ * a run that names no material. It is a FAMILY DEFAULT, though — derived from the
+ * tag, never authored — and C100 §2.1 ranks an explicit `materialId` above a
+ * default. So the ladder is: the master's colour when a material is named; else
+ * the service colour, exactly as before; else the fallback.
+ *
+ * ⭐ NOTHING REPAINTS (§9.6.b), by construction rather than by hope: a `materialId`
+ * did nothing at all before today, so only a run that names one can move — and the
+ * runtime `PlumbingTypes.ts` record cannot even carry one yet (the gate's ARM F).
+ *
+ * ⚠ THE KEY SHAPE IS UNCHANGED — same six slots, same indices, same order. Unlike
+ * furniture (no colour slot at all) and lighting (a colour slot holding a DIFFERENT
+ * quantity), plumbing already had the right slot in the right place being filled
+ * from the wrong source. Converge the VALUE, not the FORMAT (§9.6.b).
+ */
 export function composePlumbingMaterialKey(p: Plumbing): string {
-  const color = SYSTEM_COLORS[p.systemTag] ?? FALLBACK_COLOR;
+  // ⭐ ONE ladder (C100 §9.6.a): the master when a material is named, the service
+  // colour when not, and `unresolved:<id>` — painted MAGENTA by the bridge (§5) —
+  // when the id names nothing at all.
+  const color = resolveMaterialColorSlot(
+    { materialId: p.materialId },
+    SYSTEM_COLORS[p.systemTag] ?? FALLBACK_COLOR,
+  );
   return `plumbing|${p.kind}|${p.systemTag}|${color}|${p.materialId ?? ''}|body`;
 }
 
