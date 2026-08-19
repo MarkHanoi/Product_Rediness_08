@@ -535,6 +535,42 @@ face aligns with the level datum (Finished Floor Level). Default: `'LEVEL'`."* `
 `SlabData.position.y` is *"always 0 (world Y is resolved at projection time from BimManager)"*
 (`:49-50`).
 
+### ⭐ THE DATUM IS THE TOP FACE — MEASURED IN STACK A, AND IT AGREES (L-1175, 2026-08-19)
+
+The founder reported a slab that *"is DISPLACED — IT MOVES"* on a thickness or bottom-offset edit,
+and the leading hypothesis was that PRYZM anchors slabs at the BOTTOM face. **It does not.**
+`SlabFragmentBuilder.resolveWorldY` (`packages/geometry-slab/src/SlabFragmentBuilder.ts:870-917`)
+ends:
+
+```ts
+const topY = level.elevation + baseOffset;
+return topY - data.thickness;
+```
+
+**The variable is even named `topY`.** Stack A, Stack B (`producers/slab.ts:102-103`) and the legacy
+declaration (`SlabTypes.ts:65-70`) all agree, and all three agree with the BIM convention — the
+level datum is the **finished floor level**, i.e. the slab's **top** surface. `baseOffset` raises
+that **top** face above the level elevation; it is **not** a bottom offset, despite the UI wording
+the founder used. **Code and contract AGREE here; neither was wrong.** Measured on a parcel-scale
+ring (177 free edges, 164 curved, zero host walls): a thickness change moves the top face by
+**0.000000 m** and the plan centroid by **0.000000 m** in X and Z.
+
+> ⚠ **THE CONSEQUENCE, and it is the part that was never written down.**
+> Because the datum is the TOP face, **`root.position.y` is a DERIVED value** — it is
+> `level.elevation + baseOffset - thickness`, so it **legitimately changes on every thickness or
+> baseOffset edit**, on a root the builder deliberately **REUSES** (`slabRoots.get(data.id)`,
+> `:513-515`). Any component that latches `root.position.y` as a **durable** value is therefore
+> wrong for slabs, and will re-assert a stale height over the builder's correct write.
+>
+> **That is exactly what L-1175 was**: `LevelPlaneConstraint` latched the Y at selection time and
+> re-asserted it on every TransformControls `change` — and `change` is fired by `attach`/`detach`
+> through three's `defineProperty` setter, not only by dragging. The slab ended up exactly
+> `Δthickness` above where it belonged, permanently and cumulatively. **This is the second time
+> this shape has bitten the same class**: L-1010 was the same latch holding a VIEW Y. One is a
+> coincidence; two is a missing invariant, so it is now written as one.
+
+
+
 > ⭐ **`slabBaseOffset` never appears in `SlabFragmentBuilder.ts` or in `producers/slab.ts`.** It is a
 > **wall-side and column-side** concept exclusively: everything that sits ON the slab reads it.
 > `WallRebuildCoordinator.ts:274, :295` · `CreateColumnCommand.ts:129` ·
@@ -558,6 +594,18 @@ face aligns with the level datum (Finished Floor Level). Default: `'LEVEL'`."* `
 - **SL-G-3.** The hole-source precedence at `SlabFragmentBuilder.ts:1078-1120` MUST be restated as a
   normative rule here once SL-S-3 is decided — it is currently the only place the two hole records
   are reconciled, and it is reconciled *in a renderer*.
+- **SL-G-4 (L-1175) — `root.position.y` IS DERIVED; NOTHING MAY LATCH IT AS DURABLE.** A slab's root
+  Y is `level.elevation + baseOffset - thickness` and changes whenever either parameter changes, on
+  a REUSED root object. Any subsystem that captures `root.position.y` and later re-asserts it MUST
+  either (a) re-derive it from the level + the slab's CURRENT parameters, or (b) confine the
+  re-assertion to the narrow window in which it holds authority. `LevelPlaneConstraint` now does
+  (b): it writes Y only while `TransformControls.dragging === true` or from the explicit drag-end
+  `enforce()`, and outside a drag it ADOPTS the current Y instead of fighting it.
+  **Proof required:** change thickness and change baseOffset on a SELECTED slab; assert plan X/Z are
+  identical and only the intended face moves
+  (`packages/geometry-slab/__tests__/slabParamEditDoesNotDisplace.test.ts`, RED without the fix at
+  the tolerance it ships with). ⚠ The defect is NOT slab-specific — slabs are merely the family
+  whose root Y depends on its own parameters, so they are where it bites first.
 
 ---
 
