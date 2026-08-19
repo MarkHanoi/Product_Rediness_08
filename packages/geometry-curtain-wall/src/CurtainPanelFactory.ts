@@ -273,7 +273,13 @@ function buildFlatPanel(ctx: PanelBuildContext): THREE.Mesh {
     const mesh = new THREE.Mesh(geo, mat);
 
     const r = cellRect(cell);
-    mesh.position.set(r.cx, r.cyMid, 0);
+    // §CW-2 / C87 §13.4 CW-Attr-1 — `z` IS the wall's normal axis in panel-local
+    // space, so the literal 0 this replaces WAS the centreline. A signed offset
+    // pushes the panel out (+) or recesses it (−). Non-finite is treated as 0
+    // rather than propagated: NaN here silently removes the panel from the scene
+    // by making its matrix non-invertible, which is the L-1052 failure shape.
+    const off = panelData.offsetFromCentreline;
+    mesh.position.set(r.cx, r.cyMid, Number.isFinite(off) ? (off as number) : 0);
     mesh.castShadow    = true;
     mesh.receiveShadow = true;
 

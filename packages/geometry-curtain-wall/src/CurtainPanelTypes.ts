@@ -174,6 +174,34 @@ export interface CurtainPanelData extends CoreElement {
      * Rendered by CurtainPanelBuilder.buildDoorObject().
      */
     hostedDoor?: CurtainPanelHostedDoor;
+    /**
+     * §CW-2 / C87 §13.4 CW-Attr-1 — how far this panel sits OFF the wall's
+     * centreline, in metres, SIGNED, measured along the wall's outward normal.
+     * Positive pushes the panel outward, negative recesses it. Default 0.
+     *
+     * ── WHY IT IS THE PANEL'S `z` AND NOT A NEW AXIS ──────────────────────────
+     * Panel geometry is built in wall-local space where `z` IS the normal axis:
+     * `buildFlatPanel` positions at `(cx, cyMid, 0)` (`CurtainPanelFactory.ts:276`),
+     * and that literal `0` is the centreline. So this field is that coordinate,
+     * named. It is not a second way of saying the same thing (C84 EI-9).
+     *
+     * ── ITS DECLARED DESTINATION AT EVERY HOP (C84 EI-2, C87 CW-Attr-3) ───────
+     *   record      — here
+     *   authored?   — `isAuthoredPanel` (`curtainPanelOverrides.ts`), so a
+     *                 non-zero offset makes the panel worth persisting
+     *   save/load   — `CurtainPanelOverride.offsetFromCentreline`
+     *   render      — `buildFlatPanel` + `buildDoorObject`
+     *   RAC         — NOT YET. Declared here so its absence is a gap on the
+     *                 register, not a discovery later (C87 §13.7 CW-RAC-1).
+     *
+     * ⚠ NOT APPLIED BY THE INSTANCED PATH. `CurtainWallInstanceManager` batches
+     * uniform flat panels by (panelType, materialId) and writes one transform per
+     * instance; a per-panel offset is not in that key. Panels carrying a non-zero
+     * offset are therefore excluded from batching — the same treatment
+     * `materialOverride` already gets (`CurtainWallInstanceManager.ts:295`) and for
+     * the same reason: an instanced panel cannot carry per-instance geometry state.
+     */
+    offsetFromCentreline?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

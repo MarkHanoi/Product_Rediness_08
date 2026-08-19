@@ -137,6 +137,8 @@ export interface CurtainPanelOverride {
   /** C100 master-catalogue material id (`CurtainPanelTypes.ts:171`). */
   readonly materialId?: string;
   readonly hostedDoor?: CurtainPanelHostedDoor;
+  /** §CW-2 — signed metres off the wall centreline. Absent means 0 (derived). */
+  readonly offsetFromCentreline?: number;
 }
 
 /** What a regeneration of this wall would produce for an untouched cell. */
@@ -155,12 +157,20 @@ export interface RegenerationBaseline {
  * derived and drops it on save, which is L-1057 again with extra steps.
  */
 export function isAuthoredPanel(
-  panel: Pick<CurtainPanelData, 'panelType' | 'materialOverride' | 'materialId' | 'hostedDoor'>,
+  panel: Pick<
+    CurtainPanelData,
+    'panelType' | 'materialOverride' | 'materialId' | 'hostedDoor' | 'offsetFromCentreline'
+  >,
   baseline: RegenerationBaseline,
 ): boolean {
   if (panel.panelType !== REGENERATED_PANEL_TYPE) return true;      // :168
   if (panel.materialOverride !== undefined) return true;            // never set by regeneration
   if (panel.hostedDoor !== undefined) return true;                  // never set by regeneration
+  // §CW-2 — regeneration never sets an offset, so ANY non-zero value is authored.
+  // Compared against 0 rather than `undefined` on purpose: a panel explicitly set
+  // back to 0 has returned to the derived state and must stop being persisted, or
+  // the sparse set only ever grows.
+  if ((panel.offsetFromCentreline ?? 0) !== 0) return true;
   // `materialId` IS set by regeneration, to the wall's glazing default — so it is
   // authored only when it DIFFERS from that default. Comparing against `undefined`
   // here would persist every panel of every wall that has a glazing material.
@@ -227,6 +237,7 @@ export function collectCurtainPanelOverrides(
     if (p.materialOverride !== undefined) o.materialOverride = p.materialOverride;
     if (p.materialId !== baseline.glazingMaterialId) o.materialId = p.materialId;
     if (p.hostedDoor !== undefined) o.hostedDoor = p.hostedDoor;
+    if ((p.offsetFromCentreline ?? 0) !== 0) o.offsetFromCentreline = p.offsetFromCentreline;
 
     overrides.push(o);
   }
@@ -290,6 +301,7 @@ export function applyCurtainPanelOverrides(
     if (o.materialOverride !== undefined) updates.materialOverride = o.materialOverride;
     if (o.materialId !== undefined) updates.materialId = o.materialId;
     if (o.hostedDoor !== undefined) updates.hostedDoor = o.hostedDoor;
+    if (o.offsetFromCentreline !== undefined) updates.offsetFromCentreline = o.offsetFromCentreline;
     if (Object.keys(updates).length === 0) continue;
 
     store.update(panel.id, updates);
@@ -306,6 +318,8 @@ export function describeLostOverride(l: LostOverride): string {
     l.override.hostedDoor ? 'hostedDoor' : undefined,
     l.override.materialId,
     l.override.materialOverride,
+    l.override.offsetFromCentreline !== undefined
+      ? `offset ${l.override.offsetFromCentreline}m` : undefined,
   ].filter(Boolean).join(' + ') || '(no fields)';
   const cw = `curtain wall '${l.override.curtainWallId}'`;
   const at = `'${l.override.uLineId}' x '${l.override.vLineId}'`;

@@ -292,7 +292,15 @@ export class CurtainWallInstanceManager {
             // CurtainPanelFactory with canBatch=false) and panels with a
             // materialOverride must render individually — they cannot share an
             // InstancedMesh (geometry varies per instance).
-            if (!isBatchable(panel.panelType) || panel.materialOverride) {
+            // §CW-2 / C87 §13.4 — a non-zero `offsetFromCentreline` joins the same
+            // exclusion, for the same reason `materialOverride` is here: this batcher
+            // groups by (panelType, materialId) and the offset is not in that key, so
+            // a batched panel would silently render at the centreline while its
+            // record said otherwise. Excluding it costs one draw call; NOT excluding
+            // it is a stored value the pixel disagrees with — exactly the class MT1's
+            // L-1038 census is about.
+            if (!isBatchable(panel.panelType) || panel.materialOverride
+                || (panel.offsetFromCentreline ?? 0) !== 0) {
                 overridePanelIds.push(panel.id);
             } else {
                 batchable.push(panel);
