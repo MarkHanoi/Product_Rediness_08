@@ -169,6 +169,32 @@ export class CurtainWallTool {
     private _mode: CurtainWallDrawingMode = 'SINGLE';
     private _disposed = false;
 
+    /**
+     * §FIX-CW-BYSLAB-SELECTION-CLEARED (L-1074, founder-reported 2026-08-19).
+     *
+     * The slab the user had selected at the MOMENT THIS TOOL WAS ACTIVATED.
+     *
+     * ⭐ WHY THIS FIELD HAS TO EXIST, because the obvious reading is that it does not.
+     * `ToolManager.activateTool()` runs in this order (`ToolManager.ts:543-552`):
+     *   1. `deactivateAllInternal()`
+     *   2. `activateFn()`  →  `CurtainWallTool.activate(mode)`   ← selection still LIVE here
+     *   3. `this.selectionManager.setEnabled(false)`             ← and here it is DESTROYED
+     * and `SelectionManager.setEnabled(false)` calls `unselectAll()`
+     * (`SelectionManager.ts`), so `selectedObject` is `null` by the time the user can
+     * possibly reach the "By Slab" button this tool renders at `_showModeBar()`.
+     *
+     * `createFromSelectedSlab()` read the LIVE selection, so it ALWAYS took its
+     * refusal branch and alerted "Please select a slab first." — with a slab visibly
+     * selected a moment earlier. The refusal was correct; its INPUT had been erased.
+     *
+     * The wall does not have this bug because `WallTool.createFromSelectedSlab()`
+     * accepts an explicit `targetSlab?` argument and `ToolsAreaLayout` snapshots the
+     * selection BEFORE activating (`_bySlabCapture`, ToolsAreaLayout.ts:270,361).
+     * Step 2 above is the window that makes the same rescue possible from INSIDE this
+     * tool, without a second wiring site.
+     */
+    private _bySlabCapture: unknown = null;
+
     /** Pre-draw config set by Property Panel before element creation. */
     private _predrawConfig: CurtainWallPredrawConfig = { ...CURTAIN_WALL_PREDRAW_DEFAULTS };
 
@@ -299,6 +325,11 @@ export class CurtainWallTool {
         this._isActive = true;
         console.log(`[CurtainWallTool] activated — mode: ${mode}`);
 
+        // §FIX-CW-BYSLAB-SELECTION-CLEARED — snapshot BEFORE ToolManager clears it.
+        // This line runs inside activateFn(), which ToolManager calls one statement
+        // before `selectionManager.setEnabled(false)`. See _bySlabCapture's note.
+        this._bySlabCapture = this._getSelectionManager()?.selectedObject ?? null;
+
         // PERF-FIX-1: Defer shadow passes for all walls placed during this session.
         // Shadows will be enabled in one consolidated idle-callback flush on deactivate().
         CurtainWallBuilder.beginPlacementMode();
@@ -333,6 +364,11 @@ export class CurtainWallTool {
         this.polylineOrigin    = null;
         this.arcMidPoint       = null;
         this._polySegmentCount = 0;
+        // §FIX-CW-BYSLAB-SELECTION-CLEARED — release the snapshot so the NEXT
+        // activation cannot inherit a slab the user selected two sessions ago.
+        // A stale slab silently building walls in the wrong place is strictly worse
+        // than the refusal this field exists to prevent.
+        this._bySlabCapture    = null;
 
         // Hide snap visualizer when tool is not active
         if (this.snapManager) {
@@ -366,18 +402,47 @@ export class CurtainWallTool {
         }
     }
 
-    /** By-Slab creation (bypasses drawing state machine entirely). */
-    createFromSelectedSlab(): void {
+    /**
+     * By-Slab creation (bypasses drawing state machine entirely).
+     *
+     * §FIX-CW-BYSLAB-SELECTION-CLEARED (L-1074) — resolution order now mirrors
+     * `WallTool.createFromSelectedSlab(targetSlab?)`, the ONE implementation of this
+     * gesture in the repo that works:
+     *   1. an explicit `targetSlab` argument (a caller that already knows),
+     *   2. `_bySlabCapture` — the pre-activation snapshot,
+     *   3. the live selection — kept as the last resort, because a caller that
+     *      invokes this WITHOUT going through tool activation still has one.
+     *
+     * ⛔ Do not "simplify" this back to reading the live selection alone. That is the
+     * defect (L-1074): by the time this tool's own By-Slab button exists on screen,
+     * `ToolManager` has already run `selectionManager.setEnabled(false)`, which calls
+     * `unselectAll()`. Step 3 is a FALLBACK, never the primary.
+     */
+    createFromSelectedSlab(targetSlab?: unknown): void {
+        // Deliberately NOT gated on selectionManager being present: the snapshot and
+        // the explicit argument are both usable without it. Only branch 3 needs it.
         const selectionManager = this._getSelectionManager();
-        if (!selectionManager) return;
 
-        const selectedObject = selectionManager.selectedObject;
-        if (!selectedObject) { alert('Please select a slab first.'); return; }
+        const selectedObject = (targetSlab
+            ?? this._bySlabCapture
+            ?? selectionManager?.selectedObject) as
+            { userData?: { id?: string; elementType?: string; type?: string } } | null | undefined;
 
-        const slabType = (selectedObject.userData.elementType || selectedObject.userData.type || '').toLowerCase();
-        if (slabType !== 'slab') { alert('Please select a slab first.'); return; }
+        // C16 CA-18 — name the mechanism and the live alternative, and say WHY, rather
+        // than repeating "select a slab first" at a user who did exactly that.
+        const REFUSAL =
+            'Curtain wall BY SLAB — no slab to work from. '
+            + 'Select the slab FIRST, then pick the Curtain Wall tool, then press B. '
+            + 'Nothing was created.';
 
-        const slabId = selectedObject.userData.id;
+        if (!selectedObject) { alert(REFUSAL); return; }
+
+        const ud = selectedObject.userData ?? {};
+        const slabType = (ud.elementType || ud.type || '').toLowerCase();
+        if (slabType !== 'slab') { alert(REFUSAL); return; }
+
+        const slabId = ud.id;
+        if (!slabId) { alert(REFUSAL); return; }
         // §PERF-2026-Q2-CW-CREATE/F3 — Static import; no per-invocation
         // dynamic-import promise hop.
         const command = new CreateCurtainWallsFromSlabCommand({ slabId });
