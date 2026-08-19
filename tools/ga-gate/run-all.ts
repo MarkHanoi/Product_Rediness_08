@@ -594,6 +594,25 @@ const GATES: Gate[] = [
   // on every run. GE-08 stays UNPROVEN for those two — do not cite this as closure.
   { name: 'cross-process-determinism (C73 §5.4b, partial)', script: 'check-cross-process-determinism.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
+  // ─── L-960 / L-1202 (2026-08-19, lane REG1) — the DOCUMENT-SIDE gates ───────
+  // Every other gate in this list polices CODE. These two police the CONTRACT
+  // SUITE that governs the code, and they exist because
+  // CONTRACT-AMENDMENT-REGISTER.md measured what nothing was checking:
+  // **97 of 99 cited gate paths do not exist**, and the suite range has now
+  // rotted FIVE times (C67 -> C81 -> C84/C85–C99 -> C100 -> C76).
+  //
+  // Both are registered LAST, after the R5 meta-gate, because their subject is
+  // documentation rather than the tree, so a failure here must never mask a code
+  // failure above it. Both carry F0 floors + planted controls that run INSIDE
+  // every invocation and exit 2 as blind comparators (L-827), and both land at a
+  // NAMED shrink-only baseline pinned at their first honest reading — recorded
+  // in gate-newly-measured.json, NOT gate-debt.json, per C76 §6.3: these are
+  // defects that PREDATE the gate, so calling them a regression blames the
+  // gate's author and absorbing them as debt backdates a decision never made.
+  //
+  // ⚠ The register sized the first of these at "119+ defects". It measures 491.
+  { name: 'contract-cited-paths (L-960 · REGISTER §0)',        script: 'check-contract-cited-paths.ts' },
+  { name: 'contract-index-equivalence (REGISTER §1 · C00)',    script: 'check-contract-index-equivalence.ts' },
 ];
 
 // §FIX-GATE-REGISTERED-TWICE (2026-08-11, C9). `check-report-payload-discard.ts`

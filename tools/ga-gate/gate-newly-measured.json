@@ -595,6 +595,42 @@
       "territory": "packages/core-app-model/ (ViewDependencyTracker, LightingStore), packages/geometry-slab/ (SlabDependencyTracker, SlabWallConnectivityService, FloorSlabBindingHandler), packages/geometry-window/, plugins/annotations/, apps/editor/src/engine/WallRebuildCoordinator.ts. NOT tools/ — this lane measures and reports; the drain is production work.",
       "reviewBy": "2027-02-15",
       "reviewByNote": "Longer than the 2026-11-15 siblings, argued on the check-relationship-determination precedent rather than assumed. These 8 are not 8 token edits: each needs a determination TYPE, every caller taught to branch on it, and — per the gate's own named UNPROVEN limits — the shape is not enough on its own, since a determination every consumer immediately spreads back into a bare array satisfies this static gate and still violates U-INV-7 in effect. A three-month bound on eight cross-package index rewrites would expire before anyone could honestly act on it, and an expiry nobody can meet teaches date-extension rather than compliance."
+    },
+    {
+      "gate": "check-contract-cited-paths.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-19",
+      "builtBy": "L-960 · lane REG1 · CONTRACT-AMENDMENT-REGISTER.md §0 (\"the cheapest durable fix\") · founder ask: one focused lane on the register",
+      "firstReading": "exit 0 AT A BASELINE PINNED TO THIS READING — 101 contract files read; 2960 backticked path citations → 1527 distinct; 1028 RESOLVE on disk; **491 UNRESOLVED** (the pinned baseline); 8 unresolved but EXEMPT (PLANNED or struck). Floors met: 101 contract files (min 90), 1527 distinct citations (min 600), 4/4 planted controls fired (positive resolve, negative phantom, PLANNED exemption, glob rejection). The FIRST run, before the baseline was pinned, exited 3 at 491 vs a placeholder 268 — recorded because the placeholder was a guess and the gate refused it.",
+      "pinnedTo": "BASELINE_UNRESOLVED in tools/ga-gate/check-contract-cited-paths.ts, a single shrink-only integer with its full derivation in the adjacent doc comment. Deliberately NOT a JSON ledger of named paths: 491 citations across 100 concurrently-edited contracts would report a path 'struck' and an identical path 'new' on any reflow, i.e. a false exit 3, which is never absorbable.",
+      "predatesTheGate": [
+        "ALL 491 predate the gate. The register measured two axes of this by hand across ONE range (C21–C50) and reported 97 of 99 cited gate paths absent and 22 of 43 cited packages/* paths absent; this gate covers seven roots across all 100 contracts and finds 491.",
+        "⭐ THE REGISTER SIZED THIS AT '119+ defects'. The measured figure is 491 — roughly four times the hand-audited estimate. The estimate was not wrong so much as SCOPED, and recording the gap matters because 'the confident number was low' is the register's own recurring finding (§9: 15 → 22 → 24).",
+        "The single largest holder is `scripts/ci-check-spans.ts` at 24 citation sites across C01/C10/C31/C33–C49 — a file CLAUDE.md already records as never having existed (L-812). Register §9 is the row that owns it.",
+        "The next largest are whole packages ordered built that shipped elsewhere or not at all: server/parcelZoningProxy.js (12 sites, C57), packages/schedule-4d/ (8, C37), packages/schemas/src/standards/ (6, C34), packages/schemas/src/pii-registry.ts (5, C22 — already a register §11 row).",
+        "A distinct sub-family, NOT separated by this gate and named so it is not mistaken for phantom work: `src/ui/`, `src/engine/**` (C06, C11). These paths WERE real and moved to apps/editor/src/**. The citation is stale, not fictional — a different amendment from 'this was never built'."
+      ],
+      "exitCondition": "491 → 0, at which point BASELINE_UNRESOLVED is deleted and the gate flips hard-0. ⛔ It may NOT be discharged by bulk-adding `PLANNED` to silence findings — that is laundering, and arm B prints the EXEMPT census on every run precisely so it is visible as a number that moves. Nor by widening the exemption vocabulary: `NOT BUILT` / `UNBUILT` / `does not exist` are deliberately NOT exemptions, because register §11C measured eleven gates described as unbuilt that all exist, and §13 measured 97 of 99 cited gates that do not — the prose claim is exactly what cannot be trusted, so it cannot be the escape hatch.",
+      "notMeasured": "⚠ This gate checks that a cited PATH resolves. It does NOT check that a cited `file:line` still holds what the contract says it holds — the trailing `:1025-1031` is stripped before resolution. Register §2 and §11C both record rotted line anchors (C96 §3.1's own evidence went stale in ONE DAY). That is a different gate and this one does not claim it.",
+      "territory": "tools/ga-gate/check-contract-cited-paths.ts. The DRAIN is docs/02-decisions/contracts/**, which is owned by the contract lanes — this gate measures and reports.",
+      "reviewBy": "2026-11-19"
+    },
+    {
+      "gate": "check-contract-index-equivalence.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-19",
+      "builtBy": "lane REG1 · the exit condition stated verbatim in docs/02-decisions/contracts/README.md's own banner and in CLAUDE.md §Governance, both of which record that it 'does not exist yet'",
+      "firstReading": "exit 0 AT A BASELINE PINNED TO THIS READING — 100 contract FILES on disk; 83 index ROWS (max id C100); 1 declared RESERVED id (C61); **arm A FILE-WITHOUT-ROW = 18** (the pinned baseline); arm B ROW-WITHOUT-FILE = 0 (hard); arm C ROW/LINK-MISMATCH = 0 (hard); arm D GAP-NOT-DECLARED-RESERVED = 0 (hard). Floors met: 100 files (min 90), 83 rows (min 60), planted controls fired.",
+      "pinnedTo": "BASELINE_FILE_WITHOUT_ROW in tools/ga-gate/check-contract-index-equivalence.ts. Arms B, C and D carry NO baseline and are hard-0 — each measured 0 at first reading and each is a one-commit fix, so a baseline would only license a defect nobody has.",
+      "predatesTheGate": [
+        "All 18 predate the gate: C81, C84, the entire C85–C99 per-element block, and C100 exist as files with no row in the index table.",
+        "⭐ This is not bookkeeping. CLAUDE.md defers the CONFLICT-RESOLUTION ORDERING to this table, so all 18 are currently ordered by nothing — including **C84 (Element Integrity)**, binding on every PR touching an element family, which an agent reading the ordering literally ranks BELOW an ADR. That is register §1, the highest-blast-radius row in the suite.",
+        "The staleness this gate replaces has recurred FIVE times (C67 → C81 → C84/C85–C99 → C100 → C76), the fifth within a day of the fourth being corrected. Every recurrence was a range or count written as a LITERAL. This gate compares SETS and never a number — a count can be right while the set is wrong, and the README has been exactly that more than once."
+      ],
+      "exitCondition": "18 → 0: every landed contract acquires an index row, in the same commit that lands it. The baseline is then deleted and arm A joins B/C/D at hard-0. ⛔ It may NOT be discharged by deleting rows, by relaxing ROW_RE to count prose mentions as rows (register §9 records that a sweep keyed on a NAME is defeated by using a different name), or by widening SELF_ROW_IDS beyond the index's own C00 self-row.",
+      "notMeasured": "⚠ This gate asserts that a row EXISTS for every file and a file for every row. It does NOT assert that the row's DESCRIPTION is true, that its Status column is current, or that the prose ranges in rows 4–6 agree with the table — README:219's undated present-tense '69 contract files exist (C01–C60 + C62–C69 + C24.1)' is FALSE at HEAD and this gate cannot see it (register §1, L-1131). A prose-range arm is the obvious next extension and is deliberately not claimed here.",
+      "territory": "tools/ga-gate/check-contract-index-equivalence.ts. The DRAIN is docs/02-decisions/contracts/README.md's table, owned by C00 — unclaimed by any live lane as of 2026-08-19.",
+      "reviewBy": "2026-11-19"
     }
   ]
 }
