@@ -576,7 +576,41 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         ) {
             underlayCount += 1;
         }
-        if (ud.isIfcGroup === true || ud.isIFCModel === true || ud.ifcModelId != null) {
+        // §AUDIT-UNSATISFIABLE-COUNTERS (L-1202) — THE SECOND DEAD COUNTER IN THIS
+        // FILE, FOUND BY APPLYING L-1197's SUSPICION TO EVERY ARM RATHER THAN ONE.
+        //
+        // This read `isIfcGroup || isIFCModel || ifcModelId`. Grep all three across the
+        // repo: the ONLY producers are this file's own two test suites. What production
+        // actually stamps is `packages/file-format/src/import/ifc/IfcGeometryRenderer.ts`
+        //   :66   group.userData = { modelId, name, source: 'ifc-import' }
+        //   :195  mesh.userData  = { …, source: 'ifc-import' }
+        // — `modelId`, not `ifcModelId`, and `source`, not `isIfcGroup`. The rest of the
+        // app reads the REAL key (`initScene.ts:1247`, `PlanViewManager.ts:858`,
+        // `SectionViewService.ts:168`, `EdgeProjectorService.ts:2151` all match
+        // `userData.source === 'ifc-import'`); only the audit invented its own.
+        //
+        // So `ifcCount` could never be non-zero in production — and IFC groups have NO
+        // project-switch teardown (`importedIfcGroups` in `initUI.ts:1029` is a session
+        // Map with no declared scope), which is precisely the leak this arm exists to
+        // catch. The surface most likely to hold residue was the surface that could not
+        // report it.
+        //
+        // Attribution mirrors the underlay arm (L-1197): counted only when the group
+        // does not name the loaded project. `initUI` stamps `projectId` at import.
+        //
+        // Counted at the MODEL ROOT only. `source:'ifc-import'` is stamped on the group
+        // AND on every mesh inside it (:66 and :195), so an un-scoped match would report
+        // one leak per triangle-bearing mesh — thousands — and bury every other finding.
+        // The root is the direct scene child; its meshes are separately covered by the
+        // element-id arm below, which is where a per-element leak belongs.
+        const isRealIfcRoot = obj.isRoot === true && ud.source === 'ifc-import';
+        const ifcOwner = typeof ud.projectId === 'string' ? ud.projectId : null;
+        if (
+            ud.isIfcGroup === true ||
+            ud.isIFCModel === true ||
+            ud.ifcModelId != null ||
+            (isRealIfcRoot && ifcOwner !== projectId)
+        ) {
             ifcCount += 1;
         }
         if (ud.isDxfOverlay === true || ud.dxfId != null) {

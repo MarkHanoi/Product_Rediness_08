@@ -59,6 +59,11 @@ import { ViewRangeFilterService }from '@pryzm/core-app-model';
 import { CropRegionFilterService }from '@pryzm/core-app-model';
 import { UnderlayRenderService } from '@pryzm/core-app-model';
 import { installUnderlayViewScope } from './underlayViewScope';
+import { installLineworkProbe } from './lineworkProbe';
+// §AUDIT-UNSATISFIABLE-COUNTERS (L-1202) — the ONE canonical project-id resolver,
+// the same one `mountedDrawingScope` stamps its C13 ownership with. A second copy here
+// is how two surfaces come to disagree about which project they belong to.
+import { resolveActiveProjectId } from '../ui/site/siteDispatch';
 import { ViewRangeZoneApplicator }from '@pryzm/core-app-model';
 // Contract 25b — Wave 2: VGGovernancePanel retired. The unified V/G header panel
 // (OverridePanel) and the master VisibilityIntentPanel are the only authoring surfaces.
@@ -673,6 +678,16 @@ export async function initUI(p: UIParams): Promise<void> {
     // Installed here because this is where the presentation services that read
     // `view-activated` are wired; it holds no scene reference of its own.
     installUnderlayViewScope();
+
+    // ── §LINEWORK-3D-PROBE (L-1202, serving L-1185) — SHIP THE PROBE FIRST ────
+    // Founder: "review the LINES COMING TO 3D VIEW" — black outlines on the façade
+    // in the 3D perspective view. Static reading killed two of the four rival causes
+    // and could not separate the rest; this censuses the live scene's line objects on
+    // every 3D entry and DIFFS against the first one, which is the one measurement
+    // that tells "present from first paint" apart from "arrived via a view switch".
+    // Read-only, one traverse per 3D activation — the same order as the three overlay
+    // gates initScene already runs on that event.
+    installLineworkProbe();
 
     // ── Phase VR-2 — Zone Applicator ──────────────────────────────────────────
     // Constructed AFTER all other presentation services so its 'view-selected'
@@ -1535,6 +1550,18 @@ export async function initUI(p: UIParams): Promise<void> {
                 triangleCount: renderedModel.triangleCount,
                 elementCount: renderedModel.elementCount,
             };
+            // §AUDIT-UNSATISFIABLE-COUNTERS (L-1202) — ATTRIBUTION. `ProjectIsolationAudit`'s
+            // IFC arm now recognises the real `source:'ifc-import'` stamp and counts a model
+            // root as a leak unless it names the loaded project. `importedIfcGroups` is a
+            // session Map with NO declared project scope, so an IFC model imported in project A
+            // survives into project B — which is exactly what that arm exists to catch, and
+            // could not, for as long as it keyed on `isIfcGroup`. Stamping the owner here is
+            // what makes "this project's import" distinguishable from "the previous project's".
+            try {
+                const rt = window.runtime;
+                (renderedModel.group.userData as Record<string, unknown>).projectId =
+                    rt ? resolveActiveProjectId(rt) : null;
+            } catch { /* attribution must never break an import */ }
             importedIfcGroups.set(modelId, renderedModel.group);
             importOverlay.update('Building viewport model', 78, `${renderedModel.meshCount.toLocaleString()} meshes and ${renderedModel.triangleCount.toLocaleString()} triangles loaded.`);
 
