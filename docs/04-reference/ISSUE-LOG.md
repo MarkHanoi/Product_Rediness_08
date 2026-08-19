@@ -9855,3 +9855,50 @@ report says a Render had been run.
 **Owner:** unassigned. **Next step:** run a Render on a live project with the console open and look
 for `ShadowDepthTexture` / `usedTimes`. That single observation decides whether this is urgent or
 merely latent.
+
+## L-1034 — the four wall requests the founder re-raised: curved×raked, curved×layered×raked, curved×raked×openings, and profile-edit (LOGGED + ROUTED, 2026-08-19)
+
+**Re-raised by the founder 2026-08-19** — *"not sure if [this] was on the same worktree / same lane,
+but I requested the following regarding the wall and it should be considered, documented, planned and
+implemented."* Recorded here so it stops depending on which lane happened to hear it.
+
+| # | Request | State, MEASURED 2026-08-19 |
+|---|---|---|
+| **1** | **CURVED RAKED WALL** | Routed to lane **RK1** (D2). NOT MEASURED whether it works today |
+| **2** | **CURVED LAYERED WALL, RAKED** | ⚠ **This three-way combination was NOT explicitly in RK1's brief** — the brief named raked×layered×openings and raked×curved as separate cells. **Curved × layered × raked is a distinct cell and is now required** |
+| **3** | **CURVED RAKED WALL HOSTING OPENINGS** | ⚠ Was in RK1's brief only conditionally (*"in scope if reachable"*). **Now unconditional.** `b3-curvedhost` shipped `§FEAT-HOSTED-ON-CURVED-WALL`, so hosted-on-curved exists; hosted-on-curved-AND-raked is the unmeasured cell |
+| **4** | **PROFILE EDIT (mode)** | ✅ **TACKLED AND ON `main`** — see below |
+
+### #4 — what actually exists, so nobody rebuilds it
+
+**Two slices landed on `main`:**
+- `62479227` — *test(W1/slice-0): pin the profile-ABSENT wall baseline across **all 7 body paths**,
+  watched RED*
+- `f9ed3ee9` — *feat(W1/slice-1): §WALL-PROFILE — **the model, ONE gate at every write boundary,
+  persistence, invalidation***
+
+**17 files, +1212 lines**, including `packages/geometry-wall/src/WallProfile.ts` (343 lines, present on
+`main`), `WallDataSchema.ts`, `WallDeltaClassifier.ts`, `composeWallGeometryHash.ts`, the serializer
+and loader halves, `UpdateElementParameterCommand.ts`, and `WallProfileSlice1.test.ts` (437 lines).
+The UI entry point is real: `apps/editor/src/ui/ContextualEditBar.ts` `:98-103`, `:167-172`, `:271-284`
+build an **"Edit Profile"** button (`id: 'edit-profile'` → `_activateProfileEditForContext()`) under
+`§EDIT-PROFILE (2026-05-22)`, shown — per the comment at `:481` — *"only where an editor ACTUALLY"*
+exists.
+
+⚠ **The branch `w1-profileedit` also carries the same two slices under DIFFERENT SHAs**
+(`0c5a4ecd`, `b999a17a`). `git cherry main w1-profileedit` marks slice-1 `+` (absent by patch-id) even
+though its content IS on `main` as `f9ed3ee9` — a re-commit, not missing work. **Do not "recover" it;
+that would duplicate the feature.** This is exactly the trap C84 §3.5 exists for: same content, two
+SHAs, and the naive reading is that something is missing.
+
+### What is NOT MEASURED, and is the real question
+
+1. Whether profile edit is **complete** — slice-0 and slice-1 landed; whether a slice-2 was planned and
+   never shipped is unmeasured. `_getProfileActions()`'s own guard implies the button is hidden where
+   no editor exists, so **which element/wall shapes actually offer it is a reachability question**, not
+   a code-existence one (C84: *authored ≠ reachable*).
+2. Whether it works on **curved** walls, on **raked** walls, or on **curved AND raked** walls — i.e.
+   items 1–3 above intersect item 4, and none of the four intersections has been measured.
+
+**Owner:** RK1 for the geometry matrix (items 1–3 and the profile intersections); the profile-edit
+completeness question is recorded here rather than assigned, pending RK1's measurement.
