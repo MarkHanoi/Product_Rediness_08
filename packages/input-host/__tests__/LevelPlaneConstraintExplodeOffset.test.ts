@@ -60,6 +60,25 @@ const EXPLODED_Y = MODEL_Y + LEVEL_INDEX * EXPLODE_GAP; // 23.8 — the founder'
 class TransformControlsDouble extends THREE.EventDispatcher<{ change: object }> {
     mode = 'translate';
     showY = true;
+    /**
+     * §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — ADDED, because this double was
+     * UNFAITHFUL on exactly the axis that mattered and the omission hid a defect.
+     *
+     * The real class carries `dragging` and sets it `true` in `pointerDown`
+     * (three r183 `TransformControls.js:448`) BEFORE any drag can dispatch
+     * `change`: `pointerMove` returns at `:473` unless `dragging === true`, and
+     * only then dispatches `change` at `:720`. A `change` with `dragging === false`
+     * is therefore NOT a drag — it is an attach, a detach, a mode switch or a
+     * `showY` write, and three fires it from the shared `defineProperty` setter
+     * (`:123-124`) for `object` (`:149`) and `axis` (`:158`).
+     *
+     * Because the double omitted the flag, the drag test below "passed" while
+     * simulating something that never happens in production, and the constraint
+     * was free to clamp on NON-drag events — which is precisely how it overwrote
+     * `SlabFragmentBuilder`'s legitimate Y after a thickness/baseOffset edit and
+     * displaced the founder's parcel slab.
+     */
+    dragging = false;
     /** The gizmo fires `change` on every update while the object is attached. */
     fireChange(): void {
         this.dispatchEvent({ type: 'change' });
@@ -133,10 +152,21 @@ describe('§LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — the level plane must be a MODE
         constraint.attach(slab);
 
         // A drag tries to lift the slab off its level.
+        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — `dragging = true` is what makes
+        // this a DRAG rather than an arbitrary `change`. It is not a concession to
+        // the fix: it is the production condition (three sets it in `pointerDown`
+        // before any drag `change`), and asserting the clamp without it was
+        // asserting behaviour on an event three never raises mid-drag.
+        constraint.attach(slab);
+        tc.dragging = true;
         slab.position.y = MODEL_Y + 1.5;
         tc.fireChange();
         expect(slab.position.y).toBeCloseTo(MODEL_Y, 6);
 
+        // Drag END: three has already flipped `dragging` to false by the time the
+        // `dragging-changed` handler calls `enforce()`, so the final guarantee must
+        // hold with the flag DOWN. That is the harder half, and it is unchanged.
+        tc.dragging = false;
         slab.position.y = MODEL_Y - 4.0;
         constraint.enforce();
         expect(slab.position.y).toBeCloseTo(MODEL_Y, 6);

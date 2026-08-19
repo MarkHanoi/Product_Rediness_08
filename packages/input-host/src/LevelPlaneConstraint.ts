@@ -174,7 +174,12 @@ export class LevelPlaneConstraint {
      * Only applies in translate mode — rotation must not clamp position.
      */
     enforce(): void {
-        this._clampToLevelPlane();
+        // force=true — §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175). This is the explicit
+        // drag-end guarantee, called from the `dragging-changed` handler
+        // (`registerTransformDragHandler.ts:705`) at the moment `dragging` has ALREADY
+        // flipped to false. It must therefore bypass the drag gate, or the final
+        // clamp — the whole point of this method — would never run.
+        this._clampToLevelPlane(true);
     }
 
     /**
@@ -187,7 +192,7 @@ export class LevelPlaneConstraint {
      * the stack instead of being pinned to whatever height it happened to be at
      * when it was clicked.
      */
-    private _clampToLevelPlane(): void {
+    private _clampToLevelPlane(force = false): void {
         const obj = this.lockedObj;
         if (obj === null || this.lockedModelYValue === null) return;
         const mode = (this.transformControls as any).mode ?? 'translate';
@@ -196,6 +201,51 @@ export class LevelPlaneConstraint {
         // Unknown offset: leave the element where it is rather than write a Y we
         // cannot justify. The warning in _offsetOf already said so.
         if (offset === null) return;
+
+        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — THIS CONSTRAINT'S AUTHORITY IS THE
+        // GIZMO DRAG, AND ONLY THE GIZMO DRAG.
+        //
+        // Founder 2026-08-19, "a MAJOR bug": "change either the BOTTOM OFFSET or the
+        // THICKNESS and THE SLAB IS DISPLACED — IT MOVES." It did, by exactly the
+        // thickness delta, and this line was the writer.
+        //
+        // `root.position.y` is a DERIVED value for a slab: C92 §10 makes the TOP face
+        // the datum, so `SlabFragmentBuilder.resolveWorldY` returns
+        // `level.elevation + baseOffset - thickness` and the root LEGITIMATELY moves on
+        // every thickness or baseOffset edit — over a root the builder REUSES. This
+        // method used to re-assert the Y latched at SELECTION time on EVERY
+        // TransformControls `change`, and `change` is not only fired by dragging:
+        // three's `object` and `axis` are `defineProperty` fields whose setter
+        // dispatches it (r183 `TransformControls.js:123-124`, `:149`, `:158`). So
+        // `SelectionManager.clearHighlight()`'s closing `transformControls.detach()`
+        // fired a clamp that overwrote the builder's correct write with the PRE-EDIT
+        // value — and the re-attach immediately after latched the corrupted value as
+        // the new truth, making it permanent and cumulative across edits.
+        //
+        // A `change` raised outside a drag carries NO vertical user intent — it is an
+        // attach, a detach, a mode switch or a `showY` write. Clamping on it cannot
+        // protect anything; it can only destroy a legitimate model write. So outside a
+        // drag we ADOPT the element's current Y as the new plane instead of fighting
+        // it. Adopting rather than merely skipping matters: it keeps the lock current,
+        // so the NEXT real drag clamps to where the element actually is rather than
+        // hauling it back to a stale pre-edit height.
+        //
+        // This is strictly narrower than before and loses no drag protection: three
+        // sets `dragging = true` in `pointerDown` (`:448`) before any drag `change`,
+        // and `pointerMove` returns early (`:473`) unless `dragging === true` before it
+        // dispatches `change` (`:720`). `enforce()` passes force=true so the drag-end
+        // guarantee still fires on the `dragging-changed` edge, where `dragging` has
+        // already gone false.
+        //
+        // It also strictly IMPROVES §LEVEL-STACK-LOCKS-VIEW-Y (L-1010): a collapse
+        // mid-selection writes the model Y and the constraint now tracks it, instead of
+        // re-asserting a plane over the level stack's own restore.
+        const dragging = (this.transformControls as any).dragging === true;
+        if (!force && !dragging) {
+            this.lockedModelYValue = obj.position.y - offset;
+            return;
+        }
+
         obj.position.y = this.lockedModelYValue + offset;
     }
 
