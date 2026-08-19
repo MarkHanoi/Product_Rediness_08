@@ -11471,3 +11471,75 @@ geometry store dual-emits (`FurnitureStore.ts:23-24`, `PlumbingStore.ts:11-12`,
 so **no lighting mutation of any kind currently dirties a plan view through that path.** Being
 fixed under its own RED-first commit, separately from any level-change change, because adding the
 emit inside `update()` flips a repo-wide silence into repo-wide traffic for every existing caller.
+
+## L-1035 — DECISION: curtain-wall panels persist as SPARSE OVERRIDES on a deterministic grid, not as full records (DECIDED, orchestrator, 2026-08-19)
+
+**The founder delegated this one: *"decide yourself — what is more architecturally sound and more robust
+for PRYZM, then document. It needs to be well performanced — this is important."*** Decided here so
+[L-1057](#) has a shape to be fixed into, rather than being fixed the first way that works.
+
+### The question
+
+`CurtainPanelStore` — the declared authority for per-panel attributes — is never persisted and never
+loaded (L-1057). The founder's specification requires **per-cell authored attributes**: panel type,
+material, finish, offset from centreline, and a door in a *specific* cell. So the store must persist.
+**How** is the decision, and it is a storage-and-load-cost decision before it is anything else.
+
+### DECIDED: sparse overrides, keyed by bounding grid lines
+
+**Persist ONLY the panels that diverge from what the grid would generate.** A panel with no authored
+attribute is not persisted at all; it is regenerated from its type's defaults on load.
+
+| | Full panel records | **Sparse overrides (DECIDED)** |
+|---|---|---|
+| A 20×10 façade, 3 doors + 2 spandrels | **200 records** | **5 records** |
+| 20 such façades in a project | **4 000 records** | **100 records** |
+| Save cost | O(cells) | **O(authored)** |
+| Load cost | parse O(cells) | deterministic regen + sparse apply |
+| Default case | pays full price | **pays nothing** |
+
+**Three reasons, in order of weight.**
+
+1. **It turns today's failure mechanism into the load path.** L-1057 hides *because* panels are already
+   silently regenerated on load — that is why a reload returns the right cell count and a plausible
+   façade. Regeneration is not the bug; **the absence of anything to re-apply on top of it is.** This
+   design keeps the regeneration that already works and adds the missing layer, instead of replacing a
+   working mechanism with a heavier one.
+2. **It is the model this platform already commits to** — the model is the source of truth and geometry
+   is derived. A curtain-wall grid is a **pure function** of `(baseLine, height, bayWidth, bayHeight,
+   gridSystem)`. Persisting every derived cell would store the *output* of that function next to its
+   inputs, so a save could contradict its own model — the same disease as the denormalised
+   `levelName`/`levelElevation` copies now going stale on a level move.
+3. **Cost scales with what the user actually authored**, which is the only cost a user can reason about.
+   A façade the user never touched should not grow the file.
+
+### ⛔ The hard prerequisite this creates — and it closes an open row
+
+An override is only sparse if the thing it is keyed to is **stable**. Today it is not:
+`migrateToGridSystem` (`CurtainGridSystem.ts:94, :99`) mints `crypto.randomUUID()` and is called from
+**nine `??` sites**, so the same wall gets different grid-line ids on every regeneration — a
+[C73 §1.1](../02-decisions/contracts/C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) determinism violation
+already recorded as **C87 §11 #5 / CW-B-3**.
+
+**So CW-B-3 is not a parallel cleanup — it is a PRECONDITION.** With random ids, every override is
+orphaned by the next rebuild and this design degrades to exactly the data loss it exists to prevent.
+Grid-line ids MUST be derived deterministically from the wall id and the line's ordinal.
+
+**Key the override on the BOUNDING GRID LINE PAIR (`uLineId`, `vLineId`), not on `(row, col)`.**
+Row/column indices shift when an unrelated grid line is inserted, which would silently re-target every
+override downstream of the insertion — a door quietly moving to the wrong cell is worse than losing it.
+`gridSystem` is already serialised (`ProjectSerializer` `:655`), so line identity has a home.
+
+### The refusal this design owes
+
+On load, an override whose bounding lines no longer exist (the grid was edited) **MUST be reported, not
+silently dropped**. That is the C84 EI-6 clause — *absence must be loud* — and it is the one place this
+design can lose data. A one-line report naming the wall and the lost override is the acceptance
+criterion; a silent `catch` is not.
+
+### What this does NOT decide
+
+Runtime materialisation is unchanged: all cells still exist in memory for rendering and picking. This is
+a **storage and load** decision only. Whether the runtime store should also become sparse is a separate
+question, **NOT MEASURED**, and it should not be answered until someone has measured panel-store memory
+on a real project — the same discipline C66 applies to capacity claims.
