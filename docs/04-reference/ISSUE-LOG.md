@@ -11760,3 +11760,82 @@ wall's own body uses. Straight hosts are byte-identical.
 `geometry-window/src/WindowBuilder.ts`, ONE statement each (the `const [bs, be] …` / `const dir = …`
 pair replaced by `const dir = { x: _hf.frame.tx, z: _hf.frame.tz }`), plus the header explaining it.
 **No other line in either package is touched.**
+
+## L-1036 — DECISION: `getById` is the canonical store accessor; `get` becomes a DEPRECATED alias with a removal plan — not a permanent synonym (DECIDED, orchestrator, 2026-08-19)
+
+**The founder delegated it: *"decide yourself — I want the most robust and architecturally sound
+implementation possible… I want all the elements, if possible, to be built in the same way, the
+best."*** Two lanes had landed **opposite** policies for the same question, which is the defect
+before it is a style disagreement.
+
+### The state that forced the decision
+
+- `1b663a50` (orchestrator) **widened** `LegacyLevelMovableStore` to `getById?` + `get?`, both
+  optional, with a rationale that explicitly rejected aliasing: *"minting a second accessor on three
+  stores would put two names on one question in three more places (C84 EI-9)."*
+- `ca70eb2d` then **added a `BeamStore` alias anyway**, and `1b32b1da` added three more plus
+  `LightingStore`.
+
+**So the repository currently does BOTH.** One question, two answers, landed within hours of each
+other by lanes that could not reach one another — C84 **EI-9** in its purest form.
+
+### DECIDED: converge on `getById`. Neither "widen" nor "alias" is the end state.
+
+**Both of the landed policies are ACCOMMODATIONS of a naming inconsistency; neither removes it.**
+Widening pushes the ambiguity down to every future reader, who must now handle two spellings forever.
+Aliasing puts two names on one method in N stores and lets the next store forget one. **Converging
+removes the question.**
+
+**Canonical: `getById(id)`. Measured, not preferred:**
+
+```
+grep -rl "^\s*getById(" --include=*Store.ts …  ->  33 stores
+grep -rl "^\s*get("     --include=*Store.ts …  ->  21 stores
+accessor census: getAll 40 · getById 30 · get 21 · getByLevel 10
+```
+
+`getById` is the majority **and** it is the spelling consistent with its own siblings — a store that
+exposes `getAll()` and `getByLevel()` and then `get()` is inconsistent with itself. `get` is the odd
+one out relative to the family it lives in, which is the tie-breaker that survives re-measurement.
+
+### The doctrine this follows — the repo already owns it
+
+`packages/command-bus/src/types.ts:175-177`, on verb aliases:
+
+> *"⚠ An alias is a **DEPRECATION**, not a synonym. Every alias needs a plan to remove it."*
+
+**Apply the same rule one layer down.** `get` may exist as an alias **only** as a migration step,
+carrying `@deprecated` and a removal condition. An alias with no removal plan is how you end up with
+two permanent names, which is what we are fixing.
+
+### What each thing becomes
+
+| Artefact | Disposition |
+|---|---|
+| `getById(id)` | **CANONICAL.** Every element store declares it as the real method |
+| `get(id)` | **DEPRECATED ALIAS**, delegating to `getById`, marked `@deprecated` with its removal condition |
+| `LegacyLevelMovableStore`'s `getById?` + `get?` | **MIGRATION SCAFFOLD, not the end state.** It stays while call sites migrate, and its comment must say so. Its removal condition: zero `get(` declarations remain |
+| New stores | ⛔ **MUST NOT** declare `get(` at all |
+
+### "All elements built the same way" — the general rule this instantiates
+
+The founder's broader ask is the important half. **Every element store exposes the same accessor
+family, spelled the same way**: `getAll()` · `getById(id)` · `getByLevel(levelId)` · `add` ·
+`update` · `remove` · `changeLevel` where the family carries a storey. A family that cannot honour
+one of these **declares why in its contract** (C84 EI-1b — an absence is stated, never merely
+absent), exactly as the level-change refusals now do.
+
+⚠ **And the deeper lesson is not about names.** The real cost was not `get` vs `getById` — it was
+that **two lanes landed contradictory policies within hours because neither could reach the other,
+and the contradiction was found by a third lane reading both.** The naming converges cheaply; the
+coordination defect is the one worth remembering. A decision recorded only in a commit body is not
+reachable by a concurrent lane. **This is why decisions belong in the ISSUE-LOG under an L-number,
+not only in the commit that implements them.**
+
+### Not in scope, deliberately
+
+⛔ This does **not** authorise a repo-wide rename sweep today. Ten lanes are live in these files, and
+a mass rename would collide with every one of them. **The order is: new code uses `getById`; a store
+being touched for another reason converges as part of that work; the alias carries `@deprecated` from
+the moment it is added.** A shrink-only count of remaining `get(` declarations is owed as a ratchet —
+**21 today** — so convergence is measured rather than hoped for.
