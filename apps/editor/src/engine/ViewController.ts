@@ -2219,7 +2219,29 @@ export class ViewController implements IViewController {
      * Set up view-specific event listeners
      */
     private _setupViewListeners(_viewType: ViewType): void {
+        // ── §PERF-NO-SECOND-SCENE-RENDER-ON-NAV (L-1150) ─────────────────────
+        // `MANUAL` + `needsUpdate = true` is OBC's contract for "render exactly one
+        // frame NOW". This handler is bound to camera-controls 'update', which fires
+        // EVERY FRAME of every orbit / pan / zoom — so on the Phase-5 configuration it
+        // was commanding a full OBC **WebGL** scene render on every navigation frame,
+        // concurrently with PRYZM's own render, over the SAME scene graph. Two full
+        // draws of one scene per frame, on precisely the workload the WebGL2 backend
+        // now owns (navigation, rotation, movement).
+        //
+        // This is not a new hazard, it is a RE-ADDED one: `initScene.ts:2031` removes
+        // exactly this listener from `camera.controls 'update'` when Phase 5 locks OBC
+        // ("Lock OBC to MANUAL — it will never call render() again"), and this rebound
+        // it per view, unguarded. Five sibling call sites already carry the guard and
+        // state the consequence — PlumbingTool.ts:358 / FurnitureTool.ts:575:
+        // "Triggering OBC's WebGL render in Phase 5 destroys PRYZM's ShadowDepthTexture."
+        // So the cost is not only a wasted draw; it is a documented device-loss vector.
+        //
+        // `window.pryzmCanvas` is the established Phase-5 predicate used by all five
+        // guarded sites — reused verbatim rather than inventing a sixth spelling.
+        // When Phase 5 is NOT active, OBC IS the renderer and this poke is correct and
+        // load-bearing, so the guard is a Phase-5 test, never an unconditional removal.
         const updateHandler = () => {
+            if (window.pryzmCanvas) return;
             const renderer = this._world.renderer as any;
             if (renderer && renderer.mode === OBC.RendererMode.MANUAL) {
                 renderer.needsUpdate = true;

@@ -15,6 +15,10 @@ import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { resolveVgCanvasStyle } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
+// §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1108) — the ONE shared site-context reader
+// (§L-432). SplitViewManager already imports this exact symbol; the main pane did not,
+// which is why the parcel boundary drew in the split pane only. See _buildContext().
+import { readSiteContextRings } from '../../ui/site/siteSnapContext';
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
     PlanViewCanvas,
@@ -700,6 +704,22 @@ export class PlanViewManager implements IPlanViewManager {
         if (!this._canvas) return;
         this._planCanvas = new PlanViewCanvas(this._canvas, {
             gridVisible: this._gridOn,
+            // §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1108) — the dashed violet parcel
+            // boundary drew in the SPLIT pane and NOT in this, the MAIN pane. Same
+            // project, same level, both panes visible at once.
+            //
+            // Cause: `siteContextProvider` is what makes `PlanViewCanvas` draw the C19
+            // parcel ring and the C58 buildable-envelope setback line at all, and §L-431
+            // wired it into SplitViewManager's canvas ONLY. Here it was simply absent, so
+            // `_siteContextProvider` was null and `_renderSiteContext` drew nothing — the
+            // boundary was not hidden or mis-styled, it was never asked for.
+            //
+            // This is the SAME shape as the sibling defects in L-1107: a per-view
+            // capability wired into ONE view while the layout has two. The cure is the
+            // one §L-432 already named — ONE shared reader feeding every consumer, so the
+            // pane that draws the setback line and the snap that fires on it cannot drift
+            // apart. `readSiteContextRings` IS that reader; this pane was missing from it.
+            siteContextProvider: readSiteContextRings,
             // §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — ONE resolver, shared with
             // SplitViewManager. It reports a VG contribution ONLY where VG genuinely
             // OVERRIDES; a built-in template seed no longer outranks the bound visibility

@@ -991,7 +991,29 @@ export class ProjectLoader {
                     levelId: slab.levelId,
                     polygon: slab.polygon,
                     holes: slab.holes,
-                    sketch: slab.sketch
+                    sketch: slab.sketch,
+                    // ⭐ C100 §2.1 / ARM E — the slab's MATERIAL, which this payload
+                    // did not list. `serializeSlab()` has always WRITTEN `materialId`
+                    // and `materialColor`; nothing read them back, and
+                    // `CreateSlabCommand.execute()` hard-coded `#808080`. So every
+                    // reopened project silently repainted its slabs mid-grey while the
+                    // saved file still held the right answer.
+                    //
+                    // ⭐ §COMMITTED-IS-NOT-REACHABLE — the evidence a reviewer reaches
+                    // for (open the JSON, find the id) said it worked. The user's
+                    // evidence is the reload, never the file.
+                    //
+                    // ⚠ MEASURED WHILE FIXING THIS, NOT FIXED HERE, and named so it is
+                    // not mistaken for covered: `serializeSlab()` also writes
+                    // `systemTypeId`, `layers`, `baseOffset` and `properties`, and this
+                    // is the ONLY slab restore path in the loader (there is no
+                    // `slabStore` reference anywhere else in this file). Those four are
+                    // lost on reload too — a slab's whole ASSEMBLY, not just its
+                    // colour. That is C65's territory and the slab lane's, it needs its
+                    // own test, and guessing at it inside a material commit is how a
+                    // fix becomes a regression.
+                    materialId: slab.materialId,
+                    materialColor: slab.materialColor
                 });
                 const r = exec(cmd);
                 r.success ? result.loaded++ : this.recordFail(result, `Slab ${slab.id}`, r);
