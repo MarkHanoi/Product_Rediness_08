@@ -72,14 +72,27 @@ describe('§UX1-PANEL-DEFAULTS — the table', () => {
     });
 
     it('D1 — no governed panel is OPEN by default on the canvas except the ones argued for', () => {
-        // The 2026-08-18 measurement, kept live. `view-properties` and
-        // `level-stepper` are the two deliberate exceptions and each carries its
-        // reason in the table; anything else appearing here is a regression.
+        // The 2026-08-18 measurement, kept live. `level-stepper` is the deliberate
+        // exception and carries its reason in the table; anything else appearing
+        // here is a regression.
+        //
+        // §UX1-VP-DEFAULT-CLOSED (founder 2026-08-19) moved `view-properties` OUT of
+        // this list — it is now `closed` on the canvas — and moved
+        // `view-properties-launcher` IN, which is the trade this list should make
+        // visible rather than hide: the panel stopped occupying the viewport and a
+        // 36 × 36 button took its place as the thing that is open. A future edit that
+        // puts `view-properties` back here without removing the launcher has
+        // re-created the founder's report, and this assertion is where that shows.
         const open = governedPanels()
             .filter((p) => p.byPhase.canvas === 'open')
             .map((p) => p.id)
             .sort();
-        expect(open).toEqual(['launcher-rail', 'level-stepper', 'renderer-backend-toggle', 'view-properties']);
+        expect(open).toEqual([
+            'launcher-rail',
+            'level-stepper',
+            'renderer-backend-toggle',
+            'view-properties-launcher',
+        ]);
     });
 
     it('names every surface that stays open, with a real reason — nothing implicit', () => {
@@ -140,6 +153,14 @@ describe('§UX1-PANEL-DEFAULTS — C82 §1.1: no capability becomes unreachable'
             'apps/editor/src/ui/layout/GISAreaLayout.ts',
             'apps/editor/src/ui/site/overlay/SitePlanOverlayController.ts',
             'apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts',
+            // §UX1-VP-DEFAULT-CLOSED — the file that renders `view-properties-launcher`.
+            // It was missing, and this assertion was RED at HEAD saying exactly that:
+            // `view-properties` had been flipped to `closed` on the canvas while the
+            // only thing that could reopen it was invisible to this check. Adding the
+            // path is half the fix; the other half is `phaseChrome.installPhaseChrome()`
+            // now installing that launcher, so the route cannot be dropped separately
+            // from the close (§UX2-REOPEN-SHIPS-WITH-CLOSE).
+            'apps/editor/src/ui/layout/ViewPropertiesLauncher.ts',
         ].map((rel) => {
             const abs = resolve(REPO, rel);
             expect(existsSync(abs), `${rel} not found — fix the path, do not delete the check`).toBe(true);
@@ -169,7 +190,57 @@ describe('§UX1-PANEL-DEFAULTS — one question, one answer', () => {
     it('panelAbsent is what callers use to skip MOUNTING, not just to hide', () => {
         expect(panelAbsent('view-properties', 'onboarding-globe')).toBe(true);
         expect(panelAbsent('view-properties', 'canvas')).toBe(false);
-        expect(panelDefaultOpen('view-properties', 'canvas')).toBe(true);
+        // §UX1-VP-DEFAULT-CLOSED — `false` now, and the distinction this line pins is
+        // the one that matters: NOT-OPEN is not the same as ABSENT. On the canvas the
+        // panel is `closed`, so `panelAbsent` stays false (callers must still mount it,
+        // and the launcher must still be able to reveal it) while `panelDefaultOpen`
+        // goes false (it does not start on screen).
+        expect(panelDefaultOpen('view-properties', 'canvas')).toBe(false);
+        expect(panelPhaseDefault('view-properties', 'canvas')).toBe('closed');
+    });
+
+    it('⭐ the founder’s two rules for View Properties cannot drift apart', () => {
+        // Rule 1: ABSENT on PRYZM Earth — and so is its launcher, because a button
+        // that opens a panel which should not exist in that phase is worse than no
+        // button. Rule 2: CLOSED but openable on the canvas — so the launcher is
+        // open there. Both are read from the ONE table, which is the only reason
+        // they cannot contradict each other; this asserts the pairing rather than
+        // trusting the prose that claims it.
+        expect(panelPhaseDefault('view-properties', 'onboarding-globe')).toBe('absent');
+        expect(panelPhaseDefault('view-properties-launcher', 'onboarding-globe')).toBe('absent');
+        expect(panelPhaseDefault('view-properties', 'canvas')).toBe('closed');
+        expect(panelPhaseDefault('view-properties-launcher', 'canvas')).toBe('open');
+    });
+
+    it('⭐ closed-by-default SURVIVES a reload and a project switch, because nothing is stored', () => {
+        // The risk this closes: a stale `open: true` written before the default
+        // changed, silently winning on the next load. It cannot happen HERE, and the
+        // reason is mechanical rather than declared — `panelDefaults.ts` contains no
+        // storage call at all, so there is no stored value to be stale. THE TABLE
+        // WINS, on every app start and every project open.
+        //
+        // A reload is a fresh module instance, which is what
+        // `__resetPanelSessionStateForTests()` models; a project switch is
+        // `resetAppPhaseForNewProject()`. Both must land back on `closed`.
+        const src = readFileSync(resolve(REPO, 'apps/editor/src/ui/layout/panelDefaults.ts'), 'utf8');
+        expect(src.includes('localStorage'), 'panelDefaults reached storage').toBe(false);
+        expect(src.includes('sessionStorage'), 'panelDefaults reached storage').toBe(false);
+        expect(PANEL_LAYOUT_PERSISTENCE).toBe('session');
+
+        setAppPhase('canvas');
+        setPanelOpen('view-properties', true);
+        expect(isPanelOpen('view-properties')).toBe(true);
+
+        // → project switch
+        resetAppPhaseForNewProject();
+        setAppPhase('canvas');
+        expect(isPanelOpen('view-properties'), 'a project switch kept the panel open').toBe(false);
+
+        // → reload
+        setPanelOpen('view-properties', true);
+        __resetPanelSessionStateForTests();
+        setAppPhase('canvas');
+        expect(isPanelOpen('view-properties'), 'a reload kept the panel open').toBe(false);
     });
 
     it('setPanelOpen moves the shared answer, so a pill and a panel cannot disagree', () => {

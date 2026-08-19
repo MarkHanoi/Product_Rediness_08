@@ -52,6 +52,10 @@ import {
     type AppPhase,
     type PanelId,
 } from './panelDefaults';
+// §UX2-REOPEN-SHIPS-WITH-CLOSE — the reopen ROUTE is installed by this module, not
+// by a caller. See `installPhaseChrome` for why that is a correctness property
+// rather than a convenience.
+import { installViewPropertiesLauncher } from './ViewPropertiesLauncher';
 
 /** How strongly a row's absence is enforced. See the header — the words differ. */
 export type PhaseEnforcement = 'skip-mount' | 'hide';
@@ -66,6 +70,27 @@ export interface PhaseChromeRow {
      */
     readonly selectors: readonly string[];
     readonly enforcement: PhaseEnforcement;
+    /**
+     * §UX2-PANEL-SHELL — OPTIONAL. When set, the nearest ANCESTOR of each matched
+     * element that matches this selector is hidden alongside the element itself.
+     *
+     * It exists because a "section" selector can be honest about the content and
+     * still leave the CHROME on screen. `view-properties` is exactly that: the
+     * registry row targets `.vp-root`, but `PropertyPanel.showViewProperties()`
+     * builds `.gpp-panel > [.gpp-header 'VIEW PROPERTIES' + close button] +
+     * .vp-root` and then sets `display:block` on the SHELL. Hiding only `.vp-root`
+     * therefore left the founder looking at a titled, closable panel with an empty
+     * body — a panel that is neither open nor closed, i.e. the fourth state
+     * `panelDefaults` exists to forbid.
+     *
+     * The ancestor is resolved from the MATCHED element rather than named as its
+     * own selector on purpose: `.gpp-panel` is SHARED with the element inspector,
+     * and a standalone `.gpp-panel` row would take the selection inspector down
+     * with it. Reaching it only via `.vp-root` means it is hidden exactly when the
+     * panel is in View-Properties mode and never when it is inspecting an element
+     * (`showElement()` clears `innerHTML`, so `.vp-root` is simply not there).
+     */
+    readonly hideClosest?: string;
     /** Why this enforcement level, and what it therefore does not achieve. */
     readonly note: string;
 }
@@ -122,11 +147,20 @@ export const PHASE_CHROME_SELECTORS: readonly PhaseChromeRow[] = [
         // hiding the whole property panel would take the selection inspector with it.
         selectors: ['.vp-root'],
         enforcement: 'hide',
+        // §UX2-PANEL-SHELL — MEASURED, not assumed: `PropertyPanel.showViewProperties()`
+        // (PropertyPanel.ts:642-680) clears `.gpp-panel`, appends a `.gpp-header` carrying
+        // the 'VIEW PROPERTIES' badge, the 'Environment & Camera' subtitle and a CLOSE
+        // BUTTON, appends `.vp-root`, then `_makeVisible()` (:545-547) sets
+        // `display:block` on the SHELL. Hiding `.vp-root` alone left that header bar on
+        // screen over an empty body. See `hideClosest` on the interface for why the shell
+        // is reached through `.vp-root` instead of being given a row of its own.
+        hideClosest: '.gpp-panel',
         note:
             'Sun / climate / wind / shadows / post-processing — all properties of a rendered ' +
             'model. HIDE, not skip-mount: this panel is owned by another lane and converting it ' +
             'is that lane’s call. NAMED GAP (L-1025): its subscriptions still run while hidden, ' +
-            'so this removes the pixels, not the work.',
+            'so this removes the pixels, not the work — and `hideClosest` removes the SHELL’S ' +
+            'pixels too, which is a strictly larger set than this row used to take.',
     },
     {
         panel: 'level-stepper',
@@ -192,18 +226,34 @@ export function applyPhaseChrome(root: ParentNode = document): PhaseChromeReport
             }
             for (const el of els) {
                 matched += 1;
-                const style = (el as HTMLElement).style;
-                if (shouldHide) {
-                    if (el.getAttribute(MARK) === null) {
-                        el.setAttribute(MARK, style.display || '');
-                        style.display = 'none';
-                        hidden += 1;
+                // §UX2-PANEL-SHELL — the element, plus its shell when the row declares one.
+                const targets: HTMLElement[] = [el as HTMLElement];
+                if (row.hideClosest) {
+                    const shell = (el as HTMLElement).closest(row.hideClosest);
+                    if (shell instanceof HTMLElement && shell !== el) targets.push(shell);
+                }
+                for (const t of targets) {
+                    const style = t.style;
+                    if (shouldHide) {
+                        // §UX2-REASSERT — the condition is "is it VISIBLE?", not "have I marked
+                        // it?". The old test was `getAttribute(MARK) === null`, which meant that
+                        // once ANOTHER module set `display` back — and `_makeVisible()` does
+                        // exactly that, unconditionally, on every `showViewProperties()` — this
+                        // controller saw its own stale mark, concluded it had already done the
+                        // job, and never hid it again. The panel came back and stayed back.
+                        // Marking is still once-only, so the ORIGINAL authored value is never
+                        // overwritten by a value some other module happened to leave behind.
+                        if (style.display !== 'none') {
+                            if (t.getAttribute(MARK) === null) t.setAttribute(MARK, style.display || '');
+                            style.display = 'none';
+                            hidden += 1;
+                        }
+                    } else if (t.getAttribute(MARK) !== null) {
+                        // Restore exactly what was there before, not a guessed value.
+                        style.display = t.getAttribute(MARK) ?? '';
+                        t.removeAttribute(MARK);
+                        shown += 1;
                     }
-                } else if (el.getAttribute(MARK) !== null) {
-                    // Restore exactly what was there before, not a guessed value.
-                    style.display = el.getAttribute(MARK) ?? '';
-                    el.removeAttribute(MARK);
-                    shown += 1;
                 }
             }
         }
@@ -217,6 +267,7 @@ let installed = false;
 let observer: MutationObserver | null = null;
 let disposePhaseSub: (() => void) | null = null;
 let disposeStateSub: (() => void) | null = null;
+let disposeLauncher: (() => void) | null = null;
 
 /**
  * Install the controller: apply now, on every phase change, and whenever chrome
@@ -241,6 +292,24 @@ export function installPhaseChrome(): () => void {
             console.warn('[phase-chrome] apply failed (non-fatal):', e);
         }
     };
+
+    // §UX2-REOPEN-SHIPS-WITH-CLOSE — install the reopen ROUTE here, in the same call
+    // that starts enforcing the closed state. This is a correctness property, not
+    // tidiness: `panelDefaults` flips `view-properties` to CLOSED on the canvas, and
+    // C82 §1.1 permits absence but never unreachability, so the close mechanism and
+    // the route back must not be separately installable. They were: the only
+    // `installViewPropertiesLauncher()` call in the tree lived in `GISAreaLayout.ts`,
+    // was UNCOMMITTED, and sat in a file another lane was mid-refactor in — so at HEAD
+    // the panel was closed by default with NOTHING that could reopen it, and
+    // `panelDefaults.spec.ts`'s reachability assertion was red saying so. Binding them
+    // here means that combination cannot be reconstructed by dropping one file.
+    // `installViewPropertiesLauncher` is idempotent, so the pre-existing caller (if it
+    // lands) is a harmless second call, not a double mount.
+    try {
+        disposeLauncher = installViewPropertiesLauncher();
+    } catch (e) {
+        console.warn('[phase-chrome] view-properties launcher failed to install:', e);
+    }
 
     apply();
     disposePhaseSub = onAppPhaseChanged(() => apply());
@@ -267,6 +336,8 @@ export function installPhaseChrome(): () => void {
         disposePhaseSub = null;
         try { disposeStateSub?.(); } catch { /* gone */ }
         disposeStateSub = null;
+        try { disposeLauncher?.(); } catch { /* gone */ }
+        disposeLauncher = null;
     };
 }
 
@@ -275,8 +346,10 @@ export function __resetPhaseChromeForTests(): void {
     try { observer?.disconnect(); } catch { /* gone */ }
     try { disposePhaseSub?.(); } catch { /* gone */ }
     try { disposeStateSub?.(); } catch { /* gone */ }
+    try { disposeLauncher?.(); } catch { /* gone */ }
     observer = null;
     disposePhaseSub = null;
     disposeStateSub = null;
+    disposeLauncher = null;
     installed = false;
 }

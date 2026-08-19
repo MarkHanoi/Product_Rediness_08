@@ -20,6 +20,8 @@ import {
 } from '../layout/phaseChrome';
 import {
     setAppPhase,
+    setPanelOpen,
+    panelState,
     __resetPanelSessionStateForTests,
 } from '../layout/panelDefaults';
 
@@ -71,18 +73,92 @@ describe('§UX1-PHASE-CHROME — the globe pass', () => {
 });
 
 describe('§UX1-PHASE-CHROME — reaching the canvas brings the chrome back', () => {
-    it('restores everything when the phase latches to canvas', () => {
+    it('restores everything the canvas OPENS — and leaves closed what the canvas closes', () => {
         applyPhaseChrome();
         setAppPhase('canvas');
         const report = applyPhaseChrome();
         expect(report.phase).toBe('canvas');
         expect(report.shown).toBeGreaterThan(0);
+        // §UX1-VP-DEFAULT-CLOSED — this used to assert "everything comes back", which
+        // was true only while every governed row was `open` on the canvas. It stopped
+        // being true when `view-properties` became `closed` there, and the assertion
+        // then demanded the exact regression the founder reported. The rule the
+        // controller actually implements is `panelState(row) !== 'open'` ⇒ hidden, so
+        // that is what is asserted — in BOTH directions, which is what makes it a test
+        // of the mechanism rather than a transcript of today's table.
         for (const row of PHASE_CHROME_SELECTORS) {
+            const wantHidden = panelState(row.panel) !== 'open';
             for (const sel of row.selectors) {
                 const el = document.querySelector(sel) as HTMLElement | null;
-                expect(el!.style.display, `${sel} stayed hidden on the canvas`).not.toBe('none');
+                expect(el, sel).not.toBeNull();
+                expect(
+                    el!.style.display === 'none',
+                    `${sel}: panelState=${panelState(row.panel)} but display=${el!.style.display}`,
+                ).toBe(wantHidden);
             }
         }
+    });
+
+    it('⭐ the reopen click brings View Properties back — the route C82 §1.1 requires', () => {
+        // `view-properties` being CLOSED on the canvas is only legal because there is
+        // a way back. That way is: launcher → `setPanelOpen` → `onPanelStateChanged`
+        // → this controller. Asserting the END of that chain is the point — a test
+        // that only checked `isPanelOpen` would pass with nothing on screen.
+        setAppPhase('canvas');
+        applyPhaseChrome();
+        const vp = document.querySelector('.vp-root') as HTMLElement;
+        expect(vp.style.display, 'View Properties did not start closed').toBe('none');
+
+        setPanelOpen('view-properties', true);
+        applyPhaseChrome();
+        expect(vp.style.display, 'the reopen route led nowhere').not.toBe('none');
+
+        setPanelOpen('view-properties', false);
+        applyPhaseChrome();
+        expect(vp.style.display, 'the launcher could not close it again').toBe('none');
+    });
+
+    it('⭐ hides the panel SHELL too, not just the section — no titled empty box', () => {
+        // §UX2-PANEL-SHELL. `showViewProperties()` builds
+        // `.gpp-panel > .gpp-header('VIEW PROPERTIES' + close) + .vp-root` and then sets
+        // display:block on the SHELL. Hiding only `.vp-root` left that header bar over
+        // an empty body — neither open nor closed.
+        const shell = document.createElement('div');
+        shell.className = 'gpp-panel';
+        const header = document.createElement('div');
+        header.className = 'gpp-header';
+        const vp = document.createElement('div');
+        vp.className = 'vp-root';
+        shell.appendChild(header);
+        shell.appendChild(vp);
+        document.body.appendChild(shell);
+
+        setAppPhase('canvas');
+        applyPhaseChrome();
+        expect(vp.style.display).toBe('none');
+        expect(shell.style.display, 'the VIEW PROPERTIES header bar survived the close').toBe('none');
+
+        setPanelOpen('view-properties', true);
+        applyPhaseChrome();
+        expect(shell.style.display, 'the shell did not come back with the section').not.toBe('none');
+        shell.remove();
+    });
+
+    it('⭐ RE-ASSERTS after another module turns the panel back on', () => {
+        // `PropertyPanel._makeVisible()` sets `display:block` on the shell every time
+        // `showViewProperties()` runs — which is every deselect. The old guard was
+        // "have I marked it?", so it saw its own stale mark, concluded the job was
+        // done, and never hid it again: one deselect and the closed panel was back for
+        // the rest of the session. The guard is now "is it visible?".
+        setAppPhase('canvas');
+        const vp = document.querySelector('.vp-root') as HTMLElement;
+        applyPhaseChrome();
+        expect(vp.style.display).toBe('none');
+
+        vp.style.display = 'block'; // another module, mid-session
+        const again = applyPhaseChrome();
+        expect(again.hidden, 'the re-assert pass hid nothing').toBeGreaterThan(0);
+        expect(vp.style.display, 'a foreign display write defeated the phase controller').toBe('none');
     });
 
     it('restores the AUTHORED display value, never a guessed one', () => {
