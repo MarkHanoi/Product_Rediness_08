@@ -82,6 +82,15 @@ import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
 // the pen. This service is the ONE place the fact crosses from the model into the drawing.
 import { resolveWallFunctionById, wallSystemTypeStore } from '@pryzm/geometry-wall';
 import { storeRegistry, ELEMENT_FUNCTION_KEY, type ElementFunction } from '@pryzm/core-app-model';
+// §ELEV-SYMBOL-OPENING (L-1240) — the TOTAL elevation basis (OBC's `orientTo` covers six
+// directions and fails OPEN on the rest), and the AUTHORED door/window elevation symbol that
+// replaces photographing the solid. See both modules' headers for the measured defect each
+// closes, and `OpeningElevationSymbol.probe.test.ts` for the dump that separated them.
+import {
+    elevationViewBasis,
+    elevationBasisRefusal,
+    openingElevationSymbolBuilder,
+} from '@pryzm/core-app-model';
 // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221) — plumbing fixtures (toilet/sink/bath/shower/
 // bidet/urinal/accessory) carry `skipInPlan`+`skipInElevation` on their meshes so the dense
 // LOD400 edge-dump is suppressed in the 2D views; these builders inject the clean AEC symbol
@@ -2282,7 +2291,55 @@ export class EdgeProjectorService {
 
         // Create a fresh TechnicalDrawing owned by the caller.
         const drawing = this._technicalDrawings.create(this._world);
-        drawing.orientTo(direction);
+
+        // ═══ §ELEV-SYMBOL-OPENING (L-1240) — ORIENT THE PICTURE PLANE EXACTLY, AT ANY ANGLE ═══
+        //
+        // This line used to be a bare `drawing.orientTo(direction)`. OBC's `orientTo` handles
+        // **six** directions and its final branch is `console.warn(… "does not match any of the
+        // 6 standard axes.")` — it WARNS AND LEAVES THE QUATERNION UNTOUCHED, which on a fresh
+        // drawing is the IDENTITY. `toDrawingSpace` then keeps `(x, z)` and discards `y`, i.e.
+        // it returns **the model's PLAN**, while `PlanViewCanvas.setSectionAxes(…, flipV=true)`
+        // has already decided it is drawing an elevation and reads `V = −z`.
+        //
+        // MEASURED (`OpeningElevationSymbol.probe.test.ts` case C): a window head — a HORIZONTAL
+        // LINE IN SPACE — in a wall bearing 30°, viewed along that wall's own normal, comes back
+        // at **30.00°**, and `v` is not a height at all. Tilting one way for +30° and the other
+        // for −30°: the founder's *"where the bottom and top are TRUE HORIZONTAL, we ANGLED
+        // them … some tilting left, some right"*, exactly.
+        //
+        // ⚠ Reachable today from a first-class tool: `SectionPlanToolHandler._commit` writes
+        // `projectionDirection: { x: tail.x, y: 0, z: tail.z }` from the tail the USER DREW, at
+        // any angle, and `getDirectionForView` returns that explicit direction for `'elevation'`
+        // as well as `'section'`. The stock four elevations survived only because every
+        // generator emits N/S/E/W.
+        //
+        // ⭐ SAFETY: `elevationViewBasis` reproduces OBC's four horizontal cardinal quaternions
+        // **BYTE-IDENTICALLY** — asserted against the real `orientTo` in `ElevationViewBasis.test.ts`
+        // §A, including a point-for-point comparison through the real `toDrawingSpace`. So on
+        // every view that works today this cannot move a single line; it only fixes the views
+        // that were silently drawing a plan.
+        const _elevBasis = (viewDef.viewType === 'section' || isElevationView)
+            ? elevationViewBasis(direction)
+            : null;
+        if (_elevBasis) {
+            drawing.three.quaternion.set(
+                _elevBasis.quaternion[0], _elevBasis.quaternion[1],
+                _elevBasis.quaternion[2], _elevBasis.quaternion[3],
+            );
+            drawing.three.updateMatrixWorld(true);
+        } else {
+            // Plans, ceiling plans and 3-D keep OBC's own orientation — their directions ARE
+            // cardinal (±Y) and `elevationViewBasis` correctly refuses a vertical direction
+            // rather than inventing a horizontal one for it.
+            if (viewDef.viewType === 'section' || isElevationView) {
+                const r = elevationBasisRefusal(direction);
+                console.warn(
+                    `[EdgeProjectorService] §ELEV-SYMBOL-OPENING view ${viewDef.id} REFUSED an `
+                    + `elevation basis (${r.code}): ${r.reason}. ${r.alternative}`,
+                );
+            }
+            drawing.orientTo(direction);
+        }
 
         // ── Base projection layers ────────────────────────────────────────────
         // DOC-1.13: Create named layers BEFORE calling addProjectionLines().
@@ -3547,6 +3604,24 @@ export class EdgeProjectorService {
         // occlusion + HLR passes so injected linework is occlusion-tested like any other.
         if (isElevationView) {
             plumbingElevationSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §ELEV-SYMBOL-OPENING (L-1240) — the AUTHORED door/window elevation symbol.
+        //
+        // Until now an opening in elevation was `EdgesGeometry(mesh.geometry)` — the SOLID's
+        // wireframe, both faces, depth edges between — because `symbolicRuleForLayer()` opened
+        // `if (viewType !== 'plan') return null;` and its rule table held only the two plan
+        // keys. `SymbolicRuleRenderer`'s own line 241 said so: *"BEYOND door/window linework is
+        // projected silhouette, not an authored symbol."* This injects the symbol the drawing
+        // never had: the opening SET OUT from its own record through `openingOutline` — the one
+        // producer C86 §10.1 PR-1 mandates, so a circular window is the same curve the wall was
+        // cut with — head and sill horizontal BY CONSTRUCTION, on zone-suffixed layers so the
+        // pen ladder and per-element overrides reach it.
+        //
+        // Placed beside the plumbing builder, and for the same stated reason: BEFORE the
+        // occlusion + HLR passes, so injected linework is occlusion-tested like any other.
+        if (isElevationView) {
+            openingElevationSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — Contract 23 §9 / C09 §4.6.5.

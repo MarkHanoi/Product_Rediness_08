@@ -768,6 +768,27 @@ export {
     elementTypeForSymbolLayer,
 } from './drawing/SymbolicRuleRenderer.js';
 
+// §ELEV-SYMBOL-OPENING (L-1240) — the total elevation basis + the authored opening symbol.
+export type {
+    ElevationViewBasis,
+    ElevationBasisRefusal,
+    ElevationSymbolHost,
+    ElevationSymbolOpening,
+    ElevationSymbolPolyline,
+    ElevationSymbolRefusal,
+    ElevationSymbolResult,
+} from './drawing/index.js';
+export {
+    elevationViewBasis,
+    elevationBasisRefusal,
+    projectToElevation,
+    buildOpeningElevationSymbol,
+    nearFaceSign,
+    openingElevationSymbolBuilder,
+    DOOR_SYM_LAYER,
+    GLAZ_SYM_LAYER,
+} from './drawing/index.js';
+
 // ── Sprint K (2026-05-10) — comparison/ + remediation/ ────────────────────────
 export type {
     DeltaStatus,

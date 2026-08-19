@@ -161,3 +161,46 @@ export {
     symbolicRuleForLayer,
     elementTypeForSymbolLayer,
 } from './SymbolicRuleRenderer.js';
+
+// §ELEV-SYMBOL-OPENING (L-1240) — the AUTHORED door/window elevation symbol, and the total
+// orthographic basis that makes its head and sill draw horizontal at EVERY view angle rather
+// than at six of them. See both modules' headers for the measured defect each closes.
+export type {
+    Vec3,
+    DrawingHV,
+    ElevationViewBasis,
+    ElevationBasisRefusal,
+} from './ElevationViewBasis.js';
+export {
+    MIN_HORIZONTAL_COMPONENT,
+    OBC_CARDINAL_QUATERNIONS,
+    elevationViewBasis,
+    elevationBasisRefusal,
+    projectToElevation,
+    elevationDepthOf,
+} from './ElevationViewBasis.js';
+
+export type {
+    PlanPoint,
+    ElevationSymbolHost,
+    ElevationSymbolOpening,
+    ElevationSymbolOptions,
+    ElevationSymbolPolyline,
+    ElevationSymbolRefusal,
+    ElevationSymbolResult,
+    ElevationSymbolRole,
+    SymbolDetail,
+} from './OpeningElevationSymbol.js';
+export {
+    DEFAULT_FRAME_WIDTH_M,
+    buildOpeningElevationSymbol,
+    nearFaceSign,
+} from './OpeningElevationSymbol.js';
+
+export type { ElevationSymbolViewDef, InjectResult } from './OpeningElevationSymbolBuilder.js';
+export {
+    DOOR_SYM_LAYER,
+    GLAZ_SYM_LAYER,
+    OpeningElevationSymbolBuilder,
+    openingElevationSymbolBuilder,
+} from './OpeningElevationSymbolBuilder.js';

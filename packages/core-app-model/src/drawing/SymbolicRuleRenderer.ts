@@ -172,6 +172,40 @@ const SYMBOL_RENDERERS: Record<string, SymbolRenderFn> = {
     'plan-window-cased': (ctx, segments, pen) => {
         _renderSegmentsWithPen(ctx, segments, pen);
     },
+
+    /**
+     * 'elev-window' — the AUTHORED window elevation symbol (§ELEV-SYMBOL-OPENING, L-1240).
+     *
+     * Geometry is injected by `OpeningElevationSymbolBuilder.inject()`, which sets the opening
+     * out from its own record through `OpeningElevationSymbol.buildOpeningElevationSymbol()` —
+     * head and sill horizontal BY CONSTRUCTION, profile-driven, on the true world plane of the
+     * void's face. This renderer only strokes it with the pen the caller resolved.
+     *
+     * ⚠ **STATED NARROWLY SO IT IS NOT OVERSOLD.** Registering this key does NOT, by itself,
+     * change any pen: the elevation path never had the L-280 bypass — `symbolicRuleForLayer()`
+     * declined every non-plan view, so elevation opening linework has always gone down the
+     * GENERIC path, which already resolves the pen through the full Contract-23 §7.1 chain from
+     * the segment's real zone. What the key buys is dispatch: the drawing can now SAY what an
+     * opening is in elevation, the C25a §3.4 extensibility contract covers both view families
+     * rather than one, and a symbol-specific stroke treatment has a place to live that is not a
+     * second pen authority.
+     */
+    'elev-window': (ctx, segments, pen) => {
+        _renderSegmentsWithPen(ctx, segments, pen);
+    },
+
+    /**
+     * 'elev-door' — the AUTHORED door elevation symbol (§ELEV-SYMBOL-OPENING, L-1240).
+     *
+     * Same seam as 'elev-window'. The door's extra content — the meeting stile of a double leaf
+     * and the EN ISO 7519 swing chevrons — arrives here as ordinary segments on their own ZONE:
+     * a leaf that opens away carries `hidden`, the one zone that dashes (C09 §4.6.0), so the
+     * dashed convention is expressed through the ladder and never by this module choosing a
+     * dash array. That is the L-280 rule restated: the pen is an INPUT here, not a decision.
+     */
+    'elev-door': (ctx, segments, pen) => {
+        _renderSegmentsWithPen(ctx, segments, pen);
+    },
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -231,8 +265,30 @@ export function renderSymbol(
  * @param viewType The active view type.
  */
 export function symbolicRuleForLayer(layerTag: string, viewType: string): string | null {
-    if (viewType !== 'plan') return null;
     const tag = layerTag.trim();
+
+    // ═══ §ELEV-SYMBOL-OPENING (L-1240) — THE ELEVATION ARM ═══════════════════════
+    //
+    // This function used to open `if (viewType !== 'plan') return null;`. That one line was the
+    // whole of *"there is no elevation symbol for a door or a window"*: every non-plan view fell
+    // straight through to the generic path, where an opening is `EdgesGeometry(mesh.geometry)`
+    // — the SOLID's wireframe, both faces, plus the depth edges joining them. This module's own
+    // line 4 said so (*"in Canvas2D **plan** views"*) and line 241 named the consequence
+    // (*"projected silhouette, not an authored symbol"*).
+    //
+    // The `-SYM` suffix is what makes the arm SAFE rather than a widening. Only linework that
+    // `OpeningElevationSymbolBuilder` INJECTED carries it; the host wall's own projected
+    // linework on `A-GLAZ:proj` does not, and keeps its existing generic path byte-identical.
+    // So this cannot re-route a single line that exists today — it can only route lines that
+    // did not exist before it.
+    if (viewType === 'elevation' || viewType === 'building-elevation' || viewType === 'section') {
+        if (!/-SYM\b/i.test(tag)) return null;
+        if (/A-DOOR|door/i.test(tag)) return 'elev-door';
+        if (/A-GLAZ|window|curtain-panel/i.test(tag)) return 'elev-window';
+        return null;
+    }
+
+    if (viewType !== 'plan') return null;
     // §FIX-WINDOW-PLAN-FRAME-THICKNESS (L-280) — NOTE what these two declines now do, and what
     // they NO LONGER do. They select which RENDERER runs; they no longer select a STYLE, because
     // there is only one pen authority left (the caller's `SymbolPen`) and every zone — including
