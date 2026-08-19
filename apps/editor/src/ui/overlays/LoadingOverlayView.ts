@@ -414,7 +414,10 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                    surface behind (C84 EI-8/EI-9 — one vocabulary). The fallback is the OLD value,
                    so a surface that never loads the app sheet degrades to the previous look
                    rather than to nothing. ⚠ See the token's note: the ground is only HALF the
-                   fix — the prism's own alpha is the lever that makes the mark visible. */
+                   fix — the prism's own alpha is the lever that makes the mark visible.
+                   §UX3-LOADING-GROUND-2 — the FIFTH ruling ("darker grey than that"): the token
+                   moved again, #C8C2DE → #B2A8C7, and because it IS a token this file did not
+                   change for it. The token's note records why 72% lightness is the floor. */
                 background: var(--pryzm-loading-ground, #ECEAF3);
                 backdrop-filter: blur(8px);
                 -webkit-backdrop-filter: blur(8px);
@@ -513,18 +516,22 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 flex: 1;
                 height: 3px;
                 /* §UX2-LOADING-GROUND — 0.14 composited to 1.26:1 on the darker ground, so
-                   the unfilled track vanished into it. 0.30 reads without competing with the
-                   filled bar. */
-                background: rgba(102, 0, 255, 0.30);
+                   the unfilled track vanished into it. 0.30 read without competing with the
+                   filled bar. §UX3-LOADING-GROUND-2 — on #B2A8C7 that 0.30 composite fell to
+                   1.56:1; 0.45 restores it to 1.94:1. Deliberately a subdued rail (the FILLED
+                   bar carries the meaning at ≥3:1), so it is measured, not pushed to 3:1. */
+                background: rgba(102, 0, 255, 0.45);
                 border-radius: 999px;
                 overflow: hidden;
             }
             .pryzm-loading-overlay__bar {
                 height: 100%;
                 width: 0%;
-                /* §UX2-LOADING-GROUND — the old light end (#8B5CF6) read 2.47:1 on the new
-                   ground, under SC 1.4.11's 3:1 for a meaningful graphic. Both ends now clear
-                   it (#6600FF 4.06:1 · #4A00B8 6.17:1) and the gradient survives. */
+                /* §UX2-LOADING-GROUND — the old light end (#8B5CF6) read 2.47:1 on #C8C2DE,
+                   under SC 1.4.11's 3:1 for a meaningful graphic; both ends were moved to clear
+                   it. §UX3-LOADING-GROUND-2 — re-measured on #B2A8C7: #6600FF 3.10:1 ·
+                   #4A00B8 4.70:1, both still clear. The light end being THE brand purple at
+                   3.10:1 is exactly what caps the ground at 72% lightness — see the token. */
                 background: linear-gradient(90deg, #6600FF 0%, #4A00B8 100%);
                 border-radius: inherit;
                 box-shadow: 0 0 8px rgba(102, 0, 255, 0.40);
@@ -535,7 +542,9 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 text-align: right;
                 font-size: 11px;
                 font-weight: 600;
-                /* §UX2-LOADING-GROUND — #6600FF is 4.06:1 here, under AA at 11px. */
+                /* §UX2-LOADING-GROUND — #6600FF read 4.06:1 on #C8C2DE, under AA at 11px,
+                   which is why this is the accent TOKEN (retuned per ground; #4700b3 is
+                   4.86:1 on the current #B2A8C7). */
                 color: var(--pryzm-loading-accent, #6600FF);
                 letter-spacing: 0.02em;
                 font-variant-numeric: tabular-nums;
@@ -556,9 +565,10 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             }
             .pryzm-loading-overlay__btn {
                 appearance: none;
-                /* §UX2-LOADING-GROUND — a white fill is only 1.72:1 against the new ground,
-                   so the BORDER is what bounds the control (SC 1.4.11). #ece7fb could not do
-                   that on any ground; the accent can. */
+                /* §UX2-LOADING-GROUND — a white fill alone cannot bound this control
+                   (1.72:1 on #C8C2DE, 2.25:1 on the current #B2A8C7 — both under 3:1), so
+                   the BORDER is what bounds it (SC 1.4.11). #ece7fb could not do that on any
+                   ground; the accent can. */
                 border: 1px solid var(--pryzm-loading-accent, #6600FF);
                 background: #ffffff;
                 color: var(--pryzm-loading-accent, #6600FF);

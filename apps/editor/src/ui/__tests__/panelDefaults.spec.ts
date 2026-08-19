@@ -39,6 +39,9 @@ import {
     setPanelOpen,
     resetPanelLayout,
     onPanelLayoutReset,
+    onPanelStateChanged,
+    pushLoadingChromeGate,
+    loadingChromeGateActive,
     __resetPanelSessionStateForTests,
     type PanelId,
 } from '../layout/panelDefaults';
@@ -367,5 +370,75 @@ describe('§UX1-PANEL-DEFAULTS — the persistence rule is the DECLARED one', ()
         for (const sink of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie']) {
             expect(src.includes(sink), `panelDefaults reaches ${sink} — see the D2 rule in its header`).toBe(false);
         }
+    });
+});
+
+describe('§UX3-LOADING-CHROME — the blocking-loading gate', () => {
+    const PILL: PanelId = 'renderer-backend-toggle';
+
+    it('closes the GPU pill on the canvas while a loading surface is up, and returns it after', () => {
+        setAppPhase('canvas');
+        expect(panelState(PILL)).toBe('open');
+        const release = pushLoadingChromeGate();
+        expect(loadingChromeGateActive()).toBe(true);
+        expect(panelState(PILL)).toBe('closed');
+        release();
+        expect(loadingChromeGateActive()).toBe(false);
+        expect(panelState(PILL)).toBe('open');
+    });
+
+    it('is ref-counted across owners, and a double release cannot free someone else’s hold', () => {
+        // The overlay controller and the engine boot overlay can BOTH be up
+        // (§FIX-OVERLAY-DUP-ID) — a boolean set by two owners un-sets early.
+        setAppPhase('canvas');
+        const r1 = pushLoadingChromeGate();
+        const r2 = pushLoadingChromeGate();
+        r1();
+        r1(); // second release of the SAME hold — must be a no-op
+        expect(panelState(PILL), 'r1 released r2’s hold').toBe('closed');
+        r2();
+        expect(panelState(PILL)).toBe('open');
+    });
+
+    it('outranks a session override — nothing the user "opened" floats over a blocking overlay', () => {
+        setAppPhase('canvas');
+        const release = pushLoadingChromeGate();
+        setPanelOpen(PILL, true);
+        expect(panelState(PILL)).toBe('closed');
+        release();
+        expect(panelState(PILL)).toBe('open');
+    });
+
+    it('absent still wins: on the globe the pill is absent, gated or not', () => {
+        const release = pushLoadingChromeGate();
+        expect(panelState(PILL)).toBe('absent');
+        release();
+    });
+
+    it('⭐ the screenshot race: a gate acquired BEFORE the canvas flip survives it', () => {
+        // The founder’s screenshot: "Generating your model · 186 / 333" with the
+        // pill floating over it. A setPanelOpen-based suppression dies exactly
+        // here — the globe→canvas flip clears session overrides mid-generation
+        // and the pill comes back under the overlay. The gate is not an override.
+        const release = pushLoadingChromeGate();
+        setAppPhase('canvas');
+        expect(panelState(PILL), 'the phase flip re-showed the pill under the overlay').toBe('closed');
+        release();
+        expect(panelState(PILL)).toBe('open');
+    });
+
+    it('notifies state listeners on the 0↔1 transitions only — the applier re-runs, but never loops', () => {
+        setAppPhase('canvas');
+        const seen: PanelId[] = [];
+        const dispose = onPanelStateChanged((id) => seen.push(id));
+        const r1 = pushLoadingChromeGate();
+        expect(seen).toContain(PILL);
+        const afterFirst = seen.length;
+        const r2 = pushLoadingChromeGate(); // 1→2: no new notification
+        r1();                               // 2→1: no new notification
+        expect(seen.length).toBe(afterFirst);
+        r2();                               // 1→0: notifies again
+        expect(seen.length).toBeGreaterThan(afterFirst);
+        dispose();
     });
 });

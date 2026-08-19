@@ -200,16 +200,23 @@ function ensurePryzmSpinnerStyles(): void {
          * — THE ALPHA IS THE LEVER, and this is the measurement that says so.
          * A face is white COMPOSITED with the ground, so it darkens in step with the
          * ground and darkening the backdrop alone barely moves it: on the old
-         * #ECEAF3 the strongest face read 1.05:1 against its own ground and on the
-         * new #C8C2DE it reads 1.18:1 — both invisible. Raising the front face to
-         * 0.88 takes it to 1.62:1, which is the visible change.
+         * #ECEAF3 the strongest face read 1.05:1 against its own ground and on
+         * #C8C2DE it reads 1.18:1 — both invisible. Raising the front face to
+         * 0.88 took it to 1.62:1, which was the visible change.
          *
-         * ⚠ STATED, NOT PAPERED OVER: 1.62:1 is still BELOW SC 1.4.11's 3:1 for a
-         * meaningful graphic, and no value can fix that here — a FULLY OPAQUE white
-         * prism reaches only 1.72:1 on a ground light enough to carry this screen's
-         * text. Closing that gap needs the mark to stop being white-on-light (a
-         * purple stroke, or a purple mark), which is a brand decision and not one
-         * this lane may take unilaterally.
+         * §UX3-LOADING-GROUND-2 (founder, same day: "keep the prism rotating white,
+         * MORE WHITE") — both levers again, together: the ground token darkened to
+         * #B2A8C7 and the FRONT FACE is now fully opaque white (1.0), the other
+         * three scaled to keep §UX2's inter-face ratios. Measured: front 2.25:1 ·
+         * left 1.88 · right 1.64 · back 1.46 against the current ground.
+         *
+         * ⚠ STATED, NOT PAPERED OVER: 2.25:1 is still BELOW SC 1.4.11's 3:1 for a
+         * meaningful graphic, and no alpha can fix that here — the front face IS
+         * opaque white now, so its contrast is purely the ground's, and a ground
+         * dark enough for 3:1 (lum ≤ 0.30) can no longer carry this screen's dark
+         * text or its brand-purple bar. Closing that gap needs the mark to stop
+         * being white-on-light (a purple stroke, or a purple mark), which is a
+         * brand decision and not one this lane may take unilaterally.
          *
          * Authored as TOKENS with the OLD values as fallbacks: this spinner is shared
          * (RendererSwapOverlay / EngineLoadingOverlay), so a surface that does not

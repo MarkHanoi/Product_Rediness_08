@@ -15,7 +15,7 @@
  *      not an eternal spinner. And the input gate is RELEASED on every exit path.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     LoadingOverlayController,
     type LoadingOverlaySurface,
@@ -31,6 +31,11 @@ import {
     VIEW_ACTIVATION_STALL_MS,
 } from '../src/ui/overlays/loadingProgress';
 import { beginViewActivationLoading } from '../src/ui/geospatial/viewActivationLoading';
+import { loadingChromeGateActive, __resetPanelSessionStateForTests } from '../src/ui/layout/panelDefaults';
+
+// §UX3-LOADING-CHROME — sessions in OTHER tests acquire/release the chrome gate as a
+// side effect now; start each test from a clean gate so no leaked hold crosses tests.
+beforeEach(() => { __resetPanelSessionStateForTests(); });
 
 // ── a fake surface (no DOM) that records what the user would actually see ──────
 function makeFakeSurface() {
@@ -168,6 +173,23 @@ describe('L-270 · LoadingOverlayController — one overlay, N producers', () =>
         view.end();
         expect(state.visible).toBe(false);
         expect(state.hides).toBe(1);
+    });
+
+    it('§UX3-LOADING-CHROME — holds the chrome gate first-begin → last-end, mirroring the stack', () => {
+        // The wire, not just the table: begin() must actually acquire
+        // pushLoadingChromeGate (this is how the GPU pill leaves the
+        // "Generating your model" screen), and only the LAST end() releases it.
+        const { surface } = makeFakeSurface();
+        const overlay = new LoadingOverlayController(() => surface);
+        expect(loadingChromeGateActive()).toBe(false);
+
+        const view = overlay.begin('view-activation:globe', { title: 'Opening the 3D globe' });
+        expect(loadingChromeGateActive()).toBe(true);
+        const batch = overlay.begin('batch', { title: 'Generating your model' });
+        batch.end();
+        expect(loadingChromeGateActive(), 'a producer ending mid-load released the chrome gate').toBe(true);
+        view.end();
+        expect(loadingChromeGateActive()).toBe(false);
     });
 
     it('surfaces a failure with escape actions and keeps the gate until the user acts', () => {

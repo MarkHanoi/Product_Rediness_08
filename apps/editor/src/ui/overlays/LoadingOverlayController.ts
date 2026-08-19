@@ -30,6 +30,12 @@
 
 import { LoadingOverlayView } from './LoadingOverlayView';
 import type { LoadingOverlayAction, LoadingOverlaySurface } from './LoadingOverlayView';
+// §UX3-LOADING-CHROME — while this overlay is up, editor chrome that outranks its
+// input gate (the GPU pill, z 2147483000 vs the backdrop's 88880) must come off
+// screen. The DECISION lives in panelDefaults (`hiddenWhileLoading`), the DOM is
+// applied by phaseChrome; this controller only declares the moment, because it is
+// the one place that knows when the FIRST session opens and the LAST one ends.
+import { pushLoadingChromeGate } from '../layout/panelDefaults';
 
 export interface LoadingSessionOptions {
     /** The bold headline — "Generating your model", "Opening the 3D globe". */
@@ -68,6 +74,8 @@ interface SessionRecord {
 export class LoadingOverlayController {
     private surface: LoadingOverlaySurface | null = null;
     private readonly stack: SessionRecord[] = [];
+    /** §UX3-LOADING-CHROME — held from the first begin() to the last end(). */
+    private releaseChromeGate: (() => void) | null = null;
 
     constructor(private readonly surfaceFactory: () => LoadingOverlaySurface) {}
 
@@ -98,7 +106,13 @@ export class LoadingOverlayController {
         this.stack.push(record);
 
         const surface = this.ensureSurface();
-        if (first) surface.show({ title: record.title, label: record.label });
+        if (first) {
+            // §UX3-LOADING-CHROME — acquired with the FIRST session, not per session:
+            // the stack is the ref-count, the gate mirrors it. Failure to gate must
+            // never block the overlay itself (the overlay is the more important half).
+            try { this.releaseChromeGate = pushLoadingChromeGate(); } catch { /* non-fatal chrome */ }
+            surface.show({ title: record.title, label: record.label });
+        }
         this.repaint();
 
         const controller = this;
@@ -166,8 +180,11 @@ export class LoadingOverlayController {
         const i = this.stack.indexOf(record);
         if (i >= 0) this.stack.splice(i, 1);
         if (this.stack.length === 0) {
-            // The LAST producer finished — and only then does the overlay come down.
+            // The LAST producer finished — and only then does the overlay come down,
+            // and only then does the suppressed editor chrome come back.
             this.surface?.hide();
+            try { this.releaseChromeGate?.(); } catch { /* non-fatal chrome */ }
+            this.releaseChromeGate = null;
             return;
         }
         this.repaint();

@@ -22,6 +22,7 @@ import {
     setAppPhase,
     setPanelOpen,
     panelState,
+    pushLoadingChromeGate,
     __resetPanelSessionStateForTests,
 } from '../layout/panelDefaults';
 
@@ -269,5 +270,40 @@ describe('§UX1-PHASE-CHROME — installation', () => {
             expect(row.note.length, `${row.panel} has no stated rationale`).toBeGreaterThan(60);
             expect(row.selectors.length, `${row.panel} has no selectors`).toBeGreaterThan(0);
         }
+    });
+});
+
+describe('§UX3-LOADING-CHROME — the loading gate reaches the DOM', () => {
+    it('hides the mounted GPU pill while a loading surface holds the gate, and restores it after', () => {
+        setAppPhase('canvas');
+        const dispose = installPhaseChrome();
+        const pill = document.getElementById('pryzm-renderer-backend-toggle') as HTMLElement;
+        expect(pill.style.display, 'the pill belongs on the canvas when nothing is loading').not.toBe('none');
+
+        // The gate change must reach the pixels through onPanelStateChanged —
+        // no manual applyPhaseChrome() here, or this proves the table, not the wire.
+        const release = pushLoadingChromeGate();
+        expect(pill.style.display, 'the pill floated over the loading overlay').toBe('none');
+        release();
+        expect(pill.style.display, 'the pill did not come back after the last session ended').not.toBe('none');
+        dispose();
+    });
+
+    it('⭐ the screenshot race: generation begins on the globe, the canvas is reached mid-load', () => {
+        // "Generating your model · 186 / 333 elements" with the GPU pill bottom-left:
+        // the phase flips to canvas WHILE the overlay is up, and the flip clears
+        // session overrides — so anything override-based re-shows the pill exactly
+        // then. The gate must hold straight through the flip.
+        const dispose = installPhaseChrome();
+        const pill = document.getElementById('pryzm-renderer-backend-toggle') as HTMLElement;
+        const release = pushLoadingChromeGate();
+        expect(pill.style.display).toBe('none'); // absent on the globe anyway
+
+        setAppPhase('canvas');
+        expect(pill.style.display, 'the canvas flip re-showed the pill under the overlay').toBe('none');
+
+        release();
+        expect(pill.style.display, 'the pill must return once loading ends').not.toBe('none');
+        dispose();
     });
 });

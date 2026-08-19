@@ -127,7 +127,10 @@ export const PHASE_CHROME_SELECTORS: readonly PhaseChromeRow[] = [
             'The WebGPU/WebGL escape hatch. HIDE rather than skip-mount deliberately: the toggle ' +
             'reads and writes a persisted backend preference at mount, and not mounting it would ' +
             'change more than its visibility. Hiding it on the globe costs nothing — the globe is ' +
-            'Cesium and never goes through the swap path this pill drives.',
+            'Cesium and never goes through the swap path this pill drives. §UX3-LOADING-CHROME: ' +
+            'the same row also takes it off screen while a blocking loading overlay is up — that ' +
+            'flows through panelState (the row is `hiddenWhileLoading` and the overlays hold ' +
+            '`pushLoadingChromeGate`), so this selector needs no second entry for it.',
     },
     {
         panel: 'view-properties-launcher',

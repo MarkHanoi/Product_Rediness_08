@@ -27,6 +27,11 @@
 
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { createPryzmLogoSpinner } from '../overlays/PryzmLogoSpinner';
+// §UX3-LOADING-CHROME — the GPU pill (z 2147483000) floats ABOVE this overlay
+// (z 99999) and initScene mounts it mid-boot, so without the gate it appears
+// over the boot screen. Same mechanism as LoadingOverlayController: declare the
+// moment; panelDefaults owns the decision, phaseChrome applies it.
+import { pushLoadingChromeGate } from '../layout/panelDefaults';
 
 const STAGES: { label: string; durationMs: number }[] = [
     { label: 'Downloading BIM engine…',   durationMs: 6000 },
@@ -64,6 +69,10 @@ export class EngineLoadingOverlay {
     private rafHandle: TickListenerDisposer | null = null;
     /** §FIX-OVERLAY-DUP-ID — unique per instance; never collides across overlays. */
     private readonly tickId = `engine-loading-progress-${++_overlayTickSeq}`;
+    /** §UX3-LOADING-CHROME — held while this instance is visibly up. The gate is a
+     *  COUNTER in panelDefaults, so two live instances (§FIX-OVERLAY-DUP-ID) never
+     *  release each other's hold. */
+    private releaseChromeGate: (() => void) | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -81,6 +90,12 @@ export class EngineLoadingOverlay {
         // calls addTickListener('engine-loading-progress', ...) while the previous
         // listener is still registered, causing a duplicate-ID throw that aborts bootstrap.
         this.stopProgressTimers();
+        // §UX3-LOADING-CHROME — suppress overlay-hostile editor chrome (the GPU pill)
+        // for as long as this boot screen is up. Idempotent per instance; must never
+        // block the overlay itself.
+        if (!this.releaseChromeGate) {
+            try { this.releaseChromeGate = pushLoadingChromeGate(); } catch { /* non-fatal chrome */ }
+        }
         this.el.style.display = 'flex';
         void this.el.offsetHeight;
         this.el.style.opacity = '1';
@@ -109,12 +124,19 @@ export class EngineLoadingOverlay {
             this.stageLabel.classList.add('pryzm-loader-ready');
         }
         const el = this.el;
+        // §UX3-LOADING-CHROME — release when the overlay is actually GONE, not at the
+        // start of its 1.3 s fade, so the pill never fades back in over the boot
+        // screen's exit. Captured locally: `this.el` is nulled below and a second
+        // hide() must not double-release (the release is idempotent anyway).
+        const releaseGate = this.releaseChromeGate;
+        this.releaseChromeGate = null;
         setTimeout(() => {
             el.style.transition = 'opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1)';
             el.style.opacity = '0';
             setTimeout(() => {
                 el.remove();
                 // CSS animation stops automatically when element leaves DOM.
+                try { releaseGate?.(); } catch { /* non-fatal chrome */ }
             }, 750);
         }, 520);
         this.el = null;

@@ -152,6 +152,28 @@ export interface PanelDescriptor {
      * panel `closed` there, and the capability is gone with nothing to notice.
      */
     readonly reopenHost: PanelId | 'self' | null;
+    /**
+     * §UX3-LOADING-CHROME — TRUE ⇒ this surface is additionally hidden while a
+     * FULL-SCREEN BLOCKING LOADING OVERLAY is up ("Generating your model", the
+     * engine boot screen), in whatever phase.
+     *
+     * Why this is a column here and not an `if` at the overlay: the founder's
+     * 2026-08-19 screenshot shows the GPU pill floating over "Generating your
+     * model · 186 / 333 elements". The pill's row says `open` on the canvas and
+     * that is CORRECT — the loading overlay is not a phase (it is transient and
+     * ref-counted, phases are a one-way latch), but it IS a moment where editor
+     * chrome does not belong, and worse: the pill's z-index (2147483000) is ABOVE
+     * the overlay's input gate (z 88880), so a "hidden" overlay-hostile pill is
+     * not merely clutter, it is a live GPU-swap control CLICKABLE mid-generation.
+     *
+     * The gate itself is {@link pushLoadingChromeGate} — ref-counted, acquired by
+     * the loading surfaces, applied by `phaseChrome` through the same
+     * {@link panelState} answer as everything else. A one-shot `setPanelOpen`
+     * from the overlay would NOT work: session overrides are cleared on the
+     * globe→canvas phase flip, which can land mid-generation and would re-show
+     * the pill under the overlay — the exact screenshot.
+     */
+    readonly hiddenWhileLoading?: boolean;
     /** Why these defaults. Prose, because the reason is the point of the table. */
     readonly why: string;
 }
@@ -298,13 +320,18 @@ export const PANEL_REGISTRY: readonly PanelDescriptor[] = [
         essential: false,
         reopen: '',
         reopenHost: null,
+        hiddenWhileLoading: true,
         why:
             'The WebGPU/WebGL escape hatch (ADR-0076/0077): on a machine where device-loss kills ' +
             'the renderer, this pill is how the user gets back to a working viewport. That hazard ' +
             'is a property of the THREE.js BIM canvas — the globe is Cesium and does not go ' +
             'through the swap path — so the hatch is absent exactly where it cannot help and ' +
             'present exactly where it can. It is deliberately NOT hidden on the canvas: putting ' +
-            'the escape hatch behind a panel that needs a working renderer is a bootstrap trap.',
+            'the escape hatch behind a panel that needs a working renderer is a bootstrap trap. ' +
+            '§UX3-LOADING-CHROME: it IS hidden while a blocking loading overlay is up — it is ' +
+            'editor chrome, not loading chrome, and its z-index sits above the overlay’s input ' +
+            'gate, so left visible it is a live GPU-swap control clickable mid-generation. It ' +
+            'returns the moment the last loading session ends.',
     },
     {
         id: 'viewport',
@@ -562,10 +589,67 @@ export function panelsNeedingReopen(): readonly PanelDescriptor[] {
  */
 const sessionOverride = new Map<PanelId, boolean>();
 
-/** The live state of a panel: `absent` always wins; otherwise override, else table. */
+// ─────────────────────────────────────────────────────────────────────────────
+// §UX3-LOADING-CHROME — the blocking-loading gate
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * How many full-screen blocking loading surfaces are currently up. A COUNTER,
+ * not a boolean, deliberately: the loading overlay controller ref-counts N
+ * producers over one surface, and the engine boot overlay is a SEPARATE
+ * instance that can be alive at the same time (§FIX-OVERLAY-DUP-ID) — a boolean
+ * set by two owners un-sets early, which is exactly the half-released state a
+ * counter exists to forbid.
+ */
+let loadingGateDepth = 0;
+
+/** TRUE while ≥1 blocking loading surface is up. */
+export function loadingChromeGateActive(): boolean {
+    return loadingGateDepth > 0;
+}
+
+/**
+ * Declare "a full-screen blocking loading surface is now up". Returns a RELEASE
+ * function; releasing twice is a no-op (the overlay's hide paths overlap —
+ * error auto-dismiss, explicit hide — and the second must not decrement someone
+ * else's hold). While the depth is > 0, every row with `hiddenWhileLoading`
+ * answers `closed` from {@link panelState}, and the state listeners are told on
+ * the 0↔1 transitions so the DOM applier re-runs.
+ *
+ * NOT a session override on purpose — see {@link PanelDescriptor.hiddenWhileLoading}:
+ * overrides are cleared on the phase flip, which can land mid-generation.
+ */
+export function pushLoadingChromeGate(): () => void {
+    loadingGateDepth += 1;
+    if (loadingGateDepth === 1) notifyLoadingGatedRows();
+    let released = false;
+    return () => {
+        if (released) return;
+        released = true;
+        loadingGateDepth = Math.max(0, loadingGateDepth - 1);
+        if (loadingGateDepth === 0) notifyLoadingGatedRows();
+    };
+}
+
+/** Tell the applier that every loading-gated row may have changed state. */
+function notifyLoadingGatedRows(): void {
+    for (const p of PANEL_REGISTRY) {
+        if (p.hiddenWhileLoading !== true) continue;
+        for (const cb of [...stateListeners]) {
+            try { cb(p.id); } catch (e) { console.warn('[panelDefaults] state listener threw (non-fatal):', e); }
+        }
+    }
+}
+
+/**
+ * The live state of a panel: `absent` always wins; then the loading gate (a
+ * surface hidden under a blocking overlay is hidden regardless of what the user
+ * last chose); otherwise override, else table.
+ */
 export function panelState(id: PanelId): PanelPhaseState {
     const declared = panelPhaseDefault(id);
     if (declared === 'absent') return 'absent';
+    if (loadingGateDepth > 0 && panelDescriptor(id).hiddenWhileLoading === true) return 'closed';
     const override = sessionOverride.get(id);
     if (override === undefined) return declared;
     return override ? 'open' : 'closed';
@@ -663,4 +747,5 @@ export function __resetPanelSessionStateForTests(): void {
     resetListeners.clear();
     stateListeners.clear();
     currentPhase = 'onboarding-globe';
+    loadingGateDepth = 0; // §UX3-LOADING-CHROME — a leaked gate must not leak between specs
 }
