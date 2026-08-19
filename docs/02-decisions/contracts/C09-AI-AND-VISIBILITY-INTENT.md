@@ -719,6 +719,118 @@ solid occludes" rule has a catastrophic degenerate case in plan:
 
 ---
 
+### §4.7 — THE ELEMENT FILTER WRITES INTENT (normative; ADR-0336, OI-058, P7 ARM B)
+
+**The Project Browser's ELEMENTS list is a WRITER of visibility intent, never an authority over
+what is visible.** It MUST express a hide / isolate / reset as an intent delta on the ACTIVE
+view, dispatched through the command bus. It MUST NOT mutate `Object3D.visible`.
+
+This is §4.1 ("ALL visibility is derived from intent") and §4.2 ("never by setting UI state
+directly") applied to the one control that has always violated both. It is stated separately
+because the violation was invisible for as long as only ONE view was consulted.
+
+#### §4.7.1 — Why this was never a rendering bug
+
+`Object3D.visible` is read by the **3D viewport only**. The projected views (plan · section ·
+elevation, and the sheet viewports that delegate to them) are built by
+`EdgeProjectorService` **Source B** from `NativeElementMeshExporter.exportForView()` — i.e. from
+**BimManager levels + elementRegistry**, never from the scene graph. Source B contains **zero**
+reads of `Object3D.visible` (the file's only such read, `:3288`, is in the IFC branch).
+
+⇒ *"the browser filter does not work in plan"* was **UNSATISFIABLE, not broken**. Before asking
+*why does this not apply?*, ask **can this condition ever be true?** — this is the sixth defect
+of that shape recorded in this repo.
+
+⚠ **3D "working great" was the misleading signal, not the healthy one.** Mutating
+`Object3D.visible` is the correct *application* of intent in the one surface whose output medium
+is the scene graph. The filter was writing THE ANSWER FOR ONE VIEW where it owed THE QUESTION
+FOR ALL OF THEM.
+
+#### §4.7.2 — The authority (binding)
+
+`ViewIntentInstance.localOverrides` (`OverrideLayer.visibilityOverrides`) is **the single
+authority** for per-element and per-category visibility. It is per-VIEW, persisted
+(`ProjectSerializer` / `ProjectLoader`), undoable, and keyed by
+`targetKind: 'element' | 'elementType' | 'category'`.
+
+Every view type is a **READER** of that one authority:
+
+| Reader | Mechanism | State |
+|---|---|---|
+| plan · section · elevation | `graphicsRulesEngine.resolveStyle({ viewId, elementId })` → `appearanceToPenStyle` → `opacity/widthMm = 0` | **works today** |
+| sheets / viewports | delegate to the plan source via `ViewSource` | inherits |
+| 3D viewport | applicator arm reading the resolved layer → sets `Object3D.visible` | **to build** (§4.7.5) |
+
+⛔ **A second per-view traversal MUST NOT be added.** N enumerated arms is the defect this
+contract exists to prevent.
+
+⚠ **`applyToProjectionLayers` is NOT the per-element route and MUST NOT be extended into one.**
+It drives `drawing.layers.setVisibility(layerName, …)` across 14 ISO-13567 DXF layers and has
+**no `elementId` in scope anywhere in the method**. It is per-CATEGORY by construction. **The
+per-element route is the PEN, not the LAYER.**
+
+#### §4.7.3 — Scope semantics (per-VIEW; Revit alignment)
+
+A hide issued from the Project Browser is **VIEW-scoped** — not project-wide, not
+template-wide. An INTENT is shared by N views (the panel's *"Used by 8 views"*); an OVERRIDE is
+local to one (the panel's *"NO OVERRIDES"*). Binding consequences:
+
+1. Switching views does **not** carry the hide across. This is correct.
+2. Because it is correct-but-surprising, **the panel MUST name the view it is acting on.** A
+   control that silently retargets on view switch is indistinguishable from a broken one.
+3. A project-wide hide is a **separate, named act** — editing the bound intent's
+   `elementRules[elementType].visible`. It MUST NOT be an unlabelled side effect of the same
+   control.
+
+#### §4.7.4 — `Reset visibility` clears OVERRIDES
+
+It MUST dispatch `view.clearAllOverrides` for the active view, restoring the *"Pure intent / NO
+OVERRIDES"* state. It MUST NOT walk the scene setting everything visible — that desynchronises
+the scene from the authority and is what the code does today.
+
+#### §4.7.5 — Ordering is binding: 3D reads intent BEFORE the traverses are deleted
+
+`ProjectVisibilitySection.ts` holds **8 full-scene traverses** and **13 of the 40** tolerated P7
+ARM-B violations — the largest single holder, and the same code counted twice (once as perf,
+once as P7).
+
+They MUST NOT be removed in the change that starts writing intent. Until 3D reads
+`OverrideLayer`, deleting them regresses the only view that works — a refusing half with no
+escape hatch. Therefore:
+
+- **Step 1** — the filter writes intent *in addition to* the existing scene write.
+  Plan/elevation/section begin working. **No P7 or OI-058 credit may be claimed at Step 1.**
+- **Step 2** — the 3D applicator arm lands; only then do the traverses and the `bag.*Visible`
+  maps come out, retiring 13 ARM-B violations and 8 traverses together.
+
+**Claiming Step 2's numbers while shipping Step 1 is forbidden.**
+
+#### §4.7.6 — Panel state is a PROJECTION, never a source of truth
+
+`UnifiedBrowserPanel._elemVisible` / `_catVisible` / `_levelVisible` / `_isolateMode` are
+in-memory `Map`s with **no serializer entry** and **no re-apply hook** — so any scene rebuild
+silently drops the filter while the panel still renders the eye-off icon (state and scene
+disagree, and the UI reports the state). The remedy is **not to persist them**: they MUST become
+a projection of the override layer, which is already persisted and already survives reload and
+project switch.
+
+#### §4.7.7 — Open cells (recorded, not faked)
+
+- **`OverrideTargetKind` has no `'level'`.** The browser's LEVEL axis and the `ifc-storey:` path
+  have no intent expression. Mint a kind, expand to N element overrides, or leave the level axis
+  3D-only — **undecided; MUST NOT be silently mapped onto `category`.**
+- **Five rival visibility mechanisms exist; this section blesses ONE.**
+  `vgInstanceOverrideStore` is `@deprecated`, zero writers, not persisted;
+  `visibilityRuleEngine` is persisted but has no human UI (AI-only);
+  `packages/visibility`'s `ViewVisibilityIntentStore` is bus-wired and read by `SpatialTree`, but
+  its own header declares **NOT PERSISTED · NOT UNDOABLE · NOT REPLICATED**. Consolidation is
+  **not** attempted here and MUST NOT be assumed.
+- **A hidden element's hit-testing is unspecified.** The pen route drives `opacity → 0`; whether
+  a zero-opacity line still selects in plan is **not measured**. A hidden element that remains
+  clickable is a defect, but it is not one this section has proven either way.
+
+---
+
 ## §5 — AI Cost Governance
 
 `packages/ai-cost/` (L1) tracks per-call token usage and aggregates cost by project and workflow type. It:

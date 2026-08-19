@@ -16014,3 +16014,96 @@ reasoning.
 - `plugins/roof`'s by-region path (ported to this tracer at `625a9926`) passes no `activeLevelId`,
   so it is UNKNOWN-scoped and behaves exactly as before. **Safe, not correct** — an open item, not
   a clearance. Outside this lane's fence.
+
+---
+
+## L-1193 — "the element filter works great in 3D — could it work in ANY active view?": it was never a rendering bug, it was UNSATISFIABLE — and the authority it needed already existed, persisted and unused ⏳ STEP 1 SHIPPED 2026-08-19 (lane VIS1)
+
+**Reported**: founder, on the Project Browser's ELEMENTS list (Walls 18 · Slabs 3 · Handrails 54 …)
+with its Search and **Reset visibility** controls. Hiding/isolating there affects 3D and nothing else.
+
+**Contract**: [C09 §4.7](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) (new, normative) ·
+[ADR-0336](../02-decisions/adrs/ADR-0336-the-element-filter-writes-intent-not-object3d-visible.md)
+
+### THREE tracked items were ONE defect
+
+The founder's feature request, **the largest single P7 ARM-B violation** (13 of 40, in one file), and
+**OI-058** (8 full-scene traverses, `pascalorg-editor-research.md` §3.1's *"highest-value takeaway"*)
+are the same code, counted three times. `ProjectVisibilitySection.ts` writes `Object3D.visible`
+through 8 `scene.traverse` calls at lines `69 · 77 · 93 · 104 · 125 · 156 · 193 · 307`.
+
+### Root cause — ASK WHETHER THE CONDITION CAN EVER BE TRUE
+
+`EdgeProjectorService.ts` (3851 lines) holds **exactly two** `.visible` tokens: `:2308`
+`result.visible` (a geometry buffer, not a flag) and `:3288` `if (!mesh.visible) return;` — **in the
+IFC branch**. **Source B, the native-element path (`:2328`–`:3242`) that every element in the
+founder's screenshot travels, has ZERO reads of `Object3D.visible`** and never touches the scene
+graph: it iterates `NativeElementMeshExporter.exportForView()` output built from BimManager levels +
+elementRegistry.
+
+⇒ *"the filter should hide this wall in plan"* **could never become true**. This is the sixth
+§UNSATISFIABLE-GATE defect recorded here. **3D "working great" was the misleading signal** — mutating
+`Object3D.visible` is the correct *application* of intent in the one surface whose output medium is
+the scene graph, so the filter had been writing THE ANSWER FOR ONE VIEW where it owed THE QUESTION
+FOR ALL OF THEM.
+
+### The part the hypothesis did NOT predict — this is a ROUTING job, not a build
+
+`ViewIntentInstance.localOverrides.visibilityOverrides` is **per-ELEMENT, per-VIEW**, already
+persisted (`ProjectSerializer.ts:855`), already undoable, already written by bus verbs
+`view.hideElement` / `view.clearOverride` / `view.clearAllOverrides`
+(`initBusHandlers.ts:2366-2394`), already reachable from the **radial menu** (`RadialMenu.ts:268`),
+and **already read per element by the 2D pen path** (`PlanViewCanvas.ts:459` →
+`graphicsRulesEngine.resolveStyle({viewId, elementId})` → `resolveIntentStyle` →
+`appearanceToPenStyle` → `opacity/widthMm = 0`).
+
+**The Project Browser was the ONE surface in the product bypassing it.**
+
+Proven by EXECUTION before a line was written — real stores, real command, real resolver, nothing
+stubbed: `baseline A{opacity:1} → after hide(A) A{opacity:0, widthMm:0}`, sibling B untouched, other
+view untouched.
+
+### Second defect, found BY the analysis and fixed with it
+
+`PlanViewCanvas.ts` resolved the **cut poché fill** through `resolveIntentStyle(…, { elementType,
+category })` with **no `elementId`**, while the linework path had always passed it. A per-element hide
+would have removed an element's outline and left its grey fill drawn. ⚠ Passing the id is
+**necessary but not sufficient** — `visible === false` leaves `intentFillColour` null and `baseFill`
+then falls through to `ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer]`, so the poché is painted from the
+DEFAULT. An explicit bail was required.
+
+### Shipped (STEP 1 of 2)
+
+`applyElementVisibility` and `resetAllVisibility` now write **intent** for the ACTIVE view, in
+addition to the existing scene write. Plan / section / elevation / sheets begin honouring the filter.
+Scope is **per-VIEW** (C09 §4.7.3, Revit alignment — an INTENT is shared by N views, an OVERRIDE is
+local to one). Re-showing **clears** the override rather than stamping a rival "show" tier (C09
+§4.5.1). `Reset visibility` dispatches `view.clearAllOverrides`.
+
+**Proof**: `apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts`
+— **8/8**, asserting the composed PEN (the projected-side output), not a flag. Carries a positive
+control, an element-scope negative control, a view-scope control, and a refusal control (no active
+view ⇒ no override written anywhere). Root `tsc` **COMPILER_RC=0**; core-app-model views **22 files /
+138 tests**; unified-browser **3 files / 25 tests** — all green.
+
+### NOT DONE, and NO CREDIT CLAIMED
+
+⛔ **P7 ARM B is unchanged at 40/43 and the 8 traverses are all still there** — deliberately. Until a
+3D applicator arm READS the override layer, deleting them regresses the only view that works today.
+C09 §4.7.5 makes the ordering binding: **Step 2** lands the 3D reader, and only then do the traverses
+and the `bag.*Visible` maps come out, retiring 13 ARM-B violations and 8 traverses together.
+**Claiming Step 2's numbers while shipping Step 1 is the defect this repo keeps paying for.**
+
+### Open (recorded, not inferred)
+
+- **`OverrideTargetKind` has no `'level'`** — the browser's LEVEL axis and the `ifc-storey:` path have
+  no intent expression and stay on the legacy path. MUST NOT be silently mapped onto `category`.
+- **Category toggles emit one command per element** (they funnel through `applyElementVisibility`).
+  Correct and undoable, but a `targetKind: 'category'` override or a batch command is the right shape
+  at scale.
+- **Five rival visibility mechanisms exist**; C09 §4.7 blesses ONE. `vgInstanceOverrideStore` is
+  `@deprecated`/zero-writers/not-persisted; `visibilityRuleEngine` is persisted but AI-only with no
+  human UI; `packages/visibility`'s `ViewVisibilityIntentStore` declares itself NOT PERSISTED · NOT
+  UNDOABLE · NOT REPLICATED. Consolidation not attempted.
+- **A hidden element's hit-testing is UNMEASURED** — the pen route drives `opacity → 0`; whether a
+  zero-opacity line still selects in plan is not established either way.

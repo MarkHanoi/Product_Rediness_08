@@ -2427,6 +2427,7 @@ export class PlanViewCanvas {
             let intentFillColour: string | null = null;
             let intentFillPattern: string | null = null;
             let intentFillOpacity: number | null = null;
+            let intentHidesElement = false;
 
             if (_intent && _virtInstance && vgCat) {
                 try {
@@ -2436,17 +2437,41 @@ export class PlanViewCanvas {
                         vgCat,
                         'cut',
                         viewDef?.viewType ?? this._viewType,
-                        { elementType: vgCat, category: vgCat },
+                        // §ELEMENT-FILTER-WRITES-INTENT (C09 §4.7, ADR-0336) — the
+                        // elementId was MISSING here while the linework path
+                        // (:459) has always passed it. A per-element `hide`
+                        // override therefore removed an element's OUTLINE and
+                        // left its cut poché FILL drawn — half-hidden, which
+                        // reads as a rendering bug rather than as a hide.
+                        // `resolveIntentStyle` needs the id to match a
+                        // `targetKind: 'element'` override at all.
+                        {
+                            elementId: (child.userData?.elementUUID
+                                ?? child.userData?.elementId
+                                ?? child.parent?.userData?.elementUUID
+                                ?? child.parent?.userData?.elementId) as string | undefined,
+                            elementType: vgCat,
+                            category: vgCat,
+                        },
                     );
                     if (_cutAppearance.fill.style !== 'none' && _cutAppearance.visible) {
                         intentFillColour  = _cutAppearance.fill.colour ?? null;
                         intentFillPattern = (_cutAppearance.fill as any).pattern ?? null;
                         intentFillOpacity = _cutAppearance.fill.opacity;
                     }
+                    // §ELEMENT-FILTER-WRITES-INTENT — a HIDE must SUPPRESS the fill,
+                    // not merely decline to colour it. Passing the elementId above is
+                    // necessary but NOT sufficient: `visible === false` leaves
+                    // `intentFillColour` null, and `baseFill` below then falls through
+                    // to `ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer]` — so the poché would
+                    // still be painted from the DEFAULT while the outline was gone.
+                    // The bail has to be explicit.
+                    intentHidesElement = !_cutAppearance.visible;
                 } catch {
                     // Intent resolve is non-critical for poche fills; fall back to VG.
                 }
             }
+            if (intentHidesElement) return;
             // ──────────────────────────────────────────────────────────────────────
 
             const baseFill = intentFillColour ?? resolved?.fillColor ?? ISO_CUT_LAYER_TO_POCHE_FILL[baseLayer];

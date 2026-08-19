@@ -18,6 +18,61 @@ import {
     getAllElementIds,
 } from './BrowserDataHelpers';
 
+// ── §ELEMENT-FILTER-WRITES-INTENT (C09 §4.7, ADR-0336) — STEP 1 of 2 ─────────
+//
+// THE DEFECT this closes: every traverse below writes `Object3D.visible`, which
+// ONLY the 3D viewport reads. `EdgeProjectorService` Source B — the native
+// element path, i.e. every element in the Project Browser — builds plan /
+// section / elevation from `NativeElementMeshExporter.exportForView()` (levels +
+// elementRegistry) and contains ZERO reads of `Object3D.visible`. So "the filter
+// does not work in plan" was never a rendering bug: it was UNSATISFIABLE.
+//
+// The authority that DOES reach every view already exists, is persisted and is
+// undoable: `ViewIntentInstance.localOverrides.visibilityOverrides`, written by
+// the `view.hideElement` / `view.clearOverride` / `view.clearAllOverrides` bus
+// verbs (initBusHandlers.ts:2366-2394) and read per element by the 2D pen path
+// (PlanViewCanvas.ts:459 -> graphicsRulesEngine.resolveStyle({viewId,elementId})
+// -> resolveIntentStyle -> appearanceToPenStyle -> opacity/widthMm = 0).
+//
+// ⚠ STEP 1 writes intent IN ADDITION TO the existing scene write; it does NOT
+// delete the traverses. Until a 3D applicator arm READS the override layer,
+// removing them would regress the one view that works today (C09 §4.7.5 — the
+// ordering is BINDING). No P7 ARM-B or OI-058 credit is claimed here.
+//
+// Scope is PER-VIEW, on the ACTIVE view (C09 §4.7.3, Revit alignment): an INTENT
+// is shared by N views, an OVERRIDE is local to one.
+
+/** The view every intent delta below is scoped to. `null` ⇒ no active view. */
+function _activeViewId(): string | null {
+    // TODO(F.6.x): replace with runtime.stores.viewDefinition
+    return (window.viewDefinitionStore?.getActiveId?.()
+        ?? window.viewController?.currentViewDefinitionId
+        ?? null) as string | null;
+}
+
+function _dispatchIntent(verb: string, payload: Record<string, unknown>): void {
+    window.runtime?.bus?.executeCommand(verb, payload)
+        ?.catch((e: Error) => console.error(`[ProjectVisibilitySection] ${verb} failed`, e));
+}
+
+/**
+ * Express one element's visibility as a VIEW-SCOPED intent delta.
+ *
+ * `visible === false` → `view.hideElement`; `true` → `view.clearOverride`,
+ * which REMOVES the override rather than writing a "show" one — a default is not
+ * an override (C09 §4.5.1), so restoring visibility must return the view to
+ * "Pure intent", not stamp a second tier.
+ */
+export function writeElementVisibilityIntent(elemId: string, visible: boolean): void {
+    const viewId = _activeViewId();
+    if (!viewId || !elemId) return;
+    if (visible) {
+        _dispatchIntent('view.clearOverride', { viewId, targetKind: 'element', targetId: elemId });
+    } else {
+        _dispatchIntent('view.hideElement', { viewId, elementId: elemId });
+    }
+}
+
 // ── Scene visibility helpers ──────────────────────────────────────────────────
 
 // ── §INSTANCED-ISOLATE-FIX (2026-05-25) ───────────────────────────────────────
@@ -99,6 +154,12 @@ export function applyLevelVisibility(_bag: UBPBag, levelId: string, visible: boo
 }
 
 export function applyElementVisibility(_bag: UBPBag, elemId: string, visible: boolean): void {
+    // §ELEMENT-FILTER-WRITES-INTENT — the half that reaches plan / section /
+    // elevation / sheets. Dispatched FIRST and unconditionally: it must not be
+    // skipped by the `!scene` bail below, because the projected views do not
+    // depend on a 3D scene existing at all.
+    writeElementVisibilityIntent(elemId, visible);
+
     const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13)
     if (!scene) return;
     scene.traverse((obj: any) => {
@@ -187,6 +248,13 @@ export function resetAllVisibility(bag: UBPBag): void {
     bag.elemVisible.clear();
     bag.catVisible.clear();
     bag.catTypeVisible.clear();
+
+    // §ELEMENT-FILTER-WRITES-INTENT (C09 §4.7.4) — "Reset visibility" CLEARS THE
+    // OVERRIDES, returning the active view to the "Pure intent / NO OVERRIDES"
+    // state its ViewProperties panel already reports. Walking the scene setting
+    // everything visible (below) leaves the authority and the scene disagreeing.
+    const _resetViewId = _activeViewId();
+    if (_resetViewId) _dispatchIntent('view.clearAllOverrides', { viewId: _resetViewId });
 
     const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13)
     if (scene) {
