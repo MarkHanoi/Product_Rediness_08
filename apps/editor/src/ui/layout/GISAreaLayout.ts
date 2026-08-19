@@ -3999,19 +3999,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             b.addEventListener('click', () => applyFormaView(mode));
             return b;
         };
-        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — a muted, non-interactive label so the
-        // secondary bar reads as the "3D Site" view's OWN contextual actions (the user
-        // returns to another view via the always-present segmented switch above, not a
-        // back button). Replaces the old "‹ Views" back button (which dead-ended the
-        // panel when the switch had never been mounted).
-        const ctxLabel = document.createElement('span');
-        ctxLabel.className = 'pryzm-forma-view-ctxlabel';
-        ctxLabel.textContent = '3D Site';
-        Object.assign(ctxLabel.style, {
-            padding: '7px 10px 7px 4px', color: '#9b8fc7', font: 'inherit',
-            borderRight: '1px solid #ece7fb', alignSelf: 'center', userSelect: 'none',
-        } satisfies Partial<CSSStyleDeclaration>);
-        bar.appendChild(ctxLabel);
+        // §GIS-ACTION-REGISTRY (L-1187, C06 §12) — REMOVED: the "3D Site" context caption.
+        //
+        // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) added a muted, non-interactive <span>
+        // reading "3D Site" at the head of this bar, so the sub-bar would read as the
+        // 3D-Site view's own contextual actions. Reasonable intent, but the segmented
+        // switch directly above ALSO carries a control spelled "3D Site" — so the founder
+        // saw the same words twice, one row apart, one of them a button and one of them a
+        // caption, and reported "3D Site appears TWICE. Are they one action or two?".
+        //
+        // Neither: one is an action, the other is not a control at all. That is worse than
+        // a duplicate, because there is no click that reveals the difference. The caption
+        // is deleted rather than renamed — the active segment on the switch above already
+        // shows which view you are in, so it was restating a fact that was on screen.
+        //
+        // C06 §12.7 verdict (a): a surviving control (the "3D Site" segment, now spelled
+        // "PRYZM Earth" in the declared registry) already carries this meaning.
 
         // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
         // is the MapLibre exit (boundary drawing); "Plan" + "3D" are the Cesium-
@@ -4375,6 +4378,53 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
     window.pryzmSetFormaBuildingFidelity = setFormaBuildingFidelity;
+
+    // ── §GIS-ACTION-REGISTRY (L-1187, C06 §12) — entry points for the consolidated panel ──
+    //
+    // Three site controls existed ONLY as closures in this function, so the only way to
+    // invoke them was to click one of the floating pills or sub-bar buttons that close
+    // over them. That is why the GIS panel could not host them and why the founder had
+    // to hunt three separate chrome surfaces for one job.
+    //
+    // These are registrations, not new behaviour: each one calls the SAME closure the
+    // legacy control calls. C06 §12.3 — a consolidated surface RE-HOSTS the dispatch;
+    // it never copies the handler. Registering the entry point is what makes re-hosting
+    // possible at all.
+
+    /** §GIS-ACTION-REGISTRY — toggle the FORMA.5 site-analysis panel (sun · weather · wind).
+     *  The panel only exists in the Forma Plan/3D views, so bring that view up when it
+     *  isn't mounted — identical to what both legacy controls do. */
+    window.pryzmToggleSiteAnalysis = () => {
+        if (!formaAnalysis) { applyFormaView('plan'); }
+        else { formaAnalysis.toggle(); }
+    };
+
+    /** §GIS-ACTION-REGISTRY — show / hide the buildable-envelope facts card. Same
+     *  not-built-yet branch as the launcher pill: the card is rendered by the Forma
+     *  view, so bring that up rather than dead-ending. */
+    window.pryzmToggleEnvelopeCard = () => {
+        if (!envelopePanel) { envelopeCardHidden = false; applyFormaView('plan'); }
+        else { toggleEnvelopeCard(); }
+    };
+
+    /** §GIS-ACTION-REGISTRY — reframe the camera on the site.
+     *
+     *  ⭐ This is the de-duplication, not a third copy. There were TWO "Zoom to Site"
+     *  buttons wearing the same label against different targets: the Forma sub-bar's
+     *  reframed the active Forma preset, the globe segment's reframed the placed
+     *  building on the photoreal tiles. One label, two behaviours, decided by which bar
+     *  the user happened to reach for. Here the ACTIVE SURFACE decides — which is what
+     *  the user meant by "zoom to site" in both cases. Composed entirely of the existing
+     *  dispatches; no framing logic is authored here. */
+    window.pryzmZoomToSite = () => {
+        if (activeSegment === 'forma') {
+            if (formaViewMode === 'plan') cesiumViewport?.flyToFormaPlan?.();
+            else cesiumViewport?.flyToFormaSite?.();
+            return;
+        }
+        void reframeSiteIn3D();
+    };
+
     // FORMA.3 / FORMA-PLAN-OBLIQUE — mount the [2D Map][Plan][3D] toggle. Defaults
     // to the Forma PLAN-oblique (the signature look — near-top-down shadowed
     // massing) so the demo lands straight on the Forma "plan view". Mirrors

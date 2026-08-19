@@ -352,6 +352,19 @@ declare global {
         pryzmEnterPlanViewGis?: () => void | Promise<void>;
         /** FORMA.3 — remove the [2D Map][Plan][3D] toggle. */
         pryzmHideFormaView?: () => void;
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — toggle the FORMA.5 site-analysis panel
+         *  (sun · weather · wind). Brings the Forma view up first when the panel is not
+         *  mounted, so it never dead-ends. Registered by GISAreaLayout. */
+        pryzmToggleSiteAnalysis?: () => void;
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — show / hide the buildable-envelope
+         *  facts card. Same not-built-yet branch as the launcher pill. Registered by
+         *  GISAreaLayout. */
+        pryzmToggleEnvelopeCard?: () => void;
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — reframe the camera on the site. The
+         *  ACTIVE SURFACE decides the target (Forma preset vs the placed building on the
+         *  photoreal tiles), which is what the two rival "Zoom to Site" buttons disagreed
+         *  about. Registered by GISAreaLayout. */
+        pryzmZoomToSite?: () => void;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
          *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
          *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by

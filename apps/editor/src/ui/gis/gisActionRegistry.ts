@@ -61,6 +61,13 @@ export interface GisCapabilityHost {
     pryzmShowBuildingGraph?: (show?: boolean) => void;
     /** A.21.D17 — the force-directed Living Building Graph overlay. */
     pryzmOpenLivingGraph?: (show?: boolean) => void;
+    /** §GIS-ACTION-REGISTRY (L-1187) — the FORMA.5 site-analysis panel. */
+    pryzmToggleSiteAnalysis?: () => void;
+    /** §GIS-ACTION-REGISTRY (L-1187) — the buildable-envelope facts card. */
+    pryzmToggleEnvelopeCard?: () => void;
+    /** §GIS-ACTION-REGISTRY (L-1187) — reframe the camera on the site; the ACTIVE
+     *  surface decides the target. */
+    pryzmZoomToSite?: () => void;
 }
 
 export type GisEntryPointName = keyof GisCapabilityHost;
@@ -235,16 +242,17 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '⤢',
         title: 'Reframe the camera on the site and the placed building.',
         group: 'display',
-        entryPoints: [],
-        unavailableReason:
-            'Not yet re-hosted — the two legacy "Zoom to Site" buttons call Cesium viewport ' +
-            'methods through closures inside mountGISArea that have no registered entry point.',
+        // The two legacy buttons wore this label against DIFFERENT targets — the Forma
+        // preset and the placed building on the photoreal tiles — so which one you got
+        // depended on which bar you reached for. `pryzmZoomToSite` resolves that by
+        // asking the ACTIVE surface, which is what the user meant in both cases.
+        entryPoints: ['pryzmZoomToSite'],
         absorbs: ['Zoom to Site (Forma sub-bar)', 'Zoom to Site (globe segment)'],
         homeNote:
-            'This is a CAMERA action, not a GIS one. It belongs with the other camera controls ' +
-            '(Camera & Render) once a single site-framing entry point exists; it is declared here ' +
-            'because the founder boxed it and because both legacy copies must retire together.',
-        dispatch: () => { /* unavailable — see unavailableReason */ },
+            'This is a CAMERA action, not a GIS one. Its long-term home is with the other camera ' +
+            'controls (Camera & Render); it is declared here because the founder boxed it and ' +
+            'because both legacy copies must retire together.',
+        dispatch: (h) => { h.pryzmZoomToSite?.(); },
     },
     {
         id: 'site.analysis',
@@ -252,14 +260,12 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '☀',
         title: 'Show / hide the site-analysis panel (sun · weather · wind).',
         group: 'display',
-        entryPoints: [],
-        unavailableReason:
-            'Not yet re-hosted — the analysis panel handle (formaAnalysis) is a closure inside ' +
-            'mountGISArea with no registered entry point.',
-        // The floating "Site Analysis" pill and the "Analysis" sub-bar button have
-        // line-for-line identical handler bodies. Two names, one action.
+        entryPoints: ['pryzmToggleSiteAnalysis'],
+        // The floating "Site Analysis" pill and the "Analysis" sub-bar button had
+        // line-for-line identical handler bodies. Two names, one action — and now one
+        // registered entry point that both of them, and this panel, can call.
         absorbs: ['Analysis (Forma sub-bar)', 'Site Analysis (floating launcher pill)'],
-        dispatch: () => { /* unavailable — see unavailableReason */ },
+        dispatch: (h) => { h.pryzmToggleSiteAnalysis?.(); },
     },
     {
         id: 'site.buildable-envelope',
@@ -267,12 +273,9 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '▧',
         title: 'Show / hide the buildable-envelope facts card.',
         group: 'display',
-        entryPoints: [],
-        unavailableReason:
-            'Not yet re-hosted — toggleEnvelopeCard is a closure inside mountGISArea with no ' +
-            'registered entry point.',
+        entryPoints: ['pryzmToggleEnvelopeCard'],
         absorbs: [],
-        dispatch: () => { /* unavailable — see unavailableReason */ },
+        dispatch: (h) => { h.pryzmToggleEnvelopeCard?.(); },
     },
     {
         id: 'site.floor-filter',
