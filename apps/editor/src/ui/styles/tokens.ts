@@ -19,6 +19,17 @@ export const DESIGN_TOKENS = `
         --app-ui-scale:       ${UI_SCALE};
         --app-bg:            #e8edf6;
         --app-panel-bg:      #ffffff;
+        /* §UX1-CONFIRM-GLASS — the translucent panel surface and its blur, declared
+           ONCE here because C06 §6 puts every visual token in this layer and the
+           onboarding confirm card is guarded token-only (see
+           apps/editor/__tests__/typologyChoiceModel.test.ts). 0.92 is a SOLVED
+           accessibility floor, not a taste value: over the worst-case backdrop
+           (black) a white surface composites to alpha × 255, and 4.5:1 against
+           the weakest foreground on that card (--app-text-2 / --vg-badge-warn-
+           color, luminance ~0.1418) needs alpha ≥ 0.913. The derivation lives
+           beside its one consumer, in onboardingStyles.ts §UX1-CONFIRM-GLASS. */
+        --app-panel-glass:      rgba(255,255,255,0.92);
+        --app-panel-glass-blur: blur(18px) saturate(1.35);
         --app-gradient:      linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%);
         --app-text:          #1a2035;
         --app-text-2:        #5a6a85;

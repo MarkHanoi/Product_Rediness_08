@@ -828,107 +828,187 @@ export const ONBOARDING_STYLES = `
    with the contractual UI/UX")
    ---------------------------------------------------------------------------
    The card inherited the DRAW banner's 560px width and the onboarding modal's own
-   type scale (0.95–0.98rem headings, 0.85rem buttons). That is 30–50% larger than
+   type scale (0.95-0.98rem headings, 0.85rem buttons). That is 30-50% larger than
    everything it now sits beside — the Site analysis card titles at 700 12px, the
-   launcher pills at 600 12px, the basemap segmented control at 12px — on a screen
-   that already carries the 2D map, the 3D site pane, Site analysis, Buildable
-   Envelope and View Properties. Two panels using two type scales is what reads as
-   "a different design language", so this block does not invent a style: it adopts
-   the measurements those neighbours already use.
+   launcher pills at 600 12px, the basemap segmented control at 12px. Two panels
+   using two type scales is what reads as "a different design language", so this
+   block does not invent a style: it adopts the measurements those neighbours use.
 
-     surface     opaque --app-panel-bg, 1px --app-border, --app-radius-md (12px),
-                 --app-shadow-panel  →  byte-for-byte the Site analysis card.
+     surface     --app-panel-bg, 1px --app-border, --app-radius-md (12px),
+                 --app-shadow-panel  ->  byte-for-byte the Site analysis card.
      width       min(360px, 92vw)     (was 560px)
      type        12px/700 title · 11px body · 11px controls
-     controls    --app-radius-sm, 6–7px × 10–12px padding (the pill / segment box)
+     controls    --app-radius-sm, 6-7px x 10-12px padding (the pill / segment box)
 
-   OPACITY IS AN ACCESSIBILITY DECISION, not a taste one. The frosted
-   rgba(255,255,255,0.74) card put every foreground over an unknown map: the body
-   copy measured 4.70:1 on white but 3.73:1 over a dark basemap — below AA — and no
-   colour choice can fix a background the user picked. The neighbouring panels are
-   already opaque white for the same reason. The card stays NON-BLOCKING (no scrim,
-   pointer events still fall through to the map) and, at 360px, occludes far less of
-   the boundary than the 560px glass one did.
+   §UX1-CONFIRM-GLASS (founder 2026-08-19: "make this panel HALF SIZE — smaller.
+   SEMI-TRANSPARENT. More ELEGANT, more TECH. Still aligned with the contracts
+   for UI/UX.")
+   ---------------------------------------------------------------------------
+   All three asks are bounded by numbers the contracts already fix, so each one
+   below is a SOLVE and not a preference. Everything is authored in px because
+   §UI-DENSITY-SCALE ('styles/uiScale.ts') matches px literals only; effective
+   size is the authored value x UI_SCALE (0.85), with two clamps that bite here —
+   MIN_TARGET_PX 24 (C43 / WCAG 2.2 SC 2.5.8) and MIN_FONT_PX 10.
 
-   Measured on this surface (WCAG 2.2, sRGB): title --app-text 16.13:1 · body
-   --app-text-2 5.48:1 · advisory-warn --vg-badge-warn-color 5.49:1 · accent
-   --app-accent 6.98:1 · white-on-accent (primary CTA) 6.98:1 · white-on-
-   --app-violet-2 (CTA hover) 5.48:1 · accent on --app-violet-soft (selected chip)
-   6.12:1 · resting chip border --app-text-muted 3.47:1 (WCAG 1.4.11 non-text ≥3:1). */
+   1. SEMI-TRANSPARENT — alpha 0.92 is SOLVED, not chosen, and it REVERSES the
+      opaque decision this block used to carry rather than ignoring it.
+      That decision was right about the risk and wrong about the only remedy: the
+      old rgba(255,255,255,0.74) card put body copy at 3.73:1 over a dark basemap
+      because nothing pinned the composite. Pin it instead. A translucent white
+      surface over the WORST-CASE backdrop (black) composites to alpha x 255, so
+      the floor is solvable in closed form. For 4.5:1 against the weakest
+      foreground the card carries — --app-text-2 #5a6a85 (relative luminance
+      0.1418) and --vg-badge-warn-color #856404 (0.1412) —
+
+          need L_bg >= 4.5 x (0.1418 + 0.05) - 0.05 = 0.8131
+          -> sRGB channel  (0.8131 ^ (1/2.4)) x 1.055 - 0.055 = 0.9128
+          -> alpha         >= 0.913 over black.
+
+      0.92 is that floor plus headroom, and it is the reason the value is a TOKEN
+      (--app-panel-glass): a second surface must not re-guess it. The pairs below
+      are SAMPLED FROM RENDERED PIXELS, not derived from the tokens — the card was
+      screenshotted over a solid-black scene, the composite surface read back
+      (235,235,235 = the predicted 0.92 x 255) and each foreground taken as the
+      darkest ink inside its own box. Over BLACK, the pessimal case:
+        body --app-text-2 4.59:1 · advisory-warn 4.59:1 · advisory-muted 4.78:1
+        · prompt --app-text 13.53:1 · title --app-text 13.69:1 · section label +
+        ghost labels --app-accent 5.85:1 · accent on --app-violet-soft (selected
+        chip) 5.05:1 · white on --app-accent (CTA + step chip, both opaque fills)
+        6.98:1 · resting chip border --app-text-2 4.59:1 (WCAG 1.4.11 needs 3:1).
+      Over WHITE the same pairs read 5.48 / 5.48 / 5.70 / 16.13 / 16.32 / 6.98 /
+      6.03 / 6.98 / 5.48 — every one AA at both extremes of the basemap.
+      The resting chip border moved from --app-text-muted to --app-text-2 for
+      exactly this reason: --app-text-muted measures 3.47:1 on opaque white but
+      2.90:1 on the glass — it would have crossed the 1.4.11 non-text floor the
+      moment the surface went translucent.
+      Two escapes, because translucency without blur is worse than opacity:
+      @supports (no backdrop-filter) and prefers-reduced-transparency both put the
+      opaque --app-panel-bg back.
+
+   2. HALF SIZE — the honest answer is 0.68 of the footprint, MEASURED, and the
+      remaining 0.18 is not available without deleting content.
+      Read as area, the way the previous halving (§UX1-ONBOARDING-CARD-HALVED) was
+      read. Rendered in a browser at UI_SCALE 0.85 (Playwright, 1440x900):
+          before  328.4 x 236.7 = 77.7k px^2
+          after   241.7 x 218.3 = 52.8k px^2   = 0.68x  (-32% area, -26% width)
+      Why not 0.50. A width sweep across 306/280/260/240/224/210/196/184 px of
+      content shows the area is CONTENT-bound, not width-bound: it falls to ~61k
+      at 224 and then goes back UP, because below ~260 the "Not now — I'll design
+      it myself" exit wraps to two lines (+12 px) and below ~210 the "Residential
+      building" chip wraps as well (+22 px). Narrower stops buying anything at
+      224 px of content, which is why that is the width. Everything left is a
+      floor: the type is already AT MIN_FONT_PX (11px x 0.85 = 9.35 -> clamped to
+      10), so shrinking type is now a NO-OP, and the three button rows plus the
+      chip grid are held at 24px by SC 2.5.8. Reaching 0.50 would mean dropping
+      the section label, the prompt or an exit — i.e. redesigning the flow, which
+      this pass is explicitly not.
+
+   3. PURPLE AS THE ACCENT, NOT THE SURFACE — the header's solid --app-accent bar
+      is gone; the header is the same glass as the body with --app-text on it, and
+      the purple survives as the step chip, the CTA fill, the selected chip and
+      the focus ring. That is the founder's "more elegant, more tech" and it also
+      keeps the C43 fix the solid bar was carrying: the --drawing banner repaints
+      the header white, and .os-title / .os-step-chip are #ffffff, so white-on-
+      white (~1.1:1) is what the solid bar existed to prevent. Recolouring the
+      TEXT to --app-text (13.69:1) removes the cause instead of covering it.
+      The DRAW banner (step 2) still has that latent bug and is still NOT fixed
+      here — different step, reported not absorbed. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header,
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
-  /* Narrower than the 560px draw banner — that banner is a one-line horizontal
-     instruction strip and keeps its width; only the confirm CARD shrinks. */
-  width: min(360px, 92vw);
+  /* 264 x 0.85 = 224px of content — the measured floor of the width sweep in the
+     block comment. The 560px draw banner is a one-line instruction strip and
+     keeps its width; only the confirm CARD shrinks. */
+  width: min(264px, 92vw);
   border-color: var(--app-border);
-}
-.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
-  /* Opaque, not frosted — see the block comment: the frosted card put the body copy
-     at 3.73:1 over a dark basemap. Only the BODY loses the glass; the header keeps
-     its purple gradient, which is the onboarding wizard's identity across all four
-     steps and is already white-on-purple at 6.98:1. */
-  background: var(--app-panel-bg);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  /* ONE glass surface across header + body — see §UX1-CONFIRM-GLASS (1). */
+  background: var(--app-panel-glass);
+  backdrop-filter: var(--app-panel-glass-blur);
+  -webkit-backdrop-filter: var(--app-panel-glass-blur);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header {
-  /* Compact header bar at the chrome's 12px/700 scale and padding.
-
-     C43 DEFECT FOUND WHILE MEASURING THIS PANEL — the confirm card inherits the
-     --drawing banner's header, and that rule repaints the header
-     rgba(255,255,255,0.74) (a glass strip), overriding the base .os-header purple
-     gradient at equal specificity but later in the sheet. .os-title and
-     .os-step-chip are #ffffff, so on the confirm card "New project" and
-     "STEP 3 OF 4 · CONFIRM" were rendering WHITE ON WHITE — ~1.1:1, effectively
-     invisible, which is visible in the before/after captures.
-
-     The fix repaints the bar SOLID --app-accent rather than restoring the gradient.
-     Measured: a gradient bar is only as accessible as its lightest stop, and
-     --app-gradient's light end (--app-violet-1 #8B5CF6) gives white 4.23:1 — under
-     AA — and the translucent .os-step-chip on that end 3.08:1. Solid --app-accent
-     gives 6.98:1 for the title and 5.36:1 for the chip, both AA, and matches the
-     flat solid-purple active segment of the neighbouring basemap control.
-
-     Scoped to --confirm ON PURPOSE. The DRAW banner (step 2) inherits the same
-     white-title-on-white-glass bug and is NOT fixed here: it is a different step,
-     it is live in another agent's working tree this session, and widening the blast
-     radius of a UX pass into a step nobody reported is how a small change becomes
-     an unreviewable one. It is reported, not silently absorbed. */
-  background: var(--app-accent);
-  padding: 6px 10px;
+  /* A hairline rule instead of a filled bar: the header now differs from the body
+     by one border, not by a block of colour. */
+  padding: 4px 9px;
   border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+  border-bottom: 1px solid var(--app-border);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-title {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
   letter-spacing: 0.01em;
+  color: var(--app-text);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-step-chip {
+  /* The step indicator is now the header's ONLY filled element — the accent, used
+     once. Opaque --app-accent, so its 6.98:1 does not depend on the backdrop. */
   font-size: 9px;
   padding: 2px 6px;
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: var(--app-panel-bg);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 7px;
-  padding: 10px 12px 11px;
+  gap: 4px;
+  padding: 7px 9px 8px;
   border-radius: 0 0 var(--app-radius-md) var(--app-radius-md);
   box-shadow: var(--app-shadow-panel);
+}
+/* The opaque escapes. Both repeat the full triple-class selector because the glass
+   is declared at (0,4,0) and a shorter selector would silently lose to it. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header,
+  .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
+    background: var(--app-panel-bg);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header,
+  .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
+    background: var(--app-panel-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 /* Title + body copy at the neighbouring panels' scale. .os-prompt / .os-hint keep
    their larger sizes on the location/draw steps — only --confirm is retuned. */
 .os-onboarding-overlay--confirm .os-prompt {
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.25;
   letter-spacing: 0.01em;
   color: var(--app-text);
 }
 .os-onboarding-overlay--confirm .os-hint {
   font-size: 11px;
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--app-text-2);
+}
+/* The chooser at the smaller width. The chip is the only control on the card that
+   is sized by padding alone, so it carries an explicit min-height: 28 x 0.85 =
+   23.8 is clamped back to 24 by uiScale's MIN_TARGET_PX, which is what keeps SC
+   2.5.8 true through any future density change. */
+.os-onboarding-overlay--confirm .os-section-label { line-height: 1.1; }
+.os-onboarding-overlay--confirm .os-typology-choices { gap: 4px; margin-bottom: 0; }
+.os-onboarding-overlay--confirm .os-typology-choices__row { gap: 4px; }
+.os-onboarding-overlay--confirm .os-typology-choice {
+  min-height: 28px;
+  padding: 5px 6px;
+  /* Transparent so the scene reads through the chooser too; the label sits on the
+     card's glass, at the same measured contrast as the body copy. */
+  background: transparent;
+  border-color: var(--app-text-2);
+}
+/* Ordered AFTER the resting rule on purpose: both are (0,2,0), so the later one
+   wins. The fill is restated for the same reason — the resting rule above sets
+   'background: transparent' at equal specificity and later in the sheet, so
+   WITHOUT this line the selected chip silently loses its --app-violet-soft tint
+   and the selected state falls back to colour-on-border alone. */
+.os-onboarding-overlay--confirm .os-typology-choice--selected {
+  border-color: var(--app-accent);
+  background: var(--app-violet-soft);
 }
 .os-onboarding-overlay--confirm .os-confirm-actions {
   /* One column: the primary CTA gets its own full-width row, the two exits share
@@ -939,29 +1019,29 @@ export const ONBOARDING_STYLES = `
      keep their full labels. */
   display: grid;
   grid-template-columns: 1fr;
-  gap: 5px;
-  margin-top: 2px;
+  gap: 4px;
+  margin-top: 0;
 }
 .os-onboarding-overlay--confirm .os-confirm-exits {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 5px;
+  gap: 4px;
 }
 .os-onboarding-overlay--confirm .os-confirm-actions .os-btn {
-  padding: 7px 10px;
+  padding: 6px 9px;
   font-size: 11px;
   border-radius: var(--app-radius-sm);
   line-height: 1.2;
 }
 .os-onboarding-overlay--confirm .os-confirm-actions .os-btn--primary {
   font-size: 11.5px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   box-shadow: var(--app-shadow-glow);
 }
 .os-onboarding-overlay--confirm .os-btn--primary:hover { background: var(--app-violet-2); }
 /* Visible focus on every control (C43 / WCAG 2.2 2.4.11). outline-offset: 2px
-   puts the ring on the card's white body, never on the button's own purple fill,
-   so it measures 6.98:1 there — comfortably past the 3:1 non-text threshold. */
+   puts the ring on the card's own surface, never on the button's purple fill,
+   so it measures 5.83:1 there — comfortably past the 3:1 non-text threshold. */
 .os-onboarding-overlay--confirm .os-btn:focus-visible {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
