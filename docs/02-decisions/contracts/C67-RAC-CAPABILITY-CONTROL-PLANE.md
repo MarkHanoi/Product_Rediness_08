@@ -1,6 +1,6 @@
 # C67 — RAC: The Natural-Language Capability Control Plane
 
-> **Stamp**: 2026-08-19 (rev 4 — the conformance-study fold-in) · **Status**: CANONICAL
+> **Stamp**: 2026-08-19 (rev 5 — §1.8, the per-family AS-IS/TO-BE surface, lane RAC1; rev 4 was the conformance-study fold-in) · **Status**: CANONICAL
 > *(rev 3 was 2026-08-11, the U0–U10 refresh, measured at `f5f3a5a1`. Rev 4 re-measures at
 > `f89c735c` and folds in the RAC conformance study; §0.2 says what moved and what was retracted.)*
 > **Authority**: subordinate to `STR-03-engineering-vision.md` / `STR-04-architecture.md`; peers with C03 (commands/state), C11 (element creation), C15 (hosted elements), C16 (command authoring / semantic engine), C65 (element types). Supersedes nothing. **ADR-0313** records the resolver ladder and the registry; **ADR-0314** the parity/batch layer and undo-neutral `runBatch`; **[ADR-0315](../adrs/ADR-0315-universal-capability-architecture.md)** the universal capability architecture as it was actually built (one semantic front door, four execution classes, five context services).
@@ -403,6 +403,148 @@ identical reason.** **V4 and V5: 0 PASS.** **V7: 5 PASS, all in category 9, all 
 
 ---
 
+### §1.8 — THE PER-FAMILY CAPABILITY SURFACE: **AS-IS vs TO-BE** (added rev 5, lane RAC1, 2026-08-19)
+
+> **This section exists because C67 is the CONTROL PLANE, and §0's one-sentence principle names
+> exactly the failure it was measured to have:**
+> *"The editor registers capabilities; language resolves against them."*
+> ⛔ **A capability that the EDITOR can perform and does not REGISTER to the RAC is a control-plane
+> defect, and this is where it is named.** It is not a chat bug and not a family bug — the registry
+> is the declaration surface, and an undeclared live capability is the registry being wrong.
+
+#### §1.8.0 — The finding, in one sentence
+
+**`element.changeType`** (`apps/editor/src/engine/initBusHandlers.ts:1518`) is a **single, live,
+registered bus verb with SIXTEEN family branches** — every one writing the geometry store the
+builders, the plan projector and persistence read, every one with ring-buffer undo parity, the whole
+set pinned executable by `elementChangeTypeCoverage.spec.ts:178-194`. **The RAC publishes FIVE
+type-change capabilities and none of them use it.**
+
+⭐ **So the gap is PUBLICATION, not implementation.** Eleven families have a live, panel-reachable,
+undoable, persisting type-change the chat cannot reach — a **C84 EI-3 breach** on nine element
+families plus two railing variants. **The remediation is registry wiring against proven executors,
+which is a materially smaller and lower-risk job than "build eleven capabilities", and every
+document about this work must carry that framing.** Full measurement: **C84 §4F**. Decisions:
+**ADR-0334**. Rows: **L-1140 … L-1147**.
+
+#### §1.8.1 — AS-IS: what the chat can do TODAY, per family (measured 2026-08-19)
+
+| Family | Type change | Dimensions | Delete | Other published | Scope modes DECLARED | Scope modes actually HONOURED |
+|---|---|---|---|---|---|---|
+| **wall** | ✅ `set-wall-type` | ✅ `set-wall-dimensions`, `set-height`, `set-thickness` | ✅ | colour, rake, side-finish, add-layer, base-offset | `all` (none declared) | `all` · `selection` · **`level`** · **`room`** · **`orientation`** |
+| **window** | ✅ `set-window-type` | ✅ `set-window-dimensions`, `set-width`, `set-sill-height` | ✅ `delete-windows-scoped` | parametric create | `all` · `selection` | + **`level`** · **`room`** · **`orientation`** |
+| **door** | ✅ `set-door-type` | ✅ `set-door-dimensions`, `set-width`, `set-sill-height` | ✅ `delete-doors-scoped` | — | `all` · `selection` | + **`level`** · **`room`** · **`orientation`** |
+| **slab** | ✅ `set-slab-type` | ✅ `set-thickness`, `set-base-offset` | ⛔ | — | `all` · `selection` | + **`level`** · **`room`** · **`orientation`** |
+| **ceiling** | ✅ `set-ceiling-type` | ✅ `set-height` | ⛔ | — | `all` · `selection` | + **`level`** · **`room`** · **`orientation`** |
+| **room/space** | n/a (occupancy) | ✅ `set-room-height-offset` | ⛔ | `rename-room`, `set-room-number`, `set-room-occupancy` | `selection` · `room` | as declared |
+| **roof** | ⛔ **NONE** | ✅ `set-roof-pitch`, `set-overhang`, `set-thickness`, `set-base-offset` | ⛔ | — | `selection` | as declared |
+| **stair** | ⛔ **NONE** | ✅ `set-riser-height`, `set-tread-depth`, `set-width` | ⛔ | — | `selection` | as declared |
+| **column** | ⛔ **NONE** | ✅ `set-width`, `set-depth`, `set-base-offset` | ✅ `delete-columns-scoped` | — | `selection` | + `orientation` |
+| **beam** | ⛔ **NONE** | ✅ `set-width`, `set-depth` | ⛔ | — | `selection` | as declared |
+| **handrail** | ⛔ **NONE** | ✅ `set-baluster-spacing`, `set-baluster-width`, `set-base-offset` | ⛔ | — | `selection` | as declared |
+| **curtain-wall** | ⛔ **NONE** | ✅ `set-mullion-size`, `set-panel-thickness`, `set-base-offset` | ⛔ | — | `selection` | as declared |
+| **furniture** | ⛔ **NONE** | ✅ `set-width`, `set-length`, `set-base-offset` | ✅ `delete-furniture-scoped` | — | `selection` | + `orientation` |
+| **floor** | ⛔ **NONE** | ⛔ | ⛔ | — | — | — |
+| **lighting** | ⛔ **NONE** | ⛔ (excluded from `set-height`) | ⛔ | — | — | — |
+| **plumbing** | ⛔ **NONE** | ⛔ | ⛔ | — | — | — |
+| **stair-railing** | ⛔ **NONE** | ⛔ | ⛔ | — | — | — |
+| **curtain-wall PANEL** | ⛔ **NONE** | ⛔ | ⛔ | — | — | — |
+
+⚠ **The last two columns are a MEASURED DISAGREEMENT, not a presentation choice.**
+`check-chat-capability-coverage.ts` (2026-08-19, **RC=3**) prints
+*"FAIL — **26** spatial mode(s) the ARM honours without declaring, baseline 24"*. **"By level" and
+"by room" already work for every catalogue family** — the shared grammar `makeHostedTypeParser`
+(`ZeroTokenResolver.ts:3340`) captures `on level N` and `in the <room>` for free — **and the registry
+does not say so.** Since the registry is what the *"what I CAN do"* answer is generated from, **the
+system under-reports its own capability to the user**: EI-9 in the reporting direction, the exact
+mirror of L-998. See **L-1142**.
+
+#### §1.8.2 — TO-BE: the target surface, and the ONE condition that retires each gap
+
+⛔ Per **ADR-0334 Decision 3**, a family that cannot be published carries **the single
+machine-checkable condition that retires its deferral**. *A deferral without a retiring condition is
+not a decision; it is a leak* — and §1.8.4 is what that costs.
+
+| Family | Target capability | Catalogue | Executor | Retiring condition |
+|---|---|---|---|---|
+| **handrail** | `set-handrail-type` | ✅ 20 `{id,name}` (`HandrailTypeStore.ts`) | ✅ `element.changeType` `:1936` → `UpdateHandrailCommand` | HR2 lands `resolveHandrailTypeFields` in `geometry-handrail` (ADR-0334 D2) + RAC1 injects `ctx.catalogues.handrail` |
+| **curtain-wall** (wall type) | `set-curtain-wall-type` | ✅ 20 (`CurtainWallTypeStore.ts`) | ✅ `:2022` → `UpdateCurtainWallCommand`; record carries `systemTypeId` | inject `ctx.catalogues['curtain-wall']` — **nothing else** |
+| **floor** | `set-floor-type` | ✅ 22 (`FloorSystemTypeStore.ts`) | ✅ `:1600` → `UpdateFloorLayersCommand`; `systemTypeId` | decide the **floor vs slab noun disambiguation** (users say "floor" for both), then inject |
+| **roof** | `set-roof-type` | ✅ 8 `{id,name}` (`ElementTypeCatalogRegistry.ts:115-124`) | ✅ `:1979` → `UpdateRoofCommand` | inject; the value is an enum member, so the refusal lists the 8 |
+| **lighting** | `set-lighting-type` | ✅ 12 (`LightingTypeDefinitions.ts:54`) | ✅ `:1991`, **validates the id at `:2004`** | inject |
+| **stair-railing** | `set-stair-railing-type` | ✅ reuses `handrailTypeStore` | ✅ `:1901`, **already resolves from `newTypeId` alone** | inject — ⭐ **the reference implementation for ADR-0334 D2** |
+| **stair** | `set-stair-type` | ✅ 5 (`StairTypeDefinitions.ts`), `typeId` on the record | ✅ `:1850` | **`StairTypeStore` gains `getById()`** (it exposes `get()`; `resolveCatalogueRef.ts:39-42` requires `getById`) — **L-1147**, one method |
+| **furniture** | `set-furniture-type` | ⛔ string union, **no display names** | ✅ `:1549` → `ChangeFurnitureTypeCommand` | **MINT an `{id,name}` catalogue** (C65) |
+| **plumbing** | `set-plumbing-type` | ⛔ unions + variants, no names | ✅ `:1802` | **MINT an `{id,name}` catalogue** |
+| **column** | `set-column-type` | ⛔ `profile` enum, no names | ✅ `:1858` | **MINT an `{id,name}` catalogue** |
+| **beam** | `set-beam-type` | ⛔ `sectionType` enum, no names | ✅ `:1883` | **MINT an `{id,name}` catalogue** |
+| **curtain-wall PANEL** | `set-panel-type` | ⛔ bare union | ⛔ **`ReplacePanelTypeCommand.ts:1` is `TODO(E.5.x): ORPHANED`** | **the executor must exist first** — lane CW2 |
+
+⛔ **MUST NOT narrow the user's vocabulary to make any of these resolve.** Founder doctrine is
+**free-form language + hard stoppers**: safety comes from rule gates that refuse **with both numbers**
+— what was asked against what is available — never from a restricted grammar. A refusal for the four
+catalogue-less families **must name what IS available for that family** and must not silently absorb
+the sentence.
+
+**Every published capability MUST declare its scope modes**, and the target for all of them is
+`all` · `selection` · `level` · `room` — the founder's *"BY LEVEL, BY ROOM, ETC"*. The grammar
+already honours them (§1.8.1); the declaration is the work.
+
+#### §1.8.3 — TWO BINDING RULES ADDED TO §4 BY THIS SECTION (rules **14** and **15**)
+
+> **Rule 14 — A CAPABILITY THE EDITOR CAN PERFORM AND THE REGISTRY DOES NOT DECLARE IS A C67 DEFECT.**
+> Not a chat gap, not a family gap. §0's principle is *"the editor registers capabilities"*; an
+> unregistered live capability means the registry is **wrong**, and it is repaired here. The measured
+> instance is `element.changeType`: **sixteen live branches, five published.**
+
+> **Rule 15 — A DEFERRAL MUST CARRY A RETIRING CONDITION, AND THE CONDITION MUST BE RE-CHECKED.**
+> A `blockedBy` string is a claim about the present that decays. It **MUST** name a condition an
+> automated check can evaluate, and **MUST** be re-validated rather than inherited. See §1.8.4.
+
+#### §1.8.4 — ⛔ THE GATE HOLE THIS SECTION EXISTS TO CLOSE
+
+`element.changeType` sits in Class B at `ChatCommandClassification.ts:98` under
+`blockedBy: 'catalogue value-source injection'`. **Both halves of that blocker were already
+satisfied**: the catalogues ship with `{id,name}` (handrail 20 — including, verbatim,
+`name: 'Frameless Glass Balustrade'` at `HandrailTypeStore.ts:227` — curtain-wall 20, floor 22,
+lighting 12, roof 8, stair 5), and the injection channel `ResolverContext.catalogues`
+(`ZeroTokenResolver.ts:199`) exists with **no production writer** —
+`ZeroTokenChatBridge.ts:922-954` is the **only** `ResolverContext` construction site in the repository
+and never sets the key. **The blocker is ~6 lines.**
+
+⭐ **And `ChatCommandClassification.ts:84-95` records the SAME MISTAKE, about `room.setOccupancy`,
+THREE LINES ABOVE the offending entry**, ending:
+> *"when a deferral names a dependency, check the dependency is real for THAT verb before inheriting
+> the family's reason."*
+
+**`element.changeType` is on line 98.** The lesson was written and not applied to the next entry of
+the same array.
+
+⛔ **NO GATE CAN SEE THIS.** `check-chat-capability-coverage.ts` prints
+`explicitly deferred (CHAT_UNAVAILABLE): 52` and `B needs-design 131` and is **green on both** —
+**a deferral is invisible to a coverage gate by construction.** The gate measures *declared*
+coverage; a capability that declares itself absent is, to the gate, correctly absent.
+
+**TO BUILD — `check-deferral-blockers.ts`**, a shrink-only ratchet: for every Class-B / `CHAT_UNAVAILABLE`
+entry whose `blockedBy` names a catalogue, assert the catalogue does **not** already satisfy
+`CatalogueReader`. **This is the durable fix; §1.8.2's table is its backlog.** Same family as
+[[unsatisfiable-gate-decomposition-is-the-fix]].
+
+#### §1.8.5 — NOT MEASURED (explicit — EI-1b: a blank reads as "fine")
+
+- **Whether a chat-driven `element.changeType` holds V3/V4/V5 per family.** The panel's passing is
+  **not transferable evidence**. Each family's C85–C99 §RAC section must carry its own **executed
+  read-back** (C16 CA-21).
+- **No utterance was typed into a live editor by this lane.** Every verdict in §1.8.1 is
+  source-measured.
+- **The other 181 deferrals.** Two `blockedBy` claims were re-validated out of **131 Class-B + 52
+  `CHAT_UNAVAILABLE`**. **A gap, not a clearance.**
+- **`set-slab-type` / `set-ceiling-type` fuzzy-match quality in a real project** — both run the
+  raw-string fallback because `ctx.catalogues` has no writer (**L-1146**).
+- **V6 SYNC** — inherited FAIL from §1.0, not re-derived.
+
+---
+
 ## §2 — The five layers, as they now exist
 
 Rev 2 described these as the target. Four of five are built; the table says which, and against what.
@@ -499,6 +641,27 @@ Rev 2 described these as the target. Four of five are built; the table says whic
     > number of places the field can be dropped silently** — L-999 found four, plus a fifth in
     > `CreateWallCommand`. Prefer a derived list; where one is impossible, pin every copy to its
     > master by an **executed** comparison, as `WallProfileNonRegressionBaseline.test.ts` does.
+
+14. **A capability the EDITOR can perform and the REGISTRY does not declare is a C67 DEFECT
+    (added rev 5).** §0's principle is *"the editor registers capabilities; language resolves
+    against them"* — so an undeclared live capability means **the registry is wrong**, and it is
+    repaired here rather than filed as a chat bug or a family bug. **The measured instance:**
+    `element.changeType` (`initBusHandlers.ts:1518`) has **sixteen live family branches**, each
+    writing the geometry store the builders and persistence read, each with ring-parity undo — and
+    the RAC publishes **five** type-change capabilities, **none of which use it**. Eleven families
+    were dark for want of a table entry. **§1.8, C84 §4F, ADR-0334, L-1140.**
+
+15. **A deferral MUST carry a RETIRING CONDITION, and the condition MUST be re-validated, never
+    inherited (added rev 5).** A `blockedBy` string is a claim about the present, and claims decay.
+    It **MUST** name a condition an automated check can evaluate, and a new entry **MUST NOT**
+    inherit a family's stated reason without checking that reason is real *for that verb*.
+    ⛔ **No gate can currently see a stale deferral** — `check-chat-capability-coverage.ts` is green
+    on `deferred 52` and `B needs-design 131`, because **a deferral is invisible to a coverage gate
+    by construction**. *(Measured cost: `element.changeType` sat behind a blocker whose catalogues
+    had already shipped and whose injection channel already existed — while
+    `ChatCommandClassification.ts:84-95`, **three lines above it**, recorded the identical mistake
+    for `room.setOccupancy` and ended with the very lesson that was then not applied.)*
+    **TO BUILD: `check-deferral-blockers.ts`** — §1.8.4.
 
 ---
 
