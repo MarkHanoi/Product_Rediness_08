@@ -347,7 +347,7 @@ The bridge prefers the **committed** Immer patch value over the request payload
 | 20 | `provenance` `:73` | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ **DROPPED (SILENT)** — a C75 §2.4 field that never reaches the record persistence writes |
 | 21 | `confidence` `:89` | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ **DROPPED (SILENT)** |
 | 22 | `frontSide` / `backSide` `:110-111` | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | **DECLARED DEAD** — `WallTypes.ts:396-404`: zero writers, zero readers |
-| 23 | `sideFinishes` (legacy-only `:414`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ **NEVER SERIALISED** — authored only by `wall.setSideFinishBatch` (L3, `[]`). **A side finish does not survive save/load** |
+| 23 | `sideFinishes` (legacy-only `:414`) | ⛔ | ⛔ | ⛔ | ⛔ | ✅ | ✅ **SERIALISED 2026-08-19 (L-999, lane WF1)** — ⛔ this row read **NEVER SERIALISED** and was true when written. Closing it took **FOUR** hand-written whitelists (two serializers + two loaders) plus `CreateWallCommand`'s option literal. ⚠ **And the write leg was broken too, which this row never suspected**: `WallStore.updateWall()` projects onto a **12-field whitelist** that omitted `sideFinishes`, so the store discarded it while the command returned `{success:true}` — and `restoreSnapshot()` carried the identical omission (C84 **EI-7a**). **`sideFinishes` still has NO L0 representation** — the same shape as §11 row 2's rake |
 | 24 | `_renderVersion` `:424` | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | **DELIBERATE** — transient render bookkeeping |
 | 25 | `properties`, `loadBearing` | ⛔ | ⛔ | ⛔ | ✅ `:576`, `:579` | ⛔ | **DROPPED (SILENT)** on reload |
 | — | `commandId` `:237`, `wallCount` `:240` | — | ✅ | ⛔ **never read** | — | — | **EMITTED, UNCONSUMED** — EI-13 shape |
@@ -367,9 +367,13 @@ from the authority with no error.
 - **W-B-2.** Rows **12** (`materialId`) and **14** (`joinIntent`) are the priority: both ends hold
   them, only the bridge does not, and row 14 is unreconstructable by the serializer's own measured
   proof (L-923).
-- **W-B-3.** Row 23 (`sideFinishes`) MUST be serialised or the `wall.setSideFinishBatch` affordance
-  MUST be removed — C84 **EI-6**: *"every family that can be created MUST round-trip, or the
-  creation affordance MUST be removed."* Applied here to a field rather than a family.
+- ~~**W-B-3.** Row 23 (`sideFinishes`) MUST be serialised or the `wall.setSideFinishBatch` affordance
+  MUST be removed~~ — ✅ **DISCHARGED 2026-08-19 (L-999).** It is serialised, and the round-trip is
+  pinned. The clause it rests on stands and is restated because it will bind the next field:
+  C84 **EI-6** — *"every family that can be created MUST round-trip, or the creation affordance MUST
+  be removed."* Applied here to a field rather than a family. **What remains is narrower and is NOT
+  discharged: `sideFinishes` has no L0 schema representation**, so the authority for this field is
+  still the legacy record alone (W-S-3's problem, one field over).
 - **W-B-4.** Row 4's `?? 0` on `baseLine.y` MUST be replaced by the declared elevation convention or
   MUST refuse. A datum defaulted at a bridge is C84 §1's `??`-default mechanism.
 - **W-B-5.** `initTools.ts:1144-1145`'s silent skip MUST warn, and `commandId`/`wallCount` MUST be
@@ -400,7 +404,7 @@ from the authority with no error.
 | `wall.updateLayers` / `wall.addLayerBatch` | L3 | legacy | L2 stack | ⚠ | the live layer path |
 | `wall.updateHeightBatch` | L3, `[]` | legacy | L2 stack | ⚠ | rationale `UpdateWallsHeightBatch.ts:45` |
 | **`wall.updateRakeBatch`** | **L3**, `[]` | legacy `rakeAngleDeg` | L2 stack | ⚠ | **the ONLY rake author; no L0 representation** |
-| `wall.setSideFinishBatch` | L3, `[]` | legacy `sideFinishes` | L2 stack | ⚠ | **not persisted** (§5 row 23) |
+| `wall.setSideFinishBatch` | L3, `[]` | legacy `sideFinishes` | L2 stack | ⚠ | ✅ **persisted since 2026-08-19** (§5 row 23, L-999). ⛔ **This row said the verb wrote `sideFinishes`. It did not write anything** — `WallStore.updateWall()`'s 12-field whitelist dropped it silently while the command reported success. Fixed with the persistence half |
 | `wall.setSystemType` / `wall.updateSystemType` / `wall.updateSystemTypeBatch` | L1 / L3 | mixed | mixed | ⛔ | — |
 | `wall.create-on-all-slabs` / `wall.createFromSlab` / `wall.createBetweenMarks` | L1 | DTO | legacy | ⛔ | — |
 | `wall.updateCurtainWall` | L3 | legacy `curtainWallStore` | L2 stack | ✅ | **Owned by [C87](C87-ELEMENT-CURTAIN-WALL.md)**; namespaced `wall.*` for historical reasons |
@@ -695,7 +699,7 @@ Ordered by what the user loses.
 | **3** | `joinIntent` is dropped at the bridge (§5 row 14) though the serializer's own `:559-573` calls it *"the ONLY field on a wall that cannot be recovered if it is dropped"* | **the author's corner gesture** — the founder's mitred L reverts to square | C84 **EI-2(a)** · L-923 / L-927 | create through the bus with a `joinIntent`, save, reload, assert |
 | **4** | `materialId` dropped at `CEB:236-256` though both ends hold it and slab/ceiling/beam arms carry it | **the specified material**; the wall renders its fallback | C84 **EI-2(a)** | round-trip a `materialId` through `wall.create` |
 | **5** | `wall.delete` (L1) has **no cascade**; the L2 path does. `DeleteWall.ts:15-17` blames an S11 that has arrived | orphaned door/window records **and their 3-D meshes** | C84 **EI-4a**, **EI-5** | one route per intent — delegate, do not copy |
-| **6** | `sideFinishes` is authored (`wall.setSideFinishBatch`) and **never serialised** | **the side finish**, on every save | C84 **EI-6** | save/load a side finish |
+| **6** ✅ **CLOSED** | ~~`sideFinishes` is authored (`wall.setSideFinishBatch`) and **never serialised**~~ — **CLOSED 2026-08-19 (L-999, lane WF1)**, and it was worse than this row stated: the field never reached the store either, because `WallStore.updateWall()` projects onto a **12-field whitelist** it was not on, and `restoreSnapshot()` shared the omission. **The row described the persistence leg of a three-leg failure** — write / render / persist — of which write and persist were broken and render was already sound. ⚠ **Why it went unseen: L-960 "proved" the write against a store fake whose `updateWall` accepted EVERY field, while the real store accepts twelve.** A fake more capable than the real thing proves nothing | **the side finish**, on every save | C84 **EI-6**, **EI-7a** | ✅ round-trip pinned, 8/8 |
 | **7** | `DeleteElementCommand.ts:55` declares 15 keys; `createSnapshot` recognises `'plumbing'` nowhere | **a rollback that was promised** | C84 **EI-7d** · L-953 | `check-affected-stores.ts` |
 | **8** | `WRITES ⊋ RESTORES` on every `['wall']` bus verb (W-U-1) | the DTO record survives undo forever | C84 **EI-7a** | `busCreateUndoLeavesPluginStore.test.ts` — **will pass today; watch it** |
 | **9** | Bake worker reads the plugin DTO store and calls `produceWall(w, NO_JOINS, 0)` | in self-host bake: **unjoined ends at Y=0** | C84 **EI-1**, **EI-11a** | declare in `HeadlessBakeSession`'s header; refuse the substitution |

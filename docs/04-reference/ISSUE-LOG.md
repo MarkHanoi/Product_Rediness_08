@@ -9451,3 +9451,55 @@ control or declares, in its contract, why it must not** — which is the same sh
 discipline C16 CA-18 mandates. A dropdown on a door would be a defect, not a feature.
 
 **Owner:** lane EL1. **Priority:** founder-requested, pre-production.
+
+## L-1033 — DECISION: a pre-existing wall/opening overlap is REPORTED, not REFUSED, on a move that neither creates nor deepens it (DECIDED, orchestrator, 2026-08-19)
+
+**Lane WM1 escalated this as a founder call. The founder delegated it back: *"on [what] needed me,
+decide yourself — architecturally sound."* Decided here so it is not left hanging, with the
+reasoning recorded so it can be overturned on evidence rather than re-litigated from scratch.**
+
+### The question
+
+`L-990` changed one arm of the wall-move gate. A wall-into-opening crossing that **already existed
+before the gesture**, and which the move neither creates nor deepens (≤ 1 mm), now **reports** in
+chat and lets the move proceed, instead of hard-refusing it. Should that stand?
+
+### DECISION: it stands.
+
+**Three reasons, in order of weight.**
+
+1. **Refusing punishes the wrong event.** WM1 measured the crossing at **0.063 m** and then evaluated
+   the same stem *where it stands today, against the model as it stands today* — identical
+   violation, identical 0.063 m. **The overlap predates the drag, and a translation carries the stem
+   by the same vector, so the station is invariant: no drag could ever have cleared it.** A gate that
+   refuses every move because of a condition no move can change is not a safety property, it is a
+   deadlock — and it presented as one, since the remedy it offered ("move the opening in the way
+   first") pointed at an opening on the wall being dragged.
+2. **It matches the founder's own standing direction on spatial validity** — *IMPOSSIBLE vs
+   INADVISABLE vs FINE*, and *always ASK, never auto-edit*. A pre-existing overlap that the gesture
+   does not worsen is **INADVISABLE, not IMPOSSIBLE**. The correct response to inadvisable is to say
+   so and let the author decide — which is exactly what reporting does, with Ctrl+Z one keystroke
+   away.
+3. **It is the same trade already made and accepted at `§L-942-UNBLOCK`**, applied to a second arm.
+   Deciding it differently here would leave two arms of one gate with two dispositions for one
+   question — C84 **EI-9**.
+
+### What did NOT change, and must not
+
+⛔ **A crossing the cascade CREATES or DEEPENS still hard-refuses**, with the full sentence naming
+the host wall and the opening. That arm is pinned. The distinction the fix introduces —
+`movedSubject`, letting `canExecute` reconstruct the pre-gesture world and re-run the *same*
+predicate — is what makes "pre-existing" a measured fact rather than an assumption. **Without
+`movedSubject` there is no attribution and the behaviour falls back to pre-L-990.** Do not remove it.
+
+### The exit, and it is not this arm
+
+The right place to stop these overlaps is **where they are minted**, not where they are noticed:
+[L-993](#) — `DuplicateFloorPlanCommand.ts:266-269` clones walls **and their openings** through
+**zero** placement gate (`grep evaluateWallPlacement|gateWallPlacement` → 0 hits). L-990 makes such a
+model survivable; L-993 is what makes it clean. **If the block is ever wanted back, close L-993 —
+do not restore this arm.**
+
+⚠ **NOT MEASURED and deliberately so:** whether the founder's own source level already carried the
+overlap. That needs their project file. It does not change the decision: the disposition is chosen
+on the general shape, not on one sample.
