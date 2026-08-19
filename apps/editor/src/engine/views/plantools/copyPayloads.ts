@@ -404,8 +404,17 @@ export function furnitureCopyPayload(
     const rot = item.rotation;
     const yaw = typeof rot === 'number' ? rot : (rot?.y ?? 0);
 
+    // §FIX-COPY-PAYLOAD-FIELD-NAMES / L-994b — spread, do not cast. `item as
+    // Record<string, unknown>` is a TS2352 under the ROOT tsconfig (the package
+    // config never saw it): `LegacyFurnitureLike`'s optional union-typed
+    // `rotation` means the two types do not sufficiently overlap. The obvious
+    // repair — `as unknown as Record<…>` — would silence the compiler by
+    // erasing the check, which is the exact `any`-seam shape L-980 was raised
+    // to remove from this codebase. A spread is checked, allocates one small
+    // object per copied item, and needs no cast at all.
+    const itemFields: Record<string, unknown> = { ...item };
     const uncarried = FURNITURE_UNCARRIED_FIELDS.filter(
-        k => (item as Record<string, unknown>)[k] !== undefined,
+        k => itemFields[k] !== undefined,
     );
     if (uncarried.length > 0) {
         console.warn(

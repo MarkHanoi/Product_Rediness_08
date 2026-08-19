@@ -167,6 +167,20 @@ export class RailingPlanToolHandler implements PlanToolHandler {
     private _loopAnchor: HandrailRunPoint | null = null;
     /** CURVED mode's clicked mid-point, awaiting its end point. */
     private _arcMid: HandrailRunPoint | null = null;
+    /**
+     * True once THIS polyline run has committed at least one segment.
+     *
+     * ⛔ THIS IS NOT `_chain.length > 1`, AND THE DIFFERENCE IS A REAL DEFECT THE
+     * REACHABILITY SUITE CAUGHT BEFORE IT SHIPPED. After a commit the chain is
+     * re-seeded to `[end]` so the next segment starts where the last finished — so
+     * its length is 1 both before the FIRST click-pair and after every subsequent
+     * one. Deriving "is this the head of the run?" from the chain length therefore
+     * answered `true` every time, every segment kept its start post, and a chained
+     * polyline grew a DOUBLED POST at every interior vertex: exactly the defect
+     * `suppressStartPost` exists to prevent, reintroduced by the one place that
+     * could not see it. The flag is explicit because the chain length is ambiguous.
+     */
+    private _runStarted = false;
     private _cursor: WorldPoint | null = null;
 
     activate(ctx: PlanToolDrawContext): void {
@@ -185,6 +199,7 @@ export class RailingPlanToolHandler implements PlanToolHandler {
         this._loopAnchor = null;
         this._arcMid = null;
         this._cursor = null;
+        this._runStarted = false;
     }
 
     /** Re-read on every interaction — a mid-run mode switch must take effect now. */
@@ -240,7 +255,7 @@ export class RailingPlanToolHandler implements PlanToolHandler {
                 this._clearOverlay();
                 return;
             }
-            this._commitOpenRun(verts, /* startsAtChainHead */ this._chain.length === 1);
+            this._commitOpenRun(verts, /* startsAtChainHead */ !this._runStarted);
             this._chain = [verts[verts.length - 1]!];
             this._clearOverlay();
             return;
@@ -254,7 +269,7 @@ export class RailingPlanToolHandler implements PlanToolHandler {
             );
             return;
         }
-        this._commitOpenRun([anchor, end], /* startsAtChainHead */ this._chain.length === 1);
+        this._commitOpenRun([anchor, end], /* startsAtChainHead */ !this._runStarted);
         // Chain: the endpoint becomes the next start, exactly as the wall tool does.
         this._chain = [end];
         this._clearOverlay();
@@ -322,6 +337,10 @@ export class RailingPlanToolHandler implements PlanToolHandler {
             suppressStartPost: i === 0 ? !startsAtChainHead : true,
         }));
         this._dispatchRun(adjusted, levelId, 'Handrail run');
+        // From here on this run OWNS its head vertex, so every later commit
+        // suppresses its start post. Set after the dispatch, not before, so a
+        // refused dispatch does not claim a post nobody placed.
+        this._runStarted = true;
     }
 
     private _commitLoop(

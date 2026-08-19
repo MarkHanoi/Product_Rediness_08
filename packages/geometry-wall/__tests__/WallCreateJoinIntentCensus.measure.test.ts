@@ -234,7 +234,15 @@ describe('§MEASURED-JOININTENT-PRODUCER-CENSUS (L-927)', () => {
         expect(updateBody.slice(0, 400)).toMatch(/if\s*\(!wall\)\s*return undefined/);
     });
 
-    it('every production wallStore.add() site is classified — an unclassified site is a NEW unstamped producer', () => {
+    // ⚠ L-994 (2026-08-19) — EXPLICIT TIMEOUT, and the reason matters more than the number.
+    // This case walks every `.ts` under seven source roots (`findWallAddSites()`), which took
+    // 6816 ms against vitest's 5000 ms default: the run died in the SCAN and the assertion
+    // NEVER EXECUTED. It then reported itself with this test's name — "a NEW unstamped
+    // producer" — a defect class nothing had measured. That is the §CONTEXT-DATA-HONESTY
+    // shape at the harness level: a timeout and a finding printed as the same failure.
+    // 60 s is a ceiling for a filesystem walk on a cold cache, NOT a performance budget.
+    // ⛔ If this times out again, the fix is the SCAN or the ceiling — never the ledger.
+    it('every production wallStore.add() site is classified — an unclassified site is a NEW unstamped producer', { timeout: 60_000 }, () => {
         const sites = findWallAddSites();
         const files = [...new Set(sites.map(s => s.file))].sort();
 
