@@ -58,6 +58,7 @@ import { FastPathProjectorService } from '@pryzm/core-app-model';
 import { ViewRangeFilterService }from '@pryzm/core-app-model';
 import { CropRegionFilterService }from '@pryzm/core-app-model';
 import { UnderlayRenderService } from '@pryzm/core-app-model';
+import { installUnderlayViewScope } from './underlayViewScope';
 import { ViewRangeZoneApplicator }from '@pryzm/core-app-model';
 // Contract 25b — Wave 2: VGGovernancePanel retired. The unified V/G header panel
 // (OverridePanel) and the master VisibilityIntentPanel are the only authoring surfaces.
@@ -664,6 +665,14 @@ export async function initUI(p: UIParams): Promise<void> {
     );
     window.underlayRenderService = underlayRenderService;
     console.log('[main] Underlay Render Service initialized');
+
+    // ── §UND-VIEW-SCOPE (L-1197) — import-underlay VIEW SCOPE ─────────────────
+    // Distinct from UnderlayRenderService above (which ghosts BIM elements from an
+    // adjacent level). This gates the raster IMPORT underlay — the PDF/scan/GIS-aerial
+    // plane FloorPlanUnderlayTool adds to the shared scene — to the views that own it.
+    // Installed here because this is where the presentation services that read
+    // `view-activated` are wired; it holds no scene reference of its own.
+    installUnderlayViewScope();
 
     // ── Phase VR-2 — Zone Applicator ──────────────────────────────────────────
     // Constructed AFTER all other presentation services so its 'view-selected'

@@ -4473,6 +4473,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 positionNorth: 0,
                 // True-north imagery → project frame: rotationZ = θ (ADR-0115 dual north).
                 rotationZ: computeGisContextUnderlayRotationZ(theta),
+                // §UND-VIEW-SCOPE (L-1197) — THE FOUNDER'S "Plan Site … even my 3D view has
+                // this image attached". This raster is a MACHINE-GENERATED plan basemap, not
+                // a user import the user is going to trace in 3-D. It belongs to the PLAN
+                // view this control just activated and to nothing else; before this line the
+                // underlay had no view scope at all and every view rendered it.
+                viewScope: 'plan',
             });
 
             // Frame the plan on the building + context (best-effort).

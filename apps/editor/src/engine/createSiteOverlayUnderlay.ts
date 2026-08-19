@@ -20,6 +20,7 @@
 import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 import { CreateUnderlayCommand, type UnderlayCreateSnapshot } from '@pryzm/command-registry';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+import { setUnderlayViewScope, type UnderlayViewScope } from './underlayViewScope';
 
 /** Everything the plan-canvas underlay needs, pre-computed by the site-overlay controller
  *  (see computePlanUnderlayPlacement in projectTrueNorth.ts for the scale/rotation math). */
@@ -41,6 +42,17 @@ export interface SiteOverlayUnderlayInput {
     /** §FIX-IMPORT-MANAGER-SOUND (L-88) — display name for the Import Manager row +
      *  persistence label (the uploaded file's name). Defaults to "Site Plan". */
     readonly fileName?: string;
+    /**
+     * §UND-VIEW-SCOPE (L-1197) — which views may render this underlay.
+     *
+     * Defaults to `'all'` so a user-placed, traced site plan still appears in the 3-D
+     * pane of the split view (L-258's explicit founder success criterion). A
+     * MACHINE-GENERATED context raster — the "▦ Plan + Site" GIS aerial — must pass
+     * `'plan'`: it is a plan-drawing basemap, and in a perspective 3-D view it reads as
+     * a 400 m billboard lying through the model, which is exactly the founder's
+     * "even my 3D view has this image attached".
+     */
+    readonly viewScope?: UnderlayViewScope;
 }
 
 const _tracer = trace.getTracer('pryzm-engine');
@@ -154,6 +166,12 @@ export async function createPlanCanvasUnderlayFromSiteOverlay(
         // it correctly.
         const fileName = input.fileName ?? 'Site Plan';
         try { if (st?.mesh) (st.mesh.userData as { fileName?: string }).fileName = fileName; } catch { /* ignore */ }
+        // §UND-VIEW-SCOPE (L-1197) — stamp the view scope on the mesh and apply it NOW,
+        // before the placed event, so the underlay never renders for one frame in a view
+        // that does not own it. `setUnderlayViewScope` is a no-op when there is no live
+        // tool, and defaults are handled by the reader — passing nothing keeps today's
+        // all-views behaviour byte-for-byte.
+        try { setUnderlayViewScope(input.viewScope ?? 'all'); } catch { /* ignore */ }
         try {
             window.runtime?.events?.emit('pryzm-floor-plan-underlay-placed', {
                 underlayId: `floor-plan-${Date.now()}`,

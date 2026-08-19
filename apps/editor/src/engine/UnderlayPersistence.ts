@@ -48,6 +48,14 @@ import { FloorPlanUnderlayTool } from '@pryzm/input-host';
 // localStorage (which blew the ~5 MB quota → QuotaExceededError). localStorage keeps
 // only the tiny metadata pointer below.
 import { getUnderlayRasterStore } from './UnderlayRasterStore';
+// §UND-VIEW-SCOPE (L-1197) — the view scope travels with the record, and the SAVED
+// `visible` must be the USER's Import-Manager intent, not the view gate's computed
+// `mesh.visible` (which is false whenever a plan-scoped underlay is saved from 3-D).
+import {
+    getUnderlayUserVisible,
+    setUnderlayViewScope,
+    type UnderlayViewScope,
+} from './underlayViewScope';
 
 const STORAGE_KEY_PREFIX = 'pryzm.floorPlanUnderlay.v2.';
 const LEGACY_STORAGE_KEY = 'pryzm.floorPlanUnderlay.v1';
@@ -73,7 +81,12 @@ interface PersistedUnderlay {
     scale:    { x: number; y: number; z: number };
     opacity:  number;
     locked:   boolean;
+    /** §UND-VIEW-SCOPE (L-1197) — the USER's Import-Manager eye state, never the
+     *  view-scope gate's computed `mesh.visible`. */
     visible:  boolean;
+    /** §UND-VIEW-SCOPE (L-1197) — which views may render this underlay. Absent on
+     *  pre-L-1197 records; the reader defaults them to 'all' (today's behaviour). */
+    viewScope?: UnderlayViewScope;
     savedAt:  string;
 }
 
@@ -198,7 +211,12 @@ async function captureCurrentState(): Promise<PersistedUnderlay | null> {
         scale:    { x: mesh.scale.x,    y: mesh.scale.y,    z: mesh.scale.z    },
         opacity:  mat.opacity,
         locked:   state.locked,
-        visible:  mesh.visible,
+        // §UND-VIEW-SCOPE (L-1197) — was `mesh.visible`. `mesh.visible` is now COMPUTED
+        // (user intent × view scope × active view), so saving it would persist "hidden"
+        // for any plan-scoped underlay that happened to be saved while the user stood in
+        // the 3-D view — and it would come back hidden with the eye showing OFF.
+        visible:  getUnderlayUserVisible(),
+        viewScope: (mesh.userData?.viewScope as UnderlayViewScope | undefined),
         savedAt:  new Date().toISOString(),
     };
 }
@@ -302,6 +320,15 @@ export async function restoreUnderlayForProject(projectId: string): Promise<bool
         mesh.rotation.set(record.rotation.x, record.rotation.y, record.rotation.z);
         mesh.scale.set(record.scale.x, record.scale.y, record.scale.z);
         (mesh.userData as any).fileName = record.fileName;
+        // §UND-VIEW-SCOPE (L-1197) — ATTRIBUTION. ProjectIsolationAudit's underlay
+        // detector now recognises the real mesh shape, and counts it as a leak unless it
+        // names the loaded project. Stamping the owner here is what makes "this project's
+        // own restored underlay" distinguishable from "Project A's mesh that survived the
+        // switch into Project B" — the audit cannot tell them apart from geometry.
+        (mesh.userData as any).projectId = projectId;
+        // §UND-VIEW-SCOPE (L-1197) — re-stamp the scope BEFORE the placed event, so a
+        // restored plan-scoped GIS basemap does not flash into the 3-D view on reload.
+        if (record.viewScope) setUnderlayViewScope(record.viewScope);
         tool.setOpacity(record.opacity);
         tool.setLocked(record.locked);
         if (!record.visible) tool.setVisible(false);

@@ -550,7 +550,30 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         const ud = (obj.userData ?? {}) as Record<string, unknown>;
         const name = (obj.name ?? '') as string;
 
-        if (name.startsWith('FloorPlanUnderlay') || ud.isFloorPlanUnderlay === true) {
+        // §UND-VIEW-SCOPE (L-1197) — THE UNDERLAY DETECTOR WAS UNSATISFIABLE.
+        // It keyed on `name.startsWith('FloorPlanUnderlay')` or `ud.isFloorPlanUnderlay`.
+        // Grep both across the repo: the ONLY producers are this file's own two test
+        // suites, which PLANT them. The real underlay — `FloorPlanUnderlayTool.create()`,
+        // packages/input-host — sets NO `name` at all and stamps
+        // `{ id, type:'floor_plan_underlay', isUnderlay:true, isNonBIM:true, … }`.
+        // So `underlayCount` could never be non-zero in production: the audit had a
+        // green light wired to a bulb it never installed, and its tests passed against a
+        // shape production does not emit (the [[fake-more-capable-than-real]] defect).
+        //
+        // Attribution: the real shape is counted only when it is FOREIGN — i.e. it does
+        // not carry the loaded project's id. `UnderlayPersistence.restoreUnderlayForProject`
+        // stamps `userData.projectId`, so THIS project's legitimately restored underlay is
+        // not a leak, while Project A's mesh surviving a switch into Project B is. The two
+        // legacy planted shapes keep their unconditional reading (they carry no projectId,
+        // so they remain foreign) — no existing assertion moves.
+        const isRealUnderlayShape =
+            ud.isUnderlay === true || ud.type === 'floor_plan_underlay';
+        const underlayOwner = typeof ud.projectId === 'string' ? ud.projectId : null;
+        if (
+            name.startsWith('FloorPlanUnderlay') ||
+            ud.isFloorPlanUnderlay === true ||
+            (isRealUnderlayShape && underlayOwner !== projectId)
+        ) {
             underlayCount += 1;
         }
         if (ud.isIfcGroup === true || ud.isIFCModel === true || ud.ifcModelId != null) {
