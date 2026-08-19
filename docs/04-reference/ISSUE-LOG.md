@@ -15409,3 +15409,36 @@ which is why this ships.
 
 **RELATED:** L-1185 (project isolation not clean) is also a project-switch-path defect. Both may
 share "the direct-open / switch path is less exercised than the first-run path".
+
+## L-1187 — THE FLOATING SITE BUTTON STACK BELONGS IN THE GIS PANEL, AND THE GIS PANEL'S CURRENT CONTENTS ARE LEGACY (OPEN, founder-directed 2026-08-19)
+
+**Founder, with two screenshots:** the floating stack at the bottom-left of the canvas —
+**Buildable Envelope · Site Analysis · Living Graph · Graph · Plan + Site · PRYZM Earth** (plus
+the small reset chip above it) — **should live inside the GIS panel** (the globe icon in the
+left rail). And: **"the existing data there is LEGACY."**
+
+The GIS panel today contains: `Activate Geospatial` (checkbox, "Loads Cesium globe, links BIM
+to Earth") · `Fly To Reference` · `Place BIM on Earth` · GIZMO CONTROLS (`Translate`,
+`Rotate`) · `Reset Georeference`. ⚠ **DO NOT ASSUME ALL OF IT IS DEAD.** "Legacy" is the
+founder's read of the SURFACE; the audit must establish, per control, whether it is
+(a) superseded by a live equivalent in the floating stack, (b) still the ONLY route to a
+capability, or (c) genuinely dead. Deleting (b) would remove the only way to do something.
+
+⭐ **WHY THIS IS AN ARCHITECTURE ITEM, NOT A MOVE.** Two rival surfaces answer the same
+question — *"how do I work with the site?"* — which is C84 EI-8/EI-9 (one vocabulary) and EI-4a
+(one route per intent). `Activate Geospatial` vs `PRYZM Earth` is the sharpest instance: two
+controls, one intent. The deliverable is ONE site surface, with every capability either
+migrated or explicitly retired with its reason — not two panels where one is quietly ignored.
+
+⚠ **SEQUENCING — THIS DEPENDS ON L-1186.** The floating stack is phase-gated chrome, and
+L-1186 records that phase-gated chrome is often MISSING on a direct project open (one-way
+latch). **Fix L-1186 first.** Migrating buttons into the GIS panel while the mount path is
+unreliable would move a working surface into a broken one, and the founder would lose the
+capability entirely rather than intermittently.
+
+**FIRST ACTIONS:** (1) enumerate both surfaces and produce a control-by-control table —
+live route / superseded-by / dead, with file:line; (2) for every "legacy" verdict, name the
+live replacement (C16 CA-18 — a refusal or a retirement must name what replaces it); (3)
+migrate into the GIS panel behind the ONE surface; (4) retire the legacy controls in place with
+a tombstone, never a silent delete. Contract home: C13/C58 for site scope, plus whichever UI
+contract owns panel composition.
