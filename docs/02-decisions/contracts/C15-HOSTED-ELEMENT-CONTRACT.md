@@ -138,6 +138,47 @@ These expressions are evaluated at **build time** by `WallFragmentBuilder` and b
 
 **Corollary**: Moving the host wall without triggering a rebuild leaves the void geometry at the world position computed from the _old_ `baseLine`. Any other rebuild (level switch, new element added, undo/redo of an unrelated command) will re-evaluate the void using whichever `baseLine` the legacy WallStore currently holds — causing a visible snap if the store was not updated.
 
+### §2.1 — ⭐ THE FRAME IS THE HOST'S FRAME, **INCLUDING THE RAKE** (added 2026-08-19, lane JOIN1, L-1271)
+
+The `worldCentre` expression above is the **plumb** special case. It is written for
+`wallDir` alone and has **no vertical axis at all** — which is exactly what ADR-0310 §2.5 named
+when it first refused a hosted opening on a raked wall: *"the vertical axis is not modelled …
+`hostedElementFrame` returns a scalar `rotationY`."* That refusal is lifted (§RAKE-HOSTED-OPENING),
+and the general rule is stated **once, here**, so nobody re-derives it:
+
+> **A hosted element's frame IS its host's frame. Every transform the host carries, the hosted
+> element carries — the arc tangent, the base datum, and the RAKE. There is no hosted-element
+> frame that is a plumb approximation of a leaning host.**
+
+Concretely, for a host raked to θ, with `k = cot θ` and the element's centre at plumb rise `y`
+above the **wall base plane** (not the level elevation — see `§WALL-Y-DATUM`, L-968):
+
+```
+worldCentre = ⟨the plumb expression above⟩  +  k · y · leftPerp(localTangent)
+leaf frame  = the same SHEAR, z ↦ z + k·y, written into the element's matrix
+```
+
+Four consequences that are **normative, not implementation notes**:
+
+1. **`sillHeight` and `height` stay PLUMB** — they are vertical rises above the wall base at every
+   rake angle, and the void's sill and head faces stay HORIZONTAL. The derived companion (the
+   distance measured *along* the raked face, `height / sin θ`) is shown, never stored.
+2. **The leaf is SHEARED, not rigidly ROTATED.** A rotation changes the element's PLAN thickness,
+   and a raked wall's plan footprint is fixed at its base (ADR-0310 §2.3), so a rotated leaf would
+   no longer match the reveal it sits in. Under the shear its faces stay parallel to the wall's,
+   its head and sill stay horizontal, and its jambs incline with the wall.
+3. ⚠ **The direction is the LOCAL STATION TANGENT, never the baseline chord.** On a curved raked
+   host the two differ and the leaf drifts out of its own hole by the angle between them — L-1068,
+   which was **the fifth copy** of a rule `hostedElementFrame`'s own header already forbade.
+4. ⭐ **A change to the host's rake is a change to the hosted element's INPUTS, so it must
+   invalidate the hosted element** — C85 §10.5's clause, *invalidation keyed on the computation's
+   inputs and not on the event*. ⛔ Satisfying this by adding "also rebuild windows" to a list is
+   the weak form; it must follow from the host relationship. Measured sound at the geometry layer
+   by `L1271WindowFollowsHostRakeChange.test.ts` (rake change, reversal, straighten, no cached
+   matrix, no group leak). ⚠ **The REACH half — that the editor's
+   `UPDATE_ELEMENT_PARAMETER → WallRebuildCoordinator._flush → rebuildForWall` chain actually
+   fires for a rake-only edit — is NOT MEASURED by that file and is NOT claimed here.**
+
 ---
 
 ## §3 — Void Geometry Lifecycle

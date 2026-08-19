@@ -19747,3 +19747,89 @@ clear+draw every tick forever). But it is attached only by `bootstrap.render.ts:
    skips the SUBMIT for the main canvas; nothing enforces the ALLOCATION rule anywhere.
 3. **Rename or re-scope `_isRenderTargetZeroSize()`.** A helper named for render targets that
    measures the canvas is how a reader concludes the targets are covered.
+
+---
+
+## L-1271 — "THE WINDOWS ON RAKED WALLS DON'T MOVE": **NOT THE SAME ROOT AS L-1270**. THE GEOMETRY FOLLOWS THE LEAN; THE CAPABILITY IS PROVEN AND THE REACH IS *NOT* ⚠ CAPABILITY CLOSED, REACH UNMEASURED — 2026-08-19 (lane JOIN1)
+
+**Founder, 2026-08-19, level-explode screenshot:** the walls lean and their windows stay put.
+
+### The unification hypothesis — TESTED, and FALSIFIED
+
+It was proposed that L-1270 and this are one defect with two faces:
+
+> *"The rake is applied LATE, as a post-transform on the wall solid, and NOTHING that depends on
+> the wall's geometry is recomputed in the raked frame — not the junction, not the hosted opening."*
+
+**Both halves are false, and each was measured separately:**
+
+- **The junction IS recomputed in the raked frame.** ADR-0312's twin-solve re-runs
+  `resolveJunctions` at a raked probe elevation and differences the two. It closes the top corner
+  to 0 mm at corner drifts up to 7.348 m. L-1270's wedge is a *guard* refusing that solve per-wall,
+  not an absence of it.
+- **The window IS recomputed in the raked frame.** `WindowBuilder.positionGroup` reads
+  `wallData.rakeAngleDeg`, displaces the group with `rakeTopOffset` (the ONE authority — it does not
+  respell `cot`), and writes the shear directly into `group.matrix`. `RakedHostWindowLeaf.test.ts`
+  already proved the seating on a host raked at build time.
+
+⇒ **They are TWO defects.** L-1270 is a GEOMETRY defect in the wall join. This is a REACH question
+about the rebuild chain. Fixing one cannot fix the other, and a single "one root" narrative would
+have sent the next lane looking in the wrong package.
+
+### What this lane PROVED — the capability half
+
+`L1271WindowFollowsHostRakeChange.test.ts` — **6 tests**, asserting WORLD-space vertices of built
+meshes through one builder instance whose HOST RECORD is mutated between builds:
+
+| case | result |
+|---|---|
+| plumb → 70° | leaf leans exactly `cot(70°)·height`; centre rides to `k·y`; x and y unmoved |
+| 70° → 45° | the second change is followed — the first answer is not cached |
+| 70° → 110° | a lean reversal comes out the other side, `−lean` |
+| 70° → straightened | ⭐ returns to plumb **and `matrixAutoUpdate` is restored to `true`** |
+| five successive rakes | exactly ONE group in the scene — no leak |
+| rebuild, rake unchanged | moves nothing, to 9 decimal places |
+
+⭐ **The straighten case is the load-bearing one.** A shear has no TRS decomposition, so
+`positionGroup` writes `group.matrix` and sets `matrixAutoUpdate = false`. Had the builder REUSED
+its group, that frozen matrix would carry forward and every later `position` write anywhere in the
+app would be a **silent no-op** — a window pinned at the first lean it was ever given. It does not:
+`rebuild()` disposes and makes a fresh group.
+
+### What this lane did NOT prove, said plainly
+
+**The REACH chain is NOT MEASURED**:
+`UpdateElementParameterCommand` (wall arm) → `wallStore.update` → the coordinator's wall subscriber
+→ `_flush` → `_rebuiltWallIds` → `WindowBuilder.rebuildForWall`. Every link inspected statically is
+correct — `_isPropertyOnlyChange` is **hard-disabled** (`PROPERTY_ONLY_FAST_PATH_ENABLED = false`)
+so `rebuild()` always re-reads the host record; `_buildKey` folds `rakeJointSig`; `WindowStore`'s
+`_byWall` reverse index is maintained by every writer that can change it. **Static reading is not
+measurement** and this row does not claim otherwise.
+
+### ⚠ ONE STRUCTURAL COUPLING FOUND, and it is worth a row of its own
+
+`WallRebuildCoordinator.ts` — the `_clean` memo (**§PERF-WALL-MOVE-INCREMENTAL-REBUILD**) `return`s
+**before** `_rebuiltWallIds.add(wallId)`, and `rebuildForWall` for doors and windows iterates
+`_rebuiltWallIds`. So **hosted-element re-anchoring is a side effect of the WALL's geometry memo
+missing.** For a rake edit `_buildKey` moves, so the wall is not skipped — but the coupling is
+real: any input that moves a hosted element without moving the wall body's own build key leaves the
+hosted element behind, silently. A memo about the WALL is being used as a predicate about its
+CHILDREN, which is the C85 §10.5 shape (*keyed on the event, not on the computation's inputs*).
+
+### ⛔ A defect this lane nearly REPORTED and did not
+
+`WindowStore` has three writers to `this.windows` and only two touch `_byWall` — `replace()` at
+`:104` writes the map and never the index. That reads as a stale-reverse-index hole that would make
+`rebuildForWall` iterate nothing (failure and emptiness the same value, again). **It is not one.**
+`replace()` throws when the record is absent and pins `wallId` from the live record, so the bucket
+is already correct and cannot change. Recorded because the *"confident register rows are the wrong
+ones"* lesson applies exactly: the shape was compelling and the code was fine.
+
+**Invariant written once:** **C15 §2.1** — *a hosted element's frame IS its host's frame, including
+the rake*, with the four normative consequences (plumb sill/head; sheared not rotated; local station
+tangent never the chord; a host rake change invalidates the hosted element).
+
+**Next probe, named so it is not re-derived:** instrument `rebuildForWall` to log
+`wallId` + `getIdsByWallId(wallId).length` and re-take the founder's rake edit. A zero-length bucket
+and a never-called `rebuildForWall` are different failures with the same symptom, and today they are
+the same value in the log.
