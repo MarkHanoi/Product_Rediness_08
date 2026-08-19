@@ -39,6 +39,23 @@ import { HandrailFragmentBuilder } from '@pryzm/geometry-stair';
 import { segmentsFromVertices, rectangleLoopVertices } from '@pryzm/geometry-stair';
 import { CreateHandrailCommand } from '../src/handrails/CreateHandrailCommand';
 import { CreateHandrailRunCommand } from '../src/handrails/CreateHandrailRunCommand';
+// L-987 — the THREE byte-identical handrail snapshot implementations, imported by
+// path because two of them are unreachable by name from their own barrels (see
+// each file's header). Relative paths, not package specifiers: the packages'
+// `exports` maps do not publish these paths, which is itself part of the
+// measurement — two of the three cannot be imported by a normal consumer at all.
+import {
+    serializeHandrailSnapshot as serializeAuthority,
+    deserializeHandrailSnapshot as deserializeAuthority,
+} from '../../core-app-model/src/stores/HandrailSnapshotUtils';
+import {
+    serializeHandrailSnapshot as serializeDup2,
+    deserializeHandrailSnapshot as deserializeDup2,
+} from '../../core-app-model/src/stores/handrailSnapshotUtils2';
+import {
+    serializeHandrailSnapshot as serializeDup3,
+    deserializeHandrailSnapshot as deserializeDup3,
+} from '../../geometry-stair/src/handrailSnapshotUtils';
 import type { CommandContext } from '../src/types';
 
 const LEVEL_ID = 'L0';
@@ -330,5 +347,47 @@ describe('§FEAT-HANDRAIL-CREATION-PARITY — a run is ONE command, ONE undo ent
             return c;
         };
         expect(strip(store.getById(runId)!)).toEqual(strip(store.getById(singleId)!));
+    });
+});
+
+
+describe('L-987 — three byte-identical handrail snapshot implementations, PINNED not merged (C84 EI-9)', () => {
+    // A rich record: every field this lane added, plus the pre-existing ones, so a
+    // future whitelist introduced into ANY of the three fails here rather than
+    // silently dropping a field on the next Ctrl+Z.
+    const rich = {
+        id: 'hr-pin', type: 'handrail', levelId: LEVEL_ID, parentId: LEVEL_ID,
+        baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0.5, z: 1 }],
+        height: 1.1, thickness: 0.05, baseOffset: 0.03,
+        fillType: 'baluster', railProfile: 'round', railDiameter: 0.042,
+        postSpacing: 1.5, balusterShape: 'round', balusterWidth: 0.016,
+        balusterSpacing: 0.115, infillMaxGap: 0.099, suppressStartPost: true,
+        materialColor: '#5a5f66', materialId: 'mat-x',
+        properties: { mark: 'HR001' },
+    } as unknown as HandrailData;
+
+    it('all three serialize identically', () => {
+        const a = serializeAuthority(rich);
+        expect(serializeDup2(rich)).toBe(a);
+        expect(serializeDup3(rich)).toBe(a);
+    });
+
+    it('all three round-trip the record WHOLE — no field whitelist in any of them', () => {
+        for (const [ser, de] of [
+            [serializeAuthority, deserializeAuthority],
+            [serializeDup2, deserializeDup2],
+            [serializeDup3, deserializeDup3],
+        ] as const) {
+            expect(de(ser(rich))).toEqual(rich);
+        }
+    });
+
+    it('THE TOOTH: the fields this lane added survive the round trip', () => {
+        const back = deserializeAuthority(serializeAuthority(rich)) as unknown as Record<string, unknown>;
+        expect(back.infillMaxGap).toBe(0.099);
+        expect(back.suppressStartPost).toBe(true);
+        expect(back.balusterShape).toBe('round');
+        expect(back.balusterWidth).toBe(0.016);
+        // ⇒ an UpdateHandrailCommand undo restores them without further work.
     });
 });
