@@ -117,6 +117,8 @@ interface ResolvedHandrailSpec {
     readonly balusterSpacing?: number;
     readonly infillMaxGap?: number;
     readonly materialColor?: string;
+    /** §C100-HANDRAIL-MATERIAL-ID — the MASTER material the type references. */
+    readonly materialId?: string;
 }
 
 /**
@@ -154,6 +156,7 @@ export function resolveArmedHandrailSpec(
         balusterSpacing: def.balusterSpacing,
         infillMaxGap: def.infillMaxGap,
         materialColor: def.materialColor,
+        materialId: def.materialId,
     };
 }
 
@@ -427,6 +430,7 @@ export class RailingPlanToolHandler implements PlanToolHandler {
             balusterSpacing: spec.balusterSpacing,
             infillMaxGap: spec.infillMaxGap,
             materialColor: spec.materialColor,
+            materialId: spec.materialId,
             levelId,
         };
 

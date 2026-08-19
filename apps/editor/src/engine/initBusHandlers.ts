@@ -1970,6 +1970,8 @@ export function initBusHandlers(
                             ...(cmd.balusterWidth   !== undefined ? { balusterWidth:   cmd.balusterWidth   } : {}),
                             ...(cmd.balusterSpacing !== undefined ? { balusterSpacing: cmd.balusterSpacing } : {}),
                             ...(cmd.infillMaxGap    !== undefined ? { infillMaxGap:    cmd.infillMaxGap    } : {}),
+                            // §C100-HANDRAIL-MATERIAL-ID — a retype moves the material REFERENCE.
+                            ...(cmd.materialId      !== undefined ? { materialId:      cmd.materialId      } : {}),
                         }));
                     });
                     return;

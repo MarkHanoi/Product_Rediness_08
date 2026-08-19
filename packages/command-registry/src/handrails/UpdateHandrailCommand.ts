@@ -6,7 +6,20 @@ export interface UpdateHandrailPayload {
     id: string;
     height?: number;
     thickness?: number;
-    materialColor?: string;
+    /**
+     * §C100-HANDRAIL-MATERIAL-ID — the explicit user OVERRIDE (C100 §2.1's one
+     * legal role for a hex), with an explicit way to REMOVE it.
+     *
+     * ⛔ `null` MEANS "CLEAR THE OVERRIDE", AND IT HAD TO BE EXPRESSIBLE.
+     * `undefined` already means "do not touch this field" — every line in
+     * `execute` is guarded `!== undefined` — so before this there was NO WAY to
+     * remove an override at all. That was a live defect the moment the catalogue
+     * stopped shipping hexes: retyping a railing to a catalogue type wrote the new
+     * `materialId` and LEFT the old hex, which by C100 §2.1 step 1 SHADOWS the
+     * reference. The railing kept its previous colour permanently while its
+     * geometry changed — a half-applied type, which is L-623's exact shape.
+     */
+    materialColor?: string | null;
     baseOffset?: number;
     fillType?: string;
     railProfile?: string;
@@ -37,6 +50,12 @@ export interface UpdateHandrailPayload {
     balusterWidth?: number;
     balusterSpacing?: number;
     infillMaxGap?: number;
+    /**
+     * §C100-HANDRAIL-MATERIAL-ID (C100 §2.1) — the MASTER material reference.
+     * A retype MUST move this, or the railing keeps the previous material while
+     * its geometry changes: a half-applied type, which is L-623's defect shape.
+     */
+    materialId?: string;
     /**
      * §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the handrail's two-point baseline.
      *
@@ -117,7 +136,16 @@ export class UpdateHandrailCommand implements Command {
         const updates: Partial<HandrailData> = {};
         if (this.payload.height       !== undefined) updates.height       = this.payload.height;
         if (this.payload.thickness    !== undefined) updates.thickness    = this.payload.thickness;
-        if (this.payload.materialColor !== undefined) updates.materialColor = this.payload.materialColor;
+        // `null` clears the override; a string sets it; `undefined` leaves it alone.
+        // Writing `undefined` INTO `updates` is deliberate and does work here:
+        // `HandrailStore.update` is `Object.assign(clone, updates)`, which copies own
+        // enumerable keys INCLUDING ones whose value is undefined — measured, not
+        // assumed (HandrailStore.ts:56-66, declared 'merge' in legacyStoreUpdateSemantics).
+        if (this.payload.materialColor !== undefined) {
+            updates.materialColor = this.payload.materialColor === null
+                ? undefined
+                : this.payload.materialColor;
+        }
         if (this.payload.baseOffset   !== undefined) updates.baseOffset   = this.payload.baseOffset;
         if (this.payload.fillType     !== undefined) updates.fillType     = this.payload.fillType as any;
         if (this.payload.railProfile  !== undefined) updates.railProfile  = this.payload.railProfile as any;
@@ -132,6 +160,7 @@ export class UpdateHandrailCommand implements Command {
         if (this.payload.balusterWidth   !== undefined) updates.balusterWidth   = this.payload.balusterWidth;
         if (this.payload.balusterSpacing !== undefined) updates.balusterSpacing = this.payload.balusterSpacing;
         if (this.payload.infillMaxGap    !== undefined) updates.infillMaxGap    = this.payload.infillMaxGap;
+        if (this.payload.materialId      !== undefined) updates.materialId      = this.payload.materialId;
         // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — deep-clone: the store keeps the reference, and a
         // shared array would let a later caller mutate the committed record in place (and
         // would make the ring-buffer inverse patch restore the NEW endpoints — a no-op undo).

@@ -12,6 +12,28 @@ export interface HandrailTypeDefinition {
     railProfile: HandrailRailProfile;
     railDiameter?: number;
     postSpacing?: number;
+    /**
+     * §C100-HANDRAIL-MATERIAL-ID (C100 §2.1) — the MASTER material this type is
+     * made of, REFERENCED by id from `MATERIAL_CATALOG` (`@pryzm/schemas/materials`).
+     *
+     * ⛔ THIS REPLACES `materialColor` ON EVERY BUILT-IN, and the replacement is
+     * not cosmetic. C100 §2.1: *"a family MUST NOT store only a hex and call it a
+     * material … an element carrying only a hex has irreversibly lost the name —
+     * no schedule can count it, no IFC export can classify it, and no library edit
+     * can reach it."* Worse than losing the name: `resolveMaterialColour` treats a
+     * stored hex as an explicit USER OVERRIDE, which by C100 §2.2 a library edit is
+     * *not allowed* to reach — so shipping both would have silently opted every
+     * railing placed from the catalogue OUT of the master library, permanently.
+     */
+    materialId?: string;
+    /**
+     * ⚠ AN EXPLICIT USER OVERRIDE ONLY — C100 §2.1's one legal role for a hex.
+     *
+     * ⛔ MUST remain `undefined` on every BUILT-IN type (asserted by
+     * `handrailTypeMaterialC100.test.ts`). A user-authored type may set it; when
+     * set it SHADOWS `materialId`, and the UI must show it as an override
+     * (C100 §6.1 — an invisible override is indistinguishable from a stale copy).
+     */
     materialColor?: string;
     /**
      * §FIX-STAIR-RAILING-TYPE-PICKER — the NAMED material this type is made of.
@@ -57,7 +79,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 1.5,
-        materialColor: '#aaccee',
+        materialId: 'glass-structural',
         materialName: 'steel'
     },
     {
@@ -72,7 +94,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 1.2,
-        materialColor: '#c0c0c0',
+        materialId: 'steel-stainless-brushed',
         materialName: 'chrome'
     },
     {
@@ -86,7 +108,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'baluster',
         railProfile: 'rectangular',
         postSpacing: 1.8,
-        materialColor: '#8B4513',
+        materialId: 'wood-oak',
         materialName: 'timber'
     },
     {
@@ -100,7 +122,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'open',
         railProfile: 'rectangular',
         postSpacing: 1.5,
-        materialColor: '#888888',
+        materialId: 'steel-structural',
         materialName: 'steel'
     },
     {
@@ -115,7 +137,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.04,
         postSpacing: 0,
-        materialColor: '#888888',
+        materialId: 'steel-stainless-brushed',
         materialName: 'steel'
     },
 
@@ -181,7 +203,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.016,
         infillMaxGap: 0.099,
-        materialColor: '#5a5f66',
+        materialId: 'steel-structural',
         materialName: 'steel'
     },
     {
@@ -199,7 +221,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'round',
         balusterWidth: 0.016,
         infillMaxGap: 0.099,
-        materialColor: '#5a5f66',
+        materialId: 'steel-structural',
         materialName: 'steel'
     },
     {
@@ -214,7 +236,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.042,
         postSpacing: 0,
-        materialColor: '#cfe4f2',
+        materialId: 'glass-structural',
         materialName: 'glass'
     },
     {
@@ -229,7 +251,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.042,
         postSpacing: 1.2,
-        materialColor: '#cfe4f2',
+        materialId: 'glass-clear',
         materialName: 'chrome'
     },
     {
@@ -243,7 +265,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'glass',
         railProfile: 'rectangular',
         postSpacing: 0,
-        materialColor: '#cfe4f2',
+        materialId: 'glass-structural',
         materialName: 'glass'
     },
     {
@@ -259,7 +281,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railDiameter: 0.048,
         postSpacing: 1.07,
         infillMaxGap: 0.089,
-        materialColor: '#b8bcc0',
+        materialId: 'steel-stainless-brushed',
         materialName: 'chrome'
     },
     {
@@ -276,7 +298,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.038,
         infillMaxGap: 0.099,
-        materialColor: '#8B5E3C',
+        materialId: 'wood-pine',
         materialName: 'timber'
     },
     {
@@ -290,7 +312,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'glass',
         railProfile: 'rectangular',
         postSpacing: 1.5,
-        materialColor: '#8B5E3C',
+        materialId: 'wood-oak',
         materialName: 'timber'
     },
     {
@@ -307,7 +329,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'round',
         balusterWidth: 0.014,
         infillMaxGap: 0.099,
-        materialColor: '#2b2b2b',
+        materialId: 'cast-iron',
         materialName: 'steel'
     },
     {
@@ -324,7 +346,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.014,
         infillMaxGap: 0.089,
-        materialColor: '#1f1f1f',
+        materialId: 'cast-iron',
         materialName: 'steel'
     },
     {
@@ -341,7 +363,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         balusterShape: 'rectangular',
         balusterWidth: 0.012,
         infillMaxGap: 0.099,
-        materialColor: '#6b7280',
+        materialId: 'steel-structural',
         materialName: 'steel'
     },
     {
@@ -355,7 +377,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'panel',
         railProfile: 'rectangular',
         postSpacing: 1.5,
-        materialColor: '#7d848c',
+        materialId: 'steel-stainless-brushed',
         materialName: 'steel'
     },
     {
@@ -369,7 +391,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'panel',
         railProfile: 'rectangular',
         postSpacing: 1.5,
-        materialColor: '#9aa1a9',
+        materialId: 'aluminium-anodised-silver',
         materialName: 'steel'
     },
     {
@@ -384,7 +406,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         railProfile: 'round',
         railDiameter: 0.0483,
         postSpacing: 1.5,
-        materialColor: '#d9a300',
+        materialId: 'steel-galvanised',
         materialName: 'steel'
     },
     {
@@ -398,7 +420,7 @@ const BUILT_IN_TYPES: HandrailTypeDefinition[] = [
         fillType: 'glass',
         railProfile: 'rectangular',
         postSpacing: 0,
-        materialColor: '#cfe4f2',
+        materialId: 'glass-structural',
         materialName: 'glass'
     },
 ];

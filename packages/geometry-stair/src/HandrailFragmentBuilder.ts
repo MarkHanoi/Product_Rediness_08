@@ -10,7 +10,7 @@ import { HandrailData } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
 // §FIX-HANDRAIL-MATERIAL-ID (ADR-0332 §7) — the EXISTING Materials Repository, the
 // only id→colour lookup this builder may honour today. See `resolveColour`.
-import { userMaterialStore } from '@pryzm/core-app-model';
+import { resolveMaterialColour } from '@pryzm/core-app-model';
 import { elementRegistry, StoreType } from '@pryzm/core-app-model/element-registry';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-RAIL-INSTANCING) — optional
 // GPU-instancing bridge. Mirrors ColumnFragmentBuilder / BeamFragmentBuilder: when
@@ -43,6 +43,12 @@ export class HandrailFragmentBuilder {
      * the bridge, unlike the 1:1 column/beam). Keyed by handrail id.
      */
     private _instanceIds: Map<string, string[]> = new Map();
+    /**
+     * §C100-HANDRAIL-MATERIAL-ID — handrail ids already reported as having an
+     * unresolvable material, so the warning is emitted once per element rather
+     * than once per rail + infill + post + baluster.
+     */
+    private _unresolvedReported: Set<string> = new Set();
 
     constructor(scene: THREE.Scene, bimManager: BimManager) {
         this.scene = scene;
@@ -124,6 +130,7 @@ export class HandrailFragmentBuilder {
         }
         this.handrailRoots.clear();
         this._instanceIds.clear();
+        this._unresolvedReported.clear();
     }
 
     private disposeRoot(root: THREE.Group): void {
@@ -155,13 +162,26 @@ export class HandrailFragmentBuilder {
      * only place ZA has to re-point.
      */
     private resolveColour(handrail: Readonly<HandrailData>, fallback: string): string {
-        if (handrail.materialColor) return handrail.materialColor;
-        const id = handrail.materialId;
-        if (id) {
-            try {
-                const mat = userMaterialStore.get(id);
-                if (mat?.color) return mat.color;
-            } catch { /* store unavailable (headless/test) — fall through */ }
+        // §C100-HANDRAIL-MATERIAL-ID — the ladder is NOT re-implemented here.
+        // `resolveMaterialColour` (C100 §2.1) is the ONE place the two tiers are
+        // chained; a private chain here is how a sixth material vocabulary gets
+        // written (C100 §1.1 traces four of the existing five to exactly that).
+        const r = resolveMaterialColour(handrail.materialId, handrail.materialColor);
+        if (r.state !== 'unresolved') return r.hex;
+
+        // ⚠ STEP 3, AND IT IS THE HALF THAT IS ALWAYS SKIPPED. C100 §5 forbids a
+        // SILENT fallback: rendering grey makes "the material was deleted", "the
+        // id is stale" and "this rail names no material" the same pixel. A mesh
+        // must still be built, so the fallback is used AND the reason is said —
+        // once per handrail, not once per member, so a balustrade with 30
+        // balusters does not print 30 lines.
+        if (!this._unresolvedReported.has(handrail.id)) {
+            this._unresolvedReported.add(handrail.id);
+            console.warn(
+                `[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID handrail ${handrail.id} ` +
+                `has NO RESOLVABLE MATERIAL — ${r.reason}. Falling back to ${fallback}; ` +
+                'the colour on screen is NOT this element’s material.',
+            );
         }
         return fallback;
     }
@@ -230,6 +250,10 @@ export class HandrailFragmentBuilder {
         // leave stale balusters on the GPU. (disposeRoot below drops the fragment
         // sub-meshes; this drops the instanced ones.)
         this._unregisterInstances(handrail.id);
+        // A rebuild re-evaluates the material, so the element becomes eligible to
+        // report again — otherwise BREAKING a material after first build would be
+        // silent, which is the same defect one layer along.
+        this._unresolvedReported.delete(handrail.id);
 
         if (!root) {
             root = new THREE.Group();

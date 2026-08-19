@@ -45,7 +45,7 @@ export interface RailingTypeApplyPayload {
     railProfile: string;
     railDiameter?: number;
     postSpacing?: number;
-    materialColor?: string;
+    materialColor?: string | null;
     /**
      * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members. Without these
      * the RETYPE path would apply a different railing from the CREATE path for the
@@ -55,6 +55,8 @@ export interface RailingTypeApplyPayload {
     balusterWidth?: number;
     balusterSpacing?: number;
     infillMaxGap?: number;
+    /** §C100-HANDRAIL-MATERIAL-ID — retype must move the REFERENCE, not a hex. */
+    materialId?: string;
 }
 
 /**
@@ -130,12 +132,16 @@ export function buildRailingTypeSelectorWidget(
             railProfile:   def.railProfile,
             railDiameter:  def.railDiameter,
             postSpacing:   def.postSpacing,
-            materialColor: def.materialColor,
+            // §C100-HANDRAIL-MATERIAL-ID — a catalogue type carries NO hex, so a
+            // retype must CLEAR any override the railing is carrying; otherwise the
+            // old colour shadows the new type's material forever (C100 §2.1 step 1).
+            materialColor: def.materialColor ?? null,
             // §FEAT-HANDRAIL-TYPE-LIBRARY-20 — materialise the type WHOLE.
             balusterShape:   def.balusterShape,
             balusterWidth:   def.balusterWidth,
             balusterSpacing: def.balusterSpacing,
             infillMaxGap:    def.infillMaxGap,
+            materialId:      def.materialId,
         });
 
         applyBtn.textContent = '✓ Applied';

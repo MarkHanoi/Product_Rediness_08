@@ -582,6 +582,11 @@ export type { TitleBlockStoreImpl } from './views/TitleBlockStore.js';
 export { scheduleStore } from './views/ScheduleStore.js';
 export type { ScheduleStoreImpl } from './views/ScheduleStore.js';
 // #105 Materials Repository — user-managed material store (Phase 1 data layer).
+// C100 §2.1 — THE ONE material-colour resolution ladder (override -> T2 -> T1 ->
+// NAMED unresolved). Exported here so no family has to chain the two tiers itself;
+// a private chain is how a sixth material vocabulary gets written (C100 §1.1).
+export { resolveMaterialColour } from './materialResolution.js';
+export type { MaterialColourResolution } from './materialResolution.js';
 export { userMaterialStore } from './stores/UserMaterialStore.js';
 export type { UserMaterialStoreImpl, UserMaterialDef, UserMaterialStoreSnapshot } from './stores/UserMaterialStore.js';
 export { sheetStore } from './views/SheetStore.js';

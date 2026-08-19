@@ -152,6 +152,8 @@ export class HandrailTool {
                 railDiameter:  typeDef?.railDiameter,
                 postSpacing:   typeDef?.postSpacing,
                 materialColor: typeDef?.materialColor,
+                // §C100-HANDRAIL-MATERIAL-ID — the reference, not just the cached hex.
+                materialId:    typeDef?.materialId,
                 levelId:       this.projectContext.activeLevelId,
             });
             // ── §FIX-HANDRAIL-TELEMETRY-MUTATION (C95 §4.4 / delta #7) ────────

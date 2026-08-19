@@ -292,6 +292,7 @@ export function _buildTypeSelector(
                 balusterWidth:   payload.balusterWidth,
                 balusterSpacing: payload.balusterSpacing,
                 infillMaxGap:    payload.infillMaxGap,
+                materialId:      payload.materialId,
             })
                 ?.then(() => host.onRerender({ ...elementData, ...payload }))
                 ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (railing) failed:', e));

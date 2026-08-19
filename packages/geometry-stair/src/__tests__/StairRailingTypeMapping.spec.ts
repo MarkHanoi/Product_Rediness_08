@@ -32,14 +32,36 @@ import {
 } from '../StairRailingTypeMapping';
 
 describe('stair-railing type mapping — §FIX-STAIR-RAILING-TYPE-PICKER', () => {
+    // ⚠ RE-STATED 2026-08-19, and the reason is worth keeping.
+    //
+    // This assertion used to be an EXACT EQUALITY against the five ids the
+    // founder's original screenshot listed. That made it a CENSUS OF A MOMENT: it
+    // went RED the instant the catalogue grew to twenty (§FEAT-HANDRAIL-TYPE-LIBRARY-20),
+    // even though nothing it was written to protect had broken. A test that must be
+    // edited every time a type is PUBLISHED is not protecting the catalogue, it is
+    // taxing it — and the edit is exactly the moment someone deletes a row instead
+    // of adding one.
+    //
+    // The two things it actually exists to guarantee are asserted DIRECTLY instead:
+    //   (a) the catalogue reaches this layer at all, and offers a real choice;
+    //   (b) ⭐ the five ORIGINAL ids SURVIVE. That is the C84 EI-6 guarantee —
+    //       saved projects reference them by id, so dropping one for a nicer name
+    //       is a silent data loss. This half is STRICTER than the old equality:
+    //       the old one could be "fixed" by rewriting the list, this one cannot.
     it('(1) the named catalogue reaches this layer and can express a swap', () => {
         const all = handrailTypeStore.getAll();
         expect(all.length).toBeGreaterThan(1);
-        // The five the founder's screenshot lists, by id.
-        expect(all.map(t => t.id).sort()).toEqual([
+
+        const ids = new Set(all.map(t => t.id));
+        const ORIGINAL_FIVE = [
             'glass-guardrail', 'stainless-handrail', 'stair-handrail',
             'steel-guardrail', 'timber-baluster',
-        ]);
+        ];
+        const missing = ORIGINAL_FIVE.filter(id => !ids.has(id));
+        expect(
+            missing,
+            `built-in ids saved projects reference have DISAPPEARED: ${missing.join(', ')}`,
+        ).toEqual([]);
     });
 
     const EXPECTED: Array<{ id: string; form: string; height: number; material: string }> = [

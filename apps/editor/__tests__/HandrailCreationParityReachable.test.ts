@@ -263,6 +263,11 @@ describe('4. EVERY MODE dispatches a real command carrying the ARMED type', () =
         expect(p.balusterShape).toBe(t.balusterShape);
         expect(p.balusterWidth).toBe(t.balusterWidth);
         expect(p.infillMaxGap).toBe(t.infillMaxGap);
+        // §C100-HANDRAIL-MATERIAL-ID — the MATERIAL REFERENCE reaches the command,
+        // and the type ships NO hex, so nothing shadows it (C100 §2.1 step 1).
+        expect(p.materialId).toBe(t.materialId);
+        expect(p.materialId).toBeTruthy();
+        expect(p.materialColor).toBeUndefined();
         // The deleted plan-only 1.1 m literal must never come back (C95 §10.1).
         expect(p.height).not.toBe(1.1);
     });

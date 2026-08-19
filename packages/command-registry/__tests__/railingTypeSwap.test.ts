@@ -86,7 +86,18 @@ describe('railing type swap — §FIX-TYPE-SWAP-ALL-FAMILIES (L-623)', () => {
             railProfile:   def.railProfile,
             railDiameter:  def.railDiameter,
             postSpacing:   def.postSpacing,
-            materialColor: def.materialColor,
+            // §C100-HANDRAIL-MATERIAL-ID — mirrors `RailingTypeSelectorWidget`'s
+            // real payload: move the REFERENCE, and clear any override with `null`
+            // (undefined would mean "leave the field alone", which is how a stale
+            // hex used to survive a swap and shadow the new material forever).
+            //
+            // ⚠ THIS HAND-WRITTEN LIST IS THE HAZARD IT TESTS. It omitted
+            // `materialId` and therefore passed while the swap was half-applied —
+            // the same class of defect as the four production field lists L-983 and
+            // L-984 closed. A field added to `HandrailTypeDefinition` must be added
+            // here too, or this suite silently stops covering it.
+            materialId:    def.materialId,
+            materialColor: def.materialColor ?? null,
         });
         expect(cmd.canExecute(env.ctx).ok).toBe(true);
         expect(cmd.execute(env.ctx).success).toBe(true);
@@ -96,7 +107,14 @@ describe('railing type swap — §FIX-TYPE-SWAP-ALL-FAMILIES (L-623)', () => {
         expect(after.thickness).toBe(def.thickness);
         expect(after.fillType).toBe(def.fillType);
         expect(after.railProfile).toBe(def.railProfile);
-        expect(after.materialColor).toBe(def.materialColor);
+        // §C100-HANDRAIL-MATERIAL-ID — RESTATED 2026-08-19, and STRICTER than before.
+        // A catalogue type no longer ships a hex: it REFERENCES a master material
+        // (C100 §2.1). So the two assertions that matter after a swap are that the
+        // reference MOVED and that any stale override was CLEARED — an override
+        // shadows the reference, so leaving one would keep the old colour forever
+        // while the geometry changed, which is L-623's half-applied-type shape.
+        expect(after.materialId).toBe(def.materialId);
+        expect(after.materialColor).toBeUndefined();
         // (1) the two fields the payload could not previously carry — a partial type is
         // exactly the silent half-swap this fix exists to prevent.
         expect(after.railDiameter).toBe(def.railDiameter);

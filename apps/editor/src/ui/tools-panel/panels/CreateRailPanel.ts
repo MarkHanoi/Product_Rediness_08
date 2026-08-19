@@ -36,6 +36,7 @@ import { BeamModePicker } from '../../BeamModePicker';
 import { OpeningModePicker } from '../../OpeningModePicker';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
+import { resolveMaterialColour } from '@pryzm/core-app-model';
 import * as PryzmIcons from '../../icons/PryzmIcons';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
@@ -668,7 +669,16 @@ export class CreateRailPanel {
                                     description:   t.description,
                                     height:        t.height,
                                     fillType:      t.fillType,
-                                    materialColor: t.materialColor,
+                                    // §C100-HANDRAIL-MATERIAL-ID — the swatch is a
+                                    // CACHE of the referenced material's colour, resolved
+                                    // through the ONE C100 §2.1 ladder. Reading
+                                    // `t.materialColor` directly went blank the moment the
+                                    // catalogue stopped shipping hexes, which is the point:
+                                    // a type REFERENCES a material, it does not carry one.
+                                    materialColor: (() => {
+                                        const r = resolveMaterialColour(t.materialId, t.materialColor);
+                                        return r.state === 'unresolved' ? undefined : r.hex;
+                                    })(),
                                 })),
                                 currentHandrailTypeId: this._selectedHandrailTypeId,
                                 onHandrailTypeChange:  (id) => { this._selectedHandrailTypeId = id; },
