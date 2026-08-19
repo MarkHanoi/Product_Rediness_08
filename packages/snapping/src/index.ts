@@ -13,6 +13,10 @@
  */
 
 export * from './types.js';
+// §SNAP-LEVEL-SCOPE (L-1108) — the level-scoping policy (C06 §9). Exported so tools
+// and tests can classify a candidate with the SAME predicate the manager ranks with,
+// rather than re-deriving "is this on my floor?" per call site.
+export * from './LevelScope.js';
 export * from './GeometryUtils.js';
 export * from './WallAlignmentInference.js';
 export * from './SnapManager.js';

@@ -6,6 +6,7 @@
  * for backwards-compat surface.
  */
 import * as THREE from '@pryzm/renderer-three/three';
+import type { SnapLevelScope } from './LevelScope';
 
 export type { ISpatialIndex } from '@pryzm/spatial-index';
 
@@ -53,6 +54,23 @@ export interface SnapCandidate {
     sourceId?: string;
     sourceType?: string;
     metadata?: Record<string, unknown>;
+
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — the storey the candidate's SOURCE ELEMENT belongs
+     * to. `undefined` means the provider does not (yet) declare a level, which is
+     * treated as `'unknown'` and left alone — see `LevelScope.ts`. Do NOT infer this
+     * from `point.y`: a column top at y = 3.0 on Level 0 is not a Level-1 reference,
+     * and `WallJoinSnapProvider` rewrites Y to the cursor's before returning.
+     */
+    levelId?: string | null;
+
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — `'datum'` marks a reference that is PROJECT-WIDE
+     * by design (structural grids, the parcel boundary, the setback line) and must
+     * be offered on every storey at full priority. Omitted → derived from `type` via
+     * `defaultLevelScopeFor()`.
+     */
+    levelScope?: SnapLevelScope;
 }
 
 export interface SnapSettings {

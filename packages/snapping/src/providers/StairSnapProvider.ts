@@ -28,6 +28,8 @@ interface MinFlight {
 
 interface MinStair {
     id: string;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — optional; absent → 'unknown', left alone. */
+    levelId?: string | null;
     startPosition: Vec3;
     width: number;
     riserHeight: number;
@@ -61,13 +63,27 @@ export class StairSnapProvider implements ISnapProvider {
         this._rebuildIndex();
     }
 
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — sourceId → storey, filled while the target index is
+     * built and read back in `getCandidates()`.
+     *
+     * A MAP rather than a field on `SnapTarget` because one element contributes many
+     * targets from several literal sites; a map records the fact once, at the single
+     * place the element is read, so a new target site cannot silently ship without it.
+     * `null` = the store shape does not declare a level → `'unknown'` scope, which
+     * `LevelScope.ts` deliberately leaves alone rather than guessing from `point.y`.
+     */
+    private _levelBySource: Map<string, string | null> = new Map();
+
     private _rebuildIndex(): void {
         this._targets = [];
+        this._levelBySource.clear();
 
         const ep = DEFAULT_SNAP_PRIORITIES[SnapType.ENDPOINT];
         const mp = DEFAULT_SNAP_PRIORITIES[SnapType.MIDPOINT];
 
         for (const stair of this._stairStore.getAll()) {
+            this._levelBySource.set(stair.id, stair.levelId ?? null);
             const s = stair.startPosition;
             const startPt = new THREE.Vector3(s.x, s.y, s.z);
 
@@ -121,7 +137,7 @@ export class StairSnapProvider implements ISnapProvider {
             if (!enabledTypes.has(t.type)) continue;
             const d2 = t.point.distanceToSquared(queryPoint);
             if (d2 > r2) continue;
-            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'stair', metadata: { label: t.label } });
+            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'stair', levelId: this._levelBySource.get(t.sourceId) ?? null, metadata: { label: t.label } });
         }
         return out;
     }

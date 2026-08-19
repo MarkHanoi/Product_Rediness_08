@@ -147,9 +147,30 @@ export class SnapVisualizer {
         }, SnapVisualizer.AUTO_HIDE_MS);
 
         this.currentCandidate = candidate;
-        const color = this.config.indicatorColor[candidate.type] || 0x00ff00;
+
+        // §SNAP-LEVEL-SCOPE (L-1108) — a CROSS-STOREY reference is drawn in a muted
+        // colour. The founder's report was that upper-floor drawing offered ground-floor
+        // references; the sound fix is not to delete them (see LevelScope.ts) but to
+        // make them legible AS other-storey references. `SnapManager.rankCandidates()`
+        // sets `metadata.crossLevel`.
+        const isCrossLevel = candidate.metadata?.crossLevel === true;
+        const baseColor = this.config.indicatorColor[candidate.type] || 0x00ff00;
+        const color = isCrossLevel ? SnapVisualizer._muted(baseColor) : baseColor;
+
         const position = candidate.point.clone();
-        position.y = 0.1;
+        // §SNAP-LEVEL-SCOPE (L-1108) — WAS `position.y = 0.1`, unconditionally.
+        //
+        // Every snap indicator in the product — sphere, ring and crosshair — was drawn
+        // 100 mm above the WORLD origin plane, i.e. on the GROUND FLOOR, no matter which
+        // storey the user was drawing on. In plan view an orthographic top-down camera
+        // hides that; in 3-D the marker for a Level-3 endpoint sat three storeys below
+        // the wall being drawn. That is the most literal possible reading of "the
+        // reference points always reference to ground floor", and it was one line.
+        //
+        // The candidate's own Y is now honoured. `depthTest: false` + `renderOrder 999`
+        // already guarantee the marker draws over geometry, so lifting it off the plane
+        // by 100 mm is cosmetic separation, not a depth trick.
+        position.y = candidate.point.y + 0.1;
 
         if (this.indicatorMesh) {
             (this.indicatorMesh.material as THREE.MeshBasicMaterial).color.setHex(color);
@@ -174,6 +195,10 @@ export class SnapVisualizer {
         }
 
         if (this.labelElement) {
+            // §SNAP-LEVEL-SCOPE (L-1108) — name the storey when the reference is not on
+            // the active one. An unlabelled subordinate candidate would only make the
+            // founder's defect RARER, not honest: he must be able to see that the thing
+            // under his cursor belongs to another floor.
             const label = screenPosition ? this.getSnapLabel(candidate) : '';
             if (label && screenPosition) {
                 this.labelElement.textContent = label;
@@ -230,6 +255,30 @@ export class SnapVisualizer {
      * For WALL_JOIN snaps shows the join type.
      */
     private getSnapLabel(candidate: SnapCandidate): string {
+        const base = this._baseSnapLabel(candidate);
+        if (!base) return base;
+        // §SNAP-LEVEL-SCOPE (L-1108) — cross-storey suffix.
+        if (candidate.metadata?.crossLevel === true) {
+            const lvl = candidate.metadata?.sourceLevelId;
+            return typeof lvl === 'string' && lvl.length > 0
+                ? `${base} · level ${lvl}`
+                : `${base} · other level`;
+        }
+        return base;
+    }
+
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — desaturate a hex colour towards grey so an
+     * other-storey indicator is visibly subordinate without inventing a second palette.
+     * 45 % toward mid-grey keeps the family hue readable (a red join stays reddish)
+     * while never being mistaken for the full-strength active-level marker.
+     */
+    private static _muted(hex: number): number {
+        const mix = (c: number) => Math.round(c + (0x80 - c) * 0.45) & 0xff;
+        return (mix((hex >> 16) & 0xff) << 16) | (mix((hex >> 8) & 0xff) << 8) | mix(hex & 0xff);
+    }
+
+    private _baseSnapLabel(candidate: SnapCandidate): string {
         const meta = candidate.metadata;
 
         switch (candidate.type) {

@@ -19,13 +19,53 @@ export class GeometryUtils {
         if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
             return new THREE.Vector3(
                 x1 + t * (x2 - x1),
-                0,
+                // §SNAP-LEVEL-SCOPE (L-1108) — WAS a hard-coded `0`. Same defect shape
+                // as `pointToLineDistance2D`: the intersection of two Level-3 walls was
+                // reported on the ground plane, and `WallSnapProvider` then measured
+                // `queryPoint.distanceTo(intersection)` in 3-D — so `dist <= radius`
+                // was UNSATISFIABLE above Level 0 and the INTERSECTION snap was dead
+                // there. The intersection lies on the plane of the lines that made it;
+                // `p1.y` is that plane. Ground floor is unchanged (`p1.y` is 0 there).
+                p1.y,
                 y1 + t * (y2 - y1)
             );
         }
         return null;
     }
 
+    /**
+     * Closest point on a line SEGMENT to `point`, measured in the XZ (plan) plane.
+     *
+     * §SNAP-LEVEL-SCOPE (L-1108) — ⛔ THIS FUNCTION WAS NOT 2-D, AND THAT IS THE
+     * SINGLE ROOT BEHIND THE FOUNDER'S REPORT. Corrected here; do not re-collapse it.
+     *
+     * It projected in XZ (`lineVec.y = 0; pointVec.y = 0`) — correct — then wrote
+     * `closestPoint.y = 0` and measured `|point − closestPoint|` in FULL THREE
+     * DIMENSIONS. The reported distance was therefore
+     *
+     *     sqrt(dxz² + point.y²)
+     *
+     * i.e. the plan distance INFLATED BY THE CURSOR'S ELEVATION, and the point it
+     * returned sat on the WORLD ORIGIN PLANE — the ground floor — whatever storey the
+     * caller was on. Two consequences, both of them the reported bug:
+     *
+     *  1. On the GROUND floor (`point.y = 0`) the elevation term is zero, so this read
+     *     as a correct 2-D distance and shipped. On any storey above it, every caller
+     *     compares that inflated distance against a snap tolerance clamped to
+     *     `MAX_WORLD_TOLERANCE_M = 1.0 m`. At a 3 m storey the test
+     *     `result.distance <= radius` is UNSATISFIABLE — so wall CENTERLINE, EDGE and
+     *     FACE snapping, and the curtain-wall equivalents, were not merely
+     *     mis-prioritised above Level 0. They were DEAD. Five of the snap families the
+     *     founder was reaching for could never fire on an upper floor.
+     *  2. Where a caller did use `closestPoint` (the wall-join `t` bound check), the
+     *     geometry it reasoned about was the ground-plane projection.
+     *
+     * The fix keeps the projection identical and makes the MEASUREMENT match the name:
+     * distance is the XZ distance, and the closest point is reported on the CALLER'S
+     * plane rather than on y = 0. Ground-floor behaviour is bit-for-bit unchanged
+     * (`point.y = 0` makes both forms equal), which is why this was invisible for so
+     * long — and is also why the correction cannot regress the ground floor.
+     */
     static pointToLineDistance2D(
         point: THREE.Vector3,
         lineStart: THREE.Vector3,
@@ -39,9 +79,13 @@ export class GeometryUtils {
 
         const lineLenSq = lineVec.lengthSq();
         if (lineLenSq < 1e-10) {
+            // Degenerate segment: the whole thing is one point in plan. `pointVec` is
+            // already flattened, so its length IS the plan distance.
+            const degenerate = lineStart.clone();
+            degenerate.y = point.y;
             return {
                 distance: pointVec.length(),
-                closestPoint: lineStart.clone(),
+                closestPoint: degenerate,
                 t: 0
             };
         }
@@ -52,11 +96,17 @@ export class GeometryUtils {
         const closestPoint = new THREE.Vector3()
             .copy(lineStart)
             .add(lineVec.clone().multiplyScalar(t));
-        closestPoint.y = 0;
+        // Report on the QUERY's plane, not on y = 0. Callers that author on a level
+        // (WallTool, CurtainWallTool) re-stamp the elevation anyway; callers that do
+        // not (BeamTool returns `res.point` verbatim) were silently getting a
+        // ground-floor point.
+        closestPoint.y = point.y;
 
-        const distance = new THREE.Vector3()
-            .subVectors(point, closestPoint)
-            .length();
+        // XZ only — see the block comment. `lineVec` and `pointVec` are already
+        // flattened, so this is the plan distance by construction.
+        const dx = point.x - closestPoint.x;
+        const dz = point.z - closestPoint.z;
+        const distance = Math.hypot(dx, dz);
 
         return { distance, closestPoint, t };
     }

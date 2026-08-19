@@ -36,6 +36,9 @@ import { ISnapProvider, SnapCandidate, SnapType, DEFAULT_SNAP_PRIORITIES } from 
 
 interface MinWall {
     id: string;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — the storey the host wall (and therefore this
+     *  hosted opening) belongs to. Optional; absent → 'unknown', left alone. */
+    levelId?: string | null;
     baseLine: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
 }
 
@@ -77,6 +80,15 @@ export class DoorSnapProvider implements ISnapProvider {
     private _doorStore: MinDoorStore;
     private _wallStore: MinWallStore;
     private _targets: SnapTarget[] = [];
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — openingId → storey, taken from the HOST WALL.
+     *
+     * An opening has no storey of its own: C15 makes it a hosted element, so its level
+     * IS its host wall's level. Reading `wall.levelId` here rather than inventing a
+     * field on the opening keeps the one authority.
+     */
+    private _levelBySource: Map<string, string | null> = new Map();
+
     // §PERF-2026: per-door snap-target cache.  Keyed by door.id so a single
     // door / wall mutation can update only its own slice instead of dropping
     // and rebuilding every target on the level.
@@ -177,6 +189,7 @@ export class DoorSnapProvider implements ISnapProvider {
     }
 
     private _buildTargetsForDoor(door: MinDoor, wall: MinWall): SnapTarget[] {
+        this._levelBySource.set(door.id, wall.levelId ?? null);
         const out: SnapTarget[] = [];
 
         const s0 = wall.baseLine[0];
@@ -261,7 +274,7 @@ export class DoorSnapProvider implements ISnapProvider {
             if (!enabledTypes.has(t.type)) continue;
             const d2 = t.point.distanceToSquared(queryPoint);
             if (d2 > r2) continue;
-            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'door', metadata: { label: t.label } });
+            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'door', levelId: this._levelBySource.get(t.sourceId) ?? null, metadata: { label: t.label } });
         }
         return out;
     }

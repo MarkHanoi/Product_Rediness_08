@@ -74,7 +74,14 @@ export class GridSnapProvider implements ISnapProvider {
         if (enabledTypes.has(SnapType.GRID)) {
             const snappedX = Math.round(queryPoint.x / this.gridSize) * this.gridSize;
             const snappedZ = Math.round(queryPoint.z / this.gridSize) * this.gridSize;
-            const mathPoint = new THREE.Vector3(snappedX, 0, snappedZ);
+            // §SNAP-LEVEL-SCOPE (L-1108) — emit at the CURSOR's plane, not y = 0.
+            // A grid is a project-wide datum in XZ, but the POINT it yields is
+            // consumed by SnapVisualizer (which draws it in the 3-D scene) and by
+            // SnapManager.snapWithOverride (which measures 3-D distances against it).
+            // Hard-coding y = 0 put every grid indicator on the ground floor and
+            // inflated the override distance by the storey elevation. The XZ answer
+            // is unchanged; only the plane it is reported on is now honest.
+            const mathPoint = new THREE.Vector3(snappedX, queryPoint.y, snappedZ);
 
             const mathDist = new THREE.Vector3(queryPoint.x, 0, queryPoint.z)
                 .distanceTo(mathPoint);
@@ -85,6 +92,8 @@ export class GridSnapProvider implements ISnapProvider {
                     type: SnapType.GRID,
                     priority: DEFAULT_SNAP_PRIORITIES[SnapType.GRID],
                     distance: mathDist,
+                    // §SNAP-LEVEL-SCOPE (L-1108) — DATUM: present on every storey.
+                    levelScope: 'datum',
                     metadata: { gridSize: this.gridSize, source: 'math' }
                 });
             }
@@ -111,12 +120,20 @@ export class GridSnapProvider implements ISnapProvider {
                 const dist = Math.hypot(queryPoint.x - proj.x, queryPoint.z - proj.z);
                 if (dist <= radius) {
                     candidates.push({
-                        point: new THREE.Vector3(proj.x, 0, proj.z),
+                        // §SNAP-LEVEL-SCOPE (L-1108) — active plane, not y = 0.
+                        point: new THREE.Vector3(proj.x, queryPoint.y, proj.z),
                         type: SnapType.GRID_LINE,
                         priority: DEFAULT_SNAP_PRIORITIES[SnapType.GRID_LINE],
                         distance: dist,
                         sourceId: ln.grid.id,
                         sourceType: 'BimGrid',
+                        // §SNAP-LEVEL-SCOPE (L-1108) — a structural GRID is a
+                        // PROJECT-WIDE DATUM: grid A is grid A on every storey. It is
+                        // never demoted and never filtered by level. This is the case
+                        // the founder's report must NOT be allowed to break — grids
+                        // appearing on Level 1 are CORRECT; a Level-0 wall endpoint
+                        // winning there is not. See C06 §9.2.
+                        levelScope: 'datum',
                         metadata: {
                             axis:     ln.grid.axis,
                             position: ln.grid.position,
@@ -143,12 +160,15 @@ export class GridSnapProvider implements ISnapProvider {
                     const dist = Math.hypot(queryPoint.x - ix.x, queryPoint.z - ix.z);
                     if (dist > radius) continue;
                     candidates.push({
-                        point: new THREE.Vector3(ix.x, 0, ix.z),
+                        // §SNAP-LEVEL-SCOPE (L-1108) — active plane, not y = 0.
+                        point: new THREE.Vector3(ix.x, queryPoint.y, ix.z),
                         type: SnapType.GRID_INTERSECTION,
                         priority: DEFAULT_SNAP_PRIORITIES[SnapType.GRID_INTERSECTION],
                         distance: dist,
                         sourceId: `${a.grid.id}×${b.grid.id}`,
                         sourceType: 'BimGridIntersection',
+                        // §SNAP-LEVEL-SCOPE (L-1108) — datum × datum: project-wide.
+                        levelScope: 'datum',
                         metadata: {
                             gridIdA:   a.grid.id,
                             gridIdB:   b.grid.id,

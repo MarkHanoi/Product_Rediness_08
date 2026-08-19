@@ -151,6 +151,19 @@ export class SiteContextSnapProvider implements ISnapProvider {
                 distance: Math.sqrt(d2),
                 sourceType: 'site-context',
                 sourceId: c.ref,
+                // §SNAP-LEVEL-SCOPE (L-1108) — DECIDED, not inherited: the parcel
+                // boundary and the buildable-envelope setback line are PROJECT-WIDE
+                // DATUMS and stay available on EVERY storey at full priority.
+                //
+                // They are inherently ground-referenced geometry, so "drop them above
+                // Level 0" was a live option and is REJECTED: a setback constrains a
+                // third-floor balcony exactly as it constrains the ground floor —
+                // arguably more, since that is where overhangs breach it — and §L-432
+                // added them so compliance-by-construction would hold on the manual
+                // authoring path. A setback that vanished above the ground floor would
+                // make that a ground-floor-only claim while still reading as enforced.
+                // Recorded in C06 §9.2 so the decision is reachable, not implicit.
+                levelScope: 'datum',
                 // `siteRef` lets the UI paint a DISTINCT glyph: a setback snap must be legible
                 // AS a setback snap, not mistaken for a grid or wall snap.
                 metadata: { label: c.label, siteRef: c.ref },

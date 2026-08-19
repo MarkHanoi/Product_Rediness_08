@@ -176,6 +176,12 @@ export class SlabSnapProvider implements ISnapProvider {
                         distance: Math.sqrt(d2),
                         sourceId: c.slabId,
                         sourceType: 'slab',
+                        // §SNAP-LEVEL-SCOPE (L-1108) — this provider already HARD-FILTERS
+                        // to the active storey (ADR-0112 / L-31), so this tag is always
+                        // the active level and the manager's demotion is a no-op here.
+                        // It is stamped anyway so a future relaxation of the filter is
+                        // ranked correctly by default rather than silently 'unknown'.
+                        levelId: slab.levelId ?? null,
                         metadata: { label: `slabCorner${c.index}`, refType: 'slab-corner', slabId: c.slabId },
                     });
                 }
@@ -192,6 +198,12 @@ export class SlabSnapProvider implements ISnapProvider {
                         distance: Math.sqrt(d2),
                         sourceId: e.slabId,
                         sourceType: 'slab',
+                        // §SNAP-LEVEL-SCOPE (L-1108) — this provider already HARD-FILTERS
+                        // to the active storey (ADR-0112 / L-31), so this tag is always
+                        // the active level and the manager's demotion is a no-op here.
+                        // It is stamped anyway so a future relaxation of the filter is
+                        // ranked correctly by default rather than silently 'unknown'.
+                        levelId: slab.levelId ?? null,
                         metadata: { label: `slabEdgeMid${e.index}`, refType: 'slab-edge-mid', slabId: e.slabId },
                     });
                 }
@@ -212,6 +224,12 @@ export class SlabSnapProvider implements ISnapProvider {
                         distance: Math.sqrt(d2),
                         sourceId: e.slabId,
                         sourceType: 'slab',
+                        // §SNAP-LEVEL-SCOPE (L-1108) — this provider already HARD-FILTERS
+                        // to the active storey (ADR-0112 / L-31), so this tag is always
+                        // the active level and the manager's demotion is a no-op here.
+                        // It is stamped anyway so a future relaxation of the filter is
+                        // ranked correctly by default rather than silently 'unknown'.
+                        levelId: slab.levelId ?? null,
                         metadata: { label: `slabEdge${e.index}`, refType: 'slab-edge', slabId: e.slabId, t },
                     });
                 }

@@ -36,6 +36,8 @@ interface CurtainWallSegment {
     id: string;
     start: THREE.Vector3;
     end: THREE.Vector3;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — the storey this curtain wall belongs to. */
+    levelId?: string | null;
 }
 
 interface CurtainWallStoreLike {
@@ -44,6 +46,8 @@ interface CurtainWallStoreLike {
     getAll(): Array<{
         id: string;
         baseLine: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
+        /** §SNAP-LEVEL-SCOPE (L-1108) — optional; absent → 'unknown', left alone. */
+        levelId?: string | null;
     }>;
     subscribe?(listener: (event: string, cw: any) => void): () => void;
 }
@@ -76,6 +80,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
         for (const cw of walls) {
             const segment: CurtainWallSegment = {
                 id: cw.id,
+                levelId: cw.levelId ?? null,
                 start: new THREE.Vector3(cw.baseLine[0].x, cw.baseLine[0].y, cw.baseLine[0].z),
                 end:   new THREE.Vector3(cw.baseLine[1].x, cw.baseLine[1].y, cw.baseLine[1].z),
             };
@@ -110,6 +115,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: startDist,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { endpoint: 'start', curtainWallId: seg.id }
                     });
                 }
@@ -123,6 +129,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: endDist,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { endpoint: 'end', curtainWallId: seg.id }
                     });
                 }
@@ -140,6 +147,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: midDist,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { curtainWallId: seg.id }
                     });
                 }
@@ -158,6 +166,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: result.distance,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { t: result.t, curtainWallId: seg.id, refType: 'centerline' }
                     });
                 }
@@ -174,6 +183,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: result.distance,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { t: result.t, curtainWallId: seg.id }
                     });
                 }
@@ -200,6 +210,10 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                                 distance: dist,
                                 sourceId: `${seg1.id}:${seg2.id}`,
                                 sourceType: 'curtain-wall-intersection',
+                                // §SNAP-LEVEL-SCOPE (L-1108) — see WallSnapProvider:
+                                // an intersection across two storeys is attributed to
+                                // neither ('unknown' → left alone).
+                                levelId: seg1.levelId === seg2.levelId ? seg1.levelId : null,
                                 metadata: { cw1: seg1.id, cw2: seg2.id }
                             });
                         }
@@ -235,6 +249,7 @@ export class CurtainWallSnapProvider implements ISnapProvider {
                         distance: dist,
                         sourceId: seg.id,
                         sourceType: 'curtain-wall',
+                        levelId: seg.levelId,
                         metadata: { fromPoint: fromPoint.clone(), curtainWallId: seg.id }
                     });
                 }

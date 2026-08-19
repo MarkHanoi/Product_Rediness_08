@@ -21,6 +21,8 @@ interface EulerDTO { x: number; y: number; z: number; order?: string; }
 
 interface MinFurniture {
     id: string;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — optional; absent → 'unknown', left alone. */
+    levelId?: string | null;
     position: { x: number; y: number; z: number };
     rotation: EulerDTO;
     width: number;
@@ -54,14 +56,28 @@ export class FurnitureSnapProvider implements ISnapProvider {
         this._rebuildIndex();
     }
 
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — sourceId → storey, filled while the target index is
+     * built and read back in `getCandidates()`.
+     *
+     * A MAP rather than a field on `SnapTarget` because one element contributes many
+     * targets from several literal sites; a map records the fact once, at the single
+     * place the element is read, so a new target site cannot silently ship without it.
+     * `null` = the store shape does not declare a level → `'unknown'` scope, which
+     * `LevelScope.ts` deliberately leaves alone rather than guessing from `point.y`.
+     */
+    private _levelBySource: Map<string, string | null> = new Map();
+
     private _rebuildIndex(): void {
         this._targets = [];
+        this._levelBySource.clear();
 
         const ep = DEFAULT_SNAP_PRIORITIES[SnapType.ENDPOINT];
         const mp = DEFAULT_SNAP_PRIORITIES[SnapType.MIDPOINT];
         const cc = DEFAULT_SNAP_PRIORITIES[SnapType.CENTER];
 
         for (const furn of this._furnitureStore.getAll()) {
+            this._levelBySource.set(furn.id, furn.levelId ?? null);
             const cx = furn.position.x;
             const cy = furn.position.y;
             const cz = furn.position.z;
@@ -118,7 +134,7 @@ export class FurnitureSnapProvider implements ISnapProvider {
             if (!enabledTypes.has(t.type)) continue;
             const d2 = t.point.distanceToSquared(queryPoint);
             if (d2 > r2) continue;
-            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'furniture', metadata: { label: t.label } });
+            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'furniture', levelId: this._levelBySource.get(t.sourceId) ?? null, metadata: { label: t.label } });
         }
         return out;
     }

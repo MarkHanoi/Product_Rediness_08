@@ -8,6 +8,8 @@ interface WallSegment {
     start: THREE.Vector3;
     end: THREE.Vector3;
     thickness: number;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — the storey this wall belongs to. */
+    levelId?: string | null;
 }
 
 interface WallStore {
@@ -15,6 +17,14 @@ interface WallStore {
         id: string;
         baseLine: [THREE.Vector3, THREE.Vector3];
         thickness: number;
+        /**
+         * §SNAP-LEVEL-SCOPE (L-1108) — OPTIONAL so existing fakes and the
+         * `packages/picking` re-export keep compiling. Every real `WallData`
+         * carries it (`CreateWallCommand` stamps `levelId` beside `baseLine`);
+         * a store shape that omits it yields `'unknown'`-scoped candidates,
+         * which `LevelScope.ts` deliberately leaves alone.
+         */
+        levelId?: string | null;
     }>;
     subscribe?(listener: (event: string, wall: any) => void): () => void;
 }
@@ -54,9 +64,10 @@ export class WallSnapProvider implements ISnapProvider {
         }
     }
 
-    private _buildSegment(wall: { id: string; baseLine: any; thickness: number }): WallSegment {
+    private _buildSegment(wall: { id: string; baseLine: any; thickness: number; levelId?: string | null }): WallSegment {
         return {
             id: wall.id,
+            levelId: wall.levelId ?? null,
             start: new THREE.Vector3(
                 wall.baseLine[0].x,
                 wall.baseLine[0].y,
@@ -79,7 +90,7 @@ export class WallSnapProvider implements ISnapProvider {
         return bounds;
     }
 
-    private _upsertOne(wall: { id: string; baseLine: any; thickness: number }): void {
+    private _upsertOne(wall: { id: string; baseLine: any; thickness: number; levelId?: string | null }): void {
         // True per-segment update: SpatialGrid.insert() internally calls
         // remove(item) when the item is already indexed, so we only ever
         // touch O(cellsCovered) buckets — never the whole index.
@@ -134,6 +145,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: startDist,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { endpoint: 'start', wallId: segment.id }
                     });
                 }
@@ -147,6 +159,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: endDist,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { endpoint: 'end', wallId: segment.id }
                     });
                 }
@@ -164,6 +177,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: midDist,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { wallId: segment.id }
                     });
                 }
@@ -182,6 +196,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: result.distance,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { t: result.t, wallId: segment.id, refType: 'centerline' }
                     });
                 }
@@ -198,6 +213,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: result.distance,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { t: result.t, wallId: segment.id }
                     });
                 }
@@ -229,6 +245,7 @@ export class WallSnapProvider implements ISnapProvider {
                             distance: result.distance,
                             sourceId: segment.id,
                             sourceType: 'wall',
+                            levelId: segment.levelId,
                             metadata: {
                                 face: faceLabel,
                                 facePosition,
@@ -268,6 +285,12 @@ export class WallSnapProvider implements ISnapProvider {
                                 distance: dist,
                                 sourceId: `${seg1.id}:${seg2.id}`,
                                 sourceType: 'wall-intersection',
+                                // §SNAP-LEVEL-SCOPE (L-1108) — an intersection of two
+                                // walls on DIFFERENT storeys is not a real reference
+                                // point; tag it with the shared level, or `null` (=
+                                // 'unknown', left alone) when they disagree, rather
+                                // than silently attributing it to one of them.
+                                levelId: seg1.levelId === seg2.levelId ? seg1.levelId : null,
                                 metadata: { wall1: seg1.id, wall2: seg2.id }
                             });
                         }
@@ -299,6 +322,7 @@ export class WallSnapProvider implements ISnapProvider {
                         distance: dist,
                         sourceId: segment.id,
                         sourceType: 'wall',
+                        levelId: segment.levelId,
                         metadata: { fromPoint: fromPoint.clone(), wallId: segment.id }
                     });
                 }

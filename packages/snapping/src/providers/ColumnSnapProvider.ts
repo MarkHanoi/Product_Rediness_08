@@ -17,6 +17,8 @@ import { ISnapProvider, SnapCandidate, SnapType, DEFAULT_SNAP_PRIORITIES } from 
 
 interface MinColumn {
     id: string;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — optional; absent → 'unknown', left alone. */
+    levelId?: string | null;
     position: { x: number; y: number; z: number };
     height: number;
     rotation: number;
@@ -53,10 +55,24 @@ export class ColumnSnapProvider implements ISnapProvider {
         this._rebuildIndex();
     }
 
+    /**
+     * §SNAP-LEVEL-SCOPE (L-1108) — sourceId → storey, filled while the target index is
+     * built and read back in `getCandidates()`.
+     *
+     * A MAP rather than a field on `SnapTarget` because one element contributes many
+     * targets from several literal sites; a map records the fact once, at the single
+     * place the element is read, so a new target site cannot silently ship without it.
+     * `null` = the store shape does not declare a level → `'unknown'` scope, which
+     * `LevelScope.ts` deliberately leaves alone rather than guessing from `point.y`.
+     */
+    private _levelBySource: Map<string, string | null> = new Map();
+
     private _rebuildIndex(): void {
         this._targets = [];
+        this._levelBySource.clear();
 
         for (const col of this._columnStore.getAll()) {
+            this._levelBySource.set(col.id, col.levelId ?? null);
             if (col.steelProfileName) continue;
 
             const baseY = col.position.y + (col.baseOffset ?? 0);
@@ -140,7 +156,7 @@ export class ColumnSnapProvider implements ISnapProvider {
             if (!enabledTypes.has(t.type)) continue;
             const d2 = t.point.distanceToSquared(queryPoint);
             if (d2 > r2) continue;
-            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'column', metadata: { label: t.label } });
+            out.push({ point: t.point.clone(), type: t.type, priority: t.priority, distance: Math.sqrt(d2), sourceId: t.sourceId, sourceType: 'column', levelId: this._levelBySource.get(t.sourceId) ?? null, metadata: { label: t.label } });
         }
         return out;
     }

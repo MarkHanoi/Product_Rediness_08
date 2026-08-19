@@ -27,6 +27,8 @@ interface WallSegment {
     start: THREE.Vector3;
     end: THREE.Vector3;
     thickness: number;
+    /** §SNAP-LEVEL-SCOPE (L-1108) — the storey this wall belongs to. */
+    levelId?: string | null;
 }
 
 interface WallStore {
@@ -34,6 +36,8 @@ interface WallStore {
         id: string;
         baseLine: [THREE.Vector3, THREE.Vector3];
         thickness: number;
+        /** §SNAP-LEVEL-SCOPE (L-1108) — optional; absent → 'unknown', left alone. */
+        levelId?: string | null;
     }>;
     subscribe?(listener: (event: string, wall: any) => void): () => void;
 }
@@ -90,9 +94,10 @@ export class WallJoinSnapProvider implements ISnapProvider {
         this.activeStartPoint = startPoint ? startPoint.clone() : null;
     }
 
-    private _buildSegment(wall: { id: string; baseLine: any; thickness: number }): WallSegment {
+    private _buildSegment(wall: { id: string; baseLine: any; thickness: number; levelId?: string | null }): WallSegment {
         return {
             id: wall.id,
+            levelId: wall.levelId ?? null,
             start: new THREE.Vector3(
                 wall.baseLine[0].x,
                 wall.baseLine[0].y,
@@ -115,7 +120,7 @@ export class WallJoinSnapProvider implements ISnapProvider {
         return bounds;
     }
 
-    private _upsertOne(wall: { id: string; baseLine: any; thickness: number }): void {
+    private _upsertOne(wall: { id: string; baseLine: any; thickness: number; levelId?: string | null }): void {
         const prev = this.segments.get(wall.id);
         if (prev) this.spatialIndex.remove(prev);
         const segment = this._buildSegment(wall);
@@ -199,7 +204,23 @@ export class WallJoinSnapProvider implements ISnapProvider {
                 if (t < 0) continue; // intersection is behind start
 
                 const hitPoint = rayStart.clone().addScaledVector(rayDir, t);
-                hitPoint.y = queryPoint.y; // keep at level elevation
+
+                // §SNAP-LEVEL-SCOPE (L-1108) — THE line that laundered a ground-floor
+                // reference into a Level-1 one.
+                //
+                // The Y rewrite itself is CORRECT and stays: a wall-join is a PLAN
+                // gesture, the drawn wall is authored on the active level's plane, and
+                // a candidate returned at the host wall's own Y would be re-stamped by
+                // `WallTool.onPointerMove` anyway. What was missing is that the rewrite
+                // also erased the only evidence of WHICH storey the host wall was on —
+                // and this provider's broad phase is UNBOUNDED (`searchRadius` is the
+                // cursor-to-start distance, not the snap tolerance), so every wall in
+                // the building enters it the moment the drawn segment exceeds the
+                // storey height. The result was a Level-0 wall face offered as
+                // "Wall Join — T" while drawing on Level 1, indistinguishable from a
+                // real one. The candidate now carries `levelId` and `SnapManager`
+                // ranks it subordinate. See LevelScope.ts.
+                hitPoint.y = queryPoint.y; // author on the ACTIVE level's plane
 
                 // Check the hit point lies within the face segment (with a small tolerance)
                 const faceProjResult = GeometryUtils.pointToLineDistance2D(hitPoint, faceStart, faceEnd);
@@ -224,6 +245,7 @@ export class WallJoinSnapProvider implements ISnapProvider {
                     distance: distToQuery,
                     sourceId: segment.id,
                     sourceType: 'wall',
+                    levelId: segment.levelId,
                     metadata: {
                         wallId: segment.id,
                         joinType,
