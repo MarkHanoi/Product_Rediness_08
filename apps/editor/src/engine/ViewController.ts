@@ -42,6 +42,10 @@ import type { LevelClipPlaneCache } from '@pryzm/core-app-model';
 import type { EdgeProjectorService } from './views/EdgeProjectorService';
 import type { IViewController } from '@pryzm/engine';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
+// §DRAWING-LAYER-DERIVED (L-1227) — the ONE canonical project-id resolver, the same
+// one `mountedDrawingScope` stamps C13 ownership with. A second copy is how two
+// surfaces come to disagree about which project they belong to.
+import { resolveActiveProjectId } from '../ui/site/siteDispatch';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { PlanViewManager } from './views/PlanViewManager';
@@ -1599,6 +1603,11 @@ export class ViewController implements IViewController {
         // 3D camera ("no envelope is seen on pryzm views" even though the envelope card
         // showed a valid area). Enable it explicitly: editor-only aids are on-screen design
         // references; they are excluded from PRINT by the sheet/export path, not by this camera.
+        // §DRAWING-LAYER-DERIVED (L-1227) — MUST run BEFORE EDITOR_LAYER is enabled.
+        // OBC stamps every projection line onto layer 1, which IS EDITOR_LAYER; enabling
+        // it for the parcel boundary (§L-426) enables that linework too unless the
+        // drawing's own children have been moved back to DOCUMENTATION_LAYER first.
+        this._restampAllDrawingsInScene();
         this._camera.three.layers.enable(EDITOR_LAYER);
         this._camera.three.layers.disable(DOCUMENTATION_LAYER);
         // PLAN_SYMBOL_LAYER stays disabled — deactivate() already turned it off.
@@ -1813,11 +1822,22 @@ export class ViewController implements IViewController {
             return;
         }
 
+        // §DRAWING-LAYER-DERIVED (L-1227) — mark the group BEFORE it is parented, so
+        // the re-stamp below can always find it again by identity rather than by a
+        // remembered handle. See `_restampDrawingLayers` for why once is not enough.
+        try {
+            const g = (drawing as any).three;
+            if (g) {
+                g.userData = g.userData ?? {};
+                g.userData.isTechnicalDrawing = true;
+                g.userData.projectId = resolveActiveProjectId(window.runtime as never) ?? null;
+                g.userData.viewId = this.currentViewDefinitionId ?? null;
+            }
+        } catch { /* attribution must never break a view activation */ }
+
         // Assign all children to DOCUMENTATION_LAYER so the SelectionManager
         // raycaster (which targets BIM_LAYER = 0) never intercepts vector lines.
-        (drawing as any).three?.traverse?.((child: any) => {
-            child.layers.set(DOCUMENTATION_LAYER);
-        });
+        this._restampDrawingLayers((drawing as any).three);
 
         scene.add((drawing as any).three);
         this._mountedDrawing = drawing;
@@ -1836,6 +1856,74 @@ export class ViewController implements IViewController {
         activePlanDrawingRef.drawing = drawing;
         console.log(`[ViewController] DOC-1.5a: TechnicalDrawing mounted on DOCUMENTATION_LAYER (${DOCUMENTATION_LAYER})`);
         console.log('[ViewController] DOC-5.2: activePlanDrawingRef updated — 2D snap enabled');
+    }
+
+    /**
+     * §DRAWING-LAYER-DERIVED (L-1227) — RE-ASSERT the documentation layer on every
+     * descendant of a TechnicalDrawing group. Idempotent, cheap, non-throwing.
+     *
+     * ⭐ THE ROOT THIS CLOSES — A LAYER-NUMBER COLLISION WITH OBC.
+     * `TechnicalDrawing.addProjectionLines()` in `@thatopen/components` ends with
+     *
+     *     this.layers.assign(ls, layer);
+     *     ls.layers.set(1);            // ← THREE layer 1, OBC's own convention
+     *     this.three.add(ls);
+     *
+     * and PRYZM's `EDITOR_LAYER` **is** layer 1 (`scene-committer/SceneLayers.ts`).
+     * `_activate3DView` DELIBERATELY enables that layer (§L-426) so the parcel
+     * boundary and the buildable-envelope volume show in the design scene — so every
+     * projection line OBC stamps is enabled in 3D by the same call.
+     *
+     * The founder's production probe dump is this defect, exactly:
+     *     ×366 LineSegments | - | -     | 000000 | layers:2 | VISIBLE   ← OBC layer 1
+     *     ×1   Line         | - | -     | 6600ff | layers:2 | VISIBLE   ← parcel ring
+     * One mask, two owners. `layers:2` is the BITMASK — bit 1 — i.e. layer 1, which is
+     * why "DOCUMENTATION_LAYER is disabled in 3D" was true and irrelevant.
+     *
+     * WHY A RE-STAMP AND NOT A ONE-SHOT TRAVERSE. The original assignment ran ONCE, at
+     * mount. `EdgeProjectorService` calls `drawing.addProjectionLines()` from six
+     * sites, and projection streams (the founder's log: *517 edge geometries across 68
+     * ISO layers*), so every line that arrives AFTER the mount keeps OBC's layer 1 and
+     * the mount-time traverse never sees it. **The assignment has to be DERIVED, not
+     * remembered** — the same correction L-1197 made for underlay view scope and
+     * §10.2 made for app phase.
+     *
+     * ⛔ Deliberately NOT fixed by renumbering `EDITOR_LAYER`. That constant is read by
+     * the OBC grid, the parcel renderer and the selection raycaster; moving it to dodge
+     * a third-party convention would be a repo-wide change to avoid a one-line one, and
+     * the next OBC version could take the new number too. Owning our own objects is the
+     * stable half.
+     */
+    private _restampDrawingLayers(group: unknown): void {
+        try {
+            (group as { traverse?: (cb: (o: unknown) => void) => void } | null)?.traverse?.((child: unknown) => {
+                (child as { layers?: { set?: (n: number) => void } }).layers?.set?.(DOCUMENTATION_LAYER);
+            });
+        } catch { /* a layer re-stamp must never break a view activation */ }
+    }
+
+    /**
+     * §DRAWING-LAYER-DERIVED (L-1227) — re-assert the layer on whatever drawing group
+     * is currently parented to the scene, wherever it came from.
+     *
+     * Called on EVERY view activation, not only at mount, because the leak the founder
+     * measured was byte-identical across three 3D entries — i.e. it is not created by a
+     * view switch and cannot be fixed at one. Searching the scene by the
+     * `isTechnicalDrawing` marker rather than reading `this._mountedDrawing` is
+     * deliberate: a group that reached the scene by some path this controller does not
+     * know about is exactly the case that produced 366 unattributed lines, and a fix
+     * keyed on our own handle would miss it for the same reason the isolation audit did.
+     */
+    private _restampAllDrawingsInScene(): void {
+        try {
+            const scene = this._world.scene?.three as unknown as
+                { children?: Array<{ userData?: Record<string, unknown> }> } | undefined;
+            const kids = scene?.children;
+            if (!Array.isArray(kids)) return;
+            for (const child of kids) {
+                if (child?.userData?.isTechnicalDrawing === true) this._restampDrawingLayers(child);
+            }
+        } catch { /* never break a view activation */ }
     }
 
     /**

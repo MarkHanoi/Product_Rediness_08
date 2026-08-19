@@ -167,15 +167,66 @@ function describeRow(obj: ObjLike): LineworkRow {
  * linework appeared", not "which instance" — a rebuild changes every id while the
  * class is what names the producer.
  */
+/**
+ * §LINEWORK-3D-PROBE — DECODE THE MASK, NEVER PRINT IT RAW.
+ *
+ * The first production dump printed `layers:2`, which reads as "layer 2" and is
+ * layer **1** — `Object3D.layers.mask` is a BITMASK. That one ambiguity cost a
+ * round trip: `layers:2` is `EDITOR_LAYER`, which is the whole root of L-1227, and
+ * it was momentarily read as ANNOTATION_LAYER. Print the names.
+ *
+ * Numbering is `packages/scene-committer/src/SceneLayers.ts`.
+ */
+export function decodeLayerMask(mask: number): string {
+    if (mask < 0) return 'unknown';
+    const NAMES: Record<number, string> = {
+        0: 'BIM', 1: 'EDITOR', 2: 'ANNOTATION', 3: 'PLAN_SYMBOL', 5: 'DOCUMENTATION',
+    };
+    const on: string[] = [];
+    for (let bit = 0; bit < 32; bit++) {
+        if ((mask & (1 << bit)) !== 0) on.push(NAMES[bit] ?? `L${bit}`);
+    }
+    return on.length === 0 ? 'none' : on.join('+');
+}
+
 export function lineworkSignature(r: LineworkRow): string {
     return [
         r.type,
         r.elementType ?? '-',
         r.role ?? '-',
         r.colour ?? '-',
-        `layers:${r.layerMask}`,
+        `layer:${decodeLayerMask(r.layerMask)}(mask ${r.layerMask})`,
         r.effectivelyVisible ? 'VISIBLE' : 'hidden',
     ].join(' | ');
+}
+
+/**
+ * §LINEWORK-3D-PROBE — NAME THE PRODUCER, not just the class.
+ *
+ * The first dump answered "what is it" and left "who made it" to a static hunt that
+ * took a whole extra round trip. Attribution is keyed on stamps production really
+ * writes, cited so a rename breaks the guess instead of silently degrading it.
+ */
+export function attributeProducer(r: LineworkRow): string {
+    // ORDER MATTERS, and a test pins it. The parcel ring and the OBC projection lines
+    // share ONE mask (EDITOR_LAYER) and both carry no elementType and no role — which is
+    // precisely why the founder's dump showed them as neighbouring classes. Match the
+    // KNOWN-LEGITIMATE aid on its brand colour FIRST; a broader rule placed above it
+    // silently reclassifies a working feature as the defect.
+    if (r.colour === '6600ff') {
+        return 'ParcelBoundarySceneRenderer (PRYZM purple #6600FF on EDITOR_LAYER) — LEGITIMATE, §L-426 wants this in 3D';
+    }
+    if (r.role === 'edges' && r.elementType === 'WallEdges') return 'WallEdgeOverlayBuilder (geometry-wall)';
+    if (r.role === 'edges' && r.elementType === 'SlabEdges') return 'SlabFragmentBuilder (geometry-slab)';
+    if (r.role === 'edges') return 'an edge-overlay builder (role=edges, elementType unstamped)';
+    if (
+        r.parentChain.includes('TechnicalDrawing') ||
+        (r.elementType === null && r.role === null && r.layerMask === (1 << 1))
+    ) {
+        // @thatopen/components TechnicalDrawing.addProjectionLines() ends `ls.layers.set(1)`.
+        return 'OBC TechnicalDrawing projection line (EdgeProjectorService → addProjectionLines; OBC hard-sets THREE layer 1 = PRYZM EDITOR_LAYER) — L-1227';
+    }
+    return 'UNATTRIBUTED — no elementType, no role, no known colour. Read parentChain.';
 }
 
 /** Walk a scene-like root and census every line-bearing object. Never throws. */
@@ -264,6 +315,23 @@ export function runLineworkProbe(reason: string): LineworkCensus | null {
     );
     for (const [sig, n] of visibleSigs.slice(0, 12)) {
         console.log(`[linework-probe]   ×${n}  ${sig}`);
+        // ⭐ NAME THE PRODUCER IN THE SUMMARY. The first production dump printed only
+        // the class, so identifying the owner took a second round trip through the
+        // founder. The parent chain IS the producer's signature — print the distinct
+        // chains for this class (capped) and the best attribution, so one paste is
+        // enough. Also print the ownership stamps, which is what tells a leak from a
+        // legitimate aid.
+        const sample = census.rows.filter(r => r.effectivelyVisible && lineworkSignature(r) === sig);
+        const chains = [...new Set(sample.map(r => r.parentChain || '(scene root)'))];
+        const projects = [...new Set(sample.map(r => r.projectId ?? '(unstamped)'))];
+        const views = [...new Set(sample.map(r => r.viewId ?? '(unstamped)'))];
+        console.log(`[linework-probe]        producer : ${attributeProducer(sample[0] ?? {
+            type: '', name: '', elementType: null, role: null, elementId: null, projectId: null,
+            viewId: null, colour: null, depthTest: null, renderOrder: 0, layerMask: -1,
+            visible: false, effectivelyVisible: false, parentChain: '',
+        })}`);
+        console.log(`[linework-probe]        parent   : ${chains.slice(0, 3).join('  ||  ')}${chains.length > 3 ? `  (+${chains.length - 3} more)` : ''}`);
+        console.log(`[linework-probe]        projectId: ${projects.join(', ')}   viewId: ${views.join(', ')}`);
     }
 
     if (_baseline === null) {

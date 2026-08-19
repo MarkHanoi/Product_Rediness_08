@@ -39,8 +39,69 @@ export class WallEdgeVisibilityService {
     private _scene: THREE.Scene;
     private _visible: boolean = false;
 
+    /** §EDGE-GATE-REAPPLY (L-1227) — unsubscribes for the rebuild re-apply. */
+    private readonly _unsubs: Array<() => void> = [];
+
     constructor(scene: THREE.Scene) {
         this._scene = scene;
+        this._installRebuildReapply();
+    }
+
+    /**
+     * §EDGE-GATE-REAPPLY (L-1227) — THE MISSING HALF OF THE VIEW GATE.
+     *
+     * THE MEASUREMENT. The founder's production probe dump, on entry to the 3D view:
+     *
+     *     ×5   LineSegments | - | edges | 444444 | layers:1 | VISIBLE
+     *
+     * Five edge overlays VISIBLE in 3D, where `setVisible(isPlanMode)` had already
+     * set every edge overlay it could see to `false`. Not 900 — five. That number is
+     * the signature: this is not a broken gate, it is a gate that ran BEFORE these
+     * five objects existed.
+     *
+     * WHY IT WAS ALWAYS GOING TO HAPPEN HERE, AND NOWHERE ELSE IN THE FAMILY.
+     * `initScene.ts` gates four 2-D overlays out of the 3-D view on `view-activated`.
+     * Three of them ALSO re-apply on element rebuild, and each says why in its own
+     * comment — *"the builder always creates the hatch visible, so without this a
+     * floor created while in the 3-D view would show its hatch until the next view
+     * switch"* (floor hatch), and the same for the room fill. **The edge gate is the
+     * one member with no such re-apply.** `WallEdgeOverlayBuilder.ts:143` and
+     * `SlabFragmentBuilder.ts:1634` create their lines `visible = false`, which is
+     * why the leak is five objects and not five hundred — but a rebuild that runs
+     * `_apply()`-then-rebuild, or any builder path that ends visible, lands here.
+     *
+     * WHY THE SUBSCRIPTION LIVES IN THIS CLASS AND NOT AT THE CALL SITE.
+     * The three siblings register their re-apply in `initScene`, next to the
+     * `view-activated` handler. Copying that would make this the FOURTH hand-written
+     * listener for one rule — the exact shape L-1197 refused for underlays. The
+     * service already owns the question *"which edge overlays are visible?"*; it
+     * therefore owns keeping the answer true, and does so wherever it is constructed.
+     * No `initScene` edit is required, which is also why this is safe to land while
+     * another lane holds that file.
+     *
+     * Deferred to a microtask for the reason the floor-hatch comment gives: the
+     * builder that creates the overlay may be responding to the SAME event, and a
+     * synchronous re-apply would run before the object exists.
+     */
+    private _installRebuildReapply(): void {
+        if (typeof window === 'undefined') return;
+        const reapply = (): void => { queueMicrotask(() => this._apply()); };
+        const EVENTS = [
+            'bim-wall-added', 'bim-wall-updated',
+            'bim-slab-added', 'bim-slab-updated',
+        ] as const;
+        for (const ev of EVENTS) {
+            window.addEventListener(ev, reapply);
+            this._unsubs.push(() => window.removeEventListener(ev, reapply));
+        }
+    }
+
+    /** Drop the rebuild subscriptions. Idempotent. */
+    dispose(): void {
+        for (const off of this._unsubs) {
+            try { off(); } catch { /* teardown must not throw */ }
+        }
+        this._unsubs.length = 0;
     }
 
     /** Returns true when wall edges are currently shown. */
