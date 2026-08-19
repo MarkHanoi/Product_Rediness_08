@@ -197,10 +197,15 @@ export {
     nearFaceSign,
 } from './OpeningElevationSymbol.js';
 
-export type { ElevationSymbolViewDef, InjectResult } from './OpeningElevationSymbolBuilder.js';
+export type {
+    ElevationSymbolViewDef,
+    ElevationDiagnosis,
+    InjectResult,
+} from './OpeningElevationSymbolBuilder.js';
 export {
     DOOR_SYM_LAYER,
     GLAZ_SYM_LAYER,
     OpeningElevationSymbolBuilder,
     openingElevationSymbolBuilder,
+    suppressSymbolisedElementLinework,
 } from './OpeningElevationSymbolBuilder.js';

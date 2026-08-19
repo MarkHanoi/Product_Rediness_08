@@ -785,6 +785,7 @@ export {
     buildOpeningElevationSymbol,
     nearFaceSign,
     openingElevationSymbolBuilder,
+    suppressSymbolisedElementLinework,
     DOOR_SYM_LAYER,
     GLAZ_SYM_LAYER,
 } from './drawing/index.js';

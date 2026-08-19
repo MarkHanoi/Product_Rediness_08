@@ -49,7 +49,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { resolveWallBaseYOrLevel } from '@pryzm/geometry-wall';
+import { resolveWallBaseYOrLevel, rakeShearPerMetre } from '@pryzm/geometry-wall';
 import { storeRegistry } from '../StoreRegistry';
 import { registerSegmentUUID } from '../views/DrawingSelectionIndex';
 import { layerForZone, type DrawingZone } from './DrawingZone';
@@ -109,6 +109,42 @@ export interface ElevationSymbolViewDef {
     };
 }
 
+/**
+ * §ELEV-DIAG — WHICH OF D1 / D2 / D3 IS THIS VIEW EXHIBITING?
+ *
+ * ⭐ **AN INSTRUMENT, NOT ANOTHER ROUND OF GUESSING.** The founder's screenshot proves an opening
+ * is malformed; it does not say WHICH of the three measured mechanisms produced it, and this lane
+ * could not determine that from a picture. Rather than leave the question to argument, the view
+ * reports its own answer — the same move that made the original dump beat the lane brief's theory.
+ *
+ * Read it from the console line `[ELEV-DIAG]`, or from this record.
+ */
+export interface ElevationDiagnosis {
+    /**
+     * **D1 — THE SKEW.** True when this view's projection direction is NOT one of the six axes
+     * OBC's `orientTo` handles, i.e. when the drawing WOULD have kept the identity quaternion and
+     * drawn a PLAN before `ElevationViewBasis` landed. ⚠ This reports the CONDITION, not a live
+     * defect: the basis fix means the view now draws correctly either way. It is here so a
+     * founder screenshot can be attributed.
+     */
+    readonly nonCardinalView: boolean;
+    /** The view direction, echoed so a report names the input rather than describing it. */
+    readonly directionXZ: readonly [number, number];
+    /**
+     * **D2 — THE LEAN.** How many opening-bearing hosts in this view are BOTH raked AND oblique to
+     * the sheet. Their jambs lean by `atan(cot(rake)·sin(bearing))` — and that lean is a CORRECT
+     * projection of a genuinely leaning solid, so a non-zero count here means the drawing may be
+     * right and the expectation is what needs reconciling.
+     */
+    readonly rakedObliqueHosts: number;
+    /** The largest such lean, in degrees. 0 when `rakedObliqueHosts` is 0. */
+    readonly maxJambTiltDeg: number;
+    /** **D3 — THE WIREFRAME.** Openings that received an authored symbol. */
+    readonly symbolsInjected: number;
+    /** **D3.** Raw projected linework layers removed because their element gained a symbol. */
+    readonly rawLayersSuppressed: number;
+}
+
 export interface InjectResult {
     /** Openings whose symbol was emitted. */
     readonly injected: number;
@@ -120,6 +156,18 @@ export interface InjectResult {
      * through to `[]` and looked exactly like "no constraints apply".
      */
     readonly refusals: ReadonlyArray<{ openingId: string; code: string; reason: string }>;
+    /**
+     * ⭐ **THE ELEMENTS WHOSE SYMBOL WAS ACTUALLY EMITTED — the key to the suppression.**
+     *
+     * `suppressSymbolisedElementLinework()` removes raw projected linework for exactly these ids
+     * and no others. That is a DERIVED rule, not a remembered one: there is no list of "element
+     * types that have elevation symbols" to fall out of date, an opening the builder skipped or
+     * REFUSED keeps its wireframe automatically, and a future family that gains a symbol is
+     * covered the day it does with no edit here.
+     */
+    readonly coveredElementIds: ReadonlySet<string>;
+    /** §ELEV-DIAG — which of D1 / D2 / D3 this view is exhibiting. */
+    readonly diagnosis: ElevationDiagnosis;
 }
 
 export class OpeningElevationSymbolBuilder {
@@ -131,11 +179,27 @@ export class OpeningElevationSymbolBuilder {
      * `PlumbingElevationSymbolBuilder` uses, restated rather than re-decided.
      */
     inject(drawing: OBC.TechnicalDrawing, viewDef: ElevationSymbolViewDef): InjectResult {
-        const wallStore = storeRegistry.getStoreForType('wall') as unknown as ReadableWallStore | undefined;
-        if (!wallStore || typeof wallStore.getAll !== 'function') return { injected: 0, refusals: [] };
-
         const levelId = viewDef.spatial?.levelId;
         const dir = viewDef.spatial?.projectionDirection ?? { x: 0, y: 0, z: -1 };
+        const dirX = Number(dir.x) || 0;
+        const dirZ = Number(dir.z) || 0;
+        const coveredElementIds = new Set<string>();
+        let rakedObliqueHosts = 0;
+        let maxJambTiltDeg = 0;
+        const diagnose = (rawLayersSuppressed: number, n: number): ElevationDiagnosis => ({
+            nonCardinalView: !_isCardinalXZ(dirX, dirZ),
+            directionXZ: [dirX, dirZ],
+            rakedObliqueHosts,
+            maxJambTiltDeg,
+            symbolsInjected: n,
+            rawLayersSuppressed,
+        });
+
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as ReadableWallStore | undefined;
+        if (!wallStore || typeof wallStore.getAll !== 'function') {
+            return { injected: 0, refusals: [], coveredElementIds, diagnosis: diagnose(0, 0) };
+        }
+
         const detail = _resolveDetail(viewDef.spatial?.detailLevel);
         const swingByOpening = _readSwings();
 
@@ -163,7 +227,19 @@ export class OpeningElevationSymbolBuilder {
                 rakeAngleDeg: wall.rakeAngleDeg ?? null,
                 curved: wall.arc != null,
             };
-            const faceSign = nearFaceSign(host, { x: Number(dir.x) || 0, z: Number(dir.z) || 0 });
+            const faceSign = nearFaceSign(host, { x: dirX, z: dirZ });
+
+            // §ELEV-DIAG D2 — does THIS host lean on THIS sheet, and by how much? The jamb of an
+            // opening in a raked wall tilts by `atan(cot(rake) * sin(bearing))`, where `bearing`
+            // is the angle between the wall and the picture plane. BOTH factors are needed: a
+            // raked wall square-on leans by nothing (probe case B), and an oblique wall with no
+            // rake leans by nothing (case E). Measured from the SAME host record the symbol is
+            // set out from, so the diagnosis cannot disagree with the drawing.
+            const tilt = _jambTiltDeg(host, dirX, dirZ);
+            if (tilt > 1e-9) {
+                rakedObliqueHosts++;
+                if (tilt > maxJambTiltDeg) maxJambTiltDeg = tilt;
+            }
 
             for (const op of openings) {
                 const swing = op.elementId ? swingByOpening.get(op.elementId) : undefined;
@@ -192,7 +268,15 @@ export class OpeningElevationSymbolBuilder {
                 if (result.polylines.length === 0) continue;
 
                 const base = symOpening.type === 'door' ? DOOR_SYM_LAYER : GLAZ_SYM_LAYER;
-                if (_emit(drawing, base, result.polylines, op.elementId ?? op.id)) injected++;
+                const uuid = op.elementId ?? op.id;
+                if (_emit(drawing, base, result.polylines, uuid)) {
+                    injected++;
+                    // RECORDED ONLY ON A SUCCESSFUL EMIT. A refusal `continue`s above and a
+                    // zero-polyline result returns before this, so an opening that got NO symbol
+                    // is never in this set and therefore keeps its raw linework. That is the
+                    // both-ways safety property, and it is a consequence of WHERE this line sits.
+                    coveredElementIds.add(uuid);
+                }
             }
         }
 
@@ -208,8 +292,115 @@ export class OpeningElevationSymbolBuilder {
                 + `opening elevation symbol(s) into view ${viewDef.id}`,
             );
         }
-        return { injected, refusals };
+        return { injected, refusals, coveredElementIds, diagnosis: diagnose(0, injected) };
     }
+}
+
+/**
+ * THE OTHER HALF OF THE FIX: THE AUTHORED SYMBOL *REPLACES* THE SOLID'S LINEWORK.
+ *
+ * Removes the raw projected linework of exactly those elements whose elevation symbol was
+ * emitted -- the `coveredElementIds` {@link OpeningElevationSymbolBuilder.inject} returns.
+ *
+ * WHY IT IS KEYED ON THE EMITTED SET AND NOT ON A LIST OF TYPES
+ *
+ * The obvious implementation is *"in an elevation, skip meshes whose `elementType` is Door or
+ * Window"*. That is a REMEMBERED rule -- a hand-listed set of types ASSUMED to have symbols --
+ * and it fails in BOTH directions:
+ *
+ *   - an opening the builder skipped, REFUSED (C86 10.1 PR-5, curved host), or could not reach
+ *     because the wall store was absent would have its linework DELETED AND NOTHING DRAWN IN ITS
+ *     PLACE -- a silent disappearance, which is worse than the clutter it replaced;
+ *   - a family that gains an elevation symbol later is not covered until somebody remembers to
+ *     edit the list.
+ *
+ * Keying on what was ACTUALLY EMITTED DERIVES the rule instead. There is no enumeration to fall
+ * out of date -- which matters because a stale hand-written enumeration is this repo's most
+ * repeated defect shape (an event list missing eleven families; a cache keyed on an event with
+ * zero emitters; a restore path that grew a fifth member nobody updated).
+ *
+ * `-SYM` LAYERS ARE NEVER REMOVED. The symbol's own linework carries the same `elementUUID`, so
+ * without that guard this function would delete the very thing it exists to protect.
+ *
+ * NOT MEASURED -- the occlusion consequence. Running before `applyOcclusion()` means a symbolised
+ * opening's SOLID no longer contributes a projection occluder, and the injected symbol carries no
+ * `viewDepth` stamp so it cannot become one either (an unstamped `:proj` layer is silently
+ * disqualified -- `HiddenLineRemoval`'s own rule). The host WALL's occluder is untouched and a
+ * window is mostly glazing, so the practical change is small -- but it IS a change, it is
+ * unmeasured, and it is recorded rather than assumed away.
+ *
+ * @returns what was removed, for the caller's diagnosis line.
+ */
+export function suppressSymbolisedElementLinework(
+    drawing: OBC.TechnicalDrawing,
+    coveredElementIds: ReadonlySet<string>,
+): { removedLayers: number; removedSegments: number } {
+    if (coveredElementIds.size === 0) return { removedLayers: 0, removedSegments: 0 };
+    const container = (drawing as unknown as { three?: THREE.Object3D }).three;
+    if (!container) return { removedLayers: 0, removedSegments: 0 };
+
+    const doomed: THREE.Object3D[] = [];
+    let removedSegments = 0;
+    for (const child of container.children) {
+        const ls = child as THREE.LineSegments;
+        if (!(ls as unknown as { isLineSegments?: boolean }).isLineSegments) continue;
+        const uuid = ls.userData?.elementUUID as string | undefined;
+        if (!uuid || !coveredElementIds.has(uuid)) continue;
+        const layerName = String(ls.userData?.layerName ?? ls.name ?? '');
+        // Never the symbol's own linework -- it carries the same elementUUID by design.
+        if (SYM_LAYER_RE.test(layerName)) continue;
+        removedSegments += ((ls.geometry?.getAttribute('position')?.count ?? 0) / 2) | 0;
+        doomed.push(ls);
+    }
+
+    for (const d of doomed) {
+        container.remove(d);
+        const geo = (d as THREE.LineSegments).geometry;
+        if (geo && typeof geo.dispose === 'function') geo.dispose();
+    }
+    return { removedLayers: doomed.length, removedSegments };
+}
+
+/** The token that marks INJECTED symbol linework. Shared with `symbolicRuleForLayer`'s arm. */
+const SYM_LAYER_RE = /-SYM\b/i;
+
+/** The six directions OBC's `orientTo` handles. Used ONLY to diagnose, never to decide. */
+function _isCardinalXZ(x: number, z: number): boolean {
+    const l = Math.hypot(x, z);
+    if (!(l > 1e-9)) return true;               // vertical => a plan, and orientTo handles +/-Y
+    const nx = Math.abs(x / l), nz = Math.abs(z / l);
+    return nx > 0.999 || nz > 0.999;
+}
+
+/**
+ * ELEV-DIAG D2 -- the jamb lean of an opening in `host`, drawn on a sheet whose view direction is
+ * `(dirX, dirZ)`, in degrees. Zero for an unraked host AND for a host parallel to the sheet.
+ *
+ * `cot(rake)` comes from the ONE canonical predicate. The second factor is how much of the wall's
+ * own normal lies IN the picture plane -- which is exactly the fraction of the rake displacement
+ * the sheet can see.
+ */
+function _jambTiltDeg(
+    host: {
+        baseStart: { x: number; z: number };
+        baseEnd: { x: number; z: number };
+        rakeAngleDeg?: number | null;
+    },
+    dirX: number, dirZ: number,
+): number {
+    const k = rakeShearPerMetre(host.rakeAngleDeg);
+    if (k === 0) return 0;
+    const dx = host.baseEnd.x - host.baseStart.x;
+    const dz = host.baseEnd.z - host.baseStart.z;
+    const wl = Math.hypot(dx, dz);
+    const vl = Math.hypot(dirX, dirZ);
+    if (!(wl > 1e-9) || !(vl > 1e-9)) return 0;
+    // leftPerp of the wall -- the direction the rake displaces the top along.
+    const lpx = -dz / wl, lpz = dx / wl;
+    // Square-on => |dot| = 1 => in-plane component 0 => no visible lean (probe case B).
+    const dot = (lpx * dirX + lpz * dirZ) / vl;
+    const inPlane = Math.sqrt(Math.max(0, 1 - dot * dot));
+    return (Math.atan(Math.abs(k) * inPlane) * 180) / Math.PI;
 }
 
 /** Group by zone so each zone's polylines share one LineSegments — one pen resolution each. */

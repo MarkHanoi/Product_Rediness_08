@@ -90,6 +90,7 @@ import {
     elevationViewBasis,
     elevationBasisRefusal,
     openingElevationSymbolBuilder,
+    suppressSymbolisedElementLinework,
 } from '@pryzm/core-app-model';
 // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221) — plumbing fixtures (toilet/sink/bath/shower/
 // bidet/urinal/accessory) carry `skipInPlan`+`skipInElevation` on their meshes so the dense
@@ -3621,7 +3622,48 @@ export class EdgeProjectorService {
         // Placed beside the plumbing builder, and for the same stated reason: BEFORE the
         // occlusion + HLR passes, so injected linework is occlusion-tested like any other.
         if (isElevationView) {
-            openingElevationSymbolBuilder.inject(drawing, viewDef);
+            const _sym = openingElevationSymbolBuilder.inject(drawing, viewDef);
+
+            // ── THE DOUBLE DRAW, CLOSED — and DERIVED, not enumerated ─────────────
+            //
+            // Injecting the authored symbol beside the solid's wireframe would have left the
+            // MALFORMED linework on screen and added more: from the founder's side the bug would
+            // read as doubled, not fixed.
+            //
+            // The obvious suppression is *"in an elevation, skip Door and Window meshes"*. That is
+            // a REMEMBERED rule and it deletes an opening's linework wherever the builder did not
+            // run — a curved host that REFUSED a profile (C86 §10.1 PR-5), a missing wall store, a
+            // degenerate baseline — leaving nothing at all where there used to be something wrong.
+            //
+            // So it is keyed on `coveredElementIds`: exactly the elements whose symbol WAS
+            // EMITTED. No type list to fall out of date, an un-symbolised opening keeps its
+            // wireframe automatically, and a family that gains a symbol later is covered the day
+            // it does with no edit here. Both directions are pinned in
+            // `OpeningElevationSymbolBuilder.test.ts` §A.
+            const _sup = suppressSymbolisedElementLinework(drawing, _sym.coveredElementIds);
+
+            // §ELEV-DIAG — AN INSTRUMENT, NOT ANOTHER ROUND OF GUESSING.
+            //
+            // The founder's screenshot proves an opening is malformed; it does not say WHICH of
+            // the three measured mechanisms produced it, and this lane could not tell from a
+            // picture. This line lets the next screenshot answer it: `cardinal=no` ⇒ D1 (the
+            // skew — the view WOULD have drawn a plan before the basis fix); `rakedOblique>0` ⇒
+            // D2 is present and its lean is a CORRECT projection of a genuinely leaning solid;
+            // `symbols`/`rawSuppressed` ⇒ D3 is fixed and by how much.
+            const _d = _sym.diagnosis;
+            console.log(
+                `[ELEV-DIAG] §ELEV-SYMBOL-OPENING view=${viewDef.id} `
+                + `dir=(${_d.directionXZ[0].toFixed(4)},${_d.directionXZ[1].toFixed(4)}) `
+                + `cardinal=${_d.nonCardinalView ? 'NO — D1 would have drawn a PLAN' : 'yes'} · `
+                + `rakedObliqueHosts=${_d.rakedObliqueHosts}`
+                + (_d.rakedObliqueHosts > 0
+                    ? ` maxJambTilt=${_d.maxJambTiltDeg.toFixed(2)}° — D2 PRESENT (a correct `
+                      + `projection of a leaning solid; the drawing is right)`
+                    : ' — D2 absent')
+                + ` · symbols=${_d.symbolsInjected} rawLayersSuppressed=${_sup.removedLayers} `
+                + `rawSegmentsSuppressed=${_sup.removedSegments}`
+                + (_sym.refusals.length > 0 ? ` · refused=${_sym.refusals.length}` : ''),
+            );
         }
 
         // §FEAT-REVIT-LINE-TYPE-SEMANTICS (L-277) — Contract 23 §9 / C09 §4.6.5.
