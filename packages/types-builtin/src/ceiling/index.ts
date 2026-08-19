@@ -25,7 +25,7 @@ export const BUILTIN_CEILING_TYPES: readonly CeilingType[] = Object.freeze([
     family: 'residential',
     thickness: 0.012,
     defaultHeight: 2.4,
-    materialId: 'plaster.painted',
+    materialId: 'paint-matte-white',
     materialColor: '#f5f5f5',
   },
   {
@@ -34,7 +34,7 @@ export const BUILTIN_CEILING_TYPES: readonly CeilingType[] = Object.freeze([
     family: 'commercial',
     thickness: 0.015,
     defaultHeight: 2.7,
-    materialId: 'gypsum.standard',
+    materialId: 'gypsum-plasterboard',
     materialColor: '#ebebe8',
   },
   {
@@ -43,7 +43,7 @@ export const BUILTIN_CEILING_TYPES: readonly CeilingType[] = Object.freeze([
     family: 'commercial',
     thickness: 0.020,
     defaultHeight: 2.7,
-    materialId: 'acoustic.tile',
+    materialId: 'gypsum-acoustic',
     materialColor: '#e2e2dd',
   },
 ] as const);

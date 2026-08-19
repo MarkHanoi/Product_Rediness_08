@@ -31,7 +31,7 @@ export const BUILTIN_STAIR_TYPES: readonly StairType[] = Object.freeze([
     treadDepth: 0.28,
     riserHeight: 0.18,
     width: 0.9,
-    materialId: 'wood.oak',
+    materialId: 'wood-oak',
   },
   {
     id: 'stair.residential.l-shape',
@@ -42,7 +42,7 @@ export const BUILTIN_STAIR_TYPES: readonly StairType[] = Object.freeze([
     treadDepth: 0.28,
     riserHeight: 0.18,
     width: 0.9,
-    materialId: 'wood.oak',
+    materialId: 'wood-oak',
   },
   {
     id: 'stair.commercial.u-shape',
@@ -53,7 +53,7 @@ export const BUILTIN_STAIR_TYPES: readonly StairType[] = Object.freeze([
     treadDepth: 0.30,
     riserHeight: 0.17,
     width: 1.2,
-    materialId: 'concrete.precast',
+    materialId: 'concrete-precast',
   },
   {
     id: 'stair.industrial.straight',
@@ -64,7 +64,7 @@ export const BUILTIN_STAIR_TYPES: readonly StairType[] = Object.freeze([
     treadDepth: 0.25,
     riserHeight: 0.20,
     width: 0.8,
-    materialId: 'steel.grate',
+    materialId: 'steel-grating',
   },
 ] as const);
 

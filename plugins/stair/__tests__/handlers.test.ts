@@ -218,7 +218,7 @@ describe('stair.setShape / setTreadCount / setRiserHeight / setWidth / rotate', 
     env = buildEnv();
     const id = createId('stair');
     seedStair(env.stair, id);
-    await env.bus.executeCommand('stair.setType', { stairId: id, materialId: 'concrete.precast' });
-    expect(env.stair.get(id)?.materialId).toBe('concrete.precast');
+    await env.bus.executeCommand('stair.setType', { stairId: id, materialId: 'concrete-precast' });
+    expect(env.stair.get(id)?.materialId).toBe('concrete-precast');
   });
 });

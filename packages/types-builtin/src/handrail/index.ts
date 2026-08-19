@@ -26,7 +26,7 @@ export const BUILTIN_HANDRAIL_TYPES: readonly HandrailType[] = Object.freeze([
     shape: 'round',
     height: 0.9,
     diameter: 0.045,
-    materialId: 'wood.oak',
+    materialId: 'wood-oak',
   },
   {
     id: 'handrail.commercial.round',
@@ -35,7 +35,7 @@ export const BUILTIN_HANDRAIL_TYPES: readonly HandrailType[] = Object.freeze([
     shape: 'round',
     height: 1.1,
     diameter: 0.05,
-    materialId: 'steel.painted',
+    materialId: 'steel-painted-intumescent-white',
   },
   {
     id: 'handrail.industrial.flat',
@@ -44,7 +44,7 @@ export const BUILTIN_HANDRAIL_TYPES: readonly HandrailType[] = Object.freeze([
     shape: 'flat',
     height: 1.1,
     diameter: 0.06,
-    materialId: 'steel.galvanised',
+    materialId: 'steel-galvanised',
   },
 ] as const);
 

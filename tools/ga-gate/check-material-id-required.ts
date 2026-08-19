@@ -59,7 +59,7 @@ const EXIT_RATCHET = 3;
 
 // ── Baselines — measured 2026-08-19. SHRINK-ONLY. ──────────────────────────
 const BASELINE_A_COLOUR_WITHOUT_ID = 2; // Door, Window
-const BASELINE_B_UNRESOLVABLE_IDS = 8;
+const BASELINE_B_UNRESOLVABLE_IDS = 0; // 8 -> 0, L-1038 S14 (2026-08-19): all eight were dot-case ids types-builtin minted; reconciled to master ids, plus one genuinely-missing master row (steel-grating). HARD ZERO now — this arm has no debt left to shrink.
 const BASELINE_C_UNROUTED_PRODUCERS = 17;
 const BASELINE_D_SERIALIZERS_DROPPING_ID = 5;
 

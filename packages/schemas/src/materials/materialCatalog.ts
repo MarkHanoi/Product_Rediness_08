@@ -1,6 +1,6 @@
 // C84 §1.1 — MATERIAL_CATALOG: the T1 built-in material vocabulary.
 //
-// 204 rows, transcribed MECHANICALLY (never by hand) from the array literal that
+// Seeded with 204 rows, transcribed MECHANICALLY (never by hand) from the array literal that
 // used to live in `packages/core-app-model/src/materialLibrary.ts`, which now
 // DERIVES its THREE-typed view from this file and holds no data of its own
 // (C84 §1.3). Rekeying 204 rows by hand would have been the seventh source.
@@ -14,6 +14,15 @@
 // 0.951 of ONE 8-bit sRGB step — below the quantisation the display pipeline
 // already applies, i.e. not observable. NOT zero, though: calling the move
 // "lossless" would have been false, so it is written down instead.
+//
+// GROWTH LOG (do not delete — a count in prose rots; this says WHY it moved):
+//  +1 2026-08-19 `steel-grating` (L-1038 S14). `packages/types-builtin/src/stair`
+//     referenced `steel.grate` for the industrial stair, which resolved to NOTHING.
+//     The nearest existing row was `metal-mesh-expanded` — expanded ALUMINIUM mesh,
+//     the wrong metal and the wrong product. Mapping a real material onto a wrong
+//     one to satisfy a gate is how the rival vocabularies got written in the first
+//     place (C100 §1.1), so the MASTER gained the material instead. Cite
+//     `MATERIAL_CATALOG.length`, never a number from this comment.
 //
 // TO ADD A MATERIAL: add a row HERE. Never beside it, and never in a projection —
 // a projection maps the master, it never extends it (C84 §1.3).
@@ -115,6 +124,7 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
   { source: 'builtin' as const, id: 'lead-aged-sheet', label: "Lead · Aged Sheet", category: 'Metal', color: '#5d6268', metalness: 0.7, roughness: 0.68 },
   { source: 'builtin' as const, id: 'bronze-aged', label: "Bronze · Aged Architectural", category: 'Metal', color: '#7b5d38', metalness: 0.85, roughness: 0.38 },
   { source: 'builtin' as const, id: 'metal-mesh-expanded', label: "Metal Mesh · Expanded Aluminium", category: 'Metal', color: '#aeb4b8', metalness: 0.9, roughness: 0.42 },
+  { source: 'builtin' as const, id: 'steel-grating', label: "Steel · Open Grating (Galvanised)", category: 'Metal', color: '#a8aeb4', metalness: 0.85, roughness: 0.55 },
   { source: 'builtin' as const, id: 'wood-oak-smoked', label: "Wood · Smoked Oak", category: 'Wood', color: '#6b523a', metalness: 0, roughness: 0.58 },
   { source: 'builtin' as const, id: 'wood-oak-whitewashed', label: "Wood · Whitewashed Oak", category: 'Wood', color: '#d8cdb8', metalness: 0, roughness: 0.64 },
   { source: 'builtin' as const, id: 'wood-maple', label: "Wood · Maple", category: 'Wood', color: '#e0c795', metalness: 0, roughness: 0.56 },
@@ -232,6 +242,33 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
 /** id -> record. Built once; the library shipped no lookup, so 21 importers hand-rolled `.find()`. */
 const BY_ID: ReadonlyMap<string, MaterialRecord> = new Map(MATERIAL_CATALOG.map((m) => [m.id, m]));
 
+
+/**
+ * C100 §2.1 / L-1038 S14 — legacy ids that were NEVER in the master, mapped to the
+ * master row they meant.
+ *
+ * ⚠ THIS IS NOT A FALLBACK, AND THE DISTINCTION IS THE WHOLE POINT. A fallback
+ * answers ANY miss with a plausible colour, which is exactly what {@link findMaterialRecord}
+ * refuses to do (C84 §5). This is a CLOSED, ENUMERATED set of eight strings that
+ * `packages/types-builtin` shipped in dot-case while the master has always been
+ * kebab-case, so projects saved before 2026-08-19 carry them on real elements. A
+ * mistyped or deleted id still misses, still returns `undefined`, and still surfaces
+ * as a NAMED unresolved state.
+ *
+ * ⛔ DO NOT GROW THIS MAP for a new drift. A new rival id is the defect C100
+ * exists to stop; fix the producer, do not alias it. The map is closed at eight.
+ */
+const LEGACY_MATERIAL_ID_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  'plaster.painted': 'paint-matte-white',
+  'gypsum.standard': 'gypsum-plasterboard',
+  'acoustic.tile': 'gypsum-acoustic',
+  'wood.oak': 'wood-oak',
+  'steel.painted': 'steel-painted-intumescent-white',
+  'steel.galvanised': 'steel-galvanised',
+  'concrete.precast': 'concrete-precast',
+  'steel.grate': 'steel-grating',
+});
+
 /**
  * Look up a built-in material by id. `undefined` on a miss — NEVER a substitute.
  *
@@ -241,10 +278,10 @@ const BY_ID: ReadonlyMap<string, MaterialRecord> = new Map(MATERIAL_CATALOG.map(
  * §CONTEXT-DATA-HONESTY failure this whole contract exists to remove.
  */
 export function findMaterialRecord(id: string): MaterialRecord | undefined {
-  return BY_ID.get(id);
+  return BY_ID.get(id) ?? BY_ID.get(LEGACY_MATERIAL_ID_ALIASES[id] ?? ' ');
 }
 
 /** Resolve an id to '#rrggbb'. `undefined` on a miss — see {@link findMaterialRecord}. */
 export function materialHex(id: string): string | undefined {
-  return BY_ID.get(id)?.color;
+  return findMaterialRecord(id)?.color;
 }
