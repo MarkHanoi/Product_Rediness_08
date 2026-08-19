@@ -38,6 +38,40 @@ export interface CurvedRakeOption {
   readonly angleDeg?: number | null;
   /** The WALL's base plane Y — not the band's. */
   readonly datumY: number;
+  /**
+   * The WALL's full height, when this call is emitting a BAND rather than the whole wall.
+   *
+   * §FEAT-RAKE-CURVED-JOINT — `capDrift` is the loft at the WALL's top. A band that stops
+   * at a window head must take the PROPORTIONAL share, `(yTop − datumY) / fullHeight`, or
+   * the bands' cap corners step sideways at every sill and head and the mitred end face
+   * becomes a staircase. This is the same ramp `dTop` already applies to the cone itself,
+   * and the same lesson `datumY` exists for. Absent ⇒ ratio 1, i.e. this call IS the whole
+   * wall, which is true of both uncarved arms.
+   */
+  readonly fullHeight?: number;
+  /**
+   * §FEAT-RAKE-CURVED-JOINT (L-1066) — the ADR-0312 lofted displacement of the four
+   * TOP cap corners, from `WallPipelineV2Cache.curvedRakeCapDrift`.
+   *
+   * WITHOUT IT the cone is exact and its CORNER is not. The uniform sweep places a
+   * shared top corner by displacing this wall's own cap radially; the neighbour places
+   * the same corner by ITS rule; the two agree only at the floor. That is ADR-0310's
+   * declared limit and it is L-955's defect one shape further out — measured at an L,
+   * 80°, h = 3: `baseSep 0.000` but `topSep 0.555 m`.
+   *
+   * WITH IT the top corner is re-solved in the DISPLACED plan — the same twin solve the
+   * straight paths use, so both ends of one corner obey ONE RULE again.
+   *
+   * `LEFT`/`RIGHT` are the wall's own sides: `outward = leftPerp(tangent)`, so the OUTER
+   * face (`+n·halfT`) is LEFT and the inner face is RIGHT. Absent ⇒ the uniform cone,
+   * floor-exact, which is the honest degradation and not a silent one.
+   */
+  readonly capDrift?: {
+    readonly startLeft: { x: number; z: number };
+    readonly startRight: { x: number; z: number };
+    readonly endLeft: { x: number; z: number };
+    readonly endRight: { x: number; z: number };
+  } | null;
 }
 
 export interface Station {
@@ -155,6 +189,93 @@ export function buildCurvedLayerGeometry(
   // §06-FIX + §CURVED-STRAIGHT-FIX + §FIX-CURVED-WALL-MITER-WATERTIGHT: project the
   // TERMINAL corners onto the shared miter plane, in the corner table itself, so the
   // face strips end exactly where the cap sits (flush joint, closed section).
+  // ── §FEAT-RAKE-CURVED-JOINT (L-1066) — the lofted TOP cap corners ──────────────
+  //
+  // Applied BEFORE the mitre projection below, and that order is deliberate: the drift
+  // moves the corner to where the DISPLACED plan puts it, and the projection then cuts
+  // it on the mitre plane exactly as it cuts the base corner. Applying it afterwards
+  // would push the corner back OFF the plane it was just cut to and reopen the very
+  // seam §FIX-CURVED-WALL-MITER-WATERTIGHT closed.
+  //
+  // ⚠ INTERIOR STATIONS ARE NOT TOUCHED. The loft moves a CORNER; the middle of an arc
+  //   has none, and its top ring is carried by the cone alone. This is the same split
+  //   the straight paths make between `topOffsets` at the caps and the uniform shear
+  //   along the run.
+  //
+  // For a LAYERED wall each band's cap sits at its own radius, so the drift is
+  // interpolated linearly across the stack between the wall's LEFT and RIGHT face
+  // drifts — exact, because the mitre plane is planar and vertical, and the same
+  // interpolation §FEAT-RAKE-LAYERED-OPENINGS uses on the straight side.
+  // ── §FEAT-RAKE-CURVED-JOINT (L-1066) — PART 1 of 2: un-cone the cap columns ──
+  //
+  // When a loft exists it REPLACES the cone at the two cap columns entirely, so those
+  // four corners are rebuilt at C0 — the un-raked corner — before the mitre projection
+  // runs. The loft is added back in PART 2, AFTER the projection.
+  //
+  // ⚠ THE ORDER IS THE WHOLE FIX, AND THE FIRST TWO DRAFTS BOTH GOT IT WRONG.
+  //   Draft 1 ADDED the loft to the coned corner: `openUp` did not move (0.555 m) while
+  //   the measured lean jumped 0.497 → 0.773 — one displacement counted twice.
+  //   Draft 2 replaced the cone but still applied the loft BEFORE `projectCapVertex`,
+  //   and `openUp` did not move AT ALL (bit-identical to the pre-fix run) while the lean
+  //   fell to 0.295. That was the tell: the projection SOLVES for the along-axis
+  //   coordinate on the base mitre plane, so any drift applied beforehand is simply
+  //   overwritten. The comment then defending that order — "applying it afterwards would
+  //   push the corner off the plane it was just cut to" — was the wrong worry: the top
+  //   cap of a raked joint is SUPPOSED to leave the base cap's plane, because the end
+  //   face leans. Watertightness is preserved by there being ONE corner table that every
+  //   face group and the cap both read, not by the top and base caps sharing a plane.
+  const _capLoft = (rake?.capDrift && n > 1) ? rake.capDrift : null;
+  let _applyCapLoft: (() => void) | null = null;
+  if (_capLoft) {
+    const _fullH = rake!.fullHeight;
+    const _hasFull = typeof _fullH === 'number' && Number.isFinite(_fullH) && Math.abs(_fullH) > 1e-12;
+    // A band takes its PROPORTIONAL share at each ring, so stacked bands still meet: the
+    // lower band's top cap corner IS the upper band's bottom cap corner.
+    const rBot = _hasFull ? (yBot - _rakeDatum) / (_fullH as number) : 0;
+    const rTop = _hasFull ? (yTop - _rakeDatum) / (_fullH as number) : 1;
+
+    // Where this band's two faces sit across the wall: 0 at the RIGHT face, 1 at the LEFT
+    // (`outward = leftPerp(tangent)`, so `+n` is LEFT). EXACT, not an approximation: the
+    // mitre plane is planar and vertical, so a lofted cap displacement varies linearly
+    // across the stack. Same rule §FEAT-RAKE-LAYERED-OPENINGS uses on the straight side.
+    const half = Math.abs(layerOffset) + halfT;
+    const tOf = (across: number) => (half > 1e-12 ? Math.max(0, Math.min(1, (across + half) / (2 * half))) : 0.5);
+    const tOuter = tOf(layerOffset + halfT);
+    const tInner = tOf(layerOffset - halfT);
+    const mix = (r: { x: number; z: number }, l: { x: number; z: number }, t: number, k2: number) =>
+      ({ x: (r.x + (l.x - r.x) * t) * k2, z: (r.z + (l.z - r.z) * t) * k2 });
+
+    const caps: ReadonlyArray<[number, { x: number; z: number }, { x: number; z: number }]> = [
+      [0,     _capLoft.startRight, _capLoft.startLeft],
+      [n - 1, _capLoft.endRight,   _capLoft.endLeft],
+    ];
+    const finite = (d: { x: number; z: number }) => Number.isFinite(d.x) && Number.isFinite(d.z);
+
+    // PART 1 — strip the cone from the cap columns so the projection cuts the UN-raked
+    // corner, exactly as it does for a vertical wall.
+    for (const [ci, dR, dL] of caps) {
+      if (!finite(dR) || !finite(dL)) continue;
+      const st = layerStations[ci]!;
+      outerPt[ci]    = [st.cx + st.nx * halfT, st.cz + st.nz * halfT];
+      outerPtTop[ci] = [st.cx + st.nx * halfT, st.cz + st.nz * halfT];
+      innerPt[ci]    = [st.cx - st.nx * halfT, st.cz - st.nz * halfT];
+      innerPtTop[ci] = [st.cx - st.nx * halfT, st.cz - st.nz * halfT];
+    }
+
+    // PART 2 — run after the projection below.
+    _applyCapLoft = () => {
+      for (const [ci, dR, dL] of caps) {
+        if (!finite(dR) || !finite(dL)) continue;
+        const dOB = mix(dR, dL, tOuter, rBot), dOT = mix(dR, dL, tOuter, rTop);
+        const dIB = mix(dR, dL, tInner, rBot), dIT = mix(dR, dL, tInner, rTop);
+        outerPt[ci]    = [outerPt[ci]![0]    + dOB.x, outerPt[ci]![1]    + dOB.z];
+        outerPtTop[ci] = [outerPtTop[ci]![0] + dOT.x, outerPtTop[ci]![1] + dOT.z];
+        innerPt[ci]    = [innerPt[ci]![0]    + dIB.x, innerPt[ci]![1]    + dIB.z];
+        innerPtTop[ci] = [innerPtTop[ci]![0] + dIT.x, innerPtTop[ci]![1] + dIT.z];
+      }
+    };
+  }
+
   // §FEAT-RAKE-CURVED — ALL FOUR tables are projected, with the SAME plane and the same
   // tangents. The miter plane is VERTICAL, so projecting the displaced top corner is the
   // correct thing to do and not an approximation: the plane contains the vertical, so a
@@ -194,6 +315,12 @@ export function buildCurvedLayerGeometry(
   // test and is obvious only on screen.
   const _nrmScale = _rakeK === 0 ? 1 : 1 / Math.sqrt(1 + _rakeK * _rakeK);
   const _nrmY = _rakeK === 0 ? 0 : -_rakeK * _nrmScale;
+
+  // §FEAT-RAKE-CURVED-JOINT — PART 2: the loft, added to the PROJECTED base corner. The
+  // top cap corner is therefore `base mitre corner + loft`, which is exactly where the
+  // two walls' DISPLACED footprints meet — the same answer `rakeJointCapDrift` gives the
+  // straight neighbour for the same corner, so both ends obey ONE rule again.
+  if (_applyCapLoft) _applyCapLoft();
 
   function outerVBot(i: number): V6 {
     const s = layerStations[i];

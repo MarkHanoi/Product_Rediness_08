@@ -95,17 +95,22 @@ describe('§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the surviving refusals s
     // validation. That is precisely when a crash would be least excusable, which is
     // why the arm is kept reachable and kept a decline.
 
-    it('a CURVED raked host DECLINES — without throwing', () => {
+    // §FEAT-RAKE-CURVED / §FEAT-RAKE-LAYERED-OPENINGS (L-1064) — BOTH of these inverted,
+    // and they are rewritten rather than deleted because the occupancy gate is a DIFFERENT
+    // write boundary from the schema and the store, and it has to be seen to agree with
+    // them. A wall the builder can draw and the store will hold, that the OCCUPANCY check
+    // still refuses, is a wall the user cannot put a window in for no stated reason.
+    it('a CURVED raked host ACCEPTS an opening — the conical sweep carves correctly', () => {
         let res!: ReturnType<typeof store.canPlace>;
         const curvedRaked = wall(75, { curve: { control: { x: 3, y: 0, z: 1 }, segments: 12 } });
         expect(() => { res = store.canPlace(curvedRaked, 1, 1.2); }).not.toThrow();
-        expect(res.valid).toBe(false);
-        expect(res.code).toBe('OCC_HOST_RAKED');
+        expect(res.valid).toBe(true);
+        expect(res.code).toBeUndefined();
     });
 
-    it('a LAYERED raked host DECLINES — without throwing', () => {
+    it('a LAYERED raked host ACCEPTS an opening — that path has a shear now', () => {
         const layeredRaked = wall(75, { layers: [{ thickness: 0.1 }, { thickness: 0.1 }] });
-        expect(store.canPlace(layeredRaked, 1, 1.2).valid).toBe(false);
+        expect(store.canPlace(layeredRaked, 1, 1.2).valid).toBe(true);
     });
 
     it('an OUT-OF-RANGE rake DECLINES — without throwing', () => {
@@ -115,9 +120,13 @@ describe('§FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) — the surviving refusals s
     it('gives a reason a human can act on, naming the control to change', () => {
         // "Invalid placement" would be useless here — the user has no way to guess
         // that an unrelated property on the HOST is what refused them.
-        const { reason } = store.canPlace(
-            wall(75, { curve: { control: { x: 3, y: 0, z: 1 }, segments: 12 } }), 1, 1.2,
-        );
+        //
+        // ⚠ THE SUBJECT MOVED. This used a CURVED raked host, which is now ACCEPTED, so
+        //   the assertion would have been reading the reason of a refusal that no longer
+        //   happens — `undefined`, and `toContain` on undefined fails for the wrong
+        //   reason. Re-pointed at the refusal that DOES survive, an out-of-range angle,
+        //   which is the same rake-policy family and still names the same control.
+        const { reason } = store.canPlace(wall(5), 1, 1.2);
         expect(reason).toBeTruthy();
         expect(reason!.toLowerCase()).toContain('angle');
         expect(reason).toContain('Vertical Angle');   // the exact panel control

@@ -358,18 +358,41 @@ export class WallPipelineV2Cache {
 
         // §WALL-RAKE-JOINT — the PROBE solve, run only when a rake exists on the
         // level (a vertical-only level pays nothing and stays byte-identical).
-        // Each wall's endpoints translate by ε · (its per-metre shear vector); a
-        // vertical wall — and every curved wall, since curve × rake is refused —
-        // translates by zero. Directions (and curve tangents) are unchanged by a
-        // translation, so the resolver sees the same headings.
+        //
+        // ⚠ THIS BLOCK'S OWN COMMENT WAS FALSIFIED BY §FEAT-RAKE-CURVED, and the stale
+        //   clause is quoted rather than deleted (C84 §6). It read: *"Each wall's
+        //   endpoints translate by ε · (its per-metre shear vector); a vertical wall —
+        //   AND EVERY CURVED WALL, SINCE CURVE × RAKE IS REFUSED — translates by zero."*
+        //   Curve × rake is no longer refused, and a curved wall's endpoints do NOT
+        //   translate by one shared vector.
+        //
+        // §FEAT-RAKE-CURVED-JOINT (L-1066) — A CONE'S TWO ENDS LEAN IN DIFFERENT
+        // DIRECTIONS, so the probe displaces each endpoint along ITS OWN normal. That is
+        // the same rule the body uses (`top(s) = base(s) + n(s)·h·cot θ`) evaluated at the
+        // two stations the JUNCTION actually cares about — the corner is at an endpoint,
+        // and nowhere else. Using the CHORD here, as this loop did, is the identical
+        // mistake L-1068 found in the leaf: correct while a raked host could not be
+        // curved, wrong the moment one could.
+        //
+        // THE HEADINGS ARE STILL UNCHANGED, which is what keeps the resolver honest. A
+        // concentric arc has the SAME tangent direction at every corresponding station as
+        // the arc it offsets, so `startDir`/`endDir` carry over untouched — and for a
+        // STRAIGHT wall `curveTangents` returns `{}`, both ends fall back to the chord,
+        // and every number below is bit-identical to the pre-curve behaviour.
         const rakedTags: string[] = [];
-        const shearOf = new Map<string, Pt2>();
+        const shearStartOf = new Map<string, Pt2>();
+        const shearEndOf = new Map<string, Pt2>();
         for (const w of walls) {
             if (isVerticalRake(w.rakeAngleDeg)) continue;
-            const dir = { x: w.endXZ.x - w.startXZ.x, z: w.endXZ.z - w.startXZ.z };
-            const s = rakeTopOffset(w.rakeAngleDeg, 1, dir);   // shear per metre of height
-            if (!s) continue;
-            shearOf.set(w.id, s);
+            const chord = { x: w.endXZ.x - w.startXZ.x, z: w.endXZ.z - w.startXZ.z };
+            const tan = curveTangents(w);
+            // `rakeTopOffset(·, 1, dir)` is the shear per metre of height — the ONE place
+            // cot(rake) is applied, called once per end rather than once per wall.
+            const sStart = rakeTopOffset(w.rakeAngleDeg, 1, tan.startDir ?? chord);
+            const sEnd = rakeTopOffset(w.rakeAngleDeg, 1, tan.endDir ?? chord);
+            if (!sStart || !sEnd) continue;
+            shearStartOf.set(w.id, sStart);
+            shearEndOf.set(w.id, sEnd);
             rakedTags.push(`${w.id}:${(w.rakeAngleDeg ?? 90).toFixed(4)}`);
         }
         if (rakedTags.length === 0) return;
@@ -377,14 +400,13 @@ export class WallPipelineV2Cache {
         this._rakeJointSig = rakedTags.sort().join(',');
 
         const probeInputs: WallInput[] = inputs.map(w => {
-            const s = shearOf.get(w.id);
-            if (!s) return w;
-            const dx = s.x * RAKE_JOINT_PROBE_H;
-            const dz = s.z * RAKE_JOINT_PROBE_H;
+            const ss = shearStartOf.get(w.id);
+            const se = shearEndOf.get(w.id);
+            if (!ss || !se) return w;
             return {
                 ...w,
-                start: { x: w.start.x + dx, z: w.start.z + dz },
-                end:   { x: w.end.x   + dx, z: w.end.z   + dz },
+                start: { x: w.start.x + ss.x * RAKE_JOINT_PROBE_H, z: w.start.z + ss.z * RAKE_JOINT_PROBE_H },
+                end:   { x: w.end.x   + se.x * RAKE_JOINT_PROBE_H, z: w.end.z   + se.z * RAKE_JOINT_PROBE_H },
             };
         });
         for (const w of probeInputs) this._probeWalls.set(w.id, w);
@@ -599,6 +621,76 @@ export class WallPipelineV2Cache {
             endLeft:    offs[iEL]!,
             startLeft:  offs[iSL]!,
         };
+    }
+
+    /**
+     * §FEAT-RAKE-CURVED-JOINT (L-1066) — the lofted TOP-CAP corner displacement for a
+     * CURVED raked wall, as the four named cap corners.
+     *
+     * ── WHY THIS EXISTS ALONGSIDE `rakeJointCapDrift` RATHER THAN INSIDE IT ─────────
+     *
+     * `rakeJointCapDrift` gets its numbers by differencing a wall's base FOOTPRINT
+     * POLYGON against its probe twin (`rakedTopOffsets` → `buildWallFootprint`). A curved
+     * wall has no such polygon — `buildWallFootprint` is a straight-wall construction —
+     * so that route cannot serve an arc without inventing a curved footprint builder.
+     *
+     * It does not need one. The MITER RECORD already carries the four corner POINTS, and
+     * the loft is exactly their displacement between the base solve and the probe solve,
+     * scaled from ε to the wall's height. Same twin solve, same ADR-0312 principle, read
+     * from the product that already exists in the shape the curved builder consumes.
+     *
+     * ⚠ THE BASE CORNER IS NOT TAKEN FROM HERE — ONLY THE DELTA. The curved builder cuts
+     *   its base caps with `WallJoinResolver` + `projectCapVertex`, a DIFFERENT solver
+     *   from this one (L-1039: two solvers, one corner). Mixing the two solvers' absolute
+     *   positions would be that defect; adding a delta computed entirely WITHIN this
+     *   solver is not. It is sound because the two solvers are MEASURED to agree at the
+     *   base — `baseSep = 0.000 m` at every neighbour combination in
+     *   `RK1RakedCombinationMatrix`, curve↔straight included. **If that ever stops being
+     *   true, this accessor is not the thing to fix — L-1039 is.**
+     *
+     * Returns null — never a throw — when the wall is unknown to either solve, or when
+     * the per-metre drift exceeds the same geometric bound `loftOffsets` uses. Callers
+     * read null as "keep the ADR-0310 uniform cone", which is exact at the floor.
+     */
+    curvedRakeCapDrift(
+        wallId: string,
+        height: number,
+    ): { startLeft: Pt2; startRight: Pt2; endLeft: Pt2; endRight: Pt2 } | null {
+        if (!this._hasRake || !Number.isFinite(height) || height === 0) return null;
+        const base = this._byId.get(wallId);
+        const probe = this._probeMiters.get(wallId);
+        if (!base || !probe) return null;
+
+        let worst = 0;
+        const delta = (b: Pt2 | undefined, p: Pt2 | undefined): Pt2 => {
+            // A free end has no corner in EITHER solve, and zero displacement is the
+            // right answer for it — there is no mitre to re-solve. A corner present in
+            // one solve and absent in the other means the topology BIFURCATED under the
+            // ε probe; that is the `loftOffsets` degradation case and is caught below.
+            if (!b || !p) return { x: 0, z: 0 };
+            const vx = (p.x - b.x) / RAKE_JOINT_PROBE_H;
+            const vz = (p.z - b.z) / RAKE_JOINT_PROBE_H;
+            worst = Math.max(worst, Math.hypot(vx, vz));
+            return { x: vx * height, z: vz * height };
+        };
+        const bifurcated =
+            (!!base.startLeft !== !!probe.startLeft) || (!!base.startRight !== !!probe.startRight)
+            || (!!base.endLeft !== !!probe.endLeft) || (!!base.endRight !== !!probe.endRight);
+        if (bifurcated) return null;
+
+        const out = {
+            startLeft:  delta(base.startLeft,  probe.startLeft),
+            startRight: delta(base.startRight, probe.startRight),
+            endLeft:    delta(base.endLeft,    probe.endLeft),
+            endRight:   delta(base.endRight,   probe.endRight),
+        };
+        if (!Number.isFinite(worst) || worst > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
+        // An unjoined raked wall drifts by zero at every corner. Report that as null, not
+        // as four zero vectors: non-null means "this wall needs the lofted cap", and
+        // handing back a no-op would push a free-standing arc off its ordinary cap path
+        // for no geometric gain. Same convention as `rakeJointCapDrift`.
+        if (!(worst > 1e-9)) return null;
+        return out;
     }
 
     // ─── §CONNECT-3 — the retained-junction lookups ──────────────────────────

@@ -2051,7 +2051,13 @@ export class WallFragmentBuilder {
                 { x: _edDx / _edL, z: _edDz / _edL },
                 // §FEAT-RAKE-CURVED — the datum is the WALL's base plane, the same one
                 // `_applyRakeShearToChildren` measures the straight shear from.
-                { angleDeg: wall.rakeAngleDeg, datumY: wallBaseOffset },
+                // §FEAT-RAKE-CURVED-JOINT — and the lofted cap, so the corner is placed by
+                // the same rule the neighbour uses rather than only meeting it at the floor.
+                {
+                    angleDeg: wall.rakeAngleDeg,
+                    datumY: wallBaseOffset,
+                    capDrift: this._curvedCapDrift(wall, wallHeight),
+                },
             );
 
             const material = this.createWallMaterial(wall);
@@ -2139,6 +2145,9 @@ export class WallFragmentBuilder {
             // (`WallRake.rakedPlanThickness`), no local trigonometry. Identity at 90°, so
             // a vertical curved layered wall is byte-identical.
             const _curvedRake = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
+            // §FEAT-RAKE-CURVED-JOINT — resolved ONCE for the whole stack; every band
+            // interpolates the same four corners across its own radius.
+            const _curvedCapDriftL = this._curvedCapDrift(wall, wallHeight);
             const totalThickness = wall.layers.reduce((s: number, l: any) => s + l.thickness, 0);
             let cursor = -rakedPlanThickness(totalThickness, _curvedRake) / 2;
 
@@ -2159,7 +2168,7 @@ export class WallFragmentBuilder {
                     layeredCurvedEndMN,
                     _layeredStartCapTan,
                     _layeredEndCapTan,
-                    { angleDeg: _curvedRake, datumY: wallBaseOffset },
+                    { angleDeg: _curvedRake, datumY: wallBaseOffset, capDrift: _curvedCapDriftL },
                 );
 
                 // §L934-ONE-WALL-ONE-COLOUR — the curved-layered twin of the straight
@@ -2777,6 +2786,29 @@ export class WallFragmentBuilder {
      * method returns before touching a single child, so the 90° path is byte-identical
      * including its matrix flags.
      */
+    /**
+     * §FEAT-RAKE-CURVED-JOINT (L-1066) — the lofted top-cap drift for a CURVED raked
+     * wall, or null when it must degrade to the uniform cone.
+     *
+     * ONE resolver of this question, consumed by all three curved arms, for the reason
+     * L-955 cost this repo once already: three body paths asking "where is the top corner?"
+     * and answering it three ways is the defect, not the geometry.
+     *
+     * §WALL-RAKE-JOINT-STALE-CACHE applies here exactly as it does on the straight paths —
+     * the drift is a function of the rakes the cache was REFRESHED with, so replaying it
+     * after the store moved this wall's rake would render the PREVIOUS angle's joint.
+     */
+    private _curvedCapDrift(wall: WallData, wallHeight: number):
+        { startLeft: { x: number; z: number }; startRight: { x: number; z: number };
+          endLeft: { x: number; z: number }; endRight: { x: number; z: number } } | null {
+        if (!isWallPipelineV2Enabled()) return null;
+        if (rakeShearPerMetre((wall as { rakeAngleDeg?: number }).rakeAngleDeg) === 0) return null;
+        const cache = this.getEffectiveV2Cache();
+        if (!cache) return null;
+        if (!cache.rakeIsFreshFor(wall.id, (wall as { rakeAngleDeg?: number }).rakeAngleDeg)) return null;
+        return cache.curvedRakeCapDrift(wall.id, wallHeight) ?? null;
+    }
+
     private _applyRakeShearToChildren(
         wallGroup: THREE.Group,
         wall: WallData,
@@ -3244,6 +3276,10 @@ export class WallFragmentBuilder {
         // layered curved arm applies, through the same single `rakedPlanThickness`.
         // Identity at 90°, so a vertical curved wall with an opening is byte-identical.
         const _cvOpenRake = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
+        // §FEAT-RAKE-CURVED-JOINT — the SAME drift for every band of every layer. A band
+        // that only reaches an interior jamb has no mitre, and `buildCurvedLayerGeometry`
+        // applies the drift only where a cap actually exists.
+        const _cvOpenCapDrift = this._curvedCapDrift(wall, wallHeight);
         const layerPlans: LayerPlan[] = [];
         if (wall.layers && wall.layers.length > 0) {
             const totalThickness = wall.layers.reduce((s: number, l) => s + l.thickness, 0);
@@ -3305,7 +3341,12 @@ export class WallFragmentBuilder {
                     // band's own base would restart the lean at every sill and head, and a
                     // curved raked wall with a window would render as a stack of disjoint
                     // rings instead of one leaning wall.
-                    { angleDeg: _cvOpenRake, datumY: wallBaseOffset },
+                    {
+                        angleDeg: _cvOpenRake, datumY: wallBaseOffset,
+                        capDrift: _cvOpenCapDrift,
+                        // This arm emits BANDS, so each takes its proportional share.
+                        fullHeight: wallHeight,
+                    },
                 );
 
                 const mat = baseMaterial.clone() as THREE.MeshStandardMaterial;

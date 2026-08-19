@@ -799,14 +799,14 @@ describe('RK1 D-CURVED #4 -- a curved RAKED wall joined to every other kind', ()
                 // THE FLOOR IS EXACT AT EVERY NEIGHBOUR, and that is asserted hard. It is
                 // ADR-0310's guarantee and it survives the conical sweep unchanged.
                 expect(c.baseSep, `${label}: the two solids MEET at the floor`).toBeLessThan(COINCIDENT_M);
-                // ⛔ THE TOP IS **NOT** ASSERTED CLOSED, AND THAT IS L-1066 — see below.
-                //    It closes for some neighbours and opens for others, and pinning
-                //    either reading would be wrong: green would be a lie, and freezing
-                //    the open value would make today's gap the specification.
-                //    What IS asserted is that the opening is BOUNDED by the leans that
-                //    cause it — i.e. this is a corner-rule gap, not garbage geometry.
-                expect(c.topSep, `${label}: the top separation is bounded by the leans`)
-                    .toBeLessThan(2 * EXPECTED_LEAN + COINCIDENT_M);
+                // ✅ THE TOP IS NOW ASSERTED CLOSED TOO (L-1066, closed 2026-08-19). This
+                //    block used to assert only that the opening was BOUNDED by the leans
+                //    that caused it, because the top genuinely did not close and pinning
+                //    it green would have been a lie. It closes now, at every neighbour.
+                expect(c.topSep, `${label}: and they still MEET at the top`)
+                    .toBeLessThan(COINCIDENT_M);
+                expect(Math.abs(c.openUp), `${label}: the corner does not OPEN with height`)
+                    .toBeLessThan(COINCIDENT_M);
             }
         });
     }
@@ -841,14 +841,31 @@ describe('RK1 D-CURVED #4 -- a curved RAKED wall joined to every other kind', ()
      *   the arc. Closing it means teaching the V2 probe-solve about curved walls — a real
      *   piece of work, not a patch, and larger than the sweep itself.
      *
-     * Pinned `it.fails` per the C85 §11 #11 idiom, so the day it closes this says so out
-     * loud instead of the fix landing unnoticed.
+     * ✅ CLOSED 2026-08-19 by §FEAT-RAKE-CURVED-JOINT, and the pin did its job: it was
+     * written `it.fails`, and the day the fix landed vitest reported "expected to fail but
+     * passed" — which is exactly why it was written that way rather than deleted. Flipped
+     * to a live assertion here rather than removed, so the corner cannot silently reopen.
+     *
+     * THE FIX, and the two wrong drafts that preceded it, because the ORDER was the whole
+     * thing and neither wrong draft was obviously wrong:
+     *   · draft 1 ADDED the loft to the already-coned corner — `openUp` unmoved at 0.555 m,
+     *     lean 0.497 → 0.773. One displacement counted twice.
+     *   · draft 2 replaced the cone but applied the loft BEFORE `projectCapVertex` —
+     *     `openUp` BIT-IDENTICAL to the pre-fix run. The projection solves for the
+     *     along-axis coordinate on the base mitre plane, so it overwrote the drift.
+     *   · draft 3 (this one) strips the cone from the cap columns, projects, THEN adds the
+     *     loft. The top cap corner is `base mitre corner + loft` — the same answer
+     *     `rakeJointCapDrift` hands the straight neighbour for the same corner.
      */
-    it.fails('L-1066 -- a curved raked corner closes at the TOP (pinned, expected RED)', () => {
+    it('L-1066 -- a curved raked corner closes at the TOP, at every neighbour', () => {
         const c = measure(...pairFor('L', 'curved', RAKE, 'plain', RAKE));
-        expect(c.baseSep, 'the floor is exact -- this is a corner rule gap, not a broken body')
+        expect(c.baseSep, 'the floor is exact').toBeLessThan(COINCIDENT_M);
+        expect(c.topSep, 'L-1066: and so is the top').toBeLessThan(COINCIDENT_M);
+        // The sharper statement, and the one that would catch a regression the hull
+        // metric could miss: the top corner sits in the SAME relative position as the
+        // base corner, i.e. the joint does not open with height at all.
+        expect(Math.abs(c.topGap - c.baseGap), 'the corner does not move between floor and top')
             .toBeLessThan(COINCIDENT_M);
-        expect(c.topSep, 'L-1066: the top does not close yet').toBeLessThan(COINCIDENT_M);
     });
 
     it('the curved BODY leans -- without which the joint result above would be vacuous', () => {

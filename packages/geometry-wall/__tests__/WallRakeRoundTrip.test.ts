@@ -162,13 +162,26 @@ describe('§WALL-RAKE round-trip — a NEW raked wall survives', () => {
         expect(WallDataAddSchema.safeParse(ok).success).toBe(true);
     });
 
-    it('the schema REFUSES a persisted raked wall that is also curved', () => {
-        const bad = {
+    // §FEAT-RAKE-CURVED (founder mandate 2026-08-19) — INVERTED. A persisted curved raked
+    // wall must now LOAD, and this is the boundary where getting it wrong is worst: a
+    // schema that refuses on load does not decline an edit, it makes an existing PROJECT
+    // unopenable. The conical sweep is built, so the record is valid.
+    it('the schema ACCEPTS a persisted raked wall that is also curved', () => {
+        const curvedRaked = {
             ...legacySnapshotWall(),
             rakeAngleDeg: 80,
             curve: { control: { x: 2, y: 0, z: 1 }, segments: 16 },
         };
-        expect(WallDataAddSchema.safeParse(bad).success).toBe(false);
+        const parsed = WallDataAddSchema.safeParse(curvedRaked);
+        expect(parsed.success, JSON.stringify((parsed as { error?: { issues?: unknown } }).error?.issues))
+            .toBe(true);
+    });
+
+    it('…and the ANGLE-RANGE refusal still bites on load — the gate did not simply go away', () => {
+        // Non-vacuity for the inversion above. If the schema had stopped consulting
+        // `rakeAuthorability` altogether, the test above would also pass.
+        const outOfRange = { ...legacySnapshotWall(), rakeAngleDeg: 5 };
+        expect(WallDataAddSchema.safeParse(outOfRange).success).toBe(false);
     });
 });
 
