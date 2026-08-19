@@ -9318,3 +9318,37 @@ call sites, and **every file WM1 changed contains zero of them** —
 it must NOT "fix" it by adding files to `PRODUCERS`: the assertion has not been seen to fail on
 content, and the shrink-only `UNSTAMPED_PRODUCERS` ratchet is a real invariant that must not be
 loosened on the strength of a timeout.
+
+---
+
+## L-992 addendum — the app-layer proof landed GREEN, and it reproduced the founder's `undefined` as a STRUCTURAL fact
+
+**Lane WM1, 2026-08-19.** `apps/editor/__tests__/L992MoveRefusalCarriesItsReason.test.ts`,
+1 file / 1 test, **PASSED** (`EXIT=0`). It drives the real `gateWallMove` through `storeRegistry`
+and `semanticGraphManager` — not the predicate — because `refusalReason` is composed in
+`apps/editor` and the defect was that a correctly-computed reason did not survive the trip.
+
+Measured, on the founder's own arm:
+
+```
+gate.blocked        true
+gate.verdict.valid  true          ← the wall's OWN placement was clear …
+gate.verdict.reason undefined     ← … so the field both log sites read was EMPTY BY CONSTRUCTION
+gate.refusalReason  'OCC_CROSSES_HOSTED_OPENING — wall_L992_STEM: [OCC_CROSSES_HOSTED_OPENING]
+                     this wall cannot be placed here: it would pass straight through the window
+                     el_L992_WINDOW on wall wall_L992_HOST — …'
+gate.surfaced       true
+```
+
+So `— undefined` was never a missing reason: it was the caller reading the field belonging to a
+different question. The candidate (`wall_L992_STEM`) and the host (`wall_L992_HOST`) are both named
+in the sentence now (L-991), and the chat head says *"That wall's own position is clear"* before the
+arms rather than *"That position is clear of every opening"* flatly.
+
+⚠ **One finding from writing it, worth more than the test.** The first run died at COLLECTION —
+`ReferenceError: window is not defined` (`ConstraintEngine.ts:113`, reached via
+`wallMovePlannerComposition.ts`) because `apps/editor/vitest.config.ts` runs `environment: 'node'`
+by default — and vitest reported **`Tests  no tests`** with the file marked FAILED. **A suite that
+measured nothing is one line away from looking like a suite that measured and failed**, and the
+missing `// @vitest-environment happy-dom` docblock is invisible in a summary. Same shape as L-994
+below: the harness could not answer, and the report does not say so in the words a reader scans.
