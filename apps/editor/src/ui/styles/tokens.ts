@@ -99,6 +99,62 @@ export const DESIGN_TOKENS = `
         --pryzm-panel-backdrop:      rgba(28, 12, 60, 0.26);
         --pryzm-panel-backdrop-blur: blur(2px);
 
+        /* ── Loading ground (§UX2-LOADING-GROUND · C06 §6, C84 EI-8/EI-9) ────
+           Founder 2026-08-19: "make the background more grey, a bit darker, so
+           we can see the PRYZM logo more". These live HERE, not in
+           'LoadingOverlayView.ts', for the reason that file's own history shows:
+           the tint has now been re-ruled three times (§LOAD-MASK-OPAQUE-WHITE
+           L-483 → §LOAD-MASK-TINT L-494 → this), each time as a literal inside
+           one screen, so every sibling loading surface drifted from it. A token
+           is the difference between changing the vocabulary and adding a third
+           dialect to it.
+
+           ⚠ THE GROUND ALONE DOES NOT MAKE THE MARK VISIBLE — MEASURED.
+           The prism's faces are white at 0.10–0.28 alpha, so they COMPOSITE with
+           whatever is behind them: on the old #ECEAF3 the strongest face landed
+           at 1.05:1 against its own ground, i.e. invisible, and darkening the
+           ground to #C8C2DE moves that only to 1.18:1 — because the face gets
+           darker in step with the ground. Even a FULLY OPAQUE white prism reaches
+           just 1.72:1 here. The lever that actually moves the mark is its own
+           alpha, which is why the face values are tokens directly below this one
+           and are raised with the ground rather than after it.
+
+           NOT pure grey and NOT black: a purple-grey on the #6600FF hue
+           (#C8C2DE is hsl(259, 26%, 82%)), per the standing white+purple rule. */
+        --pryzm-loading-ground:      #C8C2DE;
+
+        /* Prism face alphas (§UX2-LOADING-GROUND). Authored as opacities so the
+           mark keeps its glass reading — depth still varies per face — while the
+           strongest face carries enough of it to be SEEN. 0.28/0.20/0.14/0.10 was
+           tuned against a near-white ground and is what "we don't see the prism"
+           measures to. Consumed by 'PryzmLogoSpinner.ts' with the OLD values as
+           CSS fallbacks, so any surface that does not load this sheet is
+           unchanged rather than broken. */
+        --pryzm-prism-face-front:    0.88;
+        --pryzm-prism-face-left:     0.66;
+        --pryzm-prism-face-right:    0.50;
+        --pryzm-prism-face-back:     0.38;
+
+        /* Type on the loading ground. RE-MEASURED against #C8C2DE, because
+           darkening a ground under text tuned for a lighter one is exactly where
+           AA is lost — and one of these was ALREADY failing before the change:
+             title  #1a1130  10.48:1  (unchanged — it had headroom)
+             label  #3d3454   6.73:1  (was #5a5f70: 5.33 → 3.31 on the new ground)
+             note   #4e4468   5.20:1  (was #8b7fb0, which read 3.06:1 on the OLD
+                                       ground — i.e. the tile counter has been
+                                       under AA all along; this fixes that too)
+             accent #5200cc   5.48:1  (was #6600FF: 5.86 → 4.06, under AA at 11px.
+                                       Same hue and saturation as the brand purple,
+                                       hsl(264,100%,40%) vs hsl(264,100%,50%) —
+                                       darkened only as far as AA required)
+             error  #8f1a20   5.23:1  (was #b4232a: 5.48 → 3.80)
+           All ≥ 4.5:1 for normal text (C43 §1.5 / SC 1.4.3). */
+        --pryzm-loading-title:       #1a1130;
+        --pryzm-loading-label:       #3d3454;
+        --pryzm-loading-note:        #4e4468;
+        --pryzm-loading-accent:      #5200cc;
+        --pryzm-loading-error:       #8f1a20;
+
         /* ── Floating panel chrome (§UX1-PANEL-CHROME, C06 §6) ────────────
            The FOUR floating site/GIS panels (Buildable envelope, Site
            analysis, Site plan overlay, and any that follow) were each styled

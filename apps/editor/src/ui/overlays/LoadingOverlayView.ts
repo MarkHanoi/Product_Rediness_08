@@ -405,8 +405,17 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                    spinner are near-white, so on #FFFFFF they vanished (founder: "we don't see the
                    prism rotating while loading"). A faint tint keeps the dark globe fully masked
                    while giving the white prism contrast to read against. Still brand (white+purple,
-                   no black). */
-                background: #ECEAF3;
+                   no black).
+                   §UX2-LOADING-GROUND (founder 2026-08-19: "more grey, a bit darker, so we can
+                   see the PRYZM logo more") — the FOURTH ruling on this tint, and the first that
+                   is not a literal in this file. The value, the prism's face alphas and the type
+                   that has to survive on it now live together in 'styles/tokens.ts', because the
+                   previous three rulings each moved one screen and left every sibling loading
+                   surface behind (C84 EI-8/EI-9 — one vocabulary). The fallback is the OLD value,
+                   so a surface that never loads the app sheet degrades to the previous look
+                   rather than to nothing. ⚠ See the token's note: the ground is only HALF the
+                   fix — the prism's own alpha is the lever that makes the mark visible. */
+                background: var(--pryzm-loading-ground, #ECEAF3);
                 backdrop-filter: blur(8px);
                 -webkit-backdrop-filter: blur(8px);
                 transition: opacity 0.20s ease;
@@ -467,7 +476,7 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             .pryzm-loading-overlay__title {
                 font-size: 16px;
                 font-weight: 700;
-                color: #1a1130;
+                color: var(--pryzm-loading-title, #1a1130);
                 letter-spacing: -0.01em;
                 max-width: 100%;
                 white-space: nowrap;
@@ -477,14 +486,17 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             .pryzm-loading-overlay__label {
                 font-size: 12.5px;
                 font-weight: 500;
-                color: #5a5f70;
+                /* §UX2-LOADING-GROUND — #5a5f70 fell to 3.31:1 on the darker ground. */
+                color: var(--pryzm-loading-label, #5a5f70);
                 letter-spacing: 0.005em;
                 max-width: 100%;
             }
             .pryzm-loading-overlay__note {
                 font-size: 11px;
                 font-weight: 500;
-                color: #8b7fb0;
+                /* §UX2-LOADING-GROUND — the tile counter. #8b7fb0 read 3.06:1 on the OLD
+                   ground, i.e. it was already under AA before anything was darkened. */
+                color: var(--pryzm-loading-note, #8b7fb0);
                 letter-spacing: 0.04em;
                 min-height: 13px;
                 font-variant-numeric: tabular-nums;
@@ -500,14 +512,20 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             .pryzm-loading-overlay__track {
                 flex: 1;
                 height: 3px;
-                background: rgba(102, 0, 255, 0.14);
+                /* §UX2-LOADING-GROUND — 0.14 composited to 1.26:1 on the darker ground, so
+                   the unfilled track vanished into it. 0.30 reads without competing with the
+                   filled bar. */
+                background: rgba(102, 0, 255, 0.30);
                 border-radius: 999px;
                 overflow: hidden;
             }
             .pryzm-loading-overlay__bar {
                 height: 100%;
                 width: 0%;
-                background: linear-gradient(90deg, #8B5CF6 0%, #6600FF 100%);
+                /* §UX2-LOADING-GROUND — the old light end (#8B5CF6) read 2.47:1 on the new
+                   ground, under SC 1.4.11's 3:1 for a meaningful graphic. Both ends now clear
+                   it (#6600FF 4.06:1 · #4A00B8 6.17:1) and the gradient survives. */
+                background: linear-gradient(90deg, #6600FF 0%, #4A00B8 100%);
                 border-radius: inherit;
                 box-shadow: 0 0 8px rgba(102, 0, 255, 0.40);
             }
@@ -517,7 +535,8 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                 text-align: right;
                 font-size: 11px;
                 font-weight: 600;
-                color: #6600FF;
+                /* §UX2-LOADING-GROUND — #6600FF is 4.06:1 here, under AA at 11px. */
+                color: var(--pryzm-loading-accent, #6600FF);
                 letter-spacing: 0.02em;
                 font-variant-numeric: tabular-nums;
             }
@@ -526,7 +545,7 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
                A readiness signal that never arrives is a DEFECT, not a longer wait.
                Say so, and always give the user a way out. */
             .pryzm-loading-overlay--error .pryzm-loading-overlay__label {
-                color: #b4232a;
+                color: var(--pryzm-loading-error, #b4232a);
                 white-space: normal;
             }
             .pryzm-loading-overlay__actions {
@@ -537,9 +556,12 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             }
             .pryzm-loading-overlay__btn {
                 appearance: none;
-                border: 1px solid #ece7fb;
+                /* §UX2-LOADING-GROUND — a white fill is only 1.72:1 against the new ground,
+                   so the BORDER is what bounds the control (SC 1.4.11). #ece7fb could not do
+                   that on any ground; the accent can. */
+                border: 1px solid var(--pryzm-loading-accent, #6600FF);
                 background: #ffffff;
-                color: #6600FF;
+                color: var(--pryzm-loading-accent, #6600FF);
                 cursor: pointer;
                 padding: 7px 14px;
                 border-radius: 8px;
@@ -547,11 +569,11 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             }
             .pryzm-loading-overlay__btn:hover { background: #f4f0ff; }
             .pryzm-loading-overlay__btn--primary {
-                background: #6600FF;
-                border-color: #6600FF;
+                background: var(--pryzm-loading-accent, #6600FF);
+                border-color: var(--pryzm-loading-accent, #6600FF);
                 color: #ffffff;
             }
-            .pryzm-loading-overlay__btn--primary:hover { background: #5500dd; }
+            .pryzm-loading-overlay__btn--primary:hover { background: #4A00B8; }
         `;
         document.head.appendChild(style);
     }

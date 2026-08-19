@@ -195,11 +195,30 @@ function ensurePryzmSpinnerStyles(): void {
          * so depth is still perceptible on gradient/coloured backgrounds.
          * The backface-visibility:hidden rule above means at most 2 faces are
          * ever simultaneously visible, so the overlaps never double-blend.
+         *
+         * §UX2-LOADING-GROUND (founder 2026-08-19: "we can see the PRYZM logo more")
+         * — THE ALPHA IS THE LEVER, and this is the measurement that says so.
+         * A face is white COMPOSITED with the ground, so it darkens in step with the
+         * ground and darkening the backdrop alone barely moves it: on the old
+         * #ECEAF3 the strongest face read 1.05:1 against its own ground and on the
+         * new #C8C2DE it reads 1.18:1 — both invisible. Raising the front face to
+         * 0.88 takes it to 1.62:1, which is the visible change.
+         *
+         * ⚠ STATED, NOT PAPERED OVER: 1.62:1 is still BELOW SC 1.4.11's 3:1 for a
+         * meaningful graphic, and no value can fix that here — a FULLY OPAQUE white
+         * prism reaches only 1.72:1 on a ground light enough to carry this screen's
+         * text. Closing that gap needs the mark to stop being white-on-light (a
+         * purple stroke, or a purple mark), which is a brand decision and not one
+         * this lane may take unilaterally.
+         *
+         * Authored as TOKENS with the OLD values as fallbacks: this spinner is shared
+         * (RendererSwapOverlay / EngineLoadingOverlay), so a surface that does not
+         * load the app sheet degrades to the previous look, never to nothing.
          */
-        .pryzm-logo-spinner__face--front { background: rgba(255,255,255,0.28); transform: rotateY(0deg)   translateZ(18px) rotateX(19deg); }
-        .pryzm-logo-spinner__face--right { background: rgba(255,255,255,0.14); transform: rotateY(90deg)  translateZ(18px) rotateX(19deg); }
-        .pryzm-logo-spinner__face--back  { background: rgba(255,255,255,0.10); transform: rotateY(180deg) translateZ(18px) rotateX(19deg); }
-        .pryzm-logo-spinner__face--left  { background: rgba(255,255,255,0.20); transform: rotateY(270deg) translateZ(18px) rotateX(19deg); }
+        .pryzm-logo-spinner__face--front { background: rgba(255,255,255,var(--pryzm-prism-face-front, 0.28)); transform: rotateY(0deg)   translateZ(18px) rotateX(19deg); }
+        .pryzm-logo-spinner__face--right { background: rgba(255,255,255,var(--pryzm-prism-face-right, 0.14)); transform: rotateY(90deg)  translateZ(18px) rotateX(19deg); }
+        .pryzm-logo-spinner__face--back  { background: rgba(255,255,255,var(--pryzm-prism-face-back,  0.10)); transform: rotateY(180deg) translateZ(18px) rotateX(19deg); }
+        .pryzm-logo-spinner__face--left  { background: rgba(255,255,255,var(--pryzm-prism-face-left,  0.20)); transform: rotateY(270deg) translateZ(18px) rotateX(19deg); }
 
         /* Respect reduced-motion — slow the spin to near-static */
         @media (prefers-reduced-motion: reduce) {
