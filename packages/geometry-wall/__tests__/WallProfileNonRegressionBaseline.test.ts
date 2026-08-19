@@ -781,6 +781,13 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             // Added to the forward projection (B1b) and to this restore projection in the
             // SAME commit, because carrying a field forward and not back is C84 EI-7a
             // (WRITES ⊋ RESTORES) — undo would have left the new finish standing.
+            // §FIX-RAKE-RESTORE-PROJECTIONS (L-1226). THE THIRD TIME THIS PIN HAS DONE ITS
+            // JOB. B1a below recorded this omission as a KNOWN DEFECT and instructed the
+            // fixer to assert the fix here rather than delete the assertion; that is what
+            // this entry and the rewritten B1a are. Placed BEFORE `sideFinishes` because
+            // this list is ORDER-SENSITIVE — it is the source order of the literal, not a
+            // set — and the rake sits next to `wallProfile`, the other shape field.
+            'rakeAngleDeg',
             'sideFinishes',
         ]);
     });
@@ -790,23 +797,41 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             'baseLine', 'height', 'thickness', 'baseOffset', 'materialId', 'materialColor',
             'properties', 'curve', 'layers', 'systemTypeId',
             'wallProfile',   // §WALL-PROFILE Slice 1 — see B1
+            'rakeAngleDeg',  // §FIX-RAKE-RESTORE-PROJECTIONS (L-1226) — see B1
             'sideFinishes',  // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — see B1
             '_renderVersion',
         ]);
     });
 
-    // ⚠ A LIVE DEFECT, PINNED AS-IS AND NOT FIXED HERE. Wall commands undo through
-    // these two projections, and `rakeAngleDeg` is absent from both — so a command
-    // that changed both height and rake does not restore the rake. Reported to the
-    // coordinator separately. Asserting the DESIRED list here would assert a
-    // fiction; this asserts the truth and names it, which is what makes the eventual
-    // fix a visible, deliberate edit to this test rather than a silent one.
-    it('B1a — NEITHER restore path carries rakeAngleDeg (KNOWN DEFECT, reported)', () => {
+    // ✅ CLOSED 2026-08-19 by §FIX-RAKE-RESTORE-PROJECTIONS (L-1226). UPDATED, NOT
+    // DELETED, exactly as the previous assertion's own message instructed — the same
+    // discipline §(A2b) above follows for L-955.
+    //
+    // WHAT IT SAID, kept so the retraction is legible (C84 §6):
+    //
+    //   *"⚠ A LIVE DEFECT, PINNED AS-IS AND NOT FIXED HERE. Wall commands undo through
+    //     these two projections, and `rakeAngleDeg` is absent from both — so a command
+    //     that changed both height and rake does not restore the rake."*
+    //
+    // That was true and is now false. ⭐ AND THE MECHANISM IS WORTH KEEPING, because the
+    // wording above understated it in one direction and overstated it in another. These
+    // literals are `Partial<WallData>` fed to `update()`, which merges
+    // `{...wall, ...safeUpdates}`. A NAMED key whose value is `undefined` CLEARS the
+    // field; an ABSENT key leaves it standing. So the omission never DESTROYED a rake —
+    // it made one IMMOVABLE by any snapshot restore. Undo reported success over a wall it
+    // had half restored, and that is C84 EI-7a (WRITES ⊋ RESTORES).
+    //
+    // The assertion is now the fix, plus the control that makes it meaningful: BOTH
+    // projections carry it, because carrying a field on one path and not the other is the
+    // same defect with a longer fuse — which is exactly what L-995 found for
+    // `sideFinishes`.
+    it('B1a — BOTH restore paths carry rakeAngleDeg (L-1226, closed)', () => {
         const msg =
-            'If this is now TRUE the defect was fixed — good. Update this test to assert ' +
-            'the fix rather than deleting it, and add the profile field in the same commit.';
-        expect(restoreSnapshotKeys().includes('rakeAngleDeg'), msg).toBe(false);
-        expect(updateWallKeys().includes('rakeAngleDeg'), msg).toBe(false);
+            'If this is now FALSE the L-1226 fix was reverted — a snapshot restore can no ' +
+            'longer put a wall back to its recorded lean. Do not relax this: name the field ' +
+            'in BOTH projections in WallStore.ts (updateWall + restoreSnapshot).';
+        expect(restoreSnapshotKeys().includes('rakeAngleDeg'), msg).toBe(true);
+        expect(updateWallKeys().includes('rakeAngleDeg'), msg).toBe(true);
     });
 
     // ── B2 ──────────────────────────────────────────────────────────────────

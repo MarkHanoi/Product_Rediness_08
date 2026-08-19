@@ -955,6 +955,28 @@ export class WallStore implements ILevelProvider {
             // §WALL-PROFILE — see the note in `restoreSnapshot`; this is the second of
             // the two snapshot-restore projections and both must carry the outline.
             wallProfile: wall.wallProfile,
+            // §FIX-RAKE-RESTORE-PROJECTIONS (L-1226) — the wall's LEAN, and it is the
+            // SAME defect as `sideFinishes` immediately below, one field earlier.
+            //
+            // ⚠ THIS WAS A PINNED, KNOWN, UNFIXED DEFECT — `WallProfileNonRegression
+            // Baseline.test.ts` §(B1a) asserted, deliberately, that NEITHER of the two
+            // restore projections carried `rakeAngleDeg`, with the instruction *"if this
+            // is now TRUE the defect was fixed — update this test to assert the fix."*
+            // That is done in the same commit as this line.
+            //
+            // WHAT IT COST. Both projections are `Partial<WallData>` object literals fed
+            // to `update()`, which merges `{...wall, ...safeUpdates}`. A field NAMED with
+            // value `undefined` is cleared; a field ABSENT is left standing. So the
+            // omission never destroyed a rake — it made one IMMOVABLE by any snapshot
+            // restore: a command that changed height AND rake undid the height and left
+            // the rake at its new angle. Ctrl+Z reported success over a wall it had only
+            // half restored, which is C84 EI-7a (WRITES ⊋ RESTORES) — the same clause
+            // `sideFinishes` cites below, and the same one L-995 was raised under.
+            //
+            // ⛔ NOT A SECOND RAKE RULE. This names a field in a projection; every
+            // question about whether the resulting wall MAY hold that angle is still
+            // asked once, by `WallRake.rakeAuthorability`, from `update()` below.
+            rakeAngleDeg: wall.rakeAngleDeg,
             // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — the per-side finish.
             //
             // ⚠ THIS LINE IS THE WHOLE OF L-995. `SetWallSideFinishCommand.execute()`
@@ -1025,11 +1047,21 @@ export class WallStore implements ILevelProvider {
             _sourceBaseLine: (snapshot as any)._sourceBaseLine,
             // §WALL-PROFILE — the wall's authored outline is exactly the class of field
             // this whitelist exists to carry: it cannot be re-derived from anything else on
-            // the record, so omitting it would make undo silently un-profile a wall. (The
-            // same omission for `rakeAngleDeg` is a live defect pinned in
+            // the record, so omitting it would make undo silently un-profile a wall.
+            //
+            // ⚠ THE PARENTHETICAL THAT STOOD HERE IS SPENT AND IS REMOVED, NOT REWORDED.
+            // It read: *"(The same omission for `rakeAngleDeg` is a live defect pinned in
             // `WallProfileNonRegressionBaseline.test.ts` §(B1a) — not fixed here, and this
-            // field is added rather than repeating it.)
+            // field is added rather than repeating it.)"* It was TRUE when written and is
+            // FALSE now — §FIX-RAKE-RESTORE-PROJECTIONS (L-1226) fixed it, in BOTH
+            // projections, in one commit. A pointer to a closed defect is how folklore is
+            // made; the rationale now lives on the `rakeAngleDeg` line below.
             wallProfile: (snapshot as any).wallProfile,
+            // §FIX-RAKE-RESTORE-PROJECTIONS (L-1226) — the wall's LEAN. The undo half of
+            // the same field in `updateWall` above; read the full rationale there. Both
+            // projections MUST name it or undo restores a wall's shape from one path and
+            // not the other — C84 EI-7a, the identical clause `sideFinishes` cites.
+            rakeAngleDeg: (snapshot as any).rakeAngleDeg,
             // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — the undo half of the field
             // added to `updateWall` above. Both projections MUST name it: carrying it
             // forward and not back would make Ctrl+Z leave the new finish standing,
