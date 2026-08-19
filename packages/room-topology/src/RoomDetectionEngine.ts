@@ -572,6 +572,42 @@ export class RoomDetectionEngine {
     levelId: string,
     detectedRoomCount: number,
   ): void {
+    // ── §PERF2-DIAG-ROOM-LOOP-COST (L-1156) ──────────────────────────────────
+    //
+    // ⭐ THIS AUDIT IS ITSELF O(n²), AND ITS OWN DOCSTRING CALLS IT "always-on".
+    // The nest below is `for host of segs × for guest of segs × 2 endpoints` —
+    // 2n² distance computations EVERY detection pass, whether or not anything is
+    // logged. On the founder's 400-wall gesture that is ~320,000 iterations per
+    // pass, and the log showed ~400 passes. The console writes people noticed
+    // (two §DIAG-ROOM-LOOP BREAK lines per pass, re-printing the SAME pair of
+    // walls at the SAME 788 mm, ~800 formatted writes) are only its visible tip.
+    //
+    // ⚠ SILENCE HERE WOULD BE DISHONEST, so this does NOT simply switch off.
+    // These lines are a working diagnostic for the wall-join lane, and a reader
+    // who stops seeing them must not conclude "no loop breaks". So:
+    //   • small levels  — audit runs exactly as before, diagnostics unchanged;
+    //   • large levels  — audit is SKIPPED and says so, in ONE line, naming the
+    //                     threshold, so "not measured" is visibly different from
+    //                     "zero breaks";
+    //   • `globalThis.__pryzmDiagRoomLoop` — `true` forces the audit on at any
+    //     size (the wall-join lane's escape hatch), `false` forces it off.
+    //
+    // Nothing consumes the counts programmatically — the method returns void and
+    // every use of `unresolvedLoopBreaks` outside this file is prose in comments
+    // and tests — so skipping the walk changes no geometry, only observability.
+    const _diagFlag = (globalThis as { __pryzmDiagRoomLoop?: boolean }).__pryzmDiagRoomLoop;
+    /** Above this many wall segments the 2n² audit costs more than it reports.
+     *  150 segs ≈ 45,000 iterations, which is still sub-millisecond. */
+    const DIAG_MAX_SEGS = 150;
+    const _diagOn = _diagFlag === true || (_diagFlag !== false && segs.length <= DIAG_MAX_SEGS);
+    if (!_diagOn) {
+      console.log(
+        `[RoomDetectionEngine] §DIAG-ROOM-LOOP level='${levelId}' detectedRooms=${detectedRoomCount} ` +
+        `loopBreakAudit=SKIPPED (segs=${segs.length} > ${DIAG_MAX_SEGS}; the audit is O(n^2)) — ` +
+        `UNMEASURED, not zero. Set globalThis.__pryzmDiagRoomLoop = true to force it on.`,
+      );
+      return;
+    }
     const SNAP_FLOOR = 0.20;
     const SHELL_MARGIN = 0.02;
     let flagged = 0;

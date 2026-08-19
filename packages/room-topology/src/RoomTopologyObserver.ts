@@ -857,6 +857,44 @@ export class RoomTopologyObserver {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=project-load) — §PERF2-LOAD-REDETECT-THRASH`);
       return;
     }
+    // ── §PERF2-BATCH-REDETECT-BYPASS (L-1155) ────────────────────────────────
+    //
+    // ⭐ THE ONE SUPPRESSION THAT WAS NEVER MIRRORED — AND IT IS THE PRIMARY ONE.
+    //
+    // `batchCoordinator.isBatching` guards `_scheduleRedetect` (twice). Before this
+    // line it appeared NOWHERE in `_executeRedetect`, while `paused`,
+    // building-generation, project-load, wall-drag and graph-authority are all
+    // mirrored at both chokepoints. So the FOUR bypass paths named above walked
+    // straight past the batch gate.
+    //
+    // THE FOUNDER'S PRODUCTION LOG, "walls-by-slab across all slabs", 400 walls —
+    // this triplet repeated ONCE PER WALL, mid-batch:
+    //
+    //   [BimManager] Registered element wall_01M0CVY12FQ… to level L-14-…
+    //   [CommandManager] EXECUTE: REDETECT_ROOMS
+    //   [RoomDetectionEngine] Detected 1 room(s) on level 'L-14-…'
+    //
+    // ~400 full room-detection passes, each re-walking that level's entire wall
+    // set, each re-deriving THE SAME answer and re-printing the SAME two
+    // §DIAG-ROOM-LOOP lines for the SAME pair of walls at the SAME 788 mm.
+    // Ending: "§WARN DEFERRED-RESUME-FLUSH delayed 85433ms — main thread was
+    // blocked", then "Socket disconnected: transport close". The same gesture at
+    // 367 elements cost 32,183 ms; at 400 walls it cost 85,433 ms — superlinear,
+    // which is the signature of per-element work over a growing set.
+    //
+    // ⚠ THE ESCAPE HATCH IS THE REASON THE SCHEDULER ALREADY DOES THIS.
+    // `BatchCoordinator._executeFinalSweep()` dispatches exactly ONE
+    // `room.redetect` per affected level at batch end, from `BatchOptions.levelIds`
+    // (opt-out via `skipRedetectRooms`). Suppressing here does not skip detection —
+    // it collapses N identical passes into the ONE pass that runs against SETTLED
+    // geometry instead of against a half-built level. That is strictly more correct
+    // as well as faster: a mid-batch pass detects rooms from walls that are still
+    // arriving, which is how "detectedRooms=1" kept being written for a level that
+    // was not finished yet.
+    if (batchCoordinator.isBatching) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=isBatching) — §PERF2-BATCH-REDETECT-BYPASS`);
+      return;
+    }
     // §FIX-WALLMOVE-REDETECT-DEFER — execution-chokepoint guard. INVARIANT: no
     // redetect while a wall drag is in flight. FOUR paths reach `_executeRedetect`
     // without passing the committed-event guard above: the WallStore add/update/remove

@@ -27,6 +27,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RoomTopologyObserver } from '../RoomTopologyObserver';
+import { batchCoordinator } from '@pryzm/core-app-model';
 
 type G = { __pryzmProjectLoadActive?: boolean };
 
@@ -112,5 +113,60 @@ describe('§PERF2-LOAD-REDETECT-THRASH — no redetect while a snapshot is repla
     (globalThis as G).__pryzmProjectLoadActive = true;
     (observer as any)._executeRedetect('L0');
     expect(execute).not.toHaveBeenCalled();      // load starts: suppressed
+  });
+});
+
+describe('§PERF2-BATCH-REDETECT-BYPASS (L-1155) — no redetect per element INSIDE a batch', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => {
+    vi.useRealTimers();
+    batchCoordinator.forceReset();
+  });
+
+  it('CONTROL — outside a batch, the direct execution path DOES fire (the bypass is real)', () => {
+    const { observer, execute } = makeObserver();
+    expect(batchCoordinator.isBatching).toBe(false); // precondition, measured
+    (observer as any)._executeRedetect('L0');
+    expect(execute).toHaveBeenCalled();
+  });
+
+  it('THE ROOT — inside a live batch, the EXECUTION chokepoint fires NOTHING', () => {
+    // `batchCoordinator.isBatching` guarded `_scheduleRedetect` (twice) and appeared
+    // NOWHERE in `_executeRedetect`, while paused / building-gen / project-load /
+    // wall-drag / graph-authority were all mirrored at both. The four documented
+    // bypass paths therefore walked straight past the batch gate — which is why the
+    // founder's log carried "Registered element wall_… / EXECUTE: REDETECT_ROOMS"
+    // once per wall for 400 walls, mid-batch.
+    const { observer, execute } = makeObserver();
+    batchCoordinator.runBatch(() => {
+      for (let i = 0; i < 400; i++) (observer as any)._executeRedetect('L0');
+    }, { levelIds: ['L0'], totalElementCount: 400 });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('400 registrations inside a batch cost ZERO detection passes (was ~400)', () => {
+    const { observer, execute } = makeObserver();
+    batchCoordinator.runBatch(() => {
+      for (let i = 0; i < 400; i++) {
+        (observer as any)._scheduleRedetect('L0');   // scheduler path
+        (observer as any)._executeRedetect('L0');    // the bypass path
+      }
+    }, { levelIds: ['L0'], totalElementCount: 400 });
+    expect(execute.mock.calls.length).toBe(0);
+  });
+
+  it('THE ESCAPE HATCH — detection works again once the batch is over', () => {
+    // BatchCoordinator._executeFinalSweep dispatches exactly ONE room.redetect per
+    // affected level from BatchOptions.levelIds. Suppression that never lifts would
+    // be a silent data defect, so this asserts the half this file owns.
+    const { observer, execute } = makeObserver();
+    batchCoordinator.runBatch(() => {
+      (observer as any)._executeRedetect('L0');
+    }, { levelIds: ['L0'], totalElementCount: 1 });
+    expect(execute).not.toHaveBeenCalled();
+
+    batchCoordinator.forceReset();
+    (observer as any)._executeRedetect('L0');
+    expect(execute).toHaveBeenCalled();
   });
 });
