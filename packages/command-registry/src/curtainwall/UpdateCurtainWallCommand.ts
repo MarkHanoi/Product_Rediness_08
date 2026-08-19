@@ -31,7 +31,7 @@
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { CurtainWallData } from '@pryzm/geometry-curtain-wall';
+import { CurtainWallData, migrateToGridSystem } from '@pryzm/geometry-curtain-wall';
 // TODO(TASK-08): store-unification debt (ADR-0318) — fix #9 above records that this
 // command already takes the injected store rather than window.curtainWallStore; the
 // remaining TASK-08 work is retiring the window.* seam globally. Work note relocated
@@ -88,13 +88,81 @@ export class UpdateCurtainWallCommand implements Command {
 
         this.snapshot = before;
 
+        // §CW-4 / C87 §13.6 — POST + TRANSOM SPACING MUST RE-DERIVE THE GRID, OR THE
+        // CONTROL IS AN AFFORDANCE WITHOUT AN IMPLEMENTATION (C84 EI-3).
+        //
+        // MEASURED, not assumed: `CurtainWallBuilder.ts:1135` and `:1813` both read
+        // `cw.gridSystem ?? migrateToGridSystem(length, height, gridXSpacing, gridYSpacing, id)`.
+        // The scalar spacing fields are therefore consulted ONLY while `gridSystem` is
+        // absent. A wall gets a `gridSystem` the moment anyone adds or removes a grid
+        // line (`AddCurtainGridLine.ts:105`) — and `ProjectSerializer.ts:655` persists it —
+        // so writing `gridXSpacing` alone would change the record, re-render nothing, and
+        // report success. That is precisely the REACHABILITY THEATRE this contract's own
+        // verdict names, and it would have been the fourth instance in this family.
+        //
+        // The re-derivation is folded into the SAME `store.update()` below, so it is one
+        // write and one undo entry; `undo()` restores the full pre-mutation snapshot via
+        // `store.set()`, which carries the previous `gridSystem` back verbatim (§01 §2.2).
+        //
+        // ⚠ IT IS LOSSY, AND THE LOSS IS REPORTED RATHER THAN SILENT (C84 EI-6). A
+        // re-space regenerates a UNIFORM grid, so hand-inserted lines at non-uniform `t`
+        // cease to exist. `CurtainGridEditor` is the surface that mints them, and a user
+        // who has used it is exactly the user who must be told. The count of discarded
+        // inner lines rides back in `CommandResult.info`.
+        const _mergedUpdates: Partial<CurtainWallData> = { ...this.input.updates };
+        const _sxNext = _mergedUpdates.gridXSpacing;
+        const _syNext = _mergedUpdates.gridYSpacing;
+        const _spacingChanged =
+            (typeof _sxNext === 'number' && Number.isFinite(_sxNext) && _sxNext > 0 && _sxNext !== before.gridXSpacing) ||
+            (typeof _syNext === 'number' && Number.isFinite(_syNext) && _syNext > 0 && _syNext !== before.gridYSpacing);
+
+        const _info: string[] = [];
+        if (_spacingChanged) {
+            const nextBase = (_mergedUpdates.baseLine ?? before.baseLine) as
+                ReadonlyArray<{ x: number; y?: number; z: number }>;
+            const a = nextBase?.[0];
+            const b = nextBase?.[1];
+            const length = a && b
+                ? Math.hypot(b.x - a.x, (b.y ?? 0) - (a.y ?? 0), b.z - a.z)
+                : 0;
+            const height = (_mergedUpdates.height ?? before.height);
+            const sx = (typeof _sxNext === 'number' && Number.isFinite(_sxNext) && _sxNext > 0) ? _sxNext : before.gridXSpacing;
+            const sy = (typeof _syNext === 'number' && Number.isFinite(_syNext) && _syNext > 0) ? _syNext : before.gridYSpacing;
+
+            // A zero-length baseline cannot produce a grid; REFUSE the re-derivation and
+            // say so rather than writing the degenerate `{uLines:[],vLines:[]}` that
+            // L-1052 shipped from the sibling path.
+            if (length > 1e-6 && height > 1e-6 && sx > 0 && sy > 0) {
+                const prevInnerU = (before.gridSystem?.uLines ?? []).filter(l => l.t > 0.001 && l.t < 0.999).length;
+                const prevInnerV = (before.gridSystem?.vLines ?? []).filter(l => l.t > 0.001 && l.t < 0.999).length;
+                const nextGrid = migrateToGridSystem(length, height, sx, sy, this.input.id);
+                const nextInnerU = nextGrid.uLines.filter(l => l.t > 0.001 && l.t < 0.999).length;
+                const nextInnerV = nextGrid.vLines.filter(l => l.t > 0.001 && l.t < 0.999).length;
+                _mergedUpdates.gridSystem = nextGrid;
+                if (before.gridSystem && (prevInnerU !== nextInnerU || prevInnerV !== nextInnerV)) {
+                    _info.push(
+                        `Re-spacing regenerated a uniform grid on '${this.input.id}': ` +
+                        `inner U ${prevInnerU}→${nextInnerU}, inner V ${prevInnerV}→${nextInnerV}. ` +
+                        `Hand-inserted grid lines at non-uniform positions were discarded.`,
+                    );
+                    console.warn('[UpdateCurtainWallCommand] ' + _info[_info.length - 1]);
+                }
+            } else {
+                _info.push(
+                    `Spacing written but the grid was NOT re-derived on '${this.input.id}': ` +
+                    `length=${length}, height=${height}, spacing=${sx}x${sy} — a degenerate grid was refused.`,
+                );
+                console.warn('[UpdateCurtainWallCommand] ' + _info[_info.length - 1]);
+            }
+        }
+
         // §DW-03 FIX: Detect levelId change BEFORE the store mutation.
         const newLevelId = this.input.updates.levelId;
         this.levelIdChanged = !!(newLevelId && newLevelId !== this.snapshot.levelId);
         this.previousLevelId = this.snapshot.levelId;
 
         // §2.7: store.update() emits storeEventBus → subscriber in main.ts drives builder
-        store.update(this.input.id, this.input.updates);
+        store.update(this.input.id, _mergedUpdates);
 
         // §DW-03 FIX: Re-register spatial position when levelId changes.
         // bimManager.unregisterElement removes the wall from the old level index.
@@ -109,7 +177,7 @@ export class UpdateCurtainWallCommand implements Command {
             }
         }
 
-        return { success: true, affectedElementIds: [this.input.id] };
+        return { success: true, affectedElementIds: [this.input.id], ...(_info.length ? { info: _info } : {}) };
     }
 
     undo(context: CommandContext): CommandResult {

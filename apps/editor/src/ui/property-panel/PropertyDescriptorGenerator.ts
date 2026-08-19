@@ -241,6 +241,20 @@ const SCHEMAS: Record<string, ElementSchema> = {
         // The actual grid lines are managed interactively via CurtainGridEditor.
         uLineCount:      READONLY('U-Lines (columns)', 'definition'),
         vLineCount:      READONLY('V-Lines (rows)', 'definition'),
+        // §CW-4 / C87 §13.6 — POST + TRANSOM SPACING. The founder's "post/mullion
+        // spacing controls", and the half that was missing: `mullionSize` was already
+        // an editable row here (measured 2026-08-19), the SPACING was not, so the only
+        // way to change bay width was to redraw the wall or add grid lines one `t` at a
+        // time in `CurtainGridEditor`.
+        //
+        // Both rows ride `wall.updateCurtainWall` -> `UpdateCurtainWallCommand`, the one
+        // verb that reaches the AUTHORITATIVE geometry record (initBusHandlers.ts:993,
+        // §FIX-CW-UPDATE-REACH-RECORD). That command re-derives `gridSystem` when either
+        // value changes — without which these rows would write a field the builder stops
+        // reading the moment the wall has a grid system, i.e. an affordance with no
+        // implementation (C84 EI-3).
+        gridXSpacing:    NUMBER('Post Spacing', 'definition', 'definition', true, { unit: 'm', min: 0.2, max: 12 }),
+        gridYSpacing:    NUMBER('Transom Spacing', 'definition', 'definition', true, { unit: 'm', min: 0.2, max: 12 }),
         mullionSize:     NUMBER('Mullion Size', 'definition', 'definition', true, { unit: 'm', min: 0.01, max: 0.5 }),
         panelThickness:  NUMBER('Panel Thickness', 'definition', 'definition', true, { unit: 'm', min: 0.005, max: 0.1 }),
         baseOffset:      NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' }),
