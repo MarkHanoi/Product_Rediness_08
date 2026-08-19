@@ -712,6 +712,27 @@ is not the same model … a real defect, not a tolerance candidate."*
 > pinned projection"* needs restating: there is no *"the other"*. **CW-2a (§13.2) is the section that
 > settles it.**
 
+> ⛔ **AND THE RELATIONSHIP WAS NOT LOSSY — IT DID NOT EXIST. Measured 2026-08-19 (L-1059).**
+> `grep -rn SystemPanel_Glass --include=*.ts packages plugins apps` returns **no site converting a
+> type to a kind, anywhere in the repository.** There was no projection to be lossy.
+>
+> ⭐ **"Nine of thirteen have no `PanelKind`" READS LIKE A LOSSY BRIDGE AND WAS A MISSING ONE — AND
+> THE DIFFERENCE DECIDES THE FIX.** A lossy bridge is repaired by widening it; a missing bridge has
+> to be *built*, and until it is, **every hop that needs one invents an answer.** That is exactly why
+> [L-1053](../../04-reference/ISSUE-LOG.md)'s material bridge replied `'glazed'` for every key ever
+> minted: nothing could tell it otherwise, because nothing in the repository knew the mapping.
+> `CURTAIN_PANEL_TYPE_TO_KIND` (`packages/schemas/src/elements/CurtainPanelVocabulary.ts`) is that
+> bridge, built and pinned; §13.2 CW-2a owns it.
+>
+> ⭐ **AND THE MASTER BELONGS IN L0, NOT HERE — "A MASTER NOBODY CAN IMPORT IS NOT A MASTER."**
+> CW-Voc-5 named `PanelType` (in `@pryzm/geometry-curtain-wall`) the master. Measured, that is not
+> buildable: `geometry-kernel` has no edge to this package, `packages/types-builtin` is
+> **dependency-free by design**, and `packages/schemas` cannot import it at all — that is an UPWARD
+> import, and P5 keeps schemas pure. `packages/schemas` is L0 with zero dependencies and is therefore
+> the only layer every consumer reaches *downward*. **The rule generalises past panels: a canonical
+> table must live at or below the lowest layer that consumes it, or the layers above it will each
+> mint their own** — which is precisely what the four transcriptions above are.
+
 **EI-3 violation, measured: NINE of thirteen `PanelType` members have no L0 representation.**
 The Phase-3 slat family (`:66-69`, 4 members), the Phase-4 fabric family (`:70-74`, 5 members) and
 `SystemPanel_Empty` (`:64`) cannot be expressed as a `PanelKind`. Going the other way, `'spandrel'`
