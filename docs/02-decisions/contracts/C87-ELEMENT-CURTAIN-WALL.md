@@ -1343,6 +1343,28 @@ Type · material · finish · **offset from centreline**.
 
 ### 13.5 — CW-3: CURTAIN-WALL DOORS
 
+> ✅ **PASS STATE REPORTED 2026-08-19 (lane CW2). It had never been reported.** The commit that
+> preserved this step (`e2ca533d`) said in its own words *"the projection and authoring tests exist
+> but their pass state was not reported by the lane; read the tests before trusting the feature."*
+> **Read and run, both green, RC taken from vitest itself and not from a wrapper:**
+> `packages/geometry-curtain-wall/__tests__/CW3CurtainWallDoorProjection.test.ts` → **RC=0, 5/5**;
+> `packages/command-registry/__tests__/CW3HostedDoorAuthoring.test.ts` → **RC=0, 6/6**. **11 arms, 0
+> failures.**
+> ⚠ **Neither is reachable from the ROOT vitest config** — `npx vitest run <path>` at the repo root
+> reports *"No test files found"* and **exits 1**, because `vitest.config.ts`'s `include` does not
+> cover `packages/*/__tests__/**`. They run only from inside their own package. **A suite CI cannot
+> see is a suite that cannot go red**, and that is a separate defect from the feature.
+
+> ⛔ **AND A CONTRADICTION IN THE RECORD, RESOLVED BY MEASUREMENT RATHER THAN LEFT TO ROT.**
+> `e2ca533d`'s message states the decision as *"a curtain-wall door is a HOSTED OPENING in the
+> curtain wall, **not** a panel KIND that replaces a grid cell"* — **the exact inverse of CW-Door-1
+> below, of the C15 §0.1 clause the same commit contains, and of the code it shipped.** The message
+> is the outlier and the outlier is wrong: `CurtainPanelData.hostedDoor` is a field **on the panel
+> record**, `isCurtainWallDoorPanel` keys on `panelType === 'SystemPanel_Door'`, and C15 §0.1 says in
+> its heading that a curtain-wall door is **NOT** a hosted element under C15. **Three artefacts agree
+> and one prose summary disagrees.** Recorded here rather than corrected in place because a commit
+> message is immutable and the next reader will find it.
+
 - ✅ **CW-Door-1 — DECIDED 2026-08-19 (lane CW1, [L-1072](../../04-reference/ISSUE-LOG.md)):
   ANSWER (b). A CURTAIN-WALL DOOR IS A PANEL *KIND* THAT REPLACES A GRID CELL. IT IS NOT A C15
   HOSTED OPENING, AND C15 IS NOT GENERALISED.**

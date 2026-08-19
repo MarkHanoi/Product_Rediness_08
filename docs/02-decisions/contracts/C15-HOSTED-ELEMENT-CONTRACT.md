@@ -41,8 +41,6 @@ rows above are the latter.
 
 ---
 
----
-
 ## §0.1 — SCOPE BOUNDARY: A CURTAIN-WALL DOOR IS **NOT** A HOSTED ELEMENT UNDER THIS CONTRACT
 
 > **DECIDED 2026-08-19 (lane CW1) · owner: [C87 §13.5 CW-Door-1](C87-ELEMENT-CURTAIN-WALL.md) ·
@@ -74,6 +72,39 @@ enumerator that surfaces them —
 `collectCurtainWallDoors` in `packages/geometry-curtain-wall/src/curtainWallDoors.ts` — is named in
 C87 §13.5, and the consumers that do **not** yet call it are enumerated there as a declared absence,
 not as a clearance.
+
+
+### §0.1.1 — THE POSITIVE SIDE: WHICH HOST SURFACES ACCEPT WHICH OPENINGS
+
+> §0.1 says what a curtain wall is **not**. This clause says what the contract **is** scoped to,
+> because a boundary stated only in the negative invites the next family to assume it is inside.
+> **Completed 2026-08-19 (lane CW2)** — lane CW1 was writing §0.1 when it stopped, and the clause
+> it left states the exclusion without ever enumerating the inclusion.
+
+**MEASURED 2026-08-19, not asserted.** `grep -rn "openings" packages/schemas/src` → the only element
+schema declaring an `openings[]` array is **`packages/schemas/src/elements/Wall.ts:105`**
+(`openings: z.array(Opening).default([])`), and `Opening.type` at **`:37`** is
+`z.enum(['window', 'door'])` — **exactly two kinds, on exactly one host.**
+
+| Host surface | Accepts C15 openings? | Kinds | Mechanism |
+|---|---|---|---|
+| **`Wall`** (`WallStore`) | ✅ **YES — the only one** | `door`, `window` (`Wall.ts:37`) | `wall.openings[]` + void cut by `WallFragmentBuilder`, rebuilt by `WallRebuildCoordinator` |
+| **Curtain wall** (`CurtainWallStore`) | ⛔ **NO** | — | Not an opening at all: a **panel kind** on the cell, `hostedDoor` on `CurtainPanelData`. See §0.1. |
+| **Slab / floor** | ⛔ **NO — and there is no rival mechanism either** | — | **No opening model exists.** A slab penetration / shaft is **UNBUILT**, not routed elsewhere. |
+| **Roof** | ⛔ **NO — same** | — | Rooflights / dormers have **no opening model**. UNBUILT. |
+| **Lift shaft wall** (`VerticalCirculation`) | ✅ **YES — via its wall** | `door` (landing doors) | `VerticalCirculation.ts:12` points at §12: the landing door is hosted on the **shaft wall**, so it is the `Wall` row, not a fifth host. |
+
+⛔ **THE SLAB AND ROOF ROWS ARE DECLARED ABSENCES, NOT CLEARANCES (C84 EI-6).** They are written
+here because the alternative is that the next lane reads a table containing only `Wall` and concludes
+the others were **considered and routed**. They were not. `grep -rn "penetration\|shaftOpening\|slabOpening"
+packages/schemas/src` → **zero hits**. If a slab penetration is ever built, this table is where the
+decision — generalise C15, or mint a sibling the way the curtain wall did — must be recorded.
+
+⭐ **THE RULE THIS TABLE ENCODES, so it survives the next host surface:** a new host surface joins
+the `Wall` row **only** if it can supply all four of §0.1's requirements — a record with `openings[]`,
+a **scalar offset along a baseline**, a **real void** cut into a host mesh, and participation in the
+`bim-wall-updated` rebuild path. **A surface missing any one of the four gets a sibling mechanism,
+not an amendment to this contract.** The curtain wall missed all four, which is why it got one.
 
 ---
 
