@@ -535,7 +535,7 @@ face aligns with the level datum (Finished Floor Level). Default: `'LEVEL'`."* `
 `SlabData.position.y` is *"always 0 (world Y is resolved at projection time from BimManager)"*
 (`:49-50`).
 
-### ⭐ THE DATUM IS THE TOP FACE — MEASURED IN STACK A, AND IT AGREES (L-1175, 2026-08-19)
+### ⭐ THE DATUM IS THE TOP FACE — MEASURED IN STACK A, AND IT AGREES (L-1177, 2026-08-19)
 
 The founder reported a slab that *"is DISPLACED — IT MOVES"* on a thickness or bottom-offset edit,
 and the leading hypothesis was that PRYZM anchors slabs at the BOTTOM face. **It does not.**
@@ -562,7 +562,7 @@ ring (177 free edges, 164 curved, zero host walls): a thickness change moves the
 > `:513-515`). Any component that latches `root.position.y` as a **durable** value is therefore
 > wrong for slabs, and will re-assert a stale height over the builder's correct write.
 >
-> **That is exactly what L-1175 was**: `LevelPlaneConstraint` latched the Y at selection time and
+> **That is exactly what L-1177 was**: `LevelPlaneConstraint` latched the Y at selection time and
 > re-asserted it on every TransformControls `change` — and `change` is fired by `attach`/`detach`
 > through three's `defineProperty` setter, not only by dragging. The slab ended up exactly
 > `Δthickness` above where it belonged, permanently and cumulatively. **This is the second time
@@ -594,7 +594,7 @@ ring (177 free edges, 164 curved, zero host walls): a thickness change moves the
 - **SL-G-3.** The hole-source precedence at `SlabFragmentBuilder.ts:1078-1120` MUST be restated as a
   normative rule here once SL-S-3 is decided — it is currently the only place the two hole records
   are reconciled, and it is reconciled *in a renderer*.
-- **SL-G-4 (L-1175) — `root.position.y` IS DERIVED; NOTHING MAY LATCH IT AS DURABLE.** A slab's root
+- **SL-G-4 (L-1177) — `root.position.y` IS DERIVED; NOTHING MAY LATCH IT AS DURABLE.** A slab's root
   Y is `level.elevation + baseOffset - thickness` and changes whenever either parameter changes, on
   a REUSED root object. Any subsystem that captures `root.position.y` and later re-asserts it MUST
   either (a) re-derive it from the level + the slab's CURRENT parameters, or (b) confine the

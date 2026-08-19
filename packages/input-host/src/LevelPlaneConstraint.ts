@@ -174,7 +174,7 @@ export class LevelPlaneConstraint {
      * Only applies in translate mode — rotation must not clamp position.
      */
     enforce(): void {
-        // force=true — §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175). This is the explicit
+        // force=true — §SLAB-PARAM-EDIT-NO-DISPLACE (L-1177). This is the explicit
         // drag-end guarantee, called from the `dragging-changed` handler
         // (`registerTransformDragHandler.ts:705`) at the moment `dragging` has ALREADY
         // flipped to false. It must therefore bypass the drag gate, or the final
@@ -202,7 +202,7 @@ export class LevelPlaneConstraint {
         // cannot justify. The warning in _offsetOf already said so.
         if (offset === null) return;
 
-        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — THIS CONSTRAINT'S AUTHORITY IS THE
+        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1177) — THIS CONSTRAINT'S AUTHORITY IS THE
         // GIZMO DRAG, AND ONLY THE GIZMO DRAG.
         //
         // Founder 2026-08-19, "a MAJOR bug": "change either the BOTTOM OFFSET or the

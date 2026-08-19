@@ -14716,7 +14716,7 @@ Two different defects were sharing one number.
 
 ---
 
-## L-1175 — a slab is DISPLACED when its thickness or bottom offset changes; the writer was the SELECTION constraint, not the geometry ✅ FIXED 2026-08-19
+## L-1177 — a slab is DISPLACED when its thickness or bottom offset changes; the writer was the SELECTION constraint, not the geometry ✅ FIXED 2026-08-19
 
 **FOUNDER (prod 2026-08-19, "a MAJOR bug"):** *"When I create a slab — normally BY REGION around the
 boundary of the parcel — and I change either the BOTTOM OFFSET or the THICKNESS, THE SLAB IS

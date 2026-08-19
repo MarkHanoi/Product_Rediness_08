@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — founder 2026-08-19, "a MAJOR bug":
+ * §SLAB-PARAM-EDIT-NO-DISPLACE (L-1177) — founder 2026-08-19, "a MAJOR bug":
  *
  *   "When I create a slab — normally BY REGION around the boundary of the parcel —
  *    and I change either the BOTTOM OFFSET or the THICKNESS, THE SLAB IS DISPLACED
@@ -147,7 +147,7 @@ function reHighlight(tc: TransformControlsDouble, lpc: LevelPlaneConstraint, obj
     lpc.attach(obj);
 }
 
-describe('SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — a selected slab must not move when its parameters change', () => {
+describe('SLAB-PARAM-EDIT-NO-DISPLACE (L-1177) — a selected slab must not move when its parameters change', () => {
     it('THICKNESS 0.2 -> 0.4 : plan position identical, TOP face pinned to the datum, only the BOTTOM drops', () => {
         const b = makeBuilder();
         const tc = new TransformControlsDouble();

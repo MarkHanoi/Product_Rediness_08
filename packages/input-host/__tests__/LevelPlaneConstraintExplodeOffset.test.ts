@@ -61,7 +61,7 @@ class TransformControlsDouble extends THREE.EventDispatcher<{ change: object }> 
     mode = 'translate';
     showY = true;
     /**
-     * §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — ADDED, because this double was
+     * §SLAB-PARAM-EDIT-NO-DISPLACE (L-1177) — ADDED, because this double was
      * UNFAITHFUL on exactly the axis that mattered and the omission hid a defect.
      *
      * The real class carries `dragging` and sets it `true` in `pointerDown`
@@ -152,7 +152,7 @@ describe('§LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — the level plane must be a MODE
         constraint.attach(slab);
 
         // A drag tries to lift the slab off its level.
-        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1175) — `dragging = true` is what makes
+        // §SLAB-PARAM-EDIT-NO-DISPLACE (L-1177) — `dragging = true` is what makes
         // this a DRAG rather than an arbitrary `change`. It is not a concession to
         // the fix: it is the production condition (three sets it in `pointerDown`
         // before any drag `change`), and asserting the clamp without it was
