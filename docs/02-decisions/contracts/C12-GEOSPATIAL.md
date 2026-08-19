@@ -452,6 +452,96 @@ Terrain-render bugs are pinned by the runtime's own decision + the tile bytes, n
 
 ---
 
+## §11 — The massing's EXTENT: which ring, which height (§FORMA-MASSING-EXTENT)
+
+The Forma 3D-Site / 3D-Globe massing asserts a **built volume on a real parcel**, in a view used for
+feasibility. Both of its extents — the ring it is extruded over and the height it is extruded to —
+are therefore claims about the design, and neither may be filled in from a quantity that does not
+measure it. Ratified from L-1204 / L-1205 (founder 2026-08-19); supersedes nothing, and refines
+`§FORMA-FULL-HEIGHT` (ADR-0268 §D4, §7 above).
+
+### §11.1 — The building's own geometry outranks the parcel, always
+
+- **MUST (ring precedence).** A storey band's extrusion outline is resolved most-reliable-first:
+  **(1)** the band's exterior **wall loop** (`reconstructPerimeterRing`); **(2)** else the storey's
+  **floor-slab** outer ring; **(3)** else — and only then — the **drawn parcel boundary**; **(4)**
+  else per-wall boxes. The parcel ring is reachable **only** when the building has no ring of its own.
+- **MUST NOT.** Branch on the presence of `input.boundary` before attempting the building's own ring.
+  ⚠ This is not hypothetical guidance: `renderFormaMassing` did exactly that until 2026-08-19, and
+  because the onboarding flow is *location → DRAW THE SITE BOUNDARY → generate*, the parcel is
+  present in the **normal** case — so the wall-loop branch was unreachable and **every storey of
+  every building was extruded over the plot line**. The topmost band's `closeTop` then painted an
+  opaque parcel-sized plate at building height, which the founder reported as a broken roof (L-1204).
+  `renderFacadeAnalysis` had already been corrected for the identical inversion (L-272,
+  §FORMA-FACADE-FOOTPRINT-FIX) and the massing renderer twenty lines away kept it.
+- **MUST (say when it is the plot).** When arm (3) is taken, the surface drawn is the **SITE, not the
+  design**. It MUST be reported as a placeholder (console + any user-facing caption), never presented
+  as the building's silhouette.
+- **SHOULD (one decision, not two).** The precedence is a single pure function
+  (`decideMassingRing`) consumed by every surface that needs a building footprint, so the massing and
+  the façade study cannot drift apart about where the building is again.
+
+### §11.2 — A height must come from a signal that measures height
+
+- **MUST (authored signals only).** `resolveFullBuildingHeight` takes the MAX over the **caller
+  override**, the **tallest authored storey-band top**, every **slab `topElevation`**, and every
+  **roof `baseElevation + thickness`**. Each is a stated vertical fact about the design.
+- **MUST NOT (⛔ the bounding sphere).** The placed GLB's **bounding-sphere diameter** MUST NOT be
+  used as a height, at any clamp. A sphere radius is `√(planHalfDiagonal² + halfHeight²)`, so on any
+  building wider than it is tall the plan extent dominates and `2r` reports the **diagonal**. On the
+  founder's project — 7 authored levels topping out at **20.9 m** — this leg returned **42.4 m**, and
+  `tileBandsToFullHeight` synthesised **7 extra storeys**: the globe drew **14 storeys and a 42.4 m
+  tower** for a 20.9 m building, and the floor selector offered the user all 14 (L-1205). The prior
+  code's own comment acknowledged the contamination and used the number anyway behind a `4 × bandTop`
+  clamp, which bounded only *how wrong it could be*.
+- **Rationale (the general rule).** Cesium's `Model` exposes a bounding **sphere** and no local-frame
+  bounding box, so a placed model's vertical extent is genuinely **UNKNOWN** at that seam. Per the
+  standing doctrine on real land, an unknown constraint MUST NOT be drawn as a known one — the
+  correct response is to omit the source, not to approximate it. **If the authored geometry says
+  20.9 m, draw 20.9 m.**
+
+### §11.3 — Synthetic storeys must declare themselves
+
+- **MUST.** `tileBandsToFullHeight` bands carry no `levelId` and correspond to **no authored storey**.
+  When any are added, the log MUST state that they are **synthetic**, give the **authored** top
+  height, give the resolved height, **name the signal that produced it**, and print the
+  `N authored + M synthetic` split. A line reading only *"tiled 8 … up to 42.4 m"* is what let a
+  doubled building pass unnoticed through a session's worth of console output.
+- **MUST (attributable heights).** `resolveFullBuildingHeight` returns the winning **source**, not a
+  bare number. Three rival explanations for "42.4" were live simultaneously during the L-1205
+  investigation; a number with no provenance is re-theorised rather than read.
+- **SHOULD.** The tiling itself remains legitimate for ADR-0268 §D4's motivating case — a perf-capped
+  tower whose walls collapse to a single ground band **with a named height source**.
+
+### §11.4 — GLB export for the Cesium views
+
+- **MUST (name what the exporter cannot represent).** Before `GLTFExporter.parse`, the export tree is
+  swept for materials that are neither `MeshStandardMaterial` nor `MeshBasicMaterial` — three's own
+  predicate — and each is logged with its **material class, material name, object class, and owning
+  element type + id**. `GLTFExporter` emits an anonymous warning per material; N anonymous warnings
+  on a 313-element building are a rumour, not a finding, and one such rumour ("the five are the
+  glazing") survived long enough to be treated as a diagnosis. ⚠ It is **false**:
+  `MeshPhysicalMaterial extends MeshStandardMaterial` and can never trip that warning (L-1206).
+- **MUST (one override pair per export tree).** The `§FORMA-WHITE-MATERIAL` override (ADR-0093)
+  allocates **one** white and **one** glass material per export **tree**, not per element. Cesium
+  batches by material, so duplicates are draw-call buckets, not free (L-1207).
+- **MUST (test the bytes).** GLB behaviour is asserted by running the **real** `exportFragmentsToGLB`
+  and decoding the emitted glTF, never by testing a pure classifier and declaring the exporter out of
+  scope. The real path runs under Node — `FileReader` is the only missing global. A suite that stubs
+  the exporter proves nothing about the file Cesium loads (L-1208).
+- **KNOWN ASYMMETRY (open, founder decision).** 3D **Site** Real exports with `{ formaWhite: true }`
+  (windows → translucent glass); 3D **Globe** Real exports with no option (windows → the raw BIM
+  material, which may be an opaque solid colour). Both are deliberate in isolation — the globe wants
+  real colours on photoreal tiles — but no call site references the other. See L-1208.
+
+- **Reference (read-only):** `apps/editor/src/ui/geospatial/formaMassingExtent.ts` ·
+  `apps/editor/src/ui/geospatial/CesiumViewport.ts` (`renderFormaMassing`,
+  `resolveFullBuildingHeight`, `tileBandsToFullHeight`) ·
+  `packages/file-format/src/export/glb/GLBExporter.ts` ·
+  `apps/editor/src/ui/layout/GISAreaLayout.ts` (the two Real-export call sites).
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
@@ -464,3 +554,4 @@ Terrain-render bugs are pinned by the runtime's own decision + the tile bytes, n
 | 2026-07-26 | **§9 The SiteFrame authority added (STRUCTURAL-SEAM-2).** The normative "named frame flag" §1.5 defers to: ONE owner of origin + project-north θ + ground, read by every consumer, with a `check-scene-frame-single-owner` CI gate replacing the by-inspection `sceneEnuFrame.ts` inventory, the ECEF bridge de-duplicated under it (closes §1.5 / L-604), and the record that the "θ=0 then flip" sequencing is spent (C19 §1.12 measured θ≈45° live). Grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3. |
 | 2026-07-26 | §9 **Known Violation L-631 recorded** — terrain relief is OFF in 3D Site (Forma) everywhere (`CesiumViewport.ts:5993` skip-gate; L-626 fix reverted `89196071`) because terrain-on-frame is not sound until SiteFrame's `sampleGround` reseats context + envelope base + heatmap. Founder wants it ON now → CONFLICT with the §9 sequencing, escalated for a founder decision. Do not flip §9 to ACTIVE on a gate-only change. |
 | 2026-07-29 | **§10 Baked-terrain quantized-mesh encoding invariants added (L-639, ADR-0278).** Interior/west-hemisphere cities rendered white because the coarse z0 root tile was horizon-culled: the vertex-centroid bounding centre of a pole-spanning tile collapses to the geocentre → a zero horizon-occlusion point → Cesium always culls the root → 0 tiles render. Fix (MUST): rectangle-centre bounding centre (§10.1) + never-cull occludee for wide-angle tiles (§10.2) + version-stamped tileset URL (§10.3) + decode-the-tile verification (§10.4). Proven by `computeTileVisibility` + decoded R2 bytes (`occMag 0→10000`); Burgos/Madrid render full relief. |
+| 2026-08-19 | **§11 The massing EXTENT contract added (L-1204/L-1205/L-1206/L-1207/L-1208).** Ring precedence: the building wall-loop/slab ring outranks the drawn PARCEL ring (the massing was extruded over the plot line, and its top cap was the pale sheet the founder reported as a broken roof). Height: the placed GLB bounding-SPHERE diameter is banned as a height source (it reported a 20.9 m building as 42.4 m and synthesised 7 phantom storeys); synthetic bands must declare themselves and name their height source. GLB: unsupported materials must be named, one white/glass pair per export tree, and export behaviour asserted through the REAL exporter. |

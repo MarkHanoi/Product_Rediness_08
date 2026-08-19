@@ -78,6 +78,8 @@ import { applyEnvelopeVisibilityAxes, envelopeDrawMode } from "@pryzm/site-parce
 // never a determined "this building has no openings"; the envelope subject's
 // empty stays DETERMINED by definition (L-596).
 import { determineStudyOpenings } from "./formaOpeningsDetermination";
+// §FIX-FORMA-MASSING-FOOTPRINT-IS-PARCEL (L-1204) + §FIX-FORMA-HEIGHT-SPHERE-IS-NOT-A-HEIGHT (L-1205)
+import { decideMassingRing, resolveFullBuildingHeightM, type FullHeightDecision } from "./formaMassingExtent";
 // C58 §1.14 / STRUCTURAL-SEAM-1 — the massing render is a DUMB RASTERISER of `MassingSolid[]`
 // derived by the pure L2 `envelopeToMassing`. This viewport holds NO per-field knowledge of the
 // envelope: it maps each solid's hue to the SAME two colours the flat surfaces use (imported from the
@@ -4983,14 +4985,16 @@ export class CesiumViewport {
     // baseElevation ≈ 0 → ONE 4 m band → the massing rendered a 4 m stub that sank among
     // the tall OSM context ("the building is under the ground") AND the façade study,
     // which reads `formaStoreyBands`, only painted that 4 m ground ring.
-    // FIX: resolve the TRUE full building height from every height signal available
-    // (explicit override, slabs' top elevations, roofs, and the placed real model's
-    // bounding sphere). If the tallest band tops out MATERIALLY below that, TILE the
-    // ground band's footprint upward into stacked storey bands to fill the full height,
-    // so BOTH the shell prism AND the façade quads span the whole tower. Multi-storey
-    // authored buildings (bands already reach the full height) are untouched.
-    const fullBuildingHeightM = this.resolveFullBuildingHeight(input, bands);
-    this.tileBandsToFullHeight(bands, fullBuildingHeightM);
+    // FIX: resolve the TRUE full building height from the AUTHORED height signals
+    // (explicit override, slabs' top elevations, roofs). If the tallest band tops out
+    // MATERIALLY below that, TILE the ground band's footprint upward into stacked storey
+    // bands to fill the full height, so BOTH the shell prism AND the façade quads span the
+    // whole tower. Multi-storey authored buildings (bands already reach the full height)
+    // are untouched.
+    // §FIX-FORMA-HEIGHT-SPHERE-IS-NOT-A-HEIGHT (L-1205) — the placed model's bounding
+    // SPHERE is no longer one of those signals; see `resolveFullBuildingHeight`.
+    const fullHeight = this.resolveFullBuildingHeight(input, bands);
+    this.tileBandsToFullHeight(bands, fullHeight.heightM, fullHeight.source);
 
     // Publish the storey list so the floor selector (GISAreaLayout) can build its
     // toggle from the REAL storeys present, and remember the active filter.
@@ -5030,10 +5034,55 @@ export class CesiumViewport {
         useRealColours, bandWallColour(band.baseElevation), BIM_DEFAULT_WALL_COLOUR, massFill,
       );
 
-      if (footprint) {
-        // All storeys of a house/apartment share the drawn outline footprint.
+      // §FIX-FORMA-MASSING-FOOTPRINT-IS-PARCEL (L-1204, founder 2026-08-19) — RESOLVE
+      // THIS BAND'S RING BEFORE CHOOSING A BRANCH, MOST-RELIABLE SOURCE FIRST.
+      //
+      // 🔴 THIS IS THE L-272 DEFECT, STANDING IN THE MASSING RENDERER AFTER IT WAS FIXED
+      // IN THE FAÇADE STUDY NEXT DOOR. The old code was `if (footprint) { …parcel… }` /
+      // `if (!footprint) { …wall-loop… }`, where `footprint` is `input.boundary` — the
+      // DRAWN PARCEL RING (`renderFormaMassing`: "Parcel boundary ring in scene-XZ metres,
+      // or null when not drawn"). So the moment a user drew a site boundary — which the
+      // onboarding flow (location → DRAW THE SITE BOUNDARY → generate) makes the NORMAL
+      // case, not the exception — every storey of the building was extruded over the PLOT
+      // LINE, and the good wall-loop/slab branch below became dead code. The building
+      // massing was the size of the land it stands on.
+      //
+      // The founder's screenshot is the top cap of that prism: `closeTop: true` on the
+      // tallest band paints an opaque near-white PARCEL-SIZED PLATE at full building
+      // height, hanging over the real GLB's façades on every side. He read it as a broken
+      // roof. There is no roof — the project has `0 roof(s)` (his log says so twice).
+      //
+      // `renderFacadeAnalysis` already carries the corrected cascade and an explicit
+      // warning that parcel-first was "catastrophically wrong" (see §FORMA-FACADE-
+      // FOOTPRINT-FIX). This restores the SAME precedence here, so the two surfaces of the
+      // one building stop disagreeing about where the building is:
+      //   1. the band's exterior wall loop (`reconstructPerimeterRing`);
+      //   2. else the storey's floor-slab outer ring;
+      //   3. else — and ONLY then — the drawn parcel ring, which is a genuine last-ditch
+      //      silhouette for a massing-only preview with no authored geometry at all.
+      const bandWallRing = this.reconstructPerimeterRing(band.walls);
+      const bandSlabRing = bandWallRing ? null : this.slabRingForBand(input.slabs ?? [], band.baseElevation);
+      const bandBuildingRing = bandWallRing ?? bandSlabRing;
+      // The precedence itself is the pure, tested `decideMassingRing` — the building's own
+      // geometry ALWAYS beats the parcel; the parcel is reachable only with no ring at all.
+      const ringDecision = decideMassingRing({
+        hasWallLoopRing: !!bandWallRing,
+        hasFloorSlabRing: !!bandSlabRing,
+        hasParcelRing: !!footprint,
+      });
+      const useParcelFootprint = ringDecision.source === 'parcel-boundary';
+      if (useParcelFootprint && bi === 0) {
+        console.warn(
+          '[CesiumViewport][forma] §FIX-FORMA-MASSING-FOOTPRINT-IS-PARCEL (L-1204) — no wall-loop and ' +
+            'no floor-slab ring for this building; extruding the massing over the DRAWN PARCEL RING. ' +
+            'The massing silhouette is the PLOT, not the building — treat it as a placeholder.',
+        );
+      }
+
+      if (useParcelFootprint) {
+        // No authored building ring — the drawn plot outline is the only silhouette we have.
         try {
-          const positions = footprint.map((p) => toCartesian(p.x, p.z, bandBottom));
+          const positions = footprint!.map((p) => toCartesian(p.x, p.z, bandBottom));
           const ent = viewer.entities.add({
             name: `pryzm-forma-massing-storey-${bi}`,
             polygon: {
@@ -5057,8 +5106,8 @@ export class CesiumViewport {
         }
       }
 
-      if (!footprint) {
-        // §A.21.D30 — no drawn outline → reconstruct THIS storey's EXTERIOR
+      if (!useParcelFootprint) {
+        // §A.21.D30 — reconstruct THIS storey's EXTERIOR
         // PERIMETER RING from its shell walls and extrude it as ONE watertight
         // closed prism. A single polygon has NO corner gaps/overlaps by
         // construction, so a from-scratch house reads as a clean solid massing
@@ -5077,8 +5126,10 @@ export class CesiumViewport {
         //      (e.g. interior partitions teed at perimeter nodes defeat the
         //      containment trace → the old "perimeter ring unavailable" log).
         // Only when BOTH are unavailable do we drop to per-wall boxes.
-        const wallRing = this.reconstructPerimeterRing(band.walls);
-        const ring = wallRing ?? this.slabRingForBand(input.slabs ?? [], band.baseElevation);
+        // §FIX-FORMA-MASSING-FOOTPRINT-IS-PARCEL (L-1204) — resolved ABOVE, so the branch
+        // decision and the ring drawn are the same computation (they used to be two).
+        const wallRing = bandWallRing;
+        const ring = bandBuildingRing;
         const ringSource = wallRing ? 'wall-loop' : 'floor-slab';
         if (ring && ring.length >= 3) {
           try {
@@ -12430,46 +12481,50 @@ export class CesiumViewport {
    *   • the explicit `fullBuildingHeightM` override (caller-supplied), if finite/positive;
    *   • the tallest storey band's top (baseElevation + heightM) — the current behaviour;
    *   • every slab `topElevation` (a per-floor plate → its top is that storey's ceiling);
-   *   • every roof `baseElevation + thickness` (the capping level);
-   *   • the placed real model's bounding-sphere height (2 × radius is an upper bound; we
-   *     use the sphere DIAMETER only as a last-resort ceiling so we never UNDER-shoot a
-   *     tall GLB, but never let it BALLOON the massing — clamped to ≤ 4× the band top).
-   * Pure read; guarded. Returns the resolved height (≥ the tallest band top).
+   *   • every roof `baseElevation + thickness` (the capping level).
+   *
+   * ⛔ §FIX-FORMA-HEIGHT-SPHERE-IS-NOT-A-HEIGHT (L-1205, founder 2026-08-19) — A FIFTH
+   * SOURCE WAS REMOVED HERE: the placed real model's BOUNDING-SPHERE DIAMETER (`2 × radius`,
+   * clamped to `4 × bandTop`). **A sphere diameter is not a height and can never be made
+   * into one.** The sphere encloses the whole model, so its radius is
+   * `√(planHalfDiagonal² + halfHeight²)` — on any building wider than it is tall the PLAN
+   * extent dominates completely, and `2r` reports the building's DIAGONAL as its height.
+   * The old comment acknowledged this ("a slab/wall footprint half-diagonal is baked into
+   * the sphere radius") and used the number anyway, behind a clamp that only bounded how
+   * wrong it could be.
+   *
+   * What that cost, measured on the founder's project: 7 authored levels topping out at
+   * **20.9 m**, a footprint whose half-diagonal is ~19 m → sphere radius ≈ 21.2 m → this
+   * leg returned **42.4 m**, cleared the `> full × 1.2` test, and `tileBandsToFullHeight`
+   * then invented **7 synthetic 3.0 m storeys** to fill the gap. The globe rendered
+   * **14 storeys for a 7-level building** and the floor selector offered all 14. On a real
+   * parcel that is an OVERSTATEMENT ON REAL LAND — the massing asserted twice the built
+   * volume the model contains, in a view used for feasibility.
+   *
+   * There is no correct substitute available here: Cesium's `Model` exposes only the
+   * bounding SPHERE, not a local-frame bounding box, so the model's vertical extent is
+   * genuinely UNKNOWN at this seam. An unknown height must not be drawn as a known one —
+   * so the leg is gone rather than re-approximated. The authored model already states its
+   * own height through the four sources above; if they say 20.9 m, we draw 20.9 m.
+   *
+   * Pure read; guarded. Returns the resolved height (≥ the tallest band top) and NAMES the
+   * source that won, so a surprising height is attributable from the console instead of
+   * being re-derived by theory (three rival explanations for "42.4" cost this lane an hour).
    */
   private resolveFullBuildingHeight(
     input: Parameters<CesiumViewport['renderFormaMassing']>[0],
     bands: ReadonlyArray<{ baseElevation: number; heightM: number }>,
-  ): number {
-    let bandTop = 0;
-    for (const b of bands) {
-      const top = (b.baseElevation || 0) + (b.heightM || 0);
-      if (top > bandTop) bandTop = top;
-    }
-    let full = bandTop;
-    const bump = (h: number | undefined): void => {
-      if (typeof h === 'number' && Number.isFinite(h) && h > full) full = h;
-    };
-    if (typeof input.fullBuildingHeightM === 'number' && Number.isFinite(input.fullBuildingHeightM)) {
-      bump(input.fullBuildingHeightM);
-    }
-    for (const s of input.slabs ?? []) bump((s.topElevation || 0));
-    for (const r of input.roofs ?? []) bump((r.baseElevation || 0) + (r.thickness || 0));
-    // Real-model bounding sphere → an approximate full height; only used to RAISE a
-    // collapsed single-band massing, and clamped so a wide-but-short model can't inflate.
-    try {
-      const model = this.realModelOnForma && !this.realModelOnForma.isDestroyed()
-        ? this.realModelOnForma
-        : (this.realModelOnGlobe && !this.realModelOnGlobe.isDestroyed() ? this.realModelOnGlobe : null);
-      const bs = model ? (model as unknown as { boundingSphere?: Cesium.BoundingSphere }).boundingSphere : null;
-      if (bs && Number.isFinite(bs.radius) && bs.radius > 0 && bandTop > 0) {
-        // A slab/wall footprint half-diagonal is baked into the sphere radius, so the
-        // model height ≲ 2r; only apply it when it clearly exceeds the band top and cap
-        // the lift to a sane multiple so nothing balloons.
-        const approxModelH = Math.min(bs.radius * 2, bandTop * 4);
-        if (approxModelH > full * 1.2) full = approxModelH;
-      }
-    } catch { /* best-effort */ }
-    return full > 0 ? full : bandTop;
+  ): FullHeightDecision {
+    // The decision itself is pure and lives in `formaMassingExtent.ts` so it can be
+    // asserted — this class cannot be collected under the unit config (cesium at module
+    // scope), which is exactly how a height nobody could test grew a fifth source that
+    // measured the building's diagonal.
+    return resolveFullBuildingHeightM({
+      bands,
+      fullBuildingHeightM: input.fullBuildingHeightM,
+      slabs: input.slabs,
+      roofs: input.roofs,
+    });
   }
 
   /**
@@ -12490,6 +12545,9 @@ export class CesiumViewport {
       walls: Array<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>;
     }>,
     fullHeightM: number,
+    // §FIX-FORMA-HEIGHT-SPHERE-IS-NOT-A-HEIGHT (L-1205) — which signal produced
+    // `fullHeightM`, so the log says WHERE an invented storey came from.
+    heightSource = 'unknown',
   ): void {
     if (!(fullHeightM > 0) || bands.length === 0) return;
     let bandTop = 0;
@@ -12521,10 +12579,16 @@ export class CesiumViewport {
     }
     if (added > 0) {
       bands.sort((p, q) => p.baseElevation - q.baseElevation);
-      console.log(
-        `[CesiumViewport][forma] §FORMA-FULL-HEIGHT tiled ${added} massing storey band(s) ` +
-          `(${storeyH.toFixed(1)} m each) up to full building height ${fullHeightM.toFixed(1)} m ` +
-          `— shell + façade now span the whole tower (was a single ${bandTop.toFixed(1)} m stub).`,
+      // §FIX-FORMA-HEIGHT-SPHERE-IS-NOT-A-HEIGHT (L-1205) — these bands are SYNTHETIC:
+      // they carry no `levelId` and correspond to no authored storey. Say so, and NAME the
+      // signal that asked for them. The founder's log read "tiled 8 … up to 42.4 m" with no
+      // hint that 7 of the 14 storeys on screen were invented, or by what.
+      console.warn(
+        `[CesiumViewport][forma] §FORMA-FULL-HEIGHT SYNTHESISED ${added} massing storey band(s) ` +
+          `(${storeyH.toFixed(1)} m each) — these are NOT authored storeys. Authored geometry tops ` +
+          `out at ${bandTop.toFixed(1)} m; extruded to ${fullHeightM.toFixed(1)} m because the ` +
+          `height source "${heightSource}" says so. Total storeys now ${bands.length} ` +
+          `(${bands.length - added} authored + ${added} synthetic).`,
       );
     }
   }

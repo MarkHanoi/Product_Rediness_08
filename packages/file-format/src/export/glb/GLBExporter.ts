@@ -248,55 +248,89 @@ const FORMA_WHITE_DEFAULT_GLASS = 0xbfd3e6;  // soft cool glass blue
 const FORMA_WHITE_DEFAULT_GLASS_OPACITY = 0.34;
 
 /**
+ * §FORMA-WHITE-MATERIAL — the pair of export-owned override materials shared across
+ * the WHOLE export tree.
+ *
+ * ⚠ §FIX-FORMA-WHITE-MATERIAL-PER-ELEMENT (L-1207) — this type exists because the
+ * override used to allocate its white + glass materials INSIDE the per-element
+ * helper, which `exportFragmentsToGLB` calls once per root element. The doc comment
+ * claimed "ONE shared white + ONE shared glass material per export tree"; the code
+ * delivered one pair per ELEMENT. On the founder's 313-root building that is up to
+ * 626 byte-identical glTF materials instead of 2 — every one a separate `materials[]`
+ * entry (and a separate Cesium draw-call bucket, since Cesium batches by material).
+ * Hoisting the factory to the call site restores the documented behaviour.
+ */
+interface FormaWhiteMaterials {
+  readonly getWhite: () => THREE.MeshStandardMaterial;
+  readonly getGlass: () => THREE.MeshPhysicalMaterial;
+}
+
+/**
+ * §FORMA-WHITE-MATERIAL — build the ONE shared white + ONE shared glass material for
+ * an export tree. Lazy, so a glass-free model never allocates the glass material and
+ * an all-glass one never allocates the white. Fresh materials are pushed into `owned`
+ * so `disposeExportRoot` frees exactly these (they are export-owned; the cloned real
+ * materials are shared with the live scene and must NEVER be disposed — see §I3).
+ */
+function createFormaWhiteMaterials(
+  palette: FormaWhitePalette,
+  owned: THREE.Material[],
+): FormaWhiteMaterials {
+  const opaqueHex = palette.opaqueHex ?? FORMA_WHITE_DEFAULT_OPAQUE;
+  const glassHex = palette.glassHex ?? FORMA_WHITE_DEFAULT_GLASS;
+  const glassOpacity = palette.glassOpacity ?? FORMA_WHITE_DEFAULT_GLASS_OPACITY;
+
+  let whiteMat: THREE.MeshStandardMaterial | null = null;
+  let glassMat: THREE.MeshPhysicalMaterial | null = null;
+  return {
+    getWhite: (): THREE.MeshStandardMaterial => {
+      if (!whiteMat) {
+        whiteMat = new THREE.MeshStandardMaterial({ color: opaqueHex, roughness: 0.82, metalness: 0.0 });
+        whiteMat.name = 'pryzm-forma-white-opaque';
+        owned.push(whiteMat);
+      }
+      return whiteMat;
+    },
+    getGlass: (): THREE.MeshPhysicalMaterial => {
+      if (!glassMat) {
+        glassMat = new THREE.MeshPhysicalMaterial({
+          color: glassHex,
+          roughness: 0.08,
+          metalness: 0.0,
+          transmission: 0.85,
+          ior: 1.5,
+          thickness: 0.006,
+          transparent: true,
+          opacity: glassOpacity,
+          depthWrite: false,
+        });
+        glassMat.name = 'pryzm-forma-white-glass';
+        owned.push(glassMat);
+      }
+      return glassMat;
+    },
+  };
+}
+
+/**
  * §FORMA-WHITE-MATERIAL — remap EVERY mesh under `clone` to a Forma-white material:
  * a clean near-white for opaque elements, a translucent glass for windows/glazing.
  *
  * IMPORTANT (§I3 safety): the export clones SHARE their materials BY REFERENCE with
  * the live BIM scene. We therefore NEVER mutate the existing material — we ASSIGN a
- * fresh export-only material to `mesh.material`. The fresh materials are collected
- * into `owned` so `disposeExportRoot` can free ONLY these (they are export-owned, not
- * shared with the live scene). Returns nothing; mutates `mesh.material` references
- * on the clone subtree only.
+ * fresh export-only material to `mesh.material`. Returns nothing; mutates
+ * `mesh.material` references on the clone subtree only.
+ *
+ * ⚠ SCOPE — `isMesh` only. `Line`/`LineSegments`/`Points`/`Sprite` objects under a BIM
+ * element (edge outlines, leaders, annotation strokes) keep their REAL materials and are
+ * therefore the objects that reach `GLTFExporter` as `LineBasicMaterial`/`PointsMaterial`/
+ * `SpriteMaterial` — the classes that trip its "Use MeshStandardMaterial or
+ * MeshBasicMaterial" warning. See `collectUnsupportedGltfMaterials`, which NAMES them.
  */
 function applyFormaWhiteOverride(
   clone: THREE.Object3D,
-  palette: FormaWhitePalette,
-  owned: THREE.Material[],
+  materials: FormaWhiteMaterials,
 ): void {
-  const opaqueHex = palette.opaqueHex ?? FORMA_WHITE_DEFAULT_OPAQUE;
-  const glassHex = palette.glassHex ?? FORMA_WHITE_DEFAULT_GLASS;
-  const glassOpacity = palette.glassOpacity ?? FORMA_WHITE_DEFAULT_GLASS_OPACITY;
-
-  // ONE shared white + ONE shared glass material per export tree (cheap; Cesium
-  // de-dups identical materials anyway). Created lazily so a glass-free model never
-  // allocates the glass material.
-  let whiteMat: THREE.MeshStandardMaterial | null = null;
-  let glassMat: THREE.MeshPhysicalMaterial | null = null;
-  const getWhite = (): THREE.MeshStandardMaterial => {
-    if (!whiteMat) {
-      whiteMat = new THREE.MeshStandardMaterial({ color: opaqueHex, roughness: 0.82, metalness: 0.0 });
-      owned.push(whiteMat);
-    }
-    return whiteMat;
-  };
-  const getGlass = (): THREE.MeshPhysicalMaterial => {
-    if (!glassMat) {
-      glassMat = new THREE.MeshPhysicalMaterial({
-        color: glassHex,
-        roughness: 0.08,
-        metalness: 0.0,
-        transmission: 0.85,
-        ior: 1.5,
-        thickness: 0.006,
-        transparent: true,
-        opacity: glassOpacity,
-        depthWrite: false,
-      });
-      owned.push(glassMat);
-    }
-    return glassMat;
-  };
-
   // Resolve the nearest element-type hint walking up from a mesh (the glass element
   // types live on the window GROUP, not always the leaf pane mesh).
   const elementTypeOf = (obj: THREE.Object3D): string | undefined => {
@@ -313,8 +347,126 @@ function applyFormaWhiteOverride(
     const mesh = child as THREE.Mesh;
     if (!(mesh as unknown as { isMesh?: boolean }).isMesh) return;
     const role = classifyFormaWhiteRole(elementTypeOf(child), mesh.material);
-    mesh.material = role === 'glass' ? getGlass() : getWhite();
+    mesh.material = role === 'glass' ? materials.getGlass() : materials.getWhite();
   });
+}
+
+/**
+ * §FIX-GLB-NAME-UNSUPPORTED-MATERIALS (L-1206) — one unsupported-material finding.
+ */
+export interface UnsupportedGltfMaterial {
+  /** The owning BIM element id (`userData.id`/`elementId`), or `'(unknown)'`. */
+  readonly elementId: string;
+  /** The owning BIM element type (`userData.elementType`), or `'(none)'`. */
+  readonly elementType: string;
+  /** The offending object's `name`, or its constructor name if unnamed. */
+  readonly objectName: string;
+  /** The object's THREE class (`Mesh` / `LineSegments` / `Points` / `Sprite` …). */
+  readonly objectClass: string;
+  /** The material's THREE class (`MeshPhongMaterial`, `LineBasicMaterial`, …). */
+  readonly materialClass: string;
+  /** The material's `name`, or `'(unnamed)'`. */
+  readonly materialName: string;
+}
+
+/**
+ * §FIX-GLB-NAME-UNSUPPORTED-MATERIALS (L-1206) — enumerate every material in an export
+ * tree that `GLTFExporter` will warn about, and say WHICH ELEMENT owns it.
+ *
+ * ⚠ WHY THIS EXISTS. The founder's 3D-Site export logged, verbatim and five times:
+ *
+ *     GLTFExporter: Use MeshStandardMaterial or MeshBasicMaterial for best results.
+ *
+ * — and nothing else. Five anonymous warnings on a 313-element building are not a
+ * finding, they are a rumour: the standing hypothesis was that they were the GLAZING
+ * (a `MeshPhysicalMaterial` glTF supposedly cannot represent), which would have
+ * explained opaque window panes. **That hypothesis is false and this helper is what
+ * falsifies it.** The predicate below is copied EXACTLY from three's
+ * `GLTFWriter.processMaterialAsync` (three 0.183, GLTFExporter.js ~L1583):
+ *
+ *     if ( material.isMeshStandardMaterial !== true && material.isMeshBasicMaterial !== true )
+ *
+ * and `MeshPhysicalMaterial extends MeshStandardMaterial`, whose constructor sets
+ * `isMeshStandardMaterial = true` (three/src/materials/MeshStandardMaterial.js L63).
+ * So the glass NEVER trips it. The warning can only come from a material class that is
+ * neither — in practice the `Line`/`Points`/`Sprite` materials that
+ * `applyFormaWhiteOverride` deliberately does not touch, or a legacy
+ * `MeshPhongMaterial`/`MeshLambertMaterial` on an imported mesh.
+ *
+ * Pure + exported so the census is assertable without the DOM-bound exporter, and so a
+ * future reader can re-measure instead of re-guessing.
+ */
+export function collectUnsupportedGltfMaterials(
+  root: THREE.Object3D,
+): UnsupportedGltfMaterial[] {
+  const found: UnsupportedGltfMaterial[] = [];
+  const seen = new Set<THREE.Material>();
+
+  const ownerOf = (obj: THREE.Object3D): { id: string; type: string } => {
+    let p: THREE.Object3D | null = obj;
+    let id: string | undefined;
+    let type: string | undefined;
+    while (p) {
+      const ud = p.userData as Record<string, unknown> | undefined;
+      if (!id && ud) {
+        const raw = ud.id ?? ud.elementId;
+        if (raw !== undefined && raw !== null) id = String(raw);
+      }
+      if (!type && ud?.elementType) type = String(ud.elementType);
+      if (id && type) break;
+      p = p.parent;
+    }
+    return { id: id ?? '(unknown)', type: type ?? '(none)' };
+  };
+
+  root.traverse((child) => {
+    const withMat = child as THREE.Object3D & { material?: THREE.Material | THREE.Material[] };
+    if (!withMat.material) return;
+    const mats = Array.isArray(withMat.material) ? withMat.material : [withMat.material];
+    for (const mat of mats) {
+      if (!mat || seen.has(mat)) continue;
+      const m = mat as THREE.Material & {
+        isMeshStandardMaterial?: boolean;
+        isMeshBasicMaterial?: boolean;
+      };
+      // EXACT mirror of three's GLTFWriter.processMaterialAsync predicate.
+      if (m.isMeshStandardMaterial === true || m.isMeshBasicMaterial === true) continue;
+      seen.add(mat);
+      const owner = ownerOf(child);
+      found.push({
+        elementId: owner.id,
+        elementType: owner.type,
+        objectName: child.name || child.constructor?.name || '(unnamed)',
+        objectClass: child.constructor?.name ?? 'Object3D',
+        materialClass: mat.constructor?.name ?? 'Material',
+        materialName: mat.name || '(unnamed)',
+      });
+    }
+  });
+
+  return found;
+}
+
+/**
+ * §FIX-GLB-NAME-UNSUPPORTED-MATERIALS (L-1206) — print the census above as ONE console
+ * group so the founder's next log NAMES the offenders instead of repeating an anonymous
+ * warning N times. No-op when the tree is clean (the common, healthy case).
+ */
+function logUnsupportedGltfMaterials(root: THREE.Object3D): void {
+  const found = collectUnsupportedGltfMaterials(root);
+  if (found.length === 0) return;
+  console.warn(
+    `⚠ §FIX-GLB-NAME-UNSUPPORTED-MATERIALS (L-1206) — ${found.length} material(s) are neither ` +
+      `MeshStandardMaterial nor MeshBasicMaterial; GLTFExporter will warn once for each and ` +
+      `fall back to a plain PBR approximation. NOT glazing — MeshPhysicalMaterial extends ` +
+      `MeshStandardMaterial and never trips this. Offenders:`,
+  );
+  for (const f of found) {
+    console.warn(
+      `   • ${f.materialClass} "${f.materialName}" on ${f.objectClass} "${f.objectName}" ` +
+        `— element ${f.elementType} id=${f.elementId}`,
+    );
+  }
 }
 
 /**
@@ -342,6 +494,11 @@ export async function exportFragmentsToGLB(
   // Export-owned override materials (disposed in disposeExportRoot — they are NOT
   // shared with the live scene, unlike the cloned real materials).
   const ownedOverrideMaterials: THREE.Material[] = [];
+  // §FIX-FORMA-WHITE-MATERIAL-PER-ELEMENT (L-1207) — build the shared white/glass pair
+  // ONCE for the whole export tree, not once per root element (see the type doc).
+  const formaWhiteMaterials = formaWhitePalette
+    ? createFormaWhiteMaterials(formaWhitePalette, ownedOverrideMaterials)
+    : null;
 
   const exportRoot = new THREE.Group();
   exportRoot.name = "exportRoot";
@@ -417,8 +574,8 @@ export async function exportFragmentsToGLB(
     // §FORMA-WHITE-MATERIAL — when requested, remap this clone's meshes to the clean
     // white massing material (glass for windows). Assigns FRESH export-only materials
     // to the clone references (never mutates the live/shared materials).
-    if (formaWhitePalette) {
-      applyFormaWhiteOverride(clone, formaWhitePalette, ownedOverrideMaterials);
+    if (formaWhiteMaterials) {
+      applyFormaWhiteOverride(clone, formaWhiteMaterials);
     }
 
     exportRoot.add(clone);
@@ -471,6 +628,11 @@ export async function exportFragmentsToGLB(
   // ------------------------------------------------------------
   // ✅ Export GLB
   // ------------------------------------------------------------
+  // §FIX-GLB-NAME-UNSUPPORTED-MATERIALS (L-1206) — NAME anything GLTFExporter is about
+  // to warn about, BEFORE it emits its N anonymous warnings. Runs on the final tree so
+  // the census reflects the Forma-white override when it is active.
+  logUnsupportedGltfMaterials(exportRoot);
+
   const exporter = new GLTFExporter();
 
   const blobUrl = await new Promise<string>((resolve, reject) => {

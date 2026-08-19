@@ -883,3 +883,34 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §L-1204 — SLAB WAS A SUSPECT IN THE "ANALYTIC ROOF" REPORT, AND WAS CLEARED (added 2026-08-19, lane SITE1)
+
+Recorded because a *cleared* suspect is evidence too, and the next reader of a similar report will
+reach for the same hypothesis.
+
+**The report** (full detail in L-1204 / C90 §L-1204): on the 3D Site in Real fidelity a large pale
+surface overhung the façades on every side. The project had **8 slabs and 0 roofs**, so "the top SLAB,
+rendered oversized" was the leading hypothesis after "a roof".
+
+**⛔ Slab is not the culprit.** Three independent facts, each sufficient:
+
+1. **Slab entities do not survive REAL mode.** `clearFormaMassingEntitiesOnly`
+   (`CesiumViewport.ts:7846-7873`) is a **whitelist** — it removes every `formaMassingEntities` member
+   except those in `formaSiteOverlayEntities`, and that set holds only the parcel-boundary fill/line
+   and the buildable-envelope solids. `pryzm-forma-slab` is removed.
+2. **Each slab is drawn on its OWN authored ring**, never the ground storey's and never the parcel:
+   the ring comes from `s.polygon ?? s.boundary`. A slab therefore cannot overhang the storeys below
+   it unless it was authored that way.
+3. **Synthetic storey bands cannot move a slab.** The only coupling to `formaStoreyBands` is a
+   visibility test (`bandIndexForElevation`), which can **hide** a slab under a partial floor filter
+   but never re-elevates one. A slab's height is `levelElevation + baseOffset`, full stop.
+
+**The one genuine slab-adjacent risk found, left open:** the level-elevation lookup that feeds a
+slab's `topElevation` silently defaults (`levelElev.get(s.levelId) ?? 0`). An unresolved `levelId`
+**drops that slab to ground** rather than refusing — a wrong storey rendered as a confident one. It
+never *lifts* a slab, so it is not the reported defect, and it is not fixed here.
+
+**Nothing in this contract changed.**

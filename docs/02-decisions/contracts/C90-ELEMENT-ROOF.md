@@ -793,3 +793,44 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §L-1204 — "THE ANALYTIC ROOF IS NOT GOOD" WAS NOT ABOUT A ROOF (added 2026-08-19, lane SITE1)
+
+A founder report naming this family turned out not to involve this family at all, and the way that
+was established is the part worth keeping.
+
+**The report.** 3D Site (Cesium/Forma), Real fidelity: *"check the ANALYTIC ROOF — IT IS NOT GOOD"*,
+with a screenshot showing a large pale surface overhanging the façades on every side.
+
+**⛔ "Analytic roof" is not a term in this codebase.** A case-insensitive search for `analytic.*roof`
+across `apps/`, `packages/geometry-roof/` and `plugins/roof/` returns nothing. The founder was naming
+a **shape he could see**, not an implementation — so the first obligation was to identify the object,
+not to start repairing roof geometry.
+
+**The project contained ZERO roof elements.** Its own console said so twice:
+
+```
+[forma] rendering massing: 40 wall(s), 8 slab(s), 0 roof(s), 0 furniture, 85 opening(s)
+[forma] extras placed: 8/8 slab(s), 0/0 roof(s), 0/0 furniture box(es)
+```
+
+**What it actually was:** the **top cap of the topmost Forma massing storey prism**
+(`pryzm-forma-massing-storey-<n>`, `closeTop: true`), extruded over the **drawn PARCEL ring** rather
+than the building footprint, at a height that had itself been fabricated. Full analysis in **L-1204**
+and **L-1205**; the normative fix is **C12 §11**.
+
+### The rule this leaves behind
+
+⭐ **A user naming an element family is a description of what they SEE, not a diagnosis of what it
+IS.** Establish the object's identity before judging whether it is wrong — here, four of five
+candidate surfaces were eliminated from the log alone (default-off toggles that would have printed a
+line, entity sets provably cleared in Real mode, a GLB that cannot contain an element the project does
+not have). Had this been treated as a roof-geometry defect on the strength of the word "roof", the
+lane would have modified a family that had **no instances in the project**, and the real defect —
+every building on the 3D Site drawn the size of its parcel — would have shipped untouched.
+
+**Nothing in this contract changed.** No roof invariant was violated, added or refined; this section
+exists so the next reader who greps `C90` for "analytic roof" finds the answer instead of re-deriving
+it.
