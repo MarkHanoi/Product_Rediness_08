@@ -439,11 +439,58 @@ visually distinguished and labelled with its storey (§9.2).
 
 ### §9.8 — Known gaps (named, so they are not assumed closed)
 
-- **A second snap engine exists for the plan pane.** `packages/core-app-model/src/views/PlanSnapEngine.ts`
-  contains **zero** occurrences of `level` or `elevation`. Its level scoping is a *consequence* of
-  snapping to a projected `TechnicalDrawing` that `EdgeProjectorService.resolveClipRange()` clips to
-  `[levelElevation, levelElevation + farOffset]` — real, but undeclared. Bringing it under this
-  section is open work.
+- **A second snap engine exists for the plan pane — DECIDED 2026-08-19 (SV2): it CONSUMES the
+  LevelScope policy; it is NOT retired.** `packages/core-app-model/src/views/PlanSnapEngine.ts`
+  (562 lines) contains **zero** occurrences of `level` and **one** of `elevation` — and that one is
+  prose in the file header naming the elevation VIEW TYPE, not an elevation value. (This bullet, and
+  the identical wording in ADR-0335 and the ISSUE-LOG, previously said "zero occurrences of `level`
+  or `elevation`". Off by one, in a comment; the substance holds — **no executable line in the file
+  reads a level id or a Y elevation**, and `PlanSnapResult` carries only `worldX`/`worldZ`/`snapType`/
+  `sourceId`, so there is nowhere to put one.)
+
+  ⚠ **The clip range stated above was WRONG, and wrong in the direction that HID the defect.** The
+  code does not clip to `[levelElevation, levelElevation + farOffset]`. `resolveClipRange()`
+  (`EdgeProjectorService.ts:3764–3823`) is a pure RESOLVER that filters nothing; the filtering
+  happens downstream over the band `[levelElevation − belowLevelDepth, levelElevation + farOffset + 0.5]`,
+  where `belowLevelDepth` defaults to **1.20 m** (`PlanViewManager.ts:685`). **The storey below is
+  included BY DESIGN** — `NativeElementMeshExporter.ts:247–253` caps the top at `maxY = level.elevation`
+  ("so we never include elements from the floor above") while deliberately reaching down. The stated
+  lower bound omitted exactly the inclusion that is the whole problem, which is how "real, but
+  undeclared" came to understate it.
+
+  **MEASURED CONSEQUENCE — the ADR-0335 defect is STILL LIVE in the plan pane.** `PlanSnapEngine`
+  applies no demotion, no `crossLevel` tag and no visual distinction, so a storey-below `endpoint`
+  (priority 200) beats an active-level `perpendicular` (140) or `midpoint` (160) at any distance —
+  the "a ground-floor reference wins SILENTLY and unlabelled" behaviour ADR-0335 exists to fix. A
+  repo-wide grep finds **zero** `SnapManager` references anywhere under `apps/editor/src/engine/views/`:
+  SNAP1's fix reaches the 3-D viewport tools ONLY and does not reach either pane the user draws plans
+  in. Both panes are served by `PlanSnapEngine` and nothing else (`PlanViewInteraction.ts:122`, plus
+  `SvpPlanToolOverlay.ts:92`).
+
+  **A SECOND defect neither ADR names:** `PlanViewCanvas` respects V/G visibility on its render path
+  (`:443`, `:1907`, `:2421`) and `PlanSnapEngine._ensureCache()` has no equivalent — **the plan pane
+  snaps to linework the user cannot see.**
+
+  **WHY CONSUME, NOT RETIRE.** Retirement is close to a rewrite and is blocked twice over:
+  (a) the two engines have different CANDIDATE DOMAINS — `packages/snapping` providers read the
+  STORES, while `PlanSnapEngine` reads projected `TechnicalDrawing` linework, which includes IFC and
+  Rhino imports and door/window/roof/stair plan SYMBOLS that have no store representation and would
+  become unsnappable; and (b) `@pryzm/snapping → @pryzm/spatial-index → @pryzm/core-app-model` is a
+  real dependency chain, so `core-app-model` importing `@pryzm/snapping` would CLOSE A CYCLE — while
+  `packages/snapping/package.json` lists `@thatopen/components` under `forbiddenDependencies`, so
+  `PlanSnapEngine` cannot move the other way either. Neither engine can currently import the other.
+
+  Unifying the **policy** is cheap and closes the user-visible defect on its own: `classifyCandidateLevel`
+  and `OTHER_LEVEL_DEMOTION` are declared pure (`LevelScope.ts:72` — "no THREE, no DOM, no store
+  reads") and already exported from the package index. The work is (1) hoist that ~50-line pure module
+  to an ancestor both sides can reach (`@pryzm/geometry-kernel`) to dodge the cycle, and (2) stamp a
+  `levelId` on `EndpointEntry`/`SegmentEntry` in `_ensureCache()` — a seam that already exists via
+  `registerSegmentUUID` (`EdgeProjectorService.ts:3346`) and `lookupElementUUID`. A cheaper stopgap:
+  the projection already knows `floorY`, so demoting the `:beyond` layer in `_ensureCache()` would
+  fix the storey-below ranking AND the invisible-linework snapping without any per-element lookup.
+
+  ⚠ **Correct the two rival copies of the stale sentence**, in ADR-0335 "Not decided here" and
+  `ISSUE-LOG.md`, or this bullet becomes the third disagreeing authority for one fact (C84 EI-1).
 - **Level BANDS are not modelled.** OTHER is binary; the floor immediately below is ranked the same
   as one six floors away.
 - **The active storey is a single global.** Per-pane active levels (C59; L-1107 — *"the view is
