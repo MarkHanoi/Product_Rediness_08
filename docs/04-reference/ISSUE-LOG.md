@@ -12027,3 +12027,60 @@ by that; writing is.** Full field map and normative TO-BE in **C95 §16**.
 
 ⛔ **R6 (infill panelling) is BLOCKED on this** — adding a per-bay `panels[]` to a record that loses
 `fillType` on reload reproduces C87's exact failure with more surface area.
+
+## L-1037 — DECISION: persistence INVERTS its default — serialise the record minus what is derived, and rebuild through ONE payload builder (DECIDED, orchestrator, 2026-08-19)
+
+**Raised by lane HR1 while measuring `L-1102`** (7 of ~26 handrail fields survive a round trip). It
+asked for ratification of a **shape change** rather than making it quietly, which is the right
+instinct: this decides how every family persists, not one.
+
+### The defect this replaces
+
+Today SAVE and LOAD are **hand-written field whitelists**, and a new field must be remembered in
+**four** places. Measured consequences, three families, one shape:
+
+| | |
+|---|---|
+| **L-999** wall | `sideFinishes` missing from four whitelists **and** from `WallStore.updateWall()`'s 12-field projection — the store discarded the write while the command returned `{success:true}` |
+| **L-1057** curtain-wall | `CurtainPanelStore` in **neither** persistence file; every `panelType`, `materialOverride` and all six `hostedDoor` fields destroyed on save |
+| **L-1102** handrail | 19 of ~26 fields lost. `materialId` is **saved and never read back**. Draw a Frameless Glass Balustrade, save, reload → **a grey rectangular balustrade** — *"not degraded, a different element"*, and it exports as a different IFC entity than the one saved |
+
+**Three families, three lanes, one mechanism.** That is not three bugs; it is a default in the wrong
+direction.
+
+### DECIDED — invert the default
+
+**SAVE serialises the record MINUS an explicit DERIVED/TRANSIENT exclusion list. LOAD rebuilds
+through ONE exported payload builder that every loader calls.**
+
+**The argument is asymmetric risk, and it is the whole decision.** Under a whitelist, forgetting a
+field means **silent, permanent data loss** — the user's authored value is gone and nothing reports
+it. Under an exclusion list, forgetting a field means **a few extra bytes in the file**. Both
+mechanisms will be forgotten by someone; only one of them punishes the user for it.
+
+**Requirements this carries:**
+
+1. **The exclusion list is EXPLICIT and NAMED**, with a reason per entry — `_renderVersion`,
+   `_sourceBaseLine` and their kin are transient render bookkeeping, and they must be excluded *by
+   name*, never by a prefix convention a future field can accidentally miss.
+2. **ONE payload builder, called by every loader.** There are two `ProjectLoader` copies in this
+   repo (one live, one dead) and a save/load asymmetry has already been measured on three families.
+   A single exported builder is what makes save↔load a *pair* rather than two lists that agree by
+   habit.
+3. **Round-trip proof per family**, not per field: author every field the UI can set, save, reload,
+   assert equality. ⚠ A field-by-field test is the whitelist defect wearing a test's clothes — it
+   passes for exactly the fields someone remembered.
+4. ⛔ **Do NOT add fourteen more names to four lists.** That artefact produced the defect four times
+   over; extending it is choosing the mechanism that failed.
+
+### Scope and sequencing
+
+This is the **target shape for every family**, but ⛔ **not a repo-wide rewrite today** — nine lanes
+are live and both editor persistence files currently carry another lane's uncommitted work. The
+order: the family being fixed for another reason converges to the new shape as part of that work; new
+families are built on it from the start; the whitelists shrink rather than grow. **A count of
+remaining hand-written field lists is owed as a shrink-only ratchet.**
+
+⚠ **`C05` owns the file format** and this changes how a snapshot is produced. The decision is
+recorded here; **C05 must carry it as normative before the first family migrates**, or the next
+reader will find two answers to one question.
