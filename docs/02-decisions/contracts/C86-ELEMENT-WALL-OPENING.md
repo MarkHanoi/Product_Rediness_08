@@ -1093,17 +1093,43 @@ line-for-line from `WindowBuilder._seatHostedLeaf`. Angles are in the sheet's `(
   **only when the model knows the hand**. ⛔ It may not default to `'left'` because the door schema
   does: a defaulted hinge side on a construction drawing is a construction error, not a cosmetic
   one.
+- **WO-G-14 — THE AUTHORED SYMBOL REPLACES THE SOLID'S LINEWORK, AND THE RULE MUST BE *DERIVED*.**
+  Where an elevation symbol is emitted for an element, that element's raw projected linework MUST
+  be removed, so the drawing shows the symbol INSTEAD OF the wireframe rather than on top of it.
+  ⛔ **The suppression MUST be keyed on the set of elements whose symbol was ACTUALLY EMITTED — never
+  on a list of element types assumed to have symbols.** A type list fails in both directions: it
+  **silently deletes** the linework of every opening the builder skipped or refused (WO-G-5's curved
+  host, a missing store, a degenerate base line), leaving nothing where there was something wrong;
+  and it does not cover a family that gains a symbol later until somebody edits it. ⭐ A stale
+  hand-written enumeration is this repo's most-repeated defect shape; deriving the set removes the
+  enumeration rather than maintaining it. **Both directions MUST be pinned** — *symbol emitted ⇒
+  raw linework gone*, **and** *symbol absent ⇒ raw linework present* — the §L955 both-ways rule.
+- **WO-G-15 — AN ELEVATION MUST BE ABLE TO SAY WHICH DEFECT IT IS EXHIBITING.** D1, D2 and D3 all
+  malform an opening and are indistinguishable in a screenshot, and D2 is *a correct drawing*. A
+  view MUST therefore report its own diagnosis — whether its direction is cardinal, how many of its
+  hosts are both raked and oblique and by what angle, and how many symbols it injected and raw
+  layers it suppressed. ⭐ An instrument beats another round of guessing; that is what the probe
+  established and it applies to the next report as much as to this one.
 
 #### NOT MEASURED — the honest register for this subsection
 
-1. **Which of D1 / D2 / D3 the founder's screenshot actually is.** All three malform an opening and
-   all three are live; without his project this lane cannot say which he photographed. D1 is the
-   only one that makes a *horizontal* line non-horizontal, so it is the best match for his sentence
-   — but a stock N/S/E/W elevation cannot reach D1, and "Level 4" reads like a building elevation.
-   **Recorded as unresolved rather than asserted.**
-2. **The raw mesh dump is NOT yet suppressed.** The authored symbol is injected *alongside* the
-   solid's wireframe, so an elevation today carries strictly more correct linework and no less
-   clutter. The `skipInElevation` sibling for openings is OWED — see L-1240.
+1. **Which of D1 / D2 / D3 the founder's screenshot actually is — STILL UNRESOLVED, but now
+   INSTRUMENTED.** All three malform an opening and all three were live; without his project this
+   lane cannot say which he photographed. D1 is the only one that makes a *horizontal* line
+   non-horizontal, so it is the best match for his sentence — but a stock N/S/E/W elevation cannot
+   reach D1, and "Level 4" reads like a building elevation. ⭐ **The `[ELEV-DIAG]` console line
+   (WO-G-15) answers it from the next screenshot** rather than by argument. ⚠ **And the answer may
+   be that the drawing was RIGHT**: if what he saw was D2, a raked wall genuinely leaning on a
+   cardinal sheet, then the projection was correct and the expectation is the thing to reconcile.
+   That possibility is named here rather than buried.
+2. ~~**The raw mesh dump is NOT yet suppressed.**~~ **CLOSED 2026-08-19 — see WO-G-14.**
+   `suppressSymbolisedElementLinework()` removes the raw projected linework of exactly those
+   elements whose symbol was emitted, keyed on the emitted set rather than on an element-type list,
+   pinned in both directions. ⚠ **What is NOT measured is the occlusion consequence**: a symbolised
+   opening's solid no longer contributes a projection occluder, and the injected symbol carries no
+   `viewDepth` stamp so it cannot become one either. The host wall's occluder is untouched and a
+   window is mostly glazing, so the practical change is small — but it is a change, and it is
+   recorded rather than assumed away.
 3. **The frame inset is a drawing convention, not the model's frame width.** `WindowData.frameWidth`
    and the door's equivalent are not passed to the producer; 60 mm is declared, not read.
 4. **`segmental-arch`'s inner frame line is a SIMILAR arch, not a true parallel offset** — its rise

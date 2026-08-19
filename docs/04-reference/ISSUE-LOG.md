@@ -18444,7 +18444,7 @@ families in one pass to make a number go to zero.
 
 ---
 
-## L-1240 — THE ELEVATION OPENING SYMBOL: **THERE WAS NEVER ONE**, AND THE "ANGLED HEAD" IS A *DIFFERENT* BUG FROM THE "LEANING BOX" 🟡 PART-FIXED 2026-08-19 (lane ELEV1)
+## L-1240 — THE ELEVATION OPENING SYMBOL: **THERE WAS NEVER ONE**, AND THE "ANGLED HEAD" IS A *DIFFERENT* BUG FROM THE "LEANING BOX" ✅ FIXED (D1 + D3) 2026-08-19 (lane ELEV1) — D2 is a CORRECT drawing, instrumented not "fixed"
 
 **Founder, with a screenshot of Level 4 at +12.210 m:** *"Please review the ELEVATION SYMBOL for
 windows and doors — it is NOT CORRECT. It MALFORMS the window in elevation. **Where the bottom and
@@ -18556,22 +18556,66 @@ assertion L-280 did not have.
 claim) and **C09 §4.6.4f** (the picture plane must be total and must refuse; an element with a
 conventional elevation representation must have an authored symbol; the clamp is forbidden by name).
 
-### 🟡 WHY PART-FIXED, AND WHAT IS OWED
+### ✅ THE DOUBLE DRAW — CLOSED, AND *DERIVED* RATHER THAN ENUMERATED
 
-- ⛔ **The raw mesh dump is NOT suppressed.** The symbol is injected *alongside* the solid's
-  wireframe, so an elevation today has strictly more correct linework and **no less clutter**. The
-  `skipInElevation` sibling for openings is OWED. It was deliberately not shipped blind: suppressing
-  by element type would delete an opening's linework wherever the builder did not run.
-- ⛔ **Which of D1 / D2 / D3 the founder photographed is NOT determined.** All three are live. D1 is
-  the only one that makes a *horizontal* line non-horizontal, so it best fits his sentence — but a
-  stock N/S/E/W elevation cannot reach D1, and "Level 4" reads like a building elevation. **Recorded
-  as unresolved rather than asserted.**
+The first pass shipped the symbol **beside** the solid's wireframe. ⛔ **That is not a partial fix,
+it is a regression**: the founder reported *"it MALFORMS the window"*, and a correct symbol drawn on
+top of the malformed linework leaves the malformed linework on screen and adds more. From his side
+the bug would read as doubled.
+
+`suppressSymbolisedElementLinework()` removes the raw projected linework of **exactly those elements
+whose symbol was actually emitted** — the `coveredElementIds` set the builder returns.
+
+⭐ **The obvious implementation would have been the bug.** *"In an elevation, skip meshes whose
+`elementType` is Door or Window"* is a **REMEMBERED** rule — a hand-listed set of types ASSUMED to
+have symbols — and it fails in BOTH directions: it **silently deletes** the linework of every
+opening the builder skipped, refused (a circular opening in a curved host, C86 §10.1 PR-5) or could
+not reach, leaving **nothing** where there used to be something wrong; and it does not cover a
+family that gains a symbol later until somebody edits the list. Keying on what was EMITTED removes
+the enumeration instead of maintaining it. ⭐ A stale hand-written enumeration is this week's most
+repeated defect shape in this repo — an event list missing eleven families, a pick cache keyed on an
+event with zero emitters, a restore path that grew a fifth member nobody updated.
+
+**Pinned in both directions** (§L955's rule — a one-way assertion cannot tell a correct suppression
+from an over-eager one): *symbol emitted ⇒ raw linework gone*, **and** *symbol absent ⇒ raw linework
+present*. Plus: `-SYM` layers are never removed though they carry the same `elementUUID`; the host
+WALL is untouched; unstamped linework is ignored rather than guessed at; and removal is collected
+before it is applied, so iterating while mutating cannot leave every second layer behind.
+Governance: **C86 §10.2 WO-G-14**, **C09 §4.6.4f (3)**.
+
+⚠ **NOT MEASURED — the occlusion consequence.** A symbolised opening's solid no longer contributes a
+projection occluder, and the injected symbol carries no `viewDepth` stamp so it cannot become one
+either (an unstamped `:proj` layer is silently disqualified — `HiddenLineRemoval`'s own rule). The
+host wall's occluder is untouched and a window is mostly glazing, so the practical change is small —
+but it IS a change, and it is recorded rather than assumed away.
+
+### ⚠ WHICH DEFECT DID THE FOUNDER PHOTOGRAPH? STILL UNRESOLVED — NOW INSTRUMENTED
+
+**D1 and D3 are fixed. D2 is not a defect.** All three malform an opening and are indistinguishable
+in a screenshot, and this lane cannot tell from a picture which one he saw. D1 is the only mechanism
+that makes a *horizontal* line non-horizontal, so it best fits his sentence — but a stock N/S/E/W
+elevation cannot reach D1, and "Level 4" reads like a building elevation.
+
+⭐ **Rather than another round of guessing, the view now reports its own answer.** Every elevation
+projection logs one `[ELEV-DIAG]` line naming: whether its direction is cardinal (`cardinal=NO` ⇒
+the view WOULD have drawn a plan before the basis fix — that is D1); how many of its hosts are BOTH
+raked and oblique and the largest resulting jamb tilt (⇒ D2); and how many symbols were injected and
+raw layers suppressed (⇒ D3). An instrument beats an argument — which is what the original dump
+established against the lane brief's theory, applied to the next report.
+
+⚠ **AND THE ANSWER MAY BE THAT THE DRAWING WAS RIGHT.** If what he photographed was **D2** — a
+genuinely leaning raked wall seen on a cardinal sheet — then the projection was correct, the jamb
+lean is `atan(cot(rake)·sin(bearing))` as it should be, and **his expectation is the thing to
+reconcile, not the code**. Named rather than buried.
+
+### 🟡 STILL OWED (logged, not fixed)
 - ⛔ **`PlanViewManager` still snaps the canvas H-axis to a cardinal** (`absX > absZ ? 'z' : 'x'`)
   and `PlanViewCanvas._vertexToHV` reads `h` from one world axis. The drawing is now oriented
   exactly; the canvas's own H-axis choice is a second, independent cardinal assumption and is
   untouched by this lane.
-- ⛔ **`PlumbingElevationSymbolBuilder` is in breach of C09 §4.6.4f** — flat `A-PLMB`, no zone. Named
-  here rather than fixed, because it is another family's linework.
+- ⛔ **`PlumbingElevationSymbolBuilder` is in breach of C09 §4.6.4f** — flat `A-PLMB`, no zone. Split
+  out as its own row, **L-1241**, because it is another family's builder and the founder is not
+  waiting on it.
 - ⛔ **The frame inset is a drawing convention (60 mm), not `WindowData.frameWidth`** — the real
   value is not passed to the producer.
 - ⛔ **`segmental-arch`'s inner frame line is a SIMILAR arch, not a true parallel offset** (its rise
@@ -18582,3 +18626,40 @@ conventional elevation representation must have an authored symbol; the clamp is
   window record carries no operation field, so none is drawn.
 - ⛔ **No gate** asserts that an elevation basis is total, or that a symbol layer carries a zone.
   Both are conventions with tests, not invariants with gates.
+
+---
+
+## L-1241 — `PlumbingElevationSymbolBuilder` INJECTS ONTO A FLAT, ZONE-LESS LAYER: THE L-280 FLATTENING, IN A SECOND FILE 🔴 OPEN — logged 2026-08-19 (lane ELEV1)
+
+**Found while building the opening elevation symbol (L-1240), by copying the only prior elevation
+symbol builder's seam and noticing what it does NOT carry.**
+
+`PlumbingElevationSymbolBuilder.inject()` calls
+`drawing.addProjectionLines(projected, 'A-PLMB')` — a **flat layer with no zone suffix**, which
+`drawingZoneFromLayerName('A-PLMB')` classifies as **`null`**. Every plumbing elevation symbol
+therefore arrives at `PlanViewCanvas` carrying **no zone**, so:
+
+- it cannot take the zone's pen from `graphicsRulesEngine.resolveStyle(zone, …)`;
+- it can never be demoted to `:hidden` by `applyOcclusion()` — an occluded fixture cannot draw
+  dashed, because there is no sibling zone layer for `siblingZoneLayer()` to rewrite it onto;
+- a per-view or per-element pen override has no zone to key against.
+
+⭐ **This is the SAME SHAPE as L-280**, in which `SymbolicRuleRenderer` flattened the zone ladder for
+the only two element types that had symbols, and the founder *"could re-weight his windows and watch
+nothing happen"*. That was fixed in the plan path; the elevation path acquired the identical defect
+in a different file eight months later, and nothing caught it because **nothing asserts that a
+symbol layer carries a zone.**
+
+**Now forbidden by name** — **C09 §4.6.4f (2)**, minted by L-1240: *"a flat, zone-less symbol layer
+is in breach of this clause"*, with this builder cited as the live example. `OpeningElevationSymbolBuilder`
+emits `A-GLAZ-SYM:proj` / `A-DOOR-SYM:hidden` instead and is the worked reference.
+
+**THE FIX** is small and mechanical: emit `layerForZone('A-PLMB', zone)` per polyline and let the
+builder decide the zone (silhouette ⇒ `projection`). ⛔ **NOT DONE HERE** — it is another family's
+builder, the founder is not waiting on it, and changing plumbing linework in a lane the founder is
+reviewing for windows is the kind of unrequested blast radius that makes a fix hard to trust.
+
+⚠ **NOT MEASURED:** whether any other symbol builder does the same. Only the two ELEVATION builders
+were read; the ten plan symbol builders were not audited for this. **⛔ And no gate exists** — the
+durable fix is an assertion that every layer a symbol builder injects onto resolves to a non-null
+`DrawingZone`. Same class as the missing gates L-1221 catalogued.

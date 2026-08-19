@@ -649,6 +649,18 @@ because the tree contains a live example: `PlumbingElevationSymbolBuilder` injec
 flattening in a second file. `OpeningElevationSymbolBuilder` emits `A-GLAZ-SYM:proj` /
 `A-DOOR-SYM:hidden` instead; the plumbing builder is **OWED** the same correction (L-1240).
 
+**(3) A SYMBOL REPLACES THE SOLID'S LINEWORK — AND WHICH ELEMENTS IT REPLACES MUST BE DERIVED.**
+Where a symbol is emitted for an element, that element's raw projected linework MUST be removed,
+so the drawing shows the symbol INSTEAD OF the wireframe. ⛔ **The suppression MUST be keyed on
+the elements whose symbol was ACTUALLY EMITTED, never on a list of element types assumed to have
+one.** A type list silently deletes the linework of every element the builder skipped or refused
+— strictly worse than the clutter it removes — and does not cover a family that gains a symbol
+later. Both directions MUST be pinned: *emitted ⇒ removed*, **and** *absent ⇒ retained*.
+
+*Shipping the symbol without this clause is not a partial fix, it is a regression.* The original
+report was *"it MALFORMS the window in elevation"*; a correct symbol drawn ON TOP of the malformed
+wireframe leaves the malformed linework on screen and adds more.
+
 ⛔ **AND THE FORBIDDEN "FIX" IS NAMED.** A malformed projected outline MUST NOT be clamped,
 snapped or straightened to the axis it ought to lie on. That substitutes a plausible drawing for
 a wrong one and removes the evidence. Fix the construction, never the appearance.
