@@ -179,6 +179,9 @@ const GATES: Gate[] = [
   // C100 §2.1 / §9 (2026-08-19, L-1120) — elements REFERENCE materials by id. This is
   // the gate for the FOUR axes check-material-single-source.ts names as NOT CHECKED in
   // its own output, and which is where every measured material loss in L-1038 lives.
+  // ⚠ FIVE arms since 2026-08-19 (L-1127), not four: ARM E measures the LOADER's
+  // read side, which C100 §9.7 had listed as declared debt. It found `slab` on its
+  // first run — a materialId written into the saved file and never read back.
   // ARM A colour-without-id · ARM B a stored materialId that resolves to NOTHING ·
   // ARM C a producer minting a key without the master resolver · ARM D persistence
   // round-trip. Shrink-only from the 2026-08-19 measurement; exits 3 on breach, 2 when
