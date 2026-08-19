@@ -739,7 +739,7 @@ export class ProjectHub {
         // §FIX-HUB-GRID-LISTENER-STACK (L-1281) — everything from here to the
         // `_attachCanvasDrag` call is bound to `#ph-grid` ITSELF, which survives
         // `refreshGrid()`. Bind ONCE. See `_gridDelegatesBound` above.
-        if (false && this._gridDelegatesBound) {
+        if (this._gridDelegatesBound) {
             // `_attachCanvasDrag` disposes its own prior listeners and re-reads the
             // freshly rendered cards, so it MUST still run on every refresh.
             this._attachCanvasDrag(grid);
