@@ -74,6 +74,52 @@ function __pryzmBuildingGenActive(): boolean {
   return (globalThis as unknown as { __pryzmBuildingGenActive?: boolean }).__pryzmBuildingGenActive === true;
 }
 
+/**
+ * §PERF2-LOAD-REDETECT-THRASH (L-1154) — true while `ProjectLoader` is replaying a
+ * persisted snapshot (`globalThis.__pryzmProjectLoadActive`, set at
+ * `ProjectLoader.ts:602` and cleared in its `finally` at `:2625`).
+ *
+ * ⭐ WHY THIS EXISTS WHEN `pause()` ALREADY DOES THE JOB — BECAUSE IT DIDN'T.
+ * `ProjectLoader:568` pauses this observer, and the §FIX-ROOMOBSERVER-PAUSE
+ * comment on `_scheduleRedetect` records the load-thrash defect being fixed that
+ * way once already. Opening an 11-level / 341-wall / 1815-window project on the
+ * deployed build 2026-08-19 produced it AGAIN, twenty-plus times mid-import:
+ *
+ *   [RoomTopologyObserver] forced fire (level=L-04…, reason=resets,
+ *                                       elapsed=19ms/2000ms, resets=12/12)
+ *   [CommandManager] EXECUTE: REDETECT_ROOMS
+ *
+ * The pause is applied as `window.roomTopologyObserver?.pause?.()` — optional
+ * chaining on BOTH the object and the method. If that window property is not
+ * published yet (it is assigned in `initTools.ts:2499`), or the resume at `:2374`
+ * lands while walls are still arriving, the suppression silently does nothing and
+ * NOTHING SAYS SO. A guard that depends on a remote caller finding a window
+ * property is a guard that can be switched off by init order.
+ *
+ * ⭐ AND NOTE WHAT THE DEBOUNCE DOES UNDER LOAD: it INVERTS. Every wall resets the
+ * 2000 ms timer; 12 resets exhausts MAX_DEBOUNCE_RESETS; the starvation guard then
+ * force-fires at ~19 ms — during precisely the burst it exists to coalesce. The
+ * heavier the load, the MORE often it fires. Raising the constant cannot fix a
+ * policy that is wrong in the limit; the burst must be suppressed outright.
+ *
+ * This reads the flag LOCALLY, so suppression no longer depends on anyone calling
+ * `pause()` — the same seam `perAddGeometryGate.ts:33` uses for the identical
+ * problem one subsystem over, and the same globalThis seam this file already uses
+ * for `__pryzmBuildingGenActive` and `window.__wallDragInProgress`.
+ *
+ * ⚠ THE ESCAPE HATCH IS VERIFIED, NOT ASSUMED. Suppressing a recompute is only
+ * safe if something still runs it. `ProjectLoader`'s post-load sweep dispatches
+ * `window.runtime.bus.executeCommand('room.redetect', …)` per level — a DIRECT bus
+ * command that reaches `ReDetectRoomsCommand` through the event bridge in
+ * `plugins/rooms/src/handlers/RedetectRooms.ts`, which holds no reference to this
+ * observer and calls neither chokepoint. So the one sweep that MUST survive does
+ * survive, and it is the sweep that runs against settled geometry rather than
+ * against half-arrived walls.
+ */
+function __pryzmProjectLoadActive(): boolean {
+  return (globalThis as unknown as { __pryzmProjectLoadActive?: boolean }).__pryzmProjectLoadActive === true;
+}
+
 export class RoomTopologyObserver {
   readonly debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   /** §WS-2.B — per-level soft-coalesce timer for the
@@ -662,6 +708,17 @@ export class RoomTopologyObserver {
       console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=building-generation, source=schedule) — §GEN-SINGLE-REDETECT`);
       return;
     }
+    // §PERF2-LOAD-REDETECT-THRASH (L-1154) — scheduler chokepoint. See the
+    // `__pryzmProjectLoadActive` docblock: `pause()` is applied through an
+    // optional-chained window property and was measurably NOT engaging on a real
+    // 11-level project open. Suppressing here means no reset is ever counted
+    // during the import, so the starvation guard cannot force-fire at 19 ms
+    // against walls that are still arriving. ProjectLoader's post-load
+    // `room.redetect` bus sweep runs the real pass once, against settled geometry.
+    if (__pryzmProjectLoadActive()) {
+      console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=project-load, source=schedule) — §PERF2-LOAD-REDETECT-THRASH`);
+      return;
+    }
 
     if (debounceMs === CW_DEBOUNCE_MS && CurtainWallBuilder.isPlacementModeActive) {
       this._pendingPlacementLevels.add(levelId);
@@ -786,6 +843,18 @@ export class RoomTopologyObserver {
     // the executors' explicit redetects (which bypass this observer) own room detection.
     if (__pryzmBuildingGenActive()) {
       console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=building-generation) — §GEN-SINGLE-REDETECT`);
+      return;
+    }
+    // §PERF2-LOAD-REDETECT-THRASH (L-1154) — EXECUTION chokepoint, and it is not
+    // optional. This method's own comment above records that FOUR paths reach it
+    // without passing `_scheduleRedetect` (the WallStore debounce timer, the
+    // forced-fire branch, the committed-event soft-coalesce timer, and
+    // `scheduleRedetectAllLevels`). Every other suppression in this file —
+    // `paused`, building-generation, wall-drag — is mirrored at both chokepoints
+    // for exactly that reason, and a scheduler-only guard would be the half-fix
+    // those comments were written to prevent.
+    if (__pryzmProjectLoadActive()) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (level=${levelId}, reason=project-load) — §PERF2-LOAD-REDETECT-THRASH`);
       return;
     }
     // §FIX-WALLMOVE-REDETECT-DEFER — execution-chokepoint guard. INVARIANT: no
