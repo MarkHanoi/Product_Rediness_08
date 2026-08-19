@@ -614,8 +614,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error('[RenderPipelineManager] Pipeline init error:', msg);
-            this._phase = 'error';
-            this._emitState();
+            // §L-966-SECOND-MINTING-SITE (L-1003) — carry the cause; see _failWithCause.
+            this._failWithCause(
+                'The 3D viewport could not start: building the render pipeline failed.',
+                err,
+            );
         }
     }
 
@@ -1116,8 +1119,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 setTimeout(() => { void this._rebuildPipeline(); }, backoffMs);
             } else {
                 console.error('[RenderPipelineManager] Retries exhausted — rendering without post-FX.');
-                this._phase = 'error';
-                this._emitState();
+                // §L-966-SECOND-MINTING-SITE (L-1003) — this is the ONE path on which
+                // "retries exhausted" was ever literally true, and even here it means the
+                // POST-FX rebuild ladder, not the viewport. Say which.
+                this._failWithCause(
+                    `The 3D viewport's post-processing could not be rebuilt after ` +
+                    `${MAX_RETRIES} attempts, so it is rendering without post-FX.`,
+                );
             }
         }
     }
@@ -1483,8 +1491,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 }).catch((err: unknown) => {
                     console.error('[RenderPipelineManager] Full rebuild after plan-view failed:', err);
                     this._hasPipelineError = false;
-                    this._phase = 'error';
-                    this._emitState();
+                    // §L-966-SECOND-MINTING-SITE (L-1003) — carry the cause.
+                    this._failWithCause(
+                        'The 3D viewport could not be rebuilt after returning from plan view.',
+                        err,
+                    );
                 }).finally(() => {
                     this._finishRebuildAndDrainQueue();
                 });
@@ -2284,8 +2295,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
             await this._fullRebuild();
         } catch (err: unknown) {
             console.error('[RenderPipelineManager] Camera update rebuild failed:', err);
-            this._phase = 'error';
-            this._emitState();
+            // §L-966-SECOND-MINTING-SITE (L-1003) — carry the cause.
+            this._failWithCause(
+                'The 3D viewport could not be rebuilt after a camera or view change.',
+                err,
+            );
         } finally {
             this._hasPipelineError = false;
         }
@@ -3310,6 +3324,43 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * many times, and the raw GPU report so a founder can paste it into a bug.
      * A refusal that explains itself is a correct answer; a blank canvas is not.
      */
+    /**
+     * §L-966-SECOND-MINTING-SITE (L-1003) — enter `phase='error'` with the REAL cause
+     * attached, WITHOUT touching `_hasPipelineError`.
+     *
+     * L-966 fixed the fabricated *"Render pipeline retries exhausted — phase=error"*
+     * by routing the resource-lifetime escalation through {@link _failLoudly} and
+     * making `initScene` pass `status.lastError`. It reached ONE of the seven paths
+     * that set `phase='error'`. The other SIX set the phase and emitted with
+     * `_lastError` still null, so `_emitState()` published `lastError: null`,
+     * `initScene.ts:3070` passed `undefined`, and
+     * `ViewportCrashGuard.handlePipelineError()`'s DEFAULT ARGUMENT minted the same
+     * fabricated string all over again — including on the manual "Reload viewport"
+     * path, because {@link _driveRecoveryRebuild} clears `_lastError` on the way in
+     * and the rebuild's own `.catch` never set a new one. That is the founder's
+     * L-981 sighting, and it is NOT a stale bundle: the `§L-966-BOUNDED-AUTO-RECOVERY`
+     * lines in the same console were introduced by the L-966 commit itself (551e7131),
+     * so the deployed build POSTDATES the fix.
+     *
+     * Separate from {@link _failLoudly} on purpose: that one also latches
+     * `_hasPipelineError = true` to stop the render loop re-submitting provably
+     * failing frames, which is right for a destroyed-GPU-resource fault and WRONG as
+     * a blanket change to six unrelated build/rebuild failures. This helper changes
+     * only what the user is TOLD. Zero behavioural delta beyond the message.
+     *
+     * `_diagnose()` in the crash guard keys on the error SIGNATURE to decide whether
+     * to say "this is a PRYZM defect" or blame the user's driver — so an escalation
+     * that arrives with no identity does not merely under-inform, it MISATTRIBUTES.
+     */
+    private _failWithCause(userFacingMessage: string, cause?: unknown): void {
+        const detail = cause instanceof Error ? cause.message : cause != null ? String(cause) : '';
+        this._lastError = new Error(
+            detail ? `${userFacingMessage} (${detail.slice(0, 200)})` : userFacingMessage,
+        );
+        this._phase = 'error';
+        this._emitState();
+    }
+
     private _failLoudly(userFacingMessage: string): void {
         this._hasPipelineError = true;
         this._lastError        = new Error(userFacingMessage);
@@ -3806,8 +3857,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 return;
             }
             console.error('[RenderPipelineManager] Rebuild failed:', err);
-            this._phase = 'error';
-            this._emitState();
+            // §L-966-SECOND-MINTING-SITE (L-1003) — THE founder's L-981 path. This
+            // `.catch` is where the manual "Reload viewport" recovery lands when its
+            // rebuild throws, and _driveRecoveryRebuild() has just cleared `_lastError`
+            // on the way in — so before this line the escalation arrived with NO cause
+            // and the crash guard minted "Render pipeline retries exhausted", naming a
+            // retry ladder that had not run.
+            this._failWithCause(
+                'The 3D viewport could not recover: rebuilding the render pipeline failed.',
+                err,
+            );
         }).finally(() => {
             // §L930-REBUILD-WINDOW-IS-A-SUBMIT-WINDOW — resume submits ONLY once
             // the new pipeline is installed. `finally` (never `then`) so an early
@@ -3859,8 +3918,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
             })
             .catch((err: unknown) => {
                 console.error('[RenderPipelineManager] §RPM-RECOVERY-DOWNGRADE lightweight rebuild ALSO failed — unrecoverable:', err);
-                this._phase = 'error';
-                this._emitState();
+                // §L-966-SECOND-MINTING-SITE (L-1003) — carry the cause.
+                this._failWithCause(
+                    'The 3D viewport could not recover: even the reduced-quality fallback ' +
+                    'pipeline failed to build.',
+                    err,
+                );
             })
             .finally(() => { this._endShadowRebuildGuard(); });
     }
