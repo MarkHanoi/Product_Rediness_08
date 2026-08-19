@@ -1,6 +1,6 @@
 # C95 — ELEMENT: HANDRAIL
 
-> **Stamp**: 2026-08-18, **re-measured 2026-08-19 (lane HR1)** · **Status**: CANONICAL
+> **Stamp**: 2026-08-18, **re-measured 2026-08-19 (lanes HR1 → HR4)** · **Status**: CANONICAL
 > ⭐ **§15 carries the founder's FULL railing specification (2026-08-19) and is NORMATIVE.**
 > It supersedes the narrower 2026-08-18 brief §§1-14 were measured against. Read §15 first if
 > you are implementing; read §§1-14 first if you are auditing what is there today. — binding on every PR touching the handrail family
@@ -802,7 +802,10 @@ keeps its start post; in a CLOSED run none does, because the last segment's END 
 on the first's start. Both cases: `|posts| = |distinct vertices|`, asserted by counting the meshes
 the REAL builder emits, with the naive 8-post case kept as a live control.
 
-⛔ **NOT DONE, stated plainly: the 3-D `HandrailTool` still has ONE gesture.** See §13 item 13.
+✅ **DONE — measured 2026-08-19 (lane HR4).** The 3-D `HandrailTool` is now a thin adapter over
+`HandrailSketchController`, the SAME gesture implementation the plan handler drives, and all seven
+modes are asserted on `surface: '3d'` by `Handrail3DModeReachable.spec.ts`. See §15.13.
+*(This line read "NOT DONE … still has ONE gesture" until the suite was run.)*
 
 ### 14.2 Package location — MEASURED, and it is a decision, not a fix
 
@@ -1044,6 +1047,50 @@ WHOLE run**. There is no per-bay panel, no per-panel kind and no per-panel mater
 > **not measured**, and L-999 is that exact defect on wall — four hand-written whitelists, all
 > omitting one field. **R6 MUST NOT be reported as landed on a session-only proof.**
 
+> ### ⛔⛔ THE SECOND TRAP — **MEASURED 2026-08-19 (lane HR4)**, AND IT IS ALREADY AT THE LEVEL THAT KILLED THE NEIGHBOUR
+>
+> The brief for R6 was *"count the meshes your builder emits per run before shipping
+> infill panels"* — infill being the shape that explodes. **Counted. The mesh axis is
+> not the one that will hurt.** Census at HEAD, instancing flag left as production has
+> it (OFF), so these are the numbers a USER gets
+> (`packages/geometry-handrail/src/__tests__/HandrailRunMeshBudget.spec.ts`):
+>
+> | Run | Meshes | **Distinct materials** |
+> |---|---|---|
+> | one 2 m baluster rail | 23 | 3 |
+> | **CIRCULAR run (31 segments)** | 279 | **93** |
+> | SQUARE run (4 segments) | 158 | 12 |
+> | SQUARE run, **glass** infill | **26** | **12** |
+>
+> `StairCurvedRailingBudget.spec.ts` records why the C-shaped stair **froze the scene
+> and lost the WebGPU device**: *"~100 UNIQUE MeshStandardMaterials per railing.
+> Unique materials defeat instancing and each one costs a render pipeline on the
+> WebGPU backend."* **A handrail circular run is at 93 — from ONE two-click gesture,
+> today, with no R6 anywhere near it.**
+>
+> ⭐ **IT ARRIVES BY A DIFFERENT MECHANISM, WHICH IS WHY NOBODY SAW IT.** The stair
+> cloned a material per SUB-MESH — a defect you find by reading the builder.
+> `HandrailFragmentBuilder` is CLEAN by that test: balusters share one material, posts
+> share one, **3 per record regardless of baluster count**. The multiplication happens
+> one level UP, in `dispatchHandrailRun`, which commits **one `HandrailData` record per
+> SEGMENT** (§15.13). 31 × 3 = 93. **No single file looks wrong.**
+>
+> ⭐ **AND THE GLASS ROW IS THE PROOF THAT MESH COUNT IS THE WRONG THING TO WATCH.**
+> Dropping every baluster took the square run from **158 meshes to 26** — an 83% cut —
+> and the material count from **12 to 12**. *Not one material saved.* Materials are
+> per-RECORD, so no amount of geometry simplification touches them. **R6 reasoned about
+> on mesh count alone would optimise the axis that does not matter.**
+>
+> **MUST, therefore — a NEW blocker on R6 alongside the persistence one above:** either
+> a run shares ONE material set across its segments, or R6's per-bay panels are declared
+> to add **zero** further per-record materials. The budget suite asserts the law
+> `materials === segments × 3` on both the baluster and the glass run, so a fix BREAKS
+> it — correctly, and visibly, in the same commit as the fix.
+>
+> ⚠ **DO NOT "solve" this by flipping `__pryzmElementInstancingV1`.** PERF2 measured
+> L-691/ADR-0297 dispose-before-detach as UNFIXED in `WindowBuilder` and
+> `ColumnFragmentBuilder`; flipping it can kill the scene.
+
 ---
 
 ## 15.6 MATERIALS — C100 IS BINDING, AND THE 20 TYPES CURRENTLY VIOLATE IT
@@ -1234,7 +1281,54 @@ adopts another family's affordance, the thing to copy is the part that is not vi
 
 ---
 
-## 15.13 THE 3-D TOOL IS MODE-BLIND — C84 EI-3 BREACH, 3 OF 7 MODES ⛔ **OPEN** (L-1106, measured 2026-08-19)
+## 15.13 THE 3-D TOOL IS MODE-BLIND — C84 EI-3 BREACH, 3 OF 7 MODES ✅ **CLOSED — MEASURED ON THE 3-D SURFACE, 2026-08-19 (lane HR4)**
+
+> ### ⭐ THE FIX LANDED AT `7f6fd2d0` (lane HR3) AND WAS PROVEN AT `7355b5a5` (lane HR4). The two are separate events and conflating them would repeat §0's defect.
+>
+> HR3 was stopped mid-refactor and its commit says so in terms: *"it compiles; it is
+> not proven to work … the next session's first handrail action is to run the suite,
+> not to read this message."* HR4 ran it. **The refactor is SOUND**, and the arms
+> HR3 could not report ARE landed:
+>
+> | Measured (2026-08-19, lane HR4) | Result |
+> |---|---|
+> | `pnpm --filter @pryzm/geometry-handrail test` | **103/103 PASS**, 8 files (was 74/6) |
+> | `HandrailCreationParityReachable` (plan) | **26/26 PASS** |
+> | `Handrail3DModeReachable` (3-D) — **NEW** | **24 assertions**, all seven modes |
+>
+> **All seven modes are ACCEPTED on `surface: '3d'`:** linear / ortho / curved each
+> dispatch a real creation command; square / circular / ellipse each produce ONE
+> `CreateHandrailRunCommand` of ≥3 segments, closed to 1e-9, contiguous at every
+> joint, one post per vertex; `byslab` dispatches one `CreateHandrailRunOnSlabCommand`
+> naming the slab, and with no slab named returns `no-slab` **twice** without ever
+> falling through to the old two-click line.
+>
+> ⚠ **AND THE STATE ON ARRIVAL IS THE LESSON, NOT THE FIX.** Measured before writing
+> anything: `grep -rln 'HandrailSketchController|handrailSpec|handrailCommit'` across
+> **every** `*.spec.ts` / `*.test.ts` in the repo → **ZERO files**. The 74 green tests
+> were green for the same reason before and after the refactor — they do not touch it.
+> The only suite that did exercise it drove `RailingPlanToolHandler` in all 26
+> assertions. **So the fix for a breach defined as *"in the 3-D view the bar offers
+> Square / Circular / Ellipse and the pipeline implements none"* was, for a full day,
+> proven entirely in PLAN.** That is §0's signature defect one level up.
+>
+> ⛔ **WHAT IS STILL NOT MEASURED, stated so this ✅ is not read as more than it is:**
+> no test runs a real pointer through a real `OBC.World`, so *"the raycast returns the
+> right world point"* remains unproven. `Handrail3DModeReachable` §5 covers the
+> delegation **by declaration** — which is what decides reachability — not by
+> instantiation.
+>
+> ⚠ One production regression was found and it was in a TEST, not the code:
+> `HandrailCreationParityReachable`'s *"the panel ALSO forwards … to
+> `window.handrailTool`"* went RED. HR3 deleted that mirror **correctly** —
+> `HandrailTool.setTypeId` now forwards INTO the store, so a store mirroring back out
+> would be infinite recursion as well as a second authority (C84 EI-9). The test was
+> pinning the mechanism instead of the intent, and pinning it by stubbing a global
+> nothing under test read. Rewritten at `36cd7cad` to assert *"3-D agrees"* at
+> `resolveArmedHandrailSpec()` — the function the 3-D ghost AND the 3-D commit both
+> actually call.
+
+### The original measurement, kept as the record of what was wrong
 
 `packages/geometry-handrail/src/HandrailTool.ts` — 255 lines — imports no authoring store, contains
 no `mode`, and draws exactly one thing: a two-click straight line. It resolves the armed **type**
@@ -1307,9 +1401,9 @@ Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the bl
 
 | # | Item | Blocked by |
 |---|---|---|
-| **R2** | creation UI | ✅ **LANDED** (plan). 3-D modes outstanding |
+| **R2** | creation UI | ✅ **LANDED — plan AND 3-D** (L-1106 closed, §15.13, measured 2026-08-19) |
 | **R5** | post spacing | ⛔ **the end-condition DECISION** (§15.3) — implementable the moment it is made |
-| **R6** | infill panels | ⚠ **must not be started before the persistence hop is measured** (§13 item 9), or it inherits C87's exact failure |
+| **R6** | infill panels | ⚠ **TWO blockers now.** (1) the persistence hop is still unmeasured (§13 item 9) — start without it and it inherits C87's exact failure; (2) ⛔ **NEW, measured 2026-08-19:** a circular run already allocates **93 distinct materials**, and the neighbouring family lost the WebGPU device at ~100 (§15.5) |
 | **R3** | type authoring | ⚠ needs the same persistence answer; machinery already exists |
 | **R8** | slab edge | Case A implementable now; **Case B refuses by name** until the wall-occupancy query exists |
 | **R4** | rake / curve | ⛔ **the conical-vs-radius DECISION** (§15.4) + the `HandrailRunGeometry` wire-or-delete decision (§11 row 25) |
