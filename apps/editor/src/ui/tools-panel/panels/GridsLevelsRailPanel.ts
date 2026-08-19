@@ -36,13 +36,13 @@
 import type { ToolsRailController } from '../ToolsRailController';
 import type { ToolsPanelProps }      from '../ToolsPanelTypes';
 import * as PryzmIcons               from '../../icons/PryzmIcons';
-import { viewDefinitionStore }       from '@pryzm/core-app-model';
 import type { ViewDefinition }       from '@pryzm/core-app-model';
+// §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — THE single view-resolution authority. The
+// plan/section type tables that used to live here moved into it, so this panel and
+// the keyboard delete route cannot answer "which view" differently (C84 EI-1).
+import { activePlanPane, activeSectionPane } from '@app/engine/views/viewPanes';
 
 type ViewType = ViewDefinition['viewType'];
-
-const PLAN_TYPES:    readonly ViewType[] = ['plan', 'structural-plan'];
-const SECTION_TYPES: readonly ViewType[] = ['section', 'elevation'];
 
 export class GridsLevelsRailPanel {
     private _gridBtn:  HTMLButtonElement | null = null;
@@ -96,11 +96,19 @@ export class GridsLevelsRailPanel {
             window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
                 this._handleViewActivated(payload);
             });
+            // §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — opening, closing, or re-targeting
+            // the SPLIT pane changes the answer to "is there a plan view the user is
+            // working in" without ever firing `view-activated`. Listening only to the
+            // latter is precisely why the button never woke up when the RIGHT pane
+            // became the plan view.
+            window.runtime?.events?.on('split-view-activated',   () => this._syncEnabledState());
+            window.runtime?.events?.on('split-view-deactivated', () => this._syncEnabledState());
+            window.runtime?.events?.on('split-view-view-changed', () => this._syncEnabledState());
             this._listenerBound = true;
         }
 
         // Sync to the currently-active view (if any) on open
-        this._syncEnabledState(this._currentViewType());
+        this._syncEnabledState();
 
         return root;
     }
@@ -109,30 +117,37 @@ export class GridsLevelsRailPanel {
     // View-state plumbing
     // ──────────────────────────────────────────────────────────────────────────
 
+    /**
+     * §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — this used to read ONLY
+     * `viewController.currentViewDefinitionId`, i.e. the PRIMARY (left) pane. In a
+     * split layout the founder's plan view is frequently the RIGHT pane, and the
+     * Grid button stayed grey with the hint "Open a plan view to place a Grid"
+     * while a plan view was open and visible on screen.
+     *
+     * The gate was asking "IS THE MAIN VIEW A PLAN VIEW?" when the question is
+     * "IS THERE A PLAN VIEW THE USER IS WORKING IN?". `activePlanPane()` answers
+     * the latter across every open pane, focused pane first, and reduces to the
+     * exact primary-only answer when only one pane is open.
+     *
+     * NOT special-cased on "if split" — there is one enumeration of panes and the
+     * enablement question is asked of the list (C84 EI-1 / EI-9).
+     */
     private _currentViewType(): ViewType | null {
-        const vc = window.viewController; // TODO(D.4): legacy viewController — replace with runtime.viewRegistry controller
-        const id: string | null = vc?.currentViewDefinitionId ?? null;
-        if (id) {
-            const vd = viewDefinitionStore.get?.(id);
-            if (vd?.viewType) return vd.viewType;
-        }
-        // Fall back to ViewController's nav mode for the 3D / Top / etc. cases
-        // where no ViewDefinition is bound. None of those count as plan or
-        // section/elevation, so leaving null is correct → both buttons disabled.
-        return null;
+        return activePlanPane()?.viewType ?? activeSectionPane()?.viewType ?? null;
     }
 
-    private _handleViewActivated(payload: unknown): void {
-        const p = payload as { type?: string } | null | undefined;
-        // ViewController dispatches `type` as the viewType string.
-        // If absent (legacy callers), fall back to a fresh store lookup.
-        const vt: ViewType | null = (p?.type as ViewType) ?? this._currentViewType();
-        this._syncEnabledState(vt);
+    private _handleViewActivated(_payload: unknown): void {
+        // §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — the event's `type` field describes
+        // the view that JUST activated, which is not necessarily the one that
+        // decides enablement (activating a 3D primary must not disable the Grid
+        // button while a plan pane is still open beside it). Always re-resolve
+        // across all panes instead of trusting the payload.
+        this._syncEnabledState();
     }
 
-    private _syncEnabledState(vt: ViewType | null): void {
-        const isPlan       = vt != null && PLAN_TYPES.includes(vt);
-        const isSectElev   = vt != null && SECTION_TYPES.includes(vt);
+    private _syncEnabledState(): void {
+        const isPlan       = activePlanPane() !== null;
+        const isSectElev   = activeSectionPane() !== null;
 
         this._setBtnEnabled(this._gridBtn,  isPlan,
             'Grid placement is only available in a plan view.');

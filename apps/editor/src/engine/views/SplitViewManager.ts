@@ -260,6 +260,18 @@ export class SplitViewManager implements ISplitViewManager {
         return this._planCanvas;
     }
 
+    /**
+     * §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — what this pane is CURRENTLY showing.
+     *
+     * `activeViewId` alone cannot answer "is the split pane a plan view", because
+     * the pane also runs in '3d', 'schedule' and 'sheet' modes while still holding
+     * a `_planViewId`. `viewPanes.listViewPanes()` needs both facts to avoid
+     * reporting a 3D mirror or a schedule embed as a plan surface.
+     */
+    get paneMode(): 'plan' | '3d' | 'schedule' | 'sheet' {
+        return this._svpMode;
+    }
+
     activate(): void {
         if (this._active) return;
         this._active = true;

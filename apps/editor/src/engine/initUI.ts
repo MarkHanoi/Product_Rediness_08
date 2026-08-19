@@ -117,6 +117,12 @@ import { annotationStore }          from '@pryzm/plugin-annotations';
 import { DeleteAnnotationCommand }  from '@pryzm/plugin-annotations';
 // §ANN-SEED — five demo annotations for a project that has none (founder request).
 import { seedDemoAnnotations }      from '@pryzm/plugin-annotations';
+// §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — a grid is selected on a Canvas2D pane, of
+// which there may be TWO. `selectedGridInAnyPane()` is the ONE authority for which
+// pane holds the selection; `RemoveGridCommand` is the delete route that already
+// existed but that no keyboard path could reach. See `deleteSelected` below.
+import { selectedGridInAnyPane, clearGridSelectionInAllPanes } from '@app/engine/views/viewPanes';
+import { RemoveGridCommand }        from '@pryzm/command-registry';
 /** §ANN-SEED — one attempt per session; a refused seed is not retried on every view switch. */
 let _annotationSeedAttempted = false;
 // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
@@ -2414,6 +2420,48 @@ export async function initUI(p: UIParams): Promise<void> {
             unselectAll();
             toast('Annotation deleted', 'success');
             return;
+        }
+
+        // §FIX-GRID-DELETE-IS-A-SILENT-NO-OP (L-1107) — a GRID is selected on a
+        // Canvas2D pane (`PlanViewCanvas._selectedGridId`, set by
+        // PlanViewInteraction), exactly like an annotation and exactly UNLIKE a
+        // THREE Object3D. The `!selectionManager.selectedObject` early-return below
+        // therefore swallowed every keyboard Delete on a selected grid: selection
+        // resolved, the shortcut fired, and NO delete command ever executed. The
+        // founder saw a destructive-looking action do nothing at all.
+        //
+        // `RemoveGridCommand` already existed, complete with snapshot + undo — it
+        // was reachable ONLY from GridManagerPanel's list row and the properties
+        // panel, never from the selection the user was looking at. This is the
+        // missing ROUTE, not a missing command (C84 EI-4a).
+        //
+        // A live 3D BIM selection takes precedence, mirroring the annotation arm
+        // above, so element deletion is untouched.
+        if (!selectionManager.selectedObject) {
+            const gridHit = selectedGridInAnyPane();
+            if (gridHit) {
+                const cm = window.commandManager as unknown as
+                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
+                    | undefined;
+                if (!cm || typeof cm.execute !== 'function') {
+                    // C16 CA-18 / C84 EI-2 — refuse LOUDLY and name why. Never
+                    // return silently from a delete the user actually asked for.
+                    toast('Grid not deleted — command system not ready', 'warn');
+                    return;
+                }
+                const res = cm.execute(new RemoveGridCommand({ gridId: gridHit.gridId }));
+                if (res && res.success === false) {
+                    toast(`Grid not deleted — ${res.error ?? res.info?.join('; ') ?? 'the model refused the delete'}`, 'warn');
+                    return;
+                }
+                // Clear the (now-dangling) selection in EVERY pane, not just the
+                // one that held it — a stale `_selectedGridId` would otherwise keep
+                // a deleted grid highlighted in the other pane.
+                clearGridSelectionInAllPanes();
+                unselectAll();
+                toast('Grid deleted', 'success');
+                return;
+            }
         }
 
         if (!selectionManager.selectedObject) {
