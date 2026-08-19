@@ -639,3 +639,81 @@ and is indistinguishable from *"nobody looked"*).
 14. **Whether `lighting` is a member of the 26-value `StoreKey` union** (`command-registry/src/types.ts:557-584`)
     — asserted by L-953 and consistent with `UpdateLightingParametersCommand.ts:46` type-checking, but
     the union was not opened.
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from the founder's request logged as
+> [L-1032](../../04-reference/ISSUE-LOG.md): *"Every element needs to be possible to be changed the
+> level via properties panel … and via chat."* The honest end state that request asks for is **not**
+> *"every family has a dropdown"* — it is **every family either offers the control or declares, in
+> its contract, why it must not**. This section is that declaration for this family.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`, and the L3 event bridge, the L7 property panel and the chat registration
+> all read those rows. Re-deriving the answer here would be the fourth copy and the thing C84 EI-9
+> forbids. If this section and the register disagree, **the register wins and this section is
+> stale** — which is a defect, not a discrepancy to live with.
+
+### THE VERB — `lighting.changeLevel` ✅ LIVE
+
+| | |
+|---|---|
+| **Payload** | `{ lightingId, levelId }` — declared at `packages/command-bus/src/levelChangeVerbs.ts` |
+| **Handler** | `plugins/lighting/src/handlers/ChangeLightingLevel.ts` |
+| **Registered** | `plugins/lighting/src/handlers/index.ts:27` |
+| **Legacy move** | `packages/geometry-lighting/src/LightingStore.ts` — `changeLevel(id, newLevelId)` |
+| **Mirror row** | `apps/editor/src/engine/elementLevelChangedMirror.ts` — `LEGACY_LEVEL_MOVERS.lighting` |
+| **Undo** | `elementUndoStoreAdapter.ts` §L-946 arm: a depth-2 `[id,'levelId']` inverse patch routes to `store.changeLevel()`, and re-registers bimManager + the view-dependency tracker with it |
+
+### WHY THE STORE NEEDED ITS OWN `changeLevel`, FOR THIS FAMILY SPECIFICALLY
+
+`LightingStore.update()` is a MERGE, so it would *tolerate* a `{levelId}` write — but
+tolerating is not the same as being the right operation, and two family-specific facts make the
+dedicated method necessary rather than merely tidy:
+
+1. **`LightingStore.update` emits only the legacy `_bus` event `bim-lighting-updated` and never
+   touches `storeEventBus`** (measured 2026-08-19). Anything subscribing to the semantic bus does
+   not see lighting updates at all. A storey move that no semantic subscriber hears cannot dirty
+   the plan views it needs to.
+2. `elementUndoStoreAdapter` routes a `levelId` inverse patch **only** when
+   `typeof store.changeLevel === 'function'`. Without the method, Ctrl+Z takes the generic branch.
+
+> ⚠ **UNRESOLVED AND DECLARED:** `LightingTypes.ts` carries an optional **`hostId`**. A light
+> hosted on a ceiling arguably has no independent storey — the C15 §2 argument, one family over. This
+> contract does **not** settle it. If hosted lights must refuse, that refusal belongs in
+> `LEVEL_CHANGE_REFUSALS` with the clause that decides it, not in an unstated assumption here.
+
+### THE FOUR-PART CHAIN, AND WHY ALL FOUR ARE THIS CONTRACT'S BUSINESS
+
+A level change is not one write. Omit any part and the command reports success over a void:
+
+1. **the bus verb** — rewrites `levelId` in the plugin DTO store and produces the patch pair;
+2. **the legacy mirror** — moves the record the renderer, plan view, persistence and IFC export
+   actually read (§2 THE AUTHORITY). Skip this and you have L-946: *"the command succeeded, the
+   plugin store was right, and the layer the user experiences kept its own unchanged copy"*;
+3. **spatial re-registration** — `bimManager.registerElement` (exclusive-containment, so
+   re-registering IS the move) and the view-dependency element→level map;
+4. **both storeys re-project** — the one being LEFT as well as the one being joined. Dirty only the
+   destination and the source storey's plan view keeps drawing an element that has gone.
+
+### ⚠ THE CAP ON THIS FEATURE — L-1085, OPEN
+
+`canExecute` validates the element's existence against the **plugin DTO store**, and
+[C84 EI-5a](C84-ELEMENT-INTEGRITY.md) records that *"after any project load, every plugin DTO store
+is EMPTY."* So the control works on elements authored **in the current session** and **refuses, by
+name, on anything restored from a saved project**. The refusal is C16 CA-18 conformant and is
+strictly better than the alternative — relaxing the check would make the forward move work while
+producing an empty inverse patch, i.e. an authoritative mutation with no Ctrl+Z (C84 EI-7). **The
+real fix is ADR-0331 §D2/§D3 and is not per-family.** Do not work around it here.
+
+### DUPLICATE-TO-LEVEL
+
+A **separate verb**, never a flag on the level change: it mints new ids and must not collide with
+the source. Its per-family disposition is declared alongside the copy-payload mapping in
+`apps/editor/src/engine/views/plantools/`, which is the one place a legacy record is translated into
+a create payload — L-978 is what a second copy of that mapping costs (four field names the receiver
+did not accept, so every copied curtain wall was minted at the schema's default origin, silently).

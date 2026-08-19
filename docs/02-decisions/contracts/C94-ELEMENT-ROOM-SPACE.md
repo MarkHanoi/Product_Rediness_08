@@ -622,3 +622,63 @@ instinct and makes the canonical path authoritative on load — but it does not 
     [C71 §5.8](C71-GRAPH-AND-TOPOLOGY.md) this requires an **executed read-back**, not the presence of a
     restore call, and C84 §4C(a) records awarding exactly that pass by read. **Not attempted here.**
 11. **`SetRoomOccupancyCommand.execute()`'s exact `roomStore.update` line.**
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from the founder's request logged as
+> [L-1032](../../04-reference/ISSUE-LOG.md): *"Every element needs to be possible to be changed the
+> level via properties panel … and via chat."* The honest end state that request asks for is **not**
+> *"every family has a dropdown"* — it is **every family either offers the control or declares, in
+> its contract, why it must not**. This section is that declaration for this family.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`, and the L3 event bridge, the L7 property panel and the chat registration
+> all read those rows. Re-deriving the answer here would be the fourth copy and the thing C84 EI-9
+> forbids. If this section and the register disagree, **the register wins and this section is
+> stale** — which is a defect, not a discrepancy to live with.
+
+### THE VERB — ⛔ **DECLARED REFUSAL. THIS FAMILY MUST NOT GET A LEVEL DROPDOWN.**
+
+| | |
+|---|---|
+| **Declared at** | `packages/command-bus/src/levelChangeVerbs.ts` — `LEVEL_CHANGE_REFUSALS.room` |
+| **Disposition** | `structural` |
+| **Deciding clause** | [C84 EI-1](C84-ELEMENT-INTEGRITY.md) — one authority per family. For `room`, the authority is **wall topology**, not a user-authored `levelId` |
+| **Evidence** | `packages/room-topology/src/RoomStore.ts:302-304` — `update()` **THROWS** when `levelId` differs |
+| **Shown to the user** | *"Rooms are detected from the walls around them. Move the walls and the room is re-detected on the new storey."* |
+
+**A room is not authored; it is DERIVED.** `REDETECT_ROOMS` produces the room set for a
+storey from that storey's wall topology — which is precisely why a wall level change fires
+`REDETECT_ROOMS` on **both** the source and the destination level, and why `RoomStore.update()`
+throws rather than warns when handed a differing `levelId`: the throw is the store refusing to hold
+a fact it is not the authority for.
+
+Offering a level dropdown on a room would therefore create a second, rival answer to *"which storey
+is this room on?"* — one authored by the user, one derived from geometry — and the very next
+re-detection would silently overwrite the user's. **A control whose effect is erased by the next
+unrelated edit is worse than no control**, because the user cannot tell which of the two happened.
+
+The correct user path already exists and is the wall level change: move the walls, and the room
+follows by construction.
+
+### THIS IS A FEATURE OF THE DESIGN, NOT A GAP IN IT
+
+The property panel renders **three** distinct outcomes and never collapses them into two: a
+dropdown, the declared refusal sentence, or nothing at all when no one has decided. Rendering
+nothing for a family that MUST NOT move would be indistinguishable from a family nobody looked at —
+the blank-reads-as-fine failure [C84 EI-1b](C84-ELEMENT-INTEGRITY.md) names, and the same shape as
+§context-data-honesty, where failure and emptiness are the same value. **The user is owed the
+sentence.**
+
+`apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts` ARM 5 enforces this: every panel
+family must resolve to a verb **XOR** a declared refusal — never to neither, never to both.
+
+### DUPLICATE-TO-LEVEL
+
+⛔ **Also refused, and for the same reason.** Duplicating a room to another storey would mint a
+room record on a storey whose wall topology does not produce it; the next `REDETECT_ROOMS` on that
+level deletes it. To get the room upstairs, duplicate the **walls** that bound it.

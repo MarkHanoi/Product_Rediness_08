@@ -662,3 +662,81 @@ that has no destination field.** It reports success. Under C84's governing sente
 | `UpdateElementParameterCommand.ts:214-219` concedes roof is not audit-neutral | **CONFIRMED, line span corrected to `:213-218`** |
 | `'RoofPart'` is roof's `elementType` (§4E) | **REFINED** — the child mesh only (`:304`); the pickable root carries `'roof'` (`:268`). Plus `'RoofMesh'`, recognised at `EdgeProjectorService.ts:156` with **no producer** |
 | slab/door/window parity harnesses OWED (§5) | **EXTENDED** — roof's parity directory **exists** and is a Stack-B **self**-snapshot. C84 §8.e. ⚠ A lane must not read its existence as EI-11 satisfied |
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from the founder's request logged as
+> [L-1032](../../04-reference/ISSUE-LOG.md): *"Every element needs to be possible to be changed the
+> level via properties panel … and via chat."* The honest end state that request asks for is **not**
+> *"every family has a dropdown"* — it is **every family either offers the control or declares, in
+> its contract, why it must not**. This section is that declaration for this family.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`, and the L3 event bridge, the L7 property panel and the chat registration
+> all read those rows. Re-deriving the answer here would be the fourth copy and the thing C84 EI-9
+> forbids. If this section and the register disagree, **the register wins and this section is
+> stale** — which is a defect, not a discrepancy to live with.
+
+### THE VERB — `roof.changeLevel` ✅ LIVE
+
+| | |
+|---|---|
+| **Payload** | `{ roofId, levelId }` — declared at `packages/command-bus/src/levelChangeVerbs.ts` |
+| **Handler** | `plugins/roof/src/handlers/ChangeRoofLevel.ts:25` |
+| **Registered** | `plugins/roof/src/handlers/index.ts:30` |
+| **Legacy move** | `packages/geometry-roof/src/RoofStore.ts:153` — `changeLevel(id, newLevelId)` |
+| **Mirror row** | `apps/editor/src/engine/elementLevelChangedMirror.ts` — `LEGACY_LEVEL_MOVERS.roof` |
+| **Undo** | `elementUndoStoreAdapter.ts` §L-946 arm: a depth-2 `[id,'levelId']` inverse patch routes to `store.changeLevel()`, and re-registers bimManager + the view-dependency tracker with it |
+
+### WHY THE STORE NEEDED ITS OWN `changeLevel`, FOR THIS FAMILY SPECIFICALLY
+
+`RoofStore.update()` **THROWS** `levelId is immutable after creation` (`RoofStore.ts:109`). A
+mirror written as a plain `update({levelId})` therefore fails loudly at runtime and silently in any
+suite that never runs it — the throw lands in `elementUndoStoreAdapter`'s per-patch `try/catch` as
+one `console.error` while the keypress reports success. `changeLevel` (`:153`) is the only route,
+and it emits **one `'update'`** (`:175`) rather than `remove`+`add`, because
+`RoofFragmentBuilder._updateRoofSync` re-derives `worldY = getLevelById(levelId).elevation +
+baseOffset` and repositions the root on every update.
+
+> ⚠ **THE FINDING WORTH RECORDING HERE IS NOT THE VERB — IT IS THAT NOTHING DISPATCHED IT.**
+> `roof.changeLevel` has been live, undoable and correctly cascading **since S11**. Until
+> 2026-08-19 the property panel's eligibility test was the literal `elType === 'wall'`
+> (`PropertyPanelSections.ts`), so **no control anywhere in the product dispatched this verb.** A
+> complete, contract-conformant, tested capability was unreachable for months because one `if`
+> compared against a string instead of consulting a table. §committed-is-not-reachable, in the
+> property panel. That is why the eligibility answer now lives in a register and not in an `if`.
+
+### THE FOUR-PART CHAIN, AND WHY ALL FOUR ARE THIS CONTRACT'S BUSINESS
+
+A level change is not one write. Omit any part and the command reports success over a void:
+
+1. **the bus verb** — rewrites `levelId` in the plugin DTO store and produces the patch pair;
+2. **the legacy mirror** — moves the record the renderer, plan view, persistence and IFC export
+   actually read (§2 THE AUTHORITY). Skip this and you have L-946: *"the command succeeded, the
+   plugin store was right, and the layer the user experiences kept its own unchanged copy"*;
+3. **spatial re-registration** — `bimManager.registerElement` (exclusive-containment, so
+   re-registering IS the move) and the view-dependency element→level map;
+4. **both storeys re-project** — the one being LEFT as well as the one being joined. Dirty only the
+   destination and the source storey's plan view keeps drawing an element that has gone.
+
+### ⚠ THE CAP ON THIS FEATURE — L-1085, OPEN
+
+`canExecute` validates the element's existence against the **plugin DTO store**, and
+[C84 EI-5a](C84-ELEMENT-INTEGRITY.md) records that *"after any project load, every plugin DTO store
+is EMPTY."* So the control works on elements authored **in the current session** and **refuses, by
+name, on anything restored from a saved project**. The refusal is C16 CA-18 conformant and is
+strictly better than the alternative — relaxing the check would make the forward move work while
+producing an empty inverse patch, i.e. an authoritative mutation with no Ctrl+Z (C84 EI-7). **The
+real fix is ADR-0331 §D2/§D3 and is not per-family.** Do not work around it here.
+
+### DUPLICATE-TO-LEVEL
+
+A **separate verb**, never a flag on the level change: it mints new ids and must not collide with
+the source. Its per-family disposition is declared alongside the copy-payload mapping in
+`apps/editor/src/engine/views/plantools/`, which is the one place a legacy record is translated into
+a create payload — L-978 is what a second copy of that mapping costs (four field names the receiver
+did not accept, so every copied curtain wall was minted at the schema's default origin, silently).

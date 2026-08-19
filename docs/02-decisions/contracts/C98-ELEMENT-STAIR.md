@@ -547,3 +547,70 @@ overlay renderers, so the verdict HOLDS**; only the pointers drifted.
 9. **L-951's pre-fix line citations** — unverifiable at HEAD; `a6e4d513` rewrote the file and the parent
    commit was not checked out.
 10. **Stair `element.changeLevel`** — whether a branch exists.
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from the founder's request logged as
+> [L-1032](../../04-reference/ISSUE-LOG.md): *"Every element needs to be possible to be changed the
+> level via properties panel … and via chat."* The honest end state that request asks for is **not**
+> *"every family has a dropdown"* — it is **every family either offers the control or declares, in
+> its contract, why it must not**. This section is that declaration for this family.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`, and the L3 event bridge, the L7 property panel and the chat registration
+> all read those rows. Re-deriving the answer here would be the fourth copy and the thing C84 EI-9
+> forbids. If this section and the register disagree, **the register wins and this section is
+> stale** — which is a defect, not a discrepancy to live with.
+
+### THE VERB — ⛔ **DECLARED REFUSAL. THIS FAMILY MUST NOT GET A LEVEL DROPDOWN.**
+
+| | |
+|---|---|
+| **Declared at** | `packages/command-bus/src/levelChangeVerbs.ts` — `LEVEL_CHANGE_REFUSALS.stair` |
+| **Disposition** | `deferred` |
+| **Deciding clause** | [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) — a verb that cannot commit must REFUSE and name the mechanism |
+| **Evidence** | `packages/geometry-stair/src/StairTypes.ts:148-150` — `levelId` **and** `baseLevelId` **and** `topLevelId` |
+| **Shown to the user** | *"A stair spans two storeys. Which end a "change level" should move is not decided yet, so the control is withheld rather than guessing."* |
+
+**A stair is the only family in this suite — with lift — whose storey membership is not one
+value.** It carries three: `levelId`, `baseLevelId` and `topLevelId` (`StairTypes.ts:148-150`). A
+single-target `changeLevel(id, newLevelId)` is therefore **ambiguous by construction**, and the
+ambiguity is not a naming problem:
+
+- move `baseLevelId` alone → the stair stretches, and its rise/going no longer match its tread count;
+- move both ends together → a translation, which is a different verb (`stair.move`);
+- move `levelId` alone → the record's three storey fields now disagree with each other.
+
+**The last option is what a copied-from-slab implementation would have done**, and it would have
+type-checked, dispatched, reported success and left the stair claiming three storeys at once. This
+is exactly the case the founder's *"absolutely architecturally sound … no shortcuts"* rules out.
+
+**WHAT WOULD SETTLE IT** — a founder or design decision on the SEMANTICS, not more code: does
+*"move this stair to Level 2"* mean *re-seat its base on Level 2 and keep its rise* (so `topLevelId`
+follows), or *keep its base and re-target its top*? Once that sentence exists, the verb is one row
+in `LEVEL_CHANGE_VERBS` and one `StairStore.changeLevel`. **Until it exists, the refusal is the
+correct answer** and is recorded here so the blank is not read as an oversight (C84 EI-1b).
+
+### THIS IS A FEATURE OF THE DESIGN, NOT A GAP IN IT
+
+The property panel renders **three** distinct outcomes and never collapses them into two: a
+dropdown, the declared refusal sentence, or nothing at all when no one has decided. Rendering
+nothing for a family that MUST NOT move would be indistinguishable from a family nobody looked at —
+the blank-reads-as-fine failure [C84 EI-1b](C84-ELEMENT-INTEGRITY.md) names, and the same shape as
+§context-data-honesty, where failure and emptiness are the same value. **The user is owed the
+sentence.**
+
+`apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts` ARM 5 enforces this: every panel
+family must resolve to a verb **XOR** a declared refusal — never to neither, never to both.
+
+### DUPLICATE-TO-LEVEL
+
+⚠ **Also deferred, and for the same undecided reason** — a duplicate must be given a base and a
+top, and nothing yet says which storeys those are. Note the two questions are **separable**:
+duplicate-to-level could be settled first by requiring the caller to supply BOTH ends explicitly,
+since a duplicate has no prior position to preserve. That is a smaller decision than the move, and
+it is the one to take first.

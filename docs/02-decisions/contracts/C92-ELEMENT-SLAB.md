@@ -335,12 +335,22 @@ redundant, unreachable copy of it. Worse, `packages/runtime-composer/src/types.t
 | `slab.updateSystemTypeBatch` | L1, `[]` | — | — | ⚠ | — |
 | **ROTATE** | — | — | — | — | ⛔ **NO ROTATE VERB.** Expressed as a polygon edit. Declared, not omitted |
 | **COLOUR** | — | — | — | — | ⛔ **NONE** distinct from `setMaterial`, which refuses |
-| **LEVEL CHANGE** | — | — | — | — | ⛔ **No bus verb.** `UpdateSlabLevelCommand` (L2) exists; whether any surface dispatches it is **NOT MEASURED** |
+| **LEVEL CHANGE** — `slab.changeLevel` | L1 | DTO + legacy (via CEB → `elementLevelChangedMirror`) | legacy | ✅ | **BUILT 2026-08-19 (L-1032).** Payload `{slabId, levelId}`, declared in `packages/command-bus/src/levelChangeVerbs.ts`. Handler `plugins/slab/src/handlers/ChangeSlabLevel.ts`. Legacy move `SlabStore.changeLevel`. Undo routes through `elementUndoStoreAdapter`'s §L-946 `levelId` arm. Proven end-to-end by `apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts` (6/6) |
 
 ### TO-BE — normative
 
 - **SL-V-1.** Every row must reach `=` ✅. The eleven non-refusing DTO writers are the work (SL-P-2).
 - **SL-V-2.** The three undeclared absences (rotate, colour, bus-level-change) are now **DECLARED**.
+- **SL-V-3 (L-1032, 2026-08-19).** The bus-level-change absence is **CLOSED**, and the row above was
+  corrected: it read *"whether any surface dispatches `UpdateSlabLevelCommand` is NOT MEASURED"*.
+  **It is now measured — NOTHING dispatches it** (L-1086). Its only references are the
+  DESERIALISER table row `apps/editor/src/engine/CommandRegistry.ts:328`, the barrel export
+  `packages/command-registry/src/index.ts:266`, and `PlanOrdering.ts:80`. A deserialiser row proves a
+  command can be RECONSTRUCTED from a serialised event; it never proves a surface CONSTRUCTS one.
+  The live route is the L1 bus verb, and `UpdateSlabLevelCommand` is the decided loser (ADR-0331 §D1)
+  — recorded, not deleted, because two of its behaviours are better than the winner's and must not
+  be lost by silence: it validates the destination against `bimManager`
+  (`UpdateSlabLevelCommand.ts:43-44`) and takes a full `structuredClone` undo snapshot (`:60`).
 
 ---
 
@@ -599,7 +609,7 @@ face aligns with the level datum (Finished Floor Level). Default: `'LEVEL'`."* `
 | **R-5** | The L0 schema refuses a CLOSED boundary (duplicated closing vertex) | `Slab.ts:63-70`, message `:69` | ✅ correct — a representation invariant enforced at parse |
 | **R-6** | `SlabFragmentBuilder` refuses holes without a polygon outline, falling back to `BoxGeometry` | `:1208` — *"holes not supported without a polygon outline"* | ⚠ **A SILENT FALLBACK, NOT A REFUSAL.** It renders a box and says nothing. It MUST warn or refuse |
 | **R-7** | **`canExecute` MUST be the LAST method before `execute`** | `MoveSlab.ts:98-107` | ⚠ **A GATE'S PARSER SHAPING THE SOURCE** — a census tool slices from `canExecute` to the next `execute(`. C84 §7B.5's shape. Declared, not hidden. Same note as [C85 §12 R-5](C85-ELEMENT-WALL.md) |
-| **R-8** | No rotate verb, no colour verb, no bus level-change verb | §6 | ⚠ **THREE UNDECLARED ABSENCES, DECLARED HERE** |
+| **R-8** | No rotate verb, no colour verb | §6 | ⚠ **TWO UNDECLARED ABSENCES, DECLARED HERE.** ⚠ **CORRECTED 2026-08-19 (L-1032)** — this row read *"no bus level-change verb"* as a third absence. `slab.changeLevel` now exists and is reachable from the property panel. The absence is CLOSED, not re-declared |
 | **R-9** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
 | **R-10** | Stack B has no editor render path | C84 §4D; `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — **ADR-0331 §D5 is an open FOUNDER question** (C84 §9) |
 
@@ -625,7 +635,9 @@ refuse today, and it does not.
 3. **Bake-worker slab handling** — no slab code located in `apps/bake-worker/src`; whether that is an
    absence or a miss was not resolved.
 4. **`slab.create-on-all-floors`** (`affectedStores: [] :58`) — its delegate's write and restore sets.
-5. **Whether any surface dispatches `UpdateSlabLevelCommand`** — the level-change axis.
+5. ~~**Whether any surface dispatches `UpdateSlabLevelCommand`** — the level-change axis.~~
+   **MEASURED 2026-08-19 (L-1086): nothing does.** See §6 SL-V-3. Struck rather than deleted so the
+   register records that the question was answered, not that it was dropped.
 6. **Whether `SlabLayerFunction` members all survive to the builder** (EI-3 sweep).
 7. **Whether the 3-D region committer (`SlabTool.ts:570`, `:762`) and the plan committer
    (`SlabPlanToolHandler.ts:125`) produce identical geometry** — the #2a equivalence proof.
