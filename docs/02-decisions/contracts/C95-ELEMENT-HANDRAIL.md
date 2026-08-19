@@ -1087,9 +1087,29 @@ WHOLE run**. There is no per-bay panel, no per-panel kind and no per-panel mater
 > `materials === segments × 3` on both the baluster and the glass run, so a fix BREAKS
 > it — correctly, and visibly, in the same commit as the fix.
 >
-> ⚠ **DO NOT "solve" this by flipping `__pryzmElementInstancingV1`.** PERF2 measured
-> L-691/ADR-0297 dispose-before-detach as UNFIXED in `WindowBuilder` and
-> `ColumnFragmentBuilder`; flipping it can kill the scene.
+> ⚠ **AND THE INSTANCING ESCAPE HATCH IS NOT THE ANSWER EITHER — RE-MEASURED THE
+> SAME DAY, BECAUSE THE REASON CHANGED UNDER IT.** The standing advice was PERF2's:
+> do not flip `__pryzmElementInstancingV1`, because L-691/ADR-0297
+> dispose-before-detach was UNFIXED in `WindowBuilder` / `ColumnFragmentBuilder`.
+> Lane INST1 (`079aab83`) has since closed exactly that at the **L1 chokepoint** —
+> `dedupInstanceMaterial` stamps the elected canonical material — stated to cover all
+> six families. **So the dispose hazard is no longer the blocker it was.**
+>
+> ⛔ **WHAT BLOCKS HANDRAIL NOW IS AUTHORED-BUT-UNWIRED, one level down.**
+> `_FAMILY_DEFAULTS` in `ElementInstanceBridge` DECLARES `handrail: false`, and a
+> caller reaches its per-family default **only by NAMING the family**:
+> `WindowBuilder.ts:331` calls `isElementInstancingEnabled('window')`;
+> `HandrailFragmentBuilder.ts:78` calls `isElementInstancingEnabled()` with **no
+> argument**, which is the legacy master-only contract. **The `handrail` row in the
+> per-family table is therefore unreachable from the handrail builder** — the family
+> can only be switched by the global master flag, all-or-nothing, which is precisely
+> what the per-family table exists to avoid.
+>
+> ⇒ **The fix, when someone takes it, is to name the family at
+> `HandrailFragmentBuilder.ts:78`, the way the window builder does** — after which
+> handrail instancing becomes a one-row decision in `_FAMILY_DEFAULTS` rather than a
+> fleet-wide flip. ⚠ Even then it addresses the MESH axis; the 93 distinct MATERIALS
+> are a per-RECORD count and instancing does not reduce them — it is DEFEATED by them.
 
 ---
 

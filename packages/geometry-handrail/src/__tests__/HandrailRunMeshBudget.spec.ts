@@ -29,10 +29,31 @@
  * ratchet on a real baseline. It asserts NOTHING about what is acceptable — that
  * is the founder's call — only about what changes.
  *
- * ⚠ THIS SUITE DOES NOT FLIP THE INSTANCING FLAG, AND MUST NOT. PERF2 measured
- * that L-691/ADR-0297 dispose-before-detach is UNFIXED in `WindowBuilder` and
- * `ColumnFragmentBuilder`, and turning instancing on can kill the scene. The flag
- * is left exactly as production has it (OFF) so these are the numbers a USER gets.
+ * ⚠ THIS SUITE DOES NOT FLIP THE INSTANCING FLAG. It is left exactly as
+ * production has it, so these are the numbers a USER gets.
+ *
+ * ⭐ AND THE REASON NOT TO FLIP IT CHANGED WHILE THIS FILE WAS BEING WRITTEN —
+ * RE-MEASURED 2026-08-19 rather than left as inherited caution. The original
+ * rationale was PERF2's: L-691/ADR-0297 dispose-before-detach was UNFIXED in
+ * `WindowBuilder` and `ColumnFragmentBuilder`. Lane INST1 (`079aab83`) has since
+ * closed that at the L1 chokepoint — `dedupInstanceMaterial` now stamps the elected
+ * canonical material — which it states covers all six families. So the DISPOSE
+ * hazard is no longer the blocker it was.
+ *
+ * ⛔ WHAT BLOCKS HANDRAIL NOW IS SOMETHING ELSE, AND IT IS AUTHORED-BUT-UNWIRED:
+ * `_FAMILY_DEFAULTS` in `ElementInstanceBridge` DECLARES `handrail: false`, and a
+ * caller reaches its per-family default only by NAMING the family.
+ * `WindowBuilder.ts:331` calls `isElementInstancingEnabled('window')`;
+ * `HandrailFragmentBuilder.ts:78` calls `isElementInstancingEnabled()` with NO
+ * argument, which is the legacy master-only contract. **So the `handrail` entry in
+ * the per-family table is unreachable from the handrail builder** — the family can
+ * only ever be switched by the global master flag, all-or-nothing, which is
+ * precisely what the per-family table exists to avoid.
+ *
+ * That is the shape of the fix when someone takes it: name the family at :78, the
+ * way the window builder does. It is deliberately NOT done here — this is a census,
+ * and turning on instancing inside a measurement commit would invalidate the very
+ * numbers the commit exists to record.
  *
  * CONTRACTS: C95 §15.5 (R6 infill) · ADR-0076 Axis 3 · C04 (rendering budget).
  */
@@ -217,11 +238,11 @@ describe('HandrailRunMeshBudget — the per-run census (C95 §15.5 R6 gate)', ()
      * ⚠ NOT A PERFORMANCE ASSERTION — a REACHABILITY one, and it is the reason the
      * two counts above are the numbers a real user gets.
      *
-     * `__pryzmElementInstancingV1` is OFF by default, so every baluster and post
-     * above is a REAL MESH. If this ever reads `true` by default, the ceilings in
-     * this file stop describing production and must be re-measured — and, per PERF2,
-     * flipping it is blocked on L-691/ADR-0297 dispose-before-detach being fixed in
-     * `WindowBuilder` and `ColumnFragmentBuilder` first.
+     * `isElementInstancingEnabled()` — which is how `HandrailFragmentBuilder:78`
+     * asks — is the legacy master-only contract: `__pryzmElementInstancingV1 === true`,
+     * default OFF. So every baluster and post counted above is a REAL MESH. If this
+     * ever reads `true` by default, the ceilings in this file stop describing
+     * production and must be re-measured.
      */
     it('records that instancing is OFF by default, so these are the LIVE numbers', () => {
         const flag = (globalThis as { __pryzmElementInstancingV1?: boolean }).__pryzmElementInstancingV1;
