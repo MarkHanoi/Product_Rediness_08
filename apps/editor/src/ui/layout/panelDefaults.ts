@@ -532,6 +532,70 @@ export function resetAppPhaseForNewProject(): boolean {
     return true;
 }
 
+/** The gesture that opened a project. See {@link declarePhaseForProjectOpen}. */
+export interface ProjectOpenGesture {
+    /**
+     * TRUE only for the create hop of the GUIDED onboarding flow (RAC brief →
+     * create → PRYZM Earth → draw → generate). That flow declares its own phase
+     * from {@link resetAppPhaseForNewProject} at `OnboardingStepController.start()`
+     * and clears it at `dispose()`; the open seam must not pre-empt it, or the
+     * launcher rail would mount for one frame and then be taken away.
+     *
+     * ⛔ NOT the same as `isNewProject`. The hub's "Skip — blank canvas" create is
+     * also a new project and runs NO guided flow, so keying on `isNewProject`
+     * would strand exactly the users this function exists to fix.
+     */
+    readonly guidedOnboarding?: boolean;
+}
+
+/**
+ * §L-1186 — **the project-open gesture DECLARES the phase.**
+ *
+ * ── The defect this closes ───────────────────────────────────────────────────
+ * `currentPhase` initialises to `'onboarding-globe'` and, before this function
+ * existed, only TWO production call sites ever moved it to `'canvas'`:
+ * `enterCanvasWithSitePlanUnderlay()` (the guided site-plan landing) and
+ * `GISAreaLayout.activateView()` (a click on a BIM view-mode button). **Neither
+ * is on the path a user takes when they open an existing project** — hub click,
+ * deep link, reopen-after-reload all run `PlatformRouter.launchWorkspace()` and
+ * nothing on that path spoke. So the phase stayed `'onboarding-globe'` for the
+ * whole session, `panelAbsent('launcher-rail')` stayed TRUE, and the founder's
+ * floating stack (Buildable Envelope · Site Analysis · Living Graph · Graph ·
+ * Plan + Site · PRYZM Earth), the Split View toggle and the View-Properties
+ * launcher were never mounted at all. It read as "OFTEN" because clicking any
+ * view-mode button afterwards latched the phase and the rail appeared — the
+ * chrome came back for users who happened to make that click, and never for
+ * users who did not.
+ *
+ * ── Why a declaration at the seam, and not a latch left to chance ────────────
+ * The phase was state that had to be REMEMBERED by whoever happened to pass
+ * through the right code — this repo's signature failure (C85 §10.5 / L-1159 /
+ * L-1189). It is now DERIVED from the two facts that actually determine it, each
+ * declared by the one owner that knows it:
+ *
+ *   · **the open gesture** — opening a project that already exists IS arriving at
+ *     the canvas, and this function says so at the seam every such open passes
+ *     through, BEFORE any chrome mounts;
+ *   · **the guided session's lifetime** — `start()` declares the globe,
+ *     `dispose()` declares the canvas, so the exceptional state is bracketed by
+ *     its owner instead of being the value every silent path inherits.
+ *
+ * The module-load default stays `'onboarding-globe'` (a silent path degrades to
+ * "quiet", never to "model chrome over a globe with no model"), but no path that
+ * matters is silent any more.
+ *
+ * Returns the phase in force after the declaration, so a caller can log the fact
+ * rather than assume it.
+ */
+export function declarePhaseForProjectOpen(gesture: ProjectOpenGesture = {}): AppPhase {
+    if (gesture.guidedOnboarding) {
+        console.debug('[panelDefaults] project open is the guided-onboarding create hop — the flow owns the phase.');
+        return currentPhase;
+    }
+    setAppPhase('canvas');
+    return currentPhase;
+}
+
 /**
  * Subscribe to phase changes. The callback must re-apply {@link panelState} to its
  * own DOM — this module owns the DECISION, never the nodes. Returns a disposer.

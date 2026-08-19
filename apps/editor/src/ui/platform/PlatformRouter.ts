@@ -76,6 +76,13 @@ import { beginStartupBudget, markStartupPhase } from '@app/engine/startupBudget'
 // PRYZM-EARTH-ONBOARDING PRD Phase 2 — DOM-free typology-seed resolver (see
 // resolveSeededTypologyId.ts header for why this lives outside PlatformRouter).
 import { resolveSeededTypologyId } from './resolveSeededTypologyId';
+// §L-1186 / §UX1-PHASE-CHROME — the project-open seam declares the app phase.
+// `launchWorkspace` is the ONE gesture every project open passes through (hub
+// click, deep link, reopen-after-reload, create), and it runs before any editor
+// chrome mounts — which is exactly why the declaration belongs here and not in a
+// view-change handler that a direct open never reaches. See
+// `declarePhaseForProjectOpen` for the full defect note.
+import { declarePhaseForProjectOpen } from '../layout/panelDefaults';
 
 /** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
  *  editor.  Names match the apex pre-render bucket (/, /pricing,
@@ -929,7 +936,15 @@ export class PlatformRouter {
                 console.log(`[PlatformRouter] createAndOpenProject — created "${summary.name}" (${summary.id}); opening.`);
                 // `launchWorkspace` → `_openProjectViaRuntime` reuses the overlay
                 // shown synchronously above (show-once) and owns its hide/error.
-                this.launchWorkspace(summary.id, summary.name, { isNewProject: true });
+                // §L-1186 — `guidedOnboarding` marks THIS open as the create hop of the
+                // guided flow, so `launchWorkspace` leaves the phase alone and
+                // `OnboardingStepController.start()` gets to declare the globe.
+                // `createAndOpenProject` has exactly one caller — `briefBootstrap`, which
+                // arms `pryzm-project-loaded` → `startOnboardingStepFlow` before issuing
+                // this create — so the flag is a fact about the gesture, not a guess.
+                // ⛔ `isNewProject` alone cannot carry this: the hub's "Skip — blank
+                // canvas" create is also new and runs no guided flow at all.
+                this.launchWorkspace(summary.id, summary.name, { isNewProject: true, guidedOnboarding: true });
             } catch (err) {
                 // §FIX-CREATE-TIMEOUT-RETRY (L-132) — the create request now
                 // rejects (with a typed, `retriable` ProjectListClientError) on a
@@ -945,8 +960,32 @@ export class PlatformRouter {
         })();
     }
 
-    private launchWorkspace(projectId: string, projectName: string, opts?: { isNewProject?: boolean }): void {
+    private launchWorkspace(
+        projectId: string,
+        projectName: string,
+        opts?: { isNewProject?: boolean; guidedOnboarding?: boolean },
+    ): void {
         console.log(`[PlatformRouter] Opening project: "${projectName}" (${projectId})${opts?.isNewProject ? ' [new]' : ''}`);
+
+        // §L-1186 — DECLARE THE APP PHASE FOR THIS OPEN GESTURE, before anything mounts.
+        //
+        // Every project open reaches this method: a hub card click, the
+        // reopen-after-reload path, and the create hops. Opening a project that is not
+        // the guided-onboarding create hop IS arriving at the PRYZM canvas, so say so
+        // here rather than hoping the user later clicks a BIM view-mode button (which
+        // was, literally, the only other thing in the app that moved the phase off the
+        // onboarding globe). Without this the launcher rail, the Split View toggle and
+        // the View-Properties launcher are skip-mounted for the entire session.
+        //
+        // Guarded: a phase declaration must never be able to stop a project opening.
+        try {
+            const phase = declarePhaseForProjectOpen(
+                opts?.guidedOnboarding ? { guidedOnboarding: true } : {},
+            );
+            console.log(`[PlatformRouter] §L-1186 app phase for this open: "${phase}".`);
+        } catch (err) {
+            console.warn('[PlatformRouter] §L-1186 phase declaration threw (non-fatal):', err);
+        }
 
         // §PERF-WEBGPU-FRAGMENT / ADR-0076 — remember the currently-open project so a
         // renderer-backend toggle (which persists + full-page-reloads) can reopen it
