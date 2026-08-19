@@ -315,3 +315,74 @@ named, tested point. **A cast is not a translation.**
 > *"No affordance without an implementation… A refusal is a correct answer; a silently-wrong wall
 > is not."* — `packages/geometry-wall/src/WallRake.ts:50-62`. **R7–R10 are beam's four remaining
 > silences, and R9 is the worst kind: not a missing value but a confidently wrong one.**
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from [L-1032](../../04-reference/ISSUE-LOG.md). The end state
+> the founder asked for is **not** *"every family has a dropdown"* — it is **every family either
+> offers the control or declares, in its contract, why it must not**.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`; the L3 event bridge, the L7 property panel and the chat registration all
+> read those rows. If this section and the register disagree, **the register wins and this section
+> is stale** — a defect, not a discrepancy to live with.
+
+### THE VERB — `beam.changeLevel` ✅ LIVE
+
+| | |
+|---|---|
+| **Payload** | `{ beamId, levelId }` |
+| **Handler** | `plugins/beam/src/handlers/ChangeBeamLevel.ts` |
+| **Legacy move** | `packages/core-app-model/src/stores/BeamStore.ts` — `changeLevel(id, newLevelId, {newElevation, previousElevation})` |
+| **Mirror row** | `apps/editor/src/engine/elementLevelChangedMirror.ts` — `LEGACY_LEVEL_MOVERS.beam` |
+| **Chat** | `move-to-level` (`packages/ai-host/src/intents/LevelChangeIntents.ts`) — *"move the beam to level 2"* |
+| **Undo** | `elementUndoStoreAdapter.ts` §L-946 arm routes the depth-2 `[id,'levelId']` inverse patch to `store.changeLevel()` |
+
+### WHY THE STORE NEEDED ITS OWN `changeLevel` — AND WHY IT TAKES ELEVATIONS
+
+Beam is one of **four families whose 3-D height does NOT follow a storey change on its own**
+([L-1087](../../04-reference/ISSUE-LOG.md)). `BeamFragmentBuilder.ts:405` seats the mesh with
+`root.position.set(centre.x, centre.y, centre.z)` from the baseLine's **absolute Y**, and the file
+contains **no `getLevelById` call at all**. Contrast `SlabFragmentBuilder.ts:726`, which re-derives
+`topY = level.elevation + baseOffset`.
+
+So a naive `beam.changeLevel` would have re-filed the beam onto the new storey, moved it onto the new
+plan and exported it under the new IFC storey — **while the beam went on hovering at the old floor's
+height**, with nothing reporting it. This family was therefore **WITHHELD from the UI for one working
+day** rather than shipped: *"A refusal is a correct answer; a silently-wrong wall is not"*
+(`WallRake.ts:50-62`).
+
+It returns under the rule that withheld it. `BeamStore.changeLevel` now takes
+`{ newElevation, previousElevation }` and:
+
+- **REFUSES** — returns `undefined`, warns, leaves the record untouched — when either is missing.
+  Moving the storey alone is the defect, not a partial success;
+- moves `startPoint.y` **and** `endPoint.y` by the **DELTA**, not by assignment, so a beam sitting
+  above its floor keeps that offset instead of being slammed to the new floor datum;
+- **never reaches for a level table.** The numbers are resolved by the CALLER from the level
+  authority — `elementLevelChangedMirror._elevationOf` forward, `elementUndoStoreAdapter`'s §L-946
+  arm inverse — because a store that can reach for an elevation can reach for the WRONG one, and a
+  silent default is §DIAG-WALL-LEVEL.
+
+`BeamStore` also gained a `getById` alias: it was the one legacy element store spelling that read
+`get`, for reasons having nothing to do with beams (L-1036 has since ruled `getById` canonical).
+
+### ⚠ THE CAP — [L-1085](../../04-reference/ISSUE-LOG.md), OPEN
+
+`canExecute` validates existence against the **plugin DTO store**, and C84 EI-5a records that
+*"after any project load, every plugin DTO store is EMPTY."* The control therefore works on elements
+authored **in the current session** and **refuses, by name, on anything restored from a saved
+project**. The refusal is C16 CA-18 conformant and is better than the alternative: relaxing the check
+would make the forward move work while producing an empty inverse patch — an authoritative mutation
+with no Ctrl+Z (C84 EI-7). **The fix is ADR-0331 §D2/§D3 and is not per-family.**
+
+### DUPLICATE-TO-LEVEL
+
+A **separate verb**, never a flag on the level change — it mints new ids. Declared per family in
+`apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
+mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
+change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.

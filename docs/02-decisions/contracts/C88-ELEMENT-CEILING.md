@@ -327,3 +327,57 @@ measured to have failed twice).
 > **The governing sentence, from `packages/geometry-wall/src/WallRake.ts:50-62`:** *"no affordance
 > without an implementation… A refusal is a correct answer; a silently-wrong wall is not."*
 > R8 and R9 are the two places ceiling is still silent instead of refusing.
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from [L-1032](../../04-reference/ISSUE-LOG.md). The end state
+> the founder asked for is **not** *"every family has a dropdown"* — it is **every family either
+> offers the control or declares, in its contract, why it must not**.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`; the L3 event bridge, the L7 property panel and the chat registration all
+> read those rows. If this section and the register disagree, **the register wins and this section
+> is stale** — a defect, not a discrepancy to live with.
+
+### THE VERB — `ceiling.changeLevel` ✅ LIVE
+
+| | |
+|---|---|
+| **Payload** | `{ ceilingId, levelId }` |
+| **Handler** | `plugins/ceiling/src/handlers/ChangeCeilingLevel.ts` |
+| **Legacy move** | `packages/core-app-model/src/stores/CeilingStore.ts` — `changeLevel(id, newLevelId)` |
+| **Mirror row** | `apps/editor/src/engine/elementLevelChangedMirror.ts` — `LEGACY_LEVEL_MOVERS.ceiling` |
+| **Chat** | `move-to-level` (`packages/ai-host/src/intents/LevelChangeIntents.ts`) — *"move the ceiling to level 2"* |
+| **Undo** | `elementUndoStoreAdapter.ts` §L-946 arm routes the depth-2 `[id,'levelId']` inverse patch to `store.changeLevel()` |
+
+### WHY THE STORE NEEDED ITS OWN `changeLevel`
+
+`CeilingStore.update()` **warns and DELETES a `levelId` key** (`CeilingStore.ts:181-183`). So
+`update(id, {levelId})` is not merely wrong for a ceiling — it is a **silent no-op**: the call
+returns, the warning scrolls past, and the ceiling stays where it was. That guard is CORRECT and was
+deliberately left in place; the storey move needed its own name to get past it, which is exactly the
+shape `RoofStore.changeLevel` already had.
+
+The 3-D height follows for free: `CeilingPanelBuilder.ts:192` re-derives from
+`bimManager.getLevelById(ceiling.levelId)`, so the storey change IS the height change
+(`heightFollowsLevel: true` in the register).
+
+### ⚠ THE CAP — [L-1085](../../04-reference/ISSUE-LOG.md), OPEN
+
+`canExecute` validates existence against the **plugin DTO store**, and C84 EI-5a records that
+*"after any project load, every plugin DTO store is EMPTY."* The control therefore works on elements
+authored **in the current session** and **refuses, by name, on anything restored from a saved
+project**. The refusal is C16 CA-18 conformant and is better than the alternative: relaxing the check
+would make the forward move work while producing an empty inverse patch — an authoritative mutation
+with no Ctrl+Z (C84 EI-7). **The fix is ADR-0331 §D2/§D3 and is not per-family.**
+
+### DUPLICATE-TO-LEVEL
+
+A **separate verb**, never a flag on the level change — it mints new ids. Declared per family in
+`apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
+mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
+change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.

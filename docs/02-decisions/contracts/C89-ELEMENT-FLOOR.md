@@ -343,3 +343,62 @@ itself one-way. (3) The sketch attach is part of the create, not a follow-up.
 > *"No affordance without an implementation… A refusal is a correct answer; a silently-wrong wall
 > is not."* — `packages/geometry-wall/src/WallRake.ts:50-62`. **R1, R8 and R9 are floor's three
 > remaining silences.**
+
+
+---
+
+## §L-1032 — THE STOREY AXIS: change level, and duplicate to level
+
+> **Added 2026-08-19 by lane EL1**, from [L-1032](../../04-reference/ISSUE-LOG.md). The end state
+> the founder asked for is **not** *"every family has a dropdown"* — it is **every family either
+> offers the control or declares, in its contract, why it must not**.
+>
+> **THE REGISTER IS THE AUTHORITY, NOT THIS SECTION.**
+> `packages/command-bus/src/levelChangeVerbs.ts` holds `LEVEL_CHANGE_VERBS` and
+> `LEVEL_CHANGE_REFUSALS`; the L3 event bridge, the L7 property panel and the chat registration all
+> read those rows. If this section and the register disagree, **the register wins and this section
+> is stale** — a defect, not a discrepancy to live with.
+
+### THE VERB — `floor.changeLevel` ✅ LIVE
+
+| | |
+|---|---|
+| **Payload** | `{ floorId, levelId }` |
+| **Handler** | `plugins/floor/src/handlers/ChangeFloorLevel.ts` |
+| **Legacy move** | `packages/core-app-model/src/stores/FloorStore.ts` — `changeLevel(id, newLevelId)` |
+| **Mirror row** | `apps/editor/src/engine/elementLevelChangedMirror.ts` — `LEGACY_LEVEL_MOVERS.floor` |
+| **Chat** | `move-to-level` (`packages/ai-host/src/intents/LevelChangeIntents.ts`) — *"move the floor to level 2"* |
+| **Undo** | `elementUndoStoreAdapter.ts` §L-946 arm routes the depth-2 `[id,'levelId']` inverse patch to `store.changeLevel()` |
+
+### WHY THE STORE NEEDED ITS OWN `changeLevel`
+
+`FloorStore.update()` **warns and DELETES a `levelId` key** (`FloorStore.ts:141-144`) — the same
+silent no-op as ceiling. The guard is correct and stays; the move needed its own name.
+
+The 3-D height follows for free: `FloorPanelBuilder.ts:93,126` seats the top face at
+`FFL = level.elevation + boundary.baseOffset` (`heightFollowsLevel: true`).
+
+### ⚠ `hostSlabId` — REPORTED, NOT SILENTLY DROPPED
+
+A floor finish carries `hostSlabId`, a binding to a slab on the storey it is LEAVING. Carrying that
+id across storeys would leave the record pointing at a host it no longer sits on — a stale
+cross-storey reference, which is the dangling half of the cascade this issue exists to prevent. The
+duplicate-to-level route **reports** the binding rather than dropping it silently (C84 EI-2: a
+dropped field must be dropped DELIBERATELY and named). Re-seating is
+`packages/geometry-slab/src/floor/FloorSlabBindingHandler.ts`'s job, not the mover's.
+
+### ⚠ THE CAP — [L-1085](../../04-reference/ISSUE-LOG.md), OPEN
+
+`canExecute` validates existence against the **plugin DTO store**, and C84 EI-5a records that
+*"after any project load, every plugin DTO store is EMPTY."* The control therefore works on elements
+authored **in the current session** and **refuses, by name, on anything restored from a saved
+project**. The refusal is C16 CA-18 conformant and is better than the alternative: relaxing the check
+would make the forward move work while producing an empty inverse patch — an authoritative mutation
+with no Ctrl+Z (C84 EI-7). **The fix is ADR-0331 §D2/§D3 and is not per-family.**
+
+### DUPLICATE-TO-LEVEL
+
+A **separate verb**, never a flag on the level change — it mints new ids. Declared per family in
+`apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
+mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
+change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.

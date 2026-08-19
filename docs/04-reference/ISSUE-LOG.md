@@ -11374,7 +11374,7 @@ list, **or** an artefact generates the resolved symbol set so it can be diffed r
 
 **Status: OPEN.**
 
-## L-1087 — a level change moves storey ASSIGNMENT but not 3-D HEIGHT for four families, and the register asserted the opposite (PARTIALLY CLOSED — register corrected + control withheld; the height channel is built, the four stores are OWED)
+## L-1087 — a level change moves storey ASSIGNMENT but not 3-D HEIGHT for four families, and the register asserted the opposite (CLOSED 2026-08-19)
 
 **Measured 2026-08-19 by lane EL1 while building L-1032.** Two defects, and the second is the
 worse one.
@@ -11424,15 +11424,31 @@ exactly: the row justified by prose was the wrong one.
    **Neither resolver defaults a missing elevation to 0** — zero is a REAL elevation (the ground
    floor), so a fabricated one moves an element to the wrong height instead of refusing.
 
-### ⏳ STILL OWED — the four stores
+### ✅ CLOSED 2026-08-19 — the four stores learned to move the height
 
-`BeamStore`, `FurnitureStore`, `LightingStore`, `PlumbingStore` must accept `opts`, **refuse
-(return `undefined`) when either elevation is missing rather than half-moving**, and otherwise
-re-seat by the **DELTA** (`position.y += new − previous`) so an element's mount offset above its
-floor is preserved — assigning `position.y = newElevation` would slam a 2 m-high wall light to the
-floor. Then the four rows move back into `LEVEL_CHANGE_VERBS` with `heightFollowsLevel: true`.
+`BeamStore`, `FurnitureStore`, `LightingStore` and `PlumbingStore` now take
+`changeLevel(id, newLevelId, { newElevation, previousElevation })`. Each **REFUSES — returns
+`undefined`, warns naming both numbers, and leaves the record untouched — when either elevation is
+missing**, rather than moving the storey alone; the anti-half-move gate is the load-bearing part,
+not the arithmetic. The height moves by the **DELTA**, so a wall light 2 m above its floor stays
+2 m above the new one instead of being slammed to the datum. Pinned by
+`packages/geometry-furniture/__tests__/furnitureChangeLevelHeight.test.ts`,
+`.../geometry-lighting/__tests__/lightingChangeLevelHeight.test.ts`,
+`.../geometry-plumbing/__tests__/plumbingChangeLevelHeight.test.ts` and the beam equivalent.
 
-**Also owed at the same write:** `FurnitureData.levelName` / `levelElevation` and
+The four rows returned to `LEVEL_CHANGE_VERBS` with `heightFollowsLevel: true` and evidence naming
+both the store method and its test (`c3cc0f1a`), and their `LEGACY_LEVEL_MOVERS` rows and `initTools`
+deps came back with them. **12 verbs, 12 mirror rows, 12 deps**, and
+`SlabLevelChangeReachesLegacyStore.test.ts` ARM 1 checks the two tables agree in BOTH directions
+while ARM 4 checks every register row has a `changeLevel` on its legacy store. 11/11 green.
+
+They returned **under the rule that withheld them, not around it** — which is the point worth
+keeping: the withholding lasted one working day and cost nothing, and the alternative was shipping a
+chair that floats under its own floor.
+
+### ⏳ RESIDUE — still owed
+
+**Denormalised level labels.** `FurnitureData.levelName` / `levelElevation` and
 `PlumbingFixtureData.levelName` / `levelElevation` are **denormalised copies of the level record**
 that go stale on this move. Nothing spatial reads them today, but they are forwarded into mesh
 `userData` (`FurnitureFragmentBuilder.ts:104-105`, `PlumbingFragmentBuilder.ts:32-33`), so they are
