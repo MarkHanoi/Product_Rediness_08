@@ -10628,3 +10628,46 @@ not one to make in passing.** Comment corrected; commit `648b443d`.
 
 **Owed:** extract enough of the mirror subscriber that its event sequence can be executed by a test,
 then delete the duplicate under that test.
+
+---
+
+## L-1062 addendum — L-1034's two NEW curved cells collapse into this ONE root (RK1, 2026-08-19)
+
+The founder re-raised four wall requests as **L-1034**, and three are curved:
+
+1. curved × raked
+2. **curved × layered × raked** — a three-way cell that had never been measured
+3. **curved × raked × hosting openings** — previously "in scope if reachable", now unconditional
+
+**All three are the same defect, and the matrix says so in one column.** Measured at an
+L-junction against a plain raked neighbour, after `§FEAT-RAKE-LAYERED-OPENINGS` landed:
+
+```
+L curved@80                  gate=REFUSED:curved  lean=0.000  baseSep=0  topSep=0.722  openUp=0.722
+L curved+window@80           gate=REFUSED:curved  lean=0.000  baseSep=0  topSep=0.722  openUp=0.722
+L curved+layered3@80         gate=REFUSED:curved  lean=0.000  baseSep=0  topSep=0.720  openUp=0.720
+L curved+layered3+window@80  gate=REFUSED:curved  lean=0.000  baseSep=0  topSep=0.720  openUp=0.720
+```
+
+**`lean = 0.000` in every row.** Adding layers changes nothing; adding an opening changes nothing.
+The curved builder has no lean at all, so every curved × rake combination fails identically and for
+the identical reason — there is no per-station top on the curved path, and one shear vector cannot
+follow an arc. `rakeJointCapDrift` is gated `!wall.curve` besides, so the corner rule does not reach
+a curved wall either.
+
+⚠ **This is worth stating plainly because it changes the shape of the work.** L-1034 #1/#2/#3 are
+**not three tasks**. They are one: give the curved builder a per-station lean. Once it has one, the
+layered and opening variants follow the way they just did on the straight path — the layered arm
+takes `t / sin θ` bands and the opening arm takes the same residual — because that is exactly what
+`§FEAT-RAKE-LAYERED-OPENINGS` demonstrated on the straight side today.
+
+The `openUp ≈ 0.72 m` in those rows is NOT a curved-wall joint defect. It is the raked NEIGHBOUR
+leaning away from a curved wall that stays upright — the neighbour moves 0.529 m and the arc's own
+end face contributes the rest. Fix the lean and the column changes meaning entirely, so **do not
+read these four numbers as a joint measurement.**
+
+**Still not decided, and it is the whole blocker (see L-1062):** what a rake on an arc MEANS.
+A conical sweep (each station leans along its own normal, so the top arc's radius changes) and a
+lean about the chord are both "a raked curved wall", and they are different solids. That is a
+FOUNDER question, and until it is answered `WallRake`'s single-`direction` vocabulary cannot be
+generalised without guessing.
