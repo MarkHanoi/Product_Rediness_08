@@ -1218,9 +1218,9 @@ export class CurtainWallTool {
         if (textEl) textEl.textContent = message;
 
         // Show Close Polyline inline button once a valid closeable chain exists (≥2 segments)
-        const canClose  = (this._mode === 'POLYLINE' || this._mode === 'ORTHO')
-                        && this._polySegmentCount >= 2
-                        && this.polylineOrigin !== null;
+        // §FEAT-CW-POLY-ENTER — asks THE predicate, so the button and the keys can
+        // never disagree about whether a loop is closeable.
+        const canClose  = this._canClosePolyline();
         const closeSep  = this._statusBar.querySelector<HTMLElement>('#cw-close-sep');
         const closeBtn  = this._statusBar.querySelector<HTMLElement>('#cw-close-poly-btn');
         if (closeSep) closeSep.style.display = canClose ? '' : 'none';
@@ -1234,6 +1234,27 @@ export class CurtainWallTool {
         if (this._statusBar) {
             this._statusBar.style.display = 'none';
         }
+    }
+
+    /**
+     * §FEAT-CW-POLY-ENTER (C87 §13.8 CW-Poly-1) — THE ONE closure predicate for this
+     * tool. ENTER, the `C` key and the HUD button's visibility all ask THIS, so the
+     * button cannot appear while the keys refuse, or vice versa.
+     *
+     * ⭐ WHY A PREDICATE AND NOT A THIRD COPY. The wall family is the cautionary
+     * tale the contract cites: its closure rule is re-typed FIVE times across
+     * `WallPlanToolHandler` (:326, :1046, :1288) and `WallTool` (:1347, :1991), and
+     * the copies have ALREADY drifted — the :1046 variant omits the `_wallFirstPoint`
+     * term the other four carry. C87 §13.8 says to reuse wall's rule rather than
+     * write a second one; wall does not expose one to reuse, so the honest reading is
+     * to not start a sixth copy HERE. Extracting wall's own five is a separate lane's
+     * work and is NOT done by this change.
+     */
+    private _canClosePolyline(): boolean {
+        return (this._mode === 'POLYLINE' || this._mode === 'ORTHO')
+            && this._polySegmentCount >= 2
+            && this.polylineOrigin !== null
+            && this.startPoint !== null;
     }
 
     /** Close the active polyline chain back to its origin, then deactivate. */
@@ -1263,9 +1284,23 @@ export class CurtainWallTool {
                 return;
             }
 
-            // Phase 12 — Enter: finish the polyline chain (stop adding segments)
+            // §FEAT-CW-POLY-ENTER (C87 §13.8 CW-Poly-1) — ENTER CLOSES THE LOOP.
+            //
+            // ⛔ IT DID NOT, AND THE HUD SAID IT DID. The Close-Polyline button this
+            // tool renders is labelled `↵` (_showModeHUD), but ENTER was bound to
+            // *finish* — clear the preview and deactivate — while the actual closing
+            // key was `C`, advertised nowhere. So the one affordance on screen named
+            // the one key that did not do it. A control that names the wrong key is
+            // worse than no control: it teaches the user the feature is broken.
+            //
+            // ENTER now CLOSES when there is a loop to close, and FINISHES otherwise
+            // (2 points and no origin is a chain, not a loop — finishing it is the
+            // only correct reading, and the previous behaviour is preserved there).
             if (e.key === 'Enter' && (this._mode === 'POLYLINE' || this._mode === 'ORTHO')) {
-                if (this.startPoint) {
+                if (this._canClosePolyline()) {
+                    e.stopPropagation();
+                    this._closePolyline();
+                } else if (this.startPoint) {
                     e.stopPropagation();
                     this._clearAllPreview();
                     this.deactivate();
@@ -1273,17 +1308,15 @@ export class CurtainWallTool {
                 return;
             }
 
-            // Phase 12 — C: close the polyline back to its origin (requires ≥2 segments)
+            // `C` is KEPT as an alias, not removed — it has been the working closure
+            // key and muscle memory is real. It now delegates to _closePolyline()
+            // instead of re-implementing it: the previous inline copy omitted the
+            // `_polySegmentCount = 0` reset that _closePolyline performs (C84 EI-9,
+            // two answers to one question).
             if ((e.key === 'c' || e.key === 'C') && (this._mode === 'POLYLINE' || this._mode === 'ORTHO')) {
-                if (this.startPoint && this.polylineOrigin && this._polySegmentCount >= 2) {
+                if (this._canClosePolyline()) {
                     e.stopPropagation();
-                    this._clearPrimaryPreview();
-                    void this._createSegment(this.startPoint, this.polylineOrigin);
-                    this._clearAllPreview();
-                    this.startPoint      = null;
-                    this.polylineOrigin  = null;
-                    if (this.snapManager) this.snapManager.setActiveStartPoint(null);
-                    this.deactivate();
+                    this._closePolyline();
                 }
                 return;
             }
