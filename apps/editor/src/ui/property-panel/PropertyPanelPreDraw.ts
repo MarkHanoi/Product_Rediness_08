@@ -21,10 +21,12 @@ import { buildWallTypeSelectorWidget } from './WallTypeSelectorWidget';
 // creation list and the retype list can never differ (C84 EI-9).
 import { buildRailingTypeSelectorWidget } from './RailingTypeSelectorWidget';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
+// ⚠ MOVED 2026-08-19 (L-1106) — see `@pryzm/geometry-handrail/handrailAuthoring`:
+// the 3-D tool lives in that package and could not import an app-scoped store.
 import {
     setActiveHandrailTypeId,
     resolveActiveHandrailTypeId,
-} from '../../engine/views/plantools/activeHandrailAuthoring';
+} from '@pryzm/geometry-handrail';
 import { setActiveWallSystemTypeId } from '../../engine/views/plantools/activeWallSystemType';
 import { buildSlabTypeSelectorWidget } from './SlabTypeSelectorWidget';
 import { buildCeilingTypeSelectorWidget } from './CeilingTypeSelectorWidget';

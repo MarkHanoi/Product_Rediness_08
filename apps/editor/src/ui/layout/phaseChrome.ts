@@ -46,8 +46,9 @@
 
 import {
     appPhase,
-    panelAbsent,
+    panelState,
     onAppPhaseChanged,
+    onPanelStateChanged,
     type AppPhase,
     type PanelId,
 } from './panelDefaults';
@@ -102,6 +103,16 @@ export const PHASE_CHROME_SELECTORS: readonly PhaseChromeRow[] = [
             'reads and writes a persisted backend preference at mount, and not mounting it would ' +
             'change more than its visibility. Hiding it on the globe costs nothing — the globe is ' +
             'Cesium and never goes through the swap path this pill drives.',
+    },
+    {
+        panel: 'view-properties-launcher',
+        selectors: ['#pryzm-view-properties-launcher'],
+        enforcement: 'skip-mount',
+        note:
+            'The bottom-right reopen button (§UX1-VP-DEFAULT-CLOSED). SKIP-MOUNT: ' +
+            '`ViewPropertiesLauncher.mount()` asks `panelAbsent` before creating anything, so on ' +
+            'the globe the node never exists. The selector is the belt to that braces — if a ' +
+            'future caller mounts it unconditionally, this row still takes it off the globe.',
     },
     {
         panel: 'view-properties',
@@ -162,7 +173,14 @@ export function applyPhaseChrome(root: ParentNode = document): PhaseChromeReport
     const unresolved: PanelId[] = [];
 
     for (const row of PHASE_CHROME_SELECTORS) {
-        const shouldHide = panelAbsent(row.panel, phase);
+        // §UX1-VP-DEFAULT-CLOSED — this used to read `panelAbsent(...)`, i.e. it only
+        // enforced the ABSENT state and treated `closed` as if it were `open`. That was
+        // survivable while no governed row was ever `closed` in a phase this controller
+        // touches; it stopped being survivable the moment `view-properties` became
+        // CLOSED on the canvas. `panelState` is the LIVE answer (absent > session
+        // override > table), so both non-open states are honoured through one call and
+        // a reopen click is reflected by the same code path as a phase change.
+        const shouldHide = panelState(row.panel) !== 'open';
         let matched = 0;
         for (const sel of row.selectors) {
             let els: Element[];
@@ -198,6 +216,7 @@ export function applyPhaseChrome(root: ParentNode = document): PhaseChromeReport
 let installed = false;
 let observer: MutationObserver | null = null;
 let disposePhaseSub: (() => void) | null = null;
+let disposeStateSub: (() => void) | null = null;
 
 /**
  * Install the controller: apply now, on every phase change, and whenever chrome
@@ -225,6 +244,9 @@ export function installPhaseChrome(): () => void {
 
     apply();
     disposePhaseSub = onAppPhaseChanged(() => apply());
+    // §UX1-VP-DEFAULT-CLOSED — the third trigger. Without it a reopen click changes
+    // the model and nothing on screen; see `onPanelStateChanged`'s note.
+    disposeStateSub = onPanelStateChanged(() => apply());
 
     if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.body) {
         observer = new MutationObserver((records) => {
@@ -243,6 +265,8 @@ export function installPhaseChrome(): () => void {
         observer = null;
         try { disposePhaseSub?.(); } catch { /* gone */ }
         disposePhaseSub = null;
+        try { disposeStateSub?.(); } catch { /* gone */ }
+        disposeStateSub = null;
     };
 }
 
@@ -250,7 +274,9 @@ export function installPhaseChrome(): () => void {
 export function __resetPhaseChromeForTests(): void {
     try { observer?.disconnect(); } catch { /* gone */ }
     try { disposePhaseSub?.(); } catch { /* gone */ }
+    try { disposeStateSub?.(); } catch { /* gone */ }
     observer = null;
     disposePhaseSub = null;
+    disposeStateSub = null;
     installed = false;
 }

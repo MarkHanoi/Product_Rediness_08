@@ -26,6 +26,14 @@ import {
 import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
 // §FEAT-HANDRAIL-CREATION-PARITY (founder 2026-08-18; C95 D4) — the railing's
 // shared mode + armed-type store, read by BOTH the plan handler and the 3-D tool.
+//
+// ⚠ MOVED 2026-08-19 (L-1106): this store used to live at
+// `@app/engine/views/plantools/activeHandrailAuthoring`. The 3-D `HandrailTool`
+// lives in `@pryzm/geometry-handrail` and CANNOT import an app module, so an
+// authoring store filed under `apps/editor` was unreadable from one of the two
+// surfaces that had to agree on the armed mode — which is exactly how the 3-D
+// tool ended up mode-blind. It now lives beside the generators that implement the
+// modes, mirroring `getStairToolConfig` in `@pryzm/geometry-stair`.
 import {
     setActiveHandrailDrawMode,
     resolveActiveHandrailDrawMode,
@@ -33,10 +41,10 @@ import {
     isHandrailDrawMode,
     captureHandrailBySlabSelection,
     setHandrailBySlabTarget,
-} from '@app/engine/views/plantools/activeHandrailAuthoring';
-// §FIX-HANDRAIL-BY-SLAB (L-1103) — the ONE by-slab executor, shared with the plan
-// handler and (via the command it dispatches) with RAC.
-import { executeHandrailBySlab } from '@app/engine/views/plantools/RailingPlanToolHandler';
+    // §FIX-HANDRAIL-BY-SLAB (L-1103) — the ONE by-slab executor, shared with the
+    // plan handler, the 3-D tool and (via the command it dispatches) with RAC.
+    executeHandrailBySlab,
+} from '@pryzm/geometry-handrail';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';

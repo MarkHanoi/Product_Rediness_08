@@ -105,6 +105,7 @@ export type PanelId =
     | 'level-stepper'
     // ── the reopen surface itself, and the escape hatch ──
     | 'launcher-rail'
+    | 'view-properties-launcher'
     | 'renderer-backend-toggle'
     // ── always-on shell ──
     | 'viewport'
@@ -195,7 +196,8 @@ export const PANEL_REGISTRY: readonly PanelDescriptor[] = [
             'A jurisdiction READ-OUT — paragraphs of ordinance prose and citations about a parcel ' +
             'the user has not necessarily committed. It is also the panel that physically ' +
             'overlapped Site analysis (L-1021). The massing GEOMETRY toggle it hosts is a ' +
-            'separate flag (`formaEnvelopeVisible`) and is unaffected by this row.',
+            'separate, SHARED authority (`ui/site/envelopeVisibility.ts`, ' +
+            '§ENVELOPE-ONE-VISIBILITY / L-1160) and is unaffected by this row.',
     },
     {
         id: 'site-plan-overlay',
@@ -217,21 +219,44 @@ export const PANEL_REGISTRY: readonly PanelDescriptor[] = [
         id: 'view-properties',
         title: 'View properties — Environment & Camera',
         region: 'screen · right edge, inboard of the tools spine',
-        byPhase: { 'onboarding-globe': 'absent', canvas: 'open' },
+        byPhase: { 'onboarding-globe': 'absent', canvas: 'closed' },
         essential: false,
-        // Never `closed` in any phase, so it owes no reopen control. Declaring a
-        // testid here that nothing renders would be the C82 §7.b defect — an
-        // artefact standing in for a reachable control.
-        reopen: '',
-        reopenHost: null,
+        reopen: 'view-properties-launcher',
+        reopenHost: 'view-properties-launcher',
         why:
             'Sun settings, climate/heat, wind, population density, shadows and post-processing — ' +
             'every one of them a property of a RENDERED MODEL. On the globe there is no model, so ' +
-            'the panel is answering a question nobody has asked yet and is ABSENT. On the canvas ' +
-            'it is left OPEN: it is the primary view-configuration surface there, and this lane ' +
-            'has not measured a canvas-phase reopen route for it (a named gap, L-1025) — closing a ' +
-            'panel whose route back is unproven is exactly the defect C82 §1.1 forbids, so it ' +
-            'stays open until that route is measured rather than assumed.',
+            'the panel is answering a question nobody has asked yet and is ABSENT. ' +
+            '§UX1-VP-DEFAULT-CLOSED (founder 2026-08-19, restating the 2026-08-18 ask in its ' +
+            'general form — "close all the panels by default on startup"): on the canvas it is ' +
+            'now CLOSED, not open. The previous version of this row said it stayed open only ' +
+            'because "this lane has not measured a canvas-phase reopen route (L-1025) — closing a ' +
+            'panel whose route back is unproven is exactly the defect C82 §1.1 forbids". That ' +
+            'reasoning was right, so the fix was to BUILD the route, not to relax the rule: ' +
+            '`view-properties-launcher` is that route, and L-1025 closes with it. The row is ' +
+            'still ABSENT on the globe, and the launcher is absent there too — a button that ' +
+            'opens a panel which should not exist in that phase is worse than no button.',
+    },
+    {
+        id: 'view-properties-launcher',
+        title: 'View properties launcher (bottom-right ◑ button)',
+        region: 'screen · bottom-right corner stack, above the ⚡ render-perf trigger',
+        byPhase: { 'onboarding-globe': 'absent', canvas: 'open' },
+        essential: false,
+        reopen: '',
+        reopenHost: null,
+        why:
+            'THE REOPEN ROUTE for `view-properties`, which is the only reason that row may be ' +
+            'CLOSED on the canvas at all — C82 §1.1 permits absence, never unreachability. It is ' +
+            'OPEN on the canvas for the same reason `launcher-rail` is: closing the thing that ' +
+            'reopens everything else is strictly worse than clutter. ' +
+            'It is ABSENT on the globe, and that is only sound because `view-properties` is ALSO ' +
+            'absent there — the pair moves together, exactly as the rail and its dependants do, ' +
+            'and `panelDefaults.spec.ts` asserts that pairing rather than trusting it. ' +
+            '⚠ PLACEMENT IS MEASURED, not chosen: the bottom-right already holds ' +
+            '`#perf-mode-trigger` (PerformanceModePanel.ts — 36x36 at bottom:80px right:14px), so ' +
+            'this button takes bottom:122px right:14px — the next slot up in the SAME stack, same ' +
+            'size, same right edge. It does not displace or overlap it (C06 §7.2).',
     },
     {
         id: 'level-stepper',
@@ -564,7 +589,31 @@ export function setPanelOpen(id: PanelId, open: boolean): void {
     const d = panelDescriptor(id);
     if (d.essential) return;
     if (d.byPhase[currentPhase] === 'absent') return;
+    const before = panelState(id);
     sessionOverride.set(id, open);
+    if (panelState(id) !== before) {
+        for (const cb of [...stateListeners]) {
+            try { cb(id); } catch (e) { console.warn('[panelDefaults] state listener threw (non-fatal):', e); }
+        }
+    }
+}
+
+type StateListener = (id: PanelId) => void;
+const stateListeners = new Set<StateListener>();
+
+/**
+ * Subscribe to a panel's live open/closed state changing.
+ *
+ * §UX1-VP-DEFAULT-CLOSED — this exists because the DOM applier previously had only
+ * TWO triggers: the phase event and a MutationObserver. Neither fires when a user
+ * clicks a reopen control, so `setPanelOpen` would have updated the model and left
+ * the pixels alone — the module would have been right and the screen wrong, which
+ * is the failure mode this whole file was written to end. The callback must
+ * re-apply {@link panelState} to its own DOM; this module still owns no nodes.
+ */
+export function onPanelStateChanged(cb: StateListener): () => void {
+    stateListeners.add(cb);
+    return () => { stateListeners.delete(cb); };
 }
 
 type ResetListener = () => void;
@@ -612,5 +661,6 @@ onAppPhaseChanged(() => { sessionOverride.clear(); });
 export function __resetPanelSessionStateForTests(): void {
     sessionOverride.clear();
     resetListeners.clear();
+    stateListeners.clear();
     currentPhase = 'onboarding-globe';
 }
