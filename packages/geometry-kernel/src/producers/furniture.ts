@@ -17,6 +17,11 @@ import type { JoinData } from '../types/JoinData.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { asMaterialKey } from '../types/MaterialKey.js';
+// ⭐ C100 §9.6.a / S16 — THE resolution authority. Not re-implemented here: a
+// private id→colour chain is how C100 §1.1 traces four of the eight rival
+// material vocabularies in this repository. Furniture's rival was the worst of
+// them (see `composeFurnitureMaterialKey` below).
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import {
   composeFurnitureGeometryHash,
   FURNITURE_HASH_SCHEMA_VERSION,
@@ -57,16 +62,59 @@ export function selectActiveRepresentation(
 }
 
 /**
+ * The colour of a piece of furniture that names NO material (C100 §9.6.b: the
+ * DEFAULT stays local, the RESOLUTION is shared).
+ *
+ * ⚠ This is `material-bridge.ts`'s existing `FALLBACK_COLOR`, to the byte, and it
+ * is chosen rather than invented: `hashMaterialId('')` returned exactly this, so
+ * furniture that names nothing renders identically before and after this change.
+ */
+const FURNITURE_FALLBACK_COLOR = '#a78b6e';
+
+/**
  * Material key shape for furniture:
- *   `furniture|<catalogId>|<materialId>|lod=<n>|primary`
+ *   `furniture|<catalogId>|<materialId>|<color>|lod=<n>|primary`
  *
  * The `lod` token is included so a single furniture instance shown at
  * two LODs in two viewports gets two distinct material slots in the
  * pool — useful when the dynamic editor (S58) wants to tint LOD-stepping.
+ *
+ * ─── ⛔ THE DEFECT THIS CLOSES, and it is the worst one C100 §9 has found ───
+ *
+ * This key had **no colour slot at all** — the stair/handrail shape (L-1127 S16)
+ * a third time. The `materialId` sat in slot 2, travelled the whole way intact,
+ * and `colorOfFurnitureMaterialKey` then fed it to a **djb2 hash modulo an
+ * EIGHT-ENTRY PALETTE**. The master holds **205 materials**. So:
+ *
+ *   | id                      | the master says | the product painted |
+ *   |-------------------------|-----------------|---------------------|
+ *   | `wood-oak`              | `#c8a96e`       | `#7d8c8c` grey-teal |
+ *   | `wood-walnut`           | `#5a3a28`       | `#7d8c8c` grey-teal |
+ *   | `fabric-wool-felt-grey` | `#747873`       | `#8fa6c4` blue      |
+ *
+ * ⭐ **OAK AND WALNUT COLLIDED ONTO THE SAME COLOUR.** Light oak and dark walnut
+ * were painted identically. With 205 materials over 8 buckets, collisions are not
+ * a risk, they are the arithmetic — roughly 197 of the 205 master rows cannot be
+ * told apart. And these are not hypothetical ids: `catalogue/seed.ts` seeds
+ * `wood-oak`, `wood-walnut` and `fabric-wool-felt-grey` on shipped catalogue rows.
+ *
+ * ⭐ This is the shape C100 §5 exists to prevent, in its most dangerous form. The
+ * colour was not missing, not grey, and not obviously broken — it was PLAUSIBLE,
+ * STABLE and REPEATABLE, so it read as a design decision rather than as a lost
+ * material. §CONTEXT-DATA-HONESTY: "your material was never consulted" and "your
+ * furniture is grey-teal" were the same value.
+ *
+ * ⚠ THE SLOT IS INSERTED, NOT APPENDED, and the key still ends `|primary` so the
+ * parity test's `endsWith` and `toContain` pins hold. The bridge tells the shapes
+ * apart by whether slot 3 begins `lod=` (legacy) or is a colour (current) — see
+ * `colorOfFurnitureMaterialKey`. Legacy keys are answered exactly as before.
  */
 export function composeFurnitureMaterialKey(furniture: Readonly<Furniture>): string {
   const matId = furniture.materialSlots['primary'] ?? furniture.materialId ?? '';
-  return `furniture|${furniture.catalogId}|${matId}|lod=${furniture.activeLod}|primary`;
+  // ⭐ ONE ladder (C100 §9.6.a): an unknown id becomes `unresolved:<id>`, a NAMED
+  // failure the bridge paints MAGENTA — never a plausible timber.
+  const color = resolveMaterialColorSlot({ materialId: matId }, FURNITURE_FALLBACK_COLOR);
+  return `furniture|${furniture.catalogId}|${matId}|${color}|lod=${furniture.activeLod}|primary`;
 }
 
 /**
