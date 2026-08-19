@@ -180,6 +180,33 @@ Wall baseline mutation call site
 
 ---
 
+## §3.1 — THE VOID HAS A **SHAPE** AXIS, AND THIS CONTRACT NEVER HAD ONE (added 2026-08-19, lane ROUND1, L-1200)
+
+§3 describes **where** the void sits (`baseLine[0] + opening.offset × wallDir`) and **when** it is
+rebuilt. It has never described **what shape it is**, because until now there was only one shape: the
+void is `width × height`, implicitly rectangular, in every declaration
+(`WallTypes.ts:34-44` · `WallDataSchema.ts:79-86`).
+
+The founder's ask for **circular windows** and **round-arched doors** adds a shape axis to the void.
+**The ruling on whether this repo's wall bodies can carry a non-rectangular void — measured
+per-arm, with the refusal surface it creates — is
+[C86 §10.1](C86-ELEMENT-WALL-OPENING.md).** It is normative and C15 defers to it.
+
+Three consequences bind **this** contract:
+
+- **The shape belongs to the VOID, hence to the HOST record, hence to `Opening`** — not to the door
+  or window record. §1's split (the wall owns the void; the builder owns the frame) is what makes
+  door and window share one profile vocabulary instead of minting two.
+- **§5's drag constraint and §6's void invariant reason in `offset` and `width`.** C86 §10.1 PR-8
+  keeps the bounding box `width × height` for **every** profile precisely so those two sections, and
+  `WallOccupancyStore.canPlace`, continue to hold without learning a second dimension vocabulary.
+- **The existing raked-host refusal is the PATTERN, not the exception.** A host that cannot carry a
+  requested profile refuses by name, with the live alternative
+  ([C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md)). ⛔ A silent fall-back to a rectangle is
+  forbidden — it is the *"silently-wrong wall"* `WallRake.ts:102` names.
+
+---
+
 ## §4 — Visual Tracking During Live Drag
 
 `WallTransformController` (§2.10 BUG-A visual fix) handles the _live drag frame_ — before the drag-end store commit:

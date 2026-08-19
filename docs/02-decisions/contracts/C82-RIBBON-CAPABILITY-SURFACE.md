@@ -231,3 +231,26 @@ mechanically.
   are the same capability surface wearing two inputs.
 - **§7.i — Landing a new surface outside the probe's subject set.** §4.2. Ungoverned is not a
   state; it is the old state.
+- **§7.j — Flattening two ORTHOGONAL axes into one enumerated pill list.** *(added 2026-08-19,
+  lane ROUND1, L-1200.)* The door/window mode bar offers `S Single` / `D Double` — a **leaf count**.
+  Adding `Circular` / `Arched` as a third sibling pill puts a **void shape** into a leaf-count list
+  and makes **`Double × Arched`, an ordinary door, unexpressible**. ⭐ The test is not "does the bar
+  look tidy" but **"can the user express every product of the axes the model can hold?"** — if not,
+  the bar has narrowed the pipeline, which is C84 EI-2 arriving through the UI. **One place, two
+  axes.** Normative ruling: [C86 §10.1 PR-7 / §9 WO-Voc-4](C86-ELEMENT-WALL-OPENING.md).
+- **§7.k — A mode letter that means six different things.** *(added 2026-08-19, lane ROUND1,
+  L-1200 — measured, not asserted.)* **`S`** is `By Slab` in `WallDrawingHUD.ts:81`,
+  `CurtainWallDrawingHUD.ts:86`, `CurtainWallTool.ts:1187` and `elementCreationMatrix.ts:338`
+  (railing); **`Single`** in `DoorModePicker.ts:54`, `WindowModePicker.ts:55` and
+  `elementCreationMatrix.ts:247` (beam) / `:373` (plumbing) / `:390` (grid); **`Mono-pitch`** for
+  roof (`:257`); and **`Scale`** in `ContextualEditBar.ts:861`. The founder hit this: he pressed `S`
+  expecting By-Slab and got Single. `CurtainWallTool.ts:1208-1210` already carries the scar
+  (**L-1161**, where `s: 'SINGLE'` shadowed By Slab). ⛔ **Before binding a mode letter, grep every
+  `*HUD.ts`, `*ModePicker.ts`, `elementCreationMatrix.ts` and `ContextualEditBar.ts` for it.**
+  Measured-free single letters in the door/window context as of 2026-08-19: `A K N Q T U Y Z`.
+- **§7.l — A capability matrix nobody reads.** *(added 2026-08-19, lane ROUND1, L-1200.)*
+  `elementCreationMatrix.ts:285-292` declares door mode `{ id: 'single', key: 'D' }` and window
+  `{ id: 'single', key: 'W' }`. **Neither matches the shipped bar** (`S`=Single, `D`=Double), because
+  door and window render their own pickers instead of `DrawingModeBar`. A declaration that no surface
+  consumes is not a capability surface — it is §7.c one level up, and the next consolidation will
+  trust it. ⛔ A new mode axis MUST NOT be declared there while it stays unread.

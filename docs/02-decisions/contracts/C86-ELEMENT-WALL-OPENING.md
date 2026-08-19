@@ -723,6 +723,17 @@ so C84 EI-8's `_key`-discard question is **moot for this family**.
   better than silence, and is still a violation.
 - **WO-Voc-3.** `frameColor`/`leafColor` arriving from the system type rather than the payload MUST
   be declared at the write site (`:178-179`), or the payload fields removed.
+- **WO-Voc-4 (§10.1 PR-7, EI-8/EI-9) — THE PROFILE AXIS IS ORTHOGONAL TO THE LEAF-COUNT AXIS, AND
+  MUST NOT BE FLATTENED INTO IT.** `single | double` is a LEAF COUNT; `rectangular | round-arch |
+  segmental-arch | circular` is a VOID SHAPE. ⛔ A UI that offers them as one enumerated list makes
+  **`double × round-arch` — an ordinary door — unexpressible**, and would require writing a shape
+  value into `Opening.doorType` **and** `Opening.windowType`, two fields that already duplicate one
+  axis. The profile is **ONE field on the host record** (`openingProfile`), shared by door and
+  window. ⭐ Stated here in the contract so it cannot be re-flattened by the next reader who takes
+  *"single / double / circular"* literally.
+- **WO-Voc-5.** `Opening.doorType` and `Opening.windowType` are **two fields for one axis** — a
+  standing EI-9 smell that §10.1 PR-7 deliberately does not repeat. ⛔ Do not mint
+  `doorProfile` + `windowProfile`.
 
 ---
 
@@ -832,6 +843,160 @@ C84 §5 lists the **door and window** parity harnesses as **OWED**. Confirmed: n
 imports both a Stack-A builder (`DoorBuilder`/`WindowBuilder`/`LayeredWallOpeningBuilder`) and a
 Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 
+### §10.1 — THE OPENING **PROFILE** AXIS (added 2026-08-19, lane ROUND1, **L-1200**) — PHASE-0 RULING
+
+> **The founder asked for round windows *"with the capability to fix everywhere"* and, in the same
+> ask, for **doors with a curved top**, chosen *"from the same place"*. Those are ONE problem:
+> **a non-rectangular void in a wall.** This subsection is the ruling on whether this repo's wall
+> bodies can carry one, measured before any geometry was written, per the §L955 precedent in
+> `WallFragmentBuilder.ts`.**
+
+#### The question was framed as "CSG vs the layered grid". **BOTH halves of that framing are wrong.**
+
+There is no CSG arm in production (it is PARKED — R-6, [C85 §12 R-8](C85-ELEMENT-WALL.md)), and the
+arm that draws most plain walls with openings is **not** the `Shape`-with-holes extrude either. There
+are **five live body arms**, in **four different representations**, and only one of them can express
+a curve today:
+
+| Arm | Code | Representation | Non-rectangular void? |
+|---|---|---|---|
+| **A** — plain straight, **no mitre join AND no rake cap-drift** | `WallHoleBodyBuilder.buildWallHoleBodyGeometry` | `THREE.Shape` outer profile + `THREE.Path` holes → `ExtrudeGeometry` | ✅ **EXACT, TODAY, AT ZERO COST.** `Path.absarc` is admissible at every point the four `lineTo` calls sit (`:151-158` holes, `:139-144` the door notch walk). No CSG, no WASM, no new dependency, no new module |
+| **B** — plain straight, **mitred or lofted end** | `WallFragmentBuilder.ts:2684, :2729` | abutting `BoxGeometry` gap / header / before / after | ❌ axis-aligned boxes only |
+| **C** — layered straight | `LayeredWallOpeningBuilder.buildContinuousLayerGeometry` | x/y break grid + boolean `solid[i][j]` + greedy quad merge (§10 already names it *"a grid-subdivision / solid-cell rasteriser, not a boolean"*) | ❌ rectangles only — **the grid's alphabet has no curve in it** |
+| **D** — curved wall (plain **and** layered) | `WallFragmentBuilder._buildCurvedWallWithOpenings` | radial bands: arc-station span × `[yLo,yHi]` | ❌ — and see D's **permanent** refusal below |
+| **E** — instanced | `WallInstanceBridge` unit `BoxGeometry` × one T·R·S `Matrix4` | — | ❌ — **already excluded**: `_hasOpenings` (`WallFragmentBuilder.ts:1177, :1254`) drops *every* host of *any* opening |
+| **F** — single-volume boolean | `producers/wallVoids.ts`, injected kernel producer | true CSG (manifold-3d) | ⚠ **PARKED, default OFF** (`window.__wallSingleVolume`), R-6; one of its two named blockers is **NOT MEASURED** (C85 §12 R-8) |
+
+#### ⛔ Consequence 1 — **option (c) "route round openings to CSG unconditionally" IS NOT AVAILABLE.**
+
+The CSG arm is deliberately parked behind a flag with an unmeasured datum blocker that C85 §12 R-8
+explicitly forbids inferring past: *"Inferring 'safe to re-enable' from ONE closed blocker of two is
+the inference C84 exists to prevent."* Turning it on to serve a new feature would be that exact
+inference, with a new feature as the justification. **Recorded as unavailable, not as unconsidered.**
+
+#### ⛔ Consequence 2 — arm **A**, the only capable arm, is the arm that runs on the FEWEST walls.
+
+`WallFragmentBuilder.ts:2848` gates it on `!_hasMiterEnd`, where
+`_hasMiterEnd = !!(openingStartMN || openingEndMN || _capDrift)`. `WallJoinResolver` sets a mitre
+normal at every genuinely mitred corner (`:840`, `:1978`) — i.e. at **both ends of every wall in an
+ordinary closed room**. So *"a circular hole is already expressible"* is true and would have been a
+**wrong answer to the founder's question**: shipping only arm A gives a window that works on
+free-standing and butt-joined walls and silently falls back on the mitred façade walls that motivated
+the ask. ⭐ **This is why the ruling is not simply "(a), it already works".**
+
+#### THE RULING — **(a), by ONE shared mechanism, for arms A · B · C; (b) PERMANENT REFUSAL for arm D.**
+
+**PR-1 — the profile is an OUTLINE, and there is exactly one producer of it.** An opening's profile
+is a 2-D outline in wall-local `(x, y)` derived from `{ profile, offset, width, height, sillHeight }`
+by **one** module. Every arm consumes the SAME outline. ⛔ No arm may re-derive an arc. This is the
+C84 **EI-9** rule applied before the second derivation exists, not after — the mistake C86 §9 records
+itself making.
+
+**PR-2 — `rectangular` MUST stay byte-identical on every arm.** For `profile: 'rectangular'` the
+outline **is** the bounding box, the gasket of PR-4 is empty and **MUST NOT be emitted at all**.
+Pinned as a non-regression baseline, in the shape of `WallProfileNonRegressionBaseline.test.ts` §(A2a).
+
+**PR-3 — arm A consumes the outline directly.** The hole path and the door notch walk take the
+outline's segments and arcs. A `round-arch` door head is the same notch walk with the flat
+`lineTo` across the head replaced by an arc; a `circular` window is one `absarc` hole. **Door and
+window reach this through the SAME function** — which is the structural reason the founder's *"same
+place"* is honest rather than cosmetic.
+
+**PR-4 — arms B and C consume it as BOUNDING BOX + GASKET.** Both already cut the profile's bounding
+box (that is what they do for a rectangle). A profiled opening keeps that cut and adds **one gasket**
+child: the plate `bbox − outline`, triangulated once, extruded through the wall (B) or the layer (C)
+thickness, with reveal faces swept along the outline. It composes safely because it is **strictly
+interior**:
+
+- the mitre projection is gated on `x < 1e-5` / `|x − wallLength| < 1e-5`
+  (`LayeredWallOpeningBuilder.ts:236-239`) and an opening may not touch either end
+  (`WallHoleBodyBuilder.normaliseWallHoles` `:94`), so the gasket **can never meet it**;
+- the §L955-ONE-CORNER-RULE top-cap drift is gated on the same two tests
+  (`LayeredWallOpeningBuilder.ts:262-264`), so the gasket **can never meet it either**;
+- the rake is applied AFTERWARDS as one group matrix (`_applyRakeShearToChildren`), so the gasket
+  inherits the shear **by construction** — a circle in a raked wall's face becomes an ellipse in
+  plan, which is the correct drawing of a circle set out on a leaning face, not an error.
+
+> ⭐ **PR-4 is NOT "drawing a rectangle and calling it round", and the distinction is the whole
+> ruling.** The forbidden thing is a **rendered silhouette** that lies about the model. The bbox cut
+> is an internal decomposition that no user can see — the same status as the greedy quad merge at
+> `LayeredWallOpeningBuilder.ts:300-320`, which also decomposes into rectangles and is not a defect.
+> **The test that separates the two is stated here so it cannot be argued later: every reveal
+> (jamb / soffit) face MUST lie on the outline, and NO face may lie on the bbox boundary inside the
+> opening.** A gasket that fails that test is the defect `WallRake.ts:102` forbids.
+
+**PR-5 — arm D (curved walls) REFUSES, PERMANENTLY, BY NAME.** Its bands are sliced in **arc-length**
+space. A circle in arc-length space is not a circle in world space, and no choice of stations makes
+it one — this is the same *kind* of statement as §L955-INSTANCED-ARM-DROPS-RAKE's *"a T·R·S matrix
+cannot express what its property needs"*, and it is settled the same way: **exclude, do not teach the
+builder to fake it.** The refusal MUST name the host (*curved wall*), the reason (*the void is set out
+along the arc, not in a flat face*) and the live alternative (*a rectangular opening, or a straight
+host*) — [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md). ⛔ A silent fall-back to `rectangular` is the
+single worst available outcome and is forbidden by name.
+
+**PR-6 — arm E needs no new clause, and MUST be pinned BOTH WAYS anyway.** `!_hasOpenings` already
+excludes every opening-bearing wall, so a profiled opening cannot reach the box-drawing arm today.
+**That is a consequence, not a guarantee.** Per the §L955 both-ways rule, a spec MUST assert *both*
+that a profiled host does not instance *and* that an ordinary wall still does, so a later
+"optimisation" that admits opening-bearing walls cannot quietly re-admit profiled ones.
+
+#### THE VOCABULARY — **TWO ORTHOGONAL AXES IN ONE PLACE. ⛔ NOT three sibling pills.**
+
+The founder's words were *"single / double / circular"*. **Shipping that literally would be a C84
+EI-8/EI-9 one-vocabulary failure**, and the measurement says so rather than the preference:
+
+- **`single | double` is a LEAF COUNT.** It is carried by `Opening.doorType` **and**
+  `Opening.windowType` (`WallTypes.ts:37, :38`) — already two fields for one axis.
+- **A profile is a VOID SHAPE.** It belongs to the **host's half** of the opening (§10, *"the two
+  halves"*: the void is cut by the wall, the frame by the builder).
+- Collapsing them makes **`double × round-arch` — an ordinary, common door — unexpressible**, and
+  would require adding a shape value to **two** leaf-count fields.
+- ⛔ **And it would land in neither guard**: `OpeningSchema` (`WallDataSchema.ts:79-86`) carries
+  `id · type · offset · width · height · sillHeight · elementId` and **carries neither `doorType`
+  nor `windowType`**, while its own header at `:77` claims *"Matches interface Opening in
+  WallTypes.ts exactly."* **It does not, and has not.** (Recorded as a finding in its own right —
+  §11 #21.)
+
+**PR-7 — ONE field, on the host record.** `Opening.openingProfile`,
+`z.enum(['rectangular','round-arch','segmental-arch','circular']).default('rectangular')`, declared
+on the `Opening` interface **and** on `OpeningSchema`, shared by door and window. Leaf count stays
+where it is. **Two axes, one place** — which is what the founder's *"from the same place"* actually
+requires.
+
+**PR-8 — NO `radius` FIELD. The bounding box stays `width × height` for every profile.** A
+`circular` opening is `width === height`, `width` **is** the diameter, enforced by a `superRefine`
+rather than by a second dimension vocabulary. **Reason, and it is a measurement:** every downstream
+consumer already asks *"how wide is this hole?"* through `width`/`height` — `WallOccupancyStore`'s
+span, the §WINDOW-CORNER-OVERFLOW cap, the plan-symbol extent, the property panel, the `WxH`
+parametric size grammar, IFC. A `radius?` field alongside `width`/`height` would mint **three states,
+one of which is nonsense** (both set) and would make every one of those consumers learn a second way
+to ask one question — EI-9, again. ⭐ It also means the parametric and chat size grammars need **no
+change at all**: `1x1m circular` already parses.
+
+#### The refusal surface this axis creates — **enumerated, because an unenumerated refusal is a silent narrowing**
+
+| Host / condition | Verdict | Reason that MUST be named to the user |
+|---|---|---|
+| plain straight wall (mitred or not) | ✅ serve | — |
+| layered straight wall | ✅ serve (PR-4) | — |
+| **curved wall** | ⛔ **REFUSE** | the void is set out along the arc, not in a flat face (PR-5) |
+| raked straight host | ✅ serve | the circle shears with the face; that is correct set-out (PR-4) |
+| `circular` with `width ≠ height` | ⛔ **REFUSE at the schema** | a circular opening's bounding box is square (PR-8) |
+| profile taller/wider than the host's remaining span | ⛔ **REFUSE** | inherits the existing §WINDOW-CORNER-OVERFLOW and `WallOccupancyStore.canPlace` gates — ⚠ **both reason in `width`, and PR-8 is what keeps that true for a circle** |
+
+⛔ **Every one of these MUST name the reason AND the live alternative (C16 CA-18), and MUST NOT fall
+through to `rectangular`.** There is live precedent for the failure: an envelope hard-reject once fell
+through to `[]` silently.
+
+#### STATUS — **RULING ONLY. NOTHING IS BUILT.**
+
+⛔ This subsection is a Phase-0 decision record, not a description of shipped code. As of
+2026-08-19 there is **no `openingProfile` field, no outline module, no gasket and no refusal** in the
+repo — `packages/geometry-window/src/` contains no `shape`, `circular`, `round`, `radius` or
+`diameter` concept in any of its 17 files, and neither does `Opening`. **Read the code, not this
+section, for what exists.** The implementation slices and their honest per-surface coverage are
+[L-1200](../../04-reference/ISSUE-LOG.md).
+
 ### TO-BE — normative
 
 - **WO-G-1.** ONE Y datum for the opening. **The authority is the host wall's**
@@ -842,6 +1007,14 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 - **WO-G-3.** `wallVoids.ts` MUST keep its PARKED declaration until phase 3. ⛔ Its existence is not
   licence to delete `LayeredWallOpeningBuilder`, nor to enable the boolean without the flag and the
   fallback it names.
+- **WO-G-4 (§10.1 PR-1/PR-2).** An opening profile MUST be produced by **one** outline module and
+  consumed by every body arm. `rectangular` MUST remain byte-identical on every arm, pinned by a
+  non-regression baseline. ⛔ No arm may re-derive an arc.
+- **WO-G-5 (§10.1 PR-5, [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md)).** A host that cannot carry
+  the requested profile MUST **refuse, naming the host, the reason and the live alternative**. ⛔ It
+  MUST NOT silently fall back to `rectangular`. **The curved-wall arm refuses permanently.**
+- **WO-G-6 (§10.1 PR-8, EI-9).** The opening's bounding box is `width × height` for **every**
+  profile. ⛔ No `radius` / `diameter` field may be added alongside them.
 
 ---
 
@@ -869,6 +1042,8 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **19** | ⛔ **NEW — `DoorCommitter` is never constructed in production, so the whole plugin-committer arm of `door.setSwing` reaches nothing.** It is `new`-ed only at `bootstrap.render.everything.ts:140`, reached only via `SceneBootstrap.bootstrapScene`, which **requires** a canvas (`SceneBootstrap.ts:61`); `src/main.ts:402` boots `canvas: null` → the idle path (`SceneBootstrap.ts:226`). `PropertyInspectorApply`'s comment asserted the opposite chain (*"→ DoorCommitter.onUpdate() → produceDoor() rebuild → updated mesh"*) | nothing beyond what #3/#18 already cost — but it means a reader auditing `door.setSwing` finds a comment describing a live pipeline that does not run | C84 **§3.5.1(d)** — the CALL axis | the comment is corrected at the site ([L-1040](../../04-reference/ISSUE-LOG.md)). Whether the committer arm should be wired or declared dormant is **C84 §3.5 PARKED work, not C86's** |
 | **20** | ⚠ **NEW — `DoorBuilder.ts:526` stamps a THIRD tag, `'DoorLeaf'`, that C15 §12 never enumerated**, and both builders ship both casings (`DoorBuilder.ts:271` `'door'` vs `:476`/`:526` `'Door'`; `WindowBuilder.ts:376` vs `:646`/`:730`), in four files across two families | nothing today — every comparing consumer lowercases (`GLBExporter.ts:217`, `DeleteElement.ts:51`) | [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | ⚠ **severity DOWNGRADED from #10**: the lowercase emits are inside the view-definition subscription (`DoorBuilder.ts:252`, `WindowBuilder.ts:357`), not the mesh stamp. The freeze is still broken from four files, and `'DoorLeaf'` must be DECLARED as a sub-part tag (WO-ID-2's shape) |
 | **17** | **`CreateWallOpeningCommand.ts:12` declares `affectedStores = ["wall"]` while adding to `doorStore` (`:155`) and `windowStore` (`:204`)** — and `CreateWindowsParametricBatchCommand.ts:89` inherits it as `['wall']`. This is the command §12 R-1 names as *"the one atomic command"*, so every refusing create verb points at it | ✅ **ANSWERED AND FIXED 2026-08-19 (`37c416ff`).** `restoreSnapshot` has exactly TWO call sites, **both inside `execute()`** — `CommandManagerImpl.ts:325` (`success:false`) and `:428` (threw); its own header `:641` says *"rollback on failed execute only"*. `undo()` (`:743`) and `redo()` (`:794`) call the command's own methods directly and never build or apply a snapshot; `performUndoRedo.ts` has **zero** `napshot` occurrences. **So NO UNDO PATH WAS EVER AT RISK — the exposure is the execute-failure ROLLBACK.** For `CreateWallOpeningCommand` that is **LATENT** (its only `success:false` returns are `:91`, `:96`, `:114`, all BEFORE the write, and both store writes plus the graph write sit in swallowing try/catch at `:184`, `:228`, `:248`). For **`CreateWindowsParametricBatchCommand` it is REACHABLE**: `:299` `child.execute(ctx)` writes N windowStore records, then `:337` `throw err` re-raises from the post-loop summary/span block → `CommandManagerImpl:428` → a `['wall']`-scoped restore returns the walls without their openings while windowStore keeps N records and WindowBuilder keeps N meshes | C84 **EI-7c** — the declared set MUST be the written set | ✅ **DONE.** Declarations corrected to `["wall","door","window"]` and `['wall','window']`. Widening cannot perturb undo routing: `performUndoRedo.ts:553` reads `pair?.affectedStores` from the BUS PatchPair, and `:555-559` names this command commandManager-only by design, so `_covered()` (`:479`) never sees it [L-1031](../../04-reference/ISSUE-LOG.md) |
+| **21** | ⛔ **NEW 2026-08-19 (lane ROUND1, [L-1200](../../04-reference/ISSUE-LOG.md)) — `OpeningSchema` does NOT match the `Opening` interface, and its own header says it does.** `WallDataSchema.ts:77` declares *"Matches interface Opening in WallTypes.ts exactly"*; `:79-86` carries `id · type · offset · width · height · sillHeight · elementId` and carries **neither `doorType` nor `windowType`** (`WallTypes.ts:37, :38`). The leaf-count axis — the one the mode bar authors — is **unvalidated at the store's only Zod door**. ⭐ Found while measuring where an `openingProfile` field would have to land: **a new field added to the interface alone would be invisible to the guard, exactly as these two already are** | nothing *today* — `WallStore.addOpening` (`:1165`) uses `safeParse` as a **guard** and pushes the ORIGINAL object, so unknown keys are not stripped. ⚠ That is a property of ONE call site, not of the schema: any consumer that used `parseResult.data` would silently drop both fields | C84 **EI-2(a)**, **EI-9** | add both fields to `OpeningSchema`, or correct the header's claim. ⛔ **The header is the defect either way** — a comment asserting a correspondence that does not hold is the L-809/L-812 shape |
+| **22** | ⚠ **NEW — `elementCreationMatrix.ts:285-292` declares door mode `{ id: 'single', key: 'D' }` and window `{ id: 'single', key: 'W' }`. Neither matches the shipped bar**, which is `S`=Single / `D`=Double from `DoorModePicker.ts:54, :61` and `WindowModePicker.ts:55, :62`. Door and window do not consume `DrawingModeBar`, so the row is **unenforced drift** | nothing today; the declaration is the thing a future consolidation would trust | [C82](C82-RIBBON-CAPABILITY-SURFACE.md) · C84 **EI-3** | either route door/window through `DrawingModeBar` or delete the rows. ⚠ **Relevant to §10.1**: the profile axis must not be declared in a matrix nothing reads |
 
 ---
 
@@ -886,6 +1061,9 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **R-8** | No rotate verb, no level-change verb | §6 | ✅ **CORRECT BY C15 §2** — a hosted element has no independent world-space coordinate and no independent level. **Now declared, so nobody mints them** |
 | **R-9** | No `setMaterial` verb; colour is per-part | §9 | ⚠ **DECLARED HERE.** Previously an undeclared absence |
 | **R-10** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
+| **R-11** | A **curved** wall REFUSES any non-rectangular opening profile, permanently | §10.1 PR-5 | ⛔ **OWED — the profile axis is a RULING, not code.** When built it MUST name host + reason + alternative. The reason is structural and will not change: the bands are sliced in ARC-LENGTH space |
+| **R-12** | A `circular` profile whose `width ≠ height` REFUSES at the schema | §10.1 PR-8 | ⛔ **OWED.** This is what makes "no `radius` field" safe rather than lossy — without it, `width`/`height`/`profile` mint a nonsense state nothing refuses |
+| **R-13** | The **single-volume CSG** arm is **not** available to serve a new profile | §10.1 Consequence 1, R-6, [C85 §12 R-8](C85-ELEMENT-WALL.md) | ✅ **DECLARED HERE.** Recorded so the next reader knows option (c) was measured and rejected, not overlooked |
 
 ### Explicitly NOT REFUSED, and that is the finding
 

@@ -16667,3 +16667,129 @@ to look. `apps/editor/__tests__/RoofWallClashVerbReach.test.ts` exercises `regis
 **Not fixed here** (out of this lane's scope). Logged because it appears in no register and
 because "non-fatal" in the log line is about the boot sequence, not about the capability:
 **clash detection does not work for any user.**
+
+---
+
+## L-1200 — ROUND WINDOWS + ARCHED DOORS ARE **ONE** PROBLEM: A NON-RECTANGULAR VOID IN A WALL. FIVE BODY ARMS, FOUR REPRESENTATIONS, **ONE** CAN CARRY A CURVE — AND IT IS THE ARM THAT RUNS ON THE FEWEST WALLS 🟡 PHASE-0 RULING LANDED 2026-08-19 (lane ROUND1) — **NOTHING BUILT YET, DELIBERATELY**
+
+**Founder:** *"Could you also create ROUND windows? With the capability to fix everywhere — as the
+rectangular is doing?"* and, in the same session with two screenshots: *"Also please create DOOR
+WITH CURVED TOP. The user could choose both the circular window and door from THE SAME PLACE — it
+can choose single / double / circular. Do it SOUND."*
+
+⭐ **THE TWO ASKS ARE ONE ASK.** A circular window and a round-arched door head are both *a
+non-rectangular void in a wall*. Solving the void once serves both, every future profile, and the
+founder's *"same place"* — which is the whole reason this was ruled on before a line of geometry was
+written.
+
+**The normative ruling is [C86 §10.1](../02-decisions/contracts/C86-ELEMENT-WALL-OPENING.md)**
+(PR-1…PR-8), with `C86 §9 WO-Voc-4/5`, `C86 §10 WO-G-4/5/6`, `C86 §12 R-11/R-12/R-13`,
+`C86 §11 #21/#22`, [C15 §3.1](../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md) and
+[C82 §7.j/§7.k/§7.l](../02-decisions/contracts/C82-RIBBON-CAPABILITY-SURFACE.md).
+
+---
+
+### ⭐ THE PHASE-0 MEASUREMENT — the brief's framing was "CSG vs the layered grid". **Both halves were wrong.**
+
+| Arm | Representation | Curve? |
+|---|---|---|
+| **A** plain straight, **no mitre join AND no rake cap-drift** | `THREE.Shape` + `Path` holes → `ExtrudeGeometry` (`WallHoleBodyBuilder.ts`) | ✅ **exact, today, zero cost** — `Path.absarc` sits where the four `lineTo` calls are |
+| **B** plain straight, **mitred or lofted end** | abutting `BoxGeometry` (`WallFragmentBuilder.ts:2684, :2729`) | ❌ |
+| **C** layered straight | x/y break grid + boolean `solid[i][j]` (`LayeredWallOpeningBuilder.ts:154-203`) | ❌ |
+| **D** curved wall | radial bands: arc-station × `[yLo,yHi]` | ❌ **permanently** |
+| **E** instanced | unit `BoxGeometry` × one T·R·S `Matrix4` | ❌ — already excluded by `_hasOpenings` |
+| **F** single-volume boolean (manifold) | true CSG | ⚠ **PARKED, default OFF**, one blocker NOT MEASURED |
+
+**⛔ Finding 1 — option (c) "route round openings to CSG" IS NOT AVAILABLE.** The CSG arm is parked
+behind `window.__wallSingleVolume` with a blocker C85 §12 R-8 forbids inferring past. Enabling it to
+serve a new feature would be that exact forbidden inference, wearing a feature as its excuse.
+**Recorded as measured-and-rejected, not as overlooked.**
+
+**⛔ Finding 2 — and this is the one that changed the answer. The ONLY capable arm is the one that
+runs on the FEWEST walls.** `WallFragmentBuilder.ts:2848` gates arm A on `!_hasMiterEnd`;
+`WallJoinResolver` sets a mitre normal at every real mitred corner (`:840`, `:1978`) — **both ends of
+every wall in an ordinary closed room**. So *"a circular hole already works"* is **true and would
+have been the wrong answer to the founder**: it works on free-standing walls and quietly does not on
+the mitred façade walls that motivated the ask. ⭐ **Answering "(a), it already works" would have
+been a confident register row of exactly the kind
+[[confident-register-rows-are-the-wrong-ones]] records.**
+
+### THE RULING — **(a) via ONE shared mechanism for A · B · C; (b) PERMANENT REFUSAL for D**
+
+One outline module produces the profile in wall-local `(x, y)`; **arm A consumes it directly**, **arms
+B and C keep cutting the bounding box and add one interior GASKET plate** (`bbox − outline`) — which
+composes safely because the mitre projection and the §L955 top-cap drift are *both* gated on
+`x < 1e-5` / `|x − L| < 1e-5` and an opening may never touch either end, and because the rake is
+applied afterwards as one group matrix. **Arm D refuses by name**: its bands are sliced in
+ARC-LENGTH space, and a circle in arc-length space is not a circle in world space — the same *kind*
+of statement as §L955-INSTANCED-ARM-DROPS-RAKE's *"a T·R·S matrix cannot express what its property
+needs"*, settled the same way.
+
+> ⭐ **The gasket is NOT "a rectangle called round", and the separating test is written into the
+> contract so it cannot be argued later: every reveal face MUST lie on the outline, and NO face may
+> lie on the bbox boundary inside the opening.** The bbox cut is an invisible internal decomposition
+> — the same status as the greedy quad merge that arm C already performs.
+
+### THE VOCABULARY CORRECTION — **two orthogonal axes, one place. ⛔ NOT three sibling pills.**
+
+The founder said *"single / double / circular"*. **`single | double` is a LEAF COUNT;
+`rectangular | round-arch | segmental-arch | circular` is a VOID SHAPE.** Shipping the flat list makes
+**`double × round-arch` — an ordinary door — unexpressible**, and would require writing a shape value
+into `Opening.doorType` **and** `Opening.windowType`, two fields that already duplicate one axis.
+⭐ **And it would land in neither guard** — see #21 below. **One field, `Opening.openingProfile`, on
+the host record, shared by door and window** (C86 §10.1 PR-7).
+
+**⛔ NO `radius` FIELD (PR-8).** `circular` means `width === height`, `width` **is** the diameter.
+This is not taste — it is what keeps six already-measured consumers working unchanged, and the
+measurement is below.
+
+---
+
+### ⭐ THE COVERAGE TABLE — 15 surfaces, honest verdicts. **`RULED` means decided-and-documented; `NOT BUILT` means no code exists. Nothing here is `DONE`.**
+
+| # | Surface | Measured AS-IS | Verdict |
+|---|---|---|---|
+| **1** | **Schema** | `Opening` = `{id,type,offset,width,height,sillHeight,elementId}` + `doorType`/`windowType` (`WallTypes.ts:34-44`). **No shape/circular/round/radius/diameter concept in any of `packages/geometry-window/src/`'s 17 files** | **RULED, NOT BUILT.** One `openingProfile` enum on `Opening` + `OpeningSchema`; no `radius` (PR-7/PR-8) ⚠ **`OpeningSchema` lives in `WallDataSchema.ts` — lane RAKE1's fence. HAND-OFF REQUIRED** |
+| **2** | **Opening geometry in the wall** | five arms, four representations (table above) | **RULED, NOT BUILT.** A·B·C serve, D refuses permanently, E already excluded, F unavailable |
+| **3** | **Window body / frame** | `CurvedLeafGeometry.ts` is a **re-export shim**; the implementation is `@pryzm/geometry-door` (`leafArc`, `sweptBoxGeometry`, `arcSeat`) and it solves *the leaf following a **curved wall's** arc* (L-957) — **a different curve entirely.** It also ships `curvedLeafRefusal`, the exact door↔window shared-predicate pattern PR-1 should copy | **NOT YET.** ⭐ Checking first was worth it: reusing `leafArc` for an arched head would have been a wrong-curve reuse. The *pattern* transfers; the maths does not |
+| **4** | **Plan symbol + plan selectability** | Both builders emit **only `THREE.LineSegments`** from flat XZ endpoint arrays (`WindowPlanSymbolBuilder.ts:154, :167`; `DoorPlanSymbolBuilder.ts:298, :311, :326`) → `addProjectionLines` → `registerSegmentUUID`. Plan picking walks those segments **pairwise** in screen space (`PlanViewCanvas.ts:1410-1436`) and skips anything that is not `LineSegments` | **RULED, NOT BUILT — and the news is GOOD.** ⭐ **An arc is already precedented in this exact pipeline**: `DoorPlanSymbolBuilder.ts:720` samples the swing arc into segments. A sampled arc is therefore both drawable **and pickable**, because pickability here follows from emitting segments at all. ⚠ Separate pre-existing gap, NOT mine: `plugins/plan-view/src/hit-test.ts:169-179` models a door as a rotated AABB and **does not index windows at all** |
+| **5** | **Instancing** | `_hasOpenings` (`WallFragmentBuilder.ts:1177, :1254`) already drops **every** host of **any** opening | **ALREADY SAFE — but that is a CONSEQUENCE, not a guarantee.** Per §L955's both-ways rule a spec MUST pin *both* directions so a later optimisation admitting opening-bearing walls cannot re-admit profiled ones. **NOT BUILT** |
+| **6** | **Parametric bulk create** | `WINDOW_SIZE_RE` (`ZeroTokenResolver.ts:3513`) is two numbers and a unit; defaults 1.0 × 1.2 (`:2109-2118`); `WINDOW_EDGE_MARGIN_M = 0.15` and offsets are **dropped, never shrunk** (`CreateWindowsParametricBatchCommand.ts:197-199`) | ⭐ **RULED — AND PR-8 MAKES THIS A NON-EVENT.** `1x1m` already parses. The grammar needs **no arithmetic change at all**, only a shape adjective. ⛔ `packages/ai-host` is lane NL1's — **reported, not edited** |
+| **7** | **Properties panel** | `WindowSection.ts:205-213` (width / height / sill), `DoorSection.ts:253-261`; the descriptor table deliberately omits these (`PropertyDescriptorGenerator.ts:115-138`) | **NOT YET.** PR-8 answers *"what happens to width/height when shape flips"*: **nothing** — `circular` locks `height` to `width` |
+| **8** | **§WINDOW-CORNER-OVERFLOW** | the cap is `offset >= 0.15 && offset + width <= length − 0.15`, plus `clampToWall` (`WallOccupancyStore.ts:372-378`) clamping `width` into `[0.05, wallLength]`. **Every clamp is width-based** | ⭐ **NO REDO NEEDED — and that is a RESULT OF PR-8, not luck.** Diameter **is** `width`, so all four clamp sites keep holding. **This row is the strongest argument for PR-8** and is why a `radius` field was rejected |
+| **9** | **§OCCUPANCY `canPlace`** | a purely **1-D interval `[offset, offset+width]`** along the centreline; `WallOccupancyStore.ts:669-671` states outright that **height and sillHeight are ignored** and vertical stacking is not permitted | ⭐ **STATED, as the brief required: NO CHANGE, and the reason is that the model is already conservative.** A circle reserves the full `width` interval — its widest span — at every height. That **over**-reserves (you cannot tuck a second opening under the curve) and over-reserving is the safe direction. ⛔ The brief's worry — *"its span at sill level is not its span at the widest"* — **cannot arise**, because this store has no vertical axis to disagree about |
+| **10** | **Persistence** | **SAVE is a spread and is safe** (`ProjectSerializer.ts:445, :754-755`). **LOAD HAS TWO HOLES.** ⛔ (i) `WindowStore.add` does `Object.freeze({ ...WindowOpeningSchema.safeParse(w).data })` (`WindowStore.ts:37-46`) — **Zod strips unknown keys, so any field absent from `WindowOpeningSchema` is DELETED on every load**; DoorStore mirrors it. ⛔ (ii) `CreateWallOpeningCommand.ts:183-200` / `:232-262` are **explicit field whitelists** — a new opening field never reaches doorStore/windowStore at all. (iii) `WallStore.addOpening` is safe: `OpeningSchema.safeParse` is a **guard** and the original object is pushed (`:1165, :1224`) | ⭐ **THE FOURTH SAVE/LOAD HOLE WAS FOUND *BEFORE* THE FIELD WAS WRITTEN, WHICH IS THE POINT.** Three edits are mandatory and are now named: `WindowOpeningSchema` (+ door twin), both `CreateWallOpeningCommand` add-blocks, and `OpeningSchema`. **NOT BUILT** — and the round-trip test lands in the same slice as the field |
+| **11** | **IFC export** | `plugins/ifc-export/src/geometry.ts:94-104` **always** emits `IFCRECTANGLEPROFILEDEF` extruded along +Z; `window.ts:42-47` / `door.ts:41-47` are hardcoded boxes with a literal `THICKNESS = 0.05`; `Pset_WindowCommon` (13 props) carries **no shape property** | **NOT YET, and no parity is claimed.** ⭐ The path exists and is named: `space.ts:139` already uses `IfcArbitraryClosedProfileDef` — the right primitive, present in the plugin, **not wired to openings**. A circular `IfcWindow` is a real profile change, not a parameter |
+| **12** | **The mode bar** (C82) | `DoorModePicker.ts:54, :61` and `WindowModePicker.ts:55, :62` — `S`=Single, `D`=Double, own keydown at `:88-102`; Esc handled elsewhere (`ToolsAreaLayout.ts:762`) | **RULED, NOT BUILT.** Two axes in one bar (C82 §7.j). ⚠ **Letters were GREPPED, as instructed.** `S` has **six** live meanings; `R`, `O`, `P`, `C` are taken. **Measured-free in this context: `A K N Q T U Y Z`.** ⭐ Recommendation: bind **ONE** letter (`A`, for *Arch*) that **CYCLES** the profile axis, rather than minting four more contested letters — pills stay individually clickable |
+| **13** | **Door parity** | door and window are mirrors at every hop measured (picker, config store, opening factory, plan symbol, IFC exporter, occupancy) | **RULED — parity is STRUCTURAL, not duplicated.** The profile lives on `Opening`, so both families inherit it from one field, one outline module, one refusal predicate. `curvedLeafRefusal` is the proven shape for the last of those |
+| **14** | **RAC / chat** | family is PUBLISHED (C86 §RAC); 8 capabilities live | **NOT YET — spec reported to the coordinator for lane NL1.** ⛔ `packages/ai-host` not edited |
+| **15** | **The refusal surface** | C15 already refuses a window on a raked *curved/layered* host via `rakeAuthorability` + `canPlace` | **RULED, NOT BUILT.** Six rows enumerated in C86 §10.1. ⛔ Every one names host + reason + live alternative (C16 CA-18); **a silent fall-back to `rectangular` is forbidden by name** |
+
+### ⚠ A SIXTEENTH SURFACE, FOUND WHILE MEASURING AND IN NOBODY'S BRIEF
+
+**`packages/geometry-wall/src/composeWallGeometryHash.ts` folds the opening dimensions into the
+rebuild key.** A profile change that is not in that hash **will not trigger a rebuild** — the user
+flips Rectangular → Circular and nothing happens. ⭐ This is [[three-invalidation-gates-in-series]]
+waiting to happen: the upstream gate would have hidden every downstream fix, and it is exactly the
+class of defect that makes a feature look *"built but dead"*.
+
+### ⛔ TWO DEFECTS FOUND IN PASSING — both logged into C86 §11
+
+- **#21 — `OpeningSchema` does not match the `Opening` interface, and its own header says it does.**
+  `WallDataSchema.ts:77` claims *"Matches interface Opening in WallTypes.ts exactly"*; `:79-86`
+  carries neither `doorType` nor `windowType`. **The leaf-count axis — the one the mode bar authors —
+  is unvalidated at the store's only Zod door.** Harmless *today* only because one call site happens
+  to use `safeParse` as a guard rather than a transform. ⭐ Found while asking where an
+  `openingProfile` field would have to land.
+- **#22 — `elementCreationMatrix.ts:285-292` declares door key `D` and window key `W` for mode
+  `single`. Neither matches the shipped bar.** Door and window render their own pickers, so the row
+  is unenforced drift — a capability declaration no surface consumes.
+
+### WHY NOTHING IS BUILT YET, AND WHY THAT IS THE DELIVERABLE
+
+The founder's instruction was explicit: *"I would rather ship a refusal that names its reason than a
+rectangle pretending to be a circle"*, and *"Phase 0 is now the whole ballgame — report it before
+building."* ⭐ Two of the measurements above **changed the design** (Finding 2 turned "it already
+works" into a gasket mechanism; row 10 turned a field addition into a three-edit persistence
+contract), and one (row 3) **stopped a wrong-curve reuse**. Building first would have shipped all
+three.
