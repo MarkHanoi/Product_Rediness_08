@@ -32,6 +32,8 @@ import { buildWallProfileBodyGeometry } from './WallProfileBodyBuilder';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
 // straight wall with openings (one continuous ExtrudeGeometry, no segment seams).
 import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
+import { openingProfileTag, openingOutline, isRectangularProfile } from './OpeningProfile';
+import { buildOpeningProfileGasket } from './OpeningProfileGasket';
 // §WALL-Y-DATUM (L-968) — THE wall vertical datum authority. This builder is the
 // ONE writer: it resolves the world BASE plane and publishes it so the hosted
 // leaves, the junction infill and the instanced arm all read one number instead of
@@ -195,7 +197,37 @@ export class WallFragmentBuilder {
         if (wall._renderVersion === undefined) return null;
         const jh = this._joinHash(joinData);
         const slabTag = (slabBaseOffset ?? 0).toFixed(4);
-        return `${wall._renderVersion}|${jh}|${slabTag}|${this._rakeTag(wall)}`;
+        return `${wall._renderVersion}|${jh}|${slabTag}|${this._rakeTag(wall)}${this._openingProfileTag(wall)}`;
+    }
+
+    /**
+     * §OPENING-PROFILE-INVALIDATION (L-1200) — the openings' SHAPES, as a cache-key fragment.
+     *
+     * ⛔ **THE SECOND OF THE THREE INVALIDATION GATES, AND IT WAS FOUND BEFORE IT COULD BITE.**
+     * `_composeCacheKey` is `_renderVersion`-addressed, and a profile flip arrives through the
+     * GENERIC bus path (`element.updateParameters` → `UpdateElementParameterCommand` →
+     * `WallStore.update`) which — unlike every DEDICATED wall command — never bumps
+     * `_renderVersion`. Without this fold the key is byte-identical, `_buildWallInternal`
+     * short-circuits, and the user flips Rectangular → Circular and **nothing happens at all**.
+     *
+     * That is exactly the defect §WALL-RAKE-INVALIDATION documents one line above (*"the wall only
+     * gets angled after another element is created or modified"*), and exactly the L-813 class
+     * where three gates sit in series and the upstream one hides every downstream fix. It ships in
+     * the SAME slice as the geometry rather than a later one, because a feature that authors
+     * correctly and renders nothing is indistinguishable from broken.
+     *
+     * ⭐ EMPTY when every opening is rectangular — which is every opening in every project today —
+     * so no existing wall is re-keyed and no rebuild is triggered by this change landing.
+     */
+    private _openingProfileTag(wall: WallData): string {
+        const ops = wall.openings;
+        if (!ops || ops.length === 0) return '';
+        let tag = '';
+        for (const o of ops) {
+            const t = openingProfileTag((o as { openingProfile?: unknown }).openingProfile);
+            if (t) tag += `${o.id}${t}`;
+        }
+        return tag ? `|OP[${tag}]` : '';
     }
 
     /**
@@ -2698,6 +2730,50 @@ export class WallFragmentBuilder {
                         wallGroup!.add(gapMesh);
                     }
 
+                    // ── §OPENING-PROFILE-GASKET (L-1200) — ARM B CARRIES THE CURVE ───────────
+                    //
+                    // This arm draws the wall as abutting BOXES, whose alphabet has no arc in it.
+                    // It keeps cutting the opening's BOUNDING BOX — unchanged, exactly as it does
+                    // for a rectangle — and one gasket plate fills `bbox − outline`, with its
+                    // reveal faces swept along the TRUE outline.
+                    //
+                    // ⭐ That is a decomposition, not an approximation: what the user sees through
+                    // the opening is the arc and only the arc. C86 §10.1 states the separating test
+                    // (every reveal face on the outline; no face bounding the void from the bbox)
+                    // and `OpeningProfileSlice1.test.ts` §C/§D proves it, with a rectangle-called-
+                    // round and a staircase as live negative controls.
+                    //
+                    // ⛔ `buildOpeningProfileGasket` returns null for a rectangular profile, so this
+                    // block is INERT for every opening in every existing project (PR-2).
+                    if (!isRectangularProfile((op as { openingProfile?: unknown }).openingProfile)) {
+                        const _gOutline = openingOutline({
+                            profile: (op as { openingProfile?: unknown }).openingProfile,
+                            offset: op.offset,
+                            width: op.width,
+                            height: op.height,
+                            sillHeight: op.sillHeight ?? 0,
+                        });
+                        const _gGeo = buildOpeningProfileGasket(
+                            _gOutline, -wallThickness / 2, wallThickness / 2, wallBaseOffset,
+                        );
+                        if (_gGeo) {
+                            const _gMesh = new THREE.Mesh(_gGeo, material.clone());
+                            _gMesh.userData = {
+                                materialId: wall.materialId,
+                                materialColor: wall.materialColor,
+                                elementType: 'WallPart',
+                                modelId: 'model-default',
+                                role: 'geometry',
+                                selectable: false,
+                            };
+                            // Axis-aligned local frame (x along the wall) — the same frame the
+                            // hole-extrude body uses, so the same −angle rotation places it.
+                            _gMesh.position.set(0, 0, 0);
+                            _gMesh.rotation.set(0, -Math.atan2(direction.z, direction.x), 0);
+                            wallGroup!.add(_gMesh);
+                        }
+                    }
+
                     // Create Frame
                     // §4.3 FIX: render data resolved externally and passed in via renderMap.
                     if (op.elementId) {
@@ -3332,6 +3408,8 @@ export class WallFragmentBuilder {
                     width: op.width,
                     height: op.height,
                     sillHeight: op.sillHeight ?? 0,
+                    // §OPENING-PROFILE — arm A carries the shape natively (C86 §10.1 PR-3).
+                    openingProfile: (op as { openingProfile?: never }).openingProfile,
                 })),
             );
             const geo = buildWallHoleBodyGeometry({

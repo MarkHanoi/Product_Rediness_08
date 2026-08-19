@@ -75,6 +75,9 @@ import { wallCentrelineLength } from './WallArcParam';
 // store's last-line guard cannot drift apart, and the user reads the SAME
 // sentence the store would have thrown.
 import { rakeAuthorability } from './WallRake';
+// §OPENING-PROFILE (L-1200) — the SAME predicate the builders obey, so the pre-flight decline
+// and the geometry cannot disagree about which hosts can carry a curved void.
+import { openingProfileRefusal, isRectangularProfile } from './OpeningProfile';
 // §PRYZM-PERF (INSTR1) — canPlace ran on EVERY pointermove and logged every time.
 // Counters replace that flood; see the block at the OK return in canPlace().
 import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
@@ -107,6 +110,7 @@ import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 export type CanPlaceRefusalCode =
     | 'OCC_HOST_ZERO_LENGTH'        // degenerate host — no span exists to occupy
     | 'OCC_HOST_RAKED'              // §RAKE-HOSTED-OPENING — host rake incompatible with its own shape (curved / layered / out of range)
+    | 'OCC_PROFILE_UNSUPPORTED'     // §OPENING-PROFILE (L-1200) — this host cannot carry this void SHAPE (curved host), or the shape's own dimensions are impossible
     | 'OCC_WIDTH_NOT_POSITIVE'      // requested width ≤ 0
     | 'OCC_OFFSET_BEFORE_WALL_START'// requested span starts before the wall
     | 'OCC_SPAN_BEYOND_WALL_END'    // requested span runs past the wall end
@@ -144,6 +148,7 @@ export const CAN_PLACE_REFUSAL_CODES = [
     'OCC_SPAN_BEYOND_WALL_END',
     'OCC_OVERLAPS_SIBLING',
     'OCC_CROSSES_HOSTED_OPENING',
+    'OCC_PROFILE_UNSUPPORTED',
 ] as const satisfies readonly CanPlaceRefusalCode[];
 
 /** Compile-time completeness: resolves to `never` only when the roster covers the
@@ -231,6 +236,10 @@ const CAN_PLACE_DEFAULT_SENTENCE: Record<CanPlaceRefusalCode, string> = {
     OCC_OFFSET_BEFORE_WALL_START: 'the requested opening starts before the wall does',
     OCC_SPAN_BEYOND_WALL_END:     'the requested opening runs past the end of the wall',
     OCC_OVERLAPS_SIBLING:         'the requested opening overlaps an opening already on this wall',
+    // §OPENING-PROFILE (L-1200) — fallback only. The real producer is
+    // `openingProfileRefusal`, which always supplies prose naming the host, the reason AND the
+    // live alternative (C16 CA-18) — and, for an impossible circle, BOTH of its dimensions.
+    OCC_PROFILE_UNSUPPORTED:      'this wall cannot carry an opening of that shape',
     // §C83-S1 — the fallback only. The real producer (`evaluateWallPlacement`)
     // always supplies prose NAMING the opening and BOTH intervals, because a
     // refusal the user cannot act on is the defect this whole family exists to
@@ -692,6 +701,15 @@ export class WallOccupancyStore {
         offsetM:    number,
         widthM:     number,
         excludeId?: string,
+        /**
+         * §OPENING-PROFILE (L-1200) — the void SHAPE being placed, and its height.
+         *
+         * OPTIONAL, and absent ⇒ rectangular ⇒ **every existing caller keeps its exact previous
+         * verdict**. This is added as a trailing optional rather than a new object parameter so
+         * the ~dozen live call sites need no edit to stay correct — they were all placing
+         * rectangles and still are.
+         */
+        profile?: { openingProfile?: unknown; heightM?: number },
     ): CanPlaceResult {
 
         // §PRYZM-PERF (INSTR1) — total invocations. Counted at ENTRY rather than at
@@ -719,6 +737,42 @@ export class WallOccupancyStore {
                 code:        'OCC_HOST_ZERO_LENGTH',
                 reason:      'Wall has zero length — cannot place openings',
             };
+        }
+
+        // ── §OPENING-PROFILE (L-1200) — CAN THIS HOST CARRY THIS VOID SHAPE? ──────────
+        //
+        // ⛔ **A CURVED WALL REFUSES A NON-RECTANGULAR OPENING, PERMANENTLY** (C86 §10.1 PR-5,
+        // §12 R-11). `_buildCurvedWallWithOpenings` slices the wall into radial bands at stations
+        // along the ARC, so an opening there is a span in ARC-LENGTH space — and a circle in
+        // arc-length space is not a circle in world space. No choice of stations makes it one.
+        // That is the same KIND of impossibility as §L955's "a T·R·S matrix cannot express what
+        // its property needs", and the house has already ruled on how to answer it: **exclude,
+        // do not teach the builder to fake it.**
+        //
+        // ⭐ IT IS ENFORCED HERE, alongside the rake gate, for the L-812 reason written above:
+        // a refusal is not a crash, and the user must meet it at PLACEMENT with a sentence — not
+        // as a silently rectangular hole after the fact. `openingProfileRefusal` is the ONE
+        // predicate the geometry obeys too, so the decline and the builder cannot drift.
+        //
+        // The shape's own impossible dimensions (a "circle" 2 m × 1 m) are refused by the same
+        // call, which is what makes C86 PR-8's "no `radius` field" safe rather than lossy.
+        //
+        // INERT for a rectangular / absent profile — not one existing verdict moves.
+        if (profile && !isRectangularProfile(profile.openingProfile)) {
+            const profileReason = openingProfileRefusal({
+                profile: profile.openingProfile,
+                width:   widthM,
+                height:  profile.heightM ?? widthM,
+                host:    wall,
+            });
+            if (profileReason) {
+                return {
+                    valid:       false,
+                    conflictIds: [],
+                    code:        'OCC_PROFILE_UNSUPPORTED',
+                    reason:      profileReason,
+                };
+            }
         }
 
         // ── §FIX-RAKE-REFUSAL-IS-NOT-A-CRASH (L-812) ───────────────────────

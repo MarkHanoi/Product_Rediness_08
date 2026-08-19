@@ -9,6 +9,8 @@ import { resolveLayerRenderFinishColor } from './WallSideFinishResolver';
 // `WallRake.rakeShearPerMetre`) and the only thing this builder needs to know is how
 // WIDE each authored layer is IN PLAN once the stack leans.
 import { rakedPlanThickness } from './WallRake';
+import { openingOutline, isRectangularProfile, type OpeningProfileKind } from './OpeningProfile';
+import { buildOpeningProfileGasket } from './OpeningProfileGasket';
 
 /**
  * §PERF-PHASE2 — wall-layer mesh-explosion cap.
@@ -86,6 +88,11 @@ interface OpeningRect {
     right: number;
     bottom: number;
     top: number;
+    /**
+     * §OPENING-PROFILE (L-1200) — the void's SHAPE. Absent / rectangular ⇒ this file behaves
+     * EXACTLY as it always has, which is the PR-2 byte-identity guarantee for arm C.
+     */
+    profile?: OpeningProfileKind;
 }
 
 function addUniqueBreak(values: number[], value: number): void {
@@ -104,7 +111,7 @@ function normaliseOpeningRects(openings: Opening[], wallLength: number, wallHeig
         const bottom = Math.max(0, op.sillHeight ?? 0);
         const top = Math.min(wallHeight, (op.sillHeight ?? 0) + op.height);
         if (right - left > 0.001 && top - bottom > 0.001) {
-            rects.push({ left, right, bottom, top });
+            rects.push({ left, right, bottom, top, profile: (op as { openingProfile?: OpeningProfileKind }).openingProfile });
         }
     }
     return rects;
@@ -291,6 +298,29 @@ function buildContinuousLayerGeometry(
     const isSolid = (i: number, j: number): boolean =>
         i >= 0 && i < xCount && j >= 0 && j < yCount && solid[i][j];
 
+    // §OPENING-PROFILE-GASKET (L-1200) — which void cells belong to a PROFILED opening.
+    //
+    // ⛔ THE REVEAL QUADS AROUND SUCH A VOID MUST NOT BE EMITTED. They would sit on the opening's
+    // BOUNDING BOX, and a face bounding the void from the bbox is precisely what C86 §10.1's
+    // separating test forbids — it is the difference between "a circle" and "a rectangle with a
+    // curved label". The gasket emitted below supplies the real reveal, swept along the outline.
+    //
+    // ⚠ IN-GRID ONLY. An out-of-grid neighbour is the WALL END, whose cap must still be drawn;
+    // conflating the two would open the wall's own ends. Hence the explicit bounds test rather
+    // than reusing `!isSolid`, which answers `false` for both cases.
+    const _profiledRects = rects.filter((r) => !isRectangularProfile(r.profile));
+    const isProfiledVoid = (i: number, j: number): boolean => {
+        if (_profiledRects.length === 0) return false;
+        if (i < 0 || i >= xCount || j < 0 || j >= yCount) return false;
+        if (solid[i]![j]) return false;
+        const cx = (xs[i]! + xs[i + 1]!) / 2;
+        const cy = (ys[j]! + ys[j + 1]!) / 2;
+        return _profiledRects.some((r) =>
+            cx > r.left + 0.0001 && cx < r.right - 0.0001 &&
+            cy > r.bottom + 0.0001 && cy < r.top - 0.0001,
+        );
+    };
+
     // §96-LAYERED-SEAM-FIX (2026-05-24) — FRONT/BACK faces: greedy-merge adjacent
     // solid cells into maximal rectangles. The old per-cell emission put a quad
     // boundary at every grid break (e.g. the opening's left/right x), so a door
@@ -328,19 +358,58 @@ function buildContinuousLayerGeometry(
             const x1 = xs[i + 1]!;
             const y0 = ys[j]!;
             const y1 = ys[j + 1]!;
-            if (!isSolid(i - 1, j)) {
+            if (!isSolid(i - 1, j) && !isProfiledVoid(i - 1, j)) {
                 addQuad([x0, y0, back], [x0, y0, front], [x0, y1, front], [x0, y1, back]);
             }
-            if (!isSolid(i + 1, j)) {
+            if (!isSolid(i + 1, j) && !isProfiledVoid(i + 1, j)) {
                 addQuad([x1, y0, front], [x1, y0, back], [x1, y1, back], [x1, y1, front]);
             }
-            if (!isSolid(i, j - 1)) {
+            if (!isSolid(i, j - 1) && !isProfiledVoid(i, j - 1)) {
                 addQuad([x1, y0, front], [x0, y0, front], [x0, y0, back], [x1, y0, back]);
             }
-            if (!isSolid(i, j + 1)) {
+            if (!isSolid(i, j + 1) && !isProfiledVoid(i, j + 1)) {
                 addQuad([x0, y1, back], [x0, y1, front], [x1, y1, front], [x1, y1, back]);
             }
         }
+    }
+
+    // ── §OPENING-PROFILE-GASKET — ARM C CARRIES THE CURVE ────────────────────────────
+    //
+    // The grid above is a RECTANGLE RASTERISER — its alphabet has no arc in it, and refining it
+    // into finer cells would produce a staircase, which C86 §10.1 forbids by name. So it does not
+    // try: it cut the opening's BOUNDING BOX exactly as it always has, the reveal quads on that
+    // bbox were suppressed above, and ONE gasket plate per layer now supplies `bbox − outline`
+    // with reveal faces swept along the true outline.
+    //
+    // ⭐ EMITTED THROUGH `pushVertex`, DELIBERATELY. That is the same emitter every other vertex
+    // in this builder goes through, so the gasket lands in the `direction`/`outward` basis, picks
+    // up `wallBaseOffset`, and is subject to the same mitre and cap-drift logic as its neighbours
+    // — both of which are gated on `x ≈ 0` / `x ≈ wallLength` and therefore no-ops for a strictly
+    // interior plate. Mapping the gasket by a second, parallel transform here would have been a
+    // second derivation of one placement, which is the C84 EI-9 defect this slice is organised to
+    // avoid.
+    //
+    // ⛔ INERT for a rectangular profile: `_profiledRects` is empty, so not one instruction below
+    // executes and the emitted geometry is byte-identical to the pre-L-1200 build (PR-2).
+    for (const r of _profiledRects) {
+        const outline = openingOutline({
+            profile: r.profile,
+            offset: r.left,
+            width: r.right - r.left,
+            height: r.top - r.bottom,
+            sillHeight: r.bottom,
+        });
+        // yShift 0 — `pushVertex` adds `wallBaseOffset` itself.
+        const gasket = buildOpeningProfileGasket(outline, back, front, 0);
+        if (!gasket) continue;
+        const gp = gasket.getAttribute('position');
+        for (let v = 0; v + 2 < gp.count; v += 3) {
+            const ia = pushVertex(gp.getX(v), gp.getY(v), gp.getZ(v));
+            const ib = pushVertex(gp.getX(v + 1), gp.getY(v + 1), gp.getZ(v + 1));
+            const ic = pushVertex(gp.getX(v + 2), gp.getY(v + 2), gp.getZ(v + 2));
+            indices.push(ia, ib, ic);
+        }
+        gasket.dispose();
     }
 
     // §WALL-NAN-GUARD (2026-06-25) — final safety net: if any computed vertex

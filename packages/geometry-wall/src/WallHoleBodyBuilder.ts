@@ -29,6 +29,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { openingOutline, isRectangularProfile, type OpeningProfileKind } from './OpeningProfile';
 
 /** A rectangular opening in the wall face, in wall-local (x along wall) metres. */
 export interface WallOpeningRect {
@@ -43,6 +44,20 @@ export interface WallOpeningRect {
     readonly height: number;
     /** Sill height above the wall base (metres). */
     readonly sillHeight: number;
+    /**
+     * §OPENING-PROFILE (L-1200) — the void's SHAPE. Absent ⇒ rectangular ⇒ byte-identical output.
+     *
+     * ⭐ THIS ARM IS THE ONE THAT CARRIES A CURVE NATIVELY, AND IT ALWAYS COULD HAVE. The body is
+     * already a `THREE.Shape` with `THREE.Path` holes, and a `Path` accepts an arc exactly where it
+     * accepts a `lineTo`. C86 §10.1 measured that: of five wall-body arms this is the only one whose
+     * representation admits a non-rectangular void with no new dependency, no CSG and no WASM.
+     *
+     * ⚠ It is also the arm that runs on the FEWEST walls — the caller gates it on having no mitre
+     * join and no rake cap-drift, and an ordinary closed room mitres both ends of every wall. That
+     * is why `OpeningProfileGasket` exists for the other two straight arms, and why "it already
+     * works" was the wrong answer to the founder's question.
+     */
+    readonly openingProfile?: OpeningProfileKind;
 }
 
 export interface WallHoleBodyParams {
@@ -56,7 +71,7 @@ export interface WallHoleBodyParams {
 const OPENING_EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, in wall-local METRES: the margin that keeps a flush opening off the wall ends and stops two merely-touching rects reading as overlapping.
 
 /** A validated opening rectangle in wall-local metres, classified by kind. */
-export interface NormRect { x0: number; x1: number; y0: number; y1: number; floorNotch: boolean }
+export interface NormRect { x0: number; x1: number; y0: number; y1: number; floorNotch: boolean; profile?: OpeningProfileKind }
 
 export interface NormWallHoles {
     /** Interior openings (sill > 0, head < height) → ExtrudeGeometry holes (windows). */
@@ -95,7 +110,7 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null 
         if (y1 >= p.height - OPENING_EPS_M) return null;
         // Sill at (or below) the floor → floor notch (door); else interior hole.
         const floorNotch = y0 <= OPENING_EPS_M;
-        rects.push({ x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch });
+        rects.push({ x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch, profile: op.openingProfile });
     }
 
     // Overlapping openings self-intersect in the extrude — reject (segmented fallback).
@@ -141,8 +156,21 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
     shape.moveTo(0, yb);
     for (const n of notches) {
         shape.lineTo(n.x0, yb);            // bottom edge up to the door's left jamb
-        shape.lineTo(n.x0, yb + n.y1);     // up the left jamb to the head
-        shape.lineTo(n.x1, yb + n.y1);     // across the head
+        // §OPENING-PROFILE — walk the notch's OWN outline over the head, instead of the three
+        // hard-coded lines this loop used to emit. `openingOutline` is the single producer
+        // (C86 §10.1 PR-1); traversing its CCW points BACKWARDS from index 0 goes
+        // foot → up the left jamb → over the head → down to the right foot, which for a
+        // rectangle reproduces those three lines EXACTLY — the PR-2 byte-identity guarantee, kept
+        // by construction rather than by a parallel branch that has to be maintained in step.
+        // ⭐ This is what makes a ROUND-ARCHED DOOR the same code path as a rectangular one, which
+        // is what the founder's "from the same place" actually requires below the UI.
+        const walk = notchWalk(n);
+        if (walk) {
+            for (const pt of walk) shape.lineTo(pt.x, yb + pt.y);
+        } else {
+            shape.lineTo(n.x0, yb + n.y1);     // up the left jamb to the head
+            shape.lineTo(n.x1, yb + n.y1);     // across the head
+        }
         shape.lineTo(n.x1, yb);            // down the right jamb back to the floor
     }
     shape.lineTo(length, yb);              // remainder of the bottom edge
@@ -151,13 +179,26 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
     shape.lineTo(0, yb);                   // left edge down (close)
 
     // Interior openings (windows) → holes, wound opposite to the outer profile.
+    //
+    // §OPENING-PROFILE — the hole follows the opening's outline. A `THREE.Path` accepts an arc
+    // wherever it accepts a segment, so a CIRCULAR window is expressed here EXACTLY: not sampled
+    // into a staircase, not approximated by finer rectangles, and with the continuous reveal
+    // (jamb / soffit) faces the Shape-extrude gives for free. The outline is CCW and the outer
+    // profile is CCW, so the hole is walked in REVERSE to wind it the opposite way.
     for (const h of holes) {
         const path = new THREE.Path();
-        path.moveTo(h.x0, yb + h.y0);
-        path.lineTo(h.x0, yb + h.y1);
-        path.lineTo(h.x1, yb + h.y1);
-        path.lineTo(h.x1, yb + h.y0);
-        path.lineTo(h.x0, yb + h.y0);
+        const pts = holeWalk(h);
+        if (pts) {
+            path.moveTo(pts[0]!.x, yb + pts[0]!.y);
+            for (let i = 1; i < pts.length; i++) path.lineTo(pts[i]!.x, yb + pts[i]!.y);
+            path.lineTo(pts[0]!.x, yb + pts[0]!.y);
+        } else {
+            path.moveTo(h.x0, yb + h.y0);
+            path.lineTo(h.x0, yb + h.y1);
+            path.lineTo(h.x1, yb + h.y1);
+            path.lineTo(h.x1, yb + h.y0);
+            path.lineTo(h.x0, yb + h.y0);
+        }
         shape.holes.push(path);
     }
 
@@ -168,4 +209,43 @@ export function buildWallHoleBodyGeometry(p: WallHoleBodyParams): THREE.BufferGe
     });
     geo.translate(0, 0, -thickness / 2);
     return geo;
+}
+
+/**
+ * The outline of a NormRect, or `null` when it is an ordinary rectangle (so the caller keeps its
+ * pre-existing literal walk and the output is byte-identical) or when the profile cannot be built.
+ *
+ * ⚠ A `null` from a NON-rectangular profile means the authoring gate
+ * (`openingProfileRefusal`) was skipped upstream: the caller then draws the rectangle it always
+ * drew. That is a LOUD wrong — a visibly square hole where the user asked for a round one — not a
+ * subtly wrong curve, which is the failure mode C86 §10.1 is organised to avoid.
+ */
+function outlineFor(r: NormRect): readonly { x: number; y: number }[] | null {
+    if (isRectangularProfile(r.profile)) return null;
+    const o = openingOutline({
+        profile: r.profile,
+        offset: r.x0,
+        width: r.x1 - r.x0,
+        height: r.y1 - r.y0,
+        sillHeight: r.y0,
+    });
+    return o && !o.isRectangular ? o.points : null;
+}
+
+/** Notch (floor-reaching) walk: left foot → up → over the head → right foot, EXCLUDING both feet. */
+function notchWalk(r: NormRect): readonly { x: number; y: number }[] | null {
+    const pts = outlineFor(r);
+    if (!pts) return null;
+    // points[0] is the left foot (already reached by the caller) and points[1] the right foot
+    // (emitted by the caller afterwards); everything between, walked backwards, is the head.
+    const out: { x: number; y: number }[] = [];
+    for (let i = pts.length - 1; i >= 2; i--) out.push({ x: pts[i]!.x, y: pts[i]!.y });
+    return out;
+}
+
+/** Hole walk: the outline reversed, so the hole winds opposite the CCW outer profile. */
+function holeWalk(r: NormRect): readonly { x: number; y: number }[] | null {
+    const pts = outlineFor(r);
+    if (!pts) return null;
+    return [...pts].reverse();
 }

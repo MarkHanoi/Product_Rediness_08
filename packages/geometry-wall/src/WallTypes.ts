@@ -4,6 +4,7 @@ import { Point3D } from '@pryzm/core-app-model';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
 import { WallStore } from './WallStore';
 import type { WallProfile } from './WallProfile';
+import type { OpeningProfileKind } from './OpeningProfile';
 
 export enum WallToolState {
     IDLE = 'IDLE',
@@ -41,6 +42,34 @@ export interface Opening {
     height: number;
     sillHeight: number; // REQUIRED - geometry generation depends on it
     elementId: string; // REQUIRED — spatial registration depends on this being present
+
+    /**
+     * §OPENING-PROFILE (L-1200) — the void's SHAPE. Absent ⇒ `'rectangular'`, which is what every
+     * opening authored before this field was is, so nothing needs migrating.
+     *
+     * ⭐ **THIS IS A SECOND, ORTHOGONAL AXIS — NOT a third member of `doorType`/`windowType`.**
+     * Those two carry the LEAF COUNT (`'single' | 'double'`); this carries the VOID SHAPE. C86 §9
+     * WO-Voc-4 forbids flattening them, because doing so makes `double × round-arch` — an ordinary
+     * door — unexpressible, and would need one shape value written into BOTH leaf-count fields.
+     *
+     * It lives on the OPENING, i.e. on the HOST's record, because the void is cut by the wall
+     * (C15 §3.1) — which is also what lets a door and a window share one profile vocabulary
+     * instead of minting two.
+     *
+     * ⚠ **THE BOUNDING BOX STAYS `width × height` FOR EVERY PROFILE, AND THERE IS NO `radius`
+     * FIELD** (C86 §10.1 PR-8). A `circular` opening has `width === height` and its `width` IS the
+     * diameter. That is not a stylistic choice: `WallOccupancyStore`'s span, the
+     * §WINDOW-CORNER-OVERFLOW cap, `clampToWall`, the plan-symbol extent and the `WxH` size grammar
+     * all already ask *"how wide is this hole?"* through `width`, and a second dimension vocabulary
+     * would make every one of them learn a new way to ask one question.
+     *
+     * ⛔ Typed as the string union rather than `string` so an unrepresentable value cannot be
+     * assigned; `resolveOpeningProfile()` is the tolerant reader for the LOAD path, where a value
+     * from a newer build must degrade to a rectangle rather than brick the project.
+     *
+     * See `OpeningProfile.ts` for the single outline producer and the refusals.
+     */
+    openingProfile?: OpeningProfileKind;
 }
 
 export interface WindowData extends CoreElement {

@@ -63,6 +63,7 @@
  */
 
 import type { WallData, Opening } from './WallTypes';
+import { openingProfileTag } from './OpeningProfile';
 import type { JoinData } from '@pryzm/core-app-model';
 import { SNAPSHOT_SCHEMA_VERSION } from '@pryzm/core-app-model';
 
@@ -78,7 +79,17 @@ function hashOpening(o: Opening): string {
     // include both raw fields plus type/doorType so a window→door swap also
     // invalidates. `id` is included as a tie-breaker for stable sort.
     const t = o.type === 'door' ? `d${o.doorType ?? ''}` : `w${o.windowType ?? ''}`;
-    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}`;
+    // §OPENING-PROFILE (L-1200) — the void's SHAPE is a geometry input, so it MUST be in the
+    // content-addressed key. Without it a Rectangular → Circular flip replays the cached
+    // rectangular vertices and the user sees NOTHING happen — the "silent corruption" this
+    // composer exists to prevent, and the three-gates-in-series class (L-813).
+    //
+    // ⭐ EMPTY FOR A RECTANGLE, WHICH IS THE WHOLE DESIGN. `openingProfileTag` returns '' for an
+    // absent or rectangular profile, so every wall in every existing project hashes BYTE-
+    // IDENTICALLY and no persisted geometry cache is invalidated. Contrast the rake fold above,
+    // which lengthened the key for every wall and cost a one-time full rebuild — a profile can do
+    // better precisely because absence and default coincide.
+    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}${openingProfileTag(o.openingProfile)}`;
 }
 
 function hashJoin(joinData: JoinData | null | undefined): string {

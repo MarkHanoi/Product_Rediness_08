@@ -50,6 +50,11 @@ export * from './SlabWallCoupling';
 export * from './composeWallGeometryHash';
 
 // ── Opening builders ──────────────────────────────────────────────────────────
+// §OPENING-PROFILE (L-1200) — the void-SHAPE axis. `OpeningProfile` is THE one producer of an
+// opening's outline (C86 §10.1 PR-1) and owns the refusals; `OpeningProfileGasket` is how the two
+// rectangle-decomposition arms carry a curve without drawing a staircase.
+export * from './OpeningProfile';
+export * from './OpeningProfileGasket';
 export * from './WallOpeningPositionResolver';
 export * from './WallOpeningRenderData';
 export * from './LayeredWallOpeningBuilder';

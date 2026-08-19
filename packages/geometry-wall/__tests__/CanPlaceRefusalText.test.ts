@@ -47,9 +47,22 @@ describe('canPlaceRefusalText — the refusal identity reaches the render (GE-09
     // count is deliberately hard-coded rather than derived from the roster —
     // deriving it would make this assertion tautological, and the point is that
     // a member cannot join the union without a human editing this number.
-    expect(roster.length).toBe(7);
-    expect(new Set(roster).size).toBe(7);
+    //
+    // 7 → 8 on 2026-08-19: §OPENING-PROFILE (L-1200) added `OCC_PROFILE_UNSUPPORTED` — the
+    // VOID-SHAPE arm. It fires when the host cannot carry the requested opening PROFILE (a
+    // curved wall, whose bands are sliced in arc-length space, refuses a circular or arched
+    // void permanently — C86 §10.1 PR-5) or when the profile's own dimensions are impossible
+    // (a "circular" opening 2 m wide and 1 m tall — PR-8/R-12).
+    //
+    // ⭐ THE GUARD WORKED EXACTLY AS DESIGNED. This number, plus the `Record<CanPlaceRefusalCode,
+    // string>` sentence map and the roster's `satisfies`, caught all three places the new member
+    // had to be declared — at COMPILE time, before a single test ran. A derived count would
+    // have caught none of them. That is the argument for keeping it hand-written, restated
+    // rather than re-litigated.
+    expect(roster.length).toBe(8);
+    expect(new Set(roster).size).toBe(8);
     expect(roster).toContain('OCC_CROSSES_HOSTED_OPENING');
+    expect(roster).toContain('OCC_PROFILE_UNSUPPORTED');
   });
 
   it('names a MISSING identity as missing — never a generic sentence', () => {
