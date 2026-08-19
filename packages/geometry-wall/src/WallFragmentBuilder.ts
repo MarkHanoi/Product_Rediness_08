@@ -4224,8 +4224,15 @@ export class WallFragmentBuilder {
         // THE LEGACY ARM MUST NOT RENDER A RAKED WALL VERTICAL. `buildMiterPrism`
         // extrudes straight up, and this branch — unlike every other rake-capable body
         // path — had nothing downstream to lean it: `buildWall`'s
-        // `wall.openings.length === 0` branch (:2123) returns without ever reaching
-        // `_applyRakeShearToChildren`, which only the opening-bearing branch calls. So a
+        // `wall.openings.length === 0` branch returns without ever reaching
+        // `_applyRakeShearToChildren`, which only the opening-bearing branchES call —
+        // TWO of them since §FEAT-RAKE-LAYERED-OPENINGS (RK1, 2026-08-19): the plain
+        // opening-bearing arm and the LAYERED opening-bearing arm. This sentence said
+        // "branch", singular, and the singular was the whole shape of L-1061: for as long
+        // as exactly one branch leaned, every other branch that reached a body was a
+        // candidate for standing a raked wall upright. (The `:2123` line citation that
+        // stood here is dropped rather than re-measured — this file moved ~200 lines
+        // today alone, and a §-tag is greppable where a line number is not.) So a
         // plain raked wall that fell back here (V2 disabled, or a §V2-SPIKE-GUARD
         // rejection) stood bolt upright while the store held 80° — a silently-wrong wall
         // reported as a success, which is the one outcome this subsystem refuses to ship
