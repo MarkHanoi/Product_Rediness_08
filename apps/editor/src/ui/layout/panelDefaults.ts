@@ -197,7 +197,7 @@ export const PANEL_REGISTRY: readonly PanelDescriptor[] = [
             'the user has not necessarily committed. It is also the panel that physically ' +
             'overlapped Site analysis (L-1021). The massing GEOMETRY toggle it hosts is a ' +
             'separate, SHARED authority (`ui/site/envelopeVisibility.ts`, ' +
-            '§ENVELOPE-ONE-VISIBILITY / L-1160) and is unaffected by this row.',
+            '§ENVELOPE-ONE-VISIBILITY / L-1170) and is unaffected by this row.',
     },
     {
         id: 'site-plan-overlay',

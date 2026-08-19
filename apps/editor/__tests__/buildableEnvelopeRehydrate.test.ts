@@ -122,6 +122,64 @@ describe('L-445 resolveRenderableBuildableEnvelope — persisted-ring fallback',
             )).toBeNull();
         });
 
+        // ⭐ §ENVELOPE-ZERO-INSET-REFUSAL (L-1171) — THE FOUNDER'S GREY BOX, 2026-08-19.
+        //
+        // His log: `re-inset from the PERSISTED setbacks 0/0/0 m (11-pt ring)` → `maxHeight=n/a`
+        // → `provisional grey` → a `footprint-slab@0.5m` covering his building. Read that back as
+        // a CLAIM and it says "the buildable envelope here is the whole parcel, to its very edge,
+        // and we cannot tell you a height" — the §L-616 overstatement in its purest form: an
+        // UNKNOWN constraint drawn as ZERO.
+        //
+        // ⚠ THE OLD GUARD WAS SATISFIABLE BY A DEFAULT. It argued that all three being NUMBERS is
+        // equivalent to "this is a setback zone", because an alignment zone stores its ring and
+        // NULL setbacks. `0` is a number: a zero-FILLED record passes it exactly as a derived
+        // `3/1.5/3` does. [[context-data-honesty-family]] — failure and empty are the same value.
+        //
+        // AND THE OUTPUT CARRIED NO INFORMATION EITHER WAY: `insetPolygonPerEdge` at 0/0/0 is the
+        // IDENTITY, so the "buildable ring" IS `boundary.polygon`, vertex for vertex — a polygon
+        // already drawn as the violet parcel ring on both surfaces. Zero new pixels, one new
+        // false legal claim. Refusing costs the user nothing.
+        it('REFUSES the ALL-ZERO re-inset — a 0/0/0 "envelope" is the parcel, not a constraint', () => {
+            expect(resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: 0, side: 0, rear: 0 })) as never,
+            )).toBeNull();
+        });
+
+        // The refusal is narrow ON PURPOSE. A PARTIAL zero is still a derived triple — a zero
+        // front setback with real side/rear is a real alignment-to-street rule, and its inset is
+        // genuinely smaller than the parcel. Widening the refusal to "any zero" would delete real
+        // envelopes, which is the opposite failure and the more damaging one.
+        it('still re-insets when only SOME setbacks are zero (a real derived triple)', () => {
+            const res = resolveRenderableBuildableEnvelope(
+                runtimeWithParcel(parcelNoRing({ front: 0, side: 2, rear: 3 })) as never,
+            );
+            expect(res).not.toBeNull();
+            expect(res!.source).toBe('re-inset');
+            // The FRONT edge (z=0) is deliberately NOT moved — front=0 is the rule. What makes
+            // this a real envelope rather than the identity is that the other edges DID move:
+            // rear=3 pulls z=20 in to 17, side=2 pulls x=0/30 in to 2/28. The ring is strictly
+            // smaller than the parcel, which is exactly what the all-zero case can never be.
+            const zs = res!.ring.map((p) => p.z);
+            const xs = res!.ring.map((p) => p.x);
+            expect(Math.max(...zs)).toBeLessThan(20);
+            expect(Math.min(...xs)).toBeGreaterThan(0);
+            expect(Math.max(...xs)).toBeLessThan(30);
+        });
+
+        // A genuinely zero-setback jurisdiction (Barcelona alignment, the DK/Copenhagen §L-619
+        // case) is UNAFFECTED: it persists its solved ring, so branch 2 answers long before the
+        // re-inset branch is reached. This pins that the refusal cannot reach those cities.
+        it('does NOT affect a zero-setback zone that persisted its ring (branch 2 wins)', () => {
+            const res = resolveRenderableBuildableEnvelope(runtimeWithParcel({
+                buildableRing: RING,
+                maxHeight: 24,
+                setbacks: { front: 0, side: 0, rear: 0 },
+                boundary: { polygon: SQUARE, edgeClassifications: ['front', 'side', 'rear', 'side'] },
+            }) as never)!;
+            expect(res.source).toBe('persisted');
+            expect(res.ring).toEqual(RING);
+        });
+
         it('returns null when the re-inset is degenerate (setbacks eat the parcel)', () => {
             expect(resolveRenderableBuildableEnvelope(
                 runtimeWithParcel(parcelNoRing({ front: 50, side: 50, rear: 50 })) as never,

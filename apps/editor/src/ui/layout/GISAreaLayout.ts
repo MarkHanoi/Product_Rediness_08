@@ -30,6 +30,7 @@ import {
 // `style.display`. Installed here because `mountGISArea` is on the editor's boot
 // path and this file already owns the launcher rail the phase governs.
 import { installPhaseChrome } from './phaseChrome';
+import { installViewPropertiesLauncher } from './ViewPropertiesLauncher';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the one-shot onboarding→engine-boot seam that asks
 // this layout to start the Cesium init in parallel with the rest of the boot, plus the startup
@@ -47,6 +48,13 @@ import {
     resolveRenderableBuildableEnvelope,
     resolveActiveProjectId,
 } from '../site/siteDispatch';
+// ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope
+// on screen?". This file used to BE that authority (a `let` nobody else could see) and three
+// other surfaces drew the envelope without it. It now only reads + writes.
+import {
+    isBuildableEnvelopeVisible,
+    setBuildableEnvelopeVisible,
+} from '../site/envelopeVisibility';
 
 /** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
 const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
@@ -2131,10 +2139,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // render path as the parcel (SPEC §4), and (b) draw a compact "Estimated"
     // facts card + a show/hide toggle (SPEC §2 steps 4–5). Default ON post-commit.
     // ════════════════════════════════════════════════════════════════════════
-    let formaEnvelopeVisible = true;
+    // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — THE LOCAL `let formaEnvelopeVisible = true` IS GONE.
+    //
+    // It was a `let` inside this ~4800-line closure, written by the card's ON/OFF button and
+    // read by EXACTLY ONE function (`resolveFormaEnvelope`, below). Three other surfaces drew
+    // the envelope and none of them could even SEE it: the Cesium floor-selector replay
+    // (`setVisibleFormaLevels` re-rendering `formaLastMassingInput`, which carries a SNAPSHOT
+    // of an earlier answer — ⭐ the founder's "selected Level 15 and an ENVELOPE showed up"),
+    // the §SITE-OVERLAY-NOT-BUILDING survival set, and the BIM/plan three.js volume in
+    // `ParcelBoundarySceneRenderer`. Four answers to one question = C84 EI-1.
+    //
+    // This file no longer HOLDS the answer; it reads and writes the one authority. The scene
+    // repaints from the authority's subscription, not from this handler reaching into a
+    // viewport — see `apps/editor/src/ui/site/envelopeVisibility.ts`.
     let envelopePanel: HTMLDivElement | null = null;
     // §L-621b — user-dismissed state for the Buildable-Envelope CARD (chrome), distinct
-    // from `formaEnvelopeVisible` (the massing GEOMETRY on/off). Mirrors the
+    // from the massing GEOMETRY on/off, which lives in the ONE authority
+    // (`envelopeVisibility.ts`, §ENVELOPE-ONE-VISIBILITY / L-1170). Mirrors the
     // `FormaSiteAnalysisControls._userHidden` pattern so a ✕ / launcher-toggle hide
     // survives the card's re-render + re-home cycles. The launcher pill re-opens it.
     // §UX1-PANEL-DEFAULTS — this literal WAS `false` ("the card is open on every start").
@@ -2173,7 +2194,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // deploy-test cycle: the wiring was statically correct, so reading the code could not
         // distinguish them — exactly the L-446 lesson that a correct read chain plus wrong
         // behaviour means runtime STATE, and only a probe names it.
-        if (!formaEnvelopeVisible) {
+        if (!isBuildableEnvelopeVisible()) {
             console.log('[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope OFF (user toggle); not rendered.');
             return null;
         }
@@ -2304,51 +2325,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return envelopePanel;
     };
 
-    /** The ON/OFF toggle markup + handler, shared by the full and reduced cards. */
-    const envelopeToggleHtml = (): string =>
-        `<button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${formaEnvelopeVisible ? '#6600FF' : '#ffffff'};color:${formaEnvelopeVisible ? '#ffffff' : '#6600FF'};">
-           Envelope: ${formaEnvelopeVisible ? 'ON' : 'OFF'}
+    /** The ON/OFF toggle markup + handler, shared by the full and reduced cards.
+     *
+     *  §ENVELOPE-ONE-VISIBILITY (L-1170) — the label READS the authority (never a local
+     *  mirror of it), so the control can never display a state the renderers disagree with. */
+    const envelopeToggleHtml = (): string => {
+        const on = isBuildableEnvelopeVisible();
+        return `<button data-testid="envelope-toggle" style="margin-top:10px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:7px 10px;border-radius:8px;font:600 12px system-ui;background:${on ? '#6600FF' : '#ffffff'};color:${on ? '#ffffff' : '#6600FF'};">
+           Envelope: ${on ? 'ON' : 'OFF'}
          </button>`;
+    };
 
     const wireEnvelopeToggle = (panel: HTMLDivElement): void => {
         const btn = panel.querySelector('[data-testid="envelope-toggle"]') as HTMLButtonElement | null;
         if (!btn) return;
         btn.onclick = () => {
-            formaEnvelopeVisible = !formaEnvelopeVisible;
-            // §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH (founder 2026-08-06: "clicking ENVELOPE OFF ALWAYS
-            // goes back to the 3D SITE view") — ⚠ A VISIBILITY TOGGLE MUST NOT CHANGE THE ACTIVE VIEW.
+            // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — THE CONTROL ONLY WRITES THE ANSWER.
             //
-            // THE COUPLING, and why it is a re-entry bug rather than a camera bug. This handler
-            // re-places the massing so the envelope appears/disappears, and it chose the renderer by
-            // `formaViewMode` ALONE. `formaViewMode` describes the SITE pane's own sub-mode
-            // (`map2d` / `3d`); it says nothing about which RESULT VIEW the user is on. That is
-            // `resultViewMode` ('2D' | '3D', where '3D' is the photoreal globe), and this branch
-            // never consulted it. So on the globe the toggle called `renderFormaMassing`, whose
-            // `CesiumViewport.renderFormaMassing` re-entry does two things that ARE a view switch:
-            //     } else if (!this.formaMode) { this.setFormaMode(true); }   // → applyFormaMode()
-            //     if (!input.keepPhotoreal) this.clearRealModelOnGlobe();
-            // i.e. it swaps the photoreal imagery/sky for the flat grey massing study and destroys
-            // the real model on the globe. The user reads that — correctly — as being thrown back
-            // into 3D Site.
+            // This handler used to be a THREE-WAY RENDERER PICKER, and the third way was the
+            // founder's bug: `else { refreshEnvelopePanel(); }` repainted the CARD and touched
+            // NO SCENE AT ALL. Whenever the site pane was in `map2d` sub-mode on a 2D result
+            // view, clicking OFF flipped a flag and left the box exactly where it was. That is
+            // literally "I tried to hide it but it did not work" — a control whose effect
+            // depended on which of two unrelated view-mode variables happened to be set.
             //
-            // THE FIX IS TO PICK THE RIGHT RENDERER, NOT TO RESTORE THE VIEW AFTERWARDS. The
-            // globe-aware sibling already exists and is what every other globe-side control uses:
-            // `placeBuildingOnGlobe()` routes through `renderBuildingOnGlobe`, which forwards
-            // `keepPhotoreal` and therefore never trips `setFormaMode(true)`. It reads the SAME
-            // `resolveFormaEnvelope()`, so the toggle governs both surfaces exactly as before —
-            // only the transport differs. `setGlobeBuildingFidelity` (~line 3252) already branches
-            // this way; this handler simply never did.
-            if (resultViewMode === '3D') {
-                placeBuildingOnGlobe();
-                // `placeBuildingOnGlobe` refreshes the floor selector but not this card, and the
-                // button's own ON/OFF label lives here — refresh it so the control reflects itself.
-                refreshEnvelopePanel();
-            } else if (cesiumViewport?.renderFormaMassing && formaViewMode !== 'map2d') {
-                // Re-place the massing (no re-fly) so the envelope appears/disappears.
-                renderFormaMassing(false);
-            } else {
-                refreshEnvelopePanel();
-            }
+            // Every surface now repaints from the authority's own subscription:
+            //   · CesiumViewport re-renders `formaLastMassingInput` (no re-fly, no re-clamp,
+            //     and it carries the cached `keepPhotoreal`, so §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH
+            //     is honoured BY CONSTRUCTION rather than by this handler branching correctly);
+            //   · ParcelBoundarySceneRenderer rebuilds the BIM/plan volume.
+            // The only thing left here is the card's own ON/OFF label.
+            setBuildableEnvelopeVisible(!isBuildableEnvelopeVisible());
+            refreshEnvelopePanel();
         };
     };
 
@@ -4698,6 +4706,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     try {
         installPhaseChrome();
         onAppPhaseChanged(() => mountSiteViewLauncher());
+        // §UX1-VP-DEFAULT-CLOSED — the reopen route for `view-properties`, mounted at
+        // the SAME site as the phase applier so the two cannot be wired apart. The
+        // registry row may only say `closed` because this line exists; an authored-
+        // but-unmounted launcher would make the panel unreachable, which is the exact
+        // C82 §1.1 failure the row's previous `open` default was avoiding.
+        installViewPropertiesLauncher();
     } catch (e) {
         console.warn('[gis][panels] phase-chrome install failed (non-fatal):', e);
     }

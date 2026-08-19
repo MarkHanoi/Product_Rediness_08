@@ -56,6 +56,15 @@ import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { getLastBuildableEnvelope, isLastEnvelopeSuggestedPreview } from './siteDispatch';
 import { envelopeRenderStyle } from './envelopeRenderStyle';
+// ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope on
+// screen?". THIS RENDERER WAS THE SURFACE THAT NEVER ASKED: it drew the study volume into the
+// BIM + plan scene straight off `getLastBuildableEnvelope()`, so the GIS card's `Envelope: OFF`
+// had literally no effect here — a box the founder could see and could not hide, on the surface
+// he was actually working in (he was creating a roof on Level 15, not browsing the globe).
+import {
+    isBuildableEnvelopeVisible,
+    subscribeBuildableEnvelopeVisibility,
+} from './envelopeVisibility';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -106,6 +115,12 @@ export class ParcelBoundarySceneRenderer {
         // Idempotent: refresh() rebuilds only when the polygon is present + ≥3 vertices.
         const storeSub = runtime.siteModelStore?.subscribe?.(() => this.refresh());
         if (storeSub) this.disposers.push(storeSub);
+
+        // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — repaint when the user's answer changes. PUSH,
+        // not poll, and deliberately NOT the GIS card calling into this renderer: the card is
+        // mounted only while the GIS area exists, and this scene outlives it. Subscribing to the
+        // authority is what makes the two surfaces agree without knowing about each other.
+        this.disposers.push(subscribeBuildableEnvelopeVisibility(() => this.refresh()));
 
         // Project-switch reset — clear the outline alongside the stores so a
         // Project A parcel never renders against Project B (C19 §1.13).
@@ -301,6 +316,11 @@ export class ParcelBoundarySceneRenderer {
      */
     private buildEnvelopeVolume(): THREE.Mesh | null {
         try {
+            // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — ask the ONE authority, first, before any
+            // geometry exists. Returning null here is what makes the user's "hide" reach the
+            // BIM/plan scene at all; `refresh()` is re-driven by the subscription in the
+            // constructor, so this is re-evaluated the moment the answer changes.
+            if (!isBuildableEnvelopeVisible()) return null;
             const env = getLastBuildableEnvelope();
             if (!env || env.status !== 'ok') return null;
             const ring = env.insetPolygon;

@@ -827,6 +827,50 @@ export function resolveRenderableBuildableEnvelope(
             sb && boundary && Array.isArray(boundary.polygon) && boundary.polygon.length >= 3 &&
             typeof sb.front === 'number' && typeof sb.side === 'number' && typeof sb.rear === 'number'
         ) {
+            // ⭐ §ENVELOPE-ZERO-INSET-REFUSAL (L-1171) — REFUSE THE ALL-ZERO RE-INSET.
+            //
+            // THE FOUNDER'S GREY BOX. His log reads `re-inset from the PERSISTED setbacks
+            // 0/0/0 m (11-pt ring)` → `maxHeight=n/a` → `provisional grey` → a
+            // `footprint-slab@0.5m`. Read that back as a claim and it says: "the buildable
+            // envelope here is the entire parcel, to its very edge, and we cannot tell you a
+            // height." That is not an estimate — it is the §L-616 OVERSTATEMENT in its purest
+            // form (an UNKNOWN constraint drawn as ZERO), and C58 §1.4 forbids a picture that
+            // states a constraint the system cannot actually state.
+            //
+            // ⚠ THE GUARD ABOVE WAS SATISFIABLE BY A DEFAULT. Its own comment argues the three
+            // numbers "being NUMBERS is therefore equivalent to 'this is a setback zone'",
+            // because an alignment zone stores its ring (branch 2) and NULL setbacks. `0` is a
+            // number. A zero-FILLED record — a default, a never-populated field, a rule pack
+            // that answered nothing — passes that test exactly as a derived `4/3/5` does. This
+            // is [[context-data-honesty-family]]: FAILURE AND EMPTY ARE THE SAME VALUE, and the
+            // guard could not tell them apart.
+            //
+            // AND THE RESULT CARRIES NO INFORMATION EITHER WAY. `insetPolygonPerEdge` with
+            // 0/0/0 is the IDENTITY: the "buildable ring" it returns IS `boundary.polygon`,
+            // vertex for vertex. The parcel boundary is ALREADY drawn — as the violet ring and
+            // fill on both surfaces — so this branch could only ever re-draw the same polygon a
+            // second time, in envelope grey, with a legal meaning attached that nothing derived.
+            // Zero new pixels, one new false claim. Refusing costs the user nothing and the
+            // refusal is what C58 §1.4 asks for: say you could not resolve it, do not draw a
+            // constraint you cannot state.
+            //
+            // A genuinely zero-setback jurisdiction (Barcelona alignment, the DK/Copenhagen
+            // §L-619 case) is NOT affected: those store their solved ring, so branch 2 returned
+            // long before here, and §L-619's own `footprintIsUpperBound` machinery already
+            // renders that case honestly.
+            if (sb.front === 0 && sb.side === 0 && sb.rear === 0) {
+                console.log(
+                    '[gis][c58] §ENVELOPE-ZERO-INSET-REFUSAL (L-1171) — REFUSING to re-inset: the ' +
+                        'persisted setbacks are 0/0/0 m, so the "buildable ring" would be the parcel ' +
+                        'boundary itself, drawn as an envelope with no derived height and no ' +
+                        'provenance. Zero setbacks that were DERIVED are stored as a ring (branch 2) ' +
+                        'and never reach here — reaching here means the numbers were defaulted, not ' +
+                        'resolved. Drawing it would state "you may build to the parcel edge" with no ' +
+                        'evidence (C58 §1.4 / §L-616 overstatement). Re-commit the parcel to solve a ' +
+                        'real envelope.',
+                );
+                return null;
+            }
             const reInset = insetPolygonPerEdge(
                 boundary.polygon,
                 boundary.edgeClassifications as ParcelEdgeClassification[],

@@ -58,6 +58,15 @@ import {
 } from "./facadeStudySubject";
 // C06 §7 / §233 — z-index comes from the single named scale, never a hand-picked literal.
 import { zCss } from "../layout/zLayers";
+// ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the C58 buildable
+// envelope on screen?". A zero-dependency leaf module, imported by file (never a barrel),
+// so it can create no cycle with the site/GIS layer. See its header for the four rival
+// answers it replaced. This viewport reads it at ONE place (the §1.14 rasteriser) and
+// subscribes so a toggle repaints the globe without the card reaching in here.
+import {
+  isBuildableEnvelopeVisible,
+  subscribeBuildableEnvelopeVisibility,
+} from "../site/envelopeVisibility";
 // §FIX-FORMA-OPENINGS-UNKNOWN (GR-10, the []-means-unknown drain) — the pure
 // openings decision: an OMITTED openings array (older callers) is UNKNOWN,
 // never a determined "this building has no openings"; the envelope subject's
@@ -943,6 +952,13 @@ export class CesiumViewport {
   /** Disposer for the `site.location-changed` runtime subscription (cleaned up
    *  in dispose() so it does not leak across project switches). */
   private locationSub: (() => void) | null = null;
+  /** §ENVELOPE-ONE-VISIBILITY (L-1170) — this viewport's subscription to the single
+   *  envelope-visibility authority. PUSH, not poll: the `Envelope: ON/OFF` control writes
+   *  the authority and nothing else, and the globe repaints itself from here. That is what
+   *  removes the old failure where the flag flipped and the scene never heard about it
+   *  (the toggle's `else { refreshEnvelopePanel(); }` branch re-rendered NOTHING whenever
+   *  the site pane was in `map2d` sub-mode — flag off, box still there). */
+  private envelopeVisibilitySub: (() => void) | null = null;
   /** When true, the NEXT `site.location-changed` does not re-fly the camera — set
    *  by a caller (GISAreaLayout's geocode `onFlyTo`) that has ALREADY framed the
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
@@ -1613,6 +1629,28 @@ export class CesiumViewport {
     // "no globe this session" and "registration skipped" indistinguishable — the
     // exact ambiguity that printed `teardown INCOMPLETE` on a clean switch.
     //
+    // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — repaint on the AUTHORITY's say-so.
+    //
+    // The re-render replays `formaLastMassingInput` with `frameCentroid:false` +
+    // `_skipTerrainClamp:true`, so it never re-flies the camera and never re-samples
+    // terrain — and because it carries the cached input's own `keepPhotoreal`, it cannot
+    // trip the `setFormaMode(true)` / `clearRealModelOnGlobe()` pair that made the OLD
+    // toggle throw the user back into 3D Site (§FIX-ENVELOPE-TOGGLE-VIEW-SWITCH). The
+    // rasteriser gate does the actual suppressing; this only asks for a frame.
+    try {
+      this.envelopeVisibilitySub = subscribeBuildableEnvelopeVisibility(() => {
+        const input = this.formaLastMassingInput;
+        if (!input) return; // nothing placed on this globe — nothing to repaint.
+        try {
+          this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY repaint failed (non-fatal):', e);
+        }
+      });
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY subscribe failed (non-fatal):', e);
+    }
+
     // This is the LAST statement of the constructor: a viewport that threw part-way
     // through construction is not a viewport, and must not be handed to the audit.
     _liveCesiumViewports.add(this);
@@ -5517,7 +5555,28 @@ export class CesiumViewport {
     // §L-616 folds in as the `far-massing` + `height-shell` roles; §L-619 (the DK/
     // Copenhagen no-setbacks case) folds in as `style.footprintUpperBound` driving the
     // near-wireframe fill — ONE code path, not two.
-    const envSolids = input.envelope?.solids ?? [];
+    // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — THE CHOKEPOINT. Every route that can put an
+    // envelope solid on this globe passes through `renderFormaMassing`, so asking the ONE
+    // authority HERE — not at the caller — is what makes "add a solid without consulting
+    // the user's choice" structurally impossible rather than a rule four call sites have to
+    // remember. In particular it neutralises the founder's actual mechanism: the floor
+    // selector (`setVisibleFormaLevels`, and likewise `setGlobeBuildingFidelity`,
+    // `clampTerrainThenReplace`, `rerenderFormaMassing`) REPLAYS `formaLastMassingInput`,
+    // whose `envelope` is a SNAPSHOT of the answer at some earlier render. The payload may
+    // be stale; the answer no longer can be. Selecting Level 15 cannot resurrect a hidden
+    // envelope, because the replayed payload is filtered by the live flag on its way in.
+    //
+    // ⛔ DO NOT "optimise" this by gating at the callers instead. That re-creates exactly
+    // the N-answers-to-one-question shape (C84 EI-1) this replaced.
+    const envHidden = !isBuildableEnvelopeVisible();
+    const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
+    if (envHidden && (input.envelope?.solids?.length ?? 0) > 0) {
+      console.log(
+        `[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY — ${input.envelope!.solids.length} envelope ` +
+          `solid(s) in this payload SUPPRESSED: the user has the buildable envelope hidden. ` +
+          `(Payload was a replay of an earlier render; the visibility authority is live.)`,
+      );
+    }
     const envelopePresent = envSolids.length > 0;
     let envelopeEntitiesAdded = 0;
     // The SINGLE colour authority: a solid's hue → the same colours the flat surfaces use.
@@ -13486,6 +13545,18 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] location subscription dispose failed:', e);
       }
       this.locationSub = null;
+    }
+
+    // §ENVELOPE-ONE-VISIBILITY (L-1170) — a destroyed viewport must not stay subscribed:
+    // the authority would keep a strong reference and the repaint would run against a dead
+    // viewer. A re-mount subscribes fresh in its own constructor.
+    if (this.envelopeVisibilitySub) {
+      try {
+        this.envelopeVisibilitySub();
+      } catch (e) {
+        console.warn('[CesiumViewport] envelope-visibility subscription dispose failed:', e);
+      }
+      this.envelopeVisibilitySub = null;
     }
 
     if (this.handler) {
