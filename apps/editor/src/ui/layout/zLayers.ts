@@ -135,7 +135,12 @@ export type LauncherSlot =
     // §L-621b — re-open pills for the two 3D-Site chrome panels (Site Analysis + the
     // Buildable-Envelope card). Appended ABOVE the existing occupants so the collision-
     // free column stays monotonic — no existing slot index moves (C06 §7.2).
-    | 'siteAnalysis' | 'envelopeCard';
+    | 'siteAnalysis' | 'envelopeCard'
+    // §UX1-PANEL-DEFAULTS — `Reset panel layout`. It belongs in THIS column because the
+    // column is the panel-reopen surface: the control that restores the declared defaults
+    // sits with the controls that departed from them. Appended (slot 7) so no existing
+    // index moves — the C06 §7.2 monotonic rule.
+    | 'resetLayout';
 
 export const LAUNCHER_SLOT_INDEX: Record<LauncherSlot, number> = {
     splitView:    0,
@@ -145,6 +150,7 @@ export const LAUNCHER_SLOT_INDEX: Record<LauncherSlot, number> = {
     livingGraph:  4,
     siteAnalysis: 5,
     envelopeCard: 6,
+    resetLayout:  7,
 };
 
 /**
@@ -161,3 +167,44 @@ export function launcherRailStyle(slot: LauncherSlot): Partial<CSSStyleDeclarati
         zIndex: zCss('launcher'),
     };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §UX1-PANEL-CHROME — the launcher rail's shared cosmetics
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// `launcherRailStyle` above places a pill; this places how it LOOKS. The two are
+// deliberately separate functions but they belong in the same file: the rail is a
+// declared screen region (C06 §7.2) and, since the panels it re-opens now start
+// CLOSED (§UX1-PANEL-DEFAULTS), it is the surface a user's eye lands on. Five code
+// paths across three files each carried their own copy of `padding: 7px 12px;
+// border-radius: 9px; border: 1px solid #6600FF; font: 600 12px; box-shadow: 0 3px
+// 12px rgba(20,10,60,.16)` — the same policy in several places, drifting.
+//
+// The values themselves are the founder's "smaller, more discreet": a tinted
+// #6600FF border instead of a full-saturation outline on white, half the shadow
+// blur at ~60% of its alpha, and one step down in type. They come from the
+// `--pryzm-pill-*` tokens in `styles/tokens.ts` (C06 §6), whose target-size values
+// are fenced out of the §UI-DENSITY-SCALE transform so the pills stay ≥24px —
+// these controls are the ONLY route back to the closed panels (C82 §1.1), so
+// C43 / WCAG 2.2 AA SC 2.5.8 is a floor here, not a preference.
+
+/** The resting border colour for an unpressed launcher pill (brand purple, tinted). */
+export const LAUNCHER_PILL_BORDER = '#dcccff';
+
+/**
+ * Cosmetic half of a launcher pill. Spread AFTER {@link launcherRailStyle} — this
+ * object deliberately sets no `position`/`left`/`bottom`/`z-index`, so it can never
+ * fight the rail's collision-free slotting.
+ */
+export const LAUNCHER_PILL_COSMETICS: Partial<CSSStyleDeclaration> = {
+    appearance: 'none',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 'var(--pryzm-pill-min-height)',
+    padding: 'var(--pryzm-pill-pad)',
+    borderRadius: 'var(--pryzm-pill-radius)',
+    border: `1px solid ${LAUNCHER_PILL_BORDER}`,
+    font: '600 var(--pryzm-pill-font-size)/1 system-ui, sans-serif',
+    boxShadow: 'var(--pryzm-pill-shadow)',
+};

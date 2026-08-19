@@ -87,6 +87,83 @@ export const DESIGN_TOKENS = `
            (#6600FF family), NEVER pure black. Reference these two together. */
         --pryzm-panel-backdrop:      rgba(28, 12, 60, 0.26);
         --pryzm-panel-backdrop-blur: blur(2px);
+
+        /* ── Floating panel chrome (§UX1-PANEL-CHROME, C06 §6) ────────────
+           The FOUR floating site/GIS panels (Buildable envelope, Site
+           analysis, Site plan overlay, and any that follow) were each styled
+           with their own inline literals — 300 / 232 / 240 px wide, three
+           different shadows, three different border colours, '13px' and
+           '12px' body type. That is the same policy in several places,
+           drifting: the §UI-DENSITY-SCALE lever in 'uiScale.ts' could not
+           reach ANY of it, because the transform rewrites the injected
+           stylesheet and those values live in 'Object.assign(el.style, …)'.
+           Pointing the inline styles at these custom properties puts them
+           back under the one density authority — the values below are the
+           AUTHORED sizes; the effective size is value × --app-ui-scale.
+           Smaller, quieter, and one place to change. */
+        --pryzm-panel-surface:         #ffffff;
+        --pryzm-panel-width:           272px;
+        --pryzm-panel-width-wide:      288px;
+        --pryzm-panel-min-width:       240px;
+        --pryzm-panel-pad:             9px 11px;
+        --pryzm-panel-radius:          10px;
+        --pryzm-panel-gap:             7px;
+        --pryzm-panel-border:          1px solid #ece7fb;
+        /* Restrained: was '0 4px 18px rgba(20,10,60,0.18)' — a heavy drop that
+           read as a modal, not a side card. Halved blur, ~55% of the alpha. */
+        --pryzm-panel-shadow:          0 2px 10px rgba(20, 10, 60, 0.10);
+        --pryzm-panel-ink:             #2a2340;
+        --pryzm-panel-ink-muted:       #6b6480;
+        --pryzm-panel-ink-faint:       #a49dbb;
+        --pryzm-panel-rule:            #f1eefa;
+        /* 'font-size' MUST appear in these names: 'uiScale.scaleDeclaration'
+           keys the MIN_FONT_PX legibility floor off the property name, so a
+           token called '--pryzm-panel-title-size' would scale straight through
+           10px and land at 9.35px unfloored. Do not rename these. */
+        --pryzm-panel-font-size-title: 12px;
+        --pryzm-panel-font-size-body:  12px;
+        --pryzm-panel-font-size-meta:  11px;
+
+        /* ── The right-edge panel column (C06 §7.2, no-overlap policy) ────
+           The founder's report included "one panel's close button sits on top
+           of another panel's content". That was literally true: the Buildable
+           envelope card is TOP-anchored with 'max-height: calc(100vh - 128px)'
+           and the Site analysis panel is BOTTOM-anchored with
+           'calc(100vh - 32px)' — on any viewport they claim the SAME pixels,
+           and neither knew the other existed.
+
+           The top offset is 148px, not the card's old 108px, because 108 is
+           where the Forma view sub-bar already sits (GISAreaLayout
+           mountFormaViewToggle) with the result-view toggle at 64 above it.
+           148 clears both.
+
+           These four values make the right edge a DECLARED, collision-free
+           two-slot column: the top panel occupies [top, 50vh) and the bottom
+           panel occupies [50vh, 100vh - bottom]. They tile exactly, and they
+           only tile if the offsets and the max-heights use the SAME numbers —
+           which is why all four are fenced out of the §UI-DENSITY-SCALE
+           transform. Scaling the '148px' inside the calc() while the 'top: 148px'
+           anchor stayed literal is precisely how a 13px overlap would creep
+           back in. 'panelRegionTiling.spec.ts' pins the arithmetic. */
+        /* @no-scale:start */
+        --pryzm-panel-col-top:            148px;
+        --pryzm-panel-col-max-height-top: calc(50vh - 148px);
+        --pryzm-panel-col-bottom:            16px;
+        --pryzm-panel-col-max-height-bottom: calc(50vh - 16px);
+        /* @no-scale:end */
+
+        /* ── Launcher-rail pills (the reopen affordances) ─────────────────
+           C43 / WCAG 2.2 AA SC 2.5.8: these are the ONLY route back to the
+           panels closed by default (C82 §1.1), so their hit target is fenced
+           out of the density transform — 24px is a floor, not a preference.
+           Only the target sizes are fenced; the pills' type is not. */
+        /* @no-scale:start */
+        --pryzm-pill-min-height:       26px;
+        --pryzm-pill-pad:              5px 10px;
+        /* @no-scale:end */
+        --pryzm-pill-radius:           8px;
+        --pryzm-pill-font-size:        11px;
+        --pryzm-pill-shadow:           0 1px 6px rgba(20, 10, 60, 0.10);
     }
 
     /* ── Global typography baseline (§05 §2.3 Rule 6) ────────────────────── */
