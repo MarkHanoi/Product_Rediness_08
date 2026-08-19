@@ -24,6 +24,7 @@
 
 import { PanelType, VALID_PANEL_TYPES } from '@pryzm/geometry-curtain-wall';
 import { CurtainGridSystem, migrateToGridSystem } from '@pryzm/geometry-curtain-wall';
+import { replaceCurtainPanelType } from './replaceCurtainPanelType';
 import { getPanelDefinition } from '@pryzm/geometry-curtain-wall';
 import type { CurtainPropertyPanelContext } from './CurtainGridEditor';
 
@@ -247,14 +248,16 @@ export function buildCurtainPanelEditor(
             console.warn(`[CurtainPanelEditor] No panel at cell [${i}, ${j}]`);
             return;
         }
-        window.runtime?.bus?.executeCommand('curtain-wall.replacePanel', {
+        // §L-1054 — same routing as `CurtainSubElementPanel`, through the SAME module.
+        // Two surfaces expressing one intent must reach the store by one route
+        // (C84 EI-4a). The bus verb this replaces could not execute at all.
+        const r = replaceCurtainPanelType({
             panelId: panel.id,
             newPanelType: newType,
-        })?.then(() => {
-            renderGrid();
-        })?.catch((e: Error) => {
-            console.warn('[CurtainPanelEditor] curtain-wall.replacePanel failed:', e);
+            commandManager: ctx?.commandManager ?? (window as any).commandManager, // TODO(E.curtain-wall.S): legacy commandManager
         });
+        if (r.ok) renderGrid();
+        else console.warn('[CurtainPanelEditor] panel type change refused:', r.reason);
     }
 
     renderGrid();

@@ -37,7 +37,7 @@
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { PanelType, isValidPanelType } from '@pryzm/geometry-curtain-wall';
+import { PanelType, isValidPanelType, VALID_PANEL_TYPES } from '@pryzm/geometry-curtain-wall';
 
 export interface ReplacePanelTypePayload {
     /** The CurtainPanelData.id to update. */
@@ -70,8 +70,13 @@ export class ReplacePanelTypeCommand implements Command {
         if (!isValidPanelType(this.payload.newPanelType)) {
             return {
                 ok: false,
+                // §CW-Voc-3 — GENERATED, NOT TRANSCRIBED. This named THREE members while
+                // `isValidPanelType` validates against THIRTEEN, so a user told
+                // "valid values: Glass, Opaque, Empty" could not discover the ten that
+                // would have worked. Same defect as `ReplacePanel.ts:77-79` (fixed
+                // 648b443d) — a hand-written copy of a union is C84 EI-8a's failure mode.
                 reason: `'${this.payload.newPanelType}' is not a valid PanelType. ` +
-                    `Valid values: SystemPanel_Glass, SystemPanel_Opaque, SystemPanel_Empty`
+                    `Valid values: ${VALID_PANEL_TYPES.join(', ')}`
             };
         }
 

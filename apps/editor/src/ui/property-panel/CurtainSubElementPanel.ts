@@ -31,6 +31,13 @@
 import { PanelType, VALID_PANEL_TYPES } from '@pryzm/geometry-curtain-wall';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import type { CurtainPropertyPanelContext } from './CurtainGridEditor';
+import { replaceCurtainPanelType } from './replaceCurtainPanelType';
+
+/** §L-1054 — the command manager the DI struct carries, with the same window
+ *  fallback the store accessors above already use. */
+function _commandManager(ctx?: CurtainPropertyPanelContext): any {
+    return ctx?.commandManager ?? (window as any).commandManager; // TODO(E.curtain-wall.S): legacy commandManager — retire with the CurtainPanelStore -> Store<CurtainPanelData> migration
+}
 
 // §CURTAIN-WALL-AUDIT-2026 §5.4 — DI accessors with safe window fallback so
 // existing call sites that pre-date the DI struct keep working.
@@ -316,20 +323,31 @@ function buildPanelSubPanel(
             ? colorInput.value
             : null;
 
-        window.runtime?.bus?.executeCommand('curtain-wall.replacePanel', {
+        // §L-1054 — was `bus.executeCommand('curtain-wall.replacePanel', …)`, a verb
+        // that CANNOT EXECUTE: it resolves `ctx.stores['curtainPanelStore']`, a key
+        // the bus context cannot carry, so `canExecute` refused on every dispatch and
+        // this button has never once changed a panel. Routed to the L2 command, which
+        // holds a real panel store and drives the §MI-02 rebuild subscriber
+        // (C16 CA-17 — route the write; C87 §13.11 CW-Dec-1 — keep the control ENABLED).
+        const r = replaceCurtainPanelType({
             panelId: subEl.id,
             newPanelType: pendingType,
             materialOverride: colorVal,
-        })?.then(() => {
+            commandManager: _commandManager(ctx),
+        });
+        if (r.ok) {
             swatch.style.background = PANEL_BG[pendingType];
             swatchLabel.textContent = PANEL_LABEL[pendingType];
             applyBtn.textContent = '✓ Applied';
             setTimeout(() => { applyBtn.textContent = 'Apply Changes'; }, 1500);
-        })?.catch((e: Error) => {
-            console.warn('[CurtainSubElementPanel] curtain-wall.replacePanel failed:', e);
-            applyBtn.textContent = '✗ Failed — check console';
-            setTimeout(() => { applyBtn.textContent = 'Apply Changes'; }, 2000);
-        });
+        } else {
+            // The reason is SHOWN, not only logged. C84 EI-7a's worst state is a
+            // refusal the user never receives, and "check console" is that state
+            // with extra steps.
+            console.warn('[CurtainSubElementPanel] panel type change refused:', r.reason);
+            applyBtn.textContent = `✗ ${r.reason}`;
+            setTimeout(() => { applyBtn.textContent = 'Apply Changes'; }, 4000);
+        }
     });
 
     body.appendChild(applyBtn);

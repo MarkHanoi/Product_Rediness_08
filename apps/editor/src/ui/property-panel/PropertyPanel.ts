@@ -774,7 +774,16 @@ export class PropertyPanel {
                 this.showElement(target);
             };
 
-            buildCurtainSubElementPanel(subEl, this.element, onShowParent);
+            // §L-1054 — the DI struct was NEVER PASSED, so `ctx?.commandManager` was
+            // always undefined inside the panel. That did not matter while the panel
+            // dispatched a bus verb off `window.runtime`; it matters now that the
+            // route needs a command manager, and it is exactly the kind of gap an
+            // optional-with-window-fallback parameter hides.
+            buildCurtainSubElementPanel(subEl, this.element, onShowParent, {
+                commandManager:    this._commandManager,
+                curtainWallStore:  (window as any).curtainWallStore,  // TODO(E.curtain-wall.S): legacy store handle
+                curtainPanelStore: (window as any).curtainPanelStore, // TODO(E.curtain-wall.S): legacy store handle
+            });
             this._makeVisible();
             return;
         }
