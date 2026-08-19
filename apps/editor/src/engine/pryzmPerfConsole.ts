@@ -597,10 +597,14 @@ function printReport(r: PryzmPerfReport): void {
                     ? '✅ batched — the per-add tier/PBR pass was deferred'
                     : ''));
         p(row('project load active', String(n[PERF_KEYS.NOTE_PROJECT_LOAD_ACTIVE] ?? 'not recorded')));
+        // Keys that represent a walk that ACTUALLY HAPPENED. The deferred counter is
+        // deliberately NOT in this list: "deferred" means the traversal was SKIPPED,
+        // so summing it into the total would report avoided work as work done — the
+        // gate would look most expensive exactly when it was doing its job, and a
+        // successful batch would print the same total as a failed one.
         const traverseKeys: [string, string][] = [
             ['per-add: PBR mesh collect', PERF_KEYS.TRAVERSE_PER_ADD_PBR],
             ['per-add: tier mesh count', PERF_KEYS.TRAVERSE_PER_ADD_TIER],
-            ['per-add: DEFERRED (skipped)', PERF_KEYS.TRAVERSE_PER_ADD_DEFERRED],
             ['PBRSceneUpgrader', PERF_KEYS.TRAVERSE_PBR_UPGRADER],
             ['PascalSceneLighting', PERF_KEYS.TRAVERSE_SCENE_LIGHTING],
             ['bimFitBounds', PERF_KEYS.TRAVERSE_FIT_BOUNDS],
@@ -615,10 +619,16 @@ function printReport(r: PryzmPerfReport): void {
             total += v;
             p(row('  ' + label, num(v)));
         }
-        p(row('  TOTAL traversals', num(total),
+        p(row('  TOTAL traversals (ACTUAL)', num(total),
             r.scene && total > 0
                 ? `≈ ${num(total * r.scene.meshes)} node visits at current scene size`
                 : ''));
+        // Printed BELOW the total, as avoided work — the gate's receipt.
+        const deferred = c[PERF_KEYS.TRAVERSE_PER_ADD_DEFERRED] ?? 0;
+        p(row('  per-add passes DEFERRED', num(deferred),
+            deferred > 0
+                ? '✅ avoided work — the gate engaged (NOT counted in the total above)'
+                : '⚠ the gate never deferred anything in this window'));
     }
     p(LINE);
 
