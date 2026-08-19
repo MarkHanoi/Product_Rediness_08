@@ -17026,7 +17026,55 @@ class of defect that makes a feature look *"built but dead"*.
   `single`. Neither matches the shipped bar.** Door and window render their own pickers, so the row
   is unenforced drift — a capability declaration no surface consumes.
 
-### WHY NOTHING IS BUILT YET, AND WHY THAT IS THE DELIVERABLE
+### ✅ SLICE 1 SHIPPED 2026-08-19 — commit `579c496f` (11 files, +1411/−18). Root tsc **COMPILER_RC=0, 0 errors.**
+
+| What | State |
+|---|---|
+| `OpeningProfile.ts` — THE one outline producer (PR-1), THREE-free, 4 profiles, declared 2 mm sag tolerance | ✅ SHIPPED |
+| `OpeningProfileGasket.ts` — `bbox − outline` plate + reveal band swept on the outline | ✅ SHIPPED |
+| **Arm A** (plain straight, unmitred) — the arc **natively**, via `THREE.Path`; the door notch walk and the window hole share ONE function | ✅ SHIPPED |
+| **Arm B** (plain straight, mitred) — bbox cut + gasket | ✅ SHIPPED |
+| **Arm C** (layered) — bbox cut + gasket, bbox reveal quads suppressed (in-grid only — an out-of-grid neighbour is the wall END) | ✅ SHIPPED |
+| **Arm D** (curved) — **REFUSES by name** at `canPlace`, new code `OCC_PROFILE_UNSUPPORTED` | ✅ SHIPPED |
+| **Both invalidation keys** fold the profile (the 16th surface) | ✅ SHIPPED |
+| `Opening.openingProfile` on the TS interface | ✅ SHIPPED |
+| `OpeningSchema` (persisted) | ✅ **landed by lane RAKE1**, which consumed `OPENING_PROFILE_KINDS` — the hand-off worked |
+| Tool / properties panel / plan symbol / IFC / chat | ⛔ **NOT BUILT** — slice 2+ |
+
+**⭐ THE SEPARATING TEST IS LIVE AND FALSIFIABLE**, which was the point of writing it into the
+contract first. `OpeningProfileSlice1.test.ts` (23/23) asserts, for a circular opening: material
+**IS** present at the bbox corners, material is **ABSENT** everywhere inside the circle, and every
+reveal vertex sits **on the arc**. §D then feeds those same three assertions two deliberately-wrong
+implementations — **a rectangle wearing `isRectangular: false`** (literally "a rectangle called
+round") and **an 8-facet staircase** — and proves each is REJECTED, with the real circle passing the
+identical sampling as the live control. A test that cannot fail proves nothing; this one was made to
+fail first.
+
+**⭐ THE COMPILER CAUGHT THE REFUSAL-IDENTITY MACHINERY DOING ITS JOB.** Adding
+`OCC_PROFILE_UNSUPPORTED` broke **three** declarations at compile time — the roster's `satisfies`,
+the `_CanPlaceRosterIsComplete` type, and `Record<CanPlaceRefusalCode, string>` — before a single
+test ran. `CanPlaceRefusalText.test.ts`'s hand-written count went **7 → 8 by a human**, which is
+exactly what its own comment demands (*"a member cannot join the union without a human editing this
+number"*). Recorded because this is the rare case of a guard being **vindicated** rather than found
+missing.
+
+**⭐ EVERY ADDED PATH IS INERT FOR A RECTANGLE, BY CONSTRUCTION (PR-2)** — `openingProfileTag`
+returns `''` so **no wall is re-keyed and no persisted geometry cache is invalidated**; the gasket
+returns `null`; arm C's `_profiledRects` is empty so not one added instruction executes; the hole
+and notch walks fall back to the literal lines they replaced. **Absent ⇒ rectangular**, so no
+project needs migrating.
+
+**⚠ TWO SUITE FAILURES, NEITHER ATTRIBUTABLE HERE, AND THE ATTRIBUTION IS ARGUED NOT ASSUMED.**
+`geometry-wall` ran **1002/1004**. `WJ2HeightEditJoinInvalidation` asserts a **wall-clock ratio**
+(`afterMs < beforeMs / 5`) and **passes in isolation** — a load-induced flake under a 343 s suite.
+`WJ1MovePropagateRecompute`'s non-vacuity control fails in isolation too, but it exercises
+move/propagate in files this commit does not touch, on walls with **no profiled openings**, where
+every path added above is unreachable. ⛔ A clean before/after could not be run: the tree is SHARED
+with four live lanes (RAKE1 was mid-flight in `WallStore.ts`/`WallDataSchema.ts` during the run) and
+`git stash` is forbidden — so this is a **reasoned** attribution, and it is labelled as one rather
+than dressed as a measurement. **Reported to the coordinator for routing.**
+
+### WHY PHASE 0 CAME FIRST, AND WHY THAT WAS THE DELIVERABLE
 
 The founder's instruction was explicit: *"I would rather ship a refusal that names its reason than a
 rectangle pretending to be a circle"*, and *"Phase 0 is now the whole ballgame — report it before
