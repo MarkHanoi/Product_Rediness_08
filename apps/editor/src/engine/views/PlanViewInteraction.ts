@@ -702,6 +702,34 @@ export class PlanViewInteraction {
         }
     }
 
+    // ────────────────────────────────────────────────────────────────────────
+    // §GRID-CONTEXTUAL-EDIT (SV2) — grid selection is announced on BOTH edges.
+    //
+    // `pryzm-grid-selected` was emitted ONLY when a grid was selected. The three
+    // DESELECT sites — clicking an annotation, clicking an element, clicking empty
+    // space — each cleared `_selectedGridId` on the canvas and told nobody. That was
+    // harmless while the sole subscriber was the Properties Panel, which is opened by
+    // a selection and closed by other means. It stops being harmless the moment a
+    // consumer's VISIBILITY depends on the answer: a contextual edit bar wired to the
+    // select edge alone would appear on a grid click and never go away, showing Move
+    // and Delete for a grid the user had already deselected.
+    //
+    // So the event now carries `gridId: null` for the deselect edge rather than a
+    // second event name — one channel, both transitions, and a subscriber that
+    // re-derives from `selectedGridInAnyPane()` cannot drift from the canvas that
+    // actually holds the selection (C84 EI-1).
+    private _setGridSelection(gridId: string, grid: unknown): void {
+        this._planCanvas?.setSelectedGridId?.(gridId);
+        // F.events.2d — DOM dispatch removed; listener migrated to runtime.events
+        window.runtime?.events?.emit('pryzm-grid-selected', { gridId, grid, source: 'plan-view' });
+    }
+
+    /** Clear the grid selection AND say so. Never clear the canvas field directly. */
+    private _clearGridSelection(): void {
+        this._planCanvas?.setSelectedGridId?.(null);
+        window.runtime?.events?.emit('pryzm-grid-selected', { gridId: null, grid: null, source: 'plan-view' });
+    }
+
     private _onMouseUp(e: MouseEvent): void {
         if (e.button !== 0) {
             this._showOverrideContextMenu(e);
@@ -919,17 +947,15 @@ export class PlanViewInteraction {
             const bimManager = window.bimManager;
             const grids = bimManager?.getGrids?.() ?? [];
             const grid = grids.find((g: any) => g.id === gridId);
-            this._planCanvas.setSelectedGridId?.(gridId);
+            this._setGridSelection(gridId, grid);
             console.log('[PlanViewInteraction] Grid selected:', gridId);
-            // F.events.2d — DOM dispatch removed; listener migrated to runtime.events
-            window.runtime?.events?.emit('pryzm-grid-selected', { gridId, grid, source: 'plan-view' });
             return;
         }
 
         const annotationId = this._planCanvas.hitTestAnnotation(sx, sy, 12);
         if (annotationId) {
             window.__pryzmSelectedAnnotationId = annotationId;
-            this._planCanvas.setSelectedGridId?.(null);
+            this._clearGridSelection();
             window.runtime?.events?.emit('pryzm-element-selected', { elementId: annotationId, annotationId, source: 'plan-view' });
             // §FIX-DIM-SELECT-PROPERTIES-PANEL (L-173) — opening a selected dimension's
             // Properties Panel is now driven by the `pryzm-element-selected` emit above:
@@ -954,7 +980,7 @@ export class PlanViewInteraction {
         const elementId = this._planCanvas.hitTest(sx, sy, 10);
         if (elementId) {
             window.__pryzmSelectedAnnotationId = null;
-            this._planCanvas.setSelectedGridId?.(null);
+            this._clearGridSelection();
             console.log('[PlanViewInteraction] Element selected via plan view click:', elementId);
             // Phase 1 — Cross-View Selection Parity.  Bus.select():
             //   1. Calls SelectionManager.selectById() → 3D viewport highlight
@@ -977,7 +1003,7 @@ export class PlanViewInteraction {
             }
         } else {
             // Clicked empty space — clear grid selection and deselect underlay if selected
-            this._planCanvas.setSelectedGridId?.(null);
+            this._clearGridSelection();
             // §FIX-DIMENSION-FIRST-CLASS-SELECTABLE-L173 — deselect the plan-view
             // annotation/dimension too. Without this the id lingered, so (a) the dim
             // stayed visually highlighted after the user clicked away, and (b) a

@@ -24,6 +24,12 @@
 import type { BimService } from '@app/engine/BimService';
 import * as PryzmIcons from './icons/PryzmIcons';
 import { canDo, type OperationId } from '@pryzm/input-host';
+// §GRID-CONTEXTUAL-EDIT (SV2) — a GRID is selected on a Canvas2D pane, of which there
+// may be TWO. `selectedGridInAnyPane()` is the ONE authority for which pane holds the
+// selection; `gridEditAvailability` is the ONE answer to what may be OFFERED for it.
+import { selectedGridInAnyPane, clearGridSelectionInAllPanes } from '@app/engine/views/viewPanes';
+import { gridEditAvailability, type GridEditSubject } from '@pryzm/core-app-model';
+import { RemoveGridCommand } from '@pryzm/command-registry';
 import type { JoinTool } from '@pryzm/input-host';
 import type { CutTool } from '@pryzm/input-host';
 import type { MirrorTool } from '@pryzm/input-host';
@@ -103,6 +109,16 @@ export class ContextualEditBar {
      */
     private _selectedElementId: string | null = null;
     private _elementType = '';
+    /**
+     * §GRID-CONTEXTUAL-EDIT (SV2) — the grid the bar is currently describing.
+     *
+     * A grid is NOT a THREE Object3D, so it can never arrive on `bim-selection-changed`
+     * and `_selectedObj` is null for the whole of a grid selection. Every guard in this
+     * class that reads `_selectedObj` therefore still refuses correctly for a grid; the
+     * two members below are what the grid-specific arms read instead.
+     */
+    private _selectedGridId: string | null = null;
+    private _selectedGrid: GridEditSubject | null = null;
     private _tools: OperationTools | null = null;
     private _activeOpId: string | null = null;
 
@@ -280,6 +296,20 @@ export class ContextualEditBar {
                 variant:  'danger',
                 action:   () => {
                     console.log('[ContextualEditBar] Delete');
+                    // §GRID-CONTEXTUAL-EDIT (SV2) — the Delete BUTTON and the Delete KEY
+                    // did DIFFERENT THINGS, and this is where they diverged.
+                    //
+                    // The key goes through `initUI.deleteSelected`, which L-1107 taught to
+                    // delete a selected grid and L-1109 taught to delete a selected level
+                    // datum and to stop reporting success for deletes that did nothing.
+                    // This button goes through `BimService.deleteSelected()`, a THIRD
+                    // delete route whose entire body is wrapped in
+                    // `if (selectionManager.selectedObject)` — no grid arm, no level arm,
+                    // no annotation arm, and no refusal at all. With a grid selected it
+                    // returned silently, so surfacing this bar for grids without this arm
+                    // would have shipped precisely the dead button that
+                    // `_refreshButtonVisibility` warns about two hundred lines below.
+                    if (!this._selectedObj && this._deleteSelectedGrid()) return;
                     this._service.deleteSelected();
                 },
             },
@@ -432,6 +462,11 @@ export class ContextualEditBar {
         // Custom tooltip — CSS ::before/::after driven by data attributes.
         // Replaces the native browser `title` tooltip for consistent styling.
         btn.dataset.tooltip = action.title;
+        // §GRID-CONTEXTUAL-EDIT (SV2) — the button's OWN label, kept so a per-selection
+        // override (a grid's disabled-Move reason) can be undone. Without it the override
+        // is one-way: select a grid, then a wall, and the wall's Move button still carries
+        // the grid's refusal.
+        btn.dataset.defaultTooltip = action.title;
         if (action.shortcut) {
             btn.dataset.shortcut = action.shortcut;
         }
@@ -481,8 +516,42 @@ export class ContextualEditBar {
                 this._cancelActiveTools();
             }
 
+            // A live 3D selection SUPERSEDES a grid selection, mirroring the precedence
+            // `initUI.deleteSelected` already applies ("a live 3D BIM selection takes
+            // precedence"), so the bar and the keyboard cannot disagree about which of the
+            // two the user meant.
+            if (obj) { this._selectedGridId = null; this._selectedGrid = null; }
+
             this._refreshButtonVisibility(this._elementType);
-            this.setVisible(!!obj);
+            this.setVisible(!!obj || !!this._selectedGridId);
+        });
+
+        // §GRID-CONTEXTUAL-EDIT (SV2) — the founder asked for Move and Delete on a
+        // selected grid. A grid announces itself on its OWN channel because it is not an
+        // Object3D; before this, the bar's only subscription was `bim-selection-changed`
+        // and its visibility hinged on `!!obj`, so a grid selection could never reach it.
+        //
+        // The payload is used as a TRIGGER, not as the answer: the id is re-derived from
+        // `selectedGridInAnyPane()` — the same authority the keyboard delete route reads —
+        // so the bar cannot describe a grid the canvas no longer has selected. That also
+        // makes the deselect edge work, which is why `PlanViewInteraction` now emits this
+        // event with `gridId: null` when a grid is deselected: without it the bar would
+        // appear on a grid click and never go away.
+        window.runtime?.events?.on('pryzm-grid-selected', () => {
+            const hit = selectedGridInAnyPane();
+            this._selectedGridId = hit?.gridId ?? null;
+            this._selectedGrid = this._selectedGridId ? this._lookupGrid(this._selectedGridId) : null;
+            this._activeOpId = null;
+
+            if (this._selectedGridId && !this._selectedObj) {
+                this._el.dataset.elementType = 'grid';
+                this._el.title = 'Grid';
+                this._refreshButtonVisibility('grid');
+                this.setVisible(true);
+                return;
+            }
+            this._refreshButtonVisibility(this._elementType);
+            this.setVisible(!!this._selectedObj);
         });
 
         this._installKeyboardShortcuts();
@@ -493,10 +562,106 @@ export class ContextualEditBar {
      * Show/hide each operation button based on ElementCapabilities.canDo(type, op).
      * The undo/redo/move/rotate/copy/delete buttons are always visible when selection exists.
      */
+    /** Resolve the live Grid record for an id. One lookup, one source. */
+    private _lookupGrid(gridId: string): GridEditSubject | null {
+        try {
+            const grids = (window.bimManager as { getGrids?: () => GridEditSubject[] } | undefined)?.getGrids?.() ?? [];
+            return grids.find((g) => g.id === gridId) ?? null;
+        } catch { return null; }
+    }
+
+    /**
+     * §GRID-CONTEXTUAL-EDIT (SV2) — which buttons a selected grid gets, and in which of
+     * the three honest states.
+     *
+     * DELETE is SHOWN+ENABLED: `RemoveGridCommand` exists with snapshot and undo, and
+     * `_deleteSelectedGrid()` below is the route to it.
+     *
+     * MOVE is SHOWN+DISABLED for EVERY grid, and the tooltip says why. Not hidden —
+     * hiding would teach the author that grids cannot be moved, which is false: an
+     * orthogonal grid moves today by editing Position. What does not exist is an
+     * INTERACTIVE drag, and `GRID_EDIT_AXES`' `interactive-drag` row is what says so.
+     * The verdict is computed rather than hard-coded here precisely so that building the
+     * drag tool flips ONE ROW in the table and this button comes alive on its own
+     * (C84 §8.d — a comment is not a synchronisation mechanism).
+     *
+     * Every other operation is hidden: rotate/copy/join/cut/mirror/scale/align/offset
+     * have no meaning for a grid datum and no command behind them.
+     */
+    private _refreshGridButtons(): void {
+        const grid = this._selectedGrid ?? {};
+        for (const [opId, btn] of this._opBtns) {
+            if (opId !== 'move') { btn.style.display = 'none'; continue; }
+            btn.style.display = '';
+            const verdict = gridEditAvailability(grid, 'move');
+            const blocked = !verdict.ok;
+            btn.classList.toggle('ceb-btn--disabled', blocked);
+            btn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+            btn.style.opacity = blocked ? '0.45' : '';
+            btn.style.cursor = blocked ? 'not-allowed' : '';
+            btn.dataset.tooltip = blocked ? (verdict.reason ?? 'Moving this grid is not available.') : 'Move';
+        }
+        if (this._editProfileBtn) this._editProfileBtn.style.display = 'none';
+    }
+
+    /**
+     * Delete the grid the user has selected, if that is what is selected.
+     *
+     * Returns TRUE when it handled the intent — including when it REFUSED, because a
+     * refusal is a handled outcome and falling through to the element route afterwards
+     * would delete something the user never selected.
+     */
+    private _deleteSelectedGrid(): boolean {
+        const hit = selectedGridInAnyPane();
+        if (!hit) return false;
+        const cm = window.commandManager as unknown as
+            | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
+            | undefined;
+        if (!cm || typeof cm.execute !== 'function') {
+            // C16 CA-18 / C84 EI-2 — refuse LOUDLY through the channel this class already
+            // owns, never return silently from a delete the user asked for.
+            this._declineOperation('Delete', 'the command system is not ready');
+            return true;
+        }
+        const res = cm.execute(new RemoveGridCommand({ gridId: hit.gridId }));
+        if (res && res.success === false) {
+            this._declineOperation('Delete', res.error ?? res.info?.join('; ') ?? 'the model refused the delete');
+            return true;
+        }
+        // Clear the now-dangling selection in EVERY pane — a stale `_selectedGridId`
+        // would keep a deleted grid highlighted in the other one.
+        clearGridSelectionInAllPanes();
+        this._selectedGridId = null;
+        this._selectedGrid = null;
+        this.setVisible(false);
+        return true;
+    }
+
     private _refreshButtonVisibility(elementType: string): void {
+        // §GRID-CONTEXTUAL-EDIT (SV2) — a grid gets its own arm because the capability
+        // table it is governed by is its own. `ElementCapabilities.CAPABILITIES` has no
+        // 'grid' row at all, and 'delete' is not even a member of its `OperationId` union,
+        // so `canDo('grid', ...)` answers false for everything and could only ever produce
+        // a bar with no operations on it.
+        if (elementType === 'grid') {
+            this._refreshGridButtons();
+            this._clearActiveOpHighlight();
+            return;
+        }
         for (const [opId, btn] of this._opBtns) {
             const show = !!elementType && canDo(elementType, opId as OperationId);
             btn.style.display = show ? '' : 'none';
+            // §GRID-CONTEXTUAL-EDIT (SV2) — RESET the per-selection presentation the grid
+            // arm applies. It is not enough to recompute VISIBILITY here: the grid arm
+            // also disables Move and rewrites its tooltip, and neither is derived from
+            // `elementType`, so without this a wall selected after a grid inherited a
+            // greyed-out, not-allowed Move button explaining that grids cannot be dragged.
+            // A state that only one branch can set and no branch clears is a leak.
+            btn.classList.remove('ceb-btn--disabled');
+            btn.setAttribute('aria-disabled', 'false');
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+            if (btn.dataset.defaultTooltip) btn.dataset.tooltip = btn.dataset.defaultTooltip;
         }
         // §EDIT-PROFILE — show the profile editor button only where an editor ACTUALLY
         // EXISTS.

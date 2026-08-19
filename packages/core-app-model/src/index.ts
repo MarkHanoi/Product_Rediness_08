@@ -897,3 +897,21 @@ export {
 export type { Plan, PlanStatus, PlanLimits, PlanPricing } from './monetization/PlanConfig.js';
 export { AIUsageTracker } from './monetization/AIUsageTracker.js';
 export { EntitlementStore } from './monetization/EntitlementStore.js';
+
+// §GRID-CONTEXTUAL-EDIT (SV2) — the grid edit-capability table. Pure predicates over a
+// structural subject: no store, no THREE, no DOM, no imports at all, so exporting it
+// here cannot create a barrel cycle.
+export {
+    GRID_EDIT_AXES,
+    GRID_PINNED_DELETE_IS_UNDECIDED,
+    gridEditActiveAxes,
+    gridEditAvailability,
+} from './grids/GridEditVariants.js';
+export type {
+    GridEditAxis,
+    GridEditAxisRow,
+    GridEditOperation,
+    GridEditStatus,
+    GridEditSubject,
+    GridEditVerdict,
+} from './grids/GridEditVariants.js';
