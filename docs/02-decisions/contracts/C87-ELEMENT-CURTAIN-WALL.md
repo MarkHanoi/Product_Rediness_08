@@ -1320,8 +1320,26 @@ Type · material · finish · **offset from centreline**.
   > persisted, or the sparse set only ever grows) · a **non-finite** offset falls back to `0` at the
   > point of use (NaN in a position makes the matrix non-invertible and the panel **vanishes with no
   > error** — the L-1052 shape) · a **blank** input box means *"leave it alone"*, never *"set 0"*.
-- **CW-Attr-2 — ⚠ STILL OPEN, and the measurement narrows it. "material" and "finish" are TWO axes
-  and MUST NOT be collapsed.**
+- **CW-Attr-2 — ✅ CLOSED 2026-08-19 (lane CW2, `1ca87c4f`). "material" and "finish" are TWO axes
+  and they are NOT collapsed.**
+  > ✅ **THE CONTROL SHIPPED, AND THE ROW BELOW HAD ALREADY NARROWED IT CORRECTLY — this is the one
+  > case in this section where a prior lane's prose survived measurement intact.** Both axes were
+  > already on the record and both already rendered; the ONLY gap was that no UI wrote `materialId`
+  > (its sole writer was `element.changeType`, which derives it from the WALL TYPE, so a panel could
+  > never be given its own). `CurtainSubElementPanel` now renders a **Material** dropdown built from
+  > `MATERIAL_CATALOG`, grouped by category, routed `replaceCurtainPanelType` →
+  > `ReplacePanelTypeCommand.materialId` with the `touchedMaterialId` snapshot idiom so an undo
+  > cannot revert a material the dispatch never wrote.
+  > **Three decisions that are not cosmetic:** it reads the **L0, THREE-free** `@pryzm/schemas/materials`
+  > rather than `STANDARD_MATERIAL_LIBRARY` (its THREE-typed projection), so the control cannot drag
+  > a renderer type into the panel layer; **"— Type default —" is a REAL option**, because a dropdown
+  > whose only escape is picking a different material is a one-way door and the colour picker beside
+  > it has a Clear button for exactly that reason; and a stored id the catalogue no longer contains
+  > gets a **visible `⚠ … (not in catalogue)` row** instead of silently displaying as "Type default"
+  > (C84 EI-6 — a select that misrepresents stored state is this lane's recurring defect in miniature).
+  > ⚠ **NOT EXECUTED IN A BROWSER** (§committed-is-not-reachable). Founder-verifiable.
+  > ⛔ **`CurtainPanelEditor` (the cell grid) still does NOT offer it** — the same surface gap
+  > CW-Door-4 records for the door card. Declared, not discovered.
   > **Measured 2026-08-19, and this is better news than the register suggested:** the panel record
   > ALREADY carries both axes — `materialOverride` (a raw hex tint, `CurtainPanelTypes.ts:141`) and
   > `materialId` (the C100 master-catalogue material, `:171`) — **and `materialId` genuinely reaches
@@ -1520,6 +1538,38 @@ Type · material · finish · **offset from centreline**.
 
 ### 13.8 — CW-6: POLYLINE + ENTER CLOSES THE LOOP
 
+- ✅ **DELIVERED 2026-08-19 (lane CW2, `13bc0ba5`) — AND THE DEFECT WAS NOT THE ONE THIS SECTION
+  PREDICTED.** CW-Poly-1 asked whether the polyline mode vocabulary existed. **It does, and so did
+  closure — the FIFTH item in this specification that measurement found already built.**
+  `CurtainWallTool` implements `POLYLINE`/`ORTHO` fully (`_handlePolylineClick :480`,
+  `_handleOrthoClick :526`, mode-bar button `L`, keybinds, HUD), and closure already worked **two**
+  ways: a proximity click within `CLOSURE_SNAP_RADIUS` 0.5 m, and the `C` key.
+  > ⭐ **WHAT WAS ACTUALLY WRONG, AND IT IS AN HONESTY DEFECT, NOT A MISSING FEATURE.** ENTER *was*
+  > bound — to **finish** (clear preview + deactivate), not to close. **And the HUD's Close-Polyline
+  > button is labelled `↵`.** So the one affordance on screen named ENTER, ENTER did something else,
+  > and the key that actually closed the loop (`C`) was advertised **nowhere**. **A control that
+  > names the wrong key is worse than no control — it teaches the user the feature is broken.**
+  > ENTER now closes when there is a loop to close and finishes otherwise (two points with no origin
+  > is a chain, not a loop). `C` is **kept as an alias** — muscle memory is real — but now delegates
+  > to `_closePolyline()` instead of re-implementing it; the inline copy had **already drifted**,
+  > omitting the `_polySegmentCount = 0` reset (C84 EI-9).
+- ⛔ **CW-Poly-1's INSTRUCTION COULD NOT BE OBEYED AS WRITTEN, AND THE REASON IS THE POINT.** It says
+  *"reuse wall's closure rule; do not write a second one"*. **Wall has no rule to reuse.** Measured:
+  its closure **predicate** is re-typed **FIVE** times — `WallPlanToolHandler` `:326`, `:1046`,
+  `:1288` and `WallTool` `:1347`, `:1991` — and **the copies have already diverged** (`:1046` omits
+  the `_wallFirstPoint` term the other four carry). The **action** is duplicated twice more
+  (`_closePolyline :908`, `closePolyline :2004`), and the two spell the 0.1 m minimum differently.
+  The honest reading of *"do not write a second one"* is therefore **do not start a sixth**, which
+  is why CW2 extracted **one** predicate (`_canClosePolyline()`) for this tool — asked by ENTER, by
+  `C`, and by the HUD button's visibility, so the button can no longer appear while the keys refuse.
+  **Extracting wall's own five is NOT done and is not this lane's** — routed.
+- ⛔ **PLAN VIEW IS A DECLARED ABSENCE, NOT A CLEARANCE (C84 EI-6).** The above is the **3-D** half.
+  `CurtainWallPlanToolHandler` has **no ENTER handler, no polyline origin and no closure at all** —
+  its `onKeyDown` (`:232-262`) handles `l`/`o`/`c`/`Esc` only, and its `_segmentCount` field
+  (`:140`) is incremented, reset, and **never read**. Chaining there is implicit (`:385-389`).
+- **CW-Poly-2 — UNMEASURED.** Whether a closed loop produces walls that **join** rather than merely
+  touch was not tested by this lane, and CW-7 depends on it.
+
 - **CW-Poly-1.** Curtain-wall polyline drawing MUST close on **ENTER** the way wall does.
   ⛔ **Reuse wall's closure rule; do not write a second one** (C84 EI-9). `CurtainWallDrawingMode`
   already declares `POLYLINE` and `ORTHO` (`CurtainWallTypes.ts:16`), so the mode vocabulary exists —
@@ -1531,6 +1581,42 @@ Type · material · finish · **offset from centreline**.
 
 ### 13.9 — CW-7: SLAB-BY-REGION INSIDE A CURTAIN WALL
 
+> ⛔ **NOT IMPLEMENTED (lane CW2, 2026-08-19). MEASURED ONLY — and the measurement found L-1030's
+> root, which changes the ORDER of this work.** Recorded here so the next lane starts from the
+> finding rather than re-deriving it.
+>
+> **The edge set is ONE function and it has exactly THREE sources.**
+> `assembleRegionBoundary()` (`packages/geometry-slab/src/RegionBoundarySources.ts:130-159`) takes
+> **walls · slabs · parcel boundary**. **Curtain walls are ABSENT, not merely unwired** — zero
+> occurrences of `curtainWallStore` anywhere in `packages/geometry-slab/src`. That file's own §20
+> note says a new source is added **there, once**, so the insertion point is unambiguous.
+>
+> ⛔ **AND THE OBVIOUS IMPLEMENTATION WOULD MINT A WRONG HOST REFERENCE — C84 EI-2, exactly what
+> CW-Region-2 warns about.** `CurtainWallData` is structurally compatible (`baseLine` is read as
+> `{x, z}`), so passing curtain walls straight through **compiles and traces**. But
+> `SlabRegionTracer.ts:314` attributes a chord to `w.id` with **no `hostType` discrimination**, and
+> `WallFaceResolver.ts:73-76` then looks that id up in **`window.wallStore` only** — so a
+> `curtainwall_<ulid>` resolves to **nothing**. The region would be traced and the host silently
+> lost. **A `hostType` must travel with the edge, or the tracer must refuse.**
+>
+> ⭐ **L-1030's ROOT IS FOUND, and it is NOT "the 3-D tool has no REGION branch" — that candidate is
+> REFUTED** (`SlabTool.ts` has full REGION_SLAB branches at `:762`, `:844`, `:570`, `:1279`).
+> **The 3-D path never adopted the widened edge set.** `SlabTool.findRegionAtPoint()` (`:1462-1478`)
+> calls `traceRegionSketchAtPoint(walls, …)` directly on **`wallStore.getAll()`** and **never
+> imports `RegionBoundarySources` at all**. So 3-D still runs the wall-only edge set that
+> `RegionBoundarySources` was written to replace — the plan half got §FIX-REGION-BOUNDARY-SOURCES
+> (L-959) and the 3-D half did not. The founder was tracing **around the parcel boundary**, which
+> is in the plan set and not the 3-D set.
+> **And the failure is silent BY CONSTRUCTION:** `:766-768` and `:1450-1452` have **no `else`
+> branch, no warn, no refusal**, and `_reportRegionAttribution()` (`:1496`) returns early when there
+> is no attribution — **so even the diagnostic never prints.**
+>
+> **THE ORDER THIS IMPLIES, and it is the opposite of the naive one:** CW-Region-2 is right that
+> adding curtain walls while L-1030 holds multiplies a silent failure across a second family — but
+> the fix for L-1030 (**point `SlabTool` at `assembleRegionBoundary`**) is *also* the change that
+> makes curtain walls reachable from both surfaces at once. **Fix the shared assembler first; add
+> the curtain-wall source second; add the refusal third.** ⚠ Lane SL1 owns `geometry-slab`.
+
 - **CW-Region-1.** `SlabPlanToolHandler`'s `§REGION-HOST-ATTRIBUTION` edge set MUST include curtain
   walls, so a click inside a curtain-wall enclosure produces a region slab exactly as it does for
   walls.
@@ -1541,6 +1627,41 @@ Type · material · finish · **offset from centreline**.
   claim one** (C84 EI-2).
 
 ### 13.10 — CW-8: MOVE → PROPAGATE → RECOMPUTE
+
+> ⛔ **NOT IMPLEMENTED (lane CW2, 2026-08-19). MEASURED ONLY — and the measurement SHRINKS this item
+> considerably, which is worth knowing before anyone budgets it as a cascade engine.**
+>
+> **CW-Move-2's premise needs one correction: `curtain-wall.move` is not the production move path.**
+> It is DTO-only and effectively dead — `MoveCurtainWall.ts:42-54` writes the **plugin DTO store**,
+> not the geometry `curtainWallStore` the builders read. The **real** move surface is the 3-D gizmo
+> drag-end (`registerTransformDragHandler.ts:455-490`), which dispatches
+> **`wall.updateCurtainWall`** → `UpdateCurtainWallCommand` → the authoritative record
+> (`initBusHandlers.ts:993`). ⚠ Also measured: `AlignPlanToolHandler.ts:355` dispatches
+> `curtain-wall.move` with `{ id, updates }` while the handler expects `{ curtainWallId, delta }` —
+> **a payload-shape mismatch that fails `canExecute` every time.** A third silent no-op, logged.
+>
+> ⭐ **MOST OF "PROPAGATE" ALREADY HAPPENS, AND THE DESIGN THAT MAKES IT FREE IS CW-P-B's.**
+> `CurtainPanelData` carries **no world coordinate at all** — `curtainWallId`, `cellIndex`,
+> `panelType`, `materialOverride`, `materialId`, `hostedDoor`, `offsetFromCentreline` and nothing
+> positional. Panel world position is derived at **build** time. `CurtainPanelSyncHandler:60-93`
+> already re-syncs on every `curtainWallStore` `update`. **And overrides survive a pure translation
+> by construction:** `derivedGridLineId` keys on **`t`, the normalised position along the axis**
+> (§L-1058), and a translation leaves `length` unchanged ⇒ same `t` ⇒ same ids. **Hosted doors are
+> panel sub-records, so they travel for free** — which is the CW-Door-1 decision paying out exactly
+> as §13.5 reason 5 predicted.
+> **So for a pure translation, "propagate" is already correct and the remaining work is to route the
+> move through `wall.updateCurtainWall` and prove it — not to build a cascade.**
+>
+> **What genuinely does NOT follow, and is the real remainder:** nothing joins or re-welds curtain
+> walls to walls or to each other, and no region slab re-traces (that is §13.9 / L-1030).
+> ⚠ **CW-Move-1's "follow the wall path" needs a caveat:** there is **no element-agnostic cascade
+> engine** to follow. `CascadeWallBaselineCommand` is hard-typed to walls (`affectedStores =
+> ['wall']`, `ctx.stores.wallStore`, `wallOccupancyStore`). What IS reusable is its **shape** —
+> and specifically `moveReweldPreflight`'s (§L-921-ATOMIC-GESTURE) trick of asking the real
+> `canExecute` **before** the write. ⚠ **And "one atomic gesture with one undo entry" is not what
+> wall does:** wall puts **two** commands on the stack (`UpdateWallBaselineCommand`, then the
+> cascade from the subscriber). It closes the half-executed-gesture hole by **refusing before the
+> write**, not by merging undo entries. **Copy that mechanism, not this bullet's wording.**
 
 - **CW-Move-1.** ⛔ **FOLLOW THE WALL PATH; DO NOT FORK A SECOND CASCADE.** WM1's finished work —
   `§L-921-ATOMIC-GESTURE`, `CascadeWallBaselineCommand`, [C83 §5.5](C83-CROSS-ELEMENT-CASCADES.md) —
