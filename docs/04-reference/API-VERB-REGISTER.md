@@ -15,13 +15,13 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1261 (floor 900) |
-| **Verbs** | **326** (floor 250) |
-| LIVE | 118 |
+| Handler files read | 1285 (floor 900) |
+| **Verbs** | **337** (floor 250) |
+| LIVE | 119 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
-| UNKNOWN | 171 |
-| authoritative store NONE or UNKNOWN | 208 |
+| UNKNOWN | 181 |
+| authoritative store NONE or UNKNOWN | 218 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -54,6 +54,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `annotation.setTextHeight` | plugins/annotations | UNKNOWN | UNKNOWN | patch-pair → annotation | synced via 'annotationId' (disclose) | classified B |
 | `annotation.update` | plugins/annotations | UNKNOWN | UNKNOWN | patch-pair → annotation | synced via 'annotationId' (disclose) | classified B |
 | `beam.batch.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | not-synced (reason declared) | classified C |
+| `beam.changeLevel` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `beam.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'id' (disclose) | classified B |
 | `beam.delete` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | not-synced (reason declared) | classified D |
 | `beam.move` | plugins/beam | REFUSES | NONE | patch-pair → beam | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -62,6 +63,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `beam.setType` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'beamId' (disclose) | classified B |
 | `beam.update` | apps/editor | LIVE | beam | UNKNOWN (declares beam) | synced via 'beamId' (disclose) | classified D |
 | `ceiling.batch.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | not-synced (reason declared) | classified C |
+| `ceiling.changeLevel` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | n/a (not a property verb) | capability: move-to-level |
 | `ceiling.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'id' (disclose) | classified B |
 | `ceiling.delete` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | not-synced (reason declared) | classified D |
 | `ceiling.setBoundary` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'ceilingId' (disclose) | classified B |
@@ -71,6 +73,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `ceiling.updateLayers` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'ceilingId' (disclose) | classified B |
 | `ceiling.updateSystemTypeBatch` | plugins/ceiling | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-ceiling-type |
 | `column.batch.create` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | not-synced (reason declared) | classified C |
+| `column.changeLevel` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | n/a (not a property verb) | capability: move-to-level |
 | `column.create` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | synced via 'id' (disclose) | classified B |
 | `column.delete` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | not-synced (reason declared) | classified D |
 | `column.move` | plugins/column | REFUSES | NONE | patch-pair → column | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -101,6 +104,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.setPanelType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
 | `curtain-wall.setTransomType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'curtainWallId' (disclose) | classified B |
 | `curtain-wall.swapPanel` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
+| `curtainWall.changeLevel` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | n/a (not a property verb) | capability: move-to-level |
 | `data.clearPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.markPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.setDerivation` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
@@ -139,11 +143,13 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `elementType.duplicate` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified C |
 | `elementType.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified C |
 | `elevation.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
+| `floor.changeLevel` | plugins/floor | UNKNOWN | UNKNOWN | patch-pair → floor | n/a (not a property verb) | capability: move-to-level |
 | `floor.create` | plugins/floor | UNKNOWN | UNKNOWN | UNKNOWN (declares floor) | synced via 'floorId' (disclose) | classified B |
 | `floor.setMaterial` | plugins/floor | REFUSES | NONE | patch-pair → floor | synced via 'floorId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `floor.update` | apps/editor | LIVE | floor | UNKNOWN (declares floor) | synced via 'floorId' (disclose) | classified D |
 | `floor.updateLayers` | plugins/floor | UNKNOWN | UNKNOWN | patch-pair → floor | synced via 'floorId' (disclose) | classified B |
 | `furniture.batch.create` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | not-synced (reason declared) | classified C |
+| `furniture.changeLevel` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `furniture.create` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | synced via 'id' (disclose) | classified B |
 | `furniture.delete` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | not-synced (reason declared) | classified D |
 | `furniture.move` | plugins/furniture | REFUSES | NONE | patch-pair → furniture | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -167,6 +173,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `grid.setExtent` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | synced via 'gridId' (disclose) | classified B |
 | `grid.setSpacing` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | synced via 'gridId' (disclose) | classified B |
 | `grid.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'gridId' (disclose) | classified D |
+| `handrail.changeLevel` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | n/a (not a property verb) | capability: move-to-level |
 | `handrail.create` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | synced via 'id' (disclose) | classified B |
 | `handrail.delete` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | not-synced (reason declared) | classified D |
 | `handrail.moveBaseLine` | apps/editor | LIVE | handrail | patch-pair → handrail | synced via 'id' (disclose) | classified B |
@@ -184,6 +191,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `level.add` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: add-level |
 | `level.duplicate-floor-plan` | plugins/levels | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: duplicate-level |
 | `level.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
+| `lighting.changeLevel` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `lighting.create` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | synced via 'id' (disclose) | classified B |
 | `lighting.delete` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | not-synced (reason declared) | classified D |
 | `lighting.move` | plugins/lighting | REFUSES | NONE | patch-pair → lighting | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -192,6 +200,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `lighting.setMaterial` | plugins/lighting | REFUSES | NONE | patch-pair → lighting | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `opening.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `paste-clipboard` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | classified B |
+| `plumbing.changeLevel` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → plumbing | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `plumbing.create` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → plumbing | synced via 'id' (disclose) | classified B |
 | `plumbing.createFixture` | plugins/plumbing | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `plumbing.delete` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → plumbing | not-synced (reason declared) | classified D |
@@ -206,7 +215,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `rhino.resetMaterial` | apps/editor | LIVE | legacy geometry store (via commandManager) | patch-pair → NONE declared | not-synced (reason declared) | capability: set-rhino-material |
 | `rhino.setMaterial` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: set-rhino-material |
 | `roof.addSkylight` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified B |
-| `roof.changeLevel` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified B |
+| `roof.changeLevel` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | capability: move-to-level |
 | `roof.create` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'id' (disclose) | classified B |
 | `roof.delete` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified D |
 | `roof.joinRoofs` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified B |
@@ -263,6 +272,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `sheet.setViewportScale` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `slab.addHole` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified B |
 | `slab.batch.create` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified C |
+| `slab.changeLevel` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | n/a (not a property verb) | capability: move-to-level |
 | `slab.create` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'id' (disclose) | classified B |
 | `slab.create-on-all-floors` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `slab.delete` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified D |
@@ -330,7 +340,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.batch.create` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | not-synced (reason declared) | classified C |
 | `wall.bulkSetVisuals` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `wall.cascadeBaseline` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
-| `wall.changeLevel` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | not-synced (reason declared) | classified B |
+| `wall.changeLevel` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | not-synced (reason declared) | capability: move-to-level |
 | `wall.create` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | capability: create-wall |
 | `wall.create-on-all-slabs` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `wall.createBetweenMarks` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | classified B |
@@ -344,6 +354,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.setColor` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `wall.setDimensions` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | classified D |
 | `wall.setLayers` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | classified B |
+| `wall.setSideFinishBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-side-finish |
 | `wall.setSystemType` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | classified D |
 | `wall.split` | plugins/wall | UNKNOWN | UNKNOWN | UNKNOWN (declares wall) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `wall.transform` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
