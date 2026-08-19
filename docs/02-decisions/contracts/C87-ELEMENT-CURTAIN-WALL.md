@@ -987,6 +987,33 @@ A refusal is a correct answer. An undocumented one is not.
 | **R-8** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ **Do not delete them** — they are the PRYZM 3 target vocabulary |
 | **R-9** | Curtain-wall has no Stack B **editor** render path | C84 §4D — `bootstrapRenderEverything` unreachable, `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — ADR-0331 §D5 is an **open founder question** (C84 §9) |
 
+> ### ⚠ AN OPEN CONTRADICTION BETWEEN A MEASUREMENT AND THE FOUNDER'S OWN ACCOUNT — RECORDED, NOT RESOLVED
+>
+> **The founder, 2026-08-19:** *"On the properties panel I **can** swap panels on demand."*
+>
+> **Measured the same day (lane CW1), against the same tree:**
+>
+> | Question | Command run | Answer |
+> |---|---|---|
+> | Does any code construct the L2 panel commands? | `grep -rn "ReplacePanelTypeCommand\|ReplacePanelWithDoorCommand" apps/editor/src packages/ai-host/src` | **3 hits, all COMMENTS** (`initUI.ts:2264`, `CurtainSubElementPanel.ts:19`, `:20`). **Zero constructions.** |
+> | What do the two panel surfaces dispatch? | read | the **bus** verb `curtain-wall.replacePanel` — `CurtainPanelEditor.ts:250`, `CurtainSubElementPanel.ts:319` |
+> | Can that verb execute? | §11 #17 / L-1054 | **No.** `ctx.stores['curtainPanelStore']` cannot exist on the bus context; `canExecute` refuses on every dispatch |
+> | What does the user see? | `CommandBus.ts:428-431` **throws** on a `canExecute` refusal, so the promise REJECTS and the `.catch()` arm runs | the button renders **"✗ Failed — check console"** |
+>
+> **These two accounts cannot both describe the committed tree.** ⛔ **C87 does not pick between them,
+> and no lane may "fix" this by assuming either.**
+>
+> **The likely reconciliation — stated as a hypothesis, not a finding:** the *affordance* exists and
+> the *outcome* does not. The dropdown is there, it is enabled, it accepts a choice, and the Apply
+> button reports failure only in a colour and a word. If that is what happened, this is **another
+> false-success surface** and it belongs with R-1/R-2 above rather than as a working feature.
+>
+> **What would settle it, and only this:** the founder swaps a panel type on a real curtain wall and
+> reports what the button says and whether the 3-D changes. **A measurement can prove a verb refuses;
+> it cannot prove what a person saw.** Until then, CW-Dec-1's routing work proceeds on the
+> measurement — which is the safe direction, because routing a dead verb to a live command is
+> correct under BOTH accounts.
+
 ### Explicitly NOT REFUSED, and that is the finding
 
 > ⛔ **REWRITTEN 2026-08-19 — the paragraph below said *"each of the eight corrupting verbs ought to
@@ -1079,6 +1106,17 @@ the denormalised `levelName` / `levelElevation` copies that go stale on a level 
   silently dropped** (C84 EI-6: absence must be loud). The acceptance criterion is a report naming
   the wall and the lost override; **a silent `catch` is not acceptable and is the single place this
   design can lose data.**
+  > ⚠ **IMPLEMENTED, AND ONLY HALF-DELIVERED — MEASURED 2026-08-19, STATED SO NOBODY READS IT AS
+  > CLOSED.** `ProjectLoader` emits `describeLostOverride()` to `console.error` **and** pushes it to
+  > `result.warnings`. **`LoadResult.warnings` reaches no UI.** Its only consumer repo-wide is
+  > `PlatformVersionController.ts:423`, which logs `result.errors` — *not* `.warnings` — to the
+  > console. So the report exists on exactly the channel C84 **EI-7a** names as the worst of the
+  > three states: *"Silence in the UI while the handler refuses in the log."*
+  >
+  > The push to `result.warnings` is kept deliberately, so the value is **already at the boundary** a
+  > UI would read; what is owed is a consumer. **A load that silently discards authored work is the
+  > defect L-1057 is — surfacing this report is not polish, it is the other half of the fix.**
+  > Owed, and not this lane's to place: the load-result surface is shared by every family.
 - **CW-P-E — NO SCHEMA BUMP, AND THE REASON IS MEASURED, NOT ASSUMED.**
   > ⚠ **The instruction that spawned this work named `packages/file-format/src/migrations/index.ts`
   > and a `toVersion === fromVersion + 1` step. That is the WRONG framework for this change, and
@@ -1186,13 +1224,20 @@ the denormalised `levelName` / `levelElevation` copies that go stale on a level 
   `CurtainSubElementPanel.ts:13-15` already states this invariant and it is retained deliberately.
   **A sub-element is a property-editing focus, not a transformable element**, until CW-8 says
   otherwise.
-- **CW-Sel-3 — `window.__curtainSubElement` IS THE WRONG CARRIER AND MUST BE RETIRED.** It is a
-  `(window as any)` slot (P4), it is **consumed-and-cleared on read** (`PropertyPanel.ts:754-755`),
-  so it is a one-shot message and not state — which means nothing else can ask *"what is focused?"*,
-  and TAB needs exactly that. The focus MUST become **addressable state** with an explicit
-  `{ hostId, kind: 'panel'|'mullion', ref }` shape. ⛔ This is the real architectural work in CW-1,
-  and it is **not** "SelectionManager cannot hold a sub-element identity" — it is that the identity
-  it holds is a self-erasing global.
+- ⛔ **CW-Sel-3 — THIS IS THE WHOLE OF CW-1's WORK. DO NOT RE-SCOPE IT AS "ADD A TAB HANDLER".**
+  `window.__curtainSubElement` is a `(window as any)` slot (P4) that is **consumed-and-cleared on
+  read** (`PropertyPanel.ts:754-755`). **It is a one-shot MESSAGE, and TAB needs STATE.**
+  Nothing can ask *"what is focused right now?"* — the only reader destroys the answer — so there is
+  no "next" for TAB to advance from and no way for a second surface (the ribbon, a RAC capability,
+  the gizmo) to agree with the panel about what is selected.
+  > **Restated so the estimate cannot drift:** the UI half of CW-1 is BUILT (§13.3's census). The
+  > work is replacing a self-erasing global with **addressable focus state** —
+  > `{ hostId, kind: 'panel' | 'mullion', ref }` — that survives being read, and re-pointing the one
+  > existing reader at it. **It is also NOT the thing it is easily mistaken for:** the blocker is not
+  > *"`SelectionManager` cannot hold a sub-element identity"*. It can and does. The identity it holds
+  > is simply erased by the act of reading it. A lane that starts by extending `SelectionManager`
+  > will have solved the wrong problem — and will have done it inside the click handler L-1002
+  > already made expensive (CW-Sel-4).
 - **CW-Sel-4 (BINDING, from L-1002).** `SelectionManager` freed GPU resources inside the click
   handler (L-1002, fixed by GL1). **No work may be added inside the click handler by this lane.**
   TAB handling and focus resolution belong outside it; the grid-derived order is computed from the
@@ -1351,6 +1396,31 @@ because a sparse override keyed on an unstable id is the data loss it exists to 
 
 Each step is **RED-first** and each carries an executed proof at the layer the user reaches
 (§committed-is-not-reachable). **A step is not done because it compiles.**
+
+> ### ⭐ WHY RED-FIRST, IN THE TERMS THIS FAMILY EARNED (§L-1058, 2026-08-19)
+>
+> **Write the test for the REFUSAL, not only for the happy path.**
+>
+> CW-P was built on grid-line ids that L-1051 had made *deterministic*. They were also
+> **ambiguous** — `cw-1:u:1` named u-line #1 of a 5-line grid **and** of a 9-line grid, at `t=0.25`
+> and `t=0.125`. Under CW-P-B that silently re-targets every override onto a physically different
+> cell, and **CW-P-D — the single safety property this design owes — could never have fired, because
+> the lookup always succeeded.**
+>
+> **The arm written to observe the refusal observed a successful WRITE instead. That is the only
+> reason it was found.** Without it the layer would have shipped with its one safety property inert
+> and its one refusal unreachable — **and it would have looked like it worked, because an override
+> always landed *somewhere*.**
+>
+> **The generalisation, which is the point: a refusal that never fires is indistinguishable from a
+> refusal that is not needed.** Both are silent, both are green, and only one is correct. Every step
+> below that names a refusal (CW-P-D, CW-Voc-6, CW-RAC-2, CW-Region-2) MUST carry an executed arm
+> that watches it FIRE — not merely an arm that watches the happy path pass.
+>
+> ⚠ **And the requirement this taught is now normative, because the L-1035 decision did not state
+> it:** deterministic ids are NOT sufficient for CW-P-B. **A grid-line id MUST be unique across
+> re-spacings**, i.e. it must name the line's POSITION rather than its ordinal. Determinism alone
+> does not give you that, and the difference is the whole design.
 
 ## NOT MEASURED — the honest register for this family
 
