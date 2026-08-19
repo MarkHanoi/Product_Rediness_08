@@ -593,6 +593,36 @@ export class ImportProjectCommand implements Command {
                     joinIntent:    (wall as {
                         joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
                     }).joinIntent,
+                    // ⭐ §PERSIST-DEFAULT-PATH (L-1198) — THE RAKE, THE PROFILE, THE
+                    // ASSEMBLY AND THE PER-SIDE FINISH.
+                    //
+                    // `serializeWall()` writes 23 keys. This payload accepted
+                    // `rakeAngleDeg`, `wallProfile`, `layers` and `sideFinishes` already —
+                    // each added by a lane that then proved its fix against the LEGACY
+                    // loader — and this command, the DEFAULT-ON restore path, passed none
+                    // of the four. So:
+                    //   · `rakeAngleDeg` — a raked wall came back VERTICAL on every reopen.
+                    //     The value was in the file and the command would have taken it.
+                    //   · `sideFinishes` — L-999's per-side finish survived the SAVE (that
+                    //     is what L-999 fixed) and died on the LOAD.
+                    //   · `layers` / `wallProfile` — the persisted-value-wins inputs whose
+                    //     own doc-comments on `CreateWallCommand` explain they exist so a
+                    //     USER-DEFINED assembly is not re-derived from `systemTypeId`.
+                    //     Not passing them defeated the whole reason they were added.
+                    //
+                    // ⚠ NOT-YET, NAMED so it is not mistaken for covered: `serializeWall()`
+                    // ALSO writes `properties`, `loadBearing`, `parentId`, `childrenIds`,
+                    // `metadata` and `type`, and `CreateWallCommand`'s payload declares NONE
+                    // of them. Carrying those needs a payload change on the wall command,
+                    // which is the wall lane's surface, not this one's. They remain lost on
+                    // reload on BOTH paths and are logged as such.
+                    //
+                    // All four are OPTIONAL, so a snapshot holding none restores exactly as
+                    // before (C47 §1.2).
+                    rakeAngleDeg:  wall.rakeAngleDeg,
+                    wallProfile:   wall.wallProfile,
+                    layers:        wall.layers,
+                    sideFinishes:  wall.sideFinishes,
                 });
                 const r = runSub(cmd);
                 if (r.success) {
@@ -651,6 +681,38 @@ export class ImportProjectCommand implements Command {
                     polygon:   slab.polygon,
                     holes:     slab.holes,
                     sketch:    slab.sketch,
+                    // ⭐ §PERSIST-DEFAULT-PATH (L-1197) — THE FOUNDER'S SLAB TYPES.
+                    //
+                    // `serializeSlab()` writes `materialId`, `materialColor`, `baseOffset`,
+                    // `layers`, `systemTypeId` and `properties`. `CreateSlabPayload` has
+                    // accepted all six since L-1127 (materials) and L-1178 (assembly), and
+                    // the loader at `apps/editor/src/engine/persistence/ProjectLoader.ts`
+                    // passes all six.
+                    //
+                    // ⛔ THAT LOADER IS OFF BY DEFAULT. `ProjectLoader._useImportCommandPath()`
+                    // returns TRUE unless someone sets `PRYZM_USE_IMPORT_COMMAND=false`, so
+                    // the path the founder actually opens projects through is THIS command —
+                    // and until this line it passed ten geometry fields and nothing else.
+                    // L-1178's fix, its commit message and its test (`L1178SlabAssembly-
+                    // SurvivesReload.test.ts`, which hand-builds "exactly the payload
+                    // ProjectLoader builds" and drives `CreateSlabCommand` directly) were all
+                    // true about a branch production does not take. §COMMITTED-IS-NOT-REACHABLE
+                    // in its purest form: three separate fixes landed, and a slab still came
+                    // back grey, flat on the level and with no system type.
+                    //
+                    // ⚠ Do NOT read this as "the legacy loader was wrong to be fixed" — both
+                    // paths must carry the fields, and `restorePayloadCoverage.test.ts` now
+                    // derives the required key set from `serializeSlab()` itself so a seventh
+                    // field cannot be added to the snapshot and forgotten here.
+                    //
+                    // Every field is OPTIONAL on the payload, so a pre-L-1127 snapshot that
+                    // holds none of them restores byte-identically to before (C47 §1.2).
+                    materialId:    slab.materialId,
+                    materialColor: slab.materialColor,
+                    baseOffset:    slab.baseOffset,
+                    layers:        slab.layers,
+                    systemTypeId:  slab.systemTypeId,
+                    properties:    slab.properties,
                 });
                 const r = runSub(cmd);
                 r.success ? stats.loaded++ : recordFail(`Slab ${slab.id}`, r);
