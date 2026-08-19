@@ -168,6 +168,29 @@ declare global {
         roomTypeInferenceEngine:unknown;
         facadeOrientationService: unknown; // SL-3 (SPEC-SEMANTIC §3)
         wallStore:              unknown;
+        /**
+         * §PRYZM-PERF (INSTR1) — the one console entry point for batch/gesture
+         * performance evidence. Typed here rather than cast at the use site (P4).
+         *
+         *   pryzmPerf.on()      ← BEFORE the gesture: arm + zero
+         *   …gesture…
+         *   pryzmPerf.report()  ← AFTER: print one table
+         *   pryzmPerf.reset()   ← between gestures: zero, stay armed
+         *
+         * Accumulation is OFF until `on()`; the cost while off is one typed-global
+         * read per instrumented call site. `report()` is always safe to call, but
+         * its accumulated sections print "UNMEASURED" rather than 0 when unarmed —
+         * a zero from an unarmed run would be a false exoneration, not a finding.
+         *
+         * Structural, not an import, so this ambient file stays dependency-free.
+         */
+        pryzmPerf?: {
+            on(): void;
+            off(): void;
+            reset(): void;
+            report(): unknown;
+            data(): unknown;
+        };
         /** #51 — DevTools console command to generate AI apartment layouts. */
         pryzmGenerateApartmentLayout?: () => void;
         /** A.5.g.2 — draw a footprint shell (default 10×8 m) THEN generate, so an

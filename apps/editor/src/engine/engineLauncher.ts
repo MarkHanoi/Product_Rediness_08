@@ -11,6 +11,10 @@ import * as OBCF from '@thatopen/components-front';
 import * as BUI from '@thatopen/ui';
 import { RGBELoader } from '@pryzm/renderer-three';
 import { STANDARD_MATERIAL_LIBRARY, VisualStyle } from '@pryzm/core-app-model/material-library';
+import { sceneQualityTierManager } from '@pryzm/core-app-model/rendering';
+// §PRYZM-PERF (INSTR1) — one console entry point for batch/gesture perf evidence:
+//   pryzmPerf.on() → gesture → pryzmPerf.report()
+import { setPryzmPerfSources, installPryzmPerfConsole } from './pryzmPerfConsole';
 import { undoManager } from '@pryzm/command-registry';
 import { PropertyPanelAdapter } from '@app/ui/property-panel/PropertyPanelAdapter';
 import { openDimensionPropertiesOnSelect } from '@app/ui/property-panel/dimensionSelectionPanel';
@@ -152,6 +156,30 @@ export async function bootstrap(
     // initXxx() calls so that flushRuntimeEventListeners() finds a live bus.
     // See REGRESSION-DIAGNOSIS.md §2 for the full root-cause analysis.
     if (runtime) window.runtime = runtime as typeof window.runtime;
+
+    // ── §PRYZM-PERF (INSTR1) — install `window.pryzmPerf` ────────────────────
+    // Installed EARLY and unconditionally, for two reasons that are really one:
+    // the founder tests in PRODUCTION on real hardware (localhost dev starves the
+    // Node event loop and cannot reproduce the freeze), and the gesture under
+    // investigation is a BATCH that has, at least once, ended with a dead socket.
+    // An instrument installed late, or behind a dev gate, would be missing in
+    // exactly the sessions it exists to explain.
+    //
+    // Cost of it EXISTING: one object on `window`. Cost of it RUNNING: zero —
+    // accumulation is off until `pryzmPerf.on()`, and every instrumented call site
+    // pays one typed-global read while disarmed.
+    //
+    // The tier is injected here because `sceneQualityTierManager` is a module
+    // singleton on NO global; without this, the only way to read the tier from a
+    // console is to scrape a throttled `[SceneQualityTier] … tier=…` log line.
+    try {
+        setPryzmPerfSources({
+            getQualityTier: () => sceneQualityTierManager.currentTier ?? null,
+        });
+        installPryzmPerfConsole();
+    } catch (e) {
+        console.warn('[engineLauncher] §PRYZM-PERF install failed (non-fatal):', e);
+    }
 
     // ── W5-4 — close the pre-adapter CRDT drop window (do this FIRST) ─────────
     // The O.8 deferral below constructs the YjsDocAdapter behind
@@ -1042,6 +1070,22 @@ export async function bootstrap(
             (window as { currentProjectId?: string }).currentProjectId ?? 'pryzm-project',
         );
         batchCoordinator.registerYjsDocAdapter(_yjsDocAdapter);
+
+        // §PRYZM-PERF (INSTR1) — the founder's 367-element batch ended with
+        // `status=disconnected`, so "did the socket survive the gesture?" is a
+        // headline row of the report. This adapter is the ONLY live source of that
+        // answer and it reaches no global (it is a local const, right above).
+        //
+        // ⚠ The obvious-looking alternative is a TRAP: `runtime.sync.status` is a
+        // FROZEN literal `'disconnected'`, set once by `composeRuntime.buildSyncSlot()`
+        // and never updated by the client. Reading it would report the socket as dead
+        // in every report, healthy ones included — manufacturing the exact symptom
+        // under investigation and "confirming" it every single run.
+        setPryzmPerfSources({
+            getSocketStatus: () => {
+                try { return _yjsDocAdapter.getStatus(); } catch { return null; }
+            },
+        });
         // L-375a — wire the CRDT applier through the composition root's typed
         // public bus surface (`runtime.bus.setCrdtApplier`), which forwards to
         // the underlying CommandBus instance owned by composeRuntime (P1).
