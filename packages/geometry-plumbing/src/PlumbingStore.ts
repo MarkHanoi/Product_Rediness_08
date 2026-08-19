@@ -3,6 +3,34 @@ import { storeEventBus } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
+/**
+ * §L-1087 — snap a delta-shifted world Y to the nanometre grid.
+ *
+ * WHY THIS EXISTS, MEASURED. `y += (newElevation - previousElevation)` is NOT
+ * invertible in binary64: seeded at 2.6 and shifted +3 the result is exactly
+ * 5.6, but shifting it back by -3 yields **2.5999999999999996**. So the undo of
+ * a storey move would restore a record that is not the record the edit started
+ * from — C84 EI-7 ("undo restores what the edit wrote") failing by 4e-16 m, and
+ * failing PERMANENTLY, because every equality-based dirty check downstream would
+ * then see a document that never returns to clean.
+ *
+ * Snapping to 1e-9 m removes exactly that float noise: it is a million times
+ * finer than any tolerance this repo models with, and it leaves every coordinate
+ * that lies on a decimal grid coarser than a nanometre — which is every authored
+ * coordinate — bit-identical after a forward-and-back move. Stated honestly:
+ * this is NOT a proof of invertibility for arbitrary doubles, it is a guarantee
+ * for the domain (metre-magnitude coordinates on a decimal grid). A coordinate
+ * carrying real sub-nanometre information would be quantised, and no BIM datum
+ * carries any.
+ *
+ * `toFixed` rather than `Math.round(y * 1e9) / 1e9` because the multiplication
+ * form silently degrades past |y| ~ 9e6 m, where `y * 1e9` leaves the exact
+ * integer range of a double.
+ */
+function snapNanometre(y: number): number {
+    return Number(y.toFixed(9));
+}
+
 export class PlumbingStore {
     private fixtures = new Map<string, PlumbingFixtureData>();
 
@@ -15,6 +43,33 @@ export class PlumbingStore {
 
     get(id: string): PlumbingFixtureData | undefined {
         return this.fixtures.get(id);
+    }
+
+    /**
+     * §L-1032 — `getById` alias, matching every other legacy element store.
+     *
+     * This store spelled its single-record read `get`, while `WallStore`,
+     * `RoofStore`, `SlabStore`, `ColumnStore`, `CurtainWallStore` and `BeamStore`
+     * all spell it `getById`. That divergence is not cosmetic: the level-change
+     * mirror's `LegacyLevelMovableStore`
+     * (`apps/editor/src/engine/elementLevelChangedMirror.ts:66-69`) declares
+     * `{ changeLevel, getById }` and `initTools` types its deps with it **rather
+     * than cast**, deliberately, so `tsc` is what proves the bridge is handed the
+     * LEGACY store and not the plugin DTO store — a cast there would have made the
+     * wiring un-checkable in exactly the place L-946's bug lived. Without this
+     * alias `initTools.ts` reports `TS2741: Property 'getById' is missing in type
+     * 'PlumbingStore'`.
+     *
+     * The alias is the SMALLER repair: widening the mirror's interface to
+     * `getById | get` would weaken that proof for all twelve families in order to
+     * accommodate two stores' naming.
+     *
+     * Delegates to `get()` so there is exactly ONE read path — the same internal
+     * reference, no extra allocation. `get()` is kept; this is an addition, not a
+     * rename, so no existing caller changes.
+     */
+    getById(id: string): PlumbingFixtureData | undefined {
+        return this.get(id);
     }
 
     remove(id: string): void {
@@ -71,31 +126,67 @@ export class PlumbingStore {
      * rule (move the record FIRST, re-register SECOND, dirty BOTH storeys THIRD)
      * lives in one place rather than in thirteen stores.
      *
-     * ⚠ NOR does it move the fixture's HEIGHT, and that is a measured limitation
-     * of this family. `PlumbingFragmentBuilder` does NOT re-derive `worldY` from
-     * the level's elevation the way the slab and roof builders do — it seats the
-     * root with `root.position.copy(data.position)` (`PlumbingFragmentBuilder.ts:88`),
-     * so `data.position.y` is an ABSOLUTE world coordinate. `levelName` /
-     * `levelElevation` are denormalised copies of the level record stamped at
-     * create time and only ever forwarded into `userData`
-     * (`PlumbingFragmentBuilder.ts:32-33`).
+     * ─── §L-1087 — THE HEIGHT MOVES HERE, AND IT MOVES BY A DELTA ───────────
+     * ⚠ THIS BLOCK USED TO SAY the height *"does not"* move and call it a
+     * structural limitation. It is closed. `PlumbingFragmentBuilder` still does
+     * NOT re-derive `worldY` from the level's elevation the way the slab and roof
+     * builders do — it seats the root with `root.position.copy(data.position)`
+     * (`PlumbingFragmentBuilder.ts:88`) and the file contains no `getLevelById`
+     * at all — so `data.position.y` remains an ABSOLUTE world coordinate. The
+     * builder is left alone; the RECORD is what moves.
      *
-     * They are deliberately left ALONE, because this store cannot know the
-     * destination level's elevation: it holds no `ProjectContext` and no level
-     * table (unlike `RoofStore`, whose constructor takes one), and the signature
-     * the undo adapter calls is fixed at two arguments — there is nowhere for an
-     * elevation to arrive. Inventing one would be the §DIAG-WALL-LEVEL trap in a
-     * new place. The honest consequence: a moved fixture's STOREY ASSIGNMENT
-     * changes (plan-view filtering, the level browser, IFC containment) while its
-     * 3-D height does not. Closing that needs the level elevation carried to this
-     * layer — the `elevationField` mechanism `wall.changeLevel` already has in
-     * `@pryzm/command-bus/levelChangeVerbs.ts:88` — and is NOT done here.
+     * Three rules, each load-bearing:
+     *
+     *   • **The store never reaches for a level table.** It receives NUMBERS.
+     *     This class holds no `ProjectContext` and must not acquire one: a second
+     *     authority for "what elevation is this storey" inside a store is C84
+     *     EI-9. The caller resolves both elevations from the level authority
+     *     (`bimManager`, held on the forward and inverse legs) and hands them down.
+     *   • **Missing elevations REFUSE** (`undefined` + a named warn). A WC
+     *     re-filed onto Level 2 while still standing on Level 1's floor, with
+     *     nothing reporting it, is the silently-wrong element
+     *     `WallRake.ts:50-62` forbids — and it is why `plumbing` sat in
+     *     `LEVEL_CHANGE_REFUSALS` with `disposition: 'deferred'`.
+     *   • **DELTA, not assignment.** `position.y += (newElevation -
+     *     previousElevation)`. `baseOffset` (`PlumbingTypes.ts:40`) is how far a
+     *     fixture is mounted above its floor — a wall-hung basin or a wall WC is
+     *     not at floor level — so `position.y = newElevation` would drop every
+     *     wall-hung fixture onto the slab. The delta carries the mounting height.
+     *
+     * ─── `levelName` / `levelElevation`: REFRESHED, NOT LEFT STALE ──────────
+     * Both are DENORMALISED COPIES of the level record (`PlumbingTypes.ts:38-39`)
+     * and both are forwarded into mesh `userData` at SIX sites
+     * (`PlumbingFragmentBuilder.ts:32-33, 69-70, 170-171, 189-190, 209-210,
+     * 230-231, 312-313`), so they are USER-VISIBLE. Left alone across a move they
+     * would name the storey the fixture just LEFT — the record disagreeing with
+     * itself, a defect with a delay fuse.
+     *
+     * DELETING them was considered and rejected for this lane on measurement:
+     * `levelElevation` appears at 282 sites repo-wide and `levelName` at 123, and
+     * this family's writers live in `apps/editor/src/engine/initTools.ts` and
+     * `plugins/<family>/src/handlers/` — paths another lane owns. Removing a REQUIRED
+     * DTO field from inside this package would break them; that is a separate,
+     * whole-repo change, named here rather than half-started.
+     *
+     * So they are REFRESHED:
+     *   • `levelElevation := newElevation` — unconditional and exactly truthful:
+     *     the same number the delta was computed from, from the same authority,
+     *     in the same write. No new fact is invented.
+     *   • `levelName := opts.newLevelName` when the caller supplies it. Absent
+     *     it, this store cannot learn the destination's NAME; keeping the old one
+     *     points at the WRONG storey and inventing one is a fabrication, so it
+     *     writes the destination `levelId` — a coarser but TRUE identifier of the
+     *     CORRECT storey — and warns that the name was degraded.
      *
      * Returns the moved record, or `undefined` when there is nothing to move,
      * which the caller must report as a refusal rather than logging success over
      * a no-op (§context-data-honesty: failure and emptiness are the same value).
      */
-    changeLevel(id: string, newLevelId: string): PlumbingFixtureData | undefined {
+    changeLevel(
+        id: string,
+        newLevelId: string,
+        opts?: { newElevation?: number; previousElevation?: number; newLevelName?: string },
+    ): PlumbingFixtureData | undefined {
         const existing = this.fixtures.get(id);
         // THE CHECK `update()` DOES NOT HAVE. Without it this method would mint
         // a phantom fixture from an id nobody placed, exactly as `update` does.
@@ -106,16 +197,61 @@ export class PlumbingStore {
         if (!newLevelId) return undefined;
         // Already there: return the record untouched and emit NOTHING. An
         // emission here would dirty two plan views and bump the builder's
-        // version counter for a change that did not happen.
+        // version counter for a change that did not happen. Deliberately ABOVE
+        // the elevation gate — refusing a no-op for want of a number that would
+        // be multiplied by zero would report a failure where there is none.
         if (existing.levelId === newLevelId) return existing;
+
+        // §L-1087 — THE ANTI-HALF-MOVE GATE. Without BOTH elevations this method
+        // cannot move the height, and moving the storey ALONE is the defect, not
+        // a partial success. Refuse, name why, leave the record untouched.
+        const newElevation = opts?.newElevation;
+        const previousElevation = opts?.previousElevation;
+        if (typeof newElevation !== 'number' || !Number.isFinite(newElevation)
+            || typeof previousElevation !== 'number' || !Number.isFinite(previousElevation)) {
+            console.warn(
+                `[PlumbingStore] §L-1087 REFUSED — fixture '${id}' NOT moved to level '${newLevelId}'. ` +
+                'changeLevel needs BOTH `previousElevation` and `newElevation`, resolved by the ' +
+                'caller from the level authority (this store holds no level table and must never ' +
+                'fabricate one — §DIAG-WALL-LEVEL). Got previousElevation=' +
+                `${String(previousElevation)}, newElevation=${String(newElevation)}. ` +
+                'Moving the storey without the height would leave the fixture standing at the old ' +
+                "floor's level with nothing reporting it (PlumbingFragmentBuilder.ts:88).",
+            );
+            return undefined;
+        }
+        const deltaY = newElevation - previousElevation;
+
+        // The destination's NAME cannot be derived here — see the doc comment.
+        // Absent it the denormalised label degrades to the destination's ID (a
+        // true identifier of the right storey) rather than staying a name of the
+        // wrong one, and the degradation is announced.
+        const newLevelName = typeof opts?.newLevelName === 'string' && opts.newLevelName.length > 0
+            ? opts.newLevelName
+            : undefined;
+        if (newLevelName === undefined) {
+            console.warn(
+                `[PlumbingStore] §L-1087 — fixture '${id}' moved to level '${newLevelId}' without a ` +
+                '`newLevelName`. `levelName` is a denormalised copy forwarded into mesh userData ' +
+                '(PlumbingFragmentBuilder.ts:32), so it is set to the destination levelId rather ' +
+                'than left naming the storey the fixture just left. Pass `newLevelName` for the display name.',
+            );
+        }
 
         // `structuredClone` is this store's own copy convention (`add` :10,
         // `update` :28) and every record in the map arrived through one of
-        // those, so it is provably clone-safe here. There is no `parentId`, no
+        // those, so it is provably clone-safe here — and it DEEP-copies, so
+        // mutating `moved.position.y` below cannot reach back into `existing`,
+        // which is the `prevState` the emit forwards. There is no `parentId`, no
         // `spatialRelationship` and no `metadata` on `PlumbingFixtureData` (see
         // PlumbingTypes.ts:17-49) — nothing else to keep in step.
         const moved = structuredClone(existing);
         moved.levelId = newLevelId;
+        // FLOOR datum carried by the delta; `baseOffset` (the mounting height
+        // above that floor) is untouched, so a wall-hung fixture stays wall-hung.
+        moved.position.y = snapNanometre(moved.position.y + deltaY);
+        moved.levelElevation = newElevation;
+        moved.levelName = newLevelName ?? newLevelId;
 
         this.fixtures.set(id, moved);
         _bus.emit('bim-plumbing-updated', { id: moved.id }); // F.events.18
