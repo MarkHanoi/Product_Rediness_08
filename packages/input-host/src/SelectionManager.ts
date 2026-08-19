@@ -1,7 +1,12 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { TransformControls, getThreeRenderer, safeDisposeMaterial, safeDisposeGeometry } from '@pryzm/renderer-three';
+// §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — `scheduleGpuRelease` is the
+// frame-boundary release queue (ADR-0297 INVARIANT L2), drained by
+// `RenderPipelineManager.render()`. The `safeDispose*` helpers remain for the
+// two sites that free a resource which was NEVER attached to the scene, and so
+// can never be referenced by an in-flight submit.
+import { TransformControls, getThreeRenderer, safeDisposeMaterial, safeDisposeGeometry, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import { LevelPlaneConstraint } from './LevelPlaneConstraint.js';
 import { BIM_LAYER } from '@pryzm/scene-committer';
@@ -2257,7 +2262,13 @@ export class SelectionManager implements ISelectionManager {
         });
 
         if (count === 0) {
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — DELIBERATELY synchronous,
+            // and this is the distinction that keeps the fix honest: `mat` was minted a
+            // few lines above and no mesh using it was ever added to the scene, so no
+            // encoded frame can reference it and there is nothing to order against.
+            // Deferring it would be cargo-cult, and would grow the boundary queue on a
+            // path that runs per hover. WebGPU-safe wrapper retained for the device-loss
+            // `usedTimes` throw.
             safeDisposeMaterial(mat);
             return null;
         }
@@ -2802,10 +2813,13 @@ export class SelectionManager implements ISelectionManager {
     /** Remove the amber sub-element highlight from the scene. */
     private clearSubElementHighlight(): void {
         if (this.cwSubHighlight) {
-            this.world.scene.three.remove(this.cwSubHighlight);
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
-            safeDisposeGeometry(this.cwSubHighlight.geometry as THREE.BufferGeometry);
-            safeDisposeMaterial(this.cwSubHighlight.material as THREE.Material);
+            this.world.scene.three.remove(this.cwSubHighlight);   // DETACH now…
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — …RELEASE at the frame
+            // boundary (see clearHighlight for the full reasoning). This clear is
+            // reached from unselectAll() on every selection change, which is the exact
+            // path the founder's `usedTimes` stack names.
+            scheduleGpuRelease(this.cwSubHighlight.geometry as THREE.BufferGeometry);
+            scheduleGpuRelease(this.cwSubHighlight.material as THREE.Material);
             this.cwSubHighlight = null;
         }
     }
@@ -2939,10 +2953,13 @@ export class SelectionManager implements ISelectionManager {
     /** Clear kitchen amber sub-highlight from scene. */
     private _clearKcHighlight(): void {
         if (this.kcSubHighlight) {
-            this.world.scene.three.remove(this.kcSubHighlight);
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
-            safeDisposeGeometry(this.kcSubHighlight.geometry as THREE.BufferGeometry);
-            safeDisposeMaterial(this.kcSubHighlight.material as THREE.Material);
+            this.world.scene.three.remove(this.kcSubHighlight);   // DETACH now…
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — …RELEASE at the frame
+            // boundary (see clearHighlight for the full reasoning). This clear is
+            // reached from unselectAll() on every selection change, which is the exact
+            // path the founder's `usedTimes` stack names.
+            scheduleGpuRelease(this.kcSubHighlight.geometry as THREE.BufferGeometry);
+            scheduleGpuRelease(this.kcSubHighlight.material as THREE.Material);
             this.kcSubHighlight = null;
         }
     }
@@ -3032,10 +3049,13 @@ export class SelectionManager implements ISelectionManager {
     /** Clear wardrobe amber sub-highlight from scene. */
     private _clearWdHighlight(): void {
         if (this.wdSubHighlight) {
-            this.world.scene.three.remove(this.wdSubHighlight);
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
-            safeDisposeGeometry(this.wdSubHighlight.geometry as THREE.BufferGeometry);
-            safeDisposeMaterial(this.wdSubHighlight.material as THREE.Material);
+            this.world.scene.three.remove(this.wdSubHighlight);   // DETACH now…
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — …RELEASE at the frame
+            // boundary (see clearHighlight for the full reasoning). This clear is
+            // reached from unselectAll() on every selection change, which is the exact
+            // path the founder's `usedTimes` stack names.
+            scheduleGpuRelease(this.wdSubHighlight.geometry as THREE.BufferGeometry);
+            scheduleGpuRelease(this.wdSubHighlight.material as THREE.Material);
             this.wdSubHighlight = null;
         }
     }
@@ -3059,34 +3079,57 @@ export class SelectionManager implements ISelectionManager {
             // buffers.  Materials are deduped so a shared overlay material is
             // disposed exactly once.
             //
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — route EVERY dispose through the
-            // renderer-three WebGPU-safe helpers. A raw `material.dispose()` throws
-            // `TypeError: Cannot read properties of undefined (reading 'usedTimes')`
-            // on the WebGPU backend when the material's NodeManager render-object was
-            // already torn down (device-loss/recovery, backend swap). Because
+            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD (superseded in part — read on) —
+            // a raw `material.dispose()` throws `TypeError: Cannot read properties of
+            // undefined (reading 'usedTimes')` on the WebGPU backend when the
+            // material's NodeManager render-object was already torn down. Because
             // clearHighlight() runs at the TOP of applyHighlight() on EVERY selection,
             // that throw propagated out of the GPU click pick → `[PickResolver] GPU
-            // pick threw — falling back to BVH` on every click (degraded selection +
-            // console flood via ViewportCrashGuard §I3). The helpers swallow ONLY the
-            // usedTimes device-loss TypeError (any real disposal bug still re-throws),
-            // so clearHighlight() can never abort the pick. All these materials/geoms
-            // are highlight-OWNED clones (never a live element's base material), so
-            // disposing them is correct — only the WebGPU throw needed taming.
-            const disposedMats = new Set<THREE.Material>();
+            // pick threw — falling back to BVH` on every click.
+            //
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002, founder P0 2026-08-18) —
+            // THE GUARD WAS NOT ENOUGH, AND THIS IS WHY. `safeDisposeMaterial` /
+            // `safeDisposeGeometry` SWALLOW that TypeError. Swallowing is not
+            // ordering. The resource was still freed here, inside the click handler,
+            // while the previous frame's command buffer may still reference it — and
+            // the throw is merely the LOUDEST possible outcome of that. The quiet
+            // outcome is a corrupted program cache and a mesh that stops drawing. The
+            // founder's console shows both halves: the EventBus reporting
+            // `listener for "bim-selection-changed" threw: … 'usedTimes'` with
+            // `unselectAll` in the stack, then `[ViewportCrashGuard] §I3 suppressed
+            // non-fatal GPU internal … 1/12` twelve times over.
+            //
+            // The fix is the ordering ADR-0297 INVARIANT L2 already declares and every
+            // fragment builder already uses: DETACH now (done above, `scene.remove`),
+            // RELEASE at the frame boundary the RENDERER owns. `scheduleGpuRelease`
+            // enqueues in O(1) and touches no GPU state, so it is safe from a click
+            // handler; `RenderPipelineManager.render()` drains it at the top of a
+            // frame — after the previous submit returned, before this frame opens an
+            // encoder. That is the single declared authority for "when is it safe to
+            // release", not a fifth local workaround.
+            //
+            // The resources are enqueued INDIVIDUALLY rather than as one subtree,
+            // because this traverse knows something `safeDisposeObject3D` cannot:
+            // §SELECT-HIGHLIGHT-GEOMETRY — a clone flagged `sharedGeometry` reuses a
+            // LIVE element's buffers, and releasing it would destroy the real
+            // element's geometry. Handing the whole group to the queue would have
+            // traded this defect for a worse one. Materials stay deduped so a shared
+            // overlay material is released exactly once.
+            const releasedMats = new Set<THREE.Material>();
             this.highlightMesh.traverse((child) => {
                 const m = child as THREE.Mesh & THREE.LineSegments;
                 if (!(m.isMesh || (m as unknown as THREE.Line).isLine)) return;
                 if (!child.userData?.sharedGeometry) {
-                    safeDisposeGeometry(m.geometry as THREE.BufferGeometry | undefined);
+                    scheduleGpuRelease(m.geometry as THREE.BufferGeometry | undefined);
                 }
                 const mat = m.material as THREE.Material | THREE.Material[] | undefined;
                 if (Array.isArray(mat)) {
                     for (const mm of mat) {
-                        if (mm && !disposedMats.has(mm)) { disposedMats.add(mm); safeDisposeMaterial(mm); }
+                        if (mm && !releasedMats.has(mm)) { releasedMats.add(mm); scheduleGpuRelease(mm); }
                     }
-                } else if (mat && !disposedMats.has(mat)) {
-                    disposedMats.add(mat);
-                    safeDisposeMaterial(mat);
+                } else if (mat && !releasedMats.has(mat)) {
+                    releasedMats.add(mat);
+                    scheduleGpuRelease(mat);
                 }
             });
             this.highlightMesh = null;
@@ -3190,7 +3233,11 @@ export class SelectionManager implements ISelectionManager {
                 wire.userData.isHelper      = true;
                 wire.userData.isMarqueeHL   = true;
                 wire.renderOrder            = 999;
-                // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
+                // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — DELIBERATELY synchronous.
+                // `geo` is the scratch BoxGeometry that EdgesGeometry was derived from on
+                // the CPU two lines up; it is never added to the scene and never uploaded,
+                // so no in-flight submit can reference it. Only resources that WERE being
+                // drawn need the frame boundary.
                 safeDisposeGeometry(geo); // EdgesGeometry has its own buffer
                 scene.add(wire);
                 this._marqueeHighlightMeshes.push(wire);
@@ -3205,13 +3252,18 @@ export class SelectionManager implements ISelectionManager {
         if (this._marqueeHighlightMeshes.length === 0) return;
         const scene = (this.world as any).scene?.three as THREE.Scene | undefined;
         for (const m of this._marqueeHighlightMeshes) {
-            if (scene) scene.remove(m);
+            if (scene) scene.remove(m);          // DETACH now…
             const ls = m as THREE.LineSegments;
-            // §SELECT-CLEARHIGHLIGHT-DISPOSE-GUARD — WebGPU-safe (see clearHighlight).
-            safeDisposeGeometry(ls.geometry as THREE.BufferGeometry | undefined);
+            // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — …RELEASE at the frame
+            // boundary. Same reasoning as clearHighlight(): these wires were being
+            // drawn until the line above, so freeing them in the same turn is the
+            // use-after-free ADR-0297 INVARIANT L2 exists to prevent. Every marquee
+            // wire owns its own EdgesGeometry (minted in applyMarqueeHighlights), so
+            // there is no shared-geometry exception to make here.
+            scheduleGpuRelease(ls.geometry as THREE.BufferGeometry | undefined);
             const mat = ls.material as THREE.Material | THREE.Material[] | undefined;
-            if (Array.isArray(mat)) mat.forEach(mm => safeDisposeMaterial(mm));
-            else if (mat) safeDisposeMaterial(mat);
+            if (Array.isArray(mat)) mat.forEach(mm => scheduleGpuRelease(mm));
+            else if (mat) scheduleGpuRelease(mat);
         }
         this._marqueeHighlightMeshes = [];
     }
