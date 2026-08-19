@@ -383,11 +383,11 @@
     {
       "label": "6.1 create room",
       "utterance": "create a room",
-      "kind": "miss",
-      "intent": null,
+      "kind": "local",
+      "intent": "activate-placement",
       "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "detail": "local intent=activate-placement action=activateTool",
+      "mutated": true
     },
     {
       "label": "6.1b create room named",
@@ -434,18 +434,18 @@
         }
       ],
       "kind": "refusal",
-      "intent": "capability-gap:material",
+      "intent": "capability-gap:surface finish",
       "commands": [],
-      "detail": "refusal intent=capability-gap:material :: Floor material isn't connected to chat yet. For a floor I can zoom the view to what you have selected, hide the selected elements in this view (view-only — not undoable, not saved, not shared), isolate the selected elements — everything else in this view hides (view-only — not undoable, not saved, not shared) and delete what you have selected.",
+      "detail": "refusal intent=capability-gap:surface finish :: Floor surface finish isn't connected to chat yet. For a floor I can zoom the view to what you have selected, hide the selected elements in this view (view-only — not undoable, not saved, not shared), isolate the selected elements — everything else in this view hides (view-only — not undoable, not saved, not shared) and delete what you have selected.",
       "mutated": false
     },
     {
       "label": "6.4b generate finishes",
       "utterance": "generate room finishes",
       "kind": "refusal",
-      "intent": "capability-gap:material",
+      "intent": "capability-gap:surface finish",
       "commands": [],
-      "detail": "refusal intent=capability-gap:material :: Room material isn't connected to chat yet. I can change room height offset, name and number.",
+      "detail": "refusal intent=capability-gap:surface finish :: Room surface finish isn't connected to chat yet. I can change room height offset, name, number and use.",
       "mutated": false
     },
     {
@@ -460,7 +460,7 @@
       "kind": "refusal",
       "intent": "capability-gap:material",
       "commands": [],
-      "detail": "refusal intent=capability-gap:material :: Room material isn't connected to chat yet. I can change room height offset, name and number.",
+      "detail": "refusal intent=capability-gap:material :: Room material isn't connected to chat yet. I can change room height offset, name, number and use.",
       "mutated": false
     },
     {
@@ -748,7 +748,7 @@
       "kind": "refusal",
       "intent": "capability-gap:material",
       "commands": [],
-      "detail": "refusal intent=capability-gap:material :: Wall material isn't connected to chat yet. I can change wall height, thickness, base offset, type, colour, wall angle, window creation and finish layer.",
+      "detail": "refusal intent=capability-gap:material :: Wall material isn't connected to chat yet. I can change wall height, thickness, base offset, type, colour, wall angle, window creation, wall side finish and finish layer.",
       "mutated": false
     },
     {
@@ -877,29 +877,33 @@
       "label": "9.1 all eligible",
       "utterance": "make all walls 3.2m tall",
       "scoped": true,
-      "kind": "miss",
-      "intent": null,
-      "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "kind": "commands",
+      "intent": "set-wall-dimensions",
+      "commands": [
+        "wall.updateHeightBatch"
+      ],
+      "detail": "commands[wall.updateHeightBatch] intent=set-wall-dimensions",
+      "mutated": true
     },
     {
       "label": "9.2 scoped subset",
       "utterance": "make all walls on level 2 3.2m tall",
       "scoped": true,
-      "kind": "miss",
-      "intent": null,
-      "commands": [],
-      "detail": "miss (falls through to the legacy QueryEngine / model)",
-      "mutated": false
+      "kind": "commands",
+      "intent": "set-wall-dimensions",
+      "commands": [
+        "wall.updateHeightBatch"
+      ],
+      "detail": "commands[wall.updateHeightBatch] intent=set-wall-dimensions",
+      "mutated": true
     },
     {
       "label": "9.3 empty selection → refusal",
       "utterance": "make the selected walls 3.2m tall",
       "kind": "refusal",
-      "intent": "set-height",
+      "intent": "set-wall-dimensions",
       "commands": [],
-      "detail": "refusal intent=set-height :: Nothing is selected — select an element first, then set its height.",
+      "detail": "refusal intent=set-wall-dimensions :: No walls are selected — select some walls, or say \"set all walls 3m high\" to raise the whole project.",
       "mutated": false
     },
     {

@@ -10671,3 +10671,519 @@ A conical sweep (each station leans along its own normal, so the top arc's radiu
 lean about the chord are both "a raked curved wall", and they are different solids. That is a
 FOUNDER question, and until it is answered `WallRake`'s single-`direction` vocabulary cannot be
 generalised without guessing.
+
+---
+
+## L-1025 — CLOSED (with two NAMED GAPS) — a panel's default is not a boolean; the globe was showing chrome for a model that did not exist
+
+**Reported (founder, 2026-08-19, live production + screenshots).** Standing on the PRYZM Earth globe
+during onboarding, before any canvas exists, three groups are on screen and should not be: the
+floating launcher pills (plus the GPU readout beneath them), the right-hand
+`VIEW PROPERTIES — Environment & Camera` panel, and the top `Ground +0.000 m` level stepper. Keep the
+left icon strip, the right tools spine and the top `Author / Inspect / Data` bar.
+
+**The finding, which is sharper than "hide three things".** None of the three is *wrong*; they are
+wrong **there**. `VIEW PROPERTIES` configures shadows and post-processing for a model that does not
+exist. The level stepper renders `Ground +0.000 m` — a real-looking reading of a level stack that does
+not exist, which is the failure-and-emptiness-are-the-same-value shape. The pills re-open panels about
+a site not yet chosen.
+
+So the L-1020 table was **under-specified, not wrong**: one boolean per panel cannot express this.
+
+**Fix — a PHASE axis on the same table, never `if (onGlobe)` at each panel.** `AppPhase` is
+`'onboarding-globe' | 'canvas'`, and each cell is one of three states chosen to mirror **C82 §1.1**
+rather than invented: `open` · `closed` (its reopen control is on screen) · `absent` (neither is).
+
+**⭐ The invariant that makes hiding the launcher rail SAFE.** The rail is the reopen host for the
+site panels, so hiding it could strand them. Each row now declares `reopenHost`, and the spec enforces
+mechanically: **if a panel is `closed` in a phase, its reopen host must not be `absent` in that
+phase.** The rail is `absent` on the globe *only* because every panel it re-opens is `absent` there
+too — provable, not remembered. Paired with "no row is `absent` in EVERY phase", so "hidden during
+onboarding" can never quietly become "unreachable".
+
+**⭐ The phase is a ONE-WAY LATCH, and that is a correctness fix, not a simplification.** The obvious
+design — mirror the active view — breaks the moment a canvas user clicks the "PRYZM Earth" pill to
+look at their site: mirroring would flip them to the globe phase and take the rail away, *including
+the pills they need to get back*. Being clever about phases would have manufactured the exact
+unreachability this lane exists to prevent. The phase therefore answers **"has this session reached
+the canvas yet?"**, not "what am I looking at" — which is also the founder's own wording, *"until we
+arrive to the PRYZM canvas"*.
+
+**The table was DEAD when first committed.** A tree sweep found `setAppPhase` and `installPhaseChrome`
+with **zero production callers**: every table test passed while nothing on screen changed. Wired in a
+separate commit — `setAppPhase('canvas')` at `enterCanvasWithSitePlanUnderlay()` (the canonical
+idempotent canvas transition) and at GISAreaLayout's BIM-view activation (which also covers reopened
+projects that never run the guided flow).
+
+**Selectors were MEASURED after being guessed wrong.** First draft carried three candidate selectors
+per row; reading the source gave `ViewPropertiesSection.ts:76` → `.vp-root` and
+`ActiveLevelHUD.ts:39` → `.alh-hud`. Both original guesses were wrong. `.vp-root` also avoids a trap:
+VIEW PROPERTIES is a **section of `.gpp-panel`**, which it shares with the element-selection inspector
+and on which `WorkspaceController` already writes `display` — targeting the panel would have hidden
+the inspector *and* fought another owner for the same property.
+
+**NAMED GAP 1 — HIDE is not SKIP-MOUNT, and the two are different words on purpose.** The launcher
+rail is skip-mounted (`panelAbsent()` before building: nothing created, wired or subscribed).
+`view-properties` and `level-stepper` are only **hidden**: they belong to other lanes and converting
+their mount logic is those lanes' call. **The pixels go; the subscriptions do not.** A hidden panel
+still computing sun positions for a nonexistent model is still wrong, just invisibly. Recorded rather
+than counted as if it were the strong form.
+
+**NAMED GAP 2 — the `platform-toolbar` row states INTENT, not observation.**
+`PlatformProjectBrowser.buildToolbar()` inserts `.plat-toolbar` into `.plat-left-panel`, and no file in
+the tree creates that node, so the toolbar is built and left **DETACHED** (§L-MOUNT-DETACH, L-870).
+The founder's screenshot shows an Author/Inspect/Data bar, so either production runs an older build or
+it is rendered by a path this lane has not measured. Nothing here hides it, so the row is safe either
+way — but **it must not be read as evidence the bar is on screen.**
+
+---
+
+## L-1026 — OPEN — `createSiteFromRect` georeferences at Null Island when it has no location, behind a success toast
+
+Found while proving the L-1027 skip path mints nothing. **Not introduced by this lane and not on the
+skip path — logged because it is a live honesty defect on a path a user reaches in two clicks.**
+
+`apps/editor/src/ui/site/createSiteFromRect.ts:141-142`:
+
+```ts
+const lat = opts.lat ?? 0;
+const lon = opts.lon ?? 0;
+```
+
+On **skip location → "⚡ Use a default footprint"**, the project is created at **lat 0 / lon 0** — Null
+Island, in the Gulf of Guinea — with a 10 × 8 m rectangle, and the only user-visible feedback is
+`Site ready — 10×8 m parcel (80 m²)`. Nothing distinguishes that from a real geocode. Every downstream
+consumer that later reads the origin is reading a fabricated one.
+
+The sibling at `siteDispatch.ts:1248` (`ensureSite`'s `seedLocation`) does the same thing but **states
+it in a comment**, which is better and still not a user-visible distinction.
+
+Evidence the codebase already knows 0/0 is a non-location: `ensureSiteClimate.ts:86` reads
+`if (!loc || (loc.latitude === 0 && loc.longitude === 0)) return false;` — one module explicitly
+treats 0/0 as "no location" while another mints it as one. That is the same-question-two-answers shape.
+
+**Suggested fix (not taken here — outside this lane's remit):** make the location OPTIONAL on the
+payload rather than defaulted, so a rect with no location is a site with a boundary and a null origin;
+if the schema truly requires one, the toast must say the project has no real location.
+
+---
+
+## L-1027 — CLOSED — "Skip — no location" led to "STEP 2 OF 4 · YOUR PLOT"; it now asks for a name and opens the canvas
+
+**Reported (founder, 2026-08-19).** *"When the user clicks 'Skip location' it should simply ask the
+user for a project name and navigate directly to the main PRYZM canvas design — whereas at the moment
+it brings them to 'Set up your project 2/4'."*
+
+**Before** (`OnboardingStepController.ts:700-705`): set `picked = null`, then `renderSiteStep()` — the
+plot-definition step. A user who has just said "no location" is telling us they do not want to define
+a site; answering with a plot step is the product not listening.
+
+**After:** a new terminal step — name the project, then `enterCanvasWithSitePlanUnderlay()`.
+
+**What was MEASURED before wiring, because "does anything assume a site exists?" is the real risk:**
+
+| Consumer | Site-less behaviour |
+|---|---|
+| `ProjectSerializer.resolveSiteCapture` | **FIRST-CLASS** — three-way status; `'none'` reasons *"No site and no geometry — nothing was lost (a plain non-GIS project)"*. Its decision block argues *"a null site is CORRECT for most projects… Never fabricate a substitute origin."* |
+| `resolveRenderableBuildableEnvelope` / `getLastBuildableEnvelope` | honest `null`; explicitly refuses to synthesise provenance |
+| `getCurrentSiteOrigin` / `getFormaOrigin` / `getFormaBoundary` | honest `null` |
+| `renderFormaMassing` / `placeBuildingOnGlobe` | REFUSE with a message |
+| `SiteInspectorPanel` | empty state with copy and an entry point |
+| `capacityPanelSection` | em-dash **plus a stated reason**, never a zero |
+| Context tiles | never invoked — they fire from a resolved-geocode flight only |
+
+**So the empty canvas is a supported state, not a hole this branch punches.**
+
+**⛔ What it deliberately does NOT do.** No `createSite`, no `createSiteFromRect`, no `ensureSite`. The
+10 × 8 m footprint is an explicit CHOICE on the plot step; taking it on the user's behalf when they
+asked to skip would be the silent-default defect — and would trip **L-1026** on top. ADR-0299 (*"a
+recovery that conceals is a defect"*) is the governing precedent.
+
+**⭐ The name prompt and PRD §4.3 do NOT conflict — and this is the part worth keeping.** PRD §4.3 /
+Milestone 1 remove the New-Project modal and **auto-name** the project. But the naming SOURCE they
+specify is **location data** — address, parcel refcat, municipality, *"all already available at the
+moment of parcel selection"*. On this branch the user has just declined to give a location, so that
+source will never exist. `projectAutoName.ts` says of its own `Untitled Site — <stamp>` that it *"is
+expected to be REPLACED once location/parcel data resolves"* — here it never resolves, so the
+placeholder is **permanent**. Asking is the only way this branch ever gets a real name. It is a
+**declared branch** of the PRD's rule, not an exception to it.
+
+**Also worth recording:** the design of record
+(`docs/03-execution/plans/onboarding-workflow-design-2026-06-03.md` §7.2) ratifies skipping the
+**boundary** (step 2) with a default-rect fallback. **It does not contemplate a project with neither a
+location nor a plot.** There is no ADR or SPEC covering the "Skip — no location" branch — grep for the
+button label across `docs/` and `apps/` returns exactly one source line and nothing else. This entry
+is that branch's first written record; it deserves an ADR.
+
+**Detail:** the step chip reads `Step 2 of 2 · Name`, not `2 of 4` — skipping location removes the plot
+and confirm steps from this branch, and claiming four steps when two remain is the same class of
+untruth as a progress bar that never finishes. The rename uses the same path as the hub's rename modal
+(`runtime.persistence.client.rename`), is best-effort, and never gates the transition: a failed rename
+must not strand a user on an onboarding card when they asked for the canvas.
+
+---
+
+## L-1028 — CLOSED — the onboarding card read oversized because the density lever could not see it
+
+**Founder, 2026-08-19:** *"the middle panel should be 50% smaller, following the UI/UX contract."*
+
+**Root cause, and it is not "the numbers are too big".** §UI-DENSITY-SCALE (`styles/uiScale.ts`) is the
+declared single authority for chrome density, and its transform is `/(-?\d*\.?\d+)px/g` — **px literals
+only** (its own header records that a full rem migration was rejected: 17,195 px literals vs 1,093
+rem). Every padding, gap and font-size on the onboarding card was authored in **`rem`**. So
+`UI_SCALE = 0.85` scaled the card's **width** (a px literal, 400 → 340) and **nothing else**: a 340px
+card wearing full-size `0.95rem` / `0.82rem` type. That mismatch IS the "oversized".
+
+This is **L-1022's defect class arriving by a second, independent route** — the density authority
+reporting 0.85 over surfaces it cannot reach. L-1022 was inline `Object.assign(el.style, …)`; this is
+`rem` in an injected stylesheet. Worth naming as a pattern: *the lever measures what it can rewrite,
+not what is on screen.*
+
+**Fix.** rem → px (so the card is under the one authority for the first time), plus the halving:
+
+| | before | after (authored) | after (effective, ×0.85) |
+|---|---|---|---|
+| width | `min(400px, 92vw)` | `min(288px, 92vw)` | 245px |
+| max-height | `min(72vh, 600px)` | `min(56vh, 440px)` | 374px |
+| title | `0.95rem` (15.2px, unscaled) | `13px` | 11.05px |
+| prompt | `0.98rem` (15.7px) | `13.5px` | 11.5px |
+| hint | `0.82rem` (13.1px) | `12.5px` | 10.6px |
+| body padding | `0.8rem 0.85rem 0.9rem` | `10px 11px 11px` | 8.5 / 9.35 / 9.35 |
+
+**Area: 0.72 × 0.72 ≈ 0.52 — half the footprint**, which is the honest reading of "50% smaller" for a
+card sitting in the middle of the canvas. Taking it as 50% of *width* (400 → 200px) would push the
+location input and footer buttons under C43's 24px target floor.
+
+**C43 / WCAG 2.2 AA SC 2.5.8:** `.os-input` and `.os-btn` gain an explicit `min-height: 28px`.
+`uiScale.BOX_SIZE_PROPS` clamps `min-height` on the way down (28 × 0.85 = 23.8 → clamped to 24),
+whereas **padding is not clamped** — which is precisely how a density pass silently breaches the target
+floor. Halving a card must not be how the product loses its hit targets.
+
+---
+
+## L-1029 — OPEN — a template-literal stylesheet will happily swallow a backtick in a comment, and only a real typecheck finds it
+
+Twice in this lane's work a code comment written inside a CSS-in-TS template literal used **backticks**
+to quote an identifier (`` `uiScale.ts` ``), which **terminated the template literal** and produced ~1500
+cascading parse errors in files that looked fine on review. `tokens.ts` and `onboardingStyles.ts` both hit it.
+
+**Two lessons, both cheap:**
+
+1. **Never use backticks inside `styles/**` template literals.** Single-quote identifiers there.
+2. **⭐ `echo "RC=$?"` after a redirect lies about the exit code.** A background task reported *"exit
+   code 0"* for a run whose own `RC=` line said **`RC=2`**, because the `echo` succeeded. Two earlier
+   readings in this lane were reported as "typecheck clean" on that basis and were retracted — one of
+   them was in fact `RC=134`, an **OOM crash that checked nothing**. Always read the `RC=` line in the
+   file, never the task's wrapper status. And always run
+   `NODE_OPTIONS=--max-old-space-size=8192 npx tsc -p tsconfig.json --noEmit` — the default 2 GB heap
+   OOMs on this repo, and a crashed run's "0 errors" is not a pass.
+
+A lint rule that flags a backtick inside the `styles/**` template literals would close this
+permanently; none exists today.
+
+---
+
+## L-1080 — GA gate 31 is RED, and the L-998 fix is what put it there (OPEN)
+
+**Lane RC1, 2026-08-19, while re-deriving C67 §1.2.** Measured:
+
+```
+npx tsx tools/ga-gate/check-chat-capability-coverage.ts   ->  RC=3
+[check-chat-capability-coverage] FAIL — 26 spatial mode(s) the ARM honours without declaring,
+                                 baseline 24.
+      set-wall-side-finish honours "level" without declaring it
+      set-wall-side-finish honours "room"  without declaring it
+```
+
+The other 24 are unchanged — the six spec-driven catalogue families × three modes, plus
+`create-windows-parametric` on room + orientation. **The two new ones are a direct and foreseeable
+consequence of `0db767c5` (L-998):** making the bare *"change wall finish to X"* phrasing claim
+moved `set-wall-side-finish` onto the generic `applyExecutionSpec` arm, and that arm handles the
+scope SUPERSET whether or not the registry row declares it.
+
+⚠ **What this number is NOT.** Per `MAX_UNDECLARED_SPATIAL_REACH`'s own header
+(`check-chat-capability-coverage.ts:728-754`) it is **ARM reach, not LANGUAGE reach** — the gate
+injects the descriptor directly, bypassing the grammar, and no grammar produces *"…in the kitchen"*
+for this capability. **Nothing user-visible over-claims**, so this is not the ElementCapabilities
+lie. It is nonetheless a breach of a shrink-only ratchet, and **a baseline is not permission**
+(C67 §4.9).
+
+**Exits:** declare the two modes once the grammar produces them, or narrow the arm.
+⛔ **Not by raising the number** — and note `PRYZM_CHAT_MAX_SPATIAL_REACH` exists as an env
+override, which is a second way to make this green without fixing it. Neither is acceptable.
+
+⚠ **SECOND FINDING IN THE SAME RUN — the gate hides its own census when it is red.** Four of the
+numbers C67 §1.2 carries (examples EXECUTED · adversarial EXECUTED · scope probes honoured ·
+pinned N/M) are printed only by the success path at `check-chat-capability-coverage.ts:1556-1565`,
+and `process.exit(3)` at `:1554` runs first. **The moment the gate has something to say, it stops
+saying what it measured** — and a reader who needs those four numbers has no command that produces
+them. C67 §1.2 now records them as **NOT PRINTED** rather than transcribing the stale 2026-08-11
+values. Recorded here rather than fixed: moving the census above the exits is an edit to gate
+source, and this lane owns `tools/rac-conformance/` only.
+
+---
+
+## L-1081 — `remove the plasterboard layer from all walls` still DELETES THE WALL (OPEN, destructive)
+
+**Lane RC1, 2026-08-19.** Re-measured with `npx tsx tools/rac-conformance/probe-categories-1-5.ts`,
+row 2.11:
+
+```
+observed: commands[tier nl] intent=delete-selected
+        -> element.delete({"elementId":"rac-wall-0","elementType":"wall",
+                           "source":"AI_CHAT_ZERO_TOKEN"})
+```
+
+**A user asking to remove a LAYER has their entire WALL deleted.** First reported in
+`docs/04-reference/RAC-CONFORMANCE-SCORECARD-CAT1-5.md` §4 (F-1) on 2026-08-11, and **still live
+eight days later.**
+
+⭐ **THE REASON IT SURVIVED IS THE INTERESTING PART.** Its sibling — *"remove the material from this
+wall"*, cat-6-10 scorecard §1.4 — **was** fixed (`§FIX-CHAT-PROPERTY-REMOVAL-IS-NOT-DELETE`), and
+five `remove <property> from <element>` phrasings were pinned into the adversarial corpus at
+`packages/ai-host/__tests__/capability-acceptance.test.ts:1215-1219`: `material`, `colour`,
+`finish`, `texture`, `classification`. **`layer` is not among them.** The fix was made against the
+*instances someone thought to write down*, not against the *shape* — which is what C68 §5.j says a
+claiming-discipline fix must not be, and what §6.3-G10 records as NOT ENFORCED.
+
+Aggravating: **`add-wall-layer` exists and remove does not.** An asymmetric pair is a trap — the
+user can reach a state they cannot leave by sentence, and the nearest grammar that claims the
+sentence is a destructive one.
+
+**Mitigation, stated so the severity is not overstated:** `delete-selected` is `destructive: true`,
+so a Confirm card naming *deletion* appears first. A user who reads it will catch this. A user who
+does not, deletes a wall by asking about its plasterboard.
+
+**Fix shape:** a `remove <property> from <element>` stopper on the `delete-selected` matcher keyed
+on the SHAPE, not on a noun list — plus this utterance in the corpus so check 4c executes it
+thereafter. **Owner: `packages/ai-host` — reported, not fixed; not this lane's tree.**
+
+---
+
+## L-1082 — `undo would remove the wall, right?` still DELETES THE WALL (OPEN, destructive)
+
+**Lane RC1, 2026-08-19.** `probe-categories-1-5.ts` §Adversarial: **1 of 14 mutated**, and it is
+this one.
+
+```
+observed: commands[tier nl] intent=delete-selected -> element.delete({...,"elementType":"wall"})
+```
+
+A **hypothetical** whose main verb is `undo` dispatches a destructive delete. The local-NL delete
+grammar matches `remove … wall` anywhere in the sentence with no guard for hypothetical framing
+(`would`, `right?`) and no regard for the sentence's actual main verb.
+
+⛔ **NEITHER THIS UTTERANCE NOR L-1081's IS IN THE D14 ADVERSARIAL CORPUS.**
+
+```
+grep -rn "undo would remove" packages/ apps/ tools/ --include=*.ts
+  -> tools/rac-conformance/operations-1-5.ts:499     (the RAC harness only)
+```
+
+So gate 31 check 4c — which executes the corpus with **zero tolerance** — executes neither. The
+corpus (41 utterances, `capability-acceptance.test.ts:1156-1238`) contains negations, report
+paste-backs, capability questions and the `with → width` repro, but **no
+HYPOTHETICAL-ABOUT-A-DESTRUCTIVE-VERB class at all**. Adding both sentences to it is the cheap half
+of the fix and should land in the same commit as the guard.
+
+Same family as L-1081; recorded separately because the guards differ — one is about the OBJECT of
+`remove`, the other about the MOOD of the sentence.
+
+---
+
+## L-1083 — a negative dimension is dispatched with no bound check (OPEN)
+
+**Lane RC1, 2026-08-19.** `npx tsx tools/rac-conformance/probe-categories-6-10.ts`, row 8.8c:
+
+```
+COMMANDS  8.8c invalid value   "make this wall minus three metres tall"
+          -> commands[wall.updateDimensions] intent=set-height
+```
+
+The resolver parses the words into a negative magnitude and dispatches. First recorded as row 23b
+of `docs/04-reference/RAC-CONFORMANCE-SCORECARD-CATEGORIES-6-10.md` §5 (*"a negative height is
+dispatched without a bound check"*) on 2026-08-11; **still reproduces.**
+
+⚪ **NOT MEASURED: what the command does with it.** The probe stops at dispatch, so whether
+`UpdateWallDimensionsCommand` / `WallStore`'s Zod schema refuses the value downstream is unknown
+from here. That distinction decides the fix: a resolver that hands a nonsense number to a command
+that refuses it is a REPORT defect (C68 §5.g — the refusal must reach the user and name its rule);
+one that hands it to a command that accepts it is a STATE defect. **Whoever takes this must measure
+which it is before writing the fix.**
+
+---
+
+## L-1084 — an unknown property is claimed by `set-height`, and answered with a nonsense number (OPEN)
+
+**Lane RC1, 2026-08-19.** `probe-categories-6-10.ts`, four rows, one shape:
+
+| utterance | reply |
+|---|---|
+| `set the mark of this wall to W-12` | *"Should I set the height, the thickness, or the width to **-12 m**? Tell me which."* |
+| `set the acoustic rating of this wall to 52 dB` | *"… to **0.052 m**?"* |
+| `set the classification of this wall to Uniclass EF_25_10` | *"… to **10 m**?"* |
+| `set the flurbosity of this wall to 7` | *"… to **7 m**?"* |
+
+`set-height` matched a `set … to <number>` skeleton and ignored the fact that the property named is
+one it does not have — including, in the last row, a property that **does not exist at all**. The
+invented word is the sharpest evidence: the grammar is not consulting a property vocabulary, only a
+number.
+
+**Non-mutating, so not P0** — every one of these ends in a clarification, which is a safe terminal
+state. But it is C68 §5.j exactly, and it is a regression in READABILITY against the scorecard's own
+baseline: cat-6-10 row 23 recorded *"an invalid property produces a silent miss, not a refusal"*.
+**The miss has become a confident wrong question.** A miss says nothing; a clarification asserts
+that height/thickness/width is the axis in question, and quotes a number scraped out of a mark code
+or a decibel figure as though it were metres.
+
+**Correct behaviour** (C68 §5.g + C67 §4.6): refuse by NAMING the gap — *"I don't have a
+`classification` property for a wall"* — rather than proposing three properties the user did not ask
+about.
+
+**Fix shape:** `intents/PropertyVocabulary.ts` already enumerates the properties each kind genuinely
+accepts (C67 §1.3). The `set-<property>` grammars should consult it before claiming, so an unmatched
+property noun becomes a named refusal instead of falling through to the nearest numeric arm.
+**Owner: `packages/ai-host` — reported, not fixed; not this lane's tree.**
+
+## L-1085 — every bus verb REFUSES for any element restored from a saved project, because the plugin DTO store it validates against is empty (OPEN, CROSS-CUTTING, CAPS L-1032)
+
+**Measured 2026-08-19 by lane EL1** while wiring L-1032's level-change verbs. This is not a new
+discovery of the underlying condition — [C84 EI-5a](../02-decisions/contracts/C84-ELEMENT-INTEGRITY.md)
+already records it verbatim: *"after any project load, every plugin DTO store is EMPTY while the
+legacy stores hold N records."* **What is new is the user-visible CONSEQUENCE**, which C84 does not
+state and which caps the founder's L-1032 request.
+
+### The mechanism, in three measured hops
+
+1. **The plugin DTO stores are fed by exactly one thing.** `attachStores(emitter, stores)`
+   (`apps/editor/src/bootstrap.ts:103`) replays bus-command forward patches into them. There is no
+   other writer.
+2. **`ProjectLoader` dispatches no bus verb.** `grep -c executeCommand
+   packages/persistence-client/src/loader/ProjectLoader.ts` → **1**, and that one is
+   `:1484` `bus.executeCommand('element.legacyBridge', {})` — an empty-payload telemetry ping
+   (`packages/command-bus/src/commands.ts:929`), not a create. The loader replays **legacy**
+   commands through `commandManager.execute` (e.g. `CreateHandrailCommand` at `:748`), and
+   `packages/command-registry/src/walls/CreateWallCommand.ts` contains **no** `runtime.bus`
+   dispatch, so nothing back-fills the plugin side.
+3. **Every bus handler validates existence against that empty store.** `ChangeWallLevelHandler`
+   (`plugins/wall/src/handlers/ChangeWallLevel.ts:53`) tests
+   `Object.prototype.hasOwnProperty.call(ctx.stores.wall, cmd.id)`; `ChangeRoofLevelHandler`
+   (`plugins/roof/src/handlers/ChangeRoofLevel.ts:35`) tests `ctx.stores.roof[cmd.roofId]`. Both
+   return `{valid:false}`.
+
+### Why it matters more than "one stale store"
+
+**The founder's own working example is subject to it.** The `Change Level` dropdown they filmed
+working moves a wall drawn *in that session*. Select a wall in a **reloaded** project and the same
+gesture reaches `canExecute`, finds nothing in `ctx.stores.wall`, and refuses with
+`wall not found: <id>`. Every family L-1032 just wired inherits this, because the refusal is in the
+pattern, not in any one handler.
+
+### What was deliberately NOT done about it
+
+The tempting repair — relax the existence check — was rejected, and the reasoning is recorded so it
+is not re-attempted. `CommandEventBridge.emitLevelChange` builds `element.level-changed` from the
+**payload**, not from the patches, so a relaxed `canExecute` WOULD make the forward direction work
+on a loaded project: the mirror would move the legacy record and the user would see the element
+move. But `produceCommand` over an absent record yields an **empty inverse patch**, so the move
+would be **silently un-undoable** — an authoritative mutation with no Ctrl+Z, which is a straight
+C84 EI-7 breach. [C16 CA-DOCTRINE-A](../02-decisions/contracts/C16-COMMAND-AUTHORING-PROTOCOL.md)
+settles the trade: *"a refusal that names its reason is strictly better than a silent lie."* The
+refusal stays.
+
+Nor was a per-family workaround written: that would mint the second answer C84 EI-9 forbids, for
+twelve families at once.
+
+### ⚠ NOT MEASURED — stated so a blank is not read as "fine"
+
+**No executed end-to-end proof exists.** The three hops above are code-reading with citations, and
+the conclusion follows deductively from (1)+(2), but nothing in any suite loads a project and then
+dispatches a bus verb against a restored record. **Whoever settles this must write that probe
+first** — §probe-can-be-wrong-three-ways, and this claim is exactly the shape that has been wrong
+before (a correct mechanism, the wrong runtime).
+
+**The real fix is already named elsewhere and is not this lane's:** ADR-0331 §D2 (retire the DTO
+write) / §D3 (route the FORWARD patch through `elementUndoStoreAdapter`, the only thing in the repo
+that already turns these patches into geometry-store mutations). **Owner: whoever holds ADR-0331.**
+
+---
+
+## L-1086 — three `*LevelCommand` L2 commands are authored and reachable from NOWHERE; C92 §6's "NOT MEASURED" is now MEASURED (CLOSED as measured, the commands remain OPEN)
+
+[C92 §6](../02-decisions/contracts/C92-ELEMENT-SLAB.md) records the slab level-change row as
+*"⛔ **No bus verb.** `UpdateSlabLevelCommand` (L2) exists; whether any surface dispatches it is
+**NOT MEASURED**"*, and lists it again in that contract's own NOT-MEASURED register (§ item 5).
+
+**It is now measured. Nothing dispatches it.** Same for its two siblings:
+
+| Command | Only references | Verdict |
+|---|---|---|
+| `packages/command-registry/src/slabs/UpdateSlabLevelCommand.ts:25` | `apps/editor/src/engine/CommandRegistry.ts:328` (**deserialiser table row**) · `packages/command-registry/src/index.ts:266` (barrel) · `PlanOrdering.ts:80` | **no production dispatcher** |
+| `packages/command-registry/src/walls/ChangeWallLevelCommand.ts:23` | `CommandRegistry.ts:244` (deserialiser) · `index.ts:377` (barrel) · `PlanOrdering.ts:108` | **no production dispatcher** |
+| `packages/command-registry/src/columns/UpdateColumnLevelCommand.ts` | `PlanOrdering.ts:124` + barrel | **no production dispatcher** |
+
+Deriving command: `grep -rn "UpdateSlabLevelCommand\|UPDATE_SLAB_LEVEL" --include=*.ts apps packages
+plugins | grep -v node_modules | grep -v "/dist/"` → 10 hits, all of them the three categories above.
+
+**A deserialiser row is not a dispatcher.** `CommandRegistry.ts`'s map exists to rebuild a command
+from a serialised event (CRDT replay, undo-log rehydration). It proves the command can be
+*reconstructed*, never that any surface *constructs* one. §authored-but-unwired-is-the-bottleneck.
+
+**Why this is a finding and not just dead code:** `UpdateSlabLevelCommand` is *better* than the bus
+verb in two respects — it validates the destination level against `bimManager`
+(`UpdateSlabLevelCommand.ts:43-44`) and it takes a full `structuredClone` snapshot for undo
+(`:60`). Neither behaviour was lost by choosing the bus route, but both are worth reading before
+anyone "simplifies" the new verb. **They are the losing side of a decided question (ADR-0331 §D1) and
+must be recorded as such, not silently deleted.** The three should either gain a documented
+retirement path in their own headers or be removed with their deserialiser rows — **not left looking
+live.**
+
+**Owner: `packages/command-registry`.** Lane EL1 measured and reported; did not delete (a
+deserialiser row backs a persisted event stream and removing one is a compatibility decision).
+
+---
+
+## L-1045 — C86's "thirteen one-sided commands" row was wrong by a factor of four ✅ CLOSED (documentation defect)
+
+**Commits `cdc32c9e` (the gate), `7410643e` (the correction).** C84 **§6 · EI-1b**; C15 §8.1;
+C86 §5, §11 #3.
+
+C86 §5 and §11 #3 asserted that **thirteen** commands mutate the hosted-opening record on one side
+only, desyncing width/height/sill/colour/fire-rating/mark. The justification was one sentence:
+*"A grep of each for `doorStore`/`windowStore` produced no hits."*
+
+```
+grep -c "doorStore\.update(\|windowStore\.update(" <the thirteen>
+→ 2 2 2 2 2 2 2 2 2 2 2 2 0
+```
+
+**Twelve of the thirteen pair correctly**, each in exactly the C15 §8.1 form, on **both** the execute
+and the undo leg — e.g. `UpdateDoorWidthCommand.ts:34-35` / `:45-46`:
+
+```ts
+if (doorStore.has(this.doorId)) {
+    doorStore.update(this.doorId, { width: this.newValue });
+```
+
+**And it is not drift.** `git log -S "windowStore.update" -- .../UpdateWindowHeightCommand.ts` returns
+**`8613866a Initial commit`**. The pairing predates the contract, so this is not a measurement that
+decayed — **the claimed grep cannot have been run.**
+
+Only `packages/command-registry/src/UpdateElementMarkCommand.ts:56-57` is genuinely one-sided; it
+desyncs `mark`. **Measured C15 §8.1 compliance for commands is 20 of 21.**
+
+⭐ **Two things worth carrying forward.**
+
+1. **The error ran in the direction that gets believed.** A register that overstates rot reads as
+   diligence; nobody re-checks a row that makes the repo look worse. C86 states this lesson itself —
+   *"a confident sentence in place of a measurement is the failure C84 EI-1b exists to prevent"* —
+   and then carries thirteen rows resting on one.
+2. **Reading found nothing; an executed instrument found it in one run.** I set the gate's baseline to
+   15 **from the contract**, and the gate returned 3. Neither number was trusted: the thirteen files
+   were then opened. **The whole value of building `check-hosted-dual-write.ts` before fixing anything
+   was that it disagreed with the document I built it from.**
+
+**Consequence for the family's shape:** the command layer is in far better health than C86 claimed,
+and **both** real violations are UI surfaces (`PlanElementDragController`, `PropertyInspectorApply`) —
+which is exactly where a command-shaped census cannot look. That is why the gate keys on call sites.
+
