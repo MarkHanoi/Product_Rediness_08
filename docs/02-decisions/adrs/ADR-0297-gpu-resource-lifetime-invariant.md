@@ -169,3 +169,71 @@ interim revert) and `da27ea8d`:
    (`RenderPipelineManager.onViewportResize()` does only `_reconcileRenderSize()`).
    Both are `§FIX-ONCE-IMPORT-EVERYWHERE` instances (ADR-0306): a rule about a lever must
    be audited at every caller of the lever.
+
+---
+
+## Amendment (2026-08-19, lane GPU1, L-1290) — the ordering was RIGHT and still had to be REMEMBERED
+
+The founder lost the viewport to `Destroyed texture [Texture "ShadowDepthTexture"] used in a
+submit` **five times in one week**, most recently on *"change a RAILING to this MATERIAL"* — one
+day after the same crash on *"change a handrail TYPE"* was closed. Nothing in L1/L2 was wrong.
+What was wrong is the shape of the answer to one question.
+
+### The question, and why the old answer kept rotting
+
+*"Which mutation changes the shadow CASTER SET, so the ordering window must open?"*
+
+Until now that was answered by **enumeration**: `apps/editor/src/engine/geometryMutationEvents.ts`
+lists the `bim-*` events known to lead there (§GEOM-CASTER-EVENT-CHOKEPOINT, L-1189 — itself the
+fix for the SAME list existing twice as two diverged literals). That list is gated, disjoint and
+complete against the event catalogue, and it is still a **remembered** rule: it only covers a
+mutation that ANNOUNCES ITSELF as a classified per-family event.
+
+Measured, a railing MATERIAL change does not fit that shape at all. It runs
+`PropertyRenderer` (the C100 picker) → `PropertyPanel.onApply()` → the **generic**
+`element.updateParameters` verb → `UpdateElementParameterCommand` → the generic
+`store.update?.(id, parameters)` tail. There is no material-, finish- or parameter-named event
+in `packages/event-bus/src/catalog.ts` at all. **A per-family event list is the wrong shape for
+a generic parameter bridge**, and the next generic bridge will be wrong the same way.
+
+### The derived answer
+
+Every element builder frees its meshes through `scheduleGpuRelease` /
+`detachAndReleaseChildren` — because **this ADR made that the only legal way to free
+element-owned GPU memory** (76 call sites). So the instant a shadow caster is actually
+released is observable in the funnel, with no cooperation from the route that caused it.
+
+`scheduleGpuRelease` now checks the released subtree for a `castShadow` mesh (iterative,
+early-exit, bounded by the ELEMENT's mesh count — never the scene's) and notifies the frame
+owner once per release batch. `RenderPipelineManager` claims that slot in `bind()`, opens the
+same submit-pause + freeze window `runShadowCasterMutation` defines, and closes it in
+`render()` immediately after the boundary drain — deferred, so the frame that drained stays
+unsubmitted. **§GPU-CASTER-RELEASE-CHOKEPOINT**, folded into C04 §3.1.2a rules 6–8.
+
+### What this amendment costs, and what it does not establish
+
+- **The funnel's completeness is now load-bearing, not merely tidy.** §Scope above listed eight
+  builders with the dispose-before-detach pattern as "untouched here". One of them —
+  `StairLandingBuilder.removeLanding` — was still disposing in place, which means it bypassed
+  the derivation silently. Fixed, and the builder-scoped census (8 sites / 5 files → 6 / 4) is
+  now a shrink-only gate rather than a paragraph.
+- **The pause is bounded.** ADR-0299 / §RECOVERY-MUST-REFUSE established that a repair which
+  cannot work must decline. The inverse applies to a guard: an unbounded submit pause is a dark
+  viewport, so the window caps at 8 consecutive frames and degrades.
+- ⚠ **NOT ESTABLISHED: which destroyer fired in the founder's session.** Reading three r183,
+  there are at least three candidates that dispose a `ShadowDepthTexture` synchronously inside
+  `render()` — `ShadowNode.setup`'s `_reset()` on a `renderer.shadowMap.type` change,
+  `AnalyticLightNode.setup`'s `shadowNode.dispose()` when `light.castShadow` is false at compile
+  time, and `ShadowNode.renderShadow`'s `shadowMap.setSize`. Distinguishing them needs a
+  browser. The fix does not depend on the answer — all three require the same precondition (a
+  caster teardown reaching the GPU unordered against submission) — but *"we know which one"* is
+  **not** what this amendment establishes, and should not be written down as if it were.
+- ⚠ **The enumeration is RETAINED, not replaced.** The two arms fail differently (the event arm
+  covers a mutation that changes `castShadow` without releasing anything; the release arm covers
+  a route that announces nothing). Neither has been shown to subsume the other, so deleting
+  either on the strength of the other would be a claim nobody has measured.
+
+**Verification:** `packages/renderer-three/__tests__/casterReleaseChokepoint.test.ts` (10 pass) ·
+`apps/editor/__tests__/handrailMaterialCasterRelease.test.ts` (5 pass, drives the real command +
+real store + real builder; reverting either fix fails 3 of the 5) · `packages/renderer-three`
+tsc RC=0.

@@ -255,6 +255,40 @@ Folded from ADR-0297's "C04 amendment" section, as amended 2026-08-07:
    light-owned `LightShadow.map`) rather than burn a reconstruction that cannot work.
 5. Error suppression MUST be accounted and escalate on a burst.
 
+#### §3.1.2a — §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290, 2026-08-19, binding)
+
+> ⭐ **Added because rules 1–5 above were satisfied and the founder still lost the viewport,
+> five times in one week.** Each recurrence was a NEW route (nav · whole-load · wall commit ·
+> tier ceiling · handrail retype · handrail MATERIAL) reaching the same fault. What they had in
+> common was not a missing rule — it was that the shadow-ordering window had to be opened by a
+> caller who REMEMBERED to open it, and the answer to *"which mutation changes the shadow caster
+> set?"* was an ENUMERATION of BIM events
+> (`apps/editor/src/engine/geometryMutationEvents.ts`, §GEOM-CASTER-EVENT-CHOKEPOINT / L-1189).
+> An enumeration cannot cover a GENERIC verb, and the fifth recurrence arrived through one:
+> `element.updateParameters`.
+
+6. **The shadow-ordering window is DERIVED from the RELEASE, not from the event that led to
+   it.** `scheduleGpuRelease()` MUST detect that a released `Object3D` subtree contains a
+   `castShadow` mesh and notify the frame owner, which MUST open the same submit-pause +
+   shadow-freeze window `runShadowCasterMutation` defines and close it at the frame boundary
+   after the release drain. **A route that does not announce itself MUST still be guarded.**
+7. **Therefore the release funnel MUST have no bypass.** An element builder MUST NOT call
+   `geometry.dispose()` / `material.dispose()` on a mesh in place; rule 6 is only true while
+   rule 2 is universal, so a bypass silently invalidates the derivation rather than merely
+   leaking. Gated shrink-only by
+   `packages/renderer-three/__tests__/casterReleaseChokepoint.test.ts` ARM C, which walks the
+   `packages/geometry-*` trees rather than consulting a maintained list.
+8. **A guard that pauses submits MUST be bounded.** An unbounded submit pause is a frozen
+   viewport — the same shape as an unbounded recovery retry (rule 4). The derived window caps
+   at `MAX_CASTER_RELEASE_PAUSED_FRAMES` consecutive frames and degrades to the batch-level
+   freezes rather than holding the screen dark.
+
+> ⚠ **Scope, stated so this is not read as total.** Rule 6 covers subtree releases, which is
+> the shape every builder uses. A bare `material` / `geometry` handle carries no back-reference
+> to the mesh that drew with it, so `castShadow` is not knowable from it and those releases are
+> NOT covered. The enumeration in `geometryMutationEvents.ts` is **retained**, not replaced:
+> the two arms fail differently, and neither has been shown to subsume the other.
+
 ### §3.2 — GPU picking ID-buffer requirement (Amendment — Wave A15 S121, 2026-05-03)
 
 The picking system MUST use an offscreen `WebGLRenderTarget` ID buffer for element selection. Raycasting (`THREE.Raycaster`) is permitted ONLY in headless or no-GPU contexts where a render target cannot be allocated.
