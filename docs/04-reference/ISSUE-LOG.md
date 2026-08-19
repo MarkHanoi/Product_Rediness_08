@@ -15336,7 +15336,26 @@ L-911's: let the number bind FORWARD across a conjunction to the shared "bed(roo
 match `([1-4])\s*[-]?\s*(?:and|&|,|\+)\s*(?=[1-4][\s-]?bed)` as an additional capture, or
 pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
 
-## L-1185 — PROJECT ISOLATION IS NOT CLEAN: 3D shows linework from THIS project's elevations/plans AND from PREVIOUS projects (OPEN, founder-reported 2026-08-19)
+## L-1185 — PROJECT ISOLATION IS NOT CLEAN: 3D shows linework from THIS project's elevations/plans AND from PREVIOUS projects ✅ **CLOSED 2026-08-19 by L-1227** (lane UND1, commit `598f242c`) — founder-reported 2026-08-19
+
+> ✅ **CLOSED — ROOT NAMED AND FIXED: see L-1227.** The linework is OBC's own. `TechnicalDrawing.addProjectionLines()` in `@thatopen/components` hard-sets every projection
+> `LineSegments` to **THREE layer 1**, and PRYZM's **`EDITOR_LAYER` IS layer 1** — which
+> `_activate3DView` deliberately ENABLES (§L-426) so the parcel boundary and buildable envelope
+> show in 3D. One mask, two owners.
+>
+> ⚠ **THIS ROW'S TWO NAMED SUSPECTS WERE BOTH WRONG, AND SO WAS ITS CAUSAL STORY.** It named
+> `ViewController.ts:1822` (KILLED — see the triage below) and *"projected edges"* (right family,
+> wrong mechanism: not a teardown failure but a layer collision). The founder's own restatement —
+> *"I opened an elevation and after, we see the edge lines in 3D"* — was **falsified by the probe**:
+> three 3D entries with an elevation between each were **byte-identical**. The lines were there from
+> first paint; the elevation made him notice them. **Every fix aimed at view-switch teardown would
+> have been aimed at nothing.**
+>
+> The cross-project half of this row's title was **never reproduced** and is **not** what was found:
+> the leak is within a single project. It is not re-opened as a separate row — if foreign linework
+> appears again, the `isTechnicalDrawing` marker L-1227 added now carries a `projectId`, so the next
+> report can be attributed instead of argued.
+
 
 > ⭐ **UPDATE 2026-08-19 (lane UND1, commit `bd15d644`) — STILL OPEN, but two of the four
 > rival causes are now KILLED and a probe is shipped. Do not re-investigate the killed two.**
@@ -19225,3 +19244,417 @@ and the ids is not.
 distinct live projects or inflated by rows the founder has abandoned; and whether free-plan
 entitlement makes server-side version storage unavailable for some subset — the keep-branch's own
 comment says it does, which would make *"just back-fill"* the wrong fix for those.
+
+---
+
+## L-1270 — THE RAKED JOINT IS SOLVED IN 3-D AND *THEN THROWN AWAY*: THE LOFT REFUSES **PER WALL**, AND IT IS ALWAYS THE **SHORT** ONE ⚠ SILENCE FIXED, GEOMETRY OPEN — 2026-08-19 (lane JOIN1)
+
+**Founder, 2026-08-19, three screenshots.** A raked wall on Level 3 of a curved multi-storey
+building — `WA-03-002`, 9.237 m, plain wall type — with **open wedge-shaped gaps at its junctions
+with the neighbouring walls. The corner closes at the bottom and opens toward the top**, so you can
+see straight through the building corner. The persistence half was already closed the day before
+(L-1211 + L-1226) and the stored rake is correct; this is the JOIN geometry.
+
+### The hypothesis, and why it is FALSE
+
+> *"The join pipeline is 2-D by construction and the rake is a 3-D transform applied AFTERWARDS.
+> ADR-0055 solves the junction on the plan footprint, then extrudes; `WallRake` then leans the wall.
+> A mitre computed on the un-raked footprint is correct at the base and wrong everywhere above it."*
+
+It is a good hypothesis, it predicts the founder's photograph exactly, and it is **wrong**.
+**ADR-0312's twin-solve loft re-runs the junction solve at a raked probe elevation** and differences
+the two, so the mitre *is* solved in 3-D. Measured through the real store→join→build path, it closes
+the top corner to **0 mm at corner drifts up to 7.348 m** (9.237 m walls at 30°). The 3-D join works.
+
+### What is actually happening — three facts, in order
+
+1. **`loftOffsets` refuses when the lofted TOP polygon's signed area flips sign.**
+2. **On refusal the caller substitutes the ADR-0310 UNIFORM shear** — which is *precisely* the
+   pre-ADR-0312 geometry whose top corner is known to be open. So the fallback is not a
+   weaker-but-sound construction; **it is the defect**. `WallRakeJoint.test.ts` §4 already proves
+   that arm leaves the joint open by ~0.5 m; nothing connected that proof to this fallback.
+3. ⭐ **The refusal is decided PER WALL. A mitre corner belongs to TWO.** Each wall calls
+   `rakedTopOffsets` about its own polygon and decides alone. When they disagree, the shared corner
+   is placed by two different rules: exact at the floor, diverging linearly with height.
+
+### ⭐⭐ And it is always the SHORT wall that refuses
+
+A wall's lofted top face inverts exactly when its mitre corner drifts **further than the wall is
+long**. So the long wall lofts and the short return does not — **the founder's 9.237 m wall is built
+CORRECTLY, and the hole is on the corner it shares with a neighbour that is not.** That is why it
+reads as a defect of the wall he selected, and why it survived every base-plane check in the repo.
+
+Measured (real builder, `T = 0.2 m`, L-corner, `L1270RakedJoinShortNeighbour.test.ts`):
+
+| long leg | return | rake | H | base gap | **TOP gap** |
+|---|---|---|---|---|---|
+| 9.237 m | 0.5 m | 80° | 3 m | 0.000 | **0.071 m** |
+| 9.237 m | 0.5 m | 80° | 4 m | 0.000 | **0.105 m** |
+| 9.237 m | 0.5 m | 75° | 3 m | 0.000 | **0.204 m** |
+| 9.237 m | 0.5 m | 60° | 3 m | 0.000 | **1.132 m** |
+| 9.237 m | 3.0 m | 80° | 3 m | 0.000 | 0.000 — **closes** |
+
+**Short returns are what a curved building is made of.** The founder's geometry is not an edge case;
+it is the ordinary case for the typology he was drawing.
+
+### The vertex dump (`L = 1 m`, 60°/60°, `H = 3 m`) — the wedge, in coordinates
+
+```
+A base y=0 : (-1.0000,-0.1000) (0.1000,-0.1000) (0.0000,0.0000) (-0.1000,0.1000) (-1.0000,0.1000)
+B base y=0 : (0.1000,-0.1000) (0.1000,1.0000) (-0.1000,1.0000) (-0.1000,0.1000) (0.0000,0.0000)
+             ^ 3 SHARED corners, gap 0.000
+A top  y=3 : (-1.0000,1.6321) (0.0000,1.7321) (0.1000,1.6321) (-0.1000,1.8321) (-1.0000,1.8321)
+B top  y=3 : (-1.6321,-0.1000) (-1.8321,1.0000) (-1.6321,1.0000) (-1.8321,0.1000) (-1.7321,0.0000)
+             ^ 0 SHARED corners, nearest approach 0.894 m
+```
+
+Each wall translated its own top by its OWN uniform shear — A by `+Z·cot60·3`, B by `−X·cot60·3` —
+and **neither moved toward the other**. Closed at `y = 0`, 0.894 m open at `y = 3`.
+
+### THE DESIGN DECISION — what was fixed, what was NOT, and why
+
+⛔ **Deleting the orientation guard was measured and REJECTED.** It closes the gap to `0.0000` in
+*every* row of the sweep. It does so by producing a **self-intersecting bow-tie top face**. A
+negative top area is real geometry, not float noise: **the joint has consumed the wall's top**.
+Trading a visible hole for an inside-out solid is a different wrong answer, not a fix.
+
+⛔ **Closing the gap cosmetically was refused** — the same class as clamping a malformed elevation to
+horizontal (forbidden 2026-08-18), and §CLAMP-COSHARE-WELD records that *moving a shared baseline*
+surfaced doubled walls.
+
+⛔ **Extending `rakeAuthorability` was refused** on two grounds. It is the ONE rake authority and a
+second rule must not be minted beside it — but the condition is *also not expressible there*: it
+depends on the wall's NEIGHBOURS and its HEIGHT, and it would wrongly refuse a rake that renders
+perfectly on an unjoined wall.
+
+✅ **WHAT SHIPPED: the refusal stopped being silent.** `null` meant "success" and "refusal" and
+"never asked" — the §CONTEXT-DATA-HONESTY failure, and the reason a founder-visible 71 mm hole
+through a building corner had **no line in any log to grep for**. Now:
+`RakeJointRefusalReason` (four named geometric situations, not a boolean) ·
+`WallPipelineV2Cache.rakeJointRefusals()` · one bounded `console.warn` per wall per refresh, carrying
+the wall id, the reason, the measured top-face area and the worst corner drift.
+
+⭐ **THE ONE ADMISSIBLE GEOMETRY FIX, named so the next lane does not re-derive it**: the
+**height-varying mitre**. The wall is *clipped at the elevation where its top face degenerates*, so
+two leaning walls meet along a **LINE**, not a vertical edge. C85 has now named this twice (row 17,
+L-1066, and R-13). It changes `WallPolygonExtruder`'s contract — a wall whose top is a line, not a
+face — and was deliberately not attempted here.
+
+### The defect class — ⚠ THIRD RECORDED RECURRENCE
+
+**Two rules at one corner**, again. **L-955**: three BODY BUILDERS placed one corner by different
+rules. **L-1066**: a curved wall and its straight neighbour placed one corner by different rules.
+**L-1270**: two WALLS place one corner by different rules. The unit of agreement keeps being assumed
+and keeps being wrong. ⭐ The invariant, stated in **C85 R-13** so it is written once: *the decision
+to loft a mitre corner is a property of the CORNER, never of one wall.*
+
+**Pinned:** `packages/geometry-wall/__tests__/L1270RakedJoinShortNeighbour.test.ts` — **14 tests**
+through the real `refreshV2Cache` → `WallJoinResolver.resolveLevel` → `WallFragmentBuilder.buildWall`
+path, measuring world-space mesh vertices. Arm A pins the three cases that MUST close
+(raked↔plumb, equal rakes, opposite lean, different angles) **at the founder's own 9.237 m length**.
+Arm B pins the short-neighbour case as a NAMED refusal — so if someone later builds the clipped
+solid, arm B **fails** and tells them to promote the case into arm A.
+
+---
+
+## L-1290 — changing a railing MATERIAL kills the viewport: the shadow guard was keyed on the EVENT that led to the teardown, so a GENERIC verb could never reach it ✅ FIXED — 2026-08-19 (lane GPU1)
+
+**FOUNDER-REPORTED, PRODUCTION, VIEWPORT-KILLING. Live build `b3c63e2d`.** Gesture: **change a
+railing to a material**. Result: the crash card with *Reload viewport / Back to projects*.
+
+```
+The 3D viewport could not recover: a shadow depth texture (ShadowDepthTexture) was released
+while the GPU was still drawing with it, and 2 automatic repair attempts did not fix it.
+GPUDevice.uncapturederror: "Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_23"]])"
+```
+
+⭐ **This is the SAME error L-1189 closed for a handrail TYPE change ONE DAY EARLIER.**
+The diagnostics, the refusal and the bound are all still correct and were not touched.
+
+### THE DUMP — what a railing MATERIAL change actually emits (measured, not assumed)
+
+| step | file:line | what happens |
+|---|---|---|
+| the picker | `apps/editor/src/ui/property-panel/PropertyRenderer.ts:103-173` | the C100 `type: 'material'` control. `change` writes the panel **draft** only — nothing dispatches yet |
+| the row that turns it on | `apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts:421` | `materialId: MATERIAL(...)` inside `SCHEMAS.handrail` |
+| the dispatch | `apps/editor/src/ui/property-panel/PropertyPanel.ts:973` | **`element.updateParameters`** — the GENERIC bridge, **not** a handrail verb |
+| the bridge | `apps/editor/src/engine/initBusHandlers.ts:2203-2226` | `_cmExec(new UpdateElementParameterCommand(...))` |
+| the write | `packages/command-registry/src/generic/UpdateElementParameterCommand.ts:661` | the generic `store.update?.(id, parameters)` tail |
+| the event | `packages/core-app-model/src/stores/HandrailStore.ts:203` | `bim-handrail-updated` |
+| **the event AGAIN** | `UpdateElementParameterCommand.ts:826` | **`bim-handrail-updated` a second time** — see L-1291 |
+| the rebuild | `apps/editor/src/engine/initBuilders.ts:921` | `HandrailFragmentBuilder.updateHandrail` → `disposeRoot` → `detachAndReleaseChildren` → full re-mint |
+
+**There is no material-, finish-, appearance- or parameter-named event in
+`packages/event-bus/src/catalog.ts` at all** (case-insensitive grep: zero matches). A material
+change rides the per-family `bim-*-updated` event.
+
+### THE FINDING — necessary but not sufficient, and WHY
+
+`bim-handrail-updated` **is** in `GEOMETRY_CASTER_MUTATION_EVENTS` (L-1189 put it there), so the
+freeze does arm on this route. The defect is one level up: **the guard has to be opened by a
+caller who remembers to open it, and the answer to "which mutation changes the shadow caster
+set?" is an ENUMERATION of BIM events.** An enumeration is the wrong SHAPE for a generic
+parameter bridge — `element.updateParameters` can change a shadow caster's material for
+**fifteen** element types, and no per-family list is shaped to cover that. The crash has now
+recurred once per newly exercised route: nav (L-25) · whole-load (L-39) · wall commit (L-64) ·
+tier ceiling (L-908) · handrail retype (L-1189) · handrail MATERIAL (here).
+
+> ⛔ **A DEAD LEAD, RECORDED SO THE NEXT LANE DOES NOT RE-FIND IT.**
+> `PropertyInspector.onMaterialChange` (`apps/editor/src/ui/PropertyInspector.ts:825-857`) does
+> exactly the dangerous thing — it replaces `child.material` on every mesh, sets
+> `castShadow = true` on every mesh, and then calls `onUpdateShadows()` →
+> `engineLauncher.ts:292` → `world.scene.updateShadows()`, the OBC `ShadowedScene` call that
+> `initScene.ts:1803-1810` **documents as producing this exact error ×479** and guards with
+> `if (isPhase5Active) return` at ONE of its call sites. **It is unreachable:** a repo-wide
+> search for a `new PropertyInspector` across `apps packages src plugins` returns **zero**
+> production constructors, and `PropertyPanelAdapter` accepts `onUpdateShadows` in its options
+> and never reads it. A confident root cause in dead code is worth less than no root cause
+> (§committed-is-not-reachable). ⚠ The `updateShadows()` lever is still unguarded at
+> `engineLauncher.ts:292`, `initFurnitureInteraction.ts:74`, six sites in `initUI.ts` and four in
+> `ArchitectureFragments.ts` — a live re-entry point the moment any of those runs on the WebGPU
+> path. **Not fixed here; logged as residue.**
+
+### THE FIX — derived, not remembered (`§GPU-CASTER-RELEASE-CHOKEPOINT`)
+
+Every element builder frees through `scheduleGpuRelease` / `detachAndReleaseChildren`, because
+ADR-0297 INVARIANT L2 made that the only legal way to free element-owned GPU memory (76 call
+sites). So **the instant a shadow caster is actually released is observable at the funnel**, with
+no cooperation from the route that caused it.
+
+- `packages/renderer-three/src/safeDispose.ts` — `scheduleGpuRelease` checks the released subtree
+  for a `castShadow` mesh (iterative, **early-exit**, bounded by the ELEMENT's mesh count, never
+  the scene's — this is deliberately not the L-1151/L-1155 full-scene-traverse-per-event shape)
+  and notifies a single observer, **once per release batch**, reset at the batch swap.
+- `packages/renderer-three/src/pipeline/RenderPipelineManager.ts` — claims the slot in `bind()`
+  (WebGPU path only), opens the SAME `_beginShadowRebuildGuard()` window
+  `runShadowCasterMutation` defines, and closes it in `render()` immediately after
+  `drainGpuReleaseQueue()` — **deferred**, so the frame that drained stays unsubmitted.
+- **BOUNDED**: capped at 8 consecutive frames (`MAX_CASTER_RELEASE_PAUSED_FRAMES`), then it
+  degrades to the batch-level freezes. An unbounded submit pause is a frozen viewport — the L-663
+  shape one layer down, and a guard that blanks the screen is not a guard.
+
+### WHY THE FUNNEL'S COMPLETENESS IS NOW LOAD-BEARING
+
+The derivation is only true while nothing bypasses the funnel — and something did.
+`packages/geometry-stair/src/StairLandingBuilder.ts:78-80` still disposed geometry **and**
+material **in place on the mutation tick**: an ADR-0297 L2 violation *and* invisible to the guard.
+Routed through `scheduleGpuRelease`; the builder-scoped in-place-dispose census goes **8 sites /
+5 files → 6 / 4**, and is now a **shrink-only gate**
+(`casterReleaseChokepoint.test.ts` ARM C) that walks the `packages/geometry-*` trees rather than
+consulting a list a human maintains. Remaining baseline, named: `LiftMeshBuilder` (1),
+`LightingFragmentBuilder` (1), `WallFragmentBuilder` (1), `WallJunctionInfillManager` (3).
+
+### ⚠ NOT ESTABLISHED
+
+**Which destroyer fired in the founder's session.** Reading three r183 there are at least three
+candidates that dispose a `ShadowDepthTexture` synchronously inside `render()`:
+`ShadowNode.setup`'s `_reset()` on a `renderer.shadowMap.type` change
+(`node_modules/three/src/nodes/lighting/ShadowNode.js:617`), `AnalyticLightNode.setup`'s
+`shadowNode.dispose()` when `light.castShadow` is false at node-compile time
+(`AnalyticLightNode.js:267-270`), and `ShadowNode.renderShadow`'s `shadowMap.setSize`
+(`ShadowNode.js:662`). Distinguishing them needs a browser. **The fix does not depend on the
+answer** — all three share the precondition the window now orders — but *"we know which one"* is
+not what this closes.
+
+**Can the 2 automatic repairs ever work?** Read, and the answer is **yes, in principle** —
+`_driveRecoveryRebuild` re-owns the light shadow maps (`_recreateLightOwnedShadowMaps`) and
+resets the compiled node states, which a bare `_rebuildPipeline()` cannot. So this is **not** an
+unsatisfiable retry (unlike the pre-ADR-0297 ladder). It failed because the destroyer kept
+firing, not because the repair was incapable. **No change made to the recovery path.**
+
+### VERIFICATION
+
+| suite | result |
+|---|---|
+| `apps/editor/__tests__/handrailMaterialCasterRelease.test.ts` | **5 pass** — drives the REAL route (real `HandrailStore`, real `UpdateElementParameterCommand` with the real payload, real `HandrailFragmentBuilder`, real release queue; nothing in the subject stubbed). **Reverted, it fails 3 of 5** |
+| `packages/renderer-three/__tests__/casterReleaseChokepoint.test.ts` | **10 pass** — funnel · frame-owner window · its BOUND · WebGL2 inertness · ARM C the anti-recurrence gate |
+| `packages/renderer-three` full | 40/41 suites, **377 pass**; 3 pre-existing `depth-buffer.test.ts` failures (ADR-0297 already records them: a `vi.mock('three')` factory non-constructible under vitest 4.1.10) |
+| `packages/renderer-three` tsc | **RC=0** |
+
+Contracts amended: **C04 §3.1.2a** (rules 6-8, binding) · **ADR-0297** (2026-08-19 amendment).
+Commit `57239a31`.
+
+---
+
+## L-1291 — one railing material pick tore the element down TWICE: the parameter command re-emits an event the store already emitted ✅ FIXED — 2026-08-19 (lane GPU1)
+
+Found while measuring L-1290, and it is the reason that gesture is the heaviest in the product.
+
+`UpdateElementParameterCommand`'s legacy rebuild ladder ended with a `_bus.emit(
+'bim-handrail-updated', { id: elementId })` copied from the **furniture** branch directly above
+it. That copy is correct for furniture — `FurnitureStore` does **not** self-emit — and wrong for
+handrail: `HandrailStore.update()` emits `bim-handrail-updated` unconditionally from its own
+private `emit('update', …)` (`HandrailStore.ts:203`), and `ELEMENT_STORE_ROUTES.handrail`
+resolves the core-app-model `HandrailStore`, never the detached plugin DTO store.
+
+`initBuilders.ts:921` rebuilds on **each** event. C95 §15.5 measures ONE such rebuild of a
+31-segment run at **279 meshes and 93 distinct materials torn down and re-minted in a tick** —
+the largest GPU churn in the product. This **doubled** it, on the exact gesture that crashed.
+
+**Measured 2, now 1** — pinned by `handrailMaterialCasterRelease.test.ts` ARM B, whose second
+test pins the PREMISE the removal rests on (the store self-emits), so a future change to the
+store fails *there* rather than leaving a railing that silently never rebuilds. C16 §8.6: one
+write, one event, one rebuild.
+
+Commit `57239a31`.
+
+---
+
+## L-1227 — THE 366 BLACK LINES IN 3D ARE **OBC'S**: `TechnicalDrawing.addProjectionLines` HARD-SETS THREE LAYER 1, WHICH **IS** PRYZM'S `EDITOR_LAYER`, WHICH THE 3D VIEW DELIBERATELY ENABLES ✅ FIXED 2026-08-19 (lane UND1) · commit `598f242c` · **closes L-1185**
+
+**Founder:** *"Have you solved this already? I opened an elevation — and after, we see the edge
+lines in 3D."*
+
+### THE PROBE ANSWERED IT, AND OVERTURNED THE REPORTED CAUSATION FIRST
+
+Three 3D entries, with a West Elevation visited between each, **byte-identical**:
+
+```
+§LINEWORK-3D-PROBE (3D entry #1) — 525 line object(s), 372 EFFECTIVELY VISIBLE across 3 visible class(es).
+  ×366  LineSegments | -  | -     | 000000 | layers:2 | VISIBLE
+  ×5    LineSegments | -  | edges | 444444 | layers:1 | VISIBLE
+  ×1    Line         | -  | -     | 6600ff | layers:2 | VISIBLE
+(entry #2, #3) ⭐ NO DIFF — every visible line class was present from first paint.
+                Hypothesis (a) "not torn down on view switch" is FALSIFIED.
+```
+
+⭐ **His causal story is wrong, and that is a finding, not a correction.** The lines are there
+from first paint; **opening the elevation made him NOTICE them.** Every fix aimed at view-switch
+teardown — including this lane's own lead theory — would have been aimed at nothing.
+
+### ⭐ THE ROOT — A LAYER-NUMBER COLLISION WITH A THIRD-PARTY LIBRARY
+
+**`layers:2` is a BITMASK.** Bit 1 ⇒ THREE layer **1**. (It reads as "layer 2" and was briefly
+taken for `ANNOTATION_LAYER`, which is layer 2 with mask **4** — see "what the probe now prints".)
+
+In `node_modules/@thatopen/components/dist/index.mjs`, `TechnicalDrawing.addProjectionLines()`:
+
+```js
+this.layers.assign(ls, layer);
+ls.layers.set(1);          // ← OBC's own convention, on EVERY projection LineSegments
+this.three.add(ls);
+```
+
+And `packages/scene-committer/src/SceneLayers.ts`: **`EDITOR_LAYER = 1`.**
+
+`ViewController._activate3DView` **deliberately enables that layer** (`:1602`, §L-426) so the
+parcel boundary and the buildable-envelope volume are visible in the design scene — *"editor-only
+aids are on-screen design aids"*. **The same call enables every projection line OBC has stamped.**
+
+That is why the `×1` purple `6600ff` parcel ring and the `×366` black projection lines appear as
+**neighbouring classes on one mask**: one mask, two owners. And it is why *"DOCUMENTATION_LAYER
+(5) is disabled in the 3D view"* was simultaneously **true and irrelevant** — the lines were never
+on layer 5.
+
+**Why the one-shot traverse could not hold.** `_mountDrawing` stamped the drawing's children onto
+`DOCUMENTATION_LAYER` **once, at mount**. `EdgeProjectorService` calls `addProjectionLines()` from
+**six** sites and projection streams (his log: *517 edge geometries across 68 ISO layers*), so
+every line arriving **after** the mount keeps OBC's layer 1 and the mount-time traverse never sees
+it. ⭐ **The assignment had to be DERIVED, not REMEMBERED** — the identical correction L-1197 made
+for underlay view scope and C06 §10.2 made for app phase. Third time this week.
+
+### THE FIX
+
+`_restampAllDrawingsInScene()` re-asserts `DOCUMENTATION_LAYER` on **every** view activation,
+immediately **before** `EDITOR_LAYER` is enabled. It finds drawings by an `isTechnicalDrawing`
+marker **on the scene**, not by `this._mountedDrawing` — deliberately: a group that reached the
+scene by a path this controller does not know about is exactly the case that produced 366
+unattributed lines, and a fix keyed on our own handle would have missed it **for the same reason
+the isolation audit did**. The marker also carries `projectId` + `viewId`, which is precisely the
+linework attribution **C13 §7.5** records as missing.
+
+⛔ **NOT fixed by renumbering `EDITOR_LAYER`.** That constant is read by the OBC grid, the parcel
+renderer and the selection raycaster; moving it to dodge a third-party convention is a repo-wide
+change to avoid a one-line one, and the next OBC version could take the new number too. **Owning
+our own objects is the stable half.** Recorded as a standing hazard: **PRYZM's semantic layer table
+shares a numbering space with a library that also writes layers.**
+
+### THE ×5 IS A SECOND, SMALLER DEFECT — AND ITS SIZE IS THE EVIDENCE
+
+Five edge overlays visible in 3D, where `setVisible(isPlanMode)` had already set every one it
+could see to `false`. **Not 900 — five.** That is not a broken gate; it is a gate that ran
+**before those five objects existed**.
+
+`initScene.ts` gates four 2-D overlays out of the 3-D view on `view-activated`. **Three of them
+also re-apply on element rebuild**, each explaining why in its own comment — *"the builder always
+creates the hatch visible, so without this a floor created while in the 3-D view would show its
+hatch until the next view switch"*. **The edge gate is the one member of the family with no
+re-apply.** Added — inside `WallEdgeVisibilityService` itself rather than at the call site, so it
+is not a **fourth** hand-written listener for one rule (and so it lands without editing
+`initScene`, which lane LOG1 holds).
+
+### ⭐ WHAT THE PROBE EARNED — the generalisable part
+
+The instrument did three things a code read could not, and this lane's static analysis had already
+gone down two wrong paths before it returned:
+
+1. **Separated the classes.** `role='edges'` (5, accounted for) from the unattributed black class
+   (366). A count alone would have said "372 lines" and hidden the split.
+2. **Falsified the reported causation** — no diff across three entries with an elevation between —
+   and said so **in the console, to the founder**, naming the hypothesis it killed.
+3. **Falsified this lane's own lead theory.** `WallEdges`/`SlabEdges` was hypothesis (c) here; it
+   turned out to be 5 objects of 372.
+
+⭐ **The rule: ship the instrument before the fix when rival theories predict different dumps.**
+Not when you are merely unsure — when the theories *disagree about what a measurement would show*.
+That is the condition that makes an instrument cheaper than an argument. Second time in one day a
+probe overturned a reported causation.
+
+**What the probe now prints, so the next dump costs no round trip:**
+- the mask is **decoded to layer NAMES** (`layer:EDITOR(mask 2)`), because `layers:2` cost one;
+- per visible class: the **producer attribution**, the distinct **parent chains**, and the
+  **projectId/viewId** stamps. The first dump answered *what*, and left *who* to a static hunt.
+- `attributeProducer`'s **order is pinned by a test**: the parcel ring and the OBC lines share a
+  mask **and** both carry no `elementType` and no `role`, so the known-legitimate aid must match on
+  its brand colour **first**. The test caught exactly that — the first version of the attributor
+  **reclassified a working feature as the defect**.
+
+### MEASURED
+
+- `apps/editor` — `lineworkLayerScope` (8) + `underlayViewScope` (7) + `createSiteOverlayUnderlay`
+  (6) = **21 pass**. The layer constants are **imported** from `@pryzm/scene-committer`, never
+  retyped, so a future renumber of `EDITOR_LAYER` breaks this suite loudly instead of passing
+  against a stale literal.
+- root `tsc --skipLibCheck --noEmit` → **COMPILER_RC=0**.
+- `eslint` on changed files → **0 errors**.
+
+### STILL OPEN
+
+- **Whether the 366 should exist in the 3D scene at all.** They are now correctly on
+  `DOCUMENTATION_LAYER` and therefore invisible in 3D, which is what the founder asked for. But
+  they are still *parented to the shared scene* while the 3D view is up. Cheaper to leave than to
+  re-architect the drawing lifetime; recorded so it is a decision, not an oversight.
+- **The `isTechnicalDrawing` marker is not yet read by `ProjectIsolationAudit`.** It is the
+  attribution a linework arm would need (C13 §7.5). Minting the arm is the next step, not this one.
+
+---
+
+## L-1228 — THE PERSPECTIVE CAMERA SLOT WAS POLLUTED WITH PLAN COORDINATES; THE SANITY GUARD CAUGHT IT, THE WRITE THAT POISONED IT IS UNFIXED 🔴 OPEN — logged 2026-08-19 (lane UND1)
+
+Founder's production log, returning to 3D:
+
+```
+MultiViewCameraManager restoreSlot("perspective") — pos(48.98, 22.12, 8.76)
+perspective slot SANITY-FAIL (cam↔target dist=1.57m < 4m, likely plan coords); falling back to auto-frame
+```
+
+**The guard is working and is not the defect.** It refuses a restore whose camera↔target distance
+is 1.57 m — physically impossible for a perspective view of a building, and the guard's own message
+names the cause correctly: *"likely plan coords"*.
+
+**The defect is the WRITE.** Something persisted **plan-view camera state into the `perspective`
+slot**. The consequence is user-visible and is not cosmetic: every return to 3D **discards the
+user's framing** and auto-frames instead — so the 3D view never comes back where it was left,
+which reads as "the camera keeps jumping".
+
+Not investigated by this lane beyond logging it — it is view-lifecycle, so it belongs here rather
+than to a renderer lane, but it is a separate defect from L-1227 with a separate root. Likely
+candidates: a slot key resolved from the DEPARTING view instead of the ARRIVING one during the
+`deactivate → activate` window, or a save that fires while `_state.viewMode` has already been
+reassigned (`ViewController.activate` sets `this._state.viewMode = viewMode` at `:1423`, well
+before the activation handler runs).
+
+⭐ **Note the shape:** a guard that refuses bad data is not a fix, and its presence makes the
+underlying bug *quieter*, not smaller. This is the [[refusing-half-needs-its-escape-hatch]]
+pattern — the refusal is correct and the user still loses their camera every single time.

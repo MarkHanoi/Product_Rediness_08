@@ -817,3 +817,46 @@ Removing a legacy control requires a **stated verdict**, never a bulk delete:
   own list is caught only by review, exactly as the first five were not.
 - **The rule is stated repo-wide but applied to GIS only.** The toolbar, the bottom action menu and
   the launcher rail still enumerate. They are in scope for §12; they are not yet in a registry.
+
+---
+
+## §12 — THREE layer numbers are SHARED with third-party libraries; own your own objects
+
+> **Added 2026-08-19 · L-1227 · normative.** Founder: *"review the LINES COMING TO 3D VIEW"* —
+> 366 black `LineSegments` drawn over the model in the 3D perspective view.
+
+`packages/scene-committer/src/SceneLayers.ts` assigns PRYZM meanings to THREE layer numbers
+(`BIM=0`, `EDITOR=1`, `ANNOTATION=2`, `PLAN_SYMBOL=3`, `DOCUMENTATION=5`). **That numbering space
+is not ours alone.** `@thatopen/components` writes `Object3D.layers` too, and
+`TechnicalDrawing.addProjectionLines()` ends `ls.layers.set(1)` on every projection line — layer 1,
+which PRYZM calls `EDITOR_LAYER` and which `ViewController._activate3DView` **deliberately enables**
+so the parcel boundary and buildable-envelope volume appear in the design scene (§L-426).
+
+### §12.1 — A camera-layer flip is not a suppression mechanism unless we own the assignment
+
+Enabling a layer for one owner enables it for **every** owner on that number. Binding:
+
+1. **A layer flip may only be relied on for objects PRYZM itself assigns.** For anything a library
+   parents into our scene, the layer is *its* choice and can change with a version bump.
+2. **The assignment must be DERIVED, not REMEMBERED.** `_mountDrawing` stamped the drawing's
+   children onto `DOCUMENTATION_LAYER` **once**, at mount; `EdgeProjectorService` then kept adding
+   lines from six call sites, and each arrived with the library's layer intact. Re-assert on every
+   view activation. *(Third recurrence of remembered-vs-derived this week — C06 §10.2 app phase,
+   C06 §11.2 underlay scope, this.)*
+3. **Print masks as NAMES.** `Object3D.layers.mask` is a **bitmask**: `mask 2` is layer **1**, not
+   layer 2. The first production dump printed `layers:2` and it was momentarily read as
+   `ANNOTATION_LAYER` — a whole round trip lost to a number that looked like a layer index.
+4. **Do not renumber a PRYZM layer to dodge a collision.** `EDITOR_LAYER` is read by the OBC grid,
+   the parcel renderer and the selection raycaster; a repo-wide renumber to avoid a one-line
+   re-stamp buys nothing, and the next library version may take the new number too.
+
+### §12.2 — Known gaps
+
+- **`PLAN_SYMBOL_LAYER` (3) is assigned by nothing.** Repo-wide, the only object-side assignments
+  are two `EDITOR_LAYER`, one `DOCUMENTATION_LAYER` and one raycaster. So the three
+  `camera.layers.disable(PLAN_SYMBOL_LAYER)` calls suppress nothing and `_deepSceneCleanup`'s ghost
+  sweep — gated on `obj.layers.isEnabled(PLAN_SYMBOL_LAYER)` — has always removed zero objects. The
+  constant is real; the assignment half was never built.
+- **No gate counts layer writers.** A library that starts writing `layers.set(2)` would silently
+  join `ANNOTATION_LAYER`, exactly as OBC joined `EDITOR_LAYER`, and nothing would report it.
+
