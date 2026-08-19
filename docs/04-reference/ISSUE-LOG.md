@@ -8381,6 +8381,30 @@ standing.
 commit** — it wrote nothing. The persistence column on the same row (*"not persisted"*) was true;
 see [L-999](#l-999).
 
+⛔ **PROCESS DEFECT IN THIS COMMIT, RECORDED BECAUSE IT COST ANOTHER LANE ITS ATTRIBUTION.**
+`5f126d33` contains **ten files, not the two this lane staged**. The eight extras are lane WM1's
+wall-move / re-weld work (`wallPlacementGate.ts`, `WallMoveReweldService.ts`,
+`CascadeWallBaselineCommand.ts`, `moveReweldPreflight.ts`, `MovePlanToolHandler.ts`,
+`registerTransformDragHandler.ts`, `WallMoveClashProposal.ts`,
+`L990MoveReweldHostIdentity.measure.test.ts`).
+
+**Mechanism: the git INDEX is shared across the worktree, exactly as the stash stack is.**
+`git add <my two paths> && git commit` does **not** commit only those paths — it commits the whole
+index, including whatever a concurrent lane had staged and not yet committed. The shared-tree rule
+in memory covers `git stash` and says *"`git add` ONLY files you touched"*; that is necessary and
+**not sufficient**. **The missing half is `git commit --only <paths>`** (or `git commit <paths>`),
+which commits the named paths and leaves the rest of the index alone.
+
+**Not rewritten.** Six commits from three lanes sit on top of it; rewriting `main` under them would
+be far worse than the mis-attribution. **No content was lost or corrupted** — WM1's work is on
+`main` and WM1 continued on top of it (`cc2469e4`, `a935560f`). One transient consequence was real:
+the intermediate state swept in did not typecheck (`WallMoveReweldService.ts:166 TS2304: Cannot find
+name 'Point3D'`), which is why a root-`tsc` run mid-session showed an error in a file this lane never
+opened. **WM1 has since fixed it**, and the file now carries a comment naming that exact TS2304 as a
+past error, so HEAD is clean on that point.
+
+**The other six commits from this lane are clean** — verified with `git show --stat` on each.
+
 **The RENDER leg was already sound and is NOT part of this defect** — `resolveWholeBodyFinishColor`
 / `resolveLayerRenderFinishColor` are consumed by `WallFragmentBuilder` (`:1299`, `:1792`, `:2176`,
 `:4291`) and `LayeredWallOpeningBuilder` (`:423`), i.e. the instanced, layered and plain arms all
@@ -8579,6 +8603,14 @@ pins `WallRakeRoundTrip.test.ts`'s hand-copied mirror against the real serialise
 RED. B2 and B3 were moved deliberately; **B4 was NOT touched** — it names the mirror as the thing to
 update, and the mirror was updated instead, which is the whole point of that assertion (C84 EI-8a:
 a licensed copy pinned to its master by an executed comparison).
+
+⚠ **B4 exposed a fault in ITS OWN extractor, and it is worth recording.** B4 pulls the mirror's
+field names with a plain `/'([^']+)'/g` sweep over the captured array block, so **one apostrophe
+inside the literal — an English possessive is enough — is read as a quote** and the extracted list
+degrades into fragments (`", "`, `"s licensed-copy hazard exactly."`). Measured: a note placed
+inside the brackets turned B4 RED for a reason that had nothing to do with the field list. The note
+now sits above the declaration, with the hazard written down beside it. **The extractor is still
+apostrophe-fragile — NOT fixed here**, because hardening it is an edit to another lane's control.
 
 ⚠ **`sideFinishes` still has NO L0 REPRESENTATION** — C85 §2 lists it among the *"fields the L0
 schema CANNOT express"*, and `packages/schemas/src/elements/Wall.ts` is unchanged by this lane. That
@@ -9352,3 +9384,70 @@ by default — and vitest reported **`Tests  no tests`** with the file marked FA
 measured nothing is one line away from looking like a suite that measured and failed**, and the
 missing `// @vitest-environment happy-dom` docblock is invisible in a summary. Same shape as L-994
 below: the harness could not answer, and the report does not say so in the words a reader scans.
+
+## L-1032 — CHANGE LEVEL and DUPLICATE-TO-LEVEL must exist for EVERY element family, in the panel and in chat (OPEN, FOUNDER-REQUESTED, CROSS-FAMILY)
+
+**Requested by the founder 2026-08-19, from live production use, with screenshots.** Recorded here
+as the durable statement of the request, because it is a capability specification and not a bug
+report — though it contains a bug.
+
+### The request, in the founder's terms
+
+> *"Every element needs to be possible to be changed the level via properties panel. At the moment
+> the wall element can be changed — and works. However the slab element, for example, cannot be
+> changed — I cannot move a slab from first floor to second floor. I want you to review, audit, ALL
+> elements (all of them) and make sure this possibility exists via UI (properties panel) and via
+> chat: e.g. 'Move/Change slab from Level 1 to Level 2'. Also duplicate: e.g. 'Duplicate slab from
+> Level 1 to Level 2'. This should be absolutely architecturally sound — clean and without issues —
+> check `C84-ELEMENT-INTEGRITY.md`, follow the structure of each of the element contracts and review
+> all the contracts before proceeding. Every single code change needs to be coherent — no shortcuts,
+> robust. We are approaching production."*
+
+### The measured asymmetry the screenshots show
+
+**WALL — works.** The wall property panel's SPATIAL CONTEXT section carries a **`Change Level`**
+dropdown listing `Ground (0m)` / `Level 1 (3m)` / `Level 2 (6m)`, and the console shows the whole
+chain executing:
+
+```
+[BimManager] Registered element wall_01M0C0PEVXHHJ2NFZRZANPEFM0 to level L1787109827346
+[elementLevelChangedMirror] §L-946: wall wall_01M0C0PEVXHHJ2NFZRZANPEFM0
+    moved L1787109385989 → L1787109827346 in the legacy store.
+```
+plus the cascade that a level move correctly triggers — `DEGRADE_SLAB_SKETCH` on a slab that had
+been host-referenced to that wall (*"HostReferenceEdges → FreeLineEdges"*), `REDETECT_ROOMS`, a
+plan re-projection, and an auto-save. **That is the reference implementation**: a bus verb
+(`wall.changeLevel`), a legacy mirror (`elementLevelChangedMirror.ts`, §L-946), spatial
+re-registration, and a host-dependency cascade that degrades rather than silently breaks.
+
+**SLAB — the row is READ-ONLY.** The slab panel's SLABPLACEMENT block shows `Level  Level 1 (3m)`
+and `Polygon Vertices  6 points` as **values, with no control**. There is no `Change Level`
+dropdown. The founder cannot move a slab between levels at all.
+
+### What this issue is, precisely
+
+Not "add a dropdown to slab". It is **a per-family capability census against C84**, because the
+missing control is only the visible half:
+
+1. **Does the family have a level-change VERB at all**, and does it reach the authority (C84 EI-1)?
+2. **Does the UI offer it** — C84 **EI-3**: *what the UI offers, the pipeline must accept*, and its
+   converse, which is the defect here: a capability the pipeline supports that the UI never offers
+   is just as much a break in the pair.
+3. **Is it undoable** (EI-7 — undo restores every store the edit wrote, including the spatial
+   registry and any cascade)?
+4. **Does it cascade correctly** — hosted openings move with their wall; a slab's host-reference
+   edges degrade rather than dangle; rooms re-detect on BOTH the source and destination level.
+5. **Is it reachable from chat**, and does the chat REFUSE honestly where it cannot (C16 CA-18)
+   rather than reporting a move it did not make — the exact false-success shape L-995/L-996/L-998
+   closed for wall finishes today.
+6. **DUPLICATE-to-level** is a second verb, not a variant of the first: it mints new ids, must not
+   collide with the source, and must be one undo entry.
+
+⚠ **The word "level" is not one concept across families.** A hosted element (door, window) has **no
+independent level** — [C15 §2](../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md) says so,
+and C86 §12 R-8 already records "no level-change verb" as **CORRECT** for that family. So the
+honest end state is **not** "every family gets a dropdown": it is **every family either offers the
+control or declares, in its contract, why it must not** — which is the same shape as the refusal
+discipline C16 CA-18 mandates. A dropdown on a door would be a defect, not a feature.
+
+**Owner:** lane EL1. **Priority:** founder-requested, pre-production.
