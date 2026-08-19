@@ -1278,6 +1278,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         registerElementLevelChangeBridge(runtime.events, {
             wallStore: wallTool.getWallStore(),
             roofStore,
+            // §L-1032 — the founder's named case. `slabStore` here is the LEGACY
+            // `@pryzm/geometry-slab` singleton (C92 §2 THE AUTHORITY), the one
+            // `SlabFragmentBuilder`, the plan projection, `ProjectSerializer` and
+            // the IFC reader all read. It satisfies `LegacyLevelMovableStore`
+            // only because `SlabStore.changeLevel` now exists; the plugin DTO
+            // store does not and cannot.
+            slabStore,
             viewDependencyTracker,
             bimManager,
         });
@@ -1489,12 +1496,28 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // error — which `as any` could never be. That distinction is the whole
                 // lesson of L-972/L-973.
                 curtainWallStoreInstance.add(cwRecord as CurtainWallData);
-                // §P3.1-CW-PLAN-FIX: CurtainWallStore.add() uses the internal this.emit() path
-                // but does NOT call storeEventBus.emit().  Only addMany() does (batch path).
-                // Without storeEventBus, ViewTechnicalDrawingCache._onStoreChange never fires,
-                // vd:projection-stale is never dispatched, and curtain walls never appear in plan view.
-                // Fix: explicitly emit here — elementType 'curtainwall' is in ViewDependencyTracker's
-                // tracked set (packages/core-app-model/src/views/ViewDependencyTracker.ts:41).
+                // §P3.1-CW-PLAN-FIX — ⛔ ITS PREMISE IS FALSE, MEASURED 2026-08-19 (§L-1056).
+                // This comment read: "CurtainWallStore.add() uses the internal this.emit()
+                // path but does NOT call storeEventBus.emit(). Only addMany() does (batch
+                // path)." `add()` (`CurtainWallStore.ts:322-350`) ends in `this.emit(...)`,
+                // and `emit()` (`:399-411`) DOES call `storeEventBus.emit({elementType:
+                // 'curtainwall', operation:'create', …})` — the same event, differing only
+                // in `timestamp`. So the line below is a DUPLICATE, and every curtain wall
+                // mirrored through this bridge fires TWO plan-invalidation events.
+                //
+                // C87 §11 row 14 and CW-C-2 ("CurtainWallStore.add() MUST emit its own
+                // storeEventBus event — a store whose event is fired by its CALLER is one
+                // caller away from a silently invisible curtain wall") are derived from this
+                // comment and are REFUTED by it: the store already emits, so the invariant
+                // they ask for is already held and a second caller is already safe.
+                //
+                // The duplicate is left in place DELIBERATELY and not quietly removed. Its
+                // cost is one extra event per mirrored wall; removing it changes the ORDER
+                // in which subscribers observe the wall relative to the panel-storm events
+                // `CurtainPanelSyncHandler` fires synchronously INSIDE `add()`, and this
+                // bridge is not reachable from any suite (the L-972 lesson, one line above).
+                // A behaviour change that cannot be watched is not one to make in passing.
+                // Logged as L-1056.
                 storeEventBus.emit({
                     elementType: 'curtainwall',
                     elementId:   cwRecord.id,
