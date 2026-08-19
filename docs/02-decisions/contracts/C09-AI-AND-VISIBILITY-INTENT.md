@@ -606,6 +606,53 @@ window symbols, discarded it: it re-resolved an appearance via `resolveIntentSty
 import the pen table, the intent resolver, or `SCREEN_PX_PER_MM`.** It cannot re-decide a weight
 if it is not given the means to.
 
+**§4.6.4f — AN ELEVATION IS A DRAWING, NOT A PHOTOGRAPH OF A SOLID — AND ITS PICTURE PLANE MUST
+BE TOTAL** *(added by L-1240, §ELEV-SYMBOL-OPENING; normative)*
+
+Two rules, from one founder report (*"it MALFORMS the window in elevation. Where the bottom and
+top are TRUE HORIZONTAL, we ANGLED them"*) and one measurement. The per-family detail is
+[C86 §10.2](C86-ELEMENT-WALL-OPENING.md); what belongs HERE is the part that binds every family.
+
+**(1) THE PICTURE-PLANE BASIS MUST BE TOTAL, AND MUST REFUSE RATHER THAN NO-OP.**
+An elevation's or section's orientation MUST be computed for **every** horizontal projection
+direction, with its vertical axis **always world +Y**, and MUST **refuse by name** (C16 CA-18)
+for a direction with no horizontal component. ⛔ A table of N supported directions whose
+otherwise-branch leaves the orientation UNCHANGED is forbidden.
+
+*The defect this closes, measured 2026-08-19.* The pipeline oriented its drawing through OBC's
+`TechnicalDrawing.orientTo(direction)`, which handles **six** axes and ends
+`else console.warn("… does not match any of the 6 standard axes.")` — **warning and leaving the
+quaternion untouched**, i.e. the IDENTITY on a fresh drawing. `toDrawingSpace` then keeps
+`(x, z)` and discards `y`. **A non-cardinal elevation therefore drew the model's PLAN**, while
+`PlanViewCanvas.setSectionAxes(…, flipV = true)` had already committed to reading the result as
+an elevation. Every horizontal line came back tilted by its host's plan BEARING. Reachable
+today from `SectionPlanToolHandler`, which writes the tail the **user drew** as
+`projectionDirection`. The authority is now
+`packages/core-app-model/src/drawing/ElevationViewBasis.ts`, whose four cardinal quaternions are
+asserted **byte-identical** to the library's, so adopting it cannot move a line in any view that
+already worked.
+
+⭐ **This is the §CONTEXT-DATA-HONESTY shape in a renderer**: *"unsupported"* and *"drawn
+correctly"* had the same value on screen. The `console.warn` existed and nobody was reading the
+console.
+
+**(2) AN ELEMENT WITH A CONVENTIONAL ELEVATION REPRESENTATION MUST HAVE AN AUTHORED SYMBOL FOR
+IT.** Where a drawing convention exists for a family in elevation, its linework MUST be **set out
+from the element's own record** and MUST NOT be the projected edge-dump of its mesh. The symbol's
+polylines MUST each carry a `DrawingZone` and **no pen** (§4.6.4b), and MUST be injected onto
+**zone-suffixed** layers so the ladder of §4.6.0 and the per-element overrides of §4.6.4b reach
+them.
+
+⛔ **A flat, zone-less symbol layer is in breach of this clause.** Named rather than implied,
+because the tree contains a live example: `PlumbingElevationSymbolBuilder` injects onto a bare
+`'A-PLMB'`, which `drawingZoneFromLayerName()` classifies as `null`. That is the L-280
+flattening in a second file. `OpeningElevationSymbolBuilder` emits `A-GLAZ-SYM:proj` /
+`A-DOOR-SYM:hidden` instead; the plumbing builder is **OWED** the same correction (L-1240).
+
+⛔ **AND THE FORBIDDEN "FIX" IS NAMED.** A malformed projected outline MUST NOT be clamped,
+snapped or straightened to the axis it ought to lie on. That substitutes a plausible drawing for
+a wrong one and removes the evidence. Fix the construction, never the appearance.
+
 **§4.6.4c — A WINDOW IN PLAN READS `frame | glazing | frame`, NOT A SOLID SLAB** *(L-280,
 drawing convention; normative for plan symbols)*
 

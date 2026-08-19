@@ -44,7 +44,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | Block | Lane | Session | State |
 |---|---|---|---|
 | L-1227 – L-1239 | *(buffer — unallocated)* | 2026-08-19 | reserved for in-flight lanes that predate this ledger |
-| L-1240 – L-1249 | ELEV1 — window/door elevation symbols | 2026-08-19 | allocated |
+| L-1240 – L-1249 | ELEV1 — window/door elevation symbols | 2026-08-19 | **L-1240 minted** (1 of 10 used) |
 | L-1250 – L-1259 | ROUND1 — circular windows / arched doors | 2026-08-19 | allocated |
 | L-1260 – L-1269 | *(free)* | — | — |
 | L-1270 – L-1279 | *(free)* | — | — |

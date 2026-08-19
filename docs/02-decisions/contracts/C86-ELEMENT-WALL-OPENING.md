@@ -997,6 +997,121 @@ repo — `packages/geometry-window/src/` contains no `shape`, `circular`, `round
 section, for what exists.** The implementation slices and their honest per-surface coverage are
 [L-1200](../../04-reference/ISSUE-LOG.md).
 
+### §10.2 — **AN OPENING'S HEAD AND SILL ARE HORIZONTAL IN EVERY TRUE ELEVATION** (added 2026-08-19, lane ELEV1, **L-1240**)
+
+> **Founder, with a screenshot of Level 4 at +12.210 m:** *"Please review the ELEVATION SYMBOL for
+> windows and doors — it is NOT CORRECT. It MALFORMS the window in elevation. **Where the bottom
+> and top are TRUE HORIZONTAL, we ANGLED them.**"* The openings drew as leaning, skewed wireframe
+> boxes — some tilting left, some right — while the balustrade balusters above and below drew
+> correctly.
+
+#### The invariant, and why it is geometry rather than taste
+
+**WO-G-7 — normative.** A window's or door's **head and sill are HORIZONTAL LINES IN SPACE**. An
+elevation projects orthographically onto a **vertical** picture plane, and a horizontal line
+projects to a horizontal line under such a projection — always, for every view direction, every
+host bearing and every rake. ⇒ **An angled head or sill in an elevation is not a stylistic choice.
+It is evidence that the drawing is not a projection.** ⛔ It MUST NOT be "corrected" by clamping the
+drawn line to horizontal; that hides a wrong projection behind a straight line. The fix is to fix
+what the drawing IS.
+
+#### ⚠ THE FOUNDER'S PREMISE IS CORRECT. THE LANE BRIEF'S PHYSICS WAS NOT — recorded so it is not re-minted
+
+The brief that opened this work asserted *"a rake FORESHORTENS the opening vertically; it can never
+skew its head and sill"*. **The first half is FALSE FOR THIS REPO** and would have been written into
+this contract as an invariant. `WallRake.ts` displaces a wall **horizontally** about its base line
+(`topOffset = height · cot θ · leftPerp(direction)`) and keeps the **height PLUMB**; a plumb rise
+projects onto a vertical picture plane **unforeshortened**. Measured, not reasoned:
+`OpeningElevationSymbol.probe.test.ts` case B — *a raked host viewed square-on is **byte-identical**
+to an unraked one*, same 1.2000 m head, same 1.4000 m rise.
+
+**WO-G-8 — normative.** ⛔ No contract, comment or test may state that a rake foreshortens an
+opening vertically under this repo's `rakeAngleDeg` convention. It does not. A statement of that
+form describes a rake about the wall's *long horizontal axis*, which is a different convention from
+the one `WallRake.ts` defines.
+
+#### THE MEASUREMENT — three defects had been read as one
+
+Real segments, dumped through the real `OBC.TechnicalDrawing.toDrawingSpace` and the real
+`orientTo`, on a 1.2 × 1.4 m opening at world Y 12.41–13.81, with the group transform copied
+line-for-line from `WindowBuilder._seatHostedLeaf`. Angles are in the sheet's `(h, v)` frame:
+
+| case | host | view | head / sill | jambs |
+|---|---|---|---|---|
+| A | vertical, parallel to sheet | CARDINAL | 0° | ±90° |
+| B | **RAKED 75°**, parallel to sheet | CARDINAL | 0° | ±90° |
+| C | vertical, bearing 30° | **NON-CARDINAL** | **30° ⛔** | **−60° ⛔** |
+| D | RAKED 75°, bearing 30° | **NON-CARDINAL** | **30° ⛔** | unequal sides ⛔ |
+| E / F | vertical, bearing ±20° | CARDINAL | 0° | ±90° |
+| G | **RAKED 75°, bearing +20°** | CARDINAL | 0° | **84.76° ⛔** |
+
+- **D1 — THE SKEW (C, D).** `TechnicalDrawing.orientTo()` handles **six** directions and its final
+  branch **warns and leaves the quaternion untouched** — the identity on a fresh drawing.
+  `toDrawingSpace` then keeps `(x, z)` and discards `y`: **a PLAN**. Every horizontal line returns
+  tilted by its host's plan BEARING — *"some tilting left, some right"*, verbatim. ⚠ Reachable
+  today: `SectionPlanToolHandler._commit` writes `projectionDirection` from the tail the **user
+  drew**, at any angle, and `getDirectionForView` honours an explicit direction for `'elevation'`
+  as well as `'section'`. The stock four elevations survived only because every generator emits
+  N/S/E/W.
+- **D2 — THE LEAN (G).** A raked host at a bearing to a CARDINAL sheet. The rake displacement is
+  perpendicular to the wall and grows with height, so `sin(bearing)` of it lands in `h`: the jamb
+  tilts by `atan(cot(rake)·sin(bearing))`. **This is a CORRECT projection of the solid** — not a
+  maths bug, a bug in the decision to project a solid at all.
+- **D3 — THE WIREFRAME.** There was **no elevation symbol for an opening at all**.
+  `symbolicRuleForLayer()` opened `if (viewType !== 'plan') return null;` and its table held two
+  plan keys; `SymbolicRuleRenderer`'s own line 241 said *"BEYOND door/window linework is projected
+  silhouette, not an authored symbol."* So an opening was `EdgesGeometry(mesh.geometry)` — both
+  faces plus the depth edges, and `HiddenLineRemoval` cannot drop the back one because occluders
+  are grouped by `elementUUID` so *"an element never hides its own linework"*. ⭐ The identical
+  founder complaint is already in the tree for another family:
+  `PlumbingElevationSymbolBuilder`'s header quotes *"the existing toilets, showers etc. elevations
+  AND plan view are true projections — too many lines"*. Plumbing got an elevation symbol in
+  L-221 P3. Openings did not.
+
+#### TO-BE — normative
+
+- **WO-G-9.** An elevation view's picture-plane basis MUST be **total over every horizontal
+  direction**, and MUST **refuse by name** for a direction with no horizontal component rather than
+  fall back to any orientation. The authority is
+  `packages/core-app-model/src/drawing/ElevationViewBasis.ts`; its vertical axis is **always world
+  +Y**, which is what makes WO-G-7 hold at every angle. ⛔ A six-case table that no-ops on the
+  seventh input is forbidden — that is the D1 defect.
+- **WO-G-10.** An opening's elevation linework MUST be an **authored symbol set out from the
+  record** (`offset · width · height · sillHeight · openingProfile`), not the projected silhouette
+  of its solid. The producer is `packages/core-app-model/src/drawing/OpeningElevationSymbol.ts`.
+- **WO-G-11 (§10.1 PR-1).** The elevation symbol MUST obtain its outline from the **same**
+  `openingOutline()` every wall-body arm consumes. ⛔ It may not re-derive an arc — a `circular`
+  window must be the curve the wall was cut with, sampled to the same tolerance, or the frame will
+  not fit the hole. **The symbol is profile-driven from the day the profile exists, deliberately
+  ahead of its UI**, because a rectangle hard-coded here re-opens this defect the week round
+  windows ship.
+- **WO-G-12 ([C09 §4.6.1 / §4.6.4b](C09-AI-AND-VISIBILITY-INTENT.md)).** Every emitted polyline MUST
+  carry a `DrawingZone` and **no pen**, and MUST be injected onto **zone-suffixed** layers so the
+  ladder and per-element overrides reach it. ⛔ A flat, zone-less symbol layer is forbidden — it is
+  the L-280 flattening, and the prior elevation-symbol builder (`A-PLMB`) is already in breach.
+- **WO-G-13 ([C65 §3.4](C65-ELEMENT-TYPE-SYSTEM.md)).** A door's swing indicator MUST be drawn
+  **only when the model knows the hand**. ⛔ It may not default to `'left'` because the door schema
+  does: a defaulted hinge side on a construction drawing is a construction error, not a cosmetic
+  one.
+
+#### NOT MEASURED — the honest register for this subsection
+
+1. **Which of D1 / D2 / D3 the founder's screenshot actually is.** All three malform an opening and
+   all three are live; without his project this lane cannot say which he photographed. D1 is the
+   only one that makes a *horizontal* line non-horizontal, so it is the best match for his sentence
+   — but a stock N/S/E/W elevation cannot reach D1, and "Level 4" reads like a building elevation.
+   **Recorded as unresolved rather than asserted.**
+2. **The raw mesh dump is NOT yet suppressed.** The authored symbol is injected *alongside* the
+   solid's wireframe, so an elevation today carries strictly more correct linework and no less
+   clutter. The `skipInElevation` sibling for openings is OWED — see L-1240.
+3. **The frame inset is a drawing convention, not the model's frame width.** `WindowData.frameWidth`
+   and the door's equivalent are not passed to the producer; 60 mm is declared, not read.
+4. **`segmental-arch`'s inner frame line is a SIMILAR arch, not a true parallel offset** — its rise
+   is a ratio of its width, so an inset width shrinks the rise. Round-arch and circular ARE exactly
+   concentric, and that is pinned.
+5. **Nobody has been asked** whether an architect wants swing chevrons on a *window* sash; the
+   window record carries no operation field, so none is drawn.
+
 ### TO-BE — normative
 
 - **WO-G-1.** ONE Y datum for the opening. **The authority is the host wall's**
