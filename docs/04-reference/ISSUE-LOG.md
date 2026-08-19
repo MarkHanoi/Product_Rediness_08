@@ -15728,14 +15728,37 @@ Every one of the 19 legacy controls is mounted from that one file, and it curren
 work that is not this lane's to land. ⛔ Per the standing multi-agent rule, that is a stop-and-report,
 not a conflict to resolve unilaterally.
 
-**Phase 2, once `GISAreaLayout.ts` is clear:**
-1. Register the four missing entry points (`pryzmToggleSiteAnalysis`, `pryzmToggleEnvelopeCard`,
-   `pryzmZoomToSite`, `pryzmSetVisibleSiteLevels`) so those actions resolve live. The guard already
-   demands their reasons; registering them is what removes the reasons.
-2. Delete the verdict-(a) controls: the `3D Site` caption (#8), the sub-bar's `2D Map`/`Plan`/`3D`
-   (#9–#11), `Analysis` (#13), and ONE of each `Real`/`Massing`/`Zoom to Site` pair.
-3. Fix `§SITE-VIEWPOINT-CONSISTENT`: the `PRYZM Earth` pill must pass the declared default.
-4. Retain the launcher rail's `⟲` (verdict d) and move `All floors` to Levels & Grids (verdict d).
+#### 5 — PHASE 2a LANDED (`ae054a4d`) — GISAreaLayout.ts came clear the same session
+
+✅ **Three entry points registered**, so the actions that could only be DECLARED-AND-DISABLED
+now resolve live: `pryzmToggleSiteAnalysis`, `pryzmToggleEnvelopeCard`, `pryzmZoomToSite`.
+Each calls the SAME closure its legacy control calls — C06 §12.3, re-host, never copy.
+
+⭐ `pryzmZoomToSite` **is** the de-duplication, not a third copy. The two legacy buttons wore
+one label against **different targets** (the active Forma preset vs the placed building on the
+photoreal tiles), so which behaviour you got depended on which bar you reached for. The **active
+surface** now decides — which is what the user meant by "zoom to site" in both cases.
+
+✅ **`3D Site` caption DELETED** (#8, verdict (a)). It was a muted non-interactive `<span>`
+added by L-166 so the sub-bar would read as the 3D-Site view's own actions; but the switch one row
+above carries a control spelled the same way, so the founder saw the words twice — one a button,
+one a caption — and asked whether they were one action or two. **Neither, and that is worse than
+a duplicate: no click reveals the difference.** Deleted rather than renamed, because the active
+segment above already states which view you are in.
+
+**Registry disabled count: 4 → 1.** Only `site.floor-filter` remains unavailable, honestly —
+it needs a `<select>` populated from real storey bands, not a button.
+
+**Phase 2b — STILL OPEN:**
+1. Delete the remaining verdict-(a) controls: the sub-bar's `2D Map`/`Plan`/`3D` (#9–#11),
+   `Analysis` (#13), and ONE of each `Real`/`Massing`/`Zoom to Site` pair. ⚠ Held for founder
+   review because removing in-context mode switches from the site view is a UX change he has not
+   seen, and the deploy is held on these verdicts.
+2. Fix `§SITE-VIEWPOINT-CONSISTENT`: the `PRYZM Earth` pill must pass the declared default
+   (`'3d'`), not `'plan'`.
+3. Move `All floors` to Levels & Grids (verdict d) and retain the launcher rail's `⟲` (verdict d).
+4. Give the registry a **module-backed action kind** so `Site Inspector` stops being the one
+   hand-written button in the panel (C06 §12.8).
 
 **Founder decisions this audit surfaces and does NOT take:**
 - **Retire `⚛ Graph` in favour of `✦ Living Graph`?** Its own module says yes; nobody has decided.
