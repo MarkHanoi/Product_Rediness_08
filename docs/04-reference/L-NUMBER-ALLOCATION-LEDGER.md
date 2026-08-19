@@ -39,7 +39,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 
 ## 2. Allocation table
 
-**Highest number allocated: `L-1299`.** Next free block starts at **`L-1300`**.
+**Highest number allocated: `L-1309`.** Next free block starts at **`L-1310`**.
 
 | Block | Lane | Session | State |
 |---|---|---|---|
@@ -50,6 +50,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1270 – L-1279 | JOIN1 — raked-wall joints (gap opens toward the top) | 2026-08-19 | allocated |
 | L-1280 – L-1289 | LOG1 — boot-log defect sweep (clash dead, durable thumbnails, triple open) | 2026-08-19 | allocated |
 | L-1290 – L-1299 | GPU1 — ShadowDepthTexture destroyed mid-submit on railing MATERIAL change | 2026-08-19 | allocated |
+| L-1300 – L-1309 | PERF1 — load/render performance (145 warns, 13.2 MB autosave, cache thrash) | 2026-08-19 | **in use — L-1300 ✅ FIXED; L-1301–L-1305 logged; L-1306–L-1309 free** |
 
 > ⚠ **L-1197 … L-1226 are PRE-LEDGER** and were minted under the old racing convention. Several were
 > renumbered in flight. **Trust the ISSUE LOG for what they mean, not any lane report that cites

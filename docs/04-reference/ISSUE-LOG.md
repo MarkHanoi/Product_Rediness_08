@@ -18663,3 +18663,280 @@ reviewing for windows is the kind of unrequested blast radius that makes a fix h
 were read; the ten plan symbol builders were not audited for this. **⛔ And no gate exists** — the
 durable fix is an assertion that every layer a symbol builder injects onto resolves to a non-null
 `DrawingZone`. Same class as the missing gates L-1221 catalogued.
+
+---
+
+## L-1300 — THE AUTOSAVE'S O(1) DEFLATE WAS SURROUNDED BY FOUR O(history) COSTS, AND `getVersions()` BEING THE **ONLY READ API** WAS THE REASON ✅ FIXED 2026-08-19 (lane PERF1)
+
+**Founder ask:** *"review new logs — can you look for PERFORMANCE ISSUES?"* Live build `b3c63e2d`,
+his real project: 204 elements, 7 levels, 40 walls, 8 slabs, 85 windows, 145 handrails, 3516 meshes.
+The log line that started it, appearing **4+ times within seconds**:
+
+```
+[VersionRepository] 20 version(s) persisted to IndexedDB (~13.2 MB compressed).
+```
+
+**⭐ MEASURED FIRST, FIXED SECOND.** A harness drives the **real codec**
+(`apps/editor/src/workers/compressCodec.ts`) against a synthetic history **calibrated until its
+container matched the founder's own log formula at 13.2 MB** — 20 versions, 13.4 MB compressed,
+23.9 MB raw, 1.19 MB raw per version. Node 24 / V8, medians of 5:
+
+| per-autosave cost | measured | O(?) |
+|---|---|---|
+| `getVersions()` full decode — **×2 per save** | **503 ms** each | O(history) |
+| `putVersionsMirrorOnly(JSON.stringify(all 20))` | **236 ms** | O(history) |
+| v2 container `JSON.stringify(20 blobs)` | 22 ms | O(history) |
+| `encodeCompressed(1 new version)` — the part that must happen | 56 ms | O(1) |
+
+**≈1264 ms of synchronous main-thread work per autosave, of which ≈1208 ms is spent on the nineteen
+versions that did not change.** The `SaveOrchestrator` debounce is 2500 ms — so during sustained
+editing the main thread was busy roughly **half the time** on save bookkeeping alone.
+
+**⭐ THE ROOT IS AN API SHAPE, NOT A HOT LOOP.** `§PERF-VERSION-INCREMENTAL-COMPRESS` (L-131 P4b)
+correctly made the **deflate** O(1) — and left everything around it O(history), which is why the
+saving it bought was smaller than expected. The reason the surroundings stayed O(history) is that
+**`getVersions()` was the only read on `IVersionRepository`**. Every caller wanting a COUNT, an
+EXISTENCE CHECK, or THE LATEST RECORD therefore paid a full inflate + `JSON.parse` per stored
+version and discarded all but one. **Six of the nine call sites wanted exactly that:**
+
+- `PlatformSaveController:289` — `.length`, for the `versionCount` meta field, **every autosave**
+- `PlatformSaveController:106` — `.length`, for the plan-limit check + default label
+- `ProjectHub:295` — `.length > 0`, **inside a loop over every local project** (~503 ms *per project*, on the hub)
+- `PlatformShell:191 / :230 / :324` — all three use only `versions[versions.length - 1]`
+
+**THE FIX** — two narrow readers beside the full one, in `ProjectRepository.ts`:
+
+| | was | now | |
+|---|---|---|---|
+| `countVersions()` — reads the v2 envelope, inflates **nothing** | 503 ms | **15 ms** | **33×** |
+| `getLatestVersion()` — envelope + inflate **exactly one** | 503 ms | **31 ms** | **16×** |
+| the mirror — reuses cached blobs, carries the new version raw | 236 ms | **38 ms** | **6.2×** |
+
+Legacy v1 whole-array payloads have no envelope, so both readers fall back to the full decode:
+**never wrong, merely not faster.**
+
+The mirror fix is correct because of a property the v2 format **already had and already documented**:
+`_decompressJSON` returns an unmarked string verbatim, so a v2 entry holding **raw JSON** decodes
+byte-identically to one holding a compressed blob. The old whole-array mirror relied on exactly that
+property; this relies on it per-entry.
+
+**⚠ THAT FIX OPENED A HAZARD AND CLOSES IT IN THE SAME COMMIT.** The mirror is now a v2 container
+whose newest entry may hold raw JSON, and `_decodeVersionsPayload` caches every entry's `b` for
+reuse on the next save. Caching a raw string **as if it were a blob** would write raw JSON into
+IndexedDB verbatim and permanently inflate the stored container. The blob cache now admits only
+`COMPRESSED_MARKER` bytes. There is a named regression test for precisely this.
+
+**TESTS — 9, and they count DECODES rather than assert return values.** A test asserting
+`countVersions() === 20` passes just as happily against the old `getVersions().length`: it would
+assert the *answer* while proving nothing about the *work*, which is the whole change. So the suite
+wraps the **real** codec in a call counter — nothing under test is stubbed — and asserts
+`getVersions()` → 20 inflates, `countVersions()` → **0**, `getLatestVersion()` → **1**.
+**Falsified before landing:** reverting the two readers and the cache guard fails exactly the four
+starred assertions and leaves the other five passing. Root `tsc --noEmit` **COMPILER_RC=0**, 0 errors;
+version-repo suites 6 files / 37 tests green. Commit `a603e18e`.
+
+**⛔ HANDED OVER, NOT TAKEN:** `PlatformShell`'s three open-path reads (503 → 31 ms each) sit in
+LOG1's triple-open territory this session and were deliberately left alone.
+
+**🔴 STILL O(history) — NOT FIXED, AND THE FOUNDER'S ORIGINAL SUSPICION.** `putVersions` writes the
+**whole 13.4 MB container under one IndexedDB key on every autosave**; the version that actually
+changed is **0.67 MB — 5.0 % of the write**. It grows with history length: an O(history) byte cost
+on an O(1) action, exactly as suspected. It is **async and off the main thread**, so it is disk and
+quota pressure rather than jank — which is why it ranks *below* the 1.2 s stall above, not above it.
+De-keying the store per version is a storage-format change with migration risk and wants its own lane.
+
+---
+
+## L-1301 — THE MESH-EXPORT CACHE IS SATISFIABLE IN ELEMENTS AND **UNSATISFIABLE IN TIME**: THE KEY CARRIES `version` AND `viewId`, AND NOTHING EVER INVALIDATES A SUPERSEDED ONE 🔴 OPEN — logged 2026-08-19 (lane PERF1)
+
+Founder log: `hits=62 misses=23 hitRate=73% cacheSize=647/647` (**exactly full**), 20+ consecutive
+`§H2 evicted LRU entry`, then `cap→1012 (views=7 summedDesired=1012 hardCap=6000)`.
+
+**The key** (`NativeElementMeshExporter.ts:395`):
+```ts
+const cacheKey = `${elementId}:${viewId}:${currentVersion}:${cropKey}`;
+```
+
+**The cap** (`:321-342`) is `Σᵥ ceil(1.25·nᵥ)`, clamped to `[500, 6000]`, **ratcheting up only**.
+
+**⭐ THE ANSWER TO "CAN THIS EVER BE TRUE?" IS: YES IN ELEMENTS, NO IN TIME.** The cap is a *strict
+25 % over-estimate of the ideal working set by construction*, so element count can never starve it
+(founder: ideal 810 vs cap 1012). But the key also carries `version` and `cropKey`, **superseded
+keys are never invalidated** — the only reclaim is LRU — and **the cap has no term for either**, so
+it can never learn about the pressure actually saturating it. The arithmetic closes exactly:
+
+```
+resident 647 − ideal 518 = 129 excess  →  129/518 = 25 %
+observed miss rate, same pass          →  23/85   = 27 %
+```
+**Those are the same number.** The entire 25 % structural headroom is **exactly one churn-round
+deep**; once consumed, every miss evicts a *different view's* live entry (LRU is global), which that
+view then re-misses — the 20+ consecutive evictions. `_evictLRU()` is a **linear scan of the whole
+map per eviction**: a fully-thrashing 283-miss pass ≈ **286 k map iterations**, paid on top of every
+miss it failed to prevent.
+
+**⭐ AND THE WORKING SET IS 2.77× LARGER THAN IT NEEDS TO BE.** For depth-projected views
+(elevation / section / 3D) `cropRegion` is `undefined`, so the descriptor arrays are **provably
+view-independent** — yet `viewId` is in the key, so the same element's identical descriptors are
+computed and stored **6×, under 6 keys**. Drop `viewId` for non-plan views and the 7-view working
+set collapses from ~810 to ~292 — **under `BASE_CACHE_ENTRIES = 500`, making the whole adaptive-cap
+machinery unnecessary.** The file's own comment at `:356` recognises half of this; the key stops it
+at the view boundary.
+
+**`hitRate=0% misses=283` on the first elevation pass is cold-cache, NOT a hashing bug** — both
+paths build the key with the identical expression. It is a key **over-specification** defect, not a
+mismatch. Worth stating plainly so nobody chases the wrong thing.
+
+⚠ **Correctness hazard found in passing, unrelated to perf:** `:410` `proxy.userData = d.userData`
+assigns the **same object reference** into every proxy emitted on every cache hit; a downstream
+mutation would poison the cache and all future emissions. The miss path builds a fresh object via
+spread; the hit path does not.
+
+⚠ **Also unmeasured and worth knowing:** the hit path is **not** the "<1 ms, no world-matrix
+computation" the class doc at `:106` claims — it still allocates a Group, a Mesh per descriptor, and
+calls `updateMatrixWorld(true)`. INFERRED saving is **~2–4× per element, not ~100×**.
+
+---
+
+## L-1302 — THE EDGE-PROJECTION CACHE IS UNSATISFIABLE FOR **75 % OF GROUPS BY CONSTRUCTION**, AND THE ONE TERM THAT SCALES WORST IS THE ONE A CACHE HIT CANNOT AVOID 🔴 OPEN — logged 2026-08-19 (lane PERF1)
+
+Founder log: `§PERF-CACHE-STATS groups=283 cacheHits=4 cacheMisses=67 hitRate=6%`.
+
+**⭐ 4 + 67 = 71. `groups` is 283. So 212 groups (75 %) are neither hit nor miss.** `_putCwCache` is
+gated on `freshLayersCollector.size > 0` (`EdgeProjectorService.ts:3186`): **an element that projects
+to NOTHING is never cached.** It pays the full `traverse → EdgesGeometry → merge → toDrawingSpace`
+pipeline, yields zero layers, is not stored, and **redoes the identical work on every pass, forever.**
+For those 212 the cache is not slow — it is *structurally absent*. **A negative cache entry is the
+fix**, and it is the single cheapest item in this row.
+
+**⭐ THE REPO'S SIGNATURE DEFECT, FOUND AGAIN.** Only **walls** ever got the content-derived version
+token. `WallFragmentBuilder._versionForBuild` (`:310-335`) reuses the prior token when the content
+key is unchanged, and its own JSDoc names what it fixed: *"a whole-level rebuild … re-versioned every
+wall — even untouched ones — **driving the plan-projection cache hit-rate to ~0 %**"*. **No other
+builder received that fix.** Handrail / column / beam / stair / floor / ceiling / slab / roof all
+stamp `_priorVersion + 1` — keyed on **the event that fired, not on what the geometry is**. And
+door + window stamp literally **`version: Date.now()`**, on a path whose own comment says nothing
+changed (`WindowBuilder.ts:500`: *"even though no mesh changed"*).
+
+⚠ **`EdgeProjectorService:1930-1940` promoted door + window to the cacheable list *because*
+`Date.now()` "is strictly monotonic … so the cache invalidates correctly". That reasoning is
+backwards for a cache:** it guarantees *invalidation*, which is the thing you want to avoid, not
+*correctness of reuse*. On this project that is 85 windows + 26 doors that can never hit across a
+rebuild. **This claim should be retracted in place when the fix lands.**
+
+**⭐ THE GRAFT IS SATISFIABLE — BUT ONLY FOR ONE GESTURE.** It can succeed only for a
+`create`/`update` of `wall|slab|beam|ceiling|floor`, on the **active plan** view's own level, warm
+drawing, no in-flight generation bump — i.e. *"the founder draws a wall on the plan he is looking
+at"*. **For elevations and sections it can NEVER succeed** (refused at gate 2,
+`initScene.ts:1156`) — and `ViewDependencyTracker._getAffectedViews` (`:867-884`) dirties **every
+elevation and section unconditionally on any geometry change anywhere in the model**, while plans
+are level-filtered. So each edit dirties 4 elevations that are each refused the graft and each pay a
+**full 283-group pass**.
+
+⚠ **The `§DIAG-GRAFT-FALLTHROUGH` message is unreliable evidence.** It fires on three distinct
+causes — no dirty groups, `moved === 0`, **and a `moved > 0` graft discarded by a stale generation**
+— but its prose asserts only the second (*"contributed no linework to THIS view"*). **A successful
+graft lost to a race is being reported as a geometry fact.** Same class as L-1240's misreporting.
+
+**CANCEL-SUPERSEDED: known-doomed at start.** `isSuperseded()` has **exactly one call site**
+(`:3247`), *inside* the chunk loop — there is **no check at `project()` entry**. `abandoning after
+4/283` is the *first possible boundary*, which is the signature of a generation that was **already
+newer when the pass began**. A one-line entry check recovers it; coalescing the two independent
+drivers for one viewId (PlanViewManager 30 ms vs VDT 48/300 ms) prevents it.
+
+**🔴 AND THE TERM THAT ACTUALLY SCALES WORST IS CACHE-PROOF.** `applyOcclusion` runs **once per
+projection over the whole finished drawing** at `:3690` — *after* every cached replay. **A 100 %
+hit rate would not avoid one microsecond of it.** In `HiddenLineRemoval.ts:484-609` the true shape is
+**O(segments × occluder_elements × occluder_silhouette_edges)** — cubic in the worst case. That is
+the founder's item 5 (`9189 sub-segments demoted`, `5321.3 segment-equivalents removed`), and it is
+the one term the projection cache is *architecturally unable* to amortise.
+
+**⛔ WHY NOTHING WAS FIXED HERE.** Every candidate above changes what appears in a drawing, on a
+build the founder is actively deploying, with three other lanes live. The honest blocker is that
+**`EdgeProjectorService` has ZERO `bumpPerf`/`addPerfTime` instrumentation** — one import of
+`getFrameScheduler` and nothing else — so *"what share of a view switch is projection vs occlusion"*
+is currently **unmeasured, and it decides which of these to do first**. **The instrument goes in
+before the fix:** a timer around the whole body of `project()` charged on **every** exit including
+the `ProjectionSupersededError` throw, plus one around `applyOcclusion`.
+
+---
+
+## L-1303 — 145 SYNCHRONOUS `console.warn`s PER LOAD, ONE MESSAGE REPEATED: THE DEDUPE IS PER-ELEMENT WHEN THE DEFECT IS PER-*REASON* 🟠 HANDED TO GPU1 — logged 2026-08-19 (lane PERF1)
+
+Every one of the founder's **145 handrails** logs the same `§C100-HANDRAIL-MATERIAL-ID` warning, and
+every line is followed by `resolveColour @ …` — **the browser is capturing a stack frame per call.**
+
+`HandrailFragmentBuilder.resolveColour` already de-dupes via `_unresolvedReported`, **keyed on
+`handrail.id`** — correct for its stated purpose (*"once per handrail, not once per member, so a
+balustrade with 30 balusters does not print 30 lines"*), and **exactly one level too fine**. 145
+handrails sharing **one reason** produce 145 lines. `dispose()` clears the set, so a project teardown
+(L-1305) or a repeated open re-pays the whole 145 from scratch.
+
+⭐ **The message must SURVIVE — it is doing its job; it is how the data defect was found.** The fix
+is to aggregate on the **reason**, not the element: one line naming the count and a sample id.
+
+⛔ **NOT EDITED — `HandrailFragmentBuilder` is GPU1's file this session.** Reported, not taken.
+
+⚠ **UNMEASURED, and stated as such:** the browser-side cost of 145 stack captures with DevTools open
+was **not** measured — it cannot be from Node, and no number should be invented for it. What is
+measured is the *count* (145) and the *shape* (one message, one reason, per-element dedupe).
+
+---
+
+## L-1304 — THE CONSTRAINT LOAD-QUIET WINDOW IS UN-MIRRORED **TWICE**, AND `RuleEngine` IS A RED HERRING 🔴 OPEN — logged 2026-08-19 (lane PERF1)
+
+**⭐ FIRST, THE NEGATIVE RESULT, BECAUSE IT SAVES THE NEXT AGENT THE TRIP.** The founder's
+`RuleEngine: Model updated, ready for re-validation` ×6 is **free**. `RuleEngine.ts:27-30` — the
+entire listener body is a single `console.log`. No debounce, no timer, no `validateAll()`. Six
+levels → six emits → six prints and **nothing else**. **The RuleEngine is not a load-time cost.**
+
+**THE REAL FINDING IS THE SUPPRESSION FLAG — the batch-stall shape, twice over.**
+
+**(a) Never re-armed on project SWITCH.** `initDataPlatform.ts:291` holds `_constraintQuietUntil`,
+started at `+Infinity` and only ever *lowered* on `pryzm-project-loaded`. It is **never reset on
+`pryzm-project-switch`**, so the quiet window protects the **first load of a session only**. The
+sibling subsystem got this right *and left a comment saying why* —
+`AmbientIntelligence.ts:107-129`: *"Without this the bug returned the moment the user opened a second
+project."* `AmbientIntelligence` listens to **both** events; the constraint wiring listens to **one**.
+
+**(b) A second auto-run the flag cannot see at all.** `ConstraintEngine.ts:112-115` schedules its own
+600 ms run on three events. `_constraintQuietUntil` is a **closure-local `let`** in
+`initDataPlatform` — `ConstraintEngineImpl` has no access to it. Its only guard is
+`batchCoordinator.isBatching`, which **this repo documents in two places as reading FALSE during a
+project load** (`perAddGeometryGate.ts:5-10`, `initScene.ts:2768`). **The correct predicate already
+exists — `isProjectLoadActive()` — and `ConstraintEngine` does not consult it.**
+
+**Net: at minimum two guaranteed full `constraintEngine.run()` passes per load.** One pass is
+**O(17 rules × elements) + O(rooms²)** — three rules are quadratic in rooms
+(`ConstraintEngine.ts:521, :633, :660`, each a `.filter` over all rooms *inside* a per-room loop).
+
+---
+
+## L-1305 — SIX DEFAULT VIEWS ARE CREATED AND **DISCARDED** ON EVERY LOAD SLOWER THAN 300 ms; THE FIX FOR THIS EXACT BUG SHIPPED WITH **NO TEST AND NO DOC** 🟠 OPEN — logged 2026-08-19 (lane PERF1)
+
+**Verdict on the founder's suspicion: DISCARDED, not duplicated.** The project never ends up with 12
+default views. `ViewDefinitionStore.deserialize()` calls `this._views.clear()` (`:653`) and the
+boot-created six become garbage. Duplication is *structurally impossible* — fixed ids +
+`if (!store.has(id))` + `create()` returning `null` on collision. **The log line prints twice
+precisely BECAUSE the guard passed both times: the store was empty both times.**
+
+**The race:** `initDefaultViewsManager({ bootEnsure: 'deferred' })` arms a **300 ms** fallback
+timer (`DefaultViewsManager.ts:617-627`) that `vd:store-loaded` is supposed to cancel. **Any project
+open slower than 300 ms — the normal case on a real project — loses.**
+
+**Cost of the wasted pass:** six × (`structuredClone` + **six synchronous DOM-event UI re-renders**,
+including `LeftNavRail.refresh()` → a full nav-panel re-render), plus a duplicated elevation-mark
+pass that is **7 plan views × 4 marks = 28 full annotation-store scans**. No projection or camera
+build happens at creation. **Real but modest — it ranks below L-1300 and L-1302.**
+
+**⭐ THE DURABLE FINDING IS THAT THE FIX IS UNFALSIFIABLE.** `grep -rn "bootEnsure|STARTUP-NO-DOUBLE"`
+→ **6 hits, 2 files, both source. Zero in any test. Zero in any `.md`.** The `'deferred'` mode
+shipped for `§STARTUP-NO-DOUBLE-DEFAULT-VIEWS` — the fix for the founder's exact symptom — has **no
+test coverage whatsoever and appears in no ADR, contract, or ISSUE-LOG row.** The three nearest
+tests (`viewLifecycle.test.ts:57, :64, :83`) assert **existence**; **none asserts a creation COUNT.**
+That is why the symptom is still in the log: nothing could have caught its return. **Same class as
+L-1221's missing-gate catalogue.**
+
+⚠ Related, and LOG1's: item 7's `ClearProjectCommand` teardown during the load of the same project
+(6.5 ms, 60 elements, 17 builders cleared) is almost certainly the same root as the triple-open
+defect. **Not investigated here by agreement.**
