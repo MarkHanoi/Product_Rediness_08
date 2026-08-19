@@ -643,21 +643,19 @@ describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factua
      * WHAT REMAINS TRUE: the GATE still refuses. That is a separate fact from the
      * geometry, and it is deliberately left alone — see the assertion's own comment.
      */
-    it('L-1061 -- layered x openings x rake now LEANS; the gate still refuses (a decision, not a bug)', () => {
+    it('L-1061 -- layered x openings x rake LEANS, and the gate now ADMITS it', () => {
+        // ⚠ THIS ASSERTION HAS NOW BEEN REVERSED TWICE, AND BOTH REVERSALS ARE RECORDED
+        //   (C84 §6). Draft 1 asserted the path had NO shear and built BOLT UPRIGHT — true
+        //   when measured, and the evidence that justified the fix. Draft 2 asserted the
+        //   body leaned while the GATE still refused, and flagged that state as knowingly
+        //   incoherent and awaiting a decision. The founder has now given it
+        //   (2026-08-19, *"this needs to be in place"*), so the arm is lifted and this is
+        //   draft 3: the combination is authorable AND correct.
         const g = rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}, {}, {}], openings: [{ id: 'o' }] });
-        expect(g.ok, 'the layered x openings arm still refuses at the STORE boundary').toBe(false);
-        expect(g.code).toBe('layered');
+        expect(g.ok, 'L-1064: the layered x openings arm is LIFTED — its stated reason was measured false').toBe(true);
+        expect(g.code).toBeUndefined();
 
-        // ⛔ THE REFUSAL'S STATED REASON IS NOW FALSE, AND THE REFUSAL STILL STANDS.
-        //    Its text says the layered-with-openings path "has no shear, so the wall would
-        //    render VERTICAL while the model said 80". That was measured TRUE and is now
-        //    measured FALSE — the assertion below is the proof. Lifting the arm is a
-        //    one-line edit in `WallRake.ts`, but it SHIPS A COMBINATION, and it invalidates
-        //    refusal assertions in five test files across three packages
-        //    (`WallRake.test.ts`, `RakedLayeredWallBands.measure`, `RakedHostedOpening`,
-        //    `command-registry/updateWallsRakeBatch`, `apps/editor/WallRakeProperty.spec`).
-        //    That is an orchestrator/founder call and a cross-lane edit, not something to
-        //    slip in behind a geometry fix. REPORTED, not taken.
+        // The body measurement that made the lift defensible, kept as the standing proof.
         const c = measure(makeA('layered3+window', [0, 0], [5, 0], RAKE), far());
         expect(Number.isFinite(c.leanA), 'the combination BUILDS -- it does not throw').toBe(true);
         expect(c.leanA, 'the body LEANS by h*cot(theta) -- the refusal reason no longer holds')
@@ -718,19 +716,29 @@ describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factua
             .toBeCloseTo(EXPECTED_LEAN, 6);
     });
 
-    it('L-1062 -- curved x rake: the gate refuses, and the curved path really has NO shear', () => {
+    it('L-1062 -- curved x rake is ADMITTED and BUILT as a cone; only COLLAPSE is refused', () => {
+        // ⚠ REVERSED, AND THE PRIOR STATE RECORDED (C84 §6). This asserted that the curved
+        //   arm refuses and that the path "really has NO shear" — both true when measured.
+        //   §FEAT-RAKE-CURVED replaced the blanket refusal with the conical sweep, so the
+        //   gate now admits a curved rake and refuses only the case that is geometrically
+        //   impossible: a top arc pushed inward past its own centre of curvature.
         const g = rakeAuthorability({ rakeAngleDeg: RAKE, curve: { control: { x: 1, y: 0, z: 1 }, segments: 16 } });
-        expect(g.ok, 'the curved arm still refuses').toBe(false);
-        expect(g.code).toBe('curved');
-        expect(g.reason, 'the reason is the varying plan normal, and it is stated').toMatch(/plan normal/i);
+        expect(g.ok, 'a curved wall may now hold a rake').toBe(true);
 
-        const c = measure(makeA('curved', [0, 0], [5, 0], RAKE), far());
-        expect(Number.isFinite(c.leanA), 'the combination BUILDS -- it does not throw').toBe(true);
-        expect(c.leanA, 'and it builds BOLT UPRIGHT: the refusal reason is TRUE').toBeLessThan(COINCIDENT_M);
+        // The surviving arm, and it names BOTH numbers rather than saying "invalid".
+        const collapse = rakeAuthorability({
+            rakeAngleDeg: 20, curve: { control: { x: 1, y: 0, z: 1 }, segments: 16 },
+            height: 3, curveMinRadiusM: 0.5,
+        });
+        expect(collapse.ok, 'a lean deeper than the turn radius is refused').toBe(false);
+        expect(collapse.code).toBe('curved-collapse');
+        expect(collapse.reason, 'the refusal quotes the shift').toMatch(/8\.24/);
+        expect(collapse.reason, 'and the radius').toMatch(/0\.500/);
 
-        const withOpening = measure(makeA('curved+window', [0, 0], [5, 0], RAKE), far());
-        expect(withOpening.leanA, 'a curved wall HOSTING an opening is equally unsheared')
-            .toBeLessThan(COINCIDENT_M);
+        // UNJUDGEABLE IS NOT FAILURE: without height and radius the arm cannot run, and
+        // the wall proceeds rather than being refused on a fact nobody measured.
+        expect(rakeAuthorability({ rakeAngleDeg: 20, curve: { control: { x: 1, y: 0, z: 1 }, segments: 16 } }).ok)
+            .toBe(true);
     });
 
     /**
@@ -746,6 +754,111 @@ describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factua
             'C85 section 12 R-9: an opening on a raked wall must NOT be re-refused').toBe(true);
         expect(rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}], openings: [{ id: 'o' }] }).ok,
             'a SINGLE-layer wall with an opening is not the layered case').toBe(true);
+    });
+});
+
+// --- AXIS 4b -- D-CURVED #4: a curved RAKED wall against EVERY other wall ------------
+
+/**
+ * The founder's words were *"with sound joints with any other walls"*, so this walks the
+ * neighbour axis rather than sampling it. A is a curved raked wall throughout; only B
+ * changes.
+ *
+ * WHAT "SOUND" MEANS HERE, and why it is `sep` and not `gap`: at an L the two solids must
+ * TOUCH at the floor and still touch at the top. Shared-vertex counting (`gap`) is the
+ * right question when both ends are straight mitres, and the wrong one the moment an arc
+ * is involved — a curved end face meets a straight one along a line neither tessellates
+ * the same way, so they can be flush and still share no vertex. Hull separation answers
+ * "do these two solids meet?" for every combination, which is what the founder asked.
+ *
+ * `openUp = topSep - baseSep` is the L-955 signature: sound at the floor, open at the top.
+ */
+describe('RK1 D-CURVED #4 -- a curved RAKED wall joined to every other kind', () => {
+    const NEIGHBOURS: ReadonlyArray<readonly [string, Kind, number]> = [
+        ['straight plain VERTICAL', 'plain', VERT],
+        ['straight plain RAKED (same lean)', 'plain', RAKE],
+        ['straight plain RAKED (opposite)', 'plain', 110],
+        ['straight LAYERED raked', 'layered3', RAKE],
+        ['straight raked + WINDOW', 'plain+window', RAKE],
+        ['CURVED unraked', 'curved', VERT],
+        ['CURVED raked', 'curved', RAKE],
+        ['CURVED layered raked', 'curved+layered3', RAKE],
+    ];
+
+    for (const aKind of ['curved', 'curved+layered3', 'curved+window'] as Kind[]) {
+        it(`${aKind}@80 closes against every neighbour, at the floor AND at the top`, () => {
+            const results: Array<{ label: string; c: Cell }> = [];
+            for (const [label, bKind, bRake] of NEIGHBOURS) {
+                const [A, B] = pairFor('L', aKind, RAKE, bKind, bRake);
+                results.push({ label, c: record(`L ${aKind}@80 vs ${label}`, measure(A, B)) });
+            }
+            dump(`AXIS 4b: ${aKind}@80 vs every neighbour`);
+
+            for (const { label, c } of results) {
+                expect(Number.isFinite(c.baseSep), `${label}: both bodies built`).toBe(true);
+                // THE FLOOR IS EXACT AT EVERY NEIGHBOUR, and that is asserted hard. It is
+                // ADR-0310's guarantee and it survives the conical sweep unchanged.
+                expect(c.baseSep, `${label}: the two solids MEET at the floor`).toBeLessThan(COINCIDENT_M);
+                // ⛔ THE TOP IS **NOT** ASSERTED CLOSED, AND THAT IS L-1066 — see below.
+                //    It closes for some neighbours and opens for others, and pinning
+                //    either reading would be wrong: green would be a lie, and freezing
+                //    the open value would make today's gap the specification.
+                //    What IS asserted is that the opening is BOUNDED by the leans that
+                //    cause it — i.e. this is a corner-rule gap, not garbage geometry.
+                expect(c.topSep, `${label}: the top separation is bounded by the leans`)
+                    .toBeLessThan(2 * EXPECTED_LEAN + COINCIDENT_M);
+            }
+        });
+    }
+
+    /**
+     * L-1066 — THE CURVED CORNER IS FLOOR-EXACT ONLY. The bodies are right; the JOINT is
+     * where L-955's fix has not reached.
+     *
+     * Measured, curved raked ↔ straight raked at an L, 80°, h = 3:
+     *
+     *     baseSep 0.000    topSep 0.555    openUp 0.555
+     *
+     * and the pattern across neighbours names the mechanism exactly:
+     *
+     *     vs plain VERTICAL        openUp 0.026   (neighbour barely moves)
+     *     vs plain RAKED opposite  openUp 0.000   (tops move TOWARD each other)
+     *     vs plain RAKED same lean openUp 0.555   (tops move APART)
+     *     vs CURVED unraked        openUp 0.000
+     *     vs CURVED raked          openUp 0.347
+     *
+     * THE CAUSE IS NOT THE CONICAL SWEEP — the bodies are correct and pinned exactly by
+     * `RK1CurvedRakedConicalSweep.test.ts`. It is that the ADR-0312 TWIN-SOLVE LOFT, which
+     * re-solves the mitre in the DISPLACED plan and is what closed L-955 for straight
+     * walls, never runs for a curved one: `rakeJointCapDrift` is gated `!wall.curve`, and
+     * `WallPipelineV2Cache.refresh` takes straight `startXZ`/`endXZ` specs and has no way
+     * to describe an arc. So a curved raked wall places its shared top corner by ADR-0310's
+     * uniform rule while its straight raked neighbour places the same corner by the lofted
+     * one — two rules at one corner, which is verbatim the defect class L-955 was.
+     *
+     * ⚠ THIS IS THE REMAINING HALF OF THE FOUNDER'S MANDATE. The bodies asked for are
+     *   built; *"sound joints with any other walls"* is not finished until the loft reaches
+     *   the arc. Closing it means teaching the V2 probe-solve about curved walls — a real
+     *   piece of work, not a patch, and larger than the sweep itself.
+     *
+     * Pinned `it.fails` per the C85 §11 #11 idiom, so the day it closes this says so out
+     * loud instead of the fix landing unnoticed.
+     */
+    it.fails('L-1066 -- a curved raked corner closes at the TOP (pinned, expected RED)', () => {
+        const c = measure(...pairFor('L', 'curved', RAKE, 'plain', RAKE));
+        expect(c.baseSep, 'the floor is exact -- this is a corner rule gap, not a broken body')
+            .toBeLessThan(COINCIDENT_M);
+        expect(c.topSep, 'L-1066: the top does not close yet').toBeLessThan(COINCIDENT_M);
+    });
+
+    it('the curved BODY leans -- without which the joint result above would be vacuous', () => {
+        // A joint between two upright walls closes trivially. This is the non-vacuity
+        // guard for the whole block: A must actually be a cone.
+        const far = () => mk([50, 50], [55, 50], { rake: VERT });
+        for (const kind of ['curved', 'curved+layered3', 'curved+window', 'curved+layered3+window'] as Kind[]) {
+            const c = measure(makeA(kind, [0, 0], [5, 0], RAKE), far());
+            expect(c.leanA, `${kind} @80 leans`).toBeGreaterThan(0.1);
+        }
     });
 });
 
@@ -809,6 +922,68 @@ describe('RK1 §RK1-MATRIX -- AXIS 5: L-1034 #4, profile-edit reachability by wa
             'a CURVED wall is refused, as curved').toBe('curved');
         expect(profileAuthorability({ ...base, curve, rakeAngleDeg: RAKE } as never).code,
             'CURVED + RAKED is refused for being curved — the rake is not why').toBe('curved');
+    });
+});
+
+// --- AXIS 6 -- L-1067: WHAT THE "EDIT PROFILE" BUTTON ACTUALLY DOES TODAY ------------
+
+/**
+ * The founder asked about Edit Profile twice and has not had a straight answer. This axis
+ * is the straight answer, measured rather than inferred from commit messages.
+ *
+ * WHAT EXISTS: the model (`wallProfile`, a `{ ring: [{u,v}] }` on `WallData`), ONE
+ * authorability gate wired into all three write boundaries, Zod validation, persistence,
+ * cache invalidation (`WallDeltaClassifier`), the geometry hash (`composeWallGeometryHash`),
+ * an instanced-arm exclusion so a profiled wall cannot be flattened into a T·R·S matrix,
+ * and a live button in `ContextualEditBar` under §EDIT-PROFILE.
+ *
+ * ⛔ WHAT DOES NOT EXIST: **any body builder that reads the ring.** A census of
+ *    `packages/geometry-wall/src` finds `wallProfile` consumed by the schema, the store,
+ *    the delta classifier, the geometry hash and the instanced-arm exclusion — and by NO
+ *    geometry path. `WallFragmentBuilder`'s own comment says so in its own words: *"INERT
+ *    TODAY, DELIBERATELY. Nothing in the repo authors `wallProfile` yet."*
+ *
+ * SO THE HONEST STATEMENT IS NOT "profile × rake is unverified" — it is that **a profile
+ * draws nothing on ANY wall shape.** Authoring one makes the wall REBUILD (the hash
+ * changes) and takes it OFF the instanced arm (the exclusion fires), and then renders the
+ * identical full rectangle. That is worse than a refusal, because a refusal at least tells
+ * the author why nothing happened.
+ *
+ * This test does not fix it. It makes the state MEASURED instead of assumed, which is what
+ * C84 EI-3 requires of an affordance that is offered — and it gives the lane that builds
+ * the body a harness that is already RED in the right place.
+ */
+describe('RK1 §RK1-MATRIX -- AXIS 6: L-1067, the profile is authorable and DRAWS NOTHING', () => {
+    const RING = { ring: [{ u: 0, v: 0 }, { u: 5, v: 0 }, { u: 5, v: 3 }, { u: 0, v: 1 }] };
+
+    const withProfile = (rake?: number): WallData => ({
+        ...mk([0, 0], [5, 0], rake === undefined ? {} : { rake }),
+        wallProfile: RING,
+    } as unknown as WallData);
+
+    it('the gate ADMITS a profile on a plain wall, vertical and raked alike', () => {
+        expect(profileAuthorability({ wallProfile: RING, baseLine: [{ x: 0, z: 0 }, { x: 5, z: 0 }], height: H } as never).ok)
+            .toBe(true);
+        expect(profileAuthorability({ wallProfile: RING, baseLine: [{ x: 0, z: 0 }, { x: 5, z: 0 }], height: H, rakeAngleDeg: RAKE } as never).ok)
+            .toBe(true);
+    });
+
+    it('L-1067 -- and the BUILT BODY is identical with and without it: the ring draws NOTHING', () => {
+        const far = () => mk([50, 50], [55, 50], { rake: VERT });
+        for (const rake of [undefined, RAKE]) {
+            const withIt = measure(withProfile(rake), far());
+            const withoutIt = measure(mk([0, 0], [5, 0], rake === undefined ? {} : { rake }), far());
+            expect(Number.isFinite(withIt.leanA), 'the profiled wall builds').toBe(true);
+            // The profile cuts the top-left corner down from v=3 to v=1, so a wall that
+            // DREW it would have a visibly different silhouette. It does not.
+            expect(withIt.leanA, `rake=${rake ?? 'none'}: the profile changed nothing about the lean`)
+                .toBeCloseTo(withoutIt.leanA, 9);
+            expect(withIt.baseGap, `rake=${rake ?? 'none'}: nor about the footprint`)
+                .toBeCloseTo(withoutIt.baseGap, 9);
+        }
+        // ⛔ WHEN A LANE BUILDS THE PROFILE BODY, THIS TEST GOES RED. That is correct and
+        //    intended: invert it to assert the CUT, do not delete it. The `v = 1` corner
+        //    must then be measurably absent from the built top ring.
     });
 });
 

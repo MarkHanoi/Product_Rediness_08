@@ -8,15 +8,13 @@ import { safeDisposeMaterial, safeDisposeMaterials } from '@pryzm/renderer-three
 // §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — "DETACH now, RELEASE at the
 // boundary". See _disposeWallGroupChildren() / removeWallFragments() below.
 import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-three';
-import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
+import { WallData, Opening, FragmentEntityMapping, WallLayer } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 // §FEAT-WALL-SIDE-FINISH — the per-side override, resolved ONCE, in a pure module.
 import { resolveLayerRenderFinishColor, resolveWholeBodyFinishColor } from './WallSideFinishResolver';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
-import { PathResolver } from './PathResolver';
 import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuilder';
-import { projectCapVertex } from './CurvedWallCapMiter';
 // §FEAT-HOSTED-ON-CURVED-WALL — arc-length parameterisation + radial-band carve.
 import { isArcHost, wallCentrelineLength, hostedElementFrame } from './WallArcParam';
 import {
@@ -2005,169 +2003,56 @@ export class WallFragmentBuilder {
                 wall.curve.control.z
             );
 
-            const pts = PathResolver.toPolyline(
-                { kind: 'Arc', start, end, control: ctrl },
-                wall.curve.segments
-            );
+            // ── §FEAT-RAKE-CURVED + C85 W-G-3 — ONE curved builder, not two ───────
+            //
+            // WHAT STOOD HERE: ~160 lines that recomputed the stations, the Bézier cap
+            // tangents, the outer/inner corner tables, the miter projection, all six face
+            // groups and both caps — a VERBATIM re-derivation of
+            // `CurvedWallLayerBuilder.buildCurvedLayerGeometry`, which the LAYERED arm
+            // fifty lines below already calls. C84 EI-9 and C85 W-G-3 both name this fork;
+            // C85 §10 records it as a LIVE FORK "split by a layer-count branch".
+            //
+            // WHY IT IS COLLAPSED NOW RATHER THAN LATER: the conical sweep is ONE RULE, and
+            // a fork means writing it twice. Two copies of "where is the top edge of a
+            // raked arc?" is the same defect shape as L-955's three body builders
+            // disagreeing at the corner — and a plain curved wall and a layered curved wall
+            // that leaned by different rules would meet at exactly the joint the founder
+            // asked to be sound. Deduplicating was cheaper than auditing the divergence.
+            //
+            // A plain wall is passed as a SINGLE synthetic band at offset 0 whose thickness
+            // is the wall's own. The shared builder's station computation, tangent formulas
+            // and projection are character-identical to what stood here, so this is expected
+            // to be vertex-for-vertex unchanged at 90° — asserted, not assumed, by
+            // `P3-curved-plain` in `WallProfileNonRegressionBaseline`.
+            const stations = computeStations(start, end, ctrl, wall.curve.segments);
 
-            const n = pts.length;
-            const halfT  = wallThickness / 2;
-            const yBot   = wallBaseOffset;
-            const yTop   = wallBaseOffset + wallHeight;
-
-            // ── per-station geometry data ──────────────────────────────────────────
-            // For each station i we store: outward normal (nx, nz) and XZ center
-            type Station = { cx: number; cz: number; nx: number; nz: number };
-            const stations: Station[] = [];
-
-            for (let i = 0; i < n; i++) {
-                let tx: number, tz: number;
-                if (i < n - 1) {
-                    tx = pts[i + 1].x - pts[i].x;
-                    tz = pts[i + 1].z - pts[i].z;
-                } else {
-                    tx = pts[i].x - pts[i - 1].x;
-                    tz = pts[i].z - pts[i - 1].z;
-                }
-                const tLen = Math.sqrt(tx * tx + tz * tz) || 1;
-                tx /= tLen; tz /= tLen;
-
-                stations.push({
-                    cx: pts[i].x - start.x,
-                    cz: pts[i].z - start.z,
-                    nx: -tz,   // outward normal = rotate tangent 90° CCW
-                    nz:  tx,
-                });
-            }
-
-            // ── helpers ───────────────────────────────────────────────────────────
-            // A vertex = [x, y, z, nx, ny, nz]
-            type V6 = [number, number, number, number, number, number];
-            const pos: number[] = [];
-            const nrm: number[] = [];
-
-            function pushTri(a: V6, b: V6, c: V6): void {
-                pos.push(a[0], a[1], a[2],  b[0], b[1], b[2],  c[0], c[1], c[2]);
-                nrm.push(a[3], a[4], a[5],  b[3], b[4], b[5],  c[3], c[4], c[5]);
-            }
-
-            // §06-FIX / §STEP4: Read miter normals from the joinData parameter.
             const curvedStartMN = joinData?.startMN ?? null;
             const curvedEndMN   = joinData?.endMN   ?? null;
 
             // §CURVED-STRAIGHT-FIX: exact quadratic-Bézier tangents at the arc endpoints
             // (t=0: normalize(ctrl − start); t=1: normalize(end − ctrl)) — the same formula
-            // WallJoinResolver._wallDirAtJoin uses, so miter normal and projection direction
-            // come from identical tangents.
+            // `WallJoinResolver._wallDirAtJoin` uses, so miter normal and projection
+            // direction come from identical tangents.
             const _stDx = ctrl.x - start.x, _stDz = ctrl.z - start.z;
             const _stL  = Math.sqrt(_stDx * _stDx + _stDz * _stDz) || 1;
-            const startTanX = _stDx / _stL, startTanZ = _stDz / _stL;
             const _edDx = end.x - ctrl.x, _edDz = end.z - ctrl.z;
             const _edL  = Math.sqrt(_edDx * _edDx + _edDz * _edDz) || 1;
-            const endTanX = _edDx / _edL, endTanZ = _edDz / _edL;
 
-            // ── §FIX-CURVED-WALL-MITER-WATERTIGHT (2026-08-06) — ONE corner table ──
-            //
-            // ROOT CAUSE of "curved wall has no plan poché": the §06-FIX miter
-            // projection moved the CAP QUAD onto the shared miter plane but left the
-            // outer/inner/top/bottom faces ending at the UNPROJECTED terminal-station
-            // corners — a slit at every join. Invisible in 3D (the neighbour covers
-            // the joint), fatal in plan: the true cut section (L-246) of a
-            // non-watertight solid is an OPEN chain, and PocheFillBuilder stitches
-            // CLOSED loops only, so a joined curved wall drew hollow while straight
-            // walls (buildMiterPrism projects the WHOLE end face) filled.
-            //
-            // FIX: compute each station's outer/inner corner ONCE, project the
-            // TERMINAL corners onto the miter plane, and have every face group AND
-            // the caps consume the SAME table — watertight by construction.
-            const outerPt: Array<[number, number]> = stations.map(s => [s.cx + s.nx * halfT, s.cz + s.nz * halfT]);
-            const innerPt: Array<[number, number]> = stations.map(s => [s.cx - s.nx * halfT, s.cz - s.nz * halfT]);
-            if (curvedStartMN) {
-                outerPt[0] = projectCapVertex(outerPt[0][0], outerPt[0][1], 0, 0, startTanX, startTanZ, curvedStartMN);
-                innerPt[0] = projectCapVertex(innerPt[0][0], innerPt[0][1], 0, 0, startTanX, startTanZ, curvedStartMN);
-            }
-            if (curvedEndMN) {
-                const sEnd = stations[n - 1];
-                outerPt[n - 1] = projectCapVertex(outerPt[n - 1][0], outerPt[n - 1][1], sEnd.cx, sEnd.cz, endTanX, endTanZ, curvedEndMN);
-                innerPt[n - 1] = projectCapVertex(innerPt[n - 1][0], innerPt[n - 1][1], sEnd.cx, sEnd.cz, endTanX, endTanZ, curvedEndMN);
-            }
-
-            function outerVBot(i: number): V6 { const s = stations[i]; return [outerPt[i][0], yBot, outerPt[i][1],  s.nx, 0, s.nz]; }
-            function outerVTop(i: number): V6 { const s = stations[i]; return [outerPt[i][0], yTop, outerPt[i][1],  s.nx, 0, s.nz]; }
-            function innerVBot(i: number): V6 { const s = stations[i]; return [innerPt[i][0], yBot, innerPt[i][1], -s.nx, 0, -s.nz]; }
-            function innerVTop(i: number): V6 { const s = stations[i]; return [innerPt[i][0], yTop, innerPt[i][1], -s.nx, 0, -s.nz]; }
-
-            // Top face normal = (0,1,0), bottom = (0,-1,0)
-            function topOuter(i: number): V6 { return [outerPt[i][0], yTop, outerPt[i][1], 0, 1, 0]; }
-            function topInner(i: number): V6 { return [innerPt[i][0], yTop, innerPt[i][1], 0, 1, 0]; }
-            function botOuter(i: number): V6 { return [outerPt[i][0], yBot, outerPt[i][1], 0, -1, 0]; }
-            function botInner(i: number): V6 { return [innerPt[i][0], yBot, innerPt[i][1], 0, -1, 0]; }
-
-            // ── outer curved face ─────────────────────────────────────────────────
-            for (let i = 0; i < n - 1; i++) {
-                // CCW winding from outside so stored outward normals are used as-is
-                // (not negated by DoubleSide back-face path which caused dark rendering)
-                pushTri(outerVBot(i), outerVTop(i + 1), outerVTop(i));
-                pushTri(outerVBot(i), outerVBot(i + 1), outerVTop(i + 1));
-            }
-
-            // ── inner curved face ─────────────────────────────────────────────────
-            for (let i = 0; i < n - 1; i++) {
-                // CCW winding from inside so stored inward normals are used as-is
-                pushTri(innerVBot(i), innerVTop(i), innerVTop(i + 1));
-                pushTri(innerVBot(i), innerVTop(i + 1), innerVBot(i + 1));
-            }
-
-            // ── top flat face — flat normal (0,1,0) so edges are hard ─────────────
-            for (let i = 0; i < n - 1; i++) {
-                pushTri(topInner(i), topOuter(i), topOuter(i + 1));
-                pushTri(topInner(i), topOuter(i + 1), topInner(i + 1));
-            }
-
-            // ── bottom flat face — flat normal (0,-1,0) ───────────────────────────
-            for (let i = 0; i < n - 1; i++) {
-                pushTri(botInner(i), botOuter(i + 1), botOuter(i));
-                pushTri(botInner(i), botInner(i + 1), botOuter(i + 1));
-            }
-
-            // ── start cap (i=0) ────────────────────────────────────────────────────
-            // §FIX-CURVED-WALL-MITER-WATERTIGHT: the cap consumes the SAME (already
-            // projected) terminal corners the face strips end on — no second projection.
-            {
-                const cnx = -startTanX;  // inward normal = negative tangent
-                const cnz = -startTanZ;
-                const [oX, oZ] = outerPt[0];
-                const [iX, iZ] = innerPt[0];
-                const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
-                const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
-                const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];
-                const iTo: V6 = [iX, yTop, iZ, cnx, 0, cnz];
-                pushTri(oBo, oTo, iTo);
-                pushTri(oBo, iTo, iBo);
-            }
-
-            // ── end cap (i=n-1) ───────────────────────────────────────────────────
-            // `end` is wall.baseLine[1], set to sharedPt by store.update() before
-            // buildWall() — matching the adjustedPt passed to _wallDirAtJoin().
-            {
-                const cnx = endTanX;  // outward normal = positive tangent
-                const cnz = endTanZ;
-                const [oX, oZ] = outerPt[n - 1];
-                const [iX, iZ] = innerPt[n - 1];
-                const oBo: V6 = [oX, yBot, oZ, cnx, 0, cnz];
-                const oTo: V6 = [oX, yTop, oZ, cnx, 0, cnz];
-                const iBo: V6 = [iX, yBot, iZ, cnx, 0, cnz];
-                const iTo: V6 = [iX, yTop, iZ, cnx, 0, cnz];
-                pushTri(oBo, iTo, oTo);
-                pushTri(oBo, iBo, iTo);
-            }
-
-            // ── assemble geometry ─────────────────────────────────────────────────
-            const geom = new THREE.BufferGeometry();
-            geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            geom.setAttribute('normal',   new THREE.Float32BufferAttribute(nrm, 3));
-            // NO computeVertexNormals() — we set exact per-face normals above
-            // so top/bottom hard edges are preserved at 90°
+            const geom = buildCurvedLayerGeometry(
+                { name: 'body', function: 'structure', thickness: wallThickness } as WallLayer,
+                0,
+                stations,
+                wallHeight,
+                wallBaseOffset,
+                wallThickness / 2,
+                curvedStartMN,
+                curvedEndMN,
+                { x: _stDx / _stL, z: _stDz / _stL },
+                { x: _edDx / _edL, z: _edDz / _edL },
+                // §FEAT-RAKE-CURVED — the datum is the WALL's base plane, the same one
+                // `_applyRakeShearToChildren` measures the straight shear from.
+                { angleDeg: wall.rakeAngleDeg, datumY: wallBaseOffset },
+            );
 
             const material = this.createWallMaterial(wall);
             // Curved walls wrap around — from some camera angles the inner face
@@ -2246,14 +2131,23 @@ export class WallFragmentBuilder {
             const _ledL  = Math.sqrt(_ledDx * _ledDx + _ledDz * _ledDz) || 1;
             const _layeredEndCapTan = { x: _ledDx / _ledL, z: _ledDz / _ledL };
 
+            // ── §FEAT-RAKE-CURVED — PERPENDICULAR (authored) → RADIAL, once ───────
+            // Identical in kind to the straight layered arms: an authored layer thickness
+            // is a PERPENDICULAR measurement, and a raked band occupies `t / sin θ` across
+            // the wall — here measured RADIALLY rather than in plan-normal, because on an
+            // arc "across the wall" IS the radius. One conversion
+            // (`WallRake.rakedPlanThickness`), no local trigonometry. Identity at 90°, so
+            // a vertical curved layered wall is byte-identical.
+            const _curvedRake = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
             const totalThickness = wall.layers.reduce((s: number, l: any) => s + l.thickness, 0);
-            let cursor = -totalThickness / 2;
+            let cursor = -rakedPlanThickness(totalThickness, _curvedRake) / 2;
 
             wall.layers.forEach((layer: any, layerIdx: number) => {
-                const layerCenter = cursor + layer.thickness / 2;
-                cursor += layer.thickness;
+                const _bandRadial = rakedPlanThickness(layer.thickness, _curvedRake);
+                const layerCenter = cursor + _bandRadial / 2;
+                cursor += _bandRadial;
 
-                const halfT = layer.thickness / 2;
+                const halfT = _bandRadial / 2;
                 const geom = buildCurvedLayerGeometry(
                     layer,
                     layerCenter,
@@ -2264,7 +2158,8 @@ export class WallFragmentBuilder {
                     layeredCurvedStartMN,
                     layeredCurvedEndMN,
                     _layeredStartCapTan,
-                    _layeredEndCapTan
+                    _layeredEndCapTan,
+                    { angleDeg: _curvedRake, datumY: wallBaseOffset },
                 );
 
                 // §L934-ONE-WALL-ONE-COLOUR — the curved-layered twin of the straight
@@ -3345,21 +3240,29 @@ export class WallFragmentBuilder {
             colour: string | undefined;
             index: number;
         };
+        // §FEAT-RAKE-CURVED — the same PERPENDICULAR → RADIAL conversion the uncarved
+        // layered curved arm applies, through the same single `rakedPlanThickness`.
+        // Identity at 90°, so a vertical curved wall with an opening is byte-identical.
+        const _cvOpenRake = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
         const layerPlans: LayerPlan[] = [];
         if (wall.layers && wall.layers.length > 0) {
             const totalThickness = wall.layers.reduce((s: number, l) => s + l.thickness, 0);
-            let cursor = -totalThickness / 2;
+            let cursor = -rakedPlanThickness(totalThickness, _cvOpenRake) / 2;
             wall.layers.forEach((layer, i) => {
+                const _bandRadial = rakedPlanThickness(layer.thickness, _cvOpenRake);
                 layerPlans.push({
                     layer,
-                    centreOffset: cursor + layer.thickness / 2,
-                    halfT: layer.thickness / 2,
+                    centreOffset: cursor + _bandRadial / 2,
+                    halfT: _bandRadial / 2,
                     colour: layer.materialColor ?? wall.materialColor,
                     index: i,
                 });
-                cursor += layer.thickness;
+                cursor += _bandRadial;
             });
         } else {
+            // A PLAIN wall's `thickness` is already a plan/radial quantity — never
+            // rescaled, exactly as `WallPipelineV2.effectivePlanThickness` states for the
+            // straight case. Only a LAYERED stack is a sum of perpendicular terms.
             layerPlans.push({
                 layer: null,
                 centreOffset: 0,
@@ -3396,6 +3299,13 @@ export class WallFragmentBuilder {
                     bandEndMN,
                     bandStartTan,
                     bandEndTan,
+                    // §FEAT-RAKE-CURVED — THE DATUM IS THE WALL'S, NOT THE BAND'S, and this
+                    // is the one call site where the distinction bites. A band spanning
+                    // [yLo, yHi] must START already displaced by `k·yLo`; measuring from the
+                    // band's own base would restart the lean at every sill and head, and a
+                    // curved raked wall with a window would render as a stack of disjoint
+                    // rings instead of one leaning wall.
+                    { angleDeg: _cvOpenRake, datumY: wallBaseOffset },
                 );
 
                 const mat = baseMaterial.clone() as THREE.MeshStandardMaterial;

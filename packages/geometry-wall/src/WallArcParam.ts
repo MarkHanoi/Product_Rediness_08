@@ -191,6 +191,52 @@ export function wallCentreline(wall: ArcHostWall): WallCentreline {
 }
 
 /**
+ * §FEAT-RAKE-CURVED — the TIGHTEST turn radius anywhere on the wall's centreline, in
+ * metres, or `Infinity` for a straight wall (and for an arc that never actually turns).
+ *
+ * WHY THIS EXISTS: a raked curved wall is a CONE — the top edge is the base arc pushed
+ * radially by `h · cot θ`. Push it inward far enough and the top arc collapses through
+ * the centre of curvature and re-emerges INVERTED: a solid that self-intersects and whose
+ * top ring winds the wrong way. The threshold is exactly the local radius, so the gate
+ * that refuses it needs this number and needs it BEFORE any geometry is built.
+ *
+ * HOW: the turn angle between consecutive centreline chords divided by the chord length
+ * is the discrete curvature; its reciprocal is the radius. Sampled on the SAME polyline
+ * `wallCentreline` already produces — and therefore the same one `computeStations`
+ * tessellates — so the number describes the arc the builder will actually draw rather
+ * than an idealised one. Under-tessellation makes this OPTIMISTIC (a coarse polyline
+ * turns in fewer, larger steps), which is the safe direction for a refusal: it can only
+ * fail to refuse, never refuse a wall that would have built correctly.
+ *
+ * Returns `Infinity` rather than 0 or NaN for a degenerate or straight input — "no turn"
+ * is an infinite radius, and a caller comparing `shift >= radius` then correctly never
+ * refuses a straight wall.
+ */
+export function arcMinTurnRadius(wall: ArcHostWall): number {
+    const { pts } = wallCentreline(wall);
+    const n = pts.length;
+    if (n < 3) return Infinity;
+
+    let minR = Infinity;
+    for (let i = 1; i < n - 1; i++) {
+        const p0 = pts[i - 1]!, p1 = pts[i]!, p2 = pts[i + 1]!;
+        const ax = p1.x - p0.x, az = p1.z - p0.z;
+        const bx = p2.x - p1.x, bz = p2.z - p1.z;
+        const la = Math.hypot(ax, az), lb = Math.hypot(bx, bz);
+        if (!(la > ARC_EPSILON_M) || !(lb > ARC_EPSILON_M)) continue;
+        // Signed turn angle between the two chords, via cross/dot — stable near 0 and π
+        // where a bare acos(dot) loses all its precision.
+        const cross = (ax * bz - az * bx) / (la * lb);
+        const dot = (ax * bx + az * bz) / (la * lb);
+        const turn = Math.abs(Math.atan2(cross, dot));
+        if (!(turn > 1e-12)) continue;                 // this stretch is straight
+        const r = ((la + lb) / 2) / turn;
+        if (r < minR) minR = r;
+    }
+    return minR;
+}
+
+/**
  * Total length of the wall centreline in metres — the arc length for a curved
  * wall, the chord length for a straight one.
  *

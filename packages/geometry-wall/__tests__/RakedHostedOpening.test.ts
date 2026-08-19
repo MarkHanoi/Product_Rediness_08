@@ -146,15 +146,30 @@ describe('§RAKE-HOSTED-OPENING (1) — the authorability gate admits the case i
         expect(a.code).toBeUndefined();
     });
 
-    it('the CURVED refusal still fires — a single shear vector cannot follow an arc', () => {
+    // §FEAT-RAKE-CURVED (founder mandate 2026-08-19) — BOTH of these asserted the curved
+    // refusal and both are inverted. The old justification, "a single shear vector cannot
+    // follow an arc", is still TRUE and is exactly why a raked curved wall is NOT built
+    // from a single shear vector: it is a cone, each station displaced along its own
+    // normal. Measured in `RK1CurvedRakedConicalSweep.test.ts`.
+    it('a CURVED wall may hold a rake — the conical sweep is built', () => {
         const a = rakeAuthorability({ rakeAngleDeg: RAKE_DEG, curve: { radius: 4 } });
-        expect(a.ok).toBe(false);
-        expect(a.code).toBe('curved');
+        expect(a.ok).toBe(true);
+        expect(a.code).toBeUndefined();
     });
 
-    it('a curved wall that ALSO hosts openings still refuses AS curved', () => {
+    it('a curved wall that ALSO hosts openings is allowed — the founder asked for this one', () => {
         const a = rakeAuthorability({ rakeAngleDeg: RAKE_DEG, curve: { radius: 4 }, openings: [{}] });
-        expect(a.code).toBe('curved');
+        expect(a.ok).toBe(true);
+    });
+
+    it('but a curved rake that would COLLAPSE the top arc is refused, with both numbers', () => {
+        const a = rakeAuthorability({
+            rakeAngleDeg: 20, curve: { radius: 4 }, height: 3, curveMinRadiusM: 0.5,
+        });
+        expect(a.ok).toBe(false);
+        expect(a.code).toBe('curved-collapse');
+        expect(a.reason).toContain('8.242');
+        expect(a.reason).toContain('0.500');
     });
 
     /**
@@ -174,28 +189,26 @@ describe('§RAKE-HOSTED-OPENING (1) — the authorability gate admits the case i
      * R-9 forbids is worse than no test: the obvious way to make it pass is to re-add the
      * refusal, which is the one thing that must not happen.
      *
-     * So it now asserts the CURRENT rule, both halves, and names R-9 in the half that
-     * must stay open.
+     * ⚠ AND IT HAS NOW MOVED AGAIN, ONE DAY LATER — L-1064 / §FEAT-RAKE-LAYERED-OPENINGS.
+     * The surviving `layers × openings` arm was itself lifted: its stated reason ("no
+     * shear") was measured false once that path was given one, and the arm was ALSO off by
+     * one — it tested `layers.length > 1` while the body path it guarded is entered on
+     * `> 0`, so the ONE-layer case, which is the founder's own wall, leaked through
+     * unsheared the whole time. Removing the boundary rather than moving it is the only
+     * fix that cannot be off by one again.
+     *
+     * THE POINT THIS TEST NOW EXISTS TO MAKE is the one that keeps surviving every
+     * inversion: **the whole family must agree**, because they are one body path.
      */
-    it('the LAYERED refusal fires for layers × openings — and NOT for layers alone (R-9)', () => {
-        // The arm that survives: a multi-layer wall that ALSO hosts an opening is built by
-        // a path with no shear, so a rake on it would render vertical while the store held
-        // 80. Measured, not assumed — see `RK1RakedCombinationMatrix.measure.test.ts`.
-        const withOpenings = rakeAuthorability({
-            rakeAngleDeg: RAKE_DEG, layers: [{}, {}], openings: [{ id: 'o1' }],
-        });
-        expect(withOpenings.ok).toBe(false);
-        expect(withOpenings.code).toBe('layered');
-
-        // The half R-9 protects: layered + raked, with NO openings, is SHIPPED and must
-        // stay authorable. Re-adding a refusal here withdraws a founder-confirmed feature.
-        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}, {}] }).ok,
-            'C85 §12 R-9 — layered-raked must NOT be re-refused').toBe(true);
-        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}, {}] }).code).toBeUndefined();
-
-        // And a SINGLE-layer wall hosting an opening is not the layered case at all.
-        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}], openings: [{ id: 'o1' }] }).ok)
-            .toBe(true);
+    it('every layer count × openings combination is admitted — they are ONE body path (R-9)', () => {
+        for (const layers of [undefined, [{}], [{}, {}], [{}, {}, {}]]) {
+            for (const openings of [undefined, [], [{ id: 'o1' }]]) {
+                const a = rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers, openings } as never);
+                expect(a.ok, `layers=${layers?.length ?? 'none'} openings=${openings?.length ?? 'none'}`)
+                    .toBe(true);
+                expect(a.code).toBeUndefined();
+            }
+        }
     });
 
     it('the OUT-OF-RANGE refusal still fires', () => {
@@ -237,7 +250,12 @@ describe('§RAKE-HOSTED-OPENING (2) — the placement path a user actually trave
         expect(parsed.success, JSON.stringify((parsed as { error?: { issues?: unknown } }).error?.issues)).toBe(true);
     });
 
-    it('WallStore.update() may still not rake a CURVED wall (the guard survives)', () => {
+    // §FEAT-RAKE-CURVED (founder mandate 2026-08-19) — INVERTED. This asserted that
+    // `WallStore.update()` THROWS when raking a curved wall, "the guard survives". The
+    // guard is gone because the geometry is built: the conical sweep. What the store must
+    // now do is ACCEPT the edit and persist it, because a store that refuses what the
+    // builder can draw makes the feature unreachable — the §AUTHORED-BUT-UNWIRED shape.
+    it('WallStore.update() ACCEPTS a rake on a CURVED wall, and persists it', () => {
         const store = new WallStore(
             new ProjectContext(),
             makeLevelProvider() as unknown as ConstructorParameters<typeof WallStore>[1],
@@ -247,7 +265,11 @@ describe('§RAKE-HOSTED-OPENING (2) — the placement path a user actually trave
             curve: { control: { x: 3, y: 0, z: 1.2 }, segments: 12 },
         } as unknown as WallData;
         store.add(curved);
-        expect(() => store.update('w-1', { rakeAngleDeg: RAKE_DEG } as never)).toThrow();
+        expect(() => store.update('w-1', { rakeAngleDeg: RAKE_DEG } as never)).not.toThrow();
+        // "Did not throw" is not "took effect" — read it back. A store that silently
+        // dropped the field would pass the line above and ship a dead control.
+        expect((store.getById('w-1') as unknown as { rakeAngleDeg?: number })?.rakeAngleDeg)
+            .toBe(RAKE_DEG);
     });
 });
 

@@ -362,12 +362,31 @@ export interface RakeSubject {
     readonly curve?: unknown;
     readonly layers?: ReadonlyArray<unknown>;
     readonly openings?: ReadonlyArray<unknown>;
+    /**
+     * §FEAT-RAKE-CURVED — the two facts the CURVED-COLLAPSE arm needs, and the reason
+     * they are OPTIONAL rather than required.
+     *
+     * A raked curved wall's top edge is the base arc pushed radially by `h · cot θ`.
+     * Push it inward past the centre of curvature and the top arc inverts. Judging that
+     * needs the wall's HEIGHT and its tightest TURN RADIUS, and most callers of this gate
+     * hold neither — the property panel asks "may this wall be raked?" about a wall it has
+     * only a type for, and the chat capability asks before it has resolved geometry.
+     *
+     * ⚠ ABSENT MEANS UNJUDGEABLE, NOT SAFE. When either is missing the collapse arm does
+     * not run and the wall proceeds — the §CONTEXT-DATA-HONESTY shape C85 R-1 calls
+     * exemplary (*"unjudgeable ≠ failure"*). The consequence is stated rather than hidden:
+     * a caller that omits them gets NO collapse protection, so the authoritative call —
+     * the one at the store write boundary — MUST supply both.
+     */
+    readonly height?: number;
+    /** Tightest centreline turn radius, m. `WallArcParam.arcMinTurnRadius` computes it. */
+    readonly curveMinRadiusM?: number;
 }
 
 export interface RakeAuthorability {
     readonly ok: boolean;
     /** Machine-readable reason. `undefined` when `ok`. */
-    readonly code?: 'out-of-range' | 'curved' | 'layered' | 'hosted-openings';
+    readonly code?: 'out-of-range' | 'curved' | 'layered' | 'hosted-openings' | 'curved-collapse';
     /** Human-readable reason, suitable for a store error or a disabled-control tooltip. */
     readonly reason?: string;
 }
@@ -396,31 +415,84 @@ export function rakeAuthorability(subject: RakeSubject): RakeAuthorability {
                 `(90 = vertical); received ${deg}.`,
         };
     }
+    // ── §FEAT-RAKE-CURVED (founder mandate 2026-08-19) ───────────────────────────
+    //
+    // ⚠ THE BLANKET `curved` REFUSAL THAT STOOD HERE IS LIFTED, AND ITS TEXT IS KEPT SO
+    //   THE RETRACTION IS LEGIBLE (C84 §6). It read:
+    //
+    //     "wall.rakeAngleDeg is not supported on a CURVED wall: the shear direction is
+    //      the wall's plan normal, which varies along an arc, so a single shear vector
+    //      would produce a wall that is only correct at one station."
+    //
+    //   EVERY CLAUSE OF THAT WAS TRUE, AND THE CONCLUSION WAS THE WRONG ONE. A single
+    //   shear vector is indeed only correct at one station — so a raked curved wall is
+    //   not built from one. It is a CONE: each station's top edge moves along ITS OWN
+    //   normal by `h · cot θ`, so the batter is constant along the run and the top edge is
+    //   a CONCENTRIC arc at `R ± h·cot θ`. The rule is the straight rule evaluated per
+    //   station, it degenerates to the straight rule as `R → ∞`, and it is implemented in
+    //   ONE place (`CurvedWallLayerBuilder.buildCurvedLayerGeometry`), consumed by all
+    //   three curved arms. See `RK1CurvedRakedConicalSweep.test.ts` for the measurement.
+    //
+    //   ⛔ DO NOT RESTORE THE BLANKET REFUSAL. The founder asked for curved raked walls
+    //      and curved layered raked walls by name.
+    //
+    // WHAT SURVIVES IS NARROWER AND GEOMETRIC: a cone whose top ring is pushed INWARD
+    // further than the radius collapses through the centre of curvature and re-emerges
+    // inverted. That is not a wall, and unlike the old arm it is a fact about THIS wall's
+    // numbers rather than about arcs in general — so the refusal names both of them, per
+    // the founder's standing direction that a refusal gives the figures and never a bare
+    // "invalid". It is the curved analogue of `producers/wall.ts`'s degenerate-baseline
+    // refusal.
     if (subject.curve !== undefined && subject.curve !== null) {
-        return {
-            ok: false,
-            code: 'curved',
-            reason:
-                'wall.rakeAngleDeg is not supported on a CURVED wall: the shear direction is the ' +
-                "wall's plan normal, which varies along an arc, so a single shear vector would " +
-                'produce a wall that is only correct at one station. Straighten the wall or leave ' +
-                'the rake at 90.',
-        };
+        const h = subject.height;
+        const rMin = subject.curveMinRadiusM;
+        if (typeof h === 'number' && Number.isFinite(h) && h > 0
+            && typeof rMin === 'number' && Number.isFinite(rMin) && rMin > 0) {
+            const shift = Math.abs(rakeShearPerMetre(deg)) * h;
+            if (shift >= rMin) {
+                return {
+                    ok: false,
+                    code: 'curved-collapse',
+                    reason:
+                        `wall.rakeAngleDeg ${deg} on this CURVED wall would push its top edge ` +
+                        `${shift.toFixed(3)} m radially, which is not less than the wall's tightest ` +
+                        `turn radius of ${rMin.toFixed(3)} m — the top arc would collapse through ` +
+                        `the centre of curvature and re-emerge inverted, so the wall would ` +
+                        `self-intersect. Reduce the lean (a rake nearer 90 shortens the shift), ` +
+                        `lower the wall, or open out the curve.`,
+                };
+            }
+        }
+        // Height or radius unknown ⇒ UNJUDGEABLE, and unjudgeable is not failure. Fall
+        // through; see `RakeSubject.height` for why this is deliberate and what it costs.
     }
-    if (subject.layers !== undefined && subject.layers !== null && subject.layers.length > 1
-        && subject.openings !== undefined && subject.openings !== null && subject.openings.length > 0) {
-        return {
-            ok: false,
-            code: 'layered',
-            reason:
-                'wall.rakeAngleDeg is not supported on a LAYERED wall that HOSTS OPENINGS: the raked ' +
-                'layer bands are built by slicing the sheared V2 footprint (t / sin θ per layer), but a ' +
-                'layered wall with an opening is built by a different path — per-layer boxes around the ' +
-                'void — which has no shear, so the wall would render VERTICAL while the model said 80. ' +
-                'A rake on a layered wall with NO openings is supported. Remove the openings, use a ' +
-                'single-layer wall type, or leave the rake at 90.',
-        };
-    }
+    // ── §FEAT-RAKE-LAYERED-OPENINGS / L-1064 — THE `layered` ARM IS LIFTED ───────
+    //
+    // ⚠ ITS TEXT IS KEPT SO THE RETRACTION IS LEGIBLE (C84 §6). It read:
+    //
+    //     "…a layered wall with an opening is built by a different path — per-layer boxes
+    //      around the void — which has no shear, so the wall would render VERTICAL while
+    //      the model said 80."
+    //
+    //   That was MEASURED TRUE when written (`layered3+window @80` built with lean 0.000
+    //   against an expected 0.528981) and is MEASURED FALSE now: §FEAT-RAKE-LAYERED-
+    //   OPENINGS gave that path its `t / sin θ` bands, its shear and its share of the
+    //   §L955-ONE-CORNER-RULE residual. Keeping a refusal whose stated mechanism no longer
+    //   exists is how folklore is made.
+    //
+    // ⛔ AND THE ARM HAD AN OFF-BY-ONE THAT MADE IT WORSE THAN USELESS — L-1064. It tested
+    //    `layers.length > 1`; the body path it guarded is entered on `layers.length > 0`.
+    //    A ONE-LAYER wall hosting an opening therefore went straight through, and that is
+    //    the founder's own wall: `CreateWallCommand` stamps `layers` from the
+    //    WallSystemType and a 1-layer "Plain Wall" is what L-960 was reported on. So the
+    //    arm refused the three-layer case while admitting the one-layer case, for geometry
+    //    that is identical — one question, two answers, C84 EI-9. Lifting it closes the
+    //    off-by-one by removing the boundary rather than by moving it, which is the only
+    //    fix that cannot be off by one again.
+    //
+    // The `code` literal 'layered' survives in the union above on purpose: it is in
+    // persisted telemetry and in ADR-0310/0312 prose, and deleting it would make old
+    // records unparseable while gaining nothing. No arm produces it any more.
     // §RAKE-HOSTED-OPENING (founder 2026-08-18) — the `hosted-openings` arm that
     // stood here is REMOVED. A raked wall may now host doors and windows: the carve
     // and the leaf both ride the wall's own shear. The decision that made it

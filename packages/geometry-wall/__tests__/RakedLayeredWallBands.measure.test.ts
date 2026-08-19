@@ -320,27 +320,55 @@ describe('§FEAT-RAKE-LAYERED — CONTROL B: the existing paths are not regresse
     });
 });
 
-// ─── CONTROL C — the refusals that must survive ───────────────────────────────────────
+// ─── CONTROL C — what is still refused, and what stopped being refused ────────────────
+//
+// ⚠ THIS BLOCK WAS CALLED "the refusals that must survive". NEITHER OF THE TWO SURVIVED,
+//   and both are rewritten here rather than deleted (C84 §6) because the REASONS they gave
+//   are the interesting part — each was true, checkable, and later falsified by building
+//   the thing it said was missing. That is the healthy outcome for a refusal; the failure
+//   mode this file guards against is a refusal whose reason nobody re-checks.
 
 describe('§FEAT-RAKE-LAYERED — CONTROL C: what is still refused', () => {
 
-    it('rake × CURVED is still refused — ill-posed, not merely unbuilt', () => {
+    it('rake × CURVED is ALLOWED — "ill-posed, not merely unbuilt" was the wrong call', () => {
+        // ⚠ This test asserted the opposite and justified it as *"ill-posed, not merely
+        //   unbuilt"*. The ill-posedness was in the ASSUMED SOLUTION — one shear vector,
+        //   which is indeed only right at one station — and not in the question.
+        //   §FEAT-RAKE-CURVED (founder mandate 2026-08-19) builds it as a CONE: each
+        //   station's top edge displaced along its OWN normal by `h·cot θ`, constant
+        //   batter, concentric top arc, degenerating to the straight rule as R → ∞.
         const a = rakeAuthorability({ rakeAngleDeg: RAKE, curve: { control: { x: 1, y: 0, z: 1 } } });
-        expect(a.ok).toBe(false);
-        expect(a.code).toBe('curved');
-        // …including a curved LAYERED wall, which must not be let through by the narrowing.
-        const b = rakeAuthorability({ rakeAngleDeg: RAKE, curve: {}, layers: [{}, {}] });
-        expect(b.ok).toBe(false);
-        expect(b.code).toBe('curved');
+        expect(a.ok).toBe(true);
+        // …including a curved LAYERED wall, which the founder asked for by name. Its bands
+        // are concentric frusta, laid out radially at `t / sin θ` by the same
+        // `rakedPlanThickness` the straight arms use.
+        expect(rakeAuthorability({ rakeAngleDeg: RAKE, curve: {}, layers: [{}, {}] }).ok).toBe(true);
     });
 
-    it('rake × LAYERED × OPENINGS is refused — that builder has no shear', () => {
+    it('rake × LAYERED × OPENINGS is ALLOWED — that builder now HAS a shear', () => {
+        // ⚠ Asserted the opposite, on the ground that "that builder has no shear". Measured
+        //   true at the time (lean 0.000 against an expected 0.528981) and measured false
+        //   now: §FEAT-RAKE-LAYERED-OPENINGS gave it `t / sin θ` bands, the shear, and its
+        //   share of the §L955-ONE-CORNER-RULE residual. The arm also had an off-by-one
+        //   (L-1064) that let the ONE-layer case through unsheared all along.
         const a = rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}, {}], openings: [{ id: 'o' }] });
+        expect(a.ok).toBe(true);
+        expect(a.code).toBeUndefined();
+        // The one-layer twin, asserted beside it so the two can never disagree again.
+        expect(rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}], openings: [{ id: 'o' }] }).ok).toBe(true);
+    });
+
+    it('the CURVED-COLLAPSE arm is what replaced the blanket curved refusal', () => {
+        // Non-vacuity for the two inversions above: lifting them did not leave the gate
+        // with nothing to say about a curved rake. A top ring pushed inward past its own
+        // centre of curvature inverts, and that IS refused — naming both numbers.
+        const a = rakeAuthorability({
+            rakeAngleDeg: 20, curve: { control: { x: 1, y: 0, z: 1 } },
+            height: 3, curveMinRadiusM: 0.5,
+        });
         expect(a.ok).toBe(false);
-        expect(a.code).toBe('layered');
-        // The refusal has to say which combination, or a user cannot act on it.
-        expect(a.reason).toContain('HOSTS OPENINGS');
-        expect(a.reason).toContain('NO openings is supported');
+        expect(a.code).toBe('curved-collapse');
+        expect(a.reason).toContain('0.500');
     });
 
     it('rake × LAYERED with NO openings is ALLOWED — the feature is actually reachable', () => {

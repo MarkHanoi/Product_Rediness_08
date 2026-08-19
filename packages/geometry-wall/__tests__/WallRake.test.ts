@@ -268,10 +268,53 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         // ↑ the critical one: adding this field must never reject an existing wall.
     });
 
-    it('REFUSES rake × curve — the shear direction varies along an arc', () => {
+    // §FEAT-RAKE-CURVED (founder mandate 2026-08-19) — THIS TEST INVERTED, DELIBERATELY,
+    // and it is the third arm of this gate to invert the same way. It used to read
+    // "REFUSES rake × curve — the shear direction varies along an arc", and that premise
+    // is still TRUE: a single shear vector IS only right at one station. What changed is
+    // the conclusion drawn from it. A raked curved wall is not built from a single shear
+    // vector — it is a CONE, each station's top edge displaced along ITS OWN normal by
+    // `h·cot θ`, so the batter is constant and the top edge is a concentric arc. The rule
+    // degenerates to the straight rule as R → ∞ and lives in ONE place
+    // (`CurvedWallLayerBuilder`). Measured in `RK1CurvedRakedConicalSweep.test.ts`.
+    it('ALLOWS rake × curve — the conical sweep is now built', () => {
         const a = rakeAuthorability({ rakeAngleDeg: 80, curve: { control: { x: 0, y: 0, z: 0 }, segments: 16 } });
+        expect(a.ok).toBe(true);
+        expect(a.code).toBeUndefined();
+    });
+
+    // What replaced it: a refusal about THIS WALL'S NUMBERS rather than about arcs in
+    // general. Push the top ring inward further than the turn radius and it collapses
+    // through the centre of curvature and re-emerges inverted.
+    it('REFUSES a curved rake that would COLLAPSE the top arc — naming both numbers', () => {
+        const a = rakeAuthorability({
+            rakeAngleDeg: 20, curve: { control: { x: 0, y: 0, z: 0 }, segments: 16 },
+            height: 3, curveMinRadiusM: 0.5,
+        });
         expect(a.ok).toBe(false);
-        expect(a.code).toBe('curved');
+        expect(a.code).toBe('curved-collapse');
+        // The founder's standing direction on refusals: give BOTH figures, never a bare
+        // "invalid". 3·cot(20°) ≈ 8.242 m of shift against a 0.500 m radius.
+        expect(a.reason).toContain('8.242');
+        expect(a.reason).toContain('0.500');
+    });
+
+    it('a curved rake that FITS inside the radius is allowed — the collapse arm is not a blanket', () => {
+        // Non-vacuity for the test above. Same wall, same radius, a shallower lean.
+        const a = rakeAuthorability({
+            rakeAngleDeg: 85, curve: { control: { x: 0, y: 0, z: 0 }, segments: 16 },
+            height: 3, curveMinRadiusM: 5,
+        });
+        expect(a.ok).toBe(true);
+    });
+
+    it('UNJUDGEABLE IS NOT FAILURE — no height or radius ⇒ the collapse arm does not run', () => {
+        // §CONTEXT-DATA-HONESTY, the shape C85 R-1 calls exemplary. Most callers of this
+        // gate hold neither number; refusing them would be refusing on a fact nobody
+        // measured. The cost — those callers get no collapse protection — is declared on
+        // `RakeSubject.height` rather than hidden.
+        expect(rakeAuthorability({ rakeAngleDeg: 20, curve: { control: { x: 0, y: 0, z: 0 }, segments: 16 } }).ok)
+            .toBe(true);
     });
 
     // §FEAT-RAKE-LAYERED (founder 2026-08-18) — THIS TEST INVERTED, DELIBERATELY.
@@ -297,11 +340,30 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
     // wall that HOSTS AN OPENING is built by `buildLayeredWallSegmentsAroundOpenings`
     // (per-layer boxes around the void), which has no shear at all; letting the rake
     // through would render that wall VERTICAL while the store held 80.
-    it('REFUSES rake × layered × openings — the opening-segment path has no shear', () => {
+    // §FEAT-RAKE-LAYERED-OPENINGS / L-1064 (2026-08-19) — THIS TEST INVERTED TOO, and the
+    // block comment above it is retained because its history is the point: two lanes met
+    // here, each deleted the other's refusal as stale, and the INTERSECTION survived. That
+    // intersection has now been built, so it survives no longer.
+    //
+    // Its premise — "per-layer boxes around the void, which has no shear at all" — was
+    // MEASURED TRUE (`layered3+window @80` built with lean 0.000 against 0.528981) and is
+    // MEASURED FALSE now. The path has `t / sin θ` bands, the shear, and its share of the
+    // §L955-ONE-CORNER-RULE residual.
+    //
+    // ⛔ AND THE ARM WAS OFF BY ONE — L-1064. It tested `layers.length > 1`; the body path
+    //    it guarded is entered on `> 0`. A ONE-layer wall with an opening went straight
+    //    through it, unsheared, and that is the founder's own wall. The fix removes the
+    //    boundary rather than moving it — the only fix that cannot be off by one again.
+    it('ALLOWS rake × layered × openings — the opening-segment path now shears', () => {
         const a = rakeAuthorability({ rakeAngleDeg: 80, layers: [{}, {}], openings: [{ id: 'o1' }] });
-        expect(a.ok).toBe(false);
-        expect(a.code).toBe('layered');
-        expect(a.reason).toContain('HOSTS OPENINGS');
+        expect(a.ok).toBe(true);
+        expect(a.code).toBeUndefined();
+    });
+
+    it('L-1064 — and the ONE-layer case it used to leak is admitted for the SAME reason', () => {
+        // Not a new permission: this always passed the gate. It is asserted beside its
+        // three-layer twin so the two can never again disagree about identical geometry.
+        expect(rakeAuthorability({ rakeAngleDeg: 80, layers: [{}], openings: [{ id: 'o1' }] }).ok).toBe(true);
     });
 
     it('ALLOWS rake × hosted openings — §RAKE-HOSTED-OPENING (founder 2026-08-18)', () => {
@@ -318,29 +380,50 @@ describe('§WALL-RAKE — range and refusals (C65 §3.9: no affordance without a
         expect(a.code).toBeUndefined();
     });
 
-    it('a CURVED host still refuses even when it hosts openings — the arm that stayed', () => {
-        // Non-vacuity for the change above: removing one arm must not have removed
-        // the guard. A single shear vector cannot be right along an arc, so that
-        // refusal is ill-posedness rather than missing work and is permanent.
-        expect(rakeAuthorability({ rakeAngleDeg: 80, curve: {}, openings: [{ id: 'o1' }] }).code)
-            .toBe('curved');
+    it('a CURVED host hosting openings is ALLOWED — and the "permanent" call was wrong', () => {
+        // ⚠ THIS TEST'S OWN COMMENT CLAIMED THIS REFUSAL WAS PERMANENT: "that refusal is
+        //   ill-posedness rather than missing work and is permanent." It was neither. The
+        //   ill-posedness was in the ASSUMED SOLUTION (one shear vector), not in the
+        //   question, and the work was simply unbuilt — §FEAT-RAKE-CURVED built it as a
+        //   cone. Recorded rather than deleted, because "permanent" is a strong claim that
+        //   turned out to rest on an unexamined premise, and that is worth remembering the
+        //   next time an arm is called permanent.
+        expect(rakeAuthorability({ rakeAngleDeg: 80, curve: {}, openings: [{ id: 'o1' }] }).ok).toBe(true);
     });
 
     it('every refusal carries a reason a UI can show — never a bare false', () => {
-        // §RAKE-HOSTED-OPENING — `{ openings: [{}] }` left this list when the
-        // hosted-openings arm was removed; it is no longer a refusal at all.
+        // ── THE SHRINKING LIST, and what is left of it ───────────────────────────
+        // This census has lost an entry every time a combination was BUILT rather than
+        // argued about, and the sequence is worth keeping visible:
+        //   · `{ openings }`                    left by §RAKE-HOSTED-OPENING
+        //   · `{ layers }`                      left by §FEAT-RAKE-LAYERED
+        //   · `{ layers, openings }`            left by §FEAT-RAKE-LAYERED-OPENINGS (L-1064)
+        //   · `{ curve }`                       left by §FEAT-RAKE-CURVED
+        // TWO refusals remain, and neither is "unbuilt" — both are facts about NUMBERS
+        // that no implementation can make true: an angle outside the admissible band, and
+        // a curved lean deeper than the wall's own turn radius.
         for (const s of [
             { rakeAngleDeg: 400 },
-            { rakeAngleDeg: 80, curve: {} },
-            // Both single-factor subjects LEFT this list, each removed by the lane that
-            // built it: `{layers}` by §FEAT-RAKE-LAYERED, `{openings}` by §RAKE-HOSTED-
-            // OPENING. Only their intersection is still unbuilt, so only it belongs here.
-            { rakeAngleDeg: 80, layers: [{}, {}], openings: [{}] },
+            { rakeAngleDeg: 20, curve: {}, height: 3, curveMinRadiusM: 0.5 },
         ]) {
-            const a = rakeAuthorability(s);
+            const a = rakeAuthorability(s as never);
             expect(a.ok).toBe(false);
             expect(typeof a.reason).toBe('string');
             expect(a.reason!.length).toBeGreaterThan(20);
+        }
+    });
+
+    it('the census is NON-VACUOUS — the combinations that left the list are really allowed', () => {
+        // Without this, the shrinking list above could reach zero entries and still pass.
+        // Every subject here was once IN that census.
+        for (const s of [
+            { rakeAngleDeg: 80, openings: [{}] },
+            { rakeAngleDeg: 80, layers: [{}, {}] },
+            { rakeAngleDeg: 80, layers: [{}, {}], openings: [{}] },
+            { rakeAngleDeg: 80, curve: {} },
+            { rakeAngleDeg: 80, curve: {}, layers: [{}, {}], openings: [{}] },
+        ]) {
+            expect(rakeAuthorability(s as never).ok, JSON.stringify(s)).toBe(true);
         }
     });
 });
