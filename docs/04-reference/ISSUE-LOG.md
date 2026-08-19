@@ -16793,3 +16793,196 @@ building."* ⭐ Two of the measurements above **changed the design** (Finding 2 
 works" into a gasket mechanism; row 10 turned a field addition into a three-edit persistence
 contract), and one (row 3) **stopped a wrong-curve reuse**. Building first would have shipped all
 three.
+
+---
+
+## L-1201 — "change all windows in level 2 to 1.5 meters wide" DID NOT MEAN THAT. **ONE PREPOSITION** SEPARATED THE FOUNDER FROM THE LEVEL ARM — AND THE LEVEL ARM WAS **UNSATISFIABLE** ANYWAY ✅ FIXED 2026-08-19 (lane NL1)
+
+**Reported by the founder, two sentences, one root:**
+1. *"make sure this is accepted: **change all windows in level 2 to 1.5 meters wide**"*
+2. *"Make sure this works: **Make windows every 2 meters in level 2**"*
+
+Both were unreachable. Neither capability was missing — **both shipped, and neither could be
+spoken to.**
+
+### 1 — The parse: `in` meant ROOM, and only `on` could reach a LEVEL
+
+`parseDimensionScopedIntent` (`packages/ai-host/src/intents/DimensionFamilies.ts`) compiled this
+tail, and so did `parseDeleteScopedIntent` next door:
+
+```
+(?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in (?:the )?([\w .-]+?))?
+```
+
+**Group 2 = level, group 3 = room. The LEVEL arm existed only behind the preposition `on`.** English
+makes no such distinction — *"on level 2"* and *"in level 2"* are the same sentence, and *"in the
+kitchen"* and *"on the second floor"* are both natural. Keying the scope KIND on the preposition
+encoded a rule the language does not have.
+
+Measured on the REAL ladder (`resolveCompoundUtterance` → `resolveUtterance` →
+`resolveNaturalLanguage`), 2026-08-19, before the fix:
+
+```
+"change all windows in level 2 to 1.5 meters wide"
+  → { intent:'set-window-dimensions', dims:{width:1.5}, scope:{kind:'room', roomRef:'level'} }
+```
+
+**A room called "level".**
+
+### ⭐ THE ROOM-RESOLUTION READING — the measurement that decides how bad this is
+
+`ZeroTokenChatBridge.makeScopeResolver`'s room arm, given `roomRef: 'level'`:
+- `matchRoomsByNumber('level', …)` → no match (three number tiers, none of which "level" satisfies);
+- → **`RoomStore.findByName('level')` — a CASE-INSENSITIVE SUBSTRING match, and the NAME path has
+  NO AMBIGUITY GUARD.** The guard that refuses with candidates exists only on the NUMBER path
+  (§FEAT-CHAT-ROOM-OCCUPANCY), because the founder's own screenshot had two rooms sharing a name.
+  On the name path **every substring hit contributes**, silently;
+- → else `findByOccupancy(['level'])` — no such occupancy type.
+
+**So the verdict is CONDITIONAL, and both branches are real:**
+- **Auto-named projects** (`Room 00-001`, the `assignUniqueRoomNumbers` minting pattern) contain no
+  room whose name holds "level" ⇒ **a refusal with the wrong reason** — *"I can't find a room
+  'level'. The rooms here are: …"*. Wrong, but SAFE — and safe **by luck rather than by design**.
+- **Any project with a user-authored or imported room name containing the substring "level"**
+  (*"Level 2 Lobby"*, *"Split Level Living"*) ⇒ **a SILENT WRONG-SCOPE MASS EDIT THAT REPORTS
+  SUCCESS**, across **every** matching room at once. That is strictly worse than a refusal, and it
+  is a `destructive: true` capability.
+
+### ⭐ AND IT WAS WORSE THAN A WRONG SCOPE — IT CARRIED A WRONG NUMBER
+
+The place capture is LAZY, so it stops at the shortest string that lets the tail match and the rest
+of the phrase **leaks into the value**. Measured:
+
+```
+"set all windows in level 2 width to 1.5m"
+  → roomRaw = 'level', rest = '2 width to 1.5m'
+  → BINDING_VALUE_FIRST reads "2 … width" FIRST (the first reading of a dimension wins)
+  → dimensions: { width: 2 }
+```
+
+**The user said 1.5 m. The command carried 2 m.** The Confirm card stated it confidently. On a mass
+edit that is the worst available outcome, and it is a different, more severe defect than the one
+being hunted.
+
+Two more fell out of the same tail:
+- `(?:')?s?` sat AFTER the place capture and ate its trailing "s": *"make all windows in this floor
+  2m high"* → **`roomRef: 'thi'`**. The possessive belongs on the NOUN, where the apostrophe is.
+- Consequently `HERE_RE` (*"this floor"* / *"the current level"*) was reachable only via `on`.
+
+### 2 — ⭐ THE LEVEL ARM COULD NEVER HAVE WORKED ANYWAY. **ASK "CAN THIS CONDITION EVER BE TRUE?"**
+
+Even spelled `on`, the documented worked example *"set all windows on level 2 to 2m high"* — printed
+in `DimensionFamilies`' own header — resolves to **zero windows on every project**. The bridge's
+level arm ended:
+
+```ts
+: (store.getAll?.() ?? []).filter((e) => e.levelId === level.id).map((e) => e.id);
+```
+
+Measured 2026-08-19:
+- `WindowStore` exposes `getById` / `getIdsByWallId` / `getByWallId` / `getAll` / `has`. **No
+  `getIdsByLevel`, no `getByLevel`, no `getAllIds`.** `DoorStore` — identical.
+- **`WindowOpening` and `DoorOpening` carry NO `levelId` field at all**
+  (`grep -n levelId packages/geometry-window/src/WindowTypes.ts` → **0 hits**). A hosted opening's
+  level is a property of its **HOST WALL**, and the codebase says so everywhere else —
+  `WindowBuilder` mirrors `levelId: wallData.levelId` onto the mesh, and
+  `WindowLevelCleanupHandler` finds a level's windows via `wallStore.getById(win.wallId).levelId`.
+
+So the filter compared `undefined === 'level-2-id'` for every opening in the project and returned
+`[]`, **every time, on every project**. The reply was *"There are no windows on Level 2 — nothing was
+changed."* about a level full of windows: **failure and empty were the same value**
+(§CONTEXT-DATA-HONESTY), and the answer read as a fact about the model. **The eleventh
+unsatisfiable-rather-than-broken defect this week**, and two store class declarations were enough to
+find it.
+
+### 3 — The second sentence: FOUR gates, each sufficient on its own
+
+`parseWindowsParametricIntent` (`ZeroTokenResolver.ts`) behind `create-windows-parametric` — a
+COMPLETE capability (spacing mode, `'level'` scopeMode, `window.parametricCreate` →
+`CreateWindowsParametricBatchCommand` over the proven `CreateWallOpeningCommand`, corner-overflow
+capping, raked-host refusal per C15, ONE undo, Confirm card, "Created N of M — K skipped" honesty):
+
+| # | Gate | Why the founder's sentence failed it |
+|---|------|--------------------------------------|
+| 1 | `^(?:create\|add\|put\|place)\b` | He wrote **"Make"**. `DIM_VERB` in the RESIZE grammar next door **does** accept `make`. **Two grammars, two disjoint verb vocabularies** — his habitual verb reached the resizer and not the creator. C84 EI-8/EI-9. |
+| 2 | `\bwalls?\b` required | His sentence never says "wall", and no human would — windows are *definitionally* hosted in walls, so the gate required him to state a tautology. |
+| 3 | `isAll` needs `all\|every\|each` + `walls?` | His "every" belongs to *"every 2 meters"* (the SPACING), not to a scope. |
+| 4 | `levelTail` required **`on`** | He wrote **`in`** — **the same defect as §1, in a second grammar.** |
+
+### THE REAL FINDING, AND ITS DEFECT CLASS
+
+**The level-scope tail was RE-IMPLEMENTED PER GRAMMAR** — three spellings of one concept across two
+files (`DimensionFamilies`' `on`/`in` tail, `DeleteFamilies`' near-identical copy, and
+`parseWindowsParametricIntent`'s `levelTail` **plus** a differently shaped `hyphenLevel`). Fixing one
+leaves the founder's next sentence broken in another — which is exactly what happened between his
+two messages.
+
+⭐ **"An enumerated list that must be REMEMBERED rather than DERIVED" — and this is the THIRD
+instance this week.** It has already cost a viewport freeze (**L-1189**, a hand-written
+element-family shadow-freeze list missing eleven families) and a dead pick cache (**L-1194**,
+`bim-railing-*` with zero emitters). The codebase had already applied the right answer one level
+down: `extractDimensionBindings` is shared *"so the natural and rigid paths cannot understand
+'2 meters height' differently."* **The identical argument for spatial scope was never made.**
+
+### THE FIX
+
+- **NEW `packages/ai-host/src/intents/SpatialScopeTail.ts`** — THE one place that decides whether a
+  preposition phrase names a LEVEL or a ROOM. One alternation `(?:on|in|at|inside|within)`; the
+  **NOUN** decides: an explicit level noun → LEVEL · `HERE_RE` → the active LEVEL · a phrase ending
+  in a level noun (*"the ground floor"*) → LEVEL · otherwise ROOM. The level noun is consumed
+  **before** the lazy phrase capture, which is what stops the value leak. A place that was NAMED and
+  cannot be resolved makes the grammar **DECLINE**, never widen to `'all'` (C68 §7.d).
+- **NEW `packages/ai-host/src/intents/HostedOpeningScope.ts`** — an element's level is DERIVED PER
+  RECORD: its own `levelId` if it has one, else its **host wall's**, else a **COUNTED SKIP WITH ITS
+  REASON**. Derived, not a `HOSTED_KINDS = ['door','window']` list — that would be the same
+  remember-don't-derive defect. **No wall store at all REFUSES** rather than returning an empty set
+  that reads as *"there are none"*.
+- `DimensionFamilies`, `DeleteFamilies` and `parseWindowsParametricIntent` all now read their place
+  phrase through it. Parametric additionally accepts `make` — **but only with an unambiguous
+  creation mode said out loud** (an `every N m` spacing, or an explicit count of windows), so
+  *"make all windows 2m high"* is still a RESIZE and cannot be stolen into creating a window in
+  every wall in the project.
+- `findLevel` gained a **last-resort** trailing-level-noun retry, run only after every exact route
+  has already failed — it can only turn a miss into a hit.
+- **The Confirm card for the mass CREATION now names the interior walls.** *"Every 2 m on level 2"*,
+  taken literally, puts windows in interior walls too. There is no exterior filter to apply —
+  `resolveWallFunction` returns null for `wt-monolithic`, the type users actually draw with (which
+  is why `exterior` is REFUSED as an `UNRESOLVED_QUALIFIER` rather than dropped), and the shell
+  knowledge that does exist (`workflows/apartmentLayout/windowEmission/shellWallMatch.ts`) needs a
+  caller-supplied `ShellWall[]` the layout pipeline builds, which **nothing in `ResolverContext` can
+  produce**. So the card says it: *"the 34 walls on Level 2 (every wall on that level, interior
+  walls included)"*. ⛔ Silently including interior walls behind a bare count was the one outcome
+  ruled out.
+
+### MEASURED AFTER (real ladder)
+
+```
+"change all windows in level 2 to 1.5 meters wide" → level '2', { width: 1.5 }, ONE command
+"set all windows in level 2 width to 1.5m"         → { width: 1.5 }   (was width: 2)
+"make all windows in this floor 2m high"           → the ACTIVE level (was roomRef 'thi')
+"change all windows in the kitchen to 1.5m wide"   → ROOM 'kitchen'   (unchanged)
+"change all windows in the level to 1.5m wide"     → ROOM 'level'     (a room named "Level" stays reachable)
+"set all windows on level 2 to 2m high"            → BYTE-IDENTICAL to before
+"make all doors in level 1 900mm wide"             → level '1', { width: 0.9 }
+"delete all windows in level 2"                    → level '2'        (the delete twin, same defect)
+"make windows every 2 meters in level 2"           → spacing 2 m, the walls on Level 2, ONE command
+"make windows every 2m on level 2"
+  / "add windows every 2 meters in level 2"
+  / "put a 1x2m window every 3m in level 1"        → all reach the capability
+"create a 1x2m window every 3 meters in all walls" → BYTE-IDENTICAL (shipped example)
+"… every 3 meters in the walls on the ground floor" → BYTE-IDENTICAL, level 'ground floor'
+"create a window in the middle of every wall segment" → BYTE-IDENTICAL, scope 'all'
+"make all windows 2m high"                         → still a RESIZE, NOT claimed by the create grammar
+"add a window in the kitchen"                      → still NOT claimed (the capability declares no room scope; Gate 31 stays green)
+"make the windows 2m high" / "raise all exterior walls to 3.2 m" → still NOT claimed (the claim surface did not widen)
+```
+
+**Governance:** the ruling is written into **C67 §4 rule 16** (the preposition must not decide the
+scope kind; every grammar reads the ONE shared parser) and **C67 §1.4** (a level scope must be
+satisfiable for the kind it names). ⛔ **No gate sees a fourth hand-written tail being added** —
+TO BUILD, named in rule 16.
+
+**Tests:** `packages/ai-host/__tests__/spatial-scope-tail.test.ts` — and its scope resolver is
+**built from the REAL store shapes** (windows keyed to walls by `wallId`, walls carrying `levelId`)
+running the REAL `resolveLevelScopeByHost`, not a stub returning N ids. A stub would have reported
+the founder's sentence GREEN while he saw *"There are no windows on Level 2"*.

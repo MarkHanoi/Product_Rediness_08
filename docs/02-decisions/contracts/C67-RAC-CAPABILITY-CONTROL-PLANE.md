@@ -234,6 +234,8 @@ FILTER    filter{ base: BaseScopeDescriptor, predicates }   — WRAPS a base
 - **Resolution happens ONCE, editor-side, over ids-only indexed paths** — never inside token loops. A resolution always reports what it SKIPPED and why. **An unresolvable scope is an `error`, never an empty-ids success.**
 - **A filter never bypasses its base's own gate**: an empty or wrong-kind selection refuses with the capability's copy *before* anything is filtered.
 - A filter that matches nothing becomes a refusal **quoting the real extremum** (U8.3), never an empty success — and where nothing carried the property at all, the copy says *that* rather than inventing an extremum.
+- ⭐ **The PLACE half of a scope is parsed in exactly ONE place — `intents/SpatialScopeTail.ts` — and the PREPOSITION never decides `level` vs `room` (added rev 6, L-1201).** See §4 rule 16 for the ruling and for what its absence cost. Until L-1201 each grammar wrote its own tail with `on`→level / `in`→room hard-wired, so the founder's *"in level 2"* meant *a room called "level"* and leaked its "2" into the value.
+- ⭐ **A LEVEL SCOPE MUST BE SATISFIABLE FOR THE KIND IT NAMES (added rev 6, L-1201).** The editor-side level arm resolved `getAll().filter(e => e.levelId === level.id)` — and `WindowOpening`/`DoorOpening` **carry no `levelId` at all**; a hosted opening takes its level from its **host wall**. So the level arm for windows and doors compared `undefined` to a level id and returned `[]` for **every level of every project**, answering *"There are no windows on Level 2"* about a level full of windows. **Before asking why a scope is wrong, ask whether its condition can EVER be true.** The derivation is now per-RECORD (own `levelId` → host wall's → a **counted skip with its reason**), never a remembered list of hosted kinds — `intents/HostedOpeningScope.ts`.
 
 ### §1.5 The plan executor (U6) and the LLM rung (U10)
 
@@ -662,6 +664,52 @@ Rev 2 described these as the target. Four of five are built; the table says whic
     `ChatCommandClassification.ts:84-95`, **three lines above it**, recorded the identical mistake
     for `room.setOccupancy` and ended with the very lesson that was then not applied.)*
     **TO BUILD: `check-deferral-blockers.ts`** — §1.8.4.
+
+16. ⭐ **THE PREPOSITION MUST NOT DECIDE THE SCOPE KIND — THE NOUN MUST. AND EVERY GRAMMAR MUST
+    READ ITS PLACE PHRASE THROUGH THE ONE SHARED PARSER (added rev 6, L-1201).**
+
+    **The rule.** A grammar **MUST NOT** derive `level` vs `room` from which preposition the user
+    typed. English does not make that distinction — *"on level 2"* and *"in level 2"* are the same
+    sentence, and *"in the kitchen"* and *"on the second floor"* are both natural. The kind is
+    decided by the **NOUN**: a level noun (`level|floor|storey|story`), `HERE_RE`, or neither.
+    A grammar **MUST** obtain that decision from **`packages/ai-host/src/intents/SpatialScopeTail.ts`**
+    (`SPATIAL_TAIL_SRC` + `readSpatialTail` / `parseTrailingSpatialScope`) and **MUST NOT** write a
+    place-phrase regex of its own. This is the same ruling `extractDimensionBindings` already
+    embodies for units — *"so the natural and rigid paths cannot understand '2 meters height'
+    differently"* — and the identical argument for spatial scope had simply never been made.
+
+    **What the absence of this rule cost — MEASURED on the real ladder, 2026-08-19, before the fix.**
+    The founder typed **"change all windows in level 2 to 1.5 meters wide"**:
+    - it resolved to `scope: { kind: 'room', roomRef: 'level' }` — **a room called "level"** — because
+      the `in` arm was hard-wired to ROOM and only the `on` arm could reach a level;
+    - the room lookup is `RoomStore.findByName`, a **case-insensitive SUBSTRING match with no
+      ambiguity guard on the name path** (the guard exists only on the NUMBER path). On a project
+      whose rooms are auto-named `Room 00-001` that is a refusal with the wrong reason — safe by
+      luck. On any project with a user-authored room name **containing** the substring "level", it
+      is a **silent wrong-scope mass edit that reports success**, and every matching room
+      contributes;
+    - ⭐ and it was worse than a wrong scope. The place capture is LAZY, so the rest of the phrase
+      **leaked into the value**: *"set all windows in level 2 width to 1.5m"* dispatched
+      **`{ width: 2 }`**. **The user said 1.5 and the command carried 2**, on a `destructive: true`
+      mass edit, with a Confirm card that stated the wrong number confidently.
+
+    **Three consequences that are also binding:**
+    - a place that was NAMED and cannot be resolved **MUST** make the grammar DECLINE. It **MUST
+      NOT** fall back to `'all'` or to the selection — widening a scope the user deliberately
+      restricted is the C68 §7.d failure, and on a delete it is unrecoverable;
+    - a room genuinely named "Level"/"Floor" **MUST** stay addressable — the level noun with no
+      level after it reads as a ROOM name — and where an explicit level noun WINS over a
+      same-named room, the Confirm card **MUST** name the reading it took (*"all 12 windows on
+      Level 2"*) so the user sees it before consenting;
+    - the claim surface **MUST NOT** widen with the tail. Sentences with no scope word, and
+      sentences carrying an unresolved qualifier (`exterior`), stay unclaimed exactly as before.
+
+    **The defect class.** *"An enumerated list that must be REMEMBERED rather than DERIVED."* Three
+    hand-written spellings of one scope tail across two files, in the same week a hand-written
+    element-family event list froze the viewport (L-1189) and a hand-written pick-cache key list
+    left column + beam dead (L-1194). ⛔ **No gate sees a fourth spelling being written.**
+    **TO BUILD:** a check that no file outside `SpatialScopeTail.ts` contains a
+    `(?:on|in)\s.*(?:levels?|floors?)` place-phrase literal.
 
 ---
 
