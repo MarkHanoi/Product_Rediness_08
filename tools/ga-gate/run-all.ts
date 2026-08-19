@@ -594,7 +594,7 @@ const GATES: Gate[] = [
   // on every run. GE-08 stays UNPROVEN for those two — do not cite this as closure.
   { name: 'cross-process-determinism (C73 §5.4b, partial)', script: 'check-cross-process-determinism.ts' },
   { name: 'gate-subject-floors (R5/L-811)',           script: 'check-gate-subject-floors.ts' },
-  // ─── L-960 / L-1202 (2026-08-19, lane REG1) — the DOCUMENT-SIDE gates ───────
+  // ─── L-960 / L-1221 (2026-08-19, lane REG1) — the DOCUMENT-SIDE gates ───────
   // Every other gate in this list polices CODE. These two police the CONTRACT
   // SUITE that governs the code, and they exist because
   // CONTRACT-AMENDMENT-REGISTER.md measured what nothing was checking:

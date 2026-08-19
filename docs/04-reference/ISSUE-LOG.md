@@ -15358,7 +15358,7 @@ pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
 > **Linework is reached by NO `findings` arm at all**: the element-id arm needs an id AND a type
 > (linework has neither), and while `summariseSceneCoverage` *does* classify a `LineSegments`
 > ROOT as `linework`, that is the **coverage clause, not a finding** — `detectLeaks` returns
-> `null` and the console prints **`✓ loaded clean`**. See **L-1202** and **C13 §7.5**.
+> `null` and the console prints **`✓ loaded clean`**. See **L-1225** and **C13 §7.5**.
 >
 > **A PROBE IS NOW SHIPPED** (`apps/editor/src/engine/lineworkProbe.ts`, L-1202). It censuses
 > every line-bearing object on each 3D entry and **diffs against the first 3D entry of the
@@ -15371,7 +15371,7 @@ pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
 > object to layer 3** (the only object-side assignments are two `EDITOR_LAYER`, one
 > `DOCUMENTATION_LAYER`, one raycaster). The three `camera.layers.disable(PLAN_SYMBOL_LAYER)`
 > calls suppress nothing, and `_deepSceneCleanup`'s ghost sweep — gated on
-> `obj.layers.isEnabled(PLAN_SYMBOL_LAYER)` (`:2464`) — has always removed zero objects. L-1202.
+> `obj.layers.isEnabled(PLAN_SYMBOL_LAYER)` (`:2464`) — has always removed zero objects. L-1225.
 
 
 **Founder, with a screenshot:** the 3D viewport shows floating elevation/plan LINEWORK — a
@@ -17969,7 +17969,7 @@ exporter proves nothing, and a fake built from the header cannot falsify the hea
 
 ---
 
-## L-1202 — THE CONTRACT SUITE HAD NO GATES. IT NOW HAS TWO: 491 CITED PATHS DO NOT RESOLVE, AND 18 CONTRACTS ARE ORDERED BY NOTHING ✅ CLOSED (gates landed) / 🟡 OPEN (the debt they measure) — logged 2026-08-19 (lane REG1) · `1fd1cc63`
+## L-1221 — THE CONTRACT SUITE HAD NO GATES. IT NOW HAS TWO: 491 CITED PATHS DO NOT RESOLVE, AND 18 CONTRACTS ARE ORDERED BY NOTHING ✅ CLOSED (gates landed) / 🟡 OPEN (the debt they measure) — logged 2026-08-19 (lane REG1) · `1fd1cc63`
 
 `CONTRACT-AMENDMENT-REGISTER.md` §0 named the cheapest durable fix and sized it at *"119+ defects"*;
 `contracts/README.md`'s banner and `CLAUDE.md` §Governance both named a second and both recorded it
@@ -18021,7 +18021,7 @@ going stale in **one day**. Nothing measures that axis.
 
 ---
 
-## L-1203 — DEFECT SHAPE D: A CHECK THAT RUNS, PASSES, AND COULD NEVER HAVE FAILED 🔴 OPEN — logged 2026-08-19 (lane REG1)
+## L-1222 — DEFECT SHAPE D: A CHECK THAT RUNS, PASSES, AND COULD NEVER HAVE FAILED 🔴 OPEN — logged 2026-08-19 (lane REG1)
 
 `CONTRACT-AMENDMENT-REGISTER.md` §0 carried three defect shapes, all of which are *false claims*
 found by measuring. **Shape D is not a claim at all** — it is a check whose **✅ is uninformative**,
@@ -18056,7 +18056,7 @@ that register rests on some instrument, and **not one of them has been asked whe
 come back red.**
 
 > **THE RULE:** *a gate with no planted control has not been shown to work — it has been shown to
-> run.* Both gates landed under L-1202 execute their controls **inside every invocation** and exit
+> run.* Both gates landed under L-1221 execute their controls **inside every invocation** and exit
 > **2** if a control fails to fire.
 
 **OPEN:** every pre-existing row of `CONTRACT-AMENDMENT-REGISTER.md` is **NOT RE-MEASURED** on the
@@ -18064,7 +18064,7 @@ shape-D axis, and so is every gate on `gate-debt.json` that has no in-run contro
 
 ---
 
-## L-1204 — A RATCHET TOTAL IS NOT A LEDGER: `check-secrets-register` READ 13/12 ON TWO CONSECUTIVE DAYS WITH ZERO NAMES IN COMMON 🔴 OPEN — logged 2026-08-19 (lane REG1)
+## L-1223 — A RATCHET TOTAL IS NOT A LEDGER: `check-secrets-register` READ 13/12 ON TWO CONSECUTIVE DAYS WITH ZERO NAMES IN COMMON 🔴 OPEN — logged 2026-08-19 (lane REG1)
 
 `CONTRACT-AMENDMENT-REGISTER.md` §4 recorded *"13/12 is unchanged from 2026-08-18 — nobody fixed the
 three undeclared vars."* **That was the wrong reading of a right number.**
@@ -18088,7 +18088,7 @@ held **constant** instead of drifting — the same defect, harder to see, becaus
 invites a re-measurement and a still one does not.
 
 **RULE:** *do not quote a ratchet total without its membership.* Applies equally to the two gates
-landed under L-1202: `check-contract-cited-paths` prints its top findings on every run, and
+landed under L-1221: `check-contract-cited-paths` prints its top findings on every run, and
 `--list` prints all 491, precisely so the membership is recoverable from the total.
 
 **ALSO OPEN, and routed rather than absorbed:** `check-otel-spans` Zone B moved **54/70 → 55/71**
@@ -18099,7 +18099,16 @@ that file**, never a baseline of 53. Zone C moved 1788/2040 → **1818/2071**.
 
 ---
 
-## L-1202 — THE ISOLATION AUDIT HAD **TWO** UNSATISFIABLE COUNTERS, NOT ONE; LINEWORK HAS **NO** ARM AT ALL; AND THE 3D-LINEWORK PROBE IS SHIPPED BEFORE THE FIX 🟡 PART-FIXED 2026-08-19 (lane UND1) · commit `bd15d644`
+## L-1225 — THE ISOLATION AUDIT HAD **TWO** UNSATISFIABLE COUNTERS, NOT ONE; LINEWORK HAS **NO** ARM AT ALL; AND THE 3D-LINEWORK PROBE IS SHIPPED BEFORE THE FIX 🟡 PART-FIXED 2026-08-19 (lane UND1) · commit `bd15d644`
+
+> ⚠ **NUMBERING NOTE — this row was minted as L-1202 and RENUMBERED.** Three lanes (HR5, REG1,
+> UND1) independently minted **L-1202** within the same hour; the ledger frontier moved from
+> **L-1199 → L-1220 while this row was being written**. `L-1225` is taken deliberately *above*
+> the frontier rather than at `L-1221`, to survive the lanes still landing. Commit `bd15d644`
+> was authored before the renumber and cites the old number in its message — the code, tests and
+> contracts all say `L-1225`. **Grep-before-minting is not sufficient at this cadence; the
+> durable fix is a ledger that allocates, which does not exist.**
+
 
 Two findings under one row because they are one suspicion applied twice.
 
@@ -18223,3 +18232,106 @@ lane does not read those three `disable()` calls as protection.
 ### WHAT THIS DOES NOT DO
 
 **It does not close L-1185.** A probe is not a fix; the dump is. See L-1185's updated row.
+
+---
+
+## L-1226 — THE RAKE ALSO DIES ON **UNDO**, AND FOR THE OPPOSITE REASON: A KEY THAT IS *ABSENT* FROM A RESTORE PROJECTION IS NOT DROPPED, IT IS **FROZEN** ✅ FIXED 2026-08-19 (lane RAKE1)
+
+**Founder-reported, production:** *"Raked walls don't survive the save-project and open cycle — they
+go back to non-raked."*
+
+**The persistence half of that report is NOT this row — it is L-1211 (lane PERSIST1):
+`ImportProjectCommand`, the DEFAULT-ON restore path, never passed `rakeAngleDeg` to
+`CreateWallCommand`.** This row is the SECOND rake-loss hole, found while measuring the first, in a
+different file, on a different user gesture, with the opposite mechanism.
+
+### THE MECHANISM, AND IT IS NOT THE ONE THE NAME SUGGESTS
+
+`WallStore` holds **two** snapshot projections — `updateWall()` (forward) and `restoreSnapshot()`
+(undo). Both build a `Partial<WallData>` object literal and hand it to `update()`, which merges
+`{ ...wall, ...safeUpdates }`. Neither named `rakeAngleDeg`.
+
+⭐ **A key NAMED with value `undefined` CLEARS the field. A key ABSENT leaves the record's value
+standing.** So the omission never *destroyed* a rake — it made one **immovable by any snapshot
+restore**. Lean a wall, Ctrl+Z, and the wall stays leaning while undo returns `{ success: true }`.
+A command that changed height *and* rake undid the height and kept the new angle.
+
+That is C84 **EI-7a (WRITES ⊋ RESTORES)** — the identical clause **L-995** was raised under for
+`sideFinishes`, which sits **one field earlier in the same literal**.
+
+### ⚠ IT WAS ALREADY KNOWN, ALREADY PINNED, AND STILL COST A LANE A DAY
+
+`WallProfileNonRegressionBaseline.test.ts` §(B1a) asserted — deliberately and correctly — that
+NEITHER projection carried `rakeAngleDeg`, with the instruction *"if this is now TRUE the defect was
+fixed — update this test to assert the fix rather than deleting it."* The pin worked exactly as
+designed. **What it could not do was surface itself to a founder-reported search**: the defect was
+legible only to someone already reading that file. Both the pin and the fix now live at
+`§FIX-RAKE-RESTORE-PROJECTIONS`.
+
+### ⭐ THE PRIME HYPOTHESIS WAS FALSIFIED, AND THE NEGATIVE RESULT IS THE VALUABLE PART
+
+The lane opened on a strong, explicit theory: that `rakeAuthorability` REFUSES a raked wall which
+also hosts **openings** (the founder's building is full of windows), so authoring succeeded through
+a path that skipped the schema while LOAD re-validated and refused — a write/read asymmetry. The
+sharpened form was *"can this condition EVER be true?"*: if rake × openings can never validate,
+"raked walls persist" was never satisfiable for any wall with a window and the bug is not in
+persistence at all.
+
+**Measured FALSE, through the real `WallStore.add()` and real `WallStore.addOpening()`, not by
+reading the comments.** `§RAKE-HOSTED-OPENING` (2026-08-18) lifted the `hosted-openings` arm and
+L-1064 (2026-08-19) lifted the `layered` arm, so the exact combination in the founder's model —
+**raked × 3-layer × hosting a window, at 75°** — is fully authorable today, at every one of the
+store's three doors. Run through the real `CreateWallCommand` → `CreateWallOpeningCommand` →
+`UpdateElementParameterCommand` chain in load order and in author order, the rake reads back `75` at
+every step and `canExecute` returns `{ ok: true }`.
+
+**So the answer to "how did the founder author a state the schema forbids?" is: the schema does not
+forbid it. There is no write/read asymmetry in the rake rule, and the rule does not over-refuse.**
+Both candidate fixes were wrong, and the third possibility — a **restore payload** that simply never
+mentions the field — was the true one, in two different files. Pinned in
+`L1226RakeSurvivesRestore.test.ts` so the next reader meets a measurement, not a re-investigation.
+
+### ⛔ A SIBLING LANE'S REPORT ABOUT `OpeningSchema` WAS FALSE — CORRECTED IN PLACE
+
+Reported to this lane as measured: *"`OpeningSchema` carries NEITHER `doorType` NOR `windowType`,
+while its header claims it matches `interface Opening` exactly."* Re-measured: **both fields are
+present** (`WallDataSchema.ts`), the delta between schema and interface is **ZERO in both
+directions**, and the header was true. Logged here because an unmeasured claim about a *validation
+surface* is expensive in one specific direction — it sends the next reader to "restore" fields that
+are already there, which is how a schema grows duplicates.
+
+**And the strip hazard does not reach this schema either, for a reason worth stating once:** it is
+Zod-default (`.strip()`), but its only consumer that could strip — `WallStore.addOpening` — uses
+`OpeningSchema.safeParse()` as a **gate** and then stores `cloneOpening(opening)`, a spread of the
+caller's object, never `parseResult.data`. That is the **opposite** of `WindowStore.add`'s
+`Object.freeze({ ...safeParse(w).data })`, which does strip. The distinction is now a comment on the
+schema and an executed test.
+
+### WHAT SHIPPED
+
+- `packages/geometry-wall/src/WallStore.ts` — `rakeAngleDeg` named in **both** projections
+  (`updateWall` + `restoreSnapshot`). ⛔ **Not a second rake rule**: this names a field in a
+  projection; whether the resulting wall MAY hold that angle is still asked once, by
+  `WallRake.rakeAuthorability`, from `update()`.
+- `packages/geometry-wall/__tests__/L1226RakeSurvivesRestore.test.ts` — **7 tests**, driving the
+  REAL `WallStore` class (no store fake: L-995 survived a whole slice behind a fake whose
+  `updateWall` accepted every field it was handed).
+- `WallProfileNonRegressionBaseline.test.ts` §(B1a) — **rewritten to assert the fix**, retraction
+  text kept, plus the B1/B1b whitelist pins updated.
+- `packages/geometry-wall/src/WallDataSchema.ts` — `openingProfile` added to `OpeningSchema` for
+  lane **ROUND1** (§OPENING-PROFILE / L-1200), reading `OPENING_PROFILE_KINDS` from
+  `OpeningProfile.ts` rather than retyping the union.
+- `packages/geometry-wall/__tests__/OpeningSchemaMatchesInterface.test.ts` — **5 tests**; the header
+  claim *"matches interface Opening exactly"* is now read out of BOTH sources and equated in both
+  directions, so it stops being a comment (C84 §8.d).
+
+### ⭐ THE GENERALISATION — THE FOURTH OF THIS SHAPE IN ONE WEEK
+
+`serializeSlab`/`baseOffset` (SL3), custom railing types (HR4/R3), `sideFinishes` (L-995/L-999), and
+now rake **twice**. Every one is a **hand-written field list** that a later field was not added to.
+The cross-family harness is lane **PERSIST1's** (L-1215..L-1220).
+
+⚠ **What this row adds to that brief, because it is not covered by a serialise→load harness:** the
+`WallStore` pair are **restore** projections, not persistence ones. A round-trip test that saves and
+loads would never have gone red here. The axis is **C84 EI-7a — the set of fields a subsystem WRITES
+must equal the set it RESTORES** — and it needs its own arm.

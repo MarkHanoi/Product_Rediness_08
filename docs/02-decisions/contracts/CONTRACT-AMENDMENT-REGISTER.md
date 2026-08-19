@@ -1,6 +1,25 @@
 # CONTRACT AMENDMENT REGISTER — measured defects awaiting amendment
 
-> ## THIS REGISTER'S OWN MEASUREMENT DATE: **2026-08-19** (lane RG1) · opened 2026-08-18
+> ## THIS REGISTER'S OWN MEASUREMENT DATE: **2026-08-19, second pass** (lane REG1) · first pass 2026-08-19 (lane RG1) · opened 2026-08-18
+>
+> ⭐ **THE TWO DURABLE FIXES THIS REGISTER PROPOSED ARE NOW BUILT AND GREEN** (`1fd1cc63`). Every
+> row below is now measurable by a command instead of by a lane — and §0's estimate was **four
+> times too low**:
+>
+> ```
+> npx tsx tools/ga-gate/check-contract-cited-paths.ts        # RC=0  (2026-08-19)
+>   101 contract files · 2960 citations -> 1527 distinct · 1028 RESOLVE
+>   491 UNRESOLVED  <- pinned baseline, shrink-only   ·  8 exempt (PLANNED/struck)
+>
+> npx tsx tools/ga-gate/check-contract-index-equivalence.ts  # RC=0  (2026-08-19)
+>   100 files · 83 rows · declared RESERVED: C61
+>   A FILE-WITHOUT-ROW 18 (baselined) · B 0 · C 0 · D 0   (B/C/D hard-0)
+> ```
+>
+> **§0 sized the first at "119+". It measures 491.** Not because the estimate was careless — §12's
+> sweep was two axes across ONE range and the gate is seven roots across all 100 contracts. **But
+> the direction of the error is this register's own recurring finding** (§9: 15 -> 22 -> 24):
+> *a confident count forecloses the measurement that would have corrected it.*
 >
 > **Every row below carries one of FOUR verdicts, and they are not two:**
 > **STANDS** (re-measured, still true) · **CLOSED** (fixed — SHA cited) ·
@@ -49,17 +68,112 @@ missing control.
 | **A — "NOT BUILT" outliving the code** | contract stamped before the feature landed, never re-read | the claim was true when written |
 | **B — one-axis reachability** | *"zero importers"* → deletion order | the count is correct; the conclusion is not |
 | **C — declared but never called** | *"called every frame by the render loop"* | the declaration exists, so grep finds it |
+| **D — the check that could never have failed** | a gate or audit RUNS, PASSES, and is structurally incapable of a negative | **there is nothing to find.** A green result and an unaskable question are the same output |
+
+### ⭐ SHAPE D — ADDED 2026-08-19 (lane REG1). **Read this before working any row below.**
+
+Shapes A, B and C are all *false claims*. **D is not a claim at all** — it is a check whose **✅ is
+uninformative**, because no possible state of the world would have turned it red. It is the most
+dangerous shape in this table for one reason: **A, B and C are found by measuring; D is invisible
+to measurement, because measuring it returns PASS.** The only instrument that finds a D is a
+*planted control* — a violation deliberately introduced to prove the check can still say no.
+
+**Measured instances, all from this repository, each recorded independently of the others:**
+
+| Instance | The check | Why it could never fail |
+|---|---|---|
+| **L-827** | `check-project-isolation.ts` | `execSync('grep -c ... 2>/dev/null \|\| echo 0')` on win32 — the redirect fails, `echo 0` fires. It reported **0 hits for all four C13 anchors while all four were present** (33/3/1/1). *"I could not run"* and *"I looked and found nothing"* were **the same value**, and it did **not throw**. |
+| **L-811** | `check-three-imports.ts` | shelled to `rg`, undeclared and never installed. The crash was recorded as the declared failure. **P2 was clean the whole time and nobody could see it.** |
+| **§RAF-GATE-COMMENT-BLIND** | `check-raf-count.ts` | counted **comment lines** as rAF owners — three of the four "owners" were doc comments *asserting P3 compliance*. The gate was counting sentences. |
+| **2026-08-19 · THIS LANE** | `check-contract-index-equivalence.ts` **arm D**, first draft | `reservedIds()` matched `RESERVED` in **both** directions, so the changelog idiom *"C61 remains the RESERVED unminted slot — **C64** does not take it"* declared **C64** reserved. Six live contracts (C24.1, C64, C66, C68, C69, C76) were silently exempted. **Arm D would have run, passed, and could never have failed.** Caught by a planted control on its first execution — **not** by reading the code. |
+| **2026-08-19 · reported** | an isolation audit whose underlay detector **only its own tests could satisfy**; a clash gate whose fake and production **disagree about the argument shape** | the fake was built from the header, so it **cannot falsify the header**. |
+
+⛔ **The consequence for THIS register.** §5 already records the *inverse* error — treating a
+`MISCONFIGURED` exit as if it were a reading. **Shape D is worse, because it does not announce
+itself as MISCONFIGURED. It announces itself as ✅.** Every *"✅ APPLIED"*, *"VERIFIED CLEAN"* and
+*"CLOSED"* below rests on some instrument, and **this register has never once asked of any of them:
+could this have come back red?**
+
+> **THE RULE, STATED ONCE:** *a gate with no planted control has not been shown to work — it has
+> been shown to run.* Both gates landed today execute their controls **inside every invocation**
+> and exit **2** if a control fails to fire. Every pre-existing row below is **NOT RE-MEASURED** on
+> this axis. That is the honest verdict, not a gap. [L-1222]
+
+---
 
 ⭐ **The cheapest durable fix, and it would have caught 119+ of the defects below:** a gate asserting
 that **every `tools/ga-gate/*.ts` and `packages/*/` path cited anywhere in
 `docs/02-decisions/contracts/` resolves on disk**, or carries an explicit `PLANNED` marker.
 *Proposed as L-960.*
 
+> ### ✅ **BUILT AND GREEN — 2026-08-19 (lane REG1), `1fd1cc63`**
+>
+> `tools/ga-gate/check-contract-cited-paths.ts` — **RC=0** at a shrink-only baseline pinned to its
+> first honest reading: **1527 distinct citations · 1028 resolve · 491 UNRESOLVED · 8 exempt.**
+> The **119+** estimate above is left standing and unedited, because the gap between it and **491**
+> is the artefact. Its sibling `check-contract-index-equivalence.ts` closes the README banner's own
+> stated exit condition (§1). Both are registered in `run-all.ts` — **last, after the R5 meta-gate,
+> so a documentation failure can never mask a code failure** — and ledgered in
+> `gate-newly-measured.json`, **not** `gate-debt.json`, per C76 §6.3.
+>
+> **The four largest holders of the 491** — none of them new findings, all of them now counted:
+> `scripts/ci-check-spans.ts` **24 sites** (§9 owns it; the file has never existed — L-812) ·
+> `server/parcelZoningProxy.js` **12** (C57) · `packages/schedule-4d/` **8** (C37) ·
+> `packages/schemas/src/standards/` **6** (C34).
+>
+> ⚠ **A sub-family the gate deliberately does NOT separate, named here so it is not misread:**
+> `src/ui/` and `src/engine/**` (C06, C11). Those paths **were real**; they moved to
+> `apps/editor/src/**`. **STALE is not FICTIONAL** — it is a different amendment from *"this was
+> never built"*, and a reader who treats all 491 as phantom work will go and retire live code.
+> [L-960]
+>
+> ⚠ **NOT CLAIMED:** the gate strips a trailing `:1025-1031` before resolving. It does **not**
+> check that a line anchor still holds what the contract says it holds — §2 records C96 §3.1's own
+> evidence going stale in **one day**. That is a different gate and this one does not claim it.
+
 ---
 
 ## 1. ⛔ RANK 1 — THE INDEX ITSELF
 
-> ### **CLOSED (README half) · SUPERSEDED (CLAUDE.md half)** — re-measured 2026-08-19, lane RG1
+> ### ✅ **CLOSED — BOTH HALVES** by `4136ce53`, and **STRUCTURALLY DISARMED** by `1fd1cc63`.
+> Re-measured and amended 2026-08-19, lane REG1. *(Prior verdict, kept: **CLOSED (README half) ·
+> SUPERSEDED (CLAUDE.md half)** — re-measured 2026-08-19, lane RG1.)*
+>
+> **CLAUDE.md §Governance — CLOSED.** It read *"**C61 and C76 are RESERVED, unminted slots**"* and
+> derived the count as *"C01–C100 minus the **two** unminted slots"* → **99**. Measured
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **100**. Now reads *"`C61` is the ONLY
+> RESERVED, unminted slot — ~~C76~~ was MINTED 2026-08-19"*, with the fifth-recurrence box.
+>
+> **README:219 — CLOSED.** The undated present-tense *"69 contract files exist"* sentence is
+> **struck and annotated per C84 §6**, not deleted, and replaced with a pointer to the gate rather
+> than a fresh count — because a fresh count is how all five recurrences started.
+>
+> ⭐ **WHY THIS ROW IS NOW STRUCTURALLY CLOSED AND NOT MERELY ANNOTATED.** The README banner's own
+> stated exit condition was *"a gate asserts `ls contracts/` equals this table's row set **in both
+> directions** … Until that gate exists, this banner is the only thing standing between the index
+> and its next drift."* **That gate now exists** —
+> `npx tsx tools/ga-gate/check-contract-index-equivalence.ts` → **RC=0**, 100 files · 83 rows ·
+> arms B/C/D **hard-0 and clean**. It compares **SETS, never a number**, which is the point: every
+> one of the five recurrences was a range or count written as a *literal*, and a count can be right
+> while the set is wrong.
+>
+> ⛔ **WHAT DID NOT CLOSE, and it is the substantive half — arm A reads 18.** Eighteen contracts
+> exist as files with **no row in the index table**: **C81, C84, the entire C85–C99 per-element
+> block, and C100.** CLAUDE.md defers the *conflict-resolution ordering* to that table, so **all
+> eighteen are currently ordered by nothing** — including **C84**, binding on every PR touching an
+> element family. The verdict *"the index is wrong"* is closed; the verdict *"the index is
+> complete"* is **NOT RE-MEASURED because it is measurably FALSE at 18**. Baselined shrink-only.
+> **AMENDMENT OWED: eighteen index rows. OWNER: README (C00) — unclaimed, and it is now the
+> highest-value unstaffed edit in this file.** [L-1130, L-1131]
+>
+> ⚠ **A SIXTH INSTANCE OF THE SAME SHAPE, MEASURED TODAY AND DELIBERATELY NOT PATCHED:**
+> `ls docs/02-decisions/adrs/ADR-*.md | wc -l` → **272** and `find docs -name 'SPEC-*.md' | wc -l`
+> → **97**. README rows 5–6 and CLAUDE.md both say **268 / 96** — stale by four and one **after one
+> day**. They are left alone **on purpose**: both carry their measurement date *and* their
+> derivation command, which is the correct form. **A dated number is history; an undated one is a
+> claim.** Patching the digits would restart the cycle; this is the shape the gate exists to end.
+>
+> *(Original 2026-08-19 lane RG1 finding retained below.)*
 >
 > **README — CLOSED** by `fb403310` (*"the contract index stated C01–C83 while C84–C100 existed as
 > files"*), updated again by `baa98eba` when C76 was minted. Verified at HEAD: `README.md:16` reads
@@ -106,8 +220,25 @@ same shape (C67 → C81 → C84/C85–C99).
 
 ## 2. ⛔ RANK 2 — C84's OWN #1 SEVERITY ROW IS FALSE
 
-> ### **STANDS — UNAMENDED.** Re-measured 2026-08-19, lane RG1. **This is now the highest-blast-radius
-> row in the file**, because a second contract has since formally retracted it and C84 still says it.
+> ### ⛔ **STANDS — UNAMENDED. RE-CONFIRMED 2026-08-19 (second pass, lane REG1), and it is now
+> the #1 open row in this file**, because RANK 1 closed and this did not.
+>
+> ```
+> grep -ci lighting apps/editor/src/engine/persistence/ProjectSerializer.ts       # LIVE -> 10
+> grep -ci lighting packages/persistence-client/src/loader/ProjectSerializer.ts   # DEAD -> 0
+> grep -n lighting docs/.../C84-ELEMENT-INTEGRITY.md   # :734 still reads EI-6 "NEVER"
+> ```
+>
+> **Unchanged in every particular.** C84 `:734` still carries the §4 row
+> *"`lighting` | ⚠️ renders, never saves | … | ⚠️ **NEVER**"*, and `:85` still carries the §0
+> narrative *"**Lighting is never persisted**"*. **Two contracts still answer one question in
+> opposite directions**, with the wrong side ranked severity **#1** of the entire element-integrity
+> programme.
+>
+> ⛔ **REG1 MUST NOT EDIT C84 — a live lane holds it** (element integrity, persistence round-trip).
+> **ROUTED, NOT APPLIED.** This row is the reason it is routed rather than dropped. [L-1133]
+>
+> *(Prior verdict, kept: **STANDS — UNAMENDED**, re-measured 2026-08-19, lane RG1.)*
 >
 > ```
 > grep -ci lighting apps/editor/src/engine/persistence/ProjectSerializer.ts       # LIVE -> 10
@@ -166,7 +297,25 @@ severity table from what survives.
 
 ## 3. ⛔ RANK 3 — C84 EI-11 INVERTS THE SECTION IT CITES
 
-> ### **STANDS — UNAMENDED.** Re-measured 2026-08-19, lane RG1.
+> ### ⛔ **STANDS — UNAMENDED. RE-CONFIRMED 2026-08-19 (second pass, lane REG1).**
+>
+> ```
+> sed -n '541,542p' C84-ELEMENT-INTEGRITY.md   -> "C73 §5.1 E1 records that the canonical
+>                                                  tolerance module is specified and not yet built"
+> sed -n '308p'     C73-GEOMETRY-...-TOLERANCE.md -> "E1 | hard | the declared tolerance module
+>                                                  exists and is exported from packages/geometry-kernel"
+> ls -la packages/geometry-kernel/src/tolerance.ts -> 10,389 B (Aug 13 20:41)
+> ```
+>
+> **The inversion is intact and the file is on disk.** ⛔ **REG1 MUST NOT EDIT C84** — routed to the
+> C84 lane, not applied.
+>
+> ⭐ **This row is ALSO a shape-D candidate, and nothing has asked the question.** C84 §4's own
+> instrument for EI-11 is *a sentence read out of C73*. There is no planted control anywhere in
+> this chain: nothing would have gone red when C73 §5.1 E1 was corrected and C84 was not — and
+> nothing did. **NOT RE-MEASURED on the shape-D axis.**
+>
+> *(Prior verdict, kept: **STANDS — UNAMENDED**, re-measured 2026-08-19, lane RG1.)*
 >
 > `C84:541-542` still reads *"C73 §5.1 **E1** records that the canonical tolerance module is
 > **specified and not yet built**"*. `C73:308` still reads *"**E1** | hard | the declared tolerance
@@ -211,9 +360,32 @@ and §5.1 **E2**'s ratchet counts. **There is no longer an "unbuilt module" excu
 >   DRIFT — docs/04-reference/SECRETS-REGISTER.md is STALE
 > ```
 >
-> **The CONTRACT defect is closed; the ENGINEERING defect is not.** 13/12 is unchanged from
-> 2026-08-18 — nobody fixed the three undeclared vars. Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`
-> that is still blocking. This register does not own it; it is named so it is not lost. [L-1134]
+> **The CONTRACT defect is closed; the ENGINEERING defect is not.** Per
+> `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)` that is still blocking. This register does not own it; it
+> is named so it is not lost. [L-1134]
+>
+> > ### ⚠ **RE-MEASURED 2026-08-19 (second pass, lane REG1) — the LEVEL is unchanged and the
+> > FINDINGS ARE DIFFERENT PEOPLE. Do not read 13/12 as "unchanged".**
+> >
+> > ```
+> > npx tsx tools/ga-gate/check-secrets-register.ts   # RC=3  (2026-08-19, second pass)
+> >   -> [3] RATCHET EXCEEDED — 13 finding(s) against a declared level of 12
+> >   FINDING A — API_GATEWAY_PORT   (apps/api-gateway/src/index.ts:67, .../Dockerfile:62)
+> >   FINDING A — BAKE_PORT          (apps/bake-worker/src/index.ts:183, .../Dockerfile:31)
+> >   FINDING A — MARKETPLACE_PORT   (apps/marketplace-api/src/index.ts:38)
+> >   FINDING A — NSHARDS            (.github/workflows/terrain-bake-all.yml:91)
+> >   FINDING A — OTEL_RESOURCE_ATTRIBUTES (fly.toml:80)
+> >   FINDING A — PNPM_HOME          (Dockerfile:53)
+> >   DRIFT — docs/04-reference/SECRETS-REGISTER.md is STALE
+> > ```
+> >
+> > The 2026-08-18 reading named **PRYZM_PUBLISHER_TOKEN, SHARD, WORKER_CONCURRENCY**. **None of
+> > those three is in today's list.** The count held at 13 while the *membership* turned over —
+> > which means *"13/12, unchanged, nobody fixed it"* was **the wrong reading of a right number**.
+> > ⭐ **A ratchet total is not a ledger.** Two lanes can pay three findings and mint six, and the
+> > total will sit still and report tranquillity. This is register §9's *"15 → 22 → 24"* lesson
+> > with the count held constant instead of drifting — the same defect, harder to see.
+> > **Do not quote a ratchet total without its membership.**
 
 C77 `:26` / `:189` (and **propagated verbatim to README:148**):
 *"`tools/ga-gate/check-secrets-register.ts` — **UNBUILT at stamp time (2026-08-12)**"*.
@@ -384,6 +556,31 @@ C27 §9 Phases γ/δ order `PropertyInspector` deprecated then **deleted**, in f
 > **So *"every new exported function MUST add >=1 span"* is measured for ZERO of the 2040.**
 > Extending this gate is not a one-line change — that half of the row **STANDS, and is stronger than
 > written.** (CLAUDE.md's P8 bullet quotes 246/246 and 1772/2023; both moved. Read the gate.)
+>
+> > ### ⚠ **RE-MEASURED 2026-08-19 (second pass, lane REG1). EVERY FIGURE IN THE BLOCK ABOVE MOVED
+> > WITHIN HOURS. This is the strongest argument in the file for citing a gate instead of a number.**
+> >
+> > ```
+> > npx tsx tools/ga-gate/check-otel-spans.ts      # RC=3  (2026-08-19, second pass)
+> > ZONE A  256 / 256 instrumented (294 read, 38 excluded)          <- unchanged
+> > ZONE B  55 uninstrumented of 71  (baseline 52)                  <- was 54 of 70
+> > ZONE C  1818 of 2071 files with an exported fn have NO span     <- was 1788 of 2040
+> >         (4829 source files read)
+> > FAIL (Zone B): 3 NEW files outside the baseline
+> >   ✗ packages/command-registry/src/generic/UpdateElementParameterCommand.ts
+> >   ✗ packages/command-registry/src/handrails/CreateHandrailRunOnSlabCommand.ts   <- NEW TODAY
+> >   ✗ packages/command-registry/src/lighting/lightingAuthoredParams.ts
+> > ```
+> >
+> > **Three readings of one gate now exist in the repository and no two agree**: CLAUDE.md §P8 says
+> > 246/246 and 1772/2023; this row says 256/256, 54/70 and 1788/2040; the gate says 256/256,
+> > **55/71** and **1818/2071**. All three were "measured". **Only the last one was measured
+> > today.**
+> >
+> > ⭐ **The third Zone-B failure is NEW and it arrived from a LIVE LANE** —
+> > `CreateHandrailRunOnSlabCommand.ts` is C95 handrail work landing while this register was being
+> > re-measured. **Named, not absorbed:** the baseline is shrink-only, so the correct disposition is
+> > one OTel span in that file, **not** a baseline of 53. Routed to the C95 lane. [L-1223]
 
 `scripts/ci-check-spans.ts` and `tools/ga-gate/check-spans.ts` — **both ABSENT**. CLAUDE.md already
 records that the four `scripts/ci-check-*.ts` paths *"never existed, see L-812"*, and **C10:158 was
@@ -538,6 +735,27 @@ the undo-restore set **are** genuinely different concepts; C72 does not duplicat
 
 ## 12. COVERAGE HONESTY — what was NOT measured
 
+> ### ⭐ **UPDATED 2026-08-19 (second pass, lane REG1) — the two hand-measured axes below are now
+> MACHINE-measured, and a THIRD axis is named as entirely unmeasured.**
+>
+> **AXIS 1 + 2 — cited paths. NO LONGER A LANE'S JOB.**
+> `npx tsx tools/ga-gate/check-contract-cited-paths.ts` → **RC=0**, and it covers **seven repo
+> roots across all 100 contracts**, not two axes across one range: **1527 distinct citations · 1028
+> resolve · 491 UNRESOLVED · 8 exempt.** The by-hand figures below (**99 → 2** and **43 → 21**)
+> are *retained unedited* as the historical reading; **the gate supersedes them and is the only
+> thing that should ever be quoted.**
+>
+> **AXIS 3 — SHAPE D, and it is NOT MEASURED for a single row in this file.** §0's new shape-D
+> table records four instruments in this repository that ran, passed, and could not have failed.
+> **No row below has been asked whether its instrument could have come back red.** That is not a
+> gap in this register's coverage — it is a **named finding** about every ✅ in it. The two gates
+> landed today are the only instruments in this document that carry planted controls executed
+> inside every run. [L-1222]
+>
+> **AXIS 4 — LINE ANCHORS. NOT MEASURED, and now known to rot in under 24 hours.** §2 records C96
+> §3.1's `ProjectSerializer.ts:1025-1031` moving to `:1138–1143` in **one day**. The cited-path
+> gate strips line numbers before resolving and **does not check them**. Nothing does.
+
 **Two axes were measured exhaustively across C21–C50:** every cited gate path (**99 distinct → 2
 exist**) and every cited `packages/*` path (**43 distinct → 21 exist**).
 
@@ -596,3 +814,38 @@ present tense**. That misleads in **both directions at once**:
   built. That is the C84 EI-10 defect, **minted by prose rather than by a coder**.
 
 **Neither shape is visible from inside the contract. Both are one `ls` away.**
+
+---
+
+## 14. WHAT CHANGED 2026-08-19 (second pass, lane REG1) — and what the day's evidence adds
+
+**The `ls` in §13's last line is now a gate, run on every CI invocation.** That was the point of
+this lane, and it is done: `check-contract-cited-paths.ts` (L-960) and
+`check-contract-index-equivalence.ts` (L-1221), both green at pinned shrink-only baselines, both
+carrying floors and planted controls, both ledgered in `gate-newly-measured.json` per C76 §6.3.
+
+**Four things the day measured that no row previously said:**
+
+1. ⭐ **The estimate was low by 4×** — §0 said *"119+"*; the gate says **491**. Recorded as evidence
+   for §9's own lesson (*15 → 22 → 24*): a confident count forecloses the measurement.
+2. ⭐ **A ratchet TOTAL is not a ledger** (§4). `check-secrets-register` read **13/12** on both
+   2026-08-18 and 2026-08-19 — with **zero names in common**. Six findings were minted while three
+   were paid, and the total sat still and reported tranquillity.
+3. ⭐ **Shape D** (§0) — *the check that runs, passes, and could never have failed.* Four measured
+   instances in this repository, one of them **produced and caught inside this lane**. It is the
+   only shape in the table that measurement cannot find, because measuring it returns PASS.
+4. ⚠ **The count/range shape recurred a SIXTH time while being corrected for the FIFTH.** ADR
+   **268 → 272** and SPEC **96 → 97** in one day. **Deliberately not patched** — both rows carry a
+   date and a derivation command, which is the correct form. Patching the digits restarts the cycle.
+
+**Routed, NOT applied — a live lane owns each of these and REG1 must not collide:**
+
+| Row | Owner lane | What is owed |
+|---|---|---|
+| **§2** RANK 2 — C84 severity-1 `lighting` EI-6 "NEVER" | **C84 element-integrity** | retract §4 row + severity row 1, cite C96 §3.1; re-anchor C96's line numbers |
+| **§3** RANK 3 — C84 EI-11 inverts C73 §5.1 E1 | **C84 element-integrity** | strike `:541-542`; `tolerance.ts` is 10,389 B on disk |
+| **§9** Zone B — `CreateHandrailRunOnSlabCommand.ts` | **C95 handrail** | one OTel span. ⛔ **Not** a baseline of 53 |
+
+**Unclaimed and now the highest-value unstaffed edit in this file:** the **eighteen missing index
+rows** (§1 arm A) — C81, C84, C85–C99, C100. They are ordered by nothing until someone writes them,
+and the gate will ratchet down the moment they land.
