@@ -1093,20 +1093,32 @@ the denormalised `levelName` / `levelElevation` copies that go stale on a level 
 > the data loss it exists to prevent. **CW-B-3 was therefore promoted to step 0 — and it is
 > ✅ CLOSED (`ab8b4248`, L-1051):** ids are derived as `derivedGridLineId(ownerId, axis, index)`.
 >
-> ⚠ **BUT THE STABILITY GUARANTEE IS NARROWER THAN "ids are deterministic", AND THE DIFFERENCE IS
-> LOAD-BEARING FOR THIS DESIGN. State it, do not assume it:**
-> - Derived ids are **stable under regeneration with the same inputs** — which is C73 §1.1 and is
->   exactly what CW-P-B needs.
-> - They are **index-derived, so they are NOT stable under a change of bay spacing.** Re-spacing a
->   wall with no stored `gridSystem` from `bayWidth 1.5` to `0.75` produces a different line count
->   and the derived ids shift.
-> - **That is CORRECT, not a hole.** A re-spaced grid has genuinely different cells; an override
->   pinned to a cell that no longer exists must not be silently re-targeted onto a different one.
->   **CW-P-D's refusal is the right answer there, and this is the case it exists for.**
-> - The window is also narrow in practice: the moment any grid line is inserted, `gridSystem` becomes
->   PRESENT and is persisted, `migrateToGridSystem` never runs for that wall again, and
->   `insertGridLine` mints a fresh id **only for the new line** while preserving every existing one.
->   **Stored ids win over derived ones for the whole remaining life of the wall.**
+> ⛔ **AND THE PARAGRAPH THAT STOOD HERE WAS WRONG — CORRECTED 2026-08-19 (§L-1058, `55ba658f`).**
+> It read: *"They are **index-derived, so they are NOT stable** under a change of bay spacing …
+> **That is CORRECT, not a hole.**"* **They were not unstable. They were AMBIGUOUS, which is worse,
+> and the difference is fatal to this design.** `cw-1:u:1` named u-line #1 of a 5-line grid **and**
+> of a 9-line grid — sitting at `t=0.25` and `t=0.125`: **different physical lines carrying the same
+> id.** Under CW-P-B, a re-space would therefore have **silently re-targeted every override onto a
+> physically different cell** — the precise failure CW-P-B exists to prevent — and **CW-P-D's
+> refusal could never have fired, because the lookup always succeeded.**
+>
+> ⭐ **A RED-FIRST TEST FOUND THIS, IN THE FIX RATHER THAN IN THE FEATURE.** The arm written to
+> observe the CW-P-D refusal observed a successful *write* instead. Had CW-P been built without it,
+> the design would have shipped with its one safety property inert and its one refusal unreachable —
+> and it would have looked like it worked, because an override always landed *somewhere*.
+>
+> **The corrected guarantee, which is what CW-P-B actually needs:** ids key on **`t`, the line's
+> POSITION** (`derivedGridLineId`), so two lines share an id **exactly when they are the same line**.
+> Both consequences are correct and both are asserted:
+> - a re-space that **preserves** a line position **keeps the override on the cell with the same
+>   edge** — the ordinal moves, the door does not move in space, which is what the user meant;
+> - a re-space that **removes** it (`t=0.25` is not among `0, 1/6, 2/6 …`) makes the bounding line
+>   genuinely cease to exist, and **CW-P-D refuses and reports** rather than re-targeting.
+>
+> The window is narrow in practice anyway: the moment any grid line is inserted, `gridSystem` becomes
+> PRESENT and is persisted, `migrateToGridSystem` never runs for that wall again, and
+> `insertGridLine` mints a fresh id **only for the new line** while preserving every existing one.
+> **Stored ids win over derived ones for the whole remaining life of the wall.**
 
 ### 13.2 — CW-2a (PREREQUISITE): ONE panel vocabulary (C84 EI-8/EI-9)
 

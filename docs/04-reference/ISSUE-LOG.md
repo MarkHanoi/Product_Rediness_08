@@ -11839,3 +11839,54 @@ a mass rename would collide with every one of them. **The order is: new code use
 being touched for another reason converges as part of that work; the alias carries `@deprecated` from
 the moment it is added.** A shrink-only count of remaining `get(` declarations is owed as a ratchet —
 **21 today** — so convergence is measured rather than hoped for.
+
+---
+
+## L-1058 — the "deterministic" grid-line ids I shipped in L-1051 were AMBIGUOUS, and that made the CW-P refusal unreachable ✅ CLOSED (CW1, 2026-08-19)
+
+**A defect in a fix, found by the RED-first test for the feature built on top of it.**
+
+`ab8b4248` (L-1051) replaced `crypto.randomUUID()` grid-line ids with
+`derivedGridLineId(ownerId, axis, index)` → `` `${ownerId}:${axis}:${index}` ``, and C87 CW-P-G
+recorded the guarantee as *"stable under regeneration with the same inputs … index-derived, so they
+are deliberately NOT stable under a change of bay spacing. **That is CORRECT, not a hole.**"*
+
+**They were not unstable. They were AMBIGUOUS, which is worse.** `cw-1:u:1` named u-line #1 of a
+5-line grid **and** u-line #1 of a 9-line grid — sitting at `t=0.25` and `t=0.125`. **Different
+physical lines, same id.**
+
+**Why that is fatal rather than untidy.** C87 §13.1 CW-P keys every sparse panel override on the
+bounding grid-line pair `(uLineId, vLineId)` **precisely so that a door cannot silently move to the
+wrong cell** — CW-P-B's stated reason is *"a door quietly moving to the wrong cell is worse than
+losing it."* With ordinal ids, re-spacing a wall from `bayWidth 1.5` to `0.75` makes `u:1` resolve
+successfully to a **physically different line**, so:
+
+- every override would have been **silently re-targeted**, which is the exact failure the key exists
+  to prevent; and
+- **CW-P-D's refusal — the one safety property this design owes — could never have fired**, because
+  the lookup always succeeded.
+
+⭐ **HOW IT WAS FOUND, AND THIS IS THE PART WORTH KEEPING.** The test arm written to *observe the
+refusal* observed a **successful write** instead. Had CW-P been implemented without a RED-first arm
+for its own refusal, the layer would have shipped with its single safety property **inert and its
+single refusal unreachable — and it would have looked like it worked**, because an override always
+landed *somewhere*. **Write the test for the refusal, not only for the happy path: a refusal that
+never fires is indistinguishable from a refusal that is not needed.**
+
+**Fixed** by keying the id on **`t`, the line's normalised position**, not its ordinal:
+`` `${ownerId}:${axis}:${t.toFixed(6)}` ``. Two lines now share an id **exactly when they are the
+same line**. Still a pure function of authoritative model state (C73 §1.1). Six decimals sits far
+below the `0.001` tolerance `insertGridLine` / `validateGridSystem` already compare t-values with, so
+ids collide only for lines the module already treats as identical.
+
+**Both consequences are correct, and both are asserted** in
+`packages/geometry-curtain-wall/__tests__/CurtainPanelOverridesRoundTrip.test.ts` (8/8):
+
+- a re-space that **preserves** the line position (`1.5 → 0.75 m`, `t=0.25` survives) keeps the
+  override on the cell with the **same left edge** — its ordinal moves `1 → 2`, the door does **not**
+  move in space, which is what the user meant;
+- a re-space that **removes** it (`1.5 → 1.0 m`; `t=0.25` is not among `0, 1/6, 2/6 …`) makes the
+  bounding line genuinely cease to exist, and CW-P-D **refuses and reports by name** — with a further
+  assertion that **nothing else on the wall silently became a door.**
+
+C87 CW-P-G is corrected in place with the retraction, per C84 §6.
