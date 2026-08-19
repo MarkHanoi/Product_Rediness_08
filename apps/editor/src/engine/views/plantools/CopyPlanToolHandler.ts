@@ -40,11 +40,13 @@ import {
     wallCopyPayload,
     slabCopyPayload,
     columnCopyPayload,
+    beamCopyPayload,
     furnitureCopyPayload,
     type LegacyCurtainWallLike,
     type LegacyWallLike,
     type LegacySlabLike,
     type LegacyColumnLike,
+    type LegacyBeamLike,
     type LegacyFurnitureLike,
 } from './copyPayloads';
 // §P3.1 (IMPL-PLAN-2026-05-17): CreateWallCommand, CreateCurtainWallCommand, window.commandManager (P4.4).
@@ -436,21 +438,15 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const beam = bs.get?.(id) ?? bs.getById?.(id);
         if (!beam) { console.warn('[CopyTool] Beam not found:', id); return; }
 
-        const sp = beam.startPoint as { x: number; y: number; z: number };
-        const ep = beam.endPoint   as { x: number; y: number; z: number };
-
-        window.runtime?.bus?.executeCommand('beam.create', {
-            startPoint:    { x: sp.x + dx, y: sp.y, z: sp.z + dz },
-            endPoint:      { x: ep.x + dx, y: ep.y, z: ep.z + dz },
-            width:         beam.width,
-            depth:         beam.depth,
-            levelId:       beam.levelId,
-            material:      beam.material,
-            loadBearing:   beam.loadBearing,
-            fireRating:    beam.fireRating,
-            sectionType:   beam.sectionType,
-            steelProfileName: beam.steelProfileName,
-        })?.catch((e: unknown) => console.error('[CopyTool] beam.create failed:', e));
+        // §L-1032 — this object literal moved to `beamCopyPayload` in
+        // `copyPayloads.ts`, VERBATIM (no id ⇒ byte-identical to what stood here),
+        // for the reason that module exists: a payload built inside this closure is
+        // a payload no test can reach, and the duplicate-to-level route needs the
+        // SAME mapping rather than a second one (C84 EI-9 · L-978).
+        window.runtime?.bus?.executeCommand(
+            'beam.create',
+            beamCopyPayload(beam as unknown as LegacyBeamLike, dx, dz),
+        )?.catch((e: unknown) => console.error('[CopyTool] beam.create failed:', e));
         console.log('[CopyTool] Beam copied');
     }
 

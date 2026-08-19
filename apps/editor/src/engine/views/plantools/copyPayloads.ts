@@ -32,6 +32,65 @@
 export interface Pt3 { x: number; y: number; z: number }
 export interface Pt2 { x: number; y: number }
 
+// ─── Destination overrides (§L-1032 duplicate-to-level) ──────────────────────
+/**
+ * The OPTIONAL trailing argument every builder below now accepts.
+ *
+ * ─── WHY AN OVERRIDE AND NOT A SECOND SET OF BUILDERS ────────────────────────
+ * "Duplicate slab from Level 1 to Level 2" is this copy with `dx = dz = 0` and
+ * one field replaced. Writing a second legacy-record → bus-payload mapping for
+ * it would mint the second authority C84 **EI-9** forbids, on the exact question
+ * L-978 proved nobody can answer twice and get the same answer: four wrong field
+ * names on ONE of two curtain-wall dispatches minted every copy at the schema
+ * default, silently, for months.
+ *
+ * `levelId` defaults to the SOURCE record's own `levelId`, so **every call site
+ * that omits this argument produces a byte-identical payload** to the one it
+ * produced before this parameter existed. The plan copy tool passes nothing.
+ */
+export interface CopyPayloadOverrides {
+    /**
+     * Destination storey. Omitted ⇒ the source record's own `levelId` — i.e. an
+     * ordinary in-plane copy, unchanged.
+     */
+    readonly levelId?: string;
+}
+
+/**
+ * Wall-only overrides. `elevationY` is **not** in `CopyPayloadOverrides`, and
+ * that asymmetry is measured, not stylistic.
+ *
+ * A level change rewrites element GEOMETRY in exactly one family. Measured
+ * 2026-08-19 across all five `Change<Family>Level` handlers:
+ *
+ *   • `plugins/wall/src/handlers/ChangeWallLevel.ts:70-74` — writes `levelId`
+ *     **and rebases both `baseLine` endpoints' `y` to `cmd.newElevationY`**,
+ *     because the `Wall` schema refines "baseLine endpoints must share the same
+ *     y" and a wall's baseLine `y` IS its storey elevation.
+ *   • `plugins/slab/src/handlers/ChangeSlabLevel.ts:102-106` — `levelId` only.
+ *   • `plugins/column/src/handlers/ChangeColumnLevel.ts:112-116` — `levelId` only.
+ *   • `plugins/beam/src/handlers/ChangeBeamLevel.ts:106-110` — `levelId` only.
+ *   • `plugins/furniture/src/handlers/ChangeFurnitureLevel.ts:123-127` — `levelId` only.
+ *   • `plugins/curtain-wall/src/handlers/ChangeCurtainWallLevel.ts:136-140` — `levelId` only.
+ *
+ * So a duplicated WALL that carried its source `baseLine.y` unchanged would
+ * stand at the OLD storey's height wearing the NEW storey's `levelId` — visible,
+ * wrong, and impossible to attribute. Every other family derives its world Y
+ * from `level.elevation` at build time, which is why
+ * `packages/command-bus/src/levelChangeVerbs.ts:78-87` carries `elevationField`
+ * for `wall.changeLevel` alone and warns against adding one "for symmetry".
+ *
+ * Making this a wall-only TYPE means handing `elevationY` to a slab is a compile
+ * error rather than a silently ignored key — the L-978 failure mode, inverted.
+ */
+export interface WallCopyOverrides extends CopyPayloadOverrides {
+    /**
+     * The DESTINATION level's elevation in metres. Omitted ⇒ the source
+     * endpoints' `y` is carried unchanged (the in-plane copy).
+     */
+    readonly elevationY?: number;
+}
+
 /** Subset of `CurtainWallData` (`geometry-curtain-wall/src/CurtainWallTypes.ts`). */
 export interface LegacyCurtainWallLike {
     levelId?: string;
@@ -96,6 +155,28 @@ export interface LegacyColumnLike {
     steelProfileName?: string;
 }
 
+/** Subset of `BeamData` (`packages/core-app-model/src/stores/BeamTypes.ts:1-46`). */
+export interface LegacyBeamLike {
+    levelId?: string;
+    startPoint: Pt3;
+    endPoint: Pt3;
+    width?: number;
+    depth?: number;
+    material?: string;
+    loadBearing?: boolean;
+    fireRating?: string;
+    sectionType?: 'rectangular' | 'UB' | 'UC';
+    steelProfileName?: string;
+    /** Support bindings — level-specific, see `beamCopyPayload`. */
+    startSupportId?: string;
+    endSupportId?: string;
+    startSupportType?: string;
+    endSupportType?: string;
+    properties?: unknown;
+    metadata?: unknown;
+    parentId?: string;
+}
+
 /** Subset of `FurnitureData` (`geometry-furniture/src/FurnitureTypes.ts`). */
 export interface LegacyFurnitureLike {
     levelId?: string;
@@ -154,6 +235,7 @@ export function curtainWallCopyPayload(
     dx: number,
     dz: number,
     newId: string,
+    opts?: CopyPayloadOverrides,
 ): Record<string, unknown> {
     const [a, b] = cw.baseLine;
 
@@ -184,7 +266,8 @@ export function curtainWallCopyPayload(
 
     return {
         id:       newId,
-        levelId:  cw.levelId,
+        // §L-1032 — the destination storey, defaulting to the source's own.
+        levelId:  opts?.levelId ?? cw.levelId,
         // §FIX-COPY-PAYLOAD-FIELD-NAMES — `baseLine`, not `start`/`end`, and `y` is
         // carried from the source: dropping it makes `isFiniteVec3` refuse the wall.
         baseLine: [
@@ -229,17 +312,25 @@ export function wallCopyPayload(
     dx: number,
     dz: number,
     newId: string,
+    opts?: WallCopyOverrides,
 ): Record<string, unknown> {
     const [a, b] = wall.baseLine;
+    // §L-1032 — a wall's baseLine `y` IS its storey elevation, and it is the ONLY
+    // geometry any `Change<Family>Level` handler rewrites (see `WallCopyOverrides`
+    // for the six-handler measurement). A duplicate to another storey MUST rebase
+    // it or it stands at the source's height wearing the destination's `levelId`.
+    // Both endpoints get the SAME y — `Wall`'s schema refine (2) requires it.
+    const yA = opts?.elevationY ?? a.y ?? 0;
+    const yB = opts?.elevationY ?? b.y ?? 0;
     return {
         id:        newId,
         baseLine: [
-            { x: a.x + dx, y: a.y ?? 0, z: a.z + dz },
-            { x: b.x + dx, y: b.y ?? 0, z: b.z + dz },
+            { x: a.x + dx, y: yA, z: a.z + dz },
+            { x: b.x + dx, y: yB, z: b.z + dz },
         ],
         height:    wall.height,
         thickness: wall.thickness,
-        levelId:   wall.levelId,
+        levelId:   opts?.levelId ?? wall.levelId,
         ...(wall.baseOffset    !== undefined ? { baseOffset:    wall.baseOffset }    : {}),
         ...(wall.materialId    !== undefined ? { materialId:    wall.materialId }    : {}),
         ...(wall.materialColor !== undefined ? { materialColor: wall.materialColor } : {}),
@@ -285,6 +376,7 @@ export function slabCopyPayload(
     dz: number,
     newId: string,
     ifcGuid: string,
+    opts?: CopyPayloadOverrides,
 ): Record<string, unknown> {
     // §FIX-SLAB-ZERO-AREA (C11 §7.0) — worldZ in BOTH `y` and `z`: the legacy
     // SlabStore/builder read the plan polygon as `{x, y=worldZ}`, while the L0
@@ -313,7 +405,10 @@ export function slabCopyPayload(
         // §FIX-COPY-PAYLOAD-FIELD-NAMES — NOT translated. See (2) in the header:
         // the polygon already carries the move, and `position` is added to it.
         position:  { ...slab.position },
-        levelId:   slab.levelId,
+        // §L-1032 — `ChangeSlabLevel.ts:102-106` writes `levelId` and NOTHING
+        // else, so a slab's storey is entirely `levelId`; `position` needs no
+        // rebase and must not get one.
+        levelId:   opts?.levelId ?? slab.levelId,
         polygon:   newPoly,
         holes:     holes.length ? holes : undefined,
         ...(slab.baseOffset    !== undefined ? { baseOffset:    slab.baseOffset }    : {}),
@@ -346,6 +441,7 @@ export function columnCopyPayload(
     dx: number,
     dz: number,
     newId: string,
+    opts?: CopyPayloadOverrides,
 ): Record<string, unknown> {
     if (col.steelProfileName) {
         console.warn(
@@ -366,7 +462,8 @@ export function columnCopyPayload(
         width:      col.width,
         depth:      col.depth,
         baseOffset: col.baseOffset,
-        levelId:    col.levelId,
+        // §L-1032 — `ChangeColumnLevel.ts:112-116` writes `levelId` only.
+        levelId:    opts?.levelId ?? col.levelId,
         materialId: col.materialId,
     };
 }
@@ -399,6 +496,7 @@ export function furnitureCopyPayload(
     dx: number,
     dz: number,
     newId: string,
+    opts?: CopyPayloadOverrides,
 ): Record<string, unknown> {
     // §FIX-COPY-PAYLOAD-FIELD-NAMES — the SCALAR yaw both receivers expect.
     const rot = item.rotation;
@@ -431,7 +529,8 @@ export function furnitureCopyPayload(
         furnitureType: item.furnitureType,
         position:      { x: item.position.x + dx, y: item.position.y, z: item.position.z + dz },
         rotation:      yaw,
-        levelId:       item.levelId,
+        // §L-1032 — `ChangeFurnitureLevel.ts:123-127` writes `levelId` only.
+        levelId:       opts?.levelId ?? item.levelId,
         baseOffset:    item.baseOffset ?? 0,
         width:         item.width,
         length:        item.length,
@@ -441,5 +540,86 @@ export function furnitureCopyPayload(
         kitchenConfig:         item.kitchenConfig,
         wardrobeCabinetConfig: item.wardrobeCabinetConfig,
         furnitureCategory:     item.furnitureCategory,
+    };
+}
+
+// ─── Beam ────────────────────────────────────────────────────────────────────
+
+/**
+ * Fields the beam hop CANNOT carry, named rather than dropped (C84 **EI-2**).
+ * The four support bindings are the ones that matter: they name the COLUMN or
+ * WALL this beam framed into. A copy 6 m away — and a DUPLICATE on another
+ * storey even more so — frames into something else or into nothing, so carrying
+ * them forward would assert a structural connection that does not exist.
+ */
+const BEAM_UNCARRIED_FIELDS = [
+    'startSupportId', 'endSupportId', 'startSupportType', 'endSupportType',
+    'properties', 'metadata', 'parentId',
+] as const;
+
+/**
+ * Receiver: `CreateBeamPayload` (`plugins/beam/src/handlers/CreateBeam.ts:16-46`)
+ * AND `CommandEventBridge`'s `beam.create` case (`:663`), which is the leg that
+ * reaches the legacy `BeamStore` → `BeamFragmentBuilder` mesh.
+ *
+ * ─── WHY THIS MOVED OUT OF THE HANDLER ───────────────────────────────────────
+ * §L-1032. This mapping was an object literal inside
+ * `CopyPlanToolHandler._copyBeam`, i.e. behind a two-click canvas gesture and a
+ * `window.beamStore` read — unreachable by any suite, which is the precise
+ * condition that let L-978's four wrong curtain-wall field names live. The
+ * duplicate-to-level route needs the same mapping, and re-typing it at a second
+ * call site is the C84 EI-9 breach this module exists to prevent. Extracted
+ * VERBATIM: with `newId` omitted the returned object is byte-identical to the
+ * literal it replaces.
+ *
+ * ⚠ FOUND, NOT FIXED — the copy path mints NO beam id. `CreateBeamPayload`
+ * accepts `id`, and `CommandEventBridge:685` looks the COMMITTED beam up by
+ * `p.id` to relay the handler-normalised section (§FIX-BEAM-CEB-STEEL, L-974);
+ * with no id that lookup can never hit for a copied beam and the case falls back
+ * to the raw request. Changing the plan copy tool's behaviour is outside L-1032,
+ * so `newId` is OPTIONAL here and the copy tool still passes none. The DUPLICATE
+ * route passes one — it must, or the duplicate could not be told from its source.
+ */
+export function beamCopyPayload(
+    beam: LegacyBeamLike,
+    dx: number,
+    dz: number,
+    newId?: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    const sp = beam.startPoint;
+    const ep = beam.endPoint;
+
+    const record: Record<string, unknown> = { ...beam };
+    const uncarried = BEAM_UNCARRIED_FIELDS.filter(k => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source beam carries ${uncarried.join(', ')}, and ` +
+            `neither CreateBeamPayload nor the beam.create event has a slot for any of them, ` +
+            `so the copy is created WITHOUT them. The support bindings in particular are ` +
+            `DELIBERATELY not carried: a beam at a different place — or on a different storey — ` +
+            `does not frame into the same column or wall, and asserting that it does would be ` +
+            `a false structural connection rather than a faithful copy.`,
+        );
+    }
+
+    return {
+        // §L-1032 — omitted by the plan copy tool (byte-identical to the literal
+        // this replaced); supplied by the duplicate route.
+        ...(newId !== undefined ? { id: newId } : {}),
+        startPoint:    { x: sp.x + dx, y: sp.y, z: sp.z + dz },
+        endPoint:      { x: ep.x + dx, y: ep.y, z: ep.z + dz },
+        width:         beam.width,
+        depth:         beam.depth,
+        // §L-1032 — `ChangeBeamLevel.ts:106-110` writes `levelId` only; a beam's
+        // world Y comes from `level.elevation` at build time, so the endpoints'
+        // `y` is NOT rebased. Wall is the sole family that rebases — see
+        // `WallCopyOverrides`.
+        levelId:       opts?.levelId ?? beam.levelId,
+        material:      beam.material,
+        loadBearing:   beam.loadBearing,
+        fireRating:    beam.fireRating,
+        sectionType:   beam.sectionType,
+        steelProfileName: beam.steelProfileName,
     };
 }
