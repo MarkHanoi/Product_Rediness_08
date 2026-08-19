@@ -290,6 +290,19 @@ interface Cell {
     topSep: number;
     /** JOINT signature: how much the two solids PART between floor and top. */
     openUp: number;
+    /** Highest world-Y of any BODY vertex of A — the silhouette's top. */
+    topRingY: number;
+    /**
+     * How many distinct plan positions of A's body sit at the FULL height `H`.
+     *
+     * §RK1-MAX-Y-CANNOT-SEE-A-PARTIAL-CUT — `topRingY` alone was the wrong instrument for
+     * a profile and this field exists because it failed. A ring that cuts ONE END down
+     * leaves the other end at full height, so the body's MAXIMUM y is unchanged at 3 and
+     * the assertion read "expected 3 to be less than 2.999". The cut is real; a
+     * whole-body extremum simply cannot see it. Counting how much of the wall still
+     * REACHES the top can: a rectangle has its whole top edge there, a cut wall has less.
+     */
+    topRingCount: number;
     note: string;
 }
 
@@ -313,11 +326,11 @@ function measure(A: WallData, B: WallData): Cell {
         const rootA = builder.getWallRoot(A.id) as unknown as THREE.Object3D | null;
         const rootB = builder.getWallRoot(B.id) as unknown as THREE.Object3D | null;
         if (!rootA || !rootB) {
-            return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, note: 'NO GROUP' };
+            return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, topRingY: NaN, topRingCount: -1, note: 'NO GROUP' };
         }
         const vA = bodyVertices(rootA), vB = bodyVertices(rootB);
         if (vA.length === 0 || vB.length === 0) {
-            return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, note: 'NO BODY GEOMETRY' };
+            return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, topRingY: NaN, topRingCount: -1, note: 'NO BODY GEOMETRY' };
         }
         const baseA = ringAt(vA, 0), baseB = ringAt(vB, 0);
         const topA = ringAt(vA, H), topB = ringAt(vB, H);
@@ -326,7 +339,7 @@ function measure(A: WallData, B: WallData): Cell {
                 gate, leanA: NaN,
                 baseShared: baseA.length && baseB.length ? sharedCount(baseA, baseB, COINCIDENT_M) : -1,
                 topShared: -1, baseGap: minGap(baseA, baseB), topGap: NaN,
-                baseSep: hullSeparation(baseA, baseB), topSep: NaN, openUp: NaN,
+                baseSep: hullSeparation(baseA, baseB), topSep: NaN, openUp: NaN, topRingY: NaN, topRingCount: -1,
                 note: 'NO TOP RING AT y=H',
             };
         }
@@ -350,10 +363,12 @@ function measure(A: WallData, B: WallData): Cell {
             topShared: sharedCount(topA, topB, COINCIDENT_M),
             baseGap, topGap, baseSep, topSep,
             openUp: topSep - baseSep,
+            topRingY: Math.max(...vA.map(v => v.y)),
+            topRingCount: topA.length,
             note: '',
         };
     } catch (e) {
-        return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, note: `THREW: ${(e as Error).message.slice(0, 70)}` };
+        return { gate, leanA: NaN, baseShared: -1, topShared: -1, baseGap: NaN, topGap: NaN, baseSep: NaN, topSep: NaN, openUp: NaN, topRingY: NaN, topRingCount: -1, note: `THREW: ${(e as Error).message.slice(0, 70)}` };
     }
 }
 
@@ -985,22 +1000,41 @@ describe('RK1 §RK1-MATRIX -- AXIS 6: L-1067, the profile is authorable and DRAW
             .toBe(true);
     });
 
-    it('L-1067 -- and the BUILT BODY is identical with and without it: the ring draws NOTHING', () => {
+    /**
+     * ✅ INVERTED 2026-08-19 by §FEAT-WALL-PROFILE-BODY, exactly as this test instructed.
+     * It used to assert *"the ring draws NOTHING"* and ended: *"⛔ WHEN A LANE BUILDS THE
+     * PROFILE BODY, THIS TEST GOES RED. That is correct and intended: invert it to assert
+     * the CUT, do not delete it."* Done — and the instruction is the reason it was safe to
+     * touch, which is the same discipline that made `A2b`/`A3b` safe.
+     */
+    it('L-1067 -- the ring is DRAWN: the profiled wall is a DIFFERENT solid, vertical and raked', () => {
         const far = () => mk([50, 50], [55, 50], { rake: VERT });
         for (const rake of [undefined, RAKE]) {
             const withIt = measure(withProfile(rake), far());
             const withoutIt = measure(mk([0, 0], [5, 0], rake === undefined ? {} : { rake }), far());
             expect(Number.isFinite(withIt.leanA), 'the profiled wall builds').toBe(true);
-            // The profile cuts the top-left corner down from v=3 to v=1, so a wall that
-            // DREW it would have a visibly different silhouette. It does not.
-            expect(withIt.leanA, `rake=${rake ?? 'none'}: the profile changed nothing about the lean`)
-                .toBeCloseTo(withoutIt.leanA, 9);
-            expect(withIt.baseGap, `rake=${rake ?? 'none'}: nor about the footprint`)
-                .toBeCloseTo(withoutIt.baseGap, 9);
+            // The ring cuts the far end from v=3 down to v=1. A wall that DRAWS it has a
+            // different silhouette; the pre-fix reading was these two being equal to 9dp.
+            // ⚠ NOT `topRingY`. The ring cuts the NEAR end down to v=1 and leaves the far
+            //   end at v=3, so the body's MAXIMUM y is unchanged and a whole-body extremum
+            //   reads the cut as absent — it failed exactly that way, "expected 3 to be
+            //   less than 2.999". What the cut actually changes is how MUCH of the wall
+            //   still reaches the top.
+            expect(withIt.topRingCount, `rake=${rake ?? 'none'}: less of the wall reaches the top`)
+                .toBeLessThan(withoutIt.topRingCount);
         }
-        // ⛔ WHEN A LANE BUILDS THE PROFILE BODY, THIS TEST GOES RED. That is correct and
-        //    intended: invert it to assert the CUT, do not delete it. The `v = 1` corner
-        //    must then be measurably absent from the built top ring.
+    });
+
+    it('L-1067 -- and a profile COMPOSES with a rake rather than replacing it', () => {
+        // The ring is authored in the UN-SHEARED frame, so the two are independent: the
+        // profile cuts, then the group leans. Asserted because "they compose" is exactly
+        // the kind of claim a comment can make and no code can be held to.
+        const far = () => mk([50, 50], [55, 50], { rake: VERT });
+        const flat = measure(withProfile(undefined), far());
+        const leaning = measure(withProfile(RAKE), far());
+        expect(flat.leanA, 'un-raked: the profiled wall is upright').toBeLessThan(COINCIDENT_M);
+        expect(leaning.leanA, 'raked: the SAME profiled wall leans by h*cot(theta)')
+            .toBeCloseTo(EXPECTED_LEAN, 6);
     });
 });
 

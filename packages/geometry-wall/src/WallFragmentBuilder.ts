@@ -25,7 +25,9 @@ import {
 } from './CurvedWallOpeningBuilder';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
-import { hasWallProfile } from './WallProfile';
+import { hasWallProfile, resolveWallProfile } from './WallProfile';
+// §FEAT-WALL-PROFILE-BODY (L-1067) — the builder that finally DRAWS the authored ring.
+import { buildWallProfileBodyGeometry } from './WallProfileBodyBuilder';
 // §WALL-PLAIN-HOLE-EXTRUDE — pure (testable) single-body geometry for a plain
 // straight wall with openings (one continuous ExtrudeGeometry, no segment seams).
 import { buildWallHoleBodyGeometry } from './WallHoleBodyBuilder';
@@ -1966,6 +1968,84 @@ export class WallFragmentBuilder {
         // built as one unbroken solid. Handles both the plain and the LAYERED
         // curved paths, so neither is silently left behind. Escape hatch:
         // `__pryzmHostedOnCurvedWall = false` restores the uncarved solid.
+        // ── §FEAT-WALL-PROFILE-BODY (L-1067) — the ring is DRAWN ─────────────────
+        //
+        // Placed FIRST among the body arms, because a profile changes the wall's
+        // ELEVATION OUTLINE and every arm below assumes the implicit rectangle. Slices 0
+        // and 1 shipped the model, the gate, persistence, invalidation, the geometry hash
+        // and an instanced-arm exclusion — and NO body builder read the ring, so a
+        // profiled wall rebuilt, left the instanced path, and rendered the identical
+        // rectangle. The founder asked for the mode three times.
+        //
+        // `profileAuthorability` refuses curved, layered and opening-bearing walls, so
+        // what reaches here is a plain straight wall, vertical or RAKED. The rake needs no
+        // term here: the ring is authored in the UN-SHEARED frame (`WallTypes.ts`: *"both
+        // measured in the UN-SHEARED frame, so a profile and a rake compose"*), and
+        // `_applyRakeShearToChildren` below leans the built group exactly as it does the
+        // opening-bearing body. The two compose by construction rather than by arithmetic
+        // written twice.
+        //
+        // ⛔ NO MITRE — the end faces are perpendicular, the same limitation
+        //    `buildWallHoleBodyGeometry` carries and for the same reason (an extruded
+        //    outline has no per-end plane to project onto). Declared in
+        //    `WallProfileBodyBuilder`'s header and in L-1067; it is why that row stays
+        //    OPEN even though the ring now draws.
+        if (_hasWallProfile) {
+            const _profile = resolveWallProfile((wall as { wallProfile?: unknown }).wallProfile);
+            const _pGeo = _profile
+                ? buildWallProfileBodyGeometry({
+                    ring: _profile.ring, thickness: wallThickness, baseOffset: wallBaseOffset,
+                })
+                : null;
+            if (_pGeo) {
+                const _pMesh = new THREE.Mesh(_pGeo, this.createWallMaterial(wall));
+                // Same frame hand-off as the hole-extrude body: built axis-aligned with
+                // local-x along the wall, rotated by −angle about the group origin.
+                _pMesh.position.set(0, 0, 0);
+                _pMesh.rotation.set(0, -Math.atan2(direction.z, direction.x), 0);
+                _pMesh.userData = {
+                    id: wall.id,
+                    materialId: wall.materialId,
+                    materialColor: wall.materialColor,
+                    elementType: 'WallPart',
+                    modelId: 'model-default',
+                    role: 'geometry',
+                    selectable: false,
+                    wallId: wall.id,
+                    parentId: wall.id,
+                    profileBody: true,
+                };
+                wallGroup.add(_pMesh);
+                wallGroup.add(buildWallEdgeOverlay(_pGeo, wall.id));
+
+                const _pFragId = crypto.randomUUID();
+                this.fragments.set(_pFragId, {
+                    id: _pFragId, wallId: wall.id, mesh: _pMesh as any,
+                    type: 'wall-body', parentId: wall.id, levelId: wall.levelId,
+                });
+                this.fragmentToEntityMap.set(_pFragId, {
+                    fragmentId: _pFragId, elementId: wall.id,
+                    type: 'wall', entityType: 'wall', entityId: wall.id,
+                });
+                fragmentIds.push(_pFragId);
+
+                // The rake, applied to the built group — the ring is un-sheared, this
+                // leans it. No-op at 90° (the method returns before touching a child).
+                this._applyRakeShearToChildren(
+                    wallGroup, wall,
+                    rakeShearPerMetre((wall as { rakeAngleDeg?: number }).rakeAngleDeg),
+                    direction, wallBaseOffset,
+                );
+                this._syncMutableWallUserData(wallGroup, wall);
+                this.wallToFragmentsMap.set(wall.id, fragmentIds);
+                return fragmentIds;
+            }
+            // A ring that cannot make a solid falls through to the rectangular body
+            // rather than emitting nothing (SPEC §4: never an empty wall). The gate
+            // refuses such rings at every write boundary, so reaching here means the
+            // model was mutated behind it.
+        }
+
         if (wall.curve && isArcHost(wall) && wall.openings && wall.openings.length > 0) {
             const built = this._buildCurvedWallWithOpenings(
                 wall, wallGroup, fragmentIds, start, end,
