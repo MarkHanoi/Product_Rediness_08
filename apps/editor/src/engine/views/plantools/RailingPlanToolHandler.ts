@@ -70,16 +70,7 @@ import {
     type HandrailRunSegmentSpec,
 } from '@pryzm/command-registry';
 import { handrailTypeStore, type HandrailTypeDefinition } from '@pryzm/core-app-model/stores';
-import {
-    applyOrthoConstraint,
-    curvedRunVertices,
-    isHandrailLoopMode,
-    loopSegmentsForMode,
-    segmentsFromVertices,
-    slabOutlineSegments,
-    type HandrailRunPoint,
-    type HandrailRunSegment,
-} from '@pryzm/geometry-stair';
+import { applyOrthoConstraint, curvedRunVertices, isHandrailLoopMode, loopSegmentsForMode, segmentsFromVertices, slabOutlineSegments, type HandrailRunPoint, type HandrailRunSegment } from '@pryzm/geometry-handrail';
 import {
     resolveActiveHandrailDrawMode,
     resolveActiveHandrailTypeId,

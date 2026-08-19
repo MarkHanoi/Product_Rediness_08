@@ -29,7 +29,7 @@
  */
 
 import { trace } from '@opentelemetry/api';
-import type { HandrailRunMode } from '@pryzm/geometry-stair';
+import type { HandrailRunMode } from '@pryzm/geometry-handrail';
 
 const _tracer = trace.getTracer('@pryzm/editor.active-handrail-authoring', '0.1.0');
 

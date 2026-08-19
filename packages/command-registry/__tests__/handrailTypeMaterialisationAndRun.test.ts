@@ -35,8 +35,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { HandrailStore, handrailTypeStore } from '@pryzm/core-app-model/stores';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
-import { HandrailFragmentBuilder } from '@pryzm/geometry-stair';
-import { segmentsFromVertices, rectangleLoopVertices } from '@pryzm/geometry-stair';
+import { HandrailFragmentBuilder } from '@pryzm/geometry-handrail';
+import { segmentsFromVertices, rectangleLoopVertices } from '@pryzm/geometry-handrail';
 import { CreateHandrailCommand } from '../src/handrails/CreateHandrailCommand';
 import { CreateHandrailRunCommand } from '../src/handrails/CreateHandrailRunCommand';
 // L-987 — the THREE byte-identical handrail snapshot implementations, imported by
