@@ -39,7 +39,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 
 ## 2. Allocation table
 
-**Highest number allocated: `L-1289`.** Next free block starts at **`L-1290`**.
+**Highest number allocated: `L-1299`.** Next free block starts at **`L-1300`**.
 
 | Block | Lane | Session | State |
 |---|---|---|---|
@@ -47,8 +47,9 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1240 – L-1249 | ELEV1 — window/door elevation symbols | 2026-08-19 | **L-1240, L-1241 minted** (2 of 10 used) |
 | L-1250 – L-1259 | ROUND1 — circular windows / arched doors | 2026-08-19 | allocated |
 | L-1260 – L-1269 | NL1 — wall finish / layer chat grammar | 2026-08-19 | **L-1260, L-1261, L-1262, L-1263 minted** (4 of 10 used) |
-| L-1270 – L-1279 | *(free)* | — | — |
-| L-1280 – L-1289 | *(free)* | — | — |
+| L-1270 – L-1279 | JOIN1 — raked-wall joints (gap opens toward the top) | 2026-08-19 | allocated |
+| L-1280 – L-1289 | LOG1 — boot-log defect sweep (clash dead, durable thumbnails, triple open) | 2026-08-19 | allocated |
+| L-1290 – L-1299 | GPU1 — ShadowDepthTexture destroyed mid-submit on railing MATERIAL change | 2026-08-19 | allocated |
 
 > ⚠ **L-1197 … L-1226 are PRE-LEDGER** and were minted under the old racing convention. Several were
 > renumbered in flight. **Trust the ISSUE LOG for what they mean, not any lane report that cites
