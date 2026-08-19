@@ -698,3 +698,122 @@ own tests, which planted them. The surface could not report a leak it was writte
   splitting "system context layer" from "user import" is a product decision, not a fix.
 - **No CI gate counts overlay creators against §11.1.** A new overlay that forgets to
   declare a scope inherits `'all'` and leaks silently, exactly as this one did.
+
+## §12 — Chrome actions are DECLARED once; a panel is a HOST, the action is the AUTHORITY
+
+> **Added 2026-08-19 · L-1187 · normative.** Founder, with an annotated screenshot boxing three
+> separate chrome surfaces and arrows from all of them to one panel icon: *"Please make sure all
+> the following buttons are in the GIS tab — and the legacy buttons are gone, cleaned."*
+
+The audit that answered him found that the 19 boxed controls were **14 actions under 19 names**,
+mounted by **five** independent surfaces that each hand-wrote its own button list and its own
+handler. The observable results were: one label (`3D Site`) naming two different things, one of
+which was a non-interactive `<span>`; two labels (`3D globe` / `PRYZM Earth`) whose meanings were
+**inverted** relative to what a reader would guess; three labels (`Real`, `Massing`,
+`Zoom to Site`) each appearing twice against two different state variables; and a whole 305-line
+surface (`GISRailPanel.ts`) with **zero importers**, on which the only route to a real capability
+had been silently stranded.
+
+This section generalises: it binds every panel, rail, toolbar and floating pill stack in §2 and §7,
+not only the GIS panel.
+
+### §12.1 — One declaration per action
+
+Every user-invocable chrome action MUST be declared exactly once, in a registry, with at minimum:
+a stable **id**, a **label**, a **group**, the **entry points its dispatch calls**, and the
+**retired spellings it absorbs**. Surfaces key off the id; **the label is data, never a literal in
+a surface**.
+
+A registry is what makes *"is this button live?"* have **one** answer. Five lists had five answers,
+and one of them was "no answer at all, because nothing ever mounted me".
+
+### §12.2 — A surface RENDERS the registry; it does not enumerate
+
+A surface MUST derive its controls from the registry. It MUST NOT accept, or contain, a
+hand-written list of ids to render — that list is the same defect one indirection later.
+
+> ⭐ This repo's recurring failure mode is **"an enumerated list that must be REMEMBERED rather than
+> DERIVED"**. In one week it produced a viewport freeze (a hand-written event list missing 11
+> element families) and a dead pick cache (`bim-railing-*`, zero emitters). A hand-written button
+> list in a second panel is the same defect wearing different clothes.
+
+### §12.3 — RE-HOST the dispatch; never copy the handler
+
+Consolidating an action into a new surface MUST re-host the **existing** dispatch — the registered
+entry point, the exported function, the bus command. Copying handler logic into the new surface is
+forbidden.
+
+This is not style. `GISRailPanel` and `ProjectBrowserPanel` each carried their own copy of the GIS
+handlers; they drifted, and one of them ended up unreachable while still looking authoritative to
+anyone reading it. **Two copies of a handler is two answers to one question, and nothing decides
+which is right.**
+
+### §12.4 — ONE VOCABULARY, enforced (C84 EI-8 / EI-9)
+
+Within a registry: **no two actions may share a label**, and a retired spelling may be absorbed by
+**exactly one** surviving action. A retired name that two actions both claim means the
+de-duplication is unresolved and MUST NOT be shipped as resolved.
+
+The `absorbs` ledger lives in **code, not in a document**, so that re-minting a retired name fails
+a test instead of surviving a review.
+
+### §12.5 — An unresolvable action renders DISABLED, with its reason, and is not clickable
+
+Resolution MUST be able to return "no live dispatch" — `null`, not a silent no-op closure. A
+surface that receives it MUST render the control **disabled**, marked, and carrying the stated
+reason. It MUST NOT paint it as a live button, and MUST NOT substitute a handler of its own.
+
+> **A dead button that looked alive is its own bug**, and the founder had been clicking them.
+> "Nothing happened and I don't know why" and "this isn't available yet, because X" are different
+> facts and must not render the same.
+
+Correspondingly, an action declaring **no** entry point MUST carry a stated `unavailableReason`,
+and an action that IS live MUST NOT carry one. A permanently-disabled control with no reason is a
+tombstone pretending to be a feature.
+
+### §12.6 — Verification is EXECUTABLE, and does not stub the registry
+
+A registry MUST ship with a test that fails the build when:
+
+1. a declared action names an entry point its dispatch **does not call** (the anti-no-op arm — this
+   is the arm that reproduces the `GISRailPanel` failure);
+2. a dispatch calls an **undeclared** entry point (declaration drifting from handler);
+3. two actions share a **label**, or two actions claim the same **retired spelling** (§12.4);
+4. an action with no entry points carries **no reason**, or a live action carries one (§12.5);
+5. a resolvable action renders **disabled**, or an unresolvable one renders **live** (§12.5);
+6. a surface **drops** a declared action (§12.2).
+
+⛔ **A test that stubs the registry proves nothing.** The subject under test is the real registry
+and the real renderer; only the *host* (the environment carrying the entry points) may be faked.
+The test MUST be **falsified before landing** — break one dispatch and confirm the suite goes red —
+because a guard nobody has seen fail is a guard nobody has seen.
+
+Prior art: the Delete census, where a new selectable kind fails the BUILD until Delete handles or
+refuses it. Mirror it.
+
+### §12.7 — Retirement is per-control, and (b) blocks
+
+Removing a legacy control requires a **stated verdict**, never a bulk delete:
+
+- **(a) DUPLICATE** — another surviving control dispatches the same action. Safe to delete.
+- **(b) SOLE ROUTE** — the only way to reach a live capability. ⛔ Deleting it deletes the feature.
+  Its capability MUST land in the new surface **first**, proven, and only then does the old control
+  go.
+- **(c) ALREADY DEAD** — wired to a no-op or to a surface nothing mounts. Delete it **and log it**.
+  ⚠ And check what was stranded on it first: `GISRailPanel` was 100% unreachable, yet it held the
+  only caller of `openSiteInspectorPanel` — deleting it silently would have deleted a capability
+  that was already invisible.
+- **(d) NOT THIS PANEL** — belongs to another surface by function. Say so with the reasoning and
+  propose the home; obey the founder's grouping by default, and move it only with a stated case.
+
+**A control that cannot be classified is (b) by default.** Never delete on a guess.
+
+### §12.8 — Open cells (recorded, not assumed closed)
+
+- **Only `window`-registered entry points are resolvable.** An action whose dispatch is a MODULE
+  export (`openSiteInspectorPanel`) cannot yet be declared, and remains a hand-written button —
+  the exact thing §12.2 forbids. The registry needs a module-backed action kind.
+- **No CI gate counts chrome-mounting sites against §12.1.** A sixth surface that hand-writes its
+  own list is caught only by review, exactly as the first five were not.
+- **The rule is stated repo-wide but applied to GIS only.** The toolbar, the bottom action menu and
+  the launcher rail still enumerate. They are in scope for §12; they are not yet in a registry.

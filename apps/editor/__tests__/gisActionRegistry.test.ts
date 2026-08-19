@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the executable guard.
+// §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the executable guard.
 //
 // This is the test the founder's ask actually needs. "Please make sure all the
 // following buttons are in the GIS tab, and the legacy buttons are gone" cannot be

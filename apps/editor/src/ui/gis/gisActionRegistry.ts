@@ -1,4 +1,4 @@
-// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the ONE declared list of
+// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the ONE declared list of
 // GIS / site-view actions, and the ONE resolver from a declared action to its LIVE
 // dispatch.
 //

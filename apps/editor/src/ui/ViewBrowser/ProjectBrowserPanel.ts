@@ -33,7 +33,7 @@ import { RenderRailPanel }               from '../tools-panel/panels/RenderRailP
 // out of the dev-only modelTreeTestModal. Reuses the canonical ModelTreeComponent
 // + ProvenanceTab + isolation pipeline.
 import { buildInspectPanel, type InspectPanelHandle } from '../inspect/InspectPanel';
-// §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the GIS panel RENDERS the declared action
+// §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the GIS panel RENDERS the declared action
 // registry; it does not carry a button list of its own. This is the founder's
 // "make sure all these buttons are in the GIS tab" consolidation: the top view-mode
 // switch, the "3D Site" sub-bar and the bottom-left floating pill stack all name the
@@ -819,7 +819,7 @@ export class ProjectBrowserPanel {
         resetBtn.style.marginTop = '2px';
         root.appendChild(resetBtn);
 
-        // ── §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the consolidated site controls ──
+        // ── §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the consolidated site controls ──
         //
         // The founder boxed three separate chrome surfaces (the top view-mode switch,
         // the "3D Site" sub-bar and the bottom-left floating pill stack) and drew
