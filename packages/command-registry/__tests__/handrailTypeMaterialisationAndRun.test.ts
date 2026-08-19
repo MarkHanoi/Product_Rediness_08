@@ -37,6 +37,9 @@ import { HandrailStore, handrailTypeStore } from '@pryzm/core-app-model/stores';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { HandrailFragmentBuilder } from '@pryzm/geometry-handrail';
 import { segmentsFromVertices, rectangleLoopVertices } from '@pryzm/geometry-handrail';
+// §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — the ONE station function.
+// Imported so the expectation below READS the rule instead of retyping it.
+import { postStations } from '@pryzm/geometry-handrail';
 import { CreateHandrailCommand } from '../src/handrails/CreateHandrailCommand';
 import { CreateHandrailRunCommand } from '../src/handrails/CreateHandrailRunCommand';
 // L-987 — the byte-identical handrail snapshot implementations, imported by
@@ -178,8 +181,43 @@ describe('L-983 — a catalogue handrail type reaches the record WHOLE (C84 EI-2
         scene.traverse((o) => {
             if ((o as THREE.Mesh).isMesh && (o.userData as { member?: string }).member === 'baluster') balusters++;
         });
-        expect(balusters).toBe(Math.floor(4 / (0.099 + 0.016)) - 1);
-        expect(balusters).toBe(33);
+        // ⛔⛔ THIS ASSERTION USED TO READ:
+        //     expect(balusters).toBe(Math.floor(4 / (0.099 + 0.016)) - 1);  // 33
+        // It was RED, and it was red because it RETYPED A FORMULA THE CODE HAD
+        // DELETED — and deleted for a safety reason (found 2026-08-19, lane HR4).
+        //
+        // R5 replaced `Math.floor(length / pitch) - 1` with `postStations()`,
+        // whose header states the defect in terms: the `- 1` "left a final bay of
+        // up to TWICE the authored pitch … which for a guard is the one gap a
+        // 100 mm sphere passes through". The test kept the old arithmetic, so it
+        // was pinning the UNSAFE answer while its own comment claimed the clear
+        // opening was "exactly 0.099 m". Worked through, at 4 m with 16 mm bars:
+        //
+        //     33 balusters -> 34 bays -> pitch 0.1176 -> clear 0.1016  ❌ > 0.099
+        //     34 balusters -> 35 bays -> pitch 0.1143 -> clear 0.0983  ✅ ≤ 0.099
+        //
+        // The builder emitted 34. The BUILDER WAS RIGHT and the test was wrong,
+        // in the direction that matters for a guard.
+        expect(balusters).toBe(postStations(4, 0.099 + 0.016).length);
+
+        // ⭐ AND THE COUNT IS NOT THE POINT — THE CLEAR GAP IS. A count assertion
+        // restates an implementation; this asserts the CODE CONSTRAINT itself,
+        // measured off the meshes the real builder emitted, so it stays true under
+        // any future end-condition change that keeps the guard compliant.
+        const xs: number[] = [];
+        scene.traverse((o) => {
+            if ((o as THREE.Mesh).isMesh && (o.userData as { member?: string }).member === 'baluster') {
+                xs.push((o as THREE.Mesh).position.x);
+            }
+        });
+        xs.sort((a, b) => a - b);
+        // Bays are end-post -> first bar, bar -> bar, last bar -> end-post.
+        const edges = [0, ...xs, 4];
+        let worstClearGap = 0;
+        for (let i = 1; i < edges.length; i++) {
+            worstClearGap = Math.max(worstClearGap, edges[i]! - edges[i - 1]! - 0.016);
+        }
+        expect(worstClearGap).toBeLessThanOrEqual(0.099 + 1e-9);
     });
 
     it('an AUTHORED pitch still wins over infillMaxGap — no existing handrail changes shape', () => {
