@@ -517,49 +517,101 @@ export const ONBOARDING_STYLES = `
   z-index: 2147483000;
   display: flex;
   flex-direction: column;
-  width: min(288px, 92vw);
+  /* §UX1-ONBOARDING-HEADER-ROOT — 264 x 0.85 = 224px of content, the SAME
+     measured width the confirm card settled on, so steps 1-4 are one card that
+     changes contents rather than four cards that change size. */
+  width: min(264px, 92vw);
   height: auto;
   max-height: min(56vh, 440px);
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  color: #1a1a2e;
-  border: 1px solid rgba(102, 0, 255, 0.12);
-  border-radius: 12px;
+  /* §UX1-CONFIRM-GLASS — the ONE panel surface, and 0.88 was under its floor.
+     A white surface at alpha 0.88 composites to 224 over a dark globe, which puts
+     --app-text-2 body copy at 4.2:1 — below AA. 0.92 is the solved minimum (see
+     the §UX1-CONFIRM-GLASS block below for the derivation); using the token here
+     means the location/draw/confirm cards cannot drift apart again. */
+  background: var(--app-panel-glass);
+  backdrop-filter: var(--app-panel-glass-blur);
+  -webkit-backdrop-filter: var(--app-panel-glass-blur);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
   /* §PANEL-BACKDROP-UNIFY — shared scrim (the 100vmax spread) via the one token. */
   box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 100vmax var(--pryzm-panel-backdrop);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
+/* §UX1-ONBOARDING-HEADER-ROOT (founder 2026-08-19 — TWO screenshots, ONE block).
+   Symptom A, the LOCATION step: "Set up your project" wrapped onto three lines
+   and the step badge sat inside the wrap, reading as a second bordered box
+   overlapping the header. Symptom B, the DRAW banner over the loading screen:
+   the title and the badge render GHOSTED, near-invisible, while the body copy
+   below them is legible.
+
+   They are two mechanisms in this ONE block, and both are the same mistake —
+   the header was written against conditions that have since changed underneath
+   it, and nothing re-derived it.
+
+     A. rem vs the density lever. §UI-DENSITY-SCALE ('styles/uiScale.ts') matches
+        PX LITERALS ONLY. The card's width IS a px literal, so
+        §UX1-ONBOARDING-CARD-HALVED's 288px became 244.8 real px — but the title
+        stayed at 0.95rem (15.2px) and the padding/gap at 0.6rem, i.e. full-size
+        type inside a card that had halved. Measured in a browser before the fix:
+        title box 70.5 x 60 px (THREE lines), header 79.2 px tall. A 15.2px/800
+        "Set up your project" (~145px) beside a 135.9px white-space:nowrap badge
+        needs ~290px of a 206px content box. It cannot fit, and it never could.
+
+     B. #ffffff assumed a purple bar. The --drawing presentation repaints the
+        header rgba(255,255,255,...) at higher specificity; .os-title and
+        .os-step-chip were #ffffff for the gradient that is no longer under them,
+        so the banner renders white-on-white at ~1.1:1.
+
+   ONE decision fixes both: the header stops carrying its own surface. It is
+   transparent over the card's glass, separated by a hairline; its type is the
+   chrome scale in PX so the density lever governs it; its colour is --app-text;
+   and the purple survives as the badge's fill — the accent used once. That is
+   the same idiom §UX1-CONFIRM-GLASS gave step 3, so all four steps are now one
+   panel vocabulary rather than two (C84 EI-8/EI-9).
+
+   The title also gains min-width:0 + ellipsis. A flex item defaults to
+   min-width:auto and REFUSES to shrink below its content, which is the property
+   that turned "too wide" into "wrapped and overlapping" instead of a clean
+   truncation. With this, a longer title or a wider badge degrades legibly at any
+   card width rather than re-creating symptom A. */
 .os-onboarding-overlay .os-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem;
-  border-bottom: none;
-  /* O.13 — New-Project-modal design: solid purple gradient header bar. */
-  background: linear-gradient(135deg, #6600ff 0%, #8b2fe0 100%);
+  gap: 7px;
+  padding: 4px 8px;
+  background: transparent;
+  border-bottom: 1px solid var(--app-border);
   cursor: move; /* draggable by the header (makeDraggable) */
   user-select: none;
 }
 .os-onboarding-overlay .os-title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: #ffffff;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+/* 8.5px / 0.02em is what lets the longest badge ("STEP 1 OF 4 · LOCATION") and
+   the full title co-exist on one line at the 224px content width — measured, not
+   guessed; at 9px / 0.03em the title ellipsised to "Set up your pro...". */
 .os-onboarding-overlay .os-step-chip {
-  font-size: 11px;
+  flex: 0 0 auto;
+  font-size: 8.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 7px;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.20);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--app-accent);
+  color: var(--app-panel-bg);
+  border: 1px solid var(--app-accent);
   white-space: nowrap;
 }
 .os-onboarding-overlay .os-body {
@@ -569,22 +621,26 @@ export const ONBOARDING_STYLES = `
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 10px 11px 11px;
+  padding: 7px 8px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 .os-onboarding-overlay .os-prompt {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #111;
+  letter-spacing: 0.01em;
+  color: var(--app-text);
 }
 .os-onboarding-overlay .os-hint {
   margin: 0;
-  font-size: 12.5px;
-  color: rgba(20, 10, 40, 0.58);
+  font-size: 11.5px;
+  /* Was rgba(20, 10, 40, 0.58) — a WASH, and a wash cannot be measured until you
+     know what is under it. Composited on the 0.92 glass over a dark globe it
+     reads 4.46:1, i.e. it fails AA on exactly the backdrop the location step
+     always has. --app-text-2 is 4.59:1 there and 5.48:1 on white. */
+  color: var(--app-text-2);
   line-height: 1.4;
 }
 /* §TYPOLOGY-CHOICE-AT-CONFIRM — the confirm step's "what do you want to build?"
@@ -664,84 +720,117 @@ export const ONBOARDING_STYLES = `
 }
 .os-onboarding-overlay .os-status {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #6600ff;
+  color: var(--app-accent);
 }
 .os-onboarding-overlay .os-input-row {
   display: flex;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 5px;
+  margin-top: 3px;
 }
+/* "Find location" wrapped to two lines once the card halved, for the same
+   flex reason as the title: the button is a flex item and the input's
+   min-width:auto would not yield. Pin the button, let the input give. */
+.os-onboarding-overlay .os-input-row .os-btn { white-space: nowrap; flex: 0 0 auto; }
+/* ⚠ §UX1-COMMENT-EATS-THE-CLAMP — READ BEFORE MOVING A COMMENT INTO A BLOCK.
+   uiScale's scanner treats a comment as OPAQUE but does NOT flush the pending
+   segment when it meets one, so a comment sitting between declarations is glued
+   onto the NEXT declaration. scaleDeclaration then takes everything before the
+   first ':' as the property name — which is now "<the whole comment> min-height"
+   — so the declaration matches neither BOX_SIZE_PROPS nor the font-size test and
+   BOTH C43 clamps are skipped. Measured in the emitted sheet: this exact shape
+   was emitting 'min-height: 23.8px' on .os-input and .os-btn, i.e. UNDER the
+   24px SC 2.5.8 floor, and a comment containing a colon (a contrast ratio! e.g.
+   "4.5:1") additionally re-scaled every px in its own text.
+   The previous pass's comment on .os-input asserted the clamp was working. The
+   comment WAS the reason it was not. Explanatory comments therefore live ABOVE
+   the selector, never between declarations. */
+/* C43 / WCAG 2.2 AA SC 2.5.8 — an explicit min-height so the density lever
+   cannot push this control under the 24px target floor. uiScale clamps
+   'min-height' on the way down (28 × 0.85 = 23.8 → 24); padding is NOT clamped,
+   which is how a density pass silently breaches the floor. Same on '.os-btn'. */
 .os-onboarding-overlay .os-input {
   flex: 1 1 auto;
   min-width: 0;
-  /* C43 / WCAG 2.2 AA SC 2.5.8 — an explicit min-height so the halving cannot
-     push this control under the 24px target floor. 'uiScale.BOX_SIZE_PROPS'
-     clamps 'min-height' on the way down (28 × 0.85 = 23.8 → clamped to 24);
-     padding alone is NOT clamped, which is how a density pass silently breaches
-     the floor. Same reason on '.os-btn' below. */
   min-height: 28px;
-  padding: 7px 11px;
-  border-radius: 9px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.85);
-  color: #111;
-  font-size: 12.5px;
+  padding: 6px 9px;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid var(--app-border);
+  background: var(--app-panel-bg);
+  color: var(--app-text);
+  font-size: 11.5px;
 }
 .os-onboarding-overlay .os-input:focus-visible {
-  outline: none;
-  border-color: #6600ff;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+  border-color: var(--app-accent);
+  background: var(--app-panel-bg);
 }
+/* 28 × 0.85 = 23.8, clamped back to the 24px SC 2.5.8 floor by uiScale. Padding
+   is NOT clamped, so this min-height is what keeps the floor true. */
 .os-onboarding-overlay .os-btn {
   min-height: 28px;
-  padding: 7px 13px;
-  border-radius: 9px;
+  padding: 6px 10px;
+  border-radius: var(--app-radius-sm);
   border: none;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.2;
   cursor: pointer;
 }
-.os-onboarding-overlay .os-btn--primary { background: #6600ff; color: #fff; }
-.os-onboarding-overlay .os-btn--primary:hover { background: #5500dd; }
+.os-onboarding-overlay .os-btn--primary { background: var(--app-accent); color: var(--app-panel-bg); }
+.os-onboarding-overlay .os-btn--primary:hover { background: var(--app-violet-2); }
 .os-onboarding-overlay .os-btn--primary:disabled { opacity: 0.45; cursor: default; }
 .os-onboarding-overlay .os-btn--ghost {
   background: transparent;
-  color: #6600ff;
-  border: 1px solid rgba(102, 0, 255, 0.28);
+  color: var(--app-accent);
+  border: 1px solid var(--app-violet-soft);
 }
-.os-onboarding-overlay .os-btn--ghost:hover { border-color: #6600ff; background: rgba(102, 0, 255, 0.06); }
+.os-onboarding-overlay .os-btn--ghost:hover { border-color: var(--app-accent); background: var(--app-violet-soft); }
+.os-onboarding-overlay .os-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
 .os-onboarding-overlay .os-choices {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-top: 4px;
+  gap: 4px;
+  margin-top: 3px;
 }
+/* rem -> px for the same reason as the header: these were invisible to the
+   density lever, so the plot-choice cards stayed full size inside a card that
+   had halved. The 0.52-alpha description wash is replaced by --app-text-2 for
+   the same reason as .os-hint — a wash cannot be measured. */
 .os-onboarding-overlay .os-choice {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 2px;
   text-align: left;
-  padding: 0.6rem 0.8rem;
-  border-radius: 12px;
-  border: 1px solid rgba(102, 0, 255, 0.10);
-  background: rgba(255, 255, 255, 0.55);
-  color: #1a1a2e;
+  padding: 7px 9px;
+  min-height: 28px;
+  border-radius: var(--app-radius-sm);
+  border: 1px solid var(--app-text-2);
+  background: transparent;
+  color: var(--app-text);
   cursor: pointer;
 }
 .os-onboarding-overlay .os-choice:hover {
-  border-color: #6600ff;
-  background: rgba(102, 0, 255, 0.06);
-  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.12);
+  border-color: var(--app-accent);
+  background: var(--app-violet-soft);
 }
-.os-onboarding-overlay .os-choice-title { font-size: 0.92rem; font-weight: 700; color: #111; }
-.os-onboarding-overlay .os-choice-desc { font-size: 0.8rem; color: rgba(20, 10, 40, 0.52); line-height: 1.35; }
+.os-onboarding-overlay .os-choice:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.os-onboarding-overlay .os-choice-title { font-size: 11.5px; font-weight: 700; color: var(--app-text); }
+.os-onboarding-overlay .os-choice-desc { font-size: 11px; color: var(--app-text-2); line-height: 1.35; }
 .os-onboarding-overlay .os-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   justify-content: flex-start;
-  margin-top: 0.45rem;
+  margin-top: 3px;
 }
 
 /* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
@@ -778,39 +867,48 @@ export const ONBOARDING_STYLES = `
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header,
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   pointer-events: auto;
-  width: min(560px, 94vw);
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border: 1px solid rgba(102, 0, 255, 0.14);
+  width: min(420px, 94vw);
+  /* §UX1-ONBOARDING-HEADER-ROOT — this rule is symptom B's mechanism: it repaints
+     the header at (0,3,0), so the old #ffffff title/badge became white-on-white
+     the moment the banner appeared. The colours are fixed at their source (the
+     base .os-title / .os-step-chip); the surface here just joins the ONE glass so
+     the banner and the cards are the same material at the same measured alpha. */
+  background: var(--app-panel-glass);
+  backdrop-filter: var(--app-panel-glass-blur);
+  -webkit-backdrop-filter: var(--app-panel-glass-blur);
+  border: 1px solid var(--app-border);
 }
+/* rem -> px throughout this presentation, the other half of
+   §UX1-ONBOARDING-HEADER-ROOT symptom A: 0.85rem stayed 13.6px while the card's
+   px widths halved, so the banner's header was 13.6px-padded around 6.8px-padded
+   content and rendered WIDER than its own body (measured: header 253.6px vs body
+   241.7px on the confirm card — a visible mis-registration at the seam). */
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header {
-  border-radius: 14px 14px 0 0;
-  border-bottom: none;
-  padding: 0.45rem 0.85rem;
-  box-shadow: 0 -8px 26px rgba(60, 20, 120, 0.16);
+  border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+  padding: 4px 8px;
+  box-shadow: none;
   cursor: default; /* docked banner is not draggable */
 }
-.os-onboarding-overlay.os-onboarding-overlay--drawing .os-title {
-  font-size: 0.86rem;
-}
+/* The banner title is the base .os-title — no second size. The old 0.86rem
+   override was rem, i.e. invisible to the density lever, which is half of
+   §UX1-ONBOARDING-HEADER-ROOT symptom A. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   flex: 0 0 auto;
   overflow: visible;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.55rem 0.85rem;
+  gap: 7px;
+  padding: 7px 8px 8px;
   border-top: none;
-  border-radius: 0 0 14px 14px;
-  box-shadow: 0 8px 26px rgba(60, 20, 120, 0.16);
+  border-radius: 0 0 var(--app-radius-md) var(--app-radius-md);
+  box-shadow: var(--app-shadow-panel);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-draw-instruction {
   flex: 1 1 auto;
   margin: 0;
-  color: #4a2a8a;
-  font-size: 0.82rem;
+  color: var(--app-text-2);
+  font-size: 11px;
   white-space: normal;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-footer {
@@ -926,33 +1024,17 @@ export const ONBOARDING_STYLES = `
   -webkit-backdrop-filter: var(--app-panel-glass-blur);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-header {
-  /* A hairline rule instead of a filled bar: the header now differs from the body
-     by one border, not by a block of colour. */
-  padding: 4px 9px;
+  /* Only the corner radius is confirm-specific. The hairline rule, the type and
+     the accent badge all come from the BASE header now (§UX1-ONBOARDING-HEADER-
+     ROOT) — one definition, so the four steps cannot drift apart again. */
   border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
-  border-bottom: 1px solid var(--app-border);
-}
-.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--app-text);
-}
-.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-step-chip {
-  /* The step indicator is now the header's ONLY filled element — the accent, used
-     once. Opaque --app-accent, so its 6.98:1 does not depend on the backdrop. */
-  font-size: 9px;
-  padding: 2px 6px;
-  background: var(--app-accent);
-  border-color: var(--app-accent);
-  color: var(--app-panel-bg);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
   gap: 4px;
-  padding: 7px 9px 8px;
+  padding: 7px 8px 8px;
   border-radius: 0 0 var(--app-radius-md) var(--app-radius-md);
   box-shadow: var(--app-shadow-panel);
 }
