@@ -35,6 +35,10 @@
  */
 
 import { trace, type Tracer } from '@opentelemetry/api';
+// §OPENING-PROFILE (L-1200) — the void-SHAPE axis lives on the WALL OPENING and is owned by
+// `@pryzm/geometry-wall`. The window tool does not re-declare it; it stores the architect's
+// CHOICE of it, which is a different thing from owning the vocabulary.
+import { type OpeningProfileKind, DEFAULT_OPENING_PROFILE } from '@pryzm/geometry-wall';
 
 let _cachedTracer: Tracer | null = null;
 function _tracer(): Tracer {
@@ -48,6 +52,21 @@ export type WindowTypeChoice = 'single' | 'double';
 /** The architect's resolved window choice — the ONLY source of truth for it. */
 export interface WindowToolConfig {
     readonly windowType: WindowTypeChoice;
+    /**
+     * §OPENING-PROFILE (L-1250) — the void SHAPE the architect has chosen.
+     *
+     * ⭐ **A SECOND, ORTHOGONAL AXIS — NOT a third `windowType`.** `windowType` is the LEAF
+     * COUNT; this is the VOID SHAPE. The founder asked for *"single / double / circular"* in one
+     * place, and C86 §9 WO-Voc-4 is why that is served by TWO axes rather than one list: a flat
+     * list makes `double × round-arch` — an ordinary opening — unexpressible.
+     *
+     * ⛔ AND IT IS NOT A WINDOW *TYPE* EITHER. The eight named types in the "Select Window Type"
+     * dropdown (Timber Casement, uPVC Tilt & Turn, …) carry FRAME MATERIAL and GLAZING BUILD-UP.
+     * A profile is GEOMETRY. Putting it in that dropdown would multiply eight types by four
+     * profiles and re-spell the vocabulary — the enumerated-list failure C86 §10.1 exists to
+     * prevent. Type and profile are independent, and both are chosen from the tool.
+     */
+    readonly openingProfile: OpeningProfileKind;
     /**
      * The chosen `WindowSystemType.id`. Always a non-empty string: a window with no
      * type resolves to schema-default grey with no finish and reads blank in every
@@ -66,8 +85,12 @@ export interface WindowToolConfig {
  * decided in a code comment, because a default that lives in two files is two defaults.
  */
 export const DEFAULT_WINDOW_TOOL_CONFIG: WindowToolConfig = Object.freeze({
-    windowType:   'single',
-    systemTypeId: 'wt-timber-casement',
+    windowType:     'single',
+    systemTypeId:   'wt-timber-casement',
+    // §OPENING-PROFILE — rectangular, because that is what every window drawn before L-1250 is.
+    // The default and "absent" coincide deliberately (C86 §10.1), which is what makes the whole
+    // axis additive: nothing existing changes shape when this ships.
+    openingProfile: DEFAULT_OPENING_PROFILE,
 });
 
 let _current: WindowToolConfig = DEFAULT_WINDOW_TOOL_CONFIG;
@@ -93,9 +116,14 @@ export function setWindowToolConfig(patch: Partial<WindowToolConfig>): WindowToo
                 systemTypeId: (patch.systemTypeId && patch.systemTypeId.length > 0)
                     ? patch.systemTypeId
                     : _current.systemTypeId,
+                // The two axes patch INDEPENDENTLY — switching leaf count must not reset the
+                // profile, and vice versa. That independence is the whole point of not
+                // flattening them, and it has to hold in the store as well as in the bar.
+                openingProfile: patch.openingProfile ?? _current.openingProfile,
             });
             span.setAttribute('pryzm.window.windowType', _current.windowType);
             span.setAttribute('pryzm.window.systemTypeId', _current.systemTypeId);
+            span.setAttribute('pryzm.window.openingProfile', _current.openingProfile);
             span.end();
             return _current;
         } catch (err) {

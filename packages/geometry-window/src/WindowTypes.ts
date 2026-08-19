@@ -34,6 +34,19 @@ export const WindowOpeningSchema = z.object({
     height:     z.number().positive(),
     sillHeight: z.number().nonnegative(),
 
+    /**
+     * §OPENING-PROFILE (L-1250) — the void SHAPE.
+     *
+     * ⛔ **THIS FIELD IS NOT OPTIONAL POLISH — WITHOUT IT THE PROFILE IS DELETED ON EVERY LOAD.**
+     * `WindowStore.add` does `Object.freeze({ ...WindowOpeningSchema.safeParse(w).data })`, and
+     * Zod STRIPS keys the schema does not declare. A field written to the store and absent here
+     * survives exactly as long as the session. That is the same save/load hole three other
+     * subsystems hit in one week, found here BEFORE the field shipped rather than after.
+     *
+     * Absent ⇒ rectangular, so every window persisted before this loads unchanged.
+     */
+    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
+
     // Frame
     frameThickness: z.number().positive().default(0.05),
     frameDepth:     z.number().positive().default(0.07),

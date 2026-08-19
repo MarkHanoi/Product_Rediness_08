@@ -81,6 +81,36 @@ export function isRectangularProfile(v: unknown): boolean {
     return resolveOpeningProfile(v) === 'rectangular';
 }
 
+/**
+ * §OPENING-PROFILE-LABELS (L-1250) — the ONE set of user-facing names for the profile axis.
+ *
+ * ⛔ Declared here, beside the union, so the mode bar, the tool HUD, the properties panel and the
+ * confirm card cannot disagree about what a profile is CALLED. A vocabulary spelled in four UI
+ * files is four vocabularies — the C84 EI-9 defect, and C86 §9 already records this family
+ * making it once (`doorType`/`windowType`).
+ */
+export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>> = Object.freeze({
+    'rectangular':     'Rectangular',
+    'round-arch':      'Arched',
+    'segmental-arch':  'Segmental',
+    'circular':        'Circular',
+});
+
+/**
+ * The next profile in the cycle — what the `A` key advances to.
+ *
+ * ⭐ ONE CYCLING KEY, NOT FOUR NEW LETTERS, and that is a measurement not a preference: `S`
+ * already means six different things across the shipped mode bars (By Slab / Single / Mono-pitch /
+ * Scale), and `R`, `O`, `P`, `C` are taken. Minting four more contested letters would rebuild the
+ * collision the founder already hit once when he pressed `S` expecting By-Slab and got Single.
+ * `A` (for *Arch*) was measured free and cycles the whole axis; the pills stay individually
+ * clickable for anyone who would rather point at the one they want.
+ */
+export function nextOpeningProfile(current: unknown): OpeningProfileKind {
+    const i = OPENING_PROFILE_KINDS.indexOf(resolveOpeningProfile(current));
+    return OPENING_PROFILE_KINDS[(i + 1) % OPENING_PROFILE_KINDS.length]!;
+}
+
 // ── Tessellation ────────────────────────────────────────────────────────────────────────────
 
 /**

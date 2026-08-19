@@ -8,6 +8,10 @@ import {
     canPlaceRefusalText,
     // §FEAT-HOSTED-ON-CURVED-WALL — arc-length placement on curved hosts.
     isArcHost, wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt,
+    // §OPENING-PROFILE (L-1250) — the shape axis, its labels and its refusal all come from the
+    // ONE module that owns the vocabulary. The window tool chooses a value; it never spells one.
+    type OpeningProfileKind,
+    OPENING_PROFILE_LABELS as PROFILE_LABELS,
 } from '@pryzm/geometry-wall';
 import { PREVIEW_COLOR } from '@pryzm/core-app-model';
 // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the 3D window tool no longer
@@ -102,6 +106,14 @@ export class WindowTool {
     // wants deleting, but it can no longer cause a PARITY divergence.
     public get windowType(): WindowTypeChoice { return getWindowToolConfig().windowType; }
     public set windowType(v: WindowTypeChoice) { setWindowToolConfig({ windowType: v }); }
+
+    /**
+     * §OPENING-PROFILE (L-1250) — the void SHAPE the architect has chosen, on the SAME config
+     * store as the leaf count so the two axes cannot get separate answers. Orthogonal to
+     * `windowType`: `double × round-arch` is an ordinary opening and must stay expressible.
+     */
+    public get openingProfile(): OpeningProfileKind { return getWindowToolConfig().openingProfile; }
+    public set openingProfile(v: OpeningProfileKind) { setWindowToolConfig({ openingProfile: v }); }
 
     /** Pre-selected to Timber Casement — the standard residential default. */
     public get systemTypeId(): string { return getWindowToolConfig().systemTypeId; }
@@ -220,7 +232,14 @@ export class WindowTool {
             if (rawOffset < halfW || rawOffset > wallLength - halfW) {
                 return { ok: false, state: 'out-of-range' };
             }
-            const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width);
+            // §OPENING-PROFILE (L-1250) — the HOVER check carries the profile too, so a curved
+            // host refuses under the pointer rather than at the click. C84 EI-3: a control that
+            // offers a profile the pipeline will refuse is an affordance without an
+            // implementation, and the honest fix is to refuse OUT LOUD at the earliest surface.
+            const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width, undefined, {
+                openingProfile: this.openingProfile,
+                heightM:        this._dims().height,
+            });
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the refusal used to be
             // flattened to a bare state here, so the HUD showed one generic sentence
             // for six distinct verdicts. The shared renderer carries occ.code through.
@@ -430,7 +449,15 @@ export class WindowTool {
         // A5: Pre-validate with WallOccupancyStore before dispatching the command.
         // Gives the user immediate, visible feedback instead of a silent no-op when
         // the opening would overlap an existing one or extend beyond the wall end.
-        const occupancy = wallOccupancyStore.canPlace(wallData, offset, width);
+        // §OPENING-PROFILE (L-1250) — the COMMIT check. `openingProfileRefusal` names the host,
+        // the reason and the live alternative (C16 CA-18), and `canPlaceRefusalText` prefixes its
+        // identity code, so the user reads `[OCC_PROFILE_UNSUPPORTED] A circular opening cannot be
+        // cut in a CURVED wall: … Use a rectangular opening here, or host it on a straight wall.`
+        // ⛔ NEVER a click that silently does nothing, and never a rectangle substituted quietly.
+        const occupancy = wallOccupancyStore.canPlace(wallData, offset, width, undefined, {
+            openingProfile: this.openingProfile,
+            heightM:        height,
+        });
         if (!occupancy.valid) {
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer
             // carries occupancy.code into the HUD text, so the refusal the user reads
@@ -465,7 +492,12 @@ export class WindowTool {
      */
     private setHudState(state: WindowHudState, customMsg?: string): void {
         this._hudState = state;
-        const label = this.windowType === 'double' ? 'Double Window' : 'Single Window';
+        const _leaf = this.windowType === 'double' ? 'Double Window' : 'Single Window';
+        // §OPENING-PROFILE — name BOTH axes, because the whole point of keeping them orthogonal
+        // is lost if the HUD reports only one of them.
+        const label = this.openingProfile === 'rectangular'
+            ? _leaf
+            : `${_leaf} (${PROFILE_LABELS[this.openingProfile]})`;
         let msg: string;
         let isError = false;
         switch (state) {

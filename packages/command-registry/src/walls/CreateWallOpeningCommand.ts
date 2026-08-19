@@ -238,6 +238,15 @@ export class CreateWallOpeningCommand implements Command {
                     height:       opening.height ?? 1.2,
                     sillHeight:   opening.sillHeight ?? 1.0,
                     windowType:   (opening.windowType as any) ?? 'single',
+                    // §OPENING-PROFILE (L-1250) — THE VOID SHAPE MUST REACH THE STANDALONE STORE.
+                    //
+                    // ⛔ This block is an EXPLICIT FIELD WHITELIST, not a spread — the wall opening
+                    // above gets `{...openingData}` and inherits new fields for free, this one does
+                    // not. A profile that stopped here would give a circular hole in 3-D and a
+                    // rectangular symbol in plan, because `WindowPlanSymbolBuilder` draws from the
+                    // STORE RECORD. Omitting it is the C84 EI-2(a) silent-narrowing shape, and this
+                    // command already loses four other authored fields exactly this way (C86 §11 #6).
+                    ...(opening.openingProfile ? { openingProfile: opening.openingProfile as any } : {}),
                     systemTypeId: opening.systemTypeId,
                     mark:         windowMark,
                     ...(winSysType ? {

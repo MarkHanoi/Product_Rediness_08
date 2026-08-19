@@ -778,6 +778,11 @@ export function mountToolsArea(
             if (windowModePicker.isVisible()) {
                 if (windowTool) windowTool.windowType = type;
                 windowModePicker.setMode(type);
+                // §OPENING-PROFILE — re-activating the tool must NOT silently drop the chosen
+                // shape from the bar while the config store still holds it. A pill that
+                // disagrees with the store is how a user ends up authoring a shape they cannot
+                // see they selected.
+                if (windowTool) windowModePicker.setProfile(windowTool.openingProfile);
                 props.inspector.showWindowPreDraw?.(windowTool);
                 return;
             }
@@ -785,10 +790,15 @@ export function mountToolsArea(
             await _origActivateWindow(type, systemTypeId ?? windowTool?.systemTypeId);
             props.inspector.showWindowPreDraw?.(windowTool);
 
+            // §OPENING-PROFILE (L-1250) — TWO AXES, ONE BAR. `windowType` is the leaf count and
+            // `openingProfile` the void shape; they patch INDEPENDENTLY on the one config store,
+            // so switching one never resets the other. That independence is the whole reason the
+            // founder's "single / double / circular" is served by two rows rather than one list.
             windowModePicker.show(type, {
                 onSwitchSingle: () => { if (windowTool) windowTool.windowType = 'single'; },
                 onSwitchDouble: () => { if (windowTool) windowTool.windowType = 'double'; },
-            });
+                onSwitchProfile: (profile) => { if (windowTool) windowTool.openingProfile = profile; },
+            }, windowTool?.openingProfile ?? 'rectangular');
 
             const escHandler = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {

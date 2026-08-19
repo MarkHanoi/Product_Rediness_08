@@ -58,6 +58,7 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import { resolveWindowDimensions } from './WindowDimensions';
+import { type OpeningProfileKind, isRectangularProfile } from '@pryzm/geometry-wall';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import {
     getWindowToolConfig,
@@ -83,6 +84,13 @@ export interface WindowOpeningData {
     readonly width: number;
     readonly height: number;
     readonly sillHeight: number;
+    /**
+     * §OPENING-PROFILE (L-1250) — the void SHAPE, carried on the WALL-OPENING record because
+     * the void is the host's half of the opening (C15 §3.1). `CreateWallOpeningCommand` spreads
+     * this record onto `wall.openings[]`, so the geometry arms receive it without a whitelist to
+     * forget it — which is exactly how three fields were lost in three subsystems this week.
+     */
+    readonly openingProfile: OpeningProfileKind;
     readonly frameThickness: number;
     readonly frameDepth: number;
     readonly glazingThickness: number;
@@ -147,6 +155,30 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
             // canonical default. This is the same call the placed window makes later.
             const dims = resolveWindowDimensions({ systemTypeId, windowType });
 
+            // ── §OPENING-PROFILE — A CIRCLE'S BOUNDING BOX IS SQUARE ───────────────────
+            //
+            // C86 §10.1 PR-8: there is NO `radius` field — `width` IS the diameter — and
+            // `openingProfileShapeRefusal` REFUSES a circular opening whose width ≠ height.
+            // A window type resolves to (say) 1.2 × 1.2 or 1.0 × 1.2 depending on the type, so
+            // without this the architect would pick "Circular" and meet a refusal produced by the
+            // TYPE's proportions rather than by anything they did.
+            //
+            // ⭐ SQUARING IT HERE IS THE C84 EI-3 FIX, NOT A WORKAROUND: the rule is "UI offers ⇒
+            // pipeline accepts", so the ONE chokepoint that builds the record is where the offer
+            // is made good. Doing it in the tool instead would leave the plan tool, the batch
+            // generators and the AI planes each to remember it — which is the divergence this
+            // whole factory exists to end.
+            //
+            // The DIAMETER IS THE WIDTH, not the height and not the mean: `width` is the axis
+            // every downstream consumer already measures an opening by (occupancy span, the
+            // corner-overflow cap, `clampToWall`, the `WxH` grammar), so taking it keeps all of
+            // them correct with no second rule.
+            const openingProfile: OpeningProfileKind =
+                input.config?.openingProfile ?? stored.openingProfile;
+            const isCircle = openingProfile === 'circular';
+            const resolvedWidth  = dims.width;
+            const resolvedHeight = isCircle ? dims.width : dims.height;
+
             // The frame spans the FULL wall reveal — this is what `WindowBuilder`
             // actually renders and what `WindowPlanSymbolBuilder` draws the frame faces
             // at, so the stored record must agree with both. The type's own `frameDepth`
@@ -162,9 +194,10 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
                 windowType,
                 systemTypeId,
                 offset:           input.offset,
-                width:            dims.width,
-                height:           dims.height,
+                width:            resolvedWidth,
+                height:           resolvedHeight,
                 sillHeight:       dims.sillHeight,
+                openingProfile,
                 frameThickness:   dims.frameThickness,
                 frameDepth:       wallThickness,
                 glazingThickness: dims.glazingThickness,
@@ -184,6 +217,8 @@ export function buildWindowOpening(input: BuildWindowOpeningInput): WindowOpenin
             span.setAttribute('pryzm.window.systemTypeId', systemTypeId);
             span.setAttribute('pryzm.window.windowType', windowType);
             span.setAttribute('pryzm.window.width', opening.width);
+            span.setAttribute('pryzm.window.openingProfile', openingProfile);
+            span.setAttribute('pryzm.window.profileSquared', isCircle && !isRectangularProfile(openingProfile));
             span.end();
             return opening;
         } catch (err) {
@@ -273,6 +308,19 @@ export function buildWindowStoreRecord(input: BuildWindowStoreRecordInput): Reco
                 sillHeight:       dims.sillHeight,
                 windowType,
                 systemTypeId,
+                // §OPENING-PROFILE (L-1250) — THE STORE RECORD MUST CARRY THE SHAPE, and this is
+                // the chokepoint's load-bearing half: `WindowPlanSymbolBuilder` draws from the
+                // STORE RECORD, not from the opening (see this file's header). A profile that
+                // reached `wall.openings[]` and stopped there would give a circular hole in 3-D
+                // and a rectangular symbol in plan — the same one-object-two-answers defect
+                // §L-266 was raised for.
+                //
+                // The opening's OWN value wins, falling back to the tool config, mirroring how
+                // `systemTypeId` is resolved above: a replayed or legacy opening that predates
+                // the field is rectangular, which is what it always was.
+                openingProfile:   typeof o.openingProfile === 'string' && o.openingProfile.length > 0
+                    ? o.openingProfile
+                    : getWindowToolConfig().openingProfile,
                 // §L-266 — PERSIST THE PROFILE. Before this, `buildWindowOpening` resolved
                 // the frame/sash/mullion sections and BOTH store writers threw them away,
                 // so the symbol had to re-derive them and could not honour a per-instance
