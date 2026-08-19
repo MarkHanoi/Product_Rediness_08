@@ -17,6 +17,7 @@ import type { JoinData } from '../types/JoinData.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeStairGeometryHash } from './_internal/stair/composeStairGeometryHash.js';
 import { makeBoxGroup } from './_internal/stair/treadPrism.js';
@@ -34,8 +35,47 @@ const _RISER_FALLBACK_COLOR = '#9a7a52';
 void _TREAD_FALLBACK_COLOR;
 void _RISER_FALLBACK_COLOR;
 
-function composeStairMaterialKey(materialId: string, slot: 'tread' | 'riser'): MaterialKey {
-  return asMaterialKey(`stair|${materialId}|${slot}`);
+/**
+ * The stair's family defaults, per slot — the colour of a stair naming NO
+ * material (C100 §9.6.b: the DEFAULT stays local, the RESOLUTION is shared).
+ * These two hexes are NOT new: they are `plugins/stair`'s existing
+ * `TREAD_FALLBACK` / `RISER_FALLBACK`, moved UPSTREAM of the key so an
+ * unmaterialled stair renders identically before and after.
+ */
+const STAIR_DEFAULT_BY_SLOT: Readonly<Record<'tread' | 'riser', string>> = Object.freeze({
+  tread: '#b58a5e',
+  riser: '#9a7a52',
+});
+
+/**
+ * ⭐ C100 §9.6.b / S16 — the stair's colour slot now goes through THE master
+ * resolver, and until this change THERE WAS NO COLOUR SLOT AT ALL.
+ *
+ * ⛔ WHAT WAS WRONG. The key was `stair|<materialId>|<slot>` — three fields,
+ * none of them a colour — and `plugins/stair`'s bridge answered:
+ *
+ *     return slotOfStairMaterialKey(key) === 'riser' ? RISER_FALLBACK : TREAD_FALLBACK;
+ *
+ * i.e. the colour was a function of the SLOT and nothing else. The `materialId`
+ * was carried the whole way and **never read by anybody**, so every stair in the
+ * product was the same two browns regardless of what the architect chose. S14
+ * had just made those ids resolvable (`wood.oak` → `wood-oak`); this makes the
+ * resolution actually reach a pixel.
+ *
+ * ⚠ THE KEY LAYOUT CHANGES HERE, and that is a deliberate exception to C100
+ * §9.6.b's "converge the VALUE, not the FORMAT". The rule presumes a colour slot
+ * exists to converge; stair's did not, so one is inserted at index 2 and the slot
+ * moves to index 3 — matching ceiling, wall and every other family. The bridge is
+ * updated in the SAME commit; nothing else parses this key
+ * (`grep colorOfStairMaterialKey slotOfStairMaterialKey` → the bridge and two
+ * barrel re-exports, nothing more).
+ */
+function composeStairMaterialKey(
+  input: { readonly materialId?: string | undefined; readonly materialColor?: string | undefined },
+  slot: 'tread' | 'riser',
+): MaterialKey {
+  const colour = resolveMaterialColorSlot(input, STAIR_DEFAULT_BY_SLOT[slot]);
+  return asMaterialKey(`stair|${input.materialId ?? 'default'}|${colour}|${slot}`);
 }
 
 interface StepCenter {
@@ -122,8 +162,12 @@ export const produceStair: StairProducer = (stair, _joinData, worldY) => {
     );
   }
 
-  const treadKey = composeStairMaterialKey(stair.materialId ?? 'default', 'tread');
-  const riserKey = composeStairMaterialKey(stair.materialId ?? 'default', 'riser');
+  const matInput = {
+    materialId: (stair as { materialId?: string }).materialId,
+    materialColor: (stair as { materialColor?: string }).materialColor,
+  };
+  const treadKey = composeStairMaterialKey(matInput, 'tread');
+  const riserKey = composeStairMaterialKey(matInput, 'riser');
 
   const steps = planSteps(stair);
   const halfTread = stair.treadDepth / 2;

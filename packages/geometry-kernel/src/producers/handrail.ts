@@ -13,6 +13,7 @@ import type { Handrail as HandrailData } from '@pryzm/protocol';
 import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor.js';
 import type { JoinData } from '../types/JoinData.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import { DescriptorInvariantError } from '../types/assertValidDescriptor.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
@@ -79,6 +80,14 @@ function frameAt(tangent: Vec3): { side: Vec3; up: Vec3 } {
   return { side, up };
 }
 
+/**
+ * The handrail's family default — the colour of a handrail naming NO material.
+ * NOT a new value: it is `plugins/handrail`'s `RAIL_FALLBACK`, moved upstream of
+ * the key (C100 §9.6.b: the DEFAULT stays local to the family, the RESOLUTION is
+ * shared) so an unmaterialled handrail renders identically before and after.
+ */
+const HANDRAIL_DEFAULT_RAIL_COLOR = '#5a4a3a';
+
 export const produceHandrail: HandrailProducer = (handrail, _joinData, worldY) => {
   if (handrail.path.length < 2) {
     throw new DescriptorInvariantError(
@@ -86,7 +95,28 @@ export const produceHandrail: HandrailProducer = (handrail, _joinData, worldY) =
     );
   }
 
-  const materialKey: MaterialKey = asMaterialKey(`handrail|${handrail.materialId ?? 'default'}|rail`);
+  // ⭐ C100 §9.6.b / S16 — the handrail's colour now comes from the MASTER.
+  //
+  // ⛔ THIS IS THE EXHIBIT `composeMaterialKey`'s own header cites: "Handrail's
+  // producer emits `handrail|<materialId>|rail` and its bridge threw the id away,
+  // so every handrail in the product rendered one brown." That was literally true
+  // — `colorOfHandrailMaterialKey(_key)` ignored its ARGUMENT and returned a
+  // constant. Both halves are fixed together: the key gains a colour slot at
+  // index 2 (it had none, so there was nothing to converge — the deliberate
+  // exception §9.6.b's "converge the VALUE not the FORMAT" presumes away), and
+  // the bridge reads it.
+  //
+  // The family default is `plugins/handrail`'s existing `RAIL_FALLBACK`, moved
+  // upstream unchanged so an unmaterialled handrail looks exactly as it did.
+  const materialKey: MaterialKey = asMaterialKey(
+    `handrail|${handrail.materialId ?? 'default'}|${resolveMaterialColorSlot(
+      {
+        materialId: handrail.materialId,
+        materialColor: (handrail as { materialColor?: string }).materialColor,
+      },
+      HANDRAIL_DEFAULT_RAIL_COLOR,
+    )}|rail`,
+  );
   const profile = profilePoints(handrail.shape, handrail.diameter);
   const N = profile.length;
 
