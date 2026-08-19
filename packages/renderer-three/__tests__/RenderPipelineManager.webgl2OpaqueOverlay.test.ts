@@ -16,6 +16,19 @@
 // TOOTH: the OLD path cleared transparent (alpha 0 → base bleeds through); the fix
 // clears OPAQUE (alpha 1) to the theme colour on every lightweight frame, BEFORE the
 // overlay paints.
+//
+// ── AMENDED 2026-08-19 · §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) ──────────────
+// These assertions used to read `__clears[0]` and `__clears.length === 3`, i.e. they
+// pinned the ARRAY INDEX of the frame clear. `bind()` now emits ONE additional,
+// deliberate clear when it resolves a WebGL backend — priming the overlay opaque the
+// moment the backend is known instead of leaving initScene's WebGPU-shaped transparent
+// prime in place until the first lightweight frame reaches `render()`. That is the
+// L-1148 fix, not a regression, so the assertions are re-pointed at the INVARIANTS
+// rather than the offsets: (1) EVERY recorded clear is opaque — the alpha-0 bleed
+// channel is closed everywhere, bind included; (2) the clear that immediately precedes
+// each paint carries the expected theme colour; (3) each frame still clears exactly
+// once. Index-free, so a future prime cannot break them again while the tooth sharpens:
+// (1) now covers strictly more clears than the version it replaces.
 
 import { describe, expect, it } from 'vitest';
 import { RenderPipelineManager } from '../src/pipeline/RenderPipelineManager.js';
@@ -43,6 +56,25 @@ function recordingWebGl2Renderer(): any {
 const scene = {} as any;
 const camera = {} as any;
 
+/**
+ * The clear that painted the most recent frame. `bind()`'s own prime and each frame's
+ * clear are all appended in order, so the LAST entry is always the one the viewer sees
+ * — index-free, and immune to a future prime being added ahead of it
+ * (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME, L-1148).
+ */
+function lastClear(renderer: any): { hex: number; alpha: number; atRender: number } {
+  return renderer.__clears[renderer.__clears.length - 1];
+}
+
+/** `bind()` emits exactly ONE opaque prime on a WebGL backend before any frame runs. */
+const BIND_PRIME_CLEARS = 1;
+
+/** Every clear ever issued must be opaque — the alpha-0 bleed channel is closed. */
+function everyClearOpaque(renderer: any): boolean {
+  return renderer.__clears.length > 0
+      && renderer.__clears.every((c: any) => c.alpha === 1);
+}
+
 describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE, L-317)', () => {
   it('clears the overlay OPAQUE (alpha 1) to the LIGHT theme colour before painting', async () => {
     const renderer = recordingWebGl2Renderer();
@@ -52,10 +84,12 @@ describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON
 
     rpm.render(0.016);
 
-    // Exactly one opaque clear to white, and it happened BEFORE the paint (atRender 0).
-    expect(renderer.__clears).toEqual([
-      { hex: new (await import('../src/three-re-export.js')).Color(LIGHT_BG_HEX).getHex(), alpha: 1, atRender: 0 },
-    ]);
+    // One opaque clear to white per frame, issued BEFORE the paint (atRender 0), plus
+    // bind()'s own prime — and NOTHING transparent anywhere.
+    const whiteHex = new (await import('../src/three-re-export.js')).Color(LIGHT_BG_HEX).getHex();
+    expect(renderer.__clears.length).toBe(BIND_PRIME_CLEARS + 1);
+    expect(everyClearOpaque(renderer)).toBe(true);
+    expect(lastClear(renderer)).toEqual({ hex: whiteHex, alpha: 1, atRender: 0 });
   });
 
   it('uses the DARK theme colour when bound dark (opaque, never transparent)', async () => {
@@ -67,9 +101,9 @@ describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON
     rpm.render(0.016);
 
     const darkHex = new (await import('../src/three-re-export.js')).Color(DARK_BG_HEX).getHex();
-    expect(renderer.__clears.length).toBe(1);
-    expect(renderer.__clears[0].hex).toBe(darkHex);
-    expect(renderer.__clears[0].alpha).toBe(1); // the tooth: NEVER 0 (transparent) again
+    expect(renderer.__clears.length).toBe(BIND_PRIME_CLEARS + 1);
+    expect(lastClear(renderer).hex).toBe(darkHex);
+    expect(everyClearOpaque(renderer)).toBe(true); // the tooth: NEVER 0 (transparent) again
   });
 
   it('follows a theme change via setTheme()', async () => {
@@ -82,8 +116,8 @@ describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON
     rpm.render(0.016);
 
     const darkHex = new (await import('../src/three-re-export.js')).Color(DARK_BG_HEX).getHex();
-    expect(renderer.__clears[0].hex).toBe(darkHex);
-    expect(renderer.__clears[0].alpha).toBe(1);
+    expect(lastClear(renderer).hex).toBe(darkHex);
+    expect(everyClearOpaque(renderer)).toBe(true);
   });
 
   it('follows a custom scene-background colour via setColor()', async () => {
@@ -95,8 +129,8 @@ describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON
 
     rpm.render(0.016);
 
-    expect(renderer.__clears[0].hex).toBe(0x6600ff);
-    expect(renderer.__clears[0].alpha).toBe(1);
+    expect(lastClear(renderer).hex).toBe(0x6600ff);
+    expect(everyClearOpaque(renderer)).toBe(true);
   });
 
   it('every lightweight frame re-asserts the opaque clear (no frame can go transparent)', async () => {
@@ -109,7 +143,8 @@ describe('RenderPipelineManager — WebGL2 opaque overlay (§FIX-WEBGL2-GHOST-ON
     rpm.render(0.016);
     rpm.render(0.016);
 
-    expect(renderer.__clears.length).toBe(3);
-    expect(renderer.__clears.every((c: any) => c.alpha === 1)).toBe(true);
+    // Three frames → three frame clears, each one opaque, plus bind()'s prime.
+    expect(renderer.__clears.length).toBe(BIND_PRIME_CLEARS + 3);
+    expect(everyClearOpaque(renderer)).toBe(true);
   });
 });

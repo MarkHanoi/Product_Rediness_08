@@ -457,6 +457,21 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private readonly _lightweightBgColor = new THREE.Color(LIGHT_BG_HEX);
 
     /**
+     * ── §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) ──────────────────────────
+     * Which backend currently OWNS the viewport background. Resolved in {@link bind}
+     * from the same `isRealWebGPUBackend()` verdict that gates the TSL pipeline, so
+     * the background decision can never disagree with the pipeline decision.
+     *
+     *   • `true`  — native WebGPU: the TSL output node owns it
+     *               (`mix(bgUniform, sceneColor, hasGeometry)`), and `scene.background`
+     *               MUST stay null or the alpha geometry-mask is defeated (initScene
+     *               §Phase-5 "whitening layer").
+     *   • `false` — EITHER WebGL backend ('webgl-fallback' / 'webgl-only'): there is no
+     *               output node, so the background is a property of the SCENE.
+     */
+    private _tslOwnsBackground = false;
+
+    /**
      * §FIX-RENDER-RECOVERY-DEPTH (L-312 Problem A) — arm the per-frame render-size
      * reconcile. OFF by default so a HEALTHY session (never a device loss) pays
      * ZERO cost — no per-frame `clientWidth` read (which can force a layout reflow).
@@ -583,6 +598,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
         const isWebGPU = RenderPipelineManager.isRealWebGPUBackend(renderer, backendIsWebGPU);
 
+        // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — record WHICH backend owns the
+        // background and assert it onto the scene + the renderer clear NOW, before the
+        // first frame of either path. This is the single seam that knows the resolved
+        // backend, so it is the only honest place for the decision. See
+        // {@link _applyViewportBackground} for why the WebGL2 side is a SCENE property.
+        this._tslOwnsBackground = isWebGPU;
+        this._applyViewportBackground();
+
         if (!isWebGPU) {
             console.log(
                 '[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected ' +
@@ -590,6 +613,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 `backend.isWebGPUBackend=${String((renderer as unknown as { backend?: { isWebGPUBackend?: boolean } })?.backend?.isWebGPUBackend)}). ` +
                 'Lightweight WebGL render path active — TSL pipeline (SSGI / outlines / post-FX) stays OFF.',
             );
+            // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — prime the clear OPAQUE to the
+            // theme colour the moment the backend is known, rather than waiting for the
+            // first lightweight frame. initScene primes this renderer TRANSPARENT at boot
+            // (`setClearColor(0x000000, 0)`) for the WebGPU-TSL contract; on a WebGL
+            // backend that prime is simply wrong, and every frame that does not reach the
+            // lightweight branch inherits it. Best-effort: a renderer variant without
+            // setClearColor must not break the bind.
+            try { (renderer as unknown as { setClearColor?: (c: THREE.Color, a: number) => void })
+                .setClearColor?.(this._lightweightBgColor, 1); }
+            catch { /* not all renderer variants expose setClearColor */ }
             this._phase = 'phase2';
             this._emitState();
             return;
@@ -728,6 +761,72 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * PostProcessing, which owns its own target chain; it is deliberately untouched
      * (§FIX-WEBGPU-INVALID-PIPELINE-MRT, L-253).
      */
+    /**
+     * ── §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — THE single runtime writer ──
+     *
+     * THE DEFECT THIS REPLACES. `LIGHT_BG_HEX` was already one CONSTANT
+     * (§VIEWPORT-BG-ONE-AUTHORITY, 2026-08-08) — but the two backends reached the
+     * pixel by two independent MECHANISMS, and only one of them was structural:
+     *
+     *   • WebGPU — the background is a PROPERTY OF THE PIPELINE OUTPUT
+     *     (`mix(bgUniform, sceneColor, hasGeometry)`). It cannot be missed: if a
+     *     frame is presented at all, the background is in it.
+     *   • WebGL2 — the background was ONE `setClearColor(_lightweightBgColor, 1)`
+     *     statement living INSIDE the `if (this._lightweightWebGlActive)` branch of
+     *     {@link render}, behind a boolean that THREE separate call sites must keep
+     *     in sync (initScene boot :3156, the live swap :4423, recoverPipeline) and
+     *     behind four early-returns (`_suspended`, `_isRenderTargetZeroSize`,
+     *     unbound scene/camera, the catch). Miss any one of them and the WebGL
+     *     canvas keeps the TRANSPARENT clear that initScene primes at boot for the
+     *     WebGPU-TSL path (`setClearColor(0x000000, 0)`) — and the silenced OBC base
+     *     canvas frozen underneath shows through as the founder's GREY viewport.
+     *
+     * That asymmetry is why L-326 has now been reported THREE times and "fixed"
+     * twice by arming the same flag on one more path (recoverPipeline, then the
+     * live swap). Arming the flag on an Nth path is not a fix, it is the defect
+     * repeating: the background must not depend on a flag at all.
+     *
+     * THE FIX. On every non-WebGPU backend the background becomes a property of the
+     * SCENE, so ANY renderer that draws this scene paints it — the lightweight
+     * branch, a recovery frame, a borrowed pass, OBC. The per-frame opaque clear at
+     * :932 STAYS (it is what makes the overlay opaque for
+     * §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE / L-317); this makes the background
+     * survive the frames that clear never reaches.
+     *
+     * WHY IT LIVES HERE AND NOT IN initScene. This manager is the only object that
+     * holds the resolved backend, the theme colour and the scene at once — and it is
+     * the L1 THREE owner (P2). initScene's unconditional `scene.background = null`
+     * was a WebGPU-shaped decision applied before the backend was known.
+     *
+     * A TEXTURE background is left alone: `HDRIEnvironmentManager`,
+     * `ProceduralSkyService`, `RealtimeLightingService` and `PanoramaCapture` each
+     * save + restore `scene.background` around their own activation. This authority
+     * owns the FLAT viewport colour only (C84 EI-9 — one role, one owner).
+     */
+    private _applyViewportBackground(): void {
+        const scene = this._scene as unknown as { background?: unknown } | null;
+        if (!scene) return;
+        const bg = scene.background as
+            { isColor?: boolean; isTexture?: boolean } | null | undefined;
+
+        // A deliberate environment background (HDRI / panorama / procedural sky) is
+        // owned by its provider, which restores it on deactivate. Never stomp it.
+        if (bg && bg.isTexture === true) return;
+
+        if (this._tslOwnsBackground) {
+            // The TSL output node owns the fill; the scene must present alpha=0 in
+            // empty space or `hasGeometry` reads 1 everywhere and the mix never runs.
+            if (bg != null) scene.background = null;
+            return;
+        }
+
+        if (bg && bg.isColor === true) {
+            (bg as unknown as THREE.Color).copy(this._lightweightBgColor);
+            return;
+        }
+        scene.background = this._lightweightBgColor.clone();
+    }
+
     private _assertLightweightFrameTarget(renderer: THREE.WebGLRenderer): void {
         const r = renderer as unknown as {
             getRenderTarget?: () => unknown;
@@ -1251,6 +1350,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // background in sync with the theme (the WebGPU path animates via the uniform;
         // the lightweight path snaps to this colour on the next frame).
         this._lightweightBgColor.set(theme === 'dark' ? DARK_BG_HEX : LIGHT_BG_HEX);
+        // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — push the new colour through the
+        // single authority so the SCENE background follows the theme on the WebGL
+        // backends too, not only the per-frame clear.
+        this._applyViewportBackground();
     }
 
     /**
@@ -1265,6 +1368,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // colour must also drive the WebGL2 opaque overlay clear. Guard bad hex so a
         // parse failure never throws on the render path.
         try { this._lightweightBgColor.set(hex); } catch { /* ignore invalid hex */ }
+        // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — a custom scene-background colour
+        // is still THIS authority's colour; route it through the same apply so the WebGL
+        // scene background tracks the picker.
+        this._applyViewportBackground();
     }
 
     /**
