@@ -9503,3 +9503,272 @@ do not restore this arm.**
 ⚠ **NOT MEASURED and deliberately so:** whether the founder's own source level already carried the
 overlap. That needs their project file. It does not change the decision: the disposition is chosen
 on the general shape, not on one sample.
+
+
+---
+
+## ⚠ HR1 NUMBERING CORRECTION — two commit subjects carry SUPERSEDED ids
+
+**This lane's band is L-982…L-989. Two commits on `main` name numbers outside it. The entries
+below are canonical; the commit subjects are not.** Recorded rather than rewritten, because both
+commits have other lanes' work on top and a rebase would be far more destructive than a stale
+subject line. A duplicate id left silently in place is the "one question, two answers" shape C84
+EI-9 exists to prevent, so the mapping is stated once, here, where a `grep` lands.
+
+| Commit on `main` | Subject says | **Canonical** | Subject |
+|---|---|---|---|
+| `0e8f1078` | `L-1040` (OP1's band) | **L-982** | the plan railing tool could not express any catalogue type |
+| `0e8f1078` body | `L-1041` | **L-984** | the retype path applied a different railing from the create path |
+| `0e8f1078` body | `L-1042` | **L-985** | a "telemetry" call was a mutation |
+| `598a75d3` | `L-983` | **L-983** ✅ | in band, stands unchanged |
+| `9d86eb34` | `L-982` | **L-982** ✅ | in band, stands unchanged |
+
+An intermediate SHA `f9bfdce8` briefly carried `L-1000` (GL1's band). It was replaced by
+`0e8f1078` by an amend before anything built on it and is unreachable from `main`; it is named
+here only because the coordinator saw it.
+
+⚠ **Also recorded rather than rewritten:** `9d86eb34` carries **two files that are not this
+lane's** — `apps/editor/src/engine/views/plantools/copyPayloads.ts` and
+`packages/command-registry/__tests__/WallCreateJoinIntentCensus.measure.test.ts`. Cause: the git
+index is shared across the worktree, so `git add <paths> && git commit` commits the *whole index*,
+including another lane's staged work. No content was lost; the attribution is wrong. Every
+subsequent HR1 commit uses `git commit --only <paths>`.
+
+---
+
+## L-982 — the plan railing tool could not express ANY catalogue handrail type, and offered ONE gesture ✅ CLOSED
+
+**FOUNDER, 2026-08-18, verbatim in substance:** *"I would like **parity with the wall element**.
+The railing is conceptually really similar to the wall element … I want it created in the same way:
+once the user clicks it should have the same UI/UX as the wall's authoring panel. The user could
+select from a number of railings (**please create 20 types**) and decide whether they want to create
+railing **by line, ortho, curved, by slab** and add **square, circular, ellipse**."*
+
+### The measurement, before
+
+| | Plan (`RailingPlanToolHandler`) | 3-D (`HandrailTool`) |
+|---|---|---|
+| height | **`DEFAULT_HEIGHT = 1.1`, hard-coded at file top** | `typeDef?.height ?? 1.0` |
+| thickness | **`DEFAULT_THICK = 0.05`, hard-coded** | `typeDef?.thickness ?? 0.05` |
+| `baseOffset` | bridge forced **0** | from the type |
+| `fillType` / `railProfile` / `postSpacing` | **absent** | from the type |
+| catalogue type | **cannot express ANY** — no `handrailTypeStore` import, no `_selectedTypeId` | resolved from the armed type |
+| modes | **one**: two clicks, a straight line | one |
+
+⇒ **C84 EI-9 in its plainest form: one question — "what handrail did the user ask for?" — with two
+answers, selected by which VIEW the user happened to be in.** Even with no type chosen the two
+surfaces disagreed on height, 1.1 against 1.0. This is C95 §10.1, and it was the user-visible half
+of this lane's subject.
+
+### What landed
+
+* **`activeHandrailAuthoring.ts`** — the surface-independent MODE + ARMED-TYPE store, the L-98
+  pattern. There is not one handrail picker (`CreateRailPanel` builds a `HandrailModePicker`, the
+  property panel builds a pre-draw widget, `ToolsAreaLayout` builds a `DrawingModeBar`), so the
+  selection must outlive whichever panel offered it.
+* **Seven modes**, declared once in `elementCreationMatrix`'s `railing` row. The first three are
+  **spread from the wall's own `WALL_DRAW_MODES`**, not retyped, so the two bars cannot drift in
+  label or accelerator. Ids match `HandrailRunMode` in `@pryzm/geometry-stair`, the module that
+  turns each into geometry — so the bar cannot offer a mode the generator does not implement.
+* **`RailingPlanToolHandler`, rewritten** — chained polyline for linear/ortho/curved, two-click
+  closed-loop gestures for square/circular/ellipse, By-Slab reading the slab ring exactly as
+  `CreateWallsFromSlabCommand` does (`polygon` + `slab.position`, re-wound to a consistent
+  handedness). **Both hard-coded literals DELETED, not re-synchronised** — a comment is not a
+  synchronisation mechanism (C84 §8.d).
+* **`showHandrailPreDraw`** — the wall panel's twin: same `gpp-header` shell, same
+  `gpp-type-badge` reading **NEW HANDRAIL**, same *"✓ … ready — click on canvas to draw"* hint
+  naming the ARMED type, same `wts-*` dropdown, same Esc note, same `positionBesideModeBar()`.
+  Selection **alone** arms (L-115); the tool is drawable before any type is picked (L-28).
+* **`ToolsAreaLayout`** — the SHARED `DrawingModeBar`, same `.wdh-*` CSS. `onSelect` writes the
+  store and **nothing else**; it never calls an `activate*` function, because that routes through
+  `deactivateAllInternal()` and destroys the in-progress run.
+
+### ⛔ The dispatch path changed, and it is the only one that carries the type
+
+The previous dispatch was `bus.executeCommand('handrail.create', …)`. That payload is
+`{id, levelId, hostId, path, shape, height, diameter, materialId}` — **no slot** for `fillType`,
+`railProfile`, `postSpacing`, `baseOffset`, `materialColor` or any baluster field — and the
+`.created` bridge that mirrors it into the authoritative legacy store **hard-codes**
+`fillType: 'baluster'` and `baseOffset: 0` (C95 §5, D4/D6). Routing a catalogue type through it
+would have silently dropped most of it: the very EI-2 defect this lane exists to close.
+
+The handler now executes `CreateHandrailCommand` / `CreateHandrailRunCommand` through the
+`ctx.commandManager` DI slot the overlay already populates — **the same L2 path the 3-D tool, the
+IFC importer and the project loader use** (C95 §4.2: *"the live path is legacy"*). Consequences,
+all intended: the record is byte-identical to the 3-D tool's; the write no longer lands in the
+zero-reader plugin DTO store that leaks monotonically (C95 §4.3); and `check:commandmanager` is
+unaffected, because that gate scans `packages/` and `plugins/` only — `apps/` is outside its own
+declared scope.
+
+### Proof — `apps/editor/__tests__/HandrailCreationParityReachable.test.ts`, 24 assertions, green
+
+**Committed ≠ reachable.** Every assertion starts at a control a user can touch and ends at a
+command the product executes; the `commandManager` is a **recorder**, and the assertions read the
+real command instances' own `serialize().payload`, so no handrail semantics are restated in the
+test. Includes the anti-hard-coding one: a type published at RUNTIME appears in the panel without
+the panel being touched.
+
+---
+
+## L-983 — a catalogue handrail type was HALF-APPLIED: the create command had no slot for the balusters it describes ✅ CLOSED
+
+`HandrailTypeDefinition` describes a balustrade. `CreateHandrailCommand` — the **one** creation
+authority, reached from the 3-D tool, the plan tool, the IFC importer and the project loader —
+accepted `height`, `thickness`, `baseOffset`, `fillType`, `railProfile`, `railDiameter`,
+`postSpacing`, `materialColor`, **and nothing else**.
+
+⇒ A user who picked *"Timber Picket Railing"* got its height and its post spacing, then **20 mm
+generic balusters at the historical 0.11 m default**, because the only path from the catalogue to
+the record dropped the rest on the floor. `materialId` was dropped the same way, though
+`HandrailFragmentBuilder.resolveColour` reads it. **C84 EI-2 verbatim: silent narrowing at a hop.**
+
+**Watched RED then green** — five assertions fail on the pre-fix code
+(`packages/command-registry/__tests__/handrailTypeMaterialisationAndRun.test.ts`).
+
+Also landed here: **`infillMaxGap`**, the CODE constraint (*"a 100 mm sphere must not pass"* →
+0.099 m), which is **not** a second name for the pitch. Clear gap = pitch − balusterWidth, so the
+builder derives `pitch = maxGap + width` **only when no pitch is authored** — no existing handrail
+changes shape, asserted by a test that pins the authored-pitch case at its old value.
+
+⛔ **No `systemTypeId` field was minted.** `PropertyPanelTypeSelector` records the family's rule
+verbatim — *"HandrailData carries no `typeId`, so a railing type is MATERIALISED into the record,
+not referenced"* — and a rival answer to "what type is this railing?" would be EI-9.
+
+---
+
+## L-984 — the RETYPE path applied a different railing from the CREATE path, for the same catalogue entry ✅ CLOSED
+
+**This is L-623's defect shape, re-opened by L-983's own widening and closed in the same commit
+that opened it.** Had only creation been widened, *"Timber Picket Railing"* would have meant two
+different railings depending on whether you **drew** it or **retyped into** it — one shared defect
+turned into a **per-path divergence**, which is worse than the defect.
+
+The four infill fields are added in lock-step across all four hops of the retype chain:
+
+| hop | file |
+|---|---|
+| widget payload | `apps/editor/src/ui/property-panel/RailingTypeSelectorWidget.ts` |
+| dispatch | `apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts` |
+| `element.changeType` railing branch | `apps/editor/src/engine/initBusHandlers.ts` |
+| command | `packages/command-registry/src/handrails/UpdateHandrailCommand.ts` |
+
+---
+
+## L-985 — a "fire-and-forget bus telemetry" call was a MUTATION that minted a ghost rail per 3-D draw ✅ CLOSED
+
+`HandrailTool` fired `bus.executeCommand('handrail.create', {})` on every placement, labelled
+*"Bus telemetry — fire-and-forget"*. **It was not telemetry.** `CreateHandrailHandler.canExecute`
+guards every check with `!== undefined`, so an **empty payload is VALID**; `execute` then seeds a
+**complete** record — fresh id, `levelId: ''`, `shape: 'round'`, `height: 1.0`, `diameter: 0.04`,
+`path: [{0,0,0},{1,0,0}]` — into the plugin DTO store. Nothing dispatches `handrail.delete`, so the
+ghost 1 m rail at the world origin was **never removed**: the store grew monotonically for the life
+of the session, and the dormant handlers' `canExecute` checks validate against those ghosts.
+
+⛔ **A telemetry call must not be a mutation (C16 CA-17).**
+
+### C95 §13 item 1 is now MEASURED, which is what unblocked the removal
+
+C95 blocked its own delta #7 on a question nobody had answered: whether the ghost **also** reached
+the legacy store and became user-visible. **Measured:** `CommandEventBridge`'s `handrail.create`
+case forwards `record.payload`, which is `{}`, so it emits `handrail.created` with
+`id: undefined`; the `initTools` §FT-HANDRAIL bridge's **first** guard is `!ev.id` and returns
+before touching `handrailStore`. ⇒ **No phantom LEGACY handrail was ever minted.** The damage was
+confined to the DTO store — real, but internal. Nothing replaces the call: the creation is already
+observable on the L2 path, which is where handrail creation is counted.
+
+---
+
+## L-986 — a multi-segment handrail run doubles the post at every shared vertex ✅ CLOSED (twice, and the second time is the interesting one)
+
+`HandrailFragmentBuilder` emits an end post at **both** ends of every segment. A run — an L-shaped
+rail, or a closed square / circular / elliptical guard — is N two-point handrails sharing their
+interior vertices, so the naive decomposition puts **two coincident posts** on every shared vertex
+and on the loop's closure point: visibly thickened, z-fighting, and double-counted in every
+schedule. The founder named the outcome explicitly (*"correct join at the closure point: no gap, no
+doubled post"*).
+
+**Fix:** one additive field, `HandrailData.suppressStartPost`. Each vertex becomes the
+responsibility of exactly ONE segment — every segment after the first suppresses its start post,
+and in a **closed** loop the first suppresses its too, because the last segment's END post already
+stands there. Both cases: `|posts| === |distinct vertices|`. Absent/false is bit-identical to
+before, so no existing handrail changes.
+
+### ⭐ The second occurrence, and why the reachability suite paid for itself in one run
+
+`RailingPlanToolHandler._commitOpenRun` derived *"is this the head of the run?"* from
+`this._chain.length === 1`. After each commit the chain is **re-seeded to `[end]`** so the next
+segment continues where the last finished — so its length is 1 **both** before the first click-pair
+**and** after every subsequent one. The predicate answered `true` every time, every segment kept
+its start post, and a chained polyline grew a doubled post at every interior vertex: **precisely
+the defect `suppressStartPost` exists to prevent, reintroduced by the one call site that could not
+see it.** Replaced with an explicit `_runStarted` flag, set **after** a successful dispatch so a
+refused one cannot claim a post nobody placed.
+
+It was caught by `HandrailCreationParityReachable.test.ts` — *not* by the 26-assertion pure-geometry
+suite, which was green throughout and always would have been. **The generator was right; the caller
+was wrong.** That is the whole argument for proving a fix at the layer the user experiences.
+
+**Controls kept live:** the command-registry suite asserts the square loop builds **4** posts and a
+2-segment L builds **3**, by counting the meshes the REAL builder emits — and keeps the naive
+8-post case as an executing control, so the fix cannot rot into a tautology.
+
+---
+
+## L-987 — THREE byte-identical handrail snapshot implementations, two of them unreachable ⛔ OPEN (declared + pinned; retirement needs an owner)
+
+`serializeHandrailSnapshot` / `deserializeHandrailSnapshot` exist three times:
+
+| # | path | §3.5 verdict |
+|---|---|---|
+| 1 | `packages/core-app-model/src/stores/HandrailSnapshotUtils.ts` | 🟢 **THE AUTHORITY** — both production consumers import it |
+| 2 | `packages/core-app-model/src/stores/handrailSnapshotUtils2.ts` | ⛔ **DEAD** |
+| 3 | `packages/geometry-stair/src/handrailSnapshotUtils.ts` | ⚠ **CO-LIVING-BUT-UNCONSUMED** |
+
+**#2's barrel axis is the interesting one.** `stores/index.ts` re-exports it with `export *` at
+`:209`, but the **same index** explicitly exports the identical two names from
+`HandrailSnapshotUtils.js` at `:119`. Under ES module semantics an explicit local export **shadows**
+a star-export of the same name — so #2 is re-exported *and unreachable by name*. A census that
+looked only at "is it exported?" would have called it live.
+
+⛔ **Neither duplicate is deleted here.** Both are re-exported from package barrels whose consumers
+this lane does not own; C84 §8.c says **declare, do not mirror**. Each now carries a header naming
+the authority, its own four-axis result, and why it survives. Three new assertions execute all
+three over a record carrying every field this lane added and require identical output.
+
+⭐ **The pin records the fact that matters downstream:** none of the three has a field whitelist —
+all are a plain JSON round trip. That is *why* `infillMaxGap`, `suppressStartPost` and the baluster
+members survive an `UpdateHandrailCommand` undo with no further work, and the test says so rather
+than leaving it to luck.
+
+**Open:** retire #2 and #3, or declare a reason both must exist. Needs whoever owns the two barrels.
+
+---
+
+## L-988 — handrail lives inside `packages/geometry-stair/`, and the coupling is ZERO in both directions ⛔ OPEN (needs a decision, not a fix)
+
+Every other element family has its own `packages/geometry-<family>`. Handrail does not: five of its
+source files sit inside `packages/geometry-stair/`. **The brief asked whether that is a defect or
+deliberate co-location. Measured, not assumed:**
+
+**Axis 1 — do the handrail files depend on stair?** `HandrailFragmentBuilder`, `HandrailTool`,
+`HandrailLevelCleanupHandler`, `handrailSnapshotUtils` and the new `handrailRunGenerators` import
+only from `@pryzm/core-app-model`, `@pryzm/renderer-three`, `@pryzm/command-registry`,
+`@pryzm/snapping` and `@thatopen/components`. **Zero imports from any `./Stair*` module.**
+
+**Axis 2 — do the stair files depend on handrail?** The only `./Handrail*` references anywhere in
+the package are **five re-export lines in `index.ts`**. The two stair files that mention "Handrail"
+(`StairRailingTypeMapping.ts`, `StairRailingTypes.ts`) import `HandrailTypeDefinition` **from
+`@pryzm/core-app-model`** — the shared catalogue, not the co-located code.
+
+⇒ **ZERO coupling in both directions. The co-location is ACCIDENTAL, not deliberate**, and the
+package boundary is the only thing holding the two together. Note this is *not* the same question as
+the three railing CONCEPTS (C95 §1.1): `StairRailingBuilder` is a genuinely different family that
+legitimately lives in `geometry-stair`. It is the free-standing handrail family that is misplaced.
+
+⛔ **NOT MOVED, deliberately, and the brief required saying so before starting one.** A move needs a
+new workspace (`package.json`, `tsconfig`, `pnpm-lock` sync — and an unsynced lockfile breaks
+`--frozen-lockfile` for every other lane), plus four import sites, **two of which are in
+orchestrator-owned files** (`initBuilders.ts` ×2, `initTools.ts` ×1). **Decision needed:** create
+`packages/geometry-handrail`, or record the co-location as deliberate with a stated reason. The one
+answer that must not stand is the current one — no reason recorded either way.
+
