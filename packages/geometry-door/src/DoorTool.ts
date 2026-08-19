@@ -8,6 +8,8 @@ import {
     canPlaceRefusalText,
     // §FEAT-HOSTED-ON-CURVED-WALL — arc-length placement on curved hosts.
     isArcHost, wallCentrelineLength, arcLengthAtPointXZ, arcFrameAt,
+    // §OPENING-PROFILE (L-1251) — the shape axis is owned by the wall, because the VOID is.
+    type OpeningProfileKind,
 } from '@pryzm/geometry-wall';
 // DOC-5.2 — 2D snap on projected TechnicalDrawing edges for door placement in plan view
 
@@ -102,6 +104,13 @@ export class DoorTool {
     // 3D path only, which is precisely how the two paths diverged.
     public get doorType(): DoorTypeChoice { return getDoorToolConfig().doorType; }
     public set doorType(v: DoorTypeChoice) { setDoorToolConfig({ doorType: v }); }
+
+    /**
+     * §OPENING-PROFILE (L-1251) — the void SHAPE, on the SAME config store as the leaf count.
+     * Orthogonal to `doorType`: `double × round-arch` is an ordinary pair of arched doors.
+     */
+    public get openingProfile(): OpeningProfileKind { return getDoorToolConfig().openingProfile; }
+    public set openingProfile(v: OpeningProfileKind) { setDoorToolConfig({ openingProfile: v }); }
 
     /** The chosen `DoorSystemType.id` — defaults to Solid Timber (see the config store). */
     public get systemTypeId(): string { return getDoorToolConfig().systemTypeId; }
@@ -230,12 +239,18 @@ export class DoorTool {
             const rawOffset = arcLengthAtPointXZ(wallData, hit.point.x, hit.point.z).s;
             // §FIX-DOOR-PREVIEW-EXACT — occupancy must use the SAME width the door
             // will actually be placed at (selected type), not a hardcoded 1 m/2 m.
-            const width = resolveDoorDimensions(this.systemTypeId, this.doorType).width;
+            const _dims = resolveDoorDimensions(this.systemTypeId, this.doorType);
+            const width = _dims.width;
             const halfW = width / 2;
             if (rawOffset < halfW || rawOffset > wallLength - halfW) {
                 return { ok: false, state: 'out-of-range' };
             }
-            const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width);
+            // §OPENING-PROFILE (L-1251) — the HOVER check carries the shape, so a curved host
+            // refuses under the pointer rather than at the click (C84 EI-3, C16 CA-18).
+            const occ = wallOccupancyStore.canPlace(wallData, rawOffset, width, undefined, {
+                openingProfile: this.openingProfile,
+                heightM:        _dims.height,
+            });
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the refusal used to be
             // flattened to a bare state here, so the HUD showed one generic sentence
             // for six distinct verdicts. The shared renderer carries occ.code through.
@@ -474,7 +489,12 @@ export class DoorTool {
         // A5: Pre-validate with WallOccupancyStore before dispatching the command.
         // Gives the user immediate, visible feedback instead of a silent no-op when
         // the opening would overlap an existing one or extend beyond the wall end.
-        const occupancy = wallOccupancyStore.canPlace(wallData, offset, width);
+        // §OPENING-PROFILE (L-1251) — the COMMIT check. The refusal names host, reason and the
+        // live alternative; ⛔ never a silent fall-back to a square head.
+        const occupancy = wallOccupancyStore.canPlace(wallData, offset, width, undefined, {
+            openingProfile: this.openingProfile,
+            heightM:        placeDims.height,
+        });
         if (!occupancy.valid) {
             // §REFUSAL-IDENTITY-CANPLACE (GE-09, C58 §1.13.8) — the shared renderer
             // carries occupancy.code into the HUD text, so the refusal the user reads

@@ -51,6 +51,19 @@ export const DoorOpeningSchema = z.object({
     height:     z.number().positive(),
     sillHeight: z.number().nonnegative(),
 
+    /**
+     * §OPENING-PROFILE (L-1251) — the void SHAPE.
+     *
+     * ⛔ NOT OPTIONAL POLISH: `DoorStore.add` parses through this schema and Zod STRIPS keys it
+     * does not declare, so a field written to the store and missing here survives exactly one
+     * session. Absent ⇒ rectangular, so every door persisted before this loads unchanged.
+     *
+     * `circular` IS in the union but is never offered for a door (`openingProfilesFor('door')`) —
+     * the union is the OPENING's vocabulary, shared with windows, and narrowing it per family
+     * here would mint a second vocabulary, which is the defect this axis was designed to avoid.
+     */
+    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
+
     // Frame
     frameThickness: z.number().positive().default(0.05),
     frameDepth:     z.number().positive().default(0.07),

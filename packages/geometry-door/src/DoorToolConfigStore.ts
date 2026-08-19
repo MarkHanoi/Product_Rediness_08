@@ -42,6 +42,11 @@
  * `DoorOpeningFactory`, which consumes this config).
  */
 
+// §OPENING-PROFILE (L-1251) — the shape vocabulary is owned by `@pryzm/geometry-wall`, because
+// the VOID is the host's half of the opening (C15 §3.1). The door stores a CHOICE of it; it does
+// not re-declare the union, or a door and a window could disagree about what "arched" means.
+import { type OpeningProfileKind, DEFAULT_OPENING_PROFILE } from '@pryzm/geometry-wall';
+
 export type DoorTypeChoice = 'single' | 'double';
 
 export interface DoorToolConfig {
@@ -53,6 +58,14 @@ export interface DoorToolConfig {
      * class of defect, cf. §MAT-WINDOW-PLAN-PARITY).
      */
     readonly systemTypeId: string;
+    /**
+     * §OPENING-PROFILE (L-1251) — the void SHAPE. The founder asked for the arched door in the
+     * SAME breath as the circular window, and the whole point of one `openingProfile` on the wall
+     * opening is that both nouns read ONE axis. ⛔ A door offers three of the four values —
+     * `circular` is excluded by `openingProfilesFor('door')`, because a floor-reaching opening has
+     * no jambs for a circle to spring from.
+     */
+    readonly openingProfile: OpeningProfileKind;
 }
 
 /**
@@ -62,8 +75,11 @@ export interface DoorToolConfig {
  * caller that never picks a type.
  */
 export const DEFAULT_DOOR_TOOL_CONFIG: DoorToolConfig = Object.freeze({
-    doorType:     'single',
-    systemTypeId: 'dt-solid-timber',
+    doorType:       'single',
+    systemTypeId:   'dt-solid-timber',
+    // Rectangular — what every door drawn before L-1251 is. Default and "absent" coincide, which
+    // is what makes the axis additive rather than a migration.
+    openingProfile: DEFAULT_OPENING_PROFILE,
 });
 
 let _current: DoorToolConfig = DEFAULT_DOOR_TOOL_CONFIG;
@@ -87,6 +103,9 @@ export function setDoorToolConfig(patch: Partial<DoorToolConfig>): DoorToolConfi
         systemTypeId: (patch.systemTypeId && patch.systemTypeId.length > 0)
             ? patch.systemTypeId
             : _current.systemTypeId,
+        // The two axes patch INDEPENDENTLY — switching leaf count must not reset the shape.
+        // `double × round-arch` is an ordinary door and has to stay expressible (C86 §9 WO-Voc-4).
+        openingProfile: patch.openingProfile ?? _current.openingProfile,
     };
     _current = next;
     return _current;

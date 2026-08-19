@@ -189,6 +189,11 @@ export class CreateWallOpeningCommand implements Command {
                     height:       opening.height ?? 2.1,
                     sillHeight:   opening.sillHeight ?? 0,
                     doorType:     (opening.doorType as any) ?? 'single',
+                    // §OPENING-PROFILE (L-1251) — the arched head must reach the standalone store,
+                    // for the same reason its window twin does: `DoorPlanSymbolBuilder` draws from
+                    // the STORE RECORD, so a profile that stopped at the wall opening would give an
+                    // arched void in 3-D and a square-headed symbol in plan.
+                    ...(opening.openingProfile ? { openingProfile: opening.openingProfile as any } : {}),
                     // §FEAT-DOOR-FLIP-ON-SPACE (L-92) — thread the placement-time
                     // swing/hand (from DoorTool's flip) onto the DoorStore record.
                     // Omitted → DoorOpeningSchema defaults (left / inward).

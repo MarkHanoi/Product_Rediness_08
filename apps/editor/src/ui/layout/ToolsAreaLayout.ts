@@ -747,6 +747,9 @@ export function mountToolsArea(
             if (doorModePicker.isVisible()) {
                 if (doorTool) doorTool.doorType = type;
                 doorModePicker.setMode(type);
+                // §OPENING-PROFILE — re-activation must not drop the chosen head shape from the
+                // bar while the config store still holds it.
+                if (doorTool) doorModePicker.setProfile(doorTool.openingProfile);
                 props.inspector.showDoorPreDraw?.(doorTool);
                 return;
             }
@@ -754,10 +757,13 @@ export function mountToolsArea(
             await _origActivateDoor(type, systemTypeId ?? doorTool?.systemTypeId);
             props.inspector.showDoorPreDraw?.(doorTool);
 
+            // §OPENING-PROFILE (L-1251) — the door's TWO axes, mirroring the window bar. Leaf
+            // count and head shape patch independently on the one config store.
             doorModePicker.show(type, {
                 onSwitchSingle: () => { if (doorTool) doorTool.doorType = 'single'; },
                 onSwitchDouble: () => { if (doorTool) doorTool.doorType = 'double'; },
-            });
+                onSwitchProfile: (profile) => { if (doorTool) doorTool.openingProfile = profile; },
+            }, doorTool?.openingProfile ?? 'rectangular');
 
             const escHandler = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {

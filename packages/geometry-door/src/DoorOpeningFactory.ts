@@ -43,6 +43,7 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import { resolveDoorDimensions } from './DoorDimensions';
+import { type OpeningProfileKind } from '@pryzm/geometry-wall';
 import { doorSystemTypeStore } from './DoorSystemTypeStore';
 import {
     getDoorToolConfig,
@@ -68,6 +69,14 @@ export interface DoorOpeningData {
     readonly width: number;
     readonly height: number;
     readonly sillHeight: number;
+    /**
+     * §OPENING-PROFILE (L-1251) — the void SHAPE, on the WALL-OPENING record.
+     * `CreateWallOpeningCommand` SPREADS this record onto `wall.openings[]`, so the geometry arms
+     * receive it with no whitelist to forget it. A round-arched door reaches
+     * `WallHoleBodyBuilder`'s notch walk, which now traverses the outline instead of three
+     * hard-coded lines — the same function a rectangular door has always taken.
+     */
+    readonly openingProfile: OpeningProfileKind;
     readonly frameThickness: number;
     readonly frameDepth: number;
     readonly leafThickness: number;
@@ -130,6 +139,12 @@ export function buildDoorOpening(input: BuildDoorOpeningInput): DoorOpeningData 
                 width:          dims.width,
                 height:         dims.height,
                 sillHeight:     0,
+                // ⛔ NO SQUARING ARM HERE, and its absence is deliberate. The window chokepoint
+                // squares the box for a CIRCULAR profile; a door cannot be circular at all
+                // (`openingProfilesFor('door')`), because `sillHeight` is 0 and a floor-reaching
+                // opening has no jambs for a circle to spring from. Adding a squaring arm "for
+                // symmetry" would make an unreachable state look supported.
+                openingProfile: input.config?.openingProfile ?? stored.openingProfile,
                 frameThickness: dims.frameThickness,
                 frameDepth:     wallThickness,
                 leafThickness:  dims.leafThickness,
@@ -205,6 +220,14 @@ export function buildDoorStoreRecord(input: BuildDoorStoreRecordInput): Record<s
                 frameDepth:     num(o.frameDepth, dims.frameDepth),
                 leafThickness:  num(o.leafThickness, dims.leafThickness),
                 doorType,
+                // §OPENING-PROFILE — THE STORE RECORD CARRIES THE SHAPE. `DoorPlanSymbolBuilder`
+                // draws from the store record, so a profile that stopped at the wall opening
+                // would give an arched void in 3-D and a square-headed symbol in plan.
+                // The record's OWN value wins, mirroring `systemTypeId` above: a replayed or
+                // legacy opening that predates the field is rectangular, which is what it was.
+                openingProfile: typeof o.openingProfile === 'string' && o.openingProfile.length > 0
+                    ? o.openingProfile
+                    : getDoorToolConfig().openingProfile,
                 hingesSide:     o.hingesSide === 'right' ? 'right' : 'left',
                 swingDirection: o.swingDirection === 'outward' ? 'outward' : 'inward',
                 systemTypeId,

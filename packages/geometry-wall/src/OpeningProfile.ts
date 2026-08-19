@@ -97,6 +97,45 @@ export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>
 });
 
 /**
+ * §OPENING-PROFILE-BY-FAMILY (L-1251) — which profiles a given opening family may offer.
+ *
+ * ⛔ **A DOOR MAY NOT BE CIRCULAR, AND THIS IS GEOMETRY, NOT TASTE.** A door is a FLOOR-REACHING
+ * opening: `sillHeight` is 0 and `WallHoleBodyBuilder.normaliseWallHoles` classifies it as a
+ * NOTCH in the wall's outer profile rather than a closed hole. A circle has no feet on the floor
+ * to notch between — its outline starts at the springing, not at a jamb foot — so the notch walk
+ * has nothing coherent to traverse. Offering `Circular` on the door bar would be C84 **EI-3** in
+ * its purest form: a control offering something the pipeline cannot make good.
+ *
+ * ⭐ DECLARED HERE, BESIDE THE UNION, so the door mode bar, the window mode bar, the properties
+ * panel and any future validator cannot disagree about what each family may hold. A per-surface
+ * list would be four lists.
+ */
+export function openingProfilesFor(family: 'door' | 'window'): readonly OpeningProfileKind[] {
+    return family === 'door'
+        ? (['rectangular', 'round-arch', 'segmental-arch'] as const)
+        : OPENING_PROFILE_KINDS;
+}
+
+/**
+ * The next profile in the cycle for a given family — what the `A` key advances to.
+ *
+ * Family-aware so the door bar cycles through THREE and the window bar through four; a shared
+ * cycler that stepped onto a value the family cannot hold would hand the user an unbuildable
+ * state by keyboard while the pills refused it by mouse.
+ */
+export function nextOpeningProfileFor(
+    family: 'door' | 'window',
+    current: unknown,
+): OpeningProfileKind {
+    const list = openingProfilesFor(family);
+    const cur = resolveOpeningProfile(current);
+    const i = list.indexOf(cur);
+    // An out-of-family value (a door somehow holding `circular`) restarts the cycle rather than
+    // throwing: the user pressing a key must always end somewhere buildable.
+    return i < 0 ? list[0]! : list[(i + 1) % list.length]!;
+}
+
+/**
  * The next profile in the cycle — what the `A` key advances to.
  *
  * ⭐ ONE CYCLING KEY, NOT FOUR NEW LETTERS, and that is a measurement not a preference: `S`
@@ -345,6 +384,12 @@ export function openingProfileShapeRefusal(
     profile: unknown,
     width: number,
     height: number,
+    /**
+     * §OPENING-PROFILE-BY-FAMILY — optional; when supplied, a sill AT the floor rules out a
+     * circular profile (see {@link openingProfilesFor}). Optional so every existing caller keeps
+     * its exact previous verdict.
+     */
+    sillHeight?: number,
 ): string | null {
     const kind = resolveOpeningProfile(profile);
     if (kind === 'rectangular') return null;
@@ -356,6 +401,13 @@ export function openingProfileShapeRefusal(
             `A circular opening's width and height must be equal — the width IS the diameter. ` +
             `This one is ${width.toFixed(3)} m wide and ${height.toFixed(3)} m tall. ` +
             `Set both to ${width.toFixed(3)} m for a round opening, or choose a rectangular profile.`
+        );
+    }
+    if (kind === 'circular' && sillHeight !== undefined && sillHeight <= 1e-4) {
+        return (
+            `A circular opening cannot reach the floor — a door-height opening at sill 0 has no ` +
+            `jambs for a circle to spring from. Raise the sill above the floor for a round window, ` +
+            `or choose an arched profile for a doorway.`
         );
     }
     if (kind === 'round-arch' && height < width / 2 - 1e-9) {
@@ -390,10 +442,12 @@ export function openingProfileRefusal(input: {
     profile?: unknown;
     width: number;
     height: number;
+    /** Absent ⇒ the floor-reaching check is skipped (see {@link openingProfileShapeRefusal}). */
+    sillHeight?: number;
     host?: OpeningProfileHost | null;
 }): string | null {
     return (
-        openingProfileShapeRefusal(input.profile, input.width, input.height) ??
+        openingProfileShapeRefusal(input.profile, input.width, input.height, input.sillHeight) ??
         openingProfileHostRefusal(input.profile, input.host)
     );
 }
