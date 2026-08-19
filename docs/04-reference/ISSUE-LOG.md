@@ -19833,3 +19833,65 @@ tangent never the chord; a host rake change invalidates the hosted element).
 `wallId` + `getIdsByWallId(wallId).length` and re-take the founder's rake edit. A zero-length bucket
 and a never-called `rebuildForWall` are different failures with the same symptom, and today they are
 the same value in the log.
+
+---
+
+## L-1272 — THE GIZMO IS RE-RESOLVED **BEFORE** THE MESH IT IS RE-RESOLVING FOR IS DISPOSED: A PARAMETER EDIT WRITES THE STORE FIRST AND REBUILDS SECOND 🔴 OPEN — HYPOTHESIS, NOT MEASURED — logged 2026-08-19 (lane JOIN1)
+
+**Founder's log, taken while dragging/raking walls:**
+
+```
+[SelectionManager] §SELECT-GIZMO-REATTACH gizmo attached to a detached object —
+  detaching to stop the per-frame flood [occurrence #1]
+```
+
+…alongside his report that levels feel **"stuck"** when clicking. A `TransformControls`
+bound to an object whose parent chain no longer reaches the scene root makes stock THREE's
+`updateMatrixWorld()` **throw on every render frame** — a very plausible cause of exactly that.
+
+### The machinery is present and correct — that is what makes this interesting
+
+`SelectionManager._reresolveSelectionAfterRebuild(updatedId)` already does the right thing:
+detach a stale gizmo, re-resolve the live `Object3D` by element id, re-select it, and
+`unselectAll()` if the element is gone. `LevelExplodeController:735` even documents this exact
+flood and bails rather than re-arming the stale binding. **So this is not a missing guard.**
+
+### ⚠ THE HYPOTHESIS — an ORDERING defect, and it is NOT YET MEASURED
+
+`_reresolveSelectionAfterRebuild` is driven by **`bim-<type>-updated`**. On a parameter edit
+(`UPDATE_ELEMENT_PARAMETER`, which is how the founder authors a rake) the sequence is:
+
+1. `applyParameters()` **WRITES the store** — which emits `bim-wall-updated`.
+2. `_reresolveSelectionAfterRebuild` runs **now**, while the OLD mesh is still in the scene.
+   It finds `freshRoot === sel` and `_isAttachedToScene(sel)` is **true**, so it takes the
+   "builder reused the root" branch, refreshes the highlight and **re-attaches the gizmo to the
+   old mesh**.
+3. *Then* the command's rebuild block calls `builder.buildWall(wall)`, which **disposes the old
+   Object3D and adds a fresh one**.
+4. ⇒ The gizmo now holds a detached object, and **no further event will fire to heal it**.
+
+If that ordering is real, the guard is doing its job perfectly and is simply being handed a
+situation created *after* it ran. ⭐ **The re-resolution is keyed on the EVENT (`bim-*-updated`)
+rather than on the COMPLETION of the rebuild the event predicts** — the C85 §10.5 shape again,
+one noun over.
+
+### ⛔ What is NOT claimed
+
+The step-2/step-3 ordering above is read from source, **not measured**. It is written down so the
+next lane starts from a falsifiable statement instead of re-deriving one. It is also **not**
+established that this is the same root as [L-1270](#) or [L-1271](#) — the coordinator asked
+whether the rake rebuild is what detaches the gizmo, and *this hypothesis says it could be for
+ANY parameter edit, not specifically a rake*. That breadth is itself a test: if it were rake-
+specific, the mechanism above would be the wrong one.
+
+### The probe that settles it, named so it is not re-derived
+
+Log a monotonic sequence number from three places on one parameter edit —
+`applyParameters` (store write), `_reresolveSelectionAfterRebuild` entry, and
+`WallFragmentBuilder.buildWall` entry — and take one founder rake edit. If the re-resolve
+number falls **between** the write and the build, the hypothesis holds and the fix is to
+re-resolve **after** the rebuild completes (or to have the direct `buildWall` re-emit), not to
+add another guard.
+
+**Fence note:** `SelectionManager` (`packages/input-host`) and the editor bootstrap are held by
+other lanes; JOIN1 logged this rather than fixing it.
