@@ -15335,3 +15335,39 @@ L-911's own rule applies verbatim: half-tolerance is worse than none. The fix is
 L-911's: let the number bind FORWARD across a conjunction to the shared "bed(room)" head — e.g.
 match `([1-4])\s*[-]?\s*(?:and|&|,|\+)\s*(?=[1-4][\s-]?bed)` as an additional capture, or
 pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
+
+## L-1185 — PROJECT ISOLATION IS NOT CLEAN: 3D shows linework from THIS project's elevations/plans AND from PREVIOUS projects (OPEN, founder-reported 2026-08-19)
+
+**Founder, with a screenshot:** the 3D viewport shows floating elevation/plan LINEWORK — a
+façade elevation and floor-plan outlines hanging in space beside the real model — and he
+states some of it belongs to PREVIOUS projects, not the open one.
+
+⭐ **THE PRIME SUSPECT IS ALREADY DOCUMENTED AND UNFIXED.** ISSUE-LOG L-238/L-224 record an
+**orphan-mesh blind spot**: `ProjectIsolationAudit.ts:126` gates its scene check on
+`if (idKnown && …)`, so *any scene-root descendant that is renderable but carries no owner*
+(no `elementId`, and not in the known-infrastructure allowlist: catcher, grid, origin sphere,
+gizmo) **is invisible to the audit**. An audit that cannot see unowned meshes will report a
+clean switch while unowned linework survives it. §C13-BUILDER-SCENE-CLEAR reports
+`17/17 builder(s) cleared` — builders it knows about; orphans have no builder to clear them.
+
+**SECOND SUSPECT — the drawings/edge layer, which is exactly what the founder sees.**
+`ViewController.ts:1822` mounts DRAWINGS into the scene; `EdgeProjectorService` emits
+`LineSegments` (which `countMeshes` does not even count, so mesh-count diagnostics are blind to
+them too). Elevation and plan projections are LINE geometry. Establish whether mounted drawings
+and projected edges are torn down on project switch AT ALL — and whether they carry an
+`elementId` the isolation audit could see.
+
+**THIRD, and it makes the blast radius large:** `[ProjectHub] Keeping local-only project …`
+fires ~50 times per boot — 50 projects retained with unsaved local versions. Whatever leaks
+per switch accumulates across a long session of opening projects.
+
+**WHY IT MATTERS BEYOND COSMETICS:** C13 project isolation is the invariant that one project's
+geometry never reaches another's scene. A visible breach means the invariant is not merely
+unproven, it is FALSE — and the audit designed to catch it is structurally incapable of seeing
+this class. That is the "a gate that cannot fail is not a gate" shape, applied to isolation.
+
+**FIRST ACTIONS FOR THE NEXT SESSION:** (1) reproduce by opening project A, then B, and
+enumerating scene-root descendants with no `elementId`; (2) close the audit's `idKnown` gate so
+unowned renderables are REPORTED, not skipped — the audit must fail loudly on an orphan; (3)
+establish teardown for mounted drawings + projected edges on switch; (4) only then fix the leak
+itself. Do NOT fix the leak before the audit can see it, or the next leak ships silently too.
