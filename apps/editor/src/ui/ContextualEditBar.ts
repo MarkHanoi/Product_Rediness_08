@@ -76,6 +76,21 @@ const TYPE_DISPLAY: Record<string, string> = {
 // Phase B.8 (S73-WIRE) — runtime threading per S72 §16.2 row B.8.
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
+/**
+ * §FEAT-WALL-PROFILE-EDIT-MATRIX — what a tool must expose to have "Edit Profile" offered.
+ *
+ * `enterProfileEditMode` is the FLOOR: without it the button is not shown at all, which is
+ * the §FIX-DEAD-EDIT-PROFILE-BUTTON rule and is unchanged. `profileEditAvailability` is
+ * OPTIONAL and is the per-variant refinement (L-1065): a tool that has it gets its button
+ * enabled or disabled per element, a tool that lacks it keeps the old all-or-nothing
+ * behaviour. Optional rather than required so slab — whose editor has no variant axes —
+ * needs no change to keep working.
+ */
+interface ProfileEditCapableTool {
+    enterProfileEditMode?: (id: string) => unknown;
+    profileEditAvailability?: (id: string) => { ok: boolean; reason?: string };
+}
+
 export class ContextualEditBar {
     private readonly _el: HTMLElement;
     private _selectedObj: any | null = null;
@@ -500,9 +515,34 @@ export class ContextualEditBar {
         // (C84 §8.d — a comment is not a synchronisation mechanism), so wiring
         // `enterProfileEditMode` on a tool is the ONE act that makes its button appear, and
         // the two can no longer disagree.
+        // §FEAT-WALL-PROFILE-EDIT-MATRIX (L-1065) — visibility is per TYPE, but ENABLEMENT is
+        // per VARIANT. A wall is not one thing: straight or curved, vertical or raked, one
+        // layer or many, hosting doors or not — and the profile geometry exists for some of
+        // those and not others. The type-level boolean said the most optimistic thing it
+        // could, so a RAKED wall was offered an editor whose result nothing had ever drawn.
+        //
+        // Three states, and only the third lies: SHOWN+ENABLED (the geometry exists),
+        // SHOWN+DISABLED with the reason as its tooltip (not yet — and the tooltip says which
+        // decision is in the way and that the wait is finite), HIDDEN (this element type has
+        // no editor at all). Hiding a wall's button would teach the author the feature does
+        // not exist for walls; opening it would teach them it worked.
         if (this._editProfileBtn) {
-            this._editProfileBtn.style.display =
-                this._profileEditToolFor(elementType) ? '' : 'none';
+            const tool = this._profileEditToolFor(elementType);
+            this._editProfileBtn.style.display = tool ? '' : 'none';
+            if (tool) {
+                const id = this._selectedElementId;
+                const verdict = id && typeof tool.profileEditAvailability === 'function'
+                    ? tool.profileEditAvailability(id)
+                    : { ok: true };
+                const blocked = !verdict.ok;
+                this._editProfileBtn.classList.toggle('ceb-btn--disabled', blocked);
+                this._editProfileBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+                this._editProfileBtn.style.opacity = blocked ? '0.45' : '';
+                this._editProfileBtn.style.cursor = blocked ? 'not-allowed' : '';
+                this._editProfileBtn.title = blocked
+                    ? (verdict.reason ?? 'Outline editing is not available for this wall yet.')
+                    : 'Edit Profile';
+            }
         }
         this._clearActiveOpHighlight();
     }
@@ -988,6 +1028,22 @@ export class ContextualEditBar {
         // shape keeps this call site clean without touching the global decl.
         const tool = this._profileEditToolFor(type);
         if (tool) {
+            // §FEAT-WALL-PROFILE-EDIT-MATRIX — the disabled button is a hint, not the
+            // enforcement: a keyboard shortcut or a stale render can still get here. The
+            // decline goes through the SAME channel every other operation uses, so the user
+            // learns WHY rather than watching nothing happen (the §FIX-OP-SILENT-NOOP rule).
+            // The tool refuses again on its own account; this exists so the refusal is VISIBLE
+            // in the toolbar's own idiom, not only in the tool's status line.
+            const verdict = typeof tool.profileEditAvailability === 'function'
+                ? tool.profileEditAvailability(id)
+                : { ok: true } as { ok: boolean; reason?: string };
+            if (!verdict.ok) {
+                this._declineOperation(
+                    'Edit Profile',
+                    verdict.reason ?? 'this element cannot have its outline edited yet',
+                );
+                return;
+            }
             void tool.enterProfileEditMode!(id);
             console.log(`[ContextualEditBar] Edit Profile → ${type} ${id}`);
             return;
@@ -1024,15 +1080,15 @@ export class ContextualEditBar {
      */
     private _profileEditToolFor(
         type: string | null | undefined,
-    ): { enterProfileEditMode?: (id: string) => unknown } | null {
+    ): ProfileEditCapableTool | null {
         if (!type) return null;
         const w = window as unknown as {
-            slabTool?:    { enterProfileEditMode?: (id: string) => unknown };
-            floorTool?:   { enterProfileEditMode?: (id: string) => unknown };
-            ceilingTool?: { enterProfileEditMode?: (id: string) => unknown };
-            wallTool?:    { enterProfileEditMode?: (id: string) => unknown };
+            slabTool?:    ProfileEditCapableTool;
+            floorTool?:   ProfileEditCapableTool;
+            ceilingTool?: ProfileEditCapableTool;
+            wallTool?:    ProfileEditCapableTool;
         };
-        const candidates: Record<string, { enterProfileEditMode?: (id: string) => unknown } | undefined> = {
+        const candidates: Record<string, ProfileEditCapableTool | undefined> = {
             slab:    w.slabTool,
             floor:   w.floorTool,
             ceiling: w.ceilingTool,

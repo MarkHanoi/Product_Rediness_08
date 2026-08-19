@@ -47,6 +47,11 @@ import {
     wallProfilePlanarLength,
     type WallProfileVertex,
 } from './WallProfile';
+// §FEAT-WALL-PROFILE-EDIT-MATRIX (L-1065) — the per-VARIANT capability map. The gate above
+// answers "may this wall HOLD this profile"; this answers "does the profile geometry exist
+// for THIS WALL'S VARIANT". They are different questions and the second one is the one a
+// raked wall failed silently, because the gate has no rake arm and answered `ok`.
+import { wallProfileVariantAvailability } from './WallProfileVariants';
 import { UpdateElementParameterCommand } from '@pryzm/command-registry';
 
 /**
@@ -2091,7 +2096,23 @@ export class WallTool {
             return;
         }
 
-        // ── REFUSE BEFORE OPENING, with the gate's OWN sentence ──────────────
+        // ── REFUSE BEFORE OPENING (1): THE VARIANT MATRIX (L-1065) ──────────
+        // Does the profile GEOMETRY exist for this wall's variant? A raked wall passes the
+        // authorability gate — the gate has no rake arm — and used to open an editor whose
+        // result nothing had ever drawn. The matrix answers per variant and its refusal says
+        // NOT YET rather than never, names each blocking axis in the gate's own words where
+        // the gate has them, and names what does work today (C16 CA-18, L-1067).
+        const variant = wallProfileVariantAvailability(wall as never);
+        if (!variant.ok) {
+            this.showStatus(variant.reason ?? 'Outline editing is not available for this wall yet.');
+            console.warn(
+                '[WallTool] §FEAT-WALL-PROFILE-EDIT-MATRIX closed —',
+                variant.status, variant.blockedBy.join('+'),
+            );
+            return;
+        }
+
+        // ── REFUSE BEFORE OPENING (2), with the gate's OWN sentence ──────────
         // A curved / layered / opening-hosting wall cannot hold a profile. Opening an editor
         // whose Apply can only ever fail is an affordance without an implementation — the
         // exact defect the withheld button existed to avoid. So the refusal happens HERE,
@@ -2130,6 +2151,28 @@ export class WallTool {
             },
         );
         console.log(`[WallTool] §FEAT-WALL-PROFILE-EDIT entered — wall: ${wallId}`);
+    }
+
+    /**
+     * §FEAT-WALL-PROFILE-EDIT-MATRIX — may THIS wall's outline be edited, and if not, why?
+     *
+     * The toolbar asks this to decide whether "Edit Profile" is ENABLED, and shows the
+     * `reason` as the disabled button's tooltip. It is the SAME function
+     * `enterProfileEditMode` refuses with, so the button's state and the refusal an author
+     * would receive are one judgement, not two that agree today (C84 EI-9 — the mistake the
+     * per-element-type boolean made was having no judgement at all for the variant).
+     *
+     * ⚠ DISABLED, not HIDDEN, and that is deliberate. A hidden button teaches nothing: the
+     * author concludes the feature does not exist for walls. A disabled one that says
+     * *"NOT YET … straighten the wall to edit its outline today"* tells them which of their
+     * decisions is in the way and that the wait is finite. A button that OPENS is the only
+     * one of the three that lies.
+     */
+    public profileEditAvailability(wallId: string): { ok: boolean; reason?: string } {
+        const wall = this.wallStore.getById(wallId);
+        if (!wall) return { ok: false, reason: 'This wall is no longer in the model.' };
+        const v = wallProfileVariantAvailability(wall as never);
+        return v.ok ? { ok: true } : { ok: false, reason: v.reason };
     }
 
     /** Close the profile editor. Idempotent. */

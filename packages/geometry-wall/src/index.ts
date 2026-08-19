@@ -146,3 +146,4 @@ export { RoomBoundingLineBuilder }  from './RoomBoundingLineBuilder';
 export { RoomBoundingLineTool }     from './RoomBoundingLineTool';
 
 export * from './WallProfileEditor';
+export * from './WallProfileVariants';

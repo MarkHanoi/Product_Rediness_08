@@ -420,7 +420,13 @@ describe('§WALL-PROFILE (8) — "Edit Profile" is offered only where it is impl
 
     it('visibility is DERIVED from the dispatch resolver, not hand-listed beside it', () => {
         const s = src();
-        expect(s).toMatch(/this\._editProfileBtn\.style\.display\s*=\s*\n?\s*this\._profileEditToolFor/);
+        // ⚠ RE-EXPRESSED 2026-08-19 (§FEAT-WALL-PROFILE-EDIT-MATRIX). The assertion was
+        // `display = this._profileEditToolFor(...)`, matching the exact statement shape.
+        // Visibility is now `display = tool ? '' : 'none'` with `tool` resolved one line
+        // above, because ENABLEMENT became per-variant while visibility stayed per type.
+        // The INVARIANT is unchanged and is what is matched: the display of that button is
+        // decided by the resolver's answer, never by a hand-kept list of type names.
+        expect(s).toMatch(/const tool = this\._profileEditToolFor\(elementType\);[\s\S]{0,200}?this\._editProfileBtn\.style\.display\s*=\s*tool\s*\?/);
         // the old hand-kept list, which claimed floor and ceiling had editors, is gone
         expect(s).not.toMatch(/elementType === 'floor'\s*\n?\s*\|\| elementType === 'ceiling'/);
     });
