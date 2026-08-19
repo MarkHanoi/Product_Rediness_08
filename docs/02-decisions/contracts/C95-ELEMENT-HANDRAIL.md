@@ -1177,6 +1177,130 @@ failure with a contract citation attached.
 
 ---
 
+## 15.12 R2b — BY SLAB IS AN **ACTION ON A SLAB ID**, NOT A CANVAS GESTURE — ✅ **DECIDED + LANDED** (L-1103, 2026-08-19)
+
+> **FOUNDER, live session:** *"Handrail by slab doesn't work. The same happened with CURTAIN WALLS.
+> WALLS WORK CORRECTLY."*
+
+### The measurement, because the fix follows from it and not from taste
+
+By Slab was a canvas GESTURE. `RailingPlanToolHandler.onClick` saw `mode === 'byslab'` and called
+`readSelectedSlabOutline()`, which read `window.selectionManager.selectedObject` **at click time**.
+
+⛔ `ToolManager.activateTool()` (`packages/input-host/src/ToolManager.ts:550`) runs
+`this.selectionManager.setEnabled(false)` as part of activating **any** tool. That clears the
+selection. There is therefore **no ordering of user actions under which the gate can be true**:
+selecting first loses the selection to the activation, and selecting after is impossible because the
+active tool consumes the clicks and selection is disabled. The feature refused **100% of the time**,
+and its refusal message was accurate — it described a state the application had produced one line
+earlier.
+
+### THE DECISION
+
+**By Slab is a COMMAND that takes a `slabId`. It is not a gesture, and it does not read the
+selection.**
+
+Three properties follow, and each is why this form was chosen over "make the gesture work":
+
+1. **It cannot regress into the unsatisfiable gate.** A command parameterised by a slab id has no
+   dependency on `SelectionManager` state at all.
+2. **It is surface-independent.** `HandrailTool` (3-D) has no mode awareness whatsoever (§15.13), so
+   a gesture-based By Slab was not merely broken in 3-D — it was absent. An action on an id works
+   from either surface, and from neither.
+3. **It is the form R8 needs.** *"Create a railing on the edge of this slab"* from chat resolves a
+   slab id, not a pair of screen clicks. §15.8's RAC path now has its entry point already built.
+
+**Normative:**
+- **MUST** be `CreateHandrailRunOnSlabCommand`, which derives the ring from the slab's own
+  `polygon` + `position` and delegates to `CreateHandrailRunCommand` → `CreateHandrailCommand`.
+  ⛔ **MUST NOT** write the handrail store directly: one creation authority (C84 EI-1/EI-9), one
+  undo entry for the perimeter (C16 §8.6).
+- **MUST** set `hostId` = the slab and `hostKind: 'slab'` (§15.1). The same field the stair half
+  uses — no new vocabulary (C84 EI-8).
+- The slab id **MUST** come from a snapshot taken **BEFORE** activation, recorded in
+  `activeHandrailAuthoring` so every surface reads one answer (the L-98 rule this family already
+  applies to mode and type), or from an explicit **pick-a-slab** flow that deactivates the tool so
+  selection is re-enabled.
+- The pick-a-slab flow **MUST** be the shared one (`ToolsAreaLayout._pickSlabThen`). The wall's copy
+  was extracted rather than duplicated: curtain wall is the founder's third instance of this defect,
+  and a third copy would guarantee a third bug.
+
+### ⚠ The lesson worth more than the fix
+
+The railing had mirrored the **feature** — pill, label, `S` accelerator, matrix row, refusal message
+— and none of the **mechanism**. It reviewed clean, it tested green, and it never once worked.
+*Copying what a working feature looks like reproduces nothing of what makes it work.* When a family
+adopts another family's affordance, the thing to copy is the part that is not visible.
+
+---
+
+## 15.13 THE 3-D TOOL IS MODE-BLIND — C84 EI-3 BREACH, 3 OF 7 MODES ⛔ **OPEN** (L-1106, measured 2026-08-19)
+
+`packages/geometry-handrail/src/HandrailTool.ts` — 255 lines — imports no authoring store, contains
+no `mode`, and draws exactly one thing: a two-click straight line. It resolves the armed **type**
+and ignores the armed **mode**.
+
+`elementCreationMatrix`'s `railing` row declares `views: ['plan', '3d']` for all seven modes, and
+`activateHandrailTool` shows the bar in either view. So in 3-D the bar offers **Square**,
+**Circular** and **Ellipse**, the user picks one, and the next two clicks draw a straight line.
+
+**C84 EI-3 — *the UI offers ⇒ the pipeline accepts* — is violated for 3 of 7 modes on one surface.**
+`byslab` was the fourth and §15.12 closes it, because an action on a slab id is surface-independent
+by construction.
+
+⛔ **The fix is NOT "add modes to `HandrailTool`".** That mints a second gesture implementation
+beside `RailingPlanToolHandler`'s, which is precisely the plan/3-D divergence §10.1 already records
+for this family and which §15.2 spent a lane closing. **The shape is `stair-path`'s** — ONE tool
+over one config store with a plan handler and a 3-D handler, which the creation matrix already
+names as the dual-view reference implementation.
+
+---
+
+## 15.14 APPLYING A RAILING TYPE — ONE PROJECTION, AND THE `null` THAT MAKES IT REAL — ✅ **DECIDED + LANDED** (L-1105, 2026-08-19)
+
+`HandrailData` carries **no `typeId`** (§15.7 / `PropertyPanelTypeSelector`: *"a railing type is
+MATERIALISED into the record, not referenced"*). Applying a type therefore means copying **thirteen
+fields** onto the record — and that projection lived inside `RailingTypeSelectorWidget`'s Apply
+click handler, which made the property panel the only surface that could apply a type at all.
+
+### THE DECISION
+
+**The catalogue → record projection is ONE exported function in `@pryzm/geometry-handrail`, and
+every caller resolves from `newTypeId` alone.**
+
+```
+resolveHandrailTypeFields(def: HandrailTypeLike): HandrailTypeFields
+```
+
+- ⭐ It is `resolveStairRailingTypeFields` (geometry-stair) applied to handrail. Stair-railing
+  already resolves from `newTypeId` alone for this exact reason; two closely-related families now
+  share **one idiom** rather than each inventing its own (C84 EI-8).
+- The `element.changeType` railing branch resolves from the id, so the payload is
+  `{ elementId, elementType, newTypeId }`. **Explicitly-named fields still win**, so a caller may
+  adjust one dimension without inventing a type.
+- The panel calls the same function. ⛔ **MUST NOT** be re-derived by any caller: materialising
+  thirteen fields into a chat payload puts the catalogue's meaning in the caller, where it cannot be
+  kept true (C84 EI-4a / EI-9).
+
+### ⛔⛔ NORMATIVE: the projection MUST emit `materialColor: def.materialColor ?? null`
+
+`UpdateHandrailCommand` reads `undefined` as *"leave this field alone"* and `null` as *"CLEAR it"*.
+A catalogue type carries a `materialId` and **no hex** — C100 §2.1 forbids the hex by name, and this
+family shipped that breach once (§15.6, fixed at `10513bf4`).
+
+**If the projection omits `materialColor`, a user's hex override survives the retype and shadows the
+new material for ever.** The user asks for frameless glass; the record says frameless glass; the
+property panel says frameless glass; **the railing on screen stays the old colour**. Nothing errors,
+nothing warns, and `resolveMaterialColour`'s step 1 (*"an explicit override always wins"*) is doing
+exactly what it should.
+
+The acceptance test **MUST** check this **at the resolution ladder**, not by reading the field back —
+a field-read passes even if the ladder ignores it — and **MUST** carry the retyped record through a
+save/load round trip, because a cleared field that the serialiser re-emits is the same
+authored-then-lost shape as §16.
+
+---
+
 ## 15.11 IMPLEMENTATION ORDER, AND WHAT BLOCKS WHAT
 
 Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the blockers measured above:
@@ -1197,7 +1321,52 @@ user-visible data defect on the very interaction (*"behave for STAIRS"*) R1 is a
 
 ---
 
-# 16. PERSISTENCE — MEASURED 2026-08-19, AND IT IS THE WORST DEFECT IN THIS CONTRACT
+# 16. PERSISTENCE — ✅ **CLOSED 2026-08-19: RE-MEASURED 29 of 29 FIELDS SURVIVE**
+
+> ### The header of this section used to read *"MEASURED … AND IT IS THE WORST DEFECT IN THIS
+> ### CONTRACT"*, at **7 of ~26**. It is now **29 of 29, 0 lost, 0 changed.**
+>
+> ⚠ **AND THE RE-MEASUREMENT IS THE POINT, NOT THE FIX.** `handrailPersistence.ts` was written by
+> lane HR1, which then hit the weekly API limit **mid-sentence**; its commit (`ca0ebdae`) states in
+> capitals that the round trip was **never re-run after the file landed**. A fix nobody measured is
+> a claim, and this contract has a §13 full of what happens when claims are recorded as results.
+>
+> **THE MEASUREMENT.** Author a handrail with every authorable field at a **non-default** value →
+> real `HandrailStore` → real `serializeHandrailRecord` → `JSON.parse(JSON.stringify(...))` (the
+> real serialisation boundary, where a `THREE.Vector3` or a function dies) → real
+> `buildHandrailCreatePayload` → real `CreateHandrailCommand.execute` → a **second** real
+> `HandrailStore`, read back **from the authoritative store**, never from the command's return
+> value. Result: `authored=29 · survived=29 · lost=[] · changed=[]`.
+>
+> Non-default values matter: `fillType` defaulting to `'baluster'` is exactly how the original
+> defect hid — **a lost field that lands on its own default looks like a pass.**
+>
+> **THE SHAPE IS L-1037's DECIDED ONE, verified before being extended:** SAVE serialises the record
+> **minus a NAMED transient list** (5 entries, each carrying its reason); LOAD rebuilds through
+> **ONE exported payload builder**. A field added to `HandrailData` tomorrow persists today — and
+> that inversion is *asserted*, not described: a test adds `someFieldNobodyHasWrittenYet` and
+> requires it to survive **without the serialiser being edited**.
+>
+> **REACHABILITY was checked separately from correctness.** Both `ProjectSerializer` copies call
+> `serializeHandrailRecord`; both `ProjectLoader` copies call `buildHandrailCreatePayload`; and in
+> each loader the count of `new CreateHandrailCommand(` **equals** the count of
+> `new CreateHandrailCommand(buildHandrailCreatePayload(` — a count, not a substring, so a second
+> hand-assembled call site fails instead of passing quietly beside it. `SnapshotStreaming` carries
+> no whitelist; it routes whole records.
+>
+> **WHAT THIS DOES NOT ESTABLISH, stated so nobody reads more into the ✅ than it holds:**
+> `ProjectSerializer.serialize()` is **not executed** — it needs a ~20-store bundle and a live
+> BimManager. The save leg is proven by the executed record-level round trip **plus** source parity
+> across all four sites. That is strictly less than running the real serializer, and it is the
+> honest description of what was done.
+>
+> **UNBLOCKED:** R6 (§15.5), R3 (§15.7), R8 (§15.8). All three were held because authoring what will
+> not persist is wasted work.
+>
+> *(Tests: `packages/command-registry/__tests__/handrailPersistenceRoundTrip.test.ts` 5/5, plus the
+> retype-survives-reload arm in `HandrailTypeChange.test.ts` — §15.14.)*
+
+### The original measurement, kept as the record of what was wrong
 
 > **This section exists because §15.5 made measuring it the gate on R6, and the measurement came
 > back far worse than the question that prompted it.** The question was *"do the fields this lane

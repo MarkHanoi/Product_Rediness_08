@@ -12002,7 +12002,53 @@ authoring surface that sets `hostId` is C95 §15.1's remaining half, and the bus
 
 ---
 
-## L-1102 — handrail persistence: 7 of ~26 fields survive a save/load round trip ⛔ OPEN (MEASURED, not fixed)
+## L-1102 — handrail persistence: 7 of ~26 fields survive a save/load round trip ✅ CLOSED — RE-MEASURED 29/29, 2026-08-19 (lane HR2)
+
+> ### ✅ CLOSED — and the closure is a MEASUREMENT, not a reading of the fix
+>
+> **HR1 wrote `handrailPersistence.ts` and then hit the weekly API limit mid-sentence. The round
+> trip was NEVER RE-RUN after it**, and its own commit (`ca0ebdae`) says so in capitals. So this
+> row was re-measured before anything was built on top of it.
+>
+> **HOW IT WAS MEASURED.** A harness that authors a handrail with EVERY authorable field set to a
+> NON-DEFAULT value, puts it through a real `HandrailStore` → the real `serializeHandrailRecord` →
+> `JSON.parse(JSON.stringify(...))` (the actual serialisation boundary, where a `THREE.Vector3` or
+> a function dies) → the real `buildHandrailCreatePayload` → a real
+> `CreateHandrailCommand.execute` → a SECOND real `HandrailStore`, read back **from the
+> authoritative store**, never from the command's return value.
+>
+> **RESULT: `EXEC_SUCCESS=true · authored=29 · survived=29 · lost=[] · changed=[]`.**
+> Up from 7. Non-default values throughout, because a lost field that lands on its own default
+> looks exactly like a pass — which is how `fillType` hid.
+>
+> **REACHABILITY, checked separately from correctness.** All four persistence sites route through
+> the one pair: both `ProjectSerializer` copies call `serializeHandrailRecord`, both
+> `ProjectLoader` copies call `buildHandrailCreatePayload`, and the count of
+> `new CreateHandrailCommand(` equals the count of `new CreateHandrailCommand(buildHandrailCreatePayload(`
+> in each loader — a COUNT, not a substring, so a second hand-assembled call site added later
+> fails rather than passing quietly beside it. `SnapshotStreaming` was checked too and carries no
+> whitelist; it routes whole records.
+>
+> **SHAPE, verified against L-1037's DECIDED form before extending it:** SAVE serialises the record
+> minus a NAMED transient list (5 entries, each with a stated reason); LOAD rebuilds through ONE
+> exported payload builder. A field added to `HandrailData` tomorrow persists today. The inversion
+> is asserted, not described: a test adds `someFieldNobodyHasWrittenYet` and requires it to survive
+> WITHOUT the serialiser being edited.
+>
+> **WHAT THIS DOES NOT ESTABLISH.** `ProjectSerializer.serialize()` itself is not executed — it
+> needs a ~20-store bundle plus a live BimManager — so the save leg is proven by the executed
+> record-level round trip PLUS source-parity across all four sites, not by running the whole
+> serializer. Naming that is the difference between a closed row and an overstated one.
+>
+> **UNBLOCKED BY THIS:** R6 (infill panelling), R3 (user types), R8 (slab-edge RAC). Authoring what
+> will not persist was the reason all three were held.
+>
+> *(Tests: `packages/command-registry/__tests__/handrailPersistenceRoundTrip.test.ts` 5/5. The
+> measurement harness above was a throwaway; its numbers are quoted, and the standing test is the
+> key-set sweep, which fails on any future field lost without a named exclusion.)*
+
+### The original measurement, kept as the record of what was wrong
+
 
 Task (c), the gate set before R6. The question was whether the fields *this lane* added survive
 save/load. **Almost nothing does, including fields that have shipped for months.**
@@ -12208,6 +12254,182 @@ entirely NOT MEASURED.**
 **Runs:** 11 files / 124 passed + 1 expected fail (the L-1066 pin) · 10 files / 69 passed.
 
 **Owner: unassigned (WA1 terminated).**
+
+## L-1103 — "handrail BY SLAB doesn't work": the tool's own activation destroyed the selection the feature reads ✅ FIXED — 2026-08-19 (lane HR2)
+
+**FOUNDER, from a live production session:** *"Handrail by slab doesn't work. The same happened with
+CURTAIN WALLS. WALLS WORK CORRECTLY."*
+
+### It was not broken. It was UNSATISFIABLE.
+
+By Slab was a canvas GESTURE: `RailingPlanToolHandler.onClick` saw `mode === 'byslab'` and asked
+`readSelectedSlabOutline()`, which read `window.selectionManager.selectedObject` **at click time**.
+
+⛔ `ToolManager.activateTool()` calls `this.selectionManager.setEnabled(false)` while activating
+**any** tool (`packages/input-host/src/ToolManager.ts:550`), and that clears `selectedObject`. So:
+
+| the user does | what actually happens |
+|---|---|
+| selects the slab, then picks the railing tool | **picking the tool throws the selection away** |
+| picks the railing tool, then tries to select the slab | the active tool consumes the click; selection is DISABLED |
+| clicks By Slab, then clicks the slab | same — the gate reads a selection that cannot exist |
+
+There is no ordering that works. The refusal fired for **100% of users, always** — and the console
+warning it printed (*"no slab is selected"*) was true and useless, because it described a state the
+app itself had created one line earlier.
+
+⭐ **This is [[unsatisfiable-gate-decomposition-is-the-fix]] (L-716) again.** The productive question
+is not *"why did it refuse?"* but *"can this condition EVER be true?"*. One line of reading
+`activateTool` answers it; a week of debugging the refusal does not.
+
+### The fix is the wall's mechanism, not a new one
+
+The founder named the working reference, and the wall has carried BOTH cures since it was written:
+
+1. a **snapshot of the selection taken BEFORE activation** (`ToolsAreaLayout._bySlabCapture`, whose
+   own comment says *"ToolManager.activateTool() disables SelectionManager immediately, so by the
+   time the user clicks the S button the live selection is already cleared"*), and
+2. an explicit **pick-a-slab mode** for when there is no pre-selection, which deactivates the tool
+   so `SelectionManager` is re-enabled and the user CAN pick.
+
+The railing had mirrored the **feature** — the pill, the label, the `S` accelerator, the matrix row
+— **without the mechanism**. That is the general lesson worth keeping: copying what a working
+feature LOOKS like reproduces none of what makes it work, and it reviews clean.
+
+**Landed:**
+- `CreateHandrailRunOnSlabCommand` — takes a `slabId` and derives the run from the slab's own
+  boundary. Wall's proven form (`wall.create-on-all-slabs`), not a gesture. Delegates to
+  `CreateHandrailRunCommand` → `CreateHandrailCommand`, so ONE creation authority, ONE undo entry
+  for the whole perimeter, and records byte-identical to a hand-drawn rail's.
+- the snapshot lives in `activeHandrailAuthoring` (beside mode and type) rather than as a local in
+  one panel, so the plan handler, the 3-D tool and RAC read ONE answer — the L-98 lesson.
+- the pick-a-slab flow is **extracted** from the wall's private body and shared, so curtain wall —
+  the founder's third case — has one flow to adopt instead of a third copy to write.
+- `readSelectedSlabOutline()` **DELETED**, not deprecated. Leaving the losing answer to "which
+  slab?" in place is C84 EI-9.
+- every rail is hosted (`hostId` = the slab, `hostKind: 'slab'`), so the model can answer *"what
+  guards this slab?"* — the same field the stair half already uses, not a new vocabulary.
+
+⭐ **This also lands R8's spine.** *"Create a railing on the edge of this slab"* from chat resolves a
+slab id, not two screen clicks — the command is already the right entry point.
+
+### ⛔ The old test PASSED while the feature was dead
+
+It stubbed `window.selectionManager` and clicked. The stub made an unsatisfiable condition
+satisfiable, so the test was the **only place in the universe** where By Slab worked
+([[fake-more-capable-than-real]]). Rewritten to assert what the product now does.
+
+**Tests:** `packages/command-registry/__tests__/HandrailBySlab.test.ts` 11/11 — world-position ring,
+hosting, armed type on every record, one-undo / redo-same-ids, one post per vertex, four named
+refusals, plus an anti-drift arm proving the join rule agrees with `geometry-handrail`'s
+`slabOutlineSegments`. `HandrailCreationParityReachable` 25/25.
+
+⚠ **STILL OPEN, and named rather than left implied:** the 3-D `HandrailTool` has **no mode
+awareness at all** — it is a two-click line tool. See **L-1106**, logged separately rather than
+folded in here.
+
+---
+
+## L-1104 — the handrail's type panel was a MODAL standing in front of the mode bar ✅ FIXED — 2026-08-19 (lane HR2)
+
+**FOUNDER:** *"The wall's creation panel is the canonical layout: a MODE bar first, and the TYPE
+panel SIDE BY SIDE with it. The handrail today puts TYPE FIRST and MODE SECOND. That is wrong."*
+
+### The cause was not CSS, DOM order, or the order of the two `show()` calls
+
+All three were checked and all three were innocent: both bars are literally the same `.wdh-bar`
+class from the same rule; both cards are the same `.gpp-panel` positioned by the same
+`_positionWallPreDrawBesideModeBar()`; and the card's placement is queued through the frame
+scheduler, so the bar exists by the time it measures — either way.
+
+⛔ **The cause was a BLOCKING PRE-FLIGHT.** The ARCHITECTURE tile's action ran only
+`this._handrailModePicker.show(...)` — a modal type list at `top:54px; z-index:9999`, i.e. **on top
+of, and 14px above, exactly where the mode bar renders** — and the tool activated only from its
+`onSelectType`. So the sequence was: TYPE alone → dismiss → tool activates → card + bar. The wall
+tile activates on the first click, which is why its two surfaces appear together in one frame.
+
+**Landed:** the handrail tile activates on the first click like the wall's; the bar shows FIRST and
+carries the wall's word (`'Mode:'`, not a second word for the same thing — C84 EI-8); the card is
+deferred one scheduler tick exactly as the wall's is; the card's hand-written list of the seven
+modes is deleted (a rival statement of what the bar renders, and it said *"bar below"*, which the
+fix falsifies); and the missing `tool:deactivated` teardown is added — the railing bar was the only
+mode bar that could outlive its tool.
+
+**No capability is lost.** The picker's only unique job was choosing a type before drawing, and the
+pre-draw card does that from the same catalogue **while the tool is live** — so the type can now be
+changed BETWEEN segments instead of only before the first one.
+
+⚠ `apps/editor/src/ui/HandrailModePicker.ts` and its stylesheet are now **unreferenced**. They are
+deliberately NOT deleted in this pass: the founder has not yet seen the new flow, and keeping them
+one commit away makes a reversal cheap. **If the founder confirms, delete both** — an unreferenced
+picker left indefinitely is exactly the authored-but-unwired residue this repo tracks.
+
+---
+
+## L-1105 — applying a railing type lived in a DOM click handler, so the panel could do it and CHAT could not ✅ FIXED — 2026-08-19 (lane HR2)
+
+**Measured by lane RAC1**, built here. `HandrailData` carries no `typeId`, so applying a type means
+**MATERIALISING THIRTEEN FIELDS** onto the record — and that projection existed in exactly one
+place: inside `RailingTypeSelectorWidget`'s Apply button.
+
+The bus verb `element.changeType` had a railing branch, but it forwarded only the fields a caller
+happened to name. So chat, collaboration replay and every future automation would each have had to
+re-derive the same thirteen fields to say what a user says in four words: *"make it frameless
+glass"*. A second derivation is a second answer, and they drift (C84 EI-9 / EI-4a).
+
+⭐ **The shape is `resolveStairRailingTypeFields`, applied to handrail** — geometry-stair already
+resolves a stair railing's type from `newTypeId` ALONE for exactly this reason. Two closely-related
+families now share ONE idiom instead of each inventing its own (C84 EI-8).
+
+- `resolveHandrailTypeFields` (`@pryzm/geometry-handrail`) is the one projection;
+- the `element.changeType` railing branch resolves from `newTypeId`, so the payload is
+  `{ elementId, elementType, newTypeId }`. Explicitly-named fields still override, so a caller may
+  adjust one dimension without inventing a type;
+- the widget calls the same function. Its `RailingTypeApplyPayload` is now an ALIAS of the
+  projection's output type — and the hand-written twin **had already drifted**: it declared
+  `fillType` / `railProfile` REQUIRED where the catalogue leaves both optional.
+
+### ⛔⛔ The `null` is the whole defect, and it is now asserted rather than hoped for
+
+`materialColor: def.materialColor ?? null`. `UpdateHandrailCommand` reads `undefined` as *"leave
+alone"* and `null` as *"CLEAR"*. A catalogue type carries a `materialId` and **no hex** (C100 §2.1 —
+this family shipped that breach once, fixed at `10513bf4`). Drop the null and a user's hex override
+**survives the retype and shadows the new material forever**:
+
+> the user asks for frameless glass · the record says frameless glass · the property panel says
+> frameless glass · **and the railing on screen stays the old colour.** Nothing errors. Nothing warns.
+
+`HandrailTypeChange.test.ts` (7/7) pins it **at the resolution ladder the renderer uses**, not by
+reading the field back — which would pass even if the ladder ignored it — and proves the retype
+**survives a save/load round trip with the override still cleared**.
+
+---
+
+## L-1106 — the 3-D handrail tool has NO mode awareness, so the bar offers seven modes and 3-D accepts three ⛔ OPEN (MEASURED — 2026-08-19, lane HR2)
+
+`packages/geometry-handrail/src/HandrailTool.ts` is a two-click line tool: 255 lines, no import of
+`activeHandrailAuthoring`, no `mode` anywhere. It resolves the armed TYPE and ignores the armed
+MODE entirely.
+
+The `DrawingModeBar` is shown by `activateHandrailTool` regardless of which view the user is in, and
+`elementCreationMatrix`'s `railing` row declares `views: ['plan', '3d']` for all seven modes. So in
+the 3-D view the bar offers **Square / Circular / Ellipse** and the pipeline implements none of
+them: clicking one arms a mode, and the next two clicks draw a straight line.
+
+**This is C84 EI-3 — *UI offers ⇒ pipeline accepts* — violated for 3 of 7 modes on one surface.**
+`byslab` was the fourth and is closed by L-1103, because it became an ACTION on a slab id rather
+than a canvas gesture, which is surface-independent by construction.
+
+⚠ **Separated from L-1103 deliberately.** The founder's console log does not say which view they
+were in, and the By-Slab defect reproduces in BOTH — so fixing By Slab does not tell us this one is
+fixed, and folding them together would have let an open breach ride out on a closed row's ✅.
+
+**The fix is not "add modes to `HandrailTool`":** that mints a second gesture implementation beside
+`RailingPlanToolHandler`'s, which is the divergence C95 §10.1 already records for this family. The
+shape is `stair-path`'s — ONE tool over one config store with a plan handler and a 3-D handler
+(cited in the creation matrix as the dual-view reference implementation).
+
+---
 
 ## L-1120 — C100 §2.1 had no gate, C100 §7's gate was never registered, and the one that ran checked a single spelling (FIXED — gate built + both registered, 2026-08-19)
 
