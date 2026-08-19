@@ -12689,3 +12689,64 @@ record, which has no such field at all (`CurtainWallTypes.ts` carries `mullionMa
 
 **What remains of CW-Attr-2 is only the CONTROL:** no UI exposes `materialId`, so a user can set a
 hex tint and cannot choose "Carrara marble". Smaller and sharper than "reconcile two axes".
+
+---
+
+## L-1067 — the profile now DRAWS; the mode is reachable, and the MITRE is what remains (PARTIALLY CLOSED, RK1, 2026-08-19)
+
+The founder asked for Edit Profile three times. **The geometry now exists.**
+
+**§FEAT-WALL-PROFILE-BODY** — `WallProfileBodyBuilder.buildWallProfileBodyGeometry`, hooked as the
+FIRST body arm in `WallFragmentBuilder` (a profile changes the wall's ELEVATION OUTLINE and every
+arm below it assumes the implicit rectangle).
+
+### Why it is small, and why that is the point
+
+**A profile needed no new construction.** `WallHoleBodyBuilder` already builds a wall as a
+`THREE.Shape` in the wall's own elevation plane — `x` along the wall, `y` world-Y — extruded along
+the thickness. That is exactly the frame a profile is authored in. The only difference is the OUTER
+OUTLINE: the hole builder walks the implicit rectangle (dipping around doors), this walks the
+authored ring. Same extruder, same frame, same `translate(0, 0, −t/2)`, same caller-side
+`rotation.y = −angle`.
+
+`wallProfileSignedArea2` is imported rather than re-derived — the winding of a profile ring is
+already a question this package answers in exactly one place, and a second shoelace would have been
+C84 EI-9 in miniature.
+
+### Profile × rake composes, and it is asserted rather than claimed
+
+The ring is authored in the **un-sheared** frame, which `WallTypes.ts` already declared:
+*"both measured in the UN-SHEARED frame, so a profile and a rake compose."* So the builder knows
+nothing about the rake at all — `_applyRakeShearToChildren` leans the built group afterwards,
+exactly as it does the opening-bearing body. Measured: the same profiled wall reads
+`lean 0.000` un-raked and `lean 0.528981` at 80°, while its top is cut in both.
+
+### ⛔ WHAT REMAINS, AND IT IS WHY THIS ROW STAYS OPEN
+
+1. **NO MITRE.** The end faces are cut perpendicular at `u = 0` and `u = length`.
+   `buildWallHoleBodyGeometry` carries the identical limitation for the identical reason: an
+   `ExtrudeGeometry` outline has no per-end plane to project onto. **A profiled wall at a mitred
+   junction shows its pre-mitre end.** This is the first thing to fix if profiles are wanted on
+   joined walls, and it is a real constraint on where the mode is usable today.
+2. **The three refusals stand, and two of them are UNBUILT rather than impossible.**
+   `profileAuthorability` refuses curved, layered and opening-bearing walls. Their own texts give
+   them away: `layered` says *"the bands have no per-station top"* and `hosted-openings` says *"the
+   occupancy check is purely horizontal"* — both describe **missing machinery**, not contradictions.
+   ⚠ And `curved` is argued *ill-posed* in the same words the curved **rake** refusal used — and
+   that one turned out to be unbuilt, not impossible, and is now shipped as a cone. **Same argument,
+   same shape, already wrong once.** It deserves re-examination before it is believed a third time.
+
+### The test that told the next lane what to do, and was obeyed
+
+AXIS 6 of the matrix asserted *"the ring draws NOTHING"* and ended: *"⛔ WHEN A LANE BUILDS THE
+PROFILE BODY, THIS TEST GOES RED. That is correct and intended: invert it to assert the CUT, do not
+delete it."* It was inverted, not deleted. ⭐ **That instruction is the only reason it was safe to
+touch** — the same discipline that made `A2b`/`A3b` safe, and the absence of which is what makes a
+defect-recording pin dangerous.
+
+⚠ **One control in the new suite was the wrong instrument and is recorded rather than replaced
+silently:** it called `buildWallHoleBodyGeometry` with `openings: []`, which returns **null** —
+that builder exists to punch holes and declines a wall with none — so the test failed on "expected
+null to be truthy", measuring the control's own precondition instead of the profile. Feeding the
+RECTANGLE ring through the SAME builder is the stronger control anyway: it isolates the one variable
+that matters.
