@@ -702,11 +702,28 @@ transfer.
 
 `✅` conforms · `⚠️` violation · `—` capability absent · `?` NOT MEASURED
 
+> ⛔ **CORRECTED 2026-08-19 — the curtain-wall EI-6 cell said `✅ persists` and the family's panel
+> authority is NEVER PERSISTED AND NEVER LOADED.** `CurtainPanelStore` — the *declared* authority for
+> panels — has **zero matches in both live persistence files**, and `ProjectStores` carries no member
+> for it. Every `panelType`, every `materialOverride` and **all six `hostedDoor` fields** are destroyed
+> on save. [L-1057](../../04-reference/ISSUE-LOG.md).
+>
+> **Why a `✅` survived here is the lesson, not the defect.** Panels are silently **REGENERATED** on
+> load as `SystemPanel_Glass`, so a reloaded façade comes back with the **right cell count and a
+> plausible appearance** — it simply is not the façade the user authored. A persistence check that
+> asks *"did something come back?"* passes; only one that asks *"did the AUTHORED value come back?"*
+> fails. **This is the second family with this exact shape** — `lighting` is the first — which makes
+> it a class, not an incident: ⚠ **every other `✅` in this column was graded by the same question and
+> none of them is safe until re-asked.**
+>
+> Not fixed by CW1, and correctly so: it is a file-format change (C05 `SNAPSHOT_SCHEMA_VERSION`)
+> across two shared files, and unprovable by unit test.
+
 | Family | EI-1 authority | EI-2 no silent loss | EI-4 delete | EI-5 symmetric | EI-6 persists |
 |---|---|---|---|---|---|
 | wall | ⚠️ split (viewport ／ bake) | ⚠️ `materialId` dropped | ✅ | ⚠️ DTO orphaned | ✅ |
 | wall.opening | ⚠️ **two rival records** | ✅ refused upstream | ⚠️ button → `success:false` | ⚠️ DTO orphaned | ✅ |
-| curtain-wall | ✅ legacy | ⚠️ **per-panel kind/material/rotation collapsed** | ✅ | ⚠️ DTO orphaned | ✅ |
+| curtain-wall | ✅ legacy | ⚠️ **per-panel kind/material/rotation collapsed** | ✅ | ⚠️ DTO orphaned | ⛔ **VIOLATION — this cell read `✅` and it is FALSE** (measured 2026-08-19, lane CW1, [L-1057](../../04-reference/ISSUE-LOG.md)) |
 | ceiling | ✅ legacy | ⚠️ per-vertex `y` flattened; colour dropped | ✅ | ⚠️ DTO orphaned | ⚠️ no IFC reader |
 | roof | ✅ legacy | ⚠️ **skylights never cut**; `baseOffset` inert | ✅ | ⚠️ DTO orphaned | ✅ |
 | column | ✅ legacy | ⚠️ `i-section` via `as any` | ✅ | ⚠️ DTO orphaned | ✅ |
