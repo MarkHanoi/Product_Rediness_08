@@ -14,6 +14,10 @@
 
 import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
+// ⭐ C100 §9.6.a / S17 — THE resolution authority. Not re-implemented here: a
+// private T2+T1 chain is how C100 §1.1 traces four of the eight rival material
+// vocabularies in this repository.
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import type { Window as WindowData } from '@pryzm/schemas';
 
 export interface WindowWorldPlacement {
@@ -35,6 +39,14 @@ interface RawBuffers {
   indices: number[];
 }
 
+/**
+ * The window's family defaults, per slot — the colour of a window that names NO
+ * material at all (C100 §9.6.b: the DEFAULT stays local, the RESOLUTION is shared).
+ *
+ * ⚠ Unchanged values, kept so a window with no material renders byte-identically
+ * before and after S17. C100 §9.6.b names repainting the product as the thing that
+ * would rightly get this convergence reverted.
+ */
 const FRAME_FALLBACK_COLOR = '#3a3a3a';
 const GLASS_COLOR = '#a4c8e1';
 
@@ -146,12 +158,37 @@ export function produceWindow(
 ): BufferGeometryDescriptor {
   const buf: RawBuffers = { positions: [], normals: [], uvs: [], indices: [] };
   const groups: Array<{ start: number; count: number; materialIndex: number }> = [];
-  const systemTypeId = '';
-  const materialId = '';
-  const frameColor = win.frameColor ?? FRAME_FALLBACK_COLOR;
+  const systemTypeId = ''; // Window schema does not yet carry systemTypeId.
+
+  // ⭐ C100 §9.6.b / S17 — the colour slot now goes through THE master resolver.
+  //
+  // ⛔ WHAT WAS WRONG: `const materialId = '';` — a hard-coded empty string, the
+  // door producer's defect verbatim. Slot 2 carried nothing, so no window could name
+  // a material, and BOTH slots were minted with the SAME (empty) id, which is a
+  // second error hiding inside the first: a window's frame and its glazing are
+  // different products, and one id could never have described both.
+  //
+  // Each slot now resolves its OWN id — `frameMaterialId` / `glassMaterialId` (see
+  // `Window.ts`) — through the ONE authority, applying §2.1's precedence exactly
+  // once: an explicit colour OVERRIDE wins; else the id is resolved in
+  // `MATERIAL_CATALOG`; else the slot carries `unresolved:<id>`, a NAMED failure the
+  // bridge paints magenta; else the family default above.
+  //
+  // The key LAYOUT is unchanged on purpose (C100 §9.6.b: converge the VALUE, not the
+  // FORMAT), so no bridge and no parity snapshot keyed on the shape moves.
+  const frameMaterialId = win.frameMaterialId ?? '';
+  const glassMaterialId = win.glassMaterialId ?? '';
+  const frameColor = resolveMaterialColorSlot(
+    { materialId: win.frameMaterialId, materialColor: win.frameColor },
+    FRAME_FALLBACK_COLOR,
+  );
+  const glassColor = resolveMaterialColorSlot(
+    { materialId: win.glassMaterialId },
+    GLASS_COLOR,
+  );
   const materialKeys: MaterialKey[] = [
-    composeWindowMaterialKey(systemTypeId, materialId, frameColor, 'frame'),
-    composeWindowMaterialKey(systemTypeId, materialId, GLASS_COLOR, 'glass'),
+    composeWindowMaterialKey(systemTypeId, frameMaterialId, frameColor, 'frame'),
+    composeWindowMaterialKey(systemTypeId, glassMaterialId, glassColor, 'glass'),
   ];
 
   const w = win.width;
@@ -226,6 +263,11 @@ export function composeWindowGeometryHash(
     r(win.width), r(win.height), r(win.sillHeight),
     r(win.frameWidth), r(win.frameThickness),
     win.frameColor ?? FRAME_FALLBACK_COLOR,
+    // ⭐ C100 §2.1 / S17 — the ids join the hash because the descriptor CARRIES the
+    // material keys. Without them a cached descriptor would keep its old keys while
+    // the record named a new material: §COMMITTED-IS-NOT-REACHABLE through a cache.
+    win.frameMaterialId ?? '',
+    win.glassMaterialId ?? '',
     grid.columns, grid.rows, r(grid.mullionThickness),
     r(placement.origin.x), r(placement.origin.y), r(placement.origin.z),
     r(placement.axis.x), r(placement.axis.y), r(placement.axis.z),

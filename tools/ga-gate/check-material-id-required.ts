@@ -26,8 +26,8 @@
  *
  * C100 §2.1's MUST NOT shipped violated.  §MT-4: a rule with no gate is a wish.
  *
- * ─── The three arms ─────────────────────────────────────────────────────────
- *   ARM A — a schema declaring a COLOUR field and NO `materialId`.  C100 §2.1:
+ * ─── The SIX arms ───────────────────────────────────────────────────────────
+ *   ARM A — an L0 SCHEMA declaring a COLOUR field and NO material id.  C100 §2.1:
  *           "a hex is not a material… an element carrying only a hex has
  *           irreversibly lost the name."
  *   ARM B — a `materialId` STRING LITERAL in production source that does not
@@ -36,9 +36,28 @@
  *   ARM C — a family producer that mints a material key without routing its
  *           colour slot through the master resolver.  This is the reachability
  *           axis: §COMMITTED-IS-NOT-REACHABLE.
+ *   ARM D — a per-family SERIALIZER that does not persist the id it holds.
+ *   ARM E — a serializer that WRITES an id which `ProjectLoader` never READS back.
+ *           Added 2026-08-19 (S15) out of declared debt; found `slab` on its first
+ *           run.  Declared debt nobody converts into an arm is indistinguishable
+ *           from debt nobody found.
+ *   ARM F — the RUNTIME store type: an id named at L0 and absent from the record
+ *           persistence actually reads, or a runtime record carrying a colour and
+ *           no id at all.  Added 2026-08-19 (MT3) out of the blind spot C100 §9.7
+ *           declared and left unbuilt.  ⭐ It is NOT ARM A one layer down: ARM D's
+ *           correction established that "the serializer drops it" and "there is no
+ *           field to drop" are different defects with different fixes, and ARM D
+ *           can only ever see the first.
  *
- * All three are SHRINK-ONLY ratchets baselined at the 2026-08-19 measurement.
+ * All six are SHRINK-ONLY ratchets baselined at the 2026-08-19 measurement.
  * A baseline is not permission (C68).
+ *
+ * ⚠ EVERY arm here matches `[A-Za-z]*[Mm]aterialId`, never one spelling.  ARM D
+ * manufactured FOUR false findings out of six by testing `body.includes('materialId')`
+ * — one spelling, direct body only — and ARM A carried the identical defect until
+ * 2026-08-19, unable to see `mullionMaterialId` or `frameMaterialId`.  ⭐ A gate that
+ * checks one spelling of a thing does not check the thing, and a gate satisfiable by
+ * only ONE field name is a gate dictating the data model.
  *
  * ─── Subject floor (§RATCHET-R5) ────────────────────────────────────────────
  * Each arm asserts it actually looked at something.  A scan that finds nothing
@@ -63,6 +82,7 @@ const BASELINE_B_UNRESOLVABLE_IDS = 0; // 8 -> 0, L-1038 S14 (2026-08-19): all e
 const BASELINE_C_UNROUTED_PRODUCERS = 13; // 17 -> 13 over L-1038 S16 (2026-08-19): `ceiling`, `stair`, `handrail`, `roof`. Stair and handrail had NO COLOUR SLOT AT ALL (stair's bridge picked by SLOT; handrail's `colorOfHandrailMaterialKey(_key)` ignored its own ARGUMENT), so both gained one with a legacy-shape fallback. Roof resolves the SHINGLE slot only - deck/trim/interior stay canonical on purpose (§9.6.b), and the test pins that they did NOT move. Each landed with a test asserting the MASTER's hex, verified to FAIL without its fix. Thirteen to go, one at a time - a shared harness would repeat the C100 §9.3 retraction.
 const BASELINE_D_SERIALIZERS_DROPPING_ID = 3; // 5 -> 3, L-1038 S15 (2026-08-19): stair (deepStrip), handrail (delegated) and curtain-wall (prefixed ids) were FALSE POSITIVES of a one-spelling test, not fixes. The three that remain are real, and are ARM A's shape one layer down, at the runtime store type.
 const BASELINE_E_IDS_NEVER_READ_BACK = 1; // ARM E, new 2026-08-19: `slab`. The serializer writes materialId + materialColor; ProjectLoader's CreateSlabCommand payload lists neither, so a slab's material dies on reload. Owned by the persistence/slab lane (C100 §9.6.c step 2) - MEASURED here, fixed there.
+const BASELINE_F_RUNTIME_RECORDS_WITHOUT_ID = 5; // ARM F, new 2026-08-19 (MT3): `beam`, `furniture`, `lighting`, `plumbing`, `stair` - every one of them F.1, the sharp shape: the L0 schema names a materialId and the RUNTIME record, which is what persistence reads, has none. C100 §9.7 declared this arm and left it unbuilt; built, it reproduces the four families §9.7 named BY HAND and finds a FIFTH - `lighting`, which §9.1 files under "never persisted at all". NOT a serializer defect and NOT fixable in one: each needs a field on its runtime record AND a command that writes it.
 
 // Subject floors — if we scan fewer than this, we are misconfigured.
 const FLOOR_SCHEMAS = 20;
@@ -70,6 +90,7 @@ const FLOOR_ID_SITES = 40;
 const FLOOR_PRODUCERS = 8;
 const FLOOR_SERIALIZERS = 8;
 const FLOOR_ID_WRITERS = 4; // ARM E: fewer id-writing serializers than this means the scan broke.
+const FLOOR_RUNTIME_PAIRS = 12; // ARM F: fewer declared L0<->runtime pairs than this means the map was gutted rather than corrected.
 
 const CATALOG_REL = 'packages/schemas/src/materials/materialCatalog.ts';
 const SCHEMA_DIR_REL = 'packages/schemas/src/elements';
@@ -669,6 +690,147 @@ function armE(): number {
   return missing;
 }
 
+
+// ---------------------------------------------------------------------------
+// ARM F - the RUNTIME store type: the vocabulary persistence actually reads
+// ---------------------------------------------------------------------------
+/**
+ * C100 §9.7 DECLARED THIS BLIND SPOT AND LEFT IT UNBUILT, in the same breath as
+ * correcting ARM D:
+ *
+ *   > "No arm inspects the RUNTIME store types ... ARM A reads the L0 Zod schemas,
+ *   >  which §9 records as having NO PERSISTENCE CONSUMER AT ALL. So `stair`,
+ *   >  `beam`, `furniture` and `plumbing` - whose live records carry no
+ *   >  `materialId` - are invisible to ARM A *and* mis-described by ARM D.
+ *   >  **That is an ARM F, and it is unbuilt.**"
+ *
+ * Declared debt nobody converts into an arm is indistinguishable from debt nobody
+ * found - the same sentence ARM E was built on, which cost one arm and caught a
+ * live loss. So this is that arm.
+ *
+ * IT IS NOT ARM A ONE LAYER DOWN, and that distinction is the whole value. ARM D's
+ * correction established that "the serializer drops it" and "there is no field to
+ * drop" are DIFFERENT DEFECTS WITH DIFFERENT FIXES, and that ARM D can only ever
+ * see the first. ARM F measures the second, and its sharpest form is a MISMATCH
+ * rather than an absence:
+ *
+ *   F.1 - the L0 schema declares a material id and the RUNTIME record does not.
+ *   The id exists exactly where nothing persists and is missing exactly where
+ *   everything does. `SetStairMaterial.ts:57` refuses in precisely those words while
+ *   `packages/schemas/src/elements/Stair.ts` carries a `materialId` two packages
+ *   away - a family that looks materialled from L0 and cannot hold a material at all.
+ *
+ *   F.2 - the runtime record declares a COLOUR and no id of any spelling. ARM A's
+ *   shape, on the type persistence reads. C100 §2.1: "an element carrying only a hex
+ *   has irreversibly lost the name."
+ *
+ * THE MAP IS DECLARED, NEVER INFERRED. Guessing a runtime file from a schema name
+ * would make an unmapped family invisible - the failure mode this arm exists to end.
+ * A family whose pairing is not listed is REPORTED in the arm's own output line, so
+ * a new element kind shows up as unmapped rather than as silently clean.
+ *
+ * Matched with `[A-Za-z]*[Mm]aterialId` from the outset. A one-spelling test is what
+ * made ARM D manufacture four false findings out of six and what made ARM A unable
+ * to see a two-surface family; C100 §9.7 calls that recurrence out by name.
+ */
+interface RuntimePair {
+  readonly family: string;
+  /** The L0 element schema, relative to the repo root. */
+  readonly l0: string;
+  /** The RUNTIME record type - the shape the store holds and the serializer reads. */
+  readonly runtime: string;
+}
+
+const RUNTIME_PAIRS: ReadonlyArray<RuntimePair> = Object.freeze([
+  { family: 'Beam',        l0: 'packages/schemas/src/elements/Beam.ts',        runtime: 'packages/core-app-model/src/stores/BeamTypes.ts' },
+  { family: 'Ceiling',     l0: 'packages/schemas/src/elements/Ceiling.ts',     runtime: 'packages/core-app-model/src/stores/CeilingTypes.ts' },
+  { family: 'Column',      l0: 'packages/schemas/src/elements/Column.ts',      runtime: 'packages/core-app-model/src/stores/ColumnTypes.ts' },
+  { family: 'CurtainWall', l0: 'packages/schemas/src/elements/CurtainWall.ts', runtime: 'packages/geometry-curtain-wall/src/CurtainWallTypes.ts' },
+  { family: 'Door',        l0: 'packages/schemas/src/elements/Door.ts',        runtime: 'packages/geometry-door/src/DoorTypes.ts' },
+  { family: 'Floor',       l0: 'packages/schemas/src/elements/Floor.ts',       runtime: 'packages/core-app-model/src/stores/FloorTypes.ts' },
+  { family: 'Furniture',   l0: 'packages/schemas/src/elements/Furniture.ts',   runtime: 'packages/core-app-model/src/stores/FurnitureTypes.ts' },
+  { family: 'Handrail',    l0: 'packages/schemas/src/elements/Handrail.ts',    runtime: 'packages/core-app-model/src/stores/HandrailTypes.ts' },
+  { family: 'Lighting',    l0: 'packages/schemas/src/elements/Lighting.ts',    runtime: 'packages/core-app-model/src/stores/LightingTypes.ts' },
+  { family: 'Plumbing',    l0: 'packages/schemas/src/elements/Plumbing.ts',    runtime: 'packages/core-app-model/src/stores/PlumbingTypes.ts' },
+  { family: 'Roof',        l0: 'packages/schemas/src/elements/Roof.ts',        runtime: 'packages/core-app-model/src/stores/RoofTypes.ts' },
+  { family: 'Slab',        l0: 'packages/schemas/src/elements/Slab.ts',        runtime: 'packages/geometry-slab/src/SlabTypes.ts' },
+  { family: 'Stair',       l0: 'packages/schemas/src/elements/Stair.ts',       runtime: 'packages/core-app-model/src/stores/StairTypes.ts' },
+  { family: 'Wall',        l0: 'packages/schemas/src/elements/Wall.ts',        runtime: 'packages/geometry-wall/src/WallTypes.ts' },
+  { family: 'Window',      l0: 'packages/schemas/src/elements/Window.ts',      runtime: 'packages/geometry-window/src/WindowTypes.ts' },
+]);
+
+const ANY_MATERIAL_ID_RE = /^\s{2,}[A-Za-z]*[Mm]aterialId\s*[:?]/m;
+
+function armF(): number {
+  if (RUNTIME_PAIRS.length < FLOOR_RUNTIME_PAIRS) {
+    misconfigured.push(
+      `ARM F subject floor: ${RUNTIME_PAIRS.length} declared pairs, expected >= ${FLOOR_RUNTIME_PAIRS}`,
+    );
+    return 0;
+  }
+
+  let count = 0;
+  let read = 0;
+  for (const pair of RUNTIME_PAIRS) {
+    const l0Abs = join(REPO_ROOT, pair.l0);
+    const rtAbs = join(REPO_ROOT, pair.runtime);
+    if (!existsSync(l0Abs) || !existsSync(rtAbs)) {
+      // A declared pair that no longer exists is a MISCONFIGURATION, not a pass: a
+      // renamed file must move the map, never silently drop a family.
+      misconfigured.push(
+        `ARM F: declared pair ${pair.family} points at a missing file ` +
+          `(${existsSync(l0Abs) ? pair.runtime : pair.l0}) - update the map.`,
+      );
+      return 0;
+    }
+    read++;
+    const l0Src = readFileSync(l0Abs, 'utf8');
+    const rtSrc = readFileSync(rtAbs, 'utf8');
+    const l0HasId = ANY_MATERIAL_ID_RE.test(l0Src);
+    const rtHasId = ANY_MATERIAL_ID_RE.test(rtSrc);
+
+    // F.1 - the sharp one: named at L0, absent where persistence reads.
+    if (l0HasId && !rtHasId) {
+      count++;
+      errors.push(
+        `  x [ARM F] ${pair.runtime} is ${pair.family}'s RUNTIME record and declares NO ` +
+          `materialId, while ${pair.l0} does. The id exists where nothing persists and is ` +
+          `absent where everything does - "the serializer drops it" and "there is no field ` +
+          `to drop" are different defects with different fixes (C100 §9.7).`,
+      );
+      continue;
+    }
+
+    // F.2 - ARM A's shape, on the type persistence reads.
+    if (!rtHasId) {
+      const colours = [...rtSrc.matchAll(COLOUR_FIELD_RE)].map((m) => m[1]!);
+      if (colours.length > 0) {
+        count++;
+        errors.push(
+          `  x [ARM F] ${pair.runtime} is ${pair.family}'s RUNTIME record and declares colour ` +
+            `field(s) [${[...new Set(colours)].join(', ')}] and NO materialId of any spelling - ` +
+            `C100 §2.1: "an element carrying only a hex has irreversibly lost the name".`,
+        );
+      }
+    }
+  }
+
+  const schemaDirF = join(REPO_ROOT, SCHEMA_DIR_REL);
+  const allSchemas = existsSync(schemaDirF)
+    ? readdirSync(schemaDirF).filter(
+        (f) => f.endsWith('.ts') && !ANNOTATION_SCHEMAS.has(f.replace(/\.ts$/, '')),
+      )
+    : [];
+  const mapped = new Set(RUNTIME_PAIRS.map((pr) => pr.l0.split('/').pop()));
+  const unmapped = allSchemas.filter((f) => !mapped.has(f));
+  console.log(
+    `  · [ARM F] ${read} declared L0<->runtime pairs read, ${read - count} carry the id on BOTH sides` +
+      ` · ${unmapped.length} element schema(s) have no declared runtime pair` +
+      (unmapped.length > 0 ? ` (${unmapped.map((f) => f.replace(/\.ts$/, '')).join(', ')})` : ''),
+  );
+  return count;
+}
+
 function main(): number {
   console.log('[material-id-required] C100 §2.1 — elements REFERENCE materials by id');
 
@@ -687,6 +849,7 @@ function main(): number {
   const c = armC();
   const d = armD();
   const e = armE();
+  const f = armF();
 
   if (misconfigured.length > 0) {
     for (const m of misconfigured) console.error(`  ! MISCONFIGURED: ${m}`);
@@ -700,14 +863,16 @@ function main(): number {
     b > BASELINE_B_UNRESOLVABLE_IDS ||
     c > BASELINE_C_UNROUTED_PRODUCERS ||
     d > BASELINE_D_SERIALIZERS_DROPPING_ID ||
-    e > BASELINE_E_IDS_NEVER_READ_BACK;
+    e > BASELINE_E_IDS_NEVER_READ_BACK ||
+    f > BASELINE_F_RUNTIME_RECORDS_WITHOUT_ID;
 
   const line =
     `ARM A colour-without-id ${a}/${BASELINE_A_COLOUR_WITHOUT_ID} · ` +
     `ARM B unresolvable-ids ${b}/${BASELINE_B_UNRESOLVABLE_IDS} · ` +
     `ARM C unrouted-producers ${c}/${BASELINE_C_UNROUTED_PRODUCERS} · ` +
     `ARM D serializers-dropping-id ${d}/${BASELINE_D_SERIALIZERS_DROPPING_ID} · ` +
-    `ARM E ids-never-read-back ${e}/${BASELINE_E_IDS_NEVER_READ_BACK}`;
+    `ARM E ids-never-read-back ${e}/${BASELINE_E_IDS_NEVER_READ_BACK} · ` +
+    `ARM F runtime-records-without-id ${f}/${BASELINE_F_RUNTIME_RECORDS_WITHOUT_ID}`;
 
   if (over) {
     console.error(`[material-id-required] RATCHET EXCEEDED: ${line}`);
@@ -722,7 +887,8 @@ function main(): number {
     b < BASELINE_B_UNRESOLVABLE_IDS ||
     c < BASELINE_C_UNROUTED_PRODUCERS ||
     d < BASELINE_D_SERIALIZERS_DROPPING_ID ||
-    e < BASELINE_E_IDS_NEVER_READ_BACK
+    e < BASELINE_E_IDS_NEVER_READ_BACK ||
+    f < BASELINE_F_RUNTIME_RECORDS_WITHOUT_ID
   ) {
     console.log(`[material-id-required] OK — BELOW baseline: ${line}`);
     console.log('  Lower the baseline in this file in the same commit (gate-debt rule 2).');

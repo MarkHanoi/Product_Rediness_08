@@ -54,6 +54,35 @@ export const Window = defineElement('window', {
   offset: z.number().nonnegative().default(0),
   frameThickness: z.number().nonnegative().default(0.05),
   frameWidth: z.number().nonnegative().default(0.05),
+  /**
+   * ⭐ C100 §2.1 / S17 — THE WINDOW'S MATERIAL IDENTITY, one per material surface.
+   *
+   * The door's twin, deliberately the same shape rather than a window-flavoured
+   * variation of it — see `Door.ts` for the full reasoning on why a hosted opening
+   * takes one id PER SURFACE and not one plain `materialId`. C100 §9.1 named both
+   * families in the same row (*"no `materialId` EXISTS to lose"*) and they are
+   * closed together for the same reason: their runtime records already carry
+   * `frameFinish.materialId` (`WindowTypes.ts`), written from the master library by
+   * the panel, and only the L0 schema was silent.
+   *
+   * ⚠ `glassMaterialId` is separate from `frameMaterialId` because glazing is a
+   * different product with different physical scalars — `MaterialRecord` carries
+   * `opacity` and `transparent`, and collapsing the two would force a window to
+   * choose between naming its frame and naming its glass.
+   *
+   * ⚠ **A measured caveat that belongs on the field, not in a commit message**:
+   * `WindowBuilder._resolveFrameColor` treats `#e8e8e8` as a sentinel meaning
+   * "no colour was authored" — and that hex is also the LEGITIMATE colour of the
+   * `wt-single-pane` aluminium type. The builder's own header explains why that is
+   * safe (the type resolves back to the same value); it is recorded here because an
+   * id now resolves AHEAD of that sentinel and a future editor must not assume the
+   * hex is meaningless.
+   *
+   * Per C73 §1 / C100 §2.1 these are **PERSIST-OR-LOSE**; `frameColor` beside them
+   * is a **CACHE** except where it carries an explicit user override.
+   */
+  frameMaterialId: z.string().optional(),
+  glassMaterialId: z.string().optional(),
   frameColor: z.string().optional(),
   fireRating: z.string().optional(),
 }).refine(

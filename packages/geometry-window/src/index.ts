@@ -55,6 +55,15 @@ export {
     PRESERVED_ON_TYPE_CHANGE as WINDOW_PRESERVED_ON_TYPE_CHANGE,
     type WindowTypeChangePlan,
 } from './WindowTypeChange';
+// ⭐ C100 §2.1 / S17 — the window's material ladder, exported so a panel can SHOW
+// the state instead of restating the precedence (C100 §6.1).
+export {
+    resolveWindowFrameColour,
+    WINDOW_COLOR_SENTINEL,
+    WINDOW_UNRESOLVED_MATERIAL_COLOR,
+    type WindowFinishColour,
+    type WindowFinishColourState,
+} from './windowFinishColour';
 export { WindowBuilder } from './WindowBuilder';
 export { WindowDependencyTracker } from './WindowDependencyTracker';
 export { WindowLevelCleanupHandler } from './WindowLevelCleanupHandler';

@@ -7,6 +7,13 @@ import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
 import { resolveWindowDimensions, DEFAULT_WINDOW_DIMENSIONS } from './WindowDimensions';
 import { WindowOpening } from './WindowTypes';
+// ⭐ C100 §2.1 / S17 — the window's material ladder. The builder is the RENDERING
+// authority (this file's own §MAT-WINDOW-PLAN-PARITY header says so), so it must
+// resolve the id the record carries; it must not re-implement the ladder.
+import {
+    resolveWindowFrameColour,
+    WINDOW_UNRESOLVED_MATERIAL_COLOR,
+} from './windowFinishColour';
 // §FEAT-CURVED-WINDOW-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
 // through `hostedElementFrame`. Nothing in this file re-derives it; see
 // `CurvedLeafGeometry.ts` for why that is the whole point of the feature.

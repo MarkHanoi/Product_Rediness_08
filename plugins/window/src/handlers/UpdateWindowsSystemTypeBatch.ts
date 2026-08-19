@@ -124,6 +124,34 @@ export const UpdateWindowsSystemTypeBatchHandler: CommandHandler<
             console.error('[window.updateSystemTypeBatch.handler] indeterminate report emit failed:', emitErr);
           }
         };
+        // §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18, C84 §4F.3) — the
+        // refusal the bridge must not swallow.
+        //
+        // ⛔ WHAT THIS FIXES, AND WHY IT MATTERS MOST IN *THIS* FAMILY. Until now
+        // `execute()` ended with an UNCONDITIONAL `{forward:[], inverse:[]}`,
+        // reached identically on FOUR different outcomes: N windows retyped; the
+        // command REFUSED EVERYTHING (`CommandManagerImpl.execute` returns
+        // `{success:false, info:[reason]}` WITHOUT throwing); the bridge THREW;
+        // and there was no command manager at all. So
+        // `bus.executeCommand('window.updateSystemTypeBatch', …)` RESOLVED
+        // SUCCESSFULLY for "there is no window type called X" and for "no windows
+        // exist" alike. FAILURE AND EMPTINESS WERE THE SAME VALUE — the L-995
+        // defect, in the one family the founder reports as working.
+        //
+        // ⭐ THE CHAT TRANSCRIPT WAS HONEST ONLY BY ACCIDENT OF SUBSCRIPTION.
+        // `BATCH_REPORT_EVENTS` (ZeroTokenChatBridge.ts:1238) listens to the
+        // CustomEvent below and turns `success:false` into "Nothing was changed".
+        // EVERY OTHER CALLER — plugin-SDK consumers, syncDisposition's
+        // element-property registration, tests, any future call site — saw
+        // unconditional success. A truthful transcript layered over a lying verb
+        // is precisely the arrangement that let L-995 survive a week.
+        //
+        // The fix is not new: it is `plugins/slab/src/handlers/
+        // UpdateSlabsSystemTypeBatch.ts:167-209`, applied to the sibling it was
+        // never propagated to. The throw happens AFTER the CustomEvent has gone
+        // out, so event-driven listeners receive exactly what they received
+        // before and the bus caller additionally learns the truth.
+        let refusal: string | null = null;
         if (cm) {
           try {
             const batch = new UpdateWindowsSystemTypeBatchCommand({
@@ -151,12 +179,25 @@ export const UpdateWindowsSystemTypeBatchHandler: CommandHandler<
             window.dispatchEvent(
               new CustomEvent(WINDOW_TYPE_BATCH_REPORT_EVENT, { detail: report }),
             );
+            // CA-18. Quote the command's OWN sentence — this bridge never invents
+            // refusal copy, and never guesses one when `info` is empty.
+            if (!report.success) {
+              refusal = report.info[0] ?? 'the window type change was refused, and no reason was given';
+            }
           } catch (e) {
             console.error('[window.updateSystemTypeBatch.handler] bridge failed:', e);
             sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
+            refusal = `the bridge threw: ${String((e as Error)?.message ?? e)}`;
           }
         } else {
           sayNothingRan('the command manager is not available in this session');
+          refusal = 'the command manager is not available in this session';
+        }
+        if (refusal !== null) {
+          // Nothing was mutated on any of these paths, so throwing loses no work —
+          // it only stops success and refusal being the same observable at the
+          // dispatch site.
+          throw new Error(`window.updateSystemTypeBatch: ${refusal}`);
         }
         const empty: HandlerResult = { forward: [], inverse: [] };
         return empty;
