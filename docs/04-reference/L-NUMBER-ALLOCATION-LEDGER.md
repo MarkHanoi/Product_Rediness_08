@@ -48,7 +48,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1250 – L-1259 | ROUND1 — circular windows / arched doors | 2026-08-19 | allocated |
 | L-1260 – L-1269 | NL1 — wall finish / layer chat grammar | 2026-08-19 | **L-1260, L-1261, L-1262, L-1263 minted** (4 of 10 used) |
 | L-1270 – L-1279 | JOIN1 — raked-wall joints (gap opens toward the top) | 2026-08-19 | allocated |
-| L-1280 – L-1289 | LOG1 — boot-log defect sweep (clash dead, durable thumbnails, triple open) | 2026-08-19 | allocated |
+| L-1280 – L-1289 | LOG1 — boot-log defect sweep (clash dead, durable thumbnails, triple open) | 2026-08-19 | **L-1280 … L-1288 minted** (9 of 10 used; L-1289 unused) |
 | L-1290 – L-1299 | GPU1 — ShadowDepthTexture destroyed mid-submit on railing MATERIAL change | 2026-08-19 | allocated |
 | L-1300 – L-1309 | PERF1 — load/render performance (145 warns, 13.2 MB autosave, cache thrash) | 2026-08-19 | **in use — L-1300 ✅ FIXED; L-1301–L-1305 logged; L-1306–L-1309 free** |
 

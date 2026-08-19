@@ -16876,7 +16876,21 @@ source — which narrows it.
 
 ---
 
-## L-1199 — CLASH DETECTION IS DEAD IN PRODUCTION: `registerClashRun` THROWS AT BOOT WITH `i.has is not a function`, AND EVERY CLASH VERB SILENTLY DEGRADES TO REFUSING 🔴 OPEN — logged 2026-08-19 (lane UND1, log-only)
+## L-1199 — CLASH DETECTION IS DEAD IN PRODUCTION: `registerClashRun` THROWS AT BOOT WITH `i.has is not a function`, AND EVERY CLASH VERB SILENTLY DEGRADES TO REFUSING ✅ **FIXED 2026-08-19 (lane LOG1) — see L-1280** · logged by lane UND1
+
+> ⚠ **Two claims in the body below were CORRECTED by the fix. Read L-1280 for the measured version.**
+>
+> 1. **"the refusal pass is working"** — **FALSE.** `registerClashRefusalHandlers` opens with
+>    `bus.has(id)` too and threw on the *same line*. All twelve verbs finished the boot with **no
+>    handler at all**, not "refusing honestly". A fallback that shares the defect it catches is not
+>    a safety net, and the log line saying otherwise is why this looked half-benign.
+> 2. **"the fake and production disagree about the argument shape — [[fake-more-capable-than-real]]"**
+>    — **wrong diagnosis, and the correction is the useful part.** There is no fake:
+>    `RoofWallClashVerbReach.test.ts` uses a REAL `CommandBus`. The runner argument was never the
+>    problem. `i` is **`bus`**, and the real bus — the narrow `composeRuntime` slot `engineLauncher`
+>    passes — simply has no `has`. **A suite can be entirely real and still be pointed at something
+>    production never constructs** (amendment-register *shape D*), which is a different defect from a
+>    double built to the signature.
 
 Founder's production console, at boot:
 
@@ -18940,3 +18954,274 @@ L-1221's missing-gate catalogue.**
 ⚠ Related, and LOG1's: item 7's `ClearProjectCommand` teardown during the load of the same project
 (6.5 ms, 60 elements, 17 builders cleared) is almost certainly the same root as the triple-open
 defect. **Not investigated here by agreement.**
+
+---
+
+## L-1280 — THE COMPOSED BUS SLOT HAS NO `has()`, SO **ALL TWELVE** CLASH VERBS END EVERY BOOT WITH NO HANDLER — AND THE SUITE THAT "COVERS" IT PASSES A *DIFFERENT OBJECT* ✅ FIXED 2026-08-19 (lane LOG1) — **closes the open half of L-1199** · commit `8b645d02`
+
+**Founder ask:** *"Review the logs: check ALL issues — review, plan, document and fix."*
+
+Production, every boot:
+
+```
+GE-06: registerClashRun failed (non-fatal) — clash-run falls back to REFUSING: i.has is not a function
+GE-06: registerClashRefusalHandlers failed (non-fatal): i.has is not a function
+```
+
+### The root cause — measured, not inferred
+
+`registerClashRun` (`packages/command-bus/src/clashCapability.ts:551`) and
+`registerClashRefusalHandlers` (`:624`) both **open with `bus.has(...)`**, deliberately: registration
+must be a fact about *this process*, not about a static census. `engineLauncher.ts:712` passes
+`runtime.bus` — the **narrow composed slot** built as an object literal at `composeRuntime.ts:1611`,
+which forwards `executeCommand` / `dispatch` / `register` / `registry` / `ringBuffer` /
+`setRingBuffer` / `setCrdtApplier` / `clearUndoStacks` and **not `has`**.
+
+`i.has is not a function` is `bus.has` under minification. **Both calls threw on their first line.**
+
+⭐ **The consequence is worse than the log claims.** L-1199 read the catch block's *"falls back to
+REFUSING"* and concluded the refusal half was working. **It was not** — the refusal pass throws on
+the *same line*. All twelve clash verbs finished the boot with **no handler at all**, so invoking one
+throws `no handler registered for: clash-run` — precisely the failure the capability module was
+written to retire. A fallback that shares the defect it is catching is not a safety net.
+
+### ⭐ Why nothing caught it — amendment-register **shape D**, not a too-capable fake
+
+`apps/editor/__tests__/RoofWallClashVerbReach.test.ts` calls `registerClashRun` **14 times and
+passes**. L-1199 filed this under [[fake-more-capable-than-real]]. **That diagnosis was wrong, and
+the correction is the more useful lesson.** There is no fake: the suite uses a real `CommandBus`,
+real records off the bus, no stub on the measured path. It is a *good* suite. It simply **measures a
+different object than production passes** — `CommandBus` has `has`; the composed slot does not. And
+`engineLauncher` erases the type (`runtime.bus as any`, line ~528), so the compiler was blind too.
+
+**A suite can be entirely real and still be pointed at something production never constructs.** That
+is shape D — a check that runs, passes, and could never have failed — and it is a *different* defect
+from a double built to the signature.
+
+### The fix
+
+`has(type)` added to the composed bus facade (forwarding to the one `CommandBus`) and to
+`PryzmRuntime['bus']`. **Derived from the live registry, not kept as a second copy**, so the two
+answers cannot drift. Making the clash registrar *tolerate* a missing `has` was considered and
+rejected: tolerance hides the identical hole for the next registrar port.
+
+**Test:** `apps/editor/__tests__/clashRegistrationOnComposedBus.test.ts` — a **real composed
+runtime**, bus obtained exactly as `engineLauncher` obtains it. Measured **5/5 FAIL** before
+(`TypeError: bus.has is not a function` at `clashCapability.ts:551` and `:624`) → **5/5 PASS** after.
+
+---
+
+## L-1281 — ONE CLICK, **THREE** PROJECT OPENS: THE HUB RE-BOUND ITS DELEGATED LISTENER TO A NODE `refreshGrid()` DOES **NOT** DESTROY ✅ FIXED 2026-08-19 (lane LOG1) · commits `5f6e2f40` (guard, swept early) + `e03149d9`
+
+Founder's boot log, for **one** card click:
+
+```
+[PlatformRouter] Opening project: "Untitled Site — …"       ×3
+[PlatformRouter] §L-1186 app phase for this open: "canvas."  ×3
+```
+
+**Not three gestures — three listeners.** `ProjectHub.refreshGrid()` does
+`grid.innerHTML = this.renderGrid()` and re-runs `attachGridListeners()`. `#ph-grid` is part of the
+**stable shell markup** and survives that assignment; only its children are replaced. So every
+delegated `grid.addEventListener('click', (e) => …)` added *another anonymous arrow to the same
+surviving node*. `addEventListener` de-duplicates on referential identity alone, and a fresh arrow is
+never identical. A signed-in boot refreshes three times — `build()`, `_warmThenSync()`,
+`syncFromServer()` — which is exactly the ×3. `openProject`'s `card.style.pointerEvents = 'none'`
+cannot help: all N listeners share the delegation root and fire in one dispatch.
+
+⭐ **The asymmetry that hid it is written down three feet away.** `attachSidebarListeners` carries a
+long comment explaining the *mirror-image* defect: the sidebar's DOM **is** destroyed, so its
+listeners **must** be re-bound. The grid needed the **opposite** treatment — its delegation root is
+*not* destroyed, so its listeners must **not** be re-bound — and both were given the same call.
+
+**Fix:** `_gridDelegatesBound` gates only the container-delegated listeners. `#ph-card-new` (a node
+`renderGrid()` genuinely replaces) and `_attachCanvasDrag` (which disposes its own) still run every
+refresh. `PlatformRouter.showHub` now also `destroy()`s any hub still mounted before minting another
+— `showAuth.onSuccess` can reach it twice, leaving two live hubs with duplicate `#ph-grid` ids.
+
+**Test:** `apps/editor/__tests__/hubGridListenerStacking.test.ts` — real `ProjectHub`, real DOM, real
+`localStorage['bim-projects-index']` seed, one dispatched click. **Falsified exactly:** with the
+guard disabled it reports *"expected 1, got **3**"* — the founder's ×3 reproduced — and *"expected 1,
+got **9**"* after eight repaints. Green with it armed. A third arm pins that `#ph-card-new` still
+re-binds; a guard that skipped it too would leave "+ New project" dead after the first sync.
+
+**Blast radius measured, and smaller than it looks:** opens 2 and 3 did **not** re-hydrate the 204
+elements — `buildPersistence`'s `openProjectInflight` coalesces and `PlatformShell`'s
+`activeProjectId` guard short-circuits. They did redo the phase declaration, the `sessionStorage`
+write, an extra `persistence.openProgress` subscription and two extra overlay hides.
+
+---
+
+## L-1282 — `launchWorkspace` HAD NO IDEMPOTENCE GUARD ACROSS ITS **FOUR** CALL SITES ✅ FIXED 2026-08-19 (lane LOG1) — defence in depth for L-1281 · commit `e03149d9`
+
+`launchWorkspace` is reached from the `pryzm-open-project` window event, the reopen-after-reload
+path, the hub callback and the create hop. Nothing above `_openProjectViaRuntime` was idempotent, so
+every duplicate call paid the phase declaration, the sessionStorage write, the overlay mount and an
+extra event subscription — **per call, not per open**.
+
+`_openGestureProjectId` now latches the in-flight id. **Scoped to the same project id and released
+in a `finally`** — a latch surviving a failed open would make the retry a silent no-op, which is
+[[refusing-half-needs-its-escape-hatch]] exactly. The maintenance-mode early return releases it too.
+
+⚠ **NOT fixed, deliberately, and named so it is not mistaken for covered:** one layer down,
+`buildPersistence.ts:205` coalesces on **nothing at all** — `if (openProjectInflight !== null) return
+openProjectInflight;` ignores its arguments, so **clicking project B while A is in flight resolves
+with A's open.** Different layer, different row.
+
+---
+
+## L-1283 — `0 FROM THE DURABLE SERVER COLUMN` WAS **CORRECT OUTPUT** READ AS A FAILURE: THE CENSUS REPORTED THE *SOURCE*, NEVER THE *DURABILITY* ✅ PROBE FIXED 2026-08-19 (lane LOG1) — **no code defect; the instrument was** · commit `10e5d595`
+
+```
+§FIX-THUMBNAIL-DURABILITY thumbnails: 50 row(s) — 37 from local cache,
+  0 from the durable server column (0 seeded), 0 backfilled, 13 absent [never-captured]
+```
+
+Ranked #2 in triage on the *"can this EVER be non-zero?"* test. **It can, and it already is.**
+
+⭐ **The log falsifies the suspicion using its own numbers.** `resolveProjectThumbnail` sets
+`backfillToServer: !serverOk` on every local-cache row. If the durable column were unread — omitted
+from the list `SELECT`, or name-mismatched — `serverOk` would be `false` for all 37 and the line
+would necessarily read **`37 backfilled`**. It reads **`0`**. Therefore the server column *was*
+populated and *was* delivered, for all 37 rows.
+
+Confirmed independently: `server/projectStore.js:305` selects `p.thumbnail`; `server.js:2909` selects
+it on the fallback path; both client mappers accept `thumbnail_url ?? thumbnail`. **`source: 'server'`
+fires only when the local cache is cold** — i.e. after the sign-out this fix exists to survive —
+because precedence is local-first by design.
+
+**So the code is right and the instrument was wrong.** The durability fact was only ever inferable
+*backwards*, from a counter meaning its negation — a derivation no reader should perform to learn
+whether a fix named "durability" works. The census now leads with **`N DURABLE (server holds usable
+bytes; these survive sign-out)`** and says "painted from" for the source counters.
+
+⚠ **One real hazard left standing, already documented at `server.js:3356`:** the write route prefers
+Supabase while `GET /api/v1/projects` reads Postgres. A split deployment would silently write
+previews the hub can never read. **This deployment is not split** — the 37 readbacks rule it out.
+
+---
+
+## L-1284 — FOUR BACKEND VOCABULARIES IN ONE BOOT, AND THE LOUDEST LINE WAS A `navigator.gpu` SNIFF LABELLED "DETECTED" ✅ FIXED 2026-08-19 (lane LOG1) · commit `584e997c`
+
+```
+[createRenderer] resolvedPreference=webgl (forceWebGL=true) — resolving to WebGL2 backend
+[renderer-three] backend: webgl2
+[initScene] Phase 5 active — PRYZM renderer: webgl-fallback
+[PRYZM] GPU backend detected: webgpu          ← disagrees; status pill says WebGL
+```
+
+`probeRendererBackend()` (`createRenderer.ts:724`) **never asks the renderer anything**: it returns
+`'webgpu'` the instant `navigator.gpu` is truthy — no `requestAdapter()`, no device, no preference
+read — and it runs ~1700 lines **before** `createRenderer()` resolves. It *cannot* know the backend.
+Its own doc comment is honest; **only the log message overclaimed.**
+
+The four vocabularies, one boot: **A** `RendererBackendPreference` (`auto|webgpu|webgl|webgl-classic`)
+· **B** renderer-three handle type (`webgpu|webgl2|webgl1`) · **C** `RendererBackend`
+(`webgpu|webgl-fallback|webgl-only`) — **the authority** · **D** the probe (`webgpu|webgl|none`).
+
+**Blast radius measured and it is diagnostic, not behavioural:** `detectedBackend` appears at three
+lines and is never stored, never branched on beyond the `=== 'none'` abort. Nothing arms a
+WebGPU-only path from it. **But it is the line an investigator anchors on first**, and it said the
+opposite of the truth. Message corrected; the probe is **kept** — it is the right instrument for the
+abort (no GPU API at all ⇒ nothing can be built).
+
+Also converted `initScene.ts:3126`'s hand-written `pryzmRendererBackend === 'webgpu'` to
+`isNativeWebGpuBackend()` — the last un-converted duplicate of the L-1191 partition in that file
+(2111, 3177, 4475, 4487, 4613 were already done).
+
+⚠ **Left alone, with reasons:** `autoWebGLHeavyScene.ts:186`'s two-of-three membership list is
+**deliberate and documented per value** (`webgl-only` is excluded because it is *already* the classic
+renderer). `RendererBackendToggle` shows the *preference* prominently and the resolved backend as a
+dim suffix that is `undefined` on first mount — a real UX wart, **not fixed**, no row minted.
+
+---
+
+## L-1285 — A CLICKABLE "OCCUPANCY" TAB RENDERED A BLANK PANE ✅ FIXED 2026-08-19 (lane LOG1) · commit `584e997c`
+
+`[DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty.`
+
+The `Occupancy` sub-tab is declared unconditionally in `DataWorkbench:172`, every `subTabs` entry is
+rendered as a clickable pill, and the bucket header counts it in *"N views"*. Clicking it showed an
+**empty flex container** — no text, no placeholder. The only acknowledgement was a `console.warn` the
+user never sees; it was not even routed through the existing `_mountPlaceholder` helper that other
+unbuilt tabs use.
+
+**A visible control that does nothing and says nothing is worse than an absent one** — it reads as a
+broken feature rather than an unbuilt one. The slot now renders a labelled placeholder. The tab is
+**kept** rather than hidden: the deferral is real and dated (ADR-0052 §B.7), and hiding it would
+erase the only evidence in the product that the surface is owed.
+
+---
+
+## L-1286 — "NOT PRESENT IN THIS OBC BUILD" WAS **FACTUALLY FALSE**: THE CLASSES EXIST AND THE PROBE USES THE WRONG PROTOCOL ✅ MESSAGE FIXED 2026-08-19 (lane LOG1) — **not a C84 EI-3 defect** · commit `584e997c`
+
+```
+[OBCAnnotationAdapter] LinearAnnotations / AngleAnnotations / SlopeAnnotations
+  not present in this OBC build — skipping subscribe.
+```
+
+Measured against the installed `@thatopen/components` **3.4.6**: **all three classes exist**
+(`index.d.ts:4314`, `:84`, `:5677`). They extend `AnnotationSystem` (`:174`), which declares no
+static `uuid`, so `_isObcClassAvailable`'s Component-registry probe can never succeed — OBC's own
+examples reach them as `techDrawings.use(OBC.LinearAnnotations)`. **The absence is permanent for
+every version in our `^3.4.2` range**, and the message sent readers hunting a version gap that does
+not exist.
+
+⭐ **The C84 EI-3 question was asked and answered NO.** The three toolbar buttons exist
+(`initAnnotationTools.ts:5,8,13` → `AnnotationRailPanel`) but route to **first-party** tools
+(`LinearDimensionAnnotationTool`, `AngularDimensionAnnotationTool`, `SlopeDimensionTool`) that import
+no OBC annotation system and commit through the same `CreateAnnotationCommand` into the same
+`annotationStore`. **No button's only pipeline is this adapter.** It is a dead *optional* second
+ingest path.
+
+**Fixed:** the message. **Not fixed:** the probe. Rewiring it to `techDrawings.use(...)` would *start*
+ingesting OBC-authored annotations — a behaviour change with duplication risk, not a log fix.
+
+---
+
+## L-1287 — A DEPRECATION NAG THAT FIRES ON THE **RECOMMENDED** PATH ✅ FIXED 2026-08-19 (lane LOG1) · commit `584e997c`
+
+`[StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.`
+
+**Neither live caller can take that advice.** `BatchCoordinator.runBatch()` (`:940`) is the canonical
+batching API — the nag was telling the recommended path to stop being recommended.
+`ProjectLoader.ts:627` brackets the **frame-yielding chunked** element dispatch, which is async;
+`batch(fn)` flushes when `fn` returns, so it would flush at the first `await` and defeat the purpose.
+
+`batch(fn)` is right only for a hand-rolled **synchronous** begin/end pair, where the missing
+try/finally is the actual problem. The message now says so. **A deprecation notice that fires on the
+correct path trains readers to ignore the log.** The depth is kept; it is a real fact and it is what
+makes an unbalanced pair visible.
+
+---
+
+## L-1288 — ⭐ **~50 PROJECTS EXIST ONLY IN A BROWSER DATABASE THAT SIGN-OUT DELETES** — THE THUMBNAIL-DURABILITY DEFECT, WITH PROJECT DATA INSTEAD OF A PREVIEW 🔴 **OPEN — PROBE SHIPPED, FIX IS NOT** — logged 2026-08-19 (lane LOG1) · probe in commit `10e5d595`
+
+Triaged as *"probably correct behaviour, or log noise"*: ~50 × `[ProjectHub] Keeping local-only
+project … has unsaved local versions`. **The keep-branch is correct. What it protects is not safe.**
+
+Measured chain, each link on disk:
+
+1. Version history lives in IndexedDB **`pryzm-project-versions`** (`VersionCacheStore.ts:40`), and
+   `warmVersionCache()` **migrates** the legacy non-prefixed `bim-project-<id>-versions` localStorage
+   blobs into it — so after the first warm **that database is the only copy**.
+2. `purgeUserScopedClientState` (`AuthModal.ts`) deletes **every IndexedDB database whose name
+   contains `pryzm`** on sign-out *and* on account switch. Correct, and §AUTH-SESSION-LEAK says that
+   security fix stays.
+3. The metadata index `bim-projects-index` is **not** prefixed, so it **survives**.
+4. Therefore on the next sign-in this same loop re-reads `countVersions()` as **0** and takes the
+   **purge** branch: *"Purging empty stale local project …"*.
+
+**A local-only project with history is silently deleted one sign-out later, with no warning at any
+point.** Same shape as §FIX-THUMBNAIL-DURABILITY — bytes living only in a cache the purge is entitled
+to destroy — except it is project data. The durable fix is the same shape too (back-fill to the
+server) and is real work, not a line in this function.
+
+⭐ **What ships here is the MEASUREMENT** ([[context-data-honesty-family]] — ship the probe before the
+fix). Fifty ordinary `log` lines are invisible; one `console.warn` naming the count, the mechanism
+and the ids is not.
+
+**NOT MEASURED, and named so nobody reads this row as complete:** whether the count is genuinely ~50
+distinct live projects or inflated by rows the founder has abandoned; and whether free-plan
+entitlement makes server-side version storage unavailable for some subset — the keep-branch's own
+comment says it does, which would make *"just back-fill"* the wrong fix for those.
