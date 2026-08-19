@@ -11187,3 +11187,57 @@ desyncs `mark`. **Measured C15 §8.1 compliance for commands is 20 of 21.**
 and **both** real violations are UI surfaces (`PlanElementDragController`, `PropertyInspectorApply`) —
 which is exactly where a command-shaped census cannot look. That is why the gate keys on call sites.
 
+
+---
+
+## L-989 — the railing family has TWO tool keys, and giving it seven modes made the census say so ✅ CLOSED (as a finding; the convergence is OPEN)
+
+The creation-matrix census in
+`apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts` went RED the
+instant the `railing` row grew from one mode to seven (L-982). **It is a real finding, not a test
+that needed relaxing** — and it could not have been reported before, because the census skips any
+row with fewer than two modes (`if (cap.modes.length < 2) continue`), so this row had never been
+examined by it at all.
+
+### What it found
+
+| Surface | Calls this family |
+|---|---|
+| `ELEMENT_CREATION_MATRIX` | **`'railing'`** |
+| `planToolHandlerRegistry` → `RailingPlanToolHandler` | **`'railing'`** |
+| `ToolManager` / `runtime.tools.register` | **`'handrail'`** |
+| store event bus, delete branch, undo map | `'handrail'` |
+| property-panel type selector | `'railing'` |
+
+⇒ `registered.has('railing')` is **false however well the tool is wired**, so the census can only
+classify the family as *declared-but-unregistered*. This is C95 §1 / C84 §4E — a family carrying
+four spellings — surfacing with a **measurable consequence** rather than as a style note.
+
+⛔ **NOT papered over by registering a second `'railing'` key.** That would ADD a spelling to a
+family that already has too many, which is the opposite of the fix. `railing` is added to the
+census's **named** unregistered set — precisely what that set exists for ("the declared-but-
+unregistered set is NAMED, not silently skipped") — with the reason written where the next reader
+hits it. **Converging the two keys touches the plan registry and is not this lane's to do; it stays
+OPEN as C95 §11 row 21.**
+
+### ⭐ A latent defect fixed on the way, and it is L-918's exact shape
+
+`runtime.tools.register('handrail', (m?) => service.activateHandrailTool(m))` passes its argument
+as a **TYPE id** — that is `activateHandrailTool`'s parameter. With seven modes now declared,
+`runtime.tools.activate('handrail', 'circular')` would have looked `'circular'` up in
+`handrailTypeStore`, found nothing, and armed **nothing, silently**: a mode swallowed as a bogus
+type id, which is exactly what L-918 logged for floor and ceiling.
+
+The activator now **disambiguates**: draw modes are a closed 7-member set (`isHandrailDrawMode`),
+catalogue ids are slugs like `glass-frameless`, the mode test runs first, and the collision is
+**reported rather than assumed away** — if a type is ever published whose id is a mode name, the
+console states which interpretation won and why (C84 EI-8), instead of the tool quietly doing one
+of the two things.
+
+⚠ The modes were **already** reachable through the shared `DrawingModeBar`, proven end-to-end in
+`apps/editor/__tests__/HandrailCreationParityReachable.test.ts`. This adds a second, programmatic
+route; it does not rescue the first.
+
+**Verified** 12/12 with `vitest --pool=threads`. The default forks pool could not start a worker on
+this machine — 27-31 concurrent node processes across nine lanes — which is starvation, not a code
+verdict, and is recorded so the next reader does not mistake the one for the other.
