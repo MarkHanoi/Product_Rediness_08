@@ -80,10 +80,32 @@
 // ─── WHAT IS DELIBERATELY REFUSED (C65 §3.9 — no affordance without an
 //     implementation) ────────────────────────────────────────────────────────
 //
-//   • rake × curve    — the shear direction is the wall's plan normal, which
-//                       VARIES along an arc. One shear vector is simply wrong;
-//                       the correct construction is a swept per-station frame.
-//                       ILL-POSED, not unbuilt: this one never lifts.
+//   ⚠ rake × curve    — THIS ENTRY IS DEAD TEXT AND IS KEPT ONLY SO THE
+//                       RETRACTION IS LEGIBLE. It read: *"the shear direction is
+//                       the wall's plan normal, which VARIES along an arc. One
+//                       shear vector is simply wrong; the correct construction is
+//                       a swept per-station frame. ILL-POSED, not unbuilt: this
+//                       one never lifts."*
+//
+//                       ⭐ IT LIFTED THE SAME DAY THIS FILE'S OWN
+//                       `rakeAuthorability` DROPPED THE ARM (L-1062, 2026-08-19):
+//                       a raked curved wall ships as a CONE. Every clause above is
+//                       still TRUE — and "the correct construction is a swept
+//                       per-station frame" was never a refusal, it was the
+//                       IMPLEMENTATION NOTE for the fix, written in the grammar of
+//                       a law. Read it again: it says what to build.
+//
+//                       ⛔ IT WAS ALSO BEING CITED. `WallProfile.ts` quoted this
+//                       line as its contrast case — *"rake's cannot lift, this one
+//                       CAN"* — and `WallProfileSlice1.test.ts` cited it by LINE
+//                       NUMBER. A stale refusal is not inert: it gets borrowed as
+//                       evidence, and the borrowers were then wrong too. Both
+//                       citations are corrected (WJ1, 2026-08-19).
+//
+//                       What survives is `curved-collapse`, below — a top ring
+//                       pushed inward further than the wall's own turn radius
+//                       collapses through the centre of curvature. That one is a
+//                       real geometric impossibility, and it is NARROW.
 //   • rake × layers × openings — §FEAT-RAKE-LAYERED built the layered BODY (the
 //                       V2 band path below), but a layered wall that HOSTS an
 //                       opening is built by a different function entirely

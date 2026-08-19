@@ -145,11 +145,15 @@ describe('§FEAT-WALL-PROFILE-BODY — it REFUSES rather than drawing nothing', 
 /**
  * §RK1-PROFILE-BODY-BLANKS — declared, not discovered.
  *
- *  1. **NO MITRE.** The end faces are cut perpendicular at `u = 0` and `u = length`, the
- *     same limitation `buildWallHoleBodyGeometry` has and for the same reason: an
- *     `ExtrudeGeometry` outline has no per-end plane to project onto. A profiled wall at a
- *     mitred junction shows the pre-mitre end. **This is the first thing to fix if
- *     profiles are wanted on joined walls**, and it is why L-1067 stays OPEN.
+ *  1. ✅ ~~**NO MITRE.**~~ **CLOSED by WJ1 (L-1071, §FEAT-WALL-PROFILE-MITRE).** This blank
+ *     read: *"The end faces are cut perpendicular at `u = 0` and `u = length` … an
+ *     `ExtrudeGeometry` outline has no per-end plane to project onto … This is the first
+ *     thing to fix if profiles are wanted on joined walls."* It was the FIRST thing fixed,
+ *     and the sentence was about the wrong FRAME rather than a real constraint: a wall
+ *     mitre plane is VERTICAL, so in the builder's own local frame it is
+ *     `x = x0 − (n_lat/n_axial)·z`, with no `y` in it — a per-vertex shear an extruded
+ *     outline absorbs at any shape. Measured in `WJ1ProfileMiter.test.ts`.
+ *     ⭐ The blank being NAMED is what made it findable. Keep writing them.
  *  2. **PROFILE × RAKE is not measured HERE.** The ring is authored in the un-sheared
  *     frame and the caller shears the built group, so they compose by construction — but
  *     that composition is asserted in the matrix, not in this file.

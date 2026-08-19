@@ -208,7 +208,7 @@ describe('§WALL-PROFILE (2) — profileAuthorability', () => {
         //   (*"the bands have no per-station top"*, *"the occupancy check is purely
         //   horizontal"*), which is what makes them lift-able too.
         //
-        //   ⛔ THE OLD COMMENT HERE CITED `WallRake.ts:83-86` — *"Rake × curve is ILL-POSED
+        //   ⛔ THE OLD COMMENT HERE CITED `WallRake.ts, since RETRACTED` — *"Rake × curve is ILL-POSED
         //     and never lifts"* — as its contrast case. THAT CITATION IS DEAD:
         //     `rakeAuthorability` lifted its own curved arm on 2026-08-19 and a raked curved
         //     wall now ships as a cone. There is currently NO ill-posed refusal in this

@@ -13628,3 +13628,210 @@ it were the decision — while the contract and the code said the opposite the w
 artefacts were never wrong; the *narration of them* was. **Prefer the contract and the code over any
 prose summary of them, including mine, and including a commit message that sounds authoritative.**
 This is the same failure the contract-count corrections keep recording, arriving through a new door.
+
+---
+
+## L-1071 — the profiled wall's missing MITRE was the wrong FRAME, not a real constraint (FIXED, WJ1, 2026-08-19)
+
+RK1 shipped the profile body (L-1067) and named its own first blank, verbatim:
+
+> ⛔ **NO MITRE.** The end faces are cut perpendicular at `u = 0` and `u = length`.
+> `buildWallHoleBodyGeometry` carries the identical limitation for the identical reason: an
+> `ExtrudeGeometry` outline has no per-end plane to project onto. **A profiled wall at a mitred
+> junction shows its pre-mitre end.** This is the first thing to fix if profiles are wanted on
+> joined walls.
+
+**It was the first thing fixed, and the reason it looked like a constraint is worth keeping.**
+
+A wall mitre plane is **VERTICAL**. `MiterPrismBuilder.project()` solves in XZ and returns
+`base[1]` untouched; `CurvedWallCapMiter.projectCapVertex` does the same. So in the frame the
+profile builder **already works in** — local-x along the wall, local-z across it — the mitre plane is
+
+```
+x = x0 − (n · leftPerp(dir) / n · dir) · z
+```
+
+**with no `y` in it at all.** The mitre is therefore a per-vertex displacement in local x that is a
+function of local z ALONE, and an extruded outline absorbs that whatever shape the elevation is.
+*"An extruded outline has no per-end plane to project onto"* was a statement about the WORLD frame
+reaching an outline builder; in the local frame the plane is one scalar slope, and the formula
+applied is literally `MiterPrismBuilder`'s own `t = MN·(O − V)/(MN·dir)` written out for
+`dir = local +x`.
+
+**§FEAT-WALL-PROFILE-MITRE** — `WallProfileBodyBuilder` gains optional `startMN`/`endMN` (world XZ,
+exactly the shape `JoinData` carries) plus `direction`; `WallFragmentBuilder`'s profile arm hands
+`joinData`'s normals straight in. Absent ⇒ byte-identical geometry.
+
+`§PROFILE-MITER-CLAMP` mirrors `MiterPrismBuilder`'s `§MITER-SEGMENT-CLAMP`: overhang past one's own
+end is legitimate (it is the outer half of the mitre reaching the neighbour); RETREAT past the
+OPPOSITE end is the self-intersecting spike, and is clamped. A normal PARALLEL to the wall axis is
+refused rather than divided by — a perpendicular end is wrong-but-finite, an infinite one erases the
+wall and its bounding sphere.
+
+### The instrument, built against RK1's own method lesson
+
+RK1 lost a draft to a metric that came back BIT-IDENTICAL because `projectCapVertex` re-solved the
+along-axis coordinate and overwrote the write. **Exact non-movement is evidence of a DISCARDED
+WRITE, not of a small effect.** So not one assertion in `WJ1ProfileMiter.test.ts` is of the form
+*"it changed"* or *"it got closer"*: every one compares the produced x against the CLOSED FORM of the
+plane, recomputed in the test from the normal and the direction rather than imported from the
+builder. A predicate matching no vertices returns `x = uMax` where the closed form says
+`uMax ± halfT·tan` — a hard fail, not a near miss.
+
+Two assertions exist specifically to catch a mitre that only works on a rectangle: a **NOTCHED** ring
+with four distinct `v` values sharing the extreme `u` (all four must land on the same x, because the
+plane is vertical, and the interior step must NOT move); and a wall running at **45°**, where local
+and world XZ do not coincide, so a builder that forgot to rotate the normal fails — every +X case
+would pass it.
+
+---
+
+## L-1066 addendum — T and X for curved-raked are ASSERTED, and every previous X reading was FICTION (CLOSED, WJ1, 2026-08-19)
+
+L-1066 closed the **L** corner and named what it left: *"T and X for curved-raked are still not
+asserted."* Writing that assertion first required fixing the **instrument**.
+
+### §WJ1-CROSSING-HULLS-SHARE-NO-VERTEX
+
+`hullSeparation` decided overlap by asking whether any **vertex** of one convex hull lay inside the
+other. **Two convex polygons crossing in a PLUS SIGN overlap with no vertex of either inside the
+other** — and a plus sign is exactly what an X junction is. The metric fell through to
+vertex-to-edge distance and reported the distance from one wall's far corner to the other's side
+face as if it were daylight.
+
+```
+X plain@90 vs plain@90   baseSep 2.400   topSep 2.400   openUp  0.000   <- THE CONTROL
+X plain@80 vs plain@80   baseSep 2.400   topSep 1.871   openUp -0.529
+X curved@80 vs plain@90  baseSep 0.000   topSep 0.019   openUp  0.019
+X curved@80 vs layered3  baseSep 0.021   topSep 0.061   openUp  0.040
+```
+
+Two upright plain walls crossing at the origin — nothing to get wrong — read **2.400 m of
+daylight**. `2.400` is `2.5 − 0.1`: half the TEST wall's length minus half its thickness, a fact
+about the fixture. `openUp = −0.529` is a negative opening, which is not a thing. **After the fix
+every one of those is 0.000, control included.**
+
+⭐ **THE PLAUSIBLE NUMBERS WERE THE DANGEROUS ONES.** `2.400` announces itself. The 19 mm and 40 mm
+"openings" read as small real defects worth chasing, and a lane could have spent a day fixing
+geometry that was already correct. **RK1's blank #3 was right to forbid conclusions from any X
+row** — it named two candidate causes and it was the second one. Printing an unexplained number and
+refusing to conclude from it is what made that day recoverable.
+
+**Now asserted (AXIS 4c):** `curved` / `curved+layered3` / `curved+window` @80, at BOTH T and X,
+against all eight neighbours — 48 cells, `baseSep 0`, `topSep 0`, `openUp 0`. Plus **T-STEM** (the
+curve on the STEM landing on a straight host, raked and upright — without it the curved wall's own
+END never lands on a neighbour's face and *"T is asserted"* is half true), the metric's own control
+at all three topologies, a **CONTROL CAN FAIL** (two walls 2 m apart must read 1.800 m), and a
+non-vacuity guard that the curved body still leans.
+
+⛔ **L-1039 is untouched.** The 21–38 mm `baseGap` on curve↔straight L rows is the two solvers
+disagreeing; it is still visible in the artefact and is not papered over.
+
+---
+
+## L-1072 — the `curved` PROFILE refusal was UNBUILT, and the module header had said so all along (CLOSED, WJ1, 2026-08-19)
+
+**Founder:** *"I WOULD LIKE TO BE ABLE TO EDIT A WALL PROFILE OF A RAKED WALL AND A CURVED WALL."*
+
+Both are now available. **They were closed for different reasons, and that difference is the
+finding.**
+
+### `raked` — ALREADY BUILT, MERELY UNASSERTED
+
+`WallFragmentBuilder`'s profile arm has always ended by calling `_applyRakeShearToChildren`, and the
+ring is authored in the UN-SHEARED frame precisely so the two compose. **Nothing was written to open
+this row. A test was.** That is exactly what L-1065 was — the editor offered for a combination
+nobody had measured — and WPE1's row said so honestly: *"no test has yet built a wall carrying BOTH,
+and an unverified promise is worse than a stated wait."*
+
+The assertion puts BOTH halves on ONE wall, because a builder that applies the ring and drops the
+shear passes a cut test, and one that applies the shear and drops the ring passes a lean test.
+Neither passes both.
+
+### `curved` — GENUINELY UNBUILT, and the refusal read like a law
+
+> *"a straight profile edge is not straight in space, so every edge would have to be tessellated per
+> station and the curved builder has no per-station top."*
+
+**Every clause is TRUE and the conclusion was WRONG — the third time in this family, in the same
+shape each time.**
+
+- *"not straight in space"* is a reason to **TESSELLATE**. `insertStationsAt` does, inserting an
+  exact station at each ring-vertex arc length — the same surgery `sliceStations` already does for
+  an opening jamb. Without it a corner at `u = 2.5` sampled by stations at 2.40 and 2.61 renders as
+  a **BEVEL**: the authored corner is simply not in the geometry, and no amount of correct height
+  evaluation puts it back.
+- *"no per-station top"* was a fact about **TWO SCALARS**. `yBot`/`yTop` in `CurvedWallLayerBuilder`
+  became `yBotAt(i)`/`yTopAt(i)`, fed by `CurvedProfileHeights`. Absent ⇒ the arrays are never
+  allocated and every unprofiled curved wall is byte-identical.
+
+⭐ **THE MODULE HEADER ALREADY KNEW.** `WallProfile.ts` read: *"A profile on a curve is NOT
+ill-posed … It is refused because it is UNBUILT … This one CAN lift."* **The refusal held for months
+anyway**, because downstream readers — lanes, briefs, and this log — quote the user-facing STRING,
+not the header. **A refusal must say which kind it is IN THE TEXT THE AUTHOR SEES.**
+
+### Three things that could have gone silently wrong
+
+1. **THE CHORD IS NOT THE ARC.** `wallProfilePlanarLength` is `Math.hypot` on the endpoints, and the
+   authorability gate bounded `u` by it. On an arc the chord is SHORTER than the run, so a
+   full-length ring would have been refused as **out-of-bounds** — a correct-sounding message with a
+   wrong number in it, the hardest kind to see. The gate now uses `wallCentrelineLength`, which
+   measures the same polyline the solid is built from.
+2. **THE RAKE MUST FOLLOW THE PROFILE.** The lean at a station is `k × THAT STATION's height`. A
+   whole-wall constant would lean a 1 m column as far as a 3 m one — a **twisted top edge**,
+   geometrically impossible for a constant batter. `dTopAt(i)`, asserted per station against `k·h`.
+3. **A CURVED PROFILED WALL MUST NOT TAKE THE STRAIGHT ARM.** That arm extrudes a flat `THREE.Shape`
+   through the thickness; it would have drawn a **straight wall with a correct cut** — a plausible
+   picture and the wrong building. Guarded, with bulge-from-chord as the non-vacuity assertion.
+
+### What is still refused on a curve, and it is real
+
+**`curved-multi-interval`.** A swept solid carries ONE vertical span per station, so a ring empty in
+its MIDDLE at some `u` (a porthole, an hourglass) would render **solid where the author drew a
+void**. Refused by name, not approximated — and **the same ring on a STRAIGHT wall is admitted**,
+which is what makes this a statement about the sweep rather than about the ring. It is still
+`unbuilt`, not `impossible`: the machinery is a per-station multi-interval sweep.
+
+### ⚠ A stale refusal is not inert — it gets BORROWED as evidence
+
+`WallRake.ts`'s *"rake × curve … ILL-POSED, not unbuilt: this one never lifts"* outlived its own arm
+by a day (L-1062 lifted it; a raked curved wall ships as a cone). In that time `WallProfile.ts`
+cited it as its contrast case — *"rake's cannot lift, this one CAN"* — and
+`WallProfileSlice1.test.ts` cited it **by line number**. Both borrowers were then wrong too. All
+three are corrected; the retracted text is kept **where it lives**, marked as retracted, because
+superseding it somewhere else is what let it keep travelling.
+
+Read that dead line again: *"the correct construction is a swept per-station frame."* **That was
+never a refusal. It was the implementation note for the fix, written in the grammar of a law.**
+
+### Four of my own instruments were wrong first
+
+- A probe radius of 0.35 m read **`+0`** at a raked wall's near end — not "slightly low", ZERO,
+  because the top ring had leaned 0.529 m clear of the aperture. **A radius must exceed the lean it
+  measures across, or it measures its own aperture.**
+- Against a ramped ring the far end read **1.0909**, not 1.000: a 0.35 m plan radius reaches 0.35 m
+  back along an arc where a ring falling 0.378 m/m genuinely stands higher. Exact assertions moved
+  to a **plateau** ring, which has no gradient to slide down.
+- My *"independent"* arc-length reference used a dense (N = 4000) chord sum — the **true Bézier
+  length**, which exceeds the 24-segment polyline's by ~0.1%. The far sample landed past the ring's
+  last vertex, `wallProfileExtentAt` correctly returned null, and the test crashed. **The wall IS the
+  polyline**; measuring the ideal curve was measuring something the building does not contain.
+- The per-station lean claim was first probed through the scene by `argmax y` and read **0.053**
+  against an expected 0.176 — the two builds picked DIFFERENT vertices. Moved to a direct builder
+  call with known per-station heights, plus a `checked` counter, **because a loop that measures
+  nothing passes every assertion inside it.**
+
+### Rows still closed, each UNBUILT with its machinery named
+
+- **`layered`** — *"the bands have no per-station top"*, now demonstrably a description of absent
+  code: `CurvedWallLayerBuilder` had exactly that gap and it closed in eight lines. Needs the same
+  scalar→accessor change in the V2 band slicer, plus the rule for how one ring divides across a
+  concentric stack.
+- **`hosted-openings`** — *"the occupancy check is purely horizontal"*, so nothing would notice an
+  opening floating in material the profile removed. Needs a vertical term in
+  `WallOccupancyStore.canPlace()` consulting `wallProfileExtentAt(ring, u)` over the opening's `u`
+  span, and the same in the gate for the reverse authoring order. The geometry half is easy —
+  `buildWallHoleBodyGeometry` already takes a `THREE.Shape` outline plus holes.
+
+⚠ **`WallProfileVariantStatus` carries `'impossible'` and nothing uses it**, with a test asserting
+the set is empty. Adding one requires saying so out loud. Keep it that way.

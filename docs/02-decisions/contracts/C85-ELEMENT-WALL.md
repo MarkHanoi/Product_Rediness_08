@@ -793,25 +793,84 @@ whether `_skipBridge` is ever true in production.
 9. **ADR-0331 §D5 — *"what is Stack B for?"*** — an escalated **founder** question. ⛔ Not to be
    resolved by any lane.
 10. **`packages/persistence-client/src/loader/`** — deliberately not measured; declared DEAD.
-11. ⛔ ~~**PROFILE × RAKE geometry has never been built**~~ — **MEASURED 2026-08-19 (lane RK1), and the
-    answer is WORSE than "unverified": A PROFILE DRAWS NOTHING ON ANY WALL SHAPE.**
-    Census: `wallProfile` is consumed by the schema, the store, the delta classifier, the geometry
-    hash and an instanced-arm exclusion — **and by NO body builder at all.**
-    `WallFragmentBuilder`'s own comment states it: *"INERT TODAY, DELIBERATELY."*
-    So authoring a profile makes the wall **rebuild**, makes it **leave the instanced path**, and
-    then renders **the identical rectangle**. ⚠ **That is worse than a refusal, because a refusal
-    says why nothing happened** — here the user pays the cost of a rebuild and receives no geometry
-    and no explanation. The hole is not profile×rake; **it is profile, full stop.**
-    Pinned by **AXIS 6** (builds with and without a profile, asserts the bodies identical), carrying
-    an instruction to **invert rather than delete** the assertion when a lane builds the body.
-    Offered/refused per shape today: plain vertical **OFFERED** · plain raked **OFFERED** ·
-    curved / layered / openings **REFUSED**.
-    ⚠ **And treat the `curved` profile refusal with suspicion**: it is argued as *ill-posed* in
-    exactly the words the curved **rake** refusal used — and that one turned out to be
-    **unbuilt, not impossible**. Same argument, same shape, already wrong once.
-12. **X-junctions** — RK1's hull metric returned an arithmetically impossible 2.4 m for overlapping
-    rectangles. Printed, marked **UNEXPLAINED**, and **no conclusion drawn** — the honest handling of
-    an instrument that disagrees with arithmetic.
+11. ✅ ~~**PROFILE × RAKE geometry has never been built**~~ — **CLOSED 2026-08-19 (lane WJ1).**
+    The RK1 reading this row carried is superseded and is kept because the sequence is the lesson.
+    RK1 found the hole was *"not profile×rake; it is profile, full stop"* — no body builder read
+    the ring — and built `WallProfileBodyBuilder`. WJ1 closed the three things that left open:
+    - **The MITRE** (L-1071, `§FEAT-WALL-PROFILE-MITRE`). The stated constraint — *"an
+      `ExtrudeGeometry` outline has no per-end plane to project onto"* — was about the wrong
+      FRAME. A wall mitre plane is VERTICAL, so in the builder's own local frame it is
+      `x = x0 − (n_lat/n_axial)·z`, with **no `y` in it**: a per-vertex shear an extruded outline
+      of any shape absorbs. The same formula `MiterPrismBuilder` already uses.
+    - **PROFILE × RAKE was ALREADY BUILT and merely UNASSERTED.** Nothing was written to open it;
+      a test was. The composition works because the ring is authored in the un-sheared frame and
+      the caller shears the built group — by construction, not by arithmetic written twice.
+    - **PROFILE × CURVED** (L-1072, `§FEAT-WALL-PROFILE-CURVED`). See item 11a.
+    Offered per shape today: plain vertical **OFFERED** · plain raked **OFFERED** · curved
+    **OFFERED** · curved+raked **OFFERED** · layered / hosted-openings **REFUSED (unbuilt)**.
+    The per-variant gate is `WallProfileVariants.WALL_PROFILE_AXES` — a data table, one row per
+    axis, availability being the conjunction over a wall's active axes.
+
+11a. ⭐ **REFUSED-BECAUSE-UNBUILT vs REFUSED-BECAUSE-IMPOSSIBLE — BINDING ON THIS FAMILY, and it
+    has now cost it FOUR wrong refusals.** Founder, 2026-08-19.
+
+    | refusal | argued as | actually was | outcome |
+    |---|---|---|---|
+    | rake × curve | *"ILL-POSED … this one never lifts"* | unbuilt | ships as a CONE (L-1062) |
+    | the profile mitre | *"no per-end plane to project onto"* | the wrong frame | built (L-1071) |
+    | profile × curve | *"a straight edge is not straight in space … no per-station top"* | unbuilt | built (L-1072) |
+    | X-junction separation | *"either unsound, or the metric is wrong"* | the metric | fixed (item 12) |
+
+    **THE RULE THIS ESTABLISHES.** A refusal MUST state which kind it is **in the text the author
+    reads**, not only in the module header. `WallProfile.ts`'s header had said *"A profile on a
+    curve is NOT ill-posed … it is refused because it is UNBUILT … This one CAN lift"* from the
+    day the arm was written, **and the arm still held for months**, because downstream readers
+    — lanes, briefs, and the ISSUE-LOG itself — quote the user-facing STRING. **A refusal that
+    names a missing mechanism is a TODO wearing the costume of a law.**
+
+    **A STALE REFUSAL IS NOT INERT — IT GETS BORROWED AS EVIDENCE.** `WallRake.ts`'s
+    *"ILL-POSED … never lifts"* outlived its own arm by a day, and in that time `WallProfile.ts`
+    cited it as its contrast case and `WallProfileSlice1.test.ts` cited it **by line number**.
+    Both borrowers were then wrong too. Retracted text must be marked retracted **where it lives**,
+    not merely superseded elsewhere. Read that dead line again — *"the correct construction is a
+    swept per-station frame"* — it was never a refusal, it was the implementation note for the fix.
+
+    **WHAT IS STILL REFUSED, EACH WITH ITS KIND AND ITS MACHINERY NAMED:**
+    - `layered` — **UNBUILT.** *"The bands have no per-station top"* is demonstrably a description
+      of absent code: `CurvedWallLayerBuilder` had exactly that gap and it closed in eight lines
+      (`CurvedProfileHeights`). **Machinery:** the V2 band slicer extrudes each band between two
+      HORIZONTAL Y planes and needs the same scalar→accessor change, plus the rule for how one ring
+      divides across a stack (almost certainly *"every band takes the same (u,v) ring, clipped to
+      its own [yLo,yHi]"* — the bands are concentric and share the elevation frame).
+    - `hosted-openings` — **UNBUILT, and the dangerous one.** *"The occupancy check is purely
+      horizontal"*, so nothing would notice an opening left floating in material the profile
+      removed. **Machinery:** a vertical term in `WallOccupancyStore.canPlace()` consulting
+      `wallProfileExtentAt(ring, u)` over the opening's `u` span, and the same in the gate for the
+      reverse authoring order. The geometry half is comparatively easy —
+      `buildWallHoleBodyGeometry` already takes a `THREE.Shape` outline plus holes.
+    - `curved-multi-interval` — **the narrowest one, and still NOT `impossible`.** A swept solid
+      carries ONE vertical span per station, so a ring empty in its MIDDLE at some `u` would render
+      solid where the author drew a void. **Machinery:** a per-station multi-interval sweep.
+      Refused rather than approximated; the same ring on a STRAIGHT wall is admitted, which is what
+      makes this a statement about the sweep and not about the ring.
+    ⚠ **`WallProfileVariantStatus` carries `'impossible'` and NOTHING USES IT**, with a test
+    asserting the set is empty. Adding one requires saying so out loud. **Keep it that way.**
+
+12. ✅ **X-junctions** — **EXPLAINED AND FIXED 2026-08-19 (WJ1, §WJ1-CROSSING-HULLS-SHARE-NO-VERTEX).**
+    RK1's hull metric returned an arithmetically impossible 2.4 m for overlapping rectangles; it
+    printed the number, marked it **UNEXPLAINED**, and drew **no conclusion** — which is the only
+    reason no lane spent a day fixing geometry that was already correct.
+    **The cause was the METRIC.** `hullSeparation` decided overlap by asking whether any VERTEX of
+    one convex hull lay inside the other. **Two convex polygons crossing in a PLUS SIGN overlap
+    with no vertex of either inside the other** — and a plus sign is exactly what an X junction
+    is. The 2.400 was `2.5 − 0.1`: half the TEST wall's length minus half its thickness, a fact
+    about the fixture. Replaced with a separating-axis test.
+    ⭐ **THE CONTROL IS WHAT CAUGHT IT** — running `plain@90 vs plain@90`, two upright walls
+    crossing at the origin with nothing to get wrong, through the same metric made it unarguable.
+    ⚠ **The plausible readings were the dangerous ones.** Beside the 2.400 the same metric
+    reported `openUp` of 0.019 and 0.040 m, which read as small real defects worth chasing, and a
+    negative opening of −0.529, which is not a thing. After the fix **every X row reads 0.000,
+    control included.** T and X for curved-raked are now ASSERTED (48 cells, AXIS 4c).
 13. **Not reached by RK1's matrix, each stated rather than implied:** 3+ wall junctions ·
     `baseOffset ≠ 0` × rake · Stack B under rake · a persistence round-trip of a raked wall ·
     move-time re-weld (WM1's) · the `ContextualEditBar` button on a raked wall.
