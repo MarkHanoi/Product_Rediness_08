@@ -10402,3 +10402,229 @@ plausible readings of the code; only one matches the comment.
 **Edit Profile** button actually follows `profileAuthorability`. That is an `apps/editor` (L7)
 question; an L2 test may not import L7, and mirroring the rule into geometry-wall would be the
 C84 §8.d defect. **Somebody must measure the button where the button lives.**
+
+---
+
+## L-1050 — four curtain-wall commands declared a rollback scope `createSnapshot` did not have ✅ CLOSED (CW1, 2026-08-19)
+
+`CommandManagerImpl.createSnapshot()` knew no `'curtainPanel'` key. Four L2 commands declare it —
+`AddCurtainGridLineCommand.ts:69` and `RemoveCurtainGridLineCommand.ts:53` as
+`["curtainWall","curtainPanel"]`, `ReplacePanelTypeCommand.ts:56` and
+`ReplacePanelWithDoorCommand.ts:62` as `["curtainPanel"]` **alone**. For the last two, `scope` was
+non-null (so the all-stores fallback at `:583-585` did not engage) and matched no row, so the whole
+snapshot was `{}` and `restoreSnapshot` restored **nothing, with no warning**. A failed execute left
+the panel store holding a half-applied change. C84 **EI-7d** — L-947's shape, in the rollback table.
+
+**Fixed** by adding the scope to `createSnapshot` and `restoreSnapshot`. `curtainPanelStore` was
+already on the L2 context (`command-registry/src/types.ts:467`) and exposes `getAll`/`add`/`remove`,
+which the generic restore loop handles unchanged; it is restored **after** the wall so
+`CurtainPanelStore.set()`'s `byWallId` re-index has a wall to key against. Commit `3229704a`.
+
+⛔ **The OTHER half of C87 §11 #4 is RETRACTED, not fixed.** C87 claimed the `'curtainWall'` (camelCase)
+vs `['curtainwall']` (bus) spelling divergence "voids a rollback". `createSnapshot` has exactly one
+call site — `CommandManagerImpl.ts:286` — and it takes an **L2 `Command`**; all nine curtain-wall L2
+commands spell it camelCase. The lowercase spelling belongs to bus handlers, which reach the ring
+buffer and never `createSnapshot`. **True as a string comparison, vacuous as a defect.** It stays on
+the register as an EI-1a/EI-8 hazard (one rename from becoming real), not as a live rollback loss.
+
+---
+
+## L-1051 — the curtain-wall grid-line delete button removed nothing, forever, silently ✅ CLOSED (CW1, 2026-08-19)
+
+C87 §11 #5 recorded `migrateToGridSystem` minting `crypto.randomUUID()` as a **C73 §1.1** determinism
+violation, and it is one. What it did not record is what that cost the user, because its call-site
+census was short by two — **and the two it missed were the UI's own side**
+(`CurtainGridEditor.ts:52`, `CurtainPanelEditor.ts:54`; eleven sites, not nine).
+
+On any curtain wall with no stored `gridSystem` — **the default for every wall the user has never
+added a line to** — `CurtainGridEditor.resolveGrid()` migrated to obtain the ids it drew on its `×`
+buttons; `RemoveCurtainGridLine` migrated **again** to obtain the ids it searched; the two id sets
+were disjoint; `removeGridLine()` matched nothing; the verb returned `success`. The button did
+nothing, and said nothing.
+
+**Fixed** by deriving ids from wall id + axis + index — `derivedGridLineId(ownerId, axis, index)`,
+exported so no caller transcribes the format (C84 EI-9) — and threading the wall id through all
+eleven call sites. Ids already persisted in a project file are untouched: this path runs only when
+there is no stored grid to read. `migrateToGridSystem` also no longer returns an INVALID grid: an
+unusable extent/spacing pair is reported by name and falls back to ONE bay, the minimum valid grid,
+instead of to none. Commit `ab8b4248`; pinned by
+`plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts` (5/5).
+
+⭐ **Lesson: a determinism defect stated as an abstraction hid a dead button.** The row was correct
+and unactionable; driving it to the layer the user reaches is what made it a defect anyone would fix.
+
+---
+
+## L-1052 — the two grid-line verbs read spacing fields the record does not have, and wrote an EMPTY grid ✅ CLOSED (CW1, 2026-08-19)
+
+**The seventh constant-undefined read of this class in this one family** (L-972 found six in the
+curtain-wall create bridge).
+
+`AddCurtainGridLine.ts:88` and `RemoveCurtainGridLine.ts:96` read `(cw as any).gridXSpacing` /
+`.gridYSpacing` off `ctx.stores.curtainwall[id]`. That record is the **L0-parsed DTO**
+(`CreateCurtainWall.ts:99` — `CurtainWall.parse(seed)`), whose spacing fields are `bayWidth` /
+`bayHeight` (`schemas/src/elements/CurtainWall.ts:91,93`). `gridXSpacing` is the **legacy** name and
+appears nowhere on that schema, so both reads were `undefined` on **every** execution. The `as any`
+at both sites is what blinded `tsc` (C84 **EI-2(c)**).
+
+The consequence was not a wrong number but an **invalid value**: `Math.floor(length / undefined)` is
+`NaN`, `Math.max(1, NaN)` is `NaN`, `for (i = 0; i <= NaN; i++)` never runs — so the migration
+returned `{uLines: [], vLines: []}`, **below the module's own stated invariant** (`CurtainGridSystem.ts:63-65`,
+"at least 2 uLines and 2 vLines"), and that is what was written to the store.
+
+⚠ **And it does not stay in a store nobody reads.** C87 §6 lists `addGridLine` / `removeGridLine` as
+the two curtain-wall verbs whose 2-segment undo patch *"survives the flatten"* and *"works today"*.
+The path does survive — and what it carries to the **authoritative legacy `CurtainWallStore`** on a
+redo is that empty grid, which `CurtainWallBuilder` (`:1136`, `:1814`) reads as truthy and turns into
+**zero cells**. C87's row was measured on the PATH, not on the VALUE.
+
+**Fixed** by reading `cw.bayWidth` / `cw.bayHeight`, which also removes both casts. Commit `ab8b4248`.
+Negative control is in-file rather than a revert: `expect(rec.gridXSpacing).toBeUndefined()` asserts
+the field the old code read does not exist on the record the handler is handed.
+
+---
+
+## L-1053 — `material-bridge.ts` parsed a key layout NOTHING mints; every mullion was built as glass ✅ CLOSED (CW1, 2026-08-19)
+
+C87 §11 #9 recorded the narrow half — *"never reads `parts[2]`; an unrecognised slot silently returns
+`'glazed'`"*. Both true, and both far short.
+
+The file's header asserted, as fact, that curtain-wall keys are
+`curtainwall|<systemTypeId>|<materialId>|<color>|<slot>`. **No producer emits that.** Three composers
+exist, all exported, all in `geometry-kernel/src/producers/_internal/curtain-wall/`, minting two
+layouts, neither being the documented one:
+
+| Composer | Layout |
+|---|---|
+| `composeMullionMaterialKey` `buildMullions.ts:13` | `curtainwall｜mullion｜<materialId>｜#7a7a7e｜body` |
+| `composeTransomMaterialKey` `buildTransoms.ts:12` | `curtainwall｜transom｜<materialId>｜#7a7a7e｜body` |
+| `composeCurtainPanelMaterialKey` `buildPanels.ts:47` | `curtainwall｜panel｜<kind>｜<materialId>｜<colourOfKind>` |
+
+**The slot is at index 1.** The bridge read index 4 — the literal `'body'` on a mullion/transom key,
+the panel's colour on a panel key — so the `return 'glazed'` fallthrough fired for **every key of
+every kind**:
+
+- every **mullion and transom** was built on the glass branch (`transparent`, `opacity 0.45`,
+  `roughness 0.1`, `metalness 0`), never reaching the anodised-metal branch ten lines below it in the
+  same function;
+- every **spandrel, door and opaque** panel rendered as glazing — C87 CW-B-2's user-facing symptom by
+  a **second, independent route**;
+- colour was read at index 3, which on a panel key is `materialId`, so
+  `new THREE.Color('<some-material-id>')`. Only an absent id let index 3 fall to `''` and engage the
+  fallback — which then answered `#9bc8e4` where the producer chose `#a4cdd9`. **Two palettes, one
+  question** (C84 EI-8).
+
+`parts[2]` is the panel's **KIND**, so the unread segment was the whole point of the vocabulary.
+
+**Fixed** by parsing on the discriminator the producers actually write. An unrecognised key now
+**REFUSES** (`parseCurtainWallMaterialKey` → `null`) and callers report it once per key naming the
+three real layouts; `materialId` is read on both layouts and its non-resolution is **DECLARED** at
+the point of loss (C84 EI-2) rather than silent. Commit `c229d392`; pinned by
+`plugins/curtain-wall/__tests__/committer/MaterialKeyRoundTrip.test.ts` (11/11), which imports the
+three **real** composers and feeds their real output into the real parser — an executed equivalence
+proof (C84 EI-10(b)) with no key literal transcribed.
+
+⭐ **Why it survived: a total fallback makes a total mismatch indistinguishable from a working
+default.** Both ends compiled, every key "parsed", the scene rendered. **A parser whose failure
+branch returns a plausible value cannot report that it never succeeded.**
+
+⚠ **NOT closed:** the format is still minted in one package and parsed in another with nothing but
+that test binding them (C84 EI-9). One shared module is owed.
+⚠ **Does NOT fix walls.** C85 §11 #12 asks for one fix for both families, but
+`plugins/wall/src/committer/material-bridge.ts` is a **separate file** with a **separate format**
+(`wall|<systemTypeId>|<materialId>|<color>|<layerName>`, minted by `_internal/composeMaterialKey.ts`).
+There are **eighteen** such files (`ls plugins/*/src/committer/material-bridge.ts | wc -l` → 18),
+exactly as C84 EI-8 counts them. The wall bridge's colour index **does** agree with its own composer,
+so it carries the narrow `parts[2]` defect and **not** this layout mismatch. **For the wall lane.**
+
+---
+
+## L-1054 — `curtain-wall.replacePanel` refuses on EVERY dispatch, and two property panels still offer it ⛔ OPEN — ROUTING DECISION OWED (CW1, 2026-08-19)
+
+C87 §11 row 2 ranks this verb the family's second-worst defect, on the strength of an irreversible
+**L6 write** at `ReplacePanel.ts:137`. Every source observation in that row is correct. **The write
+never runs.**
+
+Both `canExecute` (`:81`) and `execute` (`:95`) resolve the store as
+`ctx.stores['curtainPanelStore']`, and no such key can exist:
+
+- `ctx.stores` is `storesAsRecordView(stores)` (`apps/editor/src/bootstrap.ts:94,148-159`);
+- `stores` is filled ONLY by `stores[plugin.storeKey] = store` over `ALL_PLUGINS`
+  (`apps/editor/src/bootstrap.everything.ts:145`);
+- the curtain-wall descriptor's `storeKey` is `'curtainwall'`; the panel store has no descriptor of
+  its own. (`'curtain-panel'` at `initStores.ts:119` is the **legacy** registry — a different map.)
+- `composeRuntime.ts:889` calls `bootstrapFn({ audit })` with **no** `stores` override;
+- `CommandBus.buildContext` (`:285-293`) never falls back to a global, by design (ADR-002 §3 / R1A-16).
+
+Even a key of that name would not help: the view flattens every store to
+`Object.fromEntries(store.getState())`, so it carries no `.get()` / `.update()`.
+
+**The verb is DEAD, not dangerous — and it is OFFERED.** `CurtainPanelEditor.ts:250` and
+`CurtainSubElementPanel.ts:319` both dispatch it from the property panel, and
+`ChatCommandClassification.ts:109` exposes it to chat. So **changing a curtain-wall panel's type does
+nothing**, and says so only in a `console.warn` naming an internal variable. That is C84 **EI-3** /
+**EI-7a**'s residual defect — an offered control whose verb refuses — and it is a **worse** user
+outcome than C87's row claimed, by a different mechanism.
+
+Pinned by `apps/editor/__tests__/CurtainReplacePanelIsDead.test.ts` (3/3), whose arms are deliberately
+different in kind: the registry property, the real handler against a production-shaped context, and a
+guard proving it is not the payload validation refusing. Commit `648b443d`.
+
+⛔ **THE FIX IS A ROUTING DECISION, NOT A PATCH.** C87 CW-P-2's two exits: **(a)** route the write per
+C16 **CA-17** — the L2 `ReplacePanelTypeCommand` **does** receive a real
+`context.stores.curtainPanelStore` (`types.ts:467`) and now snapshots correctly (L-1050), so
+repointing the two panels at it is the short path — or **(b)** disable the controls while the verb
+refuses. Not taken in this lane: it changes two UI surfaces and a payload mapping, and needs to be
+proven end-to-end rather than reasoned about.
+
+---
+
+## L-1055 — the "unlocated" curtain-panel cascade subscriber exists; the comment named the wrong mechanism ✅ CLOSED (CW1, 2026-08-19)
+
+C87 §8 and §11 #11 record `ReplacePanel.ts:131-132`'s cascade subscriber as **NOT LOCATED** and file
+it as C84 **EI-12** — *"a trigger whose dispatcher is unproven"*.
+
+It exists: `apps/editor/src/engine/initUI.ts:2263-2287` — §MI-02 FIX, *"CurtainPanelStore →
+CurtainWallBuilder rebuild subscriber"* — resolving the parent via
+`cwStore.getReadOnly(panel.curtainWallId)` and calling `cwBuilder.updateCurtainWall(cw)` on
+`'update'`, exactly as promised.
+
+**The census missed it because the comment named the wrong mechanism and the wrong file.** The
+subscriber attaches to `CurtainPanelStore.subscribe()` — the store's own listener list
+(`CurtainPanelStore.ts:284-291`, driven from `emit()` at `:295-299`) — **not** to `storeEventBus`, so
+the searched string `'curtain-panel'` never appears at the subscription site. And it lives in
+`initUI.ts`, not `EngineBootstrap`. Comment corrected in place; commit `648b443d`.
+
+⭐ **Lesson, and it generalises past EI-12: a search for a NAMED mechanism cannot find the REAL one.**
+An EI-12 census MUST enumerate a store's emission surfaces **from the store**, not from a comment
+citing one of them. `CurtainPanelStore` has two — `this.listeners` and `storeEventBus` — and only the
+second carries the string the census searched for. C87's NOT-MEASURED row 1 offered the disjunction
+*"either it does not exist or it lives somewhere not searched"*; the missing third arm is **or the
+thing you searched for is not the thing that does the work.**
+
+---
+
+## L-1056 — `CurtainWallStore.add()` DOES emit; the comment saying otherwise spawned a contract row and a duplicate event ⛔ OPEN (declared, CW1, 2026-08-19)
+
+`initTools.ts` asserted, as a §-tagged fix rationale: *"CurtainWallStore.add() uses the internal
+this.emit() path but does NOT call storeEventBus.emit(). Only addMany() does (batch path)."*
+
+`add()` (`CurtainWallStore.ts:322-350`) ends in `this.emit(...)`, and `emit()` (`:399-411`) calls
+`storeEventBus.emit({elementType:'curtainwall', operation:'create', …})` — the same event, differing
+only in `timestamp`.
+
+**Two consequences.** First, C87 §11 row 14 and **CW-C-2** are derived from this comment and are
+**REFUTED**: CW-C-2 demands *"CurtainWallStore.add() MUST emit its own storeEventBus event — a store
+whose event is fired by its CALLER is one caller away from a silently invisible curtain wall"*, and
+the store already emits, so the invariant is held and a second caller is already safe. Second, the
+manual emit is a **DUPLICATE**: every curtain wall mirrored through the create bridge fires **two**
+plan-invalidation events.
+
+**The duplicate is left in place DELIBERATELY and declared rather than quietly removed.** Removing it
+changes the order in which subscribers observe the wall relative to the panel-storm events
+`CurtainPanelSyncHandler` fires **synchronously inside** `add()`, and this bridge is reachable from no
+suite — the L-972 lesson, recorded one line above it. **A behaviour change that cannot be watched is
+not one to make in passing.** Comment corrected; commit `648b443d`.
+
+**Owed:** extract enough of the mirror subscriber that its event sequence can be executed by a test,
+then delete the duplicate under that test.
