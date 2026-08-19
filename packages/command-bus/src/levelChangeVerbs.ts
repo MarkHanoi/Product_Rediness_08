@@ -213,6 +213,55 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         heightFollowsLevel: true,
         heightEvidence: 'packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:1092 - worldY = level.elevation + cw.baseOffset',
     },
+    // §L-1087 EARNED BACK 2026-08-19. These four were WITHHELD for one working
+    // day, in `LEVEL_CHANGE_REFUSALS`, because their fragment builders seat the
+    // mesh at an ABSOLUTE Y stamped at create time: a storey move would have
+    // re-filed the element and left it hovering at the old floor's height, with
+    // nothing reporting it.
+    //
+    // They return under the rule that withheld them, not around it. Each store's
+    // `changeLevel` now takes `{newElevation, previousElevation}` — resolved by
+    // the CALLER from the level authority, never fabricated by the store — and
+    // **REFUSES (returns `undefined`) when either is missing** rather than moving
+    // the storey alone. The height moves by the DELTA, so an element's mount
+    // offset above its floor is preserved: a wall light 2 m up stays 2 m up
+    // instead of being slammed to the new floor.
+    'beam.changeLevel': {
+        kind: 'beam',
+        verb: 'beam.changeLevel',
+        idField: 'beamId',
+        levelField: 'levelId',
+        panelTypes: ['beam'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/core-app-model/src/stores/BeamStore.ts changeLevel(id, levelId, {newElevation, previousElevation}) - moves startPoint.y and endPoint.y by the delta; REFUSES without both. Pinned by packages/core-app-model/__tests__ + BeamFragmentBuilder.ts:405 reads the absolute Y from the record',
+    },
+    'furniture.changeLevel': {
+        kind: 'furniture',
+        verb: 'furniture.changeLevel',
+        idField: 'furnitureId',
+        levelField: 'levelId',
+        panelTypes: ['furniture'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-furniture/src/FurnitureStore.ts changeLevel(id, levelId, opts) - position.y += (newElevation - previousElevation), preserving mount offset; REFUSES without both. Pinned by packages/geometry-furniture/__tests__/furnitureChangeLevelHeight.test.ts',
+    },
+    'lighting.changeLevel': {
+        kind: 'lighting',
+        verb: 'lighting.changeLevel',
+        idField: 'lightingId',
+        levelField: 'levelId',
+        panelTypes: ['lighting'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-lighting/src/LightingStore.ts changeLevel(id, levelId, opts) - delta re-seat; REFUSES without both. Pinned by packages/geometry-lighting/__tests__/lightingChangeLevelHeight.test.ts',
+    },
+    'plumbing.changeLevel': {
+        kind: 'plumbing',
+        verb: 'plumbing.changeLevel',
+        idField: 'plumbingId',
+        levelField: 'levelId',
+        panelTypes: ['plumbing'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-plumbing/src/PlumbingStore.ts changeLevel(id, levelId, opts) - delta re-seat; REFUSES without both AND checks existence, which update() does not. Pinned by packages/geometry-plumbing/__tests__/plumbingChangeLevelHeight.test.ts',
+    },
 } as const;
 
 /** Why a family does NOT get the control, and the clause that decides it. */
@@ -307,67 +356,6 @@ export const LEVEL_CHANGE_REFUSALS: Readonly<Record<string, LevelChangeRefusal>>
         reason: 'A lift spans a range of storeys. Which end a "change level" should move is not decided yet, so the control is withheld rather than guessing.',
         clause: 'C16 CA-18',
         evidence: 'packages/geometry-lift/src/LiftTypes.ts:54-57 — `levelId`, `baseLevelId`, `topLevelId`',
-        disposition: 'deferred',
-    },
-    // ── DEFERRED — THE VERB AND THE STORE MOVE ARE BUILT AND CORRECT; THE 3-D ──
-    //    HEIGHT DOES NOT FOLLOW, SO THE CONTROL IS WITHHELD (L-1087).
-    //
-    // These four have a registered bus verb, a legacy `changeLevel`, and a
-    // passing undo route. They are NOT offered anyway, and the reason is the
-    // whole point of this table.
-    //
-    // MEASURED 2026-08-19: their fragment builders seat the mesh at an ABSOLUTE
-    // Y stamped into the record at create time, not at a Y re-derived from
-    // `level.elevation`. So a storey change re-files the element, moves it onto
-    // the new plan and exports it under the new IFC storey — while the 3-D mesh
-    // goes on hovering at the OLD floor's height. Nothing reports a failure.
-    //
-    // That is a SILENTLY-WRONG element, and it is the one outcome this repo's
-    // governing sentence forbids: *"A refusal is a correct answer; a
-    // silently-wrong wall is not"* (`WallRake.ts:50-62`). Offering the dropdown
-    // would have satisfied the letter of the founder's request and produced a
-    // chair floating under its own floor.
-    //
-    // ⚠ DO NOT "FIX" THIS BY ADDING AN `elevationField` TO THE PAYLOAD. The
-    // destination elevation is a number the LEVEL STORE already owns; shipping a
-    // copy of it through a command payload is the second-copy defect, and
-    // §L-1010/L-1012 is what happens when a Y from the wrong space gets latched
-    // as the model Y. THE EXIT: resolve `level.elevation` from `bimManager` at
-    // BOTH ends — `elementLevelChangedMirror` on the forward path and
-    // `elementUndoStoreAdapter`'s §L-946 arm on the inverse, both of which
-    // already hold a `bimManager` handle — and re-seat `position.y` there. Then
-    // move these four rows back into `LEVEL_CHANGE_VERBS` with
-    // `heightFollowsLevel: true` and the new evidence.
-    beam: {
-        kind: 'beam',
-        panelTypes: ['beam'],
-        reason: 'Moving a beam between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
-        clause: 'C16 CA-18 · C84 EI-3 (an affordance without an implementation behind it is the defect, not the feature)',
-        evidence: 'packages/geometry-beam/src/BeamFragmentBuilder.ts:405 — `root.position.set(centre.x, centre.y, centre.z)` from the baseLine’s absolute Y; the file contains NO `getLevelById` call at all',
-        disposition: 'deferred',
-    },
-    furniture: {
-        kind: 'furniture',
-        panelTypes: ['furniture'],
-        reason: 'Moving furniture between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
-        clause: 'C16 CA-18 · C84 EI-3',
-        evidence: 'packages/geometry-furniture/src/furnitureElevation.ts:33-35 — `furnitureWorldY(floorY, mountOffset) = floorY + mountOffset`, where `floorY` is `data.position.y`, an absolute stored value (`FurnitureFragmentBuilder.ts:150,279`)',
-        disposition: 'deferred',
-    },
-    lighting: {
-        kind: 'lighting',
-        panelTypes: ['lighting'],
-        reason: 'Moving a light between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
-        clause: 'C16 CA-18 · C84 EI-3',
-        evidence: 'packages/geometry-lighting/src/LightingFragmentBuilder.ts — seats the group at the record’s absolute position; no `getLevelById` in the file. Lighting has a SECOND blocker too: `LightingStore.update` emits only the legacy `_bus`, never `storeEventBus`, so no semantic subscriber sees a lighting mutation at all',
-        disposition: 'deferred',
-    },
-    plumbing: {
-        kind: 'plumbing',
-        panelTypes: ['plumbing'],
-        reason: 'Moving a plumbing fixture between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
-        clause: 'C16 CA-18 · C84 EI-3',
-        evidence: 'packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts:88 — `root.position.copy(data.position)`, the record’s absolute position; no `getLevelById` in the file',
         disposition: 'deferred',
     },
     pool: {

@@ -210,13 +210,16 @@ const LEGACY_LEVEL_MOVERS: Readonly<
     floor: (deps) => deps.floorStore,
     handrail: (deps) => deps.handrailStore,
     curtainWall: (deps) => deps.curtainWallStore,
-    // ⛔ NO ROW for beam / furniture / lighting / plumbing, DELIBERATELY (L-1087).
-    // All four HAVE a registered verb and a working legacy `changeLevel` — and
-    // all four are withheld anyway, because their fragment builders seat the
-    // mesh at an ABSOLUTE Y stamped at create time rather than at a Y re-derived
-    // from `level.elevation`. A row here would re-file the element and leave its
-    // 3-D mesh hovering at the old floor's height, silently. The evidence and
-    // the exit condition are on their `LEVEL_CHANGE_REFUSALS` rows.
+    // §L-1087 — the four HEIGHT-DEPENDENT families, readmitted 2026-08-19 after
+    // their stores learned to move the height. Unlike the eight above, these do
+    // NOT re-derive `worldY` from `level.elevation`; their `changeLevel` REFUSES
+    // unless `applyElementLevelChange` hands it both storey elevations, which is
+    // exactly what the `_elevationOf` resolver below exists to supply. A row here
+    // without that resolver would be a half-move.
+    beam: (deps) => deps.beamStore,
+    furniture: (deps) => deps.furnitureStore,
+    lighting: (deps) => deps.lightingStore,
+    plumbing: (deps) => deps.plumbingStore,
 };
 
 /**

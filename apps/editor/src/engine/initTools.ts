@@ -1298,16 +1298,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // (hosted — C15 §2), room (derived from wall topology), grid
             // (project-wide), annotation + dimension (view-scoped), stair + lift
             // (they span TWO storeys, so a single-target move is ambiguous by
-            // construction), pool (no legacy store exists) — and beam, furniture,
-            // lighting and plumbing, whose verbs and store moves ARE built but
-            // whose 3-D height does not follow the storey (L-1087). Passing those
-            // four here would re-file the element and leave its mesh hovering at
-            // the old floor's height, silently.
+            // construction), pool (no legacy store exists).
             columnStore: columnStoreInstance,
             ceilingStore,
             floorStore,
             handrailStore,
             curtainWallStore: curtainWallStoreInstance,
+            // §L-1087 — the four whose 3-D height does not follow `level.elevation`
+            // on its own. Their stores REFUSE a move without both storey
+            // elevations, and the mirror resolves those from `bimManager`, so
+            // passing them here is safe only BECAUSE that resolver exists.
+            beamStore,
+            furnitureStore,
+            lightingStore,
+            plumbingStore,
             viewDependencyTracker,
             bimManager,
         });
