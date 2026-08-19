@@ -44,6 +44,12 @@ import {
     withChatDispatchSpan,
     capabilityGapRefusal,
     findLevel,
+    // §FIX-HOSTED-LEVEL-SCOPE (L-1201) — a window/door takes its level from the
+    // wall that HOSTS it. See that module's header for the measurement that
+    // proved this arm returned [] for every level of every project.
+    resolveLevelScopeByHost,
+    isHostDerivedKind,
+    type LevelBearingRow,
     type ConversationContext,
     type PlanReport,
     type ResolverContext,
@@ -350,15 +356,55 @@ function makeScopeResolver(
                         : `No level called "${scope.levelQuery}" — the levels here are: ${names}.`,
                 };
             }
-            const ids = typeof store.getIdsByLevel === 'function'
-                ? [...store.getIdsByLevel(level.id)]
-                : typeof store.getByLevel === 'function'
-                    ? store.getByLevel(level.id).map((e) => e.id)
-                    : (store.getAll?.() ?? []).filter((e) => e.levelId === level.id).map((e) => e.id);
+            if (typeof store.getIdsByLevel === 'function') {
+                const ids = [...store.getIdsByLevel(level.id)];
+                return { ids, kindCounts: count(ids, kind), skipped: [], diagnostics: [level.name] };
+            }
+            if (typeof store.getByLevel === 'function') {
+                const ids = store.getByLevel(level.id).map((e) => e.id);
+                return { ids, kindCounts: count(ids, kind), skipped: [], diagnostics: [level.name] };
+            }
+            // ⭐ §FIX-HOSTED-LEVEL-SCOPE (L-1201) — THIS BRANCH USED TO BE
+            //   `getAll().filter(e => e.levelId === level.id)`
+            // and for windows and doors it could NEVER be true. Neither store
+            // has a level accessor and neither RECORD carries `levelId` at all
+            // (`WindowOpening` / `DoorOpening` carry `wallId`), so the filter
+            // compared `undefined === 'level-2-id'` for every opening in the
+            // project and returned []. The user asked "change all windows on
+            // level 2" on a level full of windows and was told, confidently,
+            // that there were none: failure and empty were the same value
+            // (§CONTEXT-DATA-HONESTY). Ten defects this week were unsatisfiable
+            // rather than broken; this is one more, and reading two store class
+            // declarations was enough to find it.
+            //
+            // The level is now DERIVED PER RECORD — own `levelId` if it has one,
+            // else the HOST WALL's, else a counted skip with its reason. Derived,
+            // not enumerated: a `HOSTED_KINDS = ['door','window']` list would be
+            // the same remember-don't-derive defect that produced the scope-tail
+            // bug this fix ships beside.
+            const rows = (store.getAll?.() ?? []) as unknown as readonly LevelBearingRow[];
+            if (!isHostDerivedKind(rows)) {
+                const ids = rows.filter((e) => e.levelId === level.id).map((e) => e.id);
+                return { ids, kindCounts: count(ids, kind), skipped: [], diagnostics: [level.name] };
+            }
+            const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
+                getById?: (id: string) => { levelId?: string } | undefined;
+            } | undefined;
+            const hosted = resolveLevelScopeByHost(
+                kind,
+                rows,
+                level.id,
+                level.name,
+                // `null` = no wall store at all (REFUSE); `undefined` = this wall
+                // is not in the model (a counted SKIP). Two different facts, and
+                // collapsing them is what this fix exists to stop.
+                (wallId) => (wallStore?.getById === undefined ? null : wallStore.getById(wallId)?.levelId),
+            );
+            if (hosted.kind === 'refused') return { error: hosted.error };
             return {
-                ids,
-                kindCounts: count(ids, kind),
-                skipped: [],
+                ids: hosted.ids,
+                kindCounts: count(hosted.ids, kind),
+                skipped: hosted.skipped,
                 diagnostics: [level.name],
             };
         }

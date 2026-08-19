@@ -85,6 +85,10 @@ import {
   parseDimensionScopedIntent,
   type DimensionAsk,
 } from './DimensionFamilies.js';
+// §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE one place that decides whether a
+// preposition phrase names a LEVEL or a ROOM. See that module's header for why
+// three hand-written spellings of it existed and what each one cost.
+import { parseTrailingSpatialScope, stripTrailingLevelNoun } from './SpatialScopeTail.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -1150,6 +1154,15 @@ export function findLevel(
       return nm === `level ${q}` || nm === `l${q}` || nm.endsWith(` ${q}`);
     });
   }
+  // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — LAST RESORT ONLY. The shared scope
+  // tail hands the level phrase over WHOLE ("the ground floor", "2 floor")
+  // rather than pre-stripping it, because the full phrase is what matches a
+  // level literally named "Ground Floor" — and pre-stripping made that
+  // unmatchable. Stripping is retried here, after every exact route has already
+  // failed, so this can only ever turn a miss into a hit: no query that
+  // resolved before resolves differently now.
+  const stripped = stripTrailingLevelNoun(q);
+  if (stripped.length > 0 && stripped !== q) return findLevel(stripped, levels);
   return undefined;
 }
 
@@ -2073,7 +2086,22 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         }
         wallIds = result.ids;
         const where = result.diagnostics[0] ?? si.scope.levelQuery;
-        scopeLabelOverride = `the ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} on ${where}`;
+        // ⭐ §FIX-WINDOW-CREATE-REACH — "every 2 m on level 2", taken literally,
+        // puts windows in INTERIOR walls too, and this is a `destructive: true`
+        // mass CREATION. There is no exterior/interior filter to apply: the
+        // measured reason is recorded in DimensionFamilies' header —
+        // `resolveWallFunction` returns null for `wt-monolithic`, the type a
+        // user actually draws with, so "exterior walls" is usually an EMPTY set
+        // rather than a wrong one, which is why the qualifier is REFUSED and not
+        // silently dropped. The shell/exterior knowledge that does exist
+        // (`workflows/apartmentLayout/windowEmission/shellWallMatch.ts`) takes a
+        // caller-supplied `ShellWall[]` built by the layout pipeline; nothing in
+        // `ResolverContext` can produce one, so it is NOT reachable from chat.
+        // ⛔ Silently including interior walls behind a bare count is the worst
+        // available outcome, so the Confirm card SAYS SO before he agrees.
+        scopeLabelOverride =
+          `the ${result.ids.length} wall${result.ids.length === 1 ? '' : 's'} on ${where} ` +
+          `(every wall on that level, interior walls included)`;
       } else if (si.scope === 'selection') {
         const walls = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'wall');
         if (walls.length === 0) {
@@ -3501,17 +3529,39 @@ const WINDOW_SIZE_RE = /(\d+(?:\.\d+)?)\s*(?:x|by|×)\s*(\d+(?:\.\d+)?)\s*(?:m|m
 const WINDOW_SPACING_RE = /\bevery (\d+(?:\.\d+)?) ?(?:m|meters?|metres?)\b/;
 const WINDOW_COUNT_WORDS: Readonly<Record<string, number>> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
-export function parseWindowsParametricIntent(text: string): Extract<SemanticIntent, { intent: 'create-windows-parametric' }> | null {
-  if (!/^(?:create|add|put|place)\b/.test(text)) return null;
+export function parseWindowsParametricIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'create-windows-parametric' }> | null {
+  // ── §FIX-WINDOW-CREATE-REACH (L-1201) — the founder's sentence, verbatim:
+  //    **"Make windows every 2 meters in level 2"**. Measured before this
+  //    change it returned `null`, and FOUR independent gates were each on their
+  //    own sufficient to make that so. The capability behind them was complete.
+  //
+  //  1. VERB. The gate was `create|add|put|place`; he wrote "Make". The RESIZE
+  //     grammar next door accepts `set|change|make|resize|update|adjust`, so
+  //     his habitual verb reached the resizer and not the creator — one
+  //     vocabulary split in two, which is the C84 EI-8/EI-9 breach that makes a
+  //     shipped feature look missing.
+  //     ⭐ `make` is accepted here ONLY with an unambiguous CREATION mode (an
+  //     "every N m" spacing, or an explicit count of windows). Without that
+  //     guard "make all windows 2m high" — a RESIZE — would be claimed by this
+  //     grammar and would create a window in every wall in the project. The
+  //     verb is shared; the CLAIM is not.
+  //  2. HOST NOUN. The gate demanded the word "wall". Windows are definitionally
+  //     hosted in walls, so requiring it is requiring the user to state a
+  //     tautology — no one says "windows in the walls every 2 m". The gate is
+  //     not deleted, it is REPLACED by the narrower one that was doing the real
+  //     work: a target must still be named (all-walls / the selection / a
+  //     level), and without one the sentence is still not claimed.
+  //  3/4. SCOPE + PREPOSITION. `levelTail` required `on`; he wrote `in`. That is
+  //     the same defect as §FIX-SCOPE-TAIL-ONE-PARSER in a second grammar, and
+  //     it is why it is now resolved through the SHARED tail rather than a
+  //     third hand-written regex.
+  const explicitCreate = /^(?:create|add|put|place|install)\b/.test(text);
+  const sharedVerb = /^make\b/.test(text);
+  if (!explicitCreate && !sharedVerb) return null;
   if (!/\bwindows?\b/.test(text)) return null;
-  if (!/\bwalls?\b|\bwall segments?\b/.test(text)) return null;
-
-  // Scope discipline: all / every-wall-segment / selected — or a level tail.
-  const isAll = /\b(?:all|every|each)\b[^.]*\bwalls?(?:\b| segments?\b)|\bevery wall segment\b/.test(text);
-  const isSel = /\b(?:the )?(?:selected|these|those|this) walls?\b/.test(text);
-  const levelTail = /\bon (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)\s*(?:floor\s*)?$/.exec(text);
-  const hyphenLevel = /\b(?:in|on) (?:the )?([\w]+)[- ]floor walls?\b/.exec(text);
-  if (!isAll && !isSel && levelTail === null && hyphenLevel === null) return null;
 
   // Size (strip it before spacing/count so "1x2m" digits are never re-read).
   const size = WINDOW_SIZE_RE.exec(text);
@@ -3520,29 +3570,49 @@ export function parseWindowsParametricIntent(text: string): Extract<SemanticInte
   const heightM = size === null ? null : Number(size[2]);
 
   const spacing = WINDOW_SPACING_RE.exec(stripped);
-  let mode: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['mode'];
-  if (spacing !== null) {
-    mode = { kind: 'spacing', spacingM: Number(spacing[1]) };
-  } else {
-    const countM = /^(?:create|add|put|place) (?:(\d+|a|an|one|two|three|four|five) )?windows?\b/.exec(stripped);
-    const word = countM?.[1];
-    const count = word === undefined
-      ? 1
-      : /^\d+$/.test(word) ? Number(word) : (WINDOW_COUNT_WORDS[word] ?? 1);
-    mode = { kind: 'count', count };
-  }
+  const countM =
+    /^(?:create|add|put|place|install|make) (?:(\d+|a|an|one|two|three|four|five) )?windows?\b/
+      .exec(stripped);
+  // The shared verb needs a creation mode SAID OUT LOUD — see gate 1 above.
+  if (!explicitCreate && spacing === null && countM?.[1] === undefined) return null;
+
+  // Scope discipline: all / every-wall-segment / selected — or a place tail.
+  const isAll = /\b(?:all|every|each)\b[^.]*\bwalls?(?:\b| segments?\b)|\bevery wall segment\b/.test(text);
+  const isSel = /\b(?:the )?(?:selected|these|those|this) walls?\b/.test(text);
+  // "in the ground-floor walls" — a level named ADJECTIVALLY, which no
+  // preposition tail can see because the noun it modifies is "walls".
+  const hyphenLevel = /\b(?:in|on) (?:the )?([\w]+)[- ]floor walls?\b/.exec(text);
+  // ⛔ LEVEL ONLY. This capability DECLARES `scopeModes: ['all','selection',
+  // 'level']` and Gate 31's symmetric arm caught it over-claiming 'room' once
+  // already. The shared tail can now read a room out of "in the kitchen" — so
+  // a room reading is DROPPED here rather than resolved, and the declaration
+  // stays exactly as narrow as the resolver (C68 §7.d).
+  const tail = hyphenLevel === null ? parseTrailingSpatialScope(text, ctx) : { kind: 'none' as const };
+  const tailLevel = tail.kind === 'scope' && tail.scope.kind === 'level' ? tail.scope : null;
+  if (!isAll && !isSel && tailLevel === null && hyphenLevel === null) return null;
+
+  const mode: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['mode'] =
+    spacing !== null
+      ? { kind: 'spacing', spacingM: Number(spacing[1]) }
+      : (() => {
+          const word = countM?.[1];
+          const count = word === undefined
+            ? 1
+            : /^\d+$/.test(word) ? Number(word) : (WINDOW_COUNT_WORDS[word] ?? 1);
+          return { kind: 'count' as const, count };
+        })();
 
   const scope: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['scope'] =
     hyphenLevel !== null
       ? { kind: 'level', levelQuery: hyphenLevel[1]! }
-      : levelTail !== null && levelTail[1] !== undefined && !/^walls?$/.test(levelTail[1])
-        ? { kind: 'level', levelQuery: `${levelTail[1]}${/floor\s*$/.test(text) && !/\bfloors?\b/.test(levelTail[1]) ? ' floor' : ''}`.trim() }
+      : tailLevel !== null
+        ? tailLevel
         : isSel ? 'selection' : 'all';
 
   return { intent: 'create-windows-parametric', mode, widthM, heightM, scope };
 }
 
-const matchWindowsParametric: Matcher = (text) => parseWindowsParametricIntent(text);
+const matchWindowsParametric: Matcher = (text, ctx) => parseWindowsParametricIntent(text, ctx);
 
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".

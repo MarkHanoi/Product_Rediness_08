@@ -101,6 +101,11 @@
 
 import type { ElementFilter, IntentScope, IntentSpatialScope } from './ScopeDescriptor.js';
 import { parseFilterClauses } from './FilterScope.js';
+import {
+  SPATIAL_TAIL_SRC,
+  joinTailPhrase,
+  readSpatialTail,
+} from './SpatialScopeTail.js';
 import type {
   CapabilityExecutionSpec,
   SpecValueOutcome,
@@ -489,6 +494,18 @@ export function dimensionFamilySpec(
 //                                                sill by name — see carrierGap)
 //   "make the selected windows 2m high"       → the selection
 //   "set all windows on level 2 to 2m high"   → level 2
+//   "change all windows in level 2 to 1.5     → level 2. ⭐ THE PREPOSITION DOES
+//    meters wide"                               NOT DECIDE THE KIND — THE NOUN
+//                                               DOES (L-1201, C67 §4.16). Until
+//                                               2026-08-19 this sentence — the
+//                                               founder's, verbatim — meant "a
+//                                               ROOM called level", and leaked
+//                                               its "2" into the value.
+//   "make all windows in this floor 2m high"  → the ACTIVE level (HERE_RE)
+//   "change all windows in the level to       → a ROOM named "Level". A level
+//    1.5m wide"                                 noun with no level after it is
+//                                               the noun used as a NAME, so such
+//                                               a room stays addressable.
 //   "make all windows in the kitchen 2m high" → the kitchen
 //   "make the windows 2m high"                → NOT CLAIMED. "the" with no scope
 //                                               word could mean the selection or
@@ -597,20 +614,11 @@ const UNRESOLVED_QUALIFIER = /\b(?:exterior|external|interior|internal|outside|i
 const OTHER_CAPABILITY_WORD =
   /\b(?:angled?|tilted?|raked?|leaning|leant|slanted|vertical|upright|pitch|slope|degrees?|deg)\b/;
 
-/** "this floor" / "the current level" → the level the user is standing on. */
-const HERE_RE = /^(?:this|the current|current)(?:\s+(?:floor|level|storey|story))?$/;
-
-function levelScope(raw: string, ctx: ResolverContext | undefined): IntentSpatialScope | null {
-  const q = raw.trim().replace(/\s+/g, ' ');
-  if (q.length === 0) return null;
-  if (HERE_RE.test(q)) {
-    // "this floor" is only answerable when the context knows which floor that
-    // is. Without an active level it is not a scope — it is a guess.
-    const active = ctx?.levels.find((l) => l.id === ctx.activeLevelId);
-    return active === undefined ? null : { kind: 'level', levelQuery: active.name };
-  }
-  return { kind: 'level', levelQuery: q.replace(/\s*(?:floor|level|storey|story)$/, '').trim() || q };
-}
+// §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — `HERE_RE` and the local `levelScope`
+// used to live here. They are now `SpatialScopeTail.readSpatialTail`, shared
+// with every other grammar that names a place, because THREE hand-written
+// spellings of one scope tail is how the founder's "in level 2" came to mean
+// "a room called level". See that module's header for the measurement.
 
 interface CompiledDimensionFamily {
   readonly family: DimensionFamily;
@@ -624,9 +632,20 @@ const COMPILED: readonly CompiledDimensionFamily[] = DIMENSION_FAMILIES.map((fam
   return {
     family,
     re: new RegExp(
-      `^${DIM_VERB} (?:the )?(${SCOPE_ALL}|${SCOPE_SEL})(?: of)?(?: the)? (?:${nouns})s?` +
-      `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?)| in (?:the )?([\\w .-]+?))?` +
-      `(?:')?s?(?: (?:to|at|as|be|into))? (.+)$`,
+      // §FIX-SCOPE-TAIL-ONE-PARSER — ONE tail, from SpatialScopeTail.
+      //
+      // Two changes, both load-bearing:
+      //  • the place tail is the SHARED `SPATIAL_TAIL_SRC` (groups 2/3/4), so
+      //    `in` and `on` reach the same classifier and the level noun is
+      //    consumed BEFORE the lazy phrase capture — which is what stopped
+      //    "in level 2 width to 1.5m" leaking its "2" into the value and being
+      //    read back as `width: 2` (the user had said 1.5).
+      //  • the possessive moved from AFTER the tail (`(?:')?s?`, which ate the
+      //    capture's trailing "s" and produced `roomRef: 'thi'` for "this
+      //    floor") to the NOUN, which is where the apostrophe actually is.
+      `^${DIM_VERB} (?:the )?(${SCOPE_ALL}|${SCOPE_SEL})(?: of)?(?: the)? (?:${nouns})s?(?:'s?)?` +
+      SPATIAL_TAIL_SRC +
+      `(?: (?:to|at|as|be|into))? (.+)$`,
     ),
   };
 });
@@ -652,9 +671,10 @@ export function parseDimensionScopedIntent(
     const m = re.exec(lifted.stripped);
     if (m === null) continue;
     const scopeWord = m[1]!;
-    const levelRaw = m[2];
-    const roomRaw = m[3];
-    const rest = m[4]!;
+    // Groups 2/3/4 are `SPATIAL_TAIL_SRC`'s (leading level noun, phrase,
+    // trailing level noun); group 5 is the value tail.
+    const tail = readSpatialTail(m[2], joinTailPhrase(m[3], m[4]), ctx);
+    const rest = m[5]!;
 
     const dims = extractDimensionBindings(rest, toMeters);
     // NO BINDING ⇒ this is not a dimension ask at all ("change all windows to
@@ -663,17 +683,18 @@ export function parseDimensionScopedIntent(
 
     const isAll = new RegExp(`^${SCOPE_ALL}$`).test(scopeWord);
     let base: 'all' | 'selection' | IntentSpatialScope;
-    if (levelRaw !== undefined && levelRaw.length > 0) {
+    if (tail.kind === 'unusable') {
+      // A place WAS named and cannot be resolved ("this floor" with no active
+      // level). DECLINE — never fall back to 'all'. Widening a scope the user
+      // deliberately restricted is exactly the mass-edit failure this family
+      // exists to prevent (C68 §7.d).
+      return null;
+    } else if (tail.kind === 'scope') {
       // Spatial phrases compose with the ALL scope only — combining them with
       // "these/selected" would contradict the live selection, and that is not
       // claimed (the same ruling the colour and rake grammars made).
       if (!isAll) return null;
-      const lvl = levelScope(levelRaw, ctx);
-      if (lvl === null) return null;
-      base = lvl;
-    } else if (roomRaw !== undefined && roomRaw.length > 0) {
-      if (!isAll) return null;
-      base = { kind: 'room', roomRef: roomRaw.trim().replace(/\s+/g, ' ') };
+      base = tail.scope;
     } else {
       base = isAll ? 'all' : 'selection';
     }

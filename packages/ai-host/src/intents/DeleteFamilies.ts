@@ -71,6 +71,11 @@
 
 import type { ElementFilter, IntentScope, IntentSpatialScope } from './ScopeDescriptor.js';
 import { parseFilterClauses } from './FilterScope.js';
+import {
+  SPATIAL_TAIL_SRC,
+  joinTailPhrase,
+  readSpatialTail,
+} from './SpatialScopeTail.js';
 import type {
   CapabilityExecutionSpec,
   SpecValueOutcome,
@@ -238,23 +243,10 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** "this floor" / "the current level" → the level the user is standing on. */
-const HERE_RE = /^(?:this|the current|current)(?:\s+(?:floor|level|storey|story))?$/;
-
-function levelScope(
-  raw: string,
-  ctx: ResolverContext | undefined,
-): IntentSpatialScope | null {
-  const q = raw.trim().replace(/\s+/g, ' ');
-  if (q.length === 0) return null;
-  if (HERE_RE.test(q)) {
-    // "this floor" is only answerable when the context knows which floor that
-    // is. Without an active level it is not a scope — it is a guess.
-    const active = ctx?.levels.find((l) => l.id === ctx.activeLevelId);
-    return active === undefined ? null : { kind: 'level', levelQuery: active.name };
-  }
-  return { kind: 'level', levelQuery: q.replace(/\s*(?:floor|level|storey|story)$/, '').trim() || q };
-}
+// §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — the local `HERE_RE` + `levelScope` and
+// the hand-written `on`→level / `in`→room tail are gone; both now come from
+// `SpatialScopeTail`. This family had the SAME defect the dimension family did:
+// "delete all windows in level 2" resolved to a ROOM called "level 2".
 
 interface CompiledDeleteFamily {
   readonly family: DeleteFamily;
@@ -269,7 +261,7 @@ const COMPILED: readonly CompiledDeleteFamily[] = DELETE_FAMILIES.map((family) =
     family,
     re: new RegExp(
       `^${DELETE_VERB} (?:the )?(${SCOPE_ALL})?\\s*(?:the )?(?:${nouns})s?` +
-      `(?: on (?:the )?(?:levels?|floors?\\s+)?([\\w .-]+?)| in (?:the )?([\\w .-]+?))?$`,
+      SPATIAL_TAIL_SRC + `$`,
     ),
   };
 });
@@ -289,16 +281,18 @@ export function parseDeleteScopedIntent(
     const m = re.exec(lifted.stripped);
     if (m === null) continue;
     const scopeWord = m[1];
-    const levelRaw = m[2];
-    const roomRaw = m[3];
+    // Groups 2/3/4 are `SPATIAL_TAIL_SRC`'s.
+    const tail = readSpatialTail(m[2], joinTailPhrase(m[3], m[4]), ctx);
 
     let base: 'all' | IntentSpatialScope | null = null;
-    if (levelRaw !== undefined && levelRaw.length > 0) {
+    if (tail.kind === 'scope') {
       // A place beats the article: "clear the furniture on this floor" is a
       // level ask even though it says "the".
-      base = levelScope(levelRaw, ctx);
-    } else if (roomRaw !== undefined && roomRaw.length > 0) {
-      base = { kind: 'room', roomRef: roomRaw.trim().replace(/\s+/g, ' ') };
+      base = tail.scope;
+    } else if (tail.kind === 'unusable') {
+      // A place was named and could not be resolved. NOT claimed — and above
+      // all never widened to 'all', which on a DELETE would be catastrophic.
+      return null;
     } else if (scopeWord !== undefined && new RegExp(`^${SCOPE_ALL}$`).test(scopeWord)) {
       base = 'all';
     }

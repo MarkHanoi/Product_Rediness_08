@@ -133,6 +133,23 @@ export type {
   IntentSpatialScope,
   IntentFilterScope,
 } from './intents/ScopeDescriptor.js';
+// §FIX-HOSTED-LEVEL-SCOPE (L-1201) — "which elements are on this level" for
+// element kinds whose level lives on their HOST WALL (windows, doors). PURE and
+// DERIVED from the record shape, so the editor-side resolver does not carry a
+// hand-maintained list of hosted kinds.
+export { resolveLevelScopeByHost, isHostDerivedKind } from './intents/HostedOpeningScope.js';
+export type { LevelBearingRow, HostedLevelResolution } from './intents/HostedOpeningScope.js';
+// §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE level-vs-room ruling, in one place.
+export {
+  readSpatialTail,
+  parseTrailingSpatialScope,
+  joinTailPhrase,
+  stripTrailingLevelNoun,
+  SPATIAL_TAIL_SRC,
+  SPATIAL_PREPOSITION_SRC,
+  LEVEL_NOUN_SRC,
+} from './intents/SpatialScopeTail.js';
+export type { SpatialTailReading } from './intents/SpatialScopeTail.js';
 // RAC U8 — the filter grammar's COPY, so the editor-side resolver speaks the
 // same words the pure layer does (one vocabulary, never two).
 export {
