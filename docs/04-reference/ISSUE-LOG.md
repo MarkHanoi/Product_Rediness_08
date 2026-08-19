@@ -11307,3 +11307,69 @@ only, so an IFC export carries no per-panel kind either.
 have delivered the founder's sentence.** The bridge diagnosis was correct about a real loss and
 wrong about *which* loss the user sees. **Measure at the layer the user experiences — a hop-by-hop
 trace of the wrong payload is still a rigorous answer to the wrong question.**
+
+---
+
+## L-1090 — TWO FACADES CLAIM ONE ROLE: `@pryzm/protocol` and `@pryzm/plugin-sdk` both declare themselves the stability boundary, and the SDK bypasses protocol to reach the schemas
+
+**Found** 2026-08-19, lane KT1, while gathering evidence for `docs/01-strategy/STR-17-computational-geometry-capability-evidence.md` and minting [C76 §1.4](../02-decisions/contracts/C76-PLATFORM-AND-API-SURFACE.md).
+
+**Both packages state the same exclusive claim, in their own headers:**
+
+- `packages/protocol/src/index.ts:1-6` — *"L1 stores, sync, AI, and plugin authors import from here;
+  never directly from `@pryzm/schemas`. **This barrel is what we promise stability on.**"*
+- `packages/plugin-sdk/src/index.ts:22-23` — *"Anything you can import from here is locked for v1.x
+  per ADR-0038 §A. Anything not exported here is internal and may move."*
+
+**And the SDK does exactly what protocol forbids:** `plugin-sdk/src/index.ts:232` is
+`export * from '@pryzm/schemas'` — a wildcard re-export of the whole schema barrel, **bypassing
+`@pryzm/protocol` entirely**. Measured 2026-08-19: 867 import statements from `plugins/` reach
+`@pryzm/plugin-sdk`; the package that promises DTO stability is **not on the path plugins take**.
+
+**Why this is a defect and not a naming preference.** Two artefacts answering one question is
+**C84 EI-9**. The practical bite is that `@pryzm/protocol`'s promise has **no enforcement** — no gate
+diffs its barrel (C76 §8 N6) — so a consumer that believed the header and imported from `protocol`
+has a *weaker* guarantee than one that ignored it and used the SDK, which at least has a locked
+symbol set and a CHANGELOG.
+
+⛔ **Blocking rule, now in C76 §1.4.1: neither barrel may be NARROWED until this is decided** — a
+narrowing under an undecided ownership question breaks consumers of whichever turns out to be
+authoritative. Three end-states are costed in C76 §1.4 (F-1 SDK sole facade · F-2 protocol beneath
+the SDK · F-3 both stand with disjoint stated audiences).
+
+**Status: OPEN.** This is an ownership decision, not a patch.
+
+---
+
+## L-1091 — THE PUBLIC FACADE'S SURFACE CANNOT BE COUNTED, SO THE v1.x LOCK IS ASSERTED OVER A SET NOTHING ENUMERATES
+
+**Found** 2026-08-19, lane KT1, minting [C76 §1.5 / §8 N1](../02-decisions/contracts/C76-PLATFORM-AND-API-SURFACE.md).
+
+`packages/plugin-sdk` promises the strongest stability guarantee in the repo — locked for v1.x, with
+**breaking changes requiring v2.0.0 plus a one-year deprecation cycle** (`CHANGELOG.md`). It is the
+only workspace package at v1.0.0 and it publishes publicly as `@pryzm/sdk`.
+
+**But its surface is not enumerable.** `src/index.ts` (693 lines) contains **5 wildcard
+re-exports** (`export * from …`), among them the entire `@pryzm/schemas` barrel at `:232`.
+Measured 2026-08-19:
+
+```
+$ grep -c 'export' packages/plugin-sdk/src/index.ts      # 61  — but 5 are wildcards
+$ wc -l packages/plugin-sdk/src/index.ts                 # 693
+```
+
+**A wildcard means the public surface grows silently whenever an upstream barrel grows.** No import
+into `plugin-sdk` is required for a new symbol to become part of a v1.x-locked public API — an
+unrelated addition to `@pryzm/schemas` is sufficient. The v1.0.0 release recorded an API surface
+diff of *"26/26 locked symbols, 0 breaking changes"*, and that diff cannot have covered the
+wildcards.
+
+⭐ **The transferable lesson, and it is the same shape as L-809's:** *a guarantee whose subject
+cannot be measured is not weaker than it looks — it is unfalsifiable.* The lock in `index.ts:22-23`
+reads as the strongest sentence in the platform and is the **least checkable** thing in it. This is
+why C76 §8 records it as **N1**, at the top of the NOT-MEASURED register.
+
+**Exit condition (C76 §1.5):** every `export *` in the facade is replaced by an enumerated export
+list, **or** an artefact generates the resolved symbol set so it can be diffed release to release.
+
+**Status: OPEN.**

@@ -755,8 +755,20 @@ The governance artefacts are a **99-contract suite** with a declared conflict-re
 (strategy → architecture → contracts → **268** ADRs → **96** SPECs), and *"when code disagrees with a
 contract, the code is wrong."*
 
-The discipline that matters for engineering leadership is narrower: **an unmeasured row may not be
-recorded as a measured one.** The C84 datum row (§4.2) had been marked LATENT *"on the stated ground
+The discipline that matters for engineering leadership is narrower, and it is written down as a
+rule rather than practised informally. `C67-RAC-CAPABILITY-CONTROL-PLANE.md:110-112`, verbatim:
+
+> **Three values, never two: `PASS` != `FAIL` != `UNPROVEN`.** *"UNPROVEN is a different fact from
+> FAIL, and the two are never merged"* ... An UNPROVEN cell is an invitation to measure; a FAIL cell
+> is a defect with an owner; collapsing either into the other destroys the difference.
+
+`C70 §3.4` extends it to composed systems: *"a chain containing an UNPROVEN link scores as
+incomplete, never as passing. This is the rule that stops 'we have no transport' from silently
+reading as 'collaboration is fine'."* And the failure mode has a named anti-pattern - *"Reporting
+UNPROVEN as a blank, a zero, or a pass"* - alongside the observation that a register where every
+cell reads UNPROVEN and the FAILED tally is 0 is *"maximally broken, maximally green."*
+
+The corollary is the one that bites: **an unmeasured row may not be recorded as a measured one.** The C84 datum row (§4.2) had been marked LATENT *"on the stated ground
 that nothing authors either offset non-zero"* — and **nobody had tested that ground**. The
 correction names the failure exactly: *"an assumption recorded in the NOT-MEASURED register as
 though it were a measurement."* The defect was live and 350 mm.
@@ -788,7 +800,7 @@ written artefact. Measured throughput under that model:
 |---|---|
 | `git log --since='2026-08-19 00:00' --oneline \| wc -l` | **75** commits (partial day) |
 | `git log --since='2026-08-18 00:00' --until='2026-08-19 00:00' --oneline \| wc -l` | **197** commits |
-| `grep -c '^### L-' docs/04-reference/ISSUE-LOG.md` | **219** logged defects, each with the measurement that establishes it |
+| `grep -oE '^(#+ \| \| *)L-[0-9]+' docs/04-reference/ISSUE-LOG.md \| grep -oE 'L-[0-9]+' \| sort -u \| wc -l` | **949** distinct logged defects (highest id `L-1086`), each with the measurement that establishes it |
 
 The mechanics, stated factually:
 
