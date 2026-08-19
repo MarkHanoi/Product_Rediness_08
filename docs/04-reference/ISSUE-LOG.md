@@ -12588,3 +12588,48 @@ touched any of those files and will not.
 **Consequence for everyone, which is why this is logged rather than mentioned:** `npm run build`
 runs `tsc --skipLibCheck` before `vite build`, so **while this stands, nobody's work can be built or
 deployed** — and any lane using root tsc as its gate will read a red tree it did not cause.
+
+---
+
+## L-1070 — CW-1 (TAB sub-element selection) was ALREADY BUILT, and my own "this is the whole of the work" was prose ⚠ RETRACTION (CW1, 2026-08-19)
+
+**Step 4 of the founder's specification required no code.** TAB sub-element cycling for curtain walls
+is implemented end to end in production, and every link was located:
+
+| Link | Site |
+|---|---|
+| TAB key, gated on a curtain wall being selected | `SelectionManager.ts:1164-1174` |
+| The ordered ring — *"panels first (row-major), then vertical mullions, then horizontal mullions"* | `:2462-2464` → `buildSubElementList()` |
+| Advance, and wrap back to the parent wall | `:2469-2481` |
+| Amber highlight on the focused sub-element | `:2487` |
+| Hand-off to the panel | `:2489` → `updateInspector(cwGroup)` |
+| → `inspector.update(obj)` → `PropertyPanelAdapter.update:73` → `panel.showElement(obj)` | `engineLauncher.ts:289` |
+| → retargets to `CurtainSubElementPanel` | `PropertyPanel.ts:753-775` |
+
+**AND MY DIAGNOSIS OF THE BLOCKER WAS WRONG.** C87 §13.3 CW-Sel-3 said, in my words and marked
+⛔ *"THIS IS THE WHOLE OF CW-1's WORK"*: that `window.__curtainSubElement` is consumed-and-cleared on
+read, making it *"a one-shot MESSAGE where TAB needs STATE."*
+
+Measured: the TAB **state** is `this.cwSubElements` + `this.cwSubElementIndex`, held **inside
+`SelectionManager`** (`:115-118`). The window slot is genuinely a **message** to the panel — exactly
+the role `CurtainSubElementTypes.ts:10-13` documents — and **consume-on-read is correct for a
+message.** There was no "one-shot where state is needed" problem. There was a message doing a
+message's job, sitting next to state doing state's job, and **I read the first without looking for
+the second.**
+
+⭐ **THIS IS THE THIRD TIME IN THIS LANE THAT A "BUILD THIS" ITEM WAS ALREADY BUILT** — §13.3's own
+opening census found the property-panel retargeting already present; this entry finds the gesture.
+**Census the feature before designing the fix.** And the sharper half: my claim was propagated back
+to me by the coordinator as the plan for step 4, so a single unmeasured sentence became an agreed
+work item. **An architectural claim about a mechanism not traced to its consumer is prose — and prose
+is what C87 §11 rows 2, 11 and 14 all turned out to be.** I have now added a fourth to that list, and
+it is mine.
+
+**What is actually left of CW-1: nothing.** The residue belongs to other sections — mullions are
+selectable but **read-only** (C87 §13.6 CW-4), and per-panel attributes beyond type/colour do not
+exist (§13.4 CW-2).
+
+⚠ **NOT EXECUTED, and stated as such.** This is a READING of the path, link by link — not a browser
+session. §committed-is-not-reachable applies to me here too: a reading cannot establish that the
+highlight and the panel actually appear on a TAB press in a running editor. **Founder-verifiable**,
+and listed with the other item of that kind (the *"I can swap panels"* contradiction, C87 §12).

@@ -1246,20 +1246,46 @@ the denormalised `levelName` / `levelElevation` copies that go stale on a level 
   `CurtainSubElementPanel.ts:13-15` already states this invariant and it is retained deliberately.
   **A sub-element is a property-editing focus, not a transformable element**, until CW-8 says
   otherwise.
-- ⛔ **CW-Sel-3 — THIS IS THE WHOLE OF CW-1's WORK. DO NOT RE-SCOPE IT AS "ADD A TAB HANDLER".**
-  `window.__curtainSubElement` is a `(window as any)` slot (P4) that is **consumed-and-cleared on
-  read** (`PropertyPanel.ts:754-755`). **It is a one-shot MESSAGE, and TAB needs STATE.**
-  Nothing can ask *"what is focused right now?"* — the only reader destroys the answer — so there is
-  no "next" for TAB to advance from and no way for a second surface (the ribbon, a RAC capability,
-  the gizmo) to agree with the panel about what is selected.
-  > **Restated so the estimate cannot drift:** the UI half of CW-1 is BUILT (§13.3's census). The
-  > work is replacing a self-erasing global with **addressable focus state** —
-  > `{ hostId, kind: 'panel' | 'mullion', ref }` — that survives being read, and re-pointing the one
-  > existing reader at it. **It is also NOT the thing it is easily mistaken for:** the blocker is not
-  > *"`SelectionManager` cannot hold a sub-element identity"*. It can and does. The identity it holds
-  > is simply erased by the act of reading it. A lane that starts by extending `SelectionManager`
-  > will have solved the wrong problem — and will have done it inside the click handler L-1002
-  > already made expensive (CW-Sel-4).
+- ~~**CW-Sel-3 — THIS IS THE WHOLE OF CW-1's WORK. DO NOT RE-SCOPE IT AS "ADD A TAB HANDLER".**
+  `window.__curtainSubElement` is consumed-and-cleared on read, so it is a one-shot MESSAGE and TAB
+  needs STATE…~~
+  ⛔ **RETRACTED 2026-08-19 (L-1070) — THIS WAS WRONG, AND IT WAS WRONG IN THE EXACT WAY THIS
+  CONTRACT EXISTS TO CATCH: A CONFIDENT CLAIM WITH NO MEASUREMENT UNDER IT.** I wrote it, marked it
+  the whole of CW-1's work, and it was propagated back to this lane as the plan for step 4.
+  **TAB sub-element cycling is ALREADY IMPLEMENTED, END TO END, IN PRODUCTION CODE.** Every link
+  located 2026-08-19:
+
+  | Link | Site |
+  |---|---|
+  | TAB key, gated on a curtain wall being selected | `SelectionManager.ts:1164-1174` (`e.preventDefault()`, then `cycleSubElement`) |
+  | The ordered ring | `:2462-2464` → `buildSubElementList()` — *"panels first (sorted row-major), then vertical mullions, then horizontal mullions"* |
+  | Advance + wrap back to the parent wall | `:2469-2481` |
+  | Amber highlight on the focused sub-element | `:2487` `showSubElementHighlight()` |
+  | Hand-off to the panel | `:2489` `window.__curtainSubElement = subEl`, then `updateInspector(cwGroup)` |
+  | … which is | `engineLauncher.ts:289` → `inspector.update(obj)` → `PropertyPanelAdapter.update:73` → `panel.showElement(obj)` |
+  | … which retargets | `PropertyPanel.ts:753-775` → `CurtainSubElementPanel` |
+
+  **AND THE CARRIER IS NOT THE DEFECT I CALLED IT.** The TAB *state* is
+  `this.cwSubElements` + `this.cwSubElementIndex`, held **inside `SelectionManager`** (`:115-118`).
+  `window.__curtainSubElement` is genuinely a **message** to the panel — exactly the role
+  `CurtainSubElementTypes.ts:10-13` documents for it — and **consume-on-read is CORRECT for a
+  message.** There was no "one-shot where state is needed" problem; there was a message doing a
+  message's job, next to state doing state's job, and I read the first without looking for the second.
+
+  ⭐ **THE LESSON, AND IT IS THE THIRD TIME IN THIS LANE:** *before designing the fix, census the
+  feature.* CW-1 was the third "build this" item in this specification that measurement found
+  **already built** (§13.3's own opening census found the property-panel retargeting; this note finds
+  the gesture). **An architectural claim about a mechanism you have not traced to its consumer is
+  prose, and prose is what §11 row 2, row 11 and row 14 all turned out to be.**
+
+  **WHAT IS ACTUALLY LEFT OF CW-1 — measured, and it is small:** nothing. The residue belongs to
+  other sections: mullions are selectable **and read-only** (§13.6 CW-4), and per-panel attributes
+  beyond type/colour do not exist yet (§13.4 CW-2).
+
+  ⚠ **NOT EXECUTED.** This is a READING of the code path, complete and coherent, link by link — it is
+  not a browser session. §committed-is-not-reachable applies to me here too: what a reading cannot
+  establish is whether the highlight and the panel actually appear on a TAB press in a running
+  editor. **That is a founder-verifiable item and is listed as one.**
 - **CW-Sel-4 (BINDING, from L-1002).** `SelectionManager` freed GPU resources inside the click
   handler (L-1002, fixed by GL1). **No work may be added inside the click handler by this lane.**
   TAB handling and focus resolution belong outside it; the grid-derived order is computed from the
