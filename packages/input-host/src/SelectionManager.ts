@@ -969,7 +969,38 @@ export class SelectionManager implements ISelectionManager {
             'bim-plumbing-added', 'bim-plumbing-removed',
             'bim-curtainwall-added','bim-curtainwall-removed',
             'bim-stair-added',    'bim-stair-removed',
-            'bim-railing-added',  'bim-railing-removed',
+            // ⭐ §FIX-HANDRAIL-3D-PICK-CACHE (L-1190) — THE RAILING FAMILY HAS TWO KEYS,
+            // AND THIS LIST WAS LISTENING ON THE DEAD ONE.
+            //
+            // This line used to read `'bim-railing-added', 'bim-railing-removed'`.
+            // Measured 2026-08-19 across `packages/ apps/ plugins/ src/`:
+            // `bim-railing-added` and `bim-railing-removed` have **ZERO emitters** —
+            // nothing in this repository has ever dispatched either. The handrail family
+            // emits `bim-handrail-added` / `-removed` / `-updated` (`HandrailStore.emit`,
+            // ll.202-204) and `UpdateElementParameterCommand` emits `bim-handrail-updated`.
+            // So the ONE listener whose job is to keep the pick caches honest for railings
+            // was **UNSATISFIABLE BY CONSTRUCTION**, exactly like the `doorsRegistered=0`
+            // counter in §PICKDIAG-CASING (L-1173): the instrument could never fire.
+            //
+            // ⛔ WHY THAT MAKES A HANDRAIL UNSELECTABLE IN 3D — the founder's report.
+            // `_selectableCache` is built ONCE (lazily, on the first hover/click) and only
+            // rebuilt when one of these events fires. Both 3-D pick paths read it and
+            // NOTHING else: `_buildElementRegistry()` (the GPU pick's element registry —
+            // an id absent here has no clone in the pick scene, so the pixel under the
+            // cursor belongs to whatever is behind the railing) and `_rebuildBVHFromCache()`
+            // (the ray-prune AABBs). A handrail DRAWN after that first hover therefore
+            // never entered either structure, and no railing event could invalidate it —
+            // the click resolved to the slab/stair underneath, or to nothing. Plan view and
+            // the browser tree select by id and bypass both caches, which is why the
+            // property panel could still show HR046 while the 3-D click could not reach it.
+            //
+            // `-updated` is listed too, and is NOT redundant: `HandrailFragmentBuilder`
+            // disposes and rebuilds the root's CHILDREN on every retype/edit while keeping
+            // the root object. The cached BVH AABB is captured from the OLD children, so
+            // after a type change the ray can miss a stale box and prune the railing out.
+            // (The `-updated` keys on wall/slab/roof/ceiling/floor/furniture exist for the
+            // same reason; railing was simply never given one.)
+            'bim-handrail-added', 'bim-handrail-removed', 'bim-handrail-updated',
             'bim-door-added',     'bim-door-removed',
             'bim-window-added',   'bim-window-removed',
             'bim-ceiling-added',  'bim-ceiling-removed',  'bim-ceiling-updated',
@@ -1024,6 +1055,13 @@ export class SelectionManager implements ISelectionManager {
             'bim-column-updated':      'column',
             'bim-beam-updated':        'beam',
             'bim-stair-updated':       'stair',
+            // §FIX-HANDRAIL-3D-PICK-CACHE (L-1190) — the REAL key the handrail family
+            // rebuilds under. `bim-railing-updated` below IS emitted (exactly once, by
+            // registerTransformDragHandler's no-baseline snap-back) so it stays; but it
+            // was the ONLY railing entry here, which meant a handrail whose mesh was
+            // rebuilt by a type change or a property edit never re-bound its gizmo — the
+            // §SELECT-GIZMO-REATTACH crash-and-wedge this table exists to prevent.
+            'bim-handrail-updated':    'handrail',
             'bim-railing-updated':     'railing',
             'bim-curtainwall-updated': 'curtainwall',
             'bim-plumbing-updated':    'plumbing',

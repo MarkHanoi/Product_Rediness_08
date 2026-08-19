@@ -733,7 +733,11 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
             'bim-roof-added',       'bim-roof-removed',       'bim-roof-updated',
             'bim-curtainwall-added','bim-curtainwall-removed',
             'bim-stair-added',      'bim-stair-removed',
-            'bim-railing-added',    'bim-railing-removed',
+            // §FIX-HANDRAIL-3D-PICK-CACHE (L-1190) — `bim-railing-added` /
+            // `bim-railing-removed` have ZERO emitters repo-wide (measured 2026-08-19);
+            // the family emits `bim-handrail-*` from `HandrailStore.emit`. Same dead key
+            // as SelectionManager's selectable-cache list, copied here.
+            'bim-handrail-added',   'bim-handrail-removed',
             'bim-door-added',       'bim-door-removed',
             'bim-window-added',     'bim-window-removed',
         ];
