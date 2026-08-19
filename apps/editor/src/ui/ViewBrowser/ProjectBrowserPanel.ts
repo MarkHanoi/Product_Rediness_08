@@ -33,6 +33,13 @@ import { RenderRailPanel }               from '../tools-panel/panels/RenderRailP
 // out of the dev-only modelTreeTestModal. Reuses the canonical ModelTreeComponent
 // + ProvenanceTab + isolation pipeline.
 import { buildInspectPanel, type InspectPanelHandle } from '../inspect/InspectPanel';
+// §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the GIS panel RENDERS the declared action
+// registry; it does not carry a button list of its own. This is the founder's
+// "make sure all these buttons are in the GIS tab" consolidation: the top view-mode
+// switch, the "3D Site" sub-bar and the bottom-left floating pill stack all name the
+// SAME actions, so the actions are declared once and every surface renders them.
+import { renderGisActions } from '../gis/renderGisActions';
+import type { GisCapabilityHost } from '../gis/gisActionRegistry';
 
 // ── Section icon map ───────────────────────────────────────────────────────
 
@@ -755,6 +762,25 @@ export class ProjectBrowserPanel {
         root.appendChild(makeBtn('✈', 'Fly To Reference',     () => this._props.gisFlyTo?.()));
         root.appendChild(makeBtn('📍', 'Place BIM on Earth',  () => this._props.gisPlaceBim?.()));
 
+        // §GIS-ACTION-REGISTRY (L-1187) — RESTORED ROUTE, not a new feature.
+        //
+        // `openSiteInspectorPanel` (A.8.f — the authored C19 SiteModel: address,
+        // lat/lon, parcel area, boundary thumbnail) had exactly ONE caller in the whole
+        // app: `GISRailPanel.ts`, a class that is never instantiated anywhere. So the
+        // Site Inspector has been unreachable, not merely buried — a verdict-(b) sole
+        // route sitting on a verdict-(c) dead surface. Deleting that file without this
+        // line would have deleted the capability along with the corpse.
+        //
+        // It is a plain button rather than a registry action because its dispatch is a
+        // MODULE export, not one of the `window.pryzm*` entry points the registry
+        // resolves. That asymmetry is known residue: the registry should grow a
+        // module-backed action kind so this too is declared rather than hand-written.
+        root.appendChild(makeBtn('📐', 'Site Inspector', () => {
+            void import('../site/SiteInspectorPanel')
+                .then((m) => m.openSiteInspectorPanel(this.runtime))
+                .catch((err) => console.error('[GIS] open site inspector failed:', err));
+        }));
+
         // Gizmo controls
         const gizmoHdr = document.createElement('div');
         gizmoHdr.style.cssText = [
@@ -792,6 +818,28 @@ export class ProjectBrowserPanel {
         const resetBtn = makeBtn('↺', 'Reset Georeference', () => this._props.gisResetGeoreference?.());
         resetBtn.style.marginTop = '2px';
         root.appendChild(resetBtn);
+
+        // ── §GIS-ACTION-REGISTRY (L-1187, C06 §11) — the consolidated site controls ──
+        //
+        // The founder boxed three separate chrome surfaces (the top view-mode switch,
+        // the "3D Site" sub-bar and the bottom-left floating pill stack) and drew
+        // arrows from all of them to this panel's globe icon. They are rendered here
+        // from ONE declaration, grouped by function, rather than copied in as a fourth
+        // hand-written list — see `gisActionRegistry.ts` for why that distinction is
+        // the whole fix.
+        //
+        // `window` is the host because the entry points these actions dispatch are the
+        // typed `window.pryzm*` globals GISAreaLayout registers at boot (globals.d.ts).
+        // Re-hosting the EXISTING dispatch is the rule; copying a handler in here is
+        // exactly how the two rival GIS panels came to disagree.
+        //
+        // Actions with no registered entry point render DISABLED with their reason
+        // shown — they are not painted as live buttons. `gisActionRegistry.test.ts`
+        // fails the build if that ever stops being true.
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px;background:var(--app-border,#dde3ef);margin:8px 0 2px;';
+        root.appendChild(sep);
+        root.appendChild(renderGisActions(window as unknown as GisCapabilityHost));
 
         return root;
     }
