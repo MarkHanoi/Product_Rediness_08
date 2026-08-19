@@ -91,7 +91,14 @@ let inFlight: Promise<void> | null = null;
  * Best-effort + fully guarded at every step: a missing hook degrades to a plain GIS exit
  * rather than stranding the user on the map. Never throws.
  */
+// §UX1-PANEL-DEFAULTS D6 — this module is the canonical "we are done, show the white
+// BIM canvas" transition, so it is the right place to latch the app phase. Declaring it
+// HERE rather than at each caller is the same discipline the panel table itself enforces:
+// one place, not a scatter. The latch is one-way, so calling it more than once is free.
+import { setAppPhase } from '../../layout/panelDefaults';
+
 export function enterCanvasWithSitePlanUnderlay(): Promise<void> {
+    setAppPhase('canvas');
     if (inFlight) return inFlight;
     inFlight = runLanding().finally(() => { inFlight = null; });
     return inFlight;

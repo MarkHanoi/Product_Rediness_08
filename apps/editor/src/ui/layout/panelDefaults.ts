@@ -302,7 +302,15 @@ export const PANEL_REGISTRY: readonly PanelDescriptor[] = [
         why:
             'The primary command surface (C82), and named explicitly by the founder as one of the ' +
             'three things to KEEP in both phases. Hiding it would make most of the product’s verbs ' +
-            'unreachable in one move — the defect C82 §1.2 forbids.',
+            'unreachable in one move — the defect C82 §1.2 forbids. ' +
+            '⚠ MEASURED CONTRADICTION, recorded rather than smoothed over: this row says "open", ' +
+            'but `PlatformProjectBrowser.buildToolbar()` inserts `.plat-toolbar` into ' +
+            '`.plat-left-panel`, and no file in the tree creates that node — so the toolbar is ' +
+            'built and left DETACHED (§L-MOUNT-DETACH, ISSUE-LOG L-870). The founder’s screenshot ' +
+            'shows an Author/Inspect/Data bar, so either production runs an older build or the bar ' +
+            'is rendered by a path this lane has not measured. This row states the INTENT (it must ' +
+            'stay visible) and is not a claim that it currently is. Nothing here hides it, so the ' +
+            'row is safe either way — but it must not be read as evidence the bar is on screen.',
     },
     {
         id: 'left-icon-strip',
@@ -424,12 +432,50 @@ export function appPhase(): AppPhase {
  * Declare the phase. Idempotent — re-declaring the current phase notifies nobody,
  * so a caller may fire this defensively on every view change without causing a
  * re-layout storm. Returns TRUE when the phase actually changed.
+ *
+ * ⭐ **The transition is a ONE-WAY LATCH: `onboarding-globe` → `canvas`, never
+ * back.** This is the founder's own framing — *"until we arrive to the PRYZM
+ * canvas"* — and it is also the only version that is safe.
+ *
+ * The tempting alternative is to mirror the active view: on the globe ⇒ globe
+ * phase, on a BIM view ⇒ canvas phase. That breaks the moment a user who is
+ * working on the canvas clicks the "PRYZM Earth" pill to look at the site again.
+ * Mirroring would flip them back to the globe phase and take the launcher rail
+ * away — including the pills they need to get back — which is precisely the
+ * "a capability became unreachable" defect this lane exists to prevent, arrived
+ * at by being too clever about phases.
+ *
+ * So the phase answers "has this session reached the canvas yet?", not "what am
+ * I looking at?". Visiting the globe afterwards is a canvas-phase user looking
+ * at a globe, and their chrome stays. A genuinely new onboarding — a different
+ * project — resets it through {@link resetAppPhaseForNewProject}, which is
+ * explicit precisely so it can never happen by accident.
  */
 export function setAppPhase(phase: AppPhase): boolean {
     if (phase === currentPhase) return false;
+    if (currentPhase === 'canvas' && phase === 'onboarding-globe') {
+        // Not an error — callers may fire this from a view change in good faith.
+        // Refused, and said out loud rather than silently ignored.
+        console.debug('[panelDefaults] phase latch: staying on "canvas" (the globe is now just another view).');
+        return false;
+    }
     currentPhase = phase;
     for (const cb of [...phaseListeners]) {
         try { cb(phase); } catch (e) { console.warn('[panelDefaults] phase listener threw (non-fatal):', e); }
+    }
+    return true;
+}
+
+/**
+ * Re-arm the latch for a genuinely new guided setup (a different project). Kept
+ * separate from {@link setAppPhase} so that "start a new onboarding" can never be
+ * expressed by accident from a view-change handler.
+ */
+export function resetAppPhaseForNewProject(): boolean {
+    if (currentPhase === 'onboarding-globe') return false;
+    currentPhase = 'onboarding-globe';
+    for (const cb of [...phaseListeners]) {
+        try { cb('onboarding-globe'); } catch (e) { console.warn('[panelDefaults] phase listener threw (non-fatal):', e); }
     }
     return true;
 }

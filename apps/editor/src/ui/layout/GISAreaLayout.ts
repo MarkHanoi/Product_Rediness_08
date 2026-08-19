@@ -20,9 +20,16 @@ import {
     panelDefaultOpen,
     setPanelOpen,
     isPanelOpen,
+    panelAbsent,
+    setAppPhase,
     resetPanelLayout,
     onPanelLayoutReset,
+    onAppPhaseChanged,
 } from './panelDefaults';
+// §UX1-PHASE-CHROME — the one module that turns the phase decision into
+// `style.display`. Installed here because `mountGISArea` is on the editor's boot
+// path and this file already owns the launcher rail the phase governs.
+import { installPhaseChrome } from './phaseChrome';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the one-shot onboarding→engine-boot seam that asks
 // this layout to start the Cesium init in parallel with the rest of the boot, plus the startup
@@ -789,6 +796,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // reference; the first rp.render() threw, _hasPipelineError latched
         // true, and the scene appeared frozen.
         if (props._viewController) {
+            // §UX1-PANEL-DEFAULTS D6 — activating a BIM view means the white canvas has
+            // been reached, which is the founder's own boundary ("until we arrive to the
+            // PRYZM canvas"). The phase is a ONE-WAY LATCH, so a later trip back to the
+            // globe does not undo this and the user keeps their rail — see setAppPhase.
+            setAppPhase('canvas');
             await props._viewController.activate(mode);
         } else if (props.navManager) {
             // Fallback: pre-ViewController callers; grid.fade must be set manually.
@@ -4447,6 +4459,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
     const mountSiteViewLauncher = (): void => {
         try {
+            // §UX1-PANEL-DEFAULTS D6 — SKIP-MOUNT, not hide. While the user is on the
+            // PRYZM Earth globe during onboarding the whole rail is `absent`, so none
+            // of these pills is created, styled or wired at all. This is the strong
+            // form of absence (see `phaseChrome.ts` — the two enforcement levels are
+            // deliberately different words). It is sound ONLY because every panel the
+            // rail re-opens is also `absent` in that phase; `panelDefaults.spec.ts`
+            // asserts exactly that pairing, so this early return can never silently
+            // strand a capability.
+            //
+            // `installPhaseChrome()` re-runs on the phase change and this function is
+            // idempotent, so the rail appears the moment the canvas is reached.
+            if (panelAbsent('launcher-rail')) {
+                console.log('[gis][panels] launcher rail not mounted — phase is the onboarding globe (§UX1-PANEL-DEFAULTS).');
+                return;
+            }
             const viewport = document.getElementById('container');
             if (!viewport) return;
             if (document.getElementById('pryzm-site-view-launcher')) return; // idempotent
@@ -4664,6 +4691,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
     mountSiteViewLauncher();
+    // §UX1-PHASE-CHROME — install the phase→DOM applier once, and re-try the rail
+    // mount when the phase flips (the skip-mount above returns early on the globe,
+    // so something has to ask again once the canvas is reached; `installPhaseChrome`
+    // only shows/hides what already exists, it cannot create the rail).
+    try {
+        installPhaseChrome();
+        onAppPhaseChanged(() => mountSiteViewLauncher());
+    } catch (e) {
+        console.warn('[gis][panels] phase-chrome install failed (non-fatal):', e);
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the site-authoring split.
