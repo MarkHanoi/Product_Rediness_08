@@ -45,10 +45,22 @@ import type { WallData } from '../src/WallTypes';
  * it is not on the save path (`ProjectSerializer.ts:267-275`), and pinning a dead
  * copy would give a false sense that persistence was covered.
  */
+// §FIX-SIDEFINISH-PERSISTS (L-999) — `sideFinishes` joined this list because B4 in
+// `WallProfileNonRegressionBaseline.test.ts` compares this MIRROR against the real
+// serialiser, and B4 names THIS file as the thing to update rather than itself.
+// Without the field the round-trip walk below keeps passing while proving nothing
+// about it — the licensed-copy hazard C84 EI-8a describes.
+//
+// ⚠ KEEP COMMENTS OUT OF THE ARRAY LITERAL BELOW. B4 extracts the field names with
+// a plain /'([^']+)'/g sweep over the captured block, so a single apostrophe inside
+// it (an English possessive is enough) is read as a quote and the extracted list
+// turns to fragments. Measured: putting this note inside the brackets turned B4 RED
+// with entries like ", " and "s licensed-copy hazard exactly.". Notes go here.
 const SERIALISED_WALL_FIELDS = [
     'id', 'type', 'levelId', 'parentId', 'baseLine', 'height', 'thickness',
     'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
-    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'wallProfile', 'joinIntent',
+    'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'wallProfile',
+    'sideFinishes', 'joinIntent',
     'properties', 'ifcData', 'metadata', 'loadBearing',
 ] as const;
 

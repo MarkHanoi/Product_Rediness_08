@@ -703,6 +703,15 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             // §WALL-PROFILE Slice 1. This pin FAILED when the field was added, which is the
             // pin working: a new authored field must be a deliberate, visible edit here.
             'wallProfile',
+            // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995). THIS PIN FAILED TOO, and it is the
+            // second time this control has done its job. `sideFinishes` was ALREADY a field
+            // on the record and ALREADY written by `SetWallSideFinishCommand` — it was this
+            // whitelist that dropped it, so the chat said "Set the interior finish of all 17
+            // walls on Ground to Wood · Oak (Light). Done" over a model nothing had touched.
+            // Added to the forward projection (B1b) and to this restore projection in the
+            // SAME commit, because carrying a field forward and not back is C84 EI-7a
+            // (WRITES ⊋ RESTORES) — undo would have left the new finish standing.
+            'sideFinishes',
         ]);
     });
 
@@ -711,6 +720,7 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             'baseLine', 'height', 'thickness', 'baseOffset', 'materialId', 'materialColor',
             'properties', 'curve', 'layers', 'systemTypeId',
             'wallProfile',   // §WALL-PROFILE Slice 1 — see B1
+            'sideFinishes',  // §FIX-SIDEFINISH-REACHES-AUTHORITY (L-995) — see B1
             '_renderVersion',
         ]);
     });
@@ -741,6 +751,11 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
             'layers', 'systemTypeId', 'curve', 'rakeAngleDeg',
             'wallProfile',   // §WALL-PROFILE Slice 1 — C84 EI-6: authored data MUST round-trip
+            // §FIX-SIDEFINISH-PERSISTS (L-999) — same clause, same reason. C85 §5 row 23 and
+            // §11 row 6 both pinned `sideFinishes` as NEVER SERIALISED; with the L-995 write
+            // fixed and this list unchanged, "Done" would have been true for the session and
+            // false after the next reload — the same false success with a delay fuse.
+            'sideFinishes',
             'joinIntent',
             'properties', 'ifcData', 'metadata', 'loadBearing',
         ]);
@@ -757,6 +772,7 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
         expect(keys).toEqual([
             'start', 'end', 'height', 'thickness', 'levelId', 'baseOffset',
             'materialId', 'materialColor', 'curve', 'ifcGuid', 'rakeAngleDeg',
+            'sideFinishes',  // §FIX-SIDEFINISH-PERSISTS (L-999) — the LOAD half for the finish
             'wallProfile',   // §WALL-PROFILE Slice 1 — the LOAD half, the one most easily missed
             'systemTypeId', 'layers', 'joinIntent',
         ]);
