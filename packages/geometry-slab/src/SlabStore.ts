@@ -272,6 +272,80 @@ export class SlabStore {
         }
     }
 
+    /**
+     * §L-1032 — MOVE a slab to a different storey.
+     *
+     * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ───────
+     * `update()` above is a WHOLE-RECORD REPLACE (`structuredClone(nextState)` →
+     * `freeze` → `set`). Handed a one-key `{levelId}` partial it leaves the slab
+     * as `{levelId}` — no id, no boundary, no thickness — frozen, still under its
+     * own key, with zero diagnostics. That is L-977, and it is exactly what
+     * `elementUndoStoreAdapter`'s generic field arm would do on Ctrl+Z if this
+     * method did not exist: the adapter tests `typeof store.changeLevel ===
+     * 'function'` before routing a `levelId` inverse patch, and a family that
+     * fails that test falls through to the annihilating write.
+     *
+     * So the operation gets its own name, symmetric with `WallStore.changeLevel`
+     * (`packages/geometry-wall/src/WallStore.ts:1055`) and
+     * `RoofStore.changeLevel` (`packages/geometry-roof/src/RoofStore.ts:153`).
+     *
+     * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ──────────────────────────
+     * `WallStore.changeLevel` emits `remove` then `add` because a wall carries
+     * JOIN state that must be torn down on the old storey and re-resolved on the
+     * new one. A slab carries no join state — `SlabFragmentBuilder` re-derives
+     * `worldY = level.elevation + slabBaseOffset + baseOffset` (C92 §10) on every
+     * update and repositions the root — so one `update` is everything the
+     * renderer needs, and a spurious `remove` would tear down the mesh and any
+     * wall pinned to the slab's perimeter along with it.
+     *
+     * ─── WHAT THIS DOES NOT DO ──────────────────────────────────────────────
+     * Spatial-authority registration (bimManager `level.childrenIds`, the
+     * view-dependency element→level map) is NOT updated here — identical to the
+     * contract `WallStore.changeLevel` and `RoofStore.changeLevel` both state in
+     * their own doc comments. `elementLevelChangedMirror.applyElementLevelChange`
+     * owns that half, and it owns it for every family so the ordering rule (move
+     * the record FIRST, re-register SECOND, dirty BOTH storeys THIRD) lives in
+     * one place rather than in thirteen stores.
+     *
+     * Returns the moved record, or `undefined` when there is nothing to move —
+     * which the mirror reports as a refusal rather than logging success over a
+     * no-op (§context-data-honesty: failure and emptiness are the same value).
+     */
+    changeLevel(id: string, newLevelId: string): SlabData | undefined {
+        const existing = this._slabs.get(id);
+        if (!existing) return undefined;
+        // An empty destination is REFUSED, never defaulted to the active level.
+        // `'' ?? activeLevelId` is the §DIAG-WALL-LEVEL trap: a silent default
+        // files the element on whatever storey happens to be open.
+        if (!newLevelId) return undefined;
+        if (existing.levelId === newLevelId) return existing;
+
+        const cloned = structuredClone(existing) as SlabData;
+        cloned.levelId = newLevelId;
+        // `add()` parents a level-hosted slab to its level. Moving the storey
+        // while leaving `parentId` behind would make the record disagree with
+        // itself; a slab parented to something ELSE (a host slab, a building
+        // element) keeps its parent. Same rule as `RoofStore.changeLevel`.
+        if (existing.parentId === existing.levelId) cloned.parentId = newLevelId;
+        // `SlabData extends CoreElement`, whose `spatialRelationship` MIRRORS
+        // BimManager's `Level.childrenIds` contract (`CoreElement.ts:46-52`) and
+        // is what IFC export reads for storey containment. Leaving it on the old
+        // storey would export the slab under the level it just left — a second
+        // copy of the same fact, disagreeing. Only rewritten when it is present:
+        // minting one here would invent a containment the record never asserted.
+        if (cloned.spatialRelationship) {
+            cloned.spatialRelationship = { ...cloned.spatialRelationship, levelId: newLevelId };
+        }
+
+        freezeSlabData(cloned);
+        this._slabs.set(id, cloned);
+
+        // `existing` is the frozen pre-mutation record, forwarded as `prevState`
+        // so diff-based subscribers can dirty the storey being VACATED (C72 §3.5).
+        this.emit('update', cloned, existing);
+        return cloned;
+    }
+
     getById(id: string): SlabData | undefined {
         // P0.6: Returns the frozen internal reference directly — O(1), no allocation.
         // Contract §01 §3.7 v2.0: freeze is the immutability guard (see freezeSlabData).

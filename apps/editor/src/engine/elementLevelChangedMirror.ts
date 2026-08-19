@@ -71,6 +71,14 @@ export interface LegacyLevelMovableStore {
 export interface LevelChangeMirrorDeps {
     readonly wallStore?: LegacyLevelMovableStore | null;
     readonly roofStore?: LegacyLevelMovableStore | null;
+    /**
+     * §L-1032 — the founder's named case. Typed as `LegacyLevelMovableStore`, NOT
+     * cast: `tsc` is what proves `initTools` passes the LEGACY `slabStore` (the
+     * one with `changeLevel`) and not the plugin DTO store, which has no such
+     * method. A cast here would make the wiring un-checkable in exactly the place
+     * the bug lived.
+     */
+    readonly slabStore?: LegacyLevelMovableStore | null;
     readonly viewDependencyTracker?: {
         registerElement(elementId: string, levelId: string): void;
         markLevelsDirty(levelIds: string[]): void;
@@ -103,6 +111,12 @@ const LEGACY_LEVEL_MOVERS: Readonly<
 > = {
     wall: (deps) => deps.wallStore,
     roof: (deps) => deps.roofStore,
+    // §L-1032. The `kind` keys here MUST equal the `kind` field of the matching
+    // row in `LEVEL_CHANGE_VERBS` (`@pryzm/command-bus/levelChangeVerbs.ts`) —
+    // that is the string the bridge stamps on the event. A row in one table and
+    // not the other is the silent half of this defect: the command succeeds, the
+    // plugin store is right, and the renderer keeps its own unchanged copy.
+    slab: (deps) => deps.slabStore,
 };
 
 /**

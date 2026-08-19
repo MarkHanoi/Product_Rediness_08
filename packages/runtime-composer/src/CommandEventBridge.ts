@@ -35,6 +35,13 @@
 //   packages/runtime-composer/src/types.ts    — RuntimeEvents union
 
 import type { PatchEmitter } from '@pryzm/command-bus';
+// §L-1032 — the level-change register MOVED to L1 so the L3 bridge, the L7
+// property panel and the L7 chat registration all read the SAME rows. It used
+// to be a `const LEVEL_CHANGE_VERBS` local to this file, which is how the panel
+// came to hard-code `elType === 'wall'` and leave `roof.changeLevel` — a live,
+// undoable, correctly-cascading verb — with no control anywhere dispatching it.
+// C84 EI-9: one authority per question.
+import { LEVEL_CHANGE_VERBS } from '@pryzm/command-bus';
 import type { EventBus } from './EventBus.js';
 
 /** Minimal shape of a committed wall as it appears in the Immer `add` patch
@@ -112,30 +119,10 @@ function indexCommittedWalls(
  * family-agnostic (`element.level-changed` carries `elementKind`) so one
  * subscriber serves all of them.
  */
-interface LevelChangeVerbSpec {
-  /** The element family, as the app-side mirror's store table keys it. */
-  readonly kind: string;
-  /** Payload field naming the element. */
-  readonly idField: string;
-  /** Payload field naming the destination level. */
-  readonly levelField: string;
-  /** Optional payload field carrying the destination level's elevation. */
-  readonly elevationField?: string;
-}
-
-const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> = {
-  'wall.changeLevel': {
-    kind: 'wall',
-    idField: 'id',
-    levelField: 'newLevelId',
-    elevationField: 'newElevationY',
-  },
-  'roof.changeLevel': {
-    kind: 'roof',
-    idField: 'roofId',
-    levelField: 'levelId',
-  },
-};
+// The `LevelChangeVerbSpec` interface and the table itself now live in
+// `@pryzm/command-bus/levelChangeVerbs.ts`. Adding a family is ONE row there
+// plus one row in `LEGACY_LEVEL_MOVERS` (`elementLevelChangedMirror.ts`) —
+// still not a new event type, still not a new subscriber.
 
 /** Emit `element.level-changed` when `record.type` is a declared level-change
  *  verb. Returns silently for every other command type. */

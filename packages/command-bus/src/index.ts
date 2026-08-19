@@ -245,3 +245,20 @@ export type {
   ClashRunner,
   ClashRunnerOutcome,
 } from './clashCapability.js';
+
+// §L-1032 — THE level-change verb register. One row per element family, read by
+// the L3 event bridge, the L7 property panel and the chat capability
+// registration, so the answer to "can this family change storey?" is written
+// down exactly once (C84 EI-9). Refusals are DATA here, not absence (EI-1b).
+export {
+  LEVEL_CHANGE_VERBS,
+  LEVEL_CHANGE_REFUSALS,
+  levelChangeSpecFor,
+  levelChangeRefusalFor,
+  buildLevelChangePayload,
+  levelChangeVerbs,
+} from './levelChangeVerbs.js';
+export type {
+  LevelChangeVerbSpec,
+  LevelChangeRefusal,
+} from './levelChangeVerbs.js';

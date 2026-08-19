@@ -18,6 +18,14 @@ import { normalizeType } from './PropertyDescriptorGenerator';
 import { extractPlacementInfo, renderPlacementSection } from './PlacementEditor';
 import { extractRelationships, renderRelationshipSection } from './RelationshipViewer';
 import { SECTION_STEPS } from './PropertyPanelTheme';
+// §L-1032 — WHICH families may change storey, and the field spelling each verb
+// uses, are READ from the one register rather than re-decided here. The line
+// this replaced was `if (elType === 'wall' && ...)`: a hard-coded literal that
+// left `roof.changeLevel` — live, undoable and correctly cascading since S11 —
+// with no control anywhere dispatching it, and gave the founder a slab panel
+// whose Level row was a value with no control. C84 EI-3: what the pipeline
+// accepts, the UI must offer; C84 EI-9: one authority per question.
+import { levelChangeSpecFor, levelChangeRefusalFor, buildLevelChangePayload } from '@pryzm/command-bus';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -125,47 +133,106 @@ export function _buildSpatialSection(
 
             bodyEl.appendChild(renderPlacementSection(info, placementOnCommit));
 
-            // Wall-only: editable Level dropdown
-            if (elType === 'wall' && elementData.levelId) {
-                const bimManager = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
-                const allLevels: any[] = bimManager?.getLevels?.() ?? [];
-
-                if (allLevels.length > 1) {
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;';
-
-                    const lbl = document.createElement('div');
-                    lbl.style.cssText = 'font-size:11px;color:#555;min-width:110px;';
-                    lbl.textContent = 'Change Level';
-
-                    const sel = document.createElement('select');
-                    sel.style.cssText = 'flex:1;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:4px;background:#fff;';
-
-                    allLevels.forEach((lvl: any) => {
-                        const opt = document.createElement('option');
-                        opt.value = lvl.id;
-                        opt.textContent = `${lvl.name} (${lvl.elevation}m)`;
-                        if (lvl.id === elementData.levelId) opt.selected = true;
-                        sel.appendChild(opt);
-                    });
-
-                    sel.addEventListener('change', () => {
-                        const selectedLevel = allLevels.find((l: any) => l.id === sel.value);
-                        const newElevationY: number = selectedLevel?.elevation ?? 0;
-                        window.runtime?.bus?.executeCommand('wall.changeLevel', {
-                            id:            elementData.id,
-                            newLevelId:    sel.value,
-                            newElevationY,
-                        })?.catch((e: Error) => console.warn('[PropertyPanel] wall.changeLevel failed:', e));
-                    });
-
-                    row.appendChild(lbl);
-                    row.appendChild(sel);
-                    bodyEl.appendChild(row);
-                }
-            }
+            // §L-1032 — the storey control, for EVERY family that may have one.
+            bodyEl.appendChild(_buildLevelChangeRow(elType, elementData));
         }
     );
+}
+
+/**
+ * §L-1032 — THE STOREY CONTROL. One row, table-driven, for every element family.
+ *
+ * ─── WHY THIS RETURNS AN ELEMENT EVEN WHEN THERE IS NO CONTROL ──────────────
+ * Three outcomes are possible and they must look DIFFERENT to the user:
+ *
+ *   a. the family may move  → a dropdown that dispatches the family's verb;
+ *   b. the family may NOT   → the declared reason, rendered as text;
+ *   c. nobody has decided   → nothing, which is the only honest rendering of
+ *                             "not measured".
+ *
+ * Collapsing (b) into (c) is the failure this whole issue is about. An absent
+ * control and a deliberately withheld control are indistinguishable to a user —
+ * the same shape as §context-data-honesty, where failure and emptiness are the
+ * same value. A door SHOULD have no dropdown ([C15 §2] — a hosted element has no
+ * independent level, and C86 §12 R-8 records that as CORRECT), but the user is
+ * owed the sentence saying so, not silence.
+ *
+ * The refusal text and the clause that decides it are DATA in the register, not
+ * prose here, so the panel cannot drift into offering something the pipeline
+ * refuses — or into refusing something the pipeline now accepts, which is the
+ * §FEAT-RAKE-LAYERED defect (a hand-copied gate went on greying out a control
+ * after the feature behind it shipped).
+ */
+function _buildLevelChangeRow(
+    elType: string,
+    elementData: Record<string, any>,
+): HTMLElement {
+    const wrap = document.createElement('div');
+
+    const spec = levelChangeSpecFor(elType);
+    if (spec === null) {
+        const refusal = levelChangeRefusalFor(elType);
+        if (refusal === null) return wrap; // (c) — undecided; say nothing.
+        // (b) — declared refusal. Rendered, with the reason, never omitted.
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px;color:#777;margin-top:8px;line-height:1.4;';
+        note.textContent = refusal.reason;
+        note.title = `${refusal.clause}
+${refusal.evidence}`;
+        wrap.appendChild(note);
+        return wrap;
+    }
+
+    // (a) — the family may move. The element still needs a CURRENT storey to
+    // move from; without one there is nothing to preselect and no previous level
+    // for the mirror to dirty, so the control is withheld rather than guessing.
+    if (!elementData.levelId) return wrap;
+
+    const bimManager = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
+    const allLevels: any[] = bimManager?.getLevels?.() ?? [];
+    if (allLevels.length <= 1) return wrap; // one storey — nowhere to move to.
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;';
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:11px;color:#555;min-width:110px;';
+    lbl.textContent = 'Change Level';
+
+    const sel = document.createElement('select');
+    sel.style.cssText = 'flex:1;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:4px;background:#fff;';
+
+    allLevels.forEach((lvl: any) => {
+        const opt = document.createElement('option');
+        opt.value = lvl.id;
+        opt.textContent = `${lvl.name} (${lvl.elevation}m)`;
+        if (lvl.id === elementData.levelId) opt.selected = true;
+        sel.appendChild(opt);
+    });
+
+    sel.addEventListener('change', () => {
+        const selectedLevel = allLevels.find((l: any) => l.id === sel.value);
+        // The payload is BUILT from the register, never typed out here. Each
+        // family spells the same two fields differently (`id`/`newLevelId`,
+        // `roofId`/`levelId`, `slabId`/`levelId`), and a key the receiving
+        // payload interface does not accept is not "extra" — it is a value
+        // silently replaced by a schema default. That is L-978, where four wrong
+        // field names minted every copied curtain wall at the origin with no
+        // error at all.
+        const payload = buildLevelChangePayload(
+            spec,
+            String(elementData.id),
+            sel.value,
+            typeof selectedLevel?.elevation === 'number' ? selectedLevel.elevation : undefined,
+        );
+        window.runtime?.bus?.executeCommand(spec.verb, payload)
+            ?.catch((e: Error) => console.warn(`[PropertyPanel] ${spec.verb} failed:`, e));
+    });
+
+    row.appendChild(lbl);
+    row.appendChild(sel);
+    wrap.appendChild(row);
+    return wrap;
 }
 
 // ── Relationships section ─────────────────────────────────────────────────────

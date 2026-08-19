@@ -16,6 +16,10 @@ import { UpdateSlabLayersHandler } from './UpdateSlabLayers.js';
 import { CreateSlabsOnAllFloorsHandler } from './CreateSlabsOnAllFloors.js';
 import { SetSlabMaterialHandler } from './SetSlabMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 import { UpdateSlabsSystemTypeBatchHandler } from './UpdateSlabsSystemTypeBatch.js';
+// §L-1032 — the storey move. Registered in the ONE register at
+// `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
+// level change must complete before this row may exist.
+import { ChangeSlabLevelHandler } from './ChangeSlabLevel.js';
 
 export const SLAB_HANDLER_TYPES = [
   'slab.create',
@@ -35,6 +39,10 @@ export const SLAB_HANDLER_TYPES = [
   // §FEAT-SLAB-TYPE-BATCH (RAC U7.2) — batch retype ('all' or explicit ids),
   // one undo entry, bridged to the live UpdateSlabLayersCommand route.
   'slab.updateSystemTypeBatch',
+  // §L-1032 — move a slab between storeys (founder-requested). The legacy
+  // `SlabStore.changeLevel` MUST exist before this verb does: without it Ctrl+Z
+  // falls through to the whole-record-REPLACE `update()` and destroys the slab.
+  'slab.changeLevel',
 ] as const;
 
 export type SlabHandlerType = (typeof SLAB_HANDLER_TYPES)[number];
@@ -56,6 +64,7 @@ export function buildSlabHandlerSet(): readonly CommandHandler<unknown>[] {
     new CreateSlabsOnAllFloorsHandler() as unknown as CommandHandler<unknown>,
     new SetSlabMaterialHandler() as unknown as CommandHandler<unknown>,
     UpdateSlabsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
+    new ChangeSlabLevelHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
