@@ -52,13 +52,55 @@ export class OBCAnnotationAdapter {
 
     detach(): void { this._currentDrawing = null; this._currentViewDefId = null; }
 
+    /**
+     * §FIX-OBC-ANNOTATION-SKIP-MESSAGE (L-1286) — is `klass` usable through the
+     * OBC **Component registry** (`components.get`)?
+     *
+     * ⚠ THIS IS NOT "does the class exist". It asks whether the class is a
+     * registrable `Component`, which is the only thing `components.get` can
+     * resolve. Measured against the installed `@thatopen/components` **3.4.6**:
+     * `LinearAnnotations`, `AngleAnnotations` and `SlopeAnnotations` ALL EXIST
+     * (`index.d.ts:4314`, `:84`, `:5677`) but extend `AnnotationSystem`
+     * (`:174`), which declares no static `uuid` — and OBC's own examples reach
+     * them a different way entirely: `techDrawings.use(OBC.LinearAnnotations)`
+     * (`index.d.ts:5926`, `:6294`).
+     *
+     * So this probe answers `false` for every version in our `^3.4.2` range,
+     * permanently, and the boot log's old wording — "not present in this OBC
+     * build" — was FACTUALLY WRONG. It sent the reader looking for a version
+     * gap that does not exist. See `_logObcSubscribeSkipped`.
+     */
     private _isObcClassAvailable(klass: any): boolean {
         return !!klass && typeof (klass as any).uuid === 'string' && (klass as any).uuid.length > 0;
     }
 
+    /**
+     * §FIX-OBC-ANNOTATION-SKIP-MESSAGE (L-1286) — one honest sentence for all
+     * three skips.
+     *
+     * ⭐ AND THE PART A READER MOST NEEDS: skipping costs the user NOTHING
+     * today. This adapter is a SECOND, optional ingest path — it would capture
+     * dimensions drawn through OBC's own `DrawingEditor`. PRYZM's linear /
+     * angular / slope dimension tools (`initAnnotationTools.ts`, the
+     * `AnnotationRailPanel` buttons) are first-party, fully wired, and commit
+     * through the SAME `CreateAnnotationCommand` into the SAME `annotationStore`
+     * without touching this file. So this is a dead optional path, NOT a
+     * C84 EI-3 "UI offers, pipeline refuses" defect — checked by following all
+     * three toolbar buttons to their tools, which import no OBC annotation
+     * system at all.
+     */
+    private _logObcSubscribeSkipped(systemName: string): void {
+        console.info(
+            `[OBCAnnotationAdapter] ${systemName} is present in OBC but is not a registrable Component ` +
+            '(it extends AnnotationSystem, which has no static uuid), so components.get() cannot resolve it — ' +
+            'skipping subscribe. HARMLESS: this is the optional OBC-authored ingest path; PRYZM\'s own ' +
+            'linear/angular/slope dimension tools are unaffected and remain fully wired.',
+        );
+    }
+
     private _subscribeToLinearAnnotations(components: OBC.Components): void {
         if (!this._isObcClassAvailable(OBC.LinearAnnotations)) {
-            console.info('[OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.'); return;
+            this._logObcSubscribeSkipped('LinearAnnotations'); return;
         }
         try {
             const linearSys = components.get(OBC.LinearAnnotations as any) as unknown as OBC.LinearAnnotations;
@@ -71,7 +113,7 @@ export class OBCAnnotationAdapter {
 
     private _subscribeToAngleAnnotations(components: OBC.Components): void {
         if (!this._isObcClassAvailable(OBC.AngleAnnotations)) {
-            console.info('[OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.'); return;
+            this._logObcSubscribeSkipped('AngleAnnotations'); return;
         }
         try {
             const angleSys = components.get(OBC.AngleAnnotations as any) as unknown as OBC.AngleAnnotations;
@@ -84,7 +126,7 @@ export class OBCAnnotationAdapter {
 
     private _subscribeToSlopeAnnotations(components: OBC.Components): void {
         if (!this._isObcClassAvailable(OBC.SlopeAnnotations)) {
-            console.info('[OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.'); return;
+            this._logObcSubscribeSkipped('SlopeAnnotations'); return;
         }
         try {
             const slopeSys = components.get(OBC.SlopeAnnotations as any) as unknown as OBC.SlopeAnnotations;

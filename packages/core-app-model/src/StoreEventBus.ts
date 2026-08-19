@@ -343,9 +343,30 @@ export class StoreEventBus { // TODO(TASK-08)
      */
     beginBatch(): void {
         this._batchDepth++;
+        // §FIX-BEGINBATCH-NAG-MISDIRECTS (L-1287) — SAY WHAT THE READER SHOULD DO,
+        // WHICH IS USUALLY NOTHING.
+        //
+        // ⚠ This line used to end "Prefer bus.batch(fn) for automatic flush
+        // guarantee." — advice NEITHER of its two live callers can take, printed on
+        // every project load and every batched edit:
+        //
+        //   • `BatchCoordinator.runBatch()` (BatchCoordinator.ts:940) — the
+        //     CANONICAL batching API. The nag was telling the recommended path to
+        //     stop being the recommended path.
+        //   • `ProjectLoader.ts:627` — brackets the frame-yielding chunked element
+        //     dispatch, which is ASYNC. `batch(fn)` flushes when `fn` RETURNS, so it
+        //     would flush at the first `await` and defeat the whole point.
+        //
+        // `batch(fn)` is the right answer only for a HAND-ROLLED SYNCHRONOUS
+        // begin/end pair, where the try/finally is what is actually missing. A
+        // deprecation notice that fires on the correct path trains readers to
+        // ignore the log, which is the cost this repo keeps paying elsewhere.
+        // The depth is kept — it is a real fact and it is what makes an unbalanced
+        // pair visible.
         console.log(
             `[StoreEventBus] beginBatch() — depth now ${this._batchDepth}. ` + // TODO(TASK-08)
-            'Prefer bus.batch(fn) for automatic flush guarantee.'
+            'Expected from BatchCoordinator.runBatch() and the project-load bracket; ' +
+            'only a hand-rolled SYNCHRONOUS begin/end pair should switch to bus.batch(fn).'
         );
     }
 

@@ -347,7 +347,34 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         document.body.appendChild(errorMsg);
         throw new Error('[initScene] GPU backend not supported — aborting engine init.');
     }
-    console.log(`[PRYZM] GPU backend detected: ${detectedBackend}`);
+    // §VIEWPORT-BG-BACKEND-VOCABULARY / L-1284 — SAY WHAT THIS ACTUALLY MEASURED.
+    //
+    // ⚠ THIS LINE USED TO READ `GPU backend detected: ${detectedBackend}` AND IT
+    // WAS A LIE — a load-bearing one. On the founder's boot it printed `webgpu`
+    // while the authority had resolved WebGL2 and the status pill said WebGL:
+    //
+    //     [createRenderer] resolvedPreference=webgl (forceWebGL=true) …
+    //     [renderer-three] backend: webgl2 …
+    //     [initScene] Phase 5 active — PRYZM renderer: webgl-fallback
+    //     [PRYZM] GPU backend detected: webgpu           ← this line
+    //
+    // `probeRendererBackend()` never asks the renderer anything. It returns
+    // `'webgpu'` the instant `navigator.gpu` is truthy — no `requestAdapter()`,
+    // no device, no preference read — and it runs ~1700 lines BEFORE
+    // `createRenderer()` resolves. It CANNOT know the backend; it is an API-
+    // presence sniff, and the function's own doc comment says so honestly. Only
+    // the log message overclaimed.
+    //
+    // Kept as a sniff (it is the right instrument for the abort above: no GPU API
+    // at all ⇒ nothing can be built) and RENAMED in the output, so exactly one
+    // line in the boot — `[initScene] Phase 5 active — PRYZM renderer: …`,
+    // sourced from `rendererResult.backend` — claims to name the backend. A
+    // second opinion about the backend is how a WebGPU-only path gets armed on a
+    // WebGL device; the cheapest permanent fix is to stop publishing one.
+    console.log(
+        `[PRYZM] GPU APIs available (pre-resolution sniff, NOT the backend): ${detectedBackend}. ` +
+        'The resolved backend is reported later by "[initScene] Phase 5 active — PRYZM renderer: …".',
+    );
 
     // §PERF-WEBGPU-FRAGMENT / ADR-0076 — mount the corner GPU backend toggle
     // (Auto / WebGPU / WebGL). Mounted unconditionally + early so it is the
@@ -3123,7 +3150,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // WebGL path. Passing this flag stops bind() re-probing the renderer CLASS (the
         // old `.isWebGPURenderer` check) which wrongly bound SSGI/outlines/post-FX on the
         // forced-WebGL path → multi-minute load + frozen viewport on heavy scenes.
-        const backendIsRealWebGPU = pryzmRendererBackend === 'webgpu';
+        // §VIEWPORT-BG-BACKEND-VOCABULARY / L-1284 — ask the PARTITION, never
+        // re-write the comparison. `isNativeWebGpuBackend` and
+        // `isLightweightWebGlBackend` are exhaustive by construction (the second
+        // is defined as the negation of the first), so a fourth `RendererBackend`
+        // member can never land on the wrong side of them. A hand-written
+        // `=== 'webgpu'` here agreed with the predicate today and would have had
+        // to be found by hand tomorrow; every other decision site in this file
+        // (2111, 3177, 4475, 4487, 4613) was already converted and this one was
+        // missed.
+        const backendIsRealWebGPU = isNativeWebGpuBackend(pryzmRendererBackend);
         await renderPipelineManager.bind(
             world.scene.three as THREE.Scene,
             world.camera.three,
