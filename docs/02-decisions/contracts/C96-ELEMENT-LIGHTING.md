@@ -717,3 +717,56 @@ the source. Its per-family disposition is declared alongside the copy-payload ma
 `apps/editor/src/engine/views/plantools/`, which is the one place a legacy record is translated into
 a create payload — L-978 is what a second copy of that mapping costs (four field names the receiver
 did not accept, so every copied curtain wall was minted at the schema's default origin, silently).
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DARK — and it is READY**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `lighting` · `light` · `lightfixture` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1991 |
+| **Type catalogue** | ✅ `BUILT_IN_LIGHTING_TYPES` — **12** entries with `{id, name, mount}` (`packages/geometry-lighting/src/LightingTypeDefinitions.ts:54`) |
+| **Type field on the record** | ✅ `fixtureType` (`LightingTypes.ts:201`) |
+| **Executor the chat must use** | ✅ `element.changeType` `:1991` → `UpdateLightingParametersCommand`, ring-parity. ⭐ **It VALIDATES the id at `:2004`** and refuses an unknown one rather than writing it. |
+| **Chat capabilities published TODAY** | ⛔ **NOTHING.** Lighting appears only in the probe set, and is deliberately **excluded** from `set-height` (`ChatCapabilityRegistry.ts:301`). |
+| **Retiring condition** | Inject the 12-entry catalogue as `ctx.catalogues.lighting`. **Nothing else.** |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no capability |
+| `selection` | ✅ required | ⛔ no capability |
+| `level` | ✅ required | ⛔ no capability |
+| `room` | ✅ required | ⛔ no capability |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **Lighting has the STRONGEST executor of any dark family and the WEAKEST chat surface — literally zero capabilities.** Its branch already refuses an unknown `fixtureType` by name (`:2004`), which is the exact discipline `resolveCatalogueRef` provides on the chat side; the comment there warns that an unvalidated id makes `LightingFragmentBuilder` *"render nothing, silently"*.
+- ⚠ **Carried from C84 §4 — this family's persistence is the risk, not its dispatch.** C84's AS-IS table records lighting as *"renders, never saves · 10 fields dropped · EI-3 10-of-12 · DTO orphaned"*. ⛔ **A chat type-change published here would be V3-true and V4-false**: the user would see the fixture change and lose it on reload. **That must be measured BEFORE publication, not after** — C16 CA-21, ADR-0334's proof requirement.
+- **NOT MEASURED**: whether `fixtureType` specifically survives save/load. **This is the gating measurement for this family.**
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

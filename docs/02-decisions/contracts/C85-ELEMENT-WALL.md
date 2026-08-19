@@ -839,3 +839,57 @@ whether `_skipBridge` is ever true in production.
 | wall `elementType` spellings | **CLEAN — one family spelling `'wall'`.** Recorded `✅` per EI-1b. `'WallPart'` is a sub-part; `'wallSystemType'` is a type-library tag |
 | wall EI-6 persists `✅` (§4) | **CONFIRMED for the family, REFINED for two fields** — `sideFinishes` is never serialised; `ifcData.ifcClass` is serialised but not reloaded |
 | — (not in C84) | **NEW:** the rake has **zero** representation in `packages/schemas/src`; `joinIntent` is dropped at the bridge; `DeleteElementCommand`'s `'plumbing'` key has no `createSnapshot` branch; `material-bridge.ts` discards slot 2 exactly as curtain-wall's does |
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **PUBLISHED — the richest chat surface of any family**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `wall` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1536 |
+| **Type catalogue** | ✅ `wallSystemTypeStore` — injected today via the NAMED legacy fields `resolveWallSystemType` / `wallSystemTypeNames` (`ZeroTokenChatBridge.ts:855, 928-930`), not via `ctx.catalogues` |
+| **Type field on the record** | ✅ `systemTypeId` + `layers` on the geometry record |
+| **Executor the chat must use** | `wall.updateSystemTypeBatch` → `UpdateWallsSystemTypeBatchCommand` → geometry `wallStore` (`:176`) |
+| **Chat capabilities published TODAY** | `set-wall-type` · `set-wall-color` · `set-wall-rake` · `set-wall-side-finish` · `add-wall-layer` · `set-wall-dimensions` · `set-height` · `set-thickness` · `set-base-offset` · `create-windows-parametric` |
+| **Retiring condition** | n/a — published. The open items are L-1141 (bus-boundary honesty) and L-1142 (undeclared scope modes). |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ✅ works |
+| `selection` | ✅ required | ✅ works |
+| `level` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| `room` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⛔ **L-1141 — `wall.updateSystemTypeBatch` reports success when it changed nothing.** `plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:169` returns an unconditional `{forward: [], inverse: []}`, reached identically when N walls changed, when the command **refused everything**, when the bridge **threw**, and when there was no command manager. The chat transcript is rescued by the `BATCH_REPORT_EVENTS` subscription; **no other caller is**. `slab`'s handler is the fixed sibling and its header quotes C16 CA-18.
+- ⚠ **L-1142 — `set-wall-type` declares NO `scopeModes` at all** yet the arm honours `level`, `room` AND `orientation` (gate output, 2026-08-19). The user is told less than the system does.
+- ⛔ **L-1143 — the Wall tool's By Slab mode walls EVERY slab.** `ToolsAreaLayout.ts:285` sends `{slabId}` to `wall.create-on-all-slabs`, whose payload has no `slabId`, whose handler ignores it, and whose command calls `slabStore.getAll()`. **Silent and destructive.** The RAC must route to `wall.createFromSlab`, not to this mode — and the tool should be repointed at the same verb (C84 §4F.6, P6, EI-4a).
+- ⛔ **L-1144 — `create-wall` declares `scope:'global'` and has no subject axis.** `ZeroTokenResolver.ts:678-684` carries `start`/`end`/`height`/`thickness` and nothing else; the grammar never inspects the token *"slab"*. A selected slab cannot be a geometry source. **THE WRONG-REFUSAL class** — CA-18-shaped, denying an ask the system can satisfy.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

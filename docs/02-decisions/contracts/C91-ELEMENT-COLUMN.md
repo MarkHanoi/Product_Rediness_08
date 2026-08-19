@@ -396,3 +396,56 @@ the source. Its per-family disposition is declared alongside the copy-payload ma
 `apps/editor/src/engine/views/plantools/`, which is the one place a legacy record is translated into
 a create payload — L-978 is what a second copy of that mapping costs (four field names the receiver
 did not accept, so every copied curtain wall was minted at the schema's default origin, silently).
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DEFERRED — the catalogue does not exist (ADR-0334 D3)**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `column` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1858 |
+| **Type catalogue** | ⛔ **NONE.** `profile: 'rectangular'|'circular'|'UC'|'UB'` (`ColumnTypes.ts:19`), plus `steelProfileName` (`:29`). No `{id, name}` store anywhere. |
+| **Type field on the record** | ⚠ `profile` (+ `steelProfileName`) — an enum, not a type reference |
+| **Executor the chat must use** | ✅ `element.changeType` `:1858` → `UpdateColumnCommand`, ring-parity |
+| **Chat capabilities published TODAY** | `set-width` · `set-depth` · `set-base-offset` · `delete-columns-scoped` |
+| **Retiring condition** | **MINT an `{id, name}` column-section catalogue** (C65). Until then the refusal has nothing to list. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no capability |
+| `selection` | ✅ required | ⛔ no capability |
+| `level` | ✅ required | ⛔ no capability |
+| `room` | ✅ required | ⛔ no capability |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ✅ **The stated reason for column's absence SURVIVED re-measurement** — one of only two that did. `resolveCatalogueRef` requires `{id, name}`; a refusal's whole value is that it lists the project's real names (§CONTEXT-DATA-HONESTY). A bare union has none.
+- ⛔ **MUST NOT narrow the vocabulary to make this resolve** — e.g. by accepting only the four literal enum spellings. Founder doctrine is free-form + hard stoppers. Until a catalogue exists, *"change all columns to UC 305"* **must refuse and name what IS available for columns** (`set-width`, `set-depth`, `set-base-offset`), never absorb the sentence.
+- ⚠ `delete-columns-scoped` honours `orientation` without declaring it — **L-1142**.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

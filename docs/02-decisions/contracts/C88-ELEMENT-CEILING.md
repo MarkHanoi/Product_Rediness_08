@@ -381,3 +381,56 @@ A **separate verb**, never a flag on the level change — it mints new ids. Decl
 `apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
 mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
 change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **PUBLISHED, running its FALLBACK path**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `ceiling` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1757 (approx — the `elType === 'ceiling'` arm) |
+| **Type catalogue** | ✅ `CeilingSystemTypeStore` — **but NOT injected**: `lookup: generic('ceiling')` reads `ctx.catalogues.ceiling`, which has no production writer (**L-1146**) |
+| **Type field on the record** | ✅ `systemTypeId` in `CeilingDataSchema.ts:155` |
+| **Executor the chat must use** | `ceiling.updateSystemTypeBatch` → `UpdateCeilingsSystemTypeBatchCommand` → `UpdateCeilingLayersCommand` → geometry `ceilingStore` (`:61`) |
+| **Chat capabilities published TODAY** | `set-ceiling-type` · `set-height` |
+| **Retiring condition** | Inject `ctx.catalogues.ceiling` in `ZeroTokenChatBridge.buildContext()` — L-1146. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ✅ works |
+| `selection` | ✅ required | ✅ works |
+| `level` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| `room` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⚠ **L-1146 — this family resolves its type COMMAND-SIDE, not chat-side.** Because `ctx.catalogues` has no writer, `catalogueFamilySpec` takes the null branch (`CatalogueFamilies.ts:209-214`) and forwards **the raw user string**. ⭐ **It does NOT silently no-op** — `UpdateCeilingsSystemTypeBatchCommand` re-resolves and refuses by listing real names, which is the design holding. But the family's own `mismatchPrefix` / `suggestions` copy is **dead code at runtime**, the chat cannot list names *before* dispatch, and a near-miss ref that `resolveCatalogueRef` fuzzy-matches **retypes ceilings to a name the user never said, with no chat-side confirmation**. **NOT MEASURED against a real project.**
+- ⛔ **L-1141 — `UpdateCeilingsSystemTypeBatch.ts:145` returns an unconditional `{forward: [], inverse: []}`.** Same class as wall/window/door; `slab` is the fixed sibling.
+- ⚠ **L-1142 — declared `['all','selection']`, honours `level`, `room`, `orientation`.**
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

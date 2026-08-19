@@ -947,3 +947,56 @@ shrinking when it is not.
 | `slabBaseOffset` occurrences in `geometry-door/src` + `geometry-window/src` = **0** | **CONFIRMED** |
 | door/window/slab parity harnesses OWED (§5) | **CONFIRMED for door and window** — no file imports both a Stack-A builder and a Stack-B producer |
 | — (not in C84) | **NEW:** `door.create`/`window.create` **REFUSE**, naming `wall.createOpening` — the correct EI-4a shape; `PlanElementDragController` violates C15 §8.1; 13 commands desync outside §8.1's scope; `'sliding'` is unrepresentable; two default divergences; `WindowBuilder` breaks C15 §12's freeze from one file |
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **PUBLISHED — and the founder's working example (*"change all windows type to …"*)**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `door` · `window` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1708 (shared arm) |
+| **Type catalogue** | ✅ both injected today via NAMED legacy fields (`resolveDoorSystemType` / `resolveWindowSystemType`, `ZeroTokenChatBridge.ts:866-891, 931-936`) |
+| **Type field on the record** | ✅ `systemTypeId` on `WindowOpening` (`geometry-window/src/WindowTypes.ts:87`) and its door twin |
+| **Executor the chat must use** | `window.updateSystemTypeBatch` → `UpdateWindowSystemTypeCommand` → geometry `windowStore`; `door.updateSystemTypeBatch` → `UpdateDoorSystemTypeCommand` → geometry `doorStore`. Both preserve `id` / `openingId` / host void (C15) via `planWindowTypeChange` / `planDoorTypeChange` |
+| **Chat capabilities published TODAY** | `set-window-type` · `set-door-type` · `set-window-dimensions` · `set-door-dimensions` · `set-width` · `set-sill-height` · `delete-windows-scoped` · `delete-doors-scoped` |
+| **Retiring condition** | n/a — published. Open: L-1141, L-1142. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ✅ works |
+| `selection` | ✅ required | ✅ works |
+| `level` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| `room` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⛔ **L-1141 — BOTH verbs report success when they changed nothing.** `UpdateWindowsSystemTypeBatch.ts:161` and `UpdateDoorsSystemTypeBatch.ts:161` return an unconditional `{forward: [], inverse: []}`. ⭐ **This is the family the founder calls working**, which is exactly why the row matters: the *transcript* is honest only because `BATCH_REPORT_EVENTS` (`ZeroTokenChatBridge.ts:1238, 1240`) subscribes to the CustomEvent and turns `success:false` into *"Nothing was changed"*. Remove that subscription and the founder's working case becomes L-995 again.
+- ⚠ **L-1142 — declared `['all','selection']`, honours `level`, `room` and `orientation`.** *"Change all windows on level 2 to timber casement"* **works today and is undeclared.**
+- ✅ `door.setSwing` correctly owns *"change all doors to left swing"* — `CatalogueFamilies.ts` `rejectRef: /\bswings?\b/`. A worked example of two capabilities sharing an opener without colliding (C67 §4 rule 7).
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

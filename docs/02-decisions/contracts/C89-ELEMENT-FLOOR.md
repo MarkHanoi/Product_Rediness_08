@@ -402,3 +402,56 @@ A **separate verb**, never a flag on the level change — it mints new ids. Decl
 `apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
 mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
 change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DARK — and it is the family with the LEAST excuse**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `floor` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1600 |
+| **Type catalogue** | ✅ `FloorSystemTypeStore` — **22** built-ins with `{id, name}`, `getById():478` / `getAll():482`. ⚠ `CatalogueFamilies.ts` said **14**; corrected 2026-08-19. |
+| **Type field on the record** | ✅ `systemTypeId` — `FloorTypes.ts:289`, `FloorDataSchema.ts:196` |
+| **Executor the chat must use** | ✅ `element.changeType` `:1600` → `UpdateFloorLayersCommand` (ring-parity undo). ⛔ **There is no `floor.updateSystemTypeBatch` verb** — floor never got the batch twin slab and ceiling got. |
+| **Chat capabilities published TODAY** | ⛔ **NOTHING.** Floor appears in no `targets:` array beyond the probe set. |
+| **Retiring condition** | Decide the **floor-vs-slab noun disambiguation**, then inject `ctx.catalogues.floor`. ⚠ The catalogue, the `systemTypeId` field and the live command have ALL existed since before `set-slab-type` shipped. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no capability |
+| `selection` | ✅ required | ⛔ no capability |
+| `level` | ✅ required | ⛔ no capability |
+| `room` | ✅ required | ⛔ no capability |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **The stated reason for floor's absence was never a blocker, and it is worth reading carefully.** `CatalogueFamilies.ts:47` says floor *"is the next entry to add; it is left out of THIS tranche only because `floor` and `slab` are two different element kinds that users call by the same word, and the disambiguation deserves its own decision rather than a coin-flip."* ✅ **That reasoning is CORRECT and should not be overridden by this rollout** — a user saying *"change all floors to …"* on a project of slabs must not silently retype slabs. **But a decision deferred is not a decision made**, and floor has been dark for the whole interval. **The disambiguation IS the work item** (ADR-0334 D3: a deferral carries its retiring condition).
+- ⛔ **MUST NOT resolve the ambiguity by narrowing the vocabulary** — e.g. by requiring the user to say *"floor slab"*. Founder doctrine is free-form language + hard stoppers. The correct shape is a **refusal that names both candidates and their counts** (*"12 slabs and 3 floors match 'floor' here — which did you mean?"*), which is C67 §4 rule 6's ambiguity rule already.
+- **NOT MEASURED**: whether the floor branch's V3/V4/V5 hold under a chat driver. The panel's passing is not transferable evidence (ADR-0334).
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

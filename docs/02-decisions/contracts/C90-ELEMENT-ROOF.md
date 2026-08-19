@@ -740,3 +740,56 @@ the source. Its per-family disposition is declared alongside the copy-payload ma
 `apps/editor/src/engine/views/plantools/`, which is the one place a legacy record is translated into
 a create payload — L-978 is what a second copy of that mapping costs (four field names the receiver
 did not accept, so every copied curtain wall was minted at the schema's default origin, silently).
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DARK for type · PUBLISHED for dimensions**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `roof` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1979 |
+| **Type catalogue** | ⚠ **MIXED, and `CatalogueFamilies.ts` got this wrong.** `roofType` is a closed enum (`RoofTypes.ts:3`) — but an **8-entry `{id, name}` list ships at `ElementTypeCatalogRegistry.ts:112-126`**, so a refusal CAN list the real options. The old claim *"roof, column, beam — no named type CATALOGUE exists at all"* covered three families with different truth values; corrected 2026-08-19. |
+| **Type field on the record** | ✅ `roofType` on `RoofData` (`RoofTypes.ts:88`) |
+| **Executor the chat must use** | ✅ `element.changeType` `:1979` → `UpdateRoofCommand(id, { roofType })`, ring-parity via `_swapWithRingParity('roofStore', 'roof', …)` |
+| **Chat capabilities published TODAY** | `set-roof-pitch` · `set-overhang` · `set-thickness` · `set-base-offset` — **but NO type change** |
+| **Retiring condition** | Inject the 8-entry list as `ctx.catalogues.roof`. **Nothing else.** |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no type capability; the dimension capabilities are `scope:'selection'` only |
+| `selection` | ✅ required | ✅ for `set-roof-pitch` / `set-overhang` / `set-thickness` / `set-base-offset` · ⛔ for type |
+| `level` | ✅ required | ⛔ neither type nor dimensions accept it |
+| `room` | ✅ required | ⛔ neither type nor dimensions accept it |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **Roof is the clearest single instance of the C84 §4F.1 pattern**: it was excluded by a sentence that grouped it with column and beam under *"no named catalogue exists at all"*, and unlike those two **it has one**. A shared reason is how a false one survives.
+- ⚠ The value is an **enum member**, not a project-scoped catalogue entry — so the refusal lists 8 fixed options and the same 8 in every project. That is a *simpler* case than wall/window, not a harder one.
+- **NOT MEASURED**: V3/V4/V5 under a chat driver.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

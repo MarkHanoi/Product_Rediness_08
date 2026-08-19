@@ -386,3 +386,56 @@ A **separate verb**, never a flag on the level change — it mints new ids. Decl
 `apps/editor/src/engine/views/plantools/duplicateToLevel.ts`, which reuses the ONE legacy→bus payload
 mapping in `copyPayloads.ts` (L-978 is what a second copy of that mapping costs). Unlike the level
 change, this route reads the LEGACY store, so it is **not** subject to the L-1085 cap above.
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DEFERRED — the catalogue does not exist (ADR-0334 D3)**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `beam` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1883 |
+| **Type catalogue** | ⛔ **NONE.** `sectionType?: 'rectangular'|'UB'|'UC'` (`BeamTypes.ts:34`). No `{id, name}` store. |
+| **Type field on the record** | ⚠ `sectionType` — an enum, not a type reference |
+| **Executor the chat must use** | ✅ `element.changeType` `:1883` → `UpdateBeamCommand`, ring-parity |
+| **Chat capabilities published TODAY** | `set-width` · `set-depth` — ⚠ deliberately **excluded** from `set-height` (`ChatCapabilityRegistry.ts:697`) |
+| **Retiring condition** | **MINT an `{id, name}` beam-section catalogue** (C65). |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no capability |
+| `selection` | ✅ required | ⛔ no capability |
+| `level` | ✅ required | ⛔ no capability |
+| `room` | ✅ required | ⛔ no capability |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ✅ **The stated reason SURVIVED re-measurement** — the second of the two that did.
+- ⛔ **MUST NOT narrow the vocabulary.** Until a catalogue exists, a section ask **refuses and names what IS available for beams**.
+- ⚠ **Carried from C84 §4B (ROTATE):** `Beam.rotation` exists in the bridge payload and **`BeamData` has no rotation field at all** — a rotated beam un-rotates. A representational gap, not a RAC one, but any beam capability added here inherits it.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

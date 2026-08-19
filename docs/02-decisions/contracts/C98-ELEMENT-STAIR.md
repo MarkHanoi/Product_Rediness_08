@@ -614,3 +614,57 @@ top, and nothing yet says which storeys those are. Note the two questions are **
 duplicate-to-level could be settled first by requiring the caller to supply BOTH ends explicitly,
 since a duplicate has no prior position to preserve. That is a smaller decision than the move, and
 it is the one to take first.
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⛔ DARK for type — blocked by ONE METHOD**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `stair` · `stairs` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1850 |
+| **Type catalogue** | ⚠ **EXISTS BUT DOES NOT SATISFY `CatalogueReader`.** `StairTypeDefinitions.ts` ships **5** `{id, name}` types — but `StairTypeStore.ts:24` exposes **`get()`** where `resolveCatalogueRef.ts:39-42` requires **`getById()`**. |
+| **Type field on the record** | ✅ a real `typeId: string` on the record (`StairTypes.ts:109`) |
+| **Executor the chat must use** | ✅ `element.changeType` `:1850` → `UpdateStairParametersCommand`, ring-parity |
+| **Chat capabilities published TODAY** | `set-riser-height` · `set-tread-depth` · `set-width` |
+| **Retiring condition** | **`StairTypeStore` gains `getById()`** (or a two-line adapter). Then inject. — **L-1147** |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ⛔ no capability |
+| `selection` | ✅ required | ⛔ no capability |
+| `level` | ✅ required | ⛔ no capability |
+| `room` | ✅ required | ⛔ no capability |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **L-1147 is the smallest blocker in the whole audit and it reads like an architectural one.** *"The stair catalogue does not satisfy the resolver contract"* sounds like a redesign; measured, it is a method name. **This is why the audit brief said measure reachability, not existence** — the shape of a blocker is not visible from its description.
+- ⚠ **Carried from C84 §4B:** `stair.rotate` (L1) writes the DTO view only, and `UpdateElementParameterCommand`'s audit-neutral restore covers `wall`/`door`/`window` **only** — stair **stamps a fresh `metadata.version` on undo** (`:213-218`). A published stair type-change inherits that non-neutrality unless it goes through `element.changeType`'s ring-parity path, **which it must**.
+- ⭐ **`stair-railing` is a SEPARATE branch (`:1901`) and it is the reference implementation for ADR-0334 D2** — it already resolves its fields **from `newTypeId` alone** via `resolveStairRailingTypeFields`, reusing `handrailTypeStore`. **Handrail is being changed to match it, not the other way round.**
+- **NOT MEASURED**: V3/V4/V5 under a chat driver.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

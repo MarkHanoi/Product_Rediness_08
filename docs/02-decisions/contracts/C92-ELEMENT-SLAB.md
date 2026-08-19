@@ -662,3 +662,57 @@ refuse today, and it does not.
 | slab / door / window parity harnesses OWED (§5) | **CONFIRMED for slab** — `tests/parity/slab/slab-snapshot.test.ts` never imports `SlabFragmentBuilder`. ⚠ The directory's existence is what has kept the debt looking paid |
 | three `material-bridge.ts` files take `_key` and discard it (EI-8) | **MOOT FOR SLAB** — `plugins/slab/src/material-bridge.ts` does not exist; `grep _key plugins/slab/src/` → 0 |
 | **L-956** *"the plan handler has no region branch"* | ⚠ **NO LONGER HOLDS AT HEAD** — `SlabPlanToolHandler.ts:117-130` commits. The mode-propagation half and the misleading diagnostic survive; and the fix realised the EI-9 hazard L-956 itself warned about (§11 #2a) |
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **PUBLISHED, running its FALLBACK path**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `slab` |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`:1652 (approx — the `elType === 'slab'` arm) |
+| **Type catalogue** | ✅ `slabSystemTypeStore` — **but NOT injected**: `lookup: generic('slab')` reads `ctx.catalogues.slab`, which has no production writer (**L-1146**) |
+| **Type field on the record** | ✅ `systemTypeId` + `layers`, serialised at `ProjectSerializer.ts:649` |
+| **Executor the chat must use** | `slab.updateSystemTypeBatch` → `UpdateSlabsSystemTypeBatchCommand` → `UpdateSlabLayersCommand` → geometry `slabStore` (`:66`) |
+| **Chat capabilities published TODAY** | `set-slab-type` · `set-thickness` · `set-base-offset` |
+| **Retiring condition** | Inject `ctx.catalogues.slab` — L-1146. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ✅ works |
+| `selection` | ✅ required | ✅ works |
+| `level` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| `room` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **SLAB IS THE ONE HANDLER THAT IS HONEST AT THE BUS BOUNDARY, AND ITS HEADER IS THE SPEC FOR FIXING THE OTHER FOUR.** `plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:27-40` quotes C16 §5.1 **CA-18** — *"`{forward:[], inverse:[]}` returned as the outcome of a mutation the user asked for"* — reads `report.success`, keeps `report.info[0]` as `refusal`, and **throws** (`:192-194, 204-209`). `wall`, `window`, `door` and `ceiling` all still return unconditionally. **L-1141.**
+- ⚠ **L-1146 — resolves command-side, not chat-side**, for the same reason as ceiling; refuses honestly, but the family's own refusal copy is dead code at runtime.
+- ⛔ **L-1143 — a slab is the SUBJECT of the founder's broken case.** *"CREATE WALLS BY SLAB"* with a slab selected is refused, and the tool mode that ought to do it walls **every** slab in the project. There are **FOUR** rival slab→walls implementations (C84 §4F.6); the RAC must route to `wall.createFromSlab` and mint no fifth (P6, EI-4a).
+- ⚠ **L-1142 — declared `['all','selection']`, honours `level`, `room`, `orientation`.**
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.

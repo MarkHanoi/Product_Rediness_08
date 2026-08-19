@@ -682,3 +682,57 @@ family must resolve to a verb **XOR** a declared refusal — never to neither, n
 ⛔ **Also refused, and for the same reason.** Duplicating a room to another storey would mint a
 room record on a storey whose wall topology does not produce it; the next `REDETECT_ROOMS` on that
 level deletes it. To get the room upstairs, duplicate the **walls** that bound it.
+
+---
+
+## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
+
+> **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·
+> V2 DISPATCH · V3 STATE · V4 PERSIST · V5 UNDO · V6 SYNC · V7 REPORT). Cross-family summary:
+> **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
+> ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
+
+### Status — **⭐ PUBLISHED — and this is the ONE family where CHAT ≥ PANEL**
+
+| | Measured 2026-08-19 |
+|---|---|
+| **`element.changeType` tag(s)** | `room` (no `element.changeType` branch — occupancy is not a type) |
+| **Branch** | `apps/editor/src/engine/initBusHandlers.ts`n/a |
+| **Type catalogue** | ⛔ no type catalogue. **Occupancy is a CLOSED COMPILE-TIME ENUM** — `RoomOccupancyTypeSchema`, 51 members, identical in every project. |
+| **Type field on the record** | `occupancy` |
+| **Executor the chat must use** | ✅ `room.setOccupancy` — live, registered, undoable |
+| **Chat capabilities published TODAY** | `set-room-occupancy` · `rename-room` · `set-room-number` · `set-room-height-offset` |
+| **Retiring condition** | n/a. The open item points the other way — see below. |
+
+### Scoping — what a published capability for this family MUST accept
+
+The founder's ask is *"BY LEVEL, BY ROOM, ETC"*. The shared grammar
+(`makeHostedTypeParser`, `ZeroTokenResolver.ts:3340`) **already** captures `on level N` and
+`in the <room>`, and `FilterScope.ts` lifts property/type predicates out before it runs — so
+`all` · `selection` · `level` · `room` (· `orientation` where the family has a façade) are the
+target, and **the work is the DECLARATION, not the reach** (L-1142).
+
+| Scope | Target | AS-IS for this family |
+|---|---|---|
+| `all` | ✅ required | ✅ works |
+| `selection` | ✅ required | ✅ works |
+| `level` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| `room` | ✅ required | ⚠ **works, UNDECLARED** (L-1142) |
+| **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
+
+### Findings
+
+- ⭐ **THE INVERSION, RECORDED EXPLICITLY BECAUSE IT IS EVIDENCE.** `ElementTypeCatalogRegistry.ts:134-138` declares a **`readOnlyReason`** for room — the property panel does **not** offer a type change — while the chat offers four capabilities including `set-room-occupancy`. **Here the PANEL is the lagging surface, not the chat.** C84 EI-3 is symmetric and this row is the proof: the audit must not assume the panel is always ahead.
+- ⭐ **AND THIS FAMILY IS THE ORIGIN OF THE WHOLE ROOT CAUSE.** `ChatCommandClassification.ts:84-95` records that `room.setOccupancy` sat in `B_CATALOGUE` inheriting *"those catalogues are not injected yet"* — while occupancy is a closed enum with **no injection to wait for**. *"The blocker was unsatisfiable in the sense that matters: nothing anyone could build would ever have 'arrived'."* Cost: *"the founder's rooms read `unclassified` while a LIVE, undoable verb sat one sentence away."* **The identical mistake is on line 98 for `element.changeType`** — see C84 §4F.1 and C67 §1.8.4. **This family's history is the argument for C67 rule 15.**
+- ⚠ `set-room-occupancy` uses **`fanOutPerId`**, the only spec that does. **ADR-0334 D1 reclassifies it as a MIGRATION TARGET, not a precedent**: its per-room commands are genuinely different (`planRoomOccupancyFanOut` does authored-name protection + next-free numbering), which is admissible — but **N undo entries for one sentence is not**, and it should converge on one.
+- **NOT MEASURED**: V3/V4/V5/V7 for `set-room-occupancy`. This lane did not trace them.
+
+### NOT MEASURED for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict above is source-measured.
+- **V6 SYNC** — inherited FAIL from C67 §1.0 (the CRDT read-back leg does not exist; the transport
+  defaults OFF). **Not re-derived here**, and not a defect of this family.
+- **V3 / V4 / V5 under a CHAT driver** — where this family is dark, they cannot be measured through
+  chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
+  passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
+  of this family's geometry store (C16 CA-21), never a `success: true`.
