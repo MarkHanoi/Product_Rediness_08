@@ -10,6 +10,10 @@
  *   2. Creates CurtainPanelData entries for any new cells (default: SystemPanel_Glass)
  *   3. Removes stale CurtainPanelData entries for cells that no longer exist
  *   4. Never changes the panelType or materialOverride of existing panels (preserving user edits)
+ *   5. §L-1032 — carries surviving panels to the wall's storey when it changes.
+ *      A panel has its OWN required `levelId` (CurtainPanelTypes.ts:128 → CoreElement),
+ *      stamped once at creation, so a storey move would otherwise strand every
+ *      existing panel on the level the assembly just left.
  *
  * When a curtain wall is removed, this handler removes all its panels.
  *
@@ -110,6 +114,39 @@ export class CurtainPanelSyncHandler {
                 if (!expectedKeys.has(key)) {
                     this.panelStore.delete(panel.id);
                     elementRegistry.unregister(panel.id);
+                    continue;
+                }
+                // §L-1032 — CARRY SURVIVING PANELS TO THE WALL'S NEW STOREY.
+                //
+                // A panel is NOT derived data with no storey of its own: it
+                // `extends CoreElement` (`CurtainPanelTypes.ts:128`), so
+                // `levelId` is a REQUIRED, independently-stored field
+                // (`packages/core-app-model/src/CoreElement.ts:57`), and it is
+                // written exactly once — at creation, from `cw.levelId`
+                // (:128 below), inside the `if (!existing)` guard.
+                //
+                // That guard is why this branch has to exist. When
+                // `CurtainWallStore.changeLevel` emits its 'update', the grid is
+                // unchanged, so EVERY cell already has a panel and the creation
+                // loop below touches none of them. Without this line the assembly
+                // moves to the second floor and its 40-odd panels stay filed on
+                // the first — the dangling cascade L-1032 exists to prevent, and
+                // one that is INVISIBLE in 3-D (the builder positions panels from
+                // the parent wall's transform) while being wrong everywhere the
+                // storey is the query: per-level plan projection, level
+                // visibility, schedules, and IFC spatial containment.
+                //
+                // `CurtainPanelStore.update` is a MERGE (`CurtainPanelStore.ts:234-242`,
+                // declared as `semantics: 'merge'` in
+                // `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts:181-188`),
+                // so a one-key patch is the correct shape here — no whole-record
+                // replacement, and `curtainWallId` / `cellIndex` are untouched so
+                // `set()`'s secondary-index rewrite (:105-119) is a no-op.
+                //
+                // Guarded on inequality so an ordinary grid edit — which fires
+                // this same path — emits nothing per panel.
+                if (panel.levelId !== cw.levelId) {
+                    this.panelStore.update(panel.id, { levelId: cw.levelId });
                 }
             }
 

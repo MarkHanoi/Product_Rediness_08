@@ -370,6 +370,134 @@ export class CurtainWallStore {
     }
 
     /**
+     * §L-1032 — MOVE a curtain wall to a different storey.
+     *
+     * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ───────
+     * Unlike `SlabStore` / `ColumnStore`, `update()` above WOULD survive the
+     * one-key partial: `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts:176-180`
+     * records `curtainwall` as `semantics: 'merge'` and cites exactly the line
+     * above (`{ ...existing, ...updates }`, :365-370). So the argument for this
+     * method is NOT "the generic write would annihilate the record". It is three
+     * other things, and each is load-bearing:
+     *
+     *   1. THE UNDO ADAPTER ROUTES BY METHOD PRESENCE, NOT BY SEMANTICS.
+     *      `elementUndoStoreAdapter.ts:506` tests `typeof store.changeLevel ===
+     *      'function'` before routing a depth-2 `levelId` inverse patch. A family
+     *      without the method falls through to the generic `update()` arm — which
+     *      here is survivable, but ALSO skips the `bimManager.registerElement` /
+     *      view-dependency-tracker re-registration the adapter performs
+     *      immediately after the `changeLevel` call (:517-518). Ctrl+Z would move
+     *      the record back and leave its spatial registration on the storey it no
+     *      longer occupies. The register that governs this
+     *      (`packages/command-bus/src/levelChangeVerbs.ts:49-54`) is explicit
+     *      that a row without the store method is worse than no row at all.
+     *   2. THE PANEL CASCADE. A curtain wall owns PANELS, and a panel carries its
+     *      OWN required `levelId` (see the note below). A storey move that leaves
+     *      them behind is a dangling cascade. That reconciliation is driven by the
+     *      'update' this method emits, and is implemented in `CurtainPanelSyncHandler`
+     *      — the one module that owns wall→panel sync — not here, because §3.5
+     *      forbids this store from knowing the panel store exists.
+     *   3. ONE NAME FOR ONE CONCEPT. `wall`, `roof`, `slab` and `column` all spell
+     *      the storey move `changeLevel(id, levelId)`; a fifth family spelling it
+     *      `update(id, {levelId})` is the second answer C84 EI-9 forbids.
+     *
+     * ─── THE RIVAL PATH, RECORDED RATHER THAN LEFT BLANK ────────────────────
+     * `UpdateCurtainWallCommand` (`packages/command-registry/src/curtainwall/UpdateCurtainWallCommand.ts:91-110`,
+     * §DW-03) ALSO changes a curtain wall's storey — via `update()` plus its own
+     * inline `bimManager.unregisterElement` / `registerElement` pair — and is
+     * reachable from `wall.updateCurtainWall`. That is a genuine second authority
+     * for this question, and it does NOT move the panels. It is named here so the
+     * duplication is visible; collapsing it is not this method's business.
+     *
+     * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ──────────────────────────
+     * `remove` makes `CurtainPanelSyncHandler.onCurtainWallRemoved` DELETE every
+     * panel of the wall and unregister them from `elementRegistry`
+     * (`CurtainPanelSyncHandler.ts:177-186`), destroying every hand-authored
+     * per-panel type and material override. A move is not a delete.
+     *
+     * ─── WHAT THIS DOES NOT DO ──────────────────────────────────────────────
+     * Spatial-authority registration (bimManager `level.childrenIds`, the
+     * view-dependency element→level map) is NOT updated here — identical to the
+     * contract `WallStore.changeLevel`, `SlabStore.changeLevel` and
+     * `RoofStore.changeLevel` all state in their own doc comments, and identical
+     * to §3.5 / critical fix #10 in this file's header.
+     * `apps/editor/src/engine/elementLevelChangedMirror.ts` owns that half for
+     * EVERY family, so the ordering rule (move the record FIRST, re-register
+     * SECOND, dirty BOTH storeys THIRD) lives in one place rather than in
+     * thirteen stores.
+     *
+     * Returns the moved record, or `undefined` when there is nothing to move —
+     * which the mirror reports as a refusal rather than logging success over a
+     * no-op (§context-data-honesty: failure and emptiness are the same value).
+     */
+    changeLevel(id: string, newLevelId: string): CurtainWallData | undefined {
+        const existing = this.curtainWalls.get(id);
+        if (!existing) return undefined;
+        // An empty destination is REFUSED, never defaulted to `activeLevelId`.
+        // `'' ?? this.activeLevelId` is the §DIAG-WALL-LEVEL trap: a silent
+        // default files the wall on whatever storey happens to be open. `add()`
+        // and `addMany()` both THROW on a missing levelId (:323, :157) — this is
+        // the same refusal, expressed the way the mirror can read it.
+        if (!newLevelId) return undefined;
+        if (existing.levelId === newLevelId) return cloneCurtainWallData(existing);
+
+        // Same deep clone `set()` / `get()` use — baseLine points, properties,
+        // ifcData and the gridSystem U/V line arrays all copied (:48-66).
+        const cloned = cloneCurtainWallData(existing);
+        cloned.levelId = newLevelId;
+        // A curtain wall parented to its LEVEL moves its parent with it; one
+        // parented to something else (a host slab, a building element) keeps it.
+        // Note that `add()` here does NOT stamp `parentId` the way `SlabStore`
+        // and `ColumnStore` do, so this branch is normally inert — it exists so a
+        // record that DOES carry level parentage (imported, or written by an
+        // older path) cannot end up disagreeing with itself.
+        if (existing.parentId === existing.levelId) cloned.parentId = newLevelId;
+        // `CurtainWallData extends CoreElement`, whose `spatialRelationship`
+        // (`packages/core-app-model/src/CoreElement.ts:65`) MIRRORS BimManager's
+        // `Level.childrenIds` contract and is what IFC export reads for storey
+        // containment. Only rewritten when it is PRESENT: minting one here would
+        // invent a containment the record never asserted.
+        if (cloned.spatialRelationship) {
+            cloned.spatialRelationship = { ...cloned.spatialRelationship, levelId: newLevelId };
+        }
+        // CurtainWallData carries no `metadata` block (`CurtainWallTypes.ts:18-85`
+        // + `CoreElement.ts:54-71`), so there is no `modifiedAt`/`version` to bump
+        // the way `RoofStore.changeLevel` does. Do not invent one.
+
+        this.curtainWalls.set(id, cloned);
+
+        // ONE 'update'. `emit()` (:399-411) fans out to the in-process listeners
+        // FIRST — which is how `CurtainPanelSyncHandler` gets to carry the panels
+        // to the new storey in the same tick — and then to `storeEventBus`, which
+        // is what drives the builder rebuild.
+        //
+        // `emit(event, cw)` takes NO `prevState` parameter (:399), unlike
+        // `ColumnStore.emit` and `SlabStore.emit`. So a subscriber here cannot
+        // diff-dirty the VACATED storey from the event alone; the mirror dirties
+        // both storeys explicitly, which is why that half lives there.
+        this.emit('update', cloned);
+        return cloned;
+    }
+
+    /**
+     * §L-1032 — alias for `get()`, spelled the way the level-change mirror needs.
+     *
+     * `apps/editor/src/engine/elementLevelChangedMirror.ts:66-69` declares
+     * `LegacyLevelMovableStore` as `{ changeLevel(id, levelId), getById(id) }`
+     * and types its deps with it rather than casting, so `tsc` is what proves the
+     * LEGACY store was wired. `WallStore`, `RoofStore` and `SlabStore` all spell
+     * that read `getById`; this store spelled it `get` (:93). Without this alias
+     * the mirror's curtain-wall row could only be wired through a cast — and a
+     * cast is what turns a mis-wiring into a runtime `undefined` instead of a
+     * compile error, which is the whole reason that interface is not `any`.
+     *
+     * Returns a clone, exactly as `get()` does (§3.4).
+     */
+    getById(id: string): CurtainWallData | undefined {
+        return this.get(id);
+    }
+
+    /**
      * PERF-FIX-5: Fast internal read — returns the uncloned internal reference
      * as a frozen Readonly<CurtainWallData>. Zero clone cost on the hot path.
      *
