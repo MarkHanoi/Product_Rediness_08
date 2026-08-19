@@ -51,6 +51,9 @@ export interface ReplaceCurtainPanelTypeArgs {
   readonly newPanelType: PanelType;
   /** Hex tint, or `null` to clear it. Omit to leave the override untouched. */
   readonly materialOverride?: string | null;
+  /** §CW-2 — signed metres off the wall centreline. Omit to leave it untouched;
+   *  pass 0 to return the panel to flush. */
+  readonly offsetFromCentreline?: number;
   readonly commandManager: PanelCommandManagerLike | null | undefined;
 }
 
@@ -84,6 +87,10 @@ export function replaceCurtainPanelType(
     panelId: args.panelId,
     newPanelType: args.newPanelType,
     ...(args.materialOverride !== undefined ? { materialOverride: args.materialOverride } : {}),
+    // Forwarded only when supplied, so the command's `touchedOffset` snapshot stays
+    // honest and an undo cannot revert a field this dispatch never wrote.
+    ...(args.offsetFromCentreline !== undefined
+        ? { offsetFromCentreline: args.offsetFromCentreline } : {}),
   });
 
   try {

@@ -46,6 +46,18 @@ export interface ReplacePanelTypePayload {
     newPanelType: PanelType;
     /** Optional hex color override (e.g. '#ff0000'). Pass null to clear. */
     materialOverride?: string | null;
+    /**
+     * §CW-2 / C87 §13.4 CW-Attr-1 — signed metres off the wall centreline.
+     * Omit to leave it untouched; pass 0 to return the panel to flush.
+     *
+     * ⚠ THIS COMMAND IS NOW "SET PANEL INSTANCE ATTRIBUTES", NOT ONLY "REPLACE
+     * TYPE", AND THE NAME NO LONGER MATCHES. Renaming it is a separate change: the
+     * type string is `CommandType.REPLACE_CURTAIN_PANEL_TYPE` and it is SERIALISED
+     * into the undo history (`serialize()` below), so a rename is a stored-data
+     * change, not a refactor — the same reasoning C69 §1.1 applies to bus verbs.
+     * Recorded here so the mismatch is declared rather than discovered.
+     */
+    offsetFromCentreline?: number;
 }
 
 export class ReplacePanelTypeCommand implements Command {
@@ -61,6 +73,10 @@ export class ReplacePanelTypeCommand implements Command {
 
     private previousPanelType: PanelType | null = null;
     private previousMaterialOverride: string | undefined = undefined;
+    /** §CW-2 — captured only when the payload actually carries an offset, so an
+     *  undo cannot write `undefined` over an offset this command never touched. */
+    private previousOffset: number | undefined = undefined;
+    private touchedOffset = false;
 
     constructor(private payload: ReplacePanelTypePayload) {
         this.targetIds = [payload.panelId];
@@ -110,6 +126,15 @@ export class ReplacePanelTypeCommand implements Command {
         if (this.payload.materialOverride !== undefined) {
             updates.materialOverride = this.payload.materialOverride ?? undefined;
         }
+        // §CW-2 — the snapshot is taken ONLY when this command touches the field.
+        // Capturing unconditionally would make `undo()` write `undefined` over an
+        // offset some OTHER command set, which is a silent edit disguised as a
+        // revert — the C84 EI-7 shape (restoring a field you never wrote).
+        if (this.payload.offsetFromCentreline !== undefined) {
+            this.previousOffset = panel.offsetFromCentreline;
+            this.touchedOffset  = true;
+            updates.offsetFromCentreline = this.payload.offsetFromCentreline;
+        }
 
         // §MI-02 FIX: panelStore.update() emits storeEventBus 'curtain-panel' event.
         // EngineBootstrap's panelStore subscriber calls curtainWallBuilder.updateCurtainWall(cw)
@@ -134,7 +159,9 @@ export class ReplacePanelTypeCommand implements Command {
         // §MI-02 FIX: panelStore.update() alone triggers the rebuild via subscriber.
         panelStore.update(this.payload.panelId, {
             panelType:        this.previousPanelType,
-            materialOverride: this.previousMaterialOverride
+            materialOverride: this.previousMaterialOverride,
+            // §CW-2 — restored only if execute() actually changed it. See execute().
+            ...(this.touchedOffset ? { offsetFromCentreline: this.previousOffset } : {}),
         });
 
         return { success: true, affectedElementIds: [this.payload.panelId, panel.curtainWallId] };

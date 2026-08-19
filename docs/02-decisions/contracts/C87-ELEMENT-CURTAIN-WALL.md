@@ -1295,12 +1295,45 @@ the denormalised `levelName` / `levelElevation` copies that go stale on a level 
 
 Type · material · finish · **offset from centreline**.
 
-- **CW-Attr-1.** `offsetFromCentreline` is a **new authored field on `CurtainPanelData`**, signed,
-  metres, default `0`, measured along the panel's own outward normal. It MUST be: on the panel
-  record; in the CW-P-B authored-delta test; consumed by `CurtainPanelFactory` when it places the
-  panel rect; and carried by the RAC capability. **A field that renders but does not persist is
-  L-1057 repeated with a new name.**
-- **CW-Attr-2 — "material" and "finish" are TWO axes and MUST NOT be collapsed.** C84 EI-8's warning
+- **CW-Attr-1.** ✅ **DELIVERED 2026-08-19** (geometry `d8f0…`, authoring in the same pass).
+  `offsetFromCentreline` is a new authored field on `CurtainPanelData` — signed, metres, default `0`,
+  along the wall's outward normal.
+  > **It is the panel's `z`, not a new axis.** `buildFlatPanel` positioned at `(cx, cyMid, 0)`
+  > (`CurtainPanelFactory.ts:276`) and **that literal `0` WAS the centreline**; the field is that
+  > coordinate, named (C84 EI-9 — not a second way of saying the same thing).
+  >
+  > **Every hop has a declared destination** (EI-2 / CW-Attr-3): record · `isAuthoredPanel` ·
+  > `CurtainPanelOverride` (save/load) · `buildFlatPanel` (render) · `ReplacePanelTypeCommand`
+  > (authoring, **with a snapshot taken only when the payload touches the field**, so an undo cannot
+  > write `undefined` over an offset some *other* command set) · the sub-element panel's **Position**
+  > card. **RAC is the one hop it does NOT reach, and that is declared here rather than discovered
+  > later** (§13.7 CW-RAC-1).
+  >
+  > ⚠ **EXCLUDED FROM INSTANCING, DELIBERATELY.** `CurtainWallInstanceManager` batches by
+  > `(panelType, materialId)`; the offset is not in that key, so a batched panel would render at the
+  > centreline **while its record said otherwise**. Non-zero offsets now join `materialOverride` in
+  > the individual-render path (`:295`). One extra draw call is the correct price for not shipping a
+  > stored value the pixel contradicts — the [L-1038](../../04-reference/ISSUE-LOG.md) family.
+  >
+  > **Three boundaries asserted rather than assumed:** authored-ness compares against `0`, not
+  > `undefined` (a panel set back to flush has returned to the DERIVED state and must stop being
+  > persisted, or the sparse set only ever grows) · a **non-finite** offset falls back to `0` at the
+  > point of use (NaN in a position makes the matrix non-invertible and the panel **vanishes with no
+  > error** — the L-1052 shape) · a **blank** input box means *"leave it alone"*, never *"set 0"*.
+- **CW-Attr-2 — ⚠ STILL OPEN, and the measurement narrows it. "material" and "finish" are TWO axes
+  and MUST NOT be collapsed.**
+  > **Measured 2026-08-19, and this is better news than the register suggested:** the panel record
+  > ALREADY carries both axes — `materialOverride` (a raw hex tint, `CurtainPanelTypes.ts:141`) and
+  > `materialId` (the C100 master-catalogue material, `:171`) — **and `materialId` genuinely reaches
+  > a rendered PBR material**: `CurtainWallInstanceManager._getPanelMaterial()` resolves it against
+  > the `STANDARD_MATERIAL_LIBRARY` map injected at `initUI.ts:2236-2241`. It also now persists
+  > (§13.1 CW-P). ⭐ **That makes curtain-wall PANELS an exception to
+  > [L-1038](../../04-reference/ISSUE-LOG.md)'s repo-wide finding that only `wall`'s `materialId`
+  > reaches a pixel** — reported so the census is corrected rather than inherited.
+  >
+  > **What is actually missing is only the CONTROL:** no UI exposes `materialId`, so the user can set
+  > a hex tint and cannot choose "Carrara marble". That is a smaller, sharper task than "reconcile
+  > two axes", and it is what remains of CW-Attr-2. C84 EI-8's warning
   is explicit: `materialName` *"carries roughness / metalness / transparency"* and collapsing it to a
   hex **loses information**. `materialOverride` (existing) is the render tint; a *finish* is the PBR
   material. The panel needs both, named differently, or one of them declared absent.

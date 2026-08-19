@@ -12633,3 +12633,59 @@ exist (§13.4 CW-2).
 session. §committed-is-not-reachable applies to me here too: a reading cannot establish that the
 highlight and the panel actually appear on a TAB press in a running editor. **Founder-verifiable**,
 and listed with the other item of that kind (the *"I can swap panels"* contradiction, C87 §12).
+
+---
+
+## L-1071 — per-panel offset from centreline: authored, persisted, rendered, and kept out of the batcher ✅ CLOSED (CW1, 2026-08-19)
+
+Step 5 of the founder's curtain-wall specification (C87 §13.4 CW-Attr-1) — *"change panel instance
+attributes — material, finish, offset from centreline, etc."*
+
+**`offsetFromCentreline` is the panel's `z`, not a new axis.** Panel geometry is built in wall-local
+space where `z` IS the wall normal, and `buildFlatPanel` positioned at `(cx, cyMid, 0)`
+(`CurtainPanelFactory.ts:276`) — **that literal `0` was the centreline all along.** The field is that
+coordinate, named. Signed: `+` pushes out, `−` recesses, `0` is flush.
+
+**Every hop has a declared destination** (C84 EI-2, C87 CW-Attr-3), because the two ways this could
+fail are both already on this family's record: a field that **renders but does not persist** is
+L-1057 with a new name, and a field that **persists but does not render** is the L-1038 family — a
+stored value the pixel disagrees with. The hops: record → `isAuthoredPanel` → `CurtainPanelOverride`
+(save/load) → `buildFlatPanel` (render) → `ReplacePanelTypeCommand` (authoring + undo) → the
+sub-element panel's **Position** card. **RAC is the one hop it does not reach, and that is declared
+rather than left to be discovered.**
+
+⚠ **EXCLUDED FROM INSTANCING, DELIBERATELY.** `CurtainWallInstanceManager` batches by
+`(panelType, materialId)` and the offset is **not in that key**, so a batched panel would render at
+the centreline while its record said otherwise. Non-zero offsets now join `materialOverride` in the
+individual-render path (`:295`). **One extra draw call is the correct price for not shipping a stored
+value the pixel contradicts.**
+
+**Four boundaries asserted rather than assumed** — each is a place this could have become a silent
+defect:
+
+1. **Authored-ness compares against `0`, not `undefined`.** A panel explicitly set back to flush has
+   returned to the DERIVED state and must **stop** being persisted, or the sparse override set only
+   ever grows and CW-P's whole premise erodes.
+2. **A non-finite offset falls back to `0` at the point of use.** `NaN` in a position makes the
+   matrix non-invertible and **the panel vanishes with no error** — the L-1052 shape, a bad input
+   producing a silently empty result.
+3. **A blank input box means "leave it alone", never "set 0".** Coercing blank to `0` would silently
+   flatten an offset the user never touched.
+4. **The undo snapshot is captured ONLY when the payload carries an offset.** Capturing
+   unconditionally would make `undo()` write `undefined` over an offset some *other* command set —
+   **a silent edit disguised as a revert**, which is the C84 EI-7 shape.
+
+Pinned by `packages/geometry-curtain-wall/__tests__/CurtainPanelOffsetFromCentreline.test.ts` (4/4),
+asserting **both ends** — the mesh's `z` and the save/load round trip — plus boundaries 1 and 2.
+
+⭐ **AND A CORRECTION TO L-1038's CENSUS, IN THIS FAMILY'S FAVOUR.** L-1038 finds that repo-wide only
+`wall`'s `materialId` reaches a rendered colour, sixteen families carrying the id and dropping it
+before the pixel. **Curtain-wall PANELS are an exception:** `CurtainWallInstanceManager._getPanelMaterial()`
+resolves `panel.materialId` against the `STANDARD_MATERIAL_LIBRARY` map injected at
+`initUI.ts:2236-2241`, and it now persists too (L-1057). MT1's finding about
+`serializeCurtainWall()` writing no `materialId` is **separately CONFIRMED** and is about the WALL
+record, which has no such field at all (`CurtainWallTypes.ts` carries `mullionMaterialId` /
+`glazingMaterialId` instead) — consistent with C87 §5 row 16, no contradiction.
+
+**What remains of CW-Attr-2 is only the CONTROL:** no UI exposes `materialId`, so a user can set a
+hex tint and cannot choose "Carrara marble". Smaller and sharper than "reconcile two axes".

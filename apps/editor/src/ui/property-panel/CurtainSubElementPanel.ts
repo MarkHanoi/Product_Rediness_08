@@ -313,6 +313,33 @@ function buildPanelSubPanel(
     matBody.appendChild(colorRow);
     body.appendChild(matCard);
 
+    // Section 4: §CW-2 / C87 §13.4 CW-Attr-1 — OFFSET FROM CENTRELINE.
+    // The founder's explicit per-panel attribute. Signed metres along the wall's
+    // outward normal: positive pushes the panel out, negative recesses it, 0 is
+    // flush. The field round-trips (sparse overrides, L-1057) and reaches the mesh
+    // (`CurtainPanelFactory` sets it as the panel's z), so this control is the last
+    // hop of a chain that is complete at both ends before it was ever offered —
+    // which is the opposite of how this family's other affordances were built.
+    const { card: offCard, body: offBody } = makeCard('Position', 4);
+
+    const offNote = document.createElement('div');
+    offNote.style.cssText = 'grid-column:1/-1;font-size:9.5px;color:#7a8aaa;margin-bottom:4px;';
+    offNote.textContent = 'Offset from the wall centreline. + pushes out, − recesses, 0 is flush.';
+    offBody.appendChild(offNote);
+
+    const offLabel = document.createElement('div');
+    offLabel.className = 'gpp-prop-label';
+    offLabel.textContent = 'Offset (m)';
+    offBody.appendChild(offLabel);
+
+    const offInput = document.createElement('input');
+    offInput.type = 'number';
+    offInput.step = '0.005';
+    offInput.className = 'gpp-prop-input';
+    offInput.value = String(panelData?.offsetFromCentreline ?? 0);
+    offBody.appendChild(offInput);
+    body.appendChild(offCard);
+
     // ── Apply button ──────────────────────────────────────────────────────────
     const applyBtn = document.createElement('button');
     applyBtn.className = 'gpp-apply-btn';
@@ -329,10 +356,19 @@ function buildPanelSubPanel(
         // this button has never once changed a panel. Routed to the L2 command, which
         // holds a real panel store and drives the §MI-02 rebuild subscriber
         // (C16 CA-17 — route the write; C87 §13.11 CW-Dec-1 — keep the control ENABLED).
+        // §CW-2 — a blank or non-numeric box means "leave it alone", NOT "set 0".
+        // Coercing a blank to 0 would silently flatten an offset the user never
+        // touched, and `undefined` vs 0 is the distinction the command's snapshot
+        // relies on to keep undo honest.
+        const offRaw = offInput.value.trim();
+        const offNum = offRaw === '' ? undefined : Number(offRaw);
+        const offVal = offNum !== undefined && Number.isFinite(offNum) ? offNum : undefined;
+
         const r = replaceCurtainPanelType({
             panelId: subEl.id,
             newPanelType: pendingType,
             materialOverride: colorVal,
+            ...(offVal !== undefined ? { offsetFromCentreline: offVal } : {}),
             commandManager: _commandManager(ctx),
         });
         if (r.ok) {
