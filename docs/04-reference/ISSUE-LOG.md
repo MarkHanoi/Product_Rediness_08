@@ -14244,3 +14244,128 @@ preserve. Closed by `f65d5230`.
 - **Two handlers failed to register at boot** — `registerClashRun` and `registerClashRefusalHandlers`,
   both `i.has is not a function`. **Clash detection is DEAD in production and degraded to "refusing"
   at boot.** Routed elsewhere by the coordinator; recorded here so it is not lost.
+
+---
+
+## L-1159 — invalidation was keyed on "something on this level changed", not on what the computation reads: a WINDOW re-resolved WALL JOINS ✅ FIXED 2026-08-19 (MEASURED)
+
+**Lane WJ2 · C85 · founder-reported, production, deployed build `e17d9c2e`.** Three separate
+stall reports on one day turned out to be **one defect with three faces.**
+
+### What the founder did, and what the stack said
+
+He bulk-changed **the height of every wall** in a large multi-level project. It stalled. Chrome
+captured the stack behind the accompanying `§FIX-T-JOIN-PENETRATION` warning:
+
+```
+_applyT  ←  _handleMultiWallClusters  ←  resolveLevel        (WallJoinResolver)
+         ←  WallRebuildCoordinator._flush
+         ←  tick ← scheduleNext ← requestAnimationFrame      (chained 200+ frames)
+```
+
+Later the same day he bulk-created **a window every 1.5 m in every wall**. Same stack.
+
+### The root — stated as the general defect, because that is what it is
+
+> **A level-scoped recompute was re-run on every element event, regardless of whether that event
+> could affect its inputs.** Invalidation keyed on *"a wall on this level changed"*; the
+> computation depends on *the wall's PLAN geometry*. Those are different sets, and everything
+> outside the second one is pure waste.
+
+**A height is an EXTRUSION parameter. A window is a HOSTED OPENING.** Neither can move a
+centreline, alter a thickness, or change an angle — so neither can change a T-join, a mitre, a
+cluster, or a self-cluster verdict. The window case needs no argument at all: it is
+self-evidently wrong that adding a window re-solves wall joins.
+
+### The measurement (`WJ2HeightEditJoinInvalidation.measure.test.ts`)
+
+**`WallJoinResolver.resolveLevel` output is BYTE-IDENTICAL** at h=3.0, h=5.0 and h=0.05 on the
+same plate, and byte-identical when every wall gains a window — measured by running the real
+resolver and comparing the full serialised `JoinData` of every wall at full float precision.
+**Two controls diverge** (host thickness, endpoint move), so the comparison is known to be
+capable of failing.
+
+A source census says *why*: across `WallJoinResolver.ts`'s 3236 lines the identifiers
+`height`, `openings`, `rakeAngleDeg`, `wallProfile`, `baseOffset`, `materialColor`,
+`properties` and `layers` occur **zero times**. `refreshV2Cache`'s spec object carries no
+height and no openings either.
+
+**Cost of the waste** — `resolveLevel`, one level, one pass:
+
+| walls/level | 43 | 89 | 151 | 229 | 323 |
+|---|---|---|---|---|---|
+| ms | 4.5 | 12.0 | 16.1 | 36.3 | **69.1** |
+
+⇒ **415 ms per flush** at 323 walls × 6 levels — and the flush re-arms across 200+ frames, so
+that multiplies by the flush count, not by one.
+
+### The fix — `§WJ2-JOIN-MEMO`, a MEMO, deliberately not a looser rule
+
+`packages/geometry-wall/src/WallJoinResolveMemo.ts`. `resolveLevel` is now content-addressed on
+**exactly** the seven fields it reads (`id`, seed baseline, `thickness`, `curve`, `systemTypeId`,
+`joinIntent`) plus the resolved thresholds and the ten `__pryzm*` behaviour/diagnostic flags.
+The real solve is untouched, renamed `_resolveLevelUncached`.
+
+A memo rather than a widened classifier guard, following `WallDeltaClassifier`'s own earned
+doctrine — *"a MEMOIZATION rather than an approximation"*. A hit means the inputs were
+byte-identical, so the answer is too; a widened guard is a geometric claim the next
+unanticipated topology can falsify (`§CLAMP-COSHARE-WELD` was reverted for exactly that).
+
+**BEFORE / AFTER, 323 walls/level × 6 levels:**
+
+| | ms | |
+|---|---|---|
+| BEFORE — memo off, 6 whole-level solves | **372.6** | |
+| AFTER — bulk HEIGHT change (6/6 hits) | **3.9** | **95× faster** |
+| AFTER — bulk WINDOW create (6/6 hits) | **1.8** | **208× faster** |
+
+Key build costs **0.16 ms against a 54.9 ms solve — 0.3 % tax on a MISS.**
+
+### ⚠ What this does NOT fix — stated so it is not mistaken for more
+
+- **It does not stop the flush RE-ARMING.** The `tick → scheduleNext → rAF` treadmill lives in
+  `WallRebuildCoordinator`, not here. The memo makes each pass ~free; it does not make the
+  passes stop. **That half is the flush layer's and is NOT closed by this entry.**
+- **`classifyWallDelta` still bails to `whole-level` on `multi-level-batch`** — measured. A
+  height edit on ONE level takes the fast path; the founder's edit spanned levels, so it did
+  not. That guard is a PLUMBING limit (`_flushOpeningsOnly` takes one `levelId`), **not a
+  geometric one.** Narrowing it means touching the flush layer. **UNBUILT, not impossible.**
+- **One entry without `prevState` poisons the whole batch** into `whole-level` — measured.
+
+---
+
+## L-1160 — the same join warnings, same wall pairs, same numbers, re-emitted for hundreds of frames ✅ FIXED 2026-08-19
+
+**Lane WJ2 · C85.** The founder's capture is a wall of identical lines: `penetrates by
+100.0 mm`, `axial retreat of 316.3 mm`, the same wall ids, over and over. Two `console.warn`
+sites (`§FIX-T-JOIN-PENETRATION`, `§SELF-CLUSTER-GUARD`) built their strings **eagerly, inside
+the critical window**, before anything decided whether printing was worth it. With DevTools open
+each line is serialised and painted on the main thread — **the transcript is a measurable share
+of the stall it documents.**
+
+Demoted per INSTR1's `canPlace` precedent (`§PRYZM-PERF`), and **not silenced**: every
+occurrence still bumps a counter (`waste.wallJoinTJoinGrazing` /
+`…TJoinThroughCrossing` / `…SelfClusterSkip`, readable in `pryzmPerf.report()`); the **first**
+occurrence of each **distinct** message still prints in full; repeats are counted and dropped.
+`__pryzmWallJoinDiag` restores the full per-occurrence transcript.
+
+The de-dup keys on the **fully formatted message**, so the same pair with different numbers is a
+different signature and prints — keying on wall ids alone would hide a pair whose geometry moved.
+
+⚠ **`resetWallJoinWarnings()` is exported but NOT WIRED** to any teardown site, so suppression
+persists for the tab's lifetime (or until the 500-signature cap). Stated rather than described
+as done.
+
+### The join classification itself — UNBUILT, not a considered decision
+
+`§FIX-T-JOIN-PENETRATION` classifies the founder's pair as *"grazing"* because the axial retreat
+(316.3 mm) exceeds the grazing cap (201.0 mm), and leaves it **un-trimmed**. The message now says
+**`Left UNHANDLED (§C85-REFUSAL-KIND: UNBUILT, not impossible — this shape has no trim
+implementation yet)`** instead of the old *"Left un-trimmed"*, which read as a considered
+decision and meant *"unhandled shape"* (the rule `c9715b8a` landed in C85 for exactly this).
+
+⚠ **NOT FIXED, and no cap was widened** — a cap moved to quiet a log becomes an unexplainable
+constant. **The upstream question is the one to answer first: our OWN generator emits these
+walls.** The identical pair-shapes appeared on a *different* gesture (walls-by-slab) in a
+*different* project, so the defect is systemic and plausibly **upstream of the resolver**.
+Establish which end is wrong before touching a threshold. **UNBUILT.**

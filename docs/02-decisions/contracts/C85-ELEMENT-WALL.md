@@ -694,6 +694,111 @@ ledger):
 
 ---
 
+## 10.5 INVALIDATION KEYS — what re-runs a wall recompute, and what must not
+
+> **Added 2026-08-19, lane WJ2 (L-1159/L-1160), from three founder-reported production stalls on
+> deployed build `e17d9c2e`.** This section is NORMATIVE. It exists because the same defect
+> appeared three times in one day wearing three different costumes.
+
+### The rule
+
+> ⭐ **A level-scoped recompute may be invalidated ONLY by a change to an input it actually
+> reads. "An element on this level changed" is NOT an invalidation key — it is the absence of
+> one.**
+
+Written this way round on purpose. The tempting phrasing — *"invalidate when the wall changes"* —
+is what shipped, and it is how a **window came to re-solve wall joins**. If a future reader
+cannot name the field the recompute reads, the correct move is to MEASURE the dependency, never
+to widen the key "to be safe": a key widened for safety is indistinguishable from no key at all.
+
+### The dependency table — MEASURED, not asserted
+
+Census method: `grep -c` for each identifier across the whole implementation file, plus a
+**behavioural** probe that runs the real function twice over one plate varying one field and
+compares the full serialised output at float precision — with controls that DO diverge, so the
+comparison is known to be capable of failing. See
+`packages/geometry-wall/__tests__/WJ2HeightEditJoinInvalidation.measure.test.ts`.
+
+| input | `resolveLevel`<br>(T-joins, mitres, clusters) | `refreshV2Cache`<br>(ADR-0055 miter cache) | `computeJunctionInfills` | `buildWall`<br>(the body) |
+|---|:---:|:---:|:---:|:---:|
+| `baseLine` / `_sourceBaseLine` | ✅ **reads** | ✅ | ✅ | ✅ |
+| `thickness` | ✅ **reads** | ✅ | ✅ | ✅ |
+| `curve` | ✅ **reads** | ✅ | ✅ | ✅ |
+| `systemTypeId` | ✅ **reads** | ✅ | — | ✅ |
+| `joinIntent` | ✅ **reads** | — | — | — |
+| wall ADD / DELETE | ✅ **reads** (the set) | ✅ | ✅ | ✅ |
+| `snapRadius` (camera zoom) | ✅ **reads** | — | — | — |
+| **`height`** | ⛔ **0 occurrences** | ⛔ not in the spec | ⚠ **extrusion ONLY** | ✅ |
+| **`openings`** | ⛔ **0 occurrences** | ⛔ not in the spec | ⛔ 0 occurrences | ✅ |
+| `rakeAngleDeg` | ⛔ **0 occurrences** | ✅ (ADR-0312 twin-solve) | — | ✅ |
+| `wallProfile` | ⛔ **0 occurrences** | — | — | ✅ |
+| `baseOffset` | ⛔ **0 occurrences** | — | — | ✅ |
+| `materialColor` / `properties` | ⛔ **0 occurrences** | — | — | ✅ (colour only) |
+| `layers` | ⛔ **0 occurrences** | ✅ (`layered` flag) | — | ✅ |
+
+**Reading the two ⛔ rows that matter:** `WallJoinResolver.ts` is 3236 lines and the strings
+`height` and `openings` appear in it **zero times and five times respectively — and all five
+`opening` hits are prose in comments.** The plan solve is a function of centrelines, thickness
+and angles. **It is geometrically incapable of depending on a height or an opening.**
+
+⚠ **The ONE genuine height dependency, named so nobody concludes "height never matters":**
+`WallJunctionInfill.ts:190` reads `(w as any).height ?? 2.8` and `:71-72` declares it *"Extrusion
+height (average of wall heights in cluster)"*. So a height edit **must re-extrude the junction
+infill** — and must **not** re-run the plan solve. The dependency is on the EXTRUSION, not on the
+topology. `rakeAngleDeg` is the mirror case: invisible to `resolveLevel`, load-bearing for
+`refreshV2Cache` since ADR-0312 (§WALL-RAKE-JOINT-ONE-EDIT-BEHIND).
+
+### How the rule is enforced — a MEMO, not a hand-maintained list
+
+`packages/geometry-wall/src/WallJoinResolveMemo.ts` (`§WJ2-JOIN-MEMO`). `resolveLevel` is
+content-addressed on exactly the fields above, so **a field the solve does not read cannot enter
+the key, and therefore cannot invalidate.** The table is enforced by construction rather than by
+a reviewer remembering it.
+
+> ⭐ **Why a memo and not a widened `classifyWallDelta` guard.** `WallDeltaClassifier`'s own
+> header states the doctrine, earned by `§CLAMP-COSHARE-WELD`'s reverted "seemed local, wasn't":
+> *"a MEMOIZATION rather than an approximation"*. A cache hit is a statement about **bytes** — the
+> inputs were identical, so the answer is. A widened guard is a statement about **geometry**,
+> which the next unanticipated topology can falsify. **Prefer the claim that cannot be wrong.**
+
+**Measured effect** (323 walls/level × 6 levels): 372.6 ms → **3.9 ms** for a bulk height change
+(95×) and **1.8 ms** for a bulk window create (208×). Key build is 0.16 ms against a 54.9 ms
+solve — **0.3 % tax on a miss**.
+
+### Still open — UNBUILT, not impossible
+
+| # | What | Kind |
+|---|---|---|
+| A | **The flush RE-ARMS.** `tick → scheduleNext → rAF`, 200+ frames. The memo makes each pass ~free; it does not stop the passes. Lives in `WallRebuildCoordinator`, not in this package | **UNBUILT** |
+| B | `classifyWallDelta` returns `whole-level / multi-level-batch` for an edit spanning levels, **even when the per-wall delta is provably join-irrelevant.** A PLUMBING limit — `_flushOpeningsOnly` takes one `levelId` — **not a geometric one.** This is exactly the founder's height case | **UNBUILT** |
+| C | `whole-level / opening-set-changed` for an opening CREATE. The stated reason (*"a created opening can abut a junction"*) is not supported by the table above: the solve does not read openings | **UNBUILT** |
+| D | One batch entry without `prevState` poisons the whole batch to `whole-level` | **UNBUILT** |
+
+⚠ **B, C and D all live in the FLUSH layer.** They are named here because C85 owns the rule; the
+edit belongs to whoever owns `WallRebuildCoordinator`.
+
+### Join classification — `§FIX-T-JOIN-PENETRATION`, and what its refusal MEANS
+
+The founder's production log: `penetrates host=… by 100.0 mm (depth cap 201.5 mm) with an axial
+retreat of 316.3 mm (grazing cap 201.0 mm)` → classified **"grazing"**, left un-trimmed. The same
+pair-shapes appeared on a **different gesture** (walls-by-slab) in a **different project**, so
+this is **systemic, not incidental**.
+
+> ⛔ **NO CAP WAS WIDENED, and none should be to quiet a log.** A cap moved to silence a warning
+> becomes an unexplainable constant. If a cap is wrong, DERIVE the right value and say what it is
+> derived FROM.
+
+> ⭐ **The upstream question comes first.** If **our own generator** emits walls the resolver
+> cannot join, the defect is upstream of the resolver. Establish which end is wrong before
+> touching a threshold.
+
+Per the `c9715b8a` rule, the message now names its own kind: **`Left UNHANDLED (§C85-REFUSAL-KIND:
+UNBUILT, not impossible — this shape has no trim implementation yet)`**. The previous wording,
+*"Left un-trimmed"*, read as a considered decision and meant *"unhandled shape"* — the precise
+failure that rule exists to prevent.
+
+---
+
 ## 11. THE DELTA
 
 Ordered by what the user loses.

@@ -3,7 +3,15 @@ import { COINCIDENT_M } from '@pryzm/geometry-kernel';
 import { WallData } from './WallTypes';
 import { detectJunctionClusters } from './WallJunctionClustering';
 import { SpatialGrid } from '@pryzm/snapping';
+import { bumpPerf } from '@pryzm/frame-scheduler';
 import type { JoinData } from '@pryzm/core-app-model';
+import {
+    wallJoinMemoEnabled,
+    wallJoinResolveKey,
+    wallJoinMemoLookup,
+    wallJoinMemoStore,
+    cloneJoinMap,
+} from './WallJoinResolveMemo';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -36,6 +44,55 @@ function wallJoinDiagOn(): boolean {
         __PRYZM_WALL_JOIN_DEBUG?: boolean;
     };
     return g.__pryzmWallJoinDiag === true || g.__PRYZM_WALL_JOIN_DEBUG === true;
+}
+
+// ── §WJ2-JOIN-WARN-ONCE (L-1160) — the diagnostics are part of the cost ──────
+//
+// The founder's production capture is a wall of IDENTICAL warnings: the same wall
+// pair, the same `penetrates by 100.0 mm`, the same `axial retreat of 316.3 mm`,
+// re-emitted on every pass for hundreds of frames. Two `console.warn` sites are
+// responsible (§FIX-T-JOIN-PENETRATION and §SELF-CLUSTER-GUARD) and BOTH build
+// their string EAGERLY, inside the critical window, before anything decides
+// whether it is worth printing. With DevTools open each line is serialised and
+// painted on the main thread, so the transcript is itself a measurable share of
+// the stall being reported.
+//
+// Demoted per INSTR1's `canPlace` precedent (`§PRYZM-PERF`), and NOT silenced:
+//   · every occurrence still increments a counter, readable in `pryzmPerf.report()`;
+//   · the FIRST occurrence of each DISTINCT message still prints in full, so a
+//     genuinely new unresolved pair is never hidden;
+//   · repeats of a message already printed are counted and dropped — they carried
+//     no information the first one did not;
+//   · `__pryzmWallJoinDiag` restores the unconditional per-occurrence transcript.
+//
+// ⭐ The de-dup keys on the FULLY FORMATTED message, so two different pairs, or the
+// same pair with different numbers, are different signatures and both print. That
+// is deliberate: keying on the wall ids alone would hide a pair whose geometry
+// changed — the failure mode where a "quiet" log means "the second reading was
+// suppressed", not "nothing else happened".
+const _warnedJoinSignatures = new Set<string>();
+/** Hard ceiling so a pathological project cannot grow this without bound; past it
+ *  the counter keeps counting and printing stops, which is the safe direction. */
+const _WARN_SIGNATURE_CAP = 500;
+
+function _warnJoinOnce(counterKey: string, message: string): void {
+    bumpPerf(counterKey);
+    if (wallJoinDiagOn()) { console.warn(message); return; }
+    if (_warnedJoinSignatures.has(message)) return;
+    if (_warnedJoinSignatures.size >= _WARN_SIGNATURE_CAP) return;
+    _warnedJoinSignatures.add(message);
+    console.warn(message);
+}
+
+/** Clear the emitted-signature set — a new project (or a new gesture a caller wants
+ *  a fresh transcript for) should print its own diagnostics rather than inherit
+ *  another project's suppression.
+ *  ⚠ EXPORTED FOR wiring, NOT YET WIRED to a teardown site: nothing in apps/editor
+ *  calls it today, so the suppression currently persists for the tab's lifetime (or
+ *  until the 500-signature cap). Stated plainly rather than described as done —
+ *  the cap bounds the memory, the missing call bounds the usefulness. */
+export function resetWallJoinWarnings(): void {
+    _warnedJoinSignatures.clear();
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -212,7 +269,48 @@ function _segAabbDistSq(p: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3): n
 
 export class WallJoinResolver {
 
+    /**
+     * §WJ2-JOIN-MEMO (L-1159) — content-addressed entry point.
+     *
+     * The whole-level plan solve is a PURE function of seven wall fields
+     * (`id`, `baseLine`/`_sourceBaseLine`, `thickness`, `curve`, `systemTypeId`,
+     * `joinIntent`), the per-call thresholds, and ten behaviour/diagnostic flags.
+     * It writes nothing to its inputs. So an identical key means an identical
+     * answer, and the solve can be skipped — a MEMOIZATION, not an approximation.
+     *
+     * This is the fix for the founder's 2026-08-19 triple: a bulk HEIGHT change
+     * and a bulk WINDOW create both re-ran this solve once per level per flush,
+     * across 200+ re-armed frames, for an answer that provably could not change.
+     * Neither height nor openings can enter the key, because the solve does not
+     * read them — measured in `WJ2HeightEditJoinInvalidation.measure.test.ts`.
+     *
+     * The real solve is `_resolveLevelUncached`; nothing about it changed.
+     */
     static resolveLevel(
+        walls: WallData[],
+        opts?: ResolveLevelOptions,
+    ): Map<string, JoinData> {
+        if (!walls || walls.length < 2) return new Map<string, JoinData>();
+
+        const memoKey = wallJoinMemoEnabled()
+            ? wallJoinResolveKey(walls, _resolveThresholds(opts))
+            : null;
+        if (memoKey !== null) {
+            const hit = wallJoinMemoLookup(memoKey);
+            // Copy on the way OUT: consumers mutate `JoinData` (the coordinator
+            // stashes it in `_prevJoinMap` and hands it to the builder), so the
+            // stored entry must never be reachable from outside this module.
+            if (hit) return cloneJoinMap(hit);
+        }
+
+        const _t0 = performance.now();
+        const out = WallJoinResolver._resolveLevelUncached(walls, opts);
+        // Copy on the way IN, for the same reason in the other direction.
+        if (memoKey !== null) wallJoinMemoStore(memoKey, cloneJoinMap(out), performance.now() - _t0);
+        return out;
+    }
+
+    private static _resolveLevelUncached(
         walls: WallData[],
         opts?: ResolveLevelOptions,
     ): Map<string, JoinData> {
@@ -2108,7 +2206,8 @@ export class WallJoinResolver {
                 );
             }
             if (_cntSkippedSelfCluster > 0) {
-                console.warn(
+                _warnJoinOnce(
+                    'waste.wallJoinSelfClusterSkip',
                     `[WallJoinResolver] §SELF-CLUSTER-GUARD: skipped ${_cntSkippedSelfCluster} endpoint(s) ` +
                     `from ${_selfClusterWallIds.size} wall(s) whose BOTH ends are in this cluster: ` +
                     Array.from(_selfClusterWallIds).join(', ')
@@ -3141,13 +3240,16 @@ export class WallJoinResolver {
                 // fired. The old text asserted "exceeds one host thickness" for either arm,
                 // which is how a retreat sitting exactly ON the cap came to be reported as
                 // exceeding it.
-                console.warn(
+                // §WJ2-JOIN-WARN-ONCE — counted always, printed once per distinct message.
+                _warnJoinOnce(
+                    tooDeep ? 'waste.wallJoinTJoinThroughCrossing' : 'waste.wallJoinTJoinGrazing',
                     `[WallJoinResolver] §FIX-T-JOIN-PENETRATION T-JOIN: ${secondary.wallId}(${secondary.side}) ` +
                     `penetrates host=${hostWallId} by ${(penetration * 1000).toFixed(1)} mm ` +
                     `(depth cap ${((hostWall.thickness + this.CLASH_EPS_M) * 1000).toFixed(1)} mm) with an axial ` +
                     `retreat of ${(alongTrim * 1000).toFixed(1)} mm ` +
                     `(grazing cap ${((PENETRATION_ALONG_CAP + COINCIDENT_M) * 1000).toFixed(1)} mm, 30° off the host axis) — ` +
-                    `${tooDeep ? 'through-crossing' : 'grazing'}, not a T-join. Left un-trimmed.`,
+                    `${tooDeep ? 'through-crossing' : 'grazing'}, not a T-join. Left UNHANDLED (§C85-REFUSAL-KIND: ` +
+                    `UNBUILT, not impossible — this shape has no trim implementation yet).`,
                 );
                 return;
             }

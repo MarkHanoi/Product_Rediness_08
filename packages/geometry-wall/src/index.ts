@@ -130,7 +130,16 @@ export { computeJunctionInfills, computeJunctionInfillsDetailed } from './WallJu
 export { WallJunctionInfillManager } from './WallJunctionInfillManager';
 
 export type { ResolveLevelOptions } from './WallJoinResolver';
-export { WallJoinResolver, DEFAULT_SNAP_RADIUS, DEFAULT_MIN_WALL_LENGTH } from './WallJoinResolver';
+export { WallJoinResolver, DEFAULT_SNAP_RADIUS, DEFAULT_MIN_WALL_LENGTH, resetWallJoinWarnings } from './WallJoinResolver';
+// §WJ2-JOIN-MEMO (L-1159) — the join-solve memo. `wallJoinMemoReset` is the
+// teardown/project-switch hook; `wallJoinMemoStats` is what a perf report reads.
+export {
+    wallJoinMemoStats,
+    wallJoinMemoReset,
+    wallJoinMemoEnabled,
+    wallJoinResolveKey,
+} from './WallJoinResolveMemo';
+export type { WallJoinMemoStats } from './WallJoinResolveMemo';
 // JoinData originates in @pryzm/core-app-model but is re-exported here for
 // geometry-wall consumers that already import from this barrel.
 export type { JoinData } from './WallJoinResolver';
