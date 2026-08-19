@@ -70,6 +70,7 @@ import { WallFragmentBuilder } from '../src/WallFragmentBuilder';
 import { WallJoinResolver } from '../src/WallJoinResolver';
 import { type LevelWallSpec } from '../src/WallPipelineV2';
 import { rakeAuthorability, rakeShearPerMetre } from '../src/WallRake';
+import { profileAuthorability } from '../src/WallProfile';
 import type { WallData } from '../src/WallTypes';
 
 // --- The scene constants -----------------------------------------------------
@@ -78,6 +79,8 @@ const VERT = 90;
 const H = 3;
 const T = 0.2;
 const LAYERS3 = [0.0125, 0.075, 0.0125];
+/** ONE layer — the founder's "Plain Wall" as `CreateWallCommand` stamps it from a system type. */
+const LAYERS1 = [0.2];
 const K = rakeShearPerMetre(RAKE);        // cot(80 deg) ~= 0.176327
 const EXPECTED_LEAN = H * Math.abs(K);    // ~= 0.52898 m
 
@@ -397,7 +400,8 @@ function dump(title: string): void {
 
 // --- The A-side body kinds ---------------------------------------------------
 // Every kind is the SAME baseline so the only difference between rows is the body path.
-type Kind = 'plain' | 'layered3' | 'plain+window' | 'plain+door' | 'layered3+window' | 'curved' | 'curved+window';
+type Kind = 'plain' | 'layered3' | 'plain+window' | 'plain+door' | 'layered1+window' | 'layered3+window'
+    | 'curved' | 'curved+window' | 'curved+layered3' | 'curved+layered3+window';
 
 function makeA(kind: Kind, s: [number, number], e: [number, number], rake: number): WallData {
     const curve = { control: { x: (s[0] + e[0]) / 2 + 1.2, y: 0, z: (s[1] + e[1]) / 2 + 1.2 }, segments: 24 };
@@ -406,13 +410,27 @@ function makeA(kind: Kind, s: [number, number], e: [number, number], rake: numbe
         case 'layered3': return mk(s, e, { rake, layers: LAYERS3 });
         case 'plain+window': return mk(s, e, { rake, openings: [WINDOW] });
         case 'plain+door': return mk(s, e, { rake, openings: [DOOR] });
+        // §RK1-THE-REFUSAL-HAS-A-HOLE — ONE layer, an opening, and a rake. This is
+        // AUTHORABLE today (`rakeAuthorability` refuses only `layers.length > 1`) and it
+        // takes the SAME layered-with-openings body path as the refused three-layer case.
+        // It is the founder's own wall: `CreateWallCommand` stamps `layers` from the
+        // WallSystemType, and a 1-layer "Plain Wall" is what L-960 was reported on.
+        case 'layered1+window': return mk(s, e, { rake, layers: LAYERS1, openings: [WINDOW] });
         case 'layered3+window': return mk(s, e, { rake, layers: LAYERS3, openings: [WINDOW] });
         case 'curved': return mk(s, e, { rake, curve });
         case 'curved+window': return mk(s, e, { rake, curve, openings: [WINDOW] });
+        // L-1034 (founder, 2026-08-19) — the two three-way cells added after this file
+        // was first written. Neither was in RK1's original brief and neither had ever
+        // been measured.
+        case 'curved+layered3': return mk(s, e, { rake, curve, layers: LAYERS3 });
+        case 'curved+layered3+window': return mk(s, e, { rake, curve, layers: LAYERS3, openings: [WINDOW] });
     }
 }
 
-const ALL_KINDS: Kind[] = ['plain', 'layered3', 'plain+window', 'plain+door', 'layered3+window', 'curved', 'curved+window'];
+const ALL_KINDS: Kind[] = [
+    'plain', 'layered3', 'plain+window', 'plain+door', 'layered1+window', 'layered3+window',
+    'curved', 'curved+window', 'curved+layered3', 'curved+layered3+window',
+];
 
 // --- AXIS 1 -- the BODY. Does a raked wall of each kind actually lean? -------
 
@@ -607,25 +625,96 @@ describe('RK1 §RK1-MATRIX -- AXIS 3: the angle and the length are not one sampl
 describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factually true?', () => {
     const far = () => mk([50, 50], [55, 50], { rake: VERT });
 
-    it('L-1061 -- layered x openings x rake: the gate refuses, and the path really has NO shear', () => {
+    /**
+     * ⚠ THIS TEST ONCE ASSERTED THE OPPOSITE, AND THE REVERSAL IS RECORDED RATHER THAN
+     *   OVERWRITTEN (C84 §6). As first written it read *"the gate refuses, and the path
+     *   really has NO shear"*, and it ended:
+     *
+     *       expect(c.leanA, 'and it builds BOLT UPRIGHT: the refusal reason is TRUE,
+     *                        not folklore').toBeLessThan(COINCIDENT_M);
+     *
+     *   That was TRUE when measured, and it was the evidence that justified the fix. It
+     *   is FALSE now, because §FEAT-RAKE-LAYERED-OPENINGS gave the path its shear — so
+     *   the assertion had become a demand for the defect's return, which is the trap
+     *   `A2b`/`A3b` in `WallProfileNonRegressionBaseline` were sitting in when this lane
+     *   picked them up. A pin that records a defect MUST say what to do when it goes red.
+     *   This one now records both states, and asserts the fixed one.
+     *
+     * WHAT REMAINS TRUE: the GATE still refuses. That is a separate fact from the
+     * geometry, and it is deliberately left alone — see the assertion's own comment.
+     */
+    it('L-1061 -- layered x openings x rake now LEANS; the gate still refuses (a decision, not a bug)', () => {
         const g = rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}, {}, {}], openings: [{ id: 'o' }] });
-        expect(g.ok, 'the layered x openings arm still refuses').toBe(false);
+        expect(g.ok, 'the layered x openings arm still refuses at the STORE boundary').toBe(false);
         expect(g.code).toBe('layered');
-        expect(g.reason, 'the reason names the mechanism, not just the verdict').toMatch(/no shear/i);
 
-        // The reason is checkable, so check it: hand the builder the combination the store
-        // will not hold and read what it draws. `WallFragmentBuilder` does not consult the
-        // gate -- the gate lives at the store boundary -- so this is reachable here.
+        // ⛔ THE REFUSAL'S STATED REASON IS NOW FALSE, AND THE REFUSAL STILL STANDS.
+        //    Its text says the layered-with-openings path "has no shear, so the wall would
+        //    render VERTICAL while the model said 80". That was measured TRUE and is now
+        //    measured FALSE — the assertion below is the proof. Lifting the arm is a
+        //    one-line edit in `WallRake.ts`, but it SHIPS A COMBINATION, and it invalidates
+        //    refusal assertions in five test files across three packages
+        //    (`WallRake.test.ts`, `RakedLayeredWallBands.measure`, `RakedHostedOpening`,
+        //    `command-registry/updateWallsRakeBatch`, `apps/editor/WallRakeProperty.spec`).
+        //    That is an orchestrator/founder call and a cross-lane edit, not something to
+        //    slip in behind a geometry fix. REPORTED, not taken.
         const c = measure(makeA('layered3+window', [0, 0], [5, 0], RAKE), far());
         expect(Number.isFinite(c.leanA), 'the combination BUILDS -- it does not throw').toBe(true);
-        expect(c.leanA, 'and it builds BOLT UPRIGHT: the refusal reason is TRUE, not folklore')
-            .toBeLessThan(COINCIDENT_M);
+        expect(c.leanA, 'the body LEANS by h*cot(theta) -- the refusal reason no longer holds')
+            .toBeCloseTo(EXPECTED_LEAN, 6);
 
         // The control that makes the reading mean something: the SAME layer stack with the
-        // openings removed leans correctly, so the missing shear is attributable to the
-        // opening-bearing branch and to nothing else about layering.
+        // openings removed leans identically, so the two arms of the layered router now
+        // agree about the shear instead of differing by it.
         const ctl = measure(makeA('layered3', [0, 0], [5, 0], RAKE), far());
-        expect(ctl.leanA, 'layered WITHOUT openings leans -- the difference is the openings arm')
+        expect(ctl.leanA, 'layered WITHOUT openings leans by the same amount')
+            .toBeCloseTo(EXPECTED_LEAN, 6);
+        expect(Math.abs(c.leanA - ctl.leanA), 'and the two arms agree to within COINCIDENT_M')
+            .toBeLessThan(COINCIDENT_M);
+    });
+
+    /**
+     * THE JOINT half of the same fix — the body leaning is not enough. Before
+     * §FEAT-RAKE-LAYERED-OPENINGS this corner opened by 0.7097 m between floor and top
+     * (measured: `L layered3+window@80 vs plain@80  base sep 7.713e-4 → TOP sep 5.298e-1`),
+     * which is L-955's exact signature on a path L-955 never reached.
+     */
+    it('§FEAT-RAKE-LAYERED-OPENINGS -- and the CORNER does not open with height', () => {
+        for (const kind of ['layered1+window', 'layered3+window'] as Kind[]) {
+            const c = measure(...pairFor('L', kind, RAKE, 'plain', RAKE));
+            expect(c.baseSep, `${kind}: the solids meet at the FLOOR`).toBeLessThan(COINCIDENT_M);
+            expect(c.topSep, `${kind}: and they still meet at the TOP`).toBeLessThan(COINCIDENT_M);
+            expect(Math.abs(c.openUp), `${kind}: the corner does not OPEN between floor and top`)
+                .toBeLessThan(COINCIDENT_M);
+        }
+    });
+
+    /**
+     * §RK1-THE-REFUSAL-HAS-A-HOLE — and this is the row that makes L-1061 a LIVE defect
+     * rather than a statement about code nobody can reach.
+     *
+     * `rakeAuthorability`'s `layered` arm refuses `layers.length > 1 AND openings.length > 0`.
+     * `WallFragmentBuilder`'s layered branch is entered on `layers.length > 0`. **The two
+     * thresholds differ by one**, so a ONE-LAYER wall that hosts an opening and carries a
+     * rake is fully authorable — schema, store, occupancy gate, property panel, chat — and
+     * lands on exactly the body path the refusal exists to keep raked walls off.
+     *
+     * That wall is not hypothetical. `CreateWallCommand` stamps `layers` from the wall's
+     * WallSystemType, and a 1-layer "Plain Wall" is what L-960 was reported on — the
+     * founder's own. So "layered × openings × rake has no shear" was reachable in
+     * production the whole time, through the gap in its own gate.
+     *
+     * This is asserted, not merely measured: the gate must keep admitting it (refusing it
+     * would be the wrong fix — the geometry is what needed repair, not the affordance) and
+     * the body must lean.
+     */
+    it('§RK1-THE-REFUSAL-HAS-A-HOLE -- a ONE-layer raked wall with an opening is AUTHORABLE', () => {
+        const g = rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}], openings: [{ id: 'o' }] });
+        expect(g.ok, 'one layer is not the layered case: the gate admits this wall').toBe(true);
+
+        const c = measure(makeA('layered1+window', [0, 0], [5, 0], RAKE), far());
+        expect(Number.isFinite(c.leanA), 'it builds').toBe(true);
+        expect(c.leanA, 'and it must LEAN -- it is reachable, so it cannot be left upright')
             .toBeCloseTo(EXPECTED_LEAN, 6);
     });
 
@@ -657,6 +746,69 @@ describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factua
             'C85 section 12 R-9: an opening on a raked wall must NOT be re-refused').toBe(true);
         expect(rakeAuthorability({ rakeAngleDeg: RAKE, layers: [{}], openings: [{ id: 'o' }] }).ok,
             'a SINGLE-layer wall with an opening is not the layered case').toBe(true);
+    });
+});
+
+// --- AXIS 5 -- L-1034 #4: WHERE IS "EDIT PROFILE" ACTUALLY OFFERED? -----------------
+
+/**
+ * The founder re-raised PROFILE EDIT alongside the three curved/raked cells (L-1034). The
+ * feature itself is already on `main` — `62479227` (slice 0) and `f9ed3ee9` (slice 1),
+ * with a live **Edit Profile** button in `ContextualEditBar.ts` under `§EDIT-PROFILE`.
+ * So the open question is NOT "build it"; it is **REACHABILITY**: the bar shows the button
+ * only where an editor actually exists, so which wall SHAPES offer it has never been
+ * measured — and "raked" and "curved" are exactly the shapes this lane owns.
+ *
+ * `profileAuthorability` is the gate that decides, and this axis reads it directly. The
+ * result is a genuine, complete answer to half the question. The other half — whether the
+ * BUTTON follows the gate — is an `apps/editor` question and is declared a blank below
+ * rather than guessed at: an L2 test importing an L7 bar would be a layer violation, and
+ * a mirrored copy of the rule here would be the C84 §8.d defect ("a comment as the
+ * synchronisation mechanism") this repo has already been bitten by twice.
+ */
+describe('RK1 §RK1-MATRIX -- AXIS 5: L-1034 #4, profile-edit reachability by wall shape', () => {
+    it('the four cells the founder asked about, read off the gate that decides them', () => {
+        // ⚠ THE SHAPE MATTERS, AND THE FIRST DRAFT GOT IT WRONG — recorded, not hidden.
+        //   The profile was passed as a BARE ARRAY of `{u, v}`; `resolveWallProfile`
+        //   wants `{ ring: [...] }`, so every one of the six cells came back
+        //   `REFUSED:malformed` and the axis measured NOTHING. The tell was that all six
+        //   agreed: a probe returning the same value for every input is measuring itself.
+        //   The `expect`s below are what caught it, which is the whole reason an axis
+        //   like this must assert and not merely print.
+        const PROFILE = { ring: [{ u: 0, v: 0 }, { u: 5, v: 0 }, { u: 5, v: 3 }, { u: 0, v: 2 }] };
+        const BASELINE: readonly [{ x: number; z: number }, { x: number; z: number }] =
+            [{ x: 0, z: 0 }, { x: 5, z: 0 }];
+        const curve = { control: { x: 2.5, y: 0, z: 1.2 }, segments: 24 };
+        const base = { wallProfile: PROFILE, baseLine: BASELINE, height: H };
+        const cells: Array<[string, Record<string, unknown>]> = [
+            ['plain VERTICAL',      { ...base }],
+            ['plain RAKED',         { ...base, rakeAngleDeg: RAKE }],
+            ['CURVED',              { ...base, curve }],
+            ['CURVED + RAKED',      { ...base, curve, rakeAngleDeg: RAKE }],
+            ['LAYERED (3)',         { ...base, layers: [{}, {}, {}] }],
+            ['hosting an OPENING',  { ...base, openings: [{ id: 'o' }] }],
+        ];
+        for (const [label, subject] of cells) {
+            const a = profileAuthorability(subject as never);
+            rows.push(`PROFILE on ${label.padEnd(24)} ${a.ok ? 'OFFERED' : `REFUSED:${a.code}`}`);
+        }
+        dump('AXIS 5: profile-edit reachability (L-1034 #4)');
+
+        // THE CONTROL FIRST: a plain vertical wall must be OFFERED the editor. If this
+        // fails, the subject is malformed again and nothing below means anything.
+        expect(profileAuthorability({ ...base } as never).ok,
+            'CONTROL — a plain vertical wall is offered profile edit').toBe(true);
+
+        // THE FINDING. `profileAuthorability` has arms for curved, layered and
+        // hosted-openings and NONE for the rake — `ProfileSubject` does not even carry
+        // `rakeAngleDeg`, so the rake is not an INPUT to the decision, let alone a
+        // refusal. A raked wall is therefore offered the profile editor.
+        expect(profileAuthorability({ ...base, rakeAngleDeg: RAKE } as never).ok,
+            'a RAKED wall IS offered profile edit — the gate cannot even see the rake').toBe(true);
+        expect(profileAuthorability({ ...base, curve } as never).code,
+            'a CURVED wall is refused, as curved').toBe('curved');
+        expect(profileAuthorability({ ...base, curve, rakeAngleDeg: RAKE } as never).code,
+            'CURVED + RAKED is refused for being curved — the rake is not why').toBe('curved');
     });
 });
 
@@ -695,4 +847,19 @@ describe('RK1 §RK1-MATRIX -- AXIS 4: are the two standing refusals still factua
  *     still absent from `main`; every reading in this file is Stack A only.
  *  7. **No PERSISTENCE round-trip.** Whether a raked layered wall with openings survives
  *     save/reload is C85 section 5's subject, not this file's.
+ *  8. **L-1034 #4, the UI half.** AXIS 5 measures `profileAuthorability`, which is the
+ *     gate that decides whether an editor CAN exist. Whether `ContextualEditBar`'s
+ *     **Edit Profile** button actually follows that gate is an `apps/editor` (L7)
+ *     question and is NOT measured here — an L2 test may not import L7, and mirroring
+ *     the rule into this file would be the C84 section 8.d defect ("a comment as the
+ *     synchronisation mechanism"). Somebody must measure the BUTTON where the button
+ *     lives.
+ *  9. **Profile x rake GEOMETRY is unmeasured.** AXIS 5 establishes that a raked wall is
+ *     OFFERED the profile editor — `profileAuthorability` has no rake arm at all. It does
+ *     NOT establish that the resulting body is correct. A profile is authored in the
+ *     wall's own UN-SHEARED plane (`WallTypes.ts` says so explicitly: *"both measured in
+ *     the UN-SHEARED frame, so a profile and a rake compose"*), and that composition has
+ *     never been built and measured. **An affordance that is offered and unverified is a
+ *     worse state than one that is refused with a reason** — this is the highest-value
+ *     blank in this file.
  */
