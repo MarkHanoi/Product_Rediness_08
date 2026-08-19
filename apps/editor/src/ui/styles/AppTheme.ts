@@ -84,6 +84,11 @@ import { CLIMATE_PANEL_STYLES } from './panels/climatePanel';
 import { SITE_INSPECTOR_PANEL_STYLES } from './panels/siteInspectorPanel';
 import { DESIGN_PARAMS_PANEL_STYLES } from './panels/designParamsPanel';
 import { INSPECT_PANEL_STYLES } from './panels/inspectPanel';
+// §UX2-ATTRIBUTION-CHROME — the Cesium ion / Google Maps credit strip, restyled
+// onto the panel idiom. NOT removable: see the module header for the ion + Google
+// Maps Platform terms and for why "Upgrade for commercial use" is an ACCOUNT fact,
+// not a CSS one.
+import { ATTRIBUTION_CREDITS_STYLES } from './attributionCredits';
 
 const APP_THEME_ID = 'app-master-theme-v3';
 
@@ -147,6 +152,7 @@ export function injectAppTheme(): void {
         + NAME_BUILDER_STYLES
         + AI_PANEL_POPUP_STYLES
         + SCHEDULE_PANEL_STYLES
+        + ATTRIBUTION_CREDITS_STYLES
         + PAN_PANEL_STYLES
         + REN_PANEL_STYLES
         + RG_PANEL_STYLES
