@@ -86,7 +86,20 @@ interface WallRecordLike {
 }
 
 export class CreateWindowsParametricBatchCommand implements Command {
-    readonly affectedStores = ['wall'] as const;
+    // §L-1031 (C84 EI-7c, C86 §11 #17) — inherited the parent gap and is the WORSE
+    // half of it. This declared `['wall']` while :299 `child.execute(ctx)` runs N
+    // CreateWallOpeningCommand children, each of which adds a windowStore record.
+    //
+    // Why this one is worse than the single command: CreateWallOpeningCommand cannot
+    // fail AFTER its store write (its only `success:false` returns are :91/:96/:114,
+    // all BEFORE the write at :204, and the write itself is inside a swallowing
+    // try/catch), so its rollback exposure is latent. THIS command re-raises at :337
+    // (`throw err`) from the post-loop summary/span block — i.e. AFTER N children have
+    // already written windowStore. That exception reaches CommandManagerImpl:428,
+    // which restores the SNAPSHOT: with `['wall']` the walls came back without their
+    // openings while windowStore kept N records and WindowBuilder kept N meshes.
+    // Declaring 'window' puts the store the children write inside the rollback scope.
+    readonly affectedStores = ['wall', 'window'] as const;
     id = crypto.randomUUID();
     type = CommandType.CREATE_WINDOWS_PARAMETRIC_BATCH;
     timestamp = Date.now();

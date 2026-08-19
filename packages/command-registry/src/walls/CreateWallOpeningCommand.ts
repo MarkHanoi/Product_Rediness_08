@@ -9,7 +9,35 @@ import { semanticGraphManager } from '@pryzm/core-app-model';
 import { generateMark } from '@pryzm/core-app-model';
 
 export class CreateWallOpeningCommand implements Command {
-    readonly affectedStores = ["wall"] as const;
+    // §L-1031 (C84 EI-7c, C86 §11 #17) — THE DECLARED SET MUST BE THE WRITTEN SET.
+    //
+    // This used to read `["wall"]` while execute() adds to `doorStore` (:155+) and
+    // `windowStore` (:204+) and undo() removes from both (:288-289). Three stores are
+    // written; one was declared.
+    //
+    // WHAT THE MEASUREMENT FOUND, so the next reader does not have to re-run it.
+    // `affectedStores` has exactly TWO consumers, and only one of them sees an L2
+    // command like this one:
+    //   • CommandManagerImpl.createSnapshot() (:578) → restoreSnapshot() (:650).
+    //     restoreSnapshot is called from TWO sites, BOTH inside execute():
+    //     :325 (execute returned success:false) and :428 (execute threw). Its own
+    //     header at :641 says so — "SCOPED RESTORE (rollback on failed execute only)".
+    //     undo() (:743) and redo() (:794) call command.undo()/command.execute()
+    //     DIRECTLY and never build or apply a snapshot. So no UNDO path was ever at
+    //     risk; the exposure is the execute-failure ROLLBACK, which restored the wall
+    //     and left the door/window record behind.
+    //   • performUndoRedo.ts:553 `pair?.affectedStores` — that is the BUS PatchPair's
+    //     declaration, not an L2 command's. This command is commandManager-only, which
+    //     performUndoRedo.ts:555-559 names explicitly (§UNDO-CROSS-STACK-ORDER,
+    //     "a commandManager-only hosted door/window (ADD_OPENING)"). Widening the
+    //     declaration here therefore CANNOT change ring-buffer routing — `_covered()`
+    //     (:479) never reads it.
+    //
+    // COST, measured rather than assumed: the wider scope adds a structuredClone of
+    // doorStore + windowStore per snapshot. CommandManagerImpl:283-284 skips the
+    // snapshot entirely for PROJECT_LOAD and for generation batches (`inGenBatch`),
+    // which are the bulk paths, so this lands only on single interactive placements.
+    readonly affectedStores = ["wall", "door", "window"] as const;
     id: string = crypto.randomUUID();
     type = CommandType.ADD_OPENING;
     timestamp: number = Date.now();
