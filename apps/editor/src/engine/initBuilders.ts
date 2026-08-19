@@ -104,7 +104,7 @@ import { LightingStore, LightingFragmentBuilder } from '@pryzm/geometry-lighting
 // ── Handrail subsystem ─────────────────────────────────────────────────────
 import { HandrailStore }              from '@pryzm/core-app-model/stores';
 import { HandrailFragmentBuilder }    from '@pryzm/geometry-stair';
-import { HandrailLevelCleanupHandler }from '@pryzm/geometry-stair';
+import { HandrailLevelCleanupHandler } from '@pryzm/geometry-handrail';
 
 // ── Stair subsystem ────────────────────────────────────────────────────────
 import {

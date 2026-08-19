@@ -73,12 +73,23 @@ export {
 // ── 2D stair path sub-package (Sprint AB) ────────────────────────────────────
 export * from './stairPath/index';
 
-// ── Handrails (Sprint T-6) ────────────────────────────────────────────────────
-export { HandrailFragmentBuilder }    from './HandrailFragmentBuilder';
-export { HandrailLevelCleanupHandler } from './HandrailLevelCleanupHandler';
-export { serializeHandrailSnapshot, deserializeHandrailSnapshot } from './handrailSnapshotUtils';
-export { HandrailTool }               from './HandrailTool';
-
-// §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — pure run geometry for the handrail
-// creation modes (linear / ortho / curved / by-slab / square / circular / ellipse).
-export * from './handrailRunGenerators';
+// ── Handrails — MOVED OUT (C95 §14.2, ISSUE-LOG L-988) ───────────────────────
+//
+// The handrail sources that used to live here now live in their own package,
+// `@pryzm/geometry-handrail`. The move was decided by measurement in BOTH
+// directions: handrail→stair imports were ZERO, and the only stair→handrail
+// references were the five re-export lines that stood right here. The
+// co-location was accidental filing, not design.
+//
+// ⛔ These re-exports are NOT kept as a compatibility shim, deliberately. Only
+// TWO call sites in the repository imported a handrail symbol through this
+// barrel — `apps/editor/src/engine/initBuilders.ts` and `initTools.ts` — and
+// both were repointed in the same commit. A shim for two known call sites would
+// leave two live paths to one symbol (C84 EI-9) to save two import lines.
+//
+// `serializeHandrailSnapshot` / `deserializeHandrailSnapshot` are NOT re-exported
+// here either: the copy in this package was one of the THREE byte-identical
+// implementations recorded as L-987, and every real consumer already imports
+// them from `@pryzm/core-app-model`. That copy is DELETED, not relocated.
+//
+// Import handrail symbols from `@pryzm/geometry-handrail`.

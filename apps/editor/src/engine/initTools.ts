@@ -83,7 +83,7 @@ import {
     RoofDependencyTracker,
     type RoofBoundaryWritePayload,
 } from '@pryzm/geometry-roof';
-import { HandrailTool } from '@pryzm/geometry-stair';
+import { HandrailTool } from '@pryzm/geometry-handrail';
 import { WallTool } from '@pryzm/geometry-wall';
 import { SlabDependencyTracker } from '@pryzm/geometry-slab';
 // §FINISH-FOLLOWS-WALL (GR-12 · C79 §5) — floor finishes and ceilings follow a
