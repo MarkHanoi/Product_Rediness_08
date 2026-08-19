@@ -1673,7 +1673,27 @@ export class SelectionManager implements ISelectionManager {
                         const _HOST = new Set(['wall', 'slab', 'floor', 'ceiling', 'roof']);
                         let _doorIds = 0, _windowIds = 0;
                         for (const eid of pickCtx.elementRegistry.ids()) {
-                            const k = pickCtx.elementRegistry.kindOf(eid);
+                            // ⭐ §PICKDIAG-CASING (L-1173) — `.toLowerCase()` IS THE WHOLE FIX, AND
+                            // WITHOUT IT THIS COUNTER WAS UNSATISFIABLE. `kindOf` returns
+                            // `userData.elementType` RAW, and C15 §12 FREEZES that as PascalCase
+                            // (`'Door'`, `'Window'` — DoorBuilder.ts / WindowBuilder.ts stamp exactly
+                            // those), mandating that every consumer normalise before comparing. This
+                            // one did not, so `'Door' === 'door'` was false for every door this
+                            // codebase can build: `doorsRegistered` was PINNED AT 0 by construction.
+                            //
+                            // ⚠ IT REPORTED A FALSE NEGATIVE, AND THE FALSE NEGATIVE WAS BELIEVED.
+                            // The founder's `doorsRegistered=0 windowsRegistered=0` against 3,304
+                            // openings does NOT mean the openings are missing from the pick registry —
+                            // they are in `idToObj`, they are in `ids()`, and they are pickable. The
+                            // DIAGNOSTIC was broken. ISSUE-LOG L-912/L-913 both concluded "hosted
+                            // openings are absent from the pick registry" from this number; that
+                            // conclusion was drawn from a counter hard-wired to zero.
+                            //
+                            // Note its own neighbours already obey the rule — `_HOST.has(String(
+                            // _hitType).toLowerCase())` three lines down, `hostedPickPriority.ts`
+                            // ll.64/80, `_ensureSelectableCache` — which is why the PROMOTION works
+                            // while the counter that exists to EXPLAIN the promotion lies.
+                            const k = String(pickCtx.elementRegistry.kindOf(eid) ?? '').toLowerCase();
                             if (k === 'door') _doorIds++;
                             else if (k === 'window') _windowIds++;
                         }

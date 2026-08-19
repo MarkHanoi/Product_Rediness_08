@@ -224,10 +224,105 @@ export function getElementsForLevel(bag: UBPBag, levelId: string): any[] {
     return result;
 }
 
+// ── §BROWSER-ONE-VOCABULARY (L-1172) — ONE classifier for the Project tree ────
+//
+// THE FOUNDER'S DEFECT (2026-08-19): his Level 15 tree read
+// `WALL 25 · SLAB 1 · UNKNOWN 227 · ROOM 1` right after a bulk window create.
+//
+// ⭐ THE ELEMENTS GENUINELY HAVE NO TYPE. This is not a casing mismatch and not a
+// browser bug in the usual sense — it is a HOLE IN THE DTO. `DoorOpeningSchema`
+// (`packages/geometry-door/src/DoorTypes.ts`), `WindowOpeningSchema`
+// (`packages/geometry-window/src/WindowTypes.ts`) and `BeamData`
+// (`packages/core-app-model/src/stores/BeamTypes.ts`) declare NO `type` /
+// `elementType` field at all. They are Zod objects in default STRIP mode, so a
+// caller that passes `type` has it DELETED on the way in: a door record cannot
+// carry its own kind today even if someone tried. Every other store in
+// `getAllStores` declares one (`'wall'`, `'slab'`, `'opening'`, `'room'`, …).
+// So `UNKNOWN` == doors + windows + beams, exactly, and 227 of them is a bulk
+// window create landing in the only bucket the tree could put them in.
+//
+// ⚠ THE BROWSER MUST NOT INVENT A VOCABULARY TO PATCH THIS. That is the C84 EI-8/EI-9
+// trap: a fourth private guess ("it has a `doorType` field, so it's probably a door")
+// is how a repo ends up with five disagreeing answers to "what kind of thing is this?".
+// The fallback below is PROVENANCE, which is not a guess but the strongest statement
+// available: a record returned by `window.doorStore.getAll()` IS a door — the store's
+// identity is the classification, and `getAllStores()` already knows it. One expression,
+// one table, and it is the SAME table the read above uses.
+//
+// ⛔ THIS IS A READ-SIDE REPAIR, NOT THE ROOT FIX. The root is the missing DTO field,
+// and it belongs to the geometry-door / geometry-window / core-app-model owners because
+// it changes the persisted schema and every `safeParse` round-trip. Logged separately —
+// do not close that on the strength of this. When the DTO carries `type`, the
+// `declared` branch below wins and this table becomes dead weight to delete.
+
+/** The window-global name → element-kind table. The ONLY place store identity is read
+ *  as a classification, and deliberately in the SAME order as `getAllStores`. */
+const STORE_KIND_BY_GLOBAL: ReadonlyArray<readonly [string, string]> = [
+    ['wallStore', 'wall'],
+    ['curtainWallStore', 'curtain-wall'],
+    ['slabStore', 'slab'],
+    ['floorStore', 'floor'],
+    ['ceilingStore', 'ceiling'],
+    ['doorStore', 'door'],
+    ['windowStore', 'window'],
+    ['openingStore', 'opening'],
+    ['furnitureStore', 'furniture'],
+    ['lightingStore', 'lighting'],
+    ['stairStore', 'stair'],
+    ['handrailStore', 'handrail'],
+    ['columnStore', 'column'],
+    ['beamStore', 'beam'],
+    ['plumbingStore', 'plumbing_fixture'],
+    ['roomStore', 'room'],
+];
+
+/** Memo so a tree render does not re-scan the stores per row. Keyed by RECORD IDENTITY —
+ *  store records are frozen singletons, and `Object.freeze` means we cannot stamp the kind
+ *  onto the record itself (which is why this is a WeakMap and not a mutation). */
+const _kindByRecord = new WeakMap<object, string>();
+
+/**
+ * ⭐ THE ONE CLASSIFIER. Every surface of the Project tree that asks "what kind of element
+ * is this?" calls THIS — `groupByType`, `getTypeElementIds`, and
+ * `UnifiedBrowserPanel._expandToElement` — so the group a row is filed under, the ids the
+ * isolate button collects, and the node auto-expand targets can never disagree. They were
+ * three copies of the same expression before, which is how a fix lands in one and not the
+ * others.
+ *
+ * Order is deliberate: a DECLARED type always wins, so the day the DTOs gain their `type`
+ * field this function silently stops using provenance at all.
+ */
+export function elementTypeName(el: any): string {
+    const declared = el?.type ?? el?.elementType;
+    if (declared != null && String(declared).length > 0) return String(declared);
+    if (el == null || typeof el !== 'object') return 'Unknown';
+    const memo = _kindByRecord.get(el as object);
+    if (memo !== undefined) return memo;
+    // Provenance scan — only ever reached for a record whose DTO declares no kind.
+    // `getById` is a Map lookup, so this is ~16 lookups for a door and zero for
+    // everything else in the model.
+    const id = el.id != null ? String(el.id) : null;
+    if (id !== null) {
+        for (const [globalName, kind] of STORE_KIND_BY_GLOBAL) {
+            const store = (window as unknown as Record<string, { getById?: (id: string) => unknown }>)[globalName];
+            const hit: unknown = typeof store?.getById === 'function' ? store.getById(id) : undefined;
+            if (hit === el || (hit != null && String((hit as { id?: unknown }).id) === id)) {
+                _kindByRecord.set(el as object, kind);
+                return kind;
+            }
+        }
+    }
+    // Genuinely unclassifiable — an element that is in no known store and declares no
+    // kind. Kept as a VISIBLE bucket rather than hidden: a row the tree cannot name is
+    // a finding, and silently dropping it would be the false negative.
+    _kindByRecord.set(el as object, 'Unknown');
+    return 'Unknown';
+}
+
 export function groupByType(elements: any[], _levelId: string): Map<string, any[]> {
     const map = new Map<string, any[]>();
     for (const el of elements) {
-        const typeName = String(el.type ?? el.elementType ?? 'Unknown');
+        const typeName = elementTypeName(el);
         if (!map.has(typeName)) map.set(typeName, []);
         map.get(typeName)!.push(el);
     }
@@ -249,8 +344,11 @@ export function getAllElementIds(bag: UBPBag): string[] {
 }
 
 export function getTypeElementIds(bag: UBPBag, levelId: string, typeName: string): string[] {
+    // §BROWSER-ONE-VOCABULARY (L-1172) — the SAME classifier `groupByType` filed the rows
+    // under. Before, this was a second copy of the expression, so "isolate this type"
+    // could collect a different set than the group it was clicked on.
     return getElementsForLevel(bag, levelId)
-        .filter(el => String(el.type ?? el.elementType ?? 'Unknown') === typeName)
+        .filter(el => elementTypeName(el) === typeName)
         .map(el => String(el.id));
 }
 

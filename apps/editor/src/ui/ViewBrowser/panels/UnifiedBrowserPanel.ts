@@ -55,6 +55,10 @@ import {
 import {
     getProjectName,
     getActiveLevelName,
+    // §BROWSER-ONE-VOCABULARY (L-1172) — the ONE classifier. This file used to carry its
+    // own copy of `el.type ?? el.elementType ?? 'Unknown'`, so auto-expand aimed at a
+    // group name the tree no longer files that element under.
+    elementTypeName,
 } from './unified-browser/BrowserDataHelpers';
 
 // ── Internal proxy ────────────────────────────────────────────────────────────
@@ -220,7 +224,7 @@ export class UnifiedBrowserPanel {
                     if (!bag.expandedTypes.has(levelId)) {
                         bag.expandedTypes.set(levelId, new Set());
                     }
-                    const typeName = (el.type ?? el.elementType ?? 'Unknown') as string;
+                    const typeName = elementTypeName(el);
                     bag.expandedTypes.get(levelId)!.add(typeName);
                     return;
                 }
