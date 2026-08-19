@@ -59,8 +59,11 @@ import { envelopeRenderStyle } from './envelopeRenderStyle';
 // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope on
 // screen?". THIS RENDERER WAS THE SURFACE THAT NEVER ASKED: it drew the study volume into the
 // BIM + plan scene straight off `getLastBuildableEnvelope()`, so the GIS card's `Envelope: OFF`
-// had literally no effect here — a box the founder could see and could not hide, on the surface
-// he was actually working in (he was creating a roof on Level 15, not browsing the globe).
+// had literally no effect here: once an envelope solved, this volume was unhideable by any control
+// in the product. ⚠ It was NOT the box in the founder's 2026-08-19 report — his log shows
+// `getLastBuildableEnvelope()` returning null-or-not-`ok` (that is why the re-inset path ran), and
+// this renderer reads the same function, so it drew nothing that session. Same family, different
+// instance; fixed on its own merits, not credited with his symptom.
 import {
     isBuildableEnvelopeVisible,
     subscribeBuildableEnvelopeVisibility,

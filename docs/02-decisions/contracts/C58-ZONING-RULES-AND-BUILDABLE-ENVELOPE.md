@@ -513,6 +513,14 @@ That is [C84](C84-ELEMENT-INTEGRITY.md) **EI-1 / EI-9** — one question, four i
 the symptom follows mechanically: hiding writes (1), the floor selector re-renders from (2), (3)
 protects what is already there, and (4) never looks.
 
+> ⚠ **WHICH surface produced HIS box, stated from the log rather than from plausibility.**
+> `§ENVELOPE-REINSET` fires only when `getLastBuildableEnvelope()` returned null-or-not-`ok`, and
+> `buildEnvelopeVolume()` reads **the same** function — so **(4) drew nothing in his session** and
+> was not his box. His was the CESIUM one. (4) is a real member of this family and would have been
+> unhideable the moment an envelope *did* solve; it is fixed here, but it is not the instance he
+> hit. This distinction is recorded because the reverse — a confident, plausible attribution that
+> the evidence does not support — is the failure mode this contract's own §1.4 exists to police.
+
 **Normative:**
 
 1. There MUST be exactly ONE authority for *"is the buildable envelope on screen?"*

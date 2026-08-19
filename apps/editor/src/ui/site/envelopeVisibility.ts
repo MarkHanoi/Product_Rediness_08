@@ -33,6 +33,13 @@
 // re-renders from (2); (3) protects what is already there; and (4) never even
 // looked. He is not wrong that "hide" does not work — it has never been one thing.
 //
+// ⚠ WHICH ONE WAS HIS, from the log rather than from plausibility: `§ENVELOPE-REINSET`
+// fires only when `getLastBuildableEnvelope()` returned null-or-not-`ok`, and (4)
+// reads THAT SAME function — so (4) drew nothing in his session. His box was the
+// CESIUM one, from (2)'s replay and/or the old toggle's dead third branch. (4) is a
+// real member of this family — unhideable the moment an envelope DID solve — and it
+// is fixed here, but it was not the instance he hit. Do not re-attribute it.
+//
 // ⛔ THE FIX IS NOT A FIFTH CHECK. It is this module plus ONE CHOKEPOINT: the
 // §1.14 rasteriser in `CesiumViewport.renderFormaMassing` gates `input.envelope`
 // on `isBuildableEnvelopeVisible()` BEFORE the entity-add loop. Every replay path

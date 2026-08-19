@@ -14397,12 +14397,19 @@ between them:**
 | 3 | `formaSiteOverlayEntities` — the L-464/L-468 **survival set** | exempts envelope entities from `setGlobeBuildingShown`, i.e. makes an already-added solid unhideable |
 | 4 | `ParcelBoundarySceneRenderer.buildEnvelopeVolume()` — the BIM/plan three.js volume | **consulted no toggle at all, ever** |
 
-**(4) is the one that matters for his sentence.** He was creating a roof on Level 15 — he was in
-the BIM scene, not on the globe. That surface drew the envelope straight off
-`getLastBuildableEnvelope()` at `ENVELOPE_FALLBACK_HEIGHT_M = 9 m` when no height resolved, and
-the GIS card's `Envelope: OFF` had literally no effect on it. **(2) is the one that matches the
-log:** every Cesium re-render route replays a payload captured earlier, so a floor selection
-re-rasterises whatever the envelope was at snapshot time.
+### ⚠ WHICH surface he was looking at — CORRECTED IN THE SAME SESSION, BEFORE REPORTING
+
+The first draft of this entry asserted *"(4) is the one that matters for his sentence — he was
+creating a roof on Level 15, so he was in the BIM scene."* **That was a prose verdict, and the log
+refutes it.** `§ENVELOPE-REINSET` only fires when `getLastBuildableEnvelope()` returned
+null-or-not-`ok`; `buildEnvelopeVolume()` reads **that same** function and returns null unless
+`status === 'ok'`. **So surface (4) drew nothing in his session** — it could not have been his box.
+
+**His box was the CESIUM one**, drawn by (2)'s replay and/or left in place by the dead third branch
+of the old toggle. (4) is a real defect of the same family, on a surface that would have been
+unhideable the moment an envelope *did* solve — fixed here, but **not** the instance he hit.
+Recorded rather than quietly amended: a confident, plausible, wrong attribution is the register
+failure this repo keeps paying for.
 
 **And a FIFTH hole, in the control itself.** The old `btn.onclick` was a three-way renderer
 picker whose third branch was `else { refreshEnvelopePanel(); }` — it repainted the CARD and
