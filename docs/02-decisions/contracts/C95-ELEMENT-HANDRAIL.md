@@ -1151,6 +1151,44 @@ members, or it reproduces L-983's half-application on a new surface.
 `slabOutlineSegments()` + the By-Slab mode, reading the ring the way `CreateWallsFromSlabCommand`
 does (`polygon` + `slab.position`, re-wound). **What is missing is only the RAC verb.**
 
+> ### ⛔ **RE-MEASURED 2026-08-19 (lane HR4) — "only the RAC verb" IS TRUE BUT UNDERSTATES IT, AND THE SESSION BRIEF'S PREMISE WAS WRONG**
+>
+> The HR4 brief said *"By-Slab already resolves a slab id from chat; verify it works
+> end to end."* **It does not, and no ordering of user actions makes it.** Measured
+> before attempting any verification — the §15.12 discipline, *ask whether the
+> condition can EVER be true*:
+>
+> 1. **`executeHandrailBySlab` has exactly TWO production callers, both UI.**
+>    `ToolsAreaLayout` (the bar's By Slab pill + the pick-a-slab flow) and
+>    `HandrailSketchController` (a canvas click). **Zero chat / RAC callers.**
+>    `setHandrailBySlabTarget` — the only way to NAME a slab — is likewise called
+>    from `ToolsAreaLayout` alone.
+> 2. **There is NO handrail creation capability in `ChatCapabilityRegistry`.**
+>    `create-wall` exists (coordinate-based); handrail has none. The registry's
+>    handrail rows are all `set-*` property edits.
+> 3. **The one chat route that reaches the tool DELIBERATELY DROPS THE MODE.**
+>    `activate-placement-tool` → `apps/editor/src/ui/ai/chatPlacementActivation.ts`,
+>    whose own header states it: *"Per-tool drawing MODES are deliberately NOT
+>    enumerated … a mode entry here could claim 'Auto Floor activated' while the
+>    activator silently discarded the mode."* Line 280 is `tools.activate(entry.tool)`
+>    — tool only. So chat can arm the railing tool and can never select By Slab.
+>
+> ⭐ **ONE HALF DOES ALREADY WORK, and it is worth knowing which:** because
+> `ToolsAreaLayout`'s activation wrapper calls `captureHandrailBySlabSelection` BEFORE
+> `_origActivateHandrail`, a slab selected first survives a chat-driven activation.
+> **The CAPTURE leg is live; the EXECUTE leg has no chat entry point.** So the
+> function signature `executeHandrailBySlab(slabId, cm)` is RAC-READY by construction
+> and simply un-called — which is the [[authored-but-unwired]] shape, not a bug.
+>
+> ⛔ **AND IT MUST NOT BE "just wired up", which is why this is recorded rather than
+> fixed.** §15.9 already decides the blocker: `handrail.create` is class **B — "needs
+> design"** in `ChatCommandClassification.ts`, blocked on a **per-family placement
+> grammar that does not exist**, and the RAC column there is ⛔ for **every** row.
+> Adding a capability ahead of the grammar would mint the per-family answer the
+> grammar exists to prevent. **R8 Case A is blocked on a DESIGN decision, not on
+> wiring** — and §15.9's V3 bar applies when it is taken: proven by executed
+> read-back from `window.handrailStore`, never by `success: true`.
+
 **Case B — *"…on the edges of the slab that don't have walls"*.** ⛔ **This is a real spatial query
 and it is NOT implemented.** It requires, per edge: is there a wall whose baseline lies within
 tolerance of and roughly parallel to that edge, on this level?
