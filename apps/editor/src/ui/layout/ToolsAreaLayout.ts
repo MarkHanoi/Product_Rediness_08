@@ -834,6 +834,25 @@ export function mountToolsArea(
             curtainWallModePicker.setActiveMode(_cwDrawingModeToPickerMode(mode));
             _origActivateCW(mode);
             const cwTool = props.toolManager.curtainWallTool ?? window.curtainWallTool; // TODO(E.5.T): legacy curtainWallTool — replace with runtime.tools.activate('curtain-wall')
+
+            // ── §FIX-CW-BYSLAB-ASK (L-1160) — the THIRD adopter of ONE flow ──────
+            //
+            // The founder: "HANDRAILS + CURTAIN WALLS + WALLS 'BY SLAB'. Wall works.
+            // Curtain wall does NOT." The wall's By Slab has two halves — a snapshot
+            // of the selection taken before `ToolManager` disables SelectionManager,
+            // and an explicit ASK when there is no snapshot. CW2 gave the curtain wall
+            // the FIRST half (L-1074, the snapshot lives inside the tool). This is the
+            // second, and it is `_pickSlabThen` — the wall's own body, extracted by
+            // lane HR2 for exactly this — NOT a third copy of it.
+            //
+            // ⚠ WIRED HERE AND NOT IN `initTools.ts` ON PURPOSE: this flow does not
+            // exist until `ToolsAreaLayout` runs, and re-wiring on every activation is
+            // idempotent (a plain setter), so there is no ordering window where the
+            // tool is live with no way to ask.
+            cwTool?.setSlabPickRequester?.((message: string, onSlab: (slabId: string) => void) => {
+                _pickSlabThen(message, onSlab);
+            });
+
             props.inspector.showCurtainWallPreDraw?.(cwTool);
             const escHandler = (e: KeyboardEvent) => {
                 if (e.key === 'Escape') {

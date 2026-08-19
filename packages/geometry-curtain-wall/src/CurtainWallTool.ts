@@ -153,7 +153,30 @@ export interface CurtainWallToolDependencies {
     projectContext?: any;
     bimManager?: any;
     curtainWallModePicker?: any;
+    /**
+     * §FIX-CW-BYSLAB-ASK (L-1160) — the pick-a-slab flow, INJECTED.
+     *
+     * This tool sits at L2 and the flow lives at the app layer (it drives
+     * `ToolManager.deactivateAll()`, a DOM overlay and the `bim-selection-changed`
+     * bus). It is NOT re-implemented here: `apps/editor/src/ui/layout/ToolsAreaLayout.ts`
+     * owns exactly one `_pickSlabThen`, extracted from the wall's private body by
+     * lane HR2 (`86483b5c`) precisely so the railing and THIS family could adopt it
+     * rather than write a third copy — which is C84 EI-4a twice over.
+     *
+     * When absent (tests, early boot, headless), `createFromSelectedSlab()` falls
+     * back to the named refusal. It never silently does nothing.
+     */
+    requestSlabPick?: SlabPickRequester;
 }
+
+/**
+ * §FIX-CW-BYSLAB-ASK (L-1160) — "ask the user which slab, then call back with its id".
+ *
+ * The signature is deliberately `(message, onSlab)` and NOT `() => Promise<string>`:
+ * the flow can be cancelled (ESC) and a cancelled pick must resolve to *nothing
+ * happening*, not to a rejected promise every caller then has to remember to swallow.
+ */
+export type SlabPickRequester = (message: string, onSlab: (slabId: string) => void) => void;
 
 export class CurtainWallTool {
     private world: OBC.World;
@@ -419,6 +442,43 @@ export class CurtainWallTool {
      * `unselectAll()`. Step 3 is a FALLBACK, never the primary.
      */
     createFromSelectedSlab(targetSlab?: unknown): void {
+        const slabId = this.resolveBySlabTarget(targetSlab);
+
+        if (slabId) { this.createFromSlabId(slabId); return; }
+
+        // ── No slab resolvable: ASK, do not merely refuse ────────────────────
+        //
+        // §FIX-CW-BYSLAB-ASK (L-1160). L-1074 fixed the case where the user HAD
+        // selected a slab. It left the other half exactly as broken as the railing's
+        // was: a user who activates the tool first is told what they should have done
+        // and given no way to do it — while the wall, from the same bar, in the same
+        // gesture, ASKS (`ToolsAreaLayout._pickSlabThen`). "Wall works, curtain wall
+        // does not" is that difference and nothing else.
+        const ask = this._getSlabPickRequester();
+        if (ask) {
+            ask('Click a slab in the scene to wrap its perimeter in curtain walls', (id) => {
+                this.createFromSlabId(id);
+            });
+            return;
+        }
+
+        // C16 CA-18 — name the mechanism and the live alternative, and say WHY, rather
+        // than repeating "select a slab first" at a user who did exactly that. Reached
+        // only when no requester was injected (tests, early boot, headless): the tool
+        // must still say something rather than silently do nothing (C84 EI-6).
+        alert(
+            'Curtain wall BY SLAB — no slab to work from. '
+            + 'Select the slab FIRST, then pick the Curtain Wall tool, then press S. '
+            + 'Nothing was created.',
+        );
+    }
+
+    /**
+     * §FIX-CW-BYSLAB-SELECTION-CLEARED (L-1074) — the three-branch resolution, as a
+     * predicate, so the "ask" branch below and any future caller share ONE answer to
+     * *"which slab?"*. Returns the slab id or `null`; never throws, never alerts.
+     */
+    private resolveBySlabTarget(targetSlab?: unknown): string | null {
         // Deliberately NOT gated on selectionManager being present: the snapshot and
         // the explicit argument are both usable without it. Only branch 3 needs it.
         const selectionManager = this._getSelectionManager();
@@ -428,41 +488,77 @@ export class CurtainWallTool {
             ?? selectionManager?.selectedObject) as
             { userData?: { id?: string; elementType?: string; type?: string } } | null | undefined;
 
-        // C16 CA-18 — name the mechanism and the live alternative, and say WHY, rather
-        // than repeating "select a slab first" at a user who did exactly that.
-        const REFUSAL =
-            'Curtain wall BY SLAB — no slab to work from. '
-            + 'Select the slab FIRST, then pick the Curtain Wall tool, then press B. '
-            + 'Nothing was created.';
-
-        if (!selectedObject) { alert(REFUSAL); return; }
+        if (!selectedObject) return null;
 
         const ud = selectedObject.userData ?? {};
+        // Case-insensitive: SlabFragmentBuilder writes 'Slab' (capital S) while callers
+        // historically compared against lowercase 'slab' (C15 §12).
         const slabType = (ud.elementType || ud.type || '').toLowerCase();
-        if (slabType !== 'slab') { alert(REFUSAL); return; }
+        if (slabType !== 'slab') return null;
 
-        const slabId = ud.id;
-        if (!slabId) { alert(REFUSAL); return; }
+        return ud.id ?? null;
+    }
+
+    /**
+     * §FIX-CW-BYSLAB-ASK (L-1160) — **THE PARAMETERISED ENTRY POINT.**
+     *
+     * ⭐ THIS IS THE MECHANISM THE FAMILY KEPT NOT COPYING. The wall's By Slab works
+     * because `WallTool.createFromSelectedSlab(targetSlab?)` and
+     * `wall.create-on-all-slabs` both take the slab **as an argument**; the railing's
+     * did not work because it mirrored the pill, the label, the accelerator and the
+     * refusal message and re-read the live selection (L-1103). Everything that knows
+     * a slab id — the pre-activation snapshot, the pick-a-slab overlay, a plan-view
+     * handler, RAC — lands HERE, and the "which slab?" question is answered exactly
+     * once, above.
+     */
+    createFromSlabId(slabId: string): void {
         // §PERF-2026-Q2-CW-CREATE/F3 — Static import; no per-invocation
         // dynamic-import promise hop.
         const command = new CreateCurtainWallsFromSlabCommand({ slabId });
         const manager = this._getCommandManager();
-        if (manager) {
-            manager.execute(command);
-            // §FIX-NAV-UNLOCK: The by-slab batch is a "fire and done" action — once
-            // the command is dispatched the tool has no further drawing state to
-            // maintain. Without this deactivate() call, camera.controls.enabled
-            // remains false (set in activate()) for the entire duration of the batch
-            // and subsequent GPU-compile LONGTASK, leaving navigation completely
-            // broken until the user presses ESC.
-            //
-            // All deactivate() side-effects are safe to run immediately after dispatch:
-            //   • controls.enabled = true   → restores orbit/pan navigation
-            //   • detachListeners()          → no stale pointer events during batch
-            //   • _clearAllPreview()         → no ghost geometry visible under overlay
-            //   • CurtainWallBuilder.endPlacementMode() → consolidates shadow flush
-            this.deactivate();
+        if (!manager) {
+            // C84 EI-6 — a missing command manager is a bootstrap fault, not a user
+            // error, and it must not read as "nothing to do".
+            console.error('[CurtainWallTool] BY SLAB: no CommandManager — nothing was created.');
+            return;
         }
+
+        manager.execute(command);
+        // §FIX-NAV-UNLOCK: The by-slab batch is a "fire and done" action — once
+        // the command is dispatched the tool has no further drawing state to
+        // maintain. Without this deactivate() call, camera.controls.enabled
+        // remains false (set in activate()) for the entire duration of the batch
+        // and subsequent GPU-compile LONGTASK, leaving navigation completely
+        // broken until the user presses ESC.
+        //
+        // All deactivate() side-effects are safe to run immediately after dispatch:
+        //   • controls.enabled = true   → restores orbit/pan navigation
+        //   • detachListeners()          → no stale pointer events during batch
+        //   • _clearAllPreview()         → no ghost geometry visible under overlay
+        //   • CurtainWallBuilder.endPlacementMode() → consolidates shadow flush
+        //
+        // Safe on the ask-path too: `_pickSlabThen` has already deactivated the tool
+        // and `deactivate()` early-returns when `_isActive` is false.
+        this.deactivate();
+    }
+
+    /**
+     * §FIX-CW-BYSLAB-ASK (L-1160) — wire the app's pick-a-slab flow in AFTER
+     * construction.
+     *
+     * A constructor dep would not work: `initTools.ts` builds this tool long before
+     * `ToolsAreaLayout` exists to own the flow, so the injection point has to be the
+     * activation wrapper that already reaches this instance
+     * (`props.toolManager.curtainWallTool`).
+     */
+    setSlabPickRequester(fn: SlabPickRequester | null): void {
+        this._slabPickRequester = fn;
+    }
+
+    private _slabPickRequester: SlabPickRequester | null = null;
+
+    private _getSlabPickRequester(): SlabPickRequester | null {
+        return this._slabPickRequester ?? this._deps.requestSlabPick ?? null;
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -1053,8 +1149,18 @@ export class CurtainWallTool {
         lbl.textContent = 'Mode:';
         bar.appendChild(lbl);
 
+        // §FIX-CW-BYSLAB-KEY (L-1161, C84 EI-8) — `S` IS "BY SLAB" ACROSS THIS FAMILY.
+        //
+        // It was `S` = Single here and `B` = By Slab, while the wall
+        // (`WallDrawingHUD.ts:82,106`) and the railing both bind `S` to By Slab. The
+        // founder's stated reference is the wall, so pressing `S` on the curtain-wall
+        // bar SWITCHED DRAWING MODE — a mode change is indistinguishable from "the
+        // button did nothing" when the bar is already in that mode, which is one of
+        // the ways "curtain wall does NOT work" is true without anything erroring.
+        // Single moves to `1` (one segment); `B` is kept below as a deprecated alias
+        // so anyone who learned it is not punished for it.
         const modes: Array<{ key: string; label: string; mode: CurtainWallDrawingMode }> = [
-            { key: 'S', label: 'Single',      mode: 'SINGLE'   },
+            { key: '1', label: 'Single',      mode: 'SINGLE'   },
             { key: 'L', label: 'Linear',      mode: 'POLYLINE' },
             { key: 'O', label: 'Orthogonal',  mode: 'ORTHO'    },
             { key: 'C', label: 'Curved',      mode: 'CURVED'   },
@@ -1077,8 +1183,9 @@ export class CurtainWallTool {
 
         const slabBtn = document.createElement('button');
         slabBtn.className = 'wdh-btn wdh-btn--slab';
-        slabBtn.innerHTML = `<span class="wdh-key">B</span><span class="wdh-lbl">By Slab</span>`;
-        slabBtn.title = 'Create curtain walls from selected slab (B)';
+        slabBtn.dataset.mode = 'bySlab';
+        slabBtn.innerHTML = `<span class="wdh-key">S</span><span class="wdh-lbl">By Slab</span>`;
+        slabBtn.title = 'Create curtain walls from a slab perimeter (S)';
         slabBtn.addEventListener('click', () => this.createFromSelectedSlab());
         bar.appendChild(slabBtn);
 
@@ -1097,18 +1204,23 @@ export class CurtainWallTool {
             const target = e.target as HTMLElement;
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
             const key = e.key.toLowerCase();
+
+            // §FIX-CW-BYSLAB-KEY (L-1161) — By Slab is tested FIRST and returns, so
+            // the mode map can never shadow it the way `s: 'SINGLE'` did.
+            // `b` stays live as a deprecated alias of `s`.
+            if (key === 's' || key === 'b') {
+                e.stopImmediatePropagation();
+                this.createFromSelectedSlab();
+                return;
+            }
+
             const modeMap: Record<string, CurtainWallDrawingMode> = {
-                's': 'SINGLE', 'l': 'POLYLINE', 'o': 'ORTHO', 'c': 'CURVED',
+                '1': 'SINGLE', 'l': 'POLYLINE', 'o': 'ORTHO', 'c': 'CURVED',
             };
             const newMode = modeMap[key];
             if (newMode && newMode !== this._mode) {
                 e.stopImmediatePropagation();
                 this._switchMode(newMode);
-            }
-            // B = By Slab shortcut
-            if (key === 'b') {
-                e.stopImmediatePropagation();
-                this.createFromSelectedSlab();
             }
         };
         window.addEventListener('keydown', this._modeBarKeyHandler);
