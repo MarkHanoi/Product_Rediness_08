@@ -36,25 +36,76 @@
 // new capability — it stays a hand-written spec entry, and this comment is the
 // reason rather than an oversight.
 //
-// DELIBERATELY ABSENT, with the real reason (a family the chat cannot drive is
-// said out loud, never silently missing):
-//   • roof, column, beam — no named type CATALOGUE exists at all; the "type" is
-//     a closed enum on the record (roofType / profile / sectionType), so there
-//     are no catalogue names for a refusal to list. Enum-driven type changes are
-//     a different capability shape, not this one.
-//   • curtain-wall — the only type is per-PANEL (`PanelType`), its command is
-//     marked ORPHANED, and `element.changeType` has no curtain-wall branch.
-//   • floor — the catalogue (`floorSystemTypeStore`, 14 built-ins) and the live
-//     command (`UpdateFloorLayersCommand`) both exist, so this is the next entry
-//     to add; it is left out of THIS tranche only because `floor` and `slab` are
-//     two different element kinds that users call by the same word, and the
-//     disambiguation deserves its own decision rather than a coin-flip.
-//   • furniture — `ChangeFurnitureTypeCommand` is live, but the catalogue is a
-//     string UNION with no display names, so `resolveCatalogueRef` (which needs
-//     `{id, name}`) has nothing to read and a refusal could not list anything.
-//   • handrail — the catalogue exists but `HandrailData` has no typeId: a type
-//     must be MATERIALISED whole into its fields. That is a real capability, and
-//     a different one from "stamp a systemTypeId".
+// ── DELIBERATELY ABSENT — ⚠ RE-MEASURED 2026-08-19 (lane RAC1, C84 §4F.10) ──
+//
+// ⛔ FOUR OF THE FIVE REASONS BELOW HAD EXPIRED. They are corrected IN PLACE,
+// each with its measurement date, because a comment block that justifies a
+// refusal with facts that have since become false is the defect class this
+// repository keeps re-producing — and this block was being read as current.
+//
+// ⭐ AND THE FRAMING WAS WRONG AT THE TOP. This list reads as "these families
+// have no machinery". They do. `element.changeType`
+// (apps/editor/src/engine/initBusHandlers.ts:1518) routes SIXTEEN families —
+// wall, furniture, floor, slab, door, window, ceiling, plumbing, stair,
+// column, beam, stair-railing, HANDRAIL, roof, lighting, CURTAIN-WALL — each
+// to the geometry store the builders and persistence read, each with
+// ring-buffer undo parity, pinned by `elementChangeTypeCoverage.spec.ts:178`.
+// What is missing is PUBLICATION to the chat, not implementation. That is a
+// C84 EI-3 breach (what the UI offers, the pipeline must accept), and it is a
+// much smaller and much lower-risk job than "build a capability".
+//
+//   • column, beam — ✅ REASON STILL HOLDS (2026-08-19). No named catalogue:
+//     the "type" is a closed enum on the record (`profile` / `sectionType`),
+//     so there are no catalogue NAMES for a refusal to list. Enum-driven type
+//     changes are a different capability shape. **A catalogue must be MINTED
+//     before either can join** — see C84 §4F.9 item 7.
+//   • roof — ⚠ THE ENUM CLAIM WAS TRUE, THE "NO CATALOGUE" CLAIM WAS FALSE
+//     (measured 2026-08-19). `roofType` is indeed an enum, but an 8-entry
+//     `{id, name}` list ships at `ElementTypeCatalogRegistry.ts:115-124` and a
+//     refusal CAN list it. Roof was grouped with column/beam in one sentence
+//     covering three families whose truth values differ; the sentence is now
+//     split, because a shared reason is how a false one survives.
+//   • curtain-wall (the WALL type) — ⛔ THE REASON WAS FALSE, AND HAD BEEN
+//     SINCE L-958 (measured 2026-08-19). It read "the only type is per-PANEL,
+//     its command is marked ORPHANED, and `element.changeType` has no
+//     curtain-wall branch". All three halves are wrong for the wall type:
+//     `CurtainWallTypeStore` ships 20 `{id, name}` built-ins, the record
+//     carries `systemTypeId`, and the branch is at `initBusHandlers.ts:2022`
+//     (→ `UpdateCurtainWallCommand`, the geometry record the builders read).
+//   • curtain-wall PANEL type — ✅ THIS is the genuinely orphaned one, and it
+//     is A DIFFERENT SUBJECT from the row above. `PanelType` is a bare union
+//     with no `{id, name}` store, and `ReplacePanelTypeCommand.ts:1` is
+//     literally `TODO(E.5.x): ORPHANED`. ⛔ Do not re-conflate the two: the
+//     wall type is READY and the panel type is NOT, and collapsing them is
+//     exactly the error that kept the wall type dark for a release.
+//   • floor — the count was stale: `floorSystemTypeStore` ships **22**
+//     built-ins, not 14 (measured 2026-08-19). The live command
+//     (`UpdateFloorLayersCommand`) and the `systemTypeId` field both exist, so
+//     floor is READY. It stays out of THIS table only for the reason that was
+//     always the real one: `floor` and `slab` are two element kinds users call
+//     by the same word, and the disambiguation is a decision, not a coin-flip.
+//   • furniture, plumbing — ✅ REASON STILL HOLDS (2026-08-19).
+//     `ChangeFurnitureTypeCommand` / `UpdatePlumbingParametersCommand` are
+//     live, but the catalogues are string UNIONS with no display names, so
+//     `resolveCatalogueRef` (which needs `{id, name}`) has nothing to read and
+//     a refusal could not list anything. ⛔ The answer is to MINT a catalogue,
+//     never to narrow the user's vocabulary so the miss stops showing.
+//   • stair — ⚠ NEARLY READY, and blocked by ONE METHOD (measured
+//     2026-08-19). `StairTypeDefinitions.ts` ships 5 `{id, name}` types and
+//     `StairTypes.ts:109` carries a real `typeId`, but `StairTypeStore`
+//     exposes `get()` where `CatalogueReader` requires `getById()`
+//     (`resolveCatalogueRef.ts:39-42`). That is an adapter, not a redesign.
+//   • handrail — ✅ REASON STILL HOLDS, AND IT IS THE ONLY ONE OF THE FIVE
+//     THAT DOES (measured 2026-08-19). The catalogue ships 20 `{id, name}`
+//     types — including, verbatim, the founder's "Frameless Glass Balustrade"
+//     (`HandrailTypeStore.ts:227`) — but `HandrailData` has no `typeId`, so a
+//     type must be MATERIALISED whole into ~13 fields rather than stamped as
+//     one id. That is a real difference from "stamp a systemTypeId". ⚠ It is
+//     a PAYLOAD question, not a blocker: the property panel does it today in
+//     13 lines (`RailingTypeSelectorWidget.ts:117-145`), and the chosen fix
+//     moves that projection BEHIND the bus verb (mirroring
+//     `resolveStairRailingTypeFields`) so the panel and the chat stop being
+//     two authorities computing the same 13 fields (C84 EI-4a/EI-9).
 //
 // This module is PURE — no DOM, no stores, no I/O. Catalogue lookups arrive
 // through the injected ResolverContext, exactly as the wall/window/door ones do.
