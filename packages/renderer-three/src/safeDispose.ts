@@ -175,6 +175,28 @@ export function isSharedGpuResource(resource: object | null | undefined): boolea
     return Boolean(resource) && _sharedGpuResources.has(resource as object);
 }
 
+/**
+ * §GPU-RESOURCE-LIFETIME — hand ownership of `resource` BACK to its element, so
+ * `safeDispose*` will free it again.
+ *
+ * INVARIANT L1 says a cache owns what it hands out. That is a statement about a
+ * LIFETIME, not a permanent property of the object: when the cache itself is torn
+ * down (project close), nothing in any scene can still reach the resource and the
+ * cache is no longer there to serve it. Without this call the stamp would outlive
+ * the cache and every teardown path would silently no-op forever — trading a
+ * bounded crash for an unbounded leak, which is not a trade worth making.
+ *
+ * Call ONLY from the cache that stamped it, at the instant it drops the reference
+ * (e.g. `resetSharedMaterialCache()`). Never from an element teardown — that is
+ * precisely the "it is not in MY cache" reasoning L1 exists to forbid.
+ *
+ * Idempotent. Safe with null/undefined.
+ */
+export function unmarkSharedGpuResource<T extends object | null | undefined>(resource: T): T {
+    if (resource) _sharedGpuResources.delete(resource as object);
+    return resource;
+}
+
 /** One deferred release request. Discriminated so the queue stays inspectable. */
 type GpuReleaseEntry =
     | { readonly kind: 'object3d'; readonly root: Object3D; readonly disposeMaterials: boolean }

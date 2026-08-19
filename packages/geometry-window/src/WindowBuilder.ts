@@ -1,7 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 // §I2 — WebGPU-safe disposal: stops `[WindowBuilder] build error: … usedTimes`
 // aborting rebuild() during the live element-rebuild churn.
-import { safeDisposeGeometry, safeDisposeMaterial } from '@pryzm/renderer-three';
+import { safeDisposeMaterial, scheduleGpuRelease } from '@pryzm/renderer-three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { windowStore } from './WindowStore';
 import { windowSystemTypeStore } from './WindowSystemTypeStore';
@@ -320,7 +320,15 @@ export class WindowBuilder {
 
     /** True when the instanced path should be used for this build pass. */
     private _instancingActive(): boolean {
-        return this._instanceBridge !== null && isElementInstancingEnabled();
+        // §INSTANCE-WINDOWS-DEFAULT-ON (L-1180) — windows are the ONLY family whose
+        // shipped default is ON, which is why this asks by NAME. The unnamed call
+        // still means "__pryzmElementInstancingV1 === true", so naming the family
+        // here is what flips windows without dragging column/beam/handrail/
+        // stair-railing along. Kill switch, from the browser console, no redeploy:
+        //   __pryzmElementInstancing = { window: false }   // windows only
+        //   __pryzmElementInstancingV1 = false             // every family
+        // then force a rebuild (move any window, or reload).
+        return this._instanceBridge !== null && isElementInstancingEnabled('window');
     }
 
     /**
@@ -896,11 +904,42 @@ export class WindowBuilder {
         this._instancedSubKeys.set(win.id, subKeys);
 
         // Strip the real sub-meshes (their geometry is now redundant — the
-        // InstancedMesh renders them). Dispose only the geometry; the materials are
+        // InstancedMesh renders them). Release only the geometry; the materials are
         // SHARED (cache-owned) so they must survive.
+        //
+        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2 — ORDERING). L-691.
+        //
+        // ⚠ HONEST SCOPE — this one is HARDENING, not a live-crash fix, and the
+        // difference is worth writing down because the textual pattern here
+        // (`dispose(); remove();`) is the ADR-0297 inversion and a future reader
+        // WILL flag it. MEASURED: `this.scene.add(group)` is at :804 and
+        // `_convertGroupToInstances` is called at :739 — so at this point `group`
+        // has NEVER been parented into the scene. On a rebuild, `dispose(win.id)`
+        // (:638) detaches the previous group first and a fresh one is built here.
+        // The geometry being released was therefore allocated moments ago in this
+        // same function, was never reachable from the render graph, and was never
+        // encoded into a frame. The old `safeDisposeGeometry(); group.remove();`
+        // was NOT a use-after-free.
+        //
+        // It is still changed, for two reasons that do not depend on that
+        // analysis staying true:
+        //   1. The safety of the old line rested entirely on a line-ordering
+        //      coincidence 65 lines away. Anyone who moves `scene.add(group)`
+        //      earlier — an entirely reasonable refactor — silently converts this
+        //      into the founder's 2026-08-06 hard stop, once per window, on the
+        //      hottest path in the file. Correct-by-construction beats
+        //      correct-by-coincidence.
+        //   2. It removes the last textual instance of the forbidden pattern from
+        //      this builder, so the invariant can be read off the code.
+        //
+        // DETACH on this tick (L2 (a)), then hand the buffers to the frame-boundary
+        // queue that RenderPipelineManager.render() drains before it encodes
+        // anything (L2 (b)). Geometry ONLY — the materials are the builder's
+        // shared frame/glass instances and back every other identical window.
         for (const mesh of meshes) {
-            safeDisposeGeometry(mesh.geometry); // §I2 — WebGPU-safe
             group.remove(mesh);
+            mesh.parent = null;
+            scheduleGpuRelease(mesh.geometry);
         }
 
         // Add ONE invisible hit-proxy spanning the whole window so raycast
@@ -1405,18 +1444,45 @@ export class WindowBuilder {
 
         const group = this.windowGroups.get(id);
         if (group) {
+            // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2 — ORDERING). L-691.
+            //
+            // ⚠ THIS ONE WAS LIVE — unlike the strip in _convertGroupToInstances,
+            // which operates on a group that was never parented. Here `group` is in
+            // the scene (added at :804, held in `windowGroups`), so the old order —
+            // `traverse(… safeDisposeGeometry …)` and only THEN `scene.remove(group)`
+            // — destroyed GPU buffers of meshes STILL REACHABLE from the render
+            // graph. That is verbatim the inversion ADR-0297 exists to forbid, on
+            // the DELETE path, which is the founder's 2026-08-06 shape:
+            //   BufferGeometry.dispose() → Geometries onDispose → Attributes.delete
+            //   → backend.destroyAttribute, then the next encoded frame reaches
+            //   WebGPUBackend.draw's `this.get(index).buffer === undefined`
+            //   → "setIndexBuffer … parameter 1 is not of type 'GPUBuffer'".
+            // §I2 throw-tolerance never covered this: the builder was correctly NOT
+            // THROWING while destroying live buffers (ADR-0297 §Context).
+            //
+            // dispose() is reached from a store 'remove' event (:365), from the
+            // rebuild path (:638) and from clearProjectGeometry() — none of which
+            // has any relationship to the frame boundary, which is exactly the
+            // "window is simply always open" condition the ADR describes.
+            //
+            // DETACH THE WHOLE SUBTREE FIRST (L2 (a)) — one call, and it covers
+            // every descendant at once — then queue the releases for the frame
+            // boundary (L2 (b)).
+            this.scene.remove(group);
+            group.parent = null;
+
             group.traverse(obj => {
                 if (obj instanceof THREE.Mesh) {
-                    safeDisposeGeometry(obj.geometry); // §I2 — WebGPU-safe
-                    // The hit-proxy owns its own throwaway MeshBasicMaterial; dispose
+                    scheduleGpuRelease(obj.geometry);
+                    // The hit-proxy owns its own throwaway MeshBasicMaterial; release
                     // it. Real window sub-meshes use SHARED cache-owned materials
-                    // (frame/glass/sill) which must NOT be disposed here.
+                    // (frame/glass/sill) which must NOT be released here — they back
+                    // every other identical window and are freed in deactivate().
                     if (obj.userData?.role === 'hit-proxy') {
-                        safeDisposeMaterial(obj.material as THREE.Material);
+                        scheduleGpuRelease(obj.material as THREE.Material);
                     }
                 }
             });
-            this.scene.remove(group);
             this.windowGroups.delete(id);
             elementRegistry.unregisterRoot(id);
 

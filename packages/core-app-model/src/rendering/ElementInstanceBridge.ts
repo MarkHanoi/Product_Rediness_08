@@ -208,17 +208,92 @@ export class ElementInstanceBridge {
 }
 
 /**
+ * Element families that can be instanced through this bridge. A family is named
+ * so it can be enabled INDEPENDENTLY — `isElementInstancingEnabled()` is one
+ * function shared by six builders, and before §INSTANCE-WINDOWS-DEFAULT-ON there
+ * was no way to switch one of them on without switching on all six.
+ */
+export type InstancedElementFamily =
+    | 'window' | 'column' | 'beam' | 'handrail' | 'stairRailing';
+
+/**
+ * Per-family DEFAULTS — §INSTANCE-WINDOWS-DEFAULT-ON (L-1180).
+ *
+ * A family is ON here only once it has been made SAFE, which means both halves of
+ * ADR-0297: L1 (nothing frees a material the InstanceGroup still draws with) and
+ * L2 (nothing releases a GPU buffer still reachable from the render graph), AND a
+ * test that exercises the instanced delete path — the one that crashes.
+ *
+ *   window       ON  — L1 closed at the SharedMaterialCache chokepoint, L2 closed
+ *                      in WindowBuilder.dispose() (was live: it disposed while the
+ *                      group was still parented), covered by
+ *                      WindowInstancedLifetime.test.ts. 12 meshes → 1 per window,
+ *                      and windows are 85% of the founder's scene.
+ *   column       OFF — L2 already compliant, but ZERO instanced tests exist, and a
+ *                      column is 1 mesh so instancing buys ~nothing per element.
+ *   beam         OFF — `_disposeMesh` still frees in place on the mutation tick
+ *                      (L2 (b) open). 1 mesh per element.
+ *   handrail     OFF — L2 clean (`detachAndReleaseChildren`), has instanced tests;
+ *                      a genuine candidate, but not measured yet.
+ *   stairRailing OFF — hands the SAME material object to both register() and a
+ *                      surviving fragment mesh, so with the L1 stamp on, the top
+ *                      rail's material is permanently skipped rather than freed.
+ *                      Safe, but it leaks; fix the builder before flipping.
+ *
+ * Do NOT flip a family here without the test that proves its delete path.
+ */
+const _FAMILY_DEFAULTS: Readonly<Record<InstancedElementFamily, boolean>> = Object.freeze({
+    window: true,
+    column: false,
+    beam: false,
+    handrail: false,
+    stairRailing: false,
+});
+
+/**
  * Feature flag for ADR-0076 Axis 3 element instancing.
  *
- * DEFAULT-OFF (mirrors the inverse of isWallPipelineV2Enabled): instancing is
- * enabled ONLY when `globalThis.__pryzmElementInstancingV1 === true`. Any other
- * value (undefined / false) keeps every element on its current fragment path, so
- * shipping this code changes nothing until the flag is explicitly switched on.
+ * ── Resolution order, most specific first ───────────────────────────────────
+ *   1. `globalThis.__pryzmElementInstancing[family]`  — per-family override
+ *   2. `globalThis.__pryzmElementInstancingV1`        — master override
+ *   3. `_FAMILY_DEFAULTS[family]`                     — the shipped default
+ *
+ * ── Calling it with NO family is the LEGACY contract, unchanged ─────────────
+ * `isElementInstancingEnabled()` still means exactly what it always meant:
+ * `__pryzmElementInstancingV1 === true`, default OFF. Every existing caller and
+ * every existing test keeps its current behaviour bit-for-bit. Only a caller that
+ * NAMES a family opts into the per-family defaults above. This is deliberate: it
+ * makes the blast radius of the window flip exactly one builder.
+ *
+ * ── The kill switch (why the master override is checked before the default) ──
+ * `__pryzmElementInstancingV1 = false` turns EVERYTHING off, windows included,
+ * from the browser console with no redeploy. A default the user cannot back out
+ * of on their own machine is a bad trade, so the master flag is honoured as an
+ * explicit BOOLEAN (both directions), not merely as `=== true`.
  *
  * P8: `pryzm.element-instance.flag` span.
  */
-export function isElementInstancingEnabled(): boolean {
-    return withBridgeSpan('flag', {}, () =>
-        (globalThis as { __pryzmElementInstancingV1?: boolean }).__pryzmElementInstancingV1 === true,
-    );
+export function isElementInstancingEnabled(family?: InstancedElementFamily): boolean {
+    return withBridgeSpan('flag', family ? { 'pryzm.instance.family': family } : {}, () => {
+        const g = globalThis as {
+            __pryzmElementInstancingV1?: boolean;
+            __pryzmElementInstancing?: Partial<Record<InstancedElementFamily, boolean>>;
+        };
+
+        // Legacy/master-only contract — preserved exactly.
+        if (!family) return g.__pryzmElementInstancingV1 === true;
+
+        // 1. Per-family override wins over everything.
+        const perFamily = g.__pryzmElementInstancing?.[family];
+        if (typeof perFamily === 'boolean') return perFamily;
+
+        // 2. Master override, honoured in BOTH directions so `= false` is a true
+        //    kill switch and `= true` still turns the whole fleet on as before.
+        if (typeof g.__pryzmElementInstancingV1 === 'boolean') {
+            return g.__pryzmElementInstancingV1;
+        }
+
+        // 3. Shipped per-family default.
+        return _FAMILY_DEFAULTS[family] === true;
+    });
 }

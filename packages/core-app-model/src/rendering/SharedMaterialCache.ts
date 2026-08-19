@@ -57,7 +57,11 @@
  */
 
 import type * as THREE from '@pryzm/renderer-three/three';
-import { materialInstanceSignature } from '@pryzm/renderer-three';
+import {
+    materialInstanceSignature,
+    markSharedGpuResource,
+    unmarkSharedGpuResource,
+} from '@pryzm/renderer-three';
 import { trace, SpanStatusCode, type Attributes } from '@opentelemetry/api';
 
 const TRACER = trace.getTracer('@pryzm/core-app-model/shared-material-cache', '0.1.0');
@@ -118,6 +122,31 @@ export function dedupInstanceMaterial(material: THREE.Material): THREE.Material 
             if (existing) return existing;
 
             // First of its kind → this material becomes the canonical.
+            //
+            // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L1 — OWNERSHIP).
+            // The instant it is elected, this material stops belonging to the
+            // element that minted it and starts backing the WHOLE InstanceGroup.
+            // Its minting element does not know that, and every builder in the
+            // repo frees "its own" materials on delete/rebuild
+            // (ColumnFragmentBuilder._disposeMesh → scheduleGpuRelease(obj) with
+            // disposeMaterials defaulting to true; WindowBuilder.deactivate() →
+            // safeDisposeMaterial over its shared cache). Deleting THAT ONE
+            // element would therefore free the material still bound by the
+            // InstancedMesh drawing the other N-1 — ADR-0297 §Context named this
+            // exact case as its "third instance, latent" and left it open. It
+            // stops being latent the moment element instancing is switched on.
+            //
+            // Stamped HERE, at the single chokepoint that hands the material out,
+            // rather than by patching each builder — ADR-0297's own prescription
+            // (safeDispose.ts, detachAndReleaseChildren): "Prefer
+            // markSharedGpuResource on the cache instead — it is not defeated by
+            // a builder forgetting the flag." Every safeDispose* helper no-ops on
+            // a stamped resource, so all six instanced families are covered by
+            // this one line and no future builder can opt out by accident.
+            //
+            // Ownership is handed BACK in resetSharedMaterialCache() — see there
+            // for why the stamp must not outlive the cache.
+            markSharedGpuResource(material);
             _canonicalBySignature.set(sig, material);
             return material;
         },
@@ -134,6 +163,19 @@ export function dedupInstanceMaterial(material: THREE.Material): THREE.Material 
  */
 export function resetSharedMaterialCache(): void {
     withCacheSpan('reset', { 'pryzm.shared_material.count': _canonicalBySignature.size }, () => {
+        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L1) — hand ownership BACK.
+        //
+        // dedup() stamps each canonical as cache-owned so no element teardown can
+        // free it. That stamp describes a LIFETIME, not a permanent property: once
+        // this cache drops its reference, nothing in any scene can still reach the
+        // material and there is no cache left to serve it. If the stamp survived,
+        // every builder's own teardown (WindowBuilder.deactivate(), the furniture
+        // engines' cache disposal, …) would silently no-op FOREVER and these
+        // materials would be unreclaimable — a bounded crash traded for an
+        // unbounded leak across project switches, which is not a trade worth
+        // making. Project close is exactly the instant at which returning
+        // ownership is safe.
+        for (const mat of _canonicalBySignature.values()) unmarkSharedGpuResource(mat);
         _canonicalBySignature.clear();
     });
 }

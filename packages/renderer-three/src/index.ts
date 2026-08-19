@@ -152,6 +152,9 @@ export {
   // L2 (ordering):  element mutations DETACH now, RELEASE at the next frame boundary.
   markSharedGpuResource,
   isSharedGpuResource,
+  // …and the matching RELEASE of ownership, for the cache's OWN teardown only, so
+  // the L1 stamp cannot outlive the cache that made it (§INSTANCE-WINDOWS L-1180).
+  unmarkSharedGpuResource,
   scheduleGpuRelease,
   pendingGpuReleaseCount,
   drainGpuReleaseQueue,

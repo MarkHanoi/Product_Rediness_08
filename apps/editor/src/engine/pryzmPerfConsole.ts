@@ -58,6 +58,10 @@ import {
     type PerfSnapshot,
     type PerfTimer,
 } from '@pryzm/frame-scheduler';
+// §INSTANCE-WINDOWS-DEFAULT-ON (L-1180) — the report must ask the SAME resolver
+// the builders ask. Re-deriving the flag precedence here would be a second
+// implementation free to disagree with the one that decides what actually renders.
+import { isElementInstancingEnabled } from '@pryzm/core-app-model/rendering';
 
 // ── Structural views of live objects (no THREE import — P2) ─────────────────
 
@@ -375,6 +379,13 @@ export interface PryzmPerfReport {
         groups: { key: string; active: number; allocated: number }[] | null;
         elementInstancingV1: boolean;
         furnitureInstancingV1: boolean;
+        /**
+         * §INSTANCE-WINDOWS-DEFAULT-ON (L-1180) — the RESOLVED per-family verdict,
+         * which is no longer readable from the master flag alone. Windows ship ON
+         * by default, so `__pryzmElementInstancingV1 === undefined` now means
+         * "windows instance, the other four do not" — not "nothing instances".
+         */
+        families: Record<string, boolean>;
     };
     snapshot: PerfSnapshot;
 }
@@ -430,6 +441,17 @@ function buildReport(): PryzmPerfReport {
             groups: safe(() => ier?.groupSummary ?? null),
             elementInstancingV1: flag('__pryzmElementInstancingV1'),
             furnitureInstancingV1: flag('__pryzmFurnitureInstancingV1'),
+            // Ask the SAME resolver the builders ask, rather than re-deriving the
+            // precedence rules here. A report that computes its own answer is a
+            // second implementation that can disagree with the one that matters —
+            // and this report exists precisely to stop a founder concluding
+            // "instancing is broken" when the truth is a switch.
+            families: safe(() => {
+                const fams = ['window', 'column', 'beam', 'handrail', 'stairRailing'] as const;
+                const out: Record<string, boolean> = {};
+                for (const f of fams) out[f] = isElementInstancingEnabled(f);
+                return out;
+            }) ?? {},
         },
         snapshot: snap,
     };
@@ -519,13 +541,28 @@ function printReport(r: PryzmPerfReport): void {
     // windows/handrails/furniture would read "0 instances" as an instancing BUG
     // when it is a switch that was never thrown — a wrong conclusion the report
     // would have caused rather than prevented.
+    // §INSTANCE-WINDOWS-DEFAULT-ON (L-1180) — print the RESOLVED per-family
+    // verdict, not the master flag's raw value. Before this, an unset master flag
+    // printed "column/beam/window/… CANNOT instance", which is now FALSE for
+    // windows and would have told the founder his flip had not shipped.
+    const fam = i.families ?? {};
+    const famNames = Object.keys(fam);
+    if (famNames.length > 0) {
+        p('       per-family instancing (resolved, incl. defaults + overrides):');
+        for (const name of famNames) {
+            p(row(`  ${name}`,
+                fam[name] ? 'ON' : 'OFF',
+                fam[name] && name === 'window' ? '← ~12 meshes/window collapse to 1' : ''));
+        }
+    }
     p(row('__pryzmElementInstancingV1',
-        i.elementInstancingV1 ? 'ON' : 'OFF  ⚠ DEFAULT',
-        i.elementInstancingV1 ? '' : '← column/beam/window/handrail/stair-railing CANNOT instance'));
+        i.elementInstancingV1 ? 'ON (all families)' : 'unset / off',
+        '← master override; = false is the KILL SWITCH for every family'));
     p(row('__pryzmFurnitureInstancingV1',
         i.furnitureInstancingV1 ? 'ON' : 'OFF  ⚠ DEFAULT',
         i.furnitureInstancingV1 ? '' : '← furniture CANNOT instance'));
     p('       (walls have NO flag gate — they instance whenever the bridge is wired)');
+    p('       per-family override:  __pryzmElementInstancing = { window: false }');
 
     if (i.groups && i.groups.length > 0) {
         // The key is levelId_idxCt_vtxCt_x0_y0_z0_materialUuid — reading the top

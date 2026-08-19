@@ -15051,3 +15051,154 @@ the test can construct an object.
 HAS — C92 §5 row 14 still records `layers` as UNREACHABLE FROM THE BUS, so a slab created over the
 bus arrives unlayered in the first place and there is nothing for the serialiser to write. The
 reload leg is now sound; the authoring leg is not.
+
+---
+
+## L-1180 — windows instance by DEFAULT; the flag was never the blocker, an unclosed ADR-0297 L1 hole was ✅ FIXED 2026-08-19
+
+**FOUNDER (2026-08-19):** *"I want this in the NEXT DEPLOYMENT — I want to test how it impacts
+performance. Then check for CURTAIN WALLS and DOORS etc."*
+
+### What was already true (verified, not re-derived)
+
+`WindowBuilder._convertGroupToInstances` has been complete in the tree for months, gated OFF behind
+`__pryzmElementInstancingV1`. A window at the default `fine` LOD is **12 meshes** (4 frame + 4 sash
++ 2 bead + 1 glass + 1 sill); the founder's project holds **3 304 windows = 39 648 meshes = 85% of
+a 46 735-mesh scene**. Conversion collapses a window to **1** invisible hit-proxy.
+
+**So the win was never in doubt. What was missing was a reason to believe the DELETE path was safe
+— and that belief was, correctly, absent: no instanced test for this builder had ever existed.**
+
+### The real blocker — ADR-0297 named it, and left it open
+
+ADR-0297 §Context, third fault, verbatim: *"A third instance was latent: the builder disposed the
+very materials it had just handed to `_instanceBridge.register()`, which routes them through
+`SharedMaterialCache.dedupInstanceMaterial` — so the disposed material could be the CANONICAL
+material for an entire `InstanceGroup`."* It was written down as latent and never closed.
+
+`dedupInstanceMaterial` elects the FIRST material seen for a visual signature as canonical; that
+object then backs **every** element in the group, while the element that minted it still believes
+it owns it. Nothing stamped it. **It is not latent once instancing is on.**
+
+⭐ **And it is live TODAY, before any flag flip, because WALLS instance by default.** A wall
+material and a window frame material with the same signature (`#e8e8e8` standard — an ordinary wall
+colour) collapse onto one canonical. `WindowBuilder.deactivate()` then frees its `_sharedFrameMats`
+on project close — freeing the material an `InstancedMesh` full of walls is still bound to. Neither
+builder is careless; **they cannot see each other.** That is exactly why L1 puts ownership ON THE
+RESOURCE and not in a per-builder membership test.
+
+### Fixes
+
+| # | Site | Invariant |
+|---|---|---|
+| 1 | `SharedMaterialCache.dedupInstanceMaterial` — `markSharedGpuResource(material)` on the elected canonical | **L1**, at the ONE chokepoint that hands materials out. Covers all six instanced families; no builder can opt out by forgetting. ADR-0297's own prescription. |
+| 2 | `resetSharedMaterialCache()` — `unmarkSharedGpuResource` over every canonical (new export in `safeDispose.ts`) | Ownership is a LIFETIME, not a permanent property. Without this the stamp outlives the cache and every builder teardown no-ops forever — a bounded crash traded for an unbounded leak. |
+| 3 | `WindowBuilder.dispose()` — `scene.remove(group)` BEFORE the releases, which are now queued | **L2, and this one was LIVE.** The group IS in the scene (added at `:804`); the old order destroyed GPU buffers still reachable from the render graph, on the delete path. |
+| 4 | `WindowBuilder._convertGroupToInstances` strip — detach then queue | **L2, HARDENING ONLY — stated honestly.** MEASURED: `scene.add(group)` is at `:804`, the conversion runs at `:739`, so the group was never parented and the old line was NOT a use-after-free. Changed because its safety rested on a line-ordering coincidence 65 lines away. |
+| 5 | `isElementInstancingEnabled(family?)` — per-family resolution | One function gated six builders. Flipping windows must not drag along five that were not made safe. |
+
+### Watched RED — and one instrument caught lying
+
+- `SharedMaterialCache.gpuOwnership.test.ts` — **5 of 8 failed** before the stamp existed.
+- `WindowInstancedLifetime.test.ts` CROSS-FAMILY — **fails** without the stamp: *"expected dispose
+  to not be called at all, but actually been called 1 times"*.
+- ⚠ **The headline "delete 1 of 12" material assertion does NOT bite.** I disabled the stamp and it
+  still passed, because `WindowBuilder.dispose()` already skipped shared materials — windows were
+  the careful builder. It is retained as a **regression guard** on that discipline (it goes red the
+  moment anyone "tidies" dispose() into a blanket `detachAndReleaseChildren`, whose default is
+  `disposeMaterials = true`), **not** as proof of the L1 fix. Recorded because a passing assertion
+  presented as proof is exactly the circular-proof failure this session was warned about.
+- `pryzmPerf.report()` **would have lied**: it printed *"← column/beam/window/… CANNOT instance"*
+  whenever the master flag was unset, which is now false for windows. It now prints the RESOLVED
+  per-family verdict by calling the same resolver the builders call.
+
+### Kill switch (console, no redeploy)
+
+```js
+__pryzmElementInstancingV1 = false             // every family off, windows included
+__pryzmElementInstancing = { window: false }   // windows only
+```
+
+Then force a rebuild (move any window, or reload). The master flag is honoured as an explicit
+boolean in BOTH directions specifically so `= false` is a real kill switch.
+
+### Per-family verdict (measured; see the survey in the lane report)
+
+| family | shipped | why |
+|---|---|---|
+| **window** | **ON** | 12 → 1 mesh, 85% of the scene, L1+L2 closed, tested |
+| column / beam | OFF | **1 → 1 mesh** — a concrete column is ONE mesh, so instancing buys ~nothing per element. Beam's `_disposeMesh` still frees in place (L2(b) open); column has zero instanced tests |
+| handrail | OFF | clean L2 (`detachAndReleaseChildren`), has tests — a genuine next candidate, simply not measured yet |
+| stairRailing | OFF | hands the SAME `railMat` to `register()` AND a surviving fragment mesh; with the L1 stamp that becomes a permanent material leak rather than a crash. Fix the builder first |
+| **door** | **N/A** | ⛔ **has NO instancing path at all** — no bridge, no wiring, no flag, and the ONLY remaining raw ADR-0297 L2 inversion (`DoorBuilder.ts:1233-1238`). It is 19 meshes at `fine` and structurally WindowBuilder's twin, so the port would transfer almost verbatim — but none of it has been done |
+| furniture | OFF | cleanest of all (correct L1 *and* L2 in the builder itself); own flag `__pryzmFurnitureInstancingV1`; no in-package instanced tests |
+
+### Curtain walls — already instanced, and the reference implementation
+
+`CurtainWallInstanceManager` is **unflagged and always on**, and it does NOT use
+`InstancedElementRenderer` at all: it batches per wall, keying groups on `(panelType, materialKey)`
+and building `THREE.InstancedMesh` directly, over two module-lifetime caches. Its measured
+production log is `§DIAG-IM-03 buildInstancedMeshes DONE totalMs=1.0ms geoAllocs=1 matAllocs=1
+instancedMeshes=1 totalInstances=16`, with every later wall serving `geo=(from cache) mat=(from
+cache)`.
+
+⭐ **Its transferable lesson:** the material key contains ONLY shader/PSO-defining properties, while
+dimensional properties go into the instance MATRIX over a UNIT geometry. `§L-312B` records what
+happens otherwise — panel thickness in the material key fragmented the cache per wall on float
+noise, one fresh PSO compile per wall, WebGPU device loss on a heavy facade.
+
+⚠ **But do not copy its L1:** it stamps `userData.sharedGeometry` / `userData.sharedMaterial`, which
+`safeDispose*` knows nothing about (they consult only the `markSharedGpuResource` WeakSet). It is
+protected solely by `CurtainWallBuilder._disposeChildren`'s bespoke check, so any other subsystem
+calling `detachAndReleaseChildren` on a curtain-wall root would free the shared panel caches.
+`CurtainWallInstanceManager.disposeCache()` also still disposes in place. **Separate finding, CW's
+fence — not fixed here.**
+
+---
+
+## L-1181 — GOVERNANCE: ADR-0076 says the instanced-pick gap is "pre-solved"; C93 says it is "NOT MEASURED" 🔴 OPEN — needs a decision
+
+**Two documents disagree about the same fact, so someone must decide; this entry does not silently pick.**
+
+| source | claim |
+|---|---|
+| `ADR-0076-webgpu-fragment-performance.md` §Consequences/Positive | *"Axis 3 reuses the **already-correct** picking + visibility plumbing of `InstancedElementRenderer`, so the two known instancing hazards (instanced-GPU-pick gap; instanced-aggregate-visibility gap) are **pre-solved, not re-opened**."* |
+| `C93-ELEMENT-BEAM.md` §10, Instancing row | ⚠ *"`NOT MEASURED` whether instanced beams carry a per-element id in `userData` — the known instanced-pick gap."* |
+
+### Which should win: **C93.**
+
+1. **Governance order is explicit** — the C01–C100 contract suite outranks ADRs. `CLAUDE.md`:
+   *"Conflict resolution order (strongest first): STR-03 → STR-04 → the C01–C100 contract suite →
+   ADRs → SPECs."* A contract's `NOT MEASURED` beats an ADR's unevidenced `pre-solved`.
+2. **The epistemics run the same way.** `NOT MEASURED` is a claim about the state of knowledge and
+   is falsifiable by one measurement. `pre-solved` was an assertion made in a design document
+   about code that, at the time, **nothing had ever run with the flag on** — the same
+   claimed-enforcement-that-does-not-enforce shape recorded for L-809/L-812.
+
+### Partially resolved by measurement this session — but only for ONE path
+
+`WindowInstancedLifetime.test.ts` ("every instanced sub-box resolves back to its OWN window id")
+measures the `InstancedElementRenderer` path directly: `mesh.userData.getInstanceElementId(slot)`
+exists, is a function, and resolves every slot of every group back to the owning element id (never
+the internal `${id}#${i}` sub-key). **So for elements registered through `InstancedElementRenderer`,
+pick ids DO work — ADR-0076's conclusion is right on this path, but it was right by luck, since it
+was asserted long before anything tested it.**
+
+⚠ **This does NOT clear C93's row.** C93 asks about **beams**, and beams are still OFF; and the
+older `[[3d-selection-instanced-gpu-pick-gap]]` note concerns instanced AGGREGATES lacking a group
+`userData.id`, which is a **different** mechanism from the renderer's closure-based
+`getInstanceElementId`. Two different resolvers, one label — do not merge them.
+
+⭐ Note the **curtain wall** path uses a THIRD mechanism: a plain `userData.instancePanelIds[]`
+array (`CurtainWallInstanceManager.ts:425-436`), consumed at `SelectionManager.ts:2642`. **Three
+instanced-pick mechanisms now coexist.** That is the thing worth deciding, more than the wording.
+
+### Asked of the founder / architecture owner
+
+1. Amend **ADR-0076** to drop *"pre-solved"* and cite the measurement + its scope? (recommended)
+2. Update **C93**'s row to `MEASURED (renderer path) / NOT MEASURED (beam)`, or leave it until beams are actually flipped?
+3. Do the three pick mechanisms converge on one, and if so which?
+
+⚠ Also logged: **ADR-0076's visual-diff exit gate appears never to have run.** No artefact, no CI
+job, no recorded output was found for it. Naming an exit gate that has never executed is the same
+defect class as claiming enforcement that does not exist.
