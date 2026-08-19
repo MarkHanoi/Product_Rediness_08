@@ -48,6 +48,7 @@ import {
     __resetActiveHandrailAuthoringForTests,
     setHandrailBySlabTarget,
     executeHandrailBySlab,
+    resolveArmedHandrailSpec,
 } from '@pryzm/geometry-handrail';
 
 type AnyRec = Record<string, unknown>;
@@ -215,21 +216,66 @@ describe('2. the PRE-DRAW PANEL is the wall panel’s twin and arms FROM THE STO
         expect(host.element.textContent).toContain('Timber Picket Railing');
     });
 
-    it('the panel ALSO forwards the armed type to window.handrailTool, so 3-D agrees (L-98)', () => {
+    /**
+     * ⭐ THIS TEST CHANGED SHAPE BECAUSE THE MECHANISM DID — AND THE OLD SHAPE WAS
+     * THE WEAKER CLAIM, IN THE EXACT WAY THIS FAMILY HAS ALREADY PAID FOR TWICE.
+     *
+     * It used to stub `window.handrailTool`, call the panel with `undefined` for
+     * its tool argument, and assert the stub was reached — because
+     * `setActiveHandrailTypeId` itself reached out to `window.handrailTool`. That
+     * MIRROR is deleted (L-1106 / HR3), and deleting it was RIGHT: `HandrailTool`
+     * no longer keeps a `_selectedTypeId` of its own, its `setTypeId` now forwards
+     * INTO this store, and a store that mirrored back out to it would recurse for
+     * ever as well as being a second authority (C84 EI-9).
+     *
+     * So the old assertion was pinning the mirror, not the intent. Worse, it was
+     * the [[fake-more-capable-than-real]] shape the By-Slab test was rewritten for:
+     * `window.handrailTool` was hand-installed by the test and read by nothing the
+     * test drove, so it could only ever have measured the stub.
+     *
+     * ⭐ "3-D agrees" is now STRUCTURAL rather than maintained, and this asserts it
+     * at the function the 3-D surface actually calls.
+     * `HandrailSketchController.previewState()` (the ghost) and `dispatchHandrailRun`
+     * (the commit) BOTH resolve through `resolveArmedHandrailSpec()`. Arming the
+     * panel and reading that is therefore the SAME question the 3-D tool asks, not a
+     * proxy for it.
+     */
+    it('⭐ 3-D AGREES BECAUSE IT READS THE SAME STORE — not because a mirror is kept in step', () => {
+        const host = makeHost();
+        showHandrailPreDraw(host as never, undefined);
+        const sel = host.element.querySelector('select')!;
+        sel.value = 'timber-picket';
+        sel.dispatchEvent(new Event('change'));
+
+        const spec = resolveArmedHandrailSpec();
+        const t = handrailTypeStore.getById('timber-picket')!;
+        expect(spec.typeId).toBe('timber-picket');
+        expect(spec.typeName).toBe(t.name);
+        expect(spec.height).toBe(t.height);
+        // Three of the FOUR fields the old 3-D payload hand-listed away (C84 EI-9).
+        // Asserted NON-VACUOUSLY: `undefined === undefined` would pass and prove
+        // nothing, so each is additionally required to be truthy.
+        expect(spec.balusterShape).toBe(t.balusterShape);
+        expect(spec.balusterWidth).toBe(t.balusterWidth);
+        expect(spec.infillMaxGap).toBe(t.infillMaxGap);
+        expect(spec.balusterShape).toBeTruthy();
+        expect(spec.balusterWidth).toBeTruthy();
+        expect(spec.infillMaxGap).toBeTruthy();
+    });
+
+    it('the panel still refreshes the tool it is HANDED, which is how production calls it', () => {
+        // `ToolsAreaLayout.ts:729` passes `window.handrailTool` as the ARGUMENT.
+        // The forward survives because `HandrailTool.setTypeId` repaints the 3-D
+        // HUD; its store write is now idempotent rather than authoritative. Passing
+        // the double the way production passes the tool is the difference between
+        // asserting the wiring and asserting a global that nothing under test reads.
         const seen: Array<string | undefined> = [];
-        (window as unknown as AnyRec).handrailTool = {
-            setTypeId: (id: string | undefined) => seen.push(id),
-        };
-        try {
-            const host = makeHost();
-            showHandrailPreDraw(host as never, undefined);
-            const sel = host.element.querySelector('select')!;
-            sel.value = 'glass-frameless';
-            sel.dispatchEvent(new Event('change'));
-            expect(seen).toContain('glass-frameless');
-        } finally {
-            delete (window as unknown as AnyRec).handrailTool;
-        }
+        const host = makeHost();
+        showHandrailPreDraw(host as never, { setTypeId: (id: string | undefined) => seen.push(id) });
+        const sel = host.element.querySelector('select')!;
+        sel.value = 'glass-frameless';
+        sel.dispatchEvent(new Event('change'));
+        expect(seen).toContain('glass-frameless');
     });
 });
 
