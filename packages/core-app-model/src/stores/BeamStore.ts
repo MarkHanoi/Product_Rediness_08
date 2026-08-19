@@ -109,6 +109,85 @@ export class BeamStore {
         return false;
     }
 
+    /**
+     * §L-1032 — MOVE a beam to a different storey.
+     *
+     * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ───────
+     * `update()` above is a shallow MERGE — `{ ...beam, ...updates }`
+     * (`BeamStore.ts:98-110`), which is exactly what
+     * `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts` declares for
+     * this store (`beam: { semantics: 'merge', evidence: 'BeamStore.ts:98-110' }`,
+     * measured against the real class rather than read off a header). So unlike
+     * the REPLACE stores a one-key `{levelId}` partial would not annihilate the
+     * record here. It would still be WRONG, in two ways no caller can see:
+     *
+     *   • `add()` parents every beam to its storey (`beam.parentId = beam.levelId`,
+     *     `:43`). A `{levelId}` merge leaves `parentId` pointing at the storey the
+     *     beam just left, so the record disagrees with itself and the spatial tree
+     *     keeps the stale edge.
+     *   • `elementUndoStoreAdapter`'s §L-946 arm tests
+     *     `typeof store.changeLevel === 'function'` BEFORE routing a `levelId`
+     *     inverse patch. Without this method Ctrl+Z after a storey move falls
+     *     through to the generic `update()` write — which moves `levelId` and
+     *     leaves `parentId` behind, silently, and only on the undo leg, so the
+     *     forward gesture looks correct and the model diverges on the way back.
+     *
+     * So the operation gets its own name, symmetric with `SlabStore.changeLevel`
+     * (`packages/geometry-slab/src/SlabStore.ts:314`) and `RoofStore.changeLevel`
+     * (`packages/geometry-roof/src/RoofStore.ts:153`).
+     *
+     * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ──────────────────────────
+     * `add()` mints `properties.mark` from `this.beams.size` and issues an IFC
+     * GUID when either is absent (`:45-57`), so a remove+add round trip would
+     * RENUMBER the beam and could re-issue its GUID — a move is not a delete. A
+     * beam carries no join state, and the fragment builder re-derives its world Y
+     * from `level.elevation` on every 'update', so one 'update' is everything the
+     * renderer needs.
+     *
+     * ─── WHAT THIS DOES NOT DO ──────────────────────────────────────────────
+     * Spatial-authority registration (bimManager `level.childrenIds`, the
+     * view-dependency element→level map) is NOT updated here — identical to the
+     * contract `SlabStore.changeLevel` and `RoofStore.changeLevel` both state in
+     * their own doc comments. `apps/editor/src/engine/elementLevelChangedMirror.ts`
+     * owns that half, and it owns it for EVERY family so the ordering rule (move
+     * the record FIRST, re-register SECOND, dirty BOTH storeys THIRD) lives in one
+     * place rather than in thirteen stores.
+     *
+     * `metadata` is deliberately NOT stamped: no method in this store has ever
+     * written it (`add`/`update`/`remove` all leave it alone), so bumping a
+     * version counter here would mint a field this family does not carry.
+     *
+     * Returns the moved record, or `undefined` when there is nothing to move —
+     * which the caller reports as a refusal rather than logging success over a
+     * no-op (§context-data-honesty: failure and emptiness are the same value).
+     */
+    changeLevel(id: string, newLevelId: string): BeamData | undefined {
+        const existing = this.beams.get(id);
+        if (!existing) return undefined;
+        // An empty destination is REFUSED, never defaulted to the active level.
+        // `add()` may do `beam.levelId || this.activeLevelId` (`:39`) because a
+        // NEW beam has no storey yet; applying the same fallback to a MOVE is the
+        // §DIAG-WALL-LEVEL trap — it files the beam on whatever storey happens to
+        // be open, usually the ground floor.
+        if (!newLevelId) return undefined;
+        if (existing.levelId === newLevelId) return existing;
+
+        // Same shallow-clone shape `update()` uses, so a move and a field edit
+        // leave the map holding structurally identical objects.
+        const moved: BeamData = { ...existing, levelId: newLevelId };
+        // A beam parented to something ELSE than its storey keeps that parent.
+        if (existing.parentId === existing.levelId) moved.parentId = newLevelId;
+
+        this.beams.set(id, moved);
+
+        storeEventBus.emit({ elementId: id, elementType: 'beam', operation: 'update', timestamp: Date.now() });
+        // `emitUpdate` takes no `prevState`: this store's fan-out has never carried
+        // one (`:250`), and widening its signature here would change the shape every
+        // existing subscriber already receives.
+        this.emitUpdate('update', moved);
+        return moved;
+    }
+
     calculateSpan(beam: BeamData): number {
         const dx = beam.endPoint.x - beam.startPoint.x;
         const dy = beam.endPoint.y - beam.startPoint.y;
