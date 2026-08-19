@@ -481,8 +481,9 @@ export const ONBOARDING_STYLES = `
 
    2. ⭐ rem → px, because the density lever was BLIND to this card. §UI-DENSITY-
       SCALE ('styles/uiScale.ts') is the declared single authority for chrome
-      density, and its transform is '/(-?\d*\.?\d+)px/g' — PX LITERALS ONLY.
-      Every padding, gap and font-size in this block was authored in 'rem', so
+      density, and its transform matches PX LITERALS ONLY (a number followed by
+      the two characters p and x). Every padding, gap and font-size in this
+      block was authored in 'rem', so
       'UI_SCALE = 0.85' scaled the card's WIDTH (a px literal) and nothing else:
       a 340px-wide card wearing full-size 0.95rem/0.82rem type. That mismatch IS
       the "oversized" the founder is seeing, and it is the same defect class as
