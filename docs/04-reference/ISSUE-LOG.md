@@ -19214,7 +19214,18 @@ makes an unbalanced pair visible.
 
 ---
 
-## L-1288 — ⭐ **~50 PROJECTS EXIST ONLY IN A BROWSER DATABASE THAT SIGN-OUT DELETES** — THE THUMBNAIL-DURABILITY DEFECT, WITH PROJECT DATA INSTEAD OF A PREVIEW 🔴 **OPEN — PROBE SHIPPED, FIX IS NOT** — logged 2026-08-19 (lane LOG1) · probe in commit `10e5d595`
+## L-1288 — ⭐ **~50 PROJECTS EXIST ONLY IN A BROWSER DATABASE THAT SIGN-OUT DELETES** — THE THUMBNAIL-DURABILITY DEFECT, WITH PROJECT DATA INSTEAD OF A PREVIEW ✅ **THE DESTRUCTIVE HALF IS FIXED — see L-1289** · logged 2026-08-19 (lane LOG1) · probe `10e5d595`, fix `cacdc44f`
+
+> ✅ **The reconciler no longer deletes these rows** (L-1289): the purge branch now fires only
+> when the version store AND the surviving index row agree there is nothing, so a destroyed
+> store keeps the project instead of completing the loss. **The row below stands as written** —
+> the mechanism it describes is correct and unchanged.
+>
+> ⚠ **What is fixed is the DELETION, not the DURABILITY.** Sign-out still destroys the local
+> version history of a project the server has never seen; the fix stops that loss being made
+> permanent and invisible by the next sync, and makes it surface as a refusal. **Back-filling
+> local-only projects to the server remains unbuilt**, and it is the thing that would make the
+> work actually safe.
 
 Triaged as *"probably correct behaviour, or log noise"*: ~50 × `[ProjectHub] Keeping local-only
 project … has unsaved local versions`. **The keep-branch is correct. What it protects is not safe.**
@@ -20044,3 +20055,140 @@ dimension field beside `width`/`height`, and **nobody has asked an architect whe
 "Segmental" should mean**. It is now printed in the **pill tooltip on both mode bars** and in the
 **option label itself on both properties panels**, so it can be corrected in one sentence instead of
 being discovered in a drawing.
+
+### ⭐ RECOVERY — measured, and the answer the founder actually needs
+
+**(a) Is the data already lost?** **Only if he has already signed out or switched accounts in that
+browser profile.** There is **no server copy and no surviving second local copy**, so a sign-out that
+has already happened is unrecoverable from the client. If he has **not** signed out, the data is
+intact right now in `pryzm-project-versions`.
+
+**(b) Recoverable?** **Yes — but only before sign-out**, and only by re-uploading from the live
+browser. There is no export-all, no surviving queue, no cache.
+
+**(c) What to do BEFORE signing out:** open each local-only project and **Ctrl+S → "Save Version"**
+(`PlatformProjectBrowser.ts:321` `data-action="save"` → `:563` → `PlatformSaveController.ts:169`).
+That path **does** create the project server-side from scratch: `server.js:3795-3799` documents the
+*"first-save creation pattern"*, and a first save deliberately sends **no `If-Match`*
+(`ServerSyncQueue.ts:430`), so it takes the create path rather than the 410 `ProjectGoneError` path.
+Verify each one flips to `synced` — `local-only` means it did not land. **Do not sign out, switch
+accounts, or clear site data until every project reads `synced`.**
+
+### ⚠ WHY THESE ~50 ARE LOCAL-ONLY IN THE FIRST PLACE — NOT "never attempted"
+
+Every save already enqueues an upload (`PlatformSaveController.ts:318` →
+`ServerSyncQueue.ts:434` `POST /api/projects/:id/versions`). These projects have no server row
+because those POSTs **terminally failed and were discarded**:
+
+- **any 4xx is DROPPED, not retained** — `ServerSyncQueue.ts:532-536`, *"rejected by server … —
+  dropping"*, then removed from the queue and marked `local-only`;
+- **a 401/403 plan rejection LATCHES `_planRejectsSync`** (`:547-560`), which **empties the entire
+  queue** and short-circuits every later `enqueue()` (`:267-271`) for the rest of the session. The
+  latch clears **only on a full page reload** (`:180-192`).
+
+⭐ So a single plan rejection silently converts the session into offline-only mode and throws away
+work already queued. **That is a distinct defect from this row and it has no number yet** — lane
+LOG1's block is exhausted at L-1289. Flagged to the orchestrator rather than squeezed in here.
+
+**Two hard blockers on the recovery itself, both worth knowing before advising a bulk re-save:**
+
+- **legacy UUID-format project ids are permanently unsavable** — `server.js:3565` rejects anything
+  failing `/^proj-\d{10,16}-[a-z0-9]{5,16}$/` (`server/projectStore.js:213`) with a 400, forever.
+  "Save Version" cannot rescue those; they need an id rewrite.
+- **the free plan caps versions at 1** (`server/planLimits.js:48`), so the 2nd POST 403s and latches
+  the queue off per the bullet above.
+- and the queue itself is capped at **50** with a silent `shift()` of the oldest when full
+  (`ServerSyncQueue.ts:55`, `:276-279`) — with ~50 projects, a bulk re-save can evict its own backlog.
+
+### ⚠ THE PENDING-UPLOAD QUEUE IS DESTROYED BY THE SAME PURGE
+
+Confirmed at both persistence sites: the queue's primary store is the `syncQueue` object store
+**inside `pryzm-project-versions` itself** (`VersionCacheStore.ts:40` + `:43`), and
+`ServerSyncQueue.persistQueue()` prefers it while **actively deleting the localStorage copy**
+(`ServerSyncQueue.ts:600-606`). The fallback key `'pryzm-sync-queue'` (`:54`) is purged too, because
+it is `pryzm-` prefixed. Its header comment calls that name *"safely distinct from bim-project-*"* —
+true for quota, and **exactly wrong for survival**.
+
+So sign-out destroys the version bodies **and** the queue of uploads that were about to replay.
+
+### What L-1289 does and does not buy
+
+The refuse-to-purge ruling preserves the **index rows** after a purge, so the loss stays visible,
+named and recoverable-by-hand rather than being completed silently by the next sync. **It does not
+preserve the data.** Back-filling local-only projects to the server — and not discarding a 4xx —
+remains unbuilt.
+
+---
+
+## L-1289 — THE RECONCILER RESOLVED AN AUTHORITY DISAGREEMENT BY **DELETING**: `countVersions() === 0` MEANT "no versions", "database gone" AND "read threw" ✅ FIXED 2026-08-19 (lane LOG1) — **closes L-1288** · commits `cacdc44f` + `01cd938a`
+
+**Coordinator's ruling, applied:** *a reconciler must never treat "I cannot find the data" as "the
+user deleted it."*
+
+### The chain, each link measured
+
+1. Version history lives **only** in IndexedDB `pryzm-project-versions` — the legacy localStorage
+   copy is **removed at write time** when IDB is primary (`ProjectRepository.ts:1266`, *"drop any
+   stale legacy localStorage copy"*). That `removeItem` is precisely why there is no second copy.
+2. `purgeUserScopedClientState` deletes every `pryzm`-named database on sign-out **and on account
+   switch** — correctly, §AUTH-SESSION-LEAK.
+3. `bim-projects-index` is **not** prefixed, survives, and still claims `versionCount: N`.
+4. The next sync read `countVersions() === 0` and **purged the rows**.
+
+### ⭐ The root is one value meaning three things — not a slow read and not a missing prefix
+
+`countVersions` returns `0` for *"no versions"*, for *"the IndexedDB mirror is cold or absent"*, and
+for *"the read threw"*. The destructive branch could not tell **deletion from blindness**. The
+question *"can the reconciler ever tell the difference?"* answers **no**, and that distinction **is**
+the fix.
+
+⚠ **PERF1 did not introduce this.** The prior predicate was `getVersions(id).length > 0`, and
+`getVersions` collapses the same three conditions into `[]`. `a603e18e` made the read 33× faster and
+**preserved the hazard exactly**. Recorded because the timing invites the opposite conclusion.
+
+### The fix — a SECOND AUTHORITY, because a better read is impossible
+
+`0` is exactly what a broken instrument returns, so no improvement to the *count* can be safe. But
+the index row carries `versionCount` and **survives the purge that destroys the store**, so the two
+can be compared. `localOnlyProjectFate.ts` purges **only when both authorities agree there is
+nothing**; every other combination refuses and is surfaced. `probeVersions()` is the honest tri-state
+read that makes *"I could not look"* expressible; `countVersions` keeps its lossy contract for the
+two arithmetic callers that are correct to collapse it.
+
+### ⛔ The coordinator's preferred **option 1 is REFUTED**, not deprioritised
+
+*"Purge the index with the databases"* would **delete another signed-in user's rows**. The index is
+deliberately multi-user: `saveProject` reads `listAllProjectsUnfiltered()` *"so we don't drop entries
+belonging to other signed-in users on this browser (Contract 45 §7.2)"*, and `listProjects()` filters
+by `ownerId` at read. The asymmetry — single-user blobs go, the multi-user owner-filtered index stays
+— is **correct and intentional**. Only the destructive *resolution* of it was wrong. (It also means
+there is **no cross-user name leak**: the read is owner-filtered.)
+
+### A SECOND trigger, with no sign-out involved
+
+`warmVersionCache()` is awaited inside `try {} catch {}` in `_warmThenSync`. If it threw — IDB
+blocked, private browsing, quota — the sync ran anyway, every local-only project read `0`, and all of
+them were purged. `probeVersions` now returns `cache-not-warmed` and refuses.
+
+### The residual that was this module's own defect, one level up
+
+The hub passed `lp.versionCount ?? 0`. Legacy rows predate `versionCount` stamping, so `?? 0` turned
+*"the second authority has nothing to say"* into *"it says zero"* — which then **agrees** with a
+destroyed store and purges. Found by asking whether the new fix is satisfiable. `undefined` is now a
+third state with its own refusal.
+
+### Tests — `apps/editor/__tests__/localOnlyProjectPurgeSafety.test.ts`, **9/9**
+
+**Falsified** by neutralising the two refusal rules: **5 of 8 failed with `expected 'purge' to be
+'refuse'`** — the destructive verdict itself. §2 drives the **real** `purgeUserScopedClientState` and
+the **real** `probeVersions`, and asserts the **old** predicate (`countVersions(PID) > 0 === false`)
+on the same state the new ruling refuses, so the bug and the fix are pinned in one place.
+
+⚠ **The stub ledger carries a real limit rather than hiding it.** happy-dom has no IndexedDB, so
+seeding history through `saveVersions` would take the localStorage fallback and produce a state in
+which **the defect cannot occur** — the suite would have gone green over a hazard it never
+reproduced, **shape D again**. §2 therefore constructs the post-sign-out state directly and cites why
+it is reachable in production.
+
+L-1300's performance property is preserved: `probeVersions` reads the same v2 envelope — ~15 ms, not
+~503 ms.
