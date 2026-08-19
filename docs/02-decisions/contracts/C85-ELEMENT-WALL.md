@@ -592,9 +592,15 @@ layer-count branch (verdict **LIVE FORK**, C84 §3.5.3); and
 `producers/_internal/buildCurvedLayer.ts:56`. `buildMiterPrism` exists twice
 (`MiterPrismBuilder.ts:53`, `producers/_internal/buildMiterPrism.ts:21`).
 
-### The rake authority — ONE definition, seven consumers
+### The rake authority — ONE definition, ~~seven~~ **EIGHT** consumers
 
-**`rakeShearPerMetre` — `packages/geometry-wall/src/WallRake.ts:227`.** Authority stated `:117`;
+> ⚠ **RE-MEASURED 2026-08-19 (lane RK1). Every citation in this subsection was ~18 lines stale**, and
+> the consumer count had grown by one. **`LayeredWallOpeningBuilder.ts` joined the set** via
+> `rakedPlanThickness`. ⛔ **Cite the `§`-tags, not the line numbers** — this file moved ~200 lines in a
+> single day across two lanes. The durable anchors are `§FEAT-RAKE-LAYERED-OPENINGS`,
+> `§L955-ONE-CORNER-RULE`, `§WALL-RAKE-JOINT-STALE-CACHE` and `§96-OPT-IN`.
+
+**`rakeShearPerMetre` — `packages/geometry-wall/src/WallRake.ts:245`** *(was `:227`; its five siblings moved by the same ~18 lines).* Authority stated `:117`;
 internal reuse `:253`, `:267`. Consumers:
 `WallFragmentBuilder.ts:66` (comment: *"the ONE place cot(rake) is computed"*), `:72`, `:2205`,
 `:2510`, `:2544` · `WallLayerPlanLines.ts:31, :35, :72, :101, :179` · `DoorBuilder.ts:17, :520` ·
@@ -713,8 +719,12 @@ Ordered by what the user loses.
 
 ⚠ **Non-regression, binding on #1.** plain↔plain is **CONFIRMED GOOD by the founder**. Any change to
 `buildMiterPrism` must be proven not to move it. And the shear must become a **single authority**,
-not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:227`) is already declared the one place
-`cot(rake)` is computed, and §10 shows seven modules already honour it.
+not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:245`) is already declared the one place
+`cot(rake)` is computed, and §10 shows **eight** modules already honour it.
+
+> ⭐ **RK1 caught itself about to mint that fourth copy, 2026-08-19**, and the near-miss is the best
+> evidence this rule earns its place: it had hand-rolled a staleness test that `20d21d25` had already
+> folded onto the cache as `rakeIsFreshFor`. The duplicate was removed before it landed.
 
 > **Lane note (C84 §6 discipline):** lane J1 is fixing **#1** as this contract is written. The DELTA
 > above states C85's **normative requirement**, not a work order. When J1 lands, #1's row moves to
@@ -733,10 +743,11 @@ not a fourth copy — `rakeShearPerMetre` (`WallRake.ts:227`) is already declare
 | **R-5** | **`canExecute` MUST be the LAST method before `execute`** | `MoveWall.ts:94-103` | ⚠ **A GATE'S PARSER SHAPING THE SOURCE.** `tools/ga-gate/check-verb-register.ts` classifies REFUSES by slicing source from `canExecute` to the next `execute(`; `validatePayload` in between mis-reports the verb as UNKNOWN. C84 §7B.5's shape — *a gate that classifies by NAME can be satisfied by RENAMING*. Declared, not hidden |
 | **R-6** | `produceWall` refuses a degenerate baseline | `producers/wall.ts:78-81` | ✅ correct |
 | **R-7** | `wallVoids.ts` is **deliberately not wired** into `WallFragmentBuilder`/`LayeredWallOpeningBuilder` | `wallVoids.ts:10-15` | ✅ **DECLARED PARKED**, with the phase, the flag and the fallback named. The compliant form of C84 §3.5's PARKED verdict |
-| **R-8** | The CSG single-volume arm is switched off (`§96-OPT-IN`, 2026-05-24) | `WallFragmentBuilder.ts:2683-2692` (line numbers re-measured 2026-08-18; the file has grown), `:2883` (*"CSG failed — keep the segmented mesh (SPEC §4: never an empty wall)"*) | ✅ declared, with its incident cited. ⚠ **BUT ITS STATED REASON IS NOW HALF STALE.** The comment cites two blockers, and the second — *"DoorBuilder/WindowBuilder place the leaf at `level.elevation + sillHeight` without slab/baseOffset"* — was **closed by `8f63fb6f`** (see §10). The first, whether the `geometry-kernel` producer honours `baseOffset` the way `WallHoleBodyBuilder` does, is **NOT MEASURED**. ⛔ **The arm stays OFF, and must not be re-enabled on the strength of the closed half** — that inference is exactly what C84 exists to prevent. The code comment needs correcting so it stops asserting a blocker that no longer exists |
+| **R-8** | The CSG single-volume arm is switched off (`§96-OPT-IN`, 2026-05-24) | `WallFragmentBuilder.ts` **§96-OPT-IN** — ⚠ the `:2683-2692` citation was stale again by 2026-08-19; **cite the tag**. The stale-blocker correction R-8 demanded IS now made in code, and the **arm remains OFF**, `:2883` (*"CSG failed — keep the segmented mesh (SPEC §4: never an empty wall)"*) | ✅ declared, with its incident cited. ⚠ **BUT ITS STATED REASON IS NOW HALF STALE.** The comment cites two blockers, and the second — *"DoorBuilder/WindowBuilder place the leaf at `level.elevation + sillHeight` without slab/baseOffset"* — was **closed by `8f63fb6f`** (see §10). The first, whether the `geometry-kernel` producer honours `baseOffset` the way `WallHoleBodyBuilder` does, is **NOT MEASURED**. ⛔ **The arm stays OFF, and must not be re-enabled on the strength of the closed half** — that inference is exactly what C84 exists to prevent. The code comment needs correcting so it stops asserting a blocker that no longer exists |
 | **R-9** | ⛔ **DO NOT re-refuse layered-raked or opening-on-raked walls** | [L-955](../../04-reference/ISSUE-LOG.md) | ✅ **BINDING.** The bodies are correct and founder-confirmed. Re-refusing withdraws two shipped features to hide a corner defect |
 | **R-10** | No `wall.rotate` verb | §6 | ⚠ **DECLARED HERE**: rotation is expressed as a baseline edit. Previously an undeclared absence |
 | **R-11** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
+| **R-12** | ⚠ **INCOHERENT — the layered-raked-with-openings refusal now states a reason that is MEASURABLY FALSE** | `WallRake.ts` `rakeAuthorability`; assertions in `WallRake.test.ts:303`, `RakedLayeredWallBands:340`, `RakedHostedOpening:188`, `command-registry/updateWallsRakeBatch:81,136,171`, `apps/editor/WallRakeProperty.spec` | ⛔ **RK1 measured the combination SOUND (2026-08-19) and deliberately did NOT lift the gate.** Lifting ships a combination and breaks refusal assertions in **five files across three packages**, so it is a founder-visible change, not a patch. **RK1 recommends lifting it.** ⚠ And the refusal had an **off-by-one**: it refuses `layers.length > 1` while the body path is entered on `> 0`, so a **one-layer** raked wall with a window was authorable and **unsheared** — [L-1064](../../04-reference/ISSUE-LOG.md). That is the founder's own wall: `CreateWallCommand` stamps `layers` from the system type, and a 1-layer *"Plain Wall"* is what L-960 was reported on. **Live, not unwired.** Body fixed by L-1061 |
 
 ### Explicitly NOT REFUSED, and that is a finding
 
@@ -780,6 +791,25 @@ whether `_skipBridge` is ever true in production.
 9. **ADR-0331 §D5 — *"what is Stack B for?"*** — an escalated **founder** question. ⛔ Not to be
    resolved by any lane.
 10. **`packages/persistence-client/src/loader/`** — deliberately not measured; declared DEAD.
+11. **PROFILE × RAKE geometry has never been built** ([L-1065](../../04-reference/ISSUE-LOG.md)).
+    `profileAuthorability` refuses curved / layered / openings and **has no rake arm at all** —
+    `ProfileSubject` does not even carry `rakeAngleDeg`. So a **curved** wall never offers *Edit
+    Profile*, but a **raked** wall IS offered it, and what that produces is unmeasured. **An offered,
+    unverified affordance is worse than a refusal with a reason** (C84 EI-3).
+12. **X-junctions** — RK1's hull metric returned an arithmetically impossible 2.4 m for overlapping
+    rectangles. Printed, marked **UNEXPLAINED**, and **no conclusion drawn** — the honest handling of
+    an instrument that disagrees with arithmetic.
+13. **Not reached by RK1's matrix, each stated rather than implied:** 3+ wall junctions ·
+    `baseOffset ≠ 0` × rake · Stack B under rake · a persistence round-trip of a raked wall ·
+    move-time re-weld (WM1's) · the `ContextualEditBar` button on a raked wall.
+14. ⛔ **FOUNDER QUESTION — what IS a raked curved wall?** All four curved cells measured
+    `lean = 0.000`: **a rake on an arc does nothing today**, and layers and openings change nothing
+    because the shear never applies. `WallRake`'s vocabulary takes a single `direction`, and **an arc
+    has none** — so a rake on an arc is a **conical surface, not a shear**. Does a raked curved wall
+    **keep its radius** (lean about the chord) or **change it** (conical sweep)? Both are "a raked
+    curved wall"; **they are different solids**, and this cannot be decided by measurement.
+    ⚠ Do not quote RK1's `openUp ≈ 0.72` for the curved cells — that is the *neighbour* leaning away
+    from an upright arc, not a joint measurement.
 
 ---
 
