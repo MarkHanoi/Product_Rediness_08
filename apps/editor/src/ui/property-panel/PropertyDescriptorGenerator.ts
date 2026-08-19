@@ -21,6 +21,19 @@ import { STAIR_CONSTRAINTS, STAIR_MATERIALS, STAIR_NOSING_TYPES, STAIR_STRINGER_
 import { RAKE_MIN_DEG, RAKE_MAX_DEG, rakeAuthorability } from '@pryzm/geometry-wall';
 // §PROP-BEAM-PANEL-LIE — the PUBLISHED beam bounds, never re-typed here.
 import { BEAM_CONSTRAINTS } from '@pryzm/core-app-model/stores';
+// §FEAT-HANDRAIL-PANEL-FIELDS (C95 §15.15) — the railing members and bounds, READ
+// from the one authority. The three enums used to exist only as TYPE unions, so any
+// picker had to re-type their members; they are now runtime `as const` arrays with the
+// unions DERIVED from them, which is why a member cannot exist in the type and be
+// missing from the dropdown. Re-typing any of these here would be the second copy of a
+// vocabulary (C84 EI-8) — the exact defect this row set exists to avoid.
+import {
+    HANDRAIL_CONSTRAINTS,
+    HANDRAIL_FILL_TYPES,
+    HANDRAIL_RAIL_PROFILES,
+    HANDRAIL_BALUSTER_SHAPES,
+    HANDRAIL_POST_END_CONDITIONS,
+} from '@pryzm/core-app-model/stores';
 
 type SchemaEntry = Omit<PropertyDescriptor, 'key'>;
 
@@ -41,6 +54,14 @@ const ENUM = (label: string, section: PropertyDescriptor['section'], category: P
 
 const COLOR = (label: string, section: PropertyDescriptor['section'], category: PropertyDescriptor['category'], editable = true): SchemaEntry =>
     ({ label, type: 'color', section, category, editable });
+
+/**
+ * §FEAT-HANDRAIL-PANEL-FIELDS (C100 §2.1) — a MASTER-CATALOGUE material reference.
+ * Deliberately carries NO `options`: `PropertyRenderer` reads `MATERIAL_CATALOG`
+ * itself, so the ~200 material ids are never copied into a descriptor.
+ */
+const MATERIAL = (label: string, section: PropertyDescriptor['section'], category: PropertyDescriptor['category'], hint?: string): SchemaEntry =>
+    ({ label, type: 'material', section, category, editable: true, ...(hint ? { hint } : {}) });
 
 type ElementSchema = Record<string, SchemaEntry>;
 
@@ -297,14 +318,113 @@ const SCHEMAS: Record<string, ElementSchema> = {
         globalId:        READONLY('Global ID', 'metadata'),
     },
 
+    // -- §FEAT-HANDRAIL-PANEL-FIELDS (C95 §15.15) ----------------------------
+    //
+    // Founder, with a screenshot of this panel: "the handrail should have the
+    // properties enough to change: PROFILE of handrail · DIMENSION · CIRCULAR /
+    // SQUARE · MATERIAL · HOW OFTEN VERTICAL BARS · PANELS YES OR NO · how often,
+    // material, etc."
+    //
+    // ⭐ THIS IS A WIRING JOB, NOT A BUILD, AND THAT WAS MEASURED BEFORE ANY ROW WAS
+    // WRITTEN. Every field he asked for ALREADY exists on `HandrailData`, is ALREADY
+    // materialised by `resolveHandrailTypeFields` (thirteen of them), is ALREADY
+    // accepted by `UpdateHandrailPayload`, is ALREADY read by
+    // `HandrailFragmentBuilder`, and ALREADY round-trips (29 authored / 29 survived /
+    // 0 lost, through store → serializer → JSON → payload → command → store). The
+    // panel exposed FOUR of them. The map:
+    //   "profile of handrail"      -> railProfile
+    //   "dimension"                -> railDiameter / thickness
+    //   "circular / square"        -> railProfile, balusterShape
+    //   "material"                 -> materialId   <- the picker below
+    //   "how often vertical bars"  -> balusterSpacing
+    //   "panels yes or no"         -> fillType ('panel' / 'glass' / 'baluster' / 'open')
+    //   "how often"                -> postSpacing
+    //
+    // -- THE OVERRIDE MODEL, STATED SO IT IS NOT DISCOVERED AS A BUG --------------
+    // A railing type is MATERIALISED, not referenced: `HandrailData` carries no live
+    // link to its type, and applying one COPIES thirteen fields onto the record
+    // (`handrailTypeProjection.ts`). So an edit here is a FREE-FORM per-instance
+    // write, and THE NEXT TYPE-APPLY OVERWRITES IT. That is deliberate, and it is the
+    // honest reading of the data model — there is nowhere to record "this instance
+    // overrides its type", because there is no live type link to override.
+    // ⛔ Do NOT add an "overridden" badge or a detach affordance until `typeId`
+    // becomes a live reference: a badge over a materialised copy would claim a
+    // relationship the record cannot hold, which is worse than no badge.
+    //
+    // -- WHY DEFINITION vs INSTANCE IS SPLIT THE WAY IT IS ------------------------
+    // Everything a TYPE materialises is DEFINITION — that is exactly the set a
+    // type-Apply overwrites, so grouping them tells the user which rows move as a set.
+    // `baseOffset` stays in INSTANCE because that is what it MEANS to a user (where
+    // this rail sits). ⚠ Note honestly that the projection DOES also carry
+    // `baseOffset`, so a type-Apply moves it too; that is a question for C95, not
+    // something to paper over by re-filing the row into DEFINITION.
     handrail: {
         id:              READONLY('Element ID', 'identity'),
         type:            READONLY('Element Type', 'identity'),
         mark:            TEXT('Mark', 'identity', 'global'),
-        height:          NUMBER('Height', 'definition', 'definition', true, { unit: 'm', min: 0.5, max: 2 }),
-        thickness:       NUMBER('Thickness', 'definition', 'definition', true, { unit: 'm', min: 0.01, max: 0.2 }),
-        baseOffset:      NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' }),
+
+        // -- Overall dimensions ---------------------------------------------
+        // ⚠ Bounds come from `HANDRAIL_CONSTRAINTS`, never re-typed. `height` USED to
+        // read `min: 0.5, max: 2` here while `UpdateHandrailCommand` refuses only
+        // outside 0.3-2.5 — so the panel silently narrowed a range the model accepts
+        // and chat could reach. That drift is why the constants now exist.
+        height:          NUMBER('Height', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.HEIGHT_MIN, max: HANDRAIL_CONSTRAINTS.HEIGHT_MAX }),
+        thickness:       NUMBER('Thickness', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.THICKNESS_MIN, max: HANDRAIL_CONSTRAINTS.THICKNESS_MAX }),
+
+        // -- The top rail: "profile of handrail" / "circular or square" ------
+        railProfile:     ENUM('Rail Profile', 'definition', 'definition', [...HANDRAIL_RAIL_PROFILES]),
+        railDiameter:    NUMBER('Rail Diameter', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.RAIL_DIAMETER_MIN, max: HANDRAIL_CONSTRAINTS.RAIL_DIAMETER_MAX, step: 0.005 }),
+
+        // -- "panels yes or no": the infill, as ONE closed choice ------------
+        // 'panel' and 'glass' are both solid infills, 'baluster' is vertical bars,
+        // 'open' is neither. Offering this as a boolean would need a SECOND control
+        // for "which kind", and two controls for one field is the
+        // §FIX-STAIR-TYPEID-TWO-CONTROLS defect one family over.
+        fillType:        ENUM('Infill', 'definition', 'definition', [...HANDRAIL_FILL_TYPES]),
+
+        // -- Posts: "how often" ---------------------------------------------
+        // 0 is a legal and MEANINGFUL value — the built-in "Stair Handrail" type
+        // declares `postSpacing: 0` (no posts) — so the minimum is 0, not a small
+        // positive number. A picker that forbade 0 would make a shipped type
+        // unauthorable through the panel while chat could still reach it.
+        postSpacing:     NUMBER('Post Spacing', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.POST_SPACING_MIN, max: HANDRAIL_CONSTRAINTS.POST_SPACING_MAX, step: 0.05 }),
+        // HOW the run divides once a spacing is set. 'redistribute' (the default, and
+        // what an absent value means) treats the spacing as a MAXIMUM.
+        postEndCondition: ENUM('Post Division', 'definition', 'definition', [...HANDRAIL_POST_END_CONDITIONS]),
+
+        // -- Balusters: "how often vertical bars" ---------------------------
+        balusterShape:   ENUM('Baluster Shape', 'definition', 'definition', [...HANDRAIL_BALUSTER_SHAPES]),
+        balusterWidth:   NUMBER('Baluster Width', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.BALUSTER_WIDTH_MIN, max: HANDRAIL_CONSTRAINTS.BALUSTER_WIDTH_MAX, step: 0.005 }),
+        balusterSpacing: NUMBER('Baluster Spacing', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.BALUSTER_SPACING_MIN, max: HANDRAIL_CONSTRAINTS.BALUSTER_SPACING_MAX, step: 0.01 }),
+        // ⚠ NOT a duplicate of `balusterSpacing`. This is the CLEAR OPENING between
+        // adjacent balusters — the CODE value ("a sphere of D mm must not pass") —
+        // while the spacing is a CENTRE-TO-CENTRE pitch. The two are equal only when a
+        // baluster has zero width. The builder derives a pitch from this ONLY when no
+        // explicit spacing is authored, so an authored pitch always wins.
+        infillMaxGap:    NUMBER('Max Clear Gap', 'definition', 'definition', true,
+                                { unit: 'm', min: HANDRAIL_CONSTRAINTS.INFILL_MAX_GAP_MIN, max: HANDRAIL_CONSTRAINTS.INFILL_MAX_GAP_MAX, step: 0.001 }),
+
+        // -- Material: the master reference, and the override BELOW it -------
+        // ⛔ THE ORDER OF THESE TWO ROWS IS LOAD-BEARING, AND SO IS THE HINT.
+        // `resolveMaterialColour` (C100 §2.1) resolves the OVERRIDE FIRST: a hex, when
+        // present, SHADOWS the materialId completely. So a user who picks "Brushed
+        // Steel" while a stale hex sits on the record sees NOTHING change — and every
+        // other surface would agree with him that the material IS Brushed Steel.
+        // Saying the precedence in the row is the difference between a control that is
+        // confusing and one that is wrong.
+        materialId:      MATERIAL('Material', 'definition', 'definition',
+                                  'Full material — roughness, metalness, transparency. The Color Override below, when set, HIDES this; clear it to see the material.'),
         materialColor:   COLOR('Color Override', 'definition', 'definition'),
+
+        // -- Placement -------------------------------------------------------
+        baseOffset:      NUMBER('Base Offset', 'instance', 'instance', true, { unit: 'm' }),
+
         levelId:         READONLY('Level ID', 'spatial'),
         room:            READONLY('Room', 'spatial'),
         ifcClass:        READONLY('IFC Class', 'metadata'),

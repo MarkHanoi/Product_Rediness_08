@@ -1680,3 +1680,141 @@ is.
 ⚠ **R6 (infill panelling) REMAINS BLOCKED on this**, per §15.5. Adding a per-bay `panels[]` to a
 record that loses `fillType` on reload would produce C87's exact failure — authored, rendered once,
 gone after F5 — with more surface area.
+
+---
+
+## 15.15 THE PROPERTY PANEL EXPOSED 4 OF 29 AUTHORABLE FIELDS — AND THE OVERRIDE MODEL, STATED ✅ **DECIDED + LANDED** (L-1196, 2026-08-19, lane HR5)
+
+**Founder, with a screenshot of HANDRAIL HR046 ("Glass Guardrail", Level 1):** *"In the properties
+panel the handrail should have the properties enough to change: PROFILE of handrail · DIMENSION ·
+CIRCULAR / SQUARE · MATERIAL · HOW OFTEN VERTICAL BARS · PANELS YES OR NO · how often, material,
+etc."*
+
+### ⭐ THIS WAS A WIRING JOB, AND THAT WAS MEASURED BEFORE ANYTHING WAS BUILT
+
+The panel showed **four** authorable fields — `height`, `thickness`, `baseOffset`, and a raw
+`materialColor` hex. Every single thing he asked for **already existed**:
+
+| he asked for | the field | already exists on | already materialised by | already accepted by |
+|---|---|---|---|---|
+| "profile of handrail" | `railProfile` | `HandrailData` | `resolveHandrailTypeFields` | `UpdateHandrailPayload` |
+| "dimension" | `railDiameter` / `thickness` | ✅ | ✅ | ✅ |
+| "circular / square" | `railProfile`, `balusterShape` | ✅ | ✅ | ✅ |
+| "material" | `materialId` | ✅ | ✅ | ✅ |
+| "how often vertical bars" | `balusterSpacing` | ✅ | ✅ | ✅ |
+| "panels yes or no" | `fillType` | ✅ | ✅ | ✅ |
+| "how often" (posts) | `postSpacing` | ✅ | ✅ | ✅ |
+
+…and all of them already round-trip (**29 authored / 29 survived / 0 lost / 0 changed** through
+the real store → serializer → JSON boundary → payload builder → command → a second store,
+`handrailPersistenceRoundTrip.test.ts`). **The gap was the CONTROL, and only the control** — the
+authored-but-unwired shape, at the UI layer. **12 authorable rows are now offered.**
+
+### THE OVERRIDE MODEL — ANSWERED, BECAUSE AN UNSTATED ONE IS HOW "I CHANGED IT AND IT REVERTED" IS BORN
+
+**A per-instance edit is a FREE-FORM write, and the next type-Apply overwrites it.**
+
+That is not a preference; it is the only reading the data model admits. `HandrailData` carries **no
+live link to its type** — applying a railing type MATERIALISES it, copying thirteen fields onto the
+record (§15.14, `handrailTypeProjection.ts`). There is nowhere to record *"this instance overrides
+its type"*, because there is no reference to override.
+
+⛔ **Therefore: do NOT add an "overridden" badge, a revert-to-type affordance, or a detach control
+until `typeId` becomes a LIVE reference.** A badge drawn over a materialised copy would claim a
+relationship the record cannot hold — worse than no badge, because it would be believed. If the
+type link is ever made live, this section is the first thing to revisit.
+
+### §3 DEFINITION vs §4 INSTANCE — the axis, and one honest wrinkle
+
+Everything a **type materialises** is filed under DEFINITION, because that is exactly the set a
+type-Apply overwrites: grouping them tells the user which rows move together. `baseOffset` is the
+sole INSTANCE row, because that is what it MEANS to a user — where this rail sits.
+
+⚠ **Stated rather than hidden:** the projection DOES also carry `baseOffset`, so a type-Apply moves
+it too. The row stays in INSTANCE because re-filing it into DEFINITION would misdescribe the field
+to make the table tidy. **Whether `baseOffset` belongs in the projection at all is an open question
+for this contract, not something to paper over in a panel.**
+
+### THE MATERIAL AXIS — C100 §2.1, AND THE PRECEDENCE MUST BE SAID OUT LOUD
+
+The panel offered *"Color Override #888888"* — a raw hex — and **no material picker**. That is the
+defect C100 §2.1 names as an explicit MUST NOT, and this family shipped its mirror image once
+already (20 railing types carrying a hex and no `materialId`, fixed at `10513bf4`).
+
+A **Material picker bound to `materialId`** now sits above the hex, resolving against the C100
+master catalogue (`MATERIAL_CATALOG`), grouped by category, with **"— None (type default) —"** as a
+real option so a material can be CLEARED, and a **visible `⚠ <id> (not in catalogue)` row** when the
+record names a material the catalogue no longer has — because a select that silently falls back to
+"None" would let a user read *"no material"* off a record that names a deleted one, and a blind
+Apply would then write that misreading back.
+
+⛔ **THE ORDER OF THE TWO ROWS AND THE HINT ON THE MATERIAL ROW ARE LOAD-BEARING.**
+`resolveMaterialColour` resolves the **override FIRST**: a hex, when present, **shadows the
+`materialId` completely**. So a user who picks "Brushed Steel" while a stale hex sits on the record
+sees *nothing change* — and every other surface would agree with him that the material IS Brushed
+Steel. The row therefore states the precedence in words. The clearing behaviour on retype
+(`materialColor: def.materialColor ?? null`, §15.14) is untouched and remains the thing that makes
+a retype visible.
+
+### VOCABULARIES ARE NOW READ, NOT RE-TYPED
+
+`HandrailFillType`, `HandrailRailProfile`, `HandrailBalusterShape` and the post end-condition were
+**type-only unions**, which vanish at compile time — so any picker had to re-type their members, and
+a second copy of a vocabulary is a second answer that drifts silently (C84 EI-8). `'centred'`
+mistyped as `'centered'` would be a dropdown option writing a value no consumer recognises, with no
+error anywhere.
+
+They are now **runtime `as const` arrays with the unions DERIVED from them**
+(`HANDRAIL_FILL_TYPES`, `HANDRAIL_RAIL_PROFILES`, `HANDRAIL_BALUSTER_SHAPES`,
+`HANDRAIL_POST_END_CONDITIONS`). A member cannot exist in the type and be missing from the picker.
+
+### ⚠ A LIVE PANEL-vs-COMMAND DRIFT, FOUND AND CLOSED
+
+The panel offered `Height` as **0.5 – 2.0 m**. `UpdateHandrailCommand.canExecute` refuses only
+outside **0.3 – 2.5 m**. **The panel silently narrowed a range the model accepts and chat could
+reach** — a 0.4 m planter-edge rail and a 2.3 m security rail were authorable through chat and NOT
+through the panel, with no reason given. Both now read `HANDRAIL_CONSTRAINTS`, which labels each
+bound **ENFORCED** (the command refuses on it) or **ADVISORY** (spinner affordance only, nothing
+refuses). ⛔ Do not harden an ADVISORY bound into a refusal without adding the arm in the command in
+the same change — a UI that refuses what the command accepts is a lie about the model (L-942).
+
+`postSpacing`'s minimum is **0**, and that is deliberate: the built-in "Stair Handrail" type
+declares `postSpacing: 0` (no posts), so a picker forbidding 0 would make a **shipped type**
+unauthorable through the panel while chat could still reach it.
+
+### 🔴 RAC PARITY — MEASURED, AND IT IS NOT MET
+
+§15.9 requires panel **and** RAC, one authority per capability. The write route is already shared:
+the panel dispatches `element.updateParameters`, which is the **same bus verb** the chat vocabulary
+routes to, into the same `UpdateElementParameterCommand` → `handrailStore` partial merge →
+`bim-handrail-updated`. So parity is structural where the vocabulary exists.
+
+**But the vocabulary reaches only THREE handrail properties** (measured 2026-08-19,
+`PropertyVocabulary.ts` — the only three entries whose `kinds` include `handrail`):
+
+| reachable from chat today | `baseOffset` (`set-base-offset`) · `balusterSpacing` (`set-baluster-spacing`) · `balusterWidth` (`set-baluster-width`) |
+|---|---|
+| **panel-only — NOT reachable from chat** | `height` · `thickness` · `railProfile` · `railDiameter` · `fillType` · `postSpacing` · `postEndCondition` · `balusterShape` · `infillMaxGap` · `materialId` · `materialColor` |
+
+**12 offered in the panel, 3 reachable from chat.** ⛔ This is logged, not hidden, and it is NOT
+closed by this work. The four ENUM-valued ones (`railProfile`, `balusterShape`, `fillType`,
+`postEndCondition`) need value parsing the numeric `generic(field)` route does not provide — *"make
+it round"* has to resolve to a member of the published array — so they are a design step, not a
+copy-paste of the three existing rows. The seven numeric/reference ones are closer to mechanical.
+**Do not claim §15.9 satisfied for this family until the table's second row is empty.**
+
+### Evidence
+
+`packages/core-app-model/src/stores/HandrailTypes.ts` (runtime member arrays + `HANDRAIL_CONSTRAINTS`) ·
+`packages/command-registry/src/handrails/UpdateHandrailCommand.ts` (reads the shared bounds) ·
+`apps/editor/src/ui/property-panel/types.ts` + `PropertyRenderer.ts` (the `'material'` input kind) ·
+`apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts` (the rows) ·
+`apps/editor/src/ui/property-panel/__tests__/HandrailPropertyFields.spec.ts` (19 cases).
+
+The central test is a **SWEEP, not an assertion list** — it enumerates every editable descriptor
+the real generator produces and drives each through the real `UpdateElementParameterCommand` into a
+real `HandrailStore`, because round-trip persistence cannot see the gap that matters here: **a row
+can be added to the panel and write nowhere at all.** Add a row and forget the write path and it
+fails, with no one having to remember to add a line. Negative controls assert the pre-write value
+differs, so a no-op cannot pass. The existing `handrailPersistenceRoundTrip` harness is used as-is
+and deliberately not duplicated.

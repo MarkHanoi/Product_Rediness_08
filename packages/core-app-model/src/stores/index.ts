@@ -87,7 +87,16 @@ export {
 export type {
     HandrailRailLayer, HandrailData, HandrailFragment,
 } from './HandrailTypes.js';
-export type { HandrailFillType, HandrailRailProfile, HandrailBalusterShape } from './HandrailTypes.js';
+export type { HandrailFillType, HandrailRailProfile, HandrailBalusterShape, HandrailPostEndCondition } from './HandrailTypes.js';
+// §FEAT-HANDRAIL-PANEL-FIELDS (C95 §15.15) — the RUNTIME members, so a picker can
+// offer exactly the values the type admits instead of re-typing them (C84 EI-8).
+export {
+    HANDRAIL_CONSTRAINTS,
+    HANDRAIL_FILL_TYPES,
+    HANDRAIL_RAIL_PROFILES,
+    HANDRAIL_BALUSTER_SHAPES,
+    HANDRAIL_POST_END_CONDITIONS,
+} from './HandrailTypes.js';
 export { HandrailStore } from './HandrailStore.js';
 export type { HandrailTypeDefinition } from './HandrailTypeStore.js';
 export { HandrailTypeStore, handrailTypeStore } from './HandrailTypeStore.js';

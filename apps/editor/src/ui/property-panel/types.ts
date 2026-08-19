@@ -5,7 +5,23 @@
  * These are standalone and do not touch any existing files.
  */
 
-export type PropertyInputType = 'text' | 'number' | 'boolean' | 'enum' | 'color' | 'readonly' | 'list';
+/**
+ * `'material'` is NOT `'enum'` with the catalogue's ids as options, and the difference
+ * is not cosmetic (§FEAT-HANDRAIL-PANEL-FIELDS, C100 §2.1):
+ *
+ *   · an `'enum'` shows its RAW values, so the user would pick `stone-carrara-marble`
+ *     rather than "Carrara Marble";
+ *   · the catalogue is ~200 rows and needs `<optgroup>` by category to stay navigable;
+ *   · a stored id the catalogue no longer has must be shown AS a stale id, not silently
+ *     collapsed to the default — a refusal and a success must never look the same;
+ *   · and the options come from `MATERIAL_CATALOG`, so no descriptor ever re-types them.
+ *
+ * ⛔ It is also NOT interchangeable with `'color'`. A hex cannot carry roughness,
+ * metalness or transparency, which is exactly why C100 §2.1 forbids a hex from being
+ * the HOME of a material. Where both exist the hex is a deliberate OVERRIDE that
+ * SHADOWS the reference — the panel must say so, not offer them as alternatives.
+ */
+export type PropertyInputType = 'text' | 'number' | 'boolean' | 'enum' | 'color' | 'material' | 'readonly' | 'list';
 
 export type PropertyCategory = 'global' | 'definition' | 'instance';
 

@@ -8,6 +8,10 @@
  */
 
 import { PropertyDescriptor } from './types';
+// §FEAT-HANDRAIL-PANEL-FIELDS (C100 §2.1) — the MASTER material catalogue, read
+// directly so no descriptor ever carries a re-typed copy of ~200 material ids.
+// L0 data package; nothing here imports THREE.
+import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 import { SECTION_STEPS } from './PropertyPanelTheme';
 
 export function renderPropertyRow(
@@ -96,6 +100,77 @@ export function renderPropertyRow(
         sel.addEventListener('change', () => draft.set(descriptor.key, sel.value));
         sel.setAttribute('data-prop-key', descriptor.key);
         inputWrap.appendChild(sel);
+    } else if (descriptor.type === 'material') {
+        // ── §FEAT-HANDRAIL-PANEL-FIELDS — THE MATERIAL PICKER (C100 §2.1) ─────
+        //
+        // ⭐ THE CONTROL WAS THE ONLY THING MISSING, and this family has shipped the
+        // wrong half of it once already: 20 railing types carried a raw hex and NO
+        // `materialId` (fixed at 10513bf4). Lane CW2 measured the identical shape on
+        // curtain-wall panels — both axes existed, both worked, only the control was
+        // absent. A "Color Override" box with no material picker beside it is the
+        // defect C100 §2.1 names as an explicit MUST NOT: a hex cannot carry
+        // roughness, metalness or transparency, so it may not be a material's HOME.
+        //
+        // Grouped by category because the catalogue is ~200 rows; sorted by label
+        // within a group, since the catalogue's own order is insertion order and
+        // means nothing to a user.
+        const sel = document.createElement('select');
+        sel.className = 'gpp-select';
+
+        // "Type default" is a REAL option, not a placeholder: it is how a user CLEARS
+        // a material. A dropdown whose only escape is picking a different material is
+        // a one-way door. Empty string is the stored value, and every consumer
+        // already tests `materialId` for truthiness (`resolveMaterialColour` returns
+        // "this element names no material" for it), so no new sentinel is invented.
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '— None (type default) —';
+        sel.appendChild(defaultOpt);
+
+        const byCategory = new Map<string, { id: string; label: string }[]>();
+        for (const m of MATERIAL_CATALOG) {
+            const key = String(m.category || 'Other');
+            const bucket = byCategory.get(key);
+            if (bucket) bucket.push({ id: m.id, label: m.label });
+            else byCategory.set(key, [{ id: m.id, label: m.label }]);
+        }
+        for (const cat of [...byCategory.keys()].sort()) {
+            const group = document.createElement('optgroup');
+            group.label = cat;
+            for (const m of byCategory.get(cat)!.sort((a, b) => a.label.localeCompare(b.label))) {
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = m.label;
+                group.appendChild(o);
+            }
+            sel.appendChild(group);
+        }
+
+        // ⚠ A STORED ID THE CATALOGUE NO LONGER HAS GETS A VISIBLE ROW OF ITS OWN.
+        // Without this the select silently falls back to "None" and MISREPRESENTS the
+        // stored state — the user would read "no material" off a record that names a
+        // deleted one, and a blind Apply would then WRITE that misreading back.
+        // A refusal and a success must never look the same (§CONTEXT-DATA-HONESTY).
+        const current = typeof currentValue === 'string' ? currentValue : '';
+        if (current && !MATERIAL_CATALOG.some(m => m.id === current)) {
+            const orphan = document.createElement('option');
+            orphan.value = current;
+            orphan.textContent = `⚠ ${current} (not in catalogue)`;
+            sel.appendChild(orphan);
+        }
+        sel.value = current;
+
+        sel.addEventListener('change', () => draft.set(descriptor.key, sel.value));
+        sel.setAttribute('data-prop-key', descriptor.key);
+        inputWrap.appendChild(sel);
+
+        if (descriptor.hint) {
+            const why = document.createElement('div');
+            why.className = 'gpp-prop-hint';
+            why.textContent = descriptor.hint;
+            why.style.cssText = 'font-size:10px;line-height:1.3;opacity:0.75;margin-top:2px;';
+            inputWrap.appendChild(why);
+        }
     } else if (descriptor.type === 'color') {
         const colorRow = document.createElement('div');
         colorRow.className = 'gpp-color-row';

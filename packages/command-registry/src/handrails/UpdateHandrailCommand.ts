@@ -1,5 +1,10 @@
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { HandrailData, Point3D } from '@pryzm/core-app-model';
+// §FEAT-HANDRAIL-PANEL-FIELDS (C65 §3.5) — the ONE published bound set. These were
+// literals here and DIFFERENT literals in PropertyDescriptorGenerator (0.5-2.0 vs
+// 0.3-2.5), so the panel silently refused heights this command accepts. One policy,
+// one place; the constants carry which of them are ENFORCED and which are advisory.
+import { HANDRAIL_CONSTRAINTS } from '@pryzm/core-app-model/stores';
 import { serializeHandrailSnapshot, deserializeHandrailSnapshot } from '@pryzm/core-app-model';
 
 export interface UpdateHandrailPayload {
@@ -91,8 +96,13 @@ export class UpdateHandrailCommand implements Command {
         if (!handrail) return { ok: false, reason: 'Handrail not found' };
 
         if (this.payload.height !== undefined) {
-            if (this.payload.height < 0.3 || this.payload.height > 2.5) {
-                return { ok: false, reason: 'Handrail height must be between 0.3 m and 2.5 m' };
+            if (this.payload.height < HANDRAIL_CONSTRAINTS.HEIGHT_MIN
+                || this.payload.height > HANDRAIL_CONSTRAINTS.HEIGHT_MAX) {
+                return {
+                    ok: false,
+                    reason: `Handrail height must be between ${HANDRAIL_CONSTRAINTS.HEIGHT_MIN} m `
+                          + `and ${HANDRAIL_CONSTRAINTS.HEIGHT_MAX} m`,
+                };
             }
         }
 
