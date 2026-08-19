@@ -1,7 +1,7 @@
 # C06 — UI Shell & Tools
 
 > **Stamp**: 2026-07-07 · **Status**: CANONICAL  
-> **Scope**: `PlatformRouter`, panel management, tool registration, keyboard shortcuts, camera integration, the 2D plan-view / section-view rendering pipeline, **and UI layering / overlap (z-index)**.  
+> **Scope**: `PlatformRouter`, panel management, tool registration, keyboard shortcuts, camera integration, the 2D plan-view / section-view rendering pipeline, **UI layering / overlap (z-index)**, and **§9 snapping & reference-datum level scoping** (`packages/snapping/`, added 2026-08-19 by ADR-0335).  
 > **Key principles**: P1 (single composition root), P4 (no `window as any`), P6 (commands only).
 
 
@@ -331,3 +331,120 @@ user can natively assign or swap **any** view into **any** pane (L-412). Normati
 
 The historical **"Contract 17 §4 — split view"** referenced in
 `SplitViewManager.ts` / `initScene.ts` is subsumed by C59 (its canonical successor).
+
+---
+
+## §9 — Snapping & Reference Datums: level scoping
+
+> **NORMATIVE.** Added 2026-08-19 by [ADR-0335](../adrs/ADR-0335-snap-references-are-level-scoped-in-three-tiers.md),
+> from [L-1108](../../04-reference/ISSUE-LOG.md). Extends — does not supersede —
+> [ADR-0112](../adrs/ADR-0112-cross-level-slab-corner-snap-reference.md) (L-31).
+> Owner: `packages/snapping/`.
+
+### §9.1 — The rule
+
+**Every snap candidate declares its LEVEL SCOPE. The `SnapManager` — and nothing else — decides
+what to do about it.**
+
+Providers classify. The manager ranks. A provider MUST NOT filter by level on its own account, and
+MUST NOT infer a level from a candidate's `point.y`.
+
+> ⛔ **Why inference is forbidden:** a column's TOP vertex on Level 0 sits at y = 3.0; hosted
+> openings and wall joins deliberately rewrite Y to the cursor's plane. Elevation is not identity.
+
+### §9.2 — The three scopes
+
+| scope | members | normative behaviour |
+|---|---|---|
+| **DATUM** (`levelScope: 'datum'`) | `SnapType.GRID` (uniform maths grid), `GRID_LINE`, `GRID_INTERSECTION` (BIM structural datums), the **parcel boundary** and the **buildable-envelope setback line** (§L-432) | **Project-wide BY DESIGN.** MUST be offered on every storey at full priority. MUST NOT be demoted. MUST NOT be filtered by level — not even under the §9.5 opt-out. |
+| **ACTIVE** | an element on the storey being drawn on | Full priority. Primary. |
+| **OTHER** | an element on a different storey | **MUST be offered, and MUST be subordinate.** Priority demoted by `OTHER_LEVEL_DEMOTION` (1000, wider than the whole 210-point band), so it can never outrank an ACTIVE candidate or a DATUM at any proximity. MUST be tagged `metadata.crossLevel` and MUST be visually distinguished and labelled with its storey. |
+| **UNKNOWN** | a candidate with no declared `levelId`, or when no active level is known | **Left alone.** Ranked exactly as before. Declaring `levelId` is what opts a provider in. |
+
+**§9.2.1 — Grids on upper storeys are CORRECT, not a defect.** A structural grid is a project
+datum: grid A is grid A on every floor. A report of the form *"ground-floor references appear on
+Level 1"* MUST be separated into the grid case (correct) and the element case (the defect) before
+anything is changed. Conflating them breaks grids.
+
+**§9.2.2 — Parcel boundary and setback line are available on EVERY storey.** Decided, not
+inherited. They constrain an upper-floor overhang exactly as they constrain the ground floor, and
+§L-432 added them so compliance-by-construction would hold on the manual authoring path. Removing
+them above Level 0 would leave a constraint that reads as enforced and is not.
+
+### §9.3 — Priority order when several candidates are in range
+
+1. **DATUM** and **ACTIVE** candidates compete on `DEFAULT_SNAP_PRIORITIES` + a proximity bonus of
+   up to +10, exactly as before this section existed. Grid intersection (200) → grid line (150) →
+   endpoint (100) → intersection (90) → midpoint (80) → wall-join (78) → centreline (75) →
+   perpendicular (70) → centre (60) → edge (50) → face (45) → nearest (30) → maths grid (10).
+2. **OTHER** candidates compete among themselves on the same order, **minus 1000**, so the whole
+   group sits strictly below the whole of (1).
+3. Within 5 priority points, the nearer candidate wins (unchanged).
+
+The demotion constant MUST remain larger than the widest legitimate spread in (1). Changing
+`DEFAULT_SNAP_PRIORITIES` without re-checking that invariant is a breach of this section.
+
+### §9.4 — Provider register (measured 2026-08-19 — re-measure, do not transcribe)
+
+`ls packages/snapping/src/providers/*.ts | wc -l` → **12**.
+
+| provider | scope declared | source of `levelId` |
+|---|---|---|
+| `WallSnapProvider` | element | `wall.levelId`; a wall×wall intersection across storeys is attributed to neither |
+| `WallJoinSnapProvider` | element | `wall.levelId` |
+| `CurtainWallSnapProvider` | element | `curtainWall.levelId` |
+| `SlabSnapProvider` | element | `slab.levelId` — **also hard-gated** to the active storey per ADR-0112; that gate is retained |
+| `ColumnSnapProvider` | element | `column.levelId` |
+| `BeamSnapProvider` | element | `beam.levelId` |
+| `StairSnapProvider` | element | `stair.levelId` |
+| `FurnitureSnapProvider` | element | `furniture.levelId` |
+| `DoorSnapProvider` | element | **the HOST WALL's** `levelId` (C15 — a hosted opening has no storey of its own) |
+| `WindowSnapProvider` | element | **the HOST WALL's** `levelId` (C15) |
+| `GridSnapProvider` | **datum** | n/a |
+| `SiteContextSnapProvider` | **datum** | n/a |
+
+Every `levelId` field on the providers' store-shape interfaces is **optional**, so a store that does
+not carry one degrades to UNKNOWN (§9.2) rather than mis-scoping.
+
+### §9.5 — The active storey, and the opt-out
+
+- `SnapManager.setActiveLevelAccessor(fn)` takes a **function**, read on every `snap()`, so a level
+  switch takes effect on the next pointer-move with no re-registration.
+- The default accessor is installed **in the constructor**, not in `createWithDefaults()`. Tools
+  that build a manager directly (`new SnapManager()` — `CurtainWallTool` does) MUST be level-aware
+  too. **The policy may not depend on which constructor a tool called.**
+- `setCrossLevelReferences(false)` drops OTHER candidates outright. It is **off by default** and it
+  still MUST NOT drop a DATUM.
+
+### §9.6 — Plan geometry is measured in PLAN
+
+Helpers named `*2D` MUST measure in XZ and MUST report points on the **caller's** plane.
+
+> ⛔ **The defect this rule exists to prevent (L-1108).** `pointToLineDistance2D` projected in XZ,
+> then pinned the closest point to `y = 0` and measured in **full 3-D** — returning
+> `sqrt(dxz² + point.y²)`. Compared against a snap tolerance clamped to
+> `MAX_WORLD_TOLERANCE_M = 1.0 m` (C73 §2), the test `distance <= radius` is **UNSATISFIABLE at any
+> storey above ~1 m**. Wall CENTERLINE / EDGE / FACE and curtain-wall CENTERLINE / EDGE therefore
+> **did not fire at all** above the ground floor — five families absent, not mis-ranked. On the
+> ground floor `point.y = 0` makes the two forms identical, which is why it shipped unnoticed.
+>
+> **Before asking why a snap is wrong, ask whether its condition can ever be true.**
+
+### §9.7 — Indicators render on the storey being drawn on
+
+`SnapVisualizer` MUST position the indicator from the candidate's own Y. It previously used a
+hard-coded `position.y = 0.1` — the world origin plane — for every candidate on every storey, which
+is the most literal form of the reported defect. A cross-storey candidate MUST additionally be
+visually distinguished and labelled with its storey (§9.2).
+
+### §9.8 — Known gaps (named, so they are not assumed closed)
+
+- **A second snap engine exists for the plan pane.** `packages/core-app-model/src/views/PlanSnapEngine.ts`
+  contains **zero** occurrences of `level` or `elevation`. Its level scoping is a *consequence* of
+  snapping to a projected `TechnicalDrawing` that `EdgeProjectorService.resolveClipRange()` clips to
+  `[levelElevation, levelElevation + farOffset]` — real, but undeclared. Bringing it under this
+  section is open work.
+- **Level BANDS are not modelled.** OTHER is binary; the floor immediately below is ranked the same
+  as one six floors away.
+- **The active storey is a single global.** Per-pane active levels (C59; L-1107 — *"the view is
+  PLURAL"*) would require the §9.5 accessor to become pane-aware. That accessor is the one seam.

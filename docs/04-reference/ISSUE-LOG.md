@@ -178,7 +178,7 @@ an empty project and a heavy one, without freezes or stutter.
 | L-28 | founder | **Wall tool needs "Apply" on plan view** — on 3D, `WA` activates the wall tool immediately (can set first point straight away); on PLAN view the "Select Wall Type" panel requires clicking **Apply** before drawing. Should be active-by-default with the default (Plain Wall) pre-applied, matching 3D. Related to L-28-adjacent tool-activation parity. | Modeling/Creation | BROKEN→FIXED | `§FIX-PLAN-WALLTOOL-DEFAULT-ACTIVE` — root cause was **perceptual, not functional**: `WallPlanToolHandler` is armed the instant the tool activates and its `onClick` sets the first point UNCONDITIONALLY, committing with the tool's type (default `undefined` → Plain Wall / thickness 0.2, identical to 3D). No Apply was ever functionally required — but the `showWallPreDraw` panel (`PropertyPanelPreDraw.ts`) title "Select Wall Type" + hint "Choose a type, then click on the canvas to draw" + prominent Apply button made the founder believe an Apply click gated drawing. Fix: panel now (a) **pre-applies** the default type on open via `canonicalWallTool.setSystemTypeId(current ‖ undefined)` so the default is explicitly seeded (idempotent; preserves a mid-session switch), and (b) reframes the copy to "Draw Wall" / "✓ Plain Wall ready — click on canvas to draw. Change type below (optional)." Type dropdown stays apply-on-change for live switching; ESC-cancel, wall-mode, align guide untouched; 3D path unchanged. Test: `apps/editor/__tests__/PlanWallToolDefaultActive.test.ts` (first click arms start point with no Apply / no type; commits Plain Wall thickness 0.2; mid-session switch honoured, never blocks initial draw). C06/C11; no ADR (no tool-activation contract changed). |
 | L-29 | founder | **Wall-MOVE preview dimensions (orthogonal to wall vector)** — the wall-DRAW first-point already shows well-defined witness dimensions to the nearest orthogonal walls (great). Want the SAME when a wall is selected on plan and moved: live preview dimensions in the direction **orthogonal** to the wall's direction vector (a wall normally translates perpendicular to itself). | Editing/Move | FIXED | `§FEAT-WALL-MOVE-DIMENSIONS` — new pure `computeWallMoveDimensions` (`packages/core-app-model/src/geometry/wallMoveDimensions.ts`, 14 tests): classifies the moving wall's dominant axis (±22.5° neutral zone, L-26 convention → near-diagonal = no dim), takes the perpendicular, returns the nearest PARALLEL neighbour gap on each side (+/−) that the wall projects onto. `PlanElementDragController._renderWallOverlay` renders them live per drag move via the SAME blue dashed `_drawDimensionLine` the move-delta/hosted-opening dims use; transient overlay (read-only, no store writes P6, no new rAF P3), cleared on drag end/cancel. Descriptor shape kept reusable for L-30. C06/C16, no ADR |
 | L-30 | founder | **(follow-up to L-29) Door/Window-MOVE preview dimensions (along wall vector)** — for wall-hosted elements show move dimensions **along** the host wall's vector (hosted elements slide only along the wall). | Editing/Move/Hosting | FIXED | `§FEAT-HOSTED-MOVE-DIMENSIONS` — new pure `computeHostedMoveDimensions` (`packages/core-app-model/src/geometry/hostedMoveDimensions.ts`, 9 tests): works in the host wall's own 1D parameter space (offset in metres from `baseLine[0]`), returns the along-wall gap on each side (`start`/`end`) from the moving opening's near EDGE to the nearest reference — the wall end OR the facing edge of the nearest adjacent opening on the SAME wall, whichever is closer. Edge cases handled: opening hard against a wall end → one-sided; several neighbours → nearest facing edge on each side wins; no neighbours → falls back to wall-start/wall-end (the prior L-behaviour); a neighbour overlapping the moving span is ignored. `PlanElementDragController._renderDoorWindowOverlay` now feeds live `currentOffset` + width + the same-wall doors/windows (`_collectHostedNeighbours` over `getAllDoors`/`getAllWindows`) into the helper and projects each returned 1D offset onto the wall's on-screen line (t = offset/wallLength lerp), reusing the SAME blue dashed `_drawDimensionLine` as L-29's move dims + the pre-existing hosted-drag dims — replacing the old fixed wall-start/wall-end-only readout. Transient overlay (read-only, no store writes P6, no new rAF P3 — reuses the existing overlay schedule), cleared on drag end/cancel. Descriptor shape mirrors L-29's `WallMoveDimension`. C06/C15/C16, no ADR |
-| L-31 | founder | **Cross-level REFERENCES (Revit-like, better)** — when drawing walls on an UPPER floor, PRYZM should intelligently offer sound references to the **slab corners** (which are defined by the lower floor's walls) to place the 1st + subsequent points. Also fixes the `SnapBoundsError: SpatialGrid.getCellKeysForBounds total cell count 11039838 exceeds cap` seen when snapping far from origin on L1. | Modeling/Snapping/Refs | FIXED | `§FEAT-SLAB-CORNER-REFS` + `§FIX-SNAP-BOUNDS-OVERFLOW` (ADR-0112). (1) `SlabSnapProvider` extended: emits slab-polygon vertices as ENDPOINT (the corners), edge midpoints as MIDPOINT, edge nearest-points as EDGE; level-gated to the active draw floor via a lazy `getActiveLevelId()` accessor. Wired by default in `SnapManager.createWithDefaults()` — falls back to read-only `window.slabStore` + `window.projectContext.activeLevelId` so WallTool (which forwards only `{gridStore}`) gets the reference untouched; reuses the existing SnapVisualizer indicator + rankCandidates pipeline (composes with L-26 guide/ortho). (2) root cause of the 11039838-cell throw: `SpatialGrid.getCellKeysForBounds` SOLID-FILLED an oversized/degenerate (origin-spanning or geolocated far-from-origin) element AABB, and `insert()` — unlike `query()` — did NOT catch the `SnapBoundsError`, so it propagated out of the wall-draw flow. Fix = degrade oversized fills to the AABB's ≤8 CORNER cells (bounded, snapping stays correct at corners/endpoints, never throws on insert); non-finite bounds still throw and `query()` degrades to `[]`. 3 tests (far-from-origin under cap; slab corners as candidates; draw-point snaps to corner) + level-gate/fallback/EDGE tests. C06/snapping |
+| L-31 | founder | **Cross-level REFERENCES (Revit-like, better)** — when drawing walls on an UPPER floor, PRYZM should intelligently offer sound references to the **slab corners** (which are defined by the lower floor's walls) to place the 1st + subsequent points. Also fixes the `SnapBoundsError: SpatialGrid.getCellKeysForBounds total cell count 11039838 exceeds cap` seen when snapping far from origin on L1. | Modeling/Snapping/Refs | FIXED | `§FEAT-SLAB-CORNER-REFS` + `§FIX-SNAP-BOUNDS-OVERFLOW` (ADR-0112). (1) `SlabSnapProvider` extended: emits slab-polygon vertices as ENDPOINT (the corners), edge midpoints as MIDPOINT, edge nearest-points as EDGE; level-gated to the active draw floor via a lazy `getActiveLevelId()` accessor. Wired by default in `SnapManager.createWithDefaults()` — falls back to read-only `window.slabStore` + `window.projectContext.activeLevelId` so WallTool (which forwards only `{gridStore}`) gets the reference untouched; reuses the existing SnapVisualizer indicator + rankCandidates pipeline (composes with L-26 guide/ortho). (2) root cause of the 11039838-cell throw: `SpatialGrid.getCellKeysForBounds` SOLID-FILLED an oversized/degenerate (origin-spanning or geolocated far-from-origin) element AABB, and `insert()` — unlike `query()` — did NOT catch the `SnapBoundsError`, so it propagated out of the wall-draw flow. Fix = degrade oversized fills to the AABB's ≤8 CORNER cells (bounded, snapping stays correct at corners/endpoints, never throws on insert); non-finite bounds still throw and `query()` degrades to `[]`. 3 tests (far-from-origin under cap; slab corners as candidates; draw-point snaps to corner) + level-gate/fallback/EDGE tests. C06/snapping. ⚠ **RE-OPENED AND GENERALISED BY [L-1108](#l-1108) — 2026-08-19, lane SNAP1.** The founder reported the same class of defect again (*"reference points always reference to ground floor"*) and was right that it was already logged. What this row shipped was REAL and is NOT reverted — but it was **ONE provider of TWELVE**. Measured 2026-08-19: `SlabSnapProvider` was the ONLY `ISnapProvider` in the pipeline that read a level id at all; the eleven others (wall, wall-join, curtain-wall, door, window, column, beam, stair, furniture, grid, site-context) had no concept of a storey. Level-awareness everywhere else was an ACCIDENT of 3-D Euclidean distance against a 1 m tolerance clamp — it held at a 3 m storey and would have failed on a mezzanine — and `WallJoinSnapProvider`'s broad phase is UNBOUNDED, so it leaked unconditionally. This row's hard `getActiveLevelId` GATE is also NOT the general answer: a hard filter deletes the very cross-level reference this row exists to provide. L-1108 replaces the accident with a declared three-scope policy (DATUM / ACTIVE / OTHER-subordinate) applied once in `SnapManager.rankCandidates()`, and finds the deeper root — `GeometryUtils.pointToLineDistance2D` measured in 3-D against a point pinned to y=0, making CENTERLINE/EDGE/FACE UNSATISFIABLE above Level 0. The slab gate here is left intact and now also tags its candidates. |
 | L-32 | founder | **Slab-by-Region PREVIEW mirrored through project origin** — creating a slab via Region: the slab commits in the CORRECT place, but the transient PREVIEW renders far away, mirrored across the project origin (see image). Only slabs. | Modeling/Creation/Slab | BROKEN→FIXED | `§FIX-SLAB-REGION-PREVIEW-MIRROR` (wave 4d) — the By-Region preview built its `THREE.Shape` from world-XZ then rotated `-π/2`, negating Z → mirror through origin; commit path never did. Fix pre-negates Z to cancel the rotation (matches polyline-preview convention). 14/14 tests. C06/C11, no ADR |
 | L-33 | founder | **Second parametric kitchen creation fails** — after placing one L-Shape kitchen run, trying to create a SECOND one had an issue (couldn't place / errored). | Modeling/Creation/Kitchen | FIXED (reconciled: §FIX-KITCHEN-SECOND-PLACE, ADR-0113) | root cause = `_placeKitchen()` sent a Euler-OBJECT `rotation` that `CreateFurnitureHandler.canExecute` rejected (`Number.isFinite`) + the tool `deactivate()`d after one place. Fix commits a **scalar** yaw and the tool STAYS ARMED for continuous placement, with `newKitchenRunId()` monotonic ids (`KitchenCabinetTool.ts:46-51,376,402-407`). ADR-0113 (Accepted 2026-07-02) |
 | L-34 | founder | **Kitchen placement PREVIEW is a bounding RECTANGLE, not the real L-shape** — the ghost (plan dashed rect + 3D) must PRECISELY match the real parametric kitchen footprint (L / U / galley / single-wall) in BOTH plan and 3D, not a coarse box. | Modeling/Creation/Kitchen | FIXED (reconciled: §FEAT-KITCHEN-ACCURATE-PREVIEW, ADR-0113) | the 3D ghost is now built by the SAME `KitchenCabinetEngine.create(cfg)` that produces the committed run (re-skinned purple), and the plan ghost draws `KitchenPlanSymbolBuilder.buildConfigLinework(cfg)` — the exact placed linework, not the bounding rect (`KitchenCabinetTool.ts:70,188,224`, `FurniturePlanToolHandler`). Preview ≡ placed by construction. Test `packages/geometry-furniture/__tests__/kitchenAccuratePreview.test.ts` |
@@ -13835,3 +13835,150 @@ never a refusal. It was the implementation note for the fix, written in the gram
 
 ⚠ **`WallProfileVariantStatus` carries `'impossible'` and nothing uses it**, with a test asserting
 the set is empty. Adding one requires saying so out loud. Keep it that way.
+
+---
+
+## L-1108 — the snap pipeline had no notion of a storey; it had ARITHMETIC that looked like one, and above the ground floor five snap families were not mis-ranked but DEAD ✅ FIXED — 2026-08-19 (lane SNAP1)
+
+**Founder, production:** *"WHEN A USER IS CREATING AN ELEMENT NOT ON THE GROUND FLOOR, THE REFERENCE
+POINTS (SUCH AS GRID A, WALL JOIN T, END POINT…) ALWAYS REFERENCE TO GROUND FLOOR — BUT THEY SHOULD
+REFERENCE DEPENDING ON THE ACTIVE LEVEL. THIS WAS A PREVIOUS REQUEST — PROBABLY LOGGED SOMEWHERE."*
+
+He is right that it was logged. **L-31 is the prior entry** (*"Cross-level REFERENCES (Revit-like,
+better)"*, closed FIXED via `§FEAT-SLAB-CORNER-REFS` + **ADR-0112**, 2026-07-02). See the L-31 row
+for what it did and did not cover — this entry does not supersede it, it generalises it.
+
+### The census that made the diagnosis (12 providers, measured)
+
+`SnapManager` fans out to **twelve** `ISnapProvider`s. **Exactly ONE read a level id**:
+`SlabSnapProvider`, taught to by ADR-0112. The other eleven had no concept of a storey at all.
+
+That should have produced constant cross-level snapping — and mostly did not, which is why it
+survived a year. Three unrelated accidents were standing in for a level filter:
+
+1. **Fine tests that happened to be 3-D.** `queryPoint.distanceTo(segment.start)` includes the
+   elevation gap, so at a 3 m storey and a tolerance clamped to `MAX_WORLD_TOLERANCE_M = 1.0 m` an
+   ENDPOINT on another floor fell out. **This is arithmetic, not a rule** — it holds at 3 m and
+   fails on a mezzanine.
+2. **Broad phases that happened to be bounded.** `radius × 2`. Except `WallJoinSnapProvider`'s,
+   which is `cursor-to-start-distance × 1.2` — **UNBOUNDED**. Every wall in the building enters it
+   once the drawn segment exceeds the storey height. Hence the founder naming **WALL JOIN T** first.
+3. **Providers that overwrote the candidate Y with the cursor's.** `hitPoint.y = queryPoint.y`
+   LAUNDERS a ground-floor reference into one indistinguishable from an active-level one.
+
+### ⭐ The single root, and it is worse than mis-ranking
+
+**`GeometryUtils.pointToLineDistance2D` was not 2-D.** It projected in XZ correctly, then wrote
+`closestPoint.y = 0` and measured `|point − closestPoint|` in **full 3-D**. The distance it returned
+was therefore
+
+```
+sqrt(dxz²  +  point.y²)          ← the plan distance, INFLATED BY THE CURSOR'S ELEVATION
+```
+
+against a point pinned to the **world origin plane**. Every caller compares that against a tolerance
+clamped to **1.0 m**. At a 3 m storey `result.distance <= radius` is **UNSATISFIABLE**.
+
+So on any floor above the ground, **wall CENTERLINE, EDGE and FACE, and the curtain-wall CENTERLINE
+and EDGE, never fired at all.** Five families. Not mis-prioritised — *absent*.
+`lineLineIntersection2D` carried the identical defect (hard-coded `y: 0`), killing INTERSECTION the
+same way. And on the ground floor `point.y = 0` makes both forms **bit-for-bit identical**, which is
+exactly why it shipped and why the correction cannot regress the ground floor.
+
+*(This is the shape the brief warned about: ask whether the condition can EVER be true before asking
+why it is slow. For a Level-1 user it could not.)*
+
+### And the most literal reading of the report was one line
+
+`SnapVisualizer.show()` did `position.y = 0.1` — **unconditionally**. Every snap indicator in the
+product, sphere + ring + crosshair, was drawn 100 mm above the **world origin**, whatever storey the
+user was on. In plan an orthographic top-down camera hides it; in 3-D the marker for a Level-3
+endpoint sat three storeys below the wall being drawn.
+
+`GridSnapProvider` emitted its candidates at `y = 0` for the same legacy reason. `WallTool` and
+`CurtainWallTool` re-stamp the elevation afterwards so it was masked there — **`BeamTool` returns
+`res.point` verbatim and does not**, so a grid snap placed a beam on the ground floor.
+
+### The decision — THREE scopes, not "filter to the active level" (ADR-0335)
+
+Filtering would have closed this bug by **destroying the capability ADR-0112 was written to create**:
+aligning a Level-1 wall to the Level-0 wall below is a gesture, not an accident. The founder's defect
+was never that the reference existed — it was that it won **SILENTLY**.
+
+| scope | who | behaviour |
+|---|---|---|
+| **DATUM** | structural grids, the maths grid, parcel boundary, envelope setback line | project-wide **by design**, every storey, full priority, never demoted, never filtered |
+| **ACTIVE** | elements on the storey being drawn on | full priority — primary |
+| **OTHER** | elements on another storey | **offered but SUBORDINATE**: demoted by 1000 (wider than the whole 210 priority band), tagged `metadata.crossLevel`, drawn muted, labelled *"Endpoint · level L0"* |
+| **UNKNOWN** | a provider that declares no level | **left alone** — never guessed from `point.y`, because a column top at y = 3.0 on Level 0 is not a Level-1 reference |
+
+⭐ **Grids appearing on Level 1 are CORRECT and that case is now protected by test, not by luck** —
+a grid is a project-wide datum, and conflating it with a Level-0 wall endpoint winning on Level 1
+would have broken grids while "fixing" the bug.
+
+**Parcel boundary / setback (§L-432) — DECIDED, not inherited: they STAY on every storey.** Dropping
+them above Level 0 was a live option and is rejected: a setback constrains a third-floor balcony
+exactly as it constrains the ground floor, and §L-432 added them so compliance-by-construction would
+hold on the manual authoring path. One that vanished above the ground floor would still read as
+enforced.
+
+### What shipped
+
+- **`packages/snapping/src/LevelScope.ts`** — the policy, in ONE module.
+  `SnapManager.rankCandidates()` is the only place that applies it, so no provider can answer *"is
+  this on my floor?"* differently.
+- `SnapCandidate` gains `levelId` + `levelScope`. **All twelve providers** now declare a level
+  (wall, wall-join, curtain-wall, column, beam, stair, furniture, slab; door/window take the **host
+  wall's** level per C15; grid + site declare `'datum'`).
+- `SnapManager` gains `setActiveLevelAccessor` / `setActiveLevelId` / `setCrossLevelReferences`.
+  The accessor is installed **in the constructor**, so `new SnapManager()` — which `CurtainWallTool`
+  uses, bypassing the factory entirely — is level-aware too. The policy must not depend on which
+  constructor a tool happened to call.
+- `GeometryUtils` — both plan helpers corrected; ground floor bit-identical.
+- `SnapVisualizer` — honours the candidate's own Y; mutes + labels cross-storey candidates.
+
+### Two incidental defects found while measuring, both fixed
+
+- **`SnapManager.gatherCandidates()` read a bare `window`** — unlike every other global read in that
+  file. `snap()` threw a `ReferenceError` in any non-DOM environment, which is why **no test had
+  ever driven the manager end-to-end**; only individual providers could be exercised.
+- **`SnapResult.allCandidates` reported the RAW gather**, so a caller saw candidates the manager had
+  already ruled out. It now reports the scoped, ranked set. (No consumer outside the package reads
+  it — measured.)
+
+### Proof, and its limits
+
+`packages/snapping/__tests__/levelScopedSnapping.test.ts` — **18 cases**, driving the **real**
+`SnapManager` + `WallSnapProvider` + `WallJoinSnapProvider` + `GridSnapProvider`. Nothing under test
+is stubbed; the only fakes are the stores, which are data. Full package suite **67/67**.
+
+⚠ **A unit test is not proof of reachability**, and this lane does not claim it is. The reachability
+evidence is a one-shot console line emitted from inside the live pointer-move path:
+
+```
+[SnapManager] §SNAP-LEVEL-SCOPE (L-1108) active level "L1" — N other-storey snap candidate(s)
+demoted by 1000 (first: wall_join on level "L0" from wall wall-…)
+```
+
+**Live repro:** activate Level 1 → wall tool → hover over a ground-floor wall. Expected: the line
+above appears once; the indicator over a Level-0 reference is muted and labelled `· level L0`; a
+Level-1 reference under the same cursor always wins.
+
+### Not covered — named, not implied
+
+- **The PLAN pane has a SECOND snap engine.** `packages/core-app-model/src/views/PlanSnapEngine.ts`
+  (562 lines) contains **zero** occurrences of `level` or `elevation`. It is level-scoped only
+  *incidentally*, because it snaps to the projected `TechnicalDrawing`, which
+  `EdgeProjectorService.resolveClipRange()` clips to `[levelElevation, levelElevation + farOffset]`.
+  That is a real scoping, but it is a **consequence of the projection**, not a declared rule, and it
+  is SV1 / plan-view territory. Logged here so it is not mistaken for covered.
+- **Level-band policy** — "other storey" is currently binary. Revit distinguishes the level
+  immediately below (the common alignment target) from one six floors away. Not modelled.
+- **Per-pane active level.** `window.projectContext.activeLevelId` is a single global; L-1107 (SV1)
+  established that *"the view is PLURAL"*. If panes ever get independent active levels, the accessor
+  is the one seam that must change — which is why it is an accessor.
+
+**Contract:** C06 §9 (new, normative). **ADR:** ADR-0335. **Prior:** L-31 / ADR-0112 (extended, not
+superseded). **Related:** L-432 (site snap targets), L-1087 (level-awareness measured inconsistent
+across renderers — this lane is the same finding in the snap pipeline), L-935 (explicit object snap
+vs the ortho lock).
