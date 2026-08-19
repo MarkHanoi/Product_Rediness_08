@@ -169,6 +169,14 @@ const GATES: Gate[] = [
   // against the gate's own predicate the pre-fix reading was 4, and a shrink-only
   // ratchet parked at 3 is three free slots.
   { name: 'offset-implementations (R3/W2-A)',         script: 'check-offset-implementations.ts' },
+  // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
+  // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
+  // and it had measurably failed on the two most-used door/window gestures. This
+  // keys on CALL SITES of wallStore.updateDoor/updateWindow, repo-wide, because
+  // two of the three live mutation surfaces are neither commands nor bus verbs —
+  // a declaration-shaped census passed the repo while both violated. Shrink-only
+  // at 3; the exit condition is 0, at which point it becomes hard-0.
+  { name: 'hosted-dual-write (C15 §8.1/C86)',         script: 'check-hosted-dual-write.ts' },
   // C69 (2026-08-11) — the API verb register. Generated from handler sources and
   // diffed against the committed artefact, so a PR that adds a bus command without
   // a register row FAILS. This is what makes "always add it there" mechanical
