@@ -124,3 +124,29 @@ nine build-args, silent in both directions (contract §3).
 - A grep for one spelling is not a census; exact non-movement is evidence of a discarded
   write; an executed probe outranks a confident reading — including the orchestrator's
   (L-1075 is mine).
+
+---
+
+## 7. FINAL CLOSE ADDENDUM (15:10)
+
+All lanes closed except **UX3** (loading-page polish: hide GPU pill in loading phase, darker
+ground, whiter prism — mid-edit at close; land-or-discard its residue first). Deploy of
+**`d51bc755`** launched via the contract script (`DOCKER_HOST=` cleared); verify with
+`fly-bundle-proof.sh` if the session ended before the proof was recorded.
+
+**Late closes after §1 was written:**
+- **SL3**: the slab "it moves" had TWO roots — `LevelPlaneConstraint` re-asserted a latched
+  DERIVED `root.position.y` on TransformControls attach/detach (not just drags), and
+  `serializeSlab`'s `baseOffset` was dropped on reload. Both fixed; new invariant C92 SL-G-4.
+  SL2's preserved probes were VACUOUS (`expect(true).toBe(true)` ×7) — retired.
+- **MT4**: S17 window half closed (windows read the master, not a cached hex transcription);
+  furniture/lighting/plumbing/structural/beam families fixed (beams were Material Design Blue
+  500). **S18 IFC: confirmed ZERO material handling across all 14 export files — top open item.**
+- **HR4**: L-1106 closed on the 3-D surface; R3 persistence landed ("a destructor with no
+  constructor"); R6's real gate is the MATERIAL axis (93 materials from one circular gesture,
+  device death ~100); R8 chat leg measured unsatisfiable (placement grammar missing, §15.9).
+- **AUD1** (the founder's generation prompt): **"75%" kills the whole prompt** — the percent
+  arm of the paste-back guard misclassifies it (L-1183); "1- and 2-bedroom" drops the 1-bed
+  (L-1184). With `75 percent`, 3 of 6 clauses execute deterministically — exactly C67's
+  declared surface. Absent: targetable net-to-gross, in-loop daylight, sellable-area variants;
+  silent parcel-fallback when no envelope is cached (the `source` field is discarded).
