@@ -67,7 +67,7 @@ export class UpdateGridCommand implements Command {
             return { ok: false, reason: 'extentMin must be less than extentMax.' };
         }
 
-        // ── §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1110) ────────────
+        // ── §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1175) ────────────
         // This command reported `success: true, info: ['Grid "A" updated.']` for an
         // edit the STORE had already refused.
         //
@@ -144,7 +144,7 @@ export class UpdateGridCommand implements Command {
 
         // §01 §2.3 + §2.7: Restore full snapshot through the store only.
         //
-        // §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1110) — `_force` because UNDO
+        // §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1175) — `_force` because UNDO
         // is not a user geometry edit, it is the restoration of a state this command
         // already captured. Without it the store's pin guard silently drops every
         // geometry key whenever the grid was pinned AFTER this command ran, and undo

@@ -1,5 +1,5 @@
 /**
- * §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1110)
+ * §GRID-PIN-REPORTED-SUCCESS-AND-MOVED-NOTHING (L-1175)
  *
  * THE DEFECT, MEASURED AT THE SEAM THAT LIES
  * ──────────────────────────────────────────
@@ -42,7 +42,7 @@ function storeWithGrid(over: Record<string, unknown> = {}): GridStore {
     return store;
 }
 
-describe('§L-1110 — a PINNED grid refuses a geometry edit instead of reporting success', () => {
+describe('§L-1175 — a PINNED grid refuses a geometry edit instead of reporting success', () => {
     it('THE DEFECT: moving a pinned grid leaves the position untouched', () => {
         // The precondition the whole bug rests on. If the store ever stopped dropping
         // the field, this test would be asserting nothing and must be revisited.

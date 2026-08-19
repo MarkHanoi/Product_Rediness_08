@@ -1,5 +1,5 @@
 /**
- * §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1108) — every plan pane must be fed the
+ * §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1176) — every plan pane must be fed the
  * SAME site-context reader.
  *
  * THE DEFECT
@@ -45,7 +45,7 @@ const SECONDARY_SRC = readFileSync(resolve(HERE, '../views/SplitViewManager.ts')
 /** The ONE shared site-context reader named by §L-432. */
 const SHARED_READER = 'readSiteContextRings';
 
-describe('§L-1108 — both plan panes are fed the same site-context reader', () => {
+describe('§L-1176 — both plan panes are fed the same site-context reader', () => {
     it('the MAIN pane constructs its PlanViewCanvas with a siteContextProvider', () => {
         // This is the assertion that was false and produced the founder's screenshot.
         expect(PRIMARY_SRC).toMatch(/siteContextProvider:\s*readSiteContextRings/);

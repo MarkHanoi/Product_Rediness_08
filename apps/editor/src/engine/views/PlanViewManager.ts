@@ -15,7 +15,7 @@ import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
 import { resolveVgCanvasStyle } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
-// §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1108) — the ONE shared site-context reader
+// §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1176) — the ONE shared site-context reader
 // (§L-432). SplitViewManager already imports this exact symbol; the main pane did not,
 // which is why the parcel boundary drew in the split pane only. See _buildContext().
 import { readSiteContextRings } from '../../ui/site/siteSnapContext';
@@ -704,7 +704,7 @@ export class PlanViewManager implements IPlanViewManager {
         if (!this._canvas) return;
         this._planCanvas = new PlanViewCanvas(this._canvas, {
             gridVisible: this._gridOn,
-            // §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1108) — the dashed violet parcel
+            // §FIX-BOUNDARY-MISSING-FROM-MAIN-VIEW (L-1176) — the dashed violet parcel
             // boundary drew in the SPLIT pane and NOT in this, the MAIN pane. Same
             // project, same level, both panes visible at once.
             //

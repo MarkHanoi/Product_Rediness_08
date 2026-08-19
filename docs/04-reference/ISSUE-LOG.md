@@ -14606,3 +14606,201 @@ so a missing tile file is a permanently blank layer, not a slow one.
 
 Recorded here so it is not lost with the envelope work. **Not investigated by this lane** — owner
 should establish whether these two were ever baked, or were baked and not uploaded.
+
+## L-1109 — `deleteSelected` had no arm for LEVEL DATUMS, and reported SUCCESS for element deletes that deleted nothing ✅ FIXED 2026-08-19 (lane SV2)
+
+**Lane SV2.** L-1107 fixed keyboard Delete for GRIDS and left the follow-up question open: if
+grid had no arm, what else does not? Two findings, the second much worse than the first.
+
+**FINDING 1 — the LEVEL DATUM was the second silent kind.** `PlanViewCanvas` carries TWO Canvas2D
+selection slots, `_selectedGridId` and `_selectedLevelId`, and `PlanViewInteraction` sets the level
+one on a datum-head or datum-line click (`:891`, `:903`) — fully user-reachable. Only grid had a
+delete route, so a selected level datum fell through to the `!selectionManager.selectedObject`
+early-return and got **"No element selected to delete"** while the datum sat highlighted on screen:
+a refusal naming the WRONG REASON (C84 EI-2). `DeleteLevelCommand` already existed with snapshot,
+undo, and the guards that make it safe to reach from a keystroke (refuses the last level, refuses a
+level that still contains elements). The missing piece was the ROUTE, not the command (C84 EI-4a).
+
+**FINDING 2 — the BIM element arm reported every delete as a success.** `deleteSelected` dispatched
+`element.delete` **without awaiting**, sent the rejection to `console.error`, and ran
+`toast('${elementType} deleted', 'success')` synchronously on the next line — before the handler had
+done anything. THREE layers each discarded the refusal independently:
+
+1. `DeleteElementCommand.execute()` ends `{ success: false, info: ['Element not found in any store'] }`
+   — correct, and read by nobody.
+2. `DeleteElementHandler` called `cm.execute(...)` for effect only, assigned the `CommandResult` to
+   **nothing**, caught into `console.error`, and returned `{ forward: [], inverse: [] }`
+   unconditionally — the shape **C16 CA-18 prohibits by name as (b)**.
+3. `initUI` toasted success regardless.
+
+Net: delete an element whose store the discovery does not scan and you get a green *"wall deleted"*
+toast with the wall still on screen. Same class as *"make all inner finishes wood"* → **Done** →
+nothing changed.
+
+**Fix — the channel already existed; nothing new was minted.** `HandlerResult.refusal`
+(C80 §1.4 / GEN-GAP-1) exists precisely for a typed decision NOT to act, returned as a VALUE rather
+than thrown where a `catch {}` swallows it; `CommandBus` already copies it onto `EventRecord.refusal`
+(`CommandBus.ts:556`). The handler now populates it for all three failure modes
+(`ENGINE_NOT_AVAILABLE` / `UNSUPPORTED_ELEMENT_TYPE` / `PLANNER_THREW`) via `capabilityRefused()`;
+`initUI` awaits and reads it. Guarded in BOTH directions — `res === undefined` is NOT a refusal,
+because several legacy paths return nothing on the happy path and calling those failures would invert
+the defect. Also closed: with no bus at all, optional chaining made the dispatch a no-op and the
+success toast still fired.
+
+**Deliberately NOT a list of element kinds.** `DeleteElementCommand` ignores the `elementType` it is
+passed — it takes the id alone and self-discovers across ~16 stores — so "which kinds have an arm" is
+really "which stores does discovery scan", and any hand-copied list rots the first time a store is
+added. Reporting the refusal where the user hits it is the census that cannot go stale.
+
+**The census is executable.** `apps/editor/src/engine/__tests__/deleteSelectedCensus.spec.ts` DERIVES
+the selection slots from `PlanViewCanvas` (`getSelected*Id`) and requires, for each, a resolver in the
+one pane authority and an arm in `deleteSelected`. Add a third selectable thing and it fails until
+Delete either handles it or refuses it by name. Measured 30/30 with the two SV1 specs.
+
+⚠ **A THIRD delete route exists and was found but NOT closed here:** `BimService.deleteSelected()`
+(`apps/editor/src/engine/BimService.ts:175`) wraps its whole body in
+`if (selectionManager.selectedObject)` — no grid arm, no level arm, no annotation arm, and **no
+refusal at all**. It is what the ContextualEditBar Delete BUTTON calls, so the button and the KEY did
+different things. A grid arm was added to it under §GRID-CONTEXTUAL-EDIT; the level and annotation
+arms, and a refusal for the empty case, are still open there.
+
+## L-1175 — moving a PINNED grid reported "Grid updated" and moved nothing ✅ FIXED 2026-08-19 (lane SV2)
+
+**Lane SV2.** Found while building the contextual Move affordance for grids, sitting directly under it.
+
+`GridStore.update()` carries the §40 §3 PIN guard: on a pinned grid it strips every geometry key from
+the patch, `console.warn`s, and returns. `UpdateGridCommand.canExecute()` never asked about
+`isPinned`, and `execute()` never compared before/after — so it returned
+`{ success: true, info: ['Grid "A" updated.'] }` for an edit the store had already thrown away. The
+entire refusal lived in a console line no user reads.
+
+Live on **four** surfaces: the Grid Properties position field, the Grid Manager row, the plan-canvas
+inline dimension editor, and the `grid.update` bus verb.
+
+**The guard belongs in `canExecute`, not the store.** The store's drop-and-continue is deliberate and
+correct — a pinned grid may still be renamed, recoloured and hidden. What was missing is a refusal at
+the seam whose reason reaches a user (C16 CA-18): it names the grid, the blocked fields, and the way
+out. The `_force` escape hatch is untouched.
+
+**Undo was the same bug one layer down.** `undo()` wrote the snapshot through the same guard, so a
+grid pinned AFTER the move had its geometry silently dropped on the way back — `isPinned` restored,
+position not, success reported. Undo now passes `_force`: it restores a state the command already
+captured rather than authoring a geometry edit.
+
+Measured 7/7 against the **real** `GridStore` — the defect is a DISAGREEMENT between store and
+command, and a fake built from the command's expectations could not express it.
+
+⚠ **Renumbered from L-1110**, which was already taken by `WA1MoveTransactionAtomicity.measure.test.ts`.
+
+## L-1176 — the parcel boundary drew in the SPLIT pane and not the MAIN one ✅ FIXED 2026-08-19 (lanes SV1 → SV2)
+
+**Landed by SV1, verified and renumbered by SV2.** `PlanViewCanvas` draws the C19 parcel ring and the
+C58 buildable-envelope setback line ONLY when constructed with a `siteContextProvider`. §L-431 wired
+that into `SplitViewManager`'s canvas and never into `PlanViewManager`'s, so the main pane's provider
+was null and `_renderSiteContext` drew nothing — the boundary was not hidden or mis-styled, it was
+**never asked for**. Second consequence: the north arrow resolves `projectNorthRad` from the SAME
+provider (C34 §1.4), so the main pane's arrow silently defaulted to θ=0, pointing at PROJECT north
+while labelling itself TRUE north on any rotated project. One missing argument, two wrong drawings,
+neither of which throws.
+
+`planPaneSiteContextParity.spec.ts` is a SOURCE-parity test by design: the bug is a constructor
+argument one of two call sites forgot, so a behavioural test of `PlanViewCanvas` would pass with the
+provider supplied and prove nothing about the pane that omits it. Its last test guards the NEXT pane —
+construction count must equal provider count in both managers.
+
+**Its pass state had never been reported.** SV2 ran it: **5/5 GREEN** (30/30 with the sibling specs).
+The fix is real and complete at source.
+
+⚠ **Renumbered from L-1108**, which was already taken by lane SNAP1's storey-scoped snapping work.
+Two different defects were sharing one number.
+
+---
+
+## L-1175 — a slab is DISPLACED when its thickness or bottom offset changes; the writer was the SELECTION constraint, not the geometry ✅ FIXED 2026-08-19
+
+**FOUNDER (prod 2026-08-19, "a MAJOR bug"):** *"When I create a slab — normally BY REGION around the
+boundary of the parcel — and I change either the BOTTOM OFFSET or the THICKNESS, THE SLAB IS
+DISPLACED — IT MOVES."*
+
+### What was measured
+
+On a synthetic ring shaped like the founder's real one — parcel-scale, far from the origin, **177
+free edges, 164 curved, zero host walls** (his log: `0 host-referenced edge(s) across 0 wall(s), 177
+free edge(s)`). Lane SL1 had probed five region shapes and could not reproduce; **a tidy rectangle
+never exercises this**, but the shape was never the reason.
+
+| gesture | measured | correct |
+|---|---|---|
+| thickness 0.2 → 0.4 | top face **+0.2000 m** | 0.0000 |
+| baseOffset 0 → 0.5 | top face **0.0000** (edit reverted) | +0.5000 |
+| three edits in a row | drift **accumulates to +0.1000** | 0.0000 |
+| plan position X / Z | **0.000000** | 0.000000 |
+
+### BOTH standing hypotheses were REFUTED — by measurement, not by reading
+
+- **(A) "the slab is anchored at the wrong surface."** **NO.**
+  `SlabFragmentBuilder.resolveWorldY` is literally
+  `const topY = level.elevation + baseOffset; return topY - data.thickness;` — the datum **is** the
+  TOP face, BIM-conventional finished floor level, and exactly what
+  [C92 §10](../02-decisions/contracts/C92-ELEMENT-SLAB.md) already declared. **Code and contract
+  AGREE.** The console line `[LevelPlaneConstraint] Locked model Y=-0.2000` that looked like the
+  smoking gun — "exactly MINUS the default thickness" — is the **correct** root Y for a 0.2 m slab
+  on a level at elevation 0. A number can match a theory perfectly and still be innocent.
+- **(B) "the pivot and the mesh read different rings."** **NO.** ΔcentreX and ΔcentreZ are
+  **0.000000** on the founder's own ring and `resolveBuildRing` reports one source throughout. SL1's
+  ladder holds.
+
+### THE ROOT — a third thing, and it needs the slab to be SELECTED
+
+Which it always is: you must select a slab to edit its parameters.
+
+`root.position.y` is a **DERIVED** value. Because the datum is the TOP face the root sits at
+`topY - thickness`, so it **legitimately changes** on every thickness or baseOffset edit — on a root
+the builder deliberately **REUSES** (`slabRoots.get(id)`). `LevelPlaneConstraint.attach()` latched
+that Y as an immutable "level plane" and re-asserted it on **every** TransformControls `change`.
+
+**And `change` is not only fired by dragging.** In three r183, `object` and `axis` are
+`defineProperty` fields whose setter dispatches `change` (`TransformControls.js:123-124`, `:149`,
+`:158`). So `SelectionManager.clearHighlight()`'s closing `transformControls.detach()` fired a clamp
+that **overwrote the builder's correct write with the pre-edit value** — and the re-attach
+immediately after **latched the corrupted value as the new truth**. Permanent, and cumulative.
+
+### The fix
+
+Narrow the constraint to the authority it always claimed — its own docblock says it prevents
+movement *"via the TransformControls gizmo"*, and it had quietly become a general Y-authority. It
+now writes Y only while `dragging === true` or from the explicit drag-end `enforce()`; outside a
+drag it **adopts** the current Y as the new plane rather than fighting it, which also keeps the lock
+current for the next real drag. **No drag protection is lost** — three sets `dragging = true` in
+`pointerDown:448` before any drag `change` (`pointerMove` returns at `:473` unless dragging, and
+dispatches at `:720`).
+
+This is **the second time this shape has bitten**: **L-1010** was the same latch holding a VIEW Y.
+One is a coincidence, two is a missing invariant — so it is now written as one,
+[C92 §10 **SL-G-4**](../02-decisions/contracts/C92-ELEMENT-SLAB.md): *`root.position.y` is derived;
+nothing may latch it as durable.* ⚠ **The defect is not slab-specific** — slabs are merely the
+family whose root Y depends on its own parameters, so they are where it bites first.
+
+### Proof
+
+`packages/geometry-slab/__tests__/slabParamEditDoesNotDisplace.test.ts` — **RED without the fix at
+the tolerance it ships with** (re-measured by reverting the fix, not reasoned): 3 failed / 1 passed,
+errors 0.2 / 0.5 / 0.1 m against a 5e-7 m threshold. With the fix: **4 passed**. The 4th test (the
+drag lock) passes in **both** states — a non-regression control, not a fix artefact.
+
+### ⭐ Two instrument lessons, both worth more than the fix
+
+1. **Checking an instrument has to cut BOTH ways or it is just a veto.** I read
+   `TransformControls.detach()`, saw no `dispatchEvent` in its body, and nearly discarded SL2's
+   probes as *"a fake more capable than real"*. **Wrong** — the dispatch is in the shared
+   `defineProperty` setter. The double was faithful and the reproduction was real. A scepticism
+   that only ever rejects evidence is not scepticism.
+2. **An omission in a double is an omission in the invariant.**
+   `LevelPlaneConstraintExplodeOffset.test.ts`'s double had **no `dragging` field**, so its *"still
+   hard-locks Y against a drag"* test asserted the clamp on an event three never raises mid-drag.
+   That single missing flag is what left the constraint free to clamp on non-drag events. The
+   fixture is now faithful, and it is **stated** rather than quietly edited to green.
+3. **SL2's three preserved probes PASS — and passing meant nothing.** Every assertion in them is
+   `expect(true).toBe(true)`; the entire value was in the numbers they printed. A green probe is not
+   a green invariant.
+
