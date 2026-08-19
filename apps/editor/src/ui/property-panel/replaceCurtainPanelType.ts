@@ -57,6 +57,10 @@ export interface ReplaceCurtainPanelTypeArgs {
   /** §CW-3 / C87 §13.5 — a PARTIAL door config, merged onto what the panel already
    *  has. Omit to leave the door untouched; `null` clears it. */
   readonly hostedDoor?: Partial<CurtainPanelHostedDoor> | null;
+  /** §FEAT-CW-PANEL-MATERIAL-CONTROL / C87 §13.4 CW-Attr-2 — a C100 master material
+   *  id. Omit to leave it untouched; `null` clears it back to the type default.
+   *  Distinct from `materialOverride`, which is a hex TINT — see the command. */
+  readonly materialId?: string | null;
   readonly commandManager: PanelCommandManagerLike | null | undefined;
 }
 
@@ -97,6 +101,9 @@ export function replaceCurtainPanelType(
     // §CW-3 — same rule: forwarded only when supplied, so the command's
     // `touchedHostedDoor` snapshot stays honest.
     ...(args.hostedDoor !== undefined ? { hostedDoor: args.hostedDoor } : {}),
+    // §FEAT-CW-PANEL-MATERIAL-CONTROL — same rule again: forwarded only when
+    // supplied, so the command's `touchedMaterialId` snapshot stays honest.
+    ...(args.materialId !== undefined ? { materialId: args.materialId } : {}),
   });
 
   try {

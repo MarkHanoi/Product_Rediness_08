@@ -72,6 +72,26 @@ export interface ReplacePanelTypePayload {
      * restated in two places is a decision that will diverge.
      */
     hostedDoor?: Partial<CurtainPanelHostedDoor> | null;
+    /**
+     * §FEAT-CW-PANEL-MATERIAL-CONTROL (C87 §13.4 CW-Attr-2) — the C100 master
+     * material id for this panel, e.g. `'stone-marble-carrara'`. Omit to leave it
+     * untouched; pass `null` to clear it and fall back to the panel type's default.
+     *
+     * ⭐ THIS IS NOT A RIVAL OF `materialOverride`, AND MERGING THEM WOULD BE WRONG.
+     * They are two different questions and C100 §2.1 already settled which is which:
+     *   · `materialOverride` is a raw HEX TINT. A colour cannot carry roughness,
+     *     metalness or transparency, so it may not be the HOME of a material. It
+     *     also forces the individual-mesh path, breaking instancing.
+     *   · `materialId` is a REFERENCE into the master catalogue, resolved by
+     *     `CurtainWallInstanceManager._getPanelMaterial` against the same injected
+     *     `STANDARD_MATERIAL_LIBRARY` map the mullion half has used since
+     *     §MAT-CW-MATERIAL, and panels sharing a `(panelType, materialId)` pair
+     *     still share ONE InstancedMesh.
+     * Both already existed on `CurtainPanelData` and BOTH ALREADY RENDER. What was
+     * missing was only ever the CONTROL: no UI wrote `materialId`, so a user could
+     * set a hex tint but could not choose "Carrara marble". This field is that hop.
+     */
+    materialId?: string | null;
 }
 
 export class ReplacePanelTypeCommand implements Command {
@@ -95,6 +115,11 @@ export class ReplacePanelTypeCommand implements Command {
      *  dispatch wrote, so an undo cannot revert a door some other command set. */
     private previousHostedDoor: CurtainPanelHostedDoor | undefined = undefined;
     private touchedHostedDoor = false;
+    /** §FEAT-CW-PANEL-MATERIAL-CONTROL — same discipline as `touchedOffset`.
+     *  ⛔ Note `previousMaterialOverride` above is captured UNCONDITIONALLY and is
+     *  the older, weaker pattern; do not copy it for new fields. */
+    private previousMaterialId: string | undefined = undefined;
+    private touchedMaterialId = false;
 
     constructor(private payload: ReplacePanelTypePayload) {
         this.targetIds = [payload.panelId];
@@ -154,6 +179,14 @@ export class ReplacePanelTypeCommand implements Command {
             updates.offsetFromCentreline = this.payload.offsetFromCentreline;
         }
 
+        // §FEAT-CW-PANEL-MATERIAL-CONTROL — snapshot ONLY when this dispatch writes
+        // the field, so an undo cannot revert a material some other command set.
+        if (this.payload.materialId !== undefined) {
+            this.previousMaterialId = panel.materialId;
+            this.touchedMaterialId  = true;
+            updates.materialId = this.payload.materialId ?? undefined;
+        }
+
         // §CW-3 / C87 §13.5 — HOSTED DOOR.
         //
         // Two behaviours, and the second is the one that stops a dead affordance:
@@ -210,6 +243,7 @@ export class ReplacePanelTypeCommand implements Command {
             // §CW-2 — restored only if execute() actually changed it. See execute().
             ...(this.touchedOffset ? { offsetFromCentreline: this.previousOffset } : {}),
             ...(this.touchedHostedDoor ? { hostedDoor: this.previousHostedDoor } : {}),
+            ...(this.touchedMaterialId ? { materialId: this.previousMaterialId } : {}),
         });
 
         return { success: true, affectedElementIds: [this.payload.panelId, panel.curtainWallId] };

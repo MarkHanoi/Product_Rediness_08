@@ -33,6 +33,10 @@ import type { CurtainPanelHostedDoor } from '@pryzm/geometry-curtain-wall';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import type { CurtainPropertyPanelContext } from './CurtainGridEditor';
 import { replaceCurtainPanelType } from './replaceCurtainPanelType';
+// §FEAT-CW-PANEL-MATERIAL-CONTROL — the L0, THREE-free master catalogue. The UI
+// reads the DATA, never `STANDARD_MATERIAL_LIBRARY` (its THREE-typed projection in
+// core-app-model), so this control cannot drag a renderer type into the panel layer.
+import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 
 /** §L-1054 — the command manager the DI struct carries, with the same window
  *  fallback the store accessors above already use. */
@@ -278,7 +282,7 @@ function buildPanelSubPanel(
     body.appendChild(typeCard);
 
     // Section 3: Material Override (color)
-    const { card: matCard, body: matBody } = makeCard('Material Override', 3);
+    const { card: matCard, body: matBody } = makeCard('Material', 3);
 
     const colorNote = document.createElement('div');
     colorNote.style.cssText = 'grid-column:1/-1;font-size:9.5px;color:#7a8aaa;margin-bottom:4px;';
@@ -317,6 +321,85 @@ function buildPanelSubPanel(
     colorRow.appendChild(colorHex);
     colorRow.appendChild(clearColorBtn);
     matBody.appendChild(colorRow);
+
+    // ── §FEAT-CW-PANEL-MATERIAL-CONTROL (C87 §13.4 CW-Attr-2) ────────────────────
+    // THE MISSING CONTROL, and only the control was missing.
+    //
+    // ⭐ MEASURED BEFORE BUILDING, because this contract has already had THREE rows
+    // that turned out to be already built. BOTH material axes already exist on
+    // `CurtainPanelData` and BOTH ALREADY RENDER:
+    //   · `materialOverride` (CurtainPanelTypes.ts:141) — a hex TINT, honoured by
+    //     CurtainPanelFactory.buildFlatPanel. That is the picker directly above.
+    //   · `materialId` (:171) — a C100 master reference, resolved by
+    //     CurtainWallInstanceManager._getPanelMaterial against the injected
+    //     STANDARD_MATERIAL_LIBRARY map, with a fall-through to the panel type's
+    //     default on a miss (so an unknown id renders as the default, never black).
+    // Nothing in any UI wrote `materialId`, so a user could set a hex tint but could
+    // NOT choose "Carrara marble". This dropdown is the whole of the gap.
+    //
+    // ⛔ THE TWO ARE NOT ALTERNATIVES AND MUST NOT BE COLLAPSED (C100 §2.1): a hex
+    // cannot carry roughness, metalness or transparency, which is exactly why it may
+    // not be the HOME of a material. `materialOverride` also forces the
+    // individual-mesh path; `materialId` preserves instancing, because panels sharing
+    // a (panelType, materialId) pair still share ONE InstancedMesh.
+    const matNote = document.createElement('div');
+    matNote.style.cssText = 'grid-column:1/-1;font-size:9.5px;color:#7a8aaa;margin:8px 0 4px;';
+    matNote.textContent = 'Material — full PBR (roughness, metalness, transparency). '
+                        + 'Takes effect where the tint above only recolours.';
+    matBody.appendChild(matNote);
+
+    const matLabel = document.createElement('div');
+    matLabel.className = 'gpp-prop-label';
+    matLabel.textContent = 'Material';
+    matBody.appendChild(matLabel);
+
+    const matSelect = document.createElement('select');
+    matSelect.className = 'gpp-prop-input';
+
+    // "Type default" is a REAL option, not a placeholder: it is how a user CLEARS a
+    // material. A dropdown whose only escape is picking a different material is a
+    // one-way door, and the colour control right above it has a Clear button for
+    // exactly this reason.
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '— Type default —';
+    matSelect.appendChild(defaultOpt);
+
+    // Grouped by category so a 200-row catalogue stays navigable. Sorted within a
+    // group by label; the catalogue's own order is insertion order, not meaningful.
+    const byCategory = new Map<string, { id: string; label: string }[]>();
+    for (const m of MATERIAL_CATALOG) {
+        const key = String(m.category || 'Other');
+        const bucket = byCategory.get(key);
+        if (bucket) bucket.push({ id: m.id, label: m.label });
+        else byCategory.set(key, [{ id: m.id, label: m.label }]);
+    }
+    for (const cat of [...byCategory.keys()].sort()) {
+        const group = document.createElement('optgroup');
+        group.label = cat;
+        for (const m of byCategory.get(cat)!.sort((a, b) => a.label.localeCompare(b.label))) {
+            const o = document.createElement('option');
+            o.value = m.id;
+            o.textContent = m.label;
+            group.appendChild(o);
+        }
+        matSelect.appendChild(group);
+    }
+
+    // The panel's CURRENT material, so the control opens showing the truth. If the
+    // record carries an id the catalogue no longer has, the select would silently
+    // fall back to "Type default" and MISREPRESENT the stored state — so that case
+    // gets a visible row of its own rather than a quiet lie (C84 EI-6).
+    const currentMaterialId = panelData?.materialId ?? '';
+    if (currentMaterialId && !MATERIAL_CATALOG.some(m => m.id === currentMaterialId)) {
+        const orphan = document.createElement('option');
+        orphan.value = currentMaterialId;
+        orphan.textContent = `⚠ ${currentMaterialId} (not in catalogue)`;
+        matSelect.appendChild(orphan);
+    }
+    matSelect.value = currentMaterialId;
+
+    matBody.appendChild(matSelect);
     body.appendChild(matCard);
 
     // Section 4: §CW-2 / C87 §13.4 CW-Attr-1 — OFFSET FROM CENTRELINE.
@@ -480,12 +563,24 @@ function buildPanelSubPanel(
               }
             : undefined;
 
+        // §FEAT-CW-PANEL-MATERIAL-CONTROL — forwarded ONLY when the user actually
+        // changed it, so the command's `touchedMaterialId` snapshot stays honest and
+        // an undo cannot revert a material this dispatch never wrote. Empty string
+        // means "Type default", which is a real edit to `null`, NOT "leave alone" —
+        // the two are different answers and collapsing them would make the Clear
+        // path unreachable.
+        const matVal: string | null | undefined =
+            matSelect.value === currentMaterialId
+                ? undefined
+                : (matSelect.value === '' ? null : matSelect.value);
+
         const r = replaceCurtainPanelType({
             panelId: subEl.id,
             newPanelType: pendingType,
             materialOverride: colorVal,
             ...(offVal !== undefined ? { offsetFromCentreline: offVal } : {}),
             ...(doorCfg !== undefined ? { hostedDoor: doorCfg } : {}),
+            ...(matVal !== undefined ? { materialId: matVal } : {}),
             commandManager: _commandManager(ctx),
         });
         if (r.ok) {
