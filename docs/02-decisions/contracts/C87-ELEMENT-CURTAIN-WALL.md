@@ -690,6 +690,28 @@ is not the same model … a real defect, not a tolerance candidate."*
 | V-B | Geometry `PanelType` | `packages/geometry-curtain-wall/src/CurtainPanelTypes.ts:61-74` | **13** — `SystemPanel_Glass:62`, `_Opaque:63`, `_Empty:64`, `_Door:65`, `_SlatsVerticalFramed:66`, `_SlatsVerticalDense:67`, `_SlatsVerticalOpen:68`, `_SlatsHorizontal:69`, `_CurtainCornerFold:70`, `_CurtainFlat:71`, `_CurtainOrganic:72`, `_CurtainSide:73`, `_CurtainDoubleMixed:74` |
 | V-C | Material-bridge slots | `plugins/curtain-wall/src/committer/material-bridge.ts:11-18, :20` | **6** — `mullion`, `transom`, `glazed`, `spandrel`, `door`, `opaque` |
 
+> ⛔ **RE-MEASURED 2026-08-19 — THERE ARE NOT THREE VOCABULARIES. THE 4-MEMBER "KIND" IS ITSELF
+> TRANSCRIBED FOUR TIMES, INDEPENDENTLY.** V-A above cites one site; measured
+> (`grep -rn "PanelKind\|CurtainPanelKind" --include=*.ts packages plugins apps`), the same
+> four-member answer is hand-written at:
+>
+> | # | Site | Form |
+> |---|---|---|
+> | 1 | `packages/schemas/src/elements/CurtainWall.ts:7` | `z.enum(['glazed','spandrel','door','opaque'])` |
+> | 2 | `packages/geometry-kernel/src/producers/_internal/curtain-wall/buildPanels.ts:13` | `type PanelKind = 'glazed' \| 'spandrel' \| 'door' \| 'opaque'` |
+> | 3 | `packages/types-builtin/src/curtain-wall/index.ts:43` | `type CurtainPanelKind = 'glazed' \| 'spandrel' \| 'opaque' \| 'door'` — **note the member ORDER differs**, which is exactly what a transcription looks like and what a projection could not do |
+> | 4 | `plugins/curtain-wall/src/committer/material-bridge.ts` `PANEL_KINDS` | added 2026-08-19 (L-1053) to parse the producer's keys — **a fifth copy would have been minted here had it not been derived from #2's members deliberately** |
+>
+> Copy #3 is re-exported through `packages/types-builtin/src/index.ts:38` and
+> `packages/plugin-sdk/src/index.ts:600`, i.e. it is on the **public SDK facade** — so the
+> duplication is not internal, it is published.
+>
+> **So the count in §9's heading understates the defect: one question — *"what kind of panel is
+> this?"* — has FIVE answers (four 4-member copies + the 13-member master), not three.** That is
+> C84 **EI-9** at its plainest, and it is why CW-Voc-2's *"one MUST become the master and the other a
+> pinned projection"* needs restating: there is no *"the other"*. **CW-2a (§13.2) is the section that
+> settles it.**
+
 **EI-3 violation, measured: NINE of thirteen `PanelType` members have no L0 representation.**
 The Phase-3 slat family (`:66-69`, 4 members), the Phase-4 fabric family (`:70-74`, 5 members) and
 `SystemPanel_Empty` (`:64`) cannot be expressed as a `PanelKind`. Going the other way, `'spandrel'`
