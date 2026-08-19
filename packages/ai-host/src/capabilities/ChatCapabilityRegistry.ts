@@ -335,7 +335,14 @@ const DELETE_FAMILY_CAPABILITIES: readonly ChatCapability[] = DELETE_FAMILIES.ma
   // A scoped delete claims a PLACE or the whole project — see the
   // DeleteFamilies header for why claiming both would be two capabilities for
   // one sentence.
-  scopeModes: ['all', 'level', 'room'],
+  // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, C67 §1.8 / §4 rule 14, 2026-08-19).
+  // 'orientation' ADDED. The arm already honoured it; the gate printed
+  // "honours 'orientation' without declaring it" for all four delete
+  // families. A mode the arm honours and the registry hides makes the
+  // system UNDER-REPORT itself, because the "what I CAN do" answer is
+  // generated from this table (EI-9 in the reporting direction — the
+  // mirror of L-998, where a refusal advertised what it was refusing).
+  scopeModes: ['all', 'level', 'room', 'orientation'],
   destructive: true,
   busCommand: 'element.deleteBatch',
   // The probe carries the SELECTION scope, not 'all', and that is a statement
@@ -1292,7 +1299,14 @@ const CAPABILITIES: readonly ChatCapability[] = [
         note: 'resolveStore() routes handrail to the handrailStore (a partial-merge update), and the command emits bim-handrail-updated for the rebuild.',
       },
       {
-        file: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts',
+        // §FIX-CAPABILITY-PROOF-PATH (RAC1, 2026-08-19) — this read
+        // `packages/geometry-stair/...`, A FILE THAT DOES NOT EXIST, and gate 31
+        // check 2 had been RED on it: "commandProof.file ... does not exist".
+        // The builder is and always was in `geometry-handrail`. ⭐ A capability
+        // table that cites a path nobody can open is the ElementCapabilities lie
+        // in miniature — the note below was TRUE about the code and FALSE about
+        // where to find it, which is the harder half to notice.
+        file: 'packages/geometry-handrail/src/HandrailFragmentBuilder.ts',
         mustMention: ['balusterSpacing'],
         note: 'The READ half: the builder takes handrail.balusterSpacing (falling back to postSpacing, then 0.11) and computes the baluster count as floor(length / balusterSpacing) − 1.',
       },
@@ -1332,7 +1346,14 @@ const CAPABILITIES: readonly ChatCapability[] = [
         note: 'Same store and same rebuild event as the baluster spacing.',
       },
       {
-        file: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts',
+        // §FIX-CAPABILITY-PROOF-PATH (RAC1, 2026-08-19) — this read
+        // `packages/geometry-stair/...`, A FILE THAT DOES NOT EXIST, and gate 31
+        // check 2 had been RED on it: "commandProof.file ... does not exist".
+        // The builder is and always was in `geometry-handrail`. ⭐ A capability
+        // table that cites a path nobody can open is the ElementCapabilities lie
+        // in miniature — the note below was TRUE about the code and FALSE about
+        // where to find it, which is the harder half to notice.
+        file: 'packages/geometry-handrail/src/HandrailFragmentBuilder.ts',
         mustMention: ['balusterWidth'],
         note: 'The READ half: the builder sizes each baluster from handrail.balusterWidth (default 0.02).',
       },
@@ -1424,6 +1445,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // 'all' is the DEFAULT scope ("make all walls…"); the resolver narrows to
     // the selection when the user says "these"/"selected".
     scope: 'all',
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — this entry declared
+    // NO scopeModes at all, so it silently defaulted to ['all'] while the arm
+    // honoured selection, level, room AND orientation. The founder's
+    // "BY LEVEL, BY ROOM" already worked here and the registry denied it.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'wall.updateSystemTypeBatch',
     // The probe deliberately uses the SELECTION scope: the 'all' scope never
@@ -1571,6 +1597,21 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — ⚠ AND THE ONE THAT
+    // WAS ROLLED BACK, RECORDED RATHER THAN QUIETLY DROPPED. This lane
+    // declared 'room' and 'orientation' here alongside the other eight
+    // capabilities, on the strength of the gate's ARM-reach listing. Gate 31's
+    // SYMMETRIC arm immediately refused it: "declares scope mode 'room' but the
+    // resolver received a 'level' descriptor" — twice. ⭐ THE GATE CAUGHT AN
+    // OVER-CLAIM IN THE ACT, which is exactly the ElementCapabilities lie it
+    // exists to prevent, and the reading that suggested it was ARM reach, not
+    // LANGUAGE reach — two different facts the gate's own header separates.
+    // The window-creation grammar resolves a LEVEL descriptor for every spatial
+    // phrase, so 'room' and 'orientation' would have been a promise the
+    // resolver silently widens. They stay UNDECLARED until the grammar honours
+    // them (C68 §7.d: a missing resolver must refuse, never widen to 'all').
     scopeModes: ['all', 'selection', 'level'],
     destructive: true,
     busCommand: 'window.parametricCreate',
@@ -1623,7 +1664,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room'],
     destructive: false,
     busCommand: 'wall.setSideFinishBatch',
     // scope:'selection' deliberately — the anti-ElementCapabilities guard probes
@@ -1680,7 +1723,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'wall.addLayerBatch',
     probe: { intent: 'add-wall-layer', side: 'interior', thicknessM: 0.01, finishRef: 'plaster', scope: 'selection' },
@@ -1717,7 +1762,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'window.updateSystemTypeBatch',
     // Selection-scope probe — the 'all' scope never reads the selection, so it
@@ -1759,7 +1806,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'door.updateSystemTypeBatch',
     // Selection-scope probe — the 'all' scope never reads the selection, so it
@@ -1802,7 +1851,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'slab.updateSystemTypeBatch',
     // Selection-scope probe — the 'all' scope never reads the selection, so it
@@ -1842,7 +1893,9 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    scopeModes: ['all', 'selection'],
+    // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
+    // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'ceiling.updateSystemTypeBatch',
     probe: { intent: 'set-ceiling-type', typeRef: 'Plasterboard 12.5mm', scope: 'selection' },

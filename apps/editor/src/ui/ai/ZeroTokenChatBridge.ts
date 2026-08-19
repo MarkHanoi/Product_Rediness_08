@@ -838,6 +838,82 @@ async function runVisibilityIntent(
 /** Monotonic suffix for minted level ids — see `mintId` below. */
 let mintSeq = 0;
 
+/** The minimal read surface `resolveCatalogueRef` needs — every PRYZM type
+ *  store already exposes it. Declared structurally so this module does not
+ *  import eleven store types to read two methods. */
+interface CatalogueReaderLike {
+    getById(id: string): { id: string; name: string } | undefined;
+    getAll(): Array<{ id: string; name: string }>;
+}
+
+/**
+ * §FIX-CATALOGUES-NEVER-INJECTED (L-1146) — the GENERIC catalogue channel.
+ *
+ * One row per family. The lookup runs the ONE `resolveCatalogueRef` ladder
+ * (ADR-0314) — exact id → exact name → case-insensitive name → UNAMBIGUOUS
+ * word subset, with ambiguity returning null so the caller lists candidates
+ * rather than coin-flipping.
+ *
+ * ⛔ A family appears here ONLY when its store really satisfies the reader
+ * contract. `StairTypeStore` is deliberately ABSENT: it exposes `get()` where
+ * `resolveCatalogueRef` requires `getById()`, so listing it would declare a
+ * capability that cannot resolve — the ElementCapabilities lie this repo has
+ * already paid for once (L-1147 tracks the one-method fix).
+ */
+async function buildCatalogueChannel(): Promise<Record<string, {
+    resolve: (ref: string) => { id: string; name: string } | null;
+    names: readonly string[];
+}> | null> {
+    let resolveRef: typeof import('@pryzm/command-registry')['resolveCatalogueRef'];
+    try {
+        ({ resolveCatalogueRef: resolveRef } = await import('@pryzm/command-registry'));
+    } catch (err) {
+        console.warn('[ZeroTokenChatBridge] catalogue resolver unavailable:', err);
+        return null;
+    }
+    const w = win() as unknown as Record<string, unknown>;
+    // elementKind (as `normalizeElementKind` spells it) → the store, plus the
+    // DOMAIN NOISE words a user drops when naming that family's types.
+    const SOURCES: ReadonlyArray<readonly [string, unknown, readonly string[]]> = [
+        ['slab',    w['slabSystemTypeStore'],    ['slab']],
+        ['ceiling', w['ceilingSystemTypeStore'], ['ceiling']],
+    ];
+    const out: Record<string, {
+        resolve: (ref: string) => { id: string; name: string } | null;
+        names: readonly string[];
+    }> = {};
+    for (const [kind, store, noise] of SOURCES) {
+        const reader = store as CatalogueReaderLike | undefined;
+        // Both methods, or the family is ABSENT. A half-readable store would
+        // resolve some refs and silently miss others — worse than no channel.
+        if (typeof reader?.getById !== 'function' || typeof reader?.getAll !== 'function') continue;
+        let names: readonly string[];
+        try {
+            names = reader.getAll().map((t) => t.name);
+        } catch (err) {
+            console.warn(`[ZeroTokenChatBridge] ${kind} type catalogue unreadable:`, err);
+            continue;
+        }
+        out[kind] = {
+            resolve: (ref: string) => {
+                try {
+                    // `spanDomain` stays a BOUNDED constant, never user text (P8).
+                    const hit = resolveRef(reader, ref, {
+                        domainNoise: noise,
+                        spanDomain: 'pryzm.catalogue.chat',
+                    });
+                    return hit.entry === null ? null : { id: hit.entry.id, name: hit.entry.name };
+                } catch (err) {
+                    console.warn(`[ZeroTokenChatBridge] ${kind} type ref failed to resolve:`, err);
+                    return null;
+                }
+            },
+            names,
+        };
+    }
+    return Object.keys(out).length === 0 ? null : out;
+}
+
 async function buildContext(): Promise<ResolverContext> {
     const levels = (win().bimManager?.getLevels?.() ?? []).map((l, i) => ({
         id: l.id,
@@ -892,6 +968,35 @@ async function buildContext(): Promise<ResolverContext> {
     } catch (err) {
         console.warn('[ZeroTokenChatBridge] door type catalogue unavailable:', err);
     }
+    // ── §FIX-CATALOGUES-NEVER-INJECTED (L-1146, C67 §1.8, C84 §4F.1) ────────
+    //
+    // ⛔ THIS KEY HAD NO PRODUCTION WRITER, AND ITS ABSENCE WAS BEING CITED AS
+    // A BLOCKER. `ResolverContext.catalogues` is the GENERIC catalogue channel
+    // every new type family is supposed to arrive through — CatalogueFamilies'
+    // own header promises "a new family costs ZERO lines in ResolverContext".
+    // Measured 2026-08-19: its only writer anywhere in the repository was a
+    // TEST, and `buildContext()` — the ONE ResolverContext construction site
+    // that exists — never set it. So `set-slab-type` and `set-ceiling-type`
+    // BOTH ran the null-lookup fallback (`CatalogueFamilies.ts:209-214`),
+    // forwarding the user's RAW STRING and leaving their own declared
+    // `mismatchPrefix` / `suggestions` copy as dead code at runtime.
+    //
+    // ⭐ AND THE COST WAS NOT ONLY THOSE TWO. `element.changeType` — sixteen
+    // live family branches — sat in ChatCommandClassification's Class B under
+    // `blockedBy: 'catalogue value-source injection'`, i.e. blocked on THIS
+    // KEY. Eleven families were dark waiting for the lines below (C84 §4F.1).
+    //
+    // WHY A GENERIC HELPER AND NOT THREE MORE NAMED FIELDS. wall/window/door
+    // each cost a bespoke pair of `ResolverContext` fields; that is the
+    // scaling wall this channel was introduced to remove. A family now costs
+    // ONE ROW in the table below.
+    //
+    // HONESTY, the same discipline as the wall catalogue above: a store that
+    // cannot be read is reported ABSENT (key omitted ⇒ the command resolves
+    // and refuses, exactly as today), never EMPTY — which would make "no such
+    // type" and "could not read the catalogue" the same sentence
+    // (§CONTEXT-DATA-HONESTY: failure and emptiness are the same value).
+    const catalogues = await buildCatalogueChannel();
     // §GATE-VIS-READONLY — the read-only visibility question's data. Absence
     // means UNREADABLE and the answer says so.
     const visibility = visibilityIntentSnapshot();
@@ -934,6 +1039,10 @@ async function buildContext(): Promise<ResolverContext> {
         ...(doorCatalogue !== null
             ? { resolveDoorSystemType: doorCatalogue.resolve, doorSystemTypeNames: doorCatalogue.names }
             : {}),
+        // §FIX-CATALOGUES-NEVER-INJECTED (L-1146) — the generic channel. Omitted
+        // entirely when NOTHING was readable, so the absent case is byte-for-byte
+        // today's behaviour and this change can only add resolution, never remove it.
+        ...(catalogues !== null ? { catalogues } : {}),
         // level.add call-site convention (ProjectTreeSection): `L${Date.now()}`.
         // §PLAN (RAC U6) — plus a per-call counter, because a plan can mint two
         // levels inside the same millisecond ("add a level at 9 m, then add one

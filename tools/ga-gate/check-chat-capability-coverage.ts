@@ -751,7 +751,20 @@ const MAX_UNPINNED_CAPABILITIES = Number(process.env.PRYZM_CHAT_MAX_UNPINNED ?? 
  * can, and it shrinks either by declaring the mode (once the grammar produces
  * it) or by narrowing the arm. It may not rise silently.
  */
-const MAX_UNDECLARED_SPATIAL_REACH = Number(process.env.PRYZM_CHAT_MAX_SPATIAL_REACH ?? 24);
+// ⚠ TIGHTENED 26 -> 2 on 2026-08-19 (lane RAC1, L-1142). Nine capabilities
+// declared the spatial modes their arms already honoured — the founder's
+// "BY LEVEL, BY ROOM" worked and the registry denied it, so the "what I CAN
+// do" answer under-reported the system (EI-9 in the reporting direction, the
+// mirror of L-998). ⭐ The remaining 2 are `create-windows-parametric`'s room
+// and orientation, and they are DELIBERATELY undeclared: this lane declared
+// them, the SYMMETRIC arm below refused within the minute ("declares scope
+// mode 'room' but the resolver received a 'level' descriptor"), and they were
+// rolled back rather than forced. The window-creation grammar resolves a LEVEL
+// descriptor for every spatial phrase; declaring more would be the
+// ElementCapabilities lie in a new costume (C68 §7.d). They shrink to 0 when
+// the GRAMMAR honours them — not before.
+// C67 §4 rule 9: a baseline is not permission; it is a debt with a name.
+const MAX_UNDECLARED_SPATIAL_REACH = Number(process.env.PRYZM_CHAT_MAX_SPATIAL_REACH ?? 2);
 
 /**
  * ⚠ SHRINK-ONLY — check 3e, GLOBAL CAPABILITIES WHOSE ROUTE IS UNCLASSIFIED.
