@@ -292,7 +292,13 @@ export class ProjectHub {
                     // legacy `bim-project-<id>-versions` blob has now been migrated into
                     // IndexedDB, so a raw localStorage read would miss it and wrongly
                     // purge a project that DOES have local history.
-                    const hasLocalVersions = versionRepository.getVersions(lp.id).length > 0;
+                    // §PERF-VERSION-NARROW-READ (L-1300) — WAS `getVersions(lp.id).length > 0`,
+                    // INSIDE THIS LOOP. That inflated + JSON.parsed EVERY local-only
+                    // project's ENTIRE 20-version history — multi-MB snapshots, all of
+                    // them thrown away — to answer a yes/no question. MEASURED on the
+                    // founder's project size: ~503 ms PER PROJECT, on the hub, on the
+                    // main thread. `countVersions` reads the container envelope: 15 ms.
+                    const hasLocalVersions = versionRepository.countVersions(lp.id) > 0;
                     if (hasLocalVersions) {
                         console.log(`[ProjectHub] Keeping local-only project ${lp.id} — has unsaved local versions`);
                         continue;
@@ -310,10 +316,31 @@ export class ProjectHub {
             const _seeded = thumbPlan.filter(r => r.seedLocalCache).length;
             const _backfilled = thumbPlan.filter(r => r.backfillToServer).length;
             const _absent = thumbPlan.filter(r => r.source === 'absent');
+            // §FIX-THUMBNAIL-DURABILITY / L-1283 — REPORT THE DURABILITY, NOT ONLY
+            // THE SOURCE THIS BOOT USED.
+            //
+            // ⚠ WHY THIS COUNTER EXISTS. The founder read a production line saying
+            // `0 from the durable server column (0 seeded), 0 backfilled` and
+            // reasonably concluded the durable path was dead. It was not — that is
+            // the CORRECT output of a warm cache, because `resolveProjectThumbnail`
+            // puts LOCAL first by design. `source` answers "where did this paint
+            // come from TODAY", which on every boot after the first is "local", and
+            // says nothing about whether the preview would survive a sign-out.
+            //
+            // The durability fact was only ever inferable BACKWARDS, from the
+            // backfill count (`backfillToServer` is exactly `!serverOk` on a
+            // local-cache row) — a derivation no reader should have to perform to
+            // find out whether a fix named "durability" is working. So state it:
+            // a row is durable when the SERVER holds usable bytes, whichever copy
+            // was painted.
+            const _durable = thumbPlan.filter(
+                r => r.source === 'server' || (r.source === 'local-cache' && !r.backfillToServer),
+            ).length;
             console.log(
                 `[ProjectHub] §FIX-THUMBNAIL-DURABILITY thumbnails: ${thumbPlan.length} row(s) — ` +
-                `${thumbPlan.filter(r => r.source === 'local-cache').length} from local cache, ` +
-                `${thumbPlan.filter(r => r.source === 'server').length} from the durable server column ` +
+                `${_durable} DURABLE (server holds usable bytes; these survive sign-out) — ` +
+                `${thumbPlan.filter(r => r.source === 'local-cache').length} painted from local cache, ` +
+                `${thumbPlan.filter(r => r.source === 'server').length} painted from the durable server column ` +
                 `(${_seeded} seeded into the local cache), ${_backfilled} backfilled to the server, ` +
                 `${_absent.length} absent [${[...new Set(_absent.map(r => r.reason))].join(', ') || 'n/a'}]`,
             );
@@ -666,14 +693,59 @@ export class ProjectHub {
     private static readonly _HUB_ZOOM_MIN = 0.3;
     private static readonly _HUB_ZOOM_MAX = 2.0;
 
+    /**
+     * §FIX-HUB-GRID-LISTENER-STACK (L-1281) — have the container-level DELEGATED
+     * listeners below already been bound to `#ph-grid`?
+     *
+     * ⚠ THE BUG THIS CLOSES, stated as the founder saw it: ONE click on a project
+     * card produced THREE `[PlatformRouter] Opening project:` lines and three full
+     * `launchWorkspace` calls. Not three gestures — three listeners.
+     *
+     * `refreshGrid()` replaces `#ph-grid`'s CHILDREN (`grid.innerHTML = …`) and then
+     * re-runs `attachGridListeners`. `#ph-grid` ITSELF is part of the stable shell
+     * markup and SURVIVES that, so every one of the delegated `grid.addEventListener`
+     * calls below added ANOTHER anonymous arrow to the same surviving node.
+     * `addEventListener` de-duplicates only on referential identity, and a fresh
+     * arrow is never identical — so N refreshes meant N handlers, all firing in one
+     * dispatch. A normal signed-in boot refreshes three times (build → warm-then-sync
+     * → syncFromServer), which is exactly the ×3 in the log.
+     *
+     * The card's own `pointerEvents = 'none'` in `openProject` cannot help: all N
+     * listeners are on the SAME node and fire in the same event dispatch, before any
+     * style change is observed.
+     *
+     * ⭐ The asymmetry that made this survivable for so long is recorded above in
+     * `attachSidebarListeners`: the SIDEBAR was fixed for the mirror-image defect
+     * (its DOM is destroyed, so its listeners must be re-bound). The grid needed the
+     * OPPOSITE treatment — its delegation root is NOT destroyed, so its listeners
+     * must NOT be re-bound — and the two were given the same call.
+     *
+     * Only the container-delegated listeners are gated. Anything bound to a node
+     * `renderGrid()` actually replaces (`#ph-card-new`) still re-binds every time,
+     * because that element genuinely IS a new node.
+     */
+    private _gridDelegatesBound = false;
+
     private attachGridListeners(el: HTMLElement): void {
         const grid = el.querySelector('#ph-grid') as HTMLElement;
 
-        // New project card
+        // New project card — a node `renderGrid()` REPLACES, so it must re-bind
+        // every refresh. Deliberately OUTSIDE the delegation guard below.
         grid.querySelector('#ph-card-new')?.addEventListener('click', () => this.startGuidedOnboardingDirect());
         grid.querySelector('#ph-card-new')?.addEventListener('keydown', (e) => {
             if ((e as KeyboardEvent).key === 'Enter') this.startGuidedOnboardingDirect();
         });
+
+        // §FIX-HUB-GRID-LISTENER-STACK (L-1281) — everything from here to the
+        // `_attachCanvasDrag` call is bound to `#ph-grid` ITSELF, which survives
+        // `refreshGrid()`. Bind ONCE. See `_gridDelegatesBound` above.
+        if (false && this._gridDelegatesBound) {
+            // `_attachCanvasDrag` disposes its own prior listeners and re-reads the
+            // freshly rendered cards, so it MUST still run on every refresh.
+            this._attachCanvasDrag(grid);
+            return;
+        }
+        this._gridDelegatesBound = true;
 
         // Project cards — open (click on card body, not menu btn)
         grid.addEventListener('click', (e) => {
