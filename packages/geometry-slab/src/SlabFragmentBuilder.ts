@@ -165,6 +165,15 @@ export interface SlabBuildVerdict {
 }
 
 export class SlabFragmentBuilder {
+    /**
+     * §LOAD-FLOOD-GATE — slab ids already reported as drawn on the box fallback.
+     * `createSlabMeshWithEdges` is STATIC and runs once per LAYER, so without this a
+     * five-layer degraded slab logs five identical lines per rebuild, per floor, during
+     * the hot restore loop. Cleared for an id the moment it builds real geometry again,
+     * so a later regression on the same slab is still reported.
+     */
+    private static _reportedBoxFallback = new Set<string>();
+
     private scene: THREE.Scene;
     private bimManager: BimManager | null;
     // C6 FIX §01 §4: Made private. External code must use getRootById() accessor.
@@ -836,6 +845,7 @@ export class SlabFragmentBuilder {
         // §SLAB-BUILD-VERDICT (L-1121) — a verdict must never outlive the element it
         // describes, or the report starts answering about slabs that no longer exist.
         this._buildVerdict.delete(id);
+        SlabFragmentBuilder._reportedBoxFallback.delete(id);
 
         const root = this.slabRoots.get(id);
         if (root) {
@@ -1356,24 +1366,12 @@ export class SlabFragmentBuilder {
         // §FIX-REGION-SLAB-3D-LADDER (L-1121) — ONE resolver, see resolveBuildRing().
         const ringChoice = SlabFragmentBuilder.resolveBuildRing(data);
         const resolvedPolygon: { x: number; y: number }[] | null = ringChoice.ring;
-        if (ringChoice.source === 'polygon' && ringChoice.note) {
-            // A DEGRADATION, reported. The slab still draws — on its AUTHORED ring, the
-            // same one plan view draws — but it is no longer following its walls, and
-            // C79 §5.2 forbids that reading as `preserved`.
-            console.warn(
-                `[SlabFragmentBuilder] §FIX-REGION-SLAB-3D-LADDER slabId="${data.id}" — `
-                + `${ringChoice.note}. Falling back to the STORED polygon `
-                + `(${data.polygon!.length} vertices) — the ring plan view draws — so the slab is `
-                + `visible and plan/3D agree. It will NOT follow its host walls until the sketch `
-                + `resolves again (C79 §5.2 undetermined).`,
-            );
-        } else if (ringChoice.source === 'none' && ringChoice.note) {
-            console.error(
-                `[SlabFragmentBuilder] §FIX-REGION-SLAB-3D-LADDER slabId="${data.id}" — `
-                + `${ringChoice.note}, and the record carries NO stored polygon to fall back to. `
-                + `Building a plain box of ${data.width} × ${data.depth} m.`,
-            );
-        }
+        // ⚠ THE LADDER'S OUTCOME IS REPORTED ONCE PER SLAB, IN `_buildSlab`, NEVER HERE.
+        // §LOAD-FLOOD-GATE: this method is called ONCE PER LAYER on a layered slab, so a
+        // warning here would fire five times for one five-layer slab on every rebuild —
+        // once per layer, per slab, per floor, during the hot restore loop. A diagnostic
+        // that floods is a diagnostic nobody reads. `_buildSlab` records the verdict from
+        // the SAME `resolveBuildRing` answer, so nothing is lost.
 
         // ── Collect all holes to punch through the slab geometry ──────────
         // Source 1: SlabData.holes — set by HOLLOW_SLAB tool at creation time —
@@ -1514,7 +1512,12 @@ export class SlabFragmentBuilder {
         // refuse."* Every route to a box now says so, and the ZERO-DIMENSION case says
         // it is INVISIBLE — that is the difference between "no slab" and "a slab that
         // failed to build", which are the same pixels and must never be the same value.
-        if (geometry instanceof THREE.BoxGeometry) {
+        // Reported ONCE per slab id, not once per layer — see the §LOAD-FLOOD-GATE note
+        // at the head of this method. `_reportedBoxFallback` is keyed on the id, so a
+        // five-layer slab logs one line and a genuinely new failure still logs.
+        if (geometry instanceof THREE.BoxGeometry
+            && !SlabFragmentBuilder._reportedBoxFallback.has(data.id)) {
+            SlabFragmentBuilder._reportedBoxFallback.add(data.id);
             const invisible = !(data.width > 0) || !(data.depth > 0);
             const why = degradedReason
                 ? 'the ring was refused as non-simple (ADR-0299)'
@@ -1527,11 +1530,16 @@ export class SlabFragmentBuilder {
                 console.error(
                     `${line}\n  ⛔ width and/or depth is 0, so this box renders NOTHING — the slab `
                     + `exists in the store (and in plan view, which draws the stored polygon) and is `
-                    + `ABSENT from 3D. That is the "works in plan, not in 3D" report.`,
+                    + `ABSENT from 3D. That is the "works in plan, not in 3D" report. `
+                    + `Run window.slabBuilder.getBuildReport() for every slab in this state.`,
                 );
             } else {
                 console.warn(line);
             }
+        } else if (!(geometry instanceof THREE.BoxGeometry)) {
+            // Recovered — clear the id so a LATER regression on the same slab is reported
+            // again rather than being suppressed by a stale de-dup entry.
+            SlabFragmentBuilder._reportedBoxFallback.delete(data.id);
         }
 
         // ── Material ───────────────────────────────────────────────────────
