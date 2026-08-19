@@ -655,6 +655,7 @@ named in the brief.**
 
 | # | Loss the USER experiences | Fix | Invariant | Status |
 |---|---|---|---|---|
+| **0** | ⛔ **"I saved a glass guardrail and reloaded a grey balustrade."** Of ~26 fields, **7 survive a round trip** — `fillType`, `railProfile`, `railDiameter`, `postSpacing`, every baluster field, `suppressStartPost` and `hostId` are all LOST, and `materialId` is saved then never read back | all four whitelists carry the record; ONE exported payload builder on the load side | **EI-6**, C84 §7 | ⛔ **OPEN — THE WORST ITEM IN THIS TABLE.** Measured 2026-08-19, §16. Not fixed in the same pass: both editor files held another lane's 158 uncommitted lines |
 | **1** | *"I picked Timber Picket and got generic 20 mm balusters."* | `CreateHandrailCommand` carries the baluster members + `materialId` | **EI-2** | ✅ **CLOSED** — L-983, watched-RED (5 assertions fail pre-fix) |
 | **2** | *"Retyping into Timber Picket gives a different railing from drawing one."* | the four fields carried across all four retype hops | **EI-9** | ✅ **CLOSED** — L-984, same commit as #1 so a per-path divergence never existed |
 | **3** | *"The plan tool can't use any of my railing types, and it draws them 100 mm taller than 3-D does."* | both surfaces resolve from `HandrailTypeStore`; the two plan literals **deleted** | **EI-9**, C84 §8.d | ✅ **CLOSED** — L-982 |
@@ -666,7 +667,7 @@ named in the brief.**
 | **9** | *"A square/flat rail comes out round."* | the enum mapped, the constant ternary deleted | **EI-2(b)**, EI-3 | ✅ **CLOSED** — `§FIX-HANDRAIL-BRIDGE-PROFILE`. ⚠ lossy: `square` and `flat` still collapse to `rectangular` (§9.1) |
 | **10** | *"An authored 50 mm rail renders at 40 mm."* | `railDiameter` written | **EI-2(a)** | ✅ **CLOSED** — `§FIX-HANDRAIL-BRIDGE-DIAMETER` |
 | **11** | *"The same line drawn in plan and in 3-D builds different geometry and exports a different IFC entity."* | `fillType` written | **EI-2(a)** | ⚠ **PARTIAL** — the divergence is gone, but the value is a CONSTANT `'baluster'`; the payload has no `fillType` (§5) |
-| **12** | **Deleting a stair leaves its handrails floating.** | build the GC pass, or delete the comment that claims one exists | **EI-5**, C84 §8.d | ⛔ **OPEN** — §8.2. **The highest-value remaining user-visible loss** |
+| **12** | **Deleting a stair leaves its handrails floating.** | the cascade, in `DeleteStairCommand` | **EI-5**, C84 §8.d | ✅ **CLOSED** — L-1101, watched-RED (8 of 10). `hostId`/`hostKind` + the `hosts`/`hostedBy` edge pair made it identifiable at all; the false garbage-collect comment is corrected in place. ⚠ no UI authors a host yet |
 | **13** | **A handrail hosted on a stair does not move when the stair moves.** | the cascade subsystem must actually register | **EI-12** | ⛔ **OPEN** — §8.1, blocked on BIM30 R2 / ADR-0322. ⛔ Do NOT "fix" by dispatching `handrail.recompute`: the runner does not exist |
 | **14** | **A stair railing re-imported from IFC comes back as a free-standing handrail.** | branch on `PredefinedType` / host, or refuse | **EI-2**, C25 | ⛔ **OPEN** — §3.3 |
 | **15** | **A handrail parameter undo ratchets `metadata.version`.** | audit-neutral undo | **ADR-0319 §2** | ⛔ **OPEN** — §7.3 |
@@ -758,11 +759,11 @@ named in the brief.**
    is proven against the REAL `HandrailStore` in `handrailTypeMaterialisationAndRun.test.ts`, but
    **not** driven through `performUndo` with a live ring buffer. Per C16 CA-21 a declaration is not
    a proof, and neither is a direct `.undo()` call.
-9. **Persistence of the new fields** — `serializeHandrailSnapshot` is proven whitelist-free
-   (L-987), so UNDO carries them. **`ProjectSerializer` / `ProjectLoader` were NOT checked**, and
-   L-999 is this exact defect on wall: four hand-written whitelists, all omitting one field.
-   ⛔ **Assume `infillMaxGap`, `suppressStartPost` and the baluster members do NOT survive
-   save/load until someone measures it.** This is the largest honest hole this lane leaves.
+9. ~~Persistence of the new fields.~~ ⛔ **MEASURED 2026-08-19 — AND IT IS FAR WORSE THAN THE
+   NEW FIELDS. See §16.** Of ~26 fields on `HandrailData`, **7 survive a save/load round trip.**
+   `fillType`, `railProfile`, `railDiameter` and `postSpacing` have shipped for a long time and
+   **none of them persists**, so this is not a defect this lane introduced — it is one this lane's
+   measurement found. Promoted out of NOT-MEASURED into §11 row 1 and §16.
 10. **`HandrailFragmentBuilder` baluster arithmetic beyond the pitch** — the `infillMaxGap`
     derivation is proven by mesh count; end-margins and the `count = floor(len/pitch) - 1`
     convention are not independently verified against a drawing standard.
@@ -1193,3 +1194,93 @@ Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the bl
 **deleting a stair still leaves its handrails floating**, and the comment claiming a
 garbage-collect pass handles it names a mechanism that does not exist. That is a live,
 user-visible data defect on the very interaction (*"behave for STAIRS"*) R1 is about.
+
+---
+
+# 16. PERSISTENCE — MEASURED 2026-08-19, AND IT IS THE WORST DEFECT IN THIS CONTRACT
+
+> **This section exists because §15.5 made measuring it the gate on R6, and the measurement came
+> back far worse than the question that prompted it.** The question was *"do the fields this lane
+> added survive save/load?"* The answer is that **almost nothing does**, including fields that have
+> shipped for months.
+
+## 16.1 The four whitelists, and what each carries
+
+Handrail persistence is FOUR hand-written field lists — two SAVE, two LOAD — across the two pairs
+C95 §3.2 already records as an EI-9 duplicate:
+
+| # | Site | Role |
+|---|---|---|
+| 1 | `apps/editor/src/engine/persistence/ProjectSerializer.ts` → `serializeHandrail` | SAVE (live) |
+| 2 | `apps/editor/src/engine/persistence/ProjectLoader.ts` → the `snapshot.handrails` loop | LOAD (live) |
+| 3 | `packages/persistence-client/src/loader/ProjectSerializer.ts` → `serializeHandrail` | SAVE (cli / bench / RAC) |
+| 4 | `packages/persistence-client/src/loader/ProjectLoader.ts` → the same loop | LOAD (cli / bench / RAC) |
+
+⚠ **1 and 3 are BYTE-IDENTICAL, and so are 2 and 4.** The duplication is not the defect here — the
+two copies agree. The defect is what all four omit.
+
+## 16.2 The field map — SAVED / LOADED / LOST
+
+| Field | SAVE | LOAD | Verdict |
+|---|---|---|---|
+| `id`, `type`, `levelId`, `parentId` | ✅ | partial (`id`, `levelId`) | ⚠ `type`/`parentId` re-derived on create |
+| `baseLine` | ✅ | ✅ (as `start`/`end`) | ✅ |
+| `height`, `thickness`, `baseOffset` | ✅ | ✅ | ✅ |
+| `ifcData.guid` | ✅ | ✅ | ✅ — the one field someone deliberately fixed (§PERSIST-L1) |
+| **`materialId`** | ✅ | ⛔ **NEVER READ BACK** | ⛔ **saved and discarded** |
+| **`materialColor`** | ✅ | ⛔ **NEVER READ BACK** | ⛔ **saved and discarded** |
+| `properties` | ✅ | ⛔ not read | ⛔ the `HR001` mark is re-minted |
+| **`fillType`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`railProfile`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`railDiameter`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`postSpacing`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`balusterShape` / `balusterWidth` / `balusterSpacing`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`infillMaxGap`** | ⛔ | ⛔ | ⛔ **LOST** |
+| **`suppressStartPost`** | ⛔ | ⛔ | ⛔ **LOST — every multi-segment run gains doubled posts on reload** |
+| **`hostId` / `hostKind`** | ⛔ | ⛔ | ⛔ **LOST — a hosted rail reloads free-standing, so §8.2's cascade cannot find it** |
+| `railStructure`, `parameters`, `metadata` | ⛔ | ⛔ | ⛔ LOST |
+
+**⇒ 7 of ~26 fields survive.**
+
+## 16.3 What the user experiences, stated without softening
+
+Draw a **Frameless Glass Balustrade**. Save. Reload.
+
+`fillType` is gone, so `CreateHandrailCommand` applies its own default — `fillType ?? 'baluster'`.
+`railProfile` is gone, so the builder takes `railProfile ?? 'rectangular'`. `materialId` is gone, so
+`resolveMaterialColour` returns **unresolved** and the rail falls back to grey.
+
+**A frameless glass guard reloads as a grey rectangular balustrade.** Not degraded — a different
+element. And because `fillType` drives `ifcPredefined` (`glass`/`panel` → `GUARDRAIL`, else
+`HANDRAIL`), **the reloaded rail also exports as a different IFC entity than the one that was
+saved** (C25).
+
+⭐ **THIS IS L-999'S SHAPE, ON A LARGER SCALE.** L-999 was one field missing from four wall
+whitelists. Here it is *fourteen* fields missing from four handrail whitelists — and, unlike L-999,
+the loss was never invisible-because-upstream-was-broken: `fillType` and `railProfile` have been
+written by `CreateHandrailCommand` and read by `HandrailFragmentBuilder` the whole time.
+
+## 16.4 Status — MEASURED, NOT FIXED, and why
+
+⛔ **NOT FIXED IN THE SAME PASS, DELIBERATELY.** Both editor-side files carried **158 lines of
+another lane's uncommitted work** (`§L-1057` / `L-1035`) at the moment of measurement. `git commit
+--only <path>` commits the WORKING-TREE state of that path, so editing them would have swept a
+second lane's in-flight changes into this lane's commit — which already happened once in this lane
+(`9d86eb34`) and is the reason `--only` is now the rule. Measuring is not blocked by that; writing
+is.
+
+**TO-BE — MUST, and the shape matters as much as the fields:**
+1. all four lists carry the full record;
+2. ⛔ **MUST NOT** be closed by adding fourteen names to four hand-written lists. That is the same
+   artefact that produced the defect, four times over. The SAVE side should serialise the record and
+   subtract what is genuinely derived; the LOAD side should rebuild through **one exported payload
+   builder** both loaders call, so a field added to `HandrailData` reaches persistence by default
+   and *omission* becomes the thing that has to be written down (C84 §7's declared-field-map shape);
+3. the acceptance test is an **executed ROUND TRIP** — author, serialise, load, read back from the
+   authoritative store — not a source-text assertion. L-999 could only prove its save half by source
+   parity because executing `serialize()` needs a ~20-store bundle; the LOAD half is reachable
+   through the payload builder above, which is a second reason to extract it.
+
+⚠ **R6 (infill panelling) REMAINS BLOCKED on this**, per §15.5. Adding a per-bay `panels[]` to a
+record that loses `fillType` on reload would produce C87's exact failure — authored, rendered once,
+gone after F5 — with more surface area.
