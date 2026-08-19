@@ -69,13 +69,45 @@ that is the *wall* record, which has no such field at all.
 - `308bbb7d` **L-1066** — the curved raked corner now **closes at the top** (was `topSep 0.555 m`). **The ORDER of operations was the whole fix.**
 - `a7914847` / `ca70eb2d` **L-1087** — a storey change that moved the FILING and not the HEIGHT was a silently-wrong element. The register had asserted every renderer derives `worldY` from `level.elevation`; **four of twelve do not.**
 
-**PROFILE EDITOR — the status changed twice, so read this carefully:**
+**PROFILE EDITOR — the status changed three times, so read this carefully:**
 L-1034 recorded profile-edit as *"already on main under two slices."* `067c5aff` **overturned
 that**: a profile drew **NOTHING** on any wall — the authoring surface existed and the body never
-consumed it. Then `33ac2f3f` **L-1067 PARTIALLY CLOSED — the wall profile now DRAWS.**
+consumed it. Then `33ac2f3f` + `6403f4c9` **L-1067 BUILT — the wall profile now DRAWS**, and it
+needed **no new construction**: `WallHoleBodyBuilder` already extrudes a wall as a `Shape` in its
+elevation plane, and only the outer outline differs. Profile × rake **composes and is asserted,
+not claimed** (same profiled wall reads `lean 0.000` upright and `0.528981` at 80°, cut in both).
 
-⚠ **WHAT REMAINS IS THE MITRE.** RK1 was mid-edit on `WallProfileBodyBuilder.ts` and
-`WallFragmentBuilder.ts` when the session ended. **Check whether those are committed.**
+**RK1 CLOSED AND VERIFIED** — geometry-wall **91 files / 877 tests green**, root tsc `TSC_EXIT=0`
+read from the compiler's own exit code *and* an independent error count, two readings agreeing.
+
+### ⚠ RK1's open items — the wall is NOT finished
+
+- **NO MITRE on profiled walls.** Perpendicular end faces, the same limitation
+  `buildWallHoleBodyGeometry` carries. **First thing to fix if profiles are wanted on joined walls.**
+- **The `curved` profile refusal deserves re-examination.** It is argued *ill-posed* in the SAME
+  WORDS the curved *rake* refusal used — and that one was **unbuilt, not impossible**, and now
+  ships as a cone. ⭐ **Same argument, same shape, already wrong once.**
+- **T and X junctions for curved-raked are UNASSERTED**, and MOVE-time reweld × any non-plain
+  variant is unmeasured. The founder's sentence names MOVE → PROPAGATE → RECOMPUTE;
+  **only RECOMPUTE is measured.**
+- **Residual 21–38 mm `baseGap` on curve↔straight rows is REAL and VISIBLE** — it is the two
+  solvers disagreeing (L-1039). Unchanged, and now carried identically to the top instead of
+  compounding with height. Option B (routing curved bodies onto the V2 path) was deliberately NOT
+  taken; unifying the solvers is L-1039's lane.
+
+### ⭐ RK1's method lesson — the strongest one of the session
+
+Of three drafts of the joint fix, **the two wrong ones are preserved in the source.** Draft 2
+applied the loft before `projectCapVertex` and `openUp` came back **bit-identical**, because the
+projection solves for the along-axis coordinate and overwrote it.
+**Exact non-movement is evidence of a write being DISCARDED.** A metric that had shifted slightly
+would have read as *"closer, keep tuning"* — the draft was caught only because the number came back
+*exactly* unchanged. Choose metrics that can distinguish "no effect" from "small effect".
+
+Also, two of RK1's own instruments were wrong and are recorded in place: a control called
+`buildWallHoleBodyGeometry` with `openings: []`, which returns **null** (it declines a wall with no
+holes), so it measured its own precondition; and a matrix assertion used the body's **maximum y**,
+which cannot see a partial cut.
 
 ---
 
