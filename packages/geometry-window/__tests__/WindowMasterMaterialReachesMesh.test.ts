@@ -33,6 +33,8 @@
 
 import { describe, it, expect } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
+// ⭐ The REAL instancing gate (lane INST1). See case 2b.
+import { materialInstanceSignature } from '@pryzm/renderer-three';
 import { MATERIAL_CATALOG, materialHex } from '@pryzm/schemas/materials';
 import { WindowBuilder } from '../src/WindowBuilder';
 import { WINDOW_COLOR_SENTINEL, WINDOW_UNRESOLVED_MATERIAL_COLOR } from '../src/windowFinishColour';
@@ -174,6 +176,21 @@ describe('C100 §2.1 / S17 — a window\'s materialId reaches the material on th
         // `_sharedFrameMaterial` keys its cache on `(levelId, colour, transparent,
         // opacity, roughness)`, and `_resolveFrameColor` hands it a HEX STRING, so
         // the count is bounded by DISTINCT COLOURS. This pins that it stays so.
+        //
+        // ⭐ WHY MATERIAL *IDENTITY* IS THE THING TO ASSERT, not merely the hex:
+        // `InstancedElementRenderer`'s group key is
+        //   `levelId_indexCount_vertexCount_x0_y0_z0_materialUuid`
+        // (InstancedElementRenderer.ts:370). Every other term is geometry or level;
+        // `materialUuid` is the ONLY term this resolver can move. Two materials that
+        // are EQUAL but not the SAME OBJECT carry different uuids and therefore land
+        // in different groups — so the `toBe` identity assertion below is
+        // load-bearing, and a `toEqual` would pass while instancing silently
+        // fragmented into one group per window.
+        //
+        // ⚠ The `levelId` in both keys is NOT fragmentation, and was checked rather
+        // than assumed: the GROUP key splits by level anyway (level visibility needs
+        // one InstancedMesh per geo x mat x level), so keying the material by level
+        // costs nothing on top. Recorded because it looks like a defect and is not.
         const { builder } = makeBuilder();
         const cache = (builder as unknown as { _sharedFrameMats: Map<string, THREE.Material> })._sharedFrameMats;
 
@@ -215,6 +232,53 @@ describe('C100 §2.1 / S17 — a window\'s materialId reaches the material on th
         // And the material is a CLASSIC type, or dedupInstanceMaterial cannot
         // collapse it however few there are.
         expect((first as THREE.Material).type).toBe('MeshStandardMaterial');
+
+        // ⭐⭐ THE ACTUAL GATE, asserted against the REAL serializer rather than
+        // against its allowlist restated by hand (lane INST1, 2026-08-19: windows
+        // now instance BY DEFAULT). `materialInstanceSignature` returns `null` for
+        // anything outside DEDUP_ELIGIBLE_TYPES, and a null signature is what
+        // forces a SIZE-1 INSTANCE GROUP PER WINDOW. Checking `.type` against a
+        // string I typed here would be the transcription defect this whole
+        // contract is about — so the signature function itself is the witness.
+        const sig = materialInstanceSignature(first as THREE.Material);
+        expect(sig, 'a null signature forces one instance group PER WINDOW').not.toBeNull();
+
+        // …and every one of the 40 produces the SAME signature, which is what lets
+        // them collapse into one group rather than forty.
+        for (let i = 1; i < 40; i++) {
+            const m = (builder as unknown as { windowMaterials: Map<string, THREE.Material[]> })
+                .windowMaterials.get(`win-inst-${i}`)![0]!;
+            expect(materialInstanceSignature(m)).toBe(sig);
+        }
+    });
+
+    it('⭐ 2c. INSTANCING — N DISTINCT COLOURS give N buckets, not N-per-window', () => {
+        // The complement of 2b, and the half that a same-colour test cannot see: a
+        // resolver that returned a per-window value (a uuid, a timestamp, a
+        // per-element tint) would still pass 2b if every window shared one input.
+        // Here the INPUT genuinely varies over 3 masters across 30 windows, and the
+        // requirement is that the material count tracks the COLOURS, not the count.
+        const { builder } = makeBuilder();
+        const cache = (builder as unknown as { _sharedFrameMats: Map<string, THREE.Material> })._sharedFrameMats;
+        const ids = ['wood-oak', 'wood-walnut', 'wood-pine'] as const;
+
+        for (let i = 0; i < 30; i++) {
+            (builder as unknown as Rebuildable).rebuild(baseWin({
+                id: `win-col-${i}`,
+                frameFinish: { name: 'x', materialId: ids[i % 3], materialColor: '#001122' },
+            }));
+        }
+
+        const distinctColours = new Set(
+            Array.from({ length: 30 }, (_, i) => frameHex(builder, `win-col-${i}`)),
+        );
+        expect(distinctColours.size, '3 masters must give exactly 3 colours').toBe(3);
+
+        // The frame + sill share a colour but differ in roughness, so the cache
+        // holds a small fixed multiple of the colour count — bounded by COLOURS,
+        // never by the 30 windows. That is the property INST1 depends on.
+        expect(cache.size).toBeLessThanOrEqual(distinctColours.size * 2);
+        expect(cache.size).toBeLessThan(30);
     });
 
     it('3. an UNKNOWN id paints MAGENTA — a named failure, never a plausible grey (§5)', () => {
