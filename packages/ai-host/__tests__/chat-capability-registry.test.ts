@@ -29,6 +29,11 @@ import {
   CHAT_CLASSIFIED,
   classificationBreakdown,
 } from '../src/capabilities/ChatCommandClassification.js';
+// §L-1032 — the LEVEL-CHANGE REGISTER (L1). Imported so the matrix row for
+// `move-to-level` is DERIVED from the same rows the capability derives from,
+// rather than transcribed into a literal that rots the next time a family
+// moves between the movable and refused halves.
+import { LEVEL_CHANGE_VERBS } from '@pryzm/command-bus';
 import {
   capabilityGapRefusal,
   describeCapabilitiesFor,
@@ -218,6 +223,27 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       'set-wall-dimensions': ['wall'],
       'set-window-dimensions': ['window'],
       'set-door-dimensions': ['door'],
+      // §L-1032 — DERIVED, not literal, and the difference is the whole point.
+      //
+      // Every other row above is a HAND-WRITTEN claim, and this test exists so
+      // that widening one is a conscious act. `move-to-level` has no
+      // hand-written claim to widen: its targets ARE `LEVEL_CHANGE_VERBS`, the
+      // L1 register the property panel and the event bridge read, mapped
+      // through the same `normalizeElementKind` this file already imports.
+      //
+      // A literal here would have gone RED on 2026-08-19, when L-1087 demoted
+      // beam / furniture / lighting / plumbing out of the register (their meshes
+      // are seated at a stored absolute Y, so a storey change would leave them
+      // hovering at the old floor) — reporting a TRUE change to the register as
+      // a capability regression, which is the alarm nobody should learn to
+      // ignore. What is pinned instead, by EXECUTION, is in moveToLevel.test.ts:
+      // every declared target really dispatches its own verb, and every family
+      // the register refuses really refuses, with the register's own sentence.
+      'move-to-level': [
+        ...new Set(
+          Object.values(LEVEL_CHANGE_VERBS).flatMap((s) => s.panelTypes.map(normalizeElementKind)),
+        ),
+      ],
     };
     for (const cap of allChatCapabilities()) {
       if (cap.targets === 'global') continue;
