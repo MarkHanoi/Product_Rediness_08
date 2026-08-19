@@ -1504,6 +1504,14 @@ export class ProjectLoader {
             for (const b of snapshot.beams) {
                 try {
                     const cmd = new CreateBeamCommand({
+                        // ⭐ §PERSIST-DEFAULT-PATH (L-1213) — `beamId`. The DEFAULT path has
+                        // carried it since §PERSIST-L1 W1-1; this arm never did, so a project
+                        // reopened on the LEGACY branch RE-IDENTIFIED every beam — support
+                        // assignments, schedule rows, IFC references and `level.childrenIds`
+                        // left pointing at ids that no longer existed. The divergence between
+                        // the two restore paths ran in BOTH directions: this arm had
+                        // `materialId` and the default one did not.
+                        beamId: b.id,
                         startPoint: b.startPoint,
                         endPoint: b.endPoint,
                         width: b.width,
@@ -1518,6 +1526,16 @@ export class ProjectLoader {
                         materialId: b.materialId,
                         loadBearing: b.loadBearing,
                         fireRating: b.fireRating,
+                        // §PERSIST-BEAM-SUPPORTS (L-1213) — the support ASSIGNMENT. AUTHORED
+                        // data (`AssignBeamSupports`), and NOT re-derivable from geometry:
+                        // two beams meeting a column look identical whether or not the user
+                        // declared the joint, so a dropped assignment is lost for good.
+                        // Serialised by `serializeBeam()`, declared on the payload, stamped
+                        // onto the record by `execute()` — and read by NEITHER restore path.
+                        startSupportId:   b.startSupportId,
+                        endSupportId:     b.endSupportId,
+                        startSupportType: b.startSupportType,
+                        endSupportType:   b.endSupportType,
                         // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
                         // round-trip join key and was re-minted on every reload.
                         ifcGuid: b.ifcData?.guid
@@ -1625,7 +1643,32 @@ export class ProjectLoader {
                         // preserves the snapshot's UUID. Without this, every
                         // slab referencing the custom type became a dangling
                         // reference on the next reload.
+                        // ⭐ §TYPE-SNAPSHOT-SPREAD (L-1214) — INVERTED: emit the whole
+                        // saved definition MINUS the derived fields, instead of a
+                        // hand-written include-list.
+                        //
+                        // The list here used to be `{id, name, description, layers}`,
+                        // which is NOT the inverse of what the serializer writes —
+                        // `structuredClone(t)`, i.e. EVERY field. `loadBearing`
+                        // (§FEAT-LANDSCAPE-SLAB-TYPES, L-963) was therefore saved
+                        // correctly and silently discarded on reload, so every custom
+                        // landscape assembly came back with its structural flag UNKNOWN.
+                        // That is the identical drift `wallSystemTypeCodec.ts` was created
+                        // to end for `function` on the wall arm — the fix was made once
+                        // and not carried across.
+                        //
+                        // ⭐ Spreading is safe and is the point: `SlabSystemTypeStore.add()`
+                        // overwrites `id`, `createdAt`, `modifiedAt`, `layers` and
+                        // `totalThickness` from its own arguments after the spread, so the
+                        // four DERIVED fields cannot be forged by a snapshot, while a
+                        // fifth AUTHORED field added to `SlabSystemType` next month reaches
+                        // the store without anyone editing this file. Derived, not
+                        // remembered — the same inversion `serializeHandrailRecord` uses.
+                        const { totalThickness: _derivedThickness, createdAt: _derivedCreated,
+                                modifiedAt: _derivedModified, ...savedDefinition } =
+                            raw as Record<string, unknown>;
                         const restored = slabSystemTypeStore.add({
+                            ...(savedDefinition as object),
                             id: raw.id,
                             name: raw.name,
                             description: raw.description,

@@ -15338,6 +15338,42 @@ pre-expand "X and Y bedroom" to "X bedroom and Y bedroom" before the mix scan.
 
 ## L-1185 — PROJECT ISOLATION IS NOT CLEAN: 3D shows linework from THIS project's elevations/plans AND from PREVIOUS projects (OPEN, founder-reported 2026-08-19)
 
+> ⭐ **UPDATE 2026-08-19 (lane UND1, commit `bd15d644`) — STILL OPEN, but two of the four
+> rival causes are now KILLED and a probe is shipped. Do not re-investigate the killed two.**
+>
+> Founder re-reported the same defect from a different angle — *"Please review the LINES COMING
+> TO 3D VIEW"*, with black rectangular outlines lying flat on the façade around the ground-floor
+> openings — so this row now carries a second screenshot and a measured triage:
+>
+> | hypothesis | verdict | evidence |
+> |---|---|---|
+> | **`ViewController.ts:1822` mounts DRAWINGS into the scene** — this row's own named suspect | ✗ **KILLED** | `_activate3DView` calls `_unmountDrawing()` (`:1565`); `deactivate()` disables `DOCUMENTATION_LAYER` on the camera (`:2413`); and the founder's log shows the elevation ran through `PlanViewManager`, whose branch prints *"TechnicalDrawing NOT mounted to 3D scene (Canvas2D only)"* and **returns before `scene.add`**. Nothing was mounted to unmount. Cross-project residue on this path is separately covered by the `views.mountedDrawing` **declared probe**, which stamps the owning project at mount time and is genuinely satisfiable. |
+> | plan SYMBOL builders (window/door) | ✗ **KILLED** | they inject into the **TechnicalDrawing**, never into `world.scene.three`. |
+> | **`WallEdges` / `SlabEdges` overlays** | ⚠ **OPEN — the leading candidate** | both builders create their lines `visible=false` (`WallEdgeOverlayBuilder.ts:143`, `SlabFragmentBuilder.ts:1634`) and `WallEdgeVisibilityService.setVisible(isPlanMode)` turns them off on every non-plan `view-activated`, so **on paper they cannot be visible in 3D**. The founder is looking at them anyway. `'3d'` mode is `0x333333` — reads black; wall edges lie **on the wall surface** and form **rectangles around openings**, which is the screenshot. |
+> | **created AFTER the last `view-activated`** | ⚠ **OPEN** | `initScene.ts` re-applies the floor-hatch (`:838`) and room-fill (`:894`) gates on element-rebuild events **precisely because "the builder always creates it visible"**. The EDGE gate (`:699–709`) has **no such re-apply** — the one structural asymmetry in the family. |
+> | cross-project residue | ⚠ **OPEN** | would show a `projectId` mismatch, but **no linework producer stamps one** — see below. |
+>
+> ⭐ **THIS ROW'S OTHER CLAIM — "the audit cannot see it" — IS CONFIRMED, AND THE MECHANISM IS
+> NOT THE ONE THIS ROW NAMED.** It is not `ProjectIsolationAudit.ts:126`'s `idKnown` gate.
+> **Linework is reached by NO `findings` arm at all**: the element-id arm needs an id AND a type
+> (linework has neither), and while `summariseSceneCoverage` *does* classify a `LineSegments`
+> ROOT as `linework`, that is the **coverage clause, not a finding** — `detectLeaks` returns
+> `null` and the console prints **`✓ loaded clean`**. See **L-1202** and **C13 §7.5**.
+>
+> **A PROBE IS NOW SHIPPED** (`apps/editor/src/engine/lineworkProbe.ts`, L-1202). It censuses
+> every line-bearing object on each 3D entry and **diffs against the first 3D entry of the
+> session** — the one measurement that separates *"present from first paint"* from *"arrived via
+> a view switch"*. **CLOSING THIS ROW REQUIRES THE DUMP, NOT MORE READING**: enter 3D, visit an
+> elevation, return to 3D, and paste the `[linework-probe]` lines (or run
+> `__pryzmDumpLinework()`).
+>
+> ⚠ **AND DO NOT TRUST `PLAN_SYMBOL_LAYER` AS PROTECTION.** Repo-wide, **nothing assigns any
+> object to layer 3** (the only object-side assignments are two `EDITOR_LAYER`, one
+> `DOCUMENTATION_LAYER`, one raycaster). The three `camera.layers.disable(PLAN_SYMBOL_LAYER)`
+> calls suppress nothing, and `_deepSceneCleanup`'s ghost sweep — gated on
+> `obj.layers.isEnabled(PLAN_SYMBOL_LAYER)` (`:2464`) — has always removed zero objects. L-1202.
+
+
 **Founder, with a screenshot:** the 3D viewport shows floating elevation/plan LINEWORK — a
 façade elevation and floor-plan outlines hanging in space beside the real model — and he
 states some of it belongs to PREVIOUS projects, not the open one.
@@ -17363,3 +17399,778 @@ wants a decision about what "no armed type" should mean rather than a silent def
 ⛔ **Do not fix this by defaulting `materialId` inside `CreateHandrailCommand`.** That would paper
 over four distinct callers with one invented value and destroy the very diagnostic that made this
 measurable — the command's refusal to invent is correct.
+
+---
+
+## L-1210 — "CAN YOU MAKE SURE THE SLAB TYPES ARE SAVED?" — THEY WERE SAVED. THERE ARE **THREE** RESTORE PATHS, AND EVERY RECENT FIX WENT TO ONE THAT IS **OFF BY DEFAULT** ✅ FIXED 2026-08-19 (lane PERSIST1)
+
+**Founder:** *"Can you make sure the SLAB TYPES are saved and survive after project close / re-open?
+Basically CHECK ALL ELEMENTS — AUDIT THEM ALL. AND FIX THEM ALL."*
+
+### THE FINDING — the serialiser was never the problem
+
+`serializeSlab()` writes `materialId`, `materialColor`, `baseOffset`, `layers`, `systemTypeId` and
+`properties`, and always has. `CreateSlabPayload` has ACCEPTED all six since L-1127 (materials) and
+L-1178 (assembly). The values were in the file and the command would have taken them.
+
+**There are THREE restore paths, not two, and lanes have been enumerating two:**
+
+| # | path | status |
+|---|---|---|
+| 1 | `packages/persistence-client/src/loader/ProjectLoader.ts` | **never built by the app** |
+| 2 | `apps/editor/src/engine/persistence/ProjectLoader.ts` | the LEGACY per-element path |
+| 3 | `packages/command-registry/src/project/ImportProjectCommand.ts` | ⭐ **THE DEFAULT PATH** |
+
+`ProjectLoader._useImportCommandPath()` (`apps/editor/.../ProjectLoader.ts:2741`) returns **true**
+unless someone sets `PRYZM_USE_IMPORT_COMMAND` falsy. Path 2 is its `else` branch.
+
+**L-1178 fixed path 2.** Its test, `packages/command-registry/__tests__/L1178SlabAssemblySurvivesReload.test.ts`,
+hand-builds *"exactly the payload `ProjectLoader` builds"* and drives `CreateSlabCommand` directly —
+**the payload whose ABSENCE is the bug was supplied by the test itself.** A fake built from the
+header cannot falsify the header. §COMMITTED-IS-NOT-REACHABLE.
+
+### MEASURED — derive the serialiser's key set, diff against what each path reads
+
+| family | keys written | DEFAULT path dropped | LEGACY path dropped |
+|---|---|---|---|
+| wall | 23 | 10 | 6 |
+| slab | 18 | **8** | 2 |
+| curtainWall | 19 | **12** | 2 |
+| column | 14 | 3 | 3 |
+| beam | 18 | 8 | 7 |
+| plumbing | 17 | 4 | 4 |
+| furniture | 35 | 8 | 8 |
+| roof | 19 | 4 | 4 |
+
+### FIXED
+
+`ImportProjectCommand` now carries `materialId`, `materialColor`, `baseOffset`, `layers`,
+`systemTypeId`, `properties` for slabs. Every field is optional on the payload, so a snapshot holding
+none of them restores byte-identically (C47 §1.2 — additive, no MAJOR bump).
+
+---
+
+## L-1211 — THE WALL RAKE DIES IN THE **RESTORE PAYLOAD**, NOT IN POST-LOAD VALIDATION ✅ FIXED 2026-08-19 (lane PERSIST1)
+
+`rakeAngleDeg` is written by `serializeWall()`, is **declared on `CreateWallCommand`'s payload**, and
+was never passed by `ImportProjectCommand`. A raked wall came back **vertical** on every reopen. No
+validation was involved.
+
+The same three fields died with it, each the subject of an earlier fix proved against path 2:
+
+- **`sideFinishes`** — L-999 fixed the SAVE half; the LOAD half died here. Its test enumerated *"all
+  FOUR hand-written whitelists"* — two serialisers and two `ProjectLoader`s. **`ImportProjectCommand`
+  is not among the four.** The enumerated list had grown a member.
+- **`layers`** / **`wallProfile`** — the persisted-value-wins inputs whose own doc-comments on
+  `CreateWallCommand` say they exist so a USER-DEFINED assembly is not re-derived from `systemTypeId`.
+
+### ⚠ NOT FIXED, NAMED — see L-1215
+
+`serializeWall()` also writes `properties`, `loadBearing`, `parentId`, `childrenIds`, `metadata` and
+`type`; `CreateWallCommand` declares **none** of them.
+
+---
+
+## L-1212 — A CURTAIN WALL RELOADED THROUGH THE DEFAULT PATH LOST **TWELVE** FIELDS ✅ FIXED 2026-08-19 (lane PERSIST1)
+
+Widest gap the derived diff found: `serializeCurtainWall()` writes 19 keys, `ImportProjectCommand`
+carried seven. Lost on reopen: `mullionSize`, `panelThickness`, `mullionColor`, `glazingColor`,
+`mullionMaterialId`, `glazingMaterialId`, `systemTypeId` (§FEAT-CURTAIN-WALL-TYPE-CATALOGUE / L-958),
+`gridSystem`, `properties`, `ifcData.guid`. It came back a default-spaced grey grid.
+
+**The legacy arm already carried all twelve** (`apps/editor/.../ProjectLoader.ts:1402-1411`) — which
+is the whole finding in one line. Mirrored field-for-field.
+
+---
+
+## L-1213 — THE TWO RESTORE PATHS DIVERGED IN **BOTH** DIRECTIONS, AND BEAM SUPPORTS WERE READ BY NEITHER ✅ FIXED 2026-08-19 (lane PERSIST1)
+
+- DEFAULT path had `beamId` (§PERSIST-L1 W1-1); LEGACY did not → **the legacy branch re-identified
+  every beam on reload**, orphaning support assignments, schedule rows, IFC references and
+  `level.childrenIds`.
+- LEGACY path had `materialId` (L-1127 ARM D+E); DEFAULT did not.
+- **NEITHER** read `startSupportId` / `endSupportId` / `startSupportType` / `endSupportType`. These
+  are AUTHORED (`AssignBeamSupports`) and **not re-derivable from geometry** — two beams meeting a
+  column look identical whether or not the user declared the joint. Serialised, declared on the
+  payload, stamped onto the record by `execute()`, and read by no loader.
+
+Both arms now carry all of it, and the new gate fails if they diverge again. ⭐ The gate caught this
+divergence *within the same session in which it was written* — the first fix touched only one arm.
+
+---
+
+## L-1214 — THE SLAB **TYPE CATALOGUE** RESTORE WAS A HAND-WRITTEN 4-FIELD LIST AND DROPPED `loadBearing` ✅ FIXED 2026-08-19 (lane PERSIST1)
+
+Second, independent defect behind the founder's report — the CATALOGUE axis, not the element axis.
+
+`ProjectSerializer` writes each custom slab type with `structuredClone(t)` (**every** field). The
+loader restored `{id, name, description, layers}` — **not the inverse of what was written**. So
+`loadBearing` (§FEAT-LANDSCAPE-SLAB-TYPES, L-963) was saved correctly and silently discarded, and
+every custom landscape assembly came back with its structural flag UNKNOWN.
+
+This is the identical drift `wallSystemTypeCodec.ts` was created to end for `function` on the wall
+arm — **the fix was made once and not carried across.**
+
+**Fixed by INVERSION, not by adding a fifth name:** the arm now spreads the saved definition minus
+the DERIVED fields (`totalThickness`, `createdAt`, `modifiedAt`). `SlabSystemTypeStore.add()`
+overwrites those from its own arguments after the spread, so a snapshot cannot forge them, while a
+new AUTHORED field reaches the store without anyone editing the loader. Same inversion
+`serializeHandrailRecord` uses.
+
+---
+
+## L-1215 — SIX FIELDS ARE SERIALISED FOR EVERY FAMILY AND **NO** `Create*Command` DECLARES THEM 🔴 OPEN — logged 2026-08-19 (lane PERSIST1)
+
+`parentId`, `childrenIds`, `properties`, `metadata`, `loadBearing` are written by the serialisers for
+wall / slab / column / beam / curtainWall / roof and are lost on **both** restore paths, because the
+create-command payloads do not declare them.
+
+**`properties` carries the element MARK.** Schedules therefore renumber on every reopen for every
+family except slab (fixed at L-1178/L-1210) and furniture (`mark` is separate and also lost, L-1217).
+`metadata` (`createdAt` / `createdBy` / `version`) is regenerated as fresh-user-v1 — authoring
+provenance is destroyed on each open.
+
+⛔ Fixing this means changing per-family command payloads. **Not persistence's surface** — it belongs
+to each element lane, and is recorded here so it is not mistaken for covered. Every one of these keys
+is on the `KNOWN_LOSS` ledger in `persistedFieldsReachTheRestorePath.test.ts` with this L-number, so
+the gate NAMES them rather than passing silently.
+
+---
+
+## L-1216 — `levelName` / `levelElevation` ARE SERIALISED, DROPPED, AND NOT RE-DERIVED 🔴 OPEN — logged 2026-08-19 (lane PERSIST1)
+
+Cached denormalisations of the level, written for furniture and plumbing, read by neither path. They
+*are* re-derivable from `levelId` — but **nothing re-derives them**, so a consumer reading the cached
+copy sees `undefined` after a reload while the file still holds the right answer. Either re-derive at
+restore or stop writing them; today it is neither.
+
+---
+
+## L-1217 — FURNITURE LOSES ITS ROOM, ITS AI PARAMETERS AND ITS MARK ON EVERY RELOAD 🔴 OPEN — logged 2026-08-19 (lane PERSIST1)
+
+`serializeFurniture()` writes 35 keys; `buildFurnitureRestorePayload()` reads 27.
+
+- **`hostedSpaceId`** — which ROOM the piece belongs to. Authored by placement; not re-derived.
+- **`aiElementConfig`** — the generation parameters for an AI-authored piece. **Unrecoverable** once
+  dropped: nothing else records what was asked for.
+- **`mark`** — the schedule mark, renumbered on every reopen.
+- `ifcData` — the IFC round-trip join key is not threaded for furniture at all.
+
+---
+
+## L-1218 — TWO MORE CATALOGUES ARE **DESTRUCTOR-WITH-NO-CONSTRUCTOR**: CURTAIN-WALL TYPES AND PHASE FILTERS 🔴 OPEN — logged 2026-08-19 (lane PERSIST1)
+
+The exact shape C95 §15.7 recorded for handrail types, still live in two more places. Both have full
+CRUD, both are registered on `projectScopeRegistry` with a `clear`, and **nothing anywhere saves
+them** — so switching project deletes every user-authored one, and no save path had ever written one.
+
+| store | CRUD | `projectScopeRegistry` clear | save path |
+|---|---|---|---|
+| `packages/core-app-model/src/stores/CurtainWallTypeStore.ts` | `add:503` `update:510` `remove:517` | **YES `:536`** | ⛔ **none** |
+| `packages/core-app-model/src/views/PhaseFilterStore.ts` | `create:137` | **YES `:291`** | ⛔ **none** — and it has a working `serialize():245` that nothing calls |
+
+Two further catalogues are unpersisted but **not** scope-registered, so they die at page reload
+rather than at project switch: `StairTypeStore` (the live one is `packages/geometry-stair/`; the
+`core-app-model` twin is never instantiated) — already named in a comment at
+`ProjectSerializer.ts:1361` as a known hole — and `RoomSystemTypeStore`, which has an unused
+`serialize()`/`deserialize()` pair.
+
+Contrast with the arms that are RIGHT, and copy those: `HandrailTypeStore` (spread minus a named
+exclusion), `DoorSystemTypeStore` / `WindowSystemTypeStore` (one shared `hostedSystemTypeCodec` used
+by BOTH save and load), `AnnotationSystemTypeStore` (store-owned `serialize`/`deserialize` pair).
+
+---
+
+## L-1219 — `snapshot.openings` IS WRITTEN AND NEVER READ; **LIFTS ARE NEVER SERIALISED AT ALL** 🔴 OPEN — logged 2026-08-19 (lane PERSIST1)
+
+- **`openings`** — the serialiser writes the whole `openingStore` array. The loader's only
+  `.openings` reads are `wall.openings`, the per-wall EMBEDDED copy. Standalone slab/floor openings
+  come back from a different arm; the top-level array is dead weight that **looks like coverage**.
+- **`lift`** — `LiftStore` is constructed at `initBuilders.ts:963`, and grepping `lift` in **both**
+  the live serialiser and the live loader returns **zero hits**. This is not a bug to trace: a family
+  with no serialiser and no host path **cannot** survive a reload. It is a capability that was never
+  built. `LiftTypeStore` likewise has no save path.
+
+---
+
+## L-1220 — THE L0 ZOD ELEMENT SCHEMAS HAVE **ZERO** RUNTIME IMPORTERS, SO "DERIVE THE FIELD SET FROM THE SCHEMA" WOULD DERIVE FROM A FICTION 🟡 MEASURED 2026-08-19 (lane PERSIST1)
+
+The obvious fix for this whole class is "walk each element's Zod schema key set and assert every key
+survives the round trip". **Measured before building it, and it would not have worked:**
+
+`packages/schemas/src/elements/*.ts` (28 `defineElement` schemas) is imported by **no runtime store
+and by none of the four serialiser/loader files.** Every importer is a test, a bench, an `import
+type`, or a re-export barrel. A gate derived from them would measure a document, not the product.
+
+**The authority that actually governs the wire is the serialiser's own emitted key set**, which is
+what `apps/editor/__tests__/persistedFieldsReachTheRestorePath.test.ts` derives from.
+
+### The store-validation census, since it was measured
+
+- **6 of 19** families validate at `add`; **3 of 19** (wall, column, room) also on `update`.
+- **Only `DoorStore` and `WindowStore` store the parser's OUTPUT** (`{...result.data}`) — and both
+  their schemas **STRIP**. Everywhere else the return value is discarded, so strip is inert.
+- `defineElement` (`packages/schemas/src/base/BaseNode.ts:44`) returns a bare `z.object()` — **all 28
+  are STRIP**; repo-wide there is **zero** `.passthrough()`/`.strict()` in `packages/schemas/src`.
+  The `.passthrough()` schemas are all in the geometry packages: `WallDataAdd/Update`, `RoofDataAdd`,
+  `RoomDataAdd/Update`, `ColumnData`, plus `CeilingMetadata` and `FloorProperties`.
+- `FloorStore.ts:112-117` swallows its `ZodError` into a `console.warn` — validation is advisory.
+- `StairDataSchema` never runs in production: its only consumer, `StairSnapshotSerializer`, has no
+  call-sites.
+- `opening` has **no L0 schema at all**.
+
+⛔ **Do not "fix" this by pointing a gate at the L0 schemas.** Either wire them into the stores — a
+real, large piece of work — or leave the serialiser as the measured authority. A gate over an
+unimported schema is enforcement that does not enforce, which is the L-809 defect in a new place.
+
+---
+
+## L-1204 — "THE ANALYTIC ROOF IS NOT GOOD": THERE IS NO ROOF. THE PALE SHEET IS THE MASSING PRISM'S TOP CAP, EXTRUDED OVER THE **PARCEL BOUNDARY** — THE BUILDING WAS DRAWN THE SIZE OF ITS LAND ✅ FIXED 2026-08-19 (lane SITE1)
+
+**Source:** founder, 3D Site (Cesium/Forma) in **Real** fidelity, with screenshot + full console log —
+*"Also check the ANALYTIC ROOF — IT IS NOT GOOD."*
+
+⭐ **"Analytic roof" is not a term this codebase uses.** A case-insensitive search for `analytic.*roof`
+across `apps/`, `packages/geometry-roof/` and `plugins/roof/` returns **nothing**. The founder was
+naming a shape he could see, and the first job was to establish **what the object IS** before judging
+whether it is wrong. His own log says, twice, that it is not a roof:
+
+```
+[forma] rendering massing: 40 wall(s), 8 slab(s), 0 roof(s), 0 furniture, 85 opening(s)
+[forma] extras placed: 8/8 slab(s), 0/0 roof(s), 0/0 furniture box(es)
+```
+
+**ZERO roof elements exist in the project.** Five candidates were traced and four eliminated:
+
+| Candidate | Verdict |
+|---|---|
+| `pryzm-forma-slab` (top slab, oversized) | ⛔ **eliminated** — removed by `clearFormaMassingEntitiesOnly` in Real mode (`CesiumViewport.ts:7846-7873`); ring is each slab's OWN authored polygon, elevation never synthetic |
+| `pryzm-facade-sun-roof` (sun-hours study) | ⛔ **eliminated** — `facadeAnalysisOn = false` (`:1302`) and `siteMetricActive = null` (`:1277`) by default, needs **two** explicit user toggles, and **every paint logs `[CesiumViewport][forma-facade]`** — absent from his log |
+| A roof surface inside the REAL GLB | ⛔ **eliminated** — the exporter takes only `userData.elementType` roots; there are no roof elements to take |
+| `pryzm-forma-buildable-envelope` (zoning envelope cap) | ⚠ **plausible, secondary** — default-ON, whitelisted to SURVIVE the Real swap (`:5654`, `:7865`), ring = parcel ring inset by setbacks, pale `#9A93B0` @ 0.34 alpha. Real overhang risk where setbacks are ~0. Left standing; see "Not fixed here" |
+| ⭐ **`pryzm-forma-massing-storey-<top>` TOP CAP** | ✅ **THE OBJECT** |
+
+### THE ROOT CAUSE — one line, and it is the L-272 defect standing next door to its own fix
+
+`CesiumViewport.ts:4936`
+
+```ts
+const footprint = boundary && boundary.length >= 3 ? boundary : null;
+```
+
+`boundary` is `input.boundary` — the **DRAWN PARCEL RING** (`renderFormaMassing`'s own doc: *"Parcel
+boundary ring in scene-XZ metres, or null when not drawn"*). The band loop then branched:
+
+```ts
+if (footprint)  { /* extrude the PARCEL ring, closeTop: true */ }   // <- always taken
+if (!footprint) { /* reconstructPerimeterRing / slab ring     */ }   // <- dead code in practice
+```
+
+Because the onboarding flow is **location -> DRAW THE SITE BOUNDARY -> generate**, a parcel is present
+in the **normal** case. So the good wall-loop branch was effectively unreachable and **every storey of
+every building was extruded over the plot line.** The topmost band's `closeTop: true` paints an
+opaque near-white **parcel-sized plate at full building height** — hanging over the real GLB's façades
+on every side. That plate is the founder's "roof".
+
+⭐ **`renderFacadeAnalysis`, in the same file, already carries the corrected cascade** and an explicit
+warning that parcel-first was *"catastrophically wrong"* (§FORMA-FACADE-FOOTPRINT-FIX / L-272: *"the
+sun lattice was evaluated on a phantom envelope standing out at the plot line"*). **The identical
+defect survived twenty lines away in the massing renderer, because the fix was applied to the
+symptom that was reported rather than to the decision both surfaces share.**
+
+### THE FIX
+
+Precedence INVERTED to match the façade study, and extracted into a pure, tested decision so the two
+surfaces can no longer disagree about where the building is:
+
+- **NEW** `apps/editor/src/ui/geospatial/formaMassingExtent.ts` — `decideMassingRing()`:
+  `wall-loop` -> `floor-slab` -> `parcel-boundary` -> `per-wall-boxes`. The parcel is reachable **only**
+  when the building has no ring at all, and that case returns `isPlotNotBuilding: true`.
+- `CesiumViewport.renderFormaMassing` consumes it; the parcel branch now warns loudly that the
+  silhouette is **the plot, not the design**, instead of presenting it as the building.
+
+**Tests:** `apps/editor/src/ui/geospatial/__tests__/formaMassingExtent.spec.ts` — 12 pass, including
+an exhaustive sweep over all 8 input combinations asserting `parcel-boundary` is **never** returned
+while any building ring exists.
+
+**Not fixed here:** the buildable-envelope cap (candidate #4) is a genuine second pale parcel-shaped
+surface at height and is **default-ON**; it is a zoning-envelope question (C58/C64), not a massing
+one. `CesiumViewport.ts:5403` also prefers the **parcel centroid** for opening-inset outward normals —
+same wrong-centroid family, small effect, untouched.
+
+**Governance:** C12 §11 (new).
+
+---
+
+## L-1205 — THE 3D SITE DREW **14 STOREYS AND 42.4 m** FOR A **7-LEVEL, 20.9 m** BUILDING. THE HEIGHT CAME FROM THE GLB'S BOUNDING-**SPHERE DIAMETER** — WHICH MEASURES THE BUILDING'S **DIAGONAL** ✅ FIXED 2026-08-19 (lane SITE1)
+
+**Source:** the founder's log, in the same session as L-1204. He did not report this — it was found
+while tracing the roof.
+
+```
+[ProjectSerializer] Snapshot created: 204 elements, 7 levels, 40 walls, 8 slabs
+[forma] §FORMA-FULL-HEIGHT tiled 8 massing storey band(s) (3.0 m each) up to full building height 42.4 m
+[forma] massing rendered: 40 wall(s) across 14 storey(s)
+        [#0@0.0m·3.0m, #1@3.0m·3.0m, #2@5.8m·3.2m, #3@9.0m·3.1m, #4@12.2m·2.7m, #5@15.2m·2.7m,
+         #6@17.9m·3.0m, #7@20.9m·3.0m, #8@23.9m·3.0m ... #13@38.9m·3.0m]
+[forma] floor selector rebuilt: 14 storeys
+```
+
+⭐ **Read the band list.** `#0-#6` have IRREGULAR heights (3.0, 3.0, 3.2, 3.1, 2.7, 2.7, 3.0) — those
+are the **real** authored levels, topping out at **20.9 m**, and there are exactly **7** of them,
+matching the snapshot's `7 levels`. `#7-#13` are all **exactly 3.0 m**: fabricated. **Three rival
+counts of one building in one render — 7 levels · 8 bands · 14 storeys — and the floor selector
+offered the user all 14.**
+
+### THE ROOT CAUSE
+
+`resolveFullBuildingHeight` MAX-ed four authored signals with a fifth that is not a height:
+
+```ts
+const approxModelH = Math.min(bs.radius * 2, bandTop * 4);
+if (approxModelH > full * 1.2) full = approxModelH;
+```
+
+A bounding **sphere** encloses the whole model, so its radius is
+`sqrt(planHalfDiagonal^2 + halfHeight^2)`. On any building **wider than it is tall** the plan extent
+dominates completely and `2r` reports the **diagonal**. For a ~32 x 18.5 m plate 20.9 m tall:
+`r ~= 21.2` -> **`2r ~= 42.4`** — the founder's number, to one decimal.
+
+⚠ **The old comment knew.** It said *"a slab/wall footprint half-diagonal is baked into the sphere
+radius"* — and used the number anyway, behind a `4 x bandTop` clamp that only bounded **how wrong it
+could be**, not whether it was wrong. `tileBandsToFullHeight` then dutifully invented 7 synthetic
+3.0 m storeys to fill the gap.
+
+⭐ **This is [[envelope-solid-overstates-partial-data]] on a building instead of a plot:** an UNKNOWN
+quantity drawn as a known one, doubling the asserted built volume **on a real parcel, in a view used
+for feasibility.**
+
+### THE FIX — "the model is 20.9 m, so we draw 20.9 m"
+
+- The bounding-sphere leg is **deleted, not re-approximated.** Cesium's `Model` exposes only a
+  bounding sphere, never a local-frame bounding box, so the model's vertical extent is genuinely
+  **unknown at that seam** — and an unknown height must not be drawn as a known one.
+- `resolveFullBuildingHeightM()` (in the new `formaMassingExtent.ts`) now MAXes the **authored**
+  signals only — storey bands, caller override, slab `topElevation`, roof top — and **returns which
+  one won**.
+- `tileBandsToFullHeight` now `console.warn`s (was `log`), states that the bands are **SYNTHETIC and
+  not authored storeys**, names the height source, and prints `N authored + M synthetic`. The old
+  line said only *"tiled 8 ... up to 42.4 m"*, with no hint that half the tower was invented or by what.
+- ⚠ **The tiling itself is kept.** ADR-0268 §D4's motivating case — a perf-capped tower whose walls
+  collapse to ONE ground band, with a **named** height source — is legitimate. The sphere never was.
+
+**Tests:** `formaMassingExtent.spec.ts` — including `boundingSphereDiameterAsHeight()`, the deleted
+arithmetic preserved as an **executable** proof: it reproduces 42.4 m from a 20.9 m building, and
+gets *worse the wider the building gets* (same height, 3x the answer). If anyone proposes reinstating
+it, run that test.
+
+**Not fixed here (NOT this lane's file — for GIS1):** `GISAreaLayout.ts:3273-3292` computes the
+`fullBuildingHeightM` override as `maxLevelElev + storeyH` **where `storeyH` is the tallest WALL in
+the project**, not a storey height. One double-height space or full-height stairwell wall inflates
+every storey. It is a second, independent route to a fabricated height.
+
+**Governance:** C12 §11 (new). ADR-0268 §D4 is the decision being amended — note the **code cites
+ADR-0095, which does not contain `§FORMA-FULL-HEIGHT` at all**; the tag lives in ADR-0268 §D4.
+
+---
+
+## L-1206 — FIVE `GLTFExporter` WARNINGS ON EVERY 3D-SITE EXPORT, AND THE EXPORTER NAMED NONE OF THEM. THE STANDING HYPOTHESIS ("IT IS THE GLAZING") IS **FALSE** ✅ FIXED 2026-08-19 (lane SITE1)
+
+**Source:** the founder's log —
+
+```
+🚀 Starting GLB Export (Hierarchy preserved)...
+📊 Found 313 root elements to export.
+📐 Export payload: 85,345 triangles (budget 1,500,000).
+5x GLTFExporter: Use MeshStandardMaterial or MeshBasicMaterial for best results.
+✅ GLB Export complete. 📦 Blob size: 4087380 bytes
+```
+
+The working hypothesis entering this lane was that the five were **glazing** — that a window pane is
+a `MeshPhysicalMaterial` (transmission/IOR) which *"glTF cannot represent"*, so the exporter falls
+back and the pane lands opaque, explaining the flat tan panels in the screenshot.
+
+⛔ **FALSIFIED.** three's predicate (`GLTFExporter.js:1583`, three 0.183) is:
+
+```js
+if ( material.isMeshStandardMaterial !== true && material.isMeshBasicMaterial !== true )
+```
+
+and **`MeshPhysicalMaterial extends MeshStandardMaterial`**, whose constructor sets
+`this.isMeshStandardMaterial = true` (`three/src/materials/MeshStandardMaterial.js:63`). **Glass can
+never trip this warning.** Verified in the exported bytes, not by reading: the glazing exports with
+`alphaMode: "BLEND"`, `baseColorFactor` alpha `0.34`, **and** `KHR_materials_transmission`.
+(`KHR_materials_ior` is correctly *omitted* — three only writes it when `ior !== 1.5`, and 1.5 is
+both window glass and the glTF default.)
+
+⭐ **The honest finding is that the question was unanswerable from the log.** Five anonymous warnings
+on a 313-element building are a rumour, not a finding — which is exactly how a false explanation
+survived. **The founder's five cannot be named from his existing log, and are not guessed here.**
+What this lane shipped is the instrument that makes his *next* log name them:
+
+`collectUnsupportedGltfMaterials()` (`packages/file-format/src/export/glb/GLBExporter.ts`) mirrors
+three's predicate **exactly**, de-duplicates by material instance (as the exporter does), and prints
+one line per offender — material class + material name + object class + **owning element type and
+id** — before `GLTFExporter` emits its anonymous warnings.
+
+**The structural prediction, stated as a prediction:** `applyFormaWhiteOverride` is `isMesh`-only, so
+`Line`/`LineSegments`/`Points`/`Sprite` objects under a BIM element keep their real
+`LineBasicMaterial`/`PointsMaterial`/`SpriteMaterial`. Those, plus any legacy
+`MeshPhong`/`MeshLambert` on imported geometry, are the only classes that CAN warn. The next export
+log will confirm or refute it by name.
+
+**Tests:** `packages/file-format/__tests__/glb-export-real-path-materials.test.ts` — 8 pass, run
+through the **REAL** `exportFragmentsToGLB`, asserting the census matches the real exporter's warning
+count **one-for-one**.
+
+**Governance:** C12 §11 (new).
+
+---
+
+## L-1207 — THE FORMA-WHITE EXPORT PROMISED "ONE SHARED WHITE + ONE SHARED GLASS MATERIAL PER EXPORT TREE" AND ALLOCATED ONE PAIR **PER ELEMENT** — UP TO 626 IDENTICAL MATERIALS ON A 313-ROOT BUILDING ✅ FIXED 2026-08-19 (lane SITE1)
+
+`applyFormaWhiteOverride` declared its lazy `whiteMat`/`glassMat` as **locals**, and
+`exportFragmentsToGLB` calls it **once per root element**. The doc comment said *"ONE shared white +
+ONE shared glass material per export tree (cheap; Cesium de-dups identical materials anyway)"*. The
+code delivered one pair per **element**, and Cesium does **not** de-dup them — it batches BY
+material, so every duplicate is its own draw-call bucket. On the founder's 313-root export that is up
+to **626 byte-identical glTF `materials[]` entries** instead of 2, inside a 4.09 MB blob.
+
+**The fix:** `createFormaWhiteMaterials()` is hoisted to the call site and built **once per export
+tree**; the pair is named (`pryzm-forma-white-opaque` / `pryzm-forma-white-glass`) so it is
+identifiable in the emitted glTF. Laziness is preserved — an all-opaque model allocates no glass.
+
+**Tests:** a 16-element white export now asserts **exactly 2** materials in the decoded GLB JSON, and
+a 6-element opaque export asserts **exactly 1**. ⚠ The pre-existing suite could not have caught this:
+`glb-export-forma-white.test.ts` opens by asserting the exporter is *"out of scope for this Node-env
+suite"* and tests only the pure classifier — see L-1208.
+
+**Governance:** C12 §11 (new). ADR-0093 is the decision this restores.
+
+---
+
+## L-1208 — WINDOW EXPORT IS **ASYMMETRIC** BETWEEN THE TWO CESIUM VIEWS: 3D SITE GETS TRANSLUCENT GLASS, 3D GLOBE GETS THE RAW BIM PANE. AND THE TEST SUITE HAD DECLARED THE REAL EXPORT PATH UNTESTABLE 🟡 MEASURED + PINNED 2026-08-19 (lane SITE1) — the asymmetry is a founder decision, not a bug to auto-fix
+
+**Founder ask:** *"Check also how the WINDOWS EXPORT TO GLB for 3D Site and 3D Globe view."*
+
+### What a window IS, per mode — all four states
+
+| Mode | Path | A window is... |
+|---|---|---|
+| 3D Site — **Massing** | `renderFormaMassing` | an **inset box** cut into the prism. His log: `[forma] detail placed: 85/85 opening inset(s) (windows + doors)` — geometry only, no glazing material |
+| 3D Site — **Real** | `GISAreaLayout.ts:3712` -> `exportFragmentsToGLB(scene, { formaWhite: true })` | ✅ **translucent glass** — `MeshPhysicalMaterial`, transmission 0.85, ior 1.5, opacity 0.34, tint `#BFD3E6`; exports as `alphaMode: BLEND` + `KHR_materials_transmission` |
+| 3D Globe — **Massing** | same as 3D Site massing | an inset box |
+| 3D Globe — **Real** | `GISAreaLayout.ts:3500` -> `exportFragmentsToGLB(scene)` — **no option** | ⚠ **the raw BIM material.** A pane whose authored finish is an opaque brown lands **opaque brown** |
+
+⭐ **The two Real paths call the same exporter with different arguments, ~200 lines apart in one
+file, and neither call site mentions the other.** The 3D-Site arm is deliberate and documented
+(§FORMA-WHITE-MATERIAL / ADR-0093 — the Spacio/Forma white study look). The 3D-Globe arm is
+photoreal-context by design (`§A.21.D-GLOBE3` wants REAL colours on the photoreal tiles), so
+"just pass `formaWhite: true` there too" would be **wrong** — it would repaint the building white on
+a photoreal city.
+
+⛔ **NOT auto-fixed. This is a founder call:** on the photoreal globe, should glazing keep its real
+BIM finish (which may be an opaque solid colour, and reads as a cardboard panel), or should windows
+get a glass material *independently of* the white override? The sound third option is a
+`glassOnly` export mode — real materials everywhere **except** meshes `classifyFormaWhiteRole`
+identifies as glass. Both current behaviours are now **pinned by tests** so whichever way it goes,
+the flip is visible.
+
+⚠ **The founder's screenshot is the 3D-SITE Real path** (`[forma6] REAL full-fidelity model
+placed`), which DOES get glass — so the tan panels he sees are **not** explained by this asymmetry.
+With L-1204 fixed, the leading remaining explanation is that he was seeing opening **reveals** and
+the parcel-sized white prism behind them rather than the panes. **Stated as unresolved, not closed.**
+
+### ⭐ The reason none of this was caught: a suite that ruled out its own subject
+
+`packages/file-format/__tests__/glb-export-forma-white.test.ts` opens:
+
+> *"The full white remap runs inside exportFragmentsToGLB (**DOM-bound GLTFExporter, out of scope for
+> this Node-env suite**). We test the PURE classifier directly."*
+
+**That premise is false.** three's `GLTFExporter` needs `Blob`, `URL.createObjectURL`, `TextEncoder`
+and `FileReader`; Node 20 ships the first three, and `FileReader` is an ~8-line `Blob.arrayBuffer()`
+shim. The real path runs in this suite **today**. The classifier stayed green for months while the
+bytes that actually reach Cesium were never asserted once — and L-1207 lived in the gap between them.
+
+**Tests:** `glb-export-real-path-materials.test.ts` — 8 tests, no stub. Runs the real
+`exportFragmentsToGLB`, decodes the real GLB container by hand (no third-party parser, so the test
+cannot inherit a parser's opinion), and asserts the real `materials[]`. *A test that stubs the
+exporter proves nothing, and a fake built from the header cannot falsify the header.*
+
+**Governance:** C12 §11 (new).
+
+---
+
+## L-1209 — THREE LOG-ONLY FINDINGS FROM THE SAME CONSOLE, RECORDED SO THEY ARE NOT LOST 🔴 OPEN — logged 2026-08-19 (lane SITE1, log-only, no fix attempted)
+
+1. ⭐ **`§PLOT-CLEAR-PHOTOREAL` may be an unsatisfiable no-op reporting success.** The log has, in
+   order: `§SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE ... no real tile provider attached (keyless
+   flat-ground study)` — then, immediately after — `§PLOT-CLEAR-PHOTOREAL — parcel-shaped void
+   clipped into the photoreal tileset (17-vertex ring)`. **It clips a void into a tileset that is not
+   attached.** The clipping polygon is applied to the Google tileset (`CesiumViewport.ts:8640-8724`);
+   on the keyless flat-ground Forma study there is no tileset to clip. Ask the question that has paid
+   off repeatedly here — **can this ever do anything?** If not, it is success theatre.
+   (⚠ The keyless state itself is a **deferred founder decision** on Cesium ion — do NOT "fix" that.)
+2. ⛔ **`[PickDiag] doorsRegistered=0 windowsRegistered=103`.** Doors are registered for picking
+   **zero** times while windows register 103. Not this lane's subsystem; flagged for the pick-coverage
+   census (see L-1195).
+3. **`§CTX-PMTILES-READER rail/trees: 404 ... rendering NO rail / NO trees`** — honest refusals working
+   as designed. Note only, no action.
+
+---
+
+## L-1202 — THE CONTRACT SUITE HAD NO GATES. IT NOW HAS TWO: 491 CITED PATHS DO NOT RESOLVE, AND 18 CONTRACTS ARE ORDERED BY NOTHING ✅ CLOSED (gates landed) / 🟡 OPEN (the debt they measure) — logged 2026-08-19 (lane REG1) · `1fd1cc63`
+
+`CONTRACT-AMENDMENT-REGISTER.md` §0 named the cheapest durable fix and sized it at *"119+ defects"*;
+`contracts/README.md`'s banner and `CLAUDE.md` §Governance both named a second and both recorded it
+as *"does not exist yet"*. Both are now built, registered in `tools/ga-gate/run-all.ts`, and green.
+
+**`tools/ga-gate/check-contract-cited-paths.ts` (L-960) — RC=0** at a shrink-only baseline pinned to
+its first honest reading. Asserts that every repo path cited in `docs/02-decisions/contracts/**`
+resolves on disk or carries an explicit `PLANNED` / struck marker.
+
+```
+101 contract files · 2960 citations -> 1527 distinct · 1028 RESOLVE
+491 UNRESOLVED  <- baseline   ·   8 unresolved but EXEMPT
+```
+
+⭐ **The register estimated 119+. It measures 491** — four times the hand-audited figure, because
+§12's sweep was two axes across one range (C21–C50) and the gate is seven roots across all 100
+contracts. *A confident count forecloses the measurement that would have corrected it* — the
+register's own §9 lesson (15 → 22 → 24), recurring on the register itself.
+
+Largest holders: `scripts/ci-check-spans.ts` **24 sites** (a file that has never existed — L-812) ·
+`server/parcelZoningProxy.js` **12** (C57) · `packages/schedule-4d/` **8** (C37) ·
+`packages/schemas/src/pii-registry.ts` **5** (C22).
+
+⚠ **STALE is not FICTIONAL.** `src/ui/`, `src/engine/**` (C06, C11) were real and moved to
+`apps/editor/src/**`. A reader treating all 491 as phantom work will retire live code.
+
+**`tools/ga-gate/check-contract-index-equivalence.ts` — RC=0.** Compares `ls contracts/` against
+`README.md`'s row set **in both directions**. 100 files · 83 rows · **arm A FILE-WITHOUT-ROW = 18**
+(baselined) · arms B/C/D **hard-0 and clean**.
+
+⛔ **The 18 are the real finding: C81, C84, the whole C85–C99 per-element block, and C100 exist as
+files with no index row.** `CLAUDE.md` defers the *conflict-resolution ordering* to that table, so
+all eighteen are currently ordered by nothing — **including C84, binding on every PR touching an
+element family.** **AMENDMENT OWED: eighteen index rows. OWNER: README (C00), unclaimed.**
+
+It compares **SETS, never a number**, because the count/range shape has now rotted **six** times
+(C67 → C81 → C84/C85–C99 → C100 → C76 → ADR/SPEC 272/97 the same day), and a count can be right
+while the set is wrong.
+
+⛔ **Neither gate may be discharged by laundering.** Bulk-adding `PLANNED` moves arm B's EXEMPT
+census, which prints on every run; and `NOT BUILT` / `UNBUILT` / *"does not exist"* are deliberately
+**not** exemptions — register §11C measured eleven gates *described as unbuilt* that all exist while
+§13 measured 97 of 99 cited gates that do not. **The prose claim is exactly what cannot be trusted,
+so it cannot be the escape hatch.**
+
+**NOT CLAIMED:** the cited-path gate strips a trailing `:1025-1031` before resolving. It does not
+check that a line anchor still holds what the contract says. §2 records C96 §3.1's own evidence
+going stale in **one day**. Nothing measures that axis.
+
+---
+
+## L-1203 — DEFECT SHAPE D: A CHECK THAT RUNS, PASSES, AND COULD NEVER HAVE FAILED 🔴 OPEN — logged 2026-08-19 (lane REG1)
+
+`CONTRACT-AMENDMENT-REGISTER.md` §0 carried three defect shapes, all of which are *false claims*
+found by measuring. **Shape D is not a claim at all** — it is a check whose **✅ is uninformative**,
+because no state of the world would have turned it red.
+
+⭐ **A, B and C are found by measuring. D is invisible to measurement, because measuring it returns
+PASS.** The only instrument that finds a D is a **planted control** — a violation deliberately
+introduced to prove the check can still say no.
+
+**Measured instances, all from this repository, each recorded independently of the others:**
+
+- **L-827** — `check-project-isolation.ts` reported **0 hits for all four C13 anchors while all four
+  were present** (33/3/1/1), because `2>/dev/null || echo 0` under cmd.exe made *"I could not run"*
+  and *"I looked and found nothing"* **the same value**. It did not throw.
+- **L-811** — `check-three-imports.ts` shelled to `rg`, never installed; the crash was recorded as
+  the declared failure. **P2 was clean the whole time and nobody could see it.**
+- **§RAF-GATE-COMMENT-BLIND** — `check-raf-count.ts` counted comment lines as rAF owners; three of
+  the four "owners" were doc comments *asserting P3 compliance*. The gate was counting sentences.
+- **2026-08-19, produced and caught inside lane REG1** — `check-contract-index-equivalence.ts` arm
+  D's first draft matched `RESERVED` in both directions, so *"C61 remains the RESERVED unminted slot
+  — **C64** does not take it"* declared **C64** reserved. Six live contracts (C24.1, C64, C66, C68,
+  C69, C76) were silently exempted. **Arm D would have run, passed, and could never have failed.**
+  A planted control caught it on first execution; reading the code did not.
+- **2026-08-19, reported** — an isolation audit whose underlay detector **only its own tests could
+  satisfy**; a clash gate whose fake and production **disagree about the argument shape**. A fake
+  built from the header cannot falsify the header.
+
+⛔ **Consequence, and it is uncomfortable.** Register §5 already records the *inverse* error —
+treating a `MISCONFIGURED` exit as a reading. **Shape D is worse: it does not announce itself as
+MISCONFIGURED, it announces itself as ✅.** Every *"✅ APPLIED"*, *"VERIFIED CLEAN"* and *"CLOSED"* in
+that register rests on some instrument, and **not one of them has been asked whether it could have
+come back red.**
+
+> **THE RULE:** *a gate with no planted control has not been shown to work — it has been shown to
+> run.* Both gates landed under L-1202 execute their controls **inside every invocation** and exit
+> **2** if a control fails to fire.
+
+**OPEN:** every pre-existing row of `CONTRACT-AMENDMENT-REGISTER.md` is **NOT RE-MEASURED** on the
+shape-D axis, and so is every gate on `gate-debt.json` that has no in-run control.
+
+---
+
+## L-1204 — A RATCHET TOTAL IS NOT A LEDGER: `check-secrets-register` READ 13/12 ON TWO CONSECUTIVE DAYS WITH ZERO NAMES IN COMMON 🔴 OPEN — logged 2026-08-19 (lane REG1)
+
+`CONTRACT-AMENDMENT-REGISTER.md` §4 recorded *"13/12 is unchanged from 2026-08-18 — nobody fixed the
+three undeclared vars."* **That was the wrong reading of a right number.**
+
+```
+npx tsx tools/ga-gate/check-secrets-register.ts   # RC=3 (2026-08-19)
+  -> [3] RATCHET EXCEEDED — 13 finding(s) against a declared level of 12
+  2026-08-18 named: PRYZM_PUBLISHER_TOKEN · SHARD · WORKER_CONCURRENCY
+  2026-08-19 names: API_GATEWAY_PORT · BAKE_PORT · MARKETPLACE_PORT · NSHARDS ·
+                    OTEL_RESOURCE_ATTRIBUTES · PNPM_HOME
+  DRIFT — docs/04-reference/SECRETS-REGISTER.md is STALE
+```
+
+**None of yesterday's three appears today.** The count held at 13 while the *membership* turned over
+completely: findings were paid and new ones minted, and the total sat still and reported
+tranquillity.
+
+⭐ **A ratchet total is not a ledger.** Two lanes can pay three findings and mint six, and a
+shrink-only integer reports "unchanged". This is register §9's *15 → 22 → 24* lesson with the count
+held **constant** instead of drifting — the same defect, harder to see, because a moving number
+invites a re-measurement and a still one does not.
+
+**RULE:** *do not quote a ratchet total without its membership.* Applies equally to the two gates
+landed under L-1202: `check-contract-cited-paths` prints its top findings on every run, and
+`--list` prints all 491, precisely so the membership is recoverable from the total.
+
+**ALSO OPEN, and routed rather than absorbed:** `check-otel-spans` Zone B moved **54/70 → 55/71**
+against a baseline of 52, and the third failing file —
+`packages/command-registry/src/handrails/CreateHandrailRunOnSlabCommand.ts` — arrived from the live
+C95 handrail lane while this register was being re-measured. ⛔ The disposition is **one OTel span in
+that file**, never a baseline of 53. Zone C moved 1788/2040 → **1818/2071**.
+
+---
+
+## L-1202 — THE ISOLATION AUDIT HAD **TWO** UNSATISFIABLE COUNTERS, NOT ONE; LINEWORK HAS **NO** ARM AT ALL; AND THE 3D-LINEWORK PROBE IS SHIPPED BEFORE THE FIX 🟡 PART-FIXED 2026-08-19 (lane UND1) · commit `bd15d644`
+
+Two findings under one row because they are one suspicion applied twice.
+
+### PART 1 — THE GENERALISATION HOLDS. THE SECOND DEAD COUNTER WAS IN THE NEXT ARM ALONG.
+
+L-1197 found `scene.underlay` keying on a marker only the audit's own test suites ever
+produce. Asking *"can this condition EVER be true?"* of **every** counter in the file —
+rather than only the one that had just failed — found the next one immediately:
+
+| counter | what the audit looked for | what production actually stamps | verdict |
+|---|---|---|---|
+| `scene.underlay` | `name.startsWith('FloorPlanUnderlay')` · `isFloorPlanUnderlay` | `FloorPlanUnderlayTool.ts:114` — `{ id, type:'floor_plan_underlay', isUnderlay:true }`, **no `name`** | **DEAD** → fixed L-1197 |
+| `scene.ifc` | `isIfcGroup` · `isIFCModel` · `ifcModelId` | `IfcGeometryRenderer.ts:66` — `{ modelId, name, source:'ifc-import' }` | **DEAD** → fixed here |
+| `scene.dxf` | `isDxfOverlay` · `dxfId` | `DxfGeometryBuilder.ts:52` — `isDxfOverlay: true` | **live** (the positive control) |
+
+`modelId`, not `ifcModelId`. **The rest of the app reads the real key** — `initScene.ts:1247`,
+`PlanViewManager.ts:858`, `SectionViewService.ts:168` and `EdgeProjectorService.ts:2151` all
+match `userData.source === 'ifc-import'`. Only the audit invented its own vocabulary.
+
+**This one matters more than the underlay.** `importedIfcGroups` (`initUI.ts:1029`) is a
+session `Map` with **no declared project scope**, so an IFC model imported in project A
+survives into project B. The surface most likely to hold residue was the surface that could
+not report it.
+
+**Fixed:** counted at the model **ROOT only** (`source:'ifc-import'` is stamped on the group
+*and* on every mesh inside it — an unscoped match would report thousands and bury every other
+finding; per-element leaks belong to the element-id arm), and only when the root does not name
+the loaded project. `initUI` stamps the owner at import via `resolveActiveProjectId` — the same
+canonical resolver `mountedDrawingScope` uses, not a second copy.
+
+**Rule written down so this does not recur a third time: C13 §7.4** — a detector's fixture MUST
+be copied from the PRODUCER with a `file:line` citation, never written to match the detector;
+every detector suite MUST carry a POSITIVE CONTROL; a stamp present on every child MUST be
+scoped to the root; and the question is asked of *every* counter, not the one that failed.
+
+### ⭐ THE ARM THAT IS STILL MISSING — recorded, not faked (C13 §7.5)
+
+**Linework (`LineSegments` / `Line`) is reached by NO `findings` arm.**
+
+- the element-id arm needs `userData.id` **and** a type — linework carries neither;
+- `summariseSceneCoverage` *does* classify a `LineSegments` scene ROOT as `linework` — but that
+  is the **coverage clause**, not a finding. `detectLeaks` returns `null`, and the console
+  prints **`✓ loaded clean`** with the warning merely appended;
+- the ONE exception is the mounted `TechnicalDrawing`, and only because `views.mountedDrawing`
+  registers a **declared probe** that stamps the owning project at mount time
+  (`mountedDrawingScope.ts`) — an arm, not a sweep.
+
+**A scene full of foreign linework still reports clean.** Not closed here: the repair is a
+linework finding arm with real attribution, or a declared probe per linework producer on the
+`views.mountedDrawing` model.
+
+### PART 2 — THE 3D LINEWORK PROBE (founder: *"Please review the LINES COMING TO 3D VIEW"*)
+
+Black rectangular outlines lying flat on the façade around the ground-floor openings, in the
+3D perspective view, plus stray black segments.
+
+**Static reading KILLED two of the four rival causes and could NOT separate the rest:**
+
+| hypothesis | verdict | evidence |
+|---|---|---|
+| (b) the `_mountDrawing` TechnicalDrawing | ✗ **KILLED** | `_activate3DView` calls `_unmountDrawing()` (`ViewController.ts:1565`); `deactivate()` disables `DOCUMENTATION_LAYER` on the camera (`:2413`); and the founder's own log shows the elevation ran through `PlanViewManager`, whose branch prints *"TechnicalDrawing NOT mounted to 3D scene (Canvas2D only)"* and **returns before `scene.add`**. Nothing was mounted to unmount. |
+| plan SYMBOL builders | ✗ **KILLED** | `WindowPlanSymbolBuilder` / `DoorPlanSymbolBuilder` inject into the **TechnicalDrawing**, never into `world.scene.three`. |
+| (c) `WallEdges` / `SlabEdges` overlays | ⚠ **OPEN** | Both builders create their lines `visible = false` (`WallEdgeOverlayBuilder.ts:143`, `SlabFragmentBuilder.ts:1634`) and `WallEdgeVisibilityService.setVisible(isPlanMode)` turns them off on every non-plan `view-activated`. **On paper they cannot be visible in 3D.** The founder is looking at them anyway — which is exactly the moment a written invariant must not be trusted. NB `'3d'` mode is `0x333333`, which reads black. |
+| (a) created AFTER the last `view-activated` | ⚠ **OPEN** | `initScene.ts` re-applies the floor-hatch (`:838`) and room-fill (`:894`) gates on element rebuild events **precisely because "the builder always creates it visible"**. The EDGE gate (`:699–709`) has **no such re-apply**. |
+| (d) cross-project residue | ⚠ **OPEN** | Would show a `projectId` mismatch — but no linework producer stamps one, which is Part 1's missing arm. |
+
+**Picking between the survivors on plausibility is exactly what
+[[inset-collapse-was-the-depth-rootcause]] cost** — two rival theories both "confirmed", both
+wrong. So this commit ships **identity, not a guess**.
+
+`apps/editor/src/engine/lineworkProbe.ts` censuses every line-bearing object on each 3D entry —
+type · elementType · role · id · projectId · viewId · colour · depthTest · renderOrder · layer
+mask · effective visibility · parent chain — and **DIFFS against the FIRST 3D entry of the
+session**.
+
+⭐ **That diff is the one measurement that separates the survivors:** a class present in the
+baseline was there from first paint (kills (a)); a class that appears only after visiting an
+elevation arrived via a view switch (confirms (a)).
+
+It never uses `instanceof` — `Line2`/`LineSegments2` extend `Mesh`, the exact trap
+`WallEdgeVisibilityService`'s own *"Doc 20 Fix"* comment records — and prints only what is
+**effectively visible**, so ~900 correctly-hidden overlays cannot bury the two rows that matter.
+`__pryzmDumpLinework()` in the console gives the full table.
+
+### ⚠ SIDE FINDING — `PLAN_SYMBOL_LAYER` IS A SUPPRESSION MECHANISM THAT CAN NEVER SUPPRESS ANYTHING
+
+Measured across the whole repo, **object-side** layer assignments are exactly four:
+
+```
+apps/editor/src/ui/site/ParcelBoundarySceneRenderer.ts:251   obj.layers.set(EDITOR_LAYER)      // 1
+apps/editor/src/engine/initScene.ts:426                      obj.layers.set(EDITOR_LAYER)      // 1
+apps/editor/src/engine/ViewController.ts:1819                child.layers.set(DOCUMENTATION_LAYER) // 5
+packages/input-host/src/SelectionManager.ts:1182             raycaster.layers.set(BIM_LAYER)   // 0
+```
+
+**Nothing, anywhere, assigns an object to `PLAN_SYMBOL_LAYER` (3)** — nor to
+`ANNOTATION_LAYER` (2). Yet `ViewController` disables layer 3 on the camera in **three** places
+(`:2288`, `:2412`, and by inheritance at `:1604`), and `_deepSceneCleanup`'s ghost sweep is
+gated on `if (!obj.layers.isEnabled(PLAN_SYMBOL_LAYER)) return;` (`:2464`) — **which can never
+be true**, so that sweep has always removed zero objects. `SceneLayers.ts` documents layer 3 as
+*"Plan-view linework (EdgeProjector + StairPlanSymbolRegistry)"* and states the flip as the
+performance win that replaced the OBC Clipper. **The constant is real; the assignment half was
+never built.** Same family as L-1197 and Part 1 above: a condition that cannot be true.
+
+**NOT changed here** — removing dead camera flips is a separate, riskier edit, and layer 3 may
+yet become the right home for the linework the probe is about to name. Recorded so the next
+lane does not read those three `disable()` calls as protection.
+
+### MEASURED
+
+- `@pryzm/core-app-model` — `ProjectIsolationAudit` **5 files / 57 tests pass**, including the
+  new `ProjectIsolationAudit.unsatisfiableCounters.test.ts` (7).
+- **Falsified:** revert BOTH detectors to their pre-fix predicates → **4 of 7 FAIL**. The 3 that
+  still pass are the DXF positive control and the two cases that are vacuously true pre-fix —
+  which is the correct signature, not a weak test.
+- root `tsc --skipLibCheck --noEmit` → **COMPILER_RC=2**, **one** error, and it is
+  `apps/editor/src/ui/geospatial/CesiumViewport.ts:4995` — lane **SITE1's UNCOMMITTED** in-flight
+  L-1203 work. **Zero errors in any file this lane touched.**
+- `eslint` on all changed files → **0**.
+
+### WHAT THIS DOES NOT DO
+
+**It does not close L-1185.** A probe is not a fix; the dump is. See L-1185's updated row.

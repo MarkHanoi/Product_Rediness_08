@@ -302,6 +302,62 @@ Also `ceiling`, `floor` and `lighting` have **no IFC reader** in
 Handrail, Plumbing, Roof, Room, Slab, Stair, Wall, WindowDoor); they vanish from IFC export with no
 refusal.
 
+#### EI-6.1 — A FIELD IS PERSISTED ONLY IF THE RESTORE PATH THAT **SHIPS** READS IT — NORMATIVE
+
+*Added 2026-08-19 (lane PERSIST1, L-1210…L-1220). Round-tripping is not a property of the
+serialiser. It is a property of the WHOLE loop, and the loop's weak half is the loader.*
+
+**THE RULE.** For every key a serialiser writes, ONE of the following must be true, and which one
+must be written down at the field:
+
+1. a restore path READS it and hands it to the create command; or
+2. it is **DERIVED** — the restore re-establishes the value from something else, and the comment
+   says **from what**; or
+3. it is a **KNOWN LOSS** carrying an **L-number**. A known loss is a defect parked with a name,
+   never "expected behaviour".
+
+**⛔ THE ENUMERATION MUST BE DERIVED, NOT REMEMBERED.** Four separate lanes fixed four instances of
+this defect in one week (slab `baseOffset`, handrail types, wall rake, curtain-wall types). Every one
+was a hand-written field list that had drifted from another hand-written field list. A fifth
+hand-written list — including a list in this contract — would rot the same way. The gate is
+`apps/editor/__tests__/persistedFieldsReachTheRestorePath.test.ts`, which DERIVES the written key set
+from each `serializeX()` object literal and the read key set from each restore block, and fails on
+any key that is on no ledger.
+
+**⛔ COUNT THE RESTORE PATHS BEFORE CLAIMING A FIX. THERE ARE THREE.**
+
+| # | path | status |
+|---|---|---|
+| 1 | `packages/persistence-client/src/loader/ProjectLoader.ts` | never built by the app |
+| 2 | `apps/editor/src/engine/persistence/ProjectLoader.ts` | LEGACY — the `else` branch |
+| 3 | `packages/command-registry/src/project/ImportProjectCommand.ts` | ⭐ **DEFAULT-ON** |
+
+`ProjectLoader._useImportCommandPath()` returns **true** unless `PRYZM_USE_IMPORT_COMMAND` is set
+falsy. **A fix proved only against path 2 has not shipped** — that is L-1210, L-1211 and L-1212, and
+it is why `L1178SlabAssemblySurvivesReload.test.ts` passed against a live defect: it hand-built
+*"exactly the payload ProjectLoader builds"* and so supplied the very payload whose absence was the
+bug. §COMMITTED-IS-NOT-REACHABLE, and *a fake built from the header cannot falsify the header*.
+
+**⛔ THE TWO AXES ARE SEPARATE AND BOTH MUST BE CHECKED.** (A) the ELEMENT INSTANCE's fields, and
+(B) the TYPE / SYSTEM-TYPE CATALOGUE. A catalogue's failure mode is its own: *a destructor with no
+constructor* — a store registered on `projectScopeRegistry` with a `clear`, full CRUD, and no save
+path, so switching project deletes every user-authored type. Recorded three times now: handrail types
+(C95 §15.7, fixed), and **still open** for `CurtainWallTypeStore` and `PhaseFilterStore` (L-1218).
+
+**⛔ A CATALOGUE RESTORE MUST BE THE INVERSE OF ITS WRITE.** Serialisers write custom types with
+`structuredClone(t)` — every field. A loader that restores a hand-written include-list is not the
+inverse and silently drops the difference (L-1214: slab `loadBearing`; and before it, wall
+`function`). Restore by **spreading the saved definition minus the NAMED derived fields**, so a new
+authored field reaches the store without anyone editing the loader. Reference implementations:
+`HandrailTypeStore` (spread minus a named exclusion), `hostedSystemTypeCodec` (ONE codec shared by
+save and load), `AnnotationSystemTypeStore` (store-owned `serialize`/`deserialize` pair).
+
+**⚠ THE L0 ZOD SCHEMAS ARE NOT THE AUTHORITY HERE, AND MUST NOT BE MADE ONE BY ASSERTION.**
+`packages/schemas/src/elements/*.ts` has **zero runtime importers** — no store and none of the four
+serialiser/loader files (L-1220). A gate derived from them would measure a document, not the product.
+The measured authority is the serialiser's emitted key set until those schemas are actually wired
+into the stores.
+
 ### EI-7 — UNDO RESTORES EVERY STORE THE EDIT WROTE
 
 A command's declared `affectedStores` MUST equal the set its execute path actually writes.

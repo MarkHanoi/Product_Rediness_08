@@ -593,7 +593,7 @@ export class ImportProjectCommand implements Command {
                     joinIntent:    (wall as {
                         joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
                     }).joinIntent,
-                    // ⭐ §PERSIST-DEFAULT-PATH (L-1198) — THE RAKE, THE PROFILE, THE
+                    // ⭐ §PERSIST-DEFAULT-PATH (L-1211) — THE RAKE, THE PROFILE, THE
                     // ASSEMBLY AND THE PER-SIDE FINISH.
                     //
                     // `serializeWall()` writes 23 keys. This payload accepted
@@ -681,7 +681,7 @@ export class ImportProjectCommand implements Command {
                     polygon:   slab.polygon,
                     holes:     slab.holes,
                     sketch:    slab.sketch,
-                    // ⭐ §PERSIST-DEFAULT-PATH (L-1197) — THE FOUNDER'S SLAB TYPES.
+                    // ⭐ §PERSIST-DEFAULT-PATH (L-1210) — THE FOUNDER'S SLAB TYPES.
                     //
                     // `serializeSlab()` writes `materialId`, `materialColor`, `baseOffset`,
                     // `layers`, `systemTypeId` and `properties`. `CreateSlabPayload` has
@@ -1132,6 +1132,32 @@ export class ImportProjectCommand implements Command {
                         baseOffset:   cw.baseOffset,
                         gridXSpacing: cw.gridXSpacing,
                         gridYSpacing: cw.gridYSpacing,
+                        // ⭐ §PERSIST-DEFAULT-PATH (L-1212) — the widest gap the derived
+                        // diff found: `serializeCurtainWall()` writes 19 keys and this
+                        // payload carried seven. The LEGACY loader
+                        // (`apps/editor/.../ProjectLoader.ts:1402-1411`) already carried
+                        // all twelve of these — which is the whole finding in one line.
+                        // Two restore paths, one of them off by default, and the fixes
+                        // went to the wrong one: a curtain wall reloaded through the
+                        // DEFAULT path lost its mullion size, its panel thickness, both
+                        // material ids, both colours, its published system type
+                        // (§FEAT-CURTAIN-WALL-TYPE-CATALOGUE / L-958), its authored grid
+                        // system, its properties and its IFC join key — and came back a
+                        // default-spaced grey grid.
+                        //
+                        // Mirrored field-for-field from the legacy arm deliberately: a
+                        // divergence between the two IS the defect, and
+                        // `persistedFieldsReachTheRestorePath.test.ts` now measures both.
+                        mullionSize:       cw.mullionSize,
+                        panelThickness:    cw.panelThickness,
+                        mullionColor:      cw.mullionColor,
+                        glazingColor:      cw.glazingColor,
+                        mullionMaterialId: cw.mullionMaterialId,
+                        glazingMaterialId: cw.glazingMaterialId,
+                        systemTypeId:      cw.systemTypeId,
+                        gridSystem:        cw.gridSystem,
+                        properties:        cw.properties,
+                        ifcGuid:           cw.ifcData?.guid,
                     });
                     const r = runSub(cmd);
                     r.success ? stats.loaded++ : recordFail(`CurtainWall ${cw.id}`, r);
@@ -1169,6 +1195,21 @@ export class ImportProjectCommand implements Command {
                         material:    b.material,
                         loadBearing: b.loadBearing,
                         fireRating:  b.fireRating,
+                        // ⭐ §PERSIST-DEFAULT-PATH (L-1213) — `serializeBeam()` writes BOTH
+                        // `material` (the legacy free-text name) and `materialId` (the
+                        // material-library key). This arm carried only the first, so a beam
+                        // reloaded through the DEFAULT path lost its library material while
+                        // the legacy arm (`apps/editor/.../ProjectLoader.ts:1513`) kept it.
+                        materialId:  b.materialId,
+                        // §PERSIST-BEAM-SUPPORTS — the support ASSIGNMENT, which is authored
+                        // data (AssignBeamSupports) and is not re-derivable from geometry:
+                        // two beams meeting a column look identical whether or not the user
+                        // declared the joint. Written by `serializeBeam()`, accepted by this
+                        // payload, and carried by NEITHER restore path until now.
+                        startSupportId:   b.startSupportId,
+                        endSupportId:     b.endSupportId,
+                        startSupportType: b.startSupportType,
+                        endSupportType:   b.endSupportType,
                     });
                     const r = runSub(cmd);
                     r.success ? stats.loaded++ : recordFail(`Beam ${b.id}`, r);

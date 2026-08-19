@@ -246,6 +246,28 @@ ifcData`.
 `apps/editor/src/engine/initTools.ts` subscriber (guard `:1714`, record `:1721-1745`) → legacy
 `slabStore` → `ProjectSerializer.ts:585-599` → `ProjectLoader.ts:952-967`.
 
+> ⚠ **CORRECTED 2026-08-19 (lane PERSIST1, L-1210) — THE LAST HOP ABOVE IS THE BRANCH THAT DOES NOT
+> SHIP.** `ProjectLoader.ts:952-967` is the **LEGACY** per-element restore. The default-on path is
+> **`packages/command-registry/src/project/ImportProjectCommand.ts`** — `ProjectLoader
+> ._useImportCommandPath()` returns `true` unless `PRYZM_USE_IMPORT_COMMAND` is set falsy, and the
+> loop this map cites is its `else` branch.
+>
+> This is not a cosmetic path correction. Until L-1210, the default path passed the slab command
+> **ten geometry fields and nothing else** — no `systemTypeId`, no `layers`, no `baseOffset`, no
+> `materialId`, no `materialColor`, no `properties` — so rows 9 (`baseOffset`), 10 (`materialId`) and
+> the whole system-type row read **CARRIED** in this table while the founder's slabs reloaded grey,
+> flat on the level and with no assembly. **The table was measuring the wrong loader.**
+>
+> ⛔ **When re-measuring any row of this map, measure BOTH paths and say which you measured.** The
+> derived gate is `apps/editor/__tests__/persistedFieldsReachTheRestorePath.test.ts`; the rule is
+> C84 **EI-6.1**.
+>
+> ⭐ Second, INDEPENDENT slab defect closed at the same time (L-1214): the custom **slab TYPE
+> catalogue** restore was a hand-written `{id, name, description, layers}` list against a serialiser
+> that writes `structuredClone(t)`, so **`loadBearing`** (§FEAT-LANDSCAPE-SLAB-TYPES, L-963) was
+> saved and silently discarded — every custom landscape assembly reloaded with its structural flag
+> UNKNOWN. The element axis and the catalogue axis fail separately and must be checked separately.
+
 | # | Field | Single arm reads | Single emits | Batch arm reads | Batch emits | initTools → legacy | Serialised | **Disposition** |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `id` | ✅ `:343` | ✅ `:359` | ✅ `:379` | ✅ `:400` | ✅ | ✅ `:587` | **CARRIED** |
