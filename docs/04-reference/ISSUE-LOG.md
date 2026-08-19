@@ -10148,3 +10148,257 @@ Recorded per C84 §6 rather than silently corrected, because the *rate* is the f
 the one C85 already reached for: **cite the `§`-tag** (`§WALL-Y-DATUM`, `§WINDOW-AUDIT-2026 C2`),
 which is greppable and survives edits, rather than the line. C86's Y-datum block had *corrected C84's
 line numbers and then rotted in exactly the same way within a day.*
+
+---
+
+## L-1060 — the raked mitre closes only while the lean is small against the wall, and the degradation is SILENT (OPEN, RK1, 2026-08-19)
+
+**Where:** `packages/geometry-wall/src/WallPipelineV2.ts:91` (`loftOffsets`), `:104`
+(`RAKE_JOINT_MAX_DRIFT_PER_M`), `:111` (the orientation-flip guard).
+**Pinned by:** `packages/geometry-wall/__tests__/RK1RakedCombinationMatrix.measure.test.ts`
+(AXIS 3 + the `L-1060` characterisation).
+
+C85 §11 #1 was closed on **one** scene — an L-corner, 80°, h = 3, L = 5 m, one neighbour. The RK1
+matrix walks the same axis to its ends, on the **plain↔plain** path that is otherwise
+FOUNDER-CONFIRMED GOOD, and finds a band rather than a property:
+
+```
+plain@20°  L=1m    base sh=3 gap=0     TOP sh=0 gap=7.142 m
+plain@20°  L=5m    base sh=3 gap=0     TOP sh=0 gap=3.142 m
+plain@20°  L=12m   base sh=3 gap=0     TOP sh=3 gap=0          ← closed again
+plain@60°  L=1m    base sh=3 gap=0     TOP sh=0 gap=0.632 m
+plain@110° L=1m    base sh=3 gap=0     TOP sh=0 gap=8.089e-3 m
+plain@80°  every L                     TOP sh=3 gap=0          ← the founder's angle
+```
+
+**The FIRST reading of this was WRONG and is recorded rather than quietly replaced (C84 §6).** It
+was written as an `it.fails` demanding the top corner CLOSE. **It must not.** At 20° with h = 3 each
+wall's top travels `3·cot 20°` = 8.24 m along **its own** plan normal, and the two normals are
+perpendicular — so at the top A occupies a band 8.24 m in +Z while B occupies one 8.24 m in −X, and
+**the two solids do not intersect up there at all.** There is no mitre to draw. Demanding one would
+have been demanding geometry that cannot exist, dressed as a defect report.
+
+**What is actually wrong is the silence, and it is two things.**
+
+1. **The loft declines and nothing says so.** `loftOffsets` returns `null` on an orientation flip
+   (`:111`) or a drift past the geometric bound (`:104`), and the build degrades to ADR-0310's
+   uniform shear — floor-exact by construction. That is an honest degradation **in the code** and an
+   invisible one **in the scene**: nothing on the built group distinguishes *"the loft solved this
+   corner"* from *"the loft gave up and you are looking at a floor-exact joint"*. Failure and
+   emptiness print alike. `_applyRakeShearToChildren` already stamps `wallGroup.userData.rakeAngleDeg`;
+   the cheap fix is a sibling stamp recording whether the joint is LOFTED or FLOOR-EXACT, so the
+   state is readable from the scene graph instead of re-derived.
+2. **Nothing relates the rake to the wall it is on.** `rakeAuthorability` checks the ANGLE against
+   `[15, 165]` and nothing else — not the height, not the length. A 15° rake on a 3 m wall leans
+   11.2 m; that is authorable on a 1 m wall and is not a building.
+
+⚠ **(2) IS A FOUNDER DECISION AND THIS LANE DOES NOT TAKE IT.** It is authoring policy, not a
+geometry bug, and it sits exactly on the founder's standing *IMPOSSIBLE vs INADVISABLE vs FINE*
+direction: a lean longer than the wall is **INADVISABLE**, not impossible, so the response should
+probably be to say so rather than to refuse. Deciding it silently would be the
+[§refusing-half-needs-its-escape-hatch](#) shape.
+
+**Not measured:** whether any real project holds a wall in this band. The founder's angle (80°) is
+sound at every length tested.
+
+---
+
+## L-1061 — a LAYERED wall with an opening rendered BOLT UPRIGHT while the store held 80°; REACHABLE through a hole in the gate meant to prevent it (GEOMETRY FIXED, GATE NOT LIFTED — decision requested, RK1, 2026-08-19)
+
+**Where:** `packages/geometry-wall/src/WallFragmentBuilder.ts` — the layered-with-openings arm, which
+returned at `:1500` and therefore never reached `_applyRakeShearToChildren` at `:2671`, the only
+call site of the shear. `packages/geometry-wall/src/LayeredWallOpeningBuilder.ts` laid its bands out
+in AUTHORED (perpendicular) units.
+
+**Measured before the fix**, through the real builder, in world space:
+`layered3+window @80°` → **lean 0.000 m** against an expected `3·cot 80°` = **0.528981 m**. The
+control is in the same test: the SAME three-layer stack with the openings removed leans **0.528981**,
+so the missing shear is attributable to the openings branch and to nothing else about layering.
+
+`rakeAuthorability`'s `layered` arm refused this combination, and **its stated reason was true, not
+folklore** — *"built by a different path … which has no shear, so the wall would render VERTICAL
+while the model said 80"*. That is the correct thing to have done in the absence of the shear, and
+`WallRake.ts`'s refusal has been honest since the day it was written.
+
+**THE FIX — the same three pieces the other body paths already use, in the same order, minting
+nothing.** `§FEAT-RAKE-LAYERED-OPENINGS`:
+
+1. **PLAN WIDTH.** The bands are laid out at `t / sin θ` via the one `rakedPlanThickness`, matching
+   `buildWallLayerBands` on the no-openings arm and `effectivePlanThickness` for the wall as a whole.
+   This is load-bearing, not cosmetic: a shear preserves PLAN width and reduces PERPENDICULAR width
+   by `sin θ`, so walking the cursor in authored units would have drawn every band `sin θ` too thin —
+   a 100 mm partition rendering as 98.5 mm at 80° and **26 mm at 15°**.
+2. **THE LEAN.** `_applyRakeShearToChildren`, with the same arguments the plain opening-bearing arm
+   uses, placed LAST so the bands, the door/window frames and the outline overlay all lean together.
+3. **THE CORNER.** The §L955-ONE-CORNER-RULE residual, read from the **same** `rakeJointCapDrift`
+   accessor the plain opening-bearing arm already consumes, interpolated linearly across the stack.
+   The interpolation is EXACT, not an approximation: the mitre plane is planar and vertical
+   (`buildMiterPrism.project()` solves in XZ and never writes `y`), so the lofted top-cap
+   displacement varies linearly between the wall's two face drifts. Without it the body would lean
+   and the joint would be floor-exact only — **L-955's defect re-created on a fourth path.**
+
+Byte-identical at 90° by construction: `rakedPlanThickness` is the identity there,
+`_applyRakeShearToChildren` returns before touching a child when `k === 0`, and the residual is
+absent when the cache has no rake.
+
+⚠ **Zero lines changed in `geometry-door` or `geometry-window`.** `DoorBuilder.ts:642` and its window
+twin read `wallData.rakeAngleDeg` and shear the leaf at its own centre height; neither consults
+`layers`, so the leaves follow a layered raked host with no change. **OP1 has nothing to reconcile.**
+
+---
+
+## L-1062 — a CURVED wall ignores its rake entirely; the refusal is honest and lifting it is a DESIGN decision, not a patch (OPEN, RK1, 2026-08-19)
+
+**Measured:** `curved @80°` → **lean 0.000 m**; `curved+window @80°` → **lean 0.000 m**.
+`rakeAuthorability` refuses both with `code: 'curved'`, and its stated reason is the real one:
+
+> *"the shear direction is the wall's plan normal, which varies along an arc, so a single shear
+> vector would produce a wall that is only correct at one station."*
+
+**That is not a missing feature, it is a different feature.** Every raked body in this subsystem is
+built by ONE affine shear — `p ↦ p + k·(p.y − yBase)·leftPerp(direction)` — and an arc has no single
+`direction`. A raked curved wall is a **conical / ruled surface**, not a sheared prism: each station
+leans along its OWN normal, so the top ring is a scaled-and-offset arc rather than a translated one.
+
+Consequences that make this a design decision rather than an implementation:
+- `WallRake`'s whole vocabulary (`rakeTopOffset`, `rakeLateralShift`) takes a single `direction`
+  vector. A per-station variant is a **second** displacement function — exactly the "fourth copy"
+  C84 EI-9 forbids unless the single authority is generalised to take a station instead of a wall.
+- `CurvedWallLayerBuilder.computeStations` already carries a per-station frame, so the machinery
+  exists; what does not exist is a decision about **what a rake on an arc MEANS** (does the top arc
+  keep the same radius, or does it grow/shrink? both are "a raked curved wall").
+- `rakeJointCapDrift` is explicitly gated `!wall.curve` (`WallFragmentBuilder.ts:2387`), so the
+  corner rule does not reach a curved wall either.
+
+⛔ **Not attempted here.** Shipping a single-vector shear on an arc would be *"correct at one
+station"* by the refusal's own words — a silently-wrong wall, which is the one outcome this
+subsystem refuses to ship. **FOUNDER DECISION REQUESTED:** is a raked curved wall a conical sweep
+(each station leans along its own normal, radius changes with height) or a swept-profile lean about
+the chord? The answer determines whether `WallRake`'s authority generalises or a second one is
+minted.
+
+---
+
+## L-1063 — four raked pins in `WallProfileNonRegressionBaseline` were asserting defects L-955 had already fixed, and they told their reader so (FIXED, RK1, 2026-08-19)
+
+`A2b`, `A3b`, and the `LEGACY-miter-raked` / `P1c-opening-raked` digests were RED on `main` and were
+being attributed to RK1's subject. They are **stale pins, and their authors left instructions for
+exactly this moment** inside the assertion messages:
+
+- **A3b** — *"the LEGACY arm does not: raked and vertical are byte-identical"*, with the message
+  *"If these now DIFFER the defect was fixed — good. Update this test to assert the shear rather
+  than deleting it, and re-capture both LEGACY baselines."* Fixed by `6e54bb5f`
+  (*"the plain LEGACY arm rendered a raked wall bolt upright — 12 lines"*).
+- **A2b** — *"a plain RAKED wall ALSO instances, losing its lean (KNOWN DEFECT, reported)"*, with the
+  message *"If this is now 0 the router learned to exclude raked walls — good. Update this test to
+  assert the exclusion rather than deleting it."* Fixed by `2449c742` (*"a raked wall leaves the
+  GPU-instanced path — the shear was unreachable"*).
+
+Both were therefore RED because the defects they pinned were **closed**, and both were updated to
+assert the fixed behaviour rather than deleted — which is what their own messages asked for, and what
+C84 §6 requires. The two digests were re-captured for the same reason: the legacy and
+opening-bearing raked bodies changed shape when the shear reached them.
+
+⚠ **This is a general hazard, not a one-off.** A pin that records a defect is correct on the day it
+is written and becomes a RED that *invites its own reversal* on the day the defect is fixed — the
+obvious way to make A2b pass again is to put the instancing defect BACK. Where a pin exists to record
+a defect, the assertion message must say what to do when it goes RED. These two did, and that is the
+only reason they were safe to touch.
+
+---
+
+## L-1064 — the `layered × openings × rake` refusal has an OFF-BY-ONE HOLE, and the founder's own wall goes through it (OPEN — decision requested, RK1, 2026-08-19)
+
+**Two thresholds that should be the same number, and are not.**
+
+| | test | file |
+|---|---|---|
+| the REFUSAL | `layers.length > 1 && openings.length > 0` | `WallRake.ts` (`rakeAuthorability`) |
+| the BODY PATH it exists to keep raked walls off | `wall.layers && wall.layers.length > 0` | `WallFragmentBuilder.ts` (the layered branch) |
+
+**A ONE-LAYER wall that hosts an opening and carries a rake is therefore fully authorable** —
+schema, store, occupancy gate, property panel and chat all admit it — **and lands on exactly the
+body path the refusal was written to protect it from.** Before the geometry fix in L-1061 that wall
+rendered bolt upright while the store held 80°: the precise outcome `rakeAuthorability`'s own text
+calls *"the one outcome this subsystem refuses to ship"*.
+
+⚠ **It is not a hypothetical wall.** `CreateWallCommand` stamps `layers` from the wall's
+WallSystemType, and a 1-layer *"Plain Wall"* is what **L-960 was reported on — the founder's own**.
+So the defect was live in production for as long as both features have existed, reachable through
+the gap in its own gate.
+
+**The geometry half is CLOSED** (L-1061, `§FEAT-RAKE-LAYERED-OPENINGS`): the path now shears, the
+bands are laid out at `t / sin θ`, and the corner consumes the same §L955-ONE-CORNER-RULE residual as
+every other body path. Measured after the fix: `layered1+window @80` leans **0.528981 m** (exactly
+`3·cot 80°`), and its L-corner against a plain raked neighbour has `baseSep = topSep = 0` — it does
+not open with height. Pinned by `§RK1-THE-REFUSAL-HAS-A-HOLE` in
+`RK1RakedCombinationMatrix.measure.test.ts`.
+
+### The DECISION that is owed, and why this lane did not take it
+
+**The refusal's stated reason is now measurably FALSE.** Its text says the layered-with-openings path
+*"has no shear, so the wall would render VERTICAL while the model said 80"*. That was true when
+written and is not true now. So the arm currently refuses a three-layer wall while admitting a
+one-layer wall **built by the same code, drawn by the same shear, joined by the same corner rule** —
+one question with two answers, which is C84 **EI-9**.
+
+⛔ **Lifting it is a one-line edit and a cross-lane event, so it is REPORTED, not taken.** It would
+ship a combination the founder has not seen, and it invalidates refusal assertions in five test files
+across three packages:
+
+- `packages/geometry-wall/__tests__/WallRake.test.ts:303`
+- `packages/geometry-wall/__tests__/RakedLayeredWallBands.measure.test.ts:340`
+- `packages/geometry-wall/__tests__/RakedHostedOpening.test.ts:188`
+- `packages/command-registry/__tests__/updateWallsRakeBatch.test.ts:81,136,171`
+- `apps/editor/src/ui/property-panel/__tests__/WallRakeProperty.spec.ts`
+
+**Three dispositions, and the middle one is the trap.** (a) Lift the arm — the geometry supports it.
+(b) Keep it and correct its reason to name the real ground. (c) Keep it with the stale reason —
+⛔ **not an option**: a refusal whose stated mechanism is false is how folklore is made, and this
+register exists because that has happened here before.
+
+**RK1's recommendation is (a)**, on the ground that the one-layer case is already shipped, already
+reachable and now measured correct — so the arm is not protecting anything, it is only making the
+behaviour depend on a layer count the author never thinks about. But it is a founder-visible change
+and the founder should confirm it on a deploy, exactly as the two combinations R-9 protects were
+confirmed.
+
+---
+
+## L-1065 — a RAKED wall is OFFERED the profile editor, and profile × rake geometry has never been built (OPEN, RK1, 2026-08-19)
+
+Measured while answering **L-1034 #4** (*"which wall shapes actually offer Edit Profile?"*).
+
+`WallProfile.profileAuthorability` has arms for **curved**, **layered (> 1)** and
+**hosted-openings** — and **no arm for the rake at all**. Read off the gate:
+
+| wall shape | Edit Profile |
+|---|---|
+| plain, vertical | **OFFERED** |
+| plain, **RAKED** | **OFFERED** |
+| CURVED | REFUSED — `curved` |
+| **CURVED + RAKED** | REFUSED — `curved` (the rake is not why) |
+| LAYERED (> 1) | REFUSED — `layered` |
+| hosting an opening | REFUSED — `hosted-openings` |
+
+So two of L-1034 #4's four cells are answered outright: **a curved wall never offers profile edit,
+raked or not.** That is a clean, stated refusal with a real reason (*"a straight profile edge is not
+straight in space … the curved builder has no per-station top"*), and it is the same architectural
+wall L-1062 hits from the rake side.
+
+⚠ **THE THIRD CELL IS THE PROBLEM. `plain + RAKED` is OFFERED and has never been measured.**
+`WallTypes.ts` states the intended composition explicitly — the profile ring's `u`/`v` are *"both
+measured in the UN-SHEARED frame, so a profile and a rake compose"* — but **no test builds a wall
+that carries both**, and this lane did not add one (it needs the slice-1 profile body path, which is
+another lane's subject). **An affordance that is OFFERED and UNVERIFIED is a worse state than one
+refused with a reason**: the refusals above at least tell the author why. This one silently promises
+a composition nobody has drawn.
+
+**Owed:** one test that authors a profile ON a raked wall and measures the built body — does the
+profile cut in the un-sheared frame and then lean, or does it cut the sheared frame? Both are
+plausible readings of the code; only one matches the comment.
+
+**Also blank, and named so it is not mistaken for measured:** whether `ContextualEditBar`'s
+**Edit Profile** button actually follows `profileAuthorability`. That is an `apps/editor` (L7)
+question; an L2 test may not import L7, and mirroring the rule into geometry-wall would be the
+C84 §8.d defect. **Somebody must measure the button where the button lives.**
