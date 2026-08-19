@@ -65,7 +65,23 @@ export interface ElementLevelChangedEventLike {
  *  their own doc comments), which is why the caller below does. */
 export interface LegacyLevelMovableStore {
     changeLevel(elementId: string, newLevelId: string): unknown;
-    getById(elementId: string): { levelId?: string } | undefined;
+    // §L-1032-ACCESSOR-WIDENING (2026-08-19) — BOTH spellings, both optional.
+    //
+    // `WallStore`/`RoofStore` spell the lookup `getById`; `FurnitureStore`,
+    // `PlumbingStore` and `LightingStore` spell it `get`. Requiring only
+    // `getById` made each of those three a TYPE ERROR the moment it was added
+    // to `LEGACY_LEVEL_MOVERS`, and the obvious workaround — minting a second
+    // accessor on three stores so they satisfy one interface — would put two
+    // names on one question in three more places (C84 EI-9). The interface is
+    // the single thing that has to widen, so it is the thing that widens.
+    //
+    // Both are OPTIONAL because this lookup is NOT load-bearing: its only
+    // consumer captures the vacated storey so one extra plan view is marked
+    // dirty, and the call site already tolerates a store that cannot answer.
+    // A store with neither accessor still MOVES — it just costs that one extra
+    // dirty level, which is the behaviour that was already there.
+    getById?(elementId: string): { levelId?: string } | undefined;
+    get?(elementId: string): { levelId?: string } | undefined;
 }
 
 export interface LevelChangeMirrorDeps {
@@ -144,14 +160,17 @@ const LEGACY_LEVEL_MOVERS: Readonly<
     // plugin store is right, and the renderer keeps its own unchanged copy.
     slab: (deps) => deps.slabStore,
     column: (deps) => deps.columnStore,
-    beam: (deps) => deps.beamStore,
     ceiling: (deps) => deps.ceilingStore,
     floor: (deps) => deps.floorStore,
-    furniture: (deps) => deps.furnitureStore,
-    lighting: (deps) => deps.lightingStore,
-    plumbing: (deps) => deps.plumbingStore,
     handrail: (deps) => deps.handrailStore,
     curtainWall: (deps) => deps.curtainWallStore,
+    // ⛔ NO ROW for beam / furniture / lighting / plumbing, DELIBERATELY (L-1087).
+    // All four HAVE a registered verb and a working legacy `changeLevel` — and
+    // all four are withheld anyway, because their fragment builders seat the
+    // mesh at an ABSOLUTE Y stamped at create time rather than at a Y re-derived
+    // from `level.elevation`. A row here would re-file the element and leave its
+    // 3-D mesh hovering at the old floor's height, silently. The evidence and
+    // the exit condition are on their `LEVEL_CHANGE_REFUSALS` rows.
 };
 
 /**
@@ -208,7 +227,10 @@ export function applyElementLevelChange(
     // event says where the element is going, never where it was.
     let previousLevelId: string | null = null;
     try {
-        previousLevelId = store.getById(elementId)?.levelId ?? null;
+        // §L-1032-ACCESSOR-WIDENING — ask whichever accessor this store has.
+        // `getById` first, so wall/roof behaviour is byte-identical to before.
+        const record = store.getById?.(elementId) ?? store.get?.(elementId);
+        previousLevelId = record?.levelId ?? null;
     } catch { /* non-fatal — a store that cannot answer just costs one extra dirty level */ }
 
     if (previousLevelId === newLevelId) {
