@@ -26,6 +26,16 @@ import { SECTION_STEPS } from './PropertyPanelTheme';
 // whose Level row was a value with no control. C84 EI-3: what the pipeline
 // accepts, the UI must offer; C84 EI-9: one authority per question.
 import { levelChangeSpecFor, levelChangeRefusalFor, buildLevelChangePayload } from '@pryzm/command-bus';
+// §L-1032 D3 — DUPLICATE-to-level is a SECOND verb, never a flag on the first:
+// it mints new ids and must not collide with the source. Same three-outcome
+// discipline as the change-level row (offer / declared refusal / silence), read
+// from its own declaration table.
+import {
+    duplicateToLevelSpecFor,
+    duplicateToLevelRefusalFor,
+    duplicateToLevel,
+    browserDuplicateToLevelDeps,
+} from '../../engine/views/plantools/duplicateToLevel';
 
 // ── Host interface ────────────────────────────────────────────────────────────
 
@@ -135,6 +145,8 @@ export function _buildSpatialSection(
 
             // §L-1032 — the storey control, for EVERY family that may have one.
             bodyEl.appendChild(_buildLevelChangeRow(elType, elementData));
+            // §L-1032 D3 — and the second verb, beside it.
+            bodyEl.appendChild(_buildDuplicateToLevelRow(elType, elementData));
         }
     );
 }
@@ -232,6 +244,115 @@ ${refusal.evidence}`;
     row.appendChild(lbl);
     row.appendChild(sel);
     wrap.appendChild(row);
+    return wrap;
+}
+
+/**
+ * §L-1032 D3 — DUPLICATE TO LEVEL. A second verb, deliberately not a flag on the
+ * first.
+ *
+ * ─── WHY IT IS A BUTTON AND THE LEVEL CHANGE IS NOT ─────────────────────────
+ * The change-level dropdown commits on `change`, because picking a storey IS the
+ * gesture and it is reversible with Ctrl+Z. A duplicate MINTS AN ELEMENT, so
+ * committing it on the same accidental scroll-wheel over a `<select>` would
+ * scatter copies through the model. The target is chosen, then confirmed.
+ *
+ * ─── AND WHY IT WORKS WHERE CHANGE-LEVEL REFUSES ────────────────────────────
+ * Per §L-1085, `<family>.changeLevel` refuses for every element in a RELOADED
+ * project: it validates existence against the plugin DTO store, which
+ * `ProjectLoader` never fills. This route is structurally immune — it reads the
+ * LEGACY store the loader does fill, and a create validates its payload rather
+ * than a prior record. So on a reopened project, duplicate works on the first
+ * gesture where change-level does not. That asymmetry is a property of the two
+ * designs, not an accident, and it is why this row exists beside the other one
+ * rather than sharing its plumbing.
+ */
+function _buildDuplicateToLevelRow(
+    elType: string,
+    elementData: Record<string, any>,
+): HTMLElement {
+    const wrap = document.createElement('div');
+
+    const spec = duplicateToLevelSpecFor(elType);
+    if (spec === null) {
+        const refusal = duplicateToLevelRefusalFor(elType);
+        // Only render a refusal the CHANGE-LEVEL row is not already making. Two
+        // greyed sentences saying almost the same thing reads as a broken panel,
+        // and the level-change refusal is the more informative of the pair.
+        if (refusal === null || levelChangeRefusalFor(elType) !== null) return wrap;
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:11px;color:#777;margin-top:6px;line-height:1.4;';
+        note.textContent = refusal.reason;
+        note.title = `${refusal.clause}
+${refusal.evidence}`;
+        wrap.appendChild(note);
+        return wrap;
+    }
+
+    if (!elementData.id) return wrap;
+    const bimManager = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.scene.renderer / runtime.tools
+    const allLevels: any[] = bimManager?.getLevels?.() ?? [];
+    if (allLevels.length <= 1) return wrap; // one storey — nowhere to duplicate to.
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;';
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:11px;color:#555;min-width:110px;';
+    lbl.textContent = 'Duplicate to';
+
+    const sel = document.createElement('select');
+    sel.style.cssText = 'flex:1;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:4px;background:#fff;';
+    allLevels.forEach((lvl: any) => {
+        const opt = document.createElement('option');
+        opt.value = lvl.id;
+        opt.textContent = `${lvl.name} (${lvl.elevation}m)`;
+        // Default to a storey the element is NOT already on, so the first click
+        // does something. Falling back to the current level is fine — a duplicate
+        // onto the same storey is a legitimate ask, just not the useful default.
+        if (lvl.id !== elementData.levelId) opt.selected = true;
+        sel.appendChild(opt);
+    });
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Duplicate';
+    btn.style.cssText = 'font-size:11px;padding:3px 10px;border:1px solid #6600FF;border-radius:4px;background:#6600FF;color:#fff;cursor:pointer;';
+
+    const status = document.createElement('div');
+    status.style.cssText = 'font-size:11px;margin-top:4px;line-height:1.4;';
+
+    btn.addEventListener('click', () => {
+        // C16 CA-21 — REPORT WHAT THE ROUTE ACTUALLY DID, never a bare "Done".
+        // `duplicateToLevel` returns a discriminated outcome whose `false` arm
+        // always carries a `reason`; a chat or a panel that prints success over a
+        // refusal is the L-995…L-998 shape, and this is the surface where the
+        // user would never find out.
+        let outcome;
+        try {
+            outcome = duplicateToLevel(
+                { elementType: elType, sourceId: String(elementData.id), targetLevelId: sel.value },
+                browserDuplicateToLevelDeps(),
+            );
+        } catch (e) {
+            status.style.color = '#b00020';
+            status.textContent = `Duplicate failed: ${String(e)}`;
+            return;
+        }
+        if (outcome.ok) {
+            const lvl = allLevels.find((l: any) => l.id === sel.value);
+            status.style.color = '#2e7d32';
+            status.textContent = `Duplicated to ${lvl?.name ?? sel.value}.`;
+        } else {
+            status.style.color = '#b00020';
+            status.textContent = outcome.reason;
+        }
+    });
+
+    row.appendChild(lbl);
+    row.appendChild(sel);
+    row.appendChild(btn);
+    wrap.appendChild(row);
+    wrap.appendChild(status);
     return wrap;
 }
 

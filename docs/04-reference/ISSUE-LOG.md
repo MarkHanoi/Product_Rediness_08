@@ -11373,3 +11373,101 @@ why C76 §8 records it as **N1**, at the top of the NOT-MEASURED register.
 list, **or** an artefact generates the resolved symbol set so it can be diffed release to release.
 
 **Status: OPEN.**
+
+## L-1087 — a level change moves storey ASSIGNMENT but not 3-D HEIGHT for four families, and the register asserted the opposite (PARTIALLY CLOSED — register corrected + control withheld; the height channel is built, the four stores are OWED)
+
+**Measured 2026-08-19 by lane EL1 while building L-1032.** Two defects, and the second is the
+worse one.
+
+### The measurement
+
+| | families | evidence |
+|---|---|---|
+| **worldY DERIVED from `level.elevation`** — height follows a storey change for free | wall · slab · roof · column · ceiling · floor · handrail · curtain-wall | `WallFragmentBuilder.ts:728` · `SlabFragmentBuilder.ts:726` · `ColumnFragmentBuilder.ts:208` · `CeilingPanelBuilder.ts:192` · `FloorPanelBuilder.ts:93,126` · `HandrailFragmentBuilder.ts:237-238` · `CurtainWallBuilder.ts:1092` |
+| **ABSOLUTE Y stamped at create** — height does NOT follow | **beam · furniture · lighting · plumbing** | `BeamFragmentBuilder.ts:405` (`root.position.set(centre…)`, and the file contains **no `getLevelById` at all**) · `furnitureElevation.ts:33-35` (`furnitureWorldY(floorY, mountOffset) = floorY + mountOffset`, `floorY = data.position.y`) · `PlumbingFragmentBuilder.ts:88` (`root.position.copy(data.position)`) · `LightingFragmentBuilder.ts` |
+
+For those four, a level change re-files the element, moves it onto the destination plan and exports
+it under the new IFC storey — **while the 3-D mesh goes on hovering at the old floor's height.**
+Nothing reports a failure. A chair on Level 2, floating under its own floor.
+
+### The worse defect: the register asserted the opposite
+
+`packages/command-bus/src/levelChangeVerbs.ts` — written by this same lane — stated as a repo-wide
+property: *"Every renderer derives `worldY` from `level.elevation` at build time, so a family
+without this field is not missing anything."* It was **generalised from the three builders the
+author had read**, not measured across the twelve.
+
+**A register that asserts the opposite of the behaviour is worse than the missing behaviour**,
+because it forecloses the next reader's measurement — they will read the sentence instead of the
+builder. This is §fake-more-capable-than-real inverted, and §confident-register-rows-are-the-wrong-ones
+exactly: the row justified by prose was the wrong one.
+
+### What was done
+
+1. **The claim was corrected first, before any code** — it is free, and an honest register is
+   immediately available to everyone.
+2. **Every retained row carries `heightFollowsLevel: true` + `heightEvidence` (a `file:line`).** The
+   field is typed **`true`-only on purpose**: it cannot be satisfied by writing `false`, so the next
+   family added must ANSWER the question rather than inherit the assumption that just failed.
+3. **The four are WITHHELD, not shipped.** They have a registered verb, a working legacy
+   `changeLevel` and a passing undo route — and the panel does not offer them. They sit in
+   `LEVEL_CHANGE_REFUSALS` with `disposition: 'deferred'`, the measured evidence and the exit
+   condition. Their `LEGACY_LEVEL_MOVERS` rows and `initTools` deps were removed so the tables still
+   agree. *"A refusal is a correct answer; a silently-wrong wall is not"* (`WallRake.ts:50-62`).
+4. **The height channel is BUILT** so the four can be earned back:
+   `changeLevel(id, newLevelId, opts?: { newElevation, previousElevation })` — `opts` OPTIONAL, so
+   the eight correct families and the two-argument undo call are untouched. Both numbers are
+   resolved **from the level authority at BOTH ends** — `elementLevelChangedMirror` forward,
+   `elementUndoStoreAdapter`'s §L-946 arm inverse — and **never carried in a command payload**,
+   because an elevation in a payload is a second copy of a number the level store owns, and
+   L-1010/L-1012 is what happens when a Y from the wrong space is latched as the model Y.
+   **Neither resolver defaults a missing elevation to 0** — zero is a REAL elevation (the ground
+   floor), so a fabricated one moves an element to the wrong height instead of refusing.
+
+### ⏳ STILL OWED — the four stores
+
+`BeamStore`, `FurnitureStore`, `LightingStore`, `PlumbingStore` must accept `opts`, **refuse
+(return `undefined`) when either elevation is missing rather than half-moving**, and otherwise
+re-seat by the **DELTA** (`position.y += new − previous`) so an element's mount offset above its
+floor is preserved — assigning `position.y = newElevation` would slam a 2 m-high wall light to the
+floor. Then the four rows move back into `LEVEL_CHANGE_VERBS` with `heightFollowsLevel: true`.
+
+**Also owed at the same write:** `FurnitureData.levelName` / `levelElevation` and
+`PlumbingFixtureData.levelName` / `levelElevation` are **denormalised copies of the level record**
+that go stale on this move. Nothing spatial reads them today, but they are forwarded into mesh
+`userData` (`FurnitureFragmentBuilder.ts:104-105`, `PlumbingFragmentBuilder.ts:32-33`), so they are
+visible, and *"the record now disagrees with itself"* is a defect with a delay fuse. Either refresh
+them in the same write or delete them as duplicates — **not left stale.**
+
+---
+
+## L-1088 — two byte-identical LightingStore implementations, and the live one has now diverged (OPEN — DECLARED, deliberately not merged)
+
+**Measured 2026-08-19 by lane EL1.**
+
+`packages/core-app-model/src/stores/LightingStore.ts` and
+`packages/geometry-lighting/src/LightingStore.ts` are **byte-identical apart from three
+`F.events.17` vs `.18` comment digits**. Their `LightingTypes.ts` siblings **differ**. Production
+reaches the `@pryzm/geometry-lighting` pair — `initBuilders.ts:102` (import), `:864-865`
+(`new LightingStore()` → `window.lightingStore`).
+
+L-1032 added `changeLevel` to the **live** copy only. That is the right call and the wrong end
+state: **the dead copy now lags, and the divergence is one commit wider than it was this morning.**
+
+⛔ **DELIBERATELY NOT MERGED OR DELETED.** [C84 §3.5](../02-decisions/contracts/C84-ELEMENT-INTEGRITY.md)
+requires **all four reachability axes** before a deletion, and only one (the editor import path) was
+run here. Lane HR1 hit the same shape today with three byte-identical handrail snapshot
+implementations and **declared and pinned** them rather than merging silently — that was correct and
+this follows it. A deletion on one axis of evidence is how a live consumer gets removed.
+
+**What is owed:** run all four axes; if clean, **propose** the deletion rather than taking it. Until
+then the pair is declared here so a future reader does not add a feature to the dead copy — the
+mistake this entry exists to prevent.
+
+**A second, separate lighting finding, recorded so it is not lost:** `LightingStore.update()` emits
+only the legacy `_bus` event `bim-lighting-updated` and **never `storeEventBus`**, while every other
+geometry store dual-emits (`FurnitureStore.ts:23-24`, `PlumbingStore.ts:11-12`,
+`RoofStore.ts:87-88`). `ViewDependencyTracker._onStoreEvent` resolves storey from the semantic bus,
+so **no lighting mutation of any kind currently dirties a plan view through that path.** Being
+fixed under its own RED-first commit, separately from any level-change change, because adding the
+emit inside `update()` flips a repo-wide silence into repo-wide traffic for every existing caller.
