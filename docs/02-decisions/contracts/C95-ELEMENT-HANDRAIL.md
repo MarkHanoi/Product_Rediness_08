@@ -1141,7 +1141,7 @@ pattern rather than a handrail-shaped second one (C84 EI-9).
 whether custom handrail types are **saved and reloaded** is **NOT MEASURED** and is the same hop
 §15.5 warns about.
 
-> ### ⛔⛔ **NOW MEASURED — 2026-08-19 (lane HR4). THE ANSWER IS NO, AND IT IS WORSE THAN "not saved".**
+> ### ✅ **MEASURED, THEN FIXED — 2026-08-19 (lane HR4).** The answer WAS no, and worse than "not saved". The persistence leg now EXISTS.
 >
 > §15.7 asked whether custom handrail types are saved and reloaded. **They are not, and
 > the store is actively CLEARED on project switch with nothing having saved it.**
@@ -1150,8 +1150,8 @@ whether custom handrail types are **saved and reloaded** is **NOT MEASURED** and
 > |---|---|
 > | `handrailTypeStore.add/update/remove` | ✅ exist, built-in-protected |
 > | `projectScopeRegistry.register({ scopeName: 'handrailTypeStore', clear: … })` | ✅ registered — **`clearCustomTypes()`** |
-> | `ProjectSerializer` — handrail **TYPE** field | ⛔ **NONE.** It serialises handrail *records* (`serializeHandrailRecord`, L-1102) and no type catalogue |
-> | `ProjectLoader` — handrail type restore | ⛔ **ZERO** occurrences of `handrailType` in the whole file |
+> | `ProjectSerializer` — handrail **TYPE** field | ⛔ was **NONE** in BOTH copies → ✅ emits `handrailTypes` from `handrailTypeStore.getCustom()` |
+> | `ProjectLoader` — handrail type restore | ⛔ was **ZERO** occurrences in BOTH copies → ✅ a restore arm that PRESERVES the id |
 >
 > ⭐ **SO THE PROJECT-SCOPE REGISTRATION IS A DESTRUCTOR WITH NO MATCHING CONSTRUCTOR.**
 > On project switch every custom handrail type is deleted, and no save path ever wrote
@@ -1177,6 +1177,44 @@ whether custom handrail types are **saved and reloaded** is **NOT MEASURED** and
 > true?* For "my custom railing type is still here after reload" the answer today is
 > **no, for every user, in every order of operations** — the same shape as By Slab, found
 > the same way, and found this time BEFORE the feature was built rather than after.
+>
+> ### ✅ **WHAT LANDED (commit `e800b3b7`), AND WHAT STILL HAS NOT**
+>
+> **LANDED — the persistence leg, at ALL FOUR SITES.** ⛔ There are **TWO** persistence
+> pairs (§3.2). Patching one would have let a custom railing type survive on one save
+> path and vanish on the other — **L-1102's defect one level up** — so both pairs carry
+> it and the round-trip harness asserts all four by name.
+> * both serializers emit `handrailTypes` from `handrailTypeStore.getCustom()` — the
+>   store's OWN built-in filter, so it cannot drift from `isBuiltIn`. Optional on the
+>   snapshot, so older files load unchanged (C47 §1.2, additive).
+> * both loaders restore it, guarded by `getById(raw.id)` — **load-bearing**, because
+>   `HandrailTypeStore.add()` THROWS on a duplicate id.
+>
+> **TWO DELIBERATE DIVERGENCES from the wall arm that was copied**, both stated in code:
+> 1. ⭐ **the id is PRESERVED.** `wallSystemTypeStore.add({name, description, layers})`
+>    does not pass the saved id, so a restored wall type returns under a NEW one.
+>    `HandrailTypeStore.add()` takes the whole definition including the id. *A loader
+>    that re-mints ids restores a type nothing points at, which is indistinguishable
+>    from not restoring it* (C84 EI-1).
+> 2. ⛔ **`isBuiltIn` is STRIPPED**, never copied from the snapshot — one claiming
+>    `isBuiltIn: true` for a user type would make it permanently unremovable and
+>    unmodifiable, since `remove()`/`update()` both refuse on built-ins. Asserted with a
+>    deliberately hostile snapshot.
+>
+> **PROVEN** by 6 new cases in the EXISTING `handrailPersistenceRoundTrip.test.ts` (no
+> second harness): author → serialise → the real JSON boundary → the project-switch WIPE
+> → restore → **read back from the authoritative store** (C16 CA-21, never a return
+> value), including a key-set sweep rather than a field list (L-1037) and an
+> unknown-future-field case proving neither side carries a whitelist.
+> ⚠ **NOT executed:** a real `ProjectSerializer.serialize()` needs a ~20-store bundle,
+> so the four SITES are asserted by source — the same bar as the record round trip
+> beside it, not a lower one.
+>
+> ⛔ **STILL NOT DONE — R3 IS NOT CLOSED.** The AUTHORING UI does not exist: the
+> `ElementTypeAuthoringRegistry`-gated duplicate/new flow reusing
+> `appendTypeAuthoringOptions` / `handleFinishTypeAuthoring`. What is closed is the
+> **blocker underneath it**, in the order this section now records as normative —
+> persistence FIRST, so the UI can never ship a type that vanishes.
 **MUST**: duplicating copies the source type's fields **including** `materialId` and the infill
 members, or it reproduces L-983's half-application on a new surface.
 
@@ -1479,7 +1517,7 @@ Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the bl
 | **R2** | creation UI | ✅ **LANDED — plan AND 3-D** (L-1106 closed, §15.13, measured 2026-08-19) |
 | **R5** | post spacing | ⛔ **the end-condition DECISION** (§15.3) — implementable the moment it is made |
 | **R6** | infill panels | ⚠ **TWO blockers now.** (1) the persistence hop is still unmeasured (§13 item 9) — start without it and it inherits C87's exact failure; (2) ⛔ **NEW, measured 2026-08-19:** a circular run already allocates **93 distinct materials**, and the neighbouring family lost the WebGPU device at ~100 (§15.5) |
-| **R3** | type authoring | ⛔ **ANSWERED 2026-08-19, and it is NO** (§15.7): there is no handrail-type save/load leg at all, while `projectScopeRegistry` already WIPES custom types on project switch — a destructor with no constructor. **Persistence MUST land before the UI**; copy the four existing `ProjectSerializer`/`ProjectLoader` arms |
+| **R3** | type authoring | ✅ **persistence LANDED 2026-08-19** at all FOUR sites, id-preserving, round-trip proven (§15.7). ⛔ **The authoring UI is still the open half** — `ElementTypeAuthoringRegistry`-gated duplicate / new |
 | **R8** | slab edge | Case A implementable now; **Case B refuses by name** until the wall-occupancy query exists |
 | **R4** | rake / curve | ⛔ **the conical-vs-radius DECISION** (§15.4) + the `HandrailRunGeometry` wire-or-delete decision (§11 row 25) |
 
