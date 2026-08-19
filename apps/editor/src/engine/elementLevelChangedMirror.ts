@@ -63,8 +63,50 @@ export interface ElementLevelChangedEventLike {
  *  `@pryzm/geometry-wall`'s `WallStore` and `@pryzm/geometry-roof`'s `RoofStore`
  *  expose exactly this; neither updates spatial registration (both say so in
  *  their own doc comments), which is why the caller below does. */
+/**
+ * §L-1087 — the destination and source storey ELEVATIONS, resolved by the caller
+ * and handed DOWN as plain numbers.
+ *
+ * Eight of the twelve movable families need neither: their fragment builders
+ * re-derive `worldY` from `bimManager.getLevelById(levelId).elevation` on every
+ * rebuild, so for them the storey change IS the height change and these fields
+ * are ignored. Four (beam, furniture, lighting, plumbing) seat the mesh at an
+ * ABSOLUTE Y stamped into the record at create time and cannot move without a
+ * delta.
+ *
+ * ─── WHY THE NUMBERS COME FROM HERE AND NOT FROM THE STORE ──────────────────
+ * Those four stores hold no level table, and giving them one to solve this would
+ * be `§DIAG-WALL-LEVEL` in a new place — a store that can reach for an elevation
+ * can reach for the WRONG one, and a silent default files elements on the ground
+ * floor. Data flows down: this module already holds the level authority
+ * (`deps.bimManager`), so it resolves both numbers and the store receives values
+ * it cannot misresolve.
+ *
+ * ─── AND WHY THEY ARE NOT IN THE COMMAND PAYLOAD ────────────────────────────
+ * An elevation carried through a bus payload is a second copy of a number the
+ * level store already owns, and §L-1010/L-1012 is what happens when a Y from the
+ * wrong space gets latched as the model Y. Resolving at BOTH ends from the one
+ * authority — here on the forward path, and in `elementUndoStoreAdapter`'s
+ * §L-946 arm on the inverse — keeps one answer to one question (C84 EI-9).
+ */
+export interface LevelChangeElevations {
+    readonly newElevation?: number;
+    readonly previousElevation?: number;
+}
+
+/** A legacy store that can re-storey one of its records. */
 export interface LegacyLevelMovableStore {
-    changeLevel(elementId: string, newLevelId: string): unknown;
+    /**
+     * Move the record to `newLevelId`.
+     *
+     * `opts` is OPTIONAL so the eight height-derived families keep the
+     * two-argument form unchanged. A store that NEEDS the elevations and does
+     * not receive them MUST return `undefined` rather than moving the storey and
+     * silently leaving the height behind — a half-move is the
+     * failure-and-emptiness aliasing this whole issue is about, and the caller
+     * below turns an `undefined` into a NAMED refusal in the log.
+     */
+    changeLevel(elementId: string, newLevelId: string, opts?: LevelChangeElevations): unknown;
     // §L-1032-ACCESSOR-WIDENING (2026-08-19) — BOTH spellings, both optional.
     //
     // `WallStore`/`RoofStore` spell the lookup `getById`; `FurnitureStore`,
@@ -127,6 +169,10 @@ export interface LevelChangeMirrorDeps {
     } | null;
     readonly bimManager?: {
         registerElement(elementId: string, levelId: string): void;
+        /** §L-1087 — THE level authority. Optional so existing callers and the
+         *  suite's stand-ins keep compiling; a `bimManager` that cannot answer
+         *  simply means the four height-dependent families refuse, loudly. */
+        getLevelById?(levelId: string): { elevation?: number } | undefined;
     } | null;
 }
 
@@ -237,13 +283,39 @@ export function applyElementLevelChange(
         return { applied: false, reason: `already on level "${newLevelId}"` };
     }
 
+    // ── §L-1087: resolve BOTH storey elevations from the level authority ─────
+    // Read here, not in the store, and never from the command payload — see
+    // `LevelChangeElevations`. `undefined` is passed through as `undefined`; it is
+    // NOT defaulted to 0, because 0 is a real elevation (the ground floor) and a
+    // fabricated one would move an element to the wrong height rather than refuse.
+    const _elevationOf = (levelId: string | null): number | undefined => {
+        if (levelId === null || levelId.length === 0) return undefined;
+        try {
+            const e = deps.bimManager?.getLevelById?.(levelId)?.elevation;
+            return typeof e === 'number' && Number.isFinite(e) ? e : undefined;
+        } catch { return undefined; }
+    };
+    const elevations: LevelChangeElevations = {
+        newElevation: _elevationOf(newLevelId),
+        previousElevation: _elevationOf(previousLevelId),
+    };
+
     // ── 1. the legacy record — this is the one the renderer reads ────────────
     try {
-        const moved = store.changeLevel(elementId, newLevelId);
+        const moved = store.changeLevel(elementId, newLevelId, elevations);
         if (moved === undefined || moved === null) {
+            // Two different causes, deliberately reported as one NAMED refusal
+            // rather than as silence: either there is no such record, or this
+            // family needs the storey elevations and they could not be resolved
+            // (no level authority, or the level has no elevation). Both leave the
+            // record untouched, which is the correct outcome — a storey move that
+            // could not carry the height must not happen at all.
             return {
                 applied: false,
-                reason: `legacy ${kind} store has no record "${elementId}" — nothing to move`,
+                reason:
+                    `legacy ${kind} store refused the move of "${elementId}" — either no such record, ` +
+                    `or this family needs the storey elevations and they could not be resolved ` +
+                    `(previous=${String(elevations.previousElevation)}, new=${String(elevations.newElevation)})`,
             };
         }
     } catch (err) {

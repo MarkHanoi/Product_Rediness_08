@@ -1285,6 +1285,29 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // only because `SlabStore.changeLevel` now exists; the plugin DTO
             // store does not and cannot.
             slabStore,
+            // §L-1032 — the remaining nine families that carry ONE independent
+            // storey. Every one of these is the LEGACY store (C84 EI-1 THE
+            // AUTHORITY for its family), and `tsc` is what proves it: the deps
+            // are typed structurally as `LegacyLevelMovableStore`, which
+            // REQUIRES `changeLevel`, and no plugin DTO store has one. A cast
+            // here would make the wiring un-checkable in exactly the place the
+            // bug lived — so there is deliberately not one.
+            //
+            // Absent ON PURPOSE, each with its deciding clause recorded in
+            // `LEVEL_CHANGE_REFUSALS` (`@pryzm/command-bus`): door/window
+            // (hosted — C15 §2), room (derived from wall topology), grid
+            // (project-wide), annotation + dimension (view-scoped), stair + lift
+            // (they span TWO storeys, so a single-target move is ambiguous by
+            // construction), pool (no legacy store exists) — and beam, furniture,
+            // lighting and plumbing, whose verbs and store moves ARE built but
+            // whose 3-D height does not follow the storey (L-1087). Passing those
+            // four here would re-file the element and leave its mesh hovering at
+            // the old floor's height, silently.
+            columnStore: columnStoreInstance,
+            ceilingStore,
+            floorStore,
+            handrailStore,
+            curtainWallStore: curtainWallStoreInstance,
             viewDependencyTracker,
             bimManager,
         });

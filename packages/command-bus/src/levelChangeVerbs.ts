@@ -78,12 +78,23 @@ export interface LevelChangeVerbSpec {
      *
      * Only `wall.changeLevel` has one, and it is NOT a datum the mirror uses:
      * the wall handler rebases `baseLine.y` so the L0 schema's "endpoints share
-     * the same y" refine stays satisfied. Every renderer derives `worldY` from
-     * `level.elevation` at build time, so a family without this field is not
-     * missing anything. Do not add one "for symmetry" — an elevation carried in
-     * a payload is a second copy of a number the level store already owns, and
+     * the same y" refine stays satisfied.
+     *
+     * ⚠ **CORRECTED 2026-08-19, BEFORE SHIPPING.** This comment previously read
+     * *"Every renderer derives `worldY` from `level.elevation` at build time, so
+     * a family without this field is not missing anything."* **That is FALSE for
+     * four of the twelve families**, and it was written from the wall/slab/roof
+     * builders rather than measured across all of them — the §fake-more-capable
+     * -than-real shape, inverted: a claim generalised from the three cases that
+     * happen to satisfy it. See `heightFollowsLevel` below for the measurement
+     * and for what the four cost.
+     *
+     * Do not add an `elevationField` "for symmetry" — an elevation carried in a
+     * payload is a second copy of a number the level store already owns, and
      * §L-1010/L-1012 is what happens when a view-space Y gets latched as a model
-     * Y.
+     * Y. The fix for the four is to resolve `level.elevation` **from the level
+     * authority at both ends** (forward mirror and undo adapter both already
+     * hold a `bimManager` handle), never to ship the number through a payload.
      */
     readonly elevationField?: string;
     /**
@@ -93,6 +104,29 @@ export interface LevelChangeVerbSpec {
      * `userData` spells its type two ways lists both. Lower-case.
      */
     readonly panelTypes: readonly string[];
+    /**
+     * MEASURED 2026-08-19: does the element's **3-D height** follow the storey
+     * change, or only its storey ASSIGNMENT?
+     *
+     * A family whose fragment builder re-derives `worldY` from
+     * `bimManager.getLevelById(levelId).elevation` moves in 3-D for free — the
+     * storey change IS the height change. A family whose builder seats the mesh
+     * at an **absolute Y stamped into the record at create time** does not: the
+     * element is re-filed on the new storey, appears on the new plan, exports
+     * under the new storey in IFC — and goes on hovering at the OLD floor's
+     * height in the 3-D view.
+     *
+     * **Every row in this table has `true`.** The four families measured `false`
+     * are in `LEVEL_CHANGE_REFUSALS` with `disposition: 'deferred'` instead,
+     * because a control that silently produces a wrong height is worse than no
+     * control: *"A refusal is a correct answer; a silently-wrong wall is not"*
+     * (`WallRake.ts:50-62`, the sentence C84 is built on). The field is kept on
+     * the interface anyway so the next family added must ANSWER the question
+     * rather than inherit an assumption.
+     */
+    readonly heightFollowsLevel: true;
+    /** `file:line` of the builder line that settles `heightFollowsLevel`. */
+    readonly heightEvidence: string;
 }
 
 /**
@@ -107,6 +141,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         levelField: 'newLevelId',
         elevationField: 'newElevationY',
         panelTypes: ['wall'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-wall/src/WallFragmentBuilder.ts:728 - worldY derived from level.elevation',
     },
     'roof.changeLevel': {
         kind: 'roof',
@@ -114,6 +150,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'roofId',
         levelField: 'levelId',
         panelTypes: ['roof'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-roof/src/RoofStore.ts:145-147 - RoofFragmentBuilder._updateRoofSync re-derives worldY = getLevelById(levelId).elevation + baseOffset on EVERY update',
     },
     // §L-1032 — the founder's named case. `slabStore.changeLevel` is the
     // dedicated move (`packages/geometry-slab/src/SlabStore.ts`); `SlabStore.update`
@@ -124,6 +162,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'slabId',
         levelField: 'levelId',
         panelTypes: ['slab'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-slab/src/SlabFragmentBuilder.ts:726 - topY = level.elevation + baseOffset',
     },
     'column.changeLevel': {
         kind: 'column',
@@ -131,13 +171,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'columnId',
         levelField: 'levelId',
         panelTypes: ['column'],
-    },
-    'beam.changeLevel': {
-        kind: 'beam',
-        verb: 'beam.changeLevel',
-        idField: 'beamId',
-        levelField: 'levelId',
-        panelTypes: ['beam'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-column/src/ColumnFragmentBuilder.ts:208 - this.bimManager.getLevelById(column.levelId)',
     },
     'ceiling.changeLevel': {
         kind: 'ceiling',
@@ -145,6 +180,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'ceilingId',
         levelField: 'levelId',
         panelTypes: ['ceiling'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-slab/src/ceiling/CeilingPanelBuilder.ts:192 - this._bimManager?.getLevelById(ceiling.levelId)',
     },
     'floor.changeLevel': {
         kind: 'floor',
@@ -152,27 +189,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'floorId',
         levelField: 'levelId',
         panelTypes: ['floor'],
-    },
-    'furniture.changeLevel': {
-        kind: 'furniture',
-        verb: 'furniture.changeLevel',
-        idField: 'furnitureId',
-        levelField: 'levelId',
-        panelTypes: ['furniture'],
-    },
-    'lighting.changeLevel': {
-        kind: 'lighting',
-        verb: 'lighting.changeLevel',
-        idField: 'lightingId',
-        levelField: 'levelId',
-        panelTypes: ['lighting'],
-    },
-    'plumbing.changeLevel': {
-        kind: 'plumbing',
-        verb: 'plumbing.changeLevel',
-        idField: 'plumbingId',
-        levelField: 'levelId',
-        panelTypes: ['plumbing'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-slab/src/floor/FloorPanelBuilder.ts:93,126 - top face at FFL = level.elevation + boundary.baseOffset',
     },
     'handrail.changeLevel': {
         kind: 'handrail',
@@ -180,6 +198,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         idField: 'handrailId',
         levelField: 'levelId',
         panelTypes: ['handrail'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts:237-238 - const level = bimManager.getLevelById(levelId); elevation = level.elevation',
     },
     'curtainWall.changeLevel': {
         kind: 'curtainWall',
@@ -190,6 +210,8 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         // 'curtainwall'; the mesh also stamps the parts separately, and a part is
         // NOT independently movable — only the assembly is listed.
         panelTypes: ['curtainwall'],
+        heightFollowsLevel: true,
+        heightEvidence: 'packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:1092 - worldY = level.elevation + cw.baseOffset',
     },
 } as const;
 
@@ -285,6 +307,67 @@ export const LEVEL_CHANGE_REFUSALS: Readonly<Record<string, LevelChangeRefusal>>
         reason: 'A lift spans a range of storeys. Which end a "change level" should move is not decided yet, so the control is withheld rather than guessing.',
         clause: 'C16 CA-18',
         evidence: 'packages/geometry-lift/src/LiftTypes.ts:54-57 — `levelId`, `baseLevelId`, `topLevelId`',
+        disposition: 'deferred',
+    },
+    // ── DEFERRED — THE VERB AND THE STORE MOVE ARE BUILT AND CORRECT; THE 3-D ──
+    //    HEIGHT DOES NOT FOLLOW, SO THE CONTROL IS WITHHELD (L-1087).
+    //
+    // These four have a registered bus verb, a legacy `changeLevel`, and a
+    // passing undo route. They are NOT offered anyway, and the reason is the
+    // whole point of this table.
+    //
+    // MEASURED 2026-08-19: their fragment builders seat the mesh at an ABSOLUTE
+    // Y stamped into the record at create time, not at a Y re-derived from
+    // `level.elevation`. So a storey change re-files the element, moves it onto
+    // the new plan and exports it under the new IFC storey — while the 3-D mesh
+    // goes on hovering at the OLD floor's height. Nothing reports a failure.
+    //
+    // That is a SILENTLY-WRONG element, and it is the one outcome this repo's
+    // governing sentence forbids: *"A refusal is a correct answer; a
+    // silently-wrong wall is not"* (`WallRake.ts:50-62`). Offering the dropdown
+    // would have satisfied the letter of the founder's request and produced a
+    // chair floating under its own floor.
+    //
+    // ⚠ DO NOT "FIX" THIS BY ADDING AN `elevationField` TO THE PAYLOAD. The
+    // destination elevation is a number the LEVEL STORE already owns; shipping a
+    // copy of it through a command payload is the second-copy defect, and
+    // §L-1010/L-1012 is what happens when a Y from the wrong space gets latched
+    // as the model Y. THE EXIT: resolve `level.elevation` from `bimManager` at
+    // BOTH ends — `elementLevelChangedMirror` on the forward path and
+    // `elementUndoStoreAdapter`'s §L-946 arm on the inverse, both of which
+    // already hold a `bimManager` handle — and re-seat `position.y` there. Then
+    // move these four rows back into `LEVEL_CHANGE_VERBS` with
+    // `heightFollowsLevel: true` and the new evidence.
+    beam: {
+        kind: 'beam',
+        panelTypes: ['beam'],
+        reason: 'Moving a beam between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
+        clause: 'C16 CA-18 · C84 EI-3 (an affordance without an implementation behind it is the defect, not the feature)',
+        evidence: 'packages/geometry-beam/src/BeamFragmentBuilder.ts:405 — `root.position.set(centre.x, centre.y, centre.z)` from the baseLine’s absolute Y; the file contains NO `getLevelById` call at all',
+        disposition: 'deferred',
+    },
+    furniture: {
+        kind: 'furniture',
+        panelTypes: ['furniture'],
+        reason: 'Moving furniture between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
+        clause: 'C16 CA-18 · C84 EI-3',
+        evidence: 'packages/geometry-furniture/src/furnitureElevation.ts:33-35 — `furnitureWorldY(floorY, mountOffset) = floorY + mountOffset`, where `floorY` is `data.position.y`, an absolute stored value (`FurnitureFragmentBuilder.ts:150,279`)',
+        disposition: 'deferred',
+    },
+    lighting: {
+        kind: 'lighting',
+        panelTypes: ['lighting'],
+        reason: 'Moving a light between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
+        clause: 'C16 CA-18 · C84 EI-3',
+        evidence: 'packages/geometry-lighting/src/LightingFragmentBuilder.ts — seats the group at the record’s absolute position; no `getLevelById` in the file. Lighting has a SECOND blocker too: `LightingStore.update` emits only the legacy `_bus`, never `storeEventBus`, so no semantic subscriber sees a lighting mutation at all',
+        disposition: 'deferred',
+    },
+    plumbing: {
+        kind: 'plumbing',
+        panelTypes: ['plumbing'],
+        reason: 'Moving a plumbing fixture between storeys is not connected yet — it would be re-filed on the new level but stay at its current height.',
+        clause: 'C16 CA-18 · C84 EI-3',
+        evidence: 'packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts:88 — `root.position.copy(data.position)`, the record’s absolute position; no `getLevelById` in the file',
         disposition: 'deferred',
     },
     pool: {

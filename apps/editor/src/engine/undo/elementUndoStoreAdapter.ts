@@ -93,6 +93,9 @@ import {
 interface BimManagerLike {
   registerElement?(id: string, levelId: string): void;
   unregisterElement?(id: string): void;
+  /** §L-1087 — THE level authority, used to resolve the two storey elevations a
+   *  height-dependent family needs in order to REVERSE a storey move. */
+  getLevelById?(levelId: string): { elevation?: number } | undefined;
 }
 function _bim(): BimManagerLike | undefined {
   if (typeof window === 'undefined') return undefined;   // headless / unit-test env
@@ -239,7 +242,17 @@ export interface LegacyElementStoreLike {
    *  reverted through this. The throw is why the pre-L-946 failure was
    *  invisible: it landed in the per-patch try/catch below as one console.error
    *  while the keypress reported success. */
-  changeLevel?(id: string, newLevelId: string): unknown;
+  changeLevel?(
+    id: string,
+    newLevelId: string,
+    /** §L-1087 — see `elementLevelChangedMirror.LevelChangeElevations`. Optional:
+     *  the eight families whose builders re-derive `worldY` from
+     *  `level.elevation` ignore it entirely. The four that seat at an ABSOLUTE Y
+     *  REFUSE without it rather than reverting the storey and leaving the height
+     *  behind — an undo that restores half of what the edit wrote is a C84 EI-7
+     *  breach wearing the costume of a fix. */
+    opts?: { newElevation?: number; previousElevation?: number },
+  ): unknown;
 }
 
 /** A single Immer-reconstructed patch op (RFC-6902 subset). */
@@ -511,7 +524,34 @@ export function elementUndoStoreAdapter(
                 console.warn('[elementUndoStoreAdapter] §L-946 skip levelId revert — patch carries no target level for', id);
                 continue;
               }
-              store.changeLevel(id, target);
+              // §L-1087 — THE INVERSE MUST CARRY THE HEIGHT BACK TOO (C84 EI-7:
+              // undo restores EVERY store the edit wrote, and for four families
+              // the height is part of what it wrote).
+              //
+              // Both numbers are resolved HERE, from the same level authority the
+              // forward mirror uses, and are never read out of the patch: a patch
+              // records `levelId`, and an elevation smuggled alongside it would be
+              // a second copy of a number the level store owns — stale the moment
+              // someone edits a storey's height. Resolving at both ends keeps one
+              // answer to one question (C84 EI-9).
+              //
+              // `previous` here is the storey the element is on RIGHT NOW, i.e.
+              // the one the forward move put it on; `target` is where it came
+              // from. The delta is therefore the exact negation of the forward
+              // delta, which is what makes the round trip land on the original Y.
+              const _bimNow = _bim();
+              const _elev = (lvl: string | null | undefined): number | undefined => {
+                if (lvl == null || lvl.length === 0) return undefined;
+                try {
+                  const e = _bimNow?.getLevelById?.(lvl)?.elevation;
+                  return typeof e === 'number' && Number.isFinite(e) ? e : undefined;
+                } catch { return undefined; }
+              };
+              const _currentLevelId = (_getValue(store, id) as { levelId?: string } | undefined)?.levelId;
+              store.changeLevel(id, target, {
+                previousElevation: _elev(_currentLevelId),
+                newElevation: _elev(target),
+              });
               try { _bim()?.registerElement?.(id, target); } catch (err) { console.warn('[elementUndoStoreAdapter] §L-946 bimManager.registerElement failed:', err); }
               try { _vdt()?.registerElement?.(id, target); } catch (err) { console.warn('[elementUndoStoreAdapter] §L-946 vdt.registerElement failed:', err); }
               continue;

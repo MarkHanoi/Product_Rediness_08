@@ -68,6 +68,31 @@ export class BeamStore {
         return this.beams.get(id);
     }
 
+    /**
+     * §L-1032 — `getById` alias, matching every other legacy element store.
+     *
+     * This store spelled its single-record read `get`, while `WallStore`,
+     * `RoofStore`, `SlabStore`, `ColumnStore` and `CurtainWallStore` all spell it
+     * `getById`. That divergence is not cosmetic: the level-change mirror's
+     * `LegacyLevelMovableStore` (`apps/editor/src/engine/elementLevelChangedMirror.ts`)
+     * declares `{ changeLevel, getById }` and its deps are typed with it **rather
+     * than cast**, deliberately, so `tsc` is what proves the bridge is handed the
+     * LEGACY store and not the plugin DTO store — a cast there would have made
+     * the wiring un-checkable in exactly the place L-946's bug lived.
+     *
+     * So beam was the one family that could not satisfy the interface, for a
+     * reason that had nothing to do with beams. The alias is the smaller repair:
+     * widening the interface to `getById | get` would weaken the proof for all
+     * twelve families to accommodate one store's naming.
+     *
+     * Returns the same reference `get()` does — same immutability contract, no
+     * extra allocation. `get()` is kept; this is an addition, not a rename, so
+     * no existing caller changes.
+     */
+    getById(id: string): BeamData | undefined {
+        return this.beams.get(id);
+    }
+
     getAll(): BeamData[] {
         return Array.from(this.beams.values());
     }
