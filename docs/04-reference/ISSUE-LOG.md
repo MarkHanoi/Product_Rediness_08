@@ -16467,3 +16467,203 @@ round-trip persistence cannot see is that **a row can be added to the panel and 
 all**. Negative controls assert the pre-write value differs, so a no-op cannot pass. The existing
 `handrailPersistenceRoundTrip` harness is used as-is and deliberately not duplicated. 19/19 green;
 root tsc RC=0.
+
+---
+
+## L-1197 — "PLAN + SITE" ATTACHED AN IMAGE TO EVERY VIEW. THE UNDERLAY HAD NO VIEW SCOPE AT ALL — AND THE ISOLATION AUDIT'S UNDERLAY DETECTOR WAS UNSATISFIABLE ✅ FIXED 2026-08-19 (lane UND1) · commit `72d9d45f`
+
+**Reported (production).** *"I clicked on **Plan Site** — this is corrupted. It's sort of
+attached an IMAGE of the plan view, then ALL views are corrupted — **even my 3D view has this
+image attached**."* Follow-up: *"Just noticed that what it does is to IMPORT AN ATTACHMENT
+IMAGE — this is NOT WHAT WE WANT."*
+
+### PHASE 0 — (a) wrong handler, (b) deliberate-but-unwanted, or (c) side effect? **It is (b).**
+
+Traced end to end; the pill is **not** mis-wired, so there is no C84 EI-3 breach here:
+
+| step | file:line | what |
+|---|---|---|
+| the pill | `apps/editor/src/ui/layout/GISAreaLayout.ts:4575` | `planBtn.textContent = '▦ Plan + Site'` — launcher rail slot `planGis` (C06 §7) |
+| its click | `GISAreaLayout.ts:4588` | `void window.pryzmEnterPlanViewGis?.()` |
+| the global | `GISAreaLayout.ts:4494` | `= () => { void enterPlanViewGis(); }` |
+| the handler | `GISAreaLayout.ts:4430` | `activateView('Top')`, then… |
+| the raster | `GISAreaLayout.ts:4456` | `buildSiteGisContextRaster()` — ESRI World Imagery tiles → canvas → data URL |
+| the placement | `GISAreaLayout.ts:4465` | `createPlanCanvasUnderlayFromSiteOverlay(...)` — **the user-import underlay pipeline** |
+
+§FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) deliberately routes the aerial through the L-71 import
+pipeline. That is why the founder got an **Import Manager `PDF/Image · Site GIS context` row**
+with an eye/lock/ban/trash and a **"Reference Scale (3 points)"** button — a calibration gesture
+that is meaningless for an already-georeferenced raster.
+
+**The 893 × 893 px / 2.2 px-per-metre tell does NOT confirm "rasterising data we hold in
+vector form."** That is ESRI's own imagery resolution at the chosen web-Mercator zoom for a
+400 m extent (`chooseGisZoom` + `webMercatorResolution`). It is aerial photography, which has
+no vector form. **Reported, not fixed** — see "still open" below.
+
+### THE DEFECT — wrong under every reading of (a)/(b)/(c), and fixed here
+
+⭐ **The underlay had no view scope, and nothing anywhere read one.**
+`FloorPlanUnderlayTool.create()` (`packages/input-host/src/FloorPlanUnderlayTool.ts:114–131`)
+does `this.scene.add(mesh)` on the **shared** THREE scene and stamps
+`{ id, type:'floor_plan_underlay', isUnderlay:true, isNonBIM:true, … }`. **No `viewId`. No
+`viewScope`.** Grep `isUnderlay|floor_plan_underlay` repo-wide → property panel, contextual
+edit bar, `ElementCapabilities`, `UnderlayReferenceRotateTool`. **Nothing filters an underlay
+by view.** `ImportManagerPanel.ts:14–18` states the model outright: the eye *"hides the import
+across **every** view type"*.
+
+**So "the site image should only show in the view that owns it" was never a false condition —
+it was an UNSATISFIABLE one.** The field it would have been true of did not exist. This is
+another member of that family this week ([[unsatisfiable-gate-decomposition-is-the-fix]]).
+
+### FOURTH RECURRENCE OF ONE SHAPE
+
+`initScene.ts` already gates three THREE 2-D documentation overlays out of the 3-D model view
+on the same `view-activated` event: the **floor tile hatch** (`:813`, A.21.D34), the **room
+fill overlay** (`:871`, recurrence 2) and the **parcel boundary fill** (`:935`, A.21.D44). Each
+was hand-copied. The import underlay is the fourth member and was simply never included.
+
+### THE FIX
+
+`apps/editor/src/engine/underlayViewScope.ts` (new) — **one authority, many readers**
+(ADR-0336 / C09 §4.7 shape, deliberately not a fourth copy-paste). `userData.viewScope:
+'plan' | 'all'`; the decision is the pure `underlayVisibleInViewMode(scope, viewMode)`;
+`mesh.visible` becomes **computed**: `userIntent AND scopeAllows(activeViewMode)`.
+`enterPlanViewGis` now passes `viewScope: 'plan'`. Rule documented at **C06 §11**.
+
+**The default is `'all'`, and that is deliberate and narrow.** L-258 records an explicit
+founder success criterion — *"3D BIM canvas + SPLIT VIEW + the imported plan visible as an
+underlay in BOTH panes"*. Defaulting every underlay to plan-only would regress it. A traced
+site plan is not an aerial basemap; only the machine-generated one is scoped.
+**Founder decision wanted:** should a user-imported PDF *also* stop appearing in 3D? One line
+if yes (`DEFAULT_UNDERLAY_VIEW_SCOPE`), but it overturns L-258, so this lane did not take it.
+
+### SECOND HALF — THE AUDIT COULD NOT SEE THIS LEAK, FOR A DIFFERENT REASON THAN L-1185 PREDICTED
+
+L-1185 predicted the blind spot would be `ProjectIsolationAudit.ts:126`'s `if (idKnown && …)`
+element-id gate. **It was not.** The audit has a *dedicated* underlay surface, and it was dead:
+
+```
+ProjectIsolationAudit.ts:553   name.startsWith('FloorPlanUnderlay') || ud.isFloorPlanUnderlay
+```
+
+Grep both across the repo: **the only producers are this file's own two test suites, which
+PLANT them.** The real mesh sets **no `name`** and **no `isFloorPlanUnderlay`**. `underlayCount`
+**could never be non-zero in production** — a green light wired to a bulb never installed, with
+tests passing against a shape production does not emit ([[fake-more-capable-than-real]]).
+
+Fixed: the detector now recognises the real shape (`isUnderlay` / `type === 'floor_plan_underlay'`)
+and counts it **only when FOREIGN** — no `userData.projectId` matching the loaded project.
+`UnderlayPersistence.restoreUnderlayForProject` stamps the owner, so a project's own restored
+underlay is not reported. The two planted legacy shapes keep their unconditional reading, so no
+existing assertion moves.
+
+### ALSO FIXED — persistence was saving the wrong `visible`
+
+`UnderlayPersistence` saved `visible: mesh.visible`. `mesh.visible` is now computed, so saving
+it would persist **"hidden"** for any plan-scoped underlay saved while the user stood in 3-D,
+and it would return hidden with the Import Manager eye showing OFF. It now saves the user's
+intent — which is what the field always meant.
+
+### RELATION TO L-1185 — SAME FAMILY, DIFFERENT ROOT. Two rows, deliberately.
+
+L-1185 is *view-owned **linework** (mounted drawings at `ViewController.ts:1822`, projected
+edges) reaching the shared scene AND surviving a project switch* — an **isolation** defect about
+`LineSegments`. L-1197 is *a view-owned **raster** with no scope concept at all* — a **scoping**
+defect about a `Mesh`, within a single project. They share the FAMILY ("view-owned visual
+content in the shared scene") and they share the consequence (the audit could not see either),
+but the fix for one does not fix the other. **L-1185 remains OPEN.**
+
+### MEASURED
+
+- `apps/editor` `__tests__/underlayViewScope.test.ts` — **7 pass**. Falsified by stubbing the
+  decision to "always visible" (pre-fix behaviour) → **5 of 7 FAIL**, including *"hidden when
+  the 3D view activates"*.
+- `apps/editor` createSiteOverlayUnderlay + importManagerPersistence + new — **18 pass**.
+- `@pryzm/core-app-model` — **103 files / 998 tests pass**.
+- root `tsc --skipLibCheck --noEmit` — **COMPILER_RC=0**.
+
+### STILL OPEN (reported, not taken by this lane)
+
+1. **Should "Plan + Site" create an IMPORT at all?** The Import Manager row is also the only
+   off switch, so it was not removed unilaterally (the same sole-route caution as L-1187).
+   The honest split is *system context layer* ≠ *user import*; that is a product decision.
+2. **Live vector context instead of a baked raster.** PRYZM already holds parcel + neighbour
+   footprints as vectors. Whether "Plan + Site" should draw those rather than an aerial photo
+   is a product question — the aerial is not a precision loss, but it is not the same thing.
+3. **Per-view ownership (`viewId`) is unbuilt** — a project with two plan views shows the
+   underlay in both. C06 §11.5.
+4. **No CI gate counts overlay creators against C06 §11.1.** A fifth overlay that forgets to
+   declare a scope inherits `'all'` and leaks silently, exactly as this one did.
+5. **The other five pills in the floating site stack were not audited by this lane.** Lane CHR1
+   found the same controls rendered by TWO surfaces (`GISRailPanel.ts`, no importer outside
+   itself; `ProjectBrowserPanel.ts`, three GIS actions wired to no-op defaults). The founder is
+   clicking the **`GISAreaLayout` launcher-rail pills** — that is the surface traced above and
+   the one this fix changes.
+
+---
+
+## L-1198 — ~145 HANDRAILS PER PROJECT LOAD HAVE NO RESOLVABLE MATERIAL. THE HONESTY PATH WORKS; SOME CREATION ROUTE PRODUCES RAILS WITH NO MATERIAL AT ALL 🔴 OPEN — logged 2026-08-19 (lane UND1, log-only) · **fix owned by lane HR5**
+
+Founder's production console, on project load:
+
+```
+[HandrailFragmentBuilder] §C100-HANDRAIL-MATERIAL-ID handrail <id> has NO RESOLVABLE MATERIAL
+— no materialId and no colour override. Falling back to #cccccc; the colour on screen is NOT
+this element's material.
+```
+
+× **~145**, one per handrail (the builder dedupes per rail via `_unresolvedReported`, so this is
+145 *rails*, not 145 members).
+
+**Source:** `packages/geometry-handrail/src/HandrailFragmentBuilder.ts:181–186`, inside
+`resolveColour`. **This is C100 §5 behaving exactly as designed** — it forbids a SILENT grey
+fallback because that would make *"the material was deleted"*, *"the id is stale"* and *"this
+rail names no material"* the same pixel. The warning is the contract working.
+
+**The defect is upstream:** some creation route emits `HandrailData` with **neither
+`materialId` nor `materialColor`**, at scale. Candidates to check (not measured by this lane):
+the stair/balustrade auto-generation path, the apartment/house generators, and project restore.
+
+**Logged because it was logged NOWHERE.** Lane RN2 grepped `§C100-HANDRAIL-MATERIAL-ID` in this
+issue log → **0 hits**. A defect that fires 145 times on every load and appears in no register
+is one nobody has decided about. `packages/core-app-model/src/stores/handrailTypeMaterialC100.test.ts`
+asserts the 20 built-in railing types DO reference a material, so the built-ins are not the
+source — which narrows it.
+
+**Not fixed here:** lane HR5 owns the handrail family (property panel, `input-host`,
+`SelectionManager`, `PickResolver`, and the material question). This row exists so it is not lost.
+
+---
+
+## L-1199 — CLASH DETECTION IS DEAD IN PRODUCTION: `registerClashRun` THROWS AT BOOT WITH `i.has is not a function`, AND EVERY CLASH VERB SILENTLY DEGRADES TO REFUSING 🔴 OPEN — logged 2026-08-19 (lane UND1, log-only)
+
+Founder's production console, at boot:
+
+```
+[EngineBootstrap] GE-06: registerClashRun failed (non-fatal) — clash-run falls back to
+REFUSING: i.has is not a function
+```
+
+**Source:** `apps/editor/src/engine/engineLauncher.ts:712–728`. The `catch` sets
+`checkedClashPairs = []` and carries on **by design** — GE-06's rationale is that a failed
+registration must not leave `clash-run` *silently absent*, so the refusal pass claims the id and
+the verb still answers honestly. **That half is working.** The consequence is not benign:
+
+- `roofWallClash` — a real, oracle-tested roof-vs-walls-beneath detector, live since `83c82c02`
+  — is **not reachable by any user verb in production**. GE-06 existed precisely to close that
+  ("its ONLY consumer was the level-reconcile announcer: no verb a user could invoke reached
+  it"). **The registration that was supposed to close it throws.**
+- All twelve clash verbs therefore tell the user *"this build has no clash engine"* — which
+  GE-06's own comment calls "now false in the opposite direction", and which is true again.
+
+**`i.has is not a function` is a MINIFIED name**, so the throw is from bundled production code,
+not a local dev path — one reason it has not been caught. `i` is being called as a `Set`/`Map`;
+`registerClashRun`'s argument shape (`levelIds`, `roofsOnLevel`, `wallsOnLevel`,
+`levelElevation` — all *functions* here) and `@pryzm/command-bus`'s expectations are the place
+to look. `apps/editor/__tests__/RoofWallClashVerbReach.test.ts` exercises `registerClashRun`
+**14 times and passes**, so the fake and production disagree about the argument shape — the
+[[fake-more-capable-than-real]] signature again.
+
+**Not fixed here** (out of this lane's scope). Logged because it appears in no register and
+because "non-fatal" in the log line is about the boot sequence, not about the capability:
+**clash detection does not work for any user.**

@@ -614,3 +614,87 @@ bracketed at both edges.
   future third phase would need the latch replaced by the full derivation, not another
   exception bolted onto it.
 - **The HIDE rows of §10.5 still run their subscriptions while hidden** (L-1025).
+
+---
+
+## §11 — Import underlays are VIEW-SCOPED
+
+> **Added 2026-08-19 · L-1197 · normative.** Founder, production: *"I clicked on Plan
+> Site — this is corrupted. It's sort of attached an IMAGE of the plan view, then ALL
+> views are corrupted — even my 3D view has this image attached."*
+
+An **import underlay** is the raster plane `FloorPlanUnderlayTool` adds to the shared
+THREE scene: a scanned PDF/JPG floor plan, or the machine-generated aerial basemap the
+`▦ Plan + Site` launcher (§7, slot `planGis`) composites from ESRI World Imagery. It is
+explicitly **not** a BIM element — `isNonBIM: true`, never in an ElementStore, never on
+the store event bus (C04 §3.1 Tool Layer). It is therefore **outside** C09 §4.7, which
+governs visibility INTENT over BIM elements; do not conflate the two mechanisms.
+
+### §11.1 — Every underlay declares a view scope
+
+`userData.viewScope: 'plan' | 'all'`.
+
+- `'plan'` — renders only in plan-family views (`Top`, `Ceiling`, `ceiling-plan`,
+  `Ground Floor`). **A view that cannot be classified is NOT a plan view**: a scoped
+  underlay fails CLOSED, so an unknown mode hides it rather than leaking it.
+- `'all'` — renders everywhere. This is the DEFAULT for an absent scope, and the default
+  is load-bearing: L-258 records the founder's success criterion for the traced site-plan
+  flow as *"3D BIM canvas + SPLIT VIEW + the imported plan visible as an underlay in BOTH
+  panes"*. Scoping every underlay to plan-only would regress it.
+
+**A machine-generated context raster MUST declare `'plan'`.** It is a plan-drawing
+basemap; in a perspective 3-D view a 400 m photographic plane lying through the model is
+not context, it is an artefact.
+
+### §11.2 — One authority, many readers
+
+The decision is the pure function `underlayVisibleInViewMode(scope, viewMode)` in
+`apps/editor/src/engine/underlayViewScope.ts`. Readers subscribe; nobody re-derives it.
+
+`mesh.visible` for an underlay is **COMPUTED**, never authored directly:
+
+```
+mesh.visible  =  userIntent (the Import Manager eye)  AND  scopeAllows(activeViewMode)
+```
+
+Binding consequences:
+
+1. A view switch MUST NOT resurrect an import the user hid. The two questions are
+   separate and are AND-ed, never collapsed.
+2. Persistence MUST save the **user's intent**, not the computed `mesh.visible`. Saving
+   the computed value persists "hidden" for any plan-scoped underlay that happened to be
+   saved while the user stood in 3-D, and it returns hidden with the eye showing OFF.
+3. The scope MUST be stamped **before** `pryzm-floor-plan-underlay-placed` is emitted, on
+   both the create path and the per-project restore path, so a scoped underlay never
+   renders for a frame in a view that does not own it.
+
+### §11.3 — This is the FOURTH member of one family
+
+`initScene.ts` already gates three THREE 2-D documentation overlays out of the 3-D model
+view on the same `view-activated` event — the floor tile hatch (A.21.D34), the room fill
+overlay (A.21.D34 recurrence 2) and the parcel boundary fill (A.21.D44). Each was
+hand-copied. The import underlay is the fourth and was simply never included.
+
+**New 2-D documentation overlay ⇒ declare its view scope at creation.** The next one MUST
+join this authority rather than adding a fifth `view-activated` listener of its own.
+
+### §11.4 — Attribution: an underlay must name its project
+
+`ProjectIsolationAudit` detects a foreign underlay by `userData.projectId`. An underlay
+restored for a project MUST stamp it. Before L-1197 the audit's underlay detector keyed on
+`name.startsWith('FloorPlanUnderlay')` and `userData.isFloorPlanUnderlay` — **neither of
+which any production code has ever set**; the only producers in the repo were the audit's
+own tests, which planted them. The surface could not report a leak it was written to catch.
+**A detector whose shape is produced only by its own tests is not a detector** (C13).
+
+### §11.5 — Open cells (recorded, not assumed closed)
+
+- **`'plan'` vs `'all'` is the whole vocabulary.** There is no *"this underlay belongs to
+  THIS ONE plan view"* — a project with two plan views shows the underlay in both. Per-view
+  ownership (a `viewId`) is unbuilt.
+- **The Import Manager still presents the machine-generated GIS basemap as a user import**
+  — a `PDF/Image` row with a 3-point Reference Scale control that is meaningless for a
+  georeferenced raster. It is left in place because that row is also the only off switch;
+  splitting "system context layer" from "user import" is a product decision, not a fix.
+- **No CI gate counts overlay creators against §11.1.** A new overlay that forgets to
+  declare a scope inherits `'all'` and leaks silently, exactly as this one did.
