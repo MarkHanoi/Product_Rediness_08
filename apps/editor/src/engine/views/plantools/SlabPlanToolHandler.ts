@@ -517,6 +517,14 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             parcelBoundary = null;
         }
         return assembleRegionBoundary({
+            // §REGION-LEVEL-SCOPE (L-1192) — the storey this PLAN VIEW shows, which is
+            // the storey the slab will be created on (`_commitSlab` reads the same
+            // field). Reading it from the ViewDefinition rather than from a global
+            // active-level is what makes the search and the commit provably the same
+            // storey — the C84 EI-9 property this gesture has now lost three times.
+            // `undefined` here disables scoping rather than guessing a level; the
+            // refusal then says so out loud.
+            activeLevelId: this._ctx?.viewDef.spatial?.levelId ?? null,
             walls: (window.wallStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
             slabs: (window.slabStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
             // §FEAT-REGION-CURTAIN-WALL (L-1125) — a curtain wall encloses space, so it

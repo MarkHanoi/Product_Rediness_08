@@ -1546,6 +1546,12 @@ export class SlabTool {
             }
         })();
         const { segments, counts } = assembleRegionBoundary({
+            // §REGION-LEVEL-SCOPE (L-1192) — the same storey `commitRegionSlab` stamps
+            // on the new slab (`projectContext.activeLevelId`), so the graph searched
+            // and the plate created cannot describe different storeys. Kept identical
+            // to the plan surface's scoping, because L-1126 was this exact pair of
+            // surfaces searching two different worlds.
+            activeLevelId: projectContext.activeLevelId ?? null,
             walls: this.wallStore.getAll() as never,
             slabs: (slabStore?.getAll?.() ?? []) as never,
             // §FEAT-REGION-CURTAIN-WALL (L-1125) — glazing encloses space, so it bounds

@@ -59,6 +59,8 @@ export interface RegionSlabLike {
     id?: string;
     position?: { x: number; y: number; z: number } | null;
     polygon?: ReadonlyArray<{ x: number; y: number }> | null;
+    /** §REGION-LEVEL-SCOPE (L-1192) — the storey this slab sits on. Absent = UNKNOWN. */
+    levelId?: string | null;
 }
 
 /**
@@ -80,10 +82,114 @@ export interface RegionSlabLike {
 export interface RegionCurtainWallLike {
     id?: string;
     baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+    /** §REGION-LEVEL-SCOPE (L-1192) — the storey this glazing sits on. Absent = UNKNOWN. */
+    levelId?: string | null;
+}
+
+/**
+ * §REGION-LEVEL-SCOPE (L-1192) — A WALL ON ANOTHER STOREY IS NOT A WEAKER
+ * CANDIDATE FOR A REGION BOUNDARY. IT IS A WRONG ONE.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE DEFECT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * The founder, drawing a region slab on Level 3 of a four-storey project, got:
+ *
+ *     region traced: 0 host-referenced edge(s) across 0 wall(s), 17 free edge(s)
+ *     (curved=0, no-wall-id=17, ambiguous=0)
+ *     searched=[18 wall(s), 99 slab edge(s), 0 curtain-wall edge(s),
+ *               parcel boundary present (17 edge(s))]
+ *
+ * `18 wall(s)` is the WHOLE PROJECT's wall count across all four storeys — his
+ * snapshot the same minute read `79 elements, 4 LEVELS, 18 walls, 3 slabs`. The
+ * traced loop is 17 anonymous edges, i.e. EXACTLY the parcel ring. His words:
+ * *"it only recognises the BELOW levels' ones."*
+ *
+ * The tracer welds every chord it is handed into ONE 2-D graph at
+ * `REGION_WELD_TOLERANCE_M` (0.15 m). A Level-3 wall standing directly above a
+ * Level-2 wall has the SAME world XZ, so the two weld onto the SAME node pair.
+ * Three consequences, all silent:
+ *   1. `buildAttributedClosedLoops` sees a second chord on that node pair and
+ *      drops the attribution to `ambiguous` — the founder's `ambiguous=4`;
+ *   2. `visitedEdges` is keyed by NODE PAIR, so whichever storey's chord is
+ *      enumerated first CONSUMES the edge and the other storey's wall can never
+ *      start a loop of its own;
+ *   3. every storey's outline is a candidate for "smallest enclosing loop", so
+ *      the walk can return a ring that MIXES storeys and nothing says so.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY EXCLUSION HERE, WHERE SNAPPING CHOSE DEMOTION
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `packages/snapping/src/LevelScope.ts` (§SNAP-LEVEL-SCOPE, L-1108, C06 §9)
+ * established the model this reuses: DATUM (project-wide by design) · ACTIVE ·
+ * OTHER · UNKNOWN (left alone). It DEMOTES other-level candidates by 1000 rather
+ * than filtering them, and that is right THERE: "align this wall to the wall
+ * below" is a gesture a user makes deliberately, so the reference must survive.
+ *
+ * ⭐ It is WRONG HERE, and the difference is not taste — it is that a snap RANKS
+ * candidates while a region trace COMPOSES them. A snap picks exactly one
+ * reference and the user sees which one won. A region trace walks a graph and
+ * returns a RING: a demoted-but-present other-storey chord is still in the graph,
+ * still welds onto shared nodes, and still consumes edges. There is no ranking
+ * step for a demotion to act on, so demotion here would be a no-op with a
+ * comment attached.
+ *
+ * And the result would be indefensible even if it could be ranked: a slab is a
+ * physical plate on ONE storey. A loop half-formed from Level-3 walls and half
+ * from the Level-2 shell below describes no plate that exists. That is strictly
+ * worse than a refusal — and a refusal is a correct answer here
+ * (§FIX-REGION-CLICK-SELF-SUFFICIENT). So this FILTERS, and the refusal names
+ * what it left out.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE PARCEL BOUNDARY STAYS ON EVERY STOREY — IT IS A DATUM
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Identical to `LevelScope.ts`'s DATUM class and for the identical reason: a
+ * parcel boundary constrains a third-floor balcony exactly as it constrains the
+ * ground floor. It is not "the ground storey's edge", it is the property line, so
+ * it keeps bounding regions on every storey. It is also why the founder's first
+ * click returned it: with the storey's own walls unreachable, the parcel was the
+ * only loop left enclosing his point — a correct walk over a wrong graph.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * UNKNOWN IS LEFT ALONE — DELIBERATELY
+ * ─────────────────────────────────────────────────────────────────────────────
+ * A record with no `levelId`, or a caller that supplies no `activeLevelId`,
+ * participates exactly as before. Callers and tests that hand this assembler bare
+ * `{ baseLine }` shapes are UNCHANGED, and a caller not yet taught which storey
+ * it is on does not have its behaviour silently altered — `LevelScope.ts`'s rule,
+ * restated. Passing `activeLevelId` is what opts a call site in, and
+ * `RegionBoundaryCounts.activeLevelId` reports whether it did, so "this search
+ * was project-wide" is a READING and never an inference.
+ */
+export type RegionLevelRelation = 'active' | 'other' | 'unknown';
+
+/** Classify one boundary-source record against the storey being drawn on. */
+export function classifyRegionSourceLevel(
+    levelId: string | null | undefined,
+    activeLevelId: string | null | undefined,
+): RegionLevelRelation {
+    if (levelId == null || activeLevelId == null) return 'unknown';
+    return levelId === activeLevelId ? 'active' : 'other';
+}
+
+/**
+ * Does this source record's geometry enter the region graph?
+ *
+ * Everything except a PROVEN other-storey record does. Note this is deliberately
+ * not `=== 'active'`: UNKNOWN participates, which is the whole opt-in property
+ * described above. The parcel boundary never reaches this function — it is a
+ * datum and is added unconditionally.
+ */
+export function regionSourceParticipates(
+    levelId: string | null | undefined,
+    activeLevelId: string | null | undefined,
+): boolean {
+    return classifyRegionSourceLevel(levelId, activeLevelId) !== 'other';
 }
 
 export interface RegionBoundaryInputs {
-    walls?: ReadonlyArray<RegionWallLike> | null;
+    walls?: ReadonlyArray<RegionWallLike & { levelId?: string | null }> | null;
     slabs?: ReadonlyArray<RegionSlabLike> | null;
     /**
      * §FEAT-REGION-CURTAIN-WALL (L-1125) — curtain-wall spines, contributed as
@@ -94,6 +200,14 @@ export interface RegionBoundaryInputs {
     parcelBoundary?: ReadonlyArray<BoundaryPointXZ> | null;
     /** A slab id to leave OUT — used when re-tracing around a slab being replaced. */
     excludeSlabId?: string | null;
+    /**
+     * §REGION-LEVEL-SCOPE (L-1192) — the storey the region is being drawn on.
+     *
+     * Omitted / null ⇒ NO level scoping is applied and every source participates,
+     * exactly as before this field existed. That is the honest default: a caller
+     * that cannot say which storey it is on must not have one guessed for it.
+     */
+    activeLevelId?: string | null;
 }
 
 /**
@@ -109,6 +223,15 @@ export interface RegionBoundaryCounts {
     parcelEdges: number;
     /** `false` when no parcel boundary is loaded at all — distinct from an empty one. */
     parcelPresent: boolean;
+    /**
+     * §REGION-LEVEL-SCOPE (L-1192) — the storey the search was scoped to, or `null`
+     * when the caller supplied none and the search therefore spanned every storey.
+     * Reported so "the search was project-wide" is a READING, not an inference —
+     * it is the reading that would have named this defect in one log line.
+     */
+    activeLevelId: string | null;
+    /** How many source RECORDS were left out for sitting on a PROVEN other storey. */
+    otherLevelExcluded: { walls: number; slabs: number; curtainWalls: number };
 }
 
 export interface RegionBoundaryEdgeSet {
@@ -158,13 +281,33 @@ function ringToSegments(
 export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoundaryEdgeSet {
     const segments: RegionWallLike[] = [];
 
-    const walls = inputs.walls ?? [];
-    for (const w of walls) segments.push(w);
+    // §REGION-LEVEL-SCOPE (L-1192) — see the policy block above. `null` disables
+    // scoping entirely; it is NOT "the ground floor".
+    const activeLevelId = inputs.activeLevelId ?? null;
+    const otherLevelExcluded = { walls: 0, slabs: 0, curtainWalls: 0 };
+
+    let wallsSearched = 0;
+    for (const w of inputs.walls ?? []) {
+        if (!w) continue;
+        if (!regionSourceParticipates(w.levelId, activeLevelId)) {
+            otherLevelExcluded.walls++;
+            continue;
+        }
+        segments.push(w);
+        wallsSearched++;
+    }
 
     let slabEdges = 0;
     for (const s of inputs.slabs ?? []) {
         if (!s) continue;
         if (inputs.excludeSlabId && s.id === inputs.excludeSlabId) continue;
+        // A slab on the storey below is a PLATE, not this storey's boundary. Its
+        // outline traces the walls beneath and welds onto their nodes — the second
+        // half of the founder's `99 slab edge(s)`.
+        if (!regionSourceParticipates(s.levelId, activeLevelId)) {
+            otherLevelExcluded.slabs++;
+            continue;
+        }
         const poly = s.polygon;
         if (!poly || poly.length < 3) continue;
         // `SlabColumnCoupling.ts:73-78` — local {x, y=Z} + position → world XZ.
@@ -200,7 +343,13 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
     // instead of staying where it was traced.
     let curtainWallEdges = 0;
     for (const cw of inputs.curtainWalls ?? []) {
-        const line = cw?.baseLine;
+        if (!cw) continue;
+        // Glazing encloses space on ITS OWN storey, exactly like a wall.
+        if (!regionSourceParticipates(cw.levelId, activeLevelId)) {
+            otherLevelExcluded.curtainWalls++;
+            continue;
+        }
+        const line = cw.baseLine;
         if (!line || line.length < 2) continue;
         const a = line[0]!;
         const b = line[line.length - 1]!;
@@ -216,13 +365,23 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
         curtainWallEdges++;
     }
 
+    // §REGION-LEVEL-SCOPE (L-1192) — DATUM. Unconditional on every storey; it is
+    // the property line, not the ground floor's edge. See the policy block.
     const parcel = inputs.parcelBoundary;
     const parcelPresent = Array.isArray(parcel) && parcel.length > 0;
     const parcelEdges = parcelPresent ? ringToSegments(parcel!, segments) : 0;
 
     return {
         segments,
-        counts: { walls: walls.length, slabEdges, curtainWallEdges, parcelEdges, parcelPresent },
+        counts: {
+            walls: wallsSearched,
+            slabEdges,
+            curtainWallEdges,
+            parcelEdges,
+            parcelPresent,
+            activeLevelId,
+            otherLevelExcluded,
+        },
     };
 }
 
@@ -233,7 +392,22 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
  * were silently absent from the search.
  */
 export function describeRegionBoundaryCounts(c: RegionBoundaryCounts): string {
+    // §REGION-LEVEL-SCOPE (L-1192) — the SCOPE is part of what was searched, and it
+    // is the clause whose absence cost this round trip: `18 wall(s)` read as a
+    // complete search when it was the whole project's wall count across 4 storeys.
+    // Now the line says WHICH storey, and how much it deliberately left out.
+    const o = c.otherLevelExcluded;
+    const excludedTotal = o.walls + o.slabs + o.curtainWalls;
+    const scope = c.activeLevelId
+        ? ` on level ${c.activeLevelId}`
+          + (excludedTotal > 0
+              ? ` (excluded as being on other levels: ${o.walls} wall(s), `
+                + `${o.slabs} slab(s), ${o.curtainWalls} curtain wall(s))`
+              : ' (nothing excluded — no geometry on other levels)')
+        : ' across EVERY level (no active level was supplied, so the search was NOT '
+          + 'level-scoped)';
     return `${c.walls} wall(s), ${c.slabEdges} slab edge(s), `
         + `${c.curtainWallEdges} curtain-wall edge(s), `
-        + `parcel boundary ${c.parcelPresent ? `present (${c.parcelEdges} edge(s))` : 'ABSENT'}`;
+        + `parcel boundary ${c.parcelPresent ? `present (${c.parcelEdges} edge(s))` : 'ABSENT'}`
+        + `,${scope}`;
 }

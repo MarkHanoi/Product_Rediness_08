@@ -607,6 +607,103 @@ ring (177 free edges, 164 curved, zero host walls): a thickness change moves the
   the tolerance it ships with). ⚠ The defect is NOT slab-specific — slabs are merely the family
   whose root Y depends on its own parameters, so they are where it bites first.
 
+### 10.x — WHICH STOREY'S GEOMETRY BOUNDS A REGION SLAB (§REGION-LEVEL-SCOPE, L-1192)
+
+**RULE (normative).** The By-Region edge set is scoped to ONE storey. A boundary source proven to
+sit on another storey does NOT enter the region graph. The parcel boundary is a **DATUM** and bounds
+regions on every storey. A source with no `levelId`, or a call site that supplies no
+`activeLevelId`, is **UNKNOWN** and participates unchanged.
+
+| Source | Class | In the graph when drawing on level *L*? |
+|---|---|---|
+| Wall (`levelId === L`) | ACTIVE | ✅ |
+| Wall (`levelId !== L`) | OTHER | ⛔ **excluded** |
+| Slab plate, curtain wall | same rule as walls | ✅ / ⛔ |
+| **Parcel boundary** | **DATUM** | ✅ **always, on every storey** |
+| Any source with no `levelId`; any caller with no `activeLevelId` | UNKNOWN | ✅ (unchanged) |
+
+Authority: `packages/geometry-slab/src/RegionBoundarySources.ts` —
+`classifyRegionSourceLevel()` / `regionSourceParticipates()`, applied inside
+`assembleRegionBoundary()`. Both surfaces opt in: `SlabPlanToolHandler._boundaryEdgeSet()` passes
+`viewDef.spatial.levelId` (the storey `_commitSlab` stamps), `SlabTool.findRegionAtPoint()` passes
+`projectContext.activeLevelId` (the storey its committer stamps). Proof:
+`packages/geometry-slab/__tests__/regionLevelScope.test.ts` (12 tests).
+
+#### The defect this closes
+
+The founder, on Level 3 of a four-storey project: *"I have been able to do level-by-level
+slab-by-region — working great — but now it doesn't. It only recognises the BELOW levels' ones."*
+
+```
+region traced: 0 host-referenced edge(s) across 0 wall(s), 17 free edge(s)
+(curved=0, no-wall-id=17, ambiguous=0)
+searched=[18 wall(s), 99 slab edge(s), 0 curtain-wall edge(s), parcel boundary present (17 edge(s))]
+```
+
+`18 wall(s)` was the **whole project's** wall count across all four storeys (his snapshot the same
+minute: `79 elements, 4 LEVELS, 18 walls, 3 slabs`), and the traced ring was 17 anonymous edges —
+**exactly the parcel ring**. Two distinct failures, both produced by one unscoped graph:
+
+1. **Wrong loop wins.** `findAttributedRegionWithHolesAtPoint` selects the SMALLEST enclosing loop.
+   A more-subdivided storey below offers a smaller loop at the same point, so it wins.
+2. **Attribution is erased.** The tracer welds chords at `REGION_WELD_TOLERANCE_M` (0.15 m). A
+   Level-3 wall stacked on its Level-2 twin welds onto the SAME node pair;
+   `buildAttributedClosedLoops` calls that `ambiguous` and drops the host id to `null` — the
+   founder's `0 host-referenced edge(s)` and `ambiguous=4`. The ring is geometrically perfect and
+   follows nothing. **No area check can see this failure**, which is why the proof asserts
+   `hostWallIds` and not only the polygon.
+
+#### Regression verdict — NOT a level-scoping regression; a widening of an always-unscoped search
+
+⚠ The region search was **never** level-scoped. `git show <rev>:…/SlabPlanToolHandler.ts` at every
+revision back to the initial commit `c5cc471f` reads `window.wallStore.getAll()` — project-wide.
+`WallStore.getByLevel()` (an O(1) indexed API) existed and was never used here, and the refusal text
+said *"13 wall(s) **on this level** were searched"* while searching every level.
+
+What turned a latent defect into a broken workflow is **`410013b0`
+(§FIX-REGION-BOUNDARY-SOURCES)**, which added two further **project-wide** sources — every slab
+outline and the parcel ring — to that unscoped graph. It is provable from the founder's own log that
+this commit is the proximate cause of his *first* click: the traced ring is 17 anonymous edges and
+the parcel has exactly 17 edges, and the parcel was **not in the search at all** before `410013b0`.
+His *second* click (`curved=41`) is the older, pre-existing arm — below-storey walls — which
+`410013b0` neither caused nor fixed. `7adba049` (L-1126) then copied the same widened, unscoped set
+onto the 3-D surface, so both surfaces carried it.
+
+⭐ The transferable lesson: **`410013b0` was a correct fix that was incomplete in a way its own tests
+could not show.** Widening a search is safe only if the search is scoped on every axis that matters;
+here the storey axis did not exist, so widening the source set widened it across storeys too. The
+same shape is why the `searched=` clause now reports `activeLevelId` — *"this search was
+project-wide"* must be a **reading**, never an inference.
+
+#### Why EXCLUSION here, where snapping chose DEMOTION
+
+[ADR-0335 / C06 §9](../adrs/ADR-0335-snap-references-are-level-scoped-in-three-tiers.md) (§SNAP-LEVEL-SCOPE, L-1108) established the
+DATUM / ACTIVE / OTHER / UNKNOWN model this reuses, and **demotes** other-storey snap candidates by
+1000 rather than filtering them — correctly, because *"align this wall to the wall below"* is a
+deliberate gesture and a filter would destroy a capability ADR-0112 exists to provide.
+
+**This contract makes the opposite choice, and the difference is mechanical, not stylistic: a snap
+RANKS candidates; a region trace COMPOSES them.** A snap picks exactly one reference and the user
+sees which won, so a demoted candidate is genuinely available-but-subordinate. A region trace walks a
+graph and returns a ring: a demoted-but-present other-storey chord is **still in the graph**, still
+welds onto shared nodes, and still consumes edges via `visitedEdges` (keyed by node pair). There is
+no ranking step for a demotion to act on — demotion here would be a no-op with a comment attached.
+
+And the outcome would be indefensible even if it could be ranked. **A slab is a physical plate on ONE
+storey.** A loop half-formed from Level-3 walls and half from the Level-2 shell describes no plate
+that exists, and nothing in the ring would say so. A refusal is a correct answer here
+(§FIX-REGION-CLICK-SELF-SUFFICIENT); a silently cross-storey slab is not.
+
+#### NOT MEASURED
+
+- Whether `plugins/roof`'s by-region path (ported to this tracer at `625a9926`) passes an
+  `activeLevelId`. It does not today, so it is UNKNOWN-scoped and behaves exactly as before — that
+  is safe, not correct, and it is an open item rather than a clearance.
+- Whether any other consumer of `assembleRegionBoundary` exists outside the two wired surfaces.
+  Measured 2026-08-19: none. Re-measure rather than trust this line.
+
+---
+
 ---
 
 ## 11. THE DELTA
