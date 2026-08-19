@@ -91,6 +91,18 @@ function threeDRecordsUndo(type: string): boolean {
     return DRAG_HANDLER_SRC.slice(branchStart, start).includes('buildMoveCommand(');
 }
 
+/**
+ * §FIX-CW-ALIGN-VERB (L-1164) — THE THIRD MOVE SURFACE, WHICH THIS FILE DID NOT WATCH.
+ *
+ * This spec pinned two surfaces: the plan Move tool (behaviourally, via
+ * `buildMoveCommand`) and the 3-D gizmo (structurally, by reading its source). ALIGN is a
+ * third — it translates a placed element by a delta, which is a move by any definition —
+ * and it hand-rolls a `_move<Family>()` per type instead of calling the shared builder.
+ * Being outside the net is how its curtain-wall arm came to dispatch a verb whose handler
+ * rejects the payload on every call, for as long as the feature has existed.
+ */
+const ALIGN_HANDLER_SRC = readFileSync(resolve(HERE, '../AlignPlanToolHandler.ts'), 'utf8');
+
 describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)', () => {
     // ── 1. The command table is the SINGLE source of truth for both surfaces ──────
     describe('no fork: every 3-D move command is the command the shared table names', () => {
@@ -445,5 +457,50 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             expect(canMove('handrail')).toBe(true);
             expect(canMove('railing')).toBe(true);
         });
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FIX-CW-ALIGN-VERB (L-1164) — the ALIGN surface, scoped to curtain wall.
+//
+// Deliberately NOT a blanket "every align verb must be in MOVE_COMMAND_BY_TYPE" arm.
+// Align also fires `slab.updatePolygon` where the table names `slab.movePolygon`, and
+// that divergence sits in another lane's fence. A red test for someone else's file is a
+// broken build, not a finding — the divergence is REPORTED (C87 §13.10) and this arm
+// pins the family this lane owns.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§FIX-CW-ALIGN-VERB — align moves a curtain wall with the verb that reaches the record', () => {
+    it('the source really was read (an empty read would make every assertion below vacuous)', () => {
+        expect(ALIGN_HANDLER_SRC.length).toBeGreaterThan(1000);
+        expect(ALIGN_HANDLER_SRC).toContain('_moveCurtainWall');
+    });
+
+    it('dispatches the command MOVE_COMMAND_BY_TYPE names for curtain-wall', () => {
+        expect(moveCommandFor('curtain-wall')).toBe('wall.updateCurtainWall');
+        expect(ALIGN_HANDLER_SRC).toContain("executeCommand('wall.updateCurtainWall'");
+    });
+
+    it('no longer dispatches curtain-wall.move, whose handler rejects this payload on EVERY call', () => {
+        // `MoveCurtainWallHandler` requires `{ curtainWallId, delta }`; align builds
+        // `{ id, updates: { baseLine } }`. canExecute therefore returned
+        // "curtainWallId must be a non-empty string", CommandBus threw, and the catch
+        // turned a 100%-failing feature into a console line. And the handler writes the
+        // plugin DTO store, so even a shape-corrected dispatch would move nothing visible.
+        expect(ALIGN_HANDLER_SRC).not.toContain("executeCommand('curtain-wall.move'");
+    });
+
+    it('sends the SAME payload shape as the 3-D gizmo and the plan Move tool', () => {
+        // All three surfaces: { id, updates: { baseLine: [start, end] } }.
+        expect(ALIGN_HANDLER_SRC).toContain('updates: { baseLine: next }');
+        expect(DRAG_HANDLER_SRC).toContain("dragDispatch('wall.updateCurtainWall', { id, updates: { baseLine: next } })");
+
+        const built = buildMoveCommand(
+            'curtain-wall',
+            { id: 'cw-1', baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }] },
+            1,
+            2,
+        );
+        expect(built?.type).toBe('wall.updateCurtainWall');
+        expect(Object.keys(built!.payload).sort()).toEqual(['id', 'updates']);
     });
 });

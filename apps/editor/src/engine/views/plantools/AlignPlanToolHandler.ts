@@ -352,8 +352,29 @@ export class AlignPlanToolHandler implements PlanToolHandler {
             { x: prev[0].x + dx, y: prev[0].y, z: prev[0].z + dz },
             { x: prev[1].x + dx, y: prev[1].y, z: prev[1].z + dz },
         ];
-        window.runtime?.bus?.executeCommand('curtain-wall.move', { id, updates: { baseLine: next } })
-            ?.catch((e: unknown) => console.error('[AlignTool] curtain-wall.move failed:', e));
+        // §FIX-CW-ALIGN-VERB (L-1164, C87 §13.10 CW-Move-2) — ALIGN WAS THE FIFTH
+        // DISPATCHER, AND THE ONLY ONE THAT MISSED THE FIX BECAUSE IT USED A DIFFERENT
+        // VERB.
+        //
+        // This dispatched `curtain-wall.move` with `{ id, updates }` while
+        // `MoveCurtainWallHandler` (plugins/curtain-wall/src/handlers/MoveCurtainWall.ts:30)
+        // requires `{ curtainWallId, delta }` — so `canExecute` returned
+        // "curtainWallId must be a non-empty string" on EVERY dispatch, `CommandBus`
+        // threw, and the `.catch` below turned a 100 %-failing feature into a console
+        // line. And had the payload matched, it would STILL have moved nothing the user
+        // can see: that handler writes the plugin DTO store, not the geometry
+        // `curtainWallStore` the builders read.
+        //
+        // `wall.updateCurtainWall` is the canonical verb — `MOVE_COMMAND_BY_TYPE`
+        // (transforms/elementMove.ts:104) names it, the 3-D gizmo drag-end
+        // (registerTransformDragHandler.ts:479) and the plan Move tool
+        // (elementMove.ts:303) both send it, and `initBusHandlers.ts:996` bridges it to
+        // `UpdateCurtainWallCommand`, the only writer of the geometry record on an
+        // update. The payload shape below was ALREADY the canonical one; only the verb
+        // was wrong. §FIX-CW-UPDATE-REACH-RECORD repaired four dispatchers by name and
+        // could not see this one, because it was looking for `wall.updateCurtainWall`.
+        window.runtime?.bus?.executeCommand('wall.updateCurtainWall', { id, updates: { baseLine: next } })
+            ?.catch((e: unknown) => console.error('[AlignTool] wall.updateCurtainWall failed:', e));
     }
 
     private async _moveBeam(id: string, dx: number, dz: number): Promise<void> {
