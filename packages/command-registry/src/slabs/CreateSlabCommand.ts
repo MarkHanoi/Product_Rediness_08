@@ -2,6 +2,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { stableCreatedId } from '../StableCreatedId';
 import type { SlabData } from '@pryzm/geometry-slab';
 import type { SlabSketch } from '@pryzm/geometry-slab';
+import type { SlabLayer } from '@pryzm/geometry-slab';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the stair-void invariant has ONE owner; this
@@ -53,6 +54,36 @@ export interface CreateSlabPayload {
      */
     materialId?: string;
     materialColor?: string;
+    /**
+     * ⭐ L-1178 / C92 §10 — the slab's ASSEMBLY and its VERTICAL POSITION, and why
+     * these four are here.
+     *
+     * `serializeSlab()` writes `baseOffset`, `layers`, `systemTypeId` and
+     * `properties` (`ProjectSerializer.ts:646-653`). This payload listed NONE of
+     * them and `execute()` hard-coded `properties: { mark }`, so `ProjectLoader` —
+     * the ONLY slab restore path — could not carry them even though it held them.
+     * The C100/ARM E material fix (L-1127) named these four as "measured while
+     * fixing this, NOT fixed here" and left them to the slab lane. This is that.
+     *
+     * ⭐ `baseOffset` IS THE FOUNDER'S OWN FIELD. C92 §10: the slab datum is the TOP
+     * face and `baseOffset` raises it above the level elevation, so a dropped
+     * `baseOffset` silently defaults to 0 and THE SLAB IS AT A DIFFERENT HEIGHT ON
+     * RELOAD. That is the same sentence the founder used for L-1177 — "the slab is
+     * displaced" — arriving by a completely different route. One is a live-edit
+     * defect, this one is a persistence defect; they are independent and both real.
+     *
+     * `layers` is the reason a slab has its thickness build-up at all (C92 §5 row
+     * 14 records it as UNREACHABLE FROM THE BUS), and `systemTypeId` is the TYPE
+     * IDENTITY beside it — dropping the id while keeping the layer snapshot leaves
+     * an assembly nothing can rename or re-schedule, the same loss C100 §2.1 names
+     * for materials.
+     *
+     * All four are OPTIONAL, so every existing caller is unchanged.
+     */
+    baseOffset?: number;
+    layers?: SlabLayer[];
+    systemTypeId?: string | null;
+    properties?: Record<string, unknown>;
 }
 
 export class CreateSlabCommand implements Command {
@@ -169,7 +200,21 @@ export class CreateSlabCommand implements Command {
             position: { x: this.payload.position.x, y: 0, z: this.payload.position.z },
             levelId: targetLevelId,
             parentId: targetLevelId,
-            properties: { mark: this._stableMark },
+            // ⭐ L-1178 — the persisted ASSEMBLY and VERTICAL POSITION survive the
+            // reload. `baseOffset` is C92 §10's datum offset (the founder's "bottom
+            // offset"); dropping it silently defaulted the slab to 0 and moved it.
+            baseOffset: this.payload.baseOffset,
+            layers: this.payload.layers ? this.payload.layers.map(l => ({ ...l })) : undefined,
+            systemTypeId: this.payload.systemTypeId,
+            // The persisted `properties` are carried, and the MARK inside them wins
+            // over a freshly minted one: a reloaded slab must keep the mark it was
+            // saved with, or every reopen renumbers the schedule. `_stableMark` stays
+            // the fallback for a slab that never had one (and SlabStore.add() skips
+            // its own mark generation when `properties.mark` is already set).
+            properties: {
+                ...(this.payload.properties ?? {}),
+                mark: (this.payload.properties?.['mark'] as string | undefined) ?? this._stableMark,
+            },
             ifcData: {
                 guid: this.payload.ifcGuid ?? slabId,
                 ifcClass: 'IfcSlab'

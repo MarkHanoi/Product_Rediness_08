@@ -133,6 +133,8 @@ import { decodeWallSystemType } from './wallSystemTypeCodec';
 // §TYPE-SNAPSHOT-CODEC (C65) — door/window types share their own codec with the serializer.
 import { decodeHostedSystemType } from './hostedSystemTypeCodec';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — the railing CATALOGUE.
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateFloorCommand, ImportProjectCommand, dropDegeneratePolygonRecords, ceilingRestoreBoundaryFields } from '@pryzm/command-registry'; // §LOAD-HEAL-DEGENERATE-POLYGON + §OPEN-OLD-CEILING-RESTORE
@@ -1013,7 +1015,24 @@ export class ProjectLoader {
                     // own test, and guessing at it inside a material commit is how a
                     // fix becomes a regression.
                     materialId: slab.materialId,
-                    materialColor: slab.materialColor
+                    materialColor: slab.materialColor,
+                    // ⭐ L-1178 — the four fields the comment above named as MEASURED
+                    // BUT NOT FIXED are now carried. `serializeSlab()` writes all of
+                    // them (`ProjectSerializer.ts:646-653`) and this is still the only
+                    // slab restore path, so until now a reload silently rebuilt every
+                    // slab with baseOffset 0, no layers, no system type and a fresh mark.
+                    //
+                    // ⭐ `baseOffset` is C92 §10's DATUM OFFSET — the slab's top face
+                    // sits at `level.elevation + baseOffset`, so dropping it did not
+                    // merely lose a number, IT MOVED THE SLAB on every reopen. That is
+                    // the founder's L-1177 sentence reached by a second, independent
+                    // route: L-1177 is the live-edit defect, this is the persistence one.
+                    baseOffset: slab.baseOffset,
+                    layers: slab.layers,
+                    systemTypeId: slab.systemTypeId,
+                    // The saved `properties` carry the slab's MARK; without this the
+                    // schedule renumbered itself on every reopen.
+                    properties: slab.properties
                 });
                 const r = exec(cmd);
                 r.success ? result.loaded++ : this.recordFail(result, `Slab ${slab.id}`, r);
@@ -1665,6 +1684,51 @@ export class ProjectLoader {
                 }
                 if (restoredWallTypeCount > 0) {
                     console.log(`[ProjectLoader] Restored ${restoredWallTypeCount} custom wall system type(s) from snapshot.`);
+                }
+            }
+
+            // §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — restore custom
+            // HANDRAIL TYPE definitions (the railing catalogue) from the snapshot.
+            //
+            // ⛔ WHY: `handrailTypeStore` is registered on `projectScopeRegistry` with
+            // `clear: clearCustomTypes()`, so switching project DELETED every
+            // user-authored railing type — while no save path had ever written one. A
+            // DESTRUCTOR WITH NO CONSTRUCTOR (C95 §15.7, measured 2026-08-19).
+            //
+            // ⚠ THIS IS THE SECOND OF TWO PERSISTENCE PAIRS (C95 §3.2). The twin lives
+            // at packages/persistence-client/src/loader/. Patching ONE would have made
+            // a custom railing type survive on one save path and vanish on the other —
+            // which is L-1102's defect exactly, one level up.
+            //
+            // ⭐ IT PRESERVES `raw.id`, deliberately unlike the wall arm above:
+            // `HandrailTypeStore.add()` takes the whole definition INCLUDING the id, so
+            // identity survives and every record's materialised fields, schedule row
+            // and future library edit still point at the same type (C84 EI-1).
+            const snapshotHandrailTypes = (snapshot as any).handrailTypes;
+            if (Array.isArray(snapshotHandrailTypes) && snapshotHandrailTypes.length > 0) {
+                let restoredHandrailTypeCount = 0;
+                for (const raw of snapshotHandrailTypes) {
+                    try {
+                        if (!raw || !raw.id || !raw.name) {
+                            console.warn('[ProjectLoader] Skipping malformed handrailType:', raw);
+                            continue;
+                        }
+                        // `add()` THROWS on a duplicate id, so this guard is load-bearing.
+                        if (handrailTypeStore.getById(raw.id)) continue;
+
+                        // ⛔ `isBuiltIn` is NOT copied from the snapshot — the store sets it
+                        // false itself, and must: a snapshot claiming `isBuiltIn: true` for a
+                        // user type would make it permanently unremovable and unmodifiable,
+                        // since `remove()` and `update()` both refuse on built-ins.
+                        const { isBuiltIn: _ignoredBuiltIn, ...definition } = raw as Record<string, unknown>;
+                        handrailTypeStore.add(definition as never);
+                        restoredHandrailTypeCount++;
+                    } catch (e) {
+                        console.warn('[ProjectLoader] Failed to restore handrailType:', raw, e);
+                    }
+                }
+                if (restoredHandrailTypeCount > 0) {
+                    console.log(`[ProjectLoader] Restored ${restoredHandrailTypeCount} custom handrail type(s) from snapshot.`);
                 }
             }
 

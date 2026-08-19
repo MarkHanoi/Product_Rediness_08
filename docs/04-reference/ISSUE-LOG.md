@@ -14986,3 +14986,68 @@ shared `buildMoveCommand()`. Four arms added; restoring the old verb turns 2 red
 claimed by a plugin handler on the detached DTO store (the L-220 pattern). **Same defect,
 slab family, another lane's fence.** The parity arm is scoped to curtain wall on purpose:
 a red test for another lane's file is a broken build, not a finding.
+---
+
+## L-1178 — a slab's ASSEMBLY and its HEIGHT were saved to the file and thrown away on reload ✅ FIXED 2026-08-19
+
+**Found by:** the note lane MT2/C100-ARM-E left inside its own fix (L-1127), which named four
+more fields as *"MEASURED WHILE FIXING THIS, NOT FIXED HERE, and named so it is not mistaken for
+covered"* and left them to the slab lane. This is that fix. **The note is why this was found in
+minutes instead of never** — a measured-but-unfixed defect, written down where the next reader
+trips over it, is worth more than a tidy commit.
+
+### The defect
+
+`serializeSlab()` (`ProjectSerializer.ts:639-654`) writes `baseOffset`, `layers`, `systemTypeId`
+and `properties`. `CreateSlabPayload` declared **none** of them and `execute()` hard-coded
+`properties: { mark: <freshly minted> }`. `ProjectLoader` is the **only** slab restore path, so
+every reopen silently rebuilt every slab with **baseOffset 0, no layers, no system type, and a
+renumbered mark** — while the saved file still held every correct value.
+
+| field | saved | reloaded (measured) |
+|---|---|---|
+| `baseOffset` | `1.25` | **`undefined`** → defaults to 0 |
+| `systemTypeId` | `slab-type-generic-350` | **`undefined`** |
+| `layers` | 2 layers | **`undefined`** |
+| `properties.mark` | `SB007` | **`SB001`** — renumbered |
+
+### ⭐ Why this is a DISPLACEMENT bug, not a metadata bug
+
+[C92 §10](../02-decisions/contracts/C92-ELEMENT-SLAB.md): the slab datum is the **TOP** face, which
+sits at `level.elevation + baseOffset`. So a dropped `baseOffset` does not merely lose a number —
+**it moves the slab, by exactly the offset, on every reopen.**
+
+That is the *same sentence* the founder used for **L-1177** (*"the slab is displaced — it moves"*),
+arriving by a **completely different route**. L-1177 is a **live-edit** defect (a selection
+constraint overwriting the builder's Y); L-1178 is a **persistence** defect (the value never
+reaching the builder at all). They are independent, they were found separately, and **fixing either
+one alone would have left the founder still able to say the slab moved.** ⭐ One reported symptom
+had two unrelated causes — which is exactly why "I reproduced it and fixed it" is not the same
+claim as "the symptom is gone".
+
+### The fix
+
+Four optional fields added to `CreateSlabPayload`, threaded through `execute()`, and passed by
+`ProjectLoader`. `layers` is cloned rather than aliased. The persisted **mark wins** over a freshly
+minted one, so the schedule stops renumbering itself on every reopen; `_stableMark` remains the
+fallback for a slab that never had one.
+
+### Proof
+
+`packages/command-registry/__tests__/L1178SlabAssemblySurvivesReload.test.ts` — **RED without the
+fix**: 3 failed / 1 passed (`expected undefined to be 1.25`, `expected undefined to be
+'slab-type-generic-350'`, `expected 'SB001' to be 'SB007'`). With the fix: **4 passed**. The 4th
+test — a slab carrying none of these fields is unchanged, keeps the `#808080` default and still
+gets a minted mark — passes in **both** states: a backward-compatibility control, not a fix
+artefact.
+
+⚠ **Asserted on the STORE RECORD the command produces, not on the payload passed in.**
+§COMMITTED-IS-NOT-REACHABLE: the evidence a reviewer reaches for — open the JSON, find the field —
+**says it worked**. The file was never the problem. Asserting on the payload would only have proved
+the test can construct an object.
+
+⚠ **STILL OPEN, and named so it is not mistaken for covered:** this closes the four fields
+`serializeSlab()` writes. It does **not** establish that `serializeSlab()` writes everything a slab
+HAS — C92 §5 row 14 still records `layers` as UNREACHABLE FROM THE BUS, so a slab created over the
+bus arrives unlayered in the first place and there is nothing for the serialiser to write. The
+reload leg is now sound; the authoring leg is not.
