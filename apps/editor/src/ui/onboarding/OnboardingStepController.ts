@@ -129,7 +129,8 @@ import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
 // §UX1-PANEL-DEFAULTS D6 — a guided flow re-arms the onboarding phase.
-import { resetAppPhaseForNewProject } from '../layout/panelDefaults';
+// §L-1186 — and `dispose()` closes that bracket by declaring the canvas.
+import { resetAppPhaseForNewProject, setAppPhase } from '../layout/panelDefaults';
 
 /** Default parcel rectangle (metres) — the no-GIS fallback (founder §7.2). Matches
  *  `createSiteFromRect` + `briefBootstrap`'s single-apartment-scale default. */
@@ -442,6 +443,21 @@ export class OnboardingStepController {
         this.overlay = null;
         this.bodyEl = null;
         this.stepLabelEl = null;
+        // §L-1186 — CLOSE THE BRACKET `start()` OPENED. `start()` declares the
+        // onboarding-globe phase; this is the only place that can honestly say it is
+        // over, so it declares the canvas. Without it the phase depended on which EXIT
+        // the flow happened to take: `landInCanvasWithUnderlay()` latches via
+        // `enterCanvasWithSitePlanUnderlay()`, but the skip-the-draw routes
+        // (`generateAndFinish()`'s `finally`, and the two `createSite` bail-outs) do
+        // not — so a user who skipped the site draw finished onboarding with the
+        // launcher rail, the Split View toggle and the View-Properties launcher never
+        // mounted. Declaring it at the ONE place every exit passes through is the
+        // difference between a derived fact and a remembered one.
+        try {
+            setAppPhase('canvas');
+        } catch (err) {
+            console.warn('[onboarding-step] §L-1186 phase declaration on dispose threw (non-fatal):', err);
+        }
     }
 
     private toast(message: string, severity: 'info' | 'success' | 'error'): void {
