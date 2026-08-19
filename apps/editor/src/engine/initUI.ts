@@ -121,8 +121,20 @@ import { seedDemoAnnotations }      from '@pryzm/plugin-annotations';
 // which there may be TWO. `selectedGridInAnyPane()` is the ONE authority for which
 // pane holds the selection; `RemoveGridCommand` is the delete route that already
 // existed but that no keyboard path could reach. See `deleteSelected` below.
-import { selectedGridInAnyPane, clearGridSelectionInAllPanes } from '@app/engine/views/viewPanes';
+import {
+    selectedGridInAnyPane,
+    clearGridSelectionInAllPanes,
+    // §CENSUS-DELETESELECTED (L-1109) — the LEVEL DATUM is the second Canvas2D
+    // selection slot and had no delete arm at all. Same authority, same shape.
+    selectedLevelInAnyPane,
+    clearLevelSelectionInAllPanes,
+} from '@app/engine/views/viewPanes';
 import { RemoveGridCommand }        from '@pryzm/command-registry';
+// §CENSUS-DELETESELECTED (L-1109) — DeleteLevelCommand already existed, complete
+// with snapshot, undo and safety guards (refuses the last level, refuses a level
+// that still holds elements). Like RemoveGridCommand before it, nothing the user
+// could SELECT could reach it. See `deleteSelected` below.
+import { DeleteLevelCommand }       from '@pryzm/command-registry';
 /** §ANN-SEED — one attempt per session; a refused seed is not retried on every view switch. */
 let _annotationSeedAttempted = false;
 // §FIX-LAUNCHER-COVERS-SPLITVIEW (L-159, C06 §7.2) — the Split View toggle shares
@@ -2464,6 +2476,47 @@ export async function initUI(p: UIParams): Promise<void> {
             }
         }
 
+        // §CENSUS-DELETESELECTED (L-1109) — THE SECOND SILENT KIND.
+        //
+        // The L-1107 grid fix asked whether any OTHER selection could reach this
+        // function and find no arm. It could: `PlanViewCanvas` carries TWO Canvas2D
+        // selection slots, and `PlanViewInteraction` sets the level one on a
+        // datum-head or datum-line click (:891, :903). A selected LEVEL DATUM fell
+        // straight through to the "No element selected to delete" early-return
+        // below — a refusal that named the WRONG REASON, telling the user nothing
+        // was selected while their level datum sat highlighted on screen (C84 EI-2).
+        //
+        // `DeleteLevelCommand` already existed with snapshot + undo, and it carries
+        // the guards that make this safe to reach from a keystroke: it REFUSES the
+        // last remaining level and REFUSES a level that still contains elements,
+        // rather than silently taking the model with it. Those refusals are surfaced
+        // verbatim below instead of being swallowed — that is the whole point of
+        // this census (C16 CA-18, C84 EI-2).
+        if (!selectionManager.selectedObject) {
+            const levelHit = selectedLevelInAnyPane();
+            if (levelHit) {
+                const cm = window.commandManager as unknown as
+                    | { execute(cmd: unknown): { success?: boolean; info?: string[]; error?: string } | undefined }
+                    | undefined;
+                if (!cm || typeof cm.execute !== 'function') {
+                    toast('Level not deleted — command system not ready', 'warn');
+                    return;
+                }
+                const res = cm.execute(new DeleteLevelCommand({ levelId: levelHit.levelId }));
+                if (res && res.success === false) {
+                    // The command's OWN sentence — "cannot delete a level that still
+                    // contains elements", "cannot delete the last level" — reaches the
+                    // user, so a refused delete is never reported as a completed one.
+                    toast(`Level not deleted — ${res.error ?? res.info?.join('; ') ?? 'the model refused the delete'}`, 'warn');
+                    return;
+                }
+                clearLevelSelectionInAllPanes();
+                unselectAll();
+                toast('Level deleted', 'success');
+                return;
+            }
+        }
+
         if (!selectionManager.selectedObject) {
             toast('No element selected to delete', 'warn');
             return;
@@ -2494,8 +2547,44 @@ export async function initUI(p: UIParams): Promise<void> {
             const elementType = bimRoot.userData.elementType as string;
             try {
                 // [F-1.3] Bus-primary: commandManager exfiltrated to DeleteElementHandler (plugins/view).
-                window.runtime?.bus?.executeCommand('element.delete', { elementId, elementType, source: 'HUMAN_DIRECT' })
-                    .catch((e: Error) => console.error('[deleteSelected] element.delete failed:', e));
+                //
+                // §CENSUS-DELETESELECTED (L-1109) — THIS ARM USED TO REPORT EVERY
+                // DELETE AS A SUCCESS, INCLUDING THE ONES THAT DELETED NOTHING.
+                //
+                // It was fire-and-forget: the promise was not awaited, its rejection
+                // went to `console.error`, and `toast('${elementType} deleted')` ran
+                // SYNCHRONOUSLY on the next line — before the handler had done
+                // anything at all. So an element whose store `DeleteElementCommand`'s
+                // discovery does not scan produced a green "wall deleted" toast with
+                // the wall still on screen. C80 §10.f names this exact shape as the
+                // fire-and-forget defect; it is the same class as reporting **Done**
+                // for a bulk finish change that changed nothing.
+                //
+                // Three layers had to be fixed for the truth to reach the user, and
+                // the other two are in `DeleteElementHandler`. This is the third: the
+                // dispatch is AWAITED, and `EventRecord.refusal` — the value channel
+                // C80 §1.4 minted so a refusal cannot be dropped on the floor — is
+                // read and shown. `deleteSelected` was already `async`, so awaiting
+                // costs nothing structurally.
+                const bus = window.runtime?.bus;
+                if (!bus || typeof bus.executeCommand !== 'function') {
+                    // Optional chaining previously made this case INVISIBLE: with no
+                    // bus the expression was `undefined`, nothing dispatched, and the
+                    // success toast fired regardless.
+                    toast(`${elementType} not deleted — the command bus is not ready`, 'warn');
+                    return;
+                }
+                const record = await bus.executeCommand(
+                    'element.delete',
+                    { elementId, elementType, source: 'HUMAN_DIRECT' },
+                );
+                const refusal = (record as { refusal?: { detail?: string; protects?: string } } | undefined)?.refusal;
+                if (refusal) {
+                    // The handler's own sentence, which already carries BOTH numbers
+                    // and what the refusal protects (C80 §1.4).
+                    toast(refusal.detail ?? `${elementType} not deleted`, 'warn');
+                    return;
+                }
                 unselectAll();
                 if (world.scene instanceof OBC.ShadowedScene) {
                     world.scene.updateShadows();

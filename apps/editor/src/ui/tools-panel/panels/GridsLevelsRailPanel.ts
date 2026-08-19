@@ -36,13 +36,10 @@
 import type { ToolsRailController } from '../ToolsRailController';
 import type { ToolsPanelProps }      from '../ToolsPanelTypes';
 import * as PryzmIcons               from '../../icons/PryzmIcons';
-import type { ViewDefinition }       from '@pryzm/core-app-model';
 // §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — THE single view-resolution authority. The
 // plan/section type tables that used to live here moved into it, so this panel and
 // the keyboard delete route cannot answer "which view" differently (C84 EI-1).
 import { activePlanPane, activeSectionPane } from '@app/engine/views/viewPanes';
-
-type ViewType = ViewDefinition['viewType'];
 
 export class GridsLevelsRailPanel {
     private _gridBtn:  HTMLButtonElement | null = null;
@@ -117,24 +114,31 @@ export class GridsLevelsRailPanel {
     // View-state plumbing
     // ──────────────────────────────────────────────────────────────────────────
 
-    /**
-     * §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — this used to read ONLY
-     * `viewController.currentViewDefinitionId`, i.e. the PRIMARY (left) pane. In a
-     * split layout the founder's plan view is frequently the RIGHT pane, and the
-     * Grid button stayed grey with the hint "Open a plan view to place a Grid"
-     * while a plan view was open and visible on screen.
-     *
-     * The gate was asking "IS THE MAIN VIEW A PLAN VIEW?" when the question is
-     * "IS THERE A PLAN VIEW THE USER IS WORKING IN?". `activePlanPane()` answers
-     * the latter across every open pane, focused pane first, and reduces to the
-     * exact primary-only answer when only one pane is open.
-     *
-     * NOT special-cased on "if split" — there is one enumeration of panes and the
-     * enablement question is asked of the list (C84 EI-1 / EI-9).
-     */
-    private _currentViewType(): ViewType | null {
-        return activePlanPane()?.viewType ?? activeSectionPane()?.viewType ?? null;
-    }
+    // ──────────────────────────────────────────────────────────────────────────
+    // §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — a REMOVED accessor, and why it must not
+    // come back.
+    //
+    // A private `_currentViewType(): ViewType | null` lived here, returning
+    // `activePlanPane()?.viewType ?? activeSectionPane()?.viewType ?? null`. It was
+    // never called (tsc TS6133), and it was left in place across one handover on the
+    // grounds that deleting it would tidy the error count while erasing where the
+    // work was heading. Re-measured here, that reasoning inverts: it is not a
+    // half-finished improvement, it is the OLD SHAPE in new clothes.
+    //
+    // `_syncEnabledState()` below asks TWO INDEPENDENT questions — "is there a plan
+    // pane?" and "is there a section/elevation pane?" — because the Grid button and
+    // the Level button are enabled by different panes. `_currentViewType()`
+    // collapses both into ONE answer with plan winning the `??`. In the split layout
+    // this whole L-1107 fix exists to serve — a plan pane beside a section pane, both
+    // open — it would return 'plan' and the Level button would be disabled while a
+    // section view sat on screen. That is the SAME defect L-1107 fixed for Grid,
+    // re-created for Level: one answer forced onto a question with two legitimate
+    // subjects (C84 EI-9).
+    //
+    // So the singular accessor is deleted rather than wired. `activePlanPane()` and
+    // `activeSectionPane()` are the two questions, asked separately, of the one pane
+    // authority in `viewPanes.ts`. If a future consumer needs "the" view type, that
+    // is the signal it has the wrong question, not that this helper should return.
 
     private _handleViewActivated(_payload: unknown): void {
         // §FIX-SPLIT-VIEW-IS-PLURAL (L-1107) — the event's `type` field describes

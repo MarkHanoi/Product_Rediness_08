@@ -243,3 +243,32 @@ export function selectedGridInAnyPane(): { gridId: string; pane: ViewPane } | nu
 export function clearGridSelectionInAllPanes(): void {
     for (const pane of listViewPanes()) pane.planCanvas?.setSelectedGridId?.(null);
 }
+
+/**
+ * The LEVEL DATUM the user has selected, in whichever pane holds the selection.
+ *
+ * §CENSUS-DELETESELECTED (L-1109) — the exact twin of {@link selectedGridInAnyPane},
+ * and it exists for the same reason. `PlanViewCanvas` carries TWO Canvas2D selection
+ * slots, `_selectedGridId` and `_selectedLevelId` (`PlanCanvasLike` above has always
+ * declared both), and `PlanViewInteraction` sets the level one on a datum-head or
+ * datum-line click (:891, :903). Only the grid slot had a delete route; the level slot
+ * fell through to `deleteSelected`'s `!selectionManager.selectedObject` early-return
+ * and reported "No element selected to delete" while a level datum sat highlighted on
+ * screen — a refusal naming the wrong reason (C84 EI-2).
+ *
+ * Written HERE and not inline in `initUI` deliberately: pane resolution has ONE
+ * authority (C84 EI-1), and the second consumer is exactly where a rival lookup gets
+ * minted.
+ */
+export function selectedLevelInAnyPane(): { levelId: string; pane: ViewPane } | null {
+    for (const pane of panesByFocus()) {
+        const levelId = pane.planCanvas?.getSelectedLevelId?.() ?? null;
+        if (levelId) return { levelId, pane };
+    }
+    return null;
+}
+
+/** Clear the level-datum selection in every pane (post-delete housekeeping). */
+export function clearLevelSelectionInAllPanes(): void {
+    for (const pane of listViewPanes()) pane.planCanvas?.setSelectedLevelId?.(null);
+}
