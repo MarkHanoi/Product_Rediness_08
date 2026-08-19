@@ -1568,9 +1568,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // service that captured the OLD renderer to the NEW one — WITHOUT a page
     // reload. Null until the matching block below assigns them. P1: this stays a
     // single composition root; no parallel runtime wiring is created.
-    // (RenderPerformanceService is bound to the OBC renderer, which is never
-    //  swapped, so it needs no holder here.)
+    // ⚠ CORRECTED 2026-08-19 §PERF-DPR-BINDS-THE-LIVE-RENDERER (L-1149). This used to
+    // read "(RenderPerformanceService is bound to the OBC renderer, which is never
+    // swapped, so it needs no holder here.)" That was TRUE about lifetime and WRONG
+    // about effect: in Phase 5 the OBC renderer is MANUAL, postproduction-disabled and
+    // never issues a draw, so scaling ITS pixel ratio changed the resolution of a canvas
+    // nobody sees — the quality control in VisualizationEnginePanel did nothing to the
+    // viewport the user is looking at. It now binds the LIVE renderer, so it needs a
+    // holder exactly like the pipeline manager, and the swap re-binds + re-applies it.
     let renderPipelineManagerRef: import('@pryzm/renderer-three').RenderPipelineManager | null = null;
+    let renderPerfServiceRef: RenderPerformanceService | null = null;
     // Re-sizes the active PRYZM renderer to the container — assigned where the
     // `resize` closure is defined so the swap can resize a freshly-built renderer.
     let resizePryzmRenderer: (() => void) | null = null;
@@ -4111,8 +4118,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // ── Phase 2: Render Performance Optimisation (DPR scaling + shadow mgmt) ─
     try {
         const renderPerfService = new RenderPerformanceService();
+        // §PERF-DPR-BINDS-THE-LIVE-RENDERER (L-1149) — bind the LIVE PRYZM renderer,
+        // not `postproductionRenderer.three`. DPR scaling is the cheapest and largest
+        // fill-rate lever there is ('standard' = 0.75x DPR = ~56% of the fragment work),
+        // and it was being applied to the silenced OBC renderer, which draws nothing in
+        // Phase 5. When Phase 5 aborts, `pryzmRenderer` IS `postproductionRenderer.three`,
+        // so this expression is correct on both paths rather than only one.
+        renderPerfServiceRef = renderPerfService;
         renderPerfService.bind(
-            postproductionRenderer.three as THREE.WebGLRenderer,
+            pryzmRenderer as THREE.WebGLRenderer,
             world.scene.three as THREE.Scene,
         );
 
@@ -4273,8 +4287,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // (we never touch world.camera). On failure we keep the current renderer and
     // surface a toast; the toggle's own catch falls back to the legacy reload.
     //
-    // RenderPerformanceService is bound to the OBC renderer (postproductionRenderer
-    // .three) which is NEVER swapped, so it needs no re-bind. RenderingPipeline-
+    // ⚠ CORRECTED 2026-08-19 (L-1149): this used to say "RenderPerformanceService is
+    // bound to the OBC renderer (postproductionRenderer.three) which is NEVER swapped,
+    // so it needs no re-bind." It now binds the LIVE renderer (the OBC one draws nothing
+    // in Phase 5, so scaling its DPR scaled an invisible canvas), and step 5b below
+    // re-binds AND re-applies the current quality level. RenderingPipeline-
     // Coordinator's tier gate reads window.renderPipelineManager.status.webGpuActive
     // at call-time, so it picks up the new backend automatically on the next
     // geometry-add — no re-bind needed there either. The `_swapTracer` span (P8)
@@ -4430,6 +4447,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                         ? () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true)
                         : null,
                 );
+
+                // §PERF-DPR-BINDS-THE-LIVE-RENDERER (L-1149) — re-bind the DPR service to
+                // the NEW renderer and RE-APPLY the level already in force. `bind()` alone
+                // would leave the new renderer at its adapter's construction-time DPR cap,
+                // silently discarding a 'standard' choice at the exact moment a heavy scene
+                // triggered the swap and needs it most. Best-effort: a quality lever must
+                // never be able to abort a backend swap.
+                try { renderPerfServiceRef?.rebind(pryzmRenderer as THREE.WebGLRenderer, world.scene.three as THREE.Scene); }
+                catch (e) { console.warn('[initScene] §PERF-DPR-BINDS-THE-LIVE-RENDERER rebind failed (non-fatal):', e); }
 
                 // 6. Publish the new renderer/canvas on the window globals other
                 //    subsystems read (sheet thumbnails, legacy service suspend).
