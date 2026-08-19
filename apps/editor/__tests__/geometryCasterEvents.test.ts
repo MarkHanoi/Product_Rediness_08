@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — the gate for
+ * §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189) — the gate for
  * `apps/editor/src/engine/geometryMutationEvents.ts`.
  *
  * ═══ WHAT THIS PINS, AND WHY IT IS NOT A STUB TEST ═════════════════════════

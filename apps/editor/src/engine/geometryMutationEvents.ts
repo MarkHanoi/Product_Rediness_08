@@ -1,7 +1,7 @@
 /**
  * @file apps/editor/src/engine/geometryMutationEvents.ts
  *
- * §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — the SINGLE declared answer to
+ * §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189) — the SINGLE declared answer to
  * *"which BIM events change the set of meshes in the scene, and therefore the
  * shadow CASTER SET?"*
  *
@@ -16,7 +16,7 @@
  * the caster set with the live WebGPU shadow map UNFROZEN — the exact window
  * ADR-0111 / L-25 / L-39 / L-64 / L-908 each closed for one route at a time.
  *
- * **HANDRAIL was the founder's P0 (L-1188): `bim-handrail-added` /
+ * **HANDRAIL was the founder's P0 (L-1189): `bim-handrail-added` /
  * `bim-handrail-updated` appear in neither literal.** `PascalSceneLighting
  * ._enableShadowsOnScene()` promotes EVERY non-denylisted Mesh to
  * `castShadow = true`, and a handrail's rail/post/baluster meshes carry
@@ -44,7 +44,7 @@
  * costs two FULL-SCENE traverses (`collectNewPbrMeshes` + the mesh count) on a
  * `setTimeout(0)` per event, so widening it to the per-segment handrail family
  * would trade a device-loss crash for the L-1151/L-1155 O(n²) defect class.
- * That gap is logged separately (L-1188 §Residue) rather than silently fixed.
+ * That gap is logged separately (L-1189 §Residue) rather than silently fixed.
  */
 
 /**
@@ -75,7 +75,7 @@ export const GEOMETRY_CASTER_MUTATION_EVENTS = [
     // covered it. Same per-baluster mesh/material churn as handrail.
     'bim-stair-railing-added', 'bim-stair-railing-updated',
     'bim-lift-added', 'bim-lift-updated',
-    // ── Railings (the founder's P0 — L-1188) ────────────────────────────────
+    // ── Railings (the founder's P0 — L-1189) ────────────────────────────────
     'bim-handrail-added', 'bim-handrail-updated',
     // `bim-railing-updated` is the transform-drag alias emitted by
     // registerTransformDragHandler; it moves the same meshes.

@@ -42,7 +42,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { initProjectOrigin, reseatProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109); §L-325 render-side origin re-seat
 import { clearMountedDrawing } from './views/mountedDrawingScope'; // §C13-MOUNTED-DRAWING-OWNER — detach Project A's projected linework from the shared scene
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
-// §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — the SINGLE declared set of BIM events
+// §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189) — the SINGLE declared set of BIM events
 // that change the shadow caster set. `_pascalGeomEvents` used to be a second
 // hand-written literal here and eleven families (handrail + stair-railing among
 // them) were in neither it nor `_rpcGeomEvents`, so their rebuild never armed the
@@ -3610,7 +3610,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Re-enable shadows on new BIM meshes added after startup.
         // Includes '-added' events (project load) as well as '-updated' events.
         // setTimeout(0) defers until after fragment builders have placed meshes.
-        // §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — THIS USED TO BE A HAND-WRITTEN
+        // §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189) — THIS USED TO BE A HAND-WRITTEN
         // LITERAL OF ELEVEN FAMILIES, and it is the list that ARMS the
         // §FIX-SHADOW-WALLCOMMIT-DESTROY freeze below. Handrail, stair-railing,
         // plumbing, lighting, lift, door/window/opening and stair-landing were all
