@@ -8369,6 +8369,14 @@ GREEN 4/4 passed  · write · render-colour · undo-restores-previous · other-s
 **Fixed** in `5f126d33` (`§FIX-SIDEFINISH-REACHES-AUTHORITY`). C84 **EI-2** — a whitelist that
 drops a field a command just wrote is silent narrowing at a hop.
 
+⭐ **THE EXISTING CONTROL CAUGHT THE FIX, WHICH IS THE CONTROL WORKING.**
+`WallProfileNonRegressionBaseline.test.ts` pins the two `WallStore` projections FROM SOURCE
+(§(B) B1 / B1b — *"a new authored field must be a deliberate, visible edit here"*). Both went RED
+on this change, exactly as its header says they should, and the baseline was moved deliberately
+rather than the field being slipped in. **Both projections were widened in the same commit**: a
+field carried forward and not back is C84 **EI-7a**, and undo would have left the new finish
+standing.
+
 ⚠ **C85 §4 (`:403`) says this verb writes *"legacy `sideFinishes`"*. That was FALSE until this
 commit** — it wrote nothing. The persistence column on the same row (*"not persisted"*) was true;
 see [L-999](#l-999).
@@ -8505,6 +8513,28 @@ stated over the topic's **match regex** against each kind's own advertised vocab
 label-comparison form would NOT have caught this, because the label was `material` and no wall
 capability advertises that word.
 
+### ⭐ THE INVARIANT WAS PROVEN RED, NOT ASSUMED RED
+
+*A test that passes against the defect is worse than no test — it reads as coverage.* So the fix
+was **reverted locally** (the `surface finish` topic deleted, the finish words returned to
+`material`'s regex) and the assertion run alone. It failed, printing the founder's reply
+**reconstructed from the registry** rather than transcribed from his screenshot:
+
+```
+topic "material" fires on "wall side finish" — which wall ADVERTISES via set-wall-side-finish.
+  The refusal would read: "wall material isn't connected to chat yet. I can change wall height,
+  thickness, base offset, type, colour, wall angle, window creation, wall side finish and
+  finish layer."
+topic "material" fires on "finish layer" — which wall ADVERTISES via add-wall-layer. […same…]
+
+AssertionError: a refusal that advertises what it refuses: expected [ …(2) ] to deeply equal []
+```
+
+**Two findings, one per advertised label** — the correct cardinality; the contradiction was double.
+The fix was then restored and the file re-run GREEN (`packages/ai-host` 4 files / 320 tests).
+The transcript of the experiment is in the test's own header so it can be re-run rather than
+believed.
+
 ---
 
 ## L-999 — a wall's per-side finish does not survive save/load ✅ CLOSED (save half proven by source parity)
@@ -8543,8 +8573,21 @@ snapshot (C47 §1.2 — additive optional, no MAJOR bump).
   source text instead. **NOT MEASURED: an executed `serialize()` over a live store.** The residual
   risk is a serializer that names the field and mis-shapes it — small, and named rather than hidden.
 
-**C85 §5 row 23, §11 row 6 and §12 W-B-3 are now stale** and should be re-measured by whoever owns
-C85 (this lane must not edit it).
+⭐ **THE SAME CONTROL CAUGHT THIS HALF TOO.** `WallProfileNonRegressionBaseline.test.ts` §(B) pins
+the live serialiser (B2) and the loader's `CreateWallCommand` option list (B3) from source, and B4
+pins `WallRakeRoundTrip.test.ts`'s hand-copied mirror against the real serialiser. All three went
+RED. B2 and B3 were moved deliberately; **B4 was NOT touched** — it names the mirror as the thing to
+update, and the mirror was updated instead, which is the whole point of that assertion (C84 EI-8a:
+a licensed copy pinned to its master by an executed comparison).
+
+⚠ **`sideFinishes` still has NO L0 REPRESENTATION** — C85 §2 lists it among the *"fields the L0
+schema CANNOT express"*, and `packages/schemas/src/elements/Wall.ts` is unchanged by this lane. That
+is the identical shape as C85 §11 row 2 for the rake: a field authored and persisted only through
+the legacy record, with no authority above the geometry layer. **OPEN**, and deliberately not
+widened here — adding it to L0 is a schema decision, not a bug fix.
+
+**C85 §5 row 23, §11 row 6, §12 W-B-3 and the §4 row at `:403` are now stale** and should be
+re-measured by whoever owns C85 (this lane must not edit it).
 
 ## L-1000 — the project-open viewport crash: an L4 quality service armed a SECOND renderer over the one shadow-map slot (FIXED `20051ff8`)
 
@@ -9054,3 +9097,224 @@ storey that does not exist. It now reports `null` and the caller refuses with a 
 **NOT MEASURED:** no automated test — this path needs a renderer DOM, a camera and a raycast. The
 level-staleness mechanism is proven by **call-site enumeration** (one call site, at activation), not
 by execution.
+
+---
+
+## L-1020 — CLOSED — the editor's start-up panel state was not a decision; it was three unrelated literals in three files
+
+**Reported (founder, 2026-08-18):** *"Close all the panels by default on start-up — they can be opened
+on demand. Then make the panels smaller, more discreet, more elegant, following the UI/UX contracts."*
+The screenshot shows, on ONE fresh project: a Site-plan-overlay card mid-canvas, a tall Site-analysis
+panel, a taller Buildable-envelope panel carrying paragraphs of jurisdiction prose, the "STEP 3 OF 4"
+wizard, a six-pill launcher rail, a right icon spine, a top mode bar and a GPU readout — several
+overlapping, one panel's close button over another panel's content, the canvas the smallest thing on
+screen.
+
+**Root cause — and it is the shape, not the count.** Nothing enumerated the panels, so no one could
+answer "how many open on start?" without taking a screenshot. The three defaults lived in three files,
+in three different mechanisms, none referring to the others:
+
+| Panel | The literal that opened it | File |
+|---|---|---|
+| Buildable envelope | `let envelopeCardHidden = false` | `apps/editor/src/ui/layout/GISAreaLayout.ts` |
+| Site analysis | `private static _userHidden = false` | `apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts` |
+| Site plan overlay | an unconditional `renderPanel()` at the end of the factory | `apps/editor/src/ui/site/overlay/SitePlanOverlayController.ts` |
+
+**Fix — `apps/editor/src/ui/layout/panelDefaults.ts` (new), the ONE table.** 12 rows: every chrome
+surface that can occupy the viewport on a fresh start, its default, and a stated reason. 3 closable
+rows, all now CLOSED; 9 essential rows, all NAMED with a justification so "stays open" is a recorded
+judgement rather than a leftover. The three surfaces above now SEED from the table and WRITE BACK on
+every toggle, so the panel, its re-open pill and `Reset panel layout` can no longer hold three
+opinions about one panel.
+
+**MEASURED, both directions.** Dismissible panels open on a fresh start: **3 → 0.** Essential chrome:
+unchanged (6 persistent surfaces + 2 task-scoped groups, all enumerated in the table). The before
+figure is the three literals above; the after is `PANEL_REGISTRY.filter(p => !p.essential &&
+p.defaultOpen)`, asserted empty in `panelDefaults.spec.ts`.
+
+**C82 §1.1 — the hard constraint, and why closing was safe.** Two of the three re-open pills
+(`site-analysis-launcher`, `envelope-card-launcher`) have existed since §L-621b and are always-on;
+closing those panels by default consumed affordances that were already there. The third had none and
+could not sensibly be given one — the Site-plan-overlay card exists only while the 2D boundary-draw
+map is mounted, so an always-on pill would be a control that leads nowhere for most of a session
+(C82 §1.2). It collapses to its own header row instead (`site-overlay-reopen`, 24px target, one click,
+anchored in its own region), and that row still carries a one-line summary ("survey.pdf" vs "no plan
+added") because "nothing uploaded" and "a plan IS placed under this map" are different facts that a
+bare title would render identically.
+
+**PROVEN / NOT PROVEN — stated, because the difference is the point.**
+
+* **PROVEN:** every closable row declares a reopen control, and every declared control's `data-testid`
+  occurs in the shipped source of the three real files (`panelDefaults.spec.ts`). 22/22 green.
+* **NOT PROVEN:** that those controls are MOUNTED AND CLICKABLE in a running browser. This is SOURCE
+  evidence, not mount evidence, and C82 §5.4 makes that distinction explicitly. It catches the
+  rename/typo class — which is what breaks a table like this — and nothing more. See **L-1023**.
+
+---
+
+## L-1021 — CLOSED — "one panel's close button sits on another panel's content" was arithmetic, not taste
+
+**Root cause.** The Buildable-envelope card was TOP-anchored at `top: 108px` with
+`max-height: calc(100vh - 128px)`; the Site-analysis panel was BOTTOM-anchored with
+`calc(100vh - 32px)`. On **every** viewport height those two ranges intersect across the middle of the
+right edge. Neither knew the other existed — a direct C06 §7.2 breach (chrome sharing a region must
+declare it and must not occlude peers), and `108px` is also exactly where the Forma view sub-bar sits.
+
+**Fix.** The right edge is now a declared two-slot column that tiles at 50vh, expressed as four tokens
+in `apps/editor/src/ui/styles/tokens.ts`: the top panel occupies `[148px, 50vh)`, the bottom panel
+`[50vh, 100vh - 16px]`. The top anchor moved 108 → 148 so it clears both floating view bars (result
+toggle at 64, Forma sub-bar at 108, each roughly 34px tall).
+
+**The subtle part, and the reason this could have silently regressed.** All four tokens are fenced
+with `@no-scale` markers. `styles/uiScale.ts` rewrites every px in the injected stylesheet by
+`UI_SCALE` (0.85) — so it would have scaled the `148px` INSIDE `calc(50vh - 148px)` while the
+consumer's own anchor resolved through a differently-scaled token, re-opening a ~22px overlap that
+nothing would have caught. `panelRegionTiling.spec.ts` runs the real `scaleCssText` over the real
+`DESIGN_TOKENS` and asserts the four values survive byte-identical, plus that each max-height
+subtracts the SAME offset its panel is anchored at. **"The panels do not overlap" is now computed,
+not eyeballed.**
+
+Also fixed under C06 §7.3 (no raw z-index literals in edited chrome): `zIndex: '32'` (envelope card)
+and `zIndex: '22'` (site-plan overlay) become `zCss('panel')`.
+
+---
+
+## L-1022 — CLOSED — the density lever could not reach the panels it was built for; and the prose was at the wrong altitude
+
+**Two findings, one cause: inline styles.**
+
+**(a) §UI-DENSITY-SCALE was structurally blind to these panels.** `styles/uiScale.ts` is the declared
+single authority for chrome density and applies at `AppTheme.injectAppTheme()` — it transforms the
+assembled *stylesheet*. All four floating site panels style themselves with
+`Object.assign(el.style, { width: '300px', ... })`, which is never in that stylesheet. So the panels
+the founder called too big were the exact panels the density authority **could not touch**, while
+`--app-ui-scale` reported 0.85 as though it had. They also disagreed with each other: 300 / 240 /
+232 px wide, three shadows, three border colours, 13px and 12px body type.
+
+**Fix.** A `--pryzm-panel-*` / `--pryzm-pill-*` token block in `styles/tokens.ts` (C06 §6 — visual
+tokens are custom properties), with all three panels' inline styles pointing at it. Effective widths
+(post-scale) fall from 300/240/232px to roughly 245/231px; shadow blur halved at about 55% of its
+alpha; the launcher pills lose their full-saturation `1px solid #6600FF` outline for a tinted border.
+
+**Two token-naming traps, both load-bearing, both commented in place:**
+
+1. `scaleDeclaration` keys the 10px legibility floor off the property **NAME**
+   (`prop.includes('font-size')`). A token called `--pryzm-panel-title-size` would scale straight
+   through the floor to 9.35px. The font tokens are therefore named `--pryzm-panel-font-size-*`, and
+   `panelRegionTiling.spec.ts` fails if one is renamed.
+2. The pills' hit target is `@no-scale`-fenced. They are the ONLY route back to the closed panels, so
+   letting 26px scale to 22.1px would have turned a decluttering into a **C43 / WCAG 2.2 AA SC 2.5.8
+   regression**. Asserted at 24 or above after the real transform.
+
+**(b) §UX1-PROSE-ALTITUDE — the jurisdiction wall.** The Buildable-envelope card rendered the
+upper-bound caveat, the zone-extent caveat, the capacity section and the full site-data block inline.
+**Nothing is deleted** — several of those paragraphs are C58 §1.4 honesty statements, and dropping one
+would let an upper-bound footprint read as a solved envelope. They are collapsed behind `<details>`
+summaries **that still carry the claim** ("Footprint = whole parcel — a maximum extent, not a
+buildable solid. Why?"), never a bare "details". The headline rows, the confidence badge and the
+source line stay unconditionally visible: those are the answer, the paragraphs are the working.
+
+---
+
+## L-1023 — OPEN — the panel work is proven in source and in specs, NOT in a running browser
+
+**Status: OPEN, and deliberately not closed.** The brief's rule is that committed is not reachable,
+and that a visual result not observed must not be claimed. It was not observed.
+
+**What was attempted, and what actually happened — measured, not inferred:**
+
+1. `npm run dev` — **the server booted**: `[server] Listening on port 5000 (development)`,
+   `migrationsReady=true`. Left idle about 16 minutes it then died: `FATAL ERROR: Ineffective
+   mark-compacts near heap limit — JavaScript heap out of memory` (exit 134), at roughly 2.0 GB.
+2. Retried with `NODE_OPTIONS=--max-old-space-size=6144`. The server booted again and **accepted TCP
+   on port 5000, but returned zero bytes for `GET /`**: `curl --max-time 20` gave `HTTP 000`;
+   Playwright `page.goto` gave `Timeout 120000ms exceeded ... navigating to "http://localhost:5000/"`.
+
+3. Isolated it further rather than guessing: the plain Express routes are dead too —
+   `/api/health`, `/healthz` and `/api/v1/projects` each returned `HTTP 000` after 15s, and a
+   420-second `curl` on `/` also expired without a first byte. So this is **not** Vite refusing to
+   finish a transform while the server otherwise serves; **the Node event loop is blocked outright.**
+
+That is the condition already recorded in the `localhost-dev-unusable-test-on-prod` memory note. It
+is an environment fact, not a symptom of this change: **nothing in this lane's diff executes before
+the first byte of `/`** — and the routes that died first are backend routes that never touch UI code
+at all.
+
+**Therefore, stated plainly: the before/after screen was NOT observed running. The 3 → 0 figure in
+L-1020 is a SOURCE measurement** (the three initialisers, versus the registry filter asserted in the
+spec), and the reopen routes are proven by `data-testid` occurrence in the shipped source, **not** by a
+click. Per C82 §5.4 that is explicitly not mount evidence.
+
+**To close:** run the probe already written for this — chromium to `localhost:5000`, then
+`window.pryzmEnterSiteView('plan')`, count visible `[data-testid]` chrome, then CLICK
+`envelope-card-launcher` and `site-analysis-launcher` and re-probe — against a **production build or
+the deployed app**, not the dev server. The script exists and is complete; only a responsive host is
+missing.
+
+---
+
+## L-1024 — OPEN — `Reset panel layout` reaches only the three registry panels, and only one rail knows it exists
+
+Landed under L-1020: a 26px icon control at launcher-rail slot 7 (`reset-panel-layout`), restoring the
+declared defaults **and** clearing the drag/resize offsets — all three panels are `makeDraggable` plus
+`resize: both`, so a panel dragged half off-screen was otherwise unrecoverable. It distinguishes
+"already at defaults" from "3 panels restored" rather than printing one sentence for both facts.
+
+**Two honest limits:**
+
+1. **Scope.** It resets the three registry panels only. The property panel, the ViewBrowser flyouts,
+   the sheet editor and the data workbench each own their own geometry and are not in the table. They
+   are not *broken* — they are simply outside a mechanism whose whole point is that there is one of it.
+2. **Discoverability.** It is mounted by `mountSiteViewLauncher()` in `GISAreaLayout`, so it exists
+   only once the GIS area has mounted. A user who never enters the site view never sees it. The right
+   long-term home is the platform shell's app menu, which is another lane's surface — hence OPEN rather
+   than a quiet half-fix.
+
+**Not a defect, a declared decision (D2):** panel state is **session-scoped and NOT persisted** — every
+app start and project open restores the table. Persisting it would re-create the reported defect for
+any user who ever opened a panel, and persisting *some* panels is the one-question-two-answers shape.
+`panelDefaults.spec.ts` asserts the module reaches no storage at all, so a future per-panel exception
+fails rather than drifts.
+
+---
+
+## L-994 — the `wallStore.add()` census fails as a 5-second TIMEOUT, not as a finding, and every lane that runs it under load will be blamed (OPEN)
+
+**Lane WM1, 2026-08-19, while establishing whether the one red test in `@pryzm/geometry-wall` was ours.**
+
+`packages/geometry-wall/__tests__/WallCreateJoinIntentCensus.measure.test.ts` →
+*"every production wallStore.add() site is classified — an unclassified site is a NEW unstamped
+producer"* is RED on `main`. Its message reads like a content failure — a new producer that forgot
+to stamp `joinIntent` — and that is what it will be read as.
+
+**It is not.** Run in isolation (`npx vitest run WallCreateJoinIntentCensus`, 2026-08-19):
+
+```
+ × every production wallStore.add() site is classified …  6816ms
+   Error: Test timed out in 5000ms.
+   ❯ __tests__/WallCreateJoinIntentCensus.measure.test.ts:237:5
+ Tests  1 failed | 7 passed (8)
+```
+
+`findWallAddSites()` (`:120`) reads **every file under seven source roots** — `command-registry`,
+`geometry-wall`, `runtime-composer`, `persistence-client`, `ai-host`, `apps/editor`, `plugins/wall`
+— strips comments and strings from each, and regex-scans it. On an idle machine that is ~7 s of
+pure filesystem work against vitest's 5 s default; under fleet load it is worse. **The assertion
+never runs**, so the ledger is neither confirmed nor refuted by this result.
+
+**Why this matters more than an ordinary flake.** The failure text names a defect class
+(*"a NEW unstamped producer"*) that the run did not measure. It is the [[context-data-honesty]]
+shape at the harness level: *the test could not answer, and it reports as though it answered no.*
+The next lane to touch a wall file will be handed this red and will spend a session hunting a
+producer that is not there.
+
+**NOT WM1's**, proven structurally rather than argued: the census's denominator is `wallStore.add()`
+call sites, and **every file WM1 changed contains zero of them** —
+`grep -cE '[Ww]allStore\.add\(' ` returns `0` for `CascadeWallBaselineCommand.ts`,
+`moveReweldPreflight.ts`, `WallMoveReweldService.ts`, `wallPlacementGate.ts`,
+`registerTransformDragHandler.ts`, `MovePlanToolHandler.ts` and `WallMoveClashProposal.ts`.
+
+**The fix is a `testTimeout` on that `it`, or a cached scan** — not a ledger edit. ⛔ Whoever fixes
+it must NOT "fix" it by adding files to `PRODUCERS`: the assertion has not been seen to fail on
+content, and the shrink-only `UNSTAMPED_PRODUCERS` ratchet is a real invariant that must not be
+loosened on the strength of a timeout.
