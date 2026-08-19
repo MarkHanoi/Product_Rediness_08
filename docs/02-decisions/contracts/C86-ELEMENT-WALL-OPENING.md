@@ -45,10 +45,18 @@
 
 ### `userData.elementType` — the casing is FROZEN by C15 §12, and one builder ships both spellings
 
+> ⚠ **RE-MEASURED 2026-08-19 — EVERY WINDOW LINE NUMBER IN THIS TABLE HAD ROTTED, AND THE DOOR
+> HALF IS NOW COMPLETE.** C86 recorded `WindowBuilder.ts:308 / :578 / :631`; the file is 1347 lines
+> and the sites are **`:376` / `:646` / `:730`**. Register item 1 is CLOSED and the answer is that
+> **door does exactly what window does, plus a third tag nobody had recorded.**
+
 | Literal | Producer |
 |---|---|
-| `'window'` (lowercase) | `packages/geometry-window/src/WindowBuilder.ts:308`; `WindowPlanSymbolBuilder.ts:145` |
-| `'Window'` (PascalCase — **the canonical one**) | `WindowBuilder.ts:578`, `:631`; `WindowPlanSymbolBuilder.ts:158`, `:171` |
+| `'window'` (lowercase) | `packages/geometry-window/src/WindowBuilder.ts:376` |
+| `'Window'` (PascalCase — **the canonical one**) | `WindowBuilder.ts:646`, `:730` |
+| **`'door'` (lowercase)** | **`packages/geometry-door/src/DoorBuilder.ts:271`; `DoorPlanSymbolBuilder.ts:289`** |
+| **`'Door'` (PascalCase — canonical)** | **`DoorBuilder.ts:476`, `:526`; `DoorPlanSymbolBuilder.ts:302`, `:315`, `:330`** |
+| **`'DoorLeaf'`** | **`DoorBuilder.ts:526` — `elementType: isLeaf ? 'DoorLeaf' : 'Door'`. A THIRD tag, on a child mesh, recorded nowhere until now. It is the door's analogue of `'WallPart'` (WO-ID-2) and is a legitimate SUB-PART tag, not a rival spelling — but it was undeclared, and a consumer keying on `elementType` sees a value C15 §12 never enumerated** |
 | `'window'` (store event) | `WindowStore.ts:50, :75, :106, :115, :179` |
 | `'door'` (store event) | `DoorStore.ts` — emit sites recorded in `tools/ga-gate/deterministic-regeneration-baseline.json:66-70` |
 | `'door'` / `'window'` (registry) | `ElementTypeRegistry.ts:95, :110`; `SystemIntents.ts:162, :167, :235, :240` |
@@ -60,10 +68,24 @@
 stored casing — it is frozen."*** `DeleteElement.ts:51`'s lowercase is that mechanism working as
 specified — **not** the accident C84 §4E first read it as.
 
-> ⚠ **MEASURED VIOLATION OF C15 §12: `WindowBuilder` ships BOTH spellings.** `:308` emits lowercase
-> `'window'`; `:578` and `:631` emit `'Window'`. C15 froze **one**. Every comparing consumer
-> lowercases, so nothing is broken today — but the freeze is already broken, from one file.
-> **`DoorBuilder.ts`'s `userData.elementType` assignment sites are NOT MEASURED.**
+> ⚠ **MEASURED VIOLATION OF C15 §12: BOTH BUILDERS SHIP BOTH SPELLINGS — not just window.**
+> `WindowBuilder.ts:376` emits lowercase `'window'` while `:646`/`:730` emit `'Window'`; **and
+> `DoorBuilder.ts:271` emits lowercase `'door'` while `:476`/`:526` emit `'Door'`.** The plan-symbol
+> builders repeat the split in both families (`DoorPlanSymbolBuilder.ts:289` lowercase vs `:302`,
+> `:315`, `:330` PascalCase). C15 froze **one** spelling. **Four files, two families, one freeze,
+> broken identically in all four** — which is the argument that this is a missing gate rather than
+> four slips.
+>
+> ⭐ **AND THE LOWERCASE EMIT IS NOT THE SAME KIND OF SITE IN EITHER FILE.** `DoorBuilder.ts:271`
+> and `WindowBuilder.ts:376` are inside the **visibility/view-definition subscription** (guarded at
+> `DoorBuilder.ts:252` / `WindowBuilder.ts:357` by `e.elementType !== 'view-definition'`), not the
+> mesh-stamping path — `DoorBuilder.ts:473` names `:476` *"canonical 'Door' elementType case for both
+> root group and child meshes"* and `WindowBuilder.ts:643` says the same. So the mesh `userData` a
+> consumer picks or exports is **already the canonical PascalCase**; the lowercase pair is an
+> internal event tag. **That downgrades the severity and does NOT clear it** — one spelling was
+> frozen, and a reader cannot tell the two site classes apart without opening both files, which is
+> exactly what a frozen vocabulary exists to prevent. Nothing is broken today because every comparing
+> consumer lowercases (measured again at `GLBExporter.ts:217`, `DeleteElement.ts:51`).
 
 ### ⛔ `'opening'` HAS NO MESH PRODUCER — CONFIRMED, and the finding is sharper than C84 §4E states
 
@@ -144,9 +166,47 @@ hits, all in one file, all storeEventBus — none is mesh `userData`**:
 - **WO-S-2 (EI-5a).** The plugin DTO stores (2) are **declared write-only shadows** — their own
   handler barrels already say so. ⛔ No mirror, no purge (C84 §8.c). Each `store.ts` MUST carry the
   `plugins/rooms/src/store.ts:1-29` header form.
-- **WO-S-3.** The plan-view plugin's stores (6) are a **fifth** view. Whether they are fed from the
-  authority is **NOT MEASURED**, and `windowStore` being optional at `:156` means a plan view can run
-  with no window source at all. MUST be measured and declared.
+
+  > ✅ **REGISTER ITEM 5 CLOSED 2026-08-19 — and the word "DETACHED" was carrying more weight than
+  > the measurement supports.** C86 recorded only the barrels' self-assertions, and C84 §3.5 is
+  > explicit that *a barrel asserting it is detached is not a measurement*. Run on all four axes:
+  >
+  > | Axis (C84 §3.5.1) | Measured |
+  > |---|---|
+  > | **(a) import / construction** | `apps/editor/src/PluginRegistry.ts:50-51` imports both; `:256` `buildStore: () => new DoorStore() as unknown as Store<object>`, `:264` the same for `WindowStore` |
+  > | **(d) call** | `apps/editor/src/bootstrap.everything.ts:142` `const store = plugin.buildStore();` inside the `ALL_PLUGINS` loop (`:139`) — invoked for **every** plugin, door and window included |
+  > | **(b) bus** | reached from the production entry: `src/main.ts:397` imports `bootstrapWithEverything` from `@pryzm/editor/bootstrap.everything` and passes it to `composeRuntime` as `bootstrapFn` (`:412`). The eight non-refusing door/window verbs (§4) write these instances |
+  > | **(c) build-graph** | `apps/editor/package.json` declares `@pryzm/plugin-door` and `@pryzm/plugin-window` as `workspace:*` |
+  >
+  > **So the classes ARE constructed, ARE bound under storeKeys `'door'`/`'window'`, and ARE
+  > written.** They are detached from **READERS**, not from the runtime. The distinction matters
+  > because EI-5a's disposition — *declare, do not reconcile* — is explicitly *"sound ONLY while the
+  > reader count is zero"*, and the thing that must stay zero is the reader count, which is what a
+  > future census must re-run. **A store that is live, written and unread is a different object from
+  > a store that is never built, and "DETACHED" reads as the second.**
+- **WO-S-3.** The plan-view plugin's stores (6) are a **fifth** view.
+
+  > ✅ **REGISTER ITEM 8 CLOSED 2026-08-19 — and the answer dissolves the question.** *"Are they fed
+  > from the authority?"* presumes they are fed at all. **They are not: `PlanViewCanvasHost` has ZERO
+  > production construction sites.** `grep -rn 'new PlanViewCanvasHost'` → **2 hits, both tests**
+  > (`plugins/plan-view/__tests__/plan-view-canvas-host.test.ts:125`,
+  > `plan-view-auto-dim.test.ts:147`). Nothing in `apps/editor`, `src/`, or any other host constructs
+  > it. The "fifth view of the same door" is a **test-only** view.
+  >
+  > What the shape would be if it were wired, recorded so the answer survives the wiring: its stores
+  > are typed `PlanViewSourceStore<Door>` / `<Window>` over `Door`/`Window` from **`@pryzm/plugin-sdk`**
+  > (`:43`) — i.e. the L0/DTO shape, which is the **empty** side after any project load (C84 EI-5a,
+  > `ProjectLoader.ts:743`). So the natural wiring feeds it the store with no records in it.
+  >
+  > ⚠ **The optional `windowStore` (`:156`) degrades SILENTLY.** `:420-422` —
+  > `const windows = this.windowStore ? [...this.windowStore.getState().values()] : []` — and that
+  > `[]` flows into `projectWallEdges` (`:427`) and `computePocheFills` (`:431`). **A plan view with
+  > no window source and a plan view of a building with no windows are the same value**, with no
+  > declaration at either site. That is the §CONTEXT-DATA-HONESTY shape and it is why this row stays
+  > open even though the host is unwired: whoever wires it inherits the ambiguity.
+  >
+  > **Verdict: PARKED under C84 §3.5** — but it does **not** carry the compliant PARKED declaration
+  > (`producers/wallVoids.ts:10-15` is the form). It MUST gain one, or be wired.
 - **WO-S-4.** ⛔ **`doorStore`/`windowStore` MUST NOT be retired.** C84 §8.c, as scoped: **both**
   sides have live readers (`WallFragmentBuilder` reads `wall.openings` for the void;
   `DoorBuilder`/`WindowBuilder` read the standalone store for the frame). This is a **declared
@@ -164,7 +224,7 @@ hits, all in one file, all storeEventBus — none is mesh `userData`**:
 | **Plan view (plugin)** | **(6)** its own injected stores | `PlanViewCanvasHost.ts:154, :156, :419, :420-421` |
 | **Persistence — save** | **BOTH (3) AND (4), UNRECONCILED** | LIVE `ProjectSerializer.ts:47` (`import { doorStore, doorSystemTypeStore }`), `:48` (`windowStore`), **`:1013` `const windows = windowStore.getAll().map(w => ({...w}));`**, **`:1014` `const doors = doorStore.getAll().map(d => ({...d}));`**, emitted `:1103`; **and separately `:552` `openings: Array.isArray(wall.openings) ? wall.openings.map(o => ({...o})) : []`**. Type decls `:128`, `:129`, `:139` |
 | **IFC export** | **(4) — the EMBEDDED record ONLY** | `packages/file-format/src/export/ifc/readers/WindowDoorReader.ts:1` `import { WallStore } from '@pryzm/geometry-wall'`, `:7` `constructor(private store: WallStore, …)`, **`:12` `this.store.getAllWindows()`**, **`:56` `this.store.getAllDoors()`**; wired `packages/file-format/src/export/ifc/FragmentReader.ts:89` (import `:36`). A grep of `packages/file-format/src` for `doorStore\|windowStore\|getAllDoors\|getAllWindows` returns **only `:12` and `:56`, both `this.store.*` (the WallStore)** |
-| **GLB export** | **NOT MEASURED** | no door/window store read located in `packages/file-format/src` |
+| **GLB export** | **NEITHER RECORD — it reads the THREE SCENE** | `packages/file-format/src/export/glb/GLBExporter.ts:144` `if (!(object.userData && object.userData.elementType)) return;`, root-only filter `:157`, resolver `:125`/`:302-305`, export walk `:598`. ✅ **REGISTER ITEM 2 CLOSED** — the blank was the wrong shape of question |
 | **Bake worker** | **NONE — capability absent** | `HeadlessBakeSession.ts:13`, `:58`, `:92` are three comments describing FUTURE work (*"door, window, stair plug in once their handlers + producers"*; *"the long-tail handlers (joins, openings, level"*). **Zero door/window/opening code in the file** |
 | **Undo (ring buffer)** | **NONE — deliberate** | `performUndoRedo.ts:345-351` |
 | **Rollback (`createSnapshot`)** | **(3)** | `CommandManagerImpl.ts:619-620` |
@@ -404,8 +464,18 @@ default divergence.
 | `windows/UpdateWindowParameterCommand.ts` | `:160` | `:93`, `:102` | ✅ HONOURS |
 | `doors/UpdateDoorParameterCommand.ts` | `:124` | `:96`, `:105` | ✅ HONOURS |
 | **`packages/core-app-model/src/views/PlanElementDragController.ts`** | **`:570` `ws.updateDoor(state.elementId, { offset: slide.offset })`, `:571` `ws.updateWindow(…)`, `:713`, `:715` (revert)** | ⛔ **NONE — the file contains ZERO occurrences of `doorStore`, `windowStore`, `@pryzm/geometry-door` or `@pryzm/geometry-window`** | ⛔ **VIOLATES C15 §8.1 — AND IT IS THE LIVE 2-D PLAN-VIEW DRAG PATH** |
+| **`apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts`** — ⛔ **NEW 2026-08-19, [L-1042](../../04-reference/ISSUE-LOG.md); this census did not contain it** | **NINE sites: `:155` `updateWindow(width)`, `:160` `(height)`, `:165` `(sillHeight)`, `:170` `(fireRating)`, `:178` `updateDoor(width)`, `:183` `(height)`, `:188` `(fireRating)`, `:193` `(accessibilityType)`, `:203` `(swingDirection)`** | ⛔ **NONE — `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-window'` over the file was **0** before this lane's `mapSwingToLegacy` import** | ⛔ **VIOLATES the pairing on EIGHT fields. It is the PROPERTY PANEL — the second most-used mutation surface in the family** |
 
-✅ **RE-MEASURED 2026-08-18 and the row is exact, line for line** —
+> ⛔ **THE CENSUS WAS INCOMPLETE, AND THE OMISSION IS INSTRUCTIVE (added 2026-08-19).** C86 built
+> this table by sweeping **COMMANDS** (`packages/command-registry/src/{doors,windows}/*.ts`) and
+> then adding the one non-command surface it happened to know about. `PropertyInspectorApply.ts`
+> is a **UI apply path** — it calls `ctx.wallStore.updateDoor/updateWindow` directly, exactly as
+> `PlanElementDragController` does, and it was invisible to a command sweep. **Two of the family's
+> three most-used mutation surfaces are off-bus and off-command, and a command-shaped census finds
+> neither.** This is precisely why WO-B-3's gate must key on **call sites of
+> `wallStore.updateDoor/updateWindow`**, repo-wide, and not on command declarations.
+
+✅ **RE-MEASURED 2026-08-18 and the `PlanElementDragController` row is exact, line for line** —
 `grep -n 'updateDoor\|updateWindow' PlanElementDragController.ts` → **`:570`, `:571`, `:713`, `:715`,
 and nothing else**; `grep -c 'doorStore\|windowStore\|geometry-door\|geometry-window'` → **0**.
 Recorded because a citation that survives re-measurement unchanged is worth as much as one that does
@@ -567,18 +637,41 @@ explicitly** per EI-1b — a clean axis, measured, not assumed.
 legacy record.** A user who picks a sliding door gets a hinged one, silently.
 **`Window` has no `swing` field at all.**
 
-### ⛔ EI-3 VIOLATION #2 — the AI writes `doorType` values the union cannot hold
+### ⛔ ~~EI-3 VIOLATION #2 — the AI writes `doorType` values the union cannot hold~~ — **RETRACTED**
 
-`packages/ai-host/src/QueryEngine.ts:320` writes `doorType: 'double-hinged'`; `:575` writes
-`'hinged-left'`. **Neither is in `'single' | 'double'`**, so neither the schema enum, the `Opening`
-interface, nor `DoorDimensions.resolve` can accept them. **The UI does not offer them; AI query
-synthesis produces them.** Whether they reach a store write is **NOT MEASURED**.
+> ⛔ **RETRACTED IN FULL 2026-08-19 (C84 §6). REGISTER ITEM 6 CLOSED, AND IT CLOSED AGAINST THIS
+> SECTION.** C86 flagged `QueryEngine.ts:320` / `:575` as a wall-opening EI-3 violation **and then,
+> three paragraphs later, warned a future census not to inflate those exact literals into a
+> rivalry.** Both readings were in the same section. **The second one was right.**
+>
+> Measured — the *enclosing function*, which is what nobody had opened:
+>
+> | Site | Enclosing scope | Verdict |
+> |---|---|---|
+> | `QueryEngine.ts:320` | `createDefaultSections()` `:313`, building **wardrobe sections**; the answer string at `:310` is *"I've prepared a proposal to modify your wardrobe…"*; the result lands in `commandProposalStore` (`:300`) | `'double-hinged'` **IS a member of `WardrobeSectionDoorType`** (`packages/core-app-model/src/stores/WardrobeCabinetTypes.ts:35-40` — `'double-hinged' \| 'sliding' \| 'glass' \| 'mirror' \| 'none'`). **NO DEFECT AT ALL** |
+> | `QueryEngine.ts:575` | a wardrobe config builder `:567-571` (`width`/`height`/`depth`/`sections`), same proposal path | `'hinged-left'` is **NOT** in `WardrobeSectionDoorType` either. **A real out-of-union write — on the WARDROBE axis, not the wall-opening axis.** Reported to the furniture family, [L-1041](../../04-reference/ISSUE-LOG.md) |
+>
+> **Neither site reaches `Door.parse`, `Opening.doorType`, `DoorDimensions.resolve`, or any
+> `wall.openings[]` write.** `section.doorType` is `WardrobeSectionConfig.doorType`
+> (`WardrobeCabinetTypes.ts:59`) — a furniture vocabulary that happens to share a field name.
+> Both sites are typed `any` (`const section: any`, pushed into an `any[]`), which is why `tsc`
+> never saw `:575`.
+>
+> ⭐ **THE LESSON IS THE REASON THIS RETRACTION IS LONG.** The C86 row read confidently — *"Neither
+> is in `'single' \| 'double'`"* — and it was true and irrelevant: the values were never measured
+> against the union they actually belong to. **A row that names the wrong denominator is worse than
+> a blank**, because it looks measured. The collision note that would have caught it was already in
+> this section, written by the same pass, and lost the argument to the more confident paragraph
+> above it.
 
-> ⚠ **NAME COLLISION, deliberately NOT counted as a violation.** `'double-hinged'` also appears in
-> `WardrobeCabinetTypes.ts:174, :242` (both `core-app-model` and `geometry-furniture`),
-> `WardrobeEngine.ts:40, :273, :304`, `WardrobeCabinetEngine.ts:276`, `FurnitureTool.ts:620-621` —
-> that is `WardrobeSectionDoorType`, a **furniture** vocabulary sharing the field name `doorType`.
-> **Recorded so a future census does not inflate it into a rivalry** (C84 §8.g).
+### The name collision itself — RECORDED, still not a violation
+
+`'double-hinged'` appears in `WardrobeCabinetTypes.ts:174, :242` (both `core-app-model` and
+`geometry-furniture`), `WardrobeEngine.ts:40, :273, :304`, `WardrobeCabinetEngine.ts:276`,
+`FurnitureTool.ts:620-621`. That is `WardrobeSectionDoorType`, a **furniture** vocabulary sharing the
+field name `doorType` with the wall-opening one. **Recorded so a future census does not inflate it
+into a rivalry** (C84 §8.g) — and, now, so a future census does not repeat C86's own mistake of
+grading a furniture value against a door union.
 
 ### Material / finish
 
@@ -672,7 +765,27 @@ than the line.
 `packages/geometry-kernel/src/producers/door.ts:1` (*"pure-TS Door geometry producer (S11-T1)"*),
 `:25` imports the **L0** `Door`, `:27` `DoorWorldPlacement`; `:15-18` — *"positioned in WORLD
 coordinates relative to the host wall's baseline + sill height… so this producer has no store
-dependency."* `producers/window.ts` exists; **contents NOT MEASURED.**
+dependency."* **`producers/window.ts` — READ 2026-08-19; REGISTER ITEM 3 CLOSED.** 240 lines.
+`:1` *"produceWindow — pure-TS Window geometry producer (S11-T2)"*, spec cited `:3`
+(`phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S11). Its design block `:5-13` states the model —
+*"Window geometry = outer frame (4 boxes: 2 vertical mullions forming jambs + head + sill) + inner
+mullions (per WindowGridSpec columns/rows from the type catalogue) + glass panes"*, *"For
+schema-only windows (no system type known), we emit a single 1×1 grid"*, *"THREE-FREE — same
+conventions as `produceDoor`"*, *"Output materials: 2 slots (frame + glass)"*. `:17` imports the
+**L0** `Window` from `@pryzm/schemas`; `:19-29` `WindowWorldPlacement` — `axis`, `normal`, and an
+`origin` documented `:22-23` as *"World origin = bottom-centre of the window opening at the wall
+surface, **WITH `sillHeight` and `offset` already applied**"*, plus an optional `grid` override
+`:26-28`. Fallback constants `:38-39` (`FRAME_FALLBACK_COLOR = '#3a3a3a'`, `GLASS_COLOR = '#a4c8e1'`).
+
+✅ **It is the exact twin of `producers/door.ts`: store-free, THREE-free, L0-fed.** ⛔ **Nothing
+under `producers/` may be deleted** — ADR-0331 §D5 is an escalated founder question (C84 §3.5.2), and
+the self-host bake is the measured counter-example to an editor-only census.
+
+⚠ **The placement contract is where a future parity harness will bite.** `WindowWorldPlacement.origin`
+requires `sillHeight` and `offset` to be **pre-applied by the caller**, whereas Stack A's
+`WindowBuilder` derives its own Y from `WallVerticalDatum` (§10 above). **The two stacks therefore
+divide the same computation differently**, and that boundary — not the geometry — is what WO-G-2's
+harness must pin. Recorded now so it is not re-discovered as a divergence.
 
 `producers/wallVoids.ts:1` (`produceWallWithVoids`), `:10-15` verbatim:
 > *"It is intentionally NOT wired into `WallFragmentBuilder` / `LayeredWallOpeningBuilder` — that is
@@ -710,17 +823,20 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | **4** | Persistence writes **both** records (`ProjectSerializer.ts:552` and `:1013-1014`) and reconciles neither; IFC reads only the embedded one (`WindowDoorReader.ts:12, :56`) | nothing while the pair agrees — **everything the moment it does not**, and #1/#3 guarantee it does not | C84 **EI-1** | the persistence migration — **owned by [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md)** (C84 §9, as retracted) |
 | **5** | `wall.delete` (L1) has **no** hosted cascade; the L2 path does (`DeleteElementCommand.ts:265-266`) | orphaned door/window records **and their 3-D meshes** | C84 **EI-4a**, **EI-5** | delegate, do not copy |
 | **6** | `frameThickness`, `frameWidth`, `fireRating`, `accessibilityType` are schema fields the create path **silently discards** (§5 rows 10, 11, 14, 15) | four authored door properties, at creation | C84 **EI-2(a)** | round-trip each through `wall.createOpening` |
-| **7** | `swing` has 5 members; the legacy record has a 2×2. **`'sliding'` is unrepresentable** | **a sliding door becomes a hinged door**, silently | C84 **EI-3** | enumerate both vocabularies in one test |
+| **7** | ⚠ **RE-STATED 2026-08-19 — the row named the wrong site and understated the loss.** It read *"`swing` has 5 members; the legacy record has a 2×2. `'sliding'` is unrepresentable"* and cited `CreateWallOpeningCommand.ts:167-170`. **That command never reads `swing`** — it reads `opening.hingesSide`/`opening.swingDirection` directly, already split by `DoorPlacementFlip.ts:50-53`. The real transform was in the UI: `PropertyInspectorApply.ts` assigned `updates.swing` into a `swingDirection` key, matching the FIELD NAME and not the VOCABULARY. `Door.swing` (`Door.ts:67`) vs `swingDirection` (`DoorTypes.ts:64`, `z.enum(['inward','outward'])`) — **the intersection is EMPTY**. Not four of five carrying; **none of five** | **every swing the user set wrote an out-of-union value into the legacy record, silently** — not only sliding. **Partly CLOSED** by `mapSwingToLegacy` ([L-1040](../../04-reference/ISSUE-LOG.md)); the residual loss is that `'sliding'` still has no representation and is now REFUSED rather than silently mangled | C84 **EI-3**, **EI-8**, **EI-9** | ✅ **DONE** — `packages/geometry-door/__tests__/SwingVocabularyCensus.test.ts` (7/7) enumerates all three vocabularies, guard C **watched RED**, test D a negative control against the pre-fix source. **WO-Voc-1 remains OWED** |
 | ~~**8**~~ | ✅ **CLOSED — STRUCK 2026-08-19; the row was stale AND its justification was one C85 had already retracted.** Frame Y is now `hostedLeafCentreY(resolveWallBaseYOrLevel(…), sill, height)` at `DoorBuilder.ts:620-625` / `WindowBuilder.ts:947-952`, both consuming `WallVerticalDatum.ts` (`:103`, `:119`, `:174`). Fixed by **`8f63fb6f`**, already on `main` and already recorded RESOLVED by [C85 §10](C85-ELEMENT-WALL.md) (eleven datums agree, leaf-vs-hole delta **0**). C86's cited lines had all rotted, and its **LATENT** grading rested on *"nothing authors either offset non-zero today"*, which C85 §10 records as *"never tested and … FALSE"* | nothing — closed | C84 **§4D** — satisfied | — (see §10) |
 | **9** | Default divergence: `width` 0.9 (schema) vs 1.0 (command); window `sillHeight` 0.9 vs 1.0 | a created opening differs from `parse({})` in a field neither reports | C84 **EI-9** | one default per field |
 | **10** | `WindowBuilder` ships both `'window'` (`:308`) and `'Window'` (`:578, :631`) against a C15 §12 **freeze of one** | nothing today (consumers lowercase) — the freeze is already broken | [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | one spelling from the producer |
-| **11** | `QueryEngine.ts:320, :575` synthesise `doorType` values outside `'single'\|'double'` | an AI-authored door fails to parse | C84 **EI-3** | correct the values or widen the union |
+| ~~**11**~~ | ⛔ **RETRACTED 2026-08-19 — WRONG DENOMINATOR.** Both sites are **wardrobe** code, not door code: `:320` is inside `createDefaultSections()` (`:313`, answer text `:310` *"modify your wardrobe"*), `:575` inside a wardrobe config builder (`:567-571`); both write `WardrobeSectionConfig.doorType` (`WardrobeCabinetTypes.ts:59`), whose union is `'double-hinged'\|'sliding'\|'glass'\|'mirror'\|'none'` (`:35-40`). `'double-hinged'` **is a member** — no defect. `'hinged-left'` is not, but that is a **furniture** out-of-union write, [L-1041](../../04-reference/ISSUE-LOG.md), not a wall-opening one. Neither reaches `Door.parse` or `wall.openings[]`. **§9's own collision note had already said this and lost to the more confident paragraph above it** | nothing on this family | — | — (see §9) |
 | **12** | `'opening'` names two unrelated concepts; `DeleteElement.ts:52-53` routes the ambiguous literal to the **slab** opening command | a mis-route waiting for a producer | C84 **EI-9** | disambiguate the word, or gate on the host family |
 | **13** | Door and window parity harnesses **OWED** (C84 §5) | nothing today; every future kernel divergence ships unseen | C84 **EI-11** | build them on C73's tolerance |
 | **14** | The bake worker handles no openings — three comments describing future work | in self-host bake: **walls with no voids and no leaves** | C84 **EI-6**-adjacent | declare or implement |
 | **15** | `door.move`/`window.move` declare `['door']`/`['window']`, omitting `wall` | nothing while they refuse; a live C15 §8.1 violation the moment they do not | C84 **EI-7**, C15 §8.1 | correct the declaration before re-enabling |
 | **16** | The batch-create verbs do **not** refuse while their single twins do | a caller routes around the refusal | C84 **EI-4a**, [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) | make them consistent |
-| **17** | **`CreateWallOpeningCommand.ts:12` declares `affectedStores = ["wall"]` while adding to `doorStore` (`:155`) and `windowStore` (`:204`)** — and `CreateWindowsParametricBatchCommand.ts:89` inherits it as `['wall']`. This is the command §12 R-1 names as *"the one atomic command"*, so every refusing create verb points at it | nothing yet that we have measured — its own `undo()` clears both stores at `:288-289`. **What it loses is the guarantee**: any reverser that trusts the declaration instead of the command reverses half the write | C84 **EI-7c** — the declared set MUST be the written set | measure whether ANY path reverses this command through the snapshot rather than its own `undo()`, then correct the declaration regardless [L-1031](../../04-reference/ISSUE-LOG.md) |
+| **18** | ⛔ **NEW — `apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts` writes `wallStore.updateDoor/updateWindow` at NINE sites (`:155, :160, :165, :170, :178, :183, :188, :193, :203`) and the standalone store at NONE.** The file had zero `doorStore`/`windowStore` occurrences. **This census did not contain it**, because C86 built the table by sweeping COMMANDS and this is a UI apply path | `width`, `height`, `sillHeight`, `fireRating`, `accessibilityType` edited from the property panel leave the 3-D leaf stale — the same divergence as #1, from the second most-used surface in the family | [C15 §8.1](C15-HOSTED-ELEMENT-CONTRACT.md) · C84 **EI-1** | the WO-B-3 gate MUST key on call sites of `wallStore.updateDoor/updateWindow` repo-wide, **not** on command declarations — a command-shaped census misses BOTH live surfaces. [L-1042](../../04-reference/ISSUE-LOG.md) |
+| **19** | ⛔ **NEW — `DoorCommitter` is never constructed in production, so the whole plugin-committer arm of `door.setSwing` reaches nothing.** It is `new`-ed only at `bootstrap.render.everything.ts:140`, reached only via `SceneBootstrap.bootstrapScene`, which **requires** a canvas (`SceneBootstrap.ts:61`); `src/main.ts:402` boots `canvas: null` → the idle path (`SceneBootstrap.ts:226`). `PropertyInspectorApply`'s comment asserted the opposite chain (*"→ DoorCommitter.onUpdate() → produceDoor() rebuild → updated mesh"*) | nothing beyond what #3/#18 already cost — but it means a reader auditing `door.setSwing` finds a comment describing a live pipeline that does not run | C84 **§3.5.1(d)** — the CALL axis | the comment is corrected at the site ([L-1040](../../04-reference/ISSUE-LOG.md)). Whether the committer arm should be wired or declared dormant is **C84 §3.5 PARKED work, not C86's** |
+| **20** | ⚠ **NEW — `DoorBuilder.ts:526` stamps a THIRD tag, `'DoorLeaf'`, that C15 §12 never enumerated**, and both builders ship both casings (`DoorBuilder.ts:271` `'door'` vs `:476`/`:526` `'Door'`; `WindowBuilder.ts:376` vs `:646`/`:730`), in four files across two families | nothing today — every comparing consumer lowercases (`GLBExporter.ts:217`, `DeleteElement.ts:51`) | [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) | ⚠ **severity DOWNGRADED from #10**: the lowercase emits are inside the view-definition subscription (`DoorBuilder.ts:252`, `WindowBuilder.ts:357`), not the mesh stamp. The freeze is still broken from four files, and `'DoorLeaf'` must be DECLARED as a sub-part tag (WO-ID-2's shape) |
+| **17** | **`CreateWallOpeningCommand.ts:12` declares `affectedStores = ["wall"]` while adding to `doorStore` (`:155`) and `windowStore` (`:204`)** — and `CreateWindowsParametricBatchCommand.ts:89` inherits it as `['wall']`. This is the command §12 R-1 names as *"the one atomic command"*, so every refusing create verb points at it | ✅ **ANSWERED AND FIXED 2026-08-19 (`37c416ff`).** `restoreSnapshot` has exactly TWO call sites, **both inside `execute()`** — `CommandManagerImpl.ts:325` (`success:false`) and `:428` (threw); its own header `:641` says *"rollback on failed execute only"*. `undo()` (`:743`) and `redo()` (`:794`) call the command's own methods directly and never build or apply a snapshot; `performUndoRedo.ts` has **zero** `napshot` occurrences. **So NO UNDO PATH WAS EVER AT RISK — the exposure is the execute-failure ROLLBACK.** For `CreateWallOpeningCommand` that is **LATENT** (its only `success:false` returns are `:91`, `:96`, `:114`, all BEFORE the write, and both store writes plus the graph write sit in swallowing try/catch at `:184`, `:228`, `:248`). For **`CreateWindowsParametricBatchCommand` it is REACHABLE**: `:299` `child.execute(ctx)` writes N windowStore records, then `:337` `throw err` re-raises from the post-loop summary/span block → `CommandManagerImpl:428` → a `['wall']`-scoped restore returns the walls without their openings while windowStore keeps N records and WindowBuilder keeps N meshes | C84 **EI-7c** — the declared set MUST be the written set | ✅ **DONE.** Declarations corrected to `["wall","door","window"]` and `['wall','window']`. Widening cannot perturb undo routing: `performUndoRedo.ts:553` reads `pair?.affectedStores` from the BUS PatchPair, and `:555-559` names this command commandManager-only by design, so `_covered()` (`:479`) never sees it [L-1031](../../04-reference/ISSUE-LOG.md) |
 
 ---
 
@@ -729,7 +845,7 @@ Stack-B producer (`produceDoor`/`produceWindow`/`produceWallWithVoids`).
 | # | Refusal | Where | Status |
 |---|---|---|---|
 | **R-1** | `door.create` / `window.create` refuse **unconditionally**, and each **names the one atomic command** with its exact payload shape | `CreateDoor.ts:107` (reason), `:154`; `CreateWindow.ts:63`, `:98` | ✅ **EXEMPLARY.** It cites its own **CA-21 executed read-back** as the evidence — *"saw the dispatch report success while the authoritative doorStore … did not change"* — which is exactly what [C16 CA-21](C16-COMMAND-AUTHORING-PROTOCOL.md) and C84 EI-10(b) require. **This is the C84 EI-4a shape reached correctly: one route per intent, and the refusal points at it** |
-| **R-2** | `door.move` / `window.move` refuse | `MoveDoor.ts:109`, `MoveWindow.ts:108`; hazard `:51-52` / `:50-51` | ✅ **CORRECT AND REQUIRED** under C16 CA-18, and the **only** correct response to WO-U-1's deliberate ring-buffer absence. ⛔ MUST NOT be "fixed" into silent success |
+| **R-2** | `door.move` / `window.move` refuse | `MoveDoor.ts:109` (reason `:72-73`), `MoveWindow.ts:108` (reason `:71-72`); hazard `:51-52` / `:50-51` | ✅ **CORRECT AND REQUIRED** under C16 CA-18, and the **only** correct response to WO-U-1's deliberate ring-buffer absence. ⛔ MUST NOT be "fixed" into silent success. ✅ **REGISTER ITEM 4 CLOSED — the constant bodies are READ, and they are exemplary.** `DOOR_MOVE_UNREACHABLE` (`MoveDoor.ts:72`) verbatim: *"door.move writes the detached plugin door store that nothing renders, exports or persists, and no production surface dispatches it. Moving a door along its host wall commits through **door.setOffset (payload keys: doorId, newOffset, prevOffset) → SetDoorOffsetCommand → the geometry wallStore opening**, which is what MOVE_COMMAND_BY_TYPE and the 3-D gizmo already dispatch."* `WINDOW_MOVE_UNREACHABLE` (`MoveWindow.ts:71`) is its exact mirror. **Each names the mechanism, the live replacement verb, AND that verb's payload keys** — the C16 CA-18 bar and then some. A refusal nobody had read is now a refusal that has been verified |
 | **R-3** | `DoorBuilder` throws `SpatialAuthorityError` rather than place at Y=0 | `DoorBuilder.ts:496-501` | ✅ **EXEMPLARY** — *"refusing to place at Y=0"* |
 | **R-4** | `WindowBuilder` throws rather than place a ghost window at floor level | `WindowBuilder.ts:817-825` (§WINDOW-AUDIT-2026 C2) | ✅ exemplary — *"misconfigured levelId must produce a loud error, not a ghost window at floor level"* |
 | **R-5** | The window write is guarded against duplication | `CreateWallOpeningCommand.ts:187` (`!windowStore.has(this.openingElementId)`) | ✅ correct |
@@ -751,29 +867,36 @@ sentence (`WallRake.ts:50-62`) that is the worst of the three states.
 
 ⛔ Gaps, not clearances (C84 EI-1b).
 
-1. **`DoorBuilder.ts`'s `userData.elementType` assignment sites** — the casing census is complete for
-   window, incomplete for door.
-2. **GLB export's door/window read path** — no candidate located in `packages/file-format/src`.
-3. **`packages/geometry-kernel/src/producers/window.ts` contents** — file exists, not read.
-4. **`DOOR_MOVE_UNREACHABLE` / `WINDOW_MOVE_UNREACHABLE` constant bodies** — the refusal sites are
-   measured (`:109`/`:108`); the reason strings were not resolved to their definitions.
-5. **Whether the plugin `DoorStore`/`WindowStore` classes are ever instantiated and bound at
-   runtime** — only their barrels' assertions that they are detached were measured.
-6. **Whether `QueryEngine.ts:320, :575`'s out-of-union `doorType` values reach a store write.**
-7. **`DoorSystemTypeStore`'s built-in type ids.**
-8. **Whether `plugins/plan-view`'s injected door/window source stores are fed from the authority**,
-   and what a plan view does when the **optional** `windowStore` (`PlanViewCanvasHost.ts:156`) is
-   absent.
-9. **Whether the UI still offers the four refusing verbs** — owned by
-   [C82](C82-RIBBON-CAPABILITY-SURFACE.md). ⚠ A verb-only control census would miss this family's
-   live mutation path, which is off-bus.
-10. **`packages/persistence-client/src/loader/`** — deliberately not measured; DEAD.
-11. **Whether any path reverses `CreateWallOpeningCommand` through `createSnapshot` rather than
-    through the command's own `undo()`** (§4, §11 #17). This is the only question that separates a
-    LATENT declaration defect from a live one, and it is deliberately left blank rather than
-    reasoned about — see [L-1031](../../04-reference/ISSUE-LOG.md).
+> ✅ **WORKED 2026-08-19. TEN of the eleven are CLOSED; ONE remains (item 9, which is C82's), plus
+> item 10's deliberate DEAD exclusion.** Three closures **changed the finding rather than confirming it** — items 2, 5
+> and 6 — which is the argument for running a blank instead of reasoning about it. Item 6 closed by
+> **retracting a violation C86 had asserted**; item 2's blank was the wrong *shape* of question, not
+> a missing answer; item 5's premise ("detached") was measured to be about readers, not existence.
 
----
+| # | Question | Status |
+|---|---|---|
+| 1 | `DoorBuilder.ts`'s `userData.elementType` assignment sites | ✅ **CLOSED — §1.** Door does what window does: `:271` `'door'` lowercase vs `:476`/`:526` `'Door'`, plus `DoorPlanSymbolBuilder.ts:289` vs `:302`/`:315`/`:330`. **And a THIRD tag nobody had recorded: `'DoorLeaf'` (`:526`).** Every window citation in the old table had rotted (`:308/:578/:631` → `:376/:646/:730`). Severity DOWNGRADED — the lowercase emits are view-definition subscription tags, not the mesh stamp (§11 #20) |
+| 2 | GLB export's door/window read path | ✅ **CLOSED — §3, and the blank was the wrong QUESTION.** There is no store read to find: `GLBExporter.ts:144` filters on `object.userData.elementType` and walks the **THREE scene** — C84's representation #4. So GLB exports whatever the builders drew, inheriting the split-brain wholesale: a stale `doorStore` offset (§11 #1/#18) exports a leaf in the wrong place. **"No candidate located" invited the reader to conclude "absent"; it was "present, in a representation this contract's table did not range over."** |
+| 3 | `packages/geometry-kernel/src/producers/window.ts` contents | ✅ **CLOSED — §10.** 240 lines, exact twin of `producers/door.ts`: store-free, THREE-free, L0-fed. Its `WindowWorldPlacement.origin` requires `sillHeight`/`offset` **pre-applied by the caller**, while Stack A derives Y itself — that boundary, not the geometry, is what WO-G-2's harness must pin |
+| 4 | `DOOR_MOVE_UNREACHABLE` / `WINDOW_MOVE_UNREACHABLE` constant bodies | ✅ **CLOSED — §12 R-2.** Both read verbatim at `MoveDoor.ts:72` / `MoveWindow.ts:71`. Each names the mechanism, the live replacement verb **and that verb's payload keys**. Exemplary, and now verified rather than assumed |
+| 5 | Whether the plugin `DoorStore`/`WindowStore` are instantiated and bound at runtime | ✅ **CLOSED — §2 WO-S-2, on all four C84 §3.5.1 axes.** They **are** constructed (`PluginRegistry.ts:256`/`:264`), **are** called (`bootstrap.everything.ts:142`), **are** reached from the production entry (`src/main.ts:397`) and **are** in the build graph. **Detached from READERS, not from the runtime** — a live, written, unread store, which is a different object from one that is never built |
+| 6 | Whether `QueryEngine.ts:320, :575`'s `doorType` values reach a store write | ✅ **CLOSED BY RETRACTION — §9, §11 #11.** They are **wardrobe** sites writing `WardrobeSectionConfig.doorType`. `'double-hinged'` is a valid member of that union; `'hinged-left'` is not, but that is a furniture defect ([L-1041](../../04-reference/ISSUE-LOG.md)). Neither reaches `Door.parse` or `wall.openings[]`. **C86 graded a furniture value against a door union** |
+| 7 | `DoorSystemTypeStore`'s built-in type ids | ✅ **CLOSED — NINE, and the first grep for them was WRONG.** `BUILT_IN_TYPES` (`DoorSystemTypeStore.ts:139`, seeded `:308`) builds each entry through `makeBuiltIn(id, name, category, …)` (`:108`), so the ids are **bare positional string literals**, not `id:` properties — `grep -n '^\s*id:'` returns only the interface field `:40` and that parameter `:109`, and reads as *"there are none"*. The correct probe is `grep -n "^\s*'dt-"` → **9**: `dt-solid-timber:141`, `dt-white-primed:159`, `dt-glazed-timber:176`, `dt-glazed-aluminium:194`, `dt-modern-entrance-glazed:211`, `dt-fire-rated-60:233`, `dt-fire-rated-30:250`, `dt-steel-industrial:267`, `dt-aluminium-commercial:284`. **Window has EIGHT** (`WindowSystemTypeStore.ts`): `wt-single-pane:184`, `wt-timber-casement:197`, `wt-timber-double-hung:210`, `wt-aluminium-commercial:223`, `wt-upvc-casement:236`, `wt-upvc-tilt-turn:249`, `wt-steel-crittal:262`, `wt-aluminium-triple-glazed:275`. ⭐ **Recorded because the failure mode is the family's own:** a grep shaped for the wrong syntax returns empty, and **empty is indistinguishable from absent**. `CreateWallOpeningCommand.ts:143` already warns that an unresolved `systemTypeId` ships a door with no finish and a blank schedule — these nine ids are the set that must resolve |
+| 8 | Whether `plugins/plan-view`'s injected stores are fed from the authority; behaviour when the optional `windowStore` is absent | ✅ **CLOSED — §2 WO-S-3, and the answer dissolves the question.** `new PlanViewCanvasHost(` has **ZERO production call sites** — 2 hits, both tests. The fifth view is test-only. Absent `windowStore` degrades **silently** to `[]` (`:420-422`) into `projectWallEdges`/`computePocheFills`: *a plan view with no window source and a building with no windows are the same value*. PARKED without the compliant PARKED declaration |
+| 9 | Whether the UI still offers the four refusing verbs | ⛔ **STILL OPEN — owned by [C82](C82-RIBBON-CAPABILITY-SURFACE.md).** ⚠ A verb-only control census would miss this family's live mutation paths, which are off-bus **and now measured to be two, not one** (§11 #1 and #18) |
+| 10 | `packages/persistence-client/src/loader/` | ⛔ deliberately not measured; DEAD |
+| 11 | Whether any path reverses `CreateWallOpeningCommand` through `createSnapshot` rather than its own `undo()` | ✅ **CLOSED — §4, §11 #17, `37c416ff`.** `restoreSnapshot` is called at `CommandManagerImpl.ts:325` and `:428` **only**, both inside `execute()`. No undo path was ever at risk; the exposure is the execute-failure rollback — **LATENT** for the single command, **REACHABLE** for `CreateWindowsParametricBatchCommand` via `:337`. Declarations corrected regardless (EI-7c) |
+
+### What this pass ADDED to the register
+
+⛔ Closing nine questions produced three new ones. Recorded here so the ledger does not read as
+shrinking when it is not.
+
+| # | Question | Why it matters |
+|---|---|---|
+| 12 | **Whether the eight non-swing `PropertyInspectorApply` sites (§11 #18) are user-reachable for each field**, or whether some are dead panel rows | Decides whether #18 is eight live desyncs or fewer. The sites are measured; their UI reachability is not, and it is the same C82 question as item 9 |
+| 13 | **Whether `DoorCommitter` / `WindowCommitter` should be wired or declared dormant** (§11 #19) | `bootstrap.render.everything.ts:140` constructs it on a path production never takes. C84 §3.5 requires PARKED to name its flag, phase and fallback; this names none. **Not C86's to decide** — it is the committer architecture's |
+| 14 | **Whether `'DoorLeaf'` (`DoorBuilder.ts:526`) has any consumer**, and whether `'WindowPane'` or an analogue exists | A sub-part tag outside C15 §12's enumeration. If nothing reads it, it is an EI-13 emitter with no consumer; if something does, C15 §12's list is incomplete |
 
 ## Appendix — C84 claims this contract CONFIRMED, REFINED or REFUTED
 
