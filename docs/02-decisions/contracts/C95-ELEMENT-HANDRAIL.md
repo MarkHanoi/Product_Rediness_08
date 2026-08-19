@@ -1,6 +1,6 @@
 # C95 — ELEMENT: HANDRAIL
 
-> **Stamp**: 2026-08-18 · **Status**: CANONICAL — binding on every PR touching the handrail family
+> **Stamp**: 2026-08-18, **re-measured 2026-08-19 (lane HR1)** · **Status**: CANONICAL — binding on every PR touching the handrail family
 > **Parent**: [C84 §6](C84-ELEMENT-INTEGRITY.md). C84 owns `EI-1…EI-13`; C95 owns their application
 > to handrail. **Structure**: C84 §6's twelve mandatory sections, in order, **AS-IS** (measured,
 > `file:line`, HEAD `3384f076`) beside **TO-BE** (normative).
@@ -19,6 +19,15 @@
 ---
 
 ## 0. THE CORRECTION — "the fixes landed today" is FALSE
+
+> ### ⚠ THIS SECTION IS KEPT, AND IT IS NOW PARTLY HISTORICAL. READ §5 WITH IT.
+> Every row below was TRUE when written. **D1–D4 have since been fixed for real** — §5 carries
+> the line-by-line re-measurement at HEAD and the retraction. §0 is not deleted, per C84 §6:
+> it is the account of a report that outran its code, which is the most re-usable thing here.
+> **D5, D6 and D7 are still open.** ⛔ And the sharpest 2026-08-19 finding is not in this
+> section at all: the bridge these defects live in now has **no traffic** — `handrail.create`
+> has ZERO production dispatchers (§3.1b). A defect on an unreachable path is still a defect,
+> but it is no longer what the user is losing (§11).
 
 ⛔ **This contract was commissioned on the premise that four bridge defects had been MEASURED AND
 FIXED today, and that slope had shipped. Measured at HEAD: nothing was fixed. The premise is
@@ -110,10 +119,11 @@ producer *"is genuinely dead"*; that is true of **reachability**, not of **dispo
 | # | Representation | Path | Writers | Readers | Verdict |
 |---|---|---|---|---|---|
 | 1 | L0 Zod schema | `packages/schemas/src/elements/Handrail.ts:12` | bus payload | `Handrail.parse` in `CreateHandrail.ts` | — |
-| 2 | **Plugin DTO store** | `plugins/handrail/src/store.ts:10` (`super('handrail')` `:11`) | **1 verb** (`handrail.create`) | **ZERO in production** | **write-only, and it LEAKS (§4.3)** |
+| 2 | **Plugin DTO store** | `plugins/handrail/src/store.ts:10` (`super('handrail')` `:11`) | ⭐ **ZERO as of 2026-08-19** (was 1 verb) | **ZERO in production** | ⛔ **INERT — 0 writers, 0 readers. §4.3** |
 | 3 | **Legacy geometry store** | `packages/core-app-model/src/stores/HandrailStore.ts:24`, built once at `initBuilders.ts:872`, `window.handrailStore` `:873` | legacy commands + the `.created` bridge | **everything** | 🟢 **THE AUTHORITY** |
 | 4 | Scene `userData` | `HandrailFragmentBuilder.ts:174-175` | the builder | picking, delete routing, plan layers | derived |
 | 5 | Kernel producer | `producers/handrail.ts:81` | — | **nothing** | **DEAD — but not deletable** |
+| 6 | **Type catalogue** | `packages/core-app-model/src/stores/HandrailTypeStore.ts`, singleton `handrailTypeStore` | built-ins + `add()` at runtime | the pre-draw panel, the property-panel retype widget, `HandrailTool`, `StairRailingTypeMapping` | 🟢 **THE TYPE AUTHORITY — 20 built-ins.** Wall's `WallSystemTypeStore` twin. ⚠ REFERENCED by nobody: `HandrailData` carries no `typeId`, so a type is MATERIALISED into the record (§9.3) |
 
 > ### EI-1 — THE AUTHORITY IS `packages/core-app-model/src/stores/HandrailStore.ts` (`window.handrailStore`)
 
@@ -156,12 +166,27 @@ corrected on this very family.
   (import), `:320` `buildStore: () => new HandrailStore()`. Read only by the 7 plugin handlers
   (`CreateHandrail.ts:65,68`; `DeleteHandrail.ts:23,30,31`; `SetHandrailMaterial.ts:79,88`) and the
   plugin's own tests. `byHost()` / `ids()` have **zero** callers outside the plugin.
-- **(b) Bus axis.** Of 7 plugin verbs, **exactly one has a production dispatcher** — `handrail.create`,
-  from `RailingPlanToolHandler.ts:92` and `HandrailTool.ts:158`. `delete` / `setPath` / `setShape` /
-  `setHost` / `recompute` / `setMaterial` have **zero**.
+- **(b) Bus axis — ⭐ RE-MEASURED 2026-08-19: ZERO of the 7 verbs has a production dispatcher.**
+  It was one (`handrail.create`, from `RailingPlanToolHandler.ts:92` and `HandrailTool.ts:158`).
+  Both are gone, for two independent and both-deliberate reasons:
+  - **`RailingPlanToolHandler`** moved to the L2 command path (L-982) because
+    `CreateHandrailPayload` **cannot carry a catalogue type** — no `fillType`, `railProfile`,
+    `postSpacing`, `baseOffset`, `materialColor` or baluster field exists on it (§5). Routing a
+    type through the bus would have silently dropped most of it.
+  - **`HandrailTool.ts:158`** was a `{}`-payload call labelled telemetry that was in fact a
+    MUTATION minting a ghost record per 3-D draw; deleted (L-985, §4.4).
+  The only remaining `handrail.create` call site in the repository is
+  **`plugins/handrail/src/tool.ts:33`, inside `HandrailPlacementTool` — a class that is NEVER
+  CONSTRUCTED** (zero hits repo-wide outside its own barrel re-export). ⚠ The **AI axis was checked
+  too**, because a name-based census misses it: `ChatCommandClassification.ts:59-72` files
+  `handrail.create` under **class B — "needs design"**, blocked on a per-family placement grammar,
+  so the chat cannot dispatch it either.
 
-**⇒ 0 readers, 1 writer, and that writer's two dispatchers are precisely the two residual defect sites
-(§6). ⛔ Do NOT reconcile or mirror ([C84 §8.c](C84-ELEMENT-INTEGRITY.md) / EI-5a) — DECLARE.**
+**⇒ 0 readers AND 0 writers. The plugin DTO store is INERT.** ⛔ This is a **disposition, not a
+deletion licence**, and the distinction is C84 §3.5's whole point: the store and its seven handlers
+are the declared PRYZM-3 target vocabulary (C84 §3.5.3 / §12 R5). ⛔ **Do NOT reconcile or mirror**
+([C84 §8.c](C84-ELEMENT-INTEGRITY.md) / EI-5a) — **DECLARE**, which the store's file header still
+owes (§11 row 18).
 
 ### 3.2 ⚠ THE CLEAN RESULT HAS ONE HOLE: a SECOND persistence pair carries handrail code
 
@@ -192,8 +217,8 @@ relationship, or **refuse by name** rather than silently re-classify (EI-2).
 
 | Handler | `type` | Registered | UI-reachable | Verdict |
 |---|---|---|---|---|
-| `CreateHandrail.ts:30` | `handrail.create` | ✅ | ✅ ×2 | **LIVE — and both dispatchers are defective (§6)** |
-| `DeleteHandrail.ts:19` | `handrail.delete` | ✅ | ⛔ **0 dispatchers** | **DORMANT** — ⛔ not deletable; **causes the leak (§4.3)** |
+| `CreateHandrail.ts:30` | `handrail.create` | ✅ | ⛔ **0 dispatchers as of 2026-08-19** (was 2) | ⭐ **NOW DORMANT — see §4.3** |
+| `DeleteHandrail.ts:19` | `handrail.delete` | ✅ | ⛔ **0 dispatchers** | **DORMANT** — ⛔ not deletable, and ⛔ **must not be wired** (§4.3) |
 | `SetHandrailPath.ts:23` | `handrail.setPath` | ✅ | ⛔ 0 | DORMANT |
 | `SetHandrailShape.ts:24` | `handrail.setShape` | ✅ | ⛔ 0 | DORMANT |
 | `SetHandrailHost.ts:22` | `handrail.setHost` | ✅ | ⛔ 0 | DORMANT |
@@ -206,19 +231,29 @@ relationship, or **refuse by name** rather than silently re-classify (EI-2).
 `DeleteHandrailCommand` — reached from `HandrailTool.ts:159`, `initBusHandlers.ts:1136,1434`,
 `DeleteElementCommand.ts:513-529`, `ProjectLoader.ts:1225`, `IfcRailingToNativeConverter.ts:27`.
 
-### 4.3 ⛔ THE PLUGIN-STORE LEAK — measured, and it is unbounded
+### 4.3 THE PLUGIN-STORE LEAK — ✅ CLOSED 2026-08-19, and **by removing its writers, not by wiring its delete**
 
-`handrail.create` writes the DTO store (`CreateHandrail.ts:68-70`) from **both** dispatchers.
-**Nothing dispatches `handrail.delete`** (§3.1b). Legacy deletes purge only the legacy store —
-`DeleteElementCommand.ts:529` `handrailStore.remove(id)`, `DeleteHandrailCommand.ts:95`.
+**What it was.** `handrail.create` wrote the DTO store (`CreateHandrail.ts:68-70`) from both
+dispatchers; **nothing dispatches `handrail.delete`**; legacy deletes purge only the legacy store
+(`DeleteElementCommand.ts:529`, `DeleteHandrailCommand.ts:95`). ⇒ every handrail ever created stayed
+in the DTO store for the life of the session, growing monotonically — and the DORMANT handlers'
+`canExecute` checks validate against those ghosts (`DeleteHandrail.ts:23`,
+`SetHandrailMaterial.ts:79`), so wiring any of them would have acted on records the user had deleted.
+**EI-5, with a latent correctness consequence rather than merely a memory one.**
 
-**⇒ Every handrail ever created remains in the plugin DTO store for the life of the session.** The
-store grows monotonically, and the DORMANT handlers' `canExecute` checks then validate against those
-ghosts (`DeleteHandrail.ts:23`, `SetHandrailMaterial.ts:79`) — so if any of them is ever wired, it will
-find and act on records the user deleted. **EI-5 violation with a latent correctness consequence, not
-merely a memory one.**
+**How it closed.** Both writers are gone (§3.1b): the plan tool moved off the bus because the bus
+payload cannot carry a type, and the 3-D tool's junk telemetry call was deleted. **Nothing writes
+the store, so nothing accumulates.**
 
-### 4.4 ⛔ A JUNK RECORD PER 3-D HANDRAIL
+> ⭐ **THIS IS THE SHAPE THE DELTA ASKED FOR, AND IT IS WORTH NAMING.** §11 row 18 (formerly delta
+> #8) said: *close the leak by DECLARING the store retired, **NOT** by wiring `handrail.delete` —
+> wiring the delete makes a zero-reader shadow look authoritative* (C84 §8.c). It closed by the
+> writers disappearing as a **side-effect of fixing a different, user-visible defect**, which is
+> strictly better than either option: no new code runs, and the store did not acquire a lifecycle
+> that would have implied it mattered. ⛔ **The header declaration is still owed** — the code is
+> now inert but does not SAY it is inert, and "nobody dispatches it today" is not a contract.
+
+### 4.4 A JUNK RECORD PER 3-D HANDRAIL — ✅ CLOSED 2026-08-19 (L-985), and the blocking question is ANSWERED
 
 `packages/geometry-stair/src/HandrailTool.ts:157-159`:
 
@@ -233,121 +268,131 @@ this.commandManager.execute(cmd);
 `id = createId('handrail')`, `:52-55` `levelId:''`, `shape:'round'`, `height:1.0`, `diameter:0.04`, and
 **`:58` `seed.path = cmd.path ?? [{x:0,y:0,z:0},{x:1,y:0,z:0}]`** — written to the store at `:68-70`.
 
-**⇒ A ghost 1 m rail at the world origin is minted per 3-D handrail drawn**, and per §4.3 it is never
-removed. ⛔ **A telemetry call MUST NOT be a mutation.** **TO-BE:** delete the call, or route telemetry
-through an observer that writes no store. ⚠ **NOT MEASURED:** whether `CommandEventBridge` re-emits
-`handrail.created` for this defaulted payload and thereby mints a phantom **legacy** handrail too — if
-it does, this is user-visible, not merely internal. **Measure before closing §11 item 6.**
+**⇒ A ghost 1 m rail at the world origin was minted per 3-D handrail drawn**, and per §4.3 it was
+never removed. ⛔ **A telemetry call MUST NOT be a mutation** (C16 CA-17).
+
+> ### ✅ THE CALL IS DELETED — but the ORDER matters, and it is the transferable part
+> This section blocked its own fix on a question (§13 item 1): does the ghost ALSO reach the LEGACY
+> store and become **user-visible**? Deleting the call without answering would have closed the
+> defect and thrown the answer away — and had the answer been *yes*, there would have been a
+> second, worse defect nobody had logged.
+>
+> **MEASURED FIRST.** `CommandEventBridge.ts:886-913` forwards `record.payload` — which is `{}` —
+> so it emits `handrail.created` with `id: undefined`. The `initTools` §FT-HANDRAIL bridge's
+> **first** guard is `!ev.id` (`:1970-1975`), so it returns before touching `handrailStore`.
+> ⇒ **NO phantom LEGACY handrail was ever minted.** The damage was confined to the DTO store:
+> real, but internal.
+>
+> **THEN DELETED.** Nothing replaces it — the creation is already observable on the L2 path, which
+> is where handrail creation is counted (§4.2). The site now carries the whole measurement in a
+> comment, so the next reader does not re-open the question.
 
 ---
+## 5. THE BRIDGE FIELD MAP — one row per field, CARRIED / TRANSFORMED / DROPPED (EI-2)
 
-## 5. THE BRIDGE FIELD MAP — four live defects, omission forbidden (EI-2)
+> ### ⚠ RE-MEASURED 2026-08-19 (lane HR1). §0's headline is RETRACTED IN PART, and both halves matter.
+>
+> §0 recorded, correctly at the time, that D1–D4 were **claimed fixed and were not**. They are
+> fixed now — `initTools.ts` carries `§FIX-HANDRAIL-BRIDGE-TRUNCATION` / `-PROFILE` / `-DIAMETER` /
+> `-FILL` at HEAD, measured line-by-line below. **§0 is NOT deleted** (C84 §6: record retractions,
+> do not silently rewrite) — it remains the account of a claim that outran its code, which is the
+> most re-usable thing in this document.
+>
+> ⛔ **AND THE SECOND HALF IS THE ONE A READER WILL MISS: the bridge is now MUCH LESS IMPORTANT
+> THAN IT WAS, because nothing dispatches into it any more.** Measured 2026-08-19:
+> `handrail.create` has **ZERO production dispatchers** (§3.1b). The plan tool moved to the L2
+> command path (L-982) because the bus payload cannot carry a catalogue type at all; the 3-D tool's
+> junk telemetry call is deleted (L-985); `HandrailPlacementTool` (`plugins/handrail/src/tool.ts:33`,
+> the only remaining `handrail.create` call site) is **never constructed anywhere** — zero hits
+> repo-wide outside its own barrel re-export; and the AI cannot reach it either, because
+> `ChatCommandClassification.ts:59-72` files `handrail.create` under **class B, "needs design"**,
+> blocked on a per-family placement grammar. **The bridge is live code on a road with no traffic.**
+> That is a disposition, not a deletion licence: it is the declared migration target (C11 §11.9),
+> and the map below stays because the day something dispatches again, every row must already be
+> honest.
 
-The bridge is `apps/editor/src/engine/initTools.ts:1909-1956` (`§FT-HANDRAIL`), subscriber `:1919`.
+The bridge is `apps/editor/src/engine/initTools.ts:1959-2073` (`§FT-HANDRAIL`), subscriber `:1969`.
 
-| Source field (`handrail.created`) | Bridge line | Disposition | Defect |
+> ⚠ **These line numbers drifted twice during a single working session** — `initTools.ts` is a
+> 2000-line file nine lanes touch. They were re-measured and re-verified by a checker immediately
+> before this stamp, but **grep the `§FIX-HANDRAIL-BRIDGE-*` tags, not the numbers**: the tags are
+> stable and the numbers are not. This is the C85 lesson (67 filename citations, several stale)
+> arriving on schedule.
+Source fields are those `CommandEventBridge.ts:886-913` forwards on `handrail.created`.
+
+| Source field | Bridge line | **Disposition** | Note |
 |---|---|---|---|
-| `id` | `:1930` | **CARRIED** | — |
-| `levelId` | `:1930-1934` | **CARRIED** | — |
-| `parentId` | `:1930-1934` | **CARRIED** | — |
-| **`path` (N points)** | `:1928-1938` | ⛔ **COLLAPSED to `[path[0], path[last]]`** | **D1 — EI-2(d)** |
-| `path[i].y` | `:1936-1937` | **CARRIED into `baseLine` and NEVER READ** (§7 datum) | **D5** |
-| `height` | `:1939` | **CARRIED** | — |
-| **`diameter`** | `:1940` | ⛔ **written to `thickness`, which the round branch ignores** | **D3** |
-| `baseOffset` | `:1941` | ⛔ **hard-coded `0`** — the catalogue value never crosses | **D6** |
-| **`shape`** | `:1942` | ⛔ **CONSTANT `'round'`** | **D2 — EI-2(b)** |
-| `materialId` | `:1943-1944` | CARRIED (optional) | — |
-| **`fillType`** | — | ⛔ **ABSENT — no slot at all** | **D4** |
-| **`postSpacing`** | — | ⛔ **ABSENT** | **D4** |
-| **`railDiameter`** | — | ⛔ **ABSENT** | **D3** |
-| **`materialColor`** | — | ⛔ **ABSENT** | **D7** |
-| `properties` | `:1930-1948` | CARRIED | — |
+| `id` | `:2034` | **CARRIED** | — |
+| `levelId` | `:2035` | **CARRIED** | also written to `parentId` `:2036` |
+| `path[0]`, `path[last]` | `:2038-2041`, `:2036-2039` | **CARRIED** → `baseLine` | including `.y` on both endpoints |
+| **`path` when N > 2** | `:1993-2002` | ⛔ **REFUSED BY NAME** | ✅ **D1 CLOSED.** No record is created; the message states the point count, the 2-tuple limit and what the old code silently did instead |
+| `height` | `:2042` | **CARRIED** | `?? 1.0` |
+| `diameter` | `:2031`, `:2043-2044` | **TRANSFORMED** | ✅ **D3 CLOSED.** Written to **both** `thickness` and `railDiameter`, because each profile branch reads a different one |
+| `shape` | `:2019-2021` | **TRANSFORMED** | ✅ **D2 CLOSED.** `round → round`; `square`/`flat` → `rectangular`. The unsatisfiable `'rectangular'` ternary is gone. ⚠ The mapping is total but **lossy**: `square` and `flat` are not distinguishable in `HandrailData.railProfile`, whose vocabulary is `'rectangular' \| 'round'`. Declared, not hidden — §9.1 |
+| `materialId` | `:2061` | **CARRIED** (optional) | — |
+| **`baseOffset`** | `:2045` | ⛔ **DROPPED — hard-coded `0`** | **D6 STILL OPEN.** The catalogue value never crosses. A `glass-channel` type declaring a 30 mm base shoe seats flush |
+| **`fillType`** | `:2060` | ⚠ **CONSTANT `'baluster'`** | **D4 PARTIALLY CLOSED.** The geometry divergence is gone — plan and 3-D now build the same mesh count and export the same IFC `PredefinedType` — but the value is a **constant, not the authored one**, because `CreateHandrailPayload` has no `fillType` field to author. A glass guardrail dispatched on the bus still arrives as a balustrade |
+| **`postSpacing`** | — | ⛔ **DROPPED — no slot in the payload** | |
+| **`railProfile`** (authored) | — | ⛔ **DROPPED — no slot** | only derivable from `shape`, above |
+| **`materialColor`** | — | ⛔ **DROPPED — no slot** | **D7 STILL OPEN.** And per §9.2 `materialColor` is the ONLY thing the live builder reads for colour besides a repository `materialId` |
+| **`balusterShape` / `balusterWidth` / `balusterSpacing` / `infillMaxGap`** | — | ⛔ **DROPPED — no slot** | added to `HandrailData` and to the L2 command by L-983; the bus payload never learned them |
+| **`suppressStartPost`** | — | ⛔ **DROPPED — no slot** | so a multi-segment run cannot be authored across this bridge at all |
+| `hostId` | — | ⛔ **DROPPED** | forwarded by CEB (`:906`), never written by the bridge. ⇒ a bus-created handrail has no host, so §8's cascades could not find it even if they ran |
+| `properties` | `:2062` | **TRANSFORMED** | always `{}` |
 
-### D1 — N-point path collapsed, SILENTLY. **No refusal exists.**
-
-```
-1925:                ev.path.length < 2
-1926:            ) return;
-1928:                const p0 = ev.path[0];
-1929:                const p1 = ev.path[ev.path.length - 1];
-1935:                    baseLine:  [
-1936:                        { x: p0.x, y: p0.y ?? 0, z: p0.z },
-1937:                        { x: p1.x, y: p1.y ?? 0, z: p1.z },
-1938:                    ],
-```
-
-**No `length > 2` check, no `console.warn`, no diagnostic.** A 3-point L-rail becomes a diagonal across
-the corner it was drawn to guard. **This is not truncation; it is collapse, and it is silent** —
-[C84 EI-2(d)](C84-ELEMENT-INTEGRITY.md) verbatim. Pinned green by `HandrailBridgeDivergenceProbe.spec.ts:99,113-115`.
-**A refusal string is requested by the brief: it does not exist — NOT MEASURED because NOT PRESENT.**
-
-### D2 — the `'rectangular'` ternary is a CONSTANT
-
-```
-1942:                    railProfile: ev.shape === 'rectangular' ? 'rectangular' : 'round',
-```
-
-`ev.shape` comes from `z.enum(['round','square','flat'])` (`Handrail.ts:7`, default `'round'` `:53`).
-**`'rectangular'` is not in the enum, so the condition is unsatisfiable and the expression is the
-constant `'round'`.** Downstream `HandrailFragmentBuilder.ts:216` takes the round branch for **every**
-bridged handrail; the box branch at `:226` is **unreachable from the plan tool**. `tsc` cannot see it —
-[C84 EI-2(b)](C84-ELEMENT-INTEGRITY.md). ⇒ **`square` and `flat` are affordances without an
-implementation (EI-3).**
-
-### D3 — the authored diameter lands in a field the taken branch ignores
-
-`:1940 thickness: ev.diameter ?? 0.04` — and **no `railDiameter` key is written**. The round branch
-reads `HandrailFragmentBuilder.ts:217` `const radius = (handrail.railDiameter ?? 0.04) / 2;`.
-`thickness` is read **only** by the box branch (`:226`), which per D2 is never selected.
-**⇒ an authored 0.05 renders at radius 0.02.** Probe `:154,159-160,168`.
-
-### D4 — no `fillType`: the same line drawn in plan and in 3D builds different geometry
-
-The bridge writes no `fillType`. `HandrailFragmentBuilder.ts:235` (`'glass'`) and `:249` (`'baluster'`)
-both see `undefined` and skip ⇒ **1 rail + 2 end posts = 3 meshes**. The 3-D path defaults it:
-`CreateHandrailCommand.ts:76` `const fillType = (this.data.fillType as any) ?? 'baluster';`, and `:78`
-derives `ifcPredefined = fillType === 'glass' || 'panel' ? 'GUARDRAIL' : 'HANDRAIL'`.
-
-⛔ **This is not only a geometry divergence — it changes the IFC `PredefinedType`.** A plan-drawn barrier
-and a 3-D-drawn barrier on the identical line export as **different IFC entities**. Probe `:177-188`, `:195-219`.
-
-> **TO-BE for D1-D4, and the SHAPE is normative.** ⛔ **Do not fix these by widening the bridge's
-> hand-written field list** — that mints the eighteenth named-subset re-emit. The bridge MUST become a
-> **declared, gated field map** ([C84 §7](C84-ELEMENT-INTEGRITY.md)) in which every payload field is
-> carried or **declared dropped**, consumed by `check-bridge-field-coverage.ts`. D1 specifically MUST
-> **refuse by name** until the legacy record can hold an N-point path — a 2-point `baseLine` cannot
-> represent a 3-point rail, so carrying is impossible and silence is the only forbidden option.
+⇒ **9 CARRIED/TRANSFORMED · 9 DROPPED · 1 REFUSED.** The remaining drops are **not** the bridge's
+fault in the sense D1–D4 were: nine of them have **no field in `CreateHandrailPayload` to carry**.
+⛔ **The fix is therefore NOT to widen the bridge's hand-written list** — that mints another
+named-subset re-emit. Per C84 §7 the payload and the bridge must become a **declared, gated field
+map** where every field is carried or **declared dropped**, checked by
+`check-bridge-field-coverage.ts`. Until then the honest statement is the one above: **the bus path
+can express roughly half of a handrail, and the half it cannot express is the half a catalogue type
+is made of.** That is precisely why L-982 routed the plan tool around it.
 
 ---
 
 ## 6. Verbs
 
-| Verb | Lineage | Handler | `affectedStores` | WRITTEN | RESTORED | Equal? |
+| Verb / command | Lineage | Handler | `affectedStores` | WRITTEN | RESTORED | Equal? |
 |---|---|---|---|---|---|---|
-| `handrail.create` | **L1** | `CreateHandrail.ts:30`, `produceCommand :68-70` | `:31` `['handrail']` | plugin DTO | legacy | ⛔ **disjoint** |
-| **CREATE (live)** | **L2** | `CreateHandrailCommand` | `['handrail']` | legacy | own undo | ✅ |
-| `handrail.delete` | **L1** | `DeleteHandrail.ts:19` | `:20` `['handrail']` | plugin DTO | legacy | ⛔ **disjoint + DORMANT** |
-| **DELETE (live)** | **L2** | `DeleteHandrailCommand.ts:7` / `DeleteElementCommand.ts:513-529` | `["handrail"]` `:8` | legacy + graph | ✅ `_captureRelationships` `:91`, restore `:100-107` / `:917-925` | ✅ **and it captures graph edges** |
-| **`handrail.moveBaseLine`** | **L3/L4 hybrid** | `initBusHandlers.ts:1128` | **`:1129` `['handrail']`** | legacy via `_cmExec` `:1136` | hand-forged `PatchPair` `:1137-1140` | ⚠ **two mechanisms, one gesture** |
-| **`handrail.updateColor`** | **L3** | `initBusHandlers.ts:1427` | **`:1428` `[] as const`** | legacy via `_cmExec` `:1434` | **NO `undoPatch`** | ⚠ **relies wholly on L2's stack** |
-| `handrail.setPath` | **L1** | `SetHandrailPath.ts:23` | `['handrail']` | plugin DTO | legacy | ⛔ DORMANT |
-| `handrail.setShape` | **L1** | `SetHandrailShape.ts:24` | `['handrail']` | plugin DTO | legacy | ⛔ DORMANT |
-| `handrail.setHost` | **L1** | `SetHandrailHost.ts:22` | `['handrail']` | plugin DTO | legacy | ⛔ DORMANT |
-| `handrail.recompute` | **L1** | `RecomputeHandrail.ts:26` | `['handrail']` | plugin DTO | legacy | ⛔ DORMANT |
-| `handrail.setMaterial` | **L1** | `SetHandrailMaterial.ts:62` | `:65` `['handrail']` | **nothing — refuses `:82-83`** | n/a | ✅ **CA-18 conformant** |
+| **CREATE (live)** | **L2** | `CreateHandrailCommand` | `['handrail','level']` | legacy + semantic graph | own `undo` | ✅ |
+| **CREATE RUN (live)** ⭐ NEW | **L2** | `CreateHandrailRunCommand.ts:98` | `['handrail','level']` | legacy, via N `CreateHandrailCommand` children | `undo` reverses the children in reverse creation order | ✅ **one gesture = ONE undo entry (C16 §8.6)** |
+| **DELETE (live)** | **L2** | `DeleteHandrailCommand` / `DeleteElementCommand:513-529` | `['handrail']` | legacy + graph | ✅ `_captureRelationships`, verbatim restore | ✅ |
+| **UPDATE / RETYPE (live)** | **L2** | `UpdateHandrailCommand` | `['handrail']` | legacy | `restoreSnapshot` from a full JSON snapshot | ✅ |
+| `handrail.moveBaseLine` | **L3/L4** | `initBusHandlers.ts:1128` | `['handrail']` | legacy via `_cmExec` | hand-forged `PatchPair` | ⚠ two mechanisms, one gesture |
+| `handrail.updateColor` | **L3** | `initBusHandlers.ts:1427` | `[] as const` | legacy via `_cmExec` | no `undoPatch` | ⚠ relies wholly on L2's stack |
+| `element.changeType` (railing branch) | **L3** | `initBusHandlers.ts:1952-1971` | via `UpdateHandrailCommand` | legacy | L2 snapshot | ✅ **and it now carries the infill fields (L-984)** |
+| `handrail.create` | **L1** | `CreateHandrail.ts:30` | `['handrail']` | plugin DTO | legacy | ⛔ disjoint — **and now DORMANT: 0 dispatchers (§3.1b)** |
+| `handrail.delete` | **L1** | `DeleteHandrail.ts:19` | `['handrail']` | plugin DTO | legacy | ⛔ disjoint + DORMANT |
+| `handrail.setPath` / `setShape` / `setHost` / `recompute` | **L1** | `plugins/handrail/src/handlers/` | `['handrail']` | plugin DTO | legacy | ⛔ DORMANT |
+| `handrail.setMaterial` | **L1** | `SetHandrailMaterial.ts:62` | `['handrail']` | **nothing — refuses `:82-83`** | n/a | ✅ **C16 CA-18 conformant** |
 | ROTATE | — | **NO VERB** | — | — | — | rotation is implicit in `baseLine` |
-| PARAMETER | **L2** | `UpdateElementParameterCommand` `:137` `handrail: route(['handrail'], HANDRAIL_STORE)` | `['handrail']` | legacy | ⚠ **NOT audit-neutral — §7.3** | ⚠ |
+| PARAMETER | **L2** | `UpdateElementParameterCommand:137` | `['handrail']` | legacy | ⚠ **NOT audit-neutral — §7.3** | ⚠ |
 | LEVEL CHANGE | — | **NOT MEASURED** | — | — | — | — |
 
-**Refusal string, `SetHandrailMaterial.ts:56-57`, verbatim — and note it is doubly honest:**
+> ### ⭐ EI-7a: the systemic inequality is now UNREACHABLE, and by removal rather than containment
+> §7.2 recorded that all seven plugin verbs write the DTO store while `performUndo` applies the
+> inverse to the LEGACY store — `WRITES ⊋ RESTORES` on every one — contained only because six were
+> dormant and the seventh (`handrail.create`) was re-done into legacy by the `.created` bridge.
+> **As of 2026-08-19 the seventh is dormant too**: zero dispatchers. The inequality is now
+> unreachable because **nothing reaches the verbs at all**, which is a stronger statement than the
+> containment was, and a weaker one than a fix. ⛔ It must not be reported as "EI-7a resolved for
+> handrail". The disjoint write/restore mapping is still declared in code and would bite the day a
+> dispatcher returns.
+
+**Refusal string, `SetHandrailMaterial.ts:56-57`, verbatim — doubly honest, and still the model:**
 
 > *"It writes the detached plugin DTO store that nothing renders (§FIX-MATERIAL-DEAD-DISPATCH). Use
 > `handrail.updateColor`, which reaches handrailStore. **Note that HandrailFragmentBuilder has NO
-> material-library lookup — it reads only `materialColor` — so a catalogue materialId cannot be shown
-> on a handrail at all**; pick a colour override."*
+> material-library lookup … so a catalogue materialId cannot be shown on a handrail at all** — pick
+> a colour override."*
 
-✅ **EXEMPLARY** — it names the mechanism, offers the live alternative **and** discloses a second
-limitation the user would otherwise discover by trial. This is the C16 CA-18 model.
+⚠ **The second sentence is now PARTLY STALE and is corrected here rather than in place** (the
+string is not this lane's to edit): `HandrailFragmentBuilder.resolveColour` **does** resolve a
+`materialId` through `userMaterialStore`, the Materials Repository (`§FIX-HANDRAIL-MATERIAL-ID`,
+ADR-0332 §7). What remains true is the *reason* it was written: `materialColor` always wins, and a
+repository material contributes **only a hex** — no roughness, metalness or transparency. So a
+catalogue material still cannot be *shown* on a handrail in the sense a user means.
 
 ---
 
@@ -363,7 +408,14 @@ limitation the user would otherwise discover by trial. This is the C16 CA-18 mod
 ⚠ **But `stairRailingStore` is NOT in `optionalStores`** — a stair-railing edit is not snapshot-scoped.
 Adjacent family, real hole, recorded here because nobody else will (§13 item 5).
 
-### 7.2 EI-7a — the systemic inequality holds
+### 7.2 EI-7a — the systemic inequality holds, and is now UNREACHABLE BY REMOVAL
+
+> ⚠ **Re-measured 2026-08-19.** The paragraph below is unchanged and still describes the
+> declared mapping. What changed is the traffic: **all seven plugin verbs now have ZERO
+> dispatchers** (§3.1b), so the inequality cannot be reached at all. ⛔ That is *stronger*
+> than the containment described below and *weaker* than a fix — it must NOT be reported as
+> "EI-7a resolved for handrail". The disjoint WRITE/RESTORE mapping is still declared in
+> code and would bite the day a dispatcher returns. See §6.
 
 All seven plugin verbs write the DTO store; `performUndo` applies the inverse to the **legacy** store.
 `WRITES ⊋ RESTORES` on every one. Six are DORMANT and one refuses, so **the inequality is currently
@@ -452,11 +504,22 @@ closed-looking one. **TO-BE:** build the pass, or delete the sentence and log th
 
 ## 9. Vocabularies
 
-### 9.1 Shape — `square` and `flat` cannot be built (EI-3)
+### 9.1 Shape — ⚠ PART-CLOSED, and the residue is a LOSSY MAPPING, not an unbuildable affordance
 
-`z.enum(['round','square','flat'])` (`Handrail.ts:7`) — and D2 makes the profile a constant `'round'`.
-**2 of 3 shapes the schema offers cannot be produced through the plan bridge.** Unlike lighting's EI-3,
-this one **does not refuse** — it silently substitutes. **Strictly worse.**
+**Was:** `z.enum(['round','square','flat'])` (`Handrail.ts:7`) against a bridge whose `railProfile`
+was the constant `'round'` — **2 of 3 shapes silently substituted**, worse than lighting's EI-3
+because that one at least refuses.
+
+**Now** (`initTools.ts:1996-1998`, §FIX-HANDRAIL-BRIDGE-PROFILE): `round → round`,
+`square`/`flat` → `rectangular`. **Total in the correct direction, and no longer a constant.**
+⚠ **But it is LOSSY, and that is declared rather than hidden:** `HandrailData.railProfile` is
+`'rectangular' | 'round'` — a two-member vocabulary — so `square` and `flat` **collapse onto one
+value and cannot be told apart downstream.** A user who asked for a flat strap rail and one who
+asked for a square bar get the same record.
+
+⛔ **The fix is NOT to widen the mapping.** It is to decide whether `HandrailData` carries the L0
+vocabulary (three members) or the L0 schema carries the legacy one (two). Two vocabularies for one
+concept is C84 **EI-8**; picking either is fine, keeping both is not.
 
 ### 9.2 THREE material vocabularies coexist in one family
 
@@ -500,6 +563,40 @@ catalogue material assigned to a handrail is inert. **EI-3: the panel MUST NOT o
 
 ---
 
+### 9.3 ⭐ The type catalogue — 20 built-ins, and what a type CANNOT say
+
+`HandrailTypeStore` ships **20** built-in `HandrailTypeDefinition`s (founder, 2026-08-18) — wall's
+`WallSystemTypeStore` twin, and the store the creation panel reads, so the create list and the
+retype list cannot differ (**EI-9**). The **5 pre-existing ids are kept verbatim**: saved projects
+reference them, and dropping an id for a nicer name is a silent data loss (**EI-6** — absence must
+be loud).
+
+**A type is MATERIALISED, never REFERENCED.** `PropertyPanelTypeSelector.ts` states the family's
+rule: *"HandrailData carries no `typeId`, so a railing type is materialised into the record."*
+⛔ No `systemTypeId` field was minted — a second answer to *"what type is this railing?"* would be
+EI-9. The consequence is declared, not hidden: the retype widget resolves "current" by **matching
+the record's materialised fields against the catalogue**, so a railing whose fields were edited
+individually matches nothing and the dropdown opens on no selection. Honest — but it means the
+model cannot answer *"which catalogue entry was this?"* after any manual edit.
+
+**The builder implements FOUR infills** — `glass`, `panel`, `baluster`, `open`. Several real railing
+families have an infill outside that set. Each is mapped to the nearest BUILDABLE one and **the
+substitution is stated in the description the user reads** (§12 R10-R14): cable strands → `open`;
+mesh weave and perforation → `panel`; pipe mid-rails → `open`. A catalogue that pretended otherwise
+would be an affordance with no implementation (C65 §3.9 / C84 **EI-3**), and silent, which is the
+worst form of it.
+
+⚠ **`thickness` is the RAIL SECTION, not the glass.** Measured: the rectangular top rail is
+`BoxGeometry(len, 0.05, handrail.thickness)`; the glass infill's depth is a hard-coded `0.01` and a
+solid panel's is `thickness * 0.4`. **A glass type cannot express "17.6 mm laminated."** Declared in
+the type-library header, not faked in the data.
+
+⭐ **`infillMaxGap` is a CONSTRAINT, not a second name for the pitch.** Guarding codes state the
+rule as *"a sphere of D mm must not pass"*; the pitch is centre-to-centre. `clear gap = pitch −
+balusterWidth`, so the builder derives `pitch = maxGap + width` **only when no pitch is authored**.
+An authored pitch always wins, which is why no existing handrail changed shape — asserted by a test
+that pins the authored-pitch case at its old mesh count.
+
 ## 10. Geometry
 
 | Axis | AS-IS |
@@ -525,65 +622,200 @@ catalogue type.** Even with no type selected the two paths disagree on height �
 
 ⛔ **This is EI-9 — one question ("what handrail did the user ask for?"), two answers, selected by which
 view they happened to be in.** ⚠ **`baseOffset` forced to 0 is a SIXTH bridge defect, not among the four
-named in the brief.** **TO-BE:** both tools resolve defaults from `HandrailTypeStore`; the two literals
-are deleted, not re-synchronised (C84 §8.d — a comment is not a synchronisation mechanism).
+named in the brief.**
+
+> ### ✅ CLOSED 2026-08-19 (L-982) — and the literals were DELETED, not re-synchronised
+> `RailingPlanToolHandler` now resolves **every** field from `HandrailTypeStore` through
+> `resolveArmedHandrailSpec()`, the ONE resolution shared by the preview and the commit — so the
+> ghost can never describe a rail the command will not build. `DEFAULT_HEIGHT = 1.1` and
+> `DEFAULT_THICK = 0.05` are **gone from the file**, not kept in step by a comment (C84 §8.d). The
+> un-typed fallback is `1.0 / 0.05`, which is `HandrailTool`'s own `typeDef?.height ?? 1.0`, so the
+> two surfaces agree on the un-typed case too.
+>
+> The five divergences in the table above are now **height ✅ · diameter ✅ · fillType ✅ ·
+> railProfile ✅ · baseOffset ✅ on the L2 path**. ⚠ `baseOffset` is still forced to `0` **on the
+> bus bridge** (§5, D6) — but nothing dispatches into that bridge any more (§3.1b), so no user
+> reaches it today. Open, and no longer what the user is losing.
+>
+> ⭐ **Proven at the layer the user experiences**, not at the resolver:
+> `apps/editor/__tests__/HandrailCreationParityReachable.test.ts` drives a real click sequence and
+> asserts the dispatched command's own payload carries the armed type's fields — including
+> `expect(p.height).not.toBe(1.1)`, so the deleted literal cannot come back unnoticed.
 
 ---
+## 11. THE DELTA — ordered by WHAT THE USER LOSES
 
-## 11. THE DELTA
+> **Re-ordered and re-scored 2026-08-19 (lane HR1).** The previous ordering was by defect id. This
+> one is by loss: an item that silently produces the wrong element outranks one that produces a
+> right element inefficiently, and both outrank a governance item. Closed rows are kept with their
+> evidence — a delta that deletes what it closes cannot be audited.
 
-| # | Fix | Invariant | Proof required |
-|---|---|---|---|
-| **1** | **Correct the record that these are fixed.** ADR-0332 documents them; nothing else may report them closed. §0 is the correction | governance | §0 stands; the probe's `it()` names keep their defect wording |
-| **2** | **D1 — N-point collapse: REFUSE BY NAME.** A 2-point `baseLine` cannot hold a 3-point rail, so carrying is impossible and silence is the only forbidden option | **EI-2(d)**, C16 CA-18 | probe `:99` flips from *"loses its middle vertex with no diagnostic"* to an asserted refusal |
-| **3** | **D2 — delete the `'rectangular'` dead branch**; map the real enum `round\|square\|flat` | **EI-2(b)**, **EI-3** | probe `:132` asserts `square → square` |
-| **4** | **D3 — write `railDiameter`**, the field the round branch reads | **EI-2(a)** | probe `:154` asserts radius 0.025 for an authored 0.05 |
-| **5** | **D4 — carry `fillType`** (and `postSpacing`) | **EI-2(a)** | probe `:195` asserts plan ≡ 3D mesh count **and** IFC `PredefinedType` |
-| **6** | **D6 — carry `baseOffset`** instead of hard-coding `0` | **EI-2(a)** | a catalogue type with non-zero `baseOffset` seats identically from both views |
-| **7** | **Delete the telemetry mutation** at `HandrailTool.ts:158`. First **measure** whether it also mints a phantom legacy handrail (§4.4) | **EI-5**, C16 CA-17 | a watched-RED test asserting the DTO store is unchanged by a 3-D draw |
-| **8** | **Close the plugin-store leak** — ⛔ **by DECLARING the store retired (EI-5a), NOT by wiring `handrail.delete`.** Wiring the delete makes a zero-reader shadow look authoritative ([C84 §8.c](C84-ELEMENT-INTEGRITY.md)) | **EI-5 / EI-5a** | `plugins/handrail/src/store.ts` header on the `plugins/rooms/src/store.ts:1-29` model |
-| **9** | **One default source for both tools** — delete `RailingPlanToolHandler.ts:15-16` | **EI-9** | plan and 3D produce byte-equal records for one line |
-| **10** | **`'railing'` → `'handrail'`** in `PropertyPanelTypeSelector.ts:279`; drop the alias at `elementMove.ts:126` | **C15 §12 / C84 §4E** | one spelling per family |
-| **11** | **Make the cascade refusal LOUD** — `PluginRegistry.ts:660` must not print *"activated"* on the refusal path; `tool.ts:49` must not swallow it | **EI-12** | the console states `ENGINE_NOT_AVAILABLE` |
-| **12** | **Stair delete orphans handrails** — build the pass or delete the comment claiming it | **EI-5**, C84 §8.d | a stair delete leaves no hosted handrail |
-| **13** | **IFC: stop re-classifying stair railings as handrails**, or refuse | **EI-2**, C25 | round-trip preserves the family |
-| **14** | **Audit-neutral undo for handrail parameters** | **ADR-0319 §2** | watched-RED: `metadata.version` byte-equal across undo |
-| **15** | **Declare the `persistence-client` duplicate pair** (6 files) | **EI-9 / EI-10** | a named reason + an EI-8a equality test, or retirement |
-| **16** | **Add `stairRailingStore` to `createSnapshot`'s `optionalStores`** | **EI-7d**, L-953 | the C84 §5 sweep |
-| **17** | **Decide `HandrailRunGeometry`'s fate** — wire it or delete it; a 282-line spec over an unreachable module is debt with a green badge | **EI-12**, C72 §0.1 | one importer that is not a test |
+| # | Loss the USER experiences | Fix | Invariant | Status |
+|---|---|---|---|---|
+| **1** | *"I picked Timber Picket and got generic 20 mm balusters."* | `CreateHandrailCommand` carries the baluster members + `materialId` | **EI-2** | ✅ **CLOSED** — L-983, watched-RED (5 assertions fail pre-fix) |
+| **2** | *"Retyping into Timber Picket gives a different railing from drawing one."* | the four fields carried across all four retype hops | **EI-9** | ✅ **CLOSED** — L-984, same commit as #1 so a per-path divergence never existed |
+| **3** | *"The plan tool can't use any of my railing types, and it draws them 100 mm taller than 3-D does."* | both surfaces resolve from `HandrailTypeStore`; the two plan literals **deleted** | **EI-9**, C84 §8.d | ✅ **CLOSED** — L-982 |
+| **4** | *"I can only draw a straight two-click rail."* | seven modes: linear / ortho / curved / by-slab / square / circular / ellipse | founder D4 | ✅ **CLOSED** — L-982, 24 reachability assertions |
+| **5** | *"My guard has a doubled, z-fighting post at every corner and at the closure."* | `suppressStartPost`; one vertex, one owner | founder D4 | ✅ **CLOSED** — L-986, asserted by counting the REAL builder's meshes |
+| **6** | *"Undoing a circular guard takes 32 presses."* | `CreateHandrailRunCommand` — one gesture, one entry | **C16 §8.6** | ✅ **CLOSED** — L-982 |
+| **7** | *"Every rail I draw in 3-D leaks a ghost rail at the world origin."* | the telemetry mutation deleted | **EI-5**, C16 CA-17 | ✅ **CLOSED** — L-985; §13 item 1 measured first, which is what unblocked it |
+| **8** | *"A 3-point rail I drew became a straight diagonal across the corner."* | refuse by name | **EI-2(d)** | ✅ **CLOSED** — `§FIX-HANDRAIL-BRIDGE-TRUNCATION`. ⚠ §0's claim that this was unfixed was TRUE when written; see §5's retraction |
+| **9** | *"A square/flat rail comes out round."* | the enum mapped, the constant ternary deleted | **EI-2(b)**, EI-3 | ✅ **CLOSED** — `§FIX-HANDRAIL-BRIDGE-PROFILE`. ⚠ lossy: `square` and `flat` still collapse to `rectangular` (§9.1) |
+| **10** | *"An authored 50 mm rail renders at 40 mm."* | `railDiameter` written | **EI-2(a)** | ✅ **CLOSED** — `§FIX-HANDRAIL-BRIDGE-DIAMETER` |
+| **11** | *"The same line drawn in plan and in 3-D builds different geometry and exports a different IFC entity."* | `fillType` written | **EI-2(a)** | ⚠ **PARTIAL** — the divergence is gone, but the value is a CONSTANT `'baluster'`; the payload has no `fillType` (§5) |
+| **12** | **Deleting a stair leaves its handrails floating.** | build the GC pass, or delete the comment that claims one exists | **EI-5**, C84 §8.d | ⛔ **OPEN** — §8.2. **The highest-value remaining user-visible loss** |
+| **13** | **A handrail hosted on a stair does not move when the stair moves.** | the cascade subsystem must actually register | **EI-12** | ⛔ **OPEN** — §8.1, blocked on BIM30 R2 / ADR-0322. ⛔ Do NOT "fix" by dispatching `handrail.recompute`: the runner does not exist |
+| **14** | **A stair railing re-imported from IFC comes back as a free-standing handrail.** | branch on `PredefinedType` / host, or refuse | **EI-2**, C25 | ⛔ **OPEN** — §3.3 |
+| **15** | **A handrail parameter undo ratchets `metadata.version`.** | audit-neutral undo | **ADR-0319 §2** | ⛔ **OPEN** — §7.3 |
+| **16** | **A catalogue `baseOffset` never crosses the bus bridge** (a channel-fixed glass guard seats flush). | carry it | **EI-2(a)** | ⛔ **OPEN** — D6, §5 |
+| **17** | Handrails cannot slope; the only code that can express slope is unreachable. | wire it or declare it | **EI-12**, C72 §0.1 | ⚠ **PART-CLOSED** — `HandrailFragmentBuilder` now reads the endpoint `rise` (`§FEAT-HANDRAIL-SLOPE`), so the LIVE builder can slope. **The bus payload and both tools still author `y = 0`**, so no user can produce one (§10) |
+| **18** | *(internal)* the plugin DTO store leaks monotonically. | retire it | **EI-5 / EI-5a** | ✅ **CLOSED BY REMOVAL OF ITS WRITERS** — 0 dispatchers (§3.1b). ⛔ Still to DECLARE retired in the file header; ⛔ still not to be closed by wiring `handrail.delete` (C84 §8.c) |
+| **19** | *(internal)* three byte-identical snapshot implementations. | retire two, or declare why both survive | **EI-9** | ⛔ **OPEN** — L-987. Declared + pinned by an equality test; retirement needs the barrels' owner |
+| **20** | *(internal)* handrail lives inside `packages/geometry-stair` with **zero** coupling either way. | own package, or a recorded reason | **EI-10** | ⛔ **OPEN — DECISION, not a fix.** L-988, §14.2 |
+| **21** | *(governance)* `'railing'` is a fourth spelling of one family. | `'railing'` → `'handrail'`; drop the `elementMove.ts:126` alias | **C15 §12 / C84 §4E** | ⛔ **OPEN** — §1. ⚠ **and this lane ADDED a consumer of the alias**: `showHandrailPreDraw` seeds `elementType: 'railing'` because `buildRailingTypeSelectorWidget` gates on it. Declared, not hidden |
+| **22** | *(governance)* the cascade refusal prints *"activated"*. | make the refusal loud | **EI-12** | ⛔ **OPEN** — §8.1 |
+| **23** | *(governance)* the `persistence-client` duplicate pair (6 files). | declare which pair is authoritative per host, + an EI-8a equality test | **EI-9 / EI-10** | ⛔ **OPEN** — §3.2 |
+| **24** | *(governance)* `stairRailingStore` absent from `createSnapshot`'s `optionalStores`. | add it | **EI-7d**, L-953 | ⛔ **OPEN** — §7.1 |
+| **25** | *(governance)* `HandrailRunGeometry.ts` — 338 lines, one importer, its own test. | wire it or delete it | **EI-12**, C72 §0.1 | ⛔ **OPEN** — ⚠ **and `handrailRunGenerators.ts` now occupies part of its intended ground.** Whoever resolves #25 must reconcile the two rather than leave a fourth stack |
 
 ---
 
 ## 12. REFUSALS
 
+**Refusals that EXIST and are correct**
+
 | # | Refusal | Named where | Verdict |
 |---|---|---|---|
-| **R1** | **`handrail.setMaterial` is unreachable; use `handrail.updateColor`** | `SetHandrailMaterial.ts:56-57` | ✅ **EXEMPLARY** — mechanism, alternative, and a second disclosed limitation |
-| **R2** | **A catalogue `materialId` cannot be displayed on a handrail** — the builder has no library lookup | same string | ✅ **DECLARED** — ⛔ but the panel MUST stop offering it (C82) |
-| **R3** | **`handrail.recompute` does not fire on `stair.setType`** — material-only swap, no edge motion | `plugins/cross/src/stair-handrail.ts:27` | ✅ **correct and reasoned** |
-| **R4** | **`handrail.recompute` does not fire on `stair.delete`** | `stair-handrail.ts:28-30` | ⛔ **NOT A VALID REFUSAL** — it defers to a garbage-collect pass that **does not exist** (§8.2) |
-| **R5** | **The six DORMANT verbs** are the PRYZM-3 target vocabulary | [C84 §3.5.3](C84-ELEMENT-INTEGRITY.md) | ✅ ⛔ **not deletable** |
-| **R6** | **`RecomputeHandrail` refuses to write** and returns a determination instead | `RecomputeHandrail.ts` | ✅ **CA-18 conformant** |
-| **R7** | **Handrail is absent from the bake worker** | nowhere | ⛔ **NOT A REFUSAL — an undeclared absence.** Blocked behind ADR-0331 §D5 |
-| **R8** | **Handrails cannot slope** | nowhere | ⛔ **NOT A REFUSAL — a silent capability gap.** The geometry exists twice (Stack B, `HandrailRunGeometry`) and is reachable neither time. **Declare it or wire it** |
+| **R1** | `handrail.setMaterial` is unreachable; use `handrail.updateColor` | `SetHandrailMaterial.ts:56-57` | ✅ **EXEMPLARY** — mechanism, alternative, and a second disclosed limitation. ⚠ its second sentence is now partly stale — §6 |
+| **R2** | An N > 2 path cannot be held by a 2-tuple `baseLine`, so the bridge **declines it by name** | `initTools.ts:1994-2001` | ✅ names the count, the limit, and what the old code did instead |
+| **R3** | `handrail.recompute` does not fire on `stair.setType` — material-only swap, no edge motion | `plugins/cross/src/stair-handrail.ts:27` | ✅ correct and reasoned |
+| **R4** | `RecomputeHandrail` refuses to write, returning a determination | `RecomputeHandrail.ts` | ✅ CA-18 conformant |
+| **R5** | The six DORMANT verbs are the PRYZM-3 target vocabulary | C84 §3.5.3 | ✅ ⛔ not deletable |
+| **R6** ⭐ | A handrail RUN with no buildable segment refuses, naming the first child's reason and the 0.1 m limit | `CreateHandrailRunCommand.ts` `canExecute` | ✅ **NEW** — and a partially-refused run still creates what it can and NAMES each skipped segment in `info` |
+| **R7** ⭐ | BY SLAB with no slab selected refuses, naming the alternative (*"Select a slab first, or draw the guard with Linear / Orthogonal"*) | `RailingPlanToolHandler._commitBySlab` | ✅ **NEW** |
+| **R8** ⭐ | A degenerate loop gesture refuses, naming both thresholds (0.2 m per axis, 0.1 m per chord) | `RailingPlanToolHandler._commitLoop` | ✅ **NEW** |
+| **R9** ⭐ | No `commandManager` on the plan context ⇒ refuse and say **nothing was written directly to a store** | `RailingPlanToolHandler._dispatchRun` | ✅ **NEW** — the P6 escape hatch says which invariant it is protecting |
+
+**Capability gaps DECLARED as refusals by the 20-type catalogue (each stated in the description the user reads)**
+
+| # | The type says | The builder does | Verdict |
+|---|---|---|---|
+| **R10** | *"The horizontal cable strands are NOT modelled — posts and rail only"* (`cable-stainless`) | `fillType: 'open'` | ✅ DECLARED. `infillMaxGap` still carries the code constraint for schedules |
+| **R11** | *"Modelled as a solid infill panel — the weave is not modelled"* (`mesh-infill`) | `fillType: 'panel'` | ✅ DECLARED |
+| **R12** | *"the perforation pattern is not modelled"* (`perforated-panel`) | `fillType: 'panel'` | ✅ DECLARED |
+| **R13** | *"Intermediate horizontal mid-rails are NOT modelled"* (`industrial-pipe`) | `fillType: 'open'` | ✅ DECLARED |
+| **R14** | *"Glass thickness is not modelled"* (`glass-frameless`) | glass infill depth is the hard-coded `0.01`; `thickness` is the RAIL section | ✅ DECLARED in the type-library header |
+| **R15** | BY SLAB sets the guard out on the slab EDGE, with no inset by half the rail thickness | matches wall's By Slab, which uses the wall centreline | ✅ DECLARED in `slabOutlineSegments` |
+| **R16** | No `graspableProfile` field was minted; `railProfile` + (`railDiameter`\|`thickness`) IS the graspable rail's profile and section | — | ✅ DECLARED (C84 EI-8 — one vocabulary per concept) |
+
+**⛔ NOT refusals — undeclared absences**
+
+| # | | Verdict |
+|---|---|---|
+| **R17** | `stair-handrail.ts:25-30` defers `stair.delete` cleanup to *"a separate garbage-collect pass"* | ⛔ **INVALID — the pass does not exist** (§8.2). A comment naming a mechanism that does not exist converts an open defect into a closed-looking one |
+| **R18** | Handrails cannot be AUTHORED sloping | ⛔ **silent gap.** The live builder gained slope (`§FEAT-HANDRAIL-SLOPE`), but every authoring path writes `y = 0`, so no user can make one. **Declare it or wire it** |
+| **R19** | Handrail is absent from the bake worker | ⛔ **undeclared absence**, blocked behind ADR-0331 §D5 |
 
 ---
 
 ## 13. NOT MEASURED
 
-1. **Whether `HandrailTool.ts:158`'s junk create also mints a phantom LEGACY handrail** — depends on
-   `CommandEventBridge` re-emitting `handrail.created` for the defaulted 2-point path. **Blocks DELTA #7.**
-2. **GLB export's handrail path** — handrail tokens appear only under `export/ifc/*`; whether GLB
+**Closed since the last stamp**
+
+1. ~~Whether `HandrailTool.ts:158`'s junk create also mints a phantom LEGACY handrail.~~ ✅ **MEASURED
+   2026-08-19 — IT DOES NOT.** `CommandEventBridge` forwards `record.payload` = `{}`, so it emits
+   `handrail.created` with `id: undefined`, and the bridge's first guard is `!ev.id`. Damage was
+   confined to the DTO store. **This is what unblocked delta #7** (now §11 row 7).
+2. ~~Whether `HandrailStore.update` merges or replaces, and whether the undo adapter declares it
+   correctly.~~ ✅ **MEASURED — MERGE, AND THE DECLARATION IS CORRECT.** `HandrailStore.ts:56-66` is
+   `structuredClone(existing)` then `Object.assign(updated, updates)`, i.e. a partial leaves every
+   unmentioned field intact. `legacyStoreUpdateSemantics.ts:217-221` declares
+   `semantics: 'merge'` citing exactly `HandrailStore.ts:56-66`. **Handrail is NOT one of L-977's
+   four REPLACE stores** (slab, column, furniture, plumbing), so the "Ctrl+Z hands a partial to a
+   replace store and destroys the record" failure **cannot occur on this family**.
+   ⚠ Undo does not in fact go through `update()` for the two live L2 commands —
+   `UpdateHandrailCommand.undo` and `DeleteHandrailCommand.undo` both call `restoreSnapshot`, which
+   is a whole-record `set`. The merge semantics matter for the **patch-adapter** path
+   (`performUndoRedo.ts:341`, both `handrail` and `handrails` → `w.handrailStore`).
+3. ~~Whether handrail-in-`geometry-stair` is deliberate.~~ ✅ **MEASURED — ZERO coupling in both
+   directions** (§14.2). Accidental co-location. **Not moved**; needs a decision.
+
+**Still not measured**
+
+4. **GLB export's handrail path** — handrail tokens appear only under `export/ifc/*`; whether GLB
    consumes that chain or walks the THREE scene directly was not determined.
-3. **L-952's "eight families"** — the gate names three *covered*; no eight-member list was found in code.
-4. **`handrail.setPath` / `setShape` / `setHost` dynamic dispatch** — zero by literal grep; computed verb
-   strings (`` `handrail.${x}` ``) were not swept.
-5. **`stairRailingStore` snapshot coverage consequences** — its absence from `optionalStores` is measured;
-   what breaks on a failed stair-railing execute is not.
-6. **An end-to-end runtime handrail undo** — the map entry exists; no executed read-back was run.
-   Per [C16 CA-21](C16-COMMAND-AUTHORING-PROTOCOL.md) a declaration is not a proof.
-7. **`HandrailFragmentBuilder` baluster/post spacing arithmetic** (`balusterSpacing ?? postSpacing ?? 0.11`).
-8. **`handrail` level-change** — whether `element.changeLevel` has a branch.
-9. **Sub-part tagging** — whether `HandrailPart` carries `role`/`parentId` per C15 §12.
-10. **`pryzm-selfhost`** — no such directory under the repo root; the census was repo-wide, but the host
-    named in C84 §3.5.2 could not be located as a directory.
+5. **L-952's "eight ratcheting families"** — the gate names three *covered*; no eight-member
+   uncovered list was found in code. The membership finding (handrail is uncovered) is CONFIRMED;
+   the figure is not.
+6. **`handrail.setPath` / `setShape` / `setHost` dynamic dispatch** — zero by literal grep; computed
+   verb strings (`` `handrail.${x}` ``) were not swept.
+7. **`stairRailingStore` snapshot-coverage consequences** — its absence from `optionalStores` is
+   measured; what breaks on a failed stair-railing execute is not.
+8. **An end-to-end RUNTIME handrail undo** — the map entry exists and `CreateHandrailRunCommand.undo`
+   is proven against the REAL `HandrailStore` in `handrailTypeMaterialisationAndRun.test.ts`, but
+   **not** driven through `performUndo` with a live ring buffer. Per C16 CA-21 a declaration is not
+   a proof, and neither is a direct `.undo()` call.
+9. **Persistence of the new fields** — `serializeHandrailSnapshot` is proven whitelist-free
+   (L-987), so UNDO carries them. **`ProjectSerializer` / `ProjectLoader` were NOT checked**, and
+   L-999 is this exact defect on wall: four hand-written whitelists, all omitting one field.
+   ⛔ **Assume `infillMaxGap`, `suppressStartPost` and the baluster members do NOT survive
+   save/load until someone measures it.** This is the largest honest hole this lane leaves.
+10. **`HandrailFragmentBuilder` baluster arithmetic beyond the pitch** — the `infillMaxGap`
+    derivation is proven by mesh count; end-margins and the `count = floor(len/pitch) - 1`
+    convention are not independently verified against a drawing standard.
+11. **`handrail` level-change** — whether `element.changeLevel` has a branch.
+12. **Sub-part tagging** — whether `HandrailPart` carries `role` / `parentId` per C15 §12.
+13. **The 3-D `HandrailTool` still offers only ONE gesture.** The seven modes are PLAN-side. The 3-D
+    tool reads the armed TYPE (via `window.handrailTool.setTypeId`) but not the armed MODE, so
+    `elementCreationMatrix`'s `views: ['plan','3d']` for the railing row is **true of the tool and
+    false of the modes**. Declared here rather than fixed; it is the honest half of §14.1.
+14. **`pryzm-selfhost`** — no such directory under the repo root.
+
+---
+
+## 14. THE AUTHORING SURFACE — ⭐ NEW (founder, 2026-08-18)
+
+### 14.1 Creation modes
+
+| Mode | Key | Gesture | Commits as | Reachable |
+|---|---|---|---|---|
+| Linear | **L** | click, click… (chains) | one `CreateHandrailCommand` per segment | ✅ plan |
+| Orthogonal | **O** | as Linear, 90°-constrained | one per segment | ✅ plan |
+| Curved | **C** | start, arc mid-point, end | ONE `CreateHandrailRunCommand` (flattened Bézier) | ✅ plan |
+| By Slab | **S** | select a slab, click | ONE run around its ring | ✅ plan |
+| Square | **Q** | two opposite corners | ONE run, closed | ✅ plan |
+| Circular | **R** | centre, rim | ONE run, closed | ✅ plan |
+| Ellipse | **E** | centre, bounding corner | ONE run, closed | ✅ plan |
+
+L / O / C are **spread from the wall's own `WALL_DRAW_MODES`**, so the two bars cannot drift.
+The mode ids are `HandrailRunMode` in `@pryzm/geometry-stair`, the module that turns each into
+geometry — the bar cannot offer a mode the generator does not implement.
+
+**THE JOIN, which is the part that is easy to get wrong.** `HandrailFragmentBuilder` posts BOTH
+ends of every segment, so a shared vertex takes two coincident posts unless someone owns it.
+`suppressStartPost` gives each vertex exactly one owner: in an OPEN run only the first segment
+keeps its start post; in a CLOSED run none does, because the last segment's END post already stands
+on the first's start. Both cases: `|posts| = |distinct vertices|`, asserted by counting the meshes
+the REAL builder emits, with the naive 8-post case kept as a live control.
+
+⛔ **NOT DONE, stated plainly: the 3-D `HandrailTool` still has ONE gesture.** See §13 item 13.
+
+### 14.2 Package location — MEASURED, and it is a decision, not a fix
+
+Every other family has `packages/geometry-<family>`. Handrail does not: five source files sit in
+`packages/geometry-stair/`.
+
+* **handrail → stair: ZERO.** `HandrailFragmentBuilder`, `HandrailTool`,
+  `HandrailLevelCleanupHandler`, `handrailSnapshotUtils`, `handrailRunGenerators` import only
+  `@pryzm/core-app-model`, `@pryzm/renderer-three`, `@pryzm/command-registry`, `@pryzm/snapping`,
+  `@thatopen/components`. No `./Stair*` import exists.
+* **stair → handrail: ZERO.** The only `./Handrail*` references in the package are five re-export
+  lines in `index.ts`. `StairRailingTypeMapping.ts` and `StairRailingTypes.ts` import
+  `HandrailTypeDefinition` from `@pryzm/core-app-model` — the shared catalogue, not the neighbour.
+
+⇒ **The co-location is ACCIDENTAL.** ⚠ This is **not** the same question as §1.1's three railing
+CONCEPTS: `StairRailingBuilder` is a genuinely different family that belongs in `geometry-stair`.
+⛔ **Not moved.** A move needs a new workspace (an unsynced `pnpm-lock` breaks `--frozen-lockfile`
+for every concurrent lane) plus four import sites, two of them in orchestrator-owned files.
+**Decision required: create `packages/geometry-handrail`, or record the co-location as deliberate
+with a stated reason.** The one answer that must not stand is the current one — no reason recorded.
