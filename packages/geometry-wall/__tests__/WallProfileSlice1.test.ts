@@ -438,7 +438,10 @@ describe('§WALL-PROFILE (8) — "Edit Profile" is offered only where it is impl
     // still cannot drift, and neither half can be satisfied alone.
     it('WALL is listed — and only because WallTool implements the method (both halves)', () => {
         const s = src();
-        const resolver = s.slice(s.indexOf('_profileEditToolFor('));
+        // Anchored on the DEFINITION, not the first mention: the name now also appears in
+        // the doc-comments that explain the derivation, and a resolver-shaped assertion
+        // reading a comment is an assertion about prose.
+        const resolver = s.slice(s.indexOf('private _profileEditToolFor('));
         expect(resolver.slice(0, 1800)).toMatch(/^\s*wall:\s*w\.wallTool,/m);
 
         const tool = fs.readFileSync(

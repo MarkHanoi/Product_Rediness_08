@@ -2158,8 +2158,23 @@ export class WallTool {
         const wallId = this.profileEditWallId;
         if (!wallId) return;
 
+        // ⚠ CLEARING SENDS `undefined`, NOT `null`, AND THAT IS MEASURED, NOT PREFERRED.
+        // `WallDataUpdateSchema` declares `wallProfile` `.optional()`, not `.nullable()`, so
+        // `{ wallProfile: null }` fails Zod inside `WallStore.update` and comes back as a
+        // thrown `WallSchemaError` — a CRASH where the user asked for an ordinary edit.
+        // Pinned by `WPE1WallProfileUndo.test.ts` in both directions so a later "tidy up the
+        // nulls" cannot reintroduce it. `undefined` is also what
+        // `UpdateElementParameterCommand.captureCurrentValues` records for a wall that never
+        // had a profile, so clear-then-undo and author-then-undo travel the SAME value.
+        //
+        // KNOWN GAP, stated rather than hidden: `undefined` does not survive JSON, so a
+        // CLEAR replayed across the collaboration wire arrives as an absent key and is a
+        // no-op there. Authoring and editing replay correctly; only clearing does not. The
+        // durable fix is to make the field `.nullable()` in `WallDataSchema` and accept null
+        // as "the rectangle" at every write boundary — a Slice-1 model change, deliberately
+        // not made inside this authoring lane.
         const parameters = {
-            wallProfile: ring ? { ring: ring.map((p) => ({ u: p.u, v: p.v })) } : null,
+            wallProfile: ring ? { ring: ring.map((p) => ({ u: p.u, v: p.v })) } : undefined,
         };
 
         // Last gate call before the write, against the wall's REAL current state — the editor
