@@ -653,7 +653,7 @@ function serializeWall(wall: any): any {
 // ── Slab serialization ──────────────────────────────────────────────────────
 
 /**
- * ⭐ §TYPED-SERIALIZER-BOUNDARY (L-1221) — THE PROOF FAMILY. `any` in, `any` out, and a
+ * ⭐ §TYPED-SERIALIZER-BOUNDARY (L-1224) — THE PROOF FAMILY. `any` in, `any` out, and a
  * hand-written field list in between, was the shape of all ten serialisers here. The
  * compiler could not tell you a field was missing, because you never told it what a slab
  * was. This one family is typed end-to-end so the cost and the payoff are both measured

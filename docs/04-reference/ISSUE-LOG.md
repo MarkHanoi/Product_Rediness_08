@@ -18338,7 +18338,7 @@ must equal the set it RESTORES** — and it needs its own arm.
 
 ---
 
-## L-1221 — THE TYPED SERIALISER BOUNDARY: TYPING THE SIGNATURE BUYS ALMOST NOTHING; THE **COVERAGE ASSERTION** IS WHAT CATCHES THE BUG ⏳ ONE FAMILY PROVEN 2026-08-19 (lane PERSIST1) — nine costed, not landed
+## L-1224 — THE TYPED SERIALISER BOUNDARY: TYPING THE SIGNATURE BUYS ALMOST NOTHING; THE **COVERAGE ASSERTION** IS WHAT CATCHES THE BUG ⏳ ONE FAMILY PROVEN 2026-08-19 (lane PERSIST1) — nine costed, not landed
 
 All ten serialisers in the live `ProjectSerializer.ts` read `(x: any): any` with a
 hand-written field list in between. The obvious remedy — replace `any` with the real
