@@ -165,6 +165,23 @@ export class PlatformRouter {
      */
     private engineOverlay: EngineLoadingOverlay | null = null;
 
+    /**
+     * §FIX-OPEN-GESTURE-ONCE (L-1282) — the project id whose open gesture is
+     * currently in flight, or `null` when none is.
+     *
+     * Holds an ID rather than a boolean on purpose: the question `launchWorkspace`
+     * must answer is "is THIS project already opening?", not "is anything
+     * opening?". A boolean would silently swallow a genuine open of project B
+     * issued while A is loading — the failure mode already latent one layer down in
+     * `buildPersistence`'s `openProjectInflight`, which coalesces on nothing at all
+     * and will hand B's caller A's promise. Not fixed here (it is a different
+     * layer's row) but deliberately NOT copied.
+     *
+     * Released in `_openProjectViaRuntime`'s `finally` — see the note there for why
+     * a latch that survives a failed open would be a regression.
+     */
+    private _openGestureProjectId: string | null = null;
+
     private constructor(
         root: HTMLElement,
         runtime: PryzmRuntime,
@@ -552,6 +569,15 @@ export class PlatformRouter {
         // server id mismatch is what produced the
         // `[persistence.openProject] project not found` failure on every
         // newly-created project open.
+        // §FIX-HUB-GRID-LISTENER-STACK (L-1281) — DESTROY any hub still mounted
+        // before minting another. `showAuth.onSuccess` can reach `showHub` twice on
+        // one sign-in, and without this the previous `ProjectHub` stayed in the DOM
+        // with its own `#ph-grid`, its own document-level listeners and its own
+        // sync timers — a second, invisible multiplier on the "one click, three
+        // opens" defect this lane closed in `ProjectHub.attachGridListeners`.
+        // Duplicate element ids also make `querySelector('#ph-grid')` answer about
+        // the WRONG hub, which is how the surviving one would win the click.
+        this.hub?.destroy();
         this.hub = new ProjectHub(this.root, user, {
             onOpenProject: (projectId: string, projectName: string, opts?: { isNewProject?: boolean }) => {
                 this.launchWorkspace(projectId, projectName, opts);
@@ -965,6 +991,32 @@ export class PlatformRouter {
         projectName: string,
         opts?: { isNewProject?: boolean; guidedOnboarding?: boolean },
     ): void {
+        // §FIX-OPEN-GESTURE-ONCE (L-1282) — ONE gesture must produce ONE open.
+        //
+        // This guard is defence in depth, NOT the fix: the ×3 in the founder's boot
+        // log is `ProjectHub.attachGridListeners` stacking delegated listeners
+        // (L-1281), and that is repaired at source. This exists because
+        // `launchWorkspace` has FOUR call sites — the `pryzm-open-project` window
+        // event, the reopen-after-reload path, the hub callback and the create hop —
+        // and any future duplication on any of them lands here. Everything above
+        // `_openProjectViaRuntime` (the phase declaration, the sessionStorage write,
+        // the overlay mount, an extra `persistence.openProgress` subscription) runs
+        // per CALL, not per open; only the hydrate leg downstream is coalesced by
+        // `buildPersistence`'s `openProjectInflight`. So a duplicate call was never
+        // free even when it looked idempotent.
+        //
+        // ⚠ Scoped to the SAME project id, and released when the open settles — a
+        // user returning to the hub and re-opening the same project must still work.
+        // A blanket "one open ever" latch would be a regression wearing a fix's name.
+        if (this._openGestureProjectId === projectId) {
+            console.log(
+                `[PlatformRouter] §FIX-OPEN-GESTURE-ONCE — an open for "${projectId}" is already in flight; ` +
+                'ignoring this DUPLICATE call (one gesture, one open).',
+            );
+            return;
+        }
+        this._openGestureProjectId = projectId;
+
         console.log(`[PlatformRouter] Opening project: "${projectName}" (${projectId})${opts?.isNewProject ? ' [new]' : ''}`);
 
         // §L-1186 — DECLARE THE APP PHASE FOR THIS OPEN GESTURE, before anything mounts.
@@ -1000,6 +1052,10 @@ export class PlatformRouter {
 
         // Phase 10: Maintenance Mode — block BIM editor for all users
         if (OwnerFeatureFlags.isEnabled('maintenanceMode')) {
+            // §FIX-OPEN-GESTURE-ONCE (L-1282) — this arm never reaches
+            // `_openProjectViaRuntime`, so it must release the latch itself or the
+            // project becomes permanently unopenable for the rest of the session.
+            this._openGestureProjectId = null;
             this._showMaintenanceScreen();
             return;
         }
@@ -1147,6 +1203,12 @@ export class PlatformRouter {
             this.engineOverlay = null;
         } finally {
             sub.dispose();
+            // §FIX-OPEN-GESTURE-ONCE (L-1282) — the gesture has SETTLED (either
+            // arm), so release the latch. Deliberately in `finally`: a latch that
+            // survives a FAILED open would make the retry a silent no-op, which is
+            // the "refusing half needs its escape hatch" defect — a guard whose
+            // success path is unreachable is a regression with a fix's name on it.
+            if (this._openGestureProjectId === projectId) this._openGestureProjectId = null;
         }
     }
 
