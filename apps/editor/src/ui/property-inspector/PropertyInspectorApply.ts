@@ -17,6 +17,10 @@
 import * as THREE from '@pryzm/renderer-three/three';
 
 import { UpdateHandrailCommand }             from '@pryzm/command-registry';
+// §L-1040 (C86 §11 #7, C84 EI-9) — the ONE `Door.swing` → legacy
+// `{ hingesSide, swingDirection }` translation. See the swing branch below for the
+// two false claims the previous inline write rested on.
+import { mapSwingToLegacy }                  from '@pryzm/geometry-door';
 // §FEAT-UNIFORM-MATERIAL-COMMAND (L-08) — one uniform material-set dispatch surface.
 import { dispatchSetMaterial, materialUnsupportedReason } from './MaterialDispatch';
 
@@ -193,14 +197,48 @@ function applyUpdatesByType(ctx: ApplyContext, d: any, updates: any): void {
                 ctx.wallStore?.updateDoor?.(d.id, { accessibilityType: updates.accessibilityType });
             }
             // TASK-04 (MASTER-IMPL-PLAN-2026-05-18 BUG-3): dispatch swing change through the bus.
-            // SetDoorSwingHandler writes to the Immer door store → DoorCommitter.onUpdate()
-            // detects 'swing' in GEOMETRY_FIELDS → triggers produceDoor() rebuild → updated mesh.
-            // Legacy wallStore is also kept in sync (C15 §8.1) using swingDirection — the field
-            // name used by the legacy DoorData shape (DoorPlanSymbolBuilder, DoorSection).
+            //
+            // ⚠ §L-1040 — THE COMMENT THAT USED TO SIT HERE WAS WRONG IN BOTH HALVES, and it
+            // is quoted rather than deleted because the two claims are what hid the defect:
+            //
+            //   (1) "SetDoorSwingHandler writes to the Immer door store → DoorCommitter.onUpdate()
+            //       … → produceDoor() rebuild → updated mesh." MEASURED FALSE in production.
+            //       `DoorCommitter` is constructed only at `bootstrap.render.everything.ts:140`,
+            //       reached only via `SceneBootstrap.bootstrapScene`, which requires a canvas
+            //       (`SceneBootstrap.ts:61`). `src/main.ts:402` boots with `canvas: null` — the
+            //       "idle" path (`SceneBootstrap.ts:226`). So the committer is never constructed
+            //       and this dispatch reaches no mesh. The verb is kept: it is the PRYZM 3 target
+            //       vocabulary and chat's capability register names it (C84 §3.5.3).
+            //
+            //   (2) "Legacy wallStore is also kept in sync (C15 §8.1) using swingDirection — the
+            //       field name used by the legacy DoorData shape." It matched the FIELD NAME and
+            //       not the VOCABULARY. The line assigned `updates.swing` straight into an
+            //       object literal's `swingDirection` key on `wallStore.updateDoor`.
+            //       (⚠ DELIBERATELY NOT QUOTED VERBATIM. `SwingVocabularyCensus.test.ts`
+            //       guard C is a SUBSTRING search over this file, and prose is source text —
+            //       quoting the old line would make the regression guard match its own
+            //       obituary and stay red forever. Same reason `MoveDoor.ts:56-58` refuses to
+            //       spell its accepting literal out. Restore the quote and the guard goes red,
+            //       and it is not lying when it does.)
+            //       `updates.swing` is `Door.swing` — 'left-in'|'left-out'|'right-in'|'right-out'|
+            //       'sliding' — while `swingDirection` is `z.enum(['inward','outward'])`
+            //       (`DoorTypes.ts:64`). THE INTERSECTION IS EMPTY: every swing the user picked
+            //       wrote an out-of-union value into the legacy record, silently. C86 §11 #7
+            //       recorded this as "four of five map, 'sliding' is lost"; none of the five
+            //       mapped. Pinned by `packages/geometry-door/__tests__/SwingVocabularyCensus.test.ts`.
+            //
+            // `mapSwingToLegacy` is the ONE translation (C84 EI-9) and it REFUSES 'sliding'
+            // rather than storing a hinged door for a sliding one — C86 WO-Voc-1 remains OWED,
+            // and this keeps the loss visible instead of silent (C16 CA-DOCTRINE-A).
             if (updates.swing !== undefined) {
                 window.runtime?.bus?.executeCommand('door.setSwing', { doorId: d.id, swing: updates.swing })
                     .catch((err: Error) => console.error('[PropertyInspectorApply] door.setSwing failed:', err));
-                ctx.wallStore?.updateDoor?.(d.id, { swingDirection: updates.swing });
+                const mapped = mapSwingToLegacy(updates.swing);
+                if (mapped.ok) {
+                    ctx.wallStore?.updateDoor?.(d.id, mapped.legacy);
+                } else {
+                    console.error('[PropertyInspectorApply] door swing NOT applied to the legacy record —', mapped.reason);
+                }
             }
         }
     } else if (d.type?.toLowerCase() === 'wall') {

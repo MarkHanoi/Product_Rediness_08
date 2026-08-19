@@ -6,6 +6,10 @@
  */
 
 export * from './DoorTypes';
+// §L-1040 (C86 §11 #7, C84 EI-9) — the ONE translation between the L0 `Door.swing`
+// enum and the legacy `{ hingesSide, swingDirection }` pair. Exported so the UI
+// apply path uses it instead of inlining a fifth copy of the vocabulary.
+export * from './DoorSwingVocabulary';
 export * from './DoorStore';
 export * from './DoorSystemTypeStore';
 // §FIX-DOOR-PREVIEW-EXACT (L-127) — single source of truth for door dimensions;
