@@ -157,8 +157,45 @@ describe('§RAKE-HOSTED-OPENING (1) — the authorability gate admits the case i
         expect(a.code).toBe('curved');
     });
 
-    it('the LAYERED refusal still fires (owned elsewhere — untouched here)', () => {
-        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}, {}] }).code).toBe('layered');
+    /**
+     * ⚠ THIS TEST WAS RED ON `main` AND THE TEST WAS THE STALE HALF, not the gate.
+     *
+     * It read `rakeAuthorability({ rakeAngleDeg, layers: [{}, {}] }).code` and expected
+     * `'layered'`. That assertion was written when the `layered` arm refused a raked wall
+     * for BEING layered at all. §FEAT-RAKE-LAYERED then SHIPPED the layered raked wall —
+     * the founder confirmed it, and C85 §12 **R-9** now binds it: *"DO NOT re-refuse
+     * layered-raked … the bodies are correct and founder-confirmed."* The arm was
+     * correspondingly narrowed to `layers.length > 1 AND openings.length > 0`, and this
+     * assertion kept demanding the wider refusal.
+     *
+     * `002db1c2`'s message names it as one of two pre-existing failures; it was left RED
+     * rather than repaired because it belonged to another lane's subject. It is repaired
+     * HERE because RK1's subject is exactly this gate, and a RED that asserts a refusal
+     * R-9 forbids is worse than no test: the obvious way to make it pass is to re-add the
+     * refusal, which is the one thing that must not happen.
+     *
+     * So it now asserts the CURRENT rule, both halves, and names R-9 in the half that
+     * must stay open.
+     */
+    it('the LAYERED refusal fires for layers × openings — and NOT for layers alone (R-9)', () => {
+        // The arm that survives: a multi-layer wall that ALSO hosts an opening is built by
+        // a path with no shear, so a rake on it would render vertical while the store held
+        // 80. Measured, not assumed — see `RK1RakedCombinationMatrix.measure.test.ts`.
+        const withOpenings = rakeAuthorability({
+            rakeAngleDeg: RAKE_DEG, layers: [{}, {}], openings: [{ id: 'o1' }],
+        });
+        expect(withOpenings.ok).toBe(false);
+        expect(withOpenings.code).toBe('layered');
+
+        // The half R-9 protects: layered + raked, with NO openings, is SHIPPED and must
+        // stay authorable. Re-adding a refusal here withdraws a founder-confirmed feature.
+        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}, {}] }).ok,
+            'C85 §12 R-9 — layered-raked must NOT be re-refused').toBe(true);
+        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}, {}] }).code).toBeUndefined();
+
+        // And a SINGLE-layer wall hosting an opening is not the layered case at all.
+        expect(rakeAuthorability({ rakeAngleDeg: RAKE_DEG, layers: [{}], openings: [{ id: 'o1' }] }).ok)
+            .toBe(true);
     });
 
     it('the OUT-OF-RANGE refusal still fires', () => {
