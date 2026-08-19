@@ -3672,6 +3672,20 @@ export interface PryzmRuntime {
       opts?: { readonly source?: 'LOCAL' | 'REMOTE' | 'PROJECT_LOAD' },
     ): unknown;
     register(handler: CommandHandler<unknown>): Disposable;
+    /**
+     * L-1280 — whether a handler is ALREADY registered for `type` on the one
+     * CommandBus this slot fronts.
+     *
+     * ⚠ NOT decoration, and not derivable by a caller that only has `registry`:
+     * `@pryzm/command-bus`'s `ClashHandlerRegistrar` — the structural port
+     * `registerClashRun` / `registerClashRefusalHandlers` take — REQUIRES
+     * `has`. This slot omitted it, `engineLauncher` passes this slot, and the
+     * result was `bus.has is not a function` on every production boot with all
+     * twelve clash verbs left unhandled (L-1199). Any registrar port that must
+     * defer to an existing handler needs this member; adding one here without
+     * it re-opens the same hole.
+     */
+    has(type: string): boolean;
     readonly registry: ReadonlyMap<string, CommandHandler<unknown, AnyStores>>;
     // Sprint F-2.0: expose ringBuffer on the narrow slot type so callers
     // can access undo/redo state without `as any` casts.

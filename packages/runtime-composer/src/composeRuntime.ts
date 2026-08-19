@@ -1638,6 +1638,36 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
           dispose: (): void => undefined,
         };
       },
+      /**
+       * L-1280 (§GE-06-ROOF-WALL-WIRE, closes L-1199) — "is this verb already
+       * claimed?", forwarded to the one CommandBus.
+       *
+       * ⚠ THIS METHOD'S ABSENCE WAS A SHIPPED DEFECT, not an omission of
+       * convenience. `registerClashRun` and `registerClashRefusalHandlers`
+       * (`@pryzm/command-bus`) both OPEN with `bus.has(...)` — deliberately, so
+       * registration is a fact about THIS process rather than about a static
+       * census. `engineLauncher.ts:712` passes THIS SLOT, which had no `has`,
+       * so both threw `bus.has is not a function` on every production boot and
+       * all twelve clash verbs ended the boot with no handler at all. The
+       * catch block's "falls back to REFUSING" was itself false: the refusal
+       * pass threw on the same line.
+       *
+       * It went unseen for the reason worth recording: the suite that exercises
+       * those two functions passes a real `new CommandBus(...)`, which HAS
+       * `has`. The check ran, passed, and could never have failed — it was
+       * measuring a different object than production passes. `engineLauncher`
+       * erases the type (`runtime.bus as any`, line ~528), so the compiler was
+       * blind too. `apps/editor/__tests__/clashRegistrationOnComposedBus.test.ts`
+       * now asks the question against the bus `composeRuntime()` actually
+       * returns.
+       *
+       * Derived from the live registry rather than kept as a second copy: the
+       * `registry` view below aliases `CommandBus.handlers`, so the two answers
+       * cannot drift.
+       */
+      has(type: string): boolean {
+        return inner.bus.has(type);
+      },
       registry: inner.bus.registry as ReadonlyMap<string, CommandHandler<unknown, AnyStores>>,
       // Sprint F-2.0: forward ringBuffer accessor so PryzmRuntime.bus narrow type is satisfied.
       get ringBuffer() { return inner.bus.ringBuffer; },
