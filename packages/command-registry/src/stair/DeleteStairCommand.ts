@@ -15,6 +15,11 @@ import { StairLandingEntity } from '@pryzm/geometry-stair';
 
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import type { OpeningData } from '@pryzm/core-app-model';
+// §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — the REAL record type, not a structural
+// stand-in. `ctx.stores.handrailStore` is already declared as `HandrailStore`, so
+// a hand-written shape here would be strictly weaker: it would keep compiling if
+// the store's surface changed underneath it, which is the L-972/L-973 seam defect.
+import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import type { Relationship } from '@pryzm/core-app-model';
 import { stairAutoOpeningId } from './stairOpeningId';
@@ -31,7 +36,11 @@ export class DeleteStairCommand implements Command {
     // the stair store, the opening store (remove the hole), and the host slab
     // (rebuild it without the hole). The lock-graph must reflect that write-set —
     // it now mirrors CreateStairCommand.affectedStores exactly.
-    readonly affectedStores = ["stair", "opening", "slab"] as const;
+    // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — 'handrail' joins the declaration
+    // because this command now REMOVES hosted handrails. A cascade that mutates a
+    // store it does not declare is invisible to the scoped snapshot (C03 §4.6
+    // U-2), which is precisely how an undo silently stops covering a family.
+    readonly affectedStores = ["stair", "opening", "slab", "handrail"] as const;
     readonly id: string;
     readonly type = CommandType.DELETE_STAIR;
     readonly timestamp: number;
@@ -40,6 +49,18 @@ export class DeleteStairCommand implements Command {
     private stairId: string;
     private _stairSnapshot?: StairData;
     private _railingSnapshots: StairRailingConfig[] = [];
+    /**
+     * §FIX-STAIR-DELETE-ORPHANS-HANDRAILS (C95 §8.2) — the FREE-STANDING handrails
+     * hosted on this stair.
+     *
+     * ⚠ A DIFFERENT FAMILY FROM `_railingSnapshots`, and conflating the two is the
+     * mistake this comment exists to prevent. `StairRailingConfig` is the stair's
+     * OWN railing (`stairRailingStore`, built by `StairRailingBuilder`); these are
+     * `HandrailData` records in the authoritative `handrailStore`, built by
+     * `HandrailFragmentBuilder`. C95 §1.1 measures them as three distinct railing
+     * concepts; only one of them was ever cleaned up here.
+     */
+    private _hostedHandrailSnapshots: HandrailData[] = [];
     private _landingSnapshots: StairLandingEntity[] = [];
     // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — snapshot of the auto-opening removed by
     // execute(), so undo() can restore the EXACT hole (same store, same field, same
@@ -178,6 +199,18 @@ export class DeleteStairCommand implements Command {
                 .map(r => structuredClone(r));
         }
 
+        // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — capture the hosted handrails.
+        // Keyed on `hostId`, which is the field that made this answerable at all
+        // (C95 §15.1); before it, "which handrails belong to this stair?" had no
+        // answer in the model and the orphans could not even be found.
+        const handrailStore = ctx.stores.handrailStore;
+        if (handrailStore) {
+            this._hostedHandrailSnapshots = handrailStore
+                .getAll()
+                .filter(h => h.hostId === this.stairId)
+                .map(h => structuredClone(h));
+        }
+
         // Capture landing snapshots
         if (ctx.stores.stairLandingStore) {
             this._landingSnapshots = ctx.stores.stairLandingStore
@@ -208,6 +241,16 @@ export class DeleteStairCommand implements Command {
             this._removedRelationships = [...merged.values()];
         }
 
+        // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — remove the hosted handrails.
+        // `HandrailStore.remove` emits `bim-handrail-removed`, so the fragment
+        // builder tears the mesh down as well: the record AND the geometry go, which
+        // is the difference between this and a store-only purge (C84 EI-4a).
+        for (const h of this._hostedHandrailSnapshots) {
+            handrailStore?.remove(h.id);
+            try { ctx.bimManager.unregisterElement(h.id); } catch (_) { /* noop */ }
+            try { elementRegistry.unregister(h.id); } catch (_) { /* noop */ }
+        }
+
         // Remove sub-elements first (eventBus triggers builder cleanup)
         ctx.stores.stairRailingStore?.removeByStairId(this.stairId);
         ctx.stores.stairLandingStore?.removeByStairId(this.stairId);
@@ -232,6 +275,12 @@ export class DeleteStairCommand implements Command {
         });
         this._landingSnapshots.forEach(l => {
             try { semanticGraphManager.removeAllRelationshipsForElement(l.id); } catch (_) { /* noop */ }
+        });
+        // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — and the hosted handrails' edges
+        // (`sitsOn` to the level, plus the `hosts`/`hostedBy` pair to this stair).
+        // A well-formed edge pointing at a deleted id is not self-erasing.
+        this._hostedHandrailSnapshots.forEach(h => {
+            try { semanticGraphManager.removeAllRelationshipsForElement(h.id); } catch (_) { /* noop */ }
         });
         // ② The level→level `connectedByStair` pair, removed EDGE-WISE rather
         //    than by endpoint: removeAllRelationshipsForElement(levelId) would
@@ -307,6 +356,23 @@ export class DeleteStairCommand implements Command {
             try { elementRegistry.registerSemantic(r.id, 'stair-railing'); } catch (_) { /* already registered */ }
             ctx.stores.stairRailingStore?.add(r);
         });
+
+        // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — restore the hosted handrails.
+        // Same undo entry as the stair, so ONE Ctrl+Z brings back exactly what one
+        // delete removed (C84 EI-5 create/delete symmetry). `add` re-emits
+        // `bim-handrail-added`, so the meshes come back with the records.
+        // The graph edges are restored by `_restoreRelationships` below, which
+        // already replays the whole captured set verbatim.
+        {
+            const handrailStore = ctx.stores.handrailStore;
+            this._hostedHandrailSnapshots.forEach(h => {
+                try { ctx.bimManager.registerElement(h.id, h.levelId); } catch (_) { /* noop */ }
+                // Clone on the way IN as well: `HandrailStore.add` mutates the object
+                // it is handed (levelId / parentId / properties.mark) before cloning,
+                // so passing the snapshot itself would corrupt it for a later redo.
+                handrailStore?.add(structuredClone(h));
+            });
+        }
 
         // Restore landings
         this._landingSnapshots.forEach(l => {

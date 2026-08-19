@@ -49,6 +49,14 @@ export class CreateHandrailCommand implements Command {
              */
             materialId?: string,
             /**
+             * §FIX-STAIR-DELETE-ORPHANS-HANDRAILS (C95 §15.1) — the host, if any.
+             * Written to the record AND to the semantic graph, so the "which rails
+             * belong to this host?" question has one answer in two places that are
+             * kept in step by this command rather than by convention.
+             */
+            hostId?: string,
+            hostKind?: 'stair' | 'slab',
+            /**
              * §FEAT-HANDRAIL-RUN-JOIN (C95 D4) — suppress this segment's START
              * post because a neighbouring segment in the same run already posts
              * that vertex. Set only by `CreateHandrailRunCommand`; absent for a
@@ -132,6 +140,8 @@ export class CreateHandrailCommand implements Command {
             infillMaxGap:      this.data.infillMaxGap,
             materialId:        this.data.materialId,
             suppressStartPost: this.data.suppressStartPost,
+            hostId:            this.data.hostId,
+            hostKind:          this.data.hostKind,
             properties: {},
             // §PERSIST-L1 (W1-2) — the ifcClass/predefinedType still come from the
             // canonical mapper; only the guid is overridden with the one resolved at
@@ -156,6 +166,34 @@ export class CreateHandrailCommand implements Command {
             });
         } catch (err) {
             console.warn('[CreateHandrailCommand] SemanticGraph write failed (non-fatal):', err);
+        }
+
+        // §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — the HOST edge pair.
+        //
+        // ⛔ NO NEW RELATIONSHIP TYPE IS MINTED (C84 EI-8). `hosts` / `hostedBy`
+        // already exist as the wall-to-opening pair and mean exactly this. Both
+        // directions are written because the graph's readers ask in both: a delete
+        // cascade asks the HOST "what do you carry?", and an integrity sweep asks
+        // the RAIL "what carries you?".
+        if (this.data.hostId) {
+            try {
+                semanticGraphManager.addRelationship({
+                    type: 'hosts',
+                    sourceId: this.data.hostId,
+                    targetId: id,
+                    createdBy: 'CreateHandrailCommand',
+                    metadata: { hostKind: this.data.hostKind ?? 'unknown' },
+                });
+                semanticGraphManager.addRelationship({
+                    type: 'hostedBy',
+                    sourceId: id,
+                    targetId: this.data.hostId,
+                    createdBy: 'CreateHandrailCommand',
+                    metadata: { hostKind: this.data.hostKind ?? 'unknown' },
+                });
+            } catch (err) {
+                console.warn('[CreateHandrailCommand] host edge write failed (non-fatal):', err);
+            }
         }
 
         this.createdId = id;

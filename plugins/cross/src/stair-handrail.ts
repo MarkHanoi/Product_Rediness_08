@@ -25,9 +25,21 @@
 // DOES NOT FIRE FOR
 // -----------------
 //   • stair.setType  — material-only swap, no edge motion.
-//   • stair.delete   — handrail lifecycle managed by the host plugin
-//                      (orphan handrails are pruned by a separate
-//                      garbage-collect pass, not the cascade).
+//   • stair.delete   — handled by `DeleteStairCommand`, which removes the
+//                      handrails hosted on the stair and restores them in the
+//                      SAME undo entry (§FIX-STAIR-DELETE-ORPHANS-HANDRAILS).
+//                      A delete does not need a recompute cascade: there is
+//                      nothing left to recompute against.
+//
+//   ⛔ CORRECTED 2026-08-19. This bullet used to read "orphan handrails are
+//   pruned by a separate garbage-collect pass, not the cascade." THERE WAS NO
+//   SUCH PASS. The only handrail lifecycle cleanup was LEVEL-scoped
+//   (`HandrailLevelCleanupHandler` / `HandrailStore.removeByLevel`) and neither
+//   keyed on a host, so deleting a stair left its railings floating — for as
+//   long as this comment stood, which is C84 §8.d's worst form: a sentence that
+//   converted an open defect into a closed-looking one. C95 §8.2 carried it as
+//   OPEN. The mechanism named above now exists and is proven by
+//   `packages/command-registry/__tests__/stairDeleteOrphansHandrails.test.ts`.
 
 import type { CascadeCommand, CascadeContext, CascadeRule } from '@pryzm/plugin-sdk';
 

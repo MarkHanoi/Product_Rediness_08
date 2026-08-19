@@ -24,6 +24,29 @@ export interface HandrailData extends CoreElement {
     height: number;
     thickness: number;
     baseOffset: number;
+    /**
+     * §FIX-STAIR-DELETE-ORPHANS-HANDRAILS (C95 §15.1) — the element this railing
+     * is hosted BY, when it is hosted at all.
+     *
+     * ⛔ WITHOUT THIS FIELD THE MODEL COULD NOT ANSWER "which handrails belong to
+     * this stair?", AND THAT IS WHY C95 §8.2 STOOD OPEN. The plugin DTO store had
+     * a `hostId`; the authoritative record never did, and the bus bridge dropped
+     * it (C95 §5). No stair-to-handrail semantic edge was written in production
+     * either. So deleting a stair left its railings floating, and the comment in
+     * `plugins/cross/src/stair-handrail.ts` deferred the cleanup to a
+     * garbage-collect pass THAT DOES NOT EXIST — C84 §8.d's worst form, an open
+     * defect made to look closed.
+     *
+     * Absent means FREE-STANDING, which is every handrail that existed before this
+     * field, so it is additive and no record changes (C47 §1.2).
+     */
+    hostId?: string;
+    /**
+     * What KIND of thing hosts this railing. Kept beside `hostId` rather than
+     * inferred from the id's prefix: an id-shape sniff is a vocabulary nobody
+     * declared, and it silently mis-classifies the moment id formats change.
+     */
+    hostKind?: 'stair' | 'slab';
     materialId?: string;
     materialColor?: string;
     fillType?: HandrailFillType;

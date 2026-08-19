@@ -82,6 +82,9 @@ export interface CreateHandrailRunData {
     readonly infillMaxGap?: number;
     readonly materialColor?: string;
     readonly materialId?: string;
+    /** §FIX-STAIR-DELETE-ORPHANS-HANDRAILS — every segment of a run shares the host. */
+    readonly hostId?: string;
+    readonly hostKind?: 'stair' | 'slab';
     /**
      * ⛔ THERE IS DELIBERATELY NO `systemTypeId` HERE.
      * `PropertyPanelTypeSelector.ts` records the family's rule verbatim —
@@ -128,6 +131,8 @@ export class CreateHandrailRunCommand implements Command {
                     infillMaxGap: data.infillMaxGap,
                     materialColor: data.materialColor,
                     materialId: data.materialId,
+                    hostId: data.hostId,
+                    hostKind: data.hostKind,
                     suppressStartPost: seg.suppressStartPost,
                 }),
         );
