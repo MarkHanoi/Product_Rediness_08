@@ -154,7 +154,7 @@ export interface CurtainWallToolDependencies {
     bimManager?: any;
     curtainWallModePicker?: any;
     /**
-     * §FIX-CW-BYSLAB-ASK (L-1160) — the pick-a-slab flow, INJECTED.
+     * §FIX-CW-BYSLAB-ASK (L-1165) — the pick-a-slab flow, INJECTED.
      *
      * This tool sits at L2 and the flow lives at the app layer (it drives
      * `ToolManager.deactivateAll()`, a DOM overlay and the `bim-selection-changed`
@@ -170,7 +170,7 @@ export interface CurtainWallToolDependencies {
 }
 
 /**
- * §FIX-CW-BYSLAB-ASK (L-1160) — "ask the user which slab, then call back with its id".
+ * §FIX-CW-BYSLAB-ASK (L-1165) — "ask the user which slab, then call back with its id".
  *
  * The signature is deliberately `(message, onSlab)` and NOT `() => Promise<string>`:
  * the flow can be cancelled (ESC) and a cancelled pick must resolve to *nothing
@@ -448,7 +448,7 @@ export class CurtainWallTool {
 
         // ── No slab resolvable: ASK, do not merely refuse ────────────────────
         //
-        // §FIX-CW-BYSLAB-ASK (L-1160). L-1074 fixed the case where the user HAD
+        // §FIX-CW-BYSLAB-ASK (L-1165). L-1074 fixed the case where the user HAD
         // selected a slab. It left the other half exactly as broken as the railing's
         // was: a user who activates the tool first is told what they should have done
         // and given no way to do it — while the wall, from the same bar, in the same
@@ -500,7 +500,7 @@ export class CurtainWallTool {
     }
 
     /**
-     * §FIX-CW-BYSLAB-ASK (L-1160) — **THE PARAMETERISED ENTRY POINT.**
+     * §FIX-CW-BYSLAB-ASK (L-1165) — **THE PARAMETERISED ENTRY POINT.**
      *
      * ⭐ THIS IS THE MECHANISM THE FAMILY KEPT NOT COPYING. The wall's By Slab works
      * because `WallTool.createFromSelectedSlab(targetSlab?)` and
@@ -543,7 +543,7 @@ export class CurtainWallTool {
     }
 
     /**
-     * §FIX-CW-BYSLAB-ASK (L-1160) — wire the app's pick-a-slab flow in AFTER
+     * §FIX-CW-BYSLAB-ASK (L-1165) — wire the app's pick-a-slab flow in AFTER
      * construction.
      *
      * A constructor dep would not work: `initTools.ts` builds this tool long before

@@ -835,7 +835,7 @@ export function mountToolsArea(
             _origActivateCW(mode);
             const cwTool = props.toolManager.curtainWallTool ?? window.curtainWallTool; // TODO(E.5.T): legacy curtainWallTool — replace with runtime.tools.activate('curtain-wall')
 
-            // ── §FIX-CW-BYSLAB-ASK (L-1160) — the THIRD adopter of ONE flow ──────
+            // ── §FIX-CW-BYSLAB-ASK (L-1165) — the THIRD adopter of ONE flow ──────
             //
             // The founder: "HANDRAILS + CURTAIN WALLS + WALLS 'BY SLAB'. Wall works.
             // Curtain wall does NOT." The wall's By Slab has two halves — a snapshot

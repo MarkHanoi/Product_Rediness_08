@@ -14819,3 +14819,170 @@ text says "P0 FOR TAKING MONEY", so the deferral is fine exactly until the first
 paying customer, and the two known fixes are already written down (upgrade the
 ion plan, or unset VITE_CESIUM_TOKEN to fall through to the billed Google path).
 C55's missing attribution gate (`check-geodata-attribution.ts`) remains unbuilt.
+
+
+## L-1165 — "WALL WORKS. CURTAIN WALL DOES NOT": the By-Slab refusal was correct, and there was no way to answer it ✅ FIXED 2026-08-19
+
+**Lane CW4 · C87 §13.13 · founder-reported.** *"I want to create HANDRAILS + CURTAIN
+WALLS + WALLS 'BY SLAB'. Wall works. Curtain wall does NOT. The workflow is: select
+the slab FIRST, then activate the tool."*
+
+The wall's By Slab has **two halves**, and this family had shipped one.
+
+**Half one — the SNAPSHOT — was already fixed** (L-1074, `981a12d7`).
+`ToolManager.activateTool()` calls `activateFn()` and then, one statement later,
+`selectionManager.setEnabled(false)` → `unselectAll()` (`ToolManager.ts:547-552`,
+`SelectionManager.ts:927-930`). By-Slab's entire input **is** the selection, so
+choosing the tool destroys the input. **No ordering of user actions could ever satisfy
+it.** The tool now snapshots inside `activate()`.
+
+**Half two — the ASK — never existed here, and it is the whole of the founder's
+sentence.** With no snapshot, the wall puts up `ToolsAreaLayout._pickSlabThen`,
+**deactivates the tool so `SelectionManager` is re-enabled**, and waits for a click.
+Curtain wall `alert()`ed "select a slab first" at a user who could not comply while
+the tool held the pointer. So *"wall works, curtain wall does not"* is exactly right,
+and the difference is **a question nobody asked**.
+
+FIXED by ADOPTING the flow, not copying it. Lane HR2 extracted `_pickSlabThen` from
+the wall's private body (`86483b5c`) naming curtain wall as *"the founder's third case
+… one flow to adopt rather than a third copy to write"*. One flow, three consumers,
+injected via `setSlabPickRequester()` so the L2 tool holds a **callback type**, not an
+app import.
+
+⭐ **THE MECHANISM THIS FAMILY KEPT NOT COPYING IS A PARAMETER.** The wall works because
+`WallTool.createFromSelectedSlab(targetSlab?)` takes the slab **as an argument**. The
+railing's did not work (L-1103) because it mirrored the pill, the label, the
+accelerator **and the refusal message** and re-read the live selection. Curtain wall now
+has `createFromSlabId(slabId)`, and *"which slab?"* is answered exactly once.
+
+⛔ **THE TEST DISCIPLINE MATTERS MORE THAN THE FIX.** HR2 found the old By-Slab test
+**PASSING WHILE THE FEATURE WAS DEAD** — it stubbed `window.selectionManager`, the one
+place in the universe where the unsatisfiable condition held. Every arm of
+`CW4CurtainWallBySlab.test.ts` therefore starts at `tool.activate()`, then **executes
+the statement `ToolManager` runs one line later**, and only then reaches By Slab through
+a real `click()` or a real `KeyboardEvent`. **The double supplies the HAZARD; it does
+not supply the cure.** 11 arms; reverting the fix turns 7 red.
+
+Reported, not fixed: `CurtainWallDrawingHUD.show()` and `CurtainWallModePicker.show()`
+have **no call sites anywhere in the repo**. Both carry a By Slab affordance that cannot
+be reached — and the dead HUD binds `s → byslab`, i.e. **it already had the correct key
+the live surface did not.** Three statements of one gesture, two unreachable (C84 EI-9).
+
+
+## L-1161 — `S` meant "By Slab" on the wall and "Single" on the curtain wall ✅ FIXED 2026-08-19
+
+**Lane CW4 · C87 §13.13 CW-BySlab-3 · C84 EI-8.** The curtain wall's mode bar bound
+**`S` to *Single*** and `B` to By Slab. `WallDrawingHUD.ts:82,106` and the railing both
+bind **`S` to By Slab**, and the founder's stated reference is the wall.
+
+So a founder pressing `S` **switched drawing mode** — and a mode change when you are
+already in that mode is **indistinguishable from "the button did nothing"**. This is one
+of the ways *"curtain wall does not work"* is true with nothing erroring, nothing
+logging, and no refusal to read.
+
+*Single* moves to `1`; `B` is retained as a **deprecated alias** so anyone who learned it
+is not punished. By Slab is now tested first in the key handler and returns, so no mode
+map can shadow it again.
+
+
+## L-1162 — "curtain walls from THIS slab" ran naked: the THIRD time this defect was found in the single-slab sibling of a command already cured ✅ FIXED 2026-08-19
+
+**Lane CW4 · C11 §4.2 · C16 §8.7.** `CreateCurtainWallsFromSlabCommand` — **the command
+the founder's By-Slab gesture dispatches** — ran its creation loop outside any
+`batchCoordinator` batch. It *imported* `batchCoordinator` and used it in exactly one
+place: `undo()`.
+
+Meanwhile `CreateCurtainWallsOnAllSlabsCommand:566`, **the command that calls it**, wraps
+its own slab loop in `runBatch()`. **So the fix held when the user asked for ALL slabs
+and evaporated the moment they picked ONE.**
+
+⭐ **THE RECURRING SHAPE, NOW RECORDED THREE TIMES.** Lane PERF2 found and fixed exactly
+this in the WALL family (L-1151, `8a864ce9`, measured **400 REDETECT_ROOMS → 0**) where
+`CreateWallsOnAllSlabsCommand` carried *fifty lines* diagnosing the cost and the command
+it delegated to had never been treated. PERF2's own commit **named this file as next**.
+**The generalisable rule: when you batch an outer bulk command, the delegate it calls is
+the defect, and it is the one with the user-facing button.**
+
+Cost per wall over a growing scene: two full `scene.traverse()` passes
+(`perAddGeometryGate.ts:36`), a force-fired REDETECT_ROOMS, a per-wall level
+re-projection, and one bus flush per add instead of one per gesture.
+
+JOIN-or-open, `runBatch` undo-NEUTRAL (ADR-0314) — undo-entry count unchanged.
+Oracle is PERF2's: `isBatching` sampled **inside `curtainWallStore.add`**, not a spy on
+`runBatch` (which would pass for a batch wrapped around an empty loop). Removing the
+wrapper turns 3 of 4 arms red with `[false, false, false, false]`.
+
+
+## L-1163 — 11 curtain-wall test files, 95 cases, invisible to CI — and 21 of them were red ✅ FIXED 2026-08-19
+
+**Lane CW4 · C87 §13.5.** **A SUITE CI CANNOT SEE IS A SUITE THAT CANNOT GO RED.**
+
+`packages/geometry-curtain-wall` had `__tests__/` **and** a `vitest.config.ts` and **no
+test script**. `npm run test:ci` is `pnpm -r run test:ci`, which selects by **SCRIPT** —
+so the package was skipped entirely. This is L-851 at package granularity: NEVER RAN and
+PASSED printed the same value.
+
+**Measured before enabling (the L-849 protocol): 1 file FAILED, 21 of 25 cases red.**
+The invisible suite was not merely unasserted, it was **broken**, behind a missing
+four-word script.
+
+ROOT CAUSE, and not a flaky test: `GeometryWorkerPool.test.ts` did `vi.resetModules()` +
+`await import('@pryzm/geometry-curtain-wall')` — **the whole package barrel** — inside a
+`beforeEach`, re-evaluating the entire graph (`CurtainWallTool` →
+`@pryzm/command-registry` → THREE → `@thatopen/components`) once per test, 25 times.
+**Every failure was a TIMEOUT, never an assertion.** Repointed to the submodule:
+**21 failed → 25 passed; 124 s → 30.8 s; transform 128 s → 5.4 s.**
+[[scc-no-barrel-access-at-module-load]] wearing a stopwatch.
+
+⭐ **SECOND DEFECT, VISIBLE ONLY BECAUSE THE FIRST WAS FIXED.** With all 25 green the file
+still exited **RC=1**. Three arms called `await vi.advanceTimersByTimeAsync(10_001)`
+**before** attaching the rejection handler, and that call yields to the microtask queue —
+so the rejection was reported **unhandled**. *"25/25 passed"* and *"CI is red"* were both
+true. Handlers now attach before the clock moves. **RC=0; 11 files / 95 cases pass.**
+
+Nothing quarantined — nothing measured red after the fixes. Only then were `test` /
+`test:ci` / `test:watch` declared.
+
+⚠ **The ROOT `vitest.config.ts` was deliberately NOT widened.** It is `happy-dom` and
+scoped to `apps/editor/src/ui/**`; this package's is `node`. Pointing the root at
+`packages/*/__tests__/**` would create a **second, differently-configured runner for the
+same files** — a rival gate, which is the defect C84 EI-9 names, not a fix for it.
+`pnpm-lock.yaml` untouched: scripts are not lockfile content.
+
+
+## L-1164 — ALIGN moved a curtain wall with a verb whose handler rejects the payload on every call ✅ FIXED 2026-08-19
+
+**Lane CW4 · C87 §13.10 CW-Move-3 · C16 CA-17.**
+`AlignPlanToolHandler._moveCurtainWall` dispatched `curtain-wall.move` with
+`{ id, updates: { baseLine } }`. `MoveCurtainWallHandler.canExecute`
+(`plugins/curtain-wall/src/handlers/MoveCurtainWall.ts:30`) requires
+`{ curtainWallId, delta }`, so it returned *"curtainWallId must be a non-empty string"*
+**every time, for every user, since the feature existed**. `CommandBus` throws on a
+`canExecute` refusal, the `.catch` printed a console line, and the founder saw an align
+gesture that completed and moved nothing.
+
+**AND THE SHAPE WAS THE LESSER HALF.** Had the payload matched, that handler writes
+`ctx.stores.curtainwall` — the plugin DTO store — not the geometry `curtainWallStore` the
+builders read. A shape-only fix would have produced a *successful* command that still
+moved nothing visible.
+
+**The verb was the only thing wrong.** `wall.updateCurtainWall` is canonical:
+`MOVE_COMMAND_BY_TYPE` names it, the 3-D gizmo drag-end and the plan Move tool both send
+it, and `initBusHandlers.ts:996` bridges it to `UpdateCurtainWallCommand`. The payload
+align already built is **byte-identical** to what the other two surfaces send.
+
+⭐ **WHY THE PREVIOUS SWEEP MISSED IT — the reusable lesson.**
+§FIX-CW-UPDATE-REACH-RECORD restored the bridge and enumerated its four dead dispatchers
+**by name**. Align is the **FIFTH**, and it was invisible because **the sweep searched for
+`wall.updateCurtainWall` and align was not sending it.** *A census keyed on the CORRECT
+name cannot see the site using the wrong one.*
+
+The durable fix is the **net**: `planMoveParity.spec.ts` pinned two move surfaces and
+**align is a third** — it hand-rolls a `_move<Family>()` per type instead of calling the
+shared `buildMoveCommand()`. Four arms added; restoring the old verb turns 2 red.
+
+⚠ **Reported, not fixed:** align also fires `slab.updatePolygon` where the table names
+**`slab.movePolygon`** — and `slab.movePolygon` exists *because* `slab.updatePolygon` is
+claimed by a plugin handler on the detached DTO store (the L-220 pattern). **Same defect,
+slab family, another lane's fence.** The parity arm is scoped to curtain wall on purpose:
+a red test for another lane's file is a broken build, not a finding.

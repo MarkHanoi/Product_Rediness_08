@@ -1372,6 +1372,33 @@ Type · material · finish · **offset from centreline**.
 > reports *"No test files found"* and **exits 1**, because `vitest.config.ts`'s `include` does not
 > cover `packages/*/__tests__/**`. They run only from inside their own package. **A suite CI cannot
 > see is a suite that cannot go red**, and that is a separate defect from the feature.
+>
+> ✅ **CLOSED 2026-08-19 (lane CW4, [L-1163](../../04-reference/ISSUE-LOG.md)) — AND THE GAP WAS
+> WORSE THAN "unasserted".** The two files sit in different packages and only ONE of them was
+> genuinely dark. `packages/command-registry` has a `test:ci` script, so `pnpm -r run test:ci` was
+> already running `CW3HostedDoorAuthoring.test.ts`. `packages/geometry-curtain-wall` had
+> `__tests__/` **and** a `vitest.config.ts` and **no test script at all** — and `pnpm -r` selects by
+> SCRIPT, so **11 files / 95 cases had never been executed by any gate**, the door-projection suite
+> among them.
+>
+> **Measured before enabling (the L-849 protocol): 1 file FAILED, 21 of 25 cases RED.** So the
+> invisible suite was not merely unasserted, it was **broken**, and had been sitting broken behind a
+> missing four-word script. Root cause was `GeometryWorkerPool.test.ts` re-importing the whole
+> package **barrel** inside a `beforeEach` with `vi.resetModules()` — the entire graph
+> (`CurtainWallTool` → `@pryzm/command-registry` → THREE → `@thatopen/components`) re-evaluated 25
+> times; **every failure was a TIMEOUT, never an assertion.** Repointed to the submodule:
+> **21 failed → 25 passed, 124 s → 30.8 s.** A second defect surfaced only once the first was
+> fixed: three arms advanced fake timers **before** attaching the rejection handler, so the file
+> still exited **RC=1 with 25/25 green** — *"the suite passes"* and *"CI is red"* were both true.
+>
+> **Nothing is quarantined; nothing measured red after the fixes.** `test` / `test:ci` /
+> `test:watch` are now declared, suite **11 files / 95 cases, RC=0**.
+>
+> ⚠ **The ROOT `vitest.config.ts` was deliberately NOT widened, and that is the correction to this
+> bullet's implied fix.** The root config is `happy-dom` and scoped to `apps/editor/src/ui/**`;
+> this package's is `node`. Pointing the root at `packages/*/__tests__/**` would create a **SECOND,
+> DIFFERENTLY-CONFIGURED runner for the same files** — a rival gate, which is the defect C84 EI-9
+> names, not a fix for it. **The gate for a package suite is its own `test:ci` script.**
 
 > ⛔ **AND A CONTRADICTION IN THE RECORD, RESOLVED BY MEASUREMENT RATHER THAN LEFT TO ROT.**
 > `e2ca533d`'s message states the decision as *"a curtain-wall door is a HOSTED OPENING in the
@@ -1536,6 +1563,26 @@ Type · material · finish · **offset from centreline**.
   direction, or an explicit "as seen from outside"), and until that exists the capability accepts
   **cell coordinates and selection references only**.
 
+> ⛔ **NOT STARTED, DELIBERATELY — lane CW4, 2026-08-19, upholding CW2's judgement rather than
+> quietly re-scoping it.** CW2 judged that *a shallow curtain-wall capability is worse than none*,
+> and nothing measured since contradicts it. **The two gates above are not paperwork, they are the
+> two ways this exact family has already shipped a lie:**
+>
+> - **CW-RAC-1 is unmet by construction today.** V3 — the write reaching the **authoritative**
+>   store — is gated for **18 verbs of 325**. And this family has just produced two more proofs of
+>   why that gate exists, both closed in this lane: `curtain-wall.replacePanel` **refuses on every
+>   dispatch** (§13.11 CW-Dec-1) and `curtain-wall.move` **rejects the align tool's payload on every
+>   call and writes the DTO store anyway** (§13.10 CW-Move-3). A capability layered on either would
+>   have reported success and changed nothing — **three times, not once.**
+> - **CW-RAC-2's refusal has no frame to refuse against.** Nothing in the runtime supplies a
+>   viewer-relative frame for a curtain wall today, so *"the third panel from the left"* is not
+>   merely hard, it is **unanswerable** — and per §13.12's red-first rule a refusal that can never
+>   take its "yes" branch is a REGRESSION with a contract citation attached, not a safety property.
+>
+> **The honest order is therefore: V3 read-back first, frame second, capability third.** Adding the
+> capability now would put a natural-language surface on top of a write path this lane has twice
+> caught not writing.
+
 ### 13.8 — CW-6: POLYLINE + ENTER CLOSES THE LOOP
 
 - ✅ **DELIVERED 2026-08-19 (lane CW2, `13bc0ba5`) — AND THE DEFECT WAS NOT THE ONE THIS SECTION
@@ -1603,6 +1650,42 @@ Type · material · finish · **offset from centreline**.
   work, and it does not exist. Until it does, a region slab bounded by a curtain wall will **not**
   re-trace when that wall moves (see §13.10).
 
+  > ⭐ **SCOPED BY MEASUREMENT 2026-08-19 (lane CW4), AND IT IS SMALLER AND SHARPER THAN "build a
+  > face model" — but it turns on ONE DECISION THIS CONTRACT HAS NOT MADE.** Read the three files
+  > before budgeting this:
+  >
+  > | Fact | Site |
+  > |---|---|
+  > | `hostType` is a **string literal**, not a union — widening it is the whole "arm" | `geometry-slab/src/SketchTypes.ts:37` — `hostType: 'wall'` |
+  > | The resolver reads **one store**, unconditionally | `WallFaceResolver.ts:73` — `storeOverride ?? window.wallStore` |
+  > | It needs exactly **two fields**: `baseLine[0..1]` and `thickness` | `WallFaceResolver.ts:76-85` |
+  > | A curtain wall **HAS `baseLine: [Point3D, Point3D]`** — same shape, same world XZ space | `CurtainWallTypes.ts:26` |
+  > | A curtain wall **HAS NO `thickness` FIELD AT ALL** | `CurtainWallData` — `mullionSize` (0.08) and `panelThickness` (0.02), no `thickness` |
+  >
+  > ⛔ **THE TRAP IS NOT ONLY THE LOST HOST — IT IS A SILENT ZERO.** `wall.thickness ?? 0`
+  > (`:82`) means a `curtainwall_<ulid>` pushed through today would resolve `undefined → 0` and
+  > every face — `exteriorFace`, `interiorFace`, `coreExterior`, `coreInterior` — would **collapse
+  > onto the centreline**, correctly typed, silently. That is a second silent-wrong path on top of
+  > the one CW2 flagged, and it is why the arm must not be added before the decision below.
+  >
+  > **THE DECISION, WHICH IS ARCHITECTURAL AND NOT A FORMALITY: what is a curtain wall's FACE?**
+  > Two candidates, both already in the record, and they differ by **4×**:
+  >   - `mullionSize` (0.08 default) — the frame's outer envelope. A slab bounding the **structure**.
+  >   - `panelThickness` (0.02 default) — the glazing line. A slab bounding the **glass**.
+  >
+  > These are different buildings. A floor plate that stops at the glass and one that stops at the
+  > mullion are not the same drawing, and picking silently is the [confident-register-rows] shape.
+  > **CW-Region-3 (NORMATIVE, added here):** until this contract names the face, the `hostType`
+  > arm MUST NOT be added — an arm that resolves to a plausible wrong offset is strictly worse than
+  > the anonymous contribution SL1 shipped, which at least **counts** what it could not attribute.
+  > `WallFaceResolver`'s own header already concedes *"coreExterior / coreInterior mirror
+  > exterior/interior (simplified — no layer model yet)"*, so a curtain wall may adopt the same
+  > simplification for those two once the primary face is chosen.
+  >
+  > ⚠ **NOT DONE BY CW4, AND SAID PLAINLY:** this is a scoping measurement, not an implementation.
+  > What it establishes is that the remaining work is **one type widening, one store dispatch, and
+  > one founder-or-contract decision** — not a subsystem.
+
 > ⚠ **A CORRECTION TO CW2's OWN FIRST WRITE-UP OF THIS SECTION, MADE THE SAME DAY — AND IT IS THE
 > [confident-register-rows](../../04-reference/ISSUE-LOG.md) SHAPE.** CW2 first wrote here that
 > **"L-1030's ROOT IS FOUND"**, naming `SlabTool.findRegionAtPoint()`'s raw `wallStore.getAll()` as
@@ -1655,6 +1738,33 @@ Type · material · finish · **offset from centreline**.
 > cascade from the subscriber). It closes the half-executed-gesture hole by **refusing before the
 > write**, not by merging undo entries. **Copy that mechanism, not this bullet's wording.**
 
+- ✅ **CW-Move-3 — DELIVERED 2026-08-19 (lane CW4, [L-1164](../../04-reference/ISSUE-LOG.md)):
+  THE ALIGN TOOL'S CURTAIN-WALL MOVE NOW REACHES THE RECORD.** The measurement above named
+  `AlignPlanToolHandler.ts:355` as *"a payload-shape mismatch that fails `canExecute` every time"*.
+  It is fixed, and **the shape was the lesser half**: even a shape-corrected `curtain-wall.move`
+  would have written the plugin DTO store, so the command would have reported success and moved
+  nothing visible. **The verb was the only thing wrong** — the payload align already built,
+  `{ id, updates: { baseLine } }`, is byte-identical to what the 3-D gizmo and the plan Move tool
+  send. One string: `wall.updateCurtainWall`.
+  > ⭐ **WHY §FIX-CW-UPDATE-REACH-RECORD DID NOT CATCH IT, AND THIS IS THE REUSABLE PART.** That fix
+  > restored the bridge and enumerated its four dead dispatchers **by name** — gizmo, plan Move,
+  > property sheet, Material control. Align is the **FIFTH**, and it was invisible to that sweep
+  > because the sweep searched for `wall.updateCurtainWall` and align was not sending it.
+  > **A census keyed on the CORRECT name cannot see the site using the wrong one.**
+  >
+  > The durable fix is the **net**, not the string. `planMoveParity.spec.ts` pinned two surfaces
+  > (plan Move behaviourally, the 3-D gizmo structurally); **ALIGN is a THIRD move surface** — it
+  > translates a placed element by a delta — and it hand-rolls a `_move<Family>()` per type instead
+  > of calling the shared `buildMoveCommand()`. Being outside the net is how this rotted. Four arms
+  > added; falsified by restoring the old verb (2 of 4 red).
+  >
+  > ⚠ **AND ONE MORE DIVERGENCE, REPORTED NOT FIXED:** align also fires `slab.updatePolygon` where
+  > `MOVE_COMMAND_BY_TYPE` names **`slab.movePolygon`** — and `slab.movePolygon` exists *precisely
+  > because* `slab.updatePolygon` is claimed by a plugin handler on the detached DTO store
+  > (§FIX-MOVE-SLAB-AND-HANDRAIL, the L-220 pattern). **That is the same defect in the slab family.**
+  > It sits in another lane's fence, so the parity arm is scoped to curtain wall: a blanket
+  > *"every align verb must be in the table"* arm would be a red build for someone else, and **a red
+  > test for another lane's file is a broken build, not a finding.**
 - **CW-Move-1.** ⛔ **FOLLOW THE WALL PATH; DO NOT FORK A SECOND CASCADE.** WM1's finished work —
   `§L-921-ATOMIC-GESTURE`, `CascadeWallBaselineCommand`, [C83 §5.5](C83-CROSS-ELEMENT-CASCADES.md) —
   is the shape. A second cascade engine for curtain walls is C84 EI-9 at its most expensive.
@@ -1702,6 +1812,14 @@ because a sparse override keyed on an unstable id is the data loss it exists to 
 **(8)** CW-6 polyline close · **(9)** CW-7 region slab · **(10)** CW-8 move/propagate/recompute ·
 **(11)** CW-5 RAC across all of it.
 
+> **STATE AT THE CLOSE OF LANE CW4 (2026-08-19), so the next lane starts from findings:**
+> **(1)–(8)** landed by CW2. **(9)** the slab half is SL1's and shipped; the curtain-wall half is
+> **BLOCKED ON ONE DECISION**, now scoped to a type widening + a store dispatch + *"which face is a
+> curtain wall's face?"* (§13.9 CW-Region-3). **(10)** the MOVE leg is closed for the surface that
+> was actually broken (§13.10 CW-Move-3); PROPAGATE is largely free by CW-P-B's design and
+> RECOMPUTE for region slabs is (9)'s. **(11)** NOT STARTED, deliberately, with the two gates named
+> (§13.7). **Outside the numbered order:** §13.13 CW-BYSLAB, the founder's own report, is CLOSED.
+
 Each step is **RED-first** and each carries an executed proof at the layer the user reaches
 (§committed-is-not-reachable). **A step is not done because it compiles.**
 
@@ -1729,6 +1847,68 @@ Each step is **RED-first** and each carries an executed proof at the layer the u
 > it:** deterministic ids are NOT sufficient for CW-P-B. **A grid-line id MUST be unique across
 > re-spacings**, i.e. it must name the line's POSITION rather than its ordinal. Determinism alone
 > does not give you that, and the difference is the whole design.
+
+### 13.13 — CW-BYSLAB: "WALL WORKS. CURTAIN WALL DOES NOT." (founder, 2026-08-19)
+
+> ✅ **CLOSED 2026-08-19 (lane CW4).** The founder: *"I want to create HANDRAILS + CURTAIN WALLS +
+> WALLS 'BY SLAB'. Wall works. Curtain wall does NOT. The workflow is: select the slab FIRST, then
+> activate the tool."*
+
+**THE WALL'S BY SLAB HAS TWO HALVES, AND THIS FAMILY HAD SHIPPED ONLY ONE.**
+
+- **Half one — the SNAPSHOT.** `ToolManager.activateTool()` runs `activateFn()` and then, one
+  statement later, `selectionManager.setEnabled(false)` → `unselectAll()`
+  (`ToolManager.ts:547-552`, `SelectionManager.ts:927-930`). By-Slab's entire input **is** the
+  selection, so choosing the tool destroys the input. **No ordering of user actions could ever
+  satisfy it.** Fixed for curtain wall by lane CW2 ([L-1074](../../04-reference/ISSUE-LOG.md),
+  `981a12d7`) — the tool snapshots inside `activate()`.
+- ⛔ **Half two — the ASK — NEVER EXISTED HERE, and it is the whole of the founder's sentence.**
+  With no snapshot, wall puts up `ToolsAreaLayout._pickSlabThen`, **deactivates the tool so
+  `SelectionManager` is re-enabled**, and waits for a click. Curtain wall `alert()`ed *"select a
+  slab first"* at a user who had no way to comply while the tool held the pointer. Closed by
+  **CW-BySlab-1** ([L-1165](../../04-reference/ISSUE-LOG.md)).
+
+- ✅ **CW-BySlab-1 — THE FLOW IS ADOPTED, NOT COPIED (C84 EI-4a).** Lane HR2 extracted
+  `_pickSlabThen` from the wall's private body (`86483b5c`) naming curtain wall as *"the founder's
+  third case … one flow to adopt rather than a third copy to write"*. There is now **one flow with
+  three consumers**, injected into the L2 tool via `setSlabPickRequester()` — so the tool holds a
+  **callback type**, not an app import, and no layer is crossed.
+- ✅ **CW-BySlab-2 — `createFromSlabId(slabId)` IS THE PARAMETERISED ENTRY POINT.** ⭐ This is the
+  mechanism the family kept not copying. The wall works because
+  `WallTool.createFromSelectedSlab(targetSlab?)` and `wall.create-on-all-slabs` take the slab **as
+  an argument**; the railing's did not work (L-1103) because it mirrored the pill, the label, the
+  accelerator **and the refusal message**, and re-read the live selection. Snapshot, overlay, plan
+  handler and RAC now all land on one method, and *"which slab?"* is answered exactly once.
+- ✅ **CW-BySlab-3 — `S` IS "BY SLAB" ACROSS THIS FAMILY (C84 EI-8),
+  [L-1161](../../04-reference/ISSUE-LOG.md).** The curtain-wall mode bar bound **`S` to *Single***
+  and `B` to By Slab, while `WallDrawingHUD.ts:82,106` and the railing both bind `S` to By Slab.
+  The founder's stated reference is the wall, so pressing `S` **switched drawing mode** — and a mode
+  change when you are already in that mode is **indistinguishable from "the button did nothing"**.
+  *Single* moves to `1`; `B` is retained as a deprecated alias.
+- ✅ **CW-BySlab-4 — the naked creation loop, [L-1162](../../04-reference/ISSUE-LOG.md).**
+  `CreateCurtainWallsFromSlabCommand` — **the command this gesture dispatches** — ran its loop
+  outside any `batchCoordinator` batch, while `CreateCurtainWallsOnAllSlabsCommand:566`, *the
+  command that calls it*, wraps its own. So the fix held for ALL slabs and evaporated the moment the
+  user picked ONE. This is the **third** recorded instance of that exact shape (lane PERF2 fixed the
+  wall sibling at L-1151 and named this file as next). JOIN-or-open, `runBatch` undo-NEUTRAL
+  (ADR-0314) — the undo-entry count is unchanged.
+
+- ⛔ **CW-BySlab-5 — TWO DEAD RIVAL SURFACES, REPORTED NOT DELETED (C84 EI-9).**
+  `CurtainWallDrawingHUD` is constructed (`ToolsAreaLayout.ts:128`) and only ever `dismiss()`ed —
+  **`show()` has no call site anywhere in the repo**. `CurtainWallModePicker.show()` likewise: only
+  `setActiveMode` is ever called. **Both carry a By Slab affordance that cannot be reached**, and
+  `CurtainWallDrawingHUD` binds `s → byslab` — i.e. **the dead surface already had the correct key
+  the live one did not.** Three statements of one gesture, two of them unreachable. The live surface
+  is the tool's own `_showModeBar()`, and that is what was fixed. Routing owned by
+  [C82](C82-RIBBON-CAPABILITY-SURFACE.md).
+
+> ⭐ **THE TEST DISCIPLINE THIS ITEM ENFORCES, because it is the reason the railing's version shipped
+> dead.** HR2 found the old By-Slab test **PASSING WHILE THE FEATURE WAS DEAD**: it stubbed
+> `window.selectionManager` and clicked — *the one place in the universe where the unsatisfiable
+> condition held*. So every arm of `CW4CurtainWallBySlab.test.ts` starts at `tool.activate()`, then
+> **executes the statement `ToolManager` runs one line later**, and only then reaches By Slab through
+> a real `click()` on the rendered button or a real `KeyboardEvent` on `window`. **The double
+> supplies the HAZARD; it does not supply the cure.** 11 arms; falsified by reverting the fix (7 red).
 
 ## NOT MEASURED — the honest register for this family
 

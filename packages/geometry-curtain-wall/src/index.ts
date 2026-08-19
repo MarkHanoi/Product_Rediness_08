@@ -62,7 +62,7 @@ export type {
 
 // ── Sprint V (2026-05-12) — CurtainWallTool extracted ─────────────────────
 export type { CurtainWallToolDependencies } from './CurtainWallTool.js';
-// §FIX-CW-BYSLAB-ASK (L-1160) — the app injects `ToolsAreaLayout`'s ONE pick-a-slab
+// §FIX-CW-BYSLAB-ASK (L-1165) — the app injects `ToolsAreaLayout`'s ONE pick-a-slab
 // flow through this type; it is exported so that wiring is typed, not `any`.
 export type { SlabPickRequester } from './CurtainWallTool.js';
 export { CurtainWallTool } from './CurtainWallTool.js';

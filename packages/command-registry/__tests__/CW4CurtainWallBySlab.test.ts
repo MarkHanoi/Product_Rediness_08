@@ -139,7 +139,7 @@ function activeModeOnBar(): string | undefined {
     return document.querySelector<HTMLElement>('#cw-mode-bar .wdh-btn--active')?.dataset.cwMode;
 }
 
-describe('CW4 — curtain wall BY SLAB (C87 §13, L-1074 + L-1160 + L-1161)', () => {
+describe('CW4 — curtain wall BY SLAB (C87 §13, L-1074 + L-1165 + L-1161)', () => {
     beforeEach(() => {
         _liveTools = [];
         document.body.innerHTML = '';
@@ -181,7 +181,7 @@ describe('CW4 — curtain wall BY SLAB (C87 §13, L-1074 + L-1160 + L-1161)', ()
 
         bySlabButton().click();
 
-        // ⭐ THE ARM THAT WAS RED BEFORE L-1160: the tool alerted and dispatched
+        // ⭐ THE ARM THAT WAS RED BEFORE L-1165: the tool alerted and dispatched
         // nothing, while the wall — same bar, same gesture — asked.
         expect(h.asks).toHaveLength(1);
         expect(h.asks[0].message).toMatch(/slab/i);
