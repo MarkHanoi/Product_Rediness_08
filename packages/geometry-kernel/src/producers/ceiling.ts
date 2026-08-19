@@ -21,6 +21,7 @@ import { triangulateRingOrdinates } from '../pure/triangulatePolygon.js';
 import { concatRaw, type RawGroup } from './_internal/rawGeometry.js';
 import { serializeDescriptor } from './_internal/serializeDescriptor.js';
 import { composeCeilingGeometryHash } from './_internal/ceiling/composeCeilingGeometryHash.js';
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 
 export type CeilingProducer = (
   ceiling: Readonly<CeilingData>,
@@ -28,8 +29,51 @@ export type CeilingProducer = (
   worldY: number,
 ) => BufferGeometryDescriptor;
 
+/**
+ * The ceiling's family defaults, per slot — the colour of a ceiling that names
+ * NO material at all (C100 §9.6.b: the DEFAULT stays local, the RESOLUTION is
+ * shared).
+ *
+ * ⚠ These three values are NOT new. They are the exact fallbacks
+ * `plugins/ceiling/src/committer/material-bridge.ts` already applied, moved
+ * UPSTREAM of the key rather than invented here, so an unmaterialled ceiling
+ * renders identically before and after this change. C11 §5.4: "a <type> is
+ * always <colour>" is a domain rule and resolves upstream of the builder.
+ */
+const CEILING_DEFAULT_BY_SLOT: Readonly<Record<'top' | 'bottom' | 'edge', string>> = Object.freeze({
+  top: '#f5f5f5',
+  bottom: '#eaeaea',
+  edge: '#cfcfcf',
+});
+
+/**
+ * ⭐ C100 §9.6.b / S16 — the colour slot now goes through THE master resolver.
+ *
+ * ⛔ WHAT WAS WRONG, measured rather than inferred. The key has always been
+ * `ceiling|<materialId>|<colour>|<slot>`, and the bridge reads **slot 2 only**
+ * (`colorOfCeilingMaterialKey`: `const overrideColor = parts[2]`). So the
+ * `materialId` sat in slot 1, one slot over, travelled the whole way to the
+ * bridge, and was **discarded there**. A user who picked "Plasterboard ·
+ * Acoustic" got the bridge's grey, every time, because nothing between the store
+ * and the pixel ever looked the id up. That is C100 §9.1's finding in one
+ * function.
+ *
+ * `resolveMaterialColorSlot` applies §2.1's precedence exactly once, for every
+ * family: an explicit `materialColor` OVERRIDE wins; else the `materialId` is
+ * resolved in `MATERIAL_CATALOG`; else — id present but unknown — the slot
+ * carries `unresolved:<id>`, a NAMED failure the bridge paints magenta rather
+ * than a plausible grey; else the family default above.
+ *
+ * The key LAYOUT is unchanged on purpose (C100 §9.6.b: converge the VALUE, not
+ * the FORMAT) — slot 1 still carries the id for diagnostics and pooling, and no
+ * parity snapshot keyed on the shape moves.
+ */
 function composeCeilingMaterialKey(c: CeilingData, slot: 'top' | 'bottom' | 'edge'): MaterialKey {
-  return asMaterialKey(`ceiling|${c.materialId ?? 'default'}|${c.materialColor ?? ''}|${slot}`);
+  const colour = resolveMaterialColorSlot(
+    { materialId: c.materialId, materialColor: c.materialColor },
+    CEILING_DEFAULT_BY_SLOT[slot],
+  );
+  return asMaterialKey(`ceiling|${c.materialId ?? 'default'}|${colour}|${slot}`);
 }
 
 interface Pt2 { readonly x: number; readonly z: number }

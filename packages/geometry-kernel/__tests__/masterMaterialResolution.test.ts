@@ -86,9 +86,25 @@ describe('C85 C-3 — an unresolved material is NAMED, never silently plausible'
 });
 
 describe('C85 C-5 — the move preserved the catalogue', () => {
-  it('carries 204 rows with unique ids and no empty fields', () => {
-    expect(MATERIAL_CATALOG).toHaveLength(204);
-    expect(new Set(MATERIAL_CATALOG.map((m) => m.id)).size).toBe(204);
+  /**
+   * ⚠ THE COUNT IS A FLOOR, NOT AN EQUALITY — changed 2026-08-19 (C100 S14).
+   *
+   * This read `toHaveLength(204)` twice, which made it a TRANSCRIBED COUNT of the
+   * kind `materialCatalog.ts`'s own header forbids: it failed the moment the
+   * master legitimately GREW by one row (`steel-grating`, minted because
+   * `types-builtin` referenced a real material the catalogue did not have).
+   *
+   * ⭐ What C85 C-5 actually needs to prove is that the move LOST nothing and
+   * that the invariants hold — neither of which is an equality. A floor catches
+   * a regression (rows disappearing) without punishing the one thing the
+   * contract explicitly instructs people to do: *"TO ADD A MATERIAL: add a row
+   * HERE."* An equality here would have made every future material a red test.
+   */
+  const MOVE_FLOOR = 204; // rows present at the C85 C-5 move. Rows may be ADDED; none may be LOST.
+
+  it('carries at least the moved rows, with unique ids and no empty fields', () => {
+    expect(MATERIAL_CATALOG.length).toBeGreaterThanOrEqual(MOVE_FLOOR);
+    expect(new Set(MATERIAL_CATALOG.map((m) => m.id)).size).toBe(MATERIAL_CATALOG.length);
     const malformed = MATERIAL_CATALOG.filter(
       (m) => !/^#[0-9a-f]{6}$/.test(m.color) || !m.label || !m.category || m.source !== 'builtin',
     );

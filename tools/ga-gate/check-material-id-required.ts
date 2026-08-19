@@ -60,7 +60,7 @@ const EXIT_RATCHET = 3;
 // ── Baselines — measured 2026-08-19. SHRINK-ONLY. ──────────────────────────
 const BASELINE_A_COLOUR_WITHOUT_ID = 2; // Door, Window
 const BASELINE_B_UNRESOLVABLE_IDS = 0; // 8 -> 0, L-1038 S14 (2026-08-19): all eight were dot-case ids types-builtin minted; reconciled to master ids, plus one genuinely-missing master row (steel-grating). HARD ZERO now — this arm has no debt left to shrink.
-const BASELINE_C_UNROUTED_PRODUCERS = 17;
+const BASELINE_C_UNROUTED_PRODUCERS = 16; // 17 -> 16, L-1038 S16 (2026-08-19): `ceiling` routed, with a test that drives a real DTO through the real producer into the real bridge and asserts the MASTER's hex (C100 §9.6.c step 3 — never composeMaterialKey in isolation, per the §9.3 retraction). Sixteen families to go, one at a time, each with its own such test.
 const BASELINE_D_SERIALIZERS_DROPPING_ID = 3; // 5 -> 3, L-1038 S15 (2026-08-19): stair (deepStrip), handrail (delegated) and curtain-wall (prefixed ids) were FALSE POSITIVES of a one-spelling test, not fixes. The three that remain are real, and are ARM A's shape one layer down, at the runtime store type.
 const BASELINE_E_IDS_NEVER_READ_BACK = 1; // ARM E, new 2026-08-19: `slab`. The serializer writes materialId + materialColor; ProjectLoader's CreateSlabCommand payload lists neither, so a slab's material dies on reload. Owned by the persistence/slab lane (C100 §9.6.c step 2) - MEASURED here, fixed there.
 

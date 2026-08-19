@@ -12818,3 +12818,289 @@ the same day, and step 2 makes the in-tool rescue sufficient.
   latter with full undo/redo. Not corrected here because the row also collides on the `S`
   accelerator (curtain wall uses `S` for *Single*; wall and railing use `S` for *By Slab*), and
   picking a winner is a UX decision, not a lane decision.
+
+---
+
+## L-1127 — a SLAB's material is written to the saved file and never read back; and the gate that was supposed to find it measured only the write side ✅ MEASURED (fix owned elsewhere) — 2026-08-19
+
+**Lane MT2, continuing L-1038 / C100 §9.** Three slices closed, one decision taken, and one live
+defect found by an arm that C100 §9.7 had listed as *declared debt* rather than built.
+
+### ⛔ The defect: `slab`
+
+`serializeSlab()` writes **`materialId` AND `materialColor`**. `ProjectLoader`'s
+`CreateSlabCommand` payload lists **neither** — it carries `id`, `ifcGuid`, `width`, `depth`,
+`thickness`, `position`, `levelId`, `polygon`, `holes`, `sketch` and stops. `CreateSlabCommand`
+itself then hard-codes `materialColor: "#808080"`. **So a slab's material is present in the saved
+file and absent from the reloaded slab, repainted grey.**
+
+⭐ **This is the worst shape a persistence defect can take**, and the shape is the lesson: the
+evidence a reviewer naturally reaches for — open the JSON, find the id — **says it worked**.
+§COMMITTED-IS-NOT-REACHABLE, in the persistence layer: the user's evidence is the reload, never the
+file. **Owner: the persistence / slab lane** (C100 §9.6.c step 2 names `ProjectSerializer` /
+`ProjectLoader` as coordinated, not drive-by). MEASURED here, baselined at 1, fixed there.
+
+### ⚠ And ARM D — the arm that existed — was WRONG ABOUT THREE OF ITS SIX FINDINGS
+
+It tested `body.includes('materialId')`: **one spelling, direct body only.**
+
+- **`serializeCurtainWall` — FALSE POSITIVE.** Writes `mullionMaterialId` / `glazingMaterialId`;
+  capital **M**, invisible to a case-sensitive substring test. *(This is exactly the correction the
+  CW lane raised against L-1038's census. It is now measured rather than argued, and it is in that
+  family's favour.)*
+- **`serializeHandrail` — FALSE POSITIVE.** `return serializeHandrailRecord(h)`, which copies every
+  own key (L-1102's one save/load pair). Persisted, one module away.
+- **`serializeStair` — FALSE POSITIVE AS AN ARM D FINDING, and a REAL defect of another kind.**
+  `return deepStrip(s)` cannot drop a field it never enumerates. It writes no id because the **live
+  `StairData` has none** — `SetStairMaterial.ts:57` refuses with that sentence verbatim. ⭐ **"The
+  serializer drops it" and "there is no field to drop" are different defects with different fixes**,
+  and ARM D can only ever see the first.
+
+**ARM D 5 → 3, and NEITHER of those two was a fix.** They were measurement errors being deleted. A
+gate that manufactures four false findings out of six teaches people to ignore it, which costs more
+than the defect. ⭐ **The generalisation is the THIRD recurrence of one shape inside C100 alone**
+(§0.3's counting hole · §9.7's `#rrggbb`-only projection arm · this): **a gate that checks one
+spelling of a thing does not check the thing.**
+
+### What shipped
+
+| slice | result |
+|---|---|
+| **S14** (ARM B) | ✅ **CLOSED.** Eight `materialId`s in `types-builtin` were dot-case (`wood.oak`) while the master has always been kebab-case — **every one resolved to `undefined`**. Seven mapped to an existing row; the eighth (`steel.grate`, an industrial stair's open grating) had no honest match — the nearest was expanded **aluminium** mesh — so the **master gained `steel-grating`** rather than the element bending onto a wrong row. A **closed, enumerated eight-entry** alias map keeps pre-existing saves resolvable; an unknown id still misses. **Ceiling 8 → hard 0.** |
+| **S15** (ARM D) | **RESCOPED**, see above. The three that remain (`beam`, `furniture`, `plumbing`) have **no `materialId` on the runtime record to persist** — that is ARM A's shape one layer down, and **no arm looks at runtime store types**. Declared in C100 §9.7 as an unbuilt **ARM F**. |
+| **ARM E** (new) | ✅ **BUILT** — the read side. Found `slab` above. Follows a same-file helper **one hop**, because `roof` is rebuilt by `migrateRoofSnapshotToCommand()` 1000 lines from its loop and reads the id correctly; the arm called roof a defect before that hop existed. |
+| **S16** (ARM C) | **17 → 16.** `ceiling` routed end-to-end. The key was always `ceiling\|<id>\|<colour>\|<slot>` and the bridge read **slot 2 only** — the `materialId` sat **one slot over**, travelled the whole way, and was **discarded at the bridge**. Pick "Plasterboard · Acoustic", get grey. Now resolved by `resolveMaterialColorSlot`, with an unknown id painting **magenta** (§5) instead of a plausible grey. |
+| **S13** | ✅ **DECIDED** (C100 §9.9) — the four `0x` wall presets are a **C04 VIEW STYLE**, not master rows. Four falsifiable measurements, moved to `wallViewStyleMaterials.ts`, names re-exported so no importer moves. `check-material-single-source`'s `0x` arm: **4 → hard 0.** |
+
+### ⚠ Two things NOT proven, said so they are never inherited as green
+
+- **ARM E proves the loader READS the id** — not that it hands it to a command that STORES it, nor
+  that the store feeds a producer, nor that anything reached a pixel.
+- **S16's ceiling test is one family.** Sixteen remain, and each needs its own test that drives a
+  real DTO through the real producer into the real bridge — C100 §9.3 **retracted** an earlier slice
+  for proving coverage without touching its subject, and a shared harness would repeat that.
+
+## L-1121 — "region slab works in plan but not in 3D": the gesture was NOT reproduced, and FIVE silent paths to that symptom were (PARTIALLY FIXED, root UNPROVEN — 2026-08-19)
+
+**Lane SL1, 2026-08-19.** The founder reports: *a slab created by region appears in the plan view
+and does not render in 3D.*
+
+### ⚠ THE HONEST HEADLINE FIRST: THE GESTURE WAS NOT REPRODUCED
+
+A probe walked the real chain end to end — `traceRegionSketchAtPoint` → the exact payload
+`SlabPlanToolHandler._commitSlab` builds → `SlabData` → `SlabFragmentBuilder.createSlabMeshWithEdges`
+— across **five region shapes**: a clean 4-wall room, a side split into two collinear walls (the
+common post-split case), an L, a room with an interior T-junction, and the 3D-tool payload shape.
+
+**All five traced, resolved and triangulated correctly.** No box fallback, no degradation, correct
+areas (20.000 / 20.000 / 27.000 / 24.000 m²), correct extents. That measurement is now pinned as a
+property in `packages/geometry-slab/__tests__/regionSlabReaches3D.test.ts` so the next reader
+inherits it rather than re-deriving the guess.
+
+⭐ **So this row does NOT claim a root cause.** What it claims is that **five distinct silent paths
+reach the reported symptom**, each measured on the real code, and that none of them said anything a
+user or a debugger could act on. That is the §CONTEXT-DATA-HONESTY collapse — *"a slab that was
+never created"* and *"a slab in the store, drawn in plan, absent from 3D"* were **the same
+observable and therefore the same value**. Whichever of the five the founder hit, nothing named it.
+
+### The five silent paths, measured
+
+| # | Path | Evidence | Was it silent? |
+|---|---|---|---|
+| 1 | **Region and polyline slabs are stored `width: 0, depth: 0`** | `SlabTool.createSlabFromPolygon` `width: dimensions?.width ?? 0` — and ONLY the rectangle/hollow branch passes `dimensions`; the REGION (`:570`, `:768`) and POLYLINE (`:566`) branches pass `undefined` | Yes. And `CreateSlabCommand.canExecute:68` deliberately lets a 0×0 slab through when a polygon is present, so nothing refused it |
+| 2 | **A sketch-bearing slab whose loop will not resolve falls to a BOX, discarding the stored polygon** | `createSlabMeshWithEdges`: `data.sketch ? resolveLoop(…) : data.polygon` → null → `new THREE.BoxGeometry(data.width, t, data.depth)` | Yes — and with (1) that box is `BoxGeometry(0, t, 0)`: **NOTHING**, while plan view goes on drawing the very polygon that was thrown away |
+| 3 | **`resolveWorldY` throws out of a DOM listener** | `SlabFragmentBuilder.resolveWorldY` throws on no BimManager / no `levelId` / level unknown; `initBuilders.ts:367` calls `_buildSlab` synchronously inside `window.addEventListener('bim-slab-added')` | Effectively yes: the exception unwinds into the DOM dispatcher, no mesh is built, the record stays in the store, and plan view still draws it |
+| 4 | **`pause()` wiped the buffer under a re-entrant pause** | `SlabFragmentBuilder.pause()` did `this._pausedBuilds = []` unconditionally | Yes — those slabs were discarded and nothing ever re-emitted `bim-slab-added` for them. Logged as **L-1122** |
+| 5 | **The 3D By Region search read a SMALLER edge set than the plan one** | `SlabTool.findRegionAtPoint` read `wallStore.getAll()` alone; `SlabPlanToolHandler._findRegionAtPoint` has called `assembleRegionBoundary({walls, slabs, parcelBoundary})` since §FIX-REGION-BOUNDARY-SOURCES | Yes. Logged as **L-1126** |
+
+### ✅ WHAT WAS DONE
+
+1. **`SlabTool.createSlabFromPolygon` DERIVES `width`/`depth` from the polygon bbox** when the
+   caller passes none — the same bounding box `SlabPlanToolHandler._commitSlab` already computes for
+   the identical record. A zero here was not a gap but a **wrong measurement** of a slab whose extent
+   was sitting in the same argument list (C84 EI-2). Those two fields are also the only dimensions
+   the property panel and the IFC export have.
+2. **ONE ring resolver — `SlabFragmentBuilder.resolveBuildRing()` — with a LADDER, replacing two
+   inverse reads of the same question.** The mesh read `sketch ?? polygon`; the **pivot, 600 lines
+   above, read `polygon ?? sketch`** — C84 **EI-9 inside a single function**. Both now call the one
+   resolver. Its rungs are: (1) the sketch loop re-derived from live walls; (2) **the stored
+   `data.polygon` — the ring plan view draws** — when rung 1 yields nothing usable, **reported as a
+   degradation, never as success** (C79 §5.2); (3) only then, nothing. Rung 1 is rejected on a
+   NON-SIMPLE ring as well as a null one, because earcut's precondition is the same wherever the ring
+   came from. **Nothing here invents geometry** (ADR-0299 §RECOVERY-MUST-REFUSE) — every rung is a
+   ring something authored.
+3. **C92 §12 R-6 IS NOW IN CODE.** That row already said of the box fallback: *"⚠ A SILENT FALLBACK,
+   NOT A REFUSAL. It renders a box and says nothing. It MUST warn or refuse."* Every route to a box
+   now warns, and the **zero-dimension case ERRORS and says it renders NOTHING** — the difference
+   between "no slab" and "a slab that failed to build".
+4. **`§SLAB-BUILD-VERDICT` — a per-slab build-outcome channel.** `getBuildVerdict(id)` /
+   `getBuildReport()` on the builder, reachable in DevTools as
+   **`window.slabBuilder.getBuildReport()`** with **no new global** (P4) because `initBuilders.ts`
+   already publishes it. Nine states, and the three `refused-*` are deliberately NOT collapsed into
+   one: *"no BimManager in this runtime"*, *"this record has no levelId"* and *"BimManager does not
+   know this level"* are three diagnoses with three fixes — the same split `WallFaceResolver` makes
+   between `ENGINE_NOT_AVAILABLE` and `STALE_DERIVED_STATE`. The verdict is derived from the SAME
+   `resolveBuildRing` answer the mesh used, so the report cannot disagree with what was drawn, and it
+   is cleared in `removeSlab` so it never outlives its element.
+
+### ⛔ WHAT IS STILL OPEN
+
+**The root is not proven.** The next time the founder sees it, one line —
+`window.slabBuilder.getBuildReport()` — names which of the five it was, or reports that the record
+never reached the builder at all (which is itself the answer: look upstream at the store, the §FT1
+bridge or the command). That channel is the deliverable; the four fixes are hardening that each
+independently close a real way to produce the symptom.
+
+Pinned by `packages/geometry-slab/__tests__/regionSlabReaches3D.test.ts` (7 cases, all green). Every
+assertion is about geometry a viewport would draw or a verdict a debugger would read — **never a
+pure function's return value**, because a ring that is correct while nothing renders is precisely the
+defect (§committed-is-not-reachable).
+
+---
+
+## L-1122 — `SlabFragmentBuilder.pause()` DISCARDED every buffered build under a re-entrant pause ✅ FIXED
+
+**Measured 2026-08-19 (lane SL1) while tracing L-1121.** `pause()` read:
+
+```ts
+pause(): void { this._rebuildPaused = true; this._pausedBuilds = []; }
+```
+
+`§BATCH-SLAB-PAUSE` buffers every `updateSlab` into `_pausedBuilds` while paused, and
+`resumeAndFlush()` / `resume()` drain it. A **second** `pause()` before the resume threw that buffer
+away. Those slabs are in the store, drawn in plan, and have **no mesh — silently and permanently**,
+because nothing ever re-emits `bim-slab-added` for an element that already exists.
+
+**Fixed:** a re-entrant `pause()` is now a no-op on the buffer and warns, naming the count it kept.
+Clearing on a *first* pause is still correct (the buffer is empty then by construction) and is kept.
+Pinned in `regionSlabReaches3D.test.ts`.
+
+---
+
+## L-1123 — the level EXPLODE controller cached a copy of a number the BUILDER owns, so a rebuilt element was stranded at its pre-edit height ✅ FIXED
+
+**Founder, 2026-08-19:** *"A SLAB WAS LEFT UP THERE AND IT DOESN'T RELOCATE"* — after creating batch
+windows, changing type and dims, then sticking/unsticking (explode/collapse) the levels.
+
+### The mechanism, measured
+
+`LevelExplodeController` captures a per-root `originalY` when Inspect mode opens and, on collapse,
+writes `root.position.y = originalY` back. That makes it a **SECOND AUTHORITY on element height**
+(C84 EI-1/EI-9) — and a stale one:
+
+- `SlabFragmentBuilder._buildSlab` **REUSES its root** (`this.slabRoots.get(id)`) and ends with
+  `root.position.set(pivotX, worldY, pivotZ)`. It runs on **every** rebuild — a thickness change, a
+  `baseOffset` change, a LEVEL change. The founder changed dims.
+- Because only the root's CHILDREN are swapped, **no `childadded`/`childremoved` fires on the scene
+  root**, which is the controller's only reconcile trigger. It is never told.
+- Collapse then writes the **pre-edit** height back over the correct one, and nothing recomputes it
+  afterwards. The element is stranded at a height no store agrees with, and no gesture brings it
+  back — *"it doesn't relocate"*.
+
+### ⚠ THE WORSE HALF: the controller's own header asserted the opposite
+
+`LevelExplodeController.ts` (§FIX-LEVEL-EXPLODE-RECONCILE-ALL-TYPES, L-233) stated as a repo-wide
+property: *"an in-place rebuild that swaps only a root's CHILD meshes needs no reconcile: the root
+object (and hence its lifted position.y + its captured baseY) is untouched. Only a root SWAP can drop
+an element, and only a root swap fires here."*
+
+**The first half is FALSE, and the line that falsifies it is quoted above.** This is
+**L-1087's shape exactly, one file over** — a register generalising from the builders its author had
+read — and §confident-register-rows-are-the-wrong-ones: the claim justified by prose was the wrong
+one. The claim was **corrected in place first, before any code**, because that is free.
+
+### ✅ The fix — RE-DERIVE, do not cache
+
+- **Builders PUBLISH the model Y they wrote:** `root.userData.modelY = worldY` in
+  `SlabFragmentBuilder`. The builder is the authority (C92 §10 — TOP-referenced datum,
+  `worldY = level.elevation + baseOffset − thickness`); stamping makes that authority **readable**.
+- **The controller PREFERS the published value** over any cached baseline, both when building its
+  groups and when restoring on `deactivate()`. A re-derived baseline is immune to **every** cause of
+  a stale one, including causes nobody has measured yet — which is why this is the general cure and
+  not another reconcile trigger. Roots that publish nothing keep the old two-branch behaviour, so the
+  double-lift `preservedBaseY` was written to prevent is unchanged.
+- `deactivate()` now logs how many roots were restored from each source, so a family that has not yet
+  learned to publish is **visible** rather than assumed.
+
+⛔ **The other eleven families still cache.** Only slab publishes `userData.modelY` today; wall,
+roof, column, ceiling, floor, handrail, curtain-wall, beam, furniture, lighting and plumbing do not,
+and their roots still restore from the captured baseline. **The exit condition is every builder that
+repositions a retained root publishing `modelY`.** Named here so the next lane extends it rather than
+re-deriving it — see L-1087 for what happens when a register guesses across families.
+
+---
+
+## L-1124 — a failed reconcile WIPED the explode controller's restore map while every root was still lifted ✅ FIXED
+
+**Measured 2026-08-19 (lane SL1) beside L-1123.** `LevelExplodeController._buildLevelGroups()` ran
+`this._levelGroups = []` **before** checking for `bimManager` / the scene and returning early on a
+miss, and before the `allLevels.length === 0` early return.
+
+A reconcile fires on any element rebuild, at any moment. On either miss the controller **discarded
+its entire record of which roots it had lifted, while they were still lifted**. `deactivate()` then
+iterated an empty list and restored **nothing**: every element in the model stayed at its exploded
+height, with no channel left that knew where it belonged.
+
+**Fixed:** both guards now run **before** the wipe and say what they kept. Losing the restore map is
+strictly worse than an inert reconcile.
+
+---
+
+## L-1125 — a CURTAIN WALL did not bound a region, so slab-by-region inside one was refused ✅ FIXED (slab half)
+
+**Founder, 2026-08-19:** slab-by-region inside a curtain wall.
+
+`assembleRegionBoundary` (`packages/geometry-slab/src/RegionBoundarySources.ts`) took `walls`,
+`slabs` and `parcelBoundary` — **and not curtain walls**. A curtain wall is a wall to the user and to
+the eye: it encloses space, you stand inside it, and *"put a floor in here"* is the same request
+whether the enclosure is masonry or glazing. Without that source `traceRegionSketchAtPoint` walked a
+graph with a **HOLE where the glazing stood**, found no closed loop, and the tool refused — correctly,
+against inputs that were simply too small. **That is L-959's exact shape, one source later.**
+
+**Fixed:** `curtainWalls` is a first-class source in the ONE assembler (never a branch at a call
+site — the header of that file says why), counted in `RegionBoundaryCounts.curtainWallEdges` and
+named in `describeRegionBoundaryCounts`, so a refusal states what it searched. Wired at BOTH
+surfaces: `SlabPlanToolHandler._boundaryEdgeSet` and `SlabTool.findRegionAtPoint`. The type is
+declared **structurally**, so `@pryzm/geometry-slab` gains no dependency on
+`@pryzm/geometry-curtain-wall` — two L2 element families must not acquire an edge to each other.
+
+**Curtain-wall edges are contributed ANONYMOUSLY (no `id`)**, per the rule that file already applies
+to every non-wall source: `HostReferenceEdge` carries `hostType: 'wall'` and is resolved by
+`WallFaceResolver`, which reads `wallStore` and has no notion of a curtain wall. Attributing a
+curtain-wall id would make the slab follow **a wall that does not exist** — the resolver would miss,
+the edge would fall back to its authoring-time memory, and the slab would report `preserved` while
+following nothing (C79 §5.2.1). An anonymous edge degrades to a `FreeLineEdge` and is **counted**, so
+*"this boundary does not follow its curtain wall"* is a reported fact.
+
+⛔ **OWNERSHIP LINE — the curtain-wall half is NOT done and is lane CW2's.** Making such an edge
+FOLLOW its host needs a `hostType: 'curtainWall'` arm inside `WallFaceResolver` and a curtain-wall
+face model to resolve against. Deliberately not attempted here.
+
+---
+
+## L-1126 — the 3D "By Region" search read a SMALLER edge set than the plan one, and the comment said it could not ✅ FIXED
+
+**Measured 2026-08-19 (lane SL1).** `SlabTool.findRegionAtPoint` (the 3D viewport) read
+`this.wallStore.getAll()` and **nothing else**, while `SlabPlanToolHandler._findRegionAtPoint` has
+called `assembleRegionBoundary({ walls, slabs, parcelBoundary })` since §FIX-REGION-BOUNDARY-SOURCES.
+
+So a region bounded by a **SLAB EDGE** (a terrace, a plinth, a podium) or by the **PARCEL BOUNDARY**
+(the founder's garden — the very case L-959 was filed about) could be clicked in plan and **REFUSED
+in 3D**. Same gesture, same point, two answers.
+
+⚠ **And the 3D method's own comment asserted the opposite:** *"mirroring
+SlabPlanToolHandler._findRegionAtPoint so the two surfaces cannot disagree (C79 §7.4)"*. It mirrored
+the **tracer call** and not the **edge set**, and an identical walk over a smaller graph is a
+different search.
+
+⭐ **This is C84 EI-9 for the THIRD time on this one gesture** — L-956 (*which mode is active*),
+L-959 (*where the region is*), and now *what bounds it*. Each time the fix moved the victim and left
+the shape.
+
+**Fixed:** the 3D tool calls the ONE assembler, with walls + slabs + curtain walls + the parcel
+boundary, via two new injected deps (`getCurtainWallStore`, `getParcelBoundary` — injected, never a
+`window` read inside the package, P4). Its refusal now names **where it looked and what it searched**,
+which is the property that let L-959's cause be read off one log line instead of three round trips —
+and which the 3D surface did not have.
+
+---
