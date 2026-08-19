@@ -101,6 +101,16 @@ import { CreateSlabCommand } from '@pryzm/command-registry';
 import { CreateStairCommand } from '@pryzm/command-registry';
 import { CreateBeamCommand } from '@pryzm/command-registry';
 import { CreateCurtainWallCommand } from '@pryzm/command-registry';
+// §L-1057 / C87 §13.1 CW-P — the sparse panel-override layer. Shared with the
+// serializer so the save and load halves cannot key against different grids.
+import {
+    applyCurtainPanelOverrides,
+    resolveCurtainGrid,
+    describeLostOverride,
+    type CurtainPanelOverride,
+    type LostOverride,
+    type PanelUpdateTarget,
+} from '@pryzm/geometry-curtain-wall';
 import { CreateRoofCommand } from '@pryzm/command-registry';
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
 // §FIX-PERSIST-AI-ELEMENT (L-85 follow-up) — route ai_element furniture back
@@ -1377,6 +1387,73 @@ export class ProjectLoader {
                     r.success ? result.loaded++ : this.recordFail(result, `CurtainWall ${cw.id}`, r);
                 } catch (e) {
                     this.recordFail(result, `CurtainWall ${cw.id}`, { success: false, affectedElementIds: [], error: String(e) });
+                }
+            }
+
+            // ── Step 11b: curtain-panel overrides (§L-1057 / C87 §13.1 CW-P) ──
+            //
+            // MUST run AFTER Step 11. `CurtainWallStore.add()` synchronously drives
+            // `CurtainPanelSyncHandler`, which mints a panel for every cell and SKIPS
+            // cells that already have one. So the panels exist by now, all of them
+            // regenerated as `SystemPanel_Glass` — and this pass re-applies the sparse
+            // set the user actually authored ON TOP of them.
+            //
+            // Applying BEFORE the wall existed would find no cells; inserting panel
+            // records directly would fight the sync handler. Neither is correct, and
+            // the ordering is the whole reason this is a separate step rather than a
+            // field on the create command.
+            //
+            // Absent `curtainPanels` (every snapshot saved before 2026-08-19) this is a
+            // no-op and the wall keeps the regenerated glazing — which IS the pre-fix
+            // behaviour, and is why the field needed no schema bump.
+            if (snapshot.curtainPanels && snapshot.curtainPanels.length > 0) {
+                const panelStore = (this.commandManager as { getContext?: () => { stores?: { curtainPanelStore?: unknown } } })
+                    .getContext?.()?.stores?.curtainPanelStore as PanelUpdateTarget | undefined;
+                if (!panelStore) {
+                    // C84 EI-6 — absence must be loud. The authoring is IN the file; we
+                    // simply cannot place it, and the user must not find that out by
+                    // looking at a uniformly glazed façade.
+                    const msg = `§L-1057 ${snapshot.curtainPanels.length} authored curtain panel(s) are in `
+                        + 'this snapshot but curtainPanelStore is not on the command context, so NONE was '
+                        + 'restored. Every panel reverted to regenerated glazing.';
+                    console.error('[ProjectLoader] ' + msg);
+                    result.warnings.push(msg);
+                } else {
+                    // Group by wall so each wall's grid is resolved once, by the SAME
+                    // function the serializer keyed against (C84 EI-9).
+                    const byWall = new Map<string, CurtainPanelOverride[]>();
+                    for (const o of snapshot.curtainPanels) {
+                        const list = byWall.get(o.curtainWallId);
+                        if (list) list.push(o); else byWall.set(o.curtainWallId, [o]);
+                    }
+                    let applied = 0;
+                    const lost: LostOverride[] = [];
+                    for (const [cwId, overrides] of byWall) {
+                        const cw = snapshot.curtainWalls.find((w: any) => w.id === cwId);
+                        if (!cw) {
+                            // ⚠ 'wall-gone', NOT 'grid-line-gone'. Borrowing the neighbouring
+                            // reason here made the report say "the grid was edited" when the WALL
+                            // is missing from the snapshot — a confidently wrong diagnosis of a
+                            // different failure. CW-P-D is about the report being RIGHT.
+                            for (const o of overrides) lost.push({ override: o, reason: 'wall-gone' });
+                            continue;
+                        }
+                        const r = applyCurtainPanelOverrides(panelStore, resolveCurtainGrid(cw), overrides);
+                        applied += r.applied;
+                        lost.push(...r.lost);
+                    }
+                    console.log(`[ProjectLoader] §L-1057 restored ${applied} authored curtain panel(s).`);
+                    // ⛔ C87 CW-P-D — THE ONE REFUSAL THIS DESIGN OWES. An override whose
+                    // bounding grid lines no longer exist is REPORTED BY NAME, never
+                    // silently dropped and never re-targeted onto a different cell: a door
+                    // in the wrong cell is worse than a door reported missing. A silent
+                    // `catch` here is forbidden — this is the single place the design can
+                    // lose data.
+                    for (const l of lost) {
+                        const msg = '§L-1057 ' + describeLostOverride(l);
+                        console.error('[ProjectLoader] ' + msg);
+                        result.warnings.push(msg);
+                    }
                 }
             }
 

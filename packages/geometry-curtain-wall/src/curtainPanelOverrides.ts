@@ -240,10 +240,23 @@ export interface PanelUpdateTarget {
   update(id: string, updates: Partial<CurtainPanelData>): void;
 }
 
-/** An override that could not be placed, with the reason, for reporting. */
+/**
+ * An override that could not be placed, with the reason, for reporting.
+ *
+ * The three reasons are DISTINCT CAUSES, not shades of one — they tell a reader
+ * whether the user edited the grid, the file is inconsistent, or the code is
+ * wrong. CW-P-D is about the report being RIGHT, so a branch must never borrow a
+ * neighbouring reason because it is close enough.
+ */
 export interface LostOverride {
   readonly override: CurtainPanelOverride;
-  readonly reason: 'grid-line-gone' | 'no-panel-at-cell';
+  readonly reason:
+    /** The bounding grid line no longer exists — the user re-spaced the grid. Expected, benign, reportable. */
+    | 'grid-line-gone'
+    /** The wall the override names is not in the snapshot at all. NOT a grid edit — the file is inconsistent. */
+    | 'wall-gone'
+    /** The cell resolved but no panel sits there. A BUG: the sync handler should have regenerated it. */
+    | 'no-panel-at-cell';
 }
 
 /**
@@ -294,13 +307,26 @@ export function describeLostOverride(l: LostOverride): string {
     l.override.materialId,
     l.override.materialOverride,
   ].filter(Boolean).join(' + ') || '(no fields)';
-  return l.reason === 'grid-line-gone'
-    ? `curtain wall '${l.override.curtainWallId}': authored panel [${what}] was pinned to grid lines `
-      + `'${l.override.uLineId}' x '${l.override.vLineId}', which no longer exist — the grid was edited `
-      + 'after this project was saved, so the cell it named is gone. The override was NOT applied and '
-      + 'is NOT re-targeted onto a different cell (C87 CW-P-D: a door in the wrong cell is worse than '
-      + 'a door reported missing).'
-    : `curtain wall '${l.override.curtainWallId}': authored panel [${what}] resolved to cell `
-      + `[${l.override.uLineId} x ${l.override.vLineId}] but no panel exists there. This is a BUG, not a `
-      + 'grid edit — the sync handler should have regenerated every cell before overrides were applied.';
+  const cw = `curtain wall '${l.override.curtainWallId}'`;
+  const at = `'${l.override.uLineId}' x '${l.override.vLineId}'`;
+  switch (l.reason) {
+    case 'grid-line-gone':
+      return `${cw}: authored panel [${what}] was pinned to grid lines ${at}, which no longer exist — `
+        + 'the grid was re-spaced after this project was saved, so the cell it named is gone. The '
+        + 'override was NOT applied and is NOT re-targeted onto a different cell (C87 CW-P-D: a door '
+        + 'in the wrong cell is worse than a door reported missing).';
+    case 'wall-gone':
+      // ⚠ A SEPARATE REASON ON PURPOSE. This branch used to borrow 'grid-line-gone',
+      // so the report told the user "the grid was edited" when in fact the WALL was
+      // missing from the snapshot entirely — a confidently wrong diagnosis of a
+      // different failure. CW-P-D requires the report to be right, not merely present.
+      return `${cw}: authored panel [${what}] cannot be restored because that curtain wall is not in `
+        + 'this snapshot at all. This is NOT a grid edit — the panel overrides and the curtain-wall '
+        + 'list are written in the same pass, so a mismatch means the file was edited or truncated '
+        + 'outside PRYZM.';
+    case 'no-panel-at-cell':
+      return `${cw}: authored panel [${what}] resolved to cell ${at} but no panel exists there. This is `
+        + 'a BUG, not a grid edit — the sync handler should have regenerated every cell before '
+        + 'overrides were applied.';
+  }
 }

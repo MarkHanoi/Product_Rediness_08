@@ -39,6 +39,15 @@ import { GridStore } from '@pryzm/core-app-model';
 import { StairStore } from '@pryzm/geometry-stair';
 import { BeamStore } from '@pryzm/core-app-model/stores';
 import { CurtainWallStore } from '@pryzm/geometry-curtain-wall';
+// §L-1057 / C87 §13.1 CW-P — the sparse panel-override layer. A MODULE, not a
+// closure here: a mapping that lives inside a persistence function is unreachable
+// from any suite, which is how six constant-false reads survived in the
+// curtain-wall create bridge (L-972).
+import {
+    collectCurtainPanelOverrides,
+    resolveCurtainGrid,
+    type CurtainPanelOverride,
+} from '@pryzm/geometry-curtain-wall';
 import { RoofStore } from '@pryzm/geometry-roof';
 import { PlumbingStore } from '@pryzm/geometry-plumbing';
 import { FurnitureStore } from '@pryzm/geometry-furniture';
@@ -139,6 +148,20 @@ export interface ProjectSnapshot {
     openings: any[];
     /** §PERSIST-LIGHTING — lighting fixtures (were never serialized → lost on reload). */
     lighting?: any[];
+    /**
+     * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
+     * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
+     * doors writes 3 entries, not 200; an untouched façade writes none.
+     *
+     * ADDITIVE AND OPTIONAL, so no `SNAPSHOT_SCHEMA_VERSION` bump — the same
+     * disposition `lighting?` and `integrity?` carry, and for the same stated reason:
+     * an old snapshot simply lacks the key and falls back to regenerate-from-grid,
+     * which IS the pre-fix behaviour and is therefore a correct migration by
+     * construction. A bump with an empty migration step would be a lie about
+     * compatibility. It becomes REQUIRED the moment this field stops being optional
+     * or a reader must reject a file lacking it — neither is true today.
+     */
+    curtainPanels?: import('@pryzm/geometry-curtain-wall').CurtainPanelOverride[];
     elementCount: number;
     /** Room Bounding Lines — virtual partition elements (§ROOM-BOUNDING). Optional for backward compat. */
     roomBoundingLines?: any[];
@@ -817,6 +840,14 @@ export interface ProjectStores {
     /** Room subsystem — optional for backward compat with bootstraps that don't yet wire it. */
     roomStore?: import('@pryzm/room-topology').RoomStore;
     /**
+     * §L-1057 / C87 §13.1 CW-P — the panel AUTHORITY. Absent from this interface
+     * until 2026-08-19, which is why `grep curtainPanel ProjectSerializer.ts` returned
+     * nothing: there was no store here for a branch to read even if one had existed.
+     * Optional, so a bootstrap that does not wire it simply writes no overrides —
+     * the same shape every other late arrival above uses.
+     */
+    curtainPanelStore?: import('@pryzm/geometry-curtain-wall').CurtainPanelStore;
+    /**
      * FIX-12 §07 §3: SlabSystemTypeStore — needed to persist custom slab assembly types.
      * Optional for backward compat; when absent, slabSystemTypes is omitted from snapshot.
      */
@@ -1020,7 +1051,7 @@ export class ProjectSerializer {
             furnitureStore, handrailStore, openingStore, roomStore,
             slabSystemTypeStore, wallSystemTypeStore, ceilingStore, ceilingSystemTypeStore,
             floorStore, floorSystemTypeStore, ifcMetaStore, siteModelStore,
-            provenanceStore,
+            provenanceStore, curtainPanelStore,
         } = stores;
 
         // §FIX-GIS-SITE-STATE-NOT-PERSISTED (L-188) / §L-545 (L-489) — capture the C19
@@ -1049,6 +1080,56 @@ export class ProjectSerializer {
         const stairs = stairStore.getAll().map(serializeStair);
         const beams = beamStore.getAll().map(serializeBeam);
         const curtainWalls = curtainWallStore.getAll().map(serializeCurtainWall);
+
+        // §L-1057 / C87 §13.1 CW-P — SPARSE CURTAIN-PANEL OVERRIDES.
+        //
+        // `CurtainPanelStore` is the declared AUTHORITY for panels (C87 §2) and was
+        // read by NOTHING here until now, so every authored panelType,
+        // materialOverride, materialId and hostedDoor was destroyed on save. It hid
+        // because `CurtainPanelSyncHandler` REGENERATES every cell as
+        // `SystemPanel_Glass` on load, returning the right cell count and a plausible
+        // façade — a wall that came back EMPTY would have been reported years ago.
+        //
+        // Only panels that DIVERGE from what regeneration produces are written
+        // (L-1035): O(authored), not O(cells). Keyed on the bounding grid-line PAIR,
+        // never on (row, col), because an inserted line shifts every index downstream
+        // of it and a door quietly moving to the wrong cell is worse than losing it.
+        const curtainPanels: CurtainPanelOverride[] = [];
+        if (curtainPanelStore) {
+            for (const cw of curtainWallStore.getAll()) {
+                const panels = curtainPanelStore.getByCurtainWallId(cw.id);
+                if (panels.length === 0) continue;
+                const { overrides, unaddressable } = collectCurtainPanelOverrides(
+                    cw.id,
+                    resolveCurtainGrid(cw),
+                    panels,
+                    { glazingMaterialId: cw.glazingMaterialId },
+                );
+                curtainPanels.push(...overrides);
+                // C84 EI-6 — an authored panel we cannot ADDRESS is still a loss, and a
+                // loss must be loud. This should be unreachable (the sync handler only
+                // mints panels for cells the grid has), so if it fires the grid and the
+                // panel store have diverged and that is worth knowing at save time.
+                if (unaddressable.length > 0) {
+                    console.error(
+                        `[ProjectSerializer] §L-1057 curtain wall '${cw.id}': ${unaddressable.length} ` +
+                        `authored panel(s) sit on cells the grid does not have and were NOT saved — ` +
+                        unaddressable.map(p => `${p.id}[${p.cellIndex.join(',')}]`).join(', '),
+                    );
+                }
+            }
+        } else {
+            // Declared, not silent (C84 EI-2). A bootstrap that does not wire the panel
+            // store saves no per-panel authoring, and the user must not discover that
+            // on reload.
+            if (curtainWalls.length > 0) {
+                console.warn(
+                    '[ProjectSerializer] §L-1057 no curtainPanelStore was passed, so per-panel ' +
+                    `authoring on ${curtainWalls.length} curtain wall(s) is NOT being saved. ` +
+                    'Wire `stores.curtainPanelStore` — see C87 §13.1 CW-P.',
+                );
+            }
+        }
         const roofs = roofStore.getAll().map(serializeRoof);
         const furniture = furnitureStore.getAll().map(serializeFurniture);
         const handrails = handrailStore.getAll().map(serializeHandrail);
@@ -1136,6 +1217,9 @@ export class ProjectSerializer {
             stairs, beams, curtainWalls, roofs, furniture, handrails,
             plumbing, openings, elementCount, rooms,
             lighting: lighting.length > 0 ? lighting : undefined,
+            // §L-1057 — omitted entirely when nothing was authored, so an untouched
+            // project's snapshot is byte-identical to a pre-fix one.
+            curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,
             roomBoundingLines: roomBoundingLines.length > 0 ? roomBoundingLines : undefined,
             ceilings: ceilings.length > 0 ? ceilings : undefined,
             ceilingSystemTypes: ceilingSystemTypes.length > 0 ? ceilingSystemTypes : undefined,

@@ -57,7 +57,16 @@ export interface AuthoritativeStores extends ProjectStores {
     stairTypeStore?:   unknown;
     liftStore?:        unknown;
     liftTypeStore?:    unknown;
-    curtainPanelStore: unknown;
+    /**
+     * §L-1057 — CONCRETE, not `unknown`, and it is the one exception to the rule
+     * stated above. That rule's reason — "nothing here needs the concrete classes"
+     * — stopped being true when `ProjectSerializer` began reading this store to
+     * collect sparse panel overrides (C87 §13.1 CW-P). `ProjectStores` types it
+     * concretely, and an `unknown` here makes `AuthoritativeStores` fail to extend
+     * it. Typing it is the honest fix; widening `ProjectStores` back to `unknown`
+     * would hand the serializer a store it cannot call.
+     */
+    curtainPanelStore: import('@pryzm/geometry-curtain-wall').CurtainPanelStore;
     doorStore:         unknown;
     windowStore:       unknown;
     lightingStore?:    unknown;
@@ -151,6 +160,10 @@ export function toSerializerBundle(s: AuthoritativeStores): ProjectStores {
         stairStore:             s.stairStore,
         beamStore:              s.beamStore,
         curtainWallStore:       s.curtainWallStore,
+        // §L-1057 / C87 §13.1 CW-P — the panel AUTHORITY. Absent from this bundle
+        // until 2026-08-19, so `ProjectSerializer` had no store to read per-panel
+        // authoring from and every authored panel was destroyed on save.
+        curtainPanelStore:      s.curtainPanelStore,
         roofStore:              s.roofStore,
         plumbingStore:          s.plumbingStore,
         furnitureStore:         s.furnitureStore,
