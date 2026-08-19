@@ -15789,3 +15789,228 @@ family entirely — under either spelling.** Those services re-derive on level c
 not the pick defect, but a family absent from a culling service's trigger list is the same
 hand-written-literal defect class as L-1189's shadow-freeze list.
 
+
+---
+
+## L-1191 — "the WebGL background should ALWAYS be white — it still SOMETIMES comes grey": the FOURTH report of one symptom, and the requirement was ENUMERATED across four arms ✅ FIXED 2026-08-19 (lane RN2)
+
+**Founder, 2026-08-19:** *"The WebGL background should always be white — it still sometimes
+comes grey."* Reproduced by pressing the corner GPU pill (WebGPU → WebGL), not by booting into
+WebGL. His console:
+
+```
+[createRenderer] §PERF-WEBGPU-FRAGMENT resolvedPreference=webgl (forceWebGL=true, session-override=webgl)
+[renderer-three] backend: webgl2 (forced WebGL → WebGL2 backend)
+[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected … Lightweight WebGL render path active
+[RenderPipelineManager] §PERF-WEBGL2-RENDER-ON-MOVE lightweight WebGL render ENABLED
+[initScene] §RENDERER-LIVE-SWAP live swap complete — backend now: webgl-fallback (no reload)
+```
+
+### THIS IS THE FOURTH REPORT, AND THE FIRST THREE FIXES WERE THE SAME MOVE
+
+L-326 → L-326 reopened → **L-1148** (`cd11d547`, lane RN1, shipped 2026-08-19 and live in the
+build the founder is using) → this. RN1 correctly named the shape — *"the colour was already
+shared, the MECHANISM was not"* — and made the background a property of the **scene** via
+`RenderPipelineManager._applyViewportBackground()` (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME), called
+from `bind()`.
+
+**Verified 2026-08-19: RN1's fix DOES reach the founder's exact path.** The live swap calls
+`recoverPipelineOrBind` → `RenderPipelineManager.recoverPipeline()` → `await this.bind(...)`, and
+`bind()` both records `_tslOwnsBackground = false` and primes `setClearColor(_lightweightBgColor, 1)`.
+So the swap seam is **not** the arm that forgot. That is worth stating plainly, because the
+obvious next move — arm the background on one more path — would have been the fourth repetition
+of the defect.
+
+### WHAT WAS ACTUALLY WRONG: the requirement was enumerated, in FOUR arms, in THREE spellings
+
+Four independent arms must each establish "this backend has no TSL pipeline, so the lightweight
+per-frame render + the per-frame OBC base clear + an OPAQUE clear are mandatory". Measured:
+
+| arm | what it asserted |
+|---|---|
+| `initScene` BOOT (`:3147`) | `pryzmRendererBackend === 'webgl-fallback'` — **1 of 2 backends** |
+| `initScene` LIVE SWAP (`:4443`) | `b === 'webgl-fallback' \|\| b === 'webgl-only'` — 2 of 2 |
+| `initScene` live-swap **ROLLBACK** | **NEITHER** — it restored the renderer, rebound, and resumed the loop without re-asserting either arm |
+| `RenderPipelineManager.recoverPipeline` | `!this._webGpuActive` — the complement |
+
+The boot arm's 1-of-2 is correct **today**, and only because of a non-local invariant 1100 lines
+earlier (`isWebGPUCapable = backend !== 'webgl-only'` throws the Phase-5 abort at `:2015`, so the
+`'webgl-only'` case is unreachable at boot — re-verified). A gate whose correctness lives in
+another function's guard is the same defect class as a case mismatch, and it fails **silently and
+totally**: nothing arms the per-frame render, so the viewport paints **no frame at all**.
+
+**And two WebGPU-shaped decisions were still being taken unconditionally at seams that had
+already resolved the backend:**
+
+- `initScene:2084` — `world.scene.three.background = null`
+- `initScene:2088` and `initScene:4414` — `setClearColor(0x000000, 0)` (**transparent**)
+
+Both are correct **only** on native WebGPU, where the TSL output node's
+`mix(bgUniform, sceneColor, hasGeometry)` needs alpha=0 in empty space. On either WebGL backend
+they remove the only two things that paint the viewport. They were harmless in practice **only
+because `rpm.bind()` happens to run LATER in the same function and overwrite them** — RN1 moved
+the decision into the manager but left both rival writers standing. **A single authority whose
+correctness depends on the statement ORDER of a rival writer 1000 lines away is not a single
+authority.** The live-swap one is the sharper of the two: it primes the clear transparent
+**four lines after** it has assigned `pryzmRendererBackend = newResult.backend`.
+
+### THE NAMED GREY
+
+`--app-bg: #e8edf6` (`apps/editor/src/ui/styles/tokens.ts:20`) — the app-CHROME colour, described
+in this repo's own §VIEWPORT-BG-RESET-DRIFT note as *"a permanently GREY 3D viewport"*. It is the
+CSS on `#container` / `<bim-viewport>` beneath a transparent overlay, and it is the only grey in
+the five-surface stack. **Not proven to be the pixel the founder saw** — no report in this family
+has ever carried a hex, and two of the four fixes changed a surface that was already correct. See
+the probe below; the next report will carry one.
+
+### FIXES (lane RN2 — all in seams RN2 owns; `RenderPipelineManager` left untouched, GPU1 fence)
+
+1. **§VIEWPORT-BG-BACKEND-VOCABULARY — ONE predicate, written as a COMPLEMENT.**
+   `createRenderer.ts` now exports `isNativeWebGpuBackend()` and `isLightweightWebGlBackend()`,
+   the latter defined as `!isNativeWebGpuBackend(b)`. They **partition** `RendererBackend` by
+   construction, so a fourth backend string added tomorrow lands in the lightweight arm
+   automatically instead of falling out of every arm. Membership lists rot; complements do not.
+   All four `initScene` sites now read the predicate.
+2. **Both WebGPU-shaped stompers gated** on `isNativeWebGpuBackend()` (boot `:2084`/`:2088`, live
+   swap `:4414`), with a log line on the skipped branch.
+3. **The ROLLBACK arm now re-asserts both** `setLightweightWebGlRender()` and
+   `setPreLightweightFrameHook()`, symmetric with the success path. Both idempotent.
+4. **§VIEWPORT-BG-PROBE — `window.pryzmViewportBackgroundReport()`.** Read-only; names all five
+   surfaces that can be "the background of the 3D view" (overlay clear colour **+ alpha**,
+   `scene.background`, `<bim-viewport>` CSS, `#container` CSS) plus the resolved backend and
+   whether the lightweight render is armed. Also printed unconditionally after every live swap.
+   **Any future report of a wrong viewport background must carry its output.**
+5. **C04 §1.5 — "Viewport background: ONE authority, READ not PUSHED"**, normative, with the
+   two-mechanism table, the four-arm symmetry rule, the "complement, never a list" rule, and the
+   open residue below.
+
+Guards: `apps/editor/__tests__/viewportBackgroundBackendVocabulary.test.ts` (7 tests, incl. the
+partition property and a backend string outside the union). Editor + renderer-three suites green;
+root tsc COMPILER_RC=0.
+
+### OPEN — owned by `renderer-three` (RN2 did NOT touch RPM; GPU1 holds that file)
+
+- 🔴 **`bind()` discards the user's background and theme on every re-bind.** It unconditionally
+  re-seeds `_lightweightBgColor` from its `initialTheme` argument, and `recoverPipeline()`
+  hardcodes `'light'`. **Every live swap and every device-loss recovery therefore throws away a
+  custom scene background (`setColor`) and night mode (`setTheme`).** Push-only state reset by an
+  arm that does not know the current value — the same defect shape one level down. This is the
+  most likely remaining source of a "sometimes wrong" background that is NOT white.
+- 🔴 **`_lightweightWebGlActive` is stored when it is derivable** (`!_webGpuActive && renderer != null`).
+  Rule 4 of C04 §1.5 is discipline standing in for a structural fix; deriving it retires the
+  enumeration entirely and is the real close of this family.
+- 🟡 **`BottomActionMenu._toggleDayNight()`** writes `scene.background` directly, outside the
+  authority, and pushes its clear colour to `window.world.renderer.three` — the **OBC** renderer,
+  which draws nothing in Phase 5. Must route through `rpm.setTheme()` / `rpm.setColor()`.
+- 🟡 **`packages/render-pipeline/` is an orphan second copy of `BackgroundUniform`** whose
+  `DARK_BG_HEX` is the retired grey-navy `#1f2433`. No workspace depends on it. Delete it before
+  someone imports it.
+
+---
+
+## L-1192 — "level-by-level slab-by-region worked, now it only recognises the BELOW levels' ones": the region tracer's edge set was NEVER level-scoped ✅ FIXED 2026-08-19 (lane PROF1)
+
+**FOUNDER, 2026-08-19** (on Level 3, +9.000 m, region-slab tool active):
+*"I have been able to do level-by-level slab-by-region — working great — but now it doesn't. It
+only recognises the BELOW levels' ones. Why?"*
+
+```
+[SlabPlanToolHandler] §REGION-HOST-ATTRIBUTION region traced: 0 host-referenced edge(s) across
+0 wall(s), 17 free edge(s) (curved=0, no-wall-id=17, ambiguous=0). at=(-17.73, -3.28)
+searched=[18 wall(s), 99 slab edge(s), 0 curtain-wall edge(s), parcel boundary present (17 edge(s))]
+```
+
+**⭐ THE `searched=` CLAUSE NAMED IT.** `18 wall(s)` is the WHOLE PROJECT's wall count across all
+four storeys — his snapshot the same minute read `79 elements, 4 LEVELS, 18 walls, 3 slabs`. The
+traced ring was 17 anonymous edges and the parcel ring has exactly 17. The tracer's candidate set
+was every wall, every slab and the parcel, on every storey.
+
+### Root — ONE unscoped 2-D graph, producing TWO distinct failures
+
+`assembleRegionBoundary()` was handed `wallStore.getAll()` / `slabStore.getAll()` — project-wide —
+and the tracer welds every chord into a single XZ graph at `REGION_WELD_TOLERANCE_M` (0.15 m).
+
+1. **The wrong loop wins.** `findAttributedRegionWithHolesAtPoint` picks the SMALLEST enclosing
+   loop. A more-subdivided storey below offers a smaller loop at the same point, so it wins —
+   literally *"it only recognises the below levels' ones"*.
+2. **Attribution is erased.** A Level-3 wall stacked on its Level-2 twin welds onto the SAME node
+   pair; `buildAttributedClosedLoops` calls that `ambiguous` and drops the host id to `null` — his
+   `0 host-referenced edge(s)` and `ambiguous=4`. The ring is geometrically perfect and follows
+   NOTHING, so the region slab silently stops tracking its walls. ⭐ **No area check can see this
+   half**, which is why the proof asserts `hostWallIds`, not only the polygon.
+
+### ⚠ REGRESSION VERDICT — it is NOT a level-scoping regression. Scoping never existed.
+
+`git show <rev>:apps/editor/src/engine/views/plantools/SlabPlanToolHandler.ts` at EVERY revision
+back to the initial commit `c5cc471f` reads `window.wallStore.getAll()`. `WallStore.getByLevel()`
+(an O(1) indexed API) existed the whole time and was never used here — and the refusal text said
+*"13 wall(s) **on this level** were searched"* while searching every level. **A doc-shaped lie in a
+log line, which is what let this sit latent.**
+
+**What broke his workflow is `410013b0` (§FIX-REGION-BOUNDARY-SOURCES)**, which added two further
+**project-wide** sources — every slab outline and the parcel ring — to that unscoped graph. Provable
+from his own log: the first click's ring is 17 anonymous edges, the parcel has exactly 17 edges, and
+**the parcel was not in the search at all before `410013b0`**. His second click (`curved=41`) is the
+older below-storey-walls arm, which `410013b0` neither caused nor fixed. `7adba049` (L-1126) then
+copied the same widened, unscoped set onto the 3-D surface, so both surfaces carried it.
+
+⭐ **The transferable lesson: `410013b0` was a CORRECT fix, incomplete in a way its own tests could
+not show.** Widening a search is safe only if the search is already scoped on every axis that
+matters. The storey axis did not exist, so widening the source set widened it across storeys too.
+
+### Fix — SNAP1's model, reused, with the one difference stated
+
+`packages/geometry-slab/src/RegionBoundarySources.ts` now carries the policy, in ONE place, beside
+the assembler that is already the single place a source is added:
+`classifyRegionSourceLevel()` / `regionSourceParticipates()`, applied inside
+`assembleRegionBoundary()`.
+
+- **ACTIVE** (`levelId === activeLevelId`) — participates.
+- **OTHER** — ⛔ **EXCLUDED**, and counted in `counts.otherLevelExcluded`.
+- **DATUM** — the parcel boundary, unconditional on every storey. It is the property line, not the
+  ground storey's edge; a third-floor balcony is constrained by it exactly as the ground floor is.
+- **UNKNOWN** (no `levelId`, or no `activeLevelId` supplied) — participates unchanged. Passing
+  `activeLevelId` is what OPTS a call site in; every existing caller and test handing bare
+  `{ baseLine }` shapes is bit-identical.
+
+**⭐ EXCLUSION, where ADR-0335 / C06 §9 chose DEMOTION — and the difference is mechanical, not
+stylistic.** A snap RANKS candidates: it picks one reference and the user sees which won, so a
+demoted other-storey candidate is genuinely available-but-subordinate, and demotion is right there.
+A region trace COMPOSES candidates: a demoted-but-present chord is still in the graph, still welds
+onto shared nodes, and still consumes edges via `visitedEdges` (keyed by node pair). **There is no
+ranking step for a demotion to act on** — it would be a no-op with a comment attached. And a slab is
+a physical plate on ONE storey: a loop half-formed from Level-3 walls and half from the Level-2
+shell describes no plate that exists.
+
+Both surfaces opt in, each from the storey its own committer stamps, so the search and the commit
+cannot describe different levels (the C84 EI-9 property this gesture has now lost three times —
+L-956, L-959, L-1126):
+- `SlabPlanToolHandler._boundaryEdgeSet()` → `viewDef.spatial.levelId`
+- `SlabTool.findRegionAtPoint()` → `projectContext.activeLevelId`
+
+**The `searched=` clause now reports the scope**, so *"this search was project-wide"* is a READING
+and never an inference — the property whose absence cost this round trip.
+
+### Proof
+
+`packages/geometry-slab/__tests__/regionLevelScope.test.ts` — **12 tests, real assembler feeding the
+real tracer, nothing stubbed.** Two fixtures, each asserted in BOTH its unscoped and its scoped
+form: unscoped, the Level-2 room wins (area 36, `storeys: ['l2']`) and coincident storeys collapse
+to `hostEdges: 0` with `ambiguousFallbacks > 0`; scoped, the Level-3 room wins (area 100,
+`storeys: ['l3']`, `hostEdges: 4`, `ambiguous: 0`).
+
+⚠ **An earlier draft of this test did not reproduce the defect** — its fixture put the storey-below
+shell OUTSIDE the active room, so "smallest enclosing loop" chose correctly even unscoped and the
+test was green BEFORE the fix. Caught by running it. Both fixtures now pin the wrong-storey outcome
+explicitly, which is what makes them red without the fix rather than merely green with it.
+
+### Documented
+
+C92 §10.x — the normative scope table, the regression verdict, and the exclusion-vs-demotion
+reasoning.
+
+### NOT MEASURED
+
+- `plugins/roof`'s by-region path (ported to this tracer at `625a9926`) passes no `activeLevelId`,
+  so it is UNKNOWN-scoped and behaves exactly as before. **Safe, not correct** — an open item, not
+  a clearance. Outside this lane's fence.
