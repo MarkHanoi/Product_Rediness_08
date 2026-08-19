@@ -115,8 +115,8 @@ export const SEED_FURNITURE_CATALOGUE: readonly FurnitureCatalogueEntry[] = [
       '3': stack(SOFA_SIZE.x, SOFA_SIZE.y, SOFA_SIZE.z),
       '4': luxury(SOFA_SIZE.x, SOFA_SIZE.y, SOFA_SIZE.z),
     },
-    materialSlots: { primary: 'fabric-grey' },
-    materialId: 'fabric-grey',
+    materialSlots: { primary: 'fabric-wool-felt-grey' },
+    materialId: 'fabric-wool-felt-grey',
   },
   {
     id: 'pryzm/table-rect',

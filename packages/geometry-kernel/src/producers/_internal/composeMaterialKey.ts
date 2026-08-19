@@ -69,13 +69,36 @@ export function unresolvedIdOf(slot: string): string | null {
 }
 
 /**
- * Resolve the colour slot, per C84 §2.1's precedence:
- *   1. an explicit user OVERRIDE hex           -> use it
+ * ⭐ THE ONE RESOLUTION AUTHORITY (C100 §9 / MT-3).
+ *
+ * Resolve the colour slot, per C100 §2.1's precedence:
+ *   1. an explicit user OVERRIDE hex            -> use it
  *   2. else `materialId` resolved in the master -> that material's colour
  *   3. else `materialId` present but unknown    -> `unresolved:<id>` (a NAMED failure)
- *   4. else no material named at all            -> the family default
+ *   4. else no material named at all            -> `familyDefault`
+ *
+ * ─── Why `familyDefault` is a PARAMETER and not the beige constant ──────────
+ * Measured 2026-08-19 (C100 §9): thirteen producers mint a material key and
+ * **twelve of them resolve nothing** — they write a raw `materialColor`, a
+ * per-slot canonical hex, or a bare constant into the colour slot, so the
+ * `materialId` sitting one slot over never reaches the screen.  Converging them
+ * means every one of those call sites can hand its OWN default here.
+ *
+ * Forcing them all onto {@link NO_MATERIAL_COLOR} instead would repaint every
+ * unmaterialled slab, roof deck and ceiling in the product beige — a visible
+ * regression, and one that would rightly get the convergence reverted.  The
+ * defect being fixed is *"a chosen material does not render"*, NOT *"families
+ * have different defaults"*: a roof trim being white and a slab soffit being
+ * grey is a legitimate family difference (C84 EI-10), and C100 §3 explicitly
+ * permits an adapter to carry family render constants.
+ *
+ * So: the DEFAULT stays local, the RESOLUTION becomes shared.  That is the
+ * whole of MT-3 in one signature.
  */
-function resolveColorSlot(input: MaterialKeyInput): string {
+export function resolveMaterialColorSlot(
+  input: MaterialKeyInput,
+  familyDefault: string,
+): string {
   const override = input.materialColor;
   if (override && override.length > 0) return override.toLowerCase();
 
@@ -86,7 +109,12 @@ function resolveColorSlot(input: MaterialKeyInput): string {
     return `${UNRESOLVED_PREFIX}${id}`;
   }
 
-  return NO_MATERIAL_COLOR;
+  return familyDefault;
+}
+
+/** The wall/generic form: the family default is {@link NO_MATERIAL_COLOR}. */
+function resolveColorSlot(input: MaterialKeyInput): string {
+  return resolveMaterialColorSlot(input, NO_MATERIAL_COLOR);
 }
 
 export function composeMaterialKey(input: MaterialKeyInput): MaterialKey {

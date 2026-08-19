@@ -300,6 +300,13 @@ is discharged by a named decision (§8.2 S8), never by quiet accretion.
 
 ### §4.3 The 18 `material-bridge.ts` files — **LEGITIMATE ADAPTERS (16) / DEFECTIVE (2)**
 
+> ⚠ **SUPERSEDED IN PART BY §9.4 (2026-08-19). Read §9.4 before acting on this section.** The "16/2"
+> split and the single key format asserted below were both measured wrong: there are **eighteen
+> distinct key layouts**, not one, and **four** bridges are defective, not two — `furniture` hashes
+> the `materialId` into an 8-colour palette, which this section counted as an adapter. The review
+> test stated below also passes a bridge that is *entirely disconnected* from the master, because a
+> master recolour cannot force an edit in a file the master never reaches.
+
 ⛔ Decided by **reading** them, not by counting them.
 
 **They are not palettes.** A bridge splits a kernel-emitted `MaterialKey`
@@ -523,7 +530,13 @@ C70 §7.1 those four axes are **UNPROVEN**, never green.
 - **S2** — `composeMaterialKey` **resolves `materialId` against the master** instead of defaulting to
   beige, and emits the §5 unresolved marker when it cannot. This is the single point that decides the
   rendered colour for **every** family, which is why it is the highest-value slice.
-- **S3** — ⛔ **WITHDRAWN from this lane.** The handrail bridge was to be fixed here; a concurrent
+- **S3** — ⛔ **WITHDRAWN from this lane, and its REPLACEMENT PROOF IS RETRACTED — see §9.3.** The
+  coverage proof was moved to **door** on the stated grounds that door's producer *"does route
+  through `composeMaterialKey`"*. It does not: that name appears in `producers/door.ts` only in a
+  comment, the producer hard-codes `const materialId = ''`, and door's schema has no `materialId` at
+  all. The test standing as the proof never constructs a door. **Do not cite S3 as coverage.**
+  Original text follows.
+- **S3 (original)** — ⛔ **WITHDRAWN from this lane.** The handrail bridge was to be fixed here; a concurrent
   lane has since wired handrail's `materialId` to the screen through a single `resolveColour()` and
   therefore OWNS the file. Editing it would collide. What that lane left is **one re-point site**, and
   re-pointing it at the master is its own commit. The coverage proof moves to **door** — a family
@@ -555,3 +568,223 @@ C70 §7.1 those four axes are **UNPROVEN**, never green.
 Two lanes are in this code at stamp time. **MUST**: every accessor in §1.3 keeps its name, signature
 and behaviour; a lane consuming the library mid-flight must not be broken by the library being
 restructured beneath it. ⛔ **MUST NOT**: this lane edits `HandrailTypeStore.ts` (§4.5).
+
+---
+
+## §9 — The consumption census, and the convergence plan (measured 2026-08-19)
+
+> **Stamp**: 2026-08-19 · **Status**: §9.1–§9.5 are MEASURED FINDINGS; **§9.6 is normative TO-BE**.
+> **Founder request**: *"I need to make sure that all elements are consuming materials from the
+> database. PRYZM is data-first… all consumers should gather the material from the same master
+> material data."*
+> **Measured by**: lane MT1. Census banked as **L-1038**; this section and its gate as **L-1120**.
+> ⚠ **This section CORRECTS §4.3 and §8.1 S3.** Both are wrong, and both are wrong in the same
+> direction — they describe a convergence that was authored but never wired.
+
+### §9.1 — The answer, in one line
+
+> ⛔ **No. Of the sixteen element families that carry a `materialId`, exactly ONE — `wall` — has that
+> id reach the rendered colour. Every other family carries the id through the pipeline and drops it
+> before the pixel.**
+
+And the loss compounds, so the four states must not be flattened (L-1038):
+
+| how the material is lost | families |
+|---|---|
+| **renders, then DIES ON SAVE** | `stair`, `beam`, `curtain-wall`, `furniture`, `plumbing` — five per-family serializers write no `materialId` |
+| **never persisted at all** | `lift`, `lighting`, `structural`, materially `dimension` |
+| ⛔ **no `materialId` EXISTS to lose** | **`door`, `window`** — colour-only in the L0 schema (`Door.ts:59-60`, `Window.ts:57`). C100 §2.1's explicit MUST NOT, for two of the most-used families in the product |
+| **never reaches export** | **all of them** — zero `IfcMaterial` / `IfcMaterialLayerSet` / `IfcRelAssociatesMaterial` repo-wide. What exports is a raw colour scraped off the THREE mesh; the only material *strings* reaching IFC are free-text pset values. **Prose, not catalogue ids.** |
+
+### §9.2 — The mechanical cause, and it is ONE thing
+
+`composeMaterialKey` — the only function that resolves a `materialId` against `MATERIAL_CATALOG` on
+the render path — is imported by **one** producer file. §8.1 **S2 claims it is *"the single point that
+decides the rendered colour for **every** family"***. It is not, and the measurement is blunt:
+
+```
+npx tsx tools/ga-gate/check-material-id-required.ts    # ARM C
+  → 17 key-minting producers, 0 route their colour slot through the master
+```
+
+`wall` does not appear in that 17 and that is not a miss: wall has **no minter of its own** — its key
+is minted *by* the resolver. That is precisely why wall is the one family that works.
+
+⛔ **`composeFamilyMaterialKey` — written expressly to extend that resolution to the other families,
+with a header naming handrail's defect as its motivation — has ZERO callers.** It has never run.
+§COMMITTED-IS-NOT-REACHABLE, inside the fix for the defect it was written to fix.
+
+### §9.3 — §8.1 S3 is RETRACTED: the coverage proof does not touch its subject
+
+S3 withdrew the handrail fix (correctly — a concurrent lane owned the file) and moved the coverage
+proof to **door**, justified as *"a family that likewise read neither library and whose producer
+**does** route through `composeMaterialKey`."*
+
+**Both halves of that justification are false.**
+
+- `producers/door.ts` **does not import** `composeMaterialKey`. The only occurrence of that name in
+  the file is a **comment** (`:13-14`) saying door's key is *"symmetrical with"* it. Door mints its
+  own key at `:55` — and hard-codes **`const materialId = '';`** at `:203`.
+- Door has no `materialId` to route. Its schema carries `frameColor` + `leafColor` and nothing else.
+
+The test standing as that proof, `masterMaterialResolution.test.ts` C-1, is titled *"resolves an
+id-only **door** to that material colour"* and calls `composeMaterialKey` **directly**. It never
+constructs a door, never calls `produceDoor`, and would pass unchanged if `producers/door.ts` were
+deleted. ⭐ **Its own header forbids exactly this** — *"asserting `materialHex()` returns a hex would
+prove only that a pure function works."* The header is right; the test does the thing the header
+forbids, one call deeper. **A fake built from the header cannot falsify the header.**
+
+### §9.4 — §4.3's "16 legitimate adapters / 2 defective" is corrected
+
+§4.3 reasons from *"a bridge splits a kernel-emitted `MaterialKey`
+(`<family>|<systemTypeId>|<materialId>|<color>|<slot>`)"* — **one format, asserted.** Measured, the
+producers mint **eighteen distinct key layouts**, and that format is minted by **five** of them
+(wall, slab, door, window, column/beam). The colour slot sits at index **3** for most, index **2**
+for `ceiling` and `room`, index **4** for curtain-wall `panel`, and **does not exist at all** for
+`stair`, `handrail` and `furniture`.
+
+⭐ **MT-2's expected finding did NOT reproduce, and the negative result is the useful one.** L-1053
+(curtain-wall parsing a layout nothing minted) was assumed to have siblings. It does not: every other
+bridge reads the index its own minter writes. **The bridges and minters AGREE. What they agree on is
+a colour that was never resolved from the master** — which is why eighteen internally-consistent
+adapters still deliver the wrong material.
+
+§4.3's review test — *"if a material is recoloured in the master, does this file need editing?"* —
+returns "no" for a bridge that is **entirely disconnected** from the master, so a dead adapter passes
+it. Applied with that hole closed, **four** bridges are defective, not two:
+
+| bridge | defect |
+|---|---|
+| `handrail` | `colorOfHandrailMaterialKey(_key)` ignores its argument; returns `#5a4a3a` always. Already §4.3's finding. ⛔ HR1-owned. |
+| ⛔ `furniture` | `hashMaterialId()` — a **DJB2 hash of the `materialId` indexed into an 8-colour `PALETTE`**. A recolour in the master changes nothing; two unrelated materials collide onto one hue. This is a **rival colour authority**, not an adapter, and §4.3 missed it. |
+| `door` | `DOOR_KEYWORD_COLORS` — regex keyword→hex inference |
+| `window` | `inferFrameColor` — the same |
+
+⚠ **Door's keyword table is the one to read as architecture, not as sloppiness.** Its header states
+it exists because *"inline keyword colours respect the L7→L6 boundary (no core-app-model import)."*
+§4.3 already established **no such boundary exists**. But the deeper point stands regardless of that
+error: **a copy was made because the author believed the master was unreachable from their layer, and
+a layering constraint that makes the master unreachable will keep manufacturing rival vocabularies.**
+That is §0.2's finding recurring at L6/L7 instead of L2. It is an architecture question and §9.6
+answers it explicitly, rather than deleting the table and waiting for the next one.
+
+### §9.5 — The id vocabulary has DRIFTED, and this blocks the wiring
+
+⭐ **The single most consequential finding, and it inverts the fix order.**
+
+The master is **204 rows, 100% kebab-case, zero dots, zero underscores**. But **every `materialId` in
+the repo's own parity fixtures is ABSENT from it** — `gypsum.standard`, `acoustic.tile`,
+`plaster.painted`, `glass.fritted`, `mat_concrete_dark`: three rival naming conventions, none of them
+the master's.
+
+> **Nobody noticed because nobody resolved them. An id no one looks up is an id no one validates** —
+> §NO-EMPTY-MEANS-UNKNOWN, one layer beneath the code: the *data* was never checked because the
+> *code* never asked.
+
+**Therefore the wiring MUST NOT go first.** Turning resolution on across thirteen producers today
+would be §5-correct and product-catastrophic: every drifted id would correctly become
+`unresolved:<id>` and render magenta on real projects. §9.6 sequences reconciliation ahead of wiring
+for this reason and no other.
+
+⚠ Production is in better shape than the fixtures: `WallSystemTypeStore`, `SlabSystemTypeStore`,
+`FloorSystemTypeStore`, `HandrailTypeStore` and the furniture seed all use real master ids. **The
+gate's ARM B measures the remainder** — do not transcribe its count here.
+
+### §9.6 — THE CONVERGENCE PLAN (normative TO-BE)
+
+⛔ **This is NOT eighteen fixes.** **ONE resolution authority; ONE colour-slot contract; per-family
+adapters only where a family genuinely differs.**
+
+**§9.6.a — The resolution authority already exists. MUST NOT mint a second.**
+`packages/core-app-model/src/materialResolution.ts` (`resolveMaterialColour`) implements §2.1's
+ladder **once**: T2 then T1, and it returns a **discriminated union** whose `unresolved` member
+carries a `reason` and **no hex**, so a caller *cannot* render a fallback by accident — the compiler
+makes them handle it. **MUST**: every new consumer calls it. **MUST NOT**: any family chain
+`userMaterialStore.get()` and `materialHex()` itself; a second private chain is how the next rival
+gets written.
+
+⚠ Its one limitation is a **layer** fact, not a design fault: it sits at **L2** and imports
+`UserMaterialStore`, so `geometry-kernel` cannot call it. That is the same reachability wall as §0.2.
+**MUST**: the kernel-side resolution is `resolveMaterialColorSlot(input, familyDefault)` in
+`producers/_internal/composeMaterialKey.ts` — T1-only, THREE-free, **the same precedence** — and it
+is a **declared, temporary divergence** under C84 EI-10, not a rival:
+*reason* — L0/L2 layering; T2 is not reachable from the kernel.
+*equivalence* — identical precedence and identical `unresolved:` marker on the T1 arm.
+*retirement* — collapses into one call the moment `UserMaterialStore`'s data is reachable at L0 or
+the kernel is handed a resolver by injection. **MUST NOT** let a third appear: the gate's ARM C keys
+on these two names.
+
+**§9.6.b — Converge the VALUE, not the FORMAT.**
+The eighteen key layouts are **not the defect** (§9.4) and rewriting them would churn every parity
+snapshot for no user-visible gain. **MUST**: every producer's colour slot is produced by
+`resolveMaterialColorSlot`. **MUST NOT**: this contract be cited to mandate a single key string
+layout. A family's slot *count*, *order* and *extra slots* stay its own — C100 §3 already permits
+family render constants, and a roof trim defaulting to white while a slab soffit defaults to grey is
+a legitimate difference (C84 EI-10), which is why `familyDefault` is a **parameter** rather than the
+beige constant. Forcing one default would repaint every unmaterialled element in the product and get
+the convergence rightly reverted.
+
+**§9.6.c — The order is forced, and it is not the obvious one.**
+
+1. **RECONCILE the ids first** (§9.5). Gate ARM B is the meter. Until it reads 0, wiring converts
+   silent-wrong into loud-wrong on live projects.
+2. **PERSIST second.** A material that renders correctly and dies on save is worse than one that
+   never rendered — the user believes it was recorded. Five serializers (ARM D). ⚠ `ProjectSerializer`
+   / `ProjectLoader` are concurrent-lane-owned; this is a **coordinated** change, not a drive-by.
+3. **WIRE the producers third**, family by family, each landing with a test that drives a **real DTO
+   through the real producer into the real bridge** and asserts the master's hex — never
+   `composeMaterialKey` in isolation (§9.3).
+4. **SCHEMA fourth** — `door` and `window` gain a `materialId`. Per **C67 §6 / C68 §4–§5** a new
+   user-visible attribute binds a verb, a panel row and a chat capability; and per §6.2 the
+   `*.setMaterial` verbs are the repository's canonical **dead-verb** exhibit, so this slice **MUST
+   NOT** ship without a real batch carrier and an executed read-back.
+5. **EXPORT last** — IFC `IfcRelAssociatesMaterial` (C25), the only step that makes the id mean
+   anything to another tool.
+
+**§9.6.d — Make the master reachable from L7, or the copies continue.**
+Door's and window's keyword tables were authored under a *believed* layering constraint (§9.4).
+**MUST**: the resolution authority is reachable from every layer that must name a material — L0 for
+T1 today, and an injected or L0-hosted T2 for the rest. **MUST NOT**: a family be asked to "just not
+copy" while the master is unreachable from where it stands. That rule is unsatisfiable, and
+§UNSATISFIABLE-GATE-DECOMPOSITION-IS-THE-FIX applies: decompose first, then the rule is obeyable.
+
+### §9.7 — The gate
+
+**`tools/ga-gate/check-material-id-required.ts`** — §2.1's MUST NOT shipped **violated**, and a rule
+with no gate is a wish. Four shrink-only arms, baselined at the 2026-08-19 measurement:
+**ARM A** a schema with a colour field and no `materialId` · **ARM B** a stored `materialId` that
+resolves to nothing · **ARM C** a producer minting a key without the master resolver · **ARM D** a
+per-family serializer that does not persist `materialId`.
+
+Exit **0** within baseline · **2** MISCONFIGURED · **3** ratchet exceeded — never aliased, so
+*could-not-measure* is never mistaken for *measured-a-failure*. Each arm carries a subject floor
+(§RATCHET-R5): a scan that finds nothing FAILS. **Cite the gate, never these numbers.**
+
+⚠ **These four arms are exactly the axes `check-material-single-source.ts` prints as NOT CHECKED in
+its own output** — which is where every loss in §9.1 lives. That gate was **BUILT and never
+registered**: §7 called it enforcement, and `run-all.ts` had never heard of it. Both are now
+registered.
+
+⚠ **And its projection arm had a hole of the same shape as §0.3's counting hole:** it matched
+`#rrggbb` only, so `materialLibrary.ts`'s wall presets (`color: 0xe8e8e8`, `0xf5f5f5`) sat in the
+projection in plain sight and the gate reported *"0 colour literals"*. ⭐ **A gate that checks one
+spelling of a value does not check the value.** Now measured, as declared debt with an owning slice
+(S13) — folding them requires deciding whether a schematic/realistic wall preset is a **material** or
+a **view style** (C04), and guessing would mint the rival the gate exists to prevent.
+
+⛔ **What §9's gate still does NOT decide** — stated so it is never read as coverage. It does not
+prove a resolved colour reaches a **pixel** (ARM C proves the import, not the frame); it does not
+check `ProjectLoader`'s read side, only the write side; it does not measure IFC/GLB material export
+at all; and it cannot tell a *deliberate* family default from a *forgotten* one. Per C70 §7.1 those
+four axes are **UNPROVEN**, never green.
+
+### §9.8 — Slices
+
+| slice | what | state |
+|---|---|---|
+| **S13** | `materialLibrary.ts`'s four `0x` wall presets: master row, or C04 view style? | NAMED, blocked on a design decision |
+| **S14** | Reconcile drifted ids to master ids (ARM B → 0) | OPEN — prerequisite for S16 |
+| **S15** | Persist `materialId` in the five serializers that drop it (ARM D → 0) | OPEN — coordinated with the persistence lane |
+| **S16** | Route every producer's colour slot through the resolver (ARM C → 0) | OPEN — blocked on S14 |
+| **S17** | `door` + `window` gain `materialId` (ARM A → 0), with a real carrier per §6.2 | OPEN — largest, and C67/C68-bound |
+| **S18** | IFC `IfcRelAssociatesMaterial` (C25) | OPEN — nothing reaches export today |

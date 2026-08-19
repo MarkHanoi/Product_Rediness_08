@@ -143,6 +143,32 @@ if (/new THREE\.Color\(\s*[\d.]+\s*,/.test(projSrc)) {
   fail('A', `${PROJECTION} builds a THREE.Color from literal channels - material data belongs in the catalogue`);
 }
 
+/**
+ * ⚠ L-1120 — THE SECOND SPELLING. The check above matched only `#rrggbb`, so
+ * `materialLibrary.ts`'s wall presets (`color: 0xe8e8e8`, `0xf5f5f5`) sat inside
+ * the projection, in plain sight, and the gate reported "0 colour literals".
+ *
+ * ⭐ A gate that checks ONE SPELLING of a value does not check the value. This is
+ * the same defect shape the gate's own header warns about for COUNTS (a grep that
+ * cannot see an id cannot govern it), recurring for LITERALS.
+ *
+ * These four occurrences are DECLARED DEBT with an owning slice, not permission:
+ * they are wall render presets, and C100 §1.3's "no colour literal in the
+ * projection" is absolute, but folding them means deciding whether a schematic /
+ * realistic wall preset is a MATERIAL (a master row) or a VIEW STYLE (C04's
+ * territory, and then they do not belong in this file at all). That is a design
+ * decision — guessing it would mint the rival this gate exists to prevent.
+ * Owner: C100 §9 slice S13. SHRINK-ONLY.
+ */
+const PROJECTION_0X_BASELINE = 4;
+const proj0x = projSrc.match(/\b0x[0-9a-fA-F]{6}\b/g) ?? [];
+if (proj0x.length > PROJECTION_0X_BASELINE) {
+  fail(
+    'A',
+    `${PROJECTION} contains ${proj0x.length} 0x colour literal(s), baseline ${PROJECTION_0X_BASELINE} - a projection MAPS the master. A baseline is not permission (C68). Found: ${[...new Set(proj0x)].slice(0, 6).join(', ')}`,
+  );
+}
+
 // ── ARM B — finishRef DERIVES; it transcribes nothing ────────────────────────
 const finishSrc = read(FINISH_REF);
 const finishHexes = finishSrc.match(/#[0-9a-fA-F]{6}\b/g) ?? [];
@@ -168,14 +194,18 @@ for (const r of KNOWN_RIVALS) {
 
 console.log('material-single-source');
 console.log(`  catalogue : ${entries.length} rows, ${new Set(ids).size} unique ids  [${CATALOG}]`);
-console.log(`  projection: ${projHexes.length} colour literals (must be 0)  [${PROJECTION}]`);
+console.log(`  projection: ${projHexes.length} '#rrggbb' literals (must be 0), ${proj0x.length}/${PROJECTION_0X_BASELINE} '0x' literals (declared debt, C100 §9 S13)  [${PROJECTION}]`);
 console.log(`  finishRef : ${finishHexes.length} hex literals (must be 0)  [${FINISH_REF}]`);
 console.log(`  ledger    : ${KNOWN_RIVALS.length} declared rival(s), each with an owning slice:`);
 for (const r of KNOWN_RIVALS) console.log(`      - ${r.file} : ${r.why} (${r.slice})`);
 console.log('  NOT CHECKED (C85 §7.1 - UNPROVEN per C70 §7.1, never an inherited green):');
-console.log('      whether a stored materialId EXISTS in the catalogue; hex literals in unrelated UI');
-console.log('      chrome; whether a family USES the master rather than merely minting no rival;');
-console.log('      persistence round-trip of material references.');
+console.log('      hex literals in unrelated UI chrome; whether an ELEMENT INSTANCE (as opposed to a');
+console.log('      type default) names a resolvable material; IFC/GLB material export.');
+console.log('  NOW CHECKED ELSEWHERE - check-material-id-required.ts (C100 §9, added 2026-08-19):');
+console.log('      ARM A colour-without-id . ARM B a stored materialId that resolves to NOTHING .');
+console.log('      ARM C a producer that mints a key without the master resolver . ARM D persistence');
+console.log('      round-trip. Those four were listed here as NOT CHECKED and are where every');
+console.log('      measured material loss in L-1038 lives.');
 
 if (failures > 0) {
   console.error(`\nFAIL - ${failures} violation(s). C85 §1: one material vocabulary.`);

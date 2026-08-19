@@ -12208,3 +12208,147 @@ entirely NOT MEASURED.**
 **Runs:** 11 files / 124 passed + 1 expected fail (the L-1066 pin) · 10 files / 69 passed.
 
 **Owner: unassigned (WA1 terminated).**
+
+## L-1120 — C100 §2.1 had no gate, C100 §7's gate was never registered, and the one that ran checked a single spelling (FIXED — gate built + both registered, 2026-08-19)
+
+**Lane MT1, continuing the L-1038 census.** L-1038 answered *"are all elements consuming from the
+master material database?"* — **no**. This entry is what was done about it: the plan, the gate, and
+two fixes. Contract: **C100 §9** (new, normative TO-BE).
+
+### The three enforcement holes, all measured
+
+1. ⛔ **`check-material-single-source.ts` was BUILT and NEVER REGISTERED.** C100 §7 named it as the
+   contract's enforcement; `tools/ga-gate/run-all.ts` had never heard of it
+   (`grep -n material-single-source tools/ga-gate/run-all.ts` → no match). **An unregistered gate is
+   the authored-but-unwired failure it exists to prevent, one level up** — the fourth instance of
+   this shape in the register.
+2. ⛔ **C100 §2.1's MUST NOT had no gate at all.** *"A family MUST NOT store only a hex and call it a
+   material"* shipped violated by `door` and `window` in the L0 schema.
+3. ⚠ **The gate that did run checked ONE SPELLING of a colour.** Its projection arm matched
+   `#rrggbb` only, so `materialLibrary.ts:110-142`'s wall presets — `color: 0xe8e8e8`, `0xf5f5f5`,
+   four occurrences — sat inside the projection in plain sight while it printed *"0 colour
+   literals"*. ⭐ **A gate that checks one spelling of a value does not check the value.** Same shape
+   as C100 §0.3's counting hole (an id a grep cannot see is an id a gate cannot govern), recurring
+   for literals instead of counts.
+
+### What was built
+
+**`tools/ga-gate/check-material-id-required.ts`** — four shrink-only arms, each with a subject floor
+(§RATCHET-R5), exit **0** within baseline / **2** MISCONFIGURED / **3** ratchet exceeded, never
+aliased:
+
+- **ARM A** — a schema declaring a colour field and no `materialId`.
+- **ARM B** — a `materialId` string literal in production that resolves to nothing in `MATERIAL_CATALOG`.
+- **ARM C** — a producer minting a `MaterialKey` without importing the master resolver.
+- **ARM D** — a per-family `serialize<Family>()` that does not persist `materialId`.
+
+⭐ **ARM A–D are precisely the axes `check-material-single-source.ts` prints as NOT CHECKED in its own
+output**, and precisely where every loss in L-1038 lives. **Both gates are now registered in
+`run-all.ts`; both are green at their declared baselines.** Cite the gate, never these numbers.
+
+### ⚠ Two gate defects found while building the gate — both FAILED GREEN
+
+Recorded because both produced a *plausible* number, which is the dangerous failure mode:
+
+- **A backspace in a regex.** The `0x` arm was written via a shell heredoc that turned `\b` into a
+  literal `0x08` byte, so the regex was `/<BS>0x[0-9a-fA-F]{6}<BS>/` and matched **nothing**. `grep`
+  rendered the control character invisibly, so the line **looked** correct in review and the gate
+  reported `0/4`. It only surfaced because the count disagreed with a plain-`node` check of the same
+  file. **Verify a new gate against an independent reading of its own subject before trusting it.**
+- **ARM D measured the wrong span, twice.** Bounding each serializer body at the next
+  `serialize<Family>`, then at the next top-level `function `, both left the LAST serializer running
+  to end-of-file, where it inherited a `materialId` mention from a comment 270 lines away and
+  reported itself compliant. Both spans returned **4**; the truth is **5** (`serializePlumbing`
+  writes `color: p.color` and no id). Fixed by brace-matching the body exactly. ⭐ **A gate that
+  measures the wrong region is the defect it exists to catch, and it fails GREEN.**
+
+### The convergence plan — C100 §9.6, and it is NOT eighteen fixes
+
+**ONE resolution authority, ONE colour-slot contract, per-family adapters only where a family
+genuinely differs.** Key rulings:
+
+- **Build on HR1's ladder, never a second one.** `packages/core-app-model/src/materialResolution.ts`
+  already implements §2.1's precedence once and returns a **discriminated union whose `unresolved`
+  member carries a reason and NO hex**, so a caller physically cannot render a fallback by accident.
+- The kernel cannot reach it (L2, imports `UserMaterialStore`), so `resolveMaterialColorSlot(input,
+  familyDefault)` in `composeMaterialKey.ts` is a **declared C84 EI-10 divergence** — named reason,
+  stated equivalence, stated retirement condition — not a rival. ARM C keys on those two names so a
+  third cannot appear quietly.
+- ⛔ **Converge the VALUE, not the FORMAT.** The eighteen key layouts are not the defect; rewriting
+  them churns every parity snapshot for no user-visible gain.
+- ⭐ **The order is FORCED and it is not the obvious one: reconcile ids BEFORE wiring resolution.**
+  Every `materialId` in the repo's own parity fixtures is absent from the master (three rival naming
+  conventions). Wiring first would be §5-correct and product-catastrophic — every drifted id
+  correctly becomes `unresolved:` and renders magenta on live projects. Then: persist → wire →
+  schema (`door`/`window`, C67/C68-bound) → IFC export.
+- **The master must become reachable from L7, or the copies continue.** Door's `DOOR_KEYWORD_COLORS`
+  exists because its author believed `core-app-model` was unimportable from a plugin. **A layering
+  constraint that makes the master unreachable manufactures rival vocabularies**; that is an
+  architecture item, not a cleanup.
+
+### Fixed here
+
+- `plugins/furniture/src/catalogue/seed.ts` — the 3-seat sofa named `fabric-grey`, **which is not a
+  master id**. Repointed to `fabric-wool-felt-grey`. ARM B baseline 9 → 8.
+- `packages/geometry-kernel/src/producers/_internal/composeMaterialKey.ts` — the resolution ladder is
+  extracted and **exported** as `resolveMaterialColorSlot(input, familyDefault)`, the single kernel-side
+  authority C100 §9.6.a names. Additive; behaviour unchanged (`resolveColorSlot` delegates to it).
+  `familyDefault` is a **parameter** deliberately: forcing every family onto the beige constant would
+  repaint every unmaterialled slab, roof deck and ceiling in the product.
+- `tools/ga-gate/check-material-single-source.ts` — `0x` colour literals now measured, as declared
+  debt (4/4, owner C100 §9.8 S13); its NOT-CHECKED block now names the gate that covers those axes.
+- `docs/02-decisions/contracts/C100-MASTER-MATERIAL-DATABASE.md` — **§9 added**; **§4.3 and §8.1 S3
+  carry in-place correction banners** (§4.3's "16 adapters / 2 defective" and its single-key-format
+  premise are both wrong; S3's replacement coverage proof is retracted — see below).
+
+### ⛔ C100 §8.1 S3's coverage proof was a fake, and it is retracted
+
+S3 moved the coverage proof to **door**, justified as *"a family whose producer **does** route
+through `composeMaterialKey`"*. **It does not.** That name occurs in `producers/door.ts` only in a
+**comment**; the producer mints its own key and hard-codes `const materialId = ''`; and door's schema
+has no `materialId` at all. The test standing as the proof —
+`masterMaterialResolution.test.ts` C-1, *"resolves an id-only **door**"* — calls `composeMaterialKey`
+directly, never constructs a door, and **would pass unchanged if `producers/door.ts` were deleted**.
+⭐ Its own header forbids exactly this: *"asserting `materialHex()` returns a hex would prove only
+that a pure function works."* **A fake built from the header cannot falsify the header.**
+
+### Two claims from the brief that did NOT reproduce — recorded because negative results are load-bearing
+
+- **"Wall's bridge reads slot 3 and never slot 2, so the library id is discarded."** ⚠ Measured, wall
+  is the ONE family that is correct: `composeMaterialKey` **resolves `materialId` through
+  `materialHex()` into slot 3**, so reading slot 3 *is* reading the master. Wall's bridge is not the
+  defect; it is the reference implementation.
+- **"Expect more of L-1053's shape"** (a bridge parsing a layout nothing mints). ⭐ **It does not
+  reproduce.** Every other bridge reads the index its own minter writes. **The bridges and the
+  minters AGREE — what they agree on is a colour that was never resolved from the master.** That is
+  why eighteen internally-consistent adapters still deliver the wrong material, and it is why the fix
+  is one resolver rather than eighteen parsers.
+
+### Belongs to other lanes — reported, not edited
+
+- **HR1** — `plugins/handrail/.../material-bridge.ts` still ignores its key argument entirely
+  (`colorOfHandrailMaterialKey(_key)` → `#5a4a3a`), so every handrail renders one brown regardless of
+  the `materialId` HR1 wired into the type store. The producer emits `handrail|<materialId>|rail`;
+  the id is in the key and thrown away. Also `packages/types-builtin/src/handrail/index.ts` uses
+  dotted ids (`wood.oak`, `steel.painted`) that resolve to nothing, disagreeing with
+  `HandrailTypeStore`'s correct kebab ids — **two handrail type stores, two id vocabularies** (C84 EI-9).
+- **CW1** — `serializeCurtainWall()` writes no `materialId` (ARM D). Not edited: `ProjectSerializer`
+  is CW1's during this session.
+- **Orchestrator (C84/C85)** — `furniture`'s `hashMaterialId()` is a **rival colour authority**
+  (DJB2 hash → 8-colour palette), not an adapter: a master recolour changes nothing and two unrelated
+  materials collide onto one hue. C84 EI-9 row.
+
+### Verification
+
+- Both gates exit **0** at their declared baselines.
+- `pnpm --filter @pryzm/geometry-kernel test` — **48 files / 835 tests green**, so the
+  `resolveMaterialColorSlot` extraction changed no behaviour.
+- `pnpm --filter @pryzm/plugin-furniture test` — **6 files / 44 tests green** after the seed id fix.
+- ⚠ **Root `tsc -p tsconfig.json --noEmit` is RC=2 and NOT clean — but not from this lane.** All 16
+  errors are HR1's in-flight `@pryzm/geometry-handrail` extraction (`Cannot find module
+  '@pryzm/geometry-handrail'`, missing `@pryzm/geometry-stair` re-exports) plus one pre-existing
+  `ToolsAreaLayout.ts` strictness error. **Zero errors in any file this lane touched.** Recorded
+  rather than reported as "clean", because a green claim over someone else's red is how a lane
+  inherits a failure it did not cause and hides one it did.
+
+**Owner: MT1. S14–S18 remain OPEN.**

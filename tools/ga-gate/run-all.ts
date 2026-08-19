@@ -169,6 +169,21 @@ const GATES: Gate[] = [
   // against the gate's own predicate the pre-fix reading was 4, and a shrink-only
   // ratchet parked at 3 is three free slots.
   { name: 'offset-implementations (R3/W2-A)',         script: 'check-offset-implementations.ts' },
+  // C100 §7 (2026-08-19, L-1120) — ONE material vocabulary. ⚠ It was BUILT at C100's
+  // stamp time and NEVER REGISTERED: C100 §7 called it "BUILT", the contract cited it
+  // as its enforcement, and `run-all.ts` had never heard of it. An unregistered gate
+  // is the authored-but-unwired failure it exists to prevent, one level up.
+  // Registered GREEN: 204 catalogue rows, 0 '#rrggbb' literals in the projection,
+  // 0 in finishRef, 3 declared rivals. Its '0x' arm carries a declared debt of 4.
+  { name: 'material-single-source (C100 §7)',         script: 'check-material-single-source.ts' },
+  // C100 §2.1 / §9 (2026-08-19, L-1120) — elements REFERENCE materials by id. This is
+  // the gate for the FOUR axes check-material-single-source.ts names as NOT CHECKED in
+  // its own output, and which is where every measured material loss in L-1038 lives.
+  // ARM A colour-without-id · ARM B a stored materialId that resolves to NOTHING ·
+  // ARM C a producer minting a key without the master resolver · ARM D persistence
+  // round-trip. Shrink-only from the 2026-08-19 measurement; exits 3 on breach, 2 when
+  // it cannot measure, so could-not-measure never aliases with measured-a-failure.
+  { name: 'material-id-required (C100 §2.1/§9)',      script: 'check-material-id-required.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
   // and it had measurably failed on the two most-used door/window gestures. This
