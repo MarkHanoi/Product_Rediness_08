@@ -314,10 +314,36 @@ export class RoomTopologyObserver {
 
   /** Attach all store subscriptions. Called from initTools after construction. */
   attach(): void {
-    const wallUnsub = this.wallStore.subscribe((event: string, wall: { levelId: string }) => {
+    const wallUnsub = this.wallStore.subscribe((event: string, wall: { levelId: string }, prevWall?: unknown) => {
       if (this._joinsResolving?.()) {
         // §WS-2.A: WallJoinResolver storm — ignore. The committed event will fire
         // ONE redetect after the resolver finishes (see `_onWallMutationCommitted`).
+        return;
+      }
+      // §OPENINGS-ONLY-NO-REDETECT (L-1015) — a window/door edit is NOT a
+      // structural wall edit and cannot move a room boundary.
+      //
+      // `WallStore.updateWindow` rewrites the host wall's `openings[]` and emits a
+      // wall `'update'`, ONE PER WINDOW. Until now the only discriminator here was
+      // the event NAME, so a 64-window `UPDATE_ELEMENT_DIMENSIONS_BATCH` looked
+      // exactly like 64 structural wall edits: the 150 ms debounce was reset 13
+      // times, the anti-starvation deadline force-fired a whole-level redetect, and
+      // that repeated five times inside one user gesture.
+      //
+      // Room boundaries are wall centrelines/faces; an aperture in a wall is not a
+      // boundary. THIS FILE ALREADY ASSERTS THAT — `_computeWallSig` hashes
+      // `id + baseline + thickness + height` and deliberately omits openings, and
+      // ADR-0129 states the same invariant in prose. `WallStore.emit` has passed the
+      // pre-mutation wall as its third argument ever since `WallDeltaClassifier`
+      // needed it for the same distinction; this listener was simply dropping it.
+      //
+      // Note the asymmetry, and it is deliberate: NO prevState means we cannot tell
+      // what changed, and "unknown" must not be read as "harmless" — those updates
+      // still schedule. Only a delta we have positively measured as openings-only is
+      // skipped. Skipping the authority surrender too is the same judgement: ADR-0069
+      // GR2 surrenders on a "genuine MANUAL structural wall edit", which this is not.
+      if (event === 'update' && prevWall !== undefined
+          && RoomTopologyObserver._isOpeningsOnlyDelta(prevWall, wall)) {
         return;
       }
       if (event === 'add' || event === 'update' || event === 'remove') {
@@ -659,7 +685,16 @@ export class RoomTopologyObserver {
         this.debounceTimers.delete(levelId);
         this._firstScheduleAt.delete(levelId);
         this._resetCount.delete(levelId);
-        console.warn(`[RoomTopologyObserver] forced fire (level=${levelId}, deadline=${MAX_DEADLINE_MS}ms, elapsed=${elapsed}ms, resets=${resets})`);
+        // §OPENINGS-ONLY-NO-REDETECT (L-1015) — SAY WHICH ARM FIRED.
+        // This has two independent triggers but the message hard-coded the
+        // deadline for both, so the founder's log read "deadline=2000ms,
+        // elapsed≈90ms" — a self-contradiction that sent every reader hunting a
+        // two-second stall that never happened. It was the RESETS arm.
+        const reason = elapsed >= MAX_DEADLINE_MS ? 'deadline' : 'resets';
+        console.warn(
+          `[RoomTopologyObserver] forced fire (level=${levelId}, reason=${reason}, ` +
+          `elapsed=${elapsed}ms/${MAX_DEADLINE_MS}ms, resets=${resets}/${MAX_DEBOUNCE_RESETS})`,
+        );
         this._executeRedetect(levelId);
         return;
       }
@@ -995,6 +1030,49 @@ export class RoomTopologyObserver {
     } catch (err) {
       console.warn('[RoomTopologyObserver] §OPENED-REGION scan failed (non-fatal):', err);
     }
+  }
+
+  /**
+   * §OPENINGS-ONLY-NO-REDETECT (L-1015) — true when `prev` → `next` changed
+   * NOTHING that room detection reads.
+   *
+   * The room-relevant facts about a wall are exactly the ones `_computeWallSig`
+   * hashes: its level, its baseline, its thickness and its height. Openings are
+   * excluded there on purpose, and this is the same judgement applied one wall at
+   * a time. Anything we cannot read — a malformed record, a missing baseline —
+   * returns FALSE, i.e. "not provably openings-only", so the redetect still runs.
+   * A guard that fails open is a guard that skips real work.
+   */
+  private static _isOpeningsOnlyDelta(prev: unknown, next: unknown): boolean {
+    type W = {
+      levelId?: string;
+      baseLine?: ReadonlyArray<{ x?: number; z?: number }>;
+      thickness?: number;
+      height?: number;
+    };
+    const a = prev as W | null | undefined;
+    const b = next as W | null | undefined;
+    if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+    if (a.levelId !== b.levelId) return false;
+
+    const mm = (n: number | undefined): number | null =>
+      typeof n === 'number' && Number.isFinite(n) ? Math.round(n * 1000) : null;
+    const th = mm(a.thickness), tb = mm(b.thickness);
+    const ha = mm(a.height), hb = mm(b.height);
+    // An unreadable dimension is unknown, not equal.
+    if (th === null || tb === null || ha === null || hb === null) return false;
+    if (th !== tb || ha !== hb) return false;
+
+    const la = a.baseLine, lb = b.baseLine;
+    if (!Array.isArray(la) || !Array.isArray(lb)) return false;
+    if (la.length < 2 || lb.length < 2 || la.length !== lb.length) return false;
+    for (let i = 0; i < la.length; i++) {
+      const ax = mm(la[i]?.x), az = mm(la[i]?.z);
+      const bx = mm(lb[i]?.x), bz = mm(lb[i]?.z);
+      if (ax === null || az === null || bx === null || bz === null) return false;
+      if (ax !== bx || az !== bz) return false;
+    }
+    return true;
   }
 
   private _computeWallSig(levelId: string): string {
