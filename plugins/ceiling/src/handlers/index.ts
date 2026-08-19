@@ -11,6 +11,10 @@ import { SetCeilingHeightHandler } from './SetCeilingHeight.js';
 import { UpdateCeilingLayersHandler } from './UpdateCeilingLayers.js';
 import { SetCeilingMaterialHandler } from './SetCeilingMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
 import { UpdateCeilingsSystemTypeBatchHandler } from './UpdateCeilingsSystemTypeBatch.js';
+// §L-1032 — the storey move. Registered in the ONE register at
+// `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
+// level change must complete before this row may exist.
+import { ChangeCeilingLevelHandler } from './ChangeCeilingLevel.js';
 
 export const CEILING_HANDLER_TYPES = [
   'ceiling.create',
@@ -37,6 +41,12 @@ export const CEILING_HANDLER_TYPES = [
   // §FEAT-CEILING-TYPE-BATCH (RAC U7.2) — batch retype ('all' or explicit ids),
   // one undo entry, bridged to the live UpdateCeilingLayersCommand route.
   'ceiling.updateSystemTypeBatch',
+  // §L-1032 — move a ceiling between storeys (founder-requested). The legacy
+  // `CeilingStore.changeLevel` MUST exist before this verb does: `CeilingStore.update`
+  // warns and DELETES a `levelId` key (`CeilingStore.ts:181-184`), so without the
+  // dedicated method both the forward mirror and the §L-946 undo arm would report
+  // success over a ceiling that never moved.
+  'ceiling.changeLevel',
 ] as const;
 
 export type CeilingHandlerType = (typeof CEILING_HANDLER_TYPES)[number];
@@ -53,6 +63,7 @@ export function buildCeilingHandlerSet(): readonly CommandHandler<unknown>[] {
     UpdateCeilingLayersHandler as unknown as CommandHandler<unknown>,
     new SetCeilingMaterialHandler() as unknown as CommandHandler<unknown>,
     UpdateCeilingsSystemTypeBatchHandler as unknown as CommandHandler<unknown>,
+    new ChangeCeilingLevelHandler() as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -76,3 +87,4 @@ export { SetCeilingHeightHandler, type SetCeilingHeightPayload } from './SetCeil
 // COVERED).
 export { UpdateCeilingLayersHandler, type UpdateCeilingLayersPayload } from './UpdateCeilingLayers.js';
 export { SetCeilingMaterialHandler, type SetCeilingMaterialPayload } from './SetCeilingMaterial.js';
+export { ChangeCeilingLevelHandler, type ChangeCeilingLevelPayload } from './ChangeCeilingLevel.js';

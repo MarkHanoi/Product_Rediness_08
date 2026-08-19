@@ -235,6 +235,106 @@ export class CeilingStore {
     return clone;
   }
 
+  /**
+   * §L-1032 — MOVE a ceiling to a different storey.
+   *
+   * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ────────
+   * Because for THIS store `update(id, {levelId})` is a measured NO-OP.
+   * `update()` above warns and DELETES the key before the merge:
+   *
+   *     if (updates.levelId && updates.levelId !== existing.levelId) {
+   *       console.warn('[CeilingStore.update] levelId cannot change after creation. Ignoring.');
+   *       delete (updates as any).levelId;
+   *     }                                            // CeilingStore.ts:181-184
+   *
+   * `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts` records exactly
+   * that — `ceiling: { semantics: 'merge', … note: 'PRESENCE-KEYED — levelId and
+   * holeElements are warned-and-deleted (:181-190)' }` — and it is re-derived
+   * from the real class by `LegacyStoreUpdateSemantics.measured.test.ts`, not
+   * transcribed. A caller doing `update(id, {levelId})` therefore gets a
+   * successful return value, a bumped `version`, an 'update' fan-out, and a
+   * ceiling that never moved: success reported over a change that did not
+   * happen, which is the failure mode C03 §4.6 U-4 forbids.
+   *
+   * ⚠ THE GUARD IN `update()` IS CORRECT AND MUST STAY. It exists so a GENERIC
+   * patch — an undo field write, a property-panel merge, an IFC round trip —
+   * cannot re-storey a ceiling by accident. This method does not weaken it; it
+   * writes the map entry itself, which is what makes "move" an explicit,
+   * named, auditable gesture rather than a side effect of some other edit.
+   *
+   * The second reason is the undo leg: `elementUndoStoreAdapter`'s §L-946 arm
+   * tests `typeof store.changeLevel === 'function'` before routing a `levelId`
+   * inverse patch. Without this method Ctrl+Z after a storey move falls through
+   * to the generic `update()` — which, per the guard above, silently declines to
+   * revert, leaving the plugin store on the old storey and the geometry record
+   * on the new one. That is the two-copy divergence L-946 closed, re-opened by
+   * Ctrl+Z and pointing the other way.
+   *
+   * Symmetric with `SlabStore.changeLevel`
+   * (`packages/geometry-slab/src/SlabStore.ts:314`) and `RoofStore.changeLevel`
+   * (`packages/geometry-roof/src/RoofStore.ts:153`).
+   *
+   * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ───────────────────────────
+   * `restoreSnapshot()` delegates to `add()`, and `add()` re-mints
+   * `properties.mark` from `this._ceilings.size` (`:100-103`) and warns about a
+   * missing IFC GUID (`:140-145`); a remove+add round trip would renumber the
+   * ceiling and drop its hole-index entries in between. A move is not a delete.
+   * One 'update' is everything the renderer needs — the fragment builder
+   * re-derives the soffit's world Y from `level.elevation` on every update.
+   *
+   * ─── WHAT THIS DOES NOT DO ───────────────────────────────────────────────
+   * Spatial-authority registration (bimManager `level.childrenIds`, the
+   * view-dependency element→level map) is NOT updated here — identical to the
+   * contract `SlabStore.changeLevel` and `RoofStore.changeLevel` both state in
+   * their own doc comments. `apps/editor/src/engine/elementLevelChangedMirror.ts`
+   * owns that half for EVERY family, so the ordering rule (move the record
+   * FIRST, re-register SECOND, dirty BOTH storeys THIRD) lives in one place
+   * rather than in thirteen stores.
+   *
+   * `_holeIndex` is untouched on purpose: it maps holeId → ceilingId, and
+   * neither id changes when the storey does.
+   *
+   * Returns the moved record, or `undefined` when there is nothing to move —
+   * failure and emptiness must not be the same value (§context-data-honesty).
+   */
+  changeLevel(ceilingId: string, newLevelId: string): CeilingData | undefined {
+    const existing = this._ceilings.get(ceilingId);
+    if (!existing) return undefined;
+    // An empty destination is REFUSED, never defaulted to the active level —
+    // the §DIAG-WALL-LEVEL trap that files elements on the ground floor.
+    if (!newLevelId) return undefined;
+    if (existing.levelId === newLevelId) return existing;
+
+    const clone = structuredClone(existing) as CeilingData;
+    clone.levelId = newLevelId;
+    // `add()` sets `parentId = levelId` when it is absent (`:96`). A ceiling
+    // parented to something ELSE than its storey keeps that parent.
+    if (existing.parentId === existing.levelId) clone.parentId = newLevelId;
+    // Same metadata stamp `update()` applies (`:214-220`) — a storey move is a
+    // real modification and must advance the audit trail like any other.
+    clone.metadata = {
+      ...clone.metadata,
+      modifiedAt: Date.now(),
+      version: clone.metadata.version + 1,
+    };
+
+    freezeCeilingData(clone);
+    this._ceilings.set(ceilingId, clone);
+
+    _bus.emit('bim-ceiling-updated', { id: ceilingId });
+    storeEventBus.emit({
+      elementId: ceilingId,
+      elementType: 'ceiling',
+      operation: 'update',
+      timestamp: Date.now(),
+    });
+    // §STEP7: `existing` is the frozen pre-mutation record, captured before the
+    // clone, so diff-based subscribers can dirty the storey being VACATED.
+    this._emit('update', clone, existing);
+
+    return clone;
+  }
+
   remove(ceilingId: string): boolean {
     const existing = this._ceilings.get(ceilingId);
     if (!existing) return false;
