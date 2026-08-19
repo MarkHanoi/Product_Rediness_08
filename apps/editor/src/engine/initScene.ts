@@ -42,6 +42,12 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { initProjectOrigin, reseatProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109); §L-325 render-side origin re-seat
 import { clearMountedDrawing } from './views/mountedDrawingScope'; // §C13-MOUNTED-DRAWING-OWNER — detach Project A's projected linework from the shared scene
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+// §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — the SINGLE declared set of BIM events
+// that change the shadow caster set. `_pascalGeomEvents` used to be a second
+// hand-written literal here and eleven families (handrail + stair-railing among
+// them) were in neither it nor `_rpcGeomEvents`, so their rebuild never armed the
+// §FIX-SHADOW-WALLCOMMIT-DESTROY freeze. Gated by geometryCasterEvents.test.ts.
+import { GEOMETRY_CASTER_MUTATION_EVENTS } from './geometryMutationEvents';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
 import { GLTFLoader } from '@pryzm/renderer-three';
@@ -3604,18 +3610,20 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Re-enable shadows on new BIM meshes added after startup.
         // Includes '-added' events (project load) as well as '-updated' events.
         // setTimeout(0) defers until after fragment builders have placed meshes.
-        const _pascalGeomEvents = [
-            'bim-wall-added',      'bim-wall-updated',
-            'bim-slab-added',      'bim-slab-updated',
-            'bim-ceiling-added',   'bim-ceiling-updated',
-            'bim-floor-added',     'bim-floor-updated',
-            'bim-column-added',    'bim-column-updated',
-            'bim-beam-added',      'bim-beam-updated',
-            'bim-roof-added',      'bim-roof-updated',
-            'bim-stair-added',     'bim-stair-updated',
-            'bim-curtainwall-added', 'bim-curtainwall-updated',
-            'bim-furniture-added', 'bim-furniture-updated',
-        ] as const;
+        // §GEOM-CASTER-EVENT-CHOKEPOINT (L-1188) — THIS USED TO BE A HAND-WRITTEN
+        // LITERAL OF ELEVEN FAMILIES, and it is the list that ARMS the
+        // §FIX-SHADOW-WALLCOMMIT-DESTROY freeze below. Handrail, stair-railing,
+        // plumbing, lighting, lift, door/window/opening and stair-landing were all
+        // absent, so each of those rebuilt its meshes — and therefore mutated the
+        // shadow caster set, since `_enableShadowsOnScene` promotes every
+        // non-denylisted Mesh to `castShadow=true` — with the live WebGPU shadow map
+        // UNFROZEN. Handrail is the worst case and was the founder's P0: C95 §15.5
+        // measures 279 meshes / 93 distinct materials torn down and re-minted in ONE
+        // tick for a 31-segment circular run retype (one record per SEGMENT), against
+        // a neighbouring family that lost the WebGPU device at ~100 unique materials.
+        // The set now has exactly one home and a gate that fails when a new family
+        // is left unclassified (geometryMutationEvents.ts / geometryCasterEvents.test.ts).
+        const _pascalGeomEvents = GEOMETRY_CASTER_MUTATION_EVENTS;
         // PERF-FIX (2026-05-01): Debounce per-element onGeometryAdded calls.
         // Problem: without debouncing, each bim-*-added event fires a separate
         // setTimeout(onGeometryAdded) — so creating 18 walls queues 18 full

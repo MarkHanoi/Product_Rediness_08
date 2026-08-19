@@ -15442,3 +15442,134 @@ live replacement (C16 CA-18 — a refusal or a retirement must name what replace
 migrate into the GIS panel behind the ONE surface; (4) retire the legacy controls in place with
 a tombstone, never a silent delete. Contract home: C13/C58 for site scope, plus whichever UI
 contract owns panel composition.
+
+---
+
+## L-1188 — changing a HANDRAIL TYPE freezes the viewport: the shadow-freeze list is a hand-written literal and eleven element families are in NEITHER copy of it ✅ FIXED — 2026-08-19 (lane GPU1)
+
+**FOUNDER-REPORTED, PRODUCTION, HARD CRASH.** Gesture: **change a handrail type**. Result:
+`phase=error`, the bounded auto-recovery spends 2/2, the viewport freezes on a stale frame.
+
+```
+§RECOVERY-MUST-REFUSE a SHADOW depth resource was destroyed while still referenced by an
+in-flight submit (via GPUDevice.uncapturederror: "Destroyed texture [Texture
+"ShadowDepthTexture"] used in a submit. - While calling [Queue].Submit(...)")
+§L-966-BOUNDED-AUTO-RECOVERY budget EXHAUSTED (2/2) for "shadow-resource destroyed mid-submit"
+§L900-FRAME-SKIP-ATTRIBUTION the viewport has declined 120 consecutive frames at gate "pipelineError"
+```
+
+⭐ **THE DIAGNOSTICS ARE CORRECT AND ARE NOT THE BUG.** The refusal is right (a light-owned
+shadow map is unreachable from `_rebuildPipeline()`), the bound is right, the attribution is
+right. Nothing on the recovery path was touched.
+
+### THE BYPASS — named, file:line, measured
+
+`apps/editor/src/engine/initScene.ts` carried the answer to *"which BIM events change the set
+of meshes in the scene?"* **TWICE, as two hand-written string literals**, and they had already
+diverged from each other:
+
+| list | line (pre-fix) | what it drives | families |
+|---|---|---|---|
+| `_rpcGeomEvents` | `initScene.ts:2589` | render tier + PBR upgrade | 12 (`bim-lighting-*` added by §FIX-LIGHT-TIER-UNWIRED) |
+| `_pascalGeomEvents` | `initScene.ts:3606` | shadow-flag pass **AND the §FIX-SHADOW-WALLCOMMIT-DESTROY freeze** | **11 — `bim-lighting-*` never added** |
+
+`_pascalGeomEvents` is the list that ARMS the freeze: `_debouncedGeomAdded`
+(`initScene.ts:3689`) calls `_armWallCommitShadowFreeze()` -> `setShadowReallocFrozen(true)`
+**synchronously**, before the shadow-flag pass and before the deferred tier re-eval, and
+releases it one frame after the commit settles. A family absent from that literal mutates the
+caster set with the live WebGPU shadow map **UNFROZEN** — precisely the window ADR-0111 / L-25
+(nav) / L-39 (load tier) / L-64 (wall commit) / L-908 (tier caster) each closed **for one route
+at a time**.
+
+**`bim-handrail-added` / `bim-handrail-updated` are in NEITHER list.** So are
+`bim-stair-railing-*`, `bim-plumbing-*`, `bim-lift-*`, `bim-door-*`, `bim-window-*`,
+`bim-opening-*`, `bim-stair-landing-*`, `bim-stair-geometry-updated`, `bim-railing-updated`.
+Measured against `packages/event-bus/src/catalog.ts`: **44 `bim-*-added|updated` events
+declared, 11 families covered.**
+
+**And handrail meshes ARE shadow casters — this is not theoretical.**
+`PascalSceneLighting._enableShadowsOnScene()` (`PascalSceneLighting.ts:466-528`) promotes
+**every** non-denylisted `THREE.Mesh` in the scene to `castShadow = true`. Handrail rail / post
+/ baluster meshes carry `userData.role = 'geometry'`, are far under `MAX_CASTER_RADIUS_M`, and
+are not `ShadowMaterial` — they pass the predicate. So the promotion is **scene-wide** while
+the freeze arming is **event-list-gated**: a handrail rebuild tears down meshes that ARE
+casters and re-mints meshes that WILL BE, with no freeze at any point.
+
+**Why handrail is the worst case, and why it is the gesture that surfaced it.** C95 §15.5 (lane
+HR4, measured 2026-08-19): `dispatchHandrailRun` commits **one `HandrailData` record per
+SEGMENT**, so a 31-segment circular run is 31 records. A retype rebuilds all of them —
+`element.changeType` -> `UpdateHandrailCommand` -> `HandrailStore.emit` ->
+`initBuilders.ts:921`'s `bim-handrail-updated` listener -> `HandrailFragmentBuilder.buildHandrail`
+— **279 meshes and 93 distinct `MeshStandardMaterial`s detached and re-minted in one
+synchronous tick**, un-batched, un-frozen. `StairCurvedRailingBudget.spec.ts` records the
+neighbouring family **losing the WebGPU device at ~100 unique materials**. This is the largest
+un-ordered GPU churn in the product and the only one with no guard.
+
+### THE FIX — the enumeration WAS the bug (C84 EI-4a)
+
+Four separate `§FIX-...-DESTROY` tags exist because the guard is **remembered per route** rather
+than **enforced over the family set**. Adding two more strings would have made it five. So:
+
+- **`apps/editor/src/engine/geometryMutationEvents.ts` (new)** — ONE exported
+  `GEOMETRY_CASTER_MUTATION_EVENTS` (all 12 prior families + handrail, stair-railing, plumbing,
+  lift, door, window, opening, stair-landing, stair-geometry, railing-alias, lighting), plus
+  `NON_CASTER_BIM_EVENTS` — an explicit deny-list where **every entry carries its reason**.
+- **`initScene.ts`** — `_pascalGeomEvents` is now that constant. The literal is gone.
+- **`apps/editor/__tests__/geometryCasterEvents.test.ts` (new, 5 tests)** — the gate:
+  - **ARM A drives the REAL path** (no stub of the subject): real `handrailTypeStore` entries,
+    real `resolveHandrailTypeFields` (the same projection `element.changeType`'s railing branch
+    calls), real `HandrailFragmentBuilder`. It proves the two load-bearing PREMISES — every mesh
+    the builder emits satisfies the Pascal promotion predicate (=> it is a caster), and a retype
+    reuses **not one** pre-retype mesh (=> the caster set is fully replaced) — and only then
+    asserts the carrying event is in the freeze list. **That last assertion is what fails
+    without the fix.**
+  - **ARM B is the chokepoint gate** — it reads `packages/event-bus/src/catalog.ts` and fails if
+    ANY `bim-*-added|updated` event is in neither list. A new element family can no longer be
+    born outside the freeze without a human classifying it, in writing, in one place.
+  - **ARM C** — reads `initScene.ts` and fails if `_pascalGeomEvents` is ever re-forked into an
+    array literal again. That is how the list rotted the first time.
+
+**Failure proven, not assumed.** With `'bim-handrail-added', 'bim-handrail-updated'` removed
+from the constant: **2 failed / 3 passed** — ARM A's pin and ARM B's gate both red, ARM B naming
+the two events. Restored: **5 passed**.
+
+### What was checked and found CLEAN (stated so nobody re-derives it)
+
+- **`HandrailFragmentBuilder` L2 (ADR-0297 detach-before-release) — CLEAN.** `removeHandrail`
+  does `scene.remove(root)` -> `root.parent = null` -> `disposeRoot` ->
+  `detachAndReleaseChildren` (frame-boundary release). `StairRailingBuilder` likewise
+  (`scheduleGpuRelease`, `:1179-1193`). Neither is on the L-691 dispose-before-detach list any
+  more; PERF2's warning was for `WindowBuilder` / `ColumnFragmentBuilder`, closed by INST1.
+- **INST1's L1 stamp DOES cover handrail.** `markSharedGpuResource` is applied inside
+  `dedupInstanceMaterial` (`SharedMaterialCache.ts:149`) — the chokepoint that hands the
+  material out — so it is family-agnostic by construction. Moot in production today:
+  `HandrailFragmentBuilder.ts:78` calls `isElementInstancingEnabled()` with **no family
+  argument**, so handrail can only be switched by the global master flag, which is OFF (C95
+  §15.5 records this as the separate authored-but-unwired defect).
+- **Every named shadow lever is already guarded.** `ShadowQualityUpgrader.apply/setLevel/
+  restore` enqueue through `scheduleShadowMapRealloc` (frame-boundary drain, never nulls or
+  disposes `shadow.map`); `RenderingPipelineCoordinator` wraps the realloc in `_reallocShadow`
+  and the caster gate in `_casterGuard`; `RenderPerformanceService`'s freeze-defeating poke was
+  removed by L-819; `RealSunService` sets `needsUpdate` and never disposes. **No lever is the
+  bypass — the missing GUARD ARMING is.**
+
+### ⚠ RESIDUE — deliberately not fixed here, with the reason
+
+1. **`_rpcGeomEvents` (tier + PBR) was NOT unified with the safety list.** Each of its events
+   costs **two full-scene traverses** (`collectNewPbrMeshes` + the mesh count) on a
+   `setTimeout(0)` **per event**. A 31-record handrail retype would fire 62 whole-scene walks —
+   trading a device-loss crash for the L-1151 / L-1155 O(n^2) defect class. **Consequence, stated
+   openly: handrails and stair railings are still invisible to `applyTierForMeshCount` and to
+   the PBR upgrade.** The right fix is to coalesce that pass the way `_debouncedGeomAdded`
+   already coalesces, then unify. Its own item.
+2. **`bim-lighting-*` remains in `_rpcGeomEvents` only** — it drives the tier (which can realloc
+   the shadow map and flip the key light's `castShadow`) with the wall-commit freeze unarmed.
+   The coordinator's own `_reallocShadow` / `_casterGuard` cover that path, so it is defended,
+   but by a different guard than every other family. Noted, not changed.
+3. **Not reproduced headlessly.** WebGPU device-loss is not reachable under vitest/node. The
+   bypass is proven STRUCTURALLY (membership, measured against the catalogue) and the premises
+   are proven by driving the real builder. **The founder's gesture is the acceptance test.**
+
+**Files:** `apps/editor/src/engine/geometryMutationEvents.ts` (new) ·
+`apps/editor/src/engine/initScene.ts` · `apps/editor/__tests__/geometryCasterEvents.test.ts` (new).
+**Contracts:** C04 §SHADOW · ADR-0111 · ADR-0297 (L1/L2) · C84 EI-4a · C95 §15.5.
