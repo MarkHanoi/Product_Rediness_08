@@ -146,6 +146,42 @@ export class CreateCurtainWallsFromSlabCommand implements Command {
             mullionThickness: number;
         }> = [];
 
+        // ── §CW4-CW-BY-SLAB-BATCH (L-1162) ───────────────────────────────────────
+        //
+        // This loop ran NAKED — outside any `batchCoordinator` batch — and it is the
+        // command the founder's "curtain wall BY SLAB" gesture dispatches.
+        //
+        // ⭐ THE THIRD TIME THIS EXACT DEFECT HAS BEEN FIXED IN THIS REPO, AND THE
+        // SECOND TIME IT WAS FOUND IN THE *SINGLE-SLAB* SIBLING OF A COMMAND THAT HAD
+        // ALREADY BEEN CURED. `CreateCurtainWallsOnAllSlabsCommand:566` wraps its slab
+        // loop in `batchCoordinator.runBatch()`; this — the command it calls, and the
+        // one with its own button — was never given the same treatment, so the fix
+        // held when the user asked for ALL slabs and evaporated the moment they picked
+        // ONE. Lane PERF2 found and fixed precisely that shape in the WALL family
+        // (`CreateWallsFromSlabCommand`, L-1151, `8a864ce9`) and NAMED this file as the
+        // next one. Its measurement on the wall: **400 REDETECT_ROOMS → 0.**
+        //
+        // What the naked loop costs, per curtain wall, over a GROWING scene:
+        //   1. `apps/editor/src/engine/perAddGeometryGate.ts:36` consults
+        //      `shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)`. With no
+        //      batch it returns false and runs TWO full `scene.traverse()` passes per
+        //      add — the O(n²) arm (lane INSTR1: 367 unbatched adds → 734 ACTUAL
+        //      traversals; batched → 0 actual, 367 deferred).
+        //   2. `RoomTopologyObserver` cannot see a live batch, so its starvation guard
+        //      force-fires REDETECT_ROOMS mid-loop.
+        //   3. `ViewDependencyTracker` dirties dependent views per wall, so
+        //      EdgeProjectorService re-projects the whole level per wall.
+        //   4. `storeEventBus` never buffers: N adds are N flushes, not one.
+        //
+        // JOIN, not nest: this command has two callers. Cold (the By-Slab button, the
+        // batch catalogue) it opens a batch; warm (`CreateCurtainWallsOnAllSlabs`, AI
+        // envelopes) `isBatching` selects the JOIN arm, so the outer bracket keeps
+        // ownership of completion. `runBatch` is undo-NEUTRAL (ADR-0314), so the
+        // undo-entry count is unchanged — this is not a behaviour change, it is the
+        // removal of N-1 redundant sweeps.
+        //
+        // Contracts: C11 §4.2 (bulk creation uses BatchCoordinator), C16 §8.7 (N2 JOIN).
+        const _createCurtainWalls = (): void => {
         for (let i = 0; i < orderedPoints.length; i++) {
             const start2D = orderedPoints[i];
             const end2D = orderedPoints[(i + 1) % orderedPoints.length];
@@ -224,6 +260,21 @@ export class CreateCurtainWallsFromSlabCommand implements Command {
                     }
                 }
             }
+        }
+        };
+
+        // §CW4-CW-BY-SLAB-BATCH (L-1162) — JOIN an in-flight batch, else open one.
+        // Registration rides INSIDE the bracket deliberately: that is where
+        // `CreateCurtainWallsOnAllSlabsCommand` puts its own (`:442`), and a
+        // registration that lands after the batch closes is one the coordinator
+        // cannot fold into its single drain.
+        if (batchCoordinator.isBatching) {
+            _createCurtainWalls();
+        } else {
+            batchCoordinator.runBatch(_createCurtainWalls, {
+                levelIds: [levelId],
+                totalElementCount: orderedPoints.length,
+            });
         }
 
         // §Critical #4/#7: Save createdIds — NOT cleared on undo
