@@ -183,6 +183,26 @@ describe('L-998 — the topic table and the registry cannot contradict each othe
     // So the invariant is stated over the regex, against the advertised vocabulary
     // itself: if a topic's matcher fires on a kind's own advertised label or alias,
     // that kind must be excluded, or the refusal denies what the same sentence offers.
+    //
+    // ⭐ PROVEN RED, NOT ASSUMED RED. A test that passes against the defect is worse
+    // than no test — it reads as coverage. So the fix in `CapabilityRefusal.ts` was
+    // REVERTED locally (the 'surface finish' topic deleted, the finish words put back
+    // into `material`'s regex) and this assertion was run alone. It failed, and what it
+    // printed is the founder's reply reconstructed from the registry rather than
+    // transcribed from his screenshot:
+    //
+    //   topic "material" fires on "wall side finish" — which wall ADVERTISES via
+    //   set-wall-side-finish. The refusal would read: "wall material isn't connected to
+    //   chat yet. I can change wall height, thickness, base offset, type, colour, wall
+    //   angle, window creation, wall side finish and finish layer."
+    //
+    //   topic "material" fires on "finish layer" — which wall ADVERTISES via
+    //   add-wall-layer. […same sentence…]
+    //
+    //   AssertionError: expected [ …(2) ] to deeply equal []
+    //
+    // The fix was then restored and the file re-run GREEN. Two findings, one per
+    // advertised label, which is the correct cardinality: the contradiction was double.
     const KINDS = ['wall', 'slab', 'door', 'window', 'roof', 'room', 'ceiling', 'floor', 'stair', 'column'];
     const contradictions: string[] = [];
     for (const topic of unconnectedTopics()) {
