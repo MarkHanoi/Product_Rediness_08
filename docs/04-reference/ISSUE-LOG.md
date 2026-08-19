@@ -19658,3 +19658,92 @@ before the activation handler runs).
 ⭐ **Note the shape:** a guard that refuses bad data is not a fix, and its presence makes the
 underlying bug *quieter*, not smaller. This is the [[refusing-half-needs-its-escape-hatch]]
 pattern — the refusal is correct and the user still loses their camera every single time.
+
+---
+
+## L-1292 — the 145 per-load handrail material warns aggregate on the REASON, and the message survives ✅ FIXED — 2026-08-19 (lane GPU1)
+
+Handover from PERF1 (its L-1303). The founder's console carries **~145**
+`§C100-HANDRAIL-MATERIAL-ID … NO RESOLVABLE MATERIAL` lines on every load.
+
+**The axis is the whole instruction.** `HandrailFragmentBuilder._unresolvedReported` already
+collapsed a 30-baluster rail into one line per **ELEMENT**; collapsing further **by id** would
+just be a shorter list of the same thing. Those ~145 are ~145 records that genuinely name no
+material — L-1203 / C95 §15.16.7 traces them to four auto-generators (`ResidentialBuildingExecutor`
+×3 sites, `HouseLayoutExecutor` ×1) that hand-list their payload and never consult the type
+catalogue.
+
+So the report is now buffered and keyed on the **REASON**, flushed once per load on a 250 ms
+trailing debounce as ONE line carrying the count, the reason, the fallback, and up to three
+sample ids with the remainder **declared** (`(+142 more)`) rather than dropped.
+
+> ⛔ **THE DIAGNOSTIC IS NOT THE DEFECT.** The obvious way to quieten a noisy warning is to say
+> less, and here that is a regression with a perf justification attached: C100 §5 forbids a
+> SILENT grey fallback precisely because it makes *"the material was deleted"*, *"the id is
+> stale"* and *"this rail names no material"* the same pixel — and this warning is the only
+> reason those four generator defects were measurable at all. Every part of the message is
+> retained and pinned **by name** in `src/unresolvedMaterialWarnAggregate.spec.ts`; only the
+> REPETITION is removed. `dispose()` FLUSHES before clearing, because dropping a buffered report
+> on a project switch is the C100 §5 silent fallback with an extra step.
+
+⚠ **NOT A PERF CLAIM.** PERF1 counted the LINES, not the cost of their stack captures, and
+neither did this lane. Filed as legibility. Do not record it as a measured win.
+
+`packages/geometry-handrail`: 10 suites / **114 pass** (4 new). Commit `28148953`.
+
+---
+
+## L-1293 — West Elevation floods `glClear: Framebuffer is incomplete: Attachment has zero size` ⛔ OPEN — MEASURED, NOT FIXED (2026-08-19, lane GPU1)
+
+**FOUNDER-REPORTED, PRODUCTION, WebGL2 backend, in the West Elevation.**
+
+```
+GL_INVALID_FRAMEBUFFER_OPERATION: glClear: Framebuffer is incomplete: Attachment has zero size.
+  … then glDrawElements ×162, glDrawArrays ×80, glDrawElementsInstanced ×12
+WebGL: too many errors, no more errors will be reported to the console for this context.
+```
+
+⭐ **The unsatisfiable-gate question, asked first (§unsatisfiable-gate-decomposition-is-the-fix).**
+If an attachment is 0×0 the clear **can never succeed** — so all ~250 draw calls were doomed
+before they were issued, and the honest fix is to REFUSE to render into a zero-size target, not
+to make the clear work.
+
+### THE MEASUREMENT — which submit paths are guarded and which are not
+
+⭐ **`_isRenderTargetZeroSize()` does not measure what its name says.**
+`RenderPipelineManager.ts:1315-1337` reads **the main renderer's CANVAS backing store**
+(`getDrawingBufferSize` → `getSize` → `domElement.width/height`). It never inspects a
+`WebGLRenderTarget`, and it is installed at **exactly one** call site (`render()`, `:1031`). With
+the main canvas at 807×976 and a pane target at 0×0 it returns `false` and the frame submits.
+
+| submit path | status |
+|---|---|
+| `RenderPipelineManager.render()` `:1031` | **GUARDED** — but only against the MAIN CANVAS being 0×0 |
+| `SplitViewManager._render` `:1303`, `_render3dMirror` `:1347` | **GUARDED** |
+| `packages/picking/src/gpu-pick.ts` `:776/:786/:809` | **GUARDED** |
+| `PlanViewCanvas.setSize` `:1712-1721` | **GUARDED** (`Math.max(1, …)`, §ZERO-SIZE-CANVAS-GUARD) |
+| `SplitViewManager._syncCanvasSize` `:1265-1269` | **UNGUARDED** — survives only via the clamp above |
+| `apps/editor/src/engine/initTools.ts:391-397` pick probe | **UNGUARDED on size** |
+| `PanoramaPanel.onResize` `:489-494` | **UNGUARDED** (the same file's `:435` DOES use a fallback) |
+| `ViewRenderCache.ts:151-159, :250` | **UNGUARDED — and DEAD**: `renderToCache` has **zero** production call sites |
+| `packages/renderer/src/Renderer.render()` + `TRAA.setup` `:77,81` / `SSGI.setup` `:61` | **UNGUARDED AND LATCHED** — one 0×0 first frame allocates 0×0 attachments **permanently** |
+
+⛔ **THE OBVIOUS CULPRIT IS NOT REACHABLE, AND THAT IS THE FINDING.** The latched TRAA/SSGI path
+is the only candidate whose shape matches the log exactly (allocate once, never re-check, then
+clear+draw every tick forever). But it is attached only by `bootstrap.render.ts:83` /
+`bootstrap.render.everything.ts:188`, and the production entry `src/main.ts:397` imports
+**`@pryzm/editor/bootstrap.everything`** — *not* `bootstrap.render.everything`. Same for
+`ViewRenderCache`. **Two confident root causes, both in dead code**
+(§committed-is-not-reachable). Not fixed on that basis.
+
+### RESIDUE — what the next lane should do
+
+1. **Establish which live renderer issues the failing `glClear`** before changing anything. The
+   remaining live candidates are the `initTools` pick probe and whatever draws the elevation
+   pane's WebGL layer.
+2. **§L-328 P2 was never implemented.** `docs/04-reference/V1-LAUNCH-IMPLEMENTATION-PLAN.md:2995`
+   specifies *"never allocate a view's render target before its container has a non-zero measured
+   size"*; commit `3f6872b6` shipped **P1 only** (3 files, all in `packages/renderer-three`). P1
+   skips the SUBMIT for the main canvas; nothing enforces the ALLOCATION rule anywhere.
+3. **Rename or re-scope `_isRenderTargetZeroSize()`.** A helper named for render targets that
+   measures the canvas is how a reader concludes the targets are covered.
