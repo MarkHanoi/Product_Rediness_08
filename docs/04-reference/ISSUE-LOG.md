@@ -15372,7 +15372,7 @@ unowned renderables are REPORTED, not skipped — the audit must fail loudly on 
 establish teardown for mounted drawings + projected edges on switch; (4) only then fix the leak
 itself. Do NOT fix the leak before the audit can see it, or the next leak ships silently too.
 
-## L-1186 — OPENING A PROJECT IN A NEW SESSION OFTEN LOSES CHROME: PRYZM Earth, Split View and the launcher rail are MISSING (OPEN, founder-reported 2026-08-19)
+## L-1186 — OPENING A PROJECT IN A NEW SESSION OFTEN LOSES CHROME: PRYZM Earth, Split View and the launcher rail are MISSING (FIXED 2026-08-19, lane CHR1)
 
 **Founder:** "why when opening a project in a new session am I often missing buttons — the PRYZM
 Earth, the split view… etc." — and note **OFTEN, not always**, which is the shape of a RACE or
@@ -15410,6 +15410,83 @@ which is why this ships.
 **RELATED:** L-1185 (project isolation not clean) is also a project-switch-path defect. Both may
 share "the direct-open / switch path is less exercised than the first-run path".
 
+---
+
+### ✅ RESOLVED 2026-08-19 — the hypothesis was RIGHT, and the answer to (2) is **NEVER SET, not merely never re-set**
+
+**Commits:** `65025a0e` (the root fix) · `d5014f9a` (the guided-onboarding bracket) ·
+`91386c02` (the direct-open spec) · docs. **Contract:** [C06 §10](../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md#10--app-phase-and-phase-gated-chrome).
+**ADR:** [ADR-0337](../02-decisions/adrs/ADR-0337-the-app-phase-is-declared-at-the-open-gesture-not-latched-by-a-view-click.md).
+
+**⭐ THE PHASE-VALUE COMPARISON — the whole diagnosis in one table.** Measured at `638cdf33`
+by enumerating every production caller that can move `panelDefaults.currentPhase`
+(`grep -rn 'setAppPhase\|resetAppPhaseForNewProject'`, non-test):
+
+| Path | Who declares `'canvas'` | Phase at chrome mount |
+|---|---|---|
+| fresh session → onboarding → project | `enterCanvasWithSitePlan.ts:101`, on the site-plan landing | `canvas` ✅ |
+| fresh session → onboarding → **skip the site draw** → generate | **nobody** — `generateAndFinish()`'s `finally` → `dispose()` declared nothing | `onboarding-globe` ❌ |
+| fresh session → **open an existing project** (hub click / deep link / reopen-after-reload) | **nobody** — `launchWorkspace()` declared nothing | `onboarding-globe` ❌ |
+| …and then the user clicks any BIM view-mode button | `GISAreaLayout.ts:811` (`activateView`) | `canvas` ✅ |
+
+`currentPhase` initialises to `'onboarding-globe'`, and those were the **only two**
+production sites that ever moved it. **The phase is never SET on the direct-open path at
+all** — it is not a race and not a re-set failure, it is silence. The one-way latch is not
+the mechanism either; the latch never got a chance to be entered wrongly, because nothing
+entered it.
+
+**Why "OFTEN".** Row 4 is the explanation: the chrome appeared for any session in which the
+user later happened to click a view-mode button, and never for one in which they did not.
+
+**Why it was INVISIBLE rather than broken.** `panelAbsent('launcher-rail')` stayed TRUE, and
+`GISAreaLayout.mountSiteViewLauncher()` returns early on TRUE — SKIP-MOUNT, the strong form.
+The six pills, the Split View toggle, the reset chip and the View-Properties launcher were
+never created, so there was no DOM node to inspect.
+
+**⛔ NOT A REGRESSION IN TODAY'S PANEL WORK — verified before blaming.** UX1's launcher rail,
+UX2's default-closed panels + View-Properties launcher and UX3's `hiddenWhileLoading` gate all
+key on a phase that **nothing was declaring**. Their tables are correct; all three inherit the
+fix unchanged.
+
+**A SECOND, INDEPENDENT INSTANCE, found while proving the first (row 2 above).**
+`OnboardingStepController.start()` declares the START of the guided session; only ONE of its
+four EXITS declared the end. Users who skipped the site draw finished onboarding with the same
+chrome missing, reached a different way.
+
+**THE DECISION (deliverable 3) — DERIVED, not REMEMBERED.** The phase asks *"is a guided
+onboarding session in progress?"*, never *"what am I looking at?"* (mirroring the view would
+take the rail away from a canvas user who opens PRYZM Earth — a capability made unreachable by
+being clever). `'canvas'` is the RESTING state; `'onboarding-globe'` is the EXCEPTIONAL one and
+is now **bracketed by its owner at both edges**, while the **open gesture declares the phase**
+at `PlatformRouter.launchWorkspace()` — the one seam every open passes through, running before
+any chrome mounts. The guided create hop marks itself `{ guidedOnboarding: true }` so onboarding
+does not flash the rail; ⛔ it is keyed on the GESTURE and **not** on `isNewProject`, because the
+hub's *"Skip — blank canvas"* create is also a new project and runs no guided flow. The
+module-load default stays `'onboarding-globe'` so a silent path degrades to *quiet*, never to
+*wrong* — safe now precisely because no path that matters is silent any more. Full register:
+C06 §10.3.
+
+**Same defect class as C85 §10.5 / L-1159 (invalidation keyed on the wrong thing) and L-1189
+(a hand-written event list with zero emitters):** state that had to be REMEMBERED by whoever
+happened to pass through the right code, rather than DERIVED from the fact that determines it.
+
+**TEST (deliverable 4).** `apps/editor/src/ui/__tests__/projectOpenPhase.spec.ts` — 11 cases
+walking the DIRECT-OPEN path through the production declaration, **never `setAppPhase`**, which
+would stub the thing under test and would have passed on the bug. Every pre-existing phase spec
+began in `'onboarding-globe'` and then called `setAppPhase('canvas')` by hand — the onboarding
+path written out — which is exactly why this shipped. `npx vitest run` over `projectOpenPhase`
++ `phaseChrome` + `panelDefaults`: **3 files, 59 passed**. Root `tsc --skipLibCheck --noEmit`:
+**COMPILER_RC=0, 0 errors**.
+
+**NAMED GAPS (C06 §10.7).** No CI gate counts the §10.3 declare-register against the production
+call sites — the spec's reachability cases are source string matches and catch the
+rename/deletion class only. `'canvas'` remains a one-way latch within a session (every guided
+exit now declares it, so the latch is no longer *how* the canvas is reached, but a third phase
+would need the derivation completed rather than another exception). The HIDE rows of
+`phaseChrome.ts` still run their subscriptions while hidden (L-1025).
+
+**➡ L-1187 IS UNBLOCKED.** Its sequencing note below depended on this row.
+
 ## L-1187 — THE FLOATING SITE BUTTON STACK BELONGS IN THE GIS PANEL, AND THE GIS PANEL'S CURRENT CONTENTS ARE LEGACY (OPEN, founder-directed 2026-08-19)
 
 **Founder, with two screenshots:** the floating stack at the bottom-left of the canvas —
@@ -15430,9 +15507,13 @@ question — *"how do I work with the site?"* — which is C84 EI-8/EI-9 (one vo
 controls, one intent. The deliverable is ONE site surface, with every capability either
 migrated or explicitly retired with its reason — not two panels where one is quietly ignored.
 
-⚠ **SEQUENCING — THIS DEPENDS ON L-1186.** The floating stack is phase-gated chrome, and
-L-1186 records that phase-gated chrome is often MISSING on a direct project open (one-way
-latch). **Fix L-1186 first.** Migrating buttons into the GIS panel while the mount path is
+⚠ **SEQUENCING — DEPENDED ON L-1186; UNBLOCKED 2026-08-19.** The floating stack is phase-gated
+chrome, and L-1186 recorded that phase-gated chrome was often MISSING on a direct project open.
+✅ **L-1186 is FIXED** (`65025a0e` / `d5014f9a` / `91386c02`): the mount path is now reliable —
+the open gesture declares the phase at `PlatformRouter.launchWorkspace()` before any chrome
+mounts (C06 §10.3), so migrating the stack no longer risks migrating it into a surface that
+does not appear. The original warning is kept below because its REASONING still governs the
+migration: (was) **Fix L-1186 first.** Migrating buttons into the GIS panel while the mount path is
 unreliable would move a working surface into a broken one, and the founder would lose the
 capability entirely rather than intermittently.
 

@@ -495,3 +495,122 @@ visually distinguished and labelled with its storey (§9.2).
   as one six floors away.
 - **The active storey is a single global.** Per-pane active levels (C59; L-1107 — *"the view is
   PLURAL"*) would require the §9.5 accessor to become pane-aware. That accessor is the one seam.
+
+---
+
+## §10 — App PHASE and phase-gated chrome
+
+Added **2026-08-19** (L-1186). Owns the question *"which chrome surfaces exist right
+now, and who decides?"* — the phase axis of `apps/editor/src/ui/layout/panelDefaults.ts`
+(`§UX1-PANEL-DEFAULTS`) and its DOM applier `phaseChrome.ts` (`§UX1-PHASE-CHROME`).
+
+### §10.1 — The two phases, and what the question actually is
+
+`AppPhase` is `'onboarding-globe' | 'canvas'`. It does **NOT** mean *"what am I
+looking at?"* — a user on the canvas who opens PRYZM Earth is still a canvas user
+looking at a globe, and mirroring the active view would take away the very pills they
+need to come back. It means **"is a GUIDED ONBOARDING SESSION in progress?"**
+
+That is the whole contract. `'canvas'` is the resting state of the application;
+`'onboarding-globe'` is the EXCEPTIONAL state, and exceptional states must be
+**declared by their owner**, never inherited by silence.
+
+### §10.2 — ⭐ The phase MUST be DERIVED from a declared fact, never REMEMBERED
+
+**MUST**: every state that determines whether chrome exists is declared at the seam
+that KNOWS it, before the chrome mounts.
+**MUST NOT**: a phase-gated surface may not depend on some later, unrelated
+interaction happening to move the phase for it.
+
+**The defect this rule was written from (L-1186).** `currentPhase` initialised to
+`'onboarding-globe'`, and at `638cdf33` exactly two production call sites moved it to
+`'canvas'`: the guided site-plan landing (`enterCanvasWithSitePlanUnderlay`) and a
+click on a BIM view-mode button (`GISAreaLayout.activateView`). Neither is on the path
+a user takes to open an existing project. So a hub click, a deep link or a
+reopen-after-reload left the phase reading `'onboarding-globe'` for the entire
+session, `panelAbsent('launcher-rail')` stayed TRUE, and the founder's floating stack
+(Buildable Envelope · Site Analysis · Living Graph · Graph · Plan + Site · PRYZM
+Earth), the Split View toggle and the View-Properties launcher were **skip-mounted and
+never created at all**.
+
+The founder reported it as *"OFTEN"* missing, and "often" was the diagnosis: the
+chrome appeared for a session in which the user later clicked a view-mode button, and
+never for one in which they did not.
+
+This is the same defect class as **C85 §10.5** (an invalidation keyed on the wrong
+thing, L-1159) and **L-1189** (a hand-written event list with zero emitters): *state
+that had to be REMEMBERED by whoever happened to pass through the right code, rather
+than DERIVED from the fact that determines it.* It is this repo's signature failure and
+it is why this section exists.
+
+### §10.3 — Who declares what (the complete register)
+
+| Fact | Declared by | Verb |
+|---|---|---|
+| A guided onboarding session STARTS | `OnboardingStepController.start()` | `resetAppPhaseForNewProject()` |
+| A guided onboarding session ENDS (**every** exit) | `OnboardingStepController.dispose()` | `setAppPhase('canvas')` |
+| A project is OPENED (hub click · deep link · reopen-after-reload · blank create) | `PlatformRouter.launchWorkspace()` | `declarePhaseForProjectOpen({})` |
+| That open is the guided flow's CREATE HOP | `PlatformRouter.createAndOpenProject()` | `declarePhaseForProjectOpen({ guidedOnboarding: true })` — a no-op, so the flow keeps the globe |
+
+**MUST**: a new project-entry path joins this table in the same PR that mints it.
+
+**MUST NOT** key the guided-hop discrimination on `isNewProject`. The hub's *"Skip —
+blank canvas"* create is also a new project and runs no guided flow; keying on it
+strands exactly the users this section exists to protect.
+
+The guided session is **bracketed at both edges** on purpose. Before L-1186 only one of
+the flow's four exits declared the end, so a user who skipped the site draw
+(`generateAndFinish()`'s `finally`, and the two `createSite` bail-outs) also finished
+onboarding with no chrome — the same symptom, reached a different way.
+
+### §10.4 — The module-load default stays `'onboarding-globe'`, and why that is not a contradiction
+
+Defaulting to `'canvas'` would put model chrome over a globe with no model — the
+original UX1 report. Defaulting to `'onboarding-globe'` degrades a silent path to
+*quiet*, never to *wrong*. §10.2 is what makes that safe: **no path that matters is
+silent any more**, so the default is now genuinely unreachable in normal operation
+rather than being the value half the application accidentally ran in.
+
+**MUST NOT** treat the default as a substitute for a declaration. A surface that finds
+itself relying on it has found a missing row in §10.3.
+
+### §10.5 — Absence has two strengths and they are different words
+
+`phaseChrome.ts` enforces at two levels and every row declares which it gets:
+**SKIP-MOUNT** (the owner asks `panelAbsent(id)` before building anything — nothing is
+created, subscribed or queried) and **HIDE** (the surface mounts and the controller
+sets `display: none`; the pixels are gone, the subscriptions are not).
+
+**MUST NOT** report a HIDE row as if it were skip-mounted. The HIDE rows are a NAMED
+GAP (L-1025), not a completed conversion.
+
+Note that SKIP-MOUNT is precisely why L-1186 was invisible rather than ugly: a wrong
+phase did not mis-style the rail, it meant the rail had never existed.
+
+### §10.6 — Test obligation
+
+**MUST**: a spec for phase-gated chrome exercises the **DIRECT-OPEN** path by calling
+the production declaration, not `setAppPhase`.
+
+Every phase spec before L-1186 began in `'onboarding-globe'` and then called
+`setAppPhase('canvas')` by hand — the onboarding path written out. They proved that IF
+something declares the canvas the chrome returns, and never asked who declares it on a
+direct open. Nothing did, and every assertion was green. A spec that reaches for
+`setAppPhase` on this path is **stubbing the thing under test** (C82 §5.4 —
+machinery-present ≠ capability-reachable).
+
+`apps/editor/src/ui/__tests__/projectOpenPhase.spec.ts` is the executable form of this
+section, including SOURCE-evidence cases (labelled as such) pinning that
+`launchWorkspace` still calls the declaration and that the guided session is still
+bracketed at both edges.
+
+### §10.7 — Known gaps (named, so they are not assumed closed)
+
+- **No CI gate counts the §10.3 register against the production call sites.** The
+  reachability cases in `projectOpenPhase.spec.ts` are string matches against source
+  and catch the rename/deletion class only.
+- **`'canvas'` is a one-way latch within a session.** §10.3's dispose row makes every
+  guided exit declare it, so the latch is no longer how the canvas is reached — but a
+  future third phase would need the latch replaced by the full derivation, not another
+  exception bolted onto it.
+- **The HIDE rows of §10.5 still run their subscriptions while hidden** (L-1025).
