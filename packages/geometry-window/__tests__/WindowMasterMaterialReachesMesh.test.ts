@@ -120,10 +120,31 @@ describe('C100 §2.1 / S17 — a window\'s materialId reaches the material on th
         expect(meshHexes(scene).has(expected)).toBe(true);
     });
 
-    it('⭐ 2. the LIVE-PATCH branch — `frameFinish` is a PROPERTY-ONLY field', () => {
-        // `frameFinish` sits in `_PROPERTY_ONLY_FIELDS`, so choosing a finish never
-        // reaches the rebuild branch. Passing `prev` selects the patch branch, which
-        // is the path the user's actual gesture takes.
+    it('⭐ 2. a SECOND master id, and the STALE cache beside it loses again', () => {
+        // ⛔ THIS TEST WAS A FALSE GREEN AND IT PASSED FOR THE WRONG REASON.
+        //
+        // As MT3 left it, this case used `materialId: 'wood-oak'` beside
+        // `materialColor: '#c8a96e'` — and `wood-oak`'s master colour IS `#c8a96e`
+        // (materialCatalog.ts:54). The two agreed byte-for-byte, so the assertion
+        // held against the UNFIXED builder: measured 2026-08-19, this file failed
+        // 2 of 5 before the wiring and THIS WAS NOT ONE OF THEM. It is exactly the
+        // trap this file's own header names — *"a test that made the two agree
+        // would pass against the unfixed builder"* — committed inside the file that
+        // warns about it.
+        //
+        // The cached hex is now deliberately WRONG, so the case can fail.
+        //
+        // ⚠ AND ITS STATED RATIONALE WAS FALSE TOO. It claimed passing `prev`
+        // "selects the patch branch, which is the path the user's actual gesture
+        // takes". It does not: `_isPropertyOnlyChange` opens with
+        // `PROPERTY_ONLY_FAST_PATH_ENABLED = false` and returns before it classifies
+        // anything (§INSTANCE-WINDOWS disabled it — an in-place patch would bleed
+        // through a SHARED material to every sibling window). So `_applyPropertyOnly`
+        // is unreachable for windows today, and a finish change takes the REBUILD
+        // path. `prev` is still passed here, because that is the shape the store
+        // emits on an update and the branch must stay correct if the flag ever flips
+        // back — but this is a rebuild, and calling it a patch-branch proof would be
+        // §COMMITTED-IS-NOT-REACHABLE with the roles reversed.
         const { builder } = makeBuilder();
         const before = baseWin({ id: 'win-mat-2' });
         (builder as unknown as Rebuildable).rebuild(before);
@@ -131,11 +152,69 @@ describe('C100 §2.1 / S17 — a window\'s materialId reaches the material on th
 
         const after = baseWin({
             id: 'win-mat-2',
-            frameFinish: { name: 'Oak', materialId: 'wood-oak', materialColor: '#c8a96e' },
+            frameFinish: { name: 'Oak', materialId: 'wood-oak', materialColor: '#0f0f0f' },
         });
         (builder as unknown as Rebuildable).rebuild(after, before);
 
         expect(frameHex(builder, 'win-mat-2')).toBe(masterHex('wood-oak'));
+        expect(frameHex(builder, 'win-mat-2')).not.toBe('#0f0f0f');
+    });
+
+    it('⭐ 2b. INSTANCING SURVIVES — ONE material per distinct COLOUR, not one per window', () => {
+        // ⭐ THE HIGHEST-LEVERAGE THING THIS SLICE COULD HAVE GOT WRONG, and a
+        // colour assertion cannot see it. A window at the default `fine` LOD is
+        // TWELVE meshes; the founder's live project holds 3,304 windows = 39,648
+        // meshes, ~85% of his entire scene. `dedupInstanceMaterial` collapses only
+        // CLASSIC material types (materialSignature.ts:42-48) — anything else
+        // returns null from the signature, keeps a unique uuid, and forces a size-1
+        // instance group. So a resolver that minted a material PER WINDOW (or a
+        // non-classic one) would paint every colour correctly and silently destroy
+        // instancing for the largest family in the model.
+        //
+        // `_sharedFrameMaterial` keys its cache on `(levelId, colour, transparent,
+        // opacity, roughness)`, and `_resolveFrameColor` hands it a HEX STRING, so
+        // the count is bounded by DISTINCT COLOURS. This pins that it stays so.
+        const { builder } = makeBuilder();
+        const cache = (builder as unknown as { _sharedFrameMats: Map<string, THREE.Material> })._sharedFrameMats;
+
+        // Twelve windows, all naming the SAME master material.
+        for (let i = 0; i < 12; i++) {
+            (builder as unknown as Rebuildable).rebuild(baseWin({
+                id: `win-inst-${i}`,
+                frameFinish: { name: 'Walnut', materialId: 'wood-walnut', materialColor: '#001122' },
+            }));
+        }
+
+        // Every one of them resolved to the master…
+        for (let i = 0; i < 12; i++) {
+            expect(frameHex(builder, `win-inst-${i}`)).toBe(masterHex('wood-walnut'));
+        }
+
+        // …and they are literally THE SAME material object, not twelve equal ones.
+        const first = (builder as unknown as { windowMaterials: Map<string, THREE.Material[]> })
+            .windowMaterials.get('win-inst-0')![0];
+        for (let i = 1; i < 12; i++) {
+            const m = (builder as unknown as { windowMaterials: Map<string, THREE.Material[]> })
+                .windowMaterials.get(`win-inst-${i}`)![0];
+            expect(m, 'twelve windows of one material must SHARE one THREE material').toBe(first);
+        }
+
+        // The sill shares the frame's colour but carries a different roughness, so
+        // the cache legitimately holds 2 entries per colour — 2, not 12, and
+        // certainly not 24. The bound that matters is "does not scale with N".
+        const beforeCount = cache.size;
+        for (let i = 12; i < 40; i++) {
+            (builder as unknown as Rebuildable).rebuild(baseWin({
+                id: `win-inst-${i}`,
+                frameFinish: { name: 'Walnut', materialId: 'wood-walnut', materialColor: '#001122' },
+            }));
+        }
+        expect(cache.size, '28 more windows of the SAME colour must mint NO new materials')
+            .toBe(beforeCount);
+
+        // And the material is a CLASSIC type, or dedupInstanceMaterial cannot
+        // collapse it however few there are.
+        expect((first as THREE.Material).type).toBe('MeshStandardMaterial');
     });
 
     it('3. an UNKNOWN id paints MAGENTA — a named failure, never a plausible grey (§5)', () => {

@@ -10,9 +10,14 @@ import { WindowOpening } from './WindowTypes';
 // ⭐ C100 §2.1 / S17 — the window's material ladder. The builder is the RENDERING
 // authority (this file's own §MAT-WINDOW-PLAN-PARITY header says so), so it must
 // resolve the id the record carries; it must not re-implement the ladder.
+// ⚠ `WINDOW_UNRESOLVED_MATERIAL_COLOR` is deliberately NOT imported here. MT3's
+// preserved import named it, and consuming it would mean this file naming magenta
+// a second time — `resolveWindowFrameColour` already returns that hex in its
+// `unresolved` result, and C100 §9.6.a's whole point is one statement of the rule.
+// It stays exported from `index.ts` for the panel and the tests.
 import {
     resolveWindowFrameColour,
-    WINDOW_UNRESOLVED_MATERIAL_COLOR,
+    type WindowFinishColour,
 } from './windowFinishColour';
 // §FEAT-CURVED-WINDOW-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
 // through `hostedElementFrame`. Nothing in this file re-derives it; see
@@ -263,6 +268,13 @@ export class WindowBuilder {
     // of windows). Freed in deactivate().
     private _sharedFrameMats = new Map<string, THREE.MeshStandardMaterial>();
     private _sharedGlassMats = new Map<string, THREE.MeshPhysicalMaterial>();
+
+    /**
+     * C100 §5 — `${windowId}|${materialId}` pairs already reported as unresolved.
+     * See `_reportUnresolvedFrameMaterial`: without this, one dead material id in a
+     * 3,304-window project is a per-rebuild console flood, not a diagnostic.
+     */
+    private _unresolvedFrameReported = new Set<string>();
 
     /**
      * §INSTANCE-WINDOWS — optional GPU-instancing bridge (the SAME shared
@@ -1048,31 +1060,73 @@ export class WindowBuilder {
      *   frame fully covers the void opening and no raw cut edges are visible.
      */
     /**
-     * §MAT-WINDOW-PLAN-PARITY (2026-05-23) — frame-colour resolution authority.
+     * §MAT-WINDOW-PLAN-PARITY (2026-05-23) — frame-colour resolution authority,
+     * ⭐ REWIRED onto the MASTER 2026-08-19 (C100 §2.1 / S17).
      *
      * The builder is the rendering authority and must resolve a window's frame
      * material from the system-type catalogue, not depend on every creation path
-     * pre-baking `frameColor`. A window placed via the plan tool can arrive without
-     * a baked colour, in which case `WindowOpeningSchema` fills the sentinel default
-     * '#e8e8e8' (light grey) → "timber window renders grey." Resolution order:
-     *   1) an explicit, user-customised colour (frameFinish.materialColor or
-     *      frameColor) that DIFFERS from the sentinel — preserved as-is,
-     *   2) the window's `systemTypeId` frame finish from the catalogue — the true
-     *      material for the chosen type,
-     *   3) the explicit/sentinel colour as a final non-empty fallback.
-     * Note '#e8e8e8' is also the LEGITIMATE colour of `wt-single-pane` (aluminium),
-     * so treating it as the sentinel is safe: that type resolves back to '#e8e8e8'.
+     * pre-baking `frameColor`. That much is unchanged. What changed is WHICH FIELD
+     * of the finish it reads.
+     *
+     * ⛔ THE DEFECT THIS CLOSES, and it is one rung subtler than the door's. The body
+     * this replaces DID read `frameFinish` — but only `frameFinish.materialColor`,
+     * **the hex the property panel cached beside the id**, while `materialId` sat in
+     * the same object doing nothing. So a window has always rendered a TRANSCRIPTION
+     * of the master, never the master. C100 §2.1: *"a resolved colour is a CACHE,
+     * never an authority."* The visible consequence is §2.2 failing in silence —
+     * *"editing a master row changes every element that references it"* — a window
+     * kept its stale copy forever and nothing said so. Quieter than the door's
+     * (where the gesture did nothing at all) and longer-lived, because it looks
+     * right on the day it is authored.
+     *
+     * ⚠ ADDITIVE, NOT A RE-ORDERING (C100 §9.6.b). `resolveWindowFrameColour`
+     * preserves every rung below verbatim and inserts master resolution ABOVE the
+     * cached hex at each level. A `materialId` did nothing at all before today, so
+     * NO WINDOW IN ANY EXISTING PROJECT CAN CHANGE COLOUR unless it names a master
+     * material — met by construction rather than by hope, and pinned by case 4 of
+     * `WindowMasterMaterialReachesMesh.test.ts`.
+     *
+     * ⭐ AND IT CANNOT DEFEAT INSTANCING. This returns a HEX STRING, which
+     * `_sharedFrameMaterial` keys its cache on — so the material count stays ONE PER
+     * DISTINCT COLOUR PER LEVEL, not one per window. That matters more here than
+     * anywhere else in the model: a window at `fine` LOD is TWELVE meshes and the
+     * founder's live project holds 3,304 of them (39,648 meshes, ~85% of the scene),
+     * and `dedupInstanceMaterial` collapses only CLASSIC material types. Minting a
+     * material per window here would have silently forced 3,304 size-1 instance
+     * groups. Pinned by `4. …ONE material per distinct COLOUR, not one per window`.
+     *
+     * ⚠ NO SECOND LADDER LIVES HERE (C100 §9.6.a). The precedence is stated once, in
+     * `windowFinishColour.ts`, which delegates id→colour to `resolveMaterialColour`
+     * — the single authority `HandrailFragmentBuilder` and `resolveDoorFinishColour`
+     * also call. This method's only remaining job is to hand it the resolved system
+     * type (which the resolver stays store-free in order to accept) and to report an
+     * unresolved id once.
      */
     private _resolveFrameColor(win: WindowOpening): string {
-        const SENTINEL = '#e8e8e8';
-        const explicit = win.frameFinish?.materialColor ?? win.frameColor;
-        if (typeof explicit === 'string' && explicit.length > 0 && explicit.toLowerCase() !== SENTINEL) {
-            return explicit;
-        }
         const sysType = win.systemTypeId ? windowSystemTypeStore.getById(win.systemTypeId) : undefined;
-        const fromType = sysType?.frameFinish?.materialColor;
-        if (typeof fromType === 'string' && fromType.length > 0) return fromType;
-        return (typeof explicit === 'string' && explicit.length > 0) ? explicit : SENTINEL;
+        const resolved = resolveWindowFrameColour(win, sysType?.frameFinish);
+        if (resolved.state === 'unresolved') this._reportUnresolvedFrameMaterial(win.id, resolved);
+        return resolved.hex;
+    }
+
+    /**
+     * C100 §5 — an unresolvable id paints MAGENTA **and says why**, once.
+     *
+     * ⚠ ONCE PER WINDOW, not once per call. `_resolveFrameColor` runs at least twice
+     * per build (frame, then sill) and a window rebuilds on every host-wall cascade,
+     * so an un-deduplicated `console.warn` here would be a per-frame flood across
+     * 3,304 windows — the exact defect L-1157 root-caused, where the warning that
+     * announced a flood WAS the flood.
+     */
+    private _reportUnresolvedFrameMaterial(winId: string, r: WindowFinishColour): void {
+        const key = `${winId}|${r.materialId ?? ''}`;
+        if (this._unresolvedFrameReported.has(key)) return;
+        this._unresolvedFrameReported.add(key);
+        console.warn(
+            `[WindowBuilder] C100 §5 — window ${winId} names material ` +
+            `'${r.materialId}' which resolves to nothing; painting ${r.hex} (magenta) ` +
+            `rather than a plausible colour. ${r.reason ?? ''}`,
+        );
     }
 
     /**
