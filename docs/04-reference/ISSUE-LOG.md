@@ -19895,3 +19895,152 @@ add another guard.
 
 **Fence note:** `SelectionManager` (`packages/input-host`) and the editor bootstrap are held by
 other lanes; JOIN1 logged this rather than fixing it.
+
+---
+
+## L-1250 · L-1251 · L-1252 — "I DON'T SEE THE CIRCULAR WINDOW OPTION ON THE MODE": the geometry shipped, the CONTROL did not ✅ SHIPPED 2026-08-19 (lane ROUND1) · `ea04bfd6` · `63eb6726` · `5e14c4de`
+
+**Founder, live, with a screenshot of the window tool:** *"I DON'T SEE THE CIRCULAR WINDOW OPTION ON
+THE MODE."*
+
+⭐ **HE WAS NOT REPORTING A BUG. HE WAS TESTING [L-1200](#) AND HITTING THE BOUNDARY IT DECLARED.**
+Slice 1 shipped the geometry, the schema, the refusal and the invalidation, and said in as many
+words that the mode bar, properties panel, plan symbol, IFC and chat were **NOT BUILT**. This is the
+reach — and the gap between the two is exactly the
+[[authored-but-unwired-is-the-bottleneck]] shape: a capability complete at both ends with no control
+in the middle.
+
+---
+
+### L-1250 — THE WINDOW MODE BAR. Two axes, one bar, `A` cycles the shape.
+
+```
+MODE:  [S Single] [D Double]                              <- LEAF COUNT   (unchanged)
+Shape: [A Rectangular] [Arched] [Segmental] [Circular]    <- VOID SHAPE   (new)
+```
+
+**⭐ HIS OWN WORDS SETTLED THE DESIGN, AND THEY DID NOT MEAN WHAT THEY LOOKED LIKE.** He asked to
+choose *"single / double / circular"* from **one place**. Shipping that literally — one pill list —
+would make **`Double × Arched`, an ordinary window, UNEXPRESSIBLE**. One place, **two axes**.
+Recorded as [C82 §7.j](../02-decisions/contracts/C82-RIBBON-CAPABILITY-SURFACE.md).
+
+**⛔ AND NOT IN THE "Select Window Type" DROPDOWN EITHER.** His screenshot showed both surfaces at
+once. Those eight entries (Timber Casement, uPVC Tilt & Turn, …) carry **frame material and glazing
+build-up**; a profile is **geometry**. *"Circular Timber Casement"* would multiply eight types by
+four profiles and re-spell the vocabulary — the enumerated-list failure the Phase-0 ruling exists to
+prevent.
+
+**ONE KEY FOR THE WHOLE AXIS.** `A` (for *Arch*) **cycles** it, re-grepped free immediately before
+binding. Not four new letters: **`S` already means six different things** across the shipped mode
+bars and that collision has bitten the founder once already (he pressed `S` expecting By-Slab and
+got Single). Only the first pill prints the key hint, because `A` cycles rather than selects.
+
+---
+
+### L-1251 — THE ARCHED DOOR. Same axis, same bar — and ⛔ **a door may NOT be circular.**
+
+He asked for the curved-top door in the same breath. One `openingProfile` on the wall opening is the
+whole reason both nouns read ONE axis, so the door bar is the window bar's mirror rather than a
+second implementation.
+
+**⭐ THREE VALUES, NOT FOUR, AND THAT IS THE FINDING.** A door is a **FLOOR-REACHING** opening:
+`sillHeight` is 0 and `normaliseWallHoles` classifies it as a **NOTCH** in the wall's outer profile
+rather than a closed hole. **A circle has no jamb feet to notch between** — its outline begins at the
+springing, not on the floor. Offering `Circular` on the door bar and refusing it at the click would
+be **C84 EI-3** in its purest form.
+
+So it is **not offered** — and the **geometry gate refuses it independently**, because the bar is not
+the only thing standing there: chat, a batch generator or a hand-edited file could still produce one,
+and it meets a refusal naming the floor and offering the arched alternative.
+`openingProfilesFor(family)` is the ONE declaration; `nextOpeningProfileFor` is family-aware so `A`
+can never land on a value the pills refuse.
+
+**Non-vacuity is asserted, not assumed:** a circle at a **raised sill** is still accepted, or the
+refusal would be a blanket ban that kills the circular window he actually asked for.
+
+---
+
+### L-1252 — CHANGING AN OPENING ALREADY PLACED. ⛔ **And the wall hop that would have made it a lie.**
+
+He has **85 windows in that model**. An authoring-only capability reads as broken, so both panels
+gained a Shape / Head Shape control.
+
+> ⛔ **THE MEASUREMENT THAT CHANGED THE IMPLEMENTATION.** `WallStore.updateWindow` / `updateDoor` —
+> the mirror write **every** dimensional edit funnels through — copy exactly **FOUR** fields onto
+> `wall.openings[]`: `width`, `height`, `sillHeight`, `offset`. A profile change routed through them
+> would have written the standalone store, **reported success**, and left the WALL still cutting a
+> rectangle. **The panel would show a circle the model does not have** — [C86 §11 #1](../02-decisions/contracts/C86-ELEMENT-WALL-OPENING.md),
+> the frame and the void diverging, which is the defect this family keeps producing.
+
+The commands now also call **`wallStore.updateOpening`**, which replaces the whole `Opening` and
+whose `cloneOpening` is a spread, so the new field survives. ⭐ **That route was chosen over the
+obvious fix — widening the four-field list — precisely because `WallStore.ts` is another lane's
+fence.** The obvious fix would have been the wrong one for the fleet.
+
+**⭐ THE TEST ASSERTS `wall.openings[0].openingProfile`, NOT the standalone record.** Asserting the
+standalone store would have **passed against the broken version**, which is exactly why it is not the
+assertion. This is [[committed-is-not-reachable]] applied before it could bite.
+
+**Refusals are loud AND atomic.** A curved host returns `success:false` with the reason and the live
+alternative (C16 CA-18) — never a green tick over an unchanged wall — and a separate test proves the
+refusal does **not half-apply**: neither record moves and the dimensions are not squared on the way
+out.
+
+**Flipping to `circular` carries the height.** PR-8 has no radius field — width **is** the diameter —
+so an existing 1.2 × 1.5 window becomes 1.2 × 1.2 rather than being refused by its own record on the
+next validation. C84 **EI-3** applied to an EDIT: the panel offered it, so the pipeline makes the
+offer good.
+
+---
+
+### ⭐ A NON-VACUITY GUARD CAUGHT ITS OWN TEST BEING WRONG
+
+The first draft of the window suite asserted *"the resolved rectangle is never square, so squaring
+always bites."* **False.** The **default single window is 1.2 × 1.2 — already square** — so for the
+first thing the founder will try, the squaring changes nothing. It is load-bearing for a **DOUBLE**
+(2.4 × 1.2), which is now the case asserted.
+
+⚠ **Consequence stated rather than hidden:** a **double circular** window is a **2.4 m oculus**,
+because the width is the diameter. Consistent, and large. **NOT MEASURED** against expectation.
+
+### ✅ ELEVATION — VERIFIED, NOT REBUILT
+
+Lane ELEV1's `OpeningElevationSymbol` was **profile-aware before the profile had any UI**: it
+consumes `openingOutline()` (never re-deriving the arc), honours the PR-5 curved-host refusal, and
+replaces the solid's wireframe keyed on what was emitted. **The chain is now complete and was traced
+end-to-end**: `wall.openings[].openingProfile` → `OpeningElevationSymbolBuilder:253` →
+`OpeningElevationSymbol` → `openingOutline()` → *the same curve the wall was cut with*. Suite green
+(30/30) against this lane's wiring. **A check, not a build.**
+
+### PERSISTENCE — with a live negative control
+
+`WindowStore.add` / `DoorStore.add` freeze a spread of `Schema.safeParse(...).data`, and **Zod STRIPS
+undeclared keys**, so a field written to the store and missing from the schema survives exactly one
+session. Both schemas declare it. The suite asserts the profile **survives** a parse **and** that an
+**undeclared field is DELETED by the same parse** — without the second assertion the first would pass
+even with the schema unchanged.
+
+`CreateWallOpeningCommand`'s `windowStore.add`/`doorStore.add` are **explicit whitelists** (the wall
+opening is a spread and inherits new fields free), so the profile is named there too.
+
+### COVERAGE NOW (against the L-1200 table)
+
+| Surface | Then | Now |
+|---|---|---|
+| Mode bar — window | NOT BUILT | ✅ **L-1250** |
+| Mode bar — door | NOT BUILT | ✅ **L-1251** |
+| Properties panel — both | NOT BUILT | ✅ **L-1252** |
+| CHANGE route (also NL1's retiring condition) | NOT BUILT | ✅ **L-1252** |
+| Elevation symbol | — | ✅ **verified** (ELEV1's, profile-aware already) |
+| Persistence round-trip | measured hole | ✅ schemas + whitelists closed |
+| Plan symbol | NOT YET | 🟡 **NOT YET** — pipeline is `LineSegments` and `DoorPlanSymbolBuilder:720` already samples an arc, so it is reachable |
+| IFC export | NOT YET | 🟡 **NOT YET** — `geometry.ts:94-104` always emits `IFCRECTANGLEPROFILEDEF` |
+| Chat vocabulary | NOT YET | 🟡 **NL1's** — the create payload and CHANGE route it was waiting on now exist |
+
+### ⚠ NOT MEASURED, and now visible where he can correct it
+
+The `segmental-arch` rise is **1/6 of the span** — a declared default, because PR-8 forbids a
+dimension field beside `width`/`height`, and **nobody has asked an architect whether that is what
+"Segmental" should mean**. It is now printed in the **pill tooltip on both mode bars** and in the
+**option label itself on both properties panels**, so it can be corrected in one sentence instead of
+being discovered in a drawing.
