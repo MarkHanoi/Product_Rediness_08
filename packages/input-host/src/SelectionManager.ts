@@ -28,6 +28,41 @@ import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './
 import { startSpan } from './otel.js';
 import type { ISelectionManager } from '@pryzm/engine';
 
+// ── §PERF2-HOTLOG (L-1157) — throttled warnings for the per-frame paths ──────
+//
+// Three of this file's `console.warn`s and one `console.debug` sit on the HOVER
+// rAF and the frame-scheduler tick, i.e. they run at display refresh rate for as
+// long as the condition holds — and the conditions here are persistent states,
+// not rare events. `_safeUpdateMatrixWorldForPick`'s own docblock says its throw
+// "happens CONSTANTLY on a resi building whose 92 walls are re-queued + rebuilt
+// in the background". A `console.warn` is a synchronous, formatting, DevTools-
+// serialising call; at 60 Hz that is real main-thread cost inside the exact
+// window the founder measures as a freeze.
+//
+// ⚠ DELETING THEM WOULD LOSE A REAL SIGNAL — each one marks a genuine defect
+// someone still needs to see. So they are THROTTLED, not removed: first
+// occurrence logs immediately, then 10th, 100th, 1000th…, and every line carries
+// its own occurrence count. A reader sees the problem AND its true frequency,
+// which is strictly more information than an unthrottled flood conveys, because
+// nobody counts 4,000 identical lines by eye.
+const _hotLogCounts = new Map<string, number>();
+
+/** Log `msg` on the 1st, 10th, 100th … occurrence of `key`, carrying the count. */
+function warnHot(key: string, msg: string, detail?: unknown): void {
+    const n = (_hotLogCounts.get(key) ?? 0) + 1;
+    _hotLogCounts.set(key, n);
+    // 1, 10, 100, 1000, … — a decade scale, so a persistent condition reports
+    // roughly once per order of magnitude instead of once per frame.
+    let isDecade = false;
+    for (let d = 1; d <= n; d *= 10) { if (d === n) { isDecade = true; break; } }
+    if (!isDecade) return;
+    if (detail === undefined) console.warn(`${msg} [occurrence #${n}]`);
+    else console.warn(`${msg} [occurrence #${n}]`, detail);
+}
+
+/** Test/diagnostic seam — resets the throttle counters. */
+export function __resetHotLogCounts(): void { _hotLogCounts.clear(); }
+
 /**
  * Effective scene visibility — true only when `obj` AND every ancestor is
  * `.visible`. THREE's Raycaster ignores `.visible`, so a hidden element
@@ -643,7 +678,11 @@ export class SelectionManager implements ISelectionManager {
         const tcObj = (this.transformControls as { object?: THREE.Object3D | null }).object ?? null;
         if (tcObj === null) return false;
         if (this._isAttachedToScene(tcObj)) return false;
-        console.warn('[SelectionManager] §SELECT-GIZMO-REATTACH gizmo attached to a detached object — detaching to stop the per-frame flood');
+        // §PERF2-HOTLOG — this runs on the frame-scheduler 'pre-render' tick
+        // (registered as 'selection-manager-gizmo-liveness-guard') AND from the
+        // hover rAF, so the message's own phrase "to stop the per-frame flood"
+        // described a log that WAS the per-frame flood.
+        warnHot('gizmo-reattach', '[SelectionManager] §SELECT-GIZMO-REATTACH gizmo attached to a detached object — detaching to stop the per-frame flood');
         this.transformControls.detach();
         return true;
     }
@@ -688,7 +727,10 @@ export class SelectionManager implements ISelectionManager {
             // (2) Belt-and-braces: a gizmo/proxy can detach between the guard above
             // and this call under heavy rebuild churn. Detach + retry once so the
             // hover/click never throws into ViewportCrashGuard and aborts the frame.
-            console.warn(
+            // §PERF2-HOTLOG — reached from the hover rAF; the docblock above
+            // states this throw "happens CONSTANTLY" during background rebuilds.
+            warnHot(
+                'hover-matrix-throw',
                 '[SelectionManager] §SELECT-HOVER-MATRIX-GUARD updateMatrixWorld threw ' +
                 '(likely a detached gizmo target during a background rebuild) — detaching gizmo and retrying once:',
                 err instanceof Error ? err.message : err,
@@ -699,7 +741,9 @@ export class SelectionManager implements ISelectionManager {
             } catch (err2) {
                 // Still throwing — swallow so the pick can fall through to the BVH
                 // path and the render frame survives. Never rethrow on a hover.
-                console.warn(
+                // §PERF2-HOTLOG — same hover-rAF path, one level deeper.
+                warnHot(
+                    'hover-matrix-throw-after-detach',
                     '[SelectionManager] §SELECT-HOVER-MATRIX-GUARD updateMatrixWorld still threw after gizmo detach — skipping matrix sync this frame:',
                     err2 instanceof Error ? err2.message : err2,
                 );
@@ -3451,7 +3495,15 @@ export class SelectionManager implements ISelectionManager {
             const gpuHoverResult = this._pickStrategy.pick({ x: hx, y: hy }, hoverPickCtx, { skipDepth: true });
             if (gpuHoverResult !== null) {
                 const hoverObj = hoverPickCtx.elementRegistry.objectFor(gpuHoverResult.elementId);
-                console.debug(`[PickResolver/rAF] strategy=${this._pickStrategy.id} hover-hit=${gpuHoverResult.elementId}`);
+                // §PERF2-HOTLOG — ONE line per frame for as long as the cursor
+                // rests on any geometry, and it reports a SUCCESS. Unlike the
+                // three warnings above there is no defect here to preserve, so
+                // this is flag-gated rather than throttled: nothing is lost when
+                // it is off, and a hover trace is exactly the kind of thing you
+                // want all of, or none of.
+                if ((globalThis as { __pryzmPickTrace?: boolean }).__pryzmPickTrace === true) {
+                    console.debug(`[PickResolver/rAF] strategy=${this._pickStrategy.id} hover-hit=${gpuHoverResult.elementId}`);
+                }
                 _hoverSpan.setAttribute('pryzm.selection.hit', true);
                 _hoverSpan.setAttribute('pryzm.selection.element_id', gpuHoverResult.elementId);
 
