@@ -227,6 +227,14 @@ export class BottomActionMenu {
         // the 3D view). Deferred a tick so the scene + ceiling roots exist; the
         // filter is idempotent and recomputes from the captured originals.
         queueMicrotask(() => { if (this._view3DActive) this._applySceneVisibilityFilters(); });
+
+        // §LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — publish THIS menu's explode offset
+        // on its own global, deliberately separate from LevelExplodeController's
+        // `pryzmLevelExplodeOffsetForObject`. Two owners writing one global would
+        // race on init order; two globals summed by the reader cannot. See
+        // `initTransformControllers.ts` for the reader.
+        window.pryzmBamLevelExplodeOffsetForObject = (obj: unknown): number =>
+            this.getLevelExplodeOffsetForObject(obj as THREE.Object3D | null | undefined);
     }
 
     get element(): HTMLElement {
@@ -1392,18 +1400,67 @@ export class BottomActionMenu {
         this._startLevelAnimation();
     }
 
+    /**
+     * §LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — the VIEW-ONLY Y offset this menu's
+     * level-stack explode is currently applying to `obj` (or to the nearest
+     * tracked ancestor of `obj`). 0 when collapsed.
+     *
+     * WHY THIS EXISTS: the explode is a pure view transform, but anything that
+     * LATCHES `position.y` as a durable value — `LevelPlaneConstraint` above all —
+     * must be able to subtract it. `LevelExplodeController` already publishes the
+     * same number via `window.pryzmLevelExplodeOffsetForObject`, but that one
+     * reports 0 whenever inspect mode is inactive, which is precisely the founder's
+     * flow (he used THIS button, not the inspect panel). Two rival explode owners
+     * and only one of them answering the oracle is how a real offset got reported
+     * as no offset. This menu now answers for its own.
+     */
+    getLevelExplodeOffsetForObject(obj: THREE.Object3D | null | undefined): number {
+        if (!obj || this._levelOriginalY.size === 0) return 0;
+        for (let cur: THREE.Object3D | null = obj; cur; cur = cur.parent) {
+            const base = this._levelOriginalY.get(cur);
+            if (base === undefined) continue;
+            const target = this._levelTargetY.get(cur);
+            return target === undefined ? 0 : target - base;
+        }
+        return 0;
+    }
+
     private _restoreLevelTransforms(): void {
         // D.7.5 batch #3: dispose the FrameScheduler tick listener.
         if (this._raf !== null) { this._raf(); this._raf = null; }
-        let restored = 0, rooms = 0, labels = 0, furniture = 0;
+        // §LEVEL-STACK-COUNT-IS-NOT-PROOF (L-1012) — this used to print one number,
+        // "restored N", and the founder's log balanced at 340/340 while an element
+        // was demonstrably still in the wrong place. A single total cannot be wrong,
+        // which is exactly what makes it useless: this map holds every root captured
+        // at explode time, INCLUDING roots a rebuild has since detached from the
+        // scene. Writing `position.y` on a detached Object3D changes nothing anybody
+        // can see, yet it incremented the count. Split the tally so a collapse that
+        // restored mostly ghosts SAYS so, and drop the ghosts instead of leaking
+        // them into the next explode.
+        let live = 0, stale = 0, rooms = 0, labels = 0, furniture = 0;
+        const scene = this._getScene();
+        const attached = (o: THREE.Object3D): boolean => {
+            if (!scene) return true; // cannot tell — do not claim either way
+            for (let cur: THREE.Object3D | null = o; cur; cur = cur.parent) if (cur === scene) return true;
+            return false;
+        };
         for (const [obj, y] of this._levelOriginalY) {
-            obj.position.y = y; restored++;
+            obj.position.y = y;
+            if (attached(obj)) live++; else { stale++; continue; }
             const ud = (obj as any).userData ?? {};
             if (ud.type === 'room-label') labels++;
             else if (ud.elementType === 'Furniture' || ud.furnitureType) furniture++;
             else if (ud.isRoomOverlay || ud.isRoomVolume || ud.elementType === 'room') rooms++;
         }
-        console.log(`[§LEVEL-STACK] collapse: restored ${restored} root Y positions (rooms ${rooms}, labels ${labels}, furniture ${furniture})`);
+        console.log(
+            `[§LEVEL-STACK] collapse: restored ${live} LIVE root Y positions ` +
+            `(rooms ${rooms}, labels ${labels}, furniture ${furniture})` +
+            (stale > 0
+                ? ` — plus ${stale} STALE root(s) detached by a rebuild since the explode; ` +
+                  `their restore was a no-op and their live replacements were never lifted ` +
+                  `(see L-1013). Total captured ${this._levelOriginalY.size}.`
+                : ''),
+        );
         this._levelOriginalY.clear();
         this._levelTargetY.clear();
     }

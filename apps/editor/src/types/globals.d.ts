@@ -436,6 +436,19 @@ declare global {
          */
         pryzmLevelExplodeOffsetForObject?: ((obj: unknown) => number) | undefined;
 
+        /**
+         * §LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — the SAME quantity as above, but for
+         * the level stack driven by the Bottom Action Menu's Level-Stack button.
+         *
+         * These are two independent explode implementations with two independent
+         * offset maps. `pryzmLevelExplodeOffsetForObject` answers 0 whenever
+         * inspect mode is inactive, so it silently reports "no offset" for a model
+         * the BAM button has genuinely lifted — "unknown" and "zero" sharing a
+         * value. Readers must SUM both, never pick one. Undefined until the menu
+         * is constructed.
+         */
+        pryzmBamLevelExplodeOffsetForObject?: ((obj: unknown) => number) | undefined;
+
         // ── Constraint & solver globals ───────────────────────────────────────
         constraintStore:          unknown;
         constraintSolver:         unknown;

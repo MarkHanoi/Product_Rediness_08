@@ -56,7 +56,25 @@ export function createTransformControllers(world: any): TransformControllerSet {
         () => window.runtime?.bus, // §P4.2 — bus replaces commandManager (C14 §2.1)
     );
 
-    const levelPlaneConstraint = new LevelPlaneConstraint(transformControls);
+    // §LEVEL-STACK-LOCKS-VIEW-Y (L-1010) — the constraint latches an element's Y as
+    // its immutable "level plane". While a level stack is EXPLODED, `position.y` is
+    // MODEL Y + a pure view offset, so latching it raw froze the element at its
+    // exploded height — and kept re-asserting that height after the collapse wrote
+    // the model Y back. ("One slab stayed at its exploded height and never comes
+    // back.") Feed it the live view offset so it can subtract, and re-add, the part
+    // that is not model.
+    //
+    // BOTH owners are summed. There are two rival explode implementations —
+    // LevelExplodeController (inspect mode) and BottomActionMenu (the Level-Stack
+    // button) — each with its own offset map. Reading only the first reports 0 for a
+    // model the second has lifted. If both are somehow active the mesh really does
+    // carry both offsets, so the sum is the correct total either way.
+    const levelPlaneConstraint = new LevelPlaneConstraint(
+        transformControls,
+        (obj) =>
+            (window.pryzmLevelExplodeOffsetForObject?.(obj) ?? 0) +
+            (window.pryzmBamLevelExplodeOffsetForObject?.(obj) ?? 0),
+    );
 
     const wallTransformController = new WallTransformController(
         transformControls,
