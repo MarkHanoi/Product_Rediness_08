@@ -4,6 +4,34 @@ import { storeEventBus } from '../StoreEventBus'; // TODO(TASK-08)
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
+/**
+ * §L-1087 — snap a delta-shifted world Y to the nanometre grid.
+ *
+ * WHY THIS EXISTS, MEASURED. `y += (newElevation - previousElevation)` is NOT
+ * invertible in binary64: seeded at 2.6 and shifted +3 the result is exactly
+ * 5.6, but shifting it back by -3 yields **2.5999999999999996**. So the undo of
+ * a storey move would restore a record that is not the record the edit started
+ * from — C84 EI-7 ("undo restores what the edit wrote") failing by 4e-16 m, and
+ * failing PERMANENTLY, because every equality-based dirty check downstream would
+ * then see a document that never returns to clean.
+ *
+ * Snapping to 1e-9 m removes exactly that float noise: it is a million times
+ * finer than any tolerance this repo models with, and it leaves every coordinate
+ * that lies on a decimal grid coarser than a nanometre — which is every authored
+ * coordinate — bit-identical after a forward-and-back move. Stated honestly:
+ * this is NOT a proof of invertibility for arbitrary doubles, it is a guarantee
+ * for the domain (metre-magnitude coordinates on a decimal grid). A coordinate
+ * carrying real sub-nanometre information would be quantised, and no BIM datum
+ * carries any.
+ *
+ * `toFixed` rather than `Math.round(y * 1e9) / 1e9` because the multiplication
+ * form silently degrades past |y| ~ 9e6 m, where `y * 1e9` leaves the exact
+ * integer range of a double.
+ */
+function snapNanometre(y: number): number {
+    return Number(y.toFixed(9));
+}
+
 export class BeamStore {
     private beams: Map<string, BeamData> = new Map();
     private projectContext: ProjectContext;
@@ -165,9 +193,44 @@ export class BeamStore {
      * `add()` mints `properties.mark` from `this.beams.size` and issues an IFC
      * GUID when either is absent (`:45-57`), so a remove+add round trip would
      * RENUMBER the beam and could re-issue its GUID — a move is not a delete. A
-     * beam carries no join state, and the fragment builder re-derives its world Y
-     * from `level.elevation` on every 'update', so one 'update' is everything the
-     * renderer needs.
+     * beam carries no join state, so one 'update' is everything the renderer needs.
+     *
+     * ─── §L-1087 — THE HEIGHT MOVES HERE, AND IT MOVES BY A DELTA ───────────
+     * ⚠ THIS DOC COMMENT USED TO CLAIM *"the fragment builder re-derives its
+     * world Y from `level.elevation` on every 'update'"*. **MEASURED FALSE.**
+     * `BeamFragmentBuilder` seats the root at
+     * `root.position.set(centre.x, centre.y, centre.z)`
+     * (`packages/geometry-beam/src/BeamFragmentBuilder.ts:405`) where `centre.y`
+     * is `(start.y + end.y) * 0.5` (`:352-356`) — the record's OWN absolute Y.
+     * The file contains **no `getLevelById` call at all** (`grep -c getLevelById`
+     * → 0). So a storey change that touched only `levelId` re-filed the beam on
+     * the new plan, in the level browser and in IFC containment, and left the
+     * mesh hovering at the OLD floor's height. Nothing reported a failure. That
+     * is the silently-wrong element `WallRake.ts:50-62` forbids, and it is why
+     * `beam` sat in `LEVEL_CHANGE_REFUSALS` with `disposition: 'deferred'`.
+     *
+     * The height now moves, under three rules that are each load-bearing:
+     *
+     *   • **The store never reaches for a level table.** It receives NUMBERS.
+     *     This class holds a `ProjectContext` (`:9`) but that is the ACTIVE
+     *     level, not the destination's elevation, and reading a level table here
+     *     would put a second authority for "what is this storey's elevation"
+     *     inside a store (C84 EI-9). The caller — which already holds the
+     *     `bimManager` handle on both the forward and the inverse leg — resolves
+     *     both elevations from the LEVEL AUTHORITY and hands them down.
+     *   • **Missing elevations REFUSE.** Moving `levelId` while silently leaving
+     *     `startPoint.y`/`endPoint.y` behind is the exact defect above, so an
+     *     absent or non-finite elevation returns `undefined` and warns. A caller
+     *     that gets `undefined` reports a NAMED refusal; a caller that got a
+     *     half-move reported success. Fabricating an elevation instead would be
+     *     §DIAG-WALL-LEVEL in a new place.
+     *   • **DELTA, not assignment.** `y += (newElevation - previousElevation)`.
+     *     A beam is rarely AT its floor datum — it sits at soffit height, near
+     *     the top of the storey. `y = newElevation` would slam every beam to
+     *     floor level; the delta preserves whatever offset above its floor the
+     *     beam was authored with. Both endpoints move, because a beam's Y lives
+     *     in `startPoint.y`/`endPoint.y` (`BeamTypes.ts:6-7`) — there is no
+     *     `position` on this record.
      *
      * ─── WHAT THIS DOES NOT DO ──────────────────────────────────────────────
      * Spatial-authority registration (bimManager `level.childrenIds`, the
@@ -186,7 +249,11 @@ export class BeamStore {
      * which the caller reports as a refusal rather than logging success over a
      * no-op (§context-data-honesty: failure and emptiness are the same value).
      */
-    changeLevel(id: string, newLevelId: string): BeamData | undefined {
+    changeLevel(
+        id: string,
+        newLevelId: string,
+        opts?: { newElevation?: number; previousElevation?: number },
+    ): BeamData | undefined {
         const existing = this.beams.get(id);
         if (!existing) return undefined;
         // An empty destination is REFUSED, never defaulted to the active level.
@@ -195,11 +262,44 @@ export class BeamStore {
         // §DIAG-WALL-LEVEL trap — it files the beam on whatever storey happens to
         // be open, usually the ground floor.
         if (!newLevelId) return undefined;
+        // Already there: nothing moves, so nothing needs an elevation. This arm
+        // is deliberately ABOVE the elevation gate — refusing a no-op for want of
+        // a number that would be multiplied by zero would report a failure where
+        // there is none.
         if (existing.levelId === newLevelId) return existing;
 
+        // §L-1087 — THE ANTI-HALF-MOVE GATE. Without BOTH elevations this method
+        // cannot move the height, and moving the storey ALONE is the defect, not
+        // a partial success. Refuse, name why, leave the record untouched.
+        const newElevation = opts?.newElevation;
+        const previousElevation = opts?.previousElevation;
+        if (typeof newElevation !== 'number' || !Number.isFinite(newElevation)
+            || typeof previousElevation !== 'number' || !Number.isFinite(previousElevation)) {
+            console.warn(
+                `[BeamStore] §L-1087 REFUSED — beam '${id}' NOT moved to level '${newLevelId}'. ` +
+                'changeLevel needs BOTH `previousElevation` and `newElevation`, resolved by the ' +
+                'caller from the level authority (this store holds no level table and must never ' +
+                'fabricate one — §DIAG-WALL-LEVEL). Got previousElevation=' +
+                `${String(previousElevation)}, newElevation=${String(newElevation)}. ` +
+                'Moving the storey without the height would leave the beam hovering at the old ' +
+                "floor's level with nothing reporting it (BeamFragmentBuilder.ts:405).",
+            );
+            return undefined;
+        }
+        const deltaY = newElevation - previousElevation;
+
         // Same shallow-clone shape `update()` uses, so a move and a field edit
-        // leave the map holding structurally identical objects.
-        const moved: BeamData = { ...existing, levelId: newLevelId };
+        // leave the map holding structurally identical objects — EXCEPT that the
+        // two endpoint objects must be cloned explicitly. A shallow spread shares
+        // them with `existing`, so `moved.startPoint.y += deltaY` would mutate the
+        // PRE-mutation record too, and any caller holding it (the undo leg holds
+        // exactly that) would see its "before" value silently become the "after".
+        const moved: BeamData = {
+            ...existing,
+            levelId: newLevelId,
+            startPoint: { ...existing.startPoint, y: snapNanometre(existing.startPoint.y + deltaY) },
+            endPoint:   { ...existing.endPoint,   y: snapNanometre(existing.endPoint.y   + deltaY) },
+        };
         // A beam parented to something ELSE than its storey keeps that parent.
         if (existing.parentId === existing.levelId) moved.parentId = newLevelId;
 
