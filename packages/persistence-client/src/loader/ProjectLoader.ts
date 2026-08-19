@@ -87,6 +87,8 @@ import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
 import { slabSystemTypeStore } from '@pryzm/geometry-slab';
 import { wallSystemTypeStore } from '@pryzm/geometry-wall';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — the railing CATALOGUE.
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { ceilingRestoreBoundaryFields } from '@pryzm/command-registry'; // §OPEN-OLD-CEILING-RESTORE
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
@@ -974,6 +976,53 @@ export class ProjectLoader {
                 }
                 if (restoredWallTypeCount > 0) {
                     console.log(`[ProjectLoader] Restored ${restoredWallTypeCount} custom wall system type(s) from snapshot.`);
+                }
+            }
+
+            // §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — restore custom
+            // HANDRAIL TYPE definitions (the railing catalogue) from the snapshot.
+            //
+            // ⛔ WHY THIS ARM EXISTS: `handrailTypeStore` is registered on
+            // `projectScopeRegistry` with `clear: clearCustomTypes()`, so switching
+            // project DELETED every user-authored railing type — while no save path
+            // had ever written one. A DESTRUCTOR WITH NO CONSTRUCTOR: a custom type
+            // could not survive a reload for any user, in any order of operations
+            // (C95 §15.7, measured 2026-08-19).
+            //
+            // ⭐ IT PRESERVES `raw.id`, AND THAT IS A DELIBERATE DIVERGENCE FROM THE
+            // WALL ARM ABOVE. `wallSystemTypeStore.add({name, description, layers})`
+            // does not pass the saved id, so a restored wall type comes back under a
+            // NEW one. `HandrailTypeStore.add()` takes the whole definition INCLUDING
+            // the id, so identity survives — which is what every handrail record's
+            // materialised fields, every schedule row and every future library edit
+            // needs in order to still point at the same type (C84 EI-1).
+            const snapshotHandrailTypes = (snapshot as any).handrailTypes;
+            if (Array.isArray(snapshotHandrailTypes) && snapshotHandrailTypes.length > 0) {
+                let restoredHandrailTypeCount = 0;
+                for (const raw of snapshotHandrailTypes) {
+                    try {
+                        if (!raw || !raw.id || !raw.name) {
+                            console.warn('[ProjectLoader] Skipping malformed handrailType:', raw);
+                            continue;
+                        }
+                        // Already present (a built-in id, or a repeated load) — `add()`
+                        // THROWS on a duplicate id, so this guard is load-bearing, not
+                        // tidiness.
+                        if (handrailTypeStore.getById(raw.id)) continue;
+
+                        // ⛔ `isBuiltIn` is NOT copied from the snapshot. The store sets
+                        // it to false itself, and it must: a snapshot claiming
+                        // `isBuiltIn: true` for a user type would make it unremovable and
+                        // unmodifiable for ever, since `remove()`/`update()` refuse on it.
+                        const { isBuiltIn: _ignored, ...definition } = raw as Record<string, unknown>;
+                        handrailTypeStore.add(definition as never);
+                        restoredHandrailTypeCount++;
+                    } catch (e) {
+                        console.warn('[ProjectLoader] Failed to restore handrailType:', raw, e);
+                    }
+                }
+                if (restoredHandrailTypeCount > 0) {
+                    console.log(`[ProjectLoader] Restored ${restoredHandrailTypeCount} custom handrail type(s) from snapshot.`);
                 }
             }
 

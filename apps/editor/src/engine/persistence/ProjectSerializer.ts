@@ -88,6 +88,9 @@ import { trace } from '@opentelemetry/api';
 import type { SiteModel } from '@pryzm/schemas';
 import { CeilingStore } from '@pryzm/core-app-model/stores';
 import { CeilingSystemTypeStore } from '@pryzm/core-app-model/stores';
+// §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — the railing CATALOGUE,
+// as a module SINGLETON (see the twin in packages/persistence-client for why).
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { requirementStore } from '@pryzm/core-app-model';
 import { assetCatalogStore } from '@pryzm/core-app-model';
 import { dxfOverlayStore } from '@pryzm/file-format';
@@ -226,6 +229,18 @@ export interface ProjectSnapshot {
      * reconstructed from code. Optional for backward compat.
      */
     wallSystemTypes?: any[];
+    /**
+     * §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — custom HandrailType
+     * definitions (the RAILING CATALOGUE), not handrail records.
+     *
+     * ⛔ `handrailTypeStore` had a DESTRUCTOR AND NO CONSTRUCTOR: registered on
+     * `projectScopeRegistry` with `clear: clearCustomTypes()`, so a project
+     * switch DELETED every user-authored railing type while no save path had
+     * ever written one (C95 §15.7, measured 2026-08-19).
+     *
+     * Only CUSTOM types are persisted; the 20 built-ins come from code.
+     */
+    handrailTypes?: any[];
 
     /**
      * Data Platform — Phase 4 (schema v2).
@@ -1207,6 +1222,11 @@ export class ProjectSerializer {
             .filter(t => !t.isBuiltIn)
             .map(t => encodeHostedSystemType(t));
 
+        // §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — only CUSTOM railing
+        // types. `getCustom()` is the store's own filter, so it cannot drift from
+        // `isBuiltIn` the way a local predicate would.
+        const handrailTypes = handrailTypeStore.getCustom().map(t => structuredClone(t));
+
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +
             beams.length + curtainWalls.length + roofs.length + furniture.length +
@@ -1232,6 +1252,7 @@ export class ProjectSerializer {
             floorSystemTypes: floorSystemTypes.length > 0 ? floorSystemTypes : undefined,
             slabSystemTypes: slabSystemTypes.length > 0 ? slabSystemTypes : undefined,
             wallSystemTypes: wallSystemTypes.length > 0 ? wallSystemTypes : undefined,
+            handrailTypes: handrailTypes.length > 0 ? handrailTypes : undefined,
             // §M-H4 — custom door / window finish types
             doorSystemTypes:   doorSystemTypes.length   > 0 ? doorSystemTypes   : undefined,
             windowSystemTypes: windowSystemTypes.length > 0 ? windowSystemTypes : undefined,

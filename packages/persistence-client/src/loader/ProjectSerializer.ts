@@ -23,6 +23,15 @@
 
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { serializeHandrailRecord } from '@pryzm/core-app-model/stores';
+// §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — the railing CATALOGUE.
+// Imported as a SINGLETON, not taken as an optional dep like the four
+// *SystemTypeStores below it, and the difference is deliberate: those are
+// constructed per-runtime and injected, while `handrailTypeStore` is a module
+// singleton exactly like `vgGovernanceStore` / `roomBoundingLineStore` /
+// `doorStore` above. ⛔ An OPTIONAL dep would have been the worse choice here:
+// every caller that forgot to pass it would silently serialise no catalogue at
+// all, which is the authored-but-unwired failure this feature exists to close.
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { semanticIndex } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { visibilityRuleEngine } from '@pryzm/core-app-model';
@@ -157,6 +166,21 @@ export interface ProjectSnapshot {
      * reconstructed from code. Optional for backward compat.
      */
     wallSystemTypes?: any[];
+    /**
+     * §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — custom HandrailType
+     * definitions (the RAILING CATALOGUE), not handrail records.
+     *
+     * ⛔ BEFORE THIS FIELD, `handrailTypeStore` HAD A DESTRUCTOR AND NO
+     * CONSTRUCTOR: it is registered on `projectScopeRegistry` with
+     * `clear: clearCustomTypes()`, so switching project DELETED every
+     * user-authored railing type — while no save path had ever written one.
+     * A custom type could not survive a reload for any user, in any order of
+     * operations (C95 §15.7, measured 2026-08-19).
+     *
+     * Only CUSTOM types are persisted; the 20 built-ins are reconstructed from
+     * code. Optional, so older snapshots load unchanged (C47 §1.2, additive).
+     */
+    handrailTypes?: any[];
 
     /**
      * Data Platform — Phase 4 (schema v2).
@@ -796,6 +820,11 @@ export class ProjectSerializer {
                 .map(t => structuredClone(t))
             : [];
 
+        // §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — persist only CUSTOM
+        // railing types. `getCustom()` is the store's own built-in filter, so this
+        // cannot drift from `isBuiltIn` the way a local predicate would.
+        const handrailTypes = handrailTypeStore.getCustom().map(t => structuredClone(t));
+
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +
             beams.length + curtainWalls.length + roofs.length + furniture.length +
@@ -817,6 +846,7 @@ export class ProjectSerializer {
             floorSystemTypes: floorSystemTypes.length > 0 ? floorSystemTypes : undefined,
             slabSystemTypes: slabSystemTypes.length > 0 ? slabSystemTypes : undefined,
             wallSystemTypes: wallSystemTypes.length > 0 ? wallSystemTypes : undefined,
+            handrailTypes: handrailTypes.length > 0 ? handrailTypes : undefined,
             vgGovernance:    vgGovernanceStore.serialize()     as ProjectSnapshot['vgGovernance'],
             semanticTags:    semanticIndex.serialize()         as ProjectSnapshot['semanticTags'],
             viewDefinitions: viewDefinitionStore.serialize()   as ProjectSnapshot['viewDefinitions'],

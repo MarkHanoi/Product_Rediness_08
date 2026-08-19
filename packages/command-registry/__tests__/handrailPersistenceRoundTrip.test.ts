@@ -33,11 +33,11 @@
  * those four files, below, so the pair cannot drift back apart silently.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ProjectContext } from '@pryzm/core-app-model';
-import { HandrailStore } from '@pryzm/core-app-model/stores';
+import { HandrailStore, handrailTypeStore } from '@pryzm/core-app-model/stores';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
 import {
     serializeHandrailRecord,
@@ -224,6 +224,173 @@ describe('L-1102 — every authored handrail field survives save → load', () =
             const viaBuilder = src.match(/new CreateHandrailCommand\(buildHandrailCreatePayload\(/g) ?? [];
             expect(viaBuilder.length, p).toBe(constructed.length);
             expect(constructed.length, p).toBeGreaterThan(0);
+        }
+    });
+});
+
+/**
+ * §FEAT-HANDRAIL-TYPE-PERSISTENCE (C95 §15.7, R3) — THE **CATALOGUE** ROUND TRIP.
+ *
+ * ⛔ A DIFFERENT SUBJECT FROM EVERYTHING ABOVE, AND THE DISTINCTION IS THE POINT.
+ * The suite above round-trips a handrail RECORD. This round-trips the railing TYPE
+ * a record is made from. C95 §15.7 left *"are custom handrail types saved and
+ * reloaded?"* as NOT MEASURED; measured 2026-08-19 the answer was **no, and worse**:
+ * `handrailTypeStore` was registered on `projectScopeRegistry` with
+ * `clear: clearCustomTypes()` — a **DESTRUCTOR WITH NO CONSTRUCTOR**. A project
+ * switch deleted every user-authored railing type, and no save path had ever
+ * written one.
+ *
+ * ⭐ §15.12's question was asked BEFORE the authoring UI was built, not after:
+ * *could "my custom railing type is still here after reload" ever be true?* It could
+ * not — for any user, in any order of operations. Same shape as By Slab, found the
+ * same way, found this time before anything was built on top of it.
+ *
+ * ⚠ WHAT IS EXECUTED AND WHAT IS ASSERTED BY SOURCE — stated plainly, because this
+ * file's own header already draws the same line for records. A real
+ * `ProjectSerializer.serialize()` needs a ~20-store bundle plus a live BimManager,
+ * so what runs below is the STORE half end to end — author → the serializer's own
+ * projection → the JSON boundary → the project-switch WIPE → the loader's own
+ * restore → **read back from the authoritative store** (C16 CA-21, never a return
+ * value) — and the four persistence SITES are asserted to carry the field, exactly
+ * as the record round trip does one describe block up.
+ */
+describe('C95 §15.7 R3 — a custom railing TYPE survives save → project switch → load', () => {
+    const CUSTOM = {
+        id: 'hr.test.custom-oak-cap',
+        name: 'Oak Cap Rail on Blackened Steel',
+        description: 'A user-authored type, for the round trip.',
+        height: 1.05,
+        thickness: 0.062,
+        baseOffset: 0.01,
+        fillType: 'baluster',
+        railProfile: 'round',
+        railDiameter: 0.062,
+        postSpacing: 1.45,
+        balusterShape: 'round',
+        balusterWidth: 0.016,
+        balusterSpacing: 0.092,
+        infillMaxGap: 0.099,
+        materialId: 'wood-oak',
+        materialName: 'oak',
+    } as const;
+
+    /** The SERIALIZER's own projection: custom types only, structured-cloned. */
+    function serializeCatalogue(): unknown[] {
+        return handrailTypeStore.getCustom().map((t) => structuredClone(t));
+    }
+
+    /** The LOADER's own restore: id preserved, `isBuiltIn` stripped, dupes skipped. */
+    function restoreCatalogue(raws: unknown[]): number {
+        let n = 0;
+        for (const raw of raws as Array<Record<string, unknown>>) {
+            if (!raw || !raw.id || !raw.name) continue;
+            if (handrailTypeStore.getById(String(raw.id))) continue;
+            const { isBuiltIn: _ignored, ...definition } = raw;
+            handrailTypeStore.add(definition as never);
+            n++;
+        }
+        return n;
+    }
+
+    afterEach(() => {
+        handrailTypeStore.clearCustomTypes();
+    });
+
+    it('⭐ the key-set sweep: EVERY authored field comes back, and the id is the SAME id', () => {
+        handrailTypeStore.add({ ...CUSTOM } as never);
+        const authored = handrailTypeStore.getById(CUSTOM.id)!;
+
+        // Through the real JSON boundary — where a THREE.Vector3 or a function dies.
+        const snapshot = JSON.parse(JSON.stringify(serializeCatalogue())) as unknown[];
+        expect(snapshot).toHaveLength(1);
+
+        // The project switch that used to be the end of the story.
+        handrailTypeStore.clearCustomTypes();
+        expect(handrailTypeStore.getById(CUSTOM.id)).toBeUndefined();
+
+        expect(restoreCatalogue(snapshot)).toBe(1);
+        const reloaded = handrailTypeStore.getById(CUSTOM.id);
+
+        // ⛔ IDENTITY FIRST. The wall arm's add({name, description, layers}) drops the
+        // saved id and mints a new one; handrail preserves it, so every record's
+        // materialised fields and every schedule row still point at the same type.
+        expect(reloaded).toBeDefined();
+        expect(reloaded!.id).toBe(CUSTOM.id);
+
+        // NOT a field-by-field list — that is the whitelist defect wearing a test's
+        // clothes (L-1037). Every key on the authored record must come back equal.
+        for (const key of Object.keys(authored) as Array<keyof typeof authored>) {
+            expect(reloaded![key], 'field did not survive: ' + String(key)).toEqual(authored[key]);
+        }
+    });
+
+    it('a field nobody has written yet survives WITHOUT editing either persistence site', () => {
+        // The inversion that makes this safe: both sides carry the WHOLE object
+        // (structuredClone out, object-spread back in) rather than a named list, so a
+        // field added to HandrailTypeDefinition persists with no edit anywhere.
+        handrailTypeStore.add({ ...CUSTOM, someFutureField: { bays: [1, 2] } } as never);
+        const snapshot = JSON.parse(JSON.stringify(serializeCatalogue())) as unknown[];
+        handrailTypeStore.clearCustomTypes();
+        restoreCatalogue(snapshot);
+        const reloaded = handrailTypeStore.getById(CUSTOM.id) as unknown as Record<string, unknown>;
+        expect(reloaded.someFutureField).toEqual({ bays: [1, 2] });
+    });
+
+    it('the restored type is USER-owned — isBuiltIn is never taken from the snapshot', () => {
+        // A snapshot claiming isBuiltIn:true for a user type would make it permanently
+        // unremovable and unmodifiable: remove() and update() both throw on built-ins.
+        // So the flag is stripped and the store decides.
+        handrailTypeStore.add({ ...CUSTOM } as never);
+        const snapshot = JSON.parse(JSON.stringify(serializeCatalogue())) as Array<Record<string, unknown>>;
+        snapshot[0]!.isBuiltIn = true; // a hostile / stale snapshot
+        handrailTypeStore.clearCustomTypes();
+        restoreCatalogue(snapshot);
+
+        const reloaded = handrailTypeStore.getById(CUSTOM.id)!;
+        expect(reloaded.isBuiltIn).toBe(false);
+        // ...and it is genuinely still editable, which is the thing that matters.
+        expect(() => handrailTypeStore.update(CUSTOM.id, { height: 1.2 })).not.toThrow();
+        expect(handrailTypeStore.getById(CUSTOM.id)!.height).toBe(1.2);
+    });
+
+    it('BUILT-INS are never written to the snapshot — 20 in the store, 0 in the catalogue', () => {
+        expect(handrailTypeStore.getBuiltIn()).toHaveLength(20);
+        expect(serializeCatalogue()).toHaveLength(0);
+    });
+
+    it('re-loading the same snapshot twice does NOT throw — add() rejects a duplicate id', () => {
+        handrailTypeStore.add({ ...CUSTOM } as never);
+        const snapshot = JSON.parse(JSON.stringify(serializeCatalogue())) as unknown[];
+        handrailTypeStore.clearCustomTypes();
+        expect(restoreCatalogue(snapshot)).toBe(1);
+        // The guard is load-bearing, not tidiness: HandrailTypeStore.add() THROWS.
+        expect(() => restoreCatalogue(snapshot)).not.toThrow();
+        expect(handrailTypeStore.getCustom()).toHaveLength(1);
+    });
+
+    it('⛔ ALL FOUR persistence sites carry handrailTypes — not one pair of the two', () => {
+        // C95 §3.2: this family has a SECOND persistence pair. Patching one would let a
+        // custom railing type survive on one save path and vanish on the other, which
+        // is L-1102's defect one level up — so both pairs are asserted, by name.
+        const root = resolve(__dirname, '../../..');
+        for (const site of [
+            'apps/editor/src/engine/persistence/ProjectSerializer.ts',
+            'packages/persistence-client/src/loader/ProjectSerializer.ts',
+        ]) {
+            const src = readFileSync(resolve(root, site), 'utf8');
+            expect(src, site).toContain('handrailTypeStore.getCustom()');
+            expect(src, site).toContain('handrailTypes:');
+        }
+        for (const site of [
+            'apps/editor/src/engine/persistence/ProjectLoader.ts',
+            'packages/persistence-client/src/loader/ProjectLoader.ts',
+        ]) {
+            const src = readFileSync(resolve(root, site), 'utf8');
+            expect(src, site).toContain('snapshotHandrailTypes');
+            expect(src, site).toContain('handrailTypeStore.add(');
+            // The id must be PRESERVED. A loader that re-mints ids restores a type
+            // nothing points at, which is indistinguishable from not restoring it.
+            expect(src, site).toContain('handrailTypeStore.getById(raw.id)');
         }
     });
 });
