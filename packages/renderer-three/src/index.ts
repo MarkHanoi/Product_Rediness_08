@@ -169,8 +169,14 @@ export {
   scheduleShadowMapRealloc,
   pendingShadowMapReallocCount,
   drainShadowMapReallocQueue,
+  // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — the DERIVED answer to "which mutation
+  // changes the shadow caster set?": observe the RELEASE, not the BIM event that led
+  // to it. The frame owner claims the slot; tests use the predicate + the probe.
+  setShadowCasterReleaseObserver,
+  hasShadowCasterReleaseObserver,
+  subtreeHasShadowCaster,
 } from './safeDispose.js';
-export type { ReallocatableLightShadow } from './safeDispose.js';
+export type { ReallocatableLightShadow, ShadowCasterReleaseObserver } from './safeDispose.js';
 
 // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the single seam for retiring a
 // renderer. `retireRenderer()` replaces every bare `renderer.dispose()` on a live

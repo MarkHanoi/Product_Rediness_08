@@ -89,6 +89,13 @@ import {
     // previous frame's submit and the depth pass regenerates before any encoder
     // references the new one.
     drainShadowMapReallocQueue,
+    // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — the DERIVED arm. Every element
+    // builder frees its meshes through the release funnel, so the moment a shadow
+    // CASTER is actually released is observable there; this manager claims the
+    // observer slot and opens its guard window from the DISPOSE rather than from
+    // the BIM event that led to it.
+    setShadowCasterReleaseObserver,
+    pendingGpuReleaseCount,
 } from '../safeDispose';
 const _bus = new DOMEventBus();
 /**
@@ -151,6 +158,19 @@ const RETRY_DELAY_MS  = 500;
  * unrelated lifecycle event erasing the only bound on a live fault.
  */
 const MAX_AUTO_RECOVERY_ATTEMPTS = 2;
+
+/**
+ * §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — the ceiling on how many CONSECUTIVE
+ * frames the derived caster-release window may hold the submit pause open.
+ *
+ * A window that never closes is a viewport that never repaints (the L-663 spin,
+ * one layer down). Sustained per-frame caster churn — a house generation batch —
+ * would re-arm every frame, so the pause degrades to the ordinary batch-level
+ * freezes past this many frames rather than blanking the screen. 8 frames ≈ 130 ms
+ * at 60 Hz: long enough to cover any single element's teardown (a 31-segment
+ * handrail retype is one tick), far short of anything a user perceives as a hang.
+ */
+const MAX_CASTER_RELEASE_PAUSED_FRAMES = 8;
 
 /**
  * §GPU-RESOURCE-LIFETIME (ADR-0297) — coalescing window for destroyed-resource
@@ -631,6 +651,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._webGpuActive = true;
         console.log('[RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...');
 
+        // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — claim the release funnel's single
+        // observer slot. Claimed HERE, after `_webGpuActive` is set and only on the
+        // WebGPU path, because that is exactly the population the ordering exists for
+        // (the WebGL2 fallback owns its own shadowMap). Re-claiming on a rebind is
+        // idempotent — the slot holds one observer, and this manager is the frame owner.
+        setShadowCasterReleaseObserver(this._onShadowCasterRelease);
+
         // §GPU-RESOURCE-LIFETIME — subscribe to the device's uncaptured-error channel
         // BEFORE the first pipeline build, so a destroyed-resource validation failure
         // during project load (the founder's white-viewport-on-open, 500× "Destroyed
@@ -966,6 +993,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // submit is still a frame boundary, and the queue must not grow unbounded
         // while the viewport is zero-size / suspended / paused.
         drainGpuReleaseQueue();
+
+        // ── §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) ──────────────────────────
+        // The releases above have now actually happened, at the boundary, with
+        // submits paused since the tick that enqueued them. Close the derived
+        // window — deferred, so THIS frame stays unsubmitted and the next one
+        // carries the single depth regen at the settled caster set.
+        this._closeCasterReleaseWindowAtBoundary();
 
         // ── §SHADOW-MAP-REALLOC-AT-BOUNDARY (founder P0, 2026-08-10) ──────────
         // Perform any queued light-owned shadow-map resolution changes HERE, at
@@ -1544,6 +1578,77 @@ export class RenderPipelineManager implements IViewSwitchListener {
         if (this._submitPauseDepth > 0) this._submitPauseDepth--;
         this._shadowRebuildPaused = this._submitPauseDepth > 0;
         setTimeout(() => this.setShadowReallocFrozen(false), 0);
+    }
+
+    /* ── §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) ───────────────────────────────
+     *
+     * ⭐ THE DERIVED GUARD. `runShadowCasterMutation` above is the same window,
+     * opened by a caller who REMEMBERED to open it. Its two production callers are
+     * the tier coordinator and one curtain-wall prewarm; NO element builder calls
+     * it, and no release path calls it. Everything else relies on
+     * `initScene._debouncedGeomAdded` recognising the BIM event that led to the
+     * teardown — which is why the founder's crash has recurred once per newly
+     * exercised route (nav → load → wall commit → tier → handrail retype →
+     * handrail MATERIAL, the last of them through the GENERIC
+     * `element.updateParameters` bridge that no per-family event list is shaped
+     * to cover).
+     *
+     * This arm is keyed on the DISPOSE instead. `scheduleGpuRelease` notifies once
+     * per release batch that frees a `castShadow` mesh; we open the SAME window
+     * (`_beginShadowRebuildGuard` — submit pause + ref-counted shadow freeze) and
+     * close it in `render()` once the boundary drain has emptied the queue. A
+     * route that forgets to announce itself is still safe, because it cannot free
+     * a caster's mesh without passing through the funnel.
+     *
+     * ⚠ BOUNDED, deliberately. While the window is open `render()` skips its
+     * submit, so an unbounded window is a frozen viewport — the L-663 shape. A
+     * batch that churns geometry every frame (house generation) would re-arm
+     * forever, so the pause is capped at {@link MAX_CASTER_RELEASE_PAUSED_FRAMES}
+     * consecutive frames; past that the window closes and the ordinary
+     * batch-level freezes carry it. A bounded guard that degrades is worth more
+     * than an unbounded one that blanks the screen.
+     */
+    private _casterReleaseGuardArmed  = false;
+    private _casterReleaseGuardFrames = 0;
+
+    /** Installed into `safeDispose`'s single observer slot by {@link bind}. */
+    private readonly _onShadowCasterRelease = (): void => {
+        // WebGL2 fallback owns its own shadowMap and needs no ordering here; the
+        // guard pair is a no-op there anyway, but arming it would still cost a
+        // skipped frame.
+        if (!this._webGpuActive) return;
+        if (this._casterReleaseGuardArmed) return;
+        this._casterReleaseGuardArmed  = true;
+        this._casterReleaseGuardFrames = 0;
+        this._beginShadowRebuildGuard();
+    };
+
+    /**
+     * Close the derived window at the frame boundary — called from `render()`
+     * immediately after `drainGpuReleaseQueue()`, i.e. at the one instant the
+     * releases have actually happened and nothing new has been encoded.
+     *
+     * The close is DEFERRED one macrotask: resuming synchronously here would let
+     * THIS frame submit, and this frame is precisely the one that must not.
+     */
+    private _closeCasterReleaseWindowAtBoundary(): void {
+        if (!this._casterReleaseGuardArmed) return;
+        this._casterReleaseGuardFrames++;
+        const drained = pendingGpuReleaseCount() === 0;
+        const capped  = this._casterReleaseGuardFrames >= MAX_CASTER_RELEASE_PAUSED_FRAMES;
+        if (!drained && !capped) return;
+        if (capped && !drained) {
+            console.warn(
+                '[RenderPipelineManager] §GPU-CASTER-RELEASE-CHOKEPOINT the derived caster-release ' +
+                `window hit its ${MAX_CASTER_RELEASE_PAUSED_FRAMES}-frame cap with ` +
+                `${pendingGpuReleaseCount()} releases still queued — releasing the submit pause so the ` +
+                'viewport cannot stay dark. Sustained per-frame caster churn (a generation batch) is ' +
+                'expected to hit this; anything else is a leak in the release queue.',
+            );
+        }
+        this._casterReleaseGuardArmed  = false;
+        this._casterReleaseGuardFrames = 0;
+        setTimeout(() => { this._endShadowRebuildGuard(); }, 0);
     }
 
     scheduleShadowRebuild(): void {
@@ -2645,6 +2750,15 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._shadowPassSuppressed             = false;
         this._shadowReallocFreezeDepth         = 0;
         this._shadowFrozenState                = false;
+        // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — give the observer slot back. A
+        // disposed manager that stayed installed would open a submit-pause window on
+        // a renderer it no longer owns, and `_beginShadowRebuildGuard` writes state
+        // that nothing would ever drain.
+        setShadowCasterReleaseObserver(null);
+        this._casterReleaseGuardArmed          = false;
+        this._casterReleaseGuardFrames         = 0;
+        this._submitPauseDepth                 = 0;
+        this._shadowRebuildPaused              = false;
         // §FIX-SHADOW-ENABLE-LATCH — a rebound singleton starts with a clean enable latch
         // (no stale transient suppressions; preferences re-seed from the fresh UI state).
         this._shadowPrefs.clear();

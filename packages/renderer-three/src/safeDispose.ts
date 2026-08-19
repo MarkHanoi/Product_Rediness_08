@@ -197,6 +197,117 @@ export function unmarkSharedGpuResource<T extends object | null | undefined>(res
     return resource;
 }
 
+/* ─── §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) ────────────────────────────────
+ *
+ * ⭐ THE DERIVED ANSWER to *"which mutation changes the shadow CASTER SET?"*
+ *
+ * `apps/editor/src/engine/geometryMutationEvents.ts` answers that question by
+ * ENUMERATING the BIM events that are known to lead there
+ * (§GEOM-CASTER-EVENT-CHOKEPOINT, L-1189). That list is now gated, disjoint and
+ * complete against the event catalogue — and it is still a REMEMBERED rule: it
+ * only covers a mutation that ANNOUNCES ITSELF as a classified `bim-*` event.
+ * The founder's crash has now recurred five times in a week along five different
+ * routes, and the fifth (a railing MATERIAL change) reaches the same 279-mesh /
+ * 93-material teardown through the GENERIC `element.updateParameters` bridge —
+ * a verb no per-family event list is shaped to cover, and which emits the
+ * family event TWICE, so the churn is doubled.
+ *
+ * This is the same answer DERIVED instead of remembered. Every element builder
+ * in the repo already funnels its teardown through {@link scheduleGpuRelease} /
+ * {@link detachAndReleaseChildren} (76 call sites; ADR-0297 INVARIANT L2 made
+ * that the only legal way to free element-owned GPU memory). So the instant a
+ * shadow CASTER is actually released is observable HERE — at the point where
+ * the danger IS, not at the event that led to it. A route that forgets to
+ * announce itself is still safe, because it cannot free a mesh without passing
+ * through this funnel.
+ *
+ * The observer is `RenderPipelineManager`, which opens its submit-pause +
+ * shadow-freeze window (`runShadowCasterMutation`'s ordering) and closes it at
+ * the frame boundary once the queue has drained.
+ *
+ * ⚠ WHAT THIS DOES **NOT** COVER, stated so nobody reads it as total:
+ *   - a bare `kind: 'material'` / `'geometry'` release. The handle carries no
+ *     back-reference to the mesh that drew with it, so `castShadow` is not
+ *     knowable from it. Subtree releases (`kind: 'object3d'`) are the shape
+ *     every builder actually uses, and they ARE covered.
+ *   - an in-place `mesh.geometry.dispose()` that never reaches this funnel.
+ *     That is an ADR-0297 L2 violation in its own right and is gated separately
+ *     by `packages/renderer-three/__tests__/casterReleaseChokepoint.test.ts`
+ *     ARM C, which is what makes THIS derivation load-bearing rather than
+ *     optimistic: the funnel is only "the" chokepoint while nothing bypasses it.
+ */
+
+/** Notified once per release batch when that batch frees a shadow caster. */
+export type ShadowCasterReleaseObserver = () => void;
+
+let _casterReleaseObserver: ShadowCasterReleaseObserver | null = null;
+/**
+ * Latched per release BATCH: the observer's job (open one guard window) is
+ * idempotent, so notifying 279 times for one handrail teardown would be 278
+ * subtree walks for no added safety. Reset when the batch is drained.
+ */
+let _casterReleaseNotified = false;
+
+/**
+ * Install the sole observer notified when a release frees a shadow caster.
+ * `RenderPipelineManager` claims this on `bind()` and clears it on `dispose()`;
+ * a single slot (rather than a listener list) is deliberate — C04 §2, the frame
+ * owner owns the frame boundary, and there is exactly one frame owner.
+ */
+export function setShadowCasterReleaseObserver(observer: ShadowCasterReleaseObserver | null): void {
+    _casterReleaseObserver = observer;
+}
+
+/** True iff a frame owner has claimed the observer slot (diagnostics + tests). */
+export function hasShadowCasterReleaseObserver(): boolean {
+    return _casterReleaseObserver !== null;
+}
+
+/**
+ * True iff `root`'s subtree contains at least one mesh flagged `castShadow`.
+ *
+ * Iterative + EARLY-EXIT on the first hit, so the common case (a builder
+ * releasing one mesh at a time via `detachAndReleaseChildren`) is O(1) and the
+ * worst case is bounded by the ELEMENT's own mesh count — never by the scene's.
+ * That bound is the whole reason this is safe to call from a release path: the
+ * L-1151/L-1155 defect class is a full-scene traverse per event, and this is not
+ * one.
+ */
+export function subtreeHasShadowCaster(root: Object3D | null | undefined): boolean {
+    if (!root) return false;
+    const stack: Object3D[] = [root];
+    while (stack.length > 0) {
+        const node = stack.pop() as (Object3D & { isMesh?: boolean; castShadow?: boolean }) | undefined;
+        if (node === undefined) break;
+        if (node.isMesh === true && node.castShadow === true) return true;
+        const kids = node.children;
+        if (kids !== undefined) {
+            for (let i = 0; i < kids.length; i++) {
+                const kid = kids[i];
+                if (kid !== undefined) stack.push(kid);
+            }
+        }
+    }
+    return false;
+}
+
+/** Notify the frame owner, at most once per release batch. Never throws. */
+function _notifyShadowCasterRelease(root: Object3D): void {
+    if (_casterReleaseObserver === null || _casterReleaseNotified) return;
+    if (!subtreeHasShadowCaster(root)) return;
+    _casterReleaseNotified = true;
+    try {
+        _casterReleaseObserver();
+    } catch (err) {
+        // An observer that throws must never strand a release — the release is
+        // the thing that keeps memory bounded.
+        console.warn(
+            '[renderer-three] §GPU-CASTER-RELEASE-CHOKEPOINT observer threw (non-fatal):',
+            err instanceof Error ? err.message : err,
+        );
+    }
+}
+
 /** One deferred release request. Discriminated so the queue stays inspectable. */
 type GpuReleaseEntry =
     | { readonly kind: 'object3d'; readonly root: Object3D; readonly disposeMaterials: boolean }
@@ -249,6 +360,10 @@ export function scheduleGpuRelease(
     }
     if (typeof maybe.traverse === 'function') {
         _releaseQueue.push({ kind: 'object3d', root: target as Object3D, disposeMaterials });
+        // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — tell the frame owner BEFORE the
+        // boundary, not after: the guard window has to be open across the tick that
+        // is tearing the caster set down, not merely across the free.
+        _notifyShadowCasterRelease(target as Object3D);
     } else if ((maybe as Partial<BufferGeometry>).isBufferGeometry === true) {
         _releaseQueue.push({ kind: 'geometry', geometry: target as BufferGeometry });
     } else if ((maybe as Partial<Material>).isMaterial === true) {
@@ -289,6 +404,10 @@ export function drainGpuReleaseQueue(): number {
     _draining = true;
     const batch = _releaseQueue;
     _releaseQueue = [];
+    // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290) — a NEW batch may open a NEW guard
+    // window. Cleared here, at the batch swap, so a release enqueued while this
+    // drain runs still re-arms the frame owner.
+    _casterReleaseNotified = false;
     try {
         for (const entry of batch) {
             try {

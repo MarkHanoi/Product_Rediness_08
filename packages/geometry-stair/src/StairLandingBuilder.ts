@@ -1,4 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §GPU-RESOURCE-LIFETIME (ADR-0297 L2) / §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290).
+import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { StairLandingEntity } from './StairLandingTypes';
 import { StairLandingStore } from './StairLandingStore';
 
@@ -75,9 +77,21 @@ export class StairLandingBuilder {
     removeLanding(landingId: string): void {
         const mesh = this.meshCache.get(landingId);
         if (mesh) {
+            // §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — DETACH now, RELEASE at
+            // the frame boundary. This was the last raw in-place `dispose()` in the
+            // stair/railing family: it destroyed the landing's vertex/index buffers on
+            // the MUTATION tick, while the frame that last drew them may still have
+            // been draining on the GPU queue — the same use-after-dispose shape as the
+            // founder's `setIndexBuffer … not of type 'GPUBuffer'` on railing retype.
+            //
+            // It is also the one path in this family that BYPASSED
+            // §GPU-CASTER-RELEASE-CHOKEPOINT (L-1290): a landing mesh is a shadow
+            // caster, and a release that never reaches `scheduleGpuRelease` cannot
+            // arm the frame owner's guard window. The derived guard is only as good
+            // as the funnel's completeness, so this is not a drive-by tidy.
             this.scene?.remove(mesh);
-            mesh.geometry.dispose();
-            if (mesh.material instanceof THREE.Material) mesh.material.dispose();
+            mesh.parent = null;
+            scheduleGpuRelease(mesh);
             this.meshCache.delete(landingId);
         }
     }

@@ -823,7 +823,30 @@ export class UpdateElementParameterCommand implements Command {
                 _bus.emit('bim-furniture-updated', { id: elementId }); // F.events.17
 
             } else if (t === 'handrail') {
-                _bus.emit('bim-handrail-updated', { id: elementId }); // F.events.17
+                // §FIX-HANDRAIL-PARAM-DOUBLE-REBUILD (L-1291) — DELIBERATELY EMPTY.
+                //
+                // This branch used to `_bus.emit('bim-handrail-updated', { id })`, copied
+                // from the FURNITURE branch above it. That copy is wrong for handrail and
+                // the difference is measurable: `FurnitureStore` does NOT self-emit, so
+                // furniture genuinely needs the ladder to announce the write —
+                // `HandrailStore.update()` DOES (`HandrailStore.ts:203`, unconditionally,
+                // from its private `emit('update', …)`). `applyUpdate` reaches handrail
+                // through the generic `store.update?.(id, parameters)` tail, and
+                // `ELEMENT_STORE_ROUTES.handrail` resolves the core-app-model
+                // `HandrailStore` (`context.stores.handrailStore ?? window.handrailStore`)
+                // — never the detached plugin DTO store, which lives under a different key.
+                //
+                // So every handrail parameter write — including the C100 material picker's
+                // `element.updateParameters` — fired `bim-handrail-updated` TWICE, and
+                // `initBuilders.ts:921` rebuilds on each. C95 §15.5 measures one rebuild of
+                // a 31-segment run at 279 meshes and 93 distinct materials torn down and
+                // re-minted in a tick; this doubled the largest GPU churn in the product,
+                // on the exact gesture the founder crashed on. One write, one event, one
+                // rebuild (C16 §8.6).
+                //
+                // ⛔ Do NOT "restore" this line without first checking whether the resolved
+                // store still self-emits — that is the fact this removal rests on, and it is
+                // pinned by `handrailMaterialCasterRelease.test.ts` ARM B.
 
             }
             // NOTE: stair / stairs are handled above via the declarative
