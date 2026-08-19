@@ -63,3 +63,9 @@ export type { HandrailEndCondition } from './postStations';
 // and `handrailRunGenerators.ts` now occupies part of its intended ground. Wiring
 // it or deleting it is a decision, and exporting it here would quietly make it
 // look adopted. It moved with the family so the decision has one place to happen.
+
+// §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) — THE ONE answer to "what does applying
+// this railing type mean?". The property panel, the `element.changeType` bus branch
+// and RAC all call it; there is no second copy of the 13-field materialisation.
+export { resolveHandrailTypeFields, HANDRAIL_TYPE_FIELD_NAMES } from './handrailTypeProjection';
+export type { HandrailTypeLike, HandrailTypeFields } from './handrailTypeProjection';

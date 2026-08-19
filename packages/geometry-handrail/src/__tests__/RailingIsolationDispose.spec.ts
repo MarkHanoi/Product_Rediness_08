@@ -35,7 +35,12 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { HandrailFragmentBuilder } from '../HandrailFragmentBuilder';
-import { StairRailingBuilder } from '../StairRailingBuilder';
+// §C95 §14.2 — `StairRailingBuilder` LIVES IN `@pryzm/geometry-stair`, not here.
+// This import read `'../StairRailingBuilder'` and the whole suite failed to LOAD
+// (`Cannot find module`) — so a test written to prove `dispose()` exists was
+// proving nothing at all, silently, for as long as the file has been in this
+// package. A suite that cannot import is not a passing suite; it is an absent one.
+import { StairRailingBuilder } from '@pryzm/geometry-stair';
 
 /** Minimal BimManager stub — only getLevelById is used by the handrail builder. */
 const stubBim = { getLevelById: (_id: string) => ({ elevation: 0 }) } as unknown as import('@pryzm/core-app-model').BimManager;

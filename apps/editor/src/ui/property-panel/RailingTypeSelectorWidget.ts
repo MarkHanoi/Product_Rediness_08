@@ -33,31 +33,21 @@
  */
 
 import { handrailTypeStore } from '@pryzm/core-app-model';
+import { resolveHandrailTypeFields, type HandrailTypeFields } from '@pryzm/geometry-handrail';
 
-export interface RailingTypeApplyPayload {
-    /** The chosen `HandrailTypeDefinition.id` (carried for provenance/telemetry). */
-    typeId: string;
-    /** The definition's concrete fields — what actually lands on `HandrailData`. */
-    height: number;
-    thickness: number;
-    baseOffset: number;
-    fillType: string;
-    railProfile: string;
-    railDiameter?: number;
-    postSpacing?: number;
-    materialColor?: string | null;
-    /**
-     * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members. Without these
-     * the RETYPE path would apply a different railing from the CREATE path for the
-     * same catalogue entry (C84 EI-9).
-     */
-    balusterShape?: 'rectangular' | 'round';
-    balusterWidth?: number;
-    balusterSpacing?: number;
-    infillMaxGap?: number;
-    /** §C100-HANDRAIL-MATERIAL-ID — retype must move the REFERENCE, not a hex. */
-    materialId?: string;
-}
+/**
+ * §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) — this used to be a HAND-WRITTEN TWIN of
+ * the projection's own output type, and it drifted immediately: it declared
+ * `fillType` and `railProfile` REQUIRED where `HandrailTypeDefinition` leaves both
+ * optional, so the widget's contract promised something the catalogue does not
+ * guarantee. It is now an ALIAS of the one type, which is the only version that
+ * cannot drift (C84 EI-9).
+ *
+ * ⚠ `materialColor` is `string | null` and NOT optional. `null` means CLEAR the
+ * user's hex override — see `resolveHandrailTypeFields`. Making it optional here
+ * would let a caller omit it and silently keep the old colour.
+ */
+export type RailingTypeApplyPayload = HandrailTypeFields;
 
 /**
  * Builds the railing "Type" selector widget for the PropertyPanel header.
@@ -123,26 +113,18 @@ export function buildRailingTypeSelectorWidget(
             return;
         }
 
-        onApply({
-            typeId:        def.id,
-            height:        def.height,
-            thickness:     def.thickness,
-            baseOffset:    def.baseOffset,
-            fillType:      def.fillType,
-            railProfile:   def.railProfile,
-            railDiameter:  def.railDiameter,
-            postSpacing:   def.postSpacing,
-            // §C100-HANDRAIL-MATERIAL-ID — a catalogue type carries NO hex, so a
-            // retype must CLEAR any override the railing is carrying; otherwise the
-            // old colour shadows the new type's material forever (C100 §2.1 step 1).
-            materialColor: def.materialColor ?? null,
-            // §FEAT-HANDRAIL-TYPE-LIBRARY-20 — materialise the type WHOLE.
-            balusterShape:   def.balusterShape,
-            balusterWidth:   def.balusterWidth,
-            balusterSpacing: def.balusterSpacing,
-            infillMaxGap:    def.infillMaxGap,
-            materialId:      def.materialId,
-        });
+        // §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) — the 13-field materialisation
+        // USED TO BE WRITTEN OUT HERE, and this widget was its only home. That made
+        // the property panel the sole place a railing type could be applied: chat,
+        // collaboration replay and every future caller would have had to re-derive
+        // the same thirteen fields, i.e. mint a second answer to "what does this
+        // type mean" (C84 EI-9). It now lives in `@pryzm/geometry-handrail` and the
+        // panel and the `element.changeType` bus branch call the SAME function.
+        //
+        // ⛔ INCLUDING `materialColor: null`. A catalogue type carries a materialId
+        // and no hex (C100 §2.1); the null is what CLEARS a user's override so the
+        // new material actually reaches the render. See the projection's header.
+        onApply(resolveHandrailTypeFields(def));
 
         applyBtn.textContent = '✓ Applied';
         applyBtn.style.background = 'rgba(22,163,74,0.6)';

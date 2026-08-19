@@ -17,6 +17,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { ElementInstanceBridge } from '@pryzm/core-app-model/rendering';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { HandrailFragmentBuilder } from '../HandrailFragmentBuilder';
+import { postStations } from '../postStations';
 
 const g = globalThis as { __pryzmElementInstancingV1?: boolean };
 
@@ -141,7 +142,19 @@ describe('HandrailFragmentBuilder §PERF-RAIL-INSTANCING (ADR-0076 Axis 3)', () 
             const balusterSpacing = 0.5;
             const bHeight = 1.0 - 0.05;
             const bWidth = 0.02;
-            const lx = 1 * balusterSpacing;
+            // §FEAT-HANDRAIL-POST-REDISTRIBUTE (C95 §15.3, R5) — the station comes
+            // from the ONE pure function, not from a formula retyped here.
+            //
+            // ⛔ THIS LINE USED TO READ `1 * balusterSpacing`, AND IT WENT RED THE
+            // MOMENT R5 LANDED — by 49.3 mm, which is exactly `0.5 − L/ceil(L/0.5)`.
+            // The failure was NOT an instance/mesh divergence: the builder's two
+            // paths agreed with each other and disagreed with a spacing rule this
+            // test had copied. A test that re-implements the thing it checks goes
+            // red on correct changes and stays green on wrong ones; reading the
+            // station from `postStations` keeps this test about what it is FOR —
+            // that the instanced transform composes to the same world matrix as the
+            // fragment mesh.
+            const lx = postStations(length, balusterSpacing)[0]!;
 
             const grp = new THREE.Group();
             grp.position.set(start.x, 0, start.z);

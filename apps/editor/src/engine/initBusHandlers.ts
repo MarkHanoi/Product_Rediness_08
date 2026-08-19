@@ -196,6 +196,9 @@ import {
     resolveCurtainWallTypePanelFields,
 } from '@pryzm/core-app-model';
 import { resolveStairRailingTypeFields } from '@pryzm/geometry-stair';
+// §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) — the ONE railing-type materialisation,
+// shared with RailingTypeSelectorWidget so the panel and chat cannot disagree.
+import { resolveHandrailTypeFields } from '@pryzm/geometry-handrail';
 // §FEAT-ELEMENT-TYPE-PICKER-REGISTRY — the lighting fixture catalogue. Identity only;
 // what a fixture EMITS stays in LIGHTING_FIXTURE_PHOTOMETRY.
 import { getLightingTypeDefinition, type LightingFixtureType } from '@pryzm/geometry-lighting';
@@ -1935,44 +1938,68 @@ export function initBusHandlers(
                 }
                 if (elType === 'railing' || elType === 'handrail' || elType === 'guardrail') {
                     // §FIX-TYPE-SWAP-ALL-FAMILIES (L-623) — railing / handrail.
+                    // §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) — RESOLVED FROM
+                    // `newTypeId` ALONE, exactly as the stair-railing branch above is.
                     //
-                    // MISSING ENTIRELY: `HandrailTypeStore` has shipped five built-in types
-                    // (glass guardrail, stainless handrail, timber baluster, steel guardrail,
-                    // stair handrail) since the store was authored, and NOTHING could select
-                    // one — no property-panel widget, no bus verb, no command. Authored-but-
-                    // unwired, the exact pattern L-621 found for ceilings.
+                    // THIS BRANCH USED TO FORWARD ONLY THE FIELDS THE CALLER NAMED.
+                    // `HandrailData` carries no `typeId`, so a type is MATERIALISED into
+                    // thirteen fields — and that materialisation lived in a DOM widget's
+                    // click handler (`RailingTypeSelectorWidget`). Consequence: the panel
+                    // could retype a railing and CHAT COULD NOT, because "make it a
+                    // frameless glass balustrade" would have required the caller to
+                    // re-derive all thirteen. A second derivation is a second answer, and
+                    // it drifts (C84 EI-9 / EI-4a).
                     //
-                    // HandrailData carries no `typeId`, so a railing type is MATERIALISED into
-                    // its fields rather than referenced (declared in the report, not papered
-                    // over): the widget resolves the HandrailTypeDefinition and passes the
-                    // concrete fields, mirroring how the wall/floor/slab widgets pass
-                    // `layers` + `thickness` instead of making the handler re-resolve them.
-                    // UpdateHandrailCommand owns the geometry handrailStore that
-                    // HandrailFragmentBuilder + the plan projector + persistence read.
+                    // The projection is now `resolveHandrailTypeFields` in
+                    // @pryzm/geometry-handrail, and the panel calls the same one. The
+                    // payload shrinks to { elementId, elementType, newTypeId }.
+                    //
+                    // ⛔ IT INCLUDES `materialColor: null` WHEN THE TYPE IS SILENT, AND
+                    // THAT IS NOT NOISE. `UpdateHandrailCommand` reads `undefined` as
+                    // "leave alone" and `null` as "CLEAR". A catalogue type carries a
+                    // materialId and no hex (C100 §2.1). Drop the null and a user's hex
+                    // override survives the retype and shadows the new material forever —
+                    // the record says frameless glass, the render stays the old colour.
+                    //
+                    // Explicit payload fields still WIN, so a caller may override one
+                    // dimension without inventing a type.
+                    const railDef = handrailTypeStore.getById(String(cmd.newTypeId));
+                    if (!railDef) {
+                        console.warn(`[element.changeType] no railing type "${cmd.newTypeId}" in handrailTypeStore — ignored.`);
+                        return;
+                    }
+                    const railFields = resolveHandrailTypeFields(railDef);
                     _swapWithRingParity('handrailStore', 'handrail', cmd.elementId, () => {
                         _cmExec(new UpdateHandrailCommand({
                             id: cmd.elementId,
-                            ...(cmd.height        !== undefined ? { height:        cmd.height        } : {}),
-                            ...(cmd.thickness     !== undefined ? { thickness:     cmd.thickness     } : {}),
-                            ...(cmd.baseOffset    !== undefined ? { baseOffset:    cmd.baseOffset    } : {}),
-                            ...(cmd.fillType      !== undefined ? { fillType:      cmd.fillType      } : {}),
-                            ...(cmd.railProfile   !== undefined ? { railProfile:   cmd.railProfile   } : {}),
-                            ...(cmd.railDiameter  !== undefined ? { railDiameter:  cmd.railDiameter  } : {}),
-                            ...(cmd.postSpacing   !== undefined ? { postSpacing:   cmd.postSpacing   } : {}),
-                            ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
-                            // §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the four infill
-                            // fields a railing type declares. Added in lock-step with
-                            // CreateHandrailCommand: fixing only the create path would
-                            // have made "Timber Picket Railing" mean two different
-                            // railings depending on whether you drew it or retyped into
-                            // it, which is worse than the shared defect (C84 EI-9).
+                            height:          railFields.height,
+                            thickness:       railFields.thickness,
+                            baseOffset:      railFields.baseOffset,
+                            fillType:        railFields.fillType,
+                            railProfile:     railFields.railProfile,
+                            railDiameter:    railFields.railDiameter,
+                            postSpacing:     railFields.postSpacing,
+                            balusterShape:   railFields.balusterShape,
+                            balusterWidth:   railFields.balusterWidth,
+                            balusterSpacing: railFields.balusterSpacing,
+                            infillMaxGap:    railFields.infillMaxGap,
+                            materialId:      railFields.materialId,
+                            materialColor:   railFields.materialColor,
+                            // An explicitly-named field overrides the type's value.
+                            ...(cmd.height          !== undefined ? { height:          cmd.height          } : {}),
+                            ...(cmd.thickness       !== undefined ? { thickness:       cmd.thickness       } : {}),
+                            ...(cmd.baseOffset      !== undefined ? { baseOffset:      cmd.baseOffset      } : {}),
+                            ...(cmd.fillType        !== undefined ? { fillType:        cmd.fillType        } : {}),
+                            ...(cmd.railProfile     !== undefined ? { railProfile:     cmd.railProfile     } : {}),
+                            ...(cmd.railDiameter    !== undefined ? { railDiameter:    cmd.railDiameter    } : {}),
+                            ...(cmd.postSpacing     !== undefined ? { postSpacing:     cmd.postSpacing     } : {}),
                             ...(cmd.balusterShape   !== undefined ? { balusterShape:   cmd.balusterShape   } : {}),
                             ...(cmd.balusterWidth   !== undefined ? { balusterWidth:   cmd.balusterWidth   } : {}),
                             ...(cmd.balusterSpacing !== undefined ? { balusterSpacing: cmd.balusterSpacing } : {}),
                             ...(cmd.infillMaxGap    !== undefined ? { infillMaxGap:    cmd.infillMaxGap    } : {}),
-                            // §C100-HANDRAIL-MATERIAL-ID — a retype moves the material REFERENCE.
                             ...(cmd.materialId      !== undefined ? { materialId:      cmd.materialId      } : {}),
-                        }));
+                            ...(cmd.materialColor   !== undefined ? { materialColor:   cmd.materialColor   } : {}),
+                        } as never));
                     });
                     return;
                 }

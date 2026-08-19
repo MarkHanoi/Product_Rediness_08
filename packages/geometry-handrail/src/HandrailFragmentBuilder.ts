@@ -432,7 +432,11 @@ export class HandrailFragmentBuilder {
                         : new THREE.BoxGeometry(bWidth, bHeight, bWidth))
                     : null;
                 for (let i = 1; i <= count; i++) {
-                    const lx = _balStations[i - 1];     // along the rail (PLAN distance)
+                    // `i` runs 1..count where count IS `_balStations.length`, so the
+                    // index is always in range — asserted rather than left as
+                    // `number | undefined`, which failed this package's own strict
+                    // typecheck (noUncheckedIndexedAccess) since R5 landed.
+                    const lx = _balStations[i - 1]!;    // along the rail (PLAN distance)
                     // §FEAT-HANDRAIL-SLOPE — the baluster stays PLUMB and keeps its
                     // full length; only its BASE rides the incline, so its top meets
                     // the pitched rail. `riseAt` is 0 on a flat run, which restores
