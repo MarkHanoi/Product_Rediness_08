@@ -43,6 +43,9 @@
  *   29. check-no-direct-store-writes.ts    — P6 commands are the only mutation path (L-812, was MISSING)
  *   30. check-visibility-intent-not-ui.ts  — P7 visibility intent ≠ UI (L-812, was MISSING)
  *   31. check-chat-capability-coverage.ts  — every registered bus command is declared to the chat (ADR-0313)
+ *   33. check-batch-creation-coverage.ts   — C11 §4.2: live catalogue entries whose command
+ *                                            loops over elements with NO batchCoordinator
+ *                                            batch. A NAMED ledger of 4, not a count.
  *   32. check-report-payload-discard.ts    — R4: dispatch sites that discard an engine report
  *                                            payload (C68 §5.g). Target 0, and it IS 0 —
  *                                            not a ratchet. The engines were honest and the
@@ -162,6 +165,18 @@ const GATES: Gate[] = [
   // NOT on gate-debt.json. The engine has always reported partials honestly; this
   // gate exists because the last layer threw that away and rendered "Done".
   { name: 'report-payload-discard (R4/W2-B)',         script: 'check-report-payload-discard.ts' },
+  // C11 §4.2 / C16 §8.7 (2026-08-19, L-1151) — live batch-catalogue entries whose command
+  // loops over elements OUTSIDE a batchCoordinator batch. Every such element pays TWO full
+  // scene.traverse() passes over a GROWING scene (perAddGeometryGate.ts:36 -> initScene),
+  // a REDETECT_ROOMS force-fire and a view re-projection: the O(n^2) behind a 32.7 s
+  // viewport freeze on a 367-element gesture.
+  // ⚠ NOT a numeric ratchet — a NAMED ledger, because a count is satisfiable by fixing one
+  // command and regressing another. It fails in BOTH directions: a new unbatched command,
+  // AND a ledger line whose debt was paid but left behind.
+  // Registered at 4 named entries, negative-tested in both directions. Its honesty floors
+  // exit 2 (never 0) when the catalogue will not parse or a named class does not resolve —
+  // which is how its first run caught a class its own filename index could not see.
+  { name: 'batch-creation-coverage (C11 §4.2/L-1151)', script: 'check-batch-creation-coverage.ts' },
   // R3 (2026-08-11) — independent polygon-offset implementations. The same offset
   // algorithm existed in THREE places at three levels of correctness, and the
   // UNTOUCHED copy was the one wired into the roof committer: a 300 mm eave
