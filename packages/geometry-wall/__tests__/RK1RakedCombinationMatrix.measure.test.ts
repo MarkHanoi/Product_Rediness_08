@@ -266,12 +266,58 @@ function pointInHull(p: Pt, h: readonly Pt[]): boolean {
     return true;
 }
 
+/**
+ * §WJ1-CROSSING-HULLS-SHARE-NO-VERTEX (WJ1, 2026-08-19) — THE X METRIC WAS WRONG, and the
+ * blank listed below as #3 was right to forbid conclusions from it. This is the proof.
+ *
+ * `hullSeparation` used to decide overlap by asking whether any VERTEX of one hull lay
+ * inside the other. **Two convex polygons can overlap with no vertex of either inside the
+ * other** — a PLUS SIGN is exactly that case, and a plus sign is exactly what an X
+ * junction is. So for `X plain@90 vs plain@90` — two 5 m walls crossing at the origin,
+ * upright, no rake, a configuration that cannot be unsound — the metric returned
+ * **`sep = 2.400 m`**: no vertex was inside, so it fell through to vertex-to-edge distance
+ * and reported the distance from A's far corner to B's side face as if it were daylight.
+ * The 2.400 is `2.5 − 0.1`, i.e. half the wall length minus half the thickness, which is a
+ * number about the TEST GEOMETRY and not about the building at all.
+ *
+ * ⭐ THE CONTROL IS WHAT CAUGHT IT. Every X row in the old matrix was *plausible*; it was
+ *   only running plain-vertical-vs-plain-vertical through the same metric that made it
+ *   unarguable, because that row has a known answer. RK1's own lesson generalised: a
+ *   number that cannot be wrong for a known-good input is the only one worth trusting.
+ *
+ * The fix is SAT (separating-axis) overlap, which is exact for convex polygons and does
+ * not care about winding: if no edge normal of either hull separates the two projections,
+ * they overlap. The vertex-in-hull test is retained as a cheap first pass — it is correct
+ * when it says yes, only incomplete when it says no.
+ */
+function convexOverlap(ha: readonly Pt[], hb: readonly Pt[]): boolean {
+    for (const poly of [ha, hb]) {
+        for (let i = 0; i < poly.length; i++) {
+            const p = poly[i]!, q = poly[(i + 1) % poly.length]!;
+            // Outward-facing axis for this edge; sign is irrelevant to a gap test.
+            const ax = -(q.z - p.z), az = q.x - p.x;
+            const len = Math.hypot(ax, az);
+            if (!(len > 1e-12)) continue;
+            const nx2 = ax / len, nz2 = az / len;
+            let aLo = Infinity, aHi = -Infinity, bLo = Infinity, bHi = -Infinity;
+            for (const v of ha) { const s = v.x * nx2 + v.z * nz2; if (s < aLo) aLo = s; if (s > aHi) aHi = s; }
+            for (const v of hb) { const s = v.x * nx2 + v.z * nz2; if (s < bLo) bLo = s; if (s > bHi) bHi = s; }
+            // A strict gap on ANY axis proves disjoint. Touching (gap 0) is NOT a gap:
+            // two walls that meet flush must read as meeting, not as separated by zero.
+            if (aHi < bLo - 1e-12 || bHi < aLo - 1e-12) return false;
+        }
+    }
+    return true;
+}
+
 /** 0 when the two plan hulls touch or overlap; otherwise their closest approach. */
 function hullSeparation(a: readonly Pt[], b: readonly Pt[]): number {
     const ha = hull(a), hb = hull(b);
     if (ha.length < 3 || hb.length < 3) return minGap(a, b);
     for (const p of ha) if (pointInHull(p, hb)) return 0;
     for (const p of hb) if (pointInHull(p, ha)) return 0;
+    // §WJ1-CROSSING-HULLS-SHARE-NO-VERTEX — the case the two lines above cannot see.
+    if (convexOverlap(ha, hb)) return 0;
     let best = Infinity;
     for (const p of ha) for (let i = 0; i < hb.length; i++) best = Math.min(best, pointSegDist(p, hb[i]!, hb[(i + 1) % hb.length]!));
     for (const p of hb) for (let i = 0; i < ha.length; i++) best = Math.min(best, pointSegDist(p, ha[i]!, ha[(i + 1) % ha.length]!));
@@ -894,6 +940,149 @@ describe('RK1 D-CURVED #4 -- a curved RAKED wall joined to every other kind', ()
     });
 });
 
+// --- AXIS 4c -- WJ1: the curved RAKED wall at a T and at an X ------------------------
+
+/**
+ * L-1066 closed the **L** corner and said so plainly: *"T and X for curved-raked are still
+ * not asserted."* This is that assertion — and it could not be written until the METRIC was
+ * fixed, because the X arm of `hullSeparation` was measuring the test geometry rather than
+ * the building (§WJ1-CROSSING-HULLS-SHARE-NO-VERTEX, above).
+ *
+ * ── WHAT CHANGED IN THE READINGS, AND WHY EVERY OLD X NUMBER WAS FICTION ───────────
+ *
+ * Before the metric fix, with the SAME builder and the SAME walls:
+ *
+ *     X plain@90 vs plain@90   baseSep 2.400   topSep 2.400   openUp  0.000   <- the CONTROL
+ *     X plain@80 vs plain@80   baseSep 2.400   topSep 1.871   openUp -0.529
+ *     X curved@80 vs plain@90  baseSep 0.000   topSep 0.019   openUp  0.019
+ *     X curved@80 vs layered3  baseSep 0.021   topSep 0.061   openUp  0.040
+ *
+ * After:  **every one of those is 0.000, control included.** The `2.400` was `2.5 − 0.1`,
+ * half the test wall's length minus half its thickness — a fact about the fixture. The
+ * `openUp = −0.529` was a negative opening, which is not a thing. And the 19 mm and 40 mm
+ * "openings" that looked like small real defects worth chasing were the same artefact at a
+ * smaller amplitude. ⭐ **The plausible ones are the dangerous ones**: `2.400` announces
+ * itself, `0.019` reads as a lead.
+ *
+ * ── WHAT IS ASSERTED, AND WHAT A T AND AN X CAN EVEN CLAIM ─────────────────────────
+ *
+ * `baseGap` / `topGap` are VERTEX-to-VERTEX and are meaningless here — RK1 established
+ * that (§RK1-VERTEX-GAP-IS-NOT-A-T-JOINT): at a T the stem's end face lands on the middle
+ * of the host's side face, where the host has no vertex at all, so the nearest host vertex
+ * is half a wall away. They are still RECORDED, never asserted. The claim at a T and an X
+ * is the one the founder's sentence makes: the solids MEET at the floor, they still MEET
+ * at the top, and the joint does not OPEN with height.
+ */
+describe('WJ1 -- a curved RAKED wall at a T and at an X, against every neighbour', () => {
+    const NEIGHBOURS: ReadonlyArray<readonly [string, Kind, number]> = [
+        ['straight plain VERTICAL', 'plain', VERT],
+        ['straight plain RAKED (same lean)', 'plain', RAKE],
+        ['straight plain RAKED (opposite)', 'plain', 110],
+        ['straight LAYERED raked', 'layered3', RAKE],
+        ['straight raked + WINDOW', 'plain+window', RAKE],
+        ['CURVED unraked', 'curved', VERT],
+        ['CURVED raked', 'curved', RAKE],
+        ['CURVED layered raked', 'curved+layered3', RAKE],
+    ];
+
+    /**
+     * ⭐ THE METRIC'S OWN CONTROL, and it runs FIRST at every topology.
+     *
+     * This is the test that would have caught the X defect on the day it was written. Two
+     * plain UPRIGHT walls at a T and at an X cannot be unsound — there is no rake, no
+     * curve, no opening and no layering to get wrong. If the metric reports daylight
+     * there, the metric is broken and nothing below it means anything. It reported 2.400 m
+     * for months.
+     */
+    it('CONTROL -- plain vertical and plain raked pairs read CLOSED at L, T and X', () => {
+        for (const topo of ['L', 'T', 'X'] as Topo[]) {
+            for (const [tag, rake] of [['@90 upright', VERT], ['@80 raked', RAKE]] as const) {
+                const c = record(`${topo} CONTROL plain${tag} vs plain${tag}`,
+                    measure(...pairFor(topo, 'plain', rake as number, 'plain', rake as number)));
+                expect(c.baseSep, `${topo} plain${tag}: the floor`).toBeLessThan(COINCIDENT_M);
+                expect(c.topSep, `${topo} plain${tag}: the top`).toBeLessThan(COINCIDENT_M);
+                expect(Math.abs(c.openUp), `${topo} plain${tag}: does not open`).toBeLessThan(COINCIDENT_M);
+            }
+        }
+        dump('AXIS 4c CONTROL: plain pairs at L / T / X');
+    });
+
+    /**
+     * ⭐ THE CONTROL CAN FAIL. A green control proves nothing if the instrument cannot
+     * produce a red. Two walls placed genuinely apart must read genuinely apart — and the
+     * SAT overlap test added above is exactly the kind of change that could have made
+     * `hullSeparation` return 0 unconditionally, which would have turned every assertion
+     * in this block into a tautology.
+     */
+    it('CONTROL CAN FAIL -- two walls 2 m apart read as SEPARATED, not as touching', () => {
+        const A = makeA('plain', [0, 0], [5, 0], RAKE);
+        const B = makeA('plain', [0, 2], [5, 2], RAKE);
+        const c = record('CONTROL-CAN-FAIL plain@80 vs plain@80, 2 m apart', measure(A, B));
+        dump('AXIS 4c: the instrument can still report a gap');
+        expect(c.baseSep, 'a real 2 m gap is reported as a gap').toBeGreaterThan(1.5);
+    });
+
+    for (const topo of ['T', 'X'] as Topo[]) {
+        for (const aKind of ['curved', 'curved+layered3', 'curved+window'] as Kind[]) {
+            it(`${topo}: ${aKind}@80 closes against every neighbour, floor AND top`, () => {
+                const results: Array<{ label: string; c: Cell }> = [];
+                for (const [label, bKind, bRake] of NEIGHBOURS) {
+                    const [A, B] = pairFor(topo, aKind, RAKE, bKind, bRake);
+                    results.push({ label, c: record(`${topo} ${aKind}@80 vs ${label}`, measure(A, B)) });
+                }
+                dump(`AXIS 4c: ${topo} ${aKind}@80 vs every neighbour`);
+
+                for (const { label, c } of results) {
+                    expect(Number.isFinite(c.baseSep), `${label}: both bodies built`).toBe(true);
+                    expect(c.baseSep, `${topo} ${label}: the two solids MEET at the floor`)
+                        .toBeLessThan(COINCIDENT_M);
+                    expect(c.topSep, `${topo} ${label}: and they still MEET at the top`)
+                        .toBeLessThan(COINCIDENT_M);
+                    expect(Math.abs(c.openUp), `${topo} ${label}: does not OPEN with height`)
+                        .toBeLessThan(COINCIDENT_M);
+                }
+            });
+        }
+    }
+
+    /**
+     * The T with the CURVE ON THE STEM rather than on the host. Every row above puts the
+     * curved wall in the A slot, which at a T is the HOST — so without this the curved
+     * wall's own END would never be the thing landing on a neighbour's side face, and "T
+     * is asserted" would be half true.
+     */
+    it('T-STEM -- a curved raked STEM landing on a straight host, raked and upright', () => {
+        const results: Array<{ label: string; c: Cell }> = [];
+        for (const aKind of ['curved', 'curved+layered3'] as Kind[]) {
+            for (const [tag, hostRake] of [['raked host', RAKE], ['upright host', VERT]] as const) {
+                const A = makeA(aKind, [2.5, 0], [2.5, 5], RAKE);
+                const B = makeA('plain', [0, 0], [5, 0], hostRake as number);
+                results.push({ label: `${aKind} stem, ${tag}`, c: record(`T-STEM ${aKind}@80 onto plain ${tag}`, measure(A, B)) });
+            }
+        }
+        dump('AXIS 4c: T-STEM, the curve on the stem');
+        for (const { label, c } of results) {
+            expect(c.baseSep, `${label}: meets at the floor`).toBeLessThan(COINCIDENT_M);
+            expect(c.topSep, `${label}: meets at the top`).toBeLessThan(COINCIDENT_M);
+            expect(Math.abs(c.openUp), `${label}: does not open`).toBeLessThan(COINCIDENT_M);
+        }
+    });
+
+    /**
+     * NON-VACUITY. A T or an X between two upright walls closes trivially; every row above
+     * would be green on a builder that had forgotten the rake entirely. A must be a cone.
+     */
+    it('the curved body still LEANS at T and X placements -- the block is not vacuous', () => {
+        const far = () => mk([50, 50], [55, 50], { rake: VERT });
+        for (const kind of ['curved', 'curved+layered3', 'curved+window'] as Kind[]) {
+            const stem = measure(makeA(kind, [2.5, 0], [2.5, 5], RAKE), far());
+            expect(stem.leanA, `${kind} @80 at the T-stem placement leans`).toBeGreaterThan(0.1);
+            const cross = measure(makeA(kind, [-2.5, 0], [2.5, 0], RAKE), far());
+            expect(cross.leanA, `${kind} @80 at the X placement leans`).toBeGreaterThan(0.1);
+        }
+    });
+});
+
 // --- AXIS 5 -- L-1034 #4: WHERE IS "EDIT PROFILE" ACTUALLY OFFERED? -----------------
 
 /**
@@ -1051,16 +1240,18 @@ describe('RK1 §RK1-MATRIX -- AXIS 6: L-1067, the profile is authorable and DRAW
  *     it needs the infill pass in the harness, not just the fragment builder.
  *  2. **MOVE-time junction behaviour is out of scope** -- that is lane WM1's path
  *     (`WallMoveReweldService`, `moveReweldPreflight`). This file is GEOMETRY-time only.
- *  3. **THE X ROWS ARE NOT A RESULT. They are UNEXPLAINED and must not be quoted.**
- *     They are printed because deleting a reading you cannot explain is worse than
- *     printing it labelled -- but `X plain@80 vs plain@80` reports `baseSep = 2.400 m`
- *     for two walls whose plan rectangles demonstrably OVERLAP at the origin, which is
- *     arithmetically impossible for a correct hull separation. Either the join resolver
- *     does something at a true crossing that this harness does not model (a crossing is
- *     handled by the clash/merge subsystem, not by `WallJoinResolver`), or `hullSeparation`
- *     is wrong on this input. Until that is settled, NO CONCLUSION -- sound or unsound --
- *     may be drawn from any X row. The L and T rows are unaffected: their readings are
- *     mutually consistent and agree with the vertex metric wherever both apply.
+ *  3. ✅ **THE X METRIC IS FIXED, AND EVERY OLD X READING WAS FICTION** (WJ1,
+ *     2026-08-19). This blank used to read *"NO CONCLUSION -- sound or unsound -- may be
+ *     drawn from any X row"*, and it named two candidate causes: either the X junction
+ *     genuinely produces bodies that do not touch, or `hullSeparation` is wrong on this
+ *     input. **It was the metric.** `hullSeparation` decided overlap by testing whether a
+ *     VERTEX of one hull lay inside the other, and two convex polygons crossing in a PLUS
+ *     SIGN -- which is precisely what an X junction is -- overlap with no vertex of either
+ *     inside the other. The proof is the control: `X plain@90 vs plain@90`, two upright
+ *     walls crossing at the origin with nothing to get wrong, read `sep = 2.400 m`. See
+ *     §WJ1-CROSSING-HULLS-SHARE-NO-VERTEX. X rows are now assertable and are asserted in
+ *     AXIS 4c; the T rows, which the old blank correctly said were unaffected, are
+ *     unchanged by the fix and are asserted there too.
  *  3b. **Only ONE neighbour at a time.** A three-wall Y-junction, and a four-wall X where
  *     all four are raked, are not measured.
  *  4. **`baseOffset` / `slabBaseOffset` are 0 throughout.** The wall-Y datum was resolved
