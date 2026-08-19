@@ -9068,7 +9068,22 @@ deadline regardless of which one tripped**. It was the RESETS arm. Every reader 
 two-second stall that never happened. Now prints `reason=resets|deadline` with both counters against
 their limits.
 
-**Measured: 64 window edits → 5 forced fires BEFORE, 0 AFTER.**
+**What is measured, stated exactly** (an earlier draft of this line read *"64 window edits → 5
+forced fires BEFORE, 0 AFTER"*, which silently welded a production observation to a unit-test
+result — the two were never the same measurement):
+
+* **Measured in the test:** 64 openings-only wall `update` events → `_scheduleRedetect` called
+  **0** times after the fix. Before the fix the same suite was **RED** at that assertion (it was
+  called; the suite does not print the exact count, which would be 64, one per event).
+* **Observed in production, by the founder, not by me:** ~64 windows → `REDETECT_ROOMS` about once
+  per 13 windows, i.e. **≈5 forced fires** — the 64 schedules coalesced by the 150 ms debounce and
+  then released by the reset ceiling.
+* **NOT MEASURED:** whether `WallRebuildCoordinator` independently emits
+  `bim-wall-mutation-committed` for a window-only edit. That is a *second*, separate redetect path
+  (300 ms soft-coalesce, no `resets=` counter) which this fix does not touch. The founder's log
+  names `forced fire (… resets=12)`, which is emitted **only** by the scheduler path fixed here —
+  so the reported storm is closed, but "windows never cause a redetect by any route" is **not**
+  what has been established.
 **Test:** `packages/room-topology/src/__tests__/openingsOnlyDoesNotRedetect.test.ts`. Package redetect
 suites green: **4 files, 25/25**, including the three pre-existing guards
 (`roomRedetectNoProgressGuard`, `wallMoveRedetectDefer`, `planCoveredRedetectSuppression`).
