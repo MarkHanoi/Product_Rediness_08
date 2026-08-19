@@ -191,6 +191,114 @@ export class FloorStore {
   }
 
   /**
+   * §L-1032 — MOVE a floor finish to a different storey.
+   *
+   * ─── WHY THIS IS A NAMED OPERATION AND NOT `update(id, {levelId})` ────────
+   * Because for THIS store `update(id, {levelId})` is a measured NO-OP.
+   * `update()` above warns and DELETES the key before the merge:
+   *
+   *     if (updates.levelId && updates.levelId !== existing.levelId) {
+   *       console.warn(`[FloorStore] Attempt to change levelId on floor "${floorId}" — ignored.`);
+   *       delete (updates as any).levelId;
+   *     }                                            // FloorStore.ts:141-144
+   *
+   * `apps/editor/src/engine/undo/legacyStoreUpdateSemantics.ts` records exactly
+   * that — `floor: { semantics: 'merge', … note: 'PRESENCE-KEYED — levelId is
+   * warned-and-deleted (:141-144)' }` — and it is re-derived from the real class
+   * by `LegacyStoreUpdateSemantics.measured.test.ts`, not transcribed. A caller
+   * doing `update(id, {levelId})` gets a successful `FloorData` back, a bumped
+   * `version` and an 'update' fan-out, while the floor never moves: success
+   * reported over a change that did not happen (C03 §4.6 U-4).
+   *
+   * ⚠ THE GUARD IN `update()` IS CORRECT AND MUST STAY. It exists so a GENERIC
+   * patch — an undo field write, a property-panel merge, an IFC round trip, or
+   * `restoreSnapshot()`, which routes a WHOLE record through `update()` (`:199`)
+   * — cannot re-storey a floor by accident. This method does not weaken it; it
+   * writes the map entry itself, which is what makes "move" an explicit, named,
+   * auditable gesture rather than a side effect of some other edit.
+   *
+   * The second reason is the undo leg: `elementUndoStoreAdapter`'s §L-946 arm
+   * tests `typeof store.changeLevel === 'function'` before routing a `levelId`
+   * inverse patch. Without this method Ctrl+Z after a storey move falls through
+   * to the generic `update()` — which, per the guard above, silently declines to
+   * revert, leaving the plugin store on the old storey and the geometry record
+   * on the new one. That is the two-copy divergence L-946 closed, re-opened by
+   * Ctrl+Z and pointing the other way.
+   *
+   * Symmetric with `SlabStore.changeLevel`
+   * (`packages/geometry-slab/src/SlabStore.ts:314`) and `RoofStore.changeLevel`
+   * (`packages/geometry-roof/src/RoofStore.ts:153`).
+   *
+   * ─── WHY ONE 'update' AND NOT 'remove' + 'add' ───────────────────────────
+   * `add()` auto-assigns `label` and `floorNumber` from `this._floorCounter`
+   * (`:65-71`), so a remove+add round trip would RENUMBER the floor and hand it
+   * a new label the schedules already reference. A move is not a delete. One
+   * 'update' is everything the renderer needs: `FloorFragmentBuilder` re-derives
+   * `FFL = level.elevation + boundary.baseOffset` on every update.
+   *
+   * ─── WHAT THIS DOES NOT DO ───────────────────────────────────────────────
+   * Spatial-authority registration (bimManager `level.childrenIds`, the
+   * view-dependency element→level map) is NOT updated here — identical to the
+   * contract `SlabStore.changeLevel` and `RoofStore.changeLevel` both state in
+   * their own doc comments. `apps/editor/src/engine/elementLevelChangedMirror.ts`
+   * owns that half for EVERY family, so the ordering rule (move the record
+   * FIRST, re-register SECOND, dirty BOTH storeys THIRD) lives in one place
+   * rather than in thirteen stores.
+   *
+   * `hostSlabId` is NOT cleared here. A floor finish bound to a slab on the old
+   * storey is now bound across storeys, which is a CONSTRAINT question
+   * (`FloorSlabBindingHandler` owns the re-seat) and not a store one; silently
+   * dropping the binding would destroy authored data to make a move look tidy.
+   *
+   * `_serviceHoleIndex` is untouched on purpose: it maps holeId → floorId, and
+   * neither id changes when the storey does.
+   *
+   * Returns the moved record, or `undefined` when there is nothing to move —
+   * failure and emptiness must not be the same value (§context-data-honesty).
+   */
+  changeLevel(floorId: string, newLevelId: string): FloorData | undefined {
+    const existing = this._floors.get(floorId);
+    if (!existing) return undefined;
+    // An empty destination is REFUSED, never defaulted to the active level —
+    // the §DIAG-WALL-LEVEL trap that files elements on the ground floor.
+    if (!newLevelId) return undefined;
+    // Already there: hand back a clone, matching this store's read convention
+    // (`getById` clones — `:259-263`), and emit NOTHING. A no-op that fans out
+    // would dirty two storeys for a move that did not happen.
+    if (existing.levelId === newLevelId) return structuredClone(existing) as FloorData;
+
+    const moved = structuredClone(existing) as FloorData;
+    moved.levelId = newLevelId;
+    // A floor parented to something ELSE than its storey keeps that parent.
+    if (existing.parentId === existing.levelId) moved.parentId = newLevelId;
+    // `FloorData extends CoreElement`, whose `spatialRelationship` MIRRORS
+    // BimManager's `Level.childrenIds` contract (`CoreElement.ts:46-52`) and is
+    // what IFC export reads for storey containment. Only rewritten when already
+    // PRESENT: minting one would invent a containment the record never asserted.
+    if (moved.spatialRelationship) {
+      moved.spatialRelationship = { ...moved.spatialRelationship, levelId: newLevelId };
+    }
+    // Same metadata stamp `update()` applies (`:155-161`) — a storey move is a
+    // real modification and must advance the audit trail like any other.
+    moved.metadata = {
+      ...moved.metadata,
+      modifiedAt: Date.now(),
+      version: (moved.metadata.version ?? 0) + 1,
+    };
+
+    freezeFloorData(moved);
+    this._floors.set(floorId, moved);
+
+    _bus.emit('bim-floor-updated', { id: moved.id }); // F.events.17
+    storeEventBus.emit({ elementId: moved.id, elementType: 'floor', operation: 'update', timestamp: Date.now() });
+    // §STEP7: `existing` is the frozen pre-mutation record, captured before the
+    // clone, so diff-based subscribers can dirty the storey being VACATED.
+    this._emit('update', moved, existing);
+
+    return structuredClone(moved) as FloorData;
+  }
+
+  /**
    * Undo-safe restoration — uses preserveMetadata=true to avoid corrupting
    * the audit trail version counter and modifiedAt timestamp.
    */
