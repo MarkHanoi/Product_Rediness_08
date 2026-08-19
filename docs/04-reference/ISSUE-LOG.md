@@ -13982,3 +13982,265 @@ Level-1 reference under the same cursor always wins.
 superseded). **Related:** L-432 (site snap targets), L-1087 (level-awareness measured inconsistent
 across renderers — this lane is the same finding in the snap pipeline), L-935 (explicit object snap
 vs the ortho lock).
+
+---
+
+## L-1151 — "walls from THIS slab" ran outside any batch, so every wall re-walked the whole scene twice ✅ CLOSED 2026-08-19 (MEASURED)
+
+**Lane PERF2.** Contracts: **C11 §4.2**, **C16 §8.7**, **C17 §10**, **ADR-0314**.
+
+`initScene` answers every `bim-*-added` with TWO full `scene.traverse()` passes, deferred only when
+`shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)` says so (`perAddGeometryGate.ts:36`).
+INSTR1 measured the shape: **367 unbatched adds → 734 ACTUAL traversals; batched → 0 actual, 367
+deferred.** The scene is still GROWING, so it is O(n²).
+
+`CreateWallsFromSlabCommand` looped `CreateWallCommand` with **no batch at all** — while
+`CreateWallsOnAllSlabsCommand.ts:60-110`, the command that CALLS it, carries fifty lines diagnosing
+this exact failure and fixing it **at the outer loop only**. The fix held for "all slabs" and
+evaporated for "this slab", which has its own live catalogue button.
+
+| | before | after |
+|---|---|---|
+| live `BATCH_CATALOGUE` entries | 16 | 16 |
+| BATCHED creation loop | 10 | **11** |
+| UNBATCHED creation loop | 5 | **4** |
+
+⚠ My first census indexed by FILENAME and missed `ReplicateSelectedSlabToAllLevelsCommand` (declared
+inside `CreateSlabOnLevelSimilarToSelectedCommand.ts`). The gate's honesty floor caught it; on
+re-classification that command creates exactly one slab, so it is genuinely NO-LOOP.
+
+**Closed by `8a864ce9`** (JOIN-or-open, the `CreateLightingByRoomCommand` shape) and generalised by
+`d6f6a90e` — `tools/ga-gate/check-batch-creation-coverage.ts`, a **NAMED ledger** of 4, negative-tested
+in both directions, because a count is satisfiable by fixing one command and regressing another.
+
+---
+
+## L-1152 — a batch that blocks the main thread kills the collaboration socket, by protocol ⛔ OPEN (MECHANISM MEASURED, INCIDENCE NOT)
+
+**Lane PERF2.** Contracts: **C66 §1**, **C08**, **P8**.
+
+Two long batches, two disconnects (`transport close`). Not a CRDT-merge fault — the heartbeat deadline.
+
+**Measured from the installed package, not memory:** `engine.io@6.6.9` (`build/server.js:41-42`)
+defaults `pingTimeout: 20000`, `pingInterval: 25000`. `server.js:476` constructs the Server with
+`{cors, transports, maxHttpBufferSize}` and **sets neither**.
+
+The server pings every 25 s and disconnects if no PONG lands within 20 s; the client's PONG is
+dispatched **on the main thread**. For a block of duration *D*:
+- **D ≥ 45 s** (`pingInterval + pingTimeout`) → disconnect **CERTAIN**. The 85.4 s stall is here.
+- **D = 32.7 s** → disconnect iff the ping lands in the first 12.7 s, i.e. **~51 %**.
+
+⚠ An earlier draft said *"any block ≥20 s deterministically disconnects"*. Wrong — 20 s is the
+timeout, not the deadline from the start of the block. Probability below 45 s, certainty above it.
+
+**Self-healing, but not free:** socket.io v4 reconnection is on by default; `initCollaboration.ts:566`
+re-emits `join-project` and calls `_triggerCatchUp`. So this is a **blackout, not a data loss** —
+*conditional on catch-up replay being correct*, which this entry does NOT establish.
+
+**NOT MEASURED:** whether the block sits in the batch's synchronous mutation phase or its yielded
+drain (`endBatchYielded` yields the drain; `storeEventBus.batch(fn)` runs the creation loop in ONE
+task and does not); whether remote ops actually arrived in the window (the `§E.1`/G3-T3 path in
+`YjsDocAdapter` exists to detect it and was not read); whether catch-up is lossless.
+
+**RECOMMENDATION — reduce the block; do NOT raise `pingTimeout` first** (that hides the symptom and
+delays genuine disconnect detection for every other failure mode). Order: (1) remove the O(n²)
+[L-1151, L-1155]; (2) yield the synchronous mutation phase — the `endBatchYielded` precedent is in
+the same file; (3) only then an explicit `pingTimeout`, chosen against a MEASURED worst case and
+recorded as a capacity claim under C66 §1. **Until (2), no element-count tier may be described as
+"supported" for collaborative sessions.**
+
+---
+
+## L-1153 — element + furniture instancing are OFF for six families; the gate meant to open them was never run ⛔ OPEN (MEASURED)
+
+**Lane PERF2.** Contracts: **C04**, **ADR-0076**, **ADR-0297**, **C93 §274**.
+
+A founder project carries **1815 window records**. Windows cannot instance at all.
+
+| flag | definition | default | families |
+|---|---|---|---|
+| `__pryzmElementInstancingV1` | `ElementInstanceBridge.ts:220-224` | **OFF** | column, beam, window, handrail, stair-railing |
+| `__pryzmFurnitureInstancingV1` | `FurnitureInstanceBridge.ts:125-130` | **OFF** | furniture |
+| *(wall — no flag)* | `WallFragmentBuilder.ts:1252-1261` | **ON** | wall bodies |
+| `__pryzmInstanceMaterialDedup` | `SharedMaterialCache.ts:89-92` | **ON** | material collapse |
+
+**Nothing sets either flag `true` outside test files.**
+
+**WHY off:** ADR-0076:111-114 — *"the largest draw-call win but is correctness-sensitive … hence
+Phase 2 behind a default-off flag."* Exit condition is a **visual-diff gate** (§196, §205) with **no
+evidence it was ever run**. Born off (`eda599d8`, `c3cabdb8`, `a36ecfc5`), never touched again, then
+deferred behind L-253. So: **never flipped after stabilising**, not blocked by a recorded defect.
+
+⭐ **DO NOT FLIP TODAY.** Absence of a blocking record is not evidence of safety:
+1. **L-691 / ADR-0297 (dispose-before-detach) is UNFIXED in `ColumnFragmentBuilder` and
+   `WindowBuilder`.** `ISSUE-LOG:840` — a builder can dispose *the canonical material of an entire
+   `InstanceGroup`*, and *"every one of those element types can still kill the scene."* Furniture IS
+   mitigated (`FurnitureFragmentBuilder.ts:341-354`); the two that matter for 1815 windows are not.
+2. **`dedupInstanceMaterial` collapses only 5 classic types** (`materialSignature.ts:42-48`);
+   `ShaderMaterial` and every `*NodeMaterial` return `null` and keep a unique uuid. The WebGPU path
+   is TSL/NodeMaterial-based, so **on WebGPU a NodeMaterial family gets one InstanceGroup per
+   element — full bookkeeping, zero collapse.**
+3. **Column and window have NO test covering the instanced path at all.**
+
+**Dangling pointer, recorded because a blank is worse:** L-100 defers furniture instancing and points
+at "L-102", which is an unrelated furniture UI audit. The deferral tracks **nothing**.
+
+**RECOMMENDATION, per family** — sequencing, not a flag flip:
+- **furniture** — closest to flippable (L-691 mitigated, bridge test exists). **Cheapest real win.**
+- **beam / handrail / stair-railing** — tests exist; L-691 status unverified for those builders.
+- **column / window** — ⛔ blocked on L-691/ADR-0297, then on having any test.
+- **all** — ADR-0076's visual-diff gate is unmet, and C93:274 records instanced per-element pick id
+  as `NOT MEASURED` while ADR-0076:137-139 calls it "pre-solved". **Two documents disagree and
+  neither was measured.** Resolve that before any flag moves.
+
+⚠ `packages/geometry-window/src/WindowBuilder.ts` is currently MODIFIED by another lane.
+
+**REFERENCE THAT WORKS:** curtain-wall instancing is live and healthy in the same production log —
+`§DIAG-IM-03 buildInstancedMeshes DONE totalMs=1.0ms geoAllocs=1 matAllocs=1 instancedMeshes=1
+totalInstances=16`, then every subsequent wall served `geo=(from cache) mat=(from cache)`.
+`CurtainWallInstanceManager` is the pattern to copy, and its `§DIAG-IM-01/02/03` logging is the model
+for per-family instancing diagnostics.
+
+---
+
+## L-1154 — the room-redetect debounce INVERTS under load: it fired at 19 ms of its own 2000 ms window ✅ CLOSED 2026-08-19 (MEASURED)
+
+**Lane PERF2.** Contract: **C11 §6.3**.
+
+Opening an 11-level / 341-wall / 1815-window project, repeated 20+ times mid-import:
+
+```
+[RoomTopologyObserver] forced fire (level=L-04…, reason=resets, elapsed=19ms/2000ms, resets=12/12)
+[CommandManager] EXECUTE: REDETECT_ROOMS
+```
+
+then a second round at ~2100 ms with `reason=deadline`, then a third per level after load — **room
+detection three times per level on a straight project open**, on a model whose walls were still arriving.
+
+⭐ **THE DEBOUNCE IS DEFEATED BY ITS OWN RESET CAP.** Every arriving wall resets the 2000 ms timer;
+12 resets exhausts `MAX_DEBOUNCE_RESETS`; the starvation guard force-fires after **19 ms** — during
+precisely the burst it exists to coalesce. **The heavier the load, the MORE often it fires**, so no
+value of the constant fixes it. The fix changes the POLICY and touches no constant.
+
+**Why the existing guard did not hold:** `ProjectLoader:568` pauses the observer via
+`window.roomTopologyObserver?.pause?.()` — optional-chained on **both** the object and the method,
+against a property assigned in `initTools:2499`. If it is not published yet, or the resume at `:2374`
+lands early, suppression silently does nothing **and nothing says so**. Same family as the
+null-at-mount runtime-event race.
+
+**Closed by `2cc58c53`** — read `globalThis.__pryzmProjectLoadActive` LOCALLY (the
+`perAddGeometryGate.ts:33` seam for the identical problem one subsystem over), at **both** chokepoints.
+`ImportProjectCommand` (`:631`) is inside the flag window (`:602`–`:2625`).
+
+---
+
+## L-1155 — `isBatching` was the ONE suppression never mirrored to the execution chokepoint: 400 walls → ~400 room-detection passes ✅ CLOSED 2026-08-19 (MEASURED)
+
+**Lane PERF2.** Contracts: **C11 §6.3**, **C16 §8.7**, **ADR-0069**.
+
+⭐ **THE ROOT OF THE 85,433 ms STALL.** The founder's "walls-by-slab across all slabs" (400 walls)
+produced this triplet **once per wall, mid-batch**:
+
+```
+[BimManager] Registered element wall_01M0CVY12FQ… to level L-14-…
+[CommandManager] EXECUTE: REDETECT_ROOMS
+[RoomDetectionEngine] Detected 1 room(s) on level 'L-14-…'
+[RoomDetectionEngine] §DIAG-ROOM-LOOP BREAK … 788mm … EXCEEDS hostSnap 200mm
+```
+
+ending `§WARN DEFERRED-RESUME-FLUSH delayed 85433ms — main thread was blocked` then `Socket
+disconnected: transport close`. The same gesture at 367 elements cost **32,183 ms**; at 400 walls
+**85,433 ms** — superlinear, the signature of per-element work over a growing set.
+
+**MEASURED ATTRIBUTION — the commands WERE batched; the observer bypassed the gate.**
+
+```
+grep batchCoordinator.isBatching packages/room-topology/src/RoomTopologyObserver.ts
+  → 694  _scheduleRedetect
+  → 777  _scheduleRedetect
+  → NOWHERE in _executeRedetect
+```
+
+Every other suppression is mirrored at **both** chokepoints — `paused`, building-generation,
+project-load, wall-drag, graph-authority. `isBatching`, the **primary** batch gate, was mirrored at
+neither, and `_executeRedetect`'s own comment names **four** paths that reach it without passing the
+scheduler.
+
+**Escape hatch verified:** `BatchCoordinator._executeFinalSweep()` dispatches exactly ONE
+`room.redetect` per affected level from `BatchOptions.levelIds`. The fix collapses N identical passes
+into the ONE that runs against **settled** geometry — strictly more correct as well as faster, since
+a mid-batch pass detects rooms from a half-built level.
+
+**Measured: REDETECT_ROOMS passes per 400-wall batch 400 → 0 during, 1 after.** Closed by `4c99f4b9`.
+
+⚠ **This reproduced with WebGPU ACTIVE** (`Phase: phase4 | WebGPU: true`). Main-thread CPU work, not
+a backend or pipeline problem — the render lane is not implicated.
+
+---
+
+## L-1156 — the "always-on room-loop audit" is itself O(n²) and ran on every pass ✅ CLOSED 2026-08-19 (MEASURED)
+
+**Lane PERF2.**
+
+`RoomDetectionEngine._diagRoomLoop` nests `for host of segs × for guest of segs × 2 endpoints` — 2n²
+distance computations **every detection pass, logged or not**. At 400 segments that is ~320,000
+iterations per pass, and the log showed ~400 passes. The ~800 `§DIAG-ROOM-LOOP BREAK` console writes
+people noticed — re-reporting the SAME pair of walls at the SAME 788 mm every time — were only the
+visible tip.
+
+⚠ **Silence would have been a worse bug than the cost.** These lines are a live tool for the
+wall-join lane. The audit is **bounded, not removed**: ≤150 segs runs unchanged; >150 skips and says
+so in ONE line naming the count, the threshold, the escape hatch and the words **"UNMEASURED, not
+zero"** — deliberately **without** printing an `unresolvedLoopBreaks` count it did not compute.
+`globalThis.__pryzmDiagRoomLoop` forces on/off. Nothing consumes the counts programmatically.
+
+Closed by `4c99f4b9`.
+
+---
+
+## L-1157 — the warning that said it was "detaching to stop the per-frame flood" WAS the per-frame flood ✅ CLOSED 2026-08-19 (MEASURED)
+
+**Lane PERF2.**
+
+Four ungated console calls in `SelectionManager` run at display refresh rate, guarded by persistent
+STATE rather than rarity: `:646` (frame-scheduler tick + hover rAF), `:691` and `:702` (hover rAF —
+the docblock above them says the throw *"happens CONSTANTLY"* during background rebuilds), `:3454`
+(one `console.debug` per frame the cursor rests on geometry).
+
+**Measured on the real production path: 600 consecutive stale-gizmo frames → console lines 600 → 3;
+`tc.detach()` calls 600 → 600 (UNCHANGED).** First occurrence is never swallowed; every surviving
+line carries `[occurrence #N]`, because throttling *without* the count understates a persistent
+defect — the failure mode that makes throttling worse than flooding. The hover-hit debug is
+flag-gated (`__pryzmPickTrace`) rather than throttled: it reports a success, so there is no defect to
+preserve. Closed by `f65d5230`.
+
+**STILL UNSWEPT — each in another lane's fence:** `geometry-wall/src/WallTool.ts:1011`
+(per-POINTERMOVE warn, lane WJ1/C85) · `command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:402`
+(per-slab, lane CW3/C87).
+
+---
+
+## L-1158 — observations from the 2026-08-19 production logs, logged so they are not lost ⚠ OPEN (NOT INVESTIGATED)
+
+**Lane PERF2 — reported, not owned.** None of these was measured beyond reading the log.
+
+- **Shadow casting on with no shadow map.** `§DIAG-GROUND-SHADOW-FIT — castShadow=true …
+  shadowMapAllocated=false shadowMapType=none shadowTexType=none casters=12`, alongside
+  `PascalSceneLighting Shadow flags set on 237 mesh(es)`. Either the map allocates later (and the
+  diagnostic is premature and misleading) or shadows are silently not rendering. **237 meshes flagged
+  for a pass with no map is either wasted work or a broken feature.** ⚠ renderer-three is RN1's fence
+  — measure and report, do not edit.
+- **`/api/context-tiles/rail.pmtiles` and `trees.pmtiles` → 404**, repeatedly. Two context layers
+  missing in production. Not perf-critical.
+- **Element count disagrees with itself by 4×.** The loading header says *"Loading … (408 elements)"*
+  for a project that restores **1815 window records**. Hosted openings may legitimately not count as
+  elements, but a progress figure that under-reports by 4× is a bad instrument. **Confirm which number
+  is right before either is trusted.**
+- **`[BimManager] Cannot delete the default Ground level.`** fires as an ERROR-shaped line during a
+  NORMAL load. Either expected (then it must not look like a failure) or something is trying to
+  delete Ground.
+- **CSP report-only violation** — something evaluates a string as JavaScript; the policy allows
+  `'wasm-unsafe-eval'` but not `'unsafe-eval'`. Harmless while report-only; breaks if ever enforced.
+- **Two handlers failed to register at boot** — `registerClashRun` and `registerClashRefusalHandlers`,
+  both `i.has is not a function`. **Clash detection is DEAD in production and degraded to "refusing"
+  at boot.** Routed elsewhere by the coordinator; recorded here so it is not lost.
