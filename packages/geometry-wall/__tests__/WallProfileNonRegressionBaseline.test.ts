@@ -382,13 +382,26 @@ const BASELINE: Readonly<Record<string, string>> = Object.freeze({
         'window-part n=24 s=3534.120002 bb=[2.050000,0.950000,-0.010000..3.150000,2.250000,0.010000]',
         'WallPart n=96 s=61075.999917 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
     ),
+    // ── §RK1-REBASELINE (2026-08-19) — RE-CAPTURED, DELIBERATELY, WITH THE REASON ──
+    // This row was captured BEFORE `002db1c2`, and its own `branch` label above still
+    // names the condition that commit REPLACED: "_capDrift only when _ownShearK === 0".
+    // L-955's fix made a RAKED host consume the twin-solve loft instead of being denied
+    // it, so the raked opening-bearing body legitimately moved. Re-captured, not loosened.
+    //
+    //   VERIFIED: the wall body's z-extent reaches 0.903848 = 0.1 + 3·cot(75°) — the same
+    //   number A3a and A3b assert of the V2 and legacy arms. The lean is arithmetically
+    //   correct, not merely current.
+    //   NOT INDEPENDENTLY VERIFIED: the vertex count moved 96 → 144. The plausible reason
+    //   is that the mitred END segments now carry a non-null cap drift and are built by
+    //   `buildMiterPrism` rather than the un-drifted box path. That is an inference from
+    //   the diff, NOT a measurement, and it is written as such.
     'P1c-opening-raked': L(
         'window-part n=24 s=3421.360653 bb=[2.000000,0.900000,0.131154..2.050000,2.300000,0.726283]',
         'window-part n=24 s=4401.160653 bb=[3.150000,0.900000,0.131154..3.200000,2.300000,0.726283]',
         'window-part n=24 s=4726.802893 bb=[2.000000,2.250000,0.492886..3.200000,2.300000,0.726283]',
         'window-part n=24 s=3218.644624 bb=[2.000000,0.900000,0.131154..3.200000,0.950000,0.364552]',
         'window-part n=24 s=3903.246810 bb=[2.050000,0.950000,0.244552..3.150000,2.250000,0.612886]',
-        'WallPart n=96 s=66991.674932 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
+        'WallPart n=144 s=170312.222584 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
     ),
     'P2-layered-openings': L(
         '_ n=144 s=154565.999823 bb=[0.000000,0.000000,-0.125000..6.000000,3.000000,-0.025000]',
@@ -408,14 +421,25 @@ const BASELINE: Readonly<Record<string, string>> = Object.freeze({
         'WallLayer n=300 s=664597.715047 bb=[-0.008606,0.000000,-0.023472..6.008606,3.000000,0.624986]',
         'WallLayer n=300 s=674661.086714 bb=[-0.043032,0.000000,0.023472..6.043032,3.000000,0.724931]',
     ),
-    // ⚠ These two rows are BYTE-IDENTICAL, and that is a DEFECT, not a coincidence.
-    // See §(A3) below, which asserts the equality explicitly so it cannot be read as
-    // an accident of the digest.
+    // ⚠ These two rows USED to be BYTE-IDENTICAL, and that identity WAS the defect.
+    // ✅ CLOSED 2026-08-18 by `6e54bb5f` (L-955); rows re-captured 2026-08-19 (RK1).
+    // They now differ by exactly the shear, and §(A3) below asserts the DIFFERENCE — and
+    // the arithmetic behind it — rather than the old equality. Retained rather than
+    // rewritten from scratch (C84 §6) so the closed defect stays legible.
     'LEGACY-miter-plain': L(
         '_ n=36 s=8960.400000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
     ),
+    // ── §RK1-REBASELINE (2026-08-19) — RE-CAPTURED, AND THE DEFECT IT PINNED IS GONE ──
+    // This row USED to be byte-identical to `LEGACY-miter-plain`, and §(A3) below explains
+    // at length that the identity WAS the defect: the legacy `buildMiterPrism` arm ignored
+    // the rake entirely and drew a 75° wall as a vertical box. `6e54bb5f` (L-955) closed it.
+    //
+    //   VERIFIED ARITHMETICALLY: z now reaches 0.903848 = 0.1 (half-thickness) + 3·cot(75°),
+    //   and the vertex count is UNCHANGED at 36 — the same prism, sheared, not a different
+    //   body. A3b now asserts that same number directly, so this digest is not the only
+    //   thing standing between the defect and its return.
     'LEGACY-miter-raked': L(
-        '_ n=36 s=8960.400000 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.100000]',
+        '_ n=36 s=9734.505222 bb=[0.000000,0.000000,-0.100000..6.000000,3.000000,0.903848]',
     ),
 });
 
@@ -445,6 +469,9 @@ describe('§WALL-PROFILE §(A) — the profile-ABSENT geometry baseline, all bod
 // ─────────────────────────────────────────────────────────────────────────────
 // §(A3) WHAT THE BASELINE ITSELF REVEALED — the legacy miter arm ignores the rake
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// ✅ CLOSED 2026-08-18 by `6e54bb5f` — the account below is retained as the RECORD of a
+// closed defect (C84 §6), and A3b now asserts the FIX. Read it in the past tense.
 //
 // ⚠ FOUND BY CAPTURING THE BASELINE, NOT BY LOOKING FOR IT, AND NOT CAUSED BY THIS
 // FEATURE. Two rows of `BASELINE` came back byte-identical:
@@ -486,15 +513,39 @@ describe('§WALL-PROFILE §(A3) — the legacy miter arm drops the rake (KNOWN D
         expect(zMax).toBeCloseTo(0.1 + 3 * Math.tan((15 * Math.PI) / 180), 6);
     });
 
-    it('A3b — the LEGACY arm does not: raked and vertical are byte-identical', () => {
+    /**
+     * ✅ CLOSED 2026-08-18 by `6e54bb5f` (L-955, *"the plain LEGACY arm rendered a raked
+     * wall bolt upright — 12 lines"*). UPDATED HERE 2026-08-19 (RK1) — **not deleted**,
+     * exactly as the previous assertion message instructed:
+     *
+     *   *"If these now DIFFER the defect was fixed — good. Update this test to assert the
+     *    shear rather than deleting it, and re-capture both LEGACY baselines."*
+     *
+     * That instruction is the only reason this was safe to touch, and it is worth naming
+     * why: a pin that records a DEFECT becomes, on the day the defect is fixed, a RED
+     * whose most obvious repair is to put the defect BACK. Every such pin must say what
+     * to do when it goes red. This one did.
+     *
+     * The assertion is now the FIX rather than the defect, and it is arithmetic rather
+     * than a digest so it cannot be re-baselined into vacuity: the legacy arm's z-extent
+     * must reach `halfThickness + h·cot(75°)`, the same number the V2 arm reaches in A3a.
+     */
+    it('A3b — the LEGACY arm now applies the rake too: z reaches 0.1 + h·cot(75°)', () => {
         (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 = false;
         const vertical = digestOf([mk()], 'w-1', { v2: false });
         const raked = digestOf([mk({ rake: RAKE_DEG })], 'w-1', { v2: false });
         expect(
             raked,
-            'If these now DIFFER the defect was fixed — good. Update this test to assert ' +
-            'the shear rather than deleting it, and re-capture both LEGACY baselines.',
-        ).toBe(vertical);
+            'the legacy arm must NOT draw a raked wall identically to a vertical one — ' +
+            'that was the L-955 defect and it is closed',
+        ).not.toBe(vertical);
+
+        const zMaxOf = (d: string) => Number(/\.\.[^,]+,[^,]+,([-\d.]+)\]/.exec(d)![1]!);
+        expect(zMaxOf(vertical), 'the vertical wall is its own half-thickness').toBeCloseTo(0.1, 6);
+        // 0.1 (half-thickness) + 3·cot(75°) — the SAME expression A3a asserts of the V2
+        // arm. Two arms, one number: that is the whole content of "one corner rule".
+        expect(zMaxOf(raked), 'and the raked wall leans by h·cot(75°) on top of it')
+            .toBeCloseTo(0.1 + 3 * Math.tan((15 * Math.PI) / 180), 6);
     });
 });
 
@@ -554,15 +605,34 @@ describe('§WALL-PROFILE §(A2) — the instanced arm', () => {
     // record and so the eventual fix is a visible edit to this assertion. The profile
     // feature must refuse this path by name in Slice 1 regardless of how rake is
     // resolved — a profile is strictly harder than a shear.
-    it('A2b — a plain RAKED wall ALSO instances, losing its lean (KNOWN DEFECT, reported)', () => {
-        const seen = instanceRun(mk({ rake: RAKE_DEG }));
+    /**
+     * ✅ CLOSED 2026-08-18 by `2449c742` (L-955, *"a raked wall leaves the GPU-instanced
+     * path — the shear was unreachable"*). UPDATED HERE 2026-08-19 (RK1) — **not
+     * deleted**, exactly as the previous assertion message instructed:
+     *
+     *   *"If this is now 0 the router learned to exclude raked walls — good. Update this
+     *    test to assert the exclusion rather than deleting it."*
+     *
+     * The reasoning in the block comment above is UNCHANGED and still correct: a T·R·S
+     * product cannot express a shear, so this path can carry neither a rake nor a
+     * profile. What changed is that `isSimpleWall` now TESTS for the rake instead of
+     * ignoring it, so a raked wall is excluded rather than silently flattened.
+     *
+     * The assertion is now the exclusion, plus the control that makes the exclusion
+     * meaningful — the SAME wall at 90° still instances, so this is a rake-specific
+     * exclusion and not the instanced arm having quietly stopped working.
+     */
+    it('A2b — a plain RAKED wall is EXCLUDED from the instanced arm (L-955, closed)', () => {
         expect(
-            seen.length,
-            'If this is now 0 the router learned to exclude raked walls — good. Update ' +
-            'this test to assert the exclusion rather than deleting it.',
-        ).toBe(1);
-        // The matrix is IDENTICAL to the vertical wall's: the 75° lean is absent.
-        expect(seen[0]!.matrix.map(v => Number(v.toFixed(6)))).toEqual([
+            instanceRun(mk({ rake: RAKE_DEG })).length,
+            'a raked wall must NOT instance — a T·R·S matrix cannot carry the shear, so ' +
+            'instancing it renders the wall VERTICAL while the model says 75°',
+        ).toBe(0);
+
+        // THE CONTROL. Without it, "0" is also what a broken instanced arm returns.
+        const vertical = instanceRun(mk());
+        expect(vertical.length, 'the SAME wall at 90° still instances').toBe(1);
+        expect(vertical[0]!.matrix.map(v => Number(v.toFixed(6)))).toEqual([
             6, 0, 0, 0,
             0, 3, 0, 0,
             0, 0, 0.2, 0,

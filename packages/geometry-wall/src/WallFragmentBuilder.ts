@@ -1383,9 +1383,13 @@ export class WallFragmentBuilder {
 
             // ── LAYERED WALL WITH OPENINGS ────────────────────────────────────────
             // When openings are present, split each layer into wall-body segments
-            // around the openings (using BoxGeometry per layer), then add
-            // door/window frames that span the full wall thickness.
-            // The existing miter-prism path (below) is used only when no openings.
+            // around the openings, then add door/window frames that span the full wall
+            // thickness. The existing miter-prism path (below) is used only when no
+            // openings. (The comment here used to say "using BoxGeometry per layer";
+            // `LayeredWallOpeningBuilder.buildContinuousLayerGeometry` punches a grid and
+            // projects its caps onto the mitre plane. Corrected in passing — the stale
+            // wording is quoted in `rakeAuthorability`'s refusal text, so leaving it
+            // would have kept a false claim alive in two places.)
             if (wall.openings && wall.openings.length > 0) {
                 // Cluster overlapping openings (shared helper; same algorithm as plain wall path)
                 const clusters = clusterOpenings(wall.openings);
@@ -1394,6 +1398,82 @@ export class WallFragmentBuilder {
                 const _layOpenMN: import('./LayeredWallOpeningBuilder').LayerMiterNormals | undefined =
                     joinData ? { start: joinData.startMN, end: joinData.endMN } : undefined;
 
+                // ── §FEAT-RAKE-LAYERED-OPENINGS (RK1, 2026-08-19) ─────────────────
+                // This arm had NO SHEAR, and that was the whole content of
+                // `rakeAuthorability`'s `layered` refusal: "a layered wall with an
+                // opening is built by a different path … which has no shear, so the wall
+                // would render VERTICAL while the model said 80". Measured and confirmed
+                // true before this change (`RK1RakedCombinationMatrix.measure.test.ts`:
+                // `layered3+window @80` leaned 0.000 m against an expected 0.529).
+                //
+                // The fix is the SAME THREE PIECES the other body paths already use, in
+                // the same order, and it mints nothing new:
+                //
+                //   1. PLAN WIDTH — the bands are laid out at `t / sin θ`, inside
+                //      `buildLayeredWallSegmentsAroundOpenings`, via the one
+                //      `rakedPlanThickness`. A shear preserves plan width, so authoring
+                //      the perpendicular width in plan would draw every band `sin θ` too
+                //      thin.
+                //   2. THE LEAN — `_applyRakeShearToChildren`, below, exactly as the
+                //      plain opening-bearing arm does at `:2671`. One shear, one
+                //      authority (`rakeShearPerMetre`); this arm does not spell `cot`.
+                //   3. THE CORNER — the §L955-ONE-CORNER-RULE residual, from the SAME
+                //      `rakeJointCapDrift` accessor the plain opening-bearing arm reads.
+                //      Without it the body would lean correctly and the joint would be
+                //      exact only at the floor, which is L-955's defect re-created on a
+                //      fourth path.
+                const _rkOpenShearK = rakeShearPerMetre(wall.rakeAngleDeg);
+                // The uniform part the child matrix will contribute at the top ring.
+                // `rakeTopOffset` is the ONE place this is computed — never a second cot().
+                const _rkOpenUniform = rakeTopOffset(wall.rakeAngleDeg, wallHeight, {
+                    x: direction.x, z: direction.z,
+                });
+                // §WALL-RAKE-JOINT-STALE-CACHE — the drift is a function of the rakes the
+                // cache was REFRESHED with, so replaying it after the store moved THIS
+                // wall's rake renders the PREVIOUS angle's joint (the L-813 shape). On a
+                // mismatch, uniform shear at the CURRENT angle.
+                //
+                // ⚠ `rakeIsFreshFor` AND NOT A HAND-ROLLED COMPARISON. The first draft here
+                //   spelled the test out — `rakeUsedFor(id)` differenced against
+                //   `resolveRakeDeg(...)` within 1e-9 — which is exactly the duplication
+                //   `20d21d25` ("the staleness test was spelled three times — fold it onto
+                //   the cache") had just removed. It would have been a FOURTH copy of a
+                //   predicate whose whole point is that its three consumers cannot disagree.
+                //   The cache owns the epsilon (`RAKE_DEG_IDENTITY`) and the normalisation
+                //   of "absent" to 90°; nothing out here re-derives either.
+                const _rkOpenCache = this.getEffectiveV2Cache();
+                const _rkOpenFresh = _rkOpenCache?.rakeIsFreshFor(wall.id, wall.rakeAngleDeg) ?? false;
+                const _rkOpenCapTotal = (isWallPipelineV2Enabled() && _rkOpenFresh)
+                    ? (_rkOpenCache?.rakeJointCapDrift(wall.id, wallHeight) ?? null)
+                    : null;
+                // The stack's PLAN half-width — the same conversion the band walk uses, so
+                // the interpolation parameter below cannot disagree with the bands it is
+                // interpolating across.
+                const _rkOpenPlanHalf = rakedPlanThickness(totalThickness, wall.rakeAngleDeg) / 2;
+                // THE INTERPOLATION, and why it is exact rather than an approximation: the
+                // mitre plane is PLANAR and VERTICAL (`buildMiterPrism.project()` solves in
+                // XZ and never writes y), so a lofted top-cap displacement varies LINEARLY
+                // across the stack between the wall's own two face drifts. `outward` is
+                // `leftPerp(direction)`, so `z = +planHalf` is the LEFT face and
+                // `z = -planHalf` the RIGHT — the same left every other wall module uses.
+                const _rkOpenDrift: import('./LayeredWallOpeningBuilder').TopCapDrift | null =
+                    _rkOpenCapTotal
+                        ? (atStart: boolean, z: number) => {
+                            if (!(_rkOpenPlanHalf > 0)) return null;
+                            const t = Math.max(0, Math.min(1, (z + _rkOpenPlanHalf) / (2 * _rkOpenPlanHalf)));
+                            const R = atStart ? _rkOpenCapTotal.startRight : _rkOpenCapTotal.endRight;
+                            const L = atStart ? _rkOpenCapTotal.startLeft  : _rkOpenCapTotal.endLeft;
+                            const tx = R.x + (L.x - R.x) * t;
+                            const tz = R.z + (L.z - R.z) * t;
+                            // RESIDUAL = total − uniform, so that residual + uniform sums
+                            // to the loft exactly once (§L955-ONE-CORNER-RULE):
+                            //     final = base + (capDrift − uniform) + uniform = base + capDrift
+                            return _rkOpenUniform
+                                ? { x: tx - _rkOpenUniform.x, z: tz - _rkOpenUniform.z }
+                                : { x: tx, z: tz };
+                        }
+                        : null;
+
                 // Build per-layer wall-body segments around openings
                 const segmentMeshes = buildLayeredWallSegmentsAroundOpenings(
                     wall,
@@ -1401,6 +1481,7 @@ export class WallFragmentBuilder {
                     clusters,
                     totalThickness,
                     _layOpenMN,
+                    _rkOpenDrift,
                 );
 
                 // Register each segment mesh as a wall-body fragment
@@ -1474,14 +1555,17 @@ export class WallFragmentBuilder {
                         const segEnd   = direction.clone().multiplyScalar(wallLength);
                         const outlineGeo = buildMiterPrism(
                             segStart, segEnd, segStart, segEnd,
-                            totalThickness / 2, wallHeight, wallBaseOffset,
+                            // §FEAT-RAKE-LAYERED-OPENINGS — the outline must trace the
+                            // PLAN footprint the bands were just laid out on, or the
+                            // silhouette floats `sin θ` inside its own wall.
+                            _rkOpenPlanHalf, wallHeight, wallBaseOffset,
                             _layOpenMN?.start ?? null, _layOpenMN?.end ?? null,
                         );
                         outlineEdges = buildWallEdgeOverlay(outlineGeo, wall.id);
                         outlineEdges.position.set(0, 0, 0);
                         outlineGeo.dispose();
                     } else {
-                        const outlineGeo = new THREE.BoxGeometry(wallLength, wallHeight, totalThickness);
+                        const outlineGeo = new THREE.BoxGeometry(wallLength, wallHeight, _rkOpenPlanHalf * 2);
                         outlineEdges = buildWallEdgeOverlay(outlineGeo, wall.id);
                         const wallAngle = Math.atan2(direction.z, direction.x);
                         const centerOffset = direction.clone().multiplyScalar(wallLength / 2);
@@ -1491,6 +1575,25 @@ export class WallFragmentBuilder {
                     }
                     wallGroup.add(outlineEdges);
                 }
+
+                // ── §FEAT-RAKE-LAYERED-OPENINGS — THE LEAN ────────────────────────
+                // Every child is in the group by now: the per-layer band meshes, the
+                // door/window frames, and the outline overlay. Shearing the GROUP'S
+                // CHILDREN leans all of them together about the wall's base plane, which
+                // is what makes the solid, the void, the reveals and the frames one
+                // coherent raked wall rather than a leaning body with upright holes in it.
+                //
+                // This is the SAME call the plain opening-bearing arm makes at `:2671`
+                // with the SAME arguments, and it is a provable no-op at 90°: the method
+                // returns before touching a single child when `k === 0`, so a vertical
+                // layered wall with openings is byte-identical including its matrix flags.
+                //
+                // ⚠ IT MUST STAY LAST. `_applyRakeShearToChildren` premultiplies each
+                // child's composed matrix and disables `matrixAutoUpdate`; anything added
+                // afterwards would be the one upright child in a leaning wall.
+                this._applyRakeShearToChildren(
+                    wallGroup, wall, _rkOpenShearK, direction, wallBaseOffset,
+                );
 
                 // §WALL-AUDIT-2026-C1 (move-restore): identity is locked once at
                 // the top of buildWall(); only mutable fields sync here.
@@ -2692,6 +2795,28 @@ export class WallFragmentBuilder {
         // testing ONLY by setting `window.__wallSingleVolume = true`. Do NOT flip the
         // default back until the datum mismatch is fixed AND visually verified with a
         // slab present (see DAILY-USE-FIX-LOG §WALL-CSG-DATUM, #96).
+        //
+        // ⚠ HALF OF THE REASON ABOVE IS NOW STALE, AND THE ARM STILL STAYS OFF.
+        //   (C85 §12 R-8, corrected 2026-08-19 — the correction the contract asked for.)
+        //
+        //   The paragraph above names TWO blockers, and they have DIFFERENT states:
+        //
+        //     · "DoorBuilder/WindowBuilder place the leaf at `level.elevation +
+        //       sillHeight` without slab/baseOffset" — **CLOSED** by `8f63fb6f`
+        //       (§WALL-Y-DATUM). `WallVerticalDatum.ts` now declares SEAT and BASE, the
+        //       leaves read the published base plane back (`resolveWallBaseYOrLevel` +
+        //       `hostedLeafCentreY`), and eleven datums agree with a leaf-vs-hole delta
+        //       of 0. That clause describes code that no longer exists.
+        //     · "the producer never receives the slab offset" — **NOT MEASURED.** Whether
+        //       the `geometry-kernel` producer honours `baseOffset` the way
+        //       `WallHoleBodyBuilder` does has not been checked by anyone.
+        //
+        // ⛔ THE SECOND IS ENOUGH ON ITS OWN, so nothing here changes. This note exists
+        //    precisely because the comment was asserting a blocker that no longer exists,
+        //    and a reader who checked only that half would have concluded the arm was
+        //    ready. Inferring "safe to re-enable" from ONE closed blocker of two is the
+        //    inference C84 exists to prevent. Close the SECOND, with a measurement, and
+        //    then argue about the default.
         //
         // §RAKE-HOSTED-OPENING — a RAKED host is excluded. The producer is handed a
         // length/thickness/height/angle box and returns an axis-aligned solid; it has

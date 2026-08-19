@@ -295,15 +295,34 @@ export interface WallData extends CoreElement {
      *
      *     topOffset = height · cot(rakeAngleDeg) · leftPerp(direction)
      *
-     * `thickness` remains the HORIZONTAL (plan) thickness, so the wall's plan
-     * footprint is unchanged at every angle and the junction solver, room
-     * detection and opening-offset maths are untouched. The TRUE perpendicular
-     * thickness is `thickness · sin(rakeAngleDeg)` — see
-     * `WallRake.perpendicularThickness`.
+     * For a PLAIN wall `thickness` is the HORIZONTAL (plan) thickness, so its plan
+     * footprint is unchanged at every angle and the junction solver, room detection
+     * and opening-offset maths are untouched. The TRUE perpendicular thickness is
+     * `thickness · sin(rakeAngleDeg)` — see `WallRake.perpendicularThickness`.
+     *
+     * ⚠ **THE PARAGRAPH ABOVE USED TO SAY THIS OF EVERY WALL, AND IT IS FALSE FOR A
+     * LAYERED ONE** (corrected 2026-08-19, RK1). For a layered wall `thickness` is
+     * `Σ layer.thickness` and **every term of that sum is a PERPENDICULAR thickness**,
+     * so the stack occupies `thickness / sin θ` IN PLAN and the footprint DOES widen
+     * with the rake. That is not an inconsistency to be tidied away — it is the only
+     * reading under which an authored 12.5 mm board is 12.5 mm of board. The single
+     * conversion is `WallRake.rakedPlanThickness`, and the single place the wall-level
+     * decision is made is `WallPipelineV2.effectivePlanThickness`, which is why
+     * `LevelWallSpec.layered` exists at all. Never re-derive either.
      *
      * REFUSED COMBINATIONS (C65 §3.9 — no affordance without an implementation).
-     * A non-90° value is rejected at the store boundary when the wall is CURVED,
-     * LAYERED, or HOSTS OPENINGS. See `WallRake.rakeAuthorability` for the reasons.
+     * ⚠ **THIS LIST WAS THREE ITEMS AND IS NOW ONE** (corrected 2026-08-19, RK1). It
+     * read *"CURVED, LAYERED, or HOSTS OPENINGS"*. Two of those three shipped:
+     * §FEAT-RAKE-LAYERED (a layered raked wall) and §RAKE-HOSTED-OPENING (a raked wall
+     * hosting a door or window), both founder-confirmed, and **C85 §12 R-9 now forbids
+     * re-refusing either**. A stale list here is not harmless — it is an invitation to
+     * "restore" a refusal that a contract explicitly binds shut.
+     *
+     * What `WallRake.rakeAuthorability` actually refuses today is (a) an angle outside
+     * `[RAKE_MIN_DEG, RAKE_MAX_DEG]`, (b) a CURVED wall, and (c) a wall with MORE THAN
+     * ONE layer that ALSO hosts an opening. **Read the function, not this comment** —
+     * it is the single gate, consulted by `WallDataSchema` (create), `WallStore.update`
+     * and `WallStore.addOpening`.
      *
      * INSTANCE state, not TYPE state: a lean is a per-placement decision. Putting
      * it on the WallSystemType would make every wall of that type lean together

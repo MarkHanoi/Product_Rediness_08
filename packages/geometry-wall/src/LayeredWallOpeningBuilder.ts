@@ -3,6 +3,12 @@ import { toCreasedNormals, mergeGeometries } from '@pryzm/renderer-three';
 import { WallData, Opening, WallLayer } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 import { resolveLayerRenderFinishColor } from './WallSideFinishResolver';
+// §FEAT-RAKE-LAYERED-OPENINGS — the PERPENDICULAR→PLAN conversion, and nothing else.
+// This module never spells `cot(rake)` or `sin(rake)`: the LEAN is applied by
+// `WallFragmentBuilder._applyRakeShearToChildren` (one shear, one authority,
+// `WallRake.rakeShearPerMetre`) and the only thing this builder needs to know is how
+// WIDE each authored layer is IN PLAN once the stack leans.
+import { rakedPlanThickness } from './WallRake';
 
 /**
  * §PERF-PHASE2 — wall-layer mesh-explosion cap.
@@ -109,6 +115,35 @@ function normaliseOpeningRects(openings: Opening[], wallLength: number, wallHeig
 // console every wall rebuild (the symptom we are eliminating).
 const _nanGuardLogged = new Set<string>();
 
+/**
+ * §L955-ONE-CORNER-RULE, extended to the layered-with-openings body — the RESIDUAL plan
+ * displacement to add to a TOP cap vertex, given which end it is on and how far across
+ * the stack it sits.
+ *
+ * WHY A CALLBACK AND NOT FOUR VECTORS. This builder emits every band of the stack, and a
+ * band's cap vertices sit at intermediate lateral offsets, not at the wall's two faces.
+ * The mitre plane is PLANAR and VERTICAL, so the lofted top-cap displacement varies
+ * LINEARLY across the stack between the wall's own left and right cap drifts — the caller
+ * owns that interpolation because the caller is the one that holds the four named corners
+ * (`WallPipelineV2Cache.rakeJointCapDrift`, the SAME accessor the plain opening-bearing
+ * path already consumes). Handing this builder the four corners instead would have made
+ * it re-derive the interpolation, i.e. mint a second copy of the corner rule — which is
+ * precisely the defect class L-955 IS.
+ *
+ * `z` is the lateral offset from the baseline along `outward`, in the same units and sign
+ * as every other `z` in this file. Returning null for any vertex is legal and means "no
+ * residual here"; the caller degrades to the ADR-0310 uniform shear, which is exact at
+ * the floor.
+ *
+ * RETURN THE FULL-HEIGHT RESIDUAL. This builder ramps it by `y / height` itself, because
+ * only it knows how many rings its grid put on the cap.
+ *
+ * ⚠ RESIDUAL, NOT TOTAL. The uniform `height · cot θ` part is applied AFTERWARDS, by
+ * `WallFragmentBuilder._applyRakeShearToChildren`, as a matrix on the whole group. The
+ * two sum to the loft exactly once: `base + residual + uniform = base + capDrift`.
+ */
+export type TopCapDrift = (atStart: boolean, z: number) => { x: number; z: number } | null;
+
 function buildContinuousLayerGeometry(
     rects: OpeningRect[],
     wallLength: number,
@@ -123,6 +158,8 @@ function buildContinuousLayerGeometry(
     // §WALL-NAN-GUARD — identity for the one-shot non-finite diagnostic.
     wallId?: string,
     layerIndex?: number,
+    // §L955-ONE-CORNER-RULE — see {@link TopCapDrift}. Absent ⇒ byte-identical geometry.
+    topCapDrift?: TopCapDrift | null,
 ): THREE.BufferGeometry {
     // §WALL-NAN-GUARD (2026-06-25) — DEFENCE-IN-DEPTH against a NaN baseOffset /
     // NaN scalar reaching the BufferGeometry. The canonical regression
@@ -203,6 +240,37 @@ function buildContinuousLayerGeometry(
             effectiveX = wallLength + clampProj(-(endMnDotOut * z) / endMnDotDir);
         }
         const horizontal = direction.clone().multiplyScalar(effectiveX).add(outward.clone().multiplyScalar(z));
+        // §L955-ONE-CORNER-RULE — the lofted residual, on the two mitred END caps, RAMPED
+        // LINEARLY WITH HEIGHT. Interior vertices along the wall's length are carried by
+        // the uniform shear alone, exactly as on the plain path: the loft moves a CORNER,
+        // and the middle of a wall has none. The cap test is the same `1e-5` the mitre
+        // projection above uses, so the two can never disagree about what "a cap" is.
+        //
+        // ⚠ `* (y / wallHeight)` IS LOAD-BEARING AND WAS MISSING IN THE FIRST DRAFT.
+        //   Applying the residual only to the TOP ring is correct for the PLAIN path,
+        //   where each mitred end segment is a full-height prism with exactly two rings
+        //   and the interpolation is automatic. It is WRONG here: this builder emits a
+        //   GRID, so the cap column at `x = 0` carries a vertex at every `ys` break — the
+        //   opening's sill and head among them. Displacing only `y = H` would have left
+        //   the cap vertical up to the head and then kicked it sideways above it: a KINKED
+        //   end face where the corner rule exists to produce a planar one. Ramping makes
+        //   the residual affine in `y`, exactly as `_applyRakeShearToChildren`'s uniform
+        //   `k·(y − base)` is, so their SUM is affine and every cap face stays planar.
+        if (topCapDrift && wallHeight > 0) {
+            const atStart = x < 1e-5;
+            const atEnd   = Math.abs(x - wallLength) < 1e-5;
+            if (atStart || atEnd) {
+                const d = topCapDrift(atStart, z);
+                // A non-finite residual is dropped rather than pushed: a NaN here would
+                // reach the BufferGeometry, which is the exact §WALL-NAN-GUARD failure
+                // this file already carries two other defences against.
+                if (d && Number.isFinite(d.x) && Number.isFinite(d.z)) {
+                    const ramp = y / wallHeight;         // 0 at the base ring, 1 at the top
+                    horizontal.x += d.x * ramp;
+                    horizontal.z += d.z * ramp;
+                }
+            }
+        }
         positions.push(horizontal.x, wallBaseOffset + y, horizontal.z);
         return positions.length / 3 - 1;
     };
@@ -370,6 +438,9 @@ export function buildLayeredWallSegmentsAroundOpenings(
     clusters: OpeningCluster[],
     totalThickness: number,
     miterNormals?: LayerMiterNormals,
+    // §L955-ONE-CORNER-RULE — the lofted top-cap RESIDUAL. Absent (every pre-existing
+    // caller, and every vertical wall) ⇒ byte-identical geometry.
+    topCapDrift?: TopCapDrift | null,
 ): THREE.Mesh[] {
     const addedMeshes: THREE.Mesh[] = [];
 
@@ -394,7 +465,25 @@ export function buildLayeredWallSegmentsAroundOpenings(
         wallHeight,
     );
 
-    let layerCursor = -totalThickness / 2;
+    // ── §FEAT-RAKE-LAYERED-OPENINGS ───────────────────────────────────────────
+    // PERPENDICULAR (authored) → PLAN, once, up front, through the ONE conversion
+    // (`WallRake.rakedPlanThickness`). This is the same rule `buildWallLayerBands`
+    // already applies on the no-openings arm and the same rule
+    // `WallPipelineV2.effectivePlanThickness` applies to the wall as a whole — for a
+    // LAYERED wall `thickness` is `Σ layer.thickness` and every term of that sum is a
+    // PERPENDICULAR thickness, so a raked stack occupies `t / sin θ` in plan.
+    //
+    // Getting this wrong is not cosmetic: the group is sheared afterwards, and a shear
+    // preserves PLAN width while reducing PERPENDICULAR width by `sin θ`. Walking the
+    // cursor in authored units would therefore have drawn every band `sin θ` too THIN —
+    // a 100 mm partition rendering as 98.5 mm at 80° and as 26 mm at 15°.
+    //
+    // At 90° `rakedPlanThickness` returns its input, so the cursor walk below is the
+    // pre-existing arithmetic to the last bit and a vertical wall is byte-identical.
+    const rakeDeg = (wall as { rakeAngleDeg?: number }).rakeAngleDeg;
+    const planTotalThickness = rakedPlanThickness(totalThickness, rakeDeg);
+
+    let layerCursor = -planTotalThickness / 2;
 
     // ── Build the per-layer geometry + resolved colour first ──────────────────
     // §PERF-PHASE2 — collect geometries so we can OPTIONALLY merge same-colour
@@ -408,8 +497,10 @@ export function buildLayeredWallSegmentsAroundOpenings(
     }
     const built: BuiltLayer[] = [];
     for (const [layerIndex, layer] of (wall.layers as WallLayer[]).entries()) {
-        const layerCenter = layerCursor + layer.thickness / 2;
-        layerCursor += layer.thickness;
+        // §FEAT-RAKE-LAYERED-OPENINGS — this layer's PLAN width. Identity at 90°.
+        const planLayerThickness = rakedPlanThickness(layer.thickness, rakeDeg);
+        const layerCenter = layerCursor + planLayerThickness / 2;
+        layerCursor += planLayerThickness;
 
         // §L934-ONE-WALL-ONE-COLOUR — the third copy of the beige default, on the
         // layered-WITH-OPENINGS arm. §BEIGE-WALL-FIX (2026-06-08) purged this literal
@@ -432,11 +523,12 @@ export function buildLayeredWallSegmentsAroundOpenings(
             direction,
             outward,
             layerCenter,
-            layer.thickness,
+            planLayerThickness,
             miterNormals?.start,
             miterNormals?.end,
             wall.id,
             layerIndex,
+            topCapDrift,
         );
         built.push({ geo, matColor, layer, layerIndex });
     }
