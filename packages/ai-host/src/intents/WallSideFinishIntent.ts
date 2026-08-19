@@ -47,6 +47,9 @@
 
 import { parseFilterClauses } from './FilterScope';
 import type { ElementFilter, IntentScope, IntentSpatialScope } from './ScopeDescriptor';
+// §FIX-WALL-FINISH-SIDE-EATS-SCOPE (L-1261) — THE one place-phrase reader.
+import { parseInlineSpatialPhrase } from './SpatialScopeTail';
+import type { ResolverContext } from './ZeroTokenResolver';
 
 /** RAC U8.1 — re-attach the lifted filters. Structurally identical to
  *  `ZeroTokenResolver`'s private `withFilters`; restated rather than exported
@@ -96,23 +99,42 @@ const INNER_WORD = /\b(?:inner|interior|inside|internal|indoor)\b/;
 const OUTER_WORD = /\b(?:outer|exterior|outside|external|outdoor|façade|facade)\b/;
 
 /**
- * "in the kitchen" vs "in ground floor" — the founder writes BOTH with "in".
+ * §FIX-LAYER-ASK-REPAINTED (L-1260) — THE ONE TOKEN that separates this
+ * capability from `add-wall-layer`.
  *
- * The discriminator is LEXICAL, applied to the captured phrase itself: a phrase
- * that names a storey is a level, anything else is a room. This is a fact about
- * the words the user typed, not an inference about geometry, and it is the same
- * vocabulary `DimensionFamilies.levelScope()` strips.
+ * ⛔ EXPORTED AND SHARED, deliberately. `parseAddWallLayerIntent` tests the SAME
+ * constant to decide when it may claim a shared verb. Two hand-written copies of
+ * this word list is how a sentence ends up claimed by both grammars or by
+ * neither, and this file has already paid that bill twice (the `^add` verb test,
+ * and the third spatial tail below).
  */
-const LEVEL_PHRASE = /(?:^|\s)(?:floors?|levels?|stor(?:e?ys?|ies)|ground|basement|attic|roof|penthouse|mezzanine)(?:\s|$)/;
+export const LAYER_NOUN = /\b(?:layers?|coat(?:ing)?s?)\b/;
 
-/** "on the ground floor" / "in room 3" / "in the kitchen" / "on level 2". */
-const SPATIAL_RE = /\b(?:on|in|of)\s+(?:the\s+)?([\w .-]+?)(?=\s+(?:to|into|as|with|be|finish)\b|$)/;
-
-/** Strips the trailing storey noun the level index does not carry: "ground
- *  floor" → "ground". `findLevel` already matches level names case-folded. */
-function normaliseLevelQuery(phrase: string): string {
-    return phrase.replace(/\s*\b(?:floors?|levels?|stor(?:e?ys?|ies))\b\s*/g, ' ').trim() || phrase.trim();
-}
+// §FIX-WALL-FINISH-SIDE-EATS-SCOPE (L-1261) — the local `LEVEL_PHRASE`,
+// `SPATIAL_RE` and `normaliseLevelQuery` lived here. They were the THIRD
+// hand-written spatial tail in this package, and the founder's sentences proved
+// what that costs: the lazy capture ran until one of only FIVE stop words
+// (to/into/as/with/be/finish), and a SIDE word is not one of them — so the place
+// phrase ATE IT. Measured 2026-08-19:
+//
+//   "make all walls in Room X exterior finish plaster"
+//        → room  "room x exterior"
+//   "make all walls in Level 1 exterior finish plaster"
+//        → level "1 exterior"
+//   "make all walls on level 2 interior finish limewash"   ← THE SHIPPED EXAMPLE
+//        → level "2 interior"
+//
+// None of those resolve. The founder is told *"No level called '1 exterior'"* —
+// a refusal quoting back words he never typed as a place. **The third sentence
+// was already broken before he wrote his six**, which is exactly what L-1201
+// predicted: three spellings of one concept means fixing one leaves the next
+// sentence broken in another.
+//
+// The vocabulary was NOT lost. This file's storey list (ground / basement /
+// attic / penthouse / mezzanine) was the RICHER of the two and has been lifted
+// into `SpatialScopeTail.STOREY_NAME_SRC`, which every grammar now reads; the
+// stop set is now DERIVED from the wall grammars' own vocabulary
+// (`PLACE_STOP_SRC`) rather than remembered as five words.
 
 // ─── The parser ──────────────────────────────────────────────────────────────
 
@@ -131,9 +153,35 @@ export function parseWallSideFinishIntent(
     text: string,
     resolvesFinish: (ref: string) => boolean,
     resolveWallSystemType?: (ref: string) => { id: string; name: string } | null,
+    /** §FIX-WALL-FINISH-SIDE-EATS-SCOPE (L-1261) — needed only so "this floor"
+     *  can name the ACTIVE level. Optional, so every existing call site is
+     *  unchanged and a context-free caller simply cannot say "this floor". */
+    ctx?: ResolverContext,
 ): WallSideFinishIntent | null {
     // ⛔ Never steal the layer-ADD ask. That one moves the wall's thickness.
     if (/^add\b/.test(text)) return null;
+    // ⭐⭐ §FIX-LAYER-ASK-REPAINTED (L-1260) — AND THE VERB WAS NEVER THE TEST.
+    //
+    // The founder sent six sentences: four WITHOUT the word "layer" and two WITH
+    // it. That is not an accident — he is naming the sibling capability
+    // deliberately. Measured on the real ladder BEFORE this guard:
+    //
+    //   "make all walls interior layer finish plaster"
+    //     → set-wall-side-finish, finishRef 'layer finish plaster', scope 'all'
+    //     → "Set the interior finish of every wall in the project to Plaster"
+    //
+    // The word "layer" was swallowed INTO the finish name and then substring-
+    // matched away. **He asked for a construction layer and got a repaint,
+    // reported as success** — a silent narrowing (C84 EI-2) of the one ask whose
+    // whole difference is that it MOVES `wall.thickness`
+    // (§03-WALL-THICKNESS-CONTRACT §1).
+    //
+    // The `^add` guard was never the real discriminator: it tested the VERB when
+    // the distinguishing token is the NOUN. `add-wall-layer` now claims the
+    // shared verbs when the sentence says "layer"/"coat", so this parser must
+    // stand aside on exactly the same token — one test, two grammars, no gap and
+    // no overlap.
+    if (LAYER_NOUN.test(text)) return null;
     if (!FINISH_VERB.test(text)) return null;
     if (!/\bwalls?\b/.test(text)) return null;
 
@@ -234,12 +282,15 @@ export function parseWallSideFinishIntent(
     //    silently narrow a LEVEL ask to the selection — a quieter version of the
     //    same defect. The phrase the user typed wins over the default.
     let base: 'all' | 'selection' | IntentSpatialScope;
-    const sp = SPATIAL_RE.exec(t);
-    const phrase = sp?.[1]?.trim();
-    if (phrase !== undefined && phrase.length > 0 && !isSel) {
-        base = LEVEL_PHRASE.test(` ${phrase} `)
-            ? { kind: 'level', levelQuery: normaliseLevelQuery(phrase) }
-            : { kind: 'room', roomRef: phrase };
+    const place = parseInlineSpatialPhrase(t, ctx);
+    if (place.kind === 'unusable') {
+        // A place was NAMED and cannot be resolved ("this floor" with no active
+        // level). Decline — never silently widen to the whole building, which on
+        // a mass re-finish is the outcome this grammar exists to prevent.
+        return null;
+    }
+    if (place.kind === 'scope' && !isSel) {
+        base = place.scope;
     } else {
         base = isAll ? 'all' : 'selection';
     }

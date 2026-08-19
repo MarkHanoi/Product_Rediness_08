@@ -88,7 +88,7 @@ import {
 // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE one place that decides whether a
 // preposition phrase names a LEVEL or a ROOM. See that module's header for why
 // three hand-written spellings of it existed and what each one cost.
-import { parseTrailingSpatialScope, stripTrailingLevelNoun } from './SpatialScopeTail.js';
+import { parseTrailingSpatialScope, parseInlineSpatialPhrase, stripTrailingLevelNoun } from './SpatialScopeTail.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -105,7 +105,7 @@ import { exampleColorNames, resolveColorRef } from './colorRef.js';
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
 import { resolveFinishRef } from './finishRef.js';
 // §FEAT-WALL-SIDE-FINISH — the per-side finish grammar, in its own pure module.
-import { parseWallSideFinishIntent, type WallSideFinishIntent } from './WallSideFinishIntent';
+import { parseWallSideFinishIntent, LAYER_NOUN, type WallSideFinishIntent } from './WallSideFinishIntent';
 import {
   isScopeError,
   type Compass4,
@@ -3473,15 +3473,44 @@ export function parseDoorTypeIntent(
 // LLM (ADR-0313 HONESTY note).
 const WALL_LAYER_THICKNESS_RE = /(\d+(?:\.\d+)?)\s*(mm|cm|m)s?\b/;
 
-export function parseAddWallLayerIntent(text: string): Extract<SemanticIntent, { intent: 'add-wall-layer' }> | null {
-  if (!/^add\b/.test(text)) return null;
+export function parseAddWallLayerIntent(
+  text: string,
+  ctx?: ResolverContext,
+): Extract<SemanticIntent, { intent: 'add-wall-layer' }> | null {
+  // ⭐⭐ §FIX-LAYER-ASK-REPAINTED (L-1260) — THE VERB WAS NEVER THE DISCRIMINATOR.
+  //
+  // The founder wrote *"make all walls interior LAYER finish X"*. `^add` refused
+  // it, the appearance-only sibling claimed it because it only declined on
+  // `^add`, and he was told his walls had been re-finished. He asked for a
+  // CONSTRUCTION LAYER — the one ask whose entire difference is that it MOVES
+  // `wall.thickness` (§03-WALL-THICKNESS-CONTRACT §1) — and got a repaint,
+  // reported as success. C84 EI-2, silent narrowing.
+  //
+  // The distinguishing token is the NOUN "layer"/"coat", not the verb. So the
+  // shared verbs claim HERE when that noun is present, and `LAYER_NOUN` — the
+  // SAME exported constant — is what makes the sibling stand aside. One test,
+  // two grammars: no gap, and no sentence claimed by both.
+  const explicitAdd = /^add\b/.test(text);
+  const sharedVerb = /^(?:make|change|set|apply|update|turn|re-?finish)\b/.test(text);
+  const namesLayer = LAYER_NOUN.test(text);
+  if (!explicitAdd && !(sharedVerb && namesLayer)) return null;
   if (!/\b(?:layers?|finish(?:es)?|coat(?:ing)?s?)\b/.test(text)) return null;
   if (!/\bwalls?\b/.test(text)) return null;
   // Same explicit-scope discipline as every wall batch: no scope word, no claim.
   const isAll = new RegExp(String.raw`\b(?:${WALL_SCOPE_ALL})(?: the)? walls?\b`).test(text);
   const isSel = new RegExp(String.raw`\b(?:the )?(?:${WALL_SCOPE_SEL})(?: selected)? walls?\b`).test(text)
     || /\bthe selected walls?\b/.test(text);
-  if (!isAll && !isSel) return null;
+  // §FIX-LAYER-SCOPE-UNDECLARED (L-1263) — the registry DECLARED
+  // `scopeModes: ['all','selection','level','room','orientation']` for this
+  // capability while the parser could only ever produce 'all' | 'selection'.
+  // That is C68 §5.e read backwards: the arm honoured modes NO SENTENCE COULD
+  // PRODUCE, so the declaration was a promise the grammar could not keep. The
+  // shared inline place reader closes it — the same one the sibling uses, so
+  // "in Level 1" cannot mean two things across two wall grammars.
+  const place = parseInlineSpatialPhrase(text, ctx);
+  if (place.kind === 'unusable') return null;
+  const spatial = place.kind === 'scope' && !isSel ? place.scope : null;
+  if (!isAll && !isSel && spatial === null) return null;
 
   const side: 'interior' | 'exterior' =
     /\b(?:outer|outside|exterior|external)\b/.test(text) ? 'exterior' : 'interior';
@@ -3506,15 +3535,18 @@ export function parseAddWallLayerIntent(text: string): Extract<SemanticIntent, {
     }
   }
 
-  return { intent: 'add-wall-layer', side, thicknessM, finishRef, scope: isAll ? 'all' : 'selection' };
+  return {
+    intent: 'add-wall-layer', side, thicknessM, finishRef,
+    scope: spatial ?? (isAll ? 'all' : 'selection'),
+  };
 }
 
-const matchAddWallLayer: Matcher = (text) => parseAddWallLayerIntent(text);
+const matchAddWallLayer: Matcher = (text, ctx) => parseAddWallLayerIntent(text, ctx);
 
 // §FEAT-WALL-SIDE-FINISH — the finish table is injected so the grammar module
 // stays pure and `finishRef.ts` remains the ONE name->finish site.
 const matchWallSideFinish: Matcher = (text, ctx) =>
-  parseWallSideFinishIntent(text, (r) => resolveFinishRef(r) !== null, ctx?.resolveWallSystemType);
+  parseWallSideFinishIntent(text, (r) => resolveFinishRef(r) !== null, ctx?.resolveWallSystemType, ctx);
 
 // §FEAT-WINDOW-PARAMETRIC-CREATE (ADR-0315, founder ask #3) — "create a window
 // in the middle of every wall segment" / "create 2 windows in all the wall
@@ -3973,6 +4005,21 @@ const MATCHERS: readonly Matcher[] = [
   // "make all walls interior partition" has no finish marker and "partition"
   // is not in the finish table, so it falls through to the type grammar. Both
   // directions are pinned in wall-side-finish.test.ts.
+  // ⭐⭐ §FIX-LAYER-ASK-REPAINTED (L-1260) — THE TWO SIBLINGS NOW SIT TOGETHER,
+  // AND BOTH MUST PRECEDE matchWallType.
+  //
+  // `matchAddWallLayer` used to sit ~25 entries further down, which was safe
+  // only while it required a leading "add" that no other grammar could claim.
+  // Now that it claims the SHARED verbs on the word "layer", it has to be
+  // adjacent to the sibling that stands aside on the same word — measured:
+  // with the side-finish parser declining and this matcher still downstream,
+  // *"make all walls interior layer finish plaster"* fell through to
+  // `matchWallType` and produced
+  //   wall.updateSystemTypeBatch { systemType: "interior layer finish plaster" }
+  // — a wall SYSTEM TYPE set to a sentence fragment, which is worse than the
+  // repaint it replaced. A guard that only moves an ask from one wrong grammar
+  // to another is not a fix; the two owners of the word must be neighbours.
+  matchAddWallLayer,
   matchWallSideFinish,
   matchWallType,
   // Window types, same guards as wall types ("make all windows 1m wide" never
@@ -3997,9 +4044,6 @@ const MATCHERS: readonly Matcher[] = [
   // level 2 to fire doors" are pinned as misses in moveToLevel.test.ts.
   matchMoveToLevel,
   ...CATALOGUE_FAMILY_MATCHERS,
-  // "add a 10mm plaster layer …" — the leading "add" + layer/finish words keep
-  // it off every other grammar; claims even when underspecified (honest asks).
-  matchAddWallLayer,
   // "create a window in the middle of every wall segment" — BEFORE
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.

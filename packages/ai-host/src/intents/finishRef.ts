@@ -21,7 +21,7 @@
 //
 // PURE - no I/O, no stores; safe for tier-0 and the NL layer.
 
-import { findMaterialRecord } from '@pryzm/schemas/materials';
+import { findMaterialRecord, MATERIAL_CATALOG } from '@pryzm/schemas/materials';
 
 export interface ResolvedFinish {
   /** Display name for the layer row (the library's label). */
@@ -137,6 +137,136 @@ const FINISHES: ReadonlyArray<{ aliases: readonly string[]; category: string; fi
 
 const normalize = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
+// ─── §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) ────────────────────────
+//
+// ⭐ TWO VOCABULARIES FOR ONE PRODUCT — MEASURED, 2026-08-19.
+//
+// The alias table above is 39 groups. The C100 MASTER CATALOGUE is **205
+// materials in 17 categories**. Reachability of a master material FROM CHAT BY
+// ITS OWN CATALOGUE LABEL — the string the founder is looking at in the material
+// picker lane HR5 wired today — measured per category:
+//
+//   Metal            0/24   Landscape & Ground  0/33   Stone     0/15
+//   Concrete         0/15   Glass               0/13   Masonry   0/13
+//   Ceramic & Tile   0/10   Plastic & Polymer   0/ 9   Roofing   0/ 6
+//   Fabric & Soft    0/ 6   Membrane            0/ 6   Specialty 0/ 6
+//   Wood             1/17   Timber Engineered   3/ 9   Paint     2/ 7
+//                                            ── TOTAL 7 / 205 ──
+//
+// He can PICK `Steel · Corten (Weathering)` in the panel and chat answers
+// *"I don't know the finish 'copper'"*. One product, two vocabularies — C84
+// EI-8/EI-9, and the most-repeated defect shape of this session.
+//
+// ⭐ AND THE HAND LIST DID NOT MERELY MISS — IT ANSWERED WRONGLY. The loose
+// substring arm below matched a candidate against ALIAS FRAGMENTS, so:
+//   • "polished concrete"  → **Plaster · Venetian (Polished)**   (via 'polished
+//     plaster'; the founder asked for concrete and got plaster, reported as
+//     success — the L-960 "wood → insulation" defect, still live for every word
+//     the wood fix did not enumerate);
+//   • "wall"               → **Plasterboard · Standard** (inside 'drywall'), so
+//     a SCOPE WORD resolved as a material. The header already recorded fixing
+//     "all" inside "drywall" by requiring ≥4 characters — and "wall" is exactly
+//     four.
+//
+// THE FIX IS THE L-1201 FIX AGAIN: **derive the vocabulary, do not remember it.**
+// The aliases stay — they are the LANGUAGE layer, and 'plaster' → skim coat is a
+// deliberate canonical choice that a raw catalogue scan would make ambiguous.
+// What is added is a CATALOGUE arm beneath them, matching the user's words
+// against the master's own labels by TOKEN SUBSET, so all 205 become nameable
+// without one more hand-maintained row.
+//
+// ⛔ AMBIGUITY IS A REFUSAL, NEVER A PICK. "copper" names two rows (New (Bright)
+// / Patinated (Green)); "polished concrete" names two. Both now REFUSE and list
+// the candidates, which is how the founder learns the catalogue instead of
+// discovering next week that his building is the wrong colour.
+
+/** Words this GRAMMAR uses structurally. A word that means "which walls" or
+ *  "which face" can never simultaneously be a material name — that is what let
+ *  "wall" resolve to Plasterboard and "coat" to Skim Coat. Derived from the
+ *  wall grammars' own token vocabulary, not a wish-list. */
+const GRAMMAR_STOPWORDS: ReadonlySet<string> = new Set([
+  'wall', 'walls', 'side', 'sides', 'face', 'faces',
+  'inner', 'interior', 'inside', 'internal', 'indoor',
+  'outer', 'exterior', 'outside', 'external', 'outdoor', 'facade', 'façade',
+  'layer', 'layers', 'coat', 'coats', 'coating', 'coatings',
+  'finish', 'finishes', 'finished', 'finishing',
+  'all', 'every', 'each', 'the', 'and', 'this', 'these', 'those', 'selected',
+  'room', 'rooms', 'level', 'levels', 'floor', 'floors', 'storey', 'storeys',
+  'make', 'change', 'set', 'apply', 'turn', 'update', 'refinish',
+  'material', 'materials', 'colour', 'color',
+]);
+
+/** Split a catalogue label or a spoken phrase into comparable word tokens.
+ *  The label separator `·`, slashes, parentheses and hyphens are all just
+ *  punctuation here: "Steel · Corten (Weathering)" → {steel, corten, weathering}. */
+function tokens(s: string): string[] {
+  return normalize(s)
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(' ')
+    .filter((w) => w.length > 1);
+}
+
+/** The master, pre-tokenised once. DERIVED — adding a material to C100 makes it
+ *  chat-nameable with no edit here, which is the whole point. */
+const CATALOGUE_TOKENS: ReadonlyArray<{
+  readonly finish: ResolvedFinish;
+  readonly category: string;
+  readonly tokens: ReadonlySet<string>;
+}> = MATERIAL_CATALOG.map((m) => ({
+  finish: { name: m.label, materialColor: m.color, materialId: m.id },
+  category: m.category,
+  tokens: new Set(tokens(m.label)),
+}));
+
+/**
+ * Every master material whose label CONTAINS all the words the user said.
+ *
+ * Exported so a refusal can list the real candidates ("'copper' matches Copper ·
+ * New (Bright) and Copper · Patinated (Green)") instead of the strictly weaker
+ * "I don't know that finish" — U8.3's teach-don't-just-say-no rule applied to
+ * the material vocabulary.
+ */
+export function finishRefCandidates(ref: string): ResolvedFinish[] {
+  const want = tokens(ref);
+  if (want.length === 0) return [];
+  // ⭐ THE FULL LABEL, EXACTLY AS THE PICKER SHOWS IT, ALWAYS WINS — before the
+  //    stopword guard and before the concealed-category filter.
+  //
+  //    Measured cost of not doing this: six real materials became unnameable by
+  //    their own label because the label CONTAINS a word this grammar uses
+  //    structurally — `Plaster · Skim COAT (Painted)`, `Glass · Reflective
+  //    (Curtain WALL)`, `Plywood · Birch FACE`, `Steel · White Intumescent
+  //    COATING`, `Blockwork · Split FACE Concrete`. A guard against sentence
+  //    fragments must not veto a name the product itself prints.
+  //
+  //    It also restores §L960's own rule for concealed products: an exact
+  //    request BY NAME is never overruled — "a user who asks for insulation
+  //    gets insulation".
+  const exactLabel = CATALOGUE_TOKENS.filter(
+    (c) => c.tokens.size === want.length && want.every((w) => c.tokens.has(w)),
+  );
+  if (exactLabel.length === 1) return [exactLabel[0]!.finish];
+  // ⛔ A candidate carrying a word THIS GRAMMAR uses structurally is not a
+  //    material name — it is a fragment of the sentence. Measured while writing
+  //    this: stripping the stopwords and matching on what was left made the
+  //    shrinking-window scan resolve the span "exterior finish plaster", so a
+  //    three-word garbage span answered before the clean one-word "plaster" was
+  //    ever tried. REJECT the span; do not launder it.
+  if (want.some((w) => GRAMMAR_STOPWORDS.has(w))) return [];
+  const hits = CATALOGUE_TOKENS.filter(
+    (c) => !CONCEALED_CATEGORIES.has(c.category) && want.every((w) => c.tokens.has(w)),
+  );
+  if (hits.length <= 1) return hits.map((h) => h.finish);
+  // ⛔ OTHERWISE IT STAYS AN AMBIGUITY, AND THE CALLER MUST ASK.
+  //    An earlier draft of this function preferred the record with the FEWEST
+  //    extra words, calling it "most specific". Measured, that made "plaster"
+  //    resolve to **Plaster · Tadelakt** — the shortest label — instead of the
+  //    canonical Skim Coat. A tie-break that always produces an answer is a
+  //    coin-flip with a rationale attached, which is the exact defect the
+  //    substring arm below was already convicted of (§L960-WOOD-IS-A-SURFACE).
+  return hits.map((h) => h.finish);
+}
+
 /**
  * Resolve a finish reference ("plaster", "limewash") to the library values.
  * Exact alias first, then unique-substring (ambiguity ⇒ null, never a
@@ -146,12 +276,35 @@ const normalize = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, 
 export function resolveFinishRef(ref: string): ResolvedFinish | null {
   const n = normalize(ref);
   if (n.length === 0) return null;
+  // ── 1. THE CANONICAL NICKNAME. The LANGUAGE layer wins outright: 'plaster'
+  //    means Skim Coat here by decision, and 'wood' means Oak (§L960). A raw
+  //    catalogue scan would make both ambiguous, so this arm stays first.
   for (const entry of FINISHES) {
     if (entry.aliases.some((a) => a === n)) return entry.finish;
   }
-  // Substring matching needs ≥4 chars — short scope/stop words otherwise hit
-  // inside longer aliases ("all" inside "drywall" was the live false positive).
+  // ── 2. §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) — THE MASTER, by its
+  //    own labels. This is what makes all 205 materials nameable rather than 39,
+  //    and it is DERIVED: a new C100 row is chat-nameable with no edit here.
+  //
+  //    ⛔ It also GUARDS arm 3. When the user's words name several real
+  //    materials the answer is "which one", never a pick — and we must not fall
+  //    through to the looser alias arm, because that is precisely how "polished
+  //    concrete" became Venetian Plaster.
+  const catalogue = finishRefCandidates(n);
+  if (catalogue.length === 1) return catalogue[0]!;
+  if (catalogue.length > 1) return null;
+  // ── 3. The loose alias arm. Substring matching needs ≥4 chars — short
+  //    scope/stop words otherwise hit inside longer aliases ("all" inside
+  //    "drywall" was the live false positive).
+  //    §L-1262: and a word this GRAMMAR uses structurally is never a material,
+  //    which is what "wall" → Plasterboard (inside 'drywall') and "coat" →
+  //    Skim Coat were. Four characters was never the discriminator; MEANING is.
   if (n.length < 4) return null;
+  // ANY structural word disqualifies the span, not merely all of them. "layer
+  // finish plaster" must not resolve — the shrinking-window scan would then
+  // record that whole fragment as the finish NAME and quote it back in a
+  // refusal as though the user had typed it as a material.
+  if (tokens(n).some((w) => GRAMMAR_STOPWORDS.has(w))) return null;
   const partial = FINISHES.filter((e) => e.aliases.some((a) => a.includes(n) || n.includes(a)));
   // §L960-WOOD-IS-A-SURFACE — a finish is a VISIBLE face, so a buried product is
   // not a candidate for a loose match while a real surface also matches. When only
@@ -165,4 +318,43 @@ export function resolveFinishRef(ref: string): ResolvedFinish | null {
 /** Canonical names for refusal copy (first alias of each group). */
 export function exampleFinishNames(): string[] {
   return FINISHES.map((e) => e.aliases[0]!);
+}
+
+/**
+ * §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) — the refusal copy for an
+ * unresolved finish, in ONE place so every caller says the same true thing.
+ *
+ * ⛔ IT NO LONGER LISTS THIRTY-NINE NICKNAMES AS THOUGH THEY WERE THE
+ * VOCABULARY. That list was the measurable lie: it read as an inventory while
+ * 205 materials existed, so a founder who typed a name he was LOOKING AT in the
+ * picker was told the product did not know it, followed by a wall of words that
+ * did not include it. The copy now states the real size and, when the words
+ * matched several real rows, NAMES THEM — an ambiguity is a question, never a
+ * pick (§CONTEXT-DATA-HONESTY, U8.3 teach-don't-just-say-no).
+ */
+export function finishRefusalCopy(ref: string | null): string {
+  const examples = exampleFinishNames().slice(0, 8).join(', ');
+  const total = catalogueFinishCount();
+  if (ref === null || ref.trim().length === 0) {
+    return `Tell me which finish — I know ${total} materials, including ${examples}.`;
+  }
+  const candidates = finishRefCandidates(ref);
+  if (candidates.length > 1) {
+    return (
+      `"${ref}" matches ${candidates.length} materials — ` +
+      `${candidates.map((c) => c.name).join(', ')}. ` +
+      `Say which one; nothing was changed.`
+    );
+  }
+  return (
+    `I don't know the finish "${ref}". I know ${total} materials, including ` +
+    `${examples} — or name one exactly as the material picker shows it, ` +
+    `like "Steel · Corten" or "Brick · Red Facing".`
+  );
+}
+
+/** How many materials chat can actually name. DERIVED from the master, so it can
+ *  never drift from the picker the founder is looking at. */
+export function catalogueFinishCount(): number {
+  return MATERIAL_CATALOG.length;
 }

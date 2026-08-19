@@ -96,6 +96,20 @@ export const SPATIAL_PREPOSITION_SRC = String.raw`(?:on|in|at|inside|within)`;
 export const LEVEL_NOUN_SRC = String.raw`(?:levels?|floors?|storeys?|stor(?:y|ies))`;
 
 /**
+ * Storey NAMES that carry no level noun — "the ground floor" is usually spoken
+ * as "ground", and a basement/attic/penthouse is a STOREY in this product's
+ * vocabulary, never a room name.
+ *
+ * ⭐ ADOPTED, NOT INVENTED (L-1261). `WallSideFinishIntent` already carried this
+ * list as its own `LEVEL_PHRASE` — a THIRD hand-written spatial tail beside the
+ * two L-1201 unified. Rather than let two vocabularies drift, the richer one is
+ * lifted HERE and the wall grammar reads it, which is the entire point of this
+ * module. It is consulted only when NO level noun was said, so it can never
+ * override an explicit "level 2".
+ */
+export const STOREY_NAME_SRC = String.raw`(?:ground|basement|attic|penthouse|mezzanine)`;
+
+/**
  * The embeddable tail. THREE capture groups, in order:
  *   1. the LEADING level noun, if the user said one ("**level** 2")
  *   2. the place phrase
@@ -127,6 +141,8 @@ export const HERE_RE = /^(?:this|the current|current)(?:\s+(?:floor|level|storey
 const VALUE_LEAD_IN_RE = /^(?:to|at|as|be|into|is|=|:)$/;
 
 const LEADING_LEVEL_NOUN_RE = new RegExp(`^${LEVEL_NOUN_SRC}\\b\\s*`);
+/** A bare storey NAME inside the phrase ("the ground floor", "basement"). */
+const STOREY_NAME_RE = new RegExp(`(?:^|\\s)${STOREY_NAME_SRC}(?:\\s|$)`);
 const TRAILING_LEVEL_NOUN_RE = new RegExp(`\\s*${LEVEL_NOUN_SRC}$`);
 const ENDS_IN_LEVEL_NOUN_RE = new RegExp(`\\b${LEVEL_NOUN_SRC}$`);
 
@@ -193,6 +209,8 @@ export function readSpatialTail(
   // "the ground floor" / "the second storey".
   if (LEADING_LEVEL_NOUN_RE.test(raw)) return level(raw.replace(LEADING_LEVEL_NOUN_RE, ''));
   if (ENDS_IN_LEVEL_NOUN_RE.test(raw)) return level(raw);
+  // A bare storey NAME — "the ground floor" spoken as "ground", "the basement".
+  if (STOREY_NAME_RE.test(raw)) return level(raw);
 
   return { kind: 'scope', scope: { kind: 'room', roomRef: raw } };
 }
@@ -233,4 +251,88 @@ export function parseTrailingSpatialScope(
  *  "2 floor" and "2" name the same level. Used as `findLevel`'s last resort. */
 export function stripTrailingLevelNoun(query: string): string {
   return query.replace(TRAILING_LEVEL_NOUN_RE, '').trim();
+}
+
+// ─── The INLINE place phrase (§FIX-WALL-FINISH-SIDE-EATS-SCOPE, L-1261) ──────
+//
+// ⭐ THE THIRD SPELLING OF THE SCOPE TAIL, AND WHAT IT COST.
+//
+// `WallSideFinishIntent` carried its own `SPATIAL_RE`:
+//
+//     /\b(?:on|in|of)\s+(?:the\s+)?([\w .-]+?)(?=\s+(?:to|into|as|with|be|finish)\b|$)/
+//
+// The lazy capture runs until one of FIVE stop words. The founder's sentences
+// put the SIDE word between the place and "finish", and the side word is not in
+// that set — so the place phrase SWALLOWED IT. Measured 2026-08-19:
+//
+//   "make all walls in Room X exterior finish plaster"
+//        → { kind:'room',  roomRef:   'room x exterior' }
+//   "make all walls in Level 1 exterior finish plaster"
+//        → { kind:'level', levelQuery:'1 exterior'      }
+//   "make all walls on level 2 interior finish limewash"   ← the SHIPPED example
+//        → { kind:'level', levelQuery:'2 interior'      }
+//
+// None of those resolve. The user gets *"No level called '1 exterior'"* — a
+// refusal quoting words he never typed as a place. **The third sentence was
+// already broken before the founder wrote his six**, which is exactly the
+// failure mode L-1201 predicted: three spellings of one concept means fixing one
+// leaves the next sentence broken in another.
+//
+// So the stop set is DERIVED from the vocabulary the wall grammars actually use
+// — side words, layer words, finish words, connectives — in one place, rather
+// than remembered separately in each.
+
+/** Words that END a place phrase: connectives, the finish/layer markers, and —
+ *  the ones that were missing — every SIDE word. */
+export const PLACE_STOP_SRC = String.raw`(?:to|into|as|with|be|of|and` +
+  String.raw`|finish(?:es|ed|ing)?|layers?|coat(?:ing)?s?|material` +
+  String.raw`|inner|interior|inside|internal|indoor` +
+  String.raw`|outer|exterior|outside|external|outdoor|fa(?:ç|c)ade)`;
+
+/** Prepositions that can introduce an INLINE place phrase. `of` is included
+ *  (the wall grammar's own set had it: "the walls of the kitchen"). */
+const INLINE_PREP_SRC = String.raw`(?:on|in|at|of|inside|within)`;
+
+const INLINE_PLACE_RE = new RegExp(
+  `\\b${INLINE_PREP_SRC}\\s+(?:the\\s+)?([\\w .-]+?)(?=\\s+${PLACE_STOP_SRC}\\b|$)`,
+);
+
+/** Leading scope/determiner words that are never part of a place NAME. */
+const LEADING_DETERMINERS_RE = /^(?:(?:all|every|each|both|the|these|those|this|selected)\s+)+/;
+/** What is left once they are stripped, when the phrase names no place at all. */
+const ELEMENT_NOUN_ONLY_RE =
+  /^(?:walls?|wall segments?|building|project|model|site|elements?|sides?|faces?)$/;
+
+/**
+ * ⛔ "of ALL WALLS" IS NOT A ROOM CALLED "all walls".
+ *
+ * Caught by measurement while writing this module, not after shipping it:
+ * `add a 20mm limewash finish to the outer side OF ALL WALLS` is a SHIPPED
+ * example, and a naive inline reader turns its trailing `of …` into a room
+ * scope — silently narrowing a project-wide ask to a room that does not exist.
+ * That would have been the exact defect this file was written to remove,
+ * reintroduced by the fix for it.
+ */
+function isNotAPlace(phrase: string): boolean {
+  const p = phrase.trim().toLowerCase().replace(LEADING_DETERMINERS_RE, '').trim();
+  return p.length === 0 || ELEMENT_NOUN_ONLY_RE.test(p);
+}
+
+/**
+ * Read a place phrase that sits INSIDE a sentence rather than at its end — the
+ * shape the wall finish / wall layer grammars have, where the value tail is not
+ * a simple "… to X" but carries side words, layer words and markers.
+ *
+ * Shared by both wall grammars so the two can never disagree about which words
+ * belong to the PLACE and which belong to the ASK.
+ */
+export function parseInlineSpatialPhrase(
+  text: string,
+  ctx: ResolverContext | undefined,
+): SpatialTailReading {
+  const m = INLINE_PLACE_RE.exec(text);
+  const phrase = m?.[1]?.trim();
+  if (phrase === undefined || phrase.length === 0) return { kind: 'none' };
+  if (isNotAPlace(phrase)) return { kind: 'none' };
+  return readSpatialTail(undefined, phrase, ctx);
 }

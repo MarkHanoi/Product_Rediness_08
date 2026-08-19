@@ -1110,6 +1110,7 @@ function classify(
     n.plain,
     (r) => resolveFinishRef(r) !== null,
     ctx.resolveWallSystemType,
+    ctx,
   );
   if (wallSideFinish !== null) {
     push({
@@ -1169,12 +1170,12 @@ function classify(
 
   // add-wall-layer (§FEAT-WALL-LAYER-ADD-BATCH) — shared token-based parser,
   // same rank; claims even when underspecified so the honest ask wins.
-  const wallLayer = parseAddWallLayerIntent(n.plain);
+  const wallLayer = parseAddWallLayerIntent(n.plain, ctx);
   if (wallLayer !== null) {
     push({
       intent: 'add-wall-layer',
       confidence: 0.95,
-      evidence: ['verb:add', 'noun:layer', `scope:${scopeTag(wallLayer.scope)}`],
+      evidence: ['noun:layer', `side:${wallLayer.side}`, `scope:${scopeTag(wallLayer.scope)}`],
       si: wallLayer,
     });
   }

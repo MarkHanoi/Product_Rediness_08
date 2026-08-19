@@ -47,7 +47,7 @@ import {
 import { describeFilters, filterRefusalCopy } from './FilterScope.js';
 import { normalizeElementKind } from '../capabilities/ChatCapabilityRegistry.js';
 import { exampleColorNames, resolveColorRef } from './colorRef.js';
-import { exampleFinishNames, resolveFinishRef } from './finishRef.js';
+import { finishRefusalCopy, resolveFinishRef } from './finishRef.js';
 // §FEAT-CHAT-ROOM-OCCUPANCY — the room-use vocabulary, read off the same Zod
 // enum RoomStore validates against (see roomOccupancyRef.ts's header).
 import {
@@ -497,21 +497,15 @@ export const EXECUTION_SPECS: SpecTable = {
     spatialAbility: 'change all walls, the walls on a level, or the walls in a room',
     spatialKinds: ['level', 'room'],
     resolveValue: (si) => {
-      if (si.finishRef === null) {
-        return {
-          refusal: {
-            reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
-            suggestions: ['make all inner finishes walls on the ground floor to plaster'],
-          },
-        };
-      }
-      const finish = resolveFinishRef(si.finishRef);
+      // §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) — ONE refusal copy,
+      // stating the REAL vocabulary size and naming the candidates when the
+      // words matched several. The old copy listed 39 nicknames as though they
+      // were the inventory while 205 materials existed.
+      const finish = si.finishRef === null ? null : resolveFinishRef(si.finishRef);
       if (finish === null) {
         return {
           refusal: {
-            reason:
-              `I don't know the finish "${si.finishRef}". I understand ` +
-              `${exampleFinishNames().join(', ')}.`,
+            reason: finishRefusalCopy(si.finishRef),
             suggestions: ['make all inner finishes walls on the ground floor to plaster'],
           },
         };
@@ -547,31 +541,48 @@ export const EXECUTION_SPECS: SpecTable = {
       'No walls are selected — select a wall, or say "add a 10mm plaster layer to all walls".',
     mismatchPrefix: 'Finish layers apply to walls',
     suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+    // §FIX-LAYER-SCOPE-UNDECLARED (L-1263) — the grammar can now produce these,
+    // so the arm may honour them. Declared NARROW: a wall layer has no facade
+    // orientation reading the grammar can produce.
+    spatialAbility: 'add a layer to all walls, the selected walls, the walls on a level, or the walls in a room',
+    spatialKinds: ['level', 'room'],
     resolveValue: (si) => {
       if (si.thicknessM === null) {
-        return {
-          refusal: {
-            reason: 'Tell me how thick the layer should be — e.g. "add a 10mm plaster layer to the inner side of the selected wall".',
-            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-          },
-        };
-      }
-      if (si.finishRef === null) {
-        return {
-          refusal: {
-            reason: `Tell me which finish — I know ${exampleFinishNames().join(', ')}.`,
-            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
-          },
-        };
-      }
-      const finish = resolveFinishRef(si.finishRef);
-      if (finish === null) {
+        // ⭐ §FIX-LAYER-ASK-REPAINTED (L-1260) — WHY THIS REFUSES RATHER THAN
+        //   DEFAULTING, decided by MEASUREMENT and not by preference.
+        //
+        //   The founder's *"make all walls interior layer finish X"* names no
+        //   thickness, and a layer MOVES `wall.thickness`. Option (b) — take a
+        //   declared per-finish default from the catalogue — was checked and is
+        //   NOT AVAILABLE: `MaterialRecord` carries id, label, category, color,
+        //   metalness, roughness, opacity, transparent, textureUrl, source —
+        //   and **no thickness field at all** (`packages/schemas/src/materials/
+        //   materialRecord.ts`). A 10 mm invented here would be a number with no
+        //   source, silently thickening every wall in the building by it.
+        //
+        //   So it refuses, and per C16 CA-18 it names the LIVE ALTERNATIVE —
+        //   including the appearance-only sibling, which is very likely what a
+        //   user who omitted the thickness actually wanted.
         return {
           refusal: {
             reason:
-              `I don't know the finish "${si.finishRef}". I understand ` +
-              `${exampleFinishNames().join(', ')}.`,
-            suggestions: ['add a 10mm plaster layer to the inner side of the selected wall'],
+              'A finish LAYER has a thickness, and adding one makes the wall thicker — so I ' +
+              'will not guess it. Say "add a 10mm plaster layer to all walls". If you meant to ' +
+              'change how the wall LOOKS without making it thicker, say "make all walls ' +
+              'interior finish plaster" instead.',
+            suggestions: [
+              'add a 10mm plaster layer to all walls',
+              'make all walls interior finish plaster',
+            ],
+          },
+        };
+      }
+      const finish = si.finishRef === null ? null : resolveFinishRef(si.finishRef);
+      if (finish === null) {
+        return {
+          refusal: {
+            reason: finishRefusalCopy(si.finishRef),
+            suggestions: ['add a 10mm plaster layer to all walls'],
           },
         };
       }
@@ -585,7 +596,18 @@ export const EXECUTION_SPECS: SpecTable = {
           materialColor: finish.materialColor,
           materialId: finish.materialId,
         },
-        summary: (scopeLabel) => `Add a ${mm}mm ${finish.name} layer to the ${si.side} side of ${scopeLabel}`,
+        // ⛔ §FIX-LAYER-ASK-REPAINTED (L-1260) — THE CARD MUST SAY THE WALL GETS
+        //   THICKER, AND BY HOW MUCH. This capability's entire difference from
+        //   `set-wall-side-finish` is that it MOVES `wall.thickness`
+        //   (§03-WALL-THICKNESS-CONTRACT §1), and the old summary — "Add a 10mm
+        //   plaster layer to the interior side of every wall" — never said so.
+        //   A user reading it could reasonably believe he was choosing a
+        //   surface. Silently thickening every wall in a building is the worst
+        //   outcome available here, so the consequence is stated BEFORE consent,
+        //   not discovered afterwards in a dimension.
+        summary: (scopeLabel) =>
+          `Add a ${mm}mm ${finish.name} layer to the ${si.side} side of ${scopeLabel} — ` +
+          `this makes each of those walls ${mm}mm thicker.`,
       };
     },
     // NOT destructive — one undo entry; the command reports "Added … to
