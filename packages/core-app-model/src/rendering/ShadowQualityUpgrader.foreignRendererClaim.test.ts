@@ -48,6 +48,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import {
     drainGpuReleaseQueue,
@@ -60,10 +61,13 @@ interface ClaimableTarget {
     name: string;
     width: number;
     height: number;
-    depthTexture: { dispose: ReturnType<typeof vi.fn> } | null;
-    texture: { name: string; dispose: ReturnType<typeof vi.fn> };
-    setSize: ReturnType<typeof vi.fn>;
-    dispose: ReturnType<typeof vi.fn>;
+    // Explicitly parameterised: a bare `ReturnType<typeof vi.fn>` is
+    // `Mock<Procedure | Constructable>`, which TS refuses to call directly — and
+    // this harness must CALL these, not merely assert on them.
+    depthTexture: { dispose: Mock<() => void> } | null;
+    texture: { name: string; dispose: Mock<() => void> };
+    setSize: Mock<(w: number, h: number) => void>;
+    dispose: Mock<() => void>;
 }
 
 function makeTarget(name: string, w = 1024, h = 1024): ClaimableTarget {
@@ -257,7 +261,7 @@ describe('§SHADOW-ENABLE-IS-NOT-OURS — the upgrader must not arm a second ren
         const obcShadowPass = makeObcShadowPass();
 
         obc.shadowMap.enabled = true;
-        obc.shadowMap.type = THREE.VSMShadowMap as unknown; // forces typeChanged
+        obc.shadowMap.type = THREE.VSMShadowMap; // forces typeChanged
 
         const pass = obcShadowPass(obc, light);
         expect(pass.ran).toBe(true);
