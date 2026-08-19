@@ -53,6 +53,11 @@ import { getSiteOverlayRasterStore } from './SiteOverlayRasterStore';
 // committed underlay placement (the underlay's on-canvas rotation ON the true-north
 // basemap = θ). Distinct from the underlay's own transform.rotationRad by design.
 import { deriveProjectNorthAngle, computePlanUnderlayPlacement } from './projectTrueNorth';
+// §UX1-PANEL-DEFAULTS — the start-up open/closed decision for this card lives in ONE
+// table (`ui/layout/panelDefaults.ts`), not in this file's unconditional first paint.
+import { panelDefaultOpen, setPanelOpen, isPanelOpen, onPanelLayoutReset } from '../../layout/panelDefaults';
+// C06 §7.3 — no raw z-index literals in edited UI chrome (this was `zIndex: '22'`).
+import { zCss } from '../../layout/zLayers';
 
 const VIOLET = '#6600FF';
 const INK = '#2a1a52';
@@ -256,19 +261,23 @@ export function mountSitePlanOverlayController(
     const panel = document.createElement('div');
     panel.className = 'pryzm-site-overlay-panel';
     panel.setAttribute('data-testid', 'site-plan-overlay-panel');
+    // §UX1-PANEL-CHROME (C06 §6/§7.3) — density literals replaced by the shared
+    // `--pryzm-panel-*` tokens, and the raw `zIndex: '22'` by the named `panel` band.
+    // The full-saturation `1px solid #6600FF` outline is also gone: a card that is not
+    // the user's current task should not shout louder than the map it sits on.
     Object.assign(panel.style, {
         position: 'absolute',
         top: '92px',
         right: '12px',
-        zIndex: '22',
-        width: '240px',
-        background: '#ffffff',
-        border: `1px solid ${VIOLET}`,
-        borderRadius: '12px',
-        padding: '12px',
-        font: '13px/1.4 system-ui, sans-serif',
+        zIndex: zCss('panel'),
+        width: 'var(--pryzm-panel-width)',
+        background: 'var(--pryzm-panel-surface)',
+        border: 'var(--pryzm-panel-border)',
+        borderRadius: 'var(--pryzm-panel-radius)',
+        padding: 'var(--pryzm-panel-pad)',
+        font: 'var(--pryzm-panel-font-size-body)/1.4 system-ui, sans-serif',
         color: INK,
-        boxShadow: '0 4px 18px rgba(60,52,40,0.20)',
+        boxShadow: 'var(--pryzm-panel-shadow)',
         display: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
     parent.appendChild(panel);
@@ -286,6 +295,10 @@ export function mountSitePlanOverlayController(
     parent.appendChild(fileInput);
 
     function promptUpload(): void {
+        // An explicit request for this tool is an explicit request to see its controls —
+        // the collapsed default is about the STARTING state, not about hiding the surface
+        // from a user who just invoked it.
+        if (!expanded) setExpanded(true);
         fileInput.click();
     }
 
@@ -689,14 +702,93 @@ export function mountSitePlanOverlayController(
     }
 
     // ── panel UI ──────────────────────────────────────────────────────────────────
-    function renderPanel(): void {
-        panel.style.display = '';
-        panel.replaceChildren();
+    //
+    // §UX1-PANEL-DEFAULTS — this card USED to paint its full body unconditionally on
+    // mount (the `renderPanel()` at the bottom of this factory), which is why a fresh
+    // project opened with an upload form sitting in the middle of the map the form
+    // exists to sit UNDER. It now starts COLLAPSED to its header row.
+    //
+    // Collapsed — not removed — deliberately. This surface has no launcher-rail pill of
+    // its own (it only exists while the 2D boundary-draw map is mounted, so an always-on
+    // pill would be a control that leads nowhere for most of the session — C82 §1.2). The
+    // header row IS the reopen affordance: it is on screen, it is one click, and it is
+    // anchored in its own region so it occludes nothing. `site-overlay-reopen` is the
+    // control named in the panel registry.
+    let expanded = panelDefaultOpen('site-plan-overlay');
+
+    function setExpanded(next: boolean): void {
+        expanded = next;
+        setPanelOpen('site-plan-overlay', next);
+        renderPanel();
+    }
+
+    /**
+     * The always-present header row: the title, a one-line state summary, and the
+     * disclosure control that is this card's reopen route.
+     *
+     * The summary line matters as much as the control. Collapsed, the card must still
+     * distinguish "no plan has been uploaded" from "a plan IS placed under this map" —
+     * those are different facts and a bare title would render them identically, which is
+     * the failure-and-emptiness-are-the-same-value defect. A user who never expands the
+     * card can still see that their survey scan is loaded.
+     */
+    function buildHeaderRow(): HTMLElement {
+        const row = document.createElement('div');
+        Object.assign(row.style, {
+            display: 'flex', alignItems: 'center', gap: '6px',
+            marginBottom: expanded ? '8px' : '0',
+        } satisfies Partial<CSSStyleDeclaration>);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.setAttribute('data-testid', 'site-overlay-reopen');
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        toggle.setAttribute('aria-label', expanded ? 'Collapse site plan overlay' : 'Open site plan overlay');
+        toggle.title = expanded ? 'Collapse' : 'Open the site plan overlay tools';
+        toggle.textContent = expanded ? '▾' : '▸';
+        Object.assign(toggle.style, {
+            appearance: 'none', border: 'none', background: 'transparent', cursor: 'pointer',
+            color: VIOLET, font: '600 12px/1 system-ui, sans-serif',
+            // C43 / WCAG 2.2 AA SC 2.5.8 — this is the ONLY route back into the card, so
+            // it carries the 24px target floor as a hard literal, not a scaled token.
+            minWidth: '24px', minHeight: '24px', padding: '0',
+        } satisfies Partial<CSSStyleDeclaration>);
+        toggle.addEventListener('click', () => setExpanded(!expanded));
+        row.appendChild(toggle);
 
         const title = document.createElement('div');
         title.textContent = 'Site plan overlay';
-        Object.assign(title.style, { fontWeight: '700', marginBottom: '8px', color: VIOLET } satisfies Partial<CSSStyleDeclaration>);
-        panel.appendChild(title);
+        Object.assign(title.style, {
+            fontWeight: '600', color: VIOLET, flex: 'none',
+            fontSize: 'var(--pryzm-panel-font-size-title)',
+        } satisfies Partial<CSSStyleDeclaration>);
+        row.appendChild(title);
+
+        if (!expanded) {
+            const summary = document.createElement('div');
+            summary.setAttribute('data-testid', 'site-overlay-summary');
+            summary.textContent = state ? `· ${state.fileName}` : '· no plan added';
+            Object.assign(summary.style, {
+                color: 'var(--pryzm-panel-ink-faint)',
+                fontSize: 'var(--pryzm-panel-font-size-meta)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            } satisfies Partial<CSSStyleDeclaration>);
+            row.appendChild(summary);
+        }
+        return row;
+    }
+
+    // §UX1-PANEL-DEFAULTS — `Reset panel layout` collapses this card again.
+    const disposePanelReset = onPanelLayoutReset(() => {
+        expanded = isPanelOpen('site-plan-overlay');
+        renderPanel();
+    });
+
+    function renderPanel(): void {
+        panel.style.display = '';
+        panel.replaceChildren();
+        panel.appendChild(buildHeaderRow());
+        if (!expanded) return;
 
         if (!state) {
             // §FIX-SITE-PLAN-OVERLAY-ORDER-AND-ENTER-CANVAS (L-258 A) — the `locating` phase.
@@ -848,6 +940,7 @@ export function mountSitePlanOverlayController(
         try { map.off('click', onMapClick); } catch { /* map gone */ }
         state?.layer.dispose();
         state = null;
+        try { disposePanelReset(); } catch { /* already gone */ }
         panel.remove();
         fileInput.remove();
     }

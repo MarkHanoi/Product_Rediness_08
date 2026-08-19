@@ -12,7 +12,17 @@ import type { UIProps } from '../Layout';
 // truth + the no-overlap launcher-rail layout policy. Replaces the hand-picked
 // `position:absolute … zIndex:'20'`-inside-#container anchoring that buried these
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
-import { launcherRailStyle } from './zLayers';
+import { launcherRailStyle, zCss, LAUNCHER_PILL_COSMETICS, LAUNCHER_PILL_BORDER } from './zLayers';
+// §UX1-PANEL-DEFAULTS — the ONE table that says which chrome is open on start-up, plus
+// the `Reset panel layout` verb. C82 §1.1: a panel closed by default keeps a visible
+// route back, and that route is the launcher pill mounted below.
+import {
+    panelDefaultOpen,
+    setPanelOpen,
+    isPanelOpen,
+    resetPanelLayout,
+    onPanelLayoutReset,
+} from './panelDefaults';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // §STARTUP-EAGER-GLOBE (founder 2026-08-10) — the one-shot onboarding→engine-boot seam that asks
 // this layout to start the Cesium init in parallel with the rest of the boot, plus the startup
@@ -2115,7 +2125,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // from `formaEnvelopeVisible` (the massing GEOMETRY on/off). Mirrors the
     // `FormaSiteAnalysisControls._userHidden` pattern so a ✕ / launcher-toggle hide
     // survives the card's re-render + re-home cycles. The launcher pill re-opens it.
-    let envelopeCardHidden = false;
+    // §UX1-PANEL-DEFAULTS — this literal WAS `false` ("the card is open on every start").
+    // It now reads the ONE table; 'buildable-envelope' is declared CLOSED there, and the
+    // `envelope-card-launcher` pill (mounted in `mountSiteViewLauncher`) is its declared
+    // route back. Do not re-hardcode this — the table is what makes the start-up state
+    // countable rather than the sum of three unrelated initialisers.
+    let envelopeCardHidden = !panelDefaultOpen('buildable-envelope');
     /** §L-621b — apply the hidden flag to the live card node (no-op when not built). */
     const applyEnvelopeCardVisibility = (): void => {
         if (envelopePanel) envelopePanel.style.display = envelopeCardHidden ? 'none' : '';
@@ -2123,6 +2138,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     /** §L-621b — toggle the Buildable-Envelope card; returns the new visible state. */
     const toggleEnvelopeCard = (): boolean => {
         envelopeCardHidden = !envelopeCardHidden;
+        // §UX1-PANEL-DEFAULTS — mirror into the shared table so the reopen pill's paint,
+        // `Reset panel layout`, and this local flag can never disagree about one panel.
+        setPanelOpen('buildable-envelope', !envelopeCardHidden);
         applyEnvelopeCardVisibility();
         return !envelopeCardHidden;
     };
@@ -2219,12 +2237,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             envelopePanel = document.createElement('div');
             envelopePanel.setAttribute('data-testid', 'buildable-envelope-card');
             Object.assign(envelopePanel.style, {
-                position: 'absolute', top: '108px', right: '16px', zIndex: '32',
-                width: '300px', minWidth: '272px', maxWidth: '92vw',
-                padding: '12px 14px', background: '#ffffff',
-                borderRadius: '12px', border: '1px solid #ece7fb',
-                boxShadow: '0 4px 18px rgba(20,10,60,0.18)',
-                font: '500 12px/1.45 system-ui, sans-serif', color: '#2a2340',
+                // §UX1-PANEL-CHROME / §UX1-PANEL-COLUMN (C06 §6, §7.2, §7.3) — three
+                // changes, all of them removing a local opinion:
+                //   · the density literals (300/272px wide, 12px 14px padding, 12px radius,
+                //     the 18%-alpha 18px-blur drop shadow, 12px type) now read the shared
+                //     `--pryzm-panel-*` tokens, so this card and the Site-analysis panel are
+                //     one design instead of two, and the §UI-DENSITY-SCALE lever reaches
+                //     both (it cannot see inline literals);
+                //   · `top`/`maxHeight` take the TOP slot of the declared right-edge column
+                //     so this card can no longer sit on top of Site analysis — that overlap
+                //     is the founder's "one panel's close button over another's content";
+                //   · `zIndex: '32'` was a raw literal, forbidden for edited chrome by
+                //     C06 §7.3; it is the named `panel` band now.
+                position: 'absolute',
+                top: 'var(--pryzm-panel-col-top)', right: '16px',
+                zIndex: zCss('panel'),
+                width: 'var(--pryzm-panel-width-wide)',
+                minWidth: 'var(--pryzm-panel-min-width)', maxWidth: '92vw',
+                padding: 'var(--pryzm-panel-pad)',
+                background: 'var(--pryzm-panel-surface)',
+                borderRadius: 'var(--pryzm-panel-radius)',
+                border: 'var(--pryzm-panel-border)',
+                boxShadow: 'var(--pryzm-panel-shadow)',
+                font: '500 var(--pryzm-panel-font-size-body)/1.45 system-ui, sans-serif',
+                color: 'var(--pryzm-panel-ink)',
                 // §L-508b — FIX the real-data layout (founder: "data is terrible, stuck in a
                 // minimum-width strip on the right"). Three faults, all fixed here + in the
                 // "Why?" rows below: (1) the card was only 232px — too narrow for the real
@@ -2234,7 +2270,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // tokens, never mid-value); (3) the two-column "Why?" rows starved the value
                 // column — those rows are now STACKED (see whyBlock). maxHeight+scroll keep the
                 // long determination on-screen; resize:both + makeDraggable keep it user-movable.
-                maxHeight: 'calc(100vh - 128px)', overflowY: 'auto',
+                maxHeight: 'var(--pryzm-panel-col-max-height-top)', overflowY: 'auto',
                 overflowWrap: 'break-word', wordBreak: 'normal',
                 boxSizing: 'border-box', resize: 'both',
             } satisfies Partial<CSSStyleDeclaration>);
@@ -2313,6 +2349,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         `<button data-testid="envelope-close" title="Close (re-open via the launcher pill)"
                  style="flex:none;appearance:none;border:none;background:transparent;color:#8a5a00;
                         cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;margin-left:6px;">✕</button>`;
+    /**
+     * §UX1-PROSE-ALTITUDE — collapse a block of jurisdiction prose to ONE summary line
+     * with the full text one click behind it.
+     *
+     * The founder's report was that this card carries "multiple paragraphs of
+     * jurisdiction prose" and is the tallest thing on screen. Every one of those
+     * paragraphs is CORRECT and several are load-bearing honesty statements (C58 §1.4:
+     * an upper-bound footprint must say so in words). So none of it is deleted — it is
+     * moved to the right altitude. The `summary` line must still carry the FACT, never
+     * a bare "details": a user who never opens the disclosure must not be able to
+     * mistake an upper bound for a solved envelope.
+     *
+     * Both arguments are already-escaped markup by this file's `safe*` convention
+     * (§XSS-SINK-SCAN, C08 §3.1) — this helper introduces no new interpolation.
+     */
+    const envelopeDisclosureHtml = (safeSummary: string, safeBody: string, tone: 'warn' | 'plain' = 'plain'): string => {
+        if (!safeBody) return '';
+        const summaryColour = tone === 'warn' ? '#8a5a00' : 'var(--pryzm-panel-ink-muted)';
+        return `<details style="margin-top:8px;border-top:1px solid var(--pryzm-panel-rule);padding-top:6px;">
+                  <summary style="cursor:pointer;list-style:none;color:${summaryColour};font-size:var(--pryzm-panel-font-size-meta);line-height:1.45;">${safeSummary}</summary>
+                  <div style="margin-top:6px;">${safeBody}</div>
+                </details>`;
+    };
+
     const wireEnvelopeClose = (panel: HTMLDivElement): void => {
         const btn = panel.querySelector('[data-testid="envelope-close"]') as HTMLButtonElement | null;
         if (!btn) return;
@@ -3070,18 +3130,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const safeSiteDataBlock = buildSiteDataBlock(env);
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
+        // §UX1-PROSE-ALTITUDE — the three prose bodies on this card are collapsed behind
+        // summary lines that still state the fact. NOTHING is dropped: the upper-bound and
+        // zone-extent caveats are C58 §1.4 honesty statements, so their summaries carry the
+        // claim ("Footprint = whole parcel — a MAXIMUM extent") and the paragraph explaining
+        // why is one click away. The card's HEADLINE numbers, its confidence badge and its
+        // source line stay unconditionally visible — those are the answer, not the footnotes.
+        const safeUpperBoundBlock = envelopeDisclosureHtml(
+            '<b>Footprint = whole parcel</b> — a maximum extent, not a buildable solid. Why?',
+            safeUpperBoundCaveat, 'warn',
+        );
+        const safeZoneExtentBlock = envelopeDisclosureHtml(
+            '<b>Footprint = zone extent</b> — an upper bound on where you may build. Why?',
+            safeZoneExtentCaveat, 'warn',
+        );
+        const safeSiteDataDisclosure = envelopeDisclosureHtml(
+            'Site data &amp; capacity', `${safeCapacitySection}${safeSiteDataBlock}`,
+        );
         panel.innerHTML =
-            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
-               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;cursor:grab;">
+               <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
              </div>
              ${safeRows}
-             ${safeUpperBoundCaveat}
-             ${safeZoneExtentCaveat}
-             ${safeCapacitySection}
-             <div style="margin-top:9px;display:flex;align-items:center;justify-content:space-between;">
+             ${safeUpperBoundBlock}
+             ${safeZoneExtentBlock}
+             <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
                ${safeSourceLine}
              </div>
-             ${safeSiteDataBlock}
+             ${safeSiteDataDisclosure}
              ${safeWhyBlock}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
@@ -4408,11 +4484,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // but still z-trapped; L-149 keeps the corner intent, fixes the stacking.)
             Object.assign(btn.style, {
                 ...launcherRailStyle('siteView'),
-                appearance: 'none', cursor: 'pointer',
-                padding: '7px 12px', borderRadius: '9px',
-                border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
-                font: '600 12px/1 system-ui, sans-serif',
-                boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+                // §UX1-PANEL-CHROME — the launcher rail is the ONE surface this change
+                // deliberately keeps (it is the reopen route for everything closed by
+                // default, C82 §1.1), so it is made quieter rather than removed: shared
+                // `--pryzm-pill-*` tokens, a tinted border instead of a full-saturation
+                // #6600FF outline on white, and a 1px/10%-alpha shadow instead of 3px/16%.
+                // The hit target is fenced at 26px in tokens.ts (C43 · WCAG 2.2 SC 2.5.8).
+                ...LAUNCHER_PILL_COSMETICS,
+                background: '#ffffff', color: '#6600FF',
             } satisfies Partial<CSSStyleDeclaration>);
             btn.addEventListener('mouseenter', () => { btn.style.background = '#f4f0ff'; });
             btn.addEventListener('mouseleave', () => { btn.style.background = '#ffffff'; });
@@ -4438,11 +4517,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // rail, with the graph pills (slots 2–3) stacked above — no interleaving.
                 Object.assign(planBtn.style, {
                     ...launcherRailStyle('planGis'),
-                    appearance: 'none', cursor: 'pointer',
-                    padding: '7px 12px', borderRadius: '9px',
-                    border: '1px solid #6600FF', background: '#ffffff', color: '#6600FF',
-                    font: '600 12px/1 system-ui, sans-serif',
-                    boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+                    ...LAUNCHER_PILL_COSMETICS,
+                    background: '#ffffff', color: '#6600FF',
                 } satisfies Partial<CSSStyleDeclaration>);
                 planBtn.addEventListener('mouseenter', () => { planBtn.style.background = '#f4f0ff'; });
                 planBtn.addEventListener('mouseleave', () => { planBtn.style.background = '#ffffff'; });
@@ -4473,21 +4549,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 pill.title = title;
                 Object.assign(pill.style, {
                     ...launcherRailStyle(slot),
-                    appearance: 'none', cursor: 'pointer',
-                    padding: '7px 12px', borderRadius: '9px',
-                    border: '1px solid #6600FF',
-                    font: '600 12px/1 system-ui, sans-serif',
-                    boxShadow: '0 3px 12px rgba(20,10,60,0.16)',
+                    ...LAUNCHER_PILL_COSMETICS,
                 } satisfies Partial<CSSStyleDeclaration>);
                 const paint = (): void => {
                     const open = isOpen();
                     pill.style.background = open ? '#6600FF' : '#ffffff';
                     pill.style.color = open ? '#ffffff' : '#6600FF';
+                    pill.style.borderColor = open ? '#6600FF' : LAUNCHER_PILL_BORDER;
+                    // C43 — the pill's state is carried by more than colour: a screen reader
+                    // (and a colour-blind user) reads the pressed state, not the fill.
+                    pill.setAttribute('aria-pressed', open ? 'true' : 'false');
                 };
                 paint();
-                pill.addEventListener('mouseenter', () => { if (!isOpen()) pill.style.background = '#f4f0ff'; });
+                pill.addEventListener('mouseenter', () => { if (!isOpen()) pill.style.background = '#f7f4ff'; });
                 pill.addEventListener('mouseleave', () => { paint(); });
                 pill.addEventListener('click', () => { onToggle(); paint(); });
+                // §UX1-PANEL-DEFAULTS — `Reset panel layout` changes the panels behind these
+                // pills, so the pills must repaint from the shared table. Without this the
+                // rail would keep claiming "open" for a panel the reset just closed — one
+                // question, two answers.
+                onPanelLayoutReset(() => paint());
                 document.body.appendChild(pill);
             };
 
@@ -4512,7 +4593,72 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     else { toggleEnvelopeCard(); }
                 },
             );
-            console.log('[gis][panels] §L-621b re-open pills mounted (Site Analysis + Buildable Envelope).');
+
+            // ── §UX1-PANEL-DEFAULTS — `Reset panel layout` ────────────────────────
+            // D2's obligation: whatever the persistence rule is, the user must be able to
+            // get back to the declared defaults. Ours is SESSION-scoped (see
+            // `panelDefaults.ts` header), so this control is not a "forget my
+            // preferences" button — it is the recovery route when a panel has been
+            // dragged half off-screen or resized to a sliver (all of these panels are
+            // `makeDraggable` + `resize: both`), which is unrecoverable otherwise.
+            //
+            // It lives in this column because this column is the panel surface, and it
+            // is icon-only so adding it does not undo the decluttering it exists to
+            // serve. Slot 7 — appended, so no existing slot index moves (C06 §7.2).
+            //
+            // The listeners registered here are what make the reset REAL rather than a
+            // table update nothing reads: `resetPanelLayout()` mutates the shared state
+            // and then calls every listener, and these two re-apply it to the actual DOM
+            // (visibility AND geometry). A reset that changed the table but left the
+            // panels where they were would be the "committed ≠ reachable" defect.
+            onPanelLayoutReset(() => {
+                envelopeCardHidden = !isPanelOpen('buildable-envelope');
+                applyEnvelopeCardVisibility();
+                if (envelopePanel) {
+                    envelopePanel.style.left = '';
+                    envelopePanel.style.top = '';
+                    envelopePanel.style.width = '';
+                    envelopePanel.style.height = '';
+                }
+            });
+            onPanelLayoutReset(() => {
+                void import('../geospatial/FormaSiteAnalysisControls')
+                    .then((m) => m.FormaSiteAnalysisControls.applyPanelLayoutReset(formaAnalysis))
+                    .catch((e) => console.warn('[gis][panels] analysis reset failed (non-fatal):', e));
+            });
+
+            if (!document.getElementById('pryzm-reset-panel-layout')) {
+                const resetBtn = document.createElement('button');
+                resetBtn.type = 'button';
+                resetBtn.id = 'pryzm-reset-panel-layout';
+                resetBtn.setAttribute('data-testid', 'reset-panel-layout');
+                resetBtn.textContent = '⟲';
+                resetBtn.title = 'Reset panel layout — close the optional panels and restore their default size and position';
+                resetBtn.setAttribute('aria-label', 'Reset panel layout');
+                Object.assign(resetBtn.style, {
+                    ...launcherRailStyle('resetLayout'),
+                    ...LAUNCHER_PILL_COSMETICS,
+                    justifyContent: 'center',
+                    minWidth: 'var(--pryzm-pill-min-height)',
+                    background: '#ffffff', color: '#6600FF',
+                } satisfies Partial<CSSStyleDeclaration>);
+                resetBtn.addEventListener('mouseenter', () => { resetBtn.style.background = '#f7f4ff'; });
+                resetBtn.addEventListener('mouseleave', () => { resetBtn.style.background = '#ffffff'; });
+                resetBtn.addEventListener('click', () => {
+                    const changed = resetPanelLayout();
+                    // Honest feedback: "already at defaults" and "3 panels closed" are
+                    // different facts and must not print the same sentence.
+                    runtime?.events?.emit('pryzm:toast', {
+                        message: changed.length === 0
+                            ? 'Panel layout is already at its defaults.'
+                            : `Panel layout reset — ${changed.length} panel(s) restored to default.`,
+                        severity: 'info',
+                    });
+                });
+                document.body.appendChild(resetBtn);
+            }
+
+            console.log('[gis][panels] §L-621b re-open pills mounted (Site Analysis + Buildable Envelope) + §UX1 reset-panel-layout control.');
         } catch (e) {
             console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);
         }

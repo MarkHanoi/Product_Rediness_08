@@ -34,6 +34,11 @@ import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 // DesignParamsPanel / the Buildable-Envelope card use). Re-evaluates the handle on
 // each mousedown, so it survives this panel's per-render node swaps.
 import { makeDraggable } from '../makeDraggable';
+// §UX1-PANEL-DEFAULTS — the start-up open/closed decision for this panel lives in ONE
+// table (`layout/panelDefaults.ts`), not in this file's `_userHidden` initialiser. C82 §1.1.
+import { panelDefaultOpen, setPanelOpen, isPanelOpen } from '../layout/panelDefaults';
+// C06 §7.3 — no raw z-index literals in edited UI chrome; the panel band is a named token.
+import { zCss } from '../layout/zLayers';
 import {
     openClimatePanel,
     closeClimatePanel,
@@ -172,8 +177,15 @@ export class FormaSiteAnalysisControls {
     private climateEnsureRequested = false;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
      *  across the dispose→new→mount cycle the Forma view does on every Plan/3D
-     *  activation (a per-instance field would reset to "shown" on each switch). */
-    private static _userHidden = false;
+     *  activation (a per-instance field would reset to "shown" on each switch).
+     *
+     *  §UX1-PANEL-DEFAULTS — this literal WAS `false`, i.e. "open on every start".
+     *  It is now seeded from `panelDefaults.PANEL_REGISTRY` ('site-analysis' →
+     *  CLOSED) so the start-up state is declared in ONE table rather than in this
+     *  file's initialiser, and `show`/`hide` write back so the reopen pill and the
+     *  `Reset panel layout` control read the same fact this field does (C82 §1.1:
+     *  the pill is this panel's only route back, so the two must never disagree). */
+    private static _userHidden = !panelDefaultOpen('site-analysis');
 
     private sunUnsub: (() => void) | null = null;
     private climateUnsub: (() => void) | null = null;
@@ -202,17 +214,34 @@ export class FormaSiteAnalysisControls {
         root.className = 'pryzm-forma-analysis';
         root.setAttribute('data-testid', 'forma-analysis-controls');
         Object.assign(root.style, {
-            position: 'absolute', bottom: '16px', right: '14px', zIndex: '31',
-            width: '232px', display: 'flex', flexDirection: 'column', gap: '10px',
-            padding: '12px', background: '#ffffff', borderRadius: '12px',
-            boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
-            font: '500 12px/1.35 system-ui, sans-serif', color: '#2a2240',
+            // §UX1-PANEL-CHROME — every literal below that describes DENSITY (width,
+            // padding, gap, radius, shadow, type size) now reads the shared
+            // `--pryzm-panel-*` tokens in `styles/tokens.ts`, so this panel and the
+            // Buildable-Envelope card stop being two independent opinions about what a
+            // floating site panel looks like — and so the §UI-DENSITY-SCALE lever
+            // reaches them at all (it rewrites the injected stylesheet, which inline
+            // literals like the old `232px` / `12px` were never part of). C06 §6.
+            // §UX1-PANEL-COLUMN (C06 §7.2) — the BOTTOM slot of the declared right-edge
+            // column. Paired with the Buildable-Envelope card's TOP slot; the two tile at
+            // 50vh and can no longer overlap (they previously both claimed the full height).
+            position: 'absolute', bottom: 'var(--pryzm-panel-col-bottom)', right: '14px',
+            zIndex: zCss('panel'),
+            width: 'var(--pryzm-panel-width)', display: 'flex', flexDirection: 'column',
+            gap: 'var(--pryzm-panel-gap)',
+            padding: 'var(--pryzm-panel-pad)',
+            background: 'var(--pryzm-panel-surface)',
+            borderRadius: 'var(--pryzm-panel-radius)',
+            boxShadow: 'var(--pryzm-panel-shadow)',
+            border: 'var(--pryzm-panel-border)',
+            font: '500 var(--pryzm-panel-font-size-body)/1.35 system-ui, sans-serif',
+            color: 'var(--pryzm-panel-ink)',
             // §L-621a — user-RESIZABLE via the same CSS `resize: both` pattern the
             // Buildable-Envelope card uses (GISAreaLayout `ensureEnvelopePanel`). A hard
             // minWidth keeps it from collapsing to a sliver; maxHeight + overflow keep a
             // tall panel (many analysis blocks) on-screen and give the grip something to
             // scroll. `resize` needs a non-visible overflow to take effect.
-            minWidth: '208px', maxWidth: '92vw', maxHeight: 'calc(100vh - 32px)',
+            minWidth: 'var(--pryzm-panel-min-width)', maxWidth: '92vw',
+            maxHeight: 'var(--pryzm-panel-col-max-height-bottom)',
             boxSizing: 'border-box', overflow: 'auto', resize: 'both',
         } satisfies Partial<CSSStyleDeclaration>);
 
@@ -421,7 +450,8 @@ export class FormaSiteAnalysisControls {
         const title = document.createElement('div');
         title.textContent = 'Site analysis';
         Object.assign(title.style, {
-            font: '700 12px/1 system-ui', color: '#2a2240', letterSpacing: '0.01em',
+            font: '600 var(--pryzm-panel-font-size-title)/1 system-ui',
+            color: 'var(--pryzm-panel-ink)', letterSpacing: '0.01em',
         } satisfies Partial<CSSStyleDeclaration>);
         const close = document.createElement('button');
         close.type = 'button';
@@ -448,13 +478,30 @@ export class FormaSiteAnalysisControls {
     /** SITE-PANEL-UI — show the panel (clears the user-hidden flag). */
     show(): void {
         FormaSiteAnalysisControls._userHidden = false;
+        setPanelOpen('site-analysis', true);
         if (this.root) this.root.style.display = 'flex';
     }
 
     /** SITE-PANEL-UI — hide the panel via ✕ or the toolbar toggle. */
     hide(): void {
         FormaSiteAnalysisControls._userHidden = true;
+        setPanelOpen('site-analysis', false);
         if (this.root) this.root.style.display = 'none';
+    }
+
+    /** §UX1-PANEL-DEFAULTS — re-seat this panel on `Reset panel layout`: back to the
+     *  declared default AND back to its authored geometry (the panel is draggable +
+     *  `resize: both`, so a user who parked it off-screen needs the size/position
+     *  cleared too, not just the visibility). */
+    static applyPanelLayoutReset(instance: FormaSiteAnalysisControls | null): void {
+        FormaSiteAnalysisControls._userHidden = !isPanelOpen('site-analysis');
+        const root = instance?.root;
+        if (!root) return;
+        root.style.display = FormaSiteAnalysisControls._userHidden ? 'none' : 'flex';
+        root.style.left = '';
+        root.style.top = '';
+        root.style.width = '';
+        root.style.height = '';
     }
 
     /** SITE-PANEL-UI — toggle visibility; returns the new visible state. */
