@@ -284,6 +284,8 @@ export class ProjectHub {
             // This protects projects created while offline (they have local versions
             // but may not yet be on the server) and free-plan users whose versions
             // never make it to the server.
+            // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — see the census below.
+            const localOnlyWithVersions: string[] = [];
             for (const lp of localById.values()) {
                 if (serverIds.has(lp.id)) continue;
                 try {
@@ -300,12 +302,55 @@ export class ProjectHub {
                     // main thread. `countVersions` reads the container envelope: 15 ms.
                     const hasLocalVersions = versionRepository.countVersions(lp.id) > 0;
                     if (hasLocalVersions) {
-                        console.log(`[ProjectHub] Keeping local-only project ${lp.id} — has unsaved local versions`);
+                        // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — collected and
+                        // reported ONCE below instead of one line per project. Fifty
+                        // identical "Keeping…" lines read as routine chatter; the
+                        // aggregate is the fact that matters and it was never stated.
+                        localOnlyWithVersions.push(lp.id);
                         continue;
                     }
                 } catch { /* read error — keep it to be safe */ continue; }
                 console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data)`);
                 deleteIds.push(lp.id);
+            }
+
+            // ── §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) ────────────────────────
+            //
+            // ⭐ SHIP THE PROBE BEFORE THE FIX. This is NOT cosmetic. The keep-branch
+            // above is CORRECT — it protects offline and free-plan work — but the
+            // work it protects is stored in a place that sign-out destroys:
+            //
+            //   • version history lives in the IndexedDB database
+            //     `pryzm-project-versions` (`VersionCacheStore.ts:40`), and
+            //     `warmVersionCache()` MIGRATES the legacy, non-prefixed
+            //     `bim-project-<id>-versions` localStorage blobs into it, so after
+            //     the first warm that database is the ONLY copy;
+            //   • `purgeUserScopedClientState` (`AuthModal.ts`) deletes EVERY IDB
+            //     database whose name contains "pryzm" on sign-out and on account
+            //     switch — by design, and that security fix must stay
+            //     (§AUTH-SESSION-LEAK);
+            //   • the metadata index `bim-projects-index` is NOT prefixed, so it
+            //     SURVIVES — which means on the next sign-in this very loop re-reads
+            //     `countVersions()` as 0 and takes the PURGE branch below.
+            //
+            // So a local-only project with history is silently deleted one sign-out
+            // later, with no warning at any point. This is the SAME defect shape as
+            // §FIX-THUMBNAIL-DURABILITY — bytes that exist only in a cache the
+            // sign-out purge is entitled to destroy — except it is project data, not
+            // a preview. The durable fix is the same shape too (back-fill to the
+            // server), and it is a real piece of work, not a line in this function.
+            //
+            // What ships HERE is the measurement, because an exposure nobody can see
+            // cannot be prioritised, and the founder's boot log carried FIFTY of
+            // these as ordinary `log` lines. Deliberately `console.warn`.
+            if (localOnlyWithVersions.length > 0) {
+                console.warn(
+                    `[ProjectHub] §PROBE-LOCAL-ONLY-VERSION-EXPOSURE — ${localOnlyWithVersions.length} project(s) ` +
+                    'exist ONLY in this browser: they are absent from the server and their version history is in ' +
+                    'IndexedDB `pryzm-project-versions`, which sign-out and account-switch DELETE. They are kept ' +
+                    'now (correctly), but a sign-out would lose them and the next sync would then purge the rows. ' +
+                    `ids: ${localOnlyWithVersions.join(', ')}`,
+                );
             }
 
             // §FIX-THUMBNAIL-DURABILITY / §CONTEXT-DATA-HONESTY — one census line
