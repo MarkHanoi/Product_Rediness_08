@@ -9787,3 +9787,71 @@ orchestrator-owned files** (`initBuilders.ts` ×2, `initTools.ts` ×1). **Decisi
 `packages/geometry-handrail`, or record the co-location as deliberate with a stated reason. The one
 answer that must not stand is the current one — no reason recorded either way.
 
+## L-1004 — the Render button hands a THIRD renderer the live scene, then disposes it the way L-948 forbids (OPEN, NOT FIXED — found by reading, not reproduced)
+
+**Found while fixing [L-1000](#l-1000), by asking "who else writes `shadowMap.enabled` on a renderer
+they may not own?".** Two independent defects in one file, both of the L-981 family, neither
+reproduced. **Logged rather than fixed** — see "Why this was not fixed here" below.
+
+`apps/editor/src/ui/rendering/RenderPanel.ts:303` passes **`world.scene.three` — the LIVE scene** to
+`PhotorealisticRenderer.renderToImage()`. That method builds its **own** `THREE.WebGLRenderer` on a
+hidden canvas (`PhotorealisticRenderer.ts:88`), sets **`renderer.shadowMap.enabled = true`**
+(`:100`), and calls `renderer.render(scene, camera)` (`:342`).
+
+### Defect 1 — a third claimant on the one `LightShadow.map` slot
+
+This is **structurally identical to L-1000 / L-205**, with a third renderer instead of OBC's. The
+live scene's Pascal key light has exactly ONE `shadow.map`, the WebGPU `ShadowNode` holds its own
+reference to it (`ShadowNode.js:563-564`), and `WebGLShadowMap.render()` with `enabled === true`
+will free and re-claim that slot (`:214` / `:227`). Nothing pauses the live WebGPU loop for the
+duration: `RenderPanel` contains **no** `pause`, `suspend`, `setShadow*`, `renderPipelineManager` or
+`frameScheduler` call.
+
+The `finally` block at `:185` restores `sourceScene.environment` and `sourceScene.background`, under
+the comment *"Restore scene (critical — keeps the BIM authoring view unaffected)"*. **It does not
+restore the shadow-map slot it clobbered.** The author was reasoning about exactly this hazard and
+covered two of the three things this function mutates on the shared scene.
+
+### Defect 2 — a bare `renderer.dispose()` on a renderer that drew the live scene
+
+`:190` ends with `renderer.dispose()`. `§RETIRE-RENDERER-DETACHES-LISTENERS` (L-948) is explicit:
+*"Every site that disposes a live renderer … must call [`retireRenderer`] instead of
+`renderer.dispose()`."* **`retireRenderer` appears NOWHERE in `packages/core-app-model`** (`grep -rn
+retireRenderer packages/core-app-model/src` → 0 hits).
+
+Because this renderer drew the SHARED scene, its `RenderObject`s registered `'dispose'` listeners on
+that scene's real materials and geometries (`RenderObject.js:328-329`). `Renderer.dispose()` does not
+remove them — `RenderObjects.dispose()` is, in full, `this.chainMaps = {}`. So after every Render,
+the dead renderer keeps listening on live materials, and the next dispose of one of them lands in
+`NodeManager.delete()` on `undefined` → **`Cannot read properties of undefined (reading
+'usedTimes')`**.
+
+**That is symptom B's exact error string, from a source that is not the selection path** — and it
+would be an UNCAUGHT throw, because it fires from three's listener, not from inside
+`safeDisposeMaterial`'s `try`. [L-1002](#l-1002) recorded as still-unexplained that the founder's
+`usedTimes` reached `window.onerror` and therefore escaped a `try/catch`. **This is a candidate
+explanation.** It is NOT established: the founder's stack shows a selection path, and nothing in the
+report says a Render had been run.
+
+### Why this was not fixed here
+
+- **Defect 1 cannot be fixed blind.** Shadows are the POINT of a photorealistic export; clearing
+  `shadowMap.enabled` would silently ship shadowless renders. The correct fix is to order the export
+  against the live loop (pause submits, or render a detached scene), and that needs someone who can
+  exercise the Render button. **This lane could not reproduce it headlessly and did not guess.**
+- **Defect 2 is a safe one-line change** (`retireRenderer(renderer)` — it calls `dispose()` itself
+  after detaching, and a classic `WebGLRenderer` mints no RenderObjects so the "never tracked"
+  warning cannot fire). It was still left alone, because shipping half of a two-defect fix into an
+  untestable path is how a shared defect becomes a per-path divergence.
+
+### What is NOT claimed
+
+- That either defect has ever fired in production. **Neither was reproduced.** This was found by
+  reading, prompted by L-1000's question, not by a report.
+- That this explains the founder's `usedTimes`. It is a candidate, nothing more.
+- That `PanoramaCapture.capture()` — named alongside `renderToImage` in
+  `ExportStudioPanel.ts:12` — has or does not have the same shape. **Not audited.**
+
+**Owner:** unassigned. **Next step:** run a Render on a live project with the console open and look
+for `ShadowDepthTexture` / `usedTimes`. That single observation decides whether this is urgent or
+merely latent.
