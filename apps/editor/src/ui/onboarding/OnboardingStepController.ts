@@ -128,6 +128,9 @@ import { enterCanvasWithSitePlanUnderlay } from '../site/overlay/enterCanvasWith
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
+// §UX1-PANEL-DEFAULTS D6 — a guided flow re-arms the onboarding phase.
+import { resetAppPhaseForNewProject } from '../layout/panelDefaults';
+
 /** Default parcel rectangle (metres) — the no-GIS fallback (founder §7.2). Matches
  *  `createSiteFromRect` + `briefBootstrap`'s single-apartment-scale default. */
 const DEFAULT_PARCEL_WIDTH_M = 10;
@@ -395,6 +398,13 @@ export class OnboardingStepController {
     start(): void {
         try {
             console.log('[onboarding-step] starting guided flow (location → draw-or-skip → generate).');
+            // §UX1-PANEL-DEFAULTS D6 — a guided flow IS the onboarding phase. The phase
+            // is a one-way latch, so without this a SECOND project created in the same
+            // session would inherit 'canvas' from the first and run its onboarding with
+            // the launcher rail and the model chrome already on screen. The re-arm verb
+            // is deliberately separate from setAppPhase so it can only be reached from
+            // here — an explicit 'a new guided setup is starting', never a view change.
+            resetAppPhaseForNewProject();
             this.mountOverlay();
             this.renderLocationStep();
         } catch (err) {
