@@ -14369,3 +14369,233 @@ constant. **The upstream question is the one to answer first: our OWN generator 
 walls.** The identical pair-shapes appeared on a *different* gesture (walls-by-slab) in a
 *different* project, so the defect is systemic and plausibly **upstream of the resolver**.
 Establish which end is wrong before touching a threshold. **UNBUILT.**
+
+## L-1170 — the envelope had FOUR answers to "should I be visible?"; hiding wrote one of them ✅ FIXED 2026-08-19
+
+**Lane ENV1 · C58 / C84 EI-1.** Founder, production, on the deployed build: *"I just selected the
+Level 15 top level for roof creation and an ENVELOPE showed up — I tried to hide it but it did not
+work."* A large grey box over his building, and no control that removed it.
+
+**His log carried the mechanism — two consecutive massing renders, opposite outcomes, no click
+between them:**
+
+```
+[gis][c58] §ENVELOPE-RESOLVE-DIAG — envelope OFF (user toggle); not rendered.
+§ENVELOPE-VIA-MASSING render diag: envelope present=n, entities added=0, total massing entities=3338
+    …moments later, same session…
+[gis][c58] §ENVELOPE-REINSET (L-445) — re-inset from the PERSISTED setbacks 0/0/0 m (11-pt ring).
+§ENVELOPE-VIA-MASSING drew 1/1 solid(s): [footprint-slab@0.5m] · provisional grey.
+§ENVELOPE-VIA-MASSING render diag: envelope present=y, entities added=1, total massing entities=3339
+```
+
+### ⭐ FOUR authorities, not two
+
+| # | Who answered | Who could see it |
+|---|---|---|
+| 1 | `formaEnvelopeVisible` — a `let` inside `mountGISArea`'s ~4800-line closure | `resolveFormaEnvelope()`, and nothing else in the program |
+| 2 | `CesiumViewport.formaLastMassingInput.envelope` — a **snapshot** of (1) at some earlier render | replayed by `setVisibleFormaLevels` (⭐ **the floor selector — "selected Level 15"**), `setGlobeBuildingFidelity`, `clampTerrainThenReplace`, `rerenderFormaMassing` |
+| 3 | `formaSiteOverlayEntities` — the L-464/L-468 **survival set** | exempts envelope entities from `setGlobeBuildingShown`, i.e. makes an already-added solid unhideable |
+| 4 | `ParcelBoundarySceneRenderer.buildEnvelopeVolume()` — the BIM/plan three.js volume | **consulted no toggle at all, ever** |
+
+**(4) is the one that matters for his sentence.** He was creating a roof on Level 15 — he was in
+the BIM scene, not on the globe. That surface drew the envelope straight off
+`getLastBuildableEnvelope()` at `ENVELOPE_FALLBACK_HEIGHT_M = 9 m` when no height resolved, and
+the GIS card's `Envelope: OFF` had literally no effect on it. **(2) is the one that matches the
+log:** every Cesium re-render route replays a payload captured earlier, so a floor selection
+re-rasterises whatever the envelope was at snapshot time.
+
+**And a FIFTH hole, in the control itself.** The old `btn.onclick` was a three-way renderer
+picker whose third branch was `else { refreshEnvelopePanel(); }` — it repainted the CARD and
+touched **no scene**. On a 2D result view with the site pane in `map2d`, clicking OFF flipped a
+flag and left the box exactly where it was.
+
+### The fix — one authority plus one chokepoint
+
+`apps/editor/src/ui/site/envelopeVisibility.ts` (new, zero imports):
+`isBuildableEnvelopeVisible()` / `setBuildableEnvelopeVisible()` /
+`subscribeBuildableEnvelopeVisibility()`, persisted to one namespaced `localStorage` key so it
+survives a page reload. Default ON (C58 §1.4 — a silently-absent envelope reads as "no constraint
+here").
+
+⛔ **NOT a fifth check bolted onto the re-inset path** — that would have been a fifth answer. The
+gate sits at the **§1.14 rasteriser** in `CesiumViewport.renderFormaMassing`, the single point
+every replay route converges on:
+
+```ts
+const envHidden = !isBuildableEnvelopeVisible();
+const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
+```
+
+The payload may be stale; the **answer** no longer can be. `ParcelBoundarySceneRenderer` gates the
+same way and both surfaces repaint from the authority's subscription — the toggle now does exactly
+one thing: **write the answer**. Because the Cesium repaint replays the cached input (carrying its
+own `keepPhotoreal`), §FIX-ENVELOPE-TOGGLE-VIEW-SWITCH is honoured **by construction** rather than
+by this handler branching correctly.
+
+**(3) is left alone deliberately** and is no longer a rival: with the gate at add-time, a hidden
+envelope has no entity for the survival set to protect. Its own question — *"does hiding the
+BUILDING hide the site CONSTRAINT?"* — is a different one, and its answer (no) stays right.
+
+**Proof:** `apps/editor/__tests__/envelopeOneVisibility.test.ts` — 11 cases, part behavioural and
+part **structural**. The structural half is the load-bearing one: a behavioural test of a flag is
+precisely this repo's most repeated defect (the flag reads correctly, the box is still on screen).
+It asserts there is **exactly one** `const envSolids =` in `CesiumViewport.ts` and that it is
+gated; that no other path reads `input.envelope` to draw with; that the BIM renderer asks **before**
+it reads; that `GISAreaLayout` holds no private copy; and that the toggle body contains no renderer
+call. Root `tsc --skipLibCheck` clean for every touched file.
+
+⚠ **NOT ESTABLISHED.** Nothing here was verified in a browser by this lane — it is
+browser-testable, not browser-tested. The founder's exact session could not be replayed (his
+project's persisted state is not in the repo), so *which* of the four surfaces he was looking at
+is inferred from his words ("Level 15 … roof creation" ⇒ the BIM scene), not measured.
+
+---
+
+## L-1171 — a 0/0/0 setback "envelope" is the parcel boundary wearing a legal claim ✅ FIXED 2026-08-19
+
+**Lane ENV1 · C58 §1.4 / §1.7a · the §L-616 overstatement family.** The grey box in L-1170 was not
+only unhideable — **it should never have been drawn.**
+
+`re-inset from the PERSISTED setbacks 0/0/0 m` → `maxHeight=n/a` → `provenance not re-derived →
+provisional grey` → one `footprint-slab@0.5m`. Read that back as a **claim** and it states: *"the
+buildable envelope here is the entire parcel, to its very edge, and we cannot tell you a height."*
+That is [[envelope-solid-overstates-partial-data]] (L-616) in its purest form — an **UNKNOWN
+constraint drawn as ZERO** — and C58 §1.4 forbids a picture that states a constraint the system
+cannot state.
+
+### ⭐ The guard was satisfiable by a DEFAULT
+
+`resolveRenderableBuildableEnvelope`'s branch 3 argued its own legality: *"an alignment-governed
+zone stores its ring (so branch 2 already returned) and stores `null` setbacks (so this branch
+cannot fire). Requiring all three to be NUMBERS is therefore equivalent to 'this is a setback
+zone'."*
+
+**`0` is a number.** A zero-FILLED record — a default, a never-populated field, a rule pack that
+answered nothing — passes that test exactly as a derived `3/1.5/3` does.
+[[context-data-honesty-family]]: **failure and empty are the same value**, and the guard could not
+tell them apart.
+
+**And the output carried no information either way.** `insetPolygonPerEdge` at 0/0/0 is the
+**identity** — the "buildable ring" *is* `boundary.polygon`, vertex for vertex — and the parcel
+boundary is already drawn on both surfaces as the violet ring and fill. Zero new pixels, one new
+false legal claim.
+
+**Fix:** refuse, and say why, in `resolveRenderableBuildableEnvelope`
+(`§ENVELOPE-ZERO-INSET-REFUSAL`). Deliberately **narrow**: a *partial* zero (front 0 with real
+side/rear) is a real alignment-to-street rule and still re-insets — widening this to "any zero"
+would delete real envelopes, the opposite failure and the more damaging one. A genuinely
+zero-setback jurisdiction (Barcelona alignment, the DK/Copenhagen §L-619 case) is untouched: it
+persists its solved ring, so branch 2 answers first — pinned by its own test.
+
+**Proof:** 3 new cases in `apps/editor/__tests__/buildableEnvelopeRehydrate.test.ts` (the refusal,
+the partial-zero negative control, and the persisted-ring precedence).
+
+⚠ **NOT ESTABLISHED:** *why* his Barcelona parcel holds `0/0/0` rather than `null` is unanswered —
+this closes the render-side overstatement, not the data defect that produced the zeros. Whoever
+owns the BCN rule pack should establish whether a zero triple is ever written deliberately.
+
+---
+
+## L-1172 — `UNKNOWN 227` in the Project Browser: the elements genuinely have no type ✅ FIXED (read side) 2026-08-19
+
+**Lane ENV1 · C84 EI-8/EI-9.** The founder's Level 15 tree read `WALL 25 · SLAB 1 · **UNKNOWN
+227** · ROOM 1` right after a bulk window create.
+
+### ⭐ This is a hole in the DTO, not a lookup bug — and that is the bigger finding
+
+`groupByType` (`BrowserDataHelpers.ts`) computed `String(el.type ?? el.elementType ?? 'Unknown')`
+and was **reporting accurately**. `DoorOpeningSchema` (`packages/geometry-door/src/DoorTypes.ts`),
+`WindowOpeningSchema` (`packages/geometry-window/src/WindowTypes.ts`) and `BeamData`
+(`packages/core-app-model/src/stores/BeamTypes.ts`) **declare no `type` / `elementType` field at
+all.** They are Zod objects in default STRIP mode, so a caller that passes `type` has it **deleted**
+on the way in: a door record cannot carry its own kind today even deliberately. Every other store
+in `getAllStores` declares one.
+
+**`UNKNOWN` == doors + windows + beams, exactly.** No casing mismatch — the browser's vocabulary is
+already the lowercase `CoreElement.ElementType`, and the uppercase is CSS
+(`text-transform: uppercase`), which is why grepping for `'UNKNOWN'` finds nothing.
+
+### Fix — read side only, and the fallback is PROVENANCE, not a guess
+
+One exported classifier, `elementTypeName(el)`, now used by all **three** sites that carried a copy
+of that expression (`groupByType`, `getTypeElementIds`, `UnifiedBrowserPanel._expandToElement` —
+three copies is how a fix lands in one and not the others). A declared type always wins; the
+fallback is the **store that holds the record**, which is not a guess but the strongest statement
+available — a record returned by `window.doorStore` **is** a door. Memoised per record identity
+(the records are `Object.freeze`d, so the kind cannot be stamped onto them). An element in no known
+store still reports `Unknown`: a row the tree cannot name stays a visible finding.
+
+⛔ **THE ROOT FIX IS THE DTO AND IT IS NOT DONE.** Adding `type` to the three schemas changes the
+persisted shape and every `safeParse` round-trip, so it belongs to the geometry-door /
+geometry-window / core-app-model owners. **Do not close that on the strength of this entry.** When
+the DTO carries `type`, the provenance table goes quiet on its own.
+
+**Proof:** `apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementTypeVocabulary.spec.ts`
+— 8 cases, using door/window/beam records byte-for-byte as the stores freeze them, plus negative
+controls (a declared type is never overridden; an unknown record stays `Unknown`).
+
+⚠ **NOT ESTABLISHED / NOT FIXED — the DOUBLE LISTING.** `ProjectTreeSection.ts` renders each
+door/window **twice** under a level: once as a child row nested under its host wall (via
+`wall.childrenIds` → `WallStore`'s own sub-maps, which *do* carry `type`) and once as a top-level
+group. So `UNKNOWN 227` was already a **double count**, and after this fix it becomes `DOOR n ·
+WINDOW m` alongside the same items under `WALL`. Correctly named, still listed twice. Whether the
+tree should show hosted openings at level scope at all is a UX decision for the founder — logged,
+not silently changed.
+
+---
+
+## L-1173 — `doorsRegistered=0` was UNSATISFIABLE, and two ISSUE-LOG entries believed it ✅ FIXED 2026-08-19
+
+**Lane ENV1 · C15 §12.** The same production log carried `[PickDiag] doorsRegistered=0
+windowsRegistered=0` against ~3,304 openings.
+
+**The counter could never have been non-zero.** `SelectionManager.ts`:
+
+```ts
+const k = pickCtx.elementRegistry.kindOf(eid);
+if (k === 'door') _doorIds++;
+```
+
+`kindOf` returns `userData.elementType` **raw**, and **C15 §12 FREEZES that as PascalCase**
+(`'Door'`, `'Window'` — `DoorBuilder.ts` / `WindowBuilder.ts` stamp exactly those), mandating that
+every consumer normalise via `.toLowerCase()` before comparing. `'Door' === 'door'` is false for
+every door this codebase can build: **pinned at 0 by construction.** Ask *"can this condition ever
+be true?"* before *"why is it zero?"* — [[unsatisfiable-gate-decomposition-is-the-fix]].
+
+**⚠ The false negative was BELIEVED.** ISSUE-LOG **L-912** and **L-913** both conclude *"hosted
+openings are absent from the pick registry"* **from this number**. That conclusion was drawn from a
+counter hard-wired to zero. The openings **are** in `idToObj`, **are** in `registry.ids()`, and
+**are** pickable — which is why the hosted-priority PROMOTION beside it works while the counter
+that exists to explain it lies. Its own neighbours already obey the rule
+(`_HOST.has(String(_hitType).toLowerCase())` three lines down, `hostedPickPriority.ts` ll.64/80,
+`_ensureSelectableCache`). **Anyone re-opening L-912/L-913 should re-measure, not re-read.**
+
+**Fix:** `.toLowerCase()` at the comparison (`§PICKDIAG-CASING`). Two tokens.
+
+**This is a DIFFERENT defect from L-1172** — the brief asked whether the two surfaces share one
+classification bug. They do not. PickDiag reads `THREE.Object3D.userData.elementType` (PascalCase,
+scene graph, C15 §12); the Project Browser reads the store DTO's `type` (lowercase, data model).
+One PascalCase island surrounded by four lowercase vocabularies, with `.toLowerCase()` as the
+mandated bridge. **Two independent defects, two independent fixes.**
+
+⚠ **NOT FIXED, adjacent, found while reading:** (a) `kindOf()` returns `'Door'` into
+`PickResult.elementKind`, whose type `ElementKind` is a strictly-lowercase union — the
+`as ElementKind` cast at the return is what suppresses the compiler error that would have caught
+this, and every downstream bare `===` on `elementKind` inherits it. (b) `bim-door-updated` /
+`bim-window-updated` are **absent** from `cacheInvalidationEvents` while walls/slabs/roofs/floors/
+ceilings all have their `-updated`, so a door rebuilt in place leaves a stale `Object3D` in
+`_selectableCache` (masked in practice because the host wall's `bim-wall-updated` usually fires
+alongside).
+
+---
+
+## L-1174 — two baked context layers 404 in production with no live fallback ⚠ OPEN
+
+**Lane ENV1 (logged, not owned).** Visible in the same founder capture:
+`/api/context-tiles/rail.pmtiles` and `/api/context-tiles/trees.pmtiles` both return **404** in
+production. Two baked context layers are simply missing from the bucket, and there is **no live
+fallback** — see [[context-3d-tiles-not-live-overpass]]: context is served from pre-baked PMTiles,
+so a missing tile file is a permanently blank layer, not a slow one.
+
+Recorded here so it is not lost with the envelope work. **Not investigated by this lane** — owner
+should establish whether these two were ever baked, or were baked and not uploaded.

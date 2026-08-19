@@ -145,6 +145,14 @@ was always the load-bearing artefact; §1.7 simply had not caught up.** So:
 polygon. Reading the three numbers and re-insetting is only valid for `setback` zones and MUST
 NOT be used as a general path — it silently reproduces the pre-ADR-0270 defect.
 
+> ⚠ **AMENDED 2026-08-19 by [§1.16](#116--a-zero-setback-re-inset-is-the-parcel-not-an-envelope-and-must-be-refused-l-1171).**
+> The re-inset implementation defended itself with the argument that *"requiring all three to be
+> NUMBERS is equivalent to 'this is a setback zone'"*, since an alignment zone stores its ring and
+> `null` setbacks. **That test is satisfiable by a DEFAULT: `0` is a number.** A zero-filled record
+> passes it exactly as a derived triple does, and at `0/0/0` the inset is the IDENTITY — the
+> "buildable ring" is the parcel boundary itself, published as a legal claim. §1.16 refuses that
+> case. Do not restore the numbers-only guard.
+
 ### §1.7b — An envelope MAY have MORE THAN ONE TIER, and the single-prism fields are then a lossy summary of a KNOWN kind (ADR-0273, §L-590b)
 
 **Added 2026-07-22.** §1.7a established that the polygon, not the setback triple, is the
@@ -485,6 +493,110 @@ patch treadmill this invariant exists to end.
 over-statement *structurally* impossible — rather than patched pack by pack — is to make the picture
 a pure function of the object the contract already guarantees, and to prove it for every pack in CI.
 
+### §1.15 — The envelope has ONE VISIBILITY AUTHORITY, and the gate sits at the RASTERISER, not at the callers (L-1170)
+
+**Added 2026-08-19 (lane ENV1). Grounded in a founder report on the deployed build:** *"I just
+selected the Level 15 top level for roof creation and an ENVELOPE showed up — I tried to hide it
+but it did not work."*
+
+§1.14 makes the SHAPE of the drawn solid a pure function of the envelope. It says nothing about
+**whether the solid is drawn at all** — and that question had **four** answers:
+
+| # | The answer | Who could see it |
+|---|---|---|
+| 1 | `formaEnvelopeVisible` — a `let` inside `mountGISArea`'s ~4800-line closure | `resolveFormaEnvelope()`, and nothing else in the program |
+| 2 | `CesiumViewport.formaLastMassingInput.envelope` — a **snapshot** of (1) at an earlier render | replayed without re-asking by `setVisibleFormaLevels` (**the floor selector** — the founder's "selected Level 15"), `setGlobeBuildingFidelity`, `clampTerrainThenReplace`, `rerenderFormaMassing` |
+| 3 | `formaSiteOverlayEntities` — the §SITE-OVERLAY-NOT-BUILDING survival set (L-464/L-468) | exempts envelope entities from `setGlobeBuildingShown` — i.e. an already-added solid cannot be hidden |
+| 4 | `ParcelBoundarySceneRenderer.buildEnvelopeVolume()` — the BIM/plan three.js volume | **consulted no toggle whatsoever**, at 9 m fallback height, on the surface the founder was actually working in |
+
+That is [C84](C84-ELEMENT-INTEGRITY.md) **EI-1 / EI-9** — one question, four implementations — and
+the symptom follows mechanically: hiding writes (1), the floor selector re-renders from (2), (3)
+protects what is already there, and (4) never looks.
+
+**Normative:**
+
+1. There MUST be exactly ONE authority for *"is the buildable envelope on screen?"*
+   (`apps/editor/src/ui/site/envelopeVisibility.ts` — `isBuildableEnvelopeVisible()` /
+   `setBuildableEnvelopeVisible()` / `subscribeBuildableEnvelopeVisibility()`). A surface MUST NOT
+   hold a local mirror of it, and a payload carrying envelope solids MUST NOT be treated as
+   evidence that they should be drawn.
+2. ⭐ **THE GATE SITS AT THE RASTERISER, NOT AT THE CALLERS.** `renderFormaMassing` MUST consult the
+   authority *before* the entity-add loop, because every re-render route converges there. Gating at
+   the callers instead re-creates the N-answers shape: a caller can be added without the gate, and
+   a **replayed** payload is by construction a caller nobody re-asked.
+   ```ts
+   const envHidden = !isBuildableEnvelopeVisible();
+   const envSolids = envHidden ? [] : (input.envelope?.solids ?? []);
+   ```
+   The payload may be stale; the **answer** may not be. The same rule binds every other surface
+   that can put an envelope solid on screen — today `ParcelBoundarySceneRenderer`.
+3. The visibility CONTROL may only **write** the authority. It MUST NOT choose a renderer, re-place
+   massing, or change the active view. Surfaces repaint from the authority's subscription. (The old
+   control was a three-way renderer picker whose third branch repainted the card and touched no
+   scene — a control whose effect depended on which of two unrelated view-mode variables happened
+   to be set.)
+4. The user's choice MUST survive a massing re-render, a level/floor switch, and a **page reload**.
+   It is a view preference, not project data: it does not round-trip through the document, is not
+   undoable, is not part of a CRDT merge, and is deliberately NOT project-scoped.
+5. **Default ON**, per §1.4 — an envelope that silently fails to arrive reads as *"there is no
+   constraint here"*, which is the false negative this contract exists to forbid. Only an explicit
+   user "off" may hide it.
+6. **The survival set (3) is NOT a rival and MUST NOT be removed.** It answers a different question
+   — *"does hiding the BUILDING hide the site CONSTRAINT?"* — and its answer (no) is correct. With
+   the gate at add-time, a hidden envelope has no entity for it to protect.
+
+**Binding artefact:** `apps/editor/__tests__/envelopeOneVisibility.test.ts`. It is deliberately part
+**structural**: a behavioural test of a visibility flag is this repo's most repeated defect (the
+flag reads correctly and the box is still on screen), so the test asserts the SHAPE of the source —
+exactly one `const envSolids =` in `CesiumViewport.ts` and it is gated; no other path reads
+`input.envelope` to draw with; the BIM renderer asks before it reads; no private copy survives in
+`GISAreaLayout`; no renderer call in the toggle body.
+
+---
+
+### §1.16 — A ZERO-SETBACK RE-INSET IS THE PARCEL, NOT AN ENVELOPE, AND MUST BE REFUSED (L-1171)
+
+**Added 2026-08-19 (lane ENV1). A §1.4 / §L-616 overstatement, found in the same founder capture.**
+
+The log read `re-inset from the PERSISTED setbacks 0/0/0 m (11-pt ring)` → `maxHeight=n/a` →
+`provisional grey` → one `footprint-slab@0.5m`. Read back as a **claim**, that picture states
+*"the buildable envelope here is the entire parcel, to its very edge, and we cannot tell you a
+height"* — an **UNKNOWN constraint drawn as ZERO**, the exact overstatement §1.4 forbids.
+
+⭐ **§1.7a's re-inset guard was satisfiable by a DEFAULT.** It argued that all three setbacks being
+NUMBERS is equivalent to *"this is a setback zone"*, because an alignment-governed zone stores its
+ring (so the persisted branch already returned) and stores `null` setbacks. **`0` is a number.** A
+zero-FILLED record — a default, a never-populated field, a rule pack that answered nothing — passes
+that test exactly as a derived `3/1.5/3` does: failure and empty are the same value.
+
+**And the output carries no information either way.** `insetPolygonPerEdge` at 0/0/0 is the
+**identity**, so the "buildable ring" *is* `boundary.polygon` vertex for vertex — a polygon already
+drawn on both surfaces as the violet parcel ring and fill. Zero new pixels, one new false legal
+claim.
+
+**Normative:**
+
+1. `resolveRenderableBuildableEnvelope` MUST REFUSE the re-inset branch when
+   `front === 0 && side === 0 && rear === 0`, and MUST say why (`§ENVELOPE-ZERO-INSET-REFUSAL`).
+   Refusing is the §1.13 positive answer; drawing is a claim without evidence.
+2. The refusal is **narrow by design**. A *partial* zero (front 0 with real side/rear) is a genuine
+   alignment-to-street rule whose inset is strictly smaller than the parcel, and MUST still
+   re-inset. Widening this to "any zero" would delete real envelopes — the opposite failure, and
+   the more damaging one.
+3. A genuinely zero-setback jurisdiction (Barcelona alignment; the DK/Copenhagen §L-619 case) is
+   **unaffected**: it persists its solved ring, so the persisted branch answers first. This MUST be
+   pinned by a test, not asserted in prose.
+
+**Binding artefact:** `apps/editor/__tests__/buildableEnvelopeRehydrate.test.ts` — the refusal, the
+partial-zero negative control, and the persisted-ring precedence.
+
+⚠ **OPEN, not owned here:** *why* a Barcelona parcel holds `0/0/0` rather than `null` is
+unanswered. §1.16 closes the render-side overstatement; it does not close the data defect that
+produced the zeros. Whoever owns the BCN rule pack must establish whether a zero triple is ever
+written deliberately — if it is, §1.16 will be hiding a legitimate envelope and the distinction
+must move into the data (an explicit "no setbacks apply" marker) rather than being inferred from
+three zeroes.
+
 ## §2 — Schema
 
 Pure Zod (L0), `packages/schemas/src/elements/site/zoning/` (per **P5**).
@@ -785,6 +897,7 @@ External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (a
 
 | Date | Change |
 |---|---|
+| 2026-08-19 | **§1.15 + §1.16 added — the envelope's VISIBILITY had four authorities, and its 0/0/0 re-inset was an overstatement (lane ENV1, L-1170/L-1171).** Founder on the deployed build: *"I selected the Level 15 top level for roof creation and an ENVELOPE showed up — I tried to hide it but it did not work."* §1.14 makes the drawn solid's SHAPE a pure function of the envelope and says nothing about **whether it is drawn**; that question had FOUR answers (a `let` inside `mountGISArea`'s closure; the `formaLastMassingInput.envelope` SNAPSHOT replayed by the floor selector and three other routes; the §SITE-OVERLAY-NOT-BUILDING survival set; and `ParcelBoundarySceneRenderer`, which consulted no toggle at all) — C84 EI-1/EI-9. **§1.15** mandates ONE authority (`ui/site/envelopeVisibility.ts`) with the gate **at the rasteriser, not at the callers**, because a replayed payload is by construction a caller nobody re-asked; the control may only WRITE; the choice must survive a re-render, a level switch and a page reload; default ON per §1.4. **§1.16** refuses the all-zero re-inset — §1.7a's numbers-only guard is satisfiable by a default, and `insetPolygonPerEdge` at 0/0/0 is the identity, so the drawn "envelope" was the parcel boundary wearing a claim that you may build to the lot edge (§L-616 overstatement). Narrow by design: a PARTIAL zero still re-insets, and a zero-setback jurisdiction that persisted its ring is untouched. Binding artefacts: `apps/editor/__tests__/envelopeOneVisibility.test.ts` (part STRUCTURAL — a behavioural test of a visibility flag is the defect this repo repeats) and three new cases in `buildableEnvelopeRehydrate.test.ts`. ⚠ Neither section is browser-VERIFIED, and **why a Barcelona parcel holds `0/0/0` rather than `null` is unanswered** — §1.16 closes the render, not the data defect. |
 | 2026-07-29 | **Phase 1 (generic-engine leverage) implemented — §10.3 per-edge honesty caveat + §1.11 provider-stamped granularity.** The per-edge front/side/rear setback GEOMETRY was already wired (`insetPolygonPerEdge`/`setbackForClass` key each edge to its own value); the real gap was HONESTY — the uniform-fallback caveat (§10.3) fired only when ALL edges were unclassified, so a uniform value silently substituting on SOME edges went unflagged. Now the caveat fires whenever the fallback is actually applied (gate `allUnclassified`→`anyUnclassified`, `ZoningRulesEngine.ts:266`). §1.11 granularity: the engine now reads `ZoningRecord.granularity ?? 'parcel'` (`:902`) instead of hard-coding `'parcel'`; a coarse provider (Madrid VEDA *ámbito*, Valencia sector) stamps its own granularity, which the engine passes through to `BuildableEnvelope.granularity`. `ZoningRecord` gains an optional `granularity` field (byte-identical serialisation when absent). Barcelona NOT regressed (its setbacks are null → caveat never fires; no granularity stamp → 'parcel'); full `@pryzm/site-parcel-data` suite 948/948, both typechecks clean. |
 | 2026-07-29 | **The envelope PIPELINE is now a ratified per-city REPLICATION STANDARD (ADR-0279).** Barcelona's proven flow is documented end-to-end (stages P0–P11) in the new canonical [`ENVELOPE-REPLICATION-STANDARD.md`](../../04-reference/standards/ENVELOPE-REPLICATION-STANDARD.md) — the envelope sibling of the terrain `CITY-REPLICATION-STANDARD.md`. Ratifies: the generic spine (`computeBuildableEnvelope` + the `GeometricRule` union + the two registries) is invariant; onboarding a city is a data addition at FIVE slots (parcel provider, router predicate, zone source, curated rule pack, registration) + one dispatcher branch, the rule pack being the entire human-gated legal cost; building heights are NOT an envelope prerequisite (ordinance-derived height vs context-scene measured height — the `clau 12b` crossover stays HELD); the three-axis honesty model is non-negotiable. **Records the highest-priority tracked debt: the merge-blocking CI fidelity-label gate mandated by §6 + ADR-0269 does NOT exist** (`tools/ga-gate/check-zoning-fidelity-label.ts` absent) — the "estimate never rendered as authoritative" guarantee rides on convention, not CI. No runtime change; documentation + sign-off gate before new-jurisdiction implementation. |
 | 2026-07-27 | **§5.4 headline-chip rule SHIPPED (STRUCTURAL-SEAM-3, L-630).** The headline confidence chip is no longer the scalar `env.confidence`: `resolveHeadlineProvenance` (`@pryzm/site-parcel-data`, pure L2, unit-pinned) resolves the WEAKEST per-field provenance, and `GISAreaLayout.ts` badges "Estimated" whenever ANY field is estimated — so the header can never out-rank its own rows. The L-630 NL case (`estimated-ruleset` scalar over all-published fields, reduced by the zone-extent footprint) now badges "Zone extent — upper bound", carries a zone-extent caveat, and states the true reason; the false "Default rule pack — real DK/ES zoning coming" caption is suppressed whenever real published fields are present. Seam-1's amber `footprintIsUpperBound` "Max extent" chip/caveat and Seam-4's transient/absent refusal chips are preserved and take precedence. Reconciled the stale `SPEC-COMPLIANCE-REPORT.md` enums in place (6-member `confidence` + 4-member `fieldProvenance`, matching the schema). Grounds `SITE-FEASIBILITY-ARCHITECTURE-AND-SCALING.md` Part 3 §3.3. |

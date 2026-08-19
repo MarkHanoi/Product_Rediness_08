@@ -72,6 +72,93 @@ this deletion order has not yet been executed.
 
 ---
 
+## §0.1 — ⛔ CORRECTION 2026-08-19: §1.2 IS VIOLATED — THERE ARE **TWO** MODEL TREES, AND THE ONE THE FOUNDER READS IS NOT C27's
+
+**Lane ENV1, from a founder report on the deployed build.** His Level 15 node read:
+
+```
+WALL 25 · SLAB 1 · UNKNOWN 227 · ROOM 1
+```
+
+**227 elements on one level classified `UNKNOWN`**, immediately after a bulk window create.
+
+### The measurement §1.2 does not survive
+
+§1.2 states *"Only **one** model-tree component SHALL exist in the codebase. Duplicate trees … are
+a CI violation"*, and names `tools/ga-gate/check-model-tree-count.ts` as the gate. Measured
+2026-08-19:
+
+| Claim | Measured |
+|---|---|
+| one model-tree component | **TWO.** `apps/editor/src/ui/inspect/ModelTree.ts` (C27's, reading `runtime.elementStore`) **and** the shipped **Project Browser** — `apps/editor/src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts` (`title.textContent = 'Project Browser'`) with `unified-browser/ProjectTreeSection.ts` + `unified-browser/BrowserDataHelpers.ts`, reading **17 `window.*Store` legacy globals**. |
+| gate `check-model-tree-count.ts` | **DOES NOT EXIST** (`ls tools/ga-gate/check-model-tree-count.ts` → no such file). §1.2 has never been enforced. |
+| a third | `apps/editor/src/ui/ProjectBrowser/ProjectBrowser.tsx` is a **static React mock** with hard-coded `initialState` — dead relative to the shipped panel, and a trap for anyone grepping "ProjectBrowser". |
+
+**This is the C69 pattern again: nothing owns the surface the user actually reads.** C27 specifies a
+tree that is half-built and gates a duplication rule with a gate that was never written, while the
+tree in front of the founder answers to no contract at all. Its private classification expression —
+three copies of `el.type ?? el.elementType ?? 'Unknown'` — is a direct consequence: an unowned
+surface writes its own vocabulary.
+
+### What `UNKNOWN 227` actually was — ⭐ the elements genuinely have no type
+
+Not a casing mismatch, not a lookup bug. `groupByType` was **reporting accurately**:
+
+- `DoorOpeningSchema` (`packages/geometry-door/src/DoorTypes.ts`), `WindowOpeningSchema`
+  (`packages/geometry-window/src/WindowTypes.ts`) and `BeamData`
+  (`packages/core-app-model/src/stores/BeamTypes.ts`) **declare no `type` / `elementType` field at
+  all.**
+- They are Zod objects in default **STRIP** mode, so a caller that passes `type` has it **deleted**
+  on the way in — a door record cannot carry its own kind today even deliberately.
+- Every other store in `getAllStores` declares one. So **`UNKNOWN` == doors + windows + beams,
+  exactly.**
+- The uppercase is CSS (`.pb-ubp-st-type-name { text-transform: uppercase }`), which is why
+  grepping the source for `'UNKNOWN'` finds nothing.
+
+### Normative, pending a decision on who owns this surface
+
+1. **ONE classifier per tree.** The Project Browser now resolves every element kind through a single
+   exported `elementTypeName(el)` (`unified-browser/BrowserDataHelpers.ts`), consumed by
+   `groupByType`, `getTypeElementIds` and `UnifiedBrowserPanel._expandToElement`. Three copies of
+   one expression is how a fix lands in one and not the others — before this, *"isolate this type"*
+   could collect a different set than the group header it was clicked on. **C84 EI-9.**
+2. **A missing kind is filled from PROVENANCE, never from a guess.** A record returned by
+   `window.doorStore` **is** a door; `getAllStores` already knows which store each row came from.
+   Shape-sniffing (*"it has a `doorType` field, so it is probably a door"*) is forbidden — that is a
+   fourth private vocabulary, **C84 EI-8**.
+3. **A declared type always wins.** The provenance fallback must go quiet on its own the day the
+   DTOs carry `type`.
+4. **An unclassifiable row stays `Unknown` and stays VISIBLE.** Absorbing it into a plausible bucket
+   converts a finding into a silent misreport.
+5. ⚠ **The vocabularies are NOT interchangeable and MUST NOT be merged.** The tree reads the store
+   DTO's `type` (**lowercase**, `CoreElement.ElementType`); the pick registry reads
+   `THREE.Object3D.userData.elementType` (**PascalCase**, FROZEN by
+   [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md)). `.toLowerCase()` is the mandated bridge, and the
+   `[PickDiag]` counter that omitted it (ISSUE-LOG **L-1173**) printed
+   `doorsRegistered=0 windowsRegistered=0` against 3,304 real openings — an **unsatisfiable**
+   condition whose false negative was then quoted as fact in ISSUE-LOG L-912 and L-913.
+
+**Binding artefact:**
+`apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementTypeVocabulary.spec.ts`.
+
+### ⚠ OPEN — three items, none closed by the above
+
+- **The DTO is the root, and it is unfixed.** Adding `type` to the three schemas changes the
+  persisted shape and every `safeParse` round-trip; it belongs to the geometry-door /
+  geometry-window / core-app-model owners. **Do not close it on the strength of the read-side
+  repair.** (ISSUE-LOG **L-1172**.)
+- **Every door and window is listed TWICE per level.** `ProjectTreeSection.ts` renders each as a
+  child row under its host wall (via `wall.childrenIds` → `WallStore`'s own sub-maps, which *do*
+  carry `type`) **and** as a top-level group. `UNKNOWN 227` was therefore already a **double
+  count**; it is now a correctly-named double count. Whether hosted openings belong at level scope
+  at all is a product decision, deliberately not made silently here.
+- **§1.2 itself.** Either C27 owns the shipped Project Browser (and §1.2's "one tree" must be
+  reconciled against two, with the gate actually written), or a contract is minted for it. Until
+  then this §0.1 is the only thing binding it, and a DRAFT contract binds nothing.
+
+
+---
+
 ## §1 — Invariants
 
 ### §1.1 — Inspect is a spatial-intelligence surface
@@ -83,6 +170,15 @@ The Inspect tab is **not a property list**. It is a hierarchical model-tree + vi
 Only **one** model-tree component SHALL exist in the codebase. Duplicate trees (e.g. a sheet picker tree + a separate inspect tree) are a CI violation. Reusers consume the same `<ModelTreeComponent>` and bind a different `onSelectNode` handler.
 
 CI gate: new `tools/ga-gate/check-model-tree-count.ts`.
+
+> ⛔ **VIOLATED, and the gate DOES NOT EXIST — measured 2026-08-19. See [§0.1](#01--correction-2026-08-19-12-is-violated--there-are-two-model-trees-and-the-one-the-founder-reads-is-not-c27s).**
+> There are **two** live trees (`ui/inspect/ModelTree.ts` and the shipped **Project Browser**,
+> `ui/ViewBrowser/panels/UnifiedBrowserPanel.ts` + `unified-browser/ProjectTreeSection.ts`) plus a
+> dead React mock at `ui/ProjectBrowser/ProjectBrowser.tsx`. They read **different data sources**
+> (`runtime.elementStore` vs 17 `window.*Store` globals) and had **different classification
+> expressions** — which is how the founder's tree came to read `UNKNOWN 227`. `ls
+> tools/ga-gate/check-model-tree-count.ts` → **no such file**: this invariant has never been
+> enforced. Do not read §1.2 as a description of the codebase.
 
 ### §1.3 — Isolation is a visibility intent
 
