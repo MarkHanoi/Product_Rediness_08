@@ -75,6 +75,32 @@ function signedArea(pts: ReadonlyArray<Pt2>): number {
 }
 
 /**
+ * §JOIN1-DEGRADATION-IS-NOT-SILENT (L-1270) — why a raked wall took the ADR-0310 uniform
+ * shear instead of the ADR-0312 loft. Each value names a DIFFERENT geometric situation;
+ * they are not interchangeable and must not be collapsed into a boolean.
+ *
+ *  · `probe-index-misaligned` — the junction topology bifurcated within the probe
+ *    elevation. Vanishingly rare by construction; a genuine "cannot answer".
+ *  · `drift-non-finite` / `drift-past-bound` — a degenerate probe artefact.
+ *  · `top-face-overtrimmed` — ⭐ THE FOUNDER'S WEDGE. The wall's mitre corner drifts
+ *    further than the wall is long, so its lofted top face inverts. Real geometry, not
+ *    noise: the joint has consumed the wall's top. The wall is drawn with its own
+ *    uniform shear while its (longer) neighbour lofts, and the shared corner opens.
+ */
+export type RakeJointRefusalReason =
+    | 'probe-index-misaligned'
+    | 'drift-non-finite'
+    | 'drift-past-bound'
+    | 'top-face-overtrimmed';
+
+/** One wall that could not take the lofted joint, with the numbers that say why. */
+export interface RakeJointRefusal {
+    readonly wallId: string;
+    readonly reason: RakeJointRefusalReason;
+    readonly detail: string;
+}
+
+/**
  * §L955-ONE-CORNER-RULE — THE loft: difference a base polygon against its probe-solve
  * twin and scale the per-metre drift to `height`.
  *
@@ -87,28 +113,93 @@ function signedArea(pts: ReadonlyArray<Pt2>): number {
  * Returns null — never a throw — on a non-finite drift, a drift past the geometric bound
  * ({@link RAKE_JOINT_MAX_DRIFT_PER_M}), or a lofted polygon whose orientation flips (an
  * inside-out top). Callers read null as "use the ADR-0310 uniform shear".
+ *
+ * ── §JOIN1-DEGRADATION-IS-NOT-SILENT (L-1270, founder 2026-08-19) ────────────────
+ *
+ * ⛔ THAT LAST SENTENCE DESCRIBES THE FOUNDER'S WEDGE, NOT A SAFETY NET. "Use the
+ * ADR-0310 uniform shear" IS the pre-ADR-0312 geometry — the one whose top corner is
+ * measurably OPEN, and the one this whole loft exists to replace. So on refusal the
+ * caller does not degrade to something weaker-but-sound; it degrades to the DEFECT.
+ *
+ * ⭐ AND THE REFUSAL IS PER-WALL, WHICH IS THE ACTUAL DEFECT. A mitre corner belongs to
+ * TWO walls. Each calls this function about its OWN polygon and each decides alone.
+ * Measured (`L1270RakedJoinShortNeighbour.test.ts`, real store→join→build path):
+ *
+ *     9.237 m wall @80°  ∨  0.5 m return @80°, H = 3 m
+ *       long wall  → LOFT (its top polygon is healthy)
+ *       short wall → orientation flip → UNIFORM
+ *       ⇒ base corner shared to 0 mm, TOP corner 71 mm apart. At H = 4 m, 105 mm.
+ *
+ * The long wall the founder selected is built CORRECTLY. Its 0.5 m neighbour is not,
+ * and the hole is on the corner they share. This is §L955-ONE-CORNER-RULE one level up:
+ * L-955 was three BODY BUILDERS placing one corner by different rules; this is two
+ * WALLS placing one corner by different rules.
+ *
+ * ⭐ WHY THE GUARD IS KEPT, AND WHAT IS FIXED INSTEAD. The flip is REAL, not numerical:
+ * a wall whose mitre corner drifts further than its own length has a top face of
+ * NEGATIVE area — the joint has consumed it. Removing the guard closes the measured gap
+ * to 0 in every case (probe: `alwaysLoft=0.0000`, all rows) but does so with a
+ * self-intersecting bow-tie top, which is a different wrong answer, not a fix. The
+ * architecturally correct solid is one CLIPPED at the height where its top face
+ * degenerates — a height-varying mitre — and that is a change to the extruder's contract
+ * (a wall whose top is a LINE, not a face), deliberately NOT attempted here.
+ *
+ * ⭐ WHAT IS FIXED: the refusal stops being SILENT. `onRefuse` reports it with BOTH
+ * numbers, `WallPipelineV2Cache.rakeJointRefusals()` names every wall that took the
+ * uniform fallback, and `C85 §RAKE-JOINT-OVERTRIM` states the invariant. A refusal and a
+ * success were the same value — the §CONTEXT-DATA-HONESTY failure this repo has now hit
+ * repeatedly — and that is what changes. Do not "fix" this by deleting the guard.
  */
 function loftOffsets(
     base: ReadonlyArray<Pt2>,
     probe: ReadonlyArray<Pt2>,
     height: number,
+    onRefuse?: (reason: RakeJointRefusalReason, detail: string) => void,
 ): Pt2[] | null {
-    if (probe.length !== base.length) return null;
+    const refuse = (reason: RakeJointRefusalReason, detail: string): null => {
+        onRefuse?.(reason, detail);
+        return null;
+    };
+    if (probe.length !== base.length) {
+        return refuse(
+            'probe-index-misaligned',
+            `probe polygon has ${probe.length} vertices, base has ${base.length} — the junction ` +
+            `topology bifurcated under the ${RAKE_JOINT_PROBE_H} m probe`,
+        );
+    }
     const offsets: Pt2[] = [];
     for (let i = 0; i < base.length; i++) {
         const b = base[i]!;
         const p = probe[i]!;
         const vx = (p.x - b.x) / RAKE_JOINT_PROBE_H;   // drift per metre of height
         const vz = (p.z - b.z) / RAKE_JOINT_PROBE_H;
-        if (!Number.isFinite(vx) || !Number.isFinite(vz)) return null;
-        if (Math.hypot(vx, vz) > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
+        if (!Number.isFinite(vx) || !Number.isFinite(vz)) {
+            return refuse('drift-non-finite', `vertex ${i} drifted to a non-finite value`);
+        }
+        const perM = Math.hypot(vx, vz);
+        if (perM > RAKE_JOINT_MAX_DRIFT_PER_M) {
+            return refuse(
+                'drift-past-bound',
+                `vertex ${i} drifts ${perM.toFixed(1)} m per metre of height, past the geometric ` +
+                `bound ${RAKE_JOINT_MAX_DRIFT_PER_M.toFixed(1)}`,
+            );
+        }
         offsets.push({ x: vx * height, z: vz * height });
     }
     // The lofted top polygon must keep the base polygon's orientation — an inverted
     // (bow-tie / negative-area) top would render inside-out. On flip, degrade.
     const baseArea = signedArea(base);
     const topArea = signedArea(base.map((p, i) => ({ x: p.x + offsets[i]!.x, z: p.z + offsets[i]!.z })));
-    if (!(Math.sign(topArea) === Math.sign(baseArea) && Math.abs(topArea) > 1e-9)) return null;
+    if (!(Math.sign(topArea) === Math.sign(baseArea) && Math.abs(topArea) > 1e-9)) {
+        const worst = Math.max(...offsets.map(o => Math.hypot(o.x, o.z)));
+        return refuse(
+            'top-face-overtrimmed',
+            `at height ${height.toFixed(3)} m the lofted top face has area ${topArea.toFixed(4)} m² ` +
+            `against a base of ${baseArea.toFixed(4)} m² (worst corner drift ${worst.toFixed(3)} m) — ` +
+            `the mitre has consumed this wall's top. Its corner falls back to the ADR-0310 uniform ` +
+            `shear while a longer neighbour lofts, so the shared corner OPENS toward the top`,
+        );
+    }
     return offsets;
 }
 
@@ -316,12 +407,25 @@ export class WallPipelineV2Cache {
      *  probe must never override the angle the store actually holds. */
     private _rakeUsed = new Map<string, number>();
 
+    /**
+     * §JOIN1-DEGRADATION-IS-NOT-SILENT (L-1270) — every wall on this level whose lofted
+     * joint was REFUSED, keyed by wall id so a wall reports once per refresh however many
+     * times it is rebuilt. Populated lazily by {@link rakedTopOffsets} and friends, because
+     * the refusal depends on the wall HEIGHT, which `refresh()` does not know.
+     *
+     * ⚠ Read this, not the absence of a warning: an empty map after a build means every
+     * raked wall lofted; a NON-EMPTY map means the corners those walls share with their
+     * neighbours are open at the top by up to the drift named in `detail`.
+     */
+    private _rakeRefusals = new Map<string, RakeJointRefusal>();
+
     refresh(walls: readonly LevelWallSpec[]): void {
         this._byId.clear();
         this._walls.clear();
         this._probeMiters.clear();
         this._probeWalls.clear();
         this._hasRake = false;
+        this._rakeRefusals.clear();
         this._rakeJointSig = '';
         this._rakeUsed.clear();
         // §CONNECT-3 — same clear, same statement block, same lifetime as the miters.
@@ -491,9 +595,19 @@ export class WallPipelineV2Cache {
         const base = baseFootprint.polygon;
         if (base.length < 3) return null;
         const probeFp = buildWallFootprint(probeWall, this._probeMiters.get(wallId) ?? null);
-        if (probeFp.invalid || probeFp.polygon.length !== base.length) return null;
+        if (probeFp.invalid || probeFp.polygon.length !== base.length) {
+            this._recordRakeRefusal(
+                wallId, 'probe-index-misaligned',
+                probeFp.invalid
+                    ? 'the probe footprint is invalid'
+                    : `probe footprint has ${probeFp.polygon.length} vertices, base has ${base.length}`,
+            );
+            return null;
+        }
 
-        return loftOffsets(base, probeFp.polygon, height);
+        // §JOIN1-DEGRADATION-IS-NOT-SILENT (L-1270) — the recorder, not a bare null.
+        return loftOffsets(base, probeFp.polygon, height, (reason, detail) =>
+            this._recordRakeRefusal(wallId, reason, detail));
     }
 
     /**
@@ -557,7 +671,8 @@ export class WallPipelineV2Cache {
             const b = baseBands[i]!.polygon;
             const p = probeBands[i]!.polygon;
             if (b.length < 3 || p.length !== b.length) return null;
-            const offs = loftOffsets(b, p, height);
+            const offs = loftOffsets(b, p, height, (reason, detail) =>
+                this._recordRakeRefusal(wallId, reason, `layer band ${i}: ${detail}`));
             if (!offs) return null;
             out.push(offs);
         }
@@ -676,7 +791,13 @@ export class WallPipelineV2Cache {
         const bifurcated =
             (!!base.startLeft !== !!probe.startLeft) || (!!base.startRight !== !!probe.startRight)
             || (!!base.endLeft !== !!probe.endLeft) || (!!base.endRight !== !!probe.endRight);
-        if (bifurcated) return null;
+        if (bifurcated) {
+            this._recordRakeRefusal(
+                wallId, 'probe-index-misaligned',
+                'a curved cap corner is present in one solve and absent in the other',
+            );
+            return null;
+        }
 
         const out = {
             startLeft:  delta(base.startLeft,  probe.startLeft),
@@ -684,13 +805,64 @@ export class WallPipelineV2Cache {
             endLeft:    delta(base.endLeft,    probe.endLeft),
             endRight:   delta(base.endRight,   probe.endRight),
         };
-        if (!Number.isFinite(worst) || worst > RAKE_JOINT_MAX_DRIFT_PER_M) return null;
+        if (!Number.isFinite(worst) || worst > RAKE_JOINT_MAX_DRIFT_PER_M) {
+            this._recordRakeRefusal(
+                wallId, Number.isFinite(worst) ? 'drift-past-bound' : 'drift-non-finite',
+                `curved cap corner drifts ${worst.toFixed(1)} m per metre of height, past the ` +
+                `geometric bound ${RAKE_JOINT_MAX_DRIFT_PER_M.toFixed(1)}`,
+            );
+            return null;
+        }
         // An unjoined raked wall drifts by zero at every corner. Report that as null, not
         // as four zero vectors: non-null means "this wall needs the lofted cap", and
         // handing back a no-op would push a free-standing arc off its ordinary cap path
         // for no geometric gain. Same convention as `rakeJointCapDrift`.
         if (!(worst > 1e-9)) return null;
         return out;
+    }
+
+    // ─── §JOIN1-DEGRADATION-IS-NOT-SILENT (L-1270) ───────────────────────────
+    //
+    // A refusal and a success were the SAME VALUE — `null` — and nothing anywhere said
+    // which one had happened. That is exactly the §CONTEXT-DATA-HONESTY failure, and it
+    // is why a founder-visible 71 mm hole through a building corner had no line in any
+    // log to grep for. These two members are the whole fix's observable half.
+
+    /** First refusal wins: a wall reports the reason it FIRST could not loft, not the last
+     *  of N rebuilds. Later calls at the same height would restate it; a different height
+     *  is a different question and the first (usually the storey height) is the one the
+     *  author is looking at. */
+    private _recordRakeRefusal(wallId: string, reason: RakeJointRefusalReason, detail: string): void {
+        if (this._rakeRefusals.has(wallId)) return;
+        this._rakeRefusals.set(wallId, { wallId, reason, detail });
+        // ONE line per wall per refresh — bounded by the level's wall count, never
+        // per-frame, because `refresh()` clears the map. `top-face-overtrimmed` is a
+        // user-visible open corner and is warned; the other three are degenerate-probe
+        // arms that also open the corner, so they warn too. There is no quiet arm: the
+        // whole point is that this can no longer happen without a line to find.
+        // eslint-disable-next-line no-console
+        console.warn(
+            `[WallPipelineV2] §JOIN1-DEGRADATION-IS-NOT-SILENT wall ${wallId}: lofted joint ` +
+            `REFUSED (${reason}) — ${detail}. Built with the ADR-0310 uniform shear; the corner ` +
+            `it shares with a lofting neighbour is exact at the floor and OPEN at the top.`,
+        );
+    }
+
+    /**
+     * Every wall on the refreshed level whose ADR-0312 lofted joint was refused, so it was
+     * built with the ADR-0310 uniform shear instead.
+     *
+     * ⚠ NON-EMPTY MEANS AN OPEN CORNER, not merely a slower path. A wall listed here shares
+     * at least one mitre corner with a neighbour that may have lofted, and the two then
+     * place that corner by DIFFERENT rules: exact at the floor, diverging with height.
+     * `detail` carries the measured numbers.
+     *
+     * Empty is a positive answer ("every raked wall on this level lofted"), and it is
+     * distinguishable from "never asked" because it is only ever populated by a BUILD —
+     * `refresh()` cannot know the wall heights the refusal depends on.
+     */
+    rakeJointRefusals(): readonly RakeJointRefusal[] {
+        return [...this._rakeRefusals.values()];
     }
 
     // ─── §CONNECT-3 — the retained-junction lookups ──────────────────────────
