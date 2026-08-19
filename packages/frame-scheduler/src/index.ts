@@ -30,6 +30,30 @@ export { FrameScheduler } from './FrameScheduler.js';
 // summary line per second. Console filter string: `[FrameProfiler]`.
 export { FrameProfiler } from './FrameProfiler.js';
 
+// §PRYZM-PERF — gesture-scoped counter/timer registry (founder perf request,
+// 2026-08-19). The SIBLING of §FRAME-PROFILER, deliberately in the same package
+// and with the same flag shape rather than as a rival convention (C84 EI-8/EI-9):
+// FrameProfiler answers "where does a FRAME go", PerfCounters answers "what did
+// that GESTURE cost, and how many times did we do the expensive thing".
+// Zero cost unless `globalThis.__pryzmPerf === true`. Read via
+// `window.pryzmPerf.report()`.
+export {
+  isPerfOn,
+  armPerf,
+  disarmPerf,
+  perfArmedAtMs,
+  bumpPerf,
+  addPerfTime,
+  notePerf,
+  timePerf,
+  timePerfAsync,
+  perfSnapshot,
+  resetPerfCounters,
+  PERF_KEYS,
+  _resetPerfForTest,
+} from './PerfCounters.js';
+export type { PerfTimer, PerfNote, PerfSnapshot } from './PerfCounters.js';
+
 export type { RafAdapter, RafCallback } from './RafAdapter.js';
 export { GlobalRafAdapter, FakeRafAdapter } from './RafAdapter.js';
 
