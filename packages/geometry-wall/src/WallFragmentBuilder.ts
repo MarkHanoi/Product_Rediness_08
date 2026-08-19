@@ -1985,16 +1985,25 @@ export class WallFragmentBuilder {
         // opening-bearing body. The two compose by construction rather than by arithmetic
         // written twice.
         //
-        // ⛔ NO MITRE — the end faces are perpendicular, the same limitation
-        //    `buildWallHoleBodyGeometry` carries and for the same reason (an extruded
-        //    outline has no per-end plane to project onto). Declared in
-        //    `WallProfileBodyBuilder`'s header and in L-1067; it is why that row stays
-        //    OPEN even though the ring now draws.
+        // ✅ THE MITRE IS BUILT — §FEAT-WALL-PROFILE-MITRE (WJ1, L-1071). This comment used
+        //    to read "⛔ NO MITRE … an extruded outline has no per-end plane to project
+        //    onto", inherited from `buildWallHoleBodyGeometry`. It was the wrong FRAME
+        //    rather than a real constraint: a wall mitre plane is VERTICAL, so in the
+        //    wall-local frame the profile body is already built in, the plane is
+        //    `x = x0 − (n_lat/n_axial)·z` with no `y` in it — a per-vertex shear the
+        //    extruded outline takes fine. `joinData`'s normals are handed straight in;
+        //    absent them the ends stay perpendicular and the geometry is unchanged.
         if (_hasWallProfile) {
             const _profile = resolveWallProfile((wall as { wallProfile?: unknown }).wallProfile);
             const _pGeo = _profile
                 ? buildWallProfileBodyGeometry({
                     ring: _profile.ring, thickness: wallThickness, baseOffset: wallBaseOffset,
+                    // The SAME normals every other body arm consumes, in the SAME world
+                    // frame; the builder rotates them into its own frame with `direction`,
+                    // which is the same unit vector the mesh's `−angle` rotation encodes.
+                    startMN: joinData?.startMN ?? null,
+                    endMN: joinData?.endMN ?? null,
+                    direction: { x: direction.x, z: direction.z },
                 })
                 : null;
             if (_pGeo) {
