@@ -11241,3 +11241,69 @@ route; it does not rescue the first.
 **Verified** 12/12 with `vitest --pool=threads`. The default forks pool could not start a worker on
 this machine — 27-31 concurrent node processes across nine lanes — which is starvation, not a code
 verdict, and is recorded so the next reader does not mistake the one for the other.
+
+---
+
+## L-1057 — the curtain-wall PANEL AUTHORITY is never persisted or loaded; the user's door panel reloads as glass ⛔ OPEN — FILE-FORMAT CHANGE OWED (CW1, 2026-08-19)
+
+C87 CW-B-2 is the family's headline: *"a curtain wall the user authored with a door panel MUST
+render, export and reload with a door panel."* C87 §5 diagnoses the loss at the **create bridge** —
+`panels[]` crosses the `CommandEventBridge` and is dropped at `curtainWallCreatedMirror.ts`.
+
+**That drop is real and it is not why a door panel comes back as glass.** `panels[]` on a create
+payload is not where an authored panel lives. C87 §2 names the authority itself: *"`CurtainPanelStore`
+is the AUTHORITY for the panels."* A user authoring a door writes **there**, through
+`ReplacePanelTypeCommand` / `ReplacePanelWithDoorCommand`.
+
+**Measured 2026-08-19:**
+
+```
+grep -in "curtainpanel\|curtainPanelStore" \
+  apps/editor/src/engine/persistence/ProjectSerializer.ts \
+  apps/editor/src/engine/persistence/ProjectLoader.ts
+-> ZERO matches in BOTH        (the LIVE pair C87's header names as live)
+```
+
+Not a spelling artefact: the `ProjectStores` interface the serializer destructures
+(`ProjectSerializer.ts:804`, consumed `:1017-1024`) **has no curtain-panel member at all**, so there
+is no store for a branch to read even if one existed.
+
+**So the declared authority for panels does not round-trip.** Every per-panel decision — `panelType`
+(all thirteen kinds, door included), `materialOverride`, and all six `hostedDoor` fields (C87 §11 #7,
+which is therefore the same defect and not a separate one) — is destroyed on save **with no error**.
+
+This is C84 **EI-6** verbatim — *"silent non-persistence is the most severe defect this contract
+governs: the user's work is destroyed with no error"* — the **identical shape as `lighting`**
+(C84 §1 defect #2), for a **second family**. ⚠ **C84 §4's curtain-wall EI-6 cell reads a flat `✅`.**
+The WALL persists; an entire authority store beneath it does not, and a per-family tick cannot
+express that. **C84 §4's EI-6 column needs a sub-store axis, or curtain-wall's cell is wrong.**
+
+⭐ **WHY NOBODY NOTICED, and it is L-1053's shape in a different subsystem: the panels are silently
+REGENERATED.** `ProjectLoader` re-adds each wall through `CreateCurtainWallCommand`;
+`CurtainWallStore.add()` synchronously drives `CurtainPanelSyncHandler`; it finds no existing panel
+for any cell and mints every one as `panelType: 'SystemPanel_Glass'`
+(`CurtainPanelSyncHandler.ts:129`). The reload produces a **full, plausible, uniformly-glazed façade
+with the correct cell count**. A wall that came back EMPTY would have been reported years ago.
+**The regeneration is indistinguishable from correct output at every level except the one the user
+authored.**
+
+Pinned by `packages/geometry-curtain-wall/__tests__/CurtainPanelAuthoringIsNotPersisted.test.ts`
+(3/3, REAL `CurtainWallStore` + `CurtainPanelStore` + `CurtainPanelSyncHandler`): arm 1 shows the
+door survives **within** a session, arm 2 shows the reload replaces it with glass **and that the
+façade still looks right**, arm 3 shows `hostedDoor` going the same way.
+
+⛔ **NOT FIXED — it is a FILE-FORMAT change and was escalated rather than half-landed.** The shape:
+a `curtainPanels` array in the snapshot; a load step that seeds `CurtainPanelStore` **before**
+`CurtainWallStore.add()` lets the sync handler regenerate (order is load-bearing — the handler's
+`if (!existing)` guard is what will let seeded panels survive); and a
+[C05](../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md) `SNAPSHOT_SCHEMA_VERSION`
+decision (currently **5**). It touches `ProjectSerializer.ts` and `ProjectLoader.ts`, both shared by
+every family, and it cannot be proven by a unit test — it needs a real save/load.
+
+⚠ **The IFC half is UNMEASURED and probably the same story:** `CurtainWallReader.ts` reads store (3)
+only, so an IFC export carries no per-panel kind either.
+
+⭐ **The transferable lesson: CW-B-2 was aimed at the wrong hop, and closing it as written would not
+have delivered the founder's sentence.** The bridge diagnosis was correct about a real loss and
+wrong about *which* loss the user sees. **Measure at the layer the user experiences — a hop-by-hop
+trace of the wrong payload is still a rigorous answer to the wrong question.**

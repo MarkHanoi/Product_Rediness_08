@@ -165,8 +165,8 @@ fragment builders, the 2-D plan projector, the IFC exporter and persistence all 
 |---|---|---|---|
 | **Renderer (3-D)** | (3) + (4) via `CurtainWallBuilder` | `initBuilders.ts:328` constructs `CurtainWallStore`, `:331` `CurtainPanelStore`; `:22, :325` record that `CurtainWallBuilder` is *owned by its tool*, not registered in `initBuilders`. `CurtainPanelBuilder` is invoked from `CurtainWallBuilder.build()` — pipeline at `CurtainPanelBuilder.ts:9-14` | ✅ |
 | **Plan view** | mesh `userData` stamped by (3)'s builder | `EdgeProjectorService.ts:2389-2394`, cache key `:2441`; `views/plantools/CurtainWallPlanToolHandler.ts`. Liveness depends on `initTools.ts:1477-1482` firing storeEventBus **manually**, because `CurtainWallStore.add()` does not (`:1471-1474`) | ✅ (fragile — see CW-C-2) |
-| **Persistence — save** | (3) ONLY | LIVE `apps/editor/src/engine/persistence/ProjectSerializer.ts:41` (import), `:643-659` `serializeCurtainWall()`, `:1019` `curtainWallStore.getAll().map(serializeCurtainWall)`, `:1104` | ⚠️ **panels lost** |
-| **Persistence — load** | writes (3) via L2 commands | LIVE `ProjectLoader.ts:103` imports `CreateCurtainWallCommand`; Step 11 loop `:1310-1354`, command construction `:1324-1348` — **17 fields, no `panels`** | ⚠️ |
+| **Persistence — save** | (3) ONLY | LIVE `ProjectSerializer.ts:41` (import), `:643-659` `serializeCurtainWall()`, `:1019` `curtainWallStore.getAll().map(serializeCurtainWall)`, `:1104` | ⛔ **STORE (4) IS NEVER READ — see L-1057 below** |
+| **Persistence — load** | writes (3) via L2 commands | LIVE `ProjectLoader.ts:103` imports `CreateCurtainWallCommand`; Step 11 loop `:1310-1354`, command construction `:1324-1348` — **17 fields, no `panels`** | ⛔ **STORE (4) IS NEVER WRITTEN — see L-1057** |
 | **IFC export** | (3) ONLY | `packages/file-format/src/export/ifc/readers/CurtainWallReader.ts:1` imports `CurtainWallStore`, `:7` ctor, `:11` `this.store.getAll()`, `:36` `ifcClass:'IfcCurtainWall'`. Geometry via `ctx.findMesh(item.id)` `:15`, `continue` if absent `:17` | ✅ |
 | **GLB export** | scene meshes | `GLBExporter.ts:188-190` name set `'curtainwall'`/`'curtain-wall'`/`'curtainpanel'`, ancestor check `:200` | ✅ |
 | **Bake worker** | **NOTHING** | `apps/bake-worker/src/session/HeadlessBakeSession.ts` handles `wall` only (C84 EI-1). No curtain-wall producer call site measured | — capability absent |
@@ -174,6 +174,38 @@ fragment builders, the 2-D plan projector, the IFC exporter and persistence all 
 | **AI read model** | (3) | `packages/ai-host/src/AIReadModel.ts:21, :334, :402` | ✅ |
 | **Solar** | meshes | `packages/renderer-three/src/solar/solarSurfaceFilter.ts:59-60` excludes `'curtainwallglass'`, `'curtainglass'` | ✅ |
 | **Plugin DTO store (2)** | — | **zero production readers, both axes** | n/a |
+
+> ⛔ **§L-1057 (2026-08-19) — THE PANEL AUTHORITY IS NEVER PERSISTED AND NEVER LOADED, AND THIS IS
+> CW-B-2's ACTUAL ROOT.** These two rows read *"⚠️ panels lost"*, which is true and understates it by
+> attributing the loss to the create bridge. **Measured:**
+> `grep -in "curtainpanel\|curtainPanelStore" apps/editor/src/engine/persistence/ProjectSerializer.ts
+> apps/editor/src/engine/persistence/ProjectLoader.ts` → **ZERO matches in BOTH.** Not a spelling
+> artefact: the `ProjectStores` interface the serializer destructures (`:804`, consumed `:1017-1024`)
+> **has no curtain-panel member at all**, so there is no store for a branch to read even if one
+> existed.
+>
+> **`CurtainPanelStore` is the declared AUTHORITY for panels (§2), and it does not round-trip.**
+> Every per-panel authoring — `panelType` (all thirteen, door included), `materialOverride`, and
+> `hostedDoor`'s six fields — is destroyed on save with no error. That is C84 **EI-6** verbatim —
+> *"silent non-persistence is the most severe defect this contract governs: the user's work is
+> destroyed with no error"* — the **identical shape as `lighting`** (C84 §1 defect #2), for a
+> **second family**. ⚠ **C84 §4's curtain-wall EI-6 cell reads a flat `✅`.** The WALL persists; an
+> entire authority store beneath it does not, and a per-family `✅` cannot express that.
+>
+> ⭐ **WHY NOBODY NOTICED, and it is the same shape as L-1053 in a different subsystem: the panels
+> are silently REGENERATED.** `ProjectLoader` re-adds each wall; `CurtainWallStore.add()`
+> synchronously drives `CurtainPanelSyncHandler`; it finds no panel for any cell and mints every one
+> as `panelType: 'SystemPanel_Glass'` (`CurtainPanelSyncHandler.ts:129`). The reload produces a full,
+> plausible, uniformly-glazed façade with the correct cell count. **A wall that came back EMPTY would
+> have been reported years ago.** The regeneration is indistinguishable from correct output at every
+> level except the one the user authored.
+>
+> Pinned by `packages/geometry-curtain-wall/__tests__/CurtainPanelAuthoringIsNotPersisted.test.ts`
+> (3/3, REAL stores + REAL sync handler). ⛔ **NOT FIXED — it is a FILE-FORMAT change**
+> (a `curtainPanels` array in the snapshot, a load step that seeds the panel store **before** the sync
+> handler regenerates, and a [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md) `SNAPSHOT_SCHEMA_VERSION`
+> decision — currently 5), touching two files every family shares, and it cannot be proven by a unit
+> test. **Escalated rather than half-landed.**
 
 **No two consumers read different stores. Curtain-wall is NOT a split-brain family** — C84 §4 records
 it `✅ legacy` and this contract confirms it on all six C84 EI-1b consumers. **Recorded `✅`
@@ -370,6 +402,22 @@ output. That half stands unchanged.
 - **CW-B-2.** `panels` and `materialId` MUST reach the authority. Rows 15/15a-f and 16 are the
   minimum bar: a curtain wall the user authored with a door panel MUST render, export and reload
   with a door panel.
+  > ⚠ **RE-AIMED 2026-08-19 (L-1057) — THIS BULLET WAS POINTED AT THE WRONG HOP, AND CLOSING IT AS
+  > WRITTEN WOULD NOT HAVE DELIVERED WHAT IT PROMISES.** Fixing rows 15/16 makes the CREATE payload's
+  > `panels[]` reach the legacy record. **A user does not author a door panel through a create
+  > payload.** They author it through `ReplacePanelTypeCommand` / `ReplacePanelWithDoorCommand`, into
+  > `CurtainPanelStore` — which §2 names as the authority for panels and which **§3's L-1057 block
+  > proves is never persisted and never loaded.** So:
+  > - the **RENDER** half already works *within a session* (arm 1 of the pinning test);
+  > - the **RELOAD** half fails because the panel store does not round-trip — **a persistence gap,
+  >   not a bridge gap**;
+  > - the **EXPORT** half is unmeasured: `CurtainWallReader.ts` reads store (3) only, so an IFC
+  >   export carries no per-panel kind either, for the same reason.
+  >
+  > **CW-B-2 is therefore satisfied by persisting `CurtainPanelStore`, and NOT by the bridge work
+  > rows 15/16 describe.** Both are owed; only one is on the path to the founder's sentence. This is
+  > why a defect must be measured at the layer the user experiences: the bridge diagnosis was correct
+  > about a real loss and wrong about *which* loss the user sees.
 - **CW-B-3.** `migrateToGridSystem` MUST NOT mint ids. Grid-line ids MUST be derived
   deterministically from the wall id and the line index, or the function MUST refuse when
   `gridSystem` is absent. Consuming C73's tolerance/determinism contract is mandatory; a
@@ -853,7 +901,7 @@ Ordered by what the user loses, not by site count.
 | **4** ✅ **CLOSED (half), ⛔ RETRACTED (half)** | `'curtainPanel'` absent from `optionalStores` — **REAL, and fixed** (`3229704a`, L-1050): four L2 commands declared it, two of them *only* it, so their whole snapshot was `{}`. ~~`'curtainWall'` ≠ `'curtainwall'`~~ — **RETRACTED as a live defect**: `createSnapshot` has one call site (`CommandManagerImpl.ts:286`), it takes an L2 `Command`, and all 9 curtain-wall L2 commands spell it camelCase. The lowercase spelling is the **bus**'s and never reaches it | **the rollback that was promised**, for the `curtainPanel` half only | C84 **EI-7d** · L-953. The spelling stays an **EI-1a/EI-8 hazard** in §1 CW-ID-2, not a rollback defect | `check-affected-stores.ts` (C84 §5) — still owed |
 | **5** ✅ **CLOSED** | `migrateToGridSystem` minted `crypto.randomUUID()` on **ELEVEN** `??` call sites, not nine — and the two uncounted ones (`CurtainGridEditor.ts:52`, `CurtainPanelEditor.ts:54`) were the UI's own side, i.e. exactly where the cost landed. Ids are now derived from wall id + axis + index (`derivedGridLineId`), and an unusable spacing falls back to ONE bay instead of to an invalid empty grid | **the grid-line delete button** — on any wall with no stored `gridSystem` the `×` matched nothing, removed nothing, and reported success | [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md) | ✅ `plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts` (5/5) — REAL bus, REAL handlers, REAL DTO store (`ab8b4248`, L-1051) |
 | **6** | Nine of thirteen `PanelType` members have no `PanelKind`; `ReplacePanel.ts:77-79` names three | **ten panel systems** the tool builds and nothing can save | C84 **EI-3**, **EI-9** | enumerate both unions in one test |
-| **7** | `hostedDoor`'s six fields (`CurtainPanelTypes.ts:89-105`) reach no schema, no bridge, no serialiser | **hinge side, swing, sill, both colours** of a curtain-wall door | C84 **EI-2**, **EI-6** | save/load a configured curtain door |
+| **7** ⚠ **SAME DEFECT AS #19, NOT A SEPARATE ONE** | `hostedDoor`'s six fields (`CurtainPanelTypes.ts:89-105`) reach no schema, no bridge, no serialiser — **because they live ONLY on `CurtainPanelData`, in the store that is never written** (L-1057). Fixing panel persistence fixes this row; nothing else needs to | **hinge side, swing, sill, both colours** of a curtain-wall door | C84 **EI-2**, **EI-6** | ✅ measured — arm 3 of `CurtainPanelAuthoringIsNotPersisted.test.ts` |
 | **8** | `curtainwall` is outside `restoreWallAudit`'s `wall\|door\|window` gate (`UpdateElementParameterCommand.ts:410-414`) | audit comparability — the model is not the same model across an undo | [ADR-0319 §2](../adrs/) · **L-952** | undo a parameter change, assert `metadata.version` byte-equal |
 | **9** ✅ **CLOSED, AND IT WAS FAR LARGER THAN THIS ROW** | `material-bridge.ts` parsed a key layout **NOTHING MINTS**. The slot is at index **1** (the producers write `curtainwall｜mullion｜…`, `curtainwall｜panel｜<kind>｜…`); the bridge read index 4, so the `'glazed'` fallthrough fired for **every key of every kind** — **every mullion and transom was built as translucent glass**, and every spandrel/door/opaque panel as glazing. `parts[2]` is the panel's **KIND**, so the unread segment was the whole point of the vocabulary | **the entire material read of the Stack B path** — and CW-B-2's symptom by a second route | C84 **EI-2(a)**, **EI-8**, **EI-9** | ✅ `plugins/curtain-wall/__tests__/committer/MaterialKeyRoundTrip.test.ts` (11/11) — imports the three REAL composers, an EXECUTED equivalence proof (`c229d392`, L-1053). ⚠ Does **not** fix walls: 18 separate files, separate formats |
 | **10** | No Stack A ↔ Stack B parity; `tests/parity/curtain-wall/cw-snapshot.test.ts:19` compares Stack B to itself | nothing today — but every future kernel divergence ships unseen | C84 **EI-11**, **§8.e** | build CW-G-1 |
@@ -866,6 +914,8 @@ Ordered by what the user loses, not by site count.
 | **16** ✅ **CLOSED — NEW, and it sat underneath #5** | `AddCurtainGridLine.ts` / `RemoveCurtainGridLine.ts` read `(cw as any).gridXSpacing` / `.gridYSpacing` off `ctx.stores.curtainwall[id]` — the **L0-parsed** DTO record, whose spacing fields are `bayWidth` / `bayHeight` (`CurtainWall.ts:91,93`). Both reads were `undefined` on **every** execution; `Math.max(1, NaN)` is `NaN`; the loops never ran; the migration returned `{uLines: [], vLines: []}` — **below the module's own ≥2-lines invariant**. The `as any` at both sites is what blinded `tsc`. **The SEVENTH constant-undefined read of this class in this one family** (L-972 found six in the create bridge) | **the grid** — and via the 2-segment undo path, that empty grid reaches the AUTHORITATIVE legacy record, which `CurtainWallBuilder` reads as truthy and turns into **zero cells** | C84 **EI-2(b)**, **EI-2(c)** | ✅ `GridLineIdentity.test.ts` asserts `rec.gridXSpacing` is `undefined` on the record the handler is handed — an in-file negative control (`ab8b4248`, L-1052). ⚠ **C87 §6 listed these two verbs as "works today". That was measured on the PATH, not on the VALUE.** |
 | **17** ⚠ **OPEN — NEW, and it replaces #2** | `curtain-wall.replacePanel` resolves `ctx.stores['curtainPanelStore']`, a key that **cannot exist**: `ctx.stores` is `storesAsRecordView(stores)` (`bootstrap.ts:94,148-159`), `stores` is filled only by `stores[plugin.storeKey]` over `ALL_PLUGINS` (`bootstrap.everything.ts:145`), no descriptor declares it, `composeRuntime.ts:889` passes no override, and `CommandBus.buildContext:285-293` never falls back to a global (ADR-002 §3). **And two production panels still offer it** — `CurtainPanelEditor.ts:250`, `CurtainSubElementPanel.ts:319` — plus chat (`ChatCommandClassification.ts:109`) | **changing a curtain-wall panel's type**, entirely. The reason surfaces only as a `console.warn` naming an internal variable | C84 **EI-3** / **EI-7a** — the offered control, which is the half C16 CA-18 does not reach | ✅ pinned (3/3). ⛔ **THE FIX IS A ROUTING DECISION AND IS OWED.** CW-P-2's exits: (a) route the write per C16 **CA-17** — the L2 `ReplacePanelTypeCommand` **does** receive a real `context.stores.curtainPanelStore` (`types.ts:467`) and now snapshots correctly (#4), so repointing the two panels at it is the short path — or (b) disable the controls while the verb refuses |
 | **18** ⚠ **OPEN — NEW** | Stack B ignores `baseOffset` entirely: **0** occurrences across `producers/curtainwall.ts` and all four `_internal/curtain-wall/*.ts`, while its five sibling producers (`slab`, `column`, `structural`, `plumbing`, `wall`) all compute `worldY + <x>.baseOffset`. Stack A folds it in at `CurtainWallBuilder.ts:1092`. The stacks also disagree on horizontal origin (CENTRE vs START) | a spandrel-hung or recessed curtain wall is at the **wrong height** in any Stack B consumer, by exactly its `baseOffset` | [C73 §1.1](C73-GEOMETRY-DETERMINISM-AND-TOLERANCE.md), C84 **EI-11** | ⛔ **deliberately NOT fixed here.** `produceCurtainWall` has **zero production callers**, and changing it invalidates all 23 byte-equality fixtures — which CW-G-2 forbids blessing casually. Fix + fixture regeneration owed as its own commit; **it blocks CW-G-1 (#10)** |
+
+| **19** ⛔ **OPEN — NEW, AND IT IS CW-B-2's ACTUAL ROOT** | `CurtainPanelStore`, the declared AUTHORITY for panels (§2), is **never persisted and never loaded**: zero matches for `curtainpanel`/`curtainPanelStore` in **both** LIVE persistence files, and `ProjectStores` (`ProjectSerializer.ts:804`) has no member for it. On reload `CurtainPanelSyncHandler` regenerates every cell as `SystemPanel_Glass`, producing a **plausible uniformly-glazed façade with the right cell count** — which is why it was never reported | **every per-panel decision the user made**: panel type (all 13 kinds), `materialOverride`, and all six `hostedDoor` fields. Destroyed on save, with no error | C84 **EI-6** — *"the most severe defect this contract governs"* — the same shape as `lighting`, second family. ⚠ **C84 §4 grades curtain-wall EI-6 `✅`** | ✅ `packages/geometry-curtain-wall/__tests__/CurtainPanelAuthoringIsNotPersisted.test.ts` (3/3). ⛔ **NOT FIXED — file-format change**: a `curtainPanels` snapshot array, a load step seeding the store BEFORE the sync handler regenerates, and a C05 `SNAPSHOT_SCHEMA_VERSION` decision. Touches two files every family shares |
 
 ⚠ **Non-regression note on #1.** The 2-segment `gridSystem` path (`addGridLine`/`removeGridLine`)
 **works today**. Any change to `elementUndoStoreAdapter.ts:287-339` MUST be proven not to move it —
@@ -964,7 +1014,8 @@ comment were the wrong ones, and the honest blanks in the NOT-MEASURED register 
 | §11 #11: the cascade subscriber *"was NOT LOCATED"* | a grep for the mechanism the comment named | ⛔ **REFUTED** — it is `initUI.ts:2263-2287`. **A search for a NAMED mechanism cannot find the REAL one** |
 | §11 #14 / CW-C-2: *"`CurtainWallStore.add()` does not emit"* | a comment in `initTools.ts` asserting it | ⛔ **REFUTED** — `add()` → `this.emit()` → `storeEventBus.emit()`. The invariant CW-C-2 demanded was already held; the real residue is a duplicate event |
 | §6: `addGridLine`/`removeGridLine` *"survive the flatten … works today"* | tracing the PATH depth | ⚠ **REFUTED ON THE VALUE** — the path survives and carries an **empty grid** built from `undefined` spacings (#16). *Measuring the path is not measuring the value* |
-| §5 rows 15/16 (`panels`, `materialId` DROPPED) | measured | ✅ **CONFIRMED** — unchanged, and CW-B-2 is still the headline |
+| §5 rows 15/16 (`panels`, `materialId` DROPPED) | measured | ✅ **CONFIRMED as a loss, ⚠ RE-AIMED as a cause** — the drop is real, and it is **not** why a door panel reloads as glass. See the next row |
+| **CW-B-2**: the door panel is lost **at the bridge** | §5's hop-by-hop trace of the CREATE payload | ⚠ **RE-AIMED (L-1057)** — a user authors a door into `CurtainPanelStore`, not into a create payload, and **that store is never persisted or loaded** (0 matches in both LIVE persistence files; `ProjectStores` has no member for it). **Closing rows 15/16 as written would not have delivered the founder's sentence.** C84 EI-6, and C84 §4 grades this family `✅ persists` |
 | NOT-MEASURED rows 1, 2, 3 | honestly blank | ✅ **ALL THREE CLOSED**, none of them by discovering the blank was wrong. **The blanks were safe; the confident rows were not** |
 
 > ⭐ **THE TRANSFERABLE LESSON, and it is the reason this appendix exists rather than a silent
