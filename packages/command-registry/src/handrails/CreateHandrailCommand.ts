@@ -76,6 +76,27 @@ export class CreateHandrailCommand implements Command {
              * inside `execute()`, so every redo produced a different one.
              */
             ifcGuid?: string,
+            /**
+             * §L-1102 / §L-1037 — THE RESTORE FIELDS.
+             *
+             * These are not authored by any tool; they exist so a RELOAD can
+             * reconstruct the record it saved. Before them the loader could only
+             * hand back the fields this constructor happened to accept, so
+             * `properties` (and with it the `HR001` mark) was re-minted on every
+             * reload, and `railStructure` / `parameters` / `metadata` were lost
+             * outright — C95 §16's measurement of 7 surviving fields of ~26.
+             *
+             * ⚠ `properties` is MERGED, not replaced: `HandrailStore.add()` mints
+             * `properties.mark` from the map size when absent, so a restore that
+             * carries the saved mark keeps it, and one that does not still gets a
+             * mark. Absent → previous behaviour, bit-identical.
+             */
+            properties?: Record<string, unknown>,
+            railStructure?: unknown[],
+            parameters?: Record<string, unknown>,
+            metadata?: Record<string, unknown>,
+            spatialRelationship?: { levelId: string; buildingId?: string; siteId?: string },
+            childrenIds?: string[],
         }
     ) {
         // §PERSIST-L1 (W1-2) — adopt the supplied GUID, mint only in its absence,
@@ -142,7 +163,14 @@ export class CreateHandrailCommand implements Command {
             suppressStartPost: this.data.suppressStartPost,
             hostId:            this.data.hostId,
             hostKind:          this.data.hostKind,
-            properties: {},
+            // §L-1102 — the saved `properties` (mark, phase, user parameters) when
+            // restoring; `{}` for a genuinely new rail, which is what this was.
+            properties: this.data.properties ? { ...this.data.properties } : {},
+            railStructure:       this.data.railStructure as any,
+            parameters:          this.data.parameters,
+            metadata:            this.data.metadata,
+            spatialRelationship: this.data.spatialRelationship,
+            childrenIds:         this.data.childrenIds ? [...this.data.childrenIds] : undefined,
             // §PERSIST-L1 (W1-2) — the ifcClass/predefinedType still come from the
             // canonical mapper; only the guid is overridden with the one resolved at
             // construction time, so a restored handrail keeps the guid it was saved

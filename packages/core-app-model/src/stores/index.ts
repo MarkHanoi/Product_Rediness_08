@@ -91,6 +91,11 @@ export type { HandrailFillType, HandrailRailProfile, HandrailBalusterShape } fro
 export { HandrailStore } from './HandrailStore.js';
 export type { HandrailTypeDefinition } from './HandrailTypeStore.js';
 export { HandrailTypeStore, handrailTypeStore } from './HandrailTypeStore.js';
+// §L-1102 / §L-1037 — the ONE handrail persistence pair. Both ProjectSerializer
+// copies call `serializeHandrailRecord`; both ProjectLoader copies call
+// `buildHandrailCreatePayload`. Do not hand-assemble either side again.
+export { HANDRAIL_TRANSIENT_FIELDS, serializeHandrailRecord, buildHandrailCreatePayload } from './handrailPersistence.js';
+export type { SerializedHandrail, HandrailCreatePayload } from './handrailPersistence.js';
 
 // §FEAT-CURTAIN-WALL-TYPE-CATALOGUE (L-958) — the curtain-wall type catalogue,
 // the same shape as the handrail one above. See the store's header for why it

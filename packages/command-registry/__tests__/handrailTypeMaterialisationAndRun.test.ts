@@ -39,7 +39,7 @@ import { HandrailFragmentBuilder } from '@pryzm/geometry-handrail';
 import { segmentsFromVertices, rectangleLoopVertices } from '@pryzm/geometry-handrail';
 import { CreateHandrailCommand } from '../src/handrails/CreateHandrailCommand';
 import { CreateHandrailRunCommand } from '../src/handrails/CreateHandrailRunCommand';
-// L-987 — the THREE byte-identical handrail snapshot implementations, imported by
+// L-987 — the byte-identical handrail snapshot implementations, imported by
 // path because two of them are unreachable by name from their own barrels (see
 // each file's header). Relative paths, not package specifiers: the packages'
 // `exports` maps do not publish these paths, which is itself part of the
@@ -52,10 +52,6 @@ import {
     serializeHandrailSnapshot as serializeDup2,
     deserializeHandrailSnapshot as deserializeDup2,
 } from '../../core-app-model/src/stores/handrailSnapshotUtils2';
-import {
-    serializeHandrailSnapshot as serializeDup3,
-    deserializeHandrailSnapshot as deserializeDup3,
-} from '../../geometry-stair/src/handrailSnapshotUtils';
 import type { CommandContext } from '../src/types';
 
 const LEVEL_ID = 'L0';
@@ -351,7 +347,14 @@ describe('§FEAT-HANDRAIL-CREATION-PARITY — a run is ONE command, ONE undo ent
 });
 
 
-describe('L-987 — three byte-identical handrail snapshot implementations, PINNED not merged (C84 EI-9)', () => {
+describe('L-987 — the byte-identical handrail snapshot implementations, PINNED not merged (C84 EI-9)', () => {
+    // ⚠ MEASURED 2026-08-19: L-987 counted THREE copies. The third,
+    // `packages/geometry-stair/src/handrailSnapshotUtils.ts`, no longer exists —
+    // it went with the geometry-handrail package split (d8de90c4 / 9acf58d3 /
+    // 86449a3c). Its import stood here and made this ENTIRE FILE fail to resolve,
+    // so all 12 assertions below had stopped running while the suite reported
+    // only a load error. Two copies remain, and the count is stated as measured
+    // rather than as remembered.
     // A rich record: every field this lane added, plus the pre-existing ones, so a
     // future whitelist introduced into ANY of the three fails here rather than
     // silently dropping a field on the next Ctrl+Z.
@@ -366,17 +369,15 @@ describe('L-987 — three byte-identical handrail snapshot implementations, PINN
         properties: { mark: 'HR001' },
     } as unknown as HandrailData;
 
-    it('all three serialize identically', () => {
+    it('both remaining copies serialize identically', () => {
         const a = serializeAuthority(rich);
         expect(serializeDup2(rich)).toBe(a);
-        expect(serializeDup3(rich)).toBe(a);
     });
 
-    it('all three round-trip the record WHOLE — no field whitelist in any of them', () => {
+    it('both round-trip the record WHOLE — no field whitelist in any of them', () => {
         for (const [ser, de] of [
             [serializeAuthority, deserializeAuthority],
             [serializeDup2, deserializeDup2],
-            [serializeDup3, deserializeDup3],
         ] as const) {
             expect(de(ser(rich))).toEqual(rich);
         }

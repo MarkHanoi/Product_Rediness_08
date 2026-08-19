@@ -22,6 +22,7 @@
  */
 
 import { vgGovernanceStore } from '@pryzm/core-app-model';
+import { serializeHandrailRecord } from '@pryzm/core-app-model/stores';
 import { semanticIndex } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { visibilityRuleEngine } from '@pryzm/core-app-model';
@@ -625,16 +626,20 @@ function serializeFurniture(f: any): any {
 
 // ── Handrail serialization ───────────────────────────────────────────────────
 
+/**
+ * §L-1102 / §L-1037 — SAVE goes through the ONE exported serialiser.
+ *
+ * This used to be a hand-written 10-field whitelist, duplicated byte-for-byte in
+ * `packages/persistence-client`. C95 §16 measured it: 14 authored fields
+ * (`fillType`, `railProfile`, `postSpacing`, `hostId`, …) were never written at
+ * all, so a Frameless Glass Balustrade reloaded as a grey rectangular one.
+ *
+ * `serializeHandrailRecord` inverts the default — it emits the record MINUS the
+ * NAMED transient list in `handrailPersistence.ts`. A field added to
+ * `HandrailData` now reaches the snapshot without anyone editing this file.
+ */
 function serializeHandrail(h: any): any {
-    return {
-        id: h.id, type: h.type, levelId: h.levelId, parentId: h.parentId,
-        baseLine: stripBaseline(h.baseLine),
-        height: h.height, thickness: h.thickness,
-        baseOffset: h.baseOffset,
-        materialId: h.materialId, materialColor: h.materialColor,
-        properties: h.properties ? { ...h.properties } : {},
-        ifcData: h.ifcData ? { ...h.ifcData } : undefined
-    };
+    return serializeHandrailRecord(h);
 }
 
 // ── Plumbing serialization ───────────────────────────────────────────────────

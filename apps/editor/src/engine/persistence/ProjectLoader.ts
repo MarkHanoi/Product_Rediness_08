@@ -51,6 +51,7 @@ import { CommandManager } from '@pryzm/command-registry';
 // macrotask, so the load completes instead of parking at 0 Hz. No new rAF.
 import { yieldForProgress, scheduleProgress, isHiddenForProgress } from '@pryzm/frame-scheduler';
 import { storeEventBus } from '@pryzm/core-app-model';
+import { buildHandrailCreatePayload } from '@pryzm/core-app-model/stores';
 // §PERF-L03-PHASE (L-03) — gated per-phase load timing; OFF unless globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfLog } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
@@ -1247,19 +1248,13 @@ export class ProjectLoader {
             // ── Step 9: Handrails (priority 25) ───────────────────────────────
             console.log(`[ProjectLoader] Loading ${snapshot.handrails.length} handrails`);
             for (const hr of snapshot.handrails) {
-                const bl = hr.baseLine;
-                const cmd = new CreateHandrailCommand({
-                    id: hr.id,
-                    start: { x: bl[0].x, z: bl[0].z },
-                    end: { x: bl[1].x, z: bl[1].z },
-                    height: hr.height,
-                    thickness: hr.thickness,
-                    levelId: hr.levelId,
-                    baseOffset: hr.baseOffset,
-                    // §PERSIST-L1 (W1-2) — carry the persisted IFC GUID; it is the IFC
-                    // round-trip join key and was re-minted on every reload.
-                    ifcGuid: hr.ifcData?.guid
-                });
+                // §L-1102 / §L-1037 — LOAD goes through THE ONE payload builder.
+                // The hand-assembled 8-field literal that stood here carried
+                // neither `materialId` (which SAVE wrote and this side discarded)
+                // nor any of the 14 fields SAVE never wrote. It is now a single
+                // call, shared with the persistence-client loader, so save and
+                // load are a PAIR rather than two lists that agree by habit.
+                const cmd = new CreateHandrailCommand(buildHandrailCreatePayload(hr) as any);
                 const r = exec(cmd);
                 r.success ? result.loaded++ : this.recordFail(result, `Handrail ${hr.id}`, r);
             }
