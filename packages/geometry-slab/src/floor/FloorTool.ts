@@ -1081,14 +1081,29 @@ export class FloorTool {
     }
   }
 
-  private _resolveElevation(): void {
+  /**
+   * §AUTO-FROM-ROOM-SAYS-WHICH (L-1017) — resolve the ACTIVE level's elevation.
+   *
+   * Returns the level id it resolved against, or null when it could not resolve
+   * one. `level?.elevation ?? 0` used to swallow that: an unresolvable level and a
+   * level genuinely at datum produced the same `_levelElevation = 0`, so the tool
+   * silently cast its pick ray through the ground plane of a storey that does not
+   * exist. The caller decides what to do about null; this only reports it.
+   */
+  private _resolveElevation(): string | null {
     try {
       const bm = this._deps.getBimManager?.();
       const levelId = projectContext.activeLevelId;
-      const level = bm?.getLevelById(levelId);
-      this._levelElevation = level?.elevation ?? 0;
+      const level = levelId ? bm?.getLevelById(levelId) : undefined;
+      if (!levelId || !level || typeof level.elevation !== 'number') {
+        this._levelElevation = 0;
+        return null;
+      }
+      this._levelElevation = level.elevation;
+      return String(levelId);
     } catch {
       this._levelElevation = 0;
+      return null;
     }
   }
 
@@ -1106,25 +1121,82 @@ export class FloorTool {
     this._onRoomPick = (e: PointerEvent) => {
       if (!this._isActive || e.button !== 0) return;
       e.preventDefault();
-      const worldPt = this._raycastGroundPlane(e, dom);
-      if (!worldPt) return;
 
-      const levelId = projectContext.activeLevelId;
-      const roomStore = window.roomStore; // TODO(TASK-08)
-      if (!roomStore || !levelId) {
-        console.warn('[FloorTool] AUTO_FROM_ROOM: roomStore or levelId not available');
+      // §AUTO-FROM-ROOM-SAYS-WHICH (L-1017) — RE-RESOLVE THE LEVEL ON EVERY PICK.
+      //
+      // `_levelElevation` was resolved ONCE, in activate(), and never again — the
+      // `ffl:` value printed in the activation log is the one the tool kept using
+      // for the rest of the session. But the room filter three lines below reads
+      // `projectContext.activeLevelId` LIVE. Change the active level with the tool
+      // still armed and the two disagree: the pick ray is cast through the OLD
+      // storey's ground plane while rooms are filtered by the NEW storey's id. For
+      // any camera that is not perfectly overhead, a plane at the wrong Y returns a
+      // laterally DISPLACED x/z — so a click well inside a room lands outside its
+      // polygon and the tool reports "no room found at clicked point" about a room
+      // the user can see under the cursor. (Founder: tool logged `ffl: 9.075` while
+      // the level-plane locks in the same session were at 7.8.)
+      const levelId = this._resolveElevation();
+      if (!levelId) {
+        console.warn(
+          '[FloorTool] AUTO_FROM_ROOM: no ACTIVE LEVEL could be resolved — ' +
+          'this is not "no room here", it is the tool not knowing which storey it is on. ' +
+          'Pick a level first.',
+        );
         return;
       }
 
-      const rooms: any[] = roomStore.getAll().filter((r: any) => r.levelId === levelId);
+      const worldPt = this._raycastGroundPlane(e, dom);
+      if (!worldPt) {
+        // Previously a bare `return` — the one outcome that said NOTHING AT ALL.
+        console.warn(
+          `[FloorTool] AUTO_FROM_ROOM: the click ray did not meet the floor plane of ` +
+          `level "${levelId}" (ffl ${(this._levelElevation + this._finish().baseOffsetM).toFixed(3)}). ` +
+          'Nothing was tested against any room — try a less oblique camera angle.',
+        );
+        return;
+      }
+
+      const roomStore = window.roomStore; // TODO(TASK-08)
+      if (!roomStore) {
+        console.warn('[FloorTool] AUTO_FROM_ROOM: roomStore not available');
+        return;
+      }
+
+      // §AUTO-FROM-ROOM-SAYS-WHICH (L-1017) — FOUR different facts used to share
+      // ONE sentence, "no room found at clicked point": (1) this level has no rooms
+      // at all, (2) it has rooms but none carries a boundary polygon, (3) it has
+      // bounded rooms and the click genuinely missed them, and (4) the ray never
+      // hit the plane (handled above, and it printed nothing whatsoever). Only (3)
+      // is about where the user clicked. The other three are about the model or the
+      // tool, and telling a user "no room here" when the truth is "this level has
+      // one room and it has no boundary" sends them to look in the wrong place.
+      const allRooms: any[] = roomStore.getAll() ?? [];
+      const rooms: any[] = allRooms.filter((r: any) => r.levelId === levelId);
+      const bounded = rooms.filter((r: any) => Array.isArray(r.boundary?.polygon) && r.boundary.polygon.length >= 3);
       const clickedPt = { x: worldPt.x, z: worldPt.z };
-      const room = rooms.find(r => {
-        const poly = r.boundary?.polygon;
-        return poly && this._pointInPolygon(clickedPt, poly);
-      });
+      const room = bounded.find(r => this._pointInPolygon(clickedPt, r.boundary.polygon));
 
       if (!room) {
-        console.warn('[FloorTool] AUTO_FROM_ROOM: no room found at clicked point');
+        const where = `(${clickedPt.x.toFixed(2)}, ${clickedPt.z.toFixed(2)})`;
+        if (rooms.length === 0) {
+          console.warn(
+            `[FloorTool] AUTO_FROM_ROOM: level "${levelId}" has NO ROOMS at all ` +
+            `(${allRooms.length} room(s) exist on other levels) — detect rooms on this level first. ` +
+            `The click at ${where} was never tested against anything.`,
+          );
+        } else if (bounded.length === 0) {
+          console.warn(
+            `[FloorTool] AUTO_FROM_ROOM: level "${levelId}" has ${rooms.length} room(s) but NONE ` +
+            `has a boundary polygon, so none can be hit-tested. This is a room-detection gap, ` +
+            `not a mis-click at ${where}.`,
+          );
+        } else {
+          console.warn(
+            `[FloorTool] AUTO_FROM_ROOM: clicked ${where} at ffl ` +
+            `${(this._levelElevation + this._finish().baseOffsetM).toFixed(3)} on level "${levelId}" — ` +
+            `outside all ${bounded.length} bounded room(s) on this level. Click inside a room.`,
+          );
+        }
         return;
       }
 
