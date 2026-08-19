@@ -15371,3 +15371,41 @@ enumerating scene-root descendants with no `elementId`; (2) close the audit's `i
 unowned renderables are REPORTED, not skipped — the audit must fail loudly on an orphan; (3)
 establish teardown for mounted drawings + projected edges on switch; (4) only then fix the leak
 itself. Do NOT fix the leak before the audit can see it, or the next leak ships silently too.
+
+## L-1186 — OPENING A PROJECT IN A NEW SESSION OFTEN LOSES CHROME: PRYZM Earth, Split View and the launcher rail are MISSING (OPEN, founder-reported 2026-08-19)
+
+**Founder:** "why when opening a project in a new session am I often missing buttons — the PRYZM
+Earth, the split view… etc." — and note **OFTEN, not always**, which is the shape of a RACE or
+a LATCH, not a missing feature.
+
+⭐ **THE SERVICES ARE READY; THE BUTTONS ARE NOT MOUNTED.** His boot log shows
+`[initScene] SplitViewManager ready.` — the subsystem initialises fine. So this is a MOUNTING
+defect, not an initialisation one. Do not go looking for a broken service.
+
+⭐⭐ **PRIME SUSPECT — THE PHASE LATCH, and today's work makes it URGENT.** An earlier boot log
+in the same session reads:
+  `[gis][panels] launcher rail not mounted — phase is the onboarding globe (§UX1-PANEL-DEFAULTS)`
+Lane UX3 established the governing property in its close: **"a phase is a ONE-WAY LATCH"**.
+So the hypothesis to test first: **opening an existing project DIRECTLY (deep link / hub click /
+restored session) never performs the onboarding→canvas phase transition, so phase-gated chrome
+is evaluated once, while the phase still reads `onboarding`, and never re-evaluated.** "Often"
+fits exactly: it depends on whether that session went through onboarding or straight to a project.
+
+⛔ **THIS IS NOW A REGRESSION-RISK MULTIPLIER.** Three lanes shipped phase-gated chrome TODAY —
+UX1's launcher rail, UX2's default-closed panels + View Properties launcher, UX3's
+`hiddenWhileLoading` gate. **Every one of them inherits this latch.** If the phase can be wrong
+at mount time, all of that chrome can be missing together, and the founder will read it as
+"the new UI broke my buttons". VERIFY THE PHASE IS CORRECT ON THE DIRECT-OPEN PATH BEFORE
+BLAMING ANY OF TODAY'S PANEL WORK.
+
+**FIRST ACTIONS:** (1) reproduce by opening a project directly in a fresh session vs. via
+onboarding, and log the phase value at each chrome mount site; (2) establish whether the phase
+is SET on the direct-open path at all, or merely never RE-SET; (3) if it is a one-way latch,
+decide deliberately whether phase should be DERIVED from the current route/state rather than
+latched — a latch that can be entered in the wrong state is the same class as an invalidation
+keyed on the wrong thing (C85 §10.5, L-1159). (4) Add a test that mounts chrome on the
+direct-open path, not only the onboarding path — the existing specs likely only walk the latter,
+which is why this ships.
+
+**RELATED:** L-1185 (project isolation not clean) is also a project-switch-path defect. Both may
+share "the direct-open / switch path is less exercised than the first-run path".
