@@ -1140,6 +1140,43 @@ pattern rather than a handrail-shaped second one (C84 EI-9).
 **MUST**: user types **PERSIST**. ⚠ `clearCustomTypes()` proves the store expects project scoping;
 whether custom handrail types are **saved and reloaded** is **NOT MEASURED** and is the same hop
 §15.5 warns about.
+
+> ### ⛔⛔ **NOW MEASURED — 2026-08-19 (lane HR4). THE ANSWER IS NO, AND IT IS WORSE THAN "not saved".**
+>
+> §15.7 asked whether custom handrail types are saved and reloaded. **They are not, and
+> the store is actively CLEARED on project switch with nothing having saved it.**
+>
+> | Leg | Measured at HEAD |
+> |---|---|
+> | `handrailTypeStore.add/update/remove` | ✅ exist, built-in-protected |
+> | `projectScopeRegistry.register({ scopeName: 'handrailTypeStore', clear: … })` | ✅ registered — **`clearCustomTypes()`** |
+> | `ProjectSerializer` — handrail **TYPE** field | ⛔ **NONE.** It serialises handrail *records* (`serializeHandrailRecord`, L-1102) and no type catalogue |
+> | `ProjectLoader` — handrail type restore | ⛔ **ZERO** occurrences of `handrailType` in the whole file |
+>
+> ⭐ **SO THE PROJECT-SCOPE REGISTRATION IS A DESTRUCTOR WITH NO MATCHING CONSTRUCTOR.**
+> On project switch every custom handrail type is deleted, and no save path ever wrote
+> one. A user-authored railing type cannot survive a reload *or* a project switch — and
+> that is not a defect inside a save path, it is the **absence of one** on a store that
+> is already wired to be wiped.
+>
+> ⚠ **AND THE PATTERN TO COPY ALREADY EXISTS, FOUR TIMES OVER**, which is why this is a
+> gap and not a design question: `ProjectSerializer` + `ProjectLoader` carry exactly this
+> round trip for `slabSystemTypeStore`, `wallSystemTypeStore`, `ceilingSystemTypeStore`
+> and `floorSystemTypeStore` (loader arms at `ProjectLoader.ts:918/955/991/1032`, each
+> guarding `if (store.getById(raw.id)) continue;` before re-adding). Handrail is the
+> family that has the AUTHORING half and none of the persistence half.
+>
+> ⛔ **THEREFORE, NORMATIVE ON R3, AND IT REVERSES THE OBVIOUS BUILD ORDER:** the
+> **persistence leg MUST land before the authoring UI**, not after it. §15.7's own
+> *"the machinery exists; the UI does not offer it"* reads as though the UI is the only
+> missing piece — it is not, and shipping the UI first would let a user author a railing
+> type, use it, save, reload, and find both the type and its identity gone. That is
+> §16's defect on a new surface, and §16 cost this family a full lane.
+>
+> ⭐ **AND ASK §15.12's QUESTION BEFORE BUILDING EITHER HALF:** *can the condition ever be
+> true?* For "my custom railing type is still here after reload" the answer today is
+> **no, for every user, in every order of operations** — the same shape as By Slab, found
+> the same way, and found this time BEFORE the feature was built rather than after.
 **MUST**: duplicating copies the source type's fields **including** `materialId` and the infill
 members, or it reproduces L-983's half-application on a new surface.
 
@@ -1442,7 +1479,7 @@ Requested order **R2 → R5 → R6 → R3 → R8 → R4**, annotated with the bl
 | **R2** | creation UI | ✅ **LANDED — plan AND 3-D** (L-1106 closed, §15.13, measured 2026-08-19) |
 | **R5** | post spacing | ⛔ **the end-condition DECISION** (§15.3) — implementable the moment it is made |
 | **R6** | infill panels | ⚠ **TWO blockers now.** (1) the persistence hop is still unmeasured (§13 item 9) — start without it and it inherits C87's exact failure; (2) ⛔ **NEW, measured 2026-08-19:** a circular run already allocates **93 distinct materials**, and the neighbouring family lost the WebGPU device at ~100 (§15.5) |
-| **R3** | type authoring | ⚠ needs the same persistence answer; machinery already exists |
+| **R3** | type authoring | ⛔ **ANSWERED 2026-08-19, and it is NO** (§15.7): there is no handrail-type save/load leg at all, while `projectScopeRegistry` already WIPES custom types on project switch — a destructor with no constructor. **Persistence MUST land before the UI**; copy the four existing `ProjectSerializer`/`ProjectLoader` arms |
 | **R8** | slab edge | Case A implementable now; **Case B refuses by name** until the wall-occupancy query exists |
 | **R4** | rake / curve | ⛔ **the conical-vs-radius DECISION** (§15.4) + the `HandrailRunGeometry` wire-or-delete decision (§11 row 25) |
 
