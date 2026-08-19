@@ -24,6 +24,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { injectAppTheme } from '../styles/AppTheme';
 import { PlatformUser, signOut } from './AuthModal';
 import { projectRepository, versionRepository, ProjectMeta, warmThumbnailCache, warmVersionCache, probeCachedThumbnail, seedCachedThumbnail } from './ProjectRepository';
+import { decideLocalOnlyProjectFate } from './localOnlyProjectFate';
 // §FIX-THUMBNAIL-DURABILITY — thumbnail residency is reconciled on EVERY sync,
 // independently of the metadata-freshness gate below. See thumbnailReconcile.ts
 // for the full evidence chain; in short: sign-out deletes the IndexedDB preview
@@ -286,32 +287,62 @@ export class ProjectHub {
             // never make it to the server.
             // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — see the census below.
             const localOnlyWithVersions: string[] = [];
+            const refusedToPurge: string[] = [];
             for (const lp of localById.values()) {
                 if (serverIds.has(lp.id)) continue;
-                try {
-                    // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL — read via the version repository
-                    // (IDB mirror + localStorage fallback), NOT raw localStorage. The
-                    // legacy `bim-project-<id>-versions` blob has now been migrated into
-                    // IndexedDB, so a raw localStorage read would miss it and wrongly
-                    // purge a project that DOES have local history.
-                    // §PERF-VERSION-NARROW-READ (L-1300) — WAS `getVersions(lp.id).length > 0`,
-                    // INSIDE THIS LOOP. That inflated + JSON.parsed EVERY local-only
-                    // project's ENTIRE 20-version history — multi-MB snapshots, all of
-                    // them thrown away — to answer a yes/no question. MEASURED on the
-                    // founder's project size: ~503 ms PER PROJECT, on the hub, on the
-                    // main thread. `countVersions` reads the container envelope: 15 ms.
-                    const hasLocalVersions = versionRepository.countVersions(lp.id) > 0;
-                    if (hasLocalVersions) {
-                        // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — collected and
-                        // reported ONCE below instead of one line per project. Fifty
-                        // identical "Keeping…" lines read as routine chatter; the
-                        // aggregate is the fact that matters and it was never stated.
-                        localOnlyWithVersions.push(lp.id);
-                        continue;
-                    }
-                } catch { /* read error — keep it to be safe */ continue; }
-                console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data)`);
+
+                // ⭐ §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — THE PURGE
+                // DECISION IS NO LONGER A COUNT COMPARISON.
+                //
+                // This branch used to read `countVersions(lp.id) > 0` and delete the
+                // row when it was false. `countVersions` returns 0 for THREE
+                // conditions — no versions, a cold/absent IndexedDB mirror, and a
+                // read that threw — so "I cannot find the data" and "the user has
+                // nothing here" were the same value, and the reconciler resolved that
+                // ambiguity by DELETING. Sign-out destroys `pryzm-project-versions`
+                // (§AUTH-SESSION-LEAK, correctly) while this non-prefixed index
+                // survives, so the very next sync completed the loss.
+                //
+                // `probeVersions` can now say "I could not look", and the ruling in
+                // `localOnlyProjectFate.ts` purges ONLY when the store AND this index
+                // row agree there is nothing. The second opinion is the fix; a better
+                // read alone could never have been one, because 0 is exactly what a
+                // broken instrument returns.
+                //
+                // ⚠ The L-1300 performance property is PRESERVED: `probeVersions`
+                // reads the same v2 envelope `countVersions` does — no inflate, no
+                // snapshot parse, still ~15 ms rather than ~503 ms per project.
+                const fate = decideLocalOnlyProjectFate({
+                    projectId: lp.id,
+                    indexVersionCount: lp.versionCount ?? 0,
+                    probe: versionRepository.probeVersions(lp.id),
+                });
+
+                if (fate.action === 'keep') {
+                    // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — collected and
+                    // reported ONCE below instead of one line per project. Fifty
+                    // identical "Keeping…" lines read as routine chatter; the
+                    // aggregate is the fact that matters and it was never stated.
+                    localOnlyWithVersions.push(lp.id);
+                    continue;
+                }
+                if (fate.action === 'refuse') {
+                    refusedToPurge.push(lp.id);
+                    console.warn(`[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION refusing to purge — ${fate.detail}`);
+                    continue;
+                }
+                console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data, index agrees)`);
                 deleteIds.push(lp.id);
+            }
+
+            if (refusedToPurge.length > 0) {
+                console.warn(
+                    `[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION — ${refusedToPurge.length} project(s) were ` +
+                    'KEPT that the previous code would have DELETED: their index rows claim version history the ' +
+                    'version store no longer holds, or the store could not be read at all. This is the signature ' +
+                    'of the sign-out / account-switch IndexedDB purge. The rows survive so the loss stays visible ' +
+                    `and recoverable. ids: ${refusedToPurge.join(', ')}`,
+                );
             }
 
             // ── §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) ────────────────────────

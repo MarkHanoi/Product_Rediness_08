@@ -27,6 +27,7 @@ import { VersionRecord } from './PlatformShellTypes';
 import { getCurrentUserId } from '@pryzm/core-app-model';
 import { getThumbnailCacheStore } from './ThumbnailCacheStore';
 import { getVersionCacheStore } from './VersionCacheStore';
+import type { VersionProbe } from './localOnlyProjectFate';
 import { encodeCompressed, decodeCompressed, COMPRESSED_MARKER } from '../../workers/compressCodec';
 import { getCompressWorkerPool } from '../../workers/CompressWorkerPool';
 import {
@@ -857,6 +858,24 @@ export interface IVersionRepository {
      */
     countVersions(projectId: string): number;
     /**
+     * §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — the HONEST sibling
+     * of {@link countVersions}: it can say *"I could not look"*.
+     *
+     * ⚠ WHY THIS EXISTS AND WHY `countVersions` WAS NOT SIMPLY FIXED.
+     * `countVersions` returns `0` for THREE different conditions — genuinely no
+     * versions, a cold/absent IndexedDB mirror, and a read that threw. Its
+     * callers that want a NUMBER (the autosave's `versionCount`, the save
+     * modal's plan-limit check) are correct to collapse them: for them a
+     * conservative `0` is harmless. The caller that wanted a DECISION — the
+     * project hub's stale-project purge — was destroyed by that collapse,
+     * because it read "0" as "the user has nothing here" and DELETED the row.
+     *
+     * So the number keeps its lossy contract and the decision gets a lossless
+     * one, rather than making every arithmetic caller handle a union. See
+     * `localOnlyProjectFate.ts` for the ruling this feeds.
+     */
+    probeVersions(projectId: string): VersionProbe;
+    /**
      * §PERF-VERSION-NARROW-READ (L-1300) — the most recent version, inflating
      * EXACTLY ONE snapshot instead of the whole history.
      *
@@ -960,6 +979,55 @@ export class LocalVersionRepository implements IVersionRepository {
             return this._decodeVersionsPayload(projectId, raw).length;
         } catch {
             return 0;
+        }
+    }
+
+    /** §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — see {@link IVersionRepository.probeVersions}. */
+    probeVersions(projectId: string): VersionProbe {
+        // ⚠ THE WARM CHECK COMES FIRST, and it is the arm that matters most.
+        // `_rawPayload` reads the SYNCHRONOUS mirror, which is populated only by
+        // `warmVersionCache()`. Before that resolves — or if it threw, or if
+        // IndexedDB is unavailable — every project reads as empty. That is not a
+        // sign-out-only hazard: a warm failure alone was enough to make the hub
+        // purge every local-only project on the next sync.
+        //
+        // `isWarmed()` is true when the store DISABLED itself too (no IndexedDB),
+        // which is deliberate: in that environment the localStorage fallback in
+        // `_rawPayload` is the real source and a read of it IS conclusive.
+        let store: ReturnType<typeof getVersionCacheStore>;
+        try {
+            store = getVersionCacheStore();
+        } catch {
+            return { kind: 'unreadable', reason: 'store-threw' };
+        }
+        if (!store.isWarmed()) {
+            return { kind: 'unreadable', reason: 'cache-not-warmed' };
+        }
+
+        let raw: string | null;
+        try {
+            raw = this._rawPayload(projectId);
+        } catch {
+            return { kind: 'unreadable', reason: 'store-threw' };
+        }
+        // No payload, on a WARMED store, is a real reading: nothing is stored.
+        // The caller still refuses to purge if the index disagrees — that second
+        // opinion, not this line, is what makes a destroyed store survivable.
+        if (!raw) return { kind: 'counted', count: 0 };
+
+        try {
+            if (raw.startsWith(V2_CONTAINER_MARKER)) {
+                return {
+                    kind: 'counted',
+                    count: (JSON.parse(raw.slice(V2_CONTAINER_MARKER.length)) as _V2Entry[]).length,
+                };
+            }
+            return { kind: 'counted', count: this._decodeVersionsPayload(projectId, raw).length };
+        } catch {
+            // A payload EXISTS but will not decode. Emphatically not zero — this
+            // is corrupt or truncated history, and purging it would delete the
+            // only copy of something that may still be recoverable by hand.
+            return { kind: 'unreadable', reason: 'payload-undecodable' };
         }
     }
 
