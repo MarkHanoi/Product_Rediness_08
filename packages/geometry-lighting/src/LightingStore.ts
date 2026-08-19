@@ -11,9 +11,9 @@
 
 import { LightingData } from './LightingTypes';
 import { DOMEventBus } from '@pryzm/event-bus';
-// §L-1032 — used by `changeLevel` ONLY, deliberately. See that method's doc
-// comment for why it is not added to `add`/`update`/`remove` in the same pass.
-// This introduces no new package edge: `LightingTypes` (:29) already imports
+// §L-1032 introduced this import for `changeLevel` only; §L-1087 extends it to
+// `add` / `update` / `remove`, which had never reached the semantic bus at all.
+// It introduces no new package edge: `LightingTypes` already imports
 // `@pryzm/core-app-model` at module load, so the barrel is loaded either way.
 import { storeEventBus } from '@pryzm/core-app-model';
 const _bus = new DOMEventBus();
@@ -49,17 +49,65 @@ function snapNanometre(y: number): number {
 export class LightingStore {
     private readonly _data = new Map<string, LightingData>();
 
+    /**
+     * §L-1087 — THE SEMANTIC-BUS EMIT THIS STORE WAS MISSING, on all three
+     * mutators.
+     *
+     * MEASURED BEFORE: `add` / `update` / `remove` emitted ONLY the legacy DOM
+     * bus (`bim-lighting-added` / `-updated` / `-removed`). Every other geometry
+     * store dual-emits — `FurnitureStore.ts:23-24`, `PlumbingStore.ts:11-12`,
+     * `RoofStore.ts:87-88`. `storeEventBus` is what the DERIVED consumers
+     * subscribe to: `ViewDependencyTracker` (`:325`), `DependencyResolver`
+     * (`:261`), `ElementSpatialIndex` (`:57`), `SemanticIndex` (`:57`),
+     * `ViewVisibilityMap` (`:83`), `ViewTechnicalDrawingCache` (`:900`),
+     * `SyncStateEngine` (`:138`), `TemporalGraph` (`:94`), `ComparisonEngine`
+     * (`:69`) and `IFCPsetAdapter` (`:76`). A store silent there is invisible to
+     * all ten: the mutation happened and nothing downstream could know.
+     *
+     * SAFETY, MEASURED RATHER THAN ASSUMED. No `storeEventBus` subscriber drives
+     * a lighting BUILDER — the only builder-driving subscribers filter on their
+     * own type (`BeamStore.setBuilder` `:51-52`; the curtain-wall / door / window /
+     * slab subscribers likewise), so this cannot cause a double-build. The ten
+     * consumers above are derived indexes and dirty-trackers; feeding them the
+     * events they were always supposed to receive is the point of the change.
+     *
+     * ⚠ DECLARED, NOT FIXED — necessary but not sufficient for the plan-view leg.
+     * `ViewDependencyTracker._onStoreEvent` drops any event whose type is absent
+     * from `GEOMETRY_ELEMENT_TYPES` (`ViewDependencyTracker.ts:675`), and that
+     * set (`:41-48`) carries furniture and plumbing but NOT `lighting`. So these
+     * events reach the bus and are filtered out one line into the tracker. The
+     * set is module-private and that file is outside this lane's scope; adding
+     * `'lighting'` is the follow-up and it changes plan re-projection behaviour
+     * for every lighting mutation, which needs its own measurement. Naming it
+     * beats half-fixing it — and beats leaving the emit out on the grounds that
+     * one of its ten consumers is still blocked.
+     */
     add(data: LightingData): void {
-        this._data.set(data.id, Object.freeze({ ...data }));
+        const snap = Object.freeze({ ...data });
+        this._data.set(data.id, snap);
         _bus.emit('bim-lighting-added', { id: data.id }); // F.events.18
+        storeEventBus.emit({
+            elementId: data.id, elementType: 'lighting', operation: 'create',
+            timestamp: Date.now(),
+        });
     }
 
     update(id: string, patch: Partial<LightingData>): void {
         const existing = this._data.get(id);
+        // An absent id is not a mutation: it emits NOTHING on either bus, so a
+        // stray patch cannot dirty a view for a fixture that does not exist.
         if (!existing) return;
         const merged = Object.freeze({ ...existing, ...patch, id });
         this._data.set(id, merged);
         _bus.emit('bim-lighting-updated', { id }); // F.events.18
+        // `prevState` is the frozen PRE-mutation record, so a diff-based
+        // subscriber can dirty the storey being VACATED (C72 §3.2/§3.5). It must
+        // never be reconstructed by re-reading the store — that diffs the new
+        // value against itself.
+        storeEventBus.emit({
+            elementId: id, elementType: 'lighting', operation: 'update',
+            timestamp: Date.now(), prevState: existing,
+        });
     }
 
     /**
@@ -96,29 +144,22 @@ export class LightingStore {
      *   3. THE FAN-OUT. See the next block — this is the load-bearing half.
      *
      * ─── THE `storeEventBus` DECISION, STATED DELIBERATELY ──────────────────
-     * MEASURED: this store's `add` / `update` / `remove` emit ONLY the legacy
-     * DOM event bus — `bim-lighting-added` / `-updated` / `-removed` (:26, :34,
-     * :190). None of them touches `storeEventBus`. Every other geometry store in
-     * the repo emits BOTH (compare `FurnitureStore.ts:23-24`,
-     * `PlumbingStore.ts:11-12`, `RoofStore.ts:87-88`). The consequence is real:
-     * `ViewDependencyTracker._onStoreEvent` resolves an element's storey from
-     * the SEMANTIC bus, so today no lighting mutation of any kind dirties a plan
-     * view through that path.
+     * MEASURED WHEN THIS METHOD WAS WRITTEN: this store's `add` / `update` /
+     * `remove` emitted ONLY the legacy DOM event bus — `bim-lighting-added` /
+     * `-updated` / `-removed`. None of them touched `storeEventBus`, while every
+     * other geometry store emitted BOTH (compare `FurnitureStore.ts:23-24`,
+     * `PlumbingStore.ts:11-12`, `RoofStore.ts:87-88`), so no lighting mutation
+     * of any kind reached a semantic subscriber. §L-1087 closed that on all
+     * three mutators; this paragraph is kept as the record of WHY this method
+     * emitted before they did.
      *
-     * THIS METHOD DOES EMIT ON `storeEventBus`; `update()` IS LEFT ALONE.
-     * Deliberate, and the asymmetry is the point:
-     *   • Adding the emit inside `update()` would change behaviour for every
-     *     existing caller of a method with a large, unmeasured call graph —
-     *     turning a repo-wide silence into repo-wide traffic in a level-change
-     *     PR. That is a separate change with a separate blast radius.
-     *   • Adding it HERE changes behaviour for exactly zero existing callers,
-     *     because this method has none. A new operation may be born correct.
-     *   • Without it a lighting storey move would be invisible to the semantic
-     *     bus, and the destination storey's plan view would keep an empty spot
-     *     until some unrelated edit happened by — the §committed-is-not-reachable
-     *     shape, in the layer the user experiences.
-     * The silence of `update()` is recorded as a PRE-EXISTING defect of this
-     * store, not fixed here, and not smoothed over either.
+     * ⚠ CORRECTED §L-1087 — this block used to end *"the silence of `update()`
+     * is recorded as a PRE-EXISTING defect of this store, not fixed here"*, and
+     * argued for the asymmetry (this method emits, `update()` does not) on
+     * blast-radius grounds. **`add` / `update` / `remove` now all dual-emit**
+     * — see the doc comment on `add()` above for the measurement, the
+     * subscriber-safety argument and the one consumer that is still blocked
+     * downstream. The asymmetry is gone; do not reinstate it.
      *
      * ─── HOSTED FIXTURES REFUSE ─────────────────────────────────────────────
      * `LightingData.hostId` (`LightingTypes.ts:235`) binds a fixture to a host
@@ -262,9 +303,14 @@ export class LightingStore {
     }
 
     remove(id: string): void {
-        if (!this._data.has(id)) return;
+        const existing = this._data.get(id);
+        if (!existing) return;
         this._data.delete(id);
         _bus.emit('bim-lighting-removed', { id }); // F.events.18
+        storeEventBus.emit({
+            elementId: id, elementType: 'lighting', operation: 'delete',
+            timestamp: Date.now(), prevState: existing,
+        });
     }
 
     get(id: string): LightingData | undefined {

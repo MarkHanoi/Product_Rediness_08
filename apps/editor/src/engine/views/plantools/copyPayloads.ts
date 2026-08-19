@@ -623,3 +623,877 @@ export function beamCopyPayload(
         steelProfileName: beam.steelProfileName,
     };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §L-1032 D3 — THE SIX DEFERRED FAMILIES
+//
+// ─── WHY BUILDING THESE IS NOT THE EI-9 BREACH THE PRIOR LANE FEARED ────────
+// `duplicateToLevel.ts` deferred roof / ceiling / floor / handrail / lighting /
+// plumbing on the ground that a builder here would mint *"a second authority on
+// a mapping whose first does not exist"*. That objection dissolves once the
+// DIRECTION of the two maps is measured:
+//
+//   • `roofCreatedMirror.ts`, `ceilingCreatedMirror.ts`, `beamCreatedMirror.ts`,
+//     `curtainWallCreatedMirror.ts` (and the still-inline §FT-HANDRAIL /
+//     §FT-LIGHTING / §P3.2-FL closures in `initTools.ts`) map
+//     **bus event → legacy record**.
+//   • This module maps **legacy record → bus payload** — the INVERSE.
+//
+// A second AUTHORITY is two modules answering the SAME question. These answer
+// opposite ones, and a family needs both to round-trip. C84 EI-9 is not
+// engaged; what IS engaged is the requirement that the two maps AGREE, which is
+// why every builder below names the forward hop it is the inverse of, and why
+// `CopiedElementKeepsPlaceAndProperties.test.ts` runs each one out and back.
+//
+// ⚠ THE INVARIANT IS UNCHANGED (see this file's header): every key emitted must
+// be a key a REAL receiver declares. Each builder names its receiver(s); each
+// authored field with NO receiving slot is `console.warn`ed at the drop site,
+// never dropped in silence.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Roof ────────────────────────────────────────────────────────────────────
+
+/** Subset of `RoofData` (`packages/core-app-model/src/stores/RoofTypes.ts:88-137`). */
+export interface LegacyRoofLike {
+    levelId?: string;
+    /** `polygon` is CENTROID-RELATIVE `[lx, lz]`; `centroid` is world `[cx, cz]`. */
+    footprint: {
+        polygon: ReadonlyArray<readonly [number, number]>;
+        centroid: readonly [number, number];
+    };
+    roofType?: string;
+    /** rise/run. The L0 schema's `pitch` is RADIANS — see `roofCopyPayload`. */
+    slope?: number;
+    overhang?: number;
+    baseOffset?: number;
+    thickness?: number;
+    ridgeOffset?: number;
+    fascia?: number;
+    autoBaseOffset?: boolean;
+    materialId?: string;
+    materialColor?: string;
+    layers?: unknown[];
+    slopeArrows?: unknown[];
+    segments?: unknown[];
+    /** §ROOF-FOLLOWS-WALL (L-924) — the SOURCE storey's walls. Not carried. */
+    boundingWallIds?: readonly string[];
+}
+
+/**
+ * The seating floor `roofCreatedMirror.resolveMirroredRoofBaseOffset` applies,
+ * restated as a NAME so this file and that one cannot drift by a literal edited
+ * in one of them. Same reason `ROOF_AUTO_SEATING_FLOOR_M` exists there.
+ */
+export const ROOF_COPY_SEATING_FLOOR_M = 2.7;
+
+/**
+ * Legacy `RoofType` values the L0 `RoofShape` enum has no member for.
+ *
+ * `packages/schemas/src/elements/Roof.ts:7` — `['flat','gable','hip','mono','mansard']`.
+ * `RoofTypes.ts:3-12` — `['flat','shed','gable','hip','dutch','gambrel','mansard','barrel','by_region']`.
+ * `shed` IS expressible (it is L0's `mono`; see `roofCopyPayload`). These four
+ * are not, and the copy REFUSES LOUDLY rather than mapping them to a shape the
+ * author did not draw — the `columnCopyPayload` `'UC'`/`'UB'` precedent (C84
+ * EI-3), applied for the same reason: a loud refusal beats a silent wrong roof.
+ */
+export const ROOF_TYPES_L0_CANNOT_EXPRESS = ['dutch', 'gambrel', 'barrel', 'by_region'] as const;
+
+/** Fields a roof copy cannot carry, named rather than dropped (C84 **EI-2**). */
+const ROOF_UNCARRIED_FIELDS = [
+    'layers', 'slopeArrows', 'segments', 'ridgeOffset', 'fascia', 'boundingWallIds',
+] as const;
+
+/**
+ * Receiver: `CreateRoofPayload` (`plugins/roof/src/handlers/CreateRoof.ts:16-27`)
+ * AND `CommandEventBridge`'s `roof.create` case (`:1056-1088`), which is the leg
+ * that reaches `roofRecordFromCreatedEvent` → the legacy `RoofStore` →
+ * `RoofFragmentBuilder` mesh.
+ *
+ * ─── THE INVERSE OF `roofCreatedMirror.ts` ──────────────────────────────────
+ * Every translation below is the exact reverse of a line in
+ * `roofRecordFromCreatedEvent` (`apps/editor/src/engine/roofCreatedMirror.ts`),
+ * cited so the pair cannot drift:
+ *
+ *   forward `:112-118`  world `boundary[]` → `centroid` + centroid-relative
+ *                       `polygon[]`.   inverse: `centroid + polygon` → world.
+ *   forward `:129`      `shape === 'mono' ? 'shed' : shape` → `roofType`.
+ *                       inverse: `roofType === 'shed' ? 'mono' : roofType`.
+ *   forward `:133`      `slope = tan(pitch)`.  inverse: `pitch = atan(slope)`.
+ *
+ * ⚠ `y` IS NOT AN AUTHORED VALUE HERE, and that is measured, not assumed. The
+ * forward hop reads only `v.x` and `v.z` off each boundary point and stores a
+ * 2-tuple, so a roof's height is `baseOffset`, never its boundary `y`. `Vec3`
+ * still REQUIRES a finite `y` (`isFiniteVec3`), so `0` is emitted — the one
+ * value that adds no information.
+ *
+ * ⚠ `baseOffset` HAS NO PAYLOAD SLOT, AND THAT IS RIGHT FOR THIS ROUTE.
+ * `resolveMirroredRoofBaseOffset` (`roofCreatedMirror.ts:76-82`) MEASURES the
+ * seating from the tallest wall on the level the roof lands on. A duplicate onto
+ * Level 2 is therefore re-seated on LEVEL 2's walls, which is what a duplicated
+ * roof should do — but it means an author who hand-set `baseOffset` loses that
+ * value, so it is warned about rather than assumed benign.
+ */
+export function roofCopyPayload(
+    roof: LegacyRoofLike,
+    dx: number,
+    dz: number,
+    newId: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    const [cx, cz] = roof.footprint.centroid;
+
+    const record: Record<string, unknown> = { ...roof };
+    const uncarried = ROOF_UNCARRIED_FIELDS.filter((k) => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source roof carries ${uncarried.join(', ')}, and neither ` +
+            `CreateRoofPayload nor the roof.create event has a slot for any of them, so the copy is ` +
+            `created WITHOUT them. \`boundingWallIds\` in particular is DELIBERATELY not carried: it ` +
+            `names the walls this roof was REGION-traced from, and a roof somewhere else — or on ` +
+            `another storey — is not bounded by those walls, so forwarding it would assert a ` +
+            `dependency that does not exist (§ROOF-FOLLOWS-WALL, L-924).`,
+        );
+    }
+    if (roof.baseOffset !== undefined) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source roof is seated at baseOffset ${roof.baseOffset} m. ` +
+            `CreateRoofPayload has NO baseOffset slot and the roof.created mirror MEASURES the ` +
+            `seating from the tallest wall on the DESTINATION level instead ` +
+            `(roofCreatedMirror.ts:76-82, floor ${ROOF_COPY_SEATING_FLOOR_M} m), so the copy is ` +
+            `re-seated there rather than carrying this value.`,
+        );
+    }
+    if (
+        roof.roofType !== undefined &&
+        (ROOF_TYPES_L0_CANNOT_EXPRESS as readonly string[]).includes(roof.roofType)
+    ) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-3: the source roof is a "${roof.roofType}", which the L0 RoofShape ` +
+            `enum (flat|gable|hip|mono|mansard) has no member for. The value is forwarded UNCHANGED ` +
+            `so \`Roof.parse\` REFUSES the copy loudly, exactly as columnCopyPayload does for a steel ` +
+            `'UC'/'UB' profile. Mapping it to a shape the author did not draw would be a silent wrong ` +
+            `roof, which is the worse of the two outcomes.`,
+        );
+    }
+
+    return {
+        id:      newId,
+        levelId: opts?.levelId ?? roof.levelId,
+        // Centroid-relative → world, plus the copy delta. `y: 0` because the
+        // forward hop reads only x/z (see the header) and `Vec3` requires a
+        // finite `y`.
+        boundary: roof.footprint.polygon.map(([lx, lz]) => ({
+            x: cx + lx + dx,
+            y: 0,
+            z: cz + lz + dz,
+        })),
+        // §L-1032 — inverse of roofCreatedMirror.ts:129. `mono` and `shed` are
+        // the SAME roof spelled differently in the two vocabularies; L-699 is
+        // what the missing translation cost in the forward direction.
+        ...(roof.roofType !== undefined
+            ? { shape: roof.roofType === 'shed' ? 'mono' : roof.roofType }
+            : {}),
+        // §L-1032 — inverse of roofCreatedMirror.ts:133 (`slope = tan(pitch)`).
+        // A zero / absent slope is a FLAT roof and must not become `atan(0)`
+        // dressed as an authored pitch; it is omitted so the handler's own
+        // `pitch ?? typeDefaults ?? 0` decides.
+        ...(typeof roof.slope === 'number' && roof.slope > 0
+            ? { pitch: Math.atan(roof.slope) }
+            : {}),
+        ...(roof.thickness     !== undefined ? { thickness:     roof.thickness }     : {}),
+        ...(roof.overhang      !== undefined ? { overhang:      roof.overhang }      : {}),
+        ...(roof.materialId    !== undefined ? { materialId:    roof.materialId }    : {}),
+        ...(roof.materialColor !== undefined ? { materialColor: roof.materialColor } : {}),
+    };
+}
+
+// ─── Ceiling ─────────────────────────────────────────────────────────────────
+
+/** Subset of `CeilingData` (`packages/core-app-model/src/stores/CeilingTypes.ts:175-211`). */
+export interface LegacyCeilingLike {
+    levelId?: string;
+    boundary: {
+        polygon: ReadonlyArray<{ x: number; z: number }>;
+        height?: number;
+        thickness?: number;
+        baseOffset?: number;
+    };
+    finishSpec?: {
+        soffitMaterialId?: string;
+        soffitColor?: string;
+        soffitPattern?: string;
+        exposedStructure?: boolean;
+        materialName?: string;
+    };
+    systemTypeId?: string;
+    layers?: unknown[];
+    holeElements?: unknown[];
+    slope?: unknown;
+    hostSlabId?: string;
+    hostRoomId?: string;
+    label?: string;
+}
+
+/** Fields a ceiling copy cannot carry, named rather than dropped (C84 **EI-2**). */
+const CEILING_UNCARRIED_FIELDS = [
+    'systemTypeId', 'layers', 'holeElements', 'slope', 'hostSlabId', 'hostRoomId',
+] as const;
+
+/**
+ * Receiver: `CreateCeilingPayload`
+ * (`plugins/ceiling/src/handlers/CreateCeiling.ts:19-27`) AND
+ * `CommandEventBridge`'s `ceiling.create` case (`:780-810`), which is the leg
+ * that reaches `ceilingRecordFromCreatedEvent` → the legacy `CeilingStore`.
+ *
+ * ─── THE INVERSE OF `ceilingCreatedMirror.ts` ───────────────────────────────
+ *   forward `:138`      `Vec3[] boundary` → `{x,z}[] polygon` (y discarded).
+ *                       inverse: `{x,z}` → `{x, y: 0, z}` — `Vec3` requires a
+ *                       finite `y` and the forward hop never reads one, so 0 is
+ *                       the value that adds no information.
+ *   forward `:149-150`  `ceilingHeight`/`thickness` → `boundary.height`/`.thickness`.
+ *   forward `:156`      `materialColor` → `finishSpec.soffitColor`.
+ *   forward `:161`      `materialId`    → `finishSpec.soffitMaterialId`.
+ *
+ * ⚠ `boundary.baseOffset` has no L0 field at all — `CEILING_MIRROR_DEFAULTS`
+ * pins it to 0 on the forward hop (`ceilingCreatedMirror.ts:78`), so a ceiling
+ * hung at a non-zero offset cannot state that through this route. Warned below.
+ *
+ * ⚠ `label` / `ceilingNumber` are deliberately NOT carried: the forward hop
+ * re-derives the label from the DESTINATION store's ordinal
+ * (`ceilingLabelForOrdinal`), so forwarding "Ceiling-03" would put two elements
+ * with one name in the project browser, the schedule and the IFC export — the
+ * exact defect §P3.2-CL's `Ceiling-NN` fix removed.
+ */
+export function ceilingCopyPayload(
+    ceiling: LegacyCeilingLike,
+    dx: number,
+    dz: number,
+    newId: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    const record: Record<string, unknown> = { ...ceiling };
+    const uncarried = CEILING_UNCARRIED_FIELDS.filter((k) => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source ceiling carries ${uncarried.join(', ')}, and neither ` +
+            `CreateCeilingPayload nor the ceiling.create event has a slot for any of them, so the copy ` +
+            `is created WITHOUT them — a ceiling with a system type and a layer stack copies as a bare ` +
+            `thickness. \`hostSlabId\`/\`hostRoomId\` are additionally NOT carried ON PURPOSE: both ` +
+            `name an element on the SOURCE storey, and a binding that points across storeys is worse ` +
+            `than no binding at all.`,
+        );
+    }
+    if (ceiling.boundary.baseOffset !== undefined && ceiling.boundary.baseOffset !== 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source ceiling is hung at baseOffset ` +
+            `${ceiling.boundary.baseOffset} m. The L0 \`Ceiling\` schema has NO such field and the ` +
+            `ceiling.created mirror pins it to 0 (ceilingCreatedMirror.ts:151), so the copy is ` +
+            `created at that offset, not this one.`,
+        );
+    }
+    if (
+        ceiling.finishSpec?.soffitPattern !== undefined ||
+        ceiling.finishSpec?.exposedStructure === true
+    ) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source ceiling's finish states soffitPattern / ` +
+            `exposedStructure. Neither has an L0 field, and the forward mirror writes the same two ` +
+            `constants the legacy CreateCeilingCommand writes (CEILING_MIRROR_DEFAULTS), so the copy ` +
+            `takes those rather than the source's.`,
+        );
+    }
+
+    return {
+        id:      newId,
+        levelId: opts?.levelId ?? ceiling.levelId,
+        boundary: ceiling.boundary.polygon.map((p) => ({ x: p.x + dx, y: 0, z: p.z + dz })),
+        // §L-1032 — inverse of ceilingCreatedMirror.ts:149-150.
+        ...(ceiling.boundary.height    !== undefined ? { ceilingHeight: ceiling.boundary.height }    : {}),
+        ...(ceiling.boundary.thickness !== undefined ? { thickness:     ceiling.boundary.thickness } : {}),
+        // §L-1032 — inverse of ceilingCreatedMirror.ts:156/161. The legacy finish
+        // vocabulary is `soffit*`; the L0 vocabulary is `material*`.
+        ...(ceiling.finishSpec?.soffitMaterialId !== undefined
+            ? { materialId: ceiling.finishSpec.soffitMaterialId }
+            : {}),
+        ...(ceiling.finishSpec?.soffitColor !== undefined
+            ? { materialColor: ceiling.finishSpec.soffitColor }
+            : {}),
+    };
+}
+
+// ─── Floor ───────────────────────────────────────────────────────────────────
+
+/**
+ * Floor-only overrides. `hostSlabId` / `hostRoomId` are NOT on
+ * `CopyPayloadOverrides`, and that asymmetry is the whole floor decision.
+ *
+ * ⛔ **A COPIED FLOOR FINISH MUST NEVER CARRY THE SOURCE'S `hostSlabId`.**
+ * `FloorData.hostSlabId` binds the finish's FFL to a specific structural slab:
+ * `FloorSlabBindingHandler._onSlabUpdated`
+ * (`packages/geometry-slab/src/floor/FloorSlabBindingHandler.ts:64-89`) reacts to
+ * `bim-slab-updated`, finds every floor with that `hostSlabId`, and REWRITES
+ * `boundary.baseOffset` from that slab's top face. A duplicate on Level 2 still
+ * carrying Level 1's slab id would therefore be dragged vertically every time
+ * the Level 1 slab moved — a cross-storey action at a distance with no visible
+ * cause. And the binding IS carried verbatim if sent: `CreateFloorPayload.hostSlabId`
+ * (`CreateFloor.ts:58`) reaches `FloorData.hostSlabId`, and the §P3.2-FL mirror
+ * (`initTools.ts:1944`) writes it into the legacy store unexamined.
+ *
+ * `_onSlabRemoved` (`:91-105`) is the only re-seating machinery that exists, and
+ * it only UNBINDS. There is no "find the host on the destination storey", so the
+ * honest answer is the one the L-1032 brief allows: **the copy REPORTS that it
+ * did not rebind**, and a caller that HAS resolved a destination host may state
+ * it here. `hostRoomId` is the same shape of binding (it also seeds
+ * `coveredRoomIds`, `CreateFloor.ts:136`) and gets the same treatment.
+ */
+export interface FloorCopyOverrides extends CopyPayloadOverrides {
+    /** The DESTINATION storey's structural slab, if the caller resolved one. */
+    readonly hostSlabId?: string;
+    /** The DESTINATION storey's room, if the caller resolved one. */
+    readonly hostRoomId?: string;
+}
+
+/** Subset of `FloorData` (`packages/core-app-model/src/stores/FloorTypes.ts:275-335`). */
+export interface LegacyFloorLike {
+    levelId?: string;
+    boundary: {
+        polygon: ReadonlyArray<{ x: number; z: number }>;
+        baseOffset?: number;
+        thickness?: number;
+    };
+    systemTypeId?: string;
+    layers?: unknown[];
+    /** Whole-element library material (`FloorTypes.ts:305`). No payload slot. */
+    materialId?: string;
+    finishSpec?: Record<string, unknown>;
+    serviceHoles?: unknown[];
+    slope?: unknown;
+    underfloorHeating?: unknown;
+    hostSlabId?: string;
+    hostRoomId?: string;
+    label?: string;
+    colour?: string;
+}
+
+/** Fields a floor copy cannot carry, named rather than dropped (C84 **EI-2**). */
+const FLOOR_UNCARRIED_FIELDS = [
+    'materialId', 'slope', 'underfloorHeating', 'colour',
+] as const;
+
+/**
+ * Receiver: `CreateFloorPayload` (`plugins/floor/src/handlers/CreateFloor.ts:34-61`)
+ * AND `CommandEventBridge`'s `floor.create` case (`:1152-1190`), which is the leg
+ * that reaches the §P3.2-FL mirror (`initTools.ts:1897-1975`) → the legacy
+ * `FloorStore` → `FloorFragmentBuilder` mesh.
+ *
+ * ⚠ THE ID KEY IS `floorId`, NOT `id`. `CreateFloorHandler` reads
+ * `cmd.floorId ?? createId('floor')` (`:94`) and the bridge case forwards
+ * `floorId`; an `id` key would be accepted by nobody and the floor would be
+ * minted under an id the caller never saw — the L-978 shape, applied to identity.
+ *
+ * ⚠ `ifcGuid` is REQUIRED of the CALLER, not invented here: the mirror writes
+ * `ifcData.guid = ev.ifcGuid ?? crypto.randomUUID()` (`initTools.ts:1953`), so
+ * two floors sharing one guid is an IFC identity collision, exactly as for slabs.
+ *
+ * ⚠ `label` is deliberately NOT carried — the mirror re-derives `Floor-NN` from
+ * the DESTINATION store's ordinal (`initTools.ts:1906`), and forwarding the
+ * source's label would put two elements with one name in the project browser and
+ * the schedule.
+ *
+ * ⛔ `hostSlabId` / `hostRoomId`: see `FloorCopyOverrides`. Never carried from
+ * the source; stated by the caller or reported as unbound.
+ */
+export function floorCopyPayload(
+    floor: LegacyFloorLike,
+    dx: number,
+    dz: number,
+    newFloorId: string,
+    ifcGuid: string,
+    opts?: FloorCopyOverrides,
+): Record<string, unknown> {
+    const record: Record<string, unknown> = { ...floor };
+    const uncarried = FLOOR_UNCARRIED_FIELDS.filter((k) => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source floor carries ${uncarried.join(', ')}, and neither ` +
+            `CreateFloorPayload nor the floor.create event has a slot for any of them, so the copy is ` +
+            `created WITHOUT them. \`materialId\` is the notable one: FloorData declares it ` +
+            `(FloorTypes.ts:305) and \`resolveFloorColor\` reads it, but the create payload carries ` +
+            `only per-LAYER material ids, so a floor given a library material copies without it.`,
+        );
+    }
+    // ⛔ The host binding. A stale cross-storey host is the defect this names.
+    if (floor.hostSlabId !== undefined && opts?.hostSlabId === undefined) {
+        console.warn(
+            `[CopyTool] §L-1032: the source floor is BOUND to slab "${floor.hostSlabId}" — ` +
+            `FloorSlabBindingHandler rewrites floor.boundary.baseOffset from that slab's top face ` +
+            `whenever it moves (FloorSlabBindingHandler.ts:64-89). The copy is created UNBOUND: ` +
+            `carrying the id would leave a floor on one storey following a slab on another, and no ` +
+            `machinery re-seats a binding onto the destination storey. The copy's baseOffset is ` +
+            `frozen at the source's ${floor.boundary.baseOffset ?? 0} m until a host is set.`,
+        );
+    }
+    if (floor.hostRoomId !== undefined && opts?.hostRoomId === undefined) {
+        console.warn(
+            `[CopyTool] §L-1032: the source floor is linked to room "${floor.hostRoomId}", a room on ` +
+            `the SOURCE storey (it also seeds \`coveredRoomIds\`). The copy is created UNLINKED ` +
+            `rather than pointing across storeys.`,
+        );
+    }
+
+    return {
+        // NOT `id` — see the header.
+        floorId: newFloorId,
+        ifcGuid,
+        levelId: opts?.levelId ?? floor.levelId,
+        // `FloorVertex` is `{x, z}` (FloorTypes.ts:56) and the mirror assigns the
+        // array to `boundary.polygon` verbatim (initTools.ts:1919), so this is the
+        // shape BOTH receivers read. Unlike the slab there is no `signedAreaXZ`
+        // validation demanding a `z`-bearing Vec3, so no §FIX-SLAB-ZERO-AREA
+        // double-spelling is needed or wanted here.
+        polygon: floor.boundary.polygon.map((p) => ({ x: p.x + dx, z: p.z + dz })),
+        // Both stated EXPLICITLY. `resolveFinishSeating` (CreateFloor.ts:99-105)
+        // honours an explicit thickness/baseOffset verbatim and only auto-seats
+        // when they are absent — so omitting them would silently re-seat the copy
+        // as a bare 15 mm finish on the slab top, which is a different floor.
+        ...(floor.boundary.baseOffset !== undefined ? { baseOffset: floor.boundary.baseOffset } : {}),
+        ...(floor.boundary.thickness  !== undefined ? { thickness:  floor.boundary.thickness }  : {}),
+        ...(floor.systemTypeId !== undefined ? { systemTypeId: floor.systemTypeId } : {}),
+        ...(floor.layers       !== undefined ? { layers:       floor.layers }       : {}),
+        ...(floor.finishSpec   !== undefined ? { finishSpec:   floor.finishSpec }   : {}),
+        ...(floor.serviceHoles !== undefined ? { serviceHoles: floor.serviceHoles } : {}),
+        // ⛔ DESTINATION bindings only — never the source's.
+        ...(opts?.hostSlabId !== undefined ? { hostSlabId: opts.hostSlabId } : {}),
+        ...(opts?.hostRoomId !== undefined ? { hostRoomId: opts.hostRoomId } : {}),
+    };
+}
+
+// ─── Handrail ────────────────────────────────────────────────────────────────
+
+/**
+ * Subset of `HandrailData`
+ * (`packages/core-app-model/src/stores/HandrailTypes.ts:21-74`).
+ *
+ * ─── HR1 COORDINATION, MEASURED 2026-08-19 ──────────────────────────────────
+ * The L-1032 brief flagged `packages/geometry-handrail` as mid-extraction under
+ * HR1. **That package does not exist** (`ls packages/geometry-handrail` → no
+ * such directory); the live handrail record is `core-app-model`'s, and both
+ * `HandrailTypes.ts` and `HandrailStore.ts` are CLEAN in the working tree — the
+ * only handrail files HR1 has open are `HandrailTypeStore.ts` (the CATALOGUE, a
+ * different subject) and `geometry-stair/HandrailFragmentBuilder.ts`. So this
+ * shape was read at the moment it was written against, not guessed.
+ */
+export interface LegacyHandrailLike {
+    levelId?: string;
+    baseLine: readonly [Pt3, Pt3];
+    height?: number;
+    thickness?: number;
+    baseOffset?: number;
+    materialId?: string;
+    materialColor?: string;
+    railProfile?: string;
+    railDiameter?: number;
+    fillType?: string;
+    postSpacing?: number;
+    balusterSpacing?: number;
+    balusterShape?: string;
+    balusterWidth?: number;
+    infillMaxGap?: number;
+    suppressStartPost?: boolean;
+    railStructure?: unknown[];
+    parameters?: unknown;
+    /** A host on the SOURCE storey. Not carried — see `handrailCopyPayload`. */
+    hostId?: string;
+}
+
+/** Fields a handrail copy cannot carry, named rather than dropped (C84 **EI-2**). */
+const HANDRAIL_UNCARRIED_FIELDS = [
+    'fillType', 'postSpacing', 'balusterSpacing', 'balusterShape', 'balusterWidth',
+    'infillMaxGap', 'suppressStartPost', 'railStructure', 'materialColor',
+    'baseOffset', 'parameters',
+] as const;
+
+/**
+ * Receiver: `CreateHandrailPayload`
+ * (`plugins/handrail/src/handlers/CreateHandrail.ts:16-25`) AND
+ * `CommandEventBridge`'s `handrail.create` case (`:866-897`), which is the leg
+ * that reaches the §FT-HANDRAIL mirror (`initTools.ts:1991-2096`) → the legacy
+ * `HandrailStore` → `HandrailFragmentBuilder`.
+ *
+ * ─── THE INVERSE OF THE §FT-HANDRAIL BRIDGE ─────────────────────────────────
+ *   forward `initTools.ts:2064-2067`  `path[0..1]` → `baseLine[2]`.
+ *                                     inverse: `baseLine` → a 2-point `path`.
+ *   forward `:2119`  `shape` → `railProfile`: `round`→`round`,
+ *                    `square`/`flat`→`rectangular`. **LOSSY.**
+ *   forward `:2071-2072`  `diameter` → BOTH `thickness` and `railDiameter`,
+ *                    because the builder's round branch reads `railDiameter` and
+ *                    its rectangular branch reads `thickness`.
+ *                    inverse: `railDiameter ?? thickness`.
+ *
+ * ⚠ `shape` — THE LOSSY HOP, STATED RATHER THAN GUESSED IN SILENCE. The legacy
+ * vocabulary has TWO profiles and L0 has three (`round|square|flat`,
+ * `packages/schemas/src/elements/Handrail.ts:7`), so `rectangular` cannot be
+ * resolved back to which of `square`/`flat` the author chose. `'square'` is
+ * emitted **and warned about**: the alternative — omitting `shape` — is not
+ * neutral, because `CreateHandrailHandler` defaults it to `'round'`
+ * (`CreateHandrail.ts:53`), which would turn a rectangular rail into a round one
+ * with nothing said. A declared approximation beats a silent substitution.
+ *
+ * ⚠ `hostId` is NOT carried. It names the stair / slab edge / ramp this rail
+ * runs along ON THE SOURCE STOREY — the same rule as the beam's support
+ * bindings and the floor's `hostSlabId`.
+ *
+ * ⚠ THE BIGGEST DROP IS `fillType`. The forward mirror HARDCODES
+ * `fillType: 'baluster'` (`initTools.ts:2083`), so a glass-infill guard copies
+ * as a balustrade. That is a real, visible change of the element, and it is the
+ * first item in the warning below rather than a footnote.
+ */
+export function handrailCopyPayload(
+    rail: LegacyHandrailLike,
+    dx: number,
+    dz: number,
+    newId: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    const [a, b] = rail.baseLine;
+
+    const record: Record<string, unknown> = { ...rail };
+    const uncarried = HANDRAIL_UNCARRIED_FIELDS.filter((k) => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source handrail carries ${uncarried.join(', ')}, and ` +
+            `neither CreateHandrailPayload nor the handrail.create event has a slot for any of them, ` +
+            `so the copy is created WITHOUT them. \`fillType\` is the visible one: the ` +
+            `handrail.created mirror hardcodes 'baluster' (initTools.ts:2083), so a GLASS guard ` +
+            `copies as a balustrade. \`suppressStartPost\` matters for multi-segment runs — a copied ` +
+            `corner segment regains the post its neighbour already stands on.`,
+        );
+    }
+    if (rail.hostId !== undefined) {
+        console.warn(
+            `[CopyTool] §L-1032: the source handrail is hosted on "${rail.hostId}", an element on ` +
+            `the SOURCE storey. The copy is created UNHOSTED rather than asserting it runs along a ` +
+            `stair or slab edge that is not there — the same rule beamCopyPayload applies to its ` +
+            `support bindings.`,
+        );
+    }
+    if (rail.railProfile === 'rectangular') {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source handrail's profile is 'rectangular'. The legacy ` +
+            `vocabulary has two profiles and L0 has three (round|square|flat), so which of ` +
+            `'square'/'flat' was authored cannot be recovered — the forward mirror folds both into ` +
+            `'rectangular' (initTools.ts:2119). The copy is created as 'square'; omitting the field ` +
+            `would default it to 'round' and silently change the rail's section.`,
+        );
+    }
+
+    return {
+        id:      newId,
+        levelId: opts?.levelId ?? rail.levelId,
+        // §L-1032 — inverse of initTools.ts:2064-2067. `y` is CARRIED, not
+        // rebased: `HandrailFragmentBuilder.ts:238-240` derives world Y from
+        // `level.elevation + baseOffset` and reads only the RISE between the two
+        // endpoints (`:226`), never their absolute y — so the wall's
+        // elevation-rebase rule does not apply here, and inventing one would
+        // change every sloped rail's pitch.
+        path: [
+            { x: a.x + dx, y: a.y, z: a.z + dz },
+            { x: b.x + dx, y: b.y, z: b.z + dz },
+        ],
+        // §L-1032 — the declared approximation. See the header.
+        ...(rail.railProfile !== undefined
+            ? { shape: rail.railProfile === 'round' ? 'round' : 'square' }
+            : {}),
+        ...(rail.height !== undefined ? { height: rail.height } : {}),
+        // §L-1032 — the forward hop writes ONE value into two fields; prefer the
+        // one the round branch reads, fall back to the one the rectangular
+        // branch reads.
+        ...((rail.railDiameter ?? rail.thickness) !== undefined
+            ? { diameter: rail.railDiameter ?? rail.thickness }
+            : {}),
+        ...(rail.materialId !== undefined ? { materialId: rail.materialId } : {}),
+    };
+}
+
+// ─── Lighting ────────────────────────────────────────────────────────────────
+
+/** Subset of `LightingData` (`packages/geometry-lighting/src/LightingTypes.ts:197-238`). */
+export interface LegacyLightingLike {
+    levelId?: string;
+    /** One of the TWELVE named families — see `lightingCopyPayload`. */
+    fixtureType?: string;
+    position: Pt3;
+    rotation?: { x: number; y: number; z: number } | number;
+    emission?: unknown;
+    properties?: unknown;
+    roomId?: string;
+    hostId?: string;
+    tags?: readonly string[];
+    /** The per-family parametric blocks. Exactly one is populated per fixture. */
+    downlightParams?: unknown;
+    pendantParams?: unknown;
+    linearLedParams?: unknown;
+    pendantPebbleParams?: unknown;
+    pendantCeramicBellParams?: unknown;
+    pendantConicalParams?: unknown;
+    floorWoodPostParams?: unknown;
+    floorArcBrassParams?: unknown;
+    tableTerracottaParams?: unknown;
+    floorTripodBlackParams?: unknown;
+    mirrorLightParams?: unknown;
+    pendantClusterParams?: unknown;
+}
+
+/**
+ * The ten named fixture families the L0 `LightingKind` enum has no member for.
+ *
+ * `packages/schemas/src/elements/Lighting.ts:47-53` — `LightingKind` is
+ * `['downlight','pendant','strip','wall-sconce','emergency']`.
+ * `LightingTypes.ts:33-44` — `LightingFixtureType` is twelve named families.
+ * They share exactly TWO members, and that schema file says so itself:
+ * `LightingKind` is a *"COARSER CLASSIFICATION"*, not a rival taxonomy.
+ */
+export const LIGHTING_FIXTURES_L0_CANNOT_EXPRESS = [
+    'linear_led', 'pendant_pebble', 'pendant_ceramic_bell', 'pendant_conical',
+    'floor_wood_post', 'floor_arc_brass', 'table_terracotta', 'floor_tripod_black',
+    'mirror_light', 'pendant_cluster',
+] as const;
+
+/** Fields a lighting copy cannot carry, named rather than dropped (C84 **EI-2**). */
+const LIGHTING_UNCARRIED_FIELDS = [
+    'emission', 'properties', 'roomId', 'hostId', 'tags',
+    'downlightParams', 'pendantParams', 'linearLedParams', 'pendantPebbleParams',
+    'pendantCeramicBellParams', 'pendantConicalParams', 'floorWoodPostParams',
+    'floorArcBrassParams', 'tableTerracottaParams', 'floorTripodBlackParams',
+    'mirrorLightParams', 'pendantClusterParams',
+] as const;
+
+/**
+ * Receiver: `CreateLightingPayload`
+ * (`plugins/lighting/src/handlers/CreateLighting.ts:16-31`) AND
+ * `CommandEventBridge`'s `lighting.create` case (`:995-1013`), which is the leg
+ * that reaches the §FT-LIGHTING mirror (`initTools.ts:2109-2160`) → the legacy
+ * `LightingStore` → `LightingFragmentBuilder`.
+ *
+ * ─── THE INVERSE OF THE §FT-LIGHTING BRIDGE, AND WHY `kind` GOES VERBATIM ───
+ * The forward hop is `fixtureType: (ev.kind ?? 'downlight') as LightingFixtureType`
+ * (`initTools.ts:2195`) — a CAST, not a translation. The bus `kind` is written
+ * STRAIGHT into the legacy `fixtureType`. So the inverse that round-trips is
+ * `kind = fixtureType`, verbatim, and any other mapping is wrong twice over:
+ *
+ *   • Deriving the coarse form (`constructionFormFor`) would send `'pendant'` for
+ *     a `floor_arc_brass`, and the cast would then MINT A DIFFERENT LAMP — a
+ *     silent mis-file, which this module ranks below a loud refusal.
+ *   • Forwarding one of the ten families L0 cannot express makes `Lighting.parse`
+ *     throw a `LightingSchemaError` and the copy REFUSES, loudly, with the family
+ *     named. That is the `columnCopyPayload` 'UC'/'UB' precedent (C84 EI-3) and
+ *     it is the correct behaviour of the two.
+ *
+ * `LIGHTING_FIXTURES_L0_CANNOT_EXPRESS` names the ten so the refusal is PREDICTED
+ * here rather than discovered in a `.catch()`. **This is a FOUND, NOT FIXED
+ * finding**: only `downlight` and `pendant` round-trip today, and the real repair
+ * is upstream — either the L0 schema carries the named vocabulary, or the mirror
+ * stops casting one into the other.
+ *
+ * ⚠ `origin.y` is carried but does NOT decide the height: the mirror RE-SEATS it
+ * per fixture kind at the DESTINATION storey (`initTools.ts:2172-2186`,
+ * §FIX-SEATING-ONE-AUTHORITY), which is exactly what a duplicate onto another
+ * storey should do.
+ */
+export function lightingCopyPayload(
+    light: LegacyLightingLike,
+    dx: number,
+    dz: number,
+    newId: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    const rot = light.rotation;
+    const yaw = typeof rot === 'number' ? rot : rot?.y;
+
+    const record: Record<string, unknown> = { ...light };
+    const uncarried = LIGHTING_UNCARRIED_FIELDS.filter((k) => record[k] !== undefined);
+    if (uncarried.length > 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source light fixture carries ${uncarried.join(', ')}, and ` +
+            `neither CreateLightingPayload nor the lighting.create event has a slot for any of them, ` +
+            `so the copy is created WITHOUT them. The \`*Params\` block is the fixture's whole ` +
+            `parametric description (radii, cable drops, shade colours), so a tuned pendant copies ` +
+            `as a default one of its family; \`emission\` is its photometry.`,
+        );
+    }
+    if (
+        light.fixtureType !== undefined &&
+        (LIGHTING_FIXTURES_L0_CANNOT_EXPRESS as readonly string[]).includes(light.fixtureType)
+    ) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-3: the source fixture is a "${light.fixtureType}", which the L0 ` +
+            `LightingKind enum (downlight|pendant|strip|wall-sconce|emergency) has no member for. ` +
+            `The value is forwarded UNCHANGED so \`Lighting.parse\` REFUSES the copy loudly. It is ` +
+            `NOT folded into its coarse construction form, because the lighting.created mirror CASTS ` +
+            `\`kind\` straight into \`fixtureType\` (initTools.ts:2195) — so a folded value would ` +
+            `mint a DIFFERENT lamp instead of refusing. Only 'downlight' and 'pendant' round-trip ` +
+            `today; the repair is upstream, in the schema or the cast.`,
+        );
+    }
+    if (yaw !== undefined && yaw !== 0) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source fixture is rotated (${yaw} rad). ` +
+            `CreateLightingPayload accepts \`rotation\` and it is forwarded, but the ` +
+            `CommandEventBridge \`lighting.create\` case emits only id/kind/origin ` +
+            `(CommandEventBridge.ts:1005-1012), so the rotation reaches the L0 record and NOT the ` +
+            `legacy store the mesh is built from. The copied fixture's BODY faces the default ` +
+            `direction until that emit carries rotation.`,
+        );
+    }
+
+    return {
+        id:      newId,
+        levelId: opts?.levelId ?? light.levelId,
+        // §L-1032 — VERBATIM. See the header: any other mapping either mints a
+        // different lamp or hides a refusal.
+        ...(light.fixtureType !== undefined ? { kind: light.fixtureType } : {}),
+        // `y` is carried for completeness; the mirror re-seats it at the
+        // destination storey per fixture kind.
+        origin: { x: light.position.x + dx, y: light.position.y, z: light.position.z + dz },
+        // A SCALAR yaw — `CreateLightingPayload.rotation` is `number`.
+        ...(yaw !== undefined ? { rotation: yaw } : {}),
+    };
+}
+
+// ─── Plumbing ────────────────────────────────────────────────────────────────
+
+/**
+ * Subset of `PlumbingFixtureData`
+ * (`packages/geometry-plumbing/src/PlumbingTypes.ts:16-47`).
+ *
+ * `position`/`rotation` are a `THREE.Vector3`/`THREE.Euler` in the real record;
+ * declared structurally here so this module stays THREE-free (P2). Only `x`,
+ * `y`, `z` are read, which both classes expose as plain numbers.
+ */
+export interface LegacyPlumbingFixtureLike {
+    levelId?: string;
+    fixtureType?: string;
+    toiletVariant?: string;
+    showerVariant?: string;
+    accessoryVariant?: string;
+    position: Pt3;
+    rotation?: { x: number; y: number; z: number };
+    baseOffset?: number;
+    width?: number;
+    height?: number;
+    length?: number;
+    color?: string;
+    startPoint?: Pt3;
+    endPoint?: Pt3;
+    properties?: unknown;
+}
+
+/**
+ * Receiver: `CreatePlumbingFixturePayload`
+ * (`plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:16-28`) AND the
+ * command it forwards to whole, `CreatePlumbingFixtureCommand`'s own
+ * `CreatePlumbingFixturePayload`
+ * (`packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts:13-32`),
+ * which declares `id`, `color`, `startPoint` and `endPoint` that the plugin
+ * interface does not. The second receiver is legitimate for the same reason
+ * `slabCopyPayload` may emit `ifcGuid`/`position`/`width`/`depth`: the handler
+ * body passes `cmd` through unexamined (`CreatePlumbingFixture.ts:50`), so those
+ * keys reach a DECLARED interface — they are not falling through to a default.
+ *
+ * ⚠ **THE VERB IS `plumbing.createFixture`, NOT `plumbing.create`, AND THAT IS
+ * THE WHOLE PLUMBING FINDING.** The two describe different elements:
+ *
+ *   • `CreatePlumbingPayload` (`plugins/plumbing/src/handlers/CreatePlumbing.ts:16-29`)
+ *     is a PIPE — `kind: straight|bend`, `diameter`, `length`, `bendRadius`,
+ *     `systemTag`. It has no `fixtureType` and no `toiletVariant`.
+ *   • `window.plumbingStore` holds `PlumbingFixtureData` — toilets, sinks,
+ *     baths, showers, accessories.
+ *
+ * Routing a duplicated toilet through `plumbing.create` would mint a 50 mm
+ * cold-water pipe. Worse, it would mint it NOWHERE VISIBLE: `CommandEventBridge`'s
+ * `plumbing.create` case emits `levelId` and nothing else (`:1015-1023`) and
+ * **no subscriber to `plumbing.created` exists in the tree** (`grep -rn
+ * "plumbing.created"` → two hits, both the emitter and its type declaration), so
+ * that leg reaches the plugin DTO store only and no builder ever hears.
+ * `plumbing.createFixture` is the leg that reaches `PlumbingStore.add()` →
+ * `PlumbingFragmentBuilder`.
+ *
+ * ⚠ **FOUND, NOT FIXED — this verb's undo entry is on the LEGACY stack.**
+ * `CreatePlumbingFixtureHandler.execute` returns `{ forward: [], inverse: [] }`
+ * and does its work through `window.commandManager.execute(...)`
+ * (`CreatePlumbingFixture.ts:46-56`), so the bus ring buffer records an EMPTY
+ * entry and the real inverse lives in the legacy command manager. One Ctrl+Z
+ * still removes one duplicated fixture, but it is NOT the same mechanism the
+ * other families use, and unifying it is a `plugins/**` change outside this lane.
+ * `DUPLICATE_TO_LEVEL['plumbing'].undoStack` records this rather than letting
+ * `undoEntries: 1` imply a bus entry that is not there.
+ *
+ * ⚠ `position.y` is carried but does NOT decide the height:
+ * `CreatePlumbingFixtureCommand.execute` re-seats it as
+ * `resolveFloorSeatingDatum(...).y + baseOffset` (`:67-79`,
+ * §FIX-INTERIOR-FFL-SEATING), so a duplicate lands on the DESTINATION storey's
+ * finished floor — which is what it should do.
+ */
+export function plumbingFixtureCopyPayload(
+    fixture: LegacyPlumbingFixtureLike,
+    dx: number,
+    dz: number,
+    newId: string,
+    opts?: CopyPayloadOverrides,
+): Record<string, unknown> {
+    if (fixture.properties !== undefined) {
+        console.warn(
+            `[CopyTool] §L-1032/EI-2: the source plumbing fixture carries \`properties\`, and no ` +
+            `receiver declares a slot for it — CreatePlumbingFixtureCommand writes ` +
+            `\`properties: {}\` unconditionally (CreatePlumbingFixtureCommand.ts:91) — so the copy ` +
+            `is created with an EMPTY property bag. A fixture's IFC mark lives there, so the copy ` +
+            `is unmarked.`,
+        );
+    }
+
+    return {
+        // Declared by the COMMAND's payload interface and forwarded whole by the
+        // plugin handler. Without it `stableCreatedId` mints its own and the
+        // duplicate route's `newId` would name an element that does not exist.
+        id:          newId,
+        levelId:     opts?.levelId ?? fixture.levelId,
+        fixtureType: fixture.fixtureType,
+        // Re-seated at the destination storey by the command — see the header.
+        position:    { x: fixture.position.x + dx, y: fixture.position.y, z: fixture.position.z + dz },
+        // An OBJECT, not a scalar: both receivers declare `{x,y,z}` and the
+        // command feeds it straight into `new THREE.Euler(...)`. The furniture
+        // hop's scalar-yaw lift (§FIX-COPY-PAYLOAD-FIELD-NAMES) is the OPPOSITE
+        // case and must not be copied here.
+        rotation: {
+            x: fixture.rotation?.x ?? 0,
+            y: fixture.rotation?.y ?? 0,
+            z: fixture.rotation?.z ?? 0,
+        },
+        baseOffset: fixture.baseOffset ?? 0,
+        ...(fixture.toiletVariant    !== undefined ? { toiletVariant:    fixture.toiletVariant }    : {}),
+        ...(fixture.showerVariant    !== undefined ? { showerVariant:    fixture.showerVariant }    : {}),
+        ...(fixture.accessoryVariant !== undefined ? { accessoryVariant: fixture.accessoryVariant } : {}),
+        ...(fixture.width  !== undefined ? { width:  fixture.width }  : {}),
+        ...(fixture.height !== undefined ? { height: fixture.height } : {}),
+        ...(fixture.length !== undefined ? { length: fixture.length } : {}),
+        ...(fixture.color  !== undefined ? { color:  fixture.color }  : {}),
+        ...(fixture.startPoint !== undefined
+            ? {
+                startPoint: {
+                    x: fixture.startPoint.x + dx,
+                    y: fixture.startPoint.y,
+                    z: fixture.startPoint.z + dz,
+                },
+            }
+            : {}),
+        ...(fixture.endPoint !== undefined
+            ? {
+                endPoint: {
+                    x: fixture.endPoint.x + dx,
+                    y: fixture.endPoint.y,
+                    z: fixture.endPoint.z + dz,
+                },
+            }
+            : {}),
+    };
+}

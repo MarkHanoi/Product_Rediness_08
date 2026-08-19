@@ -54,9 +54,24 @@
  * evidence. Its sibling register `packages/command-bus/src/levelChangeVerbs.ts`
  * answers the CHANGE-level question; the two are deliberately separate files
  * because **the answers differ**: a hosted door may not change level AND may not
- * be duplicated (both C15 §2), but a `roof` MAY change level and may NOT yet be
- * duplicated — for a reason that has nothing to do with roofs and everything to
- * do with there being no roof entry in `copyPayloads.ts`.
+ * be duplicated (both C15 §2), while a `stair` MAY be told to change level as a
+ * pair of storeys and may NOT be duplicated at all — a single-target duplicate
+ * of a two-storey element is ambiguous by construction.
+ *
+ * ─── §L-1032 D3 — THE SIX THAT WERE DEFERRED ARE NOW BUILT ──────────────────
+ * `roof`, `ceiling`, `floor`, `handrail`, `lighting` and `plumbing` used to sit
+ * in the refusal table saying *"the plan copy tool cannot copy one either"*,
+ * citing C84 EI-9. **That reading was wrong**, and the DIRECTION of the two maps
+ * is what settles it: the `*CreatedMirror` modules map bus event → legacy
+ * record; `copyPayloads.ts` maps legacy record → bus payload — the INVERSE. Two
+ * modules answering OPPOSITE questions are not rival authorities; a family needs
+ * both to round-trip. What EI-9 really demands of a pair like that is that they
+ * AGREE, which is a testable claim and is now tested.
+ *
+ * ⚠ ONE OF THE SIX CHANGED THE QUESTION ON THE WAY IN. `plumbing` dispatches
+ * **`plumbing.createFixture`**, not `plumbing.create`: those two verbs describe
+ * DIFFERENT ELEMENTS (a fixture vs a pipe), and the pipe verb reaches no
+ * renderer at all. See `DUPLICATE_TO_LEVEL['plumbing']`.
  */
 
 import { createId } from '@pryzm/schemas';
@@ -67,12 +82,28 @@ import {
     columnCopyPayload,
     beamCopyPayload,
     furnitureCopyPayload,
+    // §L-1032 D3 — the six families that were DEFERRED here for want of a
+    // builder. They have one now; see the `copyPayloads.ts` banner for why an
+    // INVERSE map is not the second authority C84 EI-9 forbids.
+    roofCopyPayload,
+    ceilingCopyPayload,
+    floorCopyPayload,
+    handrailCopyPayload,
+    lightingCopyPayload,
+    plumbingFixtureCopyPayload,
     type LegacyCurtainWallLike,
     type LegacyWallLike,
     type LegacySlabLike,
     type LegacyColumnLike,
     type LegacyBeamLike,
     type LegacyFurnitureLike,
+    type LegacyRoofLike,
+    type LegacyCeilingLike,
+    type LegacyFloorLike,
+    type LegacyHandrailLike,
+    type LegacyLightingLike,
+    type LegacyPlumbingFixtureLike,
+    type FloorCopyOverrides,
 } from './copyPayloads';
 
 // ═══ 1. THE REGISTER ════════════════════════════════════════════════════════
@@ -80,7 +111,11 @@ import {
 /** The families `copyPayloads.ts` can express, and therefore the only ones this
  *  route may serve without minting a second mapping. */
 export type DuplicableKind =
-    | 'wall' | 'curtainWall' | 'slab' | 'column' | 'beam' | 'furniture';
+    | 'wall' | 'curtainWall' | 'slab' | 'column' | 'beam' | 'furniture'
+    // §L-1032 D3 — the six that were deferred for want of a `copyPayloads.ts`
+    // builder. Every one of them now has one, checked field-by-field against the
+    // real receiving payload interface.
+    | 'roof' | 'ceiling' | 'floor' | 'handrail' | 'lighting' | 'plumbing';
 
 export interface DuplicateToLevelSpec {
     readonly kind: DuplicableKind;
@@ -90,13 +125,36 @@ export interface DuplicateToLevelSpec {
     readonly verb: string;
     /** `window.<this>` — the LEGACY store the source record is read from. */
     readonly legacyStoreGlobal: string;
-    /** `createId()` prefix for the duplicate's id. */
-    readonly idKind: 'wall' | 'curtainwall' | 'slab' | 'column' | 'beam' | 'furniture';
+    /** `createId()` prefix for the duplicate's id. Every value is a member of
+     *  `ElementType` (`packages/schemas/src/types/Id.ts:79-109`) — `createId` is
+     *  generic over it, so a typo is a compile error rather than a malformed id. */
+    readonly idKind:
+        | 'wall' | 'curtainwall' | 'slab' | 'column' | 'beam' | 'furniture'
+        | 'roof' | 'ceiling' | 'floor' | 'handrail' | 'lighting' | 'plumbing';
     /**
-     * `true` ⇒ the create path also mints a fresh `ifcGuid`. Only the slab does:
-     * `initTools.ts:1783-1786` writes `ifcData.guid` from the event and
-     * `SlabStore.add()`'s `validateSlabData()` REQUIRES it, so two records
-     * sharing one guid is an IFC identity collision, not a cosmetic duplicate.
+     * WHICH undo stack the duplicate's inverse lands on.
+     *
+     * ⚠ This is not decoration. `DUPLICATE_TO_LEVEL_UNDO.perDuplicate` says ONE
+     * entry per duplicate, and for eleven of the twelve families that entry is a
+     * `produceCommand` patch pair in the bus ring buffer. **`plumbing` is the
+     * exception**: `CreatePlumbingFixtureHandler.execute` returns
+     * `{ forward: [], inverse: [] }` and does its work through
+     * `window.commandManager.execute(...)`
+     * (`plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:46-56`), so the
+     * bus records an EMPTY entry and the real inverse is the legacy command
+     * manager's. One Ctrl+Z still removes one duplicated fixture — but saying
+     * "one undo entry" without saying WHOSE would be the kind of flattened claim
+     * C84 §9 exists to stop.
+     */
+    readonly undoStack: 'bus' | 'legacy-commandManager';
+    /**
+     * `true` ⇒ the create path also mints a fresh `ifcGuid`. TWO families do —
+     * slab and floor (§L-1032 D3) — and both for the same reason:
+     * `initTools.ts:1783-1786` (slab) and `:1953` (floor) write `ifcData.guid`
+     * straight from the event, so two records sharing one guid is an IFC
+     * identity collision, not a cosmetic duplicate. Every other family's mirror
+     * mints its own guid and no payload field carries one, so asking this route
+     * for one would be an affordance with no receiver.
      */
     readonly mintsIfcGuid: boolean;
     /**
@@ -148,6 +206,7 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: false,
         rebasesElevation: true,
         batchVerb: 'wall.batch.create',
+        undoStack: 'bus',
     },
     curtainWall: {
         kind: 'curtainWall',
@@ -162,6 +221,7 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: false,
         rebasesElevation: false,
         batchVerb: 'curtain-wall.batch.create',
+        undoStack: 'bus',
     },
     // §L-1032 — the founder's named case.
     slab: {
@@ -173,6 +233,7 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: true,
         rebasesElevation: false,
         batchVerb: 'slab.batch.create',
+        undoStack: 'bus',
     },
     column: {
         kind: 'column',
@@ -183,6 +244,7 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: false,
         rebasesElevation: false,
         batchVerb: 'column.batch.create',
+        undoStack: 'bus',
     },
     beam: {
         kind: 'beam',
@@ -193,6 +255,7 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: false,
         rebasesElevation: false,
         batchVerb: 'beam.batch.create',
+        undoStack: 'bus',
     },
     furniture: {
         kind: 'furniture',
@@ -203,8 +266,118 @@ export const DUPLICATE_TO_LEVEL: Readonly<Record<DuplicableKind, DuplicateToLeve
         mintsIfcGuid: false,
         rebasesElevation: false,
         batchVerb: 'furniture.batch.create',
+        undoStack: 'bus',
+    },
+    // ── §L-1032 D3 — the six that were DEFERRED, now built ──────────────────
+    //
+    // Each of these six satisfies the same four-part claim (a)–(d) as the rows
+    // above, and one addition the founder asked for by name: the builder is the
+    // INVERSE of the family's `.created` mirror, cited line-by-line in
+    // `copyPayloads.ts`, so the pair can be — and is — round-tripped in
+    // `CopiedElementKeepsPlaceAndProperties.test.ts`. Two maps that disagree is
+    // the real EI-9 risk here, not the existence of a second map.
+    roof: {
+        kind: 'roof',
+        panelTypes: ['roof'],
+        verb: 'roof.create',
+        legacyStoreGlobal: 'roofStore',
+        idKind: 'roof',
+        mintsIfcGuid: false,
+        // `ChangeRoofLevel.ts:45-47` writes `levelId` and nothing else, and the
+        // roof's seating is MEASURED at the destination by
+        // `resolveMirroredRoofBaseOffset` (roofCreatedMirror.ts:76-82) rather
+        // than carried — so there is no elevation for this route to rebase.
+        rebasesElevation: false,
+        batchVerb: null,
+        undoStack: 'bus',
+    },
+    ceiling: {
+        kind: 'ceiling',
+        panelTypes: ['ceiling'],
+        verb: 'ceiling.create',
+        legacyStoreGlobal: 'ceilingStore',
+        idKind: 'ceiling',
+        // The `ceiling.created` mirror mints its own guid
+        // (`ceilingCreatedMirror.ts:169`) and no payload field carries one, so
+        // asking this route for one would be an affordance with no receiver.
+        mintsIfcGuid: false,
+        // `ChangeCeilingLevel.ts:107-109` — `levelId` only.
+        rebasesElevation: false,
+        batchVerb: 'ceiling.batch.create',
+        undoStack: 'bus',
+    },
+    floor: {
+        kind: 'floor',
+        panelTypes: ['floor'],
+        verb: 'floor.create',
+        legacyStoreGlobal: 'floorStore',
+        idKind: 'floor',
+        // TRUE, and for the slab's reason: the §P3.2-FL mirror writes
+        // `ifcData.guid = ev.ifcGuid ?? crypto.randomUUID()`
+        // (`initTools.ts:1953`), so two floors sharing one guid is an IFC
+        // identity collision rather than a cosmetic duplicate.
+        mintsIfcGuid: true,
+        // `ChangeFloorLevel.ts:115-117` — `levelId` only. The finish's height is
+        // `boundary.baseOffset`, relative to the level datum, and it is carried.
+        rebasesElevation: false,
+        batchVerb: null,
+        undoStack: 'bus',
+    },
+    handrail: {
+        kind: 'handrail',
+        panelTypes: ['handrail'],
+        verb: 'handrail.create',
+        legacyStoreGlobal: 'handrailStore',
+        idKind: 'handrail',
+        mintsIfcGuid: false,
+        // `ChangeHandrailLevel.ts:110-113` — `levelId` only. And the rail needs
+        // no rebase for a second, stronger reason: `HandrailFragmentBuilder.ts:238-240`
+        // derives world Y from `level.elevation + baseOffset` and reads only the
+        // RISE between the path endpoints (`:226`), never their absolute `y`.
+        rebasesElevation: false,
+        batchVerb: null,
+        undoStack: 'bus',
+    },
+    lighting: {
+        kind: 'lighting',
+        panelTypes: ['lighting'],
+        verb: 'lighting.create',
+        legacyStoreGlobal: 'lightingStore',
+        idKind: 'lighting',
+        mintsIfcGuid: false,
+        // `ChangeLightingLevel.ts:135-137` — `levelId` only. The §FT-LIGHTING
+        // mirror RE-SEATS `origin.y` per fixture kind at the destination storey
+        // (`initTools.ts:2172-2186`), so a rebase here would be a second
+        // authority on seating — the §FIX-SEATING-ONE-AUTHORITY defect inverted.
+        rebasesElevation: false,
+        batchVerb: null,
+        undoStack: 'bus',
+    },
+    plumbing: {
+        kind: 'plumbing',
+        panelTypes: ['plumbing'],
+        // ⚠ NOT `plumbing.create`. That verb describes a PIPE
+        // (`CreatePlumbingPayload` — kind/diameter/length/bendRadius/systemTag)
+        // while `window.plumbingStore` holds FIXTURES (`PlumbingFixtureData` —
+        // toilets, sinks, baths, showers). Routing a duplicated toilet through
+        // it would mint a 50 mm cold-water pipe, and mint it nowhere visible:
+        // `CommandEventBridge`'s `plumbing.create` case emits `levelId` alone
+        // (`:1015-1023`) and NOTHING in the tree subscribes to `plumbing.created`.
+        // `plumbing.createFixture` is the leg that reaches `PlumbingStore.add()`.
+        verb: 'plumbing.createFixture',
+        legacyStoreGlobal: 'plumbingStore',
+        idKind: 'plumbing',
+        mintsIfcGuid: false,
+        // `ChangePlumbingLevel.ts:118-121` — `levelId` only. `CreatePlumbingFixtureCommand`
+        // re-seats `position.y` on the destination storey's FINISHED floor
+        // (`:67-79`, §FIX-INTERIOR-FFL-SEATING).
+        rebasesElevation: false,
+        batchVerb: null,
+        // ⚠ THE ONE EXCEPTION IN THIS TABLE — see `DuplicateToLevelSpec.undoStack`.
+        undoStack: 'legacy-commandManager',
     },
 } as const;
+
 
 // ═══ 2. THE DECLARED ABSENCES ═══════════════════════════════════════════════
 
@@ -225,28 +398,6 @@ export interface DuplicateToLevelRefusal {
      */
     readonly disposition: 'structural' | 'deferred';
 }
-
-/**
- * ⚠ **The commonest `deferred` reason, stated once so eleven rows need not
- * repeat it.** Six families (roof, ceiling, floor, handrail, lighting, plumbing)
- * have a live `<kind>.create` verb, a populated `window.<kind>Store`, AND a row
- * in `LEVEL_CHANGE_VERBS` — they can already change storey. What they lack is a
- * builder in `copyPayloads.ts`: `CopyPlanToolHandler._commitCopy` (`:250-269`)
- * has no `case` for any of them and falls through to
- * `console.warn('No copy implementation for element type')` at `:267`.
- *
- * Writing one here to unblock duplicate-to-level is exactly the move C84 EI-9
- * forbids and L-978 priced: it would make this module the SECOND authority on a
- * mapping, for a family whose FIRST authority does not exist to be checked
- * against. The right order is the plan copy first, this route second — one
- * mapping, two callers.
- */
-const NO_COPY_MAPPING_CLAUSE =
-    'C84 EI-9 (one authority per question) · L-978 (a second payload mapping mints silent schema defaults)';
-const noCopyMappingEvidence = (family: string): string =>
-    `apps/editor/src/engine/views/plantools/copyPayloads.ts — no \`${family}CopyPayload\` export · ` +
-    `apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts:250-269 — \`_commitCopy\` has no ` +
-    `\`case '${family}'\`, so the plan copy tool warns "No copy implementation" at :267`;
 
 /**
  * THE DECLARED ABSENCES. C84 EI-1b: a family that is conformant-by-refusal is
@@ -338,56 +489,25 @@ export const DUPLICATE_TO_LEVEL_REFUSALS: Readonly<Record<string, DuplicateToLev
             '`lift.create` bus verb to dispatch and no `LEVEL_CHANGE_VERBS` row either',
         disposition: 'deferred',
     },
-    roof: {
-        kind: 'roof',
-        panelTypes: ['roof'],
-        reason: 'Roofs cannot be duplicated to another storey yet — the plan copy tool cannot copy a roof either, and duplicating one would mean writing a second, unchecked description of what a roof is.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence:
-            noCopyMappingEvidence('roof') +
-            ' · NOTE: `roof.changeLevel` IS live (levelChangeVerbs.ts:111-117), so this is a COPY gap, not a level gap',
-        disposition: 'deferred',
-    },
-    ceiling: {
-        kind: 'ceiling',
-        panelTypes: ['ceiling'],
-        reason: 'Ceilings cannot be duplicated to another storey yet — the plan copy tool cannot copy a ceiling either.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence: noCopyMappingEvidence('ceiling') + ' · `ceiling.changeLevel` IS live (levelChangeVerbs.ts:142-148)',
-        disposition: 'deferred',
-    },
-    floor: {
-        kind: 'floor',
-        panelTypes: ['floor'],
-        reason: 'Floors cannot be duplicated to another storey yet — the plan copy tool cannot copy a floor either.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence: noCopyMappingEvidence('floor') + ' · `floor.changeLevel` IS live (levelChangeVerbs.ts:149-155)',
-        disposition: 'deferred',
-    },
-    handrail: {
-        kind: 'handrail',
-        panelTypes: ['handrail'],
-        reason: 'Handrails cannot be duplicated to another storey yet — the plan copy tool cannot copy a handrail either.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence: noCopyMappingEvidence('handrail') + ' · `handrail.changeLevel` IS live (levelChangeVerbs.ts:177-183)',
-        disposition: 'deferred',
-    },
-    lighting: {
-        kind: 'lighting',
-        panelTypes: ['lighting'],
-        reason: 'Light fixtures cannot be duplicated to another storey yet — the plan copy tool cannot copy one either.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence: noCopyMappingEvidence('lighting') + ' · `lighting.changeLevel` IS live (levelChangeVerbs.ts:163-169)',
-        disposition: 'deferred',
-    },
-    plumbing: {
-        kind: 'plumbing',
-        panelTypes: ['plumbing'],
-        reason: 'Plumbing fixtures cannot be duplicated to another storey yet — the plan copy tool cannot copy one either.',
-        clause: NO_COPY_MAPPING_CLAUSE,
-        evidence: noCopyMappingEvidence('plumbing') + ' · `plumbing.changeLevel` IS live (levelChangeVerbs.ts:170-176)',
-        disposition: 'deferred',
-    },
+    // ── §L-1032 D3 — SIX ROWS REMOVED FROM THIS TABLE, ON PURPOSE ───────────
+    //
+    // `roof`, `ceiling`, `floor`, `handrail`, `lighting` and `plumbing` stood
+    // here as `deferred`, each saying *"the plan copy tool cannot copy one
+    // either"* and citing C84 EI-9 — the fear being that a builder in
+    // `copyPayloads.ts` would be a SECOND authority on a mapping whose first did
+    // not exist.
+    //
+    // That reading was wrong, and measuring the DIRECTION of the two maps is
+    // what settles it: the `*CreatedMirror` modules map **bus event → legacy
+    // record**, and `copyPayloads.ts` maps **legacy record → bus payload** — the
+    // INVERSE. A second authority is two modules answering the SAME question;
+    // these answer opposite ones, and a family needs both to round-trip. The six
+    // builders now exist, each checked field-by-field against its real receiving
+    // payload interface, and each round-tripped against its forward mirror in
+    // `CopiedElementKeepsPlaceAndProperties.test.ts` — because the ACTUAL EI-9
+    // risk is the two maps DISAGREEING, and that is a testable claim.
+    //
+    // They are rows in `DUPLICATE_TO_LEVEL` above. Do not re-add them here.
     pool: {
         kind: 'pool',
         panelTypes: ['pool'],
@@ -416,10 +536,12 @@ export const DUPLICATE_TO_LEVEL_REFUSALS: Readonly<Record<string, DuplicateToLev
  * **What this module does NOT do is duplicate a SET in one entry.**
  * `apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:22-29` records that
  * `batchCoordinator.runBatch` is undo-NEUTRAL: N commands inside it are N undo
- * entries, and ONE entry is bought only by dispatching ONE batch verb. Six of
- * the six duplicable families HAVE a batch verb (`DUPLICATE_TO_LEVEL[k].batchVerb`),
- * so the one-entry multi-duplicate is reachable — but it is **not** a free swap,
- * and the slab is the proof:
+ * entries, and ONE entry is bought only by dispatching ONE batch verb. **SEVEN
+ * of the twelve** duplicable families have one (`DUPLICATE_TO_LEVEL[k].batchVerb`
+ * — the original six plus `ceiling.batch.create`; roof, floor, handrail,
+ * lighting and plumbing have `null`), so the one-entry multi-duplicate is not
+ * even reachable for five of them — and where it IS reachable it is **not** a
+ * free swap. The slab is the proof:
  *
  *   `CommandEventBridge`'s `slab.batch.create` fan-out (`:449-487`) emits
  *   `position: { x: 0, y: 0, z: 0 }` HARD-CODED and forwards neither `width` nor
@@ -436,7 +558,16 @@ export const DUPLICATE_TO_LEVEL_REFUSALS: Readonly<Record<string, DuplicateToLev
  * elements" beats a false "one".
  */
 export const DUPLICATE_TO_LEVEL_UNDO = {
-    /** Undo entries produced by ONE `duplicateToLevel()` call. */
+    /**
+     * Undo entries produced by ONE `duplicateToLevel()` call.
+     *
+     * ⚠ ON WHICH STACK is a separate fact and is per-family:
+     * `DUPLICATE_TO_LEVEL[k].undoStack`. Eleven of twelve are the bus ring
+     * buffer; `plumbing` is the legacy command manager's, because its handler
+     * returns an empty patch pair and delegates. One entry either way — but
+     * "one undo entry" without naming whose is the flattened claim C84 §9 is
+     * about.
+     */
     perDuplicate: 1,
     /** `true` only when a batch verb could be used WITHOUT losing a field. */
     oneEntryForManySupported: false,
@@ -500,7 +631,14 @@ export type DuplicateSource =
     | { readonly kind: 'slab';        readonly record: LegacySlabLike }
     | { readonly kind: 'column';      readonly record: LegacyColumnLike }
     | { readonly kind: 'beam';        readonly record: LegacyBeamLike }
-    | { readonly kind: 'furniture';   readonly record: LegacyFurnitureLike };
+    | { readonly kind: 'furniture';   readonly record: LegacyFurnitureLike }
+    // §L-1032 D3.
+    | { readonly kind: 'roof';        readonly record: LegacyRoofLike }
+    | { readonly kind: 'ceiling';     readonly record: LegacyCeilingLike }
+    | { readonly kind: 'floor';       readonly record: LegacyFloorLike }
+    | { readonly kind: 'handrail';    readonly record: LegacyHandrailLike }
+    | { readonly kind: 'lighting';    readonly record: LegacyLightingLike }
+    | { readonly kind: 'plumbing';    readonly record: LegacyPlumbingFixtureLike };
 
 export interface DuplicateToLevelIds {
     /** The duplicate's id. MUST differ from the source's. */
@@ -509,6 +647,27 @@ export interface DuplicateToLevelIds {
     readonly ifcGuid?: string;
     /** DESTINATION level's elevation in metres — required iff `spec.rebasesElevation`. */
     readonly elevationY?: number;
+    /**
+     * §L-1032 D3 · FLOOR ONLY — the DESTINATION storey's host bindings, when the
+     * caller has resolved them.
+     *
+     * ⛔ These are NEVER derived from the source record. A copied floor finish
+     * carrying the source's `hostSlabId` would be re-seated by
+     * `FloorSlabBindingHandler` every time the SOURCE storey's slab moved
+     * (`packages/geometry-slab/src/floor/FloorSlabBindingHandler.ts:64-89`) — a
+     * cross-storey action at a distance with no visible cause. Omitted ⇒
+     * `floorCopyPayload` creates the copy UNBOUND **and says so** at the drop
+     * site, which is the L-1032 brief's second permitted outcome.
+     *
+     * `duplicateToLevel()` passes NEITHER: resolving a host slab at the
+     * destination is a containment question about slab geometry (whose legacy
+     * polygon is stored `{x, y = worldZ}` and placed relative to `position` —
+     * see `slabCopyPayload`), and that belongs in `@pryzm/geometry-slab`, not in
+     * a routing module. **FOUND, NOT FIXED**, and reported as unbound rather
+     * than guessed.
+     */
+    readonly hostSlabId?: string;
+    readonly hostRoomId?: string;
 }
 
 /**
@@ -551,6 +710,30 @@ export function buildDuplicateToLevelPayload(
             return beamCopyPayload(source.record, DX, DZ, ids.newId, opts);
         case 'furniture':
             return furnitureCopyPayload(source.record, DX, DZ, ids.newId, opts);
+        // ── §L-1032 D3 ──────────────────────────────────────────────────────
+        case 'roof':
+            return roofCopyPayload(source.record, DX, DZ, ids.newId, opts);
+        case 'ceiling':
+            return ceilingCopyPayload(source.record, DX, DZ, ids.newId, opts);
+        case 'floor': {
+            // `ifcGuid` is REQUIRED for the same reason the slab's is: the
+            // §P3.2-FL mirror writes `ifcData.guid` straight from the event
+            // (`initTools.ts:1953`), so a shared guid is an IFC identity
+            // collision. The host bindings are the DESTINATION's or absent —
+            // never the source's. See `DuplicateToLevelIds`.
+            const floorOpts: FloorCopyOverrides = {
+                levelId: targetLevelId,
+                ...(ids.hostSlabId !== undefined ? { hostSlabId: ids.hostSlabId } : {}),
+                ...(ids.hostRoomId !== undefined ? { hostRoomId: ids.hostRoomId } : {}),
+            };
+            return floorCopyPayload(source.record, DX, DZ, ids.newId, ids.ifcGuid ?? '', floorOpts);
+        }
+        case 'handrail':
+            return handrailCopyPayload(source.record, DX, DZ, ids.newId, opts);
+        case 'lighting':
+            return lightingCopyPayload(source.record, DX, DZ, ids.newId, opts);
+        case 'plumbing':
+            return plumbingFixtureCopyPayload(source.record, DX, DZ, ids.newId, opts);
     }
 }
 
@@ -654,7 +837,11 @@ function _geometryMissingReason(kind: DuplicableKind, record: unknown): string |
     const r = record as Record<string, unknown>;
     switch (kind) {
         case 'wall':
-        case 'curtainWall': {
+        case 'curtainWall':
+        // §L-1032 D3 — `HandrailData.baseLine` is the same two-point shape
+        // (`HandrailTypes.ts:23`), and `handrailCopyPayload` destructures it
+        // unguarded exactly as the wall builder does.
+        case 'handrail': {
             const bl = r['baseLine'];
             if (!Array.isArray(bl) || bl.length < 2 || !_isPt(bl[0]) || !_isPt(bl[1])) {
                 return `the source ${kind} record has no usable two-point \`baseLine\`, so there is nothing to duplicate`;
@@ -680,6 +867,40 @@ function _geometryMissingReason(kind: DuplicableKind, record: unknown): string |
             return _isPt(r['startPoint']) && _isPt(r['endPoint'])
                 ? null
                 : 'the source beam record has no `startPoint`/`endPoint`, so the duplicate would have no span';
+
+        // ── §L-1032 D3 ──────────────────────────────────────────────────────
+        case 'roof': {
+            // `roofCopyPayload` destructures `footprint.centroid` and maps
+            // `footprint.polygon`; `CreateRoofHandler.canExecute` (`:36-38`)
+            // then refuses a boundary under 3 points.
+            const fp = r['footprint'] as { polygon?: unknown; centroid?: unknown } | undefined;
+            if (typeof fp !== 'object' || fp === null) {
+                return 'the source roof record has no `footprint`, so the duplicate would have no outline';
+            }
+            if (!Array.isArray(fp.centroid) || fp.centroid.length < 2) {
+                return 'the source roof record has no two-number `footprint.centroid`, and the copy resolves its world outline from it';
+            }
+            if (!Array.isArray(fp.polygon) || fp.polygon.length < 3) {
+                return 'the source roof record has fewer than three footprint points, and `CreateRoofHandler` refuses a boundary under 3 points';
+            }
+            return null;
+        }
+        case 'ceiling':
+        case 'floor': {
+            // Both builders map `boundary.polygon`, and both receivers refuse a
+            // polygon under 3 points (`validateCeilingBoundary`;
+            // `CreateFloorHandler.canExecute:75-77`).
+            const b = r['boundary'] as { polygon?: unknown } | undefined;
+            if (typeof b !== 'object' || b === null || !Array.isArray(b.polygon) || b.polygon.length < 3) {
+                return `the source ${kind} record has fewer than three boundary points, and its create handler refuses a polygon under 3 points`;
+            }
+            return null;
+        }
+        case 'lighting':
+        case 'plumbing':
+            return _isPt(r['position'])
+                ? null
+                : `the source ${kind} record has no \`position\`, so the duplicate would have no anchor`;
     }
 }
 
@@ -810,6 +1031,46 @@ export function duplicateToLevel(
         case 'furniture':
             payload = buildDuplicateToLevelPayload(
                 { kind: 'furniture', record: _asFamilyRecord<LegacyFurnitureLike>(raw) },
+                req.targetLevelId, { newId },
+            );
+            break;
+        // ── §L-1032 D3 — the six that were deferred ─────────────────────────
+        case 'roof':
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'roof', record: _asFamilyRecord<LegacyRoofLike>(raw) },
+                req.targetLevelId, { newId },
+            );
+            break;
+        case 'ceiling':
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'ceiling', record: _asFamilyRecord<LegacyCeilingLike>(raw) },
+                req.targetLevelId, { newId },
+            );
+            break;
+        case 'floor':
+            // `ifcGuid` only — NOT `hostSlabId`/`hostRoomId`. Those are the
+            // DESTINATION storey's or absent; see `DuplicateToLevelIds`. The
+            // builder reports the unbinding at the drop site.
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'floor', record: _asFamilyRecord<LegacyFloorLike>(raw) },
+                req.targetLevelId, { newId, ifcGuid },
+            );
+            break;
+        case 'handrail':
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'handrail', record: _asFamilyRecord<LegacyHandrailLike>(raw) },
+                req.targetLevelId, { newId },
+            );
+            break;
+        case 'lighting':
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'lighting', record: _asFamilyRecord<LegacyLightingLike>(raw) },
+                req.targetLevelId, { newId },
+            );
+            break;
+        case 'plumbing':
+            payload = buildDuplicateToLevelPayload(
+                { kind: 'plumbing', record: _asFamilyRecord<LegacyPlumbingFixtureLike>(raw) },
                 req.targetLevelId, { newId },
             );
             break;

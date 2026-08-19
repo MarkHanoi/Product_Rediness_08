@@ -42,12 +42,26 @@ import {
     columnCopyPayload,
     beamCopyPayload,
     furnitureCopyPayload,
+    // §L-1032 D3 — the six families whose copy gesture used to hit
+    // `default: console.warn('No copy implementation …')` and do nothing.
+    roofCopyPayload,
+    ceilingCopyPayload,
+    floorCopyPayload,
+    handrailCopyPayload,
+    lightingCopyPayload,
+    plumbingFixtureCopyPayload,
     type LegacyCurtainWallLike,
     type LegacyWallLike,
     type LegacySlabLike,
     type LegacyColumnLike,
     type LegacyBeamLike,
     type LegacyFurnitureLike,
+    type LegacyRoofLike,
+    type LegacyCeilingLike,
+    type LegacyFloorLike,
+    type LegacyHandrailLike,
+    type LegacyLightingLike,
+    type LegacyPlumbingFixtureLike,
 } from './copyPayloads';
 // §P3.1 (IMPL-PLAN-2026-05-17): CreateWallCommand, CreateCurtainWallCommand, window.commandManager (P4.4).
 // All copy dispatches are now bus-only (wall.create / curtain-wall.create /
@@ -263,7 +277,22 @@ export class CopyPlanToolHandler implements PlanToolHandler {
             case 'slab':            this._copySlab(id, dx, dz);             break;
             case 'beam':            this._copyBeam(id, dx, dz);             break;
             case 'furniture':       this._copyFurniture(id, dx, dz);        break;
+            // ── §L-1032 D3 — six families that used to fall through to the
+            //    `default:` warning below and silently do nothing ────────────
+            case 'roof':            this._copyRoof(id, dx, dz);             break;
+            case 'ceiling':         this._copyCeiling(id, dx, dz);          break;
+            case 'floor':           this._copyFloor(id, dx, dz);            break;
+            case 'handrail':
+            case 'railing':         this._copyHandrail(id, dx, dz);         break;
+            case 'lighting':        this._copyLighting(id, dx, dz);         break;
+            case 'plumbing':
+            case 'plumbing_fixture': this._copyPlumbing(id, dx, dz);        break;
             default:
+                // Still reachable, and deliberately so: `stair` and `lift` span
+                // TWO storeys and `pool` has no store, so there is nothing to
+                // copy rather than something unbuilt. The families that DO have
+                // a decision are enumerated in `duplicateToLevel.ts`'s two
+                // tables — C84 EI-1b: a blank reads as "fine".
                 console.warn('[CopyTool] No copy implementation for element type:', type);
                 break;
         }
@@ -475,6 +504,158 @@ export class CopyPlanToolHandler implements PlanToolHandler {
             furnitureCopyPayload(item as unknown as LegacyFurnitureLike, dx, dz, newId),
         )?.catch((e: unknown) => console.error('[CopyTool] furniture.create failed:', e));
         console.log('[CopyTool] Furniture copied → new ID:', newId);
+    }
+
+
+    // ═══ §L-1032 D3 — the six families the plan copy tool could not copy ══════
+    //
+    // Until this block, `_commitCopy`'s `default:` arm answered a copy gesture on
+    // a roof, ceiling, floor, handrail, light fixture or plumbing fixture with
+    // `console.warn('No copy implementation for element type')` — i.e. the tool
+    // silently did nothing while reporting success to no one. Every mapping below
+    // lives in `copyPayloads.ts` (never inline here: a payload built inside one of
+    // these closures is a payload no test can reach, which is how L-978's four
+    // wrong curtain-wall field names survived), and every one is the INVERSE of
+    // that family's `.created` mirror, cited line-by-line at the builder.
+
+    // ── Roof ──────────────────────────────────────────────────────────────────
+
+    private async _copyRoof(id: string, dx: number, dz: number): Promise<void> {
+        const rs = window.roofStore; // TODO(TASK-08)
+        if (!rs) return;
+        const roof = rs.getById?.(id) ?? rs.get?.(id);
+        if (!roof) { console.warn('[CopyTool] Roof not found:', id); return; }
+
+        const newId = createId('roof');
+
+        // §L-1032 D3 — `roofCopyPayload` is the inverse of
+        // `roofCreatedMirror.roofRecordFromCreatedEvent`: centroid + local
+        // polygon → world boundary, `roofType 'shed'` → `shape 'mono'`,
+        // `slope` (rise/run) → `pitch` (radians). The seating is deliberately NOT
+        // carried — the mirror measures it from the destination level's walls.
+        window.runtime?.bus?.executeCommand(
+            'roof.create',
+            roofCopyPayload(roof as unknown as LegacyRoofLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] roof.create failed:', e));
+        console.log('[CopyTool] Roof copied → new ID:', newId);
+    }
+
+    // ── Ceiling ───────────────────────────────────────────────────────────────
+
+    private async _copyCeiling(id: string, dx: number, dz: number): Promise<void> {
+        const cs = window.ceilingStore; // TODO(TASK-08)
+        if (!cs) return;
+        const ceiling = cs.getById?.(id) ?? cs.get?.(id);
+        if (!ceiling) { console.warn('[CopyTool] Ceiling not found:', id); return; }
+
+        const newId = createId('ceiling');
+
+        // §L-1032 D3 — inverse of `ceilingCreatedMirror.ceilingRecordFromCreatedEvent`:
+        // `{x,z}` polygon → `Vec3` boundary, `boundary.height`/`.thickness` →
+        // `ceilingHeight`/`thickness`, and the legacy `soffit*` finish vocabulary
+        // back into L0's `material*`.
+        window.runtime?.bus?.executeCommand(
+            'ceiling.create',
+            ceilingCopyPayload(ceiling as unknown as LegacyCeilingLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] ceiling.create failed:', e));
+        console.log('[CopyTool] Ceiling copied → new ID:', newId);
+    }
+
+    // ── Floor ─────────────────────────────────────────────────────────────────
+
+    private async _copyFloor(id: string, dx: number, dz: number): Promise<void> {
+        const fs = window.floorStore; // TODO(TASK-08)
+        if (!fs) return;
+        const floor = fs.getById?.(id) ?? fs.get?.(id);
+        if (!floor) { console.warn('[CopyTool] Floor not found:', id); return; }
+
+        // NOT `id` — `CreateFloorPayload` spells it `floorId` (`CreateFloor.ts:35`)
+        // and the bridge case forwards that name; an `id` key would be accepted by
+        // nobody and the floor would be minted under an id nothing here saw.
+        const newFloorId = createId('floor');
+        // A FRESH guid: the §P3.2-FL mirror writes `ifcData.guid` straight from
+        // the event (`initTools.ts:1953`), so a shared one is an IFC identity
+        // collision — the slab's rule, same reason.
+        const ifcGuid = crypto.randomUUID();
+
+        // ⛔ NO `hostSlabId`/`hostRoomId` override is passed: a floor copied 10 m
+        // away is not over the same slab or in the same room, and
+        // `floorCopyPayload` REPORTS the unbinding at the drop site rather than
+        // carrying a host id that `FloorSlabBindingHandler` would then act on.
+        window.runtime?.bus?.executeCommand(
+            'floor.create',
+            floorCopyPayload(floor as unknown as LegacyFloorLike, dx, dz, newFloorId, ifcGuid),
+        )?.catch((e: unknown) => console.error('[CopyTool] floor.create failed:', e));
+        console.log('[CopyTool] Floor copied → new ID:', newFloorId);
+    }
+
+    // ── Handrail ──────────────────────────────────────────────────────────────
+
+    private async _copyHandrail(id: string, dx: number, dz: number): Promise<void> {
+        const hs = window.handrailStore; // TODO(TASK-08)
+        if (!hs) return;
+        const rail = hs.getById?.(id) ?? hs.get?.(id);
+        if (!rail) { console.warn('[CopyTool] Handrail not found:', id); return; }
+
+        const newId = createId('handrail');
+
+        // §L-1032 D3 — inverse of the §FT-HANDRAIL bridge (`initTools.ts:1991+`):
+        // `baseLine[2]` → a 2-point `path`, `railDiameter ?? thickness` →
+        // `diameter`, `railProfile` → `shape`. The endpoints' `y` is CARRIED, not
+        // rebased: `HandrailFragmentBuilder` derives world Y from
+        // `level.elevation + baseOffset` and reads only the RISE between them.
+        window.runtime?.bus?.executeCommand(
+            'handrail.create',
+            handrailCopyPayload(rail as unknown as LegacyHandrailLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] handrail.create failed:', e));
+        console.log('[CopyTool] Handrail copied → new ID:', newId);
+    }
+
+    // ── Lighting ──────────────────────────────────────────────────────────────
+
+    private async _copyLighting(id: string, dx: number, dz: number): Promise<void> {
+        const ls = window.lightingStore; // TODO(TASK-08)
+        if (!ls) return;
+        const light = ls.getById?.(id) ?? ls.get?.(id);
+        if (!light) { console.warn('[CopyTool] Lighting fixture not found:', id); return; }
+
+        const newId = createId('lighting');
+
+        // §L-1032 D3 — `kind` goes VERBATIM from the legacy `fixtureType`, because
+        // the §FT-LIGHTING mirror CASTS `ev.kind` straight back into `fixtureType`
+        // (`initTools.ts:2195`). Folding it into the coarse L0 construction form
+        // would mint a DIFFERENT lamp; forwarding one of the ten families L0
+        // cannot express makes `Lighting.parse` refuse LOUDLY, which is the
+        // correct outcome of the two (the columnCopyPayload 'UC'/'UB' precedent).
+        window.runtime?.bus?.executeCommand(
+            'lighting.create',
+            lightingCopyPayload(light as unknown as LegacyLightingLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] lighting.create failed:', e));
+        console.log('[CopyTool] Lighting copied → new ID:', newId);
+    }
+
+    // ── Plumbing ──────────────────────────────────────────────────────────────
+
+    private async _copyPlumbing(id: string, dx: number, dz: number): Promise<void> {
+        const ps = window.plumbingStore; // TODO(TASK-08)
+        if (!ps) return;
+        const fixture = ps.getById?.(id) ?? ps.get?.(id);
+        if (!fixture) { console.warn('[CopyTool] Plumbing fixture not found:', id); return; }
+
+        const newId = createId('plumbing');
+
+        // ⚠ §L-1032 D3 — THE VERB IS `plumbing.createFixture`, NOT `plumbing.create`.
+        // The two describe different elements: `CreatePlumbingPayload` is a PIPE
+        // (kind/diameter/length/bendRadius/systemTag) while `window.plumbingStore`
+        // holds FIXTURES. And `plumbing.create` reaches no renderer at all — its
+        // CommandEventBridge case emits `levelId` alone and nothing in the tree
+        // subscribes to `plumbing.created`. `plumbing.createFixture` is the leg
+        // that reaches `PlumbingStore.add()` → `PlumbingFragmentBuilder`.
+        window.runtime?.bus?.executeCommand(
+            'plumbing.createFixture',
+            plumbingFixtureCopyPayload(fixture as unknown as LegacyPlumbingFixtureLike, dx, dz, newId),
+        )?.catch((e: unknown) => console.error('[CopyTool] plumbing.createFixture failed:', e));
+        console.log('[CopyTool] Plumbing fixture copied → new ID:', newId);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
