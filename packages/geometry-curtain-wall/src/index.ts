@@ -63,3 +63,22 @@ export type {
 // ── Sprint V (2026-05-12) — CurtainWallTool extracted ─────────────────────
 export type { CurtainWallToolDependencies } from './CurtainWallTool.js';
 export { CurtainWallTool } from './CurtainWallTool.js';
+
+// §L-1057 / C87 §13.1 CW-P — sparse panel overrides (storage + load layer).
+export type {
+    CurtainPanelOverride,
+    RegenerationBaseline,
+    PanelUpdateTarget,
+    LostOverride,
+    GridBearingWall,
+} from './curtainPanelOverrides.js';
+export {
+    REGENERATED_PANEL_TYPE,
+    resolveCurtainGrid,
+    isAuthoredPanel,
+    cellToLineIds,
+    lineIdsToCell,
+    collectCurtainPanelOverrides,
+    applyCurtainPanelOverrides,
+    describeLostOverride,
+} from './curtainPanelOverrides.js';

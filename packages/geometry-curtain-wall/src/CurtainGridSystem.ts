@@ -108,12 +108,14 @@ export function migrateToGridSystem(
 
     const uLines: CurtainGridLine[] = [];
     for (let i = 0; i <= numU; i++) {
-        uLines.push({ id: derivedGridLineId(ownerId, 'u', i), t: i / numU });
+        const t = i / numU;
+        uLines.push({ id: derivedGridLineId(ownerId, 'u', t), t });
     }
 
     const vLines: CurtainGridLine[] = [];
     for (let j = 0; j <= numV; j++) {
-        vLines.push({ id: derivedGridLineId(ownerId, 'v', j), t: j / numV });
+        const t = j / numV;
+        vLines.push({ id: derivedGridLineId(ownerId, 'v', t), t });
     }
 
     return { uLines, vLines };
@@ -127,6 +129,8 @@ export function migrateToGridSystem(
  * grid-drag tool) derives it rather than transcribing the format — C84 EI-9,
  * one answer per question.
  *
+ * `t` is the line's normalised position, NOT its index — see §L-1058 in the body.
+ *
  * `ownerId` is optional because three of the eleven `??` call sites are pure
  * read paths (`AIReadModel.ts:334,:402`) that only ever count cells. When it is
  * omitted the ids are unique WITHIN the returned grid but NOT across walls, and
@@ -134,8 +138,30 @@ export function migrateToGridSystem(
  * address are not addressable. Every call site that can reach a mutation passes
  * the wall id.
  */
-export function derivedGridLineId(ownerId: string | undefined, axis: 'u' | 'v', index: number): string {
-    return `${ownerId ?? 'cw'}:${axis}:${index}`;
+export function derivedGridLineId(ownerId: string | undefined, axis: 'u' | 'v', t: number): string {
+    // §L-1058 — THE ID NAMES A POSITION, NOT AN ORDINAL, AND THAT CORRECTION MATTERS.
+    //
+    // This was `${ownerId}:${axis}:${index}` when §L-1051 first made these ids
+    // deterministic. Deterministic they were — and AMBIGUOUS, which is worse than
+    // unstable and is not what C87 CW-P-G claimed. `cw-1:u:1` named u-line #1 of a
+    // 5-line grid AND u-line #1 of a 9-line grid, which sit at t=0.25 and t=0.125:
+    // DIFFERENT PHYSICAL LINES CARRYING THE SAME ID.
+    //
+    // That is fatal to the C87 CW-P sparse-override design, whose whole premise is
+    // that `(uLineId, vLineId)` names a CELL. With ordinal ids, re-spacing a wall
+    // from bayWidth 1.5 to 0.75 silently re-targets every override onto a
+    // physically different cell — precisely the failure CW-P-B exists to prevent:
+    // "a door quietly moving to the wrong cell is worse than losing it." The
+    // CW-P-D refusal could never fire, because the lookup always succeeded.
+    //
+    // Keying on `t` fixes it at the root: `t` IS the line's position, so two lines
+    // share an id exactly when they are the same line. Still a pure function of
+    // model state (C73 §1.1), still stable under regeneration with the same
+    // inputs, and now genuinely different when the grid is genuinely different.
+    // Six decimals is far below the 0.001 tolerance this module compares t-values
+    // with elsewhere (`insertGridLine`, `validateGridSystem`), so two ids collide
+    // only for lines this module already considers identical.
+    return `${ownerId ?? 'cw'}:${axis}:${t.toFixed(6)}`;
 }
 
 /**
