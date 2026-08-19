@@ -45,6 +45,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import * as THREE from '@pryzm/renderer-three/three';
 import { SelectionManager } from '../src/SelectionManager.js';
+import { storeEventBus } from '@pryzm/core-app-model';
 
 // ── Minimal structural fakes (mirrors SelectionManager.selectPick.test.ts) ───
 
@@ -248,5 +249,64 @@ describe('§FIX-HANDRAIL-3D-PICK-CACHE — the 3-D pick caches must see a handra
     expect(m.findSelectableRoot(rail)).toBe(root);
 
     scene.remove(root);
+  });
+
+  // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1191) — the GENERALISATION of the above ──
+  //
+  // The fix above added three literals to a hand-written list. That list is keyed on a
+  // DOM event vocabulary stores are actively LEAVING, so the SAME defect was already
+  // live for two more families, measured 2026-08-19:
+  //
+  //   · `bim-column-added` / `-removed` — ZERO emitters. `ColumnStore` says so in its
+  //     own header: "ColumnStore deliberately does NOT dispatch a legacy `bim-column-*`
+  //     DOM CustomEvent (§COLUMN-SYSTEM-AUDIT-2026 §M14 — no dual-channel drift
+  //     surface). All consumers must subscribe via subscribe() or via storeEventBus."
+  //   · `bim-beam-added` / `-removed` — ZERO emitters; `BeamStore` publishes to
+  //     `storeEventBus` only (BeamStore.ts:91/144/158/308).
+  //
+  // Adding two more literals would leave the NEXT migrated store broken. `storeEventBus`
+  // is the family-agnostic authority (§3.5: every ElementStore must publish through it),
+  // so ONE subscription covers every family, including families not written yet.
+  // ⛔ NO `window.dispatchEvent` APPEARS IN EITHER TEST — that is the whole point.
+
+  it('a COLUMN — whose store dispatches NO bim-column-* DOM event — becomes a pick candidate', () => {
+    makeSlabRoot(scene, 'slab-bus');
+    m._ensureSelectableCache();
+    expect(m._buildElementRegistry().ids()).toContain('slab-bus');
+
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3, 0.4), new THREE.MeshBasicMaterial());
+    col.userData = { id: 'COL-7', type: 'Column', elementType: 'column', selectable: true };
+    scene.add(col);
+    col.updateMatrixWorld(true);
+
+    // NEGATIVE CONTROL — the stale cache is genuinely blind to it.
+    m._ensureSelectableCache();
+    expect(
+      m._buildElementRegistry().objectFor('COL-7'),
+      'stale cache must not already hold the column — otherwise this test is vacuous',
+    ).toBeNull();
+
+    // The ONLY signal a column store actually emits.
+    storeEventBus.emit({
+      elementId: 'COL-7', elementType: 'column', operation: 'create', timestamp: Date.now(),
+    });
+
+    m._ensureSelectableCache();
+    expect(m._buildElementRegistry().objectFor('COL-7')).toBe(col);
+
+    scene.remove(col);
+  });
+
+  it('a family this file has never heard of also invalidates — the point of not enumerating', () => {
+    m._ensureSelectableCache();
+    expect(m._selectableCache).not.toBeNull();
+
+    // Deliberately a made-up elementType: the subscription must not inspect it.
+    storeEventBus.emit({
+      elementId: 'X-1', elementType: 'some-future-family', operation: 'update', timestamp: Date.now(),
+    });
+
+    expect(m._selectableCache, 'invalidation must be family-agnostic').toBeNull();
+    expect(m._bvhQuery).toBeNull();
   });
 });

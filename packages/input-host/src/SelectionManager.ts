@@ -24,6 +24,9 @@ import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import type { TickListenerDisposer } from '@pryzm/frame-scheduler';
 import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/element-registry';
+// §FIX-PICK-CACHE-STORE-BUS (L-1191) — the family-agnostic store channel every
+// ElementStore must publish through (§3.5). Replaces enumerating DOM event names.
+import { storeEventBus } from '@pryzm/core-app-model';
 import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './SelectionBoundsRegistry.js';
 import { startSpan } from './otel.js';
 import type { ISelectionManager } from '@pryzm/engine';
@@ -1015,6 +1018,42 @@ export class SelectionManager implements ISelectionManager {
         cacheInvalidationEvents.forEach(evt =>
             window.addEventListener(evt, invalidateSelectableCache)
         );
+
+        // ── ⭐ §FIX-PICK-CACHE-STORE-BUS (L-1191) — STOP ENUMERATING FAMILIES ─────
+        //
+        // The list above is a HAND-WRITTEN LITERAL of DOM event names, and a family
+        // missing from it is UNPICKABLE IN 3-D until some unrelated element changes
+        // (L-1190). Fixing that per family is the "enumerated arms" defect this repo
+        // keeps paying for — the same shape as the shadow-freeze literal (L-1189) and
+        // the delete census. The literal cannot be kept true, because it is keyed on a
+        // vocabulary that stores are actively LEAVING:
+        //
+        //   · `bim-railing-added` / `-removed` — ZERO emitters (L-1190, fixed above).
+        //   · `bim-column-added` / `-removed`  — ZERO emitters. `ColumnStore` states it
+        //     outright: *"ColumnStore deliberately does NOT dispatch a legacy `bim-column-*`
+        //     DOM CustomEvent (§COLUMN-SYSTEM-AUDIT-2026 §M14 — no dual-channel drift
+        //     surface). All consumers must subscribe via subscribe() or storeEventBus."*
+        //     This listener is one of the consumers that did not get the message.
+        //   · `bim-beam-added` / `-removed`    — ZERO emitters. `BeamStore` publishes to
+        //     `storeEventBus` only (BeamStore.ts:91/144/158/308).
+        //
+        // So a COLUMN and a BEAM have had the handrail defect all along, and every store
+        // that migrates off the DOM channel silently acquires it next. Those literals are
+        // left in place (a no-op listener costs nothing) but they are NOT the coverage.
+        //
+        // ⭐ `storeEventBus` IS the family-agnostic authority: §3.5 of the Master
+        // Architecture Contract requires EVERY ElementStore to publish create/update/delete
+        // through it, and it guarantees no drops and ordered delivery. One subscription
+        // therefore covers every family that exists today AND every family added later,
+        // with nothing to keep in sync. Invalidation is O(1) — three field writes — and the
+        // rebuild stays lazy, so a 3,000-element import costs 3,000 null-writes and exactly
+        // one traversal at the next click, which is what the wall/slab entries above
+        // already cost.
+        //
+        // Not unsubscribed: `init()` runs once per process (its FrameScheduler tick
+        // listener registers under a fixed id and throws on a second call), and this class
+        // has no dispose path to hang an unsubscribe on.
+        storeEventBus.subscribe(invalidateSelectableCache);
 
         // §SELECT-INSTANCED-PICK (FIX #3) — clear the hover-confirmed click anchor
         // whenever the split-view 3D pane opens/closes. The runtime EventBus
