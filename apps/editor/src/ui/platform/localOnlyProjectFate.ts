@@ -73,8 +73,13 @@ export type VersionProbeFailure =
 export interface LocalOnlyProjectInput {
     readonly projectId: string;
     /** `versionCount` from the surviving metadata index row — the SECOND
-     *  authority, and the whole reason this decision can be made safely. */
-    readonly indexVersionCount: number;
+     *  authority, and the whole reason this decision can be made safely.
+     *
+     *  ⚠ `undefined` is a THIRD state and is NOT `0`. Legacy rows written before
+     *  `versionCount` was stamped carry no value, and coercing that to zero would
+     *  re-create this module's own defect one level up: a missing reading
+     *  collapsing into a meaningful one. It is treated as UNKNOWN and refused. */
+    readonly indexVersionCount: number | undefined;
     /** What the version store established. */
     readonly probe: VersionProbe;
 }
@@ -90,6 +95,9 @@ export type LocalOnlyFate =
           readonly reason:
               /** The instrument failed. Absence of evidence, nothing more. */
               | 'store-unreadable'
+              /** The index row predates `versionCount` stamping, so the second
+               *  authority cannot be consulted and nothing can be concluded. */
+              | 'index-version-count-unknown'
               /** ⭐ THE SIGN-OUT SIGNATURE: the index remembers N versions and the
                *  store now holds none. This is the exact state a purge leaves
                *  behind, and the exact state that used to trigger deletion. */
@@ -123,7 +131,21 @@ export function decideLocalOnlyProjectFate(input: LocalOnlyProjectInput): LocalO
         return { action: 'keep', reason: 'store-has-versions' };
     }
 
-    // 3 — ⭐ THE CONTRADICTION. The store read cleanly and found nothing, but the
+    // 3 — The second authority cannot be consulted. With the store reading zero
+    // and the index silent, there is no evidence either way — and the whole
+    // ruling of this module is that no evidence means no deletion.
+    if (indexVersionCount === undefined) {
+        return {
+            action: 'refuse',
+            reason: 'index-version-count-unknown',
+            detail:
+                `${projectId}: the version store holds none and the index row records no ` +
+                'versionCount (a legacy row). With no second authority to consult, the ' +
+                'project is kept — an unknown must never be read as a zero.',
+        };
+    }
+
+    // 4 — ⭐ THE CONTRADICTION. The store read cleanly and found nothing, but the
     // surviving index row claims history. Something destroyed the store behind
     // the index's back — on the founder's machine, the sign-out purge. Deleting
     // here is what turned a recoverable inconsistency into permanent loss.
@@ -139,6 +161,6 @@ export function decideLocalOnlyProjectFate(input: LocalOnlyProjectInput): LocalO
         };
     }
 
-    // 4 — Both authorities agree: nothing was ever here. Safe to drop.
+    // 5 — Both authorities agree: nothing was ever here. Safe to drop.
     return { action: 'purge', reason: 'store-and-index-agree-empty' };
 }

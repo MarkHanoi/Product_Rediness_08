@@ -90,6 +90,17 @@ describe('L-1289 §1 — a reconciler never treats "cannot find" as "user delete
         }
     });
 
+    it('REFUSES when the index row predates versionCount stamping — unknown is not zero', () => {
+        // The residual gap of this module's OWN defect shape, closed deliberately:
+        // a legacy row carries no `versionCount`, and `?? 0` would have collapsed
+        // that missing reading into a meaningful one and purged the project.
+        const f = decideLocalOnlyProjectFate({
+            projectId: 'p6', indexVersionCount: undefined, probe: counted(0),
+        });
+        expect(f.action).toBe('refuse');
+        expect(f).toMatchObject({ reason: 'index-version-count-unknown' });
+    });
+
     it('PURGES only when BOTH authorities agree there is nothing', () => {
         const f = decideLocalOnlyProjectFate({
             projectId: 'p4', indexVersionCount: 0, probe: counted(0),

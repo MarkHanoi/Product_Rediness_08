@@ -314,7 +314,7 @@ export class ProjectHub {
                 // snapshot parse, still ~15 ms rather than ~503 ms per project.
                 const fate = decideLocalOnlyProjectFate({
                     projectId: lp.id,
-                    indexVersionCount: lp.versionCount ?? 0,
+                    indexVersionCount: lp.versionCount,
                     probe: versionRepository.probeVersions(lp.id),
                 });
 
