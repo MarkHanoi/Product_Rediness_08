@@ -12352,3 +12352,92 @@ that a pure function works."* **A fake built from the header cannot falsify the 
   inherits a failure it did not cause and hides one it did.
 
 **Owner: MT1. S14–S18 remain OPEN.**
+
+---
+
+## L-1059 — one panel vocabulary, and the TYPE→KIND bridge C87 called "lossy" never existed ✅ CLOSED (CW1, 2026-08-19)
+
+Step 2 of the founder's curtain-wall specification (C87 §13.2 CW-2a) — the gate on everything
+visual, because *"a dropdown of all possible panels"* cannot be built honestly on five answers to
+one question.
+
+**THE MASTER IS IN L0, NOT WHERE C87 SAID.** CW-Voc-5 named `PanelType` (in
+`@pryzm/geometry-curtain-wall`) the master. Measured, that is not buildable: `geometry-kernel` has no
+edge to it, `types-builtin` is deliberately **dependency-free**, and `packages/schemas` cannot import
+it at all (upward, and P5 keeps schemas pure). **A master nobody can import is not a master.**
+`packages/schemas` is L0 with zero dependencies — the only layer every consumer reaches downward — so
+the vocabulary lives there and CW-Voc-5 is corrected at the site.
+
+⛔ **THE BIGGEST FINDING: THERE WAS NO TYPE→KIND MAPPING ANYWHERE.**
+`grep -rn SystemPanel_Glass` over the repository returns **not one site** converting a type to a
+kind. C87 §9's *"nine of thirteen `PanelType` members have no `PanelKind`"* is therefore **not a
+lossy bridge — it is the ABSENCE of a bridge**, and every hop that needed one defaulted to
+`'glazed'`. **That is precisely how L-1053 happened:** the material bridge answered `'glazed'` for
+every key ever minted, and nothing could tell it otherwise because nothing knew the mapping.
+
+`CURTAIN_PANEL_TYPE_TO_KIND` mints it — total, explicit, and **derived from what the geometry DOES**
+rather than from what the names suggest: every row is justified by `transparent` / `opacity` in
+`PANEL_TYPE_DEFAULTS`, and the pinning test **checks that justification** rather than trusting it,
+because a projection derived from the names would look identical and be wrong.
+
+**Three answers kept deliberately distinct:** `SystemPanel_Empty` → `null` (a void has no render
+class; mapping it to `'glazed'` puts glass in an empty opening) · an unrecognised string →
+`undefined` (*"I do not recognise this"* and *"this cell holds nothing"* are different answers) ·
+`'spandrel'` declared as a kind **no type can produce**, the reverse gap (C84 EI-3).
+
+**Where a dependency exists the copy was DELETED**, not pinned: `geometry-kernel` now imports the
+master. **An import beats a pinned transcription whenever the dependency exists.** Where it does not
+(`geometry-curtain-wall`, `types-builtin`), the copy is licensed under **C84 EI-10** with all four
+elements, including an **executed** equivalence proof —
+`packages/geometry-curtain-wall/__tests__/CurtainPanelVocabularyIsOne.test.ts` (9/9), which compares
+members **in order**, deliberately: the `types-builtin` copy drifted in **order alone**, which a set
+comparison cannot see and which is the signature of a hand-transcribed list. C87 §9's headline
+*"four of thirteen survive the round trip"* is now **computed** by
+`curtainPanelTypesLosingIdentityInKind()` rather than transcribed.
+
+Commit `88c3e5e6`.
+
+---
+
+## L-1054 — CLOSED (routing): the panel-type control now reaches a store, and the reason is SHOWN rather than logged (CW1, 2026-08-19)
+
+L-1054 measured `curtain-wall.replacePanel` refusing on **every** dispatch — `ctx.stores['curtainPanelStore']`
+cannot exist on the bus context — while two property panels and chat still offered it. C87 §13.11
+**CW-Dec-1** decided the exit: route the write (C16 **CA-17**) and leave the controls **ENABLED**.
+
+**Routed to the L2 `ReplacePanelTypeCommand`**, which already holds a real
+`context.stores.curtainPanelStore`, already drives the §MI-02 rebuild subscriber (`initUI.ts:2263-2287`,
+located in L-1055), and **now snapshots correctly for rollback** — without L-1050's `curtainPanel`
+scope its entire snapshot was `{}`. Both surfaces call **one** module,
+`apps/editor/src/ui/property-panel/replaceCurtainPanelType.ts`: C84 **EI-4a** generalised — two
+surfaces expressing one intent must reach the store by one route, and copying six lines is exactly
+what produces the divergence that rule exists to stop.
+
+**Three things this found on the way, each small and each the same shape as the defect itself:**
+
+1. **The DI struct was NEVER PASSED.** `PropertyPanel.ts:777` called
+   `buildCurtainSubElementPanel(subEl, element, onShowParent)` with **no `ctx`**, so
+   `ctx?.commandManager` was always `undefined` inside the panel. It did not matter while the panel
+   dispatched a bus verb off `window.runtime`; it matters the moment the route needs a command
+   manager — and it is exactly the gap an **optional parameter with a window fallback** hides.
+2. **`ReplacePanelTypeCommand` carried the SAME stale refusal** as `ReplacePanel.ts` did — naming
+   three `PanelType` members while validating against thirteen (CW-Voc-3). Now generated from
+   `VALID_PANEL_TYPES`. **The same transcription defect in a second file is what EI-8a predicts.**
+3. **`execute()` returning nothing is not success.** The new route treats a missing result as a
+   FAILURE, because treating it as OK is how a no-op reports *"✓ Applied"* — the shape this lane has
+   now found four times.
+
+**And the failure is SHOWN, not logged.** The old catch arm rendered *"✗ Failed — check console"*;
+the button now carries the reason itself. C84 **EI-7a**'s worst state is a refusal the user never
+receives, and *"check console"* is that state with extra steps.
+
+⚠ **The bus verb is NOT deleted** — C87 §12 **R-10** declares it dead **with its retirement
+condition** (it becomes live when `CurtainPanelStore` becomes a plugin `Store<CurtainPanelData>` with
+its own `storeKey`). C84 EI-10(d): a dead-but-kept thing must carry the condition under which it
+returns, and R-8 already forbids deleting the target vocabulary.
+
+⚠ **UNRESOLVED, AND NOT THIS LANE'S TO RESOLVE:** the founder reports being able to swap panels
+today; the measurement says the verb behind both surfaces cannot execute. **Both accounts are
+recorded in C87 §12** and only the founder can settle it. This change is safe under **both**
+readings, which is why it did not wait: routing a dead verb to a live command is correct whether the
+verb was dead or merely unreliable.
