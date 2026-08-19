@@ -1678,6 +1678,16 @@ Type · material · finish · **offset from centreline**.
   > **CW-Region-3 (NORMATIVE, added here):** until this contract names the face, the `hostType`
   > arm MUST NOT be added — an arm that resolves to a plausible wrong offset is strictly worse than
   > the anonymous contribution SL1 shipped, which at least **counts** what it could not attribute.
+  >
+  > ✅ **DECIDED — FOUNDER, 2026-08-19: "to the mullion always."** A curtain wall's face for
+  > region resolution is the **MULLION face** — `mullionSize` (0.08 default), the structure's
+  > outer envelope, NOT `panelThickness`. A floor plate meeting a curtain wall stops at the frame,
+  > which is also the buildable/structural reading a BIM slab conventionally takes. CW-Region-3's
+  > block is therefore LIFTED: the `hostType` arm may now be built, resolving the face offset from
+  > `mullionSize / 2` about the baseline, with `coreExterior`/`coreInterior` mirroring
+  > exterior/interior per `WallFaceResolver`'s stated simplification. `panelThickness` MUST NOT
+  > enter region resolution — if a future façade needs a glass-line plate, that is a NEW decision
+  > against this row, not a parameter swap.
   > `WallFaceResolver`'s own header already concedes *"coreExterior / coreInterior mirror
   > exterior/interior (simplified — no layer model yet)"*, so a curtain wall may adopt the same
   > simplification for those two once the primary face is chosen.
