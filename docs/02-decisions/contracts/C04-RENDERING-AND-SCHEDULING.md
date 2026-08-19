@@ -43,6 +43,89 @@ interface RendererHandle {
 
 **WebGPU-safety measures on the NON-swapped (light-scene) WebGPU path (L-363/L-364, 2026-07-17)**: Auto-WebGL (above) only diverts HEAVY scenes to WebGL — light scenes still render on real WebGPU, so `RenderPipelineManager` MUST keep two TSL-safety guards on that path. (1) **TSL-init guard** (L-319 §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS): every `createScenePass()` caller (`_buildPipeline` / `_buildPhase3Pipeline` / `_fullRebuild`) short-circuits when `globalThis.__PRYZM_TSL__` is not yet loaded — `bind()` sets `_webGpuActive = true` before awaiting `_loadTSL()`, so a batch's `autoEnablePerf → _fullRebuild` in that window would otherwise call `createScenePass()` pre-`initTSL()` and throw. (2) **Transmission guard** (L-361 §L-361-WEBGPU-TRANSMISSION-GUARD): at each batch boundary, on real WebGPU only, `_neutralizeTransmissionForWebGPU()` falls transmission glass back to opacity glass (`transmission = 0` + `needsUpdate`) so the `MeshPhysicalNodeMaterial` transmission/refraction node graph — which emits invalid WGSL ("expected a float") on three r183's WebGPU backend — is never generated. WebGL is untouched by both (keeps the full TSL/refractive-glass path). See L-363 + L-364.
 
+### §1.5 — Viewport background: ONE authority, READ not PUSHED (NORMATIVE, L-1191)
+
+> The viewport background has been reported wrong FOUR times — L-326, L-326 reopened,
+> L-1148 (`cd11d547`), L-1191 — always as *"the WebGL background should always be white,
+> it still sometimes comes grey"*. Each of the first three fixes armed **one more code
+> path**. **The enumeration WAS the defect**; this section exists so the fifth report
+> cannot be fixed the same way.
+
+**§1.5.1 — Two mechanisms, and only one of them may be enumerated.**
+A backend paints the flat viewport background by exactly one of two mechanisms, and
+which one is a **function of the resolved backend**, never of a flag:
+
+| backend | mechanism | `scene.background` | clear prime |
+|---|---|---|---|
+| `webgpu` (native) | TSL output node — `mix(bgUniform, sceneColor, hasGeometry)` | **MUST be `null`** — a Color gives every pixel alpha=1 and defeats the `hasGeometry` mask (the Phase-5 "whitening layer") | **transparent** (`0x000000, 0`) |
+| `webgl-fallback` | scene property + per-frame opaque clear | **MUST be a Color** | **opaque** (`_lightweightBgColor, 1`) |
+| `webgl-only` | scene property + per-frame opaque clear | **MUST be a Color** | **opaque** |
+
+The WebGPU mechanism is structural — if a frame is presented, the background is in it.
+The WebGL mechanism is not, so it is the one that keeps breaking, and it is the one this
+section governs.
+
+**§1.5.2 — The rules.**
+
+1. **`packages/renderer-three/src/pipeline/RenderPipelineManager` is the SINGLE RUNTIME
+   WRITER** of the flat viewport background (`_applyViewportBackground()`,
+   §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME). `LIGHT_BG_HEX` / `DARK_BG_HEX` in
+   `pipeline/BackgroundUniform.ts` are the single COLOUR authority; `SceneTheme` and the
+   `#container` boot CSS **derive** from them (§VIEWPORT-BG-ONE-AUTHORITY, 2026-08-08).
+   A **texture** background (HDRI / panorama / procedural sky) is owned by its provider
+   and MUST NOT be stomped — this authority owns the FLAT colour only (C84 EI-9).
+2. **No other seam may take a background decision it does not own.** In particular
+   `scene.background = null` and `setClearColor(0x000000, 0)` are **native-WebGPU-shaped
+   decisions**. `initScene` took both **unconditionally** at boot (`:2084`) and at the
+   live-swap seam (`:4414`) — at seams that had **already resolved the backend** — and was
+   correct only because `rpm.bind()` happened to run *later in the same function* and
+   overwrite them. **A single authority whose correctness depends on the statement ORDER
+   of a rival writer is not a single authority.** Both are now gated on
+   `isNativeWebGpuBackend()`. Do not un-gate them.
+3. **Backend membership is a COMPLEMENT, never a list.**
+   `apps/editor/src/rendering/createRenderer.ts` exports the ONE pair —
+   `isNativeWebGpuBackend()` and `isLightweightWebGlBackend()` (defined as its
+   complement, so they **partition** `RendererBackend` by construction). Every arm that
+   must decide "does this backend need the lightweight per-frame render, the per-frame OBC
+   base clear, and an opaque clear?" MUST read that predicate. **Writing
+   `b === 'webgl-fallback' || b === 'webgl-only'` by hand is a contract violation** — that
+   is how the boot arm came to list **one** of the two and the rollback arm **neither**.
+   Pinned by `apps/editor/__tests__/viewportBackgroundBackendVocabulary.test.ts`.
+4. **Every arm that re-seats the renderer MUST re-assert BOTH backend-shaped arms.**
+   There are **four**, and they must stay symmetric: **boot** (`initScene` §PERF-WEBGL2-
+   RENDER-ON-MOVE), **live swap** (§RENDERER-LIVE-SWAP step 5), **live-swap ROLLBACK**, and
+   **recovery** (`RenderPipelineManager.recoverPipeline`, §L-326). The rollback arm
+   asserted **neither** until L-1191. The failure mode when an arm forgets is *not* "wrong
+   colour" — it is **"no frame at all"**, and the app-chrome grey (`--app-bg` `#e8edf6`, on
+   `#container` / `<bim-viewport>`) shows through the transparent overlay. That is what
+   "grey" has meant every time.
+5. **Report the HEX, never the word "grey".** Five surfaces can be "the background of the
+   3D view" (overlay clear → `scene.background` → OBC base canvas → `<bim-viewport>` CSS →
+   `#container` CSS). `window.pryzmViewportBackgroundReport()` (§VIEWPORT-BG-PROBE, L-1191)
+   names all five plus the resolved backend and whether the lightweight render is armed; it
+   also prints unconditionally after every live swap. **Any new report of a wrong viewport
+   background MUST carry its output.** Two of the four previous fixes changed a surface that
+   was already correct, because no report ever carried a hex.
+
+**§1.5.3 — OPEN, tracked, owned by `renderer-three` (NOT closed by L-1191).**
+
+- `RenderPipelineManager.bind()` **unconditionally re-seeds `_lightweightBgColor` from its
+  `initialTheme` argument**, and `recoverPipeline()` hardcodes `'light'`. Every live swap
+  and every device-loss recovery therefore **discards a user-chosen scene background
+  (`setColor`) and the night theme (`setTheme`)**. Push-only state reset by an arm that does
+  not know the current value — the same defect shape one level down. Fix: seed from the
+  manager's own current colour, or thread the live theme.
+- `_lightweightWebGlActive` is **stored** state that four arms must arm, when it is
+  **derivable** (`!_webGpuActive && renderer != null`). Rule 4 above is a discipline
+  standing in for a structural fix; deriving it retires the enumeration entirely.
+- `apps/editor/src/ui/bottom-menu/BottomActionMenu._toggleDayNight()` writes
+  `scene.background` **directly**, outside the authority, and pushes its clear colour to
+  `window.world.renderer.three` — the **OBC** renderer, which draws nothing in Phase 5. It
+  must route through `rpm.setTheme()` / `rpm.setColor()`.
+- `packages/render-pipeline/` carries an **orphan second copy** of `BackgroundUniform` whose
+  `DARK_BG_HEX` is the retired grey-navy `#1f2433`. No workspace depends on it. Delete it
+  before someone imports it.
+
 ---
 
 ## §2 — Single rAF Owner (P3)

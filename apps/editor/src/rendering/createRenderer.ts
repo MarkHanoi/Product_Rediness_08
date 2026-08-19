@@ -268,6 +268,60 @@ export function isUnintendedWebglOnlySwap(
     return resultBackend === 'webgl-only' && !intendedClassicWebGL;
 }
 
+/**
+ * ── §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — THE backend predicate ────────
+ *
+ * "Does this backend paint its own viewport background, or must the lightweight
+ * WebGL path paint it?"
+ *
+ * THE DEFECT THIS REPLACES. Three independent arms each had to remember the SAME
+ * membership test, and they did not agree:
+ *
+ *   • initScene BOOT arm      — `pryzmRendererBackend === 'webgl-fallback'`   (1 of 2)
+ *   • initScene LIVE-SWAP arm — `b === 'webgl-fallback' || b === 'webgl-only'` (2 of 2)
+ *   • RenderPipelineManager.recoverPipeline — `!this._webGpuActive`            (complement)
+ *
+ * The boot arm is correct only because of a NON-LOCAL invariant three thousand
+ * lines away (the Phase-5 abort at initScene §isWebGPUCapable rejects
+ * 'webgl-only', so that arm is unreachable at boot). A gate whose correctness
+ * lives in another function's guard is a gate that breaks the day the other
+ * guard moves — and this repo has shipped a string-membership gate listing one
+ * of two before.
+ *
+ * THE SHAPE OF THE FIX. This is deliberately NOT a list of the WebGL backends.
+ * It is the COMPLEMENT of the single backend that owns its background by another
+ * mechanism (native WebGPU — the TSL output node's
+ * `mix(bgUniform, sceneColor, hasGeometry)`, see
+ * `RenderPipelineManager._applyViewportBackground`, §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME).
+ * Written as a complement, the two predicates are EXHAUSTIVE over `RendererBackend`
+ * by construction: a fourth backend string added to the union tomorrow lands in
+ * the lightweight arm automatically instead of falling silently out of every arm
+ * and leaving the viewport unpainted. Membership lists rot; complements do not.
+ */
+export function isNativeWebGpuBackend(backend: RendererBackend): boolean {
+    return backend === 'webgpu';
+}
+
+/**
+ * §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — the complement of
+ * {@link isNativeWebGpuBackend}: every backend on which the TSL pipeline is OFF
+ * and RenderPipelineManager's lightweight per-frame WebGL render is therefore
+ * the ONLY thing that paints the viewport (`'webgl-fallback'` — a WebGPURenderer
+ * with `forceWebGL`; and `'webgl-only'` — a classic `THREE.WebGLRenderer`).
+ *
+ * Callers must use this for BOTH decisions the two backends share:
+ *   1. arm the lightweight per-frame render (`setLightweightWebGlRender`), and
+ *   2. arm the per-frame OBC base-framebuffer clear (§FIX-WEBGL2-GHOST-ON-ROTATE).
+ *
+ * It is also the gate on the TRANSPARENT clear prime: priming
+ * `setClearColor(0x000000, 0)` is a WebGPU-TSL-shaped decision, and applying it
+ * on a lightweight backend is what makes the app-chrome grey (`--app-bg`
+ * `#e8edf6`) visible through the overlay until something re-primes it.
+ */
+export function isLightweightWebGlBackend(backend: RendererBackend): boolean {
+    return !isNativeWebGpuBackend(backend);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**

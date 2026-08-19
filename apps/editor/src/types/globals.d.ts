@@ -502,6 +502,21 @@ declare global {
             // only ever sends 'auto'|'webgpu'|'webgl'.
             | ((pref: 'auto' | 'webgpu' | 'webgl' | 'webgl-classic') => Promise<boolean>)
             | undefined;
+        /**
+         * §VIEWPORT-BG-PROBE (L-1191) — read-only diagnostic that names every
+         * surface which can be "the background of the 3D view" and returns the
+         * hex each one currently holds (overlay clear colour + alpha,
+         * `scene.background`, `<bim-viewport>` CSS, `#container` CSS) plus the
+         * resolved backend and whether the lightweight per-frame render is armed.
+         *
+         * Exists because "the background is sometimes grey" has been reported four
+         * times without a hex, and the fix each time had to guess which of five
+         * stacked surfaces the user was looking at. Call it from the console after
+         * reproducing; paste the object into the report. Mutates nothing.
+         */
+        pryzmViewportBackgroundReport:
+            | ((label?: string) => Record<string, unknown>)
+            | undefined;
         obcRendererCanvas: HTMLCanvasElement | undefined;
         renderPipelineManager:
             | {

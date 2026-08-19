@@ -87,7 +87,7 @@ import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 import type { SceneQualityTier } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
-import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference, isUnintendedWebglOnlySwap } from '../rendering/createRenderer';
+import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference, isUnintendedWebglOnlySwap, isNativeWebGpuBackend, isLightweightWebGlBackend } from '../rendering/createRenderer';
 import type { RendererBackendPreference } from '../rendering/createRenderer';
 import { maybeAutoSwitchToWebGLForHeavyScene } from '../rendering/autoWebGLHeavyScene';
 // ADR-0077 (§RENDERER-LIVE-SWAP) — OTel span for the live backend swap (C01 P8).
@@ -2087,12 +2087,42 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // Fix: null the background — the renderer clears to alpha=0 (setClearAlpha(0)
         // is called each frame in RenderPipelineManager.render()) so background pixels
         // have alpha=0, and the bgUniform fills them via the mix() formula.
-        world.scene.three.background = null;
-        // Also prime the pryzmRenderer clear color to fully transparent so any
-        // explicit clear before the pipeline runs doesn't bleed opaque white.
-        try {
-            (pryzmRenderer as any).setClearColor?.(new THREE.Color(0x000000), 0);
-        } catch { /* not all renderer variants expose setClearColor */ }
+        //
+        // ⚠ §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — BOTH writes below are now
+        // gated on `isNativeWebGpuBackend(pryzmRendererBackend)`. Everything the
+        // paragraph above argues is true of NATIVE WebGPU and FALSE of the two
+        // lightweight WebGL backends: there is no MRT attachment, no `hasGeometry`
+        // mask and no `bgUniform` on 'webgl-fallback' / 'webgl-only', so nulling
+        // the background and priming the clear TRANSPARENT there does not enable a
+        // compositing formula — it simply removes the only two things that paint
+        // the viewport, and the app-chrome grey (`--app-bg` #e8edf6) shows through
+        // the overlay. That is the founder's recurring grey viewport (L-326 →
+        // L-1148 → L-1191).
+        //
+        // This was ALREADY the wrong decision before L-1148: RN1 moved the
+        // decision into `RenderPipelineManager._applyViewportBackground()`
+        // (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME), which resolves it from the bound
+        // backend — but left these two unconditional writes standing. They are
+        // harmless TODAY only because `rpm.bind()` happens to run LATER in this
+        // same function (:3091) and overwrites both. A single authority whose
+        // correctness depends on the statement ORDER of a rival writer 1000 lines
+        // away is not a single authority. Gate them, so the rival writer only ever
+        // asserts the case where it and the authority AGREE.
+        if (isNativeWebGpuBackend(pryzmRendererBackend)) {
+            world.scene.three.background = null;
+            // Also prime the pryzmRenderer clear color to fully transparent so any
+            // explicit clear before the pipeline runs doesn't bleed opaque white.
+            try {
+                (pryzmRenderer as any).setClearColor?.(new THREE.Color(0x000000), 0);
+            } catch { /* not all renderer variants expose setClearColor */ }
+        } else {
+            console.log(
+                '[initScene] §VIEWPORT-BG-BACKEND-VOCABULARY boot backend is ' +
+                `'${pryzmRendererBackend}' (lightweight WebGL) — the transparent clear prime and ` +
+                'the scene.background null are SKIPPED; RenderPipelineManager owns the viewport ' +
+                'background on this backend (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME).',
+            );
+        }
 
         // Expose for debugging and for legacy service suspend/resume
         window.pryzmCanvas          = pryzmCanvas;
@@ -3144,13 +3174,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         if (renderPipelineManager.status.webGpuActive) {
             await renderPipelineManager.activateOutlines();
             console.log('[initScene] TSL pipeline at Phase 4 (Outlines only). SSGI + TRAA OFF by default (user-opt-in).');
-        } else if (isPhase5Active && pryzmRendererBackend === 'webgl-fallback') {
+        } else if (isPhase5Active && isLightweightWebGlBackend(pryzmRendererBackend)) {
             // ── §PERF-WEBGL2-RENDER-ON-MOVE (ADR-061) ────────────────────────
-            // §L-372 Batch 2 / L-382 — the BOOT path stays 'webgl-fallback'-only (zero
-            // boot-behavior change): boot can never resolve to 'webgl-only' (the Phase-5
-            // abort above rejects it), so a 'webgl-only' arm here would be dead. The
-            // classic 'webgl-only' backend gets its lightweight per-frame wiring at the
-            // live-swap seam instead (§RENDERER-LIVE-SWAP below).
+            // §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — this gate was the literal
+            // `pryzmRendererBackend === 'webgl-fallback'`, and the comment that stood
+            // here defended it: "boot can never resolve to 'webgl-only' (the Phase-5
+            // abort above rejects it), so a 'webgl-only' arm here would be dead."
+            //
+            // That claim is TRUE today — re-verified 2026-08-19 at :2015,
+            // `isWebGPUCapable = rendererResult.backend !== 'webgl-only'` throws the
+            // Phase-5 abort — and it is exactly the problem. A gate that lists ONE of
+            // the TWO lightweight backends and is correct only because of a guard
+            // 1100 lines earlier fails silently the day that guard is relaxed, and it
+            // fails as "the viewport never paints at all": nothing arms the per-frame
+            // render, nothing arms the OBC base clear, and the app-chrome grey shows
+            // through the transparent overlay. Read the ONE predicate instead — it is
+            // the complement of native WebGPU, so it cannot list one of two.
             //
             // Phase 5 is active (PRYZM owns the sole renderer, OBC is MANUAL +
             // silenced + `updateIfManualMode` was removed) but the resolved
@@ -4417,10 +4456,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 pryzmCanvas          = newCanvas;
                 pryzmRendererBackend = newResult.backend;
 
-                // Prime clear colour to transparent (same as the boot path) so the
-                // TSL bgUniform mix() drives the background, not an opaque clear.
-                try { (pryzmRenderer as any).setClearColor?.(new THREE.Color(0x000000), 0); }
-                catch { /* not all variants expose setClearColor */ }
+                // §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — prime the clear colour to
+                // TRANSPARENT so the TSL bgUniform mix() drives the background rather than
+                // an opaque clear — but ONLY on the backend that HAS a bgUniform.
+                //
+                // This was unconditional ("same as the boot path"), copied from a boot
+                // path that was itself wrong the same way (:2084 above, now gated). It is
+                // the single most direct producer of the founder's grey: the swap has
+                // ALREADY resolved `newResult.backend` four lines up, so it knows the new
+                // renderer will never build a TSL pipeline, and it primes it transparent
+                // anyway. Every frame that does not reach RenderPipelineManager's
+                // lightweight branch then inherits a transparent clear, and the app-chrome
+                // grey (`--app-bg` #e8edf6, `#container`/`bim-viewport`) shows through the
+                // overlay. rpm.bind() re-primes it opaque a few lines below — so today
+                // this is a race the later statement happens to win, not a decision.
+                // Do not un-gate it: the seam that knows the backend must not take the
+                // other backend's decision.
+                if (isNativeWebGpuBackend(pryzmRendererBackend)) {
+                    try { (pryzmRenderer as any).setClearColor?.(new THREE.Color(0x000000), 0); }
+                    catch { /* not all variants expose setClearColor */ }
+                }
 
                 // Size the new renderer/canvas to the container BEFORE first paint.
                 try { resizePryzmRenderer?.(); }
@@ -4429,14 +4484,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // 5. Re-bind the TSL pipeline to the new renderer for the NEW
                 //    backend. §PERF-WEBGL2-NO-TSL — only a native 'webgpu' backend
                 //    may run the TSL pipeline; BOTH WebGL backends stay lightweight.
-                const newIsRealWebGPU = newResult.backend === 'webgpu';
+                const newIsRealWebGPU = isNativeWebGpuBackend(newResult.backend);
                 // §L-372 Batch 2 / L-382 — BOTH WebGL backends (the WebGPURenderer WebGL2
                 // fallback AND the classic webgl-only renderer) run TSL-OFF and therefore
                 // need the lightweight per-frame render + OBC base clear. This is the seam
                 // that makes a heavy-gen classic (webgl-only) swap render every frame
                 // (no frozen viewport) and paint the building on stock GLSL.
-                const newIsLightweightWebGl =
-                    newResult.backend === 'webgl-fallback' || newResult.backend === 'webgl-only';
+                // §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — was a hand-written
+                // `=== 'webgl-fallback' || === 'webgl-only'` here and a `=== 'webgl-fallback'`
+                // at the boot arm; two spellings of one rule that had already drifted apart.
+                // Both arms now read the ONE predicate.
+                const newIsLightweightWebGl = isLightweightWebGlBackend(newResult.backend);
                 // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — route through recoverPipeline()
                 // so a "Fragment shader failed to compile" on the new device downgrades
                 // to the lightweight phase-2 pipeline instead of killing the viewport.
@@ -4521,6 +4579,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     `[initScene] §RENDERER-LIVE-SWAP live swap complete — backend now: ${pryzmRendererBackend} (no reload).`,
                 );
 
+                // §VIEWPORT-BG-PROBE (L-1191) — the live swap is the ONE seam the
+                // founder's grey has always been reported against, so it prints the
+                // full background stack unconditionally. The next report carries a
+                // hex instead of the word "grey". Never allowed to fail a swap.
+                try { reportViewportBackground('post-live-swap'); } catch { /* diagnostic only */ }
+
                 // Remount the corner pill so the "· <backend>" label updates.
                 try { rendererBackendToggle.mount(); } catch { /* cosmetic */ }
 
@@ -4546,9 +4610,26 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     pryzmRendererBackend = oldBackend;
                     window.pryzmRenderer = oldRenderer;
                     window.pryzmCanvas   = oldCanvas;
-                    const oldIsRealWebGPU = oldBackend === 'webgpu';
+                    const oldIsRealWebGPU = isNativeWebGpuBackend(oldBackend);
                     // §RPM-RECOVERY-DOWNGRADE (ADR-0087) — non-fatal rebind on rollback too.
                     await recoverPipelineOrBind(rpm, world.scene.three as THREE.Scene, world.camera.three, oldRenderer, oldIsRealWebGPU);
+                    // §VIEWPORT-BG-BACKEND-VOCABULARY (L-1191) — RE-ASSERT the two
+                    // backend-shaped arms on the ROLLBACK path too. This was the THIRD arm
+                    // in the enumeration and it asserted NEITHER: it restored the old
+                    // renderer and resumed the loop, leaving `_lightweightWebGlActive` and
+                    // the per-frame OBC base clear at whatever the half-completed swap had
+                    // left them. A rollback that lands back on a lightweight backend with
+                    // the lightweight render un-armed paints NOTHING — the failure mode is
+                    // not "wrong colour", it is "no frame at all, app-chrome grey showing
+                    // through the transparent overlay", i.e. the same user-visible symptom.
+                    // Both calls are idempotent no-ops when already in the right state.
+                    const oldIsLightweightWebGl = isLightweightWebGlBackend(oldBackend);
+                    rpm.setLightweightWebGlRender(oldIsLightweightWebGl);
+                    rpm.setPreLightweightFrameHook?.(
+                        oldIsLightweightWebGl
+                            ? () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true)
+                            : null,
+                    );
                     try { (unifiedFrameLoop as any).start?.(); } catch { /* ignore */ }
                     console.warn('[initScene] §RENDERER-LIVE-SWAP rolled back — previous renderer restored, viewport alive.');
                 } catch (rollbackErr) {
@@ -4567,6 +4648,76 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
         });
     };
+
+    // ── §VIEWPORT-BG-PROBE (L-1191) — name the colour, then trace it ──────────
+    // "The background is sometimes grey" has now been reported four times
+    // (L-326 → L-326 reopened → L-1148 → L-1191) and not one report carried a
+    // HEX. Every fix therefore had to guess which of five surfaces the user was
+    // looking at, and two of them fixed a surface that was already correct.
+    //
+    // There are exactly five things that can be "the background of the 3D view",
+    // stacked back-to-front, and only the top one that is actually opaque is what
+    // the user sees:
+    //   1. the PRYZM overlay canvas   — RenderPipelineManager's per-frame clear
+    //                                   (`_lightweightBgColor`, opaque) or nothing
+    //   2. `scene.background`         — RPM's §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME
+    //   3. the OBC base canvas        — cleared transparent in Phase 5
+    //   4. `<bim-viewport>` CSS       — SceneTheme._applyHex / night toggle
+    //   5. `#container` CSS           — index.html boot shell, #ffffff
+    // Surfaces 4 and 5 are the ONLY greys in the stack when they carry the
+    // app-chrome token `--app-bg` (#e8edf6) instead of the scene white, and they
+    // are visible ONLY when 1 and 2 both fail to paint. That distinction is the
+    // whole diagnosis, and it is one console call away.
+    //
+    // Read-only: it allocates nothing on the GPU, renders nothing, and mutates
+    // nothing. It exists so the NEXT report names the hex.
+    const reportViewportBackground = (label = 'manual'): Record<string, unknown> => {
+        const asHex = (c: unknown): string | null => {
+            const col = c as { isColor?: boolean; getHexString?: () => string } | null | undefined;
+            if (col?.isColor === true && typeof col.getHexString === 'function') return `#${col.getHexString()}`;
+            return null;
+        };
+        const rpm = renderPipelineManagerRef;
+        const sceneBg = (world.scene.three as unknown as { background?: unknown }).background;
+        const vpEl = container.querySelector('bim-viewport') as HTMLElement | null;
+        let rendererClear: string | null = null;
+        let rendererClearAlpha: number | null = null;
+        try {
+            const r = pryzmRenderer as unknown as {
+                getClearColor?: (t: THREE.Color) => THREE.Color;
+                getClearAlpha?: () => number;
+            };
+            const tmp = new THREE.Color();
+            rendererClear = r.getClearColor ? `#${r.getClearColor(tmp).getHexString()}` : null;
+            rendererClearAlpha = r.getClearAlpha ? r.getClearAlpha() : null;
+        } catch { /* not all renderer variants expose the clear getters */ }
+
+        const report: Record<string, unknown> = {
+            label,
+            backend: pryzmRendererBackend,
+            isPhase5Active,
+            // The gate the whole lightweight paint hangs off. FALSE on a WebGL
+            // backend means NOTHING paints surface 1 — look at 4/5 for the grey.
+            lightweightRenderArmed: rpm?.isLightweightWebGlActive ?? null,
+            webGpuActive: rpm?.status?.webGpuActive ?? null,
+            // Surface 1 — what RPM clears the overlay to every lightweight frame.
+            overlayClearColor: rendererClear,
+            overlayClearAlpha: rendererClearAlpha,
+            // Surface 2 — RPM's scene-property authority. `null` is CORRECT on
+            // native WebGPU and WRONG on either lightweight WebGL backend.
+            sceneBackground:
+                sceneBg == null
+                    ? null
+                    : (asHex(sceneBg) ?? `<texture:${(sceneBg as { type?: string }).type ?? 'unknown'}>`),
+            // Surfaces 4 + 5 — the CSS underneath. #e8edf6 (`--app-bg`) here while
+            // 1 and 2 are absent IS the founder's grey; #ffffff is correct.
+            bimViewportCss: vpEl ? getComputedStyle(vpEl).backgroundColor : null,
+            containerCss: getComputedStyle(container).backgroundColor,
+        };
+        console.log('[initScene] §VIEWPORT-BG-PROBE', report);
+        return report;
+    };
+    window.pryzmViewportBackgroundReport = reportViewportBackground;
 
     // Register the swap so the corner RendererBackendToggle can call it instead of
     // persisting + reloading (ADR-0077 supersedes ADR-0076's reload path).
