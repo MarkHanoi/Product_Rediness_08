@@ -33,6 +33,26 @@ export interface CreateSlabPayload {
      * references at projection time, enabling Revit-style host-boundary association.
      */
     sketch?: SlabSketch;
+    /**
+     * ⭐ C100 §2.1 / ARM E — the slab's MATERIAL, and why it is on the payload.
+     *
+     * `serializeSlab()` has always written `materialId` AND `materialColor`. This
+     * payload listed NEITHER, and `execute()` hard-coded `materialColor: "#808080"`.
+     * So a slab's material was present in the saved file and ABSENT from the reloaded
+     * slab — every reopened project silently repainted its slabs mid-grey.
+     *
+     * ⭐ That is the worst shape a persistence defect takes, because the evidence a
+     * reviewer reaches for — open the JSON, find the id — says it worked.
+     * §COMMITTED-IS-NOT-REACHABLE: the user's evidence is the reload, never the file.
+     * C100 §9.7 found it on ARM E's FIRST run, having stood as declared-but-unmeasured
+     * debt ("it does not check ProjectLoader's read side") until someone built the arm.
+     *
+     * Both are OPTIONAL, so every existing caller — the slab tool, the batch
+     * generators, the apartment engine — is unchanged and still lands on the same
+     * grey default. Only a caller that HAS a material now keeps it.
+     */
+    materialId?: string;
+    materialColor?: string;
 }
 
 export class CreateSlabCommand implements Command {
@@ -139,7 +159,13 @@ export class CreateSlabCommand implements Command {
             width: this.payload.width,
             depth: this.payload.depth,
             thickness: this.payload.thickness,
-            materialColor: "#808080",
+            // ⭐ C100 §2.1 — the persisted material wins; the grey stays as the
+            // default for a slab that never named one. Per §2.1 `materialId` is the
+            // IDENTITY and the colour beside it is a CACHE, so both are carried:
+            // dropping the id would leave a hex nothing can rename, re-schedule or
+            // export (C25/C28), which is the loss §2.1's MUST NOT names.
+            materialId: this.payload.materialId,
+            materialColor: this.payload.materialColor ?? "#808080",
             position: { x: this.payload.position.x, y: 0, z: this.payload.position.z },
             levelId: targetLevelId,
             parentId: targetLevelId,
