@@ -30,7 +30,9 @@ import {
     setActiveHandrailDrawMode,
     resolveActiveHandrailDrawMode,
     setActiveHandrailTypeId,
+    isHandrailDrawMode,
 } from '@app/engine/views/plantools/activeHandrailAuthoring';
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';
 import type { CeilingPickerMode } from '../CeilingModePicker';
@@ -134,7 +136,36 @@ export function mountToolsArea(
         runtime.tools.register('door',          (m?) => tm.activateDoor?.(m ?? 'single'));
         runtime.tools.register('window',        (m?) => tm.activateWindow?.(m ?? 'single'));
         runtime.tools.register('stair',         (m?) => service.activateStairPathTool((m as StairShapeChoice) ?? 'I'));
-        runtime.tools.register('handrail',      (m?) => service.activateHandrailTool(m));
+        // §FEAT-HANDRAIL-CREATION-PARITY — the argument is a MODE or a TYPE, and the
+        // family needs both, so it is DISAMBIGUATED rather than guessed.
+        //
+        // ⛔ WHY THIS WAS A LATENT DEFECT BEFORE THE MODES EXISTED. The registration
+        // was `(m?) => service.activateHandrailTool(m)`, and `activateHandrailTool`'s
+        // parameter is a TYPE id. Once the railing row declares seven modes, a caller
+        // doing `runtime.tools.activate('handrail', 'circular')` — which the census in
+        // `planAutoModeReachability.spec.ts` exists to make possible — would have had
+        // 'circular' looked up in `handrailTypeStore`, found nothing, and armed NOTHING,
+        // silently. A mode swallowed as a bogus type id is exactly L-918's shape.
+        //
+        // The two id spaces are disjoint by construction: modes are a closed 7-member
+        // set (`isHandrailDrawMode`), catalogue ids are slugs like 'glass-frameless'.
+        // The mode test runs FIRST and the collision is guarded rather than assumed —
+        // if someone ever publishes a type whose id is a mode name, the console says so
+        // instead of the tool quietly doing the wrong one of the two things.
+        runtime.tools.register('handrail', (m?) => {
+            if (isHandrailDrawMode(m)) {
+                if (handrailTypeStore.getById(m)) {
+                    console.warn(
+                        `[Layout] handrail: '${m}' is BOTH a draw mode and a published type id. ` +
+                        'Treating it as the MODE. Rename the type — one name must not mean two things (C84 EI-8).',
+                    );
+                }
+                setActiveHandrailDrawMode(m);
+                service.activateHandrailTool();
+                return;
+            }
+            service.activateHandrailTool(m);
+        });
         runtime.tools.register('ramp',          ()   => { const t = window.rampTool; if (t) t.activate?.(); else console.warn('[runtime.tools/ramp] rampTool not ready'); }); // TODO(E.6): legacy window.rampTool bridge — delete when plugins/ramp lands per §16.5
         // §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918, founder 2026-08-15) — these two
         // activators were declared `() => service.activateX()`. Nineteen of the

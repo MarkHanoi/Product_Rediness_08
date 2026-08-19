@@ -299,7 +299,30 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
         // tool could drop off `runtime.tools` entirely and this census would read green
         // because "it wasn't registered". `stair-path`'s modes are served by the `stair`
         // family; `grid` has never been wired (src/main.ts:513 — "one wireup away").
-        expect(unregistered.sort()).toEqual(['grid', 'stair-path']);
+        //
+        // ⚠ `railing` JOINED THIS LIST ON 2026-08-19, AND IT IS A REAL FINDING, NOT A
+        // TEST BEING RELAXED. The row previously declared ONE mode, so the census
+        // skipped it at the `modes.length < 2` guard and could never have reported
+        // anything. It now declares SEVEN (§FEAT-HANDRAIL-CREATION-PARITY), and the
+        // census immediately named the thing that was always true:
+        //
+        //   THE FAMILY HAS TWO KEYS. The creation matrix and the plan registry call it
+        //   `'railing'` (`planToolHandlerRegistry.ts` → `RailingPlanToolHandler`); the
+        //   ToolManager and `runtime.tools` call it `'handrail'`. `registered.has(
+        //   'railing')` is therefore false no matter how well the tool is wired.
+        //
+        // That is C95 §1 / C84 §4E — a fourth spelling of one family — surfacing with a
+        // measurable consequence rather than as a style note. ⛔ It is deliberately NOT
+        // papered over by registering a second `'railing'` key: that would ADD a
+        // spelling to a family that already has too many. The fix is to converge the
+        // two keys, which touches the plan registry and is not this lane's to do.
+        //
+        // The MODES are reachable regardless — through the shared `DrawingModeBar`,
+        // proven end-to-end in `apps/editor/__tests__/HandrailCreationParityReachable.test.ts`
+        // — and, since 2026-08-19, through `runtime.tools.activate('handrail', <mode>)`,
+        // whose activator now disambiguates a mode from a type id instead of silently
+        // looking a mode up in the type catalogue.
+        expect(unregistered.sort()).toEqual(['grid', 'railing', 'stair-path']);
     });
 });
 
