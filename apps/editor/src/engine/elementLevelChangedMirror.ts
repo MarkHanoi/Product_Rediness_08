@@ -79,6 +79,32 @@ export interface LevelChangeMirrorDeps {
      * the bug lived.
      */
     readonly slabStore?: LegacyLevelMovableStore | null;
+    /**
+     * §L-1032 — the remaining families that carry ONE independent storey.
+     *
+     * Every one of these is optional and `applyElementLevelChange` refuses — by
+     * NAME, into the log — when a store is absent or lacks `changeLevel`
+     * (*"legacy store for kind X is not wired"*). That refusal is deliberate and
+     * is the C16 CA-18 shape: a row here whose store is not yet passed by
+     * `initTools` produces a NAMED no-op, never a silent one. It is still a gap,
+     * and it is visible as one.
+     *
+     * Absent from this list ON PURPOSE, each with the deciding clause recorded in
+     * `LEVEL_CHANGE_REFUSALS` (`@pryzm/command-bus/levelChangeVerbs.ts`):
+     * door/window (hosted — C15 §2), room (derived from wall topology), grid
+     * (project-wide), annotation + dimension (view-scoped), stair + lift (they
+     * span TWO storeys — `baseLevelId`/`topLevelId` — so a single-target move is
+     * ambiguous by construction), pool (no legacy store exists).
+     */
+    readonly columnStore?: LegacyLevelMovableStore | null;
+    readonly beamStore?: LegacyLevelMovableStore | null;
+    readonly ceilingStore?: LegacyLevelMovableStore | null;
+    readonly floorStore?: LegacyLevelMovableStore | null;
+    readonly furnitureStore?: LegacyLevelMovableStore | null;
+    readonly lightingStore?: LegacyLevelMovableStore | null;
+    readonly plumbingStore?: LegacyLevelMovableStore | null;
+    readonly handrailStore?: LegacyLevelMovableStore | null;
+    readonly curtainWallStore?: LegacyLevelMovableStore | null;
     readonly viewDependencyTracker?: {
         registerElement(elementId: string, levelId: string): void;
         markLevelsDirty(levelIds: string[]): void;
@@ -117,6 +143,15 @@ const LEGACY_LEVEL_MOVERS: Readonly<
     // not the other is the silent half of this defect: the command succeeds, the
     // plugin store is right, and the renderer keeps its own unchanged copy.
     slab: (deps) => deps.slabStore,
+    column: (deps) => deps.columnStore,
+    beam: (deps) => deps.beamStore,
+    ceiling: (deps) => deps.ceilingStore,
+    floor: (deps) => deps.floorStore,
+    furniture: (deps) => deps.furnitureStore,
+    lighting: (deps) => deps.lightingStore,
+    plumbing: (deps) => deps.plumbingStore,
+    handrail: (deps) => deps.handrailStore,
+    curtainWall: (deps) => deps.curtainWallStore,
 };
 
 /**
