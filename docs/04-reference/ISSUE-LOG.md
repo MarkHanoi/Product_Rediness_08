@@ -17357,7 +17357,7 @@ its `materialId` against the **live, un-stubbed** `MATERIAL_CATALOG`; every balu
 sphere rule; the builder's pitch precedence is **source-pinned** so the test's replica cannot drift
 into agreeing with a builder that no longer behaves that way). Root tsc RC=0.
 
-## L-1203 — ~145 HANDRAILS RENDER GREY: FOUR AUTO-GENERATORS HAND-LIST THEIR PAYLOAD AND BYPASS THE TYPE CATALOGUE ENTIRELY 🔴 OPEN — measured, not fixed (lane HR5, 2026-08-19)
+## L-1203 — ~145 HANDRAILS RENDER GREY: FOUR AUTO-GENERATORS HAND-LIST THEIR PAYLOAD AND BYPASS THE TYPE CATALOGUE ENTIRELY ✅ FIXED 2026-08-19 (lane HR5)
 
 **Founder's console, right now:** roughly **145** lines of
 
@@ -17408,16 +17408,42 @@ data-driven from `balconyCandidates`, not hardcoded. **Diagnostic:** grep the sa
 `§RESI-BALCONY`, `§RESI-ROOF-GARDEN perimeter guard` and `§RESI-STAIR-GUARD-CONTAIN` — those three
 lines carry the counts and will sum to the 145.
 
-### ⚠ WHY THIS IS LOGGED AND NOT YET FIXED
+### ✅ FIXED — one shared resolver, four callers
 
-The +24 bar-guard types (L-1202) ship into a catalogue these routes do not read, so **they neither
-inherit nor worsen this hole** — but a founder placing a generated building still gets grey guards.
+`generatedGuardSpec(intent)` (`packages/geometry-handrail/src/generatedGuardSpec.ts`) maps a guard
+INTENT to a **built-in** type — `glass` → `glass-guardrail`, `baluster` → `metal-balustrade-square`
+— and returns only the catalogue fields the generator does not decide itself. All four call sites
+spread it FIRST, so their own geometry still wins.
 
-**The fix is to make the generators name a TYPE** rather than hand-list fields, so they inherit
-`materialId` and the corrected baluster pitch together. `ResidentialBuildingExecutor` and
-`HouseLayoutExecutor` are in `apps/editor` and reachable; `ImportProjectCommand` is in
-**`packages/command-registry`, which is lane NL1's fence**, and `handrailSpec.ts`'s untyped fallback
-wants a decision about what "no armed type" should mean rather than a silent default.
+⛔ **It returns NOTHING positional.** A generator has real intent about geometry (a 1.1 m glass
+balcony guard, a 0.9 m stair-void rail), so the spread carries material + infill and **not**
+`height` / `thickness` / `fillType` / `railProfile` / `baseOffset`. The disjointness of those two
+sets is what makes "spread first, caller wins" safe, and it is **asserted**, not assumed.
+
+Four in-place edits were rejected deliberately: that would put four copies of *"which material does
+a generated guard use?"* in two apps files — the enumerated-copies defect this family has now been
+bitten by three times (L-1189, L-1190, L-1202 §15.16.6).
+
+It degrades to `{}` rather than inventing a material if a type is ever missing — fabricating a
+`materialId` to silence the warning would destroy the diagnostic that made this measurable.
+
+**Tests (7):** the real `handrailTypeStore` against the real `MATERIAL_CATALOG`, nothing stubbed.
+Both intents resolve an id the catalogue holds; the baluster guard inherits the infill members; its
+inherited pitch passes the 100 mm sphere rule; no geometry field leaks into the spread.
+
+### 🔴 STILL OPEN on this row — the other three routes
+
+The four GENERATORS are fixed. Three routes still emit material-less handrails and are **not**
+closed by this change:
+
+1. **`ImportProjectCommand.ts:971-981`** — the only place that has a persisted record in hand and
+   still drops `materialId`; it hand-assembles instead of calling `buildHandrailCreatePayload`, so a
+   round-trip through it **destroys** an existing material. ⚠ `packages/command-registry` is lane
+   **NL1's fence** — not touched.
+2. **`handrailSpec.ts:68-76`** — the untyped fallback. This wants a DECISION about what "no armed
+   type" should mean (refuse? arm a default type?) rather than a silent default quietly chosen here.
+3. **`IfcRailingToNativeConverter.ts:27-37`** — the IFC importer has no `materialId` field at all;
+   mapping an IFC material to a C100 id is its own piece of work.
 
 ⛔ **Do not fix this by defaulting `materialId` inside `CreateHandrailCommand`.** That would paper
 over four distinct callers with one invented value and destroy the very diagnostic that made this
