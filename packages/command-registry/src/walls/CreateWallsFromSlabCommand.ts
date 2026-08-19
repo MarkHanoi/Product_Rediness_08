@@ -7,6 +7,8 @@ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 // package; nothing new is introduced and the arc maths is not re-derived here.
 import { resolveBoundarySegments } from '@pryzm/geometry-slab/boundary-arc';
 import { createId } from '@pryzm/schemas';
+// §PERF2-WALLS-BY-SLAB-BATCH (L-1151) — see the block comment on the wall loop.
+import { batchCoordinator } from '@pryzm/core-app-model';
 
 export interface CreateWallsFromSlabPayload {
     slabId: string;
@@ -129,6 +131,43 @@ export class CreateWallsFromSlabCommand implements Command {
             );
         }
 
+        // ── §PERF2-WALLS-BY-SLAB-BATCH (L-1151) ──────────────────────────────
+        //
+        // This loop used to run NAKED — outside any `batchCoordinator` batch.
+        //
+        // ⭐ THE SIBLING COMMAND ALREADY CARRIES THE DIAGNOSIS. Read
+        // `CreateWallsOnAllSlabsCommand.ts` lines 60–110: fifty lines describing
+        // this exact defect (10 registrations → 91 REDETECT_ROOMS → 28 LONGTASKs →
+        // ~2,493 ms of blocking), root-caused to "the slab loop did NOT run inside
+        // batchCoordinator.runBatch()", and fixed there. The single-slab command it
+        // calls was never given the same treatment — so the fix held only when the
+        // user asked for ALL slabs, and evaporated the moment they picked ONE.
+        //
+        // What the naked loop costs, per wall, over a GROWING scene:
+        //   1. `initScene`'s per-`bim-wall-added` handler consults
+        //      `shouldDeferPerAddGeometryPass(batchCoordinator.isBatching)`
+        //      (apps/editor/src/engine/perAddGeometryGate.ts:36). With no batch it
+        //      returns false and runs TWO full `scene.traverse()` passes
+        //      (`collectNewPbrMeshes` + the tier `countMeshes`) — measured by lane
+        //      INSTR1 at 734 actual traversals for 367 unbatched adds vs 0 actual /
+        //      367 deferred once batched. That is the O(n^2) arm.
+        //   2. `RoomTopologyObserver._scheduleRedetect` cannot see a live batch, so
+        //      its starvation guard force-fires REDETECT_ROOMS mid-loop.
+        //   3. `ViewDependencyTracker` dirties every dependent view per wall, so
+        //      EdgeProjectorService re-projects the whole level per wall.
+        //   4. `storeEventBus` never buffers, so N adds are N flushes, not one.
+        //
+        // JOIN rather than nest: when the caller is `CreateWallsOnAllSlabsCommand`
+        // (or an AI/RAC envelope) a batch is already live, and opening a second one
+        // would be re-entrant. `batchCoordinator.isBatching` selects the JOIN arm —
+        // the same shape `CreateLightingByRoomCommand` uses (§FLOOR-BATCH-JOIN), so
+        // the outer bracket keeps ownership of completion and the undo entry count
+        // is unchanged (ADR-0314: `runBatch` is undo-NEUTRAL).
+        //
+        // `skipRedetectRooms` is NOT set: walls from a slab perimeter DO change the
+        // room topology, so exactly one sweep at batch end is the correct outcome —
+        // the win is 1 sweep instead of N, not 0 instead of N.
+        const _createWalls = (): void => {
         for (let i = 0; i < boundarySegments.length; i++) {
             const segment = boundarySegments[i];
             const startPoint = ring[segment.startIndex];
@@ -173,11 +212,29 @@ export class CreateWallsFromSlabCommand implements Command {
                 continue;
             }
 
-            console.log(`[CreateWallsFromSlab] Executing CreateWallCommand for level ${levelId} at elevation ${elevation}`);
+            // §PERF2-HOTLOG — was an UNCONDITIONAL console.log per wall inside the
+            // creation loop, printing the SAME levelId and elevation every time. On
+            // the founder's 367-element gesture that is 367 synchronous console
+            // writes carrying one line of information. Counted once, after the loop.
             const result = wallCommand.execute(context);
             if (result.success && result.affectedElementIds.length > 0) {
                 wallIds.push(result.affectedElementIds[0]);
             }
+        }
+        console.log(
+            `[CreateWallsFromSlab] created ${wallIds.length} of ${boundarySegments.length} wall(s) ` +
+            `on level ${levelId} at elevation ${elevation}`
+        );
+        };
+
+        // §PERF2-WALLS-BY-SLAB-BATCH — JOIN an in-flight batch, else open one.
+        if (batchCoordinator.isBatching) {
+            _createWalls();
+        } else {
+            batchCoordinator.runBatch(_createWalls, {
+                levelIds: [levelId],
+                totalElementCount: boundarySegments.length,
+            });
         }
 
         this.createdWallIds = wallIds;
