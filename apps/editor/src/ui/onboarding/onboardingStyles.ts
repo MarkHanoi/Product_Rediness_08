@@ -62,8 +62,8 @@ export const ONBOARDING_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: none;
   background: linear-gradient(135deg, #6600ff 0%, #8b2fe0 100%);
   cursor: move; /* draggable by the header (makeDraggable) */
@@ -71,8 +71,8 @@ export const ONBOARDING_STYLES = `
 }
 .rac-onboarding-overlay .rac-title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: #ffffff;
 }
@@ -461,7 +461,36 @@ export const ONBOARDING_STYLES = `
 
 /* ── O.2 — Onboarding STEP CONTROLLER overlay (os-*) ───────────────────────────
    The guided location → draw-or-skip → generate flow. Same frosted-glass card +
-   #6600FF accents, content-sized (no min-heights), draggable + resizable. */
+   #6600FF accents, content-sized (no min-heights), draggable + resizable.
+
+   §UX1-ONBOARDING-CARD-HALVED (founder 2026-08-19: "the middle panel should be
+   50% smaller, following the UI/UX contract").
+
+   TWO changes, and the second is the one that matters architecturally.
+
+   1. THE ARITHMETIC, stated so "50% smaller" is a measurement and not a mood.
+      Read as FOOTPRINT (area), which is what a panel occupying the middle of the
+      canvas actually costs the user:
+        · width   min(400px, 92vw) → min(288px, 92vw)   — 0.72× linear
+        · type + padding                                 — ~0.72× linear
+        · area                            0.72 × 0.72   = 0.52 ≈ HALF
+      Taking it as 50% of WIDTH instead (400 → 200px) would put the location
+      input and the two footer buttons below usable size and breach C43's 24px
+      target floor — so the honest halving is of area, and it is written down
+      here rather than left for the next reader to re-derive.
+
+   2. ⭐ rem → px, because the density lever was BLIND to this card. §UI-DENSITY-
+      SCALE ('styles/uiScale.ts') is the declared single authority for chrome
+      density, and its transform is '/(-?\d*\.?\d+)px/g' — PX LITERALS ONLY.
+      Every padding, gap and font-size in this block was authored in 'rem', so
+      'UI_SCALE = 0.85' scaled the card's WIDTH (a px literal) and nothing else:
+      a 340px-wide card wearing full-size 0.95rem/0.82rem type. That mismatch IS
+      the "oversized" the founder is seeing, and it is the same defect class as
+      L-1022 (the floating panels' inline styles) arriving by a different route.
+      Converting these to px puts the card under the one density authority, so
+      the values below are AUTHORED sizes and the effective size is value × 0.85.
+      The 'vh'/'vw' clamps are deliberately left alone — they measure the real
+      viewport and must not drift. */
 .os-onboarding-overlay {
   position: fixed;
   /* §PANEL-SIZE-FIX (2026-06-03): transform-centre, not inset:0 + margin:auto —
@@ -487,15 +516,15 @@ export const ONBOARDING_STYLES = `
   z-index: 2147483000;
   display: flex;
   flex-direction: column;
-  width: min(400px, 92vw);
+  width: min(288px, 92vw);
   height: auto;
-  max-height: min(72vh, 600px);
+  max-height: min(56vh, 440px);
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   color: #1a1a2e;
   border: 1px solid rgba(102, 0, 255, 0.12);
-  border-radius: 16px;
+  border-radius: 12px;
   /* §PANEL-BACKDROP-UNIFY — shared scrim (the 100vmax spread) via the one token. */
   box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 100vmax var(--pryzm-panel-backdrop);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -521,11 +550,11 @@ export const ONBOARDING_STYLES = `
   color: #ffffff;
 }
 .os-onboarding-overlay .os-step-chip {
-  font-size: 0.66rem;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 0.2rem 0.5rem;
+  padding: 3px 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.20);
   color: #ffffff;
@@ -539,21 +568,21 @@ export const ONBOARDING_STYLES = `
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.8rem 0.85rem 0.9rem;
+  padding: 10px 11px 11px;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 6px;
 }
 .os-onboarding-overlay .os-prompt {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #111;
 }
 .os-onboarding-overlay .os-hint {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 12.5px;
   color: rgba(20, 10, 40, 0.58);
   line-height: 1.4;
 }
@@ -633,25 +662,31 @@ export const ONBOARDING_STYLES = `
   font-weight: 600;
 }
 .os-onboarding-overlay .os-status {
-  margin: 0.15rem 0 0;
-  font-size: 0.8rem;
+  margin: 2px 0 0;
+  font-size: 12px;
   font-weight: 600;
   color: #6600ff;
 }
 .os-onboarding-overlay .os-input-row {
   display: flex;
-  gap: 0.45rem;
-  margin-top: 0.3rem;
+  gap: 6px;
+  margin-top: 4px;
 }
 .os-onboarding-overlay .os-input {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0.55rem 0.8rem;
-  border-radius: 10px;
+  /* C43 / WCAG 2.2 AA SC 2.5.8 — an explicit min-height so the halving cannot
+     push this control under the 24px target floor. 'uiScale.BOX_SIZE_PROPS'
+     clamps 'min-height' on the way down (28 × 0.85 = 23.8 → clamped to 24);
+     padding alone is NOT clamped, which is how a density pass silently breaches
+     the floor. Same reason on '.os-btn' below. */
+  min-height: 28px;
+  padding: 7px 11px;
+  border-radius: 9px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: rgba(255, 255, 255, 0.85);
   color: #111;
-  font-size: 0.88rem;
+  font-size: 12.5px;
 }
 .os-onboarding-overlay .os-input:focus-visible {
   outline: none;
@@ -660,11 +695,12 @@ export const ONBOARDING_STYLES = `
   box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
 }
 .os-onboarding-overlay .os-btn {
-  padding: 0.55rem 0.95rem;
-  border-radius: 10px;
+  min-height: 28px;
+  padding: 7px 13px;
+  border-radius: 9px;
   border: none;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 12px;
   cursor: pointer;
 }
 .os-onboarding-overlay .os-btn--primary { background: #6600ff; color: #fff; }
@@ -679,8 +715,8 @@ export const ONBOARDING_STYLES = `
 .os-onboarding-overlay .os-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  margin-top: 0.3rem;
+  gap: 5px;
+  margin-top: 4px;
 }
 .os-onboarding-overlay .os-choice {
   display: flex;
