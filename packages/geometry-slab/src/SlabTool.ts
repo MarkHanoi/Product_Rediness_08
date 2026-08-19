@@ -45,6 +45,13 @@ import {
     type RegionSketchAttribution,
 } from './SlabRegionTracer.js';
 import type { SlabSketch } from './SketchTypes.js';
+// §FIX-REGION-3D-EDGE-SET (L-1126) / §FEAT-REGION-CURTAIN-WALL (L-1125) — the ONE
+// boundary assembler, shared with SlabPlanToolHandler. See findRegionAtPoint().
+import {
+    assembleRegionBoundary,
+    describeRegionBoundaryCounts,
+    type RegionBoundaryCounts,
+} from './RegionBoundarySources.js';
 // DOC-5.3 — Direct 2D element creation in plan view (unified coordinate resolver)
 import { planView2DCreationMode } from '@pryzm/core-app-model';
 
@@ -128,6 +135,18 @@ export interface SlabToolDeps {
      * Absent ⇒ LINEAR, i.e. exactly the pre-existing 3D behaviour.
      */
     getBoundaryDrawMode?: () => BoundaryDrawMode;
+    /**
+     * §FIX-REGION-3D-EDGE-SET (L-1126) — the curtain-wall store, so the 3D By Region
+     * search sees the SAME boundary sources the plan surface sees. Absent ⇒ zero
+     * curtain-wall edges, reported as zero rather than silently assumed away.
+     */
+    getCurtainWallStore?:     () => { getAll?: () => unknown[] } | undefined;
+    /**
+     * §FIX-REGION-3D-EDGE-SET (L-1126) — the parcel/property ring (world XZ), same
+     * source `SlabPlanToolHandler` reads. Absent ⇒ `parcelPresent: false`, which is a
+     * DIFFERENT value from an empty ring (§CONTEXT-DATA-HONESTY).
+     */
+    getParcelBoundary?:       () => ReadonlyArray<{ x: number; z: number }> | null | undefined;
 }
 
 export class SlabTool {
@@ -165,6 +184,11 @@ export class SlabTool {
         // the polygon committed and the references attached are provably one region.
         candidateSketch: null as SlabSketch | null,
         candidateAttribution: null as RegionSketchAttribution | null,
+        // §FIX-REGION-3D-EDGE-SET (L-1126) — WHAT the last search looked at, so a 3D
+        // refusal can name its INPUTS and not only its conclusion. This is the property
+        // that let L-959's cause be read off one log line instead of three round trips,
+        // and the 3D surface did not have it.
+        lastBoundaryCounts: null as RegionBoundaryCounts | null,
         active: false
     };
 
@@ -390,12 +414,45 @@ export class SlabTool {
         const slabId   = crypto.randomUUID();
         const ifcGuid  = crypto.randomUUID();
 
+        // §FIX-REGION-SLAB-3D-LADDER (L-1121, C84 EI-2) — `width`/`depth` are DERIVED
+        // from the polygon when the caller supplies none, never written as 0.
+        //
+        // ⭐ THE DEFECT. Only the rectangle/hollow branch passes `dimensions`. The
+        // REGION and POLYLINE branches call this with `dimensions === undefined`, so
+        // every region- and polyline-created slab was stored `width: 0, depth: 0` —
+        // while the plan tool's own commit (`SlabPlanToolHandler._commitSlab`) computes
+        // exactly this bounding box for the identical record. Two producers of one
+        // field, and one of them wrote a number it knew to be false.
+        //
+        // WHAT IT COST: those two fields are the ONLY dimensions the property panel and
+        // the IFC export have for the slab, AND they are the arguments to
+        // `SlabFragmentBuilder`'s BoxGeometry fallback — so a region slab that degraded
+        // for any reason became `BoxGeometry(0, t, 0)`: invisible in 3D, while plan view
+        // went on drawing the stored polygon. That IS the founder's "region slab works
+        // in plan but not in 3D", and this is one of its three stacked causes.
+        //
+        // A ZERO IS NOT A GAP HERE — it is a WRONG MEASUREMENT of a slab that has a
+        // perfectly well-defined extent sitting in the same argument list
+        // (§CONTEXT-DATA-HONESTY: failure and empty must not be the same value).
+        const bboxOf = (poly: THREE.Vector2[]): { width: number; depth: number } => {
+            if (poly.length === 0) return { width: 0, depth: 0 };
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const p of poly) {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
+            return { width: maxX - minX, depth: maxY - minY };
+        };
+        const resolvedDims = dimensions ?? bboxOf(polygon);
+
         // §02 §1.2: position.y = 0 — the builder resolves worldY from BimManager.
         const payload = {
             id: slabId,
             ifcGuid,
-            width: dimensions?.width ?? 0,
-            depth: dimensions?.depth ?? 0,
+            width: resolvedDims.width,
+            depth: resolvedDims.depth,
             thickness: 0.2,
             position: { x: 0, y: 0, z: 0 },
             levelId: levelId,
@@ -1460,7 +1517,44 @@ export class SlabTool {
      * preview / commit path.
      */
     private findRegionAtPoint(pt: THREE.Vector3): THREE.Vector2[] | null {
-        const walls = this.wallStore.getAll() as ReadonlyArray<{
+        // §FIX-REGION-3D-EDGE-SET (L-1126) — ⭐ THE 3D SURFACE SEARCHED A SMALLER WORLD
+        // THAN THE PLAN SURFACE, AND THE COMMENT BELOW SAID IT COULD NOT.
+        //
+        // MEASURED 2026-08-19. This method read `this.wallStore.getAll()` and NOTHING
+        // ELSE, while `SlabPlanToolHandler._findRegionAtPoint` has called
+        // `assembleRegionBoundary({ walls, slabs, parcelBoundary })` since
+        // §FIX-REGION-BOUNDARY-SOURCES. So a region bounded by a SLAB EDGE (a terrace,
+        // a podium) or by the PARCEL BOUNDARY (the founder's garden) could be clicked
+        // in plan and REFUSED in 3D — the same gesture, the same point, two answers.
+        // The header three lines down asserted the opposite: *"mirroring
+        // SlabPlanToolHandler._findRegionAtPoint so the two surfaces cannot disagree
+        // (C79 §7.4)"*. It mirrored the TRACER CALL and not the EDGE SET, and an
+        // identical walk over a smaller graph is a different search.
+        //
+        // This is C84 EI-9 for the THIRD time on this one gesture — L-956 (which mode
+        // is active), L-959 (where the region is), and now WHAT BOUNDS IT. The cure is
+        // the one L-959 already chose: BOTH surfaces call the ONE assembler, and a new
+        // source is added in `RegionBoundarySources.ts`, once.
+        const slabStore = this._deps.getSlabStore?.();
+        const parcelBoundary = (() => {
+            try {
+                return this._deps.getParcelBoundary?.() ?? null;
+            } catch {
+                // A boundary that cannot be read is ABSENT, and it is reported ABSENT
+                // rather than silently searching a smaller world.
+                return null;
+            }
+        })();
+        const { segments, counts } = assembleRegionBoundary({
+            walls: this.wallStore.getAll() as never,
+            slabs: (slabStore?.getAll?.() ?? []) as never,
+            // §FEAT-REGION-CURTAIN-WALL (L-1125) — glazing encloses space, so it bounds
+            // a region. Contributed anonymously; see the assembler.
+            curtainWalls: (this._deps.getCurtainWallStore?.()?.getAll?.() ?? []) as never,
+            parcelBoundary,
+        });
+        this.regionDetection.lastBoundaryCounts = counts;
+        const walls = segments as ReadonlyArray<{
             // §REGION-HOST-ATTRIBUTION-3D — the wall id was ALWAYS on these records;
             // only this local type omitted it, so the tracer could not carry it to
             // the sketch and the 3D region slab silently failed to follow its walls.
@@ -1479,6 +1573,15 @@ export class SlabTool {
         if (!traced || traced.ring.length < 3) {
             this.regionDetection.candidateSketch = null;
             this.regionDetection.candidateAttribution = null;
+            // §FIX-REGION-3D-EDGE-SET (L-1126) — a refusal that names WHERE it looked
+            // and WHAT it searched. Without both, a hover success and a click refusal
+            // cannot be compared, which is exactly what L-959 cost a round trip.
+            // `console.debug` because this runs at pointer rate on hover.
+            console.debug(
+                `[SlabTool] §FIX-REGION-3D-EDGE-SET no enclosed region `
+                + `at=(${pt.x.toFixed(2)}, ${pt.z.toFixed(2)}) `
+                + `searched=[${describeRegionBoundaryCounts(counts)}]`,
+            );
             return null;
         }
         this.regionDetection.candidateSketch = traced.sketch;

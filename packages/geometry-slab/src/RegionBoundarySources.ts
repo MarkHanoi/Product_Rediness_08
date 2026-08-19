@@ -61,9 +61,35 @@ export interface RegionSlabLike {
     polygon?: ReadonlyArray<{ x: number; y: number }> | null;
 }
 
+/**
+ * §FEAT-REGION-CURTAIN-WALL (L-1125) — the subset of `CurtainWallData` this needs.
+ *
+ * A curtain wall is a WALL to the user and to the eye: it encloses space, you stand
+ * inside it, and "put a floor in here" is the same request whether the enclosure is
+ * masonry or glazing. It was simply not in the edge set, so `traceRegionSketchAtPoint`
+ * walked a graph with a HOLE where the glazing stood, found no closed loop, and the
+ * tool refused — correctly, against inputs that were too small. That is L-959's exact
+ * shape one source later, which is why this is a new SOURCE here and not a branch at a
+ * call site (see the header: a new source is added HERE, once).
+ *
+ * Declared structurally rather than importing `CurtainWallData` so this package gains
+ * no dependency on `@pryzm/geometry-curtain-wall` — the two are siblings at L2 and a
+ * geometry↔geometry edge between element families is exactly what the layer model is
+ * there to prevent. `baseLine: [Point3D, Point3D]` is read for `{x, z}` only.
+ */
+export interface RegionCurtainWallLike {
+    id?: string;
+    baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
+}
+
 export interface RegionBoundaryInputs {
     walls?: ReadonlyArray<RegionWallLike> | null;
     slabs?: ReadonlyArray<RegionSlabLike> | null;
+    /**
+     * §FEAT-REGION-CURTAIN-WALL (L-1125) — curtain-wall spines, contributed as
+     * ANONYMOUS segments. See the assembler for why they carry no `id`.
+     */
+    curtainWalls?: ReadonlyArray<RegionCurtainWallLike> | null;
     /** The parcel/property ring, OPEN (no repeated closing vertex) — `Parcel.boundary.polygon`. */
     parcelBoundary?: ReadonlyArray<BoundaryPointXZ> | null;
     /** A slab id to leave OUT — used when re-tracing around a slab being replaced. */
@@ -78,6 +104,8 @@ export interface RegionBoundaryInputs {
 export interface RegionBoundaryCounts {
     walls: number;
     slabEdges: number;
+    /** §FEAT-REGION-CURTAIN-WALL (L-1125) — curtain-wall spines contributed. */
+    curtainWallEdges: number;
     parcelEdges: number;
     /** `false` when no parcel boundary is loaded at all — distinct from an empty one. */
     parcelPresent: boolean;
@@ -148,13 +176,40 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
         );
     }
 
+    // §FEAT-REGION-CURTAIN-WALL (L-1125) — the glazing encloses space, so it bounds a
+    // region. Contributed ANONYMOUSLY (no `id`), for the reason the header gives for
+    // every non-wall source: `HostReferenceEdge` carries `hostType: 'wall'` and is
+    // resolved by `WallFaceResolver`, which reads `window.wallStore` and has no notion
+    // of a curtain wall. Attributing a curtain-wall id would make the slab follow a
+    // WALL THAT DOES NOT EXIST — the resolver would miss, the edge would fall back to
+    // its authoring-time memory, and the slab would report `preserved` while following
+    // nothing (C79 §5.2.1). An anonymous edge degrades to a `FreeLineEdge` and is
+    // COUNTED, so "this boundary does not follow its curtain wall" is a reported fact
+    // and not a silent one.
+    //
+    // ⛔ THE OWNERSHIP LINE. Everything above is the SLAB half — what bounds a region,
+    // and how a traced boundary is attributed. Making a curtain-wall edge FOLLOW its
+    // host would need a `hostType: 'curtainWall'` arm inside `WallFaceResolver` and a
+    // curtain-wall face model to resolve against; that is the curtain-wall side and is
+    // deliberately NOT done here.
+    let curtainWallEdges = 0;
+    for (const cw of inputs.curtainWalls ?? []) {
+        const line = cw?.baseLine;
+        if (!line || line.length < 2) continue;
+        const a = line[0]!;
+        const b = line[line.length - 1]!;
+        if (Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.z - b.z) < 1e-9) continue; // zero-length
+        segments.push({ baseLine: [{ x: a.x, z: a.z }, { x: b.x, z: b.z }] });
+        curtainWallEdges++;
+    }
+
     const parcel = inputs.parcelBoundary;
     const parcelPresent = Array.isArray(parcel) && parcel.length > 0;
     const parcelEdges = parcelPresent ? ringToSegments(parcel!, segments) : 0;
 
     return {
         segments,
-        counts: { walls: walls.length, slabEdges, parcelEdges, parcelPresent },
+        counts: { walls: walls.length, slabEdges, curtainWallEdges, parcelEdges, parcelPresent },
     };
 }
 
@@ -166,5 +221,6 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
  */
 export function describeRegionBoundaryCounts(c: RegionBoundaryCounts): string {
     return `${c.walls} wall(s), ${c.slabEdges} slab edge(s), `
+        + `${c.curtainWallEdges} curtain-wall edge(s), `
         + `parcel boundary ${c.parcelPresent ? `present (${c.parcelEdges} edge(s))` : 'ABSENT'}`;
 }

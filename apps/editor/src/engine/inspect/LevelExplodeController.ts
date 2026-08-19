@@ -66,6 +66,22 @@ const DONE_EPSILON = 0.001; // stop RAf loop when within this distance of target
 // scene and nest their meshes INSIDE it. A rebuild is therefore always a
 // `scene.remove(oldRoot)` + `scene.add(newRoot)` pair on the scene root.
 //
+// ⚠ CORRECTED 2026-08-19 (L-1123) — the paragraph below used to end with the claim
+// that *"an in-place rebuild that swaps only a root's CHILD meshes needs no reconcile:
+// the root object (and hence its lifted position.y + its captured baseY) is untouched.
+// Only a root SWAP can drop an element, and only a root swap fires here."*
+// **THE FIRST HALF IS FALSE, MEASURED.** `SlabFragmentBuilder._buildSlab` REUSES its
+// root (`this.slabRoots.get(id)`) and ends with `root.position.set(pivotX, worldY,
+// pivotZ)` — an in-place rebuild that MOVES the root, fires nothing on the scene root,
+// and therefore silently drops that element out of the exploded stack. The same shape
+// is available to any builder that repositions a retained root.
+// The SECOND half — that only a root swap fires here — is still true, and that is
+// precisely why the trigger cannot be the whole answer. The durable fix is NOT another
+// trigger: builders now PUBLISH the model Y they wrote (`root.userData.modelY`) and
+// this controller RE-DERIVES its baseline from it instead of caching a copy
+// (§LEVEL-STACK-MODEL-Y below). A re-derived baseline is immune to every cause of a
+// stale one, including the ones nobody has measured yet.
+//
 // THREE (r163+, this repo is 0.183) dispatches `childadded` / `childremoved` on
 // the PARENT for exactly those calls. Listening to them on the scene root catches
 // every rebuilt root of every element type — rooms, labels, handrails, openings
@@ -187,16 +203,30 @@ export class LevelExplodeController {
     this._reanchorPending = false;
 
     let restored = 0;
+    let fromModelY = 0;
     for (const group of this._levelGroups) {
       for (const root of group.roots) {
-        const origY = group.originalY.get(root);
-        if (origY !== undefined) root.position.y = origY;
+        // §LEVEL-STACK-MODEL-Y (L-1123) — restore to the BUILDER'S CURRENT model Y when
+        // the root publishes one, never to a baseline captured before the user's edits.
+        // The cached `originalY` remains the answer only for roots that publish nothing.
+        const publishedModelY = (root.userData as { modelY?: unknown }).modelY;
+        if (typeof publishedModelY === 'number' && Number.isFinite(publishedModelY)) {
+          root.position.y = publishedModelY;
+          fromModelY++;
+        } else {
+          const origY = group.originalY.get(root);
+          if (origY !== undefined) root.position.y = origY;
+        }
         root.visible = true;
         restored++;
       }
     }
     this._levelGroups = [];
-    console.log(`[§LEVEL-STACK] Deactivated — restored ${restored} root positions + visibility`);
+    console.log(
+      `[§LEVEL-STACK] Deactivated — restored ${restored} root positions + visibility `
+      + `(${fromModelY} from the builder's published userData.modelY, `
+      + `${restored - fromModelY} from the captured baseline)`,
+    );
   }
 
   dispose(): void {
@@ -313,16 +343,37 @@ export class LevelExplodeController {
       for (const [root, y] of group.originalY) preservedBaseY.set(root, y);
     }
 
-    this._levelGroups = [];
-
+    // §FIX-EXPLODE-GROUP-WIPE (L-1124) — the guard runs BEFORE the wipe now.
+    //
+    // This used to read `this._levelGroups = []` and only THEN check for bimManager /
+    // the scene, returning early on a miss. On a reconcile that hit either miss — and a
+    // reconcile can fire at any moment, driven by any element rebuild — the controller
+    // discarded its entire record of which roots it had lifted WHILE THEY WERE STILL
+    // LIFTED. `deactivate()` then iterated an empty list and restored NOTHING: every
+    // element in the model stayed at its exploded height with no channel left that knew
+    // where it belonged. Losing the restore map is strictly worse than an inert
+    // reconcile, so the map now survives a failed rebuild.
     const bm = window.bimManager as (BimManagerLike & { getLevels(): BimLevel[] }) | undefined;
     if (!bm || !this._scene) {
-      console.warn('[LevelExplodeController] bimManager not available — explode will be inert');
+      console.warn(
+        '[LevelExplodeController] §FIX-EXPLODE-GROUP-WIPE bimManager not available — reconcile '
+        + `is inert and the existing ${this._levelGroups.length} level group(s) are KEPT, so the `
+        + 'lifted roots can still be restored.',
+      );
       return;
     }
 
     const allLevels = bm.getLevels().sort((a, b) => a.elevation - b.elevation);
-    if (allLevels.length === 0) return;
+    if (allLevels.length === 0) {
+      console.warn(
+        '[LevelExplodeController] §FIX-EXPLODE-GROUP-WIPE bimManager reports ZERO levels — '
+        + `keeping the existing ${this._levelGroups.length} level group(s) rather than dropping `
+        + 'the restore map for roots that are currently lifted.',
+      );
+      return;
+    }
+
+    this._levelGroups = [];
 
     // Build a single-pass lookup: elementId → Object3D, plus a per-level bucket of
     // every level-tagged object. §LEVEL-STACK (Bug 1): instanced wall groups carry
@@ -384,6 +435,38 @@ export class LevelExplodeController {
 
       const originalY = new Map<THREE.Object3D, number>();
       for (const root of roots) {
+        // §LEVEL-STACK-MODEL-Y (L-1123) — PREFER THE BUILDER'S PUBLISHED MODEL Y over
+        // any cached baseline.
+        //
+        // ⭐ WHAT WAS WRONG. `originalY` was an absolute Y captured once and preserved
+        // across every later reconcile, and `deactivate()` writes it straight back onto
+        // the root. That makes this controller a SECOND AUTHORITY on element height
+        // (C84 EI-1/EI-9) — and a stale one, because builders reposition their root on
+        // EVERY rebuild: `SlabFragmentBuilder.ts` `root.position.set(pivotX, worldY,
+        // pivotZ)` runs whenever thickness, baseOffset or LEVEL changes, and it reuses
+        // the SAME root object, so no `childadded`/`childremoved` fires and this
+        // controller is never told. Collapse then wrote the pre-edit height back over
+        // the correct one, and nothing recomputed it afterwards: the element was
+        // stranded at a height no store agreed with. That is the founder's *"a slab was
+        // left up there and it doesn't relocate"* (L-1123), and the class of it is
+        // exactly L-1087 — a cached copy of a number another layer owns.
+        //
+        // ⛔ THE HEADER OF THIS FILE ASSERTED THE OPPOSITE and must not be restored:
+        // *"an in-place rebuild that swaps only a root's CHILD meshes needs no
+        // reconcile: the root object (and hence its lifted position.y + its captured
+        // baseY) is untouched."* It IS touched, by the line quoted above.
+        //
+        // THE RULE: when a root publishes `userData.modelY`, that is the baseline, every
+        // time — the builder wrote it on its last build, so it cannot be stale. Only a
+        // root that publishes nothing falls back to the old two-branch behaviour
+        // (preserve a survivor's baseY; capture a new root's current Y). A root at a
+        // lifted Y with no published model Y still cannot be re-captured, which is the
+        // double-lift `preservedBaseY` was written to prevent.
+        const publishedModelY = (root.userData as { modelY?: unknown }).modelY;
+        if (typeof publishedModelY === 'number' && Number.isFinite(publishedModelY)) {
+          originalY.set(root, publishedModelY);
+          continue;
+        }
         // Reconcile: reuse the survivor's original baseY; capture model Y only
         // for NEW roots (which sit at their true elevation before any lift).
         const preserved = preservedBaseY.get(root);

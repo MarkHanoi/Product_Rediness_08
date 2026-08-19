@@ -519,6 +519,13 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         return assembleRegionBoundary({
             walls: (window.wallStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
             slabs: (window.slabStore?.getAll?.() ?? []) as never, // TODO(TASK-08)
+            // §FEAT-REGION-CURTAIN-WALL (L-1125) — a curtain wall encloses space, so it
+            // bounds a region. Without this source the tracer walked a graph with a HOLE
+            // where the glazing stood and refused a region the user can plainly see.
+            curtainWalls: (
+                (window as unknown as { curtainWallStore?: { getAll?: () => unknown[] } })
+                    .curtainWallStore?.getAll?.() ?? []
+            ) as never, // TODO(TASK-08)
             parcelBoundary,
         });
     }

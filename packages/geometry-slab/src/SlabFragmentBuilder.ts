@@ -136,6 +136,34 @@ export interface SlabBuilderDeps {
     getVisualStyle?: () => number;
 }
 
+/**
+ * §SLAB-BUILD-VERDICT (L-1121) — the outcome vocabulary. See `_buildVerdict`.
+ *
+ * The three `refused-*` members are separated deliberately rather than collapsed to
+ * one `refused`: *"there is no BimManager in this runtime"*, *"this record carries no
+ * levelId"* and *"the level is not in BimManager"* are three different diagnoses with
+ * three different fixes, and merging them rebuilds the very ambiguity this channel
+ * exists to remove (the same reasoning as `WallFaceResolver`'s ENGINE_NOT_AVAILABLE
+ * vs STALE_DERIVED_STATE split).
+ */
+export type SlabBuildVerdictState =
+    | 'built'
+    | 'degraded-stored-polygon'
+    | 'degraded-box'
+    | 'invisible-zero-box'
+    | 'buffered-paused'
+    | 'queued-batch'
+    | 'refused-no-bimmanager'
+    | 'refused-no-level-id'
+    | 'refused-level-unknown';
+
+export interface SlabBuildVerdict {
+    slabId: string;
+    state: SlabBuildVerdictState;
+    detail: string;
+    at: number;
+}
+
 export class SlabFragmentBuilder {
     private scene: THREE.Scene;
     private bimManager: BimManager | null;
@@ -185,6 +213,61 @@ export class SlabFragmentBuilder {
     private _builtLod  = new Map<string, DetailLevel>();
     private _builtData = new Map<string, SlabData>();
     private _unsubscribeViews: (() => void) | null = null;
+
+    /**
+     * §SLAB-BUILD-VERDICT (L-1121) — WHY a slab has no mesh, per slab id.
+     *
+     * ⭐ THE PROPERTY THIS EXISTS FOR. *"A slab that is in the store, drawn in plan,
+     * and ABSENT from 3D"* and *"a slab that was never created"* produced THE SAME
+     * OBSERVABLE — nothing in the viewport — and therefore the same value to anyone
+     * debugging. That is §CONTEXT-DATA-HONESTY's failure-vs-empty collapse, and it is
+     * why the founder's "region slab works in plan but not in 3D" cost a whole
+     * measurement pass to even localise: five distinct silent exits reach it —
+     *   · `updateSlab` buffered the record while paused and `resume*()` never ran;
+     *   · `updateSlab` queued it into the rAF drain and the drain never came;
+     *   · `resolveWorldY` threw out of a DOM listener (no BimManager / no levelId /
+     *     the level is not in BimManager);
+     *   · no ring resolved and `data.width`/`data.depth` are 0, so the box is nothing;
+     *   · `pause()` wiped `_pausedBuilds` under a second pause.
+     * **None of the first three said anything a user could act on, and the fourth said
+     * it only after this change.**
+     *
+     * This map is the channel. It is WRITE-ONLY from the build path and READ from
+     * `getBuildVerdict()` / `getBuildReport()` — `initBuilders.ts` already publishes
+     * the builder as `window.slabBuilder`, so `window.slabBuilder.getBuildReport()` is
+     * the one console line that names the cause, with NO new global (P4).
+     *
+     * It records the LAST outcome per id and is cleared on `removeSlab()`, so it can
+     * never outlive the element it describes.
+     */
+    private _buildVerdict = new Map<string, SlabBuildVerdict>();
+
+    private _recordVerdict(id: string, state: SlabBuildVerdictState, detail: string): void {
+        this._buildVerdict.set(id, { slabId: id, state, detail, at: Date.now() });
+    }
+
+    /** §SLAB-BUILD-VERDICT — the last build outcome for one slab, or undefined if this
+     *  builder has never been asked to build it (which is itself the answer: the record
+     *  never reached the builder, so look UPSTREAM — store, bridge or command). */
+    getBuildVerdict(id: string): SlabBuildVerdict | undefined {
+        return this._buildVerdict.get(id);
+    }
+
+    /**
+     * §SLAB-BUILD-VERDICT — every slab this builder has an opinion about, worst first.
+     * `hasRoot` is measured from the live scene-graph map, NOT from the verdict, so a
+     * verdict that says `built` while no root exists is itself visible.
+     */
+    getBuildReport(): Array<SlabBuildVerdict & { hasRoot: boolean }> {
+        const order: Record<SlabBuildVerdictState, number> = {
+            'refused-no-bimmanager': 0, 'refused-no-level-id': 0, 'refused-level-unknown': 0,
+            'invisible-zero-box': 1, 'degraded-box': 2, 'degraded-stored-polygon': 3,
+            'buffered-paused': 4, 'queued-batch': 5, 'built': 6,
+        };
+        return [...this._buildVerdict.values()]
+            .map(v => ({ ...v, hasRoot: this.slabRoots.has(v.slabId) }))
+            .sort((a, b) => order[a.state] - order[b.state]);
+    }
 
     constructor(scene: THREE.Scene, bimManager?: BimManager, deps: SlabBuilderDeps = {}) {
         this.scene = scene;
@@ -236,6 +319,12 @@ export class SlabFragmentBuilder {
             } else {
                 this._pausedBuilds.push(data);
             }
+            // §SLAB-BUILD-VERDICT — a buffered slab has NO mesh yet, and if
+            // `resume()`/`resumeAndFlush()` never runs it never will. Recorded so the
+            // absence has a name instead of being indistinguishable from "no slab".
+            this._recordVerdict(data.id, 'buffered-paused',
+                'buffered by §BATCH-SLAB-PAUSE; it will only be built when resume() or '
+                + 'resumeAndFlush() runs. If this state persists, the pause was never lifted.');
             return;
         }
         if (batchCoordinator.isBatching) {
@@ -245,6 +334,9 @@ export class SlabFragmentBuilder {
             } else {
                 this._pendingBuilds.push(data);
             }
+            this._recordVerdict(data.id, 'queued-batch',
+                'queued for the rAF drain (batchCoordinator.isBatching); no mesh until the '
+                + 'drain runs.');
             if (this._rafHandle === null) {
                 // Sprint A33 (C11 §5.2/§6.1): canonical FrameScheduler.schedule() API.
                 // Priority: 'pre-render' — slab geometry must land before the renderer pass.
@@ -262,6 +354,21 @@ export class SlabFragmentBuilder {
      *  into _pausedBuilds.  Called by BatchCoordinator at the start of runBatch().
      *  Mirrors §BATCH-CW-PAUSE in CurtainWallBuilder. */
     pause(): void {
+        // §FIX-SLAB-PAUSE-WIPE (L-1122) — a SECOND pause used to `_pausedBuilds = []`
+        // unconditionally, DISCARDING every record the first pause had buffered and
+        // never built. Those slabs are in the store, drawn in plan, and have no mesh —
+        // silently, forever, because nothing ever re-emits `bim-slab-added` for them.
+        // Re-entrant pause is now a NO-OP on the buffer: the records are kept and the
+        // next resume drains them. Clearing on a FIRST pause is still correct (the
+        // buffer is empty then by construction) and is kept for the explicit reset.
+        if (this._rebuildPaused) {
+            console.warn(
+                `[SlabFragmentBuilder] §FIX-SLAB-PAUSE-WIPE: pause() called while already `
+                + `paused with ${this._pausedBuilds.length} buffered build(s). KEEPING them — `
+                + `discarding would leave those slabs in the store and out of 3D.`,
+            );
+            return;
+        }
         this._rebuildPaused = true;
         this._pausedBuilds = [];
         console.debug('[SlabFragmentBuilder] §BATCH-SLAB-PAUSE: paused — buffering into _pausedBuilds');
@@ -476,9 +583,13 @@ export class SlabFragmentBuilder {
         // Child meshes are offset by -centroid so their world positions are unchanged.
         let pivotX = data.position.x;
         let pivotZ = data.position.z;
-        const rawPoly = data.polygon
-            ? data.polygon
-            : (data.sketch ? SlabFragmentBuilder.resolveLoop(data.sketch.outerLoop) : null);
+        // §FIX-REGION-SLAB-3D-LADDER (L-1121, C84 EI-9) — THE SAME ring the mesh is
+        // built on. This read used to be `data.polygon ? data.polygon : sketch` — the
+        // EXACT INVERSE of the mesh path's preference — so on a sketch-bearing slab the
+        // gizmo pivot answered "where is this slab?" from one ring while the geometry
+        // answered from another. One question, one answer.
+        const ringChoice = SlabFragmentBuilder.resolveBuildRing(data);
+        const rawPoly = ringChoice.ring;
         if (rawPoly && rawPoly.length > 0) {
             let cx = 0, cz = 0;
             for (const p of rawPoly) { cx += p.x; cz += p.y; }
@@ -606,6 +717,52 @@ export class SlabFragmentBuilder {
 
         // M8: worldY was resolved at the start of _buildSlab (before any scene mutation).
         root.position.set(pivotX, worldY, pivotZ);
+
+        // §LEVEL-STACK-MODEL-Y (L-1123) — PUBLISH the model Y this build just wrote.
+        //
+        // ⭐ WHY. `LevelExplodeController` (`apps/editor/src/engine/inspect/`) holds a
+        // per-root `originalY` CACHE captured when Inspect mode opened, and restores
+        // `root.position.y = originalY` on collapse. Two facts make that cache lie:
+        //   1. THIS LINE runs on EVERY rebuild and reuses the existing root — so a slab
+        //      whose thickness, baseOffset or LEVEL changed has a new model Y that the
+        //      cache does not know about, and the collapse writes the STALE one back.
+        //      Nothing recomputes it afterwards, so the slab is stranded at a height no
+        //      store agrees with — the founder's *"a slab was left up there and it
+        //      doesn't relocate"*.
+        //   2. The controller's own header asserts the opposite — *"an in-place rebuild
+        //      that swaps only a root's CHILD meshes needs no reconcile: the root object
+        //      (and hence its lifted position.y + its captured baseY) is untouched"*.
+        //      It IS touched, right here. That assertion is the L-1087 shape again: a
+        //      register generalising from the builders its author had read.
+        //
+        // The BUILDER is the authority on model Y (C92 §10 — TOP-referenced datum,
+        // `worldY = level.elevation + baseOffset − thickness`). Stamping it makes that
+        // authority READABLE, so a view-layer controller can RE-DERIVE the baseline
+        // instead of caching a copy of it — which is the general cure for a second
+        // authority on a number (C84 EI-1/EI-9), not a slab-specific patch.
+        root.userData.modelY = worldY;
+
+        // §SLAB-BUILD-VERDICT (L-1121) — record what this build actually produced.
+        // Derived from the SAME `resolveBuildRing` answer the mesh and the pivot used,
+        // so the report can never disagree with what was drawn (C84 EI-9).
+        if (ringChoice.source === 'sketch') {
+            this._recordVerdict(data.id, 'built', 'built on the sketch loop, live from its host walls.');
+        } else if (ringChoice.source === 'polygon' && ringChoice.note) {
+            this._recordVerdict(data.id, 'degraded-stored-polygon',
+                `${ringChoice.note} — built on the STORED polygon instead, so plan and 3D agree, `
+                + 'but the slab is no longer following its walls (C79 §5.2 undetermined).');
+        } else if (ringChoice.source === 'polygon') {
+            this._recordVerdict(data.id, 'built', 'built on the stored polygon (no sketch on this record).');
+        } else if (!(data.width > 0) || !(data.depth > 0)) {
+            this._recordVerdict(data.id, 'invisible-zero-box',
+                `no ring resolved AND width×depth is ${data.width}×${data.depth} — the BoxGeometry `
+                + 'fallback renders NOTHING. The slab exists in the store and in plan view, and is '
+                + 'ABSENT from 3D. ⭐ This is the "works in plan but not in 3D" report.');
+        } else {
+            this._recordVerdict(data.id, 'degraded-box',
+                `no ring resolved${ringChoice.note ? ` (${ringChoice.note})` : ''} — drawn as a plain `
+                + `${data.width} × ${data.depth} m box, which is NOT the authored outline.`);
+        }
     }
 
     /**
@@ -676,6 +833,9 @@ export class SlabFragmentBuilder {
         // detail-level change: drop it from the rebuild-on-intent-change bookkeeping.
         this._builtLod.delete(id);
         this._builtData.delete(id);
+        // §SLAB-BUILD-VERDICT (L-1121) — a verdict must never outlive the element it
+        // describes, or the report starts answering about slabs that no longer exist.
+        this._buildVerdict.delete(id);
 
         const root = this.slabRoots.get(id);
         if (root) {
@@ -700,7 +860,18 @@ export class SlabFragmentBuilder {
     private resolveWorldY(data: SlabData): number {
         const baseOffset = data.baseOffset ?? 0;
 
+        // §SLAB-BUILD-VERDICT (L-1121) — these three throws are CORRECT (a refusal is a
+        // correct answer) but they were also INVISIBLE where it mattered: `_buildSlab`
+        // is called synchronously from a `window.addEventListener('bim-slab-added')`
+        // handler in `initBuilders.ts`, so the exception unwinds into the DOM dispatcher
+        // and the only trace is an uncaught error the founder reads as noise — while the
+        // slab sits in the store and plan view goes on drawing it. The throw is kept
+        // exactly as it was; what is added is the verdict, so `getBuildReport()` can name
+        // WHICH slab and WHY without re-running the gesture.
         if (!this.bimManager) {
+            this._recordVerdict(data.id, 'refused-no-bimmanager',
+                'SlabFragmentBuilder has no BimManager, so world Y cannot be resolved. No '
+                + 'mesh is built. This is a RUNTIME COMPOSITION fault, not a slab fault.');
             throw new Error(
                 `[SpatialAuthorityError] SlabFragmentBuilder has no BimManager. ` +
                 `Cannot resolve world Y for slab "${data.id}".`
@@ -708,6 +879,9 @@ export class SlabFragmentBuilder {
         }
 
         if (!data.levelId) {
+            this._recordVerdict(data.id, 'refused-no-level-id',
+                'the slab record carries no levelId, so world Y cannot be resolved. No mesh '
+                + 'is built — but the record is in the store, so PLAN VIEW still draws it.');
             throw new Error(
                 `[SpatialAuthorityError] Slab "${data.id}" has no levelId. ` +
                 `Cannot resolve world Y.`
@@ -716,6 +890,11 @@ export class SlabFragmentBuilder {
 
         const level = this.bimManager.getLevelById(data.levelId);
         if (level === undefined) {
+            this._recordVerdict(data.id, 'refused-level-unknown',
+                `the slab names level "${data.levelId}", which BimManager does not know. No `
+                + 'mesh is built — but the record is in the store, so PLAN VIEW still draws '
+                + 'it. ⭐ THIS IS THE "works in plan but not in 3D" SHAPE: store and '
+                + 'BimManager disagree about the level.');
             throw new Error(
                 `[SpatialAuthorityError] Level "${data.levelId}" not found in BimManager ` +
                 `for slab "${data.id}". Store and BimManager are out of sync. ` +
@@ -1088,6 +1267,73 @@ export class SlabFragmentBuilder {
     }
 
     /**
+     * §FIX-REGION-SLAB-3D-LADDER (L-1121, C92 §12 R-6 / C84 EI-2 · EI-9) — THE ONE
+     * answer to *"which ring is this slab drawn on?"*, for the mesh AND for the pivot.
+     *
+     * ⭐ THE DEFECT IT CLOSES — *"region slab works in plan but not in 3D."*
+     * The mesh path read `data.sketch ? resolveLoop(sketch.outerLoop) : data.polygon`
+     * and the PIVOT path, 600 lines above, read `data.polygon ? data.polygon : sketch`.
+     * Two rings, one question — EI-9 in a single function. Worse, when a sketch-bearing
+     * slab's loop failed to resolve, or resolved to a ring earcut refuses (ADR-0299),
+     * the mesh fell straight to `BoxGeometry(data.width, t, data.depth)` — THROWING AWAY
+     * the perfectly good authored `data.polygon` that PLAN VIEW WAS STILL DRAWING. That
+     * is precisely how one element renders in plan and not in 3D: two views, two rings,
+     * and no channel that says they disagreed.
+     *
+     * ⛔ Region- and polyline-created slabs additionally carried `width: 0, depth: 0`
+     * (`SlabTool.createSlabFromPolygon` passed no dimensions — fixed there under the
+     * same L-number), so that box was `BoxGeometry(0, t, 0)`: **NOTHING AT ALL**, drawn
+     * silently. C92 §12 R-6 already named this fallback *"A SILENT FALLBACK, NOT A
+     * REFUSAL. It renders a box and says nothing. It MUST warn or refuse."*
+     *
+     * THE LADDER, and why it is a ladder and not a repair (ADR-0299
+     * §RECOVERY-MUST-REFUSE): every rung is a ring SOMETHING AUTHORED. Nothing here
+     * invents geometry.
+     *   1. `sketch.outerLoop` re-derived from the live walls — the parametric answer,
+     *      preferred because it FOLLOWS its hosts (C79 §5.1).
+     *   2. `data.polygon` — the ring authored at creation and persisted, and the ring
+     *      plan view draws. Used when rung 1 yields nothing usable. This is a
+     *      DEGRADATION, not a success: it is reported, so *"the slab stopped following
+     *      its walls"* never reads the same as *"the slab is fine"* (C79 §5.2 /
+     *      §CONTEXT-DATA-HONESTY).
+     *   3. nothing — and only then may the caller box, loudly.
+     *
+     * Rung 1 is rejected on a NON-SIMPLE ring as well as a null one, because earcut's
+     * precondition is the same precondition wherever the ring came from; recovering to
+     * the authored polygon is strictly better than a box, and `refuseNonSimpleRings`
+     * still guards whatever this returns.
+     */
+    static resolveBuildRing(data: SlabData): {
+        ring: { x: number; y: number }[] | null;
+        source: 'sketch' | 'polygon' | 'none';
+        note: string | null;
+    } {
+        let note: string | null = null;
+
+        if (data.sketch) {
+            const verdict = SlabFragmentBuilder.resolveLoopVerdict(data.sketch.outerLoop);
+            const ring = verdict.ring;
+            if (ring && ring.length >= 3) {
+                const hit = findRingSelfIntersection(ring);
+                if (!hit) return { ring, source: 'sketch', note: null };
+                note = `the sketch loop resolved to a NON-SIMPLE ring (${ring.length} vertices; `
+                    + `edge ${hit.i}→${hit.i + 1} crosses edge ${hit.j}→${hit.j + 1})`;
+            } else {
+                note = `the sketch loop did not resolve to a ring`
+                    + (verdict.undetermined
+                        ? ` (${verdict.undetermined.reason}: ${verdict.undetermined.subReason})`
+                        : '');
+            }
+        }
+
+        if (data.polygon && data.polygon.length >= 3) {
+            return { ring: data.polygon, source: 'polygon', note };
+        }
+
+        return { ring: null, source: 'none', note };
+    }
+
+    /**
      * FIX-5: Extended signature — accepts optional `deps` as the third argument.
      *
      * When called from updateSlab() the instance passes `this._deps` so the method
@@ -1107,10 +1353,27 @@ export class SlabFragmentBuilder {
     } {
         const renderMode = options.renderMode ?? '3d';
         const edgeSettings = SLAB_EDGE_MODE_SETTINGS[renderMode];
-        const resolvedPolygon: { x: number; y: number }[] | null =
-            data.sketch
-                ? SlabFragmentBuilder.resolveLoop(data.sketch.outerLoop)
-                : (data.polygon ?? null);
+        // §FIX-REGION-SLAB-3D-LADDER (L-1121) — ONE resolver, see resolveBuildRing().
+        const ringChoice = SlabFragmentBuilder.resolveBuildRing(data);
+        const resolvedPolygon: { x: number; y: number }[] | null = ringChoice.ring;
+        if (ringChoice.source === 'polygon' && ringChoice.note) {
+            // A DEGRADATION, reported. The slab still draws — on its AUTHORED ring, the
+            // same one plan view draws — but it is no longer following its walls, and
+            // C79 §5.2 forbids that reading as `preserved`.
+            console.warn(
+                `[SlabFragmentBuilder] §FIX-REGION-SLAB-3D-LADDER slabId="${data.id}" — `
+                + `${ringChoice.note}. Falling back to the STORED polygon `
+                + `(${data.polygon!.length} vertices) — the ring plan view draws — so the slab is `
+                + `visible and plan/3D agree. It will NOT follow its host walls until the sketch `
+                + `resolves again (C79 §5.2 undetermined).`,
+            );
+        } else if (ringChoice.source === 'none' && ringChoice.note) {
+            console.error(
+                `[SlabFragmentBuilder] §FIX-REGION-SLAB-3D-LADDER slabId="${data.id}" — `
+                + `${ringChoice.note}, and the record carries NO stored polygon to fall back to. `
+                + `Building a plain box of ${data.width} × ${data.depth} m.`,
+            );
+        }
 
         // ── Collect all holes to punch through the slab geometry ──────────
         // Source 1: SlabData.holes — set by HOLLOW_SLAB tool at creation time —
@@ -1244,6 +1507,31 @@ export class SlabFragmentBuilder {
         } else {
             // BoxGeometry fallback — holes not supported without a polygon outline.
             geometry = new THREE.BoxGeometry(data.width, data.thickness, data.depth);
+        }
+
+        // §FIX-REGION-SLAB-3D-LADDER (L-1121) — C92 §12 R-6 IN CODE: *"A SILENT
+        // FALLBACK, NOT A REFUSAL. It renders a box and says nothing. It MUST warn or
+        // refuse."* Every route to a box now says so, and the ZERO-DIMENSION case says
+        // it is INVISIBLE — that is the difference between "no slab" and "a slab that
+        // failed to build", which are the same pixels and must never be the same value.
+        if (geometry instanceof THREE.BoxGeometry) {
+            const invisible = !(data.width > 0) || !(data.depth > 0);
+            const why = degradedReason
+                ? 'the ring was refused as non-simple (ADR-0299)'
+                : (resolvedPolygon ? 'the ring was unusable' : 'no ring was resolvable');
+            const line =
+                `[SlabFragmentBuilder] §FIX-REGION-SLAB-3D-LADDER slabId="${data.id}" is drawn as a `
+                + `PLAIN BOX (${data.width} × ${data.depth} × ${data.thickness} m) because ${why}. `
+                + `This is NOT the authored outline.`;
+            if (invisible) {
+                console.error(
+                    `${line}\n  ⛔ width and/or depth is 0, so this box renders NOTHING — the slab `
+                    + `exists in the store (and in plan view, which draws the stored polygon) and is `
+                    + `ABSENT from 3D. That is the "works in plan, not in 3D" report.`,
+                );
+            } else {
+                console.warn(line);
+            }
         }
 
         // ── Material ───────────────────────────────────────────────────────

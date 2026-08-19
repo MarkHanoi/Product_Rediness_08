@@ -892,6 +892,25 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         // reads, so a polyline slab drawn in 3D and one drawn in plan obey the same
         // constraint. Injected (never a `window` read inside the package — P4).
         getBoundaryDrawMode:    () => resolveActiveSlabDrawMode(),
+        // §FIX-REGION-3D-EDGE-SET (L-1126) + §FEAT-REGION-CURTAIN-WALL (L-1125) — the
+        // 3D By Region search read `wallStore` ALONE while the plan surface had been
+        // calling `assembleRegionBoundary({ walls, slabs, parcelBoundary })` since
+        // §FIX-REGION-BOUNDARY-SOURCES. Same gesture, same point, two edge sets, two
+        // answers (C84 EI-9). These two deps are the rest of the world the 3D tool was
+        // missing; slabs it already had via `getSlabStore`.
+        getCurtainWallStore:    () => window.curtainWallStore as never, // TODO(TASK-08)
+        getParcelBoundary:      () => {
+            const rt = window.runtime as unknown as {
+                siteModelStore?: { getParcelBoundary?: () => { polygon?: { x: number; z: number }[] } | null };
+            } | undefined;
+            try {
+                return rt?.siteModelStore?.getParcelBoundary?.()?.polygon ?? null;
+            } catch {
+                // Unreadable is ABSENT, and it is reported ABSENT — never silently
+                // collapsed into "there is no parcel here" (§CONTEXT-DATA-HONESTY).
+                return null;
+            }
+        },
     });
 
     const slabDependencyTracker = new SlabDependencyTracker(
