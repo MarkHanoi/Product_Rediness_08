@@ -377,7 +377,11 @@ const SHADOWED_BASELINE: readonly string[] = [
  * ⚠ SHRINK-ONLY, BY NAME — see the generated register for the full rows.
  *
  * A verb is UNKNOWN when its single registration site is a plugin handler that
- * `produceCommand`s against `ctx.stores`, with no `commandManager` delegation.
+ * `produceCommand`s against `ctx.stores`, with no `commandManager` delegation
+ * AND no §LIVE-VIA-MIRROR channel (see that section — the third route to
+ * authoritative state, added 2026-08-19 after this rule was found to model only
+ * two and to be grading twelve `*.changeLevel` verbs on a definition that did
+ * not describe them).
  * `check-chat-capability-coverage.ts` records that presumption being right 13 of
  * 13 times (§FIX-CHAT-DEAD-ROUTES) — and ALSO records, at
  * MAX_UNCLASSIFIED_GLOBAL_ROUTES, why `wall.create` is nonetheless NOT declared
@@ -400,6 +404,45 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'annotation.setTextHeight',
   'annotation.update',
   'beam.batch.create',
+  // ─────────────────────────────────────────────────────────────────────────
+  // §L-1087 — FOUR WITHHELD LEVEL-CHANGE VERBS. ADDED 2026-08-19: +4, on a
+  // SHRINK-ONLY ratchet, declared here rather than smuggled through.
+  //
+  //   'beam.changeLevel' (below) · 'furniture.changeLevel' ·
+  //   'lighting.changeLevel' · 'plumbing.changeLevel'
+  //
+  // These four are NOT broken and they are NOT unexamined. Each has a registered
+  // bus verb, a working legacy `changeLevel`, and a passing undo route. What they
+  // do NOT have — deliberately, and this is the whole point — is a
+  // `LEGACY_LEVEL_MOVERS` row or an `initTools` dep, so they fail conditions (2)
+  // and (3) of §LIVE-VIA-MIRROR and this gate reports them UNKNOWN. That is the
+  // CORRECT reading: their fragment builders seat the mesh at an ABSOLUTE Y
+  // stamped into the record at create time, not at a Y re-derived from
+  // `level.elevation` (`BeamFragmentBuilder.ts:405` — the file contains no
+  // `getLevelById` at all · `furnitureElevation.ts:33-35` ·
+  // `LightingFragmentBuilder.ts` · `PlumbingFragmentBuilder.ts:88`). Wiring them
+  // would re-file the element onto the new storey and leave its 3-D mesh hovering
+  // at the OLD floor's height, silently — *"a refusal is a correct answer; a
+  // silently-wrong wall is not"* (`WallRake.ts:50-62`).
+  //
+  // So the +4 is a WITHHELD capability recorded as withheld, not a regression
+  // absorbed to quiet a gate. The distinction has to be visible in this file or
+  // it does not exist: L-1087 in `docs/04-reference/ISSUE-LOG.md` carries the
+  // measurement, and `LEVEL_CHANGE_REFUSALS` in
+  // `packages/command-bus/src/levelChangeVerbs.ts` carries the per-family clause.
+  //
+  // ⏳ EXIT CONDITION, exact. `BeamStore`, `FurnitureStore`, `LightingStore` and
+  // `PlumbingStore` accept `changeLevel(id, levelId, { newElevation,
+  // previousElevation })` — returning `undefined` when either elevation is
+  // missing rather than half-moving, and otherwise re-seating by the DELTA
+  // (`position.y += new − previous`) so a mount offset above the floor survives.
+  // Then their rows return to `LEVEL_CHANGE_VERBS` with `heightFollowsLevel:
+  // true`, they gain `LEGACY_LEVEL_MOVERS` rows and `initTools` deps, this arm
+  // sees all three conditions, and these four names LEAVE this list in the SAME
+  // commit: 173 → 169. Do NOT extend this block for a fifth family — a new
+  // withheld family is a new dated entry with its own evidence, or it is debt.
+  // ─────────────────────────────────────────────────────────────────────────
+  'beam.changeLevel',
   'beam.create',
   'beam.delete',
   'beam.setSection',
@@ -461,6 +504,9 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'floor.create',
   'floor.updateLayers',
   'furniture.batch.create',
+  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above for
+  // the evidence and the exit condition; all four leave together.
+  'furniture.changeLevel',
   'furniture.create',
   'furniture.delete',
   'furniture.setActiveLod',
@@ -490,18 +536,33 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'handrail.setHost',
   'handrail.setPath',
   'handrail.setShape',
+  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above.
+  // Lighting carries a SECOND blocker recorded on its `LEVEL_CHANGE_REFUSALS`
+  // row: `LightingStore.update` emits only the legacy `_bus`, never
+  // `storeEventBus`, so no semantic subscriber sees a lighting mutation at all.
+  'lighting.changeLevel',
   'lighting.create',
   'lighting.delete',
   'lighting.setEmergency',
   'lighting.setIntensity',
   'paste-clipboard',
+  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above.
+  'plumbing.changeLevel',
   'plumbing.create',
   'plumbing.delete',
   'plumbing.setSystem',
   'pool.create',
   'pool.delete',
   'roof.addSkylight',
-  'roof.changeLevel',
+  // §LIVE-VIA-MIRROR — 'roof.changeLevel' STRUCK 2026-08-19, with 'wall.changeLevel'
+  // below, in the commit that taught this gate the §L-946 mirror channel. Neither
+  // verb changed; the CLASSIFIER did. Both satisfy all three conditions (a
+  // LEVEL_CHANGE_VERBS row, a LEGACY_LEVEL_MOVERS row for their kind, and an
+  // initTools dep), and both have EXECUTED read-back proof that the legacy store
+  // moves — `apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts`
+  // ARM 2 / ARM 3. Listing a verb as "nobody has proven either way" while a test
+  // reads the moved record back out of the real store is the baseline rotting in
+  // the OTHER direction, and V4 checks both.
   'roof.create',
   'roof.delete',
   'roof.joinRoofs',
@@ -591,7 +652,9 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'view.switch',
   'view.updateCamera',
   'wall.batch.create',
-  'wall.changeLevel',
+  // §LIVE-VIA-MIRROR — 'wall.changeLevel' STRUCK 2026-08-19. See the note at
+  // 'roof.changeLevel' above; the same three conditions and the same executed
+  // read-back suite settle both.
   'wall.create',
   'wall.createBetweenMarks',
   'wall.createFromSlab',
@@ -767,6 +830,148 @@ function undoOf(slice: string, stores: readonly string[], bridge: boolean): stri
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §LIVE-VIA-MIRROR — the THIRD way a verb reaches authoritative state
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * The published UNKNOWN rule above models exactly TWO routes to authoritative
+ * state: a handler declared in an execution-authority root, or one that delegates
+ * to `commandManager`. A handler that does neither — *"a lone plugin
+ * `produceCommand` against `ctx.stores`"* — is UNKNOWN.
+ *
+ * **There is a third route, and this gate could not see it.** The §L-946 MIRROR
+ * CHANNEL, built for L-1032:
+ *
+ *   plugin handler (produceCommand on ctx.stores)
+ *     → PatchEmitter → `CommandEventBridge.emitLevelChange`
+ *         (packages/runtime-composer/src/CommandEventBridge.ts, keyed on LEVEL_CHANGE_VERBS)
+ *     → `runtime.events` 'element.level-changed'
+ *     → `applyElementLevelChange` (apps/editor/src/engine/elementLevelChangedMirror.ts)
+ *     → `legacyStore.changeLevel(...)`          ← THE AUTHORITY (C84 EI-1)
+ *       + bimManager.registerElement + viewDependencyTracker
+ *
+ * The proof that the CLASSIFIER was wrong rather than the verbs: `wall.changeLevel`
+ * and `roof.changeLevel` sat on UNKNOWN_LIVENESS_BASELINE while
+ * `apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts` (ARM 2/ARM 3)
+ * and `apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts` (ARM 2)
+ * EXECUTE the real verb through a real bus and read the moved record back out of the
+ * real legacy store. A verb with an executed read-back proof is not "nobody has
+ * proven either way".
+ *
+ * ─── THE RULE, and why it is a rule and not an opinion ───────────────────────
+ * A verb is LIVE-VIA-MIRROR when ALL THREE of these hold, each read from the file
+ * that owns it — CITED, never copied (C69 §3.2 / C64 §2.13), because a
+ * hand-transcribed family list here is the exact rot this gate exists to prevent:
+ *
+ *   1. it is a key of `LEVEL_CHANGE_VERBS`
+ *      (`packages/command-bus/src/levelChangeVerbs.ts`) — so the bridge can build
+ *      the event from the payload at all; **and**
+ *   2. its `kind` has a row in `LEGACY_LEVEL_MOVERS`
+ *      (`apps/editor/src/engine/elementLevelChangedMirror.ts`) — so the mirror
+ *      knows which legacy store owns the move; **and**
+ *   3. `apps/editor/src/engine/initTools.ts` passes THAT dep into
+ *      `registerElementLevelChangeBridge` — so the store is actually wired at
+ *      boot. §committed-is-not-reachable: (2) without (3) is a NAMED no-op
+ *      (*"legacy store for kind X is not wired"*), which is honest and still not
+ *      liveness.
+ *
+ * All three are statically greppable. Break any one and the verb falls back to
+ * whatever the other arms say — for these handlers, UNKNOWN — which is the
+ * behaviour a shrink-only ratchet needs: the arm cannot be satisfied by a rename
+ * or by a table row alone.
+ *
+ * ⚠ WHAT THIS ARM DOES NOT ASSERT (same limit as every other LIVE verdict here,
+ * restated because this one is new): that the write is CORRECT. L-1087 is the
+ * standing proof that a family can satisfy all three conditions in a WRONG way —
+ * which is precisely why the four families whose 3-D height does not follow the
+ * storey are DENIED rows (2) and (3) upstream, and therefore fail this arm and
+ * stay UNKNOWN. The gate reads that refusal rather than being told about it.
+ */
+interface MirrorChannel {
+  /** verb → element `kind`, from `LEVEL_CHANGE_VERBS`. */
+  readonly verbKind: ReadonlyMap<string, string>;
+  /** element `kind` → the `LevelChangeMirrorDeps` property, from `LEGACY_LEVEL_MOVERS`. */
+  readonly kindDep: ReadonlyMap<string, string>;
+  /** the dep properties `initTools` actually passes. */
+  readonly wiredDeps: ReadonlySet<string>;
+  /** verbs satisfying all three conditions. */
+  readonly live: ReadonlySet<string>;
+}
+
+/**
+ * The lines of an object literal opened by `anchor`, up to the line that is
+ * exactly `closer`. Deliberately line-based rather than brace-counting: both
+ * subjects are prettier-formatted tables whose bodies carry long prose comments,
+ * and a brace counter would have to parse comments and strings to stay correct.
+ * A miss returns `null`, which the caller turns into MISCONFIGURED (exit 2) — it
+ * never degrades to "no rows found", because an empty table read as "no families
+ * qualify" would silently un-classify every verb this arm exists to classify.
+ */
+function objectBlockLines(src: string, anchor: RegExp, closer: string): string[] | null {
+  const m = anchor.exec(src);
+  if (m === null) return null;
+  const lines = src.slice(m.index + m[0].length).split('\n');
+  const out: string[] = [];
+  for (const line of lines) {
+    if (line.trim() === closer) return out;
+    out.push(line);
+  }
+  return null;
+}
+
+function readMirrorChannel(specs: Readonly<Record<string, { kind: string }>>): MirrorChannel {
+  const verbKind = new Map<string, string>();
+  for (const [verb, spec] of Object.entries(specs)) {
+    if (typeof spec?.kind === 'string' && spec.kind.length > 0) verbKind.set(verb, spec.kind);
+  }
+
+  const mirrorPath = 'apps/editor/src/engine/elementLevelChangedMirror.ts';
+  const initPath = 'apps/editor/src/engine/initTools.ts';
+  let mirrorSrc: string;
+  let initSrc: string;
+  try {
+    // §CRLF — normalised for the same reason V2 normalises the artefact:
+    // `core.autocrlf` is on by default on Windows, and an anchor ending in `\n`
+    // silently matched nothing on a Windows checkout while passing on Linux.
+    // Caught here by the exit-2 floor rather than by a wrong verdict, which is
+    // what that floor is for.
+    mirrorSrc = readFileSync(path.join(ROOT, mirrorPath), 'utf8').replace(/\r\n/g, '\n');
+    initSrc = readFileSync(path.join(ROOT, initPath), 'utf8').replace(/\r\n/g, '\n');
+  } catch (err) {
+    return fail2(`§LIVE-VIA-MIRROR could not read its sources — ${String(err)}`);
+  }
+
+  const moverLines = objectBlockLines(mirrorSrc, /const\s+LEGACY_LEVEL_MOVERS\b[\s\S]*?=\s*\{\n/, '};');
+  if (moverLines === null) fail2(`§LIVE-VIA-MIRROR could not locate LEGACY_LEVEL_MOVERS in ${mirrorPath}`);
+  const kindDep = new Map<string, string>();
+  for (const line of moverLines) {
+    const m = /^\s*([A-Za-z_$][\w$]*)\s*:\s*\(\s*deps\s*\)\s*=>\s*deps\.([A-Za-z_$][\w$]*)/.exec(line);
+    if (m !== null) kindDep.set(m[1]!, m[2]!);
+  }
+
+  const depLines = objectBlockLines(initSrc, /registerElementLevelChangeBridge\s*\([^,{]*,\s*\{\n/, '});');
+  if (depLines === null) fail2(`§LIVE-VIA-MIRROR could not locate the registerElementLevelChangeBridge call in ${initPath}`);
+  const wiredDeps = new Set<string>();
+  for (const line of depLines) {
+    // `slabStore,` (shorthand) and `columnStore: columnStoreInstance,` (renamed).
+    const m = /^\s*([A-Za-z_$][\w$]*)\s*(?::\s*[^,]+)?,\s*$/.exec(line);
+    if (m !== null) wiredDeps.add(m[1]!);
+  }
+
+  // HONESTY FLOOR — three sources, three ways to read nothing. An empty read
+  // would silently classify every mirror verb UNKNOWN and look like a pass.
+  if (verbKind.size === 0) fail2('§LIVE-VIA-MIRROR read ZERO rows from LEVEL_CHANGE_VERBS.');
+  if (kindDep.size === 0) fail2(`§LIVE-VIA-MIRROR read ZERO rows from LEGACY_LEVEL_MOVERS (${mirrorPath}).`);
+  if (wiredDeps.size === 0) fail2(`§LIVE-VIA-MIRROR read ZERO deps from registerElementLevelChangeBridge (${initPath}).`);
+
+  const live = new Set<string>();
+  for (const [verb, kind] of verbKind) {
+    const dep = kindDep.get(kind);
+    if (dep !== undefined && wiredDeps.has(dep)) live.add(verb);
+  }
+  return { verbKind, kindDep, wiredDeps, live };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Run
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -786,6 +991,8 @@ interface Sources {
   readonly allChatCapabilities: () => readonly { id: string; busCommand: string | null; alsoDispatches?: readonly string[] }[];
   readonly CHAT_UNAVAILABLE: ReadonlyMap<string, unknown>;
   readonly CHAT_CLASSIFIED: ReadonlyMap<string, { cls: string }>;
+  /** §LIVE-VIA-MIRROR condition (1) — the L1 level-change verb register. */
+  readonly LEVEL_CHANGE_VERBS: Readonly<Record<string, { kind: string }>>;
 }
 
 async function loadSources(): Promise<Sources> {
@@ -793,18 +1000,25 @@ async function loadSources(): Promise<Sources> {
     const sync = await import('../../packages/sync-client/src/syncDisposition.js');
     const reg = await import('../../packages/ai-host/src/capabilities/ChatCapabilityRegistry.js');
     const cls = await import('../../packages/ai-host/src/capabilities/ChatCommandClassification.js');
+    // Pure L1 module — imports nothing, so this cannot pull a barrel into the gate.
+    const lvl = await import('../../packages/command-bus/src/levelChangeVerbs.js');
     return {
       SYNC_DISPOSITIONS: (sync as never as Sources).SYNC_DISPOSITIONS,
       allChatCapabilities: (reg as never as Sources).allChatCapabilities,
       CHAT_UNAVAILABLE: (reg as never as Sources).CHAT_UNAVAILABLE,
       CHAT_CLASSIFIED: (cls as never as Sources).CHAT_CLASSIFIED,
+      LEVEL_CHANGE_VERBS: (lvl as never as Sources).LEVEL_CHANGE_VERBS,
     };
   } catch (err) {
     return fail2(`a declaration source failed to load — ${String(err)}`);
   }
 }
 
-const { SYNC_DISPOSITIONS, allChatCapabilities, CHAT_UNAVAILABLE, CHAT_CLASSIFIED } = await loadSources();
+const { SYNC_DISPOSITIONS, allChatCapabilities, CHAT_UNAVAILABLE, CHAT_CLASSIFIED, LEVEL_CHANGE_VERBS } =
+  await loadSources();
+
+// ── §LIVE-VIA-MIRROR — the third channel, measured from its three sources ─────
+const MIRROR = readMirrorChannel(LEVEL_CHANGE_VERBS);
 
 const registry = new Map<string, Site[]>();
 let filesRead = 0;
@@ -868,16 +1082,28 @@ for (const verb of [...registry.keys()].sort()) {
   const inAuthorityRoot = sites.some((s) =>
     s.file.startsWith('packages/command-registry/') || s.file.startsWith('apps/editor/'));
 
+  // §LIVE-VIA-MIRROR — checked AFTER refuses/shadowed (a verb that refuses never
+  // emits, and a shadowed verb's live arm is the one that never registers) and
+  // BEFORE the UNKNOWN fallback, which is the only verdict it displaces.
+  const viaMirror = MIRROR.live.has(verb);
+
   let liveness: Row['liveness'];
   if (doesRefuse) liveness = 'REFUSES';
   else if (shadowed) liveness = 'SHADOWED';
-  else if (inAuthorityRoot || bridge) liveness = 'LIVE';
+  else if (inAuthorityRoot || bridge || viaMirror) liveness = 'LIVE';
   else liveness = 'UNKNOWN';
 
   let authoritativeStore: string;
   if (liveness === 'REFUSES') authoritativeStore = 'NONE';
   else if (liveness === 'SHADOWED') authoritativeStore = 'UNKNOWN';
   else if (liveness === 'UNKNOWN') authoritativeStore = 'UNKNOWN';
+  // The mirror channel's authority is the LEGACY store, NOT the `affectedStores`
+  // the plugin handler declares — that one is the plugin DTO copy, and naming it
+  // here would publish the wrong answer to the register's central question.
+  else if (viaMirror && !inAuthorityRoot && !bridge) {
+    authoritativeStore =
+      `legacy ${MIRROR.kindDep.get(MIRROR.verbKind.get(verb)!)} (via element.level-changed mirror)`;
+  }
   else if (stores.length > 0) authoritativeStore = stores.join(' + ');
   else authoritativeStore = 'legacy geometry store (via commandManager)';
 
@@ -933,6 +1159,7 @@ function render(): string {
   L.push(`| REFUSES | ${tally((r) => r.liveness === 'REFUSES')} |`);
   L.push(`| SHADOWED (dead route) | ${tally((r) => r.liveness === 'SHADOWED')} |`);
   L.push(`| UNKNOWN | ${tally((r) => r.liveness === 'UNKNOWN')} |`);
+  L.push(`| — of the LIVE, credited by the §L-946 mirror channel | ${MIRROR.live.size} of ${MIRROR.verbKind.size} level-change verb(s) |`);
   L.push(`| authoritative store NONE or UNKNOWN | ${tally((r) => r.authoritativeStore === 'NONE' || r.authoritativeStore === 'UNKNOWN')} |`);
   L.push(`| sync UNDECLARED (property verbs) | ${tally((r) => r.sync === 'UNDECLARED')} |`);
   L.push(`| chat UNDECLARED | ${tally((r) => r.chat === 'UNDECLARED')} |`);
@@ -946,7 +1173,7 @@ function render(): string {
   L.push('|---|---|');
   L.push('| **verb** | the `type` literal a handler registers. Wire identifier. |');
   L.push('| **owner** | workspace containing the declaring file. |');
-  L.push('| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |');
+  L.push('| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`), or a legacy bridge, or **live via the §L-946 MIRROR CHANNEL**: a plugin handler whose patch reaches the legacy store the renderer reads, through `CommandEventBridge.emitLevelChange` → `element.level-changed` → `applyElementLevelChange` → `legacyStore.changeLevel`. That third route is only credited when all THREE of its statically-greppable conditions hold — a `LEVEL_CHANGE_VERBS` row, a `LEGACY_LEVEL_MOVERS` row for the verb\'s `kind`, and an `initTools` dep passing that store into `registerElementLevelChangeBridge`. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |');
   L.push('| **authoritative store** | the `affectedStores` names when LIVE; `NONE` when the verb refuses; `UNKNOWN` otherwise. Never blank, never a favourable default. |');
   L.push('| **undo** | the declared shape — a forward/inverse pair and the stores `affectedStores` names, or the legacy stack, or NONE. Declared shape, not an executed proof. |');
   L.push('| **sync** | cited from `packages/sync-client/src/syncDisposition.ts`. `UNDECLARED` = a property-mutation verb with no disposition. |');
@@ -1083,6 +1310,9 @@ console.log(`  LIVE                             : ${tally((r) => r.liveness === 
 console.log(`  REFUSES                          : ${tally((r) => r.liveness === 'REFUSES')}`);
 console.log(`  SHADOWED (dead route)            : ${tally((r) => r.liveness === 'SHADOWED')}`);
 console.log(`  UNKNOWN                          : ${tally((r) => r.liveness === 'UNKNOWN')}`);
+console.log(
+  `§LIVE-VIA-MIRROR (L-946 channel)   : ${MIRROR.live.size} of ${MIRROR.verbKind.size} level-change verb(s) ` +
+  `— LEVEL_CHANGE_VERBS ${MIRROR.verbKind.size} · LEGACY_LEVEL_MOVERS ${MIRROR.kindDep.size} · initTools deps ${MIRROR.wiredDeps.size}`);
 console.log(`Authoritative store NONE / UNKNOWN : ${tally((r) => r.authoritativeStore === 'NONE' || r.authoritativeStore === 'UNKNOWN')}`);
 console.log(`Sync UNDECLARED (property verbs)   : ${tally((r) => r.sync === 'UNDECLARED')}`);
 console.log(`Chat UNDECLARED                    : ${tally((r) => r.chat === 'UNDECLARED')}`);

@@ -17,11 +17,12 @@ change, not a rename — see C69 §2.
 |---|---|
 | Handler files read | 1285 (floor 900) |
 | **Verbs** | **337** (floor 250) |
-| LIVE | 119 |
+| LIVE | 127 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
-| UNKNOWN | 181 |
-| authoritative store NONE or UNKNOWN | 218 |
+| UNKNOWN | 173 |
+| — of the LIVE, credited by the §L-946 mirror channel | 8 of 8 level-change verb(s) |
+| authoritative store NONE or UNKNOWN | 210 |
 | sync UNDECLARED (property verbs) | 0 |
 | chat UNDECLARED | 4 |
 
@@ -34,7 +35,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 |---|---|
 | **verb** | the `type` literal a handler registers. Wire identifier. |
 | **owner** | workspace containing the declaring file. |
-| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`) or a legacy bridge. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |
+| **liveness** | `LIVE` — declared in an execution-authority root (`packages/command-registry`, `apps/editor`), or a legacy bridge, or **live via the §L-946 MIRROR CHANNEL**: a plugin handler whose patch reaches the legacy store the renderer reads, through `CommandEventBridge.emitLevelChange` → `element.level-changed` → `applyElementLevelChange` → `legacyStore.changeLevel`. That third route is only credited when all THREE of its statically-greppable conditions hold — a `LEVEL_CHANGE_VERBS` row, a `LEGACY_LEVEL_MOVERS` row for the verb's `kind`, and an `initTools` dep passing that store into `registerElementLevelChangeBridge`. `REFUSES` — the verb is registered and answers, in the open, that it will not act. TWO shapes count, and both are checked: `canExecute` can never return `{valid:true}` (§FIX-DEAD-VERB-REFUSE), **or** `execute` returns a `CapabilityRefusal` on `HandlerResult.refusal` beside an empty patch pair and mutates nothing (§REFUSAL-IS-A-VALUE, the shape C16 CA-18 prescribes — a refusal the caller reads, rather than a throw a `catch {}` can swallow). `SHADOWED` — two registration sites; the boot-order guard means the plugin one wins and the live bridge never registers. `UNKNOWN` — a lone plugin `produceCommand` handler; nobody has proven either way. |
 | **authoritative store** | the `affectedStores` names when LIVE; `NONE` when the verb refuses; `UNKNOWN` otherwise. Never blank, never a favourable default. |
 | **undo** | the declared shape — a forward/inverse pair and the stores `affectedStores` names, or the legacy stack, or NONE. Declared shape, not an executed proof. |
 | **sync** | cited from `packages/sync-client/src/syncDisposition.ts`. `UNDECLARED` = a property-mutation verb with no disposition. |
@@ -63,7 +64,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `beam.setType` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'beamId' (disclose) | classified B |
 | `beam.update` | apps/editor | LIVE | beam | UNKNOWN (declares beam) | synced via 'beamId' (disclose) | classified D |
 | `ceiling.batch.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | not-synced (reason declared) | classified C |
-| `ceiling.changeLevel` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | n/a (not a property verb) | capability: move-to-level |
+| `ceiling.changeLevel` | plugins/ceiling | LIVE | legacy ceilingStore (via element.level-changed mirror) | patch-pair → ceiling | n/a (not a property verb) | capability: move-to-level |
 | `ceiling.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'id' (disclose) | classified B |
 | `ceiling.delete` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | not-synced (reason declared) | classified D |
 | `ceiling.setBoundary` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'ceilingId' (disclose) | classified B |
@@ -73,7 +74,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `ceiling.updateLayers` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'ceilingId' (disclose) | classified B |
 | `ceiling.updateSystemTypeBatch` | plugins/ceiling | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-ceiling-type |
 | `column.batch.create` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | not-synced (reason declared) | classified C |
-| `column.changeLevel` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | n/a (not a property verb) | capability: move-to-level |
+| `column.changeLevel` | plugins/column | LIVE | legacy columnStore (via element.level-changed mirror) | patch-pair → column | n/a (not a property verb) | capability: move-to-level |
 | `column.create` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | synced via 'id' (disclose) | classified B |
 | `column.delete` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | not-synced (reason declared) | classified D |
 | `column.move` | plugins/column | REFUSES | NONE | patch-pair → column | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -104,7 +105,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.setPanelType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
 | `curtain-wall.setTransomType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'curtainWallId' (disclose) | classified B |
 | `curtain-wall.swapPanel` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
-| `curtainWall.changeLevel` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | n/a (not a property verb) | capability: move-to-level |
+| `curtainWall.changeLevel` | plugins/curtain-wall | LIVE | legacy curtainWallStore (via element.level-changed mirror) | patch-pair → curtainwall | n/a (not a property verb) | capability: move-to-level |
 | `data.clearPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.markPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.setDerivation` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
@@ -143,7 +144,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `elementType.duplicate` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified C |
 | `elementType.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified C |
 | `elevation.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
-| `floor.changeLevel` | plugins/floor | UNKNOWN | UNKNOWN | patch-pair → floor | n/a (not a property verb) | capability: move-to-level |
+| `floor.changeLevel` | plugins/floor | LIVE | legacy floorStore (via element.level-changed mirror) | patch-pair → floor | n/a (not a property verb) | capability: move-to-level |
 | `floor.create` | plugins/floor | UNKNOWN | UNKNOWN | UNKNOWN (declares floor) | synced via 'floorId' (disclose) | classified B |
 | `floor.setMaterial` | plugins/floor | REFUSES | NONE | patch-pair → floor | synced via 'floorId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `floor.update` | apps/editor | LIVE | floor | UNKNOWN (declares floor) | synced via 'floorId' (disclose) | classified D |
@@ -173,7 +174,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `grid.setExtent` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | synced via 'gridId' (disclose) | classified B |
 | `grid.setSpacing` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | synced via 'gridId' (disclose) | classified B |
 | `grid.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'gridId' (disclose) | classified D |
-| `handrail.changeLevel` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | n/a (not a property verb) | capability: move-to-level |
+| `handrail.changeLevel` | plugins/handrail | LIVE | legacy handrailStore (via element.level-changed mirror) | patch-pair → handrail | n/a (not a property verb) | capability: move-to-level |
 | `handrail.create` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | synced via 'id' (disclose) | classified B |
 | `handrail.delete` | plugins/handrail | UNKNOWN | UNKNOWN | patch-pair → handrail | not-synced (reason declared) | classified D |
 | `handrail.moveBaseLine` | apps/editor | LIVE | handrail | patch-pair → handrail | synced via 'id' (disclose) | classified B |
@@ -215,7 +216,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `rhino.resetMaterial` | apps/editor | LIVE | legacy geometry store (via commandManager) | patch-pair → NONE declared | not-synced (reason declared) | capability: set-rhino-material |
 | `rhino.setMaterial` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: set-rhino-material |
 | `roof.addSkylight` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified B |
-| `roof.changeLevel` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | capability: move-to-level |
+| `roof.changeLevel` | plugins/roof | LIVE | legacy roofStore (via element.level-changed mirror) | patch-pair → roof | not-synced (reason declared) | capability: move-to-level |
 | `roof.create` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'id' (disclose) | classified B |
 | `roof.delete` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified D |
 | `roof.joinRoofs` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | not-synced (reason declared) | classified B |
@@ -272,7 +273,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `sheet.setViewportScale` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `slab.addHole` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified B |
 | `slab.batch.create` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified C |
-| `slab.changeLevel` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | n/a (not a property verb) | capability: move-to-level |
+| `slab.changeLevel` | plugins/slab | LIVE | legacy slabStore (via element.level-changed mirror) | patch-pair → slab | n/a (not a property verb) | capability: move-to-level |
 | `slab.create` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'id' (disclose) | classified B |
 | `slab.create-on-all-floors` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `slab.delete` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified D |
@@ -340,7 +341,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.batch.create` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | not-synced (reason declared) | classified C |
 | `wall.bulkSetVisuals` | plugins/wall | REFUSES | NONE | patch-pair → wall | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `wall.cascadeBaseline` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
-| `wall.changeLevel` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | not-synced (reason declared) | capability: move-to-level |
+| `wall.changeLevel` | plugins/wall | LIVE | legacy wallStore (via element.level-changed mirror) | patch-pair → wall | not-synced (reason declared) | capability: move-to-level |
 | `wall.create` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | capability: create-wall |
 | `wall.create-on-all-slabs` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `wall.createBetweenMarks` | plugins/wall | UNKNOWN | UNKNOWN | patch-pair → wall | synced via 'id' (disclose) | classified B |
