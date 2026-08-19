@@ -11543,3 +11543,220 @@ Runtime materialisation is unchanged: all cells still exist in memory for render
 a **storage and load** decision only. Whether the runtime store should also become sparse is a separate
 question, **NOT MEASURED**, and it should not be answered until someone has measured panel-store memory
 on a real project — the same discipline C66 applies to capacity claims.
+
+---
+
+## L-1062 — CLOSED (bodies) — a raked curved wall is a CONE, and it is built (RK1, 2026-08-19)
+
+**Founder mandate, 2026-08-19:** *"I need to have curved raked walls, curved layered raked walls,
+with sound joints with any other walls. This needs to be in place, so plan, document and do it."*
+
+**The decision, taken by the orchestrator and recorded here so it is defensible from the reasoning
+rather than from authority: CONICAL SWEEP.**
+
+A rake is a **constant batter angle** — that is the whole meaning of the word. On a straight wall
+the top edge translates by `h·cot θ` along the wall's normal. On an arc the normal is **radial and
+rotates along the run**, so holding the batter constant means every point of the top edge moves
+along **its own** normal by `h·cot θ`, and the top edge is a **concentric arc at `R ± h·cot θ`**.
+The swept face is a frustum of a cone — battered curved retaining walls, tapering round towers —
+and it degenerates correctly: as `R → ∞` the concentric arc becomes the straight-wall translation.
+
+⛔ **The chord-lean alternative was rejected because it is not a rake at all.** Translating the top
+arc by one constant vector gives a batter that VARIES along the run — steepest where the wall faces
+the translation direction, zero where it faces perpendicular, **negative (overhanging) on the far
+side**. A single `rakeAngleDeg` would then describe none of the actual angles: an affordance whose
+number is false everywhere except one point.
+
+**SIGN CONVENTION, stated once so it is never re-derived.** `computeStations` emits
+`n = (−t.z, t.x)` — `leftPerp(tangent)`, the SAME "left" the straight rule uses. The curved rule is
+therefore the **identical expression evaluated per station**:
+
+```
+top(s) = base(s) + n(s) · height · cot θ
+```
+
+Below 90° the top leans toward the wall's LEFT at every station; above 90° toward its right. Where
+`n` points away from the centre of curvature the radius INCREASES. Continuity at `R → ∞` is
+automatic *because it is the same formula* — which is precisely why it was written as the same
+formula rather than re-derived.
+
+**WHERE IT LIVES — one place.** `CurvedWallLayerBuilder.buildCurvedLayerGeometry`, which now keeps
+FOUR corner tables (outer/inner × base/top) instead of two, projects all four onto the same vertical
+mitre plane, and tilts the face normals to the exact battered normal `N = (n.x, −k, n.z)` — derived,
+not estimated (`N·t = 0` and `N·d = 0` both fall out identically). All three curved arms consume it.
+
+⭐ **AND THE FORK THAT WOULD HAVE MADE THAT TWO PLACES IS GONE.** `WallFragmentBuilder`'s plain
+curved arm carried a ~160-line **verbatim** re-derivation of that builder — the LIVE FORK C85 §10
+and W-G-3 both name. It is collapsed into the shared builder (a plain wall is one synthetic band at
+offset 0). **Measured byte-identical**: `P3-curved-plain`'s digest did not move. Deduplicating was
+cheaper than writing the cone twice, and two copies of *"where is the top edge of a raked arc?"* is
+the same defect shape as L-955's three body builders disagreeing at the corner.
+
+**LAYERS** fall out with no new rule: each band sits at its own radius, laid out radially at
+`t / sin θ` through the one `rakedPlanThickness`, so the stack is concentric frusta.
+
+**THE BAND DATUM is the subtle part and it is why the option carries `datumY`.**
+`CurvedWallOpeningBuilder` emits one solid per (arc-span × vertical-span) band; a band two metres up
+must start **already displaced by `k·2`**, not at zero. Measured from the band's own base instead,
+a curved raked wall with a window would render as a stack of disjoint rings. It is the same datum
+the straight path's `_applyRakeShearToChildren` measures from.
+
+**REFUSAL REPLACED, NOT REMOVED.** The blanket `curved` arm is lifted; what survives is
+`curved-collapse` — a top ring pushed inward further than the wall's own turn radius collapses
+through the centre of curvature and re-emerges inverted. It names **both numbers**, per the
+founder's standing direction:
+
+> `wall.rakeAngleDeg 20 on this CURVED wall would push its top edge 8.242 m radially, which is not
+> less than the wall's tightest turn radius of 0.500 m — the top arc would collapse through the
+> centre of curvature and re-emerge inverted…`
+
+`WallArcParam.arcMinTurnRadius` computes the radius from the SAME polyline the builder tessellates,
+so the number describes the arc that will actually be drawn. Under-tessellation makes it
+*optimistic*, which is the safe direction for a refusal: it can fail to refuse, never refuse a wall
+that would have built correctly.
+
+⚠ **UNJUDGEABLE ≠ FAILURE, and it has a cost that is declared rather than hidden.** The collapse arm
+needs `height` and `curveMinRadiusM`; most callers hold neither, and for them the wall proceeds
+(the §CONTEXT-DATA-HONESTY shape C85 R-1 calls exemplary). **`UpdateWallsRakeBatchCommand` now
+supplies both**, because a caller that holds the wall records and omits them silently disables the
+only geometric refusal a curved rake has.
+
+**Bodies: CLOSED. Joints: see [L-1066] — that is the remaining half of the mandate.**
+
+---
+
+## L-1064 — CLOSED — the layered × openings arm is lifted, and its off-by-one is removed rather than moved (RK1, 2026-08-19)
+
+The arm refused `layers.length > 1 && openings.length > 0`; the body path it guarded is entered on
+`layers.length > 0`. Its stated reason (*"which has no shear"*) was measured true when written and
+measured false after §FEAT-RAKE-LAYERED-OPENINGS. Both facts pointed the same way, and the founder's
+*"this needs to be in place"* settled it.
+
+**Lifted. The boundary is removed, not moved — the only fix that cannot be off by one again.**
+
+Five refusal assertions across three packages were updated **deliberately**, each with a header
+saying what changed and why, never by loosening an assertion:
+
+| file | what it asserted | now |
+|---|---|---|
+| `geometry-wall/__tests__/WallRake.test.ts` | `layered` + `curved` refuse | both allowed; the shrinking-census comment records all four arms that have left, plus a **non-vacuity** test that the departed combinations really are allowed |
+| `geometry-wall/__tests__/RakedLayeredWallBands.measure.test.ts` | *"the refusals that must survive"* | neither survived; both rewritten with their original reasons quoted |
+| `geometry-wall/__tests__/RakedHostedOpening.test.ts` | curved refuses ×2; `WallStore.update` **throws** on a curved rake | store now ACCEPTS **and persists** (read back — *"did not throw" is not "took effect"*); the layer-count family asserted as a 4 × 3 sweep so no two counts can disagree again |
+| `command-registry/__tests__/updateWallsRakeBatch.test.ts` | `curved` + `layered` skipped | fixture rewritten: every shape-based refuser is gone, replaced by `curvedTight` — a wall that refuses on a NUMBER — plus a non-vacuity test that an OPEN curve is raked, not skipped |
+| `apps/editor/…/WallRakeProperty.spec.ts` | curved + layered greyed out | **the refusal table is now empty of shape-based rows**, and the panel is asserted NOT to invent the collapse refusal it cannot judge |
+
+---
+
+## L-1066 — the curved corner is FLOOR-EXACT ONLY: L-955's loft never reaches an arc (OPEN, RK1, 2026-08-19)
+
+**The bodies are right and the JOINT is where the work stops.** Measured, curved raked ↔ straight
+raked at an L, 80°, h = 3: `baseSep 0.000`, `topSep 0.555`, `openUp 0.555`. The pattern across
+neighbours names the mechanism:
+
+```
+vs straight plain VERTICAL         openUp 0.026     (the neighbour barely moves)
+vs straight plain RAKED opposite   openUp 0.000     (the tops move TOWARD each other)
+vs straight plain RAKED same lean  openUp 0.555     (the tops move APART)
+vs CURVED unraked                  openUp 0.000
+vs CURVED raked                    openUp 0.347
+vs CURVED layered raked            openUp 0.396
+```
+
+⚠ **THE CAUSE IS NOT THE CONICAL SWEEP.** The bodies are exact and pinned per-station by
+`RK1CurvedRakedConicalSweep.test.ts`. The cause is that the **ADR-0312 twin-solve loft — the thing
+that closed L-955 for straight walls — never runs for a curved one.** `rakeJointCapDrift` is gated
+`!wall.curve`, and `WallPipelineV2Cache.refresh` takes straight `startXZ`/`endXZ` specs with no way
+to describe an arc. So a curved raked wall places its shared top corner by ADR-0310's uniform rule
+while its straight raked neighbour places the same corner by the lofted one — **two rules at one
+corner, which is verbatim the defect class L-955 was.**
+
+**Closing it means teaching the V2 probe-solve about curved walls.** That is a real piece of work,
+larger than the sweep itself, and it is the remaining half of *"sound joints with any other walls"*.
+
+Pinned `it.fails` in `RK1RakedCombinationMatrix.measure.test.ts` so it announces itself when closed.
+The floor half IS asserted hard at every neighbour, and the top separation is asserted BOUNDED by
+the leans that cause it — establishing that this is a corner-rule gap and not garbage geometry.
+
+---
+
+## L-1067 — "Edit Profile" is offered on every plain wall and DRAWS NOTHING on any of them (OPEN, RK1, 2026-08-19)
+
+The founder asked about Edit Profile twice. **The straight answer, measured rather than inferred
+from commit messages:**
+
+**WHAT EXISTS** — the model (`wallProfile: { ring: [{u,v}] }`), ONE authorability gate wired into all
+three write boundaries, Zod validation, persistence, cache invalidation (`WallDeltaClassifier`), the
+geometry hash (`composeWallGeometryHash`), an instanced-arm exclusion so a profiled wall is not
+flattened into a T·R·S matrix, and a live button in `ContextualEditBar` under `§EDIT-PROFILE`.
+
+⛔ **WHAT DOES NOT EXIST — any body builder that reads the ring.** A census of
+`packages/geometry-wall/src` finds `wallProfile` consumed by the schema, the store, the delta
+classifier, the geometry hash and the instanced-arm exclusion, and by **no geometry path at all**.
+`WallFragmentBuilder`'s own comment says it: *"INERT TODAY, DELIBERATELY. Nothing in the repo authors
+`wallProfile` yet."*
+
+**So the honest statement is NOT "profile × rake is unverified" — it is that a profile draws nothing
+on ANY wall shape.** Authoring one makes the wall rebuild (the hash changes) and takes it off the
+instanced arm (the exclusion fires), and then renders the identical full rectangle. **That is worse
+than a refusal**, because a refusal at least tells the author why nothing happened.
+
+**Which combinations are OFFERED** (`profileAuthorability`, measured):
+
+| wall shape | Edit Profile | and does it draw? |
+|---|---|---|
+| plain, vertical | **OFFERED** | ❌ nothing |
+| plain, **RAKED** | **OFFERED** | ❌ nothing |
+| CURVED (raked or not) | REFUSED — `curved` | — |
+| LAYERED (>1) | REFUSED — `layered` | — |
+| hosting an opening | REFUSED — `hosted-openings` | — |
+
+**REFUSED-BECAUSE-IMPOSSIBLE vs REFUSED-BECAUSE-UNBUILT — the distinction the contract must not
+merge.** Reading the three refusal texts: `curved` is argued as **ill-posed** (*"a straight profile
+edge is not straight in space"*) — but note that the curved RAKE refusal was argued the same way and
+turned out to be unbuilt-not-impossible, so this one deserves the same scrutiny before it is
+believed. `layered` and `hosted-openings` are both plainly **UNBUILT**, not impossible: their texts
+describe missing machinery (*"the bands have no per-station top"*, *"the occupancy check is purely
+horizontal"*), not contradictions.
+
+**Pinned by AXIS 6** of `RK1RakedCombinationMatrix.measure.test.ts`, which builds a wall with and
+without a profile through the real builder and asserts the bodies are identical. ⛔ **When a lane
+builds the profile body this test goes RED — invert it to assert the CUT, do not delete it.**
+
+---
+
+## L-1068 — the leaf's rake displacement used the wall's CHORD, and a warning sixty lines above said not to (FIXED, RK1, 2026-08-19)
+
+`DoorBuilder` and `WindowBuilder` displace a hosted leaf so it rides its host's shear:
+
+```js
+const [bs, be] = wallData.baseLine;
+const dir = { x: be.x - bs.x, z: be.z - bs.z };     // ← THE CHORD
+const off = rakeTopOffset(rakeAngleDeg, y - wallBaseY, dir);
+```
+
+On a straight host the chord IS the tangent, so this was correct — and stayed correct for exactly as
+long as a raked host could not be curved. A curved host may now be raked, and there the two diverge:
+the **wall's void** at the leaf's station is displaced along the **local station normal**, while the
+**leaf** was displaced along the **chord's normal**. The leaf drifts out of its own hole by the angle
+between them, growing along the arc.
+
+⚠ **`hostedElementFrame`'s own header already forbade this, in these words:**
+
+> *"These are the ONLY arc maths in the hosted-symbol path. Nothing downstream may re-derive a
+> direction from `baseLine`; a fourth copy of this rule is the mistake that produced the defect in
+> the first place."*
+
+**This was the FIFTH copy, sitting sixty lines below that warning, in the same file.** The lesson is
+not that someone was careless — it is that a rule written in a comment cannot enforce itself, and
+that a copy which is *correct today* (chord == tangent on a straight wall) is invisible until the
+condition that made it correct is lifted.
+
+**Fix:** take the direction from `_hf.frame` — the local station frame the leaf is ALREADY rotated
+by — so the displacement agrees with the heading instead of contradicting it. `rakeTopOffset` is
+unchanged and still the single authority; `leftPerp(localTangent)` is exactly the station normal the
+wall's own body uses. Straight hosts are byte-identical.
+
+**Lines changed, for OP1's reconciliation** — `geometry-door/src/DoorBuilder.ts` and
+`geometry-window/src/WindowBuilder.ts`, ONE statement each (the `const [bs, be] …` / `const dir = …`
+pair replaced by `const dir = { x: _hf.frame.tx, z: _hf.frame.tz }`), plus the header explaining it.
+**No other line in either package is touched.**
