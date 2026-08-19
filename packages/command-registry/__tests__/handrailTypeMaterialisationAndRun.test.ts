@@ -91,9 +91,13 @@ function buildAndCountPosts(rails: readonly HandrailData[]): number {
 }
 
 describe('L-983 — a catalogue handrail type reaches the record WHOLE (C84 EI-2)', () => {
-    it('the type library ships exactly the 20 types the founder asked for, and the 5 original ids survive', () => {
+    it('the type library never SHRINKS below the 20 shipped types, and the 5 original ids survive', () => {
         const all = handrailTypeStore.getAll();
-        expect(all).toHaveLength(20);
+        // The invariant is the id list BELOW — the five original types must still
+        // resolve. The total is a FLOOR, not an equality: the library grows (20 -> 44
+        // when the 24 bar-guard types landed) and an exact pin fails on addition,
+        // which is the one direction that is not a regression.
+        expect(all.length).toBeGreaterThanOrEqual(20);
         for (const legacyId of [
             'glass-guardrail', 'stainless-handrail', 'timber-baluster',
             'steel-guardrail', 'stair-handrail',
@@ -107,7 +111,13 @@ describe('L-983 — a catalogue handrail type reaches the record WHOLE (C84 EI-2
             expect(t.height).toBeLessThanOrEqual(2.5);
         }
         // Every id is unique — a duplicate would silently shadow in the Map.
-        expect(new Set(all.map((t) => t.id)).size).toBe(20);
+        // ⭐ Compared against `all.length`, NOT a literal. The literal asserted the
+        // library SIZE while the comment claimed to assert UNIQUENESS: it failed on a
+        // legitimate addition (20 -> 44), and in a 20-type library holding a real
+        // duplicate it would have counted 19 distinct ids and STILL failed for the
+        // wrong reason — never naming the collision. The invariant is "no two types
+        // share an id", and only this form states it.
+        expect(new Set(all.map((t) => t.id)).size).toBe(all.length);
     });
 
     it('THE TOOTH: every field of a real catalogue type is on the stored record', () => {

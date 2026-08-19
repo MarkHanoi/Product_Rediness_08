@@ -353,8 +353,12 @@ describe('C95 §15.7 R3 — a custom railing TYPE survives save → project swit
         expect(handrailTypeStore.getById(CUSTOM.id)!.height).toBe(1.2);
     });
 
-    it('BUILT-INS are never written to the snapshot — 20 in the store, 0 in the catalogue', () => {
-        expect(handrailTypeStore.getBuiltIn()).toHaveLength(20);
+    it('BUILT-INS are never written to the snapshot — however many in the store, 0 in the catalogue', () => {
+        // The invariant is the NEXT line: no built-in reaches the saved catalogue.
+        // The built-in COUNT is not an invariant — it grows whenever a type is added
+        // (20 -> 44 when the 24 bar-guard types landed). Pinning it exactly made this
+        // suite fail for a reason it does not test, so it is a floor, not an equality.
+        expect(handrailTypeStore.getBuiltIn().length).toBeGreaterThanOrEqual(20);
         expect(serializeCatalogue()).toHaveLength(0);
     });
 
