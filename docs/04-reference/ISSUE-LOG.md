@@ -11890,3 +11890,140 @@ ids collide only for lines the module already treats as identical.
   assertion that **nothing else on the wall silently became a door.**
 
 C87 CW-P-G is corrected in place with the retraction, per C84 §6.
+
+---
+
+## L-1100 — the 20 railing types carried a hex and no `materialId`, which C100 §2.1 forbids by name ✅ CLOSED
+
+**C100 §2.1:** *"MUST NOT: a family store only a hex and call it a material … an element carrying
+only a hex has irreversibly lost the name — no schedule can count it (C28), no IFC export can
+classify it (C25), and no library edit can reach it."*
+
+⚠ **Found against this lane's own work.** The five pre-existing types already had the shape; L-983
+added fifteen more and multiplied it by four.
+
+⭐ **It was worse than losing the name.** `resolveMaterialColour` treats a stored hex as an explicit
+USER OVERRIDE, and by C100 §2.2 a library edit is *not allowed* to reach an override. **The
+catalogue was silently opting every railing placed from it OUT of the master library, permanently.**
+Adding an id *alongside* the hex would not have fixed that — the hex had to go.
+
+**Watched RED (3 assertions) → green (9/9).**
+
+### The ladder is built once, not per family
+
+`packages/core-app-model/src/materialResolution.ts` — `resolveMaterialColour`, the ONE
+implementation of C100 §2.1's precedence (override → T2 → T1 → **NAMED UNRESOLVED**). Before it,
+**step 2 had no implementation anywhere**: `userMaterialStore.get()` reads T2 only,
+`materialHexById()` reads T1 only, so any consumer wanting both chained them privately — and C100
+§1.1 traces four of the six rival material vocabularies in this repo to exactly that.
+
+⭐ **The result is a DISCRIMINATED UNION so step 3 cannot be skipped.** `unresolved` carries a
+`reason` and **no hex**, so a caller physically cannot render a fallback by accident. The builder
+still needs a mesh, so it uses one **and says so** — once per handrail, not once per baluster, and
+re-armed on rebuild so *breaking* a material later is not silent either.
+
+### The second defect the change exposed
+
+⛔ **There was no way to REMOVE a material override at all.** Every field in
+`UpdateHandrailCommand.execute` is guarded `!== undefined`. The moment the catalogue stopped
+shipping hexes, a retype wrote the new `materialId` and **left the old hex**, which shadows the
+reference — the railing kept its previous colour permanently while its geometry changed. L-623's
+half-applied-type shape, in a new guise. `null` now means *clear*; `undefined` still means *don't
+touch*.
+
+### Two tests restated, both because they were censuses of a moment
+
+* `StairRailingTypeMapping.spec.ts` asserted **exact equality** against the five original type ids.
+  ⚠ **It had been RED since `598a75d3` and I did not run it** — I ran five handrail suites and not
+  the stair-railing one that consumes the same catalogue. It now asserts what it exists to protect:
+  the five original ids **survive** (EI-6). That half is *stricter* — the old equality could be
+  "fixed" by rewriting the list; this cannot.
+* `railingTypeSwap.test.ts` hand-wrote the swap payload and **omitted `materialId`**, so it passed
+  while the swap was half-applied — the same hand-written-field-list hazard as the four production
+  sites L-983/L-984 closed.
+
+---
+
+## L-1101 — deleting a stair left its handrails floating, and a comment claimed a garbage-collect pass was handling it ✅ CLOSED
+
+C95 §8.2 carried this as OPEN. `plugins/cross/src/stair-handrail.ts` excluded `stair.delete` from
+the cascade: *"orphan handrails are pruned by a separate garbage-collect pass, not the cascade."*
+
+**There was no such pass.** The only handrail lifecycle cleanup is LEVEL-scoped
+(`HandrailLevelCleanupHandler` / `HandrailStore.removeByLevel`) and neither keys on a host. C84 §8.d
+rates this worse than an open defect: the sentence converted it into a closed-looking one.
+
+⭐ **And it was unfixable as written — the part that made this more than a cascade.** `HandrailData`
+had **no `hostId` at all**, and **no stair→handrail semantic edge was ever written in production**
+(`CreateStairCommand` writes `sitsOn` plus two `connectedByStair`, nothing else). So *"which
+handrails belong to this stair?"* had **no answer anywhere in the model**. You cannot prune an orphan
+you cannot identify. Hosting had to become EXPRESSIBLE first — C95 §15.1's MUST.
+
+**Watched RED (8 of 10) → green (10/10).**
+
+* `HandrailData` gains `hostId` + `hostKind`; absent means free-standing, so it is additive.
+* `CreateHandrailCommand` writes both onto the record **and** the graph edge pair. ⛔ **No new
+  relationship type was minted** — `hosts` / `hostedBy` already exist as the wall→opening pair and
+  mean exactly this (EI-8). Both directions, because the readers ask in both.
+* `DeleteStairCommand` captures, removes and restores hosted handrails **in the same undo entry**
+  (EI-5), purges their edges, and now **declares handrail in `affectedStores`** — a cascade mutating
+  an undeclared store is invisible to the scoped snapshot (C03 §4.6 U-2).
+* The false comment is **corrected in place with the retraction attached** (C84 §6).
+
+### Two things the typechecker and the store taught me mid-fix
+
+* I first wrote a structural `HostedHandrailStore` interface. **tsc rejected it** —
+  `ctx.stores.handrailStore` is *already* typed as the real `HandrailStore`, so my hand-written
+  shape was strictly weaker: it would have kept compiling if the store's surface changed underneath
+  it, which is the exact L-972/L-973 seam defect. Removed.
+* Restore clones **on the way in** as well as out: `HandrailStore.add` MUTATES the object it is
+  handed (`levelId`, `parentId`, `properties.mark`) before cloning, so passing the snapshot itself
+  would corrupt it for a later redo.
+
+⚠ **Honest scope: no UI authors a hosted handrail yet.** This proves the MODEL and the CASCADE. The
+authoring surface that sets `hostId` is C95 §15.1's remaining half, and the bus bridge still drops
+`hostId` (C95 §5).
+
+---
+
+## L-1102 — handrail persistence: 7 of ~26 fields survive a save/load round trip ⛔ OPEN (MEASURED, not fixed)
+
+Task (c), the gate set before R6. The question was whether the fields *this lane* added survive
+save/load. **Almost nothing does, including fields that have shipped for months.**
+
+FOUR hand-written whitelists — two SAVE, two LOAD, across both persistence pairs (C95 §3.2's EI-9
+duplicate). Sites 1 and 3 are byte-identical, and so are 2 and 4 — **the duplication is not the
+defect here; what all four OMIT is.**
+
+**LOST entirely:** `fillType`, `railProfile`, `railDiameter`, `postSpacing`, `balusterShape`,
+`balusterWidth`, `balusterSpacing`, `infillMaxGap`, `suppressStartPost`, `hostId`, `hostKind`,
+`railStructure`, `parameters`, `metadata`.
+
+**SAVED THEN NEVER READ BACK:** `materialId`, `materialColor`, `properties`.
+
+### What the user experiences
+
+Draw a **Frameless Glass Balustrade**. Save. Reload. The loader omits `fillType`, so
+`CreateHandrailCommand` applies its own baluster default; it omits `railProfile`, so the builder
+takes its rectangular default; it omits `materialId`, so the colour resolves **unresolved** and falls
+back to grey.
+
+**A frameless glass guard reloads as a grey rectangular balustrade** — not degraded, a *different
+element*. And because `fillType` drives `ifcPredefined`, the reloaded rail **exports as a different
+IFC entity than the one that was saved** (C25).
+
+⭐ **L-999's shape at larger scale** — there, one field missing from four wall whitelists; here,
+fourteen from four handrail whitelists. Unlike L-999 the loss was never
+invisible-because-upstream-was-broken: `fillType` and `railProfile` have been written by
+`CreateHandrailCommand` and read by `HandrailFragmentBuilder` the whole time.
+
+### Why it is not fixed in the same pass
+
+⛔ Both editor-side files held **158 lines of another lane's uncommitted work** (`L-1057` / `L-1035`)
+at the moment of measurement. `git commit --only PATH` commits that path's **working-tree** state, so
+editing them would have swept a second lane's in-flight changes into this lane's commit — which
+already happened once here (`9d86eb34`) and is why `--only` is the rule. **Measuring is not blocked
+by that; writing is.** Full field map and normative TO-BE in **C95 §16**.
+
+⛔ **R6 (infill panelling) is BLOCKED on this** — adding a per-bay `panels[]` to a record that loses
+`fillType` on reload reproduces C87's exact failure with more surface area.
