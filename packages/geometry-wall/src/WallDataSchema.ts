@@ -25,6 +25,7 @@
 
 import { z } from 'zod';
 import { rakeAuthorability } from './WallRake';
+import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from './OpeningProfile';
 import { profileAuthorability } from './WallProfile';
 
 // ─── §WALL-AUDIT-2026 (RESOLVED 2026-04-24): semantic invariant constants ─────
@@ -75,6 +76,30 @@ export const Point3DSchema = z.object({
 /**
  * Validates an Opening descriptor embedded in WallData.openings[].
  * Matches interface Opening in WallTypes.ts exactly.
+ *
+ * ⭐ "EXACTLY" IS MEASURED, NOT ASSERTED (RAKE1, 2026-08-19). A sibling lane reported
+ * this header as false — *"OpeningSchema carries NEITHER `doorType` NOR `windowType`"*
+ * — which would have made this a validation surface that silently drops fields, the
+ * mechanism §WALL-RAKE was being chased for. **It is not true.** Measured against
+ * `WallTypes.ts` → `interface Opening`: it declares TEN members
+ * (`id`, `type`, `doorType?`, `windowType?`, `offset`, `width`, `height`,
+ * `sillHeight`, `elementId`, `openingProfile?`) and this schema declares the same ten.
+ * The delta is ZERO in both directions, and `doorType` / `windowType` are on the two
+ * lines below. Do not "restore" them.
+ *
+ * ⛔ THIS HEADER IS A CLAIM ABOUT ANOTHER FILE, i.e. exactly the shape C84 §8.d says
+ * must not be maintained by a comment. `OpeningSchemaMatchesInterface.test.ts` reads
+ * BOTH declarations out of source and equates the member sets in both directions; when
+ * `Opening` grows a member, that test — not this paragraph — is what tells you.
+ *
+ * ⚠ AND THE STRIP HAZARD DOES NOT REACH HERE EITHER, for a reason worth stating so
+ * nobody re-derives it: this schema is Zod-default (`.strip()`), but its ONLY consumer
+ * that could strip — `WallStore.addOpening` — calls `OpeningSchema.safeParse(opening)`
+ * as a GATE and then stores `cloneOpening(opening)`, i.e. a spread of the CALLER'S
+ * object, never `parseResult.data`. So an unknown key survives the wall record even
+ * though the schema would have dropped it. That is the opposite of the
+ * `WindowStore.add` shape (`Object.freeze({...safeParse(w).data})`), which does strip.
+ * If this file ever starts consuming `.data`, the two lines above become load-bearing.
  */
 export const OpeningSchema = z.object({
     id:         z.string().min(1, 'opening.id is required'),
@@ -86,6 +111,27 @@ export const OpeningSchema = z.object({
     elementId:  z.string().min(1, 'opening.elementId is required'),
     doorType:   z.enum(['single', 'double']).optional(),
     windowType: z.enum(['single', 'double']).optional(),
+    // §OPENING-PROFILE (L-1200, lane ROUND1 — added here by RAKE1, who holds this file).
+    // The void's SHAPE. ADDITIVE AND OPTIONAL: absent ⇒ 'rectangular', which is every
+    // opening this repository has ever created, exactly as an absent `rakeAngleDeg` ⇒ 90° /
+    // vertical. Every existing opening therefore stays valid and re-serialises
+    // byte-identically (C47 §1.2 — additive optional field, no MAJOR bump).
+    //
+    // ⛔ THE VOCABULARY IS READ FROM `OpeningProfile.OPENING_PROFILE_KINDS`, NOT RETYPED.
+    // A hand-copied `z.enum([...])` here would be a second list to keep in agreement with
+    // the type union in `WallTypes.ts` and the reader in `OpeningProfile.ts` — C84 §8.d, the
+    // licensed-copy hazard that has already failed three times in this subsystem
+    // (`joinIntent` in `WallRakeRoundTrip`'s mirror is the most recent). One list, one
+    // authority, and a new kind is valid at the store gate the moment it is declared.
+    //
+    // ⛔ NO `radius` FIELD, DELIBERATELY (C86 §10.1 PR-8): `circular` means
+    // `width === height` and the width IS the diameter, so `WallOccupancyStore`'s span, the
+    // §WINDOW-CORNER-OVERFLOW cap, `clampToWall` and the `WxH` chat grammar all keep asking
+    // *"how wide is this hole?"* through `width`, unchanged.
+    openingProfile: z.enum(
+        OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
+        { message: `opening.openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
+    ).optional(),
 });
 
 export type OpeningInput = z.infer<typeof OpeningSchema>;
