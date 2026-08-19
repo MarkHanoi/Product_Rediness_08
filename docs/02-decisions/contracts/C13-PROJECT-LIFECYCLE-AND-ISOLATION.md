@@ -367,6 +367,53 @@ A new GA gate script `tools/ga-gate/check-project-isolation.ts` MUST verify:
 
 This span is the canonical audit trail for isolation failures.
 
+### §7.4 — EVERY AUDIT DETECTOR MUST BE SATISFIABLE BY A SHAPE PRODUCTION EMITS (normative; added 2026-08-19, L-1197 / L-1225)
+
+> Two of `ProjectIsolationAudit`'s three scene import counters keyed on markers that
+> **no production code has ever written**. Both had passing test suites. Both suites
+> planted the marker the detector looked for, so the tests could not fail.
+
+| counter | what the audit looked for | what production actually stamps | verdict |
+|---|---|---|---|
+| `scene.underlay` | `name.startsWith('FloorPlanUnderlay')` · `userData.isFloorPlanUnderlay` | `FloorPlanUnderlayTool.ts:114` — `{ id, type:'floor_plan_underlay', isUnderlay:true }`, **no `name`** | **DEAD** until L-1197 |
+| `scene.ifc` | `isIfcGroup` · `isIFCModel` · `ifcModelId` | `IfcGeometryRenderer.ts:66` — `{ modelId, name, source:'ifc-import' }` | **DEAD** until L-1225 |
+| `scene.dxf` | `isDxfOverlay` · `dxfId` | `DxfGeometryBuilder.ts:52` — `isDxfOverlay: true` | live (the positive control) |
+
+**Binding rules:**
+
+1. **A detector's fixture MUST be copied from the PRODUCER, cited by `file:line` — never
+   written to match the detector.** A fixture derived from the thing under test cannot
+   falsify it. This is the [[fake-more-capable-than-real]] defect, and it is how both dead
+   counters survived for months.
+2. **Every detector suite MUST carry a POSITIVE CONTROL** — one arm known to be live,
+   asserted alongside the repairs. Without it, "the arms work" and "the assertions were
+   written to match whatever the code does" are the same green.
+3. **A counter that fires on a shape stamped on every child MUST be scoped to the ROOT.**
+   `source:'ifc-import'` is on the IFC group *and* on every mesh inside it; an unscoped
+   match reports thousands and buries every other finding. Per-element leaks belong to the
+   element-id arm.
+4. **Ask "can this condition EVER be true?" of every counter, not the one that just failed.**
+   L-1197 found one; asking the same question of the whole file found the second in the
+   next arm along. See §7.5 for the arm this question shows is still MISSING.
+
+### §7.5 — Known gap: LINEWORK has no finding arm (recorded, not closed; L-1225)
+
+`LineSegments` / `Line` objects — projected edges, wall/slab edge overlays, plan symbols —
+are reached by **no `findings` arm at all**:
+
+- the element-id arm needs `userData.id` **and** a type; linework carries neither;
+- `summariseSceneCoverage` *does* classify a `LineSegments` scene ROOT as `linework`, but
+  that is the **coverage clause**, not a finding — `detectLeaks` returns `null` and the
+  console prints **`✓ loaded clean`** with the warning appended;
+- the only linework the audit can genuinely fail on is the mounted `TechnicalDrawing`, and
+  only because `views.mountedDrawing` registers a **declared probe** that stamps the owning
+  project at mount time (`mountedDrawingScope.ts`) — an arm, not a sweep.
+
+**So a scene full of foreign linework still reports clean.** The durable repair is either a
+linework finding arm with real attribution, or a declared probe per linework producer, on the
+`views.mountedDrawing` model. **Neither exists. Do not read `✓ loaded clean` as covering
+linework.**
+
 ---
 
 ## §8 — Principles this contract enforces

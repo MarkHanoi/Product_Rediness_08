@@ -1,5 +1,5 @@
 /**
- * §AUDIT-UNSATISFIABLE-COUNTERS (L-1202) — every scene counter in this audit must be
+ * §AUDIT-UNSATISFIABLE-COUNTERS (L-1225) — every scene counter in this audit must be
  * satisfiable BY A SHAPE PRODUCTION ACTUALLY EMITS.
  *
  * THE FINDING THIS SUITE PINS. Two of the audit's three import counters keyed on
@@ -8,7 +8,7 @@
  *   underlay (L-1197) — `name.startsWith('FloorPlanUnderlay') || ud.isFloorPlanUnderlay`
  *                       vs the real `FloorPlanUnderlayTool.create()` stamp
  *                       `{ id, type:'floor_plan_underlay', isUnderlay:true, … }`, no name.
- *   ifc      (L-1202) — `isIfcGroup || isIFCModel || ifcModelId`
+ *   ifc      (L-1225) — `isIfcGroup || isIFCModel || ifcModelId`
  *                       vs the real `IfcGeometryRenderer` stamp
  *                       `{ modelId, name, source:'ifc-import' }`.
  *   dxf               — `isDxfOverlay || dxfId`. `DxfGeometryBuilder.ts:52` really does
@@ -101,12 +101,12 @@ describe('§AUDIT-UNSATISFIABLE-COUNTERS — the counters must fire on REAL prod
         expect(surfaces(detectLeaks(input([REAL_UNDERLAY_MESH])))).toContain('scene.underlay');
     });
 
-    it('L-1202: the IFC arm fires on IfcGeometryRenderer output', () => {
+    it('L-1225: the IFC arm fires on IfcGeometryRenderer output', () => {
         // Pre-fix this returned null — the group stamps `modelId`, never `ifcModelId`.
         expect(surfaces(detectLeaks(input([REAL_IFC_GROUP_ROOT])))).toContain('scene.ifc');
     });
 
-    it('L-1202: an IFC model counts ONCE, not once per mesh inside it', () => {
+    it('L-1225: an IFC model counts ONCE, not once per mesh inside it', () => {
         const report = detectLeaks(input([
             REAL_IFC_GROUP_ROOT,
             REAL_IFC_CHILD_MESH, REAL_IFC_CHILD_MESH, REAL_IFC_CHILD_MESH,

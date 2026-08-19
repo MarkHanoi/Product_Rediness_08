@@ -1,4 +1,4 @@
-// §LINEWORK-3D-PROBE (L-1202, serving L-1185) — SHIP THE PROBE BEFORE THE FIX.
+// §LINEWORK-3D-PROBE (L-1225, serving L-1185) — SHIP THE PROBE BEFORE THE FIX.
 //
 // THE REPORT (founder, production, 2026-08-19): *"Please review the LINES COMING TO
 // 3D VIEW"* — black rectangular outlines lying flat on the façade around the
@@ -331,7 +331,7 @@ export function installLineworkProbe(): void {
     };
     w.__pryzmLineworkCensus = (): LineworkCensus | null => _last;
 
-    console.log('[linework-probe] §LINEWORK-3D-PROBE installed (L-1202) — censuses 3D linework on every 3D entry.');
+    console.log('[linework-probe] §LINEWORK-3D-PROBE installed (L-1225) — censuses 3D linework on every 3D entry.');
 }
 
 /** Test-only reset. */

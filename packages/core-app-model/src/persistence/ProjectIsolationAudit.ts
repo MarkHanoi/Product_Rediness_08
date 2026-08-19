@@ -576,7 +576,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         ) {
             underlayCount += 1;
         }
-        // §AUDIT-UNSATISFIABLE-COUNTERS (L-1202) — THE SECOND DEAD COUNTER IN THIS
+        // §AUDIT-UNSATISFIABLE-COUNTERS (L-1225) — THE SECOND DEAD COUNTER IN THIS
         // FILE, FOUND BY APPLYING L-1197's SUSPICION TO EVERY ARM RATHER THAN ONE.
         //
         // This read `isIfcGroup || isIFCModel || ifcModelId`. Grep all three across the
