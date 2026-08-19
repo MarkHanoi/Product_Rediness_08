@@ -62,6 +62,16 @@ export interface RegionWallLike {
      * chord is UNATTRIBUTABLE and yields a `FreeLineEdge` — the honest refusal.
      */
     id?: string | null;
+    /**
+     * §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — which STORE owns this host.
+     *
+     * Travels beside `hostId` because an id alone cannot say which store to ask,
+     * and asking the wrong one is a MISS that degrades to the authoring-time
+     * fallback while reporting `preserved` (C79 §5.2.1). Absent = `'wall'`, so
+     * every existing caller and test passing bare `{ baseLine }` shapes keeps its
+     * exact previous behaviour.
+     */
+    hostType?: 'wall' | 'curtain-wall' | null;
     /** Wall centreline endpoints in world space. Only x/z are read. POST-trim. */
     baseLine?: ReadonlyArray<{ x: number; z: number }> | null;
     /**
@@ -255,6 +265,8 @@ export interface AttributedSegment {
     start: RegionPoint2D;
     end: RegionPoint2D;
     hostId: string | null;
+    /** §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — the host's KIND; absent = 'wall'. */
+    hostType?: 'wall' | 'curtain-wall' | null;
     /**
      * WHY `hostId` is null. Present only when `hostId` is null — a refusal that
      * cannot say why is indistinguishable from an absence (§CONTEXT-DATA-HONESTY).
@@ -317,7 +329,11 @@ export function wallsToAttributedSegments(
         for (let i = 0; i + 1 < pts.length; i++) {
             const u = pts[i];
             const v = pts[i + 1];
-            if (u && v) segments.push({ start: u, end: v, hostId, reason });
+            // §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — the KIND travels with
+            // the id, so a curtain-wall chord resolves against the curtain-wall store.
+            // Only sent when the chord is actually attributed; an unattributed chord
+            // becomes a FreeLineEdge and has no host of any kind to name.
+            if (u && v) segments.push({ start: u, end: v, hostId, hostType: hostId ? (w?.hostType ?? 'wall') : null, reason });
         }
     }
     return segments;
@@ -352,6 +368,8 @@ export interface AttributedRingVertex {
     point: RegionPoint2D;
     /** Wall owning the edge from this vertex to the next; `null` = unattributable. */
     hostId: string | null;
+    /** §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — the host's KIND; absent = 'wall'. */
+    hostType?: 'wall' | 'curtain-wall' | null;
     /** Why `hostId` is null — see {@link AttributedSegment.reason}. */
     reason?: AttributedSegment['reason'];
 }
@@ -370,7 +388,7 @@ export function buildAttributedClosedLoops(
     const points: RegionPoint2D[] = [];
     const adj = new Map<number, number[]>();
     /** welded node pair "u-v" (both directions stored) → attribution of the chord. */
-    const edgeHost = new Map<string, { hostId: string | null; reason?: AttributedSegment['reason'] }>();
+    const edgeHost = new Map<string, { hostId: string | null; hostType?: 'wall' | 'curtain-wall' | null; reason?: AttributedSegment['reason'] }>();
 
     const getPointIdx = (p: RegionPoint2D): number => {
         for (let i = 0; i < points.length; i++) {
@@ -404,7 +422,7 @@ export function buildAttributedClosedLoops(
                 edgeHost.set(kb, ambiguous);
             }
         } else {
-            const attribution = { hostId: seg.hostId, reason: seg.reason };
+            const attribution = { hostId: seg.hostId, hostType: seg.hostType, reason: seg.reason };
             edgeHost.set(kf, attribution);
             edgeHost.set(kb, attribution);
         }
@@ -425,6 +443,7 @@ export function buildAttributedClosedLoops(
                         return {
                             point: points[idx]!,
                             hostId: a?.hostId ?? null,
+                            hostType: a?.hostType ?? null,
                             // No entry at all = the ring's CLOSING edge, synthesised by
                             // the walk rather than by any chord. Not attributable.
                             reason: a ? a.reason : ('noWallId' as const),
@@ -860,7 +879,11 @@ export function buildRegionSketch(
                 const edge: HostReferenceEdge = {
                     type: 'hostReference',
                     hostId: a.hostId,
-                    hostType: 'wall',
+                    // §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — was the hard-coded
+                    // literal `'wall'`, which is what forced L-1125 to contribute curtain
+                    // walls ANONYMOUSLY: an id stamped `'wall'` sends WallFaceResolver to
+                    // the wall store, where a curtain wall does not exist.
+                    hostType: a.hostType ?? 'wall',
                     reference: 'centerLine',
                     offset: 0,
                     // Non-destructive degradation (SketchTypes §03): an edge with no

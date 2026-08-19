@@ -1695,6 +1695,31 @@ Type · material · finish · **offset from centreline**.
   > ⚠ **NOT DONE BY CW4, AND SAID PLAINLY:** this is a scoping measurement, not an implementation.
   > What it establishes is that the remaining work is **one type widening, one store dispatch, and
   > one founder-or-contract decision** — not a subsystem.
+  >
+  > ✅ **BUILT — lane SL3, 2026-08-19 (L-1182). CW4's scoping measurement was ACCURATE**, which
+  > is worth recording because a scope estimate that survives contact is rare enough to be
+  > evidence the measurement method works. It named *one type widening, one store dispatch, and
+  > one founder decision*; the founder answered, and the code was exactly that plus one
+  > consequence CW4 did not need to name:
+  >   - `SketchTypes.ts` — `hostType` widened to `'wall' | 'curtain-wall'`.
+  >   - `WallFaceResolver` — `storeFor()` dispatches on the KIND (`curtainWallStore` vs
+  >     `wallStore`) and `faceThicknessOf()` returns `mullionSize ?? 0.08`. `panelThickness` is
+  >     never read. `resolveWithProvenance` now names the store that was actually missing.
+  >   - ⭐ **AND THE PART A TYPE WIDENING ALONE WOULD HAVE LEFT UNREACHABLE:** the kind had to be
+  >     THREADED through `SlabRegionTracer` (`RegionWallLike` → `AttributedSegment` →
+  >     `AttributedRingVertex` → the emitted edge, which hard-coded `hostType: 'wall'`), and
+  >     `RegionBoundarySources` had to stop contributing curtain walls ANONYMOUSLY. Without
+  >     that, the resolver arm would have existed and nothing would ever have called it —
+  >     [authored-but-unwired], the shape this repo keeps re-minting.
+  >
+  > **Proof:** `packages/geometry-slab/__tests__/CWRegion3MullionFace.test.ts` — **9 of 10 RED**
+  > without the change. The decisive failure is not a missing number but
+  > `expected 50 to be close to 0`: with no kind to dispatch on, the resolver read the WALL
+  > store and returned a DIFFERENT element that happened to share the id. That is precisely the
+  > lie L-1125 refused to ship, reproduced. The 10th test — an id-less curtain wall stays
+  > anonymous and is still COUNTED — passes in both states: L-1125's honest degradation is
+  > preserved, not replaced. The `panelThickness` inverse is asserted explicitly, so an
+  > implementation reading the wrong field cannot pass by coincidence.
 
 > ⚠ **A CORRECTION TO CW2's OWN FIRST WRITE-UP OF THIS SECTION, MADE THE SAME DAY — AND IT IS THE
 > [confident-register-rows](../../04-reference/ISSUE-LOG.md) SHAPE.** CW2 first wrote here that

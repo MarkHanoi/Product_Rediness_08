@@ -177,21 +177,27 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
     }
 
     // §FEAT-REGION-CURTAIN-WALL (L-1125) — the glazing encloses space, so it bounds a
-    // region. Contributed ANONYMOUSLY (no `id`), for the reason the header gives for
-    // every non-wall source: `HostReferenceEdge` carries `hostType: 'wall'` and is
-    // resolved by `WallFaceResolver`, which reads `window.wallStore` and has no notion
-    // of a curtain wall. Attributing a curtain-wall id would make the slab follow a
-    // WALL THAT DOES NOT EXIST — the resolver would miss, the edge would fall back to
-    // its authoring-time memory, and the slab would report `preserved` while following
-    // nothing (C79 §5.2.1). An anonymous edge degrades to a `FreeLineEdge` and is
-    // COUNTED, so "this boundary does not follow its curtain wall" is a reported fact
-    // and not a silent one.
+    // region. ⭐ UPGRADED FROM ANONYMOUS TO ATTRIBUTED by
+    // §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182), now that C87 CW-Region-3 is DECIDED.
     //
-    // ⛔ THE OWNERSHIP LINE. Everything above is the SLAB half — what bounds a region,
-    // and how a traced boundary is attributed. Making a curtain-wall edge FOLLOW its
-    // host would need a `hostType: 'curtainWall'` arm inside `WallFaceResolver` and a
-    // curtain-wall face model to resolve against; that is the curtain-wall side and is
-    // deliberately NOT done here.
+    // L-1125 contributed these spines WITHOUT an id, and that was the correct answer
+    // AT THE TIME — not timidity. `HostReferenceEdge.hostType` could only say `'wall'`,
+    // so an attributed curtain-wall edge would have sent `WallFaceResolver` to
+    // `window.wallStore`, missed, silently fallen back to its authoring-time memory,
+    // and reported `preserved` while following NOTHING (C79 §5.2.1). An anonymous edge
+    // that is COUNTED beats an attributed edge that lies.
+    //
+    // Two things changed, and both were prerequisites:
+    //   1. `hostType` now admits `'curtain-wall'`, so the kind travels with the id and
+    //      the resolver knows which store to ask.
+    //   2. The FOUNDER decided what a curtain wall's FACE is — C87 CW-Region-3,
+    //      2026-08-19: "to the mullion always" (`mullionSize`, 0.08). Until that was
+    //      answered the contract BLOCKED this arm, because `mullionSize` and
+    //      `panelThickness` differ by 4x and an arm resolving to a plausible wrong
+    //      offset is strictly worse than the anonymous contribution it replaces.
+    //
+    // So a region slab bounded by glazing now FOLLOWS that glazing when it moves,
+    // instead of staying where it was traced.
     let curtainWallEdges = 0;
     for (const cw of inputs.curtainWalls ?? []) {
         const line = cw?.baseLine;
@@ -199,7 +205,14 @@ export function assembleRegionBoundary(inputs: RegionBoundaryInputs): RegionBoun
         const a = line[0]!;
         const b = line[line.length - 1]!;
         if (Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.z - b.z) < 1e-9) continue; // zero-length
-        segments.push({ baseLine: [{ x: a.x, z: a.z }, { x: b.x, z: b.z }] });
+        // The id is what makes the edge followable; `hostType` is what makes it
+        // followable to the RIGHT store. A curtain wall with no id stays anonymous
+        // and is still counted — the honest degradation L-1125 established.
+        segments.push({
+            id: cw?.id ?? null,
+            hostType: 'curtain-wall',
+            baseLine: [{ x: a.x, z: a.z }, { x: b.x, z: b.z }],
+        });
         curtainWallEdges++;
     }
 

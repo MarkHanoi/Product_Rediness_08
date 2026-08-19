@@ -15202,3 +15202,61 @@ instanced-pick mechanisms now coexist.** That is the thing worth deciding, more 
 ⚠ Also logged: **ADR-0076's visual-diff exit gate appears never to have run.** No artefact, no CI
 job, no recorded output was found for it. Naming an exit gate that has never executed is the same
 defect class as claiming enforcement that does not exist.
+---
+
+## L-1182 — a region slab bounded by GLAZING could not follow it; the edge was contributed anonymously because nothing could name a curtain wall's face ✅ FIXED 2026-08-19
+
+**Unblocked by a FOUNDER DECISION, not by code.** C87 CW-Region-3 had this arm under an explicit
+NORMATIVE BLOCK: *"until this contract names the face, the `hostType` arm MUST NOT be added — an
+arm that resolves to a plausible wrong offset is strictly worse than the anonymous contribution
+SL1 shipped, which at least COUNTS what it could not attribute."*
+
+The two candidates differ by **4x** and are different buildings:
+
+| candidate | value | what the slab would bound |
+|---|---|---|
+| `mullionSize` | 0.08 | the FRAME — the structure |
+| `panelThickness` | 0.02 | the GLASS — the glazing line |
+
+✅ **FOUNDER, 2026-08-19: "to the mullion always."** A floor plate meeting a curtain wall stops at
+the frame, which is the structural reading a BIM slab conventionally takes. `panelThickness` MUST
+NOT enter region resolution; a glass-line plate would be a NEW decision against that row, never a
+parameter swap.
+
+### What was wrong, and why the previous answer was RIGHT
+
+L-1125 contributed curtain-wall spines to the region edge set **without an id**. That looks like a
+gap and was not: `HostReferenceEdge.hostType` could only say `'wall'`, so an attributed
+curtain-wall edge would have sent `WallFaceResolver` to `window.wallStore`, **missed**, degraded to
+its authoring-time fallback, and reported `preserved` while following **nothing** (C79 §5.2.1).
+⭐ **An anonymous edge that is COUNTED beats an attributed edge that lies.** The consequence for the
+user was real but honest: a region slab bounded by glazing stayed where it was traced when the
+glazing moved — and said so.
+
+### The fix — and the half a type widening alone would have left dead
+
+1. `SketchTypes.ts` — `hostType: 'wall' | 'curtain-wall'`.
+2. `WallFaceResolver` — `storeFor()` dispatches on the KIND; `faceThicknessOf()` returns
+   `mullionSize ?? 0.08`. `resolveWithProvenance` names the store that was actually missing rather
+   than always blaming the wall store.
+3. ⭐ **`SlabRegionTracer` had to THREAD the kind through** — `RegionWallLike` → `AttributedSegment`
+   → `AttributedRingVertex` → the emitted edge, which hard-coded `hostType: 'wall'` — and
+   `RegionBoundarySources` had to stop contributing anonymously. **Without this the resolver arm
+   would have existed and nothing would ever have called it**: [authored-but-unwired], the shape
+   this repo keeps re-minting. CW4's scope estimate ("one type widening, one store dispatch") was
+   otherwise accurate.
+
+### Proof
+
+`packages/geometry-slab/__tests__/CWRegion3MullionFace.test.ts` — **9 of 10 RED** without the
+change. The decisive failure is not a missing number but **`expected 50 to be close to 0`**: with
+no kind to dispatch on, the resolver read the WALL store and returned a DIFFERENT element that
+happened to share the id. **That is exactly the lie L-1125 refused to ship, reproduced on demand.**
+
+The 10th test — an id-less curtain wall stays anonymous and is still COUNTED — passes in **both**
+states: L-1125's honest degradation is preserved, not replaced. The `panelThickness` inverse is
+asserted explicitly (`not.toBeCloseTo(0.01)`), so an implementation reading the wrong field cannot
+pass by coincidence.
+
+Suite: geometry-slab **26 files / 220 tests PASS**. Root tsc: zero errors in the five files
+touched.

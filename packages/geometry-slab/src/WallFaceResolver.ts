@@ -70,19 +70,67 @@ export class WallFaceResolver {
         edge: HostReferenceEdge,
         storeOverride?: { getById?: (id: string) => { baseLine?: readonly THREE.Vector3[]; thickness?: number } | undefined },
     ): Segment2D | null {
-        const wallStore = storeOverride ?? window.wallStore; // TODO(TASK-08)
-        if (!wallStore) return null;
+        const store = storeOverride ?? WallFaceResolver.storeFor(edge);
+        if (!store) return null;
 
-        const wall = wallStore.getById?.(edge.hostId);
-        if (!wall || !wall.baseLine || wall.baseLine.length < 2) return null;
+        const host = store.getById?.(edge.hostId) as
+            | { baseLine?: readonly { x: number; z: number }[]; thickness?: number; mullionSize?: number }
+            | undefined;
+        if (!host || !host.baseLine || host.baseLine.length < 2) return null;
 
         return WallFaceResolver.computeSegment(
-            wall.baseLine[0],
-            wall.baseLine[1],
-            wall.thickness ?? 0,
+            host.baseLine[0] as THREE.Vector3,
+            host.baseLine[1] as THREE.Vector3,
+            WallFaceResolver.faceThicknessOf(edge, host),
             edge.reference,
             edge.offset
         );
+    }
+
+    /**
+     * §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — which store owns this host.
+     *
+     * The host KIND, not the id, decides. Reading the wrong store is not a missing
+     * value, it is a MISS that degrades to the edge's authoring-time fallback and
+     * reports `preserved` while following nothing (C79 §5.2.1) — which is exactly
+     * why L-1125 refused to attribute a curtain wall at all rather than attribute it
+     * to a store that could never answer.
+     */
+    private static storeFor(edge: HostReferenceEdge):
+        { getById?: (id: string) => unknown } | undefined {
+        return edge.hostType === 'curtain-wall'
+            ? (window as unknown as { curtainWallStore?: { getById?: (id: string) => unknown } }).curtainWallStore // TODO(TASK-07)
+            : window.wallStore; // TODO(TASK-08)
+    }
+
+    /**
+     * ⭐ §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) · C87 CW-Region-3 — THE FACE.
+     *
+     * FOUNDER, 2026-08-19, asked directly because the two candidates differ by 4x and
+     * picking silently is the [confident-register-rows] shape: **"to the mullion
+     * always."**
+     *
+     * A curtain wall's face for region resolution is the MULLION face —
+     * `mullionSize` (0.08 default), the frame's outer envelope and the structural
+     * reading a BIM slab conventionally takes. A floor plate meeting a curtain wall
+     * stops at the FRAME, not at the glass.
+     *
+     * ⛔ `panelThickness` (0.02 default) MUST NOT enter region resolution. C87
+     * CW-Region-3 pins the inverse explicitly: a slab that stops at the glazing line
+     * and one that stops at the mullion "are not the same drawing". If a future
+     * façade genuinely needs a glass-line plate, that is a NEW decision against that
+     * contract row — never a parameter swap here.
+     *
+     * The `?? 0.08` mirrors `CreateCurtainWallCommand.ts:162`, which is where the
+     * default is actually minted; it is a fallback for a record that predates the
+     * field, not a second opinion about what a mullion is.
+     */
+    private static faceThicknessOf(
+        edge: HostReferenceEdge,
+        host: { thickness?: number; mullionSize?: number },
+    ): number {
+        if (edge.hostType === 'curtain-wall') return host.mullionSize ?? 0.08;
+        return host.thickness ?? 0;
     }
 
     /**
@@ -109,13 +157,22 @@ export class WallFaceResolver {
         const live = WallFaceResolver.resolve(edge);
         if (live) return { segment: live, source: 'live', hostId: edge.hostId };
 
-        const engineMissing = !window.wallStore; // TODO(TASK-08) — same read as resolve()
+        // §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) — ask about the store the
+        // host actually lives in. Checking `window.wallStore` for a curtain-wall
+        // host would report ENGINE_NOT_AVAILABLE when the wall store merely happens
+        // to be absent, and STALE_DERIVED_STATE when it happens to be present — two
+        // diagnoses, neither of them about the host that failed. This is the same
+        // read `resolve()` performs, which is the property that keeps the branch and
+        // its explanation from disagreeing.
+        const engineMissing = !WallFaceResolver.storeFor(edge);
+        const kind = edge.hostType === 'curtain-wall' ? 'curtain wall' : 'wall';
+        const storeName = edge.hostType === 'curtain-wall' ? 'curtain-wall store' : 'wall store';
         const reason: SlabRecomputeUndeterminedReason = engineMissing
             ? 'ENGINE_NOT_AVAILABLE'
             : 'STALE_DERIVED_STATE';
         const why = engineMissing
-            ? 'the wall store is not reachable in this runtime, so the host was never looked up'
-            : `host wall "${edge.hostId}" was looked up and did not resolve`;
+            ? `the ${storeName} is not reachable in this runtime, so the host was never looked up`
+            : `host ${kind} "${edge.hostId}" was looked up and did not resolve`;
 
         if (edge.fallback) {
             return {

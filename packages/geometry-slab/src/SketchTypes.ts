@@ -34,7 +34,28 @@ export interface FreeLineEdge {
 export interface HostReferenceEdge {
     type: 'hostReference';
     hostId: string;
-    hostType: 'wall';
+    /**
+     * §FEAT-REGION-CURTAIN-WALL-ATTRIBUTED (L-1182) / C87 CW-Region-3.
+     *
+     * Widened from the bare literal `'wall'`. A curtain wall encloses space exactly
+     * as a wall does — the founder's "put a floor in here" is the same request
+     * whether the enclosure is masonry or glazing — but it lives in a DIFFERENT
+     * STORE, so the host kind must travel with the id or the resolver cannot know
+     * which store to ask.
+     *
+     * ⚠ THIS FIELD IS WHY THE CURTAIN-WALL EDGE WAS ANONYMOUS. L-1125 contributed
+     * curtain-wall spines to the region edge set but deliberately WITHOUT an id,
+     * because stamping one here would have declared `hostType: 'wall'` and sent
+     * `WallFaceResolver` to `window.wallStore`, where the id does not exist. The
+     * edge would have missed, silently fallen back to its authoring-time memory,
+     * and the slab would have reported `preserved` while following nothing
+     * (C79 §5.2.1). An anonymous edge was the honest answer while this field could
+     * only say `'wall'`; now that it can name the kind, the edge is ATTRIBUTED.
+     *
+     * `'curtain-wall'` matches the `elementType` spelling used across the
+     * curtain-wall family, so the two never need translating between each other.
+     */
+    hostType: 'wall' | 'curtain-wall';
     reference: WallFaceRef;
     /** Lateral offset in metres (+ = outward, – = inward from the referenced face). */
     offset: number;
