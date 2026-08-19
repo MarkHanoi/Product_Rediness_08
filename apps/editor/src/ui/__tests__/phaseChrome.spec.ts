@@ -184,6 +184,55 @@ describe('§UX1-PHASE-CHROME — reaching the canvas brings the chrome back', ()
     });
 });
 
+describe('§UX2-REOPEN-SHIPS-WITH-CLOSE — the route exists in the DOM, not just in the table', () => {
+    // COMMITTED ≠ REACHABLE. `panelDefaults.spec.ts` proves the launcher's testid
+    // occurs in a source file; that is a rename/typo check and C82 §5.4 says so
+    // explicitly. THIS asserts the thing the founder experiences: after installing
+    // the controller, is there a real button in the document, and does clicking it
+    // put View Properties back? A model-level assertion would pass with nothing on
+    // screen — which is exactly the state HEAD was in.
+    it('⭐ installing the phase controller MOUNTS the reopen button on the canvas', () => {
+        setAppPhase('canvas');
+        const dispose = installPhaseChrome();
+        const btn = document.querySelector('[data-testid="view-properties-launcher"]') as HTMLButtonElement | null;
+        expect(btn, 'the close mechanism installed without its route back').not.toBeNull();
+        expect(btn!.tagName).toBe('BUTTON');
+        expect(btn!.style.display).not.toBe('none');
+
+        const vp = document.querySelector('.vp-root') as HTMLElement;
+        expect(vp.style.display, 'View Properties did not start closed').toBe('none');
+        btn!.click();
+        expect(vp.style.display, 'the button is on screen but leads nowhere').not.toBe('none');
+        btn!.click();
+        expect(vp.style.display, 'the button could not close it again').toBe('none');
+        dispose();
+    });
+
+    it('⭐ and does NOT mount it on the Earth phase — skip-mount, not hide', () => {
+        // The founder asked for View Properties to be absent on PRYZM Earth. A
+        // button that opens a panel which should not exist in that phase is worse
+        // than no button — and `display:none` is not good enough either, because a
+        // hidden button is still in the accessibility tree and still tabbable.
+        // The node must not be CREATED.
+        document.body.innerHTML = ''; // no fixture stand-in for the launcher
+        const dispose = installPhaseChrome();
+        expect(
+            document.querySelector('[data-testid="view-properties-launcher"]'),
+            'the launcher was mounted on the globe',
+        ).toBeNull();
+        setAppPhase('canvas');
+        expect(
+            document.querySelector('[data-testid="view-properties-launcher"]'),
+            'reaching the canvas did not bring the launcher with it',
+        ).not.toBeNull();
+        dispose();
+        expect(
+            document.querySelector('[data-testid="view-properties-launcher"]'),
+            'disposing the controller left the button behind',
+        ).toBeNull();
+    });
+});
+
 describe('§UX1-PHASE-CHROME — installation', () => {
     it('applies immediately on install, and again on the phase change', () => {
         const dispose = installPhaseChrome();
