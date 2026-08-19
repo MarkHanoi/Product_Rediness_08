@@ -80,23 +80,20 @@ import { rakeAuthorability } from './WallRake';
 import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 /**
- * §LOAD-REDETECT-FREEZE (2026-06-25) — true while a project restore replays the
- * Create* commands. Restoring a persisted building runs canPlace() once per
- * opening, so the success log below fires hundreds–thousands of times on the
- * load thread — pure noise (every opening was already validated when first
- * authored, and on restore the data is known-good). ProjectLoader.load() sets
- * `globalThis.__pryzmProjectLoadActive` for the load window; live edits are
- * unaffected and still log normally.
+ * ⚰ TOMBSTONE — `__pryzmLoadActive()` REMOVED 2026-08-19, superseded by §PRYZM-PERF.
+ *
+ * It gated the `canPlace OK` log on `__pryzmProjectLoadActive` (§LOAD-REDETECT-FREEZE,
+ * 2026-06-25) and `__pryzmBuildingGenActive` (§GEN-LOG-GATING, L-369) — project restore
+ * and building generation. INSTR1 replaced that log with a counter plus the existing
+ * `__pryzmDebugWalls` opt-in, which leaves nothing for this predicate to guard.
+ *
+ * ⭐ WHY IT IS DELETED RATHER THAN KEPT "just in case": it covered the two floods that
+ * mattered LEAST. The full argument is preserved at the OK return in `canPlace()` — the
+ * guard never covered the interactive pointermove path (there is no flag there; that IS
+ * the user) nor the whole-level rebuild in `WallRebuildCoordinator._flush`, which
+ * ADR-0261 §45 names by that exact line. Three known floods, one guard, catching two.
+ * Reinstating it would re-introduce a predicate that reads like protection and is not.
  */
-function __pryzmLoadActive(): boolean {
-    // §GEN-LOG-GATING (L-369, 2026-07-17) — also suppress on the building-generation path
-    // (`__pryzmBuildingGenActive`, set by buildingGenerationLifecycle). A resi/office/house
-    // generation runs canPlace() once per opening (hundreds), so the success log below floods
-    // the console during generation exactly as it does on a bulk restore — pure noise, since
-    // every opening was validated when the generator authored it. Live edits still log.
-    const g = globalThis as unknown as { __pryzmProjectLoadActive?: boolean; __pryzmBuildingGenActive?: boolean };
-    return g.__pryzmProjectLoadActive === true || g.__pryzmBuildingGenActive === true;
-}
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
