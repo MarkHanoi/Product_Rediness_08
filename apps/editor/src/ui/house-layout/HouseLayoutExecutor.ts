@@ -27,6 +27,11 @@
 // deterministic path; the apartment executor likewise adds none).
 
 import { batchCoordinator, storeRegistry, viewDefinitionStore } from '@pryzm/core-app-model';
+// §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203, C95 §15.16.7) — this executor
+// hand-listed its handrail payload and never consulted the type catalogue, so every
+// guard it created named NO material and rendered grey. ONE shared resolver rather
+// than a materialId pasted at four call sites.
+import { generatedGuardSpec } from '@pryzm/geometry-handrail';
 import { createId } from '@pryzm/schemas';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import {
@@ -2875,6 +2880,11 @@ export class HouseLayoutExecutor {
             if (idx === openIdx) return; // step-off side stays open
             try {
                 cm.execute?.(new CreateHandrailCommand({
+                    // §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203) — SPREAD FIRST: the catalogue
+                    // supplies the material + infill members, and this call site's own geometry
+                    // below still wins. Without it the record named NO material and rendered
+                    // grey — ~145 of them in one of the founder's sessions.
+                    ...generatedGuardSpec('baluster'),
                     id:          createId('handrail'),
                     start:       { x: c[i]!.x, z: c[i]!.z },
                     end:         { x: c[j]!.x, z: c[j]!.z },

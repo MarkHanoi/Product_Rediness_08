@@ -26,6 +26,11 @@
 
 import { trace } from '@opentelemetry/api';
 import { batchCoordinator, storeRegistry, storeEventBus, perfLog, perfTraceOn } from '@pryzm/core-app-model';
+// §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203, C95 §15.16.7) — this executor
+// hand-listed its handrail payload and never consulted the type catalogue, so every
+// guard it created named NO material and rendered grey. ONE shared resolver rather
+// than a materialId pasted at four call sites.
+import { generatedGuardSpec } from '@pryzm/geometry-handrail';
 import type { FloorPattern } from '@pryzm/core-app-model';
 // §DEFERWORK-RESI-ADOPT — background-tab-resilient deferral.  `deferWork` honours
 // the delay via setTimeout while the tab is VISIBLE (foreground identical) but
@@ -1977,6 +1982,11 @@ export class ResidentialBuildingExecutor {
             if (Math.hypot(b.x - a.x, b.z - a.z) < 0.1) continue;   // canExecute floor (≥0.1 m)
             try {
                 cm.execute?.(new CreateHandrailCommand({
+                    // §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203) — SPREAD FIRST: the catalogue
+                    // supplies the material + infill members, and this call site's own geometry
+                    // below still wins. Without it the record named NO material and rendered
+                    // grey — ~145 of them in one of the founder's sessions.
+                    ...generatedGuardSpec('glass'),
                     id: createId('handrail'),
                     start: { x: a.x, z: a.z },
                     end: { x: b.x, z: b.z },
@@ -2345,6 +2355,11 @@ export class ResidentialBuildingExecutor {
                 if (Math.hypot(gb.x - ga.x, gb.z - ga.z) < 0.1) continue;
                 try {
                     cm.execute?.(new CreateHandrailCommand({
+                        // §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203) — SPREAD FIRST: the catalogue
+                        // supplies the material + infill members, and this call site's own geometry
+                        // below still wins. Without it the record named NO material and rendered
+                        // grey — ~145 of them in one of the founder's sessions.
+                        ...generatedGuardSpec('glass'),
                         id: createId('handrail'),
                         start: { x: ga.x, z: ga.z },
                         end: { x: gb.x, z: gb.z },
@@ -2767,6 +2782,11 @@ export class ResidentialBuildingExecutor {
         if (Math.hypot(b.x - a.x, b.z - a.z) < 0.1) return;   // degenerate after clamp → skip
         try {
             cm.execute?.(new CreateHandrailCommand({
+                // §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203) — SPREAD FIRST: the catalogue
+                // supplies the material + infill members, and this call site's own geometry
+                // below still wins. Without it the record named NO material and rendered
+                // grey — ~145 of them in one of the founder's sessions.
+                ...generatedGuardSpec('baluster'),
                 id: createId('handrail'),
                 start: { x: a.x, z: a.z },
                 end: { x: b.x, z: b.z },

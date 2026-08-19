@@ -70,6 +70,13 @@ export type { HandrailEndCondition } from './postStations';
 export { resolveHandrailTypeFields, HANDRAIL_TYPE_FIELD_NAMES } from './handrailTypeProjection';
 export type { HandrailTypeLike, HandrailTypeFields } from './handrailTypeProjection';
 
+// §FIX-HANDRAIL-GENERATOR-NO-MATERIAL (L-1203) — the catalogue fields an
+// AUTO-GENERATED guard inherits. Four generators hand-listed their payload and
+// never consulted the catalogue, so ~145 records reached the store naming NO
+// material and rendered grey. One resolver, four callers — never four copies.
+export { generatedGuardSpec, GENERATED_GUARD_TYPE_IDS } from './generatedGuardSpec';
+export type { GeneratedGuardIntent, GeneratedGuardSpec } from './generatedGuardSpec';
+
 // ─── §FIX-HANDRAIL-3D-MODE-BLIND (L-1106 / C95 §15.13) ───────────────────────
 //
 // The 3-D `HandrailTool` had NO mode awareness: the bar offered seven modes in
