@@ -1,12 +1,68 @@
+/**
+ * HandrailTool — the 3-D surface of handrail authoring.
+ *
+ * ═══ WHAT THIS FILE USED TO BE, AND WHY THAT WAS A LIVE C84 EI-3 BREACH ═════
+ *
+ * 255 lines, no `mode` anywhere, no import of the authoring store: a two-click
+ * straight-line tool that resolved the armed TYPE and ignored the armed MODE.
+ * Meanwhile `elementCreationMatrix`'s `railing` row declares `views: ['plan','3d']`
+ * for all SEVEN modes and `activateHandrailTool` shows the `DrawingModeBar` in
+ * either view — so in 3-D the bar offered **Square / Circular / Ellipse**, the user
+ * picked one, and the next two clicks drew a straight line. **The UI offered, the
+ * pipeline did not accept** (L-1106 / C95 §15.13).
+ *
+ * It diverged on the RECORD too, not only the gesture:
+ *   · ids were `crypto.randomUUID()` here and `createId('handrail')` in plan;
+ *   · the payload hand-listed NINE type fields and silently dropped
+ *     `balusterShape`, `balusterWidth`, `balusterSpacing` and `infillMaxGap`.
+ * The same catalogue type therefore produced a different element depending on
+ * which view you drew it in — C84 **EI-9**, and the same shape as C95 §10.1's
+ * `1.1` vs `1.0` height that this family already paid for once.
+ *
+ * ═══ WHAT IT IS NOW ════════════════════════════════════════════════════════
+ *
+ * A **thin surface adapter** over {@link HandrailSketchController} — the ONE
+ * gesture implementation, shared verbatim with `RailingPlanToolHandler`. This file
+ * owns exactly two things, and they are the only two that are genuinely 3-D:
+ *
+ *   1. **pointer event → world XZ** (a ray against the ground plane), and
+ *   2. **how the ghost is painted** (footprint lines + translucent boxes).
+ *
+ * Everything else — which mode, vertex accumulation, the ortho constraint, the arc
+ * construction, loop generation, post suppression, the refusal thresholds, the
+ * readout, the commit and the id shape — lives in the controller, because C95
+ * §15.13 forbids a second gesture implementation BY NAME and this is `stair-path`'s
+ * shape (`StairPathToolController` + a plan handler + a 3-D handler).
+ *
+ * CONTRACTS: C84 EI-3 / EI-9 · C95 §15.13 (L-1106) · C11 · C16 §8.6 · P2 (THREE
+ * only through the `@pryzm/renderer-three` facade) · Contract §41 (preview visual).
+ */
+
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { ProjectContext } from '@pryzm/core-app-model';
-import { CreateHandrailCommand } from '@pryzm/command-registry';
 import { HandrailStore } from '@pryzm/core-app-model/stores';
-import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { SnapManager } from '@pryzm/snapping';
 import { CommandManager } from '@pryzm/command-registry';
 import { PREVIEW_COLOR, createGhostBoxBetween, createFootprintLine, disposePreviewObject } from '@pryzm/core-app-model';
+import {
+    HandrailSketchController,
+    type HandrailSketchPreviewState,
+} from './HandrailSketchController';
+import { setActiveHandrailTypeId } from './handrailAuthoring';
+import type { HandrailRunPoint } from './handrailRunGenerators';
+
+/**
+ * Above this many segments the ghost draws footprint LINES only.
+ *
+ * A `circular` loop emits up to 48 chords and the ghost is rebuilt on every
+ * pointer-move, so 48 `BoxGeometry` allocations per mouse move is a frame-rate
+ * defect waiting to be filed. The footprint line is the part that communicates the
+ * shape; the extruded body is the part that communicates the profile, and on a
+ * 48-chord ring one is redundant with the next. Lines always draw, bodies draw
+ * while the run is small enough for them to mean something.
+ */
+const GHOST_BODY_SEGMENT_LIMIT = 8;
 
 export class HandrailTool {
     private world: OBC.World;
@@ -14,13 +70,13 @@ export class HandrailTool {
     private commandManager: CommandManager;
     private snapManager: SnapManager | null = null;
     private isActive = false;
-    private startPoint: THREE.Vector3 | null = null;
-    private previewLine: THREE.Line | null = null;
-    private previewBody: THREE.Mesh | null = null;
-    private _selectedTypeId: string | undefined;
+    private previewObjects: THREE.Object3D[] = [];
+
+    private readonly _sketch: HandrailSketchController;
 
     private pointerDownHandler: ((e: PointerEvent) => void) | null = null;
     private pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
+    private dblClickHandler: ((e: MouseEvent) => void) | null = null;
     private _escListener: ((e: KeyboardEvent) => void) | null = null;
 
     constructor(
@@ -33,15 +89,51 @@ export class HandrailTool {
         this.projectContext = projectContext;
         this.commandManager = commandManager;
         this.snapManager = SnapManager.createWithDefaults(world.scene.three as THREE.Scene, null);
+
+        // ⭐ THE WHOLE OF L-1106's FIX IS THIS OBJECT. Everything the 3-D surface
+        // knows about handrail authoring it knows through the same controller the
+        // plan surface uses; the two hooks below are the only 3-D-shaped code left.
+        this._sketch = new HandrailSketchController({
+            surface: '3d',
+            dispatcher: () => this.commandManager,
+            levelId: () => this.projectContext.activeLevelId ?? null,
+            preview: {
+                render: (state) => this._renderGhost(state),
+                clear: () => this.clearPreview(),
+            },
+            onBySlab: (outcome) => {
+                if (outcome.kind === 'no-slab') {
+                    console.warn(
+                        '[handrail/3d] BY SLAB — no slab is named. Select the slab BEFORE arming ' +
+                        'the railing tool, or use the bar\'s By Slab action which captures the ' +
+                        'selection first (C95 §15.12).',
+                    );
+                }
+                this._setHudText();
+            },
+        });
     }
 
+    /**
+     * Arm a catalogue type.
+     *
+     * ⛔ IT NO LONGER KEEPS A LOCAL `_selectedTypeId`. That field WAS the second
+     * answer to "which type is armed?" — `activeHandrailAuthoring` held the first,
+     * and the two were kept in step by `setActiveHandrailTypeId` writing BOTH. A
+     * write-through mirror is not a single source of truth, it is two sources with
+     * a habit (C84 EI-9 / C84 §8.d). The store is now the only holder, and this
+     * method is a forwarder so every existing caller
+     * (`BimService.activateHandrailTool`, `PropertyPanelPreDraw`) keeps working.
+     */
     setTypeId(id: string | undefined): void {
-        this._selectedTypeId = id;
+        setActiveHandrailTypeId(id);
+        this._setHudText();
     }
 
     activate(): void {
         if (this.isActive) return;
         this.isActive = true;
+        this._sketch.reset();
         this._escListener = (e: KeyboardEvent) => { if (e.key === 'Escape') this.deactivate(); };
         document.addEventListener('keydown', this._escListener);
         this.attachEventListeners();
@@ -57,10 +149,15 @@ export class HandrailTool {
             this._escListener = null;
         }
         this.detachEventListeners();
+        this._sketch.cancel();
         this.clearPreview();
         if (this.world.camera?.controls) this.world.camera.controls.enabled = true;
         this.hideUI();
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HUD
+    // ─────────────────────────────────────────────────────────────────────────
 
     private showUI(): void {
         const existing = document.getElementById('handrail-tool-ui');
@@ -73,12 +170,11 @@ export class HandrailTool {
         const text = document.createElement('div');
         text.id = 'handrail-tool-text';
         text.className = 'th-text';
-        text.innerHTML = '<strong>Handrail</strong> — Click to set start point';
         ui.appendChild(text);
 
         const hint = document.createElement('div');
+        hint.id = 'handrail-tool-hint';
         hint.className = 'th-hint';
-        hint.textContent = 'Click again to set end point · Esc to cancel';
         ui.appendChild(hint);
 
         const buttons = document.createElement('div');
@@ -96,14 +192,47 @@ export class HandrailTool {
         cancelBtn.className = 'th-btn th-btn--neutral';
         cancelBtn.textContent = 'Cancel';
         cancelBtn.onclick = () => {
-            this.startPoint = null;
-            this.clearPreview();
+            this._sketch.cancel();
             this.deactivate();
         };
         buttons.appendChild(cancelBtn);
 
         ui.appendChild(buttons);
         document.body.appendChild(ui);
+        this._setHudText();
+    }
+
+    /**
+     * ⭐ THE HUD NAMES THE MODE, WHICH IS THE PART A USER CAN CHECK.
+     *
+     * The old copy said *"Handrail — Click to set start point"* whatever the bar
+     * was showing, so a user who armed CIRCULAR and got a straight line had nothing
+     * on screen contradicting them. The readout now comes from the same controller
+     * that will do the committing, so it cannot describe a gesture the tool will
+     * not perform.
+     */
+    private _setHudText(): void {
+        const text = document.getElementById('handrail-tool-text');
+        const hint = document.getElementById('handrail-tool-hint');
+        if (!text && !hint) return;
+        const state = this._sketch.previewState();
+        if (text) {
+            text.innerHTML = `<strong>Handrail — ${state.mode}</strong> · ${state.spec.typeName}`;
+        }
+        if (hint) hint.textContent = HandrailTool._hintFor(state);
+    }
+
+    private static _hintFor(state: HandrailSketchPreviewState): string {
+        if (state.mode === 'byslab') {
+            return 'Click anywhere to guard the slab you selected before arming the tool · Esc to cancel';
+        }
+        if (state.mode === 'square' || state.mode === 'circular' || state.mode === 'ellipse') {
+            return `Click the centre/first corner, then a second point to size the ${state.mode} run · Esc to cancel`;
+        }
+        if (state.mode === 'curved') {
+            return 'Click start, then the arc mid-point, then the end · double-click to finish · Esc to cancel';
+        }
+        return 'Click start, then end · keep clicking to chain · double-click to finish · Esc to cancel';
     }
 
     private hideUI(): void {
@@ -111,97 +240,51 @@ export class HandrailTool {
         if (ui) ui.remove();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Pointer → world XZ (the FIRST of this file's two real jobs)
+    // ─────────────────────────────────────────────────────────────────────────
+
     private attachEventListeners(): void {
         const canvas = this.world.renderer!.three.domElement;
         this.pointerDownHandler = (e: PointerEvent) => this.onPointerDown(e);
         this.pointerMoveHandler = (e: PointerEvent) => this.onPointerMove(e);
+        this.dblClickHandler = () => this._sketch.onDoubleClick();
         canvas.addEventListener('pointerdown', this.pointerDownHandler);
         canvas.addEventListener('pointermove', this.pointerMoveHandler);
+        canvas.addEventListener('dblclick', this.dblClickHandler);
     }
 
     private detachEventListeners(): void {
         const canvas = this.world.renderer!.three.domElement;
         if (this.pointerDownHandler) canvas.removeEventListener('pointerdown', this.pointerDownHandler);
         if (this.pointerMoveHandler) canvas.removeEventListener('pointermove', this.pointerMoveHandler);
+        if (this.dblClickHandler) canvas.removeEventListener('dblclick', this.dblClickHandler);
     }
 
     private onPointerDown(event: PointerEvent): void {
-        if (event.button !== 0) return;
-        const point = this.getWorldPoint(event);
-        if (!point) return;
-        const snapped = this.snapManager?.snap(point, { x: event.clientX, y: event.clientY }).point || point;
-
-        if (!this.startPoint) {
-            this.startPoint = snapped;
-            const text = document.getElementById('handrail-tool-text');
-            if (text) text.innerText = 'Handrail Tool: Click to set end point';
-        } else {
-            const typeDef = this._selectedTypeId
-                ? handrailTypeStore.getById(this._selectedTypeId)
-                : undefined;
-
-            const cmd = new CreateHandrailCommand({
-                id:            crypto.randomUUID(),
-                start:         { x: this.startPoint.x, z: this.startPoint.z },
-                end:           { x: snapped.x,          z: snapped.z },
-                height:        typeDef?.height        ?? 1.0,
-                thickness:     typeDef?.thickness     ?? 0.05,
-                baseOffset:    typeDef?.baseOffset    ?? 0,
-                fillType:      typeDef?.fillType,
-                railProfile:   typeDef?.railProfile,
-                railDiameter:  typeDef?.railDiameter,
-                postSpacing:   typeDef?.postSpacing,
-                materialColor: typeDef?.materialColor,
-                // §C100-HANDRAIL-MATERIAL-ID — the reference, not just the cached hex.
-                materialId:    typeDef?.materialId,
-                levelId:       this.projectContext.activeLevelId,
-            });
-            // ── §FIX-HANDRAIL-TELEMETRY-MUTATION (C95 §4.4 / delta #7) ────────
-            //
-            // WAS: `window.runtime.bus.executeCommand('handrail.create', {})`,
-            // labelled "bus telemetry — fire-and-forget". IT WAS NOT TELEMETRY.
-            // `CreateHandrailHandler.canExecute` guards every check with
-            // `!== undefined`, so an EMPTY payload is VALID; `execute` then seeds a
-            // COMPLETE record — a fresh id, `levelId: ''`, `shape: 'round'`,
-            // `height: 1.0`, `diameter: 0.04` and
-            // `path: [{0,0,0},{1,0,0}]` — and writes it to the plugin DTO store.
-            // So every handrail drawn in 3-D also minted a GHOST 1 m rail at the
-            // world origin, and since NOTHING dispatches `handrail.delete` (C95
-            // §4.3) that ghost was never removed: the store grew monotonically for
-            // the life of the session, and the dormant handlers' `canExecute`
-            // checks validate against those ghosts.
-            //
-            // ⛔ A TELEMETRY CALL MUST NOT BE A MUTATION (C16 CA-17).
-            //
-            // MEASURED before removing it, because C95 §13 item 1 blocked this on a
-            // question nobody had answered — whether the ghost ALSO reached the
-            // legacy store and became user-visible: `CommandEventBridge`'s
-            // `handrail.create` case forwards `record.payload`, which is `{}`, so
-            // it emits `handrail.created` with `id: undefined`; the initTools
-            // §FT-HANDRAIL bridge's first guard is `!ev.id`, so it returns before
-            // touching `handrailStore`. ⇒ NO phantom LEGACY handrail was minted.
-            // The damage was confined to the DTO store — real, but internal.
-            //
-            // Nothing replaces the call. The creation is already observable: the L2
-            // command runs through `CommandManager`, which is where handrail
-            // creation is counted (C95 §4.2 — "the live path is legacy").
-            this.commandManager.execute(cmd);
-            this.startPoint = null;
-            this.clearPreview();
-            const text = document.getElementById('handrail-tool-text');
-            if (text) text.innerText = 'Handrail Tool: Click to set start point';
-        }
+        const pt = this._runPoint(event);
+        if (!pt) return;
+        this._sketch.onClick(pt);
+        this._setHudText();
     }
 
     private onPointerMove(event: PointerEvent): void {
-        if (!this.startPoint) return;
-        const point = this.getWorldPoint(event);
-        if (!point) return;
-        const snapped = this.snapManager?.snap(point, { x: event.clientX, y: event.clientY }).point || point;
-        this.updatePreview(this.startPoint, snapped);
+        const pt = this._runPoint(event);
+        if (!pt) return;
+        this._sketch.onMouseMove(pt);
+        this._setHudText();
     }
 
-    private getWorldPoint(event: PointerEvent): THREE.Vector3 | null {
+    /** Snap-corrected world XZ for a pointer event, or `null` off the ground plane. */
+    private _runPoint(event: PointerEvent | MouseEvent): HandrailRunPoint | null {
+        if ('button' in event && event.type === 'pointerdown' && event.button !== 0) return null;
+        const point = this.getWorldPoint(event);
+        if (!point) return null;
+        const snapped = this.snapManager?.snap(point, { x: event.clientX, y: event.clientY }).point || point;
+        return { x: snapped.x, z: snapped.z };
+    }
+
+    private getWorldPoint(event: PointerEvent | MouseEvent): THREE.Vector3 | null {
         const canvas = this.world.renderer!.three.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
@@ -212,44 +295,53 @@ export class HandrailTool {
         return raycaster.ray.intersectPlane(plane, intersection) ? intersection : null;
     }
 
-    private updatePreview(start: THREE.Vector3, end: THREE.Vector3): void {
+    // ─────────────────────────────────────────────────────────────────────────
+    // Ghost (the SECOND of this file's two real jobs)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Paint the run the controller says the current gesture would commit.
+     *
+     * ⚠ IT IS A POLYLINE NOW, NOT A SEGMENT. The old ghost took a single
+     * `(start, end)` pair, which is precisely why 3-D could not preview a loop: the
+     * drawing code could not express one, so no amount of mode-awareness upstream
+     * would have shown the user a circle. Both halves had to move together.
+     */
+    private _renderGhost(state: HandrailSketchPreviewState): void {
         this.clearPreview();
+        const { pts, closed, spec } = state;
+        if (pts.length < 2) return;
 
-        const length = start.distanceTo(end);
-        if (length < 0.05) return;
+        const elevation = spec.baseOffset;
+        const edgeCount = closed ? pts.length : pts.length - 1;
+        const withBodies = edgeCount <= GHOST_BODY_SEGMENT_LIMIT;
 
-        // Resolve the active type's geometric defaults so the ghost body
-        // matches what will actually be created on the next click. Falls
-        // back to the same defaults used in onPointerDown's command payload.
-        const typeDef = this._selectedTypeId
-            ? handrailTypeStore.getById(this._selectedTypeId)
-            : undefined;
-        const height     = typeDef?.height     ?? 1.0;
-        const thickness  = typeDef?.thickness  ?? 0.05;
-        const baseOffset = typeDef?.baseOffset ?? 0;
+        for (let i = 0; i < edgeCount; i++) {
+            const a = pts[i]!;
+            const b = pts[(i + 1) % pts.length]!;
+            const start = new THREE.Vector3(a.x, 0, a.z);
+            const end = new THREE.Vector3(b.x, 0, b.z);
+            const length = start.distanceTo(end);
+            if (length < 0.05) continue;
 
-        // Both start/end are already at the active storey elevation (the
-        // raycaster intersects the y=0 ground plane in this tool — handrail
-        // creation is currently storey‑local). Use start.y as the floor.
-        const elevation = start.y + baseOffset;
+            const line = createFootprintLine(start, end, elevation, PREVIEW_COLOR.PRIMARY);
+            if (line) { this.world.scene.three.add(line); this.previewObjects.push(line); }
 
-        // Footprint line — visible even when the body is occluded.
-        this.previewLine = createFootprintLine(start, end, elevation, PREVIEW_COLOR.PRIMARY);
-        if (this.previewLine) this.world.scene.three.add(this.previewLine);
-
-        // Translucent 3D ghost body — same convention as Wall / CurtainWall
-        // (see Contract §41, docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
-        this.previewBody = createGhostBoxBetween(start, end, elevation, {
-            color:     PREVIEW_COLOR.PRIMARY,
-            length,
-            height,
-            thickness,
-        });
-        if (this.previewBody) this.world.scene.three.add(this.previewBody);
+            if (!withBodies) continue;
+            // Translucent 3D ghost body — same convention as Wall / CurtainWall
+            // (Contract §41, docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
+            const body = createGhostBoxBetween(start, end, elevation, {
+                color: PREVIEW_COLOR.PRIMARY,
+                length,
+                height: spec.height,
+                thickness: spec.thickness,
+            });
+            if (body) { this.world.scene.three.add(body); this.previewObjects.push(body); }
+        }
     }
 
     private clearPreview(): void {
-        disposePreviewObject(this.previewLine); this.previewLine = null;
-        disposePreviewObject(this.previewBody); this.previewBody = null;
+        for (const obj of this.previewObjects) disposePreviewObject(obj);
+        this.previewObjects = [];
     }
 }

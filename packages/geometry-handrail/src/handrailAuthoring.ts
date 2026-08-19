@@ -1,43 +1,43 @@
 /**
- * activeHandrailAuthoring — §FEAT-HANDRAIL-CREATION-PARITY (founder, 2026-08-18).
+ * handrailAuthoring — THE ONE surface-independent answer to the three questions a
+ * handrail-authoring gesture asks: **which MODE**, **which TYPE**, **which SLAB**.
  *
- * THE ONE surface-independent answer to the two questions a handrail-authoring
- * gesture asks: **which MODE** and **which TYPE**.
+ * ─── WHY IT LIVES IN `@pryzm/geometry-handrail` AND NOT IN `apps/editor` ─────
  *
- * This is `activeWallSystemType.ts` (L-98) and `activeSlabDrawMode.ts` applied to
- * handrail, and it is written as a store for the reason both of those record: the
- * selection must outlive whichever panel instance offered it. There is not ONE
- * handrail picker — `CreateRailPanel` builds a `HandrailModePicker`, the property
- * panel builds a pre-draw widget, and `ToolsAreaLayout` builds a `DrawingModeBar`
- * — so a choice made in one would be invisible to a handler reading another's
- * instance. That is exactly L-98, and it cost a lane once already.
+ * It used to be `apps/editor/src/engine/views/plantools/activeHandrailAuthoring.ts`.
+ * That address made it unreadable from the ONE place that needed it most: the 3-D
+ * `HandrailTool` lives in this package, and an L2 geometry package cannot import
+ * an L7 app. So the 3-D tool could not read the armed MODE, and L-1106 followed
+ * mechanically — the bar offered seven modes in 3-D and the pipeline implemented
+ * one, because the answer was filed somewhere the 3-D surface could not reach.
  *
- * ⛔ IT ALSO CLOSES C95 §10.1, WHICH IS A REAL USER LOSS, NOT TIDINESS.
- * Measured before this lane: `RailingPlanToolHandler` hard-coded
- * `DEFAULT_HEIGHT = 1.1` and `DEFAULT_THICK = 0.05`, imported no
- * `handrailTypeStore` and had no `_selectedTypeId` — *"the plan tool cannot
- * express any catalogue type"* — while `HandrailTool` (3-D) resolved everything
- * from the selected type and defaulted `height` to **1.0**. One question ("what
- * handrail did the user ask for?"), two answers, selected by which VIEW they
- * happened to be in (C84 EI-9). Both tools now resolve from here, and the two
- * literals are DELETED rather than re-synchronised — a comment is not a
- * synchronisation mechanism (C84 §8.d).
+ * ⭐ THIS IS `stair-path`'s SHAPE, WHICH C95 §15.13 NAMES AS THE REFERENCE.
+ * `getStairToolConfig()` lives in `@pryzm/geometry-stair` — the geometry package —
+ * precisely so `StairPathPlanToolHandler` (plan) and `StairPath3DToolHandler` (3-D)
+ * read ONE config. Handrail now does the same. The move is not tidying: a config
+ * store one of your two surfaces cannot import is a config store you have two of.
  *
- * MODE IS LIVE, NOT LATCHED AT ACTIVATION: the plan handler re-reads it on every
+ * ⛔ THERE IS NO COMPATIBILITY RE-EXPORT AT THE OLD PATH. C84 §3.5 / this
+ * package's own index header: a family that leaves a second address for its
+ * authority acquires a second authority. Importers were repointed.
+ *
+ * MODE IS LIVE, NOT LATCHED AT ACTIVATION: every surface re-reads it on every
  * click, so switching mode mid-run applies to the very next segment and the
  * vertices already placed survive (`DrawingModeBar`'s whole reason to exist).
+ *
+ * CONTRACTS: C95 §15.13 (L-1106) · C84 EI-3 / EI-9 · L-98 (a picker instance is
+ * not a store).
  */
 
 import { trace } from '@opentelemetry/api';
-import type { HandrailRunMode } from '@pryzm/geometry-handrail';
+import type { HandrailRunMode } from './handrailRunGenerators';
 
-const _tracer = trace.getTracer('@pryzm/editor.active-handrail-authoring', '0.1.0');
+const _tracer = trace.getTracer('@pryzm/geometry-handrail.authoring', '0.1.0');
 
 /**
- * The modes handrail offers, as ids. Declared in ONE place —
- * `elementCreationMatrix`'s `railing` row is its UI face and imports this union's
- * meaning from `@pryzm/geometry-stair`, so the bar and the generators cannot
- * offer different sets (the `STAIR_SHAPES` lesson, §FIX-STAIR-SHAPE-DESYNC).
+ * The modes handrail offers, as ids. Declared ONCE as `HandrailRunMode` beside the
+ * generators that implement them, so the bar and the generators cannot offer
+ * different sets (the `STAIR_SHAPES` lesson, §FIX-STAIR-SHAPE-DESYNC).
  */
 export type HandrailDrawMode = HandrailRunMode;
 
@@ -86,17 +86,18 @@ export function resolveActiveHandrailDrawMode(): HandrailDrawMode {
 /**
  * Record the ARMED handrail type id (undefined ⇒ the tool's own defaults).
  *
- * Writes here AND to `window.handrailTool.setTypeId`, exactly as the wall picker
- * writes both `activeWallSystemType` and `window.wallTool`: the 3-D tool still
- * reads its own instance field, and until it does not, writing only one of the two
- * is how a type silently fails to apply on one surface.
+ * ⛔ IT NO LONGER MIRRORS INTO `window.handrailTool.setTypeId`, AND THAT DELETION
+ * IS THE POINT. The mirror existed because `HandrailTool` held its OWN
+ * `_selectedTypeId` field, so a type armed here was invisible in 3-D unless it was
+ * written twice. `HandrailTool` now reads {@link resolveActiveHandrailTypeId}, so
+ * the second write has nothing left to keep in sync — and `HandrailTool.setTypeId`
+ * forwards HERE, which is why keeping the mirror would now be an infinite
+ * recursion as well as a duplicate authority (C84 EI-9).
  */
 export function setActiveHandrailTypeId(id: string | undefined): void {
     _tracer.startActiveSpan('pryzm.handrail.set_active_type', (span) => {
         try {
             _typeId = id || undefined;
-            const tool = (window as { handrailTool?: { setTypeId?: (i: string | undefined) => void } }).handrailTool;
-            tool?.setTypeId?.(_typeId);
             span.setAttribute('pryzm.handrail.type_id', _typeId ?? 'default');
         } finally {
             span.end();
@@ -127,9 +128,7 @@ export function resolveActiveHandrailTypeId(): string | undefined {
  * i.e. strictly after that clear, so its guard could never be satisfied — not
  * "usually failed", *never succeeded*, for any user, in any order of operations.
  * The wall has carried the snapshot cure since it was written
- * (`ToolsAreaLayout._bySlabCapture`, "ToolManager.activateTool() disables
- * SelectionManager immediately, so by the time the user clicks the S button the
- * live selection is already cleared"); the railing mirrored the FEATURE without
+ * (`ToolsAreaLayout._bySlabCapture`); the railing mirrored the FEATURE without
  * mirroring the MECHANISM, which is how a By Slab that reads correct in review
  * refuses 100% of the time in the editor.
  *
@@ -160,14 +159,24 @@ export function setHandrailBySlabTarget(slabId: string | undefined): void {
     _pendingBySlabId = slabId || undefined;
 }
 
+/** The shape a live selection has to have for the By-Slab fallback to read it. */
+interface SelectionManagerLike {
+    selectedObject?: { userData?: { id?: string; elementType?: string } };
+}
+
 /**
  * The slab By Slab should guard: the pre-activation snapshot, else the LIVE
  * selection if one somehow survives (a surface that never disabled selection).
  * Never assumes; returns `undefined` so the caller can offer the pick flow.
+ *
+ * ⚠ `globalThis`, not `window` — this module is now imported by a NODE-environment
+ * vitest suite as well as by the browser, and `window` is a ReferenceError there
+ * while `globalThis.selectionManager` is simply `undefined`. Same answer in the
+ * browser (`window === globalThis`), no crash in the harness.
  */
 export function resolveHandrailBySlabTarget(): string | undefined {
     if (_pendingBySlabId) return _pendingBySlabId;
-    const sel = (window as { selectionManager?: { selectedObject?: { userData?: { id?: string; elementType?: string } } } })
+    const sel = (globalThis as { selectionManager?: SelectionManagerLike })
         .selectionManager?.selectedObject;
     const elType = sel?.userData?.elementType?.toLowerCase();
     return elType === 'slab' ? sel?.userData?.id : undefined;

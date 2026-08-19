@@ -343,7 +343,7 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // 'byslab' IS the railing's derive-from-context mode: it takes its whole run
         // from an already-placed slab, exactly as wall's By Slab does.
         autoIn: ['plan', '3d'],
-        modeSource: 'shared', // activeHandrailAuthoring.ts
+        modeSource: 'shared', // @pryzm/geometry-handrail/handrailAuthoring.ts (moved, L-1106)
     },
     {
         tool: 'lift', label: 'Lift',

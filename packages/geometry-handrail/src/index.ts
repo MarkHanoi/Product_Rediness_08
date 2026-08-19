@@ -69,3 +69,47 @@ export type { HandrailEndCondition } from './postStations';
 // and RAC all call it; there is no second copy of the 13-field materialisation.
 export { resolveHandrailTypeFields, HANDRAIL_TYPE_FIELD_NAMES } from './handrailTypeProjection';
 export type { HandrailTypeLike, HandrailTypeFields } from './handrailTypeProjection';
+
+// ─── §FIX-HANDRAIL-3D-MODE-BLIND (L-1106 / C95 §15.13) ───────────────────────
+//
+// The 3-D `HandrailTool` had NO mode awareness: the bar offered seven modes in
+// 3-D and the pipeline implemented one. The four modules below are the fix, and
+// they are here — in the GEOMETRY package — for a structural reason, not a
+// filing one: `HandrailTool` lives in this package and cannot import `apps/editor`,
+// so an authoring store filed under `apps/editor/.../plantools/` was, by
+// construction, unreadable from one of the two surfaces that had to agree.
+//
+// ⭐ This mirrors `@pryzm/geometry-stair`, where `getStairToolConfig` and
+// `StairPathToolController` live beside the geometry for exactly this reason and
+// the plan / 3-D handlers are thin. `elementCreationMatrix` already names
+// `stair-path` as the dual-view reference implementation.
+export {
+    setActiveHandrailDrawMode,
+    resolveActiveHandrailDrawMode,
+    setActiveHandrailTypeId,
+    resolveActiveHandrailTypeId,
+    isHandrailDrawMode,
+    captureHandrailBySlabSelection,
+    setHandrailBySlabTarget,
+    resolveHandrailBySlabTarget,
+    __resetActiveHandrailAuthoringForTests,
+} from './handrailAuthoring';
+export type { HandrailDrawMode } from './handrailAuthoring';
+
+export {
+    resolveArmedHandrailSpec,
+    handrailSharedPayload,
+    UNTYPED_HANDRAIL_HEIGHT,
+    UNTYPED_HANDRAIL_THICKNESS,
+} from './handrailSpec';
+export type { ResolvedHandrailSpec } from './handrailSpec';
+
+export { dispatchHandrailRun, executeHandrailBySlab } from './handrailCommit';
+export type { HandrailBySlabOutcome, HandrailDispatcher } from './handrailCommit';
+
+export { HandrailSketchController } from './HandrailSketchController';
+export type {
+    HandrailSketchHost,
+    HandrailSketchPreviewPort,
+    HandrailSketchPreviewState,
+} from './HandrailSketchController';

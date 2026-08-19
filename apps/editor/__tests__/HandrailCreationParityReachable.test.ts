@@ -37,7 +37,7 @@ import {
 } from '@pryzm/command-registry';
 import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { creationModes } from '../src/engine/views/plantools/elementCreationMatrix';
-import { RailingPlanToolHandler, executeHandrailBySlab } from '../src/engine/views/plantools/RailingPlanToolHandler';
+import { RailingPlanToolHandler } from '../src/engine/views/plantools/RailingPlanToolHandler';
 import { showHandrailPreDraw } from '../src/ui/property-panel/PropertyPanelPreDraw';
 import { DrawingModeBar } from '../src/ui/DrawingModeBar';
 import {
@@ -47,7 +47,8 @@ import {
     resolveActiveHandrailDrawMode,
     __resetActiveHandrailAuthoringForTests,
     setHandrailBySlabTarget,
-} from '../src/engine/views/plantools/activeHandrailAuthoring';
+    executeHandrailBySlab,
+} from '@pryzm/geometry-handrail';
 
 type AnyRec = Record<string, unknown>;
 type Pt = { x: number; z: number };
