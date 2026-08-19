@@ -27,6 +27,7 @@ import {
     appPhase,
     setAppPhase,
     onAppPhaseChanged,
+    resetAppPhaseForNewProject,
     panelDescriptor,
     panelPhaseDefault,
     panelDefaultOpen,
@@ -156,12 +157,13 @@ describe('§UX1-PANEL-DEFAULTS — C82 §1.1: no capability becomes unreachable'
 
 describe('§UX1-PANEL-DEFAULTS — one question, one answer', () => {
     it('panelState follows the table in each phase', () => {
+        // Globe first (the latch is one-way, so this order is the only one that
+        // can observe both phases).
+        expect(panelState('site-analysis')).toBe('absent');
+        expect(panelState('launcher-rail')).toBe('absent');
         setAppPhase('canvas');
         expect(panelState('site-analysis')).toBe('closed');
         expect(panelState('launcher-rail')).toBe('open');
-        setAppPhase('onboarding-globe');
-        expect(panelState('site-analysis')).toBe('absent');
-        expect(panelState('launcher-rail')).toBe('absent');
     });
 
     it('panelAbsent is what callers use to skip MOUNTING, not just to hide', () => {
@@ -208,13 +210,29 @@ describe('§UX1-PANEL-DEFAULTS — phase transitions', () => {
         off();
     });
 
-    it('drops session overrides on a phase change — a canvas choice is not a globe choice', () => {
+    it('⭐ the latch is ONE-WAY: reaching the canvas is permanent for the session', () => {
+        // The failure this prevents: a user working on the canvas clicks the
+        // "PRYZM Earth" pill to look at the site again. If the phase mirrored the
+        // active view, that click would flip them to the globe phase and take the
+        // launcher rail away — including the pills needed to get back. Being
+        // clever about phases would have manufactured the exact unreachability
+        // this lane exists to prevent.
+        expect(setAppPhase('canvas')).toBe(true);
+        expect(setAppPhase('onboarding-globe'), 'the latch let go').toBe(false);
+        expect(appPhase()).toBe('canvas');
+    });
+
+    it('a genuinely new onboarding re-arms the latch, but only via the explicit verb', () => {
         setAppPhase('canvas');
-        setPanelOpen('site-analysis', true);
-        expect(isPanelOpen('site-analysis')).toBe(true);
-        setAppPhase('onboarding-globe');
+        expect(resetAppPhaseForNewProject()).toBe(true);
+        expect(appPhase()).toBe('onboarding-globe');
+    });
+
+    it('drops session overrides on a phase change — a globe choice is not a canvas choice', () => {
+        setPanelOpen('site-plan-overlay', true);           // legal on the globe (closed, not absent)
+        expect(isPanelOpen('site-plan-overlay')).toBe(true);
         setAppPhase('canvas');
-        expect(isPanelOpen('site-analysis'), 'the override survived a phase round-trip').toBe(false);
+        expect(isPanelOpen('site-plan-overlay'), 'the override survived the phase change').toBe(false);
     });
 
     it('survives a throwing phase listener — one bad subscriber may not strand the others', () => {
