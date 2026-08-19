@@ -108,6 +108,9 @@ import type { WallInstanceBridge } from './WallInstanceBridge';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { resolveIntentStyle } from '@pryzm/core-app-model';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
+// §PRYZM-PERF (INSTR1) — per-clause instancing-rejection counters. Off by default;
+// one typed-global read when disarmed. See the block at the `isSimpleWall` predicate.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { batchCoordinator } from '@pryzm/core-app-model';
 
 /**
@@ -425,7 +428,19 @@ export class WallFragmentBuilder {
 
     /**
      * Task 5.6 Phase 5: Exposes rebuild statistics for diagnostics.
-     * Access via `window.__wallFragmentBuilder?.stats` in the browser console.
+     *
+     * ⚠ CORRECTED 2026-08-19 (INSTR1). This said "access via
+     * `window.__wallFragmentBuilder?.stats`". THAT GLOBAL DOES NOT EXIST — nothing in
+     * the repo assigns the double-underscore name (measured). The live handle is
+     * `window.wallFragmentBuilder`, assigned at `apps/editor/src/engine/initTools.ts`,
+     * so every reader who followed this comment got `undefined` and had no way to tell
+     * that from "no builds yet". A documented handle that cannot be obtained is the
+     * same defect class as a documented consumer that does not exist (L-1149).
+     *
+     * These two counters are BUILD-vs-SKIP, not instanced-vs-not. For the instancing
+     * question — how many walls took the instanced arm, and WHICH CLAUSE rejected the
+     * rest — arm §PRYZM-PERF and read `window.pryzmPerf.report()`; the per-clause
+     * counters are bumped at the `isSimpleWall` predicate below.
      */
     get stats(): { builds: number; skips: number; skipRate: number } {
         return {
@@ -1244,6 +1259,49 @@ export class WallFragmentBuilder {
             _layerCount <= 1 &&
             !_hasWallProfile
         );
+
+        // ── §PRYZM-PERF (INSTR1) — WHY was this wall not instanced? ──────────────
+        //
+        // ⭐ THE DECISIVE COUNTER. A 367-element "create walls by slab" batch froze
+        // the viewport for 32.7 s at 2069 scene meshes. The instanced arm is what is
+        // supposed to stop that: 367 qualifying walls collapse into ~1 draw call per
+        // (geometry x material x level) group. 367 groups means instancing collapsed
+        // NOTHING and the freeze has an obvious cause; 1-2 groups means it worked and
+        // the cost is somewhere else entirely. `window.__instancedElementRenderer`
+        // already publishes that ratio — what nobody could see is WHICH CLAUSE sent a
+        // wall down the standard-mesh arm.
+        //
+        // A generated building MITRES ITS CORNERS, so the live hypothesis is that
+        // `joinData.startMN` / `endMN` disqualify most of the batch. That is a guess
+        // until it is counted, which is what these lines do.
+        //
+        // COUNTED PER FAILING CLAUSE, NOT PER WALL — deliberately. A wall that is both
+        // curved and mitred bumps two keys, so the clause totals may exceed
+        // `wall.notInstanced`. Read each clause against `notInstanced`, never against
+        // the other clauses. When one clause alone ~equals `notInstanced`, that clause
+        // IS the answer and the founder's single gesture settles it.
+        //
+        // HOT PATH DISCIPLINE: keys are the frozen `PERF_KEYS` constants, never a
+        // template string — an argument is evaluated before the call, so
+        // `bumpPerf(`wall.reject.${c}`)` would build a string on every wall whether
+        // the flag is on or not. Disarmed, each of these is one property read and a
+        // `=== true` compare.
+        if (isSimpleWall) {
+            bumpPerf(PERF_KEYS.WALL_INSTANCED);
+        } else {
+            bumpPerf(PERF_KEYS.WALL_NOT_INSTANCED);
+            // Clause order mirrors the predicate above, one bump per failing clause.
+            if (this._instanceBridge === null) bumpPerf(PERF_KEYS.WALL_REJECT_NO_BRIDGE);
+            if (_hasOpenings) bumpPerf(PERF_KEYS.WALL_REJECT_OPENINGS);
+            if (wall.curve) bumpPerf(PERF_KEYS.WALL_REJECT_CURVE);
+            if (joinData?.startMN) bumpPerf(PERF_KEYS.WALL_REJECT_MITRE_START);
+            if (joinData?.endMN) bumpPerf(PERF_KEYS.WALL_REJECT_MITRE_END);
+            if (!isVerticalRake((wall as { rakeAngleDeg?: number }).rakeAngleDeg)) {
+                bumpPerf(PERF_KEYS.WALL_REJECT_RAKE);
+            }
+            if (_layerCount > 1) bumpPerf(PERF_KEYS.WALL_REJECT_LAYERS);
+            if (_hasWallProfile) bumpPerf(PERF_KEYS.WALL_REJECT_PROFILE);
+        }
 
         if (isSimpleWall) {
             // §WALL-AUDIT-2026-C1 (move-restore): sync ONLY mutable userData here.

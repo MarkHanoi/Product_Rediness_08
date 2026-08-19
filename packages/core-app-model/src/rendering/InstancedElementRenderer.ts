@@ -352,6 +352,37 @@ export class InstancedElementRenderer {
         return this._groups.size;
     }
 
+    /**
+     * §PRYZM-PERF (INSTR1) — per-group breakdown, for `window.pryzmPerf.report()`.
+     *
+     * `groupCount` vs `totalInstances` is the single most decisive number in a batch
+     * freeze — 367 walls collapsing to 1-2 groups means instancing worked, 367 groups
+     * means it collapsed nothing — but the RATIO alone cannot say WHY a bad ratio
+     * happened. Two very different defects produce "many groups":
+     *
+     *   • many groups each holding ONE instance  → the geometry hash is not colliding
+     *     (per-element unique material is the known offender — see the instancing
+     *     memory note: "instancing defeated by per-element unique materials"), or
+     *   • a few fat groups plus a long tail      → a level/material split, which is
+     *     legitimate and means the cost is elsewhere.
+     *
+     * The hash key itself distinguishes them, because it is BUILT from the axes that
+     * can split a group: `levelId_indexCount_vertexCount_x0_y0_z0_materialUuid`
+     * (`_hashGeometry` below). Reading the keys shows whether 367 groups differ by
+     * LEVEL, by VERTEX COUNT, or by MATERIAL UUID — three different bugs.
+     *
+     * READ-ONLY: returns a fresh array of plain records; nothing here can mutate a
+     * group. Sorted densest-first so a truncated print still shows what matters.
+     */
+    get groupSummary(): { key: string; active: number; allocated: number }[] {
+        const out: { key: string; active: number; allocated: number }[] = [];
+        for (const [key, group] of this._groups) {
+            out.push({ key, active: group.activeCount, allocated: group.allocatedSlots });
+        }
+        out.sort((a, b) => b.active - a.active);
+        return out;
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /**
