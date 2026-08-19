@@ -239,8 +239,8 @@ whose CI run did not succeed (§L-540-CI-GATE). Read `ci.yml`'s header before as
 
 `docs/02-decisions/contracts/README.md` (the "C00" contract-suite index) is **the authoritative
 enumeration of the suite — always defer to it over any range written here.** It indexes
-**C01–C100 + C24.1**; **C61 and C76 are RESERVED, unminted slots**. The suite governs every
-implementation decision.
+**C01–C100 + C24.1**; **`C61` is the ONLY RESERVED, unminted slot** — ~~C76~~ **was MINTED
+2026-08-19** (`baa98eba`, Platform & API Surface). The suite governs every implementation decision.
 
 > ⚠ **Corrected 2026-08-18 — and this is the FOURTH recurrence of one defect shape.** This
 > paragraph and the conflict-resolution order below both read **`C01–C68 + C24.1`**, leaving
@@ -252,12 +252,33 @@ implementation decision.
 > and the literal keeps rotting.**
 >
 > **Re-measure, never re-transcribe:**
-> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **99** (2026-08-18).
-> That is C01–C100 *minus* the two unminted slots C61 and C76, *plus* C24.1. **The count and the
+> `ls docs/02-decisions/contracts/ | grep -c '^C[0-9]'` → **100** (re-measured **2026-08-19**, lane
+> REG1; it read **99** on 2026-08-18, which is the point of re-running it).
+> That is C01–C100 *minus* the ONE unminted slot C61, *plus* C24.1. **The count and the
 > range are different facts** — a correct count with a stale range still demotes real contracts,
 > which is what happened here. **When this file and `contracts/README.md` disagree, README wins**
-> (it says so above); the durable fix is the gate README's banner names — `ls contracts/` equated
-> to the index's row set in both directions — which does not exist yet.
+> (it says so above).
+
+> ⚠ **Corrected AGAIN 2026-08-19 (lane REG1) — the FIFTH recurrence, one day after the fourth.**
+> The paragraph above read *"**C61 and C76 are RESERVED, unminted slots**"* and this box derived
+> the count as *"C01–C100 minus the **two** unminted slots"* → **99**. **C76 was MINTED 2026-08-19**
+> and `C76-PLATFORM-AND-API-SURFACE.md` is on disk. The count/range shape has now failed
+> **C67 → C81 → C84/C85–C99 → C100 → C76**, and the fifth recurrence landed *inside the correction
+> notice for the fourth*. That is the strongest available evidence that the rule *"the row and the
+> range move together"* is stated in three places and was enforced by nothing.
+>
+> ⭐ **It is now enforced.** `tools/ga-gate/check-contract-index-equivalence.ts` (lane REG1,
+> 2026-08-19) compares `ls contracts/` against `contracts/README.md`'s row set **in both
+> directions** — the gate this box previously recorded as *"which does not exist yet"*. It compares
+> **SETS, never a number**, precisely because a count can be right while the range is wrong, which
+> is what happened here more than once. First reading, RC=0: **100 files · 83 rows · arm A
+> FILE-WITHOUT-ROW = 18** (C81, C84, C85–C99, C100 — all real, all ordered by nothing, baselined
+> shrink-only) · arms B/C/D hard-0 and clean. **Read the gate, never this paragraph.**
+>
+> Its sibling `tools/ga-gate/check-contract-cited-paths.ts` (L-960) asserts that every repo path
+> cited anywhere in `contracts/**` resolves on disk or is explicitly marked `PLANNED`. First
+> reading, RC=0 at a pinned baseline: **1528 distinct citations, 491 UNRESOLVED.** The register
+> that proposed it estimated *"119+"*.
 
 Before non-trivial work, read the contract for the subsystem you are touching — e.g. `C03`
 (schemas/commands/state), `C04` (rendering/scheduling), `C11` (element creation pipeline), `C15`
