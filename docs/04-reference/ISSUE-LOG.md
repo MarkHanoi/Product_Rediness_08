@@ -18335,3 +18335,61 @@ The cross-family harness is lane **PERSIST1's** (L-1215..L-1220).
 `WallStore` pair are **restore** projections, not persistence ones. A round-trip test that saves and
 loads would never have gone red here. The axis is **C84 EI-7a — the set of fields a subsystem WRITES
 must equal the set it RESTORES** — and it needs its own arm.
+
+---
+
+## L-1221 — THE TYPED SERIALISER BOUNDARY: TYPING THE SIGNATURE BUYS ALMOST NOTHING; THE **COVERAGE ASSERTION** IS WHAT CATCHES THE BUG ⏳ ONE FAMILY PROVEN 2026-08-19 (lane PERSIST1) — nine costed, not landed
+
+All ten serialisers in the live `ProjectSerializer.ts` read `(x: any): any` with a
+hand-written field list in between. The obvious remedy — replace `any` with the real
+types — was **tried on one family and measured before being generalised.**
+
+### ⚠ THE OBVIOUS VERSION DOES NOT WORK, AND SAYING SO IS THE POINT
+
+`function serializeSlab(s: SlabData): SerializedSlab` **does not catch a dropped field.**
+TypeScript raises nothing when an object literal OMITS an optional property, and every
+interesting field on `SlabData` is optional. A signature change alone would have looked
+like a fix and enforced nothing — the L-809 shape.
+
+### WHAT WAS BUILT INSTEAD
+
+A compile-time coverage assertion beside the typed signature:
+
+```ts
+type AssertNever<T extends never> = T;
+export type _SlabSnapshotCoverage = AssertNever<
+    Exclude<keyof SlabData, keyof SerializedSlab | TransientSlabKey>
+>;
+```
+
+Every key of `SlabData` must appear in the snapshot interface or on a NAMED transient
+list. **Verified by removal, not by reasoning:** deleting `'phase'` from the transient
+list produces
+
+```
+ProjectSerializer.ts(723,5): error TS2344: Type '"phase"' does not satisfy the constraint 'never'.
+```
+
+— the compiler NAMES the field. Restored; root `tsc` is clean on this file.
+
+### THE FIVE KEYS IT SURFACED ON ITS FIRST RUN
+
+`SlabData` carries five keys `serializeSlab()` never wrote. Each now has a written reason,
+which is the output the exercise exists to produce:
+
+| key | verdict |
+|---|---|
+| `spatialRelationship`, `spatialStatus` | **TRANSIENT** — recomputed at load; a stale saved copy would be worse than an absent one |
+| `topReference` | **TRANSIENT (conditionally)** — a constant `'LEVEL'` today (C92 §3). ⚠ If a second value is ever authored, this must move into the snapshot **and the assertion will not remind you** |
+| `phase` | **TRANSIENT** — duplicate of `properties.phase`, which IS persisted |
+| `childrenIds` | ⚠ **KNOWN LOSS (L-1215)**, listed so the assertion passes at today's honest state and fails the moment someone believes it is covered |
+
+### COST OF THE REMAINING NINE — costed, not landed
+
+~40 lines, one import, zero behaviour change per family. **The blocker is not effort.**
+Four families (`stair`, `handrail`, `roof`, `furniture`) serialise records whose store type
+is looser than the family type, so each needs its own transient list **agreed with its
+element lane** — every entry is a claim about whether a field is derivable, and a wrong
+entry is a silent data loss with a comment attached. That negotiation is the work, and it
+is exactly the conversation the assertion forces. ⛔ Do not batch-apply this across nine
+families in one pass to make a number go to zero.

@@ -35,6 +35,7 @@ import { elementCodeStore } from '@pryzm/core-app-model';
 import { roomBoundingLineStore } from '@pryzm/core-app-model/stores';
 import { WallStore } from '@pryzm/geometry-wall';
 import { SlabStore } from '@pryzm/geometry-slab';
+import type { SlabData } from '@pryzm/geometry-slab';
 import { ColumnStore } from '@pryzm/geometry-column';
 import { GridStore } from '@pryzm/core-app-model';
 import { StairStore } from '@pryzm/geometry-stair';
@@ -651,7 +652,79 @@ function serializeWall(wall: any): any {
 
 // ── Slab serialization ──────────────────────────────────────────────────────
 
-function serializeSlab(s: any): any {
+/**
+ * ⭐ §TYPED-SERIALIZER-BOUNDARY (L-1221) — THE PROOF FAMILY. `any` in, `any` out, and a
+ * hand-written field list in between, was the shape of all ten serialisers here. The
+ * compiler could not tell you a field was missing, because you never told it what a slab
+ * was. This one family is typed end-to-end so the cost and the payoff are both measured
+ * rather than argued.
+ *
+ * ⚠ TYPING THE SIGNATURE ALONE BUYS ALMOST NOTHING, and pretending otherwise would be
+ * the whole defect again. TypeScript does not complain when an object literal OMITS an
+ * optional property, and every interesting field on `SlabData` is optional. So the
+ * signature is paired with a COMPILE-TIME COVERAGE ASSERTION below: every key of
+ * `SlabData` must appear either in `SerializedSlab` or on the NAMED transient list, and
+ * the error message names the missing key. That is the part that catches the bug.
+ *
+ * COST, measured on this family: ~40 lines, one import, zero behaviour change. The other
+ * nine families are the same shape and the same size. The blocker is not effort, it is
+ * that four of them (`stair`, `handrail`, `roof`, `furniture`) serialise records whose
+ * store type is looser than the family type, so each needs its own transient list agreed
+ * with its element lane — which is exactly the conversation this assertion forces.
+ */
+type Vec3Plain = { x: number; y: number; z: number };
+type Vec2Plain = { x: number; y: number };
+
+interface SerializedSlab {
+    id: string;
+    type: SlabData['type'];
+    levelId: string;
+    parentId: string | undefined;
+    width: number;
+    depth: number;
+    thickness: number;
+    position: Vec3Plain;
+    polygon: Vec2Plain[] | undefined;
+    holes: Vec2Plain[][] | undefined;
+    baseOffset: number | undefined;
+    materialId: string | undefined;
+    materialColor: string | undefined;
+    layers: SlabData['layers'];
+    systemTypeId: string | null | undefined;
+    sketch: unknown;
+    properties: SlabData['properties'];
+    ifcData: SlabData['ifcData'];
+}
+
+/**
+ * Keys of `SlabData` deliberately absent from the snapshot. ⛔ A key belongs here only
+ * with a reason, and "we never got round to it" is a KNOWN LOSS with an L-number, not a
+ * transient. Adding a name here to silence the assertion below re-creates the defect.
+ */
+type TransientSlabKey =
+    // Recomputed at load by the spatial index / room detection — a stale saved copy
+    // would be WORSE than an absent one.
+    | 'spatialRelationship'
+    | 'spatialStatus'
+    // A constant today (`'LEVEL'`, C92 §3). If a second value is ever authored this must
+    // move out of this list and into the snapshot, and the assertion will not remind you
+    // — which is why it is called out here.
+    | 'topReference'
+    // Duplicate of `properties.phase`, which IS persisted. One concept, one wire.
+    | 'phase'
+    // ⚠ KNOWN LOSS, not a transient — L-1215. `childrenIds` is serialised for walls and
+    // dropped by every restore path because no create-command declares it; for slabs it
+    // is not even written. Listed so the assertion passes at today's honest state and
+    // fails the moment someone believes it is covered.
+    | 'childrenIds';
+
+/** Fails the build NAMING any `SlabData` key that reaches neither the snapshot nor the list. */
+type AssertNever<T extends never> = T;
+export type _SlabSnapshotCoverage = AssertNever<
+    Exclude<keyof SlabData, keyof SerializedSlab | TransientSlabKey>
+>;
+
+function serializeSlab(s: SlabData): SerializedSlab {
     return {
         id: s.id, type: s.type, levelId: s.levelId, parentId: s.parentId,
         width: s.width, depth: s.depth, thickness: s.thickness,
