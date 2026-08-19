@@ -309,10 +309,42 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
            'IMPLEMENTATION (one tool, StairPathPlanToolHandler + StairPath3DToolHandler ' +
            'over one StairToolConfigStore); it is the pattern the single-view gaps below ' +
            'should copy.' },
-    { tool: 'railing',    label: 'Railing',    views: ['plan', '3d'],
-      modes: [{ id: 'polyline', key: 'L', label: 'Polyline', description: 'Freeform run of railing' }],
-      autoIn: [], modeSource: 'shared',
-      gap: 'NOT IMPLEMENTED — no auto-from-stair-flight or auto-from-slab-edge mode.' },
+    {
+        // §FEAT-HANDRAIL-CREATION-PARITY (founder, 2026-08-18) — "I want it created
+        // in the same way [as the wall] … BY LINE, ORTHO, CURVED, BY SLAB and add
+        // SQUARE, CIRCULAR, ELLIPSE."
+        //
+        // The first three are WALL_DRAW_MODES spread verbatim, not retyped, so the
+        // railing bar and the wall bar cannot drift apart in label or accelerator.
+        // 'By Slab' is wall's ACTION, with wall's semantics: it consumes the current
+        // SELECTION the instant it is picked, so it never takes the active-pill
+        // highlight and sits after the bar's separator.
+        //
+        // The three closed-loop generators are MODES, not actions, and the
+        // distinction is load-bearing: each is a two-click GESTURE on the canvas
+        // (centre/corner, then rim/opposite corner), so the user must be able to
+        // SEE which one is armed while they aim. Declaring them actions would strip
+        // the highlight and leave the bar saying 'Linear' while the next click
+        // starts a circle — the UI reporting the axis that did not change, which is
+        // L-956's exact shape.
+        //
+        // Ids match `HandrailRunMode` in @pryzm/geometry-stair, which is the module
+        // that turns each mode into real geometry — so the bar cannot offer a mode
+        // the generator does not implement (§FIX-STAIR-SHAPE-DESYNC's lesson).
+        tool: 'railing', label: 'Railing',
+        views: ['plan', '3d'],
+        modes: [
+            ...WALL_DRAW_MODES,
+            { id: 'byslab',   key: 'S', label: 'By Slab',  description: 'Guard the selected slab\u2019s perimeter', isAction: true },
+            { id: 'square',   key: 'Q', label: 'Square',   description: 'Closed rectangular loop from two opposite corners' },
+            { id: 'circular', key: 'R', label: 'Circular', description: 'Closed circular loop from centre and radius' },
+            { id: 'ellipse',  key: 'E', label: 'Ellipse',  description: 'Closed elliptical loop from centre and bounding corner' },
+        ],
+        // 'byslab' IS the railing's derive-from-context mode: it takes its whole run
+        // from an already-placed slab, exactly as wall's By Slab does.
+        autoIn: ['plan', '3d'],
+        modeSource: 'shared', // activeHandrailAuthoring.ts
+    },
     {
         tool: 'lift', label: 'Lift',
         views: ['3d'], modes: [], autoIn: [], modeSource: 'n/a',

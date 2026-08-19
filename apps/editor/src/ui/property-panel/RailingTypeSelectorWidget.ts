@@ -46,6 +46,15 @@ export interface RailingTypeApplyPayload {
     railDiameter?: number;
     postSpacing?: number;
     materialColor?: string;
+    /**
+     * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members. Without these
+     * the RETYPE path would apply a different railing from the CREATE path for the
+     * same catalogue entry (C84 EI-9).
+     */
+    balusterShape?: 'rectangular' | 'round';
+    balusterWidth?: number;
+    balusterSpacing?: number;
+    infillMaxGap?: number;
 }
 
 /**
@@ -122,6 +131,11 @@ export function buildRailingTypeSelectorWidget(
             railDiameter:  def.railDiameter,
             postSpacing:   def.postSpacing,
             materialColor: def.materialColor,
+            // §FEAT-HANDRAIL-TYPE-LIBRARY-20 — materialise the type WHOLE.
+            balusterShape:   def.balusterShape,
+            balusterWidth:   def.balusterWidth,
+            balusterSpacing: def.balusterSpacing,
+            infillMaxGap:    def.infillMaxGap,
         });
 
         applyBtn.textContent = '✓ Applied';

@@ -154,8 +154,35 @@ export class HandrailTool {
                 materialColor: typeDef?.materialColor,
                 levelId:       this.projectContext.activeLevelId,
             });
-            // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-            if (window.runtime?.bus) { window.runtime.bus.executeCommand('handrail.create', {}).catch(() => {}); }
+            // ── §FIX-HANDRAIL-TELEMETRY-MUTATION (C95 §4.4 / delta #7) ────────
+            //
+            // WAS: `window.runtime.bus.executeCommand('handrail.create', {})`,
+            // labelled "bus telemetry — fire-and-forget". IT WAS NOT TELEMETRY.
+            // `CreateHandrailHandler.canExecute` guards every check with
+            // `!== undefined`, so an EMPTY payload is VALID; `execute` then seeds a
+            // COMPLETE record — a fresh id, `levelId: ''`, `shape: 'round'`,
+            // `height: 1.0`, `diameter: 0.04` and
+            // `path: [{0,0,0},{1,0,0}]` — and writes it to the plugin DTO store.
+            // So every handrail drawn in 3-D also minted a GHOST 1 m rail at the
+            // world origin, and since NOTHING dispatches `handrail.delete` (C95
+            // §4.3) that ghost was never removed: the store grew monotonically for
+            // the life of the session, and the dormant handlers' `canExecute`
+            // checks validate against those ghosts.
+            //
+            // ⛔ A TELEMETRY CALL MUST NOT BE A MUTATION (C16 CA-17).
+            //
+            // MEASURED before removing it, because C95 §13 item 1 blocked this on a
+            // question nobody had answered — whether the ghost ALSO reached the
+            // legacy store and became user-visible: `CommandEventBridge`'s
+            // `handrail.create` case forwards `record.payload`, which is `{}`, so
+            // it emits `handrail.created` with `id: undefined`; the initTools
+            // §FT-HANDRAIL bridge's first guard is `!ev.id`, so it returns before
+            // touching `handrailStore`. ⇒ NO phantom LEGACY handrail was minted.
+            // The damage was confined to the DTO store — real, but internal.
+            //
+            // Nothing replaces the call. The creation is already observable: the L2
+            // command runs through `CommandManager`, which is where handrail
+            // creation is counted (C95 §4.2 — "the live path is legacy").
             this.commandManager.execute(cmd);
             this.startPoint = null;
             this.clearPreview();

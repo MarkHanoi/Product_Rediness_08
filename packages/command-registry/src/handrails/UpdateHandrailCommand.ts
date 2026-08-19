@@ -22,6 +22,22 @@ export interface UpdateHandrailPayload {
     railDiameter?: number;
     postSpacing?: number;
     /**
+     * §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members, for the SAME
+     * reason L-623 added `railDiameter` / `postSpacing` directly above: a
+     * materialised type must be materialised WHOLE.
+     *
+     * ⛔ THIS IS A ONE-SIDED-FIX GUARD, NOT AN EXTRA. `CreateHandrailCommand` now
+     * carries these four, so a railing CREATED as "Timber Picket Railing" gets its
+     * 38 mm pickets at the 100 mm-sphere pitch. Had only creation been widened, a
+     * railing RETYPED to the same catalogue entry would have kept generic 20 mm
+     * balusters at 0.11 m — one shared defect turned into a per-path divergence,
+     * which is worse than the defect (C84 EI-9). Both paths move together.
+     */
+    balusterShape?: 'rectangular' | 'round';
+    balusterWidth?: number;
+    balusterSpacing?: number;
+    infillMaxGap?: number;
+    /**
      * §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the handrail's two-point baseline.
      *
      * This is what made handrail MOVE a "double lie" (enabled + inert on BOTH surfaces):
@@ -109,6 +125,13 @@ export class UpdateHandrailCommand implements Command {
         // materialised into the record, so every field the type declares must be written.
         if (this.payload.railDiameter !== undefined) updates.railDiameter = this.payload.railDiameter;
         if (this.payload.postSpacing  !== undefined) updates.postSpacing  = this.payload.postSpacing;
+        // §FEAT-HANDRAIL-TYPE-LIBRARY-20 — the four infill fields, written by the
+        // same rule. `serializeHandrailSnapshot` is a plain JSON round-trip with no
+        // field whitelist (measured), so undo restores them without further work.
+        if (this.payload.balusterShape   !== undefined) updates.balusterShape   = this.payload.balusterShape;
+        if (this.payload.balusterWidth   !== undefined) updates.balusterWidth   = this.payload.balusterWidth;
+        if (this.payload.balusterSpacing !== undefined) updates.balusterSpacing = this.payload.balusterSpacing;
+        if (this.payload.infillMaxGap    !== undefined) updates.infillMaxGap    = this.payload.infillMaxGap;
         // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — deep-clone: the store keeps the reference, and a
         // shared array would let a later caller mutate the committed record in place (and
         // would make the ring-buffer inverse patch restore the NEW endpoints — a no-op undo).

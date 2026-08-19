@@ -1960,6 +1960,16 @@ export function initBusHandlers(
                             ...(cmd.railDiameter  !== undefined ? { railDiameter:  cmd.railDiameter  } : {}),
                             ...(cmd.postSpacing   !== undefined ? { postSpacing:   cmd.postSpacing   } : {}),
                             ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
+                            // §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the four infill
+                            // fields a railing type declares. Added in lock-step with
+                            // CreateHandrailCommand: fixing only the create path would
+                            // have made "Timber Picket Railing" mean two different
+                            // railings depending on whether you drew it or retyped into
+                            // it, which is worse than the shared defect (C84 EI-9).
+                            ...(cmd.balusterShape   !== undefined ? { balusterShape:   cmd.balusterShape   } : {}),
+                            ...(cmd.balusterWidth   !== undefined ? { balusterWidth:   cmd.balusterWidth   } : {}),
+                            ...(cmd.balusterSpacing !== undefined ? { balusterSpacing: cmd.balusterSpacing } : {}),
+                            ...(cmd.infillMaxGap    !== undefined ? { infillMaxGap:    cmd.infillMaxGap    } : {}),
                         }));
                     });
                     return;

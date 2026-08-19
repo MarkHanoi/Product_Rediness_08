@@ -24,6 +24,13 @@ import {
 // snapped the bar's highlight back to Linear while the tool really was in region mode
 // — the UI reporting the axis that had not changed, which is L-956's whole shape.
 import { resolveSlabReentryMode } from '@app/engine/views/plantools/activeSlabFamilyMode';
+// §FEAT-HANDRAIL-CREATION-PARITY (founder 2026-08-18; C95 D4) — the railing's
+// shared mode + armed-type store, read by BOTH the plan handler and the 3-D tool.
+import {
+    setActiveHandrailDrawMode,
+    resolveActiveHandrailDrawMode,
+    setActiveHandrailTypeId,
+} from '@app/engine/views/plantools/activeHandrailAuthoring';
 import { isBoundaryDrawMode } from '@pryzm/geometry-slab';
 import type { FloorPickerMode } from '../FloorModePicker';
 import type { CeilingPickerMode } from '../CeilingModePicker';
@@ -218,6 +225,10 @@ export function mountToolsArea(
     // §FEAT-PERSISTENT-MODE-BAR — the slab's in-draw mode bar (the wall's control,
     // shared component, slab's own declared modes).
     const slabDrawingBar    = new DrawingModeBar();
+    // §FEAT-HANDRAIL-CREATION-PARITY — the railing's in-draw mode bar. The SAME
+    // `DrawingModeBar` component and the SAME `.wdh-*` styles the wall and slab
+    // bars use, driven by the railing's own declared modes. Not a look-alike.
+    const handrailDrawingBar = new DrawingModeBar();
     const wallDrawingHUD   = new WallDrawingHUD();
 
     // ── By Slab helper — shared by WallModePicker (legacy) and WallDrawingHUD ─
@@ -536,6 +547,61 @@ export function mountToolsArea(
             }
         };
         window.addEventListener('keydown', escHandler);
+    };
+
+    // ─── Handrail Pre-Draw + mode bar — §FEAT-HANDRAIL-CREATION-PARITY ───────
+    //
+    // THE FOUNDER, 2026-08-18: "I would like PARITY WITH THE WALL ELEMENT … I want
+    // it created in the same way: once the user clicks it should have the same
+    // UI/UX as the wall's authoring panel … BY LINE, ORTHO, CURVED, BY SLAB and
+    // add SQUARE, CIRCULAR, ELLIPSE."
+    //
+    // Measured before this: activating the handrail tool opened `HandrailModePicker`
+    // — a PRE-FLIGHT list of types that dismissed itself on pick — and then showed
+    // NO panel and NO mode bar at all. There was one gesture (two clicks, a straight
+    // line) and no way to change anything without re-activating the tool. This is the
+    // slab's §FEAT-PERSISTENT-MODE-BAR treatment applied to the railing, for the same
+    // founder complaint and with the same rule:
+    //
+    //   ⛔ A MODE SWITCH MUST NEVER CALL AN `activate*` FUNCTION. `activateTool`
+    //   routes through `deactivateAllInternal()` and destroys the in-progress
+    //   polyline, so switching mode would mean starting the run over — the whole
+    //   defect the shared bar exists to remove. `onSelect` writes the shared store
+    //   and NOTHING else; `RailingPlanToolHandler` re-reads it on the next click, so
+    //   the vertices already placed survive.
+    //
+    // BY SLAB is the one exception and is declared `isAction` in the creation matrix:
+    // it consumes the current selection immediately rather than constraining the next
+    // click, exactly as wall's By Slab does. It still only writes the store — the
+    // handler performs the action on the user's next click, so no re-activation.
+    const _origActivateHandrail = service.activateHandrailTool.bind(service);
+    service.activateHandrailTool = (typeId?: string) => {
+        _origActivateHandrail(typeId);
+        // An activation that names a type ARMS it surface-independently (L-98), so a
+        // type chosen from the ARCHITECTURE palette reaches the plan handler too.
+        if (typeId) setActiveHandrailTypeId(typeId);
+
+        props.inspector.showHandrailPreDraw?.(window.handrailTool);
+
+        if (handrailDrawingBar.isVisible()) {
+            handrailDrawingBar.setMode(resolveActiveHandrailDrawMode());
+        } else {
+            handrailDrawingBar.show({
+                label: 'Handrail:',
+                modes: creationModes('railing'),
+                initialMode: resolveActiveHandrailDrawMode(),
+                onSelect: (id) => { setActiveHandrailDrawMode(id); },
+            });
+        }
+
+        const escHandlerHr = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                props.inspector.hide?.();
+                handrailDrawingBar.dismiss();
+                window.removeEventListener('keydown', escHandlerHr);
+            }
+        };
+        window.addEventListener('keydown', escHandlerHr);
     };
 
     if (props.toolManager?.activateDoor) {

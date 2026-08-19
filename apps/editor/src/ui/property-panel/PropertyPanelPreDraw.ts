@@ -16,6 +16,15 @@
  */
 
 import { buildWallTypeSelectorWidget } from './WallTypeSelectorWidget';
+// §FEAT-HANDRAIL-CREATION-PARITY (founder 2026-08-18; C95 D4/D5) — the railing
+// pre-draw panel reads the SAME catalogue widget a SELECTED railing offers, so the
+// creation list and the retype list can never differ (C84 EI-9).
+import { buildRailingTypeSelectorWidget } from './RailingTypeSelectorWidget';
+import { handrailTypeStore } from '@pryzm/core-app-model/stores';
+import {
+    setActiveHandrailTypeId,
+    resolveActiveHandrailTypeId,
+} from '../../engine/views/plantools/activeHandrailAuthoring';
 import { setActiveWallSystemTypeId } from '../../engine/views/plantools/activeWallSystemType';
 import { buildSlabTypeSelectorWidget } from './SlabTypeSelectorWidget';
 import { buildCeilingTypeSelectorWidget } from './CeilingTypeSelectorWidget';
@@ -810,4 +819,139 @@ export function showCurtainWallPreDraw(host: PreDrawPanelHost, curtainWallTool: 
     header.appendChild(host.buildCloseBtn());
     host.element.appendChild(header);
     host.makeVisible();
+}
+
+
+/**
+ * showHandrailPreDraw — §FEAT-HANDRAIL-CREATION-PARITY (founder, 2026-08-18).
+ *
+ * THE FOUNDER, in substance: *"once the user clicks it should have the same UI/UX
+ * as the wall's authoring panel. The user could select from a number of railings
+ * (please create 20 types)."*
+ *
+ * This is `showWallPreDraw`, structurally: same `gpp-header` shell, same
+ * `gpp-type-badge`, same "ready — click on canvas to draw" hint that names the
+ * ARMED type, same `wts-*` dropdown, same Esc note, same
+ * `positionBesideModeBar()` so it sits beside the `DrawingModeBar` exactly as the
+ * wall panel sits beside the wall bar.
+ *
+ * THREE THINGS ARE COPIED DELIBERATELY, EACH BECAUSE ITS ABSENCE WAS A LOGGED BUG:
+ *
+ *  1. **SELECTION ALONE ARMS** (§FIX-PLAN-WALL-TYPE-ARM-ON-SELECT, L-115). No
+ *     separate Apply click. Requiring one is how a panel comes to say "Plain
+ *     ready" while a type is visibly chosen in the dropdown, and the user then
+ *     draws the wrong thing. The widget's Apply still works and is idempotent.
+ *  2. **THE TOOL IS READY BEFORE ANY TYPE IS PICKED** (§FIX-PLAN-WALLTOOL-DEFAULT-ACTIVE,
+ *     L-28). The hint says so. The railing handler's first click commits with the
+ *     current/default type; the dropdown only ever CHANGES it.
+ *  3. **THE ARMED TYPE LIVES IN A STORE, NOT IN THIS PANEL** (L-98). It is written
+ *     to `activeHandrailAuthoring`, which both the plan handler and the 3-D tool
+ *     read, so a type chosen here applies on whichever surface the user draws on.
+ *
+ * ⛔ THE LIST IS NOT DUPLICATED. It comes from `handrailTypeStore` via the SAME
+ * `buildRailingTypeSelectorWidget` the property panel renders for a SELECTED
+ * railing. A hand-copied list here would be a second enumeration of one fact and
+ * would silently omit every type published later — invisible until someone asked
+ * why a type they can see when a railing is selected is missing when they go to
+ * draw one (C84 EI-9).
+ */
+export function showHandrailPreDraw(host: PreDrawPanelHost, handrailTool: unknown): void {
+    host.clearForPreDraw('handrail');
+
+    const header = document.createElement('div');
+    header.className = 'gpp-header';
+
+    const badge = document.createElement('div');
+    badge.className = 'gpp-type-badge';
+    badge.textContent = 'NEW HANDRAIL';
+    header.appendChild(badge);
+
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;';
+    titleEl.textContent = 'Draw Handrail';
+    header.appendChild(titleEl);
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.85);margin-bottom:8px;';
+    header.appendChild(hint);
+
+    /**
+     * ARM the type: write the surface-independent store (which also forwards to
+     * `window.handrailTool.setTypeId` for the 3-D builder, exactly as the wall
+     * picker writes both `activeWallSystemType` and `window.wallTool`), and update
+     * the readout to the SELECTED type so the panel can never say "Default ready"
+     * while a catalogue type is chosen.
+     */
+    const armHandrailType = (rawId: string | undefined): void => {
+        const id = rawId && !rawId.startsWith('__') ? (rawId || undefined) : undefined;
+        setActiveHandrailTypeId(id);
+        // Belt and braces for the layout paths where the passed tool reference is
+        // the live one but the window global is not yet assigned.
+        (handrailTool as { setTypeId?: (i: string | undefined) => void } | undefined)?.setTypeId?.(id);
+
+        const def = id ? handrailTypeStore.getById(id) : undefined;
+        hint.textContent = def
+            ? `\u2713 ${def.name} ready \u2014 ${Math.round(def.height * 1000)} mm, ${def.fillType} infill. Click on canvas to draw.`
+            : '\u2713 Default Handrail ready \u2014 click on canvas to draw. Change type below (optional).';
+        hint.style.color = 'rgba(255,255,255,0.85)';
+    };
+
+    const currentTypeId = resolveActiveHandrailTypeId();
+
+    // The widget resolves "current" by matching the record's materialised fields,
+    // so the pseudo-element is seeded from the armed type's own fields rather than
+    // from a `typeId` the family deliberately does not store.
+    const armedDef = currentTypeId ? handrailTypeStore.getById(currentTypeId) : undefined;
+    const pseudoData: Record<string, unknown> = {
+        elementType: 'railing',
+        height: armedDef?.height,
+        fillType: armedDef?.fillType,
+        railProfile: armedDef?.railProfile,
+    };
+
+    const typeWidget = buildRailingTypeSelectorWidget(pseudoData, (payload) => {
+        armHandrailType(payload.typeId);
+    });
+
+    if (typeWidget) {
+        header.appendChild(typeWidget);
+        // L-115: the dropdown is THE single source of truth for the armed type, so
+        // a plain SELECT arms it even if the widget's Apply path is ever unwired.
+        const sel = typeWidget.querySelector('select');
+        if (sel) {
+            if (currentTypeId) (sel as HTMLSelectElement).value = currentTypeId;
+            sel.addEventListener('change', () => armHandrailType((sel as HTMLSelectElement).value));
+        }
+    } else {
+        // NOT a silent blank: say WHY there is no picker (C84 §CONTEXT-DATA-HONESTY —
+        // "failure and emptiness are the same value" unless someone distinguishes them).
+        const why = document.createElement('div');
+        why.style.cssText = 'font-size:10px;color:rgba(255,200,120,0.9);margin-bottom:8px;';
+        why.textContent =
+            'No railing type picker \u2014 the catalogue offers fewer than two types, '
+            + 'so there is nothing to choose between. Drawing still works with the defaults.';
+        header.appendChild(why);
+    }
+
+    // Seed the armed type + label from the current selection, exactly as the wall
+    // panel does: a pre-armed type shows in the label, otherwise the panel says
+    // Default and the user can draw IMMEDIATELY without touching the dropdown.
+    armHandrailType(currentTypeId);
+
+    const modeNote = document.createElement('div');
+    modeNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.45);margin-top:6px;line-height:1.4;';
+    modeNote.textContent =
+        'Modes (bar below): L Linear \u00b7 O Orthogonal \u00b7 C Curved \u00b7 '
+        + 'S By Slab \u00b7 Q Square \u00b7 R Circular \u00b7 E Ellipse';
+    header.appendChild(modeNote);
+
+    const escNote = document.createElement('div');
+    escNote.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.35);margin-top:6px;';
+    escNote.textContent = 'Press Esc to cancel';
+    header.appendChild(escNote);
+
+    header.appendChild(host.buildCloseBtn());
+    host.element.appendChild(header);
+    host.makeVisible();
+    host.positionBesideModeBar();
 }

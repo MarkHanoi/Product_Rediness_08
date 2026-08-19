@@ -286,6 +286,12 @@ export function _buildTypeSelector(
                 railDiameter:  payload.railDiameter,
                 postSpacing:   payload.postSpacing,
                 materialColor: payload.materialColor,
+                // §FEAT-HANDRAIL-TYPE-LIBRARY-20 (C95 D5) — the infill members, so a
+                // RETYPE applies the same railing a CREATE with that type does.
+                balusterShape:   payload.balusterShape,
+                balusterWidth:   payload.balusterWidth,
+                balusterSpacing: payload.balusterSpacing,
+                infillMaxGap:    payload.infillMaxGap,
             })
                 ?.then(() => host.onRerender({ ...elementData, ...payload }))
                 ?.catch((e: unknown) => console.warn('[PropertyPanel] element.changeType (railing) failed:', e));

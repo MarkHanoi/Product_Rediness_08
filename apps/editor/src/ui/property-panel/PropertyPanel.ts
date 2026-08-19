@@ -54,6 +54,8 @@ import {
     showCeilingPreDraw as _showCeilingPreDraw,
     showFloorPreDraw as _showFloorPreDraw,
     showCurtainWallPreDraw as _showCurtainWallPreDraw,
+    // §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — the railing's "NEW HANDRAIL" panel.
+    showHandrailPreDraw as _showHandrailPreDraw,
 } from './PropertyPanelPreDraw';
 import {
     AnnotationPanelHost,
@@ -683,6 +685,15 @@ export class PropertyPanel {
      * Calls wallTool.setSystemTypeId() when the user clicks Apply — no element
      * is selected yet so no store mutation / command is needed here.
      */
+    /**
+     * §FEAT-HANDRAIL-CREATION-PARITY (C95 D4) — the railing's pre-draw panel, the
+     * wall panel's twin. Called from `ToolsAreaLayout` when the handrail tool is
+     * activated, alongside the shared `DrawingModeBar`.
+     */
+    public showHandrailPreDraw(handrailTool: unknown): void {
+        _showHandrailPreDraw(this._asPreDrawHost(), handrailTool);
+    }
+
     public showWallPreDraw(wallTool: any): void {
         _showWallPreDraw(this._asPreDrawHost(), wallTool);
     }
