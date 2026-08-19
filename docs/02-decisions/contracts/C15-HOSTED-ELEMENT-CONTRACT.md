@@ -2,6 +2,7 @@
 
 > **Stamp**: 2026-05-17 · **Status**: CANONICAL  
 > **Scope**: All BIM elements that reside _inside_ a wall (doors, windows, wall-based structural openings).  
+> ⛔ **NOT curtain-wall doors** — see §0.1 (decided 2026-08-19).  
 > **Authority**: Governs the parametric offset model, the opening-void geometry lifecycle, drag constraints, and all wall-baseline mutation paths that carry hosted elements.  
 > **Related contracts**: C02 §3.3 (wall baseline update dual-write), C03 §4 (command bus), C11 (element creation pipeline).
 
@@ -37,6 +38,42 @@ Two further defects were reported against this contract and **could not be settl
 
 **An unverified row left blank reads as "fine" and is indistinguishable from "nobody looked."** Both
 rows above are the latter.
+
+---
+
+---
+
+## §0.1 — SCOPE BOUNDARY: A CURTAIN-WALL DOOR IS **NOT** A HOSTED ELEMENT UNDER THIS CONTRACT
+
+> **DECIDED 2026-08-19 (lane CW1) · owner: [C87 §13.5 CW-Door-1](C87-ELEMENT-CURTAIN-WALL.md) ·
+> logged as [L-1072](../../04-reference/ISSUE-LOG.md).** C87 §13.5 asked whether C15's host
+> semantics generalise to a door in a curtain-wall panel. **They do not, and C15 is NOT amended to
+> make them.** The full reasoning lives in C87 §13.5 and is deliberately **not restated here** — a
+> decision written in two places is a decision that will diverge (C84 EI-9). This clause exists so
+> the question is not re-opened from the C15 side by someone who never reads C87.
+
+**The boundary, in the terms §1 and §2 already use:**
+
+| C15 requires | A curtain-wall door has |
+|---|---|
+| a **host wall**: the `Wall` entity in `WallStore` carrying the element in `openings[]` | a **panel** in `CurtainPanelStore`, which is not a `Wall` and has no `openings[]` |
+| a scalar **`offset`** along `baseLine`, from which the world position is derived (§2) | a **`cellIndex`**, whose durable identity is the bounding grid-line pair `(uLineId, vLineId)` (C87 CW-P-B) |
+| a **void geometry** cut into the host mesh by `WallFragmentBuilder` | **no void** — the cell is already a hole in the mullion grid, and the door *is* the infill |
+| rebuild via **`WallRebuildCoordinator`** on `bim-wall-updated` from `WallStore` | rebuild via `CurtainPanelSyncHandler` + the §MI-02 panel-store subscriber |
+
+⛔ **AND THE REASON THIS IS A SCOPE CLAUSE RATHER THAN A GENERALISATION.** Widening §1's *"host"* to
+*"the entity whose record contains the hosted element"* would have changed **every word** of §1 and
+§2 and **none** of the machinery in `WallFragmentBuilder` or `WallRebuildCoordinator`. That is the
+same defect shape as L-809 and L-812 — a document asserting an enforcement that does not exist —
+and §0.0 above is this contract's own instance of it. **A contract amendment no code would implement
+is worse than no amendment.**
+
+**Consequence, stated so it is not discovered later:** a curtain-wall door is **not** a `door` for
+the purposes of C86, `DoorStore`, the door property panel, door schedules or IFC. The single
+enumerator that surfaces them —
+`collectCurtainWallDoors` in `packages/geometry-curtain-wall/src/curtainWallDoors.ts` — is named in
+C87 §13.5, and the consumers that do **not** yet call it are enumerated there as a declared absence,
+not as a clearance.
 
 ---
 

@@ -37,7 +37,8 @@
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { PanelType, isValidPanelType, VALID_PANEL_TYPES } from '@pryzm/geometry-curtain-wall';
+import { PanelType, isValidPanelType, VALID_PANEL_TYPES, DEFAULT_HOSTED_DOOR } from '@pryzm/geometry-curtain-wall';
+import type { CurtainPanelHostedDoor } from '@pryzm/geometry-curtain-wall';
 
 export interface ReplacePanelTypePayload {
     /** The CurtainPanelData.id to update. */
@@ -58,6 +59,19 @@ export interface ReplacePanelTypePayload {
      * Recorded here so the mismatch is declared rather than discovered.
      */
     offsetFromCentreline?: number;
+    /**
+     * §CW-3 / C87 §13.5 CW-Door-1 — the hosted-door configuration for a
+     * `SystemPanel_Door` cell. Omit to leave it untouched; pass `null` to clear it.
+     *
+     * ── THE C15 DECISION THIS FIELD ENCODES (taken 2026-08-19, lane CW1) ────────
+     * A curtain-wall door is **answer (b)**: a PANEL KIND that REPLACES a grid cell,
+     * NOT a C15 hosted opening. It therefore has no `offset`, no `openings[]` entry
+     * and no void cut — it is authored on the panel record, by the same one route
+     * every other per-panel attribute uses. The full reasoning and its contract
+     * citations live in C87 §13.5; it is not restated here, because a decision
+     * restated in two places is a decision that will diverge.
+     */
+    hostedDoor?: Partial<CurtainPanelHostedDoor> | null;
 }
 
 export class ReplacePanelTypeCommand implements Command {
@@ -77,6 +91,10 @@ export class ReplacePanelTypeCommand implements Command {
      *  undo cannot write `undefined` over an offset this command never touched. */
     private previousOffset: number | undefined = undefined;
     private touchedOffset = false;
+    /** §CW-3 — same discipline as `touchedOffset`: snapshot ONLY what this
+     *  dispatch wrote, so an undo cannot revert a door some other command set. */
+    private previousHostedDoor: CurtainPanelHostedDoor | undefined = undefined;
+    private touchedHostedDoor = false;
 
     constructor(private payload: ReplacePanelTypePayload) {
         this.targetIds = [payload.panelId];
@@ -136,6 +154,35 @@ export class ReplacePanelTypeCommand implements Command {
             updates.offsetFromCentreline = this.payload.offsetFromCentreline;
         }
 
+        // §CW-3 / C87 §13.5 — HOSTED DOOR.
+        //
+        // Two behaviours, and the second is the one that stops a dead affordance:
+        //  · an explicit `hostedDoor` payload is MERGED onto the defaults, so a UI
+        //    that sends only `{ hingesSide: 'right' }` does not blank the other five;
+        //  · switching a cell TO `SystemPanel_Door` with no door record materialises
+        //    `DEFAULT_HOSTED_DOOR`. Without this, `isAuthoredPanel` sees
+        //    `hostedDoor === undefined`, the sparse-override writer records only the
+        //    panelType, and the six door fields never reach the file — a door that
+        //    reloads with its hinge side reset and no error (the L-1057 shape).
+        //    `buildDoorObject` already spreads the defaults at BUILD time, which is
+        //    exactly why the gap was invisible: the door LOOKED right and was not stored.
+        if (this.payload.hostedDoor !== undefined) {
+            this.previousHostedDoor = panel.hostedDoor;
+            this.touchedHostedDoor  = true;
+            updates.hostedDoor = this.payload.hostedDoor === null
+                ? undefined
+                : { ...DEFAULT_HOSTED_DOOR, ...(panel.hostedDoor ?? {}), ...this.payload.hostedDoor };
+        } else if (this.payload.newPanelType === 'SystemPanel_Door' && !panel.hostedDoor) {
+            this.previousHostedDoor = panel.hostedDoor;
+            this.touchedHostedDoor  = true;
+            updates.hostedDoor = { ...DEFAULT_HOSTED_DOOR };
+        }
+        // The converse is deliberate and is NOT done: moving a cell AWAY from
+        // `SystemPanel_Door` leaves `hostedDoor` in place, so an undo — or a change
+        // of mind — restores the user's hinge side and swing rather than the
+        // factory defaults. A stale sub-record on a non-door panel is inert
+        // (`buildFlatPanel` never reads it) and `isAuthoredPanel` keeps it persisted.
+
         // §MI-02 FIX: panelStore.update() emits storeEventBus 'curtain-panel' event.
         // EngineBootstrap's panelStore subscriber calls curtainWallBuilder.updateCurtainWall(cw)
         // — no touch of cwStore required. The old cwStore.update(cwId, {}) has been removed.
@@ -162,6 +209,7 @@ export class ReplacePanelTypeCommand implements Command {
             materialOverride: this.previousMaterialOverride,
             // §CW-2 — restored only if execute() actually changed it. See execute().
             ...(this.touchedOffset ? { offsetFromCentreline: this.previousOffset } : {}),
+            ...(this.touchedHostedDoor ? { hostedDoor: this.previousHostedDoor } : {}),
         });
 
         return { success: true, affectedElementIds: [this.payload.panelId, panel.curtainWallId] };

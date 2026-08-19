@@ -39,7 +39,7 @@
 // exactly what produced the divergence EI-4a was written about.
 
 import { ReplacePanelTypeCommand } from '@pryzm/command-registry';
-import type { PanelType } from '@pryzm/geometry-curtain-wall';
+import type { PanelType, CurtainPanelHostedDoor } from '@pryzm/geometry-curtain-wall';
 
 /** The minimum of the legacy command manager this route needs. */
 export interface PanelCommandManagerLike {
@@ -54,6 +54,9 @@ export interface ReplaceCurtainPanelTypeArgs {
   /** §CW-2 — signed metres off the wall centreline. Omit to leave it untouched;
    *  pass 0 to return the panel to flush. */
   readonly offsetFromCentreline?: number;
+  /** §CW-3 / C87 §13.5 — a PARTIAL door config, merged onto what the panel already
+   *  has. Omit to leave the door untouched; `null` clears it. */
+  readonly hostedDoor?: Partial<CurtainPanelHostedDoor> | null;
   readonly commandManager: PanelCommandManagerLike | null | undefined;
 }
 
@@ -91,6 +94,9 @@ export function replaceCurtainPanelType(
     // honest and an undo cannot revert a field this dispatch never wrote.
     ...(args.offsetFromCentreline !== undefined
         ? { offsetFromCentreline: args.offsetFromCentreline } : {}),
+    // §CW-3 — same rule: forwarded only when supplied, so the command's
+    // `touchedHostedDoor` snapshot stays honest.
+    ...(args.hostedDoor !== undefined ? { hostedDoor: args.hostedDoor } : {}),
   });
 
   try {

@@ -1343,34 +1343,126 @@ Type · material · finish · **offset from centreline**.
 
 ### 13.5 — CW-3: CURTAIN-WALL DOORS
 
-The six `hostedDoor` fields exist (`CurtainPanelTypes.ts:89-105`) and reach **no schema, no bridge,
-no serialiser** (§11 #7 — which L-1057 shows is the *same* defect, not a second one).
+- ✅ **CW-Door-1 — DECIDED 2026-08-19 (lane CW1, [L-1072](../../04-reference/ISSUE-LOG.md)):
+  ANSWER (b). A CURTAIN-WALL DOOR IS A PANEL *KIND* THAT REPLACES A GRID CELL. IT IS NOT A C15
+  HOSTED OPENING, AND C15 IS NOT GENERALISED.**
+  > The founder's standing instruction was to decide rather than escalate. The decision is (b),
+  > and the five reasons below are **measured**, not preferred — each names the file that settles it.
+  > **Do not re-litigate this without a measurement that contradicts one of the five.**
+  >
+  > 1. **C15's coordinate model cannot express a cell, and widening it would put two answers under
+  >    one question.** [C15 §2](C15-HOSTED-ELEMENT-CONTRACT.md) is *derivational*:
+  >    `worldCentre = baseLine[0] + offset × wallDir + (width/2) × wallDir`, and C15 §1 defines
+  >    `offset` as a **scalar along the host baseline**. A curtain panel has no such scalar: its
+  >    position is `cellIndex` resolved against `gridSystem`, and under CW-P-B its durable identity
+  >    is the bounding grid-line PAIR `(uLineId, vLineId)`. Adopting (a) makes C15's `offset` a
+  >    union of *"scalar along a baseline"* and *"a pair of grid-line ids"* — **C84 EI-9, two answers
+  >    to one question**, in the contract whose entire job is the first answer.
+  > 2. **THERE IS NO VOID, SO THERE IS NOTHING FOR C15's MECHANISM TO DO.** C15 §1 defines an
+  >    opening as `{ elementId, offset, width, height }` in `wall.openings[]` and a **void geometry**
+  >    *"cut into the wall mesh by `WallFragmentBuilder`"*. A curtain-wall cell is **already a hole in
+  >    the mullion grid**; the panel is the infill. Perforating an infill that is itself the fill is
+  >    incoherent. Measured: `CurtainPanelFactory.buildDoorObject()` (`:296`) builds frame, stiles,
+  >    optional sill and leaf **directly from `cellRect(cell)`** — no boolean, no void, **no second
+  >    element**.
+  > 3. **C15's REBUILD PATH DOES NOT REACH THIS FAMILY, AND AMENDING C15 WOULD SAY OTHERWISE.**
+  >    C15 §1 names `WallRebuildCoordinator`, which subscribes to `bim-wall-updated` from
+  >    **`WallStore`**. Curtain walls live in `CurtainWallStore` and rebuild through
+  >    `CurtainPanelSyncHandler` plus the §MI-02 panel-store subscriber (`initUI.ts:2263-2287`).
+  >    Generalising C15 §1's *"host"* would drag a `WallStore`-shaped rebuild contract over a store
+  >    that does not participate in it — changing the **words** of C15 while changing **none** of its
+  >    machinery. ⭐ **That is precisely the L-809/L-812 defect shape** — a document asserting an
+  >    enforcement that does not exist — and it is the single most expensive mistake this repo keeps
+  >    making. **A contract amendment that no code would implement is worse than no amendment.**
+  > 4. **The record already committed to (b), in writing, before the question was asked.**
+  >    `CurtainPanelTypes.ts:88-89`: *"Stored inline on `CurtainPanelData.hostedDoor` — **not** in
+  >    `DoorStore`. `DoorStore` is exclusively for wall-opening-hosted doors."* Choosing (a) would
+  >    mean migrating six fields into `DoorStore` and minting `openings[]` on a record that has none.
+  > 5. **(b) INHERITS THE THREE MECHANISMS THIS LANE ALREADY BUILT; (a) WOULD NEED PARALLELS OF ALL
+  >    THREE.** Under (b) a door is an authored panel attribute, so it gets CW-P sparse-override
+  >    persistence, CW-P-B position-keyed cell identity (so a re-space **refuses** rather than
+  >    silently re-targeting the door — §L-1058), and the existing per-panel authoring route, for
+  >    free. Under (a) it would need an offset model that **every grid edit silently invalidates** —
+  >    and *"a door quietly moving to the wrong cell is worse than losing it"* is CW-P-B's own words.
 
-- ⛔ **CW-Door-1 — THE HOSTING QUESTION MUST BE ANSWERED BEFORE ANY CODE, AND C87 MAY NOT ANSWER IT
-  ALONE.** [C15 §1](C15-HOSTED-ELEMENT-CONTRACT.md) defines the host as *"the `Wall` entity (in
-  `WallStore`) that contains the hosted element in its `openings[]` array"*, and **C15 §2** states a
-  hosted element *"has no independent world-space coordinate in the store"*. **A curtain-wall door is
-  hosted by a PANEL, not by a wall.** A panel is not a `Wall`, has no `openings[]`, and its own
-  position is derived from its cell. So one of exactly two things is true, and **C87 must not pick
-  silently** (C84 EI-9 — one answer per question):
-  - **(a) C15's host semantics generalise**, and C15 is amended so a host is *"the entity whose
-    record contains the hosted element"* — `wall.openings[]` and `panel.hostedDoor` being two
-    instances of one rule; **or**
-  - **(b) this is a genuinely different relationship** — a panel is *replaced by* a door rather than
-    *perforated by* one — and it needs its own contract clause, because `SystemPanel_Door` is a panel
-    **type**, not an opening cut into a panel.
-  > **The measured evidence favours (b):** there is no opening, no cut, and no second element — the
-  > cell's panel simply *is* a door. **But (b) means a curtain-wall door is not a `door` for C86's
-  > purposes**, and every consumer that enumerates doors (schedules, IFC, the door property panel)
-  > must be told which answer holds. **DECISION OWED — founder/orchestrator, and it blocks CW-3.**
-- **CW-Door-2.** Whichever answer holds, the six fields MUST round-trip (CW-P) and the door MUST be
-  visible to **IFC export** or its absence declared. Today `CurtainWallReader.ts` reads store (3)
-  only, so a curtain-wall door is invisible to IFC — **unmeasured until now, and stated here so it is
-  not discovered after shipping.**
+  ⛔ **THE COST OF (b), AND IT IS PAID IN CODE, NOT DECLARED AWAY.** C87 stated it before the
+  decision: *"(b) means a curtain-wall door is not a `door` for C86's purposes, and every consumer
+  that enumerates doors must be told which answer holds."* The wrong way to pay that is for each
+  consumer to learn `panelType === 'SystemPanel_Door'` and re-derive it — that is how §9 came to
+  measure **three rival panel vocabularies**. So the decision ships with **one enumerator**:
+  `packages/geometry-curtain-wall/src/curtainWallDoors.ts` — `isCurtainWallDoorPanel` /
+  `collectCurtainWallDoors` / `countCurtainWallDoors`. A consumer asking *"what doors exist"* gets
+  **one list assembled from two homes**, never two rival lists (C84 EI-9).
+  > **It deliberately does NOT synthesise `DoorData`.** A curtain-wall door has no baseline offset,
+  > so a synthesised `DoorData` would have to **fabricate one**, and a fabricated coordinate that
+  > looks real is worse than an absent one. `CurtainWallDoorRef` is a **distinct shape** so a
+  > consumer that cannot handle it **fails to compile** rather than mis-placing a door.
+
+- ✅ **CW-Door-2 (persistence half) — DELIVERED.** `hostedDoor` round-trips through the CW-P sparse
+  overrides (`curtainPanelOverrides.ts:139,168,239,303`), and `isAuthoredPanel` treats its presence
+  as authorship. **The gap that made this only half-true is now closed at the AUTHORING end:**
+  `ReplacePanelTypeCommand` **materialises `DEFAULT_HOSTED_DOOR`** when a cell becomes a door with no
+  config.
+  > ⭐ **WHY THAT ONE LINE IS THE WHOLE OF CW-Door-2, AND IT IS THE L-1057 SHAPE AGAIN.**
+  > `buildDoorObject` spreads `DEFAULT_HOSTED_DOOR` at **build** time (`:299`). A door-typed cell
+  > with no record therefore **renders as a perfectly correct door and stores nothing** —
+  > `isAuthoredPanel` sees `hostedDoor === undefined`, the override writer records only the
+  > `panelType`, and the six fields never reach the file. **The defect is invisible at the pixel and
+  > fatal at the save**, which is why the executed arm asserts the RECORD, not the render. For panels
+  > that predate this, `CurtainWallDoorRef.usingDefaults` **reports** the state rather than passing
+  > factory defaults off as authored values.
+
+- ⛔ **CW-Door-3 — DECLARED ABSENCE, NOT A CLEARANCE (C84 EI-6).** **IFC export does not consume the
+  projection.** `CurtainWallReader.ts` reads the wall store only, so a curtain-wall door is
+  **invisible to IFC today**. The enumerator exists and is exported; the `packages/interop` call site
+  does not, and is **not this lane's**. Stated in the module header as well as here, so a reader of
+  the code — not only a reader of the contract — knows who has not yet called it.
+  > **Also NOT wired, and named rather than left blank:** door **schedules** and the door property
+  > panel. Both enumerate `DoorStore`; neither calls `collectCurtainWallDoors`. The projection is
+  > the mechanism that makes wiring them a one-line change, and until someone makes it, a
+  > curtain-wall door is **absent from every door schedule in the product.**
+
+- **CW-Door-4 — THE SURFACE.** `CurtainSubElementPanel` gains a **Door** card: hinge side, swing,
+  sill height, frame thickness, frame colour, leaf colour. It is **always rendered and disabled**
+  unless the pending panel type is `SystemPanel_Door` — **not hidden**. A control that appears and
+  disappears with an unrelated selection teaches the user it does not exist; a disabled control
+  carrying its reason teaches them how to reach it. The card follows the **pending** type, so the
+  controls unlock the instant "Door" is picked rather than after a round trip.
+  > ⚠ **`CurtainPanelEditor` (the cell grid) does NOT offer the door card** — it still offers type
+  > and colour only. Declared, not discovered: the two surfaces now differ in what they can author,
+  > and closing that is a follow-up, **not something this section may record as done.**
+  > ⚠ **NOT EXECUTED IN A BROWSER.** Every arm below the UI is an executed test against the real
+  > command and the real projection; the card itself is a code path that has been read, not a
+  > session that has been run (§committed-is-not-reachable). **Founder-verifiable.**
 
 ### 13.6 — CW-4: MULLIONS AS FIRST-CLASS SUB-ELEMENTS
 
-- **CW-Mul-1.** Mullions become selectable (CW-Sel-1) and editable — material, finish, profile size.
+- **CW-Mul-1 — ⚠ SPLIT, BECAUSE MEASUREMENT SPLIT IT, AND ONE HALF IS DELIVERED.**
+  A census before design found `mullionSize` **already an editable NUMBER row** in the curtain-wall
+  property descriptor (`PropertyDescriptorGenerator.ts`, `curtainwall` block) — the **fourth** item
+  in this specification that measurement found partly built. What was genuinely missing was the
+  **SPACING**, the founder's *"post/mullion spacing"*: `gridXSpacing` and `gridYSpacing` had **no**
+  editable row anywhere in the UI, so the only way to change bay width was to redraw the wall or add
+  grid lines one `t` at a time in `CurtainGridEditor`.
+  ✅ **DELIVERED 2026-08-19 ([L-1073](../../04-reference/ISSUE-LOG.md)):** *Post Spacing* and
+  *Transom Spacing* rows, routed through `wall.updateCurtainWall` → `UpdateCurtainWallCommand` —
+  the one verb that reaches the **authoritative** geometry record
+  (`initBusHandlers.ts:993`, §FIX-CW-UPDATE-REACH-RECORD).
+  > ⭐ **AND THE HALF THAT WOULD HAVE BEEN THE FOURTH INSTANCE OF THIS CONTRACT'S OWN VERDICT.**
+  > `CurtainWallBuilder.ts:1135` and `:1813` both read
+  > `cw.gridSystem ?? migrateToGridSystem(length, height, gridXSpacing, gridYSpacing, id)`. **The
+  > scalar spacing fields are consulted ONLY while `gridSystem` is absent** — and a wall acquires one
+  > the moment anyone adds or removes a grid line, after which `ProjectSerializer.ts:655` persists
+  > it. Two rows writing `gridXSpacing` alone would therefore have **changed the record, re-rendered
+  > nothing, and reported success.** `UpdateCurtainWallCommand` now **re-derives `gridSystem`** from
+  > the new spacing inside the **same** `store.update()`, so it is one write and one undo entry, and
+  > `undo()`'s full-snapshot `store.set()` carries the previous grid back verbatim.
+  > **Two refusals, both with an executed arm that watches them FIRE** (§13.12's red-first rule):
+  > a re-space regenerates a **uniform** grid, so hand-inserted lines at non-uniform `t` cease to
+  > exist and the count is **reported** in `CommandResult.info` rather than dropped (C84 EI-6); and a
+  > zero-length baseline **refuses** the re-derivation rather than writing the degenerate
+  > `{uLines:[],vLines:[]}` that L-1052 shipped from the sibling path.
+- **CW-Mul-1b — STILL OPEN.** Per-mullion material, finish and profile size.
   `CurtainSubElementPanel.ts:21` currently declares mullion editing *"Phase 2 (read-only in Phase 1)"*;
   this section is Phase 2 and that line must go.
 - **CW-Mul-2 — A MULLION HAS NO RECORD, AND THAT IS THE REAL WORK.** Panels have

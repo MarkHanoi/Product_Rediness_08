@@ -82,3 +82,14 @@ export {
     applyCurtainPanelOverrides,
     describeLostOverride,
 } from './curtainPanelOverrides.js';
+
+// §CW-3 / C87 §13.5 — the curtain-wall DOOR PROJECTION. A curtain-wall door is a
+// panel KIND, not a C15 hosted opening (decision 2026-08-19, C87 §13.5), so every
+// consumer that enumerates doors reads it through here rather than re-deriving the
+// `panelType === 'SystemPanel_Door'` rule (C84 EI-9).
+export type { CurtainWallDoorRef } from './curtainWallDoors.js';
+export {
+    isCurtainWallDoorPanel,
+    collectCurtainWallDoors,
+    countCurtainWallDoors,
+} from './curtainWallDoors.js';

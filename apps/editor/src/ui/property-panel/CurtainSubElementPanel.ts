@@ -28,7 +28,8 @@
  * Risk: Low — new file, zero impact on existing panels or tools.
  */
 
-import { PanelType, VALID_PANEL_TYPES } from '@pryzm/geometry-curtain-wall';
+import { PanelType, VALID_PANEL_TYPES, DEFAULT_HOSTED_DOOR } from '@pryzm/geometry-curtain-wall';
+import type { CurtainPanelHostedDoor } from '@pryzm/geometry-curtain-wall';
 import { CurtainSubElement } from '@pryzm/geometry-curtain-wall';
 import type { CurtainPropertyPanelContext } from './CurtainGridEditor';
 import { replaceCurtainPanelType } from './replaceCurtainPanelType';
@@ -263,6 +264,11 @@ function buildPanelSubPanel(
                 b.style.background = bPt === pt ? 'rgba(110,142,251,0.08)' : '#fff';
                 b.style.fontWeight = bPt === pt ? '700' : '500';
             });
+            // CW-3 -- the door card follows the PENDING type, not the committed one,
+            // so the controls become live the moment the user picks "Door" and before
+            // they press Apply. A card that only unlocked after a round trip would
+            // make authoring a door a two-Apply gesture.
+            syncDoorCardEnabled();
         });
         btn.dataset.ptbtn = pt;
         btnRow.appendChild(btn);
@@ -341,6 +347,97 @@ function buildPanelSubPanel(
     body.appendChild(offCard);
 
     // ── Apply button ──────────────────────────────────────────────────────────
+    // Section 5: CW-3 / C87 s13.5 -- HOSTED DOOR.
+    //
+    // THE C15 DECISION, IN ONE LINE, BECAUSE THE UI IS WHERE IT BECOMES VISIBLE:
+    // a curtain-wall door is a PANEL KIND that replaces a cell, not a C15 opening
+    // cut into one. That is why this card lives on the PANEL property sheet and
+    // there is no door element to select, no offset and no openings[] entry.
+    // Reasoning + citations: C87 s13.5.
+    //
+    // The card is rendered ALWAYS and DISABLED unless the pending type is
+    // SystemPanel_Door -- not hidden. A control that appears and disappears with an
+    // unrelated selection teaches the user it does not exist; a disabled control
+    // with its reason shown teaches them how to reach it.
+    const { card: doorCard, body: doorBody } = makeCard('Door', 5);
+
+    const doorNote = document.createElement('div');
+    doorNote.style.cssText = 'grid-column:1/-1;font-size:9.5px;color:#7a8aaa;margin-bottom:4px;';
+    doorBody.appendChild(doorNote);
+
+    const existingDoor: CurtainPanelHostedDoor = {
+        ...DEFAULT_HOSTED_DOOR,
+        ...(panelData?.hostedDoor ?? {}),
+    };
+
+    function doorSelect(label: string, options: ReadonlyArray<[string, string]>, current: string): HTMLSelectElement {
+        const lbl = document.createElement('div');
+        lbl.className = 'gpp-prop-label';
+        lbl.textContent = label;
+        doorBody.appendChild(lbl);
+        const sel = document.createElement('select');
+        sel.className = 'gpp-prop-input';
+        options.forEach(([v, t]) => {
+            const o = document.createElement('option');
+            o.value = v; o.textContent = t;
+            if (v === current) o.selected = true;
+            sel.appendChild(o);
+        });
+        doorBody.appendChild(sel);
+        return sel;
+    }
+
+    function doorNumber(label: string, current: number, step: string, min: string): HTMLInputElement {
+        const lbl = document.createElement('div');
+        lbl.className = 'gpp-prop-label';
+        lbl.textContent = label;
+        doorBody.appendChild(lbl);
+        const inp = document.createElement('input');
+        inp.type = 'number'; inp.step = step; inp.min = min;
+        inp.className = 'gpp-prop-input';
+        inp.value = String(current);
+        doorBody.appendChild(inp);
+        return inp;
+    }
+
+    const hingeSel = doorSelect('Hinge Side', [['left', 'Left'], ['right', 'Right']], existingDoor.hingesSide);
+    const swingSel = doorSelect('Swing', [['inward', 'Inward'], ['outward', 'Outward']], existingDoor.swingDirection);
+    const sillInput = doorNumber('Sill Height (m)', existingDoor.sillHeight, '0.01', '0');
+    const frameInput = doorNumber('Frame Thickness (m)', existingDoor.frameThickness, '0.005', '0.03');
+
+    const frameColorLabel = document.createElement('div');
+    frameColorLabel.className = 'gpp-prop-label';
+    frameColorLabel.textContent = 'Frame Colour';
+    doorBody.appendChild(frameColorLabel);
+    const frameColorInput = document.createElement('input');
+    frameColorInput.type = 'color';
+    frameColorInput.className = 'gpp-color-input';
+    frameColorInput.value = existingDoor.frameColor;
+    doorBody.appendChild(frameColorInput);
+
+    const leafColorLabel = document.createElement('div');
+    leafColorLabel.className = 'gpp-prop-label';
+    leafColorLabel.textContent = 'Leaf Colour';
+    doorBody.appendChild(leafColorLabel);
+    const leafColorInput = document.createElement('input');
+    leafColorInput.type = 'color';
+    leafColorInput.className = 'gpp-color-input';
+    leafColorInput.value = existingDoor.leafColor;
+    doorBody.appendChild(leafColorInput);
+
+    const doorControls: Array<HTMLInputElement | HTMLSelectElement> =
+        [hingeSel, swingSel, sillInput, frameInput, frameColorInput, leafColorInput];
+
+    function syncDoorCardEnabled(): void {
+        const on = pendingType === 'SystemPanel_Door';
+        doorControls.forEach(c => { c.disabled = !on; c.style.opacity = on ? '1' : '0.45'; });
+        doorNote.textContent = on
+            ? 'This cell IS the door - a curtain-wall door replaces its panel, it is not an opening cut into one.'
+            : 'Select the "Door" panel type above to configure a door in this cell.';
+    }
+    syncDoorCardEnabled();
+    body.appendChild(doorCard);
+
     const applyBtn = document.createElement('button');
     applyBtn.className = 'gpp-apply-btn';
     applyBtn.textContent = 'Apply Changes';
@@ -364,11 +461,31 @@ function buildPanelSubPanel(
         const offNum = offRaw === '' ? undefined : Number(offRaw);
         const offVal = offNum !== undefined && Number.isFinite(offNum) ? offNum : undefined;
 
+        // CW-3 -- the door config is sent ONLY when the pending type is a door.
+        // Sending it for a glass panel would mint a hostedDoor sub-record on a cell
+        // that has no door, which isAuthoredPanel would then persist forever: the
+        // sparse-override set is only sparse if nothing writes to it by accident.
+        const sillNum = Number(sillInput.value);
+        const frameNum = Number(frameInput.value);
+        const doorCfg = pendingType === 'SystemPanel_Door'
+            ? {
+                hingesSide: hingeSel.value as 'left' | 'right',
+                swingDirection: swingSel.value as 'inward' | 'outward',
+                // Non-finite falls back to the CURRENT value, never to 0 -- a blank
+                // sill box must not silently drop a transom the user set earlier.
+                sillHeight: Number.isFinite(sillNum) && sillNum >= 0 ? sillNum : existingDoor.sillHeight,
+                frameThickness: Number.isFinite(frameNum) && frameNum > 0 ? frameNum : existingDoor.frameThickness,
+                frameColor: frameColorInput.value,
+                leafColor: leafColorInput.value,
+              }
+            : undefined;
+
         const r = replaceCurtainPanelType({
             panelId: subEl.id,
             newPanelType: pendingType,
             materialOverride: colorVal,
             ...(offVal !== undefined ? { offsetFromCentreline: offVal } : {}),
+            ...(doorCfg !== undefined ? { hostedDoor: doorCfg } : {}),
             commandManager: _commandManager(ctx),
         });
         if (r.ok) {
