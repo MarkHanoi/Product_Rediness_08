@@ -10,6 +10,16 @@ import { doorSystemTypeStore } from './DoorSystemTypeStore';
 // the placed 3D frame is dimensionally identical to what the user previewed.
 import { resolveDoorDimensions } from './DoorDimensions';
 import { DoorOpening } from './DoorTypes';
+// ⭐ C100 §2.1 / S17 — the door's material ladder. The builder is the RENDERING
+// authority (WindowBuilder says the same of itself), so it must resolve the id the
+// record carries; it must not re-implement the ladder, and it does not.
+import {
+    resolveDoorFinishColour,
+    DOOR_COLOR_SENTINEL,
+    DOOR_UNRESOLVED_MATERIAL_COLOR,
+    type DoorFinishSlot,
+    type DoorFinishColour,
+} from './doorFinishColour';
 // §FEAT-CURVED-DOOR-LEAF (L-957) — the leaf's arc is the HOST'S arc, consumed
 // through `hostedElementFrame`. Nothing in this file re-derives it; see
 // `CurvedLeafGeometry.ts` for why that is the whole point of the feature, and
@@ -305,6 +315,52 @@ export class DoorBuilder {
         return materialDirty;
     }
 
+    /**
+     * ⭐ C100 §2.1 / S17 — THE door's colour authority, and the ONLY one in this file.
+     *
+     * Both material paths call it — the full rebuild (`buildVisuals`) and the live
+     * patch (`_applyPropertyOnly`) — because `frameFinish` / `leafFinish` sit in
+     * `_PROPERTY_ONLY_FIELDS`, so a finish change is routed to the PATCH path and
+     * never to the rebuild. A resolver wired into only one of the two would leave
+     * the user's actual gesture — picking a finish from the dropdown — on the
+     * unfixed branch, which is precisely the shape of the defect being closed.
+     *
+     * C100 §5's diagnostic is emitted here, ONCE PER DOOR (not per member, and not
+     * per frame): a façade of a hundred doors on a deleted material must produce a
+     * hundred magenta doors and ONE console line.
+     */
+    private _finishColour(door: DoorOpening, slot: DoorFinishSlot): DoorFinishColour {
+        // Rung 6 — the system TYPE's finish, for a door placed with no baked colour.
+        // Mirrors `WindowBuilder._resolveFrameColor` step 2.
+        const sysType = door.systemTypeId ? doorSystemTypeStore.getById(door.systemTypeId) : undefined;
+        const typeFinishColor = slot === 'frame'
+            ? sysType?.frameFinish?.materialColor
+            : sysType?.leafFinish?.materialColor;
+
+        const r = resolveDoorFinishColour(door, slot, DOOR_COLOR_SENTINEL, typeFinishColor);
+
+        if (r.state === 'unresolved') {
+            const key = `${door.id}|${slot}`;
+            if (!DoorBuilder._unresolvedReported.has(key)) {
+                DoorBuilder._unresolvedReported.add(key);
+                console.warn(
+                    `[DoorBuilder] C100 §5 — door ${door.id} ${slot} names material ` +
+                    `'${r.materialId}' which resolves to NOTHING: ${r.reason} ` +
+                    `Painting ${DOOR_UNRESOLVED_MATERIAL_COLOR} (magenta) on purpose — the ` +
+                    'colour on screen is a FAILURE MARKER, not this door\'s material.',
+                );
+            }
+        }
+        return r;
+    }
+
+    /**
+     * C100 §5: "the diagnostic is emitted once per distinct id, never once per
+     * element". Keyed per door+slot rather than per id so a rebuild storm cannot
+     * re-print, and static so it survives builder re-instantiation within a session.
+     */
+    private static readonly _unresolvedReported = new Set<string>();
+
     /** §WALL-DEEP-2026 B1 — patch live materials in place; no dispose+rebuild. */
     private _applyPropertyOnly(door: DoorOpening): void {
         const mats = this.doorMaterials.get(door.id);
@@ -313,8 +369,13 @@ export class DoorBuilder {
         const frameMat = mats[0] as THREE.MeshStandardMaterial | undefined;
         const leafMat  = mats[1] as THREE.MeshStandardMaterial | undefined;
         try {
-            if (frameMat?.color) frameMat.color.set(door.frameColor);
-            if (leafMat?.color)  leafMat.color.set(door.leafColor);
+            // ⭐ C100 §2.1 / S17 — THE line that made "Frame Finish → Oak" a no-op.
+            // `frameFinish` is in `_PROPERTY_ONLY_FIELDS`, so choosing a finish came
+            // HERE — and this used to re-set `door.frameColor`, the field the finish
+            // dropdown does not write. The record changed, the patch ran, and the
+            // material was assigned the colour it already had.
+            if (frameMat?.color) frameMat.color.set(this._finishColour(door, 'frame').hex);
+            if (leafMat?.color)  leafMat.color.set(this._finishColour(door, 'leaf').hex);
         } catch (err) {
             console.warn(`[DoorBuilder] property-only patch failed for ${door.id}; falling back to rebuild:`, err);
         }
@@ -754,8 +815,18 @@ export class DoorBuilder {
         // §DOOR-AUDIT-2026 / W5 — apply VG governance overrides on top of the
         // door's stored colours. Both override hooks are optional; when absent
         // the builder falls back to the door's own parameters.
-        const frameColor = vgStyle?.colorOverride ?? door.frameColor;
-        const leafColor  = vgStyle?.colorOverride ?? door.leafColor;
+        //
+        // ⭐ C100 §2.1 / S17 — "the door's own parameters" is no longer
+        // `door.frameColor` alone. The door's MATERIAL IDENTITY lives on
+        // `frameFinish.materialId` / `leafFinish.materialId`, written by the panel's
+        // Frame/Leaf Finish dropdowns straight out of the master library and
+        // persisted with the record — and this builder read NEITHER. Picking
+        // "Frame Finish → Oak" changed the record, survived save and reload, and
+        // never moved a pixel. `resolveDoorFinishColour` is the ladder; see that
+        // file for why an override is told apart from a stale cache by DISAGREEMENT
+        // with the finish it was derived from, and not by a new flag.
+        const frameColor = vgStyle?.colorOverride ?? this._finishColour(door, 'frame').hex;
+        const leafColor  = vgStyle?.colorOverride ?? this._finishColour(door, 'leaf').hex;
         const opacityFactor = vgStyle?.opacityFactor ?? 1;
         const transparent = opacityFactor < 1;
         const opacity = Math.max(0, Math.min(1, opacityFactor));

@@ -53,6 +53,17 @@ export {
     PRESERVED_ON_TYPE_CHANGE as DOOR_PRESERVED_ON_TYPE_CHANGE,
     type DoorTypeChangePlan,
 } from './DoorTypeChange';
+// ⭐ C100 §2.1 / S17 — the door's material ladder, exported so a panel can SHOW the
+// state (an override marked as an override, per C100 §6.1) instead of restating the
+// precedence, and so the L0↔runtime pairing has one named home.
+export {
+    resolveDoorFinishColour,
+    DOOR_COLOR_SENTINEL,
+    DOOR_UNRESOLVED_MATERIAL_COLOR,
+    type DoorFinishSlot,
+    type DoorFinishColour,
+    type DoorFinishColourState,
+} from './doorFinishColour';
 export { DoorBuilder } from './DoorBuilder';
 export { DoorDependencyTracker } from './DoorDependencyTracker';
 // §GR-10/GR-14 — a distinction only this package can see is one nobody can act on.

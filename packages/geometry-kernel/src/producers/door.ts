@@ -22,6 +22,10 @@
 
 import type { BufferGeometryDescriptor } from '../types/BufferGeometryDescriptor.js';
 import { asMaterialKey, type MaterialKey } from '../types/MaterialKey.js';
+// ⭐ C100 §9.6.a / S17 — THE resolution authority. Not re-implemented here: a
+// private T2+T1 chain is how C100 §1.1 traces four of the eight rival material
+// vocabularies in this repository.
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import type { Door as DoorData } from '@pryzm/schemas';
 
 export interface DoorWorldPlacement {
@@ -43,6 +47,15 @@ interface RawBuffers {
   indices: number[];
 }
 
+/**
+ * The door's family defaults, per slot — the colour of a door that names NO
+ * material at all (C100 §9.6.b: the DEFAULT stays local, the RESOLUTION is shared).
+ *
+ * ⚠ Unchanged values. They are exactly what this file already used, kept so that a
+ * door with no material renders byte-identically before and after S17. C100 §9.6.b
+ * names repainting the product as the thing that would rightly get this convergence
+ * reverted.
+ */
 const FRAME_FALLBACK_COLOR = '#8b7058';
 const LEAF_FALLBACK_COLOR = '#c2a684';
 
@@ -200,12 +213,41 @@ export function produceDoor(door: DoorData, placement: DoorWorldPlacement): Buff
   const groups: Array<{ start: number; count: number; materialIndex: number }> = [];
 
   const systemTypeId = ''; // Door schema does not yet carry systemTypeId.
-  const materialId = '';
-  const frameColor = door.frameColor ?? FRAME_FALLBACK_COLOR;
-  const leafColor = door.leafColor ?? LEAF_FALLBACK_COLOR;
+
+  // ⭐ C100 §9.6.b / S17 — the colour slot now goes through THE master resolver.
+  //
+  // ⛔ WHAT WAS WRONG, and C100 §9.3 quotes this file by name. This producer used
+  // to read `const materialId = '';` — a HARD-CODED EMPTY STRING — beside a comment
+  // claiming the key was "symmetrical with `composeMaterialKey`". It was symmetrical
+  // in SHAPE and empty in CONTENT: slot 2 carried nothing, so no door could ever
+  // name a material, and the bridge's keyword table downstream had to guess a
+  // colour out of a system-type string. §9.3 retracted a whole slice for citing
+  // this file as coverage.
+  //
+  // The door now names its material PER SURFACE — `frameMaterialId` /
+  // `leafMaterialId` (see `Door.ts` for why one plain `materialId` would name half
+  // a door) — and each slot resolves independently through the ONE authority.
+  // §2.1's precedence, once, for every family: an explicit colour OVERRIDE wins;
+  // else the id is resolved in `MATERIAL_CATALOG`; else the slot carries
+  // `unresolved:<id>`, a NAMED failure the bridge paints magenta; else the family
+  // default above.
+  //
+  // The key LAYOUT is unchanged on purpose (C100 §9.6.b: converge the VALUE, not the
+  // FORMAT) — slot 2 still carries an id for diagnostics and pooling, so no bridge
+  // and no parity snapshot keyed on the shape moves.
+  const frameMaterialId = door.frameMaterialId ?? '';
+  const leafMaterialId = door.leafMaterialId ?? '';
+  const frameColor = resolveMaterialColorSlot(
+    { materialId: door.frameMaterialId, materialColor: door.frameColor },
+    FRAME_FALLBACK_COLOR,
+  );
+  const leafColor = resolveMaterialColorSlot(
+    { materialId: door.leafMaterialId, materialColor: door.leafColor },
+    LEAF_FALLBACK_COLOR,
+  );
   const materialKeys: MaterialKey[] = [
-    composeDoorMaterialKey(systemTypeId, materialId, frameColor, 'frame'),
-    composeDoorMaterialKey(systemTypeId, materialId, leafColor, 'leaf'),
+    composeDoorMaterialKey(systemTypeId, frameMaterialId, frameColor, 'frame'),
+    composeDoorMaterialKey(systemTypeId, leafMaterialId, leafColor, 'leaf'),
   ];
 
   const w = door.width;
@@ -285,6 +327,13 @@ export function composeDoorGeometryHash(door: DoorData, placement: DoorWorldPlac
     r(door.frameThickness),
     door.frameColor ?? FRAME_FALLBACK_COLOR,
     door.leafColor ?? LEAF_FALLBACK_COLOR,
+    // ⭐ C100 §2.1 / S17 — the ids join the hash because the descriptor CARRIES the
+    // material keys. Without them, changing a door's material while its colour
+    // fields stay put would leave a cached descriptor — and its old keys — in place:
+    // the record would name the new material and the mesh would keep the old one,
+    // which is §COMMITTED-IS-NOT-REACHABLE reintroduced through a cache.
+    door.frameMaterialId ?? '',
+    door.leafMaterialId ?? '',
     r(placement.origin.x),
     r(placement.origin.y),
     r(placement.origin.z),

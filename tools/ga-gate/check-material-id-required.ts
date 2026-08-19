@@ -101,7 +101,26 @@ const ANNOTATION_SCHEMAS = new Set([
 /** Field names that are a presentation colour on an element schema. */
 const COLOUR_FIELD_RE =
   /^\s{2,}(materialColor|color|colour|frameColor|leafColor|finishColor|railColor|fillColor|strokeColor)\s*:/gm;
-const MATERIAL_ID_FIELD_RE = /^\s{2,}materialId\s*:/m;
+/**
+ * ⭐ ARM A HAD ARM D's DEFECT, and it is the FOURTH recurrence of one shape in this
+ * contract (C100 §0.3's counting hole, §9.7's `#rrggbb`-only projection arm, ARM D's
+ * `body.includes('materialId')`, and this).
+ *
+ * This used to be `/^\s{2,}materialId\s*:/m` — ONE spelling. It could not see
+ * `mullionMaterialId` / `glazingMaterialId`, the shape C100 §9.7 explicitly ruled
+ * CORRECT for a family with more than one material surface, and it could not see the
+ * `frameMaterialId` / `leafMaterialId` pairing a door needs for the same reason.
+ * ⭐ **A gate that checks one spelling of a thing does not check the thing** — and a
+ * gate that can only be satisfied by ONE field name is a gate dictating the data
+ * model, which is how a two-surface family gets an id that names half of it.
+ *
+ * ⚠ Widening it was MEASURED not to hide anything, before it was widened: a
+ * multi-spelling census of all 21 colour-or-id-bearing schemas in
+ * `packages/schemas/src/elements/` returned **exactly Door and Window** as the only
+ * two with a colour field and no id of any spelling — the same two the narrow regex
+ * reported. So this is a hole closed, not a count reduced.
+ */
+const MATERIAL_ID_FIELD_RE = /^\s{2,}[A-Za-z]*[Mm]aterialId\s*:/m;
 
 /**
  * A `materialId` bound to a string literal.  Deliberately anchored on the field

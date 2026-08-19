@@ -56,6 +56,38 @@ export const Door = defineElement('door', {
   offset: z.number().nonnegative().default(0),
   frameThickness: z.number().nonnegative().default(0.05),
   frameWidth: z.number().nonnegative().default(0.05),
+  /**
+   * ⭐ C100 §2.1 / S17 — THE DOOR'S MATERIAL IDENTITY, one per material surface.
+   *
+   * C100 §9.1 listed `door` and `window` under *"no `materialId` EXISTS to lose —
+   * colour-only in the L0 schema"*, calling it *"C100 §2.1's explicit MUST NOT, for
+   * two of the most-used families in the product"*. These two fields close that,
+   * and their SHAPE is the part worth reading rather than their presence.
+   *
+   * ⚠ **Why not one plain `materialId`, which is what 18 sibling schemas carry.**
+   * A door does not have *a* material; it has two surfaces made of different things
+   * — an aluminium frame around a timber leaf is an ordinary door, not an edge
+   * case. A single `materialId` would name half the element and leave the other half
+   * to a hex, which is the very loss §2.1 forbids (*"a hex is not a material; it is
+   * one attribute of one"*), one level up. The repository has already ruled on this
+   * shape: C100 §9.7 examined `mullionMaterialId` / `glazingMaterialId` on the
+   * curtain wall and recorded that *"the curtain wall record has no plain
+   * `materialId` to write"* — correct, not a defect. This is that ruling applied.
+   *
+   * ⚠ **These are not a NEW vocabulary.** They are the L0 projection of a pairing
+   * the RUNTIME record has carried for months: `DoorTypes.ts`'s
+   * `frameFinish.materialId` / `leafFinish.materialId`, written by the property
+   * panel's Frame/Leaf Finish dropdowns straight out of the master library. The flat
+   * `frameColor` / `leafColor` fields below are, in `DoorTypes.ts`'s own words,
+   * *"derived from these for the 3-D renderer"* — so id-beside-hex, per surface, is
+   * the arrangement that already exists, now expressed where C03 §1.1 says the
+   * canonical schema lives.
+   *
+   * Per C73 §1 / C100 §2.1 these are **PERSIST-OR-LOSE**; the colours beside them
+   * are a **CACHE** except where they carry an explicit user override.
+   */
+  frameMaterialId: z.string().optional(),
+  leafMaterialId: z.string().optional(),
   frameColor: z.string().optional(),
   leafColor: z.string().optional(),
   fireRating: z.string().optional(),
