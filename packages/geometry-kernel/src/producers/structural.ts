@@ -20,6 +20,8 @@ import {
   type StructuralProfile,
 } from './_shared/linear-structural.js';
 import { asMaterialKey } from '../types/MaterialKey.js';
+// ⭐ C100 §9.6.a / S16 — THE resolution authority. Not re-implemented here.
+import { resolveMaterialColorSlot } from './_internal/composeMaterialKey.js';
 import {
   composeStructuralGeometryHash,
   STRUCTURAL_HASH_SCHEMA_VERSION,
@@ -38,8 +40,33 @@ const FALLBACK_COLORS: Record<Structural['kind'], string> = {
   'connection': '#3d4554',
 };
 
+/**
+ * Material key shape:
+ *   `structural|<kind>|<materialId>|<color>|body`
+ *
+ * ─── ⛔ THE DEFECT THIS CLOSES (C100 §2.1 / L-1127 S16) ─────────────────────
+ *
+ * `materialId` arrived as a PARAMETER of this function, was written into slot 2,
+ * and was then IGNORED when computing slot 3 — which is the slot
+ * `colorOfStructuralMaterialKey` actually reads. Slot 3 was always
+ * `FALLBACK_COLORS[kind]`, a colour derived from the element's KIND.
+ *
+ * ⭐ So a steel brace and a timber brace were the same colour, and a C30 concrete
+ * footing and a mass-concrete footing were the same colour. For STRUCTURE — where
+ * "what is this made of" is close to the whole point of the element — the model
+ * answered with a shape category. And the id was RIGHT THERE, one slot over,
+ * having been passed in deliberately.
+ *
+ * ⚠ THE KIND COLOURS SURVIVE as the family default (C100 §9.6.b): they are the
+ * correct answer for an element that names no material, which is every structural
+ * element in every existing project. Only their RANK is now stated — C100 §2.1
+ * puts an explicit `materialId` above a default.
+ */
 function matKey(kind: Structural['kind'], materialId: string | undefined): string {
-  return `structural|${kind}|${materialId ?? ''}|${FALLBACK_COLORS[kind]}|body`;
+  // ⭐ ONE ladder (C100 §9.6.a). An unknown id becomes `unresolved:<id>`, which the
+  // bridge paints MAGENTA (§5) rather than a plausible structural grey.
+  const color = resolveMaterialColorSlot({ materialId }, FALLBACK_COLORS[kind]);
+  return `structural|${kind}|${materialId ?? ''}|${color}|body`;
 }
 
 export const produceStructural: StructuralProducer = (s, _joinData, worldY) => {
