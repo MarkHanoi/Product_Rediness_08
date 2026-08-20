@@ -3,6 +3,9 @@ import { defineElement } from '../base/BaseNode.js';
 import { RetrofittedProvenanceSchema } from '../provenance/ValueOrigin.js';
 import { RetrofittedConfidenceSchema } from '../provenance/ElementConfidence.js';
 import { Vec3, ColorRgb } from '../base/primitives.js';
+// §FIX-LIGHTING-VOCABULARY (L-1331) — the ONE accepted fixture vocabulary,
+// composed from the LOD-200 matrix rather than transcribed. See `LightingKind`.
+import { ACCEPTED_LIGHTING_KINDS, type AcceptedLightingKind } from '../lighting/fixtureVocabulary.js';
 
 /**
  * Lighting fixtures (S26 / ADR-0023).
@@ -44,13 +47,44 @@ import { Vec3, ColorRgb } from '../base/primitives.js';
  * PURITY: this file stays P5-pure — the derivation rule lives one layer up and
  * is never imported here.
  */
-const LightingKind = z.enum([
-  'downlight',
-  'pendant',
-  'strip',
-  'wall-sconce',
-  'emergency',
-]);
+/**
+ * §FIX-LIGHTING-VOCABULARY (L-1331, 2026-08-19) — WIDENED, and DERIVED.
+ *
+ * ⛔ This was `z.enum(['downlight','pendant','strip','wall-sconce','emergency'])`
+ * — five values HAND-TRANSCRIBED from the construction taxonomy, while the plan
+ * tool, the `lighting.created` bridge and the legacy store all put the NAMED
+ * fixture family in this slot. Overlap: two. So `Lighting.parse` threw for ten of
+ * the twelve families the picker offered, and for **thirty of thirty-two** once
+ * §FEAT-LOD200-LUMINAIRES landed — while 3-D placement and project reopen worked
+ * for every one of them. **A transcription gap, not a missing capability**
+ * (C96 §9.1 / EI-3).
+ *
+ * ⚠ AND THE `.default()` BELOW IS NOT A SAFETY NET: `z.enum(...).default(x)`
+ * fires on `undefined` and NEVER on an out-of-enum literal. The fallback that
+ * looks like it would absorb an unknown family does nothing whatsoever.
+ *
+ * **Resolution — C84 EI-3 is directional: UI offers ⇒ pipeline accepts.** The
+ * pipeline is widened; the picker is NOT narrowed, because narrowing would hide
+ * thirty WORKING fixtures to satisfy a stale enum (the silent-narrowing failure
+ * EI-2 forbids). ⛔ This is NOT "widen the parse to accept anything" — the set is
+ * a closed, enumerated union; it is merely COMPOSED instead of re-typed.
+ *
+ * ⭐ The accepted set is DERIVED from `lighting/fixtureVocabulary.ts`: the legacy
+ * five, the twelve named families, and the twenty LOD-200 families read straight
+ * off `LOD200_FIXTURE_ROWS`. A thirty-third luminaire is ONE matrix row and is
+ * accepted here by construction — there is no second list to remember. That is
+ * why the matrix was moved down to this layer.
+ *
+ * PURITY is unaffected: `fixtureVocabulary` and the matrix are pure L0 data with
+ * no Zod, no I/O and no THREE. The DERIVATION RULE (`constructionFormFor`) still
+ * lives one layer up and is still never imported here.
+ */
+const LightingKind = z.enum(
+  // Asserted to the composed LITERAL union, never to `string[]` — see
+  // `ACCEPTED_LIGHTING_KINDS`. `Lighting['kind']` therefore stays a closed union
+  // of 32 members and every consumer keeps its exhaustiveness checking.
+  ACCEPTED_LIGHTING_KINDS as unknown as [AcceptedLightingKind, ...AcceptedLightingKind[]],
+);
 
 export const Lighting = defineElement('lighting', {
   /**

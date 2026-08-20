@@ -20671,7 +20671,7 @@ use.
 Step 10b calls. Not the dead twins. All twenty round-trip by `fixtureType`; overrides survive by
 **value**; absence stays absence.
 
-**Tests:** `Lod200FixtureCatalogue.test.ts` 28 ✅ · `core-app-model/src/lighting` 75 ✅ ·
+**Tests:** `Lod200FixtureCatalogue.test.ts` 28 ✅ (now 34 — L-1331 added the offer/accept arm) · `core-app-model/src/lighting` 75 ✅ ·
 `geometry-lighting` 32 ✅ · `lightingParamsRoundTrip` 11 ✅ · root `tsc --skipLibCheck`
 **COMPILER_RC=0**.
 
@@ -20696,28 +20696,96 @@ the population grows.** All three now derive from production.
 
 ---
 
-## L-1331 — ⛔ OPEN — plan-view placement throws for 30 of 32 fixture types (EI-3 arithmetic moved)
+## L-1331 — ✅ **FIXED** (2026-08-19, lane LIGHT1) — the offer/accept gap, closed at the layer that closes the CLASS
 
-**Lane LIGHT1 · 2026-08-19 · pre-existing defect, NOT introduced here, NOT fixed here.**
+**Was logged OPEN earlier this session. Coordinator decided exit (a): widen the pipeline, do not
+narrow the UI.** Reasoning recorded here so it reads as a decision, not a preference:
 
-`LightingPlanToolHandler.ts:135` sends `kind: <LightingFixtureType>` into bus `lighting.create`.
-`LightingKind` (`packages/schemas/src/elements/Lighting.ts`) is a **5-value `z.enum`** whose
-`.default()` fires on `undefined` but **never** on an out-of-enum literal, so the value reaches
-`Lighting.parse` as invalid and throws `LightingSchemaError`.
+- **C84 EI-3 is directional — UI offers ⇒ pipeline accepts.** The compliant resolution of an
+  offer/accept mismatch is to make the pipeline accept, *unless the capability genuinely does not
+  exist*. Here it did: **3-D placement and project reopen worked for all 32**; only the plan
+  handler's 5-value `z.enum` refused. **A transcription gap, not a missing capability.**
+- **Narrowing the picker would have hidden 30 WORKING fixtures** to satisfy a stale enum — the
+  silent-narrowing failure **EI-2** forbids. A user who picks *Bollard* and gets a pendant is worse
+  served than one who gets a loud refusal (C16 CA-18).
+- **Pre-existing.** It was **10 of 12** before this lane arrived; L-1330 made it **30 of 32**. This
+  lane made a pre-existing defect *visible*, it did not cause it.
 
-This is **C96 §9.1 / EI-3** exactly. The twenty LOD-200 families change only its arithmetic:
-**10-of-12 becomes 30-of-32.** 3-D placement (`LightingTool` → `CreateLightingCommand`) and project
-reopen (`ImportProjectCommand`) both work — it is the **plan** path alone.
+### ⭐ THE FIX IS NOT "ADD 30 VALUES TO THE ENUM"
 
-⭐ **The translation function already exists and was built for this caller.**
-`constructionFormFor(fixtureType)` maps any family to a valid construction form, and its own header
-says *"callers needing the legacy 5-value enum … use this function"*. Exit (a) is
-`kind: constructionFormFor(type)` — **one line, in `apps/editor`**. Not taken here because §9.1 names
-**two exits and no third** (widen-and-translate, or stop offering what cannot be placed per C82) and
-that is a decision, not a lane's discretion. ⛔ Do not "fix" it by widening the parse to accept
-anything.
+That would be the **same remembered-not-derived defect one layer down**, and it would reopen at
+fixture 33. ⚠ And note the trap: **`z.enum(...).default(x)` fires on `undefined` and NEVER on an
+out-of-enum literal** — the fallback that looks like it would absorb an unknown family does nothing
+at all. That is why the symptom was a throw rather than a silent downgrade, and why widening the
+accepted SET was the only thing that could work.
 
-**Owner:** whoever owns `apps/editor/src/engine/views/plantools/`.
+**So the vocabulary MOVED to the layer that needed it.**
+
+1. `Lod200FixtureCatalogue.ts` → **`packages/schemas/src/lighting/`** (L0). It is pure data — no
+   Zod, no THREE, no DOM, no I/O; its only import is the sibling material catalogue — so L0 is a
+   legal home. ⭐ **The move IS the fix:** while the matrix sat at L2 the schema *could not read it*
+   (schemas may not import upward), which is precisely why a transcription existed at all.
+2. New **`fixtureVocabulary.ts`** composes the accepted set from three NAMED sources —
+   `LEGACY_CONSTRUCTION_FORMS` (5, for records already on disk) ∪ `NAMED_FIXTURE_IDS` (12) ∪
+   `LOD200_FIXTURE_IDS` (20, read straight off the matrix) — de-duplicated over the `{downlight,
+   pendant}` overlap that made the original 5-value transcription look reasonable → **35 values**.
+3. `LightingKind` becomes `z.enum(ACCEPTED_LIGHTING_KINDS)`.
+4. `core-app-model/src/lighting/Lod200FixtureCatalogue.ts` is now a **one-line re-export**, so every
+   existing importer — the `/lod200-fixtures` subpath `geometry-lighting` reads, both barrels,
+   `FixturePhotometry.ts` — is untouched.
+
+⭐ **ZERO changes in `apps/editor`.** The plan handler, the `§FT-LIGHTING` bridge and the copy path
+were already correct for a fixture family in that slot — measured: `initTools.ts:2152` does
+`(ev.kind ?? 'downlight') as LightingFixtureType`, casting `kind` straight back into `fixtureType`.
+The only thing wrong was the set the schema would accept. (This also meant **no collision risk with
+SHAPE1**, which is editing neighbouring plan-tool files.)
+
+### ⛔ NOT the forbidden third exit
+
+C96 §9.1 forbids *"widen the parse to accept anything."* The union stays **closed and enumerated**;
+only its membership grew, and an unknown family is **still refused** — asserted by test.
+
+⚠ **And one trap inside the fix, worth recording:** spreading a `Set` **erases literal types**, so
+the obvious spelling would have made `Lighting['kind']` infer as plain `string`. That is **a real
+regression wearing the costume of a widening** — every consumer would silently lose exhaustiveness
+checking. The runtime array is therefore asserted to a composed **literal union type**, not
+`readonly string[]`.
+
+### The guard — pinned by an EXECUTED test, because a comment has already failed twice here
+
+`NAMED_FIXTURE_IDS` (12) is the one hand-written member — those families have no matrix behind them.
+Per **C84 EI-8a** it is pinned by test, not prose:
+`core-app-model/src/lighting/Lod200FixtureCatalogue.test.ts` asserts the accepted set covers **every
+key of `LIGHTING_FIXTURE_PHOTOMETRY`** (everything the tool can place) **and** parses all 32 through
+the **real `Lighting.parse`** — the exact call `CreateLightingHandler` makes.
+
+⭐ **A 33rd luminaire is one matrix row and is accepted by construction. A 33rd *named* family that
+forgot the vocabulary fails the BUILD, not a user's click.**
+
+⚠ **One arm of this test was initially wrong in a way worth naming:** it passed a plain string as
+`id` and every parse failed on `id | invalid_format | Expected lighting_<ulid>`. It *looked* like the
+vocabulary was still refused. **An assertion that fails for a reason unrelated to its subject is as
+useless as one that passes for one** — fixed to use the real `createId('lighting')`.
+
+### Verification
+
+`Lighting.parse` accepts all **32** · unknown families still throw · the legacy 5 still parse so
+records on disk keep loading · **P5 purity gate `check-domain-purity.ts` → RC=0, 0 impurities across
+177 files, hard-fail-at-zero** · core-app-model lighting **81 ✅** · geometry-lighting **32 ✅** ·
+plugins/lighting **14 ✅** · command-registry round-trip **11 ✅** · root `tsc --skipLibCheck` →
+**COMPILER_RC=0**.
+
+⚠ **Pre-existing failures NOT caused by this lane, measured rather than assumed:**
+`packages/schemas` has **3 failing tests** (`round-trip.test.ts` water ×2, `view-template-roundtrip`
+detail-level default `'fine'` vs `'medium'`). Confirmed pre-existing by reverting this lane's schemas
+changes to HEAD and re-running: **identical 3 failures**. Not mine, and not adopted.
+
+### Residue, left open on purpose
+
+The false *"share the value space"* premise still sits at `LightingPlanToolHandler.ts:123-128`. The
+comment is now **harmless** — the value spaces really do overlap — but it still records a claim that
+was never measured. Correcting it is a one-line comment edit in `apps/editor`, deliberately not taken
+while SHAPE1 is live in neighbouring plan-tool files. Noted in C96 §11 row 5 as the residue.
 
 ---
 

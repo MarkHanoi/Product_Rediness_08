@@ -174,7 +174,7 @@ refusal enumerating the fixtures it is dropping. Silent omission is forbidden.
 
 | Handler | `type` | Registered? | Reachable from a UI control? | Verdict |
 |---|---|---|---|---|
-| `CreateLighting.ts:38` | `lighting.create` | ✅ `index.ts:22-36` | ✅ `LightingPlanToolHandler.ts:129`; `LightingLayoutExecutor` (batched) | **LIVE — and the EI-3 breach lives here (§9.1)** |
+| `CreateLighting.ts:38` | `lighting.create` | ✅ `index.ts:22-36` | ✅ `LightingPlanToolHandler.ts:129`; `LightingLayoutExecutor` (batched) | **LIVE.** ⚠ The EI-3 breach used to live here — **CLOSED 2026-08-19 (L-1331)**; this handler's `Lighting.parse` now accepts all 32 families (§9.1) |
 | `DeleteLighting.ts:21` | `lighting.delete` | ✅ | ⛔ **ZERO dispatchers repo-wide** — only 2 hits, both declarations (`index.ts:13`, `DeleteLighting.ts:21`) | **DORMANT** (C84 §3.5.3) — ⛔ do not delete |
 | `MoveLighting.ts:77` | `lighting.move` | ✅ | ⛔ refuses unconditionally `:110` | **C16 CA-18 CONFORMANT** |
 | `SetLightingIntensity.ts` | `lighting.setIntensity` | ✅ | **NOT MEASURED** | — |
@@ -459,19 +459,27 @@ neither, and it reads as live.
 
 ## 9. Vocabularies
 
-### 9.1 EI-3 — 10 of 12 fixture types the UI offers CANNOT be placed. **CONFIRMED.**
+### 9.1 EI-3 — the offer/accept gap. ✅ **CLOSED 2026-08-19 (L-1331, lane LIGHT1) — exit (a) taken.**
+
+> ⚠ **This section previously read *"10 of 12 fixture types the UI offers CANNOT be placed.
+> CONFIRMED"* and named two exits without taking either. The count first got WORSE — twenty
+> LOD-200 families (L-1330) made it **30 of 32** — and then the gap was closed. The AS-WAS analysis
+> below is retained verbatim because it is how the bug was reasoned into existence; the resolution
+> follows it. ⛔ Do not re-read the AS-WAS as current state.**
+
+#### AS-WAS (retained — this is the diagnosis, not the state)
 
 | Vocabulary | Members | Site |
 |---|---|---|
 | `LightingFixtureType` (**what the tool offers**) | **12** — `downlight` `:34`, `pendant` `:35`, `linear_led` `:36`, `pendant_pebble` `:37`, `pendant_ceramic_bell` `:38`, `pendant_conical` `:39`, `floor_wood_post` `:40`, `floor_arc_brass` `:41`, `table_terracotta` `:42`, `floor_tripod_black` `:43`, `mirror_light` `:44`, `pendant_cluster` `:45` | `packages/geometry-lighting/src/LightingTypes.ts:33-45` |
-| `LightingKind` (**what the bus accepts**) | **5** — `downlight` `:48`, `pendant` `:49`, `strip` `:50`, `wall-sconce` `:51`, `emergency` `:52` | `packages/schemas/src/elements/Lighting.ts:47-53` |
+| `LightingKind` (**what the bus accepted**) | **5** — `downlight`, `pendant`, `strip`, `wall-sconce`, `emergency` | `packages/schemas/src/elements/Lighting.ts` |
 
-**OVERLAP = `{downlight, pendant}` — exactly 2.** The schema's own header says so at `Lighting.ts:29`.
+**OVERLAP = `{downlight, pendant}` — exactly 2.**
 
-`LightingPlanToolHandler.ts:132` sends a `LightingFixtureType` as `kind`. Because
-`LightingKind.default('downlight')` (`Lighting.ts:89`) is a `z.enum` default — which fires on
-`undefined`, **never** on an out-of-enum literal — the other **10** reach `Lighting.parse`
-(`CreateLighting.ts:86-87`) as invalid and it **throws**, rethrown as `LightingSchemaError`.
+`LightingPlanToolHandler.ts:135` sends a `LightingFixtureType` as `kind`. Because
+`LightingKind.default('downlight')` is a `z.enum` default — which fires on `undefined`, **never** on
+an out-of-enum literal — the other **10** reached `Lighting.parse` (`CreateLighting.ts:86-87`) as
+invalid and it **threw**, rethrown as `LightingSchemaError`.
 
 ⛔ **The root is a stated false premise, and it is worth quoting because it is how the bug was
 reasoned into existence.** `LightingPlanToolHandler.ts:123-128`:
@@ -480,16 +488,73 @@ reasoned into existence.** `LightingPlanToolHandler.ts:123-128`:
 > names were a pure rename (LightingFixtureType and the schema LightingKind **share the value
 > space**…)"*
 
-**They share 2 of 12.** A rename was performed on the strength of a value-space claim that was never
+**They shared 2 of 12.** A rename was performed on the strength of a value-space claim that was never
 measured — EI-2(b)'s sibling: not a comparison against an impossible value, but a **cast justified by
 an asserted equivalence**.
 
-**This REFUSES LOUDLY, which [C16 CA-18](C16-COMMAND-AUTHORING-PROTOCOL.md) requires and which makes
-it EI-3 rather than EI-2. It is still a violation**, and per the correction under
-[C84 EI-7a](C84-ELEMENT-INTEGRITY.md) **the violation is the still-offered control**, not the throw.
-**TO-BE, two exits and no third:** (a) widen `LightingKind` to the 12 and translate at the boundary,
-or (b) **the plan tool must not offer the 10 it cannot place** ([C82](C82-RIBBON-CAPABILITY-SURFACE.md)).
-⛔ Do not "fix" this by widening the parse to accept anything.
+#### ⭐ THE MEASUREMENT THAT DECIDED THE EXIT
+
+**Every other stage of the plan pipeline already handled a fixture family in that slot.** Measured
+2026-08-19:
+
+- `initTools.ts:2152` — the `§FT-LIGHTING` bridge does
+  `const _fixtureType = (ev.kind ?? 'downlight') as LightingFixtureType;` — it **casts `kind`
+  straight back into `fixtureType`** for the legacy store.
+- `CopyPlanToolHandler.ts:625` records the same cast from the other direction.
+- `geometry-kernel/producers/lighting.ts` reads `kind` only for the material key and one
+  `circular`-vs-`rectangular` choice — **non-exhaustive, with a fallback**.
+- 3-D placement (`LightingTool` → `CreateLightingCommand`) and project reopen
+  (`ImportProjectCommand`) worked for **all 32**.
+
+**So the capability existed at every stage but one.** This was a **transcription gap, not a missing
+capability** — which is exactly the condition under which C84 EI-3's direction (**UI offers ⇒
+pipeline accepts**) requires widening the pipeline rather than narrowing the UI.
+
+#### THE RESOLUTION — exit (a), and it CLOSES THE CLASS
+
+**Exit (b) was rejected on measurement, not taste:** narrowing the picker would have hidden **30
+working fixtures** to satisfy a stale enum. That is the silent-narrowing failure **EI-2** forbids —
+it makes the picker lie in the other direction, and a user who picks *Bollard* and receives a pendant
+is worse served than one who receives a loud refusal (C16 CA-18).
+
+⭐ **The fix is not "add 30 values to the enum" — that is the same remembered-not-derived defect one
+layer down, and it would reopen at fixture 33.** Instead:
+
+1. **The LOD-200 matrix MOVED to L0** — `packages/schemas/src/lighting/Lod200FixtureCatalogue.ts`.
+   It is pure data (no Zod, no THREE, no DOM, no I/O; its only import is the sibling material
+   catalogue), so L0 is a legal home, and the **P5 purity gate confirms it**:
+   `check-domain-purity.ts` → **RC=0, 0 impurities across 177 files, hard-fail-at-zero**.
+   ⭐ **The move is the fix.** While the matrix sat at L2 the schema could not read it — schemas may
+   not import upward — so it carried a transcription instead. That is *why* the enum existed.
+2. **`packages/schemas/src/lighting/fixtureVocabulary.ts`** COMPOSES the accepted set from three
+   named sources: `LEGACY_CONSTRUCTION_FORMS` (5, for records already on disk) ∪
+   `NAMED_FIXTURE_IDS` (12) ∪ `LOD200_FIXTURE_IDS` (20, read straight off the matrix), de-duplicated
+   over the two-value overlap → **35 accepted values**.
+3. **`LightingKind` is now `z.enum(ACCEPTED_LIGHTING_KINDS)`.**
+   ⛔ **This is NOT "widen the parse to accept anything"** — the forbidden third exit. The union
+   stays **closed and enumerated**; only its membership grew, and an unknown family is still
+   refused (asserted by test). The runtime array is asserted to a composed **literal union type**,
+   not `readonly string[]` — spreading a `Set` erases literals, and that spelling would have made
+   `Lighting['kind']` infer as plain `string`, silently destroying exhaustiveness checking for every
+   consumer. **A real regression wearing the costume of a widening.**
+4. **ZERO changes in `apps/editor`.** The plan handler, the `§FT-LIGHTING` bridge and the copy path
+   are untouched — they were already correct for a fixture family in that slot. The only thing that
+   was wrong was the set the schema would accept.
+
+**`NAMED_FIXTURE_IDS` (12) is the single hand-written member**, because those families have no matrix
+behind them. Per **EI-8a** it is therefore **PINNED BY AN EXECUTED TEST**, not by a comment — *a
+comment is the mechanism that has already failed twice* (C84 §8.d):
+
+> `core-app-model/src/lighting/Lod200FixtureCatalogue.test.ts` asserts the accepted set covers
+> **every key of `LIGHTING_FIXTURE_PHOTOMETRY`** — i.e. everything the tool can actually place — and
+> parses all 32 through the **real `Lighting.parse`**, the exact call `CreateLightingHandler` makes.
+
+⭐ **A 33rd luminaire is ONE matrix row and is accepted by construction. A 33rd *named* family that
+forgot the vocabulary fails the BUILD, not a user's click.** That is the difference between closing
+the instance and closing the class.
+
+**Status:** `LIGHTING_FIXTURE_PHOTOMETRY` **32 families · 0 refused** · `Lighting.parse` accepts all
+32 · unknown families still throw · the legacy 5 still parse, so records on disk keep loading.
 
 ### 9.2 EI-9 — THREE copies of `LightingTypes.ts`, and TWO of `LightingStore.ts`
 
@@ -559,7 +624,7 @@ has no such field. `SetLightingMaterial.ts:56-57` refuses and names the mechanis
 | **Stack A** (viewport, persisted) | `packages/geometry-lighting/src/LightingFragmentBuilder.ts` — 12 fixture bodies, one branch per `LightingFixtureType`; real photometry (§FEAT-FIXTURE-PHOTOMETRY `:22-37`), `FIXTURE_NIGHT_MULTIPLIER`, budget in `LiveLightBudget.ts` |
 | **Stack B** (kernel) | `packages/geometry-kernel/src/producers/lighting.ts` `produceLighting` — header `:1-20`: *the visible fixture body only*, every variant a vertical extrusion of `width × depth × thickness` at `origin + dropLength` downward, via `buildLinearExtrusion` |
 | **Proven to agree?** | ⛔ **NO — and a parity test is NOT EXPRESSIBLE.** `packages/geometry-kernel/__tests__/produceLighting.parity.test.ts` is **analytic parity only** — Stack B against closed-form bounds (`:24-51`), constructed via `Lighting.parse` (`:15`). It never imports `LightingFragmentBuilder`. **[C84 §8.e](C84-ELEMENT-INTEGRITY.md): a parity test that compares a stack to itself does not satisfy EI-11.** |
-| **Why not expressible** | A keys on **12** `LightingFixtureType` values with 12 parametric blocks; B keys on **5** `LightingKind` values with `width/depth/thickness/dropLength`. **The A/B parity harness is blocked behind the §9.1 EI-3 fix** — there is no input on which both stacks are defined for 10 of 12 fixtures |
+| **Why not expressible** | ⚠ **PARTLY CORRECTED 2026-08-19 (L-1331) — the stated BLOCKER is gone; the gap is not.** This read *"the A/B parity harness is blocked behind the §9.1 EI-3 fix — there is no input on which both stacks are defined for 10 of 12 fixtures"*. §9.1 is now **CLOSED**: `Lighting.parse` accepts all **32** families, so an input on which BOTH stacks are defined now exists for every one of them and the harness is **EXPRESSIBLE**. ⛔ It is still **NOT WRITTEN**, and the shape mismatch remains real — A keys on 32 `LightingFixtureType` values with 13 parametric blocks (12 named + the one LOD-200 override), B keys on `width/depth/thickness/dropLength` and reads `kind` only for the material key and a circular-vs-rectangular choice. **Do not read this row as "blocked" — read it as OWED.** |
 | **Datum** | ⛔ **THREE seating sites for ONE datum.** (1) `CreateLightingCommand.ts:100-106` — the declared chokepoint, `resolveFloorSeatingDatum` for `FLOOR_MOUNTED_FIXTURES` / `resolveCeilingSeatingDatum` otherwise (§FIX-INTERIOR-FFL-SEATING, C11 §5.4). (2) `LightingPlanToolHandler.ts:52-69` `_resolveY()`, with a hard fallback at `:68` `return FLOOR_MOUNTED_FIXTURES.has(type) ? 0.0 : 3.0;` — its own header `:34-49` concedes the plan tool *"dispatches `lighting.create` on the BUS and never runs that command — so the fix never reached plan-view placement."* (3) `initTools.ts:1974-1983` re-seats a **third** time. Stack B has **no datum** — `worldY` is a caller parameter (`lighting.ts:39`) |
 
 ⛔ **The three seating sites are an EI-9 violation with a hard-coded magic constant** (`3.0` m at
@@ -579,7 +644,7 @@ closes it. Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`: **never raise a threshol
 | **2** | **Restore the 13 parametric fields.** Add slots to `CreateLightingPayload` (`:25-48`); thread them through `ProjectLoader.ts:1285-1295` **and** `projectLoaderUtils.ts:354-373`, on the §PERSIST-L1 model stated at `ProjectLoader.ts:1317-1319` | **EI-2(a)**, EI-6 | **watched-RED** byte-equality round-trip: author a `downlightParams.radius`, save, load, assert equal. It must FAIL first |
 | **3** | **Pass `seating: 'explicit'` from both restore paths.** The field's own doc `:39-45` names them as its consumers and neither passes it, so every reload re-derives `position.y` | **EI-2(a)** | watched-RED: save a fixture at a non-derived Y, reload, assert Y unchanged |
 | **4** | **Close the delete path-dependence.** `BimService.ts:169` still constructs `DeleteElementCommand(id)` directly; `DeleteElementCommand` has **no** lighting branch (`grep -c lighting` → **0**) and falls to `:650` `success:false`. The keyboard route works (`initUI.ts:2450` → `DeleteElement.ts:55` → `DeleteLightingCommand`) | **EI-4 / EI-4a** | `OneDeletePathAcrossSurfaces.test.ts` **on `main`** — it is **NOT on `main` today** (`git ls-files` → no match). ⛔ **Delete the second route; do NOT copy the `elementType` switch into it** |
-| **5** | **EI-3: stop offering the 10 unplaceable fixture types**, or widen `LightingKind` and translate. Delete the false *"share the value space"* premise at `LightingPlanToolHandler.ts:123-128` | **EI-3** | a test asserting `LightingFixtureType ⊆ LightingKind`, or a UI census proving the 10 are not offered ([C82](C82-RIBBON-CAPABILITY-SURFACE.md)) |
+| ~~**5**~~ | ✅ **DONE 2026-08-19 (L-1331)** — EI-3 closed by **widening the pipeline**, not narrowing the UI (C84 EI-3 is directional: UI offers ⇒ pipeline accepts). `LightingKind` now DERIVES its accepted set from the LOD-200 matrix, moved to L0 for exactly that purpose — so a 33rd fixture cannot reopen it. ⚠ The false *"share the value space"* premise at `LightingPlanToolHandler.ts:123-128` **is still in the tree**: the comment is now harmless (the value spaces really do overlap) but it still records a claim that was never measured. **Correcting that comment is the residue of this row.** | **EI-3** | ✅ **SHIPPED** — `Lod200FixtureCatalogue.test.ts` asserts the accepted set covers every key of `LIGHTING_FIXTURE_PHOTOMETRY` **and** parses all 32 through the real `Lighting.parse` |
 | **6** | **One `affectedStores` answer.** Three commands say `['level']`, two say `['lighting']`, six bus verbs say `['lighting']` against a different object | **EI-9**, C03 U-2/U-2b | `check-affected-stores.ts` (C84 §5) green for the lighting family |
 | **7** | **Teach `createSnapshot` the `lighting` key** (`CommandManagerImpl.ts:609-625`). `CreateLightingByRoomCommand` is unprotected on a failed execute today | **EI-7d**, L-953 | the C84 §5 table-driven sweep; ⛔ **do not** narrow the declaration to `['level']` to dodge it |
 | **8** | **Collapse the three `LightingTypes.ts` and two `LightingStore.ts` copies.** A and B are in one package and can carry no licence | **EI-9 / EI-10** | delete B; pin the survivors with an EI-8a every-member equality test |
@@ -758,7 +823,7 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
 ### Findings
 
 - ⭐ **Lighting has the STRONGEST executor of any dark family and the WEAKEST chat surface — literally zero capabilities.** Its branch already refuses an unknown `fixtureType` by name (`:2004`), which is the exact discipline `resolveCatalogueRef` provides on the chat side; the comment there warns that an unvalidated id makes `LightingFragmentBuilder` *"render nothing, silently"*.
-- ⚠ **Carried from C84 §4 — this family's persistence is the risk, not its dispatch.** C84's AS-IS table records lighting as *"renders, never saves · 10 fields dropped · EI-3 10-of-12 · DTO orphaned"*. ⛔ **A chat type-change published here would be V3-true and V4-false**: the user would see the fixture change and lose it on reload. **That must be measured BEFORE publication, not after** — C16 CA-21, ADR-0334's proof requirement.
+- ⚠ **Carried from C84 §4 — this family's persistence is the risk, not its dispatch.** C84's AS-IS table records lighting as *"renders, never saves · 10 fields dropped · EI-3 10-of-12 · DTO orphaned"*. ⚠ **Two of those four are now STALE and C84's row should be re-measured**: `EI-3 10-of-12` is **CLOSED** (L-1331, §9.1) and the authored-params drop is **CLOSED** (§PERSIST-LIGHTING-PARAMS + L-1330's round-trip through `ImportProjectCommand`). ⛔ **A chat type-change published here would be V3-true and V4-false**: the user would see the fixture change and lose it on reload. **That must be measured BEFORE publication, not after** — C16 CA-21, ADR-0334's proof requirement.
 - **NOT MEASURED**: whether `fixtureType` specifically survives save/load. **This is the gating measurement for this family.**
 
 ### NOT MEASURED for this family (explicit — EI-1b)
@@ -956,29 +1021,21 @@ never a lumen threshold chosen to make a test pass — and the excluded three ge
 is actually true of them: **they emit, and they emit LESS than general lighting.** Both claims are
 checked; neither was relaxed. A floor assertion guards the exclusion from swallowing the population.
 
-### ⛔ THE LIMIT — the twenty inherit EI-3 (§9.1), and it is NOT fixed here
+### ✅ THE LIMIT THAT WAS — EI-3, inherited then CLOSED (L-1331)
 
-**Placement works on the LIVE path and throws on the PLAN path — the same split §9.1 already records
-for 10 of the 12 named families.**
+The twenty initially inherited **C96 §9.1 / EI-3**: placement worked on the LIVE path and threw on
+the PLAN path, moving the arithmetic from **10 of 12** to **30 of 32**. That gap is now **closed** —
+see §9.1 above for the resolution and the measurement that chose exit (a).
 
 | Path | Route | Twenty LOD-200 families |
 |---|---|---|
-| 3-D placement (`LightingTool`) | → `CreateLightingCommand` → `LightingStore` → builder | ✅ **WORKS** |
-| Project reopen (`ImportProjectCommand`) | → `buildLightingRestorePayload` → `CreateLightingCommand` | ✅ **WORKS** (tested) |
-| **Plan placement (`LightingPlanToolHandler`)** | → bus `lighting.create` → `Lighting.parse` | ⛔ **THROWS** |
+| 3-D placement (`LightingTool`) | → `CreateLightingCommand` → `LightingStore` → builder | ✅ WORKS |
+| Project reopen (`ImportProjectCommand`) | → `buildLightingRestorePayload` → `CreateLightingCommand` | ✅ WORKS (tested) |
+| Plan placement (`LightingPlanToolHandler`) | → bus `lighting.create` → `Lighting.parse` | ✅ **NOW WORKS** (L-1331) |
 
-`LightingPlanToolHandler.ts:135` sends `kind: <LightingFixtureType>`, and `LightingKind` is a
-5-value `z.enum` whose `.default()` fires on `undefined` but **never** on an out-of-enum literal — so
-the value reaches `Lighting.parse` as invalid and throws `LightingSchemaError`. **This is EI-3
-exactly, pre-existing, and the twenty change only its arithmetic: 10-of-12 becomes 30-of-32.**
-
-⭐ **Not fixed here, on purpose.** §9.1 names **two exits and no third** — widen `LightingKind` and
-translate at the boundary, or stop offering what cannot be placed (C82) — and that is a decision, not
-a lane's discretion. ⚠ **But the translation function already exists and was built for this
-caller:** `constructionFormFor(fixtureType)` maps any family to a valid 4-value construction form,
-and its own header says *"callers needing the legacy 5-value enum … use this function"*. Sending
-`kind: constructionFormFor(type)` from `LightingPlanToolHandler` is exit (a), one line, in
-`apps/editor`. **Logged as L-1331; owned by whoever owns that surface.**
+⭐ **The fix was made at the layer that closes the class**, not at the call site: the LOD-200 matrix
+moved to L0 so `LightingKind` could DERIVE its accepted set from the same array, rather than gaining
+thirty hand-typed values that would reopen the gap at fixture 33. **Zero changes in `apps/editor`.**
 
 ### NOT YET — the honest register for this feature
 
@@ -986,8 +1043,8 @@ and its own header says *"callers needing the legacy 5-value enum … use this f
 |---|---|---|
 | 1 | **No illuminance calculation exists.** | There is no lux, working-plane or lumen-method layer anywhere. The lumens drive RENDER brightness only. ⛔ Never describe this as lighting analysis. |
 | 2 | **D-LE does not read lumens.** | `pryzmLightAllRooms()` still places one fixture per room by occupancy + area. The twenty are available to it but it asks nothing about them. |
-| 3 | **Plan-view placement throws (EI-3).** | Above. L-1331. |
+| 3 | ~~Plan-view placement throws (EI-3).~~ | ✅ **CLOSED — L-1331.** `LightingKind` now derives its accepted set from the matrix at L0. All 32 parse; unknown families still refused. |
 | 4 | **No bespoke plan symbols.** | `LightingPlanSymbolRenderer` has a `default:` arm, so all twenty render a GENERIC symbol. They appear in plan; they are not distinguishable there. L-1332. |
 | 5 | **Beam angle still does not narrow the PointLight.** | Pre-existing and documented (`FixturePhotometry` §Beam angle): every fixture is a `PointLight`. So `flood_spot` at 30° and `exterior_wall_pack` at 120° differ in LENS treatment, not in throw. A `SpotLight` upgrade would read `beamAngleDeg` directly. L-1333. |
 | 6 | **`watts` / `cri` / `ipRating` are absent on the twelve named families.** | Optional by design: back-filling a wattage nobody measured would be inventing data. They stay **absent** rather than plausible. |
-| 7 | **Three copies of `LightingTypes.ts` remain (§9.2).** | The union now widens from ONE derived source, so the twenty are added in one place — but the three files still each carry the same one-line import. Not the fix §9.2 asks for. |
+| 7 | **Three copies of `LightingTypes.ts` remain (§9.2).** | The union widens from ONE derived source and that source is now at **L0**, so schemas, core-app-model and geometry-lighting all read the same array — but the three `LightingTypes.ts` files still each carry the same one-line import. Not the single-declaration fix §9.2 asks for. |

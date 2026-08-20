@@ -28,7 +28,8 @@
     "./provenance": "./src/provenance/index.ts",
     "./privacy": "./src/privacy/index.ts",
     "./ifc": "./src/ifc/index.ts",
-    "./materials": "./src/materials/index.ts"
+    "./materials": "./src/materials/index.ts",
+    "./lighting": "./src/lighting/index.ts"
   },
   "files": ["src", "dist"],
   "scripts": {

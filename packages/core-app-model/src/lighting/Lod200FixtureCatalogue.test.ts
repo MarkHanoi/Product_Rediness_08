@@ -28,6 +28,16 @@
 import { describe, it, expect } from 'vitest';
 // ⭐ THE LIVE catalogue — the whole point of ARM A. Do not replace with a fixture.
 import { MATERIAL_CATALOG } from '@pryzm/schemas/materials';
+// §FIX-LIGHTING-VOCABULARY (L-1331) — the L0 accepted set, and the REAL element
+// schema the bus path parses against. Not a stand-in: `Lighting.parse` is the
+// exact call `CreateLightingHandler` makes.
+import { ACCEPTED_LIGHTING_KINDS, isAcceptedLightingKind } from '@pryzm/schemas/lighting';
+import { Lighting } from '@pryzm/schemas';
+// ⚠ A REAL branded id. The first draft of these arms passed a plain string and every
+// parse failed on `id | invalid_format | Expected lighting_<ulid>` — an assertion that
+// fails for a reason unrelated to its subject is as useless as one that passes for one,
+// and it would have read as "the vocabulary is still refused".
+import { createId } from '@pryzm/schemas/factory/createId';
 import {
     LOD200_FIXTURE_ROWS,
     LOD200_FIXTURE_IDS,
@@ -349,5 +359,72 @@ describe('§FEAT-LOD200-LUMINAIRES — one table, reachable by the renderer', ()
             // The picker's mount must be the SAME fact the photometry table carries.
             expect(d.mount).toBe(LIGHTING_FIXTURE_PHOTOMETRY[d.id]!.mount);
         }
+    });
+});
+
+// ── §FIX-LIGHTING-VOCABULARY (L-1331) — the offer/accept guard ──────────────
+//
+// ⭐ THE ARM THAT CLOSES THE CLASS. C84 EI-3 is directional: **UI offers ⇒ pipeline
+// accepts.** This asserts that relation directly, so a thirty-third fixture family
+// added upstairs and forgotten in the L0 vocabulary fails the BUILD rather than
+// throwing at a user's click — which is how ten-of-twelve, then thirty-of-thirty-two,
+// went unnoticed for as long as they did.
+
+describe('§FIX-LIGHTING-VOCABULARY — everything the tool OFFERS, the pipeline ACCEPTS', () => {
+    it('the schema accepts EVERY fixture family the tool can place — no gap', () => {
+        const offered = Object.keys(LIGHTING_FIXTURE_PHOTOMETRY);
+        const refused = offered.filter((k) => !isAcceptedLightingKind(k));
+        expect(refused, `families the picker offers but the schema refuses: ${refused.join(', ')}`)
+            .toEqual([]);
+        expect(offered).toHaveLength(32);
+    });
+
+    it('⭐ the REAL element schema parses all 32 — this is the exact call the bus handler makes', () => {
+        // `CreateLightingHandler` does `Lighting.parse(seed)` and rethrows as
+        // LightingSchemaError. Before L-1331 this threw for 30 of the 32.
+        for (const kind of Object.keys(LIGHTING_FIXTURE_PHOTOMETRY)) {
+            expect(() => Lighting.parse({
+                id: createId('lighting'), levelId: 'L0', kind,
+                origin: { x: 0, y: 2.6, z: 0 },
+            }), `Lighting.parse rejected ${kind}`).not.toThrow();
+        }
+    });
+
+    it('`kind` survives the parse — it is not silently downgraded to a default', () => {
+        // ⚠ `z.enum(...).default()` fires on `undefined` and NEVER on an out-of-enum
+        // literal, so a default could not have absorbed these even if it looked like it.
+        for (const kind of ['bollard_light', 'exit_sign', 'troffer_panel', 'high_bay']) {
+            const parsed = Lighting.parse({
+                id: createId('lighting'), levelId: 'L0', kind,
+                origin: { x: 0, y: 2.6, z: 0 },
+            });
+            expect(parsed.kind, `${kind} was downgraded`).toBe(kind);
+        }
+    });
+
+    it('the widening stays a CLOSED union — an unknown family is still REFUSED', () => {
+        // ⛔ "Widen the parse to accept anything" is what C96 §9.1 forbids. The set grew;
+        // it did not open.
+        expect(isAcceptedLightingKind('not_a_real_fixture')).toBe(false);
+        expect(() => Lighting.parse({
+            id: createId('lighting'), levelId: 'L0', kind: 'not_a_real_fixture',
+            origin: { x: 0, y: 2.6, z: 0 },
+        })).toThrow();
+    });
+
+    it('the legacy five construction forms still parse — records on disk keep loading', () => {
+        for (const legacy of ['downlight', 'pendant', 'strip', 'wall-sconce', 'emergency']) {
+            expect(isAcceptedLightingKind(legacy), legacy).toBe(true);
+        }
+    });
+
+    it('the accepted set is DERIVED — the twenty arrive without being re-typed', () => {
+        for (const id of LOD200_FIXTURE_IDS) {
+            expect(ACCEPTED_LIGHTING_KINDS, `${id} missing from the accepted set`).toContain(id);
+        }
+        // 5 legacy + 12 named + 20 LOD-200, minus the {downlight, pendant} overlap
+        // that appears in two of the three sources — the two-value overlap that made
+        // the original five-value transcription look reasonable.
+        expect(ACCEPTED_LIGHTING_KINDS).toHaveLength(5 + 12 + 20 - 2);
     });
 });
