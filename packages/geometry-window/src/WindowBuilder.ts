@@ -33,6 +33,15 @@ import {
     // plane, because a hosted element "has no independent world-space coordinate in
     // the store" (C15 §2) and the slab term is unreachable from this package.
     resolveWallBaseYOrLevel, hostedLeafCentreY,
+    // §OPENING-PROFILE-FRAME (L-1520) — THE ONE PRODUCER of the void's outline, and the pure
+    // helpers derived from it. `grep -c openingProfile WindowBuilder.ts` was **0** before this
+    // line: the wall cut a circle and the frame drew a rectangle around it (C86 §11 #1). Nothing
+    // below re-derives an arc — PR-1 forbids it, and there is no arc in this file to get wrong.
+    openingOutlineLocal, insetOutlinePoints, isProfiledOpening,
+    // …and the SHARED frame solid derived from that outline. It lives beside the producer, in
+    // `geometry-wall`, because the DOOR builder consumes the identical band — see its header.
+    profiledBandGeometry, profiledPlateGeometry,
+    type OpeningOutline, type OutlinePoint,
 } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -161,6 +170,32 @@ function addSeatedBox(
     mesh.rotation.y = seat.rotationY;
     mesh.userData.role = role;
     parent.add(mesh);
+}
+
+/**
+ * §OPENING-PROFILE-FRAME (L-1520) — attach an EXTRUDED PROFILE solid.
+ *
+ * The counterpart to {@link addBox} for the non-rectangular arm. It takes a finished
+ * `BufferGeometry` rather than dimensions, because a profiled member has no `w × h × d` to state:
+ * it is a band or a plate, authored in group-local `(x, y)` by the ONE producer's outline and
+ * already centred on `z` by `extrudeCentred`.
+ *
+ * `null` in, nothing added, `false` out — the producer refuses an outline it cannot triangulate,
+ * and a MISSING member is visible and reportable where a subtly-wrong one is not.
+ */
+function addProfiled(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    geo: THREE.BufferGeometry | null,
+    role: WindowPartRole,
+    z = 0,
+): boolean {
+    if (!geo) return false;
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(0, 0, z);
+    mesh.userData.role = role;
+    parent.add(mesh);
+    return true;
 }
 
 // ── Helper: create a fresh MeshStandardMaterial with polygon offset ─────────
@@ -742,8 +777,22 @@ export class WindowBuilder {
         // guards and render every curved member as a 1 m cube. Instancing a curved
         // leaf needs per-instance geometry keys in `ElementInstanceBridge`, not a
         // fixup here — the same C65 §3.9 answer the rake arm gives.
+        //
+        // §OPENING-PROFILE-FRAME (L-1520) — ⛔ A PROFILED WINDOW IS EXCLUDED, AND THIS IS THE
+        // SECOND BUG THE FRAME FIX WOULD OTHERWISE HAVE SHIPPED. `_convertGroupToInstances`
+        // recovers each sub-box's authored size from `(mesh.geometry as THREE.BoxGeometry)
+        // .parameters` — the identical mechanism the curved-host exclusion above names. A frame
+        // BAND is an `ExtrudeGeometry` and has no `parameters` at all, so the conversion would hit
+        // its `?? 1` guards and render every circular window as a stack of 1 m CUBES. Windows are
+        // the ONE family whose instancing is DEFAULT-ON (§INSTANCE-WINDOWS-DEFAULT-ON, L-1180), so
+        // this would have been the DEFAULT rendering of the founder's fix, not an edge case.
+        //
+        // ⭐ The predicate is `isProfiledOpening`, the SAME call `buildVisuals` branches on — not a
+        // restatement of its condition. A gate and a builder that each decide "is this profiled?"
+        // separately is how one starts drawing what the other cannot carry.
         const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
-        if (this._instancingActive() && !_hostRaked && !arc) {
+        const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height);
+        if (this._instancingActive() && !_hostRaked && !arc && !_profiled) {
             this._convertGroupToInstances(win, group, wallData.levelId);
         }
 
@@ -1219,6 +1268,39 @@ export class WindowBuilder {
         const glassMat = this._sharedGlassMaterial(levelId, glassOpacity, dims.glazingThickness);
         mats.push(frameMat, glassMat);
 
+        // ── §OPENING-PROFILE-FRAME (L-1520) — THE FRAME FOLLOWS THE VOID ───
+        //
+        // ⭐ THE FOUNDER'S DEFECT IS DECIDED ON THIS LINE. Everything below it builds head / cill /
+        // jambs as four axis-aligned boxes, unconditionally — which is why a circular opening got a
+        // SQUARE frame, and an arched one got a square frame too. `openingOutlineLocal` is the SAME
+        // producer the wall cut the hole with (C86 §10.1 PR-1), asked in this group's own centred
+        // coordinates, so the frame cannot disagree with the reveal by a sampling step.
+        //
+        // ⛔ `isRectangular` SHORT-CIRCUITS, and that is the byte-identity guarantee (PR-2). Every
+        // window drawn before L-1200 carries no profile at all, resolves to `rectangular`, and
+        // reaches literally the old code below — not a reconstruction that happens to agree.
+        //
+        // ⛔ `arc` FORCES THE OLD PATH TOO, and it is a REFUSAL rather than an oversight:
+        // `openingProfileHostRefusal` (PR-5) states that a curved wall cannot carry a
+        // non-rectangular void at all — the void is set out in ARC-LENGTH space, where a circle is
+        // not a circle. The authoring gate refuses it; if a record holds one anyway, the frame
+        // stays rectangular exactly like the wall body does, so the two still agree.
+        //
+        // ⭐ A REFUSED SHAPE TAKES THIS PATH TOO, BY THE SAME MECHANISM. `openingOutline` returns
+        // `null` for a "circle" whose width ≠ height, for a round arch shorter than its own head,
+        // and for a segmental arch shallower than its rise — the exact set
+        // `openingProfileShapeRefusal` names to the user. `null` here means the frame draws the
+        // rectangle the WALL ARMS also fall back to. There is no way for this builder to draw a
+        // shape the refusal would have rejected, because it never constructs a shape at all: it
+        // only consumes the one the gate already vetted.
+        const outline: OpeningOutline | null = arc
+            ? null
+            : openingOutlineLocal(win.openingProfile, w, h);
+        if (outline && !outline.isRectangular) {
+            this._buildProfiledVisuals(win, group, outline, frameMat, glassMat, dims, ft, fd, lod, levelId, mats);
+            return mats;
+        }
+
         // ── Outer Frame (EVERY LOD — it is the window's silhouette) ────────
         //
         // §FEAT-CURVED-WINDOW-LEAF (L-957) — THE FOUNDER'S DECOMPOSITION, APPLIED.
@@ -1393,6 +1475,32 @@ export class WindowBuilder {
         }
 
         // ── Sill (medium + fine) ───────────────────────────────────────────
+        this._addSillBoard(win, group, dims, fd, levelId, mats, arc);
+
+        return mats;
+    }
+
+    /**
+     * The SILL BOARD — extracted verbatim (§OPENING-PROFILE-FRAME, L-1520) so the rectangular
+     * arm and the profiled arm cannot grow two sill rules. The body is unchanged; only its number
+     * of homes is.
+     *
+     * ⭐ **AND THE PROFILED ARM DOES NOT ALWAYS CALL IT — SEE `_buildProfiledVisuals`.** A
+     * `round-arch` and a `segmental-arch` still have the SAME straight full-width bottom edge a
+     * rectangle has, so their board is unchanged and correct. A **CIRCULAR window has no cill in
+     * this sense at all** — its outline has no bottom edge for a board to sit on — and drawing one
+     * would be an unknown rendered as a rectangle. It is OMITTED.
+     */
+    private _addSillBoard(
+        win: WindowOpening,
+        group: THREE.Group,
+        dims: ReturnType<typeof resolveWindowDimensions>,
+        fd: number,
+        levelId: string,
+        mats: THREE.Material[],
+        arc: LeafArc | null,
+    ): void {
+        const { width: w, height: h } = win;
         if (win.sill && win.sillDepth > 0 && win.sillThickness > 0) {
             // §INSTANCE-WINDOWS — sill mirrors the frame colour (roughness 0.7),
             // resolved from the SHARED cache so it coalesces across storeys too.
@@ -1417,8 +1525,123 @@ export class WindowBuilder {
                 'windowSill',
             );
         }
+    }
 
-        return mats;
+
+    /**
+     * §OPENING-PROFILE-FRAME (L-1520) — THE NON-RECTANGULAR WINDOW, MEMBER BY MEMBER.
+     *
+     * ⭐ **EVERY SHAPE HERE IS `outline.points` OR AN INSET OF IT. THERE IS NO ARC IN THIS METHOD.**
+     * C86 §10.1 PR-1 binds every wall-body arm to the one producer; the frame is now bound by the
+     * same rule, which is what makes "the frame fits the hole" a property of the code rather than
+     * a claim about it.
+     *
+     * ── THE ARCHITECTURAL DECISION FOR EACH SUB-PART (a fabricator's answer, not a shortcut) ──
+     *
+     * **OUTER FRAME → ONE BAND, NOT FOUR BOXES.** A circular window's frame IS A RING: it has no
+     * cill and no jambs, because a circle has no bottom edge and no vertical sides to name. An
+     * arched window's frame is a curved head continuous with two straight jambs, which a joiner
+     * makes as a scarf-jointed member of CONSTANT SECTION. A band between the outline and its
+     * constant inset is exactly both of those. Four axis-aligned boxes are neither, and that is
+     * the founder's report.
+     *
+     * **SASH → A SECOND CONCENTRIC BAND.** An arched casement's sash follows its frame; the
+     * fabricator bends the same section to a smaller radius. Its outer edge IS the frame's inner
+     * edge, so they cannot part.
+     *
+     * **BEAD → A THIRD BAND, on the sight line, standing proud by the rebate depth.** Same rule.
+     *
+     * **GLASS → ONE SHAPED PANE.** Curved and circular glass is cut to the sight line; that is how
+     * a real oculus is glazed. The pane is the sight-line outline, extruded at the record's own
+     * glazing thickness.
+     *
+     * ⛔ **GLAZING GRID (mullions / transoms) → OMITTED, DELIBERATELY.** The rectangular arm
+     * derives its cells from `innerW × innerH` — a BOUNDING-BOX construction. Clipped to an arc it
+     * would put a mullion's foot outside the glass and its head through the frame. And the honest
+     * point is stronger than the arithmetic: **a real arched or circular window is not divided by
+     * an orthogonal grid.** It carries FAN TRACERY in the head, or radial tracery in a rose — a
+     * different construction that nobody has authored, with no field on the record to describe it.
+     * An unknown drawn as a rectangle is the same class of defect as an unknown drawn as a zero,
+     * so the grid is omitted and the pane is single. A `double × circular` window therefore reads
+     * as one oculus, not two half-moons. **RECORDED AS A KNOWN GAP, not as a finished answer.**
+     *
+     * **SILL BOARD → kept for the arches, OMITTED for the circle.** See `_addSillBoard`.
+     */
+    private _buildProfiledVisuals(
+        win: WindowOpening,
+        group: THREE.Group,
+        outline: OpeningOutline,
+        frameMat: THREE.Material,
+        glassMat: THREE.Material,
+        dims: ReturnType<typeof resolveWindowDimensions>,
+        ft: number,
+        fd: number,
+        lod: DetailLevel,
+        levelId: string,
+        mats: THREE.Material[],
+    ): void {
+        const pts = outline.points;
+
+        // ── Outer frame ────────────────────────────────────────────────────
+        // A WINDOW frame is a CLOSED ring — it has a cill. (The door passes `omitBaseEdge`,
+        // because a doorway has no cill to walk over; that is the one difference between the
+        // two families' frames and it is stated in ONE place, the band builder's parameter.)
+        const frameInner = insetOutlinePoints(pts, ft);
+        if (!frameInner) {
+            // The member does not fit: `ft` is at least half the opening. The opening is then
+            // SOLID FRAME, and drawing it as such is the truthful reading of the record — far
+            // better than falling back to a rectangle inside a circular hole, which would put the
+            // C86 §11 #1 divergence back after removing it.
+            addProfiled(group, frameMat, profiledPlateGeometry(pts, fd), 'windowFrame');
+            return;
+        }
+        addProfiled(group, frameMat, profiledBandGeometry(pts, frameInner, fd), 'windowFrame');
+
+        // ── COARSE (LOD 100) — THE MASSING WINDOW ──────────────────────────
+        // ADR-121 §4.2: silhouette + opening extents, no sash, no bead, no sill board. The
+        // rectangular arm returns here too, and for the same reason.
+        if (lod === 'coarse') {
+            addProfiled(group, glassMat, profiledPlateGeometry(frameInner, dims.glazingThickness), 'windowGlazing');
+            return;
+        }
+
+        // ── FINE (LOD 300) — sash + glazing bead ───────────────────────────
+        let sight: readonly OutlinePoint[] = frameInner;
+        if (lod === 'fine') {
+            // Clamped against the opening's own bbox so a fat sash cannot swallow a small oculus;
+            // `insetOutlinePoints` then refuses anything that still does not fit, and the arm
+            // simply drops the member rather than emitting a spike.
+            const st = Math.min(dims.sashThickness, (win.width - 2 * ft) / 4, (win.height - 2 * ft) / 4);
+            const sashInner = st > 0 ? insetOutlinePoints(pts, ft + st) : null;
+            if (sashInner) {
+                const sd = Math.min(dims.sashDepth, fd);
+                addProfiled(group, frameMat, profiledBandGeometry(frameInner, sashInner, sd), 'windowSash');
+                sight = sashInner;
+
+                // …captured by the BEAD, clamped to the sash member that contains it — a bead can
+                // never be deeper than its own frame (the same clamp the plan symbol applies).
+                const bead = Math.min(dims.rebateDepth, st);
+                const beadInner = bead > 0 ? insetOutlinePoints(pts, ft + st + bead) : null;
+                if (beadInner) {
+                    const beadZ = dims.glazingThickness / 2 + bead / 2;
+                    addProfiled(group, frameMat, profiledBandGeometry(sashInner, beadInner, bead), 'windowBead', beadZ);
+                }
+            }
+        }
+
+        // ── The pane ───────────────────────────────────────────────────────
+        // ONE sheet, cut to the sight line — see the ⛔ note above on why there is no grid.
+        addProfiled(group, glassMat, profiledPlateGeometry(sight, dims.glazingThickness), 'windowGlazing');
+
+        // ── Sill board ─────────────────────────────────────────────────────
+        // ⛔ A CIRCLE HAS NO CILL. Its outline has no bottom edge for a board to sit on, and a
+        // board drawn across the underside of an oculus is a member no fabricator makes. The two
+        // ARCHES keep theirs unchanged: below the springing their outline IS the rectangle's, so
+        // the same board is the same correct board. `arc` is `null` on this whole path (a curved
+        // host cannot carry a profile — PR-5), which is why it is passed as such.
+        if (outline.kind !== 'circular') {
+            this._addSillBoard(win, group, dims, fd, levelId, mats, null);
+        }
     }
 
     /**
