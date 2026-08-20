@@ -61,6 +61,11 @@ import {
     type ReweldBaseline,
 } from './WallMoveReweld';
 import { DEFAULT_SNAP_RADIUS } from './WallJoinResolver';
+import {
+    auditWallTopology,
+    summariseWallTopologyAudit,
+    type WallTopologyAudit,
+} from './WallTopologyIntegrity';
 
 type WallEventType = 'add' | 'update' | 'remove';
 
@@ -474,6 +479,13 @@ export class WallMoveReweldService {
                     `Every junction this move touched was left exactly as it was.`
                 );
             }
+            // §WALL-TOPOLOGY-INTEGRITY — THE PATH THAT MOST NEEDS THE PROBE.
+            // No entries means nothing will be dispatched and nothing further
+            // will run: whatever this move left open, it leaves open for good.
+            // The founder's session ended on exactly this branch (2 refusals,
+            // 1 subject-only re-seat) and the corruption it left was named by
+            // four different subsystems and by nothing that read them together.
+            this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevState?.thickness);
             return;
         }
 
@@ -593,6 +605,77 @@ export class WallMoveReweldService {
             );
         } finally {
             this.propagating = false;
+        }
+        // §WALL-TOPOLOGY-INTEGRITY — AFTER the cascade's writes, and outside the
+        // `propagating` latch, so the probe measures the world the user is left
+        // with rather than the one mid-write. A cascade that SUCCEEDS can still
+        // leave the level corrupt: it repairs the junctions it has entries for
+        // and is silent about the ones it refused.
+        this.auditLevelTopology(wall.id, moved.levelId, prevBL, prevState?.thickness);
+    }
+
+    /**
+     * §WALL-TOPOLOGY-INTEGRITY (L-1570) — RUN THE PROBE, AND SAY WHICH HALF OF
+     * WHAT IT FOUND THIS GESTURE IS RESPONSIBLE FOR.
+     *
+     * ── WHY IT IS WIRED HERE ─────────────────────────────────────────────────
+     * `auditWallTopology` is pure and store-free by design, which makes it
+     * *present* and not yet *reachable*. This is the one place every committed
+     * baseline move funnels through — the same chokepoint argument
+     * `wallPlacementGate` makes for its three pre-flights — so wiring it here
+     * covers the plan drag AND the 3D gizmo drag-end without either growing its
+     * own call, and the two cannot drift apart.
+     *
+     * ── THE BEFORE/AFTER DIFF IS NOT A REFINEMENT, IT IS THE POINT ───────────
+     * A level that was ALREADY corrupt and a gesture that has JUST corrupted it
+     * are different facts, and an audit that printed one total would report the
+     * first as the second on every subsequent move — the founder would then be
+     * shown the same finding forever with no way to tell which drag caused it.
+     * §CONTEXT-DATA-HONESTY, and the same separation §L-990 already draws
+     * between `blockingIssues` and `preExistingIssues`.
+     *
+     * The "before" world is the level with the SUBJECT put back on `prevBaseLine`
+     * — the identical reconstruction `computeMoveReweldCensus` was handed, so the
+     * probe and the weld engine reason about one and the same "before".
+     *
+     * Never throws through: a probe that breaks a move is worse than no probe.
+     */
+    private auditLevelTopology(
+        movedWallId: string,
+        levelId: string,
+        prevBL: ReadonlyArray<{ x: number; y: number; z: number }>,
+        prevThickness: number | undefined,
+    ): void {
+        try {
+            const after = this.wallStore.getByLevel(levelId);
+            if (after.length === 0) return;
+            const auditAfter = auditWallTopology(after);
+            if (!auditAfter.corrupt) return;
+
+            const before = after.map(w => (
+                w.id === movedWallId
+                    ? { ...w, baseLine: [prevBL[0], prevBL[1]], thickness: prevThickness ?? w.thickness }
+                    : w
+            ));
+            const auditBefore = auditWallTopology(before as typeof after);
+            const key = (f: WallTopologyAudit['findings'][number]): string =>
+                `${f.kind}|${f.guestWallId}|${f.guestSide}|${f.hostWallId}|${f.hostSide ?? ''}`;
+            const stood = new Set(auditBefore.findings.map(key));
+            const created = auditAfter.findings.filter(f => !stood.has(key(f)));
+
+            const line = summariseWallTopologyAudit(levelId, auditAfter);
+            if (!line) return;
+            console.warn(
+                `${line}\n  §WALL-TOPOLOGY-ATTRIBUTION: moved wall ${movedWallId} — ` +
+                `${created.length} of these ${auditAfter.findings.length} finding(s) were CREATED by ` +
+                `this gesture; ${auditAfter.findings.length - created.length} were ALREADY STANDING ` +
+                `before it.` +
+                (created.length > 0
+                    ? ` CREATED: [${created.map(f => `${f.guestWallId}(${f.guestSide})→${f.hostWallId}:${f.kind}(${f.measuredMm}/${f.limitMm} mm)`).join(', ')}]`
+                    : ' This gesture created none of them.'),
+            );
+        } catch (err) {
+            console.warn('[WallMoveReweldService] §WALL-TOPOLOGY-INTEGRITY probe failed (non-fatal):', err);
         }
     }
 

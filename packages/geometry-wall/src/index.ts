@@ -55,6 +55,10 @@ export * from './composeWallGeometryHash';
 // rectangle-decomposition arms carry a curve without drawing a staircase.
 export * from './OpeningProfile';
 export * from './OpeningProfileGasket';
+// §OPENING-PROFILE-FRAME (L-1520) — the HOSTED-ELEMENT counterpart of the gasket: the frame band
+// between an opening's outline and its inset, consumed by BOTH `WindowBuilder` and `DoorBuilder`.
+// It lives here, beside the producer, so neither family owns it; see its header.
+export * from './OpeningProfileFrameGeometry';
 export * from './WallOpeningPositionResolver';
 export * from './WallOpeningRenderData';
 export * from './LayeredWallOpeningBuilder';
@@ -86,6 +90,11 @@ export * from './WallMoveReweld';
 // behind the propagating + isJoinResolving + cross-service cascade latches.
 // Wired in apps/editor engineLauncher next to SlabWallConnectivityService.
 export * from './WallMoveReweldService';
+// §WALL-TOPOLOGY-INTEGRITY (L-1570) — the PROBE. Deterministic, host-derived,
+// store-free: "is this level's wall topology corrupt, and WHICH junctions?".
+// Reachable on every committed move via WallMoveReweldService; callable on any
+// wall set (a snapshot, a fixture) because the corruption OUTLIVES the gesture.
+export * from './WallTopologyIntegrity';
 export * from './WallFootprint2D';
 export * from './WallPolygonExtruder';
 export * from './WallPipelineV2';
