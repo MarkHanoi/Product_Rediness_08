@@ -711,6 +711,76 @@ Rev 2 described these as the target. Four of five are built; the table says whic
     **TO BUILD:** a check that no file outside `SpatialScopeTail.ts` contains a
     `(?:on|in)\s.*(?:levels?|floors?)` place-phrase literal.
 
+    > ⭐ **THE FOURTH SPELLING WAS ALREADY ON DISK WHEN THIS RULE WAS WRITTEN — FOUND
+    > 2026-08-20, lane RAC1, L-1372.** `ZeroTokenResolver.WALL_RAKE_SCOPE` carried it verbatim:
+    >
+    > ```
+    > (?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in the ([\w .-]+?))?
+    > ```
+    >
+    > — the same `on`→LEVEL / `in`→ROOM hard-wiring, in the SAME FILE as two of the three the rule
+    > names, about forty lines below the colour grammar. **Measured before the fix:** *"make all
+    > walls in level 3 raked 70 degrees"* did not reach the rake grammar at all (its `in` arm
+    > requires the literal word "the"), fell through to `parseWallTypeIntent`, and was answered
+    > *'There is no wall type called "in level 3 raked 70 degrees"'*. So the rule's own prediction
+    > — *"fixing one leaves the next sentence broken in another"* — was live in production while
+    > the rule was being written. It is now folded into `SPATIAL_TAIL_SRC`; **the TO-BUILD gate
+    > above is still not built, and it is the only thing that would have caught this one.**
+    >
+    > ⚠ A **FIFTH** spelling is still on disk and is deliberately left: `WALL_COLOR_RE`'s tail
+    > carries a `(?!colou?r )` lookahead that keeps *"in the colour white"* out of the place
+    > capture, and folding it in without that guard turns *"make all walls in white"* into a place
+    > phrase. It is named here rather than silently fixed — an unmeasured rewrite of a shipped
+    > grammar is how the fourth one was written in the first place.
+
+17. ⭐ **A GRAMMAR MUST DECLINE A NEAR-MISS THAT BELONGS TO ANOTHER CAPABILITY — AND A
+    RECOGNISED-BUT-UNDERSPECIFIED ASK MUST REFUSE **BY NAME** RATHER THAN FALL THROUGH
+    (added rev 6, L-1370 / L-1371).**
+
+    **The rule, in two halves that must not be flattened.**
+
+    a. **DECLINE.** A grammar whose value is FREE TEXT (a type name, a colour name, a finish name)
+       **MUST NOT** claim a candidate built from another capability's vocabulary. The word set
+       **MUST** be IMPORTED from the one definition —
+       `DimensionFamilies.OTHER_CAPABILITY_WORD` — and **MUST NOT** be re-typed per grammar; the
+       equivalence **MUST** be pinned by a test, never by a comment (C84 EI-8a).
+    b. **REFUSE BY NAME.** Where the sentence is *recognised-but-underspecified* — the capability's
+       own marker is present and one field is unreadable — the grammar **MUST** claim it and refuse
+       **quoting what the user typed**, naming the correction. It **MUST NOT** fall through to a
+       neighbouring grammar, **MUST NOT** auto-correct, and **MUST NOT** widen its own pattern to
+       absorb the typo. (ADR-0313 HONESTY: this state must never reach an LLM.)
+
+    **What the absence of this rule cost — FOUNDER-REPORTED, PRODUCTION, 2026-08-20.** He typed
+    **`make all walls on level 3 raked 90 dregress`** (his typo for *degrees*) and was answered:
+
+    > *"There is no wall type called **"on level 3 raked 90 dregres"** in this project. The wall
+    > types here are: Monolithic (Default), Interior – Partition 100mm, … Try: "change all walls to
+    > monolithic (default)""*
+
+    A sentence carrying the word **"raked"** and a number, answered **confidently** as a catalogue
+    lookup. **The asymmetry is the proof it was a gap and not a design:** `parseWallTypeIntent`
+    already declined DIMENSION words (*"make all walls 3m tall" is a dimension ask, not a type
+    ask*), and `DimensionFamilies` already declined RAKE words for the mirror-image reason — *"a
+    near-miss must never resolve as a resize: rake/pitch carry numbers too."* **The dimension
+    grammar protected itself from rake; the type grammar did not reciprocate.**
+
+    **⭐ A GUARD ADDED TO ONE GRAMMAR IS THE ENUMERATED-LIST DEFECT AGAIN — so the sweep is part
+    of the rule.** Measured on the real ladder, 2026-08-20 (probe executed, then deleted):
+
+    | Grammar | Before | After | Verdict |
+    |---|---|---|---|
+    | `parseWallTypeIntent` | ⛔ claimed `typeRef:"on level 3 raked 90 dregress"` | declines | **FIXED** (derived guard) |
+    | `makeHostedTypeParser` → window · door · slab · ceiling | ⛔ claimed — its rake list was a **hand-copy of five words** (`pitch\|angle\|angled\|raked\|tilted`) already missing `tilt`, `lean`, `leaning`, `slanted`, `vertical`, `upright`, `slope`, `degrees` | declines | **FIXED** (derived guard replaced the copy) |
+    | `parseWallColorIntent` | ⛔ `paint all walls raked 90 dregress` → *"I don't know the colour “raked 90 dregress”"* | declines when the colour table also declines | **FIXED** (found by MEASUREMENT, not by reasoning about the first fix) |
+    | `parseWallSideFinishIntent` | claims via the literal word `finish` | unchanged | **DEFENSIBLE** — the marker makes the ask unambiguous; the refusal is already on-topic |
+    | `parseAddWallLayerIntent` | claims via `layer`/`coat` | unchanged | **DEFENSIBLE** — same reason |
+    | dimension families | already declined | unchanged | the ORIGIN of the shared set |
+    | delete families | not claimed | unchanged | — |
+
+    **The exit state for the founder's sentence** is a refusal that names what it did not
+    understand: *"I don't recognise the unit “dregress” — did you mean degrees? Nothing was
+    changed."*
+
 ---
 
 ## §5 — Roadmap (conflict order: STR → this contract → ADR-0313/0314/0315 → the RAC plans)

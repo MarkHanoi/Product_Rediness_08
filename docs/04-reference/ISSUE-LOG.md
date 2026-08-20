@@ -21449,3 +21449,345 @@ declarations must not quietly retire a third that is a measured impossibility ra
 arm.
 
 ---
+
+## L-1370 — "MAKE ALL WALLS ON LEVEL 3 RAKED 90 DREGRESS" WAS ANSWERED AS A **WALL TYPE** ASK. THE DIMENSION GRAMMAR HAD GUARDED ITSELF AGAINST RAKE WORDS SINCE THE DAY IT WAS WRITTEN; THE TYPE GRAMMAR NEVER RECIPROCATED ✅ FIXED 2026-08-20 (lane RAC1)
+
+**Source:** the founder, in production. He typed his own typo for *degrees*:
+
+> `make all walls on level 3 raked 90 dregress`
+
+and the product answered:
+
+> *"There is no wall type called **"on level 3 raked 90 dregres"** in this project. The wall types
+> here are: Monolithic (Default), Interior – Partition 100mm, … Try: "change all walls to
+> monolithic (default)""*
+
+⭐ **A sentence containing the word "raked" and a number, answered CONFIDENTLY as a catalogue
+lookup.** That is the product being confidently wrong, which is worse than refusing (C68 §7) — the
+refusal even *taught* him the wrong vocabulary, offering wall types in reply to an angle ask.
+
+### The mechanism — three defects in series, each of which alone produces the wrong answer
+
+`packages/ai-host/src/intents/ZeroTokenResolver.ts`:
+
+1. **`WALL_RAKE_ADJ_RE` DECLINED, correctly.** Its angle tail anchors the unit as
+   `(?:°|degrees?|deg)?$`. `dregress` is neither a unit nor end-of-string, so the rake grammar did
+   not claim the sentence. **Correct in isolation, and that is the trap** — the defect is what
+   happens next.
+2. **`parseWallTypeIntent` swallowed the whole tail as a TYPE NAME.** Its near-miss guards were a
+   dimension-word test and a leading-digit test, and nothing else.
+   ⭐ **DIMENSION words are guarded. RAKE words are not.** No `angled|tilted|raked|leaning|slanted|
+   vertical|upright|degrees` anywhere in them.
+3. **The asymmetry is the proof it is a GAP and not a design.** `DimensionFamilies.ts` carries
+   `OTHER_CAPABILITY_WORD` — `angled?|tilted?|raked?|leaning|leant|slanted|vertical|upright|pitch|slope|degrees?|deg`
+   — and declines outright, with the comment *"a near-miss must never resolve as a resize: rake/pitch
+   carry numbers too."* **One grammar protected itself from the other; the other did not
+   reciprocate.**
+
+Reproduced verbatim from the pre-fix regexes before any code was changed — both HEAD sources
+reconstructed in a scratch script, so the reproduction did not depend on the fix being absent:
+
+```
+"make all walls on level 3 raked 90 dregress"
+  OLD rake : DECLINES
+  OLD type : CLAIMS typeRef="on level 3 raked 90 dregress"
+"make all walls in level 3 raked 70 degrees"
+  OLD rake : DECLINES        <- its `in` arm requires the literal word "the"
+  OLD type : CLAIMS typeRef="in level 3 raked 70 degrees"
+"make all walls tilted a bit"
+  OLD rake : DECLINES        <- no number
+  OLD type : CLAIMS typeRef="tilted a bit"
+```
+
+### The fix — DERIVED, never transcribed
+
+`OTHER_CAPABILITY_WORD` is now **exported** from `DimensionFamilies.ts` and **imported** by the type,
+hosted-type and colour grammars. ⛔ A second copy would have been the same defect with a longer
+fuse: C84 **EI-8a** requires a licensed copy be pinned by a **test**, never a comment, and this repo
+records that the comment mechanism *"has already failed twice, measured"*.
+`packages/ai-host/__tests__/wall-rake-near-miss.test.ts` walks every word in the shared set through
+the live resolver, so a word added to the definition is a word every guarded grammar declines.
+
+### ⭐ THE SWEEP — a guard added to ONE grammar is the enumerated-list defect again
+
+Measured on the real ladder with a probe that was executed and then deleted (matrix reproduced in
+**C67 §4 rule 17**). Two more swallowers were found, and **only one of them by reasoning**:
+
+- `makeHostedTypeParser` (window · door · slab · ceiling) — it *had* a rake list, and the list was a
+  **hand-copy of five words** (`pitch|angle|angled|raked|tilted`) already missing `tilt`, `lean`,
+  `leaning`, `slanted`, `vertical`, `upright`, `slope`, `degrees`. **The copy had already rotted
+  before anyone noticed the original was missing.**
+- `parseWallColorIntent` — found by MEASUREMENT, not by reasoning: `paint all walls raked 90
+  dregress` → *"I don't know the colour "raked 90 dregress""*. The colour-specific verbs
+  (paint/colour) claim an unresolvable ref **on purpose** so an unknown colour earns a colour
+  refusal listing real options; that rule is right and is untouched. What they must not claim is a
+  ref built from another capability's words, **and only when the colour table also declines it** —
+  so a colour that one day contains such a word keeps working.
+
+`parseWallSideFinishIntent` and `parseAddWallLayerIntent` are **DEFENSIBLE and untouched**: both
+claim on their own literal marker (`finish`, `layer`/`coat`), so their refusals are already on the
+topic the user named.
+
+---
+
+## L-1371 — "RAKED 90 DREGRESS" IS **RECOGNISED-BUT-UNDERSPECIFIED**. IT MUST REFUSE **BY NAME**, NOT FALL THROUGH ✅ FIXED 2026-08-20 (lane RAC1)
+
+The better half of L-1370. The founder's sentence has a rake word ✓, a number ✓, and a unit the
+grammar does not know. **Declining is the wrong answer even with L-1370's guard in place** — it just
+moves the confusion one grammar further down.
+
+The house doctrine already existed: `WallSideFinishIntent.ts`'s **UNRECOGNISED TAIL** carries the
+words the user typed after the connector *"so the refusal can QUOTE them ("I don't know the finish
+'unobtainium'") instead of the strictly weaker 'tell me which finish', which makes the user guess
+whether they were misheard or had simply omitted it"*, and its comment records that
+recognised-but-underspecified **must never reach an LLM** (ADR-0313 HONESTY; here there is no LLM to
+reach).
+
+**The rake grammar now has the same.** The unknown unit is captured, carried on the intent as
+`unitRef`, and refused in the value stage:
+
+> *"I don't recognise the unit **"dregress"** — did you mean degrees? Nothing was changed."*
+> Suggestions: `make all walls raked 90 degrees`, `make all walls angled by 70 degrees`.
+
+⛔ **NOT auto-corrected**, and ⛔ **the unit pattern is NOT widened to accept typos.** This drives a
+mass edit across every wall in a scope; a mass edit does not guess, and a pattern loose enough to
+absorb `dregress` is loose enough to absorb the next typo that means something else.
+
+⚠ **Stage order, stated honestly.** `applyExecutionSpec` resolves SCOPE before VALUE, deliberately
+(*"the selected walls must never silently become all walls"*). So with an unresolvable level the
+user gets the LEVEL refusal, not the unit refusal — both honest, and the scope one is the more
+specific complaint about that sentence.
+
+---
+
+## L-1372 — THE **FOURTH** HAND-WRITTEN SPELLING OF THE SPATIAL TAIL WAS ALREADY ON DISK WHEN C67 RULE 16 WAS WRITTEN — FORTY LINES BELOW ONE IT NAMED ✅ FIXED 2026-08-20 (lane RAC1)
+
+`WALL_RAKE_SCOPE` (`ZeroTokenResolver.ts`) carried it verbatim: `on` + an optional level noun, or
+`in the` + a lazy phrase — the same `on`→LEVEL / `in`→ROOM hard-wiring L-1201 removed from the
+dimension and creation grammars and L-1261 removed from the wall-finish grammar, **in the same file
+as two of the three those lanes fixed**, about forty lines below the colour grammar.
+
+⭐ **So C67 §4 rule 16's own prediction — *"three spellings of one concept means fixing one leaves
+the next sentence broken in another"* — was live in production while the rule was being written.**
+`make all walls in level 3 raked 70 degrees` did not reach the rake grammar at all (this arm
+requires the literal word "the") and was answered as a wall-type miss.
+
+**Folded into `SpatialScopeTail.SPATIAL_TAIL_SRC`.** ⚠ Re-measured before rewriting, and pinned:
+the level arm (`on level 3`, `on the ground floor` read WHOLE), the room arm (`in the kitchen`) and
+the **ALL-scope-only rule** all behave exactly as before. What it gains is `in`/`at`/`inside`/
+`within`, `this floor` against the active level, and bare storey names. What it must never do is
+widen: a place that was NAMED and cannot be resolved now **DECLINES** rather than falling back to
+`all` (C68 §7.d) — the same ruling the dimension families already make.
+
+⚠ **A FIFTH spelling is still on disk and is deliberately left** — `WALL_COLOR_RE`'s tail carries a
+`(?!colou?r )` lookahead so that *"in the colour white"* is not read as a place. Folding it in
+without that guard turns *"make all walls in white"* into a place phrase. It is **named** rather than
+silently rewritten: an unmeasured rewrite of a shipped grammar is how the fourth one was written.
+⛔ The gate C67 rule 16 asked for — *no place-phrase literal outside `SpatialScopeTail.ts`* — is
+**still not built, and it is the only thing that would have caught this one.**
+
+---
+
+## L-1373 — ⭐ **90° IS VERTICAL.** THE FOUNDER'S "RAKED 90 DEGREES" WOULD HAVE **STRAIGHTENED** HIS WALLS, AND THE CONFIRM CARD SAID "LEAN … TO 90° (VERTICAL)" ✅ FIXED 2026-08-20 (lane RAC1)
+
+Surfaced rather than silently fixed, because it is a **semantic** trap and not a bug.
+
+`RAKE_VERTICAL_DEG` is **90** (`geometry-wall/src/WallRake.ts:222`): an unraked wall is 90, and
+`vertical` / `upright` / `straight` all map to 90. So the founder's *"raked 90 degrees"* is a request
+to **straighten**, not to tilt — **the number's meaning inverts the intent the sentence reads as.**
+
+The old Confirm copy contradicted itself in one line: `Lean {scope} to 90° (vertical)` — the verb
+says lean, the parenthesis says vertical.
+
+**DECIDED (C85, this family's RAC section):** a rake Confirm card MUST state the resulting
+orientation **in words**, because the card is the last honest moment before a mass edit and this is
+exactly where a number's meaning inverts the ask.
+
+- `90` → **"Make all 12 walls VERTICAL — 90° is upright, not a lean"**
+- otherwise → **"Lean all 12 walls to 70° (90° = vertical)"** — the reference point travels with the
+  number, so the user can tell which way 70 leans without leaving the card.
+
+⛔ **The number is NOT reinterpreted.** 90 still means 90; the product does not guess that he meant
+*"lean by 90 from vertical"*. It says what it is about to do and lets him decide — the same
+discipline as refusing the unit rather than correcting it (L-1371).
+
+---
+
+## L-1380 — ⭐ THE LANDSCAPE LIBRARY WAS NEVER MISSING. **25 SPECIES WERE BUILT AND THE PANEL OFFERED NONE OF THEM** ✅ FIXED 2026-08-20 (lane LAND1)
+
+**Founder:** *"I need a much larger LANDSCAPING library — I have 8 plants, low level of detail."*
+His screenshot: **LANDSCAPE › Plant Types**, eight identical droplet icons, `Plant 01` … `Plant 08`.
+
+**The eight are not the library's size. They are the only door onto it.**
+
+Measured before building anything:
+
+| | |
+|---|---|
+| What the LANDSCAPE panel offered | `plant_01`…`plant_08` — **all eight are INDOOR potted decor**; `FURNITURE_TYPE_TO_CATEGORY` maps every one to `'decor'` |
+| What already existed, unreachable from it | **25 parametric outdoor tree species** (`TREE_SPECIES_TABLE`) — real names (A_PALMA DE CERA, A_JACARANDA, A_CIPRES…), mature heights 6–18 m, crown radii, 12 mesh archetypes, `'outdoor'` category, **and true architectural plan symbols** injected by `TreePlanSymbolBuilder` via `EdgeProjectorService.ts:3531` |
+| Where they *were* reachable | the **Interiors furniture carousel** only (`FurnitureCategoryDataA.ts:776`) |
+
+⭐ §COMMITTED-IS-NOT-REACHABLE at family scale: geometry, plan symbols and material intents all
+shipped; the surface a user looks on offered none of it. **The fix is REACH, not a rebuild** — every
+new row activates the SAME route the carousel already uses (`activateFurnitureTool` → `ToolManager`
+→ `FurniturePlanToolHandler`). No second placement path was minted.
+
+**DERIVED, never transcribed.** `LANDSCAPE_TREE_ENTRIES = TREE_SPECIES_ORDER.map(...)`. Two new
+TOTAL `Record<TreeArchetype, …>` tables make a new archetype a **compile error**: `ARCHETYPE_FORM`
+(crown form) and `ARCHETYPE_TRUNK_CLEAR_RATIO` (clear height beneath the crown, **transcribed from
+the geometry** — each value is the `def.height * N` literal in the matching
+`ParametricTreeEngine._build<Archetype>()`, cited line by line, so the clear height a designer uses
+to decide whether a path fits is the clear height the mesh has).
+
+⛔ **`typeClass` is AUTHORED and MUST NOT derive from archetype.** They genuinely disagree:
+`arbol_t_06` (A_CIPRES — a cypress, a **conifer**) carries archetype `round_dense`, and `arbol_t_14`
+(A_MOLLE COSTEÑO — an evergreen Schinus) carries `willow`. Botanical class and visual form are
+**orthogonal and do not share a word** — C84 EI-8/EI-9, C92 §SL-Voc-3.
+
+⛔ **Zero materials minted, zero hex typed** — the catalogue declares no colour and no `materialId`;
+it READS `FURNITURE_TYPE_TO_MATERIAL_INTENT`. Verified at HEAD that `MaterialService` keys by exact
+colour (`color.toString()`), **no bucket hashing** — the material space is not collapsed.
+⛔ **Zero GLBs** — every entry is parametric, so none depends on the object-storage catalogue.
+
+**One source, both surfaces.** There are TWO live create panels — `CreateRailPanel.ts`
+(ToolsPanelController) and `CreatePanelLayout.ts` (`Layout.ts` → `mountCreatePanel`) — and **both
+carried their own hand-typed copy of the same eight rows.** Both now render from
+`apps/editor/src/ui/create/landscapeCreateItems.ts`.
+
+**Plan selectability, stated honestly:** `hasPlanSymbol` is READ from `isTreeSpeciesId`, the same
+predicate the renderer keys on. All 25 trees carry true plan linework and are selectable in plan.
+The 8 potted plants report **false** — generic canopy glyph, drawn and pickable, no species
+information. Not claimed as more than it is.
+
+Root tsc `COMPILER_RC=0`. geometry-furniture **90/90** across 15 files; new suite **14/14**;
+round-trip **5/5**.
+
+---
+
+## L-1381 — THE EIGHT PLANT DESCRIPTORS WERE **IDENTICAL**, AND THE DESCRIPTOR **WINS**, SO THE 1.8 m FLOOR PLANT WAS SQUASHED TO 0.8 m ✅ FIXED 2026-08-20 (lane LAND1)
+
+Found while auditing L-1380. Every one of `plant_01`…`plant_08` carried the identical descriptor
+`0.6 × 0.6 × 0.8` (`FurnitureCategoryDataB.ts`), which is *why* the panel could show eight
+indistinguishable rows — there was nothing to distinguish.
+
+The builders are **not** identical: `Plant02Builder.ts:11` defaults to **1.8 m** (a tall floor
+plant), `Plant05Builder.ts:11` to **1.2 m**, `Plant06Builder` is a **0.5 m glass vase**,
+`Plant07Builder` a **hanging pot**.
+
+⚠ **The descriptor wins.** `FurnitureTool.ts:248` reads `desc?.defaultDimensions` **first**, so the
+builder default never fired: every placement squashed the 1.8 m plant to 0.8 m. Dimensions now
+derive from `LANDSCAPE_POTTED_ENTRIES`, whose heights are transcribed from each builder's own
+default with the `file:line` cited beside it.
+
+---
+
+## L-1382 — ⛔ **AN AUTO-FURNISHED `wardrobe` RENDERS NOTHING**, `corner_wardrobe` HAS NO BUILDER, AND `rug` THROWS ⛔ OPEN — MEASURED 2026-08-20 (lane LAND1)
+
+Measured by building every candidate type through the **real** `FurnitureFactory` with no dimensions
+supplied and counting meshes:
+
+| Type | meshes built | note |
+|---|---|---|
+| `wardrobe` | **0** | `FurnitureFactory.ts:233` — `case 'wardrobe': return { build: () => new THREE.Group() };` an **explicit empty group**, the same result as the `default:` branch |
+| `corner_wardrobe` | **0** | **no `case` at all** — falls to `default:` |
+| `rug` | **THROWS** | `TypeError: Cannot set properties of null` |
+
+`wardrobe` is rescued only at `FurnitureFragmentBuilder.ts:211`, **and only when
+`data.wardrobeConfig` is present**. The auto-furnish emitter
+`packages/ai-host/src/workflows/furnishLayout/buildFurnishCommands.ts:73-92` forwards **only
+`kitchenConfig`** — there is no `wardrobeConfig` branch anywhere on that path.
+
+⭐ **`wardrobe` is `required: true` in BOTH `bedroom` (`programRules.ts:543`) and `master` (`:500`).**
+So every auto-furnished bedroom asks for a wardrobe, gets an element in the store, and **renders an
+empty group**. This is the §COMMITTED-IS-NOT-REACHABLE family inverted: not unreachable, but
+reached and invisible.
+
+⚠ **Not measured:** whether a later editor-side pass injects a `wardrobeConfig`. No such path was
+found in `apps/editor/src` — only the interactive `WardrobeConfigPanel` (`initTools.ts:728`).
+⛔ **The fix touches `packages/ai-host`, which is lane RAC1's.** Reported, not edited.
+
+---
+
+## L-1383 — **38 INTERIOR TYPES ARE GENERATOR-ONLY**: THE AUTO-FURNISH ENGINE PLACES THEM AND NO HAND SURFACE OFFERS THEM ⛔ OPEN — MEASURED 2026-08-20 (lane LAND1)
+
+**Founder:** *"the same for FURNITURE within the BEDROOMS and BATHROOM, LIVING ROOM… there were
+elements created for the BATCH BULK FURNISH AUTO ROOMS — like TV, DECORATION ITEMS ON TOP OF THE
+BED… many elements that today are NOT ACCESSIBLE via the UI panel."*
+
+**He is right, and the number is 38.** The generator's vocabulary is **78 distinct type strings**
+(`FurnitureKind` 67 members + 11 office-only). Of those, **38 appear in no carousel category and in
+no panel `activateFurnitureTool` call**:
+
+```
+armchair  bath  bathroom_mirror  bookshelf  bookshelf_glass  buffet  coat_rack  console_table
+curtain_panel  curtain_rod  desk  desk_chair  dresser  drying_rack  entry_bench  fireplace
+lounge_chair  pantry_cabinet  rug  shoe_cabinet  side_table  sideboard  sofa  sofa_unit
+towel_rail  tumble_dryer  tv  tv_unit  utility_cabinet  utility_sink  vanity_table  vanity_unit
+wall_art  wall_mirror  wall_tapestry  washing_machine_standalone  wc_mirror  wc_washbasin
+```
+
+⭐ **Every one of them has a real builder** — this is **REACH, not build**, and therefore cheap.
+The founder's own examples are in the list: `tv`, `tv_unit`, `wall_art`, `wall_tapestry` (the
+over-bed piece), `rug` (the under-bed piece), `curtain_rod`, `curtain_panel`, `wall_mirror`.
+
+⚠ **BUT IT IS NOT PURE REACH, AND THAT IS WHY IT DID NOT SHIP IN THIS COMMIT.** Built with **no
+dimensions supplied**, most of these builders produce a **non-finite bounding box** (they size from
+`data.width`, which arrives `undefined` → NaN geometry), and `FurnitureTool.ts:748-750` defaults an
+unknown type to a **0.5 × 0.4 × 0.5 box**. Offering them without dimensions would ship 38 rows that
+place a small grey box or NaN geometry — the "authored but invisible" outcome, wearing a real name.
+
+**The dimensions exist**, in `packages/ai-host/src/workflows/furnishLayout/footprints.ts` — a real
+specification layer with `w`/`l`/`h`/`baseOffset`/`clearFront`/`clearSides` per kind. See L-1385 for
+why the panel cannot read it today.
+
+---
+
+## L-1384 — ⭐ **"DECORATION ITEMS ON TOP OF THE BED" DO NOT EXIST ANYWHERE.** AN HONEST **ABSENT** ⛔ OPEN — MEASURED 2026-08-20 (lane LAND1)
+
+Repo-wide sweep (`node_modules` excluded) for a `FurnitureType`, a builder, a panel entry or a
+carousel card:
+
+| | cushion | pillow | throw | blanket | bed runner | vase | candle | tray | bowl | clock | sculpture | poster |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| FurnitureType | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Builder | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+**Twelve for twelve, nothing.** The nearest existing things are `wall_tapestry` (over the bed,
+`archetypes.ts:43`) and `rug` (under it, `:24`) — both **GENERATOR-ONLY** (L-1383). Cushions exist
+only as **sofa sub-geometry** (`FurnitureGeometryBuildersA.ts:28,60,71,78`), not as elements.
+
+⚠ **The `soft_furnishings` category describes itself as `'Curtains, rugs, cushions'`
+(`FurnitureCategoryDataB.ts:218`) and contains NO curtain and NO cushion.** A category label that
+promises what the category does not hold is the same defect class as a gate that checks nothing.
+
+⛔ **Nothing was invented to fill this row.** ABSENT is the honest answer, and this is the one axis
+of the founder's ask that is a genuine BUILD rather than a reach.
+
+---
+
+## L-1385 — **NO CONTRACT OWNS PLANTING**, AND TWO FOOTPRINT TABLES DISAGREE BY DESIGN WITH NOTHING CHECKING ⛔ OPEN — MEASURED 2026-08-20 (lane LAND1)
+
+**(a) An undeclared family.** `ls docs/02-decisions/contracts/C8*.md C9*.md` → C85 wall · C86
+opening · C87 curtain wall · C88 ceiling · C89 floor · C90 roof · C91 column · C92 slab · C93 beam ·
+C94 room · C95 handrail · C96 lighting · C97 furniture · C98 stair · C99 plumbing.
+**There is no planting/landscape/site-element contract, and no soft-furnishing contract.** C84 §6
+allocates the C85–C99 block and it is full; **C61 is the only reserved unminted slot.** Planting is
+documented under **C97 §LANDSCAPE** as the nearest owner — recorded as a **placement of
+convenience, not a claim that C97 is the right home.** An undeclared family is itself the finding.
+
+**(b) Two footprint tables, one declaring itself a mirror.**
+`packages/ai-host/src/workflows/furnishLayout/footprints.ts` opens: *"ONE source of truth for
+placement dimensions + clearances… **Mirrors the real defaults in geometry-furniture** but kept here
+as plain data so the pure solver has no geometry dependency."*
+So the canonical home is `geometry-furniture` and ai-host holds a deliberate copy — **and nothing
+checks that they agree.** `@pryzm/ai-host` is **not a dependency of `apps/editor`** and
+`footprints.ts` is **not exported from ai-host's index**, so the create panel cannot read the
+generator's own dimensions; closing L-1383 by import would require an export in **lane RAC1's
+package**. ⛔ Not edited. The sound end-state is a footprint table in `geometry-furniture` that
+ai-host's mirror is pinned against — a cross-lane change, reported rather than taken.
+
+**(c) A third rival surface, for the record.** `CreateRailPanel`'s Interiors section exposes 13 of
+the carousel's 16 non-empty categories; **`bedroom` (3 items) and `technical` (14) are exposed by
+neither** — 17 carousel items reachable only through `CreatePanelLayout`'s unfiltered carousel.
+Among the three orphaned `bedroom` items are `kave_round_mirror` and `kave_rect_mirror`.

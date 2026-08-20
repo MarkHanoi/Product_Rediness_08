@@ -1136,6 +1136,41 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
 - ⛔ **L-1143 — the Wall tool's By Slab mode walls EVERY slab.** `ToolsAreaLayout.ts:285` sends `{slabId}` to `wall.create-on-all-slabs`, whose payload has no `slabId`, whose handler ignores it, and whose command calls `slabStore.getAll()`. **Silent and destructive.** The RAC must route to `wall.createFromSlab`, not to this mode — and the tool should be repointed at the same verb (C84 §4F.6, P6, EI-4a).
 - ⛔ **L-1144 — `create-wall` declares `scope:'global'` and has no subject axis.** `ZeroTokenResolver.ts:678-684` carries `start`/`end`/`height`/`thickness` and nothing else; the grammar never inspects the token *"slab"*. A selected slab cannot be a geometry source. **THE WRONG-REFUSAL class** — CA-18-shaped, denying an ask the system can satisfy.
 
+### §FIX-RAKE-… — the founder's *"make all walls on level 3 raked 90 dregress"* (2026-08-20, lane RAC1)
+
+**What he got back:** *"There is no wall type called **“on level 3 raked 90 dregres”** in this
+project. The wall types here are: Monolithic (Default), …"* — a sentence carrying the word
+**"raked"** and a number, answered **confidently** as a wall-TYPE catalogue lookup. Four separable
+defects stacked into that one answer; each is fixed and each is falsified separately by
+`packages/ai-host/__tests__/wall-rake-near-miss.test.ts` (a single end-to-end assertion would have
+gone green as soon as any one of them were fixed).
+
+| # | Defect | Fix | Where the rule lives |
+|---|---|---|---|
+| **L-1370** | `parseWallTypeIntent` guarded DIMENSION words and **not** rake words, so the rake near-miss became a catalogue miss. The asymmetry was the proof: `DimensionFamilies` has declined rake words since it was written (*"rake/pitch carry numbers too"*) | the SAME `OTHER_CAPABILITY_WORD` is now **imported** by the type, hosted-type and colour grammars — derived, not transcribed (C84 **EI-8a**), pinned by test | **C67 §4 rule 17a** + the audit matrix there |
+| **L-1371** | `raked 90 dregress` is **recognised-but-underspecified** (rake word ✓, number ✓, unit unknown) and FELL THROUGH instead of refusing | the rake grammar CLAIMS it and refuses by name: *"I don't recognise the unit “dregress” — did you mean degrees? Nothing was changed."* ⛔ not auto-corrected, and the unit pattern is **not** widened to absorb typos | **C67 §4 rule 17b**; the doctrine is `parseWallSideFinishIntent`'s UNRECOGNISED TAIL |
+| **L-1372** | `WALL_RAKE_SCOPE` was the **FOURTH** hand-written spelling of the spatial tail — `on`→level, `in`→room — so *"in level 3"* never reached the rake grammar at all | folded into the shared `SpatialScopeTail.SPATIAL_TAIL_SRC`; the level arm, the room arm and the ALL-scope-only rule are preserved by test, and an **unusable** place now DECLINES rather than widening | **C67 §4 rule 16** (its own "no gate sees a fourth spelling" note, now with the instance) |
+| **L-1373** | ⭐ **90° IS VERTICAL in this codebase**, so *"raked 90 degrees"* **STRAIGHTENS** the walls — the number's meaning inverts what the sentence reads as | see the ruling below | this section |
+
+#### ⭐ THE RULING — the Confirm card MUST state the resulting ORIENTATION in words
+
+`RAKE_VERTICAL_DEG` is **90** (`geometry-wall/src/WallRake.ts:222` — re-measured 2026-08-20; §10 of this contract cites `:182`, which has moved); an unraked wall is 90, and
+`vertical` / `upright` / `straight` all map to 90. So a user who says *"rake these 90 degrees"*
+expecting a tilt gets the **opposite of his intent**, and the old Confirm copy — `Lean … to 90°
+(vertical)` — **contradicted itself in one line**: the verb said lean, the parenthesis said vertical.
+
+**DECIDED, and binding for this family:** a rake Confirm card **MUST** state the resulting
+orientation in words, not only the number, because the Confirm card is the last honest moment before
+a mass edit and this is precisely the case where a number's meaning inverts the ask.
+
+- `90` → **"Make all 12 walls VERTICAL — 90° is upright, not a lean"**
+- any other angle → **"Lean all 12 walls to 70° (90° = vertical)"** — the reference point travels
+  with the number, so the user can tell which way 70 leans without leaving the card.
+
+⛔ **The number is NOT reinterpreted.** 90 still means 90; the product does not guess that he meant
+*"lean by 90 from vertical"*. It says what it is about to do and lets him decide — the same
+discipline as refusing the unit rather than correcting it.
+
 ### NOT MEASURED for this family (explicit — EI-1b)
 
 - **No utterance was typed into a live editor.** Every verdict above is source-measured.
