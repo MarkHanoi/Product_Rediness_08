@@ -43,6 +43,12 @@ import {
     unpierceStairHorizontalHosts,
     type StairHostPierce,
 } from './StairHorizontalHostPiercing';
+// §STAIR-REDO-ONE-UNIT (L-1530) — the auto-proposed railings are created by THIS
+// command, in THIS command's execute(), because this command's undo() has always
+// removed them (`stairRailingStore.removeByStairId`). See `createRailings()`.
+import { CreateStairRailingCommand } from './CreateStairRailingCommand';
+// §STABLE-CREATED-ID (C03 §2.6) — see the `stableCreatedId` call in execute().
+import { stableCreatedId } from '../StableCreatedId';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -166,6 +172,13 @@ export class CreateStairCommand implements Command {
     private createdOpeningCarves: StairOpeningCarve[] = [];
     /** §L-1431 — voids cut in the floor-finish / ceiling families, for undo. */
     private hostPierces: StairHostPierce[] = [];
+    /**
+     * §STAIR-REDO-ONE-UNIT (L-1530) — the two auto-proposed railing commands,
+     * MEMOISED on this instance so a redo replays the SAME instances (and, via
+     * their own `stableCreatedId`, the SAME railing ids) instead of minting a
+     * second pair. Built lazily on first execute; never rebuilt.
+     */
+    private _railingCommands: CreateStairRailingCommand[] | null = null;
 
     /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `CreateStairInput.ifcGuid`. */
     private readonly _ifcGuid: string;
@@ -299,7 +312,23 @@ export class CreateStairCommand implements Command {
         // room→stair selection memory, and IFC mark continuity. Same shape as
         // CreateWallCommand(wall.id, …). Falls back to a fresh UUID when no
         // id is supplied (fresh creates from the StairTool).
-        const stairId = this.input.id ?? crypto.randomUUID();
+        // ⭐ §STAIR-REDO-STABLE-ID (L-1531 — C03 §2.6). This read
+        // `this.input.id ?? crypto.randomUUID()`, and `CommandManager.redo()`
+        // re-runs THIS SAME INSTANCE's execute() — so every redo of a stair drawn
+        // by hand (neither plan tool supplies an `id`: StairPlanToolHandler.ts:246,
+        // StairPathPlanToolHandler) minted a DIFFERENT element id. The stair "came
+        // back", but as a different element: the auto-opening and the floor/ceiling
+        // pierces are keyed off the stair id (`opening-stair-<id>`,
+        // `pierce-stair-<id>-…`), so they came back under new keys too, and the
+        // railings — whose `input.stairId` still names the ORIGINAL stair — could
+        // no longer resolve their host. Worse, `_ifcGuid` IS stable across redo, so
+        // the redone stair carried the ORIGINAL stair's IfcGloballyUniqueId under a
+        // new element id: two elements, one GUID, if the first was ever persisted.
+        // `stableCreatedId` memoises the first mint on this command instance, which
+        // is the mechanism the same audit already applied to this stair's RAILING
+        // (`CreateStairRailingCommand.ts:101`) and to lighting / furniture /
+        // plumbing / slab — the stair itself was the family it missed.
+        const stairId = stableCreatedId(this, 'stair', this.input.id);
         // §F11 fix (FIXED 2026-04-25): typed access via the public getter.
         const baseLevelId = this.input.baseLevelId || ctx.projectContext?.activeLevelId;
 
@@ -408,7 +437,12 @@ export class CreateStairCommand implements Command {
 
         stairStore.add(stair);
         this.createdStairId = stairId;
-        (this.targetIds as string[]).push(stairId);
+        // §L-1532 — `push` unconditionally, so `targetIds` GREW by one on every
+        // redo. It is the C03 §4.6 U-9 identity set that `dropEntriesForTargets`
+        // (the U-8 shadow-drop) and `_isSameGestureTwin`'s SUBSET predicate read;
+        // a stale id in it makes the twin test answer for an element that no
+        // longer exists. One execute, one id, however many times it replays.
+        if (!this.targetIds.includes(stairId)) (this.targetIds as string[]).push(stairId);
 
         // Gap 7 — SemanticGraph: stair sitsOn its base level and connectedByStair
         // to express the vertical link between two levels.
@@ -479,7 +513,7 @@ export class CreateStairCommand implements Command {
 
         _bus.emit('ai-model-update', {}); // F.events.17
 
-        this.proposeRailings(stair);
+        this.createRailings(ctx, stair);
 
         if (!__pryzmGenOrLoadActive()) console.log(`[CreateStairCommand] Created stair ${stairId} (${this.input.shape}) from ${baseLevelId} to ${this.input.topLevelId}`);
 
@@ -557,29 +591,105 @@ export class CreateStairCommand implements Command {
         });
     }
 
-    private proposeRailings(stair: StairData): void {
-        _bus.emit('bim-stair-railing-proposal', { stairId: stair.id, proposedRailings: [ // F.events.17
-            {
-                side: 'left',
+    /**
+     * ⭐ §STAIR-REDO-ONE-UNIT (L-1530) — THE STAIR'S AUTO-RAILINGS ARE THIS
+     * COMMAND'S OWN WORK, AND THEY ALWAYS WERE ON THE UNDO SIDE.
+     *
+     * WHAT THIS USED TO BE, AND WHY IT WAS THE FOUNDER'S "STAIR REDO DOESN'T WORK".
+     * ------------------------------------------------------------------------
+     * This method was `proposeRailings()`: it emitted `bim-stair-railing-proposal`
+     * and walked away. The ONLY listener (`initTools.ts:2476`) forwards each
+     * proposal to `bus.executeCommand('stair.createRailing')`, whose handler
+     * (`plugins/stair/src/handlers/CreateStairRailing.ts:73`) calls
+     * `window.commandManager.execute(new CreateStairRailingCommand(...))` with NO
+     * metadata — i.e. `source: 'HUMAN_DIRECT'`.
+     *
+     * That whole chain is SYNCHRONOUS. `DOMEventBus.emit` is `dispatchEvent`, and
+     * `CommandBus.executeCommand` has no `await` before `handler.execute`
+     * (`CommandBus.ts:454`). So the two railing commands were executed from INSIDE
+     * this command's own `execute()` — and because their source was `HUMAN_DIRECT`
+     * rather than `STRUCTURAL_CASCADE`, `CommandManagerImpl.ts:425` refused to
+     * attach them as `structuralChildren` and instead ran the `else` branch:
+     * `history.push(entry); this.redoStack = [];`.
+     *
+     * MEASURED, through the real `CommandManager` (`stairRedoOneUndoUnit.test.ts`):
+     *
+     *   draw stair   history=[RAILING, RAILING, STAIR]   redo=[]
+     *   Ctrl+Z x1    history=[RAILING, RAILING]          redo=[STAIR]
+     *   Ctrl+Z x2    history=[RAILING]                   redo=[STAIR, RAILING]
+     *   Ctrl+Z x3    history=[]                          redo=[STAIR, RAILING, RAILING]
+     *   Ctrl+Y x1    -> CreateStairRailing REFUSES ("Stair not found") -> false
+     *   Ctrl+Y x2    -> refuses again                                  -> false
+     *   Ctrl+Y x3    -> the stair finally comes back
+     *
+     * Three separate defects fell out of that one shape:
+     *
+     *   1. ONE GESTURE, THREE UNDO ENTRIES — the invariant C16 §8.6 / §L-874-ONE-UNDO
+     *      states ("one gesture = one undo unit").
+     *   2. INVERTED ORDER — the railings are pushed BEFORE the stair (they run
+     *      inside its execute), so they sit UNDER it in `history` and OVER it in
+     *      `redoStack`. Redo therefore replays a railing before the stair it hangs
+     *      on, which cannot succeed.
+     *   3. SILENTLY EATEN KEYPRESSES — `CommandManagerImpl.redo()` pops the entry
+     *      BEFORE executing it and only pushes it back `if (result.success)`. A
+     *      refused redo is therefore DESTROYED, not retried. And when the stair
+     *      redo did finally run, the railings it re-created inside it hit the
+     *      `redoStack = []` branch again and wiped whatever was left.
+     *
+     * Net user experience: draw a stair, Ctrl+Z (it vanishes — undo "works"),
+     * Ctrl+Shift+Z … nothing … Ctrl+Shift+Z … nothing. Exactly the report.
+     *
+     * THE FIX: OWN THEM. `undo()` below has ALWAYS removed these railings itself
+     * (`stairRailingStore.removeByStairId(this.createdStairId)`), i.e. the undo side
+     * already treated them as this command's children while the create side
+     * outsourced them to a fire-and-forget event. That asymmetry WAS the defect.
+     * They are now created here, directly, against the same `ctx` — no bus hop, no
+     * `commandManager` entry, no history entry of their own. One gesture, one entry,
+     * one Ctrl+Z, one Ctrl+Shift+Z.
+     *
+     * ⛔ NOT `commandManager.execute(cmd, {source:'STRUCTURAL_CASCADE'})`, which is
+     * the sibling pattern (`WallMoveReweldService.ts:538`). That composes correctly
+     * on the FIRST execute, but `CommandManagerImpl.redo()` calls
+     * `entry.command.execute(this.context)` DIRECTLY — no `_execFrames` frame is
+     * open — so on redo the nested dispatch would find `enclosing === null`, fall
+     * back to the `else` branch and clear the redo stack all over again. The
+     * structural-children mechanism is only safe for a cascade that this command
+     * does NOT itself re-fire on replay.
+     *
+     * CONSEQUENCE, STATED: `bim-stair-railing-proposal` now has no emitter, so
+     * `initTools.ts:2476` is dead code and the `stair.createRailing` bus verb is no
+     * longer on the AUTO path. The verb stays registered and dispatchable for an
+     * explicit "add a railing to this stair" (user or RAC) — only the automatic
+     * pair moved.
+     *
+     * Never throws: a project with no `stairRailingStore` gets a logged refusal
+     * from the railing command and a stair with no railings, which is what it had.
+     */
+    private createRailings(ctx: CommandContext, stair: StairData): void {
+        if (!this._railingCommands) {
+            const common = {
                 topRailHeight: stair.properties.handrailHeight,
                 balusterSpacing: 0.15,
-                balusterShape: 'rectangular',
+                balusterShape: 'rectangular' as const,
                 balusterWidth: 0.04,
                 postAtStart: true,
                 postAtEnd: true,
-                material: stair.properties.material ?? 'steel'
-            },
-            {
-                side: 'right',
-                topRailHeight: stair.properties.handrailHeight,
-                balusterSpacing: 0.15,
-                balusterShape: 'rectangular',
-                balusterWidth: 0.04,
-                postAtStart: true,
-                postAtEnd: true,
-                material: stair.properties.material ?? 'steel'
+                material: stair.properties.material ?? 'steel',
+            };
+            this._railingCommands = (['left', 'right'] as const).map(side =>
+                new CreateStairRailingCommand({ stairId: stair.id, side, ...common } as any),
+            );
+        }
+        for (const cmd of this._railingCommands) {
+            try {
+                const res = cmd.execute(ctx);
+                if (!res.success) {
+                    console.warn('[CreateStairCommand] auto-railing refused:', res.info?.[0]);
+                }
+            } catch (err) {
+                console.warn('[CreateStairCommand] auto-railing failed (non-fatal):', err);
             }
-        ] });
+        }
     }
 
     undo(ctx: CommandContext): CommandResult {
@@ -632,6 +742,18 @@ export class CreateStairCommand implements Command {
         if (ctx.stores.stairLandingStore && this.createdLandingIds.length > 0) {
             this.createdLandingIds.forEach(lid => ctx.stores.stairLandingStore!.remove(lid));
             this.createdLandingIds = [];
+        }
+
+        // §STAIR-REDO-ONE-UNIT (L-1530) — undo the auto-railings THIS command
+        // created, through their own `undo()`, so their `createdRailingId`
+        // bookkeeping and side-index unregisters stay symmetric with their
+        // `execute()`. The `removeByStairId` sweep below then still catches
+        // railings added to this stair by any OTHER route (an explicit
+        // `stair.createRailing`), which is what it always did.
+        for (const cmd of this._railingCommands ?? []) {
+            try { cmd.undo(ctx); } catch (err) {
+                console.warn('[CreateStairCommand.undo] auto-railing undo failed (non-fatal):', err);
+            }
         }
 
         if (ctx.stores.stairRailingStore) {
