@@ -125,6 +125,30 @@ const _tracked = new WeakMap<object, Set<WeakRef<RenderObjectLike>>>();
 const _instrumented = new WeakSet<object>();
 
 /**
+ * §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — how many render objects each renderer has
+ * EVER minted, monotonic and never pruned.
+ *
+ * `_tracked` holds `WeakRef`s and is therefore a "what is still detachable" set. That
+ * makes its count a **lossy** answer to the only question a retirement log is asked:
+ * *"did the sweep find the things it was supposed to find?"* A `0` from it has three
+ * different meanings and the log printed one word for all three —
+ *
+ *   • the renderer MINTS NONE (a classic `THREE.WebGLRenderer` has no `RenderObjects`
+ *     at all): 0 is CORRECT and complete; nothing was ever attached.
+ *   • the renderer owns `RenderObjects` but was never instrumented: 0 means the sweep
+ *     LOOKED IN THE WRONG PLACE and every listener is about to leak (already warned).
+ *   • the renderer WAS instrumented and minted N > 0, yet 0 are detachable now: the
+ *     tracking set was emptied by something other than this seam. Previously SILENT.
+ *
+ * The third is the one this repo keeps being wrong about (a version count, an audit
+ * detector, an in-flight guard, a rescue that rescued nothing — all reported `0`).
+ * A monotonic mint counter is the cheapest thing that makes the three distinguishable,
+ * and it is DERIVED at the one place render objects come into existence rather than
+ * remembered by a caller.
+ */
+const _minted = new WeakMap<object, number>();
+
+/**
  * §RETIRE-RENDERER-DETACHES-LISTENERS — record every render object `renderer`
  * mints, so {@link retireRenderer} can tear them down in the right order.
  *
@@ -156,6 +180,8 @@ export function trackRenderObjectsForRetirement(renderer: unknown): boolean {
         if (renderObject && typeof renderObject.dispose === 'function') {
             const ref = new WeakRef(renderObject);
             live.add(ref);
+            // §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — monotonic; never pruned.
+            _minted.set(r as object, (_minted.get(r as object) ?? 0) + 1);
             // three disposes render objects during normal churn too (a material
             // version change — RenderObjects.js:131). Drop them from the set there
             // as well, so the set tracks what is LIVE rather than what was ever made.
@@ -184,6 +210,70 @@ export function trackedRenderObjectCount(renderer: unknown): number {
         else n++;
     }
     return n;
+}
+
+/**
+ * §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — how many render objects `renderer` has EVER
+ * minted. Monotonic; unaffected by GC and by normal render-object churn, so it is the
+ * denominator that makes a `0` from {@link retireRenderer} readable.
+ */
+export function mintedRenderObjectCount(renderer: unknown): number {
+    return _minted.get(renderer as object) ?? 0;
+}
+
+/**
+ * §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — what KIND of renderer is being retired, so a
+ * zero detach count can be read.
+ *
+ *  • `'mints-none'` — the renderer exposes no `RenderObjects` at all (a classic
+ *    `THREE.WebGLRenderer`). It registers no material/geometry `'dispose'` listeners,
+ *    so **0 is the complete and correct answer**: nothing was ever attached.
+ *  • `'tracked'`    — instrumented; the sweep looked in the right place. Read the
+ *    detached count against {@link mintedRenderObjectCount}.
+ *  • `'untracked'`  — the renderer OWNS `RenderObjects` but was never instrumented.
+ *    A 0 here means the sweep found nothing **because it looked in the wrong place**;
+ *    every listener it registered is about to outlive it (L-948).
+ *
+ * DERIVED from the renderer's own shape and this module's own instrumentation record —
+ * never from a remembered list of renderer class names.
+ */
+export function classifyRetirement(renderer: unknown): 'mints-none' | 'tracked' | 'untracked' {
+    const r = renderer as RetirableRendererLike | null | undefined;
+    const objects = r?._objects;
+    if (!objects || typeof objects.createRenderObject !== 'function') return 'mints-none';
+    return _instrumented.has(r as object) ? 'tracked' : 'untracked';
+}
+
+/**
+ * §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — a retirement log line that cannot say `0` and
+ * mean three different things. Call it BEFORE {@link retireRenderer} to capture `minted`
+ * and `kind` while the tracking state is still intact, then pass the detached count in.
+ *
+ * Exists because `"0 render object(s) detached"` has been printed by this codebase for a
+ * correct classic-renderer retirement, for a never-rendered renderer, and (in principle)
+ * for a sweep that missed — three states one string could not distinguish. C84 EI-1: the
+ * counter and its denominator are ONE fact, reported together.
+ */
+export function describeRetirement(
+    _renderer: unknown,
+    detached: number,
+    mintedBefore: number,
+    kind: 'mints-none' | 'tracked' | 'untracked',
+): string {
+    switch (kind) {
+        case 'mints-none':
+            return `${detached} detached — this renderer MINTS NO render objects (classic ` +
+                   `THREE.WebGLRenderer); zero is complete, nothing was ever attached`;
+        case 'untracked':
+            return `${detached} detached of ${mintedBefore} minted — UNTRACKED: the renderer owns ` +
+                   `RenderObjects but was never instrumented, so this sweep looked in the wrong ` +
+                   `place and its listeners WILL outlive it (L-948)`;
+        default:
+            return mintedBefore === 0
+                ? `${detached} detached — tracked, but this renderer never minted a render object ` +
+                  `(retired before its first draw); zero is complete`
+                : `${detached} detached of ${mintedBefore} minted (tracked)`;
+    }
 }
 
 /**
@@ -273,6 +363,20 @@ export function retireRenderer(renderer: unknown): number {
             '[renderer-three] §RETIRE-RENDERER-DETACHES-LISTENERS retiring a renderer that owns ' +
             'RenderObjects but was never tracked — its material/geometry dispose listeners will ' +
             'outlive it (L-948). Call trackRenderObjectsForRetirement() right after renderer.init().',
+        );
+    }
+    // §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — the THIRD zero, which was SILENT. The
+    // renderer WAS instrumented and DID mint render objects, yet none were detachable
+    // when the sweep ran. The tracking set was emptied by something other than this
+    // seam, so listeners this module believes it removed may still be attached. Never
+    // fatal — but never silent again: a `0` next to a non-zero mint count is the exact
+    // shape of every counter this project has previously been wrong about.
+    if (detached === 0 && _instrumented.has(renderer) && (_minted.get(renderer) ?? 0) > 0) {
+        console.warn(
+            '[renderer-three] §RETIRE-ZERO-IS-NOT-ONE-FACT retiring a TRACKED renderer that minted ' +
+            `${_minted.get(renderer)} render object(s) but had 0 detachable at retirement — the ` +
+            'sweep found nothing where there was something. Its listeners may still be attached ' +
+            '(L-948 / L-1410).',
         );
     }
 

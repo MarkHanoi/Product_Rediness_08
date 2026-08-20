@@ -199,6 +199,11 @@ export {
   disposeTrackedRenderObjects,
   retireRenderer,
   isDeliberateDeviceDestroy,
+  // §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — a `0` from retireRenderer() has three
+  // different meanings; these make the retirement log say WHICH one.
+  mintedRenderObjectCount,
+  classifyRetirement,
+  describeRetirement,
 } from './rendererRetirement.js';
 export type { DeviceLostReasonLike } from './rendererRetirement.js';
 

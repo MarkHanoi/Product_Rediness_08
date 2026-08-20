@@ -99,7 +99,7 @@ import { showRendererSwapOverlay, hideRendererSwapOverlay } from '@app/ui/overla
 import { RenderPipelineManager } from '@pryzm/renderer-three';
 // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the live backend swap RETIRES a
 // renderer; a bare dispose() leaves it listening on the kept scene's materials.
-import { retireRenderer } from '@pryzm/renderer-three';
+import { retireRenderer, mintedRenderObjectCount, classifyRetirement, describeRetirement } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
 import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
@@ -4511,6 +4511,68 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // at call-time, so it picks up the new backend automatically on the next
     // geometry-add — no re-bind needed there either. The `_swapTracer` span (P8)
     // records the from/to backend + outcome.
+    // ── §SWAP-PAINTS-THE-BUILDING (L-1411) — probe the SWAP, not the theory ──────
+    //
+    // The founder's report is "the building did not load in the 3D view", and the only
+    // thing in his log between a clean load and an empty viewport is this swap. Two
+    // rival explanations were live when that was investigated — (a) the retire detaches
+    // 3,181 objects and nothing re-attaches them, (b) the swap leaves the frame loop or
+    // the render path unarmed — and this repo's recorded lesson is that TWO RIVAL
+    // THEORIES CAN BOTH BE "CONFIRMED" BY READING AND BOTH BE WRONG. (a) has since been
+    // MEASURED FALSE (see rendererRetirement.populatedScene.test.ts: 3,181 scene meshes
+    // keep a live material+geometry binding across a real retire; only the retired
+    // renderer's 6,362 dispose listeners come off). This probe exists so the NEXT report
+    // arrives with (b) already answered instead of re-derived.
+    //
+    // It prints, at the layer the user experiences:
+    //   • how many scene meshes still hold a LIVE material AND a non-empty position
+    //     attribute — derived by traversal, not from a remembered list of element types;
+    //   • whether the single rAF loop is running and whether the lightweight WebGL
+    //     render path is armed (the two "the swap finished but nothing draws" states);
+    //   • RenderPipelineManager's own §L900-FRAME-SKIP-ATTRIBUTION report, which names
+    //     the exact gate a stalled viewport is stalled at;
+    //   • the renderer's own draw-call / triangle counters.
+    //
+    // Called twice: once immediately (state at the swap boundary) and once after frames
+    // have had time to run — the second is the decisive one. `framesPresented > 0` with
+    // `drawCalls > 0` and a non-zero live-binding count means the swap painted the
+    // building and any remaining blankness is a COMPOSITING question; `framesPresented
+    // === 0` names the gate instead. Diagnostic only: never allowed to fail a swap.
+    const reportSwapPaintsTheBuilding = (phase: string): void => {
+        const scene = world.scene.three as THREE.Scene;
+        let meshes = 0;
+        let liveBindings = 0;
+        let visibleWithLiveBindings = 0;
+        scene.traverse((o) => {
+            const m = o as THREE.Mesh;
+            if (!(m as unknown as { isMesh?: boolean }).isMesh) return;
+            meshes++;
+            const mat = m.material as THREE.Material | THREE.Material[] | null | undefined;
+            const hasMaterial = Array.isArray(mat) ? mat.length > 0 && mat.every(Boolean) : !!mat;
+            const pos = m.geometry?.getAttribute?.('position') as { count?: number } | undefined;
+            if (!hasMaterial || !pos || (pos.count ?? 0) === 0) return;
+            liveBindings++;
+            if (m.visible) visibleWithLiveBindings++;
+        });
+        const rpm = renderPipelineManagerRef as unknown as {
+            getFrameSkipReport?: () => { framesPresented: number; consecutiveSkips: number; lastSkipReason: string | null };
+            isLightweightWebGlActive?: boolean;
+        } | null;
+        const skip = rpm?.getFrameSkipReport?.() ?? null;
+        const info = (pryzmRenderer as unknown as { info?: { render?: { calls?: number; triangles?: number } } })?.info?.render ?? null;
+        console.log(
+            `[initScene] §SWAP-PAINTS-THE-BUILDING (${phase}) backend=${pryzmRendererBackend} ` +
+            `sceneMeshes=${meshes} withLiveMaterialAndGeometry=${liveBindings} ` +
+            `ofThoseVisible=${visibleWithLiveBindings} ` +
+            `loopRunning=${String((unifiedFrameLoop as unknown as { isRunning?: boolean }).isRunning)} ` +
+            `lightweightWebGlActive=${String(rpm?.isLightweightWebGlActive)} ` +
+            `framesPresented=${skip?.framesPresented ?? '?'} ` +
+            `consecutiveSkips=${skip?.consecutiveSkips ?? '?'} ` +
+            `lastSkipReason=${skip?.lastSkipReason ?? 'none'} ` +
+            `drawCalls=${info?.calls ?? '?'} triangles=${info?.triangles ?? '?'}`,
+        );
+    };
+
     const _swapTracer = trace.getTracer('pryzm-engine');
     let _swapInFlight = false;
     const swapRendererBackend = async (pref: RendererBackendPreference): Promise<boolean> => {
@@ -4725,10 +4787,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 //    founder's "many elements batch created — none visible" verbatim.
                 //    DETACH here, RELEASE here (ADR-0297 INVARIANT L2).
                 try {
+                    // §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) — capture the denominator and the
+                    // KIND *before* the sweep runs, so the line below can never print a bare
+                    // `0` that means three different things. This log has reported 0, 3181,
+                    // 6936 and 6937 across a single day of founder sessions and a prior lane
+                    // flagged the `0` without being able to tell whether it meant "nothing was
+                    // attached" or "the sweep looked in the wrong place". Now it says which.
+                    const _kind   = classifyRetirement(oldRenderer);
+                    const _minted = mintedRenderObjectCount(oldRenderer);
                     const _detached = retireRenderer(oldRenderer);
                     console.log(
                         `[initScene] §RETIRE-RENDERER-DETACHES-LISTENERS old renderer retired — ` +
-                        `${_detached} render object(s) detached from their materials/geometries (L-948).`,
+                        `${describeRetirement(oldRenderer, _detached, _minted, _kind)} (L-948/L-1410). ` +
+                        `⚠ DETACH means the RETIRED RENDERER stopped listening to the scene's ` +
+                        `materials/geometries — it does NOT unbind geometry from the scene and ` +
+                        `nothing needs re-attaching: the new renderer mints its own draw state on ` +
+                        `its first frame (measured, L-1410).`,
                     );
                 }
                 catch (e) { console.warn('[initScene] §RENDERER-LIVE-SWAP old renderer dispose failed (non-fatal):', e); }
@@ -4755,6 +4829,16 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // full background stack unconditionally. The next report carries a
                 // hex instead of the word "grey". Never allowed to fail a swap.
                 try { reportViewportBackground('post-live-swap'); } catch { /* diagnostic only */ }
+
+                // §SWAP-PAINTS-THE-BUILDING (L-1411) — the boundary reading, then the
+                // one that matters. The second fires after frames have had time to run,
+                // so `framesPresented` / `drawCalls` distinguish "the swap painted the
+                // building" from "the swap finished and nothing draws" WITHOUT anyone
+                // having to re-derive it from a console transcript.
+                try { reportSwapPaintsTheBuilding('immediately-after-swap'); } catch { /* diagnostic only */ }
+                setTimeout(() => {
+                    try { reportSwapPaintsTheBuilding('one-second-after-swap'); } catch { /* diagnostic only */ }
+                }, 1000);
 
                 // Remount the corner pill so the "· <backend>" label updates.
                 try { rendererBackendToggle.mount(); } catch { /* cosmetic */ }

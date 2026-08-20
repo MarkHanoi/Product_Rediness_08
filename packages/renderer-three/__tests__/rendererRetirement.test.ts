@@ -379,7 +379,13 @@ describe('L-948 · the retirement seam is actually reached', () => {
         const createRenderer = read('../../../apps/editor/src/rendering/createRenderer.ts');
 
         // ADR-0077 live backend swap.
-        expect(initScene).toContain("import { retireRenderer } from '@pryzm/renderer-three'");
+        // §RETIRE-ZERO-IS-NOT-ONE-FACT (L-1410) widened this import to bring in the
+        // classification helpers alongside the seam, so assert the SYMBOL is imported
+        // from the package rather than pinning one exact import-list spelling.
+        const retireImport = initScene
+            .split(String.fromCharCode(10))
+            .find((l) => l.startsWith('import ') && l.includes('@pryzm/renderer-three') && l.includes('retireRenderer'));
+        expect(retireImport, 'initScene must import retireRenderer from @pryzm/renderer-three').toBeTruthy();
         expect(initScene).toContain('retireRenderer(oldRenderer)');
         expect(initScene).not.toContain('(oldRenderer as any).dispose?.()');
 
