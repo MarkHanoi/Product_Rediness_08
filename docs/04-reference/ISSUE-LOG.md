@@ -20477,3 +20477,138 @@ Recorded because each would have produced a green or a hang over an unmeasured s
 a different layer's row)"* — true when written, stale the moment this landed. Left alone it would
 send the next reader hunting a closed defect, which is the exact rot this session spent the day
 correcting in `CLAUDE.md` and L-1199.
+
+---
+
+## L-1320 — ⭐⭐ **SLAB PROFILE EDIT IS UNREACHABLE FOR EVERY SLAB THE TOOL CREATES.** TWO INDEPENDENTLY-CORRECT FIXES COMPOSED INTO A SILENT FEATURE KILL 🔴 OPEN — MEASURED, NOT FIXED — logged 2026-08-19 (lane SHAPE1)
+
+⛔ **Reported, deliberately NOT fixed in this lane** — it is a live-feature regression in a file
+other lanes are in, and the fix belongs with whoever owns the `SlabTool` mode surface.
+
+`packages/geometry-slab/src/SlabTool.ts:1720-1725` gates the vertex-drag profile editor:
+
+```ts
+// §11 §1.2 — Mode A: FLOOR_SKETCH slabs (width > 0 && depth > 0) use the
+// floating dimension edit panel instead of the vertex-drag editor.
+if ((slab.width ?? 0) > 0 && (slab.depth ?? 0) > 0) {
+    this._showDimensionEditPanel(slabId);
+    return;
+}
+```
+
+That was correct when only the rectangle/hollow branch supplied `dimensions` and every region- or
+polyline-created slab stored `width: 0, depth: 0`.
+
+**Then L-1121 fixed the zeros** — `SlabTool.ts:448`:
+
+```ts
+const resolvedDims = dimensions ?? bboxOf(polygon);
+```
+
+...on the entirely sound reasoning that *"a zero is not a gap here — it is a WRONG MEASUREMENT"*.
+**Both changes are right. Their composition is not.** Every slab `createSlabFromPolygon` produces
+now carries non-zero `width`/`depth`, so the `:1722` guard swallows **all** of them and
+`SlabProfileEditor` is dead on all four entry routes — `SelectionManager.ts:428`,
+`PropertyInspector.ts:607`, `ContextualEditBar.ts:1212`, `initTools.ts:556`. Only pick-walls slabs
+escape, because `SlabPickWallsController.ts:244` still writes literal `0, 0`.
+
+### ⭐ The finding
+
+> **Neither commit is wrong, and neither commit's tests could have caught this.** The guard's
+> precondition lived in a *different file* from the fix that invalidated it, and nothing named the
+> dependency. This is `committed ≠ reachable` with two authors: the capability is present, tested,
+> and reachable by nobody.
+
+**The fix is a decision, not a patch:** either the guard keys on something that still means
+"rectangular by construction" (e.g. `sketch`/provenance, not derived dimensions), or Mode A and
+Mode B stop being mutually exclusive and the user picks. ⚠ Whoever takes it must also decide what
+"edit the profile of a circular slab" means, because §FEAT-PLATE-SHAPE-MODES now creates them.
+
+---
+
+## L-1321 — CURTAIN WALL CANNOT EXPRESS A NON-RECTANGULAR FACE, AND C87 HAD **NO RULE AND NO REFUSAL** ON IT ✅ DECLARED 2026-08-19 (lane SHAPE1) — C87 §12 R-11 + §13.14 CW-9
+
+The founder asked for `rectangular / circular / elliptical` across five families. Four can serve it.
+**Curtain wall cannot, at any layer** — `CurtainWall.ts:65-69` (2-tuple `baseLine` + scalar
+`height`), `CurtainCellComputer.ts:84-117` (nested `for u / for v` outer product, axis-aligned cells
+at `z=0`), full-height mullions, full-length transoms, integer `(row, col)` panel addressing, and
+**no clip / trim / mask / CSG anywhere in the family**. A plan-arc curtain wall is faceted into N
+independent straight curtain walls at draw time — curvature in PLAN is not curvature of the FACE.
+
+⭐ **The founder independently traced the family and reached the identical conclusion**, which is
+why this is recorded as settled rather than open.
+
+**Now DECLARED** as C87 §12 **R-11** (in the contract's own *"⚠ UNDECLARED ABSENCE — MUST be
+declared"* class) and specified as **§13.14 CW-9**, item **(12)** of §13.12's binding delivery order.
+⛔ The refusal is `unbuilt`, **not** `impossible` (the L-1067 distinction) — a circular curtain wall
+is a real building element; this repo cannot represent one yet. ⛔ It MUST NOT be "served" by
+faceting a circle into N straight curtain walls: different element count, different schedule,
+different mullions — **§L955, excluding is the honest fix.**
+
+---
+
+## L-1322 — **FIVE SPELLINGS OF THREE SHAPES, PLUS A `BoundaryDrawMode` NAME COLLISION.** C84 EI-8 NAMES *SHAPE* EXPLICITLY 🟡 OPEN — DECLARED, NOT RECONCILED — logged 2026-08-19 (lane SHAPE1)
+
+| Spelling | Site |
+|---|---|
+| `square \| circular \| ellipse` | `handrailRunGenerators.ts:69` (shipped, spec'd) |
+| `rectangle` | floor + ceiling matrix rows and pickers |
+| `2point` | slab matrix row |
+| `rect \| round` | column matrix row |
+| `rectangular \| circular` | `OpeningProfile.ts:44` — **C86, most recently ratified** |
+
+⛔ **And a genuine NAME COLLISION:** `apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts:584`
+declares a **local** `type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved' |
+'circle' | 'ellipse'` — the same NAME as `@pryzm/geometry-slab`'s exported `BoundaryDrawMode`, with
+**different members** (`orthogonal` vs `ortho`). Two types, one name, one concept, no relation.
+
+**What lane SHAPE1 did:** adopted the **C86 adjective set** (`rectangular` / `circular` /
+`elliptical`) for the new shared module and **MAPPED** the historic ids (`'rectangle'`, `'2point'`)
+rather than renaming ~30 call sites mid-feature. ⛔ It deliberately did **not** rename handrail: that
+family ships and is spec'd, and an unmeasured rename from a different lane is how working things
+break.
+
+**Open:** one canonical set, with any licensed copy pinned **by a test, never by a comment** —
+EI-8a records that the comment mechanism *"has already failed twice, measured"*.
+
+---
+
+## L-1323 — A CIRCULAR BOUNDARY DOES NOT REMEMBER THAT IT IS A CIRCLE 🟡 OPEN — A FOUNDER DECISION, NOT A DEFECT — logged 2026-08-19 (lane SHAPE1)
+
+§FEAT-PLATE-SHAPE-MODES stores a circular slab / ceiling / floor as a **tessellated polygon ring**,
+following the established plate-family pattern (`boundaryArc.ts`: *"boundaries remain POLYGONS by
+schema and an arc enters by TESSELLATION"*).
+
+**That choice bought the entire delivery:** zero schema change, zero command change, zero builder
+change, **zero persistence change** — and therefore no sixth save/load hole in a week that found five.
+
+**What it costs, declared rather than discovered:** re-editing a circular slab gives N vertices, not
+a radius handle. *"Make this 0.5 m bigger"* is not expressible, and the shape's design INTENT is not
+preserved (a C81 question).
+
+⭐ **The alternative is a real feature, not a patch:** a shape DESCRIPTOR on the record, plus schema,
+persistence, undo, IFC, area take-off and every consumer taught to read it. **This is the founder's
+call and this lane deliberately did not take it.** ⚠ It also interacts with **L-1320**: "edit the
+profile of a circular slab" has no good answer while the ring is the only representation.
+
+---
+
+## L-1324 — CIRCULAR / ELLIPTICAL SLABS ARE **PLAN-ONLY**; THE 3-D `SlabTool` HAS NO ARM 🟡 OPEN — DECLARED IN THREE PLACES — logged 2026-08-19 (lane SHAPE1)
+
+`SlabPlanToolHandler` serves `circular` and `elliptical`. The 3-D `SlabTool` does **not**: its
+rectangle path (`addRectanglePoint`, `:659`) is entangled with the hollow-slab anchor state, drives
+its HUD by `document.querySelector('#hud-step-text')`, and its mode union `SlabToolMode` is declared
+**three times** (`SlabTypes.ts:14`, `SlabTool.ts:142`, `:304` — C92 SL-Voc-2).
+
+⭐ **Wiring it blind would have been the exact C84 EI-3 breach** (*what the UI offers, the pipeline
+must accept*) that `elementCreationMatrix` exists to catch — so the gap is **declared instead of
+pretended**, in three places: the matrix row, the mode descriptions (*"plan view"*), and
+`slabPlanGesturesPinned.spec.ts`, where both gestures map to `'NONE'`.
+
+> ⚠ **The pin is the load-bearing part.** Inventing a tool-mode string there would have made the
+> PIN assert a 3-D capability that does not exist — a gate going green for the wrong reason, which
+> is worse than a red one. `'NONE'` is the truth: the 3-D tool is inert for these gestures.
+
+Floor and ceiling have **no** such gap — both surfaces consume the same module.
+
+---

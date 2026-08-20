@@ -1008,6 +1008,7 @@ A refusal is a correct answer. An undocumented one is not.
 | **R-8** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ **Do not delete them** — they are the PRYZM 3 target vocabulary |
 | **R-10** | `curtain-wall.replacePanel` (L6) is **DECLARED DEAD** — it has no dispatchers and cannot execute | `ReplacePanel.ts:81`, `:95`; §11 #17 / L-1054 | ⚠ **DEAD, DECLARED, AND NO LONGER OFFERED THROUGH IT.** Its refusal is unconditional in practice: `ctx.stores['curtainPanelStore']` cannot exist on the bus context. Both property-panel surfaces now route to the L2 `ReplacePanelTypeCommand` instead (CW-Dec-1, C16 **CA-17** — route the write), and the CONTROLS STAY ENABLED, which is what the founder asked for. `grep -rn "curtain-wall.replacePanel" apps/editor/src/ui` → **comments only**. ⛔ **Do NOT delete the verb** — it is the PRYZM 3 target vocabulary (R-8's rule), and it becomes live the day `CurtainPanelStore` becomes a plugin `Store<CurtainPanelData>` with its own `storeKey`, the migration `ReplacePanel.ts:62-65` names. **That is its retirement condition, and it is the condition C84 EI-10(d) requires a dead-but-kept thing to carry.** |
 | **R-9** | Curtain-wall has no Stack B **editor** render path | C84 §4D — `bootstrapRenderEverything` unreachable, `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — ADR-0331 §D5 is an **open founder question** (C84 §9) |
+| **R-11** | **A curtain wall's FACE IS RECTANGULAR. No circular, elliptical or otherwise non-rectangular boundary is expressible anywhere in the family** | §13.14 — `CurtainWall.ts:65-69` (2-tuple `baseLine` + scalar `height`), `CurtainCellComputer.ts:84-117` (nested `for u / for v` outer product, axis-aligned cells at `z=0`), integer `(row, col)` panel addressing | ⛔ **UNDECLARED ABSENCE — DECLARED HERE (lane SHAPE1, 2026-08-19).** The founder asked for `rectangular / circular / elliptical` across five families; the other four can serve it and this one cannot. **This is a REFUSAL BY NAME, not a silent narrowing** — the shape modes are simply not offered on the curtain-wall bar, and the reason is §13.14. ⛔ MUST NOT be "fixed" by faceting a circle into N straight curtain walls and calling it circular: that is a different element count, a different schedule and a different set of mullions — a silently-wrong façade, which is worse than a refusal (`WallRake.ts:50-62`) |
 
 > ### ⚠ AN OPEN CONTRADICTION BETWEEN A MEASUREMENT AND THE FOUNDER'S OWN ACCOUNT — RECORDED, NOT RESOLVED
 >
@@ -1845,7 +1846,8 @@ because a sparse override keyed on an unstable id is the data loss it exists to 
 **(1)** CW-P persistence as sparse overrides · **(2)** CW-2a vocabulary · **(3)** CW-Dec-1 routing ·
 **(4)** CW-1 selection/TAB · **(5)** CW-2 attributes · **(6)** CW-4 mullions · **(7)** CW-3 doors ·
 **(8)** CW-6 polyline close · **(9)** CW-7 region slab · **(10)** CW-8 move/propagate/recompute ·
-**(11)** CW-5 RAC across all of it.
+**(11)** CW-5 RAC across all of it ·
+**(12)** CW-9 non-rectangular faces (§13.14) — **LAST, and correctly so**: it is a subsystem change that presupposes CW-P's persistence, CW-2a's vocabulary and CW-4's first-class mullions. Until it lands the answer is a NAMED REFUSAL, not a facet.
 
 > **STATE AT THE CLOSE OF LANE CW4 (2026-08-19), so the next lane starts from findings:**
 > **(1)–(8)** landed by CW2. **(9)** the slab half is SL1's and shipped; the curtain-wall half is
@@ -1944,6 +1946,71 @@ Each step is **RED-first** and each carries an executed proof at the layer the u
 > **executes the statement `ToolManager` runs one line later**, and only then reaches By Slab through
 > a real `click()` on the rendered button or a real `KeyboardEvent` on `window`. **The double
 > supplies the HAZARD; it does not supply the cure.** 11 arms; falsified by reverting the fix (7 red).
+
+### 13.14 — CW-9: NON-RECTANGULAR CURTAIN-WALL FACES (founder, 2026-08-19)
+
+> **The founder:** *"Can you add mode 'eclipse', 'circular' and 'rectangular' mode options in WALL,
+> CURTAIN WALLS, SLABS, CEILINGS and FLOORS?"*
+>
+> ⭐ **"eclipse" is read as ELLIPSE**, and the reading is made VISIBLE rather than silently
+> corrected — every user-facing label in the delivered families reads `Elliptical`. If the reading
+> is wrong, one word fixes it.
+
+**VERDICT: REFUSED BY NAME. Curtain wall is the ONE family of the five that cannot serve this,
+and the refusal is a measurement, not a preference.**
+
+The founder independently traced this family and reached the same conclusion the lane did. Both
+readings agree, which is why this is recorded as settled rather than open.
+
+#### CW-Shape-1 — WHAT WAS MEASURED (2026-08-19, lane SHAPE1)
+
+Non-rectangularity is not expressible at **any** layer of this family:
+
+| Layer | What it holds | Why a non-rectangular face cannot be said |
+|---|---|---|
+| **Schema** | `CurtainWall.ts:65-69` — `baseLine` is a **2-tuple**, `height` a **scalar** | The face is *defined* as `length × height`. There is no field in which an outline could be written |
+| **Grid** | `CurtainCellComputer.ts:84-117` — two independent 1-D `t` arrays, iterated as a nested `for u / for v` **outer product** | Every cell is an axis-aligned rectangle at `z = 0`. The grid is a Cartesian product; a product of two 1-D partitions cannot be anything but a rectangle |
+| **Mullions** | every mullion is **full-height**, every transom **full-length** | A curved boundary needs mullions that STOP at the outline. Nothing can express a partial mullion |
+| **Panels** | addressed by integer `(row, col)` | A trimmed or partial panel has no address, and no representation |
+| **Clipping** | ⛔ **none.** No clip, trim, mask, boundary or CSG anywhere in the family | The one mechanism that could rescue the grid does not exist |
+| **Plan arcs** | a curved run is faceted into **N independent straight curtain walls** at draw time | Curvature in PLAN is not curvature of the FACE, and the two must not be confused |
+
+#### CW-Shape-2 — WHY C87's OWN RULE MAKES THIS STRUCTURAL, NOT INCIDENTAL
+
+§13.9 (CW-Region-3) already rules that a curtain wall's region face is **the MULLION, always**. A
+non-rectangular boundary would require mullions that terminate part-way along a curve — so the
+shape question is not a boundary question that happens to touch the grid. **It is a question about
+what a mullion IS**, and this contract has already answered that in a way a curve cannot satisfy.
+
+#### CW-Shape-3 — THE REFUSAL IS "NOT YET", NOT "NEVER" (the L-1067 distinction)
+
+⚠ Nothing above is a law of curtain walls. **A circular curtain wall is a real building element**
+and this repo simply cannot represent one today. Stated in `WallProfileVariants`' vocabulary this is
+**`unbuilt`**, not **`impossible`** — and the distinction is load-bearing, because a refusal that
+reads like a law teaches the author their building is impossible and they stop asking.
+
+**What it would take, so the estimate is on the record rather than re-derived later:** a face
+OUTLINE on the record; a grid that CLIPS to it; partial mullions and transoms with real end
+conditions; an address for a trimmed panel; and a decision about what a half-panel means for
+schedules, area take-off and IFC export. **That is a curtain-wall subsystem change, not a shape
+mode**, and it belongs behind CW-P/CW-2a/CW-4 in the order below.
+
+#### CW-Shape-4 — WHAT MUST HAPPEN MEANWHILE (binding)
+
+- **CW-Shape-4a.** The curtain-wall creation bar MUST NOT offer `circular` or `elliptical`.
+  **Offering them would be C84 EI-3 live** (*what the UI offers, the pipeline must accept*) and is
+  the precise defect `elementCreationMatrix` exists to catch. ✅ Held: the matrix's `curtain-wall`
+  row is unchanged by lane SHAPE1, deliberately.
+- **CW-Shape-4b.** ⛔ A circle MUST NOT be served by faceting it into N straight curtain walls.
+  It differs in element count, mullion count, schedule and IFC output. **§L955 — excluding is the
+  honest fix.**
+- **CW-Shape-4c.** When the RAC is asked for a circular curtain wall it MUST refuse **by name**,
+  citing this section and naming the live alternative — *a rectangular curtain wall, or a circular
+  SLAB / CEILING / FLOOR boundary, which do ship* (C16 CA-18).
+- **CW-Shape-4d.** The four families that CAN serve the founder's ask MUST NOT be held back waiting
+  for this one. ✅ Held: slab, ceiling and floor shipped 2026-08-19 (§FEAT-PLATE-SHAPE-MODES).
+
+---
 
 ## NOT MEASURED — the honest register for this family
 

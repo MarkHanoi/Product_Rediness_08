@@ -779,6 +779,7 @@ that exists, and nothing in the ring would say so. A refusal is a correct answer
 | **R-8** | No rotate verb, no colour verb | §6 | ⚠ **TWO UNDECLARED ABSENCES, DECLARED HERE.** ⚠ **CORRECTED 2026-08-19 (L-1032)** — this row read *"no bus level-change verb"* as a third absence. `slab.changeLevel` now exists and is reachable from the property panel. The absence is CLOSED, not re-declared |
 | **R-9** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
 | **R-10** | Stack B has no editor render path | C84 §4D; `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — **ADR-0331 §D5 is an open FOUNDER question** (C84 §9) |
+| **R-11** | **Circular / elliptical boundaries are SUPPORTED in PLAN as of 2026-08-19 — and are NOT yet available in the 3-D `SlabTool`** | §FEAT-PLATE-SHAPE-MODES; L-1324 | ⚠ **A DECLARED PARTIAL, NOT A SILENT ONE.** `SlabPlanToolHandler` serves both gestures; the 3-D tool does not — its rectangle path is entangled with the hollow-slab anchor state and its mode union is declared THREE times (SL-Voc-2). The matrix row, the mode descriptions and `slabPlanGesturesPinned.spec.ts` all say so, and the pin maps both gestures to `'NONE'` because that is the TRUTH: inventing a tool-mode string would make the pin assert a 3-D capability that does not exist |
 
 ### Explicitly NOT REFUSED, and that is the finding
 
@@ -829,6 +830,80 @@ refuse today, and it does not.
 | slab / door / window parity harnesses OWED (§5) | **CONFIRMED for slab** — `tests/parity/slab/slab-snapshot.test.ts` never imports `SlabFragmentBuilder`. ⚠ The directory's existence is what has kept the debt looking paid |
 | three `material-bridge.ts` files take `_key` and discard it (EI-8) | **MOOT FOR SLAB** — `plugins/slab/src/material-bridge.ts` does not exist; `grep _key plugins/slab/src/` → 0 |
 | **L-956** *"the plan handler has no region branch"* | ⚠ **NO LONGER HOLDS AT HEAD** — `SlabPlanToolHandler.ts:117-130` commits. The mode-propagation half and the misleading diagnostic survive; and the fix realised the EI-9 hazard L-956 itself warned about (§11 #2a) |
+
+---
+
+## §FEAT-PLATE-SHAPE-MODES — CIRCULAR AND ELLIPTICAL BOUNDARIES (founder, 2026-08-19, lane SHAPE1)
+
+> **The founder:** *"Can you add mode 'eclipse', 'circular' and 'rectangular' mode options in WALL,
+> CURTAIN WALLS, SLABS, CEILINGS and FLOORS?"*
+>
+> ⭐ **"eclipse" is read as ELLIPSE, and the reading is made VISIBLE rather than silently corrected.**
+> Every user-facing label reads `Elliptical`; a test asserts the string "eclipse" never reached the
+> vocabulary. If the reading is wrong, one word fixes it — a silent guess would have shipped five
+> families wrong.
+
+### PS-1 — THE CAPABILITY, AND WHY IT WAS REACH RATHER THAN GEOMETRY
+
+`SlabFragmentBuilder.ts:1171` (`THREE.ShapeUtils.triangulateShape`, i.e. earcut) already triangulates an **arbitrary** ring. A circle was expressible the whole time and
+nothing in the product could ASK for one — the *authored-but-unwired* pattern. What shipped is a
+GESTURE and its reach, not new geometry: **zero schema change, zero command change, zero builder
+change, zero persistence change.**
+
+The generators live in ONE pure module, `packages/geometry-slab/src/boundaryLoops.ts`, shared by
+slab, ceiling and floor, so *"the same options in all three"* is true by construction rather than by
+three implementations that happen to agree today. It sits beside `boundaryPath` (linear/ortho/curved)
+and `boundaryArc` as the third member of the shared plate-boundary authoring layer.
+
+### PS-2 — IT IS A **GESTURE** AXIS, NOT A CONSTRAINT AXIS (binding)
+
+⛔ `circular` / `elliptical` MUST NOT be added to `BoundaryDrawMode`. That union answers *"how does a
+click land?"*; these answer *"which whole boundary does one gesture produce?"* Merging them would
+make `curved × circular` unexpressible — the error [C86 §945](C86-ELEMENT-WALL-OPENING.md) records
+for *"single / double / circular"*, and the error [C92 SL-Voc-3](C92-ELEMENT-SLAB.md) states as a
+rule. **L-956 is the measured cost of conflating these two axes once already.**
+
+### PS-3 — ⚠ TESSELLATION IS THE REPRESENTATION, AND THE LIMIT IS DECLARED (L-1323)
+
+A circular slab is stored as a **polygon ring**, not as a centre and a radius. That is the
+established plate-family pattern — `boundaryArc.ts`: *"boundaries remain POLYGONS by schema and an
+arc enters by TESSELLATION"* — and it is what buys the zero-change list in PS-1.
+
+**What it costs, stated here rather than discovered later: the ring does not REMEMBER that it is a
+circle.** Re-editing gives N vertices, not a radius handle, and *"make this 0.5 m bigger"* is not
+expressible. Density is governed by **chord deviation (20 mm)**, not a fixed segment count, so a
+large boundary is not faceted and a small one is not needlessly heavy.
+
+⭐ **Parametric, shape-preserving boundaries are a SEPARATE and larger decision** — a C81
+design-intent question touching the schema, persistence and every consumer. **L-1323, deliberately
+NOT decided by this lane.**
+
+### PS-4 — REFUSALS (C16 CA-18)
+
+A degenerate gesture yields an **EMPTY ring** plus a sentence naming the limit and the next action.
+⛔ **Never a silent fall-back to a rectangle** — that is the §L955 / [C86 PR-9](C86-ELEMENT-WALL-OPENING.md)
+failure, and there is live precedent for it in this repo.
+
+### PS-5 — THE SEPARATING TEST
+
+`packages/geometry-slab/__tests__/boundaryLoops.test.ts` (21 assertions) states what makes a circle
+A CIRCLE, then feeds the same assertions two deliberately-wrong builds and proves both rejected:
+**RECTANGLE_CALLED_ROUND** (the silent-fallback failure) and **EIGHT_FACET_STAIRCASE** (right
+parameterisation, wrong density). ⭐ The AREA assertion separates by construction and no tolerance
+can reconcile it — ellipse `π·rx·rz`, rectangle `4·rx·rz` (+27%), octagon `2√2·rx·rz` (−10%). The
+octagon case exists to show the vertex-on-outline test ALONE cannot catch it: every one of its
+vertices IS on the outline. **Falsifiability was PROVEN, not assumed** — sabotaging the circle
+generator to return a rectangle turns 5 assertions red.
+
+### PS-6 — VOCABULARY (L-1322)
+
+The module adopts **C86's ratified adjective set** — `rectangular` / `circular` / `elliptical`. ⚠ The
+repo holds **five** spellings of these three shapes (`square|circular|ellipse` in handrail;
+`rectangle` in floor/ceiling; `2point` in slab; `rect|round` in column; `rectangular|circular` in
+C86) **plus a `BoundaryDrawMode` NAME COLLISION** — `SiteBoundaryMap2D.ts:584` declares a local type
+of that name whose members disagree with `@pryzm/geometry-slab`'s export (`orthogonal` vs `ortho`).
+Historic ids are **MAPPED, not renamed**, and the reconciliation is **L-1322**. C84 EI-8 names
+*shape* explicitly, so this is a real finding, declared rather than perpetuated.
 
 ---
 
