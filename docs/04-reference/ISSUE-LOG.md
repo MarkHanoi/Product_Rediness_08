@@ -22160,6 +22160,124 @@ Both were in the same log as L-1400 and both are noted so nobody re-derives them
 
 ---
 
+## L-1411 — ⭐⭐ "THE 3,181 DETACHED OBJECTS ARE THE BUILDING" — **MEASURED FALSE.** ⚠ THEORY REFUTED · PROBE SHIPPED — 2026-08-20 (lane SWAP1)
+
+**Founder, production, 2026-08-20:** *"Why did the building not load in the 3D view?"* His project loads cleanly and the viewport is empty:
+
+```
+[ProjectLoader] Load complete: 294 loaded, 0 failed, 0 errors
+[SceneQualityTier] 3191 meshes → tier=performance
+[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — scene is device-loss-risk
+    (233 elems / 3191 meshes / 7 levels; reason=tier:post-load)
+[UnifiedFrameLoop] Stopped (scheduler subscription disposed).
+[createRenderer] resolvedPreference=webgl-classic … CLASSIC THREE.WebGLRenderer
+[renderer-three] backend: webgl1 (§L-372B classic THREE.WebGLRenderer)
+[initScene] §RETIRE-RENDERER-DETACHES-LISTENERS old renderer retired —
+    3181 render object(s) DETACHED from their materials/geometries (L-948).
+[initScene] §RENDERER-LIVE-SWAP live swap complete — backend now: webgl-only
+```
+
+The leading theory: those 3,181 **are** the building, the detach is a **one-way teardown**, and a **re-attach is missing**.
+
+**THE DUMP (`packages/renderer-three/__tests__/rendererRetirement.populatedScene.test.ts` — real three r183 `RenderObjects`, real `retireRenderer()`, a real populated `THREE.Scene` at the founder's exact 3,181):**
+
+| quantity | before retire | after retire |
+|---|---|---|
+| scene meshes with a live material **and** a non-empty position attribute | **3,181** | **3,181** |
+| `'dispose'` listeners on those materials + geometries | **6,362** | **0** |
+| scene children | 3,181 | 3,181 |
+| a later `material.dispose()` throws (the L-948 symptom) | — | **no** |
+
+**Verdict: the theory is refuted.** `RenderObject.dispose()` is, in full (RenderObject.js:904-911), `material.removeEventListener('dispose', …)` + `geometry.removeEventListener('dispose', …)` + `onDispose()` (delete this renderer's pipeline / binding / node entries and its chain-map key). Every operation is on the **retired renderer's own** per-object state and on the **listeners it registered**. Not one of them unbinds `mesh.material` or `mesh.geometry`.
+
+**There is no missing re-attach and there cannot be one.** The incoming renderer mints its own draw state on its first frame — and the incoming renderer here is the §L-372B **classic `THREE.WebGLRenderer`**, which mints **no `RenderObject` at all**; it compiles `WebGLProgram`s from the same materials the scene still holds. The word "detached" in that log line was doing the damage; the line now says so in place.
+
+⭐ **What shipped instead of a fix for a non-defect: `§SWAP-PAINTS-THE-BUILDING`.** "The viewport is empty after the swap" has now been investigated **twice** from a console transcript with the deciding reading absent both times, and this repo's own recorded lesson is *two rival theories can both be "confirmed" by reading and both be wrong*. `§RENDERER-LIVE-SWAP` now prints, at the swap boundary **and again one second later**: scene mesh count · how many hold a live material **and** a non-empty position attribute (**derived by traversal**, never a hand-listed set of element types) · `unifiedFrameLoop.isRunning` · `rpm.isLightweightWebGlActive` · `RenderPipelineManager.getFrameSkipReport()` (§L900-FRAME-SKIP-ATTRIBUTION — it names the exact gate a stalled viewport is stalled at) · the renderer's own `info.render.calls` / `triangles`.
+
+The **second** reading is decisive: `framesPresented > 0` with `drawCalls > 0` ⇒ the swap painted, and any remaining blankness is a **compositing** question (C04 §1.5, the open L-1353 ground-catcher grey). `framesPresented === 0` ⇒ the report names the gate.
+
+⚠ **HONEST LIMIT — the founder's blank viewport is NOT closed by this row.** What is established is that the retire does not cause it. What is not established is what does: the remaining candidates all live downstream of the swap (frame loop, lightweight render arm, compositing) and none can be settled from the transcript that exists. **The probe is the instrument that settles it on his next session; do not read this row as a fix for the report.**
+
+Contract: **C04 §1.4b** (NORMATIVE, in place) + **§1.4e**.
+
+---
+
+## L-1410 — the retirement counter printed `0`, `3181`, `6936` and `6937` in one day, and a bare `0` covered **three different states** ✅ FIXED — 2026-08-20 (lane SWAP1)
+
+`§RETIRE-RENDERER-DETACHES-LISTENERS` reports one number. A prior lane flagged the `0` and could not investigate it, because the same word was printed for:
+
+1. **`mints-none`** — a classic `THREE.WebGLRenderer` owns no `RenderObjects` at all. `0` is **complete and correct**: nothing was ever attached. (This is the founder's *second* swap of a session, and every device-loss rebuild from a classic renderer.)
+2. **`untracked`** — the renderer **owns** `RenderObjects` but was never instrumented. `0` means **the sweep looked in the wrong place**, and every listener it registered is about to outlive it — the L-948 leak, live. (Already warned; the warning was the only thing distinguishing it, and it is easy to miss in a flood.)
+3. **`tracked`, minted > 0, detached 0** — the tracking set was emptied by something other than this seam. **This was SILENT.**
+
+State (3) is precisely the shape this project has been wrong about repeatedly — a version count, an audit detector, an in-flight guard, a rescue that rescued nothing — all of which reported an unqualified `0`.
+
+**Fix (`packages/renderer-three/src/rendererRetirement.ts`):** a **monotonic mint counter** (`_minted`, never pruned, so GC cannot erase the denominator the `WeakRef` set legitimately loses) plus `classifyRetirement()` / `mintedRenderObjectCount()` / `describeRetirement()`. The classification is **DERIVED** from the renderer's own shape (`_objects` present?) and this module's own instrumentation record — ⛔ never from a remembered list of renderer class names. State (3) now warns. The `initScene` log line prints **count, denominator and kind together**.
+
+Contract: **C04 §1.4c** (NORMATIVE, in place).
+
+---
+
+## L-1412 — two components named two different backends for one live renderer, **one line apart** ✅ FIXED — 2026-08-20 (lane SWAP1)
+
+From the founder's log:
+
+```
+[renderer-three] backend: webgl1 (§L-372B classic THREE.WebGLRenderer)
+[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected …
+```
+
+**The DECISION was never wrong.** `RenderPipelineManager.isRealWebGPUBackend()` answers exactly one boolean, and this is its `false` arm — a partition **by construction**, the same partition `isNativeWebGpuBackend()` / `isLightweightWebGlBackend()` express at the app layer (lane BG1, L-1191). That arm covers **two** renderers: the `WebGPURenderer` WebGL2 fallback and a classic `THREE.WebGLRenderer`. **Only the LABEL lied** — it hardcoded a backend name into a branch that resolves none.
+
+This is the identical defect `UnifiedFrameLoop` was corrected for on 2026-08-19 (a hardcoded `"WebGPU"` in a block that read no backend state, which sent a perf investigation after a WebGPU pipeline problem that could not exist): **an instrument naming the wrong subsystem**. The message now reports the boolean it evaluated and the evidence it evaluated it from, and explicitly declines to name which of the two WebGL renderers is live, pointing at the `[renderer-three] backend:` line for that.
+
+⛔ **Not fixable by a backend-string comparison inside `RenderPipelineManager`** — it is L1 and cannot see the app-layer `RendererBackend` vocabulary. A third spelling of the partition is what produced the disagreement.
+
+Contract: **C04 §1.4d** (NORMATIVE, in place).
+
+---
+
+## L-1413 — ⭐ C04 §1.4 quoted a predicate the swap has **never** used, and the predicate it quoted has **zero call sites** ✅ FIXED — 2026-08-20 (lane SWAP1)
+
+C04 §1.4's ADR-0267 amendment stated the swap trigger as *"the shared `isHeavyModel` heuristic (**≥ 15 levels AND ≥ 1000 elements, OR ≥ 4000 elements** — the exact `LevelScoped3DCullingService` predicate, now exported)"*. The founder's scene is **233 element roots / 3,191 meshes / 7 levels**, which satisfies **neither arm** — and the guard fired.
+
+**MEASURED through the public seams (`apps/editor/__tests__/autoWebGLHeavyScene.contractPredicate.test.ts`):**
+
+| predicate | verdict for 233 / 3,191 / 7 |
+|---|---|
+| `isHeavyModel(7, 233)` — what C04 quoted | **false** |
+| `isSwapWorthyHeavyScene(233, 3191)` — what actually gates the swap | **true** (mesh arm, 3,191 ≥ 1,000) → `swap('webgl-classic')` |
+
+The end-to-end call reproduces the founder's warning **verbatim, numbers and all**.
+
+⭐ **`isHeavyModel` has ZERO call sites outside its own file** (`grep -rn isHeavyModel packages apps plugins`: 8 hits inside `LevelScoped3DCullingService.ts`, 5 comments in `autoWebGLHeavyScene.ts` explaining it is deliberately **not** used). Its own JSDoc asserted *"EXPORTED as the single source of truth … the Auto-mode proactive WebGL fallback reuses this EXACT predicate so the two never disagree"*. Nothing enforced that; nothing ever could. **C84 §3.5.1 axis (d), the CALL axis.**
+
+⛔ **The divergence is CORRECT — the fix is NOT to unify.** ADR-0267 §Fix-1 (L-366) split them on purpose: a normal ~6-storey generation (~1,300 elements / ~1,645 meshes) reliably TDR'd the WebGPU device yet never trips `isHeavyModel`, so gating the swap on it left the building on WebGPU to crash (L-361). Pointing the swap at `isHeavyModel` re-opens that.
+
+**Fixed by making the record true, at one authority:** `isSwapWorthyHeavyScene` is now **exported and named NORMATIVE** in C04 §1.4 (≥ 400 element roots OR ≥ 1,000 scene meshes, either arm); `isHeavyModel`'s JSDoc is corrected in place and scoped to **massing LOD only**; both are pinned by a test that asserts the **divergence**, so a future "unification" fails loudly and has to make the L-361 argument out loud.
+
+**And there are THREE firing sites, not the two the amendment names:** `initBatchLifecycle.ts:121` (batch GPU-compile-start) · `buildingGenerationLifecycle.ts:307` (start-of-generation, L-367) · `initScene.ts:2845` (the per-add tier pass — **also reached once per project OPEN** via `_runConsolidatedTierPbrPass = () => runTierPbrPass('post-load')`, initScene:2875, fired from the `pryzm-project-loaded` listener). That third one is the founder's `reason=tier:post-load`. See L-1414.
+
+---
+
+## L-1414 — ⭐ THE ARCHITECTURAL ANSWER: the backend decision for a project OPEN is taken at the point of **MAXIMUM ATTACHED STATE** ⛔ OPEN — MEASURED, NOT FIXED — 2026-08-20 (lane SWAP1)
+
+`reason=tier:post-load` means the swap decision fires **after** all 3,191 meshes exist and have rendered. ADR-0267's entire premise is *"swap **BEFORE** the heavy PSO-compile that would TDR the device"*. At `post-load` that compile has already happened **and survived** — so the swap buys nothing it was designed to buy, while paying the maximum possible price: `§RENDERER-LIVE-SWAP` disposes the TSL pipeline, builds a second renderer on a second canvas, re-binds five services, and retires the old renderer against a fully populated scene. **It fires on every project open above the threshold — this is not an edge case, it is the default path for any real project.**
+
+**The correct shape is to decide the backend BEFORE the scene is populated.** Two of the three firing sites already do exactly that; `buildingGenerationLifecycle.ts:307` is the existence proof.
+
+⚠ **NOT DONE, and stated as NOT-YET rather than claimed DONE.** The obstacle is specific and measured, not a shrug:
+
+- `ProjectLoader` can supply an **element count** and a **level count** before any mesh is built (it already logs `walls / slabs / levels / curtainWalls / rooms / doors / windows` at load start).
+- It **cannot** supply a **mesh count**.
+- The founder's project trips the swap **only on the mesh arm** — 233 element roots is well under 400. `isSwapWorthyHeavyScene(233, undefined)` returns **false** (pinned in the L-1413 test).
+
+So moving the decision earlier requires **estimating meshes from element counts**, i.e. minting a new per-family multiplier. C04's own §INST.2 records why that is refused on sight: *"512 is ARBITRARY, and raising it is NOT the fix."* Inventing a multiplier to make the timing work trades a timing defect for an arbitrary-constant defect, and this repo has just spent a lane on exactly that shape.
+
+**The honest exit:** derive the estimate rather than invent it — e.g. persist the previous session's **measured** mesh count for the same project and use it as the pre-build input, refusing (not guessing) on first open. Until then the decision stays where it is, and **C04 §1.4a is the standing record that its timing is wrong, not the record that it is fine.**
+
+---
+
 ### L-1420 — ⭐ THE BUILDING IN THE SKY. It was the **Sydney Opera House**, and the exporter had **no frame at all**. ✅ FIXED
 
 **Founder, production, 2026-08-19 (screenshot + full log).** Opens **3D Globe → Real**. The building
