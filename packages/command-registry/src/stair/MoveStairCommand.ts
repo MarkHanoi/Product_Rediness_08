@@ -62,7 +62,8 @@ export class MoveStairCommand implements Command {
     private _snapshot: StairData | null = null;
     // §FIX-STAIR-MOVE-STRANDS-VOID — before/after of the slab-void reconcile,
     // reverted inside THIS command's undo() (one undo unit for move + void).
-    private _openingReconcile: StairOpeningReconcile | null = null;
+    /** §L-1433 — one record PER PIERCED DECK, not one per stair. */
+    private _openingReconcile: StairOpeningReconcile[] = [];
     private executed = false;
 
     constructor(input: MoveStairInput) {
@@ -119,10 +120,10 @@ export class MoveStairCommand implements Command {
             const moved = stairStore.get(this.stairId);
             this._openingReconcile = moved
                 ? reconcileStairOpening(ctx, moved as unknown as StairFootprintSource)
-                : null;
+                : [];
         } catch (err) {
             console.warn('[MoveStairCommand] slab-void reconcile failed (non-fatal):', err);
-            this._openingReconcile = null;
+            this._openingReconcile = [];
         }
 
         _bus.emit('ai-model-update', {}); // F.events.17
@@ -139,7 +140,7 @@ export class MoveStairCommand implements Command {
         ctx.stores.stairStore.restoreSnapshot(this._snapshot);
         // Revert the slab-void reconcile in the SAME undo unit as the move.
         undoStairOpeningReconcile(ctx, this._openingReconcile);
-        this._openingReconcile = null;
+        this._openingReconcile = [];
         _bus.emit('ai-model-update', {}); // F.events.17
         console.log(`[MoveStairCommand] Undone move for stair ${this.stairId}`);
         return { success: true, affectedElementIds: [this.stairId], info: ['Stair move undone'] };

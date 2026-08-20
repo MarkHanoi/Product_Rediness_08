@@ -162,58 +162,16 @@ export interface StairHostPierce {
     readonly levelId: string;
 }
 
-// ─── The derived level set ───────────────────────────────────────────────────
+// ─── The derived level set — OWNED ELSEWHERE (L-1433) ────────────────────────
+//
+// `stairPiercedLevelIds` moved to `stairPiercedLevels.ts` so the SLAB reconciler
+// can derive the identical set from the identical code without a runtime import
+// cycle. Re-exported here because this module's callers already import it by this
+// path, and because the two families deriving different decks would be the exact
+// drift the registry exists to prevent.
+export { stairPiercedLevelIds } from './stairPiercedLevels';
+import { stairPiercedLevelIds } from './stairPiercedLevels';
 
-/** Elevation comparisons are C73 §1 tolerant — a deck 0.1 mm above the base is the base. */
-const ELEV_EPS = 1e-4;
-
-/**
- * ⭐ THE LEVEL AXIS, DERIVED. Every level whose deck the stair rises THROUGH or
- * lands ON: `baseElevation < elevation <= topElevation`.
- *
- * The base level's own deck is EXCLUDED — the stair stands on it; piercing it
- * would cut the floor out from under the bottom riser. The top level's deck is
- * INCLUDED, which is the case the old top-level-only filter already handled and
- * the only one it handled.
- *
- * Returns `[topLevelId]` — today's behaviour, unchanged — when the level table
- * cannot be read or either endpoint is missing from it. That is a fallback to the
- * previously-shipped behaviour, not a guess dressed as a measurement, and it is
- * reported on the span as `level_basis: 'fallback-top-only'`.
- */
-export function stairPiercedLevelIds(
-    ctx: CommandContext,
-    stair: { readonly topLevelId: string; readonly baseLevelId?: string },
-): { levelIds: string[]; basis: 'derived-span' | 'fallback-top-only' } {
-    const fallback = { levelIds: [stair.topLevelId], basis: 'fallback-top-only' as const };
-    const wallStore = (ctx.stores as any)?.wallStore;
-    if (typeof wallStore?.getLevels !== 'function') return fallback;
-    if (!stair.baseLevelId) return fallback;
-
-    const levels = wallStore.getLevels() as Array<{ id: string; elevation: number }>;
-    if (!Array.isArray(levels) || levels.length === 0) return fallback;
-
-    const base = levels.find(l => l.id === stair.baseLevelId);
-    const top = levels.find(l => l.id === stair.topLevelId);
-    if (!base || !top || typeof base.elevation !== 'number' || typeof top.elevation !== 'number') {
-        return fallback;
-    }
-    // A stair authored downward is the same set of decks, read the other way.
-    const lo = Math.min(base.elevation, top.elevation);
-    const hi = Math.max(base.elevation, top.elevation);
-
-    const ids = levels
-        .filter(l => typeof l.elevation === 'number'
-            && l.elevation > lo + ELEV_EPS
-            && l.elevation <= hi + ELEV_EPS)
-        .sort((a, b) => a.elevation - b.elevation)
-        .map(l => l.id);
-
-    // The top deck is the one deck that must always be in the set. If the level
-    // table disagrees with the stair's own endpoints, trust the stair.
-    if (!ids.includes(stair.topLevelId)) ids.push(stair.topLevelId);
-    return { levelIds: ids, basis: 'derived-span' };
-}
 
 // ─── Containment — ONE rule, shared by every family ──────────────────────────
 

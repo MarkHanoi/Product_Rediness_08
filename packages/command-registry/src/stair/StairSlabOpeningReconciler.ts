@@ -46,6 +46,10 @@ import { pointInPolygonXY } from '@pryzm/geometry-kernel';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { producePatchedSlice, applyPatchesToSlice } from '../PatchSnapshot';
 import { stairAutoOpeningId } from './stairOpeningId';
+// §STAIR-VOID-EVERY-DECK (L-1433) — the SAME derivation the floor/ceiling
+// piercer uses, from the SAME module, so the two families can never disagree
+// about which decks a stair passes through.
+import { stairPiercedLevelIds } from './stairPiercedLevels';
 import type { CommandContext } from '../types';
 
 let _tracerCache: Tracer | null = null;
@@ -64,6 +68,14 @@ export interface StairFootprintSource {
     readonly flights: readonly unknown[];
     readonly landings?: readonly unknown[];
     readonly topLevelId: string;
+    /**
+     * §STAIR-VOID-EVERY-DECK (L-1433) — required to DERIVE the decks the stair
+     * passes through. Optional because a caller that cannot supply it gets the
+     * pre-L-1433 behaviour (the top deck only) rather than a refusal — and the
+     * span says `level_basis: 'fallback-top-only'` when that happens, so a
+     * fallback is never read back as a derived span.
+     */
+    readonly baseLevelId?: string;
 }
 
 export interface StairOpeningCarve {
@@ -292,7 +304,7 @@ export function carveStairOpening(
     ctx: CommandContext,
     stair: StairFootprintSource,
     opts: { triggerRebuild?: boolean } = {},
-): StairOpeningCarve | null {
+): StairOpeningCarve[] {
     const span = _tracer().startSpan('pryzm.stair.carve-slab-opening', {
         attributes: { 'pryzm.stair.id': stair.id, 'pryzm.level.id': stair.topLevelId },
     });
@@ -302,22 +314,7 @@ export function carveStairOpening(
         const openingStore = stores.openingStore;
         if (!slabStore || !openingStore) {
             span.setAttribute('pryzm.carve.skipped', 'no-stores');
-            return null;
-        }
-
-        const openingId = stairAutoOpeningId(stair.id);
-        // Already satisfied — the invariant says EXACTLY ONE opening per stair.
-        if (openingStore.get?.(openingId) ?? openingStore.getById?.(openingId)) {
-            span.setAttribute('pryzm.carve.skipped', 'already-present');
-            return null;
-        }
-
-        const candidates = slabStore.getAll().filter((s: any) => s.levelId === stair.topLevelId);
-        if (candidates.length === 0) {
-            // NOT an error: the slab may simply not exist yet. The slab-side
-            // reconcile picks this stair up the moment one is created.
-            span.setAttribute('pryzm.carve.skipped', 'no-slab-on-top-level');
-            return null;
+            return [];
         }
 
         const rect = computeStairFootprintRect({
@@ -331,61 +328,117 @@ export function carveStairOpening(
         if (!rect) {
             console.warn(`[StairSlabOpeningReconciler] degenerate footprint for stair ${stair.id} — no opening carved`);
             span.setAttribute('pryzm.carve.skipped', 'degenerate-footprint');
-            return null;
+            return [];
         }
 
         const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
         const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
-        const resolution = resolveHostSlab(candidates, rect, cx, cz);
-        if (!resolution.host) {
-            // §FIX-STAIR-VOID-WRONG-SLAB — the honest answer, in the same
-            // vocabulary as `no-slab-on-top-level` above: NOT an error, and NOT
-            // a licence to carve the closest slab.
-            warnNoContainingSlab(stair, resolution, cx, cz, 'No opening carved.');
-            span.setAttribute('pryzm.carve.skipped', 'no-containing-slab-on-top-level');
-            span.setAttribute('pryzm.carve.candidates', candidates.length);
-            return null;
+
+        // §STAIR-VOID-EVERY-DECK (L-1433) — every deck the stair passes through,
+        // DERIVED. This line used to be `filter(s => s.levelId === topLevelId)`,
+        // and that enumeration is what let a Ground→L5 stair drive through four
+        // intact slabs while `LevelTraversalPolicy` returned ok-with-a-warning.
+        const { levelIds, basis } = stairPiercedLevelIds(ctx, stair);
+        span.setAttribute('pryzm.carve.level_basis', basis);
+        span.setAttribute('pryzm.carve.level_count', levelIds.length);
+
+        const carves: StairOpeningCarve[] = [];
+        for (const levelId of levelIds) {
+            const carve = carveOneDeck(ctx, stair, levelId, rect, cx, cz, span, opts);
+            if (carve) carves.push(carve);
         }
-        const host = resolution.host;
-        span.setAttribute('pryzm.carve.host_basis', resolution.basis);
-
-        const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
-
-        const opening = {
-            id: openingId,
-            type: 'opening' as const,
-            hostId: host.id,
-            levelId: stair.topLevelId,
-            parentId: host.id,
-            profile,
-            baseOffset: 0,
-            properties: {},
-        };
-
-        try {
-            ctx.bimManager.registerElement(openingId, stair.topLevelId);
-        } catch (e: any) {
-            console.warn('[StairSlabOpeningReconciler] bimManager.registerElement failed:', e?.message);
-        }
-        try {
-            elementRegistry.registerSemantic(openingId, 'opening');
-        } catch {
-            // already registered (redo path) — safe
-        }
-        openingStore.add(opening as any);
-        if (opts.triggerRebuild !== false) slabStore.triggerRebuild(host.id);
-
-        span.setAttribute('pryzm.opening.id', openingId);
-        span.setAttribute('pryzm.slab.id', host.id);
-        return { openingId, hostSlabId: host.id };
+        span.setAttribute('pryzm.carve.count', carves.length);
+        return carves;
     } finally {
         span.end();
     }
 }
 
 /**
- * DIRECTION B — a slab was just created: satisfy the invariant for every stair whose
- * TOP level is this slab's level.
+ * ONE deck. Everything here is the pre-L-1433 body verbatim — the host-slab
+ * containment rule, the refusal, the profile frame and the registration sequence
+ * are unchanged, because the LEVEL AXIS was the only thing wrong with them.
+ */
+function carveOneDeck(
+    ctx: CommandContext,
+    stair: StairFootprintSource,
+    levelId: string,
+    rect: ReadonlyArray<{ x: number; z: number }>,
+    cx: number,
+    cz: number,
+    span: ReturnType<Tracer['startSpan']>,
+    opts: { triggerRebuild?: boolean },
+): StairOpeningCarve | null {
+    const stores = ctx.stores as any;
+    const slabStore = stores.slabStore;
+    const openingStore = stores.openingStore;
+
+    // ⭐ The TOP deck keeps the LEGACY string; only additional decks are suffixed.
+    // `stairOpeningId.ts` carries the reason: that string is PERSISTED, and every
+    // saved project's void is owned by it.
+    const openingId = stairAutoOpeningId(stair.id, levelId, stair.topLevelId);
+    // Already satisfied — the invariant is EXACTLY ONE opening per stair PER DECK.
+    if (openingStore.get?.(openingId) ?? openingStore.getById?.(openingId)) {
+        return null;
+    }
+
+    const candidates = slabStore.getAll().filter((s: any) => s.levelId === levelId);
+    if (candidates.length === 0) {
+        // NOT an error: the slab may simply not exist yet. The slab-side reconcile
+        // picks this stair up the moment one is created.
+        return null;
+    }
+
+    const resolution = resolveHostSlab(candidates, rect, cx, cz);
+    if (!resolution.host) {
+        // §FIX-STAIR-VOID-WRONG-SLAB — the honest answer: NOT an error, and NOT a
+        // licence to carve the closest slab.
+        warnNoContainingSlab(stair, resolution, cx, cz, `No opening carved on level "${levelId}".`);
+        return null;
+    }
+    const host = resolution.host;
+    span.setAttribute(`pryzm.carve.host_basis.${levelId}`, resolution.basis);
+
+    const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
+
+    const opening = {
+        id: openingId,
+        type: 'opening' as const,
+        hostId: host.id,
+        levelId,
+        parentId: host.id,
+        profile,
+        baseOffset: 0,
+        properties: {},
+    };
+
+    try {
+        ctx.bimManager.registerElement(openingId, levelId);
+    } catch (e: any) {
+        console.warn('[StairSlabOpeningReconciler] bimManager.registerElement failed:', e?.message);
+    }
+    try {
+        elementRegistry.registerSemantic(openingId, 'opening');
+    } catch {
+        // already registered (redo path) — safe
+    }
+    openingStore.add(opening as any);
+    if (opts.triggerRebuild !== false) slabStore.triggerRebuild(host.id);
+
+    return { openingId, hostSlabId: host.id };
+}
+
+
+/**
+ * DIRECTION B — a slab was just created: satisfy the invariant for every stair that
+ * PASSES THROUGH this slab's level.
+ *
+ * ⭐ §STAIR-VOID-EVERY-DECK (L-1433) — this used to read "every stair whose TOP
+ * level is this slab's level", and that was the same enumeration as the carve
+ * side, seen from the other direction: a slab laid on an INTERMEDIATE deck of an
+ * existing multi-storey stair got no void. Both directions now ask
+ * `stairPiercedLevelIds`, so a fix to one can no longer miss the other — which is
+ * the whole reason this module owns both.
  *
  * Cost is O(stairs on that level) and ends in exactly ONE `slabStore.triggerRebuild`
  * for the whole set, so a slab that swallows N stairs is still one
@@ -410,15 +463,19 @@ export function reconcileStairOpeningsForSlab(
             return [];
         }
 
-        const stairs = (stairStore.getAll() as any[]).filter(s => s.topLevelId === levelId);
+        const stairs = (stairStore.getAll() as any[]).filter(
+            s => stairPiercedLevelIds(ctx, s as StairFootprintSource).levelIds.includes(levelId),
+        );
         span.setAttribute('pryzm.reconcile.candidate_stairs', stairs.length);
         if (stairs.length === 0) return [];
 
         const carves: StairOpeningCarve[] = [];
         for (const stair of stairs) {
             // triggerRebuild deferred — ONE rebuild for the whole set, below.
-            const carve = carveStairOpening(ctx, stair as StairFootprintSource, { triggerRebuild: false });
-            if (carve) carves.push(carve);
+            // Carves EVERY deck this stair pierces, not only the new slab's — the
+            // call is idempotent per (stair, deck), so decks already carved are
+            // no-ops and the new slab's deck is the one that actually lands.
+            carves.push(...carveStairOpening(ctx, stair as StairFootprintSource, { triggerRebuild: false }));
         }
 
         if (carves.length > 0) {
@@ -497,7 +554,7 @@ export function reconcileStairOpening(
     ctx: CommandContext,
     stair: StairFootprintSource,
     opts: { triggerRebuild?: boolean } = {},
-): StairOpeningReconcile | null {
+): StairOpeningReconcile[] {
     const span = _tracer().startSpan('pryzm.stair.reconcile-opening', {
         attributes: { 'pryzm.stair.id': stair.id, 'pryzm.level.id': stair.topLevelId },
     });
@@ -507,27 +564,7 @@ export function reconcileStairOpening(
         const openingStore = stores.openingStore;
         if (!slabStore || !openingStore) {
             span.setAttribute('pryzm.reconcile.skipped', 'no-stores');
-            return null;
-        }
-
-        const openingId = stairAutoOpeningId(stair.id);
-        const existing = readOpening(openingStore, openingId);
-
-        if (!existing) {
-            // Same as the create direction: carve if (and only if) a slab is above.
-            const carve = carveStairOpening(ctx, stair, opts);
-            if (!carve) return null;
-            span.setAttribute('pryzm.reconcile.outcome', 'carved');
-            // A carve needs no patches: undo is "remove the opening we minted".
-            return { openingId, kind: 'carved', inversePatches: [], rebuildHostIds: [carve.hostSlabId] };
-        }
-
-        const candidates = slabStore.getAll().filter((s: any) => s.levelId === stair.topLevelId);
-        if (candidates.length === 0) {
-            // The host slab is gone (cannot result from a stair move) — leave the
-            // existing void alone rather than guess.
-            span.setAttribute('pryzm.reconcile.skipped', 'no-slab-on-top-level');
-            return null;
+            return [];
         }
 
         const rect = computeStairFootprintRect({
@@ -539,79 +576,122 @@ export function reconcileStairOpening(
             landings: stair.landings as any,
         });
         if (!rect) {
-            // Never delete a void on a failed measure (L-581): warn and leave it.
-            console.warn(`[StairSlabOpeningReconciler] degenerate footprint for stair ${stair.id} — existing opening left untouched`);
+            // Never delete a void on a failed measure (L-581): warn and leave every
+            // deck's void exactly where it is.
+            console.warn(`[StairSlabOpeningReconciler] degenerate footprint for stair ${stair.id} — existing openings left untouched`);
             span.setAttribute('pryzm.reconcile.skipped', 'degenerate-footprint');
-            return null;
+            return [];
         }
 
         const cx = (rect[0].x + rect[1].x + rect[2].x + rect[3].x) / 4;
         const cz = (rect[0].z + rect[1].z + rect[2].z + rect[3].z) / 4;
-        // §FIX-STAIR-VOID-WRONG-SLAB — the SAME determination as the carve path.
-        // Fixing one direction and leaving the other on nearest-centre is exactly
-        // the drift this module's single-owner design exists to prevent.
-        const resolution = resolveHostSlab(candidates, rect, cx, cz);
-        if (!resolution.host) {
-            // The stair was moved off every slab on its top level. Leave the
-            // existing void where it is (L-581: never delete or relocate a void
-            // on a failed measure) rather than relocate it into a slab the stair
-            // does not pass through.
-            warnNoContainingSlab(stair, resolution, cx, cz, 'Existing opening left untouched.');
-            span.setAttribute('pryzm.reconcile.skipped', 'no-containing-slab-on-top-level');
-            return null;
+
+        // §STAIR-VOID-EVERY-DECK (L-1433) — a move must follow the void on EVERY
+        // deck, or the fix that closed §FIX-STAIR-MOVE-STRANDS-VOID for the top
+        // deck strands the others exactly as it once stranded that one.
+        const { levelIds, basis } = stairPiercedLevelIds(ctx, stair);
+        span.setAttribute('pryzm.reconcile.level_basis', basis);
+
+        const out: StairOpeningReconcile[] = [];
+        for (const levelId of levelIds) {
+            const rec = reconcileOneDeck(ctx, stair, levelId, rect, cx, cz, span, opts);
+            if (rec) out.push(rec);
         }
-        const host = resolution.host;
-        span.setAttribute('pryzm.reconcile.host_basis', resolution.basis);
-        const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
-
-        const unchanged =
-            host.id === existing.hostId &&
-            existing.levelId === stair.topLevelId &&
-            profilesEqual(profile, existing.profile);
-        if (unchanged) {
-            // Footprint-unchanged edit (name, fire rating, …): the void is NOT touched.
-            span.setAttribute('pryzm.reconcile.outcome', 'unchanged');
-            return null;
-        }
-
-        // G-NEW-05 undo capture: produceWithPatches over the existing record.
-        // `inversePatches` applied to the post-state restore exactly the four
-        // fields this reconcile may touch — the mandated replacement for the
-        // prohibited structuredClone before/after snapshot.
-        const updates = { hostId: host.id, parentId: host.id, levelId: stair.topLevelId, profile };
-        const { inversePatches } = producePatchedSlice(
-            existing as Record<string, any>,
-            (draft) => {
-                draft.hostId = updates.hostId;
-                draft.parentId = updates.parentId;
-                draft.levelId = updates.levelId;
-                draft.profile = updates.profile;
-            },
-        );
-        const rebuildHostIds = [...new Set([existing.hostId as string, host.id as string])];
-
-        if (typeof openingStore.update === 'function') {
-            openingStore.update(openingId, updates);
-        } else {
-            // Test doubles / minimal stores: replace under the SAME id.
-            openingStore.remove?.(openingId);
-            openingStore.add({ ...existing, ...updates });
-        }
-
-        if (opts.triggerRebuild !== false) {
-            for (const hostId of rebuildHostIds) {
-                if (slabStore.getById?.(hostId)) slabStore.triggerRebuild(hostId);
-            }
-        }
-
-        span.setAttribute('pryzm.reconcile.outcome', 'updated');
-        span.setAttribute('pryzm.opening.id', openingId);
-        span.setAttribute('pryzm.slab.id', host.id);
-        return { openingId, kind: 'updated', inversePatches, rebuildHostIds };
+        span.setAttribute('pryzm.reconcile.changed', out.length);
+        return out;
     } finally {
         span.end();
     }
 }
+
+/**
+ * ONE deck's update-or-recarve. The three-way decision — carve / strict no-op /
+ * update-in-place — and the L-581 "never delete on a failed measure" asymmetry are
+ * the pre-L-1433 logic verbatim; only the deck is a parameter now.
+ */
+function reconcileOneDeck(
+    ctx: CommandContext,
+    stair: StairFootprintSource,
+    levelId: string,
+    rect: ReadonlyArray<{ x: number; z: number }>,
+    cx: number,
+    cz: number,
+    span: ReturnType<Tracer['startSpan']>,
+    opts: { triggerRebuild?: boolean },
+): StairOpeningReconcile | null {
+    const stores = ctx.stores as any;
+    const slabStore = stores.slabStore;
+    const openingStore = stores.openingStore;
+
+    const openingId = stairAutoOpeningId(stair.id, levelId, stair.topLevelId);
+    const existing = readOpening(openingStore, openingId);
+
+    if (!existing) {
+        // Same as the create direction: carve if (and only if) a containing slab
+        // exists on this deck. A move can bring a stair under a slab it never had
+        // a void in.
+        const carve = carveOneDeck(ctx, stair, levelId, rect, cx, cz, span, opts);
+        if (!carve) return null;
+        // A carve needs no patches: undo is "remove the opening we minted".
+        return { openingId, kind: 'carved', inversePatches: [], rebuildHostIds: [carve.hostSlabId] };
+    }
+
+    const candidates = slabStore.getAll().filter((s: any) => s.levelId === levelId);
+    if (candidates.length === 0) {
+        // The host slab is gone — leave the existing void alone rather than guess.
+        return null;
+    }
+
+    // §FIX-STAIR-VOID-WRONG-SLAB — the SAME determination as the carve path.
+    const resolution = resolveHostSlab(candidates, rect, cx, cz);
+    if (!resolution.host) {
+        // The stair was moved off every slab on this deck. Leave the existing void
+        // where it is (L-581: never delete or relocate a void on a failed measure).
+        warnNoContainingSlab(stair, resolution, cx, cz, `Existing opening on level "${levelId}" left untouched.`);
+        return null;
+    }
+    const host = resolution.host;
+    const profile = rect.map(p => worldXZToSlabLocal(p, host.position));
+
+    const unchanged =
+        host.id === existing.hostId &&
+        existing.levelId === levelId &&
+        profilesEqual(profile, existing.profile);
+    if (unchanged) {
+        // Footprint-unchanged edit (name, fire rating, …): the void is NOT touched.
+        return null;
+    }
+
+    // G-NEW-05 undo capture: produceWithPatches over the existing record.
+    const updates = { hostId: host.id, parentId: host.id, levelId, profile };
+    const { inversePatches } = producePatchedSlice(
+        existing as Record<string, any>,
+        (draft) => {
+            draft.hostId = updates.hostId;
+            draft.parentId = updates.parentId;
+            draft.levelId = updates.levelId;
+            draft.profile = updates.profile;
+        },
+    );
+    const rebuildHostIds = [...new Set([existing.hostId as string, host.id as string])];
+
+    if (typeof openingStore.update === 'function') {
+        openingStore.update(openingId, updates);
+    } else {
+        // Test doubles / minimal stores: replace under the SAME id.
+        openingStore.remove?.(openingId);
+        openingStore.add({ ...existing, ...updates });
+    }
+
+    if (opts.triggerRebuild !== false) {
+        for (const hostId of rebuildHostIds) {
+            if (slabStore.getById?.(hostId)) slabStore.triggerRebuild(hostId);
+        }
+    }
+
+    return { openingId, kind: 'updated', inversePatches, rebuildHostIds };
+}
+
 
 /**
  * Revert ONE `reconcileStairOpening` result — called from the OWNING command's
@@ -620,9 +700,17 @@ export function reconcileStairOpening(
  */
 export function undoStairOpeningReconcile(
     ctx: CommandContext,
-    rec: StairOpeningReconcile | null,
+    recs: readonly StairOpeningReconcile[] | StairOpeningReconcile | null,
 ): void {
-    if (!rec) return;
+    if (!recs) return;
+    // §STAIR-VOID-EVERY-DECK (L-1433) — one reconcile now yields one record PER
+    // DECK. The single-record form is still accepted so a caller that has not been
+    // migrated reverts correctly instead of silently reverting nothing.
+    const list = Array.isArray(recs) ? recs : [recs];
+    for (const rec of list) undoOneReconcile(ctx, rec);
+}
+
+function undoOneReconcile(ctx: CommandContext, rec: StairOpeningReconcile): void {
     const stores = ctx.stores as any;
     const openingStore = stores.openingStore;
     const slabStore = stores.slabStore;

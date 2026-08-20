@@ -93,12 +93,12 @@ describe('StairSlabOpeningReconciler — reconcile undo restores the opening byt
         const openingStore = makeMinimalOpeningStore();
         const { ctx } = makeCtx(openingStore);
         const st = stair('st-a', 0, 0);
-        expect(carveStairOpening(ctx, st)).not.toBeNull();
+        expect(carveStairOpening(ctx, st)).toHaveLength(1);
         const openingId = stairAutoOpeningId('st-a');
         const before = bytes(openingStore.raw(openingId));
 
         const rec = reconcileStairOpening(ctx, stair('st-a', 2, 1));
-        expect(rec).not.toBeNull();
+        expect(rec).toHaveLength(1);
         expect(bytes(openingStore.raw(openingId))).not.toBe(before);
         expect(openingStore.size()).toBe(1); // same id, never a second void
 
@@ -111,12 +111,12 @@ describe('StairSlabOpeningReconciler — reconcile undo restores the opening byt
         const openingStore = makeUpdatingOpeningStore();
         const { ctx } = makeCtx(openingStore);
         const st = stair('st-b', 1, 1);
-        expect(carveStairOpening(ctx, st)).not.toBeNull();
+        expect(carveStairOpening(ctx, st)).toHaveLength(1);
         const openingId = stairAutoOpeningId('st-b');
         const before = bytes((openingStore as any).raw(openingId));
 
         const rec = reconcileStairOpening(ctx, stair('st-b', -3, 4));
-        expect(rec).not.toBeNull();
+        expect(rec).toHaveLength(1);
         expect(bytes((openingStore as any).raw(openingId))).not.toBe(before);
 
         undoStairOpeningReconcile(ctx, rec);
@@ -129,24 +129,31 @@ describe('StairSlabOpeningReconciler — reconcile undo restores the opening byt
         expect(openingStore.size()).toBe(0);
 
         const rec = reconcileStairOpening(ctx, stair('st-c', 0, 0));
-        expect(rec).not.toBeNull();
+        expect(rec).toHaveLength(1);
         expect(openingStore.size()).toBe(1);
 
         undoStairOpeningReconcile(ctx, rec);
         expect(openingStore.size()).toBe(0);
     });
 
-    it('(d) unchanged footprint: reconcile returns null, the opening is untouched, and undo(null) is a no-op', () => {
+    it('(d) unchanged footprint: reconcile reports NO deck changed, the opening is untouched, and undoing that is a no-op', () => {
         const openingStore = makeMinimalOpeningStore();
         const { ctx, slabStore } = makeCtx(openingStore);
         const st = stair('st-d', 0, 0);
-        expect(carveStairOpening(ctx, st)).not.toBeNull();
+        expect(carveStairOpening(ctx, st)).toHaveLength(1);
         const openingId = stairAutoOpeningId('st-d');
         const before = bytes(openingStore.raw(openingId));
         slabStore.rebuilds.length = 0;
 
         const rec = reconcileStairOpening(ctx, stair('st-d', 0, 0));
-        expect(rec).toBeNull();
+        // §STAIR-VOID-EVERY-DECK (L-1433) — this assertion read `toBeNull()` when a
+        // stair owned exactly one void. The reconcile now returns ONE RECORD PER
+        // CHANGED DECK, so "nothing changed" is the EMPTY LIST rather than `null`.
+        // The meaning is identical and the invariant this case exists to pin is
+        // unchanged — it is the two assertions below, not the return value: the
+        // stored opening is byte-equal and NO slab was rebuilt. A footprint-neutral
+        // edit (rename, fire rating) must never re-triangulate a slab.
+        expect(rec).toEqual([]);
         expect(bytes(openingStore.raw(openingId))).toBe(before);
         expect(slabStore.rebuilds).toEqual([]);
 
@@ -157,10 +164,10 @@ describe('StairSlabOpeningReconciler — reconcile undo restores the opening byt
     it('(e) both host slabs rebuild on undo of an update (renderer sees the healed void)', () => {
         const openingStore = makeMinimalOpeningStore();
         const { ctx, slabStore } = makeCtx(openingStore);
-        expect(carveStairOpening(ctx, stair('st-e', 0, 0))).not.toBeNull();
+        expect(carveStairOpening(ctx, stair('st-e', 0, 0))).toHaveLength(1);
 
         const rec = reconcileStairOpening(ctx, stair('st-e', 3, 3));
-        expect(rec).not.toBeNull();
+        expect(rec).toHaveLength(1);
 
         slabStore.rebuilds.length = 0;
         undoStairOpeningReconcile(ctx, rec);

@@ -493,7 +493,11 @@ export class StairSolver2D {
             {
                 riserHeight: actualRiser,
                 treadDepth: deriveCommittedTreadDepth(segs, totalSteps, this._treadD),
-                flights: segs.map(seg => ({ treadDepth: seg.treadDepth })),
+                // §L-1434 — riserCount travels too, or the tool would once again
+                // offer a flight the command refuses: the exact EI-3 breach
+                // L-1430 closed. A Ground->L2 span drawn as ONE run is 34
+                // risers / 6.0 m, and both layers must say so together.
+                flights: segs.map(seg => ({ treadDepth: seg.treadDepth, riserCount: seg.stepCount })),
             },
             StairSolver2D.LIMITS,
         );

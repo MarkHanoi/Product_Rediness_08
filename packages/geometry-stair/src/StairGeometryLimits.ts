@@ -63,6 +63,48 @@ export interface StairGeometryLimits {
      */
     readonly minWidth: number;
     readonly minAccessibleWidth: number;
+    /**
+     * §L-1434 — the cap on ONE FLIGHT, in METRES OF RISE.
+     *
+     * ── WHY THIS IS A RISE AND NOT THE RISER COUNT THAT WAS DECLARED ──────────
+     *
+     * `MAX_RISERS_PER_FLIGHT: 16` was declared in THREE files
+     * (`geometry-stair/StairTypes`, `core-app-model/stores/StairTypes`,
+     * `constraint-solver/stair-constraint-engine`) and **read by nobody** —
+     * measured 2026-08-20: five grep hits, every one a declaration, zero readers on
+     * create, update, validate or the sketch tool. It became urgent because L-1433
+     * made the multi-storey stair real: a Ground→L5 stair is ~86 risers, and as an
+     * I- or L-shape that is one or two flights.
+     *
+     * ⭐⭐ ENFORCING 16 AS DECLARED WOULD HAVE SHIPPED A WORSE DEFECT THAN THE ONE
+     * IT CLOSES, and this is only discoverable by trying to enforce it. Measured:
+     * an ORDINARY 3.0 m storey at the 175 mm comfort default solves to **17
+     * risers** (`round(3.0 / 0.175)`, actual riser 176.5 mm). A hard cap of 16
+     * therefore REFUSES the single most common stair in the product. A limit
+     * nobody reads is a limit nobody has ever validated — and this one is wrong in
+     * the direction that refuses legal stairs.
+     *
+     * ⭐ The reason it is wrong is a CATEGORY ERROR, not a typo. What building
+     * codes actually regulate is the VERTICAL RISE between landings — CTE DB-SUA
+     * (residential: a flight saves at most 3.20 m), IBC 1011.8 (12 ft ≈ 3.66 m).
+     * A riser COUNT is that rule divided by an assumed riser height: 16 × 200 mm =
+     * 3.20 m. Our own `MAX_RISER_HEIGHT` is 190 mm and the typical solved riser is
+     * 176 mm, so the count form silently tightens as risers get shallower — which
+     * is exactly backwards, because a shallower riser makes a flight *more*
+     * comfortable, not less.
+     *
+     * ⛔ SO THE THRESHOLD IS DERIVED FROM THE CONSTANTS THAT ALREADY EXIST —
+     * `MAX_RISERS_PER_FLIGHT × MAX_RISER_HEIGHT` = 16 × 0.190 = **3.04 m** — and NO
+     * NEW NUMBER IS INVENTED. Derived this way it can never refuse anything the
+     * declared count would have allowed, so enforcement cannot regress a project
+     * that was legal under the old (unread) rule.
+     *
+     * ⚠ 3.04 m is a DERIVATION, **not a cited code value**. The real instrument
+     * must be named when the jurisdiction question behind `MIN_TREAD_DEPTH`
+     * (250 vs CTE's 220) is answered — it is the same open question, on the same
+     * missing source of authority. See C98.
+     */
+    readonly maxFlightRise: number;
 }
 
 /**
@@ -94,6 +136,9 @@ export function resolveStairGeometryLimits(
         maxTreadDepth: constraints.MAX_TREAD_DEPTH,
         minWidth: constraints.MIN_WIDTH,
         minAccessibleWidth: constraints.MIN_ACCESSIBLE_WIDTH,
+        // DERIVED, never stored — see `maxFlightRise` above for why the declared
+        // riser COUNT is the wrong quantity and why this is the safe direction.
+        maxFlightRise: constraints.MAX_RISERS_PER_FLIGHT * constraints.MAX_RISER_HEIGHT,
     };
 }
 
@@ -105,7 +150,8 @@ export interface StairGeometryRefusal {
         | 'STAIR-TREAD-TOO-SHALLOW'
         | 'STAIR-TREAD-TOO-DEEP'
         | 'STAIR-WIDTH-TOO-NARROW'
-        | 'STAIR-ACCESSIBLE-WIDTH-TOO-NARROW';
+        | 'STAIR-ACCESSIBLE-WIDTH-TOO-NARROW'
+        | 'STAIR-FLIGHT-RISE-TOO-TALL';
     readonly field: string;
     readonly message: string;
     readonly currentValue: number;
@@ -133,8 +179,11 @@ export interface StairGeometryCandidate {
      * means the value `deriveCommittedTreadDepth` produces, not a per-segment tread.
      */
     readonly treadDepth?: number;
-    /** Per-flight treads, as built. Entries without one are skipped, not defaulted. */
-    readonly flights?: ReadonlyArray<{ readonly treadDepth?: number }>;
+    /**
+     * Per-flight treads and riser counts, as built. A missing field is skipped,
+     * never defaulted — a partial candidate is checked on what it carries.
+     */
+    readonly flights?: ReadonlyArray<{ readonly treadDepth?: number; readonly riserCount?: number }>;
     readonly width?: number;
     /** Only `'accessible'` raises the width floor; any other value leaves it. */
     readonly accessibilityType?: string;
@@ -207,6 +256,30 @@ export function checkStairGeometry(
     if (flights) {
         for (let i = 0; i < flights.length; i++) {
             pushTreadRefusals(out, flights[i]?.treadDepth, limits, `flights[${i}].treadDepth`, i);
+
+            // §L-1434 — the cap that was declared three times and enforced nowhere,
+            // measured on the quantity codes actually regulate (see `maxFlightRise`).
+            // ⭐ The refusal names BOTH numbers AND the action (C16 CA-18): a user
+            // told only "too tall" cannot act, and one told only "max 3.04 m" does
+            // not know how far over they are.
+            const risers = flights[i]?.riserCount;
+            if (risers !== undefined && Number.isFinite(risers) && risers > 0
+                && r !== undefined && Number.isFinite(r)) {
+                const rise = risers * r;
+                if (rise > limits.maxFlightRise + 1e-9) {
+                    out.push({
+                        code: 'STAIR-FLIGHT-RISE-TOO-TALL',
+                        field: `flights[${i}].riserCount`,
+                        message:
+                            `Run ${i + 1} climbs ${rise.toFixed(2)} m in one flight (${risers} risers), ` +
+                            `above the maximum ${limits.maxFlightRise.toFixed(2)} m without a landing — ` +
+                            `add a landing to split it, or reduce the levels this stair spans`,
+                        currentValue: rise,
+                        requiredValue: limits.maxFlightRise,
+                        flightIndex: i,
+                    });
+                }
+            }
         }
     }
 

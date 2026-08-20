@@ -33,7 +33,7 @@ import { semanticGraphManager } from '@pryzm/core-app-model';
 import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the footprint maths, the host-slab choice
 // and the `opening-stair-<id>` convention all moved to the ONE invariant owner.
-import { carveStairOpening } from './StairSlabOpeningReconciler';
+import { carveStairOpening, type StairOpeningCarve } from './StairSlabOpeningReconciler';
 // §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the founder's "the stair cuts
 // the slab but NOT the floor finish". The set of hosts a stair pierces is DERIVED
 // from the families registered there and the levels the stair rises through, not
@@ -158,9 +158,12 @@ export class CreateStairCommand implements Command {
     private input: CreateStairInput;
     private createdStairId?: string;
     private createdLandingIds: string[] = [];
-    /** Auto-opening punched on the slab above (for undo). */
-    private createdOpeningId?: string;
-    private createdOpeningHostSlabId?: string;
+    /**
+     * §STAIR-VOID-EVERY-DECK (L-1433) — the auto-openings punched in the slabs
+     * this stair passes through, for undo. It was ONE (the top deck's) until
+     * L-1433; a level-skipping stair carves one per deck.
+     */
+    private createdOpeningCarves: StairOpeningCarve[] = [];
     /** §L-1431 — voids cut in the floor-finish / ceiling families, for undo. */
     private hostPierces: StairHostPierce[] = [];
 
@@ -204,7 +207,8 @@ export class CreateStairCommand implements Command {
         if (!baseLevel) blockingIssues.push(`Base level "${baseLevelId}" does not exist`);
         if (!topLevel) blockingIssues.push(`Top level "${this.input.topLevelId}" does not exist`);
 
-        // ⭐ §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — riser + tread are checked by the
+        // ⭐ §STAIR-ONE-LIMIT-AUTHORITY (L-1430, +L-1434) — riser + tread + width +
+        // risers-per-flight are checked by the
         // SHARED predicate, on BOTH tread quantities the input carries: the scalar
         // `treadDepth` and every `flights[i].treadDepth` (the per-run value
         // `StairMeshBuilder` actually builds with, previously validated by NOBODY
@@ -505,7 +509,7 @@ export class CreateStairCommand implements Command {
         // give one invariant two implementations that can drift; this command now
         // reconciles ONE stair through the shared owner, and `CreateSlabCommand`
         // reconciles every stair on the new slab's level through the same code.
-        const carve = carveStairOpening(ctx, {
+        this.createdOpeningCarves = carveStairOpening(ctx, {
             id:            this.createdStairId!,
             shape:         this.input.shape,
             width:         this.input.width,
@@ -514,13 +518,14 @@ export class CreateStairCommand implements Command {
             flights:       this.input.flights,
             landings:      this.input.landings,
             topLevelId:    this.input.topLevelId,
+            // §L-1433 — without this the deck set collapses to the top level and
+            // the reconciler reports `level_basis: 'fallback-top-only'`.
+            baseLevelId:   this.input.baseLevelId || ctx.projectContext?.activeLevelId,
         });
-        if (!carve) return;
-        this.createdOpeningId = carve.openingId;
-        this.createdOpeningHostSlabId = carve.hostSlabId;
+        if (this.createdOpeningCarves.length === 0) return;
         if (!__pryzmGenOrLoadActive()) console.log(
-            `[CreateStairCommand] Auto-opening ${carve.openingId} created on slab ${carve.hostSlabId} ` +
-            `(top level "${this.input.topLevelId}")`
+            `[CreateStairCommand] Auto-opening: ${this.createdOpeningCarves.length} slab void(s) — ` +
+            this.createdOpeningCarves.map(c => `${c.openingId} on slab ${c.hostSlabId}`).join(', ')
         );
     }
 
@@ -594,20 +599,24 @@ export class CreateStairCommand implements Command {
 
         // Remove the auto-opening (if any) before removing the stair, so the
         // slab rebuild fires once with the stair gone and the opening gone.
-        if (this.createdOpeningId && this.createdOpeningHostSlabId) {
+        if (this.createdOpeningCarves.length > 0) {
             const stores = ctx.stores as any;
             const openingStore = stores.openingStore;
             const slabStore = stores.slabStore;
-            try {
-                if (openingStore) openingStore.remove(this.createdOpeningId);
-                try { ctx.bimManager.unregisterElement(this.createdOpeningId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
-                try { elementRegistry.unregister(this.createdOpeningId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
-                if (slabStore) slabStore.triggerRebuild(this.createdOpeningHostSlabId);
-            } catch (err) {
-                console.warn('[CreateStairCommand.undo] Auto-opening cleanup failed (non-fatal):', err);
+            for (const carve of this.createdOpeningCarves) {
+                try {
+                    if (openingStore) openingStore.remove(carve.openingId);
+                    try { ctx.bimManager.unregisterElement(carve.openingId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                    try { elementRegistry.unregister(carve.openingId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                } catch (err) {
+                    console.warn('[CreateStairCommand.undo] Auto-opening cleanup failed (non-fatal):', err);
+                }
             }
-            this.createdOpeningId = undefined;
-            this.createdOpeningHostSlabId = undefined;
+            // Rebuild each host slab ONCE, never once per void.
+            for (const hostId of new Set(this.createdOpeningCarves.map(c => c.hostSlabId))) {
+                try { if (slabStore) slabStore.triggerRebuild(hostId); } catch { /* §SWALLOW-SIDE-INDEX */ }
+            }
+            this.createdOpeningCarves = [];
         }
 
         // §L-1431 — close the floor-finish / ceiling voids in the SAME undo unit.

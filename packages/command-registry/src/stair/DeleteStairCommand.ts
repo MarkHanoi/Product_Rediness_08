@@ -22,7 +22,7 @@ import type { OpeningData } from '@pryzm/core-app-model';
 import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import type { Relationship } from '@pryzm/core-app-model';
-import { stairAutoOpeningId } from './stairOpeningId';
+import { isStairAutoOpeningId } from './stairOpeningId';
 // §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the create now cuts voids in the
 // floor-finish and ceiling families too, so the delete must close them. C84 EI-5:
 // create and delete are symmetric or the family leaks.
@@ -76,8 +76,8 @@ export class DeleteStairCommand implements Command {
     // §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — snapshot of the auto-opening removed by
     // execute(), so undo() can restore the EXACT hole (same store, same field, same
     // coord space) and Ctrl-Z returns the pre-delete state byte-for-byte.
-    private _openingSnapshot?: OpeningData;
-    private _openingHostSlabId?: string;
+    /** §L-1433 — one snapshot PER PIERCED DECK, not one per stair. */
+    private _openingSnapshots: OpeningData[] = [];
     /** §L-1431 — how many floor-finish / ceiling voids this delete closed. */
     private _hostPierceCount = 0;
     /**
@@ -327,14 +327,22 @@ export class DeleteStairCommand implements Command {
     }
 
     /**
-     * §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — remove the auto-opening this stair
-     * punched on the slab above and rebuild that slab so the void closes.
+     * §FIX-STAIR-DELETE-LEAVES-HOLE (L-298) — remove the auto-openings this stair
+     * punched and rebuild those slabs so the voids close.
      *
-     * The opening is identified by the SHARED id convention (stairAutoOpeningId) —
-     * the same id CreateStairCommand.createAutoOpening() wrote. Using the exact id
-     * (not a host-scoped sweep) is deliberate: it heals ONLY this stair's hole and
-     * leaves any sibling opening on the same slab (a second stair, a pool) untouched.
-     * A snapshot is captured first so undo() can restore the hole precisely.
+     * The openings are identified by the SHARED id convention
+     * (`isStairAutoOpeningId`) — the same convention `CreateStairCommand` wrote
+     * them under. Keying on the id, rather than sweeping a host, is deliberate: it
+     * heals ONLY this stair's holes and leaves any sibling opening on the same slab
+     * (a second stair, a pool) untouched. Snapshots are captured first so undo()
+     * can restore the holes precisely.
+     *
+     * ⭐ §STAIR-VOID-EVERY-DECK (L-1433) — this used to resolve ONE id,
+     * `stairAutoOpeningId(stairId)`, because a stair could only own one void. A
+     * level-skipping stair now owns one per deck, so a single-id lookup would heal
+     * the top deck and leave the rest as permanent holes in a building with no
+     * stair in it. The predicate matches the legacy id AND every `--<levelId>`
+     * form, so a stair created BEFORE L-1433 heals exactly as it always did.
      */
     private _healHostSlab(ctx: CommandContext): void {
         const stores = ctx.stores as any;
@@ -342,19 +350,25 @@ export class DeleteStairCommand implements Command {
         const slabStore = stores.slabStore;
         if (!openingStore) return;
 
-        const openingId = stairAutoOpeningId(this.stairId);
-        // getById() returns a structuredClone (OpeningStore §3.7) — safe to retain.
-        const opening: OpeningData | undefined = openingStore.getById(openingId);
-        if (!opening) return; // no auto-opening (autoCreateOpening:false or no host slab)
+        // getAll() / getById() return structuredClones (OpeningStore §3.7) — safe to retain.
+        const mine: OpeningData[] = (openingStore.getAll() as OpeningData[])
+            .filter(o => isStairAutoOpeningId(o.id, this.stairId));
+        if (mine.length === 0) return; // no auto-opening (autoCreateOpening:false or no host slab)
 
-        this._openingSnapshot = opening;
-        this._openingHostSlabId = opening.hostId;
+        this._openingSnapshots = mine;
 
-        openingStore.remove(openingId);
-        try { ctx.bimManager.unregisterElement(openingId); } catch (_) { /* noop */ }
-        try { elementRegistry.unregister(openingId); } catch (_) { /* noop */ }
-        // Rebuild the host slab so SlabFragmentBuilder re-triangulates WITHOUT this hole.
-        if (slabStore && opening.hostId) slabStore.triggerRebuild(opening.hostId);
+        for (const opening of mine) {
+            openingStore.remove(opening.id);
+            try { ctx.bimManager.unregisterElement(opening.id); } catch (_) { /* noop */ }
+            try { elementRegistry.unregister(opening.id); } catch (_) { /* noop */ }
+        }
+        // Rebuild each host slab ONCE so SlabFragmentBuilder re-triangulates without
+        // these holes — never once per hole.
+        if (slabStore) {
+            for (const hostId of new Set(mine.map(o => o.hostId).filter(Boolean))) {
+                slabStore.triggerRebuild(hostId);
+            }
+        }
     }
 
     undo(ctx: CommandContext): CommandResult {
@@ -404,18 +418,23 @@ export class DeleteStairCommand implements Command {
         // Symmetric with execute()'s _healHostSlab: restore the exact auto-opening we
         // removed so a single Ctrl-Z after a delete brings back BOTH the stair AND its
         // hole — one gesture, one undo, pre-delete state exactly (C16 / C03 §4.5-4.8).
-        if (this._openingSnapshot && this._openingHostSlabId) {
+        if (this._openingSnapshots.length > 0) {
             const stores = ctx.stores as any;
             const openingStore = stores.openingStore;
             const slabStore = stores.slabStore;
             if (openingStore) {
-                try { ctx.bimManager.registerElement(this._openingSnapshot.id, this._openingSnapshot.levelId); } catch (_) { /* noop */ }
-                try { elementRegistry.registerSemantic(this._openingSnapshot.id, 'opening'); } catch (_) { /* noop */ }
-                openingStore.add(this._openingSnapshot);
-                if (slabStore) slabStore.triggerRebuild(this._openingHostSlabId);
+                for (const snap of this._openingSnapshots) {
+                    try { ctx.bimManager.registerElement(snap.id, snap.levelId); } catch (_) { /* noop */ }
+                    try { elementRegistry.registerSemantic(snap.id, 'opening'); } catch (_) { /* noop */ }
+                    openingStore.add(snap);
+                }
+                if (slabStore) {
+                    for (const hostId of new Set(this._openingSnapshots.map(o => o.hostId).filter(Boolean))) {
+                        slabStore.triggerRebuild(hostId);
+                    }
+                }
             }
-            this._openingSnapshot = undefined;
-            this._openingHostSlabId = undefined;
+            this._openingSnapshots = [];
         }
 
         // §L-1431 — RE-CUT the floor-finish / ceiling voids, in the SAME undo unit.
