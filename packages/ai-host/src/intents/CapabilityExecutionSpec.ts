@@ -99,12 +99,17 @@ export type SpecDrivenIntentId =
   | 'set-wall-type'
   | 'set-wall-color'
   | 'set-wall-rake'
-  | 'set-window-type'
-  | 'set-door-type'
-  // RAC U7.2 — the two catalogue families added as TABLE ENTRIES in
-  // CatalogueFamilies.ts; nothing about them is written here by hand.
-  | 'set-slab-type'
-  | 'set-ceiling-type'
+  // RAC U7.2 + L-1441 — the CATALOGUE families, DERIVED from
+  // `CatalogueFamilies.ts` rather than re-listed here.
+  //
+  // ⭐ This union used to spell out `set-window-type | set-door-type |
+  // set-slab-type | set-ceiling-type` by hand, beside a table that already
+  // enumerates exactly those ids. Two spellings of one list is the defect this
+  // whole package keeps correcting, and it had already half-failed: the four
+  // literals were correct only because nobody had added a fifth family since
+  // U7.2. Adding the two stair families made the divergence real, so the list
+  // is now the table's own type and a new row costs ZERO lines here.
+  | CatalogueFamilyIntentId
   // RAC U9.2 — the SAFE DESTRUCTIVE tranche, generated from DeleteFamilies.ts.
   // Nothing about them is written here by hand either; what makes them
   // different from every spec above is `destructive: true` +

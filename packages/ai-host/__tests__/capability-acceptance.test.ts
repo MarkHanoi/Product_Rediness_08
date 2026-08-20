@@ -369,6 +369,41 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'convert the selected ceilings to exposed concrete soffit',
     ],
   },
+  // ── §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's two stair sentences ───
+  //
+  // ⭐ THE FIRST PHRASING IN EACH FAMILY IS HIS LITERAL, DEFINITE ARTICLE AND
+  // ALL. "Make all THE stairs type X" is the sentence that did not parse, and
+  // the reason was `makeHostedTypeParser`'s missing `(?: of)?(?: the)?` — a gap
+  // that silently broke window, door, slab and ceiling too (L-1440). Keeping
+  // his exact words here is what stops that regressing back to a paraphrase
+  // that happens to work.
+  {
+    id: 'set-stair-railing-type',
+    // scopedSel, not sel: these families FAN OUT, and `fanOutPerId` implies
+    // `requireResolvedIds` — there are no ids to fan over until the scope is
+    // resolved, so an 'all' sentence needs the resolver. That is the same
+    // reason the delete families need one, and it is a property of the ROUTE
+    // (no batch verb exists), not of the sentence.
+    ctx: scopedSel('stair-railing'),
+    scoped: true,
+    phrasings: [
+      'make all the stair railings type frameless glass balustrade',
+      'make all the stair railings frameless glass balustrade',
+      'change all stair railings to stainless cable railing',
+      'make the selected railings timber picket railing',
+    ],
+  },
+  {
+    id: 'set-stair-type',
+    ctx: scopedSel('stair'),
+    scoped: true,
+    phrasings: [
+      'make all the stairs type monolithic concrete',
+      'make all the stairs monolithic concrete',
+      'change all stairs to steel open riser',
+      'change the stair type to timber closed string',
+    ],
+  },
   // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
   // These reach applySemanticIntent through the ONE generic property arm and
   // the ONE table-compiled grammar; nothing about them is hand-written.

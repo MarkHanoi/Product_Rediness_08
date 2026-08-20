@@ -813,6 +813,25 @@ export type SemanticIntent =
       readonly scope: IntentScope;
     }
   /**
+   * §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's *"Make all the stairs type
+   * X"* and *"Make all the stair railings type X"*. TWO families sharing one
+   * arm shape, and the pair is the point: a stair and its railings are
+   * different elements with different stores, different commands and different
+   * catalogues, separated in the user's sentence by ONE WORD. The grammar's
+   * collision guard lives on the table row (CatalogueFamilies.ts), where the
+   * route it protects is declared.
+   *
+   * ⚠ Unlike the four rows above, these FAN OUT: neither
+   * `stair.updateParameters` nor `element.changeType` has a batch twin, so N
+   * stairs are N undo steps and `dispatchCommands` says so out loud. The trade
+   * is disclosed on `CatalogueFamily.fanOutPerId`.
+   */
+  | {
+      readonly intent: 'set-stair-type' | 'set-stair-railing-type';
+      readonly typeRef: string;
+      readonly scope: IntentScope;
+    }
+  /**
    * §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window
    * type to Steel Crittal Style" / "change all windows to timber casement".
    * Dispatches `window.updateSystemTypeBatch` (ONE undo entry; children are
@@ -3511,20 +3530,88 @@ const matchWallRake: Matcher = (text, ctx) => parseWallRakeIntent(text, ctx);
 // sentences are the SAME two shapes with a different noun, so ONE parser
 // factory serves both (grammar generalization; the APPLY side of each intent
 // is a CapabilityExecutionSpec table entry riding the generic arm).
+// ⭐⭐ §FIX-HOSTED-TYPE-SCOPE-PHRASING (L-1440, lane RAC2, 2026-08-20) — THE
+// DEFINITE ARTICLE, AND WHY FIVE FAMILIES WERE BROKEN AT ONCE.
+//
+// The founder asked for stairs: **"Make all the stairs type X"**. Measured
+// against this factory BEFORE the fix, the sentence did not parse — and the
+// reason had nothing to do with stairs.
+//
+// The WALL type grammar (`WALL_TYPE_RE`, ~300 lines above) spells its scope
+// phrase as
+//
+//     (?:the )?(all|every|each|…)(?: of)?(?: the)? walls?
+//                                  ^^^^^^^^^^^^^^^^^^^^
+//
+// so "make ALL THE walls monolithic" and "make all OF THE walls …" both work.
+// This factory — the one that serves window, door, slab and ceiling — spelled
+// the SAME phrase as
+//
+//     (?:the )?(all|every|each|…)(?: selected)? <noun>s?
+//
+// with no `(?: of)?(?: the)?` at all. **So "make all THE windows type X",
+// "…the doors…", "…the slabs…" and "…the ceilings…" have ALL been silently
+// unclaimed since U4.3, and nobody reported it** — the founder happened to hit
+// it on a family that did not exist yet, which is the only reason it surfaced.
+//
+// That is the same defect shape as §FIX-SCOPE-TAIL-ONE-PARSER: **two spellings
+// of one concept, so fixing one leaves the next sentence broken in the other.**
+// The scope phrase is now identical in both, and
+// `__tests__/hosted-type-scope-parity.test.ts` asserts the two grammars accept
+// the SAME scope phrasings rather than asking the next author to remember it
+// (C84 EI-8a — a licensed copy is pinned by a TEST, never by a comment).
+//
+// Two smaller parities came with it, for the same reason:
+//   • the leading ARTICLE on the type ref. The wall grammar strips
+//     `(?:a |an |the )?`; this one did not, so "make all the stairs A
+//     monolithic concrete" would have looked up a type called "a monolithic
+//     concrete" and refused by listing the real ones — confidently wrong copy
+//     over a sentence the wall grammar handles.
+//   • MULTI-WORD and HYPHENATED nouns. `${noun}s?` interpolated the kind RAW,
+//     so an element kind spelled `stair-railing` could never match the words a
+//     user types ("stair railings"). `nounSrc` normalizes hyphen and space to
+//     the same `[- ]` class, exactly as `DIMENSION_FAMILIES`' compiler already
+//     does — derived from the existing precedent, not a new convention.
+//
+// ⛔ DO NOT re-diverge the verb sets in the same breath. The wall grammar also
+// accepts `retype|update` and this one accepts `convert|swap`; unifying those
+// would CLAIM sentences neither grammar claims today, which is a capability
+// change wearing a refactor's clothes. It is recorded here as a known, stated
+// difference rather than quietly fixed.
+
+/** Escape a literal for embedding in a RegExp source. */
+function escapeReSrc(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** An element-kind noun as the GRAMMAR must spell it: hyphens and spaces are
+ *  the same separator to a user ("stair-railing" ⇄ "stair railing"). */
+function nounSrc(noun: string): string {
+  return escapeReSrc(noun).replace(/(?:\\-|-|\s)+/g, '[- ]');
+}
+
 function makeHostedTypeParser(
   noun: string,
   catalogueOf: (ctx: ResolverContext) => ((ref: string) => { id: string; name: string } | null) | undefined,
+  /** Extra nouns the grammar accepts for the same family ("railing" for
+   *  `stair-railing`, "glazing unit" for `window`). */
+  aliases: readonly string[] = [],
 ): (text: string, ctx?: ResolverContext) => { typeRef: string; scope: IntentScope } | null {
+  const nouns = [noun, ...aliases].map(nounSrc).join('|');
   const scopedRe = new RegExp(
-    `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})(?: selected)? ${noun}s?` +
+    `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})` +
+    // §FIX-HOSTED-TYPE-SCOPE-PHRASING — byte-identical to WALL_TYPE_RE's.
+    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?` +
     // RAC U8 — the SAME spatial captures the colour/rake grammars use, so
     // "change all doors on level 2 to fire doors" reaches the one arm that
     // already knows how to resolve a level.
     `(?: on (?:the )?(?:levels?|floors?)?\\s*([\\w .-]+?)| in the ([\\w .-]+?))?` +
-    `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (.+)$`,
+    // §FIX-HOSTED-TYPE-SCOPE-PHRASING — the leading article, as WALL_TYPE_RE
+    // already strips it: "make all the stairs A monolithic concrete".
+    `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (?:a |an |the )?(.+)$`,
   );
   const singularRe = new RegExp(
-    String.raw`^(?:change|set|swap) (?:the )?${noun}(?:'s)? type (?:to|into|as) (.+)$`,
+    `^(?:change|set|swap) (?:the )?(?:${nouns})(?:'s)? type (?:to|into|as) (?:a |an |the )?(.+)$`,
   );
   return (text, ctx) => {
     const lifted = parseFilterClauses(text, noun, ctx === undefined ? undefined : catalogueOf(ctx));
@@ -3579,7 +3666,10 @@ const CATALOGUE_FAMILY_MATCHERS: readonly Matcher[] = CATALOGUE_FAMILIES.map((fa
   const shape = makeHostedTypeParser(family.elementKind, (c) => {
     const lookup = family.lookup(c);
     return lookup === null ? undefined : lookup.resolve;
-  });
+  // §FEAT-CHAT-STAIR-TYPES (L-1441) — the family's own nouns. A user says
+  // "stair railings", never "stair-railings", and the ORDER of this array is
+  // load-bearing for the stair/railing collision — see CatalogueFamilies.ts.
+  }, family.nounAliases ?? []);
   return (text, ctx): SemanticIntent | null => {
     const hit = shape(text, ctx);
     if (hit === null) return null;

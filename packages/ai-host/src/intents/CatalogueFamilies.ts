@@ -90,54 +90,134 @@
 //     `resolveCatalogueRef` (which needs `{id, name}`) has nothing to read and
 //     a refusal could not list anything. ⛔ The answer is to MINT a catalogue,
 //     never to narrow the user's vocabulary so the miss stops showing.
-//   • stair — ⚠ NEARLY READY, and blocked by ONE METHOD (measured
-//     2026-08-19). `StairTypeDefinitions.ts` ships 5 `{id, name}` types and
-//     `StairTypes.ts:109` carries a real `typeId`, but `StairTypeStore`
-//     exposes `get()` where `CatalogueReader` requires `getById()`
-//     (`resolveCatalogueRef.ts:39-42`). That is an adapter, not a redesign.
-//   • handrail — ✅ REASON STILL HOLDS, AND IT IS THE ONLY ONE OF THE FIVE
-//     THAT DOES (measured 2026-08-19). The catalogue ships 20 `{id, name}`
-//     types — including, verbatim, the founder's "Frameless Glass Balustrade"
-//     (`HandrailTypeStore.ts:227`) — but `HandrailData` has no `typeId`, so a
-//     type must be MATERIALISED whole into ~13 fields rather than stamped as
-//     one id. That is a real difference from "stamp a systemTypeId". ⚠ It is
-//     a PAYLOAD question, not a blocker: the property panel does it today in
-//     13 lines (`RailingTypeSelectorWidget.ts:117-145`), and the chosen fix
-//     moves that projection BEHIND the bus verb (mirroring
-//     `resolveStairRailingTypeFields`) so the panel and the chat stop being
-//     two authorities computing the same 13 fields (C84 EI-4a/EI-9).
+//   • ~~stair~~ — ⭐ **SHIPPED 2026-08-20 (L-1441, lane RAC2). It is in the
+//     table now.** This bullet read *"NEARLY READY, blocked by ONE METHOD …
+//     `StairTypeStore` exposes `get()` where `CatalogueReader` requires
+//     `getById()`"*. The diagnosis was right and the CONCLUSION was wrong: the
+//     missing adapter blocks `resolveCatalogueRef`, which blocks the EDITOR
+//     bridge's catalogue channel — it never blocked the family. The published
+//     `BUILT_IN_STAIR_TYPES` table is the same array that store is built from,
+//     and reading it needs no adapter at all. ⛔ The `getById` adapter is still
+//     worth doing (it is what lets a PROJECT-AUTHORED stair type resolve); it is
+//     a follow-up, not a prerequisite. See `publishedCatalogues.ts`.
+//   • ~~handrail~~ / stair-railing — ⭐ **THE STAIR-RAILING HALF SHIPPED
+//     2026-08-20 (L-1441).** This bullet's reasoning was correct and has since
+//     been ACTED ON: *"the chosen fix moves that projection BEHIND the bus verb
+//     (mirroring `resolveStairRailingTypeFields`)"* is exactly what
+//     §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) did, so BOTH branches of
+//     `element.changeType` now resolve all thirteen fields from `newTypeId`
+//     alone. That is what made the family a table row instead of a project.
+//     ⚠ ONLY the stair-railing kind is claimed here. The STANDALONE `handrail`
+//     (`handrailStore`) is a different element and is still absent — not
+//     because it lacks machinery, but because "railing" names both and the
+//     disambiguation is a decision, exactly as it is for floor vs slab.
 //
-// This module is PURE — no DOM, no stores, no I/O. Catalogue lookups arrive
-// through the injected ResolverContext, exactly as the wall/window/door ones do.
+// ⚠ PURITY, RESTATED HONESTLY (2026-08-20). This paragraph used to read "PURE —
+// no DOM, no stores, no I/O", full stop. The stair families make that one word
+// too strong: through `publishedCatalogues.ts` this module now READS two
+// published L2 type tables (`BUILT_IN_STAIR_TYPES`, `handrailTypeStore`). Still
+// no DOM, still no I/O, still no commands and still nothing written — but a
+// claim of "no stores" that is not literally true is how a comment stops being
+// evidence. Injected catalogues remain the PREFERRED channel and win whenever
+// the bridge supplies one; the published tables are the honest floor beneath
+// them, and `publishedCatalogues.ts` states the limit that creates.
 
 import type {
   CapabilityExecutionSpec,
   SpecValueOutcome,
 } from './CapabilityExecutionSpec.js';
 import type { ResolverContext } from './ZeroTokenResolver.js';
+// §FEAT-CHAT-STAIR-TYPES (L-1441) — the PUBLISHED L2 type tables, read (never
+// transcribed) so a stair/railing type reference resolves even though the
+// editor bridge's catalogue channel carries only slab + ceiling today. See
+// that module's header for why forwarding a raw ref would be unsafe here.
+import {
+  publishedRailingTypeCatalogue,
+  publishedStairTypeCatalogue,
+} from './publishedCatalogues.js';
 
 /** The intents generated from this table. */
 export type CatalogueFamilyIntentId =
   | 'set-window-type'
   | 'set-door-type'
   | 'set-slab-type'
-  | 'set-ceiling-type';
+  | 'set-ceiling-type'
+  // §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's "Make all the stairs type X"
+  // and "Make all the stair railings type X". TWO families, not one: a stair
+  // and its railings are different elements with different stores, different
+  // commands and different catalogues, and the two sentences differ by one
+  // word. See the table rows for the collision guard that keeps them apart.
+  | 'set-stair-railing-type'
+  | 'set-stair-type';
 
 /** The catalogue lookup a family needs, however it was injected. */
 export interface CatalogueLookup {
   readonly resolve: (ref: string) => { readonly id: string; readonly name: string } | null;
   readonly names: readonly string[];
+  /**
+   * §FEAT-CHAT-STAIR-TYPES (L-1441) — a limit on WHAT THIS SOURCE CAN SEE,
+   * appended to the refusal that lists its names.
+   *
+   * ⭐ It exists because a lookup can be honest about "no type called X" and
+   * still mislead: when the source is the BUILT-IN table rather than the
+   * project's own store, "the stair types here are: …" is a claim about the
+   * catalogue the chat can read, not about the project. Saying which one it is
+   * costs a sentence and turns a wrong-looking refusal into a true one
+   * (§CONTEXT-DATA-HONESTY — failure and empty are the same value, and so are
+   * "absent from the project" and "absent from the source I could read").
+   */
+  readonly note?: string;
 }
 
 export interface CatalogueFamily {
   readonly intent: CatalogueFamilyIntentId;
-  /** The element kind, normalized (also the noun the grammar matches on). */
+  /** The element kind, normalized (also the noun the grammar matches on).
+   *  A hyphen and a space are the same separator to the grammar, so
+   *  `stair-railing` matches "stair railing" and "stair-railing" alike. */
   readonly elementKind: string;
-  /** The ONE batch bus command, and the payload field carrying the id list. */
+  /** Extra nouns the grammar accepts for this family ("railing", "balustrade").
+   *  §FEAT-CHAT-STAIR-TYPES — the first family whose element kind is NOT what a
+   *  user calls it; the mechanism is `DIMENSION_FAMILIES.nounAliases`, adopted
+   *  rather than re-invented. */
+  readonly nounAliases?: readonly string[];
+  /** The bus command, and the payload field carrying the id list — or, when
+   *  `fanOutPerId` is set, the SINGULAR id field of a per-element verb. */
   readonly busCommand: string;
   readonly idsField: string;
+  /**
+   * §FEAT-CHAT-STAIR-TYPES (L-1441) — emit ONE command PER resolved id.
+   *
+   * ⚠ A DISCLOSED TRADE, exactly as `set-room-occupancy` disclosed it: N
+   * elements are N undo steps, which `dispatchCommands` states out loud
+   * ("undo with Ctrl+Z (N steps)"). The four pre-existing families each have a
+   * real `*Batch` verb and keep one-undo; the stair families do NOT — measured
+   * 2026-08-20, `stair.updateParameters` and `element.changeType` are both
+   * singular and no `stair.updateSystemTypeBatch` exists.
+   *
+   * ⛔ The wrong fix would have been to route bulk stair type changes through a
+   * generic batch verb that reaches the store WITHOUT the stair command's own
+   * validation. Fanning out over the REGISTERED singular verb keeps every
+   * element's write going through the command that owns its rules, and the
+   * batch verb is the follow-up that upgrades N steps to one.
+   */
+  readonly fanOutPerId?: true;
+  /**
+   * Builds the value-stage payload from the RESOLVED catalogue id. Absent ⇒
+   * `{ systemType: id }`, which is what all four `*.updateSystemTypeBatch`
+   * families mean and what they shipped with, byte-identical.
+   *
+   * It exists because "change the type" is ONE user gesture carried by three
+   * different payload shapes: `systemType` for the batch verbs, `updates.typeId`
+   * for `stair.updateParameters`, `{elementType, newTypeId}` for
+   * `element.changeType`. Encoding that in the table keeps the difference where
+   * the route is declared instead of in a per-family branch downstream.
+   */
+  readonly typePayload?: (typeId: string) => Readonly<Record<string, unknown>>;
   /** The word used in refusal copy ("window type", "slab type"). */
   readonly typeNoun: string;
+  /** The plural spoken in cards and summaries, where `${elementKind}s` is wrong
+   *  ("stair railings", not "stair-railings"). */
+  readonly nounPlural?: string;
   readonly noSelectionReason: string;
   readonly mismatchPrefix: string;
   readonly suggestions: readonly string[];
@@ -223,6 +303,98 @@ export const CATALOGUE_FAMILIES: readonly CatalogueFamily[] = [
     suggestions: ['change all ceilings to plasterboard 12.5mm'],
     lookup: generic('ceiling'),
   },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's two sentences, verbatim:
+  //   *"Make all the stairs type X"*  ·  *"Make all the stair railings type X"*
+  //
+  // ⭐⭐ THE RAILING ROW COMES FIRST, AND THE ORDER IS LOAD-BEARING.
+  //
+  // `CATALOGUE_FAMILY_MATCHERS` maps this array IN ORDER, and the stair
+  // grammar's noun is `stairs?` — which matches the word "stair" inside
+  // "stair railings". Measured on the founder's literal:
+  //
+  //   "make all the stair railings type flat bar"
+  //     → the STAIR parser matches "…the stair", leaves " railings type flat
+  //       bar" as the tail, and resolves typeRef = "railings type flat bar"
+  //     → "There is no stair type called 'railings type flat bar'…"
+  //
+  // A confidently wrong catalogue refusal over a sentence that names a real
+  // railing type. **That is the founding incident's exact shape** — the wall
+  // TYPE grammar swallowing a RAKE sentence (§FIX-RAKE-SWALLOWED-AS-TYPE,
+  // L-1370) — reproduced by two families instead of two capabilities.
+  //
+  // ⛔ ORDER ALONE IS NOT THE GUARD. Ordering fixes it only while the array
+  // stays sorted, and an array whose correctness depends on a sort nobody
+  // enforces is the "enumerated list that must be REMEMBERED" defect again. So
+  // the stair row ALSO carries a `rejectRef` — the SAME mechanism `set-door-type`
+  // already uses to keep "change all doors to left swing" out of the catalogue
+  // — and `__tests__/stair-chat-acceptance.test.ts` pins both halves. Two
+  // independent guards, because the collision is silent when either fails.
+  {
+    intent: 'set-stair-railing-type',
+    // storeRegistry registers this kind under exactly this key
+    // (apps/editor initStores.ts:107 `r('stair-railing', …)`), so the 'all'
+    // scope enumerates through the same path every other family uses.
+    elementKind: 'stair-railing',
+    // What users call them. ⚠ 'handrail' and 'guardrail' are NOT here: those
+    // name the STANDALONE handrail family (`handrailStore`, a different
+    // element with its own `element.changeType` branch). Claiming them would
+    // silently retype the wrong elements — the floor/slab disambiguation
+    // problem this table already refuses to coin-flip.
+    nounAliases: ['stair railing', 'railing', 'balustrade', 'stair balustrade'],
+    // §FIX-STAIR-RAILING-TYPE-PICKER — the ONE uniform type-swap surface, whose
+    // stair-railing branch resolves all thirteen construction fields from
+    // `newTypeId` ALONE via `resolveStairRailingTypeFields` (the projection the
+    // panel and the chat now share, C84 EI-4a/EI-9). That is precisely what
+    // makes this family chat-drivable: the chat forwards ONE id, never thirteen
+    // re-derived numbers.
+    busCommand: 'element.changeType',
+    idsField: 'elementId',
+    fanOutPerId: true,
+    typePayload: (id) => ({ elementType: 'stair-railing', newTypeId: id }),
+    typeNoun: 'railing type',
+    nounPlural: 'stair railings',
+    noSelectionReason:
+      'No stair railings are selected — select a railing, or say "make all the stair railings frameless glass balustrade" to retype every one.',
+    mismatchPrefix: 'Railing types apply to stair railings',
+    suggestions: [
+      'make all the stair railings frameless glass balustrade',
+      'change all stair railings to stainless cable railing',
+    ],
+    lookup: (ctx) => generic('stair-railing')(ctx) ?? publishedRailingTypeCatalogue(),
+  },
+  {
+    intent: 'set-stair-type',
+    elementKind: 'stair',
+    nounAliases: ['staircase', 'stair flight'],
+    // ⭐ THE SINGULAR VERB, DELIBERATELY. `element.changeType`'s stair branch
+    // and this verb reach the SAME command — that branch's own comment says so:
+    // *"the SAME legacy command the plugin bridge already runs"*
+    // (initBusHandlers.ts:1853). `stair.updateParameters` is chosen over
+    // `element.changeType` because it is the route the single-element chat
+    // capabilities (`set-riser-height`, `set-tread-depth`, `set-width`) already
+    // use, so the bulk and the single ask cannot diverge in what they validate.
+    busCommand: 'stair.updateParameters',
+    idsField: 'stairId',
+    fanOutPerId: true,
+    // UpdateStairParametersCommand's own shape: it reads `updates.typeId`
+    // (line 135) and then asks `stairTypeStore.resolveDefaults(typeId)` for the
+    // type's parameter defaults (line 140-141) before rebuilding the geometry.
+    typePayload: (id) => ({ updates: { typeId: id } }),
+    typeNoun: 'stair type',
+    noSelectionReason:
+      'No stairs are selected — select a stair, or say "make all the stairs monolithic concrete" to retype every one.',
+    mismatchPrefix: 'Stair types apply to stairs',
+    suggestions: [
+      'make all the stairs monolithic concrete',
+      'change all stairs to steel open riser',
+    ],
+    lookup: (ctx) => generic('stair')(ctx) ?? publishedStairTypeCatalogue(),
+    // ⛔ THE COLLISION GUARD — see the block comment above this pair. A ref that
+    // BEGINS with a railing noun is a railing sentence this grammar mis-read;
+    // declining it (rather than refusing) lets the railing family claim it.
+    rejectRef: (ref) => /^(?:railings?|balustrades?|handrails?|guardrails?)\b/i.test(ref),
+  },
 ];
 
 const BY_INTENT: ReadonlyMap<CatalogueFamilyIntentId, CatalogueFamily> =
@@ -251,34 +423,46 @@ export function catalogueFamilySpec(
     elementKind: family.elementKind,
     busCommand: family.busCommand,
     idsField: family.idsField,
+    ...(family.nounPlural !== undefined ? { nounPlural: family.nounPlural } : {}),
     noSelectionReason: family.noSelectionReason,
     mismatchPrefix: family.mismatchPrefix,
     suggestions: family.suggestions,
     destructive: false,
+    ...(family.fanOutPerId === true ? { fanOutPerId: true as const } : {}),
     resolveValue: (si, ctx): SpecValueOutcome => {
+      // §FEAT-CHAT-STAIR-TYPES — the payload shape is the FAMILY's, because
+      // "change the type" is one gesture carried by three different payloads.
+      const build = family.typePayload ?? ((id: string) => ({ systemType: id }));
       const lookup = family.lookup(ctx);
       if (lookup === null) {
+        // ⚠ THE RAW-FORWARD ARM IS ONLY SAFE WHERE THE COMMAND RESOLVES. It is
+        // for the four `*.updateSystemTypeBatch` families, whose commands run
+        // `resolveCatalogueRef` themselves. A fan-out family has no such
+        // command — see `publishedCatalogues.ts` for why the stair families
+        // always have a lookup and therefore never reach this branch.
         return {
-          payload: { systemType: si.typeRef },
+          payload: build(si.typeRef),
           summary: (scopeLabel) => `Change ${scopeLabel} to "${si.typeRef}"`,
         };
       }
       const hit = lookup.resolve(si.typeRef);
       if (hit === null) {
+        // The source's own limit, when it has one — see `CatalogueLookup.note`.
+        const noteTail = lookup.note === undefined ? '' : ` ${lookup.note}`;
         return {
           refusal: {
-            reason: lookup.names.length === 0
+            reason: (lookup.names.length === 0
               ? `I could not find a ${family.typeNoun} called "${si.typeRef}" in this project.`
               : `There is no ${family.typeNoun} called "${si.typeRef}" in this project. ` +
-                `The ${family.typeNoun}s here are: ${lookup.names.join(', ')}.`,
+                `The ${family.typeNoun}s here are: ${lookup.names.join(', ')}.`) + noteTail,
             suggestions: lookup.names.slice(0, 2).map(
-              (n) => `change all ${family.elementKind}s to ${n.toLowerCase()}`,
+              (n) => `change all ${family.nounPlural ?? `${family.elementKind}s`} to ${n.toLowerCase()}`,
             ),
           },
         };
       }
       return {
-        payload: { systemType: hit.id },
+        payload: build(hit.id),
         summary: (scopeLabel) => `Change ${scopeLabel} to "${hit.name}"`,
       };
     },

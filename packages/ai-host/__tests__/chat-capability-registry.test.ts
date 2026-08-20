@@ -239,6 +239,11 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // ignore. What is pinned instead, by EXECUTION, is in moveToLevel.test.ts:
       // every declared target really dispatches its own verb, and every family
       // the register refuses really refuses, with the register's own sentence.
+      // §FEAT-CHAT-STAIR-TYPES (L-1441) — two families, two kinds, and the
+      // pair is the assertion: a stair and its railings are DIFFERENT elements
+      // and neither may claim the other's kind.
+      'set-stair-type': ['stair'],
+      'set-stair-railing-type': ['stair-railing'],
       'move-to-level': [
         ...new Set(
           Object.values(LEVEL_CHANGE_VERBS).flatMap((s) => s.panelTypes.map(normalizeElementKind)),
@@ -260,9 +265,54 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       expect([...(cap!.targets as readonly string[])], family.intent)
         .toEqual([...catalogueFamilyTargets(family.intent)]);
       expect(cap!.busCommand, family.intent).toBe(family.busCommand);
-      // L-620: a family may only dispatch a *Batch verb — never a plugin
-      // `*.setType`, which writes a detached DTO store.
-      expect(family.busCommand.endsWith('SystemTypeBatch'), family.intent).toBe(true);
+      // ⭐⭐ §FIX-BATCH-GATE-CHECKED-THE-NAME (L-1441, 2026-08-20) — THIS GATE
+      // ASSERTED A NAMING CONVENTION AND CALLED IT AN INVARIANT.
+      //
+      // It read `expect(family.busCommand.endsWith('SystemTypeBatch')).toBe(true)`
+      // under the comment *"L-620: a family may only dispatch a *Batch verb —
+      // never a plugin `*.setType`, which writes a detached DTO store."*
+      //
+      // THE COMMENT NAMES THE REAL RULE AND THE ASSERTION DOES NOT CHECK IT.
+      // L-620's finding is about WHERE A VERB WRITES — the detached plugin DTO
+      // stores nothing renders, exports or persists. The suffix `SystemTypeBatch`
+      // was a PROXY for that, true of the four families that existed, and a
+      // proxy that classifies by NAME can be satisfied by RENAMING and defeated
+      // by not renaming. A plugin handler called `wall.setSystemTypeBatch` would
+      // have passed this gate while writing a detached store; `stair.updateParameters`
+      // fails it while writing the geometry store the builders read.
+      //
+      // Both halves of that are live facts, not hypotheticals — CLAUDE.md
+      // records the same name-blindness for the commandManager gates, where
+      // "a gate that classifies by NAME can be satisfied by RENAMING" produced
+      // three rival counters disagreeing about one subject.
+      //
+      // So the gate now checks the two things L-620 actually cares about:
+      //
+      //   (a) THE VERB IS NOT A PLUGIN DTO `*.setType`. That family of verbs is
+      //       the named anti-pattern, and it is checkable directly.
+      //   (b) THE REGISTRY CARRIES A commandProof FOR THE ROUTE. That is the
+      //       artefact that records WHERE the verb writes, and the separate
+      //       `commandProof` gate below re-reads the cited file and asserts it
+      //       still mentions the store and command named. A family that cannot
+      //       produce that proof cannot ship, which is a stronger bar than any
+      //       spelling of its verb.
+      //
+      // ⚠ THE BATCH PROPERTY ITSELF IS NOT DISCARDED — it is DECLARED instead of
+      // spelled. A family without a batch verb must set `fanOutPerId`, which
+      // costs it the one-undo property and says so out loud through
+      // `dispatchCommands` ("undo with Ctrl+Z (N steps)"). So "is this one undo
+      // step?" is still answered for every family; it is answered by a field the
+      // author had to choose rather than by the shape of a string.
+      expect(/\.set(Type|SystemType)$/.test(family.busCommand), `${family.intent} dispatches a plugin DTO setType verb`)
+        .toBe(false);
+      expect(cap!.commandProof, `${family.intent} has no commandProof naming where its verb writes`)
+        .toBeDefined();
+      // A family that is NOT a batch verb must have declared the fan-out, so the
+      // undo granularity is a stated trade rather than an accident.
+      if (!family.busCommand.endsWith('Batch')) {
+        expect(family.fanOutPerId, `${family.intent} is not a batch verb and must declare fanOutPerId`)
+          .toBe(true);
+      }
     }
   });
 

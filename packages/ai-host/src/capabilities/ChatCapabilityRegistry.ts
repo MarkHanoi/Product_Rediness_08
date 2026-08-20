@@ -134,6 +134,24 @@ export type CapabilityValueSource =
   /** RAC U7.2 — the project's ceiling assemblies (`ceilingSystemTypeStore`,
    *  ten built-ins), resolved by `resolveCeilingSystemTypeRef`. */
   | 'ceiling-system-types'
+  /**
+   * §FEAT-CHAT-STAIR-TYPES (L-1441) — the stair types (`BUILT_IN_STAIR_TYPES`,
+   * five entries), resolved by `publishedStairTypeCatalogue()`.
+   *
+   * ⚠ NOT the same channel as the five sources above, and the difference is
+   * declared rather than hidden. Those read the PROJECT's store through the
+   * editor bridge; this reads the PUBLISHED BUILT-IN table, because the
+   * bridge's catalogue channel carries only slab + ceiling today. A stair type
+   * a user authored in this project is therefore NOT resolvable from chat yet,
+   * and the refusal says so in the user's own words rather than reporting it as
+   * "no such type" (§CONTEXT-DATA-HONESTY). See publishedCatalogues.ts.
+   */
+  | 'stair-types'
+  /** §FEAT-CHAT-STAIR-TYPES (L-1441) — the railing catalogue, read off the LIVE
+   *  `handrailTypeStore` singleton (20 built-ins PLUS anything the project
+   *  authored) — the same object element.changeType's stair-railing branch
+   *  resolves against, so a name this resolves is a name that branch accepts. */
+  | 'handrail-types'
   /** Finish names ("plaster", "limewash"), resolved by the ONE table in
    *  packages/ai-host/src/intents/finishRef.ts (materialLibrary-transcribed). */
   | 'finish'
@@ -291,6 +309,13 @@ export const PROBE_ELEMENT_KINDS: readonly string[] = [
   'wall', 'door', 'window', 'room', 'slab', 'roof', 'stair', 'column', 'beam',
   'ceiling', 'floor', 'furniture', 'curtain-wall', 'handrail', 'lighting',
   'plumbing',
+  // §FEAT-CHAT-STAIR-TYPES (L-1441) — a stair's railing is its OWN element
+  // kind, registered under exactly this key (apps/editor initStores.ts:107)
+  // with its own store, its own record (`StairRailingConfig`) and its own
+  // command. ⛔ It is NOT `handrail`: that is the STANDALONE railing family,
+  // a different store and a different element, and conflating them is how a
+  // retype would silently hit the wrong objects.
+  'stair-railing',
 ];
 
 /**
@@ -1908,6 +1933,81 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change all ceilings to plasterboard 12.5mm',
       'change the ceiling type to suspended act 600x600',
       'convert the selected ceilings to exposed concrete soffit',
+    ],
+  },
+  // ─── §FEAT-CHAT-STAIR-TYPES (L-1441) — the founder's two stair sentences ───
+  //
+  // ⭐ THE RAILING ENTRY IS DECLARED FIRST for the same reason its table row is:
+  // "stair railings" contains "stair", and the two sentences differ by one word.
+  // See CatalogueFamilies.ts for the measurement and the second, order-independent
+  // guard (`rejectRef`).
+  //
+  // ⚠ BOTH FAN OUT — `scopeModes` therefore omits nothing it cannot honour, but
+  // the UNDO GRANULARITY is N steps rather than one, because neither route has a
+  // batch twin. That is declared on `CatalogueFamily.fanOutPerId` and spoken by
+  // `dispatchCommands`; it is a disclosed trade, not an omission.
+  {
+    id: 'set-stair-railing-type',
+    description: 'change the stair railing type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['stair railing', 'stair railing type', 'balustrade', 'railing type'],
+    refusalLabel: 'stair railing type',
+    targets: ['stair-railing'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the railing type, by catalogue name or id',
+        required: true,
+        valueSource: 'handrail-types',
+        example: 'Frameless Glass Balustrade',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection', 'level', 'room'],
+    destructive: false,
+    busCommand: 'element.changeType',
+    probe: { intent: 'set-stair-railing-type', typeRef: 'Frameless Glass Balustrade', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/stair/UpdateStairRailingCommand.ts',
+      mustMention: ['stairRailingStore', 'stair-railing'],
+      note: "element.changeType's stair-railing branch resolves the catalogue definition through resolveStairRailingTypeFields (geometry-stair, the ONE projection the property panel also uses) and dispatches UpdateStairRailingCommand, whose affectedStores is ['stair-railing'] and whose writes go to ctx.stores.stairRailingStore — the geometry store StairRailingBuilder rebuilds from. The chat forwards ONE id and never re-derives the thirteen construction fields (C84 EI-4a/EI-9).",
+    },
+    examples: [
+      'make all the stair railings frameless glass balustrade',
+      'change all stair railings to stainless cable railing',
+      'make the selected railings timber picket railing',
+    ],
+  },
+  {
+    id: 'set-stair-type',
+    description: 'change the stair type',
+    verbs: ['change', 'set', 'convert', 'swap', 'make', 'turn'],
+    aliases: ['stair type', 'staircase type', 'stair construction'],
+    refusalLabel: 'stair type',
+    targets: ['stair'],
+    parameters: [
+      {
+        name: 'type',
+        description: 'the stair type, by catalogue name or id',
+        required: true,
+        valueSource: 'stair-types',
+        example: 'Monolithic Concrete',
+      },
+    ],
+    scope: 'all',
+    scopeModes: ['all', 'selection', 'level', 'room'],
+    destructive: false,
+    busCommand: 'stair.updateParameters',
+    probe: { intent: 'set-stair-type', typeRef: 'Monolithic Concrete', scope: 'selection' },
+    commandProof: {
+      file: 'packages/command-registry/src/stair/UpdateStairParametersCommand.ts',
+      mustMention: ['stairId', 'typeId', 'stairTypeStore'],
+      note: "The LIVE stair route, and the SAME one element.changeType's stair branch runs ('the SAME legacy command the plugin bridge already runs'): keyed by stairId, it writes updates.typeId onto the record, asks ctx.stores.stairTypeStore.resolveDefaults(typeId) for the type's parameter defaults, and typeId is in the command's GEOMETRY_KEYS so the flight geometry regenerates. Choosing this verb over the generic one is deliberate — it is the route set-riser-height / set-tread-depth / set-width already use, so the bulk and single asks cannot validate differently.",
+    },
+    examples: [
+      'make all the stairs monolithic concrete',
+      'change all stairs to steel open riser',
+      'change the stair type to timber closed string',
     ],
   },
   {

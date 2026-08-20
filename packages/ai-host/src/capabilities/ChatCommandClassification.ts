@@ -95,7 +95,32 @@ const B_CATALOGUE = family(
     // The lesson generalises — when a deferral names a dependency, check the
     // dependency is real for THAT verb before inheriting the family's reason.
     'curtain-wall.setMullionType', 'curtain-wall.setPanelType',
-    'curtain-wall.setTransomType', 'element.changeType',
+    'curtain-wall.setTransomType',
+    // §FEAT-CHAT-STAIR-TYPES (L-1441, 2026-08-20) — `element.changeType` LEFT
+    // this family and is now the `set-stair-railing-type` CAPABILITY's dispatch.
+    //
+    // ⭐ THE SECOND TIME THIS FAMILY'S REASON EXPIRED WITHOUT NOTICE, and the
+    // note above about `room.setOccupancy` predicted it in general terms: *"when
+    // a deferral names a dependency, check the dependency is real for THAT verb
+    // before inheriting the family's reason."*
+    //
+    // The reason here is *"those catalogues are not injected into the resolver
+    // context yet"*. For the STAIR-RAILING branch of this verb that dependency
+    // was satisfiable two ways and nobody re-checked either: `handrailTypeStore`
+    // is a module SINGLETON any L2 module can read (no injection needed at all),
+    // and §FEAT-HANDRAIL-TYPE-PROJECTION (L-1105) had already moved the
+    // thirteen-field materialisation BEHIND the verb, so `{ newTypeId }` alone
+    // is now a complete payload. The founder's *"Make all the stair railings
+    // type X"* was one sentence away from working while this row said it was
+    // blocked.
+    //
+    // ⚠ The verb is REMOVED, not narrowed, and that is deliberate: this map's
+    // key is a BUS VERB, and a verb that any capability dispatches is a
+    // capability dispatch — the three surfaces are disjoint by verb, which is
+    // what the registry gate asserts. The fifteen OTHER families this verb
+    // serves are still unpublished to chat; they are absent from the CAPABILITY
+    // side, which is where their absence is now visible, rather than mis-recorded
+    // here as a blocked verb.
   ],
   { blockedBy: 'catalogue value-source injection (the wall-system-types precedent, one per catalogue)' },
 );

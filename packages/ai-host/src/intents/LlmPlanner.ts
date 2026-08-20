@@ -279,6 +279,13 @@ const VALUE_SOURCE_PHRASE: Readonly<Record<CapabilityValueSource, string>> = {
   'door-system-types': "a door type NAME from the project's door catalogue",
   'slab-system-types': "a slab assembly NAME from the project's slab catalogue",
   'ceiling-system-types': "a ceiling assembly NAME from the project's ceiling catalogue",
+  // §FEAT-CHAT-STAIR-TYPES (L-1441). ⭐ The wording differs from the five above
+  // ON PURPOSE — it says BUILT-IN, not "the project's", because that is what
+  // the source is until the editor bridge grows a stair row. A prompt that
+  // over-promised here would teach the model to offer a project type the
+  // resolver cannot reach.
+  'stair-types': 'a BUILT-IN stair type NAME ("Monolithic Concrete", "Steel Open Riser")',
+  'handrail-types': "a railing type NAME from the project's railing catalogue (\"Frameless Glass Balustrade\")",
   finish: 'a finish name ("plaster", "limewash")',
   'project-levels': 'a level reference — a name ("Level 2") or a number ("2")',
   color: 'a colour name ("white", "light grey") or a #hex string',
