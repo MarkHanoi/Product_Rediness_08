@@ -24082,3 +24082,156 @@ than a registered entry point) requires inverting it. Deliberately not done as a
 this lane, in files another lane touched the same day.
 
 ---
+
+---
+
+## L-1540 … L-1542 — ✅ FIXED: both founder stair sentences were MISSES, and one of them already had a palette button — 2026-08-20 (lane RAC3, commit `670d1bce`)
+
+Founder: *"RAC: 'create same stair in ground in level 1'. 'create stair in L shape aligned to the selected wall' — doesn't work."*
+
+Both sentences failed at **stage (a)**: `{kind:'miss'}` — no tool call, no refusal, nothing said. Not a
+broken command; the resolver never recognised them.
+
+- **L-1541 `§FEAT-RAC-STAIR-SHAPE`** — ⭐ **the L-shape was not missing. It shipped 2026-08-19 with a
+  Create-palette button calling `activateStairPathTool('L')`, and was unreachable ONLY from
+  language.** Chat now publishes the shape to the one `StairToolConfigStore` chokepoint, whose own
+  comment says it exists so "any batch/AI path" authors from the same config. The *alignment* half is
+  **disclosed as not applied**, and names By Walls — [[authored-but-unwired-is-the-bottleneck]].
+- **L-1540 `§RAC-ANCHOR-ONE-VOCABULARY`** — `StairNotYet`'s anchor vocabulary was a literal 8-word
+  list, every word taken from the sentence on screen when it was written (*"connected to this
+  wall"*). *"**aligned** to"* walked straight past it. Lifted into `SpatialAnchorRef.ts` as a
+  relation+determiner **class**, shared by both grammars.
+- **L-1542 `§REFUSE-RAC-REPLICATE`** — sentence 1 asks for copy-by-reference, which **has no command
+  on any element kind**. It now refuses, resolves the level it *can* (`"level 1"` → `"Level 1"`), and
+  names `duplicate-level` **plus the trap that it excludes stairs**.
+
+⭐ **GA gate 31 caught an over-claim the lane introduced**: reading a bare *"the selected stairs"* as a
+spatial anchor stole `set-stair-dimensions`' own declared example. **Selection-as-SUBJECT is not
+selection-as-GEOMETRY-SOURCE, and only a relation word separates them.** No selection-geometry
+channel was added — C67 §4 rule 20.b forbids guessing a position from a selection and 20.c forbids
+adding a channel with no consumer, which would have been another authored-but-unwired field.
+
+**Tests: 4 suites / 379 passed, RC=0.** ⚠ Verified through the resolver and tool-registry seam — **not**
+a model round-trip or a browser click. That the armed tool visibly draws an L-shape is **not proven**.
+
+**Two command verbs that DO NOT EXIST**, surfaced for a future lane: `stair.duplicateToLevel`
+(must re-derive `riserHeight` for the new floor-to-floor gap against `CreateStairCommand`'s
+`HEIGHT_TOLERANCE`); and **no verb changes an existing stair's shape** — `UpdateStairParametersInput.updates`
+has no `shape` field. The grammar deliberately stands down on *"make all the stairs L shape"* to keep
+that gap visible rather than masking it with a draw cursor.
+
+---
+
+## L-1570 — ✅ CONFIRMED + DETECTOR SHIPPED: the model is VISUALLY CLOSED and TOPOLOGICALLY OPEN — 2026-08-20 (lane WALL3, commit `bc9a6844`)
+
+Founder: *"Check for wall corruption"*, with a console dump.
+
+**VERDICT: YES, there is corruption, and it PERSISTS TO DISK.** What is corrupt is wall **baselines** —
+authored geometry, not the render. After the drag, two wall bodies pass through each other, one
+endpoint is stranded inside another wall's solid, and an 83 mm corner is drawn shut by a mitre while
+its endpoints do not meet.
+
+⚠ **It is data loss, not a render glitch.** `ProjectSerializer.ts:580` saves
+`wall._sourceBaseLine ?? wall.baseLine`; `WallStore.ts:764` **clears `_sourceBaseLine` on any
+`baseLine` update that does not supply one** — which is every user drag. So the serializer falls
+through to the corrupt `baseLine`.
+
+⭐ **And the `integrity <checksum>` in the founder's log does not contradict this.** It is a
+byte-corruption/truncation checksum over the blob (L-334/L-360). **A perfectly-checksummed snapshot of
+a corrupt model verifies green.** Same family as [[context-data-honesty-family]]: an instrument that
+answers a different question than the one being asked.
+
+**The detector:** `packages/geometry-wall/src/WallTopologyIntegrity.ts` — `auditWallTopology(walls)`.
+Pure, store-free, **camera-free** (every band derives from a wall's own thickness; L-919's bug was a
+geometric verdict taken against a zoom-derived number). Three arms:
+`VISUALLY_CLOSED_TOPOLOGICALLY_OPEN`, `ENDPOINT_INSIDE_BODY`, `BODY_CROSSING`; each finding names
+guest, host, side, location and **both numbers**.
+
+**Reachable**, wired into `WallMoveReweldService` on **both** terminal paths — including the empty-plan
+path the founder's gesture actually ended on — as a **before/after diff** against the subject's
+`prevBaseLine`, so *"already corrupt"* and *"this drag corrupted it"* are different sentences.
+
+⭐ **The probe caught its own first defect**: an unbounded ARM B called a wall's far endpoint, 2.7 m
+clear, a 2790 mm penetration. That is the argument for shipping the probe before the fix, made by the
+probe. Tests 6/6.
+
+---
+
+## L-1571 — ✅ FIXED: six refusal codes were laundered into the ONE flag the founder authorised us to ignore — 2026-08-20 (lane WALL3, commit `71976b7a`)
+
+The causal chain, reproduced from the log's own constants (t = 100 mm is the only thickness giving
+`depth cap 101.5 mm`; axial 75 mm the only value giving `AMBIGUOUS_WELD_AUTHORSHIP … 75`):
+
+1. **`moveReweldPreflight.ts` mapped EVERY refusal to `reason:'INCUMBENT_EXTENSION_REQUIRED'`,
+   `incumbentBreach:true`, `maxIncumbentShiftMm = refusal.beyondMm`** — but `beyondMm` carries a
+   **different quantity per code**. For `AMBIGUOUS_WELD_AUTHORSHIP` it is `axialFromEndM`, an axial
+   *position*, not a shift.
+2. **So the gate reported someone else's fact.** `§L-942-UNBLOCK`'s sentence — *"would re-baseline 2
+   non-subject wall(s) by up to 75 mm"* — is false in all three claims: nothing would be re-baselined
+   (that is what a refusal *means*), 75 mm is not a shift, and the 101 mm band was dropped (C83 §10.3).
+3. ⭐ **And the mislabel was LOAD-BEARING.** `incumbentBreach` is the exact flag §L-942-UNBLOCK
+   downgrades to report-only. The founder authorised that for **one** trade — an over-following
+   neighbour, *"KNOWN, VISIBLE, UNDOABLE"*. **Five other codes rode through on it**, including
+   `STEM_COLLAPSE`/`STEM_REVERSAL`, which are literally what the §L-942 comment reserves the blocking
+   arm for: *"geometric impossibilities … letting them through would corrupt the model"*.
+4. **The move commits and the junction is left open forever** — `WallMoveReweldService` is a store
+   *subscriber*, running after the write. The refused partner appears in no entry and no
+   not-applicable, and **no corner is offered to the subject**, so the subject cannot adapt either.
+5. **The mitre then hides it** (83 mm is inside the mitre zone), and the room graph inherits 2
+   unresolved loop breaks.
+
+**Refuted link:** the founder's `subject: 2 corner(s) offered, 2 seated, NO subject entry` is **NOT** a
+defect — both `INCUMBENT_PRESERVED_SUBJECT_ADAPTS(0/0 mm)` partners were already exactly closed.
+
+⭐ **`AMBIGUOUS_WELD_AUTHORSHIP` is UNDECIDED, not undecidable — the answer is measured and then thrown
+away.** `JunctionResolverV2.ts:166-173` computes `WallJunctionParticipant.role: 'endpoint' |
+'passthrough'` — literally the question `classifyWeldAuthorship` exists to answer. `SemanticGraph.ts:891`
+writes `metadata = { junctionType, junctionDegree }` and **drops `participants`**. So `getJoinedWalls`
+cannot answer it and the engine re-derives a weaker proxy that is genuinely blind in `(t/2, t]`.
+**The sound fix is to carry `role` through that edge metadata** — in `core-app-model`, outside this
+lane's scope. Small, high-leverage, needs the lane that owns SemanticGraph.
+
+**Deliberately NOT done, each with its reason:**
+- **Did not re-block the gesture.** `allowed`/`ok` are byte-identical on every input. Whether the five
+  non-incumbent codes should stop a move is a **C83 §10.6 amendment and the founder's call**; the new
+  gate arm states the question and declines to answer it.
+- **Did not build `§FIX-T-JOIN-PENETRATION`'s trim.** The classification `UNBUILT, not impossible` is
+  correct and the trim is ~40–80 lines — ⛔ **but that shape was never authored, it was MANUFACTURED by
+  the unrepaired move.** Trimming would silently shorten the founder's wall by 310 mm to tidy away
+  evidence of an upstream defect: ADR-0299's *"a recovery that conceals is a defect"*, verbatim.
+- **Did not widen `hostSnap`** past 200 mm — that hides the 590 mm gap rather than fixing it.
+
+**Bonus, confirming L-1393 at a second site:** `_reconnectDanglingEnds` closed 602 mm but not 590/595 mm
+because it requires the endpoint be connected to *nothing*; the two unresolved guests belong to a wall
+that IS connected elsewhere, so the repair is **structurally unable to reach them**.
+
+Tests: L-1570 6/6 · L-1571 5/5 · reweld goldens 40/40 unmoved · root `tsc` RC=0.
+⚠ One PRE-EXISTING red, not caused by this lane: `L926MoveReweldPreflightStem.test.ts` — its own
+docstring says *"Leave RED until the amendment lands"*. It fails on `allowed`, which can only flip when
+`plan.refusals` is empty — the one branch this change does not touch.
+
+---
+
+## L-1586 — ⛔ RECORD DEFECT (not a code defect): two unscoped commits swept sibling lanes' files — 2026-08-20 (orchestrator)
+
+Recorded because the commit history is now misleading and nothing else says so.
+
+- `c2cdd7ff` (WALL3's first attempt) swept **24 files from two other lanes**. Recovered by that lane
+  with `git reset --soft HEAD~1` + a pathspec commit; **27 sibling index entries verified restored**.
+  Amended result is `bc9a6844`.
+- `540ba88c` (message reads *MAT3 / L-1560..L-1562*) contains, besides its own `VGSceneApplicator`
+  work, the **entire SELECT1 multi-selection lane** — `SelectionBus.ts`, `SelectionManager.ts`,
+  `MarqueeSelectionTool.ts`, their three new test files, `ContextualEditBar.ts`, `PropertyPanel.ts`,
+  `PropertyPanelAdapter.ts`, `multiSelectionEditBar.spec.ts`, `engineLauncher.ts`,
+  `PlanViewInteraction.ts`, `SplitViewManager.ts` — **and** WALL3's `L1571ReweldRefusalIdentity.test.ts`.
+
+**No work was lost. Attribution is wrong; content is intact.** History was deliberately **not**
+rewritten: five agents shared the working tree and a rebase under them is far more damaging than a
+wrong commit message.
+
+⭐ **The durable rule, stated by the lane that hit it from both sides:** *"`git add` in this shared tree
+is a RACE — pathspec commits (`git commit -- <paths>`) are the only safe form."* A `git add` followed
+by any sibling's `git commit -a` donates your staged files to their commit.
+See [[multi-agent-shared-tree-collisions]].
+
+---
