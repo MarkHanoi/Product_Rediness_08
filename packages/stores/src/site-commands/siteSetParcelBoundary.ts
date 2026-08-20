@@ -81,11 +81,23 @@ export function siteSetParcelBoundary(
     }
 
     const area = polygonArea(payload.boundary.polygon);
+
+    // §L-1580 (C57 §1.4 / §2.2) — record the ring AND its attribution in ONE write.
+    //
+    // `undefined` (the caller supplied nothing) and `null` (the caller explicitly has no
+    // provenance) both persist as `null`, which means NOT RECORDED. There is deliberately no
+    // fabricated default here: stamping `source: 'user-authored'` on a ring whose origin we
+    // do not know would make an unknown indistinguishable from a fact, which is the exact
+    // failure C57 §1.4 and C84 EI-1b forbid. The absence is the honest value, and the UI
+    // renders it in words.
+    const provenance = payload.provenance ?? null;
+
     const next = {
         ...current,
         parcel: {
             ...current.parcel,
             boundary: payload.boundary,
+            provenance,
             area,
         },
     };
@@ -96,6 +108,7 @@ export function siteSetParcelBoundary(
         siteId: current.id,
         boundary: payload.boundary,
         area,
+        provenance,
     };
     return { ok: true, event, site: next };
 }

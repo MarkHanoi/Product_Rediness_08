@@ -34,6 +34,8 @@ import type {
     ZoningRecord,
     ZoningRule,
     Pt,
+    // §L-1580 (C57 §1.4 / §2.2) — the persisted cadastral attribution of a committed parcel.
+    ParcelProvenance,
 } from '@pryzm/schemas';
 import { SiteModelSchema } from '@pryzm/schemas';
 // ADR-0270 — "does this zone's rule need a cadastral block to solve?" asked of the RULE, not of a
@@ -1160,6 +1162,12 @@ export function restoreSiteState(
                 siteId: model.id,
                 boundary: model.parcel.boundary,
                 area: polygonAreaXZ(polygon),
+                // §L-1580 (C57 §1.4) — replay the PERSISTED attribution, which is `null` for
+                // every project saved before §L-1580 landed. Deliberately not re-derived from
+                // the parcel registry: that would attribute a ring fetched months ago to
+                // whichever provider covers its bbox today, and would turn "not recorded"
+                // into a fabricated fact on reload.
+                provenance: model.parcel.provenance ?? null,
             });
         }
 
@@ -1534,6 +1542,21 @@ export function dispatchParcelBoundary(
         polygon: XZPoint[];
         edgeClassifications: ParcelEdgeClassification[];
     },
+    /**
+     * §L-1580 (C57 §1.4 / §2.2) — the cadastral attribution of THIS ring.
+     *
+     * WHY THIS PARAMETER EXISTS. Until §L-1580 this function's signature was exactly
+     * `{ polygon, edgeClassifications }`, so the `refcat` / `address` / `source` /
+     * `sourceCrs` / `confidence` that `ParcelFeature` carries and that the map's info card
+     * renders were ALL discarded here — the one seam between the fetch and the persisted
+     * legal datum. C57 §1.4 ("Provenance is not optional") could not be satisfied by any
+     * caller, because there was no argument to satisfy it with.
+     *
+     * OMITTED = the caller genuinely has none (the hand-drawn path, `createSiteFromRect`,
+     * the onboarding default plot). It persists as `null`, meaning NOT RECORDED. Nothing
+     * is synthesised in its place: a fabricated `source` reads exactly like a real one.
+     */
+    provenance?: ParcelProvenance | null,
 ): boolean {
     const siteId = ensureSite(ctx);
     if (!siteId) return false;
@@ -1594,13 +1617,27 @@ export function dispatchParcelBoundary(
         );
     }
 
-    const boundaryRes = siteSetParcelBoundary({ siteId, boundary }, ctx.store);
+    const boundaryRes = siteSetParcelBoundary(
+        // §L-1580 — the provenance travels on the SAME command as the ring (P6: the UI never
+        // writes `parcel.provenance` directly). One command, one write, so there is no window
+        // in which the ring is committed and its attribution is not.
+        { siteId, boundary, provenance: provenance ?? null },
+        ctx.store,
+    );
     if (!boundaryRes.ok) {
         console.error('[gis] site.setParcelBoundary rejected:', boundaryRes.reason, boundaryRes.message);
         ctx.toast(`Set parcel boundary failed: ${boundaryRes.message}`, 'error');
         return false;
     }
-    console.log('[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area);
+    console.log(
+        '[gis] site.parcel-boundary-set', boundaryRes.event, 'area(m²)=', boundaryRes.event.area,
+        // §L-1580 — say which of the two happened. "provenance=NOT RECORDED" is a fact worth
+        // seeing in the log, because it is the state every pre-§L-1580 project is in.
+        boundaryRes.event.provenance
+            ? `provenance=${boundaryRes.event.provenance.kind}/${boundaryRes.event.provenance.source}`
+            + ` refcat=${boundaryRes.event.provenance.refcat ?? 'none'}`
+            : 'provenance=NOT RECORDED (C57 §1.4 — the caller supplied none)',
+    );
     markStartupPhase('parcel:committed'); // §STARTUP-BUDGET
 
     // C58 (L-398 + L-402b) + §ENVELOPE-VIA-MASSING (L-402d) — ORDERING FIX. Compute +

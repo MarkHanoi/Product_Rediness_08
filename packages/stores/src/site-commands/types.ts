@@ -24,6 +24,7 @@ import {
     ClimateRefIdSchema,
     BuildingIdSchema,
     ProvenanceRecordSchema,
+    ParcelProvenanceSchema,
     PtSchema,
     type SiteModel,
 } from '@pryzm/schemas';
@@ -83,6 +84,21 @@ export type SiteUpdateLocationPayload = z.infer<
 export const SiteSetParcelBoundaryPayloadSchema = z.object({
     siteId: SiteIdSchema,
     boundary: ParcelBoundarySchema,
+    /**
+     * §L-1580 (C57 §1.4 / §2.2) — the cadastral provenance of THIS ring, recorded in the
+     * SAME command that commits it.
+     *
+     * WHY IT RIDES ON THIS PAYLOAD RATHER THAN A SECOND COMMAND: C57 §1.4 says provenance
+     * is not optional, and a two-command sequence has a state where the ring is committed
+     * and its attribution is not — which is precisely the state every project was already
+     * in, and the state this field exists to make unreachable. One command, one write.
+     *
+     * OMITTED / `null` = the caller has no provenance to record (a hand-drawn boundary
+     * whose author did not stamp `kind: 'user-drawn'`, or any pre-§L-1580 call site). The
+     * stored value is then `null`, which readers MUST render as "not recorded", never as a
+     * blank or a zero (C84 EI-1b).
+     */
+    provenance: ParcelProvenanceSchema.nullable().optional(),
 });
 export type SiteSetParcelBoundaryPayload = z.infer<
     typeof SiteSetParcelBoundaryPayloadSchema
@@ -367,6 +383,13 @@ export interface SiteParcelBoundarySetEvent {
     readonly siteId: string;
     readonly boundary: SiteModel['parcel']['boundary'];
     readonly area: number;
+    /**
+     * §L-1580 (C57 §1.4) — the provenance recorded WITH this ring, or `null` when the
+     * caller had none. Carried on the event so a subscriber re-anchoring on a fresh commit
+     * reads the same attribution the store just persisted, rather than re-deriving it from
+     * a registry lookup that may have moved on.
+     */
+    readonly provenance: SiteModel['parcel']['provenance'];
 }
 
 export interface SiteZoningUpdatedEvent {

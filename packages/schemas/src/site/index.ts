@@ -23,6 +23,8 @@
 export * from './types.js';
 export * from './SiteLocation.js';
 export * from './Parcel.js';
+// §L-1580 (C57 §1.4 / §2.2) — the persisted cadastral provenance of a committed parcel.
+export * from './ParcelProvenance.js';
 export * from './BuildingFootprint.js';
 export * from './ContextBuilding.js';
 export * from './ProvenanceRecord.js';

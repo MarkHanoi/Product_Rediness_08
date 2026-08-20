@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 import { PtSchema } from './types.js';
+import { ParcelProvenanceSchema } from './ParcelProvenance.js';
 
 /**
  * The edge classification array MUST have exactly one entry per edge of
@@ -118,6 +119,29 @@ export const ParcelSchema = z.object({
      * DERIVED ring stored alongside the mutable zoning fields, and is recomputed by the engine.
      */
     buildableRing: z.array(PtSchema).nullable().default(null),
+
+    /**
+     * §L-1580 (C57 §1.4 / §2.2) — WHO PUBLISHED THIS RING, UNDER WHAT IDENTIFIER.
+     *
+     * C57 §1.4 is normative — "Provenance is not optional" — and until this field existed
+     * it was structurally impossible to honour: `dispatchParcelBoundary` took only
+     * `{ polygon, edgeClassifications }`, so `refcat` / `address` / `source` / `sourceCrs`
+     * / `confidence` were all dropped at the commit seam and no schema in
+     * `packages/schemas/src` had anywhere to put them (`grep -rn refcat packages/schemas/src`
+     * → 0 hits, measured 2026-08-20).
+     *
+     * ⚠ `null` MEANS **NOT RECORDED**, NOT "no source". Every project committed before
+     * §L-1580 has `null` here, and so does every hand-drawn boundary whose author did not
+     * stamp `kind: 'user-drawn'`. A reader MUST NOT render that as a blank row, a dash, or
+     * a zero — it must say the provenance was not recorded and why (C84 EI-1b: failure and
+     * emptiness must never be the same value). `parcelCard.ts` is the one producer that
+     * does this, and both the map overlay and the GIS rail panel mount it.
+     *
+     * NOT part of the C19 §1.4 one-shot polygon immutability: the RING is immutable, its
+     * attribution is a recordable fact about where the ring came from. It is written by
+     * `site.setParcelBoundary` alongside the polygon, and never by a direct store write (P6).
+     */
+    provenance: ParcelProvenanceSchema.nullable().default(null),
 
     /** Computed square metres of polygon; the L3 store fills this. */
     area: z.number().min(0).default(0),
