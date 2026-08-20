@@ -3527,7 +3527,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
             globeRealExporting = true;
             const { exportFragmentsToGLB } = await import('@pryzm/file-format');
-            const glbUrl = await exportFragmentsToGLB(scene as any);
+            // §FIX-GLOBE-REAL-GLAZING (L-1422) — C12 §11.4 recorded the globe/site export
+            // asymmetry as an OPEN founder decision: the 3D Site study exports
+            // `{ formaWhite: true }` (windows → translucent glass) while the globe exported
+            // with no option at all, so windows kept whatever raw BIM material they carried
+            // and read as opaque rectangles. The founder made the decision (2026-08-19,
+            // "not rendering realistically"): glazing MUST read as glass on the globe too.
+            // ⚠ NOT `formaWhite: true` — that would ALSO repaint every wall/slab near-white,
+            // i.e. hand the photoreal globe the Forma STUDY look. That is strictly LESS
+            // realistic and the exact opposite of what was asked. `glazingOverride` applies
+            // the glass half ONLY; opaque elements keep their real BIM materials.
+            // §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — and edge/outline wireframes are
+            // drafting annotation, not architecture; they do not belong over photoreal tiles.
+            const glbUrl = await exportFragmentsToGLB(scene as any, {
+                glazingOverride: true,
+                stripAnnotationOverlays: true,
+            });
             if (!glbUrl) {
                 console.warn('[gis][globe] GLB export returned no url — keeping massing.');
                 return;
@@ -3739,7 +3754,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // reference): every element near-white, windows translucent glass. This
             // is Forma-VIEW-ONLY — the editor's WebGPU BIM view keeps real materials,
             // and the normal GLB download/export path (no option) is unchanged.
-            const glbUrl = await exportFragmentsToGLB(scene as any, { formaWhite: true });
+            // §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — the white study is a clean
+            // massing read; edge-outline wireframes baked into the GLB are drafting
+            // annotation and were the whole population behind the L-1206 unsupported-material
+            // census. Stripped here too, so both Cesium REAL paths agree.
+            const glbUrl = await exportFragmentsToGLB(scene as any, {
+                formaWhite: true,
+                stripAnnotationOverlays: true,
+            });
             if (!glbUrl) {
                 console.warn('[gis][forma6] GLB export returned no url — keeping massing.');
                 return;

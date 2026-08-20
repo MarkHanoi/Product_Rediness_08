@@ -78,17 +78,161 @@ export function countExportTriangles(roots: readonly THREE.Object3D[]): number {
  * Exported (rather than inlined) so it is unit-testable without the DOM-bound
  * `GLTFExporter`.
  */
-export function cloneWithBakedWorldTransform(element: THREE.Object3D): THREE.Object3D {
+export function cloneWithBakedWorldTransform(
+  element: THREE.Object3D,
+  frame?: THREE.Object3D | null,
+): THREE.Object3D {
   const clone = element.clone(true);
 
   // Refresh the ancestor chain on the SOURCE, then bake its composed world
   // matrix onto the clone's local transform.
   element.updateWorldMatrix(true, false);
-  clone.matrix.copy(element.matrixWorld);
+
+  if (frame) {
+    // §GLB-EXPORT-AUTHORING-FRAME (L-1420) — express the element in the AUTHORING
+    // frame by dividing out the georeferencing ancestor's world matrix, instead of
+    // baking the absolute scene-world matrix. See `resolveExportFrame`.
+    frame.updateWorldMatrix(true, false);
+    const inverseFrame = new THREE.Matrix4().copy(frame.matrixWorld).invert();
+    clone.matrix.multiplyMatrices(inverseFrame, element.matrixWorld);
+  } else {
+    clone.matrix.copy(element.matrixWorld);
+  }
+
   clone.matrix.decompose(clone.position, clone.quaternion, clone.scale);
   clone.matrixAutoUpdate = true;
 
   return clone;
+}
+
+/**
+ * §GLB-EXPORT-AUTHORING-FRAME (L-1420) — the `userData` key by which an object
+ * DECLARES which coordinate frame its subtree is expressed in.
+ *
+ * `'authoring'` (or absent) means the site-local metric BIM frame C12 §1.1 mandates.
+ * Any other value means the subtree has been re-expressed in a georeferenced frame
+ * (today: `'geo-ecef'`, stamped by `CesiumThreeBridge.setAnchor()` on `GIS_BIM_ROOT`).
+ */
+export const SCENE_FRAME_USERDATA_KEY = 'pryzmSceneFrame';
+
+/**
+ * §GLB-EXPORT-AUTHORING-FRAME (L-1420) — the largest translation a legitimate
+ * AUTHORING-frame ancestor may carry, in metres.
+ *
+ * C12 §1.1 mandates the THREE scene frame is LTP-ENU and recentred within **1 km** of
+ * the camera, so 100 km is two orders of magnitude of headroom above anything the
+ * authoring frame can legitimately produce — and it sits far BELOW the ~6.37e6 m floor
+ * of any Earth-centred (ECEF) position. Nothing real lands in the gap, which is what
+ * makes the measured arm below a classification rather than a guess.
+ */
+export const AUTHORING_FRAME_MAX_TRANSLATION_M = 100_000;
+
+/**
+ * §GLB-EXPORT-AUTHORING-FRAME (L-1420) — true when `object` is a GEOREFERENCING FRAME
+ * boundary: a node whose transform re-expresses its subtree out of the site-local
+ * authoring frame and into an Earth-referenced one.
+ *
+ * ⭐ DERIVED FROM WHAT THE OBJECT IS — never from a list of names. Two arms:
+ *
+ *  • **ARM A — DECLARED.** The object carries `userData[SCENE_FRAME_USERDATA_KEY]` with
+ *    a value other than `'authoring'`. This is the architectural arm: a frame boundary
+ *    SAYS it is one, the same way a BIM element says it is one via `userData.elementType`.
+ *  • **ARM B — MEASURED.** The object's world translation is at or beyond
+ *    `AUTHORING_FRAME_MAX_TRANSLATION_M`. A node megametres from the origin IS a
+ *    georeferencing frame by construction, whatever it is called and whether or not
+ *    anybody remembered to declare it.
+ *
+ * Arm B exists because arm A requires every current AND FUTURE producer to cooperate,
+ * and this repository's most-repeated defect is exactly the invariant that must be
+ * REMEMBERED rather than DERIVED. Arm B needs no cooperation at all.
+ */
+export function isGeoreferencedFrame(object: THREE.Object3D): boolean {
+  const declared = (object.userData as Record<string, unknown> | undefined)?.[
+    SCENE_FRAME_USERDATA_KEY
+  ];
+  if (typeof declared === 'string' && declared !== 'authoring') return true;
+
+  const e = object.matrixWorld.elements;
+  const translation = Math.hypot(e[12] ?? 0, e[13] ?? 0, e[14] ?? 0);
+  return Number.isFinite(translation) && translation >= AUTHORING_FRAME_MAX_TRANSLATION_M;
+}
+
+/**
+ * §GLB-EXPORT-AUTHORING-FRAME (L-1420) — resolve the frame an element must be exported
+ * RELATIVE TO, or `null` when the element already sits in the authoring frame.
+ *
+ * ⚠ Returns the SHALLOWEST georeferenced ancestor (the one nearest the scene root), not
+ * the nearest one. That is the frame BOUNDARY. Georeference is inherited downward through
+ * `matrixWorld`, so under `GIS_BIM_ROOT` every intermediate group ALSO satisfies arm B;
+ * dividing out the nearest such ancestor would additionally strip the element's own
+ * offset inside the building. The shallowest one is the only node whose parent is still
+ * in the authoring frame, so dividing IT out restores exactly the authoring coordinates
+ * and nothing more.
+ */
+export function resolveExportFrame(element: THREE.Object3D): THREE.Object3D | null {
+  const ancestors: THREE.Object3D[] = [];
+  let parent: THREE.Object3D | null = element.parent;
+  while (parent) {
+    ancestors.push(parent);
+    parent = parent.parent;
+  }
+  // Walk root-ward → the first (shallowest) hit is the boundary.
+  for (let i = ancestors.length - 1; i >= 0; i--) {
+    const a = ancestors[i]!;
+    if (isGeoreferencedFrame(a)) return a;
+  }
+  return null;
+}
+
+/** §GLB-EXPORT-AUTHORING-FRAME (L-1420) — one root's contribution to the export bbox. */
+export interface ExportRootBounds {
+  /** `userData.id`/`elementId` of the root, or `'(unknown)'`. */
+  readonly elementId: string;
+  /** `userData.elementType` of the root, or `'(none)'`. */
+  readonly elementType: string;
+  /** `name` → parent `name` → … → scene, so a PARENT-borne transform is visible. */
+  readonly ancestry: string;
+  /** World-space bbox min (metres), or null for an empty root. */
+  readonly min: { x: number; y: number; z: number } | null;
+  /** World-space bbox max (metres), or null for an empty root. */
+  readonly max: { x: number; y: number; z: number } | null;
+}
+
+/**
+ * §GLB-EXPORT-AUTHORING-FRAME (L-1420) — dump the bbox of EACH root, not the aggregate.
+ *
+ * ⭐ WHY PER-ROOT. The founder's log carried ONE aggregate number —
+ * `📦 Bounding box minY: 2553068.999066395`. An aggregate cannot distinguish "one stray
+ * object is 2 553 km away" from "every object is", and those have different fixes. It
+ * also cannot say WHICH ancestor carries the offset: L-604 already recorded a probe that
+ * read `obj.position` (LOCAL) and therefore "passed while measuring nothing" against a
+ * transform living on a parent. This reads WORLD space and prints the ANCESTRY, because
+ * by construction the offending transform is on an ancestor.
+ */
+export function describeExportRootBounds(roots: readonly THREE.Object3D[]): ExportRootBounds[] {
+  const ancestryOf = (obj: THREE.Object3D): string => {
+    const parts: string[] = [];
+    let p: THREE.Object3D | null = obj;
+    while (p) {
+      parts.push(p.name || p.type || '(unnamed)');
+      p = p.parent;
+    }
+    return parts.join(' <- ');
+  };
+
+  return roots.map((root) => {
+    const ud = root.userData as Record<string, unknown> | undefined;
+    const rawId = ud?.id ?? ud?.elementId;
+    const box = new THREE.Box3().setFromObject(root);
+    const empty = box.isEmpty();
+    return {
+      elementId: rawId === undefined || rawId === null ? '(unknown)' : String(rawId),
+      elementType: ud?.elementType ? String(ud.elementType) : '(none)',
+      ancestry: ancestryOf(root),
+      min: empty ? null : { x: box.min.x, y: box.min.y, z: box.min.z },
+      max: empty ? null : { x: box.max.x, y: box.max.y, z: box.max.z },
+    };
+  });
 }
 
 /**
@@ -330,6 +474,7 @@ function createFormaWhiteMaterials(
 function applyFormaWhiteOverride(
   clone: THREE.Object3D,
   materials: FormaWhiteMaterials,
+  mode: 'all' | 'glass-only' = 'all',
 ): void {
   // Resolve the nearest element-type hint walking up from a mesh (the glass element
   // types live on the window GROUP, not always the leaf pane mesh).
@@ -347,7 +492,16 @@ function applyFormaWhiteOverride(
     const mesh = child as THREE.Mesh;
     if (!(mesh as unknown as { isMesh?: boolean }).isMesh) return;
     const role = classifyFormaWhiteRole(elementTypeOf(child), mesh.material);
-    mesh.material = role === 'glass' ? materials.getGlass() : materials.getWhite();
+    if (role === 'glass') {
+      mesh.material = materials.getGlass();
+      return;
+    }
+    // §FIX-GLOBE-REAL-GLAZING (L-1422) — in `'glass-only'` mode the OPAQUE elements keep
+    // their REAL BIM materials. That is the whole point on the photoreal globe: the
+    // founder asked for MORE realism, and repainting every wall near-white would deliver
+    // the Forma STUDY look — strictly less realistic, the opposite of the request.
+    if (mode === 'glass-only') return;
+    mesh.material = materials.getWhite();
   });
 }
 
@@ -470,6 +624,33 @@ function logUnsupportedGltfMaterials(root: THREE.Object3D): void {
 }
 
 /**
+ * §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — true when `object` is a NON-SURFACE
+ * renderable: a line, a line-segment set, a point cloud or a sprite.
+ *
+ * ⭐ DERIVED, NOT ENUMERATED. `NON_BUILDING_EXPORT_ELEMENT_TYPES` above is a hand-kept
+ * list of element-type STRINGS, and it only ever sees ROOT elements — so the edge/outline
+ * overlays that live INSIDE an element subtree (`SlabEdges`, `WallEdges`,
+ * `floor-edge-overlay`) were structurally out of its reach no matter how many names were
+ * added to it. This predicate keys on what THREE says the object IS (`isLine` /
+ * `isLineSegments` / `isPoints` / `isSprite`), so a new overlay kind is caught the day it
+ * is authored and nobody has to remember to update anything.
+ *
+ * These are exactly the objects `applyFormaWhiteOverride` deliberately does not touch, and
+ * therefore exactly the `LineBasicMaterial`/`PointsMaterial`/`SpriteMaterial` offenders
+ * that `collectUnsupportedGltfMaterials` names (L-1206). A wireframe drawn over a photoreal
+ * globe is a drafting annotation, not architecture.
+ */
+export function isAnnotationOverlayObject(object: THREE.Object3D): boolean {
+  const o = object as unknown as {
+    isLine?: boolean;
+    isLineSegments?: boolean;
+    isPoints?: boolean;
+    isSprite?: boolean;
+  };
+  return o.isLine === true || o.isLineSegments === true || o.isPoints === true || o.isSprite === true;
+}
+
+/**
  * Exports fragments from a Three.js scene to a GLB binary format
  * Preserves hierarchy and lets Cesium handle world placement.
  * Model base is anchored to Y = 0.
@@ -482,7 +663,27 @@ function logUnsupportedGltfMaterials(root: THREE.Object3D): void {
  */
 export async function exportFragmentsToGLB(
   scene: THREE.Scene,
-  options?: { formaWhite?: boolean | FormaWhitePalette; triangleBudget?: number },
+  options?: {
+    formaWhite?: boolean | FormaWhitePalette;
+    triangleBudget?: number;
+    /**
+     * §FIX-GLOBE-REAL-GLAZING (L-1422) — remap ONLY window/curtain-wall/glazing meshes to
+     * the shared translucent glass material, leaving every opaque element on its REAL BIM
+     * material. This is the photoreal-globe half of `formaWhite`: C12 §11.4 recorded the
+     * globe/site asymmetry (site = full white study, globe = raw BIM materials) as an open
+     * founder decision; the decision is that glazing must read as GLASS on the globe too,
+     * WITHOUT whitening the building. Ignored when `formaWhite` is set (that already
+     * remaps glass).
+     */
+    glazingOverride?: boolean | FormaWhitePalette;
+    /**
+     * §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — drop line/point/sprite overlays
+     * (edge outlines, leaders, annotation strokes) from the exported tree. On for the
+     * Cesium REAL views, off for the plain GLB download so an interchange export is not
+     * silently reduced.
+     */
+    stripAnnotationOverlays?: boolean;
+  },
 ): Promise<string> {
   console.log("🚀 Starting GLB Export (Hierarchy preserved)...");
 
@@ -496,8 +697,15 @@ export async function exportFragmentsToGLB(
   const ownedOverrideMaterials: THREE.Material[] = [];
   // §FIX-FORMA-WHITE-MATERIAL-PER-ELEMENT (L-1207) — build the shared white/glass pair
   // ONCE for the whole export tree, not once per root element (see the type doc).
-  const formaWhiteMaterials = formaWhitePalette
-    ? createFormaWhiteMaterials(formaWhitePalette, ownedOverrideMaterials)
+  // §FIX-GLOBE-REAL-GLAZING (L-1422) — the glass-only request, when the full white
+  // override is NOT active. Same one-pair-per-TREE rule (C12 §11.4 / L-1207).
+  const glazingOnly = options?.glazingOverride;
+  const glazingPalette: FormaWhitePalette | null =
+    !formaWhitePalette && glazingOnly ? (glazingOnly === true ? {} : glazingOnly) : null;
+  const overridePalette = formaWhitePalette ?? glazingPalette;
+  const overrideMode: 'all' | 'glass-only' = formaWhitePalette ? 'all' : 'glass-only';
+  const formaWhiteMaterials = overridePalette
+    ? createFormaWhiteMaterials(overridePalette, ownedOverrideMaterials)
     : null;
 
   const exportRoot = new THREE.Group();
@@ -513,6 +721,11 @@ export async function exportFragmentsToGLB(
   const elementsToExport = selectElementsForExport(scene);
 
   console.log(`📊 Found ${elementsToExport.length} root elements to export.`);
+
+  // §GLB-EXPORT-AUTHORING-FRAME (L-1420) — the georeferencing frame the roots were found
+  // under, if any. Recorded for the log line, and non-null means the export DID have to
+  // divide one out (which is itself the C12 §1.5 violation still being live).
+  let exportFrame: THREE.Object3D | null = null;
 
   // §FIX-IFC-IN-CESIUM (L-696) — enforce the REAL-GLB triangle budget BEFORE the
   // expensive clone+serialise pass. Returning '' makes the caller keep the
@@ -537,13 +750,19 @@ export async function exportFragmentsToGLB(
   // scene-world transform lands at exactly the editor scene-world position. This
   // restores the ancestor X/Z (and rotation) that the bare `clone(true)` dropped,
   // so the GLB is no longer laterally shifted from the site origin on the globe.
+  let strippedOverlayObjects = 0;
   for (const element of elementsToExport) {
     // deep clone can fail if userData has circular refs (common in BIM)
     // We sanitize userData before cloning to avoid "Converting circular structure to JSON"
 
     // Simple sanitization: only keep primitive-like data for export
     // or just temporarily remove it if it's too complex
-    const clone = cloneWithBakedWorldTransform(element);
+    // §GLB-EXPORT-AUTHORING-FRAME (L-1420) — bake the element RELATIVE to its
+    // georeferencing frame, not in absolute scene-world space. See the root-cause note
+    // on the bounding-box guard below.
+    const frame = resolveExportFrame(element);
+    if (frame && !exportFrame) exportFrame = frame;
+    const clone = cloneWithBakedWorldTransform(element, frame);
 
     // §GLB-STRIP-LIGHTS (founder 2026-06-19, Cesium crash) — remove any THREE
     // lights (e.g. emissive furniture lamps' PointLights) before export. They
@@ -555,6 +774,18 @@ export async function exportFragmentsToGLB(
       if ((child as unknown as { isLight?: boolean }).isLight) _lights.push(child);
     });
     for (const l of _lights) l.parent?.remove(l);
+
+    // §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — same shape as the light strip above,
+    // and derived from what the object IS rather than from a name list. See
+    // `isAnnotationOverlayObject`.
+    if (options?.stripAnnotationOverlays) {
+      const _overlays: THREE.Object3D[] = [];
+      clone.traverse((child) => {
+        if (isAnnotationOverlayObject(child)) _overlays.push(child);
+      });
+      for (const o of _overlays) o.parent?.remove(o);
+      strippedOverlayObjects += _overlays.length;
+    }
 
     // Ensure the clone doesn't carry over circular references in userData
     clone.traverse((child) => {
@@ -575,7 +806,7 @@ export async function exportFragmentsToGLB(
     // white massing material (glass for windows). Assigns FRESH export-only materials
     // to the clone references (never mutates the live/shared materials).
     if (formaWhiteMaterials) {
-      applyFormaWhiteOverride(clone, formaWhiteMaterials);
+      applyFormaWhiteOverride(clone, formaWhiteMaterials, overrideMode);
     }
 
     exportRoot.add(clone);
@@ -604,7 +835,78 @@ export async function exportFragmentsToGLB(
   // entirely above Y = 0 (minY > 0 → lower it onto the ground) and NEVER lift a
   // model whose geometry extends below the floor plane (minY <= 0 → leave Y = 0 at
   // the floor, below-grade parts go below the tile surface as they should).
+  if (strippedOverlayObjects > 0) {
+    console.log(
+      `🧹 §GLB-EXPORT-STRIP-ANNOTATION-OVERLAYS (L-1421) — stripped ${strippedOverlayObjects} ` +
+        'line/point/sprite annotation object(s) from the exported tree (derived from the ' +
+        'object class, not from a name list).',
+    );
+  }
+  if (exportFrame) {
+    console.log(
+      `🧭 §GLB-EXPORT-AUTHORING-FRAME (L-1420) — exported RELATIVE to georeferencing frame ` +
+        `"${exportFrame.name || exportFrame.type}" (its world translation was divided out; ` +
+        'the GLB is in site-local authoring metres, as C12 §1.1 requires).',
+    );
+  }
+
   const boundingBox = new THREE.Box3().setFromObject(exportRoot);
+
+  // ------------------------------------------------------------
+  // §GLB-EXPORT-AUTHORING-FRAME (L-1420) — REFUSE a globe-scale export tree.
+  // ------------------------------------------------------------
+  // ⭐ THE DEFECT THIS CLOSES (founder, production, 2026-08-19). The 3D-Globe REAL export
+  // logged `📦 Bounding box minY: 2553068.999066395` — 2 553 km — and the building rendered
+  // as a continent-sized white slab hanging in the sky above the Earth.
+  //
+  // ROOT CAUSE, established by ARITHMETIC and not by magnitude (C12 §1.5 explicitly forbids
+  // concluding this from magnitude alone, and it is right to):
+  //   • `GISAreaLayout` calls `CesiumThreeBridge.setAnchor()` UNCONDITIONALLY at GIS init
+  //     with a hard-coded default anchor — the Sydney Opera House, lon 151.2153 / lat
+  //     -33.8568. (C12 §1.5 recorded "NOT verified that setAnchor() actually ran … it is
+  //     called from the separate cesium-model-transformed event"; there is a SECOND,
+  //     init-time call site it did not know about, and that one always runs.)
+  //   • `setAnchor()` re-parents every BIM root into `GIS_BIM_ROOT` and gives that group the
+  //     full ECEF `eastNorthUpToFixedFrame` matrix.
+  //   • WGS-84 ECEF **Y** for that anchor is **2 553 076.920 m**. The observed `minY` is
+  //     **2 553 068.999 m** — a residual of **-7.921 m**, which is exactly
+  //     `east_y x_local` for `east_y = -0.876435` and a **9.04 m** east extent: a house
+  //     footprint. The offset is the anchor translation; the remainder is the building.
+  //   • `cloneWithBakedWorldTransform` baked `matrixWorld`, so the export inherited that
+  //     frame. Anchoring then subtracted `minY` — removing the **Y** component only and
+  //     leaving X ≈ -4.65e6 and Z ≈ -3.53e6 — so Cesium seated a model that is ~5.8 Mm from
+  //     its own GLB origin. That is the slab in the sky.
+  //
+  // The frame-relative bake above is the fix. This guard is what makes a REGRESSION
+  // impossible to ship silently: if a tree still measures globe-scale after frame
+  // resolution, the GLB is unusable, so we DUMP PER ROOT (never one aggregate number —
+  // an aggregate cannot say whether all roots or one root carry the offset) and DECLINE.
+  // Declining keeps the massing study, the documented degradation the triangle budget
+  // already uses, rather than placing a 2 553 km building on the founder's globe again.
+  const worstExtent = boundingBox.isEmpty()
+    ? 0
+    : Math.max(
+        Math.abs(boundingBox.min.x), Math.abs(boundingBox.min.y), Math.abs(boundingBox.min.z),
+        Math.abs(boundingBox.max.x), Math.abs(boundingBox.max.y), Math.abs(boundingBox.max.z),
+      );
+  if (worstExtent >= AUTHORING_FRAME_MAX_TRANSLATION_M) {
+    console.error(
+      `⛔ §GLB-EXPORT-AUTHORING-FRAME (L-1420) — REFUSED: the export tree reaches ` +
+        `${Math.round(worstExtent).toLocaleString()} m from its own origin, beyond the ` +
+        `${AUTHORING_FRAME_MAX_TRANSLATION_M.toLocaleString()} m authoring bound (C12 §1.1). ` +
+        'These magnitudes are GLOBE/ECEF scale, not site-local — a georeferencing frame ' +
+        'leaked into the export and was NOT divided out. Per-root dump follows; THE ANCESTRY ' +
+        'IS THE ANSWER, the offending transform lives on a PARENT, not on the leaf.',
+    );
+    for (const b of describeExportRootBounds(elementsToExport)) {
+      console.error(
+        `   • ${b.elementType} id=${b.elementId} — min=${b.min ? `(${b.min.x.toFixed(1)}, ${b.min.y.toFixed(1)}, ${b.min.z.toFixed(1)})` : '(empty)'} ` +
+          `max=${b.max ? `(${b.max.x.toFixed(1)}, ${b.max.y.toFixed(1)}, ${b.max.z.toFixed(1)})` : '(empty)'} — ${b.ancestry}`,
+      );
+    }
+    disposeExportRoot(exportRoot, ownedOverrideMaterials);
+    return '';
+  }
 
   if (!boundingBox.isEmpty()) {
     const minY = boundingBox.min.y;

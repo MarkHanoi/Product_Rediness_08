@@ -54,6 +54,18 @@ export class CesiumThreeBridge {
     // This allows us to keep the scene identity while transforming the content
     this.gisRoot = new THREE.Group();
     this.gisRoot.name = "GIS_BIM_ROOT";
+    // §GLB-EXPORT-AUTHORING-FRAME (L-1420) — DECLARE the frame this group imposes on its
+    // subtree, so world-space consumers can DERIVE it instead of matching on the name
+    // "GIS_BIM_ROOT". `setAnchor()` gives this group the full ECEF
+    // `eastNorthUpToFixedFrame` matrix (translation ~6.37e6 m), which is the C12 §1.5
+    // known violation of the §1.1 LTP-ENU mandate — still OPEN, still a P1. Until §9's
+    // SiteFrame lands and the group becomes LTP-ENU-relative, the honest mitigation is
+    // that the frame SAYS what it is: `@pryzm/file-format`'s `isGeoreferencedFrame`
+    // reads this key (arm A) and divides the matrix out before serialising a GLB, so the
+    // exported model is site-local metres rather than ECEF. The key is the string
+    // constant `SCENE_FRAME_USERDATA_KEY`; it is written literally here because
+    // `plugins/` (L6) must not import `file-format` (L3) for a userData tag.
+    this.gisRoot.userData.pryzmSceneFrame = "geo-ecef";
   }
 
   /**

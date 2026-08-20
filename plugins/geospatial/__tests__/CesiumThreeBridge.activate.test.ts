@@ -25,7 +25,13 @@ vi.mock('cesium', () => ({
 }));
 
 vi.mock('@pryzm/renderer-three/three', () => ({
-  Group: class { name = ''; },
+  // ⚠ §GLB-EXPORT-AUTHORING-FRAME (L-1420) — `userData` is NOT decoration here. Every real
+  // `THREE.Object3D` initialises `userData = {}` (three Object3D.js), and this double used to
+  // omit it, so the double was LESS capable than the thing it stood for and the suite went red
+  // the moment production code did what production code legitimately does with any Object3D.
+  // A double that cannot represent a real property of its subject cannot falsify anything
+  // about it — keep this in step with three's Object3D.
+  Group: class { name = ''; userData: Record<string, unknown> = {}; },
   Matrix4: class { set() {} copy() {} },
   Scene: class {},
   PerspectiveCamera: class {},
@@ -112,5 +118,23 @@ describe('§FIX-GLOBE-ACTIVATE-STALE-VIEWER (L-313) — CesiumThreeBridge.activa
     const bridge = new CesiumThreeBridge(viewer as never, makeWorld());
     expect(() => bridge.activate()).not.toThrow();
     expect(viewer._postRender.addEventListener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('§GLB-EXPORT-AUTHORING-FRAME (L-1420) — GIS_BIM_ROOT DECLARES the frame it imposes', () => {
+  it('stamps userData.pryzmSceneFrame so world-space consumers DERIVE the frame instead of matching the name', () => {
+    // `setAnchor()` gives this group the full ECEF `eastNorthUpToFixedFrame` matrix — the C12
+    // §1.5 known violation of the §1.1 LTP-ENU mandate, still OPEN. Until §9's SiteFrame lands,
+    // the group must at least SAY what it is, so `@pryzm/file-format`'s `isGeoreferencedFrame`
+    // (arm A) can divide the matrix out of a GLB export rather than baking ECEF into the file
+    // the founder's globe loads. Matching on the string "GIS_BIM_ROOT" would be exactly the
+    // remembered-list defect this repository keeps re-shipping.
+    const world = makeWorld();
+    const bridge = new CesiumThreeBridge(() => null, world);
+    const gisRoot = (bridge as unknown as { gisRoot: { name: string; userData: Record<string, unknown> } }).gisRoot;
+    expect(gisRoot.name).toBe('GIS_BIM_ROOT');
+    expect(gisRoot.userData.pryzmSceneFrame).toBe('geo-ecef');
+    // Not 'authoring' — that value would mean "site-local metric BIM frame", which this is not.
+    expect(gisRoot.userData.pryzmSceneFrame).not.toBe('authoring');
   });
 });
