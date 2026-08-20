@@ -560,6 +560,54 @@ Timings: recovery+upload+build+push ≈ 35 min wall-clock on this uplink (slower
 `tsc` exit 0 · `check:isolation` clean · `test:server` 613/613. Not run: root vitest,
 test:pryzm1, Playwright (same declared gap as §6).
 
+### 6.5.9 ⛔ §4 NO LONGER WORKS ON THIS MACHINE — 8 consecutive failures, cause ISOLATED, fix NOT FOUND (2026-08-20)
+
+**Read this before spending an hour on the same wall.** Eight deploys, every one dying at the same
+line, none reaching a push:
+
+```
+👀 checking remote builder compatibility with WIREGUARDLESS deploys ... ✓ compatible builder found
+INFO Override builder host with: https://fly-builder-….fly.dev  (was tcp://[fdaa:…]:2375)
+WARN Failed to start remote builder heartbeat: failed to parse daemon host "npipe:////./pipe/docker_engine"
+Error: failed to fetch an image or build from source: failed to parse daemon host "npipe:…"
+```
+
+⭐ **flyctl HAS a working wireguard address and discards it**, then takes a path that resolves a local
+docker daemon and hits the Windows default named pipe.
+
+**MEASURED, so nobody re-derives it:**
+- `docker` is **not on PATH**; `~/.docker/config.json` **does not exist**. ⇒ §6.5.6's stated mechanism
+  (*"the npipe comes from the CONTEXT FILE"*) is **FALSE on this machine**, and the `DOCKER_CONFIG`
+  guard it prescribes has nothing to override. It appeared to work twice by luck — on runs where
+  flyctl happened to keep the wireguard path.
+- **`DOCKER_HOST=` (empty) is counterproductive** — an empty value reads as UNSET and routes straight
+  back to the same built-in default.
+- **`DOCKER_HOST=tcp://127.0.0.1:2375` (parseable) does NOT help** — the variable never reaches that
+  code path.
+- **`--wg=true` does NOT help** — the flag documents itself as `default true`; flyctl overrides its
+  own default on the compatibility check. (Tried, reverted; an ineffective flag with an explanatory
+  comment is worse than none.)
+- **§4 BARE — no guards, no flags, exactly as written — fails IDENTICALLY.** ⭐ This is the clean data
+  point: the contract's own command, unmodified, no longer works here.
+- §2.1 is **satisfied** (builder `shared-cpu-8x:16384MB`), so this is not the OOM path.
+- `flyctl v0.4.74` (2026-07-22), app `fly-builder-shimmering-glow-9973`.
+
+⭐ **THE DEPLOY PHASE IS FINE — ONLY THE BUILD PHASE IS BROKEN.** Proven the same day: after these
+failures, a §6.5.7 reference-only deploy of an already-pushed image succeeded **first try**, because
+it never constructs a docker client. So the fault is confined to *producing* an image locally.
+
+**Therefore, until this is diagnosed, the working paths are:**
+1. **GitHub Actions builds it** (this contract's own §7 item 1 — decouple build from deploy). The
+   manual path is documented as an Actions-outage fallback; right now the inverse holds.
+2. **Run Docker Desktop**, giving the named pipe a real daemon to resolve.
+3. If any image reaches the registry by any route, **§6.5.7 + `--strategy rolling` (§6.5.8) ships it
+   in under a minute.**
+
+⛔ **Do NOT keep retrying §4 hoping for a different result** — that is ~20 minutes per attempt to fail
+at the same line, and it was tried eight times so that the next reader does not have to.
+
+---
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,
