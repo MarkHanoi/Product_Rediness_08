@@ -438,3 +438,14 @@ Both paths produce identical results because the `wall.opening.create` E.5.6 bri
 - Level-dependent wall height resolution → `WallStore.resolveHeight()` and C05 §2.
 - `IFC4X3` export of doors and windows embedded in walls → C05 §4.
 - Plugin-contributed hosted element types (custom openings via plugin SDK) → C07 §3.
+- ⭐ **HORIZONTAL hosts — slabs, floor finishes, ceilings — and the voids a STAIR cuts through them.**
+  *(added 2026-08-20, lane STAIR1.)* This contract is the **host-WALL** contract: its §1 definitions
+  name a door or window owned by a single wall, its §2 coordinate model is
+  `baseLine[0] + offset × wallDir`, and it has **no vertical axis at all** (§2.1). It was measured
+  against the founder's
+  *"the stair cuts the slab but not the floor finish"* defect and **does not govern it** — recorded
+  here so the next lane does not re-read §3 hoping for a general rule and conclude from its silence
+  that none exists. The governing rule is **[C98 §L-1431](C98-ELEMENT-STAIR.md)**: the set of hosts a
+  stair pierces is **DERIVED** from the registered horizontal families × the levels the stair rises
+  through × plan containment — never enumerated. Per-family obligations are in
+  [C89](C89-ELEMENT-FLOOR.md), [C88](C88-ELEMENT-CEILING.md) and [C92](C92-ELEMENT-SLAB.md).

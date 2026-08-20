@@ -519,3 +519,35 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+
+---
+
+## §L-1431 — A CEILING IS A HORIZONTAL PIERCING HOST, AND `holeElements` HAD NO STAIR WRITER (added 2026-08-20, lane STAIR1)
+
+Measured 2026-08-20 while closing the founder's *"the stair cuts the slab but not the floor finish"*:
+`CeilingData.holeElements[]` is a complete void mechanism — declared (`CeilingTypes.ts:52-70`),
+schema'd, indexed, written through `CeilingStore.addHoleElement` / `removeHoleElement`, and
+rendered — and **no stair path had ever produced one.** A stair rising through a level pierces the
+ceiling below that level's deck as surely as it pierces the deck itself.
+
+> **CE-H1 — The ceiling is a first-class piercing HOST.** The rule, the derived level span and the
+> containment test are owned by [C98 §L-1431](C98-ELEMENT-STAIR.md) /
+> `packages/command-registry/src/stair/StairHorizontalHostPiercing.ts`; a fourth horizontal family
+> joins by appending ONE registry entry, never by a new branch in a stair command.
+>
+> What this contract records is what the ceiling must PROVIDE: `holeElements[]` entries with
+> `shape: 'polygon'` in **world XZ** (the same frame as `boundary.polygon`), a stable
+> `id === elementId` from `stairHostPierceId`, and `subType: 'access-hatch'` — **not `'generic'`**:
+> a void with a known cause names its cause.
+>
+> The void is **DERIVED**, therefore never snapshotted: a delete removes it by id and an undo
+> re-derives it from the restored stair. ⚠ A hand-edited stair void would not survive that
+> round-trip; stair voids are not hand-editable today, and **if that ever changes the decision must
+> be revisited, not silently inherited.**
+
+**First writer, live:** `CreateStairCommand`; healed by `DeleteStairCommand`. Both declare
+`'ceiling'` in `affectedStores` (C03 §4.6 U-2).
+
+⛔ **NOT MEASURED by this lane:** whether `holeElements` survive save/load, and whether the reflected
+ceiling plan draws the hole. Only the 3-D builder path was measured.

@@ -540,3 +540,55 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §L-1431 — `serviceHoles` HAD **ZERO WRITERS**. THE STAIR IS NOW ITS FIRST ONE (added 2026-08-20, lane STAIR1)
+
+**Founder, production:** *"the stair creates an opening on the SLAB — but NOT on the FLOOR FINISH."*
+
+### The measurement
+
+`FloorData.serviceHoles[]` is a fully built void mechanism: declared
+(`FloorTypes.ts:126-143`), schema'd (`FloorDataSchema.ts:200`), indexed
+(`FloorStore._serviceHoleIndex`), written (`FloorStore.addServiceHole` / `removeServiceHole`) and
+**rendered** — `FloorPanelBuilder._buildShapeWithHoles:303-322` pushes each hole onto
+`THREE.Shape.holes`, and `_buildEdgeOverlay` draws their outlines.
+
+⭐ **`grep -rn "addServiceHole" packages plugins apps src` returned ONE hit — its own definition.**
+**Zero callers, ever.** Every rendering-side capability was present and nothing in the repo had ever
+produced a hole to render. This is C84 EI-9 in its purest form: not a missing mechanism, an
+**unreached** one. *(It joins §4's `floor.delete` — this family's defects are absences of
+REACHABILITY, never of the field map.)*
+
+### NORMATIVE — `'floor'` is a HORIZONTAL HOST, and it is pierced like one
+
+> **F-H1 — A floor finish is a first-class piercing HOST, not a passenger on its slab.**
+> `FloorData.hostSlabId` is an *optional* binding; §2 names `FloorStore` the single authority for the
+> finish. ⛔ **A void cut in the slab does NOT cut the finish**, and any fix premised on the finish
+> being a "layer of the slab" is aimed at the wrong family. Measured 2026-08-20 and recorded because
+> the framing is the natural wrong guess.
+
+> **F-H2 — The stair's void in a finish is DERIVED and OWNED elsewhere.** The rule, the level span
+> and the containment test live in
+> [C98 §L-1431](C98-ELEMENT-STAIR.md) / `StairHorizontalHostPiercing.ts`. This contract records only
+> what the finish must PROVIDE: `serviceHoles[]` entries with `shape: 'polygon'` in **world XZ**
+> (the same frame as `boundary.polygon` — `FloorPanelBuilder` feeds both into one `THREE.Shape` with
+> no transform between them), a stable `id === elementId` from `stairHostPierceId`, and
+> `subType: 'floor-hatch'` — **not `'generic'`**: a void with a known cause names its cause.
+
+> **F-H3 — The void is DERIVED, so it is never snapshotted.** A delete removes it by id and an undo
+> **re-derives** it from the restored stair. ⚠ **Consequence, stated:** a hand-edited stair void
+> would not survive delete/undo. Stair voids are not hand-editable today; **if they ever become so,
+> this decision must be revisited, not silently inherited.**
+
+**First writer, live:** `CreateStairCommand` (via `pierceStairHorizontalHosts`), with
+`DeleteStairCommand` as the healing counterpart. Both now declare `'floor'` in `affectedStores`
+(C03 §4.6 U-2).
+
+### ⛔ NOT MEASURED by this lane
+
+- **Whether `serviceHoles` survive save/load.** `ProjectSerializer.ts:1048` `deepStrip`s the whole
+  floor record, so they plausibly do — **plausibly is not measured**. If they do not, a project with
+  a stair reopens with its finish solid. Filed as C98 §13 DELTA #22.
+- **Whether the plan projector draws the hole.** Only the 3-D `FloorPanelBuilder` path was measured.
