@@ -391,6 +391,16 @@ declare global {
             formaMode: 'map2d' | 'plan' | '3d';
             buildingFidelity: 'massing' | 'real';
         };
+        /** §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — claim the buildability read-out (the
+         *  C58 buildable-envelope card) for a host element; `null` releases it back to the
+         *  viewport. Returns whether a card is present afterwards.
+         *
+         *  ⚠ `false` means the C58 render decided there is NOTHING HONEST TO SHOW — not that
+         *  the mount failed. The caller must say so in words; a blank container reads as a
+         *  crash rather than as "we could not determine this" (L-553). It must never be
+         *  softened into showing zeros: a 0/0/0 envelope REFUSES to draw rather than overstate
+         *  on real land (§L-616 / C58 §1.16). Registered by GISAreaLayout. */
+        pryzmMountEnvelopeCard?: (host: HTMLElement | null) => boolean;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
          *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
          *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by

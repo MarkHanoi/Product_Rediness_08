@@ -1404,6 +1404,19 @@ export const PROJECT_BROWSER_STYLES = `
 /* ─── The buildability read-out, re-hosted into this panel (L-1362) ────────
    The card keeps its own internal markup — it is re-parented, not rebuilt — so
    this only neutralises the floating-card geometry it no longer needs. */
+/* The honest empty state. It is TEXT, deliberately: C58 refuses to draw an envelope it
+   cannot derive, and the panel must carry that refusal through in words rather than as a
+   blank gap (which reads as a crash) or as zeros (which read as "nothing is buildable"). */
+.pb-gis-envelope-empty {
+    padding: 8px 10px;
+    border: 1px dashed var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg);
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+    line-height: 1.45;
+}
+
 .pb-gis-envelope-slot {
     margin-top: 8px;
     border-top: 1px solid var(--app-border-light);

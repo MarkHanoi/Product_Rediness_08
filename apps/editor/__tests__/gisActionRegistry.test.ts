@@ -414,3 +414,63 @@ describe('§GIS-ACTION-REGISTRY (L-1361) — active and unavailable read WITHOUT
         expect(el.querySelectorAll('.pb-gis-action--active').length).toBe(0);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §GIS-ENVELOPE-REHOST (L-1362) — the buildability read-out is MOVED, not rebuilt
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The founder asked for the buildability panel in the GIS panel. The tempting shape is
+// to read the envelope in the panel and print the numbers. That would be catastrophic in
+// a specific way: the C58 card is not a number-printer, it is four render templates
+// carrying a REFUSAL DOCTRINE — a 0/0/0-setback envelope refuses to draw rather than
+// overstate on real land (§L-616 / C58 §1.16), a persisted-ring-only load shows a
+// REDUCED card with no confidence badge because that provenance was not re-derived, and
+// an UNKNOWN constraint must never render as a zero (C84 EI-1b: failure and emptiness
+// becoming the same value).
+//
+// A second implementation would eventually disagree with the first about whether land is
+// buildable. So these arms pin the RE-HOST, and pin that the refusal survives it.
+
+describe('§GIS-ENVELOPE-REHOST (L-1362) — re-hosted, never re-implemented', () => {
+    const PANEL_SRC = readFileSync(
+        resolve(SRC_DIR, 'ui', 'ViewBrowser', 'ProjectBrowserPanel.ts'), 'utf8');
+
+    it('registers the mount hook in production source', () => {
+        const squash = (t: string): string => t.replace(/\s+/g, '');
+        const hit = [...SRC_TEXT].find(([, text]) => squash(text).includes('window.pryzmMountEnvelopeCard='));
+        expect(
+            hit,
+            'nothing assigns window.pryzmMountEnvelopeCard — the GIS panel would silently show ' +
+            'its empty state forever, which reads as "no envelope" rather than "not wired".',
+        ).toBeDefined();
+    });
+
+    it('asks the owner to render, rather than reading the envelope itself', () => {
+        expect(PANEL_SRC).toContain('pryzmMountEnvelopeCard');
+        // ⛔ The panel must not acquire its own route to the envelope data. Each of these
+        // would be the beginning of a second, divergent buildability surface.
+        for (const forbidden of [
+            'getLastBuildableEnvelope',
+            'resolveRenderableBuildableEnvelope',
+            'envelopeToMassing',
+            'buildCapacityComparison',
+        ]) {
+            expect(
+                PANEL_SRC.includes(forbidden),
+                `ProjectBrowserPanel reads ${forbidden} directly. The buildability card must be ` +
+                `RE-HOSTED (C06 §12.3), not re-derived — a second reader eventually disagrees ` +
+                `with the first about whether land is buildable.`,
+            ).toBe(false);
+        }
+    });
+
+    it('carries the refusal through in WORDS when nothing is determinable', () => {
+        // The hook returns false when C58 decided there is nothing honest to show. A blank
+        // container would read as a crash (L-553); zeros would read as "nothing is
+        // buildable" (EI-1b). Neither is acceptable, so an explicit sentence is required.
+        expect(PANEL_SRC).toContain('gis-envelope-empty');
+        expect(PANEL_SRC).toContain('No buildable envelope determined yet');
+        // …and it must not offer a numeric stand-in.
+        expect(PANEL_SRC).not.toMatch(/envelope[^\n]*\b0\s*m²/i);
+    });
+});

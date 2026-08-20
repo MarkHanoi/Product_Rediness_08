@@ -2156,6 +2156,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // repaints from the authority's subscription, not from this handler reaching into a
     // viewport — see `apps/editor/src/ui/site/envelopeVisibility.ts`.
     let envelopePanel: HTMLDivElement | null = null;
+    /** §GIS-ENVELOPE-REHOST (L-1362) — where the buildability card should render, when a
+     *  surface has claimed it. Set through `window.pryzmMountEnvelopeCard`; ignored the
+     *  moment the element leaves the document, so a closed panel cannot strand the card. */
+    let envelopeCardPreferredHost: HTMLElement | null = null;
     // §L-621b — user-dismissed state for the Buildable-Envelope CARD (chrome), distinct
     // from the massing GEOMETRY on/off, which lives in the ONE authority
     // (`envelopeVisibility.ts`, §ENVELOPE-ONE-VISIBILITY / L-1170). Mirrors the
@@ -2274,6 +2278,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  is scoped to its own pane), not floated over the whole `#container`. Falls back
      *  to `#container` for the classic single-view Forma. */
     const getForma3dHostEl = (): HTMLElement | null => {
+        // §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — the GIS panel wins when it is on screen.
+        //
+        // Founder 2026-08-20: "we had a panel with the BUILDABILITY etc — this should go also
+        // to the GIS panel." This ONE line is the whole re-host, and that is the point.
+        //
+        // The buildability read-out is not a set of numbers to reproduce: it is four render
+        // templates carrying a REFUSAL DOCTRINE (a full determination, a REDUCED card when only
+        // the ring was persisted and provenance was not re-derived, a coverage-gap card, and a
+        // refusal card for `status:'none'` WITH a refusal object — plus the branch that removes
+        // the card entirely when there is genuinely no envelope). Re-implementing any of that in
+        // the panel would be the C06 §12.3 breach that produced two disagreeing GIS surfaces in
+        // the first place, and here it would disagree about whether land is buildable.
+        //
+        // So nothing is copied. The card's own `ensureEnvelopePanel` already re-homes the SAME
+        // element whenever its host changes; pointing that host at the GIS panel's slot moves the
+        // real surface, with every refusal branch intact and still owned by C58.
+        //
+        // `document.contains` is the self-healing part: when the GIS section is closed or
+        // rebuilt its slot leaves the document, and the card falls back to the viewport host
+        // rather than being stranded on a detached node.
+        if (envelopeCardPreferredHost && document.contains(envelopeCardPreferredHost)) {
+            return envelopeCardPreferredHost;
+        }
         if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
             const right = siteAuthoringPanes.getPaneElement(RIGHT_PANE);
             if (right) return right;
@@ -4408,6 +4435,46 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmToggleEnvelopeCard = () => {
         if (!envelopePanel) { envelopeCardHidden = false; applyFormaView('plan'); }
         else { toggleEnvelopeCard(); }
+    };
+
+    /** §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — claim the buildability read-out for a host.
+     *
+     *  Pass the element it should render into; pass `null` to release it back to the viewport.
+     *  Returns whether a card is actually present afterwards.
+     *
+     *  ⚠ THE RETURN VALUE IS LOAD-BEARING AND MUST NOT BE IGNORED. `false` does not mean
+     *  "failed to mount" — it means the C58 render decided there is NOTHING HONEST TO SHOW
+     *  (no parcel, no solved envelope, no persisted ring). A caller that renders an empty
+     *  container on `false` produces a blank panel, and a blank panel reads as a crash rather
+     *  than as "we could not determine this" — the L-553 defect. The caller must say so in
+     *  words instead.
+     *
+     *  ⛔ It must NEVER be turned into "show zeros". A 0/0/0 envelope REFUSES to draw rather
+     *  than overstate on real land (§L-616 / C58 §1.16), and an UNKNOWN constraint rendered as
+     *  a zero is the EI-1b defect where failure and emptiness become the same value. This hook
+     *  moves the existing card; it does not get to soften what the card refuses to say. */
+    window.pryzmMountEnvelopeCard = (host: HTMLElement | null): boolean => {
+        envelopeCardPreferredHost = host;
+        try {
+            // The card's own render decides which of its four templates applies — or that none
+            // does and the element should be removed. This call does not pre-empt that choice.
+            refreshEnvelopePanel();
+        } catch (e) {
+            console.warn('[gis][envelope-card] re-host refresh failed (non-fatal):', e);
+        }
+        const present = !!envelopePanel && !!envelopePanel.parentElement;
+        // The card is closable (its own ✕ sets `envelopeCardHidden`). A host that just claimed
+        // it is asking to SEE it, so honour that the same way the old launcher pill did rather
+        // than silently handing back a hidden element.
+        if (present && host && envelopeCardHidden) {
+            envelopeCardHidden = false;
+            applyEnvelopeCardVisibility();
+        }
+        console.log(
+            `[gis][envelope-card] §GIS-ENVELOPE-REHOST host=${host ? (host.className || host.id || 'element') : 'viewport'} ` +
+                `→ card ${present ? 'PRESENT' : 'ABSENT (nothing determinable — caller must say so in words)'}.`,
+        );
+        return present;
     };
 
     /** §GIS-ACTION-REGISTRY (L-1361, C06 §12) — report which site view / fidelity is CURRENT.

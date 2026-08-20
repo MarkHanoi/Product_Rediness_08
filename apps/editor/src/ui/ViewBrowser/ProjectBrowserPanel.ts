@@ -849,6 +849,53 @@ export class ProjectBrowserPanel {
         root.appendChild(sep);
         root.appendChild(renderGisActions(window as unknown as GisCapabilityHost));
 
+        // ── §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — the buildability read-out ──
+        //
+        // Founder 2026-08-20: "we had a panel with the BUILDABILITY etc — this should go
+        // also to the GIS panel." Not the toggle that draws the envelope (that is the
+        // `site.buildable-envelope` action above) — the NUMBERS: buildable area, setbacks,
+        // edificabilitat/height, the verdict.
+        //
+        // ⛔ NOTHING IS RE-IMPLEMENTED HERE. That card is four render templates carrying a
+        // refusal doctrine — a full determination, a REDUCED card when only the ring was
+        // persisted and its provenance was not re-derived, a coverage-gap card, and a
+        // refusal card — plus the branch that removes itself when there is genuinely no
+        // envelope. Rebuilding that in this panel would be the exact C06 §12.3 breach that
+        // gave this codebase two disagreeing GIS surfaces, except this time the two
+        // surfaces would disagree about whether land is buildable.
+        //
+        // So the panel offers a SLOT and asks the owner to render into it. The element that
+        // appears is the same element, produced by the same C58 code, with every refusal
+        // branch intact.
+        const envelopeSlot = document.createElement('div');
+        envelopeSlot.className = 'pb-gis-envelope-slot';
+        envelopeSlot.setAttribute('data-testid', 'gis-envelope-slot');
+        root.appendChild(envelopeSlot);
+
+        // Mounted after the slot is in the DOM: the host seam ignores a detached element on
+        // purpose, so that a closed panel can never strand the card.
+        queueMicrotask(() => {
+            if (!envelopeSlot.isConnected) return;
+            const present = window.pryzmMountEnvelopeCard?.(envelopeSlot) ?? false;
+            if (present) return;
+
+            // ⚠ `false` does NOT mean the mount failed. It means C58 determined there is
+            // nothing honest to show yet. Saying that in WORDS is mandatory: a blank
+            // container reads as a crash rather than as "we could not determine this"
+            // (L-553), and it must never be softened into zeros — a 0/0/0 envelope REFUSES
+            // to draw rather than overstate on real land (§L-616 / C58 §1.16), and an
+            // unknown constraint rendered as a zero makes failure and emptiness the same
+            // value (C84 EI-1b).
+            const empty = document.createElement('div');
+            empty.className = 'pb-gis-envelope-empty';
+            empty.setAttribute('data-testid', 'gis-envelope-empty');
+            empty.textContent =
+                'No buildable envelope determined yet. Set a site location and commit a parcel '
+                + 'boundary — the figures appear here once they can be derived, and stay absent '
+                + 'rather than shown as zero when they cannot.';
+            envelopeSlot.appendChild(empty);
+        });
+
         return root;
     }
 
