@@ -1951,7 +1951,12 @@ describe('§FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer …"', () =>
     expect(r.kind).toBe('refusal');
     if (r.kind !== 'refusal') return;
     expect(r.intent).toBe('add-wall-layer');
-    expect(r.reason).toContain('how thick');
+    // Asserts the INTENT — "it asks concretely for a thickness" — not one phrasing.
+    // The copy was rewritten (L-1260..L-1263) to explain WHY a layer needs one
+    // ("adding one makes the wall thicker"), which is strictly better and which the
+    // literal 'how thick' could not survive. A test that pins prose blocks an
+    // improvement to prose; this one pins the thing the test's own name claims.
+    expect(r.reason).toMatch(/thick/i);
   });
 
   it('an unknown finish refuses by LISTING the real vocabulary', () => {
@@ -1959,8 +1964,18 @@ describe('§FEAT-WALL-LAYER-ADD-BATCH — "add a 10mm plaster layer …"', () =>
     expect(r.kind).toBe('refusal');
     if (r.kind !== 'refusal') return;
     expect(r.intent).toBe('add-wall-layer');
-    expect(r.reason).toContain('plaster');
-    expect(r.reason).toContain('limewash');
+    // The invariant is "it LISTS the real vocabulary and states its true size" —
+    // which is what this test's own name claims. It must NOT pin a particular
+    // member: `finishRefusalCopy` deliberately stopped reciting 39 nicknames
+    // because, in its own words, "that list was the measurable lie: it read as an
+    // inventory while 205 materials existed", so a founder who typed a name he was
+    // LOOKING AT in the picker was told the product did not know it. It now names
+    // the real total and eight live examples. Pinning 'limewash' asserted that one
+    // arbitrary row stayed inside a sample of eight drawn from 205 — a fact about
+    // the sample, not about the refusal.
+    expect(r.reason).toMatch(/\b\d{2,}\s+materials\b/);   // states the REAL size
+    expect(r.reason).toContain('including');              // and LISTS examples
+    expect(r.reason).toContain('plaster');                // at least one real one
   });
 
   it('selection scope with no wall selected refuses and names what IS selected', () => {
