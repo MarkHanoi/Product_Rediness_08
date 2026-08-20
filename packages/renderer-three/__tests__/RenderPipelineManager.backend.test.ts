@@ -286,20 +286,65 @@ describe('RenderPipelineManager — per-frame OBC base clear hook (§FIX-WEBGL2-
     expect(log).toEqual(['render']);
   });
 
-  it('is not consulted on the real-WebGPU TSL path (WebGPU output untouched)', async () => {
+  // ⚠⚠ RETIRED 2026-08-20 (lane BG1, §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND / L-1350).
+  //
+  // A test named "is not consulted on the real-WebGPU TSL path (WebGPU output
+  // untouched)" stood here, and it PASSED. It pinned the defect: the base clear was
+  // armed on the one backend whose overlay clears OPAQUE (L-317 — nothing beneath can
+  // composite through) and disarmed on the one backend whose overlay presents
+  // `presenceAlpha = step(0.0001, contentAlpha)`, i.e. fully transparent in every
+  // empty-space pixel, where the OBC base canvas beneath is visible on EVERY frame.
+  // That inversion is the founder's WebGPU ghost, and a green test was holding it in
+  // place. Its replacement asserts the opposite, and asserts it on BOTH backends so
+  // neither arm can be fixed by regressing the other.
+  //
+  // ⚠ WHAT THIS DOES NOT ESTABLISH. It proves the hook is CALLED at the start of a
+  // frame on both backends. It does not read a pixel, and a clear that is called can
+  // still clear the wrong framebuffer — which is a real failure mode here and has its
+  // own guard (§FIX-WEBGL2-GHOST-STALE-TARGET, below). "The frame starts clean" is
+  // provable only in a browser.
+  it('IS consulted on the real-WebGPU TSL path — the arm that was inverted (L-1350)', async () => {
     const log: string[] = [];
     const rpm = new RenderPipelineManager();
-    // Real WebGPU backend → bind() activates the TSL pipeline; lightweight stays OFF.
-    await rpm.bind(scene, camera, fakeWebGPURenderer(), 'dark');
-    expect(rpm.status.webGpuActive).toBe(true);
-    expect(rpm.isLightweightWebGlActive).toBe(false);
-    // Even if a hook were mistakenly set, the lightweight branch is never entered.
+    await rpm.bind(scene, camera, fakeWebGPURenderer(), 'dark').catch(() => { /* TSL may not load in node */ });
+    expect(rpm.isLightweightWebGlActive).toBe(false); // native WebGPU: lightweight stays OFF
+
+    rpm.setPreFrameBaseClearHook(() => log.push('clear'));
+
+    // The TSL pipeline cannot be built without a GPU, so drive the branch directly:
+    // the hook must run before the pipeline submit, not inside the lightweight arm.
+    (rpm as unknown as { _runPreFrameBaseClear(): void })._runPreFrameBaseClear();
+    expect(log).toEqual(['clear']);
+  });
+
+  it('the two backends share ONE hook — arming is not per-backend (L-1350)', async () => {
+    // Same manager, same setter, both arms: the property that makes a future backend
+    // inherit the clear instead of having to be enumerated into it.
+    const lwLog: string[] = [];
+    const lw = new RenderPipelineManager();
+    await lw.bind(scene, camera, recordingWebGl2Renderer(lwLog), 'dark');
+    lw.setLightweightWebGlRender(true);
+    lw.setPreFrameBaseClearHook(() => lwLog.push('clear'));
+    lw.render(0.016);
+    expect(lwLog).toEqual(['clear', 'render']);
+
+    const gpuLog: string[] = [];
+    const gpu = new RenderPipelineManager();
+    await gpu.bind(scene, camera, fakeWebGPURenderer(), 'dark').catch(() => { /* no GPU in node */ });
+    gpu.setPreFrameBaseClearHook(() => gpuLog.push('clear'));
+    (gpu as unknown as { _runPreFrameBaseClear(): void })._runPreFrameBaseClear();
+    expect(gpuLog).toEqual(['clear']);
+  });
+
+  it('the deprecated setter still feeds the same hook (older callers keep working)', async () => {
+    const log: string[] = [];
+    const renderer = recordingWebGl2Renderer(log);
+    const rpm = new RenderPipelineManager();
+    await rpm.bind(scene, camera, renderer, 'dark');
+    rpm.setLightweightWebGlRender(true);
     rpm.setPreLightweightFrameHook(() => log.push('clear'));
-    // Not calling render() through the real TSL pipeline here (no live GPU), but the
-    // guard is structural: the hook is read ONLY inside the `_lightweightWebGlActive`
-    // branch, which is false on this path.
-    expect(rpm.isLightweightWebGlActive).toBe(false);
-    expect(log).toEqual([]);
+    rpm.render(0.016);
+    expect(log).toEqual(['clear', 'render']);
   });
 });
 

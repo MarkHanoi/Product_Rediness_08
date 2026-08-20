@@ -1732,6 +1732,24 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // activate/live-swap callers keep their single audit log.
     const clearObcBaseFramebuffer = (reason: string, quiet = false): void => {
         try {
+            // ── §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — SELF-GATE ────────
+            // This closure is now armed as a PER-FRAME hook on EVERY Phase-5 backend
+            // (it used to be armed only on the lightweight WebGL arm, which is the one
+            // arm where the overlay is opaque and the clear can change nothing). That
+            // makes the gate below load-bearing rather than defensive.
+            //
+            // The OBC canvas is NOT always our base layer. `enableEnhancedBloom`,
+            // `enableSSGI` (legacy) and the viewport path tracer each HIDE the PRYZM
+            // overlay (`pryzmCanvas.style.display = 'none'`) and render their own image
+            // INTO this canvas — while RenderPipelineManager keeps ticking, because
+            // nothing suspends it. Clearing here every frame in that state would wipe
+            // their output on the frame after they drew it.
+            //
+            // So: clear ONLY while the PRYZM overlay is the visible surface. When the
+            // overlay is hidden the OBC canvas is somebody else's output and there is
+            // nothing stale to hide — it IS the picture.
+            if (pryzmCanvas && pryzmCanvas.style.display === 'none') return;
+
             const obc = postproductionRenderer.three as THREE.WebGLRenderer;
 
             // §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — CLEAR THE CANVAS, NOT WHOEVER'S
@@ -3242,22 +3260,38 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // keeps that single loop alive for the whole drag + damping tail — so
             // the scene now repaints continuously while moving and idles at rest.
             renderPipelineManager.setLightweightWebGlRender(true);
-            // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — re-clear the silenced
-            // OBC base framebuffer on EVERY lightweight move-frame (not just once at
-            // activate). §FIX-OBC-BASE-STALE-COMPOSITE's single clear is insufficient
-            // during §PERF-WEBGL2-RENDER-ON-MOVE continuous repaint: the base buffer
-            // (preserveDrawingBuffer:false) can resurface under the transparent
-            // overlay, ghosting the old geometry through it as the camera rotates.
-            // Feeding the same closure as a per-frame hook keeps the base clean every
-            // frame. WebGL2 path ONLY — RPM invokes it exclusively in the lightweight
-            // branch, so native WebGPU is untouched.
-            renderPipelineManager.setPreLightweightFrameHook(
-                () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true),
-            );
             console.log(
                 '[initScene] §PERF-WEBGL2-RENDER-ON-MOVE — lightweight per-frame WebGL render enabled ' +
-                '(webgl-fallback backend; continuous repaint during camera movement). ' +
-                '§FIX-WEBGL2-GHOST-ON-ROTATE per-frame OBC base clear armed.',
+                `(${pryzmRendererBackend} backend; continuous repaint during camera movement).`,
+            );
+        }
+
+        // ── §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) ────────────────────────
+        // ARM THE BASE CLEAR ON THE CONDITION, NOT THE BACKEND. This used to live
+        // inside the lightweight-WebGL arm above, i.e. on the ONE backend where the
+        // overlay clears OPAQUE (§FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE / L-317) and
+        // therefore the ONE backend where a stale base canvas cannot show through at
+        // all. On native WebGPU — where the overlay's output alpha is
+        // `presenceAlpha = step(0.0001, contentAlpha)`, deliberately 0 in every
+        // empty-space pixel — the base canvas IS visible through the overlay on every
+        // frame, and that arm was explicitly disarmed (`setPreLightweightFrameHook(null)`
+        // on a swap to WebGPU). The fix was armed where it could not matter and
+        // disarmed where it was the only thing that could. That is the founder's WebGPU
+        // ghost ("reminiscencia" — the model drawn twice, the faded copy at an older
+        // camera pose).
+        //
+        // The condition the clear answers — "the OBC base canvas may still hold a
+        // previous composite when RPM presents a frame" — is true on EVERY Phase-5
+        // backend, so it is armed once, here, for all of them. The closure self-gates on
+        // the overlay being the visible surface (bloom / legacy-SSGI / VPT render INTO
+        // the OBC canvas with the overlay hidden), so arming it always is safe.
+        if (isPhase5Active) {
+            renderPipelineManager.setPreFrameBaseClearHook(
+                () => clearObcBaseFramebuffer('per-frame', /* quiet */ true),
+            );
+            console.log(
+                '[initScene] §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND per-frame OBC base clear armed ' +
+                `on backend '${pryzmRendererBackend}' (armed on the CONDITION, not the backend — L-1350).`,
             );
         }
 
@@ -3623,6 +3657,31 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         //  uses SceneTheme.getStoredColor() (reads localStorage) so it survives across
         //  multiple view switches.  We deliberately do NOT write to localStorage on the
         //  forced white change — only the user's explicit color-picker choices persist.
+        // ── §VIEWPORT-BG-LOG-SAYS-WHAT-IT-DID (L-1351) ──────────────────────────
+        // Both log lines below used to end "(all layers)". THEY DID NOT WRITE ALL
+        // LAYERS, and they never can on a Phase-5 backend. `SceneTheme._applyHex()`
+        // is `viewport.style.background = hex; if (!window.pryzmCanvas) { scene.background
+        // = ...; renderer.setClearColor(...) }` — and `window.pryzmCanvas` is non-null on
+        // EVERY Phase-5 backend (webgpu AND webgl-fallback AND webgl-only), set at
+        // phase-5 activate. So on every backend the founder actually runs, `_applyHex`
+        // writes exactly ONE of its three layers: the CSS. The other two are written by
+        // `renderPipelineManager.setColor()` on the line above, through the
+        // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME authority.
+        //
+        // A line that reports success for work another component owns is a no-op that
+        // prints a claim — the defect class this repo keeps finding (a version count that
+        // could not fail honestly, an audit detector only its own tests satisfy). The
+        // colour IS applied; the line simply must not claim the mechanism it did not use,
+        // because a reader debugging "still grey" was being told all three surfaces were
+        // covered by a call that covered one.
+        const describeBackgroundWriters = (hex: string): string =>
+            window.pryzmCanvas
+                ? `Writers: RenderPipelineManager.setColor('${hex}') owns scene.background + the ` +
+                  'renderer clear (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME); SceneTheme wrote the ' +
+                  '<bim-viewport> CSS ONLY (pryzmCanvas active).'
+                : `Writers: SceneTheme._applyHex('${hex}') wrote CSS + scene.background + the ` +
+                  'renderer clear (no PRYZM overlay — OBC owns the canvas).';
+
         let _savedBgBeforeOrtho: string | null = null;
         window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
             const p = payload as { type?: string; camera?: THREE.Camera } | undefined;
@@ -3643,13 +3702,19 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 renderPipelineManager.setColor('#ffffff');
                 const vp = container.querySelector('bim-viewport') as HTMLElement | null;
                 if (vp) SceneTheme._applyHex('#ffffff', world, vp);
-                console.log('[initScene] Orthographic view — background forced to white (all layers), SSGI suspended.');
+                console.log(
+                    '[initScene] Orthographic view — background forced to white, SSGI suspended. ' +
+                    describeBackgroundWriters('#ffffff'),
+                );
             } else if (_savedBgBeforeOrtho !== null) {
                 // B1: Restore the user's saved background across all three layers.
                 renderPipelineManager.setColor(_savedBgBeforeOrtho);
                 const vp = container.querySelector('bim-viewport') as HTMLElement | null;
                 if (vp) SceneTheme._applyHex(_savedBgBeforeOrtho, world, vp);
-                console.log(`[initScene] Perspective view restored — background: ${_savedBgBeforeOrtho} (all layers)`);
+                console.log(
+                    `[initScene] Perspective view restored — background: ${_savedBgBeforeOrtho}. ` +
+                    describeBackgroundWriters(_savedBgBeforeOrtho),
+                );
                 _savedBgBeforeOrtho = null;
             }
 
@@ -4540,14 +4605,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                 // drive a per-frame plain WebGL render on EITHER WebGL backend, and turn
                 // it OFF when swapping to a real WebGPU backend (the TSL pipeline renders).
                 rpm.setLightweightWebGlRender(newIsLightweightWebGl);
-                // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — arm the per-frame
-                // OBC base clear on EITHER WebGL backend, and DISARM it when swapping to
-                // a real WebGPU backend (no OBC composite there; the TSL pipeline owns
-                // the paint). Mirrors the lightweight-render toggle above.
-                rpm.setPreLightweightFrameHook?.(
-                    newIsLightweightWebGl
-                        ? () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true)
-                        : null,
+                // §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — arm the per-frame OBC
+                // base clear on EVERY backend. This was `newIsLightweightWebGl ? hook :
+                // null` — it DISARMED the clear on exactly the backend that needs it. The
+                // comment that stood here said "no OBC composite there; the TSL pipeline
+                // owns the paint", and the second half is true while the first is not:
+                // the TSL pipeline owns the paint and presents it with
+                // `presenceAlpha = step(0.0001, contentAlpha)`, so its empty-space pixels
+                // are transparent and the OBC canvas underneath composites straight
+                // through them. See the RPM field doc for the full post-mortem.
+                rpm.setPreFrameBaseClearHook?.(
+                    () => clearObcBaseFramebuffer('per-frame', /* quiet */ true),
                 );
 
                 // §PERF-DPR-BINDS-THE-LIVE-RENDERER (L-1149) — re-bind the DPR service to
@@ -4661,10 +4729,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                     // Both calls are idempotent no-ops when already in the right state.
                     const oldIsLightweightWebGl = isLightweightWebGlBackend(oldBackend);
                     rpm.setLightweightWebGlRender(oldIsLightweightWebGl);
-                    rpm.setPreLightweightFrameHook?.(
-                        oldIsLightweightWebGl
-                            ? () => clearObcBaseFramebuffer('per-frame (webgl2 render-on-move)', /* quiet */ true)
-                            : null,
+                    // §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — armed on every
+                    // backend on the rollback path too, symmetric with the success path.
+                    rpm.setPreFrameBaseClearHook?.(
+                        () => clearObcBaseFramebuffer('per-frame', /* quiet */ true),
                     );
                     try { (unifiedFrameLoop as any).start?.(); } catch { /* ignore */ }
                     console.warn('[initScene] §RENDERER-LIVE-SWAP rolled back — previous renderer restored, viewport alive.');
@@ -4691,9 +4759,17 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // HEX. Every fix therefore had to guess which of five surfaces the user was
     // looking at, and two of them fixed a surface that was already correct.
     //
-    // There are exactly five things that can be "the background of the 3D view",
-    // stacked back-to-front, and only the top one that is actually opaque is what
-    // the user sees:
+    // ⚠ CORRECTED 2026-08-20 (lane BG1, L-1352). This read "There are exactly five
+    // things that can be 'the background of the 3D view'". There are exactly five
+    // BACKGROUNDS. That is not the same set as "things that can look grey", and the
+    // difference is the whole reason a fifth report exists: the probe enumerated the
+    // surfaces the previous fixes had already visited. A `groundShadowCatcher` entry
+    // (surface 0, below) now covers the one thing DRAWN that can wash the viewport grey.
+    // If a sixth report arrives with all six entries white, the next thing to add is
+    // whatever it names — the list is a ledger, not a proof of completeness.
+    //
+    // The five background surfaces, stacked back-to-front; only the top one that is
+    // actually opaque is what the user sees:
     //   1. the PRYZM overlay canvas   — RenderPipelineManager's per-frame clear
     //                                   (`_lightweightBgColor`, opaque) or nothing
     //   2. `scene.background`         — RPM's §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME
@@ -4749,8 +4825,69 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // 1 and 2 are absent IS the founder's grey; #ffffff is correct.
             bimViewportCss: vpEl ? getComputedStyle(vpEl).backgroundColor : null,
             containerCss: getComputedStyle(container).backgroundColor,
+            // ── SURFACE 0 — §PROBE-ENUMERATES-BACKGROUNDS-NOT-GREYS (L-1352) ──────
+            // The five surfaces above are the five BACKGROUNDS. The founder's grey does
+            // not have to be a background: anything DRAWN can be grey, and one thing in
+            // this scene is a 4 km × 4 km translucent plane.
+            //
+            // `GroundShadowCatcher` is a `THREE.ShadowMaterial` plane, opacity 0.32,
+            // `renderOrder -1`, centred on the origin. Its alpha, in three r183's node
+            // renderer (which BOTH 'webgpu' and 'webgl-fallback' use), is
+            // `ShadowMaskModel.finish()`: `diffuseColor.a *= shadowMask.oneMinus()` — so
+            // it is transparent where LIT (mask 1) and paints 32 % black where the mask
+            // reads 0. `RealEnvironmentService` already records, twice, that on this
+            // renderer it "composites as fully shadowed → an opaque grey fill" and calls
+            // that a SEPARATE open follow-up. A visible catcher whose mask reads 0 over
+            // its unoccluded area is a flat grey wash over the whole lower viewport with
+            // a darker blob where the real shadow falls — which is a background report
+            // that no background fix can ever close.
+            //
+            // So the probe now names it. If `overlayClear`/`sceneBackground` read white
+            // while the screen is grey, look HERE, and confirm with the one-click
+            // discriminator: turning ground shadows off must make the grey vanish.
+            groundShadowCatcher: (() => {
+                try {
+                    let found: Record<string, unknown> | null = null;
+                    (world.scene.three as THREE.Scene).traverse((o: THREE.Object3D) => {
+                        if (found || o.userData?.isGroundShadowCatcher !== true) return;
+                        const m = (o as THREE.Mesh).material as
+                            { type?: string; opacity?: number; transparent?: boolean } | undefined;
+                        found = {
+                            visible: o.visible,
+                            visibleInTree: o.visible && (o.parent?.visible ?? true),
+                            material: m?.type ?? 'none',
+                            opacity: m?.opacity ?? null,
+                            transparent: m?.transparent ?? null,
+                        };
+                    });
+                    return found ?? 'not-in-scene';
+                } catch { return 'probe-failed'; }
+            })(),
         };
         console.log('[initScene] §VIEWPORT-BG-PROBE', report);
+
+        // §PROBE-ENUMERATES-BACKGROUNDS-NOT-GREYS (L-1352) — do not print a VERDICT
+        // (a wrong verdict is worse than none, and this family has produced two).
+        // Print the NEXT MEASUREMENT: when every background surface reads white and the
+        // screen does not, the grey is being DRAWN, and there is exactly one full-scene
+        // translucent surface in this scene that can do it.
+        const bgLooksWhite =
+            (rendererClear === null || rendererClear === '#ffffff') &&
+            (report.sceneBackground === null || report.sceneBackground === '#ffffff');
+        const catcherVisible =
+            typeof report.groundShadowCatcher === 'object' &&
+            (report.groundShadowCatcher as { visible?: boolean } | null)?.visible === true;
+        if (bgLooksWhite && catcherVisible) {
+            console.log(
+                '[initScene] §VIEWPORT-BG-PROBE next measurement — every BACKGROUND surface above ' +
+                'reads white while the ground shadow-catcher is VISIBLE. If the viewport still looks ' +
+                'grey, the grey is DRAWN, not a background: the catcher is a ShadowMaterial plane whose ' +
+                'alpha is opacity x (1 - product of every shadow-casting light mask), so it washes its ' +
+                'in-frustum footprint grey whenever any of those masks reads 0. CONFIRM by turning ' +
+                'ground shadows OFF — if the grey vanishes it is the catcher, and no background fix ' +
+                'can ever close it. See §DIAG-GROUND-SHADOW-CASTING-LIGHTS for the light count.',
+            );
+        }
         return report;
     };
     window.pryzmViewportBackgroundReport = reportViewportBackground;

@@ -1,6 +1,6 @@
 # ADR-0108 — WebGL2 ghost/duplicate-on-rotate: per-frame OBC base framebuffer clear
 
-- **Status:** ACCEPTED (2026-07-02) — IMPLEMENTED.
+- **Status:** ACCEPTED (2026-07-02) — IMPLEMENTED; **SCOPING SUPERSEDED 2026-08-20** by §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — see the amendment at the end. The mechanism stands; "WebGL2 backend only" does not.
 - **Tag:** `§FIX-WEBGL2-GHOST-ON-ROTATE` (audit W2.2 / L-05 / Q5 / F7).
 - **Owner:** renderer (`@pryzm/renderer-three`) + editor engine (`apps/editor/src/engine/initScene.ts`).
 - **Affects:** `RenderPipelineManager` (lightweight WebGL render path),
@@ -104,3 +104,56 @@ reuses the **existing** `clearObcBaseFramebuffer` seam rather than adding a para
   (`RenderPipelineManager.backend.test.ts` — `§FIX-WEBGL2-GHOST-ON-ROTATE` block, 5 tests, all green).
 - In-browser (WebGL backend): rotating a multi-wall model shows no trailing/duplicated geometry;
   WebGPU output byte-unchanged.
+
+---
+
+## ⚠⚠ AMENDMENT — 2026-08-20 (lane BG1, `§FRAME-STARTS-CLEAN-ON-EVERY-BACKEND` / L-1350)
+
+**Status of this ADR: SUPERSEDED IN ITS SCOPING, RETAINED IN ITS MECHANISM.** The per-frame OBC
+base clear is right. **"WebGL2 backend only" was wrong, and it was wrong in the worst possible
+direction: it armed the clear on the one backend where it cannot change a pixel, and left it off the
+one where it is the only thing that can.**
+
+**THE FACT THIS ADR DID NOT HAVE.** The Context above says the PRYZM overlay is *"cleared to
+transparent every frame (`setClearAlpha(0)`), so the OBC base shows through its transparent pixels"*
+— and then scopes the fix to WebGL2. Both halves cannot be true at once:
+
+| backend | overlay empty-space pixel | can the OBC base composite through? |
+|---|---|---|
+| `webgl-fallback` / `webgl-only` | **OPAQUE** — `setClearColor(_lightweightBgColor, 1)`, added by `§FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE` / L-317 **after this ADR** | **No — impossible.** An opaque surface composites nothing from beneath. |
+| `webgpu` (native) | **alpha 0** — the TSL output node emits `presenceAlpha = step(0.0001, contentAlpha)`, deliberately 0 in empty space so the layer below fills the background | **Yes — on every frame.** |
+
+L-317 made the WebGL2 overlay opaque as a *stronger* fix for the same ghost. That silently made
+**this** ADR's per-frame clear redundant on its only armed path — while the transparent-overlay
+condition it was written for moved, entirely, to native WebGPU. Nobody re-scoped it, so the founder
+reported the identical symptom on WebGPU ("*reminiscencia* — the model drawn twice") with the fix
+for it sitting in the codebase, armed elsewhere.
+
+⛔ **A GREEN TEST PINNED THE INVERSION.** `RenderPipelineManager.backend.test.ts` carried *"is not
+consulted on the real-WebGPU TSL path (WebGPU output untouched)"*. It passed. It asserted the defect
+as a feature. Retired 2026-08-20.
+
+**WHAT CHANGES.**
+
+1. The hook is armed on the **CONDITION**, not the backend. The condition is *"the framebuffer
+   beneath the PRYZM overlay may still hold a previous frame's composite when this manager
+   presents"* — true on every backend `RenderPipelineManager` renders on.
+2. `setPreLightweightFrameHook` → **`setPreFrameBaseClearHook`** (old name kept as a deprecated
+   alias). One `_runPreFrameBaseClear()` is called from **both** render branches.
+3. `initScene` arms it **once, unconditionally, for every Phase-5 backend** — boot, live swap and
+   rollback. A future backend inherits it rather than having to be enumerated into it.
+4. `clearObcBaseFramebuffer` **self-gates**: it returns early while `pryzmCanvas` is
+   `display: none`, because `enableEnhancedBloom`, legacy `enableSSGI` and the viewport path tracer
+   each hide the overlay and render **into** the OBC canvas while RPM keeps ticking. Unconditional
+   arming without this gate would wipe their image the frame after they drew it. (The old
+   lightweight-only arm had the same latent hole; it simply never reached it.)
+
+**The one-shot clears stay.** `§FIX-OBC-BASE-STALE-COMPOSITE` at phase-5 activate and post-live-swap
+are still correct — they cover the hand-over instant. What this amendment records is that **a
+one-shot cannot answer a condition that recurs every frame**, which is the sentence this ADR should
+have opened with.
+
+**Guard:** `packages/renderer-three/__tests__/RenderPipelineManager.frameStartsCleanBothBackends.test.ts`
+pins the frame-start state on BOTH backends — background and base clear — so a future fix cannot
+repair one arm by regressing the other. ⚠ It asserts calls and state, **not pixels**; see the header
+of that file for what it does and does not establish.

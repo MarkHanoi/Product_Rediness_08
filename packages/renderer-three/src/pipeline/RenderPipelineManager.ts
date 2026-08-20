@@ -317,10 +317,37 @@ export class RenderPipelineManager implements IViewSwitchListener {
     // initScene injects its `clearObcBaseFramebuffer` closure here so the OBC base
     // is re-cleared (color+depth invalidated) on EVERY lightweight frame, keeping
     // the transparent overlay the sole visible surface throughout the motion.
-    // This field is ONLY consulted inside the `_lightweightWebGlActive` branch,
-    // which is set true EXCLUSIVELY for the WebGL2 backend — the native-WebGPU TSL
-    // render path never reads it, so WebGPU output is byte-unchanged.
-    private _preLightweightFrameHook: (() => void) | null = null;
+    // ⚠⚠ CORRECTED 2026-08-20 (lane BG1, §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND / L-1350).
+    // This paragraph used to end: "This field is ONLY consulted inside the
+    // `_lightweightWebGlActive` branch, which is set true EXCLUSIVELY for the WebGL2
+    // backend — the native-WebGPU TSL render path never reads it, so WebGPU output is
+    // byte-unchanged." That was an accurate description of the code and a DESCRIPTION OF
+    // THE DEFECT, because the two arms were INVERTED:
+    //
+    //   • On the WebGL backends the overlay clears OPAQUE — §FIX-WEBGL2-GHOST-ON-ROTATE-
+    //     INCOMPLETE / L-317 made it `setClearColor(_lightweightBgColor, 1)`. An opaque
+    //     surface cannot composite anything from underneath. The base clear therefore
+    //     CANNOT change a pixel on the only path that ran it.
+    //   • On native WebGPU the overlay's output alpha is
+    //     `presenceAlpha = step(0.0001, contentAlpha)` (see {@link _buildPipeline}) — i.e.
+    //     EXACTLY 0 in every empty-space pixel, by design, so the CSS/OBC layer below is
+    //     what fills the background. Anything left on the silenced OBC base canvas is
+    //     therefore visible THROUGH the overlay on every frame — and this was the one path
+    //     that disarmed the clear (initScene passed `null` on a swap to WebGPU).
+    //
+    // The clear was armed exactly where it is impossible for it to matter and disarmed
+    // exactly where it is the only thing that can matter. That is the founder's WebGPU
+    // "reminiscencia" — a ghost copy of the model at an older camera pose showing through
+    // the transparent overlay.
+    //
+    // The hook is now keyed on the CONDITION it exists for — "the base framebuffer may
+    // still hold a previous composite when this manager presents a frame" — which is true
+    // on every backend this manager renders on. It runs at the start of BOTH branches, so
+    // a future backend inherits it instead of having to be enumerated. The hook itself
+    // (initScene's `clearObcBaseFramebuffer`) owns the question of whether the OBC canvas
+    // is currently someone ELSE's output surface (bloom / legacy-SSGI / VPT all render
+    // INTO it with the overlay hidden) and no-ops in that case.
+    private _preFrameBaseClearHook: (() => void) | null = null;
 
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
@@ -730,20 +757,47 @@ export class RenderPipelineManager implements IViewSwitchListener {
     get isLightweightWebGlActive(): boolean { return this._lightweightWebGlActive; }
 
     /**
-     * §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — inject a callback run at the
-     * START of every lightweight WebGL2 move-frame, immediately before the overlay
-     * `renderer.render()`. Used by initScene to re-clear the silenced OBC base
-     * framebuffer per frame so its stale content cannot resurface under the
-     * transparent PRYZM overlay during §PERF-WEBGL2-RENDER-ON-MOVE repaints
-     * (the ghost/duplicate-on-rotate trail).
+     * §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350, supersedes the backend-scoped
+     * §FIX-WEBGL2-GHOST-ON-ROTATE / ADR-0108 arming) — inject a callback run at the
+     * START of every frame this manager presents, on EITHER branch, immediately
+     * before the paint.
      *
-     * The hook is consulted ONLY inside the lightweight branch of {@link render},
-     * which runs EXCLUSIVELY on the WebGL2 'webgl-fallback' backend — the native
-     * WebGPU TSL path never invokes it, so WebGPU rendering is untouched. Pass
-     * `null` to clear the hook. Idempotent; carries no I/O (a pure setter).
+     * THE CONDITION, not the backend. The invariant is *"the framebuffer stacked
+     * BENEATH the PRYZM overlay must not still hold a previous frame's composite when
+     * this manager presents"*. That is true on every backend this manager renders on,
+     * for two different reasons (see {@link _preFrameBaseClearHook} for the full
+     * post-mortem of why arming it per-backend put it on the wrong one).
+     *
+     * The callback must be SELF-GATING: it is called unconditionally, so it — not this
+     * manager — owns the question of whether the base canvas is currently somebody
+     * else's output surface (bloom / legacy-SSGI / viewport path tracer all render INTO
+     * the OBC canvas with the overlay hidden, and clearing it there would erase their
+     * image every frame). initScene's `clearObcBaseFramebuffer` carries that guard.
+     *
+     * Pass `null` to clear the hook. Idempotent; carries no I/O (a pure setter).
+     */
+    setPreFrameBaseClearHook(hook: (() => void) | null): void {
+        this._preFrameBaseClearHook = hook;
+    }
+
+    /**
+     * @deprecated Use {@link setPreFrameBaseClearHook}. Retained because the name
+     * encodes the retired "lightweight-only" scoping that WAS the defect; kept so an
+     * older caller does not silently lose its hook. Same behaviour.
      */
     setPreLightweightFrameHook(hook: (() => void) | null): void {
-        this._preLightweightFrameHook = hook;
+        this.setPreFrameBaseClearHook(hook);
+    }
+
+    /**
+     * Run the injected base-clear once, best-effort. A hook throw must never break the
+     * frame — the paint is more important than the clear. Called from BOTH render
+     * branches so neither backend can be the one that forgets.
+     */
+    private _runPreFrameBaseClear(): void {
+        if (!this._preFrameBaseClearHook) return;
+        try { this._preFrameBaseClearHook(); }
+        catch { /* base-clear is best-effort; the frame still paints */ }
     }
 
     /**
@@ -1042,17 +1096,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
             const camera   = this._camera;
             if (!renderer || !scene || !camera) return this._skipFrame('unbound:lightweight');
             try {
-                // §FIX-WEBGL2-GHOST-ON-ROTATE (W2.2 / ADR-0108) — clear/invalidate
-                // the silenced OBC base framebuffer per move-frame BEFORE painting
-                // the transparent overlay, so a stale base frame cannot resurface
-                // under the overlay's transparent pixels during continuous repaint
-                // (the ghost/duplicate-on-rotate trail). WebGL2 path ONLY — this
-                // branch never runs on the native-WebGPU TSL path. Best-effort:
-                // a hook throw must not break the overlay render.
-                if (this._preLightweightFrameHook) {
-                    try { this._preLightweightFrameHook(); }
-                    catch { /* base-clear is best-effort; overlay render proceeds */ }
-                }
+                // §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — clear/invalidate the
+                // silenced OBC base framebuffer BEFORE painting. On THIS branch the
+                // overlay clears opaque (L-317) so the clear is belt-and-braces; it is
+                // the WebGPU branch below that actually needs it. Both call the same
+                // helper so neither can be the arm that was forgotten.
+                this._runPreFrameBaseClear();
                 this._assertLightweightFrameTarget(renderer);
                 // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — render the overlay
                 // OPAQUE (clear alpha 1) to the theme background so the silenced OBC base
@@ -1154,6 +1203,20 @@ export class RenderPipelineManager implements IViewSwitchListener {
                 this._outlinesActive = false;
             }
 
+            // §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND (L-1350) — THE ARM THAT WAS MISSING.
+            // The next statement is what makes this branch need the clear: the overlay
+            // presents with `setClearAlpha(0)` and an output alpha of
+            // `presenceAlpha = step(0.0001, contentAlpha)`, so EVERY empty-space pixel of
+            // this canvas is fully transparent and whatever sits on the silenced OBC base
+            // canvas underneath is visible through it. §FIX-OBC-BASE-STALE-COMPOSITE
+            // clears that base ONCE (phase-5 activate / post-live-swap) — a one-shot
+            // cannot answer a condition that recurs every frame, and the OBC renderer is
+            // BORROWED (GPU pick, view-render cache, thumbnail capture) with
+            // `autoClear = false`, so a stale composite can land on it at any time. That
+            // stale composite, seen through a moving transparent overlay, is the founder's
+            // WebGPU ghost / "reminiscencia". Self-gating hook — see
+            // {@link setPreFrameBaseClearHook}.
+            this._runPreFrameBaseClear();
             (this._renderer as any)?.setClearAlpha?.(0);
             rp.render();
             // §L900-FRAME-SKIP-ATTRIBUTION — the ONE place a WebGPU frame is actually

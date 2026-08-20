@@ -261,6 +261,40 @@ export class RealEnvironmentService {
             const t = key?.target?.position;
             let casterCount = 0;
             this._scene?.traverse((o) => { if ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).castShadow) casterCount++; });
+
+            // §DIAG-GROUND-SHADOW-CASTING-LIGHTS (L-1353) — THE MEASUREMENT THIS DUMP WAS
+            // MISSING, and the one the "attempt 9" note above needs to be decidable.
+            //
+            // The catcher's alpha is not a property of the key light. In three r183 the
+            // node renderer (used by BOTH 'webgpu' and 'webgl-fallback') maps
+            // THREE.ShadowMaterial -> ShadowNodeMaterial -> ShadowMaskModel, whose whole
+            // body is:
+            //     constructor: shadowMask = 1
+            //     direct({ lightNode }): if (lightNode.shadowNode !== null)
+            //                                shadowMask *= lightNode.shadowNode
+            //     finish():   diffuseColor.a *= shadowMask.oneMinus()
+            // (three/src/nodes/functions/ShadowMaskModel.js, read 2026-08-20.)
+            //
+            // So the plane's opacity is `material.opacity * (1 - PRODUCT over EVERY
+            // shadow-casting direct light)`. It is transparent only while EVERY such light
+            // reports "lit" at that fragment. ONE extra casting light whose depth map this
+            // renderer never wrote contributes ~0, the product collapses, and the catcher
+            // paints a flat `opacity` wash of black over its whole in-frustum footprint -
+            // a grey field with the real shadow darker inside it, i.e. the founder's
+            // recurring "the viewport background is grey" on a background stack that
+            // measures pure white (initScene §VIEWPORT-BG-PROBE).
+            //
+            // The dump already printed the KEY light's map. It printed nothing about the
+            // other terms in the product, so a reader could not tell a broken key light
+            // from a healthy key light multiplied by a stranger. Count them.
+            let castingLights = 0;
+            const castingLightNames: string[] = [];
+            this._scene?.traverse((o) => {
+                const l = o as THREE.Object3D & { isLight?: boolean; castShadow?: boolean };
+                if (l.isLight !== true || l.castShadow !== true) return;
+                castingLights++;
+                if (castingLightNames.length < 6) castingLightNames.push(`${l.type}:${l.name || '(unnamed)'}`);
+            });
             // §DIAG-GROUND-SHADOW-MAPTYPE (L-205 attempt 9) — the grey rectangle is the
             // shadow camera's ground footprint reading "fully shadowed" everywhere, which
             // points at a WebGPU depth map that is never written. Print the shadow MAP's
@@ -284,7 +318,10 @@ export class RealEnvironmentService {
                 `shadowMapType=${shMap?.constructor?.name ?? 'none'} shadowTexType=${shMap?.texture?.constructor?.name ?? 'none'} ` +
                 `lightAutoUpdate=${sh?.autoUpdate} ` +
                 `catcher{visible=${this._ground.mesh.visible},mat=${mat?.type ?? 'none'},opacity=${mat?.opacity ?? 'none'}} ` +
-                `casters=${casterCount}`,
+                `casters=${casterCount} ` +
+                // §DIAG-GROUND-SHADOW-CASTING-LIGHTS (L-1353) — >1 here means the catcher's
+                // transparency is a PRODUCT of that many shadow masks; see the block above.
+                `castingLights=${castingLights}[${castingLightNames.join(', ')}]`,
             );
         } catch { /* diagnostics are advisory — never break the caster gate */ }
     }
