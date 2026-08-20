@@ -781,6 +781,158 @@ Rev 2 described these as the target. Four of five are built; the table says whic
     understand: *"I don't recognise the unit “dregress” — did you mean degrees? Nothing was
     changed."*
 
+18. ⛔⛔ **A FAN-OUT CAPABILITY IS IN BREACH OF [C78](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) §12.1 —
+    AND A DISCLOSURE IS NOT A DISPENSATION** (added rev 6, lane RAC2, 2026-08-20, **L-1445**).
+
+    **C78 §12.1 is a MUST:** *"One user gesture — the cause and every consequence the plan bound to
+    it — is **one undo unit**."* A `fanOutPerId` capability dispatches **N commands for one
+    sentence**. It is therefore **IN BREACH**, and this contract says so in those words.
+
+    **C78 §12.2 explains why the breach is quiet rather than loud:** gesture identity is causal and
+    *"absence is not membership"* — commands carrying no gesture id *"degrade to chronological undo,
+    **silently**"*. Nothing fails. The user presses Ctrl+Z once and one railing changes back.
+
+    > ⭐ **THE WORDING THAT HAD TO CHANGE.** `CapabilityExecutionSpec.fanOutPerId` shipped calling
+    > this *"a disclosed trade, not an oversight"*, on the strength of the reply saying **"undo with
+    > Ctrl+Z (N steps)"**. That sentence described **the honesty of the reply**, not **the compliance
+    > of the behaviour**, and the two were being conflated. The reply is honest. The behaviour still
+    > breaches §12.1. ⛔ **Do not re-describe a fan-out as a permitted exception.**
+
+    **Population, measured 2026-08-20** — three capabilities, and **the breach predates the two that
+    prompted this rule**:
+
+    | capability | verb | since |
+    |---|---|---|
+    | `set-room-occupancy` | `room.setOccupancy` | §FEAT-CHAT-ROOM-OCCUPANCY — **live and uncited until now** |
+    | `set-stair-type` | `stair.updateParameters` | L-1441 |
+    | `set-stair-railing-type` | `element.changeType` | L-1441 |
+
+    ### ⭐ THE COMPLIANT FIX IS NAMED BY C78 ITSELF, AND IT IS **NOT** "WAIT FOR A BATCH VERB"
+
+    **C78 §12.3** provides the mechanism: commands are bound into one gesture by threading
+    `gestureId` through `executeCommand`'s **`opts.gestureId`** or **`CommandMetadata.gestureId`**.
+    **A fan-out that stamped ONE gestureId across its N commands would be §12.1-compliant with no new
+    bus verb at all.** Minting a `*Batch` twin per family is the *other* fix, and the more expensive
+    one.
+
+    > **18.a — MUST. The fix spans TWO SEAMS, and they are named here so the lane that picks it up
+    > does not re-derive the split:**
+    >
+    > | # | Seam | What must change | Owner |
+    > |---|---|---|---|
+    > | 1 | `packages/ai-host` | `BusCommandRef` is `{type, payload}` — **no metadata channel**. It needs one (a `gestureId`), and `applyExecutionSpec`'s fan-out branch must stamp one id across the N refs it emits. | the RAC lane |
+    > | 2 | `apps/editor/src/ui/ai/ZeroTokenChatBridge.ts` | the dispatch loop must **carry** that id into `opts.gestureId` / `CommandMetadata.gestureId`. | the editor lane |
+    >
+    > ⛔ **DO NOT LAND SEAM 1 ALONE.** A `gestureId` on `BusCommandRef` that no dispatcher reads is a
+    > channel nobody consumes — *authored-but-unwired*, this repository's standing bottleneck — and
+    > it would make the breach **harder** to see, because the field would read as if it were doing
+    > something. Lane RAC2 declined to add it for exactly this reason, and that was correct.
+
+    > **18.b — MUST. The count is a DEBT CEILING, not a design allowance.**
+    > `§GATE-FANOUT-RATCHET` (`packages/ai-host/__tests__/chat-capability-registry.test.ts`) caps
+    > `fanOutPerId` specs at **3**, shrink-only, taken over the whole `EXECUTION_SPECS` table so no
+    > family table can hide one. A second arm asserts a fan-out spec names a **singular** id field —
+    > a plural one would stamp the whole resolved list into every command.
+    >
+    > ⭐ **Why the ceiling had to exist.** The catalogue-family gate used to assert
+    > `busCommand.endsWith('SystemTypeBatch')`, which guaranteed one-undo-step **by construction**.
+    > That test was replaced (see 18.c), and the replacement makes the property **declarable** rather
+    > than required — so the cheapest path for every future family became "declare `fanOutPerId` and
+    > move on". A capped exit is the difference between a debt and a norm nobody chose.
+
+    > **18.c — the gate that was replaced, and why that was not a weakening.** The old assertion
+    > lived under a comment reading *"L-620: a family may only dispatch a `*Batch` verb — never a
+    > plugin `*.setType`, which writes a detached DTO store."* **The comment names the real rule and
+    > the assertion did not check it.** L-620 is about **where a verb writes**; a suffix is a proxy
+    > that a rename satisfies. Measured against its own two cases it scored them **backwards**: a
+    > hypothetical plugin `wall.setSystemTypeBatch` passes while writing a detached store, and
+    > `stair.updateParameters` fails while writing the store the builders read. It now checks (i) the
+    > verb is not a plugin DTO `*.setType`, (ii) a `commandProof` names where it writes — re-read by
+    > the sibling gate — and (iii) a non-batch verb **declared** its fan-out. Same name-blindness
+    > CLAUDE.md records for the three rival `commandManager` counters.
+
+    *Exit condition:* both seams land, all three capabilities carry a gesture id, and the ratchet
+    reaches **0** — at which point `fanOutPerId` stops meaning "N undo steps" and means only "N
+    dispatches".
+
+19. ⭐ **A GRAMMAR MUST ACCEPT THE PHRASINGS ITS SIBLING ACCEPTS, AND THE EQUIVALENCE MUST BE PINNED
+    — NOT THE PHRASING** (added rev 6, lane RAC2, 2026-08-20, **L-1440 / L-1442**).
+
+    Two independent instances, found the same way — **the founder typed his own idiom**:
+
+    | # | His sentence | What was measured |
+    |---|---|---|
+    | 1 | *"Make all **the** stairs type X"* | `makeHostedTypeParser` spelled its scope phrase `(?:the )?(all\|every\|each\|…) <noun>s?`; `WALL_TYPE_RE` spells it `… (?: of)?(?: the)? walls?`. **So "make all THE windows type X", "…the doors…", "…the slabs…", "…the ceilings…" had been unclaimed since RAC U4.3.** |
+    | 2 | *"Change **width of all stairs** to X"* | the bulk-dimension grammar required `<verb> <scope-word> <noun>`. **The property-first order was unclaimed for walls, windows and doors too.** |
+
+    ⭐ **NEITHER WAS A STAIR DEFECT, AND NEITHER HAD BEEN REPORTED.** Both were invisible to the test
+    suite for one reason: **every existing test was written by someone who knew the grammar**, and
+    therefore wrote *"make all windows"*, never *"make all the windows"*. **The founder's idiom is
+    the falsifier the suite did not have.**
+
+    > **19.a — MUST.** Where two grammars express the same concept (a scope phrase, a place tail, a
+    > near-miss guard), the fix is in the **shared** authority, and what is pinned is the
+    > **EQUIVALENCE**, never the one sentence that was reported. Pinning the sentence fixes the
+    > report; pinning the equivalence fixes the class. `hosted-type-scope-parity.test.ts` sweeps a
+    > phrase set through **both** grammars and fails on any disagreement.
+    >
+    > ⚠ **A KNOWN, STATED DIFFERENCE THAT WAS DELIBERATELY NOT "FIXED":** the two grammars' VERB sets
+    > still differ (`retype`/`update` vs `convert`/`swap`). Unifying them would **CLAIM sentences
+    > neither claims today** — a capability change wearing a refactor's clothes. It is recorded at
+    > the declaration instead of quietly harmonised.
+
+    > **19.b — MUST.** An acceptance family's **first phrasing is the user's literal**, definite
+    > article and word order included. ⛔ A paraphrase that happens to work is not acceptance
+    > evidence — it is precisely what hid both defects above.
+
+    > **19.c — MUST.** A word-order or article addition **re-runs the non-claim guards**. A grammar
+    > that accepts more must be shown to claim no more: no-scope-word, dimension-word and
+    > `OTHER_CAPABILITY_WORD` sentences are re-asserted against the widened regex in the same test.
+
+20. ⛔ **"THIS WALL" IS A SELECTION *REFERENCE*, NOT A SCOPE — AND IT IS **NOT BUILT**. STATED AS A
+    NOT-YET** (added rev 6, lane RAC2, 2026-08-20, **L-1444**).
+
+    > ⚠ **This rule describes something that DOES NOT EXIST.** It is written down because the
+    > founder asked for it (*"I want to select a wall — and say create a stair … connected to this
+    > wall"*) and the next lane must not re-derive why it was refused.
+
+    Every scope this contract's algebra produces (`all` · `selection` · `level` · `room` ·
+    `orientation` · `filter`) resolves to **a set of element IDS**. `ResolverContext.selection` gives
+    the resolver an element's **identity** — `{elementId, elementType}` — and **never its
+    POSITION**.
+
+    So there are **two different things** a demonstrative can mean, and only one of them works:
+
+    | | meaning | state |
+    |---|---|---|
+    | *"make **this** wall 3 m high"* | the selection as a **SUBJECT** — act on the thing I picked | ✅ **WORKS.** `selection` scope, everywhere. |
+    | *"create a stair connected to **this wall**"* | the selection as a **GEOMETRY SOURCE** — read where the thing I picked *is* | ⛔ **NOT BUILT.** |
+
+    > **20.a — What it would require, so the next lane starts from here rather than from scratch:**
+    > an injected geometry reader on `ResolverContext` — the **`resolveWallSystemType` precedent**,
+    > which is how every project-specific lookup already reaches this pure L2 layer. It must return
+    > what a placement needs (endpoints, a plane, a facing direction) and must report **absent**
+    > rather than empty when it cannot read, per §CONTEXT-DATA-HONESTY.
+    >
+    > **20.b — MUST NOT.** Until it exists, a capability **MUST NOT** guess a position from a
+    > selection. [C83](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) §4.2 already governs this and its
+    > MUST NOT is general — *"never offer a candidate you cannot defend … the system refuses with
+    > the reason and offers nothing. It does **not** offer a nearest-fit guess."* A start point
+    > inferred from an element whose geometry the resolver cannot read is exactly such a guess. The
+    > chat refuses and **names the gap**: *"placing a stair needs a start point and a direction, and
+    > what I can see of your selection is which element it is, not where it is."*
+    >
+    > **20.c — MUST NOT.** Adding the channel **without a filler** is forbidden by the same reasoning
+    > as 18.a: a reader nobody supplies is authored-but-unwired, and it would make the gap read as
+    > closed. The channel and its bridge-side filler land together or neither lands.
+
+    ⚠ **RELATED, AND ALSO UNWIRED — a LEVEL RANGE.** `CapabilityValueSource` has carried a
+    `'level-range'` member since ADR-0315 U2.5 (*"a level range ('levels 2–4'), resolved by findLevel
+    per bound"*). Measured 2026-08-20: **no capability declares it. Zero consumers.** It is a
+    declared value source sitting in the union that documents what the chat understands — the same
+    authored-but-unwired shape, in the type system rather than in a store. The first grammar to read
+    a range at all is `StairNotYet.ts`'s, **and it reads one only in order to refuse it accurately**.
+
 ---
 
 ## §5 — Roadmap (conflict order: STR → this contract → ADR-0313/0314/0315 → the RAC plans)

@@ -624,7 +624,14 @@ it is the one to take first.
 > **C84 §4F**. Capability surface: **C67 §1.8**. Decisions: **ADR-0334**. Rows: **L-1140 … L-1147**.
 > ⛔ **No cell is left blank — a blank reads as "fine" (EI-1b). Unknown reads `NOT MEASURED`.**
 
-### Status — **⛔ DARK for type — blocked by ONE METHOD**
+### Status — ~~**⛔ DARK for type — blocked by ONE METHOD**~~ ⭐ **SUPERSEDED 2026-08-20 — SEE [§L-1441](#l-1441--the-chat-surface-for-stairs-is-lit-added-2026-08-20-lane-rac2)**
+
+> ⚠ **The table below is the 2026-08-19 measurement and its Status row is NO LONGER TRUE.** Stair
+> type, stair-railing type and stair width are all published; the retiring condition
+> (`StairTypeStore.getById`) was met by L-1435, **and the chat shipped without waiting for it**
+> because the blocker was correctly diagnosed and wrongly scoped — see §L-1441.2. The **Findings**
+> and **NOT MEASURED** rows below still stand. ⛔ Do not quote the Status row.
+
 
 | | Measured 2026-08-19 |
 |---|---|
@@ -633,8 +640,8 @@ it is the one to take first.
 | **Type catalogue** | ⚠ **EXISTS BUT DOES NOT SATISFY `CatalogueReader`.** `StairTypeDefinitions.ts` ships **5** `{id, name}` types — but `StairTypeStore.ts:24` exposes **`get()`** where `resolveCatalogueRef.ts:39-42` requires **`getById()`**. |
 | **Type field on the record** | ✅ a real `typeId: string` on the record (`StairTypes.ts:109`) |
 | **Executor the chat must use** | ✅ `element.changeType` `:1850` → `UpdateStairParametersCommand`, ring-parity |
-| **Chat capabilities published TODAY** | `set-riser-height` · `set-tread-depth` · `set-width` |
-| **Retiring condition** | **`StairTypeStore` gains `getById()`** (or a two-line adapter). Then inject. — **L-1147** |
+| **Chat capabilities published TODAY** | ~~`set-riser-height` · `set-tread-depth` · `set-width`~~ — **as of 2026-08-20 also `set-stair-type` · `set-stair-dimensions` (width), and `set-stair-railing-type` for the railings. §L-1441.1** |
+| **Retiring condition** | ~~**`StairTypeStore` gains `getById()`** (or a two-line adapter). Then inject. — **L-1147**~~ ✅ **MET 2026-08-20** (`getById` alias, L-1435). ⚠ The *injection* half is still open — `buildCatalogueChannel` carries `slab` + `ceiling` only, so a PROJECT-AUTHORED stair type is still unreachable from chat and the refusal says so. **§L-1441.2.a · §13 DELTA #26** |
 
 ### Scoping — what a published capability for this family MUST accept
 
@@ -646,14 +653,21 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
 
 | Scope | Target | AS-IS for this family |
 |---|---|---|
-| `all` | ✅ required | ⛔ no capability |
-| `selection` | ✅ required | ⛔ no capability |
-| `level` | ✅ required | ⛔ no capability |
-| `room` | ✅ required | ⛔ no capability |
+| `all` | ✅ required | ~~⛔ no capability~~ ✅ **LIVE 2026-08-20** (§L-1441.1) |
+| `selection` | ✅ required | ~~⛔ no capability~~ ✅ **LIVE 2026-08-20** |
+| `level` | ✅ required | ~~⛔ no capability~~ ✅ **declared + reached** (the shared spatial tail; `scopeModes` on both stair capabilities) |
+| `room` | ✅ required | ~~⛔ no capability~~ ✅ **declared + reached** |
 | **selection as a GEOMETRY SOURCE** | family-dependent | see C84 §4F.5 — selection **is** available to the RAC (`ResolverContext.selection`, non-optional, id **and** kind, rebuilt every message); `create-wall` is the one capability that declares no subject axis |
 
 ### Findings
 
+- ⭐⭐ **L-1147 — RESOLVED 2026-08-20, AND THE RESOLUTION SHARPENS THE LESSON.** This finding said
+  *"the smallest blocker in the whole audit … measured, it is a method name"*, and that was right.
+  ⚠ **But it was still scoped one layer too wide:** the missing `getById` blocks
+  `resolveCatalogueRef`, which blocks the EDITOR BRIDGE's catalogue channel — **it never blocked the
+  family**, because `BUILT_IN_STAIR_TYPES` is the same array the store is built from and reading it
+  needs no adapter. ⭐ *"Measure reachability, not existence"* applies to the BLOCKER too: a
+  correctly measured blocker can still be on the wrong path. §L-1441.2.
 - ⭐ **L-1147 is the smallest blocker in the whole audit and it reads like an architectural one.** *"The stair catalogue does not satisfy the resolver contract"* sounds like a redesign; measured, it is a method name. **This is why the audit brief said measure reachability, not existence** — the shape of a blocker is not visible from its description.
 - ⚠ **Carried from C84 §4B:** `stair.rotate` (L1) writes the DTO view only, and `UpdateElementParameterCommand`'s audit-neutral restore covers `wall`/`door`/`window` **only** — stair **stamps a fresh `metadata.version` on undo** (`:213-218`). A published stair type-change inherits that non-neutrality unless it goes through `element.changeType`'s ring-parity path, **which it must**.
 - ⭐ **`stair-railing` is a SEPARATE branch (`:1901`) and it is the reference implementation for ADR-0334 D2** — it already resolves its fields **from `newTypeId` alone** via `resolveStairRailingTypeFields`, reusing `handrailTypeStore`. **Handrail is being changed to match it, not the other way round.**
@@ -1033,3 +1047,371 @@ click one wall → click a second wall meeting it at 90° → an L-stair appears
 non-perpendicular pair must refuse with **both numbers**.
 ⭐ **The EI-3 line is not "unverified in a browser" — it is "the limit is undeclared."** A member
 whose residual risk is written down is honest; a member whose arm silently does nothing is the breach.
+
+---
+
+## §L-1441 — THE CHAT SURFACE FOR STAIRS IS **LIT** (added 2026-08-20, lane RAC2)
+
+> **Supersedes the status line in "RAC — the chat surface for this family" above.** That table read
+> **⛔ DARK for type — blocked by ONE METHOD**, with a retiring condition of *"`StairTypeStore` gains
+> `getById()`"*. Both halves are now resolved: STAIR1 added the `getById` alias (**L-1435**), and the
+> chat shipped **without waiting for it** — see §L-1441.2. ⛔ Do not read the older table's Status
+> row as current; its **Findings** and **NOT MEASURED** rows still stand.
+
+**Founder, verbatim (2026-08-19):** *"Make all the stairs type X" · "Make all the stair railings type
+X" · "change tread to X" · "Change width of all stairs to X" · "Change first run of all stairs to X
+meters"* — plus *"I want to select a wall — and say create a stair from ground to level 5 connected
+to this wall — in L shape."*
+
+### §L-1441.1 — What is published, and what refuses
+
+| Sentence | Verdict | Capability | Route |
+|---|---|---|---|
+| "make all the stairs type X" | ✅ **LIVE** | `set-stair-type` | `stair.updateParameters` → `UpdateStairParametersCommand` (fan-out) |
+| "make all the stair railings type X" | ✅ **LIVE** | `set-stair-railing-type` | `element.changeType` `:1901` → `UpdateStairRailingCommand` (fan-out) — see [C95](C95-ELEMENT-HANDRAIL.md) §15.17 |
+| "change width of all stairs to X" | ✅ **LIVE** | `set-stair-dimensions` | `element.updateDimensionsBatch` (ONE dispatch) |
+| "change tread to X" | ✅ **LIVE** | `set-tread-depth` | `stair.updateParameters`, selection-scoped |
+| "create a stair from ground to level 5 connected to this wall — in L shape" | ⛔ **REFUSED, by design** | `create-stair-span` | no command exists — §L-1441.4 |
+| "change first run of all stairs to X meters" | ⛔ **REFUSED, by design** | `set-stair-part` | no addressable component — §L-1441.5 |
+
+> **§L-1441.1.a — MUST.** Both refusals **NAME THE LIVE REPLACEMENT** ([C16](C16-COMMAND-AUTHORING-PROTOCOL.md)
+> CA-18) and both are pinned by test to do so. ⛔ A bare *"I didn't understand"* on either sentence
+> is a regression, not a copy nit: without the grammar these are MISSES, and a miss falls through to
+> an LLM production does not have configured.
+
+### §L-1441.2 — ⭐ The catalogue blocker was real and was **not** on the critical path
+
+The older table's retiring condition — *"`StairTypeStore` gains `getById()`"* — was **correctly
+diagnosed and wrongly scoped**. The missing method blocks `resolveCatalogueRef`, which blocks the
+**editor bridge's** catalogue channel. It never blocked the family: `BUILT_IN_STAIR_TYPES` is the
+same array that store is constructed from, and reading it needs no adapter.
+
+⚠ **The bridge channel is still two rows wide.** `buildCatalogueChannel`
+(`apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:923`) injects **`slab` and `ceiling` only**, against
+sixteen families `element.changeType` routes. So the chat resolves stair types from the **published
+built-in table**, not from the project's store, and:
+
+> **§L-1441.2.a — MUST.** A **project-authored** stair type is **NOT resolvable from chat**, and the
+> refusal **says so in the user's own words**: *"These are the built-in stair types. A stair type
+> authored in this project is not readable from chat yet — pick it in the Properties panel, or use a
+> built-in here."* ⛔ It must never be reported as *"no such type"*. Failure and absence-from-the-
+> source-I-could-read are different values (§CONTEXT-DATA-HONESTY), and so are *"not in this
+> project"* and *"not in the table I can see"*.
+>
+> **Retiring condition:** a `stair` row (and a `stair-railing` row) in `buildCatalogueChannel`, now
+> unblocked by L-1435. Then the note disappears on its own, because the injected lookup wins.
+
+Railings have **no** such limit: the chat reads the **live `handrailTypeStore` singleton** — the same
+object `element.changeType`'s stair-railing branch calls `getById()` on before it will accept a type
+— so a name the chat resolves is a name that branch acts on, and user-authored railing types are
+visible. Pinned by test rather than argued.
+
+### §L-1441.3 — ⭐⭐ TWO COMMAND-SIDE FINDINGS, and the second is a live founder decision
+
+#### (a) `UpdateStairParametersCommand` validates `treadDepth` against **MIN ONLY**
+
+Measured 2026-08-20 at `UpdateStairParametersCommand.canExecute`:
+
+| field | min | max |
+|---|---|---|
+| `riserHeight` | ✅ `:83-86` | ✅ `:87-90` |
+| `treadDepth` | ✅ `:107-109` | ⛔ **absent** |
+
+So *"change tread to 500 mm"* was **written and reported as done**. `checkStairGeometry` refuses it
+(`STAIR-TREAD-TOO-DEEP` against `MAX_TREAD_DEPTH` 360 mm) — the command never calls it.
+
+⭐ **The chat now refuses it and the command still does not.** That asymmetry is written down here
+rather than left in a commit message, because it is the **third instance tonight of one shape**: two
+layers with an opinion about the same quantity, where the stricter layer is not the one the write
+goes through. The other two were the 220/250 tread pair (§L-1430) and the bulk-vs-single width gate
+(§L-1441.6).
+
+> **§L-1441.3.a — MUST.** `UpdateStairParametersCommand` calls `checkStairGeometry` rather than
+> re-testing individual constants, per **N6**. Until it does, the chat's stricter behaviour is a
+> **containment**, not a fix, and this row stays open. **§13 DELTA #23.**
+
+#### (b) ⛔ THE BUILT-IN TYPES **LOOSEN** THE MINIMA — and enforcing a default would mint a FALSE REFUSAL
+
+`resolveStairGeometryLimits(constraints, typeRules)` lets a stair TYPE replace `maxRiserHeight` and
+`minTreadDepth`. Measured over `BUILT_IN_STAIR_TYPES`:
+
+| type | `maxRiserHeight` | `minTreadDepth` |
+|---|---|---|
+| `monolithic` · `steel-open` · `marble-luxury` | 0.190 (= default) | 0.250 / 0.280 |
+| **`timber-closed`** | **0.220** ⬆ | **0.220** ⬇ |
+| **`residential-timber`** | **0.220** ⬆ | **0.220** ⬇ |
+
+**Two of five built-ins are LOOSER than `STAIR_CONSTRAINTS`.** And `ResolverContext.selection` carries
+`{elementId, elementType}` — **no `typeId`** — so the chat cannot resolve per-type limits.
+
+> **§L-1441.3.b — MUST NOT.** The chat **MUST NOT** enforce `minTreadDepth` or `maxRiserHeight`
+> against the DEFAULT limits. Refusing a 230 mm tread on a `timber-closed` stair — where 220 mm is
+> the type's own minimum — is **a false refusal minted by a safety check**, which is worse than not
+> checking: it tells the user the model forbids something the model permits, and it does it with the
+> authority of a validation message.
+>
+> **§L-1441.3.c — MAY.** The chat **MAY** enforce `maxTreadDepth`, and does. It is the one bound
+> `StairGeometryLimits` states no type can move (*"A type may tighten (or loosen) tread and riser; it
+> has no say over max tread"*) — so it is exactly the bound reachable without a `typeId`, **and
+> exactly the one the command misses** (a).
+>
+> **§L-1441.3.d — the structural fix, NAMED.** A `stairTypeIdOf?: (elementId: string) => string |
+> undefined` on `ResolverContext`, filled by the editor bridge — the **`resolveWallSystemType`
+> precedent**, which is how every other project-specific lookup reaches this pure layer. ⛔ It was
+> deliberately NOT added by lane RAC2: the injection site is outside that lane's seam, and a channel
+> nobody fills is authored-but-unwired. **§13 DELTA #24.**
+
+> ### ⭐ THIS ROW BEARS ON THE OPEN 250-vs-220 DECISION — [§L-1430](#l-1430--stair-geometry-limits-have-one-authority-and-no-source-of-law-added-2026-08-20-lane-stair1), §13 DELTA #18
+>
+> §L-1430 records that 250 mm is the effective minimum *"because it is what the pipeline already
+> enforced"*, and is **very likely wrong for residential Spain** (CTE DB-SUA permits a 220 mm
+> *huella* in private dwellings). **This row is evidence for that decision, from a second
+> direction:** the product **already ships two built-in types whose own `minTreadDepth` is 220 mm**,
+> and both are the residential ones. The 220 in `timber-closed` / `residential-timber` is not a
+> stray constant — it is the per-type override mechanism expressing exactly the distinction CTE
+> DB-SUA draws. ⭐ **Whatever is decided for the default, the per-type override is the mechanism that
+> already models "private dwelling", and a decision that ignores it will re-open as an EI-3 breach.**
+
+### §L-1441.4 — The Ground→L5 stair: **three** blockers, and two are already on the books
+
+| # | Blocker | Owner |
+|---|---|---|
+| 1 | **No geometry reaches the language layer.** `ResolverContext.selection` is `{elementId, elementType}`; `CreateStairInput` requires `startPosition: Vec3` **and** per-flight `direction: Vec3`. "Connected to this wall" cannot become those numbers. | RAC — §L-1441.7 |
+| 2 | **One command, one stair, any span.** `canExecute` validates `riserHeight × Σ riserCount` against the FULL level gap. Ground→L5 ≈ 15 m ≈ 83 risers; an L shape has TWO flights. ⛔ **`MAX_RISERS_PER_FLIGHT` does not catch it — 5 declarations, ZERO readers (§L-1430, L-1434).** | C98 — §13 DELTA #19 |
+| 3 | **The slab opening is punched on `topLevelId` ONLY**, so levels 1–4 stay solid, while `LevelTraversalPolicy.canTraverse` returns `ok:true` with a warning. | C98 — **§L-1431 gap 1 / L-1433, P1** |
+
+⭐ **Blocker 3 was reached independently by two lanes from opposite ends** — STAIR1 from the geometry
+(§L-1431, *"A Ground→L5 stair still passes through four structurally intact slabs"*) and RAC2 from
+the founder's sentence. The agreement is worth more than either measurement alone.
+
+> **§L-1441.4.a — MUST.** Until a **multi-storey stair CORE** verb exists (a flight and a landing per
+> storey, and an opening per pierced level), the chat **REFUSES** and names all three. ⛔ It must not
+> create a single-storey stair as a partial result: *a gate whose "yes" branch awaits a decision is a
+> regression with a contract citation attached* (L-942). Blockers 2 and 3 are **not chat defects** —
+> a user can build that stair by hand today; the chat declines to be a second way to do it.
+
+### §L-1441.5 — ⭐⭐ THE VOCABULARY CANNOT ADDRESS A COMPONENT OF AN ELEMENT — stated, not implied
+
+> **§L-1441.5.a — the honest general limit.** Every scope this product's chat can produce
+> (`all` · `selection` · `level` · `room` · `orientation` · `filter`) resolves to **a set of element
+> IDs**. There is **no** "the first flight of each stair", no "the top rail of each railing", no
+> "the third layer of each wall". **This is a property of the scope algebra, not a stair gap.**
+
+Stair **railings** look like a counter-example and are not: they are separate ELEMENTS with their own
+store and command, which is precisely why `set-stair-railing-type` could ship as an ordinary family.
+⭐ **That is the general shape of the answer: a "part" becomes addressable by becoming an element.**
+
+The stair-specific gap, measured: `UpdateStairParametersInput.updates` carries `{width, fireRating,
+accessibilityType, riserHeight, treadDepth, typeId, properties}` — **`stepsBeforeLanding` is not
+among them** — and the only flight verb, `UpdateStairFlightsCommand`, requires an explicit
+`direction: Vec3` per flight (blocker 1 again).
+
+> **§L-1441.5.b — MUST NOT.** The chat **MUST NOT** derive `stepsBeforeLanding = round(runLength /
+> treadDepth)`. It is one line, and it would be a **second authority** for a quantity
+> `StairParameterReconciler` owns, computed from a tread the user did not name, written through a
+> field the command does not accept. **Refusing is the correct answer, not the lesser one.**
+
+### §L-1441.6 — The bulk route accepted what the single route refused
+
+`set-stair-dimensions` rides `element.updateDimensionsBatch` → `UpdateElementParameterCommand`, whose
+`validateParameters` checks **positivity and nothing else**. The one-stair route
+(`stair.updateParameters`) enforces `MIN_WIDTH` 0.9 m / `MIN_ACCESSIBLE_WIDTH` 1.2 m. **So the same
+capability, spoken over three stairs instead of one, would accept 0.1 m and report success.**
+
+> **§L-1441.6.a — MUST.** A bulk capability **MUST NOT** accept a value its one-element form refuses.
+> The chat contains this by calling `checkStairGeometry` and quoting **its** refusal verbatim —
+> *"Stair width 100mm is below minimum 900mm. The one-stair version of this ask refuses it too, so I
+> will not do it in bulk. Nothing was changed."* One sentence, one source, and it states what did
+> **not** happen.
+>
+> ⚠ **Containment, not a fix.** STAIR1 closed the command-side divergence at L-1435, but the **seam
+> is open**: `element.updateDimensionsBatch` has no per-family dispatch, so the generic carrier never
+> reaches the predicate. **§13 DELTA #25.**
+
+### §L-1441.7 — NOT MEASURED / NOT BUILT for this family (explicit — EI-1b)
+
+- **No utterance was typed into a live editor.** Every verdict is source-measured plus test-driven
+  through `applySemanticIntent`; V3/V4/V5 under a chat driver remain unmeasured, exactly as the
+  older RAC table says.
+- **Selection as a GEOMETRY source is NOT BUILT.** See [C67](C67-RAC-CAPABILITY-CONTROL-PLANE.md)
+  §4 rule 20 — "this wall" is a *selection reference*, and the resolver has the element's **identity**,
+  never its **position**.
+- **Undo granularity for the two type families is N steps, not one** — a **[C78](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md)
+  §12.1 breach**, recorded at C67 §4 rule 18. ⛔ Not a stair-specific decision and not closable here.
+
+### §13 DELTA — rows added by this lane
+
+| # | Fix | Invariant | Proof required |
+|---|---|---|---|
+| **23** | **`UpdateStairParametersCommand` calls `checkStairGeometry`** instead of re-testing constants (closes the missing max-tread check) | §L-1430 N6 · §L-1441.3.a | a 500 mm tread is refused **by the command**, with the predicate's own message |
+| **24** | **`stairTypeIdOf` on `ResolverContext`**, filled by the editor bridge | §L-1441.3.d | a 230 mm tread is ACCEPTED on a `timber-closed` stair and REFUSED on a `monolithic` one, through chat |
+| **25** | **Per-family dispatch for `element.updateDimensionsBatch`** so the bulk route reaches each family's predicate | §L-1441.6.a | the batch command itself refuses a 0.1 m stair width, with no chat-side containment |
+| **26** | **A `stair` row in `buildCatalogueChannel`** (unblocked by L-1435) | §L-1441.2.a | a project-authored stair type resolves from chat, and the built-ins note disappears |
+
+---
+
+## §L-1433 — THE SLAB'S LEVEL AXIS IS CLOSED, AND THE ID IS THE HALF THAT COULD DESTROY DATA (added 2026-08-20, lane STAIR1)
+
+§L-1431 derived the void set across FAMILIES and across LEVELS for the floor-finish and ceiling
+families, and left the slab's level axis open as gap 1. **It is now closed.** That gap entry and
+§13 DELTA #20 are **DONE**.
+
+### What was wrong
+
+`carveStairOpening` filtered `s.levelId === stair.topLevelId`, while
+`LevelTraversalPolicy.canTraverse` returns **`ok: true` with a warning** for a level-skipping stair.
+⭐ **A Ground→L5 stair was ACCEPTED and its ~15 m run passed through four INTACT slabs.**
+Founder-reachable **by hand** — the stair parameters panel offers Top level as a dropdown, so no
+chat surface and no AI path is needed to hit it. After §L-1431 the asymmetry was *worse*, not
+better: the finishes above a deck were cut while the deck itself stayed solid.
+
+### How it was fixed — and why NOT through the §L-1431 registry
+
+The registry was **not** extended to the slab, and §L-1431's reason for that stands: a slab's void is
+a first-class `opening` ELEMENT with its own id convention, Immer undo patches, slab-side symmetry
+and delete-heal, and a second implementation of that lifecycle is the drift
+`StairSlabOpeningReconciler`'s header exists to forbid.
+
+Instead `carveStairOpening` and `reconcileStairOpening` **loop the derived deck set**, with
+`carveOneDeck` / `reconcileOneDeck` holding the pre-L-1433 bodies **verbatim** — containment rule,
+refusal, profile frame, registration sequence and the L-581 never-delete-on-a-failed-measure
+asymmetry are untouched, because the level axis was the only thing wrong with them.
+
+> **N9 — `stairPiercedLevelIds` is owned by NEITHER void owner.** It lives in
+> `stair/stairPiercedLevels.ts`. Both owners must derive the same decks from the same code, and the
+> two already reference each other (the piercer imports `StairFootprintSource` as a *type*), so
+> putting the derivation in either would create a real runtime import cycle. A third module owned by
+> neither is the honest shape, and it is why the families cannot drift into piercing different decks.
+
+> **N10 — DIRECTION B moved with it.** A slab created on an **intermediate** deck of an existing
+> multi-storey stair was carved by nobody — the same enumeration seen from the other side. Both
+> directions now ask the same function.
+
+### ⭐⭐ NORMATIVE — THE ID IS PERSISTED, AND IT DOES NOT MOVE
+
+> **N11 — `opening-stair-<stairId>` is the TOP deck's id, forever.** That string is **on disk**:
+> every saved project carries its stair void under it, and `DeleteStairCommand` resolves it by it.
+> Re-keying the top deck would leave every existing project's void **UNOWNED** — the delete would
+> stop healing it, leaving a permanent hole in a building with no stair in it, and the reconcile
+> would carve a **second** void beside the orphan. Only **additional** decks take the `--<levelId>`
+> suffix. ⛔ **This is a data-compatibility fact, not a preference.** It lives in `stairOpeningId.ts`
+> and is pinned as a **literal** by `__tests__/stairOpeningIdStability.test.ts`. A future change to
+> that string requires a migration **first**.
+
+> **N12 — the delete matches by predicate, and the predicate is not a bare prefix test.**
+> `isStairAutoOpeningId` accepts the legacy id exactly, or the legacy id followed by `--`. A bare
+> `startsWith` would also match a different stair whose id *extends* this one's (`st-1` / `st-10`).
+
+**Falsified:** with `stairPiercedLevelIds` forced back to the top-only enumeration, **six** cases go
+RED — *"INTERMEDIATE slab left solid — the stair drives through it: expected +0 to be 1"*, direction
+B, the undo and delete counts, and §L-1431's floor-finish equivalent. ⭐ **The six id-stability cases
+stay GREEN under that same patch** — they pin the persisted string independently of the level loop,
+so a rename fails them even when everything else passes.
+
+---
+
+## §L-1434 — THE CAP ON ONE FLIGHT: A CATEGORY ERROR, NOT A MISSING READER (added 2026-08-20, lane STAIR1)
+
+**§13 DELTA #19 is DONE, but not in the form it was written.**
+
+`MAX_RISERS_PER_FLIGHT: 16` was declared in **three** files and **read by nobody** — five grep hits,
+every one a declaration, zero readers on create, update, validate or the sketch tool. §L-1433 made
+it urgent: a Ground→L5 stair is ~86 risers, and as an I- or L-shape that is one or two flights.
+
+### ⭐⭐ ENFORCING THE DECLARED NUMBER WOULD HAVE SHIPPED A WORSE DEFECT THAN THE ONE IT CLOSES
+
+Measured 2026-08-20: an **ordinary 3.0 m storey** at the 175 mm comfort default solves to
+**SEVENTEEN risers** (`round(3.0 / 0.175)`, actual riser 176.5 mm). **A hard cap of 16 refuses the
+single most common stair in the product.**
+
+⭐ **A limit nobody reads is a limit nobody has ever validated** — and this one is wrong in the
+direction that refuses legal stairs. That is only discoverable by *trying* to enforce it, which is
+the general lesson worth keeping: an unenforced constant is not a dormant correct rule, it is an
+**unverified** one, and "switch it on" is never a safe instruction on its own.
+
+### The reason is a CATEGORY ERROR
+
+What codes regulate is the **vertical RISE between landings** — CTE DB-SUA (residential: a flight
+saves at most 3.20 m), IBC 1011.8 (12 ft ≈ 3.66 m). A riser **count** is that rule divided by an
+*assumed* riser height: 16 × 200 mm = 3.20 m. Our own `MAX_RISER_HEIGHT` is **190 mm** and the
+typical solved riser is **176 mm**, so the count form silently **tightens** as risers get shallower —
+which is backwards, because a shallower riser makes a flight *more* comfortable, not less.
+
+> **N13 — the flight cap is measured as RISE, and the threshold is DERIVED.**
+> `maxFlightRise = MAX_RISERS_PER_FLIGHT × MAX_RISER_HEIGHT` = 16 × 0.190 = **3.04 m**.
+> ⛔ **No new number is invented.** Derived this way the gate can never refuse anything the declared
+> (unread) count would have allowed, so switching enforcement on cannot regress a project that was
+> legal under the old rule. The 3.0 m storey passes at 3.00 m; a Ground→L2 span drawn as one run
+> (34 risers, 6.0 m) refuses at **both** layers.
+
+> **N14 — the refusal names BOTH numbers AND the action** ([C16](C16-COMMAND-AUTHORING-PROTOCOL.md)
+> CA-18): *"Run 1 climbs 6.00 m in one flight (34 risers), above the maximum 3.04 m without a
+> landing — add a landing to split it, or reduce the levels this stair spans"*. A user told only
+> *"too tall"* cannot act; one told only *"max 3.04 m"* does not know how far over they are.
+
+> **N15 — `StairSolver2D` passes `riserCount` through.** Without it the tool would offer a flight the
+> command refuses — the exact EI-3 breach §L-1430 closed, reopened by its own fix.
+
+**Two dead declarations deleted** (`core-app-model/stores/StairTypes`,
+`constraint-solver/stair-constraint-engine`). **One** declaration survives, in
+`geometry-stair/StairTypes`, and it now has exactly one reader.
+
+⛔ **This is NOT a landing-generation verb.** Refusing an 86-riser flight honestly is in scope;
+*producing* the landings is not, and remains declined. **§13 DELTA #23.**
+
+---
+
+## §L-1430b — ⛔ THE REGIONAL HOOK IS **DECORATIVE**, AND THAT IS WHY THIS CONTRACT NAMES NO SOURCE OF LAW (added 2026-08-20, lane STAIR1)
+
+§L-1430 recorded that C98 names no source of authority for stair geometry limits. **This section
+states the mechanism, because the repo's one apparent counter-example is not one.**
+
+`STAIR_CONSTRAINTS_REGIONS` (`StairValidationAuthority.ts:36-43`) *looks* like jurisdictional
+support. Measured, it is not:
+
+| Key | What it declares | Verdict |
+|---|---|---|
+| `'AS-1657'` | `STAIR_CONSTRAINTS` | — |
+| `'EUROPEAN'` | **the SAME object**, aliased | ⛔ two names, one rule |
+| `'IBC-USA'` | spreads the default and "overrides" `MIN_TREAD_DEPTH: 0.250`… | ⛔ **which is the value the default already holds** |
+
+⭐ **Its only non-alias override overrides nothing.** Australian, European and American stairs
+resolve to **identical** limits, and always have. This is a **gate that could never have failed**:
+selecting a region cannot change a single number, so no region has ever been *wrong*, and no test
+could ever have caught it.
+
+> **N16 — ⛔ NOT-YET-TRUE: PRYZM has NO jurisdictional stair limits.** `STAIR_CONSTRAINTS_REGIONS` is
+> **unimplemented** and must not be cited, in code or in a capability description, as evidence that
+> a region's rules are honoured. Whoever implements it must make the entries **differ** and name the
+> instrument each one encodes, or delete it.
+
+**Two open values ride on this and close together**, when the founder's jurisdiction answer lands:
+
+1. **`MIN_TREAD_DEPTH` = 250 mm.** Held unchanged deliberately — it is what the pipeline already
+   enforced, and lowering a code minimum is not a defect fix. ⚠ **CTE DB-SUA permits a 220 mm
+   *huella* in private dwellings**, which is plausibly where the sketch tool's retired 220 came
+   from. The founder is building in **Barcelona**.
+2. **`maxFlightRise` = 3.04 m** (§L-1434 N13) — a **derivation**, not a cited code value. CTE's
+   residential figure is **3.20 m**; IBC's is **12 ft**.
+
+⭐ Both now move in **one place** (`StairGeometryLimits.ts`), so each is a one-line change once the
+decision is taken. **That is the whole return on §L-1430: the question became answerable cheaply
+instead of being spread across four layers.**
+
+### §13 DELTA — this lane's rows, updated
+
+| # | Fix | State |
+|---|---|---|
+| **18** | Decide 250 mm vs 220 mm and **name the source of authority** | ⛔ **OPEN — with the founder.** Sharpened by §L-1430b: the region hook is decorative, so there is no partial support to build on |
+| **19** | Enforce `MAX_RISERS_PER_FLIGHT` (or retire it) | ✅ **DONE, in the RISE form** (§L-1434). ⚠ The declared count was **wrong**; see N13 |
+| **20** | Generalise the slab void over the derived level set | ✅ **DONE** (§L-1433) |
+| **21** | Make move/param-change reconcile the horizontal-host voids | ⛔ **OPEN — L-1432.** Move now follows the **slab** voids on every deck; the **floor-finish and ceiling** voids still do not follow a move |
+| **22** | Measure whether `serviceHoles` / `holeElements` survive save/load | ⛔ **OPEN — still NOT MEASURED** |
+| **23** | Decide whether an over-tall flight should be **refused** or have a landing **auto-inserted** | ⛔ **OPEN.** Refusal ships today (N14); generation is a design decision, deliberately not taken |
+
+### §14 REFUSALS — this lane's rows, updated
+
+| # | Refusal | Verdict |
+|---|---|---|
+| **R14** | **A flight may not climb more than `maxFlightRise` without a landing** — `checkStairGeometry`, both layers | ✅ names both numbers **and** the action (C16 CA-18) |
+| **R15** | **The top deck's opening id NEVER changes** — `stairOpeningId.ts` | ✅ a data-compatibility refusal, pinned as a literal |

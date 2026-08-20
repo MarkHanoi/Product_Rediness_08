@@ -1939,3 +1939,100 @@ handrail payload and **never consult this catalogue at all**, so they emit recor
 `materialId` — ~145 in the founder's current session. All 44 built-ins carry one, so a generator that
 named a TYPE would inherit both the material and the corrected pitch. See L-1203 for the full route
 census and for why defaulting `materialId` inside `CreateHandrailCommand` would be the wrong fix.
+
+---
+
+## 15.17 RETYPING A RAILING FROM CHAT — **LIVE**, AND THE `null` FROM 15.14 IS WHY ✅ **LANDED** (L-1441, 2026-08-20, lane RAC2)
+
+**Founder, verbatim (2026-08-19):** *"Make all the stair railings type X."*
+
+**Shipped:** `set-stair-railing-type` — a catalogue family in
+`packages/ai-host/src/intents/CatalogueFamilies.ts`, dispatching `element.changeType` per resolved
+railing.
+
+### ⭐ THIS SHIPPED AS A TABLE ROW **BECAUSE** 15.14 HAD ALREADY BEEN DONE
+
+15.14 moved the type→fields projection **behind the bus verb** (`resolveStairRailingTypeFields`), so
+`element.changeType`'s stair-railing branch resolves all thirteen construction fields **from
+`newTypeId` alone**. That is the entire reason this is a table row and not a project:
+
+> **the chat forwards ONE id and never re-derives thirteen numbers.**
+
+Had the projection stayed in `RailingTypeSelectorWidget`'s click handler, a chat capability would
+have had to reproduce it — a second authority for the same thirteen fields, which is the
+[C84](C84-ELEMENT-INTEGRITY.md) EI-4a/EI-9 breach 15.14 removed. ⭐ **The payoff of that decision is
+visible only now, in a lane that never touched the panel.** Recording it here is the point: 15.14's
+"do it once, behind the verb" reads like tidiness until the second caller arrives.
+
+⚠ **And this contract predicted it.** [C98](C98-ELEMENT-STAIR.md)'s RAC section already said
+*"`stair-railing` … is the reference implementation for ADR-0334 D2 … Handrail is being changed to
+match it, not the other way round."* That claim is now **exercised**, not merely asserted.
+
+### The catalogue is the LIVE store, not a copy
+
+| | Measured 2026-08-20 |
+|---|---|
+| **Catalogue read** | `handrailTypeStore` (`core-app-model/src/stores/HandrailTypeStore.ts`), the module **singleton** |
+| **Why that object specifically** | it is the **same object** `element.changeType`'s stair-railing branch calls `getById()` on before it will accept a type — so **a name the chat resolves is a name that branch acts on**. Pinned by test, not argued. |
+| **Coverage** | built-ins **and** user-authored types (`getAll()` returns both) |
+| **Bridge injection needed?** | ⛔ **No.** Unlike stair types, this needs no row in `buildCatalogueChannel` — see C98 §L-1441.2 for the family that does. |
+
+> **15.17.a — MUST.** The chat resolves a railing type **through `handrailTypeStore`**, never through
+> a transcribed list. ⛔ No type name and no id may be typed out in the language layer. A catalogue
+> the chat copies is a catalogue that drifts from the one the handler validates against, and the
+> failure is silent: the chat says "done", the handler `console.warn`s and returns.
+
+### ⛔ `handrail` AND `guardrail` ARE **DELIBERATELY NOT CLAIMED** — one word, two element families
+
+A **stair railing** (`stair-railing`, `stairRailingStore`, `StairRailingConfig`,
+`UpdateStairRailingCommand`) and a **standalone handrail** (`handrail`, `handrailStore`,
+`HandrailData`, `UpdateHandrailCommand`) are **different elements that share a catalogue and a
+word**. The chat's noun aliases therefore accept `stair railing` · `railing` · `balustrade` ·
+`stair balustrade`, and **exclude `handrail` and `guardrail`**, which name the other family.
+
+> **15.17.b — MUST NOT.** A capability targeting `stair-railing` **MUST NOT** claim the bare nouns
+> `handrail` / `guardrail`. Claiming them would silently retype **the wrong store's elements** — the
+> user says "make all the handrails glass", the chat retypes stair railings, and both the summary
+> and the count are true about a set the user did not mean.
+>
+> ⭐ This is the **floor-vs-slab ruling**, one family over: *"two element kinds users call by the same
+> word, and the disambiguation is a decision, not a coin-flip"* (`CatalogueFamilies.ts`). The
+> exclusion is pinned by test so a future alias cannot re-merge them by accident.
+>
+> **Retiring condition:** a published `set-handrail-type` capability for the standalone family, at
+> which point the shared words become an **ambiguity to resolve out loud** ("do you mean the stair
+> railings or the balcony handrails?"), never a default.
+
+### ⚠ RAC PARITY — the 15.15 table's second row is **UNCHANGED**
+
+15.15's "🔴 RAC PARITY — MEASURED, AND IT IS NOT MET" counts **properties** reachable from chat for
+the **standalone handrail** family: 3 of 12. ⛔ **This section does not move that number**, and must
+not be read as doing so:
+
+- it publishes **TYPE**, not properties;
+- it publishes for **`stair-railing`**, not for `handrail`;
+- the twelve panel-only properties in 15.15's table are still panel-only.
+
+> **Do not claim §15.9 satisfied for the handrail family.** The one thing that has changed is the
+> **shape of the remaining work**: 15.15 called the four ENUM-valued properties *"a design step, not
+> a copy-paste"* because *"make it round"* must resolve to a member of a published array. ⭐ That
+> design step now has a **worked precedent in this family's own catalogue** — `resolveCatalogueRef`
+> plus an honest refusal that LISTS the real members is exactly the shape, and the two stair families
+> are two instances of it.
+
+### Undo granularity — a C78 §12.1 breach, recorded elsewhere
+
+`element.changeType` is **singular**; there is no batch twin, so N railings are N undo steps. That is
+a **[C78](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) §12.1 breach**, not a permitted exception, and it
+is recorded once — with the two seams the fix spans — at
+**[C67](C67-RAC-CAPABILITY-CONTROL-PLANE.md) §4 rule 18**. ⛔ Do not restate the trade here as if it were
+settled; it is capped by `§GATE-FANOUT-RATCHET` and open.
+
+### Evidence
+
+`packages/ai-host/src/intents/CatalogueFamilies.ts` (the family row + the stair/railing collision
+guard) · `packages/ai-host/src/intents/publishedCatalogues.ts` (the live-singleton read) ·
+`packages/ai-host/__tests__/stair-chat-acceptance.test.ts` (the founder's literals, the
+`handrailTypeStore.getById` acceptance assertion, and the alias exclusion) ·
+`apps/editor/src/engine/initBusHandlers.ts:1901` (the branch) ·
+`packages/geometry-stair/src/StairRailingTypeMapping.ts:94` (`resolveStairRailingTypeFields`).
