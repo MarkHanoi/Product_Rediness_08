@@ -553,7 +553,31 @@ export class RoomDetectionEngine {
     // endpoint is a room-loop break UNLESS the data-driven per-host snap now covers it.
     // A flagged endpoint with coveredByHostSnap=false means the loop did NOT close and
     // detection will flood (founder's "Room NN" blanks + compound merges).
-    this._diagRoomLoop(combinedInput, thicknessByBaseId, levelId, detected.length);
+    //
+    // ⭐ §DIAG-AUDITS-THE-REPAIRED-ARRAY (L-1390, 2026-08-20) — THE ARGUMENT WAS
+    // `combinedInput`, AND THAT IS THE RAW PRE-REPAIR LIST FROM LINE ~371.
+    //
+    // Four repair passes run between that variable and `buildWallGraph`:
+    // `_snapNearbyCorners(0.30)`, `_reconnectDanglingEnds`, `_splitAtBodyCrossings`
+    // and `_splitAtTJunctions`. Auditing `combinedInput` measured a state that NEVER
+    // REACHED THE GRAPH — so every "loop will NOT close (flood/merge risk)" line was
+    // a prediction about geometry the engine had already fixed, printed beside a
+    // `detectedRooms=` count derived from the fixed array. The founder's 7-level model
+    // logged `detectedRooms=24 unresolvedLoopBreaks=30` on EVERY level: 24 is the
+    // right answer and 30 describes nothing. The audit was structurally incapable of
+    // distinguishing "the repair declined" from "the repair worked", which is the one
+    // question it exists to answer.
+    //
+    // ⭐ The `_s\d+` half of its own `baseId` regex (`/(_[cs]\d+)+$/`) is the proof
+    // this was a WIRING slip rather than a design choice: `_s` suffixes are minted by
+    // `_splitAtTJunctions`, so on `combinedInput` that half of the regex could never
+    // match anything. The method was written for the post-split array and handed the
+    // pre-split one.
+    //
+    // Now it audits `wallGraphInputSplit` — the exact array `buildWallGraph` consumes
+    // — so a reported break is a break the repairs FAILED to close. The line names
+    // the array it read, so the next reader cannot repeat this.
+    this._diagRoomLoop(wallGraphInputSplit, thicknessByBaseId, levelId, detected.length);
 
     return detected;
   }
@@ -565,6 +589,23 @@ export class RoomDetectionEngine {
    * the legacy 0.20 m floor but within the widened per-host radius are the thick-shell
    * partition endpoints this fix rescues; any distance ABOVE the per-host radius is a
    * genuine loop break the engine could not close.
+   *
+   * ⭐ `segs` MUST be the POST-REPAIR array — the same one `buildWallGraph` consumes.
+   * See §DIAG-AUDITS-THE-REPAIRED-ARRAY at the call site (L-1390) for what auditing the
+   * raw list cost: a self-contradicting summary line that reported N unclosed loops
+   * beside the correct room count, on every level, for years.
+   *
+   * The four gates, and why each exists (L-1391/L-1392):
+   *   • SAME PARENT — two chords of one curved wall are not two walls.
+   *   • RUNS-UP-TO  — a wall PASSING a neighbour at 400 mm is not a wall FAILING to
+   *                   meet it. Shares `_reconnectDanglingEnds`' collinearity floor,
+   *                   because an audit that disagrees with the repair it reports on is
+   *                   worse than no audit.
+   *   • JUNCTION KEY — one location, one line, however many ordered pairs find it.
+   *   • SATISFIABILITY — `thickShellTJunctionsRescued` has an EMPTY window below a
+   *                   360 mm host, so a bare `=0` must not read as a failed rescue.
+   * Each declined measurement is COUNTED under its own name on the summary line.
+   * Silence is never the fix here.
    */
   private _diagRoomLoop(
     segs: Array<{ wallUUID: string; start: THREE.Vector3; end: THREE.Vector3 }>,
@@ -610,20 +651,52 @@ export class RoomDetectionEngine {
     }
     const SNAP_FLOOR = 0.20;
     const SHELL_MARGIN = 0.02;
+    /** §DIAG-RUNS-UP-TO (L-1391) — the SAME collinearity floor `_reconnectDanglingEnds`
+     *  uses at {@link REACH_COLLINEAR_MIN}. See the gate below for why the audit must
+     *  share it rather than re-derive one. */
+    const DIAG_COLLINEAR_MIN = 0.9;
     let flagged = 0;
     let breaks = 0;
+    /** §DIAG-RUNS-UP-TO — endpoints inside the distance band whose gap is NOT collinear
+     *  with their own axis: a wall running PAST a neighbour, not INTO it. Counted and
+     *  named; never silently dropped (that would be the silence this file forbids). */
+    let parallelNearMisses = 0;
+    /** §DIAG-1M-BLIND-SPOT (L-1392) — the BREAK clause is gated `dist < 1.0`, so an
+     *  endpoint further than a metre off a host body was counted NOWHERE and logged
+     *  NOWHERE. "917 mm" being the largest value the founder ever saw is the CAP, not
+     *  a measurement. These are still not warned (they are usually unrelated walls),
+     *  but they are no longer invisible. */
+    let farEndpointsOver1m = 0;
+    /** §DIAG-AGGREGATE-ON-THE-JUNCTION — unordered base-pair + 100 mm-quantised foot.
+     *  One physical junction reports ONCE however many measurements find it. */
+    const junctions = new Map<string, string>();
+    /** True once ANY host's widened snap actually exceeds the legacy floor. See the
+     *  satisfiability clause on the summary line. */
+    let anyHostSnapWidened = false;
     for (const host of segs) {
       const dx = host.end.x - host.start.x;
       const dz = host.end.z - host.start.z;
       const len2 = dx * dx + dz * dz;
       if (len2 < 1e-6) continue;
+      const hostBase = baseWallId(host.wallUUID);
       const baseId = host.wallUUID.replace(/(_[cs]\d+)+$/, '');
       const th = thicknessByBaseId.get(baseId);
       const hostSnap = (typeof th === 'number' && th > 0)
         ? Math.max(SNAP_FLOOR, th / 2 + SHELL_MARGIN)
         : SNAP_FLOOR;
+      if (hostSnap > SNAP_FLOOR + 1e-9) anyHostSnapWidened = true;
       for (const guest of segs) {
         if (guest.wallUUID === host.wallUUID) continue;
+        // §REFUSE-SAME-PARENT-DIAG (L-1391) — the guard BOTH sibling passes already
+        // have (`_reconnectDanglingEnds` :831, `_snapNearbyCorners` :1258) and this
+        // one did not. The skip above compares FULL UUIDs, so two chords of ONE
+        // curved wall (`w_c3` / `w_c7`, minted by `tessellateCurvedWallForTopology`)
+        // were treated as different walls and reported loop breaks AGAINST EACH
+        // OTHER — a single curved wall could accuse itself up to `segments²` times.
+        if (baseWallId(guest.wallUUID) === hostBase) continue;
+        const gdx = guest.end.x - guest.start.x;
+        const gdz = guest.end.z - guest.start.z;
+        const glen = Math.hypot(gdx, gdz);
         for (const pt of [guest.start, guest.end]) {
           const t = ((pt.x - host.start.x) * dx + (pt.z - host.start.z) * dz) / len2;
           if (t <= 0.01 || t >= 0.99) continue; // endpoint zone, not a body-T
@@ -632,12 +705,37 @@ export class RoomDetectionEngine {
           const dist = Math.hypot(pt.x - cx, pt.z - cz);
           if (dist <= SNAP_FLOOR || dist >= hostSnap + 1e-6) {
             // Within legacy floor (always fine) OR beyond even the widened radius.
+            if (dist > SNAP_FLOOR && dist >= hostSnap + 1e-6 && dist >= 1.0) farEndpointsOver1m++;
             if (dist > SNAP_FLOOR && dist >= hostSnap + 1e-6 && dist < 1.0) {
+              // ⭐ §DIAG-RUNS-UP-TO (L-1391) — DOES THE GUEST AIM AT THE HOST?
+              //
+              // This audit had NO angle test, so any wall whose endpoint's
+              // perpendicular foot landed in a neighbour's mid-span at 200–1000 mm
+              // was called a loop break — INCLUDING a wall running exactly PARALLEL
+              // to that neighbour. On a 24-room residential plate that is ordinary
+              // architecture: party-wall pairs, riser shafts, service voids, and
+              // corridors (`minCorridorWidth` is 900 mm — inside the counting band).
+              // Worse, a parallel pair reports BOTH its endpoints, so one non-defect
+              // produced two lines.
+              //
+              // The REPAIR this audit is supposed to be reporting on already has the
+              // test (`REACH_COLLINEAR_MIN`, :844) and correctly REFUSES to move a
+              // parallel near-miss. The audit and the repair therefore disagreed by
+              // construction, and the audit was the one that was wrong.
+              const runsUpTo = glen > 1e-6
+                && Math.abs(((cx - pt.x) * gdx + (cz - pt.z) * gdz) / (dist * glen)) >= DIAG_COLLINEAR_MIN;
+              if (!runsUpTo) { parallelNearMisses++; continue; }
+              const key = (hostBase < baseWallId(guest.wallUUID)
+                ? `${hostBase}|${baseWallId(guest.wallUUID)}`
+                : `${baseWallId(guest.wallUUID)}|${hostBase}`)
+                + `@${Math.round(cx * 10)},${Math.round(cz * 10)}`;
+              if (junctions.has(key)) continue;
               breaks++;
-              console.warn(
-                `[RoomDetectionEngine] §DIAG-ROOM-LOOP BREAK level='${levelId}' guest=${guest.wallUUID} ` +
-                `on host=${host.wallUUID} body — endpoint ${(dist * 1000).toFixed(0)}mm from centreline ` +
-                `EXCEEDS hostSnap ${(hostSnap * 1000).toFixed(0)}mm → loop will NOT close (flood/merge risk)`,
+              junctions.set(
+                key,
+                `guest=${guest.wallUUID} on host=${host.wallUUID} body — endpoint ` +
+                `${(dist * 1000).toFixed(0)}mm from centreline EXCEEDS hostSnap ` +
+                `${(hostSnap * 1000).toFixed(0)}mm`,
               );
             }
             continue;
@@ -653,9 +751,34 @@ export class RoomDetectionEngine {
         }
       }
     }
+    // ⭐ THE MESSAGE SURVIVES. Aggregating on the JUNCTION removes duplicate
+    // MEASUREMENTS of one location (host/guest swap, both endpoints of one guest,
+    // chord-vs-chord); it removes no FINDING. Every distinct junction still prints,
+    // and the count is now a count of junctions rather than of comparisons.
+    if (breaks > 0) {
+      console.warn(
+        `[RoomDetectionEngine] §DIAG-ROOM-LOOP BREAK level='${levelId}' — ${breaks} junction(s) ` +
+        `the repair passes did NOT close → loop will NOT close (flood/merge risk):\n  ` +
+        [...junctions.values()].join('\n  '),
+      );
+    }
+    // §DIAG-RESCUE-SATISFIABILITY (L-1392) — `thickShellTJunctionsRescued` counts the
+    // window `SNAP_FLOOR < dist < hostSnap`, and `hostSnap` only exceeds `SNAP_FLOOR`
+    // when `th/2 + 0.02 > 0.20`, i.e. th > 360 mm. Every wall this product GENERATES is
+    // 100–300 mm (apartment/house emitters 100 mm, residential core 200 mm, AIService
+    // 300 mm), so for a generated model the window is empty and a bare `=0` beside
+    // `unresolvedLoopBreaks=N` reads as a rescue mechanism that failed. It did not fail;
+    // it was never applicable. The line now says which of the two it is.
     console.log(
       `[RoomDetectionEngine] §DIAG-ROOM-LOOP level='${levelId}' detectedRooms=${detectedRoomCount} ` +
-      `thickShellTJunctionsRescued=${flagged} unresolvedLoopBreaks=${breaks}`,
+      `thickShellTJunctionsRescued=${flagged} unresolvedLoopBreaks=${breaks} ` +
+      `parallelNearMisses=${parallelNearMisses} (not breaks — walls passing near, not running into) ` +
+      `farEndpointsOver1m=${farEndpointsOver1m} (BREAK band caps at 1000mm — these were counted nowhere before) ` +
+      `auditedArray=post-repair(wallGraphInputSplit) ` +
+      (anyHostSnapWidened
+        ? ''
+        : 'rescueWindow=EMPTY-BY-CONSTRUCTION (no host exceeds 360mm, so hostSnap==200mm floor everywhere — ' +
+          'thickShellTJunctionsRescued=0 means NOT-APPLICABLE, not "failed to rescue") '),
     );
   }
 
@@ -663,12 +786,32 @@ export class RoomDetectionEngine {
    * §PARTITION-REACH (tracker §68.12, 2026-06-11) — reconnect a DANGLING partition
    * endpoint onto the host wall body it was meant to meet.
    *
-   * THE DEFECT it closes (verified by repro): on a generated multi-room house the
+   * ⚠ **THIS DOCSTRING'S ROOT-CAUSE CLAIM IS RETRACTED (L-1393, 2026-08-20).** Two of
+   * its load-bearing statements were true when written and are false now:
+   *
+   *  1. **"up to ~1 m SHORT" — capped at 50 mm.** §CONSENSUS-OVERTRIM-GUARD
+   *     (`WallJoinResolver.ts`, `OVERTRIM_BACK_ALLOWANCE_M = 0.05`) bounds how far an
+   *     endpoint may retreat along its own axis. The resolver can no longer produce the
+   *     300–1000 mm axial short-fall this paragraph blames.
+   *  2. **This pass cannot fire on the geometry it describes.** The §MULTI-CLUSTER path
+   *     trims every unpinned member toward the SAME consensus point, landing them
+   *     ≤ ~60 mm apart — so `connectedToWall` (below, CORNER_CONNECTED_TOL_M = 0.30 m)
+   *     finds each one connected to its siblings, `dangling` is false, and the whole
+   *     cluster is skipped **even when it sits 500 mm off the shell**. The repair is
+   *     structurally unable to fire on a cluster.
+   *
+   * The pass still does real work on a SINGLE dangling endpoint (that is what
+   * `partitionReachReconnect.test.ts` and the L-1390 separating test exercise). What is
+   * withdrawn is the claim that it addresses the multi-cluster case. Nobody should read
+   * this docstring as evidence that the cluster case is handled — it is not.
+   *
+   * The original text, kept because the mechanism it names is still real for a lone end:
+   * on a generated multi-room house the
    * D-TGL engine emits up to 3 interior partitions sharing one EXACT Y-junction point.
    * The editor's whole-level WallJoinResolver then clusters those coincident endpoints,
    * finds no pinnable pair, and TRIMS one member back along its own axis (its
-   * §MULTI-CLUSTER pinned=0 trimmed=N path) — leaving that partition's end up to ~1 m
-   * SHORT of the host. The thickness-driven T-junction snap (`_splitAtTJunctions`,
+   * §MULTI-CLUSTER pinned=0 trimmed=N path) — leaving that partition's end short
+   * of the host. The thickness-driven T-junction snap (`_splitAtTJunctions`,
    * ≤ 0.20 m for a thin partition) cannot bridge a ~1 m gap, so the loop never closes
    * and detection floods across it → the founder's compound merges + flood cells.
    *
