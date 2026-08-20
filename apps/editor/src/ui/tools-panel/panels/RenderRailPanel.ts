@@ -226,10 +226,20 @@ export class RenderRailPanel {
             if (pinIsRicherThanAutomatic(pin, result.automaticTier)) {
                 // Say the whole thing. Naming the count and the cap is what makes a later
                 // stutter attributable to this pin.
+                //
+                // `cinematic` gets its own sentence because its cost is not a frame-rate
+                // cost: it re-enables `fullScenePbrTraverse`, measured at 38.7 s wall-clock
+                // on a real 4,073-mesh building. Describing a 38-second one-off stall as
+                // "a lower frame rate" would be true of nothing the user is about to see.
                 note.textContent =
                     `Pinned to "${pin}". This scene has ${meshes}, which the automatic policy `
                     + `caps at "${auto}" (ADR-0094, ≥1,200 meshes). You are overriding that cap — `
                     + 'expect a lower frame rate while it is pinned.'
+                    + (pin === 'cinematic'
+                        ? ' Cinematic also re-enables the full-scene PBR pass, which took ~39 s '
+                          + 'on a building this size the last time it was measured — it runs at '
+                          + 'the end of the next generation or project open, not now.'
+                        : '')
                     + (result.reapplied ? '' : ' It will take effect at the next scene change.');
                 note.style.color = 'var(--app-accent,#6600ff)';
             } else {
