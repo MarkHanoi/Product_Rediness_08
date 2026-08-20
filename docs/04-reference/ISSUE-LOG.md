@@ -23829,3 +23829,132 @@ an omission. The measured facts it would key on are in L-1500: the last-good bun
 deny-list**, not "no `@thatopen/*`" — the coarse rule would have failed the last three green
 deploys.
 
+
+---
+
+## L-1510 — ✅ FIXED: clicking SSGI grew the render target behind the shaders' backs — 2026-08-20 (lane GPU2)
+
+Founder: *"i clocked SSGi and TRAA and the scene collapsed"*, then a WebGPU validation flood that
+did not stop.
+
+```
+[RenderPassEncoder] expects { colorTargets: [0,1,2,3 = RGBA16Float], depthStencilFormat: Depth24Plus }
+[RenderPipeline "renderPipeline_MeshStandardMaterial_681"] has { colorTargets: [0 = RGBA16Float] }
+```
+
+**Root cause — `PassNode.getTexture()` is not a read.** three r183
+(`node_modules/three/src/nodes/display/PassNode.js:564-583`) clones `renderTarget.texture` for an
+unknown attachment name and does `renderTarget.textures.push(texture)`. `setMRT()` — the call that
+makes materials EMIT those outputs — is a separate call. `_textures` is seeded with **only** `output`
+and `depth` (:315-317), so `depth` reads are free while `normal` / `diffuseColor` / `velocity` are
+not; and the target is created `{ type: HalfFloatType }` (:260), so every clone is RGBA16Float.
+
+`activateSSGI()` handed `createSSGIPass()` a pass built with `needsGBuffer=false` — the CORRECT
+default, since SSGI/TRAA start off and §L-253 had already established that declaring targets nothing
+reads makes every pipeline invalid. SSGI then read two G-buffer channels off it. Result: a
+4-attachment render pass driven by 1-output shaders, and every submit rejected for the rest of the
+session. TRAA reached the same hole one channel over, via `velocity`.
+
+⭐ **The founder's own error text carried the proof.** `createScenePass(…, true)` downgrades
+`diffuseColor` and `normal` to `UnsignedByteType` → `RGBA8Unorm`. **Four half-float targets can only
+be clones of `output`**, i.e. the lazy path — not the declared one. Executed against real
+`three/tsl`: after `activateSSGI()` the pass has `getMRT() === null` and undeclared attachments
+`["normal","diffuseColor","velocity"]`.
+
+⚠ **The §L-253 guard that was supposed to catch this could never fire.** `_buildPhase3Pipeline`
+tested `!_ssgiActive && !_traaActive` — a state `activateSSGI()` had already made unreachable by
+setting `_ssgiActive = true` first. A guard keyed on INTENT, protecting against a mismatch between
+intent and the layout actually BUILT.
+
+**Fix:** `_scenePassHasGBuffer` tracks the layout the live pass was CONSTRUCTED with — never inferred
+from `_ssgiActive || _traaActive`, which is the intent and was already out of step. One chokepoint,
+`_ensureScenePassGBuffer()`, rebuilds before any G-buffer channel is read, and **returns `boolean` so
+callers can REFUSE** and fall back to phase 2 rather than read undeclared channels.
+
+**Falsifiability:** `RenderPipelineManager.mrtLazyAttachment.test.ts` uses real `three/tsl`,
+`PassNode`, `SSGINode`, `TRAANode` — a fake built from the header cannot falsify the header. RED at
+HEAD: `Tests 5 failed | 4 passed (9)`, `expected [ Array(3) ] to deeply equal []`. GREEN after: 9/9.
+
+Commit `61367784`.
+
+---
+
+## L-1511 — ✅ FIXED: device-loss recovery left SSGI compositing a DEAD render target — 2026-08-20 (lane GPU2)
+
+Found by the "are there other minting sites?" audit that L-1510 prompted, and it is the more
+dangerous of the two because nothing reports it.
+
+Three sites mint a scene pass; only two dropped `_cachedAo` / `_cachedGi`, which are bound to the
+**replaced** `RenderTarget`. The one that did not is device-loss / live-swap recovery:
+`recoverPipeline → bind() → _buildPipeline()` mints a fresh pass, then `if (_ssgiActive) await
+activateSSGI()` hits the idempotency guard `_ssgiActive && _cachedAo && _cachedGi && !params` —
+satisfied by the **stale** nodes — and returns without rebuilding. SSGI then composited a dead render
+target for the remainder of the session.
+
+**Fix:** `_setScenePass()` — one function owns pass identity, and dropping the derived nodes is part
+of replacing the pass rather than something each call site must remember.
+
+⭐ The general shape: **an idempotency guard that reads a CACHE instead of the thing the cache
+describes will happily confirm a state that no longer exists.** Commit `61367784`.
+
+---
+
+## L-1512 — ✅ SHIPPED: the user may now pin a render tier over the ADR-0094 large-scene cap — 2026-08-20 (lane GPU2)
+
+Founder: *"lately the quality WebGPU has decreased … I would like to ad-hoc be able to have a sound
+rendering shadow quality."*
+
+Not a regression. `LARGE_SCENE_CAP_TIER = 'performance'` (§PERF-LARGE-SCENE-TIER-CAP, ADR-0094) caps
+**any** scene ≥1200 meshes, and his building is 4,102 — so a richer tier was unreachable by design
+and no setting could move it. What was missing was an explicit override.
+
+**Render rail → Visual → Render Quality:** Auto (default) / Cinematic / Balanced / Performance /
+Survival. Measured end of the path: pin `balanced` at 4,102 meshes → `shadowLevel: 'high'` → shadow
+map **512² → 2048²**, PCF radius **1 → 4**.
+
+Three properties, each with a test:
+
+- **The pin runs BEFORE `applyBackendGate`, never instead of it.** A `cinematic` pin on WebGL2 still
+  returns `ssgi/traa false, shadowLevel 'standard'` — SSGI on WebGL2 is a CAPABILITY, not a
+  preference, and a pin must never claim it.
+- **Unpinned is byte-identical** to the pre-pin algorithm, asserted over a 13-step sweep crossing
+  every tier boundary in both directions.
+- **The pin reaches the renderer.** `setTierOverride()` alone changes a decision service and nothing
+  on screen — the shadow map moves only when `applyTierForMeshCount()` runs, which geometry events
+  drive and a settings click does not. `applyRenderQualityPin()` re-drives the coordinator; delete
+  that re-drive and the test goes red while the pin still "works" everywhere except on screen.
+
+The UI names the mesh count and the ADR-0094 cap when the pin is richer than automatic, so a
+subsequent stutter is attributable rather than mysterious. Commits `4f829014`, `0c531b95`.
+
+---
+
+## L-1513 — ⛔ OPEN (measured, not fixed): TRAA alone builds the G-buffer, lights the badge, and composites NOTHING — 2026-08-20 (lane GPU2)
+
+With SSGI off, `activateTRAA()` → `_rebuildPipelineWithCurrentState()` → `_buildPipeline()` builds a
+**phase-2** graph, which never calls `createTRAAFilter`. So the G-buffer is declared and paid for,
+`traa-state-changed` fires `enabled: true`, the badge goes green — and no temporal AA is applied.
+
+⚠ **Do not read L-1510's green tests as covering this.** They assert the pass is *valid*, not that
+TRAA *works alone*. Stated because the two are easy to conflate, and the second is what the founder
+would actually be looking for when he clicks it.
+
+---
+
+## L-1514 — ⛔ OPEN (logged): `packages/render-pipeline/` is an orphan rival copy with ZERO importers — 2026-08-20 (lane GPU2)
+
+A parallel copy of `ScenePass` / `ZonePass` / `BackgroundUniform`, imported by nothing, still
+declaring MRT **unconditionally** — i.e. pre-§L-253, carrying the exact defect that flooded the
+founder's console. Not reachable, so not his bug; but it is a second answer to a question that must
+have one, and the next reader will find it. Deletion is a decision, not a cleanup.
+
+---
+
+## L-1515 — ⛔ OPEN (measured): the tier log says `shadows=standard` when shadows are OFF — 2026-08-20 (lane GPU2)
+
+`RenderingPipelineCoordinator.ts:694` prints `shadows=${settings.shadows ? settings.shadowLevel :
+'OFF'}` — and the `>= 8000` mesh ceiling that actually disables them is applied ~18 lines LATER. A
+9,000-mesh scene therefore logs `shadows=standard` while rendering none. An instrument that reports
+the INPUT to a decision as though it were the OUTCOME; same family as L-1397.
+
+---
