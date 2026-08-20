@@ -23723,3 +23723,109 @@ as unknown rather than guessed.
 real fix is a lazy or dynamic import of `SlabTool` from the geometry-slab barrel** (or dropping it
 from the barrel), so `@thatopen/ui` is pulled only by code that actually renders. ⛔ Deliberately not
 attempted tonight.
+
+---
+
+## L-1500 — ✅ FIXED: the production server could not BOOT — two barrel imports put a Lit UI library in the SERVER bundle — 2026-08-20 (lane DEPLOY)
+
+The manual Fly deploy of `d160de04` (§DEPLOY-CONTRACT-MANUAL-FLY §4) failed **inside the Docker
+build**, at the §L-442 smoke gate:
+
+```
+#21 [builder 15/15] RUN node scripts/build/smoke-prod-boot.mjs
+[smoke] ✖ process exited before binding :51942 (code=1)
+[prod-shim] failed to boot server.js: ReferenceError: document is not defined
+    at so.create (@thatopen/ui/dist/index.js:1878:15)
+```
+
+⭐ **READ THE WHOLE LOG, NOT ITS TAIL.** The *last* error flyctl printed was the familiar
+§6.5.9 `npipe:////./pipe/docker_engine` one — because flyctl retried on the wireguardless path
+**after the build had already failed**. §6.5.9 says that failure is flaky (~20 % success) and
+that retrying is rational, so an agent reading only the tail would have burned ~5 × 20 min
+retrying a handshake for a defect that fails **100 % of the time**. The real error was ~40 lines
+above it. **A trailing error can be a CONSEQUENCE of the real one.**
+
+**Root cause — measured with an esbuild metafile walk over the real bundle, not reasoned:**
+
+```
+file-format/src/server.js -> pack.js -> persistence-client -> core-app-model
+  -> (a) command-registry/src/slabs/UpdateSlabPolygonCommand.ts   [L-1323]
+  -> (b) geometry-wall/src/WallTool.ts                            [L-1324/L-1325]
+     -> @pryzm/geometry-slab   ← THE BARREL
+        -> SlabTool.ts / SlabPickWallsController.ts
+           -> import * as BUI from '@thatopen/ui'   (Lit; touches `document` at module scope)
+```
+
+Both new imports wanted **pure** helpers out of `boundaryLoops.ts`; both took the **barrel** to
+get them, and the barrel value-exports the two slab TOOLS. (a) landed two lines below a comment
+stating that every other slab import in that file is `import type` *"which is erased and creates
+no runtime edge"*, and beside an existing runtime import already using the deep subpath
+`@pryzm/geometry-slab/geom-utils`. **The convention was written down in the file being edited and
+was still not followed** — which is why the fix ships a comment naming the consequence, not the
+rule.
+
+**Fix:** a `./boundary-loops` export subpath (`boundaryLoops.ts` is pure and THREE-free — its only
+import is `import type`), both call sites moved onto it. Same pattern the package already uses for
+`geom-utils` / `store` / `boundary-arc`.
+
+**Measured, before → after:**
+
+| | before | after |
+|---|---|---|
+| `file-format/server` bundle | 1753 modules | **1721** |
+| `@thatopen/ui` in externals | **YES** | **no** |
+| `import()` of the bundle in plain node | `ReferenceError: document` | **OK, 35 exports** |
+| root `tsc -p tsconfig.json --noEmit` | — | **RC=0** |
+| `@pryzm/geometry-slab` suite | — | **316/316** |
+
+*(The last-known-good bundle of 2026-08-18 was 1684 modules with no `@thatopen/ui`, which is how
+the regression window was bounded.)*
+
+⚠ **NOT claimed:** this does not remove `@thatopen/components` (Node-safe, and present in the
+last-good bundle too), and it does **not** close L-541 — an L2 geometry package still statically
+imports browser UI. It closes only the two edges by which the *server* graph reached it. **The
+barrel remains a loaded gun for the next caller**, and nothing yet gates it: the durable fix is a
+check that fails when the server bundle acquires a browser-only external. Logged as L-1501.
+
+### L-1436 — ✅ CLOSED BY THIS FIX (was ⛔ OPEN, "logged, not chased", same day)
+
+L-1436 recorded the same shape one layer up: *"a COMMAND barrel reaches `@thatopen/ui` and touches
+`document` at MODULE LOAD"*, chain `@pryzm/command-registry (barrel) -> geometry-slab/SlabTool.ts:3`.
+**That is edge (a) above.** Removing it closes L-1436:
+
+* esbuild metafile over the `@pryzm/command-registry` entry → **0 direct importers of
+  `@thatopen/ui`** anywhere in its graph (was 2).
+* runtime, plain node, no DOM: `await import('@pryzm/command-registry')` → **OK, 356 exports**
+  (was `ReferenceError: document is not defined` at import).
+
+⚠ L-1436's **workaround survives and should now be removed separately**: the two suites it names
+still declare `// @vitest-environment happy-dom`, which is a DOM for an import that no longer needs
+one. Left in place here rather than touched mid-deploy.
+
+⭐ **The lesson worth keeping:** L-1436 was filed as *"not mine, deliberately not attempted
+tonight"* — a correct triage call for a test-collection failure. What it could not see is that the
+**same edge also broke production boot**. A defect logged as a test-only annoyance was, unmeasured,
+a ship-blocking one. When a barrel touches the DOM at module load, ask **who else imports it**
+before deciding it is cosmetic.
+
+---
+
+## L-1501 — ⛔ OPEN (logged, not built): NOTHING gates a browser-only package entering the SERVER bundle — 2026-08-20 (lane DEPLOY)
+
+L-1500 was caught by `smoke-prod-boot.mjs`, which is the **right** gate and did its job — but it
+catches the defect at the **end** of a ~20-minute Docker build, by booting the artefact. The cheap
+structural check does not exist:
+
+`build-server-deps.mjs` already computes the external set for every server bundle and already
+fails the build when an external is not resolvable at runtime (its own comment: *"the difference
+between a build failure and a 3am ERR_MODULE_NOT_FOUND"*). It does **not** ask whether an external
+is **browser-only**. Adding a deny-list arm there (`@thatopen/ui` and any other DOM-at-module-scope
+package) would have failed **in seconds, locally**, naming the offending import — instead of after
+a full remote build.
+
+⚠ **Deliberately not built during a deploy.** Stated with its evidence so it is a decision, not
+an omission. The measured facts it would key on are in L-1500: the last-good bundle had
+`@thatopen/components` (fine) and not `@thatopen/ui` (fatal), so the arm must be a **named
+deny-list**, not "no `@thatopen/*`" — the coarse rule would have failed the last three green
+deploys.
+

@@ -10,6 +10,22 @@
 
 ---
 
+> ## ⛔ IF A DEPLOY JUST FAILED, READ §6.8.1 FIRST
+>
+> Before you retry, before you read a build log, before you believe the last line flyctl printed:
+>
+> ```bash
+> grep -n 'ERROR: process "/bin/sh' "$LOG" | head -3   # => a CODE defect. Do NOT retry.
+> grep -c  'Pushing image done'      "$LOG"            # => 1 means the build is BANKED (§6.5.7)
+> ```
+>
+> On 2026-08-20 a **deterministic source defect** ended its run printing §6.5.9's *flaky*
+> `npipe:...` error, because flyctl retried after the build had already died. The document's own
+> advice at that point — *"retrying is rational"* — would have cost ~5 × 20 min on a defect that
+> never succeeds. **A trailing error can be a consequence of the real one.**
+
+---
+
 ## 1. WHEN THIS PATH APPLIES
 
 **CI is the default deploy path. This one is for GitHub Actions outages only.**
@@ -67,6 +83,12 @@ The build then completed **4,542 modules in 1m 41s with no OOM**.
 > not a measured requirement. The real heap floor has **not** been tested — see §7.
 
 ### 2.2 Docker context must be ~130 MB
+
+> ⚠ **STALE — re-measured 2026-08-20: flyctl reports `Build context is 215 MB across 6,169 files`.**
+> §6.7 already flagged ~185 MB. The number in this heading has been wrong at every execution
+> since it was written; **read flyctl's own warning line, which prints the current figure and
+> the largest paths, and do not trust this heading.** (2026-08-20: `public/` 109 MB ·
+> `packages/` 36 MB · `tools/` 26 MB · `apps/` 21 MB · `dist-server-deps/` 17 MB.)
 
 It was **2.8 GB across ~6k files** at the start of the session, which is what made every
 non-CI path unusable. The bulk was untracked probe artefacts, not source:
@@ -293,7 +315,7 @@ every time** (this deploy: `L-690`). What was run against `c13a11f1`:
 
 | Check | Result |
 |---|---|
-| `npx tsc -p tsconfig.json --noEmit` | **clean** (exit 0) |
+| `NODE_OPTIONS=--max-old-space-size=8192 npx tsc -p tsconfig.json --noEmit` | **clean** (exit 0) — ⚠ the heap flag is REQUIRED as of 2026-08-20, see §6.8.3 |
 | `npm run check:isolation` | **clean** (Contract 48) |
 | `npm run test:server` | **422/422 passing**, 28 files |
 
@@ -764,3 +786,171 @@ Docker Desktop was running; the guard was applied and the build never saw the np
 MSYS form `/tmp/empty-docker-config` printed in §6.5.6 **fails silently here** — use a real Windows
 path (`C:/…/empty-docker-config`) containing `config.json` = `{}`. §6.6.1 holds unchanged: **no MSYS
 exports**, the script owns its own defence.
+
+---
+
+## 6.8 FIFTH EXECUTION — 2026-08-20 (`d160de04` → `b1b5dab6`, bundle proof 6/6): THE BUILD FAILED FOR A **CODE** REASON, AND THE LOG'S LAST LINE LIED ABOUT IT
+
+**If a deploy just failed, read §6.8.1 before anything else in this document.** Every previous
+section here diagnoses INFRASTRUCTURE. This is the first recorded case of the manual path failing
+because **the repo could not produce a bootable server** — and the failure wore the costume of the
+infrastructure bug §6.5.9 describes.
+
+### 6.8.1 ⛔ §TRAILING-ERROR-IS-A-CONSEQUENCE — grep for the FIRST error, never the last
+
+The run ended with exactly this, which is §6.5.9's signature verbatim:
+
+```
+WARN Failed to start remote builder heartbeat: failed to parse daemon host "npipe:////./pipe/docker_engine"
+Error: failed to fetch an image or build from source: failed to parse daemon host "npipe:..."
+DEPLOY_RC=1
+```
+
+§6.5.9 says that failure is **flaky (~20 % success) and that retrying is rational**. Obeying it here
+would have burned roughly **five attempts × ~20 min** on a defect that fails **100 % of the time** —
+because ~40 lines earlier the build had already died:
+
+```
+#21 [builder 15/15] RUN node scripts/build/smoke-prod-boot.mjs
+#21 3.231 [prod-shim] failed to boot server.js: ReferenceError: document is not defined
+#21 ERROR: process "/bin/sh -c node scripts/build/smoke-prod-boot.mjs" did not complete successfully
+```
+
+flyctl retried on the wireguardless path **after** the build had failed, so the npipe error is a
+**consequence**, printed last. ⭐ **The most recent error in a log is not the same as the earliest
+one, and only the earliest one is a cause.**
+
+**Do this, in this order, before concluding anything:**
+
+```bash
+grep -n 'ERROR: process "/bin/sh' "$LOG" | head -3    # a Dockerfile RUN step died => CODE defect
+grep -c  'Pushing image done'      "$LOG"             # 1 => build finished; failure is DELIVERY
+grep -n  '^Error'                  "$LOG" | head -3    # flyctl's own errors, in order
+```
+
+| what you find | what it is | what to do |
+|---|---|---|
+| `ERROR: process "/bin/sh -c ..."` anywhere | **deterministic CODE failure** | **Do NOT retry.** Fix the code — §6.8.2 |
+| `Pushing image done` present | build finished, delivery died | §6.5.7 reference-only resume; never rebuild |
+| neither; dies at the handshake | the §6.5.9 flake | retry is rational (~1 in 5) |
+
+### 6.8.2 What the code defect was, and the LOCAL repro that costs ~1 minute instead of ~20
+
+`§L-442`'s `smoke-prod-boot.mjs` boots the real `dist/index.cjs` inside the image. It refused: two
+commits from the preceding night imported the **`@pryzm/geometry-slab` barrel** to get *pure*
+helpers, and that barrel value-exports `SlabTool` + `SlabPickWallsController`, which
+`import * as BUI from '@thatopen/ui'` (Lit) at module scope. The server graph reaches them via
+`file-format/server.js → pack → persistence-client → core-app-model → {command-registry, geometry-wall}`.
+Full write-up: **ISSUE-LOG `L-1500`** (which also closed `L-1436`).
+
+⭐ **You do not need Fly to find this class of defect.** The image build regenerates the server
+bundles via `build:docker`, so the identical thing runs locally in seconds:
+
+```bash
+npm run build:server-deps      # prints, per bundle: module count + the EXTERNAL list
+```
+
+Read the externals for `@pryzm/file-format/server`. **A browser-only package in that list is the
+bug.** Measured across this regression:
+
+| bundle | modules | `@thatopen/ui` external | boots? |
+|---|---|---|---|
+| 2026-08-18 (last good) | 1684 | no | yes |
+| `d160de04` (failed) | **1753** | **YES** | **no** |
+| `b1b5dab6` (fixed) | 1721 | no | yes |
+
+Then confirm the artefact actually evaluates — the cheap stand-in for the whole smoke gate:
+
+```bash
+node --input-type=module -e "await import('./dist-server-deps/@pryzm/file-format/server.mjs'); console.log('OK')"
+```
+
+To find *which* import did it, walk esbuild's metafile instead of guessing: reproduce
+`build-server-deps.mjs`'s externalise rule (external iff a `node:` builtin or present in root
+`package.json` dependencies), build with `metafile: true`, then reverse-BFS from the offending
+specifier back to the entry. That printed the exact 11-hop chain in one run.
+
+⚠ **Two independent routes existed.** Fixing the first left the bundle byte-identical at 1753
+modules. **Re-run `build:server-deps` after every fix and believe the externals list, not the fix.**
+
+⚠ **A false lead worth naming, because it cost time:** `dist-server-deps/` is **untracked**, 17 MB,
+and IS uploaded in the build context — so it looks like a stale local artefact poisoning the image.
+It is not. `COPY . .` lands first, then `RUN pnpm run build:docker` **regenerates** it inside the
+image; `apply-server-deps-overlay.mjs` only *copies*. Do not chase it.
+
+### 6.8.3 ⚠ The §6 gate cover's `tsc` command NO LONGER COMPLETES as written
+
+`npx tsc -p tsconfig.json --noEmit` now dies at Node's default ~2 GB heap:
+
+```
+FATAL ERROR: Ineffective mark-compacts near heap limit - JavaScript heap out of memory
+RC=134
+```
+
+⛔ **`RC=134` reads exactly like a broken build and is not one.** With the flag, the same tree is
+**RC=0, zero errors**:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 npx tsc -p tsconfig.json --noEmit
+```
+
+The §6 table is corrected in place. Same lesson as §5.2 and §6.7.1: **a check that fails on a healthy
+tree is worse than no check**, because its output is indistinguishable from a real failure.
+
+### 6.8.4 `check:isolation` was RED, and was deliberately NOT made green
+
+Arms 1–2 (C13 project-isolation, Contract 48 storage-isolation) passed. Arm 3 (ADR-0298 declared
+project-scope) failed: baseline **41 → 44**, three new files holding module-level project-scoped
+state with no declared owner (`lineworkProbe.ts`, `underlayViewScope.ts`, `stairByWalls.ts`).
+
+The gate's own output says *"do not narrow the check until it passes"*, so the debt JSON was **not**
+edited to buy a green line. **This deploy shipped with that arm red, and it is recorded here rather
+than hidden.** Rule for the next agent: a ratchet you could silence in ten seconds is exactly the one
+you must not silence during a deploy — you will not remember it afterwards, and the next reader will
+believe the gate.
+
+Gate cover at the deployed SHA: root `tsc` **RC=0** (with §6.8.3's flag) · `test:server` **613/613,
+41 files** · `check:isolation` **RC=3, arm 3 only** · `@pryzm/geometry-slab` **316/316**. Not run:
+root vitest, `test:pryzm1`, Playwright — the same declared gap as §6.
+
+⚠ Also pre-existing and NOT caused by this deploy: **`@pryzm/command-registry` fails 13 tests across
+7 files** (rake preflight, windows batch, move-reweld, wall-layer batch, canPlace refusal identity).
+Verified as behavioural assertions with no module-resolution errors, i.e. inherited from the
+preceding night's lanes, not from the import fix. **They shipped failing.**
+
+### 6.8.5 Operational notes that held or changed
+
+* **Builder app renamed AGAIN** — `fly-builder-shimmering-glow-9973` (was
+  `fly-builder-twilight-songbird-4866` in §6.7, `fly-builder-autumn-headland-88` in §2.1). §6.6.2's
+  rule — *always `flyctl apps list | grep builder`, never assume the name* — held for the third
+  consecutive execution. It was already `shared-cpu-8x:16384MB`; no resize needed.
+* **§6.5.10 warming worked, on both attempts.** The builder read `suspended`; `flyctl machines start`
+  ran before each attempt, and **both** cleared the handshake and reached the build — against
+  §6.5.9's "0 pushes in 10 attempts". ⛔ This is **not** evidence the flake is fixed (§6.5.10
+  corrected itself on exactly this reasoning). Two data points, recorded as two data points.
+* **A changed `package.json` invalidates the whole layer cache.** Attempt 1 ran with `pnpm install`
+  and `build:docker` **CACHED**, so only the smoke step was live (~2 min to failure). Attempt 2
+  changed `packages/geometry-slab/package.json`, so nothing cached and it was a full cold build.
+  Budget for the cold path whenever a manifest moves. It did **not** break `--frozen-lockfile`: an
+  `exports` subpath is not a lockfile input.
+* **`fly.toml` is now `strategy = "rolling"`, not `bluegreen`.** §6's blue-green grace-period warning
+  and §6.5.8's multi-image trap are correspondingly less likely — but §6.5.8's ⭐ rule survives
+  regardless: **always re-read the served chunk hash.** Here `main-CFghigBz.js` → `main-D4sQvlnl.js`,
+  CHANGED, which is the only line separating "shipped" from "still serving the old one".
+* **The §5 proof was run only after `DEPLOY_RC=0`** (§6.7.1) and its verdict read from a file via
+  `; echo "RC=$?" >> file`, never through a pipe (§EXIT-CODE-THROUGH-A-PIPE). It passed **6/6 first
+  try**, no retry needed.
+
+### 6.8.6 ⭐ The durable fix this execution earns — logged as `L-1501`, NOT built
+
+`build-server-deps.mjs` already computes each bundle's external set, and already fails the build when
+an external would not resolve at runtime (its own comment: *"the difference between a build failure
+and a 3am ERR_MODULE_NOT_FOUND"*). **It does not ask whether an external is browser-only.** A named
+deny-list arm there — `@thatopen/ui`, and anything else that touches `document` at module scope —
+would have failed **locally, in seconds, naming the offending import**, instead of 20 minutes into a
+remote build as a stack trace wearing an infrastructure error's clothes.
+
+⚠ It must be a **named deny-list**, not "no `@thatopen/*`": `@thatopen/components` is Node-safe and
+sits in the last-good bundle, so the coarse rule would have failed the three preceding green deploys.
+Deliberately not built mid-deploy; stated with its evidence so it is a decision, not an omission.
+
