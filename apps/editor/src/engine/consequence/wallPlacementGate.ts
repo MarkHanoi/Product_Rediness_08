@@ -692,6 +692,64 @@ export function gateWallMove(
         { incumbents: pre.incumbentWallIds, maxShiftMm: pre.maxIncumbentShiftMm },
       );
     }
+
+    // ── §L-1571 — THE JUNCTIONS NOBODY WILL REPAIR, SAID IN THEIR OWN WORDS ──
+    //
+    // ⚠ WHAT THIS ARM IS *NOT*: it is not a new refusal. `blocked` is unchanged
+    // on every input, deliberately. Re-blocking the core gesture is the L-942
+    // disaster and it is not this lane's to repeat.
+    //
+    // WHAT IT IS: the line above it reported these same junctions as an
+    // INCUMBENT BREACH, because `previewMoveReweld` flattened all six of
+    // `computeMoveReweldPlan`'s refusal codes onto that one. The founder's
+    // console read *"would re-baseline 2 non-subject wall(s) by up to 75 mm"*
+    // for two `AMBIGUOUS_WELD_AUTHORSHIP` refusals — a sentence in which the
+    // subject, the verb and the number were each wrong: nothing was going to be
+    // re-baselined (that is what the refusal MEANS), 75 mm is an axial position
+    // and not a shift, and the 101 mm band it was measured against was dropped.
+    //
+    // ⭐ AND THE CONSEQUENCE OF *THESE* REFUSALS IS NOT THE ONE THE FOUNDER
+    // TRADED FOR. §L-942-UNBLOCK's stated bargain is a neighbour that
+    // over-follows — "KNOWN, VISIBLE, UNDOABLE". An unrepaired junction is none
+    // of the three: `WallJoinResolver`'s §NEAR-CORNER-L bisector then closes the
+    // corner VISUALLY while the endpoints do not meet (it says so itself, and
+    // calls the gap *"evidence of an upstream commit defect"*), and
+    // `RoomDetectionEngine` inherits a loop that will not close. The model looks
+    // right and is wrong.
+    //
+    // THE DECISION THIS ARM DELIBERATELY DOES NOT TAKE: whether a
+    // non-incumbent refusal should BLOCK. It should probably behave like
+    // `!pre.ok` — the §L-942 comment reserves that arm for *"geometric
+    // impossibilities … letting them through would corrupt the model"*, and
+    // `STEM_COLLAPSE` / `STEM_REVERSAL` / `STEM_HOST_NO_LONGER_BENEATH` are
+    // literally that, while `AMBIGUOUS_WELD_AUTHORSHIP` is L-944's *undetermined*
+    // (which "is not permission, and is not a refusal either"). Flipping it is a
+    // C83 §10.6 amendment and needs the founder, exactly as the §L-942 note says
+    // of its own restoration predicate.
+    if (pre?.unrepairableJunctions?.length) {
+      console.warn(
+        `[wallPlacementGate] §L-1571-UNREPAIRED-JUNCTION wall ${wallId}: the re-weld will leave ` +
+        `${pre.unrepairableJunctions.length} junction(s) UNREPAIRED ` +
+        `[${pre.unrepairableJunctions.map(u => `${u.partnerId}:${u.reason}`).join(', ')}]. ` +
+        `REPORTED, NOT REFUSED — the move proceeds (§L-942-UNBLOCK). ⚠ Unlike an incumbent ` +
+        `over-follow, this leaves geometry that is VISUALLY CLOSED and TOPOLOGICALLY OPEN: ` +
+        `the mitre pass will draw the corner shut while the endpoints do not meet.`,
+        { detail: pre.unrepairableJunctions.map(u => u.sentence) },
+      );
+      // §L-921-ONE-CHANNEL — a console line is not a user-facing message. The
+      // sentences are `describeReweldRefusal`'s, minted in ONE place so the
+      // pre-move report and the post-move `§MOVE-REWELD-REFUSED` backstop cannot
+      // describe one junction with two stories.
+      const NL = '\n';
+      const lines = pre.unrepairableJunctions.map(u => `  • ${u.sentence}`).join(NL);
+      void Promise.resolve().then(() => {
+        chatSay(
+          `Moving wall ${wallId}. ${pre.unrepairableJunctions.length} junction(s) will be left ` +
+          `UNREPAIRED — the move goes ahead, but these corners will be drawn closed without ` +
+          `actually meeting:` + NL + lines,
+        );
+      });
+    }
   }
 
   // ── §L-921-SLAB-PREFLIGHT — the THIRD question, and the last half-executor ──

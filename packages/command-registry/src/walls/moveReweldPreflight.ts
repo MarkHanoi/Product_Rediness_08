@@ -68,6 +68,7 @@ import { trace, type Tracer } from '@opentelemetry/api';
 import type { Point3D } from '@pryzm/core-app-model';
 import {
     computeMoveReweldPlan,
+    describeReweldRefusal,
     DEFAULT_SNAP_RADIUS,
     type WallData,
 } from '@pryzm/geometry-wall';
@@ -184,6 +185,56 @@ export interface MoveReweldPreflightResult {
     readonly preExistingIssues?: readonly string[];
     /** Which wall ids the refused cascade would have re-welded. */
     readonly partnerIds: readonly string[];
+    /**
+     * ⭐ §L-1571 — THE JUNCTIONS NOBODY WILL REPAIR, WITH THEIR OWN NAMES.
+     *
+     * ── THE DEFECT THIS CLOSES (founder session 2026-08-20, item 2.1) ────────
+     * `computeMoveReweldPlan` emits SIX distinct refusal codes. This module used
+     * to map every one of them onto `reason: 'INCUMBENT_EXTENSION_REQUIRED'`,
+     * `incumbentBreach: true`, and a `maxIncumbentShiftMm` taken from
+     * `refusal.beyondMm` — a field whose MEANING is different for each code. For
+     * `AMBIGUOUS_WELD_AUTHORSHIP` it is `axialFromEndM`, i.e. how far along the
+     * moved wall the abutment sits. The founder's console therefore read:
+     *
+     *   "the re-weld would re-baseline 2 non-subject wall(s) by up to 75 mm"
+     *
+     * and all three of those claims were false. **No wall would be re-baselined**
+     * — the engine refused precisely so that none would be. **75 mm is not a
+     * shift** — it is an axial position. **The second number was dropped
+     * entirely** (C83 §10.3), so nothing said the 75 mm was being compared
+     * against a 101 mm band.
+     *
+     * ── AND THE MISLABEL WAS LOAD-BEARING, NOT COSMETIC ──────────────────────
+     * `incumbentBreach` is the exact flag §L-942-UNBLOCK downgrades to
+     * report-only. The founder authorised that downgrade for ONE named trade:
+     * a neighbour that over-follows, which is *"KNOWN, VISIBLE, UNDOABLE"*. Five
+     * other codes rode through the same flag, and their consequence is neither
+     * visible nor undoable — it is a junction left permanently open, which
+     * `WallJoinResolver` then closes VISUALLY with a bisector mitre while the
+     * endpoints do not meet. The laundering is how a decision taken about one
+     * defect came to govern five others it was never asked about.
+     *
+     * ⚠ THIS FIELD CHANGES NO DECISION. `allowed` is computed exactly as before
+     * and every caller's branch is byte-identical; what changes is that the
+     * report is TRUE. Whether the non-incumbent refusals should also stop the
+     * gesture is a C83 §10.6 amendment and the founder's call — see
+     * `wallPlacementGate`'s §L-1571 arm, which states it and does not take it.
+     */
+    readonly unrepairableJunctions: readonly {
+        /** The partner whose junction is left open. */
+        readonly partnerId: string;
+        /** The refusal's OWN code — its identity, never flattened (C71). */
+        readonly reason: string;
+        /** C83 §10.3 — what was measured, mm, in the unit that code means. */
+        readonly measuredMm: number;
+        /** C83 §10.3 — what it had to clear, mm. Absent only where the limit is
+         *  structurally zero (`INCUMBENT_EXTENSION_REQUIRED`). */
+        readonly limitMm?: number;
+        /** The sentence a human reads, minted by `describeReweldRefusal` — the
+         *  SAME function the post-move service uses, so the pre-flight and the
+         *  backstop cannot describe one junction with two stories. */
+        readonly sentence: string;
+    }[];
 }
 
 function moved(a: readonly Point3D[] | undefined): a is readonly [Point3D, Point3D] {
@@ -240,6 +291,7 @@ function _previewMoveReweld(
         incumbentWallIds: [],
         incumbentBreach: false,
         maxIncumbentShiftMm: 0,
+        unrepairableJunctions: [],
     };
 
     try {
@@ -328,20 +380,48 @@ function _previewMoveReweld(
         // prevent. MEASURED: the L-921 accept-path test refused to refuse until
         // this branch existed.
         if (plan.refusals.length > 0) {
+            // ── §L-1571 — SIX CODES, SIX IDENTITIES ──────────────────────────
+            //
+            // See `unrepairableJunctions`. Only `INCUMBENT_EXTENSION_REQUIRED`
+            // is an incumbent-policy refusal, and only it may set the flag
+            // §L-942-UNBLOCK was authorised to downgrade. The other five are
+            // "this junction cannot be repaired", which is a different fact
+            // about a different wall with a different remedy.
+            const unrepairable = plan.refusals.map(r => ({
+                partnerId: r.partnerId,
+                reason: r.reason,
+                measuredMm: r.beyondMm,
+                ...(r.limitMm != null ? { limitMm: r.limitMm } : {}),
+                sentence: describeReweldRefusal(r),
+            }));
+            const incumbentRefusals = plan.refusals.filter(
+                r => r.reason === 'INCUMBENT_EXTENSION_REQUIRED',
+            );
+            // The reason a caller quotes is the set of codes actually present,
+            // in first-seen order. One code stays one code (so every existing
+            // `reason === 'INCUMBENT_EXTENSION_REQUIRED'` reader is unchanged on
+            // the case it was written for); two codes say two, because picking
+            // one of them would report the wrong fact with the right confidence.
+            const codes = [...new Set(plan.refusals.map(r => r.reason))];
             return {
-                allowed: false,
+                allowed: false,         // UNCHANGED — every refusal still denies
                 ok: true,               // the cascade itself never got to object
                 entries,
-                reason: 'INCUMBENT_EXTENSION_REQUIRED',
-                blockingIssues: plan.refusals.map(
-                    r => `INCUMBENT_EXTENSION_REQUIRED: ${r.partnerId}: the new corner falls ` +
-                         `${r.beyondMm} mm past that wall's end, so closing the joint would ` +
-                         `require lengthening it`,
-                ),
+                reason: codes.join('+'),
+                // The sentences are `describeReweldRefusal`'s, so each one names
+                // its own code and carries BOTH of its numbers (C83 §10.3). The
+                // hand-rolled INCUMBENT_EXTENSION_REQUIRED prose that used to
+                // stand here asserted a lengthening for refusals that involve no
+                // lengthening at all.
+                blockingIssues: unrepairable.map(u => u.sentence),
                 partnerIds: plan.refusals.map(r => r.partnerId),
-                incumbentWallIds: plan.refusals.map(r => r.partnerId),
-                incumbentBreach: true,
-                maxIncumbentShiftMm: plan.refusals.reduce((m, r) => Math.max(m, r.beyondMm), 0),
+                // Only the incumbent-policy refusals are incumbents. A partner
+                // refused for AMBIGUOUS_WELD_AUTHORSHIP is not one: nothing was
+                // going to move it, which is the whole content of the refusal.
+                incumbentWallIds: incumbentRefusals.map(r => r.partnerId),
+                incumbentBreach: incumbentRefusals.length > 0,
+                maxIncumbentShiftMm: incumbentRefusals.reduce((m, r) => Math.max(m, r.beyondMm), 0),
+                unrepairableJunctions: unrepairable,
             };
         }
 
@@ -440,6 +520,10 @@ function _previewMoveReweld(
             incumbentWallIds: incumbent.map(i => i.id),
             incumbentBreach,
             maxIncumbentShiftMm: incumbent.reduce((m, i) => Math.max(m, i.shiftMm), 0),
+            // No refusal reached here — this branch is the cascade's own verdict
+            // on a plan the engine WAS able to form. An empty array is therefore
+            // a positive "no junction was left unrepairable", not an absence.
+            unrepairableJunctions: [],
         };
     } catch (err) {
         // A pre-flight that crashed knows nothing, and "knows nothing" is not
