@@ -622,3 +622,138 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §LANDSCAPE — PLANTING AND OUTDOOR ELEMENTS
+
+> ⚠ **PLACEMENT OF CONVENIENCE, NOT AN OWNERSHIP CLAIM — read this first.**
+> **No contract in this suite owns planting.** Measured 2026-08-20 (lane LAND1):
+> `ls docs/02-decisions/contracts/C8*.md C9*.md` → C85 wall · C86 opening · C87 curtain wall ·
+> C88 ceiling · C89 floor · C90 roof · C91 column · C92 slab · C93 beam · C94 room · C95 handrail ·
+> C96 lighting · **C97 furniture** · C98 stair · C99 plumbing. There is no planting/landscape/site
+> element contract and no soft-furnishing contract. C84 §6 allocates the C85–C99 per-element block
+> and **that block is full**; **C61 is the only RESERVED unminted slot** in the suite.
+>
+> ⭐ **An undeclared family is itself a finding** (L-1385), and it is recorded as one rather than
+> hidden by this section's existence. Planting is documented here because a planted tree is
+> implemented as a `FurnitureType` and travels the furniture command, store and persistence path in
+> every respect — not because "furniture" is the right word for a 16 m Podocarpus. If a landscape
+> contract is later minted, this section moves wholesale and C97 keeps only the pointer.
+
+### §L.1 — The two families are ORTHOGONAL and MUST NOT share one word
+
+⛔ **Planting and outdoor furniture are different families and MUST NOT be collapsed into one list.**
+This is C84 EI-8/EI-9 and C92 §SL-Voc-3 (*"two orthogonal concepts must not share one word"*) applied
+to the landscape surface, and it is the defect the pre-2026-08-20 panel shipped: a single
+**Plant Types** list holding eight indoor container plantings under one droplet icon, offered as the
+whole of "landscape".
+
+Two orthogonal axes exist **within planting alone**, and they too must not be merged:
+
+| Axis | Field | Source | Rule |
+|---|---|---|---|
+| **Botanical class** | `PlantingTypeClass` | **AUTHORED** per species | ⛔ MUST NOT be derived from archetype |
+| **Crown form** | `PlantingForm` | **DERIVED** from `TreeArchetype` | ⛔ MUST NOT be authored |
+
+**They genuinely disagree, and the counter-examples are in the shipped table:** `arbol_t_06`
+(A_CIPRES — a cypress, therefore a **conifer**) carries the visual archetype `round_dense`, and
+`arbol_t_14` (A_MOLLE COSTEÑO — an evergreen *Schinus*) carries `willow`. Deriving class from
+archetype would print a confident botanical claim that is **wrong**. Deriving form from class would
+pick the wrong mesh. `typeClass` is a **required** field on `TreeSpeciesDef`, so a species added
+without one **does not compile**.
+
+### §L.2 — What a sound planting entry MUST specify
+
+A planting row that carries no numbers is unchoosable — `Plant 03` was the proof. Every entry MUST
+carry, and `LandscapeEntry` does:
+
+- **a real name** (species or type, never an ordinal),
+- **mature height** and **canopy/crown diameter** — the two numbers that decide whether it fits,
+- **trunk clear height** for trees — whether a path passes underneath,
+- **botanical class** and **crown form**, per §L.1,
+- **footprint** as placed, and the **existing** material intent and category — READ, never re-authored.
+
+### §L.3 — DERIVED, not enumerated (MUST)
+
+⭐ **The catalogue MUST be derived from a matrix, never hand-written as N rows.** `LANDSCAPE_TREE_
+ENTRIES` is `TREE_SPECIES_ORDER.map(...)`; a species added to `TREE_SPECIES_TABLE` appears in both
+create panels with correct specifications and **cannot be forgotten**. Two `Record<TreeArchetype, …>`
+tables make a new archetype a **compile error**: `ARCHETYPE_FORM` and `ARCHETYPE_TRUNK_CLEAR_RATIO`.
+
+⚠ **`ARCHETYPE_TRUNK_CLEAR_RATIO` is TRANSCRIBED FROM THE GEOMETRY, with the line cited for each of
+the twelve values** — every one is the `def.height * N` literal in the matching
+`ParametricTreeEngine._build<Archetype>()`. **MUST** be updated in the same commit as any builder
+change: a clear height that disagrees with the mesh is **worse than none**, because a designer uses
+it to decide whether a path fits underneath.
+
+### §L.4 — MUST NOT: materials, assets, compliance
+
+- ⛔ **MUST NOT mint a material or type a hex.** The landscape catalogue declares **no colour and no
+  `materialId`**; it READS `FURNITURE_TYPE_TO_MATERIAL_INTENT`. A hand-typed hex resolves FIRST and
+  makes every later material pick a silent no-op that every surface reports as applied.
+  *Verified at HEAD 2026-08-20:* `MaterialService` keys by exact colour (`color.toString()`) with
+  **no bucket hashing**; the material space is not collapsed and this family adds nothing to it.
+- ⛔ **MUST NOT introduce a GLB-backed entry into this catalogue.** Every entry is parametric, so no
+  entry can author fine and render nothing. (The `/items/**` catalogue is served from object storage
+  via a **build-time** `VITE_GLB_URL`; a runtime secret does nothing and fails silently.)
+- ⛔ **MUST NOT print a hardiness, climate-zone or code-suitability claim.** Measured 2026-08-20:
+  **no layer in this repo evaluates a planting code rule.** Any suitability string would be a
+  fabricated compliance claim. `formatLandscapeSpec` prints none, and a test asserts it never will.
+  Anything of this kind is **ADVISORY with the measurement stated**, per C74 §1.1.
+
+### §L.5 — Plan selectability MUST be stated, never assumed
+
+⚠ 2-D picking hit-tests **projected linework** and never raycasts, so an element with no plan
+linework **cannot be selected in plan at all**. `LandscapeEntry.hasPlanSymbol` is therefore READ
+from `isTreeSpeciesId` — the same predicate `TreePlanSymbolBuilder` keys on — never asserted:
+
+- **25 tree species → `true`.** True architectural canopy symbols, injected via
+  `EdgeProjectorService.ts:3531`. Selectable in plan.
+- **8 potted plants → `false`.** They receive the generic canopy glyph from `furniturePlanIcon`'s
+  keyword test: drawn and pickable, but carrying **no species information**. Recorded as a known
+  limit, not claimed as a symbol.
+
+### §L.6 — Reach before build (MUST)
+
+⭐ **A new landscape surface MUST re-host the existing creation route, never reimplement it.** Every
+catalogue row activates `activateFurnitureTool` → `ToolManager.activateFurniture` →
+`FurniturePlanToolHandler` / `FurnitureTool` — the same route the furniture carousel already uses.
+
+⚠ **There are TWO live create panels** — `CreateRailPanel.ts` (via `ToolsPanelController`) and
+`CreatePanelLayout.ts` (via `Layout.ts` → `mountCreatePanel`) — and both once carried their own
+hand-typed copy of the same rows. **MUST NOT** add a landscape row to one panel only: both render
+from `apps/editor/src/ui/create/landscapeCreateItems.ts`. Two rival surfaces maintained by hand is
+how the two GIS surfaces in this repo diverged, one of them silently no-op.
+
+### §L.7 — Persistence (MUST)
+
+A landscape element MUST round-trip through **`ImportProjectCommand`** — the DEFAULT-ON restore
+path — asserted through the **real** exported `buildFurnitureRestorePayload` that
+`ImportProjectCommand.ts:1003` calls. ⛔ **A test against `persistence-client`'s `ProjectLoader` or
+`ProjectSerializer` proves nothing**: the app never builds them, and five save/load holes were found
+this week by people who tested those twins.
+
+### §L.8 — NOT MEASURED / NOT WIRED (explicit, per EI-1b)
+
+- ⛔ **OUTDOOR SITE FURNITURE DOES NOT EXIST AS A FAMILY.** There is no bench, planter, pergola,
+  bollard, litter bin, decking or paving element. The only bench in the repo is `entry_bench`, an
+  **indoor** hall item categorised `'storage'`. ⚠ The roof-deck generator's own docblock
+  (`ResidentialBuildingExecutor.ts:2010`, `:177`) claims *"two benches facing a coffee table"* and
+  *"benches, tables, planters, trees"* — **both are stale**: the shipped code substitutes
+  `sofa_2seat` + 2× `armchair` (`:2173-2175`). This is very likely the origin of the founder's
+  recollection that the batch once placed outdoor benches.
+- **What the roof deck DOES place** (`_furnishRoofDeck`, `:2020`, reached only when `roofGarden ===
+  true` — a real **"Roof garden"** chip in the residential onboarding step, default OFF):
+  `lounge_chair`, `kitchen_island`, `chair`, `dining_table`, `dining_chair`, `coffee_table`,
+  `sofa_2seat`, `armchair`, **`arbol_t_15`/`arbol_t_19`/`arbol_t_02` capped at 2 instances**, and
+  `plant_01`–`plant_03`. So **3 of 25 species, max 2 trees** — the generator uses a *fraction* of
+  the library the panel now offers whole.
+- **The chat path cannot enable it**: `generationChatSeam.ts` carries no `roofGarden` reference, so a
+  building generated through the `generation.building` verb never gets a roof deck at all.
+- **No ground-level, courtyard or podium landscaping exists**, and balconies place no furniture
+  (`_createBalconies` emits a cantilever slab + glass guard only).
+- ⚠ **Two footprint tables exist.** `packages/ai-host/src/workflows/furnishLayout/footprints.ts`
+  declares itself *"ONE source of truth… **Mirrors the real defaults in geometry-furniture**"* —
+  and **nothing checks that the two agree**. The canonical home is `geometry-furniture`; the mirror
+  MUST eventually be pinned against it (L-1385).
