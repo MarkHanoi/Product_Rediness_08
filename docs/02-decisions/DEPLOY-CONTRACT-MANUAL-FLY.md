@@ -560,7 +560,30 @@ Timings: recovery+upload+build+push ≈ 35 min wall-clock on this uplink (slower
 `tsc` exit 0 · `check:isolation` clean · `test:server` 613/613. Not run: root vitest,
 test:pryzm1, Playwright (same declared gap as §6).
 
-### 6.5.9 ⛔ §4 NO LONGER WORKS ON THIS MACHINE — 8 consecutive failures, cause ISOLATED, fix NOT FOUND (2026-08-20)
+### 6.5.9 ⚠ §4 IS INTERMITTENT ON THIS MACHINE — ~2 builds in 10 reach a push (2026-08-20)
+
+> ⚠ **CORRECTED WITHIN THE HOUR, AND THE CORRECTION IS THE POINT.** This section first read
+> *"§4 NO LONGER WORKS … 8 consecutive failures"*. **That was an over-claim from a run of bad
+> luck.** The founder pointed at release **#1326**, shipped 3 h earlier from an image this very
+> script had built and pushed. Re-counted across all ten attempts:
+>
+> | run | pushed? | run | pushed? |
+> |---|---|---|---|
+> | 5 | ✗ | 11 | ✗ |
+> | **6** | **✅** | 12 | ✗ |
+> | **8** | **✅** | 13 | ✗ |
+> | 9 | ✗ | 14 | ✗ |
+> | 10 | ✗ | bare §4 | ✗ |
+>
+> **2 of 10 built and pushed. It is FLAKY, not broken** — and "7 consecutive" is exactly what a
+> ~20 % success rate looks like from inside. ⭐ **A streak is not a proof.** Counting the whole
+> population, rather than the recent run, was the measurement that settled it.
+
+**Practical consequence: RETRYING IS RATIONAL** — roughly one attempt in five reaches a push, at
+~20 min each. ⭐ **And a push is all you need**: §6.5.7's reference-only deploy ships an image in
+under a minute, so the moment `Pushing image done` appears the expensive part is banked even if
+flyctl then dies. **Grep the log for that line before concluding anything.**
+
 
 **Read this before spending an hour on the same wall.** Eight deploys, every one dying at the same
 line, none reaching a push:
@@ -603,8 +626,9 @@ it never constructs a docker client. So the fault is confined to *producing* an 
 3. If any image reaches the registry by any route, **§6.5.7 + `--strategy rolling` (§6.5.8) ships it
    in under a minute.**
 
-⛔ **Do NOT keep retrying §4 hoping for a different result** — that is ~20 minutes per attempt to fail
-at the same line, and it was tried eight times so that the next reader does not have to.
+⚠ **Retry, but bank the wins.** ~20 min per attempt at ~20 % success. ⛔ Do not conclude
+"broken" from a streak — count the whole population, and always check for `Pushing image done`
+before starting over: a pushed image is a finished build, whatever flyctl printed afterwards.
 
 ---
 
