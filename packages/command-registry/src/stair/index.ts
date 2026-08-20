@@ -34,3 +34,15 @@ export type {
     HorizontalHostPiercer,
     StairHostPierce,
 } from './StairHorizontalHostPiercing';
+
+// §STAIR-VOID-FOLLOWS-SPAN (L-1532, closes L-1432) — the ONE verb every command
+// that moves or re-parameterises a stair calls to make its void set match it,
+// across every horizontal family and every deck, including decks that LEFT the
+// span. Exported so a test can drive it directly against real stores.
+export {
+    cascadeStairVoids,
+    undoStairVoidCascade,
+    toStairVoidSource,
+    EMPTY_STAIR_VOID_CASCADE,
+} from './StairVoidCascade';
+export type { StairVoidCascade, StairVoidSource } from './StairVoidCascade';

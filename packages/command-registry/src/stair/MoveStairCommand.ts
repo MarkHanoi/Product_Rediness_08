@@ -25,12 +25,15 @@ import {
     CommandContext
 } from '../types';
 import { StairData, Vec3 } from '@pryzm/geometry-stair';
+// §STAIR-VOID-FOLLOWS-SPAN (L-1532, closes L-1432) — a move must drag EVERY void
+// this stair owns, not only the slab one. See the module header there.
 import {
-    reconcileStairOpening,
-    undoStairOpeningReconcile,
-    type StairFootprintSource,
-    type StairOpeningReconcile,
-} from './StairSlabOpeningReconciler';
+    cascadeStairVoids,
+    undoStairVoidCascade,
+    toStairVoidSource,
+    EMPTY_STAIR_VOID_CASCADE,
+    type StairVoidCascade,
+} from './StairVoidCascade';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -48,7 +51,15 @@ export class MoveStairCommand implements Command {
     // §FIX-STAIR-MOVE-STRANDS-VOID (review C-02) — a move re-reconciles the
     // auto-carved slab void, so this command touches the opening + slab stores
     // exactly like DeleteStairCommand does.
-    readonly affectedStores = ["stair", "opening", "slab"] as const;
+    //
+    // ⭐ §STAIR-VOID-FOLLOWS-SPAN (L-1532, closes L-1432) — 'floor' and 'ceiling'
+    // JOIN the declaration, because this command now moves those voids too. It
+    // moved NEITHER before: `pierceStairHorizontalHosts` had zero call sites in
+    // this file, so a moved stair dragged its slab void along and left its
+    // floor-finish and ceiling voids at the OLD footprint, permanently. An
+    // undeclared cascade is invisible to the scoped snapshot (C03 §4.6 U-2), so the
+    // declaration and the cascade land together — never one without the other.
+    readonly affectedStores = ["stair", "opening", "slab", "floor", "ceiling"] as const;
     readonly id: string;
     readonly type = CommandType.MOVE_STAIR;
     readonly timestamp: number;
@@ -60,10 +71,10 @@ export class MoveStairCommand implements Command {
     // UpdateStairParametersCommand / DeleteStairCommand — restoreSnapshot does
     // not bump version or modifiedAt).
     private _snapshot: StairData | null = null;
-    // §FIX-STAIR-MOVE-STRANDS-VOID — before/after of the slab-void reconcile,
-    // reverted inside THIS command's undo() (one undo unit for move + void).
-    /** §L-1433 — one record PER PIERCED DECK, not one per stair. */
-    private _openingReconcile: StairOpeningReconcile[] = [];
+    // §FIX-STAIR-MOVE-STRANDS-VOID — before/after of the void cascade, reverted
+    // inside THIS command's undo() (one undo unit for move + every void it moved).
+    /** §L-1433 / §L-1532 — one record PER PIERCED DECK, in EVERY family. */
+    private _voidCascade: StairVoidCascade = EMPTY_STAIR_VOID_CASCADE;
     private executed = false;
 
     constructor(input: MoveStairInput) {
@@ -116,14 +127,18 @@ export class MoveStairCommand implements Command {
         // was keyed idempotently (`opening-stair-<id>`), so without this the void
         // stayed at the OLD footprint after a move. Re-reconcile against the moved
         // stair: the SAME opening id is updated in place (never a second void).
+        //
+        // §STAIR-VOID-FOLLOWS-SPAN (L-1532) — and the SAME is true of the
+        // floor-finish and ceiling voids, which this command did not touch at all.
+        // One cascade, every family, one undo record.
         try {
             const moved = stairStore.get(this.stairId);
-            this._openingReconcile = moved
-                ? reconcileStairOpening(ctx, moved as unknown as StairFootprintSource)
-                : [];
+            this._voidCascade = moved
+                ? cascadeStairVoids(ctx, toStairVoidSource(moved as unknown as StairData))
+                : EMPTY_STAIR_VOID_CASCADE;
         } catch (err) {
-            console.warn('[MoveStairCommand] slab-void reconcile failed (non-fatal):', err);
-            this._openingReconcile = [];
+            console.warn('[MoveStairCommand] void cascade failed (non-fatal):', err);
+            this._voidCascade = EMPTY_STAIR_VOID_CASCADE;
         }
 
         _bus.emit('ai-model-update', {}); // F.events.17
@@ -138,9 +153,12 @@ export class MoveStairCommand implements Command {
             return { success: false, affectedElementIds: [], info: ['Cannot undo: command was never executed'] };
         }
         ctx.stores.stairStore.restoreSnapshot(this._snapshot);
-        // Revert the slab-void reconcile in the SAME undo unit as the move.
-        undoStairOpeningReconcile(ctx, this._openingReconcile);
-        this._openingReconcile = [];
+        // §STAIR-VOID-FOLLOWS-SPAN (L-1532) — revert the WHOLE void cascade in the
+        // SAME undo unit as the move. The stair is restored FIRST: the
+        // floor/ceiling half re-derives its voids from the restored record rather
+        // than replaying a snapshot of a derived value.
+        undoStairVoidCascade(ctx, this._voidCascade, toStairVoidSource(this._snapshot));
+        this._voidCascade = EMPTY_STAIR_VOID_CASCADE;
         _bus.emit('ai-model-update', {}); // F.events.17
         console.log(`[MoveStairCommand] Undone move for stair ${this.stairId}`);
         return { success: true, affectedElementIds: [this.stairId], info: ['Stair move undone'] };

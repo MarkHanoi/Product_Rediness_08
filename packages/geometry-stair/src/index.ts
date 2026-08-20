@@ -19,6 +19,10 @@ export * from './StairFootprintUtils';
 // Every creation path (plan tool, stair-path tool, 3D sketch, batch, AI) resolves
 // its vertical span and its shape/width/type config through THESE, and nowhere else.
 export * from './StairVerticalSpanResolver';
+// §STAIR-LEVEL-SPAN-CHANGE (L-1533) — the same span arithmetic, applied AFTER
+// creation: changing a stair's base/top level re-solves the riser distribution
+// rather than writing two id fields (see the module header).
+export * from './StairLevelSpanChange';
 export * from './StairToolConfigStore';
 // §FIX-STAIR-PARAM-NO-REGEN (L-215) — pure derived-geometry reconciler.
 export {
