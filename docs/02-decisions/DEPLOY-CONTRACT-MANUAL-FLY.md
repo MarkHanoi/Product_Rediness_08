@@ -632,6 +632,52 @@ before starting over: a pushed image is a finished build, whatever flyctl printe
 
 ---
 
+### 6.5.10 ⭐ WARM THE BUILDER FIRST — a SUSPENDED builder app is why §4 looks flaky (2026-08-20)
+
+**Do this before every manual deploy. It is one command and it is the first thing to try when §4
+dies at the builder handshake.**
+
+```bash
+flyctl machines list -a <the-builder-app>        # note the machine id and STATE
+flyctl machines start <machine-id> -a <the-builder-app>
+# only then: tools/deploy/fly-manual-deploy.sh
+```
+
+**Why — measured, not reasoned.** Fly SUSPENDS an idle builder app and wakes it on demand. Every one
+of eight consecutive failures printed the same three lines in the same order:
+
+```
+Waiting for remote builder fly-builder-… ✓ ready
+INFO Override builder host with: https://fly-builder-….fly.dev  (was tcp://[fdaa:…]:2375)
+Error: failed to parse daemon host "npipe:////./pipe/docker_engine"
+```
+
+⭐ **flyctl says "ready", then immediately DISCARDS the wireguard address.** The reading that fits
+every observation: the app answers before its wireguard peer is actually usable, flyctl's
+"compatible with wireguardless deploys" check therefore wins, and that path needs a local docker
+daemon — which on Windows is the named pipe it cannot parse (see §6.5.9: there is no docker on PATH
+and no `~/.docker/config.json` here, so the pipe is flyctl's built-in default, not a context file).
+
+**The evidence for the fix:**
+- 8 consecutive runs died **at the handshake, before any upload** — `Pushing image done` count 0.
+- The builder app read **`suspended`** in `flyctl apps list`.
+- After `flyctl machines start`, the very next run **cleared the handshake and reached the context
+  upload** — the exact point the previous eight never got past.
+- It also explains the pattern the founder spotted: the two runs that DID push were **early in the
+  session, when the builder had been recently active**. Idle → suspended → fail.
+
+⚠ **Scope of this claim, stated precisely.** What is proven is that warming the builder **cleared the
+handshake that had failed 8 times running**. Whether it makes §4 reliable end-to-end is **NOT YET
+MEASURED** — it needs several deploys across a session to say that, and one run is not a rate.
+⛔ Do not upgrade this to "§4 is fixed" on a single success; that is the same streak-reasoning error
+§6.5.9 had to correct in the other direction.
+
+⭐ **And regardless of outcome: grep for `Pushing image done`.** A pushed image is a finished build no
+matter what flyctl prints afterwards — §6.5.7 ships it in under a minute, and §6.5.8 adds
+`--strategy rolling` if machines are split across image versions.
+
+---
+
 ## 7. OPEN ITEMS
 
 1. **Decouple build from deploy** — the real fix. Build on a datacenter box,
