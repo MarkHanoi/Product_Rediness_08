@@ -24412,3 +24412,87 @@ it correctly reports nothing to do. The race is on the **index**, and the only s
 and commit your own paths in one step, or to accept the sweep and restore the message afterwards.
 
 ---
+
+---
+
+## L-1530 … L-1533 — ✅ FIXED: the stair's own railings were eating the founder's redo presses — 2026-08-20 (lane STAIR2, commits `2d16c624`, `f4a66a6b`)
+
+Founder item 0.01: *"Stair redo doesn't work"* — undo removes the stair, redo does not bring it back.
+
+**Measured through the real legacy `CommandManager`** (the stack `performRedo()` falls through to for
+this family: the `stair.create` bus handler declares `stores: []`, CommandBus skips the ring buffer
+for an empty-patch record, and `_covered([])` is false — so stair undo/redo is **100 %**
+commandManager):
+
+```
+draw stair   history=[RAILING, RAILING, STAIR]   redo=[]
+Ctrl+Z x3    history=[]                          redo=[STAIR, RAILING, RAILING]
+Ctrl+Y x1    CreateStairRailing REFUSES ("Stair not found") -> popped + DISCARDED
+Ctrl+Y x2    refuses again                                  -> popped + DISCARDED
+Ctrl+Y x3    the stair finally returns -- with a DIFFERENT element id
+```
+
+**Root cause (L-1530).** `CreateStairCommand.proposeRailings()` emitted `bim-stair-railing-proposal`
+and walked away. ⭐ **But the chain behind it is entirely SYNCHRONOUS** — `DOMEventBus.emit` is
+`dispatchEvent`, and `CommandBus.executeCommand` has no `await` before `handler.execute`
+(`CommandBus.ts:454`) — so the two `CreateStairRailingCommand`s ran **from inside this command's own
+`execute()`**, carrying the bridge's default `source: 'HUMAN_DIRECT'`. `CommandManagerImpl.ts:425`
+therefore refused to attach them as `structuralChildren` and took the else branch:
+`history.push(entry); this.redoStack = []`.
+
+Three defects fall out of that one shape:
+
+1. **One gesture, THREE undo entries** — violates C16 §8.6 / §L-874-ONE-UNDO.
+2. **Inverted order** — the railings are pushed *before* the stair, so they sit **under** it in
+   history and **over** it in the redo stack. Redo replays a railing before the stair it hangs on,
+   which cannot succeed.
+3. ⭐ **Silently eaten keypresses** — `CommandManagerImpl.redo()` **pops the entry BEFORE executing**
+   and only pushes it back `if (result.success)`, so **a refused redo is DESTROYED, not retried**.
+   And the stair redo, when it finally ran, re-created its railings from inside itself and hit
+   `redoStack = []` again, wiping whatever was left.
+
+**Fix:** the command **owns** its auto-railings. ⭐ **`undo()` had ALWAYS removed them**
+(`stairRailingStore.removeByStairId`) — the undo side already treated them as this command's
+children while the create side outsourced them to a fire-and-forget event. **That asymmetry WAS the
+defect**, and it is the general lesson: when undo and redo disagree about what an operation *owns*,
+the operation has two different definitions of itself. L-1531 adds the stable id so redo returns the
+*same* element rather than a new one.
+
+---
+
+## L-1533 (+ L-1532, closes L-1432) — ✅ SHIPPED: editable Base/Top level, and every void follows — 2026-08-20 (lane STAIR2)
+
+Founder item 0.2: *"Be able to change stair Base level + top level."*
+
+`CreateStairInput` already carried `baseLevelId`/`topLevelId`; what was missing was **changing** them
+after creation — the property panel showed both as READONLY rows.
+
+⚠ **This is NOT a field write.** Those two ids are the ends of the span the whole stair is solved
+against. The invariant `CreateStairCommand.canExecute` and `StairValidationAuthority` both enforce is
+
+```
+riserHeight × SUM(flights[i].riserCount) === topElevation − baseElevation
+```
+
+so writing a new `topLevelId` and nothing else produces a stair that **fails its own validator,
+renders at the old height, and pierces the wrong decks**.
+
+`geometry-stair/StairLevelSpanChange.ts` (pure, L2) re-derives riser height and count for the new
+span via `deriveRisers` — the creation path's **existing** owner of that arithmetic — using the
+stair's *current* riser height as the nominal, so a span change moves the stair as little as the new
+span allows. Risers redistribute across existing flights in proportion to current counts, so an L or
+U keeps its landing roughly where it was.
+
+⭐ **`evaluateStairLevelSpanChange` is THE ONE GATE, and it owns no limits.** It composes the three
+authorities that already exist, each on its own axis: the span resolver,
+`LevelTraversalPolicy.canTraverse` (per-type `maxLevelSkip`), and `StairValidationAuthority.validate`
++ `checkStairGeometry` (the latter carries the L-1434 per-flight RISE cap the authority does not).
+It is one function rather than two call sites of three checks **precisely because that shape produced
+`STAIR-ONE-LIMIT-AUTHORITY` (L-1430) and the rake panel's rival gate** — the property-panel widget
+asks this same function, so panel and command cannot drift. L-1437 is honoured: `typeStore` is
+threaded into both the traversal check and the validator.
+
+L-1532 `§STAIR-VOID-FOLLOWS-SPAN` closes **L-1432**: every deck void follows the changed span rather
+than being left where the old span cut them.
+
+---
