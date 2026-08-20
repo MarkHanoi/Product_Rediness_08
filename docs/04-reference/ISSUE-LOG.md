@@ -22425,3 +22425,1070 @@ real anchor arrives. **Severity P2.** The correct close is **C12 §9's SiteFrame
 the bridge re-parents into an **LTP-ENU-relative** group, never ECEF), not a different hard-coded
 default. **NOT MEASURED:** whether any consumer other than the plan-fit (L-604) and the GLB export
 (L-1420) is presently mis-reading because of it.
+
+---
+
+## L-1430 — ⭐ The stair tool blessed a stair the pipeline threw away, and the two layers were not measuring the same tread ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+**Founder-reported by log, one session, verbatim:**
+
+```
+[StairPathToolController] Cannot finish: invalid — Run too short — tread 218 mm (min 220 mm)
+[CommandManager] REFUSED CREATE_STAIR: Tread depth 222mm is below minimum 250mm
+```
+
+**TWO defects stacked, and the second is why the two numbers differ by 4 mm rather than 30.**
+
+**(a) TWO THRESHOLDS — C84 EI-3 ("UI offers ⇒ pipeline accepts") breached at four sites.**
+
+| Layer | File | riser min / max | tread min / max |
+|---|---|---|---|
+| sketch solver | `geometry-stair/src/stairPath/StairSolver2D.ts:103-106` | **100 / 220** | **220 / 360** |
+| curved solver | `stairPath/CurvedStairSolver.ts:74-77` | **100 / 220** | **220** (walking line) |
+| param panel spinners | `stairPath/StairPathParamPanel.ts:357,377` | **100 – 220** | **220 – 360** |
+| ⭐ **the command** | `CreateStairCommand.canExecute` → `STAIR_CONSTRAINTS` | **150 / 190** | **250 / —** |
+
+A spinner whose lower half the pipeline refuses is EI-3 at its most literal.
+
+**(b) TWO QUANTITIES — the layers disagreed about the DEFINITION, not only the number.**
+The tool measured the **per-run** tread `seg.flightLength / seg.stepCount`; the command measured the
+**averaged scalar** `Σ seg.length / totalSteps` that `StairPathAdapter` hands it. Those differ by the
+landing consumption on every L and U shape. **Worse: the per-run tread — the value
+`StairMeshBuilder` actually builds with — was validated by NOBODY on the command side.**
+
+**THE FIX IS NOT `220 → 250`.** `packages/geometry-stair/src/StairGeometryLimits.ts` is the ONE
+authority and carries all three pieces: the numbers (`resolveStairGeometryLimits`), the predicate
+(`checkStairGeometry`) and the **quantity** (`deriveCommittedTreadDepth`, extracted out of the
+adapter so the tool validates the number the command commits). Every layer above calls the identical
+function on a candidate carrying **both** tread quantities.
+
+Local limits that survive are declared local **with their reason**: `MIN_SEG_LEN` (drawing
+ergonomics — the command never sees a polyline) and the curved solver's inner-edge / outer-edge /
+radius limits (measured on quantities the command never sees).
+
+**FALSIFIED, not asserted.** `packages/geometry-stair/src/__tests__/StairAcceptSetParity.spec.ts`
+drives the two REAL layers — `StairSolver2D.solve()` and `CreateStairCommand.canExecute()`, bridged
+by the production `StairPathAdapter` — over swept straight and L grids. **GREEN with the fix; RED on
+10 samples with the pre-fix limits restored**, including `L(2.50,2.50) Run 1 tread depth 222mm` —
+**the founder's own number, reproduced from a drawn polyline.** A fourth case pins the MECHANISM: a
+future private `MIN_`/`MAX_` tread or riser declaration in the solver fails the spec even if it
+agrees with the authority on the day it is written.
+
+> ⛔ **OPEN, and it is a FOUNDER DECISION, not a code question.** 250 mm is now the single effective
+> minimum **because it is what the pipeline already enforced** — lowering a code minimum is not a
+> defect fix. Whether 250 is RIGHT is a jurisdiction question: **CTE DB-SUA permits a 220 mm huella
+> in private dwellings**, which is very likely where the tool's 220 came from. **C98 names no source
+> of authority for stair geometry limits**, and `STAIR_CONSTRAINTS_REGIONS` aliases `'AS-1657'` and
+> `'EUROPEAN'` to the SAME object while its `'IBC-USA'` entry "overrides" `MIN_TREAD_DEPTH` to the
+> value the default already holds — the region hook is **decorative**. The value now moves in ONE
+> place, so the decision is a one-line change whenever it is taken.
+
+---
+
+## L-1431 — ⭐ The stair cut the slab and nothing else. The void set was ENUMERATED where it must be DERIVED ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+**Founder, production:** *"STAIR CREATION — FIRST THE STAIR CREATES AN OPENING ON THE SLAB — BUT NOT
+ON THE FLOOR FINISH — THIS NEEDS TO BE AUTOMATIC."*
+
+**THE MEASUREMENT FIRST — the brief asked which of two defects this was, and it is the first one.**
+The log's `scope=[stair,opening,slab]` **is HONEST**. The floor-finish hole was **not
+created-but-unsnapshotted; it was NEVER CREATED.**
+
+- **`floor` and `slab` are SEPARATE FAMILIES** — C89 (floor finish, `IfcCovering`, authority
+  `FloorStore` in `core-app-model`) vs C92 (structural slab, `IfcSlab`, authority `SlabStore` in
+  `geometry-slab`). The finish is **not a layer of the slab**: `FloorData.hostSlabId` is an
+  **optional** binding between two independent records. *(This is the framing the brief said to
+  verify rather than assume. It holds.)*
+- **The floor family already HAD a void mechanism** — `FloorData.serviceHoles[]`, rendered by
+  `FloorPanelBuilder._buildShapeWithHoles`, written by `FloorStore.addServiceHole`.
+- ⭐ **`grep -rn "addServiceHole" packages plugins apps src` → ONE hit, its own definition.
+  ZERO callers, ever.** The mechanism existed and nothing in the repo had ever used it.
+- **Ceiling is the same shape a third time** — `CeilingData.holeElements[]` +
+  `addHoleElement`/`removeHoleElement`, likewise never reached from a stair.
+
+**A SECOND AXIS, relayed from lane RAC2 and confirmed here.** `carveStairOpening` filtered
+`s.levelId === stair.topLevelId`, while `LevelTraversalPolicy.canTraverse` returns **`ok:true` with
+a warning** for skipped levels. **A Ground→L5 stair is ACCEPTED and its run passes through four
+INTACT decks.** Reachable by hand today — pick a Top level more than one storey up.
+
+⭐ **The two are ONE defect wearing two hats.** The void set was ENUMERATED ("the slab, on the top
+level") where it must be DERIVED ("every horizontal host the stair passes through"). C04 §3.1.2a
+names this shape. `packages/command-registry/src/stair/StairHorizontalHostPiercing.ts` derives both:
+
+```
+hosts = { h : h.family ∈ HORIZONTAL_HOST_PIERCERS
+            ∧ h.levelId ∈ levelsTheStairRisesThrough(base, top)
+            ∧ h.outline CONTAINS the stair footprint }
+```
+
+A fourth horizontal family joins by appending **one registry entry**; `CreateStairCommand` names no
+family and no level id. Containment is the slab reconciler's rule **verbatim** (the centre outranks
+any number of corners; an unmeasurable outline is UNKNOWN, not "outside") so the two host
+resolutions cannot disagree about what *contains* means. One deliberate difference: this returns
+**every** containing host rather than a winner, because a level legitimately carries one finish per
+room and a landing straddling two must pierce both. **The base level's own deck is never pierced** —
+the stair stands on it.
+
+**C84 EI-5 symmetry:** `DeleteStairCommand` heals the new voids, found **by the id convention**
+(the L-298 lesson) rather than by re-deriving containment, so a stair moved after creation has the
+void it ACTUALLY cut healed. Undo **re-cuts by re-running the piercer** on the restored stair rather
+than replaying a snapshot — these voids are derived, and snapshotting a derived value is how a stale
+copy gets restored over a live host. A shortfall is reported, never swallowed. `affectedStores` on
+both commands now declares `'floor'` and `'ceiling'` (C03 U-2).
+
+**Proof at the layer the user experiences** —
+`packages/command-registry/__tests__/stairPiercesEveryHorizontalHost.test.ts`, **9 cases against the
+PRODUCTION `FloorStore` and `CeilingStore`, not doubles** (a double built from the header could not
+falsify a method with zero callers). They read `floorStore.getById(id).serviceHoles` — the exact
+array `FloorPanelBuilder` feeds to `THREE.Shape.holes` — never a spy. Both voids exist AND describe
+the same rectangle in their two frames; the INTERMEDIATE deck of a Ground→L2 stair is pierced; the
+base deck is not; a disjoint finish on the same level is untouched; `autoCreateOpening:false`
+suppresses **every** family; undo and delete/undo round-trip.
+
+---
+
+## L-1432 — ⛔ OPEN (declared, not fixed): moving a stair strands its floor-finish and ceiling voids — 2026-08-20 (lane STAIR1)
+
+`MoveStairCommand` and `UpdateStairParametersCommand` call `reconcileStairOpening`, which is the
+**slab** reconciler and knows nothing of the L-1431 registry. So a stair moved after creation leaves
+its floor-finish and ceiling voids at the OLD footprint — **the same shape as
+`§FIX-STAIR-MOVE-STRANDS-VOID`, which that reconciler exists to have closed for slabs.**
+
+**It cannot compound into an orphan**, because the delete heals whatever was actually cut (found by
+id, never re-derived). **Severity P2.** The fix is a `reconcile` method on `HorizontalHostPiercer` —
+unpierce the old id, pierce the new profile — mirroring `reconcileStairOpening`'s three-way
+carve / strict-no-op / update-in-place. Filed rather than half-done while the founder is live.
+
+---
+
+## L-1433 — ⛔ OPEN (declared, not fixed): the SLAB's own level axis is still top-level-only — 2026-08-20 (lane STAIR1)
+
+L-1431 closed the LEVEL axis for the floor-finish and ceiling families. **The slab's is still
+`s.levelId === stair.topLevelId`**, so a Ground→L5 stair still passes through four **structurally
+intact slabs** even though the finishes above them are now cut.
+
+**Why it was not folded in**, stated so the boundary is declared and not hidden: a slab's void is a
+**first-class `opening` ELEMENT** in `openingStore` with its own id convention (`stairAutoOpeningId`),
+its own Immer undo patches, its own slab-side symmetry (`CreateSlabCommand` reconciling stairs that
+predate the slab, `§FIX-STAIR-SLAB-OPENING-SYMMETRY`) and its own delete-heal. The floor and ceiling
+voids are embedded arrays with none of that. Registering slab in the new registry would mean **a
+second implementation of the opening lifecycle** — the exact drift
+`StairSlabOpeningReconciler`'s header exists to forbid.
+
+**The correct fix is to generalise `carveStairOpening` / `reconcileStairOpening` to loop
+`stairPiercedLevelIds()` and mint `stairAutoOpeningId(stairId, levelId)`** — with the top level
+keeping today's exact string so `DeleteStairCommand`'s heal and every persisted project stay valid.
+Return types become arrays; `CreateSlabCommand`, `MoveStairCommand` and
+`UpdateStairParametersCommand` follow. **Severity P1** — it is founder-reachable by hand.
+
+---
+
+## L-1434 — ⛔ OPEN (measured): `MAX_RISERS_PER_FLIGHT: 16` is declared in THREE files and READ BY NOBODY — 2026-08-20 (lane STAIR1)
+
+`grep -rn "MAX_RISERS_PER_FLIGHT" packages plugins apps src` (tests excluded) → **5 hits, every one a
+declaration**: `geometry-stair/src/StairTypes.ts:216,231`,
+`core-app-model/src/stores/StairTypes.ts:189,203`, `constraint-solver/src/stair-constraint-engine.ts:15`.
+**Zero readers on any path** — create, update, validate, or the sketch tool.
+
+This matters now. A Ground→L5 stair at 175 mm risers is **~86 risers**, and for an I- or L-shape that
+is one or two flights. The constant that exists to forbid exactly that **runs nowhere**. It is the
+same class as L-1430 — a limit living in one layer and not the one that matters — and it should be
+closed the same way, through `StairGeometryLimits`. **NOT MEASURED:** whether a code-mandated
+landing every N risers should be *enforced* or *auto-inserted*; that is a design decision, not a
+gate flip.
+
+---
+
+### L-1450 — ✅ FIXED — the stair had **no MODE axis**, because the four SHAPES were sitting in the MODE slot of the shared authority
+
+**Founder, 2026-08-19:** *"I want the stairs to have the possibility to decide if the creation is
+**orthogonal** or **line** … use the UI/UX as the walls: **MODE + STAIR TYPE**."*
+
+`apps/editor/src/engine/views/plantools/elementCreationMatrix.ts` — the shared declaration five
+families build their mode bar from — carried two stair rows whose `modes` were
+`STAIR_SHAPE_MODES` = **I / L / U / C**. Those are **SHAPES**: the geometry that RESULTS. The slot
+they occupied is the one this very file defines as **MODE**: how the architect SKETCHES. So the
+shared authority asserted the stair offered four "modes" that were four results, and **the axis the
+founder asked for was absent from the declaration entirely**. Anyone building the bar from the table
+would have shipped a strip whose letters meant two different things.
+
+**Fixed** by giving the interface a **separate `shapes` field** (`creationShapes()`,
+`twoAxisCapabilities()`), renaming `STAIR_SHAPE_MODES` → `STAIR_SHAPES` — the old name spelled both
+axes into one identifier, which is the bug in miniature — and declaring `modes: [LINEAR, ORTHO]`
+using the **wall's own declaration objects**, spread not retyped, so the two bars cannot drift.
+Nothing renders a merged strip: MODE is the top-centre bar, SHAPE + TYPE the card beside it.
+
+⭐ **`C` deliberately did NOT become a mode.** It is a shape, authored by the arc gesture; a `curved`
+mode beside a `C` shape is one letter meaning two things. Recorded as an **OPEN QUESTION** in
+**C98 §16.4** rather than guessed at.
+
+**Contracts:** C98 §16 (new) · C84 EI-3 · C11 §3. **Gate:**
+`apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts` — 11/11, including a
+**regression pin** that the other five families' mode sets are byte-identical after the split.
+
+---
+
+### L-1451 — ⭐ ✅ FIXED — **one element, two surfaces, OPPOSITE DEFAULTS, and no control on either**: the reachability class again
+
+**This is the finding, not the fix.** Both stair draw modes were **already built on both surfaces**
+before any UI work — and were reachable by nobody:
+
+| | Measured |
+|---|---|
+| 3-D | `StairCreationController._drawingMode = 'ortho'` — snapped to 90° **BY DEFAULT**, comment *"matches WallTool ortho"*, with no way to turn it off |
+| PLAN | `StairPathToolController._snapTo90` — the **identical** snap, gated on **SHIFT HELD**. Free-hand by default |
+| Store | `StairToolConfigStore.mode?: 'linear' \| 'ortho'` — the field existed |
+| Writer | **exactly one**: `StairSetupPanel.onConfirm`, a 3-D confirm dialog |
+| Plan reader | ⛔ **none.** `StairPathPlanToolHandler` pulled `shape`, `width` and `typeId` off that same object and never read `.mode` |
+| Picker | ⛔ **none, on either surface.** `ToolsAreaLayout` mounted a `DrawingModeBar` for wall, floor, ceiling, slab and railing; `grep -n stair` → 3 hits, none a bar |
+| The matrix meanwhile | claimed **`modeSource: 'shared'`** |
+
+So *"what mode is this stair being drawn in?"* had **two answers and no way to ask**. This is
+**§FIX-FINISH-MODE-PLAN-UNREACHABLE reproduced verbatim in a second family** — and the
+`elementCreationMatrix` header documents that exact defect **twelve lines above** the stair rows
+that were carrying it.
+
+**Fixed** by making the existing store the live chokepoint (`setActiveStairDrawMode` /
+`resolveActiveStairDrawMode` — ⭐ **no new store minted**; that file was already declared as the
+surface-independent authority), adding a `drawingModeProvider` to **both** controllers (mirroring
+`StairCreationController`'s own `elevationProvider` rather than inventing a second pattern), and
+mounting the **shared** `DrawingModeBar` for stair. ⛔ No fourth mode strip was written.
+
+⚠ **`setDrawingMode` was a LATCH**, and its only caller was activation — so the founder's *"change it
+DURING creation"* was **unsatisfiable** through it, because the only way to re-latch is
+`activateTool`, which runs `deactivateAllInternal()` and destroys the half-drawn stair.
+
+⭐ **The default was unified on `'ortho'`, and this is PARITY, not taste.** The founder's own console
+tonight shows the wall tool's default: `[WallModePicker] setActiveMode → ortho` /
+`WallTool activated with mode: POLYLINE_ORTHO`, against an instruction that read *"use the UI/UX as
+the walls."* Taking the 3-D default changes **no shipped 3-D behaviour**. ⚠ **It IS a plan-surface
+behaviour change** — plan now snaps by default where it did not — stated here rather than buried.
+SHIFT still forces ortho inside Linear mode, so Linear keeps its escape hatch; there is deliberately
+**no inverse**, because a modifier meaning "constrain" in one mode and "release" in the other is a
+control whose meaning depends on invisible state.
+
+---
+
+### L-1452 — ✅ FIXED — the CREATE rail's `Stair (C)` button **advertised a keyboard shortcut that was never registered**, and had done for two weeks
+
+`apps/editor/src/ui/tools-panel/panels/creationToolShortcuts.ts` is the SSOT the panel stamps
+`tool.shortcut` from **and** composes the hover tooltip from. It had **no `Stair (C)` entry at all**
+(`grep Stair` → the I/L/U rows only), while `CreateRailPanel._buildSections` renders a tool labelled
+**`Stair (C)`**. The tooltip therefore promised a key nothing could fire — **C84 EI-3 (UI offers ⇒
+pipeline accepts) in its smallest possible form**, and the half the founder actually experiences.
+
+⚠ **PROVENANCE MEASURED, AND THE OBVIOUS ANSWER WAS WRONG.** The file was last touched tonight by
+lane LAND1, which makes it the natural suspect. It is not:
+`git log -S"Stair (C)" -- apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts` → **59d3422f**
+(2026-08-06, the creation-matrix commit). ⭐ **The completeness test has been RED for two weeks.**
+
+**Fixed** as `'Stair (C)': 'Alt+Shift+Ctrl+T'`. ⛔ **Not bound to a bare `C`**: every combo in this
+map is Alt-prefixed by design (Contract 11 keeps creation shortcuts off the contextual single-letter
+layer — `grep "': 'C'"` → **0 hits**), and the `C` in the LABEL is the stair **SHAPE** axis, not a
+key. `Alt+Shift+Ctrl+T` continues the existing `Alt+T` → `Alt+Shift+T` → `Alt+Ctrl+T` ladder,
+mirroring Roof's four-deep `O` ladder. `assertNoShortcutCollisions()` runs at import time and passes.
+
+---
+
+### L-1453 — ✅ FIXED — a rename tonight left the shortcut suite pinning a **retired label**
+
+Second, independent failure in the same suite and **two weeks younger than L-1452** — recorded as its
+own row because collapsing two defects of different ages into one line loses the fact that the suite
+was already red before tonight. `LANDSCAPE-CATALOGUE` (**L-1380**, `cfe6c93d`, lane LAND1) split
+`'Plants'` into `'Trees'` + `'Potted Plants'`; `apps/editor/__tests__/creationToolShortcuts.test.ts`
+still asserted `shortcutForTool('Plants')`. **Fixed** by following the rename and asserting **both**
+new labels, with the provenance in the comment. Suite now **7/7**.
+
+---
+
+### L-1454 — ⛔ OPEN (LOGGED, NOT FIXED — deliberately) — `apps/editor/__tests__/**` is **excluded from the only vitest config anyone runs**, so its guards cannot fire
+
+The root `vitest.config.ts` `include` list does not cover `apps/editor/__tests__/**/*.test.ts`; those
+suites run **only** from inside `apps/editor`. That is how **L-1452 stayed red for two weeks with
+nobody noticing**, and it is the **second time in one session** it has hidden a live failure (lane
+SWAP1 hit it independently). `apps/editor` currently carries a measured baseline of **18 red suites
+/ 52 red tests** that no root run reports.
+
+⭐ **A test directory excluded from the only config anyone runs is a guard that cannot fire** — the
+same shape as **L-851**, where two include patterns pointed at a repo-root `src/ui/` that does not
+exist and 1,433 cases had never executed. *NEVER RAN and PASSED print the same value.*
+
+⛔ **Deliberately NOT fixed tonight.** Seven lanes are live in this tree; widening the include would
+turn 52 invisible failures into every lane's problem mid-flight. **Sequenced by the orchestrator.**
+The correct close follows L-851's protocol exactly: measure all of `apps/editor/__tests__` in
+isolation under a throwaway config mirroring the root one, land the greens, and name the reds — never
+widen and hope.
+
+---
+
+### L-1455 — ⚠ PARTIAL (planner SHIPPED + gated · the strip member DELIBERATELY WITHHELD) — "select 2 walls, create the stair in L shape against the walls"
+
+**Founder, 2026-08-19:** *"…or **select 2 walls** [and] create the stair in **L shape against the
+walls**."*
+
+⭐ **It is `By Slab`, for stairs.** Wall (`elementCreationMatrix` :248) and railing (:390) already
+ship `{ id: 'byslab', …, isAction: true }` — a pill that DERIVES the sketch from geometry that
+already exists rather than from clicks. The stair's member is **`bywall`**: same id form, same
+`isAction`, same pre-activation selection SNAPSHOT, because `ToolManager.activateTool` calls
+`selectionManager.setEnabled(false)` and a By-* mode reading the LIVE selection afterwards asks a
+question activation destroyed (**L-1103** — unsatisfiable, not flaky).
+
+**SHIPPED:** `apps/editor/src/engine/views/plantools/stairByWalls.ts` — `planStairByWalls()`, pure
+(no DOM, no store reads, no I/O). Four refusals, **each carrying BOTH numbers** as machine-readable
+`found` / `required` / `unit` *and* in prose:
+
+| Code | Found vs required |
+|---|---|
+| `WALL_COUNT` | walls selected vs **2** — and it names the trap, that activating the tool clears the selection |
+| `NOT_PERPENDICULAR` | angle measured vs **90° ± 5°** — *"an L-stair's landing is a rectangle: against walls 63.43° apart there is no square corner for it to sit in"* |
+| `NO_SHARED_CORNER` | miss in metres vs **0.5 m** — ⭐ two perpendicular walls at opposite ends of a room still intersect **as lines**; "perpendicular" alone would have accepted them |
+| `RUN_TOO_SHORT` | wall available vs run needed — shows its working: risers, goings, minimum tread |
+
+⭐ **The limits are READ, never re-declared:** `resolveStairGeometryLimits()`
+(§STAIR-ONE-LIMIT-AUTHORITY, **L-1430**), the same module `CreateStairCommand.canExecute` reads — so
+a plan this accepts cannot be refused downstream for a tread the two layers measured differently,
+which is the live C84 EI-3 breach this family carried the same night.
+
+⭐ **`secondRunSide` is DERIVED, not chosen.** Against two walls there is exactly one quadrant the
+stair can occupy. A Left/Right picker there would be a control that lies.
+
+⭐ **NO RELATIONSHIP is recorded on the created stair, and that is the contract's answer.**
+Measured: neither wall's nor railing's `byslab` records an edge back to its source slab
+(`_pendingBySlabId` is transient and discarded). **C78 §3.1** hands the vocabulary question to
+**C71 §2** — *the hop is written into C98 §16.6.a so the next lane does not re-derive it* — and none
+of C71's REQUIRED nine is *"the walls this stair was authored against"* (`boundedBy` is room ↔ wall,
+`hostedBy` the opening pair, `sitsOn` dependency scheduling). **C71 §2.6** would require a writer, a
+**typed reader**, a rebuild disposition and a delete behaviour in ONE PR, and **§2.5** calls a
+writer-first addition *"a defect, not progress."* No reader exists, so the correct action is to
+record nothing. ⛔ A `sourceWallIds` field honoured by nothing is **C78 §3.3's forbidden third
+state**.
+
+**GATE:** `__tests__/stairByWalls.spec.ts` — **9 tests**, including a **C84 EI-3 proof** that feeds
+the planned points to the **real `StairPathToolController`** and asserts a **real
+`CreateStairCommand`** comes out with two flights and **zero** `onInvalid` refusals. ⛔ Not "the
+planner returned three points".
+
+⛔ **WITHHELD, DELIBERATELY: `bywall` is NOT on the mode strip.** The remaining arm is a two-wall
+PICK flow mirroring `_pickSlabThen` plus feeding the planned points into the live tool, and **its
+only honest proof is a browser**. A mode declared on the strip whose arm is unproven is **C84 EI-3
+live** — the exact defect this family already carried tonight, and the one thing the brief said not
+to add a second of. ⭐ This follows the precedent `elementCreationMatrix` records for the slab and
+wall closed-loop modes: *"the enum members landed WITH the arm, in one commit."*
+
+**Exit condition (one PR):** `_pickWallsThen(2, …)` in `ToolsAreaLayout`, `feedClick` exposed on the
+published `window.stairPathTool` API, the `bywall` member added to both stair rows **in that same
+commit**, and a browser confirmation. Until then the capability is `planStairByWalls` — reachable
+from code, named in **C98 §16.6**, and **not offered to the architect**.
+
+---
+
+## L-1460 — ⭐⭐ The furniture material census measured a path production does not travel: `materialId` existed at NONE of five layers ✅ FIXED — 2026-08-20 (lane MAT2)
+
+**Founder, with a screenshot:** *"Are you able to understand why all furniture and walls + doors
+don't have materials associated? Is this since we target the materials of elements via contract
+C100 to furniture etc.? That was done yesterday? Doors and windows often show, often don't."*
+
+**⛔ THE CAUSAL ANSWER FIRST — NO, yesterday's C100 work did not cause this.** Measured, not
+argued: every material commit of 2026-08-19 was enumerated and its file list read, and **not one
+touches `packages/geometry-wall/`** — `WallFragmentBuilder.ts`, which owns the wall colour
+authority, has no material-lane commit in its history at all. Furniture, door and window *were*
+edited, each with a nothing-repaints construction that was verified rather than asserted
+(furniture's new default `#a78b6e` is byte-identical to `hashMaterialId('')`; door's ladder carries
+rungs 5–7 for exactly this). Every gate arm moved the right way that day: ARM A 2→0, ARM B 8→0,
+ARM C 17→10 routed. And a **draft contract cannot alter what renders** — §9 *measured* the gap.
+⭐ The honest framing: the census made an old defect **visible**, it did not make it true. The
+wrong colour was stable and tasteful, so it read as a design decision until somebody counted.
+
+**⭐⭐ ROOT, and it is a finding about MEASUREMENT, not about furniture.** C100 §9.1 files
+furniture under *"renders, then DIES ON SAVE"*; §9.8 S16 records its producer as ROUTED, with its
+own real-DTO-through-real-producer test; the gate's ARM C agrees. **All true. None of it renders
+the founder's furniture.** `initTools.ts` §FT-FURNITURE states the reason in its own words — the
+PRYZM-3 `CreateFurniturePayload` *"does NOT match the legacy `FurnitureData` model … and no
+bus→legacy bridge existed"* — so the plan tool, carousel drag-drop, kitchen, wardrobe, copy/paste
+and the whole D-FLE furnish run travel:
+
+```
+furniture.create → CommandEventBridge → 'furniture.created'
+  → initTools §FT-FURNITURE → geometry-furniture FurnitureStore (legacy FurnitureData)
+  → FurnitureFragmentBuilder → 62 builders → MaterialService.getMaterial(color: number)
+```
+
+⛔ **`materialId` existed on NONE of those five layers.** Not on the payload, not on the event,
+not on the runtime record, not in the builder, not in `serializeFurniture`. The material was **not
+lost — it had never been reachable**: the `door`/`window` loss mode, not the serializer mode.
+⭐ C100 §9.7's own sentence, aimed one path over: *"'the serializer drops it' and 'there is no
+field to drop' are different defects with different fixes."* ARM D can only ever see the first.
+
+**⭐ AND THE PANEL WAS TELLING HIM THE TRUTH.** `FurniturePropertySection.ts` renders a
+**read-only** row labelled **"Material"** whose value is `FurnitureData.material` — a **FOUR-VALUE**
+closed union `wood | metal | fabric | glass`, against a master of **205 rows**. Oak, walnut, ash
+and birch are all, and only, `wood`. *"Furniture doesn't have materials associated"* is a correct
+reading of the product, not a misreading.
+
+**FIX — all five layers plus the read-back, in one change**, because a field that renders and does
+not persist is the *worst* of the three states, not the middle one (C100 §9.6.c step 2):
+`FurnitureData.materialId` · the `furniture.created` event contract · `CommandEventBridge` (single
+**and** batch fan-out) · the §FT-FURNITURE mirror · `CreateFurnitureCommand` · `serializeFurniture`
+(ARM D) · `ProjectLoader`'s hand-written payload (ARM E) · and the resolution itself at
+`FurnitureFragmentBuilder`'s **single dispatch choke point** — one call rather than sixty-two, so
+no builder can grow a rival ladder (C100 §1.1 traces four rival vocabularies to exactly that).
+Resolution delegates to `resolveMaterialColour`, C100 §9.6.a's one authority; **no second chain**.
+
+**⚠ THE FOUR-VALUE `material` UNION IS KEPT, NOT REMOVED.** 62 builders read it and it drives
+geometry (a glass shelf is built differently from a timber one). It is a **construction hint**;
+`materialId` is the **reference**. Conflating them is what made the hint look like the answer.
+
+**⚠ DECLARED DIVERGENCE (C84 EI-10) — `materialId` outranks `color` here.** C100 §2.1 puts an
+explicit user OVERRIDE above the id, but on this path `color` is **not** an override: the D-FLE
+furnish engine stamps it on **every** item it auto-places as a style default (A.21.D4), so
+honouring it first would mean a chosen material could never render on auto-furnished furniture —
+the entire defect. *Retirement*: when `color` can be told apart from a generator default, which is
+§2.1's *"MUST be distinguishable"* clause, unmet on this record shape.
+
+**RED-FIRST, EXECUTED, NOT ASSUMED.** Reverting **only** the resolution turns **4 of 6** cases red
+— oak-is-oak, oak≠walnut, unresolved-is-magenta, and id-outranks-style-colour — and leaves **both**
+nothing-repaints controls GREEN. ⭐ That split is the evidence the change is additive.
+
+**⭐ CASE 2 IS THE LOAD-BEARING ONE.** A test asserting only *"oak is #c8a96e"* would pass if every
+item were painted oak and would leave the **collision** unpinned — and the collision is the half a
+user sees. It asserts oak ≠ walnut, with both hexes read OUT of `MATERIAL_CATALOG`, never typed.
+
+**⚠ TESTS DRIVE THE REAL PATH, and that is deliberate.** C100 §9.3 retracted a coverage proof for
+a test that never constructed its subject. `furnitureMasterMaterialReachesMesh.test.ts` builds a
+real `FurnitureData`, hands it to a real `FurnitureFragmentBuilder` on a real `THREE.Scene`, and
+reads the colour off the real `THREE.Material` of the real `THREE.Mesh` that lands there.
+`FurnitureMaterialSurvivesReload.test.ts` executes the real `CreateFurnitureCommand` against the
+real `FurnitureStore`.
+
+**⛔ NOT CLOSED, and said so rather than inherited as green: NOTHING CAN AUTHOR THIS YET.** The
+panel's "Material" row is read-only and no verb carries an id, so today L-1460 is reachable only by
+the loader and by a generator that supplies one. That is C100 §6.1/§6.2 work, C67/C68-bound, and it
+is **S19**. Also unproven (C70 §7.1): that a frame was encoded; that the GPU-**instancing** arm
+carries the colour; and the serializer WRITE half is proven by source parity over the real function
+body, not by an executed save (hand-building its ~20-store bundle is the
+§FAKE-MORE-CAPABLE-THAN-REAL trap).
+
+Gate `check-material-id-required.ts`: **ARM D 2→1**, **ARM F 4→3**, baselines lowered in the same
+commit. C100 §9.10.0/§9.10.1 amended in place. Maps C100 §2.1/§5/§9.6.a/§9.6.b · C84 EI-7a, EI-8,
+EI-10 · C11 §5.4. §FIX-FURNITURE-MATERIAL-REACHES-THE-PATH-USERS-TRAVEL.
+
+---
+
+## L-1461 — the bus→legacy WALL mirror carried `materialColor` and dropped `materialId` ✅ FIXED — 2026-08-20 (lane MAT2)
+
+The §P2.1 `wall.created` → legacy-`WallStore` mirror in `initTools.ts` — the whitelist that drives
+both the 3-D mesh and the property panel on the plan-view path — copies `materialColor`, `layers`
+and `curve`, and **drops `materialId`**. The column, slab and handrail mirrors beside it all carry
+it, so the omission is an oversight in *this list*, not a wall-specific rule. The `wall.created`
+event type had no top-level `materialId` either, so the gap was three deep: event contract,
+`CommandEventBridge` emit (single + batch), and the mirror.
+
+**⚠ IT CHANGES NOTHING ON SCREEN TODAY, AND THE CODE SAYS SO.** Measured (L-1464): no interactive
+wall-creation path supplies a top-level `materialId`, so there is nothing yet for this line to
+carry. It exists so the field is not silently lost the moment a wall *does* name one — from the
+loader, from `wall.bulkSetVisuals`, or from a system type that grows one.
+⭐ **§COMMITTED-IS-NOT-REACHABLE, pre-empted.** The identical hole in this identical whitelist has
+already cost this product the residential façade colour (§RESI-FACADE-COLOUR-PERSIST) and the
+plan-view curve (§FIX-WALL-CURVE-PLAN-VS-3D-CREATION). Twice is a pattern.
+
+Maps C100 §2.1 (an id is the authority, a hex is a cache) · C15. §FIX-WALL-MIRROR-CARRIES-MATERIAL-ID.
+
+---
+
+## L-1462 — ⭐ `composeFamilyMaterialKey` still had ZERO callers, and the reason is that its SHAPE is wrong ✅ CLOSED BY DELETION — 2026-08-20 (lane MAT2)
+
+C100 §9.2 recorded it as *"written expressly to extend that resolution to the other families …
+has ZERO callers. It has never run. §COMMITTED-IS-NOT-REACHABLE, inside the fix for the defect it
+was written to fix."* Re-measured on the day it was to be **given** callers: still zero.
+
+**⭐ And the diagnosis is not neglect.** It imposed **one** key layout,
+`<family>|<materialId>|<color>|<slot>`, on every family — which **C100 §9.6.b explicitly forbids**:
+*"MUST NOT: this contract be cited to mandate a single key string layout … A family's slot count,
+order and extra slots stay its own."* §9.4 measured **eighteen** distinct layouts and found the
+minters and bridges **agree with each other** — the layouts were never the defect.
+
+⭐ Slices S16 and S17 converged **ten of the seventeen** producers **without it**, each calling
+`resolveMaterialColorSlot` from inside its **own** minter — converging the VALUE and leaving the
+FORMAT alone, which is precisely what §9.6.b asks for. **So it was not the unfinished half of that
+work; it was a rival to it.**
+
+**DELETED, not given an invented caller**, because §9.6.a's rule is *"MUST NOT let a third appear:
+the gate's ARM C keys on these two names"* — `resolveMaterialColour` (L2, T2→T1) and
+`resolveMaterialColorSlot` (kernel, T1-only). ⛔ A third exported resolver sitting unused is the
+next rival vocabulary with a head start, and *"it has no callers"* is exactly what was true of the
+eight rivals C100 §1.1 traces. If a family ever genuinely needs a shared layout it comes back
+**with its caller in the same commit**, never ahead of one. The deleted block is replaced by the
+reasoning above, in place, so the next reader does not re-mint it.
+
+Maps C100 §9.2, §9.6.a, §9.6.b · C84 EI-8. §RETIRE-COMPOSE-FAMILY-MATERIAL-KEY.
+
+---
+
+## L-1463 — ⭐ The gate's ARM F was aimed at a DEAD FILE: a wrong PATH can be SATISFIED without touching the product ✅ FIXED — 2026-08-20 (lane MAT2)
+
+`check-material-id-required.ts`'s ARM F declared
+`packages/core-app-model/src/stores/FurnitureTypes.ts` to be Furniture's **runtime record**.
+**It is not.** There are **two** `FurnitureData` + `FurnitureStore` implementations in this
+repository, and production uses the other one: `initBuilders.ts:98` imports `FurnitureStore` from
+`@pryzm/geometry-furniture` and `:758` constructs the live `window.furnitureStore` from it;
+`ProjectSerializer.ts:55` imports the same one. Nothing outside `core-app-model/src/stores/`
+imports the copy the gate was reading.
+
+**⭐ So ARM F was reporting a TRUE statement about a file nothing renders from — and would have
+gone GREEN the moment somebody added a field to the dead copy.** This is C100 §9.7's recurring
+shape — *"a gate that checks one spelling of a thing does not check the thing"* — with **spelling
+replaced by PATH**, and that is **strictly worse**: a wrong spelling **under-reports** (it misses
+real findings), whereas a wrong path can be **SATISFIED** — the gate can be made green by work that
+changes nothing a user sees. ⛔ Correcting the arm was a *precondition* for closing L-1460, not a
+tidy-up after it.
+
+**⚠ NOT DONE, and named rather than half-started:** the dead `core-app-model` furniture pair is
+**not deleted**. Proving a store is unreachable is a whole-repo claim, and deleting a
+barrel-exported type on a night with four live lanes is how one lane breaks three others. Recorded
+in C100 §9.10.6.
+
+Maps C100 §9.7 · §RATCHET-R5 (a scan that finds nothing must FAIL). §FIX-ARM-F-AIMED-AT-DEAD-FILE.
+
+---
+
+## L-1464 — ⛔ OPEN (measured, deliberately not fixed): the founder's WALLS are NOT-ASSIGNED, not assigned-and-dropped — 2026-08-20 (lane MAT2)
+
+C100 §9.1 says *"exactly ONE — `wall` — has that id reach the rendered colour."* **True about the
+CODE, and it says nothing about the DATA.** Measured end to end:
+
+| link | measurement |
+|---|---|
+| `WallTool.createWall()` payload (`WallTool.ts:1917-1927`) | `start, end, height, thickness, levelId, baseOffset, curve, systemTypeId` — ⛔ no `materialId` |
+| `WallPlanToolHandler._commitWall()` (`:619-630`) | same list — ⛔ no `materialId` |
+| `CreateWallCommand` (`:99`, `:389`) | accepts `materialId?` and stamps it **verbatim — no `??` fallback, no system-type read** → `undefined` |
+| default system type `wt-monolithic` | the `WallSystemType` interface has **no `materialId` field at all**; its one layer carries `materialColor: '#e8e8e8'` — ⭐ **which IS `WALL_SCHEMATIC_MATERIAL`, the "no material" grey** |
+| active type on a new project | `undefined` until the user picks one; the UI reads *"✓ Plain Wall ready…"* |
+
+⭐ **So this is the NOT-ASSIGNED defect, not the ASSIGNED-AND-DROPPED one.** The resolver is wired
+and correct; nothing hands it an id. §CONTEXT-DATA-HONESTY one level above the code — C100 §9.5's
+own sentence, *"the data was never checked because the code never asked"*, applies to `wall` too.
+
+**⭐ AND IT IS A DIFFERENT DEFECT FROM THE SAME NIGHT'S FLAT-WHITE REPORT (L-1470).** RENDER3 closed
+that as an OBC WebGL canvas sized 0×0 by an unguarded `ResizeObserver`, discarding every draw.
+⛔ The two must not be merged. The discriminator is decisive: **a `materialId` that never reaches
+the pixel is CONSTANT** — the same colours on every load, forever — whereas *"gone"* is a **STATE
+CHANGE**. A constant defect cannot explain a change, and a framebuffer cannot explain a wall that
+was never assigned a material.
+
+**⛔ NOT FIXED, and the refusal is the point.** Making `wt-monolithic` name a master row is a
+**product decision about the default appearance of unauthored fabric** — and C100 §9.9 already left
+exactly that question open: *"NOT DECIDED HERE: whether an unmaterialled wall should render as
+light grey at all."* Guessing repaints every wall in every project, which §9.6.b names as the thing
+that would rightly get this convergence reverted. **FOUNDER'S CALL.** Stated as a question rather
+than answered by a lane.
+
+**⭐ BANKED NEGATIVE RESULT, because it makes the next slice safe:** the **15** wall-system-type
+layers that carry both a `materialId` and a transcribed `materialColor` were checked against the
+master — **15 agree, 0 disagree, 0 missing**. So routing `layer.materialId` through the resolver
+(C100 §2.2, so a master edit reaches placed walls) is a **zero-repaint** change today. ⛔ Not done
+here: `WallFragmentBuilder` is a 4,800-line file with three concurrent wall lanes in its recent
+history, and C100 §8.3's concurrent-lane rule outranks the convenience of doing it in this one.
+Recorded as **S21**.
+
+Maps C100 §2.1, §2.2, §9.1, §9.9, §8.3 · C85. §WALL-MATERIAL-IS-NOT-ASSIGNED.
+
+---
+
+## L-1470 — ✅ FIXED — "ALL MATERIALS GONE" WAS NOT MATERIALS: a SECOND surface was sized to 0×0 by OBC's own unguarded ResizeObserver, and every draw into it was discarded FOREVER
+
+**Lane RENDER3 · 2026-08-20 · founder, production, with screenshot: *"PROBABLY THE SAME ISSUE — BUT
+ALL MATERIALS GONE ON THE VIEW"* — a six-storey building in 3D + plan, rendered entirely flat
+white/grey. Status bar: `GPU: Auto WebGPU WebGL · webgpu` (WebGPU LIVE).**
+
+⭐⭐ **THE FOUNDER'S OWN DIAGNOSIS WAS WRONG, AND SO WAS THE FIRST INSTINCT TO AGREE WITH HIM.** He
+attributed this to the C100 material-database finding (`materialId` never reaches the pixel for 15 of
+16 families, lane MAT2). **It is not that defect**, for two independent reasons:
+
+1. **A material-id defect is CONSTANT.** It would produce the same wrong colours on every load, on
+   every backend. The founder is reporting a **state change** ("gone").
+2. ⭐ **THE STRUCTURAL REASON, which is the better one.** On the native-WebGPU path the visible image
+   is the PRYZM overlay composited over the OBC base canvas, and the overlay's output alpha is
+   `presenceAlpha = step(0.0001, contentAlpha)` — **deliberately 0 in every empty-space pixel**
+   (`initScene.ts` §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND, L-1350). **Materials do not participate in
+   that composite decision at all.** What fills those pixels is the OBC base canvas.
+
+The founder later ran the control himself — same project, minutes apart, one variable changed: WebGL
+→ outlines only; WebGPU → *"IT IS FINE?"*. **A material-database defect cannot fix itself by swapping
+backend.** Two independent lines of evidence, same verdict.
+
+### THE ERROR, AND WHY THE EXISTING GATE DID NOT CATCH IT
+
+```
+[.WebGL-0x794c070c5800] GL_INVALID_FRAMEBUFFER_OPERATION: glClear:
+    Framebuffer is incomplete: Attachment has zero size.
+245× … glDrawElements: Framebuffer is incomplete: Attachment has zero size.
+9×   … glDrawArrays:   Framebuffer is incomplete: Attachment has zero size.
+WebGL: too many errors, no more errors will be reported to the console for this context.
+```
+
+⭐ **THE DECISIVE READING IS THE CONTEXT PREFIX.** `[.WebGL-…]` — while the session's MAIN renderer is
+native WebGPU and demonstrably healthy (it is drawing the building he can see). **Two surfaces; one
+broken.** `RenderPipelineManager`'s existing zero-size gate (§L-328,
+`_isRenderTargetZeroSize` → `_skipFrame('renderTargetZeroSize')`) reads `this._renderer` — **the
+WebGPU one**. It passes. The frame proceeds. And then the per-frame OBC base clear runs into the
+other surface.
+
+⭐ **`1 + 245 + 9 = 255` is not a census — it is Chrome's per-context error cap.** After it, the
+driver reports **nothing** on that context for the rest of the session. Do not read the counts as a
+measurement of how many draws were lost; read them as *"the console went dark"*.
+
+### MECHANISM — MEASURED FROM REAL SOURCE, BOTH HALVES
+
+* `apps/editor/src/engine/views/mainRendererVisibility.ts` `_apply()` sets
+  `el.style.display = 'none'` on `#container` — **the OBC canvas's PARENT** — for the plan / split-pane
+  hide (`PlanViewManager` → `requestHide`; the `SplitViewManager` pin is held only while `mode === '3d'`).
+* `node_modules/@thatopen/components/dist/index.mjs:14535`, OBC's `SimpleRenderer.resize`, **in full**:
+  ```js
+  const width  = size ? size.x : this.container.clientWidth;
+  const height = size ? size.y : this.container.clientHeight;
+  this.three.setSize(width, height);
+  ```
+  **No `Math.max`, no `> 0`, no `||` fallback** — and it is wired to a `ResizeObserver` on that same
+  parent (`:14680`).
+
+⇒ Hiding the container makes OBC's own observer fire with a 0×0 box and drive `three.setSize(0, 0)`.
+PRYZM's guarded `resize()` (`container.clientWidth || window.innerWidth`) **does not win — OBC's
+observer is the last writer.** The WebGPU canvas keeps its backing store, because CSS `display` never
+touches one — which is exactly why the main renderer stayed healthy and the fault looked like
+"materials".
+
+⭐⭐ **CAN THIS CONDITION EVER BE SATISFIED? NO** — the question that has paid off repeatedly here
+(L-716). This is not a transient mid-layout zero that the next frame resolves. **A surface sized from
+a `display:none` container is zero until that container is shown again.**
+
+### WHY THE EXISTING SELF-GATE PASSED
+
+`clearObcBaseFramebuffer` (`initScene.ts:1800`) **already self-gates** — on
+`pryzmCanvas.style.display === 'none'`. That is a correct answer to *"is somebody else (bloom / legacy
+SSGI / path tracer) painting into this canvas?"*. It is **not** an answer to *"does my surface have
+any area?"*. Here the **container** is hidden and `pryzmCanvas.style.display` is untouched — so the
+gate passes and `obc.clear(true, true, true)` runs into a zero-area framebuffer **on every presented
+frame**. That clear was extended from one backend to **all** backends the previous day (L-1350), which
+is the state change the founder is reporting.
+
+### THE FIX — ONE AUTHORITY, DERIVED FROM REAL GEOMETRY, ⛔ NEVER A CLAMP
+
+`packages/renderer-three/src/surfaceArea.ts` — §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS. One shared
+predicate (`hasDrawableArea` / `admitSurface`), read from the **backing store**
+(`getDrawingBufferSize` → `getSize` → `domElement.width/height`), **never `clientWidth`** — both
+because that forces a per-frame reflow and because the backing store *is* the dimension the
+attachments are allocated from. `RenderPipelineManager._isRenderTargetZeroSize()` now **delegates to
+it**, so there is one implementation rather than two (the old private copy was correct, and was the
+only correct one — which is how the second surface went unexamined).
+
+⛔ **NOT clamped to 1×1.** A 1×1 target still discards the image; a clamp trades a loud, diagnosable
+driver error for a silent wrong picture. A pinned test (`REFUSES rather than CLAMPING`) fails if
+anyone later "solves" it that way. (`PlanViewCanvas.setSize`'s `Math.max(1, …)` is that trade
+knowingly taken for a **Canvas2D** surface, where there is no framebuffer to be incomplete. It is not
+a precedent for a GL surface.)
+
+**`UNREADABLE` is not `ZERO`.** A surface exposing no size accessor is **admitted**, deliberately —
+refusing on absence of evidence would freeze every harness. Same distinction §RETIRE-ZERO-IS-NOT-ONE-FACT
+(L-1410) had to draw for a detach count of `0`.
+
+### THE FLOOD BECOMES ONE MESSAGE THAT SURVIVES (C04 §INST.4)
+
+Each refusing **site** emits exactly ONE `console.warn` when it starts refusing (naming the measured
+size, which accessor answered, and that the condition is **not self-clearing**), exactly ONE
+`console.info` on resume **carrying the count it refused**, and nothing in between however many frames
+that is. ⭐ And the counts **survive** in `window.pryzmZeroAreaSurfaceReport()` — because a message
+that scrolled past at frame 3 of 40,000, on a context the driver has since silenced, is not a finding
+a human can retrieve. **The flood is what hides findings** — that is exactly how the 488 undrawn
+window frames stayed invisible (L-1402). Aggregation is **per site**, so one hidden surface cannot
+mask a second, different refusal, and it **re-arms** after a resume so a recurrence is never silent.
+
+### TOOTH — `packages/renderer-three/__tests__/zeroAreaSurfaceRefusesPass.test.ts` (11 cases)
+
+The suite keeps the **main renderer healthy** in every arm; one that zeroed both surfaces would be
+satisfied by the old §L-328 gate and prove nothing. It drives the **real**
+`RenderPipelineManager.render()` through the **real** `setPreFrameBaseClearHook` and asserts 300
+presented frames with **zero** touches of the zero-area surface — plus a **CONTROL** arm reproducing
+the pre-fix flood (300 discarded clears). ⭐ **Falsifiability measured, not assumed: sabotaging the
+predicate turns 13 of 17 red** (this suite + the pre-existing §L-328 suite).
+
+**Root tsc `COMPILER_RC=0` (0 errors, read from the compiler). `packages/renderer-three` 44 files /
+408 tests green.**
+
+⚠ **WHAT THIS DOES NOT CLAIM.** It stops PRYZM drawing into a surface with no area, and it makes the
+condition say so once with a surviving count. It does **not** stop OBC zeroing its own canvas — that
+is upstream, in `node_modules`. And it is **not** established that this is the whole of the founder's
+flat-white image; that needs one browser reading, per this family's own lesson (L-1353: *"two rival
+theories both confirmed and both wrong"*). ⭐ **The honest close is: the flood is real, its mechanism
+is measured, and the fix is correct independently of whether it is also the whole of the white.**
+
+---
+
+## L-1471 — ✅ FIXED — `_forceRendererUpdate()` poked OBC's render loop on every view activation without asking whether the surface had any area — the 245 draw calls
+
+**Lane RENDER3 · 2026-08-20 · same log as L-1470.**
+
+`ViewController._forceRendererUpdate()` sets `renderer.needsUpdate = true` (twice — once inline, once
+after a 100 ms `setTimeout`). OBC's loop answers that with **one complete
+`three.render(scene, camera)`** (`@thatopen/components/dist/index.mjs:14625-14636`) — one
+`drawElements` per mesh, one `drawArrays` per grid/line object. On a six-storey building that is
+exactly the founder's burst shape.
+
+⭐ **It is called on EVERY view activation** — which is precisely when the OBC canvas is most likely
+to have no area, because that is when `mainRendererVisibility` hides `#container` for the plan pane
+(L-1470). Every one of those draws was discarded.
+
+⚠ **Every geometry tool in this codebase already refuses to poke that loop** — `FurnitureTool:113`,
+`PlumbingTool:360`, `LiftTool:236`, `ColumnTool:249`, `WardrobeCabinetTool:241` all guard on
+`!window.pryzmCanvas`. **This site was simply missed** — a §FIX-ONCE-IMPORT-EVERYWHERE instance. The
+guard added is the stronger one: it asks the surface for its real backing-store area rather than
+inferring it from which canvas exists.
+
+**Both pokes are gated, and the delayed one RE-MEASURES** rather than trusting the first check — the
+100 ms delay exists because layout may still be settling, so the surface can lose its area in between.
+
+---
+
+## L-1472 — 🟡 OPEN — TRIAGE ONLY, NOT RENDER3's — baked context tiles 404 in production
+
+**Lane RENDER3 · 2026-08-20 · logged from the founder's console, not investigated.**
+
+```
+GET /api/context-tiles/rail.pmtiles   → 404  (repeatedly)
+GET /api/context-tiles/trees.pmtiles  → 404  (repeatedly)
+```
+
+Baked context tiles missing in production. ⛔ **Not fixed and not diagnosed by this lane** — logged so
+it is not lost. Related: *"Context 3D = static tiles, not live Overpass"* and *"Furniture GLB 404 =
+OBJECT-STORAGE-GLB"* (a prod 404 there was **deliberate**, pending object storage — establish which
+case this is before treating it as a regression).
+
+**Also triaged and CLEARED this pass, recorded so nobody re-opens it:** `PUT /api/projects/…/versions
+→ 412 Precondition Failed` is the **handled** concurrent-writer path, **not** dropped saves.
+`ServerSyncQueue.ts:772-820` adopts the server's actual count, **retries once inline**
+(`§L-B2-RECONCILE`), and on a second 412 **preserves** the snapshot as `local-only`, **keeps it in the
+queue** (`§FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE`, L-1310, which reverted an earlier `filter()`
+that *did* drop it) and surfaces it via `getBlockedSaves()` / `onSaveRejected`. Most likely cause: a
+second tab or device live on the same project.
+
+---
+
+## L-1435 — ⭐ The same defect on the WIDTH axis, between BULK and SINGLE; and the stair fell off the catalogue ladder for a NAME ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+**Both findings are lane RAC2's**, measured while auditing the stair's chat surface. **Neither needs
+a chat feature to be reachable.**
+
+**(a) WIDTH.** `element.updateDimensionsBatch` validates **positivity only**, while the single-stair
+route enforces `STAIR_CONSTRAINTS`. ⭐ **A BULK route can therefore set a width the SINGLE route
+refuses** — L-1430's tread breach a second time, with the pair of layers changed from
+tool-vs-command to **bulk-vs-single** and the shape unchanged. `minWidth` / `minAccessibleWidth`
+joined `StairGeometryLimits`, `checkStairGeometry` now accepts `width` + `accessibilityType`, and
+`CreateStairCommand` dropped its last two hand-rolled numeric comparisons.
+
+> ⛔ **NOT CLOSED, and the module says so at the predicate.** Publishing width in the shared
+> authority does **not** fix the bulk seam: the generic bulk route has **no per-family dispatch** to
+> call the predicate through. The predicate is ready; the caller is not. Inventing that dispatch
+> behind a stair fix would be the larger error — it belongs to the bulk route's owner.
+
+**(b) `StairTypeStore` spelled its lookup `get`**, while `resolveCatalogueRef` — the ONE catalogue
+ladder (ADR-0314) — probes every type store through `getById`. **The stair family fell off the
+ladder for a NAME, not for a missing capability** — the smallest-blocker shape this repo keeps
+re-finding (C98 §Findings records it for L-1147 in the same family). Added `getById` as a **one-line
+delegation** rather than renaming: `get` has live callers, and a rename trades one family's blockage
+for a repo-wide edit. ⛔ It must stay a delegation — a second lookup body is a second authority.
+
+---
+
+## L-1480 — ✅ FIXED — 3D view shows only LINE PROFILES of walls and slabs; the same project renders solid on WebGPU
+
+**Lane WEBGL4 · 2026-08-20 · founder-reported, production, two screenshots, one variable changed.**
+
+> *"Why did I open the project and I see just LINES OF PROFILES of walls / slabs on 3D view?"*
+> …and, in the middle of his own log: **"// THEN I SWAP TO WEBGPU AND IT IS FINE?"**
+
+⭐ **The founder ran the controlled experiment for us**: same project, same scene, same materials,
+minutes apart, **one variable** — `webgl-only` shows black outline polygons floating in white space
+with no solid surfaces; `webgpu` shows the full six-storey building. So the defect is in the WebGL
+draw path, not the model and not the material database.
+
+### The measured answer to "what do solids have that lines lack, on WebGL only?"
+
+**A `sampler2DShadow` uniform.** That is the entire split, and it is decided by which GLSL chunks
+each program includes:
+
+- `meshphysical.glsl.js` (every `MeshStandardMaterial`) includes `shadowmap_pars_fragment`.
+- `meshbasic.glsl.js` — which is **the `LineBasicMaterial` program** (`WebGLPrograms.js:33` maps
+  `LineBasicMaterial: 'basic'`) — includes **no `shadowmap_*` chunk at all**.
+- And `PascalSceneLighting._enableShadowsOnScene()` explicitly returns on
+  `userData.role === 'edges' | 'edge-overlay'`, so edge overlays never get a shadow flag either.
+
+### The chain, end to end
+
+1. **Project OPEN on native WebGPU** pushes the whole-load / tier-escalation shadow freeze
+   (`§FIX-SHADOW-LOAD-TIER-DESTROY`, initScene:3442-3459).
+   `RenderPipelineManager._applyShadowFreezeState()` writes `renderer.shadowMap.autoUpdate = false`
+   **and**, inside `if (this._webGpuActive)`, the per-light `light.shadow.autoUpdate = false`.
+2. **The same `tier:post-load` pass fires `§AUTO-WEBGL-HEAVY`** (C04 §1.4) — so the backend swap is
+   fired **from inside that freeze window**. Structural, not coincidental: both hang off one pass.
+3. **`§RENDERER-LIVE-SWAP` calls `rpm.dispose()` first**, which zeroes
+   `_shadowReallocFreezeDepth` / `_shadowPassSuppressed` / `_shadowFrozenState` and sets
+   `_webGpuActive = false` — **without ever applying the thaw**. The counters are reset; the
+   **LIGHTS are not**, and the swap deliberately keeps the same `THREE.Scene`.
+4. **`bind()`** re-runs the applier against the new classic `THREE.WebGLRenderer` with
+   `_webGpuActive === false`, so the per-light restore is skipped. `shadow.autoUpdate` stays `false`.
+5. ⭐ **The gate's justifying comment was FALSE.** It read *"WebGPU-path only (WebGL2 fallback owns
+   its own shadowMap and honours the renderer-level flag)."* Measured in the installed
+   `node_modules/.pnpm/three@0.183.2/…/webgl/WebGLShadowMap.js`:
+   ```
+   :95   if ( scope.autoUpdate === false && scope.needsUpdate === false ) return;      ← renderer-level
+   :170  if ( shadow.autoUpdate === false && shadow.needsUpdate === false ) continue;  ← PER-LIGHT
+   ```
+   The classic `WebGLShadowMap` honours **both**. So `light.shadow.map` is **never allocated**.
+6. `WebGLLights.js:243-259` / `:459-465` still count the caster — they key on `castShadow`, never on
+   the map — so `numDirLightShadows === 1`, `WebGLPrograms.js:332/344` emits `USE_SHADOWMAP` +
+   `SHADOWMAP_TYPE_PCF`, and `shadowmap_pars_fragment.glsl.js:18-20` declares
+   `uniform sampler2DShadow directionalShadowMap[1]`.
+7. `WebGLRenderer.js:2526-2533` uploads that array via `WebGLUniforms.setValueT1Array` (`:825-841`),
+   which substitutes `emptyShadowTexture`. Its `version` is `0` forever, so
+   `WebGLTextures.setTexture2D` (`:518`) never uploads it, `__webglTexture` is `undefined`, and
+   `WebGLState.js:951` binds `emptyTextures[TEXTURE_2D]` — a **1×1 RGBA8 with
+   `TEXTURE_COMPARE_MODE = NONE`**. *(The scalar sibling `setValueT1` at `:571-584` **does** set
+   `compareFunction`; the ARRAY path — the one shadows always take — does not. Upstream asymmetry.)*
+8. A `sampler2DShadow` bound to a non-comparison colour texture is **incomplete for that sampler
+   type** → `INVALID_OPERATION` → **the draw is dropped.** Every lit mesh, every frame. Lines keep
+   drawing. **"Black outline profiles floating in white space."**
+
+**Why it vanishes on WebGPU:** `WebGLShadowMap` exists ONLY on the classic `THREE.WebGLRenderer`.
+Native WebGPU *and* the `WebGPURenderer({forceWebGL})` `webgl-fallback` both run three's NODE shadow
+path (`ShadowNode`), which owns its own depth texture and never binds an empty RGBA to a comparison
+sampler. The founder's one-variable experiment was pointing at the shadow path all along.
+
+**And the outlines he saw** are the `WallEdges` / `SlabEdges` `LineSegments` overlays
+(`WallEdgeOverlayBuilder.ts`, `SlabFragmentBuilder.ts`) already in `world.scene.three` — unlit
+`LineBasicMaterial`, coloured `0x000000` in `'plan'` render mode. They are the one class of object in
+the scene immune to every renderer-bound state. *(Their being black at all is separately
+`lineworkProbe.ts` / L-1185 / L-1225 — not this row.)*
+
+### The fix — at ONE authority, derived, never a per-element list
+
+The `if (this._webGpuActive)` gate is **removed** from `_applyShadowFreezeState`'s per-light assert.
+⭐ **Armed on the CONDITION, not the backend** — literally the `§FRAME-STARTS-CLEAN-ON-EVERY-BACKEND`
+rule (L-1350), twelve hours later, in the same class and the same file. `LightShadow.autoUpdate` /
+`.needsUpdate` are **SCENE state**: they live on lights that outlive the renderer, and three reads
+them on every backend. ⛔ The freeze SOURCES (`setShadowPassSuppressed` / `setShadowReallocFrozen`)
+keep their WebGPU early-returns — **gate the source, never the assert; gating the assert is what
+strands a `false`.** `dispose()` additionally thaws the lights **before** dropping its scene
+reference, closing the leak at source instead of relying on a later bind.
+
+**C04 §SHADOW rule 10 corrected in place; NORMATIVE rules 12 and 13 added.**
+
+**Test:** `packages/renderer-three/__tests__/shadowFreezeSurvivesBackendSwap.test.ts` — drives the
+REAL `RenderPipelineManager` through bind-WebGPU → freeze → dispose → bind-classic against REAL
+`THREE.DirectionalLight` objects and asserts `WebGLShadowMap.js:170`'s own predicate.
+**Verified both directions: 2 of 6 FAIL with the fix reverted; 6 of 6 pass with it.** Its header
+states plainly what it does NOT prove — there is no GL context in vitest, so it cannot count real
+draw calls; the strand→dropped-draw link rests on the three-source citations, not on the test.
+
+---
+
+## L-1481 — 📋 RECORDED — C04 §1.4 asserted the classic renderer renders the scene correctly, with no gate behind it
+
+**Lane WEBGL4 · 2026-08-20.**
+
+`autoWebGLHeavyScene.ts`'s `fireSwapToWebGL` carries, as a comment:
+
+> *"The material-safety audit confirmed the generated scene is 100% classic materials, so it renders
+> correctly (walls/slabs/glass/stairs/furniture + WebGLShadowMap shadows) on the classic renderer."*
+
+⭐ **A prose-justified verdict with nothing enforcing it — and the founder's screenshots falsify it.**
+The material claim is in fact TRUE (measured: no `NodeMaterial` or `ShaderMaterial` on any element
+mesh), which is exactly why it was so misleading: **it answered a question nobody was going to ask,
+and the real failure was in renderer STATE, not material CLASS.** C04 §1.4's amendment now records
+the cost plainly: *the swap avoids a device loss by moving the user to a backend that, until L-1480,
+could not draw his building.*
+
+⚠ Same family as *"confident register rows are the wrong ones"* — a confident sentence about a thing
+that was never measured, protecting the one place nobody looked.
+
+---
+
+## L-1482 — ✅ SHIPPED — a shadow caster whose depth pass can never run silently invalidates every lit draw
+
+**Lane WEBGL4 · 2026-08-20 · the tripwire for L-1480.**
+
+`RenderPipelineManager.auditShadowCasters()` runs **once per bind, on the first frame actually
+presented** — placed inside `_markFramePresented()`, the only point that is both (a) after a real
+paint, so three has had its chance to allocate every caster's `shadow.map`, and (b) common to BOTH
+render branches, so the tripwire cannot end up armed on one backend and not the other. That
+placement is the L-1350/L-1480 lesson applied to the instrument itself.
+
+The predicate is three's own, not a paraphrase: a light with `castShadow` and
+`shadow.autoUpdate === false && shadow.needsUpdate === false && shadow.map == null` is
+**UNSATISFIABLE** — the map will never be built, yet the sampler is still declared. It reports and
+**never repairs**: repairing would hide which upstream latch stranded the flag.
+
+⭐ **NORMATIVE, C04 §SHADOW rule 13:** *a freeze means "reuse the map you already have"; a renderer
+that has never run its depth pass has no map to reuse.* Asserting `autoUpdate = false` onto such a
+renderer is not a freeze, it is a permanent suppression — and on the classic WebGL path a permanent
+suppression is not "no shadows", it is **no lit geometry at all**. Ask *"can this gate ever become
+true?"* before asking *"why is the viewport empty?"*
+
+---
+
+## L-1483 — ✅ FIXED — the heavy-scene swap OVERWROTE the user's explicit WebGPU pin on disk
+
+**Lane WEBGL4 · 2026-08-20 · founder-visible; from his own console.**
+
+```
+[autoWebGLHeavyScene] §AUTO-WEBGL-HEAVY — device-loss-risk scene (251 elems / 2647 meshes / 7 levels;
+    reason=tier:post-load); switched WebGPU→WebGL for stability despite the explicit WebGPU pin.
+    Re-pick WebGPU to override.
+```
+
+The **swap itself is intentional** (ADR-0267 §Fix-3 / L-366 deliberately removed the explicit-pin
+honour for device-loss-risk scenes; C04 §1.4's stale *"an explicit selection is ALWAYS respected"* is
+corrected in place, not the code). ⛔ **Do not "fix" the override — that re-opens L-361.**
+
+**What WAS a defect:** `initScene.ts` §RENDERER-LIVE-SWAP ran, unconditionally,
+`setRendererBackendPreference(intendedClassicWebGL ? 'webgl' : pref)`. `'webgl-classic'` is a
+PROGRAMMATIC target no user toggle can produce and which `getRendererBackendPreference()` has never
+round-tripped — so the swap **translated** it into a different, user-expressible value and wrote THAT
+**over the top of his `'webgpu'`**. His next boot resolved `'webgl'` → `forceWebGL` →
+`'webgl-fallback'` **before the heuristic ran at all**. ⭐ He was not being overridden for a session;
+he was being **permanently re-defaulted** — which is why re-picking WebGPU never survived a reload,
+and why *"Re-pick WebGPU to override"* understated what had happened to him.
+
+⭐ **THE RULE:** a stored preference is the USER'S STATEMENT OF INTENT. A safety heuristic may
+override it FOR A SESSION; it may not DESTROY it. Persisting collapses two states the system can
+never separate again — *"the user chose WebGL"* and *"a guard chose WebGL for the user"*. **That is
+this repo's failure-vs-empty defect class wearing a renderer costume.**
+
+⛔ **Not a new mechanism.** `§DIAG-FIX-WEBGPU-BACKEND-OSCILLATION` had already added the per-call,
+NON-persisting `backendOverride` parameter to `createRenderer()` for exactly this case — its own doc
+says it exists so a forced WebGL session avoids *"silently clobber[ing] the user's persisted
+WebGPU/Auto choice … (L-203 issue #1)"*. **The mechanism existed and this call site did not use it.
+This is L-203 re-created one seam over.**
+
+**Fix:** `swapMayPersistPreference()` in `createRenderer.ts` — a **derivation, not an exception list
+for one string**: a swap may persist exactly the values the STORE round-trips, so a fourth
+programmatic target added tomorrow lands on "do not persist" automatically. ⭐ A **user-driven** swap
+still persists exactly as before; only the programmatic target is session-scoped.
+
+**Test:** `apps/editor/__tests__/heavySceneSwapDoesNotOverwriteThePin.test.ts` (5 cases; asserts the
+pin SURVIVES an auto-swap, that the round-trip is real, and that the predicate equals the store's own
+acceptance set). ⚠ Its header names the gap: it pins the DECISION, not that the call site consults it.
+
+---
+
+## L-1484 — ✅ FIXED — the only test guarding `logarithmicDepthBuffer` never reached a single assertion, and six lane briefs routed around it
+
+**Lane WEBGL4 · 2026-08-20.**
+
+`packages/renderer-three/__tests__/depth-buffer.test.ts` (C12 §2) was carried in **six** lane briefs
+tonight as *"known RED at HEAD, not yours — vitest-4 upstream"*. Measured: all three cases died with
+`TypeError: (opts) => {…} is not a constructor` at `WebGLRendererAdapter.ts:83`. The mock used
+`vi.fn().mockImplementation(arrow)` and the adapter calls `new THREE.WebGLRenderer(…)`, so the
+capture array stayed **empty** and `logarithmicDepthBuffer` was **never read at all**.
+
+⭐ **A test that cannot reach an assertion is not a weak guard — it is no guard.** This is the
+repo's recurring "the gate that would have caught it could not fail" shape, one step worse: it failed
+for an *unrelated* reason and everybody wrote it off by category rather than reading what it asserts.
+
+Fixed with a real class in the mock. **`packages/renderer-three`: 45 files / 414 tests, all green.**
+
+⚠ **AND THE SUBJECT IS CLEARED, WHICH MATTERS AS MUCH AS THE FIX.** `logarithmicDepthBuffer: true`
+(`WebGLRendererAdapter.ts:94`) is the repo's ONLY production site and the single constructor-option
+asymmetry between the broken backend and both working ones — so it was a live suspect for L-1480.
+**It is NOT the cause.** `WebGLPrograms.js:314` takes it from *capabilities*, material-agnostic;
+`WebGLProgram.js:593/760` emits `USE_LOGARITHMIC_DEPTH_BUFFER` into vertex and fragment prefixes
+alike; and `meshbasic.glsl.js:10,35,69,77` includes the logdepth chunks at the same four sites as
+`meshphysical.glsl.js:22,45,159,170`. **It is symmetric between lines and meshes and cannot produce
+the split.** Keep the fixed test; drop the theory.
+
+---
+
+## L-1485 — ✅ FIXED — `dispose()` destroyed the user's Cast-shadows preference and dropped an in-flight batch suppression
+
+**Lane WEBGL4 · 2026-08-20 · same file, same method, same defect class as L-1480.**
+
+`RenderPipelineManager.dispose()` ended with `_shadowPrefs.clear(); _shadowSuppressions.clear();`,
+justified as *"a rebound singleton starts with a clean enable latch … preferences re-seed from the
+fresh UI state"*. **Both halves are false on the path that matters** — `§RENDERER-LIVE-SWAP` calls
+`dispose()` and then re-`bind()`s **the same singleton**, with no fresh UI and no re-seed anywhere.
+
+- **PREFERENCES.** `_shadowPrefs` holds the user's *Cast shadows OFF* and performance mode's choice.
+  Nothing re-seeds them after a swap — the panels wrote once, when the user clicked. **Every backend
+  swap silently turned a user's Cast-shadows OFF back ON.** Same shape as L-1483 one file over: a
+  teardown destroying a statement of intent it does not own.
+- **SUPPRESSIONS.** `_shadowSuppressions` is ref-counted BY REASON and its whole contract is *the
+  caller that pushed is the caller that pops*. `BatchCoordinator` holds `'batch'` for the duration of
+  a heavy generation and releases it up to 30 s later; §AUTO-WEBGL-HEAVY fires its swap **mid-batch**.
+  The clear dropped a suppression whose owner was still running, so the classic renderer then ran a
+  **full `WebGLShadowMap` depth pass over every `castShadow` mesh, every frame, for the rest of the
+  generation** — ⭐ *precisely the cost `§BATCH-SHADOW-MAP-SUPPRESS` exists to avoid, incurred at the
+  exact moment the swap was performed to REDUCE cost.* And the eventual
+  `setShadowPassDisabled('batch', false)` then deleted a key that was no longer there: a **silent
+  no-op**, so nothing ever reported it.
+
+**Fix:** both maps survive `dispose()`; `bind()`'s `_applyShadowEnabledState()` re-asserts the
+resulting state onto the new renderer — which is what that re-assert was added for (L-205).
+⚠ **Trade stated, not hidden:** a caller that pushes and never releases now leaks across a dispose
+instead of being papered over. Deliberate — L-205 made that leak structurally hard (idempotent,
+exception-safe release handles; boolean-presence for the cross-module reason) and a leaked
+suppression is **visible** in `§DIAG-GROUND-SHADOW`, whereas a discarded user preference is not.
+⛔ Do not restore the clears to paper over a future leak; fix the caller that failed to release.
+
+**Test:** 2 cases in `shadowFreezeSurvivesBackendSwap.test.ts`.
+
+---
+
+## L-1486 — ⛔ OPEN — MEASURED, NOT FIXED — nine renderer-caching services are never rebound by the live backend swap
+
+**Lane WEBGL4 · 2026-08-20 · logged, deliberately not taken (a design change, not a fix).**
+
+`§RENDERER-LIVE-SWAP` rebinds exactly **one** service — `renderPerfServiceRef.rebind()`, added by
+L-1149. Every one of these keeps a renderer in a field and is never told the renderer changed:
+
+| service | field | bound to |
+|---|---|---|
+| `RenderingPipelineCoordinator` | `_renderer` | the **OBC** renderer, not `pryzmRenderer` |
+| `ShadowQualityUpgrader` | `_renderer` (writes `shadowMap.type`) | via coordinator |
+| `ReflectionProbeService` | `_renderer`, `_cubeTarget`, `_cubeCamera` | via coordinator |
+| `RealtimeLightingService` | `_hdriManager` (holds the PMREM generator) | via coordinator |
+| `LevelClipPlaneCache` | `_renderer` (writes `clippingPlanes`, and calls `render()`) | OBC |
+| `GroundFloorPlanController` | consumes that cache | OBC |
+| `SectionBoxTool` | `_renderer` (`localClippingEnabled`, `clippingPlanes`) | whatever `enable()` got |
+| `ViewportPathTracer` | `readonly _renderer` — ⭐ **cannot be rebound at all** | boot renderer |
+| `HDRIEnvironmentManager` | `pmremGenerator` | via coordinator |
+
+⭐ Note the second-order finding: most of these are bound to the **OBC** renderer, which Phase 5
+silences — so several of them have never been writing to the live renderer at all, before or after
+any swap. That is a separate question from the swap and should be answered with it.
+
+---
+
+## L-1487 — ⛔ OPEN — LATENT LANDMINE, TRIGGER NAMED — per-material `envMap` from a dead renderer's PMREM
+
+**Lane WEBGL4 · 2026-08-20 · inert today ONLY because an unrelated setting happens to be off.**
+
+`RenderingPipelineCoordinator.onSceneGeometryAdded()` passes `this._scene?.environment`
+**unconditionally** into `PBRSceneUpgrader.upgradeNewMeshes()`, which stamps `mat.envMap = envMap`
+**per material** (`PBRSceneUpgrader.ts:123`, `:244`); `ReflectionProbeService.ts:288` does the same
+with a `WebGLCubeRenderTarget` texture. Those are **render-target textures owned by the renderer that
+baked them**. After a live swap that renderer is retired and its device destroyed; the new renderer
+has no `__webglTexture` for them, `WebGLTextures.setTexture2D` skips the upload
+(`isRenderTargetTexture === true` short-circuits the guard at `:518`) and `WebGLState.js:951` binds a
+1×1 empty texture. Result: **every metal and every reflective surface samples a 1×1 black env map** —
+and because the binding is PER MATERIAL, restoring `scene.environment` cannot undo it.
+`LineBasicMaterial` is immune (no `envMap`, no IBL).
+
+⭐ **Why it does not fire today, and why that is not safety:** `initScene.ts:3171-3177` forces
+`storedHdri = 'none'` whenever Phase 5 is active, so no PMREM is ever generated and
+`scene.environment` is `PascalSceneLighting`'s plain equirect `DataTexture` — CPU pixels, owned by
+nobody, which three re-PMREMs per renderer. `NeutralStudioEnvironment.ts:19-45` documents that this
+choice exists *precisely* to survive a live backend swap.
+
+⚠⚠ **THE TRIGGER IS ONE USER CLICK.** The founder has an HDRI / sky picker. *"Inert only because an
+unrelated setting happens to be off"* is a **fuse**, not a guarantee — and nothing asserts the
+setting stays off. The durable fix is that `envMap` must not be stamped per material from a source
+whose lifetime is a renderer's; the cheap guard is to refuse to stamp an `isRenderTargetTexture`
+env map at all.
