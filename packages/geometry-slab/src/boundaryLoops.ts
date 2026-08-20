@@ -365,6 +365,79 @@ export function boundaryLoopRefusal(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// §FIX-SHAPE-VOCABULARY (L-1322) — THE ONE PLACE THE SPELLINGS MEET
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// C84 EI-8 says a SHAPE has ONE canonical vocabulary, and names *shape* explicitly.
+// It was measured holding FIVE spellings of these three shapes, plus a genuine NAME
+// COLLISION (`SiteBoundaryMap2D` declared a local `BoundaryDrawMode` whose members
+// disagreed with the exported one — `orthogonal` vs `ortho`; renamed under this tag).
+//
+// ─── ⭐ WHAT WAS DONE, AND WHAT WAS DELIBERATELY NOT ──────────────────────────
+//
+// `BoundaryLoopMode` — `rectangular | circular | elliptical` — is THE canonical set.
+// It is C86's ratified adjective set (`OpeningProfile.ts:44` already ships
+// `rectangular` and `circular`) and it is the founder's own wording.
+//
+// ⛔ THE LEGACY IDS ARE NOT RENAMED, AND THAT IS A DECISION, NOT AN OMISSION.
+// `handrailRunGenerators` ships, is spec'd, and its ids reach `HandrailRunMode`;
+// `'2point'` and `'rectangle'` reach ~30 call sites across pickers, HUDs, plan
+// handlers, layouts and four pinned specs. An unmeasured cross-family rename from a
+// lane that is not testing those families is how working things break — and a sixth
+// spelling minted "to be consistent" would be strictly worse than the five.
+//
+// So the resolution is the one `toSlabFamilyMode` already established for the slab
+// GESTURE axis: **ONE function where the vocabularies meet**, so no caller has to
+// remember which spelling it is holding, and no second mapping can drift.
+//
+// ─── ⭐ EI-8a: PINNED BY A TEST, NEVER BY A COMMENT ───────────────────────────
+//
+// `shapeVocabulary.test.ts` reads the PRODUCTION sources — handrail's
+// `HANDRAIL_LOOP_MODES`, the `elementCreationMatrix` rows, the column row — and fails
+// if any shape id they declare is not mapped here. The contract records that the
+// comment mechanism "has already failed twice, measured", so this table is not
+// allowed to be maintained by good intentions.
+
+/**
+ * Every spelling of these three shapes that exists anywhere in the repo, mapped onto
+ * the canonical set. ⛔ ADDING A ROW IS NOT A FIX — if a new spelling appears, prefer
+ * changing the producer to emit a canonical id. This table exists to describe what is
+ * already shipped, not to license more of it.
+ */
+const SHAPE_ALIASES: Readonly<Record<string, BoundaryLoopMode>> = Object.freeze({
+    // canonical (C86's adjective set)
+    rectangular: 'rectangular',
+    circular:    'circular',
+    elliptical:  'elliptical',
+    // handrail — §FEAT-HANDRAIL-CREATION-PARITY, the founder's own words for railings
+    square:      'rectangular',
+    ellipse:     'elliptical',
+    // floor + ceiling pickers, and the site-boundary tool
+    rectangle:   'rectangular',
+    circle:      'circular',
+    // slab's gesture id — "two-point rectangle"
+    '2point':    'rectangular',
+    // column section ids
+    rect:        'rectangular',
+    round:       'circular',
+});
+
+/**
+ * The canonical shape an id names, or `null` if it names no shape at all.
+ *
+ * ⚠ Returning `null` for an unknown id is deliberate and load-bearing: a defaulting
+ * resolver would silently turn a typo — or the founder's "eclipse" — into a rectangle,
+ * which is the silent-narrowing this whole feature refuses (C84 EI-2, §L955).
+ */
+export function canonicalBoundaryShape(id: unknown): BoundaryLoopMode | null {
+    if (typeof id !== 'string') return null;
+    return SHAPE_ALIASES[id] ?? SHAPE_ALIASES[id.toLowerCase()] ?? null;
+}
+
+/** Every id `canonicalBoundaryShape` understands. Exported for the pinning test. */
+export const KNOWN_SHAPE_SPELLINGS: readonly string[] = Object.freeze(Object.keys(SHAPE_ALIASES));
+
+// ═════════════════════════════════════════════════════════════════════════════
 // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape's INTENT, alongside the ring
 // ═════════════════════════════════════════════════════════════════════════════
 //

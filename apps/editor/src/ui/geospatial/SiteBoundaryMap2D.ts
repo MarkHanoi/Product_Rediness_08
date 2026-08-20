@@ -581,7 +581,18 @@ export function mountSiteBoundaryMap2D(
     //
     // The bar is `position:absolute` inside the overlay (the overlay is the editor
     // #container, also absolute) so it floats at the top-centre of the draw surface.
-    type BoundaryDrawMode = 'rectangle' | 'linear' | 'orthogonal' | 'curved' | 'circle' | 'ellipse';
+    // ⚠ §FIX-SHAPE-VOCABULARY (L-1322) — RENAMED from `SiteBoundaryGesture`, which is
+    // the EXPORTED name of a DIFFERENT type in `@pryzm/geometry-slab` carrying
+    // DIFFERENT members (`linear | ortho | curved` — note `ortho`, not `orthogonal`).
+    // Two types, one name, one concept, no relation: a reader who greps the name found
+    // two answers and no way to tell which governed. C84 EI-8 names *shape* explicitly.
+    //
+    // ⚠ This is the SITE-BOUNDARY tool's own gesture list and is deliberately NOT
+    // unified with the element vocabulary: it draws a PARCEL on a map in lat/lon, not a
+    // plate boundary in model space, and its `circle`/`ellipse` are map-projected. The
+    // fix here is the NAME, not a merge — merging two things because they share three
+    // words is how the five spellings happened.
+    type SiteBoundaryGesture = 'rectangle' | 'linear' | 'orthogonal' | 'curved' | 'circle' | 'ellipse';
     const modeBar = document.createElement('div');
     modeBar.className = 'wdh-bar';
     modeBar.setAttribute('data-bnd-mode-bar', '1');
@@ -601,7 +612,7 @@ export function mountSiteBoundaryMap2D(
     modeLbl.textContent = 'Mode:';
     modeBar.appendChild(modeLbl);
 
-    const MODE_DEFS: ReadonlyArray<{ key: string; label: string; mode: BoundaryDrawMode }> = [
+    const MODE_DEFS: ReadonlyArray<{ key: string; label: string; mode: SiteBoundaryGesture }> = [
         { key: 'R', label: 'Rectangle',  mode: 'rectangle'  },
         { key: 'L', label: 'Linear',     mode: 'linear'     },
         { key: 'O', label: 'Orthogonal', mode: 'orthogonal' },
@@ -611,7 +622,7 @@ export function mountSiteBoundaryMap2D(
         // §ELLIPSE-BOUNDARY — key 'E'; two-point centre + bounding-box corner.
         { key: 'E', label: 'Ellipse',    mode: 'ellipse'    },
     ];
-    const modeBtns = new Map<BoundaryDrawMode, HTMLButtonElement>();
+    const modeBtns = new Map<SiteBoundaryGesture, HTMLButtonElement>();
     for (const d of MODE_DEFS) {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -662,7 +673,7 @@ export function mountSiteBoundaryMap2D(
     // commits an axis-aligned rectangle. `linear`/`orthogonal`/`curved` are all the
     // legacy vertex-by-vertex polygon draw (Enter / dbl-click to close), differing
     // only in the 90°-lock + the curved fallback note (see setDrawMode).
-    let uiMode: BoundaryDrawMode = 'rectangle';
+    let uiMode: SiteBoundaryGesture = 'rectangle';
     // §RECT-BOUNDARY / §CIRCLE-BOUNDARY / §ELLIPSE-BOUNDARY — the INTERNAL geometry mode
     // the draw handlers branch on. Four shapes exist: a two-corner axis-aligned
     // rectangle, a two-point circle (centre + circumference → N-gon), a two-point
@@ -1817,9 +1828,9 @@ export function mountSiteBoundaryMap2D(
         if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
         // §PARCEL-SELECT — the draw-mode letter shortcuts don't apply in SELECT mode.
         if (interactionMode === 'select') return;
-        const mode: BoundaryDrawMode | undefined = {
+        const mode: SiteBoundaryGesture | undefined = {
             r: 'rectangle', l: 'linear', o: 'orthogonal', c: 'curved', i: 'circle', e: 'ellipse',
-        }[ev.key.toLowerCase()] as BoundaryDrawMode | undefined;
+        }[ev.key.toLowerCase()] as SiteBoundaryGesture | undefined;
         if (mode) {
             ev.preventDefault();
             setDrawMode(mode);
@@ -1910,7 +1921,7 @@ export function mountSiteBoundaryMap2D(
      *   curved     → geometry 'polygon' (straight fallback) + one-time toast; no
      *                spline/arc boundary builder exists yet (reported as missing).
      */
-    function setDrawMode(next: BoundaryDrawMode): void {
+    function setDrawMode(next: SiteBoundaryGesture): void {
         if (disposed || committed || next === uiMode) return;
         uiMode = next;
         switch (next) {
