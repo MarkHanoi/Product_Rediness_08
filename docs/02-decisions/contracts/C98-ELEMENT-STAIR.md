@@ -918,7 +918,7 @@ runs nowhere. Same class as the tread pair, and it closes the same way. **L-1434
 | **R12** | **The derived level span DECLARES when it is a fallback** (`basis: 'fallback-top-only'`) rather than reporting a span it did not derive | same file, `stairPiercedLevelIds` | ✅ C74 — an unresolved input is not drawn as a value |
 | **R13** | **An undo record naming an unregistered family leaves the void and SAYS SO** | `unpierceStairHorizontalHosts` | ✅ a visible void beats a silent one |
 
-### §16.6 — `By Walls`: the third axis-member, its refusals, and ⛔ **the arm it is deliberately NOT declared behind yet**
+### §16.6 — `By Walls`: the third axis-member, its refusals, and the arm that closed it
 
 > **Founder, verbatim:** *"…or **select 2 walls** [and] create the stair in **L shape against
 > the walls**."*
@@ -979,22 +979,57 @@ the corner's handedness rather than from the param panel's Left/Right control. *
 choice the geometry has already made is a control that lies.** Pinned by mirroring the corner and
 asserting the handedness flips.
 
-#### §16.6.e — ⛔ **`bywall` is NOT on the mode strip yet, and that is the ruling, not an oversight**
+#### §16.6.e — ⭐ **`bywall` IS on the mode strip. The member landed WITH its arm, in one commit (`0ac94491`, L-1456).**
 
-**AS-IS 2026-08-20:** the **planner is shipped and gated**
-(`__tests__/stairByWalls.spec.ts`, **9 tests**), including an EI-3 proof that feeds the planned
-points to the **real `StairPathToolController`** and asserts a **real `CreateStairCommand`** comes
-out with two flights and no refusal. ⛔ **The `bywall` member is NOT declared in
-`elementCreationMatrix`,** because the remaining arm — a two-wall PICK flow mirroring
-`_pickSlabThen`, plus feeding the planned points into the live tool — **can only be honestly proven
-in a browser**, and a mode declared on the strip whose arm is unproven is **C84 EI-3 live**.
+> ⚠ **CORRECTED 2026-08-20, same day.** This section previously read *"`bywall` is NOT on the mode
+> strip yet, and that is the ruling, not an oversight"*, and stated an exit condition. **The exit
+> condition was met hours later and this paragraph was briefly FALSE while the feature shipped.** It
+> is recorded rather than silently rewritten, because a contract describing behaviour the code does
+> not have is the defect this suite exists to prevent — and it does not become acceptable when the
+> error runs in the *pessimistic* direction.
 
-⭐ **This follows the precedent this very file records** for the slab and wall closed-loop modes:
-*"It shipped PLAN-ONLY first and SAID SO rather than minting a `WallDrawingMode` member with no arm
-behind it… The enum members landed WITH the arm, in one commit."*
+**The blocker that was withdrawn, and why it did not bind.** The withholding rested on a measured
+fact: there is **no multi-select id accessor** (`selectionManager.selectedObject` is singular;
+`selectedElementIds` exists only in a Zod schema). ⭐⭐ **That measurement is TRUE and it answered a
+question the feature never asked.** It blocks reading two *already-selected* walls; it does not block
+**picking two walls in sequence**. `_pickSlabThen` is a `bim-selection-changed` listener that cleans
+up after **one** pick — generalised to `_pickElementsThen(kind, count, …)`, with `_pickSlabThen`
+retained as a delegating wrapper so wall's and railing's `byslab` carry zero risk (pinned: the
+one-wall pick still completes on the first valid click).
 
-**Exit condition — the ONE PR that closes this:** a `_pickWallsThen(2, …)` helper in
-`ToolsAreaLayout` (mirroring `_pickSlabThen`), `feedClick` exposed on the published
-`window.stairPathTool` API, the `bywall` member added to both stair rows **in the same commit as that
-arm**, and a browser confirmation that the three planned points reach the tool. **Until then the
-capability is `planStairByWalls`, reachable from code and named here — not offered to the architect.**
+> ⭐ **The lesson, stated so it outlives this section: a measurement that is true can still be the
+> wrong measurement.** This is the same shape as `isHeavyModel` being credited as a trigger while
+> having zero call sites (C04 §1.4, L-1413), and as a coverage proof aimed at a file nothing renders
+> from (C100 §9.3). **The number was right; the subject was wrong.**
+
+**MUST — duplicate rejection is LOAD-BEARING, not defensive.** `bim-selection-changed` re-fires on
+re-selection, so one wall clicked twice would fill both slots — and `planStairByWalls` would then
+refuse that wall paired with **itself** as `NOT_PERPENDICULAR` at **0°**. ⭐⭐ **That refusal is *true*
+and *completely misleading*: the architect picked one wall, not two crooked ones.** The pick count
+therefore means **two DISTINCT walls or it means nothing**, and it is pinned by test.
+
+> ⭐ **A gate that refuses correctly for the WRONG REASON is worse than one that refuses bluntly.**
+> A blunt refusal sends the user looking; a precise, confident, wrong-subject refusal sends them
+> looking in the wrong place. This is a distinct defect class from a missing check or a wrong
+> threshold, and it is recorded here as one.
+
+**MUST — the plan reaches the tool as POINTS, never as a hand-built command.** The three planned
+points are replayed through `feedClick` by `StairPathPlanToolHandler`, mirroring its own
+`_pendingShapeHint`. ⛔ **Constructing a `CreateStairCommand` at the call site would mean a second
+copy of `StairPathAdapter` — which is precisely how this family acquired its 220 mm/250 mm EI-3
+breach (§16.5, L-1430).** By Walls is therefore byte-identical to the architect clicking, and
+inherits the solver, the limits, the refusals and the undo grouping for free.
+**MUST:** the handoff is one-shot **and a refusal CLEARS it** — otherwise a gate says no and the tool
+silently draws the *previous* stair.
+
+**The id is `bywall`, not `byslab`.** It is an ACTION (never takes the highlight), keyed `W`. ⭐ The
+source geometry is walls, and **one vocabulary per concept means the id says WHICH** (C84 EI-8).
+
+**⚠ PROVISIONAL-PENDING-FOUNDER — the limit, stated rather than implied.** 28 tests pass, including
+two picks → plan → arm → replay → a **real `CreateStairCommand`** with two flights and zero
+`onInvalid` refusals. **What Node CANNOT prove is the DOM pick overlay and the tool re-entry
+timing.** The verification route is the founder: activate the stair tool → click **`W  By Walls`** →
+click one wall → click a second wall meeting it at 90° → an L-stair appears in the corner. A
+non-perpendicular pair must refuse with **both numbers**.
+⭐ **The EI-3 line is not "unverified in a browser" — it is "the limit is undeclared."** A member
+whose residual risk is written down is honest; a member whose arm silently does nothing is the breach.
