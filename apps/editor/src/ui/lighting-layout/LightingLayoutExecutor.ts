@@ -18,7 +18,7 @@ import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { lightRoom, buildLightingCommands } from '@pryzm/ai-host';
 import type { FurnishStageOutcome, LightRoomInput, PlacedLight } from '@pryzm/ai-host';
-import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { resolveActiveLevel, resolveLevelById } from '../apartment-layout/activeLevel.js';
 
 interface Pt { x: number; z: number }
 
@@ -93,7 +93,29 @@ export class LightingLayoutExecutor {
                 ?.emit?.('lighting.layout-executed', payload);
         };
         try {
-            const level = resolveActiveLevel();
+            // §LIGHT-LEVEL-IS-EXPLICIT (L-1394) — TAKE THE LEVEL FROM THE PAYLOAD.
+            //
+            // This read used to be `resolveActiveLevel()` and nothing else, which made
+            // `projectContext.activeLevelId` a LOAD-BEARING SIDE-CHANNEL for the
+            // all-floors cascade: `triggerFurnishAllFloors` had to mutate the global
+            // active level before each storey purely so that the lighting stage — fired
+            // asynchronously off `furnish.layout-executed`, one `setTimeout(0)` later —
+            // would happen to read the right one. That is the exact coupling L-101
+            // removed from the FURNISH half ("correctness must not hinge on the
+            // active-level switch") and it survived, unnoticed, one stage downstream.
+            //
+            // It was also a live RACE, not just a smell: the driver restores the
+            // originally-active level in its `finally`, so the last storey's lighting
+            // could resolve against the RESTORED level and light the wrong floor twice.
+            //
+            // The explicit id now travels with the event, exactly as it does for
+            // furnish. The `resolveActiveLevel()` fallback is retained verbatim for the
+            // console/manual path (`pryzmLightAllRooms()`), which has no level to carry.
+            const explicitId = (() => {
+                const p = payload as { levelId?: string } | undefined;
+                return typeof p?.levelId === 'string' && p.levelId.length > 0 ? p.levelId : undefined;
+            })();
+            const level = explicitId ? resolveLevelById(explicitId) : resolveActiveLevel();
             if (!level?.id) { toast('No active level — open a project first.', 'error'); return; }
 
             const roomStore = storeRegistry.getStoreForType('room') as unknown as

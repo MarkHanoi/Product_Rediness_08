@@ -16,6 +16,9 @@
 // `window.pryzmFurnishAllRooms()` bypasses the AI panel for testing.
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
+// §FURNISH-PERF (L-1398) — wall-clock for ONE storey's furnish, so `pryzmPerf.report()`
+// can separate the engine's own cost from the editor cascade it triggers.
+import { bumpPerf, addPerfTime, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { createId } from '@pryzm/schemas';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
@@ -229,6 +232,19 @@ export class FurnishLayoutExecutor {
     detach(): void { this._dispose?.(); this._dispose = null; this._subZones = null; }
 
     private async _execute(runtime: PryzmRuntime, opts?: { levelId?: string }): Promise<void> {
+        // §FURNISH-PERF (L-1398). Bumped at ENTRY and timed in a `finally`, so an early
+        // return (no level, no rooms, engine placed nothing) is still COUNTED — a run
+        // that refused is a run the founder waited for.
+        bumpPerf(PERF_KEYS.FURNISH_LEVEL_RUNS);
+        const _perfT0 = performance.now();
+        try {
+            await this._executeInner(runtime, opts);
+        } finally {
+            addPerfTime(PERF_KEYS.FURNISH_LEVEL_MS, performance.now() - _perfT0);
+        }
+    }
+
+    private async _executeInner(runtime: PryzmRuntime, opts?: { levelId?: string }): Promise<void> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
             runtime.events?.emit('pryzm:toast', { message, severity });
         };

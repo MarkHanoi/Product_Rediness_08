@@ -316,6 +316,33 @@ export const PERF_KEYS = {
   OCCUPANCY_CANPLACE_CALLS: 'waste.occupancyCanPlaceCalls',
   OCCUPANCY_CANPLACE_OK: 'waste.occupancyCanPlaceOk',
 
+  // ── Multi-level orchestration (§FURNISH-PERF, L-1398) ─────────────────────
+  //
+  // The founder's "Furnish all rooms (AI) → all floors" gesture was reported as
+  // "super slow" and NONE of its hot path had a counter: not the level switch, not
+  // the view activation it fans out into, not the plan re-projection, not the
+  // room-tag pass. `window.pryzmPerf.report()` printed a table with nothing about
+  // the gesture on it, which is why its cost had to be reasoned about from a console
+  // log instead of measured. These are the keys that close that.
+  //
+  // ⭐ Read `level.activeLevelChanged` FIRST. One assignment to
+  // `projectContext.activeLevelId` fans out synchronously into a plan-view
+  // re-activation and ~5 full-scene traversals; a gesture that switches the active
+  // level N times has multiplied its own cost by N before doing any work.
+  LEVEL_SWITCH: 'level.activeLevelChanged',
+  VIEW_ACTIVATED: 'view.activated',
+  /** Full-scene walks done by the `view-activated` visibility gates. */
+  TRAVERSE_VIEW_GATES: 'traverse.viewActivatedVisibilityGates',
+  /** Plan/section re-projections, split by which arm the driver took. Read
+   *  `full` against `graft`: the graft path is O(dirty), the full path is O(N). */
+  REPROJECT_FULL: 'view.reprojectFull',
+  REPROJECT_GRAFT: 'view.reprojectGraft',
+  REPROJECT_MS: 'view.reprojectMs',
+  ROOMTAG_POPULATE: 'roomTag.populateRuns',
+  ROOMTAG_POPULATE_MS: 'roomTag.populateMs',
+  FURNISH_LEVEL_RUNS: 'furnish.levelRuns',
+  FURNISH_LEVEL_MS: 'furnish.levelMs',
+
   // ── One-shot notes ────────────────────────────────────────────────────────
   NOTE_IN_BATCH: 'note.gestureRanInsideBatch',
   NOTE_PROJECT_LOAD_ACTIVE: 'note.projectLoadActive',

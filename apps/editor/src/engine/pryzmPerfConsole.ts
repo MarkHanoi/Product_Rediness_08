@@ -246,12 +246,39 @@ function ms(n: number | null | undefined): string | null {
 }
 
 function timerRow(label: string, t: PerfTimer | undefined): string {
-    if (!t) return row(label, '—');
+    if (!t) return row(label, '—', 'NO CALL SITE — nothing writes this key');
     return row(
         label,
         `${ms(t.totalMs)}`,
         `(n=${t.count}, max ${ms(t.maxMs)})`,
     );
+}
+
+/**
+ * ⭐ §PERF-ZERO-IS-NOT-UNWRITTEN (L-1397) — A COUNTER ROW, HONEST ABOUT ITS OWN ABSENCE.
+ *
+ * `perfSnapshot().counters` contains a key ONLY if some call site bumped it. The rows
+ * below were written as `num(c[KEY] ?? 0)`, which collapses the two cases this whole
+ * module exists to keep apart:
+ *
+ *   • the counter was written, and the answer is 0  — a FINDING;
+ *   • no code anywhere bumps that key                — an ABSENCE OF MEASUREMENT.
+ *
+ * That is not hypothetical here. `REDETECT_ROOMS`, `REDETECT_ROOMS_AFTER_THROW`,
+ * `REDETECT_ROOMS_MS`, `PHASE_GEOMETRY_BUILD`, `PHASE_DRAIN`, `PHASE_SHADOW_REACTIVATE`,
+ * `PHASE_EVENT_FLUSH`, `PHASE_SHADER_COMPILE`, `PHASE_BOUNDS_FIT`, `TRAVERSE_FIT_BOUNDS`,
+ * `TRAVERSE_BOUNDS_CACHE`, `AUTOSAVE_*`, `CRDT_BLACKOUT_MS` and `SOCKET_*` are ALL read
+ * here and bumped NOWHERE in the repo. Under an `armed` header this printed
+ * "room re-detection passes  0" — a false exoneration of a named prime suspect, which is
+ * exactly the misattribution the header of `PerfCounters.ts` forbids in rule 1. The
+ * instrument built to stop that failure was committing it.
+ *
+ * `undefined` now prints `—` and says why. A real measured zero still prints `0`.
+ */
+function counterRow(label: string, c: Record<string, number>, key: string, note = ''): string {
+    const v = c[key];
+    if (v === undefined) return row(label, '—', 'NO CALL SITE — nothing writes this key');
+    return row(label, num(v), note);
 }
 
 // ── Live-state sampling ─────────────────────────────────────────────────────
@@ -669,6 +696,42 @@ function printReport(r: PryzmPerfReport): void {
     }
     p(LINE);
 
+    // ── MULTI-LEVEL ORCHESTRATION ───────────────────────────────────────────
+    // §FURNISH-PERF (L-1398). The founder's "Furnish all rooms (AI) → all floors"
+    // gesture had NO row on this table at all: the level switch, the view activation it
+    // fans out into, the plan re-projection and the room-tag pass were all uncounted, so
+    // "super slow" could not be answered with a number. Read TOP-DOWN — everything below
+    // the first row is a MULTIPLE of it.
+    p('  MULTI-LEVEL ORCHESTRATION  — the cascade a level switch buys');
+    if (!r.armed) {
+        p('       UNMEASURED — not armed. These are not zeros.');
+    } else {
+        const sw = c[PERF_KEYS.LEVEL_SWITCH];
+        p(counterRow('⭐ activeLevelId switches', c, PERF_KEYS.LEVEL_SWITCH,
+            (sw ?? 0) > 1
+                ? '⚠ each one drives a plan re-activation + full-scene visibility gates'
+                : ''));
+        p(counterRow('  view activations', c, PERF_KEYS.VIEW_ACTIVATED));
+        p(counterRow('  view-gate full traversals', c, PERF_KEYS.TRAVERSE_VIEW_GATES,
+            r.scene ? `≈ ${num((c[PERF_KEYS.TRAVERSE_VIEW_GATES] ?? 0) * r.scene.meshes)} node visits` : ''));
+        const full = c[PERF_KEYS.REPROJECT_FULL] ?? 0;
+        const graft = c[PERF_KEYS.REPROJECT_GRAFT] ?? 0;
+        p(counterRow('  plan re-projections: FULL O(N)', c, PERF_KEYS.REPROJECT_FULL,
+            full > 0 && graft === 0
+                ? '🔴 the O(dirty) graft arm was NEVER taken — see §DIAG-GRAFT-FALLTHROUGH'
+                : ''));
+        p(counterRow('  plan re-projections: graft O(dirty)', c, PERF_KEYS.REPROJECT_GRAFT));
+        p(timerRow('  time in re-projection', t[PERF_KEYS.REPROJECT_MS]));
+        p(counterRow('  room-tag populate passes', c, PERF_KEYS.ROOMTAG_POPULATE,
+            '(a level switch can drive TWO — activation + re-projection)'));
+        p(timerRow('  time in room-tag populate', t[PERF_KEYS.ROOMTAG_POPULATE_MS]));
+        p(counterRow('furnish runs (per storey)', c, PERF_KEYS.FURNISH_LEVEL_RUNS));
+        p(timerRow('  time in furnish', t[PERF_KEYS.FURNISH_LEVEL_MS]));
+        p('       Compare "time in furnish" against the whole armed window: the gap is');
+        p('       what the editor cascade cost, NOT what the layout engine cost.');
+    }
+    p(LINE);
+
     // ── PHASES ──────────────────────────────────────────────────────────────
     p('  BATCH PHASE TIMING');
     if (!r.armed) {
@@ -692,11 +755,11 @@ function printReport(r: PryzmPerfReport): void {
         p(timerRow('autosave (total)', t[PERF_KEYS.AUTOSAVE_MS]));
         p(timerRow('  serialise', t[PERF_KEYS.AUTOSAVE_SERIALISE_MS]));
         p(timerRow('  compress', t[PERF_KEYS.AUTOSAVE_COMPRESS_MS]));
-        p(row('autosave runs', num(c[PERF_KEYS.AUTOSAVE_RUN] ?? 0)));
+        p(counterRow('autosave runs', c, PERF_KEYS.AUTOSAVE_RUN));
         p(timerRow('CRDT blackout', t[PERF_KEYS.CRDT_BLACKOUT_MS]));
-        p(row('socket disconnects', num(c[PERF_KEYS.SOCKET_DISCONNECT] ?? 0),
+        p(counterRow('socket disconnects', c, PERF_KEYS.SOCKET_DISCONNECT,
             (c[PERF_KEYS.SOCKET_DISCONNECT] ?? 0) > 0 ? '🔴 the socket DIED during this window' : ''));
-        p(row('socket reconnects', num(c[PERF_KEYS.SOCKET_RECONNECT] ?? 0)));
+        p(counterRow('socket reconnects', c, PERF_KEYS.SOCKET_RECONNECT));
     }
     // The blackout is ALSO already logged, independently, by BatchCoordinator — and
     // pointing at an instrument that already exists is worth more than duplicating
@@ -709,21 +772,22 @@ function printReport(r: PryzmPerfReport): void {
     if (!r.armed) {
         p('       UNMEASURED — not armed. These are not zeros.');
     } else {
-        const rd = c[PERF_KEYS.REDETECT_ROOMS] ?? 0;
-        const rdThrow = c[PERF_KEYS.REDETECT_ROOMS_AFTER_THROW] ?? 0;
-        p(row('room re-detection passes', num(rd)));
-        p(row('  …after a command that THREW', num(rdThrow),
-            rdThrow > 0 ? '🔴 pure waste — the command failed, the rooms did not change' : ''));
+        const rdThrow = c[PERF_KEYS.REDETECT_ROOMS_AFTER_THROW];
+        p(counterRow('room re-detection passes', c, PERF_KEYS.REDETECT_ROOMS));
+        p(counterRow('  …after a command that THREW', c, PERF_KEYS.REDETECT_ROOMS_AFTER_THROW,
+            (rdThrow ?? 0) > 0 ? '🔴 pure waste — the command failed, the rooms did not change' : ''));
         p(timerRow('  time in re-detection', t[PERF_KEYS.REDETECT_ROOMS_MS]));
-        const heal = c[PERF_KEYS.SELECT_SELFHEAL] ?? 0;
-        p(row('§SELECT-STUCK-STATE self-heals', num(heal),
-            heal > 0 ? '⚠ a self-heal that runs often is a bug wearing a bandage' : ''));
+        const heal = c[PERF_KEYS.SELECT_SELFHEAL];
+        p(counterRow('§SELECT-STUCK-STATE self-heals', c, PERF_KEYS.SELECT_SELFHEAL,
+            (heal ?? 0) > 0 ? '⚠ a self-heal that runs often is a bug wearing a bandage' : ''));
         // Counted at ENTRY, so blocked is derived and always reconciles.
-        const cpCalls = c[PERF_KEYS.OCCUPANCY_CANPLACE_CALLS] ?? 0;
+        const cpCalls = c[PERF_KEYS.OCCUPANCY_CANPLACE_CALLS];
         const cpOk = c[PERF_KEYS.OCCUPANCY_CANPLACE_OK] ?? 0;
-        p(row('WallOccupancy canPlace calls', num(cpCalls),
+        p(counterRow('WallOccupancy canPlace calls', c, PERF_KEYS.OCCUPANCY_CANPLACE_CALLS,
             '← was a console.log on EVERY pointermove; now a counter'));
-        p(row('  …permitted / refused', `${num(cpOk)} / ${num(cpCalls - cpOk)}`));
+        p(cpCalls === undefined
+            ? row('  …permitted / refused', '—', 'NO CALL SITE')
+            : row('  …permitted / refused', `${num(cpOk)} / ${num(cpCalls - cpOk)}`));
     }
     p(LINE);
 

@@ -86,7 +86,6 @@ export function triggerFurnishLayout(runtimeArg?: PryzmRuntime | null): void {
     }
 }
 
-interface ProjectContextLike { activeLevelId?: string | null }
 interface LevelLike { id?: string; elevation?: number }
 
 /** Enumerate every level id, ground-first, from whichever store is available
@@ -142,12 +141,17 @@ function waitForFurnishDone(
     });
 }
 
-/** Furnish EVERY floor in sequence (A.21.D28 #7). For each level: set it active
- *  (the way the level panels + post-gen chain do), fire furnish, await this
- *  storey's `furnish.layout-executed` (or the per-storey timeout), then advance.
- *  Restores the originally-active level when done. P6: mutation still flows
- *  through the executor's command-bus dispatch — this only sets the session
- *  active-level (same path ActiveLevelHUD / LevelManagerPanel use). */
+/** Furnish EVERY floor in sequence (A.21.D28 #7). For each level: fire furnish
+ *  WITH that storey's id on the event, await its `furnish.layout-executed` (or the
+ *  per-storey timeout), then advance.
+ *
+ *  §FURNISH-NO-LEVEL-TOUR (L-1395) — this used to read "set it active (the way the
+ *  level panels do) … Restores the originally-active level when done". It no longer
+ *  touches `projectContext.activeLevelId` at all: that write was cosmetic for furnish
+ *  and cost a full plan-view re-activation + five whole-scene traversals per storey.
+ *  The user's active floor is left exactly where they put it.
+ *
+ *  P6: mutation still flows through the executor's command-bus dispatch. */
 export async function triggerFurnishAllFloors(
     runtimeArg?: PryzmRuntime | null,
 ): Promise<FurnishAllFloorsOutcome> {
@@ -179,25 +183,53 @@ export async function triggerFurnishAllFloors(
     // COVERAGE, L-101: correctness must not hinge on the active-level switch).
 
     _executor.attach(rt);
-    const pc = window.projectContext as ProjectContextLike | undefined;
-    const originalActive = pc?.activeLevelId ?? undefined;
-    const setActive = (id: string): void => {
-        try { if (pc) pc.activeLevelId = id; } catch (e) { console.warn('[furnish-layout] could not set active level', id, e); }
-    };
 
     console.log('[furnish-layout] all-floors furnish across', levelIds.length, 'level(s):', levelIds);
     toast(levelIds.length === 1 ? 'Furnishing rooms…' : `Furnishing all ${levelIds.length} floors…`, 'info');
 
     // §FIX-FURNISH-ALL-FLOORS-COVERAGE (L-101): each level is furnished
     // EXPLICITLY (levelId threaded into the event) so a floor no longer depends
-    // on the global active-level switch actually landing. setActive still runs
-    // so the UI/HUD follows along, but correctness does not hinge on it. The
-    // pure driver sequences the floors + tolerates a per-floor failure.
+    // on the global active-level switch actually landing. The pure driver
+    // sequences the floors + tolerates a per-floor failure.
+    //
+    // ⭐⭐ §FURNISH-NO-LEVEL-TOUR (L-1395, 2026-08-20) — THE `setActive(levelId)` THAT
+    // USED TO OPEN THIS FUNCTION IS GONE, AND IT WAS THE MOST EXPENSIVE LINE IN THE
+    // GESTURE.
+    //
+    // It was documented as cosmetic — "setActive still runs so the UI/HUD follows
+    // along, but correctness does not hinge on it" — and that was true of FURNISH.
+    // What it actually bought was a full editor cascade, SEVEN TIMES, for a gesture
+    // whose per-floor result nobody watches. `ProjectContext.activeLevelId`'s setter
+    // (core-app-model/src/context/ProjectContext.ts:18) fires a subscriber list AND a
+    // `window.dispatchEvent`, synchronously, and between them they drive:
+    //
+    //   • `LevelPlanViewBinder` → `ViewController.activate('Top')` → `PlanViewManager
+    //     .activate()`, which FIRST calls `deactivate()` — a complete plan-canvas
+    //     teardown — then rebuilds the DOM and runs `_ensureProjection`. Seven distinct
+    //     plan view ids means seven COLD caches, i.e. seven full EdgeProjector passes.
+    //   • the `view-activated` visibility gates in initScene (:725 wall edges, :853
+    //     floor hatch, :907 room overlay, :961 parcel fill) — ⭐ FIVE FULL
+    //     `scene.traverse` PER SWITCH over 6113 meshes, every one of them re-deciding
+    //     the identical answer because the view MODE never changed.
+    //   • a second `roomTagAutoPopulator.populate()` per level (initScene:768, on top
+    //     of the one `onReprojectionNeeded` already runs at :1152).
+    //   • an animated camera slide per storey (engineLauncher:1380).
+    //
+    // ⚠ ONE REAL CONSUMER had to be closed first, and it was not the HUD: the LIGHTING
+    // stage read `projectContext.activeLevelId` and nothing else, so this cosmetic line
+    // was silently load-bearing for which floor got lit — while the `finally` below
+    // restored the original level underneath lighting's pending `setTimeout(0)`.
+    // §LIGHT-LEVEL-IS-EXPLICIT (L-1394) threads the storey through the event instead,
+    // which is what makes removing this safe rather than merely faster.
+    //
+    // The active level is left exactly where the user put it. They asked to furnish
+    // every floor, not to be driven through all seven; the coverage toast + the
+    // §COVERAGE-ALL-FLOORS report are what tell them what happened.
     const furnishOne = async (levelId: string): Promise<FurnishLevelCoverage> => {
-        setActive(levelId);
         console.log('[furnish-layout] all-floors → furnishing level', levelId);
         const done = waitForFurnishDone(rt, levelId, FURNISH_TIMEOUT_MS);
-        // Defer one tick so the active-level change settles before furnish reads it.
+        // Yield one tick so each storey's listeners are attached before the emit and
+        // the loop cannot starve the event loop across seven synchronous rounds.
         await new Promise<void>(r => setTimeout(r, 0));
         rt.events.emit('furnish.layout-execute', { levelId });
         return done;
@@ -211,9 +243,13 @@ export async function triggerFurnishAllFloors(
         console.error('[furnish-layout] all-floors furnish threw:', err);
         threw = String((err as Error)?.message ?? err);
         toast(`All-floors furnish failed: ${threw}`, 'error');
-    } finally {
-        if (typeof originalActive === 'string' && originalActive.length > 0) setActive(originalActive);
     }
+    // §FURNISH-NO-LEVEL-TOUR (L-1395) — the `finally { setActive(originalActive) }` that
+    // stood here is gone WITH the switch it existed to undo. Restoring a level the run
+    // never left is not defensive, it is a second cascade: the setter is diff-guarded,
+    // so on the happy path it was already a no-op, and on any path where the USER changed
+    // floors mid-run it would have yanked them back. Nothing in the furnish → lighting
+    // chain reads the active level any more (§LIGHT-LEVEL-IS-EXPLICIT, L-1394).
     // §FURNISH-ALL-FLOORS-HONESTY — a throw that produced no coverage is a
     // refusal, not "furnished every floor". Previously this fell through to the
     // summary of an EMPTY coverage array and the caller reported success.

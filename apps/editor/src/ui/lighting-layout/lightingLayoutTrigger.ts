@@ -103,7 +103,7 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
         type FurnishOutcome =
             | { state: 'completed'; placedCount: number; roomCount?: number }
             | { state: 'dropped'; reason: string };
-        const fireLighting = (source: 'furnish-event' | 'fallback-timeout', furnishOutcome?: FurnishOutcome): void => {
+        const fireLighting = (source: 'furnish-event' | 'fallback-timeout', furnishOutcome?: FurnishOutcome, levelId?: string): void => {
             if (state.fired) return;
             state.fired = true;
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
@@ -120,9 +120,16 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
             // Emit through the untyped narrowing (same as `.on` below): the
             // `furnishOutcome` field is ahead of the PryzmEventMap typing in
             // packages/runtime-composer/src/types.ts (out of L-CHAIN territory).
+            // §LIGHT-LEVEL-IS-EXPLICIT (L-1394) — the storey travels WITH the event.
+            // Previously only `furnishOutcome` did, and the executor recovered the
+            // level from `projectContext.activeLevelId` — a global the all-floors
+            // driver had to keep mutating for this line to be correct, and which its
+            // own `finally` restores while this `setTimeout(0)` is still pending.
+            // `levelId` is `undefined` on the console/manual path, where the executor's
+            // `resolveActiveLevel()` fallback is the right answer.
             setTimeout(() => {
                 (runtime.events as unknown as { emit?: (k: string, p: unknown) => void } | undefined)
-                    ?.emit?.('lighting.layout-execute', { furnishOutcome });
+                    ?.emit?.('lighting.layout-execute', { furnishOutcome, levelId });
             }, 0);
         };
         /** Read the furnish outcome off a `furnish.layout-executed` payload:
@@ -197,7 +204,12 @@ function wireLightingCascade(runtime: PryzmRuntime): void {
             // timer still can't double-fire within a run.
             if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
             state.fired = false;
-            fireLighting('furnish-event', outcomeFromFurnishPayload(payload));
+            // §LIGHT-LEVEL-IS-EXPLICIT (L-1394) — the furnish executor stamps `levelId`
+            // on EVERY `furnish.layout-executed` payload (including its drop paths), so
+            // this is the storey that was just furnished. Forward it rather than letting
+            // the executor guess from a global.
+            const furnishedLevelId = (payload as { levelId?: string } | undefined)?.levelId;
+            fireLighting('furnish-event', outcomeFromFurnishPayload(payload), furnishedLevelId);
         });
         console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }

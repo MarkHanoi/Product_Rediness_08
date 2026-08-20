@@ -41,7 +41,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { initProjectOrigin, reseatProjectOrigin } from './initProjectOrigin'; // §FEAT-PROJECT-ORIGIN (L-109); §L-325 render-side origin re-seat
 import { clearMountedDrawing } from './views/mountedDrawingScope'; // §C13-MOUNTED-DRAWING-OWNER — detach Project A's projected linework from the shared scene
-import { getFrameScheduler } from '@pryzm/frame-scheduler';
+import { getFrameScheduler, bumpPerf, addPerfTime, PERF_KEYS } from '@pryzm/frame-scheduler';
 // §GEOM-CASTER-EVENT-CHOKEPOINT (L-1189) — the SINGLE declared set of BIM events
 // that change the shadow caster set. `_pascalGeomEvents` used to be a second
 // hand-written literal here and eleven families (handrail + stair-railing among
@@ -758,6 +758,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         annotationStore: window.annotationStore, // TODO(TASK-08)
         commandManager:  window.commandManager, // TODO(TASK-06)
     });
+    /** §FURNISH-PERF (L-1398) — one timed seam for BOTH populate() call sites, so the
+     *  report can say how many passes a gesture paid for and what they cost. Disarmed,
+     *  this is one boolean check (see PerfCounters `timePerf`'s cost model). */
+    const _timedPopulate = (viewDef: Parameters<typeof roomTagAutoPopulator.populate>[0]): void => {
+        bumpPerf(PERF_KEYS.ROOMTAG_POPULATE);
+        const _t0 = performance.now();
+        try { roomTagAutoPopulator.populate(viewDef); }
+        finally { addPerfTime(PERF_KEYS.ROOMTAG_POPULATE_MS, performance.now() - _t0); }
+    };
     window.runtime?.events?.on('view-selected', (payload: unknown) => { // F.events.8
         const viewId = (payload as { viewId?: string | null })?.viewId;
         if (!viewId) return;
@@ -765,7 +774,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         if (!viewDef) return;
         // Only auto-populate for floor-plan views (they carry a spatial.levelId).
         if (!viewDef.spatial.levelId) return;
-        roomTagAutoPopulator.populate(viewDef);
+        // §FURNISH-PERF (L-1398) — this is the FIRST of TWO populate() passes a level
+        // switch can drive; the second is inside `onReprojectionNeeded` below. Neither
+        // was counted, so "the room-tag pass runs twice per level" was unmeasurable.
+        _timedPopulate(viewDef);
     });
 
     // ── §FEAT-SET-OUT-LIVE-DOCUMENTATION (L-286) — bind Set Out to the change
@@ -841,6 +853,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         try {
             const is3DModelView = mode === '3D';
             const scene = world.scene.three as THREE.Scene;
+            bumpPerf(PERF_KEYS.TRAVERSE_VIEW_GATES);
             scene.traverse((obj: THREE.Object3D) => {
                 if (obj.name === 'floor-tile-grid') {
                     obj.visible = !is3DModelView;
@@ -850,8 +863,30 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     };
     // Track the last activated view mode so newly built floors match it.
     let _lastFloorHatchViewMode: string | undefined = '3D';
+    // ⭐ §VIEW-GATE-NO-OP (L-1398) — A FULL-SCENE TRAVERSAL THAT RE-DECIDES THE SAME
+    // ANSWER IS NOT A CHEAP TRAVERSAL, IT IS A WASTED ONE.
+    //
+    // The three `view-activated` visibility gates below each walk the WHOLE scene and
+    // set `visible = !(mode === '3D')` on their own overlay family. Their input is the
+    // view MODE and nothing else. A LEVEL switch re-activates a plan view, so the mode
+    // is IDENTICAL ('Top' → 'Top') and every one of them re-walked 6113 meshes to write
+    // the values that were already there. `triggerFurnishAllFloors` did that eight
+    // times, which is ~24 whole-scene walks of pure no-op (L-1395 removes the switches;
+    // this removes the waste for every OTHER level switch in the app — the level panel,
+    // the HUD, the post-gen chain).
+    //
+    // ⛔ The guard is on the EVENT HANDLER only, never on the helper: the other callers
+    // (a floor rebuilt, a room re-detected, the parcel fill re-authored) legitimately
+    // re-apply the SAME mode to NEW geometry and must still traverse. And the first
+    // activation always runs, because `_lastX` is seeded with a guess — an unapplied
+    // gate that skipped because its guess happened to match would be a correctness bug,
+    // not a saving.
+    let _floorHatchGateApplied = false;
     window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
-        _lastFloorHatchViewMode = (payload as { mode?: string })?.mode;
+        const _mode = (payload as { mode?: string })?.mode;
+        if (_floorHatchGateApplied && _mode === _lastFloorHatchViewMode) return;   // §VIEW-GATE-NO-OP (L-1398)
+        _floorHatchGateApplied = true;
+        _lastFloorHatchViewMode = _mode;
         _applyFloorHatchVisibilityForView(_lastFloorHatchViewMode);
     });
     // Re-apply when floors are (re)built — the builder always creates the hatch
@@ -896,6 +931,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         try {
             const is3DModelView = mode === '3D';
             const scene = world.scene.three as THREE.Scene;
+            bumpPerf(PERF_KEYS.TRAVERSE_VIEW_GATES);
             scene.traverse((obj: THREE.Object3D) => {
                 if (obj.userData?.isRoomOverlay === true) {
                     obj.visible = !is3DModelView;
@@ -904,8 +940,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         } catch { /* non-fatal: overlay keeps its last visibility */ }
     };
     let _lastRoomOverlayViewMode: string | undefined = '3D';
+    let _roomOverlayGateApplied = false;
     window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
-        _lastRoomOverlayViewMode = (payload as { mode?: string })?.mode;
+        const _mode = (payload as { mode?: string })?.mode;
+        if (_roomOverlayGateApplied && _mode === _lastRoomOverlayViewMode) return;   // §VIEW-GATE-NO-OP (L-1398)
+        _roomOverlayGateApplied = true;
+        _lastRoomOverlayViewMode = _mode;
         _applyRoomOverlayVisibilityForView(_lastRoomOverlayViewMode);
     });
     // Re-apply when rooms are (re)built — RoomBoundaryBuilder always creates the fill
@@ -950,6 +990,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         try {
             const is3DModelView = mode === '3D';
             const scene = world.scene.three as THREE.Scene;
+            bumpPerf(PERF_KEYS.TRAVERSE_VIEW_GATES);
             scene.traverse((obj: THREE.Object3D) => {
                 if (obj.userData?.isParcelBoundaryFill === true) {
                     obj.visible = !is3DModelView;
@@ -958,8 +999,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         } catch { /* non-fatal: parcel fill keeps its last visibility */ }
     };
     let _lastParcelFillViewMode: string | undefined = '3D';
+    let _parcelFillGateApplied = false;
     window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
-        _lastParcelFillViewMode = (payload as { mode?: string })?.mode;
+        const _mode = (payload as { mode?: string })?.mode;
+        if (_parcelFillGateApplied && _mode === _lastParcelFillViewMode) return;   // §VIEW-GATE-NO-OP (L-1398)
+        _parcelFillGateApplied = true;
+        _lastParcelFillViewMode = _mode;
         _applyParcelFillVisibilityForView(_lastParcelFillViewMode);
     });
     // Re-apply when the boundary is (re)authored — the renderer rebuilds the fill
@@ -1125,6 +1170,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     viewDependencyTracker.onReprojectionNeeded = async (viewId: string, genFromFlush: number, graftElementIds?: ReadonlySet<string>) => {
         const viewDef = viewDefinitionStore.get(viewId);
         if (!viewDef) return;
+        // §FURNISH-PERF (L-1398) — wall-clock for the whole re-projection pass, whichever
+        // arm it takes. The counters above say WHICH arm; this says what it cost.
+        const _reprojT0 = performance.now();
+        try {
+            await _reprojectView(viewId, genFromFlush, graftElementIds, viewDef);
+        } finally {
+            addPerfTime(PERF_KEYS.REPROJECT_MS, performance.now() - _reprojT0);
+        }
+    };
+
+    const _reprojectView = async (
+        viewId: string,
+        genFromFlush: number,
+        graftElementIds: ReadonlySet<string> | undefined,
+        viewDef: NonNullable<ReturnType<typeof viewDefinitionStore.get>>,
+    ): Promise<void> => {
 
         // §FIX-PLAN-GEN-SELF-SUPERSEDE (L-705, ADR-0299) — the generation this handler is
         // COMMITTING under. It starts as the one `_flush()` handed us, but the incremental-
@@ -1149,7 +1210,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // dirtied (e.g. after room detection or geometry edits). The populator
         // skips rooms that already have a tag in this view, so this is idempotent.
         if (viewDef.spatial.levelId) {
-            roomTagAutoPopulator.populate(viewDef);
+            _timedPopulate(viewDef);   // §FURNISH-PERF (L-1398) — the SECOND pass.
         }
 
         const fragmentsMgr = components.get(OBC.FragmentsManager);
@@ -1192,6 +1253,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             console.log(
                 `[initScene] §DIAG-GRAFT-FALLTHROUGH viewId=${viewId} FULL re-projection because: ${graftDecline}`,
             );
+            // §FURNISH-PERF (L-1398) — the §DIAG-GRAFT-FALLTHROUGH line already SAYS
+            // why the O(dirty) arm was declined; nothing COUNTED how often. Read
+            // `view.reprojectFull` against `view.reprojectGraft`: a gesture whose
+            // furniture batch coarse-marks the view takes the full O(N) arm every time.
+            bumpPerf(PERF_KEYS.REPROJECT_FULL);
         }
 
         if (graftElementIds && graftElementIds.size > 0 && isPlan && models.length === 0
@@ -1214,6 +1280,7 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
                             const vgApplicatorInc = window.vgSceneApplicator;
                             vgApplicatorInc?.applyToProjectionLayers?.(warm, viewId);
                             viewController.mountReprojectedDrawing(viewId, warm);
+                            bumpPerf(PERF_KEYS.REPROJECT_GRAFT);   // §FURNISH-PERF (L-1398)
                             console.log(`[initScene] §FIX-PLAN-PROJECT-INCREMENTAL: grafted ${moved} element(s) onto warm drawing viewId=${viewId} gen=${gen}`);
                             return;
                         }

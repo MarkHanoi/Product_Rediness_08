@@ -7,6 +7,9 @@ import { OrthoPlanCameraLockController } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — resolve the plan view that OWNS the active level.
 import { findPlanViewForLevel, projectContext } from '@pryzm/core-app-model';
+// §FURNISH-PERF (L-1398) — count view activations; a level switch causes one, and
+// everything downstream (visibility gates, room tags, projection) is a multiple of it.
+import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 import { SceneBoundsCache } from '@pryzm/scene-committer';
 import { SceneObjectClassifier } from '@pryzm/scene-committer';
 import type { IViewSwitchListener } from '@pryzm/core-app-model';
@@ -1473,6 +1476,7 @@ export class ViewController implements IViewController {
             // stale world.camera.three that OBC may not have updated yet when the
             // projection toggle is asynchronously committed by camera-controls.
             this._vst(`dispatching "view-activated" event (mode="${viewMode}", type="${viewType}")`);
+            bumpPerf(PERF_KEYS.VIEW_ACTIVATED);   // §FURNISH-PERF (L-1398)
             window.runtime?.events?.emit('view-activated', { view: obcView, mode: viewMode, type: viewType, source: 'view-switch', camera: this._camera.three }); // F.events.8
 
             // §ANN-VIEW-PERSIST: Persist the definition id BEFORE dispatching.
