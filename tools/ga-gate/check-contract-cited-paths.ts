@@ -102,7 +102,7 @@ const CONTRACT_DIR = path.join(REPO_ROOT, 'docs', '02-decisions', 'contracts');
  * ⛔ Do NOT discharge findings by bulk-adding `PLANNED`; that is laundering and
  * arm B prints the evidence of it as a number that moves.
  */
-const BASELINE_UNRESOLVED = 491;
+const BASELINE_UNRESOLVED = 490;
 
 // F0 floors. A run below any of these has not asked the question.
 const MIN_CONTRACT_FILES = 90;
