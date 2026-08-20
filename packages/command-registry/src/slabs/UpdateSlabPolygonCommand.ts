@@ -20,7 +20,19 @@ import type { SlabData } from '@pryzm/geometry-slab';
 // which is erased and creates no runtime edge.
 import { polygonBoundingBox, signedArea } from '@pryzm/geometry-slab/geom-utils';
 // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape-intent invalidation rule.
-import { resolveBoundaryShapeAfterEdit } from '@pryzm/geometry-slab';
+//
+// ⛔ DEEP SUBPATH, NEVER THE BARREL — and this is not style. This line originally
+// read `from '@pryzm/geometry-slab'`, which is a RUNTIME edge onto the barrel, and
+// the barrel value-exports `SlabTool` + `SlabPickWallsController`. Both of those
+// `import * as BUI from '@thatopen/ui'` at module scope, and Lit touches `document`
+// as it evaluates. The production server reaches this file — file-format/server.js
+// → pack → persistence-client → core-app-model → command-registry → here — so the
+// barrel import put a browser-only custom-element library into the SERVER bundle and
+// `dist/index.cjs` died at boot with `ReferenceError: document is not defined`. The
+// §L-442 smoke gate caught it inside the Docker build; nothing shipped.
+// `boundaryLoops.ts` is pure and THREE-free, so the subpath costs nothing.
+// See the note above: every other slab import here is `import type` for this reason.
+import { resolveBoundaryShapeAfterEdit } from '@pryzm/geometry-slab/boundary-loops';
 
 /**
  * UpdateSlabPolygonCommand

@@ -55,10 +55,17 @@ import { wallProfileVariantAvailability } from './WallProfileVariants';
 import { UpdateElementParameterCommand } from '@pryzm/command-registry';
 // §FEAT-WALL-SHAPE-MODES / L-1325 — the SHARED closed-loop generators, with the
 // WALL density policy (each chord is a real wall, not a rendered outline).
+// ⛔ DEEP SUBPATH, NEVER THE BARREL. All four symbols live in the pure, THREE-free
+// `boundaryLoops.ts`, but `@pryzm/geometry-slab`'s barrel value-exports `SlabTool` +
+// `SlabPickWallsController`, which `import * as BUI from '@thatopen/ui'` at module
+// scope. The production server reaches this file (file-format/server.js → pack →
+// persistence-client → core-app-model → geometry-wall → here), so the barrel form put
+// a Lit custom-element library into the SERVER bundle and `dist/index.cjs` died at
+// boot with `ReferenceError: document is not defined`. Caught by the §L-442 smoke gate.
 import {
     boundaryLoopVertices, boundaryLoopRefusal, WALL_LOOP_DENSITY,
     type BoundaryLoopMode,
-} from '@pryzm/geometry-slab';
+} from '@pryzm/geometry-slab/boundary-loops';
 
 /**
  * §C83-S1 / C83 §3.1 — the two suppression flags, honoured because C83 makes it
