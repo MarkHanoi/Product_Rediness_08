@@ -1138,6 +1138,89 @@ line-for-line from `WindowBuilder._seatHostedLeaf`. Angles are in the sheet's `(
 5. **Nobody has been asked** whether an architect wants swing chevrons on a *window* sash; the
    window record carries no operation field, so none is drawn.
 
+
+### §10.3 — **THE WALL'S HALF OF THE ELEVATION SYMBOL, AND THE TESSELLATION-SEAM RULE** (added 2026-08-20, lane ELEV1, **L-1242**)
+
+> **Founder, West elevation:** *"The RAKED WALLS on elevation are not rendering correctly — I
+> believe the WINDOWS they do, but the WALL not. Also CURVED WALL renders in elevation with MANY
+> VERTICAL LINES — they should render CONTINUOUSLY."*
+
+⭐ He is describing §10.2 landing on one family and not the other, and the instrument §10.2 WO-G-15
+required agrees with him: his own `[ELEV-DIAG]` line read `cardinal=yes · rakedObliqueHosts=10
+maxJambTilt=17.85° · symbols=83 rawLayersSuppressed=50` — **83 openings drawn as drawings, sitting
+inside walls still drawn as photographs of solids.**
+
+#### ⛔ THE PROPOSED ROOT WAS "ON A RAKED WALL THE FACES SEPARATE AND CROSS". THE CONTROL KILLED THE CAUSAL HALF
+
+Measured (`WallElevationSymbol.probe.test.ts`, real body builders, real shear matrix, real
+projection, West elevation):
+
+| case | wall | HORIZ | PLUMB (distinct h) | DIAGONAL |
+|---|---|---|---|---|
+| A | straight, square-on | 8 | 8 (5) | 0 |
+| B | **RAKED 75°, square-on** | 8 | 8 (5) | 0 |
+| C0 | **straight, bearing 20°, NO RAKE** | **16** | **8 (8)** | 0 |
+| C | RAKED 75°, bearing 20° | **16** | 0 | **8 @ 95.24°** |
+
+**Case C0 has no rake at all and already doubles**, its face pairs separated by
+`thickness · sin(bearing)` = `0.3 · sin 20°` = **0.1026 m**, matching the measurement to four
+decimals. ⇒ **The doubling is caused by OBLIQUITY ALONE; rake is neither necessary nor sufficient.**
+Rake adds only the *lean* (case C), which is D2 — a correct projection of a leaning solid. Square-on
+(A/B) the two faces project exactly on top of one another and the depth edges collapse to points,
+which is why this survived: **the stock N/S/E/W elevations of an axis-aligned building show no
+doubling at all.**
+
+**WO-G-16 — normative.** A wall's elevation linework MUST be an **authored symbol** — the near face
+once: base, top and the two ends — not the projected wireframe of its solid. ⛔ Drawing both faces
+and the depth edges between them is the §10.2 D3 defect, and it is not confined to openings.
+
+#### ⭐ AND THE CURVED WALL IS A **SECOND, INDEPENDENT** ROOT — TWO REPORTS, TWO ROOTS
+
+| curved wall | `edgeAngleDeg` | HORIZ | PLUMB (distinct h) |
+|---|---|---|---|
+| 16 segments | 1 | 68 | **34** |
+| 32 segments | 1 | 132 | **66** |
+| 16 / 32 segments | 30 | 68 / 132 | 4 |
+
+⭐ **`PLUMB = 2 × (segments + 1)`, EXACTLY.** The number of vertical lines in the drawing is a
+function of the **tessellation segment count** — a number no architect authored and not a property
+of the building. A curved wall is built as radial bands; every band boundary is a real facet; and
+`THREE.EdgesGeometry`'s ~1° default dihedral threshold sits far below a curved wall's per-facet
+angle, so **every tessellation seam is promoted to a drawn edge**. It appears on a square-on curved
+wall too, so it is **not** the obliquity root.
+
+**WO-G-17 — normative. A TESSELLATION SEAM IS NOT AN EDGE.** A curved element in elevation shows its
+**silhouette and its real features** — base, top, ends, openings — and nothing else. ⛔ This MUST NOT
+be addressed by raising a global dihedral threshold: that buys a clean curved wall by dropping
+genuine edges everywhere else. The seam must be **never created** (draw the arc as a continuous
+polyline traced from the body's own sampler) rather than filtered out afterwards.
+
+**WO-G-18 (§10.1 PR-1, applied to the ARC).** A wall symbol MUST trace the arc using the **same
+sampler the wall BODY is built from** (`computeStations`). ⛔ It may not re-derive the curve. Two
+answers to *"where along the wall is this?"* is the shape of every join defect this subsystem has
+had — `CurvedWallLayerBuilder`'s own header says so.
+
+**WO-G-19 (C16 CA-18).** A wall the symbol **cannot express** MUST refuse and **keep its projected
+linework**. Named cases: an authored elevation **profile** (the symbol draws a flat top and would
+otherwise draw a top the wall does not have), and a curved wall whose stations cannot be resolved
+(⛔ **never** fall back to the chord — a straight line where the building has an arc is the failure
+hardest to notice). The refusal composes with §10.2 WO-G-14 automatically, because the suppression
+is keyed on what was **emitted**.
+
+#### NOT MEASURED — the honest register for this subsection
+
+1. **`wallNearFaceSign` takes its sign from the CHORD.** An arc sweeping past ~90° presents its
+   other face at one end and this picks one face for the whole run. Every arc wall this repo builds
+   is well under that; recorded rather than assumed.
+2. **A LAYERED wall draws ONE outline, not one per construction layer.** In elevation the visible
+   face is the outer layer's, so this is right for the face — but a layered wall's END shows its
+   stack, and the symbol draws a single end line. Not measured against a drawn example.
+3. **The wall symbol carries no `viewDepth` stamp**, so like the opening symbol it cannot act as a
+   depth-ordered occluder. Inherited from §10.2, not introduced here, and still unmeasured.
+4. **Openings are not subtracted from the wall's face outline.** They do not need to be — the
+   outline is the wall's boundary and the opening symbol draws the hole — but no test asserts the
+   two read correctly together at a drawn scale.
+
 ### TO-BE — normative
 
 - **WO-G-1.** ONE Y datum for the opening. **The authority is the host wall's**

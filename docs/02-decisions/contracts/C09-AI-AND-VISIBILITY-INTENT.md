@@ -665,6 +665,30 @@ wireframe leaves the malformed linework on screen and adds more.
 snapped or straightened to the axis it ought to lie on. That substitutes a plausible drawing for
 a wrong one and removes the evidence. Fix the construction, never the appearance.
 
+
+**§4.6.4g — A TESSELLATION SEAM IS NOT AN EDGE** *(added by L-1242, §ELEV-SYMBOL-WALL; normative)*
+
+A curved or otherwise tessellated solid MUST NOT contribute its **facet boundaries** to a drawing.
+An element in elevation or section shows its **silhouette and its real features**; the seams that
+exist only because a smooth surface was approximated by flat facets are an artefact of the mesh, not
+of the building.
+
+*The measurement.* A curved wall projected at `THREE.EdgesGeometry`'s default ~1° dihedral threshold
+emitted **`2 × (segments + 1)`** vertical lines — 34 at 16 segments, 66 at 32, exactly. ⭐ **The
+count of lines in the drawing was a function of the tessellation density**, which no architect
+authored. The founder's words were *"MANY VERTICAL LINES — they should render CONTINUOUSLY"*.
+
+⛔ **This MUST NOT be fixed by raising a global dihedral threshold.** That buys one clean curved wall
+by silently dropping genuine edges on every other element. The correct fix is that the seam is
+**never created**: the element's authored symbol traces the curve as a continuous polyline, and the
+faceted solid is suppressed by the §4.6.4f(3) rule. Where a per-mesh threshold IS used, it MUST be
+derived from that mesh's own tessellation rather than set to a global constant, so the rule holds for
+a 4 m arc and a 40 m one alike.
+
+⚠ **A genuinely faceted element MUST still show its edges.** Both directions MUST be pinned — a
+curved element shows no seam lines, **and** a faceted one still shows its creases — because a
+one-way assertion cannot tell a correct seam rule from a threshold that has swallowed real geometry.
+
 **§4.6.4c — A WINDOW IN PLAN READS `frame | glazing | frame`, NOT A SOLID SLAB** *(L-280,
 drawing convention; normative for plan symbols)*
 
