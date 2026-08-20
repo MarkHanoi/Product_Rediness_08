@@ -954,3 +954,102 @@ remote build as a stack trace wearing an infrastructure error's clothes.
 sits in the last-good bundle, so the coarse rule would have failed the three preceding green deploys.
 Deliberately not built mid-deploy; stated with its evidence so it is a decision, not an omission.
 
+
+---
+
+## 6.9 FIFTH/SIXTH/SEVENTH EXECUTION — v1328 · v1329 · v1330, 2026-08-20, bundle proof 6/6 ×3
+
+Three manual deploys in one evening, closing an eight-lane fleet. **All three passed the §5 proof
+first try.** Recorded together because what they establish is one thing.
+
+### 6.9.1 ⛔ THE TRIGGER WAS THE BILLING BLOCK, AND `git push` WAS SILENTLY DOING NOTHING
+
+Not an Actions *outage* (§1) — the **billing block**, and it had been live since **2026-08-19**.
+GitHub's annotation, fetched from the API rather than inferred:
+
+> *"The job was not started because recent account payments have failed or your spending limit needs
+> to be increased. Please check the 'Billing & plans' section in your settings"*
+
+Signature confirmed against §1's table: **every job failed at 3.0 s with ZERO steps executed** — all
+15 of them, including `Lint` and `Isolation`. That is the billing shape, not the queue-forever
+outage shape.
+
+⭐ **The compounding fact: `origin/main` was 150 commits behind.** `deploy-fly.yml` has had
+`push: main` restored since §OPTION-B (2026-08-05), so the founder's push-to-main workflow *was* the
+deploy path — and it had been failing closed, silently, for two days. **Check `git rev-list --count
+origin/main..HEAD` BEFORE concluding anything about why prod is stale.** Production had been fed
+entirely by manual local-tree builds, which is why nobody noticed the remote was stale.
+
+### 6.9.2 ⭐ THE CONTEXT IS THE WORKING TREE, NOT THE COMMIT — DEPLOY FROM A CLEAN WORKTREE
+
+**This is the durable lesson of the night and it is not in §2.3.**
+
+`fly-manual-deploy.sh` derives `REPO_ROOT` from `BASH_SOURCE`, and the Dockerfile does `COPY . .`.
+`GIT_SHA` is stamped from `git rev-parse HEAD` — **but the SHA only labels the image; the CONTENT is
+whatever is on disk.** With six subagent lanes mid-flight holding **51 uncommitted files**, running
+the script from the main repo would have shipped six half-finished features under a SHA containing
+none of them, and the bundle proof would have PASSED — it checks the SHA and the four inlined
+values, not whether the tree was clean.
+
+**Procedure:** deploy from `C:/pryzm-deploy/tree` — `git checkout --detach <sha>`, assert
+`git status --porcelain` is **EMPTY**, run **that** copy of the script. The `GIT_BRANCH=HEAD`
+provenance blemish (see §6.7 note) is the price and it is worth paying.
+
+### 6.9.3 §6 GATE COVER — and an honest gap in the first of the three
+
+CI is dead, so the local cover is the **only** gate.
+
+| | v1328 (`eb3da048`) | v1329 (`11a24609`) | v1330 (`2abdf669`) |
+|---|---|---|---|
+| root `tsc` | ⛔ **NOT RUN** — tree dirty | ✅ RC=0, 0 errors | ✅ (same tree + 4 files) |
+| `test:server` | ⛔ NOT RUN | ✅ 41 files / 613 tests | ✅ |
+| in-image §L-442 smoke | ✅ 2335 ms | ✅ 2237 ms | ✅ 2233 ms |
+| §5 bundle proof | ✅ 6/6 | ✅ 6/6 | ✅ 6/6 |
+
+⚠ **v1328 shipped without a type-check cover, and that is recorded rather than hidden.** Six lanes
+held the tree dirty, so any `tsc` run would have measured a *different tree* than the one deploying.
+Reporting a green number from the wrong tree is worse than reporting a gap. §6.8.3's flag was
+required and worked: `NODE_OPTIONS=--max-old-space-size=8192`, RC=0 — **without it the same clean
+tree exits 134**, which reads exactly like a broken build.
+
+### 6.9.4 ⭐ A SECOND DEPLOY WAS NEEDED BECAUSE A LANE COMMITTED AFTER THE SNAPSHOT
+
+v1329 was cut at `11a24609`. A lane then committed `2abdf669` — **the property-panel widget for the
+feature v1329 had just shipped the command layer of.** So v1329 carried a founder request whose UI
+did not exist.
+
+**Caught by re-reading the lane's final report against the deployed SHA**
+(`git merge-base --is-ancestor`), not by any gate. Nothing in §5 or §6 detects "the deploy is
+internally consistent but incomplete against intent."
+
+⛔ **The deploy was NOT killed** — §6.5.9's rule and the "a deploy you killed may still ship" incident
+both apply, and the image was already pushed. v1329 was allowed to land and prove, then v1330
+followed. **Rule for the next agent: when a fleet is still landing commits, snapshot the SHA LAST,
+and re-check `merge-base --is-ancestor` for every lane report that arrives after you start.**
+
+### 6.9.5 Operational notes
+
+* **Builder `fly-builder-shimmering-glow-9973`** — unchanged from §6.8, already
+  `shared-cpu-8x:16384MB`. §6.6.2's rule (always `flyctl apps list | grep builder`) still held.
+* **§6.5.10 warming worked on all three attempts**, from `suspended`/`stopped` each time. That is now
+  **five consecutive successes** against §6.5.9's "0 pushes in 10 attempts". ⛔ Still not evidence the
+  flake is fixed — recorded as five data points, per §6.5.10's own self-correction.
+* **Upload ran at ~250 KB/s**, not §1's 98 KB/s — ~8 min for ~130 MB. Do not treat §1's table as a
+  floor; measure.
+* **Docker is NOT installed on this machine and that is FINE** — `--remote-only` builds on the Fly
+  builder, and §6.5.6 notes Docker Desktop actively *breaks* it. `env -u DOCKER_HOST` retained as
+  cheap defence.
+* **Chunk hashes, the §6.5.8 check that separates "shipped" from "still serving the old one":**
+  `main-D4sQvlnl.js` → `main-CtRrRhiM.js` (v1328) → `main-ce_wYic8.js` (v1329) → `main-DzvcOfEm.js`
+  (v1330). Changed every time.
+* **Rollback tags, captured BEFORE each deploy per §5.3:** v1327 `deployment-01M0FMY45NE1CPVPDJQM0E3ZK2`
+  · v1328 `deployment-01M0GATE03TYB1JWM6JY20T1AG` · v1329 `deployment-01M0GEBEFP4BS09YPFZK5M5NWF`.
+
+### 6.9.6 What is still owed
+
+**Nothing in the bundle was verified in a BROWSER.** Every lane said so unprompted: reachability was
+established at the seam — the store, the resolver, the DOM under happy-dom — not by clicking. The §5
+proof establishes that the right bytes are being served, never that the feature works. Those are
+different claims and this contract only makes the first.
+
+---
