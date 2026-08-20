@@ -779,7 +779,7 @@ that exists, and nothing in the ring would say so. A refusal is a correct answer
 | **R-8** | No rotate verb, no colour verb | §6 | ⚠ **TWO UNDECLARED ABSENCES, DECLARED HERE.** ⚠ **CORRECTED 2026-08-19 (L-1032)** — this row read *"no bus level-change verb"* as a third absence. `slab.changeLevel` now exists and is reachable from the property panel. The absence is CLOSED, not re-declared |
 | **R-9** | The ten `<kind>.delete` bus verbs are **DORMANT, not broken** | C84 §3.5.3 | ✅ ⛔ do not delete — PRYZM 3 target vocabulary |
 | **R-10** | Stack B has no editor render path | C84 §4D; `main.ts:407` passes `canvas: null` | ✅ declared. ⛔ Nothing in `geometry-kernel/src/producers/` may be deleted as dead — **ADR-0331 §D5 is an open FOUNDER question** (C84 §9) |
-| **R-11** | **Circular / elliptical boundaries are SUPPORTED in PLAN as of 2026-08-19 — and are NOT yet available in the 3-D `SlabTool`** | §FEAT-PLATE-SHAPE-MODES; L-1324 | ⚠ **A DECLARED PARTIAL, NOT A SILENT ONE.** `SlabPlanToolHandler` serves both gestures; the 3-D tool does not — its rectangle path is entangled with the hollow-slab anchor state and its mode union is declared THREE times (SL-Voc-2). The matrix row, the mode descriptions and `slabPlanGesturesPinned.spec.ts` all say so, and the pin maps both gestures to `'NONE'` because that is the TRUTH: inventing a tool-mode string would make the pin assert a 3-D capability that does not exist |
+| **R-11** | **Circular / elliptical boundaries are SUPPORTED, in BOTH surfaces, as of 2026-08-20** | §FEAT-PLATE-SHAPE-MODES; L-1324 | ✅ **NOT A REFUSAL — A CAPABILITY.** ⚠ **CORRECTED 2026-08-20.** This row read *"SUPPORTED in PLAN … NOT yet available in the 3-D `SlabTool`"*, which was true when written and is now stale: `SlabTool.enterCircularMode` / `enterEllipticalMode` ship, `ToolManager.activateSlab` carries a case for each (⛔ without one, the header's own warning applies — the mode *"would have fallen through to `default` and silently drawn a 2-point rectangle"*), and **SL-Voc-2 is CLOSED**: `SlabToolMode` had THREE hand-copies and now has ONE. ⭐ The plan-only period was DECLARED rather than faked, and the declaration was retired by building the arm — not by relaxing the claim |
 
 ### Explicitly NOT REFUSED, and that is the finding
 
@@ -874,9 +874,19 @@ circle.** Re-editing gives N vertices, not a radius handle, and *"make this 0.5 
 expressible. Density is governed by **chord deviation (20 mm)**, not a fixed segment count, so a
 large boundary is not faceted and a small one is not needlessly heavy.
 
-⭐ **Parametric, shape-preserving boundaries are a SEPARATE and larger decision** — a C81
-design-intent question touching the schema, persistence and every consumer. **L-1323, deliberately
-NOT decided by this lane.**
+⭐ ✅ **RESOLVED 2026-08-20 (L-1323) — AND THE RESOLUTION IS *ALONGSIDE*, NOT *INSTEAD*.**
+The founder ruled that the intent should be recorded, so `boundaryShape`
+(`{ kind, centre, rx, rz }`) now sits beside the ring. ⛔ **The polygon REMAINS the geometry and
+the single source of truth** — every builder, exporter and take-off reads it and NONE of them reads
+the descriptor, which is what keeps this from becoming either a sixth save/load hole or a second
+producer of one value. **Absent ⇒ a free polygon**, so nothing migrates.
+
+⭐ **The INVALIDATION is the feature, not the field.** A descriptor that survived a vertex drag
+would claim a circle the element no longer is. `UpdateSlabPolygonCommand` — the sole writer of
+`polygon` during profile editing — re-asks the question on every write, and any drag, insertion or
+deletion drops it. ⚠ **Checking "every vertex lies on the circle" is NOT sufficient**: delete one
+vertex from a 48-gon and every survivor is still exactly on the curve while the ring is no longer
+that circle. The vertex COUNT is checked too, and the test asserts that trap explicitly.
 
 ### PS-4 — REFUSALS (C16 CA-18)
 
@@ -902,7 +912,7 @@ repo holds **five** spellings of these three shapes (`square|circular|ellipse` i
 `rectangle` in floor/ceiling; `2point` in slab; `rect|round` in column; `rectangular|circular` in
 C86) **plus a `BoundaryDrawMode` NAME COLLISION** — `SiteBoundaryMap2D.ts:584` declares a local type
 of that name whose members disagree with `@pryzm/geometry-slab`'s export (`orthogonal` vs `ortho`).
-Historic ids are **MAPPED, not renamed**, and the reconciliation is **L-1322**. C84 EI-8 names
+Historic ids are **MAPPED, not renamed** — `canonicalBoundaryShape()` is the ONE place the spellings meet, and an unknown id resolves to **null, never to a default** (a defaulting resolver would silently turn a typo — or the founder's *"eclipse"* — into a rectangle). ✅ **L-1322 CLOSED 2026-08-20**: the NAME COLLISION is gone (`SiteBoundaryMap2D`'s rival `BoundaryDrawMode` is now `SiteBoundaryGesture`), and per **EI-8a** the table is pinned by a TEST that DERIVES its population from production — handrail's own source and the `elementCreationMatrix` rows — so a sixth spelling fails the suite rather than being noticed later. C84 EI-8 names
 *shape* explicitly, so this is a real finding, declared rather than perpetuated.
 
 ---

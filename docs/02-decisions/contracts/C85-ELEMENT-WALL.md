@@ -1063,13 +1063,29 @@ floored at 8 and capped at 24. ⛔ **A future lane MUST NOT "improve" wall smoot
 this toward the plate value without answering the schedule and junction cost**, which is the same
 argument `handrailRunGenerators` makes in its own words (*"a schedule full of 100 mm rails"*).
 
-### ⚠ WS-4 — PLAN-ONLY, DECLARED (L-1325)
+### ✅ WS-4 — BOTH SURFACES (L-1325, closed 2026-08-20)
 
-The 3-D `WallTool` drives a different state machine off the **`WallDrawingMode` ENUM**, which has no
-member for these three modes. ⛔ **Minting a fake enum member to satisfy the bar is precisely how a
-UI ends up offering what the pipeline cannot accept (C84 EI-3)** — so the gap is declared in the
-matrix row and the loop pills are highlighted by a separate path rather than sharing a counterfeit
-member. **Reading (a) and reading (b) are unaffected and remain available in both surfaces.**
+This section read **"PLAN-ONLY, DECLARED"**, and that was the right state to ship in: the 3-D
+`WallTool` drives its state machine off the **`WallDrawingMode` ENUM**, which had no member for a
+closed-loop run, and ⛔ **minting a member to satisfy a bar is precisely how a UI ends up offering
+what the pipeline cannot accept (C84 EI-3)**.
+
+**The arm now exists**, so the declaration is retired rather than left standing. `WallDrawingMode`
+carries `RECTANGULAR_LOOP | CIRCULAR_LOOP | ELLIPTICAL_LOOP`, and `WallTool.commitLoopRun` walks the
+ring calling **the tool's own `createWall`** once per edge — so level resolution, id minting,
+system-type stamping and its dual-write are INHERITED. A test requires `createWall` in that body and
+**forbids `executeCommand`**, because dispatching separately would silently skip all of it.
+
+⭐ **AND THE BAR NOW DRIVES BOTH SURFACES, WHICH IT HAD TO.** The plan handler reads
+`wallModePicker`'s STRING; the 3-D tool reads the ENUM. Two vocabularies for one concept — L-1322's
+shape, one layer out — so arming only one leaves the other surface silently in its previous mode:
+the author picks Circular, switches view, and draws a straight wall.
+
+⚠ Re-entering the tool is safe for a LOOP in a way it is not for linear/ortho/curved: a closed loop
+starts from a fresh anchor by definition, so there is no in-progress polyline to destroy (the defect
+§FEAT-PERSISTENT-MODE-BAR exists to prevent).
+
+⛔ **Readings (a) and (b) are untouched** and remain available in both surfaces.
 
 ### WS-5 — REFUSALS (C16 CA-18)
 

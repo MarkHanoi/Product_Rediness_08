@@ -20684,7 +20684,7 @@ correcting in `CLAUDE.md` and L-1199.
 
 ---
 
-## L-1320 — ⭐⭐ **SLAB PROFILE EDIT IS UNREACHABLE FOR EVERY SLAB THE TOOL CREATES.** TWO INDEPENDENTLY-CORRECT FIXES COMPOSED INTO A SILENT FEATURE KILL 🔴 OPEN — MEASURED, NOT FIXED — logged 2026-08-19 (lane SHAPE1)
+## L-1320 — ⭐⭐ **SLAB PROFILE EDIT WAS UNREACHABLE FOR EVERY SLAB THE TOOL CREATES.** TWO INDEPENDENTLY-CORRECT FIXES COMPOSED INTO A SILENT FEATURE KILL ✅ FIXED 2026-08-20 (lane SHAPE1) · `7c2d1625`
 
 ⛔ **Reported, deliberately NOT fixed in this lane** — it is a live-feature regression in a file
 other lanes are in, and the fix belongs with whoever owns the `SlabTool` mode surface.
@@ -20751,7 +20751,7 @@ different mullions — **§L955, excluding is the honest fix.**
 
 ---
 
-## L-1322 — **FIVE SPELLINGS OF THREE SHAPES, PLUS A `BoundaryDrawMode` NAME COLLISION.** C84 EI-8 NAMES *SHAPE* EXPLICITLY 🟡 OPEN — DECLARED, NOT RECONCILED — logged 2026-08-19 (lane SHAPE1)
+## L-1322 — **FIVE SPELLINGS OF THREE SHAPES, PLUS A `BoundaryDrawMode` NAME COLLISION.** C84 EI-8 NAMES *SHAPE* EXPLICITLY ✅ RECONCILED 2026-08-20 (lane SHAPE1) · `76f30c43`
 
 | Spelling | Site |
 |---|---|
@@ -20777,7 +20777,7 @@ EI-8a records that the comment mechanism *"has already failed twice, measured"*.
 
 ---
 
-## L-1323 — A CIRCULAR BOUNDARY DOES NOT REMEMBER THAT IT IS A CIRCLE 🟡 OPEN — A FOUNDER DECISION, NOT A DEFECT — logged 2026-08-19 (lane SHAPE1)
+## L-1323 — A CIRCULAR BOUNDARY DID NOT REMEMBER THAT IT IS A CIRCLE ✅ FIXED 2026-08-20 (lane SHAPE1), on the founder's ruling · `9329cb10`
 
 §FEAT-PLATE-SHAPE-MODES stores a circular slab / ceiling / floor as a **tessellated polygon ring**,
 following the established plate-family pattern (`boundaryArc.ts`: *"boundaries remain POLYGONS by
@@ -20797,7 +20797,7 @@ profile of a circular slab" has no good answer while the ring is the only repres
 
 ---
 
-## L-1324 — CIRCULAR / ELLIPTICAL SLABS ARE **PLAN-ONLY**; THE 3-D `SlabTool` HAS NO ARM 🟡 OPEN — DECLARED IN THREE PLACES — logged 2026-08-19 (lane SHAPE1)
+## L-1324 — CIRCULAR / ELLIPTICAL SLABS WERE **PLAN-ONLY** ✅ CLOSED 2026-08-20 (lane SHAPE1) — **and C92 SL-Voc-2 closed with it** · `1f7c690a`
 
 `SlabPlanToolHandler` serves `circular` and `elliptical`. The 3-D `SlabTool` does **not**: its
 rectangle path (`addRectanglePoint`, `:659`) is entangled with the hollow-slab anchor state, drives
@@ -21047,7 +21047,7 @@ core-app-model lighting **75 ✅**, command-registry round-trip **11 ✅**.
 
 ---
 
-## L-1325 — CLOSED-LOOP WALL RUNS ARE **PLAN-ONLY**; THE 3-D `WallTool` HAS NO ENUM MEMBER FOR THEM 🟡 OPEN — DECLARED — logged 2026-08-19 (lane SHAPE1)
+## L-1325 — CLOSED-LOOP WALL RUNS WERE **PLAN-ONLY** ✅ CLOSED 2026-08-20 (lane SHAPE1) · `1f7c690a`
 
 §FEAT-WALL-SHAPE-MODES ships `rectangular` / `circular` / `elliptical` closed wall runs on the PLAN
 surface. The 3-D `WallTool` does not serve them: it drives its state machine off the
@@ -21364,3 +21364,88 @@ swallowed real geometry. Root tsc `--noEmit` **COMPILER_RC=0**.
    Inherited from L-1240, not introduced here.
 5. ⛔ **No gate** asserts the seam rule or the symbol/suppression pairing. Conventions with tests,
    not invariants with gates.
+
+---
+
+## §SHAPE1-CLOSE — the founder reopened all four, and all four closed (2026-08-20)
+
+> **The founder:** *"I am fine with those decisions — but whatever you can do it / fix it."*
+
+He accepted every ruling **and** asked for the open items closed. What follows is what each closure
+turned out to be about, because in three of the four the interesting part was not the fix.
+
+### ⭐ L-1320 — the reusable finding: a predicate that cannot express its question
+
+`SlabTool.ts:1722` asked *"does this slab have dimensions?"* as a proxy for *"which editor did the
+user ask for?"*. L-1121 then correctly gave every slab real dimensions, and **the proxy started
+answering the same way for every input**. A predicate whose answer no longer varies is not a gate.
+
+The fix lets the CALLER name the editor (`slabEditorAvailability(slab, 'outline' | 'dimensions')`)
+and judges the request against a property that actually answers it. ⛔ Not by reverting L-1121 (that
+re-breaks the 3-D ladder), ⛔ not by special-casing rectangles at the call site (the guard's original
+sin). The separating test reproduces THE OLD GUARD verbatim and shows it answering `true` for
+rectangular, circular and elliptical slabs alike — then shows it answering `false` for a
+pre-L-1121 region slab. **Neither commit was wrong; the pair was**, asserted rather than narrated.
+
+⚠ **It also uncovered a worse bug in the same branch.** `SlabDimensionsEditor` *"computes a 4-corner
+axis-aligned rectangle polygon"* and applies it. The old redirect sent CIRCULAR slabs there, so
+pressing Apply would have **replaced the circle with a box**. The dimension editor is now offered
+only where its own write is faithful, and the Width/Depth panel — whose ONLY entry point was the
+redirect being removed — got its own button, or the fix would have closed L-1320 by inverting it.
+
+### ⭐ L-1323 — the invalidation, not the field, is the feature
+
+The founder ruled: **a descriptor ALONGSIDE the tessellation, not instead of it.** The polygon
+remains the geometry and the single source of truth, so nothing downstream changed and no sixth
+save/load hole was possible.
+
+⚠ **The subtle part: "every vertex lies on the circle" is NOT a sufficient check.** Delete one
+vertex from a 48-gon and every survivor is still exactly on the curve, while the ring is no longer
+that circle — the removed span is now a chord cutting material away. That is the same hole as the
+8-facet staircase in `boundaryLoops.test.ts`: every vertex ON the outline, and the shape still
+wrong. The vertex COUNT is checked too, and the test asserts the trap explicitly.
+
+⭐ **The persistence arm is a REACHABILITY arm on purpose.** The nearest prior art hand-builds
+*"exactly the payload ProjectLoader builds"* — and `ProjectLoader` is OFF BY DEFAULT, which is how
+three fixes landed against a branch production does not take. A behaviour arm alone would have
+repeated that. And `ProjectSerializer`'s compile-time `_SlabSnapshotCoverage` assertion caught the
+new field **before any test did** — a gate that names an uncovered key rather than trusting a
+reviewer to notice.
+
+### ⭐ L-1322 — the collision was the dangerous half
+
+Five spellings were untidy. The **name collision** was a real hazard: `SiteBoundaryMap2D` declared a
+local `BoundaryDrawMode` whose members disagreed with the exported type of the same name
+(`orthogonal` vs `ortho`), so grepping the name gave two answers and no way to tell which governed.
+Renamed to `SiteBoundaryGesture`; ⛔ **not merged** into the element vocabulary, because it draws a
+parcel on a map in lat/lon, and merging two things because they share three words is how five
+spellings happened.
+
+⛔ **The legacy ids are NOT renamed, and that is a decision.** Handrail ships and is spec'd;
+`'2point'` and `'rectangle'` reach ~30 call sites and four pinned specs. Per **EI-8a** the alias
+table is pinned by a test that DERIVES its population from production rather than listing it — a
+hand-listed test would have been a sixth copy going green while the thing it polices drifted.
+
+### ⭐ L-1324 / L-1325 — the declarations retired by being BUILT
+
+Both shipped plan-only and said so, because a tool-mode with no arm behind it is C84 EI-3 live. The
+coordinator kept that judgement in the row and asked for the real arms; they exist now, and nothing
+was faked to close them.
+
+⛔ **`ToolManager.activateSlab`'s own header is why the dispatch case matters**: *"a mode this
+switch did not know would have fallen through to `default` and silently drawn a 2-point
+rectangle."* A pill wired to a dispatcher with no case is **worse** than no pill — it reports
+success and draws the wrong element.
+
+⭐ **And the bar had to drive BOTH surfaces.** Plan reads a STRING, 3-D reads an ENUM — L-1322's
+shape one layer out. Arming only one leaves the other silently in its previous mode: pick Circular,
+switch view, draw a straight wall.
+
+**C92 SL-Voc-2 closed on the way past**: `SlabToolMode` had THREE hand-copies; the two rivals now
+reference the one declaration, asserted by a test that requires the literal to be GONE.
+
+⛔ **Curtain wall stays refused** (C87 §13.14 R-11), and a test enforces it — retiring two
+declarations must not quietly retire a third that is a measured impossibility rather than a missing
+arm.
+
+---
