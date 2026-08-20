@@ -23958,3 +23958,127 @@ have one, and the next reader will find it. Deletion is a decision, not a cleanu
 the INPUT to a decision as though it were the OUTCOME; same family as L-1397.
 
 ---
+
+---
+
+## L-1580 — ✅ FIXED: the parcel card's data died at the commit seam (C57 §1.4) — 2026-08-20 (lane GIS2)
+
+Founder: *"as per jurisdiction folder — there was a panel for each parcel with data … it is not accessible now!"*
+
+Two defects wearing one symptom. This is the deeper of the two, and it is the reason simply
+re-mounting the card would have produced an empty panel.
+
+**Measured, not assumed:** at HEAD, `git grep refcat -- packages/schemas/src` → **0**, and
+`ParcelFeature` reached exactly **one** consumer outside the provider files —
+`SiteBoundaryMap2D.ts`, i.e. the map modal's closure. The cadastral attribution the card
+displayed — `refcat`, address, registry area, source, CRS, licence — was a **fetch result held in
+a closure**. `site.setParcelBoundary` persisted the ring and dropped everything else on the floor.
+
+So the card was not merely unreachable: after the modal closed, the data it displayed **no longer
+existed anywhere**. C57 §1.4 requires parcel provenance to be persisted; it was not.
+
+**Fix:** `ParcelProvenance` (L0, composing C62/ADR-0280 `SourceProvenance`) carrying
+`kind · source · label · sourceCrs · refcat · address · jurisdictionId · license · ingestTimestamp
+· confidence`. `Parcel.provenance` nullable, default null. Threaded through `site.setParcelBoundary`
+— **one command, one write** (P6). Round-trips free: the serializer `structuredClone`s and the
+loader re-parses through `SiteModelSchema`.
+
+⚠ The C19 `ProvenanceRecord` enum was deliberately **not** widened — C57 §2.2 types parcel `source`
+as an open string, and widening the enum is a contract edit this lane was barred from making.
+
+Commit `f2d3cc8a`.
+
+---
+
+## L-1581 — ✅ FIXED: the parcel card was never deleted — it was built inside a closure — 2026-08-20 (lane GIS2)
+
+Founder, on being shown the work in progress: *"all was created — the card panel had all the data —
+we don't need to create it — just bring visible again."* **He was right, and nothing was rebuilt.**
+
+The card was defined inline inside `SiteBoundaryMap2D`'s `showParcelCard` / `showStubParcelCard`
+(was `:1001-1150`), so it was constructed and destroyed with the map modal and **no other surface
+could mount it**. Of the 13 files in `apps/editor/src/ui/site/parcel/`, **11 pre-date this lane** —
+all the L-380/L-613 jurisdiction providers.
+
+**Fix:** the card was **lifted**, not re-authored. `SiteBoundaryMap2D.ts` is −162/+138: the
+deletions are the inline DOM, the additions are a call to `buildParcelCard(...)` at `:1030`. One
+producer at `apps/editor/src/ui/site/parcel/parcelCard.ts`, mounted by both surfaces.
+
+⭐ **A substring test was presenting building outlines as legal parcels.** The map's footprint
+check was `/footprint/i.test(parcel.source)` — one provider rename away from labelling an OSM
+building outline as a cadastral parcel, with the `Ref` row to match. It is now a stored `kind`
+field, with a regression arm driving a footprint whose source string reads `overture-buildings`
+and contains no such substring.
+
+Also deleted: the stub card's **sample values** — a placeholder referencia and a placeholder
+≈500 m² area. A fabricated number under a warning banner is still a fabricated number on screen.
+
+Commit `c290220b`.
+
+---
+
+## L-1582 — ✅ SHIPPED: the parcel card is reachable from the GIS rail panel, with a button — 2026-08-20 (lane GIS2)
+
+Founder: *"this panel should be a section under GIS panel under the left hand side rail"*, then
+*"just bring visible AGAIN VIA BUTTON ON THE GIS PANEL!"*
+
+Both, reconciled: a section in the GIS panel that carries an explicit affordance. **Three states,
+decided in one place** — no boundary / provenance not recorded / the full card — and *all three*
+carry the button, because a section whose only content is a refusal with no way to act on it is
+the L-942 shape (a refusing branch with no escape hatch).
+
+The button resolves the **declared** `site.map-2d` action out of `GIS_ACTIONS` and dispatches it —
+not a hand-written handler — so it renders disabled with a stated reason if its entry point is
+unregistered (the L-1187 rule).
+
+The absent-state text is the one users of existing projects will see, and it says what is true:
+*"…the boundary was committed before PRYZM persisted cadastral attribution, or it was drawn by
+hand — the two are indistinguishable from what was saved. Source, reference and area basis are
+UNKNOWN, not absent: nothing has been assumed in their place."*
+
+**Reachability was established at the DOM, not at a function return** (the [[committed-is-not-reachable]]
+rule): the suite mounts `mountParcelSection` into a real host and asserts
+`[data-testid="parcel-info-card"]` and `[data-testid="parcel-open-map-btn"]` are present.
+`Test Files 8 passed (8) · Tests 89 passed (89)`.
+
+⚠ **Not clicked in a real browser** — the panel builds under happy-dom and the rail wiring
+(globe icon → `_buildGISPanel`) is pre-existing plumbing this lane did not change. That
+verification is still owed.
+
+Commit `fc126931`.
+
+---
+
+## L-1583 — ⛔ OPEN, DELIBERATELY NOT BUILT: "re-resolve provenance" would stamp a real referencia onto geometry no authority published — 2026-08-20 (lane GIS2)
+
+The obvious next feature — a button that re-fetches provenance for an existing boundary — was
+declined with its reasoning recorded in `parcelPanelSection.ts`.
+
+It would fetch whatever the cadastre publishes at a point **inside the stored ring**. For a
+hand-drawn boundary that is the *neighbouring legal parcel*, and the result would stamp a genuine
+referencia catastral onto geometry no authority ever published. **That false record is
+indistinguishable on screen from a true one** — strictly worse than the honest absence it replaces.
+
+Area agreement is not a sufficient guard (it is shape-blind). The guard that would be needed is
+ring identity under the publisher's 0.111 m quantum (C57 §1.11.1). Same family as
+[[envelope-solid-overstates-partial-data]].
+
+---
+
+## L-1584 — ⛔ OPEN (pre-existing flake, merge-blocking suite): `gisActionRegistry.test.ts` times out under parallel load — 2026-08-20 (lane GIS2)
+
+*"finds an assignment for every entry point the registry declares"* → `Test timed out in 5000ms`,
+twice, in a 5-suite batch. Passes standalone (23/23) and in the final 8-suite batch. It is a
+source-file-scan I/O timeout under parallel load — `transform 78.41s` in the failing run against
+`909ms` standalone. Pre-existing, not caused by this lane, but real and in a merge-blocking suite.
+
+---
+
+## L-1585 — ⛔ OPEN: Site Inspector's registry exception still needs a module-backed action kind — 2026-08-20 (lane GIS2)
+
+The GIS action registry's core invariant is `entryPoints: [] ⇒ render disabled` — the executable
+guard L-1187 just landed. A module-backed action (one whose implementation is an import rather
+than a registered entry point) requires inverting it. Deliberately not done as a side effect of
+this lane, in files another lane touched the same day.
+
+---
