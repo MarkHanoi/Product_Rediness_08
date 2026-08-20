@@ -22561,7 +22561,7 @@ carve / strict-no-op / update-in-place. Filed rather than half-done while the fo
 
 ---
 
-## L-1433 — ⛔ OPEN (declared, not fixed): the SLAB's own level axis is still top-level-only — 2026-08-20 (lane STAIR1)
+## L-1433 — ~~⛔ OPEN: the SLAB's own level axis is still top-level-only~~ ⭐ **SUPERSEDED — CLOSED THE SAME SESSION; see the L-1433 FIXED row below** — 2026-08-20 (lane STAIR1)
 
 L-1431 closed the LEVEL axis for the floor-finish and ceiling families. **The slab's is still
 `s.levelId === stair.topLevelId`**, so a Ground→L5 stair still passes through four **structurally
@@ -22583,7 +22583,7 @@ Return types become arrays; `CreateSlabCommand`, `MoveStairCommand` and
 
 ---
 
-## L-1434 — ⛔ OPEN (measured): `MAX_RISERS_PER_FLIGHT: 16` is declared in THREE files and READ BY NOBODY — 2026-08-20 (lane STAIR1)
+## L-1434 — ~~⛔ OPEN: `MAX_RISERS_PER_FLIGHT: 16` declared in THREE files, READ BY NOBODY~~ ⭐ **SUPERSEDED — CLOSED THE SAME SESSION, and the declared number turned out to be WRONG; see the L-1434 FIXED row below** — 2026-08-20 (lane STAIR1)
 
 `grep -rn "MAX_RISERS_PER_FLIGHT" packages plugins apps src` (tests excluded) → **5 hits, every one a
 declaration**: `geometry-stair/src/StairTypes.ts:216,231`,
@@ -23577,3 +23577,149 @@ error; it silently deletes whatever moved below line N. **The safe form is an AN
 that asserts on the text it expects to find and fails loudly when absent.**
 ⭐ This is the existing *"re-grep after editing a contended file"* rule firing for real — one step
 later than it should have.
+
+---
+
+## L-1433 — ⭐ CLOSED: the slab's level axis — a stair drove through four solid slabs ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+Filed OPEN by this lane earlier today; **closed the same session at the orchestrator's direction.**
+
+`carveStairOpening` filtered `s.levelId === stair.topLevelId` while
+`LevelTraversalPolicy.canTraverse` returns **`ok: true` with a warning** for a level-skipping stair.
+⭐ **Founder-reachable by hand — the stair parameters panel offers Top level as a dropdown**, so no
+chat surface is needed. After L-1431 the asymmetry was *worse*: the floor finishes above a deck were
+cut while the deck itself stayed solid.
+
+**Fixed as prescribed, NOT by folding slab into the L-1431 registry** — that reason stands (a slab
+void is a first-class `opening` element with an id convention, Immer undo patches, slab-side symmetry
+and a delete-heal, and a second lifecycle implementation is the drift
+`StairSlabOpeningReconciler` exists to forbid). Instead `carveStairOpening` / `reconcileStairOpening`
+**loop `stairPiercedLevelIds()`**, with `carveOneDeck` / `reconcileOneDeck` holding the pre-L-1433
+bodies **verbatim** — containment rule, refusal, profile frame, registration sequence and the L-581
+never-delete-on-a-failed-measure asymmetry untouched, because the level axis was the only thing wrong
+with them. `stairPiercedLevelIds` moved to its own module: both void owners must derive the same set
+from the same code, and they already reference each other, so a shared derivation in either would be
+a real runtime cycle. **Direction B moved with it** — a slab laid on an intermediate deck of an
+existing stair was carved by nobody.
+
+### ⭐⭐ The half that could destroy data is the ID, not the loop
+
+`opening-stair-<stairId>` is **persisted**. Re-keying the top deck would leave every saved project's
+void **unowned** — the delete would stop healing it, and the reconcile would carve a *second* void
+beside the orphan. **The top deck keeps that exact string forever**; only additional decks take
+`--<levelId>`. The delete's lookup is `isStairAutoOpeningId`, deliberately **not** a bare
+`startsWith` (`st-1` is a prefix of `st-10`).
+
+**Falsified.** With `stairPiercedLevelIds` forced back to top-only, **six** cases go RED —
+*"INTERMEDIATE slab left solid — the stair drives through it: expected +0 to be 1"*, direction B, the
+undo and delete counts, and L-1431's floor-finish equivalent. ⭐ **The six id-stability cases stay
+GREEN under that same patch** — they pin the persisted string independently of the level loop, so a
+rename fails them even when everything else passes.
+
+---
+
+## L-1434 — ⭐⭐ CLOSED, but NOT in the form it was filed: enforcing the declared cap would have refused an ORDINARY storey ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+`MAX_RISERS_PER_FLIGHT: 16` was declared in three files and read by nobody.
+
+> ⭐⭐ **SWITCHING IT ON AS DECLARED WOULD HAVE SHIPPED A WORSE DEFECT THAN THE ONE IT CLOSES.**
+> Measured: an **ordinary 3.0 m storey** at the 175 mm comfort default solves to **SEVENTEEN risers**
+> (`round(3.0 / 0.175)`, actual riser 176.5 mm). A hard cap of 16 **refuses the single most common
+> stair in the product.**
+
+⭐ **A limit nobody reads is a limit nobody has ever validated** — and this one is wrong in the
+direction that refuses legal stairs. **That is only discoverable by trying to enforce it**, which is
+the general lesson: an unenforced constant is not a dormant correct rule, it is an **unverified**
+one, and *"switch it on"* is never a safe instruction by itself.
+
+**The reason is a CATEGORY ERROR, not a typo.** Codes regulate the **vertical RISE between
+landings** (CTE DB-SUA: 3.20 m residential; IBC 1011.8: 12 ft). A riser *count* is that rule divided
+by an **assumed** riser height — 16 × 200 mm = 3.20 m. Our `MAX_RISER_HEIGHT` is 190 mm and the
+typical solved riser is 176 mm, so the count form silently **tightens** as risers get shallower,
+which is backwards.
+
+**Enforced as RISE, with the threshold DERIVED from constants that already exist:**
+`MAX_RISERS_PER_FLIGHT × MAX_RISER_HEIGHT` = 16 × 0.190 = **3.04 m**. ⛔ **No new number invented**,
+and derived this way it can never refuse anything the declared count would have allowed — so
+switching enforcement on cannot regress a project that was legal under the old unread rule. The
+3.0 m storey passes at 3.00 m; a Ground→L2 span drawn as one run (34 risers, 6.0 m) refuses at
+**both** layers. The refusal names **both numbers and the action** (C16 CA-18):
+*"Run 1 climbs 6.00 m in one flight (34 risers), above the maximum 3.04 m without a landing — add a
+landing to split it, or reduce the levels this stair spans"*. `StairSolver2D` passes `riserCount`
+through, without which the L-1430 breach would have reopened immediately.
+
+**Two dead declarations deleted** (`core-app-model/stores/StairTypes`,
+`constraint-solver/stair-constraint-engine`); one survives, with exactly one reader.
+
+⛔ **Not a landing-generation verb** — refusing honestly is in scope, producing the landings is not.
+⚠ **3.04 m is a DERIVATION, not a cited code value.** Same open jurisdiction question as 250-vs-220;
+both now move in one place.
+
+---
+
+## L-1437 — ⭐ SELF-INFLICTED: my own L-1430 fix ran BACKWARDS — the tool refused what the command permits ✅ FIXED — 2026-08-20 (lane STAIR1)
+
+**Found in lane RAC2's uncommitted C98 prose (§L-1441.3.b) while amending the same file.**
+
+`resolveStairGeometryLimits(constraints, typeRules)` lets a stair TYPE replace `maxRiserHeight` and
+`minTreadDepth`, and **two of the five built-ins are LOOSER than `STAIR_CONSTRAINTS`**:
+
+| type | `maxRiserHeight` | `minTreadDepth` |
+|---|---|---|
+| `timber-closed` | **0.220** ⬆ (vs 0.190) | **0.220** ⬇ (vs 0.250) |
+| `residential-timber` | **0.220** ⬆ | **0.220** ⬇ |
+
+`CreateStairCommand` resolves those rules. `StairSolver2D`, after L-1430, resolved a module-level
+**default** and never saw the type — the tool already carried `typeId` and `update()` silently
+dropped it. So a 230 mm tread on a `residential-timber` stair was **permitted by the command and
+refused by the tool**: L-1430's breach with the layers swapped.
+
+⭐ **That is the worse direction.** A false refusal minted by a safety check tells the user the model
+forbids something the model permits, in a validator's voice.
+
+> ⚠ **THE LESSON, and it is about the fix I shipped this morning.** Unifying two layers on ONE
+> AUTHORITY is not the same as unifying them on one RESOLUTION of that authority. The predicate was
+> shared; **the arguments were not.** And L-1430's parity spec could not see it, because its
+> `makeCtx()` omits `stairTypeStore` *"so the DEFAULT limits are the ones under test"* — a harness
+> choice that made the defect **structurally invisible to the very test written to prevent it**.
+
+Fixed with a pure `builtInStairTypeRules(typeId)` in the shared authority, per-instance limits on the
+solver re-resolved whenever the active type changes, and `typeId` threaded through both controller
+update paths. ⚠ **Built-ins only** — a custom type lives in a store this pure module cannot reach and
+falls back to the defaults; custom types are not authorable through the stair-path tool today, so the
+residual is unreachable, and it is stated rather than hidden. An unknown or absent `typeId` falls
+back to the **defaults**, never to the loosest type — pinned.
+
+⛔ **RAC2's §L-1441.3.d (`stairTypeIdOf` on `ResolverContext`) is NOT taken here** and remains
+theirs: the chat still cannot resolve a per-type limit and must keep enforcing only `maxTreadDepth`,
+the one bound no type may move.
+
+---
+
+## L-1436 — ⛔ OPEN (logged, not chased): a COMMAND barrel reaches `@thatopen/ui` and touches `document` at MODULE LOAD — 2026-08-20 (lane STAIR1)
+
+`packages/geometry-stair/src/__tests__/StairStorePrevStateSeam.spec.ts` fails **at import**, before a
+single test runs, with `ReferenceError: document is not defined`. The chain:
+
+```
+@pryzm/command-registry (barrel)
+  -> packages/geometry-slab/src/SlabTool.ts:3
+     -> @thatopen/ui  -> so.create(...) touches `document` at module scope
+```
+
+⭐ **This is a defect in its own right, independent of whose test noticed it.** A *command* barrel —
+the package every command-side consumer imports, including headless ones — cannot be imported without
+a DOM. That makes every command-registry consumer implicitly browser-only: node-env tests, the bake
+worker path, and any server-side replay. The repo already carries the recorded lesson for this shape
+(*a barrel that touches the DOM at module load*), and this is the same shape one layer down.
+
+**Not mine, and proven so rather than assumed:** the only importers of `StairGeometryLimits` are the
+four `stairPath` modules plus `index`, and neither `StairStore` nor `StairTypes` — the spec's entire
+import graph — reaches any of them. ⚠ **NOT ESTABLISHED: whether this predates 2026-08-20.** Stated
+as unknown rather than guessed.
+
+**Workaround in use, not a fix:** the two suites this lane wrote declare
+`// @vitest-environment happy-dom`, which is a DOM for an import, not for anything under test. **The
+real fix is a lazy or dynamic import of `SlabTool` from the geometry-slab barrel** (or dropping it
+from the barrel), so `@thatopen/ui` is pulled only by code that actually renders. ⛔ Deliberately not
+attempted tonight.
