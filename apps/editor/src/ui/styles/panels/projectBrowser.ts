@@ -1422,6 +1422,131 @@ export const PROJECT_BROWSER_STYLES = `
     border-top: 1px solid var(--app-border-light);
     padding-top: 8px;
 }
+/* ─── §L-1581 — the ONE parcel data card (parcelCard.ts) ───────────────────
+   Painted by CLASS, from tokens only, so the SAME element reads correctly in
+   both of its hosts: the map overlay (SiteBoundaryMap2D) and the GIS rail slot.
+   AppTheme injects this sheet globally, which is what lets one producer serve
+   two surfaces without either host re-styling it — the L-1361 rule (no literal
+   colour in a builder) applied to a card instead of a button. */
+.pryzm-parcel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-border-light);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-panel-bg);
+    color: var(--pryzm-panel-ink);
+    font-family: var(--app-font);
+    font-size: var(--pryzm-panel-font-size-body);
+    line-height: 1.45;
+}
+.pryzm-parcel-card-title {
+    font-size: var(--app-font-size-label);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--app-accent);
+}
+.pryzm-parcel-card-row { display: flex; gap: 8px; align-items: baseline; }
+.pryzm-parcel-card-key {
+    flex: 0 0 auto;
+    min-width: 92px;
+    color: var(--app-text-muted);
+}
+.pryzm-parcel-card-val { font-weight: 600; word-break: break-word; }
+
+/* An UNKNOWN is carried by a sentence, never by a blank row or a zero
+   (C84 EI-1b). Dashed edge + muted ink so it cannot be mistaken for data —
+   the same treatment .pb-gis-envelope-empty uses, deliberately. */
+.pryzm-parcel-card-absent {
+    padding: 8px 10px;
+    border: 1px dashed var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg);
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+}
+
+/* The footprint / degenerate-ring warning. It must survive greyscale and a
+   colour-blind reader, so the meaning is carried by the WORDS and by the
+   border, not by hue alone (C43 / WCAG 2.2 AA). */
+.pryzm-parcel-card-warn {
+    padding: 5px 8px;
+    border: 1px solid var(--app-status-warning);
+    border-radius: var(--app-radius-sm);
+    background: var(--vg-badge-warn-bg);
+    color: var(--vg-badge-warn-color);
+    font-size: var(--pryzm-panel-font-size-meta);
+    font-weight: 600;
+}
+.pryzm-parcel-card-note {
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+}
+.pryzm-parcel-card-source {
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+    border-top: 1px solid var(--app-border-light);
+    padding-top: 5px;
+}
+.pryzm-parcel-card-source + .pryzm-parcel-card-source {
+    border-top: none;
+    padding-top: 0;
+}
+.pryzm-parcel-card-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.pryzm-parcel-card-btn {
+    padding: 8px 10px;
+    border-radius: var(--app-radius-sm);
+    font-family: var(--app-font);
+    font-size: var(--pryzm-panel-font-size-body);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.pryzm-parcel-card-btn--primary {
+    border: 1px solid var(--app-accent);
+    background: var(--app-accent);
+    color: #ffffff;
+}
+.pryzm-parcel-card-btn--secondary {
+    border: 1px solid var(--app-accent);
+    background: transparent;
+    color: var(--app-accent);
+}
+.pryzm-parcel-card-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+.pryzm-parcel-card-btn:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 1px;
+}
+
+/* The rail slot that hosts the card (mirrors .pb-gis-envelope-slot). */
+.pb-gis-parcel-slot {
+    margin-top: 8px;
+    border-top: 1px solid var(--app-border-light);
+    padding-top: 8px;
+}
+
+/* The map overlay hosts the SAME element as a floating card — position and
+   width are the HOST's business, so they are scoped to the host, never baked
+   into the producer. */
+.pryzm-gis-parcel-host {
+    position: absolute;
+    top: 92px;
+    right: 12px;
+    z-index: 22;
+    width: 262px;
+    box-shadow: 0 4px 18px rgba(60,52,40,0.22);
+    border-radius: var(--app-radius-sm);
+}
+.pryzm-gis-parcel-host > .pryzm-parcel-card {
+    background: var(--app-panel-bg);
+    border-color: var(--app-accent);
+}
+
 .pb-gis-envelope-slot > [data-testid="buildable-envelope-card"] {
     position: static !important;
     width: 100% !important;

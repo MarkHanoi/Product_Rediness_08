@@ -108,6 +108,24 @@ import { onSitePlanPlacementCommitted } from '../site/overlay/enterCanvasWithSit
 // is complete + demoable ahead of the data wiring); when a provider IS supplied (Catastro)
 // it fetches the real parcel. `dispatchClearParcelBoundary` powers the C19 §1.4-safe redraw.
 import type { ParcelFeature, ParcelProvider } from '../site/parcel/index.js';
+// §L-1581 (C06 §13.3) — THE ONE parcel-card producer. This file used to build the card
+// inline (`showParcelCard` / `showStubParcelCard`, ~160 lines of DOM in a closure), which is
+// why the founder's "panel for each parcel with data" lived and died with this modal and was
+// reachable from nowhere else. The card now comes from a shared builder that the GIS rail
+// panel mounts too, so the two surfaces cannot disagree about whether a ring is a legal
+// cadastral parcel — the §GIS-ENVELOPE-REHOST (L-1362) precedent applied to the parcel card.
+import {
+    buildParcelCard,
+    parcelFeatureToCardModel,
+    parcelFeatureToProvenance,
+} from '../site/parcel/parcelCard.js';
+// §L-1580 (C57 §1.9) — the ROUTING table's own row for the click point. `parcelProvider`
+// here is the generic registry, whose label is deliberately generic ("Cadastral parcel /
+// building footprint"); §1.9 requires the ATTRIBUTION of the provider that actually
+// answered, and the jurisdiction row is where that string and its region code live. Pure
+// routing — no network, no side effect.
+import { resolveParcelProvider } from '../site/parcel/parcelRegistry.js';
+import type { ParcelProvenance } from '@pryzm/schemas';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
  *  8° ORTHO_SNAP_TOLERANCE_DEG, too tight to hit by hand now the lock is default-on). */
@@ -465,26 +483,15 @@ export function mountSiteBoundaryMap2D(
     // cadastral data (L-373: factual PARCEL geometry — no estimated-data badge needed
     // yet; the zoning/envelope estimate arrives in P2/P3) + a source attribution, and
     // commits the ring through the EXISTING draw→commit path via "Use this parcel".
+    //
+    // §L-1581 — this element is now a HOST, not the card. It carries only the overlay
+    // GEOMETRY (where the floating card sits on the map); every fact row, every honesty
+    // label and every string inside it is produced by `buildParcelCard`, which the GIS rail
+    // panel mounts as well. The `data-testid` moved onto the produced card so both surfaces
+    // are addressed by the same selector.
     const parcelCard = document.createElement('div');
-    parcelCard.className = 'pryzm-gis-parcel-card';
-    parcelCard.setAttribute('data-testid', 'parcel-info-card');
-    Object.assign(parcelCard.style, {
-        position: 'absolute',
-        top: '92px',
-        right: '12px',
-        zIndex: '22',
-        width: '244px',
-        display: 'none',
-        flexDirection: 'column',
-        gap: '8px',
-        padding: '14px 16px',
-        borderRadius: '12px',
-        border: `1px solid ${VIOLET}`,
-        background: 'rgba(255,255,255,0.97)',
-        color: '#2a2438',
-        font: '13px/1.45 system-ui, sans-serif',
-        boxShadow: '0 4px 18px rgba(60,52,40,0.22)',
-    } satisfies Partial<CSSStyleDeclaration>);
+    parcelCard.className = 'pryzm-gis-parcel-card pryzm-gis-parcel-host';
+    parcelCard.style.display = 'none';
     overlay.appendChild(parcelCard);
 
     // ── §L-384 — undo / redo vertex affordance (bottom-left pill) ────────────────
@@ -748,6 +755,18 @@ export function mountSiteBoundaryMap2D(
     let interactionMode: 'draw' | 'select' = opts.overlayOnly ? 'draw' : 'select';
     // The currently highlighted parcel (null = none selected). Committed via "Use this parcel".
     let selectedParcel: ParcelFeature | null = null;
+    /**
+     * §L-1580 (C57 §1.4) — the provenance of the parcel being committed, captured at the
+     * moment "Use this parcel" is pressed.
+     *
+     * WHY A SEPARATE VARIABLE. `useSelectedParcel()` clears `selectedParcel` BEFORE it calls
+     * `commit()` (it drops the violet highlight so the committed ring renders through the
+     * normal green path). By the time `commit()` reaches `dispatchParcelBoundary` the feature
+     * is already gone — so reading it there would silently record NOTHING on exactly the path
+     * that has provenance to record. It is cleared again after the commit so a later DRAWN
+     * boundary can never inherit a previous selection's attribution.
+     */
+    let pendingParcelProvenance: ParcelProvenance | null = null;
     // Guards against overlapping fetches while one click's parcel is still loading.
     let parcelFetchInFlight = false;
 
@@ -997,156 +1016,77 @@ export function mountSiteBoundaryMap2D(
         parcelCard.replaceChildren();
     }
 
-    /** Render the parcel info card (ref / address / area + source + actions). */
+    /**
+     * §L-1581 — render the parcel info card by MOUNTING the one producer.
+     *
+     * This function used to build ~90 lines of DOM inline. Everything it decided — which
+     * rows exist, whether a footprint gets a warning, which area basis is shown, how the
+     * source is attributed — now lives in `parcelCard.ts`, which the GIS rail panel also
+     * mounts. The map contributes only its two ACTIONS, because those are genuinely
+     * map-specific (they drive this modal's commit and its draw mode); the FACTS are not.
+     */
     function showParcelCard(parcel: ParcelFeature): void {
         parcelCard.replaceChildren();
-        const title = document.createElement('div');
-        title.textContent = 'PARCEL';
-        Object.assign(title.style, {
-            font: '700 11px/1 system-ui, sans-serif', letterSpacing: '0.08em',
-            color: VIOLET, textTransform: 'uppercase',
-        } satisfies Partial<CSSStyleDeclaration>);
-        parcelCard.appendChild(title);
-
-        const row = (label: string, value: string): HTMLDivElement => {
-            const r = document.createElement('div');
-            r.style.display = 'flex';
-            r.style.gap = '8px';
-            const l = document.createElement('span');
-            l.textContent = label;
-            Object.assign(l.style, { color: '#6b647a', minWidth: '46px', flex: '0 0 auto' } satisfies Partial<CSSStyleDeclaration>);
-            const v = document.createElement('span');
-            v.textContent = value;
-            v.style.fontWeight = '600';
-            v.style.wordBreak = 'break-word';
-            r.appendChild(l); r.appendChild(v);
-            return r;
-        };
-        parcelCard.appendChild(row('Ref', parcel.refcat));
-        if (parcel.address) parcelCard.appendChild(row('Addr', parcel.address));
-        parcelCard.appendChild(row('Area', `${parcel.areaM2.toFixed(0)} m²`));
-
-        // Zoning class is P2/P3 (Zoning Rules Engine) — honestly marked pending here.
-        parcelCard.appendChild(row('Zone', 'pending (P2)'));
-
-        // Source attribution (L-373 provenance). L-613 — prefer the PER-PARCEL `source` the
-        // provider stamped ('catastro' · 'ign-fr' · 'pdok-nl' · 'geonorge-no' · 'alkis-nrw' ·
-        // 'footprint (OSM)') over the generic provider label, so the card tells the truth about
-        // whether this geometry is a legal cadastral parcel or an OSM building footprint (C58 §1.4).
-        const isFootprint = /footprint/i.test(parcel.source ?? '');
-        const src = document.createElement('div');
-        src.textContent = `Source: ${parcel.source ?? parcelProvider?.label ?? 'cadastral data'}`;
-        Object.assign(src.style, {
-            font: '11px/1.3 system-ui, sans-serif', color: '#8a8398',
-            borderTop: '1px solid rgba(102,0,255,0.15)', paddingTop: '7px', marginTop: '2px',
-        } satisfies Partial<CSSStyleDeclaration>);
-        parcelCard.appendChild(src);
-        if (isFootprint) {
-            // ⚠ A footprint is the BUILDING outline, not the land boundary — say so explicitly.
-            const note = document.createElement('div');
-            note.textContent = '⚠ Building footprint, not a legal cadastral parcel';
-            Object.assign(note.style, {
-                font: '600 10px/1.3 system-ui, sans-serif', color: '#8a5a00',
-                background: 'rgba(255,176,32,0.14)', border: '1px solid rgba(255,176,32,0.5)',
-                borderRadius: '6px', padding: '4px 7px',
-            } satisfies Partial<CSSStyleDeclaration>);
-            parcelCard.appendChild(note);
-        }
-
-        const useBtn = document.createElement('button');
-        useBtn.type = 'button';
-        useBtn.textContent = 'Use this parcel  →';
-        useBtn.setAttribute('data-testid', 'parcel-use-btn');
-        Object.assign(useBtn.style, {
-            marginTop: '4px', padding: '9px 12px', borderRadius: '8px', border: 'none',
-            background: VIOLET, color: '#ffffff', cursor: 'pointer',
-            font: '600 13px/1 system-ui, sans-serif',
-        } satisfies Partial<CSSStyleDeclaration>);
-        useBtn.addEventListener('click', () => useSelectedParcel());
-        parcelCard.appendChild(useBtn);
-
-        const drawInstead = document.createElement('button');
-        drawInstead.type = 'button';
-        drawInstead.textContent = 'Draw instead';
-        Object.assign(drawInstead.style, {
-            padding: '7px 12px', borderRadius: '8px', border: `1px solid ${VIOLET}`,
-            background: 'transparent', color: VIOLET, cursor: 'pointer',
-            font: '600 12px/1 system-ui, sans-serif',
-        } satisfies Partial<CSSStyleDeclaration>);
-        drawInstead.addEventListener('click', () => setInteractionMode('draw'));
-        parcelCard.appendChild(drawInstead);
-
-        parcelCard.style.display = 'flex';
+        parcelCard.appendChild(buildParcelCard(
+            parcelFeatureToCardModel(parcel, parcelProvider?.label ?? null),
+            {
+                actions: [
+                    {
+                        label: 'Use this parcel  →',
+                        testId: 'parcel-use-btn',
+                        variant: 'primary',
+                        onClick: () => useSelectedParcel(),
+                    },
+                    {
+                        label: 'Draw instead',
+                        variant: 'secondary',
+                        onClick: () => setInteractionMode('draw'),
+                    },
+                ],
+            },
+        ));
+        parcelCard.style.display = 'block';
     }
 
     /**
-     * §L-384 — the honest "cadastral data not wired yet" card. The parcel-select UI is
-     * FULLY built + demoable ahead of the live data: this shows a clearly-marked
-     * placeholder (sample referencia / area / zoning) + a prominent "connecting to
-     * cadastral data" banner, disables "Use this parcel" (nothing real to commit), and
-     * offers "Draw instead" so the user is never trapped. When the parcel provider is
-     * supplied (L-380), `showParcelCard` renders the REAL parcel instead of this.
+     * §L-384 — the honest "cadastral data not wired yet" card, shown when this map was
+     * constructed with NO parcel provider at all.
+     *
+     * §L-1581 REWROTE THIS. It used to render SAMPLE VALUES — a placeholder referencia, a
+     * placeholder half-a-thousand-square-metre area and a placeholder zone — behind a
+     * "connecting to cadastral data" banner. That is a fabricated fact wearing a warning
+     * label, and it is the shape C84 EI-1b forbids: a reader who skims past the banner
+     * reads the placeholder area as this plot's area. (The literal strings are deliberately
+     * NOT quoted here — a source-scanning test asserts they are gone from this file.)
+     * The honest card for "we have no provider" is a STATED ABSENCE with no numbers in it
+     * at all, and the escape hatch ("Draw instead") intact so the user is never trapped.
      */
     function showStubParcelCard(): void {
         parcelCard.replaceChildren();
-        const title = document.createElement('div');
-        title.textContent = 'PARCEL';
-        Object.assign(title.style, {
-            font: '700 11px/1 system-ui, sans-serif', letterSpacing: '0.08em',
-            color: VIOLET, textTransform: 'uppercase',
-        } satisfies Partial<CSSStyleDeclaration>);
-        parcelCard.appendChild(title);
-
-        const banner = document.createElement('div');
-        banner.textContent = '⚠ Connecting to cadastral data — sample values';
-        Object.assign(banner.style, {
-            font: '600 11px/1.3 system-ui, sans-serif', color: '#8a5a00',
-            background: 'rgba(255,176,32,0.14)', border: '1px solid rgba(255,176,32,0.5)',
-            borderRadius: '6px', padding: '5px 8px',
-        } satisfies Partial<CSSStyleDeclaration>);
-        parcelCard.appendChild(banner);
-
-        const row = (label: string, value: string): HTMLDivElement => {
-            const r = document.createElement('div');
-            r.style.display = 'flex'; r.style.gap = '8px'; r.style.opacity = '0.7';
-            const l = document.createElement('span');
-            l.textContent = label;
-            Object.assign(l.style, { color: '#6b647a', minWidth: '46px', flex: '0 0 auto' } satisfies Partial<CSSStyleDeclaration>);
-            const v = document.createElement('span');
-            v.textContent = value; v.style.fontWeight = '600';
-            r.appendChild(l); r.appendChild(v);
-            return r;
-        };
-        parcelCard.appendChild(row('Ref', '—— sample ——'));
-        parcelCard.appendChild(row('Area', '≈ 500 m²'));
-        parcelCard.appendChild(row('Zone', 'pending (P2)'));
-
-        const useBtn = document.createElement('button');
-        useBtn.type = 'button';
-        useBtn.textContent = 'Use this parcel  →';
-        useBtn.setAttribute('data-testid', 'parcel-use-btn');
-        useBtn.disabled = true;
-        Object.assign(useBtn.style, {
-            marginTop: '4px', padding: '9px 12px', borderRadius: '8px', border: 'none',
-            background: 'rgba(102,0,255,0.35)', color: '#ffffff', cursor: 'not-allowed',
-            font: '600 13px/1 system-ui, sans-serif',
-        } satisfies Partial<CSSStyleDeclaration>);
-        useBtn.title = 'Available once cadastral data is connected — draw instead for now';
-        parcelCard.appendChild(useBtn);
-
-        const drawInstead = document.createElement('button');
-        drawInstead.type = 'button';
-        drawInstead.textContent = 'Draw instead';
-        Object.assign(drawInstead.style, {
-            padding: '7px 12px', borderRadius: '8px', border: `1px solid ${VIOLET}`,
-            background: 'transparent', color: VIOLET, cursor: 'pointer',
-            font: '600 12px/1 system-ui, sans-serif',
-        } satisfies Partial<CSSStyleDeclaration>);
-        drawInstead.addEventListener('click', () => setInteractionMode('draw'));
-        parcelCard.appendChild(drawInstead);
-
-        parcelCard.style.display = 'flex';
-        chip.textContent = 'Parcel select is connecting to cadastral data — draw instead for now · Esc to cancel';
+        parcelCard.appendChild(buildParcelCard(null, {
+            absentText:
+                'No cadastral data source is connected for this location, so nothing about this '
+                + 'plot has been looked up. No reference, address or area is shown because none '
+                + 'is known — not because they are zero. Draw the boundary instead; you can '
+                + 'select a real parcel wherever a cadastre is reachable.',
+            actions: [
+                {
+                    label: 'Use this parcel  →',
+                    testId: 'parcel-use-btn',
+                    variant: 'primary',
+                    disabled: true,
+                    title: 'Nothing has been looked up here — there is no parcel to commit. Draw instead.',
+                    onClick: () => { /* disabled — see title */ },
+                },
+                {
+                    label: 'Draw instead',
+                    variant: 'secondary',
+                    onClick: () => setInteractionMode('draw'),
+                },
+            ],
+        }));
+        parcelCard.style.display = 'block';
+        chip.textContent = 'No cadastral source is connected here — draw the boundary instead · Esc to cancel';
     }
 
     /** Highlight the active interaction-mode segment (violet). */
@@ -1241,6 +1181,36 @@ export function mountSiteBoundaryMap2D(
         if (disposed || committed || !selectedParcel) return;
         const ring = selectedParcel.ring;
         if (ring.length < 3) { toast('Selected parcel has no usable boundary.', 'error'); return; }
+        // §L-1580 — capture the attribution BEFORE `selectedParcel` is dropped two lines below.
+        //
+        // The per-jurisdiction row is resolved at the parcel's OWN first vertex, not at the
+        // map centre: a click near a national border routes by point, and attributing the
+        // parcel to the country the viewport happens to be centred on would be a wrong
+        // attribution that still looks well-formed.
+        let jurisdictionLabel: string | null = parcelProvider?.label ?? null;
+        let jurisdictionId: string | null = null;
+        try {
+            const first = ring[0]!;
+            const routed = resolveParcelProvider(first.lat, first.lon);
+            jurisdictionId = routed.jurisdiction.regionCode;
+            // Prefer the row's label ONLY when a cadastre actually answered. A footprint
+            // fallback must not inherit a national cadastre's attribution string — that is
+            // the false-provenance the card's footprint banner exists to deny.
+            if (!/^footprint\b/i.test(selectedParcel.source ?? '')) {
+                jurisdictionLabel = routed.jurisdiction.label || jurisdictionLabel;
+            } else {
+                jurisdictionLabel = 'OpenStreetMap contributors — building footprint, not a cadastral parcel';
+            }
+        } catch (e) {
+            // Routing is pure, but a throw here must not block a commit the user asked for.
+            // The provenance then carries the generic registry label, which is honest if less
+            // specific — never a guessed national authority.
+            console.warn('[gis] §L-1580 — jurisdiction routing failed; recording the generic provider label:', e);
+        }
+        pendingParcelProvenance = parcelFeatureToProvenance(selectedParcel, {
+            providerLabel: jurisdictionLabel,
+            jurisdictionId,
+        });
         vertices.length = 0;
         for (const p of ring) vertices.push({ lat: p.lat, lon: p.lon });
         // Drop the violet parcel highlight — the committed boundary now renders through
@@ -2293,10 +2263,16 @@ export function mountSiteBoundaryMap2D(
             dispatchSiteTrueNorth(ctx, 0);
         }
 
+        // §L-1580 (C57 §1.4) — the ring and its attribution commit in ONE command. A DRAWN
+        // boundary passes `null`: it has no cadastral source, and stamping one would be a
+        // fabricated fact. The variable is consumed here and cleared immediately, so a
+        // subsequent draw cannot inherit a previous selection's provenance.
+        const provenanceForCommit = pendingParcelProvenance;
+        pendingParcelProvenance = null;
         const ok = dispatchParcelBoundary(ctx, {
             polygon: built.polygon,
             edgeClassifications: built.edgeClassifications,
-        });
+        }, provenanceForCommit);
         // §FIX-BOUNDARY-COMMIT-REFUSE (ADR-0299 §Decision 2 — "callers MUST NOT log a recovery
         // they did not perform"). `freezeDraw()` + `onCommit()` used to run UNCONDITIONALLY, so a
         // rejected dispatch still froze the surface and advanced the onboarding flow to the
