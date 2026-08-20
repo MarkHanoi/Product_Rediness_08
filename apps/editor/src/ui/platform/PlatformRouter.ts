@@ -172,10 +172,16 @@ export class PlatformRouter {
      * Holds an ID rather than a boolean on purpose: the question `launchWorkspace`
      * must answer is "is THIS project already opening?", not "is anything
      * opening?". A boolean would silently swallow a genuine open of project B
-     * issued while A is loading — the failure mode already latent one layer down in
-     * `buildPersistence`'s `openProjectInflight`, which coalesces on nothing at all
-     * and will hand B's caller A's promise. Not fixed here (it is a different
-     * layer's row) but deliberately NOT copied.
+     * issued while A is loading — the failure mode that WAS live one layer down in
+     * `buildPersistence`'s `openProjectInflight`, which coalesced on nothing at all
+     * and handed B's caller A's promise.
+     *
+     * ✅ That layer is now fixed too (§FIX-OPEN-COALESCE-KEYED-ON-NOTHING): identity
+     * is compared before the in-flight promise is reused, and a different id
+     * SUPERSEDES rather than silently resolving with the wrong project. This
+     * comment previously said "not fixed here (it is a different layer's row)" —
+     * true when written, stale now, and left uncorrected it would send the next
+     * reader looking for a defect that is closed.
      *
      * Released in `_openProjectViaRuntime`'s `finally` — see the note there for why
      * a latch that survives a failed open would be a regression.
