@@ -24335,3 +24335,35 @@ accident and is how a third copy later appears.)
   to trip on. A door is not a window with the bottom left in.
 
 ---
+
+---
+
+## L-1564 — ⛔ OPEN (disclosed by the lane that widened it): an intent `surface3D` override still mutates the SHARED authored material — 2026-08-20 (lane MAT3)
+
+Recorded separately from L-1560 because it is a hazard that L-1560's fix **widened**, and that is
+exactly the kind of thing that disappears if it is folded into the fix's own entry.
+
+On the opaque path, an explicitly authored intent `surface3D` override mutates the shared authored
+`THREE.Material` in place. The 3D builders share **one material per `(levelId, colour)`**, so the
+override reaches every sibling using that material, not just the element the intent names. This was
+**pre-existing for walls** — the four type strings the old allowlist covered. L-1560 correctly made
+the VG rule apply to the view rather than to walls, and in doing so this hazard now reaches **all
+twelve families**.
+
+It fires only on an explicitly authored intent, so it is not the founder's reported symptom. The fix
+is the same clone treatment the transparency path already uses. Flagged in-code by the lane.
+
+⭐ **The general shape: widening a correct rule also widens whatever hazard was hiding inside the
+narrow case.** The lane that widens it is the one positioned to see that, and is the only one who
+will — which is why this is disclosed rather than discovered later.
+
+### Also disclosed, not claimed — a VACUOUS test
+
+One sealed-`userData` arm in `VGSceneApplicator.viewSwapAppearance.test.ts` **does not test what its
+name says**, and says so in-file: the lane falsified it and found that reverting `deleteUD` leaves it
+green, because `setUD` replaces the sealed map first. The `deleteUD` conversion is real
+defence-in-depth — a bare `delete` on sealed `@thatopen/fragments` userData throws inside
+`scene.traverse()` and aborts the walk — but **this test does not prove it**. Recorded rather than
+counted among the 13. Same discipline as [[fake-more-capable-than-real]].
+
+---
