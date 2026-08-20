@@ -20376,3 +20376,104 @@ name contains `pryzm`), and `persistQueue()` actively `removeItem`s the localSto
 `pryzm-sync-queue` is *also* `pryzm-`-prefixed. So a retained-but-blocked upload survives a reload
 but **not a sign-out**. L-1288's refusal keeps the project rows; it does not keep the queue.
 Needs its own row and an owner — flagged to the orchestrator rather than squeezed into this block.
+
+---
+
+## L-1340 — CLICKING PROJECT B WHILE A WAS LOADING **SILENTLY OPENED A**, AND RESOLVED SUCCESSFULLY: THE OPEN DE-DUPLICATION WAS KEYED ON **NOTHING** ✅ FIXED 2026-08-20 (lane LOG1) · commits `680e5043` + `53dab6ff`
+
+`packages/runtime-composer/src/buildPersistence.ts:206` de-duplicated concurrent project opens with:
+
+```ts
+if (openProjectInflight !== null) return openProjectInflight;
+```
+
+**That guard ignores `projectId`.** The async body closes over the **first** call's id, so a caller
+asking for B was handed A's promise — and `projectContext.set(...)`, the stream-load and
+`setProjectContext(...)` all ran for **A**. The promise then **resolved**, which reports success.
+
+### ⭐ The finding: one value standing in for a different question — the THIRD instance today
+
+> **One value — *"an open is in flight"* — standing in for a different question — *"the open YOU
+> asked for is in flight."* Neither could fail honestly, so both answered confidently and wrongly,
+> in the same project-open path, two layers apart.**
+
+This is [L-1289](#l-1289) **one layer up**. There, `countVersions() === 0` meant *"no versions"*,
+*"database gone"* and *"read threw"*, and the reconciler resolved that ambiguity by **deleting**.
+Here, a non-null promise meant *"some open is running"* and the slot resolved the ambiguity by
+**returning the wrong project**. Both are the same defect class: **a predicate that cannot express
+the question it is asked** — the third instance recorded on 2026-08-19/20, after the version count
+and the underlay detector.
+
+### Could B's open EVER win? **No.**
+
+Not once, not by racing, not by timing. During the in-flight window B was **unsatisfiable by
+construction** — its id was never read. **A race would at least sometimes be right.**
+
+And the window is not narrow: it spans `controller.refresh()` (a network round-trip) plus
+`attachedBootstrap.ensure()` (a full engine boot). **Seconds wide on a real hub**, whose entire UI is
+a grid of clickable project cards. Clicking a second card during a slow load always opened the first.
+
+### The fix — identity is compared BEFORE the promise is reused
+
+| in-flight | requested | disposition |
+|---|---|---|
+| none | X | `start` |
+| A | **A** | `coalesce` — the genuine duplicate the four `launchWorkspace` call sites produce (L-1282). Unchanged. |
+| A | **B** | `supersede` — chained after the current open. |
+| *(unknown id)* | B | `supersede` — never coalesce on an unrecorded identity; coalescing is the branch that returns the wrong project. |
+
+⚠ **Concurrency was considered and REJECTED.** Two overlapping opens would both drive
+`projectContext` and `attachedSurface.setProjectContext`, producing a last-writer-wins interleave of
+two engine loads — **a worse defect than the one being fixed**. Sequencing makes the **last-clicked**
+project the one the user ends on, which is what they asked for.
+
+⚠ **The `.catch()` on the superseded promise is load-bearing, not defensive.** A *failed* open of A
+must not prevent B. Without it the recovery path (A fails → user clicks B) rejects, and the only
+escape from a broken project is a page reload — [[refusing-half-needs-its-escape-hatch]] again.
+
+### Why the decision is a pure module (`openCoalescing.ts`)
+
+**Inlined, a three-state policy is reachable only by constructing the whole persistence slot** —
+which dynamically imports `@pryzm/persistence-client` and `@pryzm/stores` and, behind them,
+`command-registry` and every geometry barrel. **That is precisely why the original guard shipped
+untested.** The same argument produced `localOnlyProjectFate.ts` for L-1289; it is a reusable
+structural argument, not a style preference.
+
+### Tests — 8/8 across two suites, both falsified
+
+- **`openCoalescing.test.ts`** (pure) — 5/5. Falsified by restoring the key-less guard: **3 of 5 fail
+  with `expected 'coalesce' to be 'supersede'`**.
+- **`openProjectCoalescingKey.test.ts`** (real `buildPersistenceSlot`, real `openProject`) — 3/3.
+  Falsified the same way: the ⭐ arm fails with **`AssertionError: expected [ 'A' ] to include 'B'`**
+  — the defect stated as plainly as it can be.
+
+⚠ **This suite was committed one day BEFORE it could run**, and was explicitly *not* counted as
+passing until it did — a committed suite that has never executed is a **claim, not evidence**. It was
+blocked by another lane's uncommitted `core-app-model` barrel cycle
+(`LOD200_FLOOR_MOUNTED_IDS is not iterable` at module init), which broke **collection for every suite
+importing the runtime barrels**, including this lane's own previously-green
+`clashRegistrationOnComposedBus.test.ts`.
+
+### ⭐ Three defects in the TEST had to be fixed before it measured anything
+
+Recorded because each would have produced a green or a hang over an unmeasured subject:
+
+1. **The gate deadlocked construction.** The first draft gated the client's `list()` to create the
+   in-flight window — but `buildPersistenceSlot` reads the list **during construction**, so
+   `await buildSlot()` blocked on a gate the test had not yet released. All three arms timed out. The
+   window now parks on `attachEngineBootstrap`'s `ensure()`, which `openProject` awaits at step 2 —
+   **inside** the open, where it must be.
+2. **The 5 s default timeout was too short**, because the dynamic barrel imports exceed it.
+   Diagnosed by probe, not guessed: the identical call under a 60 s timeout completed.
+3. **`expect(a1).toBe(a2)` was measuring the `async` keyword.** `openProject` is declared `async`, so
+   it returns a fresh wrapper promise on every call regardless of what it resolves with — promise
+   identity was **never** true here, before or after the fix. The assertion is now behavioural (the
+   open ran exactly once). **An assertion that fails for a reason unrelated to the subject is as
+   useless as one that passes for one.**
+
+### Stale comment corrected in the same lane (`0b715414`)
+
+`PlatformRouter._openGestureProjectId`'s doc comment described this layer as *"not fixed here (it is
+a different layer's row)"* — true when written, stale the moment this landed. Left alone it would
+send the next reader hunting a closed defect, which is the exact rot this session spent the day
+correcting in `CLAUDE.md` and L-1199.
