@@ -205,6 +205,10 @@ export interface StairValidationConstraints {
     MIN_RISER_HEIGHT: number;
     MAX_RISER_HEIGHT: number;
     MIN_TREAD_DEPTH: number;
+    /** §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the sketch tool enforced a max tread
+     *  of 360 mm that the constraint set never carried, so the two accept-sets
+     *  could not be equal even in principle. It is a limit of THIS set now. */
+    MAX_TREAD_DEPTH: number;
     MIN_WIDTH: number;
     MIN_ACCESSIBLE_WIDTH: number;
     MIN_RISER_COUNT: number;
@@ -219,6 +223,7 @@ export const STAIR_CONSTRAINTS: StairValidationConstraints = {
     MIN_RISER_HEIGHT: 0.150,
     MAX_RISER_HEIGHT: 0.190,
     MIN_TREAD_DEPTH: 0.250,
+    MAX_TREAD_DEPTH: 0.360,
     MIN_WIDTH: 0.900,
     MIN_ACCESSIBLE_WIDTH: 1.200,
     MIN_RISER_COUNT: 2,

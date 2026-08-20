@@ -8,8 +8,8 @@
  *
  *   Straight (I/L/U) controls:
  *     • Width                    (slider + number input, 0.9–2.4 m)
- *     • Riser height             (number input, 100–220 mm → converted to metres)
- *     • Tread depth              (number input, 220–360 mm → converted to metres)
+ *     • Riser height             (number input, range from `StairGeometryLimits`)
+ *     • Tread depth              (number input, range from `StairGeometryLimits`)
  *     • Risers before landing    (only when shape is L / U / complex)
  *     • Turn direction           (only when shape is L / U / complex)
  *
@@ -32,6 +32,14 @@ import { BUILT_IN_STAIR_TYPES } from '../StairTypeDefinitions';
 import type { StairShape2D } from './StairSolver2D';
 // §FIX-STAIR-SHAPE-DESYNC — the shape button row DERIVES from the one registry.
 import { STAIR_SHAPES, type StairShapeChoice } from './StairShapeRegistry';
+// §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the two number inputs below OFFERED
+// 100–220 mm risers and 220–360 mm treads: ranges whose lower halves the create
+// command refuses outright. A spinner that stops at a value the pipeline rejects
+// is the C84 EI-3 breach at its most literal, so the ranges are the authority's.
+import { resolveStairGeometryLimits } from '../StairGeometryLimits';
+
+const STAIR_LIMITS = resolveStairGeometryLimits();
+const MM = (m: number): number => Math.round(m * 1000);
 
 export type StairMode = 'straight' | 'curved';
 export type { StairShapeChoice };
@@ -354,7 +362,7 @@ export class StairPathParamPanel {
 
         // ── Common: Riser height ──────────────────────────────────────────────
         body.appendChild(this._rowNumber('Riser', '_riser',
-            Math.round(p.riserHeight * 1000), 100, 220, 1,
+            Math.round(p.riserHeight * 1000), MM(STAIR_LIMITS.minRiserHeight), MM(STAIR_LIMITS.maxRiserHeight), 1,
             'mm', (v) => {
                 this._params.riserHeight = Number(v) / 1000;
                 this._params.riserCount = 0;
@@ -374,7 +382,7 @@ export class StairPathParamPanel {
         if (!curved) {
             // ── Straight: Tread depth ─────────────────────────────────────────
             body.appendChild(this._rowNumber('Tread', '_tread',
-                Math.round(p.treadDepth * 1000), 220, 360, 5,
+                Math.round(p.treadDepth * 1000), MM(STAIR_LIMITS.minTreadDepth), MM(STAIR_LIMITS.maxTreadDepth), 5,
                 'mm', (v) => {
                     this._params.treadDepth = Number(v) / 1000;
                     this._fire();

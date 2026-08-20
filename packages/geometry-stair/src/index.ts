@@ -33,6 +33,7 @@ export {
 export type { StairDerivedGeometry } from './StairParameterReconciler';
 export * from './StairTypeStore';
 export * from './StairValidationAuthority';
+export * from './StairGeometryLimits';
 export * from './LevelTraversalPolicy';
 export { StairStore }        from './StairStore';
 export { StairLandingStore } from './StairLandingStore';

@@ -13,6 +13,7 @@
  */
 
 import type { Point2D } from './PolylineModel';
+import { resolveStairGeometryLimits } from '../StairGeometryLimits';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -70,12 +71,23 @@ export interface CurvedSolverResult {
 
 const DEG2RAD = Math.PI / 180;
 
-// Building code limits
-const MIN_RISER    = 0.100; // 100 mm
-const MAX_RISER    = 0.220; // 220 mm
+// §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — a curved stair commits through the SAME
+// `CreateStairCommand` as a straight one, so it may not hold a private copy of
+// the riser and walking-line tread limits. It used to hold three
+// (MIN_RISER 100 / MAX_RISER 220 / MIN_TREAD_WALK 220), every one of which
+// disagreed with what the command enforces.
+const LIMITS = resolveStairGeometryLimits();
+const MIN_RISER       = LIMITS.minRiserHeight;
+const MAX_RISER       = LIMITS.maxRiserHeight;
+const MIN_TREAD_WALK  = LIMITS.minTreadDepth;   // walking line = the committed tread
+
+// CURVED-ONLY limits — measured on quantities the command never sees (an inner
+// edge, an OUTER edge, a radius), so they are local by design. `MAX_TREAD` here
+// bounds the OUTER tread, which on a winder is legitimately wider than the
+// committed walking-line tread `LIMITS.maxTreadDepth` bounds; unifying the two
+// would refuse ordinary curved stairs. Local, and declared local.
 const MIN_TREAD_INNER = 0.150; // 150 mm min at inner edge (curved stair special)
-const MIN_TREAD_WALK  = 0.220; // 220 mm at walking line (standard)
-const MAX_TREAD    = 0.400; // 400 mm max at outer edge
+const MAX_TREAD    = 0.400; // 400 mm max at OUTER edge
 const MIN_INNER_R  = 0.300; // 300 mm minimum inner radius
 
 // ── Solver ────────────────────────────────────────────────────────────────────

@@ -10,6 +10,19 @@
  */
 
 import type { Point2D } from './PolylineModel';
+// §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — this solver USED to own four private
+// building-code constants of its own (MIN_RISER 100 / MAX_RISER 220 / MIN_TREAD
+// 220 / MAX_TREAD 360, "sensible BIM defaults"). Three of the four DISAGREED with
+// `STAIR_CONSTRAINTS`, which is what `CreateStairCommand.canExecute` enforces, so
+// the tool accepted stairs the pipeline then threw away (C84 EI-3). The numbers
+// and the predicate now come from ONE place; only `MIN_SEG_LEN` — a drawing-
+// ergonomics limit with no counterpart in the command — is still local, and it
+// is declared as such below.
+import {
+    resolveStairGeometryLimits,
+    checkStairGeometry,
+    deriveCommittedTreadDepth,
+} from '../StairGeometryLimits';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -99,11 +112,20 @@ export class StairSolver2D {
     /** 0 = auto; >0 = explicit risers for second run (only used when segments ≥ 2). */
     private _risersInRun2 = 0;
 
-    // Building code limits (sensible BIM defaults)
-    private static readonly MIN_RISER = 0.100; // 100 mm
-    private static readonly MAX_RISER = 0.220; // 220 mm
-    private static readonly MIN_TREAD = 0.220; // 220 mm
-    private static readonly MAX_TREAD = 0.360; // 360 mm
+    /**
+     * §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the tread and riser limits are NOT
+     * declared here any more. `StairGeometryLimits` owns them, and
+     * `CreateStairCommand` reads the same object, so the two accept-sets are the
+     * same set by construction rather than by two developers agreeing.
+     */
+    private static readonly LIMITS = resolveStairGeometryLimits();
+
+    /**
+     * A DRAWING limit, not a code limit: a polyline segment shorter than this is
+     * not a run the user meant to draw. It has no counterpart in the command
+     * (which never sees the polyline), so unifying it would be meaningless — it
+     * stays local, and it stays declared as local.
+     */
     private static readonly MIN_SEG_LEN = 0.30; // 300 mm — minimum meaningful run
 
     constructor(params?: {
@@ -181,7 +203,7 @@ export class StairSolver2D {
         const shape = this._classifyShape(segments.length, landings);
 
         // Validate
-        const { isValid, validationMessage } = this._validate(segments, actualRiser);
+        const { isValid, validationMessage } = this._validate(segments, actualRiser, totalSteps);
 
         return {
             shape,
@@ -451,37 +473,36 @@ export class StairSolver2D {
         return 'complex';
     }
 
-    private _validate(segs: SegmentSolution[], actualRiser: number): { isValid: boolean; validationMessage: string } {
+    private _validate(
+        segs: SegmentSolution[],
+        actualRiser: number,
+        totalSteps: number,
+    ): { isValid: boolean; validationMessage: string } {
         if (segs.length === 0) {
             return { isValid: false, validationMessage: 'Draw at least one stair run' };
         }
 
-        if (actualRiser < StairSolver2D.MIN_RISER) {
-            return {
-                isValid: false,
-                validationMessage: `Riser too small (${Math.round(actualRiser * 1000)} mm — min ${StairSolver2D.MIN_RISER * 1000} mm)`,
-            };
-        }
-        if (actualRiser > StairSolver2D.MAX_RISER) {
-            return {
-                isValid: false,
-                validationMessage: `Riser too tall (${Math.round(actualRiser * 1000)} mm — max ${StairSolver2D.MAX_RISER * 1000} mm)`,
-            };
+        // ⭐ §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — THE SHARED PREDICATE, on the
+        // SAME quantities `CreateStairCommand` will receive from
+        // `StairPathAdapter`: the scalar committed tread (Σ length / totalSteps)
+        // AND every per-flight tread. Before this call the tool measured only the
+        // per-flight value, against a threshold 30 mm looser than the command's —
+        // which is how the founder drew a 222 mm stair the tool blessed and the
+        // pipeline discarded.
+        const refusals = checkStairGeometry(
+            {
+                riserHeight: actualRiser,
+                treadDepth: deriveCommittedTreadDepth(segs, totalSteps, this._treadD),
+                flights: segs.map(seg => ({ treadDepth: seg.treadDepth })),
+            },
+            StairSolver2D.LIMITS,
+        );
+        const firstRefusal = refusals[0];
+        if (firstRefusal) {
+            return { isValid: false, validationMessage: firstRefusal.message };
         }
 
         for (const seg of segs) {
-            if (seg.treadDepth < StairSolver2D.MIN_TREAD) {
-                return {
-                    isValid: false,
-                    validationMessage: `Run too short — tread ${Math.round(seg.treadDepth * 1000)} mm (min ${StairSolver2D.MIN_TREAD * 1000} mm)`,
-                };
-            }
-            if (seg.treadDepth > StairSolver2D.MAX_TREAD) {
-                return {
-                    isValid: false,
-                    validationMessage: `Run too long — tread ${Math.round(seg.treadDepth * 1000)} mm (max ${StairSolver2D.MAX_TREAD * 1000} mm)`,
-                };
-            }
             if (seg.length < StairSolver2D.MIN_SEG_LEN) {
                 return {
                     isValid: false,
@@ -492,10 +513,10 @@ export class StairSolver2D {
             // space, the remaining flight portion must still be long enough
             // to fit at least one tread.  Otherwise the user's polyline is
             // too short for the chosen width / number of corners.
-            if (seg.flightLength < StairSolver2D.MIN_TREAD) {
+            if (seg.flightLength < StairSolver2D.LIMITS.minTreadDepth) {
                 return {
                     isValid: false,
-                    validationMessage: `Run too short for landing — extend this segment (need ≥ ${Math.round((seg.consumeStart + seg.consumeEnd + StairSolver2D.MIN_TREAD) * 1000)} mm)`,
+                    validationMessage: `Run too short for landing — extend this segment (need ≥ ${Math.round((seg.consumeStart + seg.consumeEnd + StairSolver2D.LIMITS.minTreadDepth) * 1000)} mm)`,
                 };
             }
         }

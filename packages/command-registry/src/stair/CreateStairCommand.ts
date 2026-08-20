@@ -24,6 +24,10 @@ import {
     CommandContext
 } from '../types';
 import { StairData, StairShape, STAIR_CONSTRAINTS, DEFAULT_STAIR_PROPERTIES, Vec3 } from '@pryzm/geometry-stair';
+// §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the tread/riser accept-set is ONE
+// predicate shared with the sketch tool (`StairSolver2D._validate`), so the UI
+// can no longer offer a stair this command will refuse (C84 EI-3).
+import { resolveStairGeometryLimits, checkStairGeometry } from '@pryzm/geometry-stair';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
@@ -183,25 +187,27 @@ export class CreateStairCommand implements Command {
         if (!baseLevel) blockingIssues.push(`Base level "${baseLevelId}" does not exist`);
         if (!topLevel) blockingIssues.push(`Top level "${this.input.topLevelId}" does not exist`);
 
-        let maxRiser = STAIR_CONSTRAINTS.MAX_RISER_HEIGHT;
-        let minTread = STAIR_CONSTRAINTS.MIN_TREAD_DEPTH;
-
-        if (this.input.typeId && ctx.stores.stairTypeStore) {
-            const typeRules = ctx.stores.stairTypeStore.resolveRules(this.input.typeId);
-            if (typeRules) {
-                maxRiser = typeRules.maxRiserHeight;
-                minTread = typeRules.minTreadDepth;
-            }
-        }
-
-        if (this.input.riserHeight < STAIR_CONSTRAINTS.MIN_RISER_HEIGHT) {
-            blockingIssues.push(`Riser height ${(this.input.riserHeight * 1000).toFixed(0)}mm is below minimum ${(STAIR_CONSTRAINTS.MIN_RISER_HEIGHT * 1000).toFixed(0)}mm`);
-        }
-        if (this.input.riserHeight > maxRiser) {
-            blockingIssues.push(`Riser height ${(this.input.riserHeight * 1000).toFixed(0)}mm exceeds maximum ${(maxRiser * 1000).toFixed(0)}mm`);
-        }
-        if (this.input.treadDepth < minTread) {
-            blockingIssues.push(`Tread depth ${(this.input.treadDepth * 1000).toFixed(0)}mm is below minimum ${(minTread * 1000).toFixed(0)}mm`);
+        // ⭐ §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — riser + tread are checked by the
+        // SHARED predicate, on BOTH tread quantities the input carries: the scalar
+        // `treadDepth` and every `flights[i].treadDepth` (the per-run value
+        // `StairMeshBuilder` actually builds with, previously validated by NOBODY
+        // on this side). `StairSolver2D` runs the identical call, so the tool's
+        // accept-set and this command's accept-set are the same set by
+        // construction — pinned by
+        // `packages/geometry-stair/src/__tests__/StairAcceptSetParity.spec.ts`.
+        const typeRules = this.input.typeId && ctx.stores.stairTypeStore
+            ? ctx.stores.stairTypeStore.resolveRules(this.input.typeId)
+            : null;
+        const limits = resolveStairGeometryLimits(STAIR_CONSTRAINTS, typeRules);
+        for (const refusal of checkStairGeometry(
+            {
+                riserHeight: this.input.riserHeight,
+                treadDepth: this.input.treadDepth,
+                flights: this.input.flights,
+            },
+            limits,
+        )) {
+            blockingIssues.push(refusal.message);
         }
         if (this.input.width < STAIR_CONSTRAINTS.MIN_WIDTH) {
             blockingIssues.push(`Stair width ${(this.input.width * 1000).toFixed(0)}mm is below minimum ${(STAIR_CONSTRAINTS.MIN_WIDTH * 1000).toFixed(0)}mm`);

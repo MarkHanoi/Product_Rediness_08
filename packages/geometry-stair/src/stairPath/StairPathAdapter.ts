@@ -19,6 +19,7 @@ import type { SolverResult2D } from './StairSolver2D';
 import type { CreateStairInput } from '@pryzm/command-registry';
 import type { Vec3 } from '../StairTypes';
 import { DOMEventBus } from '@pryzm/event-bus';
+import { deriveCommittedTreadDepth } from '../StairGeometryLimits';
 const _bus = new DOMEventBus();
 
 export interface StairPathAdapterConfig {
@@ -72,10 +73,13 @@ export class StairPathAdapter {
         // For the explicit-split case (risersBeforeLanding > 0) per-segment
         // tread depths can differ; we use the average as the best single-value
         // approximation since CreateStairCommand only carries one treadDepth.
-        const totalLen = result.segments.reduce((s, seg) => s + seg.length, 0);
-        const derivedTreadDepth = result.totalSteps > 0 && totalLen > 0
-            ? totalLen / result.totalSteps
-            : result.treadDepth;
+        // §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the derivation moved to
+        // `deriveCommittedTreadDepth` so `StairSolver2D._validate` can VALIDATE
+        // the very number this line COMMITS. It used to be inline here and
+        // nowhere else, which is why the tool validated a different quantity.
+        const derivedTreadDepth = deriveCommittedTreadDepth(
+            result.segments, result.totalSteps, result.treadDepth,
+        );
 
         // §STAIR-PREVIEW-MATCH-2026-04-25 v2 — Build flights with PER-FLIGHT tread
         // depth (= segment.length / segment.stepCount). The 2D solver already
