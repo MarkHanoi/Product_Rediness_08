@@ -181,13 +181,13 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
             // ELLIPSE and the label says `Elliptical`, so the reading is visible.
             // Ids match `BoundaryLoopMode` in @pryzm/geometry-slab.
             //
-            // ⚠ PLAN-ONLY TODAY, AND DECLARED RATHER THAN PRETENDED. `SlabPlanToolHandler`
-            // serves both; the 3-D `SlabTool` does not — its rectangle path is entangled
-            // with the hollow-slab anchor state and its mode union is declared THREE times
-            // (C92 SL-Voc-2), so wiring it blind would be the EI-3 breach this table
-            // exists to catch. Tracked as L-1324.
-            { id: 'circular',   key: 'I', label: 'Circular',   description: 'Closed circle from centre and rim (plan view)' },
-            { id: 'elliptical', key: 'E', label: 'Elliptical', description: 'Closed ellipse from centre and bounding corner (plan view)' },
+            // ✅ BOTH SURFACES since L-1324. It shipped PLAN-ONLY and said so, because a
+            // tool-mode the pipeline has no arm for is C84 EI-3 live; the 3-D arm
+            // (`SlabTool.enterCircularMode` / `enterEllipticalMode`) then retired that
+            // declaration rather than leaving it standing. Closing SL-Voc-2 on the way:
+            // `SlabToolMode` had THREE hand-copies and now has one.
+            { id: 'circular',   key: 'I', label: 'Circular',   description: 'Closed circle from centre and rim' },
+            { id: 'elliptical', key: 'E', label: 'Elliptical', description: 'Closed ellipse from centre and bounding corner' },
             { id: 'region',    key: 'R', label: 'By Region',  description: 'Auto-detect from enclosed walls' },
             { id: 'hollow',    key: 'H', label: 'Hollow',     description: 'Rectangle with a rectangular opening' },
             { id: 'pickWalls', key: 'W', label: 'Pick Walls', description: 'Associative boundary from walls' },
@@ -261,13 +261,13 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
             // MODES, not actions: each is a two-click gesture, so the user must SEE
             // which is armed while aiming (the railing bar's ruling, and L-956's shape).
             //
-            // ⚠ PLAN-ONLY TODAY, DECLARED (L-1325). `WallPlanToolHandler` builds the run by
-            // calling its OWN `_commitWall` once per edge, so the C83 spatial gate, the
-            // system-type resolution and the `wall.create` dispatch are all inherited. The
-            // 3-D `WallTool` drives a different state machine off the `WallDrawingMode`
-            // ENUM, which has no member for these three — and minting a fake member to
-            // satisfy a bar is how a UI ends up offering what the pipeline cannot accept
-            // (C84 EI-3).
+            // ✅ BOTH SURFACES since L-1325. Each surface builds the run by calling its
+            // OWN per-edge wall creator — `_commitWall` in plan, `createWall` in 3-D — so
+            // the spatial gate, system-type resolution and dispatch are inherited on both
+            // and nothing is re-implemented.
+            // ⭐ It shipped PLAN-ONLY first and SAID SO rather than minting a
+            // `WallDrawingMode` member with no arm behind it, which would have been C84
+            // EI-3 live. The enum members landed WITH the arm, in one commit.
             { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed wall run from two opposite corners' },
             { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed wall run from centre and rim' },
             { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed wall run from centre and bounding corner' },

@@ -600,7 +600,9 @@ export class ToolManager {
      * 2-point rectangle instead.
      */
     async activateSlab(
-        mode: 'sketch' | '2point' | 'polyline' | 'linear' | 'ortho' | 'curved' | 'region' | 'hollow' | 'pickWalls' = 'sketch',
+        mode: 'sketch' | '2point' | 'polyline' | 'linear' | 'ortho' | 'curved' | 'region' | 'hollow' | 'pickWalls'
+            // §FEAT-PLATE-SHAPE-MODES / L-1324 — the two closed-loop gestures.
+            | 'circular' | 'elliptical' = 'sketch',
     ): Promise<void> {
         await this.activateTool('slab', async () => {
             if (this.slabTool) {
@@ -623,6 +625,17 @@ export class ToolManager {
                         break;
                     case 'pickWalls':
                         await this.slabTool.enterPickWallsMode();
+                        break;
+                    // ⭐ §FEAT-PLATE-SHAPE-MODES / L-1324 — REQUIRED, not cosmetic. The
+                    // header above says why: a mode this switch does not know falls
+                    // through to `default` and SILENTLY DRAWS A 2-POINT RECTANGLE. A
+                    // silent substitution is exactly what the plan-only declaration was
+                    // protecting against, so the arm and the case land together.
+                    case 'circular':
+                        await this.slabTool.enterCircularMode();
+                        break;
+                    case 'elliptical':
+                        await this.slabTool.enterEllipticalMode();
                         break;
                     default:
                         await this.slabTool.enterSketchMode();

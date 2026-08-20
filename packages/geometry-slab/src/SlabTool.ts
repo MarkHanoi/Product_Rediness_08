@@ -24,6 +24,13 @@ import { orthoConstrain, type BoundaryDrawMode } from './boundaryPath.js';
 // §FIX-SLAB-EDITOR-CHOICE (L-1320) — the ONE place that decides which editor a slab
 // opens, asked as the question the caller actually asked.
 import { slabEditorAvailability, type SlabEditorKind, type SlabEditorVerdict } from './slabEditorTarget.js';
+// §FEAT-PLATE-SHAPE-MODES / L-1324 — the SHARED closed-loop generators, the same
+// module the plan surface and the floor/ceiling tools call.
+import {
+    boundaryLoopVertices, boundaryLoopRefusal, describeBoundaryLoop,
+    type BoundaryLoopMode, type BoundaryShapeDescriptor,
+} from './boundaryLoops.js';
+import type { SlabToolMode } from './SlabTypes.js';
 // §FIX-COMMIT-STEALS-VIEW (2026-08-07) — consume the Enter/Escape the tool acts on
 // so it cannot also activate a focused view/camera button. See toolKeyGuard.ts.
 import { consumeToolKey, releaseFocusedControl } from './toolKeyGuard.js';
@@ -161,7 +168,9 @@ export class SlabTool {
     private _deps: SlabToolDeps = {};
 
     private isSketching = false;
-    private activeTool: 'NONE' | 'FLOOR_SKETCH' | 'REGION_SLAB' | 'POLYLINE_SLAB' | 'HOLLOW_SLAB' = 'NONE';
+    // §C92 SL-Voc-2 — was a THIRD hand-copy of `SlabToolMode`. It now references the
+    // one declaration, so a new mode cannot be added to the type and forgotten here.
+    private activeTool: SlabToolMode = 'NONE';
     private currentPointerListeners: (() => void) | null = null;
 
     private polylineData = {
@@ -328,7 +337,7 @@ export class SlabTool {
         return this.isSketching;
     }
 
-    get toolMode(): 'NONE' | 'FLOOR_SKETCH' | 'REGION_SLAB' | 'POLYLINE_SLAB' | 'HOLLOW_SLAB' {
+    get toolMode(): SlabToolMode {
         return this.activeTool;
     }
 
@@ -401,6 +410,11 @@ export class SlabTool {
         // dependencies on the store's 'bim-slab-added' event and the 3D region slab
         // follows its walls — exactly like plan-view region and pick-walls.
         sketch?: SlabSketch,
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape's INTENT, captured from
+        // the GESTURE that produced `polygon` and carried straight to the command.
+        // ⛔ It is NOT re-derived from the vertices here: guessing intent from geometry
+        // is the thing the descriptor exists to make unnecessary.
+        boundaryShape?: BoundaryShapeDescriptor,
     ): Promise<void> {
         // FIX-6: commandManager resolved from injected deps, not from window.commandManager.
         const commandManager = this._deps.getCommandManager?.();
@@ -460,6 +474,7 @@ export class SlabTool {
             position: { x: 0, y: 0, z: 0 },
             levelId: levelId,
             polygon: polygon.map(p => ({ x: p.x, y: p.y })),
+            boundaryShape,
             holes: holes ? holes.map(h => h.map(p => ({ x: p.x, y: p.y }))) : undefined,
             // §REGION-HOST-ATTRIBUTION-3D — a degenerate (<3-edge) sketch is refused,
             // never attached: a 2-edge loop cannot bound anything.
@@ -808,6 +823,16 @@ export class SlabTool {
 
     private onPointerDown = async (e: PointerEvent): Promise<void> => {
         if (this.activeTool === 'NONE') return;
+
+        // §FEAT-PLATE-SHAPE-MODES / L-1324 — the closed-loop gestures, routed before
+        // the rectangle arm because they share its anchor state but not its commit.
+        const __loop = this._loopMode();
+        if (__loop) {
+            const point = this.getPlanPoint(e);
+            if (!point) return;
+            await this.addLoopPoint(point, __loop);
+            return;
+        }
 
         e.preventDefault();
 
@@ -1330,6 +1355,84 @@ export class SlabTool {
         this.isSketching = true;
         this.activeTool = 'FLOOR_SKETCH';
         await this.setupToolUI("2-Point Slab", "Step 1: Click to set first corner");
+    }
+
+    /**
+     * §FEAT-PLATE-SHAPE-MODES / L-1324 — the 3-D arm for the two closed-loop gestures.
+     *
+     * ⭐ THIS IS THE DECLARATION RETIRING HONESTLY. When these modes shipped in plan
+     * they were declared PLAN-ONLY rather than faked, because minting a tool-mode the
+     * pipeline had no arm for would have been C84 EI-3 live. This is the arm; the
+     * declaration comes out of the matrix in the same commit.
+     *
+     * Both modes share `FLOOR_SKETCH`'s two-click shape, so they reuse its anchor state
+     * (`floorSketch.firstPoint` / `polylineData`) rather than minting a parallel one.
+     * What differs is only the RING the second click produces, and that comes from
+     * `boundaryLoops` — the same module the plan surface and the floor/ceiling tools
+     * call, so the three surfaces cannot disagree about what "circular" means.
+     */
+    public async enterCircularMode(): Promise<void> {
+        this._deps.getUnselectAll?.()?.();
+        this.isSketching = true;
+        this.activeTool = 'CIRCULAR_SLAB';
+        await this.setupToolUI('Circular Slab', 'Step 1: Click the centre');
+    }
+
+    public async enterEllipticalMode(): Promise<void> {
+        this._deps.getUnselectAll?.()?.();
+        this.isSketching = true;
+        this.activeTool = 'ELLIPTICAL_SLAB';
+        await this.setupToolUI('Elliptical Slab', 'Step 1: Click the centre');
+    }
+
+    /** The shared loop vocabulary this tool's mode maps onto, or `null`. */
+    private _loopMode(): BoundaryLoopMode | null {
+        return this.activeTool === 'CIRCULAR_SLAB'   ? 'circular'
+             : this.activeTool === 'ELLIPTICAL_SLAB' ? 'elliptical'
+             : null;
+    }
+
+    /**
+     * The two-click closed-loop gesture. First click anchors the CENTRE; the second
+     * gives the rim (circle) or a bounding-box corner (ellipse), and the slab commits.
+     */
+    private async addLoopPoint(point: THREE.Vector3, loopMode: BoundaryLoopMode): Promise<void> {
+        const elevation = this.resolveElevationForPreview(projectContext.activeLevelId);
+        const p = point.clone();
+        p.y = elevation;
+
+        if (!this.floorSketch.firstPoint) {
+            this.floorSketch.firstPoint = p;
+            this.polylineData.points.push(p);
+            const hud = document.querySelector('#hud-step-text');
+            if (hud) {
+                hud.innerHTML = loopMode === 'circular'
+                    ? 'Step 2: Click a point on the rim'
+                    : 'Step 2: Click a bounding-box corner';
+            }
+            return;
+        }
+
+        const centre = this.floorSketch.firstPoint;
+        const first  = { x: centre.x, z: centre.z };
+        const second = { x: p.x, z: p.z };
+        const ring   = boundaryLoopVertices(loopMode, first, second);
+        if (ring.length < 3) {
+            // ⛔ C16 CA-18 / §L955 — name the reason; never fall back to a rectangle.
+            const reason = boundaryLoopRefusal(loopMode, first, second);
+            console.warn('[SlabTool] §FEAT-PLATE-SHAPE-MODES —', reason);
+            const hud = document.querySelector('#hud-step-text');
+            if (hud && reason) hud.innerHTML = reason;
+            return;
+        }
+
+        // ⚠ `polygon` is {x, y} with y = worldZ — the plate-tool convention.
+        const poly2D = ring.map((v) => new THREE.Vector2(v.x, v.z));
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the INTENT travels with the ring,
+        // captured from the GESTURE rather than re-derived from the vertices.
+        const shape = describeBoundaryLoop(loopMode, first, second) ?? undefined;
+        await this.createSlabFromPolygon(poly2D, undefined, undefined, undefined, shape);
+        this._resetForNextSlab();
     }
 
     public async enterRegionMode(): Promise<void> {

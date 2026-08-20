@@ -53,6 +53,12 @@ import {
 // raked wall failed silently, because the gate has no rake arm and answered `ok`.
 import { wallProfileVariantAvailability } from './WallProfileVariants';
 import { UpdateElementParameterCommand } from '@pryzm/command-registry';
+// §FEAT-WALL-SHAPE-MODES / L-1325 — the SHARED closed-loop generators, with the
+// WALL density policy (each chord is a real wall, not a rendered outline).
+import {
+    boundaryLoopVertices, boundaryLoopRefusal, WALL_LOOP_DENSITY,
+    type BoundaryLoopMode,
+} from '@pryzm/geometry-slab';
 
 /**
  * §C83-S1 / C83 §3.1 — the two suppression flags, honoured because C83 makes it
@@ -729,6 +735,65 @@ export class WallTool {
         this.lastSnapWasExplicitObject = false;   // §FIX-ORTHO-YIELDS-TO-OBJECT-SNAP (L-935)
     }
 
+    /**
+     * §FEAT-WALL-SHAPE-MODES / L-1325 — the shared closed-loop vocabulary this tool's
+     * drawing mode maps onto, or `null` for a path mode.
+     */
+    private _loopMode(): BoundaryLoopMode | null {
+        return this.drawingMode === WallDrawingMode.RECTANGULAR_LOOP ? 'rectangular'
+             : this.drawingMode === WallDrawingMode.CIRCULAR_LOOP    ? 'circular'
+             : this.drawingMode === WallDrawingMode.ELLIPTICAL_LOOP  ? 'elliptical'
+             : null;
+    }
+
+    /**
+     * The two-click closed-loop gesture in 3-D. First click anchors (a corner for
+     * `rectangular`, the CENTRE for the two curved modes); the second commits the run.
+     *
+     * ⭐ IT DISPATCHES NOTHING OF ITS OWN. Every edge goes through this tool's existing
+     * `createWall`, so the level resolution, id minting, system-type stamping and the
+     * dual-write this tool already performs are INHERITED rather than re-implemented —
+     * the same structural claim the plan surface's `_commitLoopRun` makes, and the same
+     * one `handrailRunGenerators` makes for railings: a run IS N two-point elements.
+     *
+     * ⚠ `WALL_LOOP_DENSITY`, not the plate policy: each chord is a REAL WALL with a
+     * schedule row and two junctions, so a 4 m circle is ~16 walls, not ~64.
+     */
+    private async commitLoopRun(loopMode: BoundaryLoopMode, second: THREE.Vector3): Promise<void> {
+        const anchor = this.firstPoint;
+        if (!anchor) return;
+        const a = { x: anchor.x, z: anchor.z };
+        const b = { x: second.x, z: second.z };
+        const ring = boundaryLoopVertices(loopMode, a, b, WALL_LOOP_DENSITY);
+
+        if (ring.length < 3) {
+            // ⛔ C16 CA-18 / §L955 — name the reason; never fall back to a rectangle.
+            console.warn(
+                '[WallTool] §FEAT-WALL-SHAPE-MODES —',
+                boundaryLoopRefusal(loopMode, a, b, WALL_LOOP_DENSITY),
+            );
+            return;
+        }
+
+        const y = anchor.y;
+        const levelId = this.projectContext.activeLevelId;
+        for (let i = 0; i < ring.length; i++) {
+            const p = ring[i];
+            const q = ring[(i + 1) % ring.length];
+            await this.createWall(
+                new THREE.Vector3(p.x, y, p.z),
+                new THREE.Vector3(q.x, y, q.z),
+                levelId,
+            );
+        }
+
+        // A closed loop leaves no dangling start point to continue from.
+        this.firstPoint = null;
+        this.startPoint = null;
+        this.state = WallToolState.IDLE;
+        console.log(`[WallTool] §FEAT-WALL-SHAPE-MODES committed a ${loopMode} run of ${ring.length} walls`);
+    }
+
     private async onPointerDown(event: PointerEvent): Promise<void> {
         if (!this.isActive) return;
         if (event.button !== 0) return;
@@ -750,6 +815,23 @@ export class WallTool {
             return;
         }
         const elevation = level.elevation;
+
+        // §FEAT-WALL-SHAPE-MODES / L-1325 — the closed-loop gestures. Routed before the
+        // anchor-resolution chain below because a loop's two clicks are a SHAPE, not a
+        // polyline: snapping the rim of a drum to a wall end would distort the circle.
+        const loopMode = this._loopMode();
+        if (loopMode) {
+            const pt = worldPoint.clone();
+            pt.y = elevation;
+            if (!this.firstPoint) {
+                this.firstPoint = pt;
+                this.startPoint = pt.clone();
+                this.state = WallToolState.DRAWING;
+                return;
+            }
+            await this.commitLoopRun(loopMode, pt);
+            return;
+        }
 
         // Use fuzzy resolution (30cm proximity)
         let currentAnchor = this.intentResolver.resolveHitToAnchor(worldPoint, 0.3);

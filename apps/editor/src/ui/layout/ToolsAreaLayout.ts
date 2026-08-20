@@ -448,13 +448,31 @@ export function mountToolsArea(
                 onSwitchOrtho:   () => service.activateWallTool(WallDrawingMode.POLYLINE_ORTHO),
                 onSwitchCurved:  () => service.activateWallTool(WallDrawingMode.POLYLINE_ARC),
                 onSelectBySlab:  _execWallBySlab,
-                // §FEAT-WALL-SHAPE-MODES — arming a closed-loop run is a MODE change on
-                // the picker the plan handler reads, NOT a tool re-activation: the wall
-                // tool is already live and re-entering it would destroy an in-progress
-                // stroke (the defect §FEAT-PERSISTENT-MODE-BAR was created to fix).
-                onSelectRectangular: () => window.wallModePicker?.setActiveMode?.('rectangular'),
-                onSelectCircular:    () => window.wallModePicker?.setActiveMode?.('circular'),
-                onSelectElliptical:  () => window.wallModePicker?.setActiveMode?.('elliptical'),
+                // ⭐ §FEAT-WALL-SHAPE-MODES / L-1325 — arming a loop run drives BOTH
+                // SURFACES, and it has to.
+                //
+                // The PLAN handler reads `wallModePicker`'s string; the 3-D `WallTool`
+                // reads the `WallDrawingMode` ENUM. Two vocabularies for one concept
+                // (L-1322's shape, one layer out), so setting only one leaves the other
+                // surface silently in its previous mode — the founder clicks Circular,
+                // switches view, and draws a straight wall.
+                //
+                // ⚠ Re-entering the tool is SAFE here in a way it is not for
+                // linear/ortho/curved: a closed loop starts from a fresh anchor by
+                // definition, so there is no in-progress polyline to destroy (the defect
+                // §FEAT-PERSISTENT-MODE-BAR exists to prevent).
+                onSelectRectangular: () => {
+                    window.wallModePicker?.setActiveMode?.('rectangular');
+                    service.activateWallTool(WallDrawingMode.RECTANGULAR_LOOP);
+                },
+                onSelectCircular:    () => {
+                    window.wallModePicker?.setActiveMode?.('circular');
+                    service.activateWallTool(WallDrawingMode.CIRCULAR_LOOP);
+                },
+                onSelectElliptical:  () => {
+                    window.wallModePicker?.setActiveMode?.('elliptical');
+                    service.activateWallTool(WallDrawingMode.ELLIPTICAL_LOOP);
+                },
             });
 
             // ── ESC — dismiss HUD when drawing ends ───────────────────────────

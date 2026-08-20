@@ -21,7 +21,21 @@ export enum WallDrawingMode {
     LINE_ORTHO = 'LINE_ORTHO',
     POLYLINE_ORTHO = 'POLYLINE_ORTHO',
     // Contract §03-1.2: True curved walls (quadratic Bézier arcs with single wall descriptor)
-    CURVED_WALL = 'CURVED_WALL'
+    CURVED_WALL = 'CURVED_WALL',
+    // ⭐ §FEAT-WALL-SHAPE-MODES / L-1325 — CLOSED-LOOP RUNS. Two clicks produce N walls
+    // forming a rectangular, circular or elliptical ROOM.
+    //
+    // ⚠ THESE ARE PLAN SHAPES, NOT FACE SHAPES, AND THE DISTINCTION IS LOAD-BEARING.
+    // "Circular wall" means three different things in this repo: an ARC IN PLAN
+    // (`wall.curve`, which exists), a wall whose FACE is a circle (`wallProfile`, which
+    // also exists and is authorable), and a closed RUN of walls — these. See
+    // `_wallLoopMode` in `WallPlanToolHandler` and C85 §WS-1 for the full argument.
+    //
+    // ⛔ These members were NOT minted when the plan surface shipped, deliberately: a
+    // tool-mode the pipeline has no arm for is C84 EI-3 live. They land WITH the arm.
+    RECTANGULAR_LOOP = 'RECTANGULAR_LOOP',
+    CIRCULAR_LOOP = 'CIRCULAR_LOOP',
+    ELLIPTICAL_LOOP = 'ELLIPTICAL_LOOP'
 }
 
 export interface Level {

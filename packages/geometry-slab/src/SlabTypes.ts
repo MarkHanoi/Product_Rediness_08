@@ -13,7 +13,13 @@ export interface SlabCreatorCallbacks {
     getCurrentVisualStyle: () => VisualStyle;
 }
 
-export type SlabToolMode = 'NONE' | 'FLOOR_SKETCH' | 'REGION_SLAB' | 'POLYLINE_SLAB' | 'HOLLOW_SLAB';
+// §FEAT-PLATE-SHAPE-MODES / L-1324 — the two closed-loop gestures join the 3-D
+// tool's own mode union. ⭐ C92 SL-Voc-2 recorded this union as declared THREE
+// times (here, `SlabTool.ts:164` and `:331`); those two copies now REFERENCE
+// this one, so the union has a single declaration and adding a mode is one edit.
+export type SlabToolMode =
+    | 'NONE' | 'FLOOR_SKETCH' | 'REGION_SLAB' | 'POLYLINE_SLAB' | 'HOLLOW_SLAB'
+    | 'CIRCULAR_SLAB' | 'ELLIPTICAL_SLAB';
 
 /**
  * §03-1.3: Layer function describes the role each material layer plays in the
