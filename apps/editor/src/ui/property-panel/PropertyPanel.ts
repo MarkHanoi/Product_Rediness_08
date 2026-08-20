@@ -633,6 +633,82 @@ export class PropertyPanel {
     }
 
     /**
+     * §MULTI-SELECT-SHIFT (L-1553) — the panel's honest state for N > 1.
+     *
+     * THE DEFECT THIS PREVENTS. Every other path in this class renders EDITABLE
+     * fields for ONE element and writes them back to `state.selectedElementId`.
+     * With a multi-selection the primary is the only element the panel knows
+     * about, so it would have shown the primary's properties with no indication
+     * that four other elements were also selected — and an edit typed into a field
+     * would have landed on the primary alone while the user believed they were
+     * editing the set. That is not a cosmetic gap; it is an edit landing on the
+     * wrong element, which is why this state is a REFUSAL to show fields rather
+     * than a best-effort render of the first one.
+     *
+     * A bulk-edit surface (change a parameter across the whole set in one command)
+     * is a real feature and `UpdateElementDimensionsBatchCommand` already exists to
+     * back it — but wiring it is a separate piece of work with its own validation
+     * rules for mixed kinds. Until it exists, the panel states the count and the
+     * kinds and offers nothing it cannot honour.
+     */
+    public showMultiSelection(ids: readonly string[], kinds: readonly string[]): void {
+        this._restorePosition();
+        this.selectedObject = null;
+        this.state.selectedElementId   = null;
+        this.state.selectedElementType = null;
+        this.draft.clear();
+        this.validationErrors.clear();
+
+        this.element.innerHTML = '';
+        this.injectStyles();
+
+        const header = document.createElement('div');
+        header.className = 'gpp-header';
+
+        const badge = document.createElement('div');
+        badge.className   = 'gpp-type-badge';
+        badge.textContent = 'MULTI-SELECTION';
+        header.appendChild(badge);
+
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-size:11px;font-weight:600;color:rgba(255,255,255,0.80);margin-top:2px;';
+        titleEl.textContent = `${ids.length} elements selected`;
+        header.appendChild(titleEl);
+
+        header.appendChild(this.buildCloseBtn());
+        this.element.appendChild(header);
+
+        // Kind census — "3 walls, 2 windows" is the fact that tells the author
+        // whether the set they built is the set they meant.
+        const counts = new Map<string, number>();
+        for (const k of kinds) {
+            const key = (k || 'element').toLowerCase();
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        const body = document.createElement('div');
+        body.style.cssText = 'padding:10px 12px;font-size:11px;line-height:1.6;color:rgba(255,255,255,0.72);';
+
+        const census = document.createElement('div');
+        census.style.cssText = 'margin-bottom:8px;color:rgba(255,255,255,0.88);';
+        census.textContent = counts.size > 0
+            ? [...counts.entries()]
+                .map(([k, n]) => `${n} × ${k}`)
+                .join('  ·  ')
+            : `${ids.length} elements`;
+        body.appendChild(census);
+
+        const note = document.createElement('div');
+        note.textContent =
+            'Properties are not shown for a multi-selection: editing one field here would '
+            + 'change only one of the selected elements. Select a single element to edit its '
+            + 'properties. Delete acts on the whole selection, as one undo step.';
+        body.appendChild(note);
+
+        this.element.appendChild(body);
+        this._makeVisible();
+    }
+
+    /**
      * Shows the Property Inspector in "View Properties" mode — the default
      * state displayed when no BIM element is selected (Phase 2.2).
      *

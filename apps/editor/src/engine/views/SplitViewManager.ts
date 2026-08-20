@@ -1492,7 +1492,7 @@ export class SplitViewManager implements ISplitViewManager {
             if (inside && !((e as any).__pryzmToolHandled)) {
                 const cx = e.clientX - rect.left;
                 const cy = e.clientY - rect.top;
-                this._forward3dClickToMain(cx, cy, rect.width, rect.height);
+                this._forward3dClickToMain(cx, cy, rect.width, rect.height, e);
             }
             this._isPanning = false;
             return;
@@ -1513,7 +1513,11 @@ export class SplitViewManager implements ISplitViewManager {
             // Fall back to the minimal path only when the interaction layer is
             // not attached (e.g. embed modes that don't use the plan canvas).
             if (isClick && !toolHandled && !this._planInteraction) {
-                this._trySelectAtCanvasPoint(this._clickStart.cx, this._clickStart.cy);
+                // §MULTI-SELECT-SHIFT (L-1550) — the minimal SVP plan path (used in
+                // embed modes where PlanViewInteraction is not attached) honours SHIFT
+                // too, so the modifier does not silently mean something different
+                // depending on which plan renderer happens to be mounted.
+                this._trySelectAtCanvasPoint(this._clickStart.cx, this._clickStart.cy, e.shiftKey);
             }
             this._clickStart = null;
         }
@@ -1546,7 +1550,25 @@ export class SplitViewManager implements ISplitViewManager {
      * @param svpW   SVP canvas CSS width.
      * @param svpH   SVP canvas CSS height.
      */
-    private _forward3dClickToMain(cx: number, cy: number, svpW: number, svpH: number): void {
+    private _forward3dClickToMain(
+        cx: number,
+        cy: number,
+        svpW: number,
+        svpH: number,
+        /**
+         * §MULTI-SELECT-SHIFT (L-1550) — THE SOURCE EVENT, for its MODIFIER KEYS.
+         *
+         * A synthetic `PointerEvent` carries only the fields its init dict names, and
+         * this dict named none of the modifiers. So a SHIFT+click inside the 3-D
+         * mirror pane arrived at the main canvas with `shiftKey === false` and was
+         * handled as an ordinary replace-the-selection click — the modifier was
+         * dropped IN TRANSIT, at the same seam where `__pryzmForwarded` was added
+         * because the forwarded click carried too little context to be picked
+         * correctly. Optional so the existing tests, which call this with four
+         * arguments, keep compiling and keep meaning "no modifiers".
+         */
+        source?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean },
+    ): void {
         if (svpW <= 0 || svpH <= 0) return;
         const mainCanvas: HTMLCanvasElement | undefined =
             window.pryzmCanvas ??
@@ -1580,6 +1602,11 @@ export class SplitViewManager implements ISplitViewManager {
                 view:       window,
                 pointerType: 'mouse',
                 pointerId:  1,
+                // §MULTI-SELECT-SHIFT (L-1550) — carry the modifiers across the mirror.
+                shiftKey:   source?.shiftKey === true,
+                ctrlKey:    source?.ctrlKey  === true,
+                metaKey:    source?.metaKey  === true,
+                altKey:     source?.altKey   === true,
             };
             // §SELECT-SVP3D-ANCHOR-SKIP — tag the synthetic event so the main
             // SelectionManager skips its hover-anchor fast path. The cursor was over
@@ -1611,12 +1638,15 @@ export class SplitViewManager implements ISplitViewManager {
      * Uses PlanViewCanvas.hitTest() which resolves through DrawingSelectionIndex.
      * Does nothing if no element occupies that pixel within the hit threshold.
      */
-    private _trySelectAtCanvasPoint(cx: number, cy: number): void {
+    private _trySelectAtCanvasPoint(cx: number, cy: number, additive = false): void {
         if (!this._planCanvas) return;
         const elemId = this._planCanvas.hitTest(cx, cy);
         if (!elemId) return;
-        console.log(`[SplitViewManager] SVP click → element ${elemId}`);
-        selectionBus.select(elemId, 'svp');
+        console.log(`[SplitViewManager] SVP click → element ${elemId}${additive ? ' (additive)' : ''}`);
+        // §MULTI-SELECT-SHIFT (L-1550) — same one rule as the 3-D viewport and the
+        // standalone plan view; see `SelectionBus.toggle`.
+        if (additive) selectionBus.toggle(elemId, 'svp');
+        else          selectionBus.select(elemId, 'svp');
     }
 
     /**

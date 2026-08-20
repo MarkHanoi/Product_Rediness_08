@@ -36,7 +36,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { setUD } from './userDataSafe';
+import { setUD, deleteUD } from './userDataSafe';
 import { vgGovernanceStore, VGCategoryStyle } from './VGGovernanceStore';
 // §SCC-NO-SELF-BARREL — relative imports, NOT the package barrel (see
 // presentation/ViewRangeIntentResolver.ts for the measurement).
@@ -211,6 +211,17 @@ function createHalftoneMaterial(fillColorHex: string): THREE.ShaderMaterial {
     });
 }
 
+/**
+ * A mesh's material slot may hold one material or an array of them. Multi-slot
+ * meshes are styled from slot 0 — the same choice `cloneMaterial()` has always
+ * made. Written as a total function so an empty array yields `undefined` rather
+ * than an unchecked index (`noUncheckedIndexedAccess` flags the inline form).
+ */
+function firstMaterial(m: THREE.Material | THREE.Material[] | undefined): THREE.Material | undefined {
+    if (m === undefined) return undefined;
+    return Array.isArray(m) ? m[0] : m;
+}
+
 export class VGSceneApplicator {
     private listeners: Array<() => void> = [];
     private readonly MODEL_KEY  = 'vgOriginalMaterial';
@@ -342,6 +353,39 @@ export class VGSceneApplicator {
             if (!viewId || viewId === this.activeViewId) {
                 this.applyAll(this.activeViewId ?? undefined);
             }
+        });
+
+        // ── §3D-MODE-IS-THE-AUTHORITY (L-1561) ───────────────────────────────
+        // `view-activated` fires on EVERY successful activation and always carries
+        // `mode` ('3D' | 'Top' | 'Front' | 'Section' | …). `view-selected`, which
+        // fires immediately after it, carries a ViewDefinition id that is NULL for
+        // the 3D view on every activation path that did not go through the View
+        // Browser rail (ViewCube, BottomActionMenu, the `activate('3D')` error
+        // fallback) — runtime-composer/src/types.ts documents the null in the
+        // event's own contract.
+        //
+        // The old handler below was `if (viewId) { … }`, so on those paths NOTHING
+        // ran: `activeViewId` stayed pinned to the PLAN view the user had just left
+        // and the plan poche was simply left on the 3D screen — measured at
+        // `WallPart #1a1a1a`, i.e. the near-black that reads as "all materials
+        // gone". Recording the mode here gives `isNonStyledView()` an authority
+        // that does not depend on an id the emitter is contractually allowed to
+        // omit, and re-applying on this event is what actually restores the model.
+        listen('view-activated', (e) => {
+            const detail = (e as CustomEvent).detail;
+            const is3D = detail?.mode === '3D' || detail?.mode === 'Render';
+            this._activeViewModeIs3D = is3D;
+            if (is3D) {
+                // A 3D activation may be about to hand us `viewId: null`, in which
+                // case the `view-selected` handler below does nothing at all.
+                // Restore here instead. When the rail DID supply an id, the
+                // `view-selected` that follows re-applies with it — idempotently,
+                // because the 3D leg is a restore, not an accumulate.
+                this.activeViewId = null;
+                this.applyAll();
+            }
+            // Leaving 3D needs nothing here: `view-selected` follows with a real
+            // ViewDefinition id and re-applies the 2D styling.
         });
 
         // Phase 2: React to view activation/deactivation
@@ -685,98 +729,133 @@ export class VGSceneApplicator {
         if (!mesh.userData[this.MODEL_KEY]) {
             setUD(mesh, this.MODEL_KEY, mesh.material);
         }
-        const current = mesh.material;
-        if (!mesh.userData[this.CLONED_KEY]) {
-            mesh.material = (Array.isArray(current) ? current[0] : current).clone();
+        const current = firstMaterial(mesh.material);
+        if (!mesh.userData[this.CLONED_KEY] && current !== undefined) {
+            const clone = current.clone();
+            mesh.material = clone;
             setUD(mesh, this.CLONED_KEY, true);
+            // §AUTHORED-SNAPSHOT-IS-SELF-CORRECTING (L-1562) — record the clone by
+            // IDENTITY, not just by a boolean. Ownership has to be decidable by
+            // reference comparison; a flag cannot tell "VG's clone" from "a material
+            // someone assigned while the flag happened to be set".
+            setUD(mesh, 'vg2dClone', clone);
         }
     }
 
     /**
-     * §VG-3D-FIX: Wall body element types that receive materialColor from buildWall().
-     * In 3D perspective views these meshes should retain that colour — VG fillColor
-     * is a 2D concept (plan cut poche / hatch) and must not override 3D surfaces.
-     * Edge overlay types (WallEdges) are excluded — they use applyToLine(), not here.
+     * §AUTHORED-SNAPSHOT-IS-SELF-CORRECTING (L-1562) — is the material currently on
+     * this mesh one VG installed?
+     *
+     * Decided by reference identity against the four materials VG can install: the
+     * authored snapshot itself, the 2D clone-on-write, the 3D transparency clone,
+     * and the P4.4 halftone shader.
      */
-    private static readonly WALL_BODY_3D_TYPES = new Set([
-        'Wall', 'WallPart', 'WallLayer', 'LayeredWall',
-    ]);
+    private isVgOwnedMaterial(mesh: THREE.Mesh): boolean {
+        const m = mesh.material;
+        return m === mesh.userData[this.MODEL_KEY]
+            || m === mesh.userData.vg2dClone
+            || m === mesh.userData.vg3dClone
+            || m === mesh.userData.vgHalftone;
+    }
+
+    /**
+     * §AUTHORED-SNAPSHOT-IS-SELF-CORRECTING (L-1562).
+     *
+     * `vgOriginalMaterial` is a SNAPSHOT, and every snapshot in this codebase has
+     * eventually been written back over something newer — that is the exact shape of
+     * the defect this lane was opened for. When the live material is one nobody in VG
+     * installed, something else is now the authority (a rebuild after an §H2 proxy-
+     * cache eviction, a catalogue material applied in place, a per-element resolver
+     * handing over a fresh instance). Re-take the snapshot and drop every derived
+     * artefact rather than carrying a reference to a material the user has replaced.
+     */
+    private syncAuthoredSnapshot(mesh: THREE.Mesh): void {
+        // ⚠ This runs for EVERY mesh on EVERY apply, so the early return matters and
+        // so does `deleteUD`. `@thatopen/fragments` hands back objects whose
+        // `userData` is non-extensible / sealed; a bare `delete` on one of those
+        // THROWS in strict mode and aborts the entire `scene.traverse()`, taking VG,
+        // view-range zoning, underlay and crop filtering down with it for every
+        // element after the first sealed fragment. See userDataSafe.ts.
+        if (mesh.userData[this.MODEL_KEY] !== undefined && this.isVgOwnedMaterial(mesh)) return;
+        setUD(mesh, this.MODEL_KEY, mesh.material);
+        deleteUD(mesh, this.CLONED_KEY);
+        deleteUD(mesh, 'vg2dClone');
+        deleteUD(mesh, 'vg3dClone');
+        deleteUD(mesh, 'vgHalftone');
+        deleteUD(mesh, 'vgIntent3DOriginalColor');
+    }
+
+    /**
+     * ⚠ §VG-3D-FIX's allowlist was DELETED 2026-08-20 — see §3D-CARRIES-NO-VG-FILL
+     * (L-1560) below. It read:
+     *
+     *     private static readonly WALL_BODY_3D_TYPES = new Set([
+     *         'Wall', 'WallPart', 'WallLayer', 'LayeredWall',
+     *     ]);
+     *
+     * Its stated rationale — "VG fillColor is a 2D concept (plan cut poche /
+     * hatch) and must not override 3D surfaces" — is a statement about the VIEW,
+     * not about walls. Encoding it as a per-element-type allowlist meant the rule
+     * held for FOUR type strings and failed for the ELEVEN other families the 3D
+     * builders actually stamp. The gate is now the view, which is what the rule
+     * was always about.
+     */
+
+    /**
+     * §3D-CARRIES-NO-VG-FILL (L-1560) — is this a view in which VG fillColor is
+     * meaningless?
+     *
+     * `viewType` comes from the ViewDefinition. `_activeViewModeIs3D` is the
+     * fallback authority for the activation paths that hand us NO view id at all
+     * (ViewCube / BottomActionMenu / the `activate('3D')` error fallback all reach
+     * `view-selected { viewId: null }` — see runtime-composer types.ts, which
+     * documents the null as "or `null` for the 3D view"). `view-activated` fires on
+     * EVERY activation and always carries `mode`, so it can answer when the id
+     * cannot.
+     */
+    private _activeViewModeIs3D = false;
+
+    private isNonStyledView(viewType?: string): boolean {
+        if (viewType === '3d' || viewType === 'render') return true;
+        // No ViewDefinition to ask (viewId was null) — fall back to the mode.
+        if (viewType === undefined) return this._activeViewModeIs3D;
+        return false;
+    }
 
     private applyToMesh(mesh: THREE.Mesh, style: VGCategoryStyle, viewType?: string): void {
         mesh.visible = style.visible;
         if (!style.visible) return;
 
-        // Store original material once so we can always restore it.
-        if (!mesh.userData[this.MODEL_KEY]) {
-            setUD(mesh, this.MODEL_KEY, mesh.material);
-        }
+        // §AUTHORED-SNAPSHOT-IS-SELF-CORRECTING (L-1562) — take (or RE-take) the
+        // authored snapshot. This used to be `if (!MODEL_KEY) { … }`, i.e. once and
+        // never again, which pinned VG to whatever material the mesh happened to
+        // carry the first time VG ever saw it.
+        this.syncAuthoredSnapshot(mesh);
 
-        // §VG-3D-FIX: In 3D perspective views, wall body meshes (WallPart / WallLayer /
-        // Wall / LayeredWall) must keep the architect-specified materialColor that was
-        // baked in by WallFragmentBuilder.buildWall() (via wall.materialColor or the
-        // intent system's _resolveIntent3DColour()).  Applying the VG template's
-        // fillColor (e.g. '#1a1a1a' — the default plan poche colour) to these meshes
-        // turns them black every time a view-selected event triggers applyAll().
+        // ── §3D-CARRIES-NO-VG-FILL (L-1560) ──────────────────────────────────
+        // ⭐ THIS IS "MATERIALES GOES OFF WHEN SWAPPING VIEWS".
         //
-        // Contract 25 §3 states that 3D views carry NO styling data — appearance in
-        // 3D is governed by the intent system's 'projection' state rules, not VG fillColor.
-        // This guard bridges that gap until the intent engine fully supersedes VGGovernanceStore.
+        // Contract 25 §3: 3D views carry NO styling data — appearance in 3D is
+        // governed by the builder's authored material plus the intent system's
+        // `surface3D` rules, never by VG `fillColor`, which is the PLAN CUT POCHE
+        // colour. `applyAll()` runs on every `view-selected`, so every view switch
+        // wrote the poche colour onto the live 3D material of every category that
+        // was not on a four-entry wall allowlist.
         //
-        // We do still apply visibility / transparency so VG hide/isolate commands
-        // work correctly in 3D, and we restore the original material so that any
-        // dark colour written by a prior plan-view applyAll() is undone on re-entry.
-        if (viewType === '3d' && VGSceneApplicator.WALL_BODY_3D_TYPES.has(mesh.userData?.elementType ?? '')) {
-            // Undo any halftone shader that may have been applied (e.g. underlay mode).
-            if (mesh.userData.vgHalftone) {
-                mesh.material = mesh.userData[this.MODEL_KEY];
-                delete mesh.userData.vgHalftone;
-                delete mesh.userData[this.CLONED_KEY];
-            }
-            // Undo any plan-view colour override by restoring the original material
-            // (which holds the correct materialColor from buildWall).
-            if (mesh.userData[this.CLONED_KEY]) {
-                mesh.material = mesh.userData[this.MODEL_KEY];
-                delete mesh.userData[this.CLONED_KEY];
-            }
-            // Apply transparency / depth settings (these ARE valid in 3D — e.g. ghost).
-            const mat3d = mesh.material as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
-            if (mat3d && typeof mat3d.color !== 'undefined') {
-                const opacity3d    = 1 - style.transparency / 100;
-                const transparent3d = style.transparency > 0;
-                mat3d.transparent = transparent3d;
-                mat3d.opacity     = opacity3d;
-                mat3d.depthWrite  = !transparent3d;
-                mat3d.needsUpdate = true;
-            }
-            // Wave 8 / Stage S5 — 3D surface descriptor authored on the bound
-            // intent overrides the wall's baked-in materialColor. The resolver
-            // returns null when no `surface3D` block is set on the intent's
-            // appearance rule for this element type, so the existing
-            // materialColor path is fully behaviour-preserving in that case.
-            //
-            // We snapshot the original colour hex into userData on first
-            // override so that removing the surface3D block (or rebinding to
-            // an intent without one) restores the wall's authored colour
-            // rather than leaving the override in place forever.
-            if (mat3d && this.activeViewId && (mat3d as any).color?.getHex) {
-                const elementType = mesh.userData?.elementType as string | undefined;
-                if (elementType) {
-                    const descriptor = threeDAppearanceResolver.resolveForView(
-                        this.activeViewId, elementType, 'projection',
-                    );
-                    if (descriptor) {
-                        if (mesh.userData.vgIntent3DOriginalColor === undefined) {
-                            mesh.userData.vgIntent3DOriginalColor = (mat3d as any).color.getHex();
-                        }
-                        threeDAppearanceResolver.applyToMaterial(mat3d, descriptor);
-                    } else if (mesh.userData.vgIntent3DOriginalColor !== undefined) {
-                        // No explicit surface3D anymore — restore the snapshot.
-                        (mat3d as any).color.setHex(mesh.userData.vgIntent3DOriginalColor);
-                        mat3d.needsUpdate = true;
-                        delete mesh.userData.vgIntent3DOriginalColor;
-                    }
-                }
-            }
+        // Measured 2026-08-20, one plan→3D round trip, default `pryzm-default`
+        // template, authored colours vs. what the user was left looking at:
+        //     SlabPart  → #e8e8e8   Column    → #111111   Stair    → #c8c8c8
+        //     Handrail  → #888888   Furniture → #ececec   Door     → #8b6914
+        //     Window    → #a8d8f0   CurtPanel → #c8e4f8   Plumbing → #4488cc
+        //     ceiling   → #cccccc   floor     → #e8e8e8
+        // Eleven of the twelve families the 3D builders stamp; only `WallPart`
+        // survived, which is exactly why the symptom read as arbitrary.
+        //
+        // C84 EI-8 — colour/material is ONE vocabulary. The fix removes the SECOND
+        // producer of 3D surface colour rather than adding another type to an
+        // allowlist that would rot again with the next element family.
+        if (this.isNonStyledView(viewType)) {
+            this.applyToMesh3D(mesh, style);
             return;
         }
 
@@ -798,8 +877,8 @@ export class VGSceneApplicator {
             // Transitioning from halftone → no halftone: restore original and clear cache.
             if (mesh.userData.vgHalftone) {
                 mesh.material = mesh.userData[this.MODEL_KEY];
-                delete mesh.userData.vgHalftone;
-                delete mesh.userData[this.CLONED_KEY];
+                deleteUD(mesh, 'vgHalftone');
+                deleteUD(mesh, this.CLONED_KEY);
             }
 
             // Normal clone-on-write path.
@@ -825,6 +904,118 @@ export class VGSceneApplicator {
         }
     }
 
+    /**
+     * §3D-CARRIES-NO-VG-FILL (L-1560) — the 3D leg of `applyToMesh()`.
+     *
+     * ONE producer of 3D surface colour: the material the builder authored
+     * (`this.MODEL_KEY`), patched only by the intent system's `surface3D`.
+     * `style.fillColor` is never read here — it is a 2D poche colour.
+     *
+     * The VG semantics that ARE meaningful in 3D are kept:
+     *   - `visible`      — hide / isolate (applied by the caller before we run).
+     *   - `transparency` — ghost, phase-filter dimming, glazing.
+     *
+     * ⚠ Transparency is written onto a VG-OWNED CLONE (`vg3dClone`), never onto
+     * the authored material. Element builders share materials aggressively — the
+     * `_sharedFrameMats` idiom caches one material per (levelId, colour) — so
+     * mutating `opacity` in place would silently re-ghost every other element
+     * holding the same reference, and would overwrite an authored glass opacity
+     * with the template's. The clone is created once per mesh and reused; its
+     * colour is re-synced from the authored material on every pass so a poche
+     * colour written while the mesh was in a plan view can never leak forward.
+     */
+    private applyToMesh3D(mesh: THREE.Mesh, style: VGCategoryStyle): void {
+        const authored = mesh.userData[this.MODEL_KEY] as THREE.Material | THREE.Material[];
+
+        // Halftone is a plan-poche device (P4.4 dot-grid shader) and an underlay
+        // device (DOC-4.7). It has no meaning in 3D. Take the mesh OFF it before
+        // dropping the reference — clearing the key first would make
+        // `isVgOwnedMaterial()` disown a shader VG is still wearing, and the mesh
+        // would stay dot-gridded in 3D forever.
+        if (mesh.userData.vgHalftone) {
+            if (mesh.material === mesh.userData.vgHalftone && authored !== undefined) {
+                mesh.material = authored;
+            }
+            deleteUD(mesh, 'vgHalftone');
+            deleteUD(mesh, this.CLONED_KEY);
+        }
+
+        const wantsTransparency = style.transparency > 0;
+
+        if (!wantsTransparency) {
+            // Nothing 3D-valid to say — the authored material IS the answer.
+            //
+            // ⚠ Restore ONLY from a material VG itself installed. `vgOriginalMaterial`
+            // is a snapshot, and a snapshot goes stale the moment something else
+            // re-assigns `mesh.material` (a rebuild after an §H2 cache eviction, a
+            // catalogue material applied in place). Blindly writing the snapshot back
+            // would turn this restore into the very defect it exists to undo — an
+            // authored material silently reverted on a view switch. If the live
+            // material is not ours, it is the current authority and we leave it.
+            const vgInstalled = this.isVgOwnedMaterial(mesh);
+            if (vgInstalled && authored !== undefined && mesh.material !== authored) {
+                mesh.material = authored;
+            }
+            deleteUD(mesh, this.CLONED_KEY);
+        } else {
+            // Same staleness rule: clone from whatever the live authority is when the
+            // snapshot is gone or has been superseded.
+            const base = firstMaterial(authored ?? mesh.material);
+            if (!base) return;
+            let clone = mesh.userData.vg3dClone as THREE.Material | undefined;
+            if (!clone) {
+                clone = base.clone();
+                setUD(mesh, 'vg3dClone', clone);
+            }
+            // Re-sync from the authored material so a plan-view poche colour, or a
+            // later material re-assignment, cannot survive on the clone.
+            const bAny = base as unknown as { color?: { getHex(): number } };
+            const cAny = clone as unknown as { color?: { setHex(h: number): void } };
+            if (bAny.color && cAny.color) cAny.color.setHex(bAny.color.getHex());
+
+            clone.transparent = true;
+            clone.opacity     = 1 - style.transparency / 100;
+            clone.depthWrite  = false;
+            clone.needsUpdate = true;
+            mesh.material = clone;
+            setUD(mesh, this.CLONED_KEY, true);
+        }
+
+        // Wave 8 / Stage S5 — the intent system's `surface3D` block is the ONE
+        // sanctioned override of the authored 3D appearance. `resolveForView`
+        // returns null when the bound intent declares no `surface3D` for this
+        // element type, so the authored material is fully behaviour-preserving.
+        const live = mesh.material as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
+        if (!live || typeof (live as { color?: unknown }).color === 'undefined') return;
+        if (!this.activeViewId) return;
+        const elementType = mesh.userData?.elementType as string | undefined;
+        if (!elementType) return;
+
+        const descriptor = threeDAppearanceResolver.resolveForView(
+            this.activeViewId, elementType, 'projection',
+        );
+        if (descriptor) {
+            if (mesh.userData.vgIntent3DOriginalColor === undefined) {
+                // setUD, not a bare assignment: sealed `userData` throws on a new key
+                // in strict mode and would abort the whole `scene.traverse()`.
+                setUD(mesh, 'vgIntent3DOriginalColor', (live as any).color.getHex());
+            }
+            // ⚠ KNOWN, PRE-EXISTING, WIDENED HERE: on the opaque path `live` IS the
+            // authored material, which builders share per (levelId, colour). An intent
+            // `surface3D` override therefore repaints every element holding that same
+            // reference. It fires only when a view has a bound intent that explicitly
+            // declares `surface3D` for this element type, so it is an authored choice
+            // rather than a default — but it wants the same clone treatment the
+            // transparency path above already gets. Reported, not silently widened.
+            threeDAppearanceResolver.applyToMaterial(live, descriptor);
+        } else if (mesh.userData.vgIntent3DOriginalColor !== undefined) {
+            // No explicit surface3D anymore — restore the snapshot.
+            (live as any).color.setHex(mesh.userData.vgIntent3DOriginalColor);
+            live.needsUpdate = true;
+            deleteUD(mesh, 'vgIntent3DOriginalColor');
+        }
+    }
+
     private applyToLine(line: THREE.Line | THREE.LineSegments, style: VGCategoryStyle): void {
         line.visible = style.visible;
         if (!style.visible) return;
@@ -845,11 +1036,11 @@ export class VGSceneApplicator {
                 if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.LineSegments) {
                     obj.material = obj.userData[this.MODEL_KEY];
                 }
-                delete obj.userData[this.MODEL_KEY];
-                delete obj.userData[this.CLONED_KEY];
+                deleteUD(obj, this.MODEL_KEY);
+                deleteUD(obj, this.CLONED_KEY);
             }
             if (obj.userData.vgHalftone) {
-                delete obj.userData.vgHalftone;
+                deleteUD(obj, 'vgHalftone');
             }
             obj.visible = true;
         });

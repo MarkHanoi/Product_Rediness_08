@@ -1043,14 +1043,13 @@ export class PlanViewInteraction {
             selectionBus.select(elementId, 'plan-view');
             return;
         }
-        const current = selectionBus.currentIds;
-        if (current.includes(elementId)) {
-            const rest = current.filter(id => id !== elementId);
-            if (rest.length > 0) selectionBus.selectMany(rest, 'plan-view', /* additive */ false);
-            else                 selectionBus.clearAll('plan-view');
-        } else {
-            selectionBus.selectMany([elementId], 'plan-view', /* additive */ true);
-        }
+        // §MULTI-SELECT-SHIFT (L-1550) — the add/toggle rule now lives ONCE, on the
+        // bus. This method used to be its only implementation, spelled out longhand;
+        // when the 3-D viewport gained SHIFT+click it would have become the second
+        // copy, and a second copy of a rule is how two surfaces come to disagree
+        // about what SHIFT means. `SelectionBus.toggle` is that rule, and the 3-D
+        // path and the split-view plan pane call the same method.
+        selectionBus.toggle(elementId, 'plan-view');
     }
 
     /**

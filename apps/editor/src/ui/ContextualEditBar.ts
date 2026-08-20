@@ -29,6 +29,10 @@ import { canDo, type OperationId } from '@pryzm/input-host';
 // selection; `gridEditAvailability` is the ONE answer to what may be OFFERED for it.
 import { selectedGridInAnyPane, clearGridSelectionInAllPanes } from '@app/engine/views/viewPanes';
 import { gridEditAvailability, type GridEditSubject } from '@pryzm/core-app-model';
+// §MULTI-SELECT-SHIFT (L-1552) — the C27 §4 authority on WHAT IS SELECTED. The bar
+// arms operations, and an operation armed against ONE element while FIVE are
+// selected is the founder's edit landing where they did not ask for it.
+import { selectionBus } from '@pryzm/core-app-model';
 import { RemoveGridCommand } from '@pryzm/command-registry';
 import type { JoinTool } from '@pryzm/input-host';
 import type { CutTool } from '@pryzm/input-host';
@@ -108,6 +112,16 @@ export class ContextualEditBar {
      * from THIS, never from `userData.id`.
      */
     private _selectedElementId: string | null = null;
+    /**
+     * §MULTI-SELECT-SHIFT (L-1552) — the FULL selected set, from `selectionBus`.
+     *
+     * `_selectedElementId` above is the PRIMARY and stays exactly what it was; this
+     * is the set the primary belongs to. Held as a field rather than read at click
+     * time so `_refreshButtonVisibility` can decide what may be OFFERED from the same
+     * value the actions will act on — a button whose enablement and whose behaviour
+     * read different sources is how a dead action comes to look alive.
+     */
+    private _selectedIds: readonly string[] = [];
     private _elementType = '';
     /**
      * §GRID-CONTEXTUAL-EDIT (SV2) — the grid the bar is currently describing.
@@ -296,6 +310,8 @@ export class ContextualEditBar {
                 variant:  'danger',
                 action:   () => {
                     console.log('[ContextualEditBar] Delete');
+                    // §MULTI-SELECT-SHIFT (L-1552) — N selected ⇒ ONE undo entry.
+                    if (this._deleteSelectedSet()) return;
                     // §GRID-CONTEXTUAL-EDIT (SV2) — the Delete BUTTON and the Delete KEY
                     // did DIFFERENT THINGS, and this is where they diverged.
                     //
@@ -481,6 +497,24 @@ export class ContextualEditBar {
         btn.appendChild(iconEl);
 
         btn.addEventListener('click', () => {
+            // §MULTI-SELECT-SHIFT (L-1554) — A DISABLED BUTTON MUST ACTUALLY REFUSE.
+            //
+            // `_refreshGridButtons` (and now `_refreshMultiSelectionButtons`) mark a
+            // button `aria-disabled`, grey it to 0.45 opacity and set a `not-allowed`
+            // cursor — and this listener ran the action anyway. The disabled state was
+            // PRESENTATION ONLY: a `<button>` without the `disabled` ATTRIBUTE still
+            // dispatches click, so Move on a selected grid looked refused and executed.
+            // That is the precise shape `_refreshButtonVisibility` warns about two
+            // hundred lines below — a dead action that looks alive — inverted into a
+            // live action that looks dead. The reason already sits in `dataset.tooltip`,
+            // so the refusal can name itself.
+            if (btn.getAttribute('aria-disabled') === 'true') {
+                this._declineOperation(
+                    action.title,
+                    btn.dataset.tooltip ?? 'it is not available for the current selection',
+                );
+                return;
+            }
             console.log(`[ContextualEditBar] Action: ${action.id}`);
             action.action();
         });
@@ -489,6 +523,40 @@ export class ContextualEditBar {
     }
 
     private _wireSelectionEvent(): void {
+        // ── §MULTI-SELECT-SHIFT (L-1552) — the SET, from the bus ──────────────────
+        //
+        // `bim-selection-changed` carries ONE Object3D, so it cannot answer "how
+        // many are selected" — and the bar's whole job is deciding what may be
+        // OFFERED, which at N>1 is a different answer for almost every button. The
+        // count therefore comes from `selectionBus`, the C27 §4 authority, and the
+        // element identity keeps coming from `bim-selection-changed` (which carries
+        // the RESOLVED per-instance id the bus cannot supply — §FIX-SELECTION-
+        // PAYLOAD-INSTANCED-ID, L-813).
+        //
+        // ORDERING. `SelectionManager.select()` mirrors into the bus AFTER it emits
+        // `bim-selection-changed` (L-1550), so on a plain click this handler runs
+        // second and re-refreshes with the settled count. On a SHIFT+click the bus
+        // dispatch is the only one that carries the new count, which is exactly why
+        // this subscription re-runs the refresh rather than only recording the ids.
+        selectionBus.subscribe((ev) => {
+            if (ev.type !== 'select' && ev.type !== 'clear') return;
+            this._selectedIds = selectionBus.currentIds;
+            if (this._selectedIds.length > 1) {
+                this._el.dataset.elementType = 'multi';
+                this._el.title = `${this._selectedIds.length} elements`;
+                this._refreshButtonVisibility(this._elementType);
+                this.setVisible(true);
+                return;
+            }
+            // Back to 0 or 1 — restore the single-element presentation from the
+            // identity the element channel last gave us.
+            const displayName = TYPE_DISPLAY[this._elementType] ?? 'Element';
+            this._el.dataset.elementType = this._selectedObj ? this._elementType : '';
+            this._el.title = this._selectedObj ? displayName : '';
+            this._refreshButtonVisibility(this._elementType);
+            this.setVisible(!!this._selectedObj || !!this._selectedGridId);
+        });
+
         // F.events.16 — bim-selection-changed migrated to runtime.events typed bus.
         window.runtime?.events?.on('bim-selection-changed', (payload: unknown) => {
             const detail = payload as { object?: any | null; elementId?: string | null; elementType?: string | null };
@@ -588,6 +656,85 @@ export class ContextualEditBar {
      * Every other operation is hidden: rotate/copy/join/cut/mirror/scale/align/offset
      * have no meaning for a grid datum and no command behind them.
      */
+    /**
+     * §MULTI-SELECT-SHIFT (L-1552) — delete the WHOLE selected set as ONE undo entry.
+     *
+     * Returns TRUE when it handled the intent — INCLUDING when it refused, because a
+     * refusal is a handled outcome and falling through to the single-element route
+     * afterwards would delete one element out of a set the user asked to remove
+     * entirely (the same rule `_deleteSelectedGrid` above states).
+     *
+     * ── WHY THE BUS VERB AND NOT A LOOP ───────────────────────────────────────
+     *
+     * N dispatches of `element.delete` are N UNDO ENTRIES, so undoing a mistaken
+     * five-element delete would be five Ctrl-Zs — and a partial undo leaves the
+     * model in a state the user never authored. `element.deleteBatch`
+     * (plugins/view) bridges to `DeleteElementsBatchCommand`, which composes the
+     * SAME `DeleteElementCommand` children into one entry and undoes them in
+     * REVERSE order, so a hosted window deleted by its host wall's cascade comes
+     * back after the wall does. That command already exists, is already tested, and
+     * is already the route the AI chat uses for "delete every window on level 2";
+     * this makes the founder's selection reach it. (P6: the mutation goes through
+     * the bus, never a direct store write.)
+     *
+     * Returns FALSE for a set of 0 or 1, which the existing single-element routes
+     * own — they carry the IFC-import, grid, level-datum and annotation arms that a
+     * batch has no business duplicating.
+     */
+    private _deleteSelectedSet(): boolean {
+        const ids = this._selectedIds;
+        if (ids.length <= 1) return false;
+
+        const bus = window.runtime?.bus;
+        if (!bus || typeof bus.executeCommand !== 'function') {
+            // C16 CA-18 / C84 EI-2 — refuse LOUDLY and name why. Never return
+            // silently from a destructive action the user actually asked for.
+            this._declineOperation('Delete', 'the command bus is not ready');
+            return true;
+        }
+
+        console.log(`[ContextualEditBar] §MULTI-SELECT-SHIFT delete set — ${ids.length} elements, one undo entry`);
+        void Promise.resolve(
+            bus.executeCommand('element.deleteBatch', { elementIds: [...ids] }),
+        ).then((record) => {
+            const refusal = (record as { refusal?: { detail?: string } } | undefined)?.refusal;
+            if (refusal) {
+                this._declineOperation('Delete', refusal.detail ?? 'the model refused the delete');
+                return;
+            }
+            // The set is gone; nothing may stay armed against it.
+            window.unselectAll?.();
+        }).catch((err: unknown) => {
+            this._declineOperation('Delete', `the batch failed: ${String((err as Error)?.message ?? err)}`);
+        });
+        return true;
+    }
+
+    /**
+     * §MULTI-SELECT-SHIFT (L-1552) — the three honest states, applied to a set.
+     *
+     * SHOWN+DISABLED with the reason as its tooltip for every single-subject
+     * operation; the Delete button (not an `_opBtns` entry — it is always visible
+     * alongside undo/redo) stays live because `element.deleteBatch` genuinely
+     * handles a set. Edit Profile is hidden: it opens a modal editor bound to one
+     * element's outline and there is no meaning to give it for five.
+     */
+    private _refreshMultiSelectionButtons(count: number): void {
+        const reason =
+            `Not available for a multi-selection (${count} elements) — this operation `
+            + `acts on one element at a time. Select a single element, or use Delete, `
+            + `which removes the whole selection in one undo step.`;
+        for (const [, btn] of this._opBtns) {
+            btn.style.display = '';
+            btn.classList.add('ceb-btn--disabled');
+            btn.setAttribute('aria-disabled', 'true');
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.dataset.tooltip = reason;
+        }
+        if (this._editProfileBtn) this._editProfileBtn.style.display = 'none';
+    }
+
     private _refreshGridButtons(): void {
         const grid = this._selectedGrid ?? {};
         for (const [opId, btn] of this._opBtns) {
@@ -645,6 +792,27 @@ export class ContextualEditBar {
         // a bar with no operations on it.
         if (elementType === 'grid') {
             this._refreshGridButtons();
+            this._clearActiveOpHighlight();
+            return;
+        }
+        // ── §MULTI-SELECT-SHIFT (L-1552) — what a MULTI-SELECTION may be offered ──
+        //
+        // Every operation on this bar is single-subject. `joinTool.activate(id, type)`,
+        // `mirrorTool`, `offsetTool`, `scaleTool`, `referenceEditTool` and the Move /
+        // Rotate gizmo all take ONE id — `_resolveOperationTarget` literally reads
+        // `this._selectedElementId`. With five elements selected they would have armed
+        // against the PRIMARY and silently edited one element out of five, which is a
+        // worse outcome than refusing: the author sees an operation succeed and has no
+        // reason to check the other four.
+        //
+        // So they are SHOWN and DISABLED with the reason in the tooltip, not hidden.
+        // Hiding would teach the author that a wall cannot be joined, which is false —
+        // what does not exist is a MULTI-SUBJECT join. `Delete` is the one action that
+        // IS multi-subject today (`element.deleteBatch`, one undo entry) and stays
+        // live. When a bulk verb is built for another operation, that operation's row
+        // moves here and its button comes alive on its own.
+        if (this._selectedIds.length > 1) {
+            this._refreshMultiSelectionButtons(this._selectedIds.length);
             this._clearActiveOpHighlight();
             return;
         }
@@ -824,6 +992,12 @@ export class ContextualEditBar {
                 // Delete
                 case 'DELETE': case 'BACKSPACE': {
                     console.log('[ContextualEditBar] Del → Delete');
+                    // §MULTI-SELECT-SHIFT (L-1552) — the KEY and the BUTTON take the
+                    // same route. `initUI.deleteSelected` and `BimService.deleteSelected`
+                    // were already two routes that had drifted apart once
+                    // (§GRID-CONTEXTUAL-EDIT); a third, multi-selection-only divergence
+                    // between the key and the button is the same defect again.
+                    if (this._deleteSelectedSet()) break;
                     this._service.deleteSelected();
                     break;
                 }
@@ -944,6 +1118,19 @@ export class ContextualEditBar {
      * and return null. Never throws, never returns silently.
      */
     private _resolveOperationTarget(opLabel: string): { id: string; type: string } | null {
+        // §MULTI-SELECT-SHIFT (L-1552) — this resolver returns ONE id, so it is the
+        // right place to refuse a set. The buttons are already disabled at N>1, but
+        // the single-letter KEYBOARD shortcuts (J/X/F/L/S/O/E) route here directly and
+        // never look at a button, so without this arm they would arm against the
+        // primary and edit one element out of N.
+        if (this._selectedIds.length > 1) {
+            this._declineOperation(
+                opLabel,
+                `${this._selectedIds.length} elements are selected and this operation acts on one `
+                + `element at a time. Select a single element.`,
+            );
+            return null;
+        }
         if (!this._selectedObj) {
             this._declineOperation(opLabel, 'nothing is selected');
             return null;

@@ -27,6 +27,11 @@ import { elementRegistry as bimElementRegistry } from '@pryzm/core-app-model/ele
 // §FIX-PICK-CACHE-STORE-BUS (L-1194) — the family-agnostic store channel every
 // ElementStore must publish through (§3.5). Replaces enumerating DOM event names.
 import { storeEventBus } from '@pryzm/core-app-model';
+// §MULTI-SELECT-SHIFT (L-1550) — the SelectionBus is the C27 §4 authority on WHAT IS
+// SELECTED. `MarqueeSelectionTool`, in this same package, already imports it; this
+// class is the surface that until now did not, which is precisely why the bus went
+// stale on every plain 3-D click.
+import { selectionBus } from '@pryzm/core-app-model';
 import { SelectionBoundsRegistry, buildDefaultSelectionBoundsRegistry } from './SelectionBoundsRegistry.js';
 import { startSpan } from './otel.js';
 import type { ISelectionManager } from '@pryzm/engine';
@@ -116,6 +121,28 @@ function isObjectEffectivelyVisible(obj: THREE.Object3D): boolean {
  */
 export class SelectionManager implements ISelectionManager {
     selectedObject: THREE.Object3D | null = null;
+
+    // ── §MULTI-SELECT-SHIFT (L-1550) — SHIFT+click add/toggle on the 3-D viewport ──
+    //
+    // The founder's ask (item 0.1) is "multi select elements via SHIFT + another
+    // element". The model to hold that set ALREADY EXISTED — `selectionBus` carries
+    // `currentIds` and `selectMany`, and `applyMarqueeHighlights` below paints the
+    // secondary set — but the only producer was `MarqueeSelectionTool` (SHIFT+DRAG).
+    // A SHIFT+CLICK reached `performSelection` and was handled as an ordinary click,
+    // replacing the set.
+    //
+    // `performSelection` calls `select()` from FIVE different branches (hover-anchor
+    // fast path, curtain-wall parent, curtain-wall sub-element, instanced pick, and
+    // the general path). Branching on the modifier at each of them would be five
+    // chances to disagree, so the modifier is latched here for the duration of one
+    // gesture and consumed inside `select()` — one modifier, one behaviour, every
+    // branch. It is CONSUMED (not merely read) so that any nested `select()` the
+    // additive path itself provokes runs the ordinary path.
+    private _additivePick = false;
+
+    /** True while `_applyAdditivePick` owns the bus round-trip, so `select()`'s
+     *  own bus mirror does not fire in the middle of it and collapse the set. */
+    private _suppressBusMirror = false;
     // §SELECT-HIGHLIGHT-GEOMETRY — may be a single Mesh (registry mesh path /
     // box fallback) OR a Group of geometry-overlay clones (the default for
     // walls/doors/windows/columns/furniture/stairs…).  clearHighlight() disposes
@@ -1345,6 +1372,14 @@ export class SelectionManager implements ISelectionManager {
                         } else {
                             this.unselectAll();
                         }
+                        // §MULTI-SELECT-SHIFT (L-1550) — Escape clears the whole SET.
+                        // `unselectAll()` drops `selectedObject` (the primary) and the
+                        // secondary marquee highlights, but the BUS is what every other
+                        // surface reads, and it was left holding the ids. Guarded so it
+                        // is a no-op when the wrapper above already cleared the bus.
+                        if (!selectionBus.isDispatching && selectionBus.currentIds.length > 0) {
+                            selectionBus.clearAll('3d-canvas');
+                        }
                     }
                 }
             }
@@ -1580,11 +1615,22 @@ export class SelectionManager implements ISelectionManager {
         if (gizmoLiveDragging || this.isTransforming) return;
         if (window.isCameraDragging && userDraggedThisGesture) return;
 
+        // §MULTI-SELECT-SHIFT (L-1550) — latch the modifier for THIS gesture, AFTER
+        // the drag/transform guards above (a click that merely ended an orbit must
+        // not leave the latch armed) and BEFORE the first `select()` branch, so all
+        // five of them inherit the same answer. Cleared in the `finally` below, so a
+        // `select()` called from anywhere else can never inherit a stale latch.
+        // `MarqueeSelectionTool` claims SHIFT+DRAG and explicitly declines to consume
+        // a SHIFT+click that never crossed its 4 px threshold ("Shift+click still
+        // propagates normally"), so the two do not collide: drag → marquee, click → this.
+        this._additivePick = (event as { shiftKey?: boolean }).shiftKey === true;
+
         // MEDIUM-4: OTel span covering the full pick-to-select pipeline.
         // Attributes are set before the span ends so Honeycomb/Jaeger can
         // show strategy + hit outcome without needing a second query.
         const _pickSpan = startSpan('pryzm.selection.pick', {
             'pryzm.selection.strategy': this._pickStrategy?.id ?? 'none',
+            'pryzm.selection.additive': this._additivePick,
         });
 
         try {
@@ -2046,11 +2092,67 @@ export class SelectionManager implements ISelectionManager {
         }
 
         } finally {
+            // §MULTI-SELECT-SHIFT (L-1550) — the latch lives for exactly one gesture.
+            this._additivePick = false;
             _pickSpan.end();
         }
     }
 
+    /**
+     * §MULTI-SELECT-SHIFT (L-1550) — apply a SHIFT+click as an add/toggle against
+     * the SelectionBus set. Returns TRUE when it handled the intent, FALSE when the
+     * caller should fall through to the ordinary replace-selection path.
+     *
+     * FALSE is returned for a pick with NO RESOLVABLE ELEMENT ID — either no
+     * `userData.id` at all, or the synthetic `instanced-group-<key>` handle that
+     * `InstancedElementRenderer` stamps on a shared InstancedMesh. That handle is
+     * truthy but names no store row (§FIX-SELECTION-PAYLOAD-INSTANCED-ID, L-813), so
+     * adding it to the set would put an id in the selection that every downstream
+     * command refuses — a multi-selection that silently cannot be deleted. Falling
+     * through to a plain select is the honest outcome: the user sees ONE element
+     * selected rather than a set with a poisoned member. In practice the pick paths
+     * resolve instanced elements to their per-instance id and pass it as
+     * `elementIdOverride`, so this arm is the guard, not the normal case.
+     */
+    private _applyAdditivePick(obj: THREE.Object3D, elementIdOverride?: string): boolean {
+        const id = elementIdOverride ?? (obj.userData?.id as string | undefined);
+        if (!id || id.startsWith('instanced-group-')) return false;
+
+        const current = selectionBus.currentIds;
+        if (current.includes(id)) {
+            // Already in the set → SHIFT+click removes it (the CAD convention, and
+            // the same rule `PlanViewInteraction` has applied since it gained shift).
+            selectionBus.toggle(id, '3d-canvas');
+            return true;
+        }
+
+        // ADD. The primary highlight/gizmo/inspector is applied LOCALLY first,
+        // because the bus reaches back through `selectById(primary)`, whose scan
+        // matches `userData.id` — and for an instanced element the per-instance id is
+        // NOT on any Object3D, so that scan finds nothing and the primary would be
+        // left unhighlighted. Doing it here keeps instanced and non-instanced
+        // elements on the same path. The bus mirror inside `select()` is suppressed
+        // for the duration so it does not collapse the set to `[id]` a moment before
+        // `selectMany` restores it.
+        this._suppressBusMirror = true;
+        try {
+            this.select(obj, elementIdOverride);
+        } finally {
+            this._suppressBusMirror = false;
+        }
+        selectionBus.toggle(id, '3d-canvas');
+        return true;
+    }
+
     private select(obj: THREE.Object3D, elementIdOverride?: string) {
+        // §MULTI-SELECT-SHIFT (L-1550) — CONSUME the gesture latch. Consuming rather
+        // than reading is what makes the re-entrant call from `_applyAdditivePick`
+        // (and the one the bus makes through `selectById`) run the ordinary path
+        // instead of recursing.
+        if (this._additivePick) {
+            this._additivePick = false;
+            if (this._applyAdditivePick(obj, elementIdOverride)) return;
+        }
         if (this.selectedObject === obj && elementIdOverride === undefined) return;
 
         this.unselectAll();
@@ -2144,6 +2246,50 @@ export class SelectionManager implements ISelectionManager {
                 elementType: obj.userData?.elementType ?? obj.userData?.type,
                 source: '3d',
             });
+        }
+
+        // ── §MULTI-SELECT-SHIFT (L-1550) — MIRROR THE 3-D SELECTION INTO THE BUS ──
+        //
+        // THE DIVERGENCE THIS CLOSES. `selectionBus` is documented (C27 §4, and its
+        // own class docblock) as "the single source of truth for element selection
+        // events across all PRYZM surfaces" — and `PlanViewCanvas`, `AIPanel` and
+        // `ZeroTokenChatBridge` all read `selectionBus.currentIds` as THE selected
+        // set. But NOTHING wrote a plain 3-D click into it. `selectById` came IN from
+        // the bus; nothing went OUT. So after clicking a wall in the 3-D viewport the
+        // bus still reported the PREVIOUS selection: "delete selected" in chat acted
+        // on the wrong element, the plan canvas painted the wrong element as
+        // selected, and a subsequent SHIFT+click would have added to a set the user
+        // had already replaced. The 3-D viewport and the plan view genuinely
+        // disagreed about what was selected, in the direction that is hardest to
+        // notice — the 3-D highlight, which is what the user is looking at, was right.
+        //
+        // `isDispatching` is the recursion guard. A `select()` reached FROM the bus
+        // (plan-view click, project-browser row, marquee primary) must not echo back:
+        // the bus's own `_inFlight` source guard cannot stop it, because a mirror
+        // labelled `'3d-canvas'` differs from the `'plan-view'` source in flight and
+        // would pass — collapsing a plan-view multi-selection to a single element.
+        //
+        // AN UNRESOLVABLE PICK IS MIRRORED AS *NOTHING SELECTED*, NEVER AS ITSELF.
+        // When the pick lands on an `InstancedElementRenderer` group and no
+        // per-instance id was resolved, `elementId` is the synthetic
+        // `instanced-group-<key>` handle: truthy, but naming no store row
+        // (§FIX-SELECTION-PAYLOAD-INSTANCED-ID, L-813). Mirroring it would put an id
+        // in the bus that every downstream command refuses — chat's "delete
+        // selected" would refuse, the plan canvas would highlight nothing, and each
+        // would look like its own separate bug. Leaving the PREVIOUS set in place is
+        // no better: that is the stale-bus divergence this mirror exists to close.
+        // So the set is emptied through `dispatch` rather than `clearAll`, because
+        // `clearAll` calls back into `unselectAll()` and would tear down the
+        // highlight this method just applied — the user is looking at a highlighted
+        // group; what they must not get is a second surface naming an id for it.
+        if (elementId && !this._suppressBusMirror && !selectionBus.isDispatching) {
+            if (elementId.startsWith('instanced-group-')) {
+                if (selectionBus.currentIds.length > 0) {
+                    selectionBus.dispatch({ type: 'clear', source: '3d-canvas', elementIds: [] });
+                }
+            } else {
+                selectionBus.select(elementId, '3d-canvas');
+            }
         }
     }
 

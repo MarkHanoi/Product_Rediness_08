@@ -57,6 +57,8 @@ import { initUI }             from './initUI';
 import { inspectModeCoordinator }  from './inspect/InspectModeCoordinator';
 import { comparisonEngine }        from '@pryzm/core-app-model';
 import { batchCoordinator, selectionBus } from '@pryzm/core-app-model';
+// §MULTI-SELECT-SHIFT (L-1553) — id -> element kind, for the multi-selection census.
+import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model';
 // §L-391-R-B — the session JWT the sync server verifies on the WS upgrade.
 import { getStoredToken } from '@pryzm/core-app-model';
@@ -313,6 +315,15 @@ export async function bootstrap(
         inspector.update(null);
         viewPropertiesPanel.hide();
         highlighter.clear();
+        // §MULTI-SELECT-SHIFT (L-1550) — this wrapper IS the deselect intent (Escape,
+        // tool teardown, post-delete). `selectionManager.unselectAll()` drops the
+        // primary and the secondary highlights but not the BUS SET, which is what
+        // PlanViewCanvas / AIPanel / ContextualEditBar read. Leaving it populated made
+        // Escape look like it worked in 3-D while every other surface still believed
+        // N elements were selected.
+        if (!selectionBus.isDispatching && selectionBus.currentIds.length > 0) {
+            selectionBus.clearAll('3d-canvas');
+        }
     };
     const updateInspector = (obj: THREE.Object3D | OBC.View) => {
         viewPropertiesPanel.hide();
@@ -412,6 +423,30 @@ export async function bootstrap(
     selectionBus.setSelectionManager(selectionManager);
     aiService.setSceneAccessor(() => (world.scene as any)?.three ?? null);
     console.log('[EngineBootstrap] OI-044/045: selectionBus + aiService scene accessor wired.');
+
+    // ── §MULTI-SELECT-SHIFT (L-1553) — the property panel must be HONEST at N > 1 ──
+    //
+    // `updateInspector` renders ONE element's editable fields. With a SHIFT+click
+    // multi-selection it would be handed the PRIMARY and would render its fields
+    // with nothing on screen saying the other N-1 elements were also selected — so
+    // a typed edit would land on one element while the author believed it applied
+    // to the set. `showMultiSelection` refuses to show fields it cannot honour and
+    // states the count and the kind census instead.
+    //
+    // Subscribed on the BUS rather than on `bim-selection-changed`, because the
+    // count is a property of the SET and `bim-selection-changed` carries a single
+    // object — the event cannot answer "how many".
+    selectionBus.subscribe((ev) => {
+        if (ev.type !== 'select' && ev.type !== 'clear') return;
+        const ids = selectionBus.currentIds;
+        if (ids.length > 1) {
+            const kinds = ids.map((id) => elementRegistry.getStoreType(id) ?? 'element');
+            inspector.showMultiSelection(ids, kinds);
+        }
+        // N <= 1 is left alone: the single-select path (updateInspector) and the
+        // deselect path (unselectAll → inspector.update(null)) already own it, and
+        // re-rendering here would fight them for the panel on every click.
+    });
 
     // F.events.4 — Route cross-panel element selection through typed runtime.events bus.
     // Replaces the window.addEventListener('pryzm-element-selected') removed from SelectionManager.init().

@@ -239,10 +239,71 @@ export class MarqueeSelectionTool {
         const corners = new Array(8).fill(0).map(() => new THREE.Vector3());
 
         const hits = new Set<string>();
+        // §MULTI-SELECT-SHIFT (L-1551) — scratch for the instanced-group expansion.
+        const instMatrix = new THREE.Matrix4();
+        const instBox    = new THREE.Box3();
 
         for (const obj of cache) {
             const id = obj.userData?.id;
             if (!id) continue;
+
+            // ── §MULTI-SELECT-SHIFT (L-1551) — INSTANCED GROUPS ARE NOT ONE ELEMENT ──
+            //
+            // THE DEFECT THIS CLOSES. `getSelectableCache()` deliberately includes
+            // `InstancedElementRenderer` group meshes (BUG-04), and the group mesh's
+            // `userData.id` is the SYNTHETIC `instanced-group-<key>` handle. So a
+            // marquee over a row of plain walls put `instanced-group-…` into the
+            // selection set: truthy, so no guard tripped, but naming no store row —
+            // exactly the shape of §FIX-SELECTION-PAYLOAD-INSTANCED-ID (L-813), which
+            // fixed it for the CLICK path and left the marquee alone. Worse than a
+            // miss: it selects ONE id standing for the whole group, so the whole group
+            // reads as selected while every command against it refuses.
+            //
+            // It also selected all-or-nothing on the GROUP's union AABB, which for a
+            // level's worth of walls spans the entire storey — a small marquee in one
+            // corner "selected" every wall on the level, and none of them by an id
+            // anything could act on.
+            //
+            // Each occupied slot is now tested on its OWN per-instance box and
+            // contributes its OWN element id — the same resolution `bvh-pick.ts`'s
+            // marquee path performs, which is where this logic is proven.
+            // §INSTANCE-GROUP-SPILL (L-1400) shards a key into N InstancedMeshes of
+            // 512; each shard is its own cache entry with its own slot table, so
+            // sharding needs no special handling here — it is simply more groups.
+            const ud = obj.userData as {
+                isInstancedGroup?: boolean;
+                getOccupiedInstanceSlots?: () => Iterable<number>;
+                getInstanceElementId?: (slot: number) => string | undefined;
+            };
+            if (ud.isInstancedGroup === true) {
+                const im = obj as unknown as THREE.InstancedMesh;
+                if (
+                    typeof ud.getOccupiedInstanceSlots !== 'function' ||
+                    typeof ud.getInstanceElementId !== 'function' ||
+                    typeof im.getMatrixAt !== 'function'
+                ) {
+                    // No slot table: the group cannot be resolved to real ids, and the
+                    // synthetic handle is not one. Skip it rather than poison the set.
+                    continue;
+                }
+                const geom = im.geometry;
+                let localBox = geom.boundingBox;
+                if (!localBox) { geom.computeBoundingBox(); localBox = geom.boundingBox; }
+                if (!localBox) continue;
+                im.updateWorldMatrix(true, false);
+                for (const slot of ud.getOccupiedInstanceSlots()) {
+                    const memberId = ud.getInstanceElementId(slot);
+                    if (memberId === undefined) continue;
+                    im.getMatrixAt(slot, instMatrix);
+                    instMatrix.premultiply(im.matrixWorld);
+                    instBox.copy(localBox).applyMatrix4(instMatrix);
+                    if (instBox.isEmpty()) continue;
+                    if (this._boxHitsRect(instBox, corners, v, cam, W, H, rL, rR, rT, rB, windowMode)) {
+                        hits.add(memberId);
+                    }
+                }
+                continue;
+            }
 
             let box: THREE.Box3;
             try {
@@ -252,62 +313,74 @@ export class MarqueeSelectionTool {
             }
             if (box.isEmpty()) continue;
 
-            corners[0].set(box.min.x, box.min.y, box.min.z);
-            corners[1].set(box.max.x, box.min.y, box.min.z);
-            corners[2].set(box.min.x, box.max.y, box.min.z);
-            corners[3].set(box.max.x, box.max.y, box.min.z);
-            corners[4].set(box.min.x, box.min.y, box.max.z);
-            corners[5].set(box.max.x, box.min.y, box.max.z);
-            corners[6].set(box.min.x, box.max.y, box.max.z);
-            corners[7].set(box.max.x, box.max.y, box.max.z);
-
-            // E1: Project to NDC then convert to canvas pixel coordinates.
-            // Only include corners within the view frustum (v.z in [-1, 1]).
-            // Corners behind the near plane (v.z < -1) have flipped NDC x/y
-            // after perspective divide, producing a misleading screen AABB that
-            // can cover the entire viewport and select wrong elements.
-            // If an element spans the near plane (some corners behind, some in
-            // front) we conservatively expand to the full viewport — better to
-            // over-select than to silently discard a visible element.
-            let minSx =  Infinity, minSy =  Infinity;
-            let maxSx = -Infinity, maxSy = -Infinity;
-            let inFront = 0;
-            let clipped = 0;
-
-            for (let i = 0; i < 8; i++) {
-                v.copy(corners[i]).project(cam);
-                // v.z in NDC: -1 = near plane, +1 = far plane.
-                if (v.z < -1 || v.z > 1) { clipped++; continue; }
-                inFront++;
-                const sx = (v.x * 0.5 + 0.5) * W;
-                const sy = (1 - (v.y * 0.5 + 0.5)) * H;
-                if (sx < minSx) minSx = sx;
-                if (sy < minSy) minSy = sy;
-                if (sx > maxSx) maxSx = sx;
-                if (sy > maxSy) maxSy = sy;
-            }
-
-            // Skip elements with no corners inside the view frustum.
-            if (inFront === 0) continue;
-
-            // Element spans the near plane: some corners are behind the camera.
-            // Conservative expansion to full viewport prevents missed selections.
-            if (clipped > 0) { minSx = 0; minSy = 0; maxSx = W; maxSy = H; }
-
-            if (windowMode) {
-                // Window: element FULLY enclosed.
-                if (minSx >= rL && maxSx <= rR && minSy >= rT && maxSy <= rB) {
-                    hits.add(id);
-                }
-            } else {
-                // Crossing: any overlap between projected AABB and marquee rect.
-                const overlapX = maxSx >= rL && minSx <= rR;
-                const overlapY = maxSy >= rT && minSy <= rB;
-                if (overlapX && overlapY) hits.add(id);
+            if (this._boxHitsRect(box, corners, v, cam, W, H, rL, rR, rT, rB, windowMode)) {
+                hits.add(id);
             }
         }
 
         return Array.from(hits);
+    }
+
+    /**
+     * Project a world AABB to screen space and test it against the marquee rect.
+     *
+     * §MULTI-SELECT-SHIFT (L-1551) — extracted from `_collectHits` so the
+     * instanced per-slot path and the ordinary per-object path share ONE
+     * projection rule. They differ only in where the box comes from; if they also
+     * differed in how it is tested, an instanced wall and a plain wall inside the
+     * same rectangle could disagree about whether they were caught by it.
+     *
+     * E1 (unchanged, moved): only corners inside the view frustum contribute.
+     * Corners behind the near plane have flipped NDC x/y after the perspective
+     * divide and would produce a screen AABB covering the whole viewport. An
+     * element that SPANS the near plane is conservatively expanded to the full
+     * viewport — better to over-select than to silently drop a visible element.
+     */
+    private _boxHitsRect(
+        box:        THREE.Box3,
+        corners:    THREE.Vector3[],
+        v:          THREE.Vector3,
+        cam:        THREE.Camera,
+        W: number, H: number,
+        rL: number, rR: number, rT: number, rB: number,
+        windowMode: boolean,
+    ): boolean {
+        corners[0]!.set(box.min.x, box.min.y, box.min.z);
+        corners[1]!.set(box.max.x, box.min.y, box.min.z);
+        corners[2]!.set(box.min.x, box.max.y, box.min.z);
+        corners[3]!.set(box.max.x, box.max.y, box.min.z);
+        corners[4]!.set(box.min.x, box.min.y, box.max.z);
+        corners[5]!.set(box.max.x, box.min.y, box.max.z);
+        corners[6]!.set(box.min.x, box.max.y, box.max.z);
+        corners[7]!.set(box.max.x, box.max.y, box.max.z);
+
+        let minSx =  Infinity, minSy =  Infinity;
+        let maxSx = -Infinity, maxSy = -Infinity;
+        let inFront = 0;
+        let clipped = 0;
+
+        for (let i = 0; i < 8; i++) {
+            v.copy(corners[i]!).project(cam);
+            // v.z in NDC: -1 = near plane, +1 = far plane.
+            if (v.z < -1 || v.z > 1) { clipped++; continue; }
+            inFront++;
+            const sx = (v.x * 0.5 + 0.5) * W;
+            const sy = (1 - (v.y * 0.5 + 0.5)) * H;
+            if (sx < minSx) minSx = sx;
+            if (sy < minSy) minSy = sy;
+            if (sx > maxSx) maxSx = sx;
+            if (sy > maxSy) maxSy = sy;
+        }
+
+        if (inFront === 0) return false;
+        if (clipped > 0) { minSx = 0; minSy = 0; maxSx = W; maxSy = H; }
+
+        if (windowMode) {
+            // Window: element FULLY enclosed.
+            return minSx >= rL && maxSx <= rR && minSy >= rT && maxSy <= rB;
+        }
+        // Crossing: any overlap between projected AABB and marquee rect.
+        return maxSx >= rL && minSx <= rR && maxSy >= rT && minSy <= rB;
     }
 
     /** Tear down listeners (called only on engine shutdown — not during normal use). */

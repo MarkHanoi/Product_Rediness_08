@@ -65,6 +65,15 @@ export class PropertyPanelAdapter {
     }
 
     /**
+     * §MULTI-SELECT-SHIFT (L-1553) — pass-through for the N>1 panel state.
+     * See `PropertyPanel.showMultiSelection` for why this is a distinct state and
+     * not a render of the primary element.
+     */
+    public showMultiSelection(ids: readonly string[], kinds: readonly string[]): void {
+        this.panel.showMultiSelection(ids, kinds);
+    }
+
+    /**
      * Mirrors PropertyInspector.update(obj).
      * - THREE.Object3D   → showElement (full property panel)
      * - null / undefined → showViewProperties (Phase 2.2 default inspector state)

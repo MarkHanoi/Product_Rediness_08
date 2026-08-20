@@ -183,15 +183,86 @@ class SelectionBus {
     }
 
     /**
+     * §MULTI-SELECT-SHIFT (L-1550) — THE one implementation of SHIFT+click
+     * add/toggle semantics.
+     *
+     * Every surface the founder clicks on (3-D viewport, plan view, split-view
+     * plan pane) needs the SAME answer to "shift-click an element": add it if it
+     * is not in the set, remove it if it is, clear the set when removing the last
+     * one. Before this method that logic was written out longhand in
+     * `PlanViewInteraction._dispatchPlanSelection` and NOWHERE ELSE — the 3-D
+     * viewport had no shift-click at all — so a second surface could only be
+     * added by copying it, which is how two surfaces come to disagree.
+     *
+     * The newly-added id becomes the PRIMARY (last in the set), matching what a
+     * plain click means: the thing you just clicked is the thing the inspector,
+     * the gizmo and the Contextual Edit Bar describe.
+     *
+     * Returns the resulting set (defensive copy), so a caller can act on the
+     * count without a second read racing another surface.
+     */
+    toggle(id: string, source: SelectionSource = '3d-canvas'): string[] {
+        if (!id) return this.currentIds;
+        const current = this._currentIds;
+        if (current.includes(id)) {
+            const rest = current.filter((x) => x !== id);
+            if (rest.length === 0) this.clearAll(source);
+            else                   this.selectMany(rest, source, /* additive */ false);
+            return this.currentIds;
+        }
+        // ADD — appended last, so the clicked element is the primary.
+        this.selectMany([...current.filter((x) => x !== id), id], source, /* additive */ false);
+        return this.currentIds;
+    }
+
+    /**
+     * §MULTI-SELECT-SHIFT (L-1550) — is a dispatch from this bus currently on the
+     * call stack?
+     *
+     * `SelectionManager.select()` now mirrors every 3-D selection back into this
+     * bus, because until L-1550 it did NOT and the bus's `currentIds` went stale
+     * on every plain 3-D click (see the class docblock). But `selectMany()` and
+     * `select()` reach the SelectionManager themselves, so the mirror has to know
+     * when it is looking at its own reflection. The `_inFlight` source guard
+     * cannot answer that for the manager: a plan-view dispatch arrives with
+     * source `'plan-view'`, and a manager echoing back as `'3d-canvas'` would
+     * pass the guard and collapse a plan-view multi-selection to one element.
+     */
+    get isDispatching(): boolean {
+        return this._inFlight !== null;
+    }
+
+    /**
      * Dispatch a selection event to all subscribers.
      * Handlers are called synchronously in registration order.
      * Any handler error is caught and logged — does not abort remaining handlers.
      */
     dispatch(event: SelectionEvent): void {
-        if (event.elementIds.length > 0) {
-            this._currentId = event.elementIds[0] ?? null;
+        // §MULTI-SELECT-SHIFT (L-1550) — THE SET AND THE PRIMARY NOW AGREE.
+        //
+        // This block used to read `this._currentId = event.elementIds[0]`, which
+        // CONTRADICTED `selectMany()` two hundred lines above: selectMany sets the
+        // primary to the LAST id ("[…others, primary]", per its own docblock and
+        // `currentIds`' docblock) and then called dispatch, which immediately
+        // overwrote it with the FIRST. So after any multi-select, `currentId`
+        // named a different element than the one holding the gizmo and the
+        // inspector. It never showed up while the only multi-select producer was
+        // the marquee (whose consumers read `currentIds`); SHIFT+click makes the
+        // primary load-bearing.
+        //
+        // It also never updated `_currentIds`, so the ONE external raw-dispatch
+        // caller (`initDataPlatform`, a data-workbench row select) left the set
+        // stale — the bus reported the previous selection to every consumer that
+        // reads the set. State is now derived here, in one place, for the two
+        // event types that MEAN a selection change; 'highlight' / 'isolate' /
+        // 'focus-camera' are decorations over the current selection and must not
+        // rewrite it.
+        if (event.type === 'select') {
+            this._currentIds = [...new Set(event.elementIds)];
+            this._currentId  = this._currentIds[this._currentIds.length - 1] ?? null;
         } else if (event.type === 'clear') {
-            this._currentId = null;
+            this._currentIds = [];
+            this._currentId  = null;
         }
         for (const handler of this._handlers) {
             try {
