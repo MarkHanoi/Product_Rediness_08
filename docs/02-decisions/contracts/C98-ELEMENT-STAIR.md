@@ -917,3 +917,84 @@ runs nowhere. Same class as the tread pair, and it closes the same way. **L-1434
 | **R11** | **A horizontal host that does not CONTAIN the footprint is not pierced** — and the nearest one is never pierced instead | `StairHorizontalHostPiercing.ts` — `hostsContainingFootprint`, log names the measured/unmeasurable counts | ✅ the L-949 rule, generalised to two more families |
 | **R12** | **The derived level span DECLARES when it is a fallback** (`basis: 'fallback-top-only'`) rather than reporting a span it did not derive | same file, `stairPiercedLevelIds` | ✅ C74 — an unresolved input is not drawn as a value |
 | **R13** | **An undo record naming an unregistered family leaves the void and SAYS SO** | `unpierceStairHorizontalHosts` | ✅ a visible void beats a silent one |
+
+### §16.6 — `By Walls`: the third axis-member, its refusals, and ⛔ **the arm it is deliberately NOT declared behind yet**
+
+> **Founder, verbatim:** *"…or **select 2 walls** [and] create the stair in **L shape against
+> the walls**."*
+
+**It is `By Slab`, for stairs — not a new idea.** The wall tool (`elementCreationMatrix` :248) and
+the railing (:390) already ship `{ id: 'byslab', …, isAction: true }`: a pill that DERIVES the sketch
+from geometry that exists instead of from clicks. The stair's member is therefore **`bywall`** — same
+lowercase no-hyphen id form, same `isAction`, same pre-activation **selection SNAPSHOT**, for the
+reason **L-1103** records: `ToolManager.activateTool` calls `selectionManager.setEnabled(false)`, so a
+By-* mode that reads the LIVE selection *after* activation asks a question activation destroyed —
+**unsatisfiable, not flaky**.
+
+#### §16.6.a — MUST. **No relationship is recorded on the created stair** — and this is the contract's answer, not a shortcut
+
+⭐ **Measured, not assumed.** Neither wall's nor railing's `byslab` records an edge back to its source
+slab: `handrailAuthoring.setHandrailBySlabTarget` holds a transient `_pendingBySlabId`, consumed at
+creation and discarded, and the created elements carry no `sourceSlabId`. **By Slab is an
+authoring-time derivation, not a persisted association.**
+
+The contract route confirms it, and **the hop is written down here so the next lane does not
+re-derive it**: [C78](C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md) **§3.1** states that
+**[C71](C71-GRAPH-AND-TOPOLOGY.md) owns the relationship vocabulary and C78 owns nothing of it** — so
+the question is answered in **C71 §2**, not in C78. Of C71 §2.1's REQUIRED nine, **none is "the walls
+this stair was authored against"**: `boundedBy` is room ↔ wall, `hostedBy` is the opening-in-host
+pair, `sitsOn` is dependency scheduling. Minting a new member falls under **C71 §2.6** — writer,
+**typed reader**, rebuild disposition and delete behaviour **in one PR** — and **C71 §2.5** rules a
+writer-first addition *"a defect, not progress."* **There is no reader for this edge, so the correct
+action is to record nothing.** ⛔ A `sourceWallIds` field with nothing honouring it would be
+**C78 §3.3's forbidden third state**.
+
+#### §16.6.b — MUST. Four refusals, each carrying **BOTH numbers**
+
+`apps/editor/src/engine/views/plantools/stairByWalls.ts` · `planStairByWalls()` — pure, no DOM, no
+store reads. Every refusal carries machine-readable `found` / `required` / `unit` **and** states both
+in prose:
+
+| Code | Found vs required | Why it refuses rather than approximating |
+|---|---|---|
+| `WALL_COUNT` | walls selected vs **2** | Also names the trap: activation clears the selection, so both walls must be picked first (L-1103) |
+| `NOT_PERPENDICULAR` | the angle measured vs **90° ± 5°** | *"An L-stair's landing is a rectangle: against walls 63.43° apart there is no square corner for it to sit in, so the run that turns would leave the wall it is meant to follow."* |
+| `NO_SHARED_CORNER` | the miss in metres vs **0.5 m** | Two perpendicular walls at opposite ends of a room still intersect **as lines**. That is not a corner, and "perpendicular" alone would have accepted them |
+| `RUN_TOO_SHORT` | wall available vs run needed | Shows its working: risers, goings, and the minimum tread the numbers came from |
+
+⚠ **Both tolerances are DOMAIN BANDS, not epsilons (C73 §2.1).** A wall drawn in LINEAR mode is never
+exactly 90°, and a 3 mm tremor over 6 m is ~0.03°; 5° tolerates the hand and refuses the intent.
+
+#### §16.6.c — MUST. The limits come from the **one** authority
+
+`planStairByWalls` calls **`resolveStairGeometryLimits()`** (§STAIR-ONE-LIMIT-AUTHORITY, L-1430) and
+⛔ **re-declares no minimum of its own.** That is the module `CreateStairCommand.canExecute` and the
+sketch solver read, so a plan this function accepts cannot be refused downstream for a tread the two
+layers measured differently — the live **C84 EI-3** breach this family carried the same night.
+
+#### §16.6.d — The second run's side is **DERIVED**
+
+Against two walls there is exactly one quadrant the stair can occupy, so `secondRunSide` follows from
+the corner's handedness rather than from the param panel's Left/Right control. **A picker offering a
+choice the geometry has already made is a control that lies.** Pinned by mirroring the corner and
+asserting the handedness flips.
+
+#### §16.6.e — ⛔ **`bywall` is NOT on the mode strip yet, and that is the ruling, not an oversight**
+
+**AS-IS 2026-08-20:** the **planner is shipped and gated**
+(`__tests__/stairByWalls.spec.ts`, **9 tests**), including an EI-3 proof that feeds the planned
+points to the **real `StairPathToolController`** and asserts a **real `CreateStairCommand`** comes
+out with two flights and no refusal. ⛔ **The `bywall` member is NOT declared in
+`elementCreationMatrix`,** because the remaining arm — a two-wall PICK flow mirroring
+`_pickSlabThen`, plus feeding the planned points into the live tool — **can only be honestly proven
+in a browser**, and a mode declared on the strip whose arm is unproven is **C84 EI-3 live**.
+
+⭐ **This follows the precedent this very file records** for the slab and wall closed-loop modes:
+*"It shipped PLAN-ONLY first and SAID SO rather than minting a `WallDrawingMode` member with no arm
+behind it… The enum members landed WITH the arm, in one commit."*
+
+**Exit condition — the ONE PR that closes this:** a `_pickWallsThen(2, …)` helper in
+`ToolsAreaLayout` (mirroring `_pickSlabThen`), `feedClick` exposed on the published
+`window.stairPathTool` API, the `bywall` member added to both stair rows **in the same commit as that
+arm**, and a browser confirmation that the three planned points reach the tool. **Until then the
+capability is `planStairByWalls`, reachable from code and named here — not offered to the architect.**
