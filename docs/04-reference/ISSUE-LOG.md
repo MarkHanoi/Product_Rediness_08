@@ -23492,3 +23492,88 @@ unrelated setting happens to be off"* is a **fuse**, not a guarantee — and not
 setting stays off. The durable fix is that `envMap` must not be stamped per material from a source
 whose lifetime is a renderer's; the cheap guard is to refuse to stamp an `isRenderTargetTexture`
 env map at all.
+
+---
+
+## L-1442 … L-1445 — RAC2, chat grammar (2026-08-20, commit `8bf83999`)
+
+- **L-1442 §FIX-DIMENSION-PROPERTY-FIRST + §FEAT-CHAT-STAIR-WIDTH** — English puts the property
+  first (*"change **width** of all stairs to X"*) and the shared dimension grammar required
+  `<verb> <scope> <noun>`. **Missing for ALL FOUR dimension families**, not stairs alone. Fixed in
+  the shared extractor. Stair width contained by returning `checkStairGeometry`'s **own** refusal
+  record, so the chat's "no" and the command's "no" are one sentence from one source.
+- **L-1443 §FEAT-CHAT-BARE-TREAD** — *"change tread to X"* missed by one word (the matcher required
+  *"tread depth"* / *"going"*). ⭐ **Surfaced a live command defect: `UpdateStairParametersCommand`
+  validates `treadDepth` against MIN ONLY — *"change tread to 500mm"* was written and REPORTED AS
+  DONE.** The chat refuses it now; **the command still does not.** OPEN.
+- **L-1444 §REFUSE-STAIR-SPAN / §REFUSE-STAIR-RUN** — the two impossible sentences refuse and name
+  the working alternative (C16 CA-18). ⭐ The general truth stated once: **the vocabulary can address
+  whole ELEMENTS, not a PART inside one.** Railings are the sole exception, and only because they
+  are separate elements.
+- **L-1445 §GATE-FANOUT-RATCHET** — shrink-only ceiling of **3** over the whole `EXECUTION_SPECS`
+  table. ⛔ **C78 §12.1 is a MUST — one gesture is ONE undo unit — so fan-out is a BREACH, not an
+  exception.** §12.3 names the compliant fix (`gestureId` threading); it needs a bridge-side half
+  outside ai-host's seam. **The breach has been live and uncited since room-occupancy shipped.**
+- ⛔ **OPEN, MEASURED, NOT FIXED:** built-in stair types **LOOSEN** the minima
+  (`timber-closed` / `residential-timber` declare `minTreadDepth: 0.220` against a default `0.250`)
+  and the resolver has no `typeId`. ⭐ **Enforcing the default would mint a FALSE REFUSAL from a
+  safety check** — worse than not checking. Needs `stairTypeIdOf` on `ResolverContext`
+  (the `resolveWallSystemType` precedent). **Bears directly on the open 250-vs-220 founder decision.**
+
+---
+
+## L-1490 … L-1494 — JOIN2, mitred joins lost on reopen (2026-08-20, commit `f947d138`)
+
+- **L-1490 §WALL-JOIN-LOAD-SKIP** — founder-reported, **live since 2026-07-02**. The deferred join
+  resolve **FIRED and its result was DISCARDED** — shape (c) of four, not "never scheduled".
+  `_flush`'s no-progress guard skips a flush whose level **store-geometry signature** is unchanged
+  — and ⭐⭐ **a join changes no store geometry** (`§FIX-WALL-JOIN-BASELINE-IMMUTABLE`, L-44/46/47,
+  keeps the stored baseline immutable; the mitre lives only in ephemeral `JoinData`). **The signal
+  gating the resolve is structurally incapable of ever reporting the resolve is needed.** Compounded
+  by a C13 leak: `_resetState()` never cleared `_lastFlushLevelSig`, so the pre-close session's
+  signatures survived the project switch and the reopened project hashed byte-identically.
+  ⭐ **The founder's "why does creating an element fix it?": it does not repair the joins — it changes
+  the level's geometry signature, which RELEASES a gate that had been refusing the repair. The
+  repair was already queued; creating an element is what grants it permission.**
+- **L-1491** — ⭐ **the optimisation's premise was FALSE and cited the artefact that says the
+  opposite.** It claimed the persisted baseline *"is the trimmed/welded line, persisted verbatim by
+  §WALL-JOIN-SAVE-FIX"*; that section explicitly saves `_sourceBaseLine`, **"the user-drawn,
+  pre-join-resolution baseline"** — and the immutability invariant landed **eight days AFTER** the
+  optimisation shipped. **So restore was never deferring the join; it was shipping UNJOINED
+  geometry.** The founder's screenshots are the unresolved state, **not** the reverted
+  §CLAMP-COSHARE-WELD doubling.
+- **L-1492 … L-1494** — the deferral now reports completion per level
+  (`§WALL-JOIN-LOAD-DEFER-DONE`) with counts, plus a 30 s watchdog naming any level still unjoined.
+  **The restore line no longer states an intent as if it were an outcome.** C85 §10.6 added
+  (normative, JOIN-1…JOIN-4: the join is DERIVED not persisted, and a deferred derivation must be
+  GUARANTEED); C84 EI-7f added (derived state is exempt from the restore set **only if it is
+  actually re-derived** — named NOT MEASURED for every family but wall).
+- ⚠ **`element_import = 21,654 ms` is a DIFFERENT ROOT and was not chased.** That phase is chunked
+  with yields, so it is wall-clock across many yields, **not** a 21.6 s main-thread block — and it
+  completes *before* the flush that schedules the deferral. **The deferral was not starving; it ran
+  and was refused.** The number that judges the import is `§LOAD-CHUNKED`'s *"longest synchronous
+  chunk between yields"*, absent from the founder's excerpt. **Get that line before theorising.**
+
+---
+
+## L-1457 — ⭐ A CLEAN `git status` IS NOT EVIDENCE A CONTENDED FILE IS SAFE TO SPLICE
+
+**Near-miss, caught and restored; nothing lost. Recorded because the next one may not be caught.**
+
+Lane STAIRUX1 was asked to correct `C98 §16.6.e`. It ran `git status` (**clean**) and read the
+section with `sed` (**stale text**). ⭐ **Both readings were true at that instant.** Between the read
+and the write, the orchestrator committed `a7eaf004` correcting that very section. The lane's
+`head -n 981 + cat` splice therefore truncated **a committed correction**, not the stale paragraph it
+had read.
+
+⭐ **It was caught only because the lane ran `git diff` and READ THE DELETIONS before staging** — the
+deleted lines cited `0ac94491`, C04 §1.4/L-1413 and C100 §9.3, text that lane had never written. That
+mismatch stopped the commit. Restored path-scoped; verified by the orchestrator as **byte-identical
+to `a7eaf004`, zero diff**.
+
+⛔ **RULE: a line-offset rewrite (`head -n N`, `sed -n '1,Np'`) of a contended file is a WHOLE-FILE
+operation wearing a path-scoped mask — treat it like `git stash`.** It does not conflict and does not
+error; it silently deletes whatever moved below line N. **The safe form is an ANCHORED replacement
+that asserts on the text it expects to find and fails loudly when absent.**
+⭐ This is the existing *"re-grep after editing a contended file"* rule firing for real — one step
+later than it should have.
