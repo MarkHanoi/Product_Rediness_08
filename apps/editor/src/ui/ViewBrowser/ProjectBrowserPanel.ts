@@ -40,6 +40,13 @@ import { buildInspectPanel, type InspectPanelHandle } from '../inspect/InspectPa
 // SAME actions, so the actions are declared once and every surface renders them.
 import { renderGisActions } from '../gis/renderGisActions';
 import type { GisCapabilityHost } from '../gis/gisActionRegistry';
+// §GIS-PARCEL-REHOST (L-1582, C06 §13.3) — the ONE parcel-card producer, re-hosted into
+// this panel. Imported, never re-implemented: the map overlay mounts the same producer.
+import {
+    mountParcelSection,
+    GIS_PARCEL_SLOT_TESTID,
+    type ParcelSectionHandle,
+} from '../site/parcel/parcelPanelSection';
 
 // ── Section icon map ───────────────────────────────────────────────────────
 
@@ -111,6 +118,8 @@ export class ProjectBrowserPanel {
      *  Disposed + recreated each time the INSPECT section is rebuilt so the
      *  isolation animator + store subscriptions don't leak across re-opens. */
     private _inspectHandle: InspectPanelHandle | null = null;
+    /** §GIS-PARCEL-REHOST (L-1582) — the live parcel section's store subscription. */
+    private _parcelSection: ParcelSectionHandle | null = null;
 
     /** Founder 2026-08-10 — first-line AI chat launcher button (top of rail,
      *  directly under the PRYZM logo). Kept as a field so the active-state
@@ -170,6 +179,13 @@ export class ProjectBrowserPanel {
             // A.24 — when the Inspect rail panel is no longer the active section,
             // dispose its handle so the isolation animator + provenance store
             // subscription stop (they restart on the next open via _buildInspectPanel).
+            // §GIS-PARCEL-REHOST (L-1582) — drop the site-store subscription when the GIS
+            // panel is not the active rail panel. A subscription outliving its DOM is how a
+            // closed panel keeps re-rendering into a detached tree.
+            if (this._rail.activeId !== 'GIS' && this._parcelSection !== null) {
+                try { this._parcelSection.dispose(); } catch { /* defensive */ }
+                this._parcelSection = null;
+            }
             if (this._rail.activeId !== 'INSPECT' && this._inspectHandle !== null) {
                 try { this._inspectHandle.dispose(); } catch { /* defensive */ }
                 this._inspectHandle = null;
@@ -848,6 +864,33 @@ export class ProjectBrowserPanel {
         sep.style.cssText = 'height:1px;background:var(--app-border-light);margin:10px 0 2px;';
         root.appendChild(sep);
         root.appendChild(renderGisActions(window as unknown as GisCapabilityHost));
+
+        // ── §GIS-PARCEL-REHOST (L-1582, C06 §13.3 · C57 §1.4) — the PARCEL DATA card ──
+        //
+        // Founder 2026-08-20: "there was a panel for each parcel with data. This panel should
+        // be a section under the GIS panel … Check and bring it back — it is not accessible
+        // now!" It was never deleted. It was built inside a closure in `SiteBoundaryMap2D`
+        // (`showParcelCard`), so it lived and died with the map modal and no other surface
+        // could mount it.
+        //
+        // ⛔ NOTHING IS RE-IMPLEMENTED HERE — the same rule the envelope slot below states.
+        // `parcelCard.ts` is the ONE producer; the map overlay mounts it too. A second
+        // hand-written parcel card would give two GIS surfaces that can disagree about
+        // whether a ring is a legal cadastral parcel or an OSM building outline, which is
+        // the C06 §13.3 breach with a legal consequence attached.
+        //
+        // Unlike the envelope, the producer is a MODULE in this app rather than a closure
+        // inside `GISAreaLayout`, so it is imported directly instead of through a
+        // `window.pryzm*` seam — the same shape as the Site Inspector button above. There is
+        // therefore no "returned false" branch to interpret: `mountParcelSection` always
+        // renders something, and which of its three sentences appears (no boundary / not
+        // recorded / the full card) is decided by the store, in one place.
+        const parcelSlot = document.createElement('div');
+        parcelSlot.className = 'pb-gis-parcel-slot';
+        parcelSlot.setAttribute('data-testid', GIS_PARCEL_SLOT_TESTID);
+        root.appendChild(parcelSlot);
+        try { this._parcelSection?.dispose(); } catch { /* defensive */ }
+        this._parcelSection = mountParcelSection(parcelSlot, this.runtime);
 
         // ── §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — the buildability read-out ──
         //
