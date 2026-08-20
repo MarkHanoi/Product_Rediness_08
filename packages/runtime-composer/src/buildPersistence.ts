@@ -23,6 +23,7 @@
 // import('@pryzm/persistence-client') + import('@pryzm/stores') —
 // JSDOM tests that never touch persistence pay nothing.
 
+import { decideOpenDisposition } from './openCoalescing.js';
 import type { ProjectSummary } from '@pryzm/stores';
 import type { EventBus } from './EventBus.js';
 import type {
@@ -183,6 +184,11 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
 
   // ── openProject / closeProject — NO-RELOAD impl ──────────────────────────────
   let openProjectInflight: Promise<void> | null = null;
+  /**
+   * §FIX-OPEN-COALESCE-KEYED-ON-NOTHING — WHICH project the in-flight open is
+   * for. Without this, {@link openProject}'s de-duplication was keyed on NOTHING.
+   */
+  let inflightProjectId: string | null = null;
   let lastStatus: PersistenceStatus = { kind: 'idle', isDirty: false };
 
   const setStatus = (status: PersistenceStatus): void => {
@@ -203,7 +209,48 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
   };
 
   const openProject: PersistenceSlot['openProject'] = async (projectId, hint) => {
-    if (openProjectInflight !== null) return openProjectInflight;
+    // ⭐ §FIX-OPEN-COALESCE-KEYED-ON-NOTHING — THIS GUARD USED TO IGNORE `projectId`.
+    //
+    // It read `if (openProjectInflight !== null) return openProjectInflight;` — so
+    // ANY open requested while another was in flight was handed the OTHER one's
+    // promise. The async body below closes over the FIRST call's `projectId`, so
+    // `projectContext.set(...)`, the stream-load and `setProjectContext(...)` all
+    // ran for project A while the caller believed it had opened B. The promise
+    // then RESOLVED, which reports success.
+    //
+    // ⭐ The question that settles it: could B's open EVER win? No — not once, not
+    // by racing, not by timing. During the in-flight window B was unsatisfiable BY
+    // CONSTRUCTION, and the window is a network refresh plus an engine boot, so it
+    // is seconds wide on a real hub. Clicking a second card during a slow load
+    // silently opened the first one. That is the same shape as the reconciler
+    // defect one layer down: ONE VALUE ("an open is in flight") standing in for a
+    // DIFFERENT question ("the open YOU asked for is in flight").
+    //
+    // The two cases are now told apart:
+    //   • SAME id — a genuine duplicate (the four `launchWorkspace` call sites,
+    //     L-1282). Coalescing is correct and is preserved unchanged.
+    //   • DIFFERENT id — a real second request. It is CHAINED after the current
+    //     open rather than run concurrently: two overlapping opens would both
+    //     drive `projectContext` and `attachedSurface.setProjectContext`, giving a
+    //     last-writer-wins interleave of two engine loads, which is a worse defect
+    //     than the one being fixed. Sequencing makes the LAST-CLICKED project the
+    //     one the user ends on, which is what they asked for.
+    //
+    // ⚠ `.catch()` on the superseded promise is deliberate: a FAILED open of A
+    // must not prevent B from opening. Without it the recovery path (open A fails
+    // → user clicks B) would reject, and the escape hatch from a broken project
+    // would be a page reload.
+    const disposition = decideOpenDisposition(
+      { hasInflight: openProjectInflight !== null, inflightProjectId },
+      projectId,
+    );
+    if (disposition.kind === 'coalesce') return openProjectInflight as Promise<void>;
+    if (disposition.kind === 'supersede') {
+      return (openProjectInflight as Promise<void>)
+        .catch(() => undefined)
+        .then(() => openProject(projectId, hint));
+    }
+    inflightProjectId = projectId;
     openProjectInflight = (async (): Promise<void> => {
       try {
         // ── 1. Resolve project summary ─────────────────────────────────────
@@ -286,6 +333,7 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
         setStatus({ kind: 'idle', isDirty: false });
       } finally {
         openProjectInflight = null;
+        inflightProjectId = null;
       }
     })();
     return openProjectInflight;
