@@ -54,6 +54,8 @@ interface CommittedWall {
   thickness?: number;
   baseOffset?: number;
   systemTypeId?: string;
+  /** ⭐ C100 §2.1 / L-1461 — the MASTER catalogue id, forwarded alongside the hex. */
+  materialId?: string;
   materialColor?: string;
   layers?: ReadonlyArray<{ name: string; function: string; thickness: number; materialId?: string; materialColor?: string }>;
   /** §FIX-WALL-CURVE-PLAN-VS-3D-CREATION (2026-08-06) — quadratic-Bézier curve
@@ -325,6 +327,10 @@ export function wireCommandEventBridge(
             // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — forward the per-wall finish colour so
             // the legacy-store mirror renders it (the field was dropped here before).
             materialColor: w.materialColor ?? p.materialColor,
+            // ⭐ C100 §2.1 / L-1461 — forward the MASTER id, not only the hex beside it.
+            // A resolved colour is a CACHE, never an authority; forwarding only the cache
+            // is how a wall arrives at the render store unable to say what it is made OF.
+            materialId:   w.materialId ?? p.materialId,
             // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — forward the per-layer finish stack so the
             // legacy mirror builds a layered (per-face) wall.
             layers:       w.layers ?? p.layers,
@@ -369,6 +375,8 @@ export function wireCommandEventBridge(
               // §RESI-FACADE-COLOUR-PERSIST (2026-06-24) — carry the per-wall finish colour
               // through the batch fan-out (was dropped → façade walls rendered default grey).
               materialColor: w.materialColor ?? req.materialColor,
+              // ⭐ C100 §2.1 / L-1461 — same forward through the batch fan-out.
+              materialId:   w.materialId ?? req.materialId,
               // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack through
               // the batch fan-out so layered (per-face) shell walls render correctly.
               layers:       w.layers ?? req.layers,
@@ -914,6 +922,9 @@ export function wireCommandEventBridge(
             length?: number;
             height?: number;
             material?: string;
+            // ⭐ C100 §2.1 / L-1460 — the MASTER catalogue id. `material` above is the
+            // legacy four-value construction hint, not a material reference.
+            materialId?: string;
             color?: string;
             furnitureCategory?: string;
             kitchenConfig?: unknown;
@@ -932,6 +943,7 @@ export function wireCommandEventBridge(
             length:                p.length,
             height:                p.height,
             material:              p.material,
+            materialId:            p.materialId,      // C100 §2.1 / L-1460
             color:                 p.color,           // A.21.D4 — style colour
             furnitureCategory:     p.furnitureCategory,
             kitchenConfig:         p.kitchenConfig,
@@ -960,6 +972,7 @@ export function wireCommandEventBridge(
               length?: number;
               height?: number;
               material?: string;
+              materialId?: string;   // C100 §2.1 / L-1460 — the MASTER catalogue id
               color?: string;
               furnitureCategory?: string;
               kitchenConfig?: unknown;
@@ -983,6 +996,7 @@ export function wireCommandEventBridge(
               length:                f.length,
               height:                f.height,
               material:              f.material,
+              materialId:            f.materialId,    // C100 §2.1 / L-1460
               color:                 f.color,
               furnitureCategory:     f.furnitureCategory,
               kitchenConfig:         f.kitchenConfig,

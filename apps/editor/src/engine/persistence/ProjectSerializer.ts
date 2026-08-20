@@ -871,7 +871,14 @@ function serializeFurniture(f: any): any {
         startPoint: f.startPoint ? stripVec3(f.startPoint) : undefined,
         cornerPoint: f.cornerPoint ? stripVec3(f.cornerPoint) : undefined,
         endPoint: f.endPoint ? stripVec3(f.endPoint) : undefined,
-        lo3: f.lo3, material: f.material, color: f.color,
+        // ⭐ C100 §2.1 / L-1460 — `materialId` is PERSIST-OR-LOSE. `material` beside
+        // it is the legacy FOUR-VALUE construction hint (wood|metal|fabric|glass),
+        // not a material reference; writing only that is how the master's 205 rows
+        // were absent from every saved project. C84 EI-7a: write set = restore set —
+        // `ProjectLoader` reads this back through `CreateFurnitureCommand` (the gate's
+        // ARM E), because a field written and never read is the WORST persistence
+        // shape: the JSON a reviewer opens says it worked.
+        lo3: f.lo3, material: f.material, materialId: f.materialId, color: f.color,
         hasHeadboard: f.hasHeadboard,
         mark: typeof f.mark === 'string' ? f.mark : undefined,
         hostedSpaceId: typeof f.hostedSpaceId === 'string' ? f.hostedSpaceId : undefined,

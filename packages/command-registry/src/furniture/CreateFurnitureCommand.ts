@@ -25,6 +25,9 @@ export interface CreateFurniturePayload {
     seatDepthMain?: number;
     seatDepthSide?: number;
     material: FurnitureMaterial;
+    /** ⭐ C100 §2.1 / L-1460 — the MASTER catalogue id. `material` above is the
+     *  legacy four-value construction hint, not a material reference. */
+    materialId?: string;
     color?: string;
     hasHeadboard?: boolean;
     lo3?: number;
@@ -169,6 +172,10 @@ export class CreateFurnitureCommand implements Command {
                 seatDepthMain: this.payload.seatDepthMain,
                 seatDepthSide: this.payload.seatDepthSide,
                 material: this.payload.material,
+                // ⭐ C100 §2.1 / L-1460 — omitted when absent, so "names no material"
+                // and "names a material that resolves to nothing" stay different
+                // states on the record (C100 §5).
+                ...(this.payload.materialId ? { materialId: this.payload.materialId } : {}),
                 color: this.payload.color,
                 hasHeadboard: this.payload.hasHeadboard,
                 lo3: this.getLo3Value(),
@@ -345,6 +352,7 @@ export class CreateFurnitureCommand implements Command {
                     length: defaults.chairLength,
                     height: defaults.chairHeight,
                     material: this.payload.material,
+                    ...(this.payload.materialId ? { materialId: this.payload.materialId } : {}),
                     color: this.payload.color,
                     metadata: {
                         parentFurnitureId: this.createdId,

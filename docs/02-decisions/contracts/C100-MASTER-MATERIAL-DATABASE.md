@@ -596,6 +596,16 @@ And the loss compounds, so the four states must not be flattened (L-1038):
 | ⛔ **no `materialId` EXISTS to lose** | **`door`, `window`** — colour-only in the L0 schema (`Door.ts:59-60`, `Window.ts:57`). C100 §2.1's explicit MUST NOT, for two of the most-used families in the product |
 | **never reaches export** | **all of them** — zero `IfcMaterial` / `IfcMaterialLayerSet` / `IfcRelAssociatesMaterial` repo-wide. What exports is a raw colour scraped off the THREE mesh; the only material *strings* reaching IFC are free-text pset values. **Prose, not catalogue ids.** |
 
+> ⛔ **TWO ROWS OF THAT TABLE ARE CORRECTED 2026-08-20 (lane MAT2, L-1460 + L-1464), and
+> the correction is not a detail — it is about WHICH PATH was measured.** See **§9.10**.
+> In short: **`furniture` is in the wrong row** (it was never *"renders, then dies on save"*;
+> on the path production furniture travels there was **no `materialId` at any of five
+> layers** — the `door`/`window` mode, not the serializer mode), and **`wall`'s "works" is a
+> statement about the CODE that says nothing about the DATA** — measured, **no wall-creation
+> path assigns a top-level `materialId` at all**, so the one family that resolves has nothing
+> to resolve. ⭐ **"No material assigned" and "material assigned but not rendered" are
+> different defects**, and this table flattened them for the two families the founder named.
+
 ### §9.2 — The mechanical cause, and it is ONE thing
 
 `composeMaterialKey` — the only function that resolves a `materialId` against `MATERIAL_CATALOG` on
@@ -613,6 +623,16 @@ is minted *by* the resolver. That is precisely why wall is the one family that w
 ⛔ **`composeFamilyMaterialKey` — written expressly to extend that resolution to the other families,
 with a header naming handrail's defect as its motivation — has ZERO callers.** It has never run.
 §COMMITTED-IS-NOT-REACHABLE, inside the fix for the defect it was written to fix.
+
+> ⛔ **RESOLVED 2026-08-20 (MAT2, L-1462) — and NOT by giving it callers. It is DELETED.**
+> Re-measured on the day it was to be wired, it still had zero — and the reason is not neglect:
+> it imposed ONE key layout on every family, which **§9.6.b explicitly forbids**
+> (*"MUST NOT: this contract be cited to mandate a single key string layout"*). ⭐ Slices S16
+> and S17 converged **ten of the seventeen producers without it**, each calling
+> `resolveMaterialColorSlot` from inside its OWN minter — converging the VALUE and leaving the
+> FORMAT alone, which is what §9.6.b asks for. **So it was not the unfinished half of that
+> work; it was a rival to it**, and §9.6.a's rule is *"MUST NOT let a third appear"*. A third
+> exported resolver sitting unused is the next rival vocabulary with a head start.
 
 ### §9.3 — §8.1 S3 is RETRACTED: the coverage proof does not touch its subject
 
@@ -872,3 +892,206 @@ vocabulary this contract exists to prevent, so it was **measured**.
   than as §5's NAMED unresolved state. That is a product question about the default appearance of
   unauthored fabric, it is far larger than a file move, and settling it by relocation would be the
   guess this slice refused to make.
+
+---
+
+## §9.10 — The census measured the WRONG PATH for furniture, and "wall works" is a claim about code, not about data (measured 2026-08-20)
+
+> **Stamp**: 2026-08-20 · **Lane**: MAT2 · **Rows**: L-1460 – L-1464.
+> **Founder's question, verbatim**: *"Are you able to understand why all furniture and walls +
+> doors don't have materials associated? Is this since we target the materials of elements via
+> contract C100 to furniture etc.? That was done yesterday? Doors and windows often show, often
+> don't."*
+> ⚠ **This section CORRECTS §9.1 (two rows), §9.2, §9.7 (ARM F's declared pair) and §9.8 (four
+> stale slice states).** §9 was written to correct §4.3 and §8.1; this is §9 being corrected in
+> turn, and the recurrence is the finding, not an embarrassment.
+
+### §9.10.0 — The founder's causal question, answered: **NO**
+
+⛔ **Yesterday's C100 work did not cause this, and the evidence is a path measurement, not an
+opinion.**
+
+1. ⭐ **Walls could not have been touched.** Every C100/material commit of 2026-08-19 was
+   enumerated and its file list read: **not one touches `packages/geometry-wall/`.**
+   `WallFragmentBuilder.ts` — which owns `createWallMaterial()`, the colour authority for every
+   plain, curved, opening-bearing, CSG and creased wall arm — has **no material-lane commit in
+   its history at all.** A file that was not edited cannot have regressed.
+2. ⭐ **Furniture, door and window WERE edited, and each landed with an explicit
+   nothing-repaints construction that was verified rather than asserted.** Furniture's new
+   family default `#a78b6e` is **byte-identical to `hashMaterialId('')`**, the value the
+   pre-existing djb2 bridge already returned for an unmaterialled item. Door's ladder carries
+   rungs 5–7 for exactly this purpose — *"every door that has no finish id renders the
+   byte-identical colour it rendered before this file existed."*
+3. ⭐ **Every arm of the gate moved the RIGHT way across that day**: ARM A 2 → **0**,
+   ARM B 8 → **0**, ARM C 17 → 13 → **10 routed**. Nothing regressed; the census is what made
+   a long-standing gap countable.
+4. ⛔ **And a DRAFT contract cannot alter what renders.** §9 is the document that *measured*
+   the gap. Measurement is not mutation.
+
+⭐ **What he is seeing is OLD, and the honest framing is that the census made it VISIBLE rather
+than made it true.** For furniture the wrong colour was *stable and tasteful* — §9.4's point
+about why the djb2 palette survived so long — so it read as a design decision until somebody
+counted.
+
+### §9.10.1 — ⛔ Furniture is in the WRONG ROW of §9.1, because the census measured a path production does not travel
+
+§9.1 files `furniture` under *"renders, then DIES ON SAVE — its per-family serializer writes no
+`materialId`"*. §9.8 S16 records the furniture producer as ROUTED, with its own real-DTO test,
+and the gate's ARM C agrees. **All of that is true and none of it reaches the founder's screen.**
+
+`initTools.ts` §FT-FURNITURE states the reason in its own words: the PRYZM-3
+`CreateFurniturePayload` *"does NOT match the legacy `FurnitureData` model … and no bus→legacy
+bridge existed"*. The live path is therefore:
+
+```
+furniture.create / furniture.batch.create
+  -> CommandEventBridge       -> 'furniture.created' event
+  -> initTools §FT-FURNITURE  -> geometry-furniture FurnitureStore  (legacy FurnitureData)
+  -> FurnitureFragmentBuilder -> 62 builders -> MaterialService.getMaterial(color: number)
+```
+
+⛔ **`materialId` existed on NONE of those five layers.** Not on the payload, not on the event,
+not on the runtime record, not in the builder, not in `serializeFurniture`. So furniture's
+material was **not lost — it had never been reachable**, which is the `door`/`window` mode
+(*"no `materialId` EXISTS to lose"*), not the serializer mode.
+
+⭐ **§9.7's own sentence is the one that applies, one path over from where it was aimed:**
+*"'the serializer drops it' and 'there is no field to drop' are different defects with different
+fixes."* ARM D can only ever see the first. It saw the first.
+
+⭐ **And the founder's panel was telling him the truth the whole time.**
+`FurniturePropertySection.ts` renders a **read-only** row labelled **"Material"** whose value is
+`FurnitureData.material` — a **FOUR-VALUE** closed union `wood | metal | fabric | glass`, against
+a master of **205 rows**. Oak, walnut, ash and birch are all, and only, `wood`. *"Furniture
+doesn't have materials associated"* is a correct reading of the product.
+
+**CLOSED (L-1460)** — all five layers plus the read-back, in one change, because a field that
+renders and does not persist is the worst of the three states (§9.6.c step 2):
+`FurnitureData.materialId` · the `furniture.created` event contract · `CommandEventBridge` (both
+the single and the batch fan-out) · the §FT-FURNITURE mirror · `CreateFurnitureCommand` ·
+`serializeFurniture` (ARM D) · `ProjectLoader`'s hand-written payload (ARM E) · and the
+resolution itself at `FurnitureFragmentBuilder`'s single dispatch choke point, so it is **one
+call rather than sixty-two** and no builder can grow a ladder of its own.
+
+⚠ **The four-value `material` union is KEPT, not removed** — 62 builders read it and it drives
+geometry decisions (a glass shelf is built differently from a timber one). It is a **construction
+hint**; `materialId` is the **reference**. Conflating them is what made the hint look like the
+answer.
+
+⚠ **DECLARED DIVERGENCE (C84 EI-10): `materialId` outranks `color` on this path.** §2.1's ladder
+puts an explicit user OVERRIDE above the id. On this path `color` is **not** an override — the
+D-FLE furnish engine stamps it on **every** item it auto-places as a style default (A.21.D4) — so
+honouring it first would mean a chosen material could never render on auto-furnished furniture,
+which is the entire defect. *Retirement*: the moment `color` can be told apart from a generator
+default, which is §2.1's *"MUST be distinguishable"* clause, **unmet on this record shape**.
+
+### §9.10.2 — ⛔ `wall` "works", and that is why measuring the CODE was not enough
+
+§9.1 says *"exactly ONE — `wall` — has that id reach the rendered colour."* **True, and it does
+not mean a wall in the founder's project has a material.** Measured 2026-08-20, end to end:
+
+| link | measurement |
+|---|---|
+| `WallTool.createWall()` payload | `start, end, height, thickness, levelId, baseOffset, curve, systemTypeId` — ⛔ **no `materialId`** |
+| `WallPlanToolHandler._commitWall()` | same list — ⛔ **no `materialId`** |
+| `CreateWallCommand` | accepts `materialId?` and stamps it **verbatim, with no `??` fallback and no system-type read** → `undefined` |
+| the default system type `wt-monolithic` | the `WallSystemType` interface has **no `materialId` field at all**; its one layer carries `materialColor: '#e8e8e8'` — ⭐ **which IS `WALL_SCHEMATIC_MATERIAL`, the "no material" grey** |
+| the active type on a new project | `undefined` until the user picks one; the UI reads *"✓ Plain Wall ready…"* |
+
+⭐ **So the wall defect is NOT-ASSIGNED, not ASSIGNED-AND-DROPPED.** The resolver is wired and
+correct; nothing hands it an id. §CONTEXT-DATA-HONESTY, one level up from the code: *the data was
+never checked because the code never asked* — §9.5's own sentence, and it applies to wall too.
+
+⭐ **A THIRD measurement separates this from the same night's flat-white report.** The founder
+also reported *"all materials gone on the view"*, which lane RENDER3 closed as **L-1470: an OBC
+WebGL canvas sized 0×0 by an unguarded `ResizeObserver`, discarding every draw.** ⛔ **That is a
+different defect and must not be merged with this one.** The discriminator is decisive: a
+`materialId` that never reaches the pixel is **CONSTANT** — identical colours on every load,
+forever. *"Gone"* is a **STATE CHANGE**. A constant defect cannot explain a change, and a
+framebuffer cannot explain a wall that was never assigned a material.
+
+**MEASURED AND NOT FIXED, deliberately (L-1464).** Making `wt-monolithic` name a master row is a
+**product decision about the default appearance of unauthored fabric**, and §9.9 already left
+precisely that question open: *"NOT DECIDED HERE: whether an unmaterialled wall should render as
+light grey at all."* Guessing would repaint every wall in every project — the thing §9.6.b names
+as what would rightly get this convergence reverted. **It is the founder's call, and it is stated
+as a question rather than answered by a lane.**
+
+**FIXED in passing (L-1461)** — the plumbing that would have dropped an id if one existed. The
+§P2.1 bus→legacy wall mirror in `initTools.ts` copied `materialColor` and `layers` and **dropped
+`materialId`**, while the column, slab and handrail mirrors beside it all carry it. The
+`wall.created` event had no top-level `materialId` either. ⚠ **This changes nothing on screen
+today and the commit says so** — it exists so the field is not silently lost the moment a wall
+does name a material. The identical hole in this same whitelist has already cost this product the
+residential façade colour (§RESI-FACADE-COLOUR-PERSIST) and the plan-view curve
+(§FIX-WALL-CURVE-PLAN-VS-3D-CREATION).
+
+⭐ **One measurement that makes a future slice SAFE, recorded because a negative result is worth
+banking:** the **15** wall-system-type layers that carry both a `materialId` and a transcribed
+`materialColor` were checked against the master — **15 agree, 0 disagree, 0 missing.** So routing
+`layer.materialId` through the resolver (§2.2, so a master edit reaches placed walls) is a
+**zero-repaint** change today. ⛔ Not done here: `WallFragmentBuilder` is a 4,800-line file with
+three concurrent wall lanes in its recent history, and §8.3's concurrent-lane rule outranks the
+convenience of doing it in this one.
+
+### §9.10.3 — ⛔ Door and window: §9.1's row is now STALE, and the founder's "often show, often don't" is NOT a material defect
+
+§9.1 files `door` and `window` under *"no `materialId` EXISTS to lose."* **Superseded by slice
+S17, which shipped 2026-08-19** — the gate's **ARM A reads 0/0**, both families carry a master
+id, and both have a finish-colour resolver delegating to §9.6.a's single authority. Anyone
+reading §9.1 literally today will report a closed defect as open.
+
+⚠ **His actual symptom is INTERMITTENCY, and material resolution is deterministic.** The same id
+and the same catalogue produce the same hex every frame. *"Often show, often don't"* is a
+**variability** claim, and it belongs with the same night's instancing finding — **L-1401: past
+the 512-instance cap, window frame parts were drawn by nobody** (measured: the first casualty is
+window 52). ⭐ **Do not attribute an intermittent symptom to a deterministic mechanism.**
+
+### §9.10.4 — ⛔ ARM F's declared pair pointed at a DEAD FILE (L-1463)
+
+The gate's ARM F named `packages/core-app-model/src/stores/FurnitureTypes.ts` as Furniture's
+runtime record. **It is not.** There are **two** `FurnitureData` + `FurnitureStore`
+implementations, and production uses the other one: `initBuilders.ts:98` imports `FurnitureStore`
+from `@pryzm/geometry-furniture` and `:758` constructs the live `window.furnitureStore` from it;
+`ProjectSerializer.ts:55` imports the same one. Nothing outside `core-app-model/src/stores/`
+imports the copy the gate was reading.
+
+⭐ **So ARM F was reporting a TRUE statement about a file nothing renders from — and would have
+gone GREEN the moment somebody added a field to the dead copy.** This is §9.7's recurring shape
+— *"a gate that checks one spelling of a thing does not check the thing"* — with **spelling
+replaced by PATH**, which is strictly worse: a wrong spelling **under-reports**, a wrong path can
+be **SATISFIED without touching the product.** Corrected in the same commit that closed the
+family, because closing it was impossible until the arm was aimed at the live record.
+
+### §9.10.5 — Slice states, re-measured. ⛔ §9.8's numbers are STALE — read the gate
+
+| slice | §9.8 said | measured 2026-08-20 |
+|---|---|---|
+| **S15** | ARM D 5 → 3; `furniture` is "ARM F work, not serializer work" | ARM D **1**. `furniture` CLOSED (L-1460) — and it was BOTH, plus three layers §9.8 did not name. Only `plumbing` remains. |
+| **S16** | "IN PROGRESS — 17 → 13" | **17 → 10 routed, 7 unrouted** (curtain-wall ×3, linear-structural, dimension, room, slab). |
+| **S17** | "OPEN — largest, and C67/C68-bound" | **LARGELY CLOSED 2026-08-19** (MT3/MT4). ARM A **0/0**. |
+| **ARM F** | baseline 4 | **3** — `furniture` closed, after the arm was re-aimed (§9.10.4). |
+
+**⛔ Cite the gate, never this table.** It is a snapshot of a ratchet that moved three times in
+two days, and §9.8's rotting is the whole reason this row exists.
+
+### §9.10.6 — NAMED and NOT CLOSED, with the reason each is not a guess
+
+⭐ **A stated NOT-YET beats a claimed DONE — §9 exists because someone claimed the opposite.**
+
+| # | what | why it is not closed here |
+|---|---|---|
+| **S19** | ⛔ **Nothing can AUTHOR a furniture `materialId`.** The panel's "Material" row is read-only and shows the four-value hint; no verb carries an id. | The plumbing now exists end to end, but §6.1/§6.2 work (a panel control, a verb, a chat capability) is C67/C68-bound and is its own slice. ⚠ **Until it lands, L-1460 is reachable only by the loader and by a generator that supplies an id** — stated plainly rather than reported as "furniture materials work". |
+| **S20** | The wall default: should `wt-monolithic` name a master row? | ⛔ A **product decision**, identical in kind to the one §9.9 refused to settle by relocation. Repaints every wall if guessed. **Founder's call.** |
+| **S21** | Route `layer.materialId` through the resolver in `WallFragmentBuilder` (§2.2). | Measured **safe** (15/15 transcriptions agree, §9.10.2) but the file is concurrent-lane owned; §8.3 outranks convenience. |
+| **S22** | ARM C's remaining **7**: curtain-wall ×3, linear-structural, dimension, room, slab. | Untouched by this lane. `slab` is also concurrent-lane owned and was already deferred by §9.8. |
+| **S23** | ARM F's remaining **3**: `lighting`, `plumbing`, `stair`. | Each needs a runtime field **and** a writer **and** a reader — three links, not one. `stair` is **STAIR1-owned** this session. |
+| **S18** | IFC `IfcRelAssociatesMaterial` (C25). | Unchanged — nothing reaches export. |
+| — | ⛔ **A SECOND, DEAD `FurnitureData`/`FurnitureStore` pair** lives in `core-app-model/src/stores/`. | Found via §9.10.4, **not deleted**: proving a store is unreachable is a whole-repo claim, and deleting a barrel-exported type on a night with four live lanes is how a lane breaks three others. **Named, not removed.** |
+
+⚠ **What L-1460 does NOT prove**, so it is never read as coverage (C70 §7.1): that a frame was
+encoded; that the GPU-**instancing** arm (`setInstanceBridge`) carries the colour — it is not
+exercised; or that an executed `ProjectSerializer.serialize` writes the field (the write half is
+proven by **source parity** over the real function body, because hand-building its ~20-store
+bundle would be the §FAKE-MORE-CAPABLE-THAN-REAL trap). The reload half **is** executed against
+the real command and the real store.

@@ -24,6 +24,7 @@
     "./types": "./src/types/index.ts",
     "./batch": "./src/batch/index.ts",
     "./material-library": "./src/materialLibrary.ts",
+    "./material-resolution": "./src/materialResolution.ts",
     "./element-registry": "./src/ElementRegistry.ts",
     "./comparison": "./src/comparison/index.ts",
     "./remediation": "./src/remediation/index.ts",

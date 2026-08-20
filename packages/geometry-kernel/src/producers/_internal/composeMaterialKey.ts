@@ -125,20 +125,33 @@ export function composeMaterialKey(input: MaterialKeyInput): MaterialKey {
   return asMaterialKey(`wall|${sys}|${mat}|${col}|${lay}`);
 }
 
-/**
- * Compose a key for a family whose producer emits its own shape.
+/*
+ * ─── ⛔ `composeFamilyMaterialKey` WAS HERE. DELETED 2026-08-20 (L-1462). ──────
  *
- * Handrail's producer emits `handrail|<materialId>|rail` and its bridge threw the
- * id away, so every handrail in the product rendered one brown (C84 §4.3).  The
- * families that need a colour slot get one composed the same way as walls, so
- * there is ONE resolution rule rather than one per family.
+ * C100 §9.2 recorded it as *"written expressly to extend that resolution to the
+ * other families … has ZERO callers. It has never run."* Re-measured on the day it
+ * was to be given callers, it STILL had zero — and the reason is not neglect, it is
+ * that the shape is wrong.
+ *
+ * It imposed ONE key layout, `<family>|<materialId>|<color>|<slot>`, on every
+ * family. ⛔ **C100 §9.6.b forbids exactly that**: *"MUST NOT: this contract be
+ * cited to mandate a single key string layout … A family's slot count, order and
+ * extra slots stay its own."* §9.4 measured eighteen distinct layouts and found the
+ * bridges and minters AGREE with each other — the layouts were never the defect, so
+ * rewriting them would churn every parity snapshot for no user-visible gain.
+ *
+ * ⭐ Slices S16 and S17 converged ten of the seventeen producers WITHOUT it, each by
+ * calling {@link resolveMaterialColorSlot} from inside its OWN minter — converging
+ * the VALUE and leaving the FORMAT alone, which is what §9.6.b asks for. So this
+ * function was not the unfinished half of that work; it was a rival to it.
+ *
+ * It is DELETED rather than left in place with a caller invented for it, because
+ * §9.6.a's rule is *"MUST NOT let a third appear: the gate's ARM C keys on these two
+ * names"* — `resolveMaterialColour` (L2, T2→T1) and `resolveMaterialColorSlot`
+ * (kernel, T1-only). A third exported resolver sitting unused is the next rival
+ * vocabulary with a head start, and "it has no callers" is exactly what was said
+ * about the eight that C100 §1.1 traces.
+ *
+ * If a family ever genuinely needs a shared layout, it comes back as a caller-driven
+ * change with the caller in the same commit — never ahead of one.
  */
-export function composeFamilyMaterialKey(
-  family: string,
-  input: MaterialKeyInput & { readonly slot?: string | undefined },
-): MaterialKey {
-  const mat = input.materialId ?? '_';
-  const col = resolveColorSlot(input);
-  const slot = input.slot ?? 'default';
-  return asMaterialKey(`${family}|${mat}|${col}|${slot}`);
-}

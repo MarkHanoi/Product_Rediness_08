@@ -343,6 +343,11 @@ export interface RuntimeEvents {
     // mesh-building WallStore. Without this the residential façade colour (and any batch-created
     // wall's Color Override) was dropped between the Immer store and the legacy render store.
     readonly materialColor?: string;
+    // ⭐ C100 §2.1 / L-1461: the MASTER catalogue id this wall references. `materialColor`
+    // above is a RESOLVED CACHE of it; C100 §2.1 makes the id the authority and the hex the
+    // cache, so forwarding only the hex leaves the render store unable to re-resolve when the
+    // master changes (§2.2). Measured 2026-08-20: no interactive creation path sets it yet.
+    readonly materialId?: string;
     // §RESI-FACADE-INTERIOR-WHITE (2026-06-24): per-layer finish stack, forwarded so the legacy-store
     // mirror builds a LAYERED wall (exterior façade colour + interior white = per-face finishes).
     readonly layers?: ReadonlyArray<Readonly<{
@@ -697,6 +702,17 @@ export interface RuntimeEvents {
     readonly length?: number;
     readonly height?: number;
     readonly material?: string;
+    /**
+     * ⭐ C100 §2.1 / L-1460 — the MASTER catalogue id this furniture references.
+     *
+     * ⛔ Its absence was the first of five layers on which furniture's material had
+     * nowhere to live. `material` above is the legacy FOUR-VALUE construction hint
+     * (`wood|metal|fabric|glass`) against a master of 205 rows, and it is the field
+     * the property inspector labels "Material" to the user — so the panel truthfully
+     * reported that furniture has no material, because on this path it could not
+     * have one. See `FurnitureTypes.ts` `materialId` for the full trace.
+     */
+    readonly materialId?: string;
     readonly color?: string;            // A.21.D4 — style-driven colour (hex)
     readonly furnitureCategory?: string;
     readonly kitchenConfig?: unknown;

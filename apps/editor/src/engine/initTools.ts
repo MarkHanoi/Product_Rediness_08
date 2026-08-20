@@ -1229,6 +1229,25 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         // (the 3D mesh) AND the property panel — never copied it, so batch-created
                         // walls rendered the default grey and the panel showed the #888888 fallback.
                         ...(ev.materialColor !== undefined ? { materialColor: ev.materialColor } : {}),
+                        // ⭐ C100 §2.1 / L-1461 — carry the MASTER catalogue id too, not only
+                        // the resolved hex beside it. This whitelist copied `materialColor`
+                        // and dropped `materialId`, while the column, slab and handrail
+                        // mirrors below (`:1764`, `:1828`, `:2107`) all carry it — so the
+                        // omission was an oversight in THIS list, not a wall-specific rule.
+                        //
+                        // ⚠ It changes nothing on screen TODAY and that is stated rather than
+                        // hidden: measured 2026-08-20, no interactive wall-creation path
+                        // supplies a top-level `materialId` at all (`WallTool.ts:1917-1927`
+                        // and `WallPlanToolHandler.ts:619-630` both omit it, and the default
+                        // `wt-monolithic` system type carries none), so there is nothing yet
+                        // for this line to carry. It exists so that the moment a wall DOES
+                        // name a material — from the loader, from `wall.bulkSetVisuals`, or
+                        // from a system type that grows one — the plan-view path does not
+                        // silently drop it on the way to the mesh-building legacy store.
+                        // §COMMITTED-IS-NOT-REACHABLE, pre-empted: the identical hole cost
+                        // this same mirror the residential façade colour (§RESI-FACADE-COLOUR-
+                        // PERSIST) and the plan-view curve (§FIX-WALL-CURVE-PLAN-VS-3D-CREATION).
+                        ...(ev.materialId !== undefined ? { materialId: ev.materialId } : {}),
                         // §RESI-FACADE-INTERIOR-WHITE (2026-06-24) — carry the per-layer finish stack
                         // into the mesh-building legacy store so a layered shell wall renders the
                         // façade colour on its exterior layer + white on its interior layer (per-face).
@@ -2267,6 +2286,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     length:         ev.length ?? 0.6,
                     height:         ev.height ?? 0.9,
                     material:       (ev.material ?? 'wood') as FurnitureMaterial,
+                    // ⭐ C100 §2.1 / L-1460 — the MASTER catalogue id. `material` above is
+                    // the legacy FOUR-VALUE construction hint (`wood|metal|fabric|glass`)
+                    // against a master of 205 rows; it is what the property inspector shows
+                    // the user under the label "Material", which is why the founder's
+                    // furniture truthfully reported having none. Omitted when absent so a
+                    // record that names no material is not given an empty-string id — "no
+                    // material" and "an id that resolves to nothing" are different states
+                    // and C100 §5 requires them to stay different.
+                    ...(ev.materialId ? { materialId: ev.materialId } : {}),
                     properties:     {},
                     // A.21.D4 — forward the style-driven colour so the builders
                     // (which read data.color) render the brief's modern/classic/

@@ -311,7 +311,54 @@ export interface FurnitureData {
     lengthBranchTwo?: number;
 
     // Appearance
+    /**
+     * ⛔ A FOUR-VALUE RIVAL VOCABULARY against the master's 205 rows, and it is the
+     * field the property inspector labels **"Material"** to the user
+     * (`FurniturePropertySection.ts:151`, read-only). C100 §1.1's finding, sitting
+     * in a store: a user who picks *oak* and a user who picks *walnut* both see
+     * `wood`, because `wood` is all this field can say.
+     *
+     * ⚠ KEPT, not removed. It drives builder geometry decisions (a glass shelf is
+     * built differently from a timber one), and 62 builders read it. It is a
+     * **construction hint**, not a material reference — {@link materialId} is the
+     * reference (C100 §2.1). Both are needed; conflating them is what made the
+     * hint look like the answer.
+     */
     material: FurnitureMaterial;
+    /**
+     * ⭐ C100 §2.1 — the material this furniture REFERENCES, by id, in the master
+     * catalogue's vocabulary (`@pryzm/schemas/materials`, 205 rows).
+     *
+     * ─── ⛔ THE DEFECT THIS FIELD CLOSES (L-1460, measured 2026-08-20) ─────────
+     *
+     * C100 §9.1 records furniture under *"renders, then DIES ON SAVE"*, and §9.8
+     * S16 records the furniture producer as ROUTED — both measured against
+     * `geometry-kernel/producers/furniture.ts` → `plugins/furniture`'s committer.
+     * ⛔ **Production furniture does not travel that path.** `initTools.ts`
+     * §FT-FURNITURE says so in its own words: the PRYZM-3 `CreateFurniturePayload`
+     * *"does NOT match the legacy `FurnitureData` model … and no bus→legacy bridge
+     * existed"*, so every live placement route — plan tool, carousel drag-drop,
+     * kitchen, wardrobe, copy/paste and the whole D-FLE `furniture.batch.create`
+     * furnish run — is mirrored into THIS record and rendered by
+     * `FurnitureFragmentBuilder`.
+     *
+     * On that path `materialId` did not exist at ANY layer: not on the
+     * `furniture.create` payload, not on the `furniture.created` event, not on this
+     * record, not in the builder, not in `serializeFurniture`. So the master could
+     * not be lost — it had never been reachable. ⭐ *"The serializer drops it"* and
+     * *"there is no field to drop"* are different defects (C100 §9.7); this was the
+     * second, one whole path over from where the gate was looking.
+     *
+     * ⚠ PRECEDENCE (C100 §2.1, and the one deviation is declared): {@link color} is
+     * NOT treated as an override that outranks this id. On this path `color` is
+     * written by the D-FLE furnish engine as a **style default** for every item it
+     * places (A.21.D4), never by a user picking a colour — so honouring it first
+     * would mean a chosen material could never render on auto-furnished furniture,
+     * which is the entire defect. `materialId` therefore wins when present, and
+     * `color` remains the authority for every record that names no material, so
+     * nothing already on screen repaints (C100 §9.6.b).
+     */
+    materialId?: string;
     color?: string;
     hasHeadboard?: boolean;
 

@@ -16,6 +16,11 @@ import { FurnitureFactory } from './builders/FurnitureFactory';
 import { WardrobeEngine } from './engines/WardrobeEngine';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { furnitureWorldY } from './furnitureElevation';
+// ⭐ C100 §2.1 / §9.6.a / L-1460 — THE resolution authority, reached through the one
+// shared ladder rather than a private `userMaterialStore`+`materialHex` chain. See
+// furnitureMaterialColour.ts for why this path, and not the geometry-kernel producer
+// the C100 census measured, is the one the founder's furniture travels.
+import { withResolvedFurnitureColour } from './furnitureMaterialColour';
 import {
     furnitureCastsShadowUnderBudget,
 } from './furnitureShadowBudget';
@@ -206,9 +211,20 @@ export class FurnitureFragmentBuilder {
         // console, not silent), and (b) degrades to an empty group rather than aborting
         // the whole furniture rebuild. The underlying engine bug is then diagnosable
         // from the logged error instead of a blank 3D scene.
+        // ⭐ C100 §2.1 / L-1460 — RESOLVE THE MATERIAL ONCE, HERE, and hand every
+        // builder the answer. This is the single dispatch choke point for all 62
+        // builders plus the wardrobe engine, so resolving here is one call rather
+        // than sixty-two, and no builder can grow a rival ladder of its own
+        // (C100 §1.1 traces four rival vocabularies to exactly that).
+        //
+        // ⚠ It returns `data` UNCHANGED unless the record names a `materialId`, and
+        // no furniture record in any saved project carries one (the field did not
+        // exist until L-1460), so every existing item renders byte-identically.
+        const resolved = withResolvedFurnitureColour(data);
+
         try {
             // Use WardrobeEngine for wardrobes with config
-            if ((data.furnitureType === 'wardrobe' || data.furnitureType === 'wardrobe_glass_door' || data.furnitureType === 'corner_wardrobe') && data.wardrobeConfig) {
+            if ((resolved.furnitureType === 'wardrobe' || resolved.furnitureType === 'wardrobe_glass_door' || resolved.furnitureType === 'corner_wardrobe') && resolved.wardrobeConfig) {
                 // Ensure config has ID for consistency — clone first as data is frozen
                 const config = { ...data.wardrobeConfig } as any;
                 if (!config.id) config.id = data.id;
@@ -221,10 +237,10 @@ export class FurnitureFragmentBuilder {
                 }
 
                 // §09 F-08: do not dump full config object to console.
-                mesh = this.wardrobeEngine.create(config, data.color);
+                mesh = this.wardrobeEngine.create(config, resolved.color);
             } else {
-                const builder = FurnitureFactory.getBuilder(data.furnitureType, this);
-                mesh = builder.build(data);
+                const builder = FurnitureFactory.getBuilder(resolved.furnitureType, this);
+                mesh = builder.build(resolved);
             }
         } catch (err) {
             console.error(

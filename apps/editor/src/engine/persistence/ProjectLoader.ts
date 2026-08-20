@@ -1240,6 +1240,12 @@ export class ProjectLoader {
                         seatDepthMain: f.seatDepthMain,
                         seatDepthSide: f.seatDepthSide,
                         material: f.material ?? 'wood',
+                        // ⭐ C100 §2.1 / L-1460 — READ THE ID BACK. The gate's ARM E exists
+                        // because `slab` wrote a `materialId` the loader never listed, so the
+                        // saved file said it worked and the reloaded element had no material.
+                        // `serializeFurniture` now writes this; without this line it would be
+                        // that same defect, freshly minted.
+                        materialId: f.materialId,
                         color: f.color,
                         hasHeadboard: f.hasHeadboard,
                         lo3: f.lo3,
