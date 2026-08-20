@@ -487,6 +487,39 @@ wall undo, room boundaries are **recomputed from the post-undo wall set, not res
 Whether user-authored room name/number/finish survive that recompute is **NOT MEASURED**
 and is the single highest-value open question in this contract.
 
+**EI-7f — DERIVED state is exempt from "restore set" ONLY if it is actually re-derived.**
+*Added 2026-08-20, lane JOIN2 (L-1490), from the oldest live founder complaint in the queue.*
+
+EI-7a is an inequality over the **write set**. State a family deliberately does NOT write —
+recomputed at render time from state it does write — is legitimately outside it. ⭐ **But the
+exemption is conditional, and the condition was never stated, so it was never met.**
+
+> **EI-7f (NORMATIVE).** State that is deliberately DERIVED rather than persisted MUST be
+> **unconditionally recomputed on restore**. A restore path MAY defer that recomputation off the
+> critical load thread; it MAY NOT make it CONDITIONAL on a cache, signature or dirty-flag, and
+> it MUST report completion. **"Deferred and then forgotten" is neither restored nor derived —
+> it is a silent downgrade of what the user gets back, indistinguishable at every layer above
+> the renderer from a successful load.**
+
+*Measured, `wall`:* the wall MITRE is derived by construction — `§WALL-JOIN-SAVE-FIX`
+(`ProjectSerializer.ts:576`) persists the **pre**-join baseline and
+`§FIX-WALL-JOIN-BASELINE-IMMUTABLE` (L-44/46/47) forbids a join from ever persisting its trim, so
+the join lives only in the ephemeral `JoinData`. `§WALL-JOIN-LOAD-SKIP` deferred its re-derivation
+on restore and the deferral was then **discarded by a no-progress gate keyed on store geometry — a
+signal a join provably never moves.** For two months every reopened project rendered square-cut,
+overlapping, double-lined corners, repaired only when the user happened to create an element (which
+moved the signature and released the gate). Full mechanism and the three derived rules:
+[C85 §10.6](C85-ELEMENT-WALL.md#106-the-join-is-derived-not-persisted--and-a-derivation-that-is-deferred-must-be-guaranteed).
+
+⚠ **This is a WHOLE-SUITE question, not a wall question.** Every family with render-time derived
+geometry owes the same proof, and **none has been asked for it**: which state does this family
+derive rather than store, and what guarantees it is re-derived on restore? Candidates visible from
+here — slab weld seams, curtain-wall panel subdivision, stair stringer solves, room boundary
+polygons (§LOAD-REDETECT-FREEZE skips their redetect on load, which is SAFE **only because rooms
+ARE persisted and hydrated** — the same skip over an underived value is the wall defect exactly).
+⭐ **The discriminating question is one line: _is the thing the load skips actually stored?_**
+**NOT MEASURED for any family but `wall`.**
+
 ### EI-8 — ONE VOCABULARY PER CONCEPT
 
 A material, a profile or a shape has ONE canonical vocabulary. Transcribed copies are

@@ -799,6 +799,134 @@ failure that rule exists to prevent.
 
 ---
 
+## 10.6 THE JOIN IS DERIVED, NOT PERSISTED — and a derivation that is DEFERRED must be GUARANTEED
+
+> **Added 2026-08-20, lane JOIN2 (L-1490 / L-1491 / L-1493), from a founder-reported production
+> defect across six levels of a real project:** *"once the project closes and reopens, ALL mitred
+> joints, ALL joints are gone. Then if I create an element on this level all joins come back good.
+> WHY?"* This section is NORMATIVE. It is the INVERSE of §10.5: that section governs an
+> invalidation key that fires when it must not; this one governs a key that **can never fire at
+> all**.
+
+### 10.6.1 The settled answer: DERIVED. Written down because the code was neither.
+
+A wall's mitre is **not persisted, anywhere, and must not be.** Two rules make that binding, both
+in the founder's own voice, authored eight days apart:
+
+| rule | where | what it fixes |
+|---|---|---|
+| **§WALL-JOIN-SAVE-FIX** | `apps/editor/src/engine/persistence/ProjectSerializer.ts:576` | The snapshot writes **`_sourceBaseLine` — *"the user-drawn, pre-join-resolution baseline"*** in preference to `baseLine`. What lands on disk is the AUTHORED line. |
+| **§FIX-WALL-JOIN-BASELINE-IMMUTABLE** (L-44/46/47, 2026-07-02) | `apps/editor/src/engine/WallRebuildCoordinator.ts` | *"A join is a RENDER-TIME footprint operation … and must NEVER mutate/persist another wall's stored baseline."* Persisting the resolver's trim shrank an unrelated wall on a nearby create (L-47) and on a type change (L-46), and is the reverted `§CLAMP-COSHARE-WELD` doubled-wall hazard. |
+
+So the whole join result — the trimmed `JoinData.baseLine` and both miter normals `startMN` /
+`endMN` — lives **only** in the ephemeral `JoinData` that `WallJoinResolver.resolveLevel` returns
+and `WallFragmentBuilder.buildWall(wall, joinData, …)` consumes. Nothing writes it to a store.
+Nothing writes it to disk.
+
+⭐ **That is the right architecture — and note it does NOT owe C84 EI-7a a "write set = restore set"
+proof, because the join is not in the WRITE SET at all.** EI-7a is satisfied by derivation, on one
+condition, which is the entire point of this section:
+
+> ### C85-JOIN-1 (NORMATIVE)
+> State that is deliberately **DERIVED** rather than persisted MUST be **unconditionally
+> recomputed on restore.** A restore path MAY defer that recomputation off the critical load
+> thread; it MAY NOT make it CONDITIONAL, and it MUST report completion. **"Deferred and then
+> forgotten" satisfies neither half of EI-7a: it is not restored, and it is not derived.**
+
+### 10.6.2 What actually shipped, 2026-06-24 → 2026-08-20 — measured
+
+`§WALL-JOIN-LOAD-SKIP` (2026-06-24) skips the whole-level resolve on restore. Its stated premise:
+
+> *"the persisted wall geometry is ALREADY join-resolved (the store `baseLine` is the trimmed/welded
+> line the last resolve produced, persisted verbatim by ProjectSerializer §WALL-JOIN-SAVE-FIX)"*
+
+⛔ **False in every clause — and it cites the artefact that says the opposite.** §WALL-JOIN-SAVE-FIX
+saves the **pre**-join line. §FIX-WALL-JOIN-BASELINE-IMMUTABLE, authored **eight days later**,
+forbids the trim from ever being persisted. From 2026-07-02 the restore path was not DEFERRING the
+join — it was **SHIPPING UNJOINED GEOMETRY**: every wall built at its full authored length with
+square end caps, so at a corner the two boxes **overlap and double-line**. That is exactly what the
+founder photographed. The companion claim — *"any residual cap difference is sub-frame"* — was the
+whole defect, described as a rounding error.
+
+⭐ **The asymmetry with the neighbouring `§LOAD-REDETECT-FREEZE` optimisation is the tell, and it
+generalises.** Skipping room redetect on load is SAFE because rooms **are persisted and hydrated** —
+the skip elides a recomputation whose result is already present. Skipping the join resolve elides a
+recomputation whose result is present **nowhere**. Two optimisations of the same shape, one sound
+and one not, separated by exactly one question:
+
+> ⭐⭐ **Before writing a load-time skip, ask: IS THE THING I AM SKIPPING STORED?** If it is not,
+> the skip is not a deferral — it is a silent downgrade of what the user gets.
+
+### 10.6.3 Why it never repaired itself — and the founder's *"WHY?"*
+
+The deferred resolve was **scheduled, and it fired.** Both measured
+(`apps/editor/__tests__/wallJoinLoadDeferredResolve.measure.test.ts`). It was **fired-and-discarded**
+— killed at a gate before `resolveLevel` was ever reached: `§FIX-WALLFLUSH-NOPROGRESS-GUARD`, which
+skips a flush whose level **store-geometry signature** (`_levelWallSig`) is unchanged since the last
+completed flush.
+
+> ⭐⭐ **A join changes no store geometry — by the very invariant in §10.6.1. So the signature
+> gating the deferred join resolve is STRUCTURALLY INCAPABLE of ever reporting that the resolve is
+> needed.** This is §10.5's rule read from the other end: there, a key too WIDE re-ran a solve that
+> could not be affected; here, a key too NARROW refused a solve it could not represent. **Same
+> error — the key does not describe what the computation reads or writes.**
+
+Two conditions then had to coincide, and on a reopen they always do:
+
+1. `_resetState()` — the C13 project-switch teardown — cleared `_prevJoinMap`, `_lastBuildKey` and
+   `_pendingRebuildKey` but **not `_lastFlushLevelSig`**, so the previous session's per-level
+   signatures survived the project switch. **A per-project cache that outlives the project is a C13
+   isolation breach whatever it is keyed on** (L-1493).
+2. Reopening the SAME project hashes **byte-identically** — the ids are persisted and the baselines
+   are immutable by construction — so `anyProgress` is false and the deferred flush returns early.
+
+⭐ **The founder's *"WHY?"*, answered: creating an element does not repair the joins. It moves the
+level signature, which RELEASES the gate, letting through the resolve that had been queued and
+refused all along.** The repair was never missing. The permission was.
+
+⚠ **This exact symptom is recorded ONE SCREEN UP in the same file, for a different field.**
+`_levelWallSig`'s own `§WALL-RAKE-INVALIDATION` note: *"a rake-only edit left this signature
+byte-identical, the no-progress gate below returned early, and the ENTIRE flush was skipped … Any
+later edit to any wall on the level moved the signature and the already-stored rake finally got
+built."* The rake case was fixable by folding the field INTO the signature. **A join cannot be — it
+has no store field to fold.** A guard defeatable by *"there is no field for this"* needs an explicit
+carry, not a wider hash.
+
+### 10.6.4 NORMATIVE — the three rules this cost
+
+> **C85-JOIN-2 — a restore that ships unjoined geometry must SAY SO to the pipeline.**
+> `_flushRestore` MUST mark every level it builds with `joinData = null`, and no no-progress /
+> burst / memo guard may suppress a flush for a marked level. The mark clears only when that
+> level's whole-level resolve **completes** (`_joinUnresolvedLevels`).
+>
+> **C85-JOIN-3 — a deferral MUST report its own completion, per level, with the count it resolved.**
+> `§WALL-JOIN-LOAD-DEFER-DONE` on success; `§WALL-JOIN-LOAD-DEFER-WATCHDOG` naming the still-unjoined
+> levels if it does not arrive. ⭐ **A deferral with no completion signal is indistinguishable from
+> one that never happened — which is how this survived from 2026-06-24 to 2026-08-20 while its log
+> line announced the INTENT on every single load.** A log that states a plan is not evidence of the
+> plan.
+>
+> **C85-JOIN-4 — C13 teardown MUST clear EVERY per-project cache in the wall pipeline.** Enumerated
+> today: `_pendingWallEvents`, `_prevJoinMap`, `_lastBuildKey`, `_pendingRebuildKey`,
+> `_genPendingIds`, `_resolveCountByLevel`, `_lastFlushLevelSig`, `_flushBurst`,
+> `_joinUnresolvedLevels`.
+
+**Proven at the layer the user experiences** — `apps/editor/__tests__/wallJoinSurvivesReload.test.ts`
+resolves a mitred room, serialises it the way §WALL-JOIN-SAVE-FIX does, closes the project, reopens
+it through the restore flush, pumps 60 frames, and asserts the **JoinData the builder was handed**
+(trimmed baseline + both miter normals) is byte-identical to pre-save. ⛔ Deliberately NOT an
+assertion that `resolveLevel` was called, or that a scheduler was invoked: **both of those passed
+throughout the entire period the product rendered square joints.** Measured RED before the fix (4/4
+walls `SQUARE-CUT(no joinData)`), GREEN after.
+
+> ⚠ **NOT-YET (stated, not claimed closed).** The fix guarantees the derivation RUNS; it does not
+> shorten the window in which the user sees square caps. On a large building the deferred resolve
+> lands after the chunked load settles, so there is a real interval of unjoined rendering. Whether
+> that window is acceptable, or whether the join must become a first-class persisted+restored
+> artefact after all, is a founder decision this section deliberately leaves open — see L-1494.
+
+---
+
 ## 11. THE DELTA
 
 Ordered by what the user loses.

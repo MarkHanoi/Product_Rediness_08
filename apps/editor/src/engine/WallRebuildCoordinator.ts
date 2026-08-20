@@ -332,6 +332,42 @@ export class WallRebuildCoordinator {
     private static readonly _FLUSH_NOPROGRESS_MAX = 8;
     private static readonly _FLUSH_WINDOW_MS = 1_000;
 
+    /**
+     * §WALL-JOIN-LOAD-DEFER (L-1490, founder 2026-08-19) — levels whose walls were built
+     * from a RESTORE flush with `joinData = null` and are therefore still UNJOINED on
+     * screen, awaiting the deferred whole-level resolve `_flushRestore` scheduled.
+     *
+     * ⛔ WHY THIS SET HAS TO EXIST, RATHER THAN THE GUARD ABOVE JUST WORKING:
+     * `_lastFlushLevelSig` is a signature over STORE geometry. A join changes NO store
+     * geometry — §FIX-WALL-JOIN-BASELINE-IMMUTABLE (L-44/46/47) makes the stored baseline
+     * immutable under a join re-resolve, and the mitre lives entirely in the ephemeral
+     * `JoinData` (trimmed baseline + both miter normals) that is passed per-call to
+     * `buildWall` and persisted NOWHERE (ProjectSerializer §WALL-JOIN-SAVE-FIX
+     * deliberately writes `_sourceBaseLine`, the PRE-join line). So the no-progress guard
+     * is keyed on a value that CANNOT MOVE for the very computation it is gating: on
+     * close-and-reopen of the same project the reloaded level hashes byte-identically to
+     * the signature the pre-close session recorded, `anyProgress` is false, and the
+     * deferred resolve returns at the gate before `resolveLevel` is ever called.
+     *
+     * That was the founder's bug, measured: "once the project closes and reopens ALL
+     * mitred joints are gone — then if I create an element on this level all joins come
+     * back". Creating an element MOVES the signature, which releases the gate and lets
+     * the already-queued resolve through. It is the identical failure shape that
+     * `_levelWallSig`'s own §WALL-RAKE-INVALIDATION note records one screen up ("the wall
+     * only gets angled after another element is created or modified") — same gate, a
+     * different missing input. The rake case was fixable by folding the field INTO the
+     * signature; a join cannot be, because it has no store field to fold.
+     *
+     * So the flag is carried explicitly: `_flushRestore` marks the levels it left
+     * unjoined, `_flush` refuses to no-progress-skip while a level is marked, and the
+     * mark is cleared the moment that level's whole-level resolve actually COMPLETES —
+     * which is also where the completion is LOGGED (§WALL-JOIN-LOAD-DEFER-DONE). A
+     * deferral with no completion log is indistinguishable from one that never happened,
+     * which is why this survived from 2026-06-24 to 2026-08-19 with a log line that only
+     * ever announced the INTENT.
+     */
+    private _joinUnresolvedLevels = new Set<string>();
+
     // §DIAG-WALL-MOVE-FREEZE (L-250) — see the block in `_flush()`. A 1-second rolling
     // window over flush count + wall-clock, so a frozen tab prints ONE line that says which
     // subsystem is actually looping instead of leaving us to guess a sixth hypothesis.
@@ -480,11 +516,29 @@ export class WallRebuildCoordinator {
         this._wallRebuildPaused = false;
         if (this._wallRafHandle !== null) { this._wallRafHandle(); this._wallRafHandle = null; }
         if (this._pendingWallEvents.size === 0) return;
-        // §WALL-JOIN-LOAD-SKIP (2026-06-24) — project-open HANG fix. When the
-        // ProjectLoader sets `window.__pryzmWallRestoreFlush = true` for the duration of a
-        // restore-from-snapshot, the persisted wall geometry is ALREADY join-resolved (the
-        // store `baseLine` is the trimmed/welded line the last resolve produced, persisted
-        // verbatim by ProjectSerializer §WALL-JOIN-SAVE-FIX). Re-running the whole-level
+        // §WALL-JOIN-LOAD-SKIP (2026-06-24) — project-open HANG fix.
+        //
+        // ⚠ CORRECTED 2026-08-19 (L-1490). This comment used to assert that "the persisted
+        // wall geometry is ALREADY join-resolved (the store `baseLine` is the trimmed/welded
+        // line the last resolve produced, persisted verbatim by ProjectSerializer
+        // §WALL-JOIN-SAVE-FIX)". THAT IS FALSE, and it cites the very artefact that does the
+        // OPPOSITE: §WALL-JOIN-SAVE-FIX (ProjectSerializer.ts:576) says "Prefer
+        // _sourceBaseLine (the user-drawn, pre-join-resolution baseline)". Eight days after
+        // this optimisation shipped, §FIX-WALL-JOIN-BASELINE-IMMUTABLE (L-44/46/47, founder
+        // 2026-07-02) made a wall's stored baseline IMMUTABLE under a join re-resolve — "a
+        // join is a RENDER-TIME footprint operation … and must NEVER mutate/persist another
+        // wall's stored baseline". From that day the mitre existed only in the ephemeral
+        // JoinData, and this path's `joinData = null` build stopped DEFERRING the join and
+        // started SHIPPING UNJOINED GEOMETRY: full-length authored boxes with square caps,
+        // overlapping and double-lined at every corner. That is exactly the founder's
+        // 2026-08-19 screenshots.
+        //
+        // The optimisation itself is KEPT — the hang it fixed is real and the resolve is
+        // genuinely deferrable — but it is now honest about what it ships, and the deferred
+        // resolve is protected (`_joinUnresolvedLevels`) and REPORTS COMPLETION per level.
+        //
+        // When the ProjectLoader sets `window.__pryzmWallRestoreFlush = true` for the
+        // duration of a restore-from-snapshot, re-running the whole-level
         // `WallJoinResolver.resolveLevel` / `_clampPartitionEndsToShellInnerFace` pass on
         // EVERY level on the critical load thread is the confirmed hang root for large
         // residential buildings (hundreds–thousands of walls × 5–6 floors blocks the main
@@ -505,19 +559,25 @@ export class WallRebuildCoordinator {
 
     /**
      * §WALL-JOIN-LOAD-SKIP (2026-06-24) — RESTORE-mode flush. Builds every queued wall
-     * body from its PERSISTED (already-resolved) baseline WITHOUT running the whole-level
+     * body from its PERSISTED baseline WITHOUT running the whole-level
      * `WallJoinResolver.resolveLevel` / `_clampPartitionEndsToShellInnerFace` pass — that
-     * pass is the project-open hang root and is redundant on restore (the persisted
-     * baseline is the resolved geometry). It then schedules ONE deferred whole-level
+     * pass is the project-open hang root. It then schedules ONE deferred whole-level
      * resolve per affected level (via the existing `_rebuildWalls` whole-level path) on a
-     * later frame, OFF the critical load thread, so the mitered end-caps are refined
+     * later frame, OFF the critical load thread, so the mitered end-caps are produced
      * exactly as a live edit would produce them — but the project is interactive first.
      *
-     * Visual parity: a wall built with `joinData = null` renders on its own (persisted,
-     * already-trimmed) centreline with square end caps — the corner miters appear once the
-     * deferred resolve lands. For the common case the trimmed baselines already meet at the
-     * junction so any residual cap difference is sub-frame and corrected by the deferred
-     * pass. This NEVER touches the live-edit `_flush` path.
+     * ⚠ VISUAL PARITY — CORRECTED 2026-08-19 (L-1490). This paragraph used to claim "the
+     * trimmed baselines already meet at the junction so any residual cap difference is
+     * sub-frame". FALSE. The persisted baseline is the AUTHORED, UNTRIMMED line
+     * (§WALL-JOIN-SAVE-FIX writes `_sourceBaseLine`; §FIX-WALL-JOIN-BASELINE-IMMUTABLE
+     * forbids a join from ever persisting a trim), so `joinData = null` renders every wall
+     * at FULL authored length with square caps: at a corner the two boxes OVERLAP and
+     * double-line. The difference is not sub-frame, it is the whole defect the founder
+     * photographed. Which makes the deferred resolve LOAD-BEARING, not cosmetic — so every
+     * level restored here is marked `_joinUnresolvedLevels` (so `_flush` may not
+     * no-progress-skip it) and its resolve REPORTS COMPLETION (§WALL-JOIN-LOAD-DEFER-DONE)
+     * or is reported MISSING by the watchdog below. This NEVER touches the live-edit
+     * `_flush` path.
      */
     private _flushRestore(): void {
         this._wallRafHandle = null;
@@ -560,10 +620,18 @@ export class WallRebuildCoordinator {
             this._joinsResolving = false;
         }
 
+        // §WALL-JOIN-LOAD-DEFER (L-1490) — every level built here is on screen UNJOINED
+        // (square-capped, overlapping at corners). Mark it so `_flush`'s
+        // §FIX-WALLFLUSH-NOPROGRESS-GUARD — whose signature is over STORE geometry, which a
+        // join provably never changes — cannot suppress the deferred resolve that repairs
+        // it. The mark is cleared in `_flush` the moment that level's resolve completes.
+        for (const levelId of affectedLevelIds) this._joinUnresolvedLevels.add(levelId);
+
         console.log(
             `[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP — restored ${built} wall(s) across ` +
             `${affectedLevelIds.size} level(s) from persisted baselines (NO load-time resolveLevel); ` +
-            `deferring one whole-level resolve per level off the critical path.`,
+            `these walls are on screen UNJOINED (square caps) until the deferred whole-level ` +
+            `resolve lands — watch for §WALL-JOIN-LOAD-DEFER-DONE, one line per level.`,
         );
 
         // Commit barrier — identical to the whole-level path so room-redetect / OTel /
@@ -597,12 +665,38 @@ export class WallRebuildCoordinator {
                 `wall-join-load-skip-deferred-resolve-${levelId}-${_delay++}`,
                 () => {
                     try { this._rebuildWalls(_ids); }
-                    catch (err) { console.warn(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP deferred resolve for level ${levelId} failed (non-fatal):`, err); }
+                    catch (err) {
+                        this._joinUnresolvedLevels.delete(levelId);
+                        console.warn(`[WallRebuildCoordinator] §WALL-JOIN-LOAD-SKIP deferred resolve for level ${levelId} failed (non-fatal):`, err);
+                    }
                 },
                 'post-render',
             );
         }
+
+        // §WALL-JOIN-LOAD-DEFER-WATCHDOG (L-1490) — a deferral with no completion signal is
+        // indistinguishable from one that never happened, and that is precisely how this
+        // shipped square-cut joins from 2026-06-24 to 2026-08-19 while its log line
+        // cheerfully announced the intent every single load. If a level is STILL marked
+        // unjoined well after the frames the deferral needs, say so, loudly, naming the
+        // level — never leave the absence of a line as the only evidence.
+        const _watchIds = Array.from(restoredByLevel.keys());
+        deferWork(() => {
+            const stuck = _watchIds.filter(id => this._joinUnresolvedLevels.has(id));
+            if (stuck.length === 0) return;
+            console.error(
+                `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-WATCHDOG — ${stuck.length} of ` +
+                `${_watchIds.length} restored level(s) are STILL UNJOINED ${WallRebuildCoordinator._JOIN_DEFER_WATCHDOG_MS}ms ` +
+                `after the restore flush: [${stuck.join(', ')}]. Their walls are rendering with SQUARE end caps ` +
+                `(overlapping, double-lined at every corner). The deferred whole-level resolve was scheduled but ` +
+                `never completed for them — L-1490.`,
+            );
+        }, WallRebuildCoordinator._JOIN_DEFER_WATCHDOG_MS);
     }
+
+    /** §WALL-JOIN-LOAD-DEFER-WATCHDOG (L-1490) — generous: the deferral needs a frame or
+     *  two, but a 20 s chunked load of a large building can starve it far longer. */
+    private static readonly _JOIN_DEFER_WATCHDOG_MS = 30_000;
 
     private _resume(): void {
         this._wallRebuildPaused = false;
@@ -656,6 +750,18 @@ export class WallRebuildCoordinator {
         this._genCoalesceActive = false;
         this._genPendingIds.clear();
         this._resolveCountByLevel.clear();
+        // §WALL-JOIN-LOAD-DEFER (L-1490) — C13 project isolation. These three were the
+        // ONLY per-project caches this teardown left standing, and that omission was
+        // load-bearing: `_lastFlushLevelSig` is what the §FIX-WALLFLUSH-NOPROGRESS-GUARD
+        // compares against, so project A's recorded level signatures survived into
+        // project B and (on a reopen of the SAME project, where the ids and the immutable
+        // baselines are identical by construction) declared the freshly-restored level
+        // "unchanged since the last completed flush" — suppressing the very first flush of
+        // a brand-new project instance. A per-project cache that outlives the project is a
+        // C13 isolation breach whatever it is keyed on.
+        this._lastFlushLevelSig.clear();
+        this._flushBurst.clear();
+        this._joinUnresolvedLevels.clear();
         console.log('[WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch');
     }
 
@@ -1426,11 +1532,34 @@ export class WallRebuildCoordinator {
                 sigByLevel.set(levelId, sig);
                 if (this._lastFlushLevelSig.get(levelId) !== sig) anyProgress = true;
             }
-            if (!anyProgress && this._lastFlushLevelSig.size > 0) {
+            // §WALL-JOIN-LOAD-DEFER (L-1490) — a level restored with `joinData = null` is on
+            // screen UNJOINED, and the resolve that repairs it changes NO store geometry
+            // (§FIX-WALL-JOIN-BASELINE-IMMUTABLE), so `anyProgress` is structurally incapable
+            // of becoming true for it. Reopening a project therefore hashed byte-identically
+            // to the pre-close session's recorded signature and this gate discarded the
+            // deferred resolve — the founder's "all mitred joints are gone after reopen", and
+            // the reason "create any element" repaired it (a create MOVES the signature).
+            // The gate must not judge a computation by a signal that cannot represent it.
+            const _joinPending = [..._flushLevels].some(id => this._joinUnresolvedLevels.has(id));
+            if (!anyProgress && this._lastFlushLevelSig.size > 0 && !_joinPending) {
                 console.debug('[WallRebuildCoordinator] §FIX-WALLFLUSH-NOPROGRESS-GUARD flush skipped — wall geometry unchanged since the last completed flush');
                 return;
             }
+            if (!anyProgress && _joinPending) {
+                console.log(
+                    '[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER — no-progress gate BYPASSED: ' +
+                    `level(s) [${[..._flushLevels].filter(id => this._joinUnresolvedLevels.has(id)).join(', ')}] ` +
+                    'were restored unjoined and their deferred whole-level resolve has not completed yet ' +
+                    '(a join changes no store geometry, so the signature can never report it).',
+                );
+            }
             for (const [levelId, sig] of sigByLevel) {
+                // §WALL-JOIN-LOAD-DEFER (L-1490) — same argument as the gate above: while a
+                // level is still awaiting its post-restore join resolve, an unchanged
+                // signature is EXPECTED, not evidence of a runaway loop. The mark is
+                // one-shot (cleared the instant the resolve completes), so this cannot
+                // become a permanent breaker bypass.
+                if (this._joinUnresolvedLevels.has(levelId)) continue;
                 const b = this._flushBurst.get(levelId);
                 if (b && b.sig === sig && (now - b.ts) < WallRebuildCoordinator._FLUSH_WINDOW_MS) {
                     b.count++;
@@ -2223,6 +2352,20 @@ export class WallRebuildCoordinator {
                     computeJunctionInfills(_walls_for_infill),
                     this._world.scene.three as THREE.Scene,
                 );
+
+                // §WALL-JOIN-LOAD-DEFER-DONE (L-1490) — THE COMPLETION SIGNAL. This level's
+                // deferred post-restore whole-level resolve has now actually RUN and its
+                // adjustments have reached the builder, so the level is joined and the
+                // no-progress gate may resume judging it. Reported per level, with the
+                // count it resolved, because the previous design announced only its INTENT
+                // and a silent deferral is indistinguishable from one that never happened.
+                if (this._joinUnresolvedLevels.delete(levelId)) {
+                    console.log(
+                        `[WallRebuildCoordinator] §WALL-JOIN-LOAD-DEFER-DONE — level ${levelId}: ` +
+                        `deferred post-restore join resolve COMPLETED (${levelWalls.length} wall(s) on level, ` +
+                        `${adjustments.size} join adjustment(s), ${_rebuiltWallIds.size} wall(s) rebuilt with mitred caps).`,
+                    );
+                }
             } finally {
                 this._joinsResolving = false;
             }
