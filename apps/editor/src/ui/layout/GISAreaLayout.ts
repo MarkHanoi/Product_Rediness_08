@@ -2278,7 +2278,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  is scoped to its own pane), not floated over the whole `#container`. Falls back
      *  to `#container` for the classic single-view Forma. */
     const getForma3dHostEl = (): HTMLElement | null => {
-        // §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — the GIS panel wins when it is on screen.
+        // §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — the GIS panel wins when it is on screen.
         //
         // Founder 2026-08-20: "we had a panel with the BUILDABILITY etc — this should go also
         // to the GIS panel." This ONE line is the whole re-host, and that is the point.
@@ -2288,7 +2288,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // the ring was persisted and provenance was not re-derived, a coverage-gap card, and a
         // refusal card for `status:'none'` WITH a refusal object — plus the branch that removes
         // the card entirely when there is genuinely no envelope). Re-implementing any of that in
-        // the panel would be the C06 §12.3 breach that produced two disagreeing GIS surfaces in
+        // the panel would be the C06 §13.3 breach that produced two disagreeing GIS surfaces in
         // the first place, and here it would disagree about whether land is buildable.
         //
         // So nothing is copied. The card's own `ensureEnvelopePanel` already re-homes the SAME
@@ -4029,7 +4029,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             b.addEventListener('click', () => applyFormaView(mode));
             return b;
         };
-        // §GIS-ACTION-REGISTRY (L-1187, C06 §12) — REMOVED: the "3D Site" context caption.
+        // §GIS-ACTION-REGISTRY (L-1187, C06 §13) — REMOVED: the "3D Site" context caption.
         //
         // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) added a muted, non-interactive <span>
         // reading "3D Site" at the head of this bar, so the sub-bar would read as the
@@ -4043,7 +4043,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // is deleted rather than renamed — the active segment on the switch above already
         // shows which view you are in, so it was restating a fact that was on screen.
         //
-        // C06 §12.7 verdict (a): a surviving control (the "3D Site" segment, now spelled
+        // C06 §13.7 verdict (a): a surviving control (the "3D Site" segment, now spelled
         // "PRYZM Earth" in the declared registry) already carries this meaning.
 
         // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
@@ -4409,7 +4409,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
     window.pryzmSetFormaBuildingFidelity = setFormaBuildingFidelity;
 
-    // ── §GIS-ACTION-REGISTRY (L-1187, C06 §12) — entry points for the consolidated panel ──
+    // ── §GIS-ACTION-REGISTRY (L-1187, C06 §13) — entry points for the consolidated panel ──
     //
     // Three site controls existed ONLY as closures in this function, so the only way to
     // invoke them was to click one of the floating pills or sub-bar buttons that close
@@ -4417,7 +4417,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // to hunt three separate chrome surfaces for one job.
     //
     // These are registrations, not new behaviour: each one calls the SAME closure the
-    // legacy control calls. C06 §12.3 — a consolidated surface RE-HOSTS the dispatch;
+    // legacy control calls. C06 §13.3 — a consolidated surface RE-HOSTS the dispatch;
     // it never copies the handler. Registering the entry point is what makes re-hosting
     // possible at all.
 
@@ -4437,7 +4437,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         else { toggleEnvelopeCard(); }
     };
 
-    /** §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — claim the buildability read-out for a host.
+    /** §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — claim the buildability read-out for a host.
      *
      *  Pass the element it should render into; pass `null` to release it back to the viewport.
      *  Returns whether a card is actually present afterwards.
@@ -4477,7 +4477,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return present;
     };
 
-    /** §GIS-ACTION-REGISTRY (L-1361, C06 §12) — report which site view / fidelity is CURRENT.
+    /** §GIS-ACTION-REGISTRY (L-1361, C06 §13) — report which site view / fidelity is CURRENT.
      *
      *  The GIS panel needs to paint an active state, and there are exactly two ways to get
      *  one: mirror the state into the panel, or ask the authority. Mirroring is how the
@@ -4504,7 +4504,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  APP-WIDE, not GIS: `resetPanelLayout()` walks the whole `PANEL_REGISTRY`, so this
      *  also re-seats `view-properties`, `level-stepper` and `site-plan-overlay`. The GIS
      *  panel hosts it because the floating rail it used to live in is gone, and it is
-     *  labelled in the panel as the app-wide action it is (C06 §12.7 verdict (d) — say
+     *  labelled in the panel as the app-wide action it is (C06 §13.7 verdict (d) — say
      *  where a control really belongs rather than let its host imply a false scope).
      *
      *  Honest feedback: "already at defaults" and "3 panels restored" are different facts
@@ -4679,7 +4679,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 return;
             }
             // ══════════════════════════════════════════════════════════════════
-            // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — THE SIX SITE PILLS ARE GONE
+            // §GIS-ACTION-REGISTRY (L-1360, C06 §13.7) — THE SIX SITE PILLS ARE GONE
             // ══════════════════════════════════════════════════════════════════
             //
             // Founder, 2026-08-20, with a screenshot of the consolidated GIS panel and
@@ -4687,7 +4687,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // BUTTONS FROM THE MAIN SCENE?" — the same six actions were on screen
             // twice, one set obscuring the other.
             //
-            // REMOVED (all verdict (a), C06 §12.7 — a surviving control dispatches the
+            // REMOVED (all verdict (a), C06 §13.7 — a surviving control dispatches the
             // same action, and the survivor is a REGISTRY action rendered by the GIS
             // panel, not another hand-written pill):
             //
@@ -4760,7 +4760,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     .catch((e) => console.warn('[gis][panels] analysis reset failed (non-fatal):', e));
             });
 
-            // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — the floating ⟲ button is GONE.
+            // §GIS-ACTION-REGISTRY (L-1360, C06 §13.7) — the floating ⟲ button is GONE.
             //
             // It was the last control in the bottom-left stack, and the founder boxed it
             // with the other six. But it is verdict (d), NOT (a): `resetPanelLayout()`

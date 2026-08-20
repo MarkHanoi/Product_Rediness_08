@@ -1,4 +1,4 @@
-// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the ONE declared list of
+// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §13) — the ONE declared list of
 // GIS / site-view actions, and the ONE resolver from a declared action to its LIVE
 // dispatch.
 //
@@ -103,7 +103,7 @@ export const GIS_GROUP_LABEL: Readonly<Record<GisActionGroup, string>> = {
     graphs:    'Graphs',
     // Deliberately NOT called "GIS utilities". The one action in here is app-wide, and
     // a group label that implied otherwise would be the host quietly re-scoping the
-    // action — the thing C06 §12.7 verdict (d) exists to prevent.
+    // action — the thing C06 §13.7 verdict (d) exists to prevent.
     utility:   'Workspace',
 };
 
@@ -374,7 +374,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
     // PANEL_REGISTRY — view-properties, level-stepper, site-plan-overlay — so this is
     // not a site action. It is hosted here because the floating launcher rail it used
     // to live in is gone (L-1360) and it is the only route to recovering a panel dragged
-    // half off-screen (§UX1-PANEL-DEFAULTS D2). C06 §12.7 verdict (d): state where a
+    // half off-screen (§UX1-PANEL-DEFAULTS D2). C06 §13.7 verdict (d): state where a
     // control really belongs rather than let its host imply a scope it does not have.
     {
         id: 'panel.reset-layout',

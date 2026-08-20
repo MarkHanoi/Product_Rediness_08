@@ -15751,7 +15751,7 @@ not a conflict to resolve unilaterally.
 
 ✅ **Three entry points registered**, so the actions that could only be DECLARED-AND-DISABLED
 now resolve live: `pryzmToggleSiteAnalysis`, `pryzmToggleEnvelopeCard`, `pryzmZoomToSite`.
-Each calls the SAME closure its legacy control calls — C06 §12.3, re-host, never copy.
+Each calls the SAME closure its legacy control calls — C06 §13.3, re-host, never copy.
 
 ⭐ `pryzmZoomToSite` **is** the de-duplication, not a third copy. The two legacy buttons wore
 one label against **different targets** (the active Forma preset vs the placed building on the
@@ -15777,12 +15777,216 @@ it needs a `<select>` populated from real storey bands, not a button.
    (`'3d'`), not `'plan'`.
 3. Move `All floors` to Levels & Grids (verdict d) and retain the launcher rail's `⟲` (verdict d).
 4. Give the registry a **module-backed action kind** so `Site Inspector` stops being the one
-   hand-written button in the panel (C06 §12.8).
+   hand-written button in the panel (C06 §13.8).
 
 **Founder decisions this audit surfaces and does NOT take:**
 - **Retire `⚛ Graph` in favour of `✦ Living Graph`?** Its own module says yes; nobody has decided.
 - **Should `Zoom to Site` and `All floors` live under the globe at all**, or with Camera and with
   Levels & Grids? The recommendation is the latter; the founder's boxing says the former.
+
+## L-1360 — THE SEVEN FLOATING PILLS OVERLAPPED THE PANEL THAT REPLACED THEM ✅ FIXED 2026-08-20 (lane GIS1)
+
+**Founder, deployed build, screenshot of the consolidated GIS panel with the bottom-left stack
+rendering ON TOP OF it:** *"Can you then EXCLUDE THE BUTTONS FROM THE MAIN SCENE?"*
+
+L-1187 landed the GIS panel but deliberately left the legacy pills mounted, pending his review of
+the verdict table. He has now seen it and authorised the removal. Six were verdict (a) — a
+surviving control (the registry action the GIS panel renders) dispatches the same entry point:
+
+| Removed pill | Registry action that survives it |
+|---|---|
+| `pryzm-site-view-launcher` "PRYZM Earth" | `site.earth` |
+| `pryzm-plan-gis-launcher` "Plan + Site" | `site.plan-gis` |
+| `pryzm-site-analysis-launcher` "Site Analysis" | `site.analysis` |
+| `pryzm-envelope-card-launcher` "Buildable Envelope" | `site.buildable-envelope` |
+| `pryzm-graph-launcher` "Graph" | `graph.building` |
+| `pryzm-living-graph-launcher` "Living Graph" | `graph.living` |
+
+⭐ **The seventh, `⟲`, is verdict (d) and was RE-HOSTED, not deleted.** He boxed it with the other
+six, but `resetPanelLayout()` walks the whole `PANEL_REGISTRY` — it also re-seats `view-properties`,
+`level-stepper` and `site-plan-overlay`. It is app-wide panel recovery that merely lived in the site
+rail, and it is the only route to recovering a panel dragged half off-screen (§UX1-PANEL-DEFAULTS
+D2). Deleting it orphans that; leaving it floating disobeys the ask. So it is registered as
+`window.pryzmResetPanelLayout` and rendered by the GIS panel as `panel.reset-layout` under a group
+labelled **"Workspace"** — deliberately not "GIS utilities", because a group label implying site
+scope would be the host quietly re-scoping the action.
+
+### ⛔ WHAT MADE THIS SAFE, AND IT IS NOT THAT THE PANEL LOOKS RIGHT
+
+Earlier in this same lane, `GISRailPanel.ts` was deleted as provably dead — zero importers, never
+instantiated — and it held the **only caller of `openSiteInspectorPanel`**. Inspection said the file
+was empty of value. Inspection was wrong, and a capability would have gone from unreachable to
+invisible.
+
+So *"the GIS panel already offers this"* is exactly the sentence that must not be trusted on a
+reviewer's word. Two guard arms now **read production source**:
+
+- **ARM A** — every entry point the registry declares is still ASSIGNED somewhere in
+  `apps/editor/src`. Deleting a surface is free; deleting the registration it reached through fails
+  the build. **Falsified before landing:** removing `w.pryzmShowBuildingGraph =` produced
+  *"pryzmShowBuildingGraph is declared by the GIS action registry but NOTHING in apps/editor/src
+  assigns it … if a legacy control was deleted on the strength of that action covering it, the
+  capability is now unreachable."*
+- **ARM B** — none of the seven removed pill ids is re-created as an element.
+
+⚠ **ARM A is a REGISTRATION check, not a reachability proof**, and its comment says so. It cannot
+tell you the entry point is reached at runtime in the phase you care about — only that the
+assignment still exists. Strictly weaker than *"the button works"*, named that way so nobody
+upgrades it in their head.
+
+**Commit `0ca554a9`.** COMPILER_RC=0.
+
+## L-1361 — THE GIS PANEL HAD NO PRYZM IDENTITY BECAUSE IT PAINTED WITH LITERALS ✅ FIXED 2026-08-20 (lane GIS1)
+
+**Founder:** *"Can you make the UI/UX of the elements within the GIS panel properly, according to
+the graphics of PRYZM?"* Three defects in his screenshot, and all three were one mistake — the
+renderer painting with literals instead of reading the design layer that already existed:
+
+1. a heavy saturated purple header against plain white rows, so the rows carried no brand identity;
+2. the disabled `Floors shown` row differing from a live one **only in text colour**;
+3. no active treatment — `Real` and `PRYZM Earth` read as ordinary rows.
+
+⛔ **Not one colour is declared in the GIS UI now.** The rows style themselves from `.pb-gis-*`
+rules in `styles/panels/projectBrowser.ts`, built entirely from the shared `--app-*` / `--pryzm-*`
+tokens. C84 EI-8 names colour as a one-vocabulary concept and records two **measured** drifts here
+already (`black` = `#333333` in one table vs `#000000` in five; `green` = `#008000` vs `#00ff00`).
+Both began the way this panel's first draft did. A literal is also invisible to the
+§UI-DENSITY-SCALE transform — it rewrites the injected stylesheet and cannot see
+`Object.assign(el.style, …)` — so a hard-coded value is not merely off-brand, it is **out of reach
+of the lever that exists to change it**.
+
+⭐ **THE ACTIVE STATE IS DERIVED, AND THAT IS THE ARCHITECTURAL POINT.** There were two ways to
+light up `Real`: mirror the state into the panel, or ask the authority. The legacy chrome mirrored
+it — which is precisely why `Real` could be lit on one bar and dark on the other, two copies of one
+fact drifting. `window.pryzmGetSiteViewState()` returns a snapshot read from the live closures, each
+action declares an `activeWhen(state)` predicate, and the panel holds no state of its own. **One
+predicate over one snapshot cannot disagree with itself.** The snapshot also settles the
+two-fidelity-variables problem the way `pryzmZoomToSite` settled the two zoom targets: it reports
+whichever of `formaBuildingFidelity` / `globeBuildingFidelity` governs the **visible** surface.
+
+⚠ **It is a SNAPSHOT, not a subscription**, stated in three places in the code. The panel repaints
+when built and after its own dispatches; a view changed from the remaining legacy view-mode bars is
+not reflected until the panel is reopened. Recorded rather than hidden — *a highlight that silently
+goes stale asserts a fact instead of omitting one.*
+
+All three states now read **without colour** (C43 / WCAG 2.2 AA — colour alone fails a colour-blind
+reader, a greyscale screenshot and a screen reader: three different people, one omission). ACTIVE
+gets a solid left bar + fill + `aria-pressed`; UNAVAILABLE gets a dashed edge + `aria-disabled` + an
+explicit **"soon"** tag; hover/focus get the brand wash and a real focus ring.
+
+Five guard assertions, including the honesty arm: **when the authority throws, nothing is painted
+active** rather than a guess. The hex scan strips comments first, because these files explain the
+drift by quoting the offending hexes and *a guard that fails on its own rationale teaches people to
+delete the rationale*.
+
+**Commit `f3d7388c`.** COMPILER_RC=0.
+
+## L-1362 — THE BUILDABILITY READ-OUT MOVED INTO THE GIS PANEL — IN ONE LINE ✅ FIXED 2026-08-20 (lane GIS1)
+
+**Founder:** *"we had a panel with the BUILDABILITY etc — this should go also to the GIS panel."*
+Not the toggle that draws the envelope (already there as `site.buildable-envelope`) — the NUMBERS.
+
+⭐ **THE TEMPTING SHAPE WOULD HAVE BEEN CATASTROPHIC IN A SPECIFIC WAY.** Reading the envelope in
+the panel and printing the figures treats the C58 card as a number-printer. It is not. It is **four
+render templates carrying a refusal doctrine**:
+
+- the full determination with confidence + citations;
+- a **REDUCED** card when only the ring came back from persistence — no confidence badge, no setback
+  triple, no *"why these numbers"*, because that provenance was not re-derived and rendering it
+  would present unverified data as a determination (C58 §1.4);
+- a coverage-gap card;
+- a **refusal** card for `status:'none'` carrying a `refusal` object — the branch that exists
+  because a refusal rendered as an empty screen reads as a crash (L-553);
+- plus the branch that removes the card entirely when there is genuinely nothing.
+
+A 0/0/0-setback envelope **REFUSES to draw rather than overstate on real land** (§L-616 / C58
+§1.16), and an UNKNOWN constraint must never render as a zero (C84 **EI-1b** — failure and emptiness
+becoming the same value). A second implementation would eventually **disagree with the first about
+whether land is buildable.**
+
+So nothing is re-implemented. The entire re-host is **one preference in `getForma3dHostEl()`**: when
+the GIS panel's slot is on screen, it wins. The card's own `ensureEnvelopePanel` already re-homes the
+SAME element when its host changes, so the real surface moves with every refusal branch intact and
+still owned by C58. `document.contains` makes it self-healing — a closed or rebuilt section drops
+out of the document and the card falls back to the viewport rather than being stranded on a detached
+node.
+
+`window.pryzmMountEnvelopeCard(host)` is the handshake and **its return value is load-bearing**:
+`false` does not mean the mount failed, it means C58 decided there is nothing honest to show. The
+panel therefore says so **in words** — *"No buildable envelope determined yet … the figures appear
+here once they can be derived, and stay absent rather than shown as zero when they cannot."* A blank
+container would read as a crash; zeros would read as *"nothing is buildable"*. Both refused.
+
+Three guard arms, one falsified: the mount hook must be assigned in production source (otherwise the
+panel shows its empty state forever — which reads as *"no envelope"* rather than *"not wired"*);
+`ProjectBrowserPanel` must NOT reference `getLastBuildableEnvelope`,
+`resolveRenderableBuildableEnvelope`, `envelopeToMassing` or `buildCapacityComparison`; and the
+refusal must be carried through in words with no numeric stand-in.
+
+**Commit `15f3dd81`.** COMPILER_RC=0 for this lane's files.
+
+### ⛔ STILL OPEN AFTER PHASE 2B — the top view-mode bars
+
+The two **top-centre** bars (the segmented switch and the "3D Site" sub-bar) are still mounted.
+Their duplicated controls (`2D Map` / `Plan` / `3D`, `Analysis`, and one of each `Real` / `Massing` /
+`Zoom to Site` pair) are decided as verdict (a) in the registry's `absorbs` ledger but **not yet
+deleted**: removing in-context mode switches from the site view is a UX change the founder has not
+seen, and it is a different question from *"stop the floating stack overlapping my panel"*, which is
+what he asked for. Also still open: `§SITE-VIEWPOINT-CONSISTENT` (the removed `PRYZM Earth` pill
+passed `'plan'` where the constant declares `'3d'` — resolved by deletion, but the sub-bar copies
+remain), moving `All floors` to Levels & Grids, and giving the registry a module-backed action kind
+so `Site Inspector` stops being the one hand-written button in the panel.
+
+## L-1363 — ⭐ TWO LANES MINTED `C06 §12` ON THE SAME DAY — the L-number race, one level up, where there is no allocator ✅ RESOLVED 2026-08-20 (lane GIS1)
+
+**Found while appending to C06, not reported by anyone.** `grep -n '^## §' C06-UI-SHELL-AND-TOOLS.md`
+returned **two `## §12` headings**:
+
+```
+702:## §12 — Chrome actions are DECLARED once; a panel is a HOST, the action is the AUTHORITY   (GIS1, e64d3e99)
+920:## §12 — THREE layer numbers are SHARED with third-party libraries; own your own objects    (UND1, 7fa7c501)
+```
+
+Both landed **2026-08-19**, in one contract, from two lanes that never saw each other's work.
+UND1's is earlier in history, so it keeps `§12`; GIS1's block was renumbered to **`§13`**, its
+subsections `§12.1–§12.11` → `§13.1–§13.11`, reordered so the open-cells clause stays last, and
+**every citation updated** — 12 in `GISAreaLayout.ts`, 6 in `globals.d.ts`, and the rest across
+`gisActionRegistry.ts`, `renderGisActions.ts`, `graph/index.ts`, `living-graph/index.ts`,
+`projectBrowser.ts`, `ProjectBrowserPanel.ts`, the guard test and this log.
+
+### ⭐ THIS IS THE LEDGER'S OWN DEFECT, AT A LEVEL THE LEDGER DOES NOT COVER
+
+`L-NUMBER-ALLOCATION-LEDGER.md` exists because *"grep the ISSUE LOG, then take the next free
+number"* is **a read-then-write against a file many writers append to concurrently** — correct for
+one writer, unfixable for six by trying harder. It records that three lanes minted `L-1202` within
+one hour.
+
+**Contract section numbers are chosen exactly the same way, and have no allocator at all.** Every
+lane appending to a contract runs the same doomed read-then-write: open the file, look at the last
+`## §N`, write `## §N+1`. The ledger fixed issue numbers and left this one open — and it produced
+the identical collision within 24 hours of being written.
+
+⚠ **It is worse than an L-number collision in one respect.** A duplicate L-number gives two defects
+one name, which is confusing. A duplicate contract section gives two *rules* one citation — and
+those citations are compiled into code comments, commit messages and other contracts. Fifty
+references to "C06 §12" now mean two different things depending on when they were written, and
+nothing in the text distinguishes them. This one was caught only because the same lane happened to
+re-open the file the next day.
+
+### WHAT WOULD ACTUALLY CLOSE IT — NOT DONE HERE
+
+The ledger's answer generalises: **allocate, do not grep.** Either
+
+- the orchestrator allocates a contract-section number the same way it allocates an L-block; or
+- a gate derives the collision — `tools/ga-gate/check-contract-index-equivalence.ts` already
+  compares `ls contracts/` against `README.md` row-sets **in both directions**, and the same
+  file-reading pass could assert **no contract contains a duplicate `## §N` heading**. That is a
+  cheap arm over files it already opens, and unlike the allocator it needs no coordination.
+
+⛔ **Neither is implemented by this lane** — it is not this lane's gate, and adding an arm to a gate
+another lane is actively editing is how the shared-file collisions in this session started. Recorded
+as an open cell so the next owner of that gate can take it, rather than as a claim that the class is
+closed. **The renumbering below fixes ONE instance; the mechanism that produced it is untouched.**
 
 ## L-1188 — "Envelope: OFF" deleted the GROUND FOOTPRINT along with the volume — a REGRESSION FROM L-1170, correct in kind, over-suppressing in degree ✅ FIXED 2026-08-19 (lane ENV2)
 
@@ -21047,3 +21251,116 @@ recorded that way on purpose: *"two rival theories both confirmed and both wrong
 lesson, and the four background fixes that preceded this entry are what it cost.
 
 ---
+
+---
+
+## L-1242 — THE WALL WAS NEVER GIVEN THE ELEVATION SYMBOL THE OPENING GOT — AND THE "RAKED WALL" REPORT IS **OBLIQUITY**, NOT RAKE ✅ FIXED 2026-08-20 (lane ELEV1)
+
+**Founder, with a West-elevation screenshot:** *"The RAKED WALLS on elevation are not rendering
+correctly — I believe the WINDOWS they do, but the WALL not. Also CURVED WALL renders in elevation
+with MANY VERTICAL LINES — they should render CONTINUOUSLY."*
+
+⭐ **THE `[ELEV-DIAG]` INSTRUMENT FROM L-1240 ANSWERED THE FIRST HALF BEFORE ANY CODE WAS READ**,
+which is what it was built for:
+
+```
+[ELEV-DIAG] §ELEV-SYMBOL-OPENING view=vd-sys-elev-west dir=(-1.0000,0.0000) cardinal=yes ·
+  rakedObliqueHosts=10 maxJambTilt=17.85° — D2 PRESENT · symbols=83 rawLayersSuppressed=50
+  rawSegmentsSuppressed=7166
+```
+
+`cardinal=yes` excludes D1. 83 openings symbolised, 7,166 raw segments suppressed — and the founder
+independently confirms that half: *"I believe the WINDOWS they do"*. ⇒ **the openings are right, and
+what he is looking at is the same defect in the family that was never fixed.**
+
+### THE DUMP CAME FIRST, AND THE CONTROL KILLED HALF THE HYPOTHESIS
+
+The proposed root was *"a wall still projects its raw solid … **on a RAKED wall** those three sets
+separate and cross"*. Measured with the real body builders, the real `_applyRakeShearToChildren`
+matrix, real `EdgesGeometry` and the real projection
+(`WallElevationSymbol.probe.test.ts`, kept as a suite):
+
+| case | wall | HORIZ | PLUMB (distinct h) | DIAGONAL |
+|---|---|---|---|---|
+| A | straight, square-on | 8 | 8 (5) | 0 |
+| B | **RAKED 75°, square-on** | 8 | 8 (5) | 0 |
+| C0 | **straight, bearing 20°, NO RAKE** | **16** | **8 (8)** | 0 |
+| C | RAKED 75°, bearing 20° | **16** | 0 | **8 @ 95.24°** |
+
+⭐ **CASE C0 IS THE FALSIFICATION.** An oblique wall with **no rake at all** already doubles, its
+face pairs separated by `thickness · sin(bearing)` = `0.3 · sin 20°` = **0.1026 m**, matching to four
+decimals. ⇒ **THE DOUBLING IS CAUSED BY OBLIQUITY ALONE. Rake is neither necessary nor sufficient
+for it** — it adds only the *lean* (case C, `atan(cot 75° · sin 20°)` off plumb), which is D2 from
+L-1240 and is a CORRECT projection of a leaning solid.
+
+⚠ Without that control the fix would have been attributed to rake, would have *looked* correct, and
+would have rested on a false cause. **This is the third proposed shared root in three days to be
+corrected by measurement rather than confirmed by it.**
+
+⭐ And it explains why this survived so long: **square-on, the two faces project exactly on top of
+each other** and the depth edges collapse to points (case A: 8 plumb lines at only 5 distinct
+positions, 8 degenerate segments). The stock N/S/E/W elevations of an axis-aligned building look
+clean. It takes an oblique wall to expose it — and the founder's model has ten.
+
+### THE CURVED WALL IS A **SECOND, INDEPENDENT ROOT** — TWO REPORTS, TWO ROOTS
+
+| curved wall | `edgeAngleDeg` | HORIZ | PLUMB |
+|---|---|---|---|
+| 16 segments | 1 | 68 | **34** |
+| 32 segments | 1 | 132 | **66** |
+| 16 / 32 segments | 30 | 68 / 132 | 4 |
+
+⭐ **`PLUMB = 2 × (segments + 1)`, EXACTLY.** The count of vertical lines in the drawing is a
+function of the **tessellation density** — a number no architect authored. A curved wall is built as
+radial bands; every band boundary is a real facet; `THREE.EdgesGeometry`'s ~1° default dihedral
+threshold sits far below a curved wall's per-facet angle, so **every tessellation seam is promoted to
+a drawn edge.** It shows on a square-on curved wall too, so it is **not** the obliquity root.
+
+**The architectural rule, now normative: A TESSELLATION SEAM IS NOT AN EDGE** (C09 §4.6.4g, C86
+§10.3 WO-G-17). ⛔ Explicitly NOT fixed by raising a global threshold — that buys one clean curved
+wall by dropping genuine edges everywhere else. The seam is **never created**: the symbol traces the
+arc as a continuous polyline and the L-1240 suppression removes the faceted solid.
+
+### THE FIX — one new producer, and the L-1240 machinery reused rather than duplicated
+
+- **`WallElevationSymbol.ts`** — the wall's **near face, once**: base, top, two ends. For a curve the
+  base and top are continuous polylines traced **station for station from `computeStations`** — the
+  SAME sampler `buildCurvedLayerGeometry` builds the body from, so the symbol cannot disagree with
+  the wall it describes (C86 §10.1 PR-1's rule applied to the arc).
+- **The rake is applied PER STATION**, so §FEAT-RAKE-CURVED's conical sweep is drawn as the cone it
+  is rather than as a single chord-normal displacement.
+- ⭐ **`suppressSymbolisedElementLinework` is REUSED, not re-minted.** The wall's id joins the same
+  `coveredElementIds` set, so a wall that REFUSES keeps its wireframe automatically — no second
+  mechanism, and no second both-ways proof needed.
+- **Refusals (C16 CA-18):** a **profiled** wall (the symbol draws a flat top and would otherwise draw
+  a top the wall does not have) and a curved wall whose stations cannot be resolved (⛔ never a
+  fall-back to the chord). Both keep their raw linework.
+- **`[ELEV-DIAG]` extended** — `wallSymbols=`, `curved=N (each one is 2x(segments+1) tessellation
+  verticals NOT drawn)`, `wallSymbolsREFUSED=`. Reported SEPARATELY from the opening count because
+  the founder's report drew exactly that distinction; one combined number would hide it.
+
+**⛔ A BUG IN MY OWN L-1240 CODE, FOUND BY THIS DUMP.** `OpeningElevationSymbolBuilder` set
+`curved: wall.arc != null` — **`WallData` has no `arc` field; it is `curve`.** So `curved` was
+ALWAYS false and the C86 §10.1 PR-5 curved-host refusal **could never fire**. Found only because
+building a curved wall for the probe meant looking up the real field name. Fixed here. ⭐ It is the
+same class as the defects this lane keeps finding: a guard that runs, passes, and could never have
+failed.
+
+**Tests:** 15 files / **176 tests** GREEN in `drawing/` (`vitest run`, RC=0) — 2 new suites. Both
+directions pinned per C09 §4.6.4g: a curved wall emits 2 end lines not `2×(segments+1)`, **and** the
+probe still measures the faceted solid's seams so the rule cannot be satisfied by a threshold that
+swallowed real geometry. Root tsc `--noEmit` **COMPILER_RC=0**.
+
+### ⚠ NOT MEASURED
+
+1. **`wallNearFaceSign` takes its sign from the CHORD** — an arc sweeping past ~90° presents its
+   other face at one end and this picks one for the whole run. Every arc wall this repo builds is
+   well under that.
+2. **A LAYERED wall draws ONE outline, not one per construction layer.** Right for the face; its END
+   shows a stack and the symbol draws a single end line. Not measured against a drawn example.
+3. **Openings are not subtracted from the wall's face outline** — they do not need to be, but no
+   test asserts the two read correctly together at a drawn scale.
+4. **The wall symbol carries no `viewDepth` stamp**, so it cannot act as a depth-ordered occluder.
+   Inherited from L-1240, not introduced here.
+5. ⛔ **No gate** asserts the seam rule or the symbol/suppression pairing. Conventions with tests,
+   not invariants with gates.

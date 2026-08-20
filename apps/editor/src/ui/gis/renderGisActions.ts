@@ -1,4 +1,4 @@
-// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the ONE renderer for the
+// apps/editor — §GIS-ACTION-REGISTRY (L-1187, C06 §13) — the ONE renderer for the
 // declared GIS actions.
 //
 // Every surface that shows GIS actions calls THIS. It derives its buttons from

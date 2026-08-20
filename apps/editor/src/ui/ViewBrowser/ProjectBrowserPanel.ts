@@ -33,7 +33,7 @@ import { RenderRailPanel }               from '../tools-panel/panels/RenderRailP
 // out of the dev-only modelTreeTestModal. Reuses the canonical ModelTreeComponent
 // + ProvenanceTab + isolation pipeline.
 import { buildInspectPanel, type InspectPanelHandle } from '../inspect/InspectPanel';
-// §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the GIS panel RENDERS the declared action
+// §GIS-ACTION-REGISTRY (L-1187, C06 §13) — the GIS panel RENDERS the declared action
 // registry; it does not carry a button list of its own. This is the founder's
 // "make sure all these buttons are in the GIS tab" consolidation: the top view-mode
 // switch, the "3D Site" sub-bar and the bottom-left floating pill stack all name the
@@ -819,7 +819,7 @@ export class ProjectBrowserPanel {
         resetBtn.style.marginTop = '2px';
         root.appendChild(resetBtn);
 
-        // ── §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the consolidated site controls ──
+        // ── §GIS-ACTION-REGISTRY (L-1187, C06 §13) — the consolidated site controls ──
         //
         // The founder boxed three separate chrome surfaces (the top view-mode switch,
         // the "3D Site" sub-bar and the bottom-left floating pill stack) and drew
@@ -849,7 +849,7 @@ export class ProjectBrowserPanel {
         root.appendChild(sep);
         root.appendChild(renderGisActions(window as unknown as GisCapabilityHost));
 
-        // ── §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — the buildability read-out ──
+        // ── §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — the buildability read-out ──
         //
         // Founder 2026-08-20: "we had a panel with the BUILDABILITY etc — this should go
         // also to the GIS panel." Not the toggle that draws the envelope (that is the
@@ -860,7 +860,7 @@ export class ProjectBrowserPanel {
         // refusal doctrine — a full determination, a REDUCED card when only the ring was
         // persisted and its provenance was not re-derived, a coverage-gap card, and a
         // refusal card — plus the branch that removes itself when there is genuinely no
-        // envelope. Rebuilding that in this panel would be the exact C06 §12.3 breach that
+        // envelope. Rebuilding that in this panel would be the exact C06 §13.3 breach that
         // gave this codebase two disagreeing GIS surfaces, except this time the two
         // surfaces would disagree about whether land is buildable.
         //

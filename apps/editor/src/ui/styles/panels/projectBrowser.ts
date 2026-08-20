@@ -1272,7 +1272,7 @@ export const PROJECT_BROWSER_STYLES = `
     .lrp-voice-btn:hover { background: #dc2626; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   §GIS-ACTION-REGISTRY (L-1361, C06 §12) — the GIS panel's action rows
+   §GIS-ACTION-REGISTRY (L-1361, C06 §13) — the GIS panel's action rows
    ═══════════════════════════════════════════════════════════════════════════
 
    Founder 2026-08-20: "Can you make the UI/UX of the elements within the GIS

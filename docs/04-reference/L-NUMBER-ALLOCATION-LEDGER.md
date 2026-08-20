@@ -44,7 +44,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | Block | Lane | Session | State |
 |---|---|---|---|
 | L-1227 – L-1239 | UND1 — 3D linework / underlay view scope (allocated from the buffer) | 2026-08-19 | **L-1227 ✅ FIXED, L-1228 logged** (2 of 13 used) |
-| L-1240 – L-1249 | ELEV1 — window/door elevation symbols | 2026-08-19 | **L-1240, L-1241 minted** (2 of 10 used) |
+| L-1240 – L-1249 | ELEV1 — window/door elevation symbols | 2026-08-19 | **L-1240, L-1241, L-1242 minted** (3 of 10 used) |
 | L-1250 – L-1259 | ROUND1 — circular windows / arched doors | 2026-08-19 | **L-1250, L-1251, L-1252 ✅ SHIPPED** (3 of 10 used) |
 | L-1260 – L-1269 | NL1 — wall finish / layer chat grammar | 2026-08-19 | **L-1260, L-1261, L-1262, L-1263 minted** (4 of 10 used) |
 | L-1270 – L-1279 | JOIN1 — raked-wall joints (gap opens toward the top) | 2026-08-19 | **L-1270, L-1271, L-1272 minted** (3 of 10 used) |
@@ -56,7 +56,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1330 – L-1339 | LIGHT1 — 20 LOD-200 lighting fixtures with photometrics | 2026-08-19 | **L-1330 ✅ SHIPPED** (20 families derived from ONE matrix; lumen-reader verdict: READ by the renderer, NOT by any analysis path — no illuminance calculation exists) · **L-1334 ✅ FIXED** (barrel-at-module-load broke repo-wide test collection) · **L-1331 ✅ FIXED** (C96 §9.1 / EI-3 CLOSED — exit (a): the LOD-200 matrix moved to L0 so `LightingKind` DERIVES its accepted set; 30-of-32 refused → 0; zero `apps/editor` changes) · **L-1332, L-1333 ⛔ OPEN** (generic plan symbols · beam angle does not narrow the light) — 5 of 10 used; L-1335–L-1339 free |
 | L-1340 – L-1349 | LOG1 (second block) — project-open coalescing keyed on nothing | 2026-08-20 | **L-1340 minted** (1 of 10 used) |
 | L-1350 – L-1359 | BG1 — grey WebGL-fallback viewport + WebGPU navigation ghost ("reminiscencia") | 2026-08-20 | **L-1350 ✅ FIXED** (§FRAME-STARTS-CLEAN-ON-EVERY-BACKEND — the per-frame OBC base clear was armed on the ONE backend whose overlay is opaque and DISARMED on the one whose overlay presents alpha 0 in empty space; the arms were INVERTED and a green test pinned the inversion) · **L-1351 ✅ FIXED** (the `background: #ffffff (all layers)` log line claimed three layers from a call that writes one on every Phase-5 backend) · **L-1352 ✅ FIXED** (§VIEWPORT-BG-PROBE enumerated the five BACKGROUNDS and could not name a grey that is DRAWN — ground shadow-catcher added as surface 0) · **L-1353 🟡 OPEN — MEASURED, NOT FIXED** (the grey is very likely the 4 km `ShadowMaterial` ground catcher, not the background stack; mechanism derived from three r183 `ShadowMaskModel`; needs ONE browser measurement to close) (4 of 10 used; L-1354–L-1359 free) |
-| L-1360 – L-1369 | GIS1 (second block) — GIS panel phase 2b: legacy pill removal, PRYZM styling, buildability re-host | 2026-08-20 | **in use** |
+| L-1360 – L-1369 | GIS1 (second block) — GIS panel phase 2b: legacy pill removal, PRYZM styling, buildability re-host | 2026-08-20 | **L-1360, L-1361, L-1362 ✅ FIXED · L-1363 ⭐ RESOLVED — two lanes minted the SAME contract section number (C06 §12) the same day; this ledger fixed L-numbers and left CONTRACT SECTION numbers on the same doomed read-then-write** (4 of 10 used) |
 
 > ⚠ **L-1197 … L-1226 are PRE-LEDGER** and were minted under the old racing convention. Several were
 > renumbered in flight. **Trust the ISSUE LOG for what they mean, not any lane report that cites

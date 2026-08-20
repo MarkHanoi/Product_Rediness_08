@@ -88,7 +88,7 @@ export function installLivingGraphOverlay(): void {
   w.pryzmOpenLivingGraph = (show?: boolean) => overlay.toggle(show ?? true);
   w.pryzmCloseLivingGraph = () => overlay.hide();
 
-  // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — the floating "Living Graph" pill is GONE.
+  // §GIS-ACTION-REGISTRY (L-1360, C06 §13.7) — the floating "Living Graph" pill is GONE.
   //
   // Founder 2026-08-20: "EXCLUDE THE BUTTONS FROM THE MAIN SCENE". The bottom-left
   // stack was rendering on top of the consolidated GIS panel, so the same action

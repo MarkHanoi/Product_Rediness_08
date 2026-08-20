@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// §GIS-ACTION-REGISTRY (L-1187, C06 §12) — the executable guard.
+// §GIS-ACTION-REGISTRY (L-1187, C06 §13) — the executable guard.
 //
 // This is the test the founder's ask actually needs. "Please make sure all the
 // following buttons are in the GIS tab, and the legacy buttons are gone" cannot be
@@ -458,7 +458,7 @@ describe('§GIS-ENVELOPE-REHOST (L-1362) — re-hosted, never re-implemented', (
             expect(
                 PANEL_SRC.includes(forbidden),
                 `ProjectBrowserPanel reads ${forbidden} directly. The buildability card must be ` +
-                `RE-HOSTED (C06 §12.3), not re-derived — a second reader eventually disagrees ` +
+                `RE-HOSTED (C06 §13.3), not re-derived — a second reader eventually disagrees ` +
                 `with the first about whether land is buildable.`,
             ).toBe(false);
         }

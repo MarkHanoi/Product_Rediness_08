@@ -362,25 +362,25 @@ declare global {
         pryzmEnterPlanViewGis?: () => void | Promise<void>;
         /** FORMA.3 — remove the [2D Map][Plan][3D] toggle. */
         pryzmHideFormaView?: () => void;
-        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — toggle the FORMA.5 site-analysis panel
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §13) — toggle the FORMA.5 site-analysis panel
          *  (sun · weather · wind). Brings the Forma view up first when the panel is not
          *  mounted, so it never dead-ends. Registered by GISAreaLayout. */
         pryzmToggleSiteAnalysis?: () => void;
-        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — show / hide the buildable-envelope
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §13) — show / hide the buildable-envelope
          *  facts card. Same not-built-yet branch as the launcher pill. Registered by
          *  GISAreaLayout. */
         pryzmToggleEnvelopeCard?: () => void;
-        /** §GIS-ACTION-REGISTRY (L-1187, C06 §12) — reframe the camera on the site. The
+        /** §GIS-ACTION-REGISTRY (L-1187, C06 §13) — reframe the camera on the site. The
          *  ACTIVE SURFACE decides the target (Forma preset vs the placed building on the
          *  photoreal tiles), which is what the two rival "Zoom to Site" buttons disagreed
          *  about. Registered by GISAreaLayout. */
         pryzmZoomToSite?: () => void;
-        /** §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — restore every optional panel to its
+        /** §GIS-ACTION-REGISTRY (L-1360, C06 §13.7) — restore every optional panel to its
          *  declared default state, size and position. APP-WIDE: it walks the whole
          *  `PANEL_REGISTRY`, not only the site panels. Registered by GISAreaLayout; it is
          *  the re-host of the floating ⟲ pill the launcher rail used to carry. */
         pryzmResetPanelLayout?: () => void;
-        /** §GIS-ACTION-REGISTRY (L-1361, C06 §12) — a SNAPSHOT of which site view and
+        /** §GIS-ACTION-REGISTRY (L-1361, C06 §13) — a SNAPSHOT of which site view and
          *  building fidelity are current, so a surface can paint an active state that is
          *  DERIVED from the authority instead of mirrored beside it. `buildingFidelity`
          *  reports whichever of the two fidelity variables governs the visible surface.
@@ -391,7 +391,7 @@ declare global {
             formaMode: 'map2d' | 'plan' | '3d';
             buildingFidelity: 'massing' | 'real';
         };
-        /** §GIS-ENVELOPE-REHOST (L-1362, C06 §12.3) — claim the buildability read-out (the
+        /** §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — claim the buildability read-out (the
          *  C58 buildable-envelope card) for a host element; `null` releases it back to the
          *  viewport. Returns whether a card is present afterwards.
          *
