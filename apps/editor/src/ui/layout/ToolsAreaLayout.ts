@@ -63,14 +63,20 @@ export interface PickerInstances {
 }
 
 // ── Exported helpers — consumed by CreatePanelLayout for ceiling/floor actions ──
-export type FloorToolMode   = 'LINEAR' | 'ORTHO' | 'ARC' | 'RECTANGLE' | 'AUTO_FROM_ROOM';
+export type FloorToolMode   =
+    | 'LINEAR' | 'ORTHO' | 'ARC'
+    // §FEAT-PLATE-SHAPE-MODES — the three closed-loop gestures.
+    | 'RECTANGLE' | 'CIRCULAR' | 'ELLIPTICAL'
+    | 'AUTO_FROM_ROOM';
 export type CeilingToolMode = FloorToolMode;
 
 export function floorPickerToToolMode(m: FloorPickerMode): FloorToolMode {
     switch (m) {
         case 'ortho':     return 'ORTHO';
         case 'curved':    return 'ARC';
-        case 'rectangle': return 'RECTANGLE';
+        case 'rectangle':  return 'RECTANGLE';
+        case 'circular':   return 'CIRCULAR';
+        case 'elliptical': return 'ELLIPTICAL';
         case 'auto':      return 'AUTO_FROM_ROOM';
         default:          return 'LINEAR';
     }
@@ -541,6 +547,8 @@ export function mountToolsArea(
                 onSwitchOrtho:     () => _switchFloor('ortho'),
                 onSwitchCurved:    () => _switchFloor('curved'),
                 onSwitchRectangle: () => _switchFloor('rectangle'),
+                onSwitchCircular:  () => _switchFloor('circular'),
+                onSwitchElliptical:() => _switchFloor('elliptical'),
                 onSwitchAuto:      () => _switchFloor('auto'),
             });
         }
@@ -583,6 +591,8 @@ export function mountToolsArea(
                 onSwitchOrtho:     () => _switchCeiling('ortho'),
                 onSwitchCurved:    () => _switchCeiling('curved'),
                 onSwitchRectangle: () => _switchCeiling('rectangle'),
+                onSwitchCircular:  () => _switchCeiling('circular'),
+                onSwitchElliptical:() => _switchCeiling('elliptical'),
                 onSwitchAuto:      () => _switchCeiling('auto'),
             });
         }

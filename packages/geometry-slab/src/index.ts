@@ -114,3 +114,9 @@ export type {
 // hole loop across that seam MUST route through here — see SlabHoleCoords.ts.
 export type { L1HoleVertex, LegacyHoleVertex } from './SlabHoleCoords';
 export { l1HolesToLegacy, legacyHolesToL1 } from './SlabHoleCoords';
+
+// ── §FEAT-PLATE-SHAPE-MODES (2026-08-19) — the closed-loop boundary generators
+// (rectangular / circular / elliptical) shared by the slab, floor-finish and
+// ceiling tools. A GESTURE axis, orthogonal to boundaryPath's CONSTRAINT axis
+// (C92 SL-Voc-3). Pure, THREE-free.
+export * from './boundaryLoops';

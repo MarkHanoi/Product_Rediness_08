@@ -95,6 +95,14 @@ import { attachFloorSketchViaLegacyBridge } from '../../initBusHandlers';
 // to at `initTools.ts`, so plan and 3D refuse identically (C11 §3: one rule, one
 // implementation, never a per-view copy).
 import { gateFloorFinishPlacement } from '@app/engine/consequence/floorFinishGate';
+// §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — the SHARED closed-loop boundary
+// generators. The PLAN surface consumes the same module the 3D tool does, so a
+// shape mode can never be 3D-only the way AUTO once was
+// (§FIX-FINISH-MODE-PLAN-UNREACHABLE).
+import {
+    boundaryLoopVertices, boundaryLoopRefusal, BOUNDARY_LOOP_GESTURE,
+    type BoundaryLoopMode,
+} from '@pryzm/geometry-slab';
 
 const STROKE = '#10b981';
 const FILL_A = 'rgba(16,185,129,0.10)';
@@ -135,10 +143,26 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         this._ctx         = null;
     }
 
+    /**
+     * §FEAT-PLATE-SHAPE-MODES — the picker id mapped onto the SHARED loop
+     * vocabulary, or `null` for a path-drawing mode.
+     *
+     * ⚠ `'rectangle'` is the HISTORIC picker id for what the shared vocabulary
+     * spells `'rectangular'`. The divergence is real and is reconciled under
+     * L-1322; it is mapped here rather than silently perpetuated (C84 EI-8).
+     */
+    private _loopMode(): BoundaryLoopMode | null {
+        const m = this._currentMode();
+        return m === 'rectangle'  ? 'rectangular'
+             : m === 'circular'   ? 'circular'
+             : m === 'elliptical' ? 'elliptical'
+             : null;
+    }
+
     onMouseMove(pt: WorldPoint): void {
         const mode = this._currentMode();
-        // RECTANGLE preview kicks in once an anchor is set
-        if (mode === 'rectangle' && this._rectAnchor) {
+        // CLOSED-LOOP preview kicks in once an anchor is set
+        if (this._loopMode() && this._rectAnchor) {
             this._cursorPoint = pt;
             this._drawPreview();
             return;
@@ -164,34 +188,27 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // ── RECTANGLE — 2-point axis-aligned commit ──────────────────────────
-        if (mode === 'rectangle') {
+        // ── CLOSED-LOOP modes — 2-click commit ───────────────────────────────
+        // §FEAT-PLATE-SHAPE-MODES — RECTANGULAR / CIRCULAR / ELLIPTICAL share ONE
+        // gesture and therefore ONE arm; the ring maths lives in `boundaryLoops`.
+        const loopMode = this._loopMode();
+        if (loopMode) {
             if (!this._rectAnchor) {
-                this._rectAnchor = pt;
-                this._points     = [pt];
+                this._rectAnchor  = pt;
+                this._points      = [pt];
                 this._cursorPoint = pt;
                 this._drawPreview();
-                console.log('[FloorPlanToolHandler] Rectangle anchor set', pt);
                 return;
             }
-            const a = this._rectAnchor;
-            const b = pt;
-            const minX = Math.min(a.worldX, b.worldX);
-            const maxX = Math.max(a.worldX, b.worldX);
-            const minZ = Math.min(a.worldZ, b.worldZ);
-            const maxZ = Math.max(a.worldZ, b.worldZ);
-            if (maxX - minX < 0.01 || maxZ - minZ < 0.01) {
-                console.warn('[FloorPlanToolHandler] Rectangle too small — ignoring');
+            const first  = { x: this._rectAnchor.worldX, z: this._rectAnchor.worldZ };
+            const second = { x: pt.worldX, z: pt.worldZ };
+            const ring = boundaryLoopVertices(loopMode, first, second);
+            if (ring.length < 3) {
+                // ⛔ C16 CA-18 / §L955 — name the reason; never fall back to a rectangle.
+                console.warn('[FloorPlanToolHandler] ' + boundaryLoopRefusal(loopMode, first, second));
                 return;
             }
-            const mk = (x: number, z: number): WorldPoint =>
-                ({ worldX: x, worldZ: z } as WorldPoint);
-            this._points = [
-                mk(minX, minZ),
-                mk(maxX, minZ),
-                mk(maxX, maxZ),
-                mk(minX, maxZ),
-            ];
+            this._points = ring.map((v) => ({ worldX: v.x, worldZ: v.z } as WorldPoint));
             this._commit();
             return;
         }
@@ -231,13 +248,13 @@ export class FloorPlanToolHandler implements PlanToolHandler {
 
     onDoubleClick(_pt: WorldPoint): void {
         const mode = this._currentMode();
-        if (mode === 'rectangle' || mode === 'auto') return;
+        if (this._loopMode() || mode === 'auto') return;
         if (this._arcMidPt) return; // arc midpoint pending — dbl-click must not eat the end click
         if (this._points.length >= 3) this._commit();
     }
 
     onKeyDown(e: KeyboardEvent): boolean {
-        if (e.key === 'Enter' && this._points.length >= 3 && this._currentMode() !== 'rectangle' && !this._arcMidPt) {
+        if (e.key === 'Enter' && this._points.length >= 3 && !this._loopMode() && !this._arcMidPt) {
             e.preventDefault();
             this._commit();
             return true;
@@ -657,39 +674,44 @@ export class FloorPlanToolHandler implements PlanToolHandler {
 
         ctx.save();
 
-        // ── RECTANGLE preview ────────────────────────────────────────────────
-        if (mode === 'rectangle' && this._rectAnchor && this._cursorPoint) {
-            const a = this._rectAnchor;
-            const b = this._cursorPoint;
-            const minX = Math.min(a.worldX, b.worldX);
-            const maxX = Math.max(a.worldX, b.worldX);
-            const minZ = Math.min(a.worldZ, b.worldZ);
-            const maxZ = Math.max(a.worldZ, b.worldZ);
-            const corners = [
-                planCanvas.worldToScreen(minX, minZ),
-                planCanvas.worldToScreen(maxX, minZ),
-                planCanvas.worldToScreen(maxX, maxZ),
-                planCanvas.worldToScreen(minX, maxZ),
-            ];
-            ctx.globalAlpha = 0.14;
-            ctx.fillStyle   = FILL_A;
-            ctx.beginPath();
-            ctx.moveTo(corners[0].sx, corners[0].sy);
-            for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].sx, corners[i].sy);
-            ctx.closePath(); ctx.fill();
-            ctx.globalAlpha = 1;
+        // ── CLOSED-LOOP preview (RECTANGULAR / CIRCULAR / ELLIPTICAL) ────────
+        // ⭐ §FEAT-PLATE-SHAPE-MODES — the preview is generated from THE SAME ring
+        // the commit will use, so what the user aims at cannot diverge from what
+        // lands. The old arm re-derived a rectangle inline, which is exactly the
+        // two-producers-of-one-field shape L-1121 records for width/depth.
+        const previewLoop = this._loopMode();
+        if (previewLoop && this._rectAnchor && this._cursorPoint) {
+            const ring = boundaryLoopVertices(
+                previewLoop,
+                { x: this._rectAnchor.worldX,  z: this._rectAnchor.worldZ  },
+                { x: this._cursorPoint.worldX, z: this._cursorPoint.worldZ },
+            );
+            const corners = ring.map((v) => planCanvas.worldToScreen(v.x, v.z));
+            if (corners.length >= 3) {
+                ctx.globalAlpha = 0.14;
+                ctx.fillStyle   = FILL_A;
+                ctx.beginPath();
+                ctx.moveTo(corners[0].sx, corners[0].sy);
+                for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].sx, corners[i].sy);
+                ctx.closePath(); ctx.fill();
+                ctx.globalAlpha = 1;
 
-            ctx.setLineDash([6, 3]);
-            ctx.lineWidth   = 1.5;
-            ctx.strokeStyle = STROKE;
-            ctx.beginPath();
-            ctx.moveTo(corners[0].sx, corners[0].sy);
-            for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].sx, corners[i].sy);
-            ctx.closePath(); ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = STROKE;
-            for (const p of corners) { ctx.beginPath(); ctx.arc(p.sx, p.sy, 4, 0, Math.PI * 2); ctx.fill(); }
-            this._drawHint(ctx, cssH, 'Click to set opposite corner · Esc to finish');
+                ctx.setLineDash([6, 3]);
+                ctx.lineWidth   = 1.5;
+                ctx.strokeStyle = STROKE;
+                ctx.beginPath();
+                ctx.moveTo(corners[0].sx, corners[0].sy);
+                for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].sx, corners[i].sy);
+                ctx.closePath(); ctx.stroke();
+                ctx.setLineDash([]);
+                // Vertex dots only on the rectangle — 48 dots around a circle is noise,
+                // not information.
+                if (previewLoop === 'rectangular') {
+                    ctx.fillStyle = STROKE;
+                    for (const p of corners) { ctx.beginPath(); ctx.arc(p.sx, p.sy, 4, 0, Math.PI * 2); ctx.fill(); }
+                }
+            }
+            this._drawHint(ctx, cssH, `${BOUNDARY_LOOP_GESTURE[previewLoop].second} · Esc to finish`);
             ctx.restore();
             return;
         }

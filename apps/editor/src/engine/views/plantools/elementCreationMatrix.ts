@@ -191,6 +191,14 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         modes: [
             ...WALL_DRAW_MODES,
             { id: 'rectangle', key: 'R', label: 'Rectangle', description: '2-point axis-aligned box' },
+            // §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — "add mode 'eclipse',
+            // 'circular' and 'rectangular'". ⭐ "eclipse" IS READ AS ELLIPSE and the
+            // label says `Elliptical` so the reading is VISIBLE and costs one word to
+            // correct. Ids match `BoundaryLoopMode` in @pryzm/geometry-slab, the module
+            // that turns each mode into real vertices, so the bar cannot offer a shape
+            // the generator does not implement (§FIX-STAIR-SHAPE-DESYNC's lesson).
+            { id: 'circular',   key: 'I', label: 'Circular',   description: 'Closed circle from centre and rim' },
+            { id: 'elliptical', key: 'E', label: 'Elliptical', description: 'Closed ellipse from centre and bounding corner' },
             { id: 'auto',      key: 'A', label: 'Auto',      description: 'Click inside a room to use its boundary' },
         ],
         // §FIX-FINISH-MODE-PLAN-UNREACHABLE — AUTO became reachable in PLAN on
@@ -204,6 +212,14 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         modes: [
             ...WALL_DRAW_MODES,
             { id: 'rectangle', key: 'R', label: 'Rectangle', description: '2-point axis-aligned box' },
+            // §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — "add mode 'eclipse',
+            // 'circular' and 'rectangular'". ⭐ "eclipse" IS READ AS ELLIPSE and the
+            // label says `Elliptical` so the reading is VISIBLE and costs one word to
+            // correct. Ids match `BoundaryLoopMode` in @pryzm/geometry-slab, the module
+            // that turns each mode into real vertices, so the bar cannot offer a shape
+            // the generator does not implement (§FIX-STAIR-SHAPE-DESYNC's lesson).
+            { id: 'circular',   key: 'I', label: 'Circular',   description: 'Closed circle from centre and rim' },
+            { id: 'elliptical', key: 'E', label: 'Elliptical', description: 'Closed ellipse from centre and bounding corner' },
             { id: 'auto',      key: 'A', label: 'Auto',      description: 'Click inside a room to use its boundary' },
         ],
         autoIn: ['plan', '3d'],

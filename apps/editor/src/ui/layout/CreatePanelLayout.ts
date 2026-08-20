@@ -226,6 +226,8 @@ export function mountCreatePanel(
                                     onSelectOrtho:     () => _activateCeiling('ortho'),
                                     onSelectCurved:    () => _activateCeiling('curved'),
                                     onSelectRectangle: () => _activateCeiling('rectangle'),
+                                    onSelectCircular:  () => _activateCeiling('circular'),
+                                    onSelectElliptical:() => _activateCeiling('elliptical'),
                                     onSelectAutoRoom:  () => _activateCeiling('auto'),
                                 });
                             },
@@ -251,6 +253,8 @@ export function mountCreatePanel(
                                     onSelectOrtho:     () => _activateFloor('ortho'),
                                     onSelectCurved:    () => _activateFloor('curved'),
                                     onSelectRectangle: () => _activateFloor('rectangle'),
+                                    onSelectCircular:  () => _activateFloor('circular'),
+                                    onSelectElliptical:() => _activateFloor('elliptical'),
                                     onSelectAutoRoom:  () => _activateFloor('auto'),
                                 });
                             },

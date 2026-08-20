@@ -144,7 +144,7 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
         it('FLOOR FINISH is creatable in PLAN view, in every mode, INCLUDING AUTO', () => {
             const floor = creationCapability('floor')!;
             expect(floor.views).toEqual(['plan', '3d']);
-            expect(creationModeIds('floor')).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'auto']);
+            expect(creationModeIds('floor')).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'circular', 'elliptical', 'auto']);
             expect(floor.autoIn).toContain('plan');   // §FIX-FINISH-MODE-PLAN-UNREACHABLE
             expect(floor.autoIn).toContain('3d');
             // …and the claim is backed by a real registered handler, not a comment.

@@ -30,7 +30,12 @@ import { DrawModePicker } from './DrawModePicker';
 import { wallLinear, wallOrtho, wallCurved } from './icons/PryzmIcons';
 import type { BoundaryDrawMode } from '@pryzm/geometry-slab';
 
-export type FloorPickerMode = BoundaryDrawMode | 'rectangle' | 'auto';
+// §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — 'circular' and 'elliptical'
+// join the closed-loop gesture family. ⚠ 'rectangle' keeps its HISTORIC id
+// (the shared vocabulary spells it 'rectangular'); renaming it would touch
+// ~30 call sites and is reconciled under L-1322, not here.
+export type FloorPickerMode =
+    | BoundaryDrawMode | 'rectangle' | 'circular' | 'elliptical' | 'auto';
 
 export interface FloorTypeOption {
     id: string;
@@ -47,6 +52,8 @@ export interface FloorModePickerCallbacks {
     onSelectOrtho:     () => void;
     onSelectCurved:    () => void;
     onSelectRectangle: () => void;
+    onSelectCircular:  () => void;
+    onSelectElliptical:() => void;
     onSelectAutoRoom:  () => void;
 }
 
@@ -83,6 +90,8 @@ export class FloorModePicker {
                 { key: 'O', label: 'Orthogonal', sub: '90° constrained',     svg: wallOrtho,           modeId: 'ortho',     action: callbacks.onSelectOrtho     },
                 { key: 'C', label: 'Curved',     sub: 'Arc segments',        svg: wallCurved,          modeId: 'curved',    action: callbacks.onSelectCurved    },
                 { key: 'R', label: 'Rectangle',  sub: '2-point box',         svg: buildRectangleSVG(), modeId: 'rectangle', action: callbacks.onSelectRectangle },
+                { key: 'I', label: 'Circular',   sub: 'Centre + rim',        svg: buildCircularSVG(),   modeId: 'circular',   action: callbacks.onSelectCircular   },
+                { key: 'E', label: 'Elliptical', sub: 'Centre + corner',     svg: buildEllipticalSVG(), modeId: 'elliptical', action: callbacks.onSelectElliptical },
                 { key: 'A', label: 'Auto',       sub: 'Click inside a room', svg: buildAutoRoomSVG(),  modeId: 'auto',      action: callbacks.onSelectAutoRoom  },
             ],
         });
@@ -121,5 +130,30 @@ function buildAutoRoomSVG(): string {
   <line x1="32" y1="31" x2="32" y2="34" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
   <line x1="25" y1="24" x2="22" y2="24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
   <line x1="39" y1="24" x2="42" y2="24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+}
+
+/** Circular — centre + rim, the 2-click circle (§FEAT-PLATE-SHAPE-MODES) */
+function buildCircularSVG(): string {
+    return `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="32" cy="24" r="16" stroke="currentColor" stroke-width="2.5"
+          fill="currentColor" fill-opacity="0.10"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="48" cy="24" r="3" fill="currentColor"/>
+  <line x1="32" y1="24" x2="48" y2="24" stroke="currentColor" stroke-width="0.8"
+        opacity="0.45" stroke-dasharray="3 2"/>
+</svg>`;
+}
+
+/** Elliptical — centre + bounding corner. ⭐ The founder wrote "eclipse"; the
+ *  reading is ELLIPSE and the label says so, so a wrong reading costs one word. */
+function buildEllipticalSVG(): string {
+    return `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <ellipse cx="32" cy="24" rx="22" ry="13" stroke="currentColor" stroke-width="2.5"
+           fill="currentColor" fill-opacity="0.10"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="54" cy="37" r="3" fill="currentColor"/>
+  <line x1="32" y1="24" x2="54" y2="37" stroke="currentColor" stroke-width="0.8"
+        opacity="0.45" stroke-dasharray="3 2"/>
 </svg>`;
 }

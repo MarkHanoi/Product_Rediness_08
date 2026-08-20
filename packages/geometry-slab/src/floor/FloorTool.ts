@@ -15,6 +15,8 @@
  *                  3-click pattern); the quadratic-Bézier segment is tessellated into
  *                  the polygon via the shared `boundaryArc` helper (the ONE arc model).
  *   • RECTANGLE  — 2-click axis-aligned rectangle, commits immediately
+ *   • CIRCULAR   — 2-click circle (centre, then rim), commits immediately
+ *   • ELLIPTICAL — 2-click ellipse (centre, then bounding corner) ["eclipse"]
  *   • AUTO_FROM_ROOM — click inside a room and use the room boundary
  *
  * Continuous creation pattern (mirrors SlabTool):
@@ -66,7 +68,29 @@ export interface FloorModalOptions {
   onCancel: () => void;
 }
 
-export type FloorDrawingMode = 'LINEAR' | 'ORTHO' | 'ARC' | 'RECTANGLE' | 'AUTO_FROM_ROOM';
+export type FloorDrawingMode =
+  | 'LINEAR' | 'ORTHO' | 'ARC'
+  // §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — the three CLOSED-LOOP
+  // gestures. 'ELLIPTICAL' is the founder's "eclipse", read as ELLIPSE and
+  // labelled 'Elliptical' so the reading is visible and cheap to correct.
+  // RECTANGLE keeps its historic id: renaming it would break every caller
+  // that already passes it, and the SHARED name for the shape is
+  // `BoundaryLoopMode.rectangular` (see `floortoolLoopMode` below).
+  | 'RECTANGLE' | 'CIRCULAR' | 'ELLIPTICAL'
+  | 'AUTO_FROM_ROOM';
+
+/**
+ * The tool's UPPERCASE mode -> the SHARED plate-boundary loop vocabulary, or
+ * `null` for a path-drawing mode. ONE mapping, consulted by the click arm and
+ * the HUD alike, so the bar can never say one shape while the click builds
+ * another (L-956's exact shape).
+ */
+export function floortoolLoopMode(m: FloorDrawingMode): BoundaryLoopMode | null {
+  return m === 'RECTANGLE'  ? 'rectangular'
+       : m === 'CIRCULAR'   ? 'circular'
+       : m === 'ELLIPTICAL' ? 'elliptical'
+       : null;
+}
 
 // §41 (2026-05-22): unified to the single PRYZM brand purple #6600FF — every
 // creation preview reads identically (was 0x8fb4c8 muted blue). NOTE: kept as a
@@ -92,6 +116,13 @@ import { arcSegmentThroughMidpoint } from '../boundaryArc';
 // consumed, or the browser delivers it to a focused toolbar button and the view
 // switches to 3D mid-commit. See toolKeyGuard.ts for the full root cause.
 import { consumeToolKey, releaseFocusedControl } from '../toolKeyGuard';
+// §FEAT-PLATE-SHAPE-MODES — the SHARED closed-loop boundary generators. Pure,
+// THREE-free, and the same module the slab and ceiling tools call, so the three
+// plate tools cannot drift on what 'circular' means.
+import {
+  boundaryLoopVertices, boundaryLoopRefusal,
+  BOUNDARY_LOOP_LABELS, BOUNDARY_LOOP_GESTURE, type BoundaryLoopMode,
+} from '../boundaryLoops';
 export { DEFAULT_FLOOR_FINISH_BASE_OFFSET_M, DEFAULT_FLOOR_FINISH_THICKNESS_M };
 
 /**
@@ -507,8 +538,14 @@ export class FloorTool {
 
     const clickPt = this._snappedCursorPos;
 
-    // ── RECTANGLE mode — 2-point axis-aligned commit ─────────────────────────
-    if (this._drawingMode === 'RECTANGLE') {
+    // ── CLOSED-LOOP modes — 2-click, commits immediately ─────────────────────
+    // §FEAT-PLATE-SHAPE-MODES — RECTANGULAR / CIRCULAR / ELLIPTICAL are ONE gesture
+    // (anchor, then a second point) and therefore ONE arm. What the two clicks MEAN
+    // and the ring maths both live in `boundaryLoops`, never in a switch here:
+    // three copies of a switch is how `SlabToolMode` ended up declared three times
+    // (C92 SL-Voc-2).
+    const loopMode = floortoolLoopMode(this._drawingMode);
+    if (loopMode) {
       if (!this._rectAnchor) {
         this._rectAnchor = { ...clickPt };
         this._points = [{ ...clickPt }];
@@ -516,26 +553,16 @@ export class FloorTool {
         this._addVertexMarker(clickPt);
         this._updatePreviewObjects();
         this._updateHUDText();
-        console.log('[FloorTool] Rectangle anchor set:', clickPt);
         return;
       }
-      // Second corner — emit a 4-vertex rectangle (CCW from min corner).
-      const a = this._rectAnchor;
-      const b = clickPt;
-      const minX = Math.min(a.x, b.x);
-      const maxX = Math.max(a.x, b.x);
-      const minZ = Math.min(a.z, b.z);
-      const maxZ = Math.max(a.z, b.z);
-      if (maxX - minX < 0.01 || maxZ - minZ < 0.01) {
-        console.warn('[FloorTool] Rectangle too small — ignoring.');
+      const ring = boundaryLoopVertices(loopMode, this._rectAnchor, clickPt);
+      if (ring.length < 3) {
+        // ⛔ C16 CA-18 / §L955 / C86 PR-9 — name the reason and the way forward.
+        // A silent fall-back to a rectangle is the forbidden outcome here.
+        console.warn('[FloorTool] ' + boundaryLoopRefusal(loopMode, this._rectAnchor, clickPt));
         return;
       }
-      this._points = [
-        { x: minX, z: minZ },
-        { x: maxX, z: minZ },
-        { x: maxX, z: maxZ },
-        { x: minX, z: maxZ },
-      ];
+      this._points = ring.map((pt) => ({ x: pt.x, z: pt.z }));
       this._commitPolygon();
       return;
     }
@@ -1000,10 +1027,14 @@ export class FloorTool {
         '<strong>Floor · Auto</strong> — Click inside a room to place · Esc to finish';
       return;
     }
-    if (m === 'RECTANGLE') {
-      this._hudText.innerHTML = !this._rectAnchor
-        ? '<strong>Floor · Rectangle</strong> — Click to set first corner · Esc to finish'
-        : '<strong>Floor · Rectangle</strong> — Click to set opposite corner · Esc to finish';
+    // §FEAT-PLATE-SHAPE-MODES — the prompt is derived from the SHARED gesture
+    // table, so the bar cannot prompt for a corner while the tool wants a centre.
+    const hudLoopMode = floortoolLoopMode(m);
+    if (hudLoopMode) {
+      const g = BOUNDARY_LOOP_GESTURE[hudLoopMode];
+      this._hudText.innerHTML =
+        `<strong>Floor · ${BOUNDARY_LOOP_LABELS[hudLoopMode]}</strong> — ` +
+        `${this._rectAnchor ? g.second : g.first} · Esc to finish`;
       return;
     }
     const modeLabel = m === 'ORTHO' ? 'Orthogonal' : (m === 'ARC' ? 'Curved' : 'Linear');

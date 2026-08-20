@@ -19,11 +19,16 @@ export interface FloorDrawingHUDCallbacks {
     onSwitchOrtho:     () => void;
     onSwitchCurved:    () => void;
     onSwitchRectangle: () => void;
+    onSwitchCircular:  () => void;
+    onSwitchElliptical:() => void;
     onSwitchAuto:      () => void;
 }
 
 const KEY_MAP: Record<string, FloorPickerMode> = {
     l: 'linear', o: 'ortho', c: 'curved', r: 'rectangle', a: 'auto',
+    // §FEAT-PLATE-SHAPE-MODES — i/e mirror the site-boundary map's existing
+    // accelerators for circle/ellipse rather than inventing a third convention.
+    i: 'circular', e: 'elliptical',
 };
 
 export class FloorDrawingHUD {
@@ -55,6 +60,8 @@ export class FloorDrawingHUD {
             { key: 'O', label: 'Orthogonal', mode: 'ortho',     action: callbacks.onSwitchOrtho     },
             { key: 'C', label: 'Curved',     mode: 'curved',    action: callbacks.onSwitchCurved    },
             { key: 'R', label: 'Rectangle',  mode: 'rectangle', action: callbacks.onSwitchRectangle },
+            { key: 'I', label: 'Circular',   mode: 'circular',   action: callbacks.onSwitchCircular   },
+            { key: 'E', label: 'Elliptical', mode: 'elliptical', action: callbacks.onSwitchElliptical },
             { key: 'A', label: 'Auto',       mode: 'auto',      action: callbacks.onSwitchAuto      },
         ];
 
@@ -94,6 +101,8 @@ export class FloorDrawingHUD {
             if (mode === 'ortho')     c.onSwitchOrtho();
             if (mode === 'curved')    c.onSwitchCurved();
             if (mode === 'rectangle') c.onSwitchRectangle();
+            if (mode === 'circular') c.onSwitchCircular();
+            if (mode === 'elliptical') c.onSwitchElliptical();
             if (mode === 'auto')      c.onSwitchAuto();
         };
         window.addEventListener('keydown', this.keyHandler);

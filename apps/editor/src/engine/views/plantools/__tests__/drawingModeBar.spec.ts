@@ -76,7 +76,7 @@ describe('§FEAT-PERSISTENT-MODE-BAR — the wall\'s control, on slab/floor/ceil
         it.each(['floor', 'ceiling'])('%s shows its five modes INCLUDING auto', (tool) => {
             bar.show({ label: 'X:', modes: creationModes(tool), initialMode: 'linear', onSelect: () => {} });
             const ids = pills().map(b => b.dataset.mode);
-            expect(ids).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'auto']);
+            expect(ids).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'circular', 'elliptical', 'auto']);
             expect(ids).toContain('auto');
         });
 

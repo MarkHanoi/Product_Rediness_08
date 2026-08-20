@@ -14,6 +14,8 @@
  *                  vertex, click the arc MIDPOINT then the arc END (the wall tool's
  *                  3-click pattern); tessellated via the shared `boundaryArc` helper.
  *   • RECTANGLE  — 2-click axis-aligned rectangle, commits immediately
+ *   • CIRCULAR   — 2-click circle (centre, then rim), commits immediately
+ *   • ELLIPTICAL — 2-click ellipse (centre, then bounding corner) ["eclipse"]
  *   • AUTO_FROM_ROOM — click inside a room to use room boundary
  *
  * Continuous creation pattern (mirrors SlabTool):
@@ -35,6 +37,13 @@ import { arcSegmentThroughMidpoint } from '../boundaryArc';
 // §FIX-COMMIT-STEALS-VIEW (2026-08-07) — see FloorTool / toolKeyGuard.ts. The
 // ceiling shares the Enter-commit path and therefore the same defect.
 import { consumeToolKey, releaseFocusedControl } from '../toolKeyGuard';
+// §FEAT-PLATE-SHAPE-MODES — the SHARED closed-loop boundary generators. Pure,
+// THREE-free, and the same module the slab and ceiling tools call, so the three
+// plate tools cannot drift on what 'circular' means.
+import {
+  boundaryLoopVertices, boundaryLoopRefusal,
+  BOUNDARY_LOOP_LABELS, BOUNDARY_LOOP_GESTURE, type BoundaryLoopMode,
+} from '../boundaryLoops';
 
 export interface CeilingCreationParams {
   kind: 'ceiling';
@@ -59,7 +68,29 @@ export interface CeilingModalOptions {
   onCancel: () => void;
 }
 
-export type CeilingDrawingMode = 'LINEAR' | 'ORTHO' | 'ARC' | 'RECTANGLE' | 'AUTO_FROM_ROOM';
+export type CeilingDrawingMode =
+  | 'LINEAR' | 'ORTHO' | 'ARC'
+  // §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — the three CLOSED-LOOP
+  // gestures. 'ELLIPTICAL' is the founder's "eclipse", read as ELLIPSE and
+  // labelled 'Elliptical' so the reading is visible and cheap to correct.
+  // RECTANGLE keeps its historic id: renaming it would break every caller
+  // that already passes it, and the SHARED name for the shape is
+  // `BoundaryLoopMode.rectangular` (see `ceilingtoolLoopMode` below).
+  | 'RECTANGLE' | 'CIRCULAR' | 'ELLIPTICAL'
+  | 'AUTO_FROM_ROOM';
+
+/**
+ * The tool's UPPERCASE mode -> the SHARED plate-boundary loop vocabulary, or
+ * `null` for a path-drawing mode. ONE mapping, consulted by the click arm and
+ * the HUD alike, so the bar can never say one shape while the click builds
+ * another (L-956's exact shape).
+ */
+export function ceilingtoolLoopMode(m: CeilingDrawingMode): BoundaryLoopMode | null {
+  return m === 'RECTANGLE'  ? 'rectangular'
+       : m === 'CIRCULAR'   ? 'circular'
+       : m === 'ELLIPTICAL' ? 'elliptical'
+       : null;
+}
 
 // §41 (2026-05-22): unified to the single PRYZM brand purple #6600FF — every
 // creation preview reads identically (was 0x818cf8 indigo). NOTE: kept as a
@@ -398,8 +429,14 @@ export class CeilingTool {
 
     const clickPt = this._snappedCursorPos;
 
-    // ── RECTANGLE mode — 2-point axis-aligned commit ─────────────────────────
-    if (this._drawingMode === 'RECTANGLE') {
+    // ── CLOSED-LOOP modes — 2-click, commits immediately ─────────────────────
+    // §FEAT-PLATE-SHAPE-MODES — RECTANGULAR / CIRCULAR / ELLIPTICAL are ONE gesture
+    // (anchor, then a second point) and therefore ONE arm. What the two clicks MEAN
+    // and the ring maths both live in `boundaryLoops`, never in a switch here:
+    // three copies of a switch is how `SlabToolMode` ended up declared three times
+    // (C92 SL-Voc-2).
+    const loopMode = ceilingtoolLoopMode(this._drawingMode);
+    if (loopMode) {
       if (!this._rectAnchor) {
         this._rectAnchor = { ...clickPt };
         this._points = [{ ...clickPt }];
@@ -407,25 +444,16 @@ export class CeilingTool {
         this._addVertexMarker(clickPt);
         this._updatePreviewObjects();
         this._updateHUDText();
-        console.log('[CeilingTool] Rectangle anchor set:', clickPt);
         return;
       }
-      const a = this._rectAnchor;
-      const b = clickPt;
-      const minX = Math.min(a.x, b.x);
-      const maxX = Math.max(a.x, b.x);
-      const minZ = Math.min(a.z, b.z);
-      const maxZ = Math.max(a.z, b.z);
-      if (maxX - minX < 0.01 || maxZ - minZ < 0.01) {
-        console.warn('[CeilingTool] Rectangle too small — ignoring.');
+      const ring = boundaryLoopVertices(loopMode, this._rectAnchor, clickPt);
+      if (ring.length < 3) {
+        // ⛔ C16 CA-18 / §L955 / C86 PR-9 — name the reason and the way forward.
+        // A silent fall-back to a rectangle is the forbidden outcome here.
+        console.warn('[CeilingTool] ' + boundaryLoopRefusal(loopMode, this._rectAnchor, clickPt));
         return;
       }
-      this._points = [
-        { x: minX, z: minZ },
-        { x: maxX, z: minZ },
-        { x: maxX, z: maxZ },
-        { x: minX, z: maxZ },
-      ];
+      this._points = ring.map((pt) => ({ x: pt.x, z: pt.z }));
       this._commitPolygon();
       return;
     }
@@ -893,10 +921,14 @@ export class CeilingTool {
         '<strong>Ceiling · Auto</strong> — Click inside a room to place · Esc to finish';
       return;
     }
-    if (m === 'RECTANGLE') {
-      this._hudText.innerHTML = !this._rectAnchor
-        ? '<strong>Ceiling · Rectangle</strong> — Click to set first corner · Esc to finish'
-        : '<strong>Ceiling · Rectangle</strong> — Click to set opposite corner · Esc to finish';
+    // §FEAT-PLATE-SHAPE-MODES — the prompt is derived from the SHARED gesture
+    // table, so the bar cannot prompt for a corner while the tool wants a centre.
+    const hudLoopMode = ceilingtoolLoopMode(m);
+    if (hudLoopMode) {
+      const g = BOUNDARY_LOOP_GESTURE[hudLoopMode];
+      this._hudText.innerHTML =
+        `<strong>Ceiling · ${BOUNDARY_LOOP_LABELS[hudLoopMode]}</strong> — ` +
+        `${this._rectAnchor ? g.second : g.first} · Esc to finish`;
       return;
     }
     const modeLabel = m === 'ORTHO' ? 'Orthogonal' : (m === 'ARC' ? 'Curved' : 'Linear');
