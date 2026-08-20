@@ -195,7 +195,7 @@ describe('§FEAT-PERSISTENT-MODE-BAR — the wall\'s control, on slab/floor/ceil
             // it; convergence must not alter its behaviour.
             const onSelect = vi.fn();
             bar.show({ label: 'Mode:', modes: creationModes('wall'), initialMode: 'linear', onSelect });
-            expect(pills().map(b => b.dataset.mode)).toEqual(['linear', 'ortho', 'curved', 'byslab']);
+            expect(pills().map(b => b.dataset.mode)).toEqual(['linear', 'ortho', 'curved', 'byslab', 'rectangular', 'circular', 'elliptical']);
 
             const bySlab = pills().find(b => b.dataset.mode === 'byslab')!;
             bySlab.click();

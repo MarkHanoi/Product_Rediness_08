@@ -22,7 +22,14 @@
 
 import { wallLinear, wallOrtho, wallCurved, wallBySlab } from './icons/PryzmIcons';
 
-export type WallPickerMode = 'linear' | 'ortho' | 'curved' | 'byslab';
+// §FEAT-WALL-SHAPE-MODES (founder, 2026-08-19) — three CLOSED-LOOP run modes.
+// ⭐ These are PLAN shapes: a closed run of walls forming a rectangular, circular
+// or elliptical room. They are NOT `wall.curve` (an arc in plan, which already
+// exists) and NOT `wallProfile` (the wall's elevation FACE, which also already
+// exists). See `_wallLoopMode` in WallPlanToolHandler for the full disambiguation.
+export type WallPickerMode =
+    | 'linear' | 'ortho' | 'curved' | 'byslab'
+    | 'rectangular' | 'circular' | 'elliptical';
 
 export interface WallTypeOption {
     id: string;
@@ -38,6 +45,12 @@ export interface WallModePickerCallbacks {
     onSelectOrtho:   () => void;
     onSelectCurved:  () => void;
     onSelectBySlab?: () => void;
+    /** §FEAT-WALL-SHAPE-MODES — closed-loop runs. Optional so an older host
+     *  that has not wired them simply does not show the pills (C65 §3.9 —
+     *  no affordance without an implementation). */
+    onSelectRectangular?: () => void;
+    onSelectCircular?:    () => void;
+    onSelectElliptical?:  () => void;
 }
 
 export class WallModePicker {
@@ -165,6 +178,26 @@ export class WallModePicker {
                 modeId: 'byslab' as WallPickerMode,
                 action: callbacks.onSelectBySlab,
             }] : []),
+            // §FEAT-WALL-SHAPE-MODES — the closed-loop runs. Each is a MODE, not an
+            // action: it is a two-click gesture on the canvas, so the user must be able
+            // to SEE which one is armed while aiming. Declaring them actions would strip
+            // the highlight and leave the bar saying 'Linear' while the next click starts
+            // a circle — L-956's exact shape.
+            ...(callbacks.onSelectRectangular ? [{
+                key: 'Q', label: 'Rectangular', sub: 'Closed run, two corners',
+                svg: wallRectangularLoop, modeId: 'rectangular' as WallPickerMode,
+                action: callbacks.onSelectRectangular,
+            }] : []),
+            ...(callbacks.onSelectCircular ? [{
+                key: 'I', label: 'Circular', sub: 'Closed run, centre + rim',
+                svg: wallCircularLoop, modeId: 'circular' as WallPickerMode,
+                action: callbacks.onSelectCircular,
+            }] : []),
+            ...(callbacks.onSelectElliptical ? [{
+                key: 'E', label: 'Elliptical', sub: 'Closed run, centre + corner',
+                svg: wallEllipticalLoop, modeId: 'elliptical' as WallPickerMode,
+                action: callbacks.onSelectElliptical,
+            }] : []),
         ];
 
         const modeRow = document.createElement('div');
@@ -232,3 +265,23 @@ export class WallModePicker {
 
 // SVG icons are now exported from src/ui/icons/PryzmIcons.ts
 // (wallLinear, wallOrtho, wallCurved) — imported at the top of this file.
+
+// ─── §FEAT-WALL-SHAPE-MODES — closed-loop run glyphs ──────────────────────
+
+const wallRectangularLoop = `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <rect x="10" y="10" width="44" height="28" stroke="currentColor" stroke-width="3.5" fill="none"/>
+  <circle cx="10" cy="10" r="3" fill="currentColor"/>
+  <circle cx="54" cy="38" r="3" fill="currentColor"/>
+</svg>`;
+
+const wallCircularLoop = `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="32" cy="24" r="16" stroke="currentColor" stroke-width="3.5" fill="none"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="48" cy="24" r="3" fill="currentColor"/>
+</svg>`;
+
+const wallEllipticalLoop = `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <ellipse cx="32" cy="24" rx="22" ry="13" stroke="currentColor" stroke-width="3.5" fill="none"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="54" cy="37" r="3" fill="currentColor"/>
+</svg>`;

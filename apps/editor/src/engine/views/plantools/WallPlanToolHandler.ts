@@ -43,6 +43,15 @@ import { computeSetOutDimensions, solveSetOutPoint, type SetOutSegment, type Set
 // §FIX-SPLIT-WALL-SYSTEMTYPE (L-98) — surface-independent active wall system type, so a
 // wall drawn in the SPLIT plan pane carries the same layered systemTypeId as the MAIN view.
 import { resolveActiveWallSystemTypeId } from './activeWallSystemType';
+// §FEAT-WALL-SHAPE-MODES (founder, 2026-08-19) — the SHARED closed-loop
+// generators, with the WALL density policy. ⚠ Walls use `WALL_LOOP_DENSITY`, NOT
+// the plate policy: every chord of a wall run is a REAL ELEMENT with an id, a
+// schedule row and two junctions, so a 20 mm-tolerance circle would emit ~64
+// walls of ~390 mm. The module states that reasoning where the numbers live.
+import {
+    boundaryLoopVertices, boundaryLoopRefusal, BOUNDARY_LOOP_GESTURE,
+    BOUNDARY_LOOP_LABELS, WALL_LOOP_DENSITY, type BoundaryLoopMode,
+} from '@pryzm/geometry-slab';
 // §P2.1 (IMPL-PLAN-2026-05-17): CreateWallCommand + window.commandManager bridge (P4.4).
 // Wall creation is now bus-only; no @pryzm/command-registry import needed here.
 
@@ -79,6 +88,27 @@ const ORTHO_YIELD_AMBER = '#d97706';
 
 function _getMode(): string {
     return window.wallModePicker?.getActiveMode?.() ?? 'linear';
+}
+
+/**
+ * §FEAT-WALL-SHAPE-MODES — the wall picker's mode mapped onto the SHARED closed-loop
+ * vocabulary, or `null` for a path-drawing mode.
+ *
+ * ⭐ WHY THESE ARE *PLAN* SHAPES AND NOT ELEVATION PROFILES. "Circular wall" is
+ * ambiguous three ways: (a) an arc in plan — that is `wall.curve`, and it already
+ * exists; (b) a wall whose FACE is a circle — that is `wallProfile`, which also
+ * already exists and is authorable through `WallTool.enterProfileEditMode`; and
+ * (c) a closed RUN of walls forming a circular room. The founder listed
+ * `rectangular / circular / elliptical` as PEERS, and only (c) makes them peers:
+ * under (a) "rectangular" is incoherent, and under (b) it is the ABSENT profile —
+ * i.e. asking for nothing. So (c) is what these modes build, and (a) and (b) are
+ * untouched and still reachable.
+ */
+function _wallLoopMode(mode: string): BoundaryLoopMode | null {
+    return mode === 'rectangular' ? 'rectangular'
+         : mode === 'circular'    ? 'circular'
+         : mode === 'elliptical'  ? 'elliptical'
+         : null;
 }
 
 function _snapOrtho(start: WorldPoint, raw: WorldPoint): WorldPoint {
@@ -249,6 +279,23 @@ export class WallPlanToolHandler implements PlanToolHandler {
         // hand-rolled copy to diverge again.
         const resolved = this._resolveConstrainedPoint(pt, mode, /* captureGuides */ false);
 
+        // ── CLOSED-LOOP wall runs — 2 clicks, N walls ────────────────────────
+        // §FEAT-WALL-SHAPE-MODES. The anchor still resolves through the shared
+        // constraint chain, so a drum can be snapped onto existing geometry.
+        const loopMode = _wallLoopMode(mode);
+        if (loopMode) {
+            if (!this._wallFirstPoint) {
+                this._wallFirstPoint     = resolved;
+                this._polylineFirstPoint = resolved;
+                this._arcMidPt           = null;
+                this._wallSegmentCount   = 0;
+                this._syncCreationHud();
+                return;
+            }
+            this._commitLoopRun(loopMode, this._wallFirstPoint, resolved);
+            return;
+        }
+
         if (!this._wallFirstPoint) {
             this._wallFirstPoint     = resolved;
             this._polylineFirstPoint = resolved;
@@ -362,6 +409,65 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
     redraw(): void {
         if (this._wallFirstPoint && this._wallCursorPoint) this._drawWallPreview();
+    }
+
+    /**
+     * §FEAT-WALL-SHAPE-MODES — a closed run of walls from ONE two-click gesture.
+     *
+     * ⭐ IT DISPATCHES NOTHING OF ITS OWN. Every edge goes through `_commitWall`,
+     * the ONE wall-creation path this handler already owns — so the C83 spatial
+     * gate, the system-type resolution, the layer stamping, the id minting and the
+     * `wall.create` dispatch are all inherited rather than re-implemented. That is
+     * the same structural claim `handrailRunGenerators` makes for railings: a
+     * multi-segment run IS N two-point elements, and pretending otherwise is how a
+     * second record shape gets minted.
+     *
+     * `_commitWall` already CHAINS (`this._wallFirstPoint = endPt` on success), so
+     * walking the ring in order and finishing back at vertex 0 closes the loop with
+     * no special case for the closing edge.
+     *
+     * ⚠ A per-edge refusal from the spatial gate is NOT fatal to the run: that edge
+     * is skipped with the gate's own sentence and the remaining edges still build.
+     * Abandoning the whole loop because one edge crossed a door would be a worse
+     * answer than a partial drum the author can see and fix.
+     */
+    private _commitLoopRun(
+        loopMode: BoundaryLoopMode,
+        anchor: WorldPoint,
+        second: WorldPoint,
+    ): void {
+        const first = { x: anchor.worldX, z: anchor.worldZ };
+        const sec   = { x: second.worldX, z: second.worldZ };
+        const ring  = boundaryLoopVertices(loopMode, first, sec, WALL_LOOP_DENSITY);
+
+        if (ring.length < 3) {
+            // ⛔ C16 CA-18 / §L955 — name the reason; never fall back to a rectangle.
+            console.warn(
+                '[WallPlanToolHandler] §FEAT-WALL-SHAPE-MODES —',
+                boundaryLoopRefusal(loopMode, first, sec, WALL_LOOP_DENSITY),
+            );
+            return;
+        }
+
+        const mk = (v: { x: number; z: number }): WorldPoint =>
+            ({ ...second, worldX: v.x, worldZ: v.z, snapType: undefined } as WorldPoint);
+
+        this._arcMidPt       = null;
+        this._wallFirstPoint = mk(ring[0]);
+        for (let i = 1; i <= ring.length; i++) {
+            this._commitWall(mk(ring[i % ring.length]));
+        }
+
+        // End the run: a closed loop has no dangling start point to continue from.
+        this._wallFirstPoint     = null;
+        this._polylineFirstPoint = null;
+        this._wallCursorPoint    = null;
+        this._arcMidPt           = null;
+        this._syncCreationHud();
+        this._clearOverlay();
+        console.log(
+            `[WallPlanToolHandler] §FEAT-WALL-SHAPE-MODES committed a ${loopMode} run of ${ring.length} walls`,
+        );
     }
 
     private _commitWall(endPt: WorldPoint): void {
@@ -1288,9 +1394,18 @@ export class WallPlanToolHandler implements PlanToolHandler {
         const canClose = this._wallSegmentCount >= 2 && !!this._polylineFirstPoint && !!this._wallFirstPoint;
 
         if (textEl) {
+            const hudLoop = _wallLoopMode(mode);
             if (this._setOutEditActive) {
                 // §WALL-SETOUT-TAB-INPUT — editing a set-out distance numerically.
                 textEl.textContent = 'Type set-out mm · TAB next dim · ↵ commit · Esc cancel';
+            } else if (hudLoop) {
+                // §FEAT-WALL-SHAPE-MODES — the prompt comes from the SHARED gesture
+                // table, so the bar cannot ask for a corner while the tool wants a
+                // centre. Without this arm a circular run would prompt "Click to set
+                // next point", which is the UI naming an axis that did not change.
+                const g = BOUNDARY_LOOP_GESTURE[hudLoop];
+                textEl.textContent =
+                    `${BOUNDARY_LOOP_LABELS[hudLoop]} run · ${this._wallFirstPoint ? g.second : g.first} · Esc to cancel`;
             } else if (!this._wallFirstPoint) {
                 textEl.textContent = 'Click to set start point';
             } else if (mode === 'curved' && !this._arcMidPt) {

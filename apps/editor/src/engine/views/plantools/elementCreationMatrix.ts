@@ -246,6 +246,31 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
             // An ACTION, not a mode: it consumes the current selection and never
             // takes the active-pill highlight (the wall bar has always behaved so).
             { id: 'byslab', key: 'S', label: 'By Slab', description: 'Create walls from the selected slab', isAction: true },
+            // §FEAT-WALL-SHAPE-MODES (founder, 2026-08-19) — CLOSED-LOOP RUNS.
+            //
+            // ⭐ THE DISAMBIGUATION, BECAUSE "circular wall" MEANS THREE THINGS.
+            // (a) an ARC IN PLAN — that is `wall.curve`, and it already exists;
+            // (b) a wall whose FACE is a circle — that is `wallProfile`, which also
+            //     already exists and is authorable via `WallTool.enterProfileEditMode`;
+            // (c) a closed RUN of walls forming a circular room — THIS.
+            // The founder listed rectangular/circular/elliptical as PEERS, and only
+            // (c) makes them peers: under (a) "rectangular" is incoherent, and under
+            // (b) it is the ABSENT profile, i.e. asking for nothing. (a) and (b) are
+            // untouched and still reachable.
+            //
+            // MODES, not actions: each is a two-click gesture, so the user must SEE
+            // which is armed while aiming (the railing bar's ruling, and L-956's shape).
+            //
+            // ⚠ PLAN-ONLY TODAY, DECLARED (L-1325). `WallPlanToolHandler` builds the run by
+            // calling its OWN `_commitWall` once per edge, so the C83 spatial gate, the
+            // system-type resolution and the `wall.create` dispatch are all inherited. The
+            // 3-D `WallTool` drives a different state machine off the `WallDrawingMode`
+            // ENUM, which has no member for these three — and minting a fake member to
+            // satisfy a bar is how a UI ends up offering what the pipeline cannot accept
+            // (C84 EI-3).
+            { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed wall run from two opposite corners' },
+            { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed wall run from centre and rim' },
+            { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed wall run from centre and bounding corner' },
         ],
         autoIn: ['plan', '3d'], // 'byslab' derives the walls from a selected slab
         modeSource: 'shared',   // wallModePicker + activeWallSystemType

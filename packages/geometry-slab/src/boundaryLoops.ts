@@ -170,6 +170,54 @@ export const MIN_LOOP_SEGMENTS = 12;
 export const MAX_LOOP_SEGMENTS = 96;
 
 /**
+ * ⭐ THE SEGMENT-COUNT POLICY IS PER-FAMILY, AND THAT IS THE WHOLE REASON THIS IS A
+ * PARAMETER RATHER THAN A CONSTANT.
+ *
+ * A PLATE boundary is a rendered OUTLINE handed to earcut: one polygon, one mesh, and
+ * the only thing a finer ring costs is vertices. Its density should therefore be
+ * governed by how far a chord strays from the true curve.
+ *
+ * A WALL RUN is not that. Every chord is a REAL ELEMENT — it gets an id, a system
+ * type, layers, a schedule row, two junctions and a pass through the join resolver.
+ * Tessellating a 4 m circle at the plate's 20 mm tolerance would emit ~64 walls of
+ * ~390 mm each: a nonsense model, a nonsense schedule, and 64 junction clusters for
+ * the solver. This is the same argument `handrailRunGenerators` makes in its own
+ * words — *"a schedule full of 100 mm rails"* — and it is why that module was left
+ * with its own policy rather than forced onto this one.
+ *
+ * So the MATHS is shared and the POLICY is named. A caller picks a policy; nobody
+ * re-derives the parameterisation.
+ */
+export interface LoopDensity {
+    /** Max distance from a chord to the true curve, metres. */
+    readonly chordToleranceM?: number;
+    readonly minSegments?: number;
+    readonly maxSegments?: number;
+}
+
+/** The default — PLATES (slab / ceiling / floor). A smooth rendered outline. */
+export const PLATE_LOOP_DENSITY: LoopDensity = Object.freeze({
+    chordToleranceM: LOOP_CHORD_TOLERANCE_M,
+    minSegments: MIN_LOOP_SEGMENTS,
+    maxSegments: MAX_LOOP_SEGMENTS,
+});
+
+/**
+ * WALL RUNS — deliberately COARSE, because each chord becomes a wall.
+ *
+ * ⚠ The numbers are chosen so a room-scale circular run reads as a drum without
+ * becoming a parts list: at r = 4 m this gives 16 walls of ~1.55 m. `minSegments` is
+ * 8 because fewer than eight sides does not read as a circle at all, and
+ * `maxSegments` is 24 because beyond that the junction count, not the silhouette, is
+ * what the user notices.
+ */
+export const WALL_LOOP_DENSITY: LoopDensity = Object.freeze({
+    chordToleranceM: 0.35,
+    minSegments: 8,
+    maxSegments: 24,
+});
+
+/**
  * How many chords to cut a loop of the given MAXIMUM radius into, so that no chord
  * deviates from the true curve by more than `LOOP_CHORD_TOLERANCE_M`.
  *
@@ -178,15 +226,18 @@ export const MAX_LOOP_SEGMENTS = 96;
  * `ceil(PI / t)`. Using the LARGER semi-axis of an ellipse is conservative: the
  * flatter axis is sampled more finely than it needs, never less.
  */
-export function loopSegmentCount(maxRadius: number): number {
+export function loopSegmentCount(maxRadius: number, density: LoopDensity = PLATE_LOOP_DENSITY): number {
+    const tol = density.chordToleranceM ?? LOOP_CHORD_TOLERANCE_M;
+    const lo  = density.minSegments     ?? MIN_LOOP_SEGMENTS;
+    const hi  = density.maxSegments     ?? MAX_LOOP_SEGMENTS;
     if (!Number.isFinite(maxRadius) || maxRadius <= 0) return 0;
-    const ratio = 1 - LOOP_CHORD_TOLERANCE_M / maxRadius;
+    const ratio = 1 - tol / maxRadius;
     // A radius at or below the tolerance cannot be resolved further than the floor.
-    if (!(ratio > -1)) return MIN_LOOP_SEGMENTS;
+    if (!(ratio > -1)) return lo;
     const halfAngle = Math.acos(Math.min(1, Math.max(-1, ratio)));
-    if (!(halfAngle > 0)) return MAX_LOOP_SEGMENTS;
+    if (!(halfAngle > 0)) return hi;
     const n = Math.ceil(Math.PI / halfAngle);
-    return Math.min(MAX_LOOP_SEGMENTS, Math.max(MIN_LOOP_SEGMENTS, n));
+    return Math.min(hi, Math.max(lo, n));
 }
 
 /**
@@ -219,10 +270,14 @@ export function rectangularLoopVertices(a: ArcVertex2D, b: ArcVertex2D): ArcVert
  * (*"a circular opening's width and height must be equal — the width IS the
  * diameter"*), expressed in code instead of in a validator.
  */
-export function circularLoopVertices(centre: ArcVertex2D, rim: ArcVertex2D): ArcVertex2D[] {
+export function circularLoopVertices(
+    centre: ArcVertex2D,
+    rim: ArcVertex2D,
+    density: LoopDensity = PLATE_LOOP_DENSITY,
+): ArcVertex2D[] {
     const r = Math.hypot(rim.x - centre.x, rim.z - centre.z);
     if (!(r >= MIN_LOOP_EXTENT_M)) return [];
-    return loopVerticesFromRadii(centre, r, r);
+    return loopVerticesFromRadii(centre, r, r, density);
 }
 
 /**
@@ -233,17 +288,26 @@ export function circularLoopVertices(centre: ArcVertex2D, rim: ArcVertex2D): Arc
  * rather than refusing — the same behaviour the handrail ellipse mode ships, and
  * the reason the two modes can coexist on one bar without trapping the user.
  */
-export function ellipticalLoopVertices(centre: ArcVertex2D, corner: ArcVertex2D): ArcVertex2D[] {
+export function ellipticalLoopVertices(
+    centre: ArcVertex2D,
+    corner: ArcVertex2D,
+    density: LoopDensity = PLATE_LOOP_DENSITY,
+): ArcVertex2D[] {
     const rx = Math.abs(corner.x - centre.x);
     const rz = Math.abs(corner.z - centre.z);
     if (rx < MIN_LOOP_EXTENT_M || rz < MIN_LOOP_EXTENT_M) return [];
-    return loopVerticesFromRadii(centre, rx, rz);
+    return loopVerticesFromRadii(centre, rx, rz, density);
 }
 
 /** The shared sampling. CCW in XZ, first vertex at t = 0, no duplicated closing
  *  vertex — the plate schema refuses a closed ring (C92 §12 R-5). */
-function loopVerticesFromRadii(centre: ArcVertex2D, rx: number, rz: number): ArcVertex2D[] {
-    const n = loopSegmentCount(Math.max(rx, rz));
+function loopVerticesFromRadii(
+    centre: ArcVertex2D,
+    rx: number,
+    rz: number,
+    density: LoopDensity = PLATE_LOOP_DENSITY,
+): ArcVertex2D[] {
+    const n = loopSegmentCount(Math.max(rx, rz), density);
     if (n < 3) return [];
     const out: ArcVertex2D[] = [];
     for (let i = 0; i < n; i++) {
@@ -262,11 +326,12 @@ export function boundaryLoopVertices(
     mode: BoundaryLoopMode,
     first: ArcVertex2D,
     second: ArcVertex2D,
+    density: LoopDensity = PLATE_LOOP_DENSITY,
 ): ArcVertex2D[] {
     switch (mode) {
         case 'rectangular': return rectangularLoopVertices(first, second);
-        case 'circular':    return circularLoopVertices(first, second);
-        case 'elliptical':  return ellipticalLoopVertices(first, second);
+        case 'circular':    return circularLoopVertices(first, second, density);
+        case 'elliptical':  return ellipticalLoopVertices(first, second, density);
     }
 }
 
@@ -281,8 +346,9 @@ export function boundaryLoopRefusal(
     mode: BoundaryLoopMode,
     first: ArcVertex2D,
     second: ArcVertex2D,
+    density: LoopDensity = PLATE_LOOP_DENSITY,
 ): string | null {
-    if (boundaryLoopVertices(mode, first, second).length >= 3) return null;
+    if (boundaryLoopVertices(mode, first, second, density).length >= 3) return null;
     const min = MIN_LOOP_EXTENT_M.toFixed(2);
     switch (mode) {
         case 'rectangular':

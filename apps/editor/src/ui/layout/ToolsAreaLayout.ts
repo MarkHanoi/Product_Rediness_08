@@ -448,6 +448,13 @@ export function mountToolsArea(
                 onSwitchOrtho:   () => service.activateWallTool(WallDrawingMode.POLYLINE_ORTHO),
                 onSwitchCurved:  () => service.activateWallTool(WallDrawingMode.POLYLINE_ARC),
                 onSelectBySlab:  _execWallBySlab,
+                // §FEAT-WALL-SHAPE-MODES — arming a closed-loop run is a MODE change on
+                // the picker the plan handler reads, NOT a tool re-activation: the wall
+                // tool is already live and re-entering it would destroy an in-progress
+                // stroke (the defect §FEAT-PERSISTENT-MODE-BAR was created to fix).
+                onSelectRectangular: () => window.wallModePicker?.setActiveMode?.('rectangular'),
+                onSelectCircular:    () => window.wallModePicker?.setActiveMode?.('circular'),
+                onSelectElliptical:  () => window.wallModePicker?.setActiveMode?.('elliptical'),
             });
 
             // ── ESC — dismiss HUD when drawing ends ───────────────────────────

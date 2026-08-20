@@ -254,7 +254,7 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
         });
 
         it('WALL is unchanged — its four modes, in order, with By Slab still an ACTION not a mode', () => {
-            expect(creationModeIds('wall')).toEqual(['linear', 'ortho', 'curved', 'byslab']);
+            expect(creationModeIds('wall')).toEqual(['linear', 'ortho', 'curved', 'byslab', 'rectangular', 'circular', 'elliptical']);
             const bySlab = creationModes('wall').find(m => m.id === 'byslab')!;
             expect(bySlab.isAction).toBe(true);
             expect(bySlab.key).toBe('S');

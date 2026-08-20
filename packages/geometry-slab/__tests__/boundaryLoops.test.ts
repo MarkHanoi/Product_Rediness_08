@@ -42,6 +42,8 @@ import {
     MIN_LOOP_SEGMENTS,
     MAX_LOOP_SEGMENTS,
     LOOP_CHORD_TOLERANCE_M,
+    WALL_LOOP_DENSITY,
+    PLATE_LOOP_DENSITY,
     type ArcVertex2D,
 } from '../src/boundaryLoops';
 
@@ -300,5 +302,49 @@ describe('§FEAT-PLATE-SHAPE-MODES — the rectangular mode is the tools’ exis
         expect(boundaryLoopVertices('rectangular', a, b)).toEqual(rectangularLoopVertices(a, b));
         expect(boundaryLoopVertices('circular', a, b)).toEqual(circularLoopVertices(a, b));
         expect(boundaryLoopVertices('elliptical', a, b)).toEqual(ellipticalLoopVertices(a, b));
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-WALL-SHAPE-MODES — the density policy is PER-FAMILY, and that is testable
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('§FEAT-WALL-SHAPE-MODES — a wall run is COARSER than a plate outline, deliberately', () => {
+    const R = 4;
+    const rim = { x: C.x + R, z: C.z };
+
+    it('a 4 m circular WALL run emits far fewer chords than the same plate boundary', () => {
+        const wall  = circularLoopVertices(C, rim, WALL_LOOP_DENSITY);
+        const plate = circularLoopVertices(C, rim, PLATE_LOOP_DENSITY);
+        expect(wall.length).toBeLessThan(plate.length);
+        // ⭐ THE POINT: each wall chord is a REAL element with an id, a schedule row and
+        // two junctions. The plate policy would emit ~64 walls of ~390 mm — a nonsense
+        // model. This asserts the wall run stays in buildable territory.
+        expect(wall.length).toBeLessThanOrEqual(24);
+        expect(wall.length).toBeGreaterThanOrEqual(8);
+        const chord = (2 * Math.PI * R) / wall.length;
+        expect(chord).toBeGreaterThan(1.0);
+    });
+
+    it('is STILL a circle — coarser density must not mean a wrong shape', () => {
+        const wall = circularLoopVertices(C, rim, WALL_LOOP_DENSITY);
+        // Every vertex still lies exactly ON the circle...
+        expect(worstOutlineDeviation(wall, C, R, R)).toBeLessThan(1e-12);
+        // ...and it is still nearer a circle than its bounding box is.
+        expect(Math.abs(ringArea(wall) - 4 * R * R)).toBeGreaterThan(1);
+    });
+
+    it('⛔ REJECTS a rectangle called round under the WALL policy too', () => {
+        const wrong = RECTANGLE_CALLED_ROUND(C, R, R);
+        const wall  = circularLoopVertices(C, rim, WALL_LOOP_DENSITY);
+        expect(wrong.length).toBe(4);
+        expect(wall.length).toBeGreaterThan(4);
+        expect(worstOutlineDeviation(wrong, C, R, R)).toBeGreaterThan(0.4);
+        expect(worstOutlineDeviation(wall,  C, R, R)).toBeLessThan(1e-12);
+    });
+
+    it('the DEFAULT is the plate policy, so no existing caller changed behaviour', () => {
+        expect(circularLoopVertices(C, rim)).toEqual(circularLoopVertices(C, rim, PLATE_LOOP_DENSITY));
+        expect(loopSegmentCount(R)).toBe(loopSegmentCount(R, PLATE_LOOP_DENSITY));
     });
 });
