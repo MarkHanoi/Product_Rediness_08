@@ -334,6 +334,51 @@ describe('§3D-CARRIES-NO-VG-FILL (L-1560) — a plan→3D round trip must not r
         }
     });
 
+    /**
+     * §VG-VIEW-IDENTITY-IS-A-CALL (L-1563) — the REACHABLE path.
+     *
+     * The event tests above exercise a channel that production does not actually
+     * use: `ViewController` emits on `runtime.events`
+     * (runtime-composer/src/EventBus.ts — a Map of handler sets, no
+     * `window.dispatchEvent` anywhere in it), while this class subscribes with
+     * `window.addEventListener`. Nothing bridges them, so `activeViewId` stayed
+     * null for the whole session and `setUnderlayLevelId()` — a DIRECT call
+     * ViewController really does make on plan and 3D activation — drove a full
+     * traversal with no view type, i.e. straight down the 2D poche path in 3D.
+     *
+     * These two tests use only direct calls, so they hold on the wiring that ships.
+     */
+    it('the underlay-driven traversal no longer paints poche once the view identity is set (3D)', () => {
+        applicator.setActiveView(null, '3d');
+        const before = new Map([...meshes].map(([t, m]) => [t, hexOf(m)] as const));
+
+        // Exactly what ViewController._activate3DView does.
+        applicator.setUnderlayLevelId(null);
+        applicator.setUnderlayLevelId('L0');
+        applicator.setUnderlayLevelId(null);
+
+        for (const [t, m] of meshes) {
+            expect(`${t}=${hexOf(m).toString(16)}`).toBe(`${t}=${before.get(t)!.toString(16)}`);
+        }
+    });
+
+    it('setActiveView round-trips plan→3D with no drift, using no events at all', () => {
+        const before = new Map([...meshes].map(([t, m]) => [t, hexOf(m)] as const));
+
+        applicator.setActiveView(PLAN_VIEW_ID, 'plan');
+        expect(hexOf(meshes.get('SlabPart')!)).not.toBe(before.get('SlabPart'));
+
+        applicator.setActiveView(null, '3d');       // ViewCube path — no view id.
+        for (const [t, m] of meshes) {
+            expect(`${t}=${hexOf(m).toString(16)}`).toBe(`${t}=${before.get(t)!.toString(16)}`);
+        }
+
+        applicator.setActiveView(THREED_VIEW_ID, '3d');   // rail path — with an id.
+        for (const [t, m] of meshes) {
+            expect(`${t}=${hexOf(m).toString(16)}`).toBe(`${t}=${before.get(t)!.toString(16)}`);
+        }
+    });
+
     it('visibility and transparency ARE still applied in 3D', () => {
         vgGovernanceStore.setModelCategoryOverride('model-default', 'stair', { visible: false });
         applicator.applyAll(THREED_VIEW_ID);

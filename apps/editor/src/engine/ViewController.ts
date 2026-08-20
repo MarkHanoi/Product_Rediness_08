@@ -1522,6 +1522,32 @@ export class ViewController implements IViewController {
             this._vst(`dispatching "view-selected" event (viewId="${dispatchViewId}")`);
             window.runtime?.events?.emit('view-selected', { viewId: dispatchViewId }); // F.events.8
 
+            // ── §VG-VIEW-IDENTITY-IS-A-CALL (L-1563) ─────────────────────────
+            // ⭐ THIS IS WHY "MATERIALES GOES OFF WHEN SWAPPING VIEWS".
+            //
+            // The emit above does NOT reach VGSceneApplicator. `runtime.events` is
+            // `runtime-composer/src/EventBus.ts` — a Map of handler sets whose
+            // `emit()` never calls `window.dispatchEvent` — while the applicator
+            // subscribes with `window.addEventListener`. Two channels, no bridge.
+            // So the applicator's `activeViewId` stayed null for the whole session.
+            //
+            // That matters because the applicator DOES get driven, through the
+            // direct call `setUnderlayLevelId(...)` this class makes on plan and 3D
+            // activation. With `activeViewId` null, that traversal ran with no view
+            // type at all and sent every mesh down the 2D plan-poche path — in the
+            // 3D view. Walls to #1a1a1a, slabs to #e8e8e8, furniture to #ececec.
+            //
+            // Announce the view identity on the SAME direct-call channel that is
+            // demonstrably reachable, rather than adding a second bus bridge. Kept
+            // adjacent to the emit so the two never drift apart.
+            const activeViewTypeForVG = viewMode === '3D'
+                ? '3d'
+                : (dispatchViewId ? viewDefinitionStore.get(dispatchViewId)?.viewType ?? null : null);
+            const vgApplicatorIdentity = window.vgSceneApplicator;
+            if (vgApplicatorIdentity && typeof vgApplicatorIdentity.setActiveView === 'function') {
+                vgApplicatorIdentity.setActiveView(dispatchViewId ?? null, activeViewTypeForVG);
+            }
+
         } catch (error) {
             console.error('[ViewController] Error activating view:', error);
             // Fallback strategy: if non-3D view fails, try to return to 3D

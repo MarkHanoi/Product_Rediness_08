@@ -450,10 +450,50 @@ export class VGSceneApplicator {
      *   - Follows the same additive, non-destructive principle as all other VG
      *     applicator operations (§01 §5, §03 §1.1).
      */
+    /**
+     * §VG-VIEW-IDENTITY-IS-A-CALL (L-1563) — tell the applicator which view is
+     * active, by DIRECT CALL.
+     *
+     * ⚠ WHY THIS EXISTS, MEASURED — the event path this class was built on does
+     * not reach it. `ViewController` announces every switch with
+     * `window.runtime.events.emit('view-selected' | 'view-activated', …)`, and
+     * `runtime.events` is `runtime-composer/src/EventBus.ts`: a `Map` of handler
+     * sets whose `emit()` iterates that map and returns. It never calls
+     * `window.dispatchEvent`. This class subscribes with
+     * `window.addEventListener`. They are two different channels, so
+     * `view-selected` has never been delivered here — the `if (viewId)` handler
+     * and the `view-activated` handler below are both DARK on this wiring.
+     *
+     * What IS reachable is the direct-call idiom `ViewController` already uses
+     * four times over: `window.vgSceneApplicator?.setUnderlayLevelId(...)`,
+     * `applyToProjectionLayers(...)`. This method joins it. A direct call cannot
+     * be silently dropped by a bus mismatch, which is the whole point.
+     *
+     * @param viewId   the active ViewDefinition id, or null (the 3D view is
+     *                 allowed to have none — see runtime-composer types.ts).
+     * @param viewType the active view's `viewType` ('3d' | 'plan' | 'section' | …),
+     *                 or '3d' when the caller knows the mode but has no definition.
+     */
+    setActiveView(viewId: string | null, viewType: string | null): void {
+        this.activeViewId = viewId;
+        this._activeViewModeIs3D = viewType === '3d' || viewType === 'render';
+        console.log(
+            `[VGSceneApplicator] §VG-VIEW-IDENTITY-IS-A-CALL viewId=${viewId ?? 'null'} ` +
+            `viewType=${viewType ?? 'null'} is3D=${this._activeViewModeIs3D}`,
+        );
+        this.applyAll(viewId ?? undefined);
+    }
+
     setUnderlayLevelId(levelId: string | null): void {
         if (this._underlayLevelId === levelId) return; // no-op when unchanged
         this._underlayLevelId = levelId;
         console.log(`[VGSceneApplicator] DOC-4.7 underlayLevelId=${levelId ?? 'null'}`);
+        // §VG-VIEW-IDENTITY-IS-A-CALL (L-1563) — this is a REACHABLE applyAll (it is
+        // driven by a direct call from `ViewController._activate3DView` /
+        // `_activateFloorPlanView`, not by the window bus), so it must respect the
+        // view identity. Before L-1563 it ran with `activeViewId` permanently null —
+        // the `view-selected` that was supposed to set it never arrived — which made
+        // `viewType` undefined and sent every mesh down the 2D poche path, in 3D.
         this.applyAll(this.activeViewId ?? undefined);
     }
 
