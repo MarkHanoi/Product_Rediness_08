@@ -24367,3 +24367,48 @@ defence-in-depth — a bare `delete` on sealed `@thatopen/fragments` userData th
 counted among the 13. Same discipline as [[fake-more-capable-than-real]].
 
 ---
+
+---
+
+## L-1551 … L-1554 — ADDENDUM to the multi-select lane: three defects found ALONGSIDE the feature — 2026-08-20 (lane SELECT1)
+
+The L-1550 entry above covers the bus write-back. These three were found on the way and are logged
+separately because none of them is "multi-select", and each survives independently of it.
+
+- **L-1551 — a marquee over instanced walls returned ONE bogus id standing for a whole level.**
+  The tool returned the synthetic `instanced-group-<key>` handle tested against the **group's union
+  AABB**, so a rectangle dragged in one corner "selected" the entire level. ⭐ **This is L-813 again**
+  ([[three-invalidation-gates-in-series]], [[3d-selection-instanced-gpu-pick-gap]]) arriving at a
+  third site. Fixed for the **click** path; ⚠ **left standing in the marquee path**, stated rather
+  than quietly half-fixed.
+- **L-1552 — delete at N>1** routes to `element.deleteBatch` → `DeleteElementsBatchCommand`: **one**
+  undo entry, reverse-order undo. Proven by a test that *builds the bar and clicks its buttons*, so
+  the one-undo-unit claim is reachability rather than a source grep.
+- **L-1553 — the property panel refuses** to render the primary's editable fields at N>1, rather than
+  presenting one element's values as though they described the set.
+- **L-1554 — ⭐ a button marked only `aria-disabled` still dispatches `click`, and the listener ran
+  the action anyway.** So *Move* on a selected grid **looked refused and executed**. This is a
+  general trap, not a selection one: `aria-disabled` is an ANNOUNCEMENT, not an enforcement, and any
+  handler that does not re-check the disabled state will run. Worth grepping for elsewhere.
+
+**The honest gap, in the lane's own words:** `initUI.deleteSelected` — the **global Delete key** —
+still takes the single-element route. The edit bar's Del and its button both take the batch route;
+the global key does not. Also not built, deliberately: bulk *edit* across the set (mixed-kind
+validation is separate work, and `UpdateElementDimensionsBatchCommand` already exists to back it),
+Ctrl/Cmd+click as a second additive modifier, and shift-range selection in the project-browser tree.
+Every single-subject operation is **shown disabled with its reason** rather than hidden.
+
+**Two PRE-EXISTING failures found and NOT caused by this lane** — both real, both outside its scope:
+- `input-host/__tests__/{bootstrap,InputHost}.test.ts` — `ReferenceError: DOMMatrix is not defined`,
+  collection-time, via `DxfUnderlayTool → @pryzm/file-format → pdfjs-dist`.
+- `apps/editor/__tests__/livingGraphSelection.test.ts` — 5 failures, all
+  `elementIdsForRoom is not a function`. **The function was renamed to `determineElementIdsForRoom`
+  by the determination refactor and this test was never updated** — its own sibling spec's header
+  documents the rename. A genuine orphan test asserting against a name that no longer exists.
+
+⚠ **Fleet note that generalises the L-1586 race:** `git commit --only <paths>` does **not** save you
+either. By the time it runs, a sibling's bare `git commit` may already have committed the content, so
+it correctly reports nothing to do. The race is on the **index**, and the only safe form is to stage
+and commit your own paths in one step, or to accept the sweep and restore the message afterwards.
+
+---
