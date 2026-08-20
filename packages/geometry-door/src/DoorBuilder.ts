@@ -945,9 +945,19 @@ export class DoorBuilder {
         // `headUnderY === h/2 − ft`, so `innerH === h − ft` and `leafCY === −ft/2` — the two
         // literals this code used before, reproduced by the formula rather than replaced by it.
         // Everything downstream is arithmetic on these three, unchanged.
+        //
+        // ⛔ **BYTE-IDENTITY IS BY CONSTRUCTION, NOT BY ALGEBRA — AND THE PIN CAUGHT THE FIRST
+        // DRAFT GETTING THIS WRONG.** `innerH` and `leafCY` were written as ONE general formula
+        // that reduces to the old literals *in ℝ*. It does not reduce to them in IEEE-754: at
+        // `h = 2.1, ft = 0.05`, `h − ft` is 2.0500000000000002665 and `(h/2 − ft) + h/2` is
+        // 2.0499999999999998224 — one ULP apart — and `−ft/2` vs `((h/2 − ft) − h/2)/2` differ the
+        // same way. `StraightHostDoorLeafByteIdentical.test.ts` failed on all three digests.
+        // An algebraically-correct rewrite of the DEFAULT path is still a rewrite of every door
+        // in every project, so the rectangular arm keeps the ORIGINAL expressions verbatim and
+        // the general form runs only where there was no previous answer to preserve.
         const headUnderY = profiled ? springY! - ft : h / 2 - ft;
-        const innerH = headUnderY + h / 2;   // floor/threshold → underside of the head member
-        const leafCY = (headUnderY - h / 2) / 2;
+        const innerH = profiled ? headUnderY + h / 2 : h - ft;   // → underside of the head member
+        const leafCY = profiled ? (headUnderY - h / 2) / 2 : -ft / 2;
 
         // ── Frame ──────────────────────────────────────────────────────────
         if (profiled) {
@@ -1034,10 +1044,15 @@ export class DoorBuilder {
             // Head stop, spanning the clear width — HORIZONTAL, so it sweeps. The
             // leaf shuts against this bead, and the leaf now follows the arc, so a
             // chorded stop would leave a wedge-shaped gap at one jamb.
-            // §OPENING-PROFILE-FRAME (L-1521) — `headUnderY − stopProj/2` IS the old
-            // `innerH/2 − ft/2 − stopProj/2` for a rectangle; it now also lands correctly under an
-            // arched door's TRANSOM instead of floating where a square head used to be.
-            addSweptBox(group, frameMat, arc, innerW, stopProj, stopDepth, 0, headUnderY - stopProj / 2, stopZ);
+            // §OPENING-PROFILE-FRAME (L-1521) — the head stop follows the head. For an arched door
+            // that is the TRANSOM's underside instead of where a square head used to be.
+            // ⛔ Same IEEE-754 rule as the datum block above: `headUnderY − stopProj/2` equals the
+            // original `innerH/2 − ft/2 − stopProj/2` in ℝ and NOT in floating point, so the
+            // rectangular arm keeps the original expression rather than the tidier one.
+            const headStopCY = profiled
+                ? headUnderY - stopProj / 2
+                : innerH / 2 - ft / 2 - stopProj / 2;
+            addSweptBox(group, frameMat, arc, innerW, stopProj, stopDepth, 0, headStopCY, stopZ);
         }
 
         // Leaf y-centre is `leafCY`, computed above with the head datum (for a RECTANGLE that is
