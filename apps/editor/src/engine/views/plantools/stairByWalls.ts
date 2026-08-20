@@ -319,3 +319,131 @@ export function planStairByWalls(req: ByWallsRequest): ByWallsOutcome {
         run2Length,
     };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §FEAT-STAIR-BY-WALLS — THE ARM (L-1456), added 2026-08-20.
+//
+// The planner above answers "what stair do these two walls imply?". Everything
+// below is how the architect's two clicks reach it, and how the result reaches the
+// tool that already knows how to commit a stair.
+//
+// ⭐ THE BLOCKER THAT DID NOT BIND, RECORDED BECAUSE THE MEASUREMENT WAS RIGHT AND
+// THE CONCLUSION FROM IT WAS WRONG. This module first shipped WITHOUT an arm, on the
+// measured ground that "there is no multi-select id accessor" —
+// `selectionManager.selectedObject` is singular and `grep selectedElementIds` across
+// `apps/` + `packages/` returns ONE hit, in a Zod schema. Both facts hold.
+//
+// But they block ONE of the two routes, not the feature. They block the SNAPSHOT
+// route — "read the two walls the architect had already selected". They do not touch
+// the PICK route, and `_pickSlabThen` — this lane's own cited precedent — already
+// picks ONE object SEQUENTIALLY AFTER activation. Two sequential picks are a
+// TWO-STEP version of a one-step flow that exists, not a capability that does not.
+//
+// ⚠ The general lesson, which is why this paragraph is here and not in a commit
+// message: *a measurement that is true can still be the wrong measurement.* "No
+// multi-select API" was true, and it answered a question the feature never asked.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What a pick offer did — reported so the caller can update its prompt honestly. */
+export type ByWallsPickOutcome =
+    | 'ignored'    // not a wall, or no id — the click was not about us
+    | 'duplicate'  // the SAME wall clicked twice; the count must not advance
+    | 'accepted'   // counted, more still needed
+    | 'complete';  // counted, and the session now has everything it needs
+
+/**
+ * The two-step pick state machine, extracted from the DOM so it can be tested
+ * without one.
+ *
+ * ⭐ DUPLICATE REJECTION IS THE WHOLE REASON THIS IS A CLASS AND NOT A COUNTER.
+ * `bim-selection-changed` fires on re-selection, and a wall the architect clicks
+ * twice (or that the scene re-emits) would otherwise fill both slots with ONE wall —
+ * and `planStairByWalls` would then be handed a "pair" of a wall with itself, whose
+ * angle is 0° and which refuses as NOT_PERPENDICULAR. That refusal would be true and
+ * completely misleading: the architect picked one wall, not two crooked ones. The
+ * count must mean two DISTINCT walls or it means nothing.
+ */
+export class ByWallsPickSession {
+    private readonly _ids: string[] = [];
+
+    constructor(private readonly _required: number = 2) {}
+
+    /** Ids picked so far, in click order. */
+    get ids(): readonly string[] { return [...this._ids]; }
+    get remaining(): number { return Math.max(0, this._required - this._ids.length); }
+    get isComplete(): boolean { return this._ids.length >= this._required; }
+
+    /**
+     * Offer a clicked element. `elementType` is compared case-INSENSITIVELY: the
+     * fragment builders write `'Wall'` while callers here have historically checked
+     * `'wall'`, and `_pickSlabThen` carries the identical note for slabs (C15 §12).
+     */
+    offer(id: string | undefined, elementType: string | undefined): ByWallsPickOutcome {
+        if (this.isComplete) return 'ignored';
+        if (!id) return 'ignored';
+        if ((elementType ?? '').toLowerCase() !== 'wall') return 'ignored';
+        if (this._ids.includes(id)) return 'duplicate';
+        this._ids.push(id);
+        return this.isComplete ? 'complete' : 'accepted';
+    }
+}
+
+/**
+ * The one-shot handoff between the By-Walls ACTION and the stair-path tool.
+ *
+ * ⭐ WHY A PENDING PLAN AND NOT A DIRECT COMMAND DISPATCH. The obvious shortcut is to
+ * build a `CreateStairCommand` here from the three points. That would mean
+ * re-implementing `StairPathAdapter` — the solver, the riser split, the landing, the
+ * tread derivation — beside the one that already exists, which is the
+ * enumerated-rather-than-derived defect this repo has recorded all week, and it is
+ * exactly how the family acquired its 220 mm/250 mm EI-3 breach in the first place.
+ * Handing the tool three POINTS makes By Walls byte-identical to the architect
+ * clicking them, so it inherits the solver, the geometry limits, the refusals and the
+ * undo grouping for free, and cannot drift from the hand-drawn path.
+ *
+ * ⭐ IT MIRRORS A PATTERN ALREADY IN THE CONSUMER. `StairPathPlanToolHandler` already
+ * holds a `_pendingShapeHint` consumed once at activation; this is that, for points.
+ *
+ * ONE-SHOT BY CONSTRUCTION: `consume` clears. A plan left standing would re-draw a
+ * stair the next time the tool activated for any reason — a By-Walls click echoing
+ * into an unrelated hand-drawn stair ten minutes later.
+ */
+let _pendingPlan: ByWallsPlan | null = null;
+
+export function setPendingStairByWallsPlan(plan: ByWallsPlan | null): void {
+    _pendingPlan = plan;
+}
+
+/** Read AND clear. There is deliberately no peek: a peek invites a double-apply. */
+export function consumePendingStairByWallsPlan(): ByWallsPlan | null {
+    const p = _pendingPlan;
+    _pendingPlan = null;
+    return p;
+}
+
+/** Test seam + project-switch reset (C48 project isolation). */
+export function __resetStairByWallsForTests(): void {
+    _pendingPlan = null;
+}
+
+export type ByWallsExecution =
+    | { readonly ok: true; readonly plan: ByWallsPlan }
+    | { readonly ok: false; readonly message: string; readonly code: ByWallsRefusalCode };
+
+/**
+ * THE ACTION, as one function: plan, and on success arm the tool.
+ *
+ * Kept out of `ToolsAreaLayout` on purpose — that file can only be exercised with a
+ * whole editor around it, so logic living there is logic no test can reach. The glue
+ * left up there is the DOM pick overlay and one activation call; everything that can
+ * REFUSE is here, and is tested.
+ */
+export function executeStairByWalls(req: ByWallsRequest): ByWallsExecution {
+    const outcome = planStairByWalls(req);
+    if (outcome.ok === false) {
+        setPendingStairByWallsPlan(null);   // never leave a stale plan armed after a refusal
+        return { ok: false, message: outcome.message, code: outcome.code };
+    }
+    setPendingStairByWallsPlan(outcome);
+    return { ok: true, plan: outcome };
+}

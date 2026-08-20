@@ -129,7 +129,9 @@ describe('FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis', ()
             // RESULT while the founder was asking for the buttons that describe the
             // GESTURE. That is one strip whose letters mean two different things.
             for (const tool of ['stair', 'stair-path']) {
-                expect(creationModeIds(tool)).toEqual(['linear', 'ortho']);
+                // 'bywall' is an ACTION on the MODE axis (it derives the sketch), not a
+                // shape. It joins the strip; it does not join the shape picker.
+                expect(creationModeIds(tool)).toEqual(['linear', 'ortho', 'bywall']);
                 expect(creationShapes(tool).map((s) => s.id)).toEqual(['I', 'L', 'U', 'C']);
 
                 const modeIds = new Set(creationModes(tool).map((m) => m.id));
@@ -177,9 +179,17 @@ describe('FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis', ()
             // Identity, not deep-equality: drift in a label or an accelerator between
             // the wall bar and the stair bar is impossible if it is the same object.
             const wallModes = creationModes('wall');
-            for (const m of creationModes('stair-path')) {
+            // Only the two SHARED modes are wall's objects. 'bywall' is the stair's own
+            // action — wall's equivalent is 'byslab', a different source geometry and
+            // therefore correctly a different declaration (C84 EI-8: one vocabulary per
+            // concept, not one word for two concepts).
+            for (const m of creationModes('stair-path').filter((x) => !x.isAction)) {
                 expect(wallModes, 'stair re-declared "' + m.id + '" instead of reusing wall').toContain(m);
             }
+            const byWalls = creationModes('stair-path').find((m) => m.id === 'bywall')!;
+            expect(byWalls.isAction).toBe(true);
+            expect(byWalls.key).toBe('W');
+            expect(wallModes.some((m) => m.id === 'bywall')).toBe(false);
         });
     });
 

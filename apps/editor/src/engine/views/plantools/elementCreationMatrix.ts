@@ -180,6 +180,35 @@ export const WALL_DRAW_MODES: readonly CreationMode[] = [LINEAR, ORTHO, CURVED] 
  * spelled both axes into one identifier, and the rows below then spent it as if it
  * were a mode list.
  */
+/**
+ * §FEAT-STAIR-BY-WALLS (founder, 2026-08-19) — L-1455 / L-1456.
+ *
+ *   *"…or SELECT 2 WALLS [and] create the stair in L SHAPE AGAINST THE WALLS."*
+ *
+ * ⭐ AN ACTION, NOT A MODE — wall's `byslab` semantics exactly, and the distinction is
+ * the same one L-956 turned on. It CONSUMES a pick flow the instant it is picked, so
+ * it never takes the active-pill highlight and sits after the bar's separator.
+ * Recording it as the active MODE would leave every later click retrying by-walls
+ * while the bar still said 'Linear' — the UI reporting the axis that did not change.
+ *
+ * ⚠ NOT the `byslab` id: the source geometry is a pair of WALLS, and one vocabulary
+ * per concept (C84 EI-8) means the id has to say which. Same lowercase, no-hyphen form.
+ *
+ * Key `W` — free within this tool's set (linear `L`, ortho `O`), and it is the letter
+ * `SlabPlanToolHandler` already uses for its own Pick Walls mode, so the accelerator
+ * means the same thing in both places.
+ *
+ * ⭐ IT LANDED WITH ITS ARM, IN ONE COMMIT — the rule this file states for the slab and
+ * wall closed-loop modes. The planner shipped one commit EARLIER with this member
+ * deliberately absent, precisely so the strip never offered a stair the pipeline could
+ * not produce (C84 EI-3). See C98 §16.6.
+ */
+const BY_WALLS: CreationMode = {
+    id: 'bywall', key: 'W', label: 'By Walls',
+    description: 'L-shaped stair in the corner of two picked walls',
+    isAction: true,
+};
+
 const STAIR_SHAPES: readonly CreationMode[] = [
     { id: 'I', key: 'I', label: 'Straight', description: 'Single straight flight' },
     { id: 'L', key: 'L', label: 'L-shape',  description: 'Two flights with a quarter landing' },
@@ -402,14 +431,14 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     // arc-constrained mode is an OPEN QUESTION, stated as open in C98 §16 rather than
     // guessed at here.
     { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'],
-      modes: [LINEAR, ORTHO], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
+      modes: [LINEAR, ORTHO, BY_WALLS], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-place-in-circulation-core mode. The batch/house ' +
            'generators DO place stairs automatically (§CORRIDOR-STAIR-CONTIGUITY), so the ' +
            'capability exists; it is simply not offered as an interactive tool mode.' },
     // The dual-view reference implementation: ONE tool, a plan handler AND
     // StairPath3DToolHandler. Cited as the pattern, deliberately not edited here.
     { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'],
-      modes: [LINEAR, ORTHO], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
+      modes: [LINEAR, ORTHO, BY_WALLS], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — as stair. This tool is the DUAL-VIEW REFERENCE ' +
            'IMPLEMENTATION (one tool, StairPathPlanToolHandler + StairPath3DToolHandler ' +
            'over one StairToolConfigStore); it is the pattern the single-view gaps below ' +

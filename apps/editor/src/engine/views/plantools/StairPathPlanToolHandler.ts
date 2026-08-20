@@ -47,6 +47,7 @@ import {
     DEFAULT_STOREY_HEIGHT,
 } from '@pryzm/geometry-stair';
 import { AddLevelCommand } from '@pryzm/command-registry';
+import { consumePendingStairByWallsPlan } from './stairByWalls';
 import { trace } from '@opentelemetry/api';
 
 const _tracer = trace.getTracer('@pryzm/editor.stair-path-plan-tool', '0.1.0');
@@ -203,6 +204,30 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
         });
 
         this._ctrl.activate();
+
+        // §FEAT-STAIR-BY-WALLS (L-1456) — if the By Walls action armed a plan, replay
+        // it as clicks the instant the controller is live.
+        //
+        // ⭐ THE POINTS GO IN AS CLICKS, DELIBERATELY. Feeding `feedClick` makes By
+        // Walls byte-identical to the architect clicking those three points, so it
+        // inherits the solver, the geometry limits (§STAIR-ONE-LIMIT-AUTHORITY), the
+        // refusal path and the undo grouping — and cannot drift from the hand-drawn
+        // flow. Building a `CreateStairCommand` here instead would mean a second copy
+        // of `StairPathAdapter`, which is how this family got its 220 mm/250 mm EI-3
+        // breach in the first place.
+        //
+        // ONE-SHOT: `consume` clears, so a plan can never echo into the next, unrelated
+        // activation of this tool.
+        //
+        // ⚠ The shape was already set by the action (`setStairToolConfig({shape:'L'})`)
+        // and read into `config.shape` above, so the controller is expecting exactly
+        // the three points an L-stair takes. If it were not, the third click would be
+        // a fourth point on a two-point gesture — which is why the action sets the
+        // shape rather than assuming it.
+        const byWalls = consumePendingStairByWallsPlan();
+        if (byWalls) {
+            for (const pt of byWalls.points) this._ctrl.feedClick(pt.x, pt.z);
+        }
 
         this._publishedApi = this._getPublicApi();
         window.stairPathTool = this._publishedApi as typeof window.stairPathTool;

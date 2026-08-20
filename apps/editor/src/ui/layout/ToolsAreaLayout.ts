@@ -3,7 +3,22 @@ import type { StairShapeChoice } from '@pryzm/geometry-stair';
 // It lives in `@pryzm/geometry-stair` beside the controllers that implement the snap,
 // for the reason L-1106 records for the handrail: a store filed under `apps/editor`
 // is unreadable from the 3-D tool, which is exactly how a tool ends up mode-blind.
-import { setActiveStairDrawMode, resolveActiveStairDrawMode } from '@pryzm/geometry-stair';
+import {
+    setActiveStairDrawMode,
+    resolveActiveStairDrawMode,
+    setStairToolConfig,
+    getStairToolConfig,
+    resolveStairVerticalSpan,
+    DEFAULT_STOREY_HEIGHT,
+} from '@pryzm/geometry-stair';
+// §FEAT-STAIR-BY-WALLS (L-1455/L-1456) — the planner, its refusals and the
+// pick state machine. Everything that can REFUSE lives there, where a test can
+// reach it; this file keeps only the DOM overlay and one activation call.
+import {
+    ByWallsPickSession,
+    executeStairByWalls,
+    type ByWallsWall,
+} from '@app/engine/views/plantools/stairByWalls';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { WallModePicker, type WallPickerMode } from '../WallModePicker';
@@ -317,7 +332,14 @@ export function mountToolsArea(
      * overlay would sit there asking for something the app had made impossible —
      * which is the defect being fixed, wearing a prompt.
      */
-    const _pickSlabThen = (message: string, onSlab: (slabId: string) => void): void => {
+    const _pickElementsThen = (
+        kind: string,
+        count: number,
+        message: string,
+        onIds: (ids: readonly string[]) => void,
+        /** Rendered after each accepted pick, e.g. "Now click the second wall". */
+        progressMessage?: (session: ByWallsPickSession) => string,
+    ): void => {
         void (props.toolManager as { deactivateAll?: () => Promise<void> } | undefined)?.deactivateAll?.();
 
         // A non-blocking status overlay (pointer-events: none, so it does not
@@ -341,15 +363,40 @@ export function mountToolsArea(
             window.removeEventListener('keydown', _onEsc, { capture: true } as AddEventListenerOptions);
         };
 
+        // §FEAT-STAIR-BY-WALLS (L-1456) — the pick loop is now N-step. `count === 1`
+        // is byte-for-byte the old one-shot behaviour (offer → complete → cleanup on
+        // the first valid pick), which is what keeps wall's and railing's By Slab
+        // untouched by this generalisation.
+        //
+        // ⭐ The COUNTING lives in `ByWallsPickSession`, not here, because a state
+        // machine inside a DOM callback is a state machine no test can reach. Its
+        // duplicate rejection is load-bearing: `bim-selection-changed` re-fires on
+        // re-selection, and one wall clicked twice would otherwise fill both slots —
+        // then `planStairByWalls` would refuse a wall paired with ITSELF as
+        // NOT_PERPENDICULAR at 0°, which is true and completely misleading.
+        const _session = new ByWallsPickSession(count);
         const _onSelectionChanged = () => {
             const picked    = props.selectionManager?.selectedObject;
             const pickedId  = picked?.userData?.id as string | undefined;
             // Case-insensitive: SlabFragmentBuilder writes 'Slab' (capital S) but
             // callers historically checked lowercase 'slab' (C15 §12).
             const pickedTyp = (picked?.userData?.elementType as string | undefined)?.toLowerCase();
-            if (!pickedId || pickedTyp !== 'slab') return;
+            if (!pickedId || pickedTyp !== kind) return;
+            const outcome = _session.offer(pickedId, pickedTyp);
+            // 'ignored' cannot occur here (kind and id are already checked), and
+            // 'duplicate' must NOT advance the prompt — the architect clicked one wall
+            // twice and telling them "one more" when nothing was counted is a lie.
+            if (outcome === 'duplicate' || outcome === 'ignored') return;
+            if (outcome === 'accepted') {
+                // C08 §3.1 (§XSS-SINK-SCAN) — textContent, never a second innerHTML
+                // sink. The overlay's one interpolation above is a call-site literal;
+                // this file does not acquire another.
+                const msgEl = overlay.querySelector('.bsp-msg');
+                if (msgEl && progressMessage) msgEl.textContent = progressMessage(_session);
+                return;
+            }
             _cleanup();
-            onSlab(pickedId);
+            onIds(_session.ids);
         };
 
         const _onEsc = (e: KeyboardEvent) => {
@@ -363,6 +410,16 @@ export function mountToolsArea(
         _unsubSelectionChanged = window.runtime?.events?.on('bim-selection-changed', () => _onSelectionChanged()) ?? null;
         // Capture phase so ESC is caught before other handlers dismiss the overlay
         window.addEventListener('keydown', _onEsc, { capture: true });
+    };
+
+    /**
+     * Wall's and railing's By Slab, unchanged — the one-slab case of the loop above.
+     * Kept as a named wrapper rather than updating three call sites, so this
+     * generalisation carries ZERO risk for the two families the founder is happy with
+     * (L-1103 / L-1104 closed them this week).
+     */
+    const _pickSlabThen = (message: string, onSlab: (slabId: string) => void): void => {
+        _pickElementsThen('slab', 1, message, (ids) => onSlab(ids[0]!));
     };
 
     const _execWallBySlab = () => {
@@ -813,6 +870,91 @@ export function mountToolsArea(
     // switching mode would mean starting the stair over — the defect the shared bar
     // exists to remove. `onSelect` writes the shared store and NOTHING else; both
     // controllers re-read it per pointer sample, so the points already placed survive.
+    /** F.events.15 — the same toast channel the stair plan handler already emits on. */
+    const _toast = (message: string, severity: 'info' | 'warning' | 'error'): void => {
+        window.runtime?.events?.emit('pryzm:toast', { message, severity });
+    };
+
+    /**
+     * §FEAT-STAIR-BY-WALLS (L-1456) — the ACTION behind the `By Walls` pill.
+     *
+     * ⭐ TWO SEQUENTIAL PICKS, NOT A MULTI-SELECTION — and that distinction is why
+     * this exists at all. This lane first withheld the pill on the measured ground
+     * that "there is no multi-select id accessor": `selectionManager.selectedObject`
+     * is singular and `grep selectedElementIds` over `apps/` + `packages/` returns ONE
+     * hit, in a Zod schema. Both facts are true, and they block the SNAPSHOT route —
+     * "read the two walls already selected". They do not touch the PICK route.
+     * `_pickSlabThen` already picks ONE object SEQUENTIALLY AFTER activation; two
+     * picks are the two-step case of a one-step flow that exists.
+     * ⚠ A true measurement can still be the wrong measurement.
+     *
+     * The founder's words are satisfied by clicking two walls in turn: *"select 2
+     * walls"* and *"select a wall … connected to this wall"* both describe picks, not
+     * a simultaneous selection.
+     *
+     * FLOW: deactivate → ask for wall A → ask for wall B → plan → refuse with BOTH
+     * numbers, or arm the plan and re-enter the stair tool as an L, which replays the
+     * three points as clicks (`StairPathPlanToolHandler`).
+     */
+    const _execStairByWalls = (): void => {
+        _pickElementsThen(
+            'wall', 2,
+            'Click the FIRST wall the stair should run against',
+            (ids) => {
+                // Resolve the picked ids to real wall records. `window.wallStore` is
+                // the same read `SlabPlanToolHandler` uses for its Pick Walls mode
+                // (TODO(TASK-08): DI a wall store into the layout props).
+                const all = (window.wallStore?.getAll?.() ?? []) as unknown as ByWallsWall[];
+                const walls = ids
+                    .map((id) => all.find((w) => (w as unknown as { id: string }).id === id))
+                    .filter((w): w is ByWallsWall => !!w && Array.isArray((w as { baseLine?: unknown }).baseLine));
+
+                if (walls.length !== ids.length) {
+                    // ⛔ NOT silently planning with what survived. Two walls picked and
+                    // one resolved is a DIFFERENT fact from one wall picked, and
+                    // planning on the remainder would refuse as WALL_COUNT and blame
+                    // the architect for the store's gap.
+                    _toast(
+                        `Stair By Walls: ${ids.length} walls were picked but ${walls.length} could be ` +
+                        `read back from the model. Nothing was created.`,
+                        'error',
+                    );
+                    return;
+                }
+
+                // The climb, from the SAME resolver the stair tool itself uses — never
+                // a second guess at the storey height, or the run this plans and the
+                // run the solver validates would be measured against different heights.
+                const levels = (window.bimManager?.getLevels?.() ?? []) as never[];
+                const baseLevelId = (window.projectContext?.activeLevelId as string | undefined) ?? ''; // TODO(C.3.x): runtime.persistence.projectContext
+                const span = resolveStairVerticalSpan(levels, baseLevelId, DEFAULT_STOREY_HEIGHT);
+                const storeyHeight = span.status === 'unresolvable' ? DEFAULT_STOREY_HEIGHT : span.height;
+
+                const result = executeStairByWalls({
+                    walls,
+                    storeyHeight,
+                    stairWidth: getStairToolConfig().width ?? 1.2,
+                });
+
+                if (!result.ok) {
+                    // The refusal already carries BOTH numbers and the reason.
+                    _toast(result.message, 'warning');
+                    return;
+                }
+
+                // Two runs against two walls IS an L. Setting the shape BEFORE
+                // re-entry matters: the controller latches its expected click budget
+                // from the shape at construction, so an armed 3-point plan entering an
+                // 'I' tool would auto-finish after two and drop the second run.
+                setStairToolConfig({ shape: result.plan.shape });
+                _origActivateStairPath(result.plan.shape);
+            },
+            (session) => session.remaining === 1
+                ? 'Now click the SECOND wall — it must meet the first at 90°'
+                : `Click ${session.remaining} more wall(s)`,
+        );
+    };
+
     const _origActivateStairPath = service.activateStairPathTool.bind(service);
     service.activateStairPathTool = (shape?: StairShapeChoice) => {
         _origActivateStairPath(shape);
@@ -824,7 +966,18 @@ export function mountToolsArea(
                 label: 'Mode:',                       // the wall's word, not a second
                 modes: creationModes('stair-path'),   // ⛔ never creationShapes()
                 initialMode: resolveActiveStairDrawMode(),
-                onSelect: (id) => setActiveStairDrawMode(id),
+                onSelect: (id) => {
+                    // 'bywall' is declared `isAction` in the creation matrix, so
+                    // `DrawingModeBar` deliberately does NOT make it the active mode —
+                    // it just calls back. Treat it as the ACTION it is; writing it to
+                    // the mode store instead would leave every later click retrying
+                    // by-walls while the bar still highlighted Linear (L-956's shape).
+                    // `setActiveStairDrawMode` would ignore it anyway — it is not a
+                    // member of `StairDrawMode` — but relying on that would be relying
+                    // on a guard to paper over a category error.
+                    if (id === 'bywall') { _execStairByWalls(); return; }
+                    setActiveStairDrawMode(id);
+                },
             });
         }
 

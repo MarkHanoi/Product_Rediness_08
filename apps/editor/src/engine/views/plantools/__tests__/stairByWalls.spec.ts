@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { StairPathToolController } from '@pryzm/geometry-stair';
+import { DrawingModeBar } from '@app/ui/DrawingModeBar';
+import { creationModes } from '../elementCreationMatrix';
 import {
     planStairByWalls,
+    executeStairByWalls,
+    consumePendingStairByWallsPlan,
+    __resetStairByWallsForTests,
+    ByWallsPickSession,
     BY_WALLS_PERPENDICULAR_TOLERANCE_DEG,
     BY_WALLS_CORNER_TOLERANCE_M,
     type ByWallsWall,
@@ -233,6 +239,171 @@ describe('FEAT-STAIR-BY-WALLS -- the By Slab pattern, for stairs', () => {
             expect(input.shape).toBe('L');
             expect(input.flights).toHaveLength(2);
 
+            ctrl.deactivate(); ctrl.destroy();
+        });
+    });
+
+    describe('⭐ THE ARM (L-1456) -- two SEQUENTIAL picks, which need no multi-select API', () => {
+        // This lane first WITHHELD the pill, measuring that "there is no multi-select
+        // id accessor": selectionManager.selectedObject is singular and
+        // `grep selectedElementIds` over apps/ + packages/ returns ONE hit, in a Zod
+        // schema. Both facts are true -- and they block the SNAPSHOT route ("read the
+        // two walls already selected"), not the PICK route. `_pickSlabThen` already
+        // picks ONE object SEQUENTIALLY AFTER activation; two picks are its two-step
+        // case. A true measurement can still be the wrong measurement.
+        it('collects two DISTINCT walls, in click order', () => {
+            const s = new ByWallsPickSession(2);
+            expect(s.remaining).toBe(2);
+            expect(s.offer('w-a', 'Wall')).toBe('accepted');     // capital W: C15 §12
+            expect(s.remaining).toBe(1);
+            expect(s.offer('w-b', 'wall')).toBe('complete');
+            expect(s.isComplete).toBe(true);
+            expect(s.ids).toEqual(['w-a', 'w-b']);
+        });
+
+        it('⭐ rejects the SAME wall clicked twice -- the count must mean two DISTINCT walls', () => {
+            // `bim-selection-changed` re-fires on re-selection. Without this, one wall
+            // would fill both slots and planStairByWalls would refuse it paired with
+            // ITSELF as NOT_PERPENDICULAR at 0 degrees -- a refusal that is true and
+            // completely misleading, because the architect picked one wall, not two
+            // crooked ones.
+            const s = new ByWallsPickSession(2);
+            expect(s.offer('w-a', 'wall')).toBe('accepted');
+            expect(s.offer('w-a', 'wall')).toBe('duplicate');
+            expect(s.remaining).toBe(1);       // NOT advanced
+            expect(s.isComplete).toBe(false);
+        });
+
+        it('ignores clicks on anything that is not a wall, and on ids that are missing', () => {
+            const s = new ByWallsPickSession(2);
+            expect(s.offer('s-1', 'slab')).toBe('ignored');
+            expect(s.offer(undefined, 'wall')).toBe('ignored');
+            expect(s.remaining).toBe(2);
+        });
+
+        it('the ONE-WALL case still completes on the first valid pick (wall/railing By Slab)', () => {
+            // The N-step helper this drives replaced `_pickSlabThen`'s body, and wall's
+            // and railing's By Slab are flows the founder is happy with (L-1103/L-1104).
+            // count === 1 must complete on the first valid pick, exactly as before.
+            const w = new ByWallsPickSession(1);
+            expect(w.offer('w-a', 'wall')).toBe('complete');
+            expect(w.ids).toEqual(['w-a']);
+            expect(w.offer('w-b', 'wall')).toBe('ignored');   // closed after completion
+        });
+    });
+
+    describe('THE HANDOFF -- one-shot, and cleared by a refusal', () => {
+        beforeEach(() => __resetStairByWallsForTests());
+
+        it('a successful execute ARMS a plan, and consuming it CLEARS it', () => {
+            const r = executeStairByWalls({
+                walls: [wall('w1', 0, 0, 6, 0), wall('w2', 0, 0, 0, 6)],
+                storeyHeight: 3, stairWidth: 1.2,
+            });
+            expect(r.ok).toBe(true);
+            const armed = consumePendingStairByWallsPlan();
+            expect(armed?.shape).toBe('L');
+            // ⭐ ONE-SHOT. A plan left standing would re-draw a stair the next time the
+            // tool activated for ANY reason -- a By-Walls click echoing into an
+            // unrelated hand-drawn stair ten minutes later.
+            expect(consumePendingStairByWallsPlan()).toBeNull();
+        });
+
+        it('⭐ a REFUSED execute leaves NO plan armed, even after an earlier success', () => {
+            executeStairByWalls({
+                walls: [wall('w1', 0, 0, 6, 0), wall('w2', 0, 0, 0, 6)],
+                storeyHeight: 3, stairWidth: 1.2,
+            });
+            const bad = executeStairByWalls({
+                walls: [wall('w1', 0, 0, 6, 3), wall('w2', 0, 0, 0, 6)],   // 63.43 deg
+                storeyHeight: 3, stairWidth: 1.2,
+            });
+            expect(bad.ok).toBe(false);
+            if (bad.ok === false) expect(bad.code).toBe('NOT_PERPENDICULAR');
+            // The stale plan from the first call must be GONE. Otherwise a refusal
+            // would be followed by the tool silently drawing the PREVIOUS stair --
+            // the worst possible outcome for a gate that just said no.
+            expect(consumePendingStairByWallsPlan()).toBeNull();
+        });
+    });
+
+    describe('THE PILL -- declared on the strip, in the same commit as the arm', () => {
+        it('By Walls is an ACTION: it fires and never takes the active highlight', () => {
+            document.body.innerHTML = '';
+            const bar = new DrawingModeBar();
+            const picked: string[] = [];
+            bar.show({
+                label: 'Mode:', modes: creationModes('stair-path'),
+                initialMode: 'ortho', onSelect: (id) => picked.push(id),
+            });
+            const pills = Array.from(document.querySelectorAll<HTMLButtonElement>('.wdh-bar .wdh-btn'));
+            expect(pills.map((b) => b.dataset.mode)).toEqual(['linear', 'ortho', 'bywall']);
+
+            const byWalls = pills.find((b) => b.dataset.mode === 'bywall')!;
+            byWalls.click();
+            expect(picked).toEqual(['bywall']);
+            // The highlight did NOT move -- writing an action to the mode store would
+            // leave every later click retrying by-walls while the bar said Ortho
+            // (L-956's shape).
+            const active = pills.filter((b) => b.classList.contains('wdh-btn--active')).map((b) => b.dataset.mode);
+            expect(active).toEqual(['ortho']);
+            // ...and it sits after the separator, as every By-* action does.
+            expect(document.querySelector('.wdh-sep')).not.toBeNull();
+            bar.dismiss();
+        });
+    });
+
+    describe('⭐ END TO END -- pick, plan, arm, replay, command', () => {
+        it('the armed plan replayed as clicks produces a real CreateStairCommand', async () => {
+            __resetStairByWallsForTests();
+
+            // 1. Two sequential picks.
+            const session = new ByWallsPickSession(2);
+            session.offer('w1', 'Wall');
+            session.offer('w2', 'Wall');
+            expect(session.isComplete).toBe(true);
+
+            // 2. The action plans and arms.
+            const store: Record<string, ByWallsWall> = {
+                w1: wall('w1', 0, 0, 6, 0, 0.2),
+                w2: wall('w2', 0, 0, 0, 6, 0.2),
+            };
+            const exec = executeStairByWalls({
+                walls: session.ids.map((id) => store[id]!),
+                storeyHeight: 3, stairWidth: 1.2,
+            });
+            expect(exec.ok).toBe(true);
+
+            // 3. The tool activates and replays -- byte-for-byte what
+            //    `StairPathPlanToolHandler._activate` now does.
+            const armed = consumePendingStairByWallsPlan()!;
+            const dispatched: unknown[] = [];
+            const refusals: string[] = [];
+            const canvas = document.createElement('canvas');
+            document.body.appendChild(canvas);
+            const ctrl = new StairPathToolController({
+                container: document.body,
+                coordinateCanvas: canvas,
+                planViewCanvas: {
+                    worldToScreen: (x: number, z: number) => ({ x, y: z }),
+                    screenToWorld: (x: number, y: number) => ({ x, z: y }),
+                } as never,
+                commandManager: { execute: (c: unknown) => dispatched.push(c) },
+                baseLevelId: 'L0', topLevelId: 'L1',
+                baseLevelElevation: 0, topLevelElevation: 3,
+                width: 1.2,
+                initialShape: armed.shape,
+                onInvalid: (m: string) => refusals.push(m),
+            });
+            ctrl.activate();
+            for (const pt of armed.points) ctrl.feedClick(pt.x, pt.z);
+            await new Promise((r) => setTimeout(r, 60));
+
+            expect(refusals).toEqual([]);
+            expect(dispatched).toHaveLength(1);
+            const input = (dispatched[0] as { input: { shape: string; flights: unknown[] } }).input;
+            expect(input.shape).toBe('L');
+            expect(input.flights).toHaveLength(2);
             ctrl.deactivate(); ctrl.destroy();
         });
     });
