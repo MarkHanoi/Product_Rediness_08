@@ -34,6 +34,15 @@ import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the footprint maths, the host-slab choice
 // and the `opening-stair-<id>` convention all moved to the ONE invariant owner.
 import { carveStairOpening } from './StairSlabOpeningReconciler';
+// §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the founder's "the stair cuts
+// the slab but NOT the floor finish". The set of hosts a stair pierces is DERIVED
+// from the families registered there and the levels the stair rises through, not
+// enumerated here.
+import {
+    pierceStairHorizontalHosts,
+    unpierceStairHorizontalHosts,
+    type StairHostPierce,
+} from './StairHorizontalHostPiercing';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -134,7 +143,13 @@ export class CreateStairCommand implements Command {
      * level table is read-only consulted via `wallStore.getLevels()`), and the
      * auto-opening pass writes to `opening` and the host `slab`.
      */
-    readonly affectedStores = ["stair", "opening", "slab"] as const;
+    // §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — 'floor' and 'ceiling' join
+    // the declaration because this command now CUTS voids in those families too.
+    // A cascade that mutates a store it does not declare is invisible to the
+    // scoped snapshot (C03 §4.6 U-2) — which is precisely how the founder's log
+    // could read `scope=[stair,opening,slab]` while the floor finish went
+    // untouched: the scope was HONEST, and the mutation simply was not happening.
+    readonly affectedStores = ["stair", "opening", "slab", "floor", "ceiling"] as const;
     readonly id: string;
     readonly type = CommandType.CREATE_STAIR;
     readonly timestamp: number;
@@ -146,6 +161,8 @@ export class CreateStairCommand implements Command {
     /** Auto-opening punched on the slab above (for undo). */
     private createdOpeningId?: string;
     private createdOpeningHostSlabId?: string;
+    /** §L-1431 — voids cut in the floor-finish / ceiling families, for undo. */
+    private hostPierces: StairHostPierce[] = [];
 
     /** §PERSIST-L1 (W1-2) — stable IFC GUID; see `CreateStairInput.ifcGuid`. */
     private readonly _ifcGuid: string;
@@ -445,6 +462,14 @@ export class CreateStairCommand implements Command {
             } catch (err) {
                 console.warn('[CreateStairCommand] Auto-opening failed (non-fatal):', err);
             }
+            // §L-1431 — the same gesture, the remaining horizontal families. Under
+            // the SAME opt-out: a user who says "no automatic opening" means no
+            // automatic opening, in every host, not only in the slab.
+            try {
+                this.pierceHorizontalHosts(ctx);
+            } catch (err) {
+                console.warn('[CreateStairCommand] Horizontal-host piercing failed (non-fatal):', err);
+            }
         }
 
         // NOTE: autoCreateLandings() is intentionally NOT called here.
@@ -504,6 +529,34 @@ export class CreateStairCommand implements Command {
         );
     }
 
+    /**
+     * §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the OTHER horizontal
+     * families. `createAutoOpening` above handles the slab, whose void is a
+     * first-class `opening` element with its own lifecycle; this handles every
+     * family registered in `HORIZONTAL_HOST_PIERCERS` (floor finish, ceiling) on
+     * every level the stair rises through.
+     *
+     * ⛔ This method knows NO family names and NO level ids. Both sets are derived
+     * inside the piercing module — that is the whole point, and a `if (family ===`
+     * appearing here would be the defect coming back.
+     */
+    private pierceHorizontalHosts(ctx: CommandContext): void {
+        this.hostPierces = pierceStairHorizontalHosts(ctx, {
+            id:            this.createdStairId!,
+            shape:         this.input.shape,
+            width:         this.input.width,
+            treadDepth:    this.input.treadDepth,
+            startPosition: this.input.startPosition,
+            flights:       this.input.flights,
+            landings:      this.input.landings,
+            topLevelId:    this.input.topLevelId,
+            // Resolved exactly as execute() resolves it: an empty payload field
+            // means "the active level", and handing the raw '' downstream would
+            // silently collapse the derived level span back to top-only.
+            baseLevelId:   this.input.baseLevelId || ctx.projectContext?.activeLevelId,
+        });
+    }
+
     private proposeRailings(stair: StairData): void {
         _bus.emit('bim-stair-railing-proposal', { stairId: stair.id, proposedRailings: [ // F.events.17
             {
@@ -560,6 +613,16 @@ export class CreateStairCommand implements Command {
             }
             this.createdOpeningId = undefined;
             this.createdOpeningHostSlabId = undefined;
+        }
+
+        // §L-1431 — close the floor-finish / ceiling voids in the SAME undo unit.
+        if (this.hostPierces.length > 0) {
+            try {
+                unpierceStairHorizontalHosts(ctx, this.hostPierces);
+            } catch (err) {
+                console.warn('[CreateStairCommand.undo] Horizontal-host un-piercing failed (non-fatal):', err);
+            }
+            this.hostPierces = [];
         }
 
         if (ctx.stores.stairLandingStore && this.createdLandingIds.length > 0) {

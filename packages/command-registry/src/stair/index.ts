@@ -16,3 +16,21 @@ export { UpdateStairRailingCommand } from './UpdateStairRailingCommand';
 export type { UpdateStairRailingPayload } from './UpdateStairRailingCommand';
 export { ChangeStairShapeCommand } from './ChangeStairShapeCommand';
 export type { ChangeStairShapeInput } from './ChangeStairShapeCommand';
+
+// §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the derived host set. Exported
+// so a test can drive the real registry, and so a future horizontal family can
+// register without editing any stair command.
+export {
+    HORIZONTAL_HOST_PIERCERS,
+    pierceStairHorizontalHosts,
+    unpierceStairHorizontalHosts,
+    findStairHorizontalHostPierces,
+    stairHostPierceId,
+    stairHostPiercePrefix,
+    stairPiercedLevelIds,
+} from './StairHorizontalHostPiercing';
+export type {
+    HorizontalHost,
+    HorizontalHostPiercer,
+    StairHostPierce,
+} from './StairHorizontalHostPiercing';

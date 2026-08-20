@@ -23,6 +23,14 @@ import type { HandrailData } from '@pryzm/core-app-model/stores';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import type { Relationship } from '@pryzm/core-app-model';
 import { stairAutoOpeningId } from './stairOpeningId';
+// §STAIR-PIERCES-EVERY-HORIZONTAL-HOST (L-1431) — the create now cuts voids in the
+// floor-finish and ceiling families too, so the delete must close them. C84 EI-5:
+// create and delete are symmetric or the family leaks.
+import {
+    findStairHorizontalHostPierces,
+    unpierceStairHorizontalHosts,
+    pierceStairHorizontalHosts,
+} from './StairHorizontalHostPiercing';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -40,7 +48,10 @@ export class DeleteStairCommand implements Command {
     // because this command now REMOVES hosted handrails. A cascade that mutates a
     // store it does not declare is invisible to the scoped snapshot (C03 §4.6
     // U-2), which is precisely how an undo silently stops covering a family.
-    readonly affectedStores = ["stair", "opening", "slab", "handrail"] as const;
+    // §L-1431 — 'floor' and 'ceiling' join for the same reason 'opening' and 'slab'
+    // did: this command now heals voids in those families, and a cascade that
+    // mutates an undeclared store is invisible to the scoped snapshot (C03 U-2).
+    readonly affectedStores = ["stair", "opening", "slab", "handrail", "floor", "ceiling"] as const;
     readonly id: string;
     readonly type = CommandType.DELETE_STAIR;
     readonly timestamp: number;
@@ -67,6 +78,8 @@ export class DeleteStairCommand implements Command {
     // coord space) and Ctrl-Z returns the pre-delete state byte-for-byte.
     private _openingSnapshot?: OpeningData;
     private _openingHostSlabId?: string;
+    /** §L-1431 — how many floor-finish / ceiling voids this delete closed. */
+    private _hostPierceCount = 0;
     /**
      * §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES (BIM 3.0 C71 §5.6) — the stair delete
      * never purged the SemanticGraph, and BOTH delete paths delegate here since
@@ -297,6 +310,14 @@ export class DeleteStairCommand implements Command {
         // the same openingStore — and undo() restore it. Mirrors DeleteSlabCommand's
         // hosted-opening cleanup and the C15 window/door → wall-opening heal.
         this._healHostSlab(ctx);
+        // §L-1431 — and the OTHER horizontal families. Found by the id convention,
+        // never by re-deriving containment: a stair that was moved after creation
+        // must have the void it ACTUALLY cut healed, not the one it would cut now.
+        {
+            const pierces = findStairHorizontalHostPierces(ctx, this.stairId);
+            this._hostPierceCount = pierces.length;
+            unpierceStairHorizontalHosts(ctx, pierces);
+        }
 
         _bus.emit('ai-model-update', {}); // F.events.17
 
@@ -395,6 +416,37 @@ export class DeleteStairCommand implements Command {
             }
             this._openingSnapshot = undefined;
             this._openingHostSlabId = undefined;
+        }
+
+        // §L-1431 — RE-CUT the floor-finish / ceiling voids, in the SAME undo unit.
+        // No snapshot is replayed: these voids are DERIVED from the stair footprint
+        // that was just restored, so re-running the piercer reproduces them exactly
+        // and cannot restore a stale copy over a live host. The count is compared so
+        // a silent shortfall is reported rather than swallowed.
+        if (this._hostPierceCount > 0 && this._stairSnapshot) {
+            try {
+                const recut = pierceStairHorizontalHosts(ctx, {
+                    id:            this._stairSnapshot.id,
+                    shape:         this._stairSnapshot.shape as string,
+                    width:         this._stairSnapshot.width,
+                    treadDepth:    this._stairSnapshot.treadDepth,
+                    startPosition: this._stairSnapshot.startPosition,
+                    flights:       this._stairSnapshot.flights as unknown as readonly unknown[],
+                    landings:      this._stairSnapshot.landings as unknown as readonly unknown[],
+                    topLevelId:    this._stairSnapshot.topLevelId,
+                    baseLevelId:   this._stairSnapshot.baseLevelId,
+                });
+                if (recut.length !== this._hostPierceCount) {
+                    console.warn(
+                        `[DeleteStairCommand.undo] re-cut ${recut.length} horizontal-host void(s) but the ` +
+                        `delete closed ${this._hostPierceCount} — a host was removed or moved between the ` +
+                        `delete and this undo. The difference is NOT restored.`,
+                    );
+                }
+            } catch (err) {
+                console.warn('[DeleteStairCommand.undo] horizontal-host re-cut failed (non-fatal):', err);
+            }
+            this._hostPierceCount = 0;
         }
 
         // §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — restore the exact edges execute()
