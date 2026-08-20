@@ -207,6 +207,26 @@ export {
 } from './rendererRetirement.js';
 export type { DeviceLostReasonLike } from './rendererRetirement.js';
 
+// §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — THE one authority on "does this
+// renderer's output surface have any area to draw into?", plus the aggregated log
+// that replaces the driver's 255-line flood with two lines and a surviving count.
+// Reflow-free (backing store, never clientWidth). See surfaceArea.ts for the
+// measured mechanism: OBC's own unguarded ResizeObserver drives setSize(0, 0) the
+// moment the canvas's parent container goes display:none, and it stays zero.
+export {
+  measureSurface,
+  hasDrawableArea,
+  admitSurface,
+  getZeroAreaSurfaceReport,
+  zeroAreaSurfaceGate,
+  ZeroAreaSurfaceGate,
+} from './surfaceArea.js';
+export type {
+  SurfaceMeasurement,
+  SurfaceSizedRendererLike,
+  ZeroAreaReport,
+} from './surfaceArea.js';
+
 // C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
 // DO NOT REMOVE — auto-fixer guard
 export * from './IsolationAnimator.js';

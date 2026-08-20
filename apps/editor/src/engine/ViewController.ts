@@ -1,4 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
+// §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — never poke OBC's render loop while
+// its canvas has no area; see _forceRendererUpdate() for the measured mechanism.
+import { admitSurface } from '@pryzm/renderer-three';
 import * as OBC from '@thatopen/components';
 import { ViewNavigationManager, ViewMode } from '@pryzm/core-app-model';
 import { PlanViewService } from '@pryzm/core-app-model';
@@ -2635,6 +2638,35 @@ export class ViewController implements IViewController {
      */
     private _forceRendererUpdate(): void {
         const renderer = this._world.renderer;
+
+        // ── §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) ──────────────────────
+        // ⭐ THIS IS THE 245 DRAW CALLS.
+        //
+        // Setting `needsUpdate = true` makes OBC's own rAF loop issue ONE COMPLETE
+        // `three.render(scene, camera)` (@thatopen/components index.mjs:14625-14636) —
+        // one `drawElements` per mesh, one `drawArrays` per grid/line object. On the
+        // founder's six-storey building that is exactly the burst in his console:
+        //   245x glDrawElements + 9x glDrawArrays + 1 glClear = 255 = Chrome's per-
+        //   context error cap, after which the driver reports NOTHING on that context
+        //   for the rest of the session.
+        //
+        // ⭐ It is called on EVERY view activation (`_activateView`), which is precisely
+        // when the OBC canvas is most likely to have no area: `mainRendererVisibility`
+        // hides `#container` for the plan / split pane, and OBC's own unguarded
+        // ResizeObserver drives `three.setSize(0, 0)` off that hidden parent. Every one
+        // of those draws is discarded, and — because the container stays hidden — the
+        // condition never clears on its own.
+        //
+        // ⚠ Every geometry tool in this codebase already refuses to poke OBC's loop
+        // (`FurnitureTool`, `PlumbingTool`, `LiftTool`, `ColumnTool`,
+        // `WardrobeCabinetTool` all guard on `!window.pryzmCanvas`). This site was
+        // simply missed. The guard here is the stronger one: it asks the surface for its
+        // real backing-store area rather than inferring it from which canvas exists.
+        const three = (renderer as { three?: unknown } | null | undefined)?.three;
+        if (three !== undefined && !admitSurface(three, 'ViewController._forceRendererUpdate')) {
+            return;
+        }
+
         if (renderer) {
             if ('needsUpdate' in renderer) {
                 (renderer as any).needsUpdate = true;
@@ -2642,6 +2674,11 @@ export class ViewController implements IViewController {
         }
 
         setTimeout(() => {
+            // Re-measure rather than trusting the check above: the 100 ms delay exists
+            // precisely because layout may still be settling, so the surface can have
+            // LOST its area in between. Aggregated, so a hidden pane costs no log spam.
+            const t = (renderer as { three?: unknown } | null | undefined)?.three;
+            if (t !== undefined && !admitSurface(t, 'ViewController._forceRendererUpdate')) return;
             if (renderer && 'needsUpdate' in renderer) {
                 (renderer as any).needsUpdate = true;
             }

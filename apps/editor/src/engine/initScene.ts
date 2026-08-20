@@ -100,6 +100,9 @@ import { RenderPipelineManager } from '@pryzm/renderer-three';
 // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the live backend swap RETIRES a
 // renderer; a bare dispose() leaves it listening on the kept scene's materials.
 import { retireRenderer, mintedRenderObjectCount, classifyRetirement, describeRetirement } from '@pryzm/renderer-three';
+// §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — refuse a pass whose surface has no
+// area, and say so ONCE. See clearObcBaseFramebuffer for the measured mechanism.
+import { admitSurface, getZeroAreaSurfaceReport } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
 import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
@@ -1818,6 +1821,42 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             if (pryzmCanvas && pryzmCanvas.style.display === 'none') return;
 
             const obc = postproductionRenderer.three as THREE.WebGLRenderer;
+
+            // ── §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — THE SECOND SELF-GATE ──
+            // ⭐ THE GATE ABOVE ASKS A DIFFERENT QUESTION THAN THE ONE THAT BIT US.
+            // It asks "is somebody else painting into the OBC canvas right now?" via an
+            // INLINE STYLE ON A DIFFERENT ELEMENT (`pryzmCanvas`). That is a correct
+            // answer to that question. It is not an answer to "does my surface have any
+            // area?", and the founder's flood is the second question:
+            //
+            //   [.WebGL-0x…] GL_INVALID_FRAMEBUFFER_OPERATION: glClear:
+            //       Framebuffer is incomplete: Attachment has zero size.
+            //   245x glDrawElements / 9x glDrawArrays, then
+            //   "WebGL: too many errors, no more errors will be reported for this context."
+            //
+            // MECHANISM, measured from real source on both sides (2026-08-20):
+            //   • `mainRendererVisibility._apply()` sets `display:none` on `#container` —
+            //     the OBC canvas's PARENT — for the plan / split-pane hide.
+            //   • OBC's `SimpleRenderer.resize` (@thatopen/components index.mjs:14535) is
+            //     `this.three.setSize(container.clientWidth, container.clientHeight)` with
+            //     NO guard, wired to a ResizeObserver on that same parent (:14680).
+            //   ⇒ hiding the container drives `setSize(0, 0)`. `pryzmCanvas.style.display`
+            //     is untouched, so the gate above PASSES and this clear runs into a
+            //     zero-area framebuffer on every presented frame.
+            //
+            // ⭐ CAN THIS CONDITION EVER BE SATISFIED? NO — this is not a transient
+            // mid-layout zero that the next frame resolves. A surface sized from a
+            // display:none container stays zero until that container is shown again, so
+            // the clear is discarded FOREVER and the driver goes silent after ~255
+            // errors, hiding every later finding on that context (L-1402).
+            //
+            // ⛔ Deliberately NOT a clamp to 1x1: a 1x1 target still discards the image
+            // and would trade a diagnosable error for a silent wrong picture. The pass
+            // simply must not run. `admitSurface` reads the BACKING STORE (reflow-free,
+            // and the dimension the attachments are actually allocated from) and
+            // aggregates on the REASON, so this site logs ONCE on refusal and ONCE on
+            // resume with the count — never 245 times (C04 §INST.4).
+            if (!admitSurface(obc, 'initScene.clearObcBaseFramebuffer')) return;
 
             // §FIX-WEBGL2-GHOST-STALE-TARGET (L-05 / G6) — CLEAR THE CANVAS, NOT WHOEVER'S
             // BUFFER HAPPENS TO BE BOUND.
@@ -5042,6 +5081,22 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         return report;
     };
     window.pryzmViewportBackgroundReport = reportViewportBackground;
+
+    // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — the SURVIVING half of the
+    // aggregated log. Each refusing site warns ONCE per episode; the counts stay here
+    // so a reader who arrived after the message scrolled past (or after Chrome stopped
+    // reporting on that context entirely) can still retrieve them. A non-empty
+    // `suppressedTotal` names a surface that has been discarding draws.
+    (window as unknown as { pryzmZeroAreaSurfaceReport?: () => unknown })
+        .pryzmZeroAreaSurfaceReport = () => {
+            const rows = getZeroAreaSurfaceReport();
+            if (rows.length === 0) {
+                console.log('[initScene] §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS — no site has ever been refused (every surface had area).');
+            } else {
+                console.table(rows);
+            }
+            return rows;
+        };
 
     // Register the swap so the corner RendererBackendToggle can call it instead of
     // persisting + reloading (ADR-0077 supersedes ADR-0076's reload path).
