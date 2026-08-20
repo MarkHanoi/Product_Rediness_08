@@ -39,7 +39,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 
 ## 2. Allocation table
 
-**Highest number allocated: `L-1339`.** Next free block starts at **`L-1340`**.
+**Highest number allocated: `L-1349`.** Next free block starts at **`L-1350`**.
 
 | Block | Lane | Session | State |
 |---|---|---|---|
@@ -54,6 +54,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1310 – L-1319 | SYNC1 — the plan-rejection latch + the blockers in the recovery path | 2026-08-19 | allocated |
 | L-1320 – L-1329 | SHAPE1 — shape modes (rect/circular/elliptical) across wall, curtain wall, slab, ceiling, floor | 2026-08-19 | allocated |
 | L-1330 – L-1339 | LIGHT1 — 20 LOD-200 lighting fixtures with photometrics | 2026-08-19 | allocated |
+| L-1340 – L-1349 | LOG1 (second block) — project-open coalescing keyed on nothing | 2026-08-20 | allocated |
 
 > ⚠ **L-1197 … L-1226 are PRE-LEDGER** and were minted under the old racing convention. Several were
 > renumbered in flight. **Trust the ISSUE LOG for what they mean, not any lane report that cites
