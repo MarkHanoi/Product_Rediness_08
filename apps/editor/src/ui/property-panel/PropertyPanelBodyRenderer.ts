@@ -26,6 +26,9 @@ import { buildWallLayersEditor }    from './WallLayersEditor';
 import { buildSlabLayersEditor }    from './SlabLayersEditor';
 import { buildCurtainGridEditor }   from './CurtainGridEditor';
 import { buildCurtainPanelEditor }  from './CurtainPanelEditor';
+// §STAIR-LEVEL-SPAN-CHANGE (L-1533) — Base/Top level were READONLY rows, so the
+// two ends of a stair's span could be seen and never changed (founder item 0.2).
+import { buildStairLevelSpanSection } from './StairLevelSpanWidget';
 import { buildDoorSection }         from '@pryzm/geometry-door';
 import { buildWindowSection }       from '@pryzm/geometry-window';
 import { RoofPropertySheet }        from './RoofPropertySheet';
@@ -341,6 +344,14 @@ export function _renderElementToContainer(
             const roofSheet = new RoofPropertySheet(host.commandManager);
             roofSheet.render(body, roofData as any);
         }
+    } else if (elType === 'stair' || elType === 'stairs') {
+        // §STAIR-LEVEL-SPAN-CHANGE (L-1533) — the founder's item 0.2. Same mount
+        // point and same shape as the door / window parametric sections above: a
+        // family-specific section the generic descriptor rows cannot express,
+        // because changing a stair's level span is not a field write but a
+        // re-solve of the whole stair (see StairLevelSpanWidget's header).
+        const stairSpan = buildStairLevelSpanSection(elementData as Record<string, unknown>);
+        if (stairSpan) body.appendChild(stairSpan);
     }
 
     const validationBanner = document.createElement('div');

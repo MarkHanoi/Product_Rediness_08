@@ -201,6 +201,20 @@ const SCHEMAS: Record<string, ElementSchema> = {
         riserHeight:     NUMBER('Riser Height', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_RISER_HEIGHT, max: STAIR_CONSTRAINTS.MAX_RISER_HEIGHT }),
         treadDepth:      NUMBER('Tread Depth', 'definition', 'definition', true, { unit: 'm', min: STAIR_CONSTRAINTS.MIN_TREAD_DEPTH, max: 0.500 }),
         riserCount:      READONLY('Riser Count', 'spatial'),
+        // §STAIR-LEVEL-SPAN-CHANGE (L-1533) — these two stay READONLY HERE, and that
+        // is now a decision rather than a gap. The founder's item 0.2 ("change stair
+        // Base level + top level") is served by `StairLevelSpanWidget`, a pair of
+        // <select>s over the real level table mounted by PropertyPanelBodyRenderer.
+        //
+        // They must NOT become editable rows: an editable descriptor row commits
+        // through the GENERIC `element.updateParameters` → UpdateElementParameterCommand,
+        // which writes the raw field and consults NO stair rule. It would store a new
+        // topLevelId while leaving `riserHeight × riserCount` at the OLD rise —
+        // a stair that fails its own validator and renders at the wrong height. The
+        // widget dispatches `stair.updateParameters` → UpdateStairParametersCommand,
+        // which re-solves the span and moves every void with it. Exactly the split
+        // §FIX-STAIR-TYPEID-TWO-CONTROLS resolved for `typeId` five rows down, and
+        // resolved the same way: the dropdown is the control, the row is the echo.
         baseLevelId:     READONLY('Base Level', 'spatial'),
         topLevelId:      READONLY('Top Level', 'spatial'),
         room:            READONLY('Room', 'spatial'),
