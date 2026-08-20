@@ -41,6 +41,72 @@ interface RendererHandle {
 
 **Amendment (ADR-0267 §AUTO-WEBGL-HEAVY, 2026-07-17) — Known-behavior, not a violation**: The persisted backend toggle (`pryzm.renderer.backend` ∈ {`auto`, `webgpu`, `webgl`}, ADR-0076/ADR-0077) has an adaptive **Auto** mode. In **Auto** mode only, on a **real WebGPU** backend (`RenderPipelineManager.isRealWebGPUBackend()` / `status.webGpuActive`), when a scene becomes **device-loss-risk** per the shared `isHeavyModel` heuristic (**≥ 15 levels AND ≥ 1000 elements, OR ≥ 4000 elements** — the exact `LevelScoped3DCullingService` predicate, now exported), the editor **proactively live-swaps WebGPU→WebGL once per session** BEFORE the heavy PSO-compile that TDRs the GPU on some hardware (L-361). This is intentional: heavy WebGPU scenes are unstable on that hardware class while WebGL renders them cleanly. An **explicit** `webgpu` / `webgl` selection is ALWAYS respected (Auto is the only adaptive mode). The REACTIVE device-loss recovery (§FIX-HEAVY-SCENE-3D-SCALABILITY cap → WebGL safe-mode, ADR-0089) is retained as the safety net for anything that slips through. Implemented in `apps/editor/src/rendering/autoWebGLHeavyScene.ts`, fired from the batch GPU-compile-start hook (batched generators) and the per-add tier pass (non-batched residential). See ADR-0267 + L-362.
 
+> ⚠ **CORRECTED 2026-08-20 (lane SWAP1, L-1413) — the paragraph above states a predicate the code has never used, and understates the firing sites. MEASURED, not read.**
+>
+> The founder opened a project — **294 elements / 3,191 meshes / 7 levels** — and the 3D viewport was empty. His console carries the swap firing with `reason=tier:post-load`. Against the predicate this amendment quotes, that scene is **not heavy on either arm** (7 < 15 levels; 233 counted element roots < 1,000 and < 4,000). It swapped anyway.
+>
+> **The two verdicts, measured through the public seams (`apps/editor/__tests__/autoWebGLHeavyScene.contractPredicate.test.ts`):**
+>
+> | predicate | where it lives | verdict for 233 elems / 3,191 meshes / 7 levels |
+> |---|---|---|
+> | `isHeavyModel(levelCount, elementCount)` — the one this amendment quotes | `packages/core-app-model/src/rendering/LevelScoped3DCullingService.ts:180` | **false** |
+> | `isSwapWorthyHeavyScene(elementCount, sceneMeshCount)` — the one that actually gates the swap | `apps/editor/src/rendering/autoWebGLHeavyScene.ts` | **true** (mesh arm: 3,191 ≥ 1,000) → `swap('webgl-classic')` |
+>
+> **`isHeavyModel` has ZERO call sites outside its own file.** Its own JSDoc claimed *"EXPORTED as the single source of truth … the Auto-mode proactive WebGL fallback reuses this EXACT predicate"* — that sentence was false when written here and false in the source; both are corrected. This is C84 §3.5.1 axis (d), the CALL axis: a predicate that is exported, documented as the authority, and invoked by nobody.
+>
+> **The divergence was DELIBERATE and is CORRECT — only its record was missing.** ADR-0267 §Fix-1 (L-366) split the swap threshold away from the massing-LOD threshold on purpose: a normal ~6-storey generation (~1,300 elements / ~1,645 meshes) reliably TDR'd the device yet never tripped `isHeavyModel`, so reusing it left the building on WebGPU to crash. ⛔ **Do NOT "fix" this by pointing the swap at `isHeavyModel` — that re-opens L-361.** The NORMATIVE predicate for the backend swap is, and remains:
+>
+> > **≥ 400 top-level BIM element roots, OR ≥ 1,000 scene meshes** (`SWAP_ELEMENT_THRESHOLD` / `SWAP_MESH_THRESHOLD`, either arm). The mesh arm is optional per call site: a caller without a live mesh count relies on the element arm alone. `isHeavyModel` (≥ 15 levels AND ≥ 1,000 elements, OR ≥ 4,000 elements) governs **massing LOD only** and is deliberately far higher.
+>
+> **There are THREE firing sites, not two:**
+> 1. `apps/editor/src/engine/initBatchLifecycle.ts:121` — batch GPU-compile-start (batched generators). *Pre-empts.*
+> 2. `apps/editor/src/ui/generation/buildingGenerationLifecycle.ts:307` — start-of-generation, before any geometry exists (ADR-0267 start-of-generation refinement, L-367). *Pre-empts.*
+> 3. `apps/editor/src/engine/initScene.ts:2845` — the per-add tier pass, `tier:${reason}`. This is **also reached once per project OPEN** via `_runConsolidatedTierPbrPass = () => runTierPbrPass('post-load')` (initScene:2875), fired from the `pryzm-project-loaded` listener at initScene:3583. **That is the founder's `reason=tier:post-load`, and it pre-empts nothing.**
+
+**§1.4a — The backend decision is taken at the point of MAXIMUM ATTACHED STATE (OPEN, L-1414, 2026-08-20)**
+
+`reason=tier:post-load` means the swap decision for a project OPEN is taken **after** all 3,191 meshes exist and have rendered. ADR-0267's whole premise is *"swap BEFORE the heavy PSO-compile that would TDR the device"* — at `post-load` that compile has already happened and survived, so the swap buys nothing it was designed to buy while paying the maximum possible cost: `§RENDERER-LIVE-SWAP` disposes the TSL pipeline, builds a second renderer on a second canvas, re-binds five services and retires the old renderer **against a fully populated scene**. It fires on *every* project open above the threshold, so this is not an edge case.
+
+**The correct shape is to decide the backend BEFORE the scene is populated** — the other two firing sites already do exactly that, and site (2) is the proof that it is achievable. ⚠ **NOT DONE, and honestly so:** the project-load path can supply an element count and a level count from the snapshot before any mesh is built (`ProjectLoader` already logs `walls/slabs/levels/curtainWalls/rooms/doors/windows` at load start), but it **cannot supply a mesh count** — and the founder's project trips the swap ONLY on the mesh arm (233 element roots < 400). Moving the decision earlier therefore requires a **mesh-count ESTIMATE from element counts**, i.e. a new per-family multiplier. This contract's own §INST.2 records why that is refused on sight: *"512 is ARBITRARY, and raising it is NOT the fix."* Inventing a multiplier to make the timing work would trade a timing defect for an arbitrary-constant defect. **The decision stays where it is until the estimate can be DERIVED (for example from the previous session's measured mesh count for the same project, persisted), and this clause is the record that it is wrong — not the record that it is fine.**
+
+**§1.4b — `§RETIRE-RENDERER-DETACHES-LISTENERS` DETACHES A RENDERER, NOT THE BUILDING (NORMATIVE, L-1411, 2026-08-20)**
+
+The live-swap log line `old renderer retired — N render object(s) detached from their materials/geometries` has been read as *"N scene objects were unbound and something must re-attach them."* **It does not mean that, and there is no re-attach to look for.** MEASURED at the founder's exact scale (`packages/renderer-three/__tests__/rendererRetirement.populatedScene.test.ts`, real three r183 `RenderObjects` + real `retireRenderer()` + a real populated `THREE.Scene` of 3,181 meshes):
+
+| quantity | before retire | after retire |
+|---|---|---|
+| scene meshes holding a live material **and** a non-empty position attribute | **3,181** | **3,181** |
+| `'dispose'` listeners on those materials + geometries | **6,362** (2 per render object) | **0** |
+| scene children | 3,181 | 3,181 |
+
+`RenderObject.dispose()` (RenderObject.js:904-911) removes the retired renderer's two listeners and deletes its own per-object pipeline / binding / node state. It never touches `mesh.material` or `mesh.geometry`. The incoming renderer mints its own draw state on its first frame — and when the incoming renderer is the §L-372B classic `THREE.WebGLRenderer`, it mints **no** `RenderObject` at all; it compiles `WebGLProgram`s from the same materials the scene still holds. **A "missing re-attach" is not a defect this seam can have.** Do not re-open it without a measurement that contradicts the table above.
+
+**§1.4c — A retirement count of `0` MUST say WHICH zero (NORMATIVE, L-1410, 2026-08-20)**
+
+The same log line reported `0`, `3181`, `6936` and `6937` across one day of founder sessions, and a prior lane flagged the `0` without being able to investigate it — because one word covered three states. `retireRenderer()` now carries a monotonic mint counter and a derived classification (`classifyRetirement` / `mintedRenderObjectCount` / `describeRetirement`, `packages/renderer-three/src/rendererRetirement.ts`), and the retirement log MUST print all three facts together:
+
+* **`mints-none`** — a classic `THREE.WebGLRenderer` exposes no `RenderObjects`. `0` is **complete and correct**: nothing was ever attached.
+* **`untracked`** — the renderer owns `RenderObjects` but was never instrumented. `0` means **the sweep looked in the wrong place** and every listener it registered is about to outlive it (L-948). Warned loudly (pre-existing).
+* **`tracked`** — read the detached count **against the mint count**. `detached === 0 && minted > 0` was **silent** before L-1410 and is now warned: the tracking set was emptied by something other than this seam.
+
+⛔ A bare count with no denominator and no kind is not an acceptable diagnostic here. This project has been wrong about an unqualified `0` from a counter repeatedly — a version count, an audit detector, an in-flight guard, a rescue that rescued nothing.
+
+**§1.4d — An instrument MUST NOT name a backend it did not resolve (NORMATIVE, L-1412, 2026-08-20)**
+
+The founder's console carried, one line apart:
+
+```
+[renderer-three] backend: webgl1 (§L-372B classic THREE.WebGLRenderer)
+[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected …
+```
+
+Two components naming two different backends for one live renderer. **The DECISION was never wrong** — `RenderPipelineManager.isRealWebGPUBackend()` answers one boolean and this is its `false` arm, which by construction covers BOTH the `WebGPURenderer` WebGL2 fallback and a classic `THREE.WebGLRenderer`; it is the same partition `isNativeWebGpuBackend()` / `isLightweightWebGlBackend()` express at the app layer (lane BG1, L-1191). **Only the LABEL lied**, and it lied by hardcoding a backend name into a branch that resolves none — the identical defect `UnifiedFrameLoop` was corrected for (a hardcoded `"WebGPU"` in a block that read no backend state). The message now reports the boolean it evaluated and the evidence it evaluated it from, and explicitly declines to name which of the two WebGL renderers is live. ⛔ **Do NOT resolve this by adding a backend-string comparison inside `RenderPipelineManager`** — it is L1 and cannot see the app-layer `RendererBackend` vocabulary; a third spelling of the partition is what produced the disagreement in the first place.
+
+**§1.4e — `§SWAP-PAINTS-THE-BUILDING`: the swap reports whether it painted (L-1411, 2026-08-20)**
+
+`§RENDERER-LIVE-SWAP` now prints, immediately after the swap and again one second later (`apps/editor/src/engine/initScene.ts`): scene mesh count; how many of those hold a **live material AND a non-empty position attribute** (derived by traversal, never a hand-listed set of element types); whether the single rAF loop is running; whether the lightweight WebGL render path is armed; `RenderPipelineManager.getFrameSkipReport()` (§L900-FRAME-SKIP-ATTRIBUTION — which names the exact gate a stalled viewport is stalled at); and the renderer's own draw-call / triangle counters. The second reading is the decisive one: `framesPresented > 0` with `drawCalls > 0` means the swap painted, and any remaining blankness is a COMPOSITING question (§1.5); `framesPresented === 0` names the gate instead. This exists because *"the viewport is empty after the swap"* has now been investigated twice from a console transcript with neither reading available.
+
+
 **WebGPU-safety measures on the NON-swapped (light-scene) WebGPU path (L-363/L-364, 2026-07-17)**: Auto-WebGL (above) only diverts HEAVY scenes to WebGL — light scenes still render on real WebGPU, so `RenderPipelineManager` MUST keep two TSL-safety guards on that path. (1) **TSL-init guard** (L-319 §SS-FIX-TSL-NOT-LOADED-BEFORE-SCENEPASS): every `createScenePass()` caller (`_buildPipeline` / `_buildPhase3Pipeline` / `_fullRebuild`) short-circuits when `globalThis.__PRYZM_TSL__` is not yet loaded — `bind()` sets `_webGpuActive = true` before awaiting `_loadTSL()`, so a batch's `autoEnablePerf → _fullRebuild` in that window would otherwise call `createScenePass()` pre-`initTSL()` and throw. (2) **Transmission guard** (L-361 §L-361-WEBGPU-TRANSMISSION-GUARD): at each batch boundary, on real WebGPU only, `_neutralizeTransmissionForWebGPU()` falls transmission glass back to opacity glass (`transmission = 0` + `needsUpdate`) so the `MeshPhysicalNodeMaterial` transmission/refraction node graph — which emits invalid WGSL ("expected a float") on three r183's WebGPU backend — is never generated. WebGL is untouched by both (keeps the full TSL/refractive-glass path). See L-363 + L-364.
 
 ### §1.5 — Viewport background: ONE authority, READ not PUSHED (NORMATIVE, L-1191)

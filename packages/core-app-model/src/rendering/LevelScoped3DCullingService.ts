@@ -170,12 +170,32 @@ const HUGE_MODEL_ELEMENT_THRESHOLD = 4000;
  * True when a model is at genuine device-loss-risk scale and the service should
  * auto-escalate to massing LOD. A modest building returns false → full detail (L-164).
  *
- * EXPORTED as the single source of truth for the "heavy / device-loss-risk scene"
- * signal. Besides this service's massing auto-escalation, the Auto-mode proactive
- * WebGL fallback (ADR-0267, §AUTO-WEBGL-HEAVY, L-362) reuses this EXACT predicate so
- * the two never disagree on what "heavy" means. Callers MUST feed it the same
- * top-level-element count semantics this file uses (see {@link LevelScoped3DCullingService}
- * `_elementCount`) so the thresholds stay calibrated.
+ * ⚠ **CORRECTED 2026-08-20 (lane SWAP1, L-1413) — this doc block claimed a consumer it
+ * does not have.** It read: *"EXPORTED as the single source of truth for the 'heavy /
+ * device-loss-risk scene' signal. Besides this service's massing auto-escalation, the
+ * Auto-mode proactive WebGL fallback (ADR-0267, §AUTO-WEBGL-HEAVY, L-362) reuses this
+ * EXACT predicate so the two never disagree on what 'heavy' means."*
+ *
+ * **Measured:** `grep -rn isHeavyModel packages apps plugins` finds it referenced ONLY
+ * inside this file — plus five comments in `apps/editor/src/rendering/autoWebGLHeavyScene.ts`
+ * explaining that the swap threshold is *deliberately* NOT this predicate. **This function
+ * has zero call sites outside its own module**, so "the two never disagree" was never
+ * enforced by anything: C84 §3.5.1 axis (d), the CALL axis.
+ *
+ * **The divergence is CORRECT — do not "unify" it.** ADR-0267 §Fix-1 (L-366) split the
+ * two on purpose: a normal ~6-storey generation (~1,300 elements / ~1,645 meshes)
+ * reliably TDR'd the WebGPU device yet never trips this predicate, so gating the backend
+ * swap on it left the building on WebGPU to crash. Pointing the swap here re-opens L-361.
+ *
+ * **SCOPE, stated so the next reader does not re-derive it:** this predicate governs
+ * **massing LOD auto-escalation and nothing else.** The backend swap's own predicate is
+ * `isSwapWorthyHeavyScene` (≥ 400 element roots OR ≥ 1,000 scene meshes) in
+ * `autoWebGLHeavyScene.ts`, and it is deliberately far lower. C04 §1.4 carries both, with
+ * the founder's 233-elems / 3,191-meshes / 7-levels case worked through: this returns
+ * **false** for it and the swap predicate returns **true**.
+ *
+ * Callers MUST feed it the same top-level-element count semantics this file uses (see
+ * {@link LevelScoped3DCullingService} `_elementCount`) so the thresholds stay calibrated.
  */
 export function isHeavyModel(levelCount: number, elementCount: number): boolean {
     return (

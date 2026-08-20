@@ -100,13 +100,23 @@ const SWAP_ELEMENT_THRESHOLD = 400;
 const SWAP_MESH_THRESHOLD = 1000;
 
 /**
+ * §AUTO-WEBGL-HEAVY — **THE** backend-swap heaviness predicate (C04 §1.4, NORMATIVE).
+ *
  * The dedicated swap-decision predicate (see the threshold note above) — NOT
  * isHeavyModel. Either arm tripping means "proactively drop to WebGL before the PSO
  * storm". `sceneMeshCount` is optional: callers that already have a live mesh count
  * (the initScene tier pass) thread it; callers that don't (the batch hook) rely on the
  * element arm alone.
+ *
+ * EXPORTED 2026-08-20 (lane SWAP1, L-1413) so it can be measured directly rather than
+ * inferred from whether a swap happened. C04 §1.4 previously quoted
+ * `LevelScoped3DCullingService.isHeavyModel` as the swap's predicate; it never was, and
+ * `isHeavyModel` has no call sites outside its own file. Two documents naming two
+ * different authorities for one decision is how a founder-reported swap on a
+ * 233-element / 3,191-mesh / 7-level project read as "the guard fired when the contract
+ * says it must not". It fired because THIS predicate says so, on the mesh arm.
  */
-function isSwapWorthyHeavyScene(elementCount: number, sceneMeshCount: number | undefined): boolean {
+export function isSwapWorthyHeavyScene(elementCount: number, sceneMeshCount: number | undefined): boolean {
     if (elementCount >= SWAP_ELEMENT_THRESHOLD) return true;
     if (typeof sceneMeshCount === 'number' && sceneMeshCount >= SWAP_MESH_THRESHOLD) return true;
     return false;

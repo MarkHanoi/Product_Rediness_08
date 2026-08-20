@@ -654,11 +654,35 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._applyViewportBackground();
 
         if (!isWebGPU) {
+            // ⚠ CORRECTED 2026-08-20 (lane SWAP1, L-1412) — this line used to open
+            // "**WebGL2 backend detected**", a HARDCODED BACKEND NAME on a branch that
+            // resolves NO backend name at all. `isRealWebGPUBackend()` answers exactly one
+            // question — *is this a native WebGPU backend?* — and this branch is its `false`
+            // arm, which covers TWO different renderers: the `WebGPURenderer` WebGL2
+            // fallback AND a classic `THREE.WebGLRenderer` on WebGL1/2. On the founder's
+            // §AUTO-WEBGL-HEAVY swap the very next line of his console read
+            // `[renderer-three] backend: webgl1 (§L-372B classic THREE.WebGLRenderer)` — so
+            // two components one line apart named two different backends, and a reader had
+            // no way to tell which was guessing.
+            //
+            // This is the SAME defect UnifiedFrameLoop was corrected for (a hardcoded
+            // "WebGPU" in a block that read no backend state): an INSTRUMENT NAMING THE
+            // WRONG SUBSYSTEM. The DECISION here was never wrong — `isRealWebGPUBackend` is
+            // a partition by construction, the same partition `isNativeWebGpuBackend` /
+            // `isLightweightWebGlBackend` express at the app layer — only the LABEL lied.
+            //
+            // ⛔ Do NOT "fix" this by comparing a backend string here. This class is L1 and
+            // cannot see the app-layer `RendererBackend` vocabulary; a third string
+            // comparison is precisely what created the disagreement. It reports the boolean
+            // it actually evaluated, and the raw evidence it evaluated it from.
             console.log(
-                '[RenderPipelineManager] §PERF-WEBGL2-NO-TSL WebGL2 backend detected ' +
-                `(authoritativeOverride=${backendIsWebGPU === undefined ? 'none' : String(backendIsWebGPU)}, ` +
+                '[RenderPipelineManager] §PERF-WEBGL2-NO-TSL non-WebGPU backend — TSL pipeline OFF ' +
+                `(isRealWebGPUBackend=false; authoritativeOverride=${backendIsWebGPU === undefined ? 'none' : String(backendIsWebGPU)}, ` +
                 `backend.isWebGPUBackend=${String((renderer as unknown as { backend?: { isWebGPUBackend?: boolean } })?.backend?.isWebGPUBackend)}). ` +
-                'Lightweight WebGL render path active — TSL pipeline (SSGI / outlines / post-FX) stays OFF.',
+                'This arm covers BOTH the WebGPURenderer WebGL2 fallback and a classic ' +
+                'THREE.WebGLRenderer — it does not name which; see the [renderer-three] backend ' +
+                'line for the resolved backend. Lightweight WebGL render path active — SSGI / ' +
+                'outlines / post-FX stay OFF.',
             );
             // §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — prime the clear OPAQUE to the
             // theme colour the moment the backend is known, rather than waiting for the
