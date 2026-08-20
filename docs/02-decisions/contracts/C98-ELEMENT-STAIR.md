@@ -919,7 +919,7 @@ runs nowhere. Same class as the tread pair, and it closes the same way. **L-1434
 | # | Fix | Invariant | Proof required |
 |---|---|---|---|
 | **18** | **Decide 250 mm vs 220 mm and name the source of authority** for stair geometry limits | this section N6 | a cited instrument, and a region record whose entries actually differ |
-| **19** | **Enforce `MAX_RISERS_PER_FLIGHT` (or retire it)** through `StairGeometryLimits` | C84 EI-3 | a stair exceeding it is refused **or** a landing is auto-inserted — chosen, not defaulted |
+| ~~**19**~~ | ~~**Enforce `MAX_RISERS_PER_FLIGHT` (or retire it)** through `StairGeometryLimits`~~ ✅ **CLOSED 2026-08-20 (L-1434)** — enforced on **RISE**, not count, because enforcing the declared COUNT would have refused an ordinary 3.0 m storey (17 risers at the 175 mm default). ⭐ *Only trying to enforce it revealed that.* The refusal is chosen, not defaulted: it names both numbers and the action, and landing GENERATION stays declined. | C84 EI-3 | ✅ met |
 | **20** | **Generalise the slab void over the derived level set** (§L-1431 gap 1) | §L-1431 N1/N2 | a Ground→L2 stair leaves no intact slab between its endpoints |
 | **21** | **Make move/param-change reconcile the horizontal-host voids** (§L-1431 gap 2) | §L-1431 N4 | move a stair, assert the OLD floor void is gone and a new one exists |
 | **22** | **Measure whether `serviceHoles` / `holeElements` survive save/load** | C84 EI-6 | round-trip a project with a stair void in a finish |
@@ -1174,21 +1174,48 @@ goes through. The other two were the 220/250 tread pair (§L-1430) and the bulk-
 
 ### §L-1441.4 — The Ground→L5 stair: **three** blockers, and two are already on the books
 
-| # | Blocker | Owner |
+> ⭐⭐ **RE-MEASURED 2026-08-20, HOURS AFTER THIS SECTION WAS FIRST WRITTEN. TWO OF THE THREE
+> BLOCKERS CLOSED WHILE IT WAS BEING WRITTEN, AND THE VERDICT DID NOT MOVE.** Lane STAIR1 landed
+> §STAIR-VOID-EVERY-DECK (**L-1433 + L-1434**) in the same session. The table below is the CURRENT
+> state; the struck rows are kept because *what changed* is the finding.
+
+| # | Blocker | State |
 |---|---|---|
-| 1 | **No geometry reaches the language layer.** `ResolverContext.selection` is `{elementId, elementType}`; `CreateStairInput` requires `startPosition: Vec3` **and** per-flight `direction: Vec3`. "Connected to this wall" cannot become those numbers. | RAC — §L-1441.7 |
-| 2 | **One command, one stair, any span.** `canExecute` validates `riserHeight × Σ riserCount` against the FULL level gap. Ground→L5 ≈ 15 m ≈ 83 risers; an L shape has TWO flights. ⛔ **`MAX_RISERS_PER_FLIGHT` does not catch it — 5 declarations, ZERO readers (§L-1430, L-1434).** | C98 — §13 DELTA #19 |
-| 3 | **The slab opening is punched on `topLevelId` ONLY**, so levels 1–4 stay solid, while `LevelTraversalPolicy.canTraverse` returns `ok:true` with a warning. | C98 — **§L-1431 gap 1 / L-1433, P1** |
+| 1 | **No geometry reaches the language layer.** `ResolverContext.selection` is `{elementId, elementType}`; `CreateStairInput` requires `startPosition: Vec3` **and** per-flight `direction: Vec3`. "Connected to this wall" cannot become those numbers. | ⛔ **OPEN** — [C67](C67-RAC-CAPABILITY-CONTROL-PLANE.md) §4 rule 20 |
+| 2 | **One command, one stair, and no way to split it into storeys.** ~~`MAX_RISERS_PER_FLIGHT` does not catch it — 5 declarations, ZERO readers~~ | ⭐ **ENFORCED (L-1434)** — `CreateStairCommand:222-223` now calls `checkStairGeometry`, which caps a flight's **RISE** at `maxFlightRise` **3.04 m**. **The command REFUSES this stair, naming both numbers and the action.** ⛔ It is still unsatisfiable from chat — see §L-1441.4.a |
+| 3 | ~~**The slab opening is punched on `topLevelId` ONLY**, so levels 1–4 stay solid~~ | ✅ **CLOSED (L-1433)** — `carveStairOpening` / `reconcileStairOpening` LOOP `stairPiercedLevelIds()`; every pierced deck is carved |
 
-⭐ **Blocker 3 was reached independently by two lanes from opposite ends** — STAIR1 from the geometry
-(§L-1431, *"A Ground→L5 stair still passes through four structurally intact slabs"*) and RAC2 from
-the founder's sentence. The agreement is worth more than either measurement alone.
+⭐ **Blocker 3 was reached independently by two lanes from opposite ends within one session** —
+STAIR1 from the geometry (§L-1431, *"A Ground→L5 stair still passes through four structurally intact
+slabs"*) and RAC2 from the founder's sentence. **The agreement is worth more than either measurement
+alone**, and it is why the fix landed the same day.
 
-> **§L-1441.4.a — MUST.** Until a **multi-storey stair CORE** verb exists (a flight and a landing per
-> storey, and an opening per pierced level), the chat **REFUSES** and names all three. ⛔ It must not
-> create a single-storey stair as a partial result: *a gate whose "yes" branch awaits a decision is a
-> regression with a contract citation attached* (L-942). Blockers 2 and 3 are **not chat defects** —
-> a user can build that stair by hand today; the chat declines to be a second way to do it.
+> ### ⛔ §L-1441.4.a — MUST. THE REFUSAL SURVIVES ITS OWN REASONS, AND THAT IS THE POINT
+>
+> The chat still **REFUSES**, and the ground has become **stronger**, not weaker. The flight-rise cap
+> is satisfiable in exactly one way — **a LANDING per storey** — and **there is no landing-generation
+> verb**. STAIR1 declined to build one, explicitly and in writing: *"⛔ NOT a landing-generation
+> verb. Refusing an 86-riser flight honestly is the job; producing the landings is not, and stays
+> declined."* ⭐ **So the chat cannot author an input that would succeed**, and the two layers now
+> refuse the same set for the same reason.
+>
+> ⛔ It must not create a single-storey stair as a partial result: *a gate whose "yes" branch awaits
+> a decision is a regression with a contract citation attached* (L-942).
+>
+> ⛔ **AND THE COPY MUST BE RE-MEASURED WITH THE REASONS.** The shipped refusal told the founder the
+> in-between storeys *"would stay solid"*. After L-1433 that became **a false statement about his
+> model** — quoted with authority and sounding like a measurement. It was corrected in place, and
+> the acceptance test now asserts the retired claim **cannot come back**.
+>
+> ⭐ **THE STANDING LESSON, worth more than this family:** three blockers went to one in a few hours
+> and **nothing failed** — the refusal stayed right while two of its three reasons stopped being
+> true. **A refusal must be re-measured on the same schedule as a feature**, because a stale reason
+> ships as confidently as a fresh one. This is the ROT-IN-A-JUSTIFICATION shape CLAUDE.md records for
+> contract ranges and gate readings, landing in user-facing copy.
+>
+> ⚠ **`maxFlightRise` 3.04 m is a DERIVATION** (`MAX_RISERS_PER_FLIGHT × MAX_RISER_HEIGHT`), **not a
+> cited code value** — the SAME open question as 250-vs-220, and both close when the founder's
+> jurisdiction answer lands. **§13 DELTA #18.**
 
 ### §L-1441.5 — ⭐⭐ THE VOCABULARY CANNOT ADDRESS A COMPONENT OF AN ELEMENT — stated, not implied
 

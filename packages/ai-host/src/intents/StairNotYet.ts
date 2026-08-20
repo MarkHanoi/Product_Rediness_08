@@ -41,36 +41,50 @@
 //     placing a stair somewhere nobody chose (C83 §4.2 — no position is ever
 //     guessed).
 //
-//  2. ⭐⭐ ONE COMMAND, ONE STAIR, ANY SPAN — AND THE VALIDATION PROVES IT.
+//  2. ⭐⭐ ONE COMMAND, ONE STAIR, AND NO WAY TO SPLIT IT INTO STOREYS.
 //     `CreateStairCommand.canExecute` requires
 //     `riserHeight × Σ riserCount ≈ topLevel.elevation − baseLevel.elevation`
-//     within `HEIGHT_TOLERANCE` (50 mm). Ground → Level 5 at ~3 m/storey is
-//     ~15 m ⇒ ~83 risers. An L shape has TWO flights ⇒ ~42 risers each. What
-//     the command would build is not a five-storey stair core; it is one
-//     continuous 15 m ramp.
+//     within `HEIGHT_TOLERANCE` (50 mm), and `flights[]` is whatever the caller
+//     passes. Ground → Level 5 at ~3 m/storey is ~15 m ⇒ ~83 risers over the
+//     one or two flights an I- or L-shape has.
 //
-//     ⚠ AND NOTHING STOPS IT. An earlier draft of this comment cited
-//     `STAIR_CONSTRAINTS.MAX_RISERS_PER_FLIGHT = 16` as the limit being
-//     exceeded, which implied a guard that would refuse. **C98 §L-1430 measured
-//     that constant: 5 declarations across 3 packages, ZERO readers on any
-//     path** (L-1434). Citing it as a bound would have described a protection
-//     that does not run — a smaller version of the exact defect this file
-//     exists to refuse. The number is quoted here as the SHAPE of the problem,
-//     never as the thing that catches it.
+//     ⭐ RE-MEASURED 2026-08-20, HOURS AFTER THIS MODULE SHIPPED, AND THE
+//     REASON CHANGED WHILE THE VERDICT HELD. This comment first said the
+//     command "would build one continuous 15 m ramp". **It no longer would.**
+//     Lane STAIR1 landed §STAIR-VOID-EVERY-DECK (L-1434): `CreateStairCommand`
+//     now calls `checkStairGeometry` (`:222-223`), which caps a flight's RISE
+//     at `maxFlightRise` (3.04 m, derived as `MAX_RISERS_PER_FLIGHT ×
+//     MAX_RISER_HEIGHT`, never a new number). **The command now REFUSES this
+//     stair, honestly, naming both numbers and the action.**
 //
-//  3. THE SLAB OPENING IS PUNCHED ON `topLevelId` ONLY. `carveStairOpening`
-//     carves the slab whose `levelId === topLevelId`, so levels 1–4 stay SOLID
-//     and the stair passes through four slabs — while
-//     `LevelTraversalPolicy.canTraverse` returns `ok: true` with a WARNING, so
-//     nothing stops that either. ⭐ Independently measured by lane STAIR1 and
-//     already on the books as **C98 §L-1431 gap 1 / L-1433, severity P1**,
-//     opening with the same sentence: *"A Ground→L5 stair still passes through
-//     four structurally intact slabs."* Two lanes reached it from opposite
-//     ends — one from the geometry, one from the founder's sentence.
+//     ⛔ THAT IS WHY THE CHAT MUST STILL REFUSE, and the reason is now
+//     STRONGER, not weaker: the only way to satisfy the cap is a LANDING per
+//     storey, and **there is no landing-generation verb** — STAIR1 declined it
+//     explicitly and in writing (*"⛔ NOT a landing-generation verb. Refusing
+//     an 86-riser flight honestly is the job; producing the landings is not,
+//     and stays declined."*). So the chat cannot author a satisfiable input.
+//     ⛔ Do NOT quote `MAX_RISERS_PER_FLIGHT` as the bound: enforcing it as a
+//     COUNT would refuse an ordinary 3.0 m storey (17 risers at the 175 mm
+//     default), which is why STAIR1 re-derived it onto RISE.
 //
-// ⚠ (2) and (3) are NOT chat defects. A user can build that stair by hand
-// today; the chat merely declines to be a second way to do it. They are logged
-// against the stair command family (C98 §13 DELTA #19/#20), not here.
+//  3. ~~THE SLAB OPENING IS PUNCHED ON `topLevelId` ONLY.~~ ⭐ **CLOSED
+//     2026-08-20 — L-1433, and this module was written while it was still
+//     open.** `carveStairOpening` / `reconcileStairOpening` now LOOP
+//     `stairPiercedLevelIds()`, so every pierced deck is carved. ⛔ The
+//     user-facing copy below was corrected in the same commit: it told the
+//     founder the in-between storeys "would stay solid", which had become a
+//     FALSE STATEMENT ABOUT HIS MODEL — the worst kind of stale refusal,
+//     because it is quoted with authority and sounds like a measurement.
+//     ⭐ Two lanes reached this defect from opposite ends within one session —
+//     STAIR1 from the geometry, RAC2 from the founder's sentence.
+//
+// ⚠ (2) IS NOT A CHAT DEFECT. It is now a correct, honest command-side refusal;
+// the chat declines earlier and for the same reason, so the two layers agree.
+// ⭐ THE STANDING LESSON: this module's THREE blockers went to ONE in a few
+// hours, and nothing in it failed — the refusal stayed right while two of its
+// three reasons stopped being true. **A refusal must be re-measured on the same
+// schedule as a feature**, because a stale reason is shipped as confidently as
+// a fresh one.
 //
 // ═══ B5 — "first run", and the honest general answer ════════════════════════
 //
@@ -201,11 +215,10 @@ export function applyStairSpanRefusal(
   const parts: string[] = [];
   if (si.fromLevel !== undefined) {
     parts.push(
-      'a stair spanning more than one storey is not one stair here — the create command builds a '
-      + 'SINGLE flight set sized to the gap between exactly two levels, and it cuts the floor '
-      + 'opening on the TOP level only, so the storeys in between would stay solid. '
-      + 'A multi-storey stair core (a flight and a landing per storey, and an opening per floor) '
-      + 'is a command that does not exist yet',
+      'a stair spanning more than one storey is not one stair here — the create command builds ONE '
+      + 'flight set sized to the whole gap, and it refuses a flight that climbs more than 3.04 m '
+      + 'without a landing. Splitting that climb into a flight and a landing per storey is a '
+      + 'command that does not exist yet, so there is nothing I could send that would succeed',
     );
   }
   if (si.anchorRef !== undefined) {

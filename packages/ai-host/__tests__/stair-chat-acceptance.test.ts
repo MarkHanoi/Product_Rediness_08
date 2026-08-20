@@ -468,9 +468,19 @@ describe('A — the multi-storey, wall-anchored stair: a REFUSAL that names the 
     expect(reason).toContain('ground');
     expect(reason).toContain('level 5');
     expect(reason).toContain('L-shaped');
-    // blocker 2 — one command, one stair, opening on the top level only
+    // ⭐ blocker 2 — RE-MEASURED 2026-08-20. This asserted `'TOP level'`, because
+    // the copy told the founder the in-between storeys "would stay solid". Lane
+    // STAIR1 closed that (L-1433: every pierced deck is now carved), so the
+    // sentence became A FALSE STATEMENT ABOUT HIS MODEL — quoted with authority
+    // and sounding like a measurement. The copy and this assertion moved
+    // together to the reason that is STILL true and is now stronger: the
+    // command refuses a flight climbing more than 3.04 m without a landing
+    // (L-1434), and no landing-generation verb exists to satisfy it.
     expect(reason).toContain('more than one storey');
-    expect(reason).toContain('TOP level');
+    expect(reason).toContain('3.04 m');
+    expect(reason).toContain('nothing I could send that would succeed');
+    // ⛔ The retired claim must not come back.
+    expect(reason).not.toContain('stay solid');
     // blocker 1 — no geometry reaches the language layer
     expect(reason).toContain('start point');
     // nothing happened, said plainly
