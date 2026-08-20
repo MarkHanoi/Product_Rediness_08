@@ -51,7 +51,10 @@ import { setActiveSlabDrawMode, resolveActiveSlabDrawMode } from '@app/engine/vi
  * SAME three the wall, floor-finish and ceiling tools offer, spelled the same way
  * (the type-level guarantee that they cannot drift apart).
  */
-export type SlabPickerMode = BoundaryDrawMode | '2point' | 'region' | 'hollow' | 'pickWalls';
+// §FEAT-PLATE-SHAPE-MODES — the two new closed-loop gestures.
+export type SlabPickerMode =
+    | BoundaryDrawMode | '2point' | 'region' | 'hollow' | 'pickWalls'
+    | 'circular' | 'elliptical';
 
 export interface SlabModePickerCallbacks {
     /** LINEAR polyline — freeform vertices, no constraint (the old `onPolyline`). */
@@ -61,6 +64,8 @@ export interface SlabModePickerCallbacks {
     /** CURVED polyline — vertex → arc midpoint → arc end, tessellated into the boundary. */
     onCurved:    () => void;
     on2Point:    () => void;
+    onCircular:  () => void;
+    onElliptical:() => void;
     onRegion:    () => void;
     onHollow:    () => void;
     onPickWalls: () => void;
@@ -123,6 +128,8 @@ export class SlabModePicker {
             { key: 'C', label: 'Curved',     sub: 'Arc segments',               svg: wallCurved,          modeId: 'curved'    as SlabPickerMode, action: withMode('curved', callbacks.onCurved)    },
             // ── Slab-specific modes, unchanged ───────────────────────────────────
             { key: '2', label: '2-Point',    sub: 'Rectangle by two corners',   svg: build2PointSVG(),    modeId: '2point'    as SlabPickerMode, action: callbacks.on2Point    },
+            { key: 'I', label: 'Circular',   sub: 'Centre + rim',               svg: buildSlabCircularSVG(),   modeId: 'circular'   as SlabPickerMode, action: callbacks.onCircular   },
+            { key: 'E', label: 'Elliptical', sub: 'Centre + bounding corner',   svg: buildSlabEllipticalSVG(), modeId: 'elliptical' as SlabPickerMode, action: callbacks.onElliptical },
             { key: 'R', label: 'By Region',  sub: 'Auto-detect enclosed walls', svg: buildRegionSVG(),    modeId: 'region'    as SlabPickerMode, action: callbacks.onRegion    },
             { key: 'H', label: 'Hollow',     sub: 'Rectangle with an opening',  svg: buildHollowSVG(),    modeId: 'hollow'    as SlabPickerMode, action: callbacks.onHollow    },
             { key: 'W', label: 'Pick Walls', sub: 'Associative from walls',     svg: buildPickWallsSVG(), modeId: 'pickWalls' as SlabPickerMode, action: callbacks.onPickWalls },
@@ -180,5 +187,30 @@ function buildPickWallsSVG(): string {
   <line x1="8"  y1="32" x2="56" y2="32" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
   <rect x="18" y="6" width="38" height="26" fill="currentColor" opacity="0.1"/>
   <circle cx="38" cy="20" r="3" fill="currentColor" opacity="0.6"/>
+</svg>`;
+}
+
+/** Circular slab — centre + rim (§FEAT-PLATE-SHAPE-MODES) */
+function buildSlabCircularSVG(): string {
+    return `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="32" cy="24" r="16" stroke="currentColor" stroke-width="2.5"
+          fill="currentColor" fill-opacity="0.10"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="48" cy="24" r="3" fill="currentColor"/>
+  <line x1="32" y1="24" x2="48" y2="24" stroke="currentColor" stroke-width="0.8"
+        opacity="0.45" stroke-dasharray="3 2"/>
+</svg>`;
+}
+
+/** Elliptical slab — centre + bounding corner. ⭐ The founder's "eclipse", read as
+ *  ELLIPSE and LABELLED so, deliberately visibly. */
+function buildSlabEllipticalSVG(): string {
+    return `<svg viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <ellipse cx="32" cy="24" rx="22" ry="13" stroke="currentColor" stroke-width="2.5"
+           fill="currentColor" fill-opacity="0.10"/>
+  <circle cx="32" cy="24" r="3" fill="currentColor"/>
+  <circle cx="54" cy="37" r="3" fill="currentColor"/>
+  <line x1="32" y1="24" x2="54" y2="37" stroke="currentColor" stroke-width="0.8"
+        opacity="0.45" stroke-dasharray="3 2"/>
 </svg>`;
 }

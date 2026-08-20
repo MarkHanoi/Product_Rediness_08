@@ -47,10 +47,16 @@ import { trace } from '@opentelemetry/api';
  * it and as `BimService.activateSlabTool` / `ToolManager.activateSlab` accept it. One
  * vocabulary, so a mode cannot be lost in translation between layers.
  */
-export type SlabFamilyMode = '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls';
+// §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19) — 'circular' and 'elliptical'
+// are GESTURES, exactly as '2point' is: one drag produces one whole boundary.
+// They belong on THIS axis and never on `BoundaryDrawMode` (C92 SL-Voc-3).
+export type SlabFamilyMode =
+    | '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls'
+    | 'circular' | 'elliptical';
 
 const SLAB_FAMILY_MODES: readonly SlabFamilyMode[] = [
     '2point', 'polyline', 'region', 'hollow', 'pickWalls',
+    'circular', 'elliptical',
 ];
 
 const _slabFamilyModeTracer = trace.getTracer('@pryzm/editor.active-slab-family-mode', '0.1.0');

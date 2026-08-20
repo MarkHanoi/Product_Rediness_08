@@ -235,7 +235,7 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // The bar renders whatever the tool declares. Slab has seven modes;
             // floor/ceiling five including AUTO. None may be lost to "parity".
             expect(creationModeIds('slab')).toEqual(
-                ['linear', 'ortho', 'curved', '2point', 'region', 'hollow', 'pickWalls'],
+                ['linear', 'ortho', 'curved', '2point', 'circular', 'elliptical', 'region', 'hollow', 'pickWalls'],
             );
             expect(creationModeIds('floor')).toContain('auto');
             expect(creationModeIds('ceiling')).toContain('auto');

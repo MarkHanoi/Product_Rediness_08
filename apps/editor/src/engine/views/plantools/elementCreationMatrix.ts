@@ -177,6 +177,17 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         modes: [
             ...WALL_DRAW_MODES,
             { id: '2point',    key: '2', label: '2-Point',    description: 'Rectangle by two corners' },
+            // §FEAT-PLATE-SHAPE-MODES (founder, 2026-08-19). ⭐ "eclipse" IS READ AS
+            // ELLIPSE and the label says `Elliptical`, so the reading is visible.
+            // Ids match `BoundaryLoopMode` in @pryzm/geometry-slab.
+            //
+            // ⚠ PLAN-ONLY TODAY, AND DECLARED RATHER THAN PRETENDED. `SlabPlanToolHandler`
+            // serves both; the 3-D `SlabTool` does not — its rectangle path is entangled
+            // with the hollow-slab anchor state and its mode union is declared THREE times
+            // (C92 SL-Voc-2), so wiring it blind would be the EI-3 breach this table
+            // exists to catch. Tracked as L-1324.
+            { id: 'circular',   key: 'I', label: 'Circular',   description: 'Closed circle from centre and rim (plan view)' },
+            { id: 'elliptical', key: 'E', label: 'Elliptical', description: 'Closed ellipse from centre and bounding corner (plan view)' },
             { id: 'region',    key: 'R', label: 'By Region',  description: 'Auto-detect from enclosed walls' },
             { id: 'hollow',    key: 'H', label: 'Hollow',     description: 'Rectangle with a rectangular opening' },
             { id: 'pickWalls', key: 'W', label: 'Pick Walls', description: 'Associative boundary from walls' },

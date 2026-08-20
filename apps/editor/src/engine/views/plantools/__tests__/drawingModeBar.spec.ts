@@ -66,14 +66,14 @@ describe('§FEAT-PERSISTENT-MODE-BAR — the wall\'s control, on slab/floor/ceil
     });
 
     describe('every declared mode is offered — the bar is not truncated to wall\'s four', () => {
-        it('slab shows all SEVEN of its modes', () => {
+        it('slab shows all NINE of its modes', () => {
             bar.show({ label: 'Slab:', modes: creationModes('slab'), initialMode: 'linear', onSelect: () => {} });
             expect(pills().map(b => b.dataset.mode)).toEqual(
-                ['linear', 'ortho', 'curved', '2point', 'region', 'hollow', 'pickWalls'],
+                ['linear', 'ortho', 'curved', '2point', 'circular', 'elliptical', 'region', 'hollow', 'pickWalls'],
             );
         });
 
-        it.each(['floor', 'ceiling'])('%s shows its five modes INCLUDING auto', (tool) => {
+        it.each(['floor', 'ceiling'])('%s shows its seven modes INCLUDING auto', (tool) => {
             bar.show({ label: 'X:', modes: creationModes(tool), initialMode: 'linear', onSelect: () => {} });
             const ids = pills().map(b => b.dataset.mode);
             expect(ids).toEqual(['linear', 'ortho', 'curved', 'rectangle', 'circular', 'elliptical', 'auto']);

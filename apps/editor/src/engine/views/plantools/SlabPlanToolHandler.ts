@@ -43,6 +43,12 @@ import {
     describeRegionBoundaryCounts,
     type RegionBoundaryCounts,
 } from '@pryzm/geometry-slab/region-boundary';
+// §FEAT-PLATE-SHAPE-MODES — the SHARED closed-loop boundary generators, the
+// same module the floor and ceiling surfaces call.
+import {
+    boundaryLoopVertices, boundaryLoopRefusal, BOUNDARY_LOOP_GESTURE,
+    BOUNDARY_LOOP_LABELS, type BoundaryLoopMode,
+} from '@pryzm/geometry-slab';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -55,7 +61,12 @@ const REGION_FILL_COLOR   = 'rgba(0,120,212,0.18)';
 const REGION_STROKE_COLOR = 'rgba(0,120,212,0.8)';
 const REGION_NO_STROKE    = 'rgba(200,80,80,0.6)';
 
-type SlabPlanMode = '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls';
+// §FEAT-PLATE-SHAPE-MODES — 'circular' / 'elliptical' join the closed-loop
+// gestures. ⚠ '2point' is slab's HISTORIC id for the rectangle gesture that the
+// shared vocabulary spells 'rectangular' (L-1322).
+type SlabPlanMode =
+    | '2point' | 'polyline' | 'region' | 'hollow' | 'pickWalls'
+    | 'circular' | 'elliptical';
 
 // ── Lightweight 2D point (world XZ plane) ────────────────────────────────────
 interface V2 { x: number; y: number; }
@@ -208,23 +219,36 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        // ── 2-point rectangle mode ────────────────────────────────────────────
-        if (this._familyMode() === '2point') {
+        // ── CLOSED-LOOP gestures — 2-click commit ─────────────────────────────
+        // §FEAT-PLATE-SHAPE-MODES — '2point' (rectangular), 'circular' and
+        // 'elliptical' are ONE gesture and therefore ONE arm; the ring maths lives
+        // in `boundaryLoops`, shared with the floor and ceiling surfaces.
+        const loopMode = this._loopMode();
+        if (loopMode) {
             if (this._slabPoints.length === 0) {
                 this._slabPoints = [pt];
                 this._cursorPt = pt;
                 this._drawPreview();
-                console.log('[SlabPlanToolHandler] 2-point slab first corner set',
-                    `worldX=${pt.worldX.toFixed(3)} worldZ=${pt.worldZ.toFixed(3)}`);
                 return;
             }
 
             if (this._slabPoints.length === 1) {
-                const first = this._slabPoints[0];
-                this._slabPoints = this._rectangleFromCorners(first, pt);
+                const anchor = this._slabPoints[0];
+                const first  = { x: anchor.worldX, z: anchor.worldZ };
+                const second = { x: pt.worldX, z: pt.worldZ };
+                const ring   = boundaryLoopVertices(loopMode, first, second);
+                if (ring.length < 3) {
+                    // ⛔ C16 CA-18 / §L955 — name the reason; never silently fall back
+                    // to a rectangle.
+                    console.warn('[SlabPlanToolHandler] ' +
+                        boundaryLoopRefusal(loopMode, first, second));
+                    return;
+                }
+                this._slabPoints = ring.map((v) => ({
+                    worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0,
+                })) as WorldPoint[];
                 this._cursorPt = pt;
                 this._drawPreview();
-                console.log('[SlabPlanToolHandler] 2-point slab second corner set — committing rectangle');
                 this._commitSlab();
                 return;
             }
@@ -260,10 +284,26 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         );
     }
 
+    /**
+     * §FEAT-PLATE-SHAPE-MODES — the FAMILY gesture mapped onto the SHARED loop
+     * vocabulary, or `null` when the gesture is not a closed loop.
+     *
+     * ⚠ slab spells the rectangle gesture '2point'; the shared vocabulary spells
+     * it 'rectangular'. Mapped here, reconciled under L-1322 — never diverged
+     * silently (C84 EI-8).
+     */
+    private _loopMode(): BoundaryLoopMode | null {
+        const m = this._familyMode();
+        return m === '2point'     ? 'rectangular'
+             : m === 'circular'   ? 'circular'
+             : m === 'elliptical' ? 'elliptical'
+             : null;
+    }
+
     onDoubleClick(_pt: WorldPoint): void {
         const mode = this._familyMode();
         console.log(`[SlabPlanToolHandler] double-click — mode=${mode} points=${this._slabPoints.length}`);
-        if (mode === '2point' || mode === 'region') return;
+        if (this._loopMode() || mode === 'region') return;
         // §FEAT-SLAB-DRAW-MODES — a PENDING ARC MIDPOINT blocks closing, so a
         // double-click cannot eat the arc's END click (the same rule the floor and
         // ceiling handlers apply).
@@ -277,7 +317,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     onKeyDown(e: KeyboardEvent): boolean {
         const mode = this._familyMode();
 
-        if (mode === '2point' || mode === 'region') {
+        if (this._loopMode() || mode === 'region') {
             if (e.key === 'Backspace' && this._slabPoints.length > 0) {
                 this._slabPoints.pop();
                 this._drawPreview();
@@ -891,8 +931,17 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     }
 
     private _getPreviewPoints(): WorldPoint[] {
-        if (this._familyMode() === '2point' && this._slabPoints.length === 1 && this._cursorPt) {
-            return this._rectangleFromCorners(this._slabPoints[0], this._cursorPt);
+        // ⭐ §FEAT-PLATE-SHAPE-MODES — the preview is generated from THE SAME ring
+        // the commit will use, so the ghost cannot show a rectangle while the click
+        // lands a circle.
+        const loopMode = this._loopMode();
+        if (loopMode && this._slabPoints.length === 1 && this._cursorPt) {
+            const a = this._slabPoints[0];
+            return boundaryLoopVertices(
+                loopMode,
+                { x: a.worldX, z: a.worldZ },
+                { x: this._cursorPt.worldX, z: this._cursorPt.worldZ },
+            ).map((v) => ({ worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0 })) as WorldPoint[];
         }
         return this._slabPoints;
     }
@@ -905,6 +954,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      */
     private _trailingPoints(): WorldPoint[] {
         if (!this._cursorPt) return [];
+        if (this._loopMode()) return [];
         if (this._familyMode() !== 'polyline') return [this._cursorPt];
         return this._author
             .previewTail(this._constraintMode(), { x: this._cursorPt.worldX, z: this._cursorPt.worldZ })
@@ -917,10 +967,15 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * can no longer be the whole story the UI tells about the mode it is in.
      */
     private _hintText(mode: SlabPlanMode, placed: number, arcPending: boolean): string {
-        if (mode === '2point') {
+        // §FEAT-PLATE-SHAPE-MODES — the prompt comes from the SHARED gesture table,
+        // so the bar cannot ask for a corner while the tool wants a centre.
+        const hintLoop = this._loopMode();
+        if (hintLoop) {
+            const g = BOUNDARY_LOOP_GESTURE[hintLoop];
+            const label = BOUNDARY_LOOP_LABELS[hintLoop];
             return placed === 0
-                ? 'Click first slab corner'
-                : 'Click opposite corner to create slab  ·  Backspace to restart';
+                ? `${label} · ${g.first}`
+                : `${label} · ${g.second}  ·  Backspace to restart`;
         }
         if (mode === 'polyline') {
             const drawMode = this._constraintMode();
@@ -939,12 +994,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         return 'Dbl-click or Enter to close slab  ·  Backspace to undo';
     }
 
-    private _rectangleFromCorners(a: WorldPoint, b: WorldPoint): WorldPoint[] {
-        return [
-            a,
-            { ...a, worldX: b.worldX },
-            b,
-            { ...a, worldZ: b.worldZ },
-        ];
-    }
+    // ⚠ §FEAT-PLATE-SHAPE-MODES REMOVED `_rectangleFromCorners`. It was the SECOND
+    // producer of a rectangle ring in this file (the preview re-derived it inline as
+    // well), and `boundaryLoopVertices('rectangular', ...)` is now the ONE producer
+    // shared with the floor, ceiling and 3-D surfaces. Two producers of one ring is
+    // the shape L-1121 records for width/depth; it is not re-introduced here.
 }

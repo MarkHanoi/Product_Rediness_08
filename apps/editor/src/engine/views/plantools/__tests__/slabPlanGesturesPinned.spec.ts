@@ -132,6 +132,13 @@ const TOOL_MODE: Record<SlabFamilyMode, string> = {
     region:      'REGION_SLAB',
     hollow:      'HOLLOW_SLAB',
     pickWalls:   'PICK_WALLS',
+    // §FEAT-PLATE-SHAPE-MODES — PLAN-ONLY, and mapped to 'NONE' because that is the
+    // TRUTH rather than a convenience: the 3-D `SlabTool` has no arm for these two
+    // gestures yet (L-1324). Inventing a tool-mode string here would make this pin
+    // assert a 3-D capability that does not exist, which is the EI-3 breach the pin
+    // is supposed to catch.
+    circular:    'NONE',
+    elliptical:  'NONE',
 };
 function selectGesture(m: SlabFamilyMode): void {
     setActiveSlabFamilyMode(m);
