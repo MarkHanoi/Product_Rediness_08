@@ -50,7 +50,12 @@ describe('CREATION_TOOL_SHORTCUTS map', () => {
 
     it('shortcutForTool resolves known labels and returns undefined for unknown', () => {
         expect(shortcutForTool('Wall')).toBe('Alt+W');
-        expect(shortcutForTool('Plants')).toBe('Alt+Shift+P');
+        // 'Plants' was SPLIT into 'Trees' + 'Potted Plants' by LANDSCAPE-CATALOGUE
+        // (L-1380, cfe6c93d). 'Trees' inherited the combo, so this assertion follows
+        // the label rather than pinning a name the map no longer has. Measured: this
+        // is a SEPARATE failure from the `Stair (C)` one below and two weeks younger.
+        expect(shortcutForTool('Trees')).toBe('Alt+Shift+P');
+        expect(shortcutForTool('Potted Plants')).toBe('Alt+Shift+W');
         expect(shortcutForTool('Nonexistent Tool')).toBeUndefined();
     });
 });

@@ -103,6 +103,24 @@ export interface StairPathToolConfig {
      * U → auto-finish after 4 clicks (3 segments)
      */
     initialShape?:      StairShapeChoice;
+    /**
+     * §FEAT-STAIR-CREATION-MODES (founder, 2026-08-19) — the SKETCH MODE, read LIVE.
+     *
+     * ⚠ A DIFFERENT AXIS FROM `initialShape`. Shape (I/L/U/C) is the geometry that
+     * RESULTS; mode (linear/ortho) is HOW IT IS SKETCHED. An L-shaped stair drawn in
+     * Orthogonal mode is still an L-shaped stair.
+     *
+     * MEASURED BEFORE THIS: `_snapTo90` below already implemented orthogonal drawing
+     * — but only while SHIFT was HELD, so it was a transient, not a mode, and nothing
+     * in any picker could arm it. The 3D sibling `StairCreationController` had the
+     * same snap ON BY DEFAULT and no way to turn it off. One element, two surfaces,
+     * opposite defaults, no control on either.
+     *
+     * Called on every pointer sample, never cached, so a pill click on the shared
+     * `DrawingModeBar` applies to the very NEXT click and the points already placed
+     * survive. Omitted ⇒ SHIFT-only, i.e. exactly the previous behaviour.
+     */
+    drawingModeProvider?: () => 'linear' | 'ortho';
     // ── Callbacks ─────────────────────────────────────────────────────────
     onComplete?: (input: ReturnType<StairPathAdapter['toCreateStairInput']>) => void;
     onCancel?:   () => void;
@@ -402,7 +420,7 @@ export class StairPathToolController {
             return;
         }
 
-        const snapped = this._shiftDown && this._model.count > 0
+        const snapped = this._orthoLocked() && this._model.count > 0
             ? this._snapTo90(pt)
             : pt;
 
@@ -673,7 +691,30 @@ export class StairPathToolController {
         this._dirty = true;
     }
 
-    // ── Angle snapping (SHIFT = 90° for accurate plan geometry) ──────────────
+    // ── Angle snapping (ORTHO mode, or SHIFT held, = 90°) ────────────────────
+
+    /**
+     * §FEAT-STAIR-CREATION-MODES — is the 90° constraint in force for this sample?
+     *
+     * TWO INDEPENDENT SOURCES, deliberately OR-ed rather than one replacing the other:
+     *   • the persistent MODE the architect armed on the shared `DrawingModeBar`; and
+     *   • SHIFT held, which has always forced ortho and still does.
+     *
+     * Keeping SHIFT means Linear mode retains its escape hatch — a single ortho
+     * segment inside a free-hand run — so making ortho the default MODE takes nothing
+     * away. There is deliberately no inverse (SHIFT does not un-snap in ortho mode):
+     * a modifier that means "constrain" in one mode and "release" in the other is a
+     * control whose meaning depends on invisible state.
+     */
+    private _orthoLocked(): boolean {
+        if (this._shiftDown) return true;
+        try {
+            return this._config.drawingModeProvider?.() === 'ortho';
+        } catch {
+            // A throwing provider must not break drawing; fall back to SHIFT-only.
+            return false;
+        }
+    }
 
     private _snapTo90(pt: Point2D): Point2D {
         const last = this._model.last;
@@ -893,7 +934,7 @@ export class StairPathToolController {
         const committed = this._model.points;
         const cursor    = this._cursor;
 
-        const snappedCursor = cursor && this._shiftDown && this._model.count > 0
+        const snappedCursor = cursor && this._orthoLocked() && this._model.count > 0
             ? this._snapTo90(cursor)
             : cursor;
 

@@ -103,10 +103,32 @@ export interface ElementCreationCapability {
     /** Views this tool can be driven from TODAY. */
     readonly views: readonly CreationView[];
     /**
-     * Drawing modes offered, in bar order. `[]` means a single implicit mode
-     * (click to place) and therefore no mode bar.
+     * Drawing modes offered, in bar order — the axis of HOW THE ARCHITECT SKETCHES.
+     * `[]` means a single implicit mode (click to place) and therefore no mode bar.
      */
     readonly modes: readonly CreationMode[];
+    /**
+     * §STAIR-TWO-AXES (founder, 2026-08-19) — the SECOND, SEPARATE axis: the
+     * geometry that RESULTS. Rendered as its OWN picker, never merged into the mode
+     * bar.
+     *
+     * ⭐ WHY THIS FIELD HAD TO EXIST. The `stair` and `stair-path` rows used to
+     * declare `modes: STAIR_SHAPE_MODES` — the four SHAPES I / L / U / C sitting in
+     * the slot this file defines as MODE. So the shared authority asserted that a
+     * stair offered four "modes" that were in fact four RESULTS, and the axis the
+     * founder actually asked for ("use the UI/UX as the walls: MODE + STAIR TYPE")
+     * was absent from the declaration entirely. Anyone building the bar from this
+     * table would have shipped a picker whose buttons meant two different things.
+     *
+     * The two axes are ORTHOGONAL and must stay so: an L-shaped stair drawn in
+     * Orthogonal mode is still an L-shaped stair, exactly as a wall drawn in
+     * Orthogonal mode is still one wall.
+     *
+     * ⛔ DO NOT re-merge these. If a family has only one axis, omit this field —
+     * `undefined` means "this family's mode set is its whole story", which is true
+     * of every family except stair today.
+     */
+    readonly shapes?: readonly CreationMode[];
     /** Views in which an AUTO/derive-from-context mode is reachable. */
     readonly autoIn: readonly CreationView[];
     readonly modeSource: ModeSource;
@@ -149,11 +171,16 @@ const CURVED: CreationMode = { id: 'curved', key: 'C', label: 'Curved',     desc
 export const WALL_DRAW_MODES: readonly CreationMode[] = [LINEAR, ORTHO, CURVED] as const;
 
 /**
- * §FIX-STAIR-SHAPE-DESYNC — the stair shape set, shared by `stair` and
- * `stair-path`. Ids mirror `STAIR_SHAPES` (@pryzm/geometry-stair), which remains
- * the catalogue of record; this is only its UI face.
+ * §FIX-STAIR-SHAPE-DESYNC — the stair SHAPE set, shared by `stair` and `stair-path`.
+ * Ids mirror `STAIR_SHAPES` (@pryzm/geometry-stair), which remains the catalogue of
+ * record; this is only its UI face.
+ *
+ * ⭐ RENAMED from `STAIR_SHAPE_MODES` and moved out of the `modes` slot into
+ * `shapes` (§STAIR-TWO-AXES). The old name was itself the bug in miniature: it
+ * spelled both axes into one identifier, and the rows below then spent it as if it
+ * were a mode list.
  */
-const STAIR_SHAPE_MODES: readonly CreationMode[] = [
+const STAIR_SHAPES: readonly CreationMode[] = [
     { id: 'I', key: 'I', label: 'Straight', description: 'Single straight flight' },
     { id: 'L', key: 'L', label: 'L-shape',  description: 'Two flights with a quarter landing' },
     { id: 'U', key: 'U', label: 'U-shape',  description: 'Two flights with a half landing' },
@@ -350,13 +377,39 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
     // NOTE: curved is authored by the stair-PATH arc gesture; the plan rectangle-drag
     // handler narrows 'C' → 'I' explicitly (StairPlanToolHandler), it does not silently
     // mislabel a straight run.
-    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'], modes: STAIR_SHAPE_MODES, autoIn: [], modeSource: 'shared',
+    // §FEAT-STAIR-CREATION-MODES (founder, 2026-08-19) — "I want the stairs to have
+    // the possibility to decide if the creation is ORTHOGONAL or LINE … use the UI/UX
+    // as the walls: MODE + STAIR TYPE."
+    //
+    // The two ids below are `WALL_DRAW_MODES`' own LINEAR and ORTHO declarations,
+    // spread rather than retyped, so the stair bar and the wall bar cannot drift in
+    // label or accelerator — the rule the slab and railing rows already follow.
+    //
+    // ⭐ THIS WAS A REACHABILITY DEFECT, NOT A MISSING FEATURE, AND SAYING SO MATTERS
+    // MORE THAN THE FIX. Both modes were already BUILT on both surfaces:
+    // `StairCreationController._drawingMode` (3D) snapped to 90° BY DEFAULT, and
+    // `StairPathToolController._snapTo90` (plan) did the identical thing while SHIFT
+    // was held. `StairToolConfigStore` already carried a `mode?: 'linear' | 'ortho'`
+    // field. What was missing was any PICKER, any plan-side READ of that field, and
+    // any declaration here — so the capability was committed, shipped, and reachable
+    // by nobody. The row meanwhile claimed `modeSource: 'shared'`, which was
+    // aspirational: the sole writer was the 3D setup panel's confirm.
+    //
+    // ⛔ CURVED IS NOT HERE, DELIBERATELY. 'C' is a SHAPE (see `shapes` below),
+    // authored by the stair-path arc gesture. Adding a `curved` MODE would put one
+    // letter on the bar meaning two different things — precisely the conflation this
+    // split exists to remove. Whether a curved stair should ALSO be sketchable by an
+    // arc-constrained mode is an OPEN QUESTION, stated as open in C98 §16 rather than
+    // guessed at here.
+    { tool: 'stair',      label: 'Stair',      views: ['plan', '3d'],
+      modes: [LINEAR, ORTHO], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — no auto-place-in-circulation-core mode. The batch/house ' +
            'generators DO place stairs automatically (§CORRIDOR-STAIR-CONTIGUITY), so the ' +
            'capability exists; it is simply not offered as an interactive tool mode.' },
     // The dual-view reference implementation: ONE tool, a plan handler AND
     // StairPath3DToolHandler. Cited as the pattern, deliberately not edited here.
-    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'], modes: STAIR_SHAPE_MODES, autoIn: [], modeSource: 'shared',
+    { tool: 'stair-path', label: 'Stair path', views: ['plan', '3d'],
+      modes: [LINEAR, ORTHO], shapes: STAIR_SHAPES, autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED — as stair. This tool is the DUAL-VIEW REFERENCE ' +
            'IMPLEMENTATION (one tool, StairPathPlanToolHandler + StairPath3DToolHandler ' +
            'over one StairToolConfigStore); it is the pattern the single-view gaps below ' +
@@ -466,6 +519,25 @@ export function creationModeIds(tool: string): readonly string[] {
 /** The modes a tool offers, ready for the bar. */
 export function creationModes(tool: string): readonly CreationMode[] {
     return creationCapability(tool)?.modes ?? [];
+}
+
+/**
+ * §STAIR-TWO-AXES — the SHAPES a tool offers, for the shape picker. Empty for every
+ * family whose only axis is the mode.
+ *
+ * ⛔ Never concatenate this with `creationModes(tool)`. Two axes on one strip is the
+ * defect the `shapes` field was introduced to prevent.
+ */
+export function creationShapes(tool: string): readonly CreationMode[] {
+    return creationCapability(tool)?.shapes ?? [];
+}
+
+/**
+ * Families declaring BOTH axes. A row here must render TWO controls, never one
+ * merged strip — this is the list a UI reviewer should check against the screen.
+ */
+export function twoAxisCapabilities(): readonly ElementCreationCapability[] {
+    return ELEMENT_CREATION_MATRIX.filter(c => (c.shapes?.length ?? 0) > 0);
 }
 
 /** Every declared capability that does not yet serve BOTH views — the open holes. */

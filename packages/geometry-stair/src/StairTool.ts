@@ -3,6 +3,7 @@ import { StairCreationController, StairCreationPhase } from './StairCreationCont
 import { StairMeshBuilder } from './StairMeshBuilder';
 import { StairShape } from './StairTypes';
 import { StairToolDependencies } from './StairToolDependencies';
+import { resolveActiveStairDrawMode } from './StairToolConfigStore';
 import { ToolName, ToolState } from '@pryzm/core-app-model';
 import { CreateStairCommand, type CreateStairInput } from '@pryzm/command-registry';
 import { DOMEventBus } from '@pryzm/event-bus';
@@ -100,6 +101,13 @@ export class StairTool {
         if (config.mode != null) {
             this.controller.setDrawingMode(config.mode);
         }
+        // §FEAT-STAIR-CREATION-MODES — the mode is now LIVE, not latched at activation.
+        // `config.mode` above remains the activation seed (the 3D setup panel still
+        // writes it); this provider is what lets the shared `DrawingModeBar` change the
+        // mode MID-DRAW without an `activate*` call, which would destroy the stair being
+        // drawn. Both surfaces read the same `StairToolConfigStore` function, so plan and
+        // 3D cannot disagree about the mode the way they disagreed about its DEFAULT.
+        this.controller.setDrawingModeProvider(() => resolveActiveStairDrawMode());
 
         this._showHud(StairCreationPhase.StartPoint);
         this._registerEsc();

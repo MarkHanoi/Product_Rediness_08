@@ -39,6 +39,22 @@ export class StairCreationController {
      */
     private _drawingMode: 'linear' | 'ortho' = 'ortho';
 
+    /**
+     * §FEAT-STAIR-CREATION-MODES — a LIVE source for the mode, mirroring this
+     * class's own `elevationProvider` (§F8) rather than inventing a second pattern.
+     *
+     * WHY A PROVIDER AND NOT THE SETTER ALONE. `setDrawingMode` is a LATCH: whoever
+     * called it last wins, and the only caller was `StairTool.activate`, i.e. the 3D
+     * setup panel's confirm. So the mode was fixed at activation and the founder's
+     * requirement — "change from LINEAR to ORTHO DURING creation" — was unsatisfiable
+     * without re-activating the tool, which destroys the in-progress stair. Reading a
+     * provider on every mouse-move makes the switch apply to the very next sample.
+     *
+     * Undefined ⇒ fall back to the latched value, so every existing call site is
+     * unchanged.
+     */
+    private _drawingModeProvider?: () => 'linear' | 'ortho';
+
     private tempStairId: string = 'temp-preview-stair';
 
     /**
@@ -121,6 +137,33 @@ export class StairCreationController {
     }
 
     getDrawingMode(): 'linear' | 'ortho' {
+        return this._resolveDrawingMode();
+    }
+
+    /**
+     * §FEAT-STAIR-CREATION-MODES — wire in a live mode source. `StairTool` points
+     * this at the shared `StairToolConfigStore`, so the mode bar's pill and the 3D
+     * preview are the SAME fact rather than two copies that drift.
+     */
+    setDrawingModeProvider(provider: () => 'linear' | 'ortho'): void {
+        this._drawingModeProvider = provider;
+    }
+
+    /**
+     * The ONE read of the mode, so no future consumer can bypass the live source by
+     * touching the field directly (the same containment `_currentElevations` gives
+     * the elevations). A throwing provider degrades to the latched value rather than
+     * killing the preview loop.
+     */
+    private _resolveDrawingMode(): 'linear' | 'ortho' {
+        if (this._drawingModeProvider) {
+            try {
+                const m = this._drawingModeProvider();
+                if (m === 'linear' || m === 'ortho') return m;
+            } catch (err) {
+                console.warn('[StairCreationController] drawingModeProvider threw, using last set mode', err);
+            }
+        }
         return this._drawingMode;
     }
 
@@ -197,7 +240,7 @@ export class StairCreationController {
             if (dir.lengthSq() > 0.0001) {
                 dir.y = 0;
                 let normalized = dir.normalize();
-                if (this._drawingMode === 'ortho') {
+                if (this._resolveDrawingMode() === 'ortho') {
                     normalized = this._snapOrtho(normalized);
                 }
                 if (this.dir1 && this.dir1.distanceTo(normalized) < DIR_EPS_RAD) {

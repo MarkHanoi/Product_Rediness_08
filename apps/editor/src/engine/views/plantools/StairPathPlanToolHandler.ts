@@ -43,6 +43,7 @@ import type { StairLevelOption, StairToolConfig, StairLevelInput } from '@pryzm/
 import {
     resolveStairVerticalSpan,
     getStairToolConfig,
+    resolveActiveStairDrawMode,
     DEFAULT_STOREY_HEIGHT,
 } from '@pryzm/geometry-stair';
 import { AddLevelCommand } from '@pryzm/command-registry';
@@ -178,6 +179,22 @@ export class StairPathPlanToolHandler implements PlanToolHandler {
             turnDirection:       'left',
             secondRunSide:       'left',
             initialShape:        config.shape,
+            // §FEAT-STAIR-CREATION-MODES — the SKETCH MODE axis, read LIVE on every
+            // pointer sample so the shared `DrawingModeBar` can switch it MID-DRAW.
+            //
+            // ⭐ THE REACHABILITY DEFECT THIS CLOSES. `StairToolConfig.mode` has
+            // existed all along and this handler pulled `shape`, `width` and `typeId`
+            // off the very same object while never reading `.mode`. The only writer
+            // was `StairSetupPanel.onConfirm` — a 3D confirm dialog — so the mode was
+            // authored in 3D and INERT in plan: §FIX-FINISH-MODE-PLAN-UNREACHABLE
+            // reproduced verbatim in a second family, under a matrix row that already
+            // claimed `modeSource: 'shared'`. Authored, committed, unreachable.
+            //
+            // ⛔ Deliberately NOT `config.mode`: that is the value latched when the
+            // tool was activated. A mode must be re-read per sample or the bar's pill
+            // and the geometry disagree until the next activation — and re-activating
+            // is what destroys the in-progress stair.
+            drawingModeProvider: () => resolveActiveStairDrawMode(),
             // §FIX-STAIR-PLAN-CREATION-BLOCKED — an invalid solve used to die in the
             // console. It now reaches the user. A stair that cannot be committed must
             // SAY SO; silence is the bug the founder reported.

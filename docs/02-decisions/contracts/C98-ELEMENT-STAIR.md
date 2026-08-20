@@ -668,3 +668,252 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §16 — CREATION AXES: **SHAPE and MODE are two different axes** (added 2026-08-20, lane STAIRUX1)
+
+> **Founder, verbatim (2026-08-19):** *"I want the stairs to have the possibility to decide if the
+> creation is **orthogonal** or **line**, or **select 2 walls** [and] create the stair in **L shape
+> against the walls** etc. This needs to be possible — **use the UI/UX as the walls: MODE + STAIR
+> TYPE.**"*
+
+### §16.1 — NORMATIVE. The two axes, and the prohibition on merging them
+
+| Axis | Values | Question it answers | Authority |
+|---|---|---|---|
+| **SHAPE** | `I` · `L` · `U` · `C` | *What geometry RESULTS?* | `StairShapeChoice` / `STAIR_SHAPES` (`stairPath/StairShapeRegistry.ts`) |
+| **MODE** | `linear` · `ortho` | *HOW is it SKETCHED?* | `StairDrawMode` (`StairToolConfigStore.ts`) |
+
+> **§16.1.a — MUST.** These are **orthogonal**. An **L-shaped** stair drawn in **Orthogonal** mode is
+> still an L-shaped stair, exactly as a wall drawn in Orthogonal mode is still one wall. **Neither
+> axis may be expressed in the other's control**, and the two must not be concatenated onto one
+> strip. The UI presents **MODE as the top-centre strip** (the shared `DrawingModeBar`) and **SHAPE
+> + STAIR TYPE in the card beside it** (`StairPathParamPanel`) — the wall tool's idiom, which is
+> what the founder pointed at.
+
+> **§16.1.b — MUST NOT.** No `curved` MODE. `C` is a **SHAPE**, authored by the stair-path arc
+> gesture. A `curved` mode alongside a `C` shape puts one letter on one bar meaning two different
+> things. **See §16.4 — this is recorded as an OPEN QUESTION, not as a settled absence.**
+
+> **§16.1.c — MUST.** `apps/editor/src/engine/views/plantools/elementCreationMatrix.ts` declares the
+> two axes in **separate fields** — `modes` and `shapes` — and `creationShapes()` /
+> `twoAxisCapabilities()` are their readers. ⛔ **Never concatenate `creationModes(tool)` with
+> `creationShapes(tool)`.** Stair and stair-path are the only two-axis rows in the matrix; a spec
+> asserts that, so a third cannot appear unnoticed.
+
+### §16.2 — ⭐ AS-WAS: this was a **REACHABILITY** defect, not a missing feature
+
+**The most important fact in this section, because it inverts the obvious reading of the founder's
+report.** Both modes were **already built, on both surfaces**, before any of this work:
+
+| Fact | Measured at |
+|---|---|
+| 3-D snapped to 90° **BY DEFAULT** | `StairCreationController.ts` — `_drawingMode: 'linear' \| 'ortho' = 'ortho'`, comment *"matches WallTool ortho"* |
+| Plan ran the **identical** snap, gated on **SHIFT HELD** | `stairPath/StairPathToolController.ts` — `_snapTo90`, called only when `_shiftDown` |
+| The config field already existed | `StairToolConfigStore.ts` — `mode?: 'linear' \| 'ortho'`, *"Drawing mode hint carried by the 3D setup panel"* |
+| It was already read in 3-D | `StairTool.ts` — `controller.setDrawingMode(config.mode)` |
+| Its **only** writer was a 3-D confirm dialog | `BimService.ts` — `StairSetupPanel.onConfirm` → `setStairToolConfig({ …, mode })` |
+| ⛔ **No plan handler read `.mode` at all** | `StairPathPlanToolHandler` / `StairPlanToolHandler` pulled `shape`, `width` and `typeId` off the very same object |
+| ⛔ **No picker existed on either surface** | `ToolsAreaLayout.ts` mounted a `DrawingModeBar` for wall, floor, ceiling, slab and railing — and **no stair branch** |
+| ⛔ The matrix rows **claimed `modeSource: 'shared'`** | …while declaring the four SHAPES in the MODE slot |
+
+**This is `§FIX-FINISH-MODE-PLAN-UNREACHABLE` reproduced verbatim in a second family** — and the
+`elementCreationMatrix` header documents that exact defect, twelve lines above the stair rows that
+were carrying it. *Committed, shipped, reachable by nobody.*
+
+### §16.3 — ⚠ THE TWO SURFACES HAD **OPPOSITE DEFAULTS**, and the unification is a real behaviour change
+
+3-D defaulted to **ortho**; plan defaulted to **free-hand**, with ortho available only while a key
+was held. **One element, two surfaces, opposite defaults, and no control on either** — so "what mode
+is this stair being drawn in?" had two answers and no way to ask.
+
+`DEFAULT_STAIR_DRAW_MODE = 'ortho'` is now the single answer. **Taking the 3-D default changes no
+shipped 3-D behaviour**, and it converts the plan surface's hold-a-key transient into a visible mode
+one click from Linear. **SHIFT still forces ortho inside Linear mode**, unchanged — so Linear keeps
+its escape hatch and making ortho the default takes nothing away. There is deliberately **no
+inverse** (SHIFT does not *un*-snap in ortho mode): a modifier meaning "constrain" in one mode and
+"release" in the other is a control whose meaning depends on invisible state.
+
+⚠ **Stated plainly rather than buried: the PLAN surface now snaps by default where it previously did
+not.**
+
+### §16.4 — OPEN QUESTION (not a settled absence): should CURVED also be a MODE?
+
+`C` is a shape today. Whether a stair should *also* be sketchable by an **arc-constrained mode** —
+the way a wall's `curved` mode constrains a segment without changing what a wall is — is
+**undecided**. It is recorded here as open because the alternative was to guess, and a bar where one
+letter means two things is worse than a bar with two honest modes and a written NOT-YET.
+
+### §16.5 — Gate
+
+`apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts` — **11 tests**. It
+drives the real `DrawingModeBar` pill → the production `onSelect` → `StairToolConfigStore` → the real
+`StairPathToolController` → the real `CreateStairCommand`, and asserts **the dispatched stair's
+flight directions**. ⛔ It never asserts that a picker rendered. It also pins the other five
+families' mode sets as **unchanged** by the axis split, because the matrix is a shared enumerated
+authority and that is precisely where one refactor becomes five regressions.
+
+---
+
+## §L-1431 — THE VOID SET IS **DERIVED**, NOT ENUMERATED (added 2026-08-20, lane STAIR1)
+
+**Founder, production:** *"STAIR CREATION — FIRST THE STAIR CREATES AN OPENING ON THE SLAB — BUT NOT
+ON THE FLOOR FINISH — THIS NEEDS TO BE AUTOMATIC."*
+
+### The measurement that came first
+
+The create's declared scope `[stair, opening, slab]` **was honest.** The floor-finish void was not
+mutated-outside-scope; it was **never created**. Three horizontal families each carry their own void
+mechanism, and until L-1431 the stair reached exactly one of them:
+
+| Family | Contract | Void mechanism | Authority | Stair reached it? |
+|---|---|---|---|---|
+| slab | [C92](C92-ELEMENT-SLAB.md) | first-class `opening` ELEMENT in `openingStore` (`hostId`) | `SlabStore` (`geometry-slab`) | ✅ `StairSlabOpeningReconciler` |
+| **floor finish** | [C89](C89-ELEMENT-FLOOR.md) | `FloorData.serviceHoles[]` (embedded) | `FloorStore` (`core-app-model`) | ⛔ **NO** — `addServiceHole` had **ZERO callers repo-wide** |
+| **ceiling** | [C88](C88-ELEMENT-CEILING.md) | `CeilingData.holeElements[]` (embedded) | `CeilingStore` | ⛔ **NO** — `addHoleElement` unreached from any stair |
+
+⚠ **The floor finish is NOT a layer of the slab.** `FloorData.hostSlabId` is an *optional* binding
+between two independent records; C89 §2 names `FloorStore` the single authority for the finish. Any
+fix premised on "cut the slab harder" is aimed at the wrong family.
+
+### The second axis, on the same defect
+
+`carveStairOpening` filtered `s.levelId === stair.topLevelId`, while
+`LevelTraversalPolicy.canTraverse` returns **`ok: true` with a warning** for a level-skipping stair.
+⭐ **A Ground→L5 stair is therefore ACCEPTED and its ~15 m run passes through four INTACT decks.**
+Reachable by hand — the user need only pick a Top level more than one storey up.
+
+### NORMATIVE
+
+> **N1 — The set of hosts a stair pierces is DERIVED, never enumerated.**
+> ```
+> hosts = { h : h.family ∈ HORIZONTAL_HOST_PIERCERS
+>             ∧ h.levelId ∈ levelsTheStairRisesThrough(base, top)
+>             ∧ h.outline CONTAINS the stair footprint }
+> ```
+> Owner: `packages/command-registry/src/stair/StairHorizontalHostPiercing.ts`.
+> ⛔ **No stair command may name a host family or a level id.** A fourth horizontal family joins by
+> appending ONE registry entry. This is [C04 §3.1.2a](C04-RENDERING-AND-SCHEDULING.md) applied to a
+> generic verb: *an enumeration cannot cover it.*
+
+> **N2 — The level set is `baseElevation < elevation ≤ topElevation`.** The base level's own deck is
+> **excluded** — the stair stands on it, and piercing it cuts the floor from under the bottom riser.
+> When the level table cannot be read the resolver returns `[topLevelId]` **and reports
+> `basis: 'fallback-top-only'`** — the pre-L-1431 behaviour, labelled as a fallback rather than
+> presented as a derived span ([C74](C74-CONSTRAINT-HONESTY.md)).
+
+> **N3 — Containment is ONE rule across every family.** The centre probe outranks any number of
+> corner probes; a host whose outline cannot be resolved is **UNKNOWN, never "outside"**. Identical
+> to §14 R3's slab rule, deliberately, so two families can never disagree about what *contains*
+> means. **One difference is normative:** the piercer returns **every** containing host, not a
+> winner — a level legitimately carries one finish per room, and a landing straddling two must
+> pierce both. Picking a winner there leaves a real void half-cut.
+
+> **N4 — Create and delete are symmetric ([C84](C84-ELEMENT-INTEGRITY.md) EI-5).** The delete finds
+> the voids **by the id convention** (`stairHostPierceId`), never by re-deriving containment, so a
+> stair moved after creation has the void it ACTUALLY cut healed rather than the one it would cut
+> now. Undo **re-runs the piercer on the restored stair** instead of replaying a snapshot: these
+> voids are DERIVED, and snapshotting a derived value is how a stale copy gets restored over a live
+> host. A count shortfall is **reported**, never swallowed.
+
+> **N5 — `autoCreateOpening: false` suppresses EVERY family.** A user who declines the automatic
+> opening declines it in every host, not only in the slab.
+
+**Proof:** `packages/command-registry/__tests__/stairPiercesEveryHorizontalHost.test.ts` — 9 cases
+against the **production** `FloorStore` / `CeilingStore`, reading
+`floorStore.getById(id).serviceHoles`, the exact array `FloorPanelBuilder` feeds to
+`THREE.Shape.holes`. ⛔ Never a spy on a call.
+
+### ⛔ STILL OPEN, named here so a blank is not read as "fine"
+
+| # | Gap | L-row | Severity |
+|---|---|---|---|
+| 1 | **The SLAB's own level axis is still top-level-only.** A Ground→L5 stair still passes through four structurally intact slabs. Folding slab into the registry would mean a **second implementation** of the opening-element lifecycle (id convention, Immer undo patches, slab-side symmetry, delete heal) — the drift `StairSlabOpeningReconciler`'s header exists to forbid. The correct fix is to generalise `carveStairOpening`/`reconcileStairOpening` over `stairPiercedLevelIds()`, with the top level keeping today's exact id string. | **L-1433** | **P1** |
+| 2 | **Move / parameter change does not follow the new voids** — `MoveStairCommand` and `UpdateStairParametersCommand` call the SLAB reconciler only, so a moved stair strands its floor and ceiling voids at the old footprint (the `§FIX-STAIR-MOVE-STRANDS-VOID` shape, one family over). | **L-1432** | P2 |
+| 3 | **Persistence NOT MEASURED.** Whether `ProjectSerializer` round-trips `serviceHoles` / `holeElements` was not verified in this pass. If it does not, a saved project reopens with the finish solid. | — | ⚠ |
+
+---
+
+## §L-1430 — STAIR GEOMETRY LIMITS HAVE **ONE** AUTHORITY, AND **NO** SOURCE OF LAW (added 2026-08-20, lane STAIR1)
+
+**Founder-reported by log:** the sketch tool refused at *"tread 218 mm (min 220 mm)"* and the command
+refused the same drawing at *"Tread depth 222mm is below minimum 250mm"*.
+
+### Two thresholds — [C84](C84-ELEMENT-INTEGRITY.md) EI-3 breached at four sites (AS-WAS)
+
+| Layer | Site | riser min/max | tread min/max |
+|---|---|---|---|
+| sketch solver | `StairSolver2D.ts:103-106` | 100 / 220 | 220 / 360 |
+| curved solver | `CurvedStairSolver.ts:74-77` | 100 / 220 | 220 (walking line) |
+| param panel | `StairPathParamPanel.ts:357,377` | 100 – 220 | 220 – 360 |
+| **the command** | `CreateStairCommand.canExecute` → `STAIR_CONSTRAINTS` | **150 / 190** | **250 / —** |
+
+### Two QUANTITIES — the sharper half
+
+The tool measured the **per-run** tread `seg.flightLength / seg.stepCount`; the command measured the
+**averaged scalar** `Σ seg.length / totalSteps` that `StairPathAdapter` commits. They differ by the
+landing consumption on every L and U. ⭐ **And the per-run tread — the value `StairMeshBuilder`
+actually builds with — was validated by NOBODY on the command side.** Two layers disagreeing about a
+NUMBER were disagreeing about the DEFINITION.
+
+### NORMATIVE
+
+> **N6 — `packages/geometry-stair/src/StairGeometryLimits.ts` is the ONE authority** for stair tread
+> and riser limits. It owns the numbers (`resolveStairGeometryLimits`), the predicate
+> (`checkStairGeometry`) and the **quantity** (`deriveCommittedTreadDepth`). ⛔ No layer may declare
+> a private tread or riser constant. A limit measured on a quantity the command never sees
+> (`MIN_SEG_LEN`; the curved solver's inner-edge, outer-edge and radius limits) **may** stay local
+> and **must** say so at its declaration.
+
+> **N7 — A stair candidate carries BOTH tread quantities** — the scalar and every
+> `flights[i].treadDepth` — and the predicate checks both. Validating either alone leaves the other
+> unchecked, which is precisely how the founder's stair passed one layer and failed the next.
+
+> **N8 — Equality is PINNED, not asserted.**
+> `packages/geometry-stair/src/__tests__/StairAcceptSetParity.spec.ts` drives
+> `StairSolver2D.solve()` and `CreateStairCommand.canExecute()` — the real layers, bridged by the
+> production adapter — over swept straight and L grids, and fails on any disagreement. It also fails
+> on a re-introduced private constant **even when that constant happens to agree**.
+
+### ⛔ THIS CONTRACT NAMES NO SOURCE OF AUTHORITY FOR STAIR GEOMETRY LIMITS — recorded, not invented
+
+Tread and riser minima are **code-dependent** (jurisdiction, occupancy, private vs common stair).
+**C98 has never named a source of law for them, and does not now.** The repo's only gesture toward
+one is `STAIR_CONSTRAINTS_REGIONS` (`StairValidationAuthority.ts:36-43`), which:
+
+- aliases `'AS-1657'` and `'EUROPEAN'` to the **same object**; and
+- gives `'IBC-USA'` a `MIN_TREAD_DEPTH: 0.250` "override" **identical to the default it overrides**.
+
+**The region hook is decorative.** 250 mm is now the single effective minimum **because it is what
+the pipeline already enforced** — lowering a code minimum is not a defect fix. ⚠ It is very likely
+**wrong for residential Spain**: CTE DB-SUA permits a 220 mm *huella* in private dwellings, which is
+plausibly where the tool's 220 came from. **This is a founder decision**, and thanks to N6 it is now
+a one-line change in one place. **§13 DELTA #18.**
+
+### ⛔ `MAX_RISERS_PER_FLIGHT: 16` IS DECLARED THREE TIMES AND READ BY NOBODY
+
+`grep -rn "MAX_RISERS_PER_FLIGHT"` over `packages plugins apps src` (tests excluded) → **5 hits,
+every one a declaration** (`geometry-stair/src/StairTypes.ts:216,231`,
+`core-app-model/src/stores/StairTypes.ts:189,203`,
+`constraint-solver/src/stair-constraint-engine.ts:15`). **Zero readers on any path.** A Ground→L5
+stair at 175 mm risers is ~86 risers in one or two flights; the constant that exists to forbid that
+runs nowhere. Same class as the tread pair, and it closes the same way. **L-1434, §13 DELTA #19.**
+
+### §13 DELTA — rows added by this lane
+
+| # | Fix | Invariant | Proof required |
+|---|---|---|---|
+| **18** | **Decide 250 mm vs 220 mm and name the source of authority** for stair geometry limits | this section N6 | a cited instrument, and a region record whose entries actually differ |
+| **19** | **Enforce `MAX_RISERS_PER_FLIGHT` (or retire it)** through `StairGeometryLimits` | C84 EI-3 | a stair exceeding it is refused **or** a landing is auto-inserted — chosen, not defaulted |
+| **20** | **Generalise the slab void over the derived level set** (§L-1431 gap 1) | §L-1431 N1/N2 | a Ground→L2 stair leaves no intact slab between its endpoints |
+| **21** | **Make move/param-change reconcile the horizontal-host voids** (§L-1431 gap 2) | §L-1431 N4 | move a stair, assert the OLD floor void is gone and a new one exists |
+| **22** | **Measure whether `serviceHoles` / `holeElements` survive save/load** | C84 EI-6 | round-trip a project with a stair void in a finish |
+
+### §14 REFUSALS — rows added by this lane
+
+| # | Refusal | Named where | Verdict |
+|---|---|---|---|
+| **R11** | **A horizontal host that does not CONTAIN the footprint is not pierced** — and the nearest one is never pierced instead | `StairHorizontalHostPiercing.ts` — `hostsContainingFootprint`, log names the measured/unmeasurable counts | ✅ the L-949 rule, generalised to two more families |
+| **R12** | **The derived level span DECLARES when it is a fallback** (`basis: 'fallback-top-only'`) rather than reporting a span it did not derive | same file, `stairPiercedLevelIds` | ✅ C74 — an unresolved input is not drawn as a value |
+| **R13** | **An undo record naming an unregistered family leaves the void and SAYS SO** | `unpierceStairHorizontalHosts` | ✅ a visible void beats a silent one |

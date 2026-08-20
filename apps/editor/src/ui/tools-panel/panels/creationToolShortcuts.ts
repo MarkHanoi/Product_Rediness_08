@@ -44,6 +44,26 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     'Stair (I)':            'Alt+T',
     'Stair (L)':            'Alt+Shift+T',
     'Stair (U)':            'Alt+Ctrl+T',
+    // §FEAT-STAIR-CREATION-MODES (L-1452) — `Stair (C)` has been rendered by
+    // `CreateRailPanel._buildSections` since 59d3422f (2026-08-06, the creation-matrix
+    // commit) and has had NO entry here for the whole of that time. The panel stamps
+    // `tool.shortcut` from this map and the tooltip is composed from the SAME field,
+    // so the button advertised a shortcut it could not fire — C84 EI-3, in the
+    // smallest possible form.
+    //
+    // ⚠ MEASURED, because the obvious guess is wrong: this is NOT tonight's landscape
+    // commit. `git log -S"Stair (C)" -- CreateRailPanel.ts` names 59d3422f; the
+    // completeness test has therefore been RED for two weeks. It went unseen because
+    // the ROOT `vitest.config.ts` does not include `apps/editor/__tests__/**`, so this
+    // suite only runs from inside `apps/editor`.
+    //
+    // ⛔ NOT bound to a bare `C`. Every combo in this map is Alt-prefixed by design
+    // (Contract 11 — creation shortcuts stay off the contextual single-letter layer),
+    // and the `C` in the LABEL is the stair SHAPE (curved), a different axis entirely.
+    // `Alt+Shift+Ctrl+T` continues the I → L → U → C escalation the other three stairs
+    // already use, mirroring Roof's four-deep `O` ladder. Verified free by
+    // `assertNoShortcutCollisions()`, which runs at import time.
+    'Stair (C)':            'Alt+Shift+Ctrl+T',
     'Handrail':             'Alt+H',
     'Ramp':                 'Alt+P',
     'Ceiling':              'Alt+C',

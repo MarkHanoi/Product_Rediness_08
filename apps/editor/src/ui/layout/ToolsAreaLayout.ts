@@ -1,4 +1,9 @@
 import type { StairShapeChoice } from '@pryzm/geometry-stair';
+// §FEAT-STAIR-CREATION-MODES (founder, 2026-08-19) — the stair's SKETCH-MODE axis.
+// It lives in `@pryzm/geometry-stair` beside the controllers that implement the snap,
+// for the reason L-1106 records for the handrail: a store filed under `apps/editor`
+// is unreadable from the 3-D tool, which is exactly how a tool ends up mode-blind.
+import { setActiveStairDrawMode, resolveActiveStairDrawMode } from '@pryzm/geometry-stair';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { WallModePicker, type WallPickerMode } from '../WallModePicker';
@@ -279,6 +284,11 @@ export function mountToolsArea(
     // `DrawingModeBar` component and the SAME `.wdh-*` styles the wall and slab
     // bars use, driven by the railing's own declared modes. Not a look-alike.
     const handrailDrawingBar = new DrawingModeBar();
+    // §FEAT-STAIR-CREATION-MODES — the stair's in-draw mode bar. Same component, same
+    // `.wdh-*` styles as wall / slab / railing, driven by the stair's own declared
+    // modes. The stair had NO bar of any kind: `elementCreationMatrix` declared four
+    // "modes" for it that were the four SHAPES, and nothing rendered them anywhere.
+    const stairDrawingBar = new DrawingModeBar();
     const wallDrawingHUD   = new WallDrawingHUD();
 
     // ── By Slab helper — shared by WallModePicker (legacy) and WallDrawingHUD ─
@@ -772,6 +782,59 @@ export function mountToolsArea(
             }
         };
         window.addEventListener('keydown', escHandlerHr);
+    };
+
+    // ─── Stair mode bar — §FEAT-STAIR-CREATION-MODES (founder, 2026-08-19) ───
+    //
+    // THE FOUNDER, verbatim: "I want the stairs to have the possibility to decide if
+    // the creation is ORTHOGONAL or LINE … use the UI/UX as the walls: MODE + STAIR
+    // TYPE."
+    //
+    // ⭐ TWO AXES, TWO CONTROLS — AND THE WHOLE POINT IS NOT MERGING THEM.
+    //   MODE  (Linear / Orthogonal) — HOW the run is sketched. This bar.
+    //   SHAPE (I / L / U / C)       — the geometry that RESULTS. Already rendered by
+    //                                 `StairPathParamPanel`, alongside the stair TYPE,
+    //                                 which is the "card beside the strip" half of the
+    //                                 wall idiom the founder pointed at.
+    // Concatenating them would give one strip of six buttons meaning two different
+    // things. `elementCreationMatrix` now declares them in separate fields (`modes`
+    // vs `shapes`) so a future author cannot re-merge them by accident.
+    //
+    // ⭐ WHAT WAS ACTUALLY BROKEN — A REACHABILITY DEFECT, NOT A MISSING FEATURE.
+    // Both modes were already implemented on BOTH surfaces before this line existed:
+    // `StairCreationController` (3-D) snapped to 90° BY DEFAULT, `StairPathToolController`
+    // (plan) ran the identical `_snapTo90` but only while SHIFT was HELD, and
+    // `StairToolConfigStore` already carried the `mode` field. The gaps were: no
+    // picker on either surface, no plan-side READ of the field, and no declaration.
+    // Committed, shipped, reachable by nobody — the standing failure shape here.
+    //
+    // ⛔ A MODE SWITCH MUST NEVER CALL AN `activate*` FUNCTION. `activateTool` routes
+    // through `deactivateAllInternal()` and destroys the in-progress polyline, so
+    // switching mode would mean starting the stair over — the defect the shared bar
+    // exists to remove. `onSelect` writes the shared store and NOTHING else; both
+    // controllers re-read it per pointer sample, so the points already placed survive.
+    const _origActivateStairPath = service.activateStairPathTool.bind(service);
+    service.activateStairPathTool = (shape?: StairShapeChoice) => {
+        _origActivateStairPath(shape);
+
+        if (stairDrawingBar.isVisible()) {
+            stairDrawingBar.setMode(resolveActiveStairDrawMode());
+        } else {
+            stairDrawingBar.show({
+                label: 'Mode:',                       // the wall's word, not a second
+                modes: creationModes('stair-path'),   // ⛔ never creationShapes()
+                initialMode: resolveActiveStairDrawMode(),
+                onSelect: (id) => setActiveStairDrawMode(id),
+            });
+        }
+
+        const escHandlerStair = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                stairDrawingBar.dismiss();
+                window.removeEventListener('keydown', escHandlerStair);
+            }
+        };
+        window.addEventListener('keydown', escHandlerStair);
     };
 
     if (props.toolManager?.activateDoor) {
