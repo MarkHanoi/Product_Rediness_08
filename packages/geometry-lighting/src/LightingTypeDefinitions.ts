@@ -33,6 +33,23 @@
  */
 
 import type { LightingFixtureType } from './LightingTypes';
+// §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — the twenty LOD-200 families are
+// DERIVED from the matrix rather than restated here. See the block at the end of
+// BUILT_IN_LIGHTING_TYPES for why that is the whole point of this file's existence.
+//
+// ⛔ Same module-load hazard as LightingTypes.ts, and WORSE here: this function is
+// CALLED at module scope inside the frozen array below, so a barrel import that has
+// not finished initialising is not a late value, it is `undefined is not a function`.
+// ⛔ §SCC-NO-BARREL-AT-MODULE-LOAD — imported from the DEFINING MODULE by its own
+// subpath, NEVER from the `@pryzm/core-app-model` root barrel. The barrel is
+// mutually reachable with this package's module graph, so during module
+// initialisation its bindings are still `undefined` — and this value is spread at
+// MODULE SCOPE, where `undefined` throws `is not iterable` and takes down test
+// collection (and, previously in this codebase, the whole screen). Re-ordering the
+// spread cannot fix that: the cycle is the defect, not the line number.
+// `Lod200FixtureCatalogue` imports only the pure L0 material catalogue, so it can
+// ALWAYS be fully initialised — which is the question to ask, not "why is it late?".
+import { lod200TypeDefinitionRows } from '@pryzm/core-app-model/lod200-fixtures';
 
 /**
  * Where a fixture is mounted. Presentation-level classification: it groups the
@@ -136,7 +153,28 @@ export const BUILT_IN_LIGHTING_TYPES: readonly LightingTypeDefinition[] = Object
         mount: 'table',
         isBuiltIn: true,
     },
-] as const);
+
+    // ── §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) ────────────────────────
+    //
+    // The twenty LOD-200 architectural, exterior and life-safety families — as a
+    // SPREAD, not twenty more literals.
+    //
+    // This file's own header explains why the lighting element never had a type
+    // dropdown: the union was not enumerable, so there was no list to render. The
+    // fix was a list — but a HAND-WRITTEN list re-creates the original problem one
+    // level up, because it must be remembered alongside the union, the defaults and
+    // the photometry row. Every LOD-200 row therefore reaches this catalogue by
+    // construction, and its `mount` is the SAME value the photometry table and
+    // `FLOOR_MOUNTED_FIXTURES` read — they cannot disagree, which is the silent
+    // placement bug this shape removes.
+    ...lod200TypeDefinitionRows().map((r) => ({
+        id: r.id as LightingFixtureType,
+        name: r.name,
+        description: r.description,
+        mount: r.mount as LightingMountClass,
+        isBuiltIn: r.isBuiltIn,
+    })),
+]);
 
 /** Look one up by its `LightingFixtureType` id. */
 export function getLightingTypeDefinition(id: string): LightingTypeDefinition | undefined {

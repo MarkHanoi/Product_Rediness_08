@@ -31,6 +31,7 @@
     "./pascal-lighting": "./src/rendering/PascalSceneLighting.ts",
     "./neutral-studio-environment": "./src/rendering/NeutralStudioEnvironment.ts",
     "./lighting": "./src/lighting/index.ts",
+    "./lod200-fixtures": "./src/lighting/Lod200FixtureCatalogue.ts",
     "./tool-types": "./src/tool-types.ts",
     "./store-registry": "./src/StoreRegistry.ts",
     "./store-event-bus": "./src/StoreEventBus.ts",

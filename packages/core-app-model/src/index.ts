@@ -680,6 +680,8 @@ export type {
     MirrorLightParams,
     PendantClusterParams,
     LightEmissionConfig, LightingData,
+    // §FEAT-LOD200-LUMINAIRES (L-1330) — the ONE override block shared by all twenty.
+    Lod200OverrideParams,
 } from './lighting/LightingTypes.js';
 export { FLOOR_MOUNTED_FIXTURES, MIRROR_LIGHT_DEFAULTS, PENDANT_CLUSTER_DEFAULTS } from './lighting/LightingTypes.js';
 
@@ -706,6 +708,35 @@ export {
     kelvinToLinearRgb,
     kelvinToHex,
 } from './lighting/FixturePhotometry.js';
+
+
+// ── §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) ─────────────────────────────
+// The LOD-200 luminaire MATRIX: twenty generic architectural, exterior and
+// life-safety families authored as short rows of independent facts, with reach,
+// optical form, efficacy, efficacy class, floor-seating, the photometry rows and
+// the type-picker rows all DERIVED from them. Adding a twenty-first luminaire is
+// one row there and zero lines anywhere else.
+export type {
+    Lod200FixtureRow, Lod200FixtureId, Lod200Archetype, Lod200Face,
+    Lod200Location, Lod200EfficacyClass, Lod200PhotometryRow,
+} from './lighting/Lod200FixtureCatalogue.js';
+export {
+    LOD200_FIXTURE_ROWS,
+    LOD200_FIXTURE_IDS,
+    LOD200_FLOOR_MOUNTED_IDS,
+    EFFICACY_BANDS,
+    lod200Row,
+    reachForLumens,
+    formForFace,
+    efficacyLmPerW,
+    efficacyClassFor,
+    minIpForLocation,
+    lod200BodyColor,
+    lod200BodyAppearance,
+    isGeneralLightingFixture,
+    photometryRowsForLod200,
+    lod200TypeDefinitionRows,
+} from './lighting/Lod200FixtureCatalogue.js';
 
 export type { LightBudgetCandidate, LightBudgetSelection } from './lighting/LiveLightBudget.js';
 export {

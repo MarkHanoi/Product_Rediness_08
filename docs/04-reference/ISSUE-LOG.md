@@ -20612,3 +20612,163 @@ pretended**, in three places: the matrix row, the mode descriptions (*"plan view
 Floor and ceiling have **no** such gap — both surfaces consume the same module.
 
 ---
+
+---
+
+## L-1330 — ✅ SHIPPED — twenty LOD-200 luminaires, DERIVED from one matrix; and the lumen-reader verdict
+
+**Lane LIGHT1 · 2026-08-19 · founder ask: *"Can you create 20 more LOD 200 lighting fixtures? All
+with LUMEN values. All kinds. Architecturally sound?"***
+
+### ⭐ THE MEASUREMENT THAT DECIDED WHAT THIS WORK IS WORTH
+
+**Does anything actually READ a lumen value? YES on the RENDER path. NO on every ANALYSIS path.**
+
+- ✅ **READ:** `LightingFragmentBuilder:1244-1250` (`sceneIntensityFor` → `PointLight.intensity`,
+  `kelvinToHex` → colour, `reachM` → `distance`), `:1199` (`lensEmissiveFor` → lens),
+  `LampBuilder:44-57`, `BedEngine:737-750`, and `geometry-kernel/producers/lighting.ts:94-98`
+  where `lumens@kelvin` is part of the **material key**.
+- ⛔ **NOT READ:** `pryzmLightAllRooms()` / the D-LE engine that auto-fires on
+  `furnish.layout-executed` places **one fixture per room by occupancy and a coarse area bucket** —
+  zero lumen/lux/illuminance reads in `workflows/lightingLayout/`. `pryzmComputeDaylight()` is
+  natural light and self-describes as *"a defensible RELATIVE metric"*, not lux.
+  `pryzmComputeSunHours()` / `@pryzm/solar-analysis` carry no artificial-light term at all.
+
+⭐ **So: the lumens are WIRED — to the renderer. The DESIGN consumer is the thing that does not
+exist.** There is **no illuminance calculation anywhere in this repository**. *"PRYZM computes
+lighting levels"* is FALSE; *"PRYZM renders photometrically-derived fixture brightness"* is true.
+This is the inverse of the usual authored-but-unwired finding and both halves must be quoted
+together.
+
+### What shipped
+
+12 families → **32**. Twenty new rows in
+`packages/core-app-model/src/lighting/Lod200FixtureCatalogue.ts`, authoring only what cannot be
+computed; `reachM`, optical `form`, `suspended`, efficacy, efficacy class, minimum IP, floor-seating,
+the photometry rows, the type-picker rows and the 3-D mass are all **DERIVED**. The
+`LightingFixtureType` union widens itself from the row array, so **a row without photometry is a
+compile error**. Adding a twenty-first luminaire is ONE ROW.
+
+Twenty families share **eight** generic archetype builders (`can · bar · disc · cone · post · arms ·
+yoke · sign`) rather than twenty bespoke ones — the twelve named families have one builder each, and
+the dispatch `default:` silently draws a downlight, so a family that forgot its case would render the
+WRONG FIXTURE while every schedule and photometry read reported the right one.
+
+**Architecturally sound, as a build gate:** ARM A resolves every `materialId` against the **LIVE**
+`MATERIAL_CATALOG` (asserted to be the real one, not a stub) and proves **zero materials minted**;
+ARM B asserts a plausible lm/W band per **derived** class and proves the band **rejects** a
+6 W / 3000 lm downlight. Plus CCT, CRI, beam (asserted *relationally* — a spot must be narrower than
+a wall washer), and IP ≥ the location minimum (an IP20 bollard is the named defect it catches).
+
+⛔ **NOT claimed:** no IES/photometric file (no field, no loader, no capability), no UGR, no
+maintenance factor, no battery duration. ⚠ The EN 1838 / EN 12464-1 / IEC 60529 citations explain
+why numbers were chosen; **nothing evaluates them**, consistent with the measured finding that no
+layer here evaluates a guard rule — so the bounds ship **ADVISORY** with that stated at the point of
+use.
+
+**Persistence:** ONE new key (`lod200Params`) for all twenty, round-tripped through
+**`ImportProjectCommand`** — the default-on path — via the real `buildLightingRestorePayload` its
+Step 10b calls. Not the dead twins. All twenty round-trip by `fixtureType`; overrides survive by
+**value**; absence stays absence.
+
+**Tests:** `Lod200FixtureCatalogue.test.ts` 28 ✅ · `core-app-model/src/lighting` 75 ✅ ·
+`geometry-lighting` 32 ✅ · `lightingParamsRoundTrip` 11 ✅ · root `tsc --skipLibCheck`
+**COMPILER_RC=0**.
+
+### ⚠ Two pre-existing invariants were RE-SCOPED — a finding, not an accommodation
+
+*"Every family is ≥ 2× the legacy flat intensity"* and *"every fixture dominates the ambient floor"*
+were true only while every family was a room light of ≥ 450 lm. The LOD-200 set adds the first
+fixtures whose **purpose is to be dim** — emergency downlight 180 lm, exit sign 60 lm, step marker
+90 lm. **EN 1838 asks for ~1 lx on an escape-route centre line**; an emergency luminaire bright
+enough to pass a general-lighting floor would be the defect. Both invariants now bind over
+`isGeneralLightingFixture()`, **DERIVED from the efficacy class, never a lumen threshold picked to
+make a test pass**, and the excluded three gained the assertion that is true of them (they emit, and
+they emit LESS). Both claims are checked; neither was relaxed.
+
+### Also corrected in passing
+
+Three tests hard-coded the fixture population they existed to cover — `FixtureEmission.test.ts` and
+`FixturePhotometry.test.ts` each carried a 12-item list, and `lightingParamsRoundTrip.test.ts`
+carried a **rival copy** of the 13 authored-param keys whose entire job was "no field is silently
+dropped". **A control scoped to a list it maintains itself stops covering the population the moment
+the population grows.** All three now derive from production.
+
+---
+
+## L-1331 — ⛔ OPEN — plan-view placement throws for 30 of 32 fixture types (EI-3 arithmetic moved)
+
+**Lane LIGHT1 · 2026-08-19 · pre-existing defect, NOT introduced here, NOT fixed here.**
+
+`LightingPlanToolHandler.ts:135` sends `kind: <LightingFixtureType>` into bus `lighting.create`.
+`LightingKind` (`packages/schemas/src/elements/Lighting.ts`) is a **5-value `z.enum`** whose
+`.default()` fires on `undefined` but **never** on an out-of-enum literal, so the value reaches
+`Lighting.parse` as invalid and throws `LightingSchemaError`.
+
+This is **C96 §9.1 / EI-3** exactly. The twenty LOD-200 families change only its arithmetic:
+**10-of-12 becomes 30-of-32.** 3-D placement (`LightingTool` → `CreateLightingCommand`) and project
+reopen (`ImportProjectCommand`) both work — it is the **plan** path alone.
+
+⭐ **The translation function already exists and was built for this caller.**
+`constructionFormFor(fixtureType)` maps any family to a valid construction form, and its own header
+says *"callers needing the legacy 5-value enum … use this function"*. Exit (a) is
+`kind: constructionFormFor(type)` — **one line, in `apps/editor`**. Not taken here because §9.1 names
+**two exits and no third** (widen-and-translate, or stop offering what cannot be placed per C82) and
+that is a decision, not a lane's discretion. ⛔ Do not "fix" it by widening the parse to accept
+anything.
+
+**Owner:** whoever owns `apps/editor/src/engine/views/plantools/`.
+
+---
+
+## L-1332 — ⛔ OPEN — all twenty LOD-200 families draw a GENERIC plan symbol
+
+`LightingPlanSymbolRenderer.ts` switches on `fixtureType` with a `default:` arm. The twelve named
+families have bespoke symbols; the twenty new ones fall to the default. **They appear in plan — they
+are not distinguishable there.** A bollard, a troffer and an exit sign draw the same mark, which is
+wrong on a drawing that a contractor reads.
+
+Not a blocker for the founder ask (the ask was 3-D LOD-200 fixtures with photometrics) and honestly
+recorded rather than silently shipped. The fix is derivable the same way the geometry was: a symbol
+per **archetype**, not per family.
+
+---
+
+## L-1333 — ⛔ OPEN — beam angle still does not narrow the light (pre-existing)
+
+Every fixture is instantiated as a `THREE.PointLight`, which is omnidirectional by construction, so
+`beamAngleDeg` drives the **lens emissive treatment only**. Documented already in
+`FixturePhotometry` §Beam angle, and unchanged here — but the LOD-200 set makes it more visible:
+`flood_spot` (30°) and `exterior_wall_pack` (120°) are authored as genuinely different optics and
+**throw identically**. A `SpotLight` upgrade for the directional archetypes (`can` with a tilt,
+`yoke`) would read the field directly.
+
+---
+
+## L-1334 — ✅ FIXED (same session) — a barrel import at MODULE LOAD broke test collection repo-wide
+
+**Lane LIGHT1 · 2026-08-19 · recorded because it cost other lanes time, not because it survived.**
+
+Mid-build, `packages/geometry-lighting/src/LightingTypes.ts` imported `LOD200_FLOOR_MOUNTED_IDS`
+from the **`@pryzm/core-app-model` root barrel** and spread it at **module scope**. The barrel is
+mutually reachable with that module graph, so during initialisation the binding was `undefined` and
+the spread threw `LOD200_FLOOR_MOUNTED_IDS is not iterable`. **Any suite importing the runtime
+barrels failed to COLLECT** — lane LOG1's previously-green
+`clashRegistrationOnComposedBus.test.ts` reported *"no tests"*, and its new suite could not run.
+
+⭐ **This is the named, recorded failure mode "no barrel access at module load", which has
+previously caused a white screen here.** A second site was latent and worse:
+`LightingTypeDefinitions.ts` **calls** `lod200TypeDefinitionRows()` at module scope inside a frozen
+array — not a late value but `undefined is not a function`.
+
+**Fix — structural, not an ordering tweak.** ⛔ Re-ordering the spread cannot help: the cycle is the
+defect, not the line number. The right question is *"can this import EVER be defined at
+module-init?"* — and for a mutually-reachable barrel the answer is **no**. So a dedicated subpath
+export `@pryzm/core-app-model/lod200-fixtures` now points at the **defining module**, which imports
+only the pure L0 material catalogue and therefore **always** initialises. All three geometry-lighting
+consumers were moved onto it, including the builder, whose three symbols are only read at call time
+and would have survived a barrel import — *"it happens to be late enough" is not a property worth
+depending on when the acyclic import is the same length.*
+
+Verified: LOG1's `clashRegistrationOnComposedBus.test.ts` **5 ✅**, geometry-lighting **32 ✅**,
+core-app-model lighting **75 ✅**, command-registry round-trip **11 ✅**.

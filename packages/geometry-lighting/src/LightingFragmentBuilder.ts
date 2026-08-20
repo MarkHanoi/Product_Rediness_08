@@ -80,10 +80,68 @@ import {
     type SceneQualityTier,
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — the twenty LOD-200 families. The
+// builder reads the MATRIX (one row per family) instead of gaining twenty bespoke
+// build methods, so a twenty-first family is drawn correctly on its first build
+// rather than silently falling through to `_buildDownlight`.
+// ⛔ §SCC-NO-BARREL-AT-MODULE-LOAD — the defining module by subpath, not the root
+// barrel. These three are only read at CALL time so they would have survived a
+// barrel import, but "it happens to be late enough" is not a property worth
+// depending on when the acyclic import is the same length.
+import {
+    lod200Row,
+    lod200BodyAppearance,
+    type Lod200FixtureRow,
+} from '@pryzm/core-app-model/lod200-fixtures';
 
 // ── Shared materials (one per builder instance) ───────────────────────────────
 
 const _matCache = new Map<string, THREE.MeshStandardMaterial>();
+
+/**
+ * C100 §5 — magenta, on purpose. A `materialId` naming nothing in the master
+ * catalogue must render as OBVIOUSLY LOST, never as a plausible grey: a silent
+ * fallback is how a wrong material ships looking correct. Same convention the
+ * lighting / door / window material bridges already use.
+ */
+const UNRESOLVED_MATERIAL_COLOR = '#ff00ff';
+
+/**
+ * §FEAT-LOD200-LUMINAIRES — the authored (shape-relative) lens emissive every
+ * LOD-200 family starts from. `_syncLens` re-scales it by the fixture's
+ * photometric lens factor and the day/night state, so this is a SHAPE constant,
+ * NOT a brightness — brightness comes from the row's lumens, via
+ * `lensEmissiveFor(photometryForFixture(...))`.
+ */
+const LOD200_LENS_BASE = 1.0;
+
+/**
+ * §FEAT-LOD200-LUMINAIRES — one fixture's resolved build context: its matrix row,
+ * its per-instance overrides applied, dimensions converted to metres, and the
+ * POOLED body material (plus the raw appearance, so an archetype needing a
+ * variant — e.g. the double-sided high-bay shell — can re-pool rather than clone).
+ */
+interface Lod200Ctx {
+    readonly row: Lod200FixtureRow;
+    /** Length, or diameter for round archetypes, metres. */
+    readonly L: number;
+    /** Width across the emitting face, metres. */
+    readonly W: number;
+    /** Body depth, or HEIGHT for the `post` archetype, metres. */
+    readonly D: number;
+    /** Suspension drop below the mount plane, metres. */
+    readonly drop: number;
+    /** Aim off the default axis, RADIANS. */
+    readonly tilt: number;
+    /** Radial arm count (`arms` archetype). */
+    readonly arms: number;
+    readonly bodyMat: THREE.MeshStandardMaterial;
+    readonly bodyColor: string;
+    readonly bodyMetalness: number;
+    readonly bodyRoughness: number;
+    /** Lens tint, DERIVED from the row's kelvin — never authored. */
+    readonly lensTint: string;
+}
 
 function sharedMat(hex: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}): THREE.MeshStandardMaterial {
     const key = hex + JSON.stringify(opts);
@@ -422,6 +480,13 @@ export class LightingFragmentBuilder {
     // ── Geometry builders ─────────────────────────────────────────────────────
 
     private _buildFixture(data: LightingData): THREE.Group {
+        // §FEAT-LOD200-LUMINAIRES (L-1330) — a LOD-200 family is drawn from its matrix
+        // row's ARCHETYPE. Checked FIRST and by LOOKUP, not by adding twenty `case`
+        // labels: the `default:` arm below silently draws a downlight, so a family
+        // that forgot its case would render the WRONG FIXTURE while every schedule,
+        // export and photometry read reported the right one.
+        if (lod200Row(data.fixtureType)) return this._buildLod200(data);
+
         switch (data.fixtureType) {
             case 'downlight':            return this._buildDownlight(data);
             case 'pendant':              return this._buildPendant(data);
@@ -1274,6 +1339,13 @@ export class LightingFragmentBuilder {
         light.userData.elementId = data.id;
 
         // Position light at the fixture's emitter anchor (approximate bulb location).
+        // §FEAT-LOD200-LUMINAIRES (L-1330) — derived per ARCHETYPE. The named switch
+        // below is per FAMILY, which is how `mirror_light` came to have no case at all
+        // and sat emitting from inside the wall plane (see its case).
+        const lodOffset = this._lod200EmitterOffset(data);
+        if (lodOffset) {
+            light.position.set(lodOffset.x, lodOffset.y, lodOffset.z);
+        } else
         switch (data.fixtureType) {
             case 'downlight':
                 light.position.set(0, -0.10, 0);
@@ -1361,6 +1433,394 @@ export class LightingFragmentBuilder {
 
         group.add(light);
         this._lights.set(data.id, light);
+    }
+
+
+    // ── §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) ──────────────────────────
+    //
+    // Twenty families, EIGHT masses. Each `Lod200FixtureRow` names an archetype and
+    // a few millimetre dimensions, and the builders below draw that generic mass.
+    //
+    // ⭐ Why not twenty `_buildX` methods: the twelve named families above have one
+    // bespoke builder each, which is exactly the enumerated-list shape this lane was
+    // asked to stop repeating — a twenty-first family added that way arrives with no
+    // geometry and falls through to `_buildDownlight`, rendering a downlight while
+    // the schedule says "bollard". Here a new row picks an EXISTING archetype and is
+    // drawn correctly on its first build.
+    //
+    // ⚠ LOD 200 is the CEILING, not a shortcut. "Generic geometry with approximate
+    // size, shape, location and orientation" is the definition, so these are
+    // recognisable masses at real dimensions — a 600 × 600 troffer, a 900 mm bollard,
+    // a 400 mm high-bay cone. They are NOT manufacturer models and must not be
+    // described as such.
+    //
+    // ⭐ MATERIALS: every body colour AND its metalness/roughness are resolved from
+    // the C100 master catalogue by `materialId`. Zero materials are minted, zero body
+    // hex colours are typed, and all meshes share the module-level `sharedMat` /
+    // `sharedLensMat` pools — twenty new families add ZERO per-instance materials.
+
+    /** Millimetres → metres. */
+    private _mm(v: number): number { return v / 1000; }
+
+    /**
+     * Resolve one fixture's LOD-200 build context: the catalogue row, the
+     * per-instance overrides, dimensions in metres, and the pooled body material.
+     *
+     * Returns `null` when `fixtureType` is not a LOD-200 family, so every caller
+     * falls through to the twelve named builders unchanged.
+     */
+    private _lod200Ctx(data: LightingData): Lod200Ctx | null {
+        const row = lod200Row(data.fixtureType);
+        if (!row) return null;
+        const o = data.lod200Params ?? {};
+
+        // ⭐ The override may name a DIFFERENT catalogue material — still an id, never
+        // a colour. An id that resolves to nothing renders the C100 §5 magenta marker
+        // rather than a plausible grey: a lost material must never look like a finish.
+        const matId = o.bodyMaterialId ?? row.bodyMaterialId;
+        const look = lod200BodyAppearance(matId)
+            ?? { color: UNRESOLVED_MATERIAL_COLOR, metalness: 0, roughness: 0.6 };
+        const bodyMat = sharedMat(look.color, { metalness: look.metalness, roughness: look.roughness });
+
+        // The lens tint is DERIVED from the fixture's CCT, not typed: a 6500 K exit
+        // sign must not glow the same colour as a 2700 K chandelier. This is an
+        // EMITTED colour, not a material finish — the "never a hand-typed hex" rule
+        // is about body materials, and this value is computed, not authored.
+        const lensTint = '#' + kelvinToHex(row.kelvin).toString(16).padStart(6, '0');
+
+        return {
+            row,
+            L: this._mm(o.lengthMm ?? row.lMm),
+            W: this._mm(o.widthMm ?? row.wMm),
+            D: this._mm(o.depthMm ?? row.dMm),
+            drop: this._mm(o.dropMm ?? row.dropMm ?? 0),
+            tilt: (o.tiltDeg ?? 0) * (Math.PI / 180),
+            arms: Math.max(2, Math.min(12, Math.round(o.armCount ?? row.arms ?? 6))),
+            bodyMat,
+            bodyColor: look.color,
+            bodyMetalness: look.metalness,
+            bodyRoughness: look.roughness,
+            lensTint,
+        };
+    }
+
+    /**
+     * Build any LOD-200 family. Dispatches on the row's ARCHETYPE, so the twenty
+     * families need no per-family code path at all.
+     */
+    private _buildLod200(data: LightingData): THREE.Group {
+        const ctx = this._lod200Ctx(data);
+        const g = new THREE.Group();
+        if (!ctx) return g;
+        switch (ctx.row.archetype) {
+            case 'can': this._lod200Can(g, ctx); break;
+            case 'bar': this._lod200Bar(g, ctx); break;
+            case 'disc': this._lod200Disc(g, ctx); break;
+            case 'cone': this._lod200Cone(g, ctx); break;
+            case 'post': this._lod200Post(g, ctx); break;
+            case 'arms': this._lod200Arms(g, ctx); break;
+            case 'yoke': this._lod200Yoke(g, ctx); break;
+            case 'sign': this._lod200Sign(g, ctx); break;
+        }
+        return g;
+    }
+
+    /** CAN — cylindrical body ± trim ring ± stem. Recessed downlights, adjustable
+     *  downlights, wall washers, emergency downlights, track heads. */
+    private _lod200Can(g: THREE.Group, c: Lod200Ctx): void {
+        const r = c.L / 2;
+        const stem = this._mm(c.row.stemMm ?? 0);
+
+        // A tiltable head is its own sub-group so the aim rotates the BODY and its
+        // lens together — tilting only the lens would light a direction the fixture
+        // is not pointing, which is the failure an adjustable downlight exists to avoid.
+        const head = new THREE.Group();
+
+        if (c.row.recessed) {
+            // Body sits INSIDE the ceiling void (+Y, above the soffit); only the trim
+            // ring and the lens are visible in the room. That is the whole visual
+            // difference between a recessed fixture and a surface one.
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r * 0.92, c.D, SEG_BODY), c.bodyMat);
+            body.position.y = c.D / 2;
+            head.add(body);
+            const trim = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.08, 8, SEG_TRIM), c.bodyMat);
+            trim.rotation.x = Math.PI / 2;
+            head.add(trim);
+            head.add(this._lod200Lens(r * 0.82, c, -0.005));
+        } else {
+            // Surface / track: a stem drops the head clear of the ceiling plane.
+            if (stem > 0) {
+                const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, stem, SEG_CABLE), c.bodyMat);
+                rod.position.y = -stem / 2;
+                g.add(rod);
+            }
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, c.D, SEG_BODY), c.bodyMat);
+            body.position.y = -(c.D / 2);
+            body.castShadow = true;
+            head.add(body);
+            head.add(this._lod200Lens(r * 0.88, c, -c.D));
+        }
+
+        head.position.y = -stem;
+        head.rotation.x = c.tilt;
+        g.add(head);
+    }
+
+    /** BAR — rectangular body with a lens face. The workhorse: recessed slots,
+     *  troffers, surface battens, coves (face up), under-cabinet strips, suspended
+     *  linears, up/down sconces, wall packs and step markers. */
+    private _lod200Bar(g: THREE.Group, c: Lod200Ctx): void {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(c.L, c.D, c.W), c.bodyMat);
+
+        if (c.row.mount === 'wall') {
+            // Wall frame convention, matching `_buildMirrorLight`: the fixture
+            // projects along +Z out of the wall face. A recessed marker sinks INTO
+            // the wall instead (−Z), leaving only its lens proud.
+            body.position.set(0, 0, c.row.recessed ? -c.W / 2 : c.W / 2);
+            g.add(body);
+            const face = this._lod200Lens(0, c, 0, c.L * 0.9, c.D * 0.55);
+            face.position.set(0, c.row.recessed ? 0 : -c.D / 2, c.row.recessed ? 0.004 : c.W * 0.98);
+            g.add(face);
+            if (c.row.face === 'updown') {
+                const up = this._lod200Lens(0, c, 0, c.L * 0.9, c.D * 0.55);
+                up.position.set(0, c.D / 2, c.W * 0.98);
+                up.rotation.x = Math.PI;
+                g.add(up);
+            }
+            return;
+        }
+
+        // Ceiling frame: +Y is into the void, −Y is into the room.
+        if (c.drop > 0) {
+            // Two suspension cables at the quarter points — what makes a suspended
+            // linear read as suspended rather than a surface batten in mid-air.
+            for (const sx of [-c.L * 0.35, c.L * 0.35]) {
+                const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, c.drop, SEG_CABLE), c.bodyMat);
+                cable.position.set(sx, -c.drop / 2, 0);
+                g.add(cable);
+            }
+        }
+        // Recessed: body above the soffit, lens flush at the mount plane.
+        // Surface/suspended: the body hangs below its mount plane.
+        const topY = -c.drop;
+        body.position.y = c.row.recessed ? topY + c.D / 2 : topY - c.D / 2;
+        body.castShadow = !c.row.recessed;
+        g.add(body);
+
+        if (c.row.face === 'down' || c.row.face === 'updown') {
+            const lensY = c.row.recessed ? topY - 0.004 : topY - c.D;
+            g.add(this._lod200Lens(0, c, lensY, c.L * 0.92, c.W * 0.92));
+        }
+        if (c.row.face === 'up' || c.row.face === 'updown') {
+            // Face UP is what makes a cove INDIRECT: the lens points at the ceiling
+            // and the room sees only the wash, never the source.
+            const up = this._lod200Lens(0, c, topY + 0.004, c.L * 0.92, c.W * 0.92);
+            up.rotation.x = Math.PI;
+            g.add(up);
+        }
+    }
+
+    /** DISC — flush circular oyster with a domed lens. */
+    private _lod200Disc(g: THREE.Group, c: Lod200Ctx): void {
+        const r = c.L / 2;
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.96, c.D, SEG_BODY), c.bodyMat);
+        body.position.y = -(c.D / 2);
+        body.castShadow = true;
+        g.add(body);
+        g.add(this._lod200Lens(r * 0.9, c, -c.D, 0, 0, 0.3));
+    }
+
+    /** CONE — industrial high-bay reflector on a drop rod. */
+    private _lod200Cone(g: THREE.Group, c: Lod200Ctx): void {
+        if (c.drop > 0) {
+            const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, c.drop, SEG_CABLE), c.bodyMat);
+            rod.position.y = -c.drop / 2;
+            g.add(rod);
+        }
+        const r = c.L / 2;
+        // Open-ended cone, so BOTH faces must shade or the reflector reads inside-out.
+        // Taken from the pool with `side` in the key rather than cloned per fixture —
+        // a `.copy()` here would mint one material per high bay, which is precisely
+        // the per-instance-material defect this builder was cleaned up to remove.
+        const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(r * 0.35, r, c.D, SEG_BODY, 1, true),
+            sharedMat(c.bodyColor, { metalness: c.bodyMetalness, roughness: c.bodyRoughness, side: THREE.DoubleSide }),
+        );
+        body.position.y = -(c.drop + c.D / 2);
+        body.castShadow = true;
+        g.add(body);
+        g.add(this._lod200Lens(r * 0.9, c, -(c.drop + c.D), 0, 0, 0.12));
+    }
+
+    /** POST — free-standing bollard. Stands UP from the floor plane (+Y). */
+    private _lod200Post(g: THREE.Group, c: Lod200Ctx): void {
+        const r = c.L / 2;
+        const h = c.D;                       // for a post, `dMm` is the HEIGHT
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, h * 0.88, SEG_BODY), c.bodyMat);
+        shaft.position.y = (h * 0.88) / 2;
+        shaft.castShadow = true;
+        g.add(shaft);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.06, r * 1.06, h * 0.05, SEG_TRIM), c.bodyMat);
+        cap.position.y = h - h * 0.025;
+        g.add(cap);
+        // The luminous band sits UNDER the cap and faces DOWN — a bollard lights the
+        // path, not the sky. Drawing it as an up-facing globe would be the wrong
+        // fixture and the wrong lighting design.
+        g.add(this._lod200Lens(r * 0.92, c, h * 0.9));
+    }
+
+    /** ARMS — canopy, stem, and N radial arms with small lenses (chandelier). */
+    private _lod200Arms(g: THREE.Group, c: Lod200Ctx): void {
+        const canopy = new THREE.Mesh(new THREE.CylinderGeometry(c.L * 0.12, c.L * 0.12, 0.03, SEG_TRIM), c.bodyMat);
+        canopy.position.y = -0.015;
+        g.add(canopy);
+        if (c.drop > 0) {
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, c.drop, SEG_CABLE), c.bodyMat);
+            stem.position.y = -(c.drop / 2);
+            g.add(stem);
+        }
+
+        const hubY = -c.drop;
+        const hub = new THREE.Mesh(new THREE.SphereGeometry(c.L * 0.07, SEG_BODY, SEG_THIN), c.bodyMat);
+        hub.position.y = hubY;
+        g.add(hub);
+
+        const reach = c.L / 2;
+        for (let i = 0; i < c.arms; i++) {
+            const a = (i / c.arms) * Math.PI * 2;
+            // Arms sweep slightly UPWARD from the hub, which is what makes a
+            // chandelier read as a chandelier rather than as a spider.
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, reach, SEG_CABLE), c.bodyMat);
+            arm.rotation.z = Math.PI / 2 - 0.35;
+            arm.rotation.y = -a;
+            arm.position.set(Math.cos(a) * reach / 2, hubY + reach * 0.17, Math.sin(a) * reach / 2);
+            g.add(arm);
+
+            const cupY = hubY + reach * 0.34;
+            const cup = new THREE.Mesh(new THREE.CylinderGeometry(c.L * 0.05, c.L * 0.04, c.D * 0.14, SEG_THIN), c.bodyMat);
+            cup.position.set(Math.cos(a) * reach, cupY, Math.sin(a) * reach);
+            g.add(cup);
+
+            const lens = this._lod200Lens(c.L * 0.045, c, cupY - c.D * 0.07);
+            lens.position.x = Math.cos(a) * reach;
+            lens.position.z = Math.sin(a) * reach;
+            g.add(lens);
+        }
+    }
+
+    /** YOKE — wall-mounted floodlight on a U-bracket, aimed along +Z. */
+    private _lod200Yoke(g: THREE.Group, c: Lod200Ctx): void {
+        const stem = this._mm(c.row.stemMm ?? 60);
+        const base = new THREE.Mesh(new THREE.BoxGeometry(c.W * 0.5, c.W * 0.5, 0.02), c.bodyMat);
+        base.position.z = 0.01;
+        g.add(base);
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, stem, SEG_CABLE), c.bodyMat);
+        arm.rotation.x = Math.PI / 2;
+        arm.position.z = 0.02 + stem / 2;
+        g.add(arm);
+
+        // The barrel and its lens tilt TOGETHER, so the aim the user sets is the aim
+        // the light actually has.
+        const head = new THREE.Group();
+        head.position.z = 0.02 + stem;
+        head.rotation.x = c.tilt;
+        const barrel = new THREE.Mesh(new THREE.BoxGeometry(c.L, c.W, c.D), c.bodyMat);
+        barrel.position.z = c.D / 2;
+        barrel.castShadow = true;
+        head.add(barrel);
+        const lens = this._lod200Lens(0, c, 0, c.L * 0.86, c.W * 0.86);
+        lens.position.z = c.D + 0.004;
+        lens.rotation.x = -Math.PI / 2;
+        head.add(lens);
+        g.add(head);
+    }
+
+    /** SIGN — internally illuminated escape-route sign on a drop rod. */
+    private _lod200Sign(g: THREE.Group, c: Lod200Ctx): void {
+        if (c.drop > 0) {
+            const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, c.drop, SEG_CABLE), c.bodyMat);
+            rod.position.y = -c.drop / 2;
+            g.add(rod);
+        }
+        const y = -(c.drop + c.W / 2);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(c.L, c.W, c.D), c.bodyMat);
+        panel.position.y = y;
+        g.add(panel);
+        // Legible from BOTH sides — a single-sided exit sign is invisible to half the
+        // escape route. LOD 200 draws the luminous PANEL, not the ISO 7010 pictogram:
+        // there is no texture/decal path for fixtures in this builder, and a blank
+        // panel is honest where a fake glyph would not be.
+        for (const s of [1, -1]) {
+            const f = this._lod200Lens(0, c, y, c.L * 0.9, c.W * 0.86);
+            f.position.z = s * (c.D / 2 + 0.003);
+            f.rotation.x = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+            g.add(f);
+        }
+    }
+
+    /**
+     * The luminous face for a LOD-200 fixture.
+     *
+     * `radius > 0` gives the domed circular lens `emissiveLens()` already builds
+     * (round archetypes); otherwise a flat rectangular face `planeL × planeW` is
+     * used, because a troffer's lens IS a rectangle and forcing it into a disc
+     * would misdraw the most-specified office fixture there is.
+     *
+     * Both share the module-level `sharedLensMat` pool, so twenty families add ZERO
+     * per-instance materials — the defect that cost this project its instancing once.
+     */
+    private _lod200Lens(
+        radius: number,
+        c: Lod200Ctx,
+        y: number,
+        planeL = 0,
+        planeW = 0,
+        bulge = 0.18,
+    ): THREE.Mesh {
+        if (radius > 0) {
+            const m = emissiveLens(radius, c.lensTint, LOD200_LENS_BASE, bulge);
+            m.position.y = y;
+            return m;
+        }
+        const geo = new THREE.PlaneGeometry(Math.max(0.01, planeL), Math.max(0.01, planeW));
+        geo.rotateX(Math.PI / 2);   // face −Y (down into the room) by default
+        const mesh = new THREE.Mesh(geo, sharedLensMat(c.lensTint, LOD200_LENS_BASE));
+        mesh.position.y = y;
+        tagLens(mesh, c.lensTint, LOD200_LENS_BASE);
+        return mesh;
+    }
+
+    /**
+     * Where a LOD-200 fixture's emitter sits, in the fixture's own frame.
+     *
+     * ⚠ This is the half that was MISSING for `mirror_light`, which left its light
+     * inside the wall plane contributing almost nothing (see that case below).
+     * Deriving the anchor from the ARCHETYPE rather than per family means a
+     * twenty-first row cannot repeat it: the row inherits its archetype's anchor.
+     */
+    private _lod200EmitterOffset(data: LightingData): { x: number; y: number; z: number } | null {
+        const c = this._lod200Ctx(data);
+        if (!c) return null;
+        const stem = this._mm(c.row.stemMm ?? 0);
+        switch (c.row.archetype) {
+            case 'can':
+                return { x: 0, y: c.row.recessed ? -0.02 : -(stem + c.D + 0.02), z: 0 };
+            case 'bar':
+                if (c.row.mount === 'wall') {
+                    // Just PROUD of the wall face, never inside it.
+                    return { x: 0, y: -c.D * 0.5, z: (c.row.recessed ? 0.02 : c.W) + 0.02 };
+                }
+                // Face 'up' emits toward the ceiling from just above the body.
+                return c.row.face === 'up'
+                    ? { x: 0, y: -c.drop + c.D + 0.05, z: 0 }
+                    : { x: 0, y: -(c.drop + (c.row.recessed ? 0.02 : c.D + 0.02)), z: 0 };
+            case 'disc': return { x: 0, y: -(c.D + 0.03), z: 0 };
+            case 'cone': return { x: 0, y: -(c.drop + c.D + 0.05), z: 0 };
+            case 'post': return { x: 0, y: c.D * 0.85, z: 0 };
+            case 'arms': return { x: 0, y: -(c.drop + c.D * 0.1), z: 0 };
+            case 'yoke': return { x: 0, y: 0, z: this._mm(c.row.stemMm ?? 60) + c.D + 0.05 };
+            case 'sign': return { x: 0, y: -(c.drop + c.W / 2), z: 0 };
+        }
     }
 
     private _detachLight(id: string, group: THREE.Group): void {

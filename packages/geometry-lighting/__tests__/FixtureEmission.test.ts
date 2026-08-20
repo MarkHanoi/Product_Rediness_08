@@ -24,14 +24,36 @@ import {
     sceneIntensityFor,
     FIXTURE_LIGHT_ROLE,
     LIVE_LIGHT_BUDGET_BY_TIER,
+    LIGHTING_FIXTURE_PHOTOMETRY,
+    isGeneralLightingFixture,
 } from '@pryzm/core-app-model';
 
-const ALL_FIXTURE_TYPES: readonly LightingFixtureType[] = [
-    'downlight', 'pendant', 'linear_led', 'pendant_pebble',
-    'pendant_ceramic_bell', 'pendant_conical', 'pendant_cluster',
-    'floor_wood_post', 'floor_arc_brass', 'floor_tripod_black',
-    'table_terracotta', 'mirror_light',
-];
+/**
+ * §FEAT-LOD200-LUMINAIRES (L-1330) — ONE definition, imported. This predicate was
+ * briefly written out here too; two copies of "which fixtures light a space" is the
+ * rival-table shape the whole lane exists to remove, so it lives beside the matrix
+ * that determines it and both suites read the same answer.
+ */
+const isRoomLighting = (t: LightingFixtureType): boolean => isGeneralLightingFixture(t);
+
+/**
+ * Every fixture family the builder can be asked to draw — DERIVED from the single
+ * photometry table, not re-listed.
+ *
+ * §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — this WAS a hand-written list of
+ * twelve, and adding the twenty LOD-200 families broke it, which is the finding
+ * worth keeping: a test that hard-codes the population it is meant to cover stops
+ * covering the population the moment the population grows. It reported a failure
+ * for exactly the case it should have been asserting — that twenty new families
+ * are all present and all emit.
+ *
+ * Reading the table instead means every future family is covered by these suites on
+ * the day it is added, with no edit here. The table is itself asserted TOTAL over
+ * `LightingFixtureType` by `FixturePhotometry.test.ts`, so this cannot silently
+ * shrink either.
+ */
+const ALL_FIXTURE_TYPES: readonly LightingFixtureType[] =
+    Object.keys(LIGHTING_FIXTURE_PHOTOMETRY) as LightingFixtureType[];
 
 const g = globalThis as unknown as { window?: Record<string, unknown> };
 
@@ -118,11 +140,54 @@ describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — coverage: every family emits', () =
         });
     });
 
-    it('is at least 2× the legacy flat 1.5-candela emission for every family', () => {
+    /**
+     * §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — SPLIT, and the split is the point.
+     *
+     * This assertion used to read "for EVERY family", which was true only while every
+     * family was a room light of ≥ 450 lm. The twenty LOD-200 rows introduced the first
+     * fixtures whose whole PURPOSE is to be dim: a maintained emergency downlight (180 lm)
+     * and an internally illuminated exit sign (60 lm). EN 1838 asks for on the order of
+     * 1 lx on an escape-route centre line — roughly two orders of magnitude below an
+     * amenity level — so a life-safety fixture that cleared a GENERAL-LIGHTING brightness
+     * floor would be the defect, not the fix.
+     *
+     * The same is true of a 2 W step MARKER: its job is to mark a position, not to
+     * illuminate the volume it sits in.
+     *
+     * The original intent survives intact for the fixtures it was written about: no
+     * ROOM-LIGHTING family may be dimmer than the flat scalar it replaced. The
+     * life-safety and marker families get the assertion that is actually true of them —
+     * they emit, and they emit LESS than general lighting — so both claims are now
+     * checked instead of one being quietly relaxed to accommodate the other. The
+     * population split is DERIVED (`isRoomLighting`), so it cannot be widened later to
+     * absorb a family that simply came out too dim by mistake.
+     */
+    it('every ROOM-LIGHTING family is at least 2× the legacy flat 1.5-candela emission', () => {
         builder.setDayNight('night');
+        let checked = 0;
         forEachFamilyAlone(builder, (t, l) => {
+            if (!isRoomLighting(t)) return;   // a duty or a marker, not a room light
             expect(l.intensity / 1.5, t).toBeGreaterThanOrEqual(2);
+            checked++;
         });
+        // The exclusion must never silently swallow the whole population.
+        expect(checked, 'room-lighting families checked').toBeGreaterThanOrEqual(12);
+    });
+
+    it('LIFE-SAFETY and MARKER families emit, but are DIMMER than general lighting — by design', () => {
+        builder.setDayNight('night');
+        const emergency: string[] = [];
+        forEachFamilyAlone(builder, (t, l) => {
+            if (isRoomLighting(t)) return;
+            emergency.push(t);
+            // It must still light — an emergency luminaire that emits nothing is the
+            // one failure mode that matters.
+            expect(l.intensity, t + ' must still emit').toBeGreaterThan(0);
+            // …and it must not masquerade as amenity lighting.
+            expect(l.intensity, t + ' must not read as a room light')
+                .toBeLessThan(sceneIntensityFor(photometryForFixture('downlight'), true));
+        });
+        expect(emergency.sort()).toEqual(['emergency_downlight', 'exit_sign', 'step_marker_light']);
     });
 
     it('fixture lights never cast shadows — the cube-shadow-map cap belongs to the sun', () => {

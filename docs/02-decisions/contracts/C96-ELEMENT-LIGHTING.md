@@ -770,3 +770,224 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §FEAT-LOD200-LUMINAIRES — the twenty LOD-200 families (added 2026-08-19, lane LIGHT1, **L-1330**)
+
+### The founder ask, and the measurement that had to come first
+
+> *"Can you create 20 more LOD 200 lighting fixtures? All with LUMEN values. All kinds.
+> Architecturally sound?"*
+
+⭐ **THE QUESTION THAT DECIDED WHETHER THIS WAS A DATA FEATURE OR A RENDERING ONE:
+does anything actually READ a lumen value? Measured before a line was written.**
+
+**ANSWER: YES on the RENDER path. NO on every ANALYSIS path.** Both halves are load-bearing and
+neither may be quoted without the other.
+
+| Consumer | Reads lumens? | Evidence |
+|---|---|---|
+| `LightingFragmentBuilder._attachLight` | ✅ **YES** | `:1244-1250` — `sceneIntensityFor(photometryForFixture(t))` → `PointLight.intensity`; `kelvinToHex(photo.kelvin)` → colour; `photo.reachM` → `distance` |
+| `LightingFragmentBuilder._syncLens` | ✅ **YES** | `:1199` — `lensEmissiveFor(photometryForFixture(t))` drives the emissive lens |
+| `LampBuilder` / `BedEngine` (furniture lamps) | ✅ **YES** | `LampBuilder.ts:44-57`, `BedEngine.ts:737-750` |
+| `geometry-kernel/producers/lighting.ts` | ✅ **YES** | `:94-98` — lumens@kelvin is part of the **material key**, so two fixtures differing only in lumens get different materials |
+| **`pryzmLightAllRooms()` / D-LE lighting engine** | ⛔ **NO** | `workflows/lightingLayout/archetypes.ts` — placement is **occupancy + a coarse area bucket**, first-fit on `minAreaM2`. Zero lumen, lux or illuminance reads in the whole directory. |
+| **`pryzmComputeDaylight()`** | ⛔ **NO** | `workflows/daylight/daylightAnalysis.ts:52` — natural light only, and its own header says it is *"a defensible RELATIVE metric"*, **not absolute lux** |
+| **`pryzmComputeSunHours()` / `@pryzm/solar-analysis`** | ⛔ **NO** | solar geometry only; no artificial-light term exists in the package |
+
+**What this means, stated so it cannot be over-claimed:**
+
+- ✅ **The numbers are REAL, not metadata.** A lumen value changes what the user sees: it sets the
+  `PointLight` intensity through a documented candela conversion, and it sets the lens emissive.
+  A wrong number is a visibly wrong render, which is why the efficacy band below is a build gate
+  rather than a comment.
+- ⛔ **No lighting-DESIGN calculation consumes them.** There is **no illuminance (lux) calculation
+  anywhere in this repository** — no working-plane grid, no lumen-method estimate, no
+  EN 12464-1 task-level check, no uniformity or UGR. **The D-LE engine that auto-fires on
+  `furnish.layout-executed` places ONE fixture per room by occupancy and area and never asks how
+  bright it is.** A 22 000 lm high bay and a 60 lm exit sign are placed by the identical rule.
+- ⛔ Therefore: *"PRYZM computes lighting levels"* is **FALSE** and must not be written anywhere.
+  The correct claim is *"PRYZM renders photometrically-derived fixture brightness."*
+
+⭐ **This is the answer to "authored but unwired": the lumens are WIRED — to the renderer. The
+DESIGN consumer is the thing that does not exist.** Naming which half is which is the deliverable.
+
+### What existed before
+
+**12** fixture families (`LightingFixtureType`), spelled out in **four** places per family — the
+union (×3 duplicate files, §9.2), a `*_DEFAULTS` const, a `LIGHTING_FIXTURE_PHOTOMETRY` row and a
+`BUILT_IN_LIGHTING_TYPES` row — and almost all of them decorative residential pieces: six pendants,
+three floor lamps, a table lamp, a vanity strip, one surface canister. **The catalogue could not
+describe a single recessed fixture, and had no panel, no track, no cove, no exterior fixture and no
+life-safety fixture at all.**
+
+Fields carried per family: `lumens`, `kelvin`, `beamAngleDeg`, `reachM`, `mount`, `form`,
+`suspended?`. **No wattage, no CRI, no IP rating** — so efficacy, the one arithmetic check that
+falsifies a bad photometric set, could not even be computed.
+
+### What was added
+
+**Twenty families, derived from ONE matrix** — `packages/core-app-model/src/lighting/Lod200FixtureCatalogue.ts`.
+
+A row authors only what cannot be computed (`id · name · use · archetype · mount · face ·
+location · lumens · watts · kelvin · cri · beamAngleDeg · ipRating · bodyMaterialId · dimensions`).
+Everything else is DERIVED:
+
+| Derived | From | Rule |
+|---|---|---|
+| `reachM` | `lumens` | `√(lm / 4π·E_min)`, `E_min = 2 lx`, clamped `[2.5, 9]`, rounded to 0.5 m |
+| `form` (`point`/`linear`) | face dimensions | long ≥ 3 × short ⇒ `linear` |
+| `suspended` | `dropMm` | `dropMm > 0` |
+| `efficacyLmPerW` | `lumens / watts` | — |
+| `efficacyClass` | archetype + duty + size + output | ordered: duty → decorative → miniature → architectural |
+| minimum IP | `location` | interior 20 · wet 44 · exterior 65 |
+| floor-seating | `mount === 'floor'` | feeds `FLOOR_MOUNTED_FIXTURES` |
+| `LightingKind` construction form | photometry | the pre-existing `constructionFormFor()`, unchanged |
+| the photometry rows | the matrix | `photometryRowsForLod200()`, spread into `LIGHTING_FIXTURE_PHOTOMETRY` |
+| the type-picker rows | the matrix | `lod200TypeDefinitionRows()`, spread into `BUILT_IN_LIGHTING_TYPES` |
+| the 3-D mass | `archetype` + dims | eight generic builders in `LightingFragmentBuilder` |
+
+⭐ **Adding a twenty-first luminaire is ONE ROW and zero lines anywhere else.** It cannot arrive
+missing a field because there are no other fields to miss — and because
+`LightingFixtureType` is itself widened by `Lod200FixtureId` (a union derived from the row array),
+a row without photometry is a **compile error**, not a runtime surprise.
+
+**The twenty:** `recessed_downlight` · `adjustable_downlight` · `wall_washer_recessed` ·
+`recessed_linear` · `troffer_panel` · `surface_linear` · `linear_pendant` · `surface_ceiling_disc` ·
+`cove_indirect` · `undercabinet_strip` · `track_head` · `high_bay` · `wall_sconce_up_down` ·
+`chandelier_decorative` · `emergency_downlight` · `exit_sign` · `step_marker_light` ·
+`bollard_light` · `exterior_wall_pack` · `flood_spot`.
+
+**Deliberately EXCLUDED, with reasons** (⛔ never re-add without reading these):
+
+- **Pendants, floor lamps, table lamps, vanity strips** — already in the catalogue. A LOD-200
+  duplicate would be a rival row for one fixture, the exact drift this file prevents.
+- **Track RUN** (as distinct from `track_head`) — an ASSEMBLY: a track extrusion of user-chosen
+  length carrying N heads at user-chosen positions. **No layer in this repo composes multi-part
+  luminaire assemblies**, and the placement tool has no length parameter. **NOT YET.**
+- **Pool/immersion lights, in-ground uplights, gobo projectors, fibre-optic, neon-flex, tape light
+  by the metre** — their defining parameter (immersion depth, run length per metre) has no schema
+  field. **NOT YET.**
+
+### Architecturally sound — what is asserted, and by what
+
+`Lod200FixtureCatalogue.test.ts` (28 tests) + `FixtureEmission.test.ts` + `FixturePhotometry.test.ts`.
+
+- ⭐ **ARM A — every shipped type resolves its `materialId` against the LIVE `MATERIAL_CATALOG`.**
+  The real catalogue is imported, never a stub — *a fake built from the same header cannot falsify
+  the header* — and the suite additionally asserts the catalogue under test IS the real one
+  (`length > 100`, a known id present) so the substitution cannot happen silently.
+- ⭐ **ARM B — every type lands in a plausible lm/W band for its DERIVED class**
+  (architectural 65–170 · decorative 30–110 · miniature 30–95 · signalling 8–50). A dedicated test
+  proves the band **rejects** a 6 W / 3000 lm downlight (500 lm/W). The class is derived, so a row
+  cannot select the lenient band for its own numbers.
+- CCT ∈ [2200, 6500] K · CRI ∈ [70, 100] · beam ∈ (0, 360]. Asserted **relationally** where the
+  axis carries meaning: the accent `track_head` must out-render the service `exterior_wall_pack` on
+  CRI, and `adjustable_downlight` must be narrower than `wall_washer_recessed` on beam — *a spot and
+  a wall washer differ by exactly that field*, so a copied-across value would collapse two rows into
+  one.
+- IP ≥ the location minimum. **An IP20 bollard is the named defect this arm catches.**
+- Mount ↔ seating coherence, checked against the set the tool actually reads.
+
+### ⛔ Capabilities NOT claimed
+
+- ⛔ **NO IES / photometric data file.** No field, no loader, no such capability anywhere in this
+  repository. A beam angle and a lumen output are the LOD-200 photometric facts; an IES distribution
+  is LOD 350+. Claiming one would be a capability that does not exist.
+- ⛔ **NO UGR/glare rating, maintenance factor, lamp-lumen depreciation, driver/dimming protocol,
+  circuit, or emergency-battery duration.** **NOT YET** — the schema has no field for any of them.
+- ⚠ **NO COMPLIANCE EVALUATION.** EN 1838, EN 12464-1, ISO 7010 and IEC 60529 are cited in the
+  source as the reason numbers were chosen; **nothing evaluates them.** Consistent with the measured
+  finding that **no layer in this repo evaluates a guard or code rule for any element family**
+  (2026-08-19), the efficacy and IP bounds ship as **ADVISORY**, with that measurement stated at the
+  point of use. ⛔ A passing test is **not** conformance and must never be reported as such.
+- The exit sign draws a **luminous panel, not the ISO 7010 pictogram** — there is no texture/decal
+  path for fixtures in this builder, and a blank panel is honest where a fake glyph would not be.
+
+### Materials — zero minted
+
+Every row names an **existing** `MATERIAL_CATALOG` id (C100/C84 §1.1); the test asserts the minted
+set is `[]`. Colour **and** metalness/roughness are resolved from the master row, so a luminaire body
+cannot drift from the material it claims to be made of.
+
+⛔ **No row carries a hex colour, and there is deliberately no colour field on `Lod200FixtureRow`.**
+A hand-typed hex resolves BEFORE the material id in every builder here, which makes the material a
+silent no-op that the UI still reports as applied (C100 §2.1). A test scans every string field on
+every row for anything hex-shaped. An id that resolves to nothing renders the **C100 §5 magenta
+marker** — a lost material must never look like a finish.
+
+**Per-instance materials added: ZERO.** All eight archetypes draw from the module-level `sharedMat` /
+`sharedLensMat` pools, including the high bay, which takes a double-sided variant **from the pool**
+rather than cloning (a `.copy()` there would mint one material per fixture — the defect that cost
+this project its instancing once).
+
+### Persistence — ONE new key, through the DEFAULT-ON path
+
+`LightingData` gains **one** optional block, `lod200Params` (`lengthMm · widthMm · depthMm · dropMm ·
+tiltDeg · armCount · bodyMaterialId`), and `LIGHTING_AUTHORED_PARAM_KEYS` gains **one** entry.
+
+⭐ **Twenty families, one key — deliberately.** The twelve named families each brought their own
+`*Params` block, which is why the loader could drop one (§PERSIST-LIGHTING-PARAMS). Twenty more
+blocks would have been twenty more chances to repeat it. At LOD 200 the catalogue row **is** the
+specification, so the only per-instance state is a generic size/drop/aim override.
+
+⚠ **Round-tripped through `ImportProjectCommand` — the DEFAULT-ON restore path**, via the real
+exported `buildLightingRestorePayload` its Step 10b calls. The legacy `ProjectLoader` arm and the
+`persistence-client` copy are the dead twins and are **not** exercised. Five save/load holes were
+found in one week, one of them because a family's fields were dropped by the default path while the
+control tested the twin. Asserted: all twenty round-trip by `fixtureType`; every override survives
+by **value** (a 2.4 m brass pendant must not reopen 1.5 m and white); absence stays absence.
+
+The old control's hand-copied 13-key list — a **rival** list that could not have noticed a
+fourteenth key — now imports the production one.
+
+### ⚠ Two invariants were RE-SCOPED, and that is a finding, not an accommodation
+
+*"Every fixture family is at least 2× the legacy flat intensity"* and *"every fixture dominates the
+scene ambient floor at 2.5 m"* were true **only while every family was a room light of ≥ 450 lm**.
+The LOD-200 set introduces the first fixtures whose **purpose is to be dim**: a maintained emergency
+downlight (180 lm), an exit sign (60 lm) and a 2 W step marker (90 lm). **EN 1838 asks for on the
+order of 1 lx on an escape-route centre line** — an emergency luminaire bright enough to clear a
+general-lighting floor would be the **defect**, not the fix.
+
+Both invariants now bind over `isGeneralLightingFixture()` — **DERIVED** from the efficacy class,
+never a lumen threshold chosen to make a test pass — and the excluded three get the assertion that
+is actually true of them: **they emit, and they emit LESS than general lighting.** Both claims are
+checked; neither was relaxed. A floor assertion guards the exclusion from swallowing the population.
+
+### ⛔ THE LIMIT — the twenty inherit EI-3 (§9.1), and it is NOT fixed here
+
+**Placement works on the LIVE path and throws on the PLAN path — the same split §9.1 already records
+for 10 of the 12 named families.**
+
+| Path | Route | Twenty LOD-200 families |
+|---|---|---|
+| 3-D placement (`LightingTool`) | → `CreateLightingCommand` → `LightingStore` → builder | ✅ **WORKS** |
+| Project reopen (`ImportProjectCommand`) | → `buildLightingRestorePayload` → `CreateLightingCommand` | ✅ **WORKS** (tested) |
+| **Plan placement (`LightingPlanToolHandler`)** | → bus `lighting.create` → `Lighting.parse` | ⛔ **THROWS** |
+
+`LightingPlanToolHandler.ts:135` sends `kind: <LightingFixtureType>`, and `LightingKind` is a
+5-value `z.enum` whose `.default()` fires on `undefined` but **never** on an out-of-enum literal — so
+the value reaches `Lighting.parse` as invalid and throws `LightingSchemaError`. **This is EI-3
+exactly, pre-existing, and the twenty change only its arithmetic: 10-of-12 becomes 30-of-32.**
+
+⭐ **Not fixed here, on purpose.** §9.1 names **two exits and no third** — widen `LightingKind` and
+translate at the boundary, or stop offering what cannot be placed (C82) — and that is a decision, not
+a lane's discretion. ⚠ **But the translation function already exists and was built for this
+caller:** `constructionFormFor(fixtureType)` maps any family to a valid 4-value construction form,
+and its own header says *"callers needing the legacy 5-value enum … use this function"*. Sending
+`kind: constructionFormFor(type)` from `LightingPlanToolHandler` is exit (a), one line, in
+`apps/editor`. **Logged as L-1331; owned by whoever owns that surface.**
+
+### NOT YET — the honest register for this feature
+
+| # | Gap | Why it is not "done" |
+|---|---|---|
+| 1 | **No illuminance calculation exists.** | There is no lux, working-plane or lumen-method layer anywhere. The lumens drive RENDER brightness only. ⛔ Never describe this as lighting analysis. |
+| 2 | **D-LE does not read lumens.** | `pryzmLightAllRooms()` still places one fixture per room by occupancy + area. The twenty are available to it but it asks nothing about them. |
+| 3 | **Plan-view placement throws (EI-3).** | Above. L-1331. |
+| 4 | **No bespoke plan symbols.** | `LightingPlanSymbolRenderer` has a `default:` arm, so all twenty render a GENERIC symbol. They appear in plan; they are not distinguishable there. L-1332. |
+| 5 | **Beam angle still does not narrow the PointLight.** | Pre-existing and documented (`FixturePhotometry` §Beam angle): every fixture is a `PointLight`. So `flood_spot` at 30° and `exterior_wall_pack` at 120° differ in LENS treatment, not in throw. A `SpotLight` upgrade would read `beamAngleDeg` directly. L-1333. |
+| 6 | **`watts` / `cri` / `ipRating` are absent on the twelve named families.** | Optional by design: back-filling a wattage nobody measured would be inventing data. They stay **absent** rather than plausible. |
+| 7 | **Three copies of `LightingTypes.ts` remain (§9.2).** | The union now widens from ONE derived source, so the twenty are added in one place — but the three files still each carry the same one-line import. Not the fix §9.2 asks for. |

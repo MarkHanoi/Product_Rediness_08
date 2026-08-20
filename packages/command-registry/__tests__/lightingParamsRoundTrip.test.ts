@@ -60,6 +60,10 @@ import { describe, it, expect } from 'vitest';
 import { LightingStore } from '@pryzm/geometry-lighting';
 import type { LightingData } from '@pryzm/geometry-lighting';
 import { buildLightingRestorePayload } from '../src/project/projectLoaderUtils';
+// §FEAT-LOD200-LUMINAIRES (L-1330) — the PRODUCTION key list, so this control cannot
+// silently stop covering a key that production added.
+import { LIGHTING_AUTHORED_PARAM_KEYS } from '../src/lighting/lightingAuthoredParams';
+import { LOD200_FIXTURE_IDS } from '@pryzm/core-app-model/lod200-fixtures';
 
 /**
  * A pendant-cluster fixture whose every authored value differs from the code default
@@ -97,12 +101,19 @@ function authoredCluster(): LightingData {
 }
 
 /** Every `LightingData` key that carries authored state and is not identity/placement. */
-const AUTHORED_PARAM_KEYS = [
-    'downlightParams', 'pendantParams', 'linearLedParams', 'pendantPebbleParams',
-    'pendantCeramicBellParams', 'pendantConicalParams', 'floorWoodPostParams',
-    'floorArcBrassParams', 'tableTerracottaParams', 'floorTripodBlackParams',
-    'mirrorLightParams', 'pendantClusterParams', 'emission',
-] as const;
+/**
+ * §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — DERIVED from production, not re-typed.
+ *
+ * This was a hand-copy of the thirteen keys, which made it a RIVAL list: a fourteenth
+ * key added to `LIGHTING_AUTHORED_PARAM_KEYS` could be dropped by the loader and this
+ * control — the one whose entire job is "no field is silently dropped" — would not
+ * have noticed, because it was asserting against its own copy rather than against the
+ * production list. That is the same tautology the header above diagnoses in
+ * `persistKitchenWardrobeLighting.test.ts`, one level further out.
+ *
+ * Importing the real list means this control's population grows with the code.
+ */
+const AUTHORED_PARAM_KEYS = LIGHTING_AUTHORED_PARAM_KEYS;
 
 /**
  * The serializer's own transform over a lighting record is `deepStrip(l)` followed by
@@ -199,5 +210,129 @@ describe('§PERSIST-LIGHTING-PARAMS — ARM B: the LOAD half must not discard th
         expect(restored).not.toBeNull();
         expect(restored!.pendantParams).toBeUndefined();
         expect(restored!.emission).toBeUndefined();
+    });
+});
+
+// ── §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) ────────────────────────────────
+//
+// ⭐ THE SIXTH-HOLE ARM. Five save/load holes were found in this codebase in one
+// week, one of them because a whole family's fields were dropped by the DEFAULT-ON
+// restore path while the control exercised the dead twin. Twenty new fixture
+// families arrive with that history, so the round-trip is asserted through the path
+// that actually ships.
+//
+// ⚠ WHICH PATH IS THAT: `ImportProjectCommand` is the default-on fast load, and at
+// its Step 10b it calls `buildLightingRestorePayload(lt)` for every serialised
+// fixture and feeds the result to `CreateLightingCommand`. That function — the REAL
+// exported one, imported at the top of this file — is therefore the mapper on the
+// shipping path, not a stand-in for it. The legacy per-command `ProjectLoader` arm
+// and the `persistence-client` copy are the dead twins; neither is exercised here,
+// on purpose.
+
+/** A LOD-200 fixture whose every override differs from its catalogue row. */
+function authoredLod200(): LightingData {
+    return {
+        id: 'light-lod200-1',
+        type: 'lighting',
+        levelId: 'L0',
+        fixtureType: 'linear_pendant',
+        position: { x: 4.2, y: 2.55, z: 1.8 },
+        rotation: { x: 0, y: 1.5708, z: 0, order: 'XYZ' },
+        roomId: 'room-office',
+        tags: ['desk-run'],
+        // Every value differs from the `linear_pendant` row (1500 × 70 × 70 mm,
+        // 700 mm drop, aluminium-powder-coated-white), so a silent default on
+        // restore fails on VALUE and not merely on presence.
+        lod200Params: {
+            lengthMm: 2400,
+            widthMm: 95,
+            depthMm: 85,
+            dropMm: 1150,
+            tiltDeg: 12,
+            bodyMaterialId: 'brass-polished',
+        },
+    };
+}
+
+describe('§FEAT-LOD200-LUMINAIRES — LOD-200 overrides round-trip through the SHIPPING restore path', () => {
+    it('ARM A — the save half writes every LOD-200 override to the record', () => {
+        const store = new LightingStore();
+        store.add(authoredLod200());
+
+        const onDisk = saveThenRead(store);
+
+        expect(onDisk.fixtureType).toBe('linear_pendant');
+        expect(onDisk.lod200Params).toEqual(authoredLod200().lod200Params);
+    });
+
+    it('ARM B — the load half restores them with the AUTHORED values, not the row defaults', () => {
+        const store = new LightingStore();
+        store.add(authoredLod200());
+        const onDisk = saveThenRead(store);
+
+        const restored = buildLightingRestorePayload(onDisk);
+
+        expect(restored).not.toBeNull();
+        expect(restored!.fixtureType).toBe('linear_pendant');
+        expect(restored!.lod200Params).toEqual(authoredLod200().lod200Params);
+        // Named individually: a 2.4 m brass pendant must not reopen 1.5 m and white.
+        expect(restored!.lod200Params!.lengthMm).toBe(2400);
+        expect(restored!.lod200Params!.dropMm).toBe(1150);
+        expect(restored!.lod200Params!.bodyMaterialId).toBe('brass-polished');
+    });
+
+    it('the ONE new key is on the production list the loader actually reads', () => {
+        // If `lod200Params` were missing from `LIGHTING_AUTHORED_PARAM_KEYS`, ARM B
+        // would fail — but this states the mechanism directly, so a later refactor
+        // that keeps the values flowing by some other route still records the contract.
+        expect(LIGHTING_AUTHORED_PARAM_KEYS).toContain('lod200Params');
+        // ONE key for TWENTY families: the whole reason twenty new `*Params` blocks
+        // were not minted. Twelve named blocks + `emission` + this one.
+        expect(LIGHTING_AUTHORED_PARAM_KEYS).toHaveLength(14);
+    });
+
+    it('a LOD-200 fixture authoring NO overrides restores none — absence stays absence', () => {
+        // It must come back on its catalogue row, never on an empty override object
+        // that would later read as "the user set every dimension to undefined".
+        const store = new LightingStore();
+        store.add({
+            id: 'light-bollard-1',
+            type: 'lighting',
+            levelId: 'L0',
+            fixtureType: 'bollard_light',
+            position: { x: 9, y: 0, z: 4 },
+        });
+        const onDisk = saveThenRead(store);
+
+        const restored = buildLightingRestorePayload(onDisk);
+
+        expect(restored).not.toBeNull();
+        expect(restored!.fixtureType).toBe('bollard_light');
+        expect(restored!.lod200Params).toBeUndefined();
+    });
+
+    it('every one of the twenty families survives a full save → load cycle', () => {
+        // Twenty families, one assertion: a family that cannot round-trip its own
+        // identity is unusable however good its photometry is.
+        const store = new LightingStore();
+        for (const id of LOD200_FIXTURE_IDS) {
+            store.add({
+                id: 'light-' + id,
+                type: 'lighting',
+                levelId: 'L0',
+                fixtureType: id,
+                position: { x: 0, y: 2.6, z: 0 },
+                lod200Params: { dropMm: 321 },
+            });
+        }
+        const onDisk = JSON.parse(JSON.stringify(store.getAll()));
+        expect(onDisk).toHaveLength(LOD200_FIXTURE_IDS.length);
+
+        for (const rec of onDisk) {
+            const restored = buildLightingRestorePayload(rec);
+            expect(restored, rec.id + ' restore').not.toBeNull();
+            expect(restored!.fixtureType, rec.id + ' fixtureType').toBe(rec.fixtureType);
+            expect(restored!.lod200Params?.dropMm, rec.id + ' override').toBe(321);
+        }
     });
 });

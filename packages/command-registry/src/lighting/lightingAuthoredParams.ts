@@ -43,6 +43,17 @@ export const LIGHTING_AUTHORED_PARAM_KEYS = [
     'pendantCeramicBellParams', 'pendantConicalParams', 'floorWoodPostParams',
     'floorArcBrassParams', 'tableTerracottaParams', 'floorTripodBlackParams',
     'mirrorLightParams', 'pendantClusterParams', 'emission',
+    // §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — ONE key for all TWENTY new
+    // LOD-200 families, deliberately.
+    //
+    // The twelve named families each brought their own `*Params` block, which is
+    // why this list is twelve entries long and why the load path could drop one.
+    // Twenty more blocks would have been twenty more chances to repeat exactly the
+    // defect this module was created to fix. At LOD 200 the catalogue row IS the
+    // specification, so the only per-instance state is a generic size/drop/aim
+    // override — one block, one key, and the round-trip through
+    // `ImportProjectCommand` covers all twenty by construction.
+    'lod200Params',
 ] as const;
 
 /** The authored-state slice of `LightingData`; every member is optional there and here. */

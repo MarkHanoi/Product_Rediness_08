@@ -27,6 +27,9 @@
  */
 
 import { Point3D, EulerDTO } from '../types/GeometryDTO';
+// §FEAT-LOD200-LUMINAIRES (L-1330) — the twenty LOD-200 families are DERIVED from
+// the matrix; this file states no LOD-200 fact of its own.
+import { LOD200_FLOOR_MOUNTED_IDS, type Lod200FixtureId } from '../lighting/Lod200FixtureCatalogue.js';
 
 // ── Fixture family ─────────────────────────────────────────────────────────
 
@@ -42,7 +45,14 @@ export type LightingFixtureType =
     | 'table_terracotta'     // Table lamp — terracotta column + cone shade
     | 'floor_tripod_black'   // Floor lamp — black tripod + drum shade
     | 'mirror_light'         // F1.5' (2026-05-30) — wall-mounted vanity light strip above bathroom mirror
-    | 'pendant_cluster';     // F1.15 (2026-05-30) — multi-pendant ceiling cluster (kitchen island / dining table centerpiece)
+    | 'pendant_cluster'      // F1.15 (2026-05-30) — multi-pendant ceiling cluster (kitchen island / dining table centerpiece)
+    // §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — the twenty LOD-200 architectural,
+    // exterior and life-safety families. NOT spelled out: the union widens itself from
+    // `LOD200_FIXTURE_ROWS`, so adding a twenty-first luminaire is ONE ROW in the matrix
+    // and there is no second list here to forget. That is the whole point — this union
+    // is duplicated verbatim in THREE files (see §Three copies below), and a hand-typed
+    // member would have to be remembered in all three.
+    | Lod200FixtureId;
 
 /**
  * Fixture types that are placed on the floor / a surface rather than the
@@ -53,6 +63,11 @@ export const FLOOR_MOUNTED_FIXTURES: ReadonlySet<LightingFixtureType> = new Set<
     'floor_arc_brass',
     'table_terracotta',
     'floor_tripod_black',
+    // §FEAT-LOD200-LUMINAIRES (L-1330) — DERIVED, never re-listed. A LOD-200 row whose
+    // `mount` is 'floor' (today: the bollard) seats itself on the floor plane. Authoring
+    // the mount in one place and the seating set in another is exactly how a fixture ends
+    // up silently hung from the ceiling, so the set reads the matrix instead.
+    ...LOD200_FLOOR_MOUNTED_IDS,
 ]);
 
 // ── Parametric dimensions (all metres) ────────────────────────────────────
@@ -223,6 +238,21 @@ export interface LightingData {
     // ── F1.15 (2026-05-30) — multi-pendant kitchen/dining cluster ──────────
     readonly pendantClusterParams?:     Partial<PendantClusterParams>;
 
+    // ── §FEAT-LOD200-LUMINAIRES (L-1330) — the ONE override block for all twenty ──
+    /**
+     * Per-instance overrides for a LOD-200 family. ONE block for all twenty
+     * families rather than twenty `*Params` interfaces, because at LOD 200 the
+     * catalogue row IS the specification and the only thing an architect adjusts
+     * is the generic size, the drop and the aim.
+     *
+     * Deliberately ONE new persisted key: `LIGHTING_AUTHORED_PARAM_KEYS` gains a
+     * single entry, so the round-trip through `ImportProjectCommand` covers all
+     * twenty by construction. Twenty new param blocks would have been twenty
+     * chances to drop one on load — the defect shape that has cost this project
+     * five save/load holes this week.
+     */
+    readonly lod200Params?:             Partial<Lod200OverrideParams>;
+
     /** Emission override — if absent uses defaults for the fixtureType */
     readonly emission?: Partial<LightEmissionConfig>;
 
@@ -342,6 +372,36 @@ export const PENDANT_CLUSTER_DEFAULTS: PendantClusterParams = {
     maxCableLen:   0.85,
     count:         3,
 };
+
+/**
+ * §FEAT-LOD200-LUMINAIRES (L-1330) — per-instance overrides for a LOD-200 fixture.
+ *
+ * Every field is OPTIONAL and every absent field falls back to the catalogue row
+ * (`LOD200_FIXTURE_ROWS`). There is no `*_DEFAULTS` const for these: the defaults
+ * ARE the matrix, and minting a parallel defaults object would be a second place
+ * for the same numbers to live.
+ *
+ * ⛔ There is deliberately NO colour field. A hand-typed hex resolves BEFORE the
+ * material id in every builder here, which would make `bodyMaterialId` a silent
+ * no-op that the UI still reports as applied (C100 §2.1). To change what a
+ * fixture is made of, name a different `MATERIAL_CATALOG` id.
+ */
+export interface Lod200OverrideParams {
+    /** Length, or diameter for round archetypes, MILLIMETRES. */
+    readonly lengthMm: number;
+    /** Width across the emitting face, millimetres. */
+    readonly widthMm:  number;
+    /** Body depth/height, millimetres. */
+    readonly depthMm:  number;
+    /** Suspension drop below the mount plane, millimetres. 0 = flush/surface. */
+    readonly dropMm:   number;
+    /** Aim off the fixture's default axis, degrees — adjustable families only. */
+    readonly tiltDeg:  number;
+    /** Radial arm count — the `arms` archetype (chandelier) only. */
+    readonly armCount: number;
+    /** An EXISTING `MATERIAL_CATALOG` id overriding the row's body material. */
+    readonly bodyMaterialId: string;
+}
 
 export const DEFAULT_EMISSION: LightEmissionConfig = {
     color:     '#fff3d0',

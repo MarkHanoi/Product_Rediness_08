@@ -33,6 +33,9 @@
 
 import { trace, SpanStatusCode, type Attributes } from '@opentelemetry/api';
 import type { LightingFixtureType } from './LightingTypes.js';
+// §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — the twenty LOD-200 families are not
+// written out below; they are DERIVED from the one matrix and spread into the table.
+import { photometryRowsForLod200 } from './Lod200FixtureCatalogue.js';
 
 const TRACER = trace.getTracer('@pryzm/core-app-model/fixture-photometry', '0.1.0');
 
@@ -100,6 +103,28 @@ export interface FixturePhotometry {
      * fact, not a separate mount class.
      */
     readonly suspended?: boolean;
+    /**
+     * §FEAT-LOD200-LUMINAIRES (L-1330) — CIRCUIT WATTS, including driver losses.
+     *
+     * Optional because the twelve pre-existing families were authored before this
+     * field existed and none of them has a defensible figure: back-filling a
+     * wattage nobody measured would be inventing data, so they stay ABSENT rather
+     * than plausible. Present on all twenty LOD-200 rows.
+     *
+     * `lumens / watts` is the efficacy honesty check — see `EFFICACY_BANDS`.
+     */
+    readonly watts?: number;
+    /** Colour Rendering Index (Ra). Optional for the same reason as `watts`. */
+    readonly cri?: number;
+    /** IEC 60529 IP rating as a two-digit integer. Optional, as above. */
+    readonly ipRating?: number;
+    /**
+     * EN 1838 / ISO 30061 emergency DUTY. A DUTY, never a construction form — a
+     * maintained-emergency downlight is still a downlight, which is why
+     * `constructionFormFor` does not read this. Callers needing the schema's
+     * legacy 5-value enum emit `'emergency'` from this flag.
+     */
+    readonly isEmergency?: boolean;
 }
 
 /**
@@ -174,6 +199,21 @@ export const LIGHTING_FIXTURE_PHOTOMETRY: Readonly<Record<LightingFixtureType, F
     // Table / wall
     table_terracotta:     { lumens:  450, kelvin: 2400, beamAngleDeg: 180, reachM: 3.5, mount: 'table',   form: 'point'  },
     mirror_light:         { lumens:  700, kelvin: 4000, beamAngleDeg: 180, reachM: 3.0, mount: 'wall',    form: 'linear' },
+
+    // ── §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) ────────────────────────
+    //
+    // The twenty LOD-200 architectural, exterior and life-safety families —
+    // NOT written out. Each is derived from one row of `LOD200_FIXTURE_ROWS`:
+    // `reachM` from the inverse-square rule, `form` from the face aspect ratio,
+    // `suspended` from the drop, and lumens/kelvin/beam/watts/CRI/IP straight
+    // off the row. Adding a twenty-first is one row there and zero lines here.
+    //
+    // ⚠ The spread is what makes this table TOTAL over `LightingFixtureType`:
+    // that union is itself widened by the same matrix, so the exhaustiveness
+    // test ("the photometry table covers EXACTLY the families the tool can
+    // place") cannot be satisfied by a row that forgot its photometry — there
+    // is only one row to forget.
+    ...photometryRowsForLod200(),
 };
 
 /**

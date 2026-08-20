@@ -27,13 +27,35 @@ import {
     kelvinToHex,
 } from './FixturePhotometry.js';
 import { FLOOR_MOUNTED_FIXTURES } from './LightingTypes.js';
+// §FEAT-LOD200-LUMINAIRES (L-1330) — the derived half of the population below.
+import { LOD200_FIXTURE_IDS, isGeneralLightingFixture } from './Lod200FixtureCatalogue.js';
 
-/** The 12 first-class fixture families the lighting tool can place. */
+/**
+ * Every fixture family the lighting tool can place.
+ *
+ * §FEAT-LOD200-LUMINAIRES (L-1330, 2026-08-19) — TWO HALVES, on purpose:
+ *
+ *   • The twelve NAMED families stay spelled out. They are hand-authored with no
+ *     matrix behind them, so a hand-written list here is an INDEPENDENT source and
+ *     the coverage assertion below is a real check: if someone deletes a photometry
+ *     row, this list still expects it.
+ *   • The twenty LOD-200 families are taken from the MATRIX. Listing them here would
+ *     be re-typing the thing under test, and it is the shape that broke this suite in
+ *     the first place — a hand list stops covering the population the moment the
+ *     population grows.
+ *
+ * ⚠ The LOD-200 half is deliberately NOT the stronger check, and the stronger check
+ * already exists: `LIGHTING_FIXTURE_PHOTOMETRY` is typed
+ * `Record<LightingFixtureType, FixturePhotometry>`, and `LightingFixtureType` is
+ * widened by `Lod200FixtureId` from the same matrix — so a row without photometry is
+ * a COMPILE error, not a test failure. This runtime arm is the belt to that braces.
+ */
 const ALL_FIXTURE_TYPES = [
     'downlight', 'pendant', 'linear_led', 'pendant_pebble',
     'pendant_ceramic_bell', 'pendant_conical', 'pendant_cluster',
     'floor_wood_post', 'floor_arc_brass', 'floor_tripod_black',
     'table_terracotta', 'mirror_light',
+    ...LOD200_FIXTURE_IDS,
 ] as const;
 
 /**
@@ -237,6 +259,10 @@ describe('§FIX-LIGHT-NIGHT-CONTRIBUTION — day vs night', () => {
             // "Dominant" = at least 2× the ambient it has to beat. The OLD flat
             // 1.5 cd gave 0.24 here, i.e. 0.75× — DIMMER than ambient. That is
             // the black-room defect, expressed as a number.
+            // §FEAT-LOD200-LUMINAIRES (L-1330) — scoped to fixtures that LIGHT A SPACE.
+            // An emergency luminaire or a step marker that dominated the ambient floor
+            // would be the defect; see `isGeneralLightingFixture` for the derivation.
+            if (!isGeneralLightingFixture(t)) continue;
             expect(e / NIGHT_AMBIENT_FLOOR, `${t} night dominance`).toBeGreaterThan(2);
         }
     });
@@ -253,11 +279,34 @@ describe('§FEAT-FIXTURE-PHOTOMETRY — the 2× brightness requirement', () => {
     /** The single magic scalar every fixture shared before this change. */
     const LEGACY_INTENSITY = 1.5;
 
-    it('every fixture family is at least 2× the legacy flat intensity, at night AND by day', () => {
+    it('every ROOM-LIGHTING family is at least 2× the legacy flat intensity, at night AND by day', () => {
+        // §FEAT-LOD200-LUMINAIRES (L-1330) — the population is scoped, not the bound.
+        // This claim was always about fixtures that light a space; it simply had no
+        // counter-example until the catalogue gained life-safety and marker families.
+        let checked = 0;
         for (const t of ALL_FIXTURE_TYPES) {
+            if (!isGeneralLightingFixture(t)) continue;
             const p = photometryForFixture(t);
             expect(sceneIntensityFor(p, true) / LEGACY_INTENSITY, `${t} night`).toBeGreaterThanOrEqual(2);
             expect(sceneIntensityFor(p, false) / LEGACY_INTENSITY, `${t} day`).toBeGreaterThanOrEqual(2);
+            checked++;
+        }
+        // The exclusion must never quietly swallow the population it was scoping.
+        expect(checked, 'room-lighting families checked').toBeGreaterThanOrEqual(29);
+    });
+
+    it('LIFE-SAFETY and MARKER families emit, but never masquerade as room lighting', () => {
+        const excluded = ALL_FIXTURE_TYPES.filter((t) => !isGeneralLightingFixture(t));
+        expect([...excluded].sort())
+            .toEqual(['emergency_downlight', 'exit_sign', 'step_marker_light']);
+        const roomLight = sceneIntensityFor(photometryForFixture('downlight'), true);
+        for (const t of excluded) {
+            const p = photometryForFixture(t);
+            // Still lights — an emergency luminaire that emits nothing is the one
+            // failure mode that actually matters.
+            expect(sceneIntensityFor(p, true), `${t} must still emit`).toBeGreaterThan(0);
+            expect(sceneIntensityFor(p, true), `${t} must not read as a room light`)
+                .toBeLessThan(roomLight);
         }
     });
 
@@ -320,8 +369,16 @@ describe('P5-adjacent purity', () => {
         expect(code).not.toMatch(/renderer-three/);
         expect(code).not.toMatch(/\bdocument\.|\bwindow\.|globalThis\./);
         expect(code).not.toMatch(/node:fs|node:path|fetch\(|localStorage/);
-        // Only dependency permitted: the OTel API (P8 spans) and sibling types.
+        // Only dependency permitted: the OTel API (P8 spans) and PURE sibling
+        // modules. §FEAT-LOD200-LUMINAIRES (L-1330) added `Lod200FixtureCatalogue.js`,
+        // which is itself pure (its one import is the L0 material catalogue) — the
+        // list is asserted EXACTLY, so a future impure import fails here rather
+        // than quietly widening what "pure" means.
         const imports = [...code.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-        expect(imports.sort()).toEqual(['./LightingTypes.js', '@opentelemetry/api']);
+        expect(imports.sort()).toEqual([
+            './LightingTypes.js',
+            './Lod200FixtureCatalogue.js',
+            '@opentelemetry/api',
+        ]);
     });
 });
