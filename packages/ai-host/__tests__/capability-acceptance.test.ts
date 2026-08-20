@@ -378,6 +378,24 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
   // his exact words here is what stops that regressing back to a paraphrase
   // that happens to work.
   {
+    // §FEAT-CHAT-STAIR-WIDTH + §FIX-DIMENSION-PROPERTY-FIRST (L-1442).
+    // ⭐ The first phrasing is the founder's literal, and its WORD ORDER is the
+    // point: the property leads. That order was missing for walls, windows and
+    // doors too, so the last two phrasings pin it for the OTHER families in the
+    // same run — a family-local pin would have let the shared grammar regress
+    // for everyone else.
+    id: 'set-stair-dimensions',
+    ctx: scopedSel('stair'),
+    scoped: true,
+    phrasings: [
+      'change width of all stairs to 1.2 meters',
+      'change the width of all stairs to 1.2m',
+      'make all stairs 1.2m wide',
+      'set all stairs width to 1100mm',
+      'make the selected stairs 1.2m wide',
+    ],
+  },
+  {
     id: 'set-stair-railing-type',
     // scopedSel, not sel: these families FAN OUT, and `fanOutPerId` implies
     // `requireResolvedIds` — there are no ids to fan over until the scope is

@@ -74,6 +74,21 @@ import {
 // ENTRIES: one record generates both the CapabilityExecutionSpec and the
 // grammar below. Adding a family costs zero lines in this file.
 import { CATALOGUE_FAMILIES, type CatalogueLookup } from './CatalogueFamilies.js';
+// §FEAT-CHAT-BARE-TREAD (L-1443) — THE accept-set for stair geometry, shared
+// with the sketch tool and the create command (StairGeometryLimits.ts, lane
+// STAIR1). The chat speaks its refusal verbatim rather than re-phrasing a
+// bound, so the two layers cannot drift about a number.
+import { checkStairGeometry, resolveStairGeometryLimits } from '@pryzm/geometry-stair';
+// §REFUSE-STAIR-SPAN / §REFUSE-STAIR-RUN (L-1444) — the two founder sentences
+// the pipeline cannot build. Shipped as GRAMMAR + REFUSAL rather than left as
+// a miss, because a miss says "I didn't understand" when the truth is
+// "I understood exactly, and here is the command that does not exist".
+import {
+  applyStairPartRefusal,
+  applyStairSpanRefusal,
+  parseStairPartIntent,
+  parseStairSpanIntent,
+} from './StairNotYet.js';
 // RAC U9.2 — delete families (furniture / window / door / column) are TABLE
 // ENTRIES on exactly the same seam: one record generates the spec AND the
 // grammar. The only line this file spends on the whole family is the matcher
@@ -832,6 +847,33 @@ export type SemanticIntent =
       readonly scope: IntentScope;
     }
   /**
+   * §REFUSE-STAIR-SPAN (L-1444) — "create a stair from ground to level 5
+   * connected to this wall — in L shape". Parsed IN ORDER TO REFUSE
+   * ACCURATELY: every clause it understood is named back to the user, so the
+   * reply proves it was read rather than merely rejected. See StairNotYet.ts
+   * for the three measured blockers.
+   */
+  | {
+      readonly intent: 'create-stair-span';
+      /** The level RANGE, when the sentence carried one. The first grammar in
+       *  this package to read a range at all — see LEVEL_RANGE_RE. */
+      readonly fromLevel?: string;
+      readonly toLevel?: string;
+      /** The selection reference ("this", "selected"), when it carried one. */
+      readonly anchorRef?: string;
+      /** 'I' | 'L' | 'U', when the sentence named a shape. */
+      readonly shape?: string;
+    }
+  /**
+   * §REFUSE-STAIR-RUN (L-1444) — "change first run of all stairs to X meters".
+   * ⭐ The vocabulary cannot address a COMPONENT of an element at all today,
+   * only whole elements; this arm is where that is said out loud.
+   */
+  | {
+      readonly intent: 'set-stair-part';
+      readonly partRef: string;
+    }
+  /**
    * §FEAT-WINDOW-TYPE-BATCH (ADR-0315, founder ask #4) — "change the window
    * type to Steel Crittal Style" / "change all windows to timber casement".
    * Dispatches `window.updateSystemTypeBatch` (ONE undo entry; children are
@@ -877,7 +919,15 @@ export type SemanticIntent =
    * batch scale, which is what D2 called "the roadmap answer".
    */
   | {
-      readonly intent: 'set-wall-dimensions' | 'set-window-dimensions' | 'set-door-dimensions';
+      // §FEAT-CHAT-STAIR-WIDTH (L-1442) adds the stair. ⚠ This list is spelled
+      // out rather than taking `DimensionFamilyIntentId` because the arm's OTHER
+      // fields (`dims`, `scope`) are declared here and the table is imported for
+      // its VALUES, not its types — but it must move in lock-step with
+      // `DIMENSION_FAMILIES`, and `dimension-families.test.ts` asserts exactly
+      // that by driving every family's own `examples` through this arm.
+      readonly intent:
+        | 'set-wall-dimensions' | 'set-window-dimensions' | 'set-door-dimensions'
+        | 'set-stair-dimensions';
       /** The requested dimensions in METRES. One or several; a field the
        *  family's carrier cannot carry is REFUSED BY NAME in the value stage,
        *  never silently dropped. */
@@ -1406,11 +1456,62 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
       };
     }
 
+    // §REFUSE-STAIR-SPAN / §REFUSE-STAIR-RUN (L-1444) — the two refusal-only
+    // capabilities. ⭐ A refusal is SHIPPED CODE here, not an absence: without
+    // these arms both sentences are a MISS, and a miss falls through to an LLM
+    // production does not have configured, so the founder sees "I'm not sure how
+    // to help with that yet" — indistinguishable from a parse failure, when the
+    // truth is far more specific and far more useful. The copy lives in
+    // StairNotYet.ts alongside the measurements that justify it.
+    case 'create-stair-span':
+      return applyStairSpanRefusal(si, ctx);
+    case 'set-stair-part':
+      return applyStairPartRefusal(si, ctx);
+
     case 'set-riser-height':
     case 'set-tread-depth': {
-      // ADR-0315 P1 — both ride the LIVE stair.updateParameters carrier; the
-      // command validates against STAIR_CONSTRAINTS and refuses with the real
-      // bound in the message, so the resolver only guards positivity.
+      // ADR-0315 P1 — both ride the LIVE stair.updateParameters carrier.
+      //
+      // ⚠ THE COMMENT THAT USED TO BE HERE WAS HALF TRUE, AND THE HALF THAT WAS
+      // FALSE IS THE ONE THAT MATTERED (measured 2026-08-20, L-1443). It read
+      // *"the command validates against STAIR_CONSTRAINTS and refuses with the
+      // real bound in the message, so the resolver only guards positivity."*
+      // `UpdateStairParametersCommand.canExecute` validates riserHeight against
+      // BOTH `MIN_RISER_HEIGHT` and `MAX_RISER_HEIGHT` (lines 83-88) — and
+      // treadDepth against `MIN_TREAD_DEPTH` ONLY (line 107). **There is no
+      // max-tread check on that path at all**, so "change tread to 500mm" was
+      // written and reported as done.
+      //
+      // ⭐ THE FIX USES THE AUTHORITY'S OWN PREDICATE, NOT A SECOND OPINION.
+      // `checkStairGeometry` (geometry-stair, L-1435 lane STAIR1) is THE
+      // accept-set for stair geometry — its header states the rule: *"A layer
+      // that wants to refuse MORE must say so in its own words and be recorded;
+      // it may never disagree about THESE four."* The chat calls it and speaks
+      // its `message` verbatim, so the chat's "no" and the authority's "no" are
+      // the same sentence from the same source rather than two re-phrasings that
+      // can drift.
+      //
+      // ⛔ ONLY THE TYPE-INDEPENDENT BOUND IS ENFORCED HERE, AND THAT IS A
+      // MEASUREMENT, NOT A HEDGE. `resolveStairGeometryLimits` takes per-type
+      // rules, and the built-in types really do LOOSEN the minima:
+      // `timber-closed` and `residential-timber` declare `minTreadDepth: 0.220`
+      // and `maxRiserHeight: 0.220` against defaults of 0.250 / 0.190. The
+      // resolver sees `{elementId, elementType}` and NO typeId, so enforcing a
+      // default minimum here would REFUSE a 230 mm tread that is legal on a
+      // timber stair — a false refusal minted by a safety check, which is the
+      // §CONTEXT-DATA-HONESTY failure wearing a helmet.
+      //
+      // `maxTreadDepth` is the one bound no type can move — the limits module
+      // says so explicitly: *"A type may tighten (or loosen) tread and riser; it
+      // has no say over max tread."* So it is exactly the bound the chat can
+      // enforce without knowing the type, AND exactly the one the command
+      // misses. The minima stay the command's job, where the typeId is in scope.
+      //
+      // ⭐ The structural fix is a `stairTypeIdOf` injection on ResolverContext
+      // (the `resolveWallSystemType` precedent), which would let the chat resolve
+      // real per-type limits. It is NOT done here: the injection site is the
+      // editor bridge, outside this lane's seam, and a channel added with no
+      // one filling it is authored-but-unwired. It is logged instead.
       const label = si.intent === 'set-riser-height' ? 'riser height' : 'tread depth';
       const guard = needSelection(si.intent, ctx, `set its ${label}`);
       if ('refusal' in guard) return guard.refusal;
@@ -1425,6 +1526,20 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
           reason: `A ${label} of ${fmt(value)} is not valid — it must be positive.`,
           suggestions: [],
         };
+      }
+      if (si.intent === 'set-tread-depth') {
+        const limits = resolveStairGeometryLimits();
+        const tooDeep = checkStairGeometry({ treadDepth: value }, limits)
+          .find((r) => r.code === 'STAIR-TREAD-TOO-DEEP');
+        if (tooDeep !== undefined) {
+          return {
+            kind: 'refusal', intent: si.intent,
+            // The authority's own sentence, verbatim — never re-phrased.
+            reason:
+              `${tooDeep.message}. Nothing was changed.`,
+            suggestions: ['change tread to 280mm', 'set the tread depth to 300mm'],
+          };
+        }
       }
       const field = si.intent === 'set-riser-height' ? 'riserHeight' : 'treadDepth';
       const n = ctx.selection.length;
@@ -2773,8 +2888,29 @@ const matchRiserHeight: Matcher = (text) => {
   return { intent: 'set-riser-height', value: toMeters(m[1]!, m[2]) };
 };
 
+// ⭐ §FEAT-CHAT-BARE-TREAD (L-1443) — the founder types **"change tread to X"**,
+// with no element noun and no dimension noun.
+//
+// This matcher required the literal "tread depth" or "going", so his sentence
+// missed by ONE WORD and fell through to "I'm not sure how to help with that
+// yet". The question the brief asked — *is a bare attribute sentence in scope?*
+// — is answered YES here, and DELIBERATELY, for a reason that is specific to
+// this word rather than a general relaxation:
+//
+//   • "tread" is UNAMBIGUOUS in this product's vocabulary. It names one thing on
+//     one element kind, it is already in the resolver's typo-correction VOCAB,
+//     and no other capability claims it.
+//   • the sentence is SELECTION-scoped, so it cannot mass-edit anything: with
+//     nothing selected `needSelection` refuses and NAMES what to do, and with a
+//     non-stair selected `capabilityTargetRefusal` refuses by kind.
+//
+// ⛔ THE SAME IS NOT DONE FOR "riser". A bare "riser" is genuinely ambiguous
+// between riser HEIGHT and riser COUNT — two different asks with two different
+// units — and claiming it would mean guessing which. "riser height" keeps its
+// noun, and a bare "riser" stays an honest miss. A relaxation that is safe for
+// one word is not thereby safe for its neighbour.
 const matchTreadDepth: Matcher = (text) => {
-  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? (?:tread depth|going)(?: to)? ${LEN_SRC}$`).exec(text);
+  const m = new RegExp(`^(?:set|change|make)(?: the)?(?: stair)? (?:tread depth|treads?|going)(?: to)? ${LEN_SRC}$`).exec(text);
   if (!m) return null;
   return { intent: 'set-tread-depth', value: toMeters(m[1]!, m[2]) };
 };
@@ -3891,6 +4027,10 @@ export function parseWindowsParametricIntent(
 
 const matchWindowsParametric: Matcher = (text, ctx) => parseWindowsParametricIntent(text, ctx);
 
+// §REFUSE-STAIR-SPAN / §REFUSE-STAIR-RUN (L-1444) — see StairNotYet.ts.
+const matchStairSpan: Matcher = (text) => parseStairSpanIntent(text);
+const matchStairPart: Matcher = (text) => parseStairPartIntent(text);
+
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
 //
@@ -4288,11 +4428,36 @@ const MATCHERS: readonly Matcher[] = [
   // floor to oak", "change the slab type to concrete" and "change all doors on
   // level 2 to fire doors" are pinned as misses in moveToLevel.test.ts.
   matchMoveToLevel,
+  // §REFUSE-STAIR-RUN (L-1444) — BEFORE the catalogue families and BEFORE
+  // matchDimensionScoped, and the order is load-bearing in BOTH directions.
+  //
+  // "change first run of all stairs to 4 meters" carries a scope word, the
+  // stair noun and a (number, unit) pair, so `matchDimensionScoped`'s
+  // property-first shape would look at it — and find no dimension BINDING
+  // ("run" is not a dimension word), so it returns null and the sentence would
+  // have fallen through to a bare miss. Claiming it here turns that miss into
+  // a refusal that names the gap AND the live alternatives (C16 CA-18).
+  //
+  // Safe in the other direction BY CONSTRUCTION: this parser declines every
+  // part that already HAS a capability ("tread", "riser", "going" — see
+  // OWNED_PART_RE), so "change tread to 280mm" reaches `matchTreadDepth`
+  // untouched. Pinned in stair-chat-acceptance.test.ts, both ways.
+  matchStairPart,
   ...CATALOGUE_FAMILY_MATCHERS,
   // "create a window in the middle of every wall segment" — BEFORE
   // matchCreateWall: both start with creation verbs, but this one requires the
   // word "window", which the wall grammar never carries.
   matchWindowsParametric,
+  // §REFUSE-STAIR-SPAN (L-1444) — BEFORE the placement grammar at the bottom of
+  // this list, which is the ONLY other claimant of a creation verb + stair noun.
+  //
+  // ⛔ It cannot steal "create a stair": `parsePlacementRef` owns that sentence
+  // and ACTIVATES THE REAL TOOL, which works. This parser requires a level RANGE
+  // or an anchor reference — the two things the pipeline cannot honour — so a
+  // plain creation sentence has nothing for it to match. §FIX-PLACEMENT-OVERCLAIM
+  // records eight pills lost to exactly this mistake; the guard is that the
+  // grammar demands evidence of the UN-DOABLE ask, not merely of a stair.
+  matchStairSpan,
   // §FEAT-BULK-DIMENSIONS (L-949) — the bulk-dimension families. Placed AFTER
   // every type / colour / rake / layer / creation grammar above and BEFORE the
   // single-element dimension matchers below, and disjoint from both by

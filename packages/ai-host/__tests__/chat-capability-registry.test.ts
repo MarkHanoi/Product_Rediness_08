@@ -52,11 +52,15 @@ import {
   allPropertyEntries,
   propertyTargets,
 } from '../src/intents/PropertyVocabulary.js';
-// RAC U7.2 — the catalogue-family table (window / door / slab / ceiling).
+// RAC U7.2 — the catalogue-family table (window / door / slab / ceiling / the
+// two stair families).
 import {
   CATALOGUE_FAMILIES,
   catalogueFamilyTargets,
 } from '../src/intents/CatalogueFamilies.js';
+// §GATE-FANOUT-RATCHET (L-1445) — the spec table, so the fan-out count is taken
+// over EVERY capability rather than only the ones a given family table declares.
+import { EXECUTION_SPECS } from '../src/intents/CapabilityExecutionSpec.js';
 
 const ctxSelecting = (kind: string): ResolverContext => ({
   selection: [{ elementId: `probe-${kind}`, elementType: kind }],
@@ -242,6 +246,7 @@ describe('targets are PROVEN against the live guard, not merely declared', () =>
       // §FEAT-CHAT-STAIR-TYPES (L-1441) — two families, two kinds, and the
       // pair is the assertion: a stair and its railings are DIFFERENT elements
       // and neither may claim the other's kind.
+      'set-stair-dimensions': ['stair'],
       'set-stair-type': ['stair'],
       'set-stair-railing-type': ['stair-railing'],
       'move-to-level': [
@@ -540,6 +545,99 @@ describe('CHAT_CLASSIFIED is a roadmap, not a dumping ground', () => {
     const b = classificationBreakdown();
     for (const cls of ['B', 'C', 'D', 'E', 'F'] as const) {
       expect(b[cls], cls).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ §GATE-FANOUT-RATCHET (L-1445) — FAN-OUT IS A DEBT, NOT A DESIGN
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ── WHAT THIS REPLACES, AND WHY THE REPLACEMENT NEEDED A CEILING ────────────
+//
+// Until L-1441 the catalogue-family gate asserted
+// `busCommand.endsWith('SystemTypeBatch')`. That was a SPELLING test — a plugin
+// handler named `wall.setSystemTypeBatch` passes it while writing a detached
+// DTO store, and `stair.updateParameters` fails it while writing the store the
+// builders read; it scored the two cases exactly backwards from what its own
+// comment said it was for. It was replaced by three checks on what L-620
+// actually cares about (not a plugin DTO setType · a commandProof naming where
+// the verb writes, re-read by the sibling gate · a non-batch verb must declare
+// `fanOutPerId`).
+//
+// ⚠ BUT THE OLD TEST DID GUARANTEE ONE REAL THING BY CONSTRUCTION: a `*Batch`
+// verb is ONE dispatch, therefore ONE undo entry. The replacement keeps that
+// property DECLARABLE rather than REQUIRED — and nothing capped how many
+// families take the exit. The cheapest path for every future family is to
+// declare `fanOutPerId` and move on, and in a year "N undo steps" would be the
+// norm nobody chose. That is precisely how a baseline becomes a ceiling in this
+// repository, which is why the exit now has a number on it.
+//
+// ── ⛔ THE CONTRACT POSITION, STATED PLAINLY: THIS IS A BREACH ──────────────
+//
+// **C78 §12.1 is a MUST: "One user gesture — the cause and every consequence the
+// plan bound to it — is ONE undo unit."** A fan-out family dispatches N commands
+// for one sentence, and C78 §12.2 explains why the failure is quiet rather than
+// loud: gesture identity is causal, "absence is not membership", so commands
+// carrying no gesture id "degrade to chronological undo, silently".
+//
+// ⭐ SO N-STEPS IS NOT A PERMITTED EXCEPTION. It is a §12.1 breach that the chat
+// DISCLOSES ("undo with Ctrl+Z (N steps)"), and a disclosure is not a
+// dispensation. Calling it a "disclosed trade" — as `fanOutPerId`'s own doc
+// comment did when `set-room-occupancy` shipped — described the honesty of the
+// reply, not the compliance of the behaviour, and the two were being conflated.
+//
+// ⭐ THE COMPLIANT FIX IS NAMED BY THE CONTRACT ITSELF, and it is not "wait for
+// a batch verb". C78 §12.3 provides the mechanism: commands may be bound into
+// one gesture by threading `gestureId` through `executeCommand`'s
+// `opts.gestureId` or `CommandMetadata.gestureId`. A fan-out that stamped one
+// gestureId across its N commands would be ONE undo unit and §12.1-compliant
+// WITHOUT any new bus verb.
+//
+// It is NOT done here, and the reason is a seam, not a doubt: `BusCommandRef` is
+// `{type, payload}` with no metadata channel, and the half that would have to
+// pass it is the editor bridge's dispatch loop. Adding the field on this side
+// alone would be a channel with nobody reading it — authored-but-unwired, this
+// repository's standing bottleneck. It is logged as a two-lane job instead.
+//
+// ⚠ AND THE BREACH IS OLDER THAN THESE FAMILIES. `set-room-occupancy` has
+// carried it since §FEAT-CHAT-ROOM-OCCUPANCY shipped, under the same
+// "disclosed trade" wording and with no contract citation attached. This gate
+// counts it too. ⛔ The number is SHRINK-ONLY: a family leaving fan-out lowers
+// it; a family joining must edit it deliberately, in the same commit, with a
+// reason — never by default.
+
+describe('§GATE-FANOUT-RATCHET — the number of families that undo in N steps', () => {
+  /**
+   * ⛔ SHRINK-ONLY. Raising this number is a decision about C78 §12.1
+   * compliance, not a bookkeeping edit. Read the block above before you touch
+   * it — and prefer threading a gestureId (§12.3) or minting the batch verb,
+   * either of which LOWERS it.
+   */
+  const FANOUT_CEILING = 3;
+
+  it(`no more than ${FANOUT_CEILING} capabilities dispatch one command per element`, () => {
+    const fanOut = Object.entries(EXECUTION_SPECS)
+      .filter(([, spec]) => (spec as { fanOutPerId?: true }).fanOutPerId === true)
+      .map(([id]) => id)
+      .sort();
+    expect(
+      fanOut.length,
+      `fan-out families are now [${fanOut.join(', ')}]. `
+      + 'Each one is a C78 §12.1 breach (one gesture MUST be one undo unit) that the reply '
+      + 'discloses rather than fixes. If you added one, say why in the same commit and raise '
+      + 'the ceiling deliberately; if you removed one, lower it.',
+    ).toBeLessThanOrEqual(FANOUT_CEILING);
+  });
+
+  it('every fan-out family names a SINGULAR id field — a plural one would be a batch verb', () => {
+    // The two are not interchangeable: `idsField` carries the resolved list for
+    // a batch verb and ONE id for a fan-out verb. A fan-out spec with a plural
+    // field would stamp the whole list into every command.
+    for (const [id, spec] of Object.entries(EXECUTION_SPECS)) {
+      const s = spec as { fanOutPerId?: true; idsField: string };
+      if (s.fanOutPerId !== true) continue;
+      expect(s.idsField.endsWith('Ids'), `${id} fans out but names a plural id field`).toBe(false);
     }
   });
 });

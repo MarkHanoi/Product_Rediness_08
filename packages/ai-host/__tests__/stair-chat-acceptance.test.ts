@@ -275,3 +275,292 @@ describe('a fan-out family refuses rather than widening', () => {
     expect((r as { commands: readonly unknown[] }).commands.length).toBe(3);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B3 — "change tread to X"   (a bare attribute sentence, no element noun)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('B3 — "change tread to X"', () => {
+  const withStair = { selection: [{ elementId: 's1', elementType: 'stair' }] };
+
+  it('⭐ the founder\'s literal — bare "tread", missing by ONE word before L-1443', () => {
+    const si = intentFor('change tread to 280mm', withStair);
+    expect(si, 'bare "tread" is still a miss').not.toBeNull();
+    expect(si!.intent).toBe('set-tread-depth');
+    expect((si as { value: number }).value).toBeCloseTo(0.28, 6);
+  });
+
+  it('the phrasings that already worked still work — nothing was traded away', () => {
+    for (const t of ['change tread depth to 280mm', 'set the tread depth to 0.3m', 'change the going to 280mm']) {
+      const si = intentFor(t, withStair);
+      expect(si, t).not.toBeNull();
+      expect(si!.intent, t).toBe('set-tread-depth');
+    }
+  });
+
+  it('dispatches the LIVE stair carrier for the selected stair', () => {
+    const si = intentFor('change tread to 280mm', withStair)!;
+    const app = applySemanticIntent(si, ctx(withStair));
+    expect(app.kind, JSON.stringify(app)).toBe('commands');
+    const c = (app as { commands: readonly { type: string; payload: Record<string, unknown> }[] }).commands[0]!;
+    expect(c.type).toBe('stair.updateParameters');
+    expect(c.payload['updates']).toEqual({ treadDepth: 0.28 });
+  });
+
+  it('⛔ a bare "riser" is deliberately NOT claimed — it is genuinely ambiguous', () => {
+    // riser HEIGHT vs riser COUNT are two asks with two units. Claiming the
+    // bare word would mean guessing which; the noun keeps its meaning.
+    expect(intentFor('change riser to 5', withStair)).toBeNull();
+    // …and the unambiguous form still resolves.
+    expect(intentFor('change riser height to 175mm', withStair)!.intent).toBe('set-riser-height');
+  });
+
+  it('with NOTHING selected it refuses and NAMES what to do (C16 CA-18)', () => {
+    const si = intentFor('change tread to 280mm', withStair)!;
+    const app = applySemanticIntent(si, ctx());
+    expect(app.kind).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    expect(reason.length).toBeGreaterThan(30);
+    expect(reason.toLowerCase()).toContain('select');
+  });
+
+  it('⭐ a max-tread violation is refused in the AUTHORITY own words', () => {
+    // Measured: UpdateStairParametersCommand checks treadDepth against
+    // MIN_TREAD_DEPTH only — there is NO max check on that path, so "change
+    // tread to 500mm" was written and reported as done. `checkStairGeometry`
+    // is THE accept-set and does refuse it; the chat speaks its message.
+    const si = intentFor('change tread to 500mm', withStair)!;
+    const app = applySemanticIntent(si, ctx(withStair));
+    expect(app.kind, JSON.stringify(app)).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    expect(reason).toContain('500mm');
+    expect(reason).toContain('360mm');   // the published MAX_TREAD_DEPTH
+    expect(reason).toContain('Nothing was changed');
+  });
+
+  it('⛔ the type-DEPENDENT minima are NOT enforced here — no false refusals', () => {
+    // `timber-closed` and `residential-timber` declare minTreadDepth 0.220
+    // against a default of 0.250, and the resolver cannot see a stair's type.
+    // Refusing 230mm here would be a false refusal minted by a safety check.
+    const si = intentFor('change tread to 230mm', withStair)!;
+    const app = applySemanticIntent(si, ctx(withStair));
+    expect(app.kind, 'a legal timber tread was refused').toBe('commands');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B4 — "Change width of all stairs to X"   (the property leads)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('B4 — "Change width of all stairs to X"', () => {
+  it('⭐ the founder literal WORD ORDER — property first — reaches the stair family', () => {
+    const si = intentFor('change width of all stairs to 1.2 meters', scoped('stair'));
+    expect(si, 'property-first order is still unclaimed').not.toBeNull();
+    expect(si!.intent).toBe('set-stair-dimensions');
+    expect((si as { dims: Record<string, number> }).dims).toEqual({ width: 1.2 });
+    expect((si as { scope: unknown }).scope).toBe('all');
+  });
+
+  it('⭐ the SAME order now works for walls, windows and doors — it was missing for them too', () => {
+    expect(intentFor('change the height of all windows to 2m', scoped('window'))!.intent)
+      .toBe('set-window-dimensions');
+    expect(intentFor('change width of all doors to 900mm', scoped('door'))!.intent)
+      .toBe('set-door-dimensions');
+    expect(intentFor('set the height of all walls to 3m', scoped('wall'))!.intent)
+      .toBe('set-wall-dimensions');
+  });
+
+  it('⛔ ONE extractor — a compound property-first tail composes with no extra grammar', () => {
+    const si = intentFor('change width of all doors to 0.9m and height to 2.1m', scoped('door'))!;
+    expect((si as { dims: Record<string, number> }).dims).toEqual({ width: 0.9, height: 2.1 });
+  });
+
+  it('the noun-first order is untouched', () => {
+    const si = intentFor('make all stairs 1.2m wide', scoped('stair'))!;
+    expect(si.intent).toBe('set-stair-dimensions');
+    expect((si as { dims: Record<string, number> }).dims).toEqual({ width: 1.2 });
+  });
+
+  it('the scope word is still REQUIRED in the property-first order', () => {
+    expect(intentFor('change width of stairs to 1.2m', scoped('stair'))).toBeNull();
+  });
+
+  it('dispatches ONE batch command with the resolved ids, and confirms a real count', () => {
+    const si = intentFor('change width of all stairs to 1.2 meters', scoped('stair'))!;
+    const app = applySemanticIntent(si, ctx(scoped('stair')));
+    expect(app.kind, JSON.stringify(app)).toBe('commands');
+    const cmds = (app as { commands: readonly { type: string; payload: Record<string, unknown> }[] }).commands;
+    expect(cmds).toHaveLength(1);
+    expect(cmds[0]!.type).toBe('element.updateDimensionsBatch');
+    expect(cmds[0]!.payload['elementKind']).toBe('stair');
+    expect(cmds[0]!.payload['dimensions']).toEqual({ width: 1.2 });
+    expect((cmds[0]!.payload['elementIds'] as string[]).length).toBe(3);
+    expect((app as { destructive: boolean }).destructive).toBe(true);
+    expect((app as { summary: string }).summary).toContain('3');
+  });
+
+  // ── ⭐⭐ THE OUT-CLAIM GUARD (L-1442) ──────────────────────────────────────
+  it('⭐ a width the ONE-STAIR ask refuses is refused in BULK too, with both numbers', () => {
+    // Measured: the generic batch carrier validates POSITIVITY only, while
+    // UpdateStairParametersCommand enforces STAIR_CONSTRAINTS.MIN_WIDTH. Without
+    // the family bounds, the same capability spoken over three stairs would
+    // ACCEPT 0.1 m and report success.
+    const si = intentFor('change width of all stairs to 0.1 meters', scoped('stair'))!;
+    const app = applySemanticIntent(si, ctx(scoped('stair')));
+    expect(app.kind, JSON.stringify(app)).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    // ⭐ The refusal is `checkStairGeometry`'s OWN sentence, quoted — the same
+    // authority CreateStairCommand and UpdateStairParametersCommand enforce —
+    // so the chat's "no" and the command's "no" cannot drift into two texts.
+    expect(reason).toContain('100mm');                 // what was asked
+    expect(reason).toContain('900mm');                 // the published minimum
+    expect(reason).toContain('Stair width');           // the predicate's wording
+    expect(reason).toContain('refuses it too');        // why bulk declines as well
+    expect(reason).toContain('Nothing was changed');
+  });
+
+  it('a legal width above the minimum is NOT refused', () => {
+    const si = intentFor('change width of all stairs to 0.9 meters', scoped('stair'))!;
+    expect(applySemanticIntent(si, ctx(scoped('stair'))).kind).toBe('commands');
+  });
+
+  it('a dimension a stair does not carry is refused BY NAME with the route that can do it', () => {
+    const si = intentFor('make all stairs 3m high', scoped('stair'))!;
+    const app = applySemanticIntent(si, ctx(scoped('stair')));
+    expect(app.kind).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    // Not "a stair has no height" — the honest reason is that its rise is the
+    // distance between the levels it connects, and the reply names the two
+    // things the user probably meant instead.
+    expect(reason).toContain('riser height');
+    expect(reason).toContain('level');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A — "create a stair from ground to level 5 connected to this wall — in L shape"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('A — the multi-storey, wall-anchored stair: a REFUSAL that names the gap', () => {
+  const FOUNDER_A = 'create a stair from ground to level 5 connected to this wall in L shape';
+  const withWall = { selection: [{ elementId: 'w1', elementType: 'wall' }] };
+
+  it('⭐ the founder literal is CLAIMED — it is never a bare miss', () => {
+    const si = intentFor(FOUNDER_A, withWall);
+    expect(si, 'the sentence falls through to a miss').not.toBeNull();
+    expect(si!.intent).toBe('create-stair-span');
+  });
+
+  it('every clause it understood is read back — proving it was READ, not rejected', () => {
+    const si = intentFor(FOUNDER_A, withWall)!;
+    expect((si as { fromLevel?: string }).fromLevel).toBe('ground');
+    expect((si as { toLevel?: string }).toLevel).toBe('level 5');
+    expect((si as { anchorRef?: string }).anchorRef).toBe('this');
+    expect((si as { shape?: string }).shape).toBe('L');
+  });
+
+  it('the refusal names the MULTI-STOREY gap, the ANCHOR gap, and the live alternative', () => {
+    const si = intentFor(FOUNDER_A, withWall)!;
+    const app = applySemanticIntent(si, ctx(withWall));
+    expect(app.kind).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    // the user own words, quoted back
+    expect(reason).toContain('ground');
+    expect(reason).toContain('level 5');
+    expect(reason).toContain('L-shaped');
+    // blocker 2 — one command, one stair, opening on the top level only
+    expect(reason).toContain('more than one storey');
+    expect(reason).toContain('TOP level');
+    // blocker 1 — no geometry reaches the language layer
+    expect(reason).toContain('start point');
+    // nothing happened, said plainly
+    expect(reason).toContain('Nothing was created');
+    // ⭐ C16 CA-18 — the LIVE replacement, as a sentence he can type
+    expect(reason).toContain('create a stair');
+    expect(reason).toContain('make all the stairs monolithic concrete');
+    expect((app as { suggestions: readonly string[] }).suggestions).toContain('create a stair');
+  });
+
+  it('⛔ it does NOT steal the plain creation sentence, which WORKS', () => {
+    // `parsePlacementRef` owns "create a stair" and activates the real tool.
+    // §FIX-PLACEMENT-OVERCLAIM records eight pills lost to exactly this mistake.
+    const si = intentFor('create a stair');
+    expect(si?.intent).not.toBe('create-stair-span');
+    const r = resolveUtterance('create a stair', ctx());
+    expect(r.kind).toBe('local');
+    expect((r as { action: string }).action).toBe('activateTool');
+  });
+
+  it('a range with no stair noun, and a stair with no range or anchor, are both unclaimed', () => {
+    expect(intentFor('create a window from ground to level 5')).toBeNull();
+    expect(intentFor('create a stair in L shape')?.intent).not.toBe('create-stair-span');
+  });
+
+  it('the anchor clause ALONE is enough to claim — the range is not required', () => {
+    const si = intentFor('create a stair connected to this wall', withWall);
+    expect(si?.intent).toBe('create-stair-span');
+    expect((si as { fromLevel?: string }).fromLevel).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B5 — "Change first run of all stairs to X meters"
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('B5 — a SUB-PART of an element: the vocabulary cannot address one', () => {
+  const FOUNDER_B5 = 'change first run of all stairs to 4 meters';
+
+  it('⭐ the founder literal is CLAIMED, not a bare miss', () => {
+    const si = intentFor(FOUNDER_B5, scoped('stair'));
+    expect(si, 'falls through to a miss').not.toBeNull();
+    expect(si!.intent).toBe('set-stair-part');
+    expect((si as { partRef: string }).partRef).toBe('first run');
+  });
+
+  it('⭐ the refusal states the GENERAL limit, not just this gap', () => {
+    const si = intentFor(FOUNDER_B5, scoped('stair'))!;
+    const app = applySemanticIntent(si, ctx(scoped('stair')));
+    expect(app.kind).toBe('refusal');
+    const reason = (app as { reason: string }).reason;
+    expect(reason).toContain('first run');
+    // The sentence worth more than the gap it explains.
+    expect(reason).toContain('whole elements');
+    expect(reason).toContain('not a part inside one');
+    // ⛔ And it says out loud that it will NOT guess the step count — the
+    // arithmetic is one line away and is deliberately not done.
+    expect(reason).toContain('guess');
+    expect(reason).toContain('Nothing was changed');
+  });
+
+  it('the refusal NAMES what genuinely works on the same elements (C16 CA-18)', () => {
+    const si = intentFor(FOUNDER_B5, scoped('stair'))!;
+    const reason = (applySemanticIntent(si, ctx(scoped('stair'))) as { reason: string }).reason;
+    expect(reason).toContain('change width of all stairs to 1.2 meters');
+    expect(reason).toContain('change tread to 280mm');
+    expect(reason).toContain('make all the stairs monolithic concrete');
+    // Railings ARE addressable — because they are separate ELEMENTS, not parts.
+    expect(reason).toContain('stair railings');
+  });
+
+  it('⛔ it never steals a part that ALREADY has a live capability', () => {
+    const withStair = { selection: [{ elementId: 's1', elementType: 'stair' }] };
+    expect(intentFor('change tread to 280mm', withStair)!.intent).toBe('set-tread-depth');
+    expect(intentFor('change the tread depth to 280mm', withStair)!.intent).toBe('set-tread-depth');
+    expect(intentFor('change riser height to 175mm', withStair)!.intent).toBe('set-riser-height');
+  });
+
+  it('other un-addressable parts refuse the same way', () => {
+    for (const t of [
+      'change the landing of all stairs to 1.2 meters',
+      'change second flight of all stairs to 3 meters',
+      'set the stringer of all stairs to 50mm',
+    ]) {
+      expect(intentFor(t, scoped('stair'))?.intent, t).toBe('set-stair-part');
+    }
+  });
+
+  it('the whole ladder answers rather than missing', () => {
+    const r = resolveUtterance(FOUNDER_B5, ctx(scoped('stair')));
+    expect(r.kind).toBe('refusal');
+  });
+});

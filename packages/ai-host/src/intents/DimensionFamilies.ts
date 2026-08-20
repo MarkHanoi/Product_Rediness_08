@@ -110,6 +110,21 @@ import type {
   CapabilityExecutionSpec,
   SpecValueOutcome,
 } from './CapabilityExecutionSpec.js';
+// ⭐ §FEAT-CHAT-STAIR-WIDTH (L-1442) — THE PREDICATE, NOT A CONSTANTS BLOB.
+//
+// This started as `import { STAIR_CONSTRAINTS }` and a hand-written refusal
+// sentence quoting `MIN_WIDTH`. It is now `checkStairGeometry` — the accept-set
+// `CreateStairCommand`, `UpdateStairParametersCommand` and the sketch tool all
+// enforce (StairGeometryLimits.ts, lane STAIR1, L-1435) — and the chat speaks
+// its `message` VERBATIM.
+//
+// The difference is not stylistic. Importing the constant makes the chat and
+// the command agree about a NUMBER while each phrases its own refusal; importing
+// the predicate makes them the same sentence from the same source, so a limit
+// that moves, or gains a per-type rule, moves in both places at once. That is
+// C84 EI-1 landing in a third layer, and it is why STAIR1 asked callers to stop
+// reading `STAIR_CONSTRAINTS` directly.
+import { checkStairGeometry, resolveStairGeometryLimits } from '@pryzm/geometry-stair';
 import type { ResolverContext, SemanticIntent } from './ZeroTokenResolver.js';
 
 // ─── The dimension vocabulary ────────────────────────────────────────────────
@@ -168,7 +183,11 @@ export type DimensionAsk = Partial<Record<DimensionKey, number>>;
 export type DimensionFamilyIntentId =
   | 'set-wall-dimensions'
   | 'set-window-dimensions'
-  | 'set-door-dimensions';
+  | 'set-door-dimensions'
+  // §FEAT-CHAT-STAIR-WIDTH (L-1442) — the founder's "Change width of all stairs
+  // to X". A stair carries exactly ONE of the four dimension keys, and the
+  // other three are refused BY NAME with the route that can do them.
+  | 'set-stair-dimensions';
 
 export interface DimensionFamily {
   readonly intent: DimensionFamilyIntentId;
@@ -187,6 +206,47 @@ export interface DimensionFamily {
   /** For a field the carrier cannot carry: the honest sentence naming the route
    *  that CAN do it. Absent ⇒ the generic "no bulk route" copy. */
   readonly carrierGap?: Partial<Record<DimensionKey, string>>;
+  /**
+   * ⭐⭐ §FIX-BULK-OUT-CLAIMS-SINGLE-VALIDATION (L-1442) — the family's own
+   * geometry PREDICATE, so the BULK ask cannot accept a number the ONE-ELEMENT
+   * ask refuses.
+   *
+   * WHY IT EXISTS, MEASURED 2026-08-20. `SINGLE_FORM_CAPABILITY` above pins that
+   * a family never reaches an (element kind × dimension) pair the single form
+   * would refuse. That is the DECLARATION axis, and it was the only one checked.
+   * The VALIDATION axis was not, and the stair family is where the two come
+   * apart:
+   *
+   *   • single — "set the stair width to 0.1m" routes to
+   *     `stair.updateParameters` → UpdateStairParametersCommand, which REFUSES
+   *     below `MIN_WIDTH` (0.9 m), and below 1.2 m for an accessible stair.
+   *   • bulk   — `element.updateDimensionsBatch` composes
+   *     `UpdateElementParameterCommand`, whose `validateParameters` checks
+   *     POSITIVITY and nothing else.
+   *
+   * So the same capability, spoken over three stairs instead of one, would
+   * ACCEPT 0.1 m and report success. **A bulk route accepting what the single
+   * route refuses is the same defect as a batch verb that skips its family's
+   * command** — and it is worse here, because the mass edit is the one whose
+   * extent the user cannot see.
+   *
+   * ⛔ IT RETURNS THE AUTHORITY'S OWN REFUSAL, NOT A NUMBER. Returning bounds
+   * would leave this layer phrasing its own sentence around someone else's
+   * constant — two texts for one rule. Returning the refusal record makes the
+   * chat's "no" and the command's "no" the same sentence from the same source,
+   * which is why STAIR1 asked callers to stop reading `STAIR_CONSTRAINTS`
+   * directly (C84 EI-1).
+   *
+   * `null` ⇒ this family has no opinion about that field beyond sign.
+   *
+   * ⚠ THIS IS CONTAINMENT, NOT THE FIX. The underlying divergence is a SEAM:
+   * the generic bulk carrier has no per-family dispatch, so it cannot consult
+   * the predicate itself. Logged separately; this stops the CHAT widening it.
+   */
+  readonly geometryGate?: (
+    key: DimensionKey,
+    value: number,
+  ) => { readonly message: string } | null;
   /** Builds the family's bus payload from the resolved ask. */
   readonly payload: (ask: DimensionAsk) => Readonly<Record<string, unknown>>;
   readonly noSelectionReason: string;
@@ -329,6 +389,77 @@ export const DIMENSION_FAMILIES: readonly DimensionFamily[] = [
       'make the selected doors 2.1m high',
     ],
   },
+  {
+    // §FEAT-CHAT-STAIR-WIDTH (L-1442) — the founder's literal: *"Change width of
+    // all stairs to X"*. Note the WORD ORDER: the property comes before the
+    // scope, which is why this needed a grammar change and not only a row (see
+    // `PROPERTY_FIRST` below — and note that order was missing for walls,
+    // windows and doors too).
+    intent: 'set-stair-dimensions',
+    elementKind: 'stair',
+    nounAliases: ['staircase'],
+    nounPlural: 'stairs',
+    busCommand: 'element.updateDimensionsBatch',
+    idsField: 'elementIds',
+    // ⭐ WIDTH AND ONLY WIDTH, and the other three are a DELIBERATE refusal
+    // rather than an omission:
+    //   • height    — a stair's rise is not a free parameter. It is
+    //     `topLevel.elevation − baseLevel.elevation`, and
+    //     UpdateStairParametersCommand VALIDATES riserHeight × riserCount
+    //     against it. "Make all stairs 3 m high" would either be ignored or
+    //     break that invariant; both are worse than a sentence naming what the
+    //     user probably meant (riser height, or moving the level).
+    //   • thickness — `set-thickness` is declared for wall / slab / roof only,
+    //     so the single form already refuses it and the batch may not out-claim.
+    //   • sillHeight — a stair has no sill.
+    // The stair's OTHER real dimensions (riser height, tread depth) are not
+    // `DimensionKey`s at all; they have their own live single-element
+    // capabilities, and the carrierGap copy names them.
+    carries: ['width'],
+    carrierGap: {
+      height:
+        "a stair's height is not a free dimension — it is the distance between the levels it connects, "
+        + 'and the command validates riser height × riser count against exactly that. '
+        + 'To change how STEEP the stairs are, select them and say "change riser height to 175mm"; '
+        + 'to change how far they climb, move the level',
+      thickness:
+        'the one-element "set thickness" capability is declared for walls, slabs and roofs only, '
+        + 'so I will not claim it in bulk either',
+      sillHeight: 'a stair has no sill — only an opening (a window or a door) does',
+    },
+    // ⭐ See `DimensionFamily.geometryGate` for the measurement. Without this the
+    // bulk ask would accept a 0.1 m stair that the one-stair ask refuses.
+    //
+    // ⚠ STILL REQUIRED AFTER L-1435. STAIR1 closed the divergence on the COMMAND
+    // side, but reports the SEAM is not closed: `element.updateDimensionsBatch`
+    // has no per-family dispatch, so the generic carrier this family rides still
+    // never reaches the predicate. The containment therefore stays here until a
+    // bulk route exists that consults `checkStairGeometry` itself.
+    geometryGate: (key, value) =>
+      key !== 'width'
+        ? null
+        : checkStairGeometry({ width: value }, resolveStairGeometryLimits())[0] ?? null,
+    payload: (ask) => ({ elementKind: 'stair', dimensions: ask }),
+    noSelectionReason:
+      'No stairs are selected — select some stairs, or say "change width of all stairs to 1.2 meters" to resize every stair.',
+    mismatchPrefix: 'Stair dimensions apply to stairs',
+    suggestions: [
+      'change width of all stairs to 1.2 meters',
+      'make all stairs 1.2m wide',
+    ],
+    commandProof: {
+      file: 'packages/command-registry/src/generic/UpdateElementDimensionsBatchCommand.ts',
+      mustMention: ['stair', 'UpdateElementParameterCommand', 'skipped'],
+      note: "The batch declares 'stair' in affectedStores and its child UpdateElementParameterCommand routes t === 'stair' to ctx.stores.stairStore.update() and then through resolveElementRebuildDescriptor, which is how §FIX-STAIR-PARAM-NO-REGEN (L-215) made a stair parameter edit regenerate flights, landings, treads and railing. A stale id is a counted skip with its reason. ⚠ The child validates POSITIVITY only, not STAIR_CONSTRAINTS — which is why this family carries `geometryGate` and refuses an out-of-range width in checkStairGeometry's OWN words before dispatching (L-1442). ⚠ STAIR1 closed the divergence on the command side at L-1435, but the SEAM is not closed: this generic carrier still has no per-family dispatch, so it never reaches the predicate itself.",
+    },
+    examples: [
+      'change width of all stairs to 1.2 meters',
+      'change the width of all stairs to 1.2m',
+      'make all stairs 1.2m wide',
+      'set all stairs width to 1100mm',
+      'make the selected stairs 1.2m wide',
+    ],
+  },
 ];
 
 const BY_INTENT: ReadonlyMap<DimensionFamilyIntentId, DimensionFamily> =
@@ -459,6 +590,27 @@ export function dimensionFamilySpec(
               reason: key === 'sillHeight'
                 ? `A sill height of ${fmt(value)} is not valid — it cannot be negative.`
                 : `A ${DIMENSION_LABEL[key]} of ${fmt(value)} is not valid — it must be positive.`,
+              suggestions: family.suggestions,
+            },
+          };
+        }
+        // (5) ⭐ §FIX-BULK-OUT-CLAIMS-SINGLE-VALIDATION (L-1442) — the family's
+        // GEOMETRY PREDICATE, so the bulk ask cannot accept a number the
+        // one-element ask refuses. See `DimensionFamily.geometryGate` for the
+        // measurement; the short version is that the generic batch carrier
+        // validates POSITIVITY only, while the per-family command enforces its
+        // own published constraints.
+        //
+        // ⛔ THE REFUSAL IS THE AUTHORITY'S OWN SENTENCE, QUOTED. This layer
+        // adds only what the authority cannot know: that the same ask is
+        // refused one-at-a-time too, and that nothing was changed.
+        const violation = family.geometryGate?.(key, ask[key]!) ?? null;
+        if (violation !== null) {
+          return {
+            refusal: {
+              reason:
+                `${violation.message}. The one-${family.elementKind} version of this ask `
+                + `refuses it too, so I will not do it in bulk. Nothing was changed.`,
               suggestions: family.suggestions,
             },
           };
@@ -638,9 +790,41 @@ export const OTHER_CAPABILITY_WORD =
 // spellings of one scope tail is how the founder's "in level 2" came to mean
 // "a room called level". See that module's header for the measurement.
 
+// ⭐⭐ §FIX-DIMENSION-PROPERTY-FIRST (L-1442) — "CHANGE WIDTH OF ALL STAIRS",
+// AND THE ORDER ENGLISH ACTUALLY USES.
+//
+// The founder's literal is *"Change width of all stairs to X"*. The grammar
+// below requires `<verb> <scope-word> <noun>` — the property comes AFTER the
+// noun ("change all stairs width to X") — so his sentence did not match, and
+// **it does not match for walls, windows or doors either**:
+//
+//   "change width of all stairs to 1.2m"     ✗       "change all stairs width to 1.2m"  ✓
+//   "change the height of all windows to 2m" ✗       "change all windows height to 2m"  ✓
+//
+// Both orders are ordinary English and the product understood exactly one of
+// them. That is the L-1440 shape again — a phrasing gap invisible to a test
+// suite written by people who know the grammar — and, like L-1440, it is fixed
+// in the SHARED grammar so every family gets it, not copied into a stair arm.
+//
+// ⛔ THE VALUE EXTRACTOR IS NOT FORKED. The property-first match re-joins its
+// captured dimension word to the value tail (`"width" + " to 1.2 meters"`) and
+// runs the SAME `extractDimensionBindings` the noun-first shape runs. That is
+// the module's founding rule — *"so the natural and rigid paths cannot
+// understand '2 meters height' differently"* — and it buys composition for
+// free: "change width of all stairs to 1.2m and height to 3m" yields BOTH
+// bindings with no extra grammar, because the second half was never touched.
+//
+// The scope word stays REQUIRED in this order too. "change width of stairs to
+// 1.2m" is not claimed, for the same reason "make windows 2m high" is not: on a
+// mass edit an unclaimed sentence falls through to an honest "I'm not sure",
+// which is strictly better than a coin flip that resizes the whole building.
+
 interface CompiledDimensionFamily {
   readonly family: DimensionFamily;
   readonly re: RegExp;
+  /** The property-FIRST shape. Group 1 is the dimension word; the scope groups
+   *  shift by one, which `parseDimensionScopedIntent` accounts for. */
+  readonly propertyFirstRe: RegExp;
 }
 
 const COMPILED: readonly CompiledDimensionFamily[] = DIMENSION_FAMILIES.map((family) => {
@@ -649,6 +833,14 @@ const COMPILED: readonly CompiledDimensionFamily[] = DIMENSION_FAMILIES.map((fam
     .join('|');
   return {
     family,
+    // "change width of all stairs to 1.2 meters" / "change the width of all
+    // stairs to 1.2m". The dimension word LEADS; everything after the noun is
+    // the same tail the noun-first shape uses.
+    propertyFirstRe: new RegExp(
+      `^${DIM_VERB} (?:the )?(${DIM_WORD_SRC})(?:'s)? (?:of|for|on) (?:the )?(${SCOPE_ALL}|${SCOPE_SEL})(?: of)?(?: the)? (?:${nouns})s?(?:'s?)?`
+      + SPATIAL_TAIL_SRC
+      + `(?: (?:to|at|as|be|into))? (.+)$`,
+    ),
     re: new RegExp(
       // §FIX-SCOPE-TAIL-ONE-PARSER — ONE tail, from SpatialScopeTail.
       //
@@ -684,15 +876,29 @@ export function parseDimensionScopedIntent(
 ): SemanticIntent | null {
   if (UNRESOLVED_QUALIFIER.test(text)) return null;
   if (OTHER_CAPABILITY_WORD.test(text)) return null;
-  for (const { family, re } of COMPILED) {
+  for (const { family, re, propertyFirstRe } of COMPILED) {
     const lifted = parseFilterClauses(text, family.elementKind);
+    // §FIX-DIMENSION-PROPERTY-FIRST (L-1442) — the noun-first shape is tried
+    // FIRST because it is the one every pinned example uses; the property-first
+    // shape is a strict addition and can never re-read a sentence the other
+    // already claimed (their prefixes are disjoint: one has the dimension word
+    // where the other has a scope word).
     const m = re.exec(lifted.stripped);
-    if (m === null) continue;
-    const scopeWord = m[1]!;
-    // Groups 2/3/4 are `SPATIAL_TAIL_SRC`'s (leading level noun, phrase,
-    // trailing level noun); group 5 is the value tail.
-    const tail = readSpatialTail(m[2], joinTailPhrase(m[3], m[4]), ctx);
-    const rest = m[5]!;
+    const pf = m === null ? propertyFirstRe.exec(lifted.stripped) : null;
+    if (m === null && pf === null) continue;
+    const scopeWord = (m === null ? pf![2] : m[1])!;
+    // Groups 2/3/4 (noun-first) — or 3/4/5 (property-first, shifted by the
+    // leading dimension-word capture) — are `SPATIAL_TAIL_SRC`'s: leading level
+    // noun, phrase, trailing level noun. The last group is the value tail.
+    const tail = m === null
+      ? readSpatialTail(pf![3], joinTailPhrase(pf![4], pf![5]), ctx)
+      : readSpatialTail(m[2], joinTailPhrase(m[3], m[4]), ctx);
+    // ⛔ ONE EXTRACTOR, NEVER TWO. The property-first shape re-joins its
+    // dimension word to the value tail and hands the SAME string shape to the
+    // SAME extractor, so "width" + "to 1.2 meters" is understood exactly as
+    // "width to 1.2 meters" always was — and a compound tail ("… and height to
+    // 3m") keeps composing with no extra grammar.
+    const rest = m === null ? `${pf![1]!} ${pf![6]!}` : m[5]!;
 
     const dims = extractDimensionBindings(rest, toMeters);
     // NO BINDING ⇒ this is not a dimension ask at all ("change all windows to
