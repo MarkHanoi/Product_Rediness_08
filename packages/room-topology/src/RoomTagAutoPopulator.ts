@@ -24,9 +24,12 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { makeAnnotationElement } from '@pryzm/plugin-annotations';
 import { makePointRef } from '@pryzm/plugin-annotations';
-import { CreateAnnotationCommand } from '@pryzm/command-registry';
 import { DeleteAnnotationCommand } from '@pryzm/command-registry';
 import { UpdateAnnotationCommand } from '@pryzm/command-registry';
+// §ROOMTAG-ONE-COMMAND (L-1396) — the composite that already existed. See `populate`.
+// Imported from `@pryzm/command-registry` (a DECLARED dependency of this package)
+// via the re-export shim, not from the plugin directly.
+import { CreateManyAnnotationsCommand } from '@pryzm/command-registry';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 // §FEAT-AUTO-TAG-BATCH-EXECUTOR (L-265) — the GENERIC tag lifecycle. Rooms consume it.
 import { reconcileTagSet, type ExistingTagLike } from '@pryzm/core-app-model';
@@ -102,11 +105,18 @@ export class RoomTagAutoPopulator {
         // no store event — so a settled view's populate() writes nothing and cannot
         // feed a re-projection.
         let refreshed = 0;
+        // §ROOMTAG-ONE-COMMAND (L-1396) — the `getByView(...).find(...)` that used to sit
+        // INSIDE this loop re-read and re-scanned the whole view's annotation list once
+        // per drifted tag: O(tags × annotations) for a lookup whose input never changes
+        // within the loop. Indexed once, outside.
+        const tagsById = new Map<string, any>(
+            (annotationStore.getByView(viewDef.id) as any[]).map((a) => [a.id, a]),
+        );
         for (const { tagId, target } of plan.toRefresh) {
             const liveRoom = target.room;
             const desiredLabel = desiredRoomLabel(liveRoom);
             const desiredArea  = liveRoom.computed?.area;
-            const existingTag  = (annotationStore.getByView(viewDef.id) as any[]).find((a) => a.id === tagId);
+            const existingTag  = tagsById.get(tagId);
             const p = existingTag?.parameters ?? {};
             const cmd = new UpdateAnnotationCommand(tagId, {
                 parameters: {
@@ -130,7 +140,22 @@ export class RoomTagAutoPopulator {
             return;
         }
 
-        let created = 0;
+        // ⭐ §ROOMTAG-ONE-COMMAND (L-1396) — ONE COMPOSITE, NOT N.
+        //
+        // This loop used to `commandManager.execute(new CreateAnnotationCommand(ann))`
+        // once PER ROOM. On the founder's model that is 24 dispatches per level: 24
+        // `[CommandManager] EXECUTE: CREATE_ANNOTATION` + 24 `snapshot …elapsed=` console
+        // writes, 24 `canExecute` passes, and — the part that is not merely noise — 24
+        // separate entries on the undo stack for ONE automatic background action. Undoing
+        // an auto-tag pass took twenty-four presses of Ctrl-Z.
+        //
+        // `CreateManyAnnotationsCommand` (plugins/annotations, L-145/ADR-0119) already
+        // solves exactly this for AutoDimension, which emits whole SETS for the same
+        // C11/C24.1 §1.2 reason. Rooms are the second consumer; nothing new was minted.
+        // Its `execute` skips ids the store already holds, so the idempotent re-run
+        // guarantee (§A.21.D25) is unchanged — and an EMPTY `toCreate` still dispatches
+        // nothing at all, because `canExecute` refuses a zero-length set.
+        const toCreate: ReturnType<typeof makeAnnotationElement>[] = [];
         for (const { room } of plan.toCreate) {
             const cx = room.computed.centroid.x;
             const cz = room.computed.centroid.z;
@@ -155,8 +180,16 @@ export class RoomTagAutoPopulator {
                 },
             );
 
-            const cmd = new CreateAnnotationCommand(ann);
-            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); created++; }
+            toCreate.push(ann);
+        }
+
+        let created = 0;
+        if (toCreate.length > 0) {
+            const cmd = new CreateManyAnnotationsCommand(toCreate);
+            if (cmd.canExecute({} as any).ok) {
+                commandManager.execute(cmd);
+                created = toCreate.length;
+            }
         }
 
         console.log(

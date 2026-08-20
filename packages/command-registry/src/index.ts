@@ -19,6 +19,7 @@ export * from './annotations/AnnotateViewCommand';
 export * from './annotations/CreateAnnotationCommand';
 export * from './annotations/CreateCalloutDetailCommand';
 export * from './annotations/CreateElevationMarkCommand';
+export * from './annotations/CreateManyAnnotationsCommand';
 export * from './annotations/CreateSectionMarkCommand';
 export * from './annotations/DeleteAnnotationCommand';
 export * from './annotations/LockAnnotationCommand';
