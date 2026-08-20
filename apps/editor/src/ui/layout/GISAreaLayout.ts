@@ -48,8 +48,16 @@ import {
     getCurrentSiteOrigin,
     getLastBuildableEnvelope,
     isLastEnvelopeSuggestedPreview,
+    // L-1587 - the RE-DERIVE pair. `_lastEnvelope` is a MODULE-LOCAL written only on parcel
+    // commit and never persisted, so after any reload the facts card cannot be built and the
+    // GIS panel's slot renders its empty sentence forever. `reapplyZoningForActiveSite` is the
+    // safe re-run: it resolves zoning against the ALREADY-COMMITTED boundary and deliberately
+    // does NOT touch geometry, so it cannot re-derive/re-apply project north the way a second
+    // `dispatchParcelBoundary` would (see its own header).
+    reapplyZoningForActiveSite,
     resolveRenderableBuildableEnvelope,
     resolveActiveProjectId,
+    resolveSiteContext,
 } from '../site/siteDispatch';
 // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope
 // on screen?". This file used to BE that authority (a `let` nobody else could see) and three
@@ -4455,8 +4463,41 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  not-built-yet branch as the launcher pill: the card is rendered by the Forma
      *  view, so bring that up rather than dead-ending. */
     window.pryzmToggleEnvelopeCard = () => {
-        if (!envelopePanel) { envelopeCardHidden = false; applyFormaView('plan'); }
-        else { toggleEnvelopeCard(); }
+        if (envelopePanel) { toggleEnvelopeCard(); return; }
+        envelopeCardHidden = false;
+        // L-1587 - RE-DERIVE BEFORE LEAVING. This branch used to go straight to
+        // `applyFormaView('plan')`, which is a dead end wearing a helpful face: the card is
+        // absent because `_lastEnvelope` is null after a reload, and switching view does not
+        // make it non-null. The user arrived at a button labelled "Buildable Envelope" and was
+        // moved somewhere else with still no numbers.
+        if (window.pryzmRecomputeEnvelopeCard?.()) return;
+        applyFormaView('plan');
+    };
+
+    /** L-1587 - re-derive the buildability determination for the committed parcel.
+     *
+     *  Returns TRUE only if a card is on screen afterwards. This is the escape hatch the
+     *  L-1362 re-host was missing: it moved WHERE the card renders without giving any surface
+     *  a way to bring the determination BACK, and the determination is session state.
+     *
+     *  It re-runs the SAME C58 computation against the SAME committed boundary - it does not
+     *  persist, reconstruct or infer an envelope, so every refusal branch still applies and a
+     *  parcel that legitimately has no envelope still refuses to draw one. */
+    window.pryzmRecomputeEnvelopeCard = (): boolean => {
+        try {
+            const ctx = resolveSiteContext(runtime ?? null);
+            if (!ctx || !reapplyZoningForActiveSite(ctx)) return false;
+            refreshEnvelopePanel();
+            const present = !!envelopePanel && !!envelopePanel.parentElement;
+            console.log(
+                `[gis][envelope-card] §L-1587-RECOMPUTE re-derived from the committed parcel → `
+                + `card ${present ? 'PRESENT' : 'ABSENT (C58 determined there is nothing to show)'}.`,
+            );
+            return present;
+        } catch (e) {
+            console.warn('[gis][envelope-card] §L-1587-RECOMPUTE failed (non-fatal):', e);
+            return false;
+        }
     };
 
     /** §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — claim the buildability read-out for a host.

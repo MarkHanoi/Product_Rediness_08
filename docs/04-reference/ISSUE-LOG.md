@@ -24512,3 +24512,62 @@ Still rectangular for profiled openings, already 🟡 in L-1252's table: the **p
 expectation — an assumed constant wearing the appearance of a standard.
 
 ---
+
+---
+
+## L-1587 — ✅ FIXED: the buildability card was re-hosted but never made REACHABLE — the determination is session state — 2026-08-20
+
+Founder, after L-1362 shipped and was reported as done: *"i want this panel: and i still dont have
+ACCESS."*
+
+⭐ **He was right, and the earlier verification was the defect.** L-1362 was checked by proving the
+registration existed (`GISAreaLayout.ts:4478`) and that the panel called it
+(`ProjectBrowserPanel.ts:922`). **That proves a wire, not a rendering** — the
+[[committed-is-not-reachable]] rule, missed by the agent that wrote the rule down.
+
+**The chain, measured:**
+
+1. The GIS panel builds `gis-envelope-slot` and calls `window.pryzmMountEnvelopeCard(slot)`. ✔
+2. That sets `envelopeCardPreferredHost` and calls `refreshEnvelopePanel()`. ✔
+3. `refreshEnvelopePanel()` requires `getLastBuildableEnvelope()`.
+4. ⭐ That reads **`_lastEnvelope`** — `apps/editor/src/ui/site/siteDispatch.ts:690`, a **module-local
+   `let`**, written **only** by `dispatchEnvelope` on parcel COMMIT, and **never persisted**.
+5. So on every page load it is `null`; with no persisted ring to build the reduced card from, the
+   panel is **removed**, the mount returns `false`, and the slot prints its empty sentence — forever.
+
+**This is the SAME ROOT as L-1580**, one card over: the displayed facts lived in session state rather
+than anywhere durable. L-1580 fixed it for parcel provenance. Nobody fixed it for the envelope, and
+the re-host moved the card without noticing that the card had nothing to render.
+
+⚠ **And the escape hatch was a dead end wearing a helpful face.** The `site.buildable-envelope`
+action IS registered, but its handler read `if (!envelopePanel) { applyFormaView('plan'); }` — so
+clicking a button labelled *Buildable Envelope* **switched the user's view** and still showed no
+numbers. The card was absent because `_lastEnvelope` was null, and changing view does not make it
+non-null. The L-942 shape: a refusing branch whose only escape hatch is knowledge the user does not
+have (that the figures return by re-committing the parcel).
+
+**Fix.** `window.pryzmRecomputeEnvelopeCard(): boolean` re-derives the determination from the
+**already-committed** parcel via `reapplyZoningForActiveSite`, and the GIS panel's empty state
+carries **"Recompute from the committed parcel"**. The toggle action tries the re-derive **before**
+falling back to the view switch.
+
+⛔ **It does not persist, reconstruct or infer an envelope.** `reapplyZoningForActiveSite` was chosen
+over `dispatchParcelBoundary` deliberately — per its own header, the latter **re-derives and re-applies
+project north on every call**, which on a complex or hand-drawn boundary picks a different dominant
+edge run-to-run and silently rotates the polygon on each recompute. The re-derive touches zoning only.
+
+**The two failure cases stay DISTINCT**, which is the point of this card:
+- *"Nothing to recompute against — no parcel boundary is committed to this project yet."*
+- *"Recomputed — and this parcel still has no buildable envelope to show. That is a determination,
+  not a failure."*
+
+Collapsing them into one sentence would be the C84 EI-1b defect (failure and emptiness as the same
+value) that the whole refusal doctrine exists to prevent.
+
+**⛔ Reachable, but still one click per session.** The durable fix is to re-derive on project LOAD so
+the card is simply present. This makes it obtainable; it does not make it automatic. Stated so the
+remaining gap is not mistaken for closed.
+
+Root `tsc` RC=0, 0 errors.
+
+---

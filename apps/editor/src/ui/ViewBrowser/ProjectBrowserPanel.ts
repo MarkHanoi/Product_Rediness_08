@@ -937,6 +937,62 @@ export class ProjectBrowserPanel {
                 + 'boundary — the figures appear here once they can be derived, and stay absent '
                 + 'rather than shown as zero when they cannot.';
             envelopeSlot.appendChild(empty);
+
+            // ── §L-1587 — THE ESCAPE HATCH THE L-1362 RE-HOST WAS MISSING ────────────────
+            //
+            // Founder 2026-08-20, after L-1362 shipped: "i still dont have ACCESS".
+            //
+            // L-1362 moved WHERE the card renders and stopped there. But the determination is
+            // SESSION state — `_lastEnvelope` in `siteDispatch.ts` is a module-local written
+            // only on parcel COMMIT and never persisted — so after any reload the mount
+            // legitimately returns `false` and this panel prints the sentence above FOREVER.
+            // The sentence is true and it is honest; it is also unactionable, which is the
+            // L-942 shape: a refusing branch whose only escape hatch is knowledge the user
+            // does not have (that the numbers come back by re-committing the parcel).
+            //
+            // ⛔ The button does NOT persist, reconstruct or infer an envelope. It re-runs the
+            // SAME C58 determination against the SAME committed boundary via
+            // `reapplyZoningForActiveSite`, which touches zoning only and never geometry. So
+            // every refusal branch survives: a parcel that genuinely has no envelope still
+            // refuses to draw one, and the button says so rather than pretending it worked.
+            const retry = document.createElement('button');
+            retry.className = 'pb-gis-envelope-retry';
+            retry.setAttribute('data-testid', 'gis-envelope-recompute-btn');
+            retry.type = 'button';
+            retry.textContent = 'Recompute from the committed parcel';
+            retry.title =
+                'Re-runs the buildability determination against the parcel boundary already '
+                + 'committed to this project. Does not move or re-derive the boundary.';
+            retry.addEventListener('click', () => {
+                retry.disabled = true;
+                retry.textContent = 'Recomputing…';
+                // The recompute is synchronous today, but the jurisdiction leg it routes into
+                // can complete asynchronously, so re-ask the mount rather than trusting the
+                // return value alone — the mount is the one that knows what is on screen.
+                const recomputed = window.pryzmRecomputeEnvelopeCard?.() ?? false;
+                const present = recomputed
+                    || (window.pryzmMountEnvelopeCard?.(envelopeSlot) ?? false);
+                if (present) {
+                    // The card claimed the slot; the empty state and this button are done.
+                    empty.remove();
+                    retry.remove();
+                    return;
+                }
+                // ⚠ A failed recompute must say WHICH of the two reasons applies, because
+                // "no parcel committed" and "a parcel that has no envelope" are different
+                // facts and collapsing them is the EI-1b defect this whole card exists to
+                // avoid. `false` from the re-derive means it could not run at all.
+                retry.disabled = false;
+                retry.textContent = 'Recompute from the committed parcel';
+                empty.textContent = recomputed
+                    ? 'Recomputed — and this parcel still has no buildable envelope to show. '
+                      + 'That is a determination, not a failure: the ordinance may not grant a '
+                      + 'private envelope here, or the data needed to derive one is not '
+                      + 'published for this plot.'
+                    : 'Nothing to recompute against — no parcel boundary is committed to this '
+                      + 'project yet. Select a parcel on the 2D map first, then return here.';
+            });
+            envelopeSlot.appendChild(retry);
         });
 
         return root;

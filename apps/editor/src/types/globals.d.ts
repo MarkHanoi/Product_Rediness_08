@@ -370,6 +370,18 @@ declare global {
          *  facts card. Same not-built-yet branch as the launcher pill. Registered by
          *  GISAreaLayout. */
         pryzmToggleEnvelopeCard?: () => void;
+        /** L-1587 - re-derive the buildability determination for the COMMITTED parcel and
+         *  re-render the facts card. Returns TRUE only if a card is on screen afterwards.
+         *
+         *  Exists because the determination is SESSION state: `_lastEnvelope` in
+         *  `siteDispatch.ts` is a module-local written only on parcel commit and never
+         *  persisted, so after any reload the card cannot be built and every host of it shows
+         *  an empty state with no way back. Registered by GISAreaLayout.
+         *
+         *  It re-runs the same C58 computation against the same committed boundary - it does
+         *  NOT persist or infer an envelope, so a parcel that legitimately has none still
+         *  refuses, and FALSE is a real answer rather than a failure. */
+        pryzmRecomputeEnvelopeCard?: () => boolean;
         /** §GIS-ACTION-REGISTRY (L-1187, C06 §13) — reframe the camera on the site. The
          *  ACTIVE SURFACE decides the target (Forma preset vs the placed building on the
          *  photoreal tiles), which is what the two rival "Zoom to Site" buttons disagreed

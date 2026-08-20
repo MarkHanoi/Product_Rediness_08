@@ -1422,6 +1422,33 @@ export const PROJECT_BROWSER_STYLES = `
     border-top: 1px solid var(--app-border-light);
     padding-top: 8px;
 }
+
+/* §L-1587 — the recompute escape hatch under the envelope empty state. Tokens only
+   (C06 §7.3): the same --app-* family the parcel card's action uses, so the two GIS
+   sections read as one surface rather than two people's buttons. */
+.pb-gis-envelope-retry {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg-elevated, var(--app-bg));
+    color: var(--app-text);
+    font-size: var(--pryzm-panel-font-size-meta);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+.pb-gis-envelope-retry:hover:not(:disabled) {
+    border-color: var(--app-accent, var(--app-border));
+    color: var(--app-accent, var(--app-text));
+}
+.pb-gis-envelope-retry:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 /* ─── §L-1581 — the ONE parcel data card (parcelCard.ts) ───────────────────
    Painted by CLASS, from tokens only, so the SAME element reads correctly in
    both of its hosts: the map overlay (SiteBoundaryMap2D) and the GIS rail slot.
