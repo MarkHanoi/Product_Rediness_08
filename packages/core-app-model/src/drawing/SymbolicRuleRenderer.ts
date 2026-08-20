@@ -206,6 +206,19 @@ const SYMBOL_RENDERERS: Record<string, SymbolRenderFn> = {
     'elev-door': (ctx, segments, pen) => {
         _renderSegmentsWithPen(ctx, segments, pen);
     },
+
+    /**
+     * 'elev-wall' — the AUTHORED wall elevation symbol (§ELEV-SYMBOL-WALL, L-1242).
+     *
+     * The wall's NEAR FACE, once: base, top and the two ends — and for a curved wall the base
+     * and top are CONTINUOUS polylines rather than the `2 x (segments + 1)` tessellation seams
+     * `EdgesGeometry` was promoting to drawn verticals. Geometry is injected by
+     * `OpeningElevationSymbolBuilder.inject()`; this renderer only strokes it with the pen the
+     * caller resolved.
+     */
+    'elev-wall': (ctx, segments, pen) => {
+        _renderSegmentsWithPen(ctx, segments, pen);
+    },
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -285,6 +298,10 @@ export function symbolicRuleForLayer(layerTag: string, viewType: string): string
         if (!/-SYM\b/i.test(tag)) return null;
         if (/A-DOOR|door/i.test(tag)) return 'elev-door';
         if (/A-GLAZ|window|curtain-panel/i.test(tag)) return 'elev-window';
+        // §ELEV-SYMBOL-WALL (L-1242). Tested LAST so a hosted-element token in the tag still
+        // wins — a door's symbol layer must never be claimed by the wall rule because the two
+        // happen to share a parent name.
+        if (/A-WALL|wall/i.test(tag)) return 'elev-wall';
         return null;
     }
 

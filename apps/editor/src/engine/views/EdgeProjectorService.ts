@@ -3660,7 +3660,19 @@ export class EdgeProjectorService {
                     ? ` maxJambTilt=${_d.maxJambTiltDeg.toFixed(2)}° — D2 PRESENT (a correct `
                       + `projection of a leaning solid; the drawing is right)`
                     : ' — D2 absent')
-                + ` · symbols=${_d.symbolsInjected} rawLayersSuppressed=${_sup.removedLayers} `
+                + ` · openingSymbols=${_d.symbolsInjected}`
+                // §ELEV-SYMBOL-WALL (L-1242) — reported SEPARATELY from the opening count,
+                // because the founder's report drew exactly that distinction: "I believe the
+                // WINDOWS they do, but the WALL not". One combined number would hide it.
+                + ` wallSymbols=${_d.wallSymbolsInjected}`
+                + (_d.curvedWallsSymbolised > 0
+                    ? ` (curved=${_d.curvedWallsSymbolised} — each one is 2x(segments+1) `
+                      + `tessellation verticals NOT drawn)`
+                    : '')
+                + (_d.wallSymbolsRefused > 0
+                    ? ` wallSymbolsREFUSED=${_d.wallSymbolsRefused} (these KEEP their linework)`
+                    : '')
+                + ` · rawLayersSuppressed=${_sup.removedLayers} `
                 + `rawSegmentsSuppressed=${_sup.removedSegments}`
                 + (_sym.refusals.length > 0 ? ` · refused=${_sym.refusals.length}` : ''),
             );

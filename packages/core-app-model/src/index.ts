@@ -815,10 +815,13 @@ export {
     projectToElevation,
     buildOpeningElevationSymbol,
     nearFaceSign,
+    buildWallElevationSymbol,
+    wallNearFaceSign,
     openingElevationSymbolBuilder,
     suppressSymbolisedElementLinework,
     DOOR_SYM_LAYER,
     GLAZ_SYM_LAYER,
+    WALL_SYM_LAYER,
 } from './drawing/index.js';
 
 // ── Sprint K (2026-05-10) — comparison/ + remediation/ ────────────────────────

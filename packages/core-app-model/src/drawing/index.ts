@@ -198,6 +198,20 @@ export {
 } from './OpeningElevationSymbol.js';
 
 export type {
+    WallElevationSymbolHost,
+    WallElevationSymbolOptions,
+    WallElevationSymbolPolyline,
+    WallElevationSymbolRefusal,
+    WallElevationSymbolResult,
+    WallElevationSymbolRole,
+    WallStationSample,
+} from './WallElevationSymbol.js';
+export {
+    buildWallElevationSymbol,
+    wallNearFaceSign,
+} from './WallElevationSymbol.js';
+
+export type {
     ElevationSymbolViewDef,
     ElevationDiagnosis,
     InjectResult,
@@ -205,6 +219,7 @@ export type {
 export {
     DOOR_SYM_LAYER,
     GLAZ_SYM_LAYER,
+    WALL_SYM_LAYER,
     OpeningElevationSymbolBuilder,
     openingElevationSymbolBuilder,
     suppressSymbolisedElementLinework,

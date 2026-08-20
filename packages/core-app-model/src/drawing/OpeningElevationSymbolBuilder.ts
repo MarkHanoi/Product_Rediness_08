@@ -49,7 +49,18 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { resolveWallBaseYOrLevel, rakeShearPerMetre } from '@pryzm/geometry-wall';
+import {
+    resolveWallBaseYOrLevel,
+    rakeShearPerMetre,
+    hasWallProfile,
+    computeStations,
+} from '@pryzm/geometry-wall';
+import * as THREEForStations from '@pryzm/renderer-three/three';
+import {
+    buildWallElevationSymbol,
+    wallNearFaceSign,
+    type WallStationSample,
+} from './WallElevationSymbol';
 import { storeRegistry } from '../StoreRegistry';
 import { registerSegmentUUID } from '../views/DrawingSelectionIndex';
 import { layerForZone, type DrawingZone } from './DrawingZone';
@@ -57,13 +68,14 @@ import {
     buildOpeningElevationSymbol,
     nearFaceSign,
     type ElevationSymbolOpening,
-    type ElevationSymbolPolyline,
     type SymbolDetail,
 } from './OpeningElevationSymbol';
 
 /** The two base layers. The `-SYM` token is what the elevation symbol arm keys on. */
 export const GLAZ_SYM_LAYER = 'A-GLAZ-SYM';
 export const DOOR_SYM_LAYER = 'A-DOOR-SYM';
+/** §ELEV-SYMBOL-WALL (L-1242) — the wall's own authored elevation linework. */
+export const WALL_SYM_LAYER = 'A-WALL-SYM';
 
 interface ReadableWallStore {
     getAll: () => Array<{
@@ -73,7 +85,13 @@ interface ReadableWallStore {
         thickness: number;
         baseOffset?: number;
         rakeAngleDeg?: number | null;
-        arc?: unknown;
+        height?: number;
+        // ⚠ THE FIELD IS `curve`, NOT `arc`. The first cut of this file read `wall.arc`,
+        // which does not exist on `WallData` — so `curved` was ALWAYS false and the C86
+        // §10.1 PR-5 curved-host refusal could never fire. Found by the L-1242 dump, which
+        // had to build a curved wall and went looking for the real field name.
+        curve?: { control?: { x: number; y?: number; z: number }; segments?: number } | null;
+        profile?: unknown;
         openings?: Array<{
             id: string;
             type: 'window' | 'door';
@@ -143,6 +161,18 @@ export interface ElevationDiagnosis {
     readonly symbolsInjected: number;
     /** **D3.** Raw projected linework layers removed because their element gained a symbol. */
     readonly rawLayersSuppressed: number;
+    /**
+     * §ELEV-SYMBOL-WALL (L-1242) — walls that received an authored symbol.
+     *
+     * ⭐ Reported separately from `symbolsInjected` because the founder's two reports were
+     * *"the WINDOWS [render correctly], but the WALL not"* — the two families are the thing being
+     * distinguished, so one combined count would hide exactly the distinction he drew.
+     */
+    readonly wallSymbolsInjected: number;
+    /** Walls REFUSED a symbol (profiled top, degenerate arc) — these KEEP their linework. */
+    readonly wallSymbolsRefused: number;
+    /** Curved walls symbolised — each one is `2 x (segments + 1)` verticals NOT drawn. */
+    readonly curvedWallsSymbolised: number;
 }
 
 export interface InjectResult {
@@ -186,6 +216,9 @@ export class OpeningElevationSymbolBuilder {
         const coveredElementIds = new Set<string>();
         let rakedObliqueHosts = 0;
         let maxJambTiltDeg = 0;
+        let wallSymbolsInjected = 0;
+        let wallSymbolsRefused = 0;
+        let curvedWallsSymbolised = 0;
         const diagnose = (rawLayersSuppressed: number, n: number): ElevationDiagnosis => ({
             nonCardinalView: !_isCardinalXZ(dirX, dirZ),
             directionXZ: [dirX, dirZ],
@@ -193,6 +226,9 @@ export class OpeningElevationSymbolBuilder {
             maxJambTiltDeg,
             symbolsInjected: n,
             rawLayersSuppressed,
+            wallSymbolsInjected,
+            wallSymbolsRefused,
+            curvedWallsSymbolised,
         });
 
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as ReadableWallStore | undefined;
@@ -208,7 +244,11 @@ export class OpeningElevationSymbolBuilder {
 
         for (const wall of wallStore.getAll()) {
             const openings = wall.openings;
-            if (!openings?.length) continue;
+            // ⚠ THE `continue` THAT USED TO BE HERE READ `if (!openings?.length) continue;`.
+            // That was right while this builder only drew OPENINGS. §ELEV-SYMBOL-WALL (L-1242)
+            // draws the WALL too, and a blank wall — no openings at all — is exactly the one a
+            // founder notices drawing as a doubled wireframe with nothing on top of it. The
+            // opening loop below is now the thing that is skipped, not the whole wall.
             if (levelId && wall.levelId && wall.levelId !== levelId) continue;
             const a = wall.baseLine?.[0];
             const b = wall.baseLine?.[1];
@@ -225,7 +265,7 @@ export class OpeningElevationSymbolBuilder {
                 baseY,
                 thickness: wall.thickness,
                 rakeAngleDeg: wall.rakeAngleDeg ?? null,
-                curved: wall.arc != null,
+                curved: wall.curve != null,
             };
             const faceSign = nearFaceSign(host, { x: dirX, z: dirZ });
 
@@ -240,6 +280,47 @@ export class OpeningElevationSymbolBuilder {
                 rakedObliqueHosts++;
                 if (tilt > maxJambTiltDeg) maxJambTiltDeg = tilt;
             }
+
+            // ── §ELEV-SYMBOL-WALL (L-1242) — THE WALL ITSELF ─────────────────
+            //
+            // Measured root (`WallElevationSymbol.probe.test.ts`): a wall OBLIQUE to the sheet
+            // draws BOTH its faces, `thickness x sin(bearing)` apart, plus the depth edges
+            // between them — and a CURVED wall additionally draws `2 x (segments + 1)`
+            // tessellation seams as verticals. The authored symbol draws the near face ONCE and
+            // traces the arc continuously, and the L-1240 suppression below takes the solid away.
+            const wallSym = buildWallElevationSymbol({
+                id: wall.id,
+                baseStart: host.baseStart,
+                baseEnd: host.baseEnd,
+                baseY,
+                height: Number(wall.height) || 0,
+                thickness: wall.thickness,
+                rakeAngleDeg: wall.rakeAngleDeg ?? null,
+                stations: _wallStations(wall, a, b),
+                // A profiled wall REFUSES and keeps its raw linework — the symbol draws a FLAT
+                // top and would otherwise draw a top the wall does not have.
+                hasProfile: hasWallProfile(wall.profile),
+            }, { faceSign: wallNearFaceSign(host, { x: dirX, z: dirZ }) });
+
+            if (wallSym.refusal) {
+                wallSymbolsRefused++;
+                refusals.push({
+                    openingId: wall.id,
+                    code: wallSym.refusal.code,
+                    reason: `${wallSym.refusal.reason} — ${wallSym.refusal.alternative}`,
+                });
+            } else if (wallSym.polylines.length > 0) {
+                if (_emit(drawing, WALL_SYM_LAYER, wallSym.polylines, wall.id)) {
+                    wallSymbolsInjected++;
+                    if (wall.curve != null) curvedWallsSymbolised++;
+                    // Same covered set, same suppression. ⛔ NOT a second mechanism — reusing the
+                    // one that is already pinned both ways is what makes "a wall the builder
+                    // skipped keeps its linework" true for walls without re-proving it.
+                    coveredElementIds.add(wall.id);
+                }
+            }
+
+            if (!openings?.length) continue;
 
             for (const op of openings) {
                 const swing = op.elementId ? swingByOpening.get(op.elementId) : undefined;
@@ -361,6 +442,40 @@ export function suppressSymbolisedElementLinework(
     return { removedLayers: doomed.length, removedSegments };
 }
 
+/**
+ * A curved wall's stations, from `computeStations` — THE sampler `buildCurvedLayerGeometry`
+ * builds the body from.
+ *
+ * ⭐ Calling the body's own sampler is the point. A second arc sampler here would be a second
+ * answer to *"where along the wall is this?"*, and `CurvedWallLayerBuilder`'s header names that
+ * as the shape of every join defect this subsystem has had. Returns `null` for a straight wall.
+ *
+ * ⚠ `computeStations` returns centreline points RELATIVE TO `start`, so they are re-based here.
+ */
+function _wallStations(
+    wall: { curve?: { control?: { x: number; y?: number; z: number }; segments?: number } | null },
+    a: { x: number; y?: number; z: number },
+    b: { x: number; y?: number; z: number },
+): WallStationSample[] | null {
+    const curve = wall.curve;
+    if (!curve?.control) return null;
+    const segments = Number(curve.segments);
+    if (!Number.isFinite(segments) || segments < 2) {
+        // Curved but unusable — return a one-entry list so the symbol REFUSES (DEGENERATE_ARC)
+        // rather than silently drawing the chord where the building has an arc.
+        return [{ x: a.x, z: a.z, nx: 0, nz: 0 }];
+    }
+    const V = THREEForStations.Vector3;
+    const st = computeStations(
+        new V(a.x, 0, a.z),
+        new V(b.x, 0, b.z),
+        new V(curve.control.x, 0, curve.control.z),
+        Math.round(segments),
+    );
+    if (!st || st.length < 2) return [{ x: a.x, z: a.z, nx: 0, nz: 0 }];
+    return st.map(s => ({ x: a.x + s.cx, z: a.z + s.cz, nx: s.nx, nz: s.nz }));
+}
+
 /** The token that marks INJECTED symbol linework. Shared with `symbolicRuleForLayer`'s arm. */
 const SYM_LAYER_RE = /-SYM\b/i;
 
@@ -403,11 +518,26 @@ function _jambTiltDeg(
     return (Math.atan(Math.abs(k) * inPlane) * 180) / Math.PI;
 }
 
+/**
+ * One emitted polyline, as `_emit` needs it.
+ *
+ * ⭐ Deliberately STRUCTURAL rather than a union of `ElevationSymbolPolyline |
+ * WallElevationSymbolPolyline`. The two differ only in their `role` vocabulary, which `_emit`
+ * never reads — and a union here would have to be widened again for every family that gains an
+ * elevation symbol, which is the hand-maintained enumeration L-1240 removed from the suppression.
+ * What `_emit` actually requires is a zone, some points and whether they close.
+ */
+interface EmittablePolyline {
+    readonly zone: DrawingZone;
+    readonly points: readonly { x: number; y: number; z: number }[];
+    readonly closed: boolean;
+}
+
 /** Group by zone so each zone's polylines share one LineSegments — one pen resolution each. */
 function _emit(
     drawing: OBC.TechnicalDrawing,
     baseLayer: string,
-    polylines: readonly ElevationSymbolPolyline[],
+    polylines: readonly EmittablePolyline[],
     elementUUID: string,
 ): boolean {
     const byZone = new Map<DrawingZone, number[]>();
