@@ -45,19 +45,32 @@
 //     `CreateStairCommand.canExecute` requires
 //     `riserHeight × Σ riserCount ≈ topLevel.elevation − baseLevel.elevation`
 //     within `HEIGHT_TOLERANCE` (50 mm). Ground → Level 5 at ~3 m/storey is
-//     ~15 m ⇒ ~83 risers. An L shape has TWO flights ⇒ ~42 risers each, against
-//     `STAIR_CONSTRAINTS.MAX_RISERS_PER_FLIGHT = 16`. What the command would
-//     build is not a five-storey stair core; it is one continuous 15 m ramp.
+//     ~15 m ⇒ ~83 risers. An L shape has TWO flights ⇒ ~42 risers each. What
+//     the command would build is not a five-storey stair core; it is one
+//     continuous 15 m ramp.
+//
+//     ⚠ AND NOTHING STOPS IT. An earlier draft of this comment cited
+//     `STAIR_CONSTRAINTS.MAX_RISERS_PER_FLIGHT = 16` as the limit being
+//     exceeded, which implied a guard that would refuse. **C98 §L-1430 measured
+//     that constant: 5 declarations across 3 packages, ZERO readers on any
+//     path** (L-1434). Citing it as a bound would have described a protection
+//     that does not run — a smaller version of the exact defect this file
+//     exists to refuse. The number is quoted here as the SHAPE of the problem,
+//     never as the thing that catches it.
 //
 //  3. THE SLAB OPENING IS PUNCHED ON `topLevelId` ONLY. `carveStairOpening`
 //     carves the slab whose `levelId === topLevelId`, so levels 1–4 stay SOLID
 //     and the stair passes through four slabs — while
 //     `LevelTraversalPolicy.canTraverse` returns `ok: true` with a WARNING, so
-//     nothing stops it.
+//     nothing stops that either. ⭐ Independently measured by lane STAIR1 and
+//     already on the books as **C98 §L-1431 gap 1 / L-1433, severity P1**,
+//     opening with the same sentence: *"A Ground→L5 stair still passes through
+//     four structurally intact slabs."* Two lanes reached it from opposite
+//     ends — one from the geometry, one from the founder's sentence.
 //
 // ⚠ (2) and (3) are NOT chat defects. A user can build that stair by hand
 // today; the chat merely declines to be a second way to do it. They are logged
-// against the stair command family, not against this module.
+// against the stair command family (C98 §13 DELTA #19/#20), not here.
 //
 // ═══ B5 — "first run", and the honest general answer ════════════════════════
 //
