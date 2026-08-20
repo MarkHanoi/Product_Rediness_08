@@ -63,6 +63,16 @@ interface RendererHandle {
 > 2. `apps/editor/src/ui/generation/buildingGenerationLifecycle.ts:307` — start-of-generation, before any geometry exists (ADR-0267 start-of-generation refinement, L-367). *Pre-empts.*
 > 3. `apps/editor/src/engine/initScene.ts:2845` — the per-add tier pass, `tier:${reason}`. This is **also reached once per project OPEN** via `_runConsolidatedTierPbrPass = () => runTierPbrPass('post-load')` (initScene:2875), fired from the `pryzm-project-loaded` listener at initScene:3583. **That is the founder's `reason=tier:post-load`, and it pre-empts nothing.**
 
+> ⚠⚠ **CORRECTED AGAIN 2026-08-20 (lane WEBGL4, L-1480) — the SAME paragraph carries THREE more claims that the code contradicts, and one of them is the sentence a founder was told to rely on.** MEASURED at `apps/editor/src/rendering/autoWebGLHeavyScene.ts` and `apps/editor/src/engine/initScene.ts`, HEAD.
+>
+> **(a) “In **Auto** mode only, on a **real WebGPU** backend” — FALSE on both halves.** The gate is `backendBenefitsFromClassicSwap()` (autoWebGLHeavyScene.ts:194-197), which reads the **live resolved backend**, not the persisted pref, and returns true for `'webgpu'` **AND `'webgl-fallback'`**. §Fix-3/L-382 deliberately replaced the Auto-only + real-WebGPU-only gates precisely because the founder's box boots `'webgl-fallback'` from a persisted `'webgl'` pref — the case that MUST upgrade, which both old gates short-circuited. The mode is not consulted anywhere in the decision.
+>
+> **(b) “An **explicit** `webgpu` / `webgl` selection is ALWAYS respected (Auto is the only adaptive mode)” — FALSE, and deliberately so.** ADR-0267 §Fix-3 (L-366) REMOVED the explicit-pin honour for device-loss-risk scenes. `fireSwapToWebGL(reason, pref === 'webgpu', …)` (autoWebGLHeavyScene.ts:308/353) takes the pin only as **log wording**, then swaps regardless — the code's own message says so out loud: *“switched WebGPU→WebGL for stability despite the explicit WebGPU pin. Re-pick WebGPU to override.”* ⛔ **Do NOT “fix” the code to honour the pin — that re-opens L-361.** The CODE is intentional; this SENTENCE was the stale half. Only **light** scenes (which never reach the gate) still honour a pin.
+>
+> **(c) ⭐ NOT PREVIOUSLY RECORDED ANYWHERE — the swap OVERWRITES the user's stored pick.** `initScene.ts:4626`: `setRendererBackendPreference(intendedClassicWebGL ? 'webgl' : pref)`. A `'webgl-classic'` swap is not round-trippable (`getRendererBackendPreference` accepts only `auto|webgpu|webgl`), so it persists the nearest user-facing value — **`'webgl'`, on top of an explicit `'webgpu'`**. The pin is therefore not merely overridden **for this session**; it is **destroyed on disk**. The next boot resolves `'webgl'` → `forceWebGL` → `'webgl-fallback'` **before the heuristic runs at all**. That is why a founder who re-picks WebGPU keeps landing back on a WebGL backend on the following open, and why “re-pick WebGPU to override” understates what happened to him. ⚠ The *swap* is intentional; **persisting over the pin is not** — §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION added the per-call `backendOverride` parameter for exactly this reason (“without calling `setRendererBackendPreference('webgl')` — which previously silently clobbered the user's persisted choice”, createRenderer.ts:233-243) and this call site does not use it. **It is the L-203 defect, re-created at a different seam.**
+>
+> **(d) ⭐⭐ THE COST THIS AMENDMENT NEVER STATED.** The swap target is **not “WebGL” in general** — since §L-372B/L-382 it is `swap('webgl-classic')` → a genuine classic `THREE.WebGLRenderer`, backend **`'webgl-only'`**, a THIRD backend with no TSL/node compile and its own constructor options (`WebGLRendererAdapter.ts:94` is the repo's ONLY `logarithmicDepthBuffer: true`, set on neither of the other two backends). `fireSwapToWebGL`'s own comment asserts *“the material-safety audit confirmed the generated scene is 100% classic materials, so it renders correctly (walls/slabs/glass/stairs/furniture + WebGLShadowMap shadows) on the classic renderer.”* **That is a prose-justified verdict with no gate behind it, and the founder's screenshots falsify it**: on `'webgl-only'` his six-storey building renders as black outline profiles with no solid surfaces, and the same scene renders correctly the moment he swaps to WebGPU. ⭐ **A stability guard that moves the user onto a path where lit geometry does not draw is not a stability guard.** Tracked as L-1481; the honest reading of this amendment today is *“the swap avoids a device loss by moving the user to a backend that currently cannot draw his building.”*
+
 **§1.4a — The backend decision is taken at the point of MAXIMUM ATTACHED STATE (OPEN, L-1414, 2026-08-20)**
 
 `reason=tier:post-load` means the swap decision for a project OPEN is taken **after** all 3,191 meshes exist and have rendered. ADR-0267's whole premise is *"swap BEFORE the heavy PSO-compile that would TDR the device"* — at `post-load` that compile has already happened and survived, so the swap buys nothing it was designed to buy while paying the maximum possible cost: `§RENDERER-LIVE-SWAP` disposes the TSL pipeline, builds a second renderer on a second canvas, re-binds five services and retires the old renderer **against a fully populated scene**. It fires on *every* project open above the threshold, so this is not an edge case.
@@ -116,6 +126,31 @@ Two components naming two different backends for one live renderer. **The DECISI
 > it still sometimes comes grey"*. Each of the first three fixes armed **one more code
 > path**. **The enumeration WAS the defect**; this section exists so the fifth report
 > cannot be fixed the same way.
+
+> ⚠⚠ **THE FIFTH AND SIXTH REPORTS ARRIVED (2026-08-20) AND NEITHER WAS A BACKGROUND.**
+> The box above braced for a fifth *background* fix. What actually came was two reports of
+> a **flat, undifferentiated viewport** whose cause is not in this section's authority at
+> all — and reading them as background reports is now the predictable mistake:
+>
+> - **L-1353 (lane BG1, 🟡 OPEN)** — the grey is very likely the 4 km `ShadowMaterial`
+>   ground catcher **compositing as fully shadowed**, i.e. something **DRAWN**, not a
+>   background. Measured, deliberately not fixed without a browser reading.
+> - **L-1470 (lane RENDER3, ✅ FIXED)** — founder: *"ALL MATERIALS GONE ON THE VIEW"*, flat
+>   white, **WebGPU live**. It was neither a background nor the material database. A
+>   **SECOND surface** — OBC's WebGL canvas — was sized to **0×0** by OBC's own unguarded
+>   `ResizeObserver` (`@thatopen/components` index.mjs:14535 has no `Math.max`, no `> 0`,
+>   no `||`) the moment `mainRendererVisibility` set `display:none` on its **parent**
+>   container, and every draw into it was discarded.
+>
+> ⭐⭐ **THE RULE THIS ADDS, and it is the one that generalises:** on the native-WebGPU path
+> the overlay presents `presenceAlpha = step(0.0001, contentAlpha)` — **alpha 0 in every
+> empty-space pixel** — so *what the user sees in those pixels is whatever is BEHIND the
+> overlay*. **A flat or wrong viewport is therefore a COMPOSITING question before it is a
+> background question,** and this section's five surfaces cannot answer it. ⛔ **Do not
+> route a "the viewport is white/grey/flat" report into §1.5 by reflex.** Establish first
+> whether the pixel is *painted* (a background), *drawn* (L-1353), or *never delivered
+> because its surface had no area* (L-1470). Those are three different subsystems and
+> §1.5 owns only the first.
 
 **§1.5.1 — Two mechanisms, and only one of them may be enumerated.**
 A backend paints the flat viewport background by exactly one of two mechanisms, and
@@ -354,6 +389,48 @@ Folded from ADR-0297's "C04 amendment" section, as amended 2026-08-07:
 > to the mesh that drew with it, so `castShadow` is not knowable from it and those releases are
 > NOT covered. The enumeration in `geometryMutationEvents.ts` is **retained**, not replaced:
 > the two arms fail differently, and neither has been shown to subsume the other.
+
+#### §3.1.2b — §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470, 2026-08-20, binding)
+
+9. **A pass MUST NOT be created against, or run on, an output surface with no area.** A
+   surface whose backing store is `0` in either dimension makes its framebuffer *incomplete*:
+   the driver discards every draw and reports `GL_INVALID_FRAMEBUFFER_OPERATION: Framebuffer
+   is incomplete: Attachment has zero size`. The submit is not merely wasted, it is
+   **invisible** — see rule 12.
+10. **The area MUST be derived from the surface's own BACKING STORE**
+    (`getDrawingBufferSize` → `getSize` → `domElement.width/height`), never from
+    `clientWidth`/`clientHeight`. Two reasons and both bind: the CSS read forces a layout
+    reflow on a per-frame path, and the backing store *is* the dimension the attachments are
+    allocated from, so a zero there **is** the fault rather than a correlate of it. THE ONE
+    implementation is `hasDrawableArea` / `admitSurface` in
+    `packages/renderer-three/src/surfaceArea.ts`; `RenderPipelineManager._isRenderTargetZeroSize()`
+    delegates to it. ⛔ **Do not write a second copy** — the founder's flood happened because
+    the one correct copy examined only one of the two live surfaces.
+11. ⛔ **A CLAMP IS NOT A FIX.** `Math.max(1, …)` on a GL surface still discards the image and
+    converts a loud, diagnosable driver error into a **silent wrong picture**. The pass must
+    not run. (`PlanViewCanvas.setSize` clamps deliberately, but that is **Canvas2D** — there
+    is no framebuffer to be incomplete. It is not a precedent for a GL surface.)
+12. **The refusal MUST aggregate on the REASON and the message MUST survive** (§INST.4).
+    Chrome caps GL error reporting at ~255 per context and then goes **permanently silent**,
+    so a flood does not merely spam — it **blinds the console to every later fault on that
+    context** (this is how the 488 undrawn window frames stayed invisible, L-1402). One warn
+    per episode per site, one info on resume carrying the refused count, and a retrievable
+    report (`window.pryzmZeroAreaSurfaceReport()`); aggregation is per **site**, so one hidden
+    surface cannot mask a different refusal, and it re-arms after a resume.
+13. ⭐ **ASK WHETHER THE CONDITION CAN EVER BE SATISFIED before treating a zero as transient.**
+    A surface sized from a `display:none` container is **not** momentarily zero on the way to
+    layout — it is zero until that container is shown again. "Wait for the next frame" is not
+    a recovery strategy for a permanent condition (L-716, and L-1470 is its second instance).
+
+> ⚠ **What rules 9–13 do NOT cover, stated so this is not read as total.** They stop *this
+> codebase* drawing into a zero-area surface. They do **not** stop a third-party renderer
+> zeroing its own canvas — OBC's `SimpleRenderer.resize` does exactly that, unguarded, from a
+> `ResizeObserver` on the canvas's parent, and it lives in `node_modules`. Nor do they gate
+> **allocation** of every offscreen target: several sites still size targets from a possibly-zero
+> renderer without a guard (`ViewportPathTracer`, `SSGIService`, `EnhancedBloomService`,
+> `PanoramaPanel.onResize`, `ViewRenderCache`, and `packages/renderer/src/passes/*`). Those are
+> **named, not fixed** — most are opt-in or currently unreachable — and each is a rule-9 breach
+> the day its path goes live.
 
 ### §3.2 — GPU picking ID-buffer requirement (Amendment — Wave A15 S121, 2026-05-03)
 
@@ -631,12 +708,42 @@ and radius, so an offending mesh names itself in production.
     **inert** — `ShadowNode.updateBefore()` gates on the per-**light** `shadow.autoUpdate` /
     `shadow.needsUpdate`. `renderer.shadowMap.enabled` is read once, at **compile** time
     (`ShadowNode.setup`). Several L-205-era "fixes" adjusted a switch wired to nothing.
+    > ⚠⚠ **CORRECTED 2026-08-20 (lane WEBGL4, L-1480) — rule 10 was RIGHT about WebGPU and INCOMPLETE about WebGL, and the missing half blanked the founder's whole building.**
+    > This rule taught *“the per-light flags are the WebGPU ones”*, and `RenderPipelineManager._applyShadowFreezeState()` implemented exactly that: it wrote `light.shadow.autoUpdate` **inside `if (this._webGpuActive)`**, with the comment *“WebGPU-path only (WebGL2 fallback owns its own shadowMap and honours the renderer-level flag).”*
+    > **MEASURED in the installed three r183 source — the classic `WebGLShadowMap` honours BOTH flags:**
+    > ```
+    > node_modules/.pnpm/three@0.183.2/…/renderers/webgl/WebGLShadowMap.js
+    >   :95   if ( scope.autoUpdate === false && scope.needsUpdate === false ) return;      ← renderer-level
+    >   :170  if ( shadow.autoUpdate === false && shadow.needsUpdate === false ) continue;  ← PER-LIGHT
+    > ```
+    > The per-light flags are therefore **not a WebGPU concept**. They are read on every backend. See rule 12.
+
 11. **`ShadowMaterial` differs per backend.** On WebGPU it resolves to `ShadowNodeMaterial` +
     `ShadowMaskModel`, whose `finish()` is `diffuseColor.a.mulAssign(shadowMask.oneMinus())` —
     opacity **is** respected. `ShadowNode`'s `frustumTest` clamps `x,y ∈ [0,1] ∧ z ≤ 1` and returns
     `1` (LIT) outside, so ground **outside** the shadow frustum is invisible, never grey.
     **Corollary: grey outside the frustum is impossible. Grey everywhere means the frustum covers
     everywhere, or everything inside it is genuinely shadowed.**
+
+12. **The per-light shadow flags are SCENE state, not backend state — assert them on EVERY backend (NORMATIVE, L-1480, 2026-08-20).**
+    `LightShadow.autoUpdate` / `.needsUpdate` live on the `DirectionalLight`s, which **outlive the renderer**: `§RENDERER-LIVE-SWAP` (ADR-0077) deliberately keeps the same `THREE.Scene`. Any code that writes them MUST also un-write them on every backend it can be bound to, and any teardown that zeroes a freeze COUNTER MUST apply the corresponding thaw to the LIGHTS before dropping its scene reference. ⛔ **Never gate the ASSERT on a backend. Gate the freeze SOURCE instead** (`setShadowPassSuppressed` / `setShadowReallocFrozen` already early-return off the WebGPU path). Gating the assert is what strands a `false`.
+
+    **THE FOUNDER'S DEFECT, END TO END — “I open the project and I see just LINES OF PROFILES of walls / slabs on 3D view”:**
+    1. Project OPEN on native WebGPU pushes the whole-load / tier-escalation freeze (`§FIX-SHADOW-LOAD-TIER-DESTROY`, initScene:3442-3459) → `light.shadow.autoUpdate = false`.
+    2. The **same** `tier:post-load` pass fires `§AUTO-WEBGL-HEAVY` (§1.4) — so the backend swap is fired **from inside that freeze window**. Structural, not coincidental.
+    3. The swap calls `rpm.dispose()` first, which zeroed `_shadowReallocFreezeDepth` / `_shadowPassSuppressed` / `_shadowFrozenState` **without applying the thaw**, then `bind()` re-ran the applier against the new classic `THREE.WebGLRenderer` with `_webGpuActive === false` — skipping the per-light restore. **The counters said “not frozen”; the lights said “frozen”; three believed the lights.**
+    4. `WebGLShadowMap.js:170` `continue`s forever → **`light.shadow.map` is never allocated.**
+    5. `WebGLLights.js:243-259` / `:459-465` still count the caster (they key on `castShadow`, never on the map) → `numDirLightShadows === 1` → `WebGLPrograms.js:332/344` emits `USE_SHADOWMAP` + `SHADOWMAP_TYPE_PCF` → `shadowmap_pars_fragment.glsl.js:18-20` declares `uniform sampler2DShadow directionalShadowMap[1]`.
+    6. `WebGLRenderer.js:2526-2533` uploads that array through `WebGLUniforms.setValueT1Array` (`:825-841`), which substitutes `emptyShadowTexture`. Its `version` is `0` forever, so `WebGLTextures.setTexture2D` (`:518`) never uploads it and `WebGLState.js:951` binds `emptyTextures[TEXTURE_2D]` — a **1×1 RGBA8 with `TEXTURE_COMPARE_MODE = NONE`**. (The SCALAR sibling `setValueT1` at `:571-584` *does* set `compareFunction`; the ARRAY path, which is the one shadows always take, does not.)
+    7. A `sampler2DShadow` bound to a non-comparison colour texture is **incomplete for that sampler type** → `INVALID_OPERATION` → **the draw is dropped.** Every lit mesh, every frame.
+
+    ⭐ **THE MESH-vs-LINE SPLIT, WHICH IS THE WHOLE DIAGNOSTIC:** `LineBasicMaterial` compiles `ShaderLib.basic` → `meshbasic.glsl.js`, which includes **no `shadowmap_*` chunk at all** and declares no shadow sampler; and `PascalSceneLighting._enableShadowsOnScene()` explicitly `return`s on `userData.role === 'edges' | 'edge-overlay'`, so edge overlays never receive a shadow flag either. **Lines draw. Solids do not.** The visible result is the wall/slab `LineSegments` overlays (`WallEdgeOverlayBuilder.ts`, `SlabFragmentBuilder.ts`) floating alone — black outline profiles in white space.
+
+    ⭐ **WHY IT VANISHES ON WebGPU:** `WebGLShadowMap` exists ONLY on the classic `THREE.WebGLRenderer`. Native WebGPU *and* the `WebGPURenderer({forceWebGL})` WebGL2 fallback both run three's NODE shadow path (`ShadowNode`), which allocates its own depth texture and never binds an empty RGBA to a comparison sampler. The founder's own one-variable experiment — same project, same scene, minutes apart — was pointing at the shadow path all along.
+
+    **Enforced by** `packages/renderer-three/__tests__/shadowFreezeSurvivesBackendSwap.test.ts` (drives the real `RenderPipelineManager` through bind-WebGPU → freeze → dispose → bind-classic against real `THREE.DirectionalLight` objects, and asserts `WebGLShadowMap.js:170`'s own predicate). **Tripwire:** `RenderPipelineManager.auditShadowCasters()` (`§SHADOW-CASTER-DECLARED-BUT-UNSATISFIABLE`, L-1482) runs once per bind, on the first frame presented, and names any caster whose depth pass can never run.
+
+13. **A freeze means “reuse the map you already have.” A renderer that has never run its depth pass has no map to reuse (NORMATIVE, L-1482).** Asserting `autoUpdate = false` onto such a renderer is not a freeze, it is a permanent suppression — and on the classic WebGL path a permanent suppression is not “no shadows”, it is **no lit geometry at all** (rule 12, steps 5-7). ⭐ Ask *“can this gate ever become true?”* before asking *“why is the viewport empty?”*
 
 ### §SHADOW.3 — Debugging protocol (follow in order; do not skip to code)
 

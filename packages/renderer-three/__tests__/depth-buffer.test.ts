@@ -39,17 +39,36 @@ const capturedCtorCalls: RendererCtorOptions[] = [];
 // ── THREE mock ────────────────────────────────────────────────────────────────
 // Intercepts `new THREE.WebGLRenderer(options)` and records the options object.
 // All THREE constants used by the adapter post-construction are provided as stubs.
+//
+// ⚠⚠ CORRECTED 2026-08-20 (lane WEBGL4, L-1480). This mock used to be
+//   `WebGLRenderer: vi.fn().mockImplementation((opts) => ({ ... }))`
+// and ALL THREE CASES FAILED with `TypeError: (opts) => {…} is not a constructor`
+// at `WebGLRendererAdapter.ts:83` — i.e. the suite never reached a single one of its
+// assertions. `mockImplementation` with an arrow function cannot be invoked with `new`
+// under the installed vitest; the adapter calls `new THREE.WebGLRenderer(…)`, so the
+// capture array stayed EMPTY and `logarithmicDepthBuffer` was never read at all.
+//
+// ⭐ WHY THIS MATTERED, not just “a red test”: `logarithmicDepthBuffer: true` at
+// `WebGLRendererAdapter.ts:94` is the ONE production site in the repo (the only other
+// hit is Cesium's own unrelated `scene.logarithmicDepthBuffer`), and it is the single
+// constructor-option asymmetry between the classic `'webgl-only'` renderer and BOTH
+// backends on which the founder's building renders correctly (`'webgl-fallback'` and
+// native `'webgpu'`, built by `WebGPURendererAdapter`, which sets it on NEITHER).
+// This suite was carried in six lane briefs as “known RED at HEAD, upstream vitest-4
+// quirk” and routed around. A guard that cannot fail is not a guard — and this one
+// could not even reach the value it exists to assert. Use a real CLASS in the mock so
+// `new` works; never re-introduce the arrow form.
 vi.mock('three', () => ({
-    WebGLRenderer: vi.fn().mockImplementation((opts: RendererCtorOptions) => {
-        capturedCtorCalls.push({ ...opts });
-        return {
-            setPixelRatio:       vi.fn(),
-            shadowMap:           { enabled: false, type: null },
-            outputColorSpace:    null,
-            toneMapping:         null,
-            toneMappingExposure: null,
-        };
-    }),
+    WebGLRenderer: class MockWebGLRenderer {
+        setPixelRatio       = vi.fn();
+        shadowMap           = { enabled: false, type: null as unknown };
+        outputColorSpace    = null as unknown;
+        toneMapping         = null as unknown;
+        toneMappingExposure = null as unknown;
+        constructor(opts: RendererCtorOptions) {
+            capturedCtorCalls.push({ ...opts });
+        }
+    },
     // THREE constants referenced by WebGLRendererAdapter post-construction:
     PCFShadowMap:          'PCFShadowMap',
     SRGBColorSpace:        'SRGBColorSpace',

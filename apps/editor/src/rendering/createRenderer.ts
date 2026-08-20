@@ -216,11 +216,68 @@ function _enterTerminalReloadState(reason: string): void {
 export function getRendererBackendPreference(): RendererBackendPreference {
     try {
         const v = globalThis.localStorage?.getItem(BACKEND_PREF_KEY);
-        if (v === 'webgpu' || v === 'webgl' || v === 'auto') return v;
+        if (isRoundTrippableBackendPreference(v)) return v;
     } catch {
         /* localStorage unavailable (private mode / non-browser) — fall through */
     }
     return 'webgl'; // unset default → WebGL (was 'auto'/WebGPU-first)
+}
+
+/**
+ * §HEURISTIC-MAY-OVERRIDE-A-PIN-BUT-NEVER-OVERWRITE-IT (L-1483) — the values the
+ * PREFERENCE STORE can give back unchanged.
+ *
+ * The three user-expressible states of the corner toggle. `'webgl-classic'` is
+ * deliberately absent: it is a PROGRAMMATIC swap target (§L-372B / L-382), not something
+ * a user can pick, and {@link getRendererBackendPreference} has never round-tripped it.
+ *
+ * ONE list, read by BOTH the store's reader above and {@link swapMayPersistPreference}
+ * below — so "what can be stored" and "what may be stored" cannot drift apart. Before
+ * L-1483 the second question had no owner at all: the live swap hand-wrote
+ * `intendedClassicWebGL ? 'webgl' : pref`, i.e. it TRANSLATED a non-round-trippable value
+ * into a different, user-expressible one and wrote THAT — over the top of whatever the
+ * user had actually chosen. A fourth programmatic target added tomorrow lands on
+ * "do not persist" automatically instead of needing a second site to remember.
+ */
+const ROUND_TRIPPABLE_PREFERENCES = ['auto', 'webgpu', 'webgl'] as const;
+
+/** True when `v` is a value the preference store accepts and returns unchanged. */
+export function isRoundTrippableBackendPreference(
+    v: unknown,
+): v is 'auto' | 'webgpu' | 'webgl' {
+    return (ROUND_TRIPPABLE_PREFERENCES as readonly unknown[]).includes(v);
+}
+
+/**
+ * §HEURISTIC-MAY-OVERRIDE-A-PIN-BUT-NEVER-OVERWRITE-IT (L-1483) — **may a live backend
+ * swap for `pref` write the persisted preference?**
+ *
+ * THE RULE, and why it is a DERIVATION rather than a special case for one string:
+ * a stored preference is the USER'S STATEMENT OF INTENT. A safety heuristic
+ * (§AUTO-WEBGL-HEAVY) may override that intent FOR A SESSION — ADR-0267 §Fix-3 / L-366
+ * deliberately decided it must, and C04 §1.4 now records that honestly — but it may not
+ * DESTROY it. Persisting collapses two states the system can never separate again:
+ * *"the user chose WebGL"* and *"a guard chose WebGL for the user"*. That is this repo's
+ * failure-vs-empty defect class wearing a renderer costume.
+ *
+ * A swap may persist EXACTLY the values the store round-trips — i.e. the values a user
+ * could have expressed themselves. Anything else is the system's own decision and belongs
+ * in the per-call, NON-persisting `backendOverride` parameter that
+ * §DIAG-FIX-WEBGPU-BACKEND-OSCILLATION already added to {@link createRenderer} for exactly
+ * this purpose (L-203) — a mechanism that existed and simply was not used here.
+ *
+ * THE FOUNDER'S CASE: he had PINNED WebGPU. The heavy-scene guard swapped him to
+ * `'webgl-classic'`, and the old line rewrote `pryzm.renderer.backend` to `'webgl'`. His
+ * next boot then resolved `'webgl'` → `forceWebGL` → `'webgl-fallback'` **before the
+ * heuristic ran at all**. He was not overridden for a session; he was permanently
+ * re-defaulted — which is why re-picking WebGPU never survived a reload.
+ *
+ * @param pref — the preference the swap was asked to move to.
+ * @returns true for a user-expressible choice (persist it); false for a programmatic
+ *   target such as `'webgl-classic'` (session-scoped — leave the stored value alone).
+ */
+export function swapMayPersistPreference(pref: RendererBackendPreference): boolean {
+    return isRoundTrippableBackendPreference(pref);
 }
 
 /** Persist the backend preference. Caller is responsible for reloading. */

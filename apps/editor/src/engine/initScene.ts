@@ -87,7 +87,7 @@ import { RenderingPipelineCoordinator } from '@pryzm/core-app-model/rendering';
 import type { SceneQualityTier } from '@pryzm/core-app-model/rendering';
 // ADR-0076 Axis 2 (§PERF-WEBGPU-FRAGMENT) — furniture decorative-shadow budget setter.
 import { setFurnitureShadowBudget } from '@pryzm/geometry-furniture';
-import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference, isUnintendedWebglOnlySwap, isNativeWebGpuBackend, isLightweightWebGlBackend } from '../rendering/createRenderer';
+import { probeRendererBackend, createRenderer, setRendererBackendPreference, getRendererBackendPreference, isUnintendedWebglOnlySwap, isNativeWebGpuBackend, isLightweightWebGlBackend, swapMayPersistPreference } from '../rendering/createRenderer';
 import type { RendererBackendPreference } from '../rendering/createRenderer';
 import { maybeAutoSwitchToWebGLForHeavyScene } from '../rendering/autoWebGLHeavyScene';
 // ADR-0077 (§RENDERER-LIVE-SWAP) — OTel span for the live backend swap (C01 P8).
@@ -4655,15 +4655,63 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             const prevPersistedPref = getRendererBackendPreference();
             // §L-372 Batch 2 / L-382 — 'webgl-classic' is the PROGRAMMATIC heavy-gen
             // target (a classic THREE.WebGLRenderer → backend 'webgl-only'), NOT a user
-            // toggle state. Persist the closest user-facing value ('webgl') so a manual
-            // reload lands on the safe webgl-fallback default and getRendererBackendPreference
-            // never has to round-trip an internal value; the classic routing is threaded
-            // per-call via the createRenderer(pref) override below, not via persistence.
-            // For 'auto'/'webgpu'/'webgl' this is unchanged.
+            // toggle state. The classic routing is threaded per-call via the
+            // createRenderer(pref) override below, not via persistence.
             const intendedClassicWebGL = pref === 'webgl-classic';
-            // Persist FIRST so createRenderer() resolves the new backend AND a fresh
-            // boot honours the choice. (No reload — that is the whole point.)
-            setRendererBackendPreference(intendedClassicWebGL ? 'webgl' : pref);
+
+            // ⭐⭐ §HEURISTIC-MAY-OVERRIDE-A-PIN-BUT-NEVER-OVERWRITE-IT (L-1483, lane WEBGL4,
+            // 2026-08-20). This line used to be, unconditionally:
+            //
+            //     setRendererBackendPreference(intendedClassicWebGL ? 'webgl' : pref);
+            //
+            // justified as *"persist the closest user-facing value ('webgl') so a manual reload
+            // lands on the safe webgl-fallback default"*. On the §AUTO-WEBGL-HEAVY path that is
+            // not persisting a default — **it is overwriting the user's explicit choice with a
+            // guard's choice, on disk.**
+            //
+            // THE FOUNDER'S CASE, from his own console: he had PINNED WebGPU. The heavy-scene
+            // guard swapped him to 'webgl-classic' anyway (deliberate — ADR-0267 §Fix-3 / L-366;
+            // C04 §1.4 now records it honestly) and its message told him *"Re-pick WebGPU to
+            // override."* But this line had already rewritten `pryzm.renderer.backend` from
+            // 'webgpu' to 'webgl', so his NEXT boot resolved 'webgl' → forceWebGL →
+            // 'webgl-fallback' **before the heuristic even ran**. He was not being overridden
+            // for a session; he was being permanently re-defaulted, and re-picking WebGPU only
+            // survived until the next open. That is why he kept landing back on the WebGL path.
+            //
+            // THE RULE. A stored preference is the USER'S STATEMENT OF INTENT. A safety
+            // heuristic may override it FOR A SESSION; it may not DESTROY it. Persisting
+            // collapses two different states — *"the user chose WebGL"* and *"a guard chose
+            // WebGL for the user"* — into one value the system can never tell apart again. That
+            // is the failure-vs-empty defect class this codebase keeps re-learning, wearing a
+            // renderer costume.
+            //
+            // ⛔ NOT A NEW MECHANISM. `§DIAG-FIX-WEBGPU-BACKEND-OSCILLATION` already added the
+            // per-call, NON-persisting `backendOverride` parameter to `createRenderer()`
+            // (createRenderer.ts:233-243) for exactly this case — its own doc says it exists so
+            // the device-loss safe mode can force WebGL "WITHOUT calling
+            // setRendererBackendPreference('webgl') — which previously silently clobbered the
+            // user's persisted WebGPU/Auto choice and produced the flip-flopping the founder
+            // reported (L-203 issue #1)". The mechanism was built, and this call site did not
+            // use it. This is L-203, re-created one seam over.
+            //
+            // ⭐ A USER-DRIVEN swap still persists, exactly as before — that IS a statement of
+            // intent and it must survive a reload. Only the PROGRAMMATIC heavy-gen target
+            // ('webgl-classic', which no user toggle can produce) is now session-scoped. The
+            // rollback path below restores `prevPersistedPref` either way, so a failed swap
+            // still cannot leave the stored value describing a backend that is not live.
+            if (!swapMayPersistPreference(pref)) {
+                console.log(
+                    '[initScene] §HEURISTIC-MAY-OVERRIDE-A-PIN-BUT-NEVER-OVERWRITE-IT (L-1483) — ' +
+                    `'${pref}' is a PROGRAMMATIC swap target, not a user-expressible choice; ` +
+                    `the stored backend preference ` +
+                    `stays '${prevPersistedPref}' (session-scoped override only). A reload therefore ` +
+                    'returns the user to the backend THEY picked, not to the one this guard picked.',
+                );
+            } else {
+                // A user-driven toggle. Persist FIRST so createRenderer() resolves the new
+                // backend AND a fresh boot honours the choice. (No reload — that is the point.)
+                setRendererBackendPreference(pref);
+            }
 
             const rpm = renderPipelineManagerRef;
             const oldCanvas = pryzmCanvas;

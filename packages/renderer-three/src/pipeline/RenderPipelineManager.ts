@@ -63,6 +63,9 @@ import { createBackgroundUniform, LIGHT_BG_HEX, DARK_BG_HEX } from './Background
 import type { PassNode, TSLNode } from '../tsl-types';
 import type { BackgroundUniform, BgTheme } from './BackgroundUniform';
 import { DOMEventBus } from '@pryzm/event-bus';
+// §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — the shared "has this surface any
+// area?" ladder. See _isRenderTargetZeroSize() for why this stopped being local.
+import { hasDrawableArea } from '../surfaceArea';
 // §I2 — shared device-loss `usedTimes` predicate (single source of truth for
 // the WebGPU dispose-throw family; also used by the element-builder safeDispose
 // helpers). See ../safeDispose.ts.
@@ -637,6 +640,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // identity change". P2/ADR-0111: timing flags only, no dispose, no mapSize change.
         this._applyShadowEnabledState();
         this._applyShadowFreezeState();
+        // §SHADOW-CASTER-DECLARED-BUT-UNSATISFIABLE (L-1482) — a bind is a new renderer
+        // with no shadow maps of its own; re-arm the one-shot audit so the first frame it
+        // presents reports any caster whose depth pass can never run. See
+        // {@link auditShadowCasters} for why that state silently blanks every lit mesh.
+        this._shadowCasterAuditPending = true;
 
         // §FIX-WEBGL2-GHOST-ON-ROTATE-INCOMPLETE (L-317) — seed the opaque overlay
         // background from the current theme so the WebGL2 lightweight path clears to the
@@ -1030,6 +1038,15 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._consecutiveSkips = 0;
         this._lastSkipReason   = null;
         this._stallWarned      = false;
+        // §SHADOW-CASTER-DECLARED-BUT-UNSATISFIABLE (L-1482) — audit ONCE per bind, HERE,
+        // because this is the only point that is (a) after a real paint, so three has had
+        // its chance to allocate every caster's `shadow.map`, and (b) common to BOTH render
+        // branches, so the tripwire cannot end up armed on one backend and not the other —
+        // the L-1350 / L-1480 mistake. Cost is one traverse per bind, never per frame.
+        if (this._shadowCasterAuditPending) {
+            this._shadowCasterAuditPending = false;
+            try { this.auditShadowCasters(); } catch { /* a tripwire must never break a frame */ }
+        }
     }
 
     /**
@@ -1399,28 +1416,25 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * this is safe to run on EVERY frame of a healthy session. Returns false when no renderer
      * is bound (the caller's own null guards then apply) or the size cannot be read.
      */
+    /**
+     * ⚠ REWRITTEN 2026-08-20 (lane RENDER3, §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS /
+     * L-1470) — this method used to carry its own copy of the accessor ladder
+     * (`getDrawingBufferSize` → `getSize` → `domElement.width/height`). It was
+     * CORRECT, and it was the ONLY correct copy: the founder's flood came from a
+     * SECOND surface — OBC's WebGL canvas — that this gate never examines, and the
+     * sites drawing into that one each answered the question their own way or not
+     * at all. Two implementations of "does this surface have area?" is how one of
+     * them stays right while the other is never written.
+     *
+     * The ladder now lives in `surfaceArea.ts` as {@link hasDrawableArea} and every
+     * site shares it, so a fix to the measurement reaches all of them at once. The
+     * behaviour here is unchanged and its six-case suite
+     * (`RenderPipelineManager.zeroSizeRenderGate.test.ts`) still pins it — including
+     * the deliberate "unreadable is NOT zero" case, which the shared helper
+     * preserves as an explicit, documented rule rather than as a fall-through.
+     */
     private _isRenderTargetZeroSize(): boolean {
-        const r = this._renderer as unknown as {
-            getDrawingBufferSize?: (t: THREE.Vector2) => THREE.Vector2;
-            getSize?: (t: THREE.Vector2) => THREE.Vector2;
-            domElement?: { width?: number; height?: number };
-        } | null;
-        if (!r) return false;
-        try {
-            const read =
-                typeof r.getDrawingBufferSize === 'function' ? r.getDrawingBufferSize.bind(r)
-                : typeof r.getSize === 'function' ? r.getSize.bind(r)
-                : null;
-            if (read) {
-                const s = read(this._sizeProbe);
-                if (!s || s.x <= 0 || s.y <= 0) return true;
-            }
-        } catch {
-            /* fall through to the canvas backing-store read */
-        }
-        const el = r.domElement;
-        if (el && ((el.width ?? 1) <= 0 || (el.height ?? 1) <= 0)) return true;
-        return false;
+        return !hasDrawableArea(this._renderer);
     }
 
     private _reconcileRenderSize(): boolean {
@@ -2025,6 +2039,84 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // would force a depth pass while the texture may still be in a submit; ADR-0111).
         if (transitioned && !shouldFreeze) shadowMap.needsUpdate = true;
 
+        // §SHADOW-PER-LIGHT-FREEZE-IS-SCENE-STATE (L-1480, 2026-08-20, lane WEBGL4) —
+        // ⚠⚠ THIS BLOCK USED TO BE WRAPPED IN `if (this._webGpuActive) { … }`, AND THAT
+        // GATE WAS THE FOUNDER'S "3D VIEW SHOWS ONLY OUTLINE PROFILES OF WALLS AND SLABS".
+        //
+        // The gate's stated justification — kept verbatim below because the DEVICE-LOSS
+        // half of it is still correct — ended: *"WebGPU-path only (WebGL2 fallback owns its
+        // own shadowMap and honours the renderer-level flag)."* **The second half is FALSE,
+        // measured in the installed three r183 source, not inferred:**
+        //
+        //   node_modules/.pnpm/three@0.183.2/…/webgl/WebGLShadowMap.js
+        //     :95   if ( scope.autoUpdate === false && scope.needsUpdate === false ) return;   ← renderer-level
+        //     :170  if ( shadow.autoUpdate === false && shadow.needsUpdate === false ) continue; ← PER-LIGHT
+        //
+        // The classic `WebGLShadowMap` reads the PER-LIGHT flags TOO. So the write was armed
+        // on the backend where it matters and the UN-write was disarmed on a backend where it
+        // matters just as much — the identical inversion §FRAME-STARTS-CLEAN-ON-EVERY-BACKEND
+        // (L-1350) was corrected for, twelve hours earlier, in this same class.
+        //
+        // ── THE CHAIN, END TO END (every link cited) ──────────────────────────────────
+        //  1. Project OPEN on native WebGPU. `setShadowReallocFrozen(true)` pushes the
+        //     whole-load/tier-escalation freeze → this applier writes `shadowMap.autoUpdate =
+        //     false` AND (old gate: only here) `light.shadow.autoUpdate = false` on every
+        //     shadow-casting light.
+        //  2. The `tier:post-load` pass fires §AUTO-WEBGL-HEAVY (C04 §1.4) — i.e. the backend
+        //     swap is fired FROM INSIDE that freeze window. Not a coincidence: both hang off
+        //     the same post-load tier pass.
+        //  3. `§RENDERER-LIVE-SWAP` calls `rpm.dispose()` FIRST, which zeroes
+        //     `_shadowReallocFreezeDepth` / `_shadowPassSuppressed` / `_shadowFrozenState`
+        //     and sets `_webGpuActive = false` — **without ever applying the thaw.** The
+        //     counters are reset; the LIGHTS are not. The live swap deliberately KEEPS the
+        //     same `THREE.Scene`, so those are the same `DirectionalLight` objects.
+        //  4. `bind()` re-runs this applier against the new classic `THREE.WebGLRenderer`
+        //     with `shouldFreeze === false` → `shadowMap.autoUpdate = true` ✓ … and, under
+        //     the old gate, `_webGpuActive === false` skipped the per-light restore. The
+        //     lights keep `shadow.autoUpdate === false` **permanently**.
+        //  5. `WebGLShadowMap.js:170` therefore `continue`s for the key light every frame →
+        //     **`light.shadow.map` is never allocated.**
+        //  6. `WebGLLights.js:243-259` pushes `shadowMap = null` anyway (it keys on
+        //     `light.castShadow`, not on the map), and `:459-465` sets
+        //     `state.directionalShadowMap.length = 1`.
+        //  7. That non-zero LENGTH makes `WebGLPrograms.js:332/344` emit `USE_SHADOWMAP` +
+        //     `SHADOWMAP_TYPE_PCF`, so `shadowmap_pars_fragment.glsl.js:18-20` declares
+        //     `uniform sampler2DShadow directionalShadowMap[1]`.
+        //  8. `WebGLRenderer.js:2526-2533` uploads the array via
+        //     `WebGLUniforms.setValueT1Array` (`:825-841`), which substitutes
+        //     `emptyShadowTexture`. That texture's `version` is 0 forever, so
+        //     `WebGLTextures.setTexture2D` (`:518`) never uploads it, `__webglTexture` is
+        //     `undefined`, and `WebGLState.js:951` binds `emptyTextures[TEXTURE_2D]` — a 1×1
+        //     **RGBA8** texture with **`TEXTURE_COMPARE_MODE = NONE`**. (Note the scalar
+        //     sibling `setValueT1` at `:571-584` DOES set `compareFunction`; the ARRAY path,
+        //     which is the one shadows always take, does not.)
+        //  9. A `sampler2DShadow` bound to a non-comparison colour texture is INCOMPLETE for
+        //     that sampler type, so the driver raises `INVALID_OPERATION` and **DROPS THE
+        //     DRAW**. Every lit mesh. Every frame.
+        // 10. ⭐ **AND THAT IS THE WHOLE MESH-vs-LINE SPLIT.** `LineBasicMaterial` compiles
+        //     `ShaderLib.basic` → `meshbasic.glsl.js`, which includes **no `shadowmap_*`
+        //     chunk at all** and therefore declares no shadow sampler. Lines draw; solids do
+        //     not. "Black outline profiles floating in white space."
+        //
+        // ── WHY IT VANISHES ON WebGPU (the founder's own controlled experiment) ────────
+        // `WebGLShadowMap` exists ONLY on the classic `THREE.WebGLRenderer`. Native WebGPU
+        // and the `WebGPURenderer({forceWebGL})` WebGL2 fallback both run three's NODE
+        // shadow path (`ShadowNode`), which allocates its own depth texture and never binds
+        // an empty RGBA to a comparison sampler. One variable changed; the defect is the
+        // classic renderer's shadow path, not the model, not the materials.
+        //
+        // ── THE RULE, so this cannot be re-scoped to a backend again ──────────────────
+        // `LightShadow.autoUpdate` / `.needsUpdate` are **SCENE STATE, not backend state.**
+        // They live on the lights the live swap deliberately keeps, and three reads them on
+        // EVERY backend (`WebGLShadowMap.render()` classic, `ShadowNode.updateBefore()`
+        // node). The freeze must therefore be asserted onto them wherever this manager is
+        // bound — exactly like `renderer.shadowMap.autoUpdate` two lines above, which was
+        // never gated. ⛔ Do NOT re-add a backend gate here. If a future backend must not be
+        // frozen, gate the FREEZE SOURCE (`setShadowPassSuppressed` /
+        // `setShadowReallocFrozen` already early-return off the WebGPU path), never the
+        // ASSERT — gating the assert is what strands a `false`.
+        //
+        // ── The original L-231 rationale, still true and still the reason to write these ──
         // §FIX-WEBGPU-DEVICE-LOSS-CESIUM-CASCADE (founder L-231) — freeze the PER-LIGHT
         // shadow flag, not just `renderer.shadowMap.autoUpdate`.
         //
@@ -2042,12 +2134,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // the freeze ACTUALLY stop the depth pass for the frozen duration, so no realloc /
         // regen can land mid-submit. WebGPU-path only (WebGL2 fallback owns its own shadowMap
         // and honours the renderer-level flag). Never disposes a texture (ADR-0111).
-        if (this._webGpuActive) {
-            this._forEachShadowCastingLight((sh) => {
-                sh.autoUpdate = !shouldFreeze;
-                if (transitioned && !shouldFreeze) sh.needsUpdate = true;
-            });
-        }
+        this._forEachShadowCastingLight((sh) => {
+            sh.autoUpdate = !shouldFreeze;
+            if (transitioned && !shouldFreeze) sh.needsUpdate = true;
+        });
     }
 
     /**
@@ -2067,6 +2157,79 @@ export class RenderPipelineManager implements IViewSwitchListener {
             }
         });
     }
+
+    // ── §SHADOW-CASTER-DECLARED-BUT-UNSATISFIABLE (L-1482, lane WEBGL4, 2026-08-20) ──
+    /**
+     * THE TRIPWIRE FOR L-1480. A shadow caster whose depth pass can never run does not
+     * fail loudly on the classic WebGL path — it silently makes **every lit mesh draw in
+     * the scene invalid**, while unlit lines keep drawing. That silence is why the same
+     * viewport symptom reached the founder repeatedly before anyone could name it.
+     *
+     * THE PREDICATE IS three's OWN, not a paraphrase. `WebGLShadowMap.render()` skips a
+     * light's depth pass with, verbatim (three r183, `WebGLShadowMap.js:170`):
+     *
+     *     if ( shadow.autoUpdate === false && shadow.needsUpdate === false ) continue;
+     *
+     * A light in that state **with no `shadow.map` already allocated** is UNSATISFIABLE:
+     * the map will never be built, yet `WebGLLights.setup()` still counts the light
+     * (`WebGLLights.js:243-259`, `:459-465` — it keys on `castShadow`, never on the map),
+     * so `numDirLightShadows` is ≥ 1, `USE_SHADOWMAP` is defined, and every lit program
+     * declares a `sampler2DShadow` that three can only satisfy with a 1×1 RGBA
+     * `TEXTURE_COMPARE_MODE = NONE` texture (`WebGLUniforms.js:825-841` →
+     * `WebGLTextures.js:518` → `WebGLState.js:951`). Incomplete for that sampler type ⇒
+     * `INVALID_OPERATION` ⇒ the draw is dropped.
+     *
+     * ⭐ "CAN THIS EVER BE TRUE?" — the question the unsatisfiable-gate lesson says to ask
+     * BEFORE "why is it slow / dark / empty". A freeze means *"reuse the map you already
+     * have"*; a renderer that has never run its depth pass has no map to reuse, so a
+     * freeze asserted onto it is not a freeze, it is a permanent suppression.
+     *
+     * Reports, never repairs. Repairing here would hide which upstream latch stranded the
+     * flag — and the fix for L-1480 is that {@link _applyShadowFreezeState} asserts the
+     * per-light flags on EVERY backend, so a strand should now be impossible. This exists
+     * so that if one ever happens again it arrives as a named line instead of an empty
+     * building. Runs ONCE per bind, on the first frame this manager presents (one traverse
+     * of an already-traversed scene; not a per-frame cost).
+     *
+     * @returns the number of unsatisfiable casters found (0 = healthy). Exported for the
+     *   separating test, which asserts the COUNT rather than that a log happened.
+     */
+    auditShadowCasters(): number {
+        const shadowMap = (this._renderer as { shadowMap?: { enabled?: boolean } } | null)?.shadowMap;
+        // `enabled === false` means no lit program declares a shadow sampler at all
+        // (`shadowMapEnabled` in WebGLPrograms.js:344 is `renderer.shadowMap.enabled &&
+        // shadows.length > 0`), so an unsatisfiable caster cannot invalidate any draw.
+        if (!shadowMap || shadowMap.enabled === false) return 0;
+        const stranded: string[] = [];
+        this._scene?.traverse((obj) => {
+            const light = obj as THREE.DirectionalLight;
+            if (!light.isDirectionalLight || !light.castShadow || !light.shadow) return;
+            const sh = light.shadow as unknown as {
+                autoUpdate?: boolean; needsUpdate?: boolean; map?: unknown;
+            };
+            if (sh.autoUpdate === false && sh.needsUpdate === false && sh.map == null) {
+                stranded.push(light.name || light.uuid.slice(0, 8));
+            }
+        });
+        if (stranded.length > 0) {
+            console.error(
+                `[RenderPipelineManager] §SHADOW-CASTER-DECLARED-BUT-UNSATISFIABLE (L-1482) — ` +
+                `${stranded.length} shadow-casting light(s) [${stranded.join(', ')}] have ` +
+                `shadow.autoUpdate=false, shadow.needsUpdate=false AND no allocated shadow.map. ` +
+                `three's WebGLShadowMap.render() skips their depth pass forever ` +
+                `(WebGLShadowMap.js:170), but WebGLLights still counts them, so every LIT ` +
+                `material in this scene declares a sampler2DShadow that resolves to a 1x1 RGBA ` +
+                `texture with no compare mode — an INVALID_OPERATION that DROPS THE DRAW. ` +
+                `Expect solid surfaces to vanish while LineBasicMaterial edges keep drawing. ` +
+                `This is L-1480; a shadow FREEZE was asserted onto a renderer that had never ` +
+                `rendered a depth pass, so there was no map to "reuse".`,
+            );
+        }
+        return stranded.length;
+    }
+
+    /** §L-1482 — one audit per bind, taken on the first frame actually presented. */
+    private _shadowCasterAuditPending = false;
 
     // ── §FIX-SHADOW-ENABLE-LATCH (founder L-205) — single-owner shadow-PASS enable latch ──
     /**
@@ -2813,6 +2976,29 @@ export class RenderPipelineManager implements IViewSwitchListener {
     }
 
     dispose(): void {
+        // ── §SHADOW-PER-LIGHT-FREEZE-IS-SCENE-STATE (L-1480) ─────────────────────
+        // THAW THE LIGHTS BEFORE DROPPING THE SCENE REFERENCE. Everything else this
+        // method resets is state this manager OWNS; the per-light
+        // `LightShadow.autoUpdate` flags are not — they live on the scene's
+        // `DirectionalLight`s, which OUTLIVE this manager (the §RENDERER-LIVE-SWAP
+        // path deliberately keeps the same `THREE.Scene`). Zeroing
+        // `_shadowReallocFreezeDepth` / `_shadowPassSuppressed` forty lines below
+        // WITHOUT applying the corresponding thaw is what stranded the founder's key
+        // light at `autoUpdate === false` across a swap: the counters said "not
+        // frozen", the lights said "frozen", and three believed the lights
+        // (`WebGLShadowMap.js:170`). Every lit mesh draw was then dropped while
+        // `LineBasicMaterial` edges kept drawing — the "outline profiles only" 3D view.
+        //
+        // `bind()` re-asserts these too, so this is belt-and-braces — deliberately.
+        // A dispose with no following bind (project teardown, terminal recovery) would
+        // otherwise leave the scene's lights frozen for whoever picks that scene up
+        // next, and "whoever picks it up next" is exactly the swap. Must run FIRST:
+        // `this._scene = null` is four lines down and `_forEachShadowCastingLight`
+        // reads it. Best-effort — a teardown must never throw.
+        try {
+            this._forEachShadowCastingLight((sh) => { sh.autoUpdate = true; sh.needsUpdate = true; });
+        } catch { /* a thaw must never break a dispose */ }
+
         this._disposeOutlineInstances();
         this._safeDisposeRenderPipeline();
         this._renderPipeline     = null;
@@ -2846,10 +3032,55 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._casterReleaseGuardFrames         = 0;
         this._submitPauseDepth                 = 0;
         this._shadowRebuildPaused              = false;
-        // §FIX-SHADOW-ENABLE-LATCH — a rebound singleton starts with a clean enable latch
-        // (no stale transient suppressions; preferences re-seed from the fresh UI state).
-        this._shadowPrefs.clear();
-        this._shadowSuppressions.clear();
+        // ⭐⭐ §A-TEARDOWN-RELEASES-THE-RENDERER-NOT-THE-CALLER'S-LATCH (L-1485, lane
+        // WEBGL4, 2026-08-20). These two lines used to be:
+        //
+        //     // §FIX-SHADOW-ENABLE-LATCH — a rebound singleton starts with a clean enable
+        //     // latch (no stale transient suppressions; preferences re-seed from the fresh
+        //     // UI state).
+        //     this._shadowPrefs.clear();
+        //     this._shadowSuppressions.clear();
+        //
+        // **Both halves of that justification are false on the path that matters — the
+        // §RENDERER-LIVE-SWAP, which calls `dispose()` and then re-`bind()`s THE SAME
+        // singleton against a new renderer, with no fresh UI and no re-seed anywhere.**
+        //
+        //   • PREFERENCES. `_shadowPrefs` holds the user's *Cast shadows OFF* and
+        //     performance mode's choice. Nothing re-seeds them after a swap — there is no
+        //     "fresh UI state" to read from; the panels wrote once, at the moment the user
+        //     clicked. So every backend swap silently turned a user's *Cast shadows OFF*
+        //     back ON. That is the same defect as L-1483 one file over: **a teardown
+        //     destroying a statement of intent it does not own.**
+        //   • SUPPRESSIONS. `_shadowSuppressions` is ref-counted BY REASON, and its whole
+        //     contract is *the caller that pushed is the caller that pops*
+        //     ({@link pushShadowPassDisabled} returns the release handle for exactly this).
+        //     `BatchCoordinator` holds `'batch'` for the DURATION of a heavy generation and
+        //     releases it up to 30 s later. §AUTO-WEBGL-HEAVY fires its swap MID-batch — so
+        //     this clear dropped a suppression whose owner was still running. The classic
+        //     renderer then ran a **full `WebGLShadowMap` depth pass over every `castShadow`
+        //     mesh, every frame, for the rest of the generation** — precisely the cost
+        //     §BATCH-SHADOW-MAP-SUPPRESS exists to avoid, incurred at the exact moment the
+        //     swap was performed to REDUCE cost. And the eventual
+        //     `setShadowPassDisabled('batch', false)` then deleted a key that was no longer
+        //     there: a silent no-op, so nothing ever reported it.
+        //
+        // THE RULE: `dispose()` releases THE RENDERER. `_shadowPrefs` / `_shadowSuppressions`
+        // are the CALLER'S latch about the SCENE — the same category as the per-light
+        // `LightShadow.autoUpdate` flags thawed at the top of this method (L-1480). A
+        // teardown may reset what it owns; it must not silently answer on someone else's
+        // behalf. Both maps therefore SURVIVE, and `bind()`'s `_applyShadowEnabledState()`
+        // re-asserts the resulting state onto the new renderer — which is what that
+        // re-assert was added for (§FIX-SHADOW-ENABLE-LATCH / L-205).
+        //
+        // ⚠ STATED HONESTLY, not hidden: keeping them means a caller that pushes a
+        // suppression and NEVER releases now leaks across a dispose instead of being
+        // papered over by this clear. That trade is deliberate — L-205 already made the
+        // leak structurally hard (`pushShadowPassDisabled` hands back an idempotent,
+        // exception-safe handle, and `setShadowPassDisabled` is boolean-presence so repeated
+        // releases collapse) — and a leaked suppression is VISIBLE (`§DIAG-GROUND-SHADOW`
+        // prints both maps) whereas a silently discarded user preference is not.
+        // ⛔ Do not "fix" a future leak by restoring these clears; fix the caller that
+        // failed to release.
     }
 
     // ── Phase 3: SSGI activation ──────────────────────────────────────────
