@@ -159,6 +159,10 @@ interface InstancedRendererLike {
     totalInstances?: number;
     groupCount?: number;
     groupSummary?: { key: string; active: number; allocated: number }[];
+    /** §INSTANCE-GROUP-SPILL (L-1400) — one row per REAL group identity, not per shard. */
+    spillSummary?: { baseKey: string; shards: number; instances: number; capacity: number }[];
+    /** §INSTANCE-GROUP-SPILL (L-1400) — instances the renderer failed to place. Must be 0. */
+    droppedInstanceCount?: number;
 }
 
 /**
@@ -404,6 +408,26 @@ export interface PryzmPerfReport {
         totalInstances: number | null;
         collapseRatio: number | null;
         groups: { key: string; active: number; allocated: number }[] | null;
+        /**
+         * §INSTANCE-GROUP-SPILL (L-1400) — instances that are in the MODEL and not
+         * on the SCREEN.
+         *
+         * ⭐ This is the number the founder needed and did not have. Before spill,
+         * a group that filled its 512 slots refused every further instance and
+         * `WindowBuilder` had already deleted the real sub-mesh, so the part simply
+         * vanished — 488 window frame members on a 100-window storey (measured).
+         * The only signal was a `console.warn` per refused part, i.e. the flood that
+         * hid it. `null` = the renderer is not published, NOT zero.
+         */
+        droppedInstances: number | null;
+        /**
+         * §INSTANCE-GROUP-SPILL (L-1400) — per-BASE-key shard census, densest first.
+         * `groups` above counts SHARDS, so a spilled key appears there as several
+         * rows and drags `collapseRatio` down for a reason that is not a defect.
+         * Any row with `shards > 1` is the honest, once-per-key statement that this
+         * (geometry × material × level) exceeded 512 slots.
+         */
+        spill: { baseKey: string; shards: number; instances: number; capacity: number }[] | null;
         elementInstancingV1: boolean;
         furnitureInstancingV1: boolean;
         /**
@@ -466,6 +490,8 @@ function buildReport(): PryzmPerfReport {
                     ? totalInstances / groupCount
                     : null,
             groups: safe(() => ier?.groupSummary ?? null),
+            droppedInstances: safe(() => ier?.droppedInstanceCount ?? null),
+            spill: safe(() => ier?.spillSummary ?? null),
             elementInstancingV1: flag('__pryzmElementInstancingV1'),
             furnitureInstancingV1: flag('__pryzmFurnitureInstancingV1'),
             // Ask the SAME resolver the builders ask, rather than re-deriving the
@@ -561,6 +587,36 @@ function printReport(r: PryzmPerfReport): void {
         p(row('collapse ratio', 'n/a', '— NOTHING is instanced at all (see flags below)'));
     } else {
         p(row('collapse ratio', null, '← window.__instancedElementRenderer unavailable'));
+    }
+
+    // ── §INSTANCE-GROUP-SPILL (L-1400) ────────────────────────────────
+    // The collapse ratio says how WELL instancing worked. It cannot say whether
+    // anything was LOST doing it, and for months the answer was "yes, silently":
+    // a full 512-slot group refused the instance, `WindowBuilder` had already
+    // deleted the real sub-mesh, and the part was drawn by nobody. This row is
+    // the missing half. An unarmed counter must never print as a zero, so a
+    // renderer that is not published prints as unavailable, not as 0.
+    if (i.droppedInstances === null) {
+        p(row('dropped instances', null, '← window.__instancedElementRenderer unavailable'));
+    } else {
+        p(row('dropped instances', num(i.droppedInstances),
+            i.droppedInstances === 0
+                ? '✅ every registered instance is on screen'
+                : '🔴 IN THE MODEL, NOT ON THE SCREEN — group capacity exceeded'));
+    }
+    if (i.spill && i.spill.length > 0) {
+        const spilled = i.spill.filter(x => x.shards > 1);
+        if (spilled.length === 0) {
+            p(row('  group spill', 'none', '— no key needed more than one shard'));
+        } else {
+            p(row('  group spill', `${spilled.length} key(s)`,
+                '— each spilled key costs 1 extra draw call per shard, 0 elements'));
+            for (const x of spilled.slice(0, 6)) {
+                p(row(`    ${x.baseKey.slice(0, 44)}…`,
+                    `${x.shards} shards`,
+                    `${x.instances} instances / ${x.capacity} slots`));
+            }
+        }
     }
 
     // ⭐ The flags that silently decide whether a family can instance AT ALL.

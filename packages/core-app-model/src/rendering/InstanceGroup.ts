@@ -28,9 +28,21 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { scheduleGpuRelease } from '@pryzm/renderer-three';
 
 /**
- * Maximum number of instances per InstanceGroup.
- * This is a preallocated GPU buffer size — actual instance count can be lower.
- * Increase if projects exceed this per geometry type.
+ * Number of instance slots preallocated per InstanceGroup.
+ *
+ * ── §INSTANCE-GROUP-SPILL (L-1400) — WHAT THIS NUMBER IS, MEASURED ──────────
+ * ⚠ It is **NOT** a GPU, driver or `THREE.InstancedMesh` limit. THREE stores the
+ * per-instance matrices in an `InstancedBufferAttribute` whose only ceiling is
+ * memory (tens of thousands of instances is routine), and WebGL2/WebGPU impose
+ * no 512 on instance counts. **512 is an arbitrary constant** — its own doc
+ * comment said *"Increase if projects exceed this per geometry type"*, which is
+ * the tell: a real hardware limit is not something you raise.
+ *
+ * It is now a **SHARD SIZE, not a cap.** `InstancedElementRenderer` allocates a
+ * further shard on the same (geometry × material × level) key when this one
+ * fills, so the group's capacity is unbounded and the cost of exceeding 512 is
+ * ONE extra draw call, not a lost element. Raising the literal was deliberately
+ * NOT the fix: it moves the cliff, it does not remove it.
  */
 export const INSTANCE_GROUP_MAX = 512;
 
@@ -55,6 +67,14 @@ export class InstanceGroup {
 
     /** Next slot to allocate when _freeSlots is empty. */
     private _nextSlot: number = 0;
+
+    /**
+     * §INSTANCE-GROUP-SPILL (L-1400) — how many addInstance() calls this group has
+     * had to refuse because every slot was taken. Kept so the number survives the
+     * removal of the per-element `console.warn`; the renderer turns it into one
+     * aggregated line rather than N.
+     */
+    private _refusedCount: number = 0;
 
     constructor(
         geometry: THREE.BufferGeometry,
@@ -100,10 +120,19 @@ export class InstanceGroup {
             slot = this._freeSlots.pop()!;
         } else {
             if (this._nextSlot >= this.mesh.instanceMatrix.count) {
-                console.warn(
-                    `[InstanceGroup] Group full (max ${this.mesh.instanceMatrix.count} instances).` +
-                    ` Element "${elementId}" will not be instanced.`
-                );
+                // §INSTANCE-GROUP-SPILL (L-1400). This USED to `console.warn` once per
+                // refused element — the founder's load log carried 488 of these for a
+                // 100-window storey (measured), each with its own stack frame, and the
+                // flood is what hid the finding. It is now a SILENT, EXPECTED return:
+                // `InstancedElementRenderer.register()` answers -1 by allocating another
+                // shard on the same key, so a full group is normal control flow, not a
+                // fault. The honest one-line report ("group X spilled to N shards") is
+                // emitted by the renderer, ONCE PER SHARD, not once per element.
+                //
+                // ⛔ Do not reinstate a per-element log here: a refusal that the caller
+                // handles is not a defect, and `refusedCount` below keeps the number
+                // available to anyone who is actually diagnosing.
+                this._refusedCount++;
                 return -1;
             }
             slot = this._nextSlot++;
@@ -161,6 +190,25 @@ export class InstanceGroup {
         return this._nextSlot;
     }
 
+    /** Total slot capacity of the underlying InstancedMesh (the shard size). */
+    get capacity(): number {
+        return this.mesh.instanceMatrix.count;
+    }
+
+    /** True when every slot is taken and the next addInstance() would be refused. */
+    get isFull(): boolean {
+        return this._freeSlots.length === 0 && this._nextSlot >= this.mesh.instanceMatrix.count;
+    }
+
+    /**
+     * §INSTANCE-GROUP-SPILL (L-1400) — refusals seen by THIS group. Non-zero is
+     * normal once the renderer is spilling; it is the count of instances that were
+     * handed on to a sibling shard, NOT a count of lost elements.
+     */
+    get refusedCount(): number {
+        return this._refusedCount;
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     /**
@@ -200,5 +248,6 @@ export class InstanceGroup {
         this._idToSlot.clear();
         this._freeSlots.length = 0;
         this._nextSlot = 0;
+        this._refusedCount = 0;
     }
 }

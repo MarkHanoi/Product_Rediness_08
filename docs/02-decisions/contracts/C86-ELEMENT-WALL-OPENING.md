@@ -1221,6 +1221,56 @@ is keyed on what was **emitted**.
    outline is the wall's boundary and the opening symbol draws the hole — but no test asserts the
    two read correctly together at a drawn scale.
 
+### §10.4 — **A WINDOW COSTS 12 INSTANCE SLOTS, AND PAST THE 52nd ONE ITS FRAME WAS NOT DRAWN** (added 2026-08-20, lane INST2, **L-1400..L-1403**)
+
+**The founder's report was *"the scene is CLASHING"* on a large-storey building with many windows.
+It was not a geometric clash. It was this family silently losing 40 % of its geometry**, and the
+opening contract is where the number belongs because the number is a property of how a window is
+BUILT.
+
+**MEASURED** — `packages/geometry-window/__tests__/WindowInstanceCapSpill.test.ts`, driving the real
+`WindowBuilder.rebuild()` with the shipped flags, reading the live `instancedElementRenderer`:
+
+| fact | value | site |
+|---|---|---|
+| sub-boxes emitted for ONE single-pane window (`columnRatios:[1]`, `rowRatios:[1]`) | **12** | `WindowBuilder.ts` `_buildWindowGroup` |
+| of which FRAME members (head, cill, 2 jambs, 4 sash bars, 2 beads) — all one material | **10** | `addSweptBox`/`addSeatedBox` with `frameMat` |
+| glazing panes (own material) · sill board (own material) | **1** · **1** | `glassMat` · sill |
+| sub-boxes for a 2×2 gridded window (adds mullion + transoms + per-cell sash/bead) | **36** = 31 frame + 4 glazing + 1 sill | measured |
+| instance slots per window, therefore | **one per sub-box** | `_convertGroupToInstances`, storage key `${win.id}#${i}` |
+
+⭐ **The `#0 … #9` run in the founder's log is not ten windows — it is ONE window's ten frame
+members**, and because they share a material they all compete for slots in the SAME instance group.
+At `INSTANCE_GROUP_MAX = 512` that is **512 / 10 = 51.2 windows per storey**, and the measured first
+refusal is on window **52**, part `#2`. At 100 windows on a storey, **488 of 1 200** registrations
+were refused.
+
+⛔ **And a refused registration was NOT a fallback to a mesh.**
+`WindowBuilder._convertGroupToInstances` strips the real sub-meshes from the window group
+**unconditionally** after registering them — it never checks whether the slot was granted. Windows
+52 and beyond therefore rendered as **a pane of glass and a sill board with no frame at all**. The
+console said *"will not be instanced"*; the screen said something much worse.
+
+**Fixed in the shared renderer, not here** — `InstancedElementRenderer` now spills to another
+512-slot shard on the same key rather than refusing (**[C04 §INSTANCING](C04-RENDERING-AND-SCHEDULING.md#instancing--a-fixed-size-instance-pool-with-no-overflow-is-a-cap-on-the-model-normative-added-2026-08-20-lane-inst2-l-1400l-1403)**,
+§INST.1–§INST.5). The window family is where it was MEASURED and where the arithmetic is pinned.
+
+**WO-G-4 (NORMATIVE).** A builder that deletes its source meshes after handing them to the
+instancer **MUST NOT assume the registration succeeded.** Either check the outcome, or rely on an
+instancer that is contractually incapable of refusing (C04 §INST.1) — and assert the second in a
+test, because it is the assumption that failed here.
+
+**⭐ THE OPEN LEVER, recorded and deliberately unspent.** Ten frame members is not a fact about
+windows; it is a fact about how they are registered. They are ten separate unit boxes against a
+shared `BoxGeometry(1,1,1)`. Merging is **impossible ACROSS materials** — the frame / glazing / sill
+split is real, and that half of the founder's question has a genuine constraint as its answer — but
+the ten frame members are **one material** and merging them is possible. A window would then take
+**3** slots instead of 12, and a shard would hold ~170 windows instead of ~51. It needs a
+per-window-TYPE merged-geometry cache keyed on the authored dimensions and grid, and it touches
+ADR-0297 material ownership. With spill shipped it is a pure performance win, not a correctness fix.
+**NOT MEASURED**: what it would cost, and whether the type space is small enough for the cache to
+pay.
+
 ### TO-BE — normative
 
 - **WO-G-1.** ONE Y datum for the opening. **The authority is the host wall's**

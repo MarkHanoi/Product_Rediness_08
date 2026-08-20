@@ -727,3 +727,111 @@ ORCHESTRATION** section. Read top-down: **everything below the first row is a mu
   (`initScene.ts:3838` gates on `isBatching`, which is false by the time the deferred event lands).
   **Not changed by this lane.** Same for the unconditional post-batch mesh-count traverse
   (`initScene.ts:2872`), which runs regardless of both skip flags.
+
+---
+
+## §INSTANCING — a fixed-size instance pool with no overflow is a CAP ON THE MODEL (NORMATIVE, added 2026-08-20, lane INST2, L-1400..L-1403)
+
+### §INST.1 — RULE: an instancer MUST spill, and MUST NOT refuse
+
+**A group that runs out of instance slots MUST allocate another group on the same key. It MUST NOT
+return the element to the caller unplaced.**
+
+`InstanceGroup` preallocates `INSTANCE_GROUP_MAX` (512) slots per
+`(levelId × geometry-hash × material-uuid)` key. Until L-1400 the 513th `addInstance()` on a key
+returned `-1` and logged *"Group full … will not be instanced"*, once per element. There was no
+overflow path.
+
+⭐ **A fixed-size pool with no overflow is not a performance tuning parameter — it is an undeclared
+ceiling on the size of model the product supports**, and nothing told the user they had crossed it.
+
+`InstancedElementRenderer.register()` now maintains a **shard chain** per base key: shard 0 is the
+base key itself (so the single-shard case is byte-identical to the old behaviour), and each spill
+mints `{baseKey}~s{n}`. N shards of 512 cost **N draw calls**; the behaviour they replace cost the
+element.
+
+### §INST.2 — 512 is ARBITRARY, and raising it is NOT the fix
+
+**512 is not a GPU limit, not a driver limit, and not a `THREE.InstancedMesh` limit.** THREE holds
+per-instance matrices in an `InstancedBufferAttribute` bounded only by memory; WebGL2 and WebGPU
+impose no such number on instance counts. The constant's own doc comment read *"Increase if projects
+exceed this per geometry type"* — which is the tell, because a real hardware limit is not something
+you raise.
+
+⛔ **A larger literal MUST NOT be offered as the remedy.** It moves the cliff to the next building
+and re-arms the same silent failure. The regression test at
+`packages/geometry-window/__tests__/WindowInstanceCapSpill.test.ts` includes a 200-window case
+(4 shards) for exactly this reason: a constant cannot pass it, shards can.
+
+### §INST.3 — §INSTANCE-REFUSAL-IS-INVISIBLE: a refused instance is not a fallback
+
+⭐ **This is the part that made L-1400 a CORRECTNESS defect and not a performance one, and it is the
+rule most likely to be re-broken.**
+
+*"Will not be instanced"* reads as a graceful degradation to an ordinary mesh. It was not one.
+`WindowBuilder._convertGroupToInstances` registers each sub-box and then strips the real sub-meshes
+from the group **unconditionally** — it never asks whether the registration took. So a refused
+instance was drawn by **nobody**.
+
+**MEASURED** (`WindowInstanceCapSpill.test.ts`, real builder, shipped flags):
+
+| reading | value |
+|---|---|
+| instance slots per single-pane window | **12** = 10 frame members + 1 glazing + 1 sill |
+| frame members share one material ⇒ one group | 10 slots per window in that group |
+| windows before the frame group is full | **512 / 10 = 51.2** ⇒ first refusal on window **52**, part `#2` |
+| refused frame members at 100 windows on a storey | **488 of 1 200 registrations** |
+| what those 488 rendered as | **nothing** — windows 52+ showed glazing and a sill with **no frame** |
+
+**RULE.** Any builder that deletes its source meshes after registering them for instancing **MUST
+NOT assume the registration succeeded**, and the instancer **MUST** publish the number it failed to
+place. `InstancedElementRenderer.droppedInstanceCount` is that number and is required to read **0**;
+`pryzmPerf.report()` prints it, and prints it as *unavailable* rather than `0` when the renderer is
+not published (§PERF-ZERO-IS-NOT-UNWRITTEN, §LS.4).
+
+### §INST.4 — the log MUST be aggregated on the REASON, and MUST survive
+
+The old code emitted one `console.warn` per refused element — **488 lines, each with a stack frame,
+during load, on a single storey.** That volume is what hid the finding: the founder's report of the
+symptom quoted the log correctly and still could not see that 40 % of his window geometry was
+missing.
+
+**RULE.** A condition that can recur per element is reported **once per reason with a count**, never
+once per element. ⭐ **The message must SURVIVE, not be deleted** — *"this key exceeded 512 slots and
+spilled to 3 shards, 0 elements dropped"* is a real fact about the model and the user is entitled to
+it. `_reportSpill()` emits one line per NEW shard; `spillSummary` exposes one row per real group
+identity for the perf report.
+
+⚠ `groupSummary` counts **shards**, so a spilled key appears there as several rows and drags
+`collapseRatio` down for a reason that is not a defect. `spillSummary` is the honest denominator.
+
+### §INST.5 — shard ordinals are MONOTONIC
+
+An emptied shard is removed from its chain, but the per-key ordinal counter is **NOT** decremented.
+Deriving the next ordinal from chain length would reissue a name that a live mesh already answers to
+— and both `userData.id` (the GPU pick registry) and the per-group OBB store are keyed by that name.
+The counter resets only in `clear()`, when no shard of any key survives.
+
+Re-registration compares the **base** key, never the effective shard key. An element sitting in
+shard 3 whose geometry and material are unchanged has not changed groups; evicting it would
+reintroduce the phantom that §WALL-AUDIT-2026-W7's guard exists to prevent.
+
+### §INST.6 — NOT MEASURED / open
+
+- **No browser run was taken for this change.** Every number above is read off the live
+  `instancedElementRenderer` in a headless test driving the real `WindowBuilder`. The counts are
+  exact; frame times are not measured.
+- ⭐ **THE DEEPER LEVER, unspent: why does one window need 10 instance slots at all?** A window's
+  frame members are 10 separate unit boxes because each is registered individually against a shared
+  `BoxGeometry(1,1,1)`. **Merging is possible WITHIN a material and impossible ACROSS one** — the
+  frame/glazing/sill split is a genuine constraint, but the ten frame members are not. Merging them
+  into one geometry per window TYPE would take a window from 12 slots to 3 and put ~512 windows in
+  a shard instead of ~51. It is **not** done here: it needs a per-window-type merged-geometry cache
+  keyed on the authored dimensions and grid, and it interacts with ADR-0297 material ownership. With
+  spill in place it is a **pure performance** improvement rather than a correctness fix, which is
+  why it is recorded and not rushed.
+- Whether any OTHER instanced family (walls, columns, beams, handrails, stair railings, furniture)
+  was also silently dropping elements at the cap. The spill fix is in the shared renderer so it
+  covers them all, but **only windows were measured**.
+- Memory cost of preallocating 512 slots in a shard that ends up holding three instances
+  (32 KB of matrix buffer per shard, believed negligible, **not** measured).

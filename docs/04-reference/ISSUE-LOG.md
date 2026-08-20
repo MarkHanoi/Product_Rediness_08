@@ -22031,3 +22031,129 @@ Kept as a standing reminder that a ranked list of suspicions is a starting point
 | 6 | `§FURNISH-EMPTY` on L0 | ⏸ not chased (occupancy classification). |
 | 7 | caches at 0% hit rate | ⏸ not chased — L-1301 / L-1302 own it. |
 | ⭐ **NOT ON THE LIST** | **eight `projectContext.activeLevelId` switches** | 🔴 **THE ANSWER (L-1395).** ~40 whole-scene traversals + 7 cold plan projections, for a cosmetic HUD update. |
+
+---
+
+## L-1400 — the instance pool had a HARD CAP and no overflow: 512 slots per key, and past it the element was simply refused ✅ FIXED — 2026-08-20 (lane INST2)
+
+**Founder's report:** *"Why is the scene CLASHING? Can we solve it? We have a large-storey building
+with many windows."* — with a load log carrying, hundreds of times:
+
+> `[InstanceGroup] Group full (max 512 instances). Element "629caa61-…#0" will not be instanced.`
+> … `#1` … `#2` … through `#9`, then the next element, and the next.
+
+`InstanceGroup` preallocated **512** slots per `(levelId × geometry-hash × material-uuid)` key.
+`addInstance()` past that returned `-1` and logged. **There was no overflow path at all.**
+
+⭐ **A fixed-size instance pool with no overflow is not a tuning parameter — it is an UNDECLARED
+CEILING ON THE MODEL SIZE THE PRODUCT SUPPORTS**, and nothing told the user they had crossed it.
+
+**512 is ARBITRARY.** It is not a GPU limit, not a driver limit, not a `THREE.InstancedMesh` limit —
+THREE holds instance matrices in an `InstancedBufferAttribute` bounded only by memory. The
+constant's own doc comment read *"Increase if projects exceed this per geometry type"*, which is the
+tell: a real hardware limit is not something you raise. ⛔ **And raising it was refused as the fix** —
+it moves the cliff to the next building.
+
+**FIXED — spill, don't refuse.** `InstancedElementRenderer.register()` maintains a **shard chain**
+per base key: shard 0 *is* the base key (single-shard behaviour is byte-identical to before), each
+spill mints `{baseKey}~s{n}`. N shards of 512 cost **N draw calls**. Shard ordinals are monotonic so
+a removed shard's name can never be reissued to a live mesh; re-registration compares the **base**
+key so a rebuild of an element living in shard 3 updates in place rather than re-creating the
+§WALL-AUDIT-2026-W7 phantom.
+
+Contract: **C04 §INSTANCING** (§INST.1, §INST.2, §INST.5). Test:
+`packages/geometry-window/__tests__/WindowInstanceCapSpill.test.ts` — **7 of its 9 cases fail at
+HEAD**, including a 200-window case needing 4 shards that no constant can satisfy.
+
+---
+
+## L-1401 — ⭐ THE REAL DEFECT: a refused instance was not a fallback — it was NOT DRAWN AT ALL. Windows 52+ rendered with no frame. ✅ FIXED — 2026-08-20 (lane INST2)
+
+*"Will not be instanced"* reads as a graceful degradation to an ordinary mesh. **It was not one.**
+
+`WindowBuilder._convertGroupToInstances` registers each sub-box and then strips the real sub-meshes
+from the window group **unconditionally** — it never asks whether the registration took. So every
+refused instance was drawn by **nobody**.
+
+**MEASURED** (real `WindowBuilder.rebuild()`, shipped flags, read off the live
+`instancedElementRenderer` — not a stub):
+
+| reading | value |
+|---|---|
+| instance slots for ONE single-pane window | **12** = 10 frame members + 1 glazing + 1 sill |
+| frame members share one material ⇒ one group | **10 slots per window** in that group |
+| windows before that group is full | **512 / 10 = 51.2** ⇒ first refusal on window **52**, part `#2` |
+| refused registrations at 100 windows on a storey | **488 of 1 200** |
+| what those 488 rendered as | **nothing** — glazing + sill floating in the hole, **no frame** |
+| scene at 100 windows, pre-fix | 3 InstancedMeshes + 100 hit-proxies, **712 of 1 200 parts placed** |
+| scene at 105 windows, post-fix | **5 InstancedMeshes** (frame spills to 3 shards) + 105 hit-proxies, **1 260 of 1 260 placed** |
+
+⭐ **The founder was looking at a structurally broken building while the console talked to him about
+instancing.** He read the symptom as "clashing"; the log named the mechanism and buried it.
+
+**FIXED** by L-1400's spill. **Made falsifiable** by `InstancedElementRenderer.droppedInstanceCount`
+— instances that are **in the model and not on the screen** — which must read 0 and is now printed
+by `pryzmPerf.report()` (and printed as *unavailable*, never as `0`, when the renderer is not
+published: §PERF-ZERO-IS-NOT-UNWRITTEN).
+
+**Standing rule, C04 §INST.3 + C86 WO-G-4:** a builder that deletes its source meshes after handing
+them to the instancer **MUST NOT assume the registration succeeded**.
+
+---
+
+## L-1402 — 488 `console.warn` lines with stack frames, per storey, during load — the flood is what hid the finding ✅ FIXED — 2026-08-20 (lane INST2)
+
+One `console.warn` per refused element. On a single 100-window storey that is **488 lines, each
+carrying a stack frame (`addInstance @ …`)**, during load. The same ruling as the 145 handrail warns
+(L-1300).
+
+**FIXED — aggregated on the REASON, carrying the COUNT.** `InstanceGroup` no longer logs at all: a
+refusal it hands to the renderer's spill path is normal control flow, not a fault (the number
+survives as `refusedCount`). `InstancedElementRenderer._reportSpill()` emits **one line per NEW
+shard**:
+
+> `instance group "…" exceeded 512 slots and spilled to 3 shards (~1536 slots, 3 draw calls). 0 elements dropped.`
+
+⭐ **The message SURVIVES rather than being deleted** — *"this key needed more than 512 slots"* is a
+real fact about the model and the user is entitled to it. `spillSummary` exposes one row per real
+group identity for the perf report; ⚠ `groupSummary` counts **shards**, so after a spill it drags
+`collapseRatio` down for a reason that is not a defect.
+
+---
+
+## L-1403 — ⭐ THE DEEPER LEVER, MEASURED AND DELIBERATELY UNSPENT: why does one window need 10 instance slots? 📋 RECORDED — 2026-08-20 (lane INST2)
+
+The founder's own question, and it deserves the honest half-answer.
+
+**Merging across materials is genuinely impossible** — the frame / glazing / sill split is real, a
+merged geometry loses per-part material assignment, and that is exactly why the sub-boxes are split.
+**That half is a real constraint and the right answer.**
+
+**But the ten FRAME members are ONE material**, and they are ten separate slots only because each is
+registered individually against a shared `BoxGeometry(1,1,1)` with the size carried in the matrix.
+Merging them into one geometry per window TYPE would take a window from **12 slots to 3**, and a
+512-slot shard from ~51 windows to ~170.
+
+**NOT DONE, and the reason is not timidity:** it needs a per-window-type merged-geometry cache keyed
+on authored dimensions + grid (a 2×2 gridded window measures **36** sub-boxes: 31 frame + 4 glazing
++ 1 sill, so the type space is not trivially small), and it touches ADR-0297 material ownership —
+the hole where a family freed a SHARED canonical material others still used. **With spill shipped it
+is a pure PERFORMANCE win, not a correctness fix.** Recorded in C04 §INST.6 and C86 §10.4.
+
+**NOT MEASURED:** what the merge would cost; whether the window-type space is small enough for the
+cache to pay; and whether any OTHER instanced family (walls, columns, beams, handrails, stair
+railings, furniture) was also silently dropping at the cap — the fix is in the shared renderer so it
+covers them all, but **only windows were measured**.
+
+---
+
+## L-1404 — `powerPreference is ignored on Windows` and a REPORT-ONLY CSP `eval` violation in the founder's log 📋 RECORDED, NOT CHASED — 2026-08-20 (lane INST2)
+
+Both were in the same log as L-1400 and both are noted so nobody re-derives them as new findings:
+
+- **`Evaluating a string as JavaScript violates … CSP … The policy is REPORT-ONLY.`** Logged, **not
+  blocked** — nothing is currently broken by it, but a report-only policy that is being violated is
+  a policy that cannot be enforced later without a break. Owner: whoever tightens CSP. **NOT
+  MEASURED**: which bundle evals.
+- **`powerPreference is currently ignored … on Windows (crbug.com/369219127)`** — an upstream Chrome
+  limitation, not a PRYZM defect. No action.
