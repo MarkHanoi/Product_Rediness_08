@@ -116,6 +116,14 @@
 
 import type { ResolverContext, SemanticApplication, SemanticIntent } from './ZeroTokenResolver.js';
 import { LEVEL_NOUN_SRC, STOREY_NAME_SRC } from './SpatialScopeTail.js';
+// L-1540 — ONE anchor vocabulary for every grammar that reads a selection
+// reference. This module used to carry its own eight-word list; see ANCHOR_REF
+// below for the founder sentence that walked past it.
+import { parseSpatialAnchorRef } from './SpatialAnchorRef.js';
+// L-1541 — the SAME shape reader the honouring grammar uses, so "does this
+// sentence name a shape?" cannot be answered two different ways by the grammar
+// that stands down and the grammar that steps in.
+import { parseStairShapeRef } from './StairCreateShape.js';
 
 // ─── A — the multi-level stair-creation ask ──────────────────────────────────
 
@@ -160,9 +168,26 @@ const STAIR_NOUN_RE = /\b(?:stairs?|staircases?|stairways?|stair cases?)\b/i;
  * "and I cannot anchor it to the wall you selected" rather than pretending the
  * clause was not there. ⛔ It does NOT resolve a scope, and it deliberately does
  * not mint a rival to the selection vocabulary the grammars already share.
+ *
+ * ⭐⭐ **CORRECTED 2026-08-20 (L-1540) — THIS REGEX WAS NARROWER THAN THE
+ * DOCTRINE IT SERVES, AND THE FOUNDER WALKED STRAIGHT PAST IT.**
+ *
+ * It used to be a literal list — `connected|attached|anchored|next|adjacent|
+ * against|beside|alongside` — which is every word he used *in the sentence that
+ * was on screen when this module was written* ("…connected to this wall"). He
+ * then typed **"aligned to the selected wall"** and got `{kind:'miss'}`: not
+ * this carefully-argued refusal, but *"I'm not sure how to help with that yet"*,
+ * the exact dead end §L-1441.1.a calls a regression rather than a copy nit.
+ *
+ * ⛔ The fix was NOT to append "aligned" to the list — that is the same defect
+ * with a longer list, and it would be re-minted the next time he writes
+ * "facing" or "running along". The vocabulary now lives in
+ * `SpatialAnchorRef.ts` as a CLASS (spatial relation + determiner), read by
+ * every grammar that needs it, so there is one place to widen and two grammars
+ * that cannot drift. RAC doctrine, standing: **open language, never a narrowed
+ * vocabulary; safety comes from rule gates, not from restricting what the user
+ * may say.**
  */
-const ANCHOR_REF_RE =
-  /\b(?:connected|attached|anchored|next|adjacent|against|beside|alongside)\s+(?:to\s+|with\s+)?(?:the\s+)?(this|these|those|that|selected|selection)\b/i;
 
 /** "in L shape" / "L-shaped" / "as a U stair" — the shapes the tool offers. */
 const STAIR_SHAPE_RE = /\b(?:in\s+(?:an?\s+)?)?([LUI])[\s-]?shaped?\b|\b(?:in\s+)?(?:an?\s+)?([LUI])[\s-]shape\b/i;
@@ -182,9 +207,33 @@ export function parseStairSpanIntent(text: string): SemanticIntent | null {
   if (!STAIR_NOUN_RE.test(text)) return null;
 
   const range = LEVEL_RANGE_RE.exec(text);
-  const anchor = ANCHOR_REF_RE.exec(text);
+  // L-1540 — the SHARED anchor vocabulary, not a local literal list. See the
+  // comment above for the miss that forced this.
+  const anchor = parseSpatialAnchorRef(text);
   // Neither the un-doable range nor the un-doable anchor ⇒ not our sentence.
   if (range === null && anchor === null) return null;
+
+  // ⭐⭐ §FEAT-RAC-STAIR-SHAPE (L-1541) — STAND DOWN WHEN THE ASK IS DOABLE.
+  //
+  // This grammar's whole licence is that it claims the UN-DOABLE ask (see the
+  // header). A stair sentence that names a SHAPE and carries NO level range is
+  // DOABLE — `create-stair-shape` arms the same tool the Create palette's
+  // L-Shape button arms — so it is not this grammar's sentence, anchor clause or
+  // not.
+  //
+  // ⚠ THIS CHANGE WAS FORCED BY THE L-1540 FIX AND WOULD HAVE BEEN A REGRESSION
+  // WITHOUT IT. Widening the anchor vocabulary made *"create stair in L shape
+  // aligned to the selected wall"* claimable HERE for the first time — so the
+  // sentence went from a MISS straight to a REFUSAL, skipping the activation it
+  // could actually have. That is C84 §4F.5's WRONG-REFUSAL DEFECT CLASS ("a
+  // correct-looking refusal for a capability that EXISTS"), and it was caught by
+  // this file's own acceptance test rather than by review.
+  //
+  // ⛔ THE RANGE ARM IS UNTOUCHED, deliberately. "from ground to level 5 … in L
+  // shape" still refuses: C98 §L-1441.4.a forbids softening that into a partial
+  // result, and the range check below is what keeps the two apart. An anchor
+  // with NO shape also still refuses — there is nothing there to honour.
+  if (range === null && parseStairShapeRef(text) !== null) return null;
 
   const shape = STAIR_SHAPE_RE.exec(text);
   return {
@@ -192,7 +241,12 @@ export function parseStairSpanIntent(text: string): SemanticIntent | null {
     ...(range !== null
       ? { fromLevel: (range[1] ?? range[3] ?? '').trim(), toLevel: (range[2] ?? range[4] ?? '').trim() }
       : {}),
-    ...(anchor !== null ? { anchorRef: anchor[1]!.trim() } : {}),
+    // ⚠ `anchorRef` stays the DETERMINER alone ("this", "selected"), because the
+    // refusal copy below reads `"${si.anchorRef} wall"` and the pinned test
+    // asserts exactly `'this'` for the founder's sentence A. Widening the
+    // vocabulary must not silently change the shape of a pinned field — that is
+    // how a grammar fix becomes a copy regression.
+    ...(anchor !== null ? { anchorRef: anchor.determiner } : {}),
     ...(shape !== null ? { shape: (shape[1] ?? shape[2] ?? '').toUpperCase() } : {}),
   } as SemanticIntent;
 }

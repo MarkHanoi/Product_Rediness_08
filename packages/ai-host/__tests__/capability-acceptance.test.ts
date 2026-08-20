@@ -253,6 +253,28 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
     phrasings: ['create a bed', 'place a sofa', 'create slab', 'add a wardrobe', 'put a table'],
   },
   {
+    // §FEAT-RAC-STAIR-SHAPE (L-1541) — the stair SHAPE axis, reachable from
+    // language for the first time. Like `activate-placement` it ACTIVATES: the
+    // shape is published to the one StairToolConfigStore chokepoint and the
+    // palette's own stair tool is armed, so nothing is created until the user
+    // clicks (C83 §4.3).
+    //
+    // ⭐ EMPTY CONTEXT ON PURPOSE. The founder's sentence names "the selected
+    // wall", but the capability must resolve with NOTHING selected too — the
+    // alignment is disclosed as un-applied either way (C67 §4 rule 20 makes
+    // selection-as-geometry NOT BUILT), so a selection must not be what decides
+    // whether the shape is honoured.
+    id: 'create-stair-shape',
+    ctx: {},
+    phrasings: [
+      'create a stair in L shape',
+      'create a stair in U shape',
+      'create an L-shaped stair',
+      'add a straight stair',
+      'create a curved stair',
+    ],
+  },
+  {
     id: 'zoom-fit',
     ctx: {},
     phrasings: ['zoom to fit', 'fit the model', 'frame everything', 'zoom out so I can see everything'],

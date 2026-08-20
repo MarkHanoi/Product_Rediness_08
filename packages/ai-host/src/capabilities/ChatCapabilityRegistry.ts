@@ -689,6 +689,68 @@ const CAPABILITIES: readonly ChatCapability[] = [
     examples: ['create a bed', 'place a sofa', 'create slab', 'add a wardrobe', 'put a table'],
   },
   {
+    id: 'create-stair-shape',
+    // §FEAT-RAC-STAIR-SHAPE (L-1541) — "create a stair in L shape".
+    //
+    // ⭐ THE SHAPE AXIS EXISTED AND WAS REACHABLE FROM THE PALETTE AND FROM
+    // NOWHERE ELSE. C98 §16 made SHAPE its own declared axis on 2026-08-19
+    // (`shapes: STAIR_SHAPES` on the matrix's `stair` row, separate from
+    // `modes`), and the Create palette's four buttons call
+    // `activateStairPathTool('I'|'L'|'U'|'C')`. The founder typed "create stair
+    // in L shape aligned to the selected wall" and got a MISS, because the
+    // placement grammar declines any sentence carrying a preposition and every
+    // natural way of saying "L-shaped" carries one.
+    //
+    // Refusing it would have been C84 §4F.5's named WRONG-REFUSAL DEFECT CLASS —
+    // a correct-looking refusal for a capability that EXISTS.
+    //
+    // Like `activate-placement` it ACTIVATES rather than creates: the shape is
+    // published to the one `StairToolConfigStore` chokepoint (the same setter
+    // `BimService.activateStairPathTool` calls) and the user's canvas click
+    // places the stair, so no position is ever guessed (C83 §4.3) and there is
+    // nothing to undo until they place.
+    description:
+      'start placing a stair of a named shape — straight, L-shape, U-shape or curved; activates the same tool as the Create palette\'s stair buttons and you draw it in the canvas',
+    verbs: ['create', 'place', 'add', 'draw', 'build', 'make'],
+    aliases: ['l-shape', 'u-shape', 'straight', 'curved', 'quarter turn', 'half turn', 'dog leg'],
+    targets: 'global',
+    parameters: [
+      {
+        name: 'shape',
+        description:
+          'the stair shape — I/straight, L/quarter-turn, U/half-turn or C/curved; read from STAIR_SHAPES (@pryzm/geometry-stair), the same catalogue the palette and the shape picker render',
+        required: true,
+        // ⚠ `user-text` and NOT a new value source. `stair-types` is a
+        // CONSTRUCTION catalogue (monolithic concrete, steel open riser …), a
+        // different axis entirely, and C98 §16.1.a forbids expressing one axis
+        // in the other's control. Minting a `stair-shapes` source would also
+        // have tripped gate 31 check 5, whose KNOWN_VALUE_SOURCES list is
+        // already out of step with the registry (it omits `stair-types` and
+        // `handrail-types`) — a gap this lane records rather than widens.
+        valueSource: 'user-text',
+        example: 'L shape',
+      },
+    ],
+    scope: 'global',
+    destructive: false,
+    busCommand: null,
+    localAction: 'activateTool',
+    probe: { intent: 'create-stair-shape', shape: 'L' },
+    commandProof: {
+      file: 'apps/editor/src/ui/ai/chatPlacementActivation.ts',
+      mustMention: ['setStairToolConfig', 'STAIR_SHAPES', 'ELEMENT_CREATION_MATRIX'],
+      note:
+        'The editor bridge publishes the shape to StairToolConfigStore — the single chokepoint BimService.activateStairPathTool itself writes, whose comment states it exists "so the plan tool, the 3D sketch tool and any batch/AI path all author from the SAME resolved config (P2)" — and then activates the stair tool through the same ELEMENT_CREATION_MATRIX route every other placement uses. The shape labels are read from STAIR_SHAPES, never transcribed.',
+    },
+    examples: [
+      'create a stair in L shape',
+      'create a stair in U shape',
+      'create an L-shaped stair',
+      'add a straight stair',
+      'create a curved stair',
+    ],
+  },
+  {
     id: 'delete-selected',
     description: 'delete what you have selected',
     verbs: ['delete', 'remove', 'erase', 'get rid of'],

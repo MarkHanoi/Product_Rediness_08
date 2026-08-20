@@ -1698,7 +1698,18 @@ async function runLocal(
             // nothing to undo until they place).
             case 'activateTool': {
                 const m = await import('./chatPlacementActivation.js');
-                failText = m.activatePlacementFromChat(r.placement?.itemRef ?? '');
+                // §FEAT-RAC-STAIR-SHAPE (L-1541) — the shape axis and the
+                // un-honoured-clause note ride the SAME placement dispatch;
+                // both are optional, so `create a bed` is byte-for-byte the
+                // call it was before this change.
+                failText = m.activatePlacementFromChat(r.placement?.itemRef ?? '', {
+                    ...(r.placement?.stairShape !== undefined
+                        ? { stairShape: r.placement.stairShape }
+                        : {}),
+                    ...(r.placement?.unhonouredNote !== undefined
+                        ? { unhonouredNote: r.placement.unhonouredNote }
+                        : {}),
+                });
                 break;
             }
             // §GATE-QUERYENGINE-READ-ONLY — the summary IS the answer; nothing

@@ -54,6 +54,15 @@ import {
     type FurnitureTypeDescriptor,
 } from '../furniture-carousel/FurnitureCategoryRegistry';
 import { activateFurnitureItem } from '../furniture-carousel/activateFurnitureItem';
+// §FEAT-RAC-STAIR-SHAPE (L-1541) — the shape chokepoint and its catalogue. The
+// SAME `setStairToolConfig` that `BimService.activateStairPathTool` calls, and
+// the SAME `STAIR_SHAPES` the palette and the param panel are faces of (C98
+// §16.1.c names it the authority). Nothing is transcribed.
+import {
+    setStairToolConfig,
+    STAIR_SHAPES,
+    type StairShapeChoice,
+} from '@pryzm/geometry-stair';
 
 // ─── Enumeration ─────────────────────────────────────────────────────────────
 
@@ -225,7 +234,59 @@ const CLICK_TO_PLACE =
  * button would. Returns the chat reply — always honest about what happened:
  * activated / ambiguous-with-candidates / no-match-with-nearest / not-ready.
  */
-export function activatePlacementFromChat(itemRef: string): string {
+/**
+ * §FEAT-RAC-STAIR-SHAPE (L-1541) — options the chat may thread into an activation.
+ *
+ * ⭐ THE HEADER'S "MODES ARE DELIBERATELY NOT ENUMERATED" RULE STILL STANDS, AND
+ * THIS DOES NOT BREAK IT. That rule was measured against `modes`, whose threading
+ * is genuinely non-uniform (activators that DROP the mode argument). SHAPE is a
+ * different axis with a different guarantee: it became its own declared field on
+ * 2026-08-19 (C98 §16.1.c — `modes` and `shapes` are separate slots, and
+ * concatenating them is forbidden), it is declared `modeSource: 'shared'`, and it
+ * has exactly ONE chokepoint — `StairToolConfigStore` — which every stair
+ * surface reads (`StairPlanToolHandler` calls `getStairToolConfig()`, the
+ * stair-path controller authors from the same config).
+ *
+ * So this is not "a mode entry that could be silently discarded". It writes the
+ * same store the palette's L-Shape button writes, through the same setter
+ * (`BimService.activateStairPathTool`'s own first line), and then activates the
+ * same tool this function already activates. If a future family wants the same
+ * treatment it needs the same proof, not this precedent.
+ */
+export interface ChatPlacementOptions {
+    /** The stair shape axis — `StairShapeChoice` ('I' | 'L' | 'U' | 'C'). */
+    readonly stairShape?: 'I' | 'L' | 'U' | 'C';
+    /**
+     * A clause the language layer could not honour, appended ONLY on a
+     * successful activation — never onto a "nothing was activated" reply, where
+     * it would be a second false statement. See PlacementActivation.ts.
+     */
+    readonly unhonouredNote?: string;
+}
+
+/**
+ * Publish the stair shape to the ONE chokepoint before activating.
+ *
+ * Returns the human label for the reply, or null when the shape could not be
+ * published — in which case the caller must NOT claim a shape (§CONTEXT-DATA-
+ * HONESTY: a failure and a success never look the same).
+ */
+function publishStairShape(shape: StairShapeChoice): string | null {
+    try {
+        setStairToolConfig({ shape });
+        return STAIR_SHAPES.find((s) => s.label === shape)?.hint ?? `${shape}-shape`;
+    } catch {
+        // §CONTEXT-DATA-HONESTY — an unwritable config is reported as "no shape
+        // claimed", never as a shape that was set. The caller degrades to the
+        // plain activation reply rather than promising an L that is an I.
+        return null;
+    }
+}
+
+export function activatePlacementFromChat(
+    itemRef: string,
+    options: ChatPlacementOptions = {},
+): string {
     const ref = itemRef.trim();
     if (ref === '') {
         return 'Tell me what to place — e.g. "create a bed" or "create a slab".';
@@ -274,11 +335,35 @@ export function activatePlacementFromChat(itemRef: string): string {
             `The Create palette's ${entry.name} button starts the same tool.`
         );
     }
+    // §FEAT-RAC-STAIR-SHAPE (L-1541) — publish the SHAPE before activating, the
+    // same order `BimService.activateStairPathTool` uses (`setStairToolConfig`
+    // first, then arm the surfaces), so the handler reads the resolved config on
+    // its first `getStairToolConfig()`. Publishing after would arm the tool with
+    // the previous shape and set the new one for the NEXT stair — the classic
+    // off-by-one-gesture bug.
+    //
+    // ⚠ `shapeLabel` stays null unless the write really happened; the reply then
+    // claims no shape at all rather than an unverified one.
+    // Both stair rows are shape-bearing in the matrix (`stair` and `stair-path`
+    // are its only two-axis rows, C98 §16.1.c) and both author from the same
+    // `StairToolConfigStore`, so both honour a published shape. Any other tool
+    // ignores it — the shape is never published onto a family that has no
+    // shape axis, which is what would make the reply's "(L-shape)" a lie.
+    const shapeLabel =
+        options.stairShape !== undefined && (entry.tool === 'stair' || entry.tool === 'stair-path')
+            ? publishStairShape(options.stairShape)
+            : null;
+
     // The exact palette call (`CreateRailPanel._activateTool`): no mode is
     // passed, so the registered activator applies its own default — the same
     // default the palette's plain button press gets.
     tools.activate(entry.tool);
     const viewNote =
         entry.views.length === 1 ? ` (this tool works in the ${entry.views[0]} view only)` : '';
-    return `${entry.name} tool is active${viewNote} — ${CLICK_TO_PLACE}.`;
+    const shaped = shapeLabel === null ? entry.name : `${entry.name} (${shapeLabel})`;
+    // The un-honoured clause is appended ONLY here, on the success path — every
+    // early return above says "nothing was activated", and a note explaining
+    // which half of a non-event was skipped would be nonsense on top of it.
+    const note = options.unhonouredNote ?? '';
+    return `${shaped} tool is active${viewNote} — ${CLICK_TO_PLACE}.${note}`;
 }

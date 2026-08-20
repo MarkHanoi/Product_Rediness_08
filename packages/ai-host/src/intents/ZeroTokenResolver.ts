@@ -89,6 +89,23 @@ import {
   parseStairPartIntent,
   parseStairSpanIntent,
 } from './StairNotYet.js';
+// §FEAT-RAC-STAIR-SHAPE (L-1541) — the founder's "create stair in L shape …".
+// ⭐ A FEATURE, not a third refusal: the shape axis SHIPPED on the tool (C98 §16,
+// 2026-08-19) and was reachable from the palette and from nowhere else. Refusing
+// it would have been C84 §4F.5's named "WRONG-REFUSAL DEFECT CLASS — a
+// correct-looking refusal for a capability that EXISTS".
+import {
+  applyCreateStairShape,
+  parseCreateStairShapeIntent,
+} from './StairCreateShape.js';
+// §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".
+// Copy-by-reference has no command underneath it on ANY element kind (measured;
+// see the module header's route table), so this is an honest refusal that
+// resolves the level it CAN resolve and names the live floor-plate route.
+import {
+  applyReplicateElementRefusal,
+  parseReplicateElementIntent,
+} from './ElementReplication.js';
 // RAC U9.2 — delete families (furniture / window / door / column) are TABLE
 // ENTRIES on exactly the same seam: one record generates the spec AND the
 // grammar. The only line this file spends on the whole family is the matcher
@@ -865,6 +882,36 @@ export type SemanticIntent =
       readonly shape?: string;
     }
   /**
+   * §FEAT-RAC-STAIR-SHAPE (L-1541) — "create a stair in L shape" and its
+   * family, INCLUDING the founder's "…aligned to the selected wall".
+   *
+   * ⭐ The one stair-creation sentence shape that is HONOURED rather than
+   * refused: it arms the same tool, with the same shape, that the Create
+   * palette's L-Shape button arms. `anchorRef` is carried ONLY so the reply can
+   * say out loud which clause it did not apply — C67 §4 rule 20 makes the
+   * alignment NOT BUILT, and 20.b forbids guessing a position from a selection.
+   */
+  | {
+      readonly intent: 'create-stair-shape';
+      /** The TOOL's shape axis — 'I' | 'L' | 'U' | 'C' (`StairShapeChoice`),
+       *  which is NOT the command's `StairShape`. See StairCreateShape.ts. */
+      readonly shape: 'I' | 'L' | 'U' | 'C';
+      /** The alignment clause, in the user's own words, when one was said. */
+      readonly anchorRef?: string;
+    }
+  /**
+   * §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".
+   * COPY BY REFERENCE, parsed in order to refuse accurately: the target level
+   * is RESOLVED (so the reply proves it read the sentence) even though the
+   * copy itself has no command on any element kind.
+   */
+  | {
+      readonly intent: 'replicate-element';
+      readonly elementKind: string;
+      readonly sourceLevelQuery?: string;
+      readonly targetLevelQuery?: string;
+    }
+  /**
    * §REFUSE-STAIR-RUN (L-1444) — "change first run of all stairs to X meters".
    * ⭐ The vocabulary cannot address a COMPONENT of an element at all today,
    * only whole elements; this arm is where that is said out loud.
@@ -1334,6 +1381,25 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
   // "go to level 2" (one level-name resolver, C84 EI-9).
   const mtl = asMoveToLevelIntent(si);
   if (mtl !== null) return applyMoveToLevelIntent(mtl, ctx, findLevel);
+  // §FEAT-RAC-STAIR-SHAPE (L-1541) / §REFUSE-RAC-REPLICATE (L-1542) — routed
+  // BEFORE the switch, and that placement is load-bearing rather than stylistic.
+  //
+  // ⭐ THE HAND-WRITTEN CASE-ARM RATCHET IS ALREADY OVER ITS BASELINE. Gate 31
+  // check 8 (C68 §6.3-G5) counts `\n    case '<intent>':` in this file against
+  // `MAX_RESOLVER_CASE_ARMS = 27`; measured 2026-08-20 the file carries **29** —
+  // the two `create-stair-span` / `set-stair-part` arms took it past the line
+  // and the baseline was never moved with them (recorded for the orchestrator,
+  // NOT fixed here: raising a shrink-only ratchet is not this lane's to do, and
+  // "a baseline is not permission" — C67 §4.9).
+  //
+  // So two more arms were not available, and that constraint pushed this family
+  // onto the seam C67 §4 rule 5 and C68 §5.i ask for anyway: *"a capability of a
+  // known shape is a TABLE ROW … zero new resolver case arms."* Membership
+  // routing, exactly like the visibility and level-change families above.
+  // `findLevel` is passed IN for the same reason it is there — one level-name
+  // resolver for the whole package (C84 EI-9), never a second lookup.
+  if (si.intent === 'create-stair-shape') return applyCreateStairShape(si, ctx);
+  if (si.intent === 'replicate-element') return applyReplicateElementRefusal(si, ctx, findLevel);
   switch (si.intent) {
     case 'undo':
       return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
@@ -4031,6 +4097,11 @@ const matchWindowsParametric: Matcher = (text, ctx) => parseWindowsParametricInt
 const matchStairSpan: Matcher = (text) => parseStairSpanIntent(text);
 const matchStairPart: Matcher = (text) => parseStairPartIntent(text);
 
+// §FEAT-RAC-STAIR-SHAPE (L-1541) — see StairCreateShape.ts.
+const matchStairShape: Matcher = (text) => parseCreateStairShapeIntent(text);
+// §REFUSE-RAC-REPLICATE (L-1542) — see ElementReplication.ts.
+const matchReplicateElement: Matcher = (text) => parseReplicateElementIntent(text);
+
 // §FEAT-RHINO-CHAT-MATERIAL — "change all elements of the rhino model to
 // white" / "paint the rhino model white" / "reset the rhino model materials".
 //
@@ -4458,6 +4529,38 @@ const MATCHERS: readonly Matcher[] = [
   // records eight pills lost to exactly this mistake; the guard is that the
   // grammar demands evidence of the UN-DOABLE ask, not merely of a stair.
   matchStairSpan,
+  // §FEAT-RAC-STAIR-SHAPE (L-1541) — AFTER matchStairSpan, and the order is the
+  // whole safety argument.
+  //
+  // ⭐ matchStairSpan claims a stair-creation sentence carrying a LEVEL RANGE or
+  // a bare anchor, and its refusal is PINNED (C98 §L-1441.1.a) with §L-1441.4.a
+  // explicitly forbidding it being softened into a partial result. Running the
+  // shape grammar second means it can only ever pick up sentences that grammar
+  // declined — it can never convert a pinned refusal into an activation.
+  //
+  // ⛔ It also cannot steal "create a stair": it REQUIRES a shape word, and the
+  // plain sentence has none, so `parsePlacementRef` at the bottom of this list
+  // keeps it and keeps activating the tool with its own default. Both directions
+  // are pinned in stair-chat-acceptance.test.ts.
+  //
+  // ⚠ The two do overlap on ONE shape: "create a stair in L shape aligned to the
+  // selected wall". matchStairSpan sees an anchor and would refuse it whole;
+  // this grammar arms the L-shape tool and DISCLOSES the un-applied alignment.
+  // The tie is broken in favour of the honoured half deliberately — refusing a
+  // sentence whose main verb the product can serve is C84 §4F.5's wrong-refusal
+  // defect. The disclosure is what keeps it from being C84 EI-2 narrowing, and
+  // it is asserted, not assumed.
+  matchStairShape,
+  // §REFUSE-RAC-REPLICATE (L-1542) — BEFORE matchDuplicateLevel would be wrong
+  // and BEFORE the placement grammar is required.
+  //
+  // It is disjoint from `duplicate-level` BY CONSTRUCTION, in both directions:
+  // that parser declines every element-shaped source (its guard lists `stairs?`,
+  // `walls?`, `columns?` …), and this one REQUIRES an element noun. So
+  // "duplicate ground to level 1" keeps its live capability and "copy the
+  // selected stair to level 1" — which used to be a bare miss — reaches a
+  // refusal that names that live capability as the alternative.
+  matchReplicateElement,
   // §FEAT-BULK-DIMENSIONS (L-949) — the bulk-dimension families. Placed AFTER
   // every type / colour / rake / layer / creation grammar above and BEFORE the
   // single-element dimension matchers below, and disjoint from both by

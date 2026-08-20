@@ -43,6 +43,45 @@ import type { SemanticApplication, SemanticIntent } from './ZeroTokenResolver.js
  *  activates the SAME tool the palette button activates — or refuses/asks. */
 export interface PlacementLocalDispatch {
   readonly itemRef: string;
+  /**
+   * §FEAT-RAC-STAIR-SHAPE (L-1541) — the stair SHAPE axis, when the sentence
+   * named one ("create a stair in L shape").
+   *
+   * ⭐ WHY A SHAPE IS CARRIED WHEN A MODE DELIBERATELY IS NOT. This module's
+   * header records the reason modes are not enumerated: *"mode threading is not
+   * uniform across the registered activators … a mode entry here could claim
+   * 'Auto Floor activated' while the activator silently discarded the mode — the
+   * ElementCapabilities lie in a new costume."* That measurement was true, and
+   * it was made about `modes`.
+   *
+   * SHAPE is a different field with a different guarantee. It became its own
+   * declared axis on 2026-08-19 (C98 §16, §STAIR-TWO-AXES) with
+   * `modeSource: 'shared'`, and the single chokepoint is `StairToolConfigStore`
+   * — which `BimService.activateStairPathTool` writes for exactly this reason,
+   * in its own words: *"so the plan tool, the 3D sketch tool and any batch/AI
+   * path all author from the SAME resolved config (P2)."* The AI path it named
+   * had never been connected. This is that connection.
+   *
+   * ⛔ It stays STAIR-SPECIFIC and must not be generalised into a `mode` field
+   * until the same shared-chokepoint proof exists for the family in question.
+   */
+  readonly stairShape?: 'I' | 'L' | 'U' | 'C';
+  /**
+   * A clause the language layer UNDERSTOOD and could NOT honour, phrased for the
+   * user, appended by the bridge **only when the activation actually succeeded**.
+   *
+   * ⭐ It exists so a partially-honoured sentence is never silently narrowed
+   * (C84 EI-2). "create a stair in L shape aligned to the selected wall" arms the
+   * L-shape tool — which is real — and says out loud that the alignment was not
+   * applied, because C67 §4 rule 20 makes selection-as-geometry NOT BUILT and
+   * 20.b forbids guessing a position from it.
+   *
+   * ⚠ Authored in the language layer (which knows what was asked), attached in
+   * the bridge (which knows what happened). A note that promised "I armed it but
+   * did not align it" when the tool was never ready would be a second false
+   * statement bolted onto the first.
+   */
+  readonly unhonouredNote?: string;
 }
 
 /** The verbs that open a placement sentence. Also declared (as documentation)
