@@ -33,7 +33,7 @@
 import { describe, it, expect } from 'vitest';
 import { StairSolver2D, type SolverResult2D } from '../stairPath/StairSolver2D';
 import { StairPathAdapter } from '../stairPath/StairPathAdapter';
-import { resolveStairGeometryLimits, checkStairGeometry } from '../StairGeometryLimits';
+import { resolveStairGeometryLimits, checkStairGeometry, builtInStairTypeRules } from '../StairGeometryLimits';
 import { STAIR_CONSTRAINTS } from '../StairTypes';
 import { CreateStairCommand } from '@pryzm/command-registry';
 
@@ -253,5 +253,61 @@ describe('§L-1434 — one flight may not climb more than the derived rise', () 
         expect(limits.maxFlightRise).toBeGreaterThanOrEqual(
             STAIR_CONSTRAINTS.MAX_RISERS_PER_FLIGHT * limits.minRiserHeight,
         );
+    });
+});
+
+// ─── §L-1441.3.b — THE BREACH RUNNING BACKWARDS ──────────────────────────────
+//
+// Lane RAC2 measured that TWO of the five built-in stair types are LOOSER than
+// STAIR_CONSTRAINTS: `timber-closed` and `residential-timber` both declare
+// minTreadDepth 0.220 and maxRiserHeight 0.220. `CreateStairCommand` resolves
+// those per-type rules; the sketch tool, after L-1430, resolved the DEFAULTS.
+//
+// ⭐ So the tool would have REFUSED a 230 mm tread that the command PERMITS —
+// L-1430's breach with the layers swapped. A false refusal minted by a safety
+// check is worse than no check: it tells the user the model forbids something the
+// model permits, in the voice of a validator.
+
+describe('§L-1441.3.b — a LOOSER stair type loosens BOTH layers, or neither', () => {
+
+    it('the two loose built-ins really are looser than the defaults (the premise, measured)', () => {
+        const dflt = resolveStairGeometryLimits();
+        for (const typeId of ['timber-closed', 'residential-timber']) {
+            const rules = builtInStairTypeRules(typeId);
+            expect(rules, `${typeId} has no rules`).not.toBeNull();
+            const limits = resolveStairGeometryLimits(undefined, rules);
+            expect(limits.minTreadDepth).toBeLessThan(dflt.minTreadDepth);
+            expect(limits.maxRiserHeight).toBeGreaterThan(dflt.maxRiserHeight);
+        }
+    });
+
+    it('an unknown or absent typeId falls back to the DEFAULTS — never to the loosest type', () => {
+        const dflt = resolveStairGeometryLimits();
+        expect(builtInStairTypeRules(undefined)).toBeNull();
+        expect(builtInStairTypeRules('no-such-type')).toBeNull();
+        expect(resolveStairGeometryLimits(undefined, builtInStairTypeRules('no-such-type')))
+            .toEqual(dflt);
+    });
+
+    it('⭐ a residential-timber stair the COMMAND accepts is no longer refused by the TOOL', () => {
+        // 4.0 m of run over a 3.0 m storey commits 235 mm treads: under the default
+        // 250 mm minimum, over residential-timber's own 220 mm.
+        const solver = new StairSolver2D({ totalHeight: FLOOR_TO_FLOOR, width: 1.0 });
+        solver.update({ typeId: 'residential-timber' });
+        const result = solver.solve(straight(4.0));
+
+        const committed = 4.0 / result.totalSteps;
+        expect(committed).toBeLessThan(LIMITS.minTreadDepth);   // the default would refuse
+        expect(committed).toBeGreaterThan(0.220);               // the type permits it
+
+        expect(result.isValid, `tool refused what the type permits: ${result.validationMessage}`)
+            .toBe(true);
+    });
+
+    it('…and the DEFAULT type still refuses that same stair — the loosening is per-type, not global', () => {
+        const result = new StairSolver2D({ totalHeight: FLOOR_TO_FLOOR, width: 1.0 })
+            .solve(straight(4.0));
+        expect(result.isValid).toBe(false);
+        expect(result.validationMessage).toMatch(/250mm/);
     });
 });

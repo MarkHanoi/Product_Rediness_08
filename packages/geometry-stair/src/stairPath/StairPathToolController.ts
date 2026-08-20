@@ -234,6 +234,11 @@ export class StairPathToolController {
             totalHeight:         _config.topLevelElevation   - _config.baseLevelElevation,
             risersBeforeLanding: _config.risersBeforeLanding ?? 0,
             risersInRun2:        _config.risersInRun2        ?? 0,
+            // §L-1441.3.b — the tool must validate against the TYPE's limits, not
+            // the defaults: two built-ins (timber-closed, residential-timber) are
+            // LOOSER, and refusing what the command permits is a false refusal
+            // wearing a validator's authority.
+            typeId:              _config.typeId,
         });
 
         const totalH = _config.topLevelElevation - _config.baseLevelElevation;
@@ -462,7 +467,7 @@ export class StairPathToolController {
         const riserHeight = next.riserCount && next.riserCount > 0
             ? totalHeight / next.riserCount
             : next.riserHeight;
-        this._solver.update({ ...params, totalHeight, riserHeight });
+        this._solver.update({ ...params, totalHeight, riserHeight, typeId: this._config.typeId });
         this._curvedSolver.update({ ...params, totalHeight, riserHeight });
         this._adapter.updateConfig({
             baseLevelId: this._config.baseLevelId,
@@ -498,6 +503,7 @@ export class StairPathToolController {
             treadDepth:          params.treadDepth,
             risersBeforeLanding: params.risersBeforeLanding,
             risersInRun2:        params.risersInRun2,
+            typeId:              params.typeId ?? this._config.typeId,
         });
         this._curvedSolver.update({
             totalHeight,

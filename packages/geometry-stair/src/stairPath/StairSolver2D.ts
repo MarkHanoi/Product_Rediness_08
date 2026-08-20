@@ -22,6 +22,8 @@ import {
     resolveStairGeometryLimits,
     checkStairGeometry,
     deriveCommittedTreadDepth,
+    builtInStairTypeRules,
+    type StairGeometryLimits,
 } from '../StairGeometryLimits';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -111,14 +113,22 @@ export class StairSolver2D {
     private _risersBeforeLanding = 0;
     /** 0 = auto; >0 = explicit risers for second run (only used when segments ≥ 2). */
     private _risersInRun2 = 0;
+    /** The active stair type, so `_limits` can follow it. */
+    private _typeId: string | undefined;
 
     /**
      * §STAIR-ONE-LIMIT-AUTHORITY (L-1430) — the tread and riser limits are NOT
      * declared here any more. `StairGeometryLimits` owns them, and
      * `CreateStairCommand` reads the same object, so the two accept-sets are the
      * same set by construction rather than by two developers agreeing.
+     *
+     * ⭐ §L-1441.3.b — and they are resolved FOR THE ACTIVE STAIR TYPE, because
+     * `timber-closed` and `residential-timber` are LOOSER than the defaults
+     * (220 mm tread / 220 mm riser). Validating a typed stair against the default
+     * limits would refuse what the command permits — the L-1430 breach inverted,
+     * and a false refusal is worse than a missing check.
      */
-    private static readonly LIMITS = resolveStairGeometryLimits();
+    private _limits: StairGeometryLimits = resolveStairGeometryLimits();
 
     /**
      * A DRAWING limit, not a code limit: a polyline segment shorter than this is
@@ -135,6 +145,7 @@ export class StairSolver2D {
         totalHeight?: number;
         risersBeforeLanding?: number;
         risersInRun2?: number;
+        typeId?: string;
     }) {
         if (params) this.update(params);
     }
@@ -146,7 +157,14 @@ export class StairSolver2D {
         totalHeight?:         number;
         risersBeforeLanding?: number;
         risersInRun2?:        number;
+        typeId?:              string;
     }): void {
+        // §L-1441.3.b — the type drives the limits. Re-resolved on every update so
+        // switching type in the tool bar re-validates the drawing in progress.
+        if (params.typeId !== undefined && params.typeId !== this._typeId) {
+            this._typeId = params.typeId;
+            this._limits = resolveStairGeometryLimits(undefined, builtInStairTypeRules(params.typeId));
+        }
         if (params.width               != null) this._width  = params.width;
         if (params.riserHeight         != null) this._riserH = params.riserHeight;
         if (params.treadDepth          != null) this._treadD = params.treadDepth;
@@ -499,7 +517,7 @@ export class StairSolver2D {
                 // risers / 6.0 m, and both layers must say so together.
                 flights: segs.map(seg => ({ treadDepth: seg.treadDepth, riserCount: seg.stepCount })),
             },
-            StairSolver2D.LIMITS,
+            this._limits,
         );
         const firstRefusal = refusals[0];
         if (firstRefusal) {
@@ -517,10 +535,10 @@ export class StairSolver2D {
             // space, the remaining flight portion must still be long enough
             // to fit at least one tread.  Otherwise the user's polyline is
             // too short for the chosen width / number of corners.
-            if (seg.flightLength < StairSolver2D.LIMITS.minTreadDepth) {
+            if (seg.flightLength < this._limits.minTreadDepth) {
                 return {
                     isValid: false,
-                    validationMessage: `Run too short for landing — extend this segment (need ≥ ${Math.round((seg.consumeStart + seg.consumeEnd + StairSolver2D.LIMITS.minTreadDepth) * 1000)} mm)`,
+                    validationMessage: `Run too short for landing — extend this segment (need ≥ ${Math.round((seg.consumeStart + seg.consumeEnd + this._limits.minTreadDepth) * 1000)} mm)`,
                 };
             }
         }

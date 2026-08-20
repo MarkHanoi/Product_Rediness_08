@@ -44,6 +44,7 @@
 // replacing it.
 
 import { STAIR_CONSTRAINTS, StairValidationConstraints } from './StairTypes';
+import { BUILT_IN_STAIR_TYPES } from './StairTypeDefinitions';
 
 /** The four limits that BOTH the sketch tool and the create command enforce. */
 export interface StairGeometryLimits {
@@ -190,6 +191,34 @@ export interface StairGeometryCandidate {
 }
 
 const mm = (m: number): string => `${(m * 1000).toFixed(0)}mm`;
+
+/**
+ * ⭐ §L-1441.3.b (lane RAC2's finding, closed here) — RESOLVE A TYPE'S OWN RULES.
+ *
+ * `CreateStairCommand` resolves per-type limits from `stairTypeStore`; the sketch
+ * tool had no type store and so validated against the DEFAULTS. That is not a
+ * harmless asymmetry, because TWO OF THE FIVE BUILT-IN TYPES ARE **LOOSER** than
+ * `STAIR_CONSTRAINTS`:
+ *
+ *     timber-closed       maxRiserHeight 0.220 ⬆   minTreadDepth 0.220 ⬇
+ *     residential-timber  maxRiserHeight 0.220 ⬆   minTreadDepth 0.220 ⬇
+ *
+ * So a 230 mm tread on a `residential-timber` stair is PERMITTED by the command
+ * and would have been REFUSED by the tool — the §L-1430 breach running backwards.
+ * ⭐ A false refusal minted by a safety check is WORSE than no check: it tells the
+ * user the model forbids something the model permits, in the voice of a validator.
+ *
+ * ⚠ Built-ins only. A CUSTOM type lives in a `StairTypeStore` instance that this
+ * pure module cannot reach, and it falls back to the defaults — stated, not
+ * hidden. Custom types cannot currently be authored through the stair-path tool,
+ * so the residual is unreachable today; if that changes, the tool must be handed
+ * resolved rules rather than a type id.
+ */
+export function builtInStairTypeRules(typeId?: string): StairTypeGeometryRules | null {
+    if (!typeId) return null;
+    const t = BUILT_IN_STAIR_TYPES.find(d => d.id === typeId);
+    return t?.rules ?? null;
+}
 
 /**
  * ⭐ THE PREDICATE. The accept-set of a stair's geometry is exactly
