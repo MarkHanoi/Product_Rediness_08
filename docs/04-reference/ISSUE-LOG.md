@@ -20192,3 +20192,187 @@ it is reachable in production.
 
 L-1300's performance property is preserved: `probeVersions` reads the same v2 envelope — ~15 ms, not
 ~503 ms.
+
+
+---
+
+## L-1310 — ⭐⭐ **THE UPLOADS WERE NOT PENDING — THEY WERE THROWN AWAY.** ONE 403 DELETED THE PAYLOAD, EMPTIED THE QUEUE AND DISABLED SYNC FOR THE WHOLE SESSION ✅ FIXED 2026-08-19 (lane SYNC1) — **unblocks the L-1288 recovery path** · commit `55cd6e15`
+
+**Reported as**: LOG1's L-1288 established that ~50 of the founder's projects exist only in local
+IndexedDB. The advice that follows from that — *"open each project and Save Version"* — ran into
+three blockers LOG1 measured and could not fix. This row is the first and worst of them.
+
+### ⭐ THE VERDICT, MEASURED BEFORE ANY FIX (this was the question to answer first)
+
+**After the latch set, NOTHING could reach the server for the rest of that browser session.** Four
+independent facts, each read off the code at HEAD before the change:
+
+| | |
+|---|---|
+| `enqueue()` (`ServerSyncQueue.ts:268`) | `if (this._planRejectsSync) { …status update…; return; }` — returns **before** the network |
+| the latch body (`:547-561`) | sets `_planRejectsSync = true` **and** `this.queue = []` — the whole backlog, every project |
+| the only POST site | `attemptSync` (`:434`) is the **sole** client-side `POST /api/projects/:id/versions` in the repo (`grep` over `apps/`, `packages/`, `plugins/`, `src/` → one hit) |
+| the clear condition | **nothing.** No `reset`, no auth hook. Only a full page reload |
+
+⇒ every "Save Version" clicked after the first rejection was **a no-op that reported success**. That
+is the same false-success shape as L-269 and L-1289, in the one place where it costs whole projects.
+
+### What tripped it, and why it tripped almost immediately
+
+The free plan's server-side limit is **1 version PER PROJECT** (`server/planLimits.js` `VERSION_LIMITS.free = 1`).
+`createVersionTransactional` throws `VersionLimitError` → `handleProjectApiError` (`server/errors.js:200`)
+→ **403** with `{ code: 'version_limit_reached', plan: 'free', limit: 1, current: 1 }`. The client's
+`looksLikePlanGate` predicate is `(401||403) && (typeof body.plan === 'string' || typeof body.upgrade === 'string')`
+→ **true**. So the **second save of the FIRST project latched sync off for all fifty.**
+
+### Three destructive resolutions of one failure, stacked in a single branch
+
+1. **any 4xx deleted the queued payload** — `this.queue = this.queue.filter(...)` (`:532-536`);
+2. **a plan-gating 401/403 emptied the ENTIRE queue** — including projects the server had said
+   nothing about;
+3. **the same 403 disabled the session.**
+
+⭐ A **per-project** refusal was widened into a **per-session shutdown**. That is the mechanism by
+which one 403 became fifty silent losses. The server was never the problem here: `handleProjectApiError`
+already separates terminal from retryable with some care (FK → 410, unique → 409, pooler drop → 503,
+explicitly *"never a silent 500 loop"*). **The client's over-generalisation is the whole defect.**
+
+### The fix — refuse, retain, surface
+
+`apps/editor/src/ui/platform/serverSaveRejectionFate.ts` — a pure policy with **no `'discard'` arm**.
+Only a 2xx removes an item from the queue, ever.
+
+- **scope is part of the answer.** `401` → session. Plan `403` / `400 invalid_id` / `410` → **that
+  one project**. Validation `400` / `409` / `412` → **that one save**.
+- **429 was being swept into the discard branch.** It is a *non-answer* — the server declining to
+  answer yet — and is now retried on the existing backoff. During a bulk re-save of ~50 projects
+  that is not a corner case.
+- **⛔ not a retry loop.** `flush()` skips blocked items, so a 403 is never re-sent. `unblock(trigger)`
+  fires on a **named event** — sign-in, plan change, or the banner's **"Retry upload"** button —
+  never on a timer.
+- **the escape hatch is a user gesture**, per [[refusing-half-needs-its-escape-hatch]]: the payloads
+  are retained, so *"try again"* is a real action rather than a dead end.
+- **`getBlockedSaves()`** makes *"did not reach the server"* **enumerable**, and
+  `PlatformSaveController._handleServerSaveRejected` no longer starts with `if (!isAuthProblem) return;`
+  — a `400 invalid_id` used to produce **no user-visible surface at all**. Banners are now once per
+  **reason**, not once per session, so a plan limit and an unsavable id cannot be collapsed into one
+  dismissable warning.
+- `isPlanRejected()` took no argument and answered *"has any rejection happened this session"*; both
+  call sites used it to skip work for **every** project. It now takes a `projectId`.
+
+### Tests — `apps/editor/__tests__/serverSyncQueueRejection.test.ts`, **12/12**
+
+**Falsified against the pre-fix file at HEAD: 9 of 12 FAIL**, including the central separating one —
+*"a plan 403 about ONE project does not stop a DIFFERENT project reaching the server"*, which failed
+at `expected true to be false` on the session latch. The 3 that pass are the pure-policy cases,
+which have no pre-fix counterpart.
+
+⚠ **Held to LOG1's standard.** `attemptSync` is **never** stubbed — every block in the suite is
+produced by feeding it a real response carrying the **real server body**, copied from the routes that
+emit it (`{code:'version_limit_reached',plan:'free',limit:1}` from `server/errors.js`;
+`{code:'invalid_id'}` from `server.js:3565`). Only `scheduleFlush` is neutralised, and only so the
+assertions are not racing a timer. Stubbing the network and then asserting about a queue no real
+response ever touched would be this file's version of LOG1's happy-dom trap.
+
+Sibling suites stay green: breaker + persistence + IDB + purge-safety **26/26**. Root
+`tsc --skipLibCheck`: **COMPILER_RC=0**.
+
+### ⚠ Not attributable to a recent commit — checked, not assumed
+
+The latch is dated **2026-04-29** in its own comment and predates every commit in this session. Lane
+PERF1's `a603e18e` (L-1300) touches version *reads* and does not reach this path. Per
+[[three-invalidation-gates-in-series]] the timing invited the opposite conclusion; the `git log` was
+read rather than the calendar.
+
+---
+
+## L-1311 — THE SERVER REFUSED THE PROJECT-ID FORMAT ITS OWN CLIENT MINTS: `proj-<uuid>` WAS **400 FOREVER** ✅ FIXED 2026-08-19 (lane SYNC1) · commit `e1dc0cdc`
+
+**Blocker 2 of 3 in the L-1288 recovery path.**
+
+`LocalProjectRepository.generateProjectId()` (Contract 45 §7.1, `ProjectRepository.ts:802`) mints
+`proj-${crypto.randomUUID()}`. `server/projectStore.js:213` demanded
+`^proj-\d{10,16}-[a-z0-9]{5,16}$`. A UUID matches **nothing** there, so
+`POST /api/projects/:id/versions` answered **400 `invalid_id`** (`server.js:3565`) — permanently. No
+user action helped: not signing in, not upgrading, not re-saving.
+
+Stacked on L-1310 this was **completely silent**: the version was written locally, the toast said
+"✓ Saved", the upload was discarded, and the surface only fired for 401/403.
+
+### ⭐ THE COUNT, STATED PLAINLY — **it is now ZERO**
+
+The honest answer to *"how many of the ~50 are permanently unsavable"* is not a number that had to be
+measured on the founder's machine, because the refusal bought nothing and could simply be withdrawn:
+
+- `projects.id` is **`TEXT PRIMARY KEY` with no format constraint** (`server/dbMigrate.js:54`), so
+  there was never a **storage** reason to refuse a UUID;
+- the allowlist exists (GAP-04) to stop traversal, NULs and unbounded strings — properties the added
+  patterns keep: anchored, lowercase-hex-plus-hyphen, ≤74 chars, no `/`, `.`, uppercase or NUL;
+- widening is therefore **strictly smaller** than re-keying live projects, and it turns the count of
+  permanently-unsavable projects from *"however many he has"* into **0**.
+
+**No migration is needed and none should be written.** Re-keying would have to rewrite the local
+index, the version store, every derived cache keyed by project id (C44 §4) and the server row — to
+buy exactly what a six-line allowlist change buys.
+
+**To see which of his projects are still not on the server** (this is a *sync-state* question now,
+not an id question), the answer is `ServerSyncQueue.getBlockedSaves()` plus the per-version
+`syncStatus` badge — both delivered by L-1310.
+
+`classifyProjectId()` replaces the internal boolean and is exported, so *"rejected"* and *"rejected
+because of a format we later learned to accept"* cannot read the same in a log.
+
+### ⭐ The test that would have caught it
+
+`server/projectStore.test.js` now asserts that **the format the client actually mints** is a format
+this server accepts — `proj-${randomUUID()}`, built the way the client builds it, plus the
+crypto-less fallback branch. **Every pre-existing test here asserted about hand-written literals, and
+a test written against a literal cannot notice that the two sides drifted apart.** Four negative
+cases pin that GAP-04 was not re-opened. `node --test` → **40/40** (was 34).
+
+---
+
+## L-1312 — THE SYNC QUEUE'S CAP EVICTED ITS OWN BACKLOG WITH A SILENT `shift()` ✅ FIXED 2026-08-19 (lane SYNC1) · commit `55cd6e15`
+
+**Blocker 3 of 3 in the L-1288 recovery path.**
+
+```js
+if (this.queue.length >= MAX_QUEUE_ITEMS) {          // 50
+    console.warn('[ServerSyncQueue] Queue full — dropping oldest item');
+    this.queue.shift();                              // ← the oldest upload, gone
+}
+```
+
+A `console.warn` is not a surface. With ~50 local-only projects, **a bulk re-save reaches the cap
+partway through and then evicts the very backlog it is creating** — everything queued before the
+halfway point silently stops being uploaded. A cap that drops the oldest item without telling anyone
+is data loss with a different name.
+
+A second, quieter half: `_applyPersistedQueue` did `items.slice(0, MAX_QUEUE_ITEMS)` — which keeps
+the **OLDEST** 50 and discards everything newer. That is the exact inversion of which snapshot
+matters, since the newest queued version of a project supersedes the older ones.
+
+### The fix
+
+- **Reclaim only what is genuinely redundant.** `_evictOneSupersededItem()` frees a slot solely from
+  an older queued version **of a project that also has a newer one queued** — the newer snapshot
+  records a later state of the same project.
+- **With nothing superseded, REFUSE and report.** `onQueueOverflow` fires, the status goes
+  `local-only`, and the banner says the version was not queued. **Nothing already queued is
+  discarded.** The version is still in local history — it is the *upload* that did not happen, and
+  that distinction is the whole point.
+- Restore keeps the **newest** and logs what it left behind.
+- `MAX_QUEUE_ITEMS` survives as a **reporting** threshold only; the retention ceiling is 250 and
+  blocked items cost no network.
+
+Covered by three cases in `serverSyncQueueRejection.test.ts`, all three of which **fail against the
+pre-fix file** (`expected … to have a length of 250 but got 50`).
+
+### ⚠ Still open, and NOT closed by this row
+
+**Sign-out destroys the pending-upload queue.** Its primary store is the `syncQueue` object store
+*inside* `pryzm-project-versions`, which `purgeUserScopedClientState` deletes (every IndexedDB whose
+name contains `pryzm`), and `persistQueue()` actively `removeItem`s the localStorage copy whose key
+`pryzm-sync-queue` is *also* `pryzm-`-prefixed. So a retained-but-blocked upload survives a reload
+but **not a sign-out**. L-1288's refusal keeps the project rows; it does not keep the queue.
+Needs its own row and an owner — flagged to the orchestrator rather than squeezed into this block.

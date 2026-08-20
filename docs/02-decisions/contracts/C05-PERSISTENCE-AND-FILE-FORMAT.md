@@ -248,6 +248,52 @@ Well-formed lines are unaffected. This is a persistence-hygiene invariant; it ch
 
 New projects MUST be created server-side (POST `/api/projects`) before the client opens them. The client MUST NOT create a project by directly inserting into the database.
 
+### §3.4 — A rejected upload MUST be retained, scoped and surfaced (binding)
+
+> **Added**: 2026-08-19 · lane SYNC1, closes **L-1310** / **L-1311** / **L-1312**.
+> Files: `ServerSyncQueue` + `serverSaveRejectionFate` (`§FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE`,
+> `§FIX-QUEUE-CAP-SILENT-EVICTION`), `PlatformSaveController`, `server/projectStore.js`
+> (`§FIX-LEGACY-UUID-PROJECT-ID-UNSAVABLE`).
+
+**A failed upload is not a completed upload, and a rejected request is not a reason to stop trying
+for everything else.** The measured breach this rule exists to forbid: a single free-plan 403 about
+ONE project deleted its payload, **emptied the entire sync queue**, and latched a **session-wide**
+flag that made every later `enqueue()` a silent no-op — so **nothing could reach the server again
+for the rest of that browser session**, while every "Save Version" still reported success. ~50 of
+the founder's projects were local-only for exactly this reason: not *"not yet uploaded"*, but
+**uploads thrown away**.
+
+Four requirements, each binding:
+
+1. **Only a 2xx may remove an item from the sync queue.** A 4xx MUST attach a recorded reason to the
+   item and leave the payload intact. There is no discard path. `serverSaveRejectionFate` is the
+   single policy and it has **no `'discard'` arm** — that is the property to preserve, not the
+   current list of status codes.
+2. **A refusal MUST be applied at the server's scope, never wider.** `401` is session-wide (the
+   client is not authenticated at all). A plan/limit `403`, a `400 invalid_id` and a `410` are
+   **per-project** — the plan's version limit is *per project*, so it says nothing whatsoever about
+   the other projects. A validation `400`, a `409` and a `412` are **per-save**. Widening a
+   per-project refusal to the session is the defect; it MUST NOT be re-introduced for performance.
+3. **Every terminal refusal MUST be surfaced to the user, and the retained work MUST be
+   re-attemptable by a user gesture.** A host that reacts only to `401`/`403` is non-conformant: a
+   `400 invalid_id` used to produce no visible surface at all. "Did not reach the server" MUST be
+   enumerable (`ServerSyncQueue.getBlockedSaves()`). ⛔ Re-attempt MUST be driven by a **named
+   event** (sign-in, plan change, an explicit user action) — **never by a timer**. Retrying a `403`
+   on a schedule is a different bug.
+4. **A queue cap MUST NOT evict silently.** Reclaiming a slot is permitted only from a **superseded**
+   item (an older queued version of a project that also has a newer one queued). With nothing
+   superseded, the queue MUST **refuse the new item and report the refusal** rather than delete a
+   pending upload. Restoring an over-ceiling persisted queue MUST keep the **newest** items and say
+   what it left behind.
+
+**Corollary — the server MUST accept every project-id format its own client mints.** `isValidProjectId`
+demanded `proj-<timestamp>-<alnum>` while `LocalProjectRepository.generateProjectId()` (C45 §7.1)
+minted `proj-<uuid>`, so those projects got `400 invalid_id` **forever** and could never leave the
+browser. `projects.id` is `TEXT PRIMARY KEY` with no format constraint, so the refusal bought
+nothing. The allowlist (GAP-04) stays an allowlist — the added patterns are anchored lowercase-hex —
+but **a client-minted id being unsavable is a contract breach, and the test that guards it MUST
+assert against an id built the way the client builds it, never against a hand-written literal.**
+
 ---
 
 ## §4 — The `.pryzm-family` File Format (SPEC-26, ADR-0217)

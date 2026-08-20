@@ -51,7 +51,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1280 – L-1289 | LOG1 — boot-log defect sweep (clash dead, durable thumbnails, triple open) | 2026-08-19 | **L-1280 … L-1289 minted — BLOCK EXHAUSTED** (10 of 10 used) |
 | L-1290 – L-1299 | GPU1 — ShadowDepthTexture destroyed mid-submit on railing MATERIAL change | 2026-08-19 | **L-1290, L-1291, L-1292 ✅ FIXED; L-1293 ⛔ OPEN (measured)** (4 of 10 used) |
 | L-1300 – L-1309 | PERF1 — load/render performance (145 warns, 13.2 MB autosave, cache thrash) | 2026-08-19 | **in use — L-1300 ✅ FIXED; L-1301–L-1305 logged; L-1306–L-1309 free** |
-| L-1310 – L-1319 | SYNC1 — the plan-rejection latch + the blockers in the recovery path | 2026-08-19 | allocated |
+| L-1310 – L-1319 | SYNC1 — the plan-rejection latch + the blockers in the recovery path | 2026-08-19 | **L-1310, L-1311, L-1312 ✅ FIXED** (3 of 10 used; L-1313–L-1319 free) |
 | L-1320 – L-1329 | SHAPE1 — shape modes (rect/circular/elliptical) across wall, curtain wall, slab, ceiling, floor | 2026-08-19 | allocated |
 | L-1330 – L-1339 | LIGHT1 — 20 LOD-200 lighting fixtures with photometrics | 2026-08-19 | allocated |
 | L-1340 – L-1349 | LOG1 (second block) — project-open coalescing keyed on nothing | 2026-08-20 | allocated |
