@@ -51,6 +51,18 @@ export interface StairGeometryLimits {
     readonly maxRiserHeight: number;
     readonly minTreadDepth: number;
     readonly maxTreadDepth: number;
+    /**
+     * §L-1435 — WIDTH joined this set because lane RAC2 measured the SAME defect
+     * on it, between two other layers: `element.updateDimensionsBatch` validates
+     * POSITIVITY ONLY, while the single-stair route enforces `STAIR_CONSTRAINTS`.
+     * So a BULK route can set a width the SINGLE route refuses — the 220/250 tread
+     * breach again, tool-vs-command replaced by bulk-vs-single.
+     * ⛔ Publishing this here does NOT close that seam: the bulk route must
+     * DISPATCH to a per-family predicate, and it does not. See the note on
+     * `checkStairGeometry`.
+     */
+    readonly minWidth: number;
+    readonly minAccessibleWidth: number;
 }
 
 /**
@@ -80,6 +92,8 @@ export function resolveStairGeometryLimits(
         maxRiserHeight: typeRules?.maxRiserHeight ?? constraints.MAX_RISER_HEIGHT,
         minTreadDepth: typeRules?.minTreadDepth ?? constraints.MIN_TREAD_DEPTH,
         maxTreadDepth: constraints.MAX_TREAD_DEPTH,
+        minWidth: constraints.MIN_WIDTH,
+        minAccessibleWidth: constraints.MIN_ACCESSIBLE_WIDTH,
     };
 }
 
@@ -89,7 +103,9 @@ export interface StairGeometryRefusal {
         | 'STAIR-RISER-TOO-LOW'
         | 'STAIR-RISER-TOO-HIGH'
         | 'STAIR-TREAD-TOO-SHALLOW'
-        | 'STAIR-TREAD-TOO-DEEP';
+        | 'STAIR-TREAD-TOO-DEEP'
+        | 'STAIR-WIDTH-TOO-NARROW'
+        | 'STAIR-ACCESSIBLE-WIDTH-TOO-NARROW';
     readonly field: string;
     readonly message: string;
     readonly currentValue: number;
@@ -119,6 +135,9 @@ export interface StairGeometryCandidate {
     readonly treadDepth?: number;
     /** Per-flight treads, as built. Entries without one are skipped, not defaulted. */
     readonly flights?: ReadonlyArray<{ readonly treadDepth?: number }>;
+    readonly width?: number;
+    /** Only `'accessible'` raises the width floor; any other value leaves it. */
+    readonly accessibilityType?: string;
 }
 
 const mm = (m: number): string => `${(m * 1000).toFixed(0)}mm`;
@@ -132,6 +151,14 @@ const mm = (m: number): string => `${(m * 1000).toFixed(0)}mm`;
  * `undefined` is not a violation: a partial candidate (the property panel editing
  * one field) is checked on the fields it carries, exactly as
  * `StairValidationAuthority.validate` has always done.
+ *
+ * ⚠ **A KNOWN SEAM THIS FUNCTION DOES NOT YET REACH (L-1435).** Lane RAC2 measured
+ * that `element.updateDimensionsBatch` validates POSITIVITY ONLY, so a BULK width
+ * edit can set a value the SINGLE-stair route refuses. That is this same defect
+ * between two different layers. The predicate is ready for it — `width` and
+ * `accessibilityType` are on the candidate — but the generic bulk route has no
+ * per-family dispatch to call it through, and inventing one belongs with the
+ * bulk-route owner, not smuggled in here. Stated so the gap is visible.
  */
 export function checkStairGeometry(
     candidate: StairGeometryCandidate,
@@ -152,6 +179,24 @@ export function checkStairGeometry(
                 code: 'STAIR-RISER-TOO-HIGH', field: 'riserHeight',
                 message: `Riser height ${mm(r)} exceeds maximum ${mm(limits.maxRiserHeight)}`,
                 currentValue: r, requiredValue: limits.maxRiserHeight,
+            });
+        }
+    }
+
+    const w = candidate.width;
+    if (w !== undefined && Number.isFinite(w)) {
+        if (w < limits.minWidth) {
+            out.push({
+                code: 'STAIR-WIDTH-TOO-NARROW', field: 'width',
+                message: `Stair width ${mm(w)} is below minimum ${mm(limits.minWidth)}`,
+                currentValue: w, requiredValue: limits.minWidth,
+            });
+        }
+        if (candidate.accessibilityType === 'accessible' && w < limits.minAccessibleWidth) {
+            out.push({
+                code: 'STAIR-ACCESSIBLE-WIDTH-TOO-NARROW', field: 'width',
+                message: `Accessible stair width ${mm(w)} is below minimum ${mm(limits.minAccessibleWidth)}`,
+                currentValue: w, requiredValue: limits.minAccessibleWidth,
             });
         }
     }

@@ -26,6 +26,21 @@ export class StairTypeStore {
         return this.types.get(id);
     }
 
+    /**
+     * §L-1435 (lane STAIR1, for RAC2) — `resolveCatalogueRef`, the ONE catalogue
+     * ladder (ADR-0314), probes every type store through `getById`. This store
+     * spelled the same lookup `get`, so the stair family fell off the ladder for a
+     * NAME — not for a missing capability. Aliased rather than renamed: `get` has
+     * live callers (`StairValidationAuthority`, the property panel), and a rename
+     * would trade one family's blockage for a repo-wide edit.
+     *
+     * ⛔ It must stay a one-line delegation. A second lookup body here is a second
+     * authority, and the two would drift the moment either learns about aliases.
+     */
+    getById(id: string): StairTypeDefinition | undefined {
+        return this.get(id);
+    }
+
     add(type: StairTypeDefinition): void {
         // §F21 fix: built-in types are immutable; refuse to overwrite them.
         const isBuiltIn = BUILT_IN_STAIR_TYPES.some(t => t.id === type.id);

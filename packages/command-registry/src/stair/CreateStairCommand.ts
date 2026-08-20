@@ -221,18 +221,13 @@ export class CreateStairCommand implements Command {
                 riserHeight: this.input.riserHeight,
                 treadDepth: this.input.treadDepth,
                 flights: this.input.flights,
+                width: this.input.width,
+                accessibilityType: this.input.accessibilityType,
             },
             limits,
         )) {
             blockingIssues.push(refusal.message);
         }
-        if (this.input.width < STAIR_CONSTRAINTS.MIN_WIDTH) {
-            blockingIssues.push(`Stair width ${(this.input.width * 1000).toFixed(0)}mm is below minimum ${(STAIR_CONSTRAINTS.MIN_WIDTH * 1000).toFixed(0)}mm`);
-        }
-        if (this.input.accessibilityType === 'accessible' && this.input.width < STAIR_CONSTRAINTS.MIN_ACCESSIBLE_WIDTH) {
-            blockingIssues.push(`Accessible stair width ${(this.input.width * 1000).toFixed(0)}mm is below minimum ${(STAIR_CONSTRAINTS.MIN_ACCESSIBLE_WIDTH * 1000).toFixed(0)}mm`);
-        }
-
         const totalRiserCount = this.input.flights.reduce((sum, f) => sum + f.riserCount, 0);
         if (totalRiserCount < STAIR_CONSTRAINTS.MIN_RISER_COUNT) {
             blockingIssues.push(`Total riser count ${totalRiserCount} is below minimum ${STAIR_CONSTRAINTS.MIN_RISER_COUNT}`);
