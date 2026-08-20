@@ -836,8 +836,16 @@ export class ProjectBrowserPanel {
         // Actions with no registered entry point render DISABLED with their reason
         // shown — they are not painted as live buttons. `gisActionRegistry.test.ts`
         // fails the build if that ever stops being true.
+        //
+        // §GIS-ACTION-REGISTRY (L-1361) — the rows style themselves from the `.pb-gis-*`
+        // rules in `styles/panels/projectBrowser.ts`, which are built entirely out of the
+        // shared `--app-*` / `--pryzm-*` tokens. Nothing here sets a colour: C84 EI-8
+        // records two measured hex drifts in this codebase already, and a literal here
+        // would also be invisible to the §UI-DENSITY-SCALE transform (it rewrites the
+        // injected stylesheet, and cannot see `Object.assign(el.style, …)`).
         const sep = document.createElement('div');
-        sep.style.cssText = 'height:1px;background:var(--app-border,#dde3ef);margin:8px 0 2px;';
+        sep.className = 'pb-gis-rule';
+        sep.style.cssText = 'height:1px;background:var(--app-border-light);margin:10px 0 2px;';
         root.appendChild(sep);
         root.appendChild(renderGisActions(window as unknown as GisCapabilityHost));
 

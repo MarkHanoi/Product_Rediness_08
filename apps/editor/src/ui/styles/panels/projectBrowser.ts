@@ -1270,6 +1270,158 @@ export const PROJECT_BROWSER_STYLES = `
         transition: background 0.12s;
     }
     .lrp-voice-btn:hover { background: #dc2626; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §GIS-ACTION-REGISTRY (L-1361, C06 §12) — the GIS panel's action rows
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Founder 2026-08-20: "Can you make the UI/UX of the elements within the GIS
+   panel properly, according to the graphics of PRYZM?" — the panel worked but
+   the rows were unstyled white against a heavy saturated purple header, the
+   disabled row differed from a live one only in text colour, and there was no
+   active treatment at all.
+
+   ⛔ EVERY COLOUR HERE IS A TOKEN. Not one hex literal. C84 EI-8 names colour
+   as a one-vocabulary concept and records two measured hex drifts in this
+   codebase already ("black" = #333333 in one table vs #000000 in five; "green"
+   = #008000 vs #00ff00). The brand purple is "--app-accent", the violet ramp is
+   "--app-violet-*", the panel inks are "--pryzm-panel-ink*". A literal #6600FF
+   in this block would be that defect a third time.
+
+   The three states must read at a glance and NOT by colour alone (C43 / WCAG
+   2.2 AA): active adds a left bar + fill + "aria-pressed", unavailable adds a
+   dashed edge + a "soon" tag + "aria-disabled", hover adds a tinted wash. */
+
+.pb-gis-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* The group caption. Quiet by design — it separates, it does not compete with
+   the rows it labels. */
+.pb-gis-group {
+    font-size: var(--app-font-size-label);
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--app-text-muted);
+    padding: 10px 2px 4px;
+}
+.pb-gis-actions > .pb-gis-group:first-child { padding-top: 2px; }
+
+/* ─── The row ──────────────────────────────────────────────────────────────
+   "--app-violet-soft" is the brand's own 8%-alpha purple wash, so a resting row
+   is faintly PRYZM rather than plain white — which was the founder's "the rows
+   carry no PRYZM identity at all". */
+.pb-gis-action {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 10px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-border-light);
+    border-radius: var(--app-radius-sm);
+    font-family: var(--app-font);
+    font-size: var(--pryzm-panel-font-size-body);
+    color: var(--pryzm-panel-ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.pb-gis-action:hover:not(:disabled) {
+    background: var(--app-violet-soft);
+    border-color: var(--app-accent);
+    color: var(--app-accent);
+}
+/* Keyboard parity — the rail is reachable by Tab and the focus ring must be as
+   legible as the hover, not a browser default over a tinted surface. */
+.pb-gis-action:focus-visible {
+    outline: 2px solid var(--app-accent);
+    outline-offset: 1px;
+}
+
+.pb-gis-action-icon {
+    flex: none;
+    width: 18px;
+    text-align: center;
+    font-size: var(--pryzm-panel-font-size-body);
+    color: var(--app-accent);
+}
+.pb-gis-action-label { font-weight: 500; }
+
+/* ─── ACTIVE: "this is what you are looking at" ────────────────────────────
+   A filled row plus a solid left bar. The bar is what makes the state survive
+   a greyscale screenshot and a colour-blind reader; "aria-pressed" on the
+   element makes it survive a screen reader. */
+.pb-gis-action--active {
+    background: var(--app-violet-soft);
+    border-color: var(--app-accent);
+    color: var(--app-accent);
+    font-weight: 600;
+}
+.pb-gis-action--active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--app-accent);
+}
+.pb-gis-action--active .pb-gis-action-icon { color: var(--app-accent); }
+
+/* ─── UNAVAILABLE: declared, audited, not yet re-hosted ────────────────────
+   The founder could not tell the disabled "Floors shown" row from a live one.
+   It is not merely a paler live row now: dashed edge, muted ink, no pointer,
+   and an explicit "soon" tag, so the difference is carried by shape and by a
+   WORD, not by colour alone. */
+.pb-gis-action--unavailable {
+    background: var(--app-bg);
+    border-style: dashed;
+    border-color: var(--app-border);
+    color: var(--app-text-muted);
+    cursor: not-allowed;
+}
+.pb-gis-action--unavailable .pb-gis-action-icon { color: var(--app-text-muted); }
+
+.pb-gis-action-tag {
+    margin-left: auto;
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--app-border-light);
+    color: var(--app-text-muted);
+    font-size: var(--app-font-size-label);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* ─── The buildability read-out, re-hosted into this panel (L-1362) ────────
+   The card keeps its own internal markup — it is re-parented, not rebuilt — so
+   this only neutralises the floating-card geometry it no longer needs. */
+.pb-gis-envelope-slot {
+    margin-top: 8px;
+    border-top: 1px solid var(--app-border-light);
+    padding-top: 8px;
+}
+.pb-gis-envelope-slot > [data-testid="buildable-envelope-card"] {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    box-shadow: none !important;
+    border: 1px solid var(--app-border-light) !important;
+    resize: none !important;
+}
+
 `;
 
 /**

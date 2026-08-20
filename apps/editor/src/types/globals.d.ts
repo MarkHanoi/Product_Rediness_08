@@ -380,6 +380,17 @@ declare global {
          *  `PANEL_REGISTRY`, not only the site panels. Registered by GISAreaLayout; it is
          *  the re-host of the floating ⟲ pill the launcher rail used to carry. */
         pryzmResetPanelLayout?: () => void;
+        /** §GIS-ACTION-REGISTRY (L-1361, C06 §12) — a SNAPSHOT of which site view and
+         *  building fidelity are current, so a surface can paint an active state that is
+         *  DERIVED from the authority instead of mirrored beside it. `buildingFidelity`
+         *  reports whichever of the two fidelity variables governs the visible surface.
+         *  ⚠ Snapshot, not a subscription: it changes only when you ask again. Registered
+         *  by GISAreaLayout. */
+        pryzmGetSiteViewState?: () => {
+            segment: '2D' | '3D' | 'forma';
+            formaMode: 'map2d' | 'plan' | '3d';
+            buildingFidelity: 'massing' | 'real';
+        };
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
          *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
          *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by

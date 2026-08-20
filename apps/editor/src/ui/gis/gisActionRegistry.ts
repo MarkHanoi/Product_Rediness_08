@@ -71,6 +71,22 @@ export interface GisCapabilityHost {
     /** §GIS-ACTION-REGISTRY (L-1360) — restore every optional panel to its declared
      *  default. App-wide, not GIS-scoped. */
     pryzmResetPanelLayout?: () => void;
+    /** §GIS-ACTION-REGISTRY (L-1361) — snapshot of the current site view + fidelity, so a
+     *  surface can DERIVE its active state instead of mirroring it. */
+    pryzmGetSiteViewState?: () => GisSiteViewState;
+}
+
+/**
+ * What the site surfaces currently show. Read through `pryzmGetSiteViewState`.
+ *
+ * ⚠ A SNAPSHOT, not a subscription — it changes only when re-read. Any surface painting
+ * from it must say when it repaints; a highlight that silently goes stale is worse than
+ * no highlight, because it asserts a fact instead of omitting one.
+ */
+export interface GisSiteViewState {
+    readonly segment: '2D' | '3D' | 'forma';
+    readonly formaMode: 'map2d' | 'plan' | '3d';
+    readonly buildingFidelity: 'massing' | 'real';
 }
 
 export type GisEntryPointName = keyof GisCapabilityHost;
@@ -115,6 +131,16 @@ export interface GisActionDecl {
     readonly absorbs: readonly string[];
     /** Why this action is not yet dispatchable — required exactly when `entryPoints` is empty. */
     readonly unavailableReason?: string;
+    /**
+     * Is this action's result what the user is currently looking at?
+     *
+     * DERIVED from the authority's snapshot — never a flag this registry maintains. The
+     * legacy chrome kept `Real` lit on one bar and dark on another because each bar held
+     * its own copy of the answer; one predicate over one snapshot cannot disagree with
+     * itself. Omitted for actions that have no "currently on" reading (opening a graph
+     * overlay, resetting the layout).
+     */
+    readonly activeWhen?: (state: GisSiteViewState) => boolean;
     /** Stated when the action's natural long-term home is NOT the GIS panel. */
     readonly homeNote?: string;
     readonly dispatch: (host: GisCapabilityHost) => void;
@@ -136,6 +162,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '◉',
         title: 'Open PRYZM Earth — the 3D site view on the real-world plot (true north + geolocation). Works from any view.',
         group: 'siteViews',
+        activeWhen: (s) => s.segment === 'forma' && s.formaMode === '3d',
         entryPoints: ['pryzmEnterSiteView'],
         // The PRD (PRYZM-EARTH-ONBOARDING §10) renamed this entry "3D Site / Globe"
         // → "PRYZM Earth" but only on the floating pill; three other surfaces kept the
@@ -154,6 +181,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '◳',
         title: 'Near-top-down shadowed massing over the real plot — the plan-oblique site view.',
         group: 'siteViews',
+        activeWhen: (s) => s.segment === 'forma' && s.formaMode === 'plan',
         entryPoints: ['pryzmEnterSiteView'],
         absorbs: ['Plan (Forma sub-bar)'],
         dispatch: (h) => { h.pryzmEnterSiteView?.('plan'); },
@@ -164,6 +192,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '▦',
         title: 'Drop to the 2D draw map to draw or edit the site boundary.',
         group: 'siteViews',
+        activeWhen: (s) => s.segment === 'forma' && s.formaMode === 'map2d',
         entryPoints: ['pryzmEnterSiteView'],
         absorbs: ['2D Map (Forma sub-bar)'],
         dispatch: (h) => { h.pryzmEnterSiteView?.('map2d'); },
@@ -174,6 +203,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '\u{1F310}',
         title: 'The photoreal globe — real imagery and 3D tiles with your building placed on them.',
         group: 'siteViews',
+        activeWhen: (s) => s.segment === '3D',
         // NOT the same action as `site.earth`, despite the names. The founder
         // reasonably read "3D globe" and "PRYZM Earth" as one thing; they are not.
         // "PRYZM Earth" opens the Forma / massing site surface; THIS opens the
@@ -188,6 +218,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '◧',
         title: 'The BIM dual pane — 3D on the left, floor plan on the right.',
         group: 'siteViews',
+        activeWhen: (s) => s.segment === '2D',
         entryPoints: ['pryzmShowSiteResultView'],
         absorbs: ['3D + plan (view-mode switch segment)'],
         dispatch: (h) => { h.pryzmShowSiteResultView?.('2D'); },
@@ -223,6 +254,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '◉',
         title: 'Show the real PRYZM building with full elements (windows · doors · roof · furniture).',
         group: 'display',
+        activeWhen: (s) => s.buildingFidelity === 'real',
         entryPoints: ['pryzmSetFormaBuildingFidelity', 'pryzmSetGlobeBuildingFidelity'],
         absorbs: ['Real (Forma sub-bar)', 'Real (globe segment of the view-mode switch)'],
         dispatch: (h) => {
@@ -236,6 +268,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         icon: '▢',
         title: 'Show the abstract massing study (white / pastel volumes) instead of the real building.',
         group: 'display',
+        activeWhen: (s) => s.buildingFidelity === 'massing',
         entryPoints: ['pryzmSetFormaBuildingFidelity', 'pryzmSetGlobeBuildingFidelity'],
         absorbs: ['Massing (Forma sub-bar)', 'Massing (globe segment of the view-mode switch)'],
         dispatch: (h) => {

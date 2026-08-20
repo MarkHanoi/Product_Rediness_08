@@ -4410,6 +4410,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         else { toggleEnvelopeCard(); }
     };
 
+    /** §GIS-ACTION-REGISTRY (L-1361, C06 §12) — report which site view / fidelity is CURRENT.
+     *
+     *  The GIS panel needs to paint an active state, and there are exactly two ways to get
+     *  one: mirror the state into the panel, or ask the authority. Mirroring is how the
+     *  legacy chrome ended up with `Real` lit on one bar and not on the other — two copies
+     *  of one fact, drifting. So this READS the live closures and returns a snapshot; the
+     *  panel derives its highlight from the snapshot and holds no state of its own.
+     *
+     *  ⚠ It is a SNAPSHOT, not a subscription. A caller that renders from it repaints when
+     *  it asks again — this file does not notify. That is stated so nobody builds a
+     *  live-updating surface on top of a value that only moves when you pull it. */
+    window.pryzmGetSiteViewState = () => ({
+        segment: activeSegment,
+        formaMode: formaViewMode,
+        // FORMA.6 vs §GLOBE-FIDELITY — two variables, and which one the user is actually
+        // looking at depends on the active segment. Reporting the one that governs the
+        // visible surface is the same de-duplication `pryzmZoomToSite` makes: the user has
+        // ONE notion of "am I seeing the real building?", so the snapshot answers it once.
+        buildingFidelity: activeSegment === 'forma' ? formaBuildingFidelity : globeBuildingFidelity,
+    });
+
     /** §GIS-ACTION-REGISTRY (L-1360) — restore every optional panel to its declared
      *  default state, size and position.
      *

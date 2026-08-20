@@ -321,3 +321,96 @@ describe('§GIS-ACTION-REGISTRY (L-1360) — the removed launcher pills stay rem
         }
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §GIS-ACTION-REGISTRY (L-1361) — ONE COLOUR VOCABULARY, and states that survive
+// greyscale
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// C84 EI-8 names colour as a one-vocabulary concept and records that hex drift has
+// already happened twice in this codebase, MEASURED: `black` was #333333 in one table
+// and #000000 in five; `green` was #008000 in one and #00ff00 in another. Both drifts
+// began exactly the way this panel's first draft did — a literal typed into the file
+// that renders, because it was quicker than finding the token.
+//
+// A literal here is also invisible to the §UI-DENSITY-SCALE transform, which rewrites the
+// injected stylesheet and cannot see `Object.assign(el.style, …)`. So a hard-coded value
+// is not merely off-brand, it is out of reach of the lever that exists to change it.
+
+describe('§GIS-ACTION-REGISTRY (L-1361) — the GIS UI declares no colour of its own', () => {
+    const GIS_UI_FILES = [
+        resolve(SRC_DIR, 'ui', 'gis', 'renderGisActions.ts'),
+        resolve(SRC_DIR, 'ui', 'gis', 'gisActionRegistry.ts'),
+    ];
+
+    it('contains no hex colour literal in the GIS action UI', () => {
+        for (const f of GIS_UI_FILES) {
+            const text = readFileSync(f, 'utf8');
+            // Strip comments first: the files EXPLAIN the drift by quoting the offending
+            // hexes, and a guard that fails on its own rationale teaches people to delete
+            // the rationale.
+            const code = text
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .split('\n')
+                .filter((l) => !l.trim().startsWith('//'))
+                .join('\n');
+            const hexes = code.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+            expect(
+                hexes,
+                `${f} declares colour literals ${hexes.join(', ')}. Use the --app-* / --pryzm-* ` +
+                `tokens in styles/tokens.ts — C84 EI-8, and this exact drift has been measured ` +
+                `twice already.`,
+            ).toEqual([]);
+        }
+    });
+
+    it('references brand colour only through CSS custom properties in the stylesheet', () => {
+        const css = readFileSync(resolve(SRC_DIR, 'ui', 'styles', 'panels', 'projectBrowser.ts'), 'utf8');
+        const block = css.slice(css.indexOf('.pb-gis-actions {'), css.indexOf('.pb-gis-envelope-slot'));
+        expect(block.length, 'the .pb-gis-* block was not found').toBeGreaterThan(200);
+        const hexes = block.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+        expect(hexes, `the .pb-gis-* rules hard-code ${hexes.join(', ')}`).toEqual([]);
+        expect(block).toContain('var(--app-accent)');
+    });
+});
+
+describe('§GIS-ACTION-REGISTRY (L-1361) — active and unavailable read WITHOUT colour', () => {
+    // C43 / WCAG 2.2 AA. The founder's report was that the disabled row differed from a
+    // live one "only by text colour". Colour alone fails a colour-blind reader, a
+    // greyscale screenshot, and a screen reader — three different people, one omission.
+
+    it('marks an unavailable action with a word and an ARIA state, not just a colour', () => {
+        const el = renderGisActions({} as GisCapabilityHost);
+        for (const a of GIS_ACTIONS) {
+            const btn = el.querySelector<HTMLButtonElement>(`[${GIS_ACTION_ID_ATTR}="${a.id}"]`)!;
+            expect(btn.getAttribute('aria-disabled')).toBe('true');
+            // The visible, non-colour signal.
+            expect(btn.textContent, `${a.id} carries no textual unavailable marker`).toContain('soon');
+            expect(btn.className).toContain('pb-gis-action--unavailable');
+        }
+    });
+
+    it('marks the ACTIVE action with aria-pressed and a class, derived from the snapshot', () => {
+        const { host } = makeFullHost();
+        (host as GisCapabilityHost).pryzmGetSiteViewState = () => ({
+            segment: 'forma', formaMode: '3d', buildingFidelity: 'real',
+        });
+        const el = renderGisActions(host);
+        const earth = el.querySelector<HTMLButtonElement>(`[${GIS_ACTION_ID_ATTR}="site.earth"]`)!;
+        const real  = el.querySelector<HTMLButtonElement>(`[${GIS_ACTION_ID_ATTR}="site.fidelity.real"]`)!;
+        const mass  = el.querySelector<HTMLButtonElement>(`[${GIS_ACTION_ID_ATTR}="site.fidelity.massing"]`)!;
+        for (const on of [earth, real]) {
+            expect(on.getAttribute('aria-pressed')).toBe('true');
+            expect(on.className).toContain('pb-gis-action--active');
+        }
+        expect(mass.getAttribute('aria-pressed')).toBe('false');
+        expect(mass.className).not.toContain('pb-gis-action--active');
+    });
+
+    it('paints NOTHING active when the authority cannot be read — never a guess', () => {
+        const { host } = makeFullHost();
+        (host as GisCapabilityHost).pryzmGetSiteViewState = () => { throw new Error('no viewport'); };
+        const el = renderGisActions(host);
+        expect(el.querySelectorAll('.pb-gis-action--active').length).toBe(0);
+    });
+});
