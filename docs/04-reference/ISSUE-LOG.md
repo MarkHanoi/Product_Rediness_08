@@ -20864,3 +20864,186 @@ and `wallProfile` (a circular FACE, authorable via `WallTool.enterProfileEditMod
 both surfaces and were not touched.
 
 ---
+
+## L-1350 — ✅ FIXED — the WebGPU "reminiscencia" ghost: the base clear was armed on the backend where it CANNOT matter and disarmed on the one where it is the only thing that can
+
+**Lane BG1 · 2026-08-20 · founder: *"Can you also improve the VISIBILITY in WEBGPU? When navigating
+the scene there is reminiscencia from the model."* — the building drawn twice, a faded copy offset
+above and behind the solid model. Status pill `GPU: Auto · WebGPU · WebGL · webgpu`.**
+
+⭐ **THE MEASUREMENT, before the fix.** In Phase 5 the PRYZM overlay canvas (`z-index:2`) sits on top
+of the silenced OBC base canvas (`autoClear = false`, MANUAL, never renders itself again). What the
+overlay does with its EMPTY-SPACE pixels decides whether the base is visible:
+
+| backend | overlay empty-space pixel | base canvas visible through it? | per-frame base clear |
+|---|---|---|---|
+| `webgl-fallback` / `webgl-only` | **opaque** — `setClearColor(_lightweightBgColor, 1)` (L-317) | **impossible** | **ARMED** |
+| `webgpu` (native) | **alpha 0** — `presenceAlpha = step(0.0001, contentAlpha)` (`_buildPipeline`) | **every frame** | **DISARMED** (`setPreLightweightFrameHook(null)`) |
+
+**The two arms were inverted.** `_preLightweightFrameHook` was read *only* inside
+`if (this._lightweightWebGlActive)`, which is true only on the WebGL backends — the exact backends
+whose overlay is opaque and where clearing the base cannot change a pixel. Native WebGPU, whose
+output alpha is **deliberately 0 in empty space** so the layer below fills the background, had the
+clear explicitly passed `null` on every swap. The remaining `§FIX-OBC-BASE-STALE-COMPOSITE` one-shot
+clear (phase-5 activate / post-live-swap) **cannot answer a condition that recurs every frame**, and
+the OBC renderer is BORROWED (GPU pick, view-render cache, thumbnail capture) with
+`autoClear = false`, so a stale composite can land on it at any moment. Seen through a moving
+transparent overlay, that stale composite IS the ghost.
+
+⛔ **A green test was holding the inversion in place** — `RenderPipelineManager.backend.test.ts`
+carried *"is not consulted on the real-WebGPU TSL path (WebGPU output untouched)"*, asserting the
+defect as a feature. It is retired in place, with the reason written where it stood.
+
+**FIX — arm on the CONDITION, not the backend.** The condition is *"the framebuffer beneath the
+overlay may still hold a previous frame's composite when this manager presents"*, and it is true on
+every backend this manager renders on. `setPreFrameBaseClearHook()` (old name kept as a deprecated
+alias) is invoked from **both** render branches via one `_runPreFrameBaseClear()`; `initScene` arms
+it **once, unconditionally, for every Phase-5 backend**, at boot, at live swap **and** at rollback.
+A future backend inherits it instead of having to be enumerated into it.
+
+⚠ **The arming had to become safe before it could become unconditional.** `clearObcBaseFramebuffer`
+now self-gates on the PRYZM overlay being the visible surface: `enableEnhancedBloom`, legacy
+`enableSSGI` and the viewport path tracer each set `pryzmCanvas.style.display = 'none'` and render
+**into** the OBC canvas while RPM keeps ticking (nothing suspends it). Clearing every frame in that
+state would have wiped their image the frame after they drew it. The old lightweight-only arm had
+the same latent hole and never hit it.
+
+**Guards:** `RenderPipelineManager.frameStartsCleanBothBackends.test.ts` — assertions pinning the
+frame-start state on **both** backends (background AND base clear), so fixing one arm by regressing
+the other fails here. renderer-three background + backend suites **60 ✅**, editor
+`viewportBackgroundBackendVocabulary` **7 ✅**, root tsc `COMPILER_RC=0`.
+
+⚠ **WHAT THE TEST DOES NOT ESTABLISH — stated at the top of the file.** It asserts CALLS and STATE,
+not PIXELS. "The base clear runs" means the hook was invoked; it does not prove it cleared the
+**canvas** (a leaked render target defeats that — `§FIX-WEBGL2-GHOST-STALE-TARGET` is the separate
+guard for it). Pixel truth needs a browser.
+
+---
+
+## L-1351 — ✅ FIXED — `background: #ffffff (all layers)` was a log line reporting three layers from a call that writes one
+
+**Lane BG1 · 2026-08-20 · found in the founder's own boot log, one line after the line that
+contradicts it.**
+
+Two lines, same boot:
+
+```
+[initScene] §VIEWPORT-BG-BACKEND-VOCABULARY boot backend is 'webgl-fallback' … RenderPipelineManager
+  owns the viewport background on this backend (§VIEWPORT-BG-ONE-AUTHORITY-RUNTIME).
+[initScene] Perspective view restored — background: #ffffff (all layers)
+```
+
+**The claim "(all layers)" is false on every backend the founder actually runs.**
+`SceneTheme._applyHex()` is:
+
+```ts
+viewport.style.background = hex;
+if (!window.pryzmCanvas) { world.scene.three.background = new Color(hex);
+                           world.renderer.three.setClearColor(new Color(hex), 1); }
+```
+
+`window.pryzmCanvas` is non-null on **every** Phase-5 backend (`webgpu`, `webgl-fallback`,
+`webgl-only`), set at phase-5 activate. So `_applyHex` writes exactly **one** of its three layers —
+the `<bim-viewport>` CSS — and the other two are written by the `renderPipelineManager.setColor()`
+call on the line above it.
+
+⭐ The colour IS applied; the **claim about the mechanism** was wrong, and it pointed a reader
+debugging *"still grey"* at three surfaces that this call never touched. Same defect class as a
+version count that cannot fail honestly. Both log lines now print `describeBackgroundWriters(hex)`,
+which names the actual writer per surface for the live configuration.
+
+---
+
+## L-1352 — ✅ FIXED — the probe enumerated the five BACKGROUNDS, and the founder's grey does not have to be one
+
+**Lane BG1 · 2026-08-20.**
+
+`§VIEWPORT-BG-PROBE` (L-1191) opened *"There are exactly five things that can be 'the background of
+the 3D view'"* and listed overlay clear, `scene.background`, the OBC base canvas, `<bim-viewport>`
+CSS, `#container` CSS. That is an exact enumeration of the five **backgrounds** — and it is **not**
+the set of things that can look grey. Anything DRAWN can be grey, and this scene contains a
+**4000 m × 4000 m translucent plane**.
+
+The probe now reports **surface 0** — the `GroundShadowCatcher` (`visible`, material type, opacity,
+transparent) — and, when every background surface reads white while that catcher is visible, prints
+the **next measurement** rather than a verdict: *turn ground shadows off; if the grey vanishes it is
+the catcher, and no background fix can ever close it.* The header now says the list is a ledger, not
+a proof of completeness.
+
+---
+
+## L-1353 — 🟡 OPEN — MEASURED, NOT FIXED — the grey viewport is very likely the ground shadow-catcher, not the background stack
+
+**Lane BG1 · 2026-08-20 · founder, FIFTH report: *"WebGL background should be always white — still
+sometimes comes grey: this has been requested in the past."* Screenshot: a flat light-grey field with
+a darker shadow blob; pill `GPU: Auto · WebGPU · WebGL · webgl-fallback`.**
+
+⭐ **FIRST, WHAT WAS RULED OUT — by reading, not by assuming.**
+
+- **(a) `RenderPipelineManager` sets a grey clear.** ❌ `bind()` on any non-WebGPU backend sets
+  `_tslOwnsBackground = false`, calls `_applyViewportBackground()` (which makes `scene.background` a
+  `Color(LIGHT_BG_HEX)`) and primes `setClearColor(_lightweightBgColor, 1)` **before the first
+  frame**. `LIGHT_BG_HEX === '#ffffff'`, measured.
+- **(c) a transparent clear letting grey CSS through.** ❌ The boot / swap / rollback arms were all
+  converted to the `isNativeWebGpuBackend` / `isLightweightWebGlBackend` partition by L-1191, and
+  re-read here: no arm primes transparent on a WebGL backend.
+- **(d) tone mapping turning white into grey.** ❌ On the lightweight path the background is a CLEAR
+  (`setClearColor`) plus a `Color` `scene.background`, and three's node renderer resolves a Color
+  background to the clear colour — it is not passed through the tone-mapped fragment graph. The
+  historic `~#d6d6d6`-under-ACES note applies to the **TSL** path and was solved there by
+  `presenceAlpha`.
+- **My own first sub-theory was also refuted**: I proposed the catcher reads "shadowed" outside the
+  ±50 m shadow camera. ❌ `three/src/nodes/lighting/ShadowNode.js:320-328` applies a frustum test and
+  `select(shadowNode, float(1))` — outside the shadow camera the mask is **1**, i.e. transparent.
+
+⭐ **(b) IS THE LIVE ONE, and the repo already measured it twice and left it open.**
+`RealEnvironmentService` says, in its own words: the catcher *"is a `ShadowMaterial` plane: with NO
+caster it composites as 'fully shadowed' → an **opaque grey fill on WebGPU** (the founder's
+empty-project grey square)"*, and *"(The cosmetic empty-project grey — ShadowMaterial not fully
+transparent where unlit on WebGPU — is a **SEPARATE follow-up**)"*. The mitigation shipped was only
+to hide the catcher while `casters === 0`.
+
+**The founder's log defeats that mitigation:** `catcher{visible=true, mat=ShadowMaterial,
+opacity=0.32} casters=30`. The catcher is VISIBLE, so the known grey is no longer suppressed.
+
+**MECHANISM, from three r183 source (`nodes/functions/ShadowMaskModel.js`, read 2026-08-20).**
+`THREE.ShadowMaterial` maps to `ShadowNodeMaterial` on the node renderer — which BOTH `webgpu` and
+`webgl-fallback` use. Its whole lighting model is:
+
+```
+shadowMask = 1
+direct({ lightNode }): if (lightNode.shadowNode !== null) shadowMask *= lightNode.shadowNode
+finish():              diffuseColor.a *= shadowMask.oneMinus()
+```
+
+So the plane's alpha is **`opacity × (1 − PRODUCT over EVERY shadow-casting direct light)`**. It is
+transparent only while **every** such light reports "lit" at that fragment. One casting light whose
+depth map this renderer never wrote contributes ≈ 0, the product collapses, and the plane paints a
+flat 32 % black wash over its whole in-frustum footprint — **a grey field with the real shadow darker
+inside it.** That is the screenshot.
+
+⛔ **NOT FIXED, DELIBERATELY.** Which term collapses the product cannot be determined without a
+browser, and this family has already had two fixes that changed a surface which was already correct.
+Guessing here would be the fifth arm.
+
+**WHAT SHIPPED INSTEAD — one new discriminating measurement and one one-click test.**
+`§DIAG-GROUND-SHADOW-CASTING-LIGHTS` adds `castingLights=N[...]` to the existing
+`§DIAG-GROUND-SHADOW-FIT` dump. The dump printed the KEY light's map in detail and **nothing about
+the other terms in the product**, so a reader could not distinguish a broken key light from a healthy
+key light multiplied by a stranger. **`castingLights > 1` on a `ShadowMaskModel` receiver is
+sufficient on its own to produce this grey.**
+
+**TO CLOSE, one browser measurement (either order):**
+
+1. Run `window.pryzmViewportBackgroundReport()` while the viewport looks grey. If
+   `overlayClearColor`, `sceneBackground` and both CSS entries read `#ffffff` and
+   `groundShadowCatcher.visible === true`, the grey is **drawn**, not a background.
+2. Turn ground shadows OFF. If the grey vanishes, it is the catcher — full stop. Then read
+   `castingLights=` and `shadowMapAllocated` / `shadowTexType` from the `§DIAG-GROUND-SHADOW-FIT`
+   line to say WHICH term collapsed.
+
+⚠ **Until (1) or (2) is run, this is a strongly-evidenced hypothesis, not a proven cause.** It is
+recorded that way on purpose: *"two rival theories both confirmed and both wrong"* is this repo's own
+lesson, and the four background fixes that preceded this entry are what it cost.
+
+---

@@ -39,7 +39,7 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 
 ## 2. Allocation table
 
-**Highest number allocated: `L-1349`.** Next free block starts at **`L-1350`**.
+**Highest number allocated: `L-1369`.** Next free block starts at **`L-1370`**.
 
 | Block | Lane | Session | State |
 |---|---|---|---|
@@ -55,6 +55,8 @@ Two independent lanes proposed the identical fix — **reserved blocks** — whi
 | L-1320 – L-1329 | SHAPE1 — shape modes (rect/circular/elliptical) across wall, curtain wall, slab, ceiling, floor | 2026-08-19 | **in use — L-1320 🔴 OPEN (slab profile-edit unreachable, reported not fixed) · L-1321 ✅ DECLARED (C87 R-11 + §13.14) · L-1322 🟡 OPEN (five shape spellings + `BoundaryDrawMode` name collision) · L-1323 🟡 OPEN (tessellation loses shape intent — founder decision) · L-1324 🟡 OPEN (circular slabs plan-only) · L-1325 🟡 OPEN (closed-loop wall runs plan-only) · L-1326–L-1329 free** |
 | L-1330 – L-1339 | LIGHT1 — 20 LOD-200 lighting fixtures with photometrics | 2026-08-19 | **L-1330 ✅ SHIPPED** (20 families derived from ONE matrix; lumen-reader verdict: READ by the renderer, NOT by any analysis path — no illuminance calculation exists) · **L-1334 ✅ FIXED** (barrel-at-module-load broke repo-wide test collection) · **L-1331 ✅ FIXED** (C96 §9.1 / EI-3 CLOSED — exit (a): the LOD-200 matrix moved to L0 so `LightingKind` DERIVES its accepted set; 30-of-32 refused → 0; zero `apps/editor` changes) · **L-1332, L-1333 ⛔ OPEN** (generic plan symbols · beam angle does not narrow the light) — 5 of 10 used; L-1335–L-1339 free |
 | L-1340 – L-1349 | LOG1 (second block) — project-open coalescing keyed on nothing | 2026-08-20 | **L-1340 minted** (1 of 10 used) |
+| L-1350 – L-1359 | BG1 — grey WebGL-fallback viewport + WebGPU navigation ghost ("reminiscencia") | 2026-08-20 | **L-1350 ✅ FIXED** (§FRAME-STARTS-CLEAN-ON-EVERY-BACKEND — the per-frame OBC base clear was armed on the ONE backend whose overlay is opaque and DISARMED on the one whose overlay presents alpha 0 in empty space; the arms were INVERTED and a green test pinned the inversion) · **L-1351 ✅ FIXED** (the `background: #ffffff (all layers)` log line claimed three layers from a call that writes one on every Phase-5 backend) · **L-1352 ✅ FIXED** (§VIEWPORT-BG-PROBE enumerated the five BACKGROUNDS and could not name a grey that is DRAWN — ground shadow-catcher added as surface 0) · **L-1353 🟡 OPEN — MEASURED, NOT FIXED** (the grey is very likely the 4 km `ShadowMaterial` ground catcher, not the background stack; mechanism derived from three r183 `ShadowMaskModel`; needs ONE browser measurement to close) (4 of 10 used; L-1354–L-1359 free) |
+| L-1360 – L-1369 | GIS1 (second block) — GIS panel phase 2b: legacy pill removal, PRYZM styling, buildability re-host | 2026-08-20 | **in use** |
 
 > ⚠ **L-1197 … L-1226 are PRE-LEDGER** and were minted under the old racing convention. Several were
 > renumbered in flight. **Trust the ISSUE LOG for what they mean, not any lane report that cites
