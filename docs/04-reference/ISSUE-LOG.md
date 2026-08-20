@@ -24235,3 +24235,103 @@ by any sibling's `git commit -a` donates your staged files to their commit.
 See [[multi-agent-shared-tree-collisions]].
 
 ---
+
+---
+
+## L-1560 … L-1563 — ✅ FIXED: materials "go off for no specific reason" when swapping views — 2026-08-20 (lane MAT3, commits `540ba88c`, `acdfff75`)
+
+Founder: *"Materiales goes off — for not specific reason — when swapping views."*
+
+Four defects. **L-1563 is the one that made it happen at all**, and it was found last.
+
+- **L-1563 `§VG-VIEW-IDENTITY-IS-A-CALL`** — ⭐ **the view switch announced itself on a bus the
+  listener was never on.** `runtime.events` (`runtime-composer/src/EventBus.ts`) is a `Map` of handler
+  sets whose `emit()` **never calls `window.dispatchEvent`**; `VGSceneApplicator` subscribes via
+  `window.addEventListener`. **Two channels, no bridge — so `view-selected` had NEVER reached this
+  class, and `activeViewId` was null all session.** What actually drove it was ViewController's
+  *direct* `setUnderlayLevelId(...)` call, ending in `applyAll(activeViewId ?? undefined)`: null
+  identity, `viewType === undefined`, and every mesh went down the **2D poche path while in the 3D
+  view**. Fixed by announcing `setActiveView(viewId, viewType)` on the same direct-call channel
+  ViewController already uses four times. Same family as [[committed-is-not-reachable]].
+- **L-1560 `§3D-CARRIES-NO-VG-FILL`** — `applyToMesh()` wrote the plan-poche `fillColor` onto live 3D
+  materials. §VG-3D-FIX had already established the rule (*"VG fillColor is a 2D concept … must not
+  override 3D surfaces"*, C25 §3) — but encoded it as **an allowlist of four wall type strings**. The
+  rule is about the **view**, not about walls. Measured over one plan→3D round trip, **11 of the 12
+  families the 3D builders stamp drift**: `SlabPart #336699→#e8e8e8`, `Stair #8b4513→#c8c8c8`,
+  `Furniture→#ececec`, `Column→#111111`, plus Door, Window, Handrail, CurtainPanel, Plumbing, ceiling,
+  floor. **Only `WallPart` survived — which is exactly why it read as "for no specific reason".**
+  Per C84 EI-8 the fix **deletes the second producer** of 3D colour rather than extending the
+  allowlist. 3D keeps `visible` and `transparency`, the latter on a VG-owned **clone** (builders share
+  one material per `(levelId, colour)`; mutating opacity in place would re-ghost every sibling and
+  overwrite authored glass).
+- **L-1561 `§3D-MODE-IS-THE-AUTHORITY`** — `view-selected` carries `viewId: null` for 3D on every path
+  that is not the View Browser rail, and the handler was `if (viewId)`. Those paths ran nothing and
+  left poche on the 3D screen (`WallPart #1a1a1a`).
+- **L-1562 `§AUTHORED-SNAPSHOT-IS-SELF-CORRECTING`** — ⭐ **the same defect arriving through the fix.**
+  `vgOriginalMaterial` was taken once and never re-taken, so a material re-assigned later was
+  **reverted** by the restore path on the next switch. Ownership is now decided by reference identity.
+  All `delete obj.userData[...]` moved to `deleteUD` — a bare delete on sealed `@thatopen/fragments`
+  userData **throws inside `scene.traverse()` and aborts the walk**.
+
+**Ruled out, with reasons:** mechanism (c), the stale NME cache key — those descriptors hold material
+by shared reference but feed only `EdgeProjectorService` 2D linework, which colours by VG layer, never
+by source material.
+
+28 tests green in the presentation suite (13 in a new file that had **zero** before); package suite
+113 files / 1166 tests; lint 0; root `tsc` exit 0.
+⚠ **Not run in the editor.** Reachability established by reading the emitter, the listener and the
+direct call sites — better than event tests alone, not the browser.
+
+---
+
+## L-1550 … L-1554 — ✅ SHIPPED: SHIFT+click multi-select, and the bus that already held the set was never told about a 3-D click — 2026-08-20 (lane SELECT1; code in `540ba88c`, message restored in `56ecce81`)
+
+Founder item 0.1: *"Multi select elements via: SHIFT + another element."*
+
+⭐ **The selection model was ALREADY multi-capable.** `SelectionBus` (C27 §4) has carried
+`currentIds` / `selectMany` / `applyMarqueeHighlights` since the marquee work, and `PlanViewCanvas`,
+`AIPanel` and `ZeroTokenChatBridge` all read `currentIds` as THE selected set. What was missing was a
+producer for SHIFT+**click** (only SHIFT+drag existed) — and, the part that made the first unsafe to
+build on, a **write-back from the 3-D viewport**.
+
+- **The 3-D viewport never wrote into the bus.** `SelectionManager.select()` set `selectedObject` and
+  fired `bim-selection-changed`; nothing told `selectionBus`. `selectById` came IN from the bus,
+  nothing went OUT. So after clicking a wall in 3-D the bus still reported the **previous** selection:
+  chat's *"delete selected"* acted on the wrong element and the plan canvas painted the wrong element
+  as selected. ⭐ **The divergence ran in the direction hardest to notice — the 3-D highlight, the
+  thing the user is looking at, was the one that was right.**
+  `select()` now mirrors into the bus, guarded by a new `SelectionBus.isDispatching` so a `select()`
+  reached FROM the bus does not echo back and collapse a multi-selection to one element. The bus's own
+  source guard **cannot** stop that echo: a mirror labelled `'3d-canvas'` differs from the
+  `'plan-view'` source in flight and would pass.
+- **The set and the primary disagreed.** `dispatch()` overwrote `_currentId` with `elementIds[0]`
+  immediately after `selectMany()` had set it to the **last** id — contradicting its own docblock —
+  and never updated `_currentIds` at all, so the one raw dispatcher left the SET stale while the
+  primary moved. State is now derived in `dispatch`, once, for `'select'` and `'clear'` only:
+  `'highlight'`/`'isolate'`/`'focus-camera'` are decorations and must not rewrite the selection.
+- **`SelectionBus.toggle()` is now the ONE implementation** of add / remove / clear-on-last.
+
+⭐ **This lane's message was restored by a NO-CODE commit** (`56ecce81`) after the L-1586 index race
+swept its thirteen files into `540ba88c`. The content survived; **the message, the §-tags and the
+L-numbers — the things the log is searched by — did not.** Restoring them in a docs commit is the
+non-destructive fix, and is the pattern to repeat.
+
+---
+
+## L-1520 / L-1521 — ✅ FIXED: the hole was circular, the frame was square — 2026-08-20 (lane OPEN2, commits `b3d911d5`, `6a935d8b`, `a0fc4370`)
+
+Founder: *"The circular new windows has the opening circular but not the frame — the frame is square
+frame. same than arch — same for the door."*
+
+One producer, `packages/geometry-wall/src/OpeningProfileFrameGeometry.ts`, placed **beside
+`openingOutline()`** — the profile outline it derives from — rather than inside either consuming
+element family. (It was first written into `geometry-door` with `geometry-window` re-exporting it;
+moved after review, because a shared helper namespaced under one of its two consumers reads as an
+accident and is how a third copy later appears.)
+
+- **L-1520** — the circular window's frame is a **ring**, not four mitred boxes. ⚠ **Instancing would
+  have drawn it as cubes** — recorded because that is a live trap for anyone batching openings.
+- **L-1521** — the arched doorway gets a **curved head, a transom and a fanlight**, and still no cill
+  to trip on. A door is not a window with the bottom left in.
+
+---
