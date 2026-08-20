@@ -35,6 +35,17 @@ import {
     // plane, because a hosted element "has no independent world-space coordinate in
     // the store" (C15 §2) and the slab term is unreachable from this package.
     resolveWallBaseYOrLevel, hostedLeafCentreY,
+    // §OPENING-PROFILE-FRAME (L-1521) — THE ONE PRODUCER of the void's outline, the pure helpers
+    // derived from it, and the shared frame solid. `grep -c openingProfile DoorBuilder.ts` was
+    // **0** before this line: the wall cut an arched head and the frame drew a square one around
+    // it (C86 §11 #1). Nothing below re-derives an arc — PR-1 forbids it, and after this there is
+    // no arc in this file to get wrong.
+    openingOutlineLocal, openingSpringLineYLocal, insetOutlinePoints, clipOutlinePointsAbove,
+    profiledBandGeometry, profiledPlateGeometry,
+    // The FAMILY declaration and the resolver — consulted, never restated. `openingProfilesFor`
+    // is why a door has three options and not four (L-1251).
+    openingProfilesFor, resolveOpeningProfile, DEFAULT_OPENING_PROFILE,
+    type OpeningOutline,
 } from '@pryzm/geometry-wall';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -138,6 +149,32 @@ function addSeatedBox(
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     mesh.position.set(seat.x, y, seat.z);
     mesh.rotation.y = seat.rotationY;
+    if (role) mesh.userData.role = role;
+    parent.add(mesh);
+    return mesh;
+}
+
+/**
+ * §OPENING-PROFILE-FRAME (L-1521) — attach an EXTRUDED PROFILE solid.
+ *
+ * The counterpart to {@link addBox} for the non-rectangular arm. It takes a finished
+ * `BufferGeometry` rather than dimensions, because a profiled member has no `w × h × d` to state:
+ * it is a band or a plate, authored in group-local `(x, y)` by the ONE producer's outline and
+ * already centred on `z`.
+ *
+ * `null` in, nothing added — the producer refuses an outline it cannot triangulate, and a MISSING
+ * member is visible and reportable where a subtly-wrong one is not.
+ */
+function addProfiled(
+    parent: THREE.Object3D,
+    material: THREE.Material,
+    geo: THREE.BufferGeometry | null,
+    role?: string,
+    z = 0,
+): THREE.Mesh | null {
+    if (!geo) return null;
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(0, 0, z);
     if (role) mesh.userData.role = role;
     parent.add(mesh);
     return mesh;
@@ -863,33 +900,115 @@ export class DoorBuilder {
         const wantsVerticalSlatLeaf = !isCoarse && !!sysType && !typeIsGlazed && opacityFactor >= 1 &&
             !!sysType.sidelight && door.doorType !== 'double';
 
+        // ── §OPENING-PROFILE-FRAME (L-1521) — THE FRAME FOLLOWS THE VOID ───
+        //
+        // ⭐ THE FOUNDER'S DEFECT IS DECIDED HERE. Until now the door frame was three
+        // unconditional boxes — two posts and a head bar — so an ARCHED opening got a SQUARE head
+        // across it, exactly as he reported for the window. `openingOutlineLocal` is the SAME
+        // producer the wall cut the void with (C86 §10.1 PR-1), asked in this group's own centred
+        // coordinates, so the frame cannot disagree with the reveal by a sampling step.
+        //
+        // ⛔ **A DOOR MAY NOT BE CIRCULAR — L-1251, AND THIS ARM RESPECTS IT RATHER THAN
+        // RE-DECIDING IT.** `openingProfilesFor('door')` is the ONE declaration; a record holding
+        // `circular` (chat, a batch generator, a hand-edited file) is read as RECTANGULAR here,
+        // which is what the wall's own notch walk does with it too — a circle has no jamb feet to
+        // notch between. The gate is consulted, never restated.
+        //
+        // ⛔ `arc` FORCES THE OLD PATH, and it is a REFUSAL, not an oversight: PR-5 states a curved
+        // wall cannot carry a non-rectangular void at all. `null` from `openingOutline` — a round
+        // arch shorter than its own head, a segmental arch shallower than its rise — does the same,
+        // and is exactly the set `openingProfileShapeRefusal` names to the user. **This builder
+        // therefore cannot draw a shape the refusal would have rejected: it never constructs a
+        // shape, it only consumes the one the gate already vetted.**
+        const _kind = resolveOpeningProfile(door.openingProfile);
+        const _doorProfile = openingProfilesFor('door').includes(_kind) ? _kind : DEFAULT_OPENING_PROFILE;
+        const outline: OpeningOutline | null = arc ? null : openingOutlineLocal(_doorProfile, w, h);
+        const springY = outline && !outline.isRectangular
+            ? openingSpringLineYLocal(_doorProfile, w, h)
+            : null;
+        const profiled = !!outline && !outline.isRectangular && springY !== null;
+
+        // §FIX-DOOR-PREVIEW-EXACT — leaf thickness resolved from the selected type.
+        const leafThickness = dims.leafThickness;
+        const innerW = w - 2 * ft;
+
+        // ⭐ **THE ONE DATUM EVERY MEMBER BELOW HANGS FROM: the UNDERSIDE OF THE HEAD.**
+        //
+        // ARCHITECTURAL DECISION — **the leaf stops at the SPRINGING; the arch above it is a
+        // FANLIGHT.** That is what an arched doorway actually is: a rectangular leaf under a
+        // straight transom, with a fixed light in the head. The two alternatives were weighed and
+        // rejected — an ARCHED LEAF would mean discarding the entire rail/stile/panel/glazing/
+        // ironmongery construction below (every part of it is a rectangular-cell derivation), and
+        // an OPEN TYMPANUM is not a thing anyone fabricates on an external door.
+        //
+        // ⛔ AND THIS IS WHERE THE RECTANGULAR BYTE-IDENTITY LIVES. For a rectangle
+        // `headUnderY === h/2 − ft`, so `innerH === h − ft` and `leafCY === −ft/2` — the two
+        // literals this code used before, reproduced by the formula rather than replaced by it.
+        // Everything downstream is arithmetic on these three, unchanged.
+        const headUnderY = profiled ? springY! - ft : h / 2 - ft;
+        const innerH = headUnderY + h / 2;   // floor/threshold → underside of the head member
+        const leafCY = (headUnderY - h / 2) / 2;
+
         // ── Frame ──────────────────────────────────────────────────────────
-        // §FEAT-CURVED-DOOR-LEAF — the founder's decomposition, member by member:
-        // the POSTS are vertical rulings of a vertical-axis sweep, so they stay
-        // straight and are only re-seated; the HEAD and the THRESHOLD traverse the
-        // arc and must bend. Both span the FULL authored width `w`, so their radial
-        // end caps land on arc lengths `offset` and `offset + width` — the exact
-        // stations `CurvedWallOpeningBuilder` terminates the void's bands on. That
-        // is the seam the founder would otherwise see, and it closes by
-        // construction rather than by agreement.
-        // Left post
-        addSeatedBox(group, frameMat, arc, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
-        // Right post
-        addSeatedBox(group, frameMat, arc, ft, h, fd,  (w / 2 - ft / 2), 0, 0);
-        // Head bar (top)
-        addSweptBox(group, frameMat, arc, w, ft, fd,  0, h / 2 - ft / 2, 0);
+        if (profiled) {
+            // ⛔ **`omitBaseEdge` — A DOORWAY HAS NO CILL, AND THAT IS NOT A SPECIAL CASE, IT IS
+            // WHAT A DOOR FRAME IS.** The window's band is a CLOSED ring because a window frame
+            // has a cill; closing this one would lay a 50 mm bar across the threshold at floor
+            // level for people to trip on. Opening the band along the outline's own base edge
+            // gives the ∩-shaped member a joiner assembles from two posts and a curved head.
+            const frameInner = insetOutlinePoints(outline!.points, ft);
+            addProfiled(
+                group, frameMat,
+                frameInner
+                    ? profiledBandGeometry(outline!.points, frameInner, fd, true)
+                    // The member does not fit — `ft` is at least half the opening. The doorway is
+                    // then SOLID FRAME, which is the truthful reading of the record; falling back
+                    // to a rectangle inside an arched hole would put the C86 §11 #1 divergence
+                    // straight back after removing it.
+                    : profiledPlateGeometry(outline!.points, fd),
+            );
+
+            // The TRANSOM the leaf shuts under. HORIZONTAL and full clear width — at the springing
+            // the inner outline is exactly `innerW` across, because both jambs were inset by the
+            // same `ft` and the springing line is a property of the outline, not of the inset.
+            addSweptBox(group, frameMat, arc, innerW, ft, fd, 0, springY! - ft / 2, 0);
+
+            // The FANLIGHT — the head above the transom, glazed. Its shape is the frame's inner
+            // outline CLIPPED to the half-plane above the springing, so it is bounded by the same
+            // curve the reveal is and closed by the transom's own top edge.
+            const fan = frameInner ? clipOutlinePointsAbove(frameInner, springY!) : null;
+            if (fan) {
+                const fanMat = makeGlassMat(sysType?.glazingOpacity ?? 0.3);
+                mats.push(fanMat);
+                addProfiled(group, fanMat, profiledPlateGeometry(fan, leafThickness * 0.5), 'doorGlazing');
+            }
+        } else {
+            // §FEAT-CURVED-DOOR-LEAF — the founder's decomposition, member by member:
+            // the POSTS are vertical rulings of a vertical-axis sweep, so they stay
+            // straight and are only re-seated; the HEAD and the THRESHOLD traverse the
+            // arc and must bend. Both span the FULL authored width `w`, so their radial
+            // end caps land on arc lengths `offset` and `offset + width` — the exact
+            // stations `CurvedWallOpeningBuilder` terminates the void's bands on. That
+            // is the seam the founder would otherwise see, and it closes by
+            // construction rather than by agreement.
+            // Left post
+            addSeatedBox(group, frameMat, arc, ft, h, fd, -(w / 2 - ft / 2), 0, 0);
+            // Right post
+            addSeatedBox(group, frameMat, arc, ft, h, fd,  (w / 2 - ft / 2), 0, 0);
+            // Head bar (top)
+            addSweptBox(group, frameMat, arc, w, ft, fd,  0, h / 2 - ft / 2, 0);
+        }
 
         // ── Threshold ──────────────────────────────────────────────────────
+        // Unchanged for every profile: the outline's BOTTOM EDGE is the same full-width straight
+        // line for `rectangular`, `round-arch` and `segmental-arch` alike — the profiles differ
+        // only in the head — so the threshold plate is the same correct plate.
         if (door.threshold && door.thresholdHeight > 0) {
             const th = door.thresholdHeight;
             addSweptBox(group, frameMat, arc, w, th, fd, 0, -h / 2 + th / 2, 0);
         }
 
         // ── Leaf / Hinges / Handle ─────────────────────────────────────────
-        // §FIX-DOOR-PREVIEW-EXACT — leaf thickness resolved from the selected type.
-        const leafThickness = dims.leafThickness;
-        const innerW = w - 2 * ft;
-        const innerH = h - ft;   // from floor/threshold to underside of head bar
 
         // ── FINE (LOD 300) — the frame REBATE (planted stop) ────────────────
         //
@@ -910,15 +1029,19 @@ export class DoorBuilder {
             const stopZ     = leafThickness / 2 + stopDepth / 2;             // behind the leaf
             // Jamb stops (both posts), running the full clear height — VERTICAL,
             // so re-seated onto the arc but not bent.
-            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth, -innerW / 2 + stopProj / 2, -ft / 2, stopZ);
-            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth,  innerW / 2 - stopProj / 2, -ft / 2, stopZ);
+            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth, -innerW / 2 + stopProj / 2, leafCY, stopZ);
+            addSeatedBox(group, frameMat, arc, stopProj, innerH, stopDepth,  innerW / 2 - stopProj / 2, leafCY, stopZ);
             // Head stop, spanning the clear width — HORIZONTAL, so it sweeps. The
             // leaf shuts against this bead, and the leaf now follows the arc, so a
             // chorded stop would leave a wedge-shaped gap at one jamb.
-            addSweptBox(group, frameMat, arc, innerW, stopProj, stopDepth, 0, innerH / 2 - ft / 2 - stopProj / 2, stopZ);
+            // §OPENING-PROFILE-FRAME (L-1521) — `headUnderY − stopProj/2` IS the old
+            // `innerH/2 − ft/2 − stopProj/2` for a rectangle; it now also lands correctly under an
+            // arched door's TRANSOM instead of floating where a square head used to be.
+            addSweptBox(group, frameMat, arc, innerW, stopProj, stopDepth, 0, headUnderY - stopProj / 2, stopZ);
         }
 
-        // Leaf y-centre is ft/2 below group centre (head bar takes ft at top, no bottom frame)
+        // Leaf y-centre is `leafCY`, computed above with the head datum (for a RECTANGLE that is
+        // ft/2 below group centre — the head bar takes ft at top and there is no bottom frame).
         const leafFront = leafThickness / 2;
         const hingeY = [
             -h / 2 + 0.25,
@@ -953,15 +1076,15 @@ export class DoorBuilder {
 
             // Left leaf (center at -halfLeafW/2 - centerMullionW/2)
             const leftLeafX = -(halfLeafW / 2 + centerMullionW / 2);
-            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, leftLeafX, -ft / 2, 0, 'doorLeaf');
+            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, leftLeafX, leafCY, 0, 'doorLeaf');
 
             // Right leaf (center at +halfLeafW/2 + centerMullionW/2)
             const rightLeafX = (halfLeafW / 2 + centerMullionW / 2);
-            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, rightLeafX, -ft / 2, 0, 'doorLeaf');
+            addSweptBox(group, leafMat, arc, halfLeafW, innerH, leafThickness, rightLeafX, leafCY, 0, 'doorLeaf');
 
             // Center mullion (structural, full height, spans full frame depth) —
             // VERTICAL, so it re-seats onto the arc and stays straight.
-            addSeatedBox(group, frameMat, arc, centerMullionW, innerH, fd, 0, -ft / 2, 0);
+            addSeatedBox(group, frameMat, arc, centerMullionW, innerH, fd, 0, leafCY, 0);
 
             // Hinges: left leaf hinged on left outer post, right leaf on right outer post
             // §FEAT-DOOR-3D-LOD (L-266) — no ironmongery on the massing (coarse) door.
@@ -995,7 +1118,6 @@ export class DoorBuilder {
             // §DOOR-GLAZING-2026 — when the resolved system type is glazed, build the
             // glass rows as a TRANSPARENT mesh (real see-through glazing) and the panel
             // rows as the opaque (slatted) timber leaf, instead of one opaque slab.
-            const leafCY = -ft / 2;     // leaf vertical centre (head bar at top)
             if (typeIsGlazed) {
                 const glassMat = makeGlassMat(sysType!.glazingOpacity);
                 mats.push(glassMat);
