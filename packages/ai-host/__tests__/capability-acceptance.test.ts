@@ -1736,7 +1736,11 @@ describe('§FEAT-WALL-RAKE-BATCH — "make all walls angled by 120 degrees"', ()
     expect(r.kind).toBe('commands');
     if (r.kind !== 'commands') return;
     expect(r.commands[0]!.payload).toEqual({ wallIds: 'all', rakeAngleDeg: 90 });
-    expect(r.summary).toContain('(vertical)');
+    // §FIX-RAKE-90-IS-VERTICAL (L-1373) — the card used to say "Lean … to 90°
+    // (vertical)", whose verb contradicts its parenthesis. 90° IS VERTICAL in
+    // this codebase, so the founder's "raked 90 degrees" STRAIGHTENS his walls;
+    // the Confirm card now states the resulting orientation in words.
+    expect(r.summary).toMatch(/VERTICAL/);
   });
 
   it('an out-of-range angle refuses with the geometry package\'s REAL bounds — a parse, never a miss', () => {

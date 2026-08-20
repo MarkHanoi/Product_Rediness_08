@@ -609,9 +609,27 @@ function escapeRe(s: string): string {
  *  DROPPING it — see the header on `exterior`. */
 const UNRESOLVED_QUALIFIER = /\b(?:exterior|external|interior|internal|outside|inside|load[- ]bearing|structural)\b/;
 
-/** Words owned by another capability. A near-miss must never resolve as a
- *  resize: rake/pitch carry numbers too. */
-const OTHER_CAPABILITY_WORD =
+/**
+ * Words owned by another capability. A near-miss must never resolve as a
+ * resize: rake/pitch carry numbers too.
+ *
+ * ⭐ EXPORTED AND SHARED (§FIX-RAKE-SWALLOWED-AS-TYPE, L-1370). This was the
+ * ONLY guard of its kind in the package, and the asymmetry cost the founder a
+ * confidently wrong answer: he typed "make all walls on level 3 raked 90
+ * dregress" and was told 'There is no wall type called "on level 3 raked 90
+ * dregres"'. The dimension grammar protected itself from rake words; the wall
+ * TYPE grammar -- and the hosted window/door/slab/ceiling type grammar -- did
+ * not, so the rake near-miss fell into them and was answered as a catalogue
+ * lookup.
+ *
+ * ⛔ DO NOT TRANSCRIBE A SECOND COPY. C84 EI-8a: a licensed copy is pinned by a
+ * TEST, never by a comment -- this repo records that the comment mechanism
+ * "has already failed twice, measured". `ZeroTokenResolver` imports THIS regex
+ * for `parseWallTypeIntent` and `makeHostedTypeParser`, and
+ * `wall-rake-near-miss.test.ts` pins that every guarded grammar declines the
+ * same word set, so a word added here is a word every grammar declines.
+ */
+export const OTHER_CAPABILITY_WORD =
   /\b(?:angled?|tilted?|raked?|leaning|leant|slanted|vertical|upright|pitch|slope|degrees?|deg)\b/;
 
 // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — `HERE_RE` and the local `levelScope`

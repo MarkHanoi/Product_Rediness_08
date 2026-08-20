@@ -379,6 +379,35 @@ export const EXECUTION_SPECS: SpecTable = {
     spatialAbility: 'angle all walls or the selected walls',
     resolveValue: (si) => {
       const deg = si.angleDeg;
+      // ⭐⭐ §FIX-RAKE-UNIT-UNRECOGNISED (L-1371) — THE BAD UNIT REFUSES BY NAME.
+      //
+      // The founder typed "make all walls on level 3 raked 90 **dregress**".
+      // Before this, the unknown unit made the rake grammar decline, the
+      // sentence fell into the wall-TYPE grammar, and the product answered
+      // *'There is no wall type called "on level 3 raked 90 dregres"'* — the
+      // product being CONFIDENTLY WRONG, which is worse than refusing.
+      //
+      // The grammar now CLAIMS the sentence and lands here, so the refusal can
+      // quote the word he actually typed and name the correction. Same doctrine
+      // as `parseWallSideFinishIntent`'s UNRECOGNISED TAIL: a
+      // recognised-but-underspecified ask is answered by NAMING what was not
+      // understood, never by a weaker generic prompt (ADR-0313 HONESTY).
+      //
+      // ⛔ IT IS NOT AUTO-CORRECTED. `unitRef` is quoted, "degrees" is offered,
+      // and the user re-says it. A mass edit does not guess at a typo.
+      if (si.unitRef !== undefined) {
+        return {
+          refusal: {
+            reason:
+              `I don't recognise the unit "${si.unitRef}" — did you mean degrees? ` +
+              `Nothing was changed.`,
+            suggestions: [
+              `make all walls raked ${deg} degrees`,
+              'make all walls angled by 70 degrees',
+            ],
+          },
+        };
+      }
       if (!Number.isFinite(deg) || deg < RAKE_MIN_DEG || deg > RAKE_MAX_DEG) {
         return {
           refusal: {
@@ -391,8 +420,21 @@ export const EXECUTION_SPECS: SpecTable = {
       }
       return {
         payload: { rakeAngleDeg: deg },
+        // ⭐ §FIX-RAKE-90-IS-VERTICAL (L-1373) — THE CARD STATES THE RESULTING
+        // ORIENTATION IN WORDS, not only the number.
+        //
+        // In this codebase **90° IS VERTICAL** (absent rake ⇒ 90;
+        // vertical/upright/straight map to 90). So the founder's "raked 90
+        // degrees" would STRAIGHTEN his walls, not tilt them — the number's
+        // meaning inverts the intent the sentence reads as. The old summary
+        // said "Lean … to 90° (vertical)", whose verb CONTRADICTS its
+        // parenthesis; a Confirm card is the last honest moment before a mass
+        // edit, so 90 now says what it is about to do, in words, and every
+        // other angle carries the reference point that makes the number legible.
         summary: (scopeLabel, notesTail) =>
-          `Lean ${scopeLabel} to ${deg}°${deg === 90 ? ' (vertical)' : ''}${notesTail}`,
+          deg === 90
+            ? `Make ${scopeLabel} VERTICAL — 90° is upright, not a lean${notesTail}`
+            : `Lean ${scopeLabel} to ${deg}° (90° = vertical)${notesTail}`,
       };
     },
     // NOT destructive — one undo entry, deletes nothing, and the command

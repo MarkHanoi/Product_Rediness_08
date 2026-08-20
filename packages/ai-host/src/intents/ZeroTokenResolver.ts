@@ -83,12 +83,28 @@ import { parseDeleteScopedIntent, type DeleteFamilyIntentId } from './DeleteFami
 // generated specs, so the tier-0 path and the NL classifier read one parser.
 import {
   parseDimensionScopedIntent,
+  // §FIX-RAKE-SWALLOWED-AS-TYPE (L-1370) — the ONE rake/orientation word set,
+  // IMPORTED rather than re-typed. The dimension grammar has declined these
+  // since it was written ("a near-miss must never resolve as a resize:
+  // rake/pitch carry numbers too"); the TYPE grammars below never did, which is
+  // how "raked 90 dregress" was answered as a wall-type lookup.
+  OTHER_CAPABILITY_WORD,
   type DimensionAsk,
 } from './DimensionFamilies.js';
 // §FIX-SCOPE-TAIL-ONE-PARSER (L-1201) — THE one place that decides whether a
 // preposition phrase names a LEVEL or a ROOM. See that module's header for why
 // three hand-written spellings of it existed and what each one cost.
-import { parseTrailingSpatialScope, parseInlineSpatialPhrase, stripTrailingLevelNoun } from './SpatialScopeTail.js';
+import {
+  parseTrailingSpatialScope,
+  parseInlineSpatialPhrase,
+  stripTrailingLevelNoun,
+  // §FIX-RAKE-SCOPE-TAIL (L-1372) — the rake grammar carried the FOURTH
+  // hand-written spelling of the scope tail, so "in level 3" resolved to a ROOM
+  // called "level" there while it had already been fixed everywhere else.
+  SPATIAL_TAIL_SRC,
+  readSpatialTail,
+  joinTailPhrase,
+} from './SpatialScopeTail.js';
 // RAC U7.1 — the property vocabulary: a chat-drivable panel field is a TABLE
 // ENTRY in PropertyVocabulary.ts (noun + synonyms, the kinds that really accept
 // it, the live route per kind, bounds), executed by the ONE generic property arm
@@ -771,6 +787,15 @@ export type SemanticIntent =
       readonly intent: 'set-wall-rake';
       /** Target lean in degrees; 90 = vertical. Range [RAKE_MIN_DEG, RAKE_MAX_DEG]. */
       readonly angleDeg: number;
+      /**
+       * §FIX-RAKE-UNIT-UNRECOGNISED (L-1371) — the UNIT the user typed that this
+       * grammar does not know ("raked 90 **dregress**"). Present ⇒ the sentence
+       * is RECOGNISED-BUT-UNDERSPECIFIED and the value stage refuses by NAMING
+       * it, instead of the sentence falling through to the wall-type grammar and
+       * being answered as a catalogue miss. Absent ⇒ the unit was `°`/degrees/
+       * deg or omitted, and `angleDeg` is authoritative.
+       */
+      readonly unitRef?: string | undefined;
       /** RAC U8.1 — the full IntentScope (spatial + filter), one generic arm. */
       readonly scope: IntentScope;
     }
@@ -3199,6 +3224,34 @@ export function parseWallTypeIntent(
   // "make all walls 3m tall" is a DIMENSION ask, not a type ask — never claim it.
   if (/\b(?:tall|high|thick|wide|taller|thicker|wider|height|thickness|width|long)\b/.test(typeRef)) return null;
   if (/^\d/.test(typeRef)) return null;
+  // ⭐⭐ §FIX-RAKE-SWALLOWED-AS-TYPE (L-1370) — AND THE ASYMMETRY WAS THE PROOF.
+  //
+  // Founder-reported, production: he typed **"make all walls on level 3 raked 90
+  // dregress"** (his typo for *degrees*) and the product answered
+  //
+  //   "There is no wall type called "on level 3 raked 90 dregres" in this
+  //    project. The wall types here are: Monolithic (Default), … Try: "change
+  //    all walls to monolithic (default)""
+  //
+  // A sentence carrying the word "raked" and a number, answered CONFIDENTLY as a
+  // catalogue miss. The rake grammar declined it correctly (the unit is neither
+  // recognised nor end-of-string), and this parser then swallowed the whole tail
+  // as a type NAME. **Being confidently wrong is worse than refusing** (C68 §7).
+  //
+  // The line above proves this is a GAP, not a design: DIMENSION words were
+  // already guarded here, and `DimensionFamilies` declines rake words for the
+  // mirror-image reason — *"a near-miss must never resolve as a resize:
+  // rake/pitch carry numbers too."* One grammar protected itself from the other;
+  // the other did not reciprocate.
+  //
+  // ⛔ DERIVED, NOT TRANSCRIBED. This is the SAME `OTHER_CAPABILITY_WORD` the
+  // dimension grammar tests — imported, so a word added there is a word declined
+  // here, and `wall-rake-near-miss.test.ts` pins that equivalence rather than a
+  // comment asking the next author to remember it (C84 EI-8a).
+  //
+  // Scoped to `typeRef`, exactly like the dimension guard beside it: what is
+  // being judged is the CANDIDATE TYPE NAME, not the whole sentence.
+  if (OTHER_CAPABILITY_WORD.test(typeRef)) return null;
   return {
     intent: 'set-wall-type',
     typeRef,
@@ -3260,6 +3313,22 @@ export function parseWallColorIntent(
   if (colorRef.length === 0) return null;
   const colorSpecificVerb = verb === 'paint' || verb.startsWith('colo');
   if (!colorSpecificVerb && resolveColorRef(colorRef) === null) return null;
+  // ⭐ §FIX-RAKE-SWALLOWED-AS-TYPE (L-1370), the AUDIT arm — the colour grammar
+  // swallowed the same near-miss one capability over, and it was found by
+  // MEASUREMENT rather than by reasoning about the wall-type fix:
+  //
+  //   "paint all walls raked 90 dregress"
+  //     → refusal set-wall-color, 'I don't know the colour "raked 90 dregress"'
+  //
+  // The colour-specific verbs (paint/colour) deliberately CLAIM an unresolvable
+  // ref so an unknown colour gets a colour refusal listing real options — that
+  // rule is right and is untouched. What it must not do is claim a ref whose
+  // words belong to ANOTHER capability: "paint all walls angled by 70 degrees"
+  // is a rake ask with the wrong verb, and answering it with a colour list is
+  // the founder's defect wearing a different hat. The catalogue-style ordering
+  // is preserved — a ref the COLOUR TABLE resolves still wins, so a colour that
+  // one day contains one of these words keeps working.
+  if (OTHER_CAPABILITY_WORD.test(colorRef) && resolveColorRef(colorRef) === null) return null;
   // Spatial phrases compose with the ALL scope ("all walls on level 2 / in
   // the kitchen" / "all south-facing walls"); combining them with
   // "these/selected" would contradict the live selection and is not claimed.
@@ -3280,15 +3349,28 @@ function wallScopeBase(
   levelQuery: string | undefined,
   roomRef: string | undefined,
 ): 'all' | 'selection' | IntentSpatialScope | null {
+  const spatial: IntentSpatialScope | undefined =
+    levelQuery !== undefined && levelQuery.length > 0
+      ? { kind: 'level', levelQuery }
+      : roomRef !== undefined && roomRef.length > 0
+        ? { kind: 'room', roomRef }
+        : undefined;
+  return wallSpatialScopeBase(isAll, orientationWord, spatial);
+}
+
+/** The same ruling, taking an ALREADY-CLASSIFIED spatial scope — what
+ *  `SpatialScopeTail.readSpatialTail` hands back. `wallScopeBase` above is the
+ *  string-captures shim for the grammars that still classify their own tail;
+ *  both reach THIS function, so the ALL-scope-only rule has one statement. */
+function wallSpatialScopeBase(
+  isAll: boolean,
+  orientationWord: string | undefined,
+  spatial: IntentSpatialScope | undefined,
+): 'all' | 'selection' | IntentSpatialScope | null {
   if (orientationWord !== undefined) {
     return isAll ? { kind: 'orientation', orientation: ORIENTATION_TO_COMPASS[orientationWord]! } : null;
   }
-  if (levelQuery !== undefined && levelQuery.length > 0) {
-    return isAll ? { kind: 'level', levelQuery } : null;
-  }
-  if (roomRef !== undefined && roomRef.length > 0) {
-    return isAll ? { kind: 'room', roomRef } : null;
-  }
+  if (spatial !== undefined) return isAll ? spatial : null;
   return isAll ? 'all' : 'selection';
 }
 
@@ -3304,16 +3386,36 @@ const matchWallColor: Matcher = (text, ctx) => parseWallColorIntent(text, ctx);
 //     "rake all walls in the kitchen by 75 degrees".
 // The rake words (angled/tilted/leaning/raked/slanted + vertical/upright) are
 // what claims the utterance, so the colour and type grammars are never nibbled
-// at; the spatial-scope captures are byte-identical to the colour grammar's.
-const WALL_RAKE_SCOPE = String.raw`(?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in the ([\w .-]+?))?`;
-const WALL_RAKE_ANGLE = String.raw`(?:by|to|at)? ?(-?\d+(?:\.\d+)?) ?(?:°|degrees?|deg)?`;
+// at.
+//
+// ⭐ §FIX-RAKE-SCOPE-TAIL (L-1372) — THE FOURTH SPELLING OF THE SCOPE TAIL.
+//
+// The local `WALL_RAKE_SCOPE` stood here:
+//
+//   (?: on (?:the )?(?:levels?|floors?)?\s*([\w .-]+?)| in the ([\w .-]+?))?
+//
+// — `on` hard-wired to LEVEL and `in` hard-wired to ROOM, which is the exact
+// defect L-1201 removed from the dimension and creation grammars and L-1261
+// removed from the wall-finish grammar. **"make all walls in level 3 vertical"
+// therefore read a ROOM called "level"** here while the identical phrase had
+// been working for months elsewhere, and the founder's habitual preposition is
+// the one that was broken. It now shares `SPATIAL_TAIL_SRC`, so there is no
+// fifth spelling to fix next time.
+//
+// What that buys beyond `in`: `at`/`inside`/`within`, "this floor"/"the current
+// level" (via the injected context), bare storey names ("the basement"), and
+// the trailing-noun rejoin ("the ground floor" comes back WHOLE rather than as
+// "ground"). What it does NOT change is how much is claimed — a sentence with
+// no place phrase is still not claimed, and a place that cannot be resolved is
+// DECLINED rather than widened to the whole project (C68 §7.d).
+const WALL_RAKE_ANGLE = String.raw`(?:by|to|at)? ?(-?\d+(?:\.\d+)?) ?(?:°|º|degrees?|degs?|([a-z][\w-]*))?`;
 
 const WALL_RAKE_ADJ_RE = new RegExp(
-  `^(?:make|set) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${WALL_RAKE_SCOPE}` +
+  `^(?:make|set) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${SPATIAL_TAIL_SRC}` +
   ` (?:(?:angled|tilted|leaning|leant|raked|slanted) ${WALL_RAKE_ANGLE}|(vertical|upright|straight))$`,
 );
 const WALL_RAKE_VERB_RE = new RegExp(
-  `^(?:angle|tilt|lean|rake|slant) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${WALL_RAKE_SCOPE}` +
+  `^(?:angle|tilt|lean|rake|slant) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL}) ${WALL_ORIENTATION_ADJ}walls?${SPATIAL_TAIL_SRC}` +
   ` ${WALL_RAKE_ANGLE}$`,
 );
 
@@ -3322,6 +3424,30 @@ const WALL_RAKE_VERB_RE = new RegExp(
  * grammar and the NL classifier, like `parseWallColorIntent`. Returns null
  * when no rake word appears; out-of-range ANGLES still parse (the apply arm
  * owns the range refusal, so "angled by 200" gets a real answer, not a miss).
+ *
+ * ⭐⭐ §FIX-RAKE-UNIT-UNRECOGNISED (L-1371) — AND A BAD UNIT NOW REFUSES BY NAME.
+ *
+ * The founder typed **"make all walls on level 3 raked 90 dregress"**. The unit
+ * was neither recognised nor absent, so the angle tail did not reach `$`, this
+ * grammar DECLINED, and the sentence fell into the wall-TYPE grammar, which
+ * answered *'There is no wall type called "on level 3 raked 90 dregres"'*.
+ *
+ * That sentence is **recognised-but-underspecified**: rake word ✓, number ✓,
+ * unit unknown. `parseWallSideFinishIntent`'s UNRECOGNISED TAIL already carries
+ * the house doctrine for exactly this state — CLAIM it, then refuse QUOTING WHAT
+ * THE USER TYPED (*"I don't know the finish \"unobtainium\""*) rather than the
+ * strictly weaker "tell me which finish", because the weaker copy makes the user
+ * guess whether they were misheard or had simply omitted it. ADR-0313 HONESTY:
+ * recognised-but-underspecified must never reach an LLM (and here there is none
+ * to reach).
+ *
+ * So the unknown unit is CAPTURED and carried on the intent as `unitRef`; the
+ * spec's value stage refuses by naming it and suggesting the correction.
+ *
+ * ⛔ THE UNIT IS NOT AUTO-CORRECTED, and the pattern is NOT widened to accept
+ * typos. This drives a mass edit across every wall in a scope — a mass edit does
+ * not guess, and a unit pattern that accepts "dregress" accepts the next typo
+ * that means something else.
  */
 export function parseWallRakeIntent(
   text: string,
@@ -3334,17 +3460,37 @@ export function parseWallRakeIntent(
   if (!m) return null;
   const scopeWord = m[1]!;
   const orientationWord = m[2];
-  const levelQuery = m[3]?.trim();
-  const roomRef = m[4]?.trim();
-  const angleDeg = adj !== null && adj[6] !== undefined
+  // Groups 3/4/5 are `SPATIAL_TAIL_SRC`'s (leading level noun, place phrase,
+  // trailing level noun) — the SHARED tail, so "in level 3" and "on level 3"
+  // are the same sentence here as they are everywhere else.
+  const tail = readSpatialTail(m[3], joinTailPhrase(m[4], m[5]), ctx);
+  // A place WAS named and cannot be turned into a scope ("this floor" with no
+  // active level). DECLINE — never fall back to a wider scope. Widening a scope
+  // the user deliberately restricted is the mass-edit failure the shared tail
+  // exists to stop (C68 §7.d), and it is the same ruling the dimension families
+  // already make.
+  if (tail.kind === 'unusable') return null;
+  const isVertical = adj !== null && adj[8] !== undefined;
+  const angleDeg = isVertical
     ? 90 // "vertical" / "upright" / "straight"
-    : Number.parseFloat(m[5]!);
+    : Number.parseFloat(m[6]!);
   if (!Number.isFinite(angleDeg)) return null;
+  // Group 7 — the unit the sentence carried that this grammar does not know.
+  const unitRef = isVertical ? undefined : m[7];
   // Spatial phrases compose with the ALL scope only (same ruling as colour).
   const isAll = new RegExp(`^${WALL_SCOPE_ALL}$`).test(scopeWord);
-  const base = wallScopeBase(isAll, orientationWord, levelQuery, roomRef);
+  const base = wallSpatialScopeBase(
+    isAll,
+    orientationWord,
+    tail.kind === 'scope' ? tail.scope : undefined,
+  );
   if (base === null) return null;
-  return { intent: 'set-wall-rake', angleDeg, scope: withFilters(base, lifted.filters) };
+  return {
+    intent: 'set-wall-rake',
+    angleDeg,
+    unitRef,
+    scope: withFilters(base, lifted.filters),
+  };
 }
 
 const matchWallRake: Matcher = (text, ctx) => parseWallRakeIntent(text, ctx);
@@ -3393,7 +3539,16 @@ function makeHostedTypeParser(
     // "thickness to 0.2m" — and the SUMMARY said 'Change every slab in the
     // project to "thickness to 0.2m"' before the command refused. A summary
     // that states a falsehood is worse than a miss, whatever happens next.
-    if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long|thick|thickness|depth|offset|elevation|pitch|angle|angled|raked|tilted)\b/.test(typeRef)) return null;
+    if (/\b(?:tall|high|wide|taller|wider|height|width|sill|deep|long|thick|thickness|depth|offset|elevation)\b/.test(typeRef)) return null;
+    // §FIX-RAKE-SWALLOWED-AS-TYPE (L-1370) — the rake/orientation words used to
+    // be FIVE of them hand-copied into the line above
+    // (pitch|angle|angled|raked|tilted), and that copy was already incomplete:
+    // "tilt", "lean", "leaning", "slanted", "vertical", "upright", "slope" and
+    // "degrees" were all missing, so "change all doors to tilted 90 degrees"
+    // was claimed as a door TYPE. The word set is now DERIVED from the one
+    // definition (`DimensionFamilies.OTHER_CAPABILITY_WORD`), which is what
+    // stops the next word being missing from a third list.
+    if (OTHER_CAPABILITY_WORD.test(typeRef)) return null;
     if (/^\d/.test(typeRef)) return null;
     // §FIX-CHAT-TYPEREF-SWALLOW — "make all slabs blue" is a COLOUR ask. The
     // colour table decides, not a hand-listed set of colour words, and the
