@@ -9,7 +9,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
@@ -21,6 +21,7 @@ const STORE_SRC = await readFile(join(__dirname, 'projectStore.js'), 'utf8');
 
 const {
     isValidProjectId,
+    classifyProjectId,
     isValidVersionId,
     listVersions,
     createVersionTransactional,
@@ -75,6 +76,53 @@ describe('ID generation — entropy and validation (GAP-04)', () => {
         assert.equal(isValidProjectId(null), false);
         assert.equal(isValidProjectId(undefined), false);
         assert.equal(isValidProjectId(42), false);
+    });
+
+    // ── §FIX-LEGACY-UUID-PROJECT-ID-UNSAVABLE (L-1311) ────────────────────────
+    //
+    // THE DEFECT: the client has minted project ids as `proj-${crypto.randomUUID()}`
+    // since Contract 45 §7.1 (LocalProjectRepository.generateProjectId). This
+    // allowlist only knew `proj-<digits>-<alnum>`, so EVERY such project got 400
+    // `invalid_id` from POST /api/projects/:id/versions — permanently, with no
+    // user action that could help. Those projects could never leave the browser.
+    //
+    // ⭐ The first test below is the one that would have caught it: it does not
+    // assert about a hand-written string, it asserts that THE FORMAT THE CLIENT
+    // ACTUALLY MINTS is a format this server accepts. A test written against a
+    // literal cannot notice that the two sides drifted.
+
+    test('accepts the UUID id format the client actually mints (proj-<uuid>)', () => {
+        // Exactly `LocalProjectRepository.generateProjectId()`'s primary branch.
+        const id = `proj-${randomUUID()}`;
+        assert.ok(isValidProjectId(id), `Client-minted id must be savable, got rejected: ${id}`);
+        assert.equal(classifyProjectId(id), 'uuid');
+    });
+
+    test('accepts the crypto-less fallback id format the client mints', () => {
+        // `LocalProjectRepository.generateProjectId()`'s defensive branch:
+        // four Math.random hex groups.
+        const rand = () => Math.random().toString(16).slice(2).padStart(8, '0');
+        const id = `proj-${rand()}-${rand()}-${rand()}-${rand()}`;
+        assert.ok(isValidProjectId(id), `Fallback-minted id must be savable, got rejected: ${id}`);
+        assert.equal(classifyProjectId(id), 'hex4');
+    });
+
+    test('classifyProjectId names the format rather than answering yes/no', () => {
+        assert.equal(classifyProjectId('proj-1746000000000-a3f9z'), 'timestamped');
+        assert.equal(classifyProjectId('proj-3f0e8c1a-9b2d-4e5f-8a7b-1c2d3e4f5a6b'), 'uuid');
+        assert.equal(classifyProjectId('nonsense'), 'invalid');
+    });
+
+    // The widening must not have re-opened GAP-04. Every one of these is still
+    // refused: no traversal, no uppercase, no unbounded length, no separators
+    // other than '-'.
+    test('the widened allowlist still refuses traversal, uppercase and oversize', () => {
+        assert.equal(isValidProjectId('proj-3f0e8c1a-9b2d-4e5f-8a7b-../../etcxx'), false);
+        assert.equal(isValidProjectId('proj-3F0E8C1A-9b2d-4e5f-8a7b-1c2d3e4f5a6b'), false);
+        assert.equal(isValidProjectId('proj-3f0e8c1a-9b2d-4e5f-8a7b-1c2d3e4f5a6b-extra'), false);
+        assert.equal(isValidProjectId(`proj-${'a'.repeat(400)}`), false);
+        assert.equal(isValidProjectId('proj-3f0e8c1a/9b2d/4e5f/8a7b/1c2d3e4f5a6b'), false);
+        assert.equal(isValidProjectId('proj-3f0e8c1a-9b2d-4e5f-8a7b-1c2d3e4f5a6'), false); // 11 hex, not 12
     });
 
     test('isValidVersionId accepts a freshly-generated ver- hex ID', () => {

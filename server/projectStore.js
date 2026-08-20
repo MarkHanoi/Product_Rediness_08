@@ -213,8 +213,60 @@ function generateId(prefix) {
 const PROJECT_ID_RE = /^proj-\d{10,16}-[a-z0-9]{5,16}$/;
 const VERSION_ID_RE = /^ver-\d{10,16}-[a-z0-9]{5,16}$/;
 
+/**
+ * §FIX-LEGACY-UUID-PROJECT-ID-UNSAVABLE (L-1311, 2026-08-19).
+ *
+ * ─── THE DEFECT ─────────────────────────────────────────────────────────────
+ *
+ * `PROJECT_ID_RE` above demands `proj-<digits>-<alnum>`. But the client has, since
+ * Contract 45 §7.1, minted ids as `proj-${crypto.randomUUID()}` —
+ * `proj-3f0e8c1a-9b2d-4e5f-8a7b-1c2d3e4f5a6b`. That matches NOTHING here, so
+ * `POST /api/projects/:id/versions` answered **400 `invalid_id` forever**: those
+ * projects could never reach the server, at all, by any user action.
+ *
+ * Combined with the client-side defect fixed in L-1310 — where a 4xx deleted the
+ * queued upload and the surface only fired for 401/403 — a project with one of
+ * these ids uploaded nothing, said nothing, and looked saved.
+ *
+ * ⭐ The id is not WRONG, it is merely a FORMAT this allowlist never learned. The
+ * `projects.id` column is `TEXT PRIMARY KEY` with no format constraint, so there
+ * was never a storage reason to refuse it. Widening the allowlist is therefore a
+ * strictly smaller change than re-keying live projects, and it makes the count of
+ * permanently-unsavable projects **zero** rather than merely knowable.
+ *
+ * ─── WHY THIS IS STILL AN ALLOWLIST ─────────────────────────────────────────
+ *
+ * The regex exists to stop path traversal, null bytes and unbounded strings from
+ * reaching a DB call or a storage path (GAP-04). Both additions are strictly
+ * lowercase hex plus `-`, fixed or tightly bounded in length, anchored at both
+ * ends: they admit no `/`, no `.`, no NUL byte, no uppercase, and nothing longer than
+ * 74 characters. The safety property GAP-04 bought is unchanged.
+ */
+// `proj-` + RFC 4122 UUID (the `crypto.randomUUID()` path).
+const PROJECT_ID_UUID_RE = /^proj-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// `proj-` + four hex groups (the `crypto.randomUUID`-less fallback in
+// `LocalProjectRepository.generateProjectId`, used by older browsers and by
+// test runners without WebCrypto).
+const PROJECT_ID_HEX4_RE = /^proj-[0-9a-f]{6,16}(?:-[0-9a-f]{6,16}){3}$/;
+
+/**
+ * Classify a caller-supplied project id. Exported so the reason a project cannot
+ * be saved is a VALUE rather than a boolean — "rejected" and "rejected because of
+ * a format we later learned to accept" must not read the same in a log.
+ *
+ * @param {unknown} id
+ * @returns {'timestamped' | 'uuid' | 'hex4' | 'invalid'}
+ */
+export function classifyProjectId(id) {
+    if (typeof id !== 'string') return 'invalid';
+    if (PROJECT_ID_RE.test(id)) return 'timestamped';
+    if (PROJECT_ID_UUID_RE.test(id)) return 'uuid';
+    if (PROJECT_ID_HEX4_RE.test(id)) return 'hex4';
+    return 'invalid';
+}
+
 export function isValidProjectId(id) {
-    return typeof id === 'string' && PROJECT_ID_RE.test(id);
+    return classifyProjectId(id) !== 'invalid';
 }
 
 export function isValidVersionId(id) {
