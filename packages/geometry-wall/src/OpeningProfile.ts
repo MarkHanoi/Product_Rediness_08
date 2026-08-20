@@ -186,6 +186,22 @@ export const ARC_MAX_SEGMENTS = 128;
 export const SEGMENTAL_RISE_RATIO = 1 / 6;
 
 /**
+ * THE segmental rise, in metres — the ONE evaluation of {@link SEGMENTAL_RISE_RATIO}.
+ *
+ * ⛔ Extracted 2026-08-20 (§OPENING-PROFILE-FRAME, L-1520) because the identical expression
+ * `Math.min(width * SEGMENTAL_RISE_RATIO, height / 2)` was already written TWICE — in
+ * `openingOutline` and in `openingProfileShapeRefusal` — and the frame arm needed a third. Three
+ * copies of one clamp is how the refusal comes to reject a shape the outline happily draws. The
+ * arithmetic is unchanged; only its number of homes is.
+ *
+ * The `height / 2` term is a CLAMP, not a proportion: it stops the arch eating the whole opening
+ * on a short one, which is the case the refusal below then names.
+ */
+export function segmentalRise(width: number, height: number): number {
+    return Math.min(width * SEGMENTAL_RISE_RATIO, height / 2);
+}
+
+/**
  * Segments needed to hold `ARC_SAG_TOLERANCE_M` across `sweepRad` at `radius`.
  *
  * DETERMINISTIC BY CONSTRUCTION — a pure function of the geometry, with no counter, clock or
@@ -314,7 +330,7 @@ export function openingOutline(p: OpeningProfileInput): OpeningOutline | null {
     // 'segmental-arch'
     {
         // Rise, from the declared ratio, clamped so the arch can never eat the whole opening.
-        const rise = Math.min(p.width * SEGMENTAL_RISE_RATIO, p.height / 2);
+        const rise = segmentalRise(p.width, p.height);
         if (!(rise > 1e-6)) return null;
         if (p.height <= rise + 1e-9) return null;
         const a = p.width / 2;                        // half-chord
@@ -419,7 +435,7 @@ export function openingProfileShapeRefusal(
         );
     }
     if (kind === 'segmental-arch') {
-        const rise = Math.min(width * SEGMENTAL_RISE_RATIO, height / 2);
+        const rise = segmentalRise(width, height);
         if (height <= rise + 1e-9) {
             return (
                 `A segmental-arched opening needs more height than its rise. At ${width.toFixed(3)} m ` +
@@ -468,4 +484,251 @@ export function openingProfileRefusal(input: {
 export function openingProfileTag(profile: unknown): string {
     const kind = resolveOpeningProfile(profile);
     return kind === 'rectangular' ? '' : `:${kind}`;
+}
+
+// ── §OPENING-PROFILE-FRAME (L-1520) — THE FRAME IS THE OUTLINE, INSET ───────────────────────
+//
+// ⭐ **THE DEFECT THIS SECTION EXISTS FOR.** L-1200 taught the WALL to cut a circular / arched
+// void and L-1250–L-1252 gave the architect the control to ask for one. Neither touched the 3-D
+// FRAME: `WindowBuilder` and `DoorBuilder` each built head / cill / jambs as four unconditional
+// boxes, so the founder got *"the opening circular but not the frame — the frame is square"*.
+// That is C86 §11 #1 exactly — **the frame and the void diverging** — and the fix is not to teach
+// the builders to draw a circle. It is to give them the ONE outline the hole was cut from, and an
+// INSET of it.
+//
+// ⛔ **NO ARC MATHS MAY BE WRITTEN IN A BUILDER.** PR-1 says every wall-body arm consumes the
+// outline `openingOutline` returns; the frame is now bound by the same rule. Everything below is
+// a pure function OF that outline — an offset, a clip, a re-centring — so a frame member cannot
+// disagree with the reveal it sits in by so much as a sampling step. Two producers of one curve
+// is how a hole and a frame come to differ by a millimetre and then by a metre.
+
+/**
+ * Shoelace signed area. **Positive ⇔ counter-clockwise**, which is the winding
+ * {@link OpeningOutline} guarantees — so this doubles as the validity test every helper below
+ * uses to decide whether an operation collapsed or inverted the shape.
+ */
+export function outlineSignedArea(points: readonly OutlinePoint[]): number {
+    const n = points.length;
+    if (n < 3) return 0;
+    let a = 0;
+    for (let i = 0; i < n; i++) {
+        const p = points[i]!;
+        const q = points[(i + 1) % n]!;
+        a += p.x * q.y - q.x * p.y;
+    }
+    return a / 2;
+}
+
+/**
+ * A mitre limit, expressed as a multiple of the inset. A vertex whose offset point runs further
+ * than this has met a corner too sharp to carry a constant-width member, and the whole inset is
+ * REFUSED rather than emitted with a spike. Every outline this producer makes has interior angles
+ * of 90° or more (√2 ≈ 1.41 at the jamb feet), so a limit of 8 is loose for the real cases and
+ * still catches a genuinely degenerate one.
+ */
+const INSET_MITRE_LIMIT = 8;
+
+/**
+ * §OPENING-PROFILE-INSET — the outline, offset INWARD by a constant `inset`.
+ *
+ * ⭐ **THIS IS THE HELPER THE FRAME ARM IS BUILT ON, AND ITS SHAPE IS THE ARGUMENT.** It takes the
+ * producer's OWN sampled points and offsets them; it does not re-derive a circle of radius
+ * `r − inset`, does not re-derive a springing line, and does not know which profile it is looking
+ * at. That is what makes a frame member's inner face **provably parallel** to the reveal it was
+ * cut with: both are the same polyline, one moved.
+ *
+ * ⚠ **A REJECTED ALTERNATIVE, RECORDED SO IT IS NOT RE-TRIED.** The obvious inset is to call
+ * `openingOutline` again with `width − 2t`, `height − 2t`. It is EXACT for `rectangular`,
+ * `circular` and `round-arch` — and WRONG for `segmental-arch`, because that profile's rise is a
+ * fraction OF THE WIDTH, so a narrower opening springs from a different centre with a different
+ * radius. The member's width would then vary along the head (measured ≈ 50 → 57 mm on a
+ * 1.0 × 1.5 m opening at t = 50 mm). A frame member has a constant section; this offset gives it
+ * one for every profile.
+ *
+ * @returns `null` when the inset collapses, inverts or spikes the shape — the caller must then
+ *          treat the opening as SOLID (frame thicker than the void can hold), never draw a
+ *          fallback rectangle in a curved hole.
+ */
+export function insetOutlinePoints(
+    points: readonly OutlinePoint[],
+    inset: number,
+): OutlinePoint[] | null {
+    const n = points.length;
+    if (n < 3) return null;
+    if (!Number.isFinite(inset)) return null;
+    if (inset <= 1e-9) return points.map(p => ({ x: p.x, y: p.y }));
+
+    const area0 = outlineSignedArea(points);
+    // CCW is the producer's stated contract; a CW input is a caller bug, not a shape to guess at.
+    if (!(area0 > 0)) return null;
+
+    // Unit direction per edge. A ZERO-LENGTH edge is real: `round-arch` at `height === width / 2`
+    // is the legal "pure fanlight with zero jamb", where the jamb foot and the springing coincide.
+    // Such an edge has no direction, so the vertex inherits its neighbours' — which is exactly
+    // what a constant-width member does there.
+    const dir: ({ x: number; y: number } | null)[] = [];
+    for (let i = 0; i < n; i++) {
+        const p = points[i]!;
+        const q = points[(i + 1) % n]!;
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const L = Math.hypot(dx, dy);
+        dir.push(L > 1e-12 ? { x: dx / L, y: dy / L } : null);
+    }
+    const seek = (from: number, step: number): { x: number; y: number } | null => {
+        for (let k = 0; k < n; k++) {
+            const d = dir[(((from + step * k) % n) + n) % n];
+            if (d) return d;
+        }
+        return null;
+    };
+
+    const out: OutlinePoint[] = [];
+    for (let i = 0; i < n; i++) {
+        const p = points[i]!;
+        const d0 = seek(i - 1, -1);   // the edge ARRIVING at this vertex
+        const d1 = seek(i, +1);       // the edge LEAVING it
+        if (!d0 || !d1) return null;
+        // Inward normal = LEFT of travel, because the ring is CCW.
+        const n0 = { x: -d0.y, y: d0.x };
+        const n1 = { x: -d1.y, y: d1.x };
+        const cross = d0.x * d1.y - d0.y * d1.x;
+        let px: number;
+        let py: number;
+        if (Math.abs(cross) < 1e-9) {
+            // Collinear, or the SMOOTH TANGENT JOIN where a jamb meets its arc: the two offset
+            // lines coincide, so there is nothing to intersect and the normal offset IS the answer.
+            px = p.x + n1.x * inset;
+            py = p.y + n1.y * inset;
+        } else {
+            const ax = p.x + n0.x * inset;
+            const ay = p.y + n0.y * inset;
+            const bx = p.x + n1.x * inset;
+            const by = p.y + n1.y * inset;
+            const s = ((bx - ax) * d1.y - (by - ay) * d1.x) / cross;
+            px = ax + d0.x * s;
+            py = ay + d0.y * s;
+        }
+        if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+        if (Math.hypot(px - p.x, py - p.y) > inset * INSET_MITRE_LIMIT) return null;
+        out.push({ x: px, y: py });
+    }
+
+    // ⭐ **THE VALIDITY TEST IS EDGE DIRECTION, NOT AREA — AND THAT WAS MEASURED, NOT GUESSED.**
+    // The first draft of this function tested only `0 < area1 < area0`, and a test asked it for a
+    // 0.6 m inset on a 0.6 m-radius oculus: the offset ran PAST the centre, every vertex landed on
+    // the far side, and the result was a tiny polygon REFLECTED THROUGH THE ORIGIN — which in 2-D
+    // is a rotation, so it is still counter-clockwise and still smaller. Both area tests passed on
+    // a shape turned inside out.
+    //
+    // An offset is valid exactly while no edge has crossed the medial axis, and an edge announces
+    // that by REVERSING. So each offset edge must still point the way its original did.
+    for (let i = 0; i < n; i++) {
+        const d = dir[i];
+        if (!d) continue;                       // a degenerate original edge has nothing to reverse
+        const a = out[i]!;
+        const b = out[(i + 1) % n]!;
+        if ((b.x - a.x) * d.x + (b.y - a.y) * d.y <= 0) return null;
+    }
+
+    const area1 = outlineSignedArea(out);
+    // Collapsed or somehow larger. Kept alongside the edge test because they catch different
+    // failures — this one catches a shape that stayed convex and vanished.
+    if (!(area1 > 1e-9) || !(area1 < area0)) return null;
+    return out;
+}
+
+/**
+ * §OPENING-PROFILE-CLIP — the part of an outline at or ABOVE `yCut`, closed by the chord.
+ *
+ * The one consumer is the ARCHED DOOR's fanlight: a doorway's leaf stops at the springing and the
+ * head above it is a fixed light. Sutherland–Hodgman against one half-plane — generic, so it
+ * carries whatever curve the producer emitted without knowing which curve that is.
+ *
+ * @returns `null` when nothing survives the cut, or when what survives has no area.
+ */
+export function clipOutlinePointsAbove(
+    points: readonly OutlinePoint[],
+    yCut: number,
+): OutlinePoint[] | null {
+    const n = points.length;
+    if (n < 3 || !Number.isFinite(yCut)) return null;
+    const inside = (p: OutlinePoint): boolean => p.y >= yCut - 1e-9;
+    const out: OutlinePoint[] = [];
+    for (let i = 0; i < n; i++) {
+        const cur = points[i]!;
+        const prev = points[(i - 1 + n) % n]!;
+        if (inside(cur) !== inside(prev)) {
+            const dy = cur.y - prev.y;
+            if (Math.abs(dy) > 1e-12) {
+                const t = (yCut - prev.y) / dy;
+                out.push({ x: prev.x + (cur.x - prev.x) * t, y: yCut });
+            }
+        }
+        if (inside(cur)) out.push({ x: cur.x, y: cur.y });
+    }
+    if (out.length < 3) return null;
+    if (!(outlineSignedArea(out) > 1e-9)) return null;
+    return out;
+}
+
+/**
+ * The outline in the FRAME BUILDER'S OWN coordinates — origin at the opening's centre.
+ *
+ * ⭐ **NO SECOND CONSTRUCTION, AND NO TRANSFORM EITHER.** `WindowBuilder` and `DoorBuilder` author
+ * every member in a group-local frame centred on the void (`x ∈ [−w/2, w/2]`, `y ∈ [−h/2, h/2]`).
+ * `openingOutline` is translation-covariant — every branch derives its centres and springing from
+ * `bbox`, never from an absolute datum — so asking it for an opening at `offset = −w/2`,
+ * `sillHeight = −h/2` returns THE SAME CURVE the wall was cut with, already in the builder's frame.
+ * A `translate()` here would be a second place for the two frames to drift apart.
+ */
+export function openingOutlineLocal(
+    profile: unknown,
+    width: number,
+    height: number,
+): OpeningOutline | null {
+    return openingOutline({ profile, offset: -width / 2, width, height, sillHeight: -height / 2 });
+}
+
+/**
+ * ⭐ THE ONE PREDICATE for *"does this opening need the profiled frame arm?"*.
+ *
+ * It is deliberately the same call the geometry branch makes, because a SECOND arm reads it: the
+ * window's GPU-instancing gate. `_convertGroupToInstances` recovers each sub-box's size from
+ * `(geometry as BoxGeometry).parameters`, which an extruded profile ring does not have — so an
+ * instanced profiled window would render as 1 m cubes, the same class of defect the curved-host
+ * exclusion already names. Both arms asking one predicate is what stops them disagreeing.
+ *
+ * `false` for an opening whose profile the outline REFUSES (a "circle" 2 m × 1 m, a round arch
+ * shorter than its own head). That is not a fallback — it is the SAME `null` the wall's arms take
+ * their rectangular path on, so frame and void stay identical even when the record is wrong.
+ */
+export function isProfiledOpening(profile: unknown, width: number, height: number): boolean {
+    const o = openingOutlineLocal(profile, width, height);
+    return !!o && !o.isRectangular;
+}
+
+/**
+ * §OPENING-PROFILE-SPRING — the y at which the outline STOPS being full-width, in the
+ * {@link openingOutlineLocal} frame.
+ *
+ * This is where a real doorway puts its TRANSOM: the leaf runs from the floor to the springing,
+ * and the arched head above it is a fanlight. Below this line the outline is exactly the
+ * rectangle it always was, which is what lets the door's entire leaf / stile / rail / ironmongery
+ * construction stay byte-identical and merely get shorter.
+ *
+ * @returns `null` for `circular` — a circle HAS no straight run, and that is the honest answer
+ *          rather than `y0`. (Doors cannot be circular anyway; see {@link openingProfilesFor}.)
+ */
+export function openingSpringLineYLocal(
+    profile: unknown,
+    width: number,
+    height: number,
+): number | null {
+    const o = openingOutlineLocal(profile, width, height);
+    if (!o) return null;
+    if (o.kind === 'rectangular') return o.bbox.y1;
+    if (o.kind === 'circular') return null;
+    if (o.kind === 'round-arch') return o.bbox.y1 - width / 2;
+    return o.bbox.y1 - segmentalRise(width, height);
 }
