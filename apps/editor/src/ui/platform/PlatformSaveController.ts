@@ -29,11 +29,23 @@ import { uploadProjectThumbnail, describeUploadOutcome } from './thumbnailUpload
 import { SaveOrchestrator } from './SaveOrchestrator';
 import { ServerSyncQueue } from './ServerSyncQueue';
 import { EntitlementStore } from '@pryzm/core-app-model';
+import { describeRejection, type RejectionCode, type RejectionScope } from './serverSaveRejectionFate';
 import { Feature } from '@pryzm/core-app-model';
 import { UiPreferences } from '../UiPreferences';
 import { showToast, generateId } from './PlatformToastSystem';
 import { escHtml } from './ProjectHubTemplates';
 import type { VersionRecord, SaveStatus, ShellCtx, IProjectSnapshot } from './PlatformShellTypes';
+
+/**
+ * The `RejectionCode` values `describeRejection` has copy for. Kept as a runtime
+ * set so the banner can only route a code it actually knows, rather than casting
+ * an arbitrary string into the union.
+ */
+const KNOWN_REJECTION_CODES: ReadonlySet<string> = new Set<RejectionCode>([
+    'not-authenticated', 'plan-version-limit', 'not-permitted', 'project-id-not-savable',
+    'payload-invalid', 'server-says-duplicate', 'project-missing-on-server', 'concurrent-edit',
+    'rejected-unclassified',
+]);
 
 export class PlatformSaveController {
     readonly orchestrator: SaveOrchestrator;
@@ -66,6 +78,20 @@ export class PlatformSaveController {
             },
             onSaveRejected: (status, body) => {
                 this._handleServerSaveRejected(status, body);
+            },
+            // §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — the queue can no longer make
+            // room by deleting somebody's pending upload, so the only remaining
+            // failure mode is "could not take it", and that must be visible.
+            onQueueOverflow: (version, projectId, queueLength) => {
+                console.error(
+                    `[PlatformSaveController] Version "${version.label}" of ${projectId} could NOT be queued ` +
+                    `for upload (${queueLength} retained). It is in local history but is not going to the server.`,
+                );
+                this._handleServerSaveRejected(0, {
+                    error: 'sync_queue_full',
+                    blockedCode: 'queue-overflow',
+                    queueLength,
+                });
             },
         });
 
@@ -261,7 +287,11 @@ export class PlatformSaveController {
             // the thumbnail upload that follows would also 403.  The renderer
             // still captures a fresh thumbnail on the post-load path so the
             // hub preview stays current.
-            const planBlocksSync = isAutoSave && this.syncQueue?.isPlanRejected?.() === true;
+            // §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — ask about THIS
+            // project. The old no-argument call answered "did any plan rejection
+            // happen this session", so one project's 403 suppressed thumbnails for
+            // every other project too.
+            const planBlocksSync = isAutoSave && this.syncQueue?.isPlanRejected?.(this.ctx.projectId) === true;
             const capturedThumb = planBlocksSync
                 ? null
                 : (this.ctx.saveAdapter.captureThumbnail?.() ?? null);
@@ -504,7 +534,7 @@ export class PlatformSaveController {
         // next sync (ProjectHub §FIX-THUMBNAIL-DURABILITY), so a single missed
         // PATCH is no longer permanent.
         void uploadProjectThumbnail(projectId, thumbnail, {
-            planGated: this.syncQueue?.isPlanRejected?.() === true,
+            planGated: this.syncQueue?.isPlanRejected?.(projectId) === true,
         }).then(outcome => {
             const line = `[PlatformSaveController] Thumbnail for project ${projectId}: ${describeUploadOutcome(outcome)}`;
             if (outcome.ok) console.log(line); else console.warn(line);
@@ -656,26 +686,56 @@ export class PlatformSaveController {
         );
     }
 
+    /**
+     * §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — THE VISIBILITY HALF.
+     *
+     * WAS: `if (!isAuthProblem) return;` — every non-401/403 refusal produced NO
+     * user-visible surface at all. So a 400 `invalid_id` (the legacy `proj-<uuid>`
+     * projects, which the server refuses forever) was completely silent: the queue
+     * deleted the payload, the toast still said "✓ Saved", and the only trace was a
+     * `console.warn`. A save that did not reach the server looked exactly like one
+     * that did — the defect shape this whole day was spent removing.
+     *
+     * NOW: EVERY terminal refusal raises the banner, once per REASON rather than
+     * once per session, so a plan limit and an unsavable id are not collapsed into
+     * one dismissable warning. `ServerSyncQueue` supplies `blockedCode`, whose copy
+     * lives beside the policy in `serverSaveRejectionFate.describeRejection`.
+     */
     private _handleServerSaveRejected(status: number, body: Record<string, unknown>): void {
         const plan = body?.plan as string | undefined;
         const errorMsg = body?.error as string | undefined;
-        const isAuthProblem = status === 401 || status === 403;
-        if (!isAuthProblem) return;
-        if (!this.ctx.serverSaveWarningShown) {
-            this.ctx.serverSaveWarningShown = true;
-            this._showServerSaveBanner(plan, errorMsg);
-        }
+        const code = (body?.blockedCode as string | undefined) ?? `status-${status}`;
+
+        // Once per REASON. `serverSaveWarningShown` stays as the legacy one-shot for
+        // the auth case so existing behaviour there is unchanged.
+        if (this._rejectionReasonsShown.has(code)) return;
+        this._rejectionReasonsShown.add(code);
+        if (status === 401 || status === 403) this.ctx.serverSaveWarningShown = true;
+
+        this._showServerSaveBanner(plan, errorMsg, code);
     }
 
-    private _showServerSaveBanner(plan?: string, errorMsg?: string): void {
+    /** Reasons already surfaced this session — one banner per distinct cause. */
+    private readonly _rejectionReasonsShown = new Set<string>();
+
+    private _showServerSaveBanner(plan?: string, errorMsg?: string, code?: string): void {
         if (!UiPreferences.get('showSaveWarningBanner')) return;
         const existing = document.getElementById('plat-server-save-banner');
-        if (existing) return;
+        if (existing) existing.remove();
 
         const isFreePlan = plan === 'free';
-        const bannerMsg = isFreePlan
-            ? 'Your work is saved locally only. Sign in with your owner account to sync to the server.'
-            : 'Server sync is unavailable. Your work is saved in this browser only.';
+        // Prefer the policy's own copy — it is written per RejectionCode and cannot
+        // drift from the classification, because both live in one file.
+        const scope: RejectionScope = code === 'not-authenticated' ? 'this-session' : 'this-project';
+        const bannerMsg =
+            code && KNOWN_REJECTION_CODES.has(code)
+                ? describeRejection(code as RejectionCode, scope)
+            : code === 'queue-overflow'
+                ? 'Too many versions are waiting to upload, so this one was NOT queued — it is saved in this '
+                  + 'browser only. Nothing already queued was discarded.'
+            : isFreePlan
+                ? 'Your work is saved locally only. Sign in with your owner account to sync to the server.'
+                : 'Server sync is unavailable. Your work is saved in this browser only.';
 
         const banner = document.createElement('div');
         banner.id = 'plat-server-save-banner';
@@ -692,6 +752,24 @@ export class PlatformSaveController {
         const msgEl = document.createElement('span');
         msgEl.textContent = `⚠ ${bannerMsg}`;
 
+        // ⭐ THE ESCAPE HATCH. A refusal the user cannot act on is a dead end
+        // (see: "refusing half needs its escape hatch"). The payloads are RETAINED,
+        // so "try again" is a real action — and it is a user gesture, never a timer,
+        // which is what keeps this from becoming a retry loop against a 403.
+        const retryBtn = document.createElement('button');
+        retryBtn.textContent = 'Retry upload';
+        retryBtn.style.cssText = 'background:#fff;color:#c0392b;border:none;border-radius:3px;padding:5px 10px;'
+            + 'cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap';
+        retryBtn.title = 'Re-attempt every version that is saved here but not on the server';
+        retryBtn.onclick = () => {
+            const n = this.syncQueue?.unblock?.('all') ?? 0;
+            showToast(
+                n > 0 ? `Re-attempting ${n} pending upload${n === 1 ? '' : 's'}…` : 'Nothing is waiting to upload.',
+                n > 0 ? 'success' : 'info',
+            );
+            banner.remove();
+        };
+
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '✕';
         closeBtn.style.cssText = 'background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0';
@@ -699,10 +777,15 @@ export class PlatformSaveController {
         closeBtn.onclick = () => banner.remove();
 
         banner.appendChild(msgEl);
+        banner.appendChild(retryBtn);
         banner.appendChild(closeBtn);
         document.body.appendChild(banner);
 
-        console.warn('[PlatformSaveController] Server save rejected — data is local-only. Plan:', plan ?? 'unknown', '| Error:', errorMsg ?? '(none)');
+        console.warn(
+            `[PlatformSaveController] Server save refused (${code ?? 'unclassified'}) — this version is in ` +
+            'local history but NOT on the server. Its payload is retained in the sync queue. Plan:',
+            plan ?? 'unknown', '| Error:', errorMsg ?? '(none)',
+        );
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────

@@ -25,6 +25,13 @@
 import { VersionRecord } from './PlatformShellTypes';
 import { apiFetch } from '@pryzm/core-app-model';
 import { getVersionCacheStore } from './VersionCacheStore';
+import {
+    decideRejectionFate,
+    describeRejection,
+    type RejectionCode,
+    type RejectionRetryTrigger,
+    type RejectionScope,
+} from './serverSaveRejectionFate';
 
 // ── Backoff schedule (Phase 2) ────────────────────────────────────────────────
 
@@ -52,7 +59,39 @@ const BREAKER_COOLDOWN_MS = 30_000;    // quiet window while the breaker is open
 // ── Queue persistence key ─────────────────────────────────────────────────────
 
 const QUEUE_STORAGE_KEY = 'pryzm-sync-queue';
+
+/**
+ * §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — the cap is a SCHEDULING target, not a
+ * licence to delete.
+ *
+ * `enqueue()` used to read:
+ *
+ *     if (this.queue.length >= MAX_QUEUE_ITEMS) {
+ *         console.warn('[ServerSyncQueue] Queue full — dropping oldest item');
+ *         this.queue.shift();                       // ← the oldest upload, gone
+ *     }
+ *
+ * A `console.warn` is not a surface. With ~50 local-only projects, a bulk
+ * re-save reaches the cap partway through and then **evicts its own backlog** —
+ * every project queued before the halfway point silently stops being uploaded.
+ * A cap that drops the oldest item without telling anyone is data loss with a
+ * different name.
+ *
+ * Replaced by: evict only a **superseded** item (an older queued version of a
+ * project that also has a newer one queued — genuinely redundant, since the
+ * newer snapshot contains the older state), and if there is nothing superseded
+ * to reclaim, **refuse the new enqueue and SURFACE it** rather than deleting
+ * someone else's pending upload. Nothing is dropped quietly in either arm.
+ */
 const MAX_QUEUE_ITEMS = 50;
+
+/**
+ * Absolute retention ceiling, counting blocked items. Blocked items cost no
+ * network and no CPU — they only hold memory and persisted bytes — so the
+ * ceiling is far above the active target. Reaching it is the only condition
+ * under which an enqueue can be refused, and that refusal is reported.
+ */
+const HARD_QUEUE_CEILING = 250;
 
 /**
  * §SYNC-QUEUE-QUOTA (2026-06-23) — soft byte budget for the persisted queue.
@@ -76,11 +115,35 @@ const PERSIST_BYTE_BUDGET = 1_500_000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — a recorded server refusal.
+ * Attached to a queue item INSTEAD of deleting it, and mirrored into
+ * `_sessionBlock` / `_projectBlocks` so later enqueues inherit it without a
+ * second round-trip.
+ */
+export interface SaveBlock {
+    readonly status: number;
+    readonly code: RejectionCode;
+    readonly scope: RejectionScope;
+    readonly retryable: RejectionRetryTrigger;
+    readonly detail: string;
+    /** Human copy for a banner / badge tooltip. */
+    readonly message: string;
+    readonly at: number;
+    /** The parsed server body, for diagnostics. */
+    readonly body: Record<string, unknown>;
+}
+
 interface QueueItem {
     version: VersionRecord;
     projectId: string;
     attemptCount: number;
     nextAttemptAt: number;
+    /**
+     * Set when the server ANSWERED "no" for this item. The item stays in the
+     * queue with its full payload; `flush()` skips it. Cleared by `unblock()`.
+     */
+    blocked?: SaveBlock;
 }
 
 interface SerialisableQueueItem {
@@ -88,6 +151,7 @@ interface SerialisableQueueItem {
     projectId: string;
     attemptCount: number;
     nextAttemptAt: number;
+    blocked?: SaveBlock;
 }
 
 /**
@@ -138,6 +202,17 @@ export interface ServerSyncQueueOptions {
      * show an actionable warning (e.g. "Sign in to enable server saves").
      */
     onSaveRejected?: (status: number, body: Record<string, unknown>) => void;
+
+    /**
+     * §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — called when a version could NOT
+     * be taken into the sync queue at all, because the retention ceiling is full
+     * of items that are not superseded and therefore may not be discarded.
+     *
+     * The version is still in local version history; what did not happen is the
+     * UPLOAD. That distinction is exactly what the old silent `shift()` erased,
+     * so it gets its own callback rather than being folded into a `console.warn`.
+     */
+    onQueueOverflow?: (version: VersionRecord, projectId: string, queueLength: number) => void;
 }
 
 // ── ServerSyncQueue ───────────────────────────────────────────────────────────
@@ -177,20 +252,40 @@ export class ServerSyncQueue {
     private _breakerOpenUntil = 0;
 
     /**
-     * PERF-FIX (2026-04-29) — sticky "plan rejects versions" latch.
-     * Once the server has returned a plan-gating 4xx (e.g. free plan, no
-     * version history), every subsequent enqueue short-circuits to a
-     * `local-only` status update without serialising, POSTing, or holding
-     * a queue slot.  Cleared only by a full page reload (a plan upgrade
-     * would also trigger a reload via the auth flow).
+     * §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — WHAT REPLACED THE LATCH.
      *
-     * Before this latch every wall/slab click on free-plan accounts paid
-     * ~150 ms of LONGTASK to build a snapshot, capture a thumbnail and
-     * round-trip a POST that the server immediately 403'd — the dominant
-     * cause of the per-wall jank reported in the 2026-04-29 logs.
+     * ─── WHAT WAS HERE ──────────────────────────────────────────────────────
+     *
+     *     private _planRejectsSync: boolean = false;
+     *
+     * A single boolean, set by the first plan-gating 401/403 of the session, which
+     *   • EMPTIED the entire queue (every pending upload, every project), and
+     *   • short-circuited every later `enqueue()` to a status update with no POST,
+     * and was cleared by nothing short of a full page reload.
+     *
+     * ⭐ MEASURED CONSEQUENCE: after that first 403, **no version could reach the
+     * server again for the rest of the session** — `ServerSyncQueue.attemptSync`
+     * is the only client-side POST to `/api/projects/:id/versions` in the repo,
+     * `enqueue()` returned before touching it, and `flush()` had an empty queue to
+     * flush. Every "Save Version" the user clicked afterwards reported success and
+     * uploaded nothing.
+     *
+     * On the free plan the server's version limit is 1 PER PROJECT, so the SECOND
+     * save of the FIRST project tripped it. That is how ~50 projects ended up
+     * local-only: not "not yet uploaded", but **uploads thrown away**.
+     *
+     * ─── WHAT IS HERE NOW ───────────────────────────────────────────────────
+     *
+     * A refusal is recorded AT ITS OWN SCOPE and never deletes a payload:
+     *   • `_sessionBlock`  — only 401 (not authenticated) is genuinely session-wide.
+     *   • `_projectBlocks` — 403 plan limits, 400 `invalid_id`, 410: ONE project.
+     *   • `item.blocked`   — 400 validation, 409, 412: ONE save.
+     * Blocked items stay in the queue with their full snapshot; `flush()` skips
+     * them, so there is no retry storm and no jank — the perf property the old
+     * latch was introduced for is preserved without the data loss it caused.
      */
-    private _planRejectsSync: boolean = false;
-    private _planRejectsReason: { status: number; body: Record<string, unknown> } | null = null;
+    private _sessionBlock: SaveBlock | null = null;
+    private _projectBlocks: Map<string, SaveBlock> = new Map();
 
     /**
      * §L-B2 (DAILY-USE-AUDIT 2026-05-20) — Optimistic-concurrency tracking.
@@ -217,6 +312,7 @@ export class ServerSyncQueue {
 
     private readonly onSyncStatusChange: NonNullable<ServerSyncQueueOptions['onSyncStatusChange']>;
     private readonly onSaveRejected: NonNullable<ServerSyncQueueOptions['onSaveRejected']>;
+    private readonly onQueueOverflow: NonNullable<ServerSyncQueueOptions['onQueueOverflow']>;
 
     private readonly onlineHandler: () => void;
     private readonly offlineHandler: () => void;
@@ -228,6 +324,7 @@ export class ServerSyncQueue {
         this.runtime = runtime;
         this.onSyncStatusChange = options.onSyncStatusChange ?? (() => { });
         this.onSaveRejected = options.onSaveRejected ?? (() => { });
+        this.onQueueOverflow = options.onQueueOverflow ?? (() => { });
 
         this.onlineHandler = () => {
             this.isOnline = true;
@@ -258,44 +355,170 @@ export class ServerSyncQueue {
      * Call this immediately after writing to localStorage so the server sync
      * happens asynchronously in the background.
      *
-     * PERF-FIX (2026-04-29) — when `_planRejectsSync` is latched, skip the
-     * network round-trip entirely and immediately mark the version as
-     * `local-only` so the UI badge is correct.  PlatformShell also reads
-     * `isPlanRejected()` to skip the (heavy) thumbnail capture+upload on
-     * the same path.
+     * §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — a version is ALWAYS
+     * taken into the queue, blocked or not. The old code returned here without
+     * queueing whenever the session latch was set, which is why a save could be
+     * reported as done while its payload existed nowhere but local storage and
+     * was never again destined for the server.
+     *
+     * When a block is in force the item is stored WITH the block, the status goes
+     * to `local-only` (truthfully), and no flush is scheduled — so the perf
+     * property the old latch bought (no snapshot round-trip per wall click on a
+     * gated plan) is kept, without discarding anything.
      */
     enqueue(version: VersionRecord, projectId: string): void {
-        if (this._planRejectsSync) {
-            this.onSyncStatusChange(version.id, projectId, 'local-only');
-            return;
-        }
+        const block = this.getSaveBlock(projectId);
+
         const existing = this.queue.findIndex(q => q.version.id === version.id);
         if (existing >= 0) {
-            this.queue[existing] = { version, projectId, attemptCount: 0, nextAttemptAt: Date.now() };
+            this.queue[existing] = {
+                version, projectId, attemptCount: 0, nextAttemptAt: Date.now(),
+                ...(block ? { blocked: block } : {}),
+            };
         } else {
-            if (this.queue.length >= MAX_QUEUE_ITEMS) {
-                console.warn('[ServerSyncQueue] Queue full — dropping oldest item');
-                this.queue.shift();
+            if (this.queue.length >= HARD_QUEUE_CEILING && !this._evictOneSupersededItem()) {
+                // §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — REFUSE, do not evict.
+                // Nothing queued is redundant, so dropping any of it would be a
+                // silent loss of somebody's pending upload. Say so instead.
+                console.error(
+                    `[ServerSyncQueue] Retention ceiling reached (${this.queue.length}) with nothing superseded ` +
+                    `to reclaim — REFUSING to queue "${version.label}" rather than evicting another project's ` +
+                    'pending upload. The version is in local history; it is the UPLOAD that did not happen.',
+                );
+                this.onSyncStatusChange(version.id, projectId, 'local-only');
+                this.onQueueOverflow(version, projectId, this.queue.length);
+                return;
             }
-            this.queue.push({ version, projectId, attemptCount: 0, nextAttemptAt: Date.now() });
+            this.queue.push({
+                version, projectId, attemptCount: 0, nextAttemptAt: Date.now(),
+                ...(block ? { blocked: block } : {}),
+            });
         }
-        this.onSyncStatusChange(version.id, projectId, 'sync-pending');
+
+        // The soft target is now REPORTING, not deleting. A backlog above it means
+        // the uploader is behind — worth saying out loud during a bulk re-save,
+        // and never again a reason to remove somebody's pending upload.
+        const active = this._activeCount();
+        if (active > MAX_QUEUE_ITEMS && active % 25 === 0) {
+            console.warn(
+                `[ServerSyncQueue] ${active} uploads pending (soft target ${MAX_QUEUE_ITEMS}). ` +
+                'All are retained — the queue no longer evicts to stay under the target.',
+            );
+        }
+
+        this.onSyncStatusChange(version.id, projectId, block ? 'local-only' : 'sync-pending');
         this.persistQueue();
+        if (block) {
+            this.onSaveRejected(block.status, { ...block.body, blockedCode: block.code, blockedScope: block.scope });
+            return;
+        }
         this.scheduleFlush(500);
     }
 
     /**
-     * True once the server has returned a plan-gating 4xx response.
-     * PlatformShell uses this to skip the per-save thumbnail capture and
-     * upload, and SaveOrchestrator could use it to widen its debounce.
+     * §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — reclaim exactly one slot, and only
+     * from an item that is genuinely REDUNDANT: an older queued version of a
+     * project for which a NEWER queued version also exists. The newer snapshot
+     * records a later state of the same project, so reclaiming the older one
+     * loses no work the queue would otherwise have delivered — and both remain in
+     * local version history regardless.
+     *
+     * Returns false when nothing is superseded, which is the caller's signal to
+     * refuse rather than to delete something that matters.
      */
-    isPlanRejected(): boolean {
-        return this._planRejectsSync;
+    private _evictOneSupersededItem(): boolean {
+        const newestIndexByProject = new Map<string, number>();
+        this.queue.forEach((item, i) => newestIndexByProject.set(item.projectId, i));
+        for (let i = 0; i < this.queue.length; i++) {
+            const newest = newestIndexByProject.get(this.queue[i].projectId);
+            if (newest !== undefined && newest !== i) {
+                const victim = this.queue[i];
+                console.warn(
+                    '[ServerSyncQueue] Retention ceiling reached — reclaiming the slot held by superseded ' +
+                    `version "${victim.version.label}" of project ${victim.projectId} ` +
+                    '(a newer version of the SAME project is queued and records a later state).',
+                );
+                this.queue.splice(i, 1);
+                return true;
+            }
+        }
+        return false;
     }
 
-    /** The 4xx response body that latched the rejection, for diagnostics. */
-    getPlanRejectionReason(): { status: number; body: Record<string, unknown> } | null {
-        return this._planRejectsReason;
+    // ── Block state (replaces the session-wide plan latch) ────────────────────
+
+    /**
+     * The block in force for `projectId`, or null. The session block (401) wins
+     * over a project block because it is strictly wider.
+     */
+    getSaveBlock(projectId: string): SaveBlock | null {
+        return this._sessionBlock ?? this._projectBlocks.get(projectId) ?? null;
+    }
+
+    /**
+     * Every retained-but-not-uploaded version, with the reason. ⭐ This is the
+     * list a user can be SHOWN — the whole point of retaining rather than
+     * discarding is that "did not reach the server" becomes enumerable.
+     */
+    getBlockedSaves(): ReadonlyArray<{ versionId: string; projectId: string; label: string; block: SaveBlock }> {
+        return this.queue
+            .filter((q): q is QueueItem & { blocked: SaveBlock } => q.blocked !== undefined)
+            .map(q => ({ versionId: q.version.id, projectId: q.projectId, label: q.version.label, block: q.blocked }));
+    }
+
+    /**
+     * Clear blocks and re-attempt what they were holding.
+     *
+     * ⛔ NOT a retry loop. Nothing calls this on a timer — it is called when the
+     * EVENT named by `SaveBlock.retryable` actually happens (a sign-in, a plan
+     * change). Retrying a 403 on a schedule would be a different bug.
+     *
+     * @param trigger which class of block to release; 'all' releases everything.
+     * @returns how many retained uploads were re-armed.
+     */
+    unblock(trigger: RejectionRetryTrigger | 'all' = 'all'): number {
+        const releases = (b: SaveBlock): boolean => trigger === 'all' || b.retryable === trigger;
+
+        if (this._sessionBlock && releases(this._sessionBlock)) this._sessionBlock = null;
+        for (const [projectId, b] of [...this._projectBlocks]) {
+            if (releases(b)) this._projectBlocks.delete(projectId);
+        }
+
+        let released = 0;
+        for (const item of this.queue) {
+            if (item.blocked && releases(item.blocked)) {
+                delete item.blocked;
+                item.attemptCount = 0;
+                item.nextAttemptAt = Date.now();
+                this.onSyncStatusChange(item.version.id, item.projectId, 'sync-pending');
+                released++;
+            }
+        }
+        if (released > 0) {
+            console.log(`[ServerSyncQueue] Released ${released} blocked upload(s) on "${trigger}" — re-attempting.`);
+            this.persistQueue();
+            this.scheduleFlush(500);
+        }
+        return released;
+    }
+
+    /**
+     * True when saves for `projectId` are blocked (or, with no argument, when the
+     * whole SESSION is blocked — i.e. 401 only).
+     *
+     * ⚠ The no-argument reading CHANGED MEANING in L-1310, deliberately: it used
+     * to answer "has any plan rejection happened this session", and callers used
+     * that to skip work for EVERY project. Pass the project id.
+     */
+    isPlanRejected(projectId?: string): boolean {
+        if (projectId === undefined) return this._sessionBlock !== null;
+        return this.getSaveBlock(projectId) !== null;
+    }
+
+    /** The response that produced the block, for diagnostics. */
+    getPlanRejectionReason(projectId?: string): { status: number; body: Record<string, unknown> } | null {
+        const b = projectId === undefined ? this._sessionBlock : this.getSaveBlock(projectId);
+        return b ? { status: b.status, body: b.body } : null;
     }
 
     /**
@@ -354,8 +577,78 @@ export class ServerSyncQueue {
     isCircuitOpen(): boolean { return this._isBreakerOpen(); }
     getConsecutiveFailures(): number { return this._consecutiveServerFailures; }
 
+    /** Items that flush() may still send: everything not blocked by a server "no". */
+    private _activeCount(): number {
+        return this.queue.reduce((n, item) => n + (item.blocked ? 0 : 1), 0);
+    }
+
+    /**
+     * §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — record a terminal
+     * server refusal WITHOUT deleting anything.
+     *
+     * Three properties, and each one is a defect that used to be here:
+     *   1. **the payload is retained.** The item keeps its snapshot and appears in
+     *      `getBlockedSaves()`. Only a 2xx removes an item from this queue.
+     *   2. **the scope is the server's, not ours.** A per-project refusal marks
+     *      that project. Other projects keep syncing — the old code emptied the
+     *      whole queue for a 403 about one project.
+     *   3. **it is surfaced.** `onSaveRejected` fires for EVERY terminal refusal,
+     *      not only 401/403, so a 400 `invalid_id` can no longer be invisible.
+     */
+    private _applyRejection(
+        item: QueueItem,
+        status: number,
+        body: Record<string, unknown>,
+        fate = decideRejectionFate(status, body),
+    ): void {
+        if (fate.action !== 'block') return;
+
+        const block: SaveBlock = {
+            status,
+            code: fate.code,
+            scope: fate.scope,
+            retryable: fate.retryable,
+            detail: fate.detail,
+            message: describeRejection(fate.code, fate.scope),
+            at: Date.now(),
+            body,
+        };
+
+        console.warn(
+            `[ServerSyncQueue] Server refused "${item.version.label}" (${status} · ${fate.code} · scope ` +
+            `${fate.scope}). RETAINED, not dropped. ${fate.detail}`,
+            body,
+        );
+
+        const markBlocked = (q: QueueItem): void => {
+            if (q.blocked) return;
+            q.blocked = block;
+            this.onSyncStatusChange(q.version.id, q.projectId, 'local-only');
+        };
+
+        switch (fate.scope) {
+            case 'this-session':
+                // 401 only. Genuinely everything — but retained, and released by
+                // `unblock('on-sign-in')` rather than by a page reload.
+                this._sessionBlock = block;
+                this.queue.forEach(markBlocked);
+                break;
+            case 'this-project':
+                this._projectBlocks.set(item.projectId, block);
+                this.queue.forEach(q => { if (q.projectId === item.projectId) markBlocked(q); });
+                break;
+            case 'this-save':
+            default:
+                markBlocked(item);
+                break;
+        }
+
+        this.persistQueue();
+        this.onSaveRejected(status, { ...body, blockedCode: fate.code, blockedScope: fate.scope });
+    }
+
     private async flush(): Promise<void> {
-        if (this.isFlushing || !this.isOnline || this.queue.length === 0) return;
+        if (this.isFlushing || !this.isOnline || this._activeCount() === 0) return;
 
         // §FIX-DB-SATURATION-RESILIENCE — while the breaker is OPEN, do not touch
         // the network; reschedule for just after the cooldown expires so we probe
@@ -369,7 +662,10 @@ export class ServerSyncQueue {
         this.isFlushing = true;
         const now = Date.now();
 
-        const ready = this.queue.filter(item => item.nextAttemptAt <= now);
+        // §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — a BLOCKED item is
+        // retained but never re-sent. This is what keeps "refuse, retain, surface"
+        // from turning into a retry loop against a 403.
+        const ready = this.queue.filter(item => !item.blocked && item.nextAttemptAt <= now);
 
         // §FIX-DB-SATURATION-RESILIENCE — HALF-OPEN probe: if we are still in a
         // degraded state (failures at/above threshold but the cooldown just
@@ -400,13 +696,14 @@ export class ServerSyncQueue {
         this.persistQueue();
         this.isFlushing = false;
 
-        if (this.queue.length > 0) {
+        if (this._activeCount() > 0) {
             // If the breaker opened during this pass, honour its cooldown floor.
             if (this._isBreakerOpen()) {
                 this.scheduleFlush(Math.max(this._breakerOpenUntil - Date.now(), 1_000) + 200);
                 return;
             }
             const minDelay = this.queue.reduce((min, item) => {
+                if (item.blocked) return min;
                 const wait = Math.max(0, item.nextAttemptAt - Date.now());
                 return Math.min(min, wait);
             }, rescheduleMs ?? 60_000);
@@ -510,16 +807,16 @@ export class ServerSyncQueue {
                     `[ServerSyncQueue] §L-B2 412 Precondition Failed for "${version.label}" — ` +
                     `expected ${body.expected}, server has ${body.actual}. Local copy preserved.`,
                 );
-                // Drop from active queue (won't retry — same 412 would recur)
-                // but the version stays in localStorage as `local-only` so the
-                // user can manually copy/export it after reload.
-                this.queue = this.queue.filter(q => q.version.id !== version.id);
+                // §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — this used to
+                // `filter` the item OUT of the queue. It now stays, blocked at
+                // 'this-save' scope, so the version is enumerable in
+                // `getBlockedSaves()` instead of vanishing. Later saves of the same
+                // project are unaffected: the block is per-save, not per-project.
                 this._reconciledVersionIds.delete(version.id);
-                this.onSyncStatusChange(version.id, projectId, 'local-only');
                 // Reset the cache: the next save will go without If-Match (or
                 // with a fresh count once a reload-and-re-init happens).
                 this._serverVersionCountByProject.delete(projectId);
-                this.onSaveRejected(412, {
+                this._applyRejection(item, 412, {
                     error: 'concurrent_edit',
                     actual: body.actual,
                     expected: body.expected,
@@ -531,35 +828,32 @@ export class ServerSyncQueue {
 
             if (res.status >= 400 && res.status < 500) {
                 const body = await res.json().catch(() => ({})) as Record<string, unknown>;
-                console.warn(`[ServerSyncQueue] Version "${version.label}" rejected by server (${res.status}) — dropping:`, body);
-                this.queue = this.queue.filter(q => q.version.id !== version.id);
-                this.onSyncStatusChange(version.id, projectId, 'local-only');
 
-                // PERF-FIX (2026-04-29) — latch the "plan rejects sync" flag
-                // for plan-gating responses (401/403 with a `plan` field, or
-                // an explicit `upgrade` field).  Future enqueue() calls then
-                // short-circuit without hitting the network.  Other 4xx (bad
-                // request, conflict, validation) are NOT latched — they only
-                // drop the offending version.
-                const looksLikePlanGate =
-                    (res.status === 401 || res.status === 403) &&
-                    (typeof body.plan === 'string' || typeof body.upgrade === 'string');
-                if (looksLikePlanGate && !this._planRejectsSync) {
-                    this._planRejectsSync = true;
-                    this._planRejectsReason = { status: res.status, body };
-                    // Drop everything that was queued before the latch — the
-                    // server will reject all of them with the same 4xx.
-                    if (this.queue.length > 0) {
-                        for (const q of this.queue) {
-                            this.onSyncStatusChange(q.version.id, q.projectId, 'local-only');
-                        }
-                        this.queue = [];
-                        this.persistQueue();
-                    }
-                    console.warn('[ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.');
+                // §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310).
+                //
+                // WAS: every 4xx deleted the payload from the queue, and a
+                // plan-gating 401/403 additionally EMPTIED the queue and latched a
+                // session-wide flag that made every later enqueue() a silent no-op.
+                // See the `_sessionBlock` field comment for the measured
+                // consequence — after the first 403 nothing could reach the server
+                // again for the rest of the session.
+                //
+                // NOW: the policy is a pure function with no 'discard' arm, and the
+                // refusal is applied AT ITS OWN SCOPE. `handleProjectApiError`
+                // (server/errors.js) already separates terminal from retryable on
+                // the server side; the only thing missing was a client that
+                // respected the distinction without over-generalising it.
+                const fate = decideRejectionFate(res.status, body);
+                if (fate.action === 'retry') {
+                    item.attemptCount++;
+                    console.warn(
+                        `[ServerSyncQueue] ${res.status} for "${version.label}" is not a terminal refusal ` +
+                        `(${fate.detail}) — attempt ${item.attemptCount}, retained and retried with backoff.`,
+                    );
+                    return false;
                 }
 
-                this.onSaveRejected(res.status, body);
+                this._applyRejection(item, res.status, body, fate);
                 return true;
             }
 
@@ -589,6 +883,11 @@ export class ServerSyncQueue {
             projectId: item.projectId,
             attemptCount: item.attemptCount,
             nextAttemptAt: item.nextAttemptAt,
+            // §FIX-REJECTED-SAVE-IS-NOT-A-COMPLETED-SAVE (L-1310) — the REASON travels
+            // with the payload. Without it a reload would re-attempt a refusal the
+            // server has already given (a retry loop against a 403) and, worse, would
+            // lose the only record of why the version never uploaded.
+            ...(item.blocked ? { blocked: item.blocked } : {}),
         }));
 
         // §VERSION-QUOTA-INDEXEDDB (2026-06-25) — PRIMARY persistence is IndexedDB,
@@ -700,7 +999,26 @@ export class ServerSyncQueue {
         try {
             const items = JSON.parse(raw) as QueueItem[];
             if (!Array.isArray(items)) return;
-            this.queue = items.slice(0, MAX_QUEUE_ITEMS);
+            // §FIX-QUEUE-CAP-SILENT-EVICTION (L-1312) — was `slice(0, MAX_QUEUE_ITEMS)`,
+            // which keeps the OLDEST 50 and silently discards everything newer. On a
+            // restored bulk backlog that is the exact inversion of what matters: the
+            // newest queued version of a project supersedes the older ones. Keep the
+            // newest, and SAY when anything was left behind.
+            if (items.length > HARD_QUEUE_CEILING) {
+                console.error(
+                    `[ServerSyncQueue] Restored queue holds ${items.length} item(s), above the retention ` +
+                    `ceiling of ${HARD_QUEUE_CEILING}. Keeping the ${HARD_QUEUE_CEILING} NEWEST; ` +
+                    `${items.length - HARD_QUEUE_CEILING} older queued upload(s) were not restored. ` +
+                    'Their versions remain in local history — it is the upload that was not resumed.',
+                );
+            }
+            this.queue = items.slice(-HARD_QUEUE_CEILING);
+            // Re-adopt persisted blocks so a reload does not re-POST a known refusal.
+            for (const item of this.queue) {
+                if (!item.blocked) continue;
+                if (item.blocked.scope === 'this-session') this._sessionBlock = item.blocked;
+                else if (item.blocked.scope === 'this-project') this._projectBlocks.set(item.projectId, item.blocked);
+            }
             this.queue.forEach(item => {
                 item.nextAttemptAt = Date.now() + 5000;
             });
