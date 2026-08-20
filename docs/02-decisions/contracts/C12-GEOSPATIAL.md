@@ -108,14 +108,35 @@ relocates authored geometry — the L-481 defect (a wall committed ~300 km from 
 - ✅ **Verified by code reading:** `setAnchor()` is the only mechanism in the repository that can
   place globe-scale transforms into the BIM THREE scene graph, and `_fitCamTargetToScene`
   consumes world coordinates.
-- ❌ **NOT verified:** that `setAnchor()` actually ran in the founder's session. The log line
-  `CesiumThreeBridge ACTIVATED` proves only that `activate()` ran; `setAnchor()` is called from
-  the separate `cesium-model-transformed` event.
-- ❌ **NOT verified:** that the observed target `(-1505720.29, -1635527.14, -948869.49)` is
-  arithmetically the ECEF anchor for the founder's site. Barcelona's ECEF is positive in x and
-  z; the observed triple is negative in all three. **The magnitude is globe-scale; the
-  derivation is not established.** Naming `setAnchor()` as *the* producer on magnitude alone
-  would be exactly the inference that made L-481 stall for weeks.
+- ✅ **VERIFIED 2026-08-19 (L-1420) — `setAnchor()` DOES run, and the call path recorded here was
+  WRONG.** This bullet used to read *"❌ NOT verified: that `setAnchor()` actually ran … `setAnchor()`
+  is called from the separate `cesium-model-transformed` event."* There is a **SECOND call site this
+  contract did not know about**: `apps/editor/src/ui/layout/GISAreaLayout.ts:556–560` calls
+  `bridge.setAnchor()` **unconditionally on first GIS init**, with a **hard-coded default anchor —
+  the Sydney Opera House, `lon 151.2153 / lat -33.8568`** — before any geocode, for **every project
+  in every city**. It always runs. (The unconditional Sydney default is itself a defect: **L-1423,
+  OPEN, P2**.)
+- ✅ **VERIFIED 2026-08-19 (L-1420) — the derivation IS established, for the GLB-export consumer.**
+  This bullet used to read *"❌ NOT verified: that the observed target … is arithmetically the ECEF
+  anchor."* The caution was correct and is retained below; what changed is that a **second consumer**
+  produced a number that **does** close arithmetically. The founder's 3D-Globe **Real** export logged
+  `📦 Bounding box minY: 2553068.999066395`, and:
+
+  | | |
+  |---|---|
+  | WGS-84 ECEF **Y** of the Sydney default anchor | **2 553 076.920 m** |
+  | observed `minY` | **2 553 068.999 m** |
+  | residual | **−7.921 m** = `east_y · x_local` for `east_y = −0.876435`, i.e. a **9.04 m** east extent — **a house footprint** |
+
+  The offset **is** the anchor translation and the remainder **is** the building. That is a
+  derivation, not a magnitude. It is re-derived from WGS-84 first principles (importing nothing from
+  the code under test) in `packages/file-format/__tests__/glb-export-authoring-frame.test.ts`.
+- ❌ **STILL NOT VERIFIED — do not read the above as covering it.** The **plan-fit** target
+  `(-1505720.29, -1635527.14, -948869.49)` recorded in this section is a **DIFFERENT observation from
+  a different session**, and it has **not** been closed arithmetically against any anchor. Barcelona's
+  ECEF is positive in x and z; that triple is negative in all three. **The magnitude is globe-scale;
+  that derivation is not established.** Naming `setAnchor()` as *the* producer of THAT number on
+  magnitude alone would still be exactly the inference that made L-481 stall for weeks.
 
 **Why no speculative fix was made.** The obvious candidates — filter `GIS_BIM_ROOT` out of the
 plan fit, or make the fit run in the authoring frame rather than the world frame — each change
@@ -135,6 +156,52 @@ must declare an explicit, contracted exception with a named frame flag that worl
 can test. Until one of those lands, this section stands as the record that the code disagrees
 with §1.1 and **the code is wrong**. ⇒ **The named frame is specified in §9 (the SiteFrame
 authority); L-604 is closed by folding this bridge under it.**
+
+#### §1.5.1 — The NAMED FRAME FLAG (L-1420, PARTIAL — one consumer, not the seam)
+
+*(2026-08-19. The second of the two options above, shipped for **one** consumer. ⛔ §1.5 remains
+**OPEN**; this narrows the blast radius, it does not close the violation.)*
+
+**MUST — a node that re-expresses its subtree out of the authoring frame DECLARES it.** The
+declaration is `userData.pryzmSceneFrame`: absent or `'authoring'` means the site-local metric BIM
+frame §1.1 mandates; any other value names the georeferenced frame the subtree is in.
+`CesiumThreeBridge`'s `GIS_BIM_ROOT` stamps `'geo-ecef'` at construction.
+
+**MUST — a world-space consumer that cannot tolerate a georeferenced frame DERIVES the boundary, and
+DERIVES it two ways.** The authority is
+`packages/file-format/src/export/glb/GLBExporter.ts` — `isGeoreferencedFrame` / `resolveExportFrame`:
+
+- **ARM A — DECLARED.** The flag above.
+- **ARM B — MEASURED.** A node whose **world** translation is **≥ `AUTHORING_FRAME_MAX_TRANSLATION_M`
+  (100 km)** IS a georeferencing frame by construction. §1.1 caps the authoring frame at **1 km**;
+  ECEF starts at **6.37e6 m**; **nothing real lands in the gap**, which is what makes arm B a
+  classification and not a guess.
+
+⭐ **ARM B IS NORMATIVE, NOT BELT-AND-BRACES.** Arm A alone requires every current *and future*
+producer to remember to declare — and an invariant that must be REMEMBERED rather than DERIVED is
+this repository's most-repeated defect shape. Arm B requires cooperation from nobody. **A consumer
+that implements only arm A does not satisfy this clause.**
+
+**MUST — resolve the SHALLOWEST georeferenced ancestor, never the nearest.** Georeference is inherited
+downward through `matrixWorld`, so every intermediate group beneath the boundary satisfies arm B too;
+dividing out the *nearest* match would additionally strip the element's own offset **inside** the
+building. The shallowest one is the only node whose parent is still in the authoring frame.
+
+**MUST — re-measure after resolution, and REFUSE rather than emit.** The GLB export re-measures its
+tree and, if it still reaches ≥ 100 km, **dumps PER ROOT** (world bbox **and ancestry** — see the
+probe clause below) and then **declines**, keeping the massing study. ⭐ Refusing is affordable here
+precisely because a real, working fallback already exists; a gate whose refusing branch has no
+escape hatch would be a regression with a contract citation attached.
+
+**MUST — the per-root probe, never one aggregate number.** An aggregate `minY` cannot distinguish
+*"one stray object is 2 553 km away"* from *"all 312 are"*, and those have different fixes; nor can it
+name the ancestor that carries the transform. The probe reads **world** position and prints the
+**ancestry**, for the reason L-604 already recorded: the previous probe read `obj.position` (LOCAL)
+and was therefore **a probe that passed while measuring nothing** against a parent-borne matrix.
+
+**Scope, stated honestly.** This is implemented for the **GLB export path only**. `SplitViewManager`'s
+plan fit, and every other world-space consumer of the shared scene graph, still inherit the ECEF frame
+and still rely on their own refusals. §9 item 3 remains the close.
 
 **Also noted (separate, P3, not addressed):** `packages/renderer-three/src/geospatial/CesiumThreeBridge.ts`
 is a **duplicate** of the live `plugins/geospatial` bridge and imports `three` directly. The live
@@ -385,6 +452,32 @@ C19 §1.12.2) and a **Copenhagen** sloped parcel (terrain reseat).
 `apps/editor/src/ui/site/{boundaryProjection,siteDispatch}.ts`,
 `plugins/geospatial/src/CesiumThreeBridge.ts` (+ the `renderer-three` duplicate).
 
+**Progress against item 3 (2026-08-19, L-1420) — and what it is NOT.**
+
+Item 3 (*"the `CesiumThreeBridge` MUST be de-duplicated to one copy that re-parents into an
+LTP-ENU-relative group"*) is **NOT DONE**. What landed instead is the **named frame flag** §1.5
+offered as the alternative, implemented for **exactly one consumer** — see **§1.5.1**. Concretely:
+
+- ✅ `GIS_BIM_ROOT` now **declares** the frame it imposes (`userData.pryzmSceneFrame = 'geo-ecef'`),
+  so consumers can DERIVE the boundary instead of matching the string `"GIS_BIM_ROOT"`.
+- ✅ The **GLB export** divides that frame out, so the model Cesium loads is site-local metres. This
+  fixed a **P1 production defect**: the founder's building rendered as a continent-sized slab in the
+  sky because the exporter baked ECEF (L-1420).
+- ⛔ **The bridge still puts ECEF in the shared BIM scene graph.** §1.5 stays **OPEN**, at **P1**.
+- ⛔ **The bridge is still DUPLICATED** (`plugins/geospatial/` vs `packages/renderer-three/`). Only the
+  live `plugins/` copy carries the declaration, so the copies have now **drifted further apart**, not
+  less — the P3 hazard this section names is measurably worse, and de-duplication is the fix, not
+  copying the stamp into the dead twin.
+- ⛔ **No `SiteFrame` exists**, no `check-scene-frame-single-owner` gate exists, the ~13 open-coded θ
+  sites, two origin authorities and four ground paths are **untouched**.
+- ⛔ **L-1423 (OPEN, P2)** — `GISAreaLayout.ts:556–560` anchors **every project in every city to the
+  Sydney Opera House** on first GIS init, unconditionally, before any geocode. That is the transform
+  whose ECEF **Y** produced the founder's `minY`. The correct close is item 3, **not** a different
+  hard-coded default.
+
+⭐ **A stated NOT-YET beats a claimed DONE.** One consumer was made frame-aware under a founder-live
+production defect; the seam is exactly as open as it was.
+
 **Known Violations (open):**
 - **L-631 (P1, founder-priority) — terrain relief is OFF in 3D Site (Forma) for every city.**
   `CesiumViewport.maybeAttachTerrainProvider` early-returns at `CesiumViewport.ts:5993`
@@ -529,10 +622,31 @@ measure it. Ratified from L-1204 / L-1205 (founder 2026-08-19); supersedes nothi
   and decoding the emitted glTF, never by testing a pure classifier and declaring the exporter out of
   scope. The real path runs under Node — `FileReader` is the only missing global. A suite that stubs
   the exporter proves nothing about the file Cesium loads (L-1208).
-- **KNOWN ASYMMETRY (open, founder decision).** 3D **Site** Real exports with `{ formaWhite: true }`
-  (windows → translucent glass); 3D **Globe** Real exports with no option (windows → the raw BIM
-  material, which may be an opaque solid colour). Both are deliberate in isolation — the globe wants
-  real colours on photoreal tiles — but no call site references the other. See L-1208.
+- **~~KNOWN ASYMMETRY (open, founder decision)~~ → DECIDED 2026-08-19 (L-1422).** The asymmetry was:
+  3D **Site** Real exported `{ formaWhite: true }` (windows → translucent glass) while 3D **Globe**
+  Real exported with **no option**, so windows kept the raw BIM material — *"which may be an opaque
+  solid colour"*. The founder, looking at the **globe**, reported the building as *"not rendering
+  realistically"*. **Decision: glazing MUST read as glass on the globe too.**
+  - **MUST — glazing is glass on BOTH Cesium REAL paths.** The globe path passes
+    `{ glazingOverride: true }`.
+  - **⛔ MUST NOT — the globe MUST NOT pass `formaWhite: true`.** That option also repaints every wall,
+    slab and roof near-white, i.e. hands the photoreal globe the Forma **STUDY** look. On real tiles
+    that is **strictly less realistic** — the exact opposite of the request. `glazingOverride` applies
+    the **glass half only**; opaque elements keep their **real BIM materials**. The 3D **Site** study
+    keeps full `formaWhite` and is unchanged.
+  - The one-pair-per-TREE rule above applies unchanged to `glazingOverride` (one glass material, zero
+    white ones), and is asserted on the decoded glTF `materials[]`.
+- **MUST (annotation overlays are not architecture).** Line/point/sprite renderables — edge outlines,
+  leaders, annotation strokes — are stripped from **both** Cesium REAL exports, and kept in the plain
+  GLB download (an interchange export must not be silently reduced). ⭐ The predicate is **derived from
+  the object's THREE class** (`isLine`/`isLineSegments`/`isPoints`/`isSprite`), **never a name list**:
+  the pre-existing `NON_BUILDING_EXPORT_ELEMENT_TYPES` set is matched against ROOT elements only, and
+  every real offender (`SlabEdges`, `WallEdges`, `floor-edge-overlay`) lives **inside** an element
+  subtree — so no number of added names could ever have reached them. **That set was not incomplete,
+  it was structurally blind** (L-1421).
+- **MUST (the export tree is in the AUTHORING frame).** The emitted GLB MUST be site-local metres.
+  See **§1.5.1** for the derived frame boundary, the shallowest-ancestor rule, the per-root probe and
+  the refusal. The defect this closes is the founder's continent-sized building in the sky (L-1420).
 
 - **Reference (read-only):** `apps/editor/src/ui/geospatial/formaMassingExtent.ts` ·
   `apps/editor/src/ui/geospatial/CesiumViewport.ts` (`renderFormaMassing`,
@@ -555,3 +669,4 @@ measure it. Ratified from L-1204 / L-1205 (founder 2026-08-19); supersedes nothi
 | 2026-07-26 | §9 **Known Violation L-631 recorded** — terrain relief is OFF in 3D Site (Forma) everywhere (`CesiumViewport.ts:5993` skip-gate; L-626 fix reverted `89196071`) because terrain-on-frame is not sound until SiteFrame's `sampleGround` reseats context + envelope base + heatmap. Founder wants it ON now → CONFLICT with the §9 sequencing, escalated for a founder decision. Do not flip §9 to ACTIVE on a gate-only change. |
 | 2026-07-29 | **§10 Baked-terrain quantized-mesh encoding invariants added (L-639, ADR-0278).** Interior/west-hemisphere cities rendered white because the coarse z0 root tile was horizon-culled: the vertex-centroid bounding centre of a pole-spanning tile collapses to the geocentre → a zero horizon-occlusion point → Cesium always culls the root → 0 tiles render. Fix (MUST): rectangle-centre bounding centre (§10.1) + never-cull occludee for wide-angle tiles (§10.2) + version-stamped tileset URL (§10.3) + decode-the-tile verification (§10.4). Proven by `computeTileVisibility` + decoded R2 bytes (`occMag 0→10000`); Burgos/Madrid render full relief. |
 | 2026-08-19 | **§11 The massing EXTENT contract added (L-1204/L-1205/L-1206/L-1207/L-1208).** Ring precedence: the building wall-loop/slab ring outranks the drawn PARCEL ring (the massing was extruded over the plot line, and its top cap was the pale sheet the founder reported as a broken roof). Height: the placed GLB bounding-SPHERE diameter is banned as a height source (it reported a 20.9 m building as 42.4 m and synthesised 7 phantom storeys); synthetic bands must declare themselves and name their height source. GLB: unsupported materials must be named, one white/glass pair per export tree, and export behaviour asserted through the REAL exporter. |
+| 2026-08-19 | **§1.5.1 the NAMED FRAME FLAG added; §1.5 two "NOT verified" items resolved; §9 progress + §11.4 asymmetry DECIDED (L-1420/L-1421/L-1422/L-1423).** The founder's 3D-Globe Real building rendered as a continent-sized slab in the sky: `minY 2553068.999` is the WGS-84 ECEF **Y** of the **Sydney Opera House** (2 553 076.920) minus **7.921 m**, which is `east_y x_local` for a **9.04 m** house footprint — a derivation, not a magnitude. `GISAreaLayout:556-560` calls `setAnchor()` **unconditionally at GIS init** with that hard-coded default (a call site §1.5 did not know about, and itself L-1423), and the exporter baked `matrixWorld`. §1.5.1 makes the frame boundary **DERIVED** (arm A declared `userData.pryzmSceneFrame`, arm B measured >=100 km, shallowest ancestor, per-root probe, refuse-not-emit). §11.4: glazing reads as glass on the globe via `glazingOverride` — explicitly **NOT** `formaWhite: true`, which would be less realistic; and annotation overlays are stripped by THREE class, never by a name list. **§1.5 and §9 stay OPEN.** |
