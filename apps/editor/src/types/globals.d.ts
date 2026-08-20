@@ -127,7 +127,17 @@ declare global {
         // `PlanToolDrawContext.stairConfig`. Do not reintroduce this global.
 
         // ── Tool singletons (registered by initTools) ─────────────────────────
-        slabTool: { enterProfileEditMode: (slab: object) => void } | undefined;
+        // §FIX-SLAB-EDITOR-CHOICE (L-1320) — the slab exposes TWO editors by name.
+        // ⚠ `enterProfileEditMode` no longer silently redirects to the dimension
+        // panel; each editor is its own verb and each request is judged on its own.
+        slabTool: {
+            enterProfileEditMode: (slab: object) => void;
+            enterDimensionEditMode?: (slabId: string) => { ok: boolean; reason?: string };
+            slabEditorAvailability?: (
+                slabId: string,
+                requested: 'outline' | 'dimensions',
+            ) => { ok: boolean; reason?: string };
+        } | undefined;
         ceilingTool:        unknown;
         floorTool:          unknown;
         roofTool:           unknown;

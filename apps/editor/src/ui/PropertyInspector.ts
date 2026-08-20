@@ -610,6 +610,50 @@ export class PropertyInspector {
                             console.warn('[PropertyInspector] slabTool not available for profile edit');
                         }
                     });
+                    // ── §FIX-SLAB-EDITOR-CHOICE (L-1320) — "Edit Dimensions" ─────
+                    //
+                    // ⭐ THIS BUTTON IS THE OTHER HALF OF THE FIX, AND IT IS NOT
+                    // OPTIONAL. The Width/Depth panel used to be reachable ONLY by
+                    // `enterProfileEditMode`'s hidden redirect; removing that redirect
+                    // without giving the panel its own affordance would have traded one
+                    // unreachable editor for another — closing L-1320 by inverting it.
+                    //
+                    // It is DISABLED, with the gate's own sentence as its tooltip, when
+                    // the slab is not rectangular: `SlabDimensionsEditor` writes a
+                    // 4-corner axis-aligned box, so Apply on a circular slab would
+                    // replace the circle. The tooltip is the SAME sentence the tool
+                    // refuses with — asked from the gate, never re-written here
+                    // (C84 EI-9, §REFUSAL-IDENTITY).
+                    {
+                        const slabTool = window.slabTool;
+                        const verdict = slabTool?.slabEditorAvailability?.(slab.id, 'dimensions')
+                            ?? { ok: true as boolean, reason: undefined as string | undefined };
+                        const dimBtn = document.createElement('button');
+                        dimBtn.textContent = 'Edit Dimensions';
+                        dimBtn.disabled = !verdict.ok;
+                        dimBtn.title = verdict.ok
+                            ? 'Set this slab’s width and depth'
+                            : (verdict.reason ?? 'Not available for this slab');
+                        dimBtn.style.cssText = [
+                            'flex:1', 'font-size:11px', 'padding:5px 8px',
+                            'background:var(--app-bg-deep,#1e3a5f)',
+                            'color:var(--app-accent-light,#93c5fd)',
+                            'border:1px solid rgba(147,197,253,0.3)',
+                            'border-radius:5px',
+                            verdict.ok ? 'cursor:pointer' : 'cursor:not-allowed',
+                            verdict.ok ? 'opacity:1' : 'opacity:0.45',
+                            'letter-spacing:0.02em',
+                        ].join(';');
+                        if (verdict.ok) {
+                            dimBtn.addEventListener('click', () => {
+                                const t = window.slabTool;
+                                if (t?.enterDimensionEditMode) t.enterDimensionEditMode(slab.id);
+                                else console.warn('[PropertyInspector] slabTool has no enterDimensionEditMode');
+                            });
+                        }
+                        editRow.appendChild(dimBtn);
+                    }
+
                     const hint = document.createElement('span');
                     hint.textContent = 'or double-click';
                     hint.style.cssText = 'font-size:10px;color:var(--app-text-muted,#aaa);white-space:nowrap;flex-shrink:0;';

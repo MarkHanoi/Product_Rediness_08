@@ -21,6 +21,9 @@ import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
 // polyline slab drawn in 3D obeys the same ORTHO constraint and the same CURVED
 // arc gesture as one drawn in plan (C11 §3 — parity by construction).
 import { orthoConstrain, type BoundaryDrawMode } from './boundaryPath.js';
+// §FIX-SLAB-EDITOR-CHOICE (L-1320) — the ONE place that decides which editor a slab
+// opens, asked as the question the caller actually asked.
+import { slabEditorAvailability, type SlabEditorKind, type SlabEditorVerdict } from './slabEditorTarget.js';
 // §FIX-COMMIT-STEALS-VIEW (2026-08-07) — consume the Enter/Escape the tool acts on
 // so it cannot also activate a focused view/camera button. See toolKeyGuard.ts.
 import { consumeToolKey, releaseFocusedControl } from './toolKeyGuard.js';
@@ -1716,11 +1719,21 @@ export class SlabTool {
             return;
         }
 
-        // §11 §1.2 — Mode A: FLOOR_SKETCH slabs (width > 0 && depth > 0) use the
-        // floating dimension edit panel instead of the vertex-drag editor.
-        // Mode A is the rectangular-resize path; Mode B (below) is freeform vertex drag.
-        if ((slab.width ?? 0) > 0 && (slab.depth ?? 0) > 0) {
-            this._showDimensionEditPanel(slabId);
+        // ⭐ §FIX-SLAB-EDITOR-CHOICE (L-1320) — THE REDIRECT THAT USED TO SIT HERE IS GONE.
+        //
+        // It read `if ((slab.width ?? 0) > 0 && (slab.depth ?? 0) > 0) { showDimensionPanel;
+        // return; }` and was correct while region/polyline slabs stored `width: 0, depth: 0`.
+        // §FIX-REGION-SLAB-3D-LADDER (L-1121, `:448`) then correctly gave EVERY slab a real
+        // bbox, so the condition became true for all of them and this method — reached from
+        // four routes all labelled "Edit Profile" — stopped ever opening the outline editor.
+        //
+        // The predicate could not express the question it was asked: "does this slab have
+        // dimensions?" stood in for "which editor did the user ask for?". The caller now
+        // NAMES the editor (this method IS the outline request; `enterDimensionEditMode` is
+        // the other one), and the request is judged by `slabEditorAvailability`.
+        const outlineVerdict = slabEditorAvailability(slab, 'outline');
+        if (!outlineVerdict.ok) {
+            console.warn('[SlabTool] enterProfileEditMode refused —', outlineVerdict.reason);
             return;
         }
 
@@ -2054,6 +2067,39 @@ export class SlabTool {
      *
      * §11 §4.4 — Property Panel — Dimension Edit
      */
+    /**
+     * §FIX-SLAB-EDITOR-CHOICE (L-1320) — OPEN THE WIDTH/DEPTH PANEL, BY NAME.
+     *
+     * This is the request `enterProfileEditMode` used to answer silently on the
+     * caller's behalf. It is now its own verb, so "Edit Profile" and "Edit
+     * Dimensions" are two questions with two answers instead of one question with a
+     * hidden branch.
+     *
+     * ⚠ It REFUSES rather than redirecting when the panel's own write would be
+     * unfaithful — `SlabDimensionsEditor` applies a 4-corner axis-aligned rectangle,
+     * so on a circular slab Apply would replace the circle with a box.
+     */
+    public enterDimensionEditMode(slabId: string): SlabEditorVerdict {
+        const slab = this._deps.getSlabStore?.()?.getById(slabId);
+        const verdict = slabEditorAvailability(slab, 'dimensions');
+        if (!verdict.ok) {
+            console.warn('[SlabTool] enterDimensionEditMode refused —', verdict.reason);
+            return verdict;
+        }
+        if (this.isInProfileEditMode) this.exitProfileEditMode();
+        this._showDimensionEditPanel(slabId);
+        return verdict;
+    }
+
+    /**
+     * May this slab open the named editor? Consulted by the toolbar so a disabled
+     * control and the tool's own refusal are THE SAME SENTENCE (C84 EI-9,
+     * §REFUSAL-IDENTITY) — the gate is asked, never re-implemented.
+     */
+    public slabEditorAvailability(slabId: string, requested: SlabEditorKind): SlabEditorVerdict {
+        return slabEditorAvailability(this._deps.getSlabStore?.()?.getById(slabId), requested);
+    }
+
     private _showDimensionEditPanel(slabId: string): void {
         if (!this.dimensionsEditor) {
             // DIMENSION-SYSTEM-AUDIT-2026 §A4 — propagate the same DI bag the

@@ -120,3 +120,7 @@ export { l1HolesToLegacy, legacyHolesToL1 } from './SlabHoleCoords';
 // ceiling tools. A GESTURE axis, orthogonal to boundaryPath's CONSTRAINT axis
 // (C92 SL-Voc-3). Pure, THREE-free.
 export * from './boundaryLoops';
+
+// -- §FIX-SLAB-EDITOR-CHOICE (L-1320) -- which editor a slab opens, asked as the
+// question the caller actually asked. Pure, THREE-free.
+export * from './slabEditorTarget';
