@@ -38,6 +38,8 @@ import * as PryzmIcons from '../../icons/PryzmIcons';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
 import { shortcutForTool, formatTooltip } from './creationToolShortcuts';
+// LANDSCAPE-CATALOGUE (L-1380) - one derived source, both create surfaces.
+import { buildTreeCreateItems, buildPottedPlantCreateItems } from '../../create/landscapeCreateItems';
 
 interface DisciplineTool {
     label:    string;
@@ -1119,23 +1121,33 @@ export class CreateRailPanel {
                 id:    'landscape',
                 label: 'Landscape',
                 icon:  PryzmIcons.plant,
+                // LANDSCAPE-CATALOGUE (L-1380) - these two lists are DERIVED from
+                // LANDSCAPE_CATALOGUE (@pryzm/geometry-furniture), not typed here.
+                // They previously read Plant 01..Plant 08 under one droplet icon
+                // while the 25-species parametric outdoor tree library - real
+                // species, mature heights, crown radii, architectural plan symbols -
+                // was reachable only from the Interiors furniture carousel.
+                // Trees and potted plants are SEPARATE tools on purpose: a 16 m
+                // Podocarpus and a 0.5 m glass table vase are not one family, and
+                // collapsing them is the vocabulary defect this replaces.
                 tools: [
                     {
-                        label: 'Plants',
+                        label: 'Trees',
                         icon:  PryzmIcons.plant,
                         action: () => { /* handled by subPanel */ },
                         subPanel: {
-                            title: 'Plant Types',
-                            items: [
-                                { label: 'Plant 01', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_01') },
-                                { label: 'Plant 02', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_02') },
-                                { label: 'Plant 03', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_03') },
-                                { label: 'Plant 04', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_04') },
-                                { label: 'Plant 05', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_05') },
-                                { label: 'Plant 06', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_06') },
-                                { label: 'Plant 07', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_07') },
-                                { label: 'Plant 08', icon: 'material-symbols:local-florist', action: () => service.activateFurnitureTool('plant_08') },
-                            ],
+                            title: 'Trees & Planting',
+                            items: buildTreeCreateItems(t => service.activateFurnitureTool(t)),
+                        } as any,
+                        disabled: () => false,
+                    },
+                    {
+                        label: 'Potted Plants',
+                        icon:  PryzmIcons.plant,
+                        action: () => { /* handled by subPanel */ },
+                        subPanel: {
+                            title: 'Potted Plants',
+                            items: buildPottedPlantCreateItems(t => service.activateFurnitureTool(t)),
                         } as any,
                         disabled: () => false,
                     },

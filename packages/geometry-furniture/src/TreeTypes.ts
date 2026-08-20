@@ -34,6 +34,104 @@ export type TreeArchetype =
     | 'flowering'          // Round canopy + scattered colour-flecked flowers (T-9, T-21)
     | 'multi_lobed';       // Overlapping multi-blob organic canopy (T-19)
 
+// ── Planting classification (C97 §LANDSCAPE) ─────────────────────────────
+
+/**
+ * Botanical type class — **AUTHORED per species, never derived.**
+ *
+ * ⛔ This MUST NOT be computed from `TreeArchetype`. Archetype is a *visual*
+ * family (how the mass is built); type class is a *botanical* fact. They
+ * genuinely disagree: `arbol_t_06` (A_CIPRES — a cypress, i.e. a CONIFER)
+ * carries archetype `round_dense`, and `arbol_t_14` (A_MOLLE COSTEÑO — an
+ * evergreen Schinus) carries archetype `willow`. Deriving one from the other
+ * would print a confident botanical claim that is wrong — the exact
+ * "two orthogonal concepts must not share one word" failure C92 §SL-Voc-3
+ * and C84 EI-8/EI-9 name.
+ */
+export type PlantingTypeClass =
+    | 'deciduous'            // sheds foliage seasonally
+    | 'evergreen-broadleaf'  // retains broadleaf foliage year-round
+    | 'conifer'              // needle / scale foliage, cone-bearing
+    | 'palm'                 // single-stem monocot, fronded crown
+    | 'ornamental-flowering' // grown primarily for flower display
+    | 'hedge-screen'         // grown as a clipped screen / boundary mass
+    | 'potted';             // container planting, not ground-planted
+
+/**
+ * Crown form — **DERIVED from `TreeArchetype`**, because archetype IS the
+ * form family: it selects the mesh builder that produces the silhouette.
+ * Nothing is authored here; see `ARCHETYPE_FORM`.
+ */
+export type PlantingForm =
+    | 'spreading'
+    | 'rounded'
+    | 'open-branched'
+    | 'formal-clipped'
+    | 'columnar'
+    | 'conical'
+    | 'weeping'
+    | 'multi-stemmed'
+    | 'fronded';
+
+/**
+ * Archetype → crown form. TOTAL by construction: `Record<TreeArchetype, …>`
+ * makes a new archetype a **compile error** until its form is declared.
+ */
+export const ARCHETYPE_FORM: Readonly<Record<TreeArchetype, PlantingForm>> = {
+    round_dense:        'spreading',
+    round_open:         'open-branched',
+    round_dotted:       'rounded',
+    topiary:            'formal-clipped',
+    branchy:            'open-branched',
+    conifer_columnar:   'columnar',
+    conifer_pyramid:    'conical',
+    conifer_starburst:  'conical',
+    palm:               'fronded',
+    willow:             'weeping',
+    flowering:          'rounded',
+    multi_lobed:        'multi-stemmed',
+};
+
+/**
+ * Archetype → trunk clear height as a fraction of total height.
+ *
+ * ⚠ These are **TRANSCRIBED FROM THE GEOMETRY**, not estimated: each value is
+ * the `const trunkH = def.height * N` literal in the matching
+ * `ParametricTreeEngine._build<Archetype>()` method, so the clear height this
+ * table reports is the clear height the built mesh actually has.
+ *
+ *   round_dense        ParametricTreeEngine.ts:239   0.40
+ *   round_open         :250                          0.45
+ *   round_dotted       :268                          0.40
+ *   topiary            :279                          0.45
+ *   branchy            :307                          0.40
+ *   conifer_columnar   :340                          0.10
+ *   conifer_pyramid    :372                          0.15
+ *   conifer_starburst  :395                          0.20
+ *   palm               :429                          0.80
+ *   willow             :466                          0.40
+ *   flowering          :495                          0.40
+ *   multi_lobed        :517                          0.35
+ *
+ * ⛔ If a builder's literal changes, change it here in the same commit — a
+ * clear height that disagrees with the mesh is worse than none, because a
+ * designer uses it to decide whether a path fits underneath.
+ */
+export const ARCHETYPE_TRUNK_CLEAR_RATIO: Readonly<Record<TreeArchetype, number>> = {
+    round_dense:        0.40,
+    round_open:         0.45,
+    round_dotted:       0.40,
+    topiary:            0.45,
+    branchy:            0.40,
+    conifer_columnar:   0.10,
+    conifer_pyramid:    0.15,
+    conifer_starburst:  0.20,
+    palm:               0.80,
+    willow:             0.40,
+    flowering:          0.40,
+    multi_lobed:        0.35,
+};
+
 // ── Species identifiers ──────────────────────────────────────────────────
 
 export type TreeSpeciesId =
@@ -54,6 +152,12 @@ export interface TreeSpeciesDef {
     readonly speciesName: string;
     /** Visual archetype (drives both 3D and plan-symbol builders). */
     readonly archetype: TreeArchetype;
+    /**
+     * Botanical type class. REQUIRED — a new species without one is a compile
+     * error, which is the point: this is the field that cannot be computed
+     * (see `PlantingTypeClass`), so it must be authored deliberately.
+     */
+    readonly typeClass: PlantingTypeClass;
     /** Total tree height in metres (trunk + canopy). */
     readonly height: number;
     /** Outer canopy radius in metres (the "footprint" radius). */
@@ -81,18 +185,21 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_01: {
         id: 'arbol_t_01', label: 'Arbol T-01', speciesName: 'Generic Deciduous',
         archetype: 'round_dense',
+        typeClass: 'deciduous',
         height: 8.0,  crownRadius: 3.0, trunkRadius: 0.18,
         foliageColor: '#94b86b', trunkColor: '#5a4632', density: 1.0,
     },
     arbol_t_02: {
         id: 'arbol_t_02', label: 'Arbol T-02', speciesName: 'Generic Round',
         archetype: 'round_dotted',
+        typeClass: 'deciduous',
         height: 7.0,  crownRadius: 2.6, trunkRadius: 0.16,
         foliageColor: '#a8c47a', trunkColor: '#634a35', density: 1.0,
     },
     arbol_t_03: {
         id: 'arbol_t_03', label: 'Arbol T-03', speciesName: 'A_CEDRO',
         archetype: 'round_open',
+        typeClass: 'conifer',
         height: 12.0, crownRadius: 3.4, trunkRadius: 0.22,
         foliageColor: '#9bbf6c', accentColor: '#c9d8a3',
         trunkColor: '#4a3826', density: 0.7,
@@ -100,6 +207,7 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_04: {
         id: 'arbol_t_04', label: 'Arbol T-04', speciesName: 'A_GUAYACAN AMARILLO',
         archetype: 'topiary',
+        typeClass: 'ornamental-flowering',
         height: 9.0,  crownRadius: 3.0, trunkRadius: 0.18,
         foliageColor: '#c8c25a', accentColor: '#e0c93a',
         trunkColor: '#5a3f24', density: 1.0,
@@ -107,30 +215,35 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_05: {
         id: 'arbol_t_05', label: 'Arbol T-05', speciesName: 'A_URAPAN',
         archetype: 'topiary',
+        typeClass: 'evergreen-broadleaf',
         height: 10.0, crownRadius: 3.2, trunkRadius: 0.20,
         foliageColor: '#a4c372', trunkColor: '#5a4632', density: 1.1,
     },
     arbol_t_06: {
         id: 'arbol_t_06', label: 'Arbol T-06', speciesName: 'A_CIPRES',
         archetype: 'round_dense',
+        typeClass: 'conifer',
         height: 10.0, crownRadius: 2.8, trunkRadius: 0.18,
         foliageColor: '#5b8a4f', trunkColor: '#4a3826', density: 1.4,
     },
     arbol_t_07: {
         id: 'arbol_t_07', label: 'Arbol T-07', speciesName: 'A_NOGAL',
         archetype: 'round_dotted',
+        typeClass: 'deciduous',
         height: 11.0, crownRadius: 3.6, trunkRadius: 0.24,
         foliageColor: '#90b167', trunkColor: '#5a3e22', density: 1.0,
     },
     arbol_t_08: {
         id: 'arbol_t_08', label: 'Arbol T-08', speciesName: 'A_ALAMO',
         archetype: 'conifer_pyramid',
+        typeClass: 'deciduous',
         height: 14.0, crownRadius: 2.4, trunkRadius: 0.20,
         foliageColor: '#5a8a3e', trunkColor: '#5a4030', density: 1.2,
     },
     arbol_t_09: {
         id: 'arbol_t_09', label: 'Arbol T-09', speciesName: 'A_CASCO DE BUEY',
         archetype: 'flowering',
+        typeClass: 'ornamental-flowering',
         height: 8.0,  crownRadius: 3.4, trunkRadius: 0.18,
         foliageColor: '#9ab368', accentColor: '#d4a3c5',
         trunkColor: '#5a4030', density: 1.0,
@@ -138,12 +251,14 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_10: {
         id: 'arbol_t_10', label: 'Arbol T-10', speciesName: 'A_PINO COLOMBIANO',
         archetype: 'conifer_columnar',
+        typeClass: 'conifer',
         height: 16.0, crownRadius: 1.4, trunkRadius: 0.22,
         foliageColor: '#4f7a3a', trunkColor: '#5a3826', density: 1.5,
     },
     arbol_t_11: {
         id: 'arbol_t_11', label: 'Arbol T-11', speciesName: 'A_ALISO',
         archetype: 'round_open',
+        typeClass: 'deciduous',
         height: 9.0,  crownRadius: 3.0, trunkRadius: 0.18,
         foliageColor: '#a3c074', accentColor: '#c9b0a1',
         trunkColor: '#4a3826', density: 0.6,
@@ -151,48 +266,56 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_12: {
         id: 'arbol_t_12', label: 'Arbol T-12', speciesName: 'A_TULIPAN AFRICANO',
         archetype: 'branchy',
+        typeClass: 'ornamental-flowering',
         height: 10.0, crownRadius: 3.4, trunkRadius: 0.22,
         foliageColor: '#7fa84d', trunkColor: '#5a3826', density: 1.1,
     },
     arbol_t_13: {
         id: 'arbol_t_13', label: 'Arbol T-13', speciesName: 'A_PINO',
         archetype: 'conifer_starburst',
+        typeClass: 'conifer',
         height: 12.0, crownRadius: 2.0, trunkRadius: 0.18,
         foliageColor: '#5b8a4f', trunkColor: '#4a3022', density: 1.3,
     },
     arbol_t_14: {
         id: 'arbol_t_14', label: 'Arbol T-14', speciesName: 'A_MOLLE COSTEÑO',
         archetype: 'willow',
+        typeClass: 'evergreen-broadleaf',
         height: 8.0,  crownRadius: 3.6, trunkRadius: 0.22,
         foliageColor: '#6f9a4a', trunkColor: '#5a4030', density: 1.0,
     },
     arbol_t_15: {
         id: 'arbol_t_15', label: 'Arbol T-15', speciesName: 'A_MURALLA EXOTICA',
         archetype: 'branchy',
+        typeClass: 'hedge-screen',
         height: 6.0,  crownRadius: 2.4, trunkRadius: 0.14,
         foliageColor: '#8eb158', trunkColor: '#5a4030', density: 1.4,
     },
     arbol_t_16: {
         id: 'arbol_t_16', label: 'Arbol T-16', speciesName: 'A_TILO',
         archetype: 'round_dense',
+        typeClass: 'deciduous',
         height: 9.0,  crownRadius: 3.0, trunkRadius: 0.20,
         foliageColor: '#9fbf6b', trunkColor: '#5a4030', density: 1.0,
     },
     arbol_t_17: {
         id: 'arbol_t_17', label: 'Arbol T-17', speciesName: 'A_ROBLE',
         archetype: 'round_open',
+        typeClass: 'deciduous',
         height: 11.0, crownRadius: 3.6, trunkRadius: 0.26,
         foliageColor: '#a3c074', trunkColor: '#5a3826', density: 0.8,
     },
     arbol_t_18: {
         id: 'arbol_t_18', label: 'Arbol T-18', speciesName: 'A_PALMA DE CERA',
         archetype: 'palm',
+        typeClass: 'palm',
         height: 18.0, crownRadius: 2.2, trunkRadius: 0.14,
         foliageColor: '#6a9a4a', trunkColor: '#7a5a3a', density: 1.0,
     },
     arbol_t_19: {
         id: 'arbol_t_19', label: 'Arbol T-19', speciesName: 'A_CEREZO',
         archetype: 'multi_lobed',
+        typeClass: 'ornamental-flowering',
         height: 7.0,  crownRadius: 3.0, trunkRadius: 0.18,
         foliageColor: '#94b86b', accentColor: '#bdd29a',
         trunkColor: '#5a4030', density: 1.0,
@@ -200,12 +323,14 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_20: {
         id: 'arbol_t_20', label: 'Arbol T-20', speciesName: 'A_SANGRE DE GRADO',
         archetype: 'round_dotted',
+        typeClass: 'evergreen-broadleaf',
         height: 9.0,  crownRadius: 3.2, trunkRadius: 0.20,
         foliageColor: '#8db35a', trunkColor: '#5a3826', density: 1.0,
     },
     arbol_t_21: {
         id: 'arbol_t_21', label: 'Arbol T-21', speciesName: 'A_JACARANDA',
         archetype: 'flowering',
+        typeClass: 'ornamental-flowering',
         height: 10.0, crownRadius: 3.6, trunkRadius: 0.22,
         foliageColor: '#9ab368', accentColor: '#7a64b4',
         trunkColor: '#4a3826', density: 1.0,
@@ -213,24 +338,28 @@ export const TREE_SPECIES_TABLE: Readonly<Record<TreeSpeciesId, TreeSpeciesDef>>
     arbol_t_22: {
         id: 'arbol_t_22', label: 'Arbol T-22', speciesName: 'A_PINO CANDELABRO',
         archetype: 'conifer_starburst',
+        typeClass: 'conifer',
         height: 12.0, crownRadius: 2.4, trunkRadius: 0.20,
         foliageColor: '#5b8a4f', trunkColor: '#5a3826', density: 1.2,
     },
     arbol_t_23: {
         id: 'arbol_t_23', label: 'Arbol T-23', speciesName: 'A_PALMA CUBANA',
         archetype: 'palm',
+        typeClass: 'palm',
         height: 14.0, crownRadius: 2.6, trunkRadius: 0.18,
         foliageColor: '#7aa44a', trunkColor: '#7a5a3a', density: 1.2,
     },
     arbol_t_24: {
         id: 'arbol_t_24', label: 'Arbol T-24', speciesName: 'A_FICUS ORNAMENTAL',
         archetype: 'round_dotted',
+        typeClass: 'evergreen-broadleaf',
         height: 8.0,  crownRadius: 3.0, trunkRadius: 0.18,
         foliageColor: '#94b86b', trunkColor: '#5a4030', density: 1.1,
     },
     arbol_t_25: {
         id: 'arbol_t_25', label: 'Arbol T-25', speciesName: 'A_SAUCE',
         archetype: 'round_dotted',
+        typeClass: 'deciduous',
         height: 9.0,  crownRadius: 3.4, trunkRadius: 0.20,
         foliageColor: '#a8c47a', trunkColor: '#5a4030', density: 1.0,
     },

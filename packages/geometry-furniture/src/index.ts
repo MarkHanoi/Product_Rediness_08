@@ -25,6 +25,8 @@ export * from './FurnitureCategoryMap';
 // material-intelligence layers in cognition L4 §3.A/D).
 export * from './FurnitureMaterialIntent';
 export * from './TreeTypes';
+// §LANDSCAPE-CATALOGUE (L-1380) — the derived source the LANDSCAPE panel renders.
+export * from './LandscapeCatalogue';
 
 export * from './builders/BedBuilder';
 export * from './builders/BedFactory';

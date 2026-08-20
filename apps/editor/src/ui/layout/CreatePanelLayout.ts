@@ -11,6 +11,8 @@ import { floorPickerToToolMode, ceilingPickerToToolMode, type PickerInstances } 
 import type { UIProps } from '../Layout';
 import type { BimService } from '@app/engine/BimService';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+// LANDSCAPE-CATALOGUE (L-1380) - one derived source, both create surfaces.
+import { buildTreeCreateItems, buildPottedPlantCreateItems } from '../create/landscapeCreateItems';
 // C17 — Batch Creation Catalogue & Panel Binding. Single source of truth for the
 // batch-creation prompts surfaced as `⚡ Batch` leaves (CB-1 additive; CB-8 shared
 // prompt strings). Dispatch goes through the documented Path-A sink (C17 §10/§11).
@@ -364,22 +366,24 @@ export function mountCreatePanel(
                 icon: "material-symbols:park",
                 children: {
                     title: "Outdoor Elements",
+                    // LANDSCAPE-CATALOGUE (L-1380) - DERIVED from
+                    // LANDSCAPE_CATALOGUE, shared verbatim with CreateRailPanel so
+                    // the two live create surfaces cannot drift apart by hand.
                     items: [
                         {
-                            label: "Plant",
+                            label: "Trees",
+                            icon: "material-symbols:park",
+                            children: {
+                                title: "Trees & Planting",
+                                items: buildTreeCreateItems(t => service.activateFurnitureTool(t))
+                            }
+                        },
+                        {
+                            label: "Potted Plants",
                             icon: "material-symbols:potted-plant",
                             children: {
-                                title: "Plant Types",
-                                items: [
-                                    { label: "Plant 01", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_01') },
-                                    { label: "Plant 02", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_02') },
-                                    { label: "Plant 03", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_03') },
-                                    { label: "Plant 04", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_04') },
-                                    { label: "Plant 05", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_05') },
-                                    { label: "Plant 06", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_06') },
-                                    { label: "Plant 07", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_07') },
-                                    { label: "Plant 08", icon: "material-symbols:local-florist", action: () => service.activateFurnitureTool('plant_08') }
-                                ]
+                                title: "Potted Plants",
+                                items: buildPottedPlantCreateItems(t => service.activateFurnitureTool(t))
                             }
                         }
                     ]

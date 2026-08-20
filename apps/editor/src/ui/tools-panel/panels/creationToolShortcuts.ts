@@ -88,7 +88,12 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     'Component':            'Alt+Shift+M',
 
     // ── Landscape ─────────────────────────────────────────────────
-    'Plants':               'Alt+Shift+P',
+    // LANDSCAPE-CATALOGUE (L-1380) - 'Plants' split into two tools, because
+    // ground-planted trees and container plantings are not one family.
+    // 'Trees' keeps Alt+Shift+P (the muscle memory the old single tool had);
+    // potted plants take Alt+Shift+W, the nearest free letter.
+    'Trees':                'Alt+Shift+P',
+    'Potted Plants':        'Alt+Shift+W',
 };
 
 /**

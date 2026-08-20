@@ -8,6 +8,8 @@
 
 import type { FurnitureCategoryDescriptor } from './FurnitureCategoryTypes';
 import type { FurnitureMaterial, FurnitureType } from '@pryzm/geometry-furniture';
+// LANDSCAPE-CATALOGUE (L-1380) - the derived source for container planting.
+import { LANDSCAPE_POTTED_ENTRIES } from '@pryzm/geometry-furniture';
 
 void (undefined as unknown as FurnitureMaterial);
 void (undefined as unknown as FurnitureType);
@@ -24,54 +26,25 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
                 defaultDimensions: { width: 0.8, length: 0.4, height: 0.6, baseOffset: 0.0 },
                 defaultMaterial: 'metal',
             },
-            {
-                type: 'plant_01',
-                label: 'Plant 1',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_02',
-                label: 'Plant 2',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_03',
-                label: 'Plant 3',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_04',
-                label: 'Plant 4',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_05',
-                label: 'Plant 5',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_06',
-                label: 'Plant 6',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_07',
-                label: 'Plant 7',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
-            {
-                type: 'plant_08',
-                label: 'Plant 8',
-                defaultDimensions: { width: 0.6, length: 0.6, height: 0.8, baseOffset: 0.0 },
-                defaultMaterial: 'wood',
-            },
+            // LANDSCAPE-CATALOGUE (L-1380) - THE EIGHT DESCRIPTORS WERE IDENTICAL.
+            // Every one of plant_01..plant_08 carried `0.6 x 0.6 x 0.8`, which is
+            // why the panel showed eight indistinguishable rows - and worse, the
+            // descriptor WINS over the builder default (FurnitureTool.ts:248 reads
+            // `desc?.defaultDimensions` first), so Plant02's 1.8 m tall floor plant
+            // and Plant05's 1.2 m terracotta pot were being SQUASHED to 0.8 m on
+            // every placement. The dimensions now come from LANDSCAPE_POTTED_ENTRIES,
+            // whose heights are transcribed from each builder's own default.
+            ...LANDSCAPE_POTTED_ENTRIES.map(e => ({
+                type:              e.furnitureType,
+                label:             e.label,
+                defaultDimensions: {
+                    width:      e.footprint.width,
+                    length:     e.footprint.length,
+                    height:     e.footprint.height,
+                    baseOffset: 0.0,
+                },
+                defaultMaterial: 'wood' as const,
+            })),
             {
                 type: 'kave_indoor_plant',
                 label: 'Indoor Plant',
