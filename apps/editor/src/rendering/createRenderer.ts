@@ -433,6 +433,30 @@ export async function createRenderer(
     // device-loss safe-mode recovery) forces the backend for THIS call only, WITHOUT
     // persisting it, so the user's stored preference is never silently flip-flopped.
     const pref = resolveEffectiveBackendPreference(backendOverride);
+
+    // ── §RENDER-QUALITY-USER-PIN (L-1512) — restore the OTHER persisted render preference ──
+    //
+    // The backend toggle is not the only render choice a user can make and expect to
+    // survive a reload: `renderQualityPin` stores an explicit SceneQualityTier that
+    // outranks the ADR-0094 large-scene cap. It has to be pushed into the tier manager
+    // BEFORE the first `applyTierForMeshCount()`, or the founder's pinned `balanced`
+    // silently renders at `performance` until something re-evaluates the tier.
+    //
+    // This is the seam because it is the one that is guaranteed to run first — the
+    // renderer is constructed before any geometry exists. AWAITED, not fired and
+    // forgotten: "restored eventually" is not the same claim as "restored before the
+    // first tier evaluation", and only the second one is true of a pin that works.
+    // Dynamically imported so this module's node-environment consumers
+    // (rendererBackendPreference.test.ts) need not load the core-app-model rendering
+    // barrel; best-effort, because a preference that cannot be restored must never stop a
+    // renderer from being built.
+    try {
+        const { restoreRenderQualityPin } = await import('./renderQualityPin');
+        restoreRenderQualityPin();
+    } catch (err: unknown) {
+        console.warn('[createRenderer] §RENDER-QUALITY-USER-PIN restore failed (non-fatal):', err);
+    }
+
     // §L-372 Batch 2 / L-382 — 'webgl-classic' routes DIRECTLY to a genuine classic
     // THREE.WebGLRenderer (backend 'webgl-only', no TSL/node compile). It shares the
     // forceWebGL entry (skip the WebGPU adapter), plus a dedicated flag telling the

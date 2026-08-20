@@ -24,6 +24,13 @@ import { getExportStudioPanel }        from '../../rendering/ExportStudioPanel';
 import { getRenderQueuePanel }          from '../../rendering/RenderQueuePanel';
 import { getVisualizationEnginePanel }  from '../../rendering/VisualizationEnginePanel';
 import { VisualStyle }                  from '@pryzm/core-app-model/material-library';
+import {
+    applyRenderQualityPin,
+    getRenderQualityPin,
+    pinIsRicherThanAutomatic,
+    type RenderQualityPin,
+    type TierApplier,
+}                                       from '../../../rendering/renderQualityPin';
 import * as PryzmIcons                  from '../../icons/PryzmIcons';
 import type { ToolsRailController }     from '../ToolsRailController';
 import type { ToolsPanelProps }         from '../ToolsPanelTypes';
@@ -121,6 +128,13 @@ export class RenderRailPanel {
         }
         body.appendChild(segment);
 
+        // Render Quality pin (§RENDER-QUALITY-USER-PIN, L-1512)
+        const qualityDivider = document.createElement('div');
+        qualityDivider.className   = 'tpr-vis-divider';
+        qualityDivider.textContent = 'Render Quality';
+        body.appendChild(qualityDivider);
+        body.appendChild(this._buildRenderQualityControl());
+
         // Annotations checkbox
         const annoDivider = document.createElement('div');
         annoDivider.className   = 'tpr-vis-divider';
@@ -135,6 +149,119 @@ export class RenderRailPanel {
         }));
 
         return this._buildSubSection('Visual', body, true);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // §RENDER-QUALITY-USER-PIN (L-1512) — explicit render-quality override
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The founder's request: *"I would like to ad-hoc be able to have a sound rendering
+     * shadow quality."*
+     *
+     * `SceneQualityTierManager`'s §PERF-LARGE-SCENE-TIER-CAP (ADR-0094) caps every scene
+     * at/above 1,200 meshes to `performance` — shadowLevel `standard`, no decorative
+     * furniture shadows. His building is ~4,100 meshes, so nothing he can do in the app
+     * reaches `high` shadows. This control is the way to say "I accept the frame cost".
+     *
+     * ⚠ IT MUST NOT PIN SILENTLY. When the chosen tier is RICHER than the automatic one,
+     * the note below names the mesh count and the cap being overridden, so a stutter that
+     * follows is attributable to this choice rather than mysterious. A control that
+     * quietly outranks a documented cap manufactures exactly the kind of "the app got
+     * worse and nobody knows why" report this panel is trying to answer.
+     *
+     * ⚠ AND IT IS NOT A CAPABILITY CLAIM. The pin passes THROUGH `applyBackendGate`, so on
+     * the WebGL2 fallback backend SSGI/TRAA stay off and shadows stay `standard` no matter
+     * what is picked — that is a property of the machine, not a preference.
+     */
+    private _buildRenderQualityControl(): HTMLElement {
+        const wrap = document.createElement('div');
+
+        const note = document.createElement('div');
+        note.className = 'tpr-rnd-sub-label';
+        note.style.whiteSpace = 'normal';
+        note.style.lineHeight = '1.35';
+
+        const options: Array<{ label: string; value: RenderQualityPin }> = [
+            { label: 'Auto (scene size decides)', value: 'auto'        },
+            { label: 'Cinematic — high shadows + probes', value: 'cinematic' },
+            { label: 'Balanced — high shadows',   value: 'balanced'    },
+            { label: 'Performance — standard shadows', value: 'performance' },
+            { label: 'Survival — shadows off',    value: 'survival'    },
+        ];
+
+        const current = getRenderQualityPin();
+
+        const wrapSel = document.createElement('div');
+        wrapSel.className = 'tpr-rnd-select-wrap';
+        const select = document.createElement('select');
+        select.className = 'tpr-rnd-select';
+        select.title = 'Override the automatic scene-size quality tier (ADR-0094).';
+        for (const opt of options) {
+            const el = document.createElement('option');
+            el.value       = opt.value;
+            el.textContent = opt.label;
+            if (opt.value === current) el.selected = true;
+            select.appendChild(el);
+        }
+        wrapSel.appendChild(select);
+
+        const apply = (pin: RenderQualityPin): void => {
+            // P4 — a narrow structural type, not `(window as any)`.
+            const coordinator = window.renderingPipelineCoordinator as TierApplier | null | undefined; // TODO(D.4): legacy renderingPipelineCoordinator — replace with runtime.scene.renderer.pipeline coordinator
+            const result = applyRenderQualityPin(pin, coordinator);
+
+            if (pin === 'auto') {
+                note.textContent =
+                    'Quality follows the scene: large scenes step down automatically (ADR-0094).';
+                note.style.color = '#888';
+                return;
+            }
+
+            const meshes = result.meshCount !== undefined
+                ? `${result.meshCount.toLocaleString()} meshes`
+                : 'an unmeasured scene';
+            const auto = result.automaticTier ?? 'not yet decided';
+
+            if (pinIsRicherThanAutomatic(pin, result.automaticTier)) {
+                // Say the whole thing. Naming the count and the cap is what makes a later
+                // stutter attributable to this pin.
+                note.textContent =
+                    `Pinned to "${pin}". This scene has ${meshes}, which the automatic policy `
+                    + `caps at "${auto}" (ADR-0094, ≥1,200 meshes). You are overriding that cap — `
+                    + 'expect a lower frame rate while it is pinned.'
+                    + (result.reapplied ? '' : ' It will take effect at the next scene change.');
+                note.style.color = 'var(--app-accent,#6600ff)';
+            } else {
+                note.textContent =
+                    `Pinned to "${pin}" (${meshes}; the automatic tier is "${auto}").`
+                    + (result.reapplied ? '' : ' It will take effect at the next scene change.');
+                note.style.color = '#888';
+            }
+        };
+
+        select.addEventListener('change', () => {
+            const pin = select.value as RenderQualityPin;
+            console.log(`[RenderRailPanel] §RENDER-QUALITY-USER-PIN Render quality → ${pin}`);
+            apply(pin);
+        });
+
+        // Reflect the RESTORED pin without re-driving the renderer on panel open: the pin
+        // is already in force (createRenderer restored it at boot), so describe it, do not
+        // re-apply it. Re-applying here would rebuild the shadow map every time the rail is
+        // opened.
+        if (current === 'auto') {
+            note.textContent =
+                'Quality follows the scene: large scenes step down automatically (ADR-0094).';
+            note.style.color = '#888';
+        } else {
+            note.textContent = `Pinned to "${current}" — overriding the automatic scene-size tier.`;
+            note.style.color = 'var(--app-accent,#6600ff)';
+        }
+
+        wrap.appendChild(wrapSel);
+        wrap.appendChild(note);
+        return wrap;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

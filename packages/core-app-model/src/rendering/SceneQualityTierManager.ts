@@ -422,6 +422,33 @@ export function computeTier(meshCount: number, prevTier?: SceneQualityTier): Sce
 // ── Stateful convenience wrapper ───────────────────────────────────────────────
 
 /**
+ * §RENDER-QUALITY-USER-PIN (L-1512) — what one `update()` decided, and WHY.
+ *
+ * `tier` / `changed` / `settings` are the original shape and mean exactly what they
+ * always did, so every existing caller is unaffected. The two new fields exist so the
+ * UI can be HONEST rather than merely obedient: a user who pins `cinematic` on a
+ * 4,102-mesh building is overriding the ADR-0094 cap, and a stutter that follows must be
+ * attributable to that choice rather than mysterious. A control that silently outranks a
+ * documented cap and says nothing is how a "the renderer got worse" report arrives six
+ * weeks later with no cause attached.
+ */
+export interface SceneQualityDecision {
+    /** The tier that was APPLIED — the pin when one is set, otherwise the automatic tier. */
+    readonly tier: SceneQualityTier;
+    /** True when the APPLIED tier differs from the previously applied one. */
+    readonly changed: boolean;
+    /** The settings for `tier`, always after {@link applyBackendGate}. */
+    readonly settings: SceneQualitySettings;
+    /**
+     * What the automatic mesh-count policy (hysteresis + the ADR-0094 large-scene cap)
+     * would have chosen. Equals `tier` whenever no pin is set.
+     */
+    readonly automaticTier: SceneQualityTier;
+    /** True when `tier` came from {@link SceneQualityTierManager.setTierOverride}. */
+    readonly pinned: boolean;
+}
+
+/**
  * A tiny stateful holder for the wiring layer: remembers the last applied tier
  * so `update(meshCount)` can apply hysteresis across calls and report whether the
  * tier actually changed (so the caller debounces / only re-applies on change).
@@ -431,9 +458,91 @@ export function computeTier(meshCount: number, prevTier?: SceneQualityTier): Sce
 export class SceneQualityTierManager {
     private _tier: SceneQualityTier | undefined = undefined;
 
-    /** The currently held tier, or undefined before the first update(). */
+    /**
+     * §RENDER-QUALITY-USER-PIN (L-1512) — an EXPLICIT user choice that outranks the
+     * automatic mesh-count policy, or `null` for "Auto".
+     *
+     * THE FOUNDER'S REPORT: *"Lately the quality WebGPU has decreased — probably to remove
+     * some performance error — however I would like to ad-hoc be able to have a sound
+     * rendering shadow quality."* He is right about the cause:
+     * {@link LARGE_SCENE_PERFORMANCE_CAP_MESH_COUNT} caps ANY scene at/above 1,200 meshes
+     * to `performance` (shadowLevel `standard`, no decorative-furniture shadows), and his
+     * real building is ~4,100 meshes. No amount of scene editing can reach `balanced` or
+     * `cinematic` from there — the cap is decisive and deliberately not subject to
+     * hysteresis. That cap is CORRECT as an automatic default; what was missing is a way
+     * for a user to say "I accept the frame cost on this scene".
+     *
+     * ⚠ THE PIN IS NOT A CAPABILITY CLAIM. It is applied BEFORE {@link applyBackendGate},
+     * never instead of it. WebGL2 physically cannot run the TSL SSGI/TRAA pipeline — that
+     * is a property of the backend, not a preference — so a pin to `cinematic` on WebGL2
+     * still comes back with `ssgi: false`, `traa: false` and `shadowLevel: 'standard'`. A
+     * preference may overrule a POLICY; it may never overrule a CAPABILITY. (The
+     * mesh-count shadow ceiling the wiring layer applies on top — shadows OFF at ≥ 8,000
+     * meshes, §SHADOW-DEVICE-LOSS-FIX — is likewise a crash guard, not a policy, and a pin
+     * does not reach it.)
+     *
+     * The pin does NOT participate in hysteresis: {@link _tier} keeps tracking the
+     * AUTOMATIC tier underneath, so clearing the pin returns byte-identical automatic
+     * behaviour rather than resuming from wherever the pin left the state machine. That
+     * property is pinned by a test.
+     */
+    private _override: SceneQualityTier | null = null;
+
+    /** The last `meshCount` passed to {@link update} — `undefined` before the first call. */
+    private _lastMeshCount: number | undefined = undefined;
+    /** The last `isWebGPU` passed to {@link update}. */
+    private _lastIsWebGPU: boolean | undefined = undefined;
+    /** The last tier actually APPLIED (pin-aware) — drives `changed`. */
+    private _lastAppliedTier: SceneQualityTier | undefined = undefined;
+
+    /**
+     * The tier currently in force — the pin when one is set, otherwise the held automatic
+     * tier. `undefined` only before the first update() with no pin set.
+     */
     get currentTier(): SceneQualityTier | undefined {
+        return this._override ?? this._tier;
+    }
+
+    /** The held AUTOMATIC tier, ignoring any pin. `undefined` before the first update(). */
+    get automaticTier(): SceneQualityTier | undefined {
         return this._tier;
+    }
+
+    /** The explicit user pin, or `null` for "Auto". */
+    get tierOverride(): SceneQualityTier | null {
+        return this._override;
+    }
+
+    /** The mesh count the last {@link update} was given, so a caller can re-apply with it. */
+    get lastMeshCount(): number | undefined {
+        return this._lastMeshCount;
+    }
+
+    /** The backend flag the last {@link update} was given, so a caller can re-apply with it. */
+    get lastIsWebGPU(): boolean | undefined {
+        return this._lastIsWebGPU;
+    }
+
+    /**
+     * §RENDER-QUALITY-USER-PIN (L-1512) — pin the render tier explicitly, or pass `null`
+     * to return to the automatic mesh-count policy.
+     *
+     * Setting a pin does NOT itself re-apply anything — this class is a decision service
+     * and owns no THREE state (P2/P3). The caller re-drives the wiring layer, which is why
+     * {@link lastMeshCount} / {@link lastIsWebGPU} are exposed: re-applying with the SAME
+     * inputs is what makes the pin take effect immediately instead of at the next
+     * geometry event.
+     *
+     * P8: `pryzm.scene-quality.set-override` span.
+     */
+    setTierOverride(tier: SceneQualityTier | null): void {
+        withTierSpan(
+            'set-override',
+            { 'pryzm.scene_quality.override': tier ?? 'auto' },
+            () => {
+                this._override = tier;
+            },
+        );
     }
 
     /**
@@ -457,7 +566,7 @@ export class SceneQualityTierManager {
     update(
         meshCount: number,
         isWebGPU?: boolean,
-    ): { tier: SceneQualityTier; changed: boolean; settings: SceneQualitySettings } {
+    ): SceneQualityDecision {
         return withTierSpan(
             'update',
             {
@@ -465,19 +574,44 @@ export class SceneQualityTierManager {
                 'pryzm.scene_quality.is_webgpu': isWebGPU ?? 'unknown',
             },
             () => {
-                const next = computeTier(meshCount, this._tier);
-                const changed = next !== this._tier;
-                this._tier = next;
+                // §RENDER-QUALITY-USER-PIN (L-1512) — the AUTOMATIC tier advances on every
+                // update whether or not a pin is set. Feeding the pin back into the
+                // hysteresis state would make "clear the pin" resume from the pin rather
+                // than from where the scene actually is; keeping the two separate is what
+                // makes the unpinned path byte-identical to the pre-pin behaviour.
+                const automaticTier = computeTier(meshCount, this._tier);
+                this._tier = automaticTier;
+                this._lastMeshCount = meshCount;
+                this._lastIsWebGPU = isWebGPU;
+
+                const next = this._override ?? automaticTier;
+                const changed = next !== this._lastAppliedTier;
+                this._lastAppliedTier = next;
+
+                // The backend gate runs on the PINNED tier too, and last — SSGI/TRAA on
+                // WebGL2 are a capability the machine does not have, not a preference the
+                // user may express. See the `_override` docblock.
                 const settings = applyBackendGate(settingsForTier(next), isWebGPU);
-                return { tier: next, changed, settings };
+                return { tier: next, changed, settings, automaticTier, pinned: this._override !== null };
             },
         );
     }
 
-    /** Forget the held tier (e.g. on project close). The next update() is a cold start. */
+    /**
+     * Forget the held tier (e.g. on project close). The next update() is a cold start.
+     *
+     * §RENDER-QUALITY-USER-PIN (L-1512) — this deliberately does NOT clear the user's pin.
+     * The pin is a statement of intent by a person; the hysteresis state is a derived
+     * cache. Dropping the first because we are dropping the second is the same defect
+     * §HEURISTIC-MAY-OVERRIDE-A-PIN-BUT-NEVER-OVERWRITE-IT (L-1483) records for the
+     * renderer-backend preference. Use `setTierOverride(null)` to clear a pin.
+     */
     reset(): void {
         withTierSpan('reset', {}, () => {
             this._tier = undefined;
+            this._lastAppliedTier = undefined;
+            this._lastMeshCount = undefined;
+            this._lastIsWebGPU = undefined;
         });
     }
 }

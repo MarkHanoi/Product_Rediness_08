@@ -288,3 +288,144 @@ describe('SceneQualityTierManager (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
         });
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RENDER-QUALITY-USER-PIN (L-1512) — the explicit user tier override.
+//
+// THE FOUNDER'S REPORT: "Lately the quality WebGPU has decreased — probably to remove
+// some performance error — however I would like to ad-hoc be able to have a sound
+// rendering shadow quality." His scene is ~4,102 meshes, so §PERF-LARGE-SCENE-TIER-CAP
+// (ADR-0094) pins him at `performance` — shadowLevel 'standard', decorative shadows off
+// — and NOTHING he can do to the scene reaches 'high'. The cap is correct as an automatic
+// default; the pin is the missing way to say "I accept the frame cost here".
+//
+// The two claims that carry risk, and therefore the two tests with teeth:
+//   1. Unpinned, the manager is BYTE-IDENTICAL to the pre-pin algorithm. Asserted against
+//      the pure functions the old `update()` composed — they are unchanged, so this is a
+//      real equivalence proof, not a restatement.
+//   2. The pin never claims a CAPABILITY. It runs BEFORE applyBackendGate, never instead
+//      of it, so a `cinematic` pin on WebGL2 still comes back with SSGI/TRAA off.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§RENDER-QUALITY-USER-PIN (L-1512) — explicit tier override', () => {
+    /** Mesh counts that cross every boundary the automatic policy has, in both directions. */
+    const SWEEP: ReadonlyArray<readonly [number, boolean | undefined]> = [
+        [0, true], [800, true], [1_199, true], [1_211, true], [4_102, true],
+        [2_600, true], [1_000, true], [500, undefined], [16_000, false],
+        [14_000, false], [16_400, true], [900, true], [4_102, true],
+    ];
+
+    it('unpinned: update() is byte-identical to the pre-pin pure composition', () => {
+        const mgr = new SceneQualityTierManager();
+        let prev: SceneQualityTier | undefined;
+        for (const [n, gpu] of SWEEP) {
+            // Exactly what the old `update()` body did.
+            const expectedTier = computeTier(n, prev);
+            const expectedChanged = expectedTier !== prev;
+            const expectedSettings = applyBackendGate(settingsForTier(expectedTier), gpu);
+            prev = expectedTier;
+
+            const got = mgr.update(n, gpu);
+            expect(got.tier).toBe(expectedTier);
+            expect(got.changed).toBe(expectedChanged);
+            expect(got.settings).toEqual(expectedSettings);
+            expect(got.pinned).toBe(false);
+            expect(got.automaticTier).toBe(expectedTier);
+        }
+    });
+
+    it('a pin does not corrupt the hysteresis state — clearing it rejoins the automatic path', () => {
+        const control = new SceneQualityTierManager();
+        const pinned  = new SceneQualityTierManager();
+        pinned.setTierOverride('cinematic');
+
+        const controlTiers: SceneQualityTier[] = [];
+        const pinnedAutoTiers: SceneQualityTier[] = [];
+        for (const [n, gpu] of SWEEP) {
+            controlTiers.push(control.update(n, gpu).tier);
+            pinnedAutoTiers.push(pinned.update(n, gpu).automaticTier);
+        }
+        // The automatic tier underneath the pin tracked the control exactly.
+        expect(pinnedAutoTiers).toEqual(controlTiers);
+
+        // Clearing the pin returns the SAME tier the control is holding — the pin never
+        // fed itself back into the hysteresis state machine.
+        pinned.setTierOverride(null);
+        const after = pinned.update(4_102, true);
+        const controlAfter = control.update(4_102, true);
+        expect(after.tier).toBe(controlAfter.tier);
+        expect(after.pinned).toBe(false);
+    });
+
+    it('the founder\'s case: pinning beats the ADR-0094 cap on a 4,102-mesh building', () => {
+        const mgr = new SceneQualityTierManager();
+
+        const auto = mgr.update(4_102, true);
+        expect(auto.tier).toBe('performance');          // the cap, as designed
+        expect(auto.settings.shadowLevel).toBe('standard');
+        expect(auto.settings.decorativeFurnitureShadows).toBe(false);
+
+        mgr.setTierOverride('balanced');
+        const pin = mgr.update(4_102, true);
+        expect(pin.pinned).toBe(true);
+        expect(pin.tier).toBe('balanced');
+        expect(pin.automaticTier).toBe('performance');  // reported, so the UI can say so
+        expect(pin.changed).toBe(true);                 // so the wiring layer re-applies
+        expect(pin.settings.shadowLevel).toBe('high');  // the "sound shadow quality" asked for
+        expect(pin.settings.decorativeFurnitureShadows).toBe(true);
+        expect(pin.settings.shadows).toBe(true);
+    });
+
+    it('a pin is a PREFERENCE, never a CAPABILITY claim — WebGL2 still gates it', () => {
+        const mgr = new SceneQualityTierManager();
+        mgr.setTierOverride('cinematic');
+        const { tier, settings } = mgr.update(4_102, false);
+        expect(tier).toBe('cinematic');
+        // applyBackendGate ran AFTER the pin, not instead of it.
+        expect(settings.ssgi).toBe(false);
+        expect(settings.traa).toBe(false);
+        expect(settings.reflectionProbes).toBe(false);
+        expect(settings.shadowLevel).toBe('standard');
+        expect(settings.decorativeFurnitureShadows).toBe(false);
+    });
+
+    it('changed fires on pin/unpin, and not on a re-apply with the same pin', () => {
+        const mgr = new SceneQualityTierManager();
+        mgr.update(4_102, true);
+        mgr.setTierOverride('cinematic');
+        expect(mgr.update(4_102, true).changed).toBe(true);
+        expect(mgr.update(4_102, true).changed).toBe(false);
+        mgr.setTierOverride(null);
+        expect(mgr.update(4_102, true).changed).toBe(true);
+    });
+
+    it('currentTier reports what is APPLIED; automaticTier reports what policy wanted', () => {
+        const mgr = new SceneQualityTierManager();
+        mgr.update(4_102, true);
+        expect(mgr.currentTier).toBe('performance');
+        expect(mgr.tierOverride).toBeNull();
+
+        mgr.setTierOverride('cinematic');
+        expect(mgr.currentTier).toBe('cinematic');
+        expect(mgr.automaticTier).toBe('performance');
+        expect(mgr.tierOverride).toBe('cinematic');
+    });
+
+    it('the last inputs are recalled so a pin change can be re-applied immediately', () => {
+        const mgr = new SceneQualityTierManager();
+        expect(mgr.lastMeshCount).toBeUndefined();
+        mgr.update(4_102, true);
+        expect(mgr.lastMeshCount).toBe(4_102);
+        expect(mgr.lastIsWebGPU).toBe(true);
+    });
+
+    it('reset() clears the derived hysteresis state but NEVER the user\'s pin (L-1483)', () => {
+        const mgr = new SceneQualityTierManager();
+        mgr.update(4_102, true);
+        mgr.setTierOverride('balanced');
+        mgr.reset();
+        expect(mgr.automaticTier).toBeUndefined();
+        expect(mgr.lastMeshCount).toBeUndefined();
+        expect(mgr.tierOverride).toBe('balanced');
+        expect(mgr.currentTier).toBe('balanced');
+    });
+});
