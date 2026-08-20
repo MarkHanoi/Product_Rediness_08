@@ -48,6 +48,7 @@ import {
 import {
     boundaryLoopVertices, boundaryLoopRefusal, BOUNDARY_LOOP_GESTURE,
     BOUNDARY_LOOP_LABELS, type BoundaryLoopMode,
+    describeBoundaryLoop, type BoundaryShapeDescriptor,
 } from '@pryzm/geometry-slab';
 
 const SLAB_FILL_COLOR   = '#64748b';
@@ -116,6 +117,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._slabPoints = [];
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the intent dies with the stroke
+        // that made it. One slab’s shape must never be stamped onto the next.
+        this._pendingShape = undefined;
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
@@ -136,6 +140,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
     deactivate(): void {
         this._clearOverlay();
         this._slabPoints = [];
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the intent dies with the stroke
+        // that made it. One slab’s shape must never be stamped onto the next.
+        this._pendingShape = undefined;
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
@@ -247,6 +254,11 @@ export class SlabPlanToolHandler implements PlanToolHandler {
                 this._slabPoints = ring.map((v) => ({
                     worldX: v.x, worldZ: v.z, screenX: 0, screenY: 0,
                 })) as WorldPoint[];
+                // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — record the INTENT beside the
+                // ring. It is captured from the GESTURE, never re-derived from the
+                // vertices: deriving intent from geometry is the guess the field exists
+                // to avoid.
+                this._pendingShape = describeBoundaryLoop(loopMode, first, second) ?? undefined;
                 this._cursorPt = pt;
                 this._drawPreview();
                 this._commitSlab();
@@ -292,6 +304,13 @@ export class SlabPlanToolHandler implements PlanToolHandler {
      * it 'rectangular'. Mapped here, reconciled under L-1322 — never diverged
      * silently (C84 EI-8).
      */
+    /**
+     * §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the intent for the gesture in
+     * flight, cleared on every commit and every cancel so one slab's shape can
+     * never be stamped onto the next.
+     */
+    private _pendingShape: BoundaryShapeDescriptor | undefined;
+
     private _loopMode(): BoundaryLoopMode | null {
         const m = this._familyMode();
         return m === '2point'     ? 'rectangular'
@@ -355,6 +374,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
 
     cancel(): void {
         this._slabPoints = [];
+        this._pendingShape = undefined;
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;
@@ -416,6 +436,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             // TODO(C11 §7.4): unify on a single world-Vec3 convention {x,y:0,z} and
             // translate in the §FT1 bridge — tracked as SLAB-BOUNDARY-CONVENTION.
             polygon:  poly.map(p => ({ x: p.worldX, y: p.worldZ, z: p.worldZ })),
+            // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — undefined for a hand-drawn
+            // polyline, which is the correct statement about it: it IS a free polygon.
+            boundaryShape: this._pendingShape,
         })?.then(() => {
             console.log('[SlabPlanToolHandler] slab created', slabId);
 
@@ -470,6 +493,9 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         })?.catch((e: unknown) => console.error('[SlabPlanToolHandler] slab.create failed:', e));
 
         this._slabPoints = [];
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the intent dies with the stroke
+        // that made it. One slab’s shape must never be stamped onto the next.
+        this._pendingShape = undefined;
         this._cursorPt   = null;
         this._candidateRegion = null;
         this._candidateSketch = null;

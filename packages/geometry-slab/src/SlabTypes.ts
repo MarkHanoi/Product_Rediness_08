@@ -2,6 +2,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
 import { CoreElement } from '@pryzm/core-app-model';
 import { SlabSketch } from './SketchTypes';
+// §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape-intent record.
+import type { BoundaryShapeDescriptor } from './boundaryLoops';
 
 export interface SlabCreatorCallbacks {
     applyHighlight: (obj: THREE.Object3D) => void;
@@ -100,6 +102,22 @@ export interface SlabData extends CoreElement {
      * When absent, the static `polygon` field is used directly (backward compat).
      */
     sketch?: SlabSketch;
+    /**
+     * §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape's INTENT, alongside the ring.
+     *
+     * ⭐ `polygon` REMAINS the geometry and the single source of truth: every builder,
+     * exporter and take-off reads it and NONE of them reads this. What this adds is the
+     * one thing tessellation destroys — "this ring is a circle of radius r centred here"
+     * — so a re-edit can offer a RADIUS instead of 48 handles (C81, intent preservation).
+     *
+     * ⚠ ABSENT ⇒ A FREE POLYGON. Every slab authored before this field existed simply
+     * has none, which is the correct statement about it. Nothing migrates.
+     *
+     * ⛔ It MUST be dropped by any edit that moves, adds or removes a vertex — see
+     * `resolveBoundaryShapeAfterEdit`. A descriptor that outlived its geometry would
+     * claim a circle the slab no longer is.
+     */
+    boundaryShape?: BoundaryShapeDescriptor;
     /**
      * §03 Semantic anchor: the slab is positioned so its TOP face aligns
      * with the level datum (Finished Floor Level).

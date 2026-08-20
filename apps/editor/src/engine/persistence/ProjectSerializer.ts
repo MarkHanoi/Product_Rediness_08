@@ -692,6 +692,12 @@ interface SerializedSlab {
     layers: SlabData['layers'];
     systemTypeId: string | null | undefined;
     sketch: unknown;
+    // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape INTENT. ⭐ It is listed HERE
+    // rather than in `TransientSlabKey` deliberately: it is authored by the user and is
+    // NOT recoverable from the polygon, so omitting it would be a real loss, not a
+    // transient. The `_SlabSnapshotCoverage` assertion below is what forced this line to
+    // exist — the field could not be added to `SlabData` without the build naming it.
+    boundaryShape: SlabData['boundaryShape'];
     properties: SlabData['properties'];
     ifcData: SlabData['ifcData'];
 }
@@ -736,6 +742,12 @@ function serializeSlab(s: SlabData): SerializedSlab {
         layers: s.layers ? s.layers.map((l: any) => ({ ...l })) : undefined,
         systemTypeId: s.systemTypeId,
         sketch: s.sketch ? deepStrip(s.sketch) : undefined,
+        // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape INTENT. Written
+        // here and read back by BOTH restore twins (ImportProjectCommand, the
+        // default-on path, and ProjectLoader), because a field written by the
+        // serializer and read by only one of them is the exact shape of the five
+        // save/load holes found this week.
+        boundaryShape: s.boundaryShape ? deepStrip(s.boundaryShape) : undefined,
         properties: s.properties ? { ...s.properties } : {},
         ifcData: s.ifcData ? { ...s.ifcData } : undefined
     };

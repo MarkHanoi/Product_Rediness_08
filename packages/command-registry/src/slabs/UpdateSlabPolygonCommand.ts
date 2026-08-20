@@ -19,6 +19,8 @@ import type { SlabData } from '@pryzm/geometry-slab';
 // The remaining slab imports in this package are all TYPES, hence `import type`,
 // which is erased and creates no runtime edge.
 import { polygonBoundingBox, signedArea } from '@pryzm/geometry-slab/geom-utils';
+// §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape-intent invalidation rule.
+import { resolveBoundaryShapeAfterEdit } from '@pryzm/geometry-slab';
 
 /**
  * UpdateSlabPolygonCommand
@@ -193,6 +195,34 @@ export class UpdateSlabPolygonCommand implements Command {
         const { width, depth } = polygonBoundingBox(this.payload.polygon);
         nextState.width = parseFloat(width.toFixed(6));
         nextState.depth = parseFloat(depth.toFixed(6));
+
+        // ⭐ §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — THE INVALIDATION, AND THIS IS THE
+        // ONE PLACE IT HAPPENS.
+        //
+        // This command is the SOLE writer of `polygon` during profile editing (§01 §2.2
+        // above says so), which makes it the only chokepoint where a stored shape INTENT
+        // can be checked against the geometry it claims to describe.
+        //
+        // ⛔ A descriptor that survived a vertex drag would claim a circle the slab no
+        // longer is — a silently-wrong element, which this repo forbids by name
+        // (`WallRake.ts:50-62`). So the intent is re-asked, never assumed: it survives
+        // only while it still AGREES with the ring, and any drag, insertion or deletion
+        // drops it. `resolveBoundaryShapeAfterEdit` returns `undefined` rather than
+        // throwing because losing the intent is the CORRECT outcome of a hand edit, not
+        // an error.
+        //
+        // ⚠ Note it is re-checked even when the polygon is unchanged (an idempotent
+        // re-commit): a check that is skipped on the path someone thinks is safe is the
+        // check that is missing on the path that was not.
+        const nextShape = resolveBoundaryShapeAfterEdit(
+            (nextState as { boundaryShape?: unknown }).boundaryShape,
+            this.payload.polygon.map((pt) => ({ x: pt.x, z: pt.y })),
+        );
+        if (nextShape === undefined) {
+            delete (nextState as { boundaryShape?: unknown }).boundaryShape;
+        } else {
+            (nextState as { boundaryShape?: unknown }).boundaryShape = nextShape;
+        }
 
         // §01 R-2: Store mutation fires `bim-slab-updated` → EngineBootstrap subscriber
         // → builder.updateSlab(). The command never calls the builder directly.

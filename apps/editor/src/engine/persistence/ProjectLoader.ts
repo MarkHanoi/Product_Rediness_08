@@ -992,6 +992,10 @@ export class ProjectLoader {
                     position: slab.position,
                     levelId: slab.levelId,
                     polygon: slab.polygon,
+                    // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — parity with
+                    // ImportProjectCommand, so the two twins cannot disagree about
+                    // what a restored slab remembers.
+                    boundaryShape: (slab as { boundaryShape?: never }).boundaryShape,
                     holes: slab.holes,
                     sketch: slab.sketch,
                     // ⭐ C100 §2.1 / ARM E — the slab's MATERIAL, which this payload

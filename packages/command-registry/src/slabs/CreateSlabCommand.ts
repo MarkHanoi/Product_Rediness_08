@@ -2,7 +2,7 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { stableCreatedId } from '../StableCreatedId';
 import type { SlabData } from '@pryzm/geometry-slab';
 import type { SlabSketch } from '@pryzm/geometry-slab';
-import type { SlabLayer } from '@pryzm/geometry-slab';
+import type { SlabLayer, BoundaryShapeDescriptor } from '@pryzm/geometry-slab';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the stair-void invariant has ONE owner; this
@@ -34,6 +34,22 @@ export interface CreateSlabPayload {
      * references at projection time, enabling Revit-style host-boundary association.
      */
     sketch?: SlabSketch;
+    /**
+     * §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape's INTENT, alongside the ring.
+     *
+     * ⭐ `polygon` REMAINS the geometry and the single source of truth: every builder,
+     * exporter and take-off reads it and NONE of them reads this. What this adds is the
+     * one thing tessellation destroys — "this ring is a circle of radius r centred here"
+     * — so a re-edit can offer a RADIUS instead of 48 handles (C81, intent preservation).
+     *
+     * ⚠ ABSENT ⇒ A FREE POLYGON. Every slab authored before this field existed simply
+     * has none, which is the correct statement about it. Nothing migrates.
+     *
+     * ⛔ It MUST be dropped by any edit that moves, adds or removes a vertex — see
+     * `resolveBoundaryShapeAfterEdit`. A descriptor that outlived its geometry would
+     * claim a circle the slab no longer is.
+     */
+    boundaryShape?: BoundaryShapeDescriptor;
     /**
      * ⭐ C100 §2.1 / ARM E — the slab's MATERIAL, and why it is on the payload.
      *
@@ -221,7 +237,13 @@ export class CreateSlabCommand implements Command {
             },
             polygon: this.payload.polygon ? this.payload.polygon.map(p => ({ x: p.x, y: p.y })) : undefined,
             holes: this.payload.holes ? this.payload.holes.map(h => h.map(p => ({ x: p.x, y: p.y }))) : undefined,
-            sketch: this.payload.sketch ? structuredClone(this.payload.sketch) : undefined
+            sketch: this.payload.sketch ? structuredClone(this.payload.sketch) : undefined,
+            // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — carried verbatim. It is
+            // NOT re-derived from the polygon here: deriving intent from geometry
+            // is exactly the guess this field exists to avoid.
+            boundaryShape: this.payload.boundaryShape
+                ? structuredClone(this.payload.boundaryShape)
+                : undefined
         };
 
         context.stores.slabStore.add(slabData);

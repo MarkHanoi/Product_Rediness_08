@@ -363,3 +363,156 @@ export function boundaryLoopRefusal(
                    `Equal axes give a circle.`;
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — the shape's INTENT, alongside the ring
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ THE RULING, AND WHY IT IS A DESCRIPTOR *ALONGSIDE* AND NOT *INSTEAD*.
+//
+// The polygon REMAINS the geometry and the single source of truth for every
+// consumer — earcut, the panel builders, walls-from-ring, persistence, exporters,
+// area take-off, IFC. ⛔ Nothing downstream reads this descriptor to build anything.
+// That is deliberate and it is what keeps this from becoming either a sixth save/load
+// hole or a second producer of one value (the L-1121 shape).
+//
+// What the descriptor adds is the one thing tessellation destroys: the INTENT.
+// "This ring is a circle of radius 3.4 centred here" is not recoverable from 48
+// vertices with any confidence, and it is exactly what C81 (Design Edit & Intent
+// Preservation) exists to keep. With it, re-editing a circular slab can offer a
+// RADIUS instead of 48 handles.
+//
+// ─── ABSENT ⇒ A FREE POLYGON. NOTHING MIGRATES. ──────────────────────────────
+//
+// Every slab, floor and ceiling authored before this field existed simply has no
+// descriptor, which is the correct statement about them: they ARE free polygons.
+// The field is optional at every layer and no record is rewritten.
+//
+// ─── ⭐ THE INVALIDATION IS THE LOAD-BEARING PART ─────────────────────────────
+//
+// A descriptor that survived a vertex drag would claim a circle the geometry NO
+// LONGER IS — a silently-wrong element, which this repo forbids by name
+// (`WallRake.ts:50-62`). So the descriptor is only ever believed when it still
+// AGREES with the ring, and `boundaryShapeStillHolds` is the one place that is
+// decided. Any edit that moves a vertex drops it.
+//
+// ⛔ Do NOT "optimise" this by trusting the descriptor and skipping the check. The
+// check is the reason the field is safe to store at all.
+
+/** Where a shape's intent is recorded. `rx`/`rz` are SEMI-axes; for `rectangular`
+ *  they are half-width and half-depth, so one shape has one meaning of its numbers. */
+export interface BoundaryShapeDescriptor {
+    readonly kind: BoundaryLoopMode;
+    readonly centre: ArcVertex2D;
+    readonly rx: number;
+    readonly rz: number;
+}
+
+/** How far a vertex may sit from the ideal shape and still be called that shape.
+ *  Generous enough to survive float round-trips through persistence, far tighter
+ *  than any edit a human makes by dragging. */
+export const BOUNDARY_SHAPE_TOL_M = 1e-4;
+
+/** Build the descriptor for a gesture. Returns `null` for a degenerate one, so a
+ *  refused gesture cannot leave an intent behind with no geometry under it. */
+export function describeBoundaryLoop(
+    mode: BoundaryLoopMode,
+    first: ArcVertex2D,
+    second: ArcVertex2D,
+): BoundaryShapeDescriptor | null {
+    if (mode === 'rectangular') {
+        const rx = Math.abs(second.x - first.x) / 2;
+        const rz = Math.abs(second.z - first.z) / 2;
+        if (rx * 2 < MIN_LOOP_EXTENT_M || rz * 2 < MIN_LOOP_EXTENT_M) return null;
+        return {
+            kind: 'rectangular',
+            centre: { x: (first.x + second.x) / 2, z: (first.z + second.z) / 2 },
+            rx, rz,
+        };
+    }
+    const rx = mode === 'circular'
+        ? Math.hypot(second.x - first.x, second.z - first.z)
+        : Math.abs(second.x - first.x);
+    const rz = mode === 'circular' ? rx : Math.abs(second.z - first.z);
+    if (rx < MIN_LOOP_EXTENT_M || rz < MIN_LOOP_EXTENT_M) return null;
+    return { kind: mode, centre: { x: first.x, z: first.z }, rx, rz };
+}
+
+export function isBoundaryShapeDescriptor(v: unknown): v is BoundaryShapeDescriptor {
+    if (!v || typeof v !== 'object') return false;
+    const d = v as Partial<BoundaryShapeDescriptor>;
+    return isBoundaryLoopMode(d.kind)
+        && !!d.centre
+        && Number.isFinite(d.centre.x) && Number.isFinite(d.centre.z)
+        && Number.isFinite(d.rx) && Number.isFinite(d.rz)
+        && (d.rx as number) > 0 && (d.rz as number) > 0;
+}
+
+/**
+ * ⭐ DOES THIS DESCRIPTOR STILL DESCRIBE THIS RING?
+ *
+ * The single decision point for whether an intent may still be believed. Every
+ * vertex must lie on the ideal shape within `BOUNDARY_SHAPE_TOL_M`; for a circle
+ * or an ellipse the vertex COUNT must match too, so that deleting a vertex from a
+ * 48-gon — which leaves the survivors perfectly on the curve — still invalidates.
+ *
+ * ⚠ THAT COUNT CHECK IS NOT PEDANTRY. Without it, a ring with a vertex removed
+ * passes the on-curve test unanimously while no longer being the circle it claims:
+ * the removed span is now a chord cutting the material away. This is the same class
+ * of hole as the 8-facet staircase in `boundaryLoops.test.ts` — every vertex ON the
+ * outline, and the shape still wrong.
+ */
+export function boundaryShapeStillHolds(
+    shape: unknown,
+    ring: ReadonlyArray<{ x: number; z: number }> | null | undefined,
+): boolean {
+    if (!isBoundaryShapeDescriptor(shape)) return false;
+    if (!Array.isArray(ring) || ring.length < 3) return false;
+
+    if (shape.kind === 'rectangular') {
+        if (ring.length !== 4) return false;
+        const xs = [shape.centre.x - shape.rx, shape.centre.x + shape.rx];
+        const zs = [shape.centre.z - shape.rz, shape.centre.z + shape.rz];
+        return ring.every((p) =>
+            xs.some((x) => Math.abs(p.x - x) <= BOUNDARY_SHAPE_TOL_M)
+            && zs.some((z) => Math.abs(p.z - z) <= BOUNDARY_SHAPE_TOL_M));
+    }
+
+    // A curved intent must still carry the sampling it was generated with, or a
+    // dropped/added vertex would pass unnoticed.
+    const expected = loopSegmentCount(Math.max(shape.rx, shape.rz), PLATE_LOOP_DENSITY);
+    if (ring.length !== expected) return false;
+
+    return ring.every((p) => {
+        const u = (p.x - shape.centre.x) / shape.rx;
+        const v = (p.z - shape.centre.z) / shape.rz;
+        // Scale the normalised residual back to metres so the tolerance is a real
+        // distance rather than a ratio that means different things at different radii.
+        return Math.abs(Math.hypot(u, v) - 1) * Math.max(shape.rx, shape.rz)
+            <= BOUNDARY_SHAPE_TOL_M;
+    });
+}
+
+/**
+ * The descriptor to KEEP after a ring changed: the original if it still holds,
+ * otherwise `undefined`.
+ *
+ * ⭐ Every write path that can move a vertex MUST pass through this. Returning
+ * `undefined` rather than throwing is deliberate — losing the intent is the correct,
+ * expected outcome of a hand edit, not an error.
+ */
+export function resolveBoundaryShapeAfterEdit(
+    shape: unknown,
+    ring: ReadonlyArray<{ x: number; z: number }> | null | undefined,
+): BoundaryShapeDescriptor | undefined {
+    return boundaryShapeStillHolds(shape, ring) ? (shape as BoundaryShapeDescriptor) : undefined;
+}
+
+/** Human-readable, for a property panel: "Circular · r 3.40 m". */
+export function boundaryShapeSummary(shape: unknown): string | null {
+    if (!isBoundaryShapeDescriptor(shape)) return null;
+    const L = BOUNDARY_LOOP_LABELS[shape.kind];
+    if (shape.kind === 'circular')   return `${L} · r ${shape.rx.toFixed(2)} m`;
+    if (shape.kind === 'elliptical') return `${L} · ${shape.rx.toFixed(2)} × ${shape.rz.toFixed(2)} m`;
+    return `${L} · ${(shape.rx * 2).toFixed(2)} × ${(shape.rz * 2).toFixed(2)} m`;
+}

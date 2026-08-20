@@ -681,6 +681,12 @@ export class ImportProjectCommand implements Command {
                     polygon:   slab.polygon,
                     holes:     slab.holes,
                     sketch:    slab.sketch,
+                    // §FEAT-BOUNDARY-SHAPE-DESCRIPTOR (L-1323) — round-tripped on the
+                    // DEFAULT-ON restore path. ⛔ Adding it to `ProjectLoader` alone
+                    // would have been L-1210 repeated: that twin is OFF by default, so
+                    // a fix landing only there is true about a branch production does
+                    // not take. Both twins carry it; the test drives THIS one.
+                    boundaryShape: (slab as { boundaryShape?: unknown }).boundaryShape as never,
                     // ⭐ §PERSIST-DEFAULT-PATH (L-1210) — THE FOUNDER'S SLAB TYPES.
                     //
                     // `serializeSlab()` writes `materialId`, `materialColor`, `baseOffset`,
