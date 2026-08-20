@@ -635,3 +635,95 @@ against `§DIAG-GROUND-SHADOW` before the next:
 **Open latent bug:** the AABB sweep in the (now removed) `refitShadowToScene()` derived an 84 km
 radius from a one-wall scene. The offending mesh has never been identified. If the fit is ever
 reinstated, identify it first.
+
+---
+
+## §LEVEL-SWITCH — `projectContext.activeLevelId` is a RENDER-PIPELINE TRIGGER, not a field (NORMATIVE, added 2026-08-20, lane FURN1, L-1394..L-1398)
+
+### §LS.1 — RULE: no orchestration may switch the active level to carry data
+
+**An assignment to `projectContext.activeLevelId` is the most expensive statement in the editor.**
+Its setter (`packages/core-app-model/src/context/ProjectContext.ts:18`) fires a subscriber list AND
+a `window.dispatchEvent`, **synchronously**, and between them one switch drives:
+
+| consequence | site | cost |
+|---|---|---|
+| plan view re-activation → `PlanViewManager.activate()`, which FIRST calls `deactivate()` (full canvas teardown), rebuilds the DOM, then `_ensureProjection` | `LevelPlanViewBinder.ts:200` → `ViewController.ts:1342` → `PlanViewManager.ts:152,195,821` | **cold cache ⇒ a full `EdgeProjectorService` pass** |
+| `view-activated` visibility gates (floor hatch, room overlay, parcel fill) | `initScene.ts:853, 931, 990` | **3 × full `scene.traverse`** |
+| wall-edge visibility + render mode | `WallEdgeVisibilityService.ts:153,173` | **2 × full `scene.traverse`** |
+| room-tag auto-population | `initScene.ts:774` (and again at `:1210` from `onReprojectionNeeded`) | O(rooms × annotations) + command dispatch |
+| animated camera slide | `engineLauncher.ts:1380` | frame-scheduler wake-ups |
+
+⭐ **Therefore: a batch operation that switches the active level N times has multiplied all of the
+above by N before doing any work of its own.** `triggerFurnishAllFloors` switched **eight** times
+(seven storeys + a restore) on a 7-level model, purely so the HUD would follow along.
+
+**A per-storey orchestration MUST thread its target level onto the event it emits** (the L-101
+pattern) **and MUST NOT mutate the global as a side-channel.** Corollary, and the trap that made this
+one dangerous: **a "cosmetic" global write with a real reader is not cosmetic.**
+`LightingLayoutExecutor` read `resolveActiveLevel()` and nothing else, so the write that was
+documented as decorative was the only thing telling lighting which floor to light — while the
+driver's `finally` restored the original level underneath lighting's pending `setTimeout(0)`.
+
+### §LS.2 — §VIEW-GATE-NO-OP: a visibility gate MUST NOT re-traverse for an unchanged input
+
+The three `view-activated` gates above compute `visible = !(mode === '3D')`. **Their only input is
+the view MODE.** A LEVEL switch re-activates a plan view, so the mode is identical (`'Top'` →
+`'Top'`) and each gate re-walked 6113 meshes to write the values already there.
+
+**RULE.** Guard on the **event handler**, never on the helper — the other callers (a floor rebuilt,
+a room re-detected, the parcel fill re-authored) legitimately re-apply the **same** mode to **new**
+geometry and must still traverse. **The first activation always runs**: `_lastX` is seeded with a
+guess, and a gate that skipped because its guess happened to match would be a correctness bug, not a
+saving.
+
+### §LS.3 — the graft arm is unreachable for a BATCH, by construction
+
+`PLAN_INCREMENTAL_SAFE_TYPES` (`ViewDependencyTracker.ts:68`) is `wall, slab, beam, ceiling, floor`.
+**Furniture is not in it**, and a batch coarse-marks anyway (`markLevelsDirtyImmediate` →
+`_viewsNeedingFullInvalidate`, `:620`). So every furniture batch takes the **full O(N)**
+re-projection arm and logs `§DIAG-GRAFT-FALLTHROUGH … FULL re-projection because: no-graft-ids`.
+That line already said *why*; **nothing counted how often** — see §LS.4.
+
+⛔ **NOT a licence to add `furniture` to the safe set.** The exclusion is documented at
+`ViewDependencyTracker.ts:50-66`: furniture injects a store-driven **whole-view symbol pass**, and
+grafting it without that pass would drop its plan symbol. Whether that is still true of furniture is
+**NOT MEASURED** and is the open question here.
+
+### §LS.4 — §PERF-ZERO-IS-NOT-UNWRITTEN: the instrument was committing the defect it exists to prevent
+
+`PerfCounters.ts`'s own header, rule 1: *"NOT ARMED IS NOT ZERO … printing it as `0` would
+manufacture a false exoneration of the prime suspect."* **`pryzmPerfConsole` was doing exactly that
+in the ARMED case.** It READS eighteen keys that **nothing in the repo writes** — `REDETECT_ROOMS`
+(+`_AFTER_THROW`/`_MS`), every `PHASE_*` except PBR, `TRAVERSE_FIT_BOUNDS`,
+`TRAVERSE_BOUNDS_CACHE`, `AUTOSAVE_*`, `CRDT_BLACKOUT_MS`, `SOCKET_*` — and rendered each as
+`num(c[KEY] ?? 0)`. Under an `armed` header that printed **"room re-detection passes  0"** for a
+named prime suspect nothing had ever counted.
+
+**RULE.** `perfSnapshot().counters` holds a key **only if some call site bumped it**. A row for an
+absent key MUST print `—  NO CALL SITE`, never `0`. A measured zero still prints `0`. Same for
+timers, which already did this.
+
+**RULE.** A new counter key and its call site land in the SAME change. A key that only the reporter
+knows about is a silent zero wearing a measurement's clothes.
+
+### §LS.5 — what IS instrumented now (§FURNISH-PERF)
+
+`level.activeLevelChanged` · `view.activated` · `traverse.viewActivatedVisibilityGates` ·
+`view.reprojectFull` / `view.reprojectGraft` / `view.reprojectMs` · `roomTag.populateRuns` /
+`roomTag.populateMs` · `furnish.levelRuns` / `furnish.levelMs`, under a **MULTI-LEVEL
+ORCHESTRATION** section. Read top-down: **everything below the first row is a multiple of it.**
+
+### §LS.6 — NOT MEASURED
+
+- **Wall-clock.** No browser run was taken for this change. The counts above are derived from code;
+  the ratios are exact, the milliseconds are not measured. The founder's first armed
+  `pryzmPerf.report()` is the measurement, and it is now possible — which it was not before.
+- `EdgeProjectorService.project` cost on a 716-element level.
+- Whether `BottomActionMenu`'s `_activeLevelOnly` / solo isolation is on in the founder's session,
+  which would add **two more** full traversals per switch (`BottomActionMenu.ts:1193,1285`).
+- `PascalSceneLighting._enableShadowsOnScene` runs **once per furniture batch** (~7 for the gesture)
+  via the deferred `bim-furniture-added` window event, and `skipPbrUpgrade` does **not** suppress it
+  (`initScene.ts:3838` gates on `isBatching`, which is false by the time the deferred event lands).
+  **Not changed by this lane.** Same for the unconditional post-batch mesh-count traverse
+  (`initScene.ts:2872`), which runs regardless of both skip flags.

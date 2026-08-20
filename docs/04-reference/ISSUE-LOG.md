@@ -21791,3 +21791,243 @@ ai-host's mirror is pinned against — a cross-lane change, reported rather than
 the carousel's 16 non-empty categories; **`bedroom` (3 items) and `technical` (14) are exposed by
 neither** — 17 carousel items reachable only through `CreatePanelLayout`'s unfiltered carousel.
 Among the three orphaned `bedroom` items are `kave_round_mirror` and `kave_rect_mirror`.
+
+---
+
+## L-1390 — **THE ALWAYS-ON ROOM-LOOP AUDIT READS THE *RAW* ARRAY**: it reported 30 unclosed loops beside the CORRECT room count, on every level, and neither number described the other ✅ FIXED — 2026-08-20 (lane FURN1)
+
+**Founder:** *"'Furnish all rooms (AI)' WORKS — however it is SUPER SLOW."* 716 elements, 395 walls,
+7 levels, 6113 meshes, 24 rooms/level. His log carries, on **every** level:
+
+```
+§DIAG-ROOM-LOOP level=… detectedRooms=24 thickShellTJunctionsRescued=0 unresolvedLoopBreaks=30
+… endpoint 317mm from centreline EXCEEDS hostSnap 200mm → loop will NOT close (flood/merge risk)
+… 238mm … 309mm … 430mm … 506mm … 589mm … 668mm … 867mm … 917mm
+```
+
+That reads as a generator emitting partitions hundreds of millimetres off the host centreline. **It
+is not.** `RoomDetectionEngine._diagRoomLoop` was handed **`combinedInput`** — the raw list from
+`:371` — while `buildWallGraph` consumes `wallGraphInputSplit` from `:435`. **Four repair passes run
+between them** (`_snapNearbyCorners(0.30)`, `_reconnectDanglingEnds`, `_splitAtBodyCrossings`,
+`_splitAtTJunctions`).
+
+⭐ **So `detectedRooms=24` came from the repaired array and `unresolvedLoopBreaks=30` came from a
+state that never reached the graph.** 24 is the right answer. 30 describes nothing. The audit was
+**structurally incapable** of telling "the repair declined" from "the repair worked" — the one
+question it exists to answer — and its alarm sent this lane's brief at the generator.
+
+**The proof it was a WIRING SLIP:** its own `baseId` regex is `/(_[cs]\d+)+$/`, and `_s\d+` suffixes
+are minted **by `_splitAtTJunctions`**. On the array it was given, half its own regex could never
+match. It was written for the post-split array and handed the pre-split one.
+
+**Falsified, not assumed.** Reverting the one-word change makes the new separating test report
+**`expected 2 to be +0`** — two breaks reported for geometry the engine had already repaired.
+`packages/room-topology/src/__tests__/diagRoomLoopAuditsRepairedArray.test.ts`. Contract:
+**C94 §DIAG-ROOM-LOOP**.
+
+---
+
+## L-1391 — the same audit had NO ANGLE TEST, NO SAME-PARENT GUARD and NO JUNCTION KEY, so it disagreed with the repair it was reporting on ✅ FIXED — 2026-08-20 (lane FURN1)
+
+Three independent multipliers on the same count, all closed, **none of them by going quiet**:
+
+- ⭐ **NO PERPENDICULARITY TEST.** Any endpoint whose perpendicular foot landed in another wall's
+  mid-span at 200–1000 mm was a "loop break" — **including a wall running exactly PARALLEL**, and
+  reported **twice**, because both its endpoints project into the host body. On a 24-room
+  residential plate that is ordinary architecture: party walls, riser shafts, service voids, and
+  corridors (`minCorridorWidth` = **900 mm**, inside the band). **The REPAIR has the test**
+  (`REACH_COLLINEAR_MIN = 0.9`, `:844`) and correctly refuses to move a parallel near-miss. **An
+  audit that disagrees with the repair it reports on is worse than no audit.** Now shares the floor;
+  declined measurements are counted as `parallelNearMisses=`.
+- **NO SAME-PARENT GUARD.** The skip compared FULL UUIDs, so `w_c3` and `w_c7` — two chords of ONE
+  curved wall — were "different walls" and could report breaks **against each other**, up to
+  `segments²` times. Both sibling passes already carried this guard (`:831`, `:1258`).
+- **ORDERED-PAIR DOUBLE COUNT.** One junction found from both sides printed twice. Aggregation is now
+  on the **junction** (unordered base-pair + 100 mm foot), one warn block per level.
+
+⚠ **The COMPUTE was measured and is not the cost.** ~**0.20 ms** per call at ~56 segments/level
+(node, 20-rep mean; 0.14 ms at 30 segs, 0.46 ms at 100). The **browser stack-capture cost** of the
+~30 `console.warn` lines per level is **NOT measured** and is not claimed as a win.
+
+---
+
+## L-1392 — `thickShellTJunctionsRescued` is UNSATISFIABLE at every wall thickness this product emits — a counter that could never leave zero, printed beside one that could ✅ FIXED (made honest) — 2026-08-20 (lane FURN1)
+
+Rescue window: `SNAP_FLOOR < dist < hostSnap`, `hostSnap = max(0.20, th/2 + 0.02)`. Non-degenerate
+only above **th > 360 mm**; catches the §PARTITION-SHELL-INNER-FACE signature it names only above
+**402 mm** (that clamp lands at `th/2 − 0.001`).
+
+**Every generator emits 100–300 mm:** `executePlan.ts:32` / `tgl/wallsAndDoors.ts:969` /
+`layoutRequestPayload.ts:124` → **0.10 m**; `coreSizing.ts:34` / `WallPlanToolHandler.ts:59` →
+**0.20 m**; `AIService.ts:328` → **0.30 m**. Of the built-in catalogue only `wt-monolithic`
+(1.000 m) clears both thresholds; brick (0.375 m) clears 360 mm but not 402 mm.
+
+⭐ **`=0` beside `unresolvedLoopBreaks=30` reads as a rescue that FAILED. It was never applicable** —
+defect shape D, a check that runs, passes, and could never have failed. The line now prints
+`rescueWindow=EMPTY-BY-CONSTRUCTION` when no host on the level exceeds 360 mm, and omits it when the
+window genuinely opens.
+
+**Also fixed here:** the BREAK clause is gated `dist < 1.0`, so anything further was **counted
+nowhere and logged nowhere**. **"917 mm" as the largest value the founder ever saw was the CAP, not
+the model.** Now bucketed as `farEndpointsOver1m=`.
+
+⚠ **Recorded, NOT fixed — two wall-type catalogues disagree by 10×.** `wt-monolithic` is **1.0 m** in
+`WallSystemTypeStore.ts:94` and **0.1 m** in `plugins/wall/src/system-type-store.ts:75`;
+`PluginRegistry.ts:230-233` resolves in favour of 1.0 m. Not this lane's family.
+
+---
+
+## L-1393 — RETRACTION: `_reconnectDanglingEnds`' stated root cause is false in BOTH halves, and the pass cannot fire on the geometry its docstring describes ⚠ RETRACTED IN PLACE — 2026-08-20 (lane FURN1)
+
+Its docstring blames the resolver's §MULTI-CLUSTER path for leaving a partition end *"up to ~1 m
+SHORT"* of its host. Measured today:
+
+1. **Capped at 50 mm.** §CONSENSUS-OVERTRIM-GUARD (`WallJoinResolver.ts:2144`,
+   `OVERTRIM_BACK_ALLOWANCE_M = 0.05`) bounds axial retreat. The resolver can no longer produce the
+   300–1000 mm short-fall the paragraph blames.
+2. ⭐ **The pass is structurally unable to fire on a cluster.** §MULTI-CLUSTER trims every unpinned
+   member toward the SAME consensus point, landing them ≤ ~60 mm apart (`:2096-2097`) — so
+   `connectedToWall` (`CORNER_CONNECTED_TOL_M = 0.30`) finds each one **connected to its siblings**,
+   `dangling` is false, and the whole cluster is skipped **even when it sits 500 mm off the shell**.
+
+**⛔ Nobody may cite that docstring as evidence the multi-cluster case is handled.** Retracted in
+place, not deleted — the mechanism is still real for a **lone** dangling end, which is what
+`partitionReachReconnect.test.ts` exercises. Whether the cluster case needs its own repair is
+**OPEN**.
+
+---
+
+## L-1394 — the "cosmetic" active-level write was the ONLY thing telling LIGHTING which floor to light, and the driver's `finally` restored it underneath a pending `setTimeout(0)` ✅ FIXED — 2026-08-20 (lane FURN1)
+
+`triggerFurnishAllFloors` set `projectContext.activeLevelId` per storey with the comment *"setActive
+still runs so the UI/HUD follows along, but **correctness does not hinge on it**."* That was true of
+**furnish** — L-101 had already threaded `levelId` onto the event — and **false one stage
+downstream**.
+
+`LightingLayoutExecutor:96` read `resolveActiveLevel()` **and nothing else**. So a write documented
+as decorative was load-bearing for which floor got lit. ⚠ **And it was a live race:** lighting fires
+on a `setTimeout(0)` off `furnish.layout-executed`, while the driver's `finally` restores the
+original level — so the last storey could be lit against the restored level.
+
+The storey now travels **with the event**, exactly as it does for furnish; `resolveActiveLevel()`
+survives as the fallback for the console path (`pryzmLightAllRooms()`), which has no level to carry.
+Falsified: dropping `levelId` from the emit makes the test report **`expected [undefined] to deeply
+equal ['L2']`**. Contract: **C04 §LS.1**.
+
+---
+
+## L-1395 — ⭐⭐ **"FURNISH ALL FLOORS" TOOK THE USER ON A SEVEN-STOREY TOUR** — the dominant cost was the active-level switch, not furnishing ✅ FIXED — 2026-08-20 (lane FURN1)
+
+**THIS IS THE ANSWER TO "SUPER SLOW".** `triggerFurnishAllFloors` assigned
+`projectContext.activeLevelId` **eight times** (7 storeys + a restore). That setter looks like a
+field write and is the most expensive statement in the editor: it fires a subscriber list AND a
+`window.dispatchEvent`, **synchronously**, and per switch drives —
+
+| consequence | site | cost |
+|---|---|---|
+| `PlanViewManager.activate()`, which FIRST calls `deactivate()` (full canvas teardown) then rebuilds the DOM and runs `_ensureProjection` | `LevelPlanViewBinder.ts:200` → `PlanViewManager.ts:152,195,821` | **7 distinct plan view ids ⇒ 7 COLD caches ⇒ 7 full `EdgeProjectorService` passes** |
+| `view-activated` visibility gates | `initScene.ts:853,931,990` | **3 × full `scene.traverse` (6113 meshes)** |
+| wall-edge visibility + render mode | `WallEdgeVisibilityService.ts:153,173` | **2 × full `scene.traverse`** |
+| a SECOND `roomTagAutoPopulator.populate()` | `initScene.ts:774` (+ `:1210` from re-projection) | O(rooms × annotations) + dispatch |
+| animated camera slide | `engineLauncher.ts:1380` | frame-scheduler wake-ups |
+
+⇒ **~40 whole-scene traversals and 7 cold plan projections for a gesture whose per-floor result
+nobody watches.** Removed, together with the `finally` restore (restoring a level the run never left
+is not defensive — it is a second cascade, and on any path where the USER changed floors mid-run it
+would have yanked them back). Safe only **because L-1394 landed first.**
+
+Falsified: re-adding the switch makes the test report **`expected ['L0','L1','L2'] to deeply equal
+[]`**. `apps/editor/src/ui/furnish-layout/furnishNoLevelTour.test.ts`. Contract: **C04 §LS.1**.
+
+⚠ **NOT MEASURED: wall-clock.** No browser run was taken. The counts are exact; the milliseconds are
+not measured. See L-1397 for why they could not have been.
+
+---
+
+## L-1396 — 24 room tags were 24 commands and 24 UNDO ENTRIES; the composite that fixes exactly this had existed since L-145 with ONE consumer ✅ FIXED — 2026-08-20 (lane FURN1)
+
+`RoomTagAutoPopulator.populate` dispatched one `CreateAnnotationCommand` **per room** — 24 per level
+on the founder's model, each with its own `[CommandManager] EXECUTE:` + `snapshot … elapsed=` pair.
+
+The console noise is the visible half. ⭐ **The half that matters: each is a separate UNDO ENTRY.**
+Undoing one automatic tag pass took **twenty-four presses of Ctrl-Z**, for an action the user never
+asked for — against C11 / C24.1 §1.2, which says a generated SET collapses to one undo.
+`CreateManyAnnotationsCommand` (L-145 / ADR-0119) was written for precisely this, for AutoDimension,
+and had **one consumer**. Rooms are now its second; nothing new minted, plus a one-line re-export
+shim in command-registry so room-topology reaches it through a **declared** dependency.
+
+Also fixed, same file: the refresh loop called `annotationStore.getByView(...).find(...)` **inside**
+the loop — a fresh whole-view scan per drifted tag, O(tags × annotations), for a lookup whose input
+cannot change within the loop. Indexed once, outside.
+
+⭐ **The §A.21.D25 idempotent no-op is PRESERVED and pinned**: a settled view still writes
+**nothing** (`canExecute` refuses a zero-length set, so batching cannot turn "nothing to do" into
+"one empty command"). That guard is what stops projection feeding itself an annotation write.
+Falsified: restoring a per-room dispatch reports **`expected 24 to be 1`**.
+
+⚠ **Found and NOT fixed — a declared-but-absent rollback scope (C84 EI-7d).** `createSnapshot`
+(`CommandManagerImpl.ts:602`) has **no `annotation` row and no `view` row** in its store table, yet
+**nine** legacy commands declare `affectedStores: ['annotation']` (and four declare `'view'`). For
+every one of them `scope` is non-null and matches no row, so the snapshot is `{}` and
+`restoreSnapshot` restores **nothing** on a failed execute. Identical shape to the `curtainPanel`
+defect fixed at L-1050, still on disk one table over. **OPEN.**
+
+---
+
+## L-1397 — the perf instrument was committing the defect it was BUILT to prevent: 18 keys it READS are written by NOTHING, and it printed them as `0` under an ARMED header ✅ FIXED — 2026-08-20 (lane FURN1)
+
+`PerfCounters.ts`'s own header, rule 1: *"NOT ARMED IS NOT ZERO … printing it as `0` would
+manufacture a false exoneration of the prime suspect."* **`pryzmPerfConsole` was doing exactly that
+in the ARMED case.**
+
+Keys it reads that **nothing in the repo bumps**: `REDETECT_ROOMS` (+ `_AFTER_THROW` / `_MS`),
+`PHASE_GEOMETRY_BUILD`, `PHASE_DRAIN`, `PHASE_SHADOW_REACTIVATE`, `PHASE_EVENT_FLUSH`,
+`PHASE_SHADER_COMPILE`, `PHASE_BOUNDS_FIT`, `TRAVERSE_FIT_BOUNDS`, `TRAVERSE_BOUNDS_CACHE`,
+`AUTOSAVE_*`, `CRDT_BLACKOUT_MS`, `SOCKET_DISCONNECT`/`_RECONNECT`. Each rendered as
+`num(c[KEY] ?? 0)`.
+
+⭐ **So a founder who armed the counters and ran his gesture would read "room re-detection passes
+0"** — a false exoneration of a prime suspect **nothing had ever counted**. An absent key now prints
+`—  NO CALL SITE`; a measured zero still prints `0`. **RULE (C04 §LS.4): a new key and its call site
+land in the same change.**
+
+---
+
+## L-1398 — none of the furnish gesture's hot path was instrumented, and three full-scene gates re-traversed 6113 meshes to write the values already there ✅ FIXED — 2026-08-20 (lane FURN1)
+
+**(a) §VIEW-GATE-NO-OP.** The three `view-activated` visibility gates compute
+`visible = !(mode === '3D')`. **Their only input is the view MODE**, and a LEVEL switch re-activates
+a plan view with an **identical** mode (`'Top'` → `'Top'`) — so each re-walked the whole scene to
+write what was already there. Guarded **on the event handler only**: the other callers (floor
+rebuilt, room re-detected, parcel fill re-authored) legitimately re-apply the same mode to **new**
+geometry and must still traverse, and the first activation always runs because `_lastX` is seeded
+with a guess. **This helps every level switch in the app**, not only this gesture.
+
+**(b) §FURNISH-PERF.** New counters/timers **with real call sites**:
+`level.activeLevelChanged` · `view.activated` · `traverse.viewActivatedVisibilityGates` ·
+`view.reprojectFull` / `view.reprojectGraft` / `view.reprojectMs` · `roomTag.populateRuns` /
+`roomTag.populateMs` · `furnish.levelRuns` / `furnish.levelMs` — under a new **MULTI-LEVEL
+ORCHESTRATION** section. Read top-down: everything below the first row is a multiple of it.
+
+⚠ **STILL NOT INSTRUMENTED, and named so nobody reads their absence as zero:**
+`EdgeProjectorService.project`, `PlanViewManager.activate`, `BatchCoordinator` (no `bumpPerf`
+anywhere — all its timings are `console.log`), `RoomTopologyObserver` / `RoomDetectionEngine`,
+`WallEdgeVisibilityService`'s two traversals, and the unconditional post-batch mesh-count traverse
+at `initScene.ts:2872`.
+
+---
+
+## L-1399 — the founder's own ranking, RE-RANKED BY MEASUREMENT: two of his top three cost ~nothing, and the one he did not name was the answer 📋 RECORDED — 2026-08-20 (lane FURN1)
+
+Kept as a standing reminder that a ranked list of suspicions is a starting point, never a finding.
+
+| # | suspicion | verdict |
+|---|---|---|
+| 1 | 24 `CREATE_ANNOTATION` commands per level | ⚠ **REAL but modest.** The snapshot is `{}` (scope `annotation` matches no row — see L-1396), so the cost is 48 console writes + 24 undo entries, ×2 passes/level. Fixed anyway: the undo half is a correctness defect. |
+| 2 | ~30 `§DIAG-ROOM-LOOP BREAK` lines/level with stack captures | 🔽 **DE-RANKED. Compute measured at ~0.20 ms/level.** The browser stack-capture cost is **unmeasured** and not claimed. Its real defect was **honesty**, not cost (L-1390). |
+| 3 | `thickShellTJunctionsRescued=0` + endpoints 238–917 mm ⇒ *"the GENERATOR is emitting wall endpoints hundreds of mm off"* | ❌ **OVERTURNED.** The audit was reading the **pre-repair** array; `detectedRooms=24` on the same line is the correct count. Not a generator defect. The counter IS unsatisfiable (L-1392). |
+| 4 | §OPENED-REGION REFUSED + 54 compliance errors ⇒ *"same root as (3)"* | ❓ **UNEXPLAINED — do not inherit the claim.** With (3) overturned, the asserted shared root is gone. Nobody has measured this. |
+| 5 | `REDETECT_ROOMS` cascade + missing `isBatching` mirror | ✅ **ALREADY CLOSED.** `RoomTopologyObserver` guards `isBatching` at **three** chokepoints (`:694`, `:777`, `:894` §PERF2-BATCH-REDETECT-BYPASS L-1155), `skipRedetectRooms: true` is honoured end-to-end (`BatchCoordinator.ts:1532` → `:2147`), **and the observer does not subscribe to the furniture store at all** — so a furnish batch schedules zero redetects. Not a contributor. |
+| 6 | `§FURNISH-EMPTY` on L0 | ⏸ not chased (occupancy classification). |
+| 7 | caches at 0% hit rate | ⏸ not chased — L-1301 / L-1302 own it. |
+| ⭐ **NOT ON THE LIST** | **eight `projectContext.activeLevelId` switches** | 🔴 **THE ANSWER (L-1395).** ~40 whole-scene traversals + 7 cold plan projections, for a cosmetic HUD update. |

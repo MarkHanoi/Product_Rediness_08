@@ -736,3 +736,116 @@ target, and **the work is the DECLARATION, not the reach** (L-1142).
   chat at all; where it is published, they are measured only as C67 §1.0 records. ⛔ **The panel's
   passing is NOT transferable evidence** (ADR-0334): publication requires an **executed read-back**
   of this family's geometry store (C16 CA-21), never a `success: true`.
+
+---
+
+## §DIAG-ROOM-LOOP — the always-on loop-break audit is NORMATIVE about WHICH ARRAY IT READS (added 2026-08-20, lane FURN1, L-1390..L-1393)
+
+### §DIAG.1 — RULE: the audit reads the array `buildWallGraph` consumes. Nothing else.
+
+`RoomDetectionEngine._diagRoomLoop` MUST be called with **`wallGraphInputSplit`** — the exact
+segment array handed to `buildWallGraph` — and its summary line MUST name the array it read.
+
+**It was called with `combinedInput`** (`RoomDetectionEngine.ts:371`), the RAW list assembled from
+the stores, and the pipeline runs **four repair passes** between the two:
+
+| line | pass |
+|---|---|
+| 398 | `_snapNearbyCorners(combinedInput, 0.30)` — fuses endpoints within **300 mm** |
+| 422 | `_reconnectDanglingEnds` — moves a dangling end onto the host body it aims at |
+| 430 | `_splitAtBodyCrossings` — splits both walls at a true X-junction |
+| 435 | `_splitAtTJunctions` — splits the host AND snaps the guest endpoint to the split point |
+| 437 | `buildWallGraph(wallGraphInputSplit)` |
+
+⭐ **So the audit predicted failures for geometry the engine had already fixed, and printed that
+prediction beside a room count derived from the fixed array.** The founder's 7-level model logged
+`detectedRooms=24 … unresolvedLoopBreaks=30` on **every level**. 24 is the right answer. 30
+describes a state that never reached the graph. **The two halves of that line came from different
+arrays and neither described the other.**
+
+⛔ **The audit could not answer its own question.** "Did the repair close this loop, or decline it?"
+is the only reason the audit exists, and reading the pre-repair array makes *repaired* and *declined*
+**indistinguishable** — a §CONTEXT-DATA-HONESTY failure of the probe-reads-the-wrong-input shape.
+
+**The evidence it was a WIRING SLIP, not a design choice:** the method's own `baseId` regex is
+`/(_[cs]\d+)+$/`. `_s\d+` suffixes are minted **by `_splitAtTJunctions` at :435** — after
+`combinedInput` was captured. On the array it was given, that half of its own regex could never
+match anything. It was written for the post-split array.
+
+### §DIAG.2 — RULE: an audit MUST NOT disagree with the repair it reports on
+
+`_diagRoomLoop` had **no perpendicularity test**. Any endpoint whose perpendicular foot landed in
+another wall's mid-span at 200–1000 mm was reported as a loop break — **including a wall running
+exactly PARALLEL to its neighbour**, and reported **twice**, because both of its endpoints project
+into the host's body. On a 24-room-per-level residential plate that is ordinary architecture: party
+walls, riser shafts, service voids, and corridors (`minCorridorWidth` is **900 mm**, inside the
+counting band).
+
+The **repair** has the test — `_reconnectDanglingEnds`'s `REACH_COLLINEAR_MIN = 0.9` (`:844`) — and
+correctly **refuses** to move a parallel near-miss. The audit and the repair therefore disagreed by
+construction, and the audit was the one that was wrong. It now shares the same floor, and the
+declined measurements are counted under their own name (`parallelNearMisses=`), never dropped.
+
+Two further multipliers, both closed:
+- **SAME PARENT.** The skip compared FULL UUIDs, so `w_c3` and `w_c7` — two chords of ONE curved
+  wall from `tessellateCurvedWallForTopology` — were "different walls" and could report breaks
+  against each other, up to `segments²` times. Both sibling passes already carried this guard
+  (`_reconnectDanglingEnds:831`, `_snapNearbyCorners:1258`); this one did not.
+- **ORDERED-PAIR DOUBLE COUNT.** One physical junction found from both sides printed twice.
+  Aggregation is now on the **junction** (unordered base-pair + 100 mm-quantised foot).
+
+### §DIAG.3 — `thickShellTJunctionsRescued` is UNSATISFIABLE at every thickness this product emits
+
+The rescue window is `SNAP_FLOOR < dist < hostSnap`, where
+`hostSnap = max(0.20, thickness/2 + 0.02)`. The window is non-degenerate **only above a 360 mm
+host**, and only above **402 mm** does it catch the §PARTITION-SHELL-INNER-FACE clamp signature it
+was written for (that clamp lands at `th/2 − 0.001`).
+
+| producer | thickness |
+|---|---|
+| `apartmentLayout/executePlan.ts:32`, `tgl/wallsAndDoors.ts:969`, `layoutRequestPayload.ts:124` | **0.10 m** |
+| `residentialBuilding/coreSizing.ts:34`, `WallPlanToolHandler.ts:59` | **0.20 m** |
+| `AIService.ts:328` | **0.30 m** |
+
+**Every generated wall is below both thresholds.** Of the built-in catalogue
+(`WallSystemTypeStore.ts:80-186`) only `wt-monolithic` (1.000 m) clears them; brick at 0.375 m
+clears 360 mm but not 402 mm.
+
+⇒ **`thickShellTJunctionsRescued=0` printed next to `unresolvedLoopBreaks=N` read as a rescue
+mechanism that failed. It was never applicable.** That is defect shape D — a check that runs, passes,
+and could never have failed. The summary line now states `rescueWindow=EMPTY-BY-CONSTRUCTION`
+whenever no host on the level exceeds 360 mm, and omits the clause when the window really does open.
+
+⚠ **Recorded, not resolved:** the two wall-type catalogues disagree by 10× on `wt-monolithic` —
+`WallSystemTypeStore.ts:94` declares **1.0 m**, `plugins/wall/src/system-type-store.ts:75` declares
+**0.1 m**, and `PluginRegistry.ts:230-233` resolves in favour of the 1.0 m one. Not this lane's fix.
+
+### §DIAG.4 — the >1 m blind spot
+
+The BREAK clause is gated `dist < 1.0`. An endpoint further than a metre off a host body was
+**counted nowhere and logged nowhere**. "917 mm" being the largest value the founder ever saw is
+therefore **the cap, not the model**. Those measurements now have a named bucket
+(`farEndpointsOver1m=`); they are still not warned, because they are usually unrelated walls.
+
+### §DIAG.5 — RETRACTION: `_reconnectDanglingEnds`' stated root cause
+
+Its docstring blamed the resolver's §MULTI-CLUSTER path for leaving a partition end *"up to ~1 m
+SHORT"*. **Both halves are now false and the docstring is retracted in place** (not deleted):
+
+1. **Capped at 50 mm.** §CONSENSUS-OVERTRIM-GUARD (`WallJoinResolver.ts:2144`,
+   `OVERTRIM_BACK_ALLOWANCE_M = 0.05`) bounds axial retreat.
+2. **The pass cannot fire on that geometry at all.** §MULTI-CLUSTER trims every unpinned member
+   toward the SAME consensus point, landing them ≤ ~60 mm apart (`WallJoinResolver.ts:2096-2097`),
+   so `connectedToWall` (`CORNER_CONNECTED_TOL_M = 0.30`) finds each one connected to its siblings,
+   `dangling` is false, and the whole cluster is skipped — **even when it sits 500 mm off the shell**.
+
+**⛔ Nobody may cite that docstring as evidence the multi-cluster case is handled. It is not.**
+The pass still does real work on a **lone** dangling endpoint, which is what its tests exercise.
+
+### §DIAG.6 — NOT MEASURED
+
+- The **browser** cost of the audit's `console.warn` stack captures. The compute is measured and
+  small (~0.20 ms per call at the founder's ~56 segments/level, node, 20-rep mean); the devtools
+  stack-capture cost per warn line is **NOT measured** and must not be claimed as a win.
+- Whether any of the founder's 30 measurements were real breaks at all. The pre-repair reading
+  cannot be re-interpreted after the fact; only a re-run on the fixed audit can say.
