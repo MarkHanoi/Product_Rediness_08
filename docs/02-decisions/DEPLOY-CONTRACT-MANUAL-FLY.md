@@ -487,6 +487,45 @@ Rule for the next agent: "Pushing image done" in the log ⇒ the failure is
 DELIVERY, not build. Reference-deploy the pushed tag; never re-run the full
 script (it re-uploads ~130 MB and re-builds for nothing).
 
+### 6.5.8 §MULTI-IMAGE-BLUEGREEN-BLOCK — a failed deploy leaves orphan machines that BLOCK every later deploy (VERIFIED 2026-08-20)
+
+Observed after a deploy died mid-release on a **DNS outage** (`lookup api.fly.io: no such
+host`). The build and push had succeeded, so flyctl had already created machines on the new
+image; the release never completed. Result: **four machines on two images**, and every
+subsequent deploy — including the §6.5.7 reference-only resume — refused before doing anything:
+
+```
+Found 2 different images in your app (for bluegreen to work, all machines need to run a single image)
+  [x] pryzm:deployment-…D13M3D - 2 machine(s) (080e527bd54d48,784ed76df11d18)
+  [x] pryzm:deployment-…BSRD1J - 2 machine(s) (e82d626c595008,2873247b5949d8)
+Error: found multiple image versions
+```
+
+⚠ **flyctl's own advice is `fly machines destroy --force`. That is NOT the smallest fix, and it
+destroys production machines to cure a bookkeeping state.** Read the error text closely: the
+precondition belongs to **BLUE-GREEN**, not to deploying. A rolling deploy replaces machines one
+at a time and therefore *reconciles* the image spread as it goes.
+
+**The fix, verified end to end:** take the §6.5.7 reference-only resume and add `--strategy rolling`.
+
+```bash
+MSYS_NO_PATHCONV=1 DOCKER_CONFIG="C:/pryzm-deploy/empty-docker-config"   flyctl deploy --image registry.fly.io/pryzm:<the-printed-deployment-tag>   -a pryzm --strategy rolling --yes
+```
+
+Measured 2026-08-20 on `f233f442`: RC=0, all four machines converged to the single new image,
+bundle proof 6/6 with a CHANGED chunk (`main-C4hMcvwM.js` → `main-CFghigBz.js`). **Nothing was
+destroyed and nothing went down.**
+
+**Rules for the next agent:**
+1. *"found multiple image versions"* ⇒ a PREVIOUS deploy died after push. **Do not rebuild** —
+   §6.5.7's tag is in that run's log; the image is already in the registry.
+2. **Try `--strategy rolling` BEFORE destroying anything.** Destroying is irreversible and was
+   not necessary here.
+3. ⭐ **Always re-read the chunk hash in the proof.** A proof can pass 6/6 against the PREVIOUS
+   bundle — all four build-args are inlined in the old chunk too. §5's *"MUST differ from the
+   pre-deploy filename"* is the only line that distinguishes "shipped" from "still serving the
+   old one", and it was nearly missed on 2026-08-19.
+
 ## 6.6 THIRD EXECUTION — v-next, 2026-08-12 (`52bfb2ba`), bundle proof 6/6
 
 Two findings; the first supersedes part of §6.5.2.
