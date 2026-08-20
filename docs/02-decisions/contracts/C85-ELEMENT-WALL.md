@@ -1010,6 +1010,74 @@ whether `_skipBridge` is ever true in production.
 
 ---
 
+## §FEAT-WALL-SHAPE-MODES — CLOSED-LOOP WALL RUNS (founder, 2026-08-19, lane SHAPE1)
+
+> **The founder:** *"Can you add mode 'eclipse', 'circular' and 'rectangular' mode options in WALL,
+> CURTAIN WALLS, SLABS, CEILINGS and FLOORS?"* — ⭐ **"eclipse" read as ELLIPSE, visibly**: the
+> label is `Elliptical` everywhere a user can see it.
+
+### ⭐ WS-1 — "CIRCULAR WALL" MEANT THREE THINGS, AND TWO OF THEM ALREADY SHIPPED
+
+**This is the load-bearing paragraph of this section.** Before any code, the phrase was decomposed:
+
+| Reading | What it is | State |
+|---|---|---|
+| **(a) plan curvature** | the wall RUNS along an arc | ✅ **EXISTS** — `wall.curve`, a quadratic Bézier (`WallTypes.ts:304-309`) |
+| **(b) elevation profile** | the wall's FACE is a circle rather than a rectangle | ✅ **EXISTS** — `wallProfile`, and it is **authorable**: `WallProfileEditor.ts` + `WallTool.enterProfileEditMode` (`WallTool.ts:2072`) |
+| **(c) closed run in plan** | N walls forming a rectangular / circular / elliptical ROOM | ⬅ **THIS. Did not exist. Now shipped.** |
+
+**The word that settles it is "rectangular."** The founder listed the three as PEERS. Under (a)
+*rectangular* is incoherent — an arc is not rectangular. Under (b) it is the **absent** profile,
+i.e. asking for nothing (`WallProfile.ts`: *"`wallProfile` absent ⇒ the implicit rectangle"*). Only
+under **(c)** are all three real, distinct and useful. It is also the same word-for-word list the
+founder used for RAILINGS on 2026-08-18, which shipped as closed loops.
+
+⚠ **A prior brief recorded `wallProfile` as *"INERT TODAY … nothing in the repo authors it."* That
+is STALE at HEAD** — WPE1 shipped the editor and WJ1 flipped `raked` and `curved` to `available` in
+`WallProfileVariants.ts` on 2026-08-19. Only `layered` and `hosted-openings` remain `unbuilt`.
+**Reading (b) is a live feature, not a gap**, and this lane deliberately did not disturb it.
+
+### WS-2 — WHAT SHIPPED, AND WHAT IT DELIBERATELY DOES NOT DO
+
+`WallPlanToolHandler._commitLoopRun` walks the ring calling the handler's own `_commitWall` once per
+edge. ⭐ **It dispatches nothing of its own**, so the C83 spatial gate, system-type resolution, layer
+stamping, id minting and the `wall.create` dispatch are all INHERITED. `_commitWall` already chains
+start→end, so closing the loop needs no special case.
+
+This is the structural claim `handrailRunGenerators` already makes: **a multi-segment run IS N
+two-point elements.** ⛔ No second wall record shape is minted, and none may be.
+
+⚠ **A per-edge spatial refusal is NOT fatal to the run.** The edge is skipped with the gate's own
+sentence (§REFUSAL-IDENTITY — no rival account) and the remaining edges still build. Abandoning a
+whole drum because one edge crossed a door would be a worse answer than a partial the author can see.
+
+### ⭐ WS-3 — THE TESSELLATION DENSITY IS A WALL DECISION, NOT A PLATE ONE (binding)
+
+A plate boundary is ONE mesh handed to earcut. **A wall chord is a REAL ELEMENT** — id, system type,
+layers, a schedule row, two junctions and a pass through the join resolver. At the plate's 20 mm
+chord tolerance a 4 m circle emits **~64 walls of ~390 mm**: a nonsense model, a nonsense schedule,
+and 64 junction clusters for the solver.
+
+So wall runs use **`WALL_LOOP_DENSITY`** (`boundaryLoops.ts`) — ~16 walls of ~1.55 m at r = 4 m,
+floored at 8 and capped at 24. ⛔ **A future lane MUST NOT "improve" wall smoothness by lowering
+this toward the plate value without answering the schedule and junction cost**, which is the same
+argument `handrailRunGenerators` makes in its own words (*"a schedule full of 100 mm rails"*).
+
+### ⚠ WS-4 — PLAN-ONLY, DECLARED (L-1325)
+
+The 3-D `WallTool` drives a different state machine off the **`WallDrawingMode` ENUM**, which has no
+member for these three modes. ⛔ **Minting a fake enum member to satisfy the bar is precisely how a
+UI ends up offering what the pipeline cannot accept (C84 EI-3)** — so the gap is declared in the
+matrix row and the loop pills are highlighted by a separate path rather than sharing a counterfeit
+member. **Reading (a) and reading (b) are unaffected and remain available in both surfaces.**
+
+### WS-5 — REFUSALS (C16 CA-18)
+
+A degenerate gesture yields an **empty ring** and a sentence naming the limit and the next action.
+⛔ Never a silent fall-back to a rectangle (§L955 / C86 PR-9).
+
+---
+
 ## RAC — the chat surface for this family (added 2026-08-19, lane RAC1)
 
 > **Mandated by C84 §6**, measured against the **C67 §1.0 seven-verdict vector** (V1 RESOLVE ·

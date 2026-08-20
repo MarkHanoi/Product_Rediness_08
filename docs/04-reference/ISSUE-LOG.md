@@ -20772,3 +20772,27 @@ depending on when the acyclic import is the same length.*
 
 Verified: LOG1's `clashRegistrationOnComposedBus.test.ts` **5 ✅**, geometry-lighting **32 ✅**,
 core-app-model lighting **75 ✅**, command-registry round-trip **11 ✅**.
+
+---
+
+## L-1325 — CLOSED-LOOP WALL RUNS ARE **PLAN-ONLY**; THE 3-D `WallTool` HAS NO ENUM MEMBER FOR THEM 🟡 OPEN — DECLARED — logged 2026-08-19 (lane SHAPE1)
+
+§FEAT-WALL-SHAPE-MODES ships `rectangular` / `circular` / `elliptical` closed wall runs on the PLAN
+surface. The 3-D `WallTool` does not serve them: it drives its state machine off the
+**`WallDrawingMode` enum** (`WallTypes.ts:15-25` — `SINGLE | POLYLINE | POLYLINE_ARC |
+POLYLINE_MIXED | POLYLINE_MIXED_2 | LINE_ORTHO | POLYLINE_ORTHO | CURVED_WALL`), which has **no
+member** for a closed-loop run, while the plan handler reads a free-form STRING from
+`window.wallModePicker.getActiveMode()`.
+
+⭐ **Two mode vocabularies for one concept** — an enum for 3-D and a string for plan — is why this
+gap exists at all, and it is the same shape as [L-1322](#). ⛔ **The wrong fix is to mint a
+`WallDrawingMode.CIRCULAR_LOOP` so the bar looks complete**: the 3-D tool would then accept a mode
+it has no arm for, which is C84 EI-3 live. The gap is therefore DECLARED — in the matrix row, and in
+`WallDrawingHUD._setActiveLoop`, which highlights loop pills by a separate path precisely so no
+counterfeit enum member is needed.
+
+⚠ **This does NOT affect the other two readings of "circular wall"**: `wall.curve` (an arc in plan)
+and `wallProfile` (a circular FACE, authorable via `WallTool.enterProfileEditMode`) both work in
+both surfaces and were not touched.
+
+---
