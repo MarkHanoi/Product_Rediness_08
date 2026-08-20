@@ -12,7 +12,10 @@ import type { UIProps } from '../Layout';
 // truth + the no-overlap launcher-rail layout policy. Replaces the hand-picked
 // `position:absolute … zIndex:'20'`-inside-#container anchoring that buried these
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
-import { launcherRailStyle, zCss, LAUNCHER_PILL_COSMETICS, LAUNCHER_PILL_BORDER } from './zLayers';
+// §GIS-ACTION-REGISTRY (L-1360) — `launcherRailStyle` / `LAUNCHER_PILL_*` are no longer
+// imported here: this file mounted six launcher-rail pills and now mounts none. The
+// rail policy itself stays in `zLayers.ts` for the surfaces that still use it.
+import { zCss } from './zLayers';
 // §UX1-PANEL-DEFAULTS — the ONE table that says which chrome is open on start-up, plus
 // the `Reset panel layout` verb. C82 §1.1: a panel closed by default keeps a visible
 // route back, and that route is the launcher pill mounted below.
@@ -4407,6 +4410,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         else { toggleEnvelopeCard(); }
     };
 
+    /** §GIS-ACTION-REGISTRY (L-1360) — restore every optional panel to its declared
+     *  default state, size and position.
+     *
+     *  APP-WIDE, not GIS: `resetPanelLayout()` walks the whole `PANEL_REGISTRY`, so this
+     *  also re-seats `view-properties`, `level-stepper` and `site-plan-overlay`. The GIS
+     *  panel hosts it because the floating rail it used to live in is gone, and it is
+     *  labelled in the panel as the app-wide action it is (C06 §12.7 verdict (d) — say
+     *  where a control really belongs rather than let its host imply a false scope).
+     *
+     *  Honest feedback: "already at defaults" and "3 panels restored" are different facts
+     *  and must not print the same sentence. */
+    window.pryzmResetPanelLayout = () => {
+        const changed = resetPanelLayout();
+        runtime?.events?.emit('pryzm:toast', {
+            message: changed.length === 0
+                ? 'Panel layout is already at its defaults.'
+                : `Panel layout reset — ${changed.length} panel(s) restored to default.`,
+            severity: 'info',
+        });
+    };
+
     /** §GIS-ACTION-REGISTRY — reframe the camera on the site.
      *
      *  ⭐ This is the de-duplication, not a third copy. There were TWO "Zoom to Site"
@@ -4566,152 +4590,54 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 console.log('[gis][panels] launcher rail not mounted — phase is the onboarding globe (§UX1-PANEL-DEFAULTS).');
                 return;
             }
+            // ══════════════════════════════════════════════════════════════════
+            // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — THE SIX SITE PILLS ARE GONE
+            // ══════════════════════════════════════════════════════════════════
+            //
+            // Founder, 2026-08-20, with a screenshot of the consolidated GIS panel and
+            // the floating stack rendering ON TOP OF it: "Can you then EXCLUDE THE
+            // BUTTONS FROM THE MAIN SCENE?" — the same six actions were on screen
+            // twice, one set obscuring the other.
+            //
+            // REMOVED (all verdict (a), C06 §12.7 — a surviving control dispatches the
+            // same action, and the survivor is a REGISTRY action rendered by the GIS
+            // panel, not another hand-written pill):
+            //
+            //   pryzm-site-view-launcher      "PRYZM Earth"        -> site.earth
+            //   pryzm-plan-gis-launcher       "Plan + Site"        -> site.plan-gis
+            //   pryzm-site-analysis-launcher  "Site Analysis"      -> site.analysis
+            //   pryzm-envelope-card-launcher  "Buildable Envelope" -> site.buildable-envelope
+            //   pryzm-graph-launcher          "Graph"              -> graph.building
+            //   pryzm-living-graph-launcher   "Living Graph"       -> graph.living
+            //
+            // (the last two are deleted in `ui/graph/index.ts` and
+            // `ui/living-graph/index.ts` — those pills lived beside their overlays.)
+            //
+            // ⛔ WHAT MADE THIS SAFE, AND IT IS NOT THAT THE PANEL LOOKS RIGHT.
+            //
+            // Earlier in this lane it was proved that a surface can be 100% unreachable
+            // and still hold the ONLY route to a live capability: `GISRailPanel.ts` had
+            // zero importers and was the sole caller of `openSiteInspectorPanel`.
+            // Deleting a surface because its replacement APPEARS to cover it is exactly
+            // how a capability disappears without anyone noticing.
+            //
+            // So this removal is not justified by inspection. Each of the six dispatched
+            // a `window.pryzm*` entry point that the GIS panel's registry action ALSO
+            // dispatches — and `gisActionRegistry.test.ts` now asserts, by scanning
+            // production source, that EVERY entry point the registry declares is still
+            // REGISTERED somewhere. Deleting a pill can no longer strand a capability;
+            // deleting a registration fails the build. That is the difference between
+            // "cleaned" and "lucky".
+            //
+            // What still mounts here is the `Reset panel layout` reset LISTENERS below —
+            // they re-apply the reset to real DOM and are not controls. The ⟲ button
+            // itself moved into the GIS panel as the `panel.reset-layout` registry
+            // action; see `window.pryzmResetPanelLayout` below.
             const viewport = document.getElementById('container');
             if (!viewport) return;
-            if (document.getElementById('pryzm-site-view-launcher')) return; // idempotent
             if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
                 viewport.style.position = 'relative';
             }
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.id = 'pryzm-site-view-launcher';
-            btn.setAttribute('data-testid', 'site-view-launcher');
-            // PRYZM-EARTH-ONBOARDING PRD Milestone 1 (docs/03-execution/plans/
-            // PRYZM-EARTH-ONBOARDING-PRD-2026-08-06.md §10) — this always-on launcher
-            // IS "the user-facing GIS entry surface" the PRD asks to rename: it is the
-            // one button, present from any 3D view, that opens the single Cesium
-            // viewer at globe/site altitude (C59 §2 invariant 1 — globe and 3D Site are
-            // the SAME instance). Renamed '◉ 3D Site / Globe' → '◉ PRYZM Earth'. Other
-            // internal view-mode segment labels ("3D globe" / "3D Site" inside the
-            // BIM-view and Forma toggles below) are left as-is — they distinguish
-            // sibling view MODES from each other, not the product-facing entry name,
-            // and renaming them was not part of this scoped change.
-            btn.textContent = '◉ PRYZM Earth';
-            btn.title = 'Open PRYZM Earth — the 3D site / globe view (true north + geolocation). Works from any 3D view.';
-            // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — ROOT-CAUSE FIX for the
-            // founder's "launcher renders BELOW / overlapping other UI". The pill was
-            // `position:absolute` inside `#container` at `zIndex:'20'`; since #container
-            // (z:auto in BIM view) does not create a stacking context, the pill competed
-            // at ROOT and lost to every chrome sibling (toolbar 9000, nav rail 9999),
-            // so it painted underneath them. It is now `position:fixed` (escapes the
-            // #container trap + Cesium's raised container z:15 + the overflow:hidden clip)
-            // at the shared `launcher` layer (10000 — above canvas + panels + rails +
-            // toolbar, below popovers/menus/modals/toasts/spinner), in the declared
-            // collision-free bottom-left launcher rail (slot 0). Appended to <body> so
-            // the fixed pill is never re-parented under a transformed ancestor.
-            // (History: L-103 docked it to bottom:48/left:10 absolute — deliberate corner,
-            // but still z-trapped; L-149 keeps the corner intent, fixes the stacking.)
-            Object.assign(btn.style, {
-                ...launcherRailStyle('siteView'),
-                // §UX1-PANEL-CHROME — the launcher rail is the ONE surface this change
-                // deliberately keeps (it is the reopen route for everything closed by
-                // default, C82 §1.1), so it is made quieter rather than removed: shared
-                // `--pryzm-pill-*` tokens, a tinted border instead of a full-saturation
-                // #6600FF outline on white, and a 1px/10%-alpha shadow instead of 3px/16%.
-                // The hit target is fenced at 26px in tokens.ts (C43 · WCAG 2.2 SC 2.5.8).
-                ...LAUNCHER_PILL_COSMETICS,
-                background: '#ffffff', color: '#6600FF',
-            } satisfies Partial<CSSStyleDeclaration>);
-            btn.addEventListener('mouseenter', () => { btn.style.background = '#f4f0ff'; });
-            btn.addEventListener('mouseleave', () => { btn.style.background = '#ffffff'; });
-            btn.addEventListener('click', () => window.pryzmEnterSiteView?.('plan'));
-            document.body.appendChild(btn);
-            console.log('[gis][site-view] always-on PRYZM Earth launcher mounted (L-40, C06 §7 launcher layer).');
-
-            // §FEAT-PLAN-VIEW-GIS (L-104) — the PLAN-VIEW companion launcher, stacked in the
-            // SAME bottom-left corner column just ABOVE the PRYZM Earth pill (bottom:48px) — so the
-            // two site entries read as a deliberate pair: "◉ PRYZM Earth" (3D) + "▦ Plan +
-            // Site" (orthographic plan on real-world GIS context, project north). Always-on,
-            // idempotent, brand-styled (white + #6600FF), no overlap with the GPU toggle.
-            if (!document.getElementById('pryzm-plan-gis-launcher')) {
-                const planBtn = document.createElement('button');
-                planBtn.type = 'button';
-                planBtn.id = 'pryzm-plan-gis-launcher';
-                planBtn.setAttribute('data-testid', 'plan-gis-launcher');
-                planBtn.textContent = '▦ Plan + Site';
-                planBtn.title = 'Open the plan view on the real-world GIS context (project north, orthographic). Works from any view.';
-                // §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — launcher rail slot 1
-                // (directly above the "3D Site" pill). Same fixed / launcher-layer fix as
-                // slot 0; the two GIS site pills now form a clean pair at the bottom of the
-                // rail, with the graph pills (slots 2–3) stacked above — no interleaving.
-                Object.assign(planBtn.style, {
-                    ...launcherRailStyle('planGis'),
-                    ...LAUNCHER_PILL_COSMETICS,
-                    background: '#ffffff', color: '#6600FF',
-                } satisfies Partial<CSSStyleDeclaration>);
-                planBtn.addEventListener('mouseenter', () => { planBtn.style.background = '#f4f0ff'; });
-                planBtn.addEventListener('mouseleave', () => { planBtn.style.background = '#ffffff'; });
-                planBtn.addEventListener('click', () => { void window.pryzmEnterPlanViewGis?.(); });
-                document.body.appendChild(planBtn);
-                console.log('[gis][plan-gis] always-on Plan + Site (GIS) launcher mounted (L-104, C06 §7 launcher layer).');
-            }
-
-            // §L-621b — RE-OPEN pills for the two 3D-Site chrome panels. Closing a panel
-            // (its own ✕) previously left no way back; these are the always-on toggles.
-            // Same fixed / launcher-layer collision-free slotting as the pills above
-            // (slots 5 + 6, stacked directly over "Plan + Site"); brand white + #6600FF.
-            const mkPanelPill = (
-                id: string,
-                testid: string,
-                slot: import('./zLayers').LauncherSlot,
-                label: string,
-                title: string,
-                isOpen: () => boolean,
-                onToggle: () => void,
-            ): void => {
-                if (document.getElementById(id)) return; // idempotent
-                const pill = document.createElement('button');
-                pill.type = 'button';
-                pill.id = id;
-                pill.setAttribute('data-testid', testid);
-                pill.textContent = label;
-                pill.title = title;
-                Object.assign(pill.style, {
-                    ...launcherRailStyle(slot),
-                    ...LAUNCHER_PILL_COSMETICS,
-                } satisfies Partial<CSSStyleDeclaration>);
-                const paint = (): void => {
-                    const open = isOpen();
-                    pill.style.background = open ? '#6600FF' : '#ffffff';
-                    pill.style.color = open ? '#ffffff' : '#6600FF';
-                    pill.style.borderColor = open ? '#6600FF' : LAUNCHER_PILL_BORDER;
-                    // C43 — the pill's state is carried by more than colour: a screen reader
-                    // (and a colour-blind user) reads the pressed state, not the fill.
-                    pill.setAttribute('aria-pressed', open ? 'true' : 'false');
-                };
-                paint();
-                pill.addEventListener('mouseenter', () => { if (!isOpen()) pill.style.background = '#f7f4ff'; });
-                pill.addEventListener('mouseleave', () => { paint(); });
-                pill.addEventListener('click', () => { onToggle(); paint(); });
-                // §UX1-PANEL-DEFAULTS — `Reset panel layout` changes the panels behind these
-                // pills, so the pills must repaint from the shared table. Without this the
-                // rail would keep claiming "open" for a panel the reset just closed — one
-                // question, two answers.
-                onPanelLayoutReset(() => paint());
-                document.body.appendChild(pill);
-            };
-
-            mkPanelPill(
-                'pryzm-site-analysis-launcher', 'site-analysis-launcher', 'siteAnalysis',
-                '☀ Site Analysis', 'Show / hide the site-analysis panel (sun · weather · wind)',
-                () => !!formaAnalysis?.isVisible(),
-                () => {
-                    // Panel only exists in Forma Plan/3D; bring the view up if it isn't mounted.
-                    if (!formaAnalysis) { applyFormaView('plan'); }
-                    else { formaAnalysis.toggle(); }
-                },
-            );
-            mkPanelPill(
-                'pryzm-envelope-card-launcher', 'envelope-card-launcher', 'envelopeCard',
-                '▧ Buildable Envelope', 'Show / hide the buildable-envelope facts card',
-                () => !envelopeCardHidden && !!envelopePanel,
-                () => {
-                    // Not built yet (not in the site view) → bring the Forma view up (which
-                    // renders the card) and ensure it is shown; otherwise flip its visibility.
-                    if (!envelopePanel) { envelopeCardHidden = false; applyFormaView('plan'); }
-                    else { toggleEnvelopeCard(); }
-                },
-            );
 
             // ── §UX1-PANEL-DEFAULTS — `Reset panel layout` ────────────────────────
             // D2's obligation: whatever the persistence rule is, the user must be able to
@@ -4746,38 +4672,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     .catch((e) => console.warn('[gis][panels] analysis reset failed (non-fatal):', e));
             });
 
-            if (!document.getElementById('pryzm-reset-panel-layout')) {
-                const resetBtn = document.createElement('button');
-                resetBtn.type = 'button';
-                resetBtn.id = 'pryzm-reset-panel-layout';
-                resetBtn.setAttribute('data-testid', 'reset-panel-layout');
-                resetBtn.textContent = '⟲';
-                resetBtn.title = 'Reset panel layout — close the optional panels and restore their default size and position';
-                resetBtn.setAttribute('aria-label', 'Reset panel layout');
-                Object.assign(resetBtn.style, {
-                    ...launcherRailStyle('resetLayout'),
-                    ...LAUNCHER_PILL_COSMETICS,
-                    justifyContent: 'center',
-                    minWidth: 'var(--pryzm-pill-min-height)',
-                    background: '#ffffff', color: '#6600FF',
-                } satisfies Partial<CSSStyleDeclaration>);
-                resetBtn.addEventListener('mouseenter', () => { resetBtn.style.background = '#f7f4ff'; });
-                resetBtn.addEventListener('mouseleave', () => { resetBtn.style.background = '#ffffff'; });
-                resetBtn.addEventListener('click', () => {
-                    const changed = resetPanelLayout();
-                    // Honest feedback: "already at defaults" and "3 panels closed" are
-                    // different facts and must not print the same sentence.
-                    runtime?.events?.emit('pryzm:toast', {
-                        message: changed.length === 0
-                            ? 'Panel layout is already at its defaults.'
-                            : `Panel layout reset — ${changed.length} panel(s) restored to default.`,
-                        severity: 'info',
-                    });
-                });
-                document.body.appendChild(resetBtn);
-            }
+            // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — the floating ⟲ button is GONE.
+            //
+            // It was the last control in the bottom-left stack, and the founder boxed it
+            // with the other six. But it is verdict (d), NOT (a): `resetPanelLayout()`
+            // restores EVERY non-essential panel in `PANEL_REGISTRY` — view-properties,
+            // level-stepper, site-plan-overlay — not just the site ones. It is app-wide
+            // panel recovery that merely happened to live in the site rail.
+            //
+            // So it is neither deleted (that orphans the only route to recovering a panel
+            // dragged half off-screen — the exact reason §UX1-PANEL-DEFAULTS D2 required
+            // it) nor left floating. It is registered as an entry point and rendered by
+            // the GIS panel as `panel.reset-layout`, in its own UTILITY group, labelled
+            // as the app-wide action it actually is rather than implied to be a GIS one.
+            //
+            // The two `onPanelLayoutReset` listeners above stay exactly where they are:
+            // they are what make the reset REAL rather than a table update nothing reads,
+            // and they must live beside the DOM they re-apply it to.
 
-            console.log('[gis][panels] §L-621b re-open pills mounted (Site Analysis + Buildable Envelope) + §UX1 reset-panel-layout control.');
+            console.log('[gis][panels] §GIS-ACTION-REGISTRY (L-1360) — launcher-rail site pills removed; the GIS panel is the one host. Reset listeners armed.');
         } catch (e) {
             console.warn('[gis][site-view] launcher mount failed (non-fatal):', e);
         }

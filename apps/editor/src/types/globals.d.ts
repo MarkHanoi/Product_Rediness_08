@@ -375,6 +375,11 @@ declare global {
          *  photoreal tiles), which is what the two rival "Zoom to Site" buttons disagreed
          *  about. Registered by GISAreaLayout. */
         pryzmZoomToSite?: () => void;
+        /** §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — restore every optional panel to its
+         *  declared default state, size and position. APP-WIDE: it walks the whole
+         *  `PANEL_REGISTRY`, not only the site panels. Registered by GISAreaLayout; it is
+         *  the re-host of the floating ⟲ pill the launcher rail used to carry. */
+        pryzmResetPanelLayout?: () => void;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
          *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
          *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by

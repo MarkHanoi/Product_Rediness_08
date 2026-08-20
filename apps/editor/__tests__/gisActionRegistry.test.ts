@@ -207,3 +207,117 @@ describe('§GIS-ACTION-REGISTRY — the panel is DERIVED from the registry', () 
         for (const b of Array.from(btns)) expect(b.disabled).toBe(true);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §GIS-ACTION-REGISTRY (L-1360) — THE ARM THAT MAKES A REMOVAL SAFE, NOT LUCKY
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Phase 2b deleted seven floating controls from the viewport because "the GIS panel
+// already offers them". That sentence is exactly the one that must not be trusted.
+//
+// Earlier in this same lane, `GISRailPanel.ts` was deleted as provably dead — zero
+// importers, never instantiated — and it turned out to hold the ONLY caller of
+// `openSiteInspectorPanel`. A capability had been unreachable for months and the
+// deletion would have made it invisible as well as unreachable. Inspection said the
+// file was empty of value; inspection was wrong.
+//
+// So the guarantee cannot be "a reviewer checked". These arms READ PRODUCTION SOURCE:
+//
+//   ARM A — every entry point the registry declares is actually REGISTERED somewhere in
+//           `apps/editor/src`. Deleting a surface is now free; deleting the registration
+//           that surface used to reach fails the build. This is what makes "the panel
+//           covers it" a checkable claim instead of a hopeful one.
+//
+//   ARM B — none of the removed launcher-rail pills has come back. A regression ratchet:
+//           the founder's report was that the same action appeared TWICE, and a re-added
+//           pill would silently restore that.
+//
+// ⚠ ARM A is deliberately a REGISTRATION check, not a reachability proof. It cannot tell
+// you the entry point is reached at runtime in the phase you care about — only that the
+// assignment still exists. It is a strictly weaker claim than "the button works", and it
+// is named that way so nobody upgrades it in their head.
+
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const SRC_DIR = resolve(__dirname, '..', 'src');
+
+function allTsFiles(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+            if (entry === 'node_modules' || entry === '__tests__') continue;
+            allTsFiles(full, out);
+        } else if (entry.endsWith('.ts') && !entry.endsWith('.d.ts') && !entry.includes('.test.')) {
+            out.push(full);
+        }
+    }
+    return out;
+}
+
+/** Production source of `apps/editor/src`, read once. */
+const SRC_FILES = allTsFiles(SRC_DIR);
+const SRC_TEXT = new Map(SRC_FILES.map((f) => [f, readFileSync(f, 'utf8')] as const));
+
+describe('§GIS-ACTION-REGISTRY — a declared entry point is REGISTERED in production source', () => {
+    it('finds an assignment for every entry point the registry declares', () => {
+        for (const ep of ALL_ENTRY_POINTS) {
+            // `window.pryzmX = …` (GISAreaLayout) and `w.pryzmX = …` (the graph barrels,
+            // which alias `window` through a typed local) are both real registrations.
+            // Whitespace-normalised substring match, not a regex: the thing being
+            // searched for contains quotes and backticks, and a regex built out of those
+            // is how this arm broke the first time it was written.
+            const squash = (t: string): string => t.replace(/\s+/g, '');
+            const forms = ['window.' + ep + '=', 'w.' + ep + '='];
+            const hit = [...SRC_TEXT].find(([, text]) => forms.some((f) => squash(text).includes(f)));
+            expect(
+                hit,
+                `${ep} is declared by the GIS action registry but NOTHING in apps/editor/src ` +
+                `assigns it. Some action in the GIS panel therefore resolves to null at runtime ` +
+                `and renders permanently disabled — and if a legacy control was deleted on the ` +
+                `strength of that action covering it, the capability is now unreachable.`,
+            ).toBeDefined();
+        }
+    });
+
+    it('names at least one action for every entry point — no orphan capabilities', () => {
+        for (const ep of ALL_ENTRY_POINTS) {
+            const owners = GIS_ACTIONS.filter((a) => (a.entryPoints as readonly string[]).includes(ep));
+            expect(owners.length, `${ep} is in the host interface but no action dispatches it`).toBeGreaterThan(0);
+        }
+    });
+});
+
+describe('§GIS-ACTION-REGISTRY (L-1360) — the removed launcher pills stay removed', () => {
+    // Each of these WAS a floating pill in the bottom-left stack; each is now a registry
+    // action rendered by the GIS panel. Re-adding one restores the founder's exact
+    // report — "the same six actions appear twice, one set obscuring the other".
+    const REMOVED_PILL_IDS = [
+        'pryzm-site-view-launcher',
+        'pryzm-plan-gis-launcher',
+        'pryzm-site-analysis-launcher',
+        'pryzm-envelope-card-launcher',
+        'pryzm-graph-launcher',
+        'pryzm-living-graph-launcher',
+        'pryzm-reset-panel-layout',
+    ] as const;
+
+    it('does not re-create any removed pill element', () => {
+        for (const id of REMOVED_PILL_IDS) {
+            // A comment naming the id is fine and expected — the removals document
+            // themselves. What must not come back is an element carrying it.
+            const creators = [...SRC_TEXT].filter(([, text]) => {
+                const squashed = text.replace(/\s+/g, '');
+                return squashed.includes(".id='" + id + "'")
+                    || squashed.includes('.id="' + id + '"')
+                    || squashed.includes("setAttribute('id','" + id + "')")
+                    || squashed.includes('setAttribute("id","' + id + '")');
+            });
+            expect(
+                creators.map(([f]) => f),
+                `the "${id}" launcher pill has been re-created. It is a duplicate of a GIS-panel ` +
+                `registry action; two hosts for one action is the L-1187 defect returning.`,
+            ).toEqual([]);
+        }
+    });
+});

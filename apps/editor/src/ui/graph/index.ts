@@ -7,10 +7,9 @@
 // P3-safe (no rAF — see BuildingGraphOverlay.startTicker).
 
 import { BuildingGraphOverlay } from './BuildingGraphOverlay';
-// §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — shared launcher-rail policy
-// so this pill declares a collision-free SLOT instead of a hand-picked bottom/z
-// that interleaved with the GIS launchers (the founder's bottom-left overlap).
-import { launcherRailStyle } from '../layout/zLayers';
+// §GIS-ACTION-REGISTRY (L-1360) — the launcher-rail import is gone with the pill
+// it positioned. This module now installs the window hook ONLY; the visible
+// control is the GIS panel's registry action.
 
 export { BuildingGraphOverlay } from './BuildingGraphOverlay';
 export {
@@ -54,29 +53,16 @@ export function installBuildingGraphOverlay(): void {
   w.pryzmShowBuildingGraph = (show?: boolean) => overlay.toggle(show);
   w.pryzmHideBuildingGraph = () => overlay.hide();
 
-  // GRAPH.3 — a DISCOVERABLE launcher (the overlay was console-only, like the
-  // Forma view used to be). Small + unobtrusive, lower-left and OFFSET from the
-  // Forma view toggles (top-left) so it doesn't crowd them; brand white+#6600FF.
-  if (typeof document !== 'undefined' && !document.getElementById('pryzm-graph-launcher')) {
-    const btn = document.createElement('button');
-    btn.id = 'pryzm-graph-launcher';
-    btn.type = 'button';
-    btn.title = 'Building graph — relational view of the model';
-    btn.textContent = '⚛ Graph';
-    Object.assign(btn.style, {
-      // Launcher rail slot 2 — above the two GIS site pills (slots 0–1), below
-      // "Living Graph" (slot 3). Shared `launcher` layer (10000) via the policy.
-      ...launcherRailStyle('graph'),
-      padding: '6px 12px',
-      borderRadius: '10px',
-      background: '#ffffff',
-      color: '#6600ff',
-      border: '1px solid rgba(102,0,255,0.25)',
-      font: '600 12px system-ui, sans-serif',
-      cursor: 'pointer',
-      boxShadow: '0 4px 14px rgba(40,10,90,0.16)',
-    });
-    btn.addEventListener('click', () => overlay.toggle());
-    document.body.appendChild(btn);
-  }
+  // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — the floating "Graph" pill is GONE.
+  //
+  // Founder 2026-08-20: "EXCLUDE THE BUTTONS FROM THE MAIN SCENE". The bottom-left
+  // stack was rendering on top of the consolidated GIS panel, so the same action
+  // appeared twice with one copy obscuring the other. Verdict (a) — the surviving
+  // control is the `graph.building` action in `ui/gis/gisActionRegistry.ts`, which the GIS
+  // panel renders and which dispatches THIS SAME `window.pryzmShowBuildingGraph` hook.
+  //
+  // The hook below is the load-bearing half and it stays: `gisActionRegistry.test.ts`
+  // scans production source and fails the build if an entry point the registry
+  // declares is no longer registered anywhere. Removing the pill is safe; removing
+  // this registration is not, and is now caught.
 }

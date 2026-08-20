@@ -12,9 +12,9 @@
 // UI — see the report / SPEC for the exact button-wiring reconciliation step.
 
 import { LivingGraphOverlay } from './LivingGraphOverlay';
-// §FIX-UI-LAYERING-ZINDEX-CONTRACT (L-149, C06 §7) — shared launcher-rail policy
-// (single z-index source of truth + collision-free bottom-left slots).
-import { launcherRailStyle } from '../layout/zLayers';
+// §GIS-ACTION-REGISTRY (L-1360) — the launcher-rail import is gone with the pill
+// it positioned. This module now installs the window hook ONLY; the visible
+// control is the GIS panel's registry action.
 
 export { LivingGraphOverlay } from './LivingGraphOverlay';
 export { LivingGraphCanvas } from './LivingGraphCanvas';
@@ -88,27 +88,16 @@ export function installLivingGraphOverlay(): void {
   w.pryzmOpenLivingGraph = (show?: boolean) => overlay.toggle(show ?? true);
   w.pryzmCloseLivingGraph = () => overlay.hide();
 
-  if (typeof document !== 'undefined' && !document.getElementById('pryzm-living-graph-launcher')) {
-    const btn = document.createElement('button');
-    btn.id = 'pryzm-living-graph-launcher';
-    btn.type = 'button';
-    btn.title = 'Living Graph — force-directed live space-relationship view';
-    btn.textContent = '✦ Living Graph';
-    Object.assign(btn.style, {
-      // Launcher rail slot 3 (top of the bottom-left column) — above the "Graph"
-      // pill (slot 2) and the two GIS site pills (slots 0–1). Shared `launcher`
-      // layer (10000) + collision-free bottom offset via the rail policy.
-      ...launcherRailStyle('livingGraph'),
-      padding: '6px 12px',
-      borderRadius: '10px',
-      background: '#ffffff',
-      color: '#6600ff',
-      border: '1px solid rgba(102,0,255,0.25)',
-      font: '600 12px system-ui, sans-serif',
-      cursor: 'pointer',
-      boxShadow: '0 4px 14px rgba(40,10,90,0.16)',
-    });
-    btn.addEventListener('click', () => overlay.toggle());
-    document.body.appendChild(btn);
-  }
+  // §GIS-ACTION-REGISTRY (L-1360, C06 §12.7) — the floating "Living Graph" pill is GONE.
+  //
+  // Founder 2026-08-20: "EXCLUDE THE BUTTONS FROM THE MAIN SCENE". The bottom-left
+  // stack was rendering on top of the consolidated GIS panel, so the same action
+  // appeared twice with one copy obscuring the other. Verdict (a) — the surviving
+  // control is the `graph.living` action in `ui/gis/gisActionRegistry.ts`, which the GIS
+  // panel renders and which dispatches THIS SAME `window.pryzmOpenLivingGraph` hook.
+  //
+  // The hook below is the load-bearing half and it stays: `gisActionRegistry.test.ts`
+  // scans production source and fails the build if an entry point the registry
+  // declares is no longer registered anywhere. Removing the pill is safe; removing
+  // this registration is not, and is now caught.
 }

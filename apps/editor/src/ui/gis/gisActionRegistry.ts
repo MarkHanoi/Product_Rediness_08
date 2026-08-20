@@ -68,6 +68,9 @@ export interface GisCapabilityHost {
     /** §GIS-ACTION-REGISTRY (L-1187) — reframe the camera on the site; the ACTIVE
      *  surface decides the target. */
     pryzmZoomToSite?: () => void;
+    /** §GIS-ACTION-REGISTRY (L-1360) — restore every optional panel to its declared
+     *  default. App-wide, not GIS-scoped. */
+    pryzmResetPanelLayout?: () => void;
 }
 
 export type GisEntryPointName = keyof GisCapabilityHost;
@@ -76,12 +79,16 @@ export type GisEntryPointName = keyof GisCapabilityHost;
  * Functional grouping inside the GIS panel. The founder's ask was "stop scattering
  * this chrome", not "give me one flat list of nineteen" — so the panel groups.
  */
-export type GisActionGroup = 'siteViews' | 'display' | 'graphs';
+export type GisActionGroup = 'siteViews' | 'display' | 'graphs' | 'utility';
 
 export const GIS_GROUP_LABEL: Readonly<Record<GisActionGroup, string>> = {
     siteViews: 'Site views',
     display:   'Site display',
     graphs:    'Graphs',
+    // Deliberately NOT called "GIS utilities". The one action in here is app-wide, and
+    // a group label that implied otherwise would be the host quietly re-scoping the
+    // action — the thing C06 §12.7 verdict (d) exists to prevent.
+    utility:   'Workspace',
 };
 
 export interface GisActionDecl {
@@ -326,6 +333,29 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         entryPoints: ['pryzmOpenLivingGraph'],
         absorbs: ['Living Graph (floating launcher pill)'],
         dispatch: (h) => { h.pryzmOpenLivingGraph?.(); },
+    },
+
+    // ── Workspace ───────────────────────────────────────────────────────────────
+    //
+    // ⚠ APP-WIDE, and said so on the control. `resetPanelLayout()` walks the whole
+    // PANEL_REGISTRY — view-properties, level-stepper, site-plan-overlay — so this is
+    // not a site action. It is hosted here because the floating launcher rail it used
+    // to live in is gone (L-1360) and it is the only route to recovering a panel dragged
+    // half off-screen (§UX1-PANEL-DEFAULTS D2). C06 §12.7 verdict (d): state where a
+    // control really belongs rather than let its host imply a scope it does not have.
+    {
+        id: 'panel.reset-layout',
+        label: 'Reset panel layout',
+        icon: '⟲',
+        title: 'Reset ALL optional panels app-wide — close them and restore their default size and position. Not limited to the site panels.',
+        group: 'utility',
+        entryPoints: ['pryzmResetPanelLayout'],
+        absorbs: ['⟲ (floating launcher pill)'],
+        homeNote:
+            'App-wide panel recovery, not a GIS action. Hosted here because the launcher rail it ' +
+            'lived in was removed and no other surface offers it; its natural long-term home is ' +
+            'wherever panel management is surfaced (C06 §2).',
+        dispatch: (h) => { h.pryzmResetPanelLayout?.(); },
     },
 ];
 
