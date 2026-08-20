@@ -24,14 +24,22 @@
  * Nothing about the coalescing decision is substituted.
  *
  * TWO declared inputs, both using seams the module documents for exactly this:
- *   • `opts.client` — the module's own "caller-supplied client (escape hatch)".
- *     Its `list()` returns a promise THIS TEST resolves by hand, which is what
- *     creates a deterministic in-flight window instead of a sleep race.
- *   • `attachEngineBootstrap` / `attachWorkspaceSurface` are deliberately NOT
- *     attached. The module states the contract: "Tests and headless callers omit
- *     both; openProject() degrades gracefully (data path runs, no scene loads,
- *     no surface flip)." The data path — which is where the defect lives — runs
- *     unmodified.
+ *   • `opts.client` — the module's own "caller-supplied client (escape hatch)",
+ *     returning two project summaries. Not gated: an earlier draft gated `list()`
+ *     to create the in-flight window and DEADLOCKED `buildPersistenceSlot` itself,
+ *     which reads the list during construction. That draft timed out rather than
+ *     asserting — worth recording, because a suite that hangs proves as little as
+ *     one that passes vacuously.
+ *   • `attachEngineBootstrap` — the module's own typed attachment point, whose
+ *     `ensure()` `openProject` AWAITS at step 2. This test's `ensure()` returns a
+ *     promise it resolves by hand, which is what holds the first open in flight
+ *     deterministically while the second is issued. No sleeps, no timing race.
+ *
+ * `attachWorkspaceSurface` is deliberately NOT attached. The module states the
+ * contract: "Tests and headless callers omit both; openProject() degrades
+ * gracefully (data path runs, no scene loads, no surface flip)." The data path —
+ * where the defect lives, and where `projectContext.set` happens — runs
+ * unmodified.
  *
  * `hint.isNewProject` is passed so step 3 skips `tier.streamLoad`, whose only
  * job is a network fetch. That is the module's own documented branch for a
@@ -101,36 +109,37 @@ function fakeClient(list: () => Promise<unknown>): any {
 
 async function buildSlot() {
     const ctx = makeProjectContext();
-    // The gate: `list()` does not settle until the test says so, which is what
-    // holds the first open in flight while the second is issued. No sleeps, no
-    // timing race — the window is opened and closed explicitly.
-    let releaseList!: () => void;
-    const listGate = new Promise<void>((res) => {
-        releaseList = res;
-    });
 
     const slot = await buildPersistenceSlot({
         audit: AUDIT as any,
         events: makeEvents() as any,
         projectContext: ctx as any,
-        client: fakeClient(async () => {
-            await listGate;
-            return [summary('A', 'Project A'), summary('B', 'Project B')];
-        }),
-    });
-    return { slot, ctx, releaseList };
+        client: fakeClient(async () => [summary('A', 'Project A'), summary('B', 'Project B')]),
+    }, 120_000);
+
+    // THE WINDOW. `openProject` awaits `attachedBootstrap.ensure()` at step 2, so
+    // parking there holds the first open in flight for exactly as long as this
+    // test wants — the real engine boot this stands in for is the seconds-wide
+    // window that made the defect reachable on a real hub.
+    let releaseBoot!: () => void;
+    const bootGate = new Promise<void>((res) => {
+        releaseBoot = res;
+    }, 120_000);
+    slot.attachEngineBootstrap({ ensure: () => bootGate } as any);
+
+    return { slot, ctx, releaseBoot };
 }
 
 describe('§FIX-OPEN-COALESCE-KEYED-ON-NOTHING — an open resolves for the project that was ASKED FOR', () => {
     it('⭐ opening B while A is in flight OPENS B — it does not silently resolve with A', async () => {
-        const { slot, ctx, releaseList } = await buildSlot();
+        const { slot, ctx, releaseBoot } = await buildSlot();
 
         // A starts and parks inside `controller.refresh()`.
         const openA = slot.openProject('A', { name: 'Project A', isNewProject: true });
         // B is requested while A is unmistakably still in flight.
         const openB = slot.openProject('B', { name: 'Project B', isNewProject: true });
 
-        releaseList();
+        releaseBoot();
         await Promise.all([openA, openB]);
 
         // BEFORE THE FIX this array was ['A'] only: B's promise WAS A's promise,
@@ -140,55 +149,62 @@ describe('§FIX-OPEN-COALESCE-KEYED-ON-NOTHING — an open resolves for the proj
         expect(opened).toContain('B');
         // And B must be the project the session ENDS on — it was clicked last.
         expect(opened[opened.length - 1]).toBe('B');
-    });
+    }, 120_000);
 
     it('a genuine DUPLICATE (same id) still coalesces to ONE open', async () => {
         // The property L-1282 depends on: same-id de-duplication must survive the
         // fix, or every duplicate call becomes a second full engine load.
-        const { slot, ctx, releaseList } = await buildSlot();
+        const { slot, ctx, releaseBoot } = await buildSlot();
 
         const a1 = slot.openProject('A', { name: 'Project A', isNewProject: true });
         const a2 = slot.openProject('A', { name: 'Project A', isNewProject: true });
-        expect(a1).toBe(a2); // literally the same promise — not merely equivalent
+        // ⚠ NOT `expect(a1).toBe(a2)`. An earlier draft asserted promise IDENTITY
+        // and failed — correctly. `openProject` is declared `async`, so it returns a
+        // FRESH wrapper promise on every call regardless of what it resolves with;
+        // identity was never true here, before or after this fix. The assertion was
+        // measuring the `async` keyword, not the coalescing. What actually matters
+        // is BEHAVIOURAL and is asserted below: the open ran exactly ONCE.
 
-        releaseList();
+        releaseBoot();
         await Promise.all([a1, a2]);
 
         expect(ctx.sets.filter((s) => s.projectId === 'A')).toHaveLength(1);
-    });
+    }, 120_000);
 
     it('a FAILED open of A must not prevent B from opening', async () => {
         // The escape hatch. Without the `.catch()` on the superseded promise, a
         // user whose project A fails to open could not click their way out of it:
         // B would reject with A's error and the only recovery would be a reload.
         const ctx = makeProjectContext();
-        let releaseList!: () => void;
-        let failFirst = true;
-        const gate = new Promise<void>((res) => {
-            releaseList = res;
+        let releaseBoot!: () => void;
+        const bootGate = new Promise<void>((res) => {
+            releaseBoot = res;
         });
+        let failFirstBoot = true;
 
         const slot = await buildPersistenceSlot({
             audit: AUDIT as any,
             events: makeEvents() as any,
             projectContext: ctx as any,
-            client: fakeClient(async () => {
-                await gate;
-                if (failFirst) {
-                    failFirst = false;
-                    throw new Error('network down');
-                }
-                return [summary('A', 'Project A'), summary('B', 'Project B')];
-            }),
+            client: fakeClient(async () => [summary('A', 'Project A'), summary('B', 'Project B')]),
         });
+        slot.attachEngineBootstrap({
+            ensure: async () => {
+                await bootGate;
+                if (failFirstBoot) {
+                    failFirstBoot = false;
+                    throw new Error('engine boot failed');
+                }
+            },
+        } as any);
 
         const openA = slot.openProject('A', { name: 'Project A', isNewProject: true });
         const openB = slot.openProject('B', { name: 'Project B', isNewProject: true });
-        releaseList();
+        releaseBoot();
 
         await openA.catch(() => undefined);
         await openB;
 
         expect(ctx.sets.map((s) => s.projectId)).toContain('B');
-    });
+    }, 120_000);
 });
