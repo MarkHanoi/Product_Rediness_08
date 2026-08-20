@@ -24496,3 +24496,19 @@ L-1532 `§STAIR-VOID-FOLLOWS-SPAN` closes **L-1432**: every deck void follows th
 than being left where the old span cut them.
 
 ---
+
+---
+
+## L-1522 — ⛔ OPEN (capability loss, stated not hidden): profiled windows lose their glazing grid — 2026-08-20 (lane OPEN2)
+
+A `double × circular` window now reads as **one oculus, not two half-moons**. The cell grid is a
+bounding-box construction, and a real arched or circular window carries **fan or radial tracery** —
+which no field on the window record can describe. The lane **omitted it rather than drawing it
+wrong**, which is the right call, but it is a genuine loss against the rectangular case and is logged
+so it is not discovered as a surprise.
+
+Still rectangular for profiled openings, already 🟡 in L-1252's table: the **plan symbol** and the
+**IFC export**. And `segmental-arch` rise = 1/6 span remains **NOT MEASURED** against architect
+expectation — an assumed constant wearing the appearance of a standard.
+
+---
