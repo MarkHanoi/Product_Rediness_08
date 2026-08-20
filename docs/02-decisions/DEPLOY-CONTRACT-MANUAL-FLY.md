@@ -632,7 +632,7 @@ before starting over: a pushed image is a finished build, whatever flyctl printe
 
 ---
 
-### 6.5.10 ⭐ WARM THE BUILDER FIRST — a SUSPENDED builder app is why §4 looks flaky (2026-08-20)
+### 6.5.10 ⚠ WARMING THE BUILDER HELPS BUT DOES NOT FIX §4 — tried and measured (2026-08-20)
 
 **Do this before every manual deploy. It is one command and it is the first thing to try when §4
 dies at the builder handshake.**
@@ -666,9 +666,23 @@ and no `~/.docker/config.json` here, so the pipe is flyctl's built-in default, n
 - It also explains the pattern the founder spotted: the two runs that DID push were **early in the
   session, when the builder had been recently active**. Idle → suspended → fail.
 
-⚠ **Scope of this claim, stated precisely.** What is proven is that warming the builder **cleared the
-handshake that had failed 8 times running**. Whether it makes §4 reliable end-to-end is **NOT YET
-MEASURED** — it needs several deploys across a session to say that, and one run is not a rate.
+> ⛔ **CORRECTED THE SAME HOUR — WARMING IS NOT THE FIX. Measured, so nobody repeats it.**
+> The run that prompted this section **did** get further than the previous eight: it reached the
+> buildkit context transfer and uploaded **122 MB over ~7 minutes**, where the others sent zero
+> bytes. **And it still ended at the identical line**, with `Pushing image done` count **0**:
+> ```
+> Override builder host with: https://…  (was tcp://[fdaa:…]:2375)
+> Error: failed to parse daemon host "npipe:////./pipe/docker_engine"
+> ```
+> ⇒ **Warming the builder buys progress, not success.** Do it — reaching the upload is strictly
+> better than dying at the handshake — but **do not expect it to complete a deploy.**
+> ⭐ **And note what this kills: the failure is NOT a cold-builder race.** flyctl discards the
+> wireguard address even against a machine that is already `started`, so the override is
+> unconditional, not a timing artefact. That removes the last hypothesis this session had.
+
+⚠ **Scope, stated precisely and then corrected.** What warming proves is only that the builder
+being cold was **not** the whole story. §4 remains unresolved on this machine: **0 pushes in 10
+attempts since the last success**, 2 of 12 overall.
 ⛔ Do not upgrade this to "§4 is fixed" on a single success; that is the same streak-reasoning error
 §6.5.9 had to correct in the other direction.
 
