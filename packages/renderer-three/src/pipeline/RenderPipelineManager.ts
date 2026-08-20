@@ -279,6 +279,39 @@ export class RenderPipelineManager implements IViewSwitchListener {
     // browser) instead of walking a foreign NodeManager and throwing.
     private _renderPipelineDevice: unknown                    = null;
     private _scenePass:          PassNode | null              = null;
+    /**
+     * §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — the G-buffer layout the LIVE `_scenePass`
+     * was CONSTRUCTED with, not the layout we would like it to have.
+     *
+     * THE FOUNDER'S "I clicked SSGI and TRAA and the scene collapsed".
+     *
+     * `PassNode.getTexture(name)` is not a read. three r183 (`three/src/nodes/display/
+     * PassNode.js:564-583`) CLONES the base colour texture for an unknown name and
+     * `this.renderTarget.textures.push(texture)` — it MUTATES the render target, growing its
+     * colour-attachment count. `setMRT()` is what makes the material EMIT those extra
+     * fragment outputs, and it is a separate call.
+     *
+     * So asking a NON-MRT scene pass for `diffuseColor` / `normal` / `velocity` silently
+     * produced a 4-attachment render pass driven by 1-output shaders. That is the founder's
+     * console, verbatim and in both directions:
+     *
+     *   [RenderPassEncoder] expects { colorTargets: [0,1,2,3 = RGBA16Float], … }
+     *   [RenderPipeline "renderPipeline_MeshStandardMaterial_681"] has { colorTargets: [0] }
+     *
+     * The `RGBA16Float` on ALL FOUR is the proof it was the lazy clone and not `ScenePass`:
+     * `createScenePass(…, true)` downgrades `diffuseColor` + `normal` to `UnsignedByteType`
+     * (→ `RGBA8Unorm`). Four half-float targets is a texture cloned from `output`.
+     *
+     * `activateSSGI()` handed `createSSGIPass()` a pass built with `needsGBuffer=false`
+     * (SSGI/TRAA are off by default, so `_buildPipeline` had correctly built the cheap
+     * single-target pass). SSGI then read two G-buffer channels off it, and every submit for
+     * the rest of the session was rejected. TRAA reached the same hole through `velocity`.
+     *
+     * Tracking the layout as BUILT — never inferring it from `_ssgiActive || _traaActive`,
+     * which is the INTENT and is exactly what was already out of step — lets
+     * {@link _ensureScenePassGBuffer} rebuild the pass BEFORE anyone reads a G-buffer channel.
+     */
+    private _scenePassHasGBuffer = false;
     private _zonePass:           PassNode | null              = null;
     private _outputNode:         TSLNode | null               = null;
     private _backgroundUniform:  BackgroundUniform | null     = null;
@@ -426,6 +459,14 @@ export class RenderPipelineManager implements IViewSwitchListener {
     // Phase 3 — cached SSGI nodes for pipeline rebuilds that preserve SSGI
     private _cachedAo:  TSLNode | null = null;
     private _cachedGi:  TSLNode | null = null;
+    /**
+     * §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — the quality overrides the LIVE SSGI nodes
+     * were built from, so a rebuild reproduces the SAME pass rather than silently reverting
+     * to `DEFAULT_SSGI_PARAMS`. Every rebuild path (`_ensureScenePassGBuffer`, `_fullRebuild`)
+     * re-derived from defaults, so `activateSSGI({ radius: … })` survived exactly until the
+     * first camera change — a quality regression with nothing in the console to attribute it to.
+     */
+    private _ssgiParams: object | undefined = undefined;
 
     // Phase 4 — stored outline nodes + raw GPU instances
     private _outlineNodes: StoredOutlineNodes | null = null;
@@ -3003,6 +3044,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._safeDisposeRenderPipeline();
         this._renderPipeline     = null;
         this._scenePass          = null;
+        this._scenePassHasGBuffer = false; // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT — dies with the pass
         this._zonePass           = null;
         this._outputNode         = null;
         this._backgroundUniform  = null;
@@ -3011,6 +3053,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._renderer           = null;
         this._cachedAo                         = null;
         this._cachedGi                         = null;
+        this._ssgiParams                       = undefined; // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510)
         this._cameraUpdateIsProjectionToggle   = false;
         this._ssgiNeedsFullRebuild             = false;
         this._hasVisitedOrthographic           = false;
@@ -3083,6 +3126,121 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // failed to release.
     }
 
+    // ── §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) ──────────────────────────
+    //
+    /**
+     * §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) — the ONLY place `_scenePass` is assigned a
+     * newly-built pass.
+     *
+     * A `PassNode` owns a `RenderTarget`; every TSL node derived from it (`_cachedAo`,
+     * `_cachedGi` — built by `createSSGIPass` from this pass's `output`/`depth`/`normal`
+     * texture nodes) is bound to THAT target. Replacing the pass without dropping them
+     * leaves the composite graph sampling a render target the pipeline no longer renders
+     * into. Three sites built a new pass (`_buildPipeline`, `_fullRebuild`,
+     * `_ensureScenePassGBuffer`) and only two of them dropped the derived nodes.
+     *
+     * The path that did not is the device-loss / live-backend-swap recovery:
+     * `recoverPipeline → bind() → _buildPipeline()` mints a fresh pass, and the very next
+     * step, `if (this._ssgiActive) await this.activateSSGI()`, hit `activateSSGI`'s
+     * idempotency guard — `_ssgiActive && _cachedAo && _cachedGi && !params` — and returned
+     * WITHOUT rebuilding, because the stale nodes were still there to satisfy it. SSGI then
+     * composited nodes bound to the pre-loss target for the rest of the session.
+     *
+     * Dropping them here makes that guard read TRUE STATE, so recovery genuinely re-derives.
+     *
+     * It is deliberately LOUD when it drops live nodes while SSGI is still flagged on: that
+     * combination means SSGI is off until something re-activates it, and a feature that turns
+     * itself off without a console line is how a "quality regression" gets attributed to the
+     * wrong change six weeks later.
+     */
+    private _setScenePass(pass: PassNode, hasGBuffer: boolean): void {
+        if (this._ssgiActive && (this._cachedAo || this._cachedGi)) {
+            console.warn(
+                '[RenderPipelineManager] §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) — the scene pass was '
+                + 'replaced while SSGI was active; the cached AO/GI nodes are bound to the OLD render '
+                + 'target and are being dropped. SSGI stays OFF until it is re-derived '
+                + `(hasGBuffer=${hasGBuffer}).`,
+            );
+        }
+        this._scenePass           = pass;
+        this._scenePassHasGBuffer = hasGBuffer;
+        this._cachedAo            = null;
+        this._cachedGi            = null;
+    }
+
+    /**
+     * Guarantee that `_scenePass` DECLARES its G-buffer before anything reads a G-buffer
+     * channel off it.
+     *
+     * WHY IT IS A METHOD AND NOT A LINE AT EACH CALL SITE. The failure it prevents is silent
+     * in both halves: `PassNode.getTexture(name)` never throws for an undeclared attachment
+     * (it clones and pushes one — `three/src/nodes/display/PassNode.js:564-583`), and
+     * `setMRT()` is the separate call that makes materials emit those outputs. So a reader
+     * that forgets the pairing gets a render target and a shader that disagree, and the only
+     * report is a WebGPU validation flood on the next submit. One chokepoint, keyed on the
+     * layout the pass was BUILT with, is the only way that pairing stays true.
+     *
+     * ⚠ Replacing the pass INVALIDATES every node derived from the old one. `_cachedAo` /
+     * `_cachedGi` are exactly that, so they are dropped — and re-derived here when SSGI is
+     * active, because the alternative (leaving them null) makes `_rebuildPipelineWithCurrentState`
+     * fall through to `_buildPipeline()` and silently drop SSGI on a TRAA toggle. A feature
+     * that disappears because a peer feature was switched on is the same class of defect as
+     * the one being fixed: a state change nobody reported.
+     *
+     * No-op — deliberately, not defensively — when the pass already carries the G-buffer, when
+     * there is no scene/camera/pass, or before TSL is loaded. `_buildPipeline()` re-asserts the
+     * layout from `_ssgiActive || _traaActive` on its own, so a deferred call loses nothing.
+     *
+     * ⚠ It never MINTS a pass where there was none (`_scenePass === null`). `activateTRAA()`
+     * has no `_scenePass` guard of its own, and a pass created here would be built outside
+     * `_buildPipeline`/`_fullRebuild` — the two places that also build the zone pass and the
+     * graph that consumes both. There is nothing to repair on a manager with no pass; whoever
+     * builds the first one builds it with the correct flag.
+     *
+     * @returns `true` when `_scenePass` is safe to read G-buffer channels from — i.e. it
+     *          DECLARES them via `setMRT`. `false` means the caller must NOT call
+     *          `getTextureNode('diffuseColor' | 'normal' | 'velocity')` on it: doing so is
+     *          precisely the lazy-clone bug. The boolean exists because the failure is
+     *          otherwise silent, and a caller that ignores it re-opens L-1510.
+     */
+    private async _ensureScenePassGBuffer(): Promise<boolean> {
+        if (this._scenePassHasGBuffer) return true;
+        if (!this._scenePass || !this._scene || !this._camera || !this._tslLoaded) return false;
+
+        console.log(
+            '[RenderPipelineManager] §FIX-WEBGPU-MRT-LAZY-ATTACHMENT — rebuilding the scene pass '
+            + 'WITH its G-buffer before a G-buffer channel is read '
+            + `(ssgi=${this._ssgiActive} traa=${this._traaActive}).`,
+        );
+
+        // §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) — also drops `_cachedAo`/`_cachedGi`; they
+        // are bound to the pass we just discarded.
+        this._setScenePass(createScenePass(this._scene, this._camera, true), true);
+
+        if (this._ssgiActive) {
+            try {
+                const { createSSGIPass } = await import('./SSGIPass');
+                // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT — re-derive with the SAME quality params the
+                // user activated with. Re-deriving from DEFAULT_SSGI_PARAMS would silently
+                // discard a caller's overrides on a rebuild, which is a quality regression with
+                // no console line attached.
+                const { ao, gi } = await createSSGIPass(this._scenePass, this._camera, this._ssgiParams);
+                this._cachedAo = ao;
+                this._cachedGi = gi;
+            } catch (err: unknown) {
+                // Say it. An SSGI that vanishes without a line in the console is how a
+                // "quality regression" gets attributed to the wrong change six weeks later.
+                console.error(
+                    '[RenderPipelineManager] §FIX-WEBGPU-MRT-LAZY-ATTACHMENT — the scene pass was '
+                    + 'rebuilt with its G-buffer but the SSGI nodes could not be re-derived; SSGI '
+                    + 'is OFF for this pipeline until it is re-activated:', err,
+                );
+                this._ssgiActive = false;
+            }
+        }
+        return true;
+    }
+
     // ── Phase 3: SSGI activation ──────────────────────────────────────────
 
     /**
@@ -3113,9 +3271,36 @@ export class RenderPipelineManager implements IViewSwitchListener {
             return;
         }
         try {
+            // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — THE FIX, and its position is the fix.
+            //
+            // `createSSGIPass` reads `diffuseColor` and `normal` off this pass. On a pass built
+            // without the G-buffer — the DEFAULT, because SSGI/TRAA start off — those two reads
+            // do not fail and do not warn: `PassNode.getTexture` clones `output` and pushes the
+            // clone onto `renderTarget.textures`, so the render pass silently acquires colour
+            // attachments that no material emits. Every subsequent submit is rejected by WebGPU
+            // and the viewport dies. Rebuild the pass WITH its MRT declaration first, so the
+            // attachments and the fragment outputs are minted by the same call.
+            //
+            // Runs while `_ssgiActive` is still false, so the re-derive branch inside
+            // `_ensureScenePassGBuffer` does not build an SSGI pass we are about to build here.
+            const gBufferReady = await this._ensureScenePassGBuffer();
+            if (!gBufferReady) {
+                // The pass cannot be given a G-buffer right now (no pass yet / TSL not loaded).
+                // Reading `normal` off it here is EXACTLY the L-1510 defect, so refuse instead.
+                // `_buildPipeline()` re-asserts the layout from `_ssgiActive` when it runs, and
+                // `_ssgiActive` is still false here, so nothing is silently left half-enabled.
+                console.warn(
+                    '[RenderPipelineManager] §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — SSGI activation '
+                    + 'refused: the scene pass has no G-buffer and cannot be rebuilt with one yet '
+                    + `(scenePass=${this._scenePass ? 'built' : 'NULL'} tslLoaded=${this._tslLoaded}).`,
+                );
+                this._emitState();
+                return;
+            }
             const { createSSGIPass } = await import('./SSGIPass');
             const { ao, gi } = await createSSGIPass(this._scenePass, this._camera, params);
             this._ssgiActive  = true;
+            this._ssgiParams  = params;
             this._cachedAo    = ao;
             this._cachedGi    = gi;
             console.log('[RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).');
@@ -3131,6 +3316,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._ssgiActive = false;
         this._cachedAo   = null;
         this._cachedGi   = null;
+        this._ssgiParams = undefined; // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510)
         await this._buildPipeline();
         this._emitState();
     }
@@ -3159,6 +3345,12 @@ export class RenderPipelineManager implements IViewSwitchListener {
         }
         this._traaActive = true;
         console.log('[RenderPipelineManager] TRAA enabled (r183 TRAANode colour filter).');
+        // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — TRAA reaches the SAME hole as SSGI, one
+        // channel over: `_buildPhase3Pipeline` reads `velocity`. With SSGI already on, the
+        // rebuild below takes the phase-3 branch and never revisits the pass, so the ensure has
+        // to happen here. With SSGI off it takes `_buildPipeline()`, which rebuilds the pass
+        // with `_traaActive` now true — this call is then a no-op, which is the correct answer.
+        await this._ensureScenePassGBuffer();
         await this._rebuildPipelineWithCurrentState();
         this._emitState();
     }
@@ -3290,7 +3482,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // exists ONLY for SSGI and TRAA. Declaring those targets when nothing reads them made
         // every render pipeline INVALID for any material that does not emit them (ShadowMaterial,
         // lines, gizmos) — every submit was rejected, every frame. Ask for it only when used.
-        this._scenePass = createScenePass(this._scene, this._camera, this._ssgiActive || this._traaActive);
+        // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) + §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) —
+        // record the layout as BUILT, and drop the AO/GI nodes bound to the pass being replaced.
+        const needsGBuffer = this._ssgiActive || this._traaActive;
+        this._setScenePass(createScenePass(this._scene, this._camera, needsGBuffer), needsGBuffer);
         this._zonePass  = createZonePass(this._scene, this._camera);
 
         const scenePassColor = this._scenePass.getTextureNode(MRT_OUTPUT);
@@ -3369,15 +3564,49 @@ export class RenderPipelineManager implements IViewSwitchListener {
         if (!tsl) throw new Error('[RenderPipelineManager] TSL not loaded — bind() must be called with a WebGPU renderer first.');
         const { add, vec4, mix, select, step, float } = tsl;
 
-        // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) — this is the ONLY consumer of the
-        // G-buffer. The scene pass now builds those targets only when SSGI/TRAA is active
-        // (declaring targets nothing reads made every pipeline INVALID — see ScenePass.ts).
-        // If we somehow got here without them, rebuild the pass WITH the G-buffer rather
-        // than reading absent targets: a missing attachment here would be the same class of
-        // invalid-pipeline bug in the other direction.
-        if (!this._ssgiActive && !this._traaActive && this._scene && this._camera) {
-            console.warn('[RenderPipelineManager] §FIX-WEBGPU-INVALID-PIPELINE-MRT — phase-3 pipeline requested with SSGI/TRAA inactive; rebuilding the scene pass WITH its G-buffer.');
-            this._scenePass = createScenePass(this._scene, this._camera, true);
+        // §FIX-WEBGPU-INVALID-PIPELINE-MRT (L-253) + §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) —
+        // this is the ONLY consumer of the G-buffer, and the four `getTextureNode` calls below
+        // are the exact lines that used to MINT missing attachments onto a single-target pass
+        // (see `_scenePassHasGBuffer`). The guard here used to fire only when SSGI *and* TRAA
+        // were both inactive — a state `activateSSGI()` had already made unreachable by setting
+        // `_ssgiActive = true` first — so on the founder's click it did nothing at all.
+        //
+        // Keyed on the layout the pass was BUILT with, it fires exactly when it must.
+        if (!await this._ensureScenePassGBuffer()) {
+            // Refuse, do not degrade silently. The four reads below on a pass with no MRT
+            // declaration ARE the defect; building the cheap phase-2 pipeline instead keeps
+            // the viewport valid and leaves `_ssgiActive` intact, so the next rebuild that
+            // CAN give the pass a G-buffer restores phase 3.
+            console.warn(
+                '[RenderPipelineManager] §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — phase-3 pipeline '
+                + 'refused: the scene pass does not declare a G-buffer and could not be rebuilt with '
+                + 'one. Falling back to the phase-2 pipeline (SSGI/TRAA not composited this build).',
+            );
+            await this._buildPipeline();
+            return;
+        }
+
+        // `_ensureScenePassGBuffer` may have REPLACED the pass, in which case `_cachedAo` /
+        // `_cachedGi` were re-derived against the new one and the `ao` / `gi` ARGUMENTS still
+        // point at the discarded one. Locals, not parameter reassignment — the arguments stay
+        // readable as "what the caller asked for".
+        let aoNode = ao;
+        let giNode = gi;
+        if (this._ssgiActive) {
+            if (!this._cachedAo || !this._cachedGi) {
+                // The re-derive failed (`_ensureScenePassGBuffer` logs and clears `_ssgiActive`),
+                // or SSGI was never derived. Compositing the arguments would sample a dead
+                // render target. Phase 2 is the honest answer.
+                console.warn(
+                    '[RenderPipelineManager] §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) — phase-3 pipeline '
+                    + 'refused: SSGI is flagged active but has no live AO/GI nodes for the CURRENT scene '
+                    + 'pass. Falling back to the phase-2 pipeline.',
+                );
+                await this._buildPipeline();
+                return;
+            }
+            aoNode = this._cachedAo;
+            giNode = this._cachedGi;
         }
 
         const scenePassColor   = this._scenePass.getTextureNode('output');
@@ -3396,10 +3625,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // Compositing formula (01-WEBGPU-RENDERING-MIGRATION §3.3):
         //   final = (scene × AO) + (zone + diffuse × GI)
         const ssgiComposite: TSLNode = add(
-            scenePassColor.rgb.mul(ao),
+            scenePassColor.rgb.mul(aoNode),
             add(
                 this._zonePass.rgb,
-                scenePassDiffuse.rgb.mul(gi),
+                scenePassDiffuse.rgb.mul(giNode),
             ),
         );
 
@@ -4437,6 +4666,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         this._outlinesActive = false;
         this._cachedAo       = null;
         this._cachedGi       = null;
+        this._ssgiParams     = undefined; // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510)
         this._disposeOutlineInstances();
         this._retryCount     = 0;
         this._hasPipelineError = false;
@@ -4869,7 +5099,10 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // exists ONLY for SSGI and TRAA. Declaring those targets when nothing reads them made
         // every render pipeline INVALID for any material that does not emit them (ShadowMaterial,
         // lines, gizmos) — every submit was rejected, every frame. Ask for it only when used.
-        this._scenePass = createScenePass(this._scene, this._camera, this._ssgiActive || this._traaActive);
+        // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) + §SCENEPASS-IDENTITY-CHOKEPOINT (L-1511) —
+        // record the layout as BUILT, and drop the AO/GI nodes bound to the pass being replaced.
+        const needsGBuffer = this._ssgiActive || this._traaActive;
+        this._setScenePass(createScenePass(this._scene, this._camera, needsGBuffer), needsGBuffer);
         this._zonePass  = createZonePass(this._scene, this._camera);
 
         // Phase C unification: when SSGI is active, ALWAYS build the Phase 3
@@ -4883,7 +5116,9 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // switch.  Phase C removes that branch entirely.
         if (this._ssgiActive) {
             const { createSSGIPass } = await import('./SSGIPass');
-            const { ao, gi } = await createSSGIPass(this._scenePass, this._camera);
+            // §FIX-WEBGPU-MRT-LAZY-ATTACHMENT (L-1510) — re-derive with the params the user
+            // activated with, not DEFAULT_SSGI_PARAMS.
+            const { ao, gi } = await createSSGIPass(this._scenePass, this._camera, this._ssgiParams);
             this._cachedAo = ao;
             this._cachedGi = gi;
             await this._buildPhase3Pipeline(ao, gi);
