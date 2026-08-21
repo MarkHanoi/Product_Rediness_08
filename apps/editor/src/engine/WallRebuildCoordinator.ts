@@ -2222,7 +2222,39 @@ export class WallRebuildCoordinator {
                     }
                 });
 
-                for (const [wallId, { event }] of batch) {
+                for (const [wallId, { event, wall: _batchedWall }] of batch) {
+                    // §WALL-JOIN-LOAD-MULTILEVEL (L-1950, founder 2026-08-21) — THE BUG THAT
+                    // ATE EVERY MITRE ON PROJECT OPEN.
+                    //
+                    // This loop sits INSIDE `for (const levelId of affectedLevelIds)`, but it
+                    // walked the ENTIRE cross-level `batch` and rebuilt every wall missing from
+                    // THIS level's `adjustments` with `joinData = null` — i.e. UNJOINED, square
+                    // caps. `adjustments` can only ever contain this level's walls
+                    // (`resolveLevel(levelWalls)`), so on a multi-level batch every OTHER
+                    // level's walls were unconditionally square-capped, once per level
+                    // iteration. Levels are then processed in `affectedLevelIds` order and each
+                    // iteration un-mitres the ones before it: only the LAST level survives.
+                    //
+                    // A project open is the ONLY path that batches many levels at once (the
+                    // §WALL-JOIN-LOAD-SKIP deferred resolve re-queues all 59 restored walls
+                    // across all 6 levels into one flush), which is exactly why the founder saw
+                    // it "on project opening (and an old project being opened again)" and why
+                    // "as soon as an element is created in the precise level" repaired it — a
+                    // manual edit produces a SINGLE-level batch, the loop runs once, and there
+                    // is no other level left to clobber. It was never a repair; it was the only
+                    // batch shape this loop could not corrupt.
+                    //
+                    // The earlier prod log carried the proof in its own numbers:
+                    // `§WALL-JOIN-LOAD-DEFER-DONE — level L0: … (6 wall(s) on level, 4 join
+                    // adjustment(s), 59 wall(s) rebuilt with mitred caps)` — 59 rebuilt on a
+                    // 6-wall level, because 53 of them were foreign walls this loop had just
+                    // rebuilt SQUARE while the line claimed "mitred caps".
+                    //
+                    // Keyed on the BATCHED `wall.levelId`, not `fresh.levelId`: `affectedLevelIds`
+                    // is built from exactly that field, so every batch entry is handled in
+                    // exactly one iteration — a wall re-hosted to another level between queue and
+                    // flush is still covered instead of falling through every branch.
+                    if (_batchedWall.levelId !== levelId) continue;
                     if (event !== 'remove' && !adjustments.has(wallId)) {
                         const fresh = store.getById(wallId);
                         if (fresh) {
