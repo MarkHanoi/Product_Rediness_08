@@ -225,3 +225,14 @@ export * from './climate/index.js';
 // consumer (producer, evaluator, scene-committer) already uses.
 // ADR-0270 / L-451 — geometric rule model (setback | alignment | explicit-area).
 export * from './site/GeometricRule';
+
+// ADR-0346 / L-2900 — LINKED MODELS. The L0 record of "another project's building,
+// shown read-only in this one, anchored on the shared parcel". Exported names are
+// all `Link*` / `LINKED_MODEL_*` plus the four pure anchor helpers
+// (`resolveLinkAnchor`, `enuOffset`, `geoSeparationM`, `explicitAnchor`,
+// `formatMetres`) — none collides with the element schemas or the site substrate.
+//
+// Deliberately NOT added to `ElementType`: a linked model has no parameters the
+// host may set and no family, so the C84/C85-C99 element-integrity obligations
+// must not attach to it. See link/LinkedModelRef.ts's header.
+export * from './link/index.js';

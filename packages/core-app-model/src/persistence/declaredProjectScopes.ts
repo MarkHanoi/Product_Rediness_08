@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 4;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 5;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -420,6 +420,40 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
         // it on a project switch would let the next bootstrap subscribe a SECOND time and
         // ask every opened-region question twice. It is reported through describe()
         // (`subscribed`) so its value is still visible in a leak report.
+    },
+    {
+        scope: 'links.linkedModels',
+        module: 'apps/editor/src/engine/links/linkedModelScope.ts',
+        why: '§C13-LINKED-MODEL-OWNER (ADR-0346, L-2900) — THE FIRST SANCTIONED '
+            + 'CROSS-PROJECT SURFACE IN THIS REPOSITORY, and the reason C13 gained §3.13. '
+            + "A LINKED MODEL puts ANOTHER project's geometry into the active scene on purpose: "
+            + "project B's building shown read-only inside project A, anchored on the shared "
+            + 'parcel datum. Every other mechanism in this neighbourhood exists to PREVENT '
+            + 'exactly that, so the feature cannot be built on an allowlist — C13 §3.10 '
+            + 'says a clean verdict that never looked is worse than no verdict. It is built on '
+            + 'an OWNER that can be ASKED instead. The subtree carries no `userData.id` and no '
+            + '`type`, so `scene.foreignElement` cannot recognise it — the same blindness '
+            + '`views.mountedDrawing` was created for, and C13 §7.5 names that scope as THE '
+            + 'pattern for a producer a sweep cannot see. The probe answers the HOST project id '
+            + '(the project that created the link), never the source id: the geometry is '
+            + 'foreign, the MOUNT is host state, so a link left mounted across a switch reads '
+            + 'as a leak through the ordinary scope.foreignProject arm with no new detector. '
+            + 'Stamping the SOURCE id instead would have made every correctly-mounted link '
+            + 'report a permanent violation, which trains people to ignore the audit — the '
+            + 'failure mode that is worse than having none.',
+        presence: 'module-scope',
+        resets: ['clearMountedLinks'],
+        counts: ['hostProjectId'],
+        uncounted: {
+            clearMountedLinks:
+                'The module stamps `hostProjectId` alongside each detach handle and drops both '
+                + 'in one body, so the probe reads that stamp as a SINGLE source rather than '
+                + 'mirroring the clear map-field by map-field — the `views.mountedDrawing` '
+                + 'shape. A mount whose host could not be resolved answers with an explicit '
+                + "`'<link-host-unresolved>'` marker, never null: “I hold nothing” and "
+                + '“I hold something I cannot attribute” are the L-713 mistake if they '
+                + 'share a value.',
+        },
     },
 ];
 

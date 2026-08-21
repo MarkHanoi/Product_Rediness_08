@@ -2339,6 +2339,33 @@ export class ProjectLoader {
                 console.warn('[ProjectLoader] DxfOverlayStore restore failed (non-fatal):', dxfErr);
             }
 
+            // ADR-0346 / C13 §3.13 (L-2900) — Restore LINKED MODEL REFERENCES.
+            //
+            // References only: no linked element ever enters a store, so there is
+            // nothing here to clear from the element side and nothing to exclude on
+            // save. The geometry is rebuilt by `linkedModelController.syncAll()`,
+            // which the store's own change broadcast triggers — the same route a
+            // user-created link takes, so restore and create cannot diverge.
+            //
+            // `restore()` DROPS AND COUNTS rows whose `hostProjectId` names another
+            // project. A link belongs to the project that created it (C13 §3.13
+            // rule 3); silently adopting a foreign ref would launder it into host
+            // state, which is precisely the crossing this contract governs.
+            try {
+                const linkData = (snapshot as any).linkedModels;
+                if (linkData?.links && Array.isArray(linkData.links)) {
+                    const { linkedModelStore } = await import('../links/LinkedModelStore');
+                    const hostId = (snapshot as any).projectId ?? null;
+                    const dropped = linkedModelStore.restore(linkData, hostId);
+                    console.log(
+                        `[ProjectLoader] §C13-LINKED-MODELS restored: ${linkData.links.length - dropped} link(s)`
+                        + (dropped > 0 ? `, ${dropped} DROPPED (host mismatch)` : ''),
+                    );
+                }
+            } catch (linkErr) {
+                console.warn('[ProjectLoader] LinkedModelStore restore failed (non-fatal):', linkErr);
+            }
+
             // §ANN-A2 — Restore Annotation store from snapshot
             // §ANN-TYPE-PERSIST — restore CUSTOM annotation system types BEFORE the
             // annotations that point at them, so no element loads with a dangling

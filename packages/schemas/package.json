@@ -1,7 +1,7 @@
 {
   "name": "@pryzm/schemas",
   "version": "0.1.0",
-  "description": "PRYZM 2 — L1 Zod schemas, typed IDs, and createId factory.",
+  "description": "PRYZM 2 \u2014 L1 Zod schemas, typed IDs, and createId factory.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -29,9 +29,13 @@
     "./privacy": "./src/privacy/index.ts",
     "./ifc": "./src/ifc/index.ts",
     "./materials": "./src/materials/index.ts",
-    "./lighting": "./src/lighting/index.ts"
+    "./lighting": "./src/lighting/index.ts",
+    "./link": "./src/link/index.ts"
   },
-  "files": ["src", "dist"],
+  "files": [
+    "src",
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",

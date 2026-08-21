@@ -59,6 +59,12 @@ import { GroundFloorPlanController } from '@pryzm/core-app-model';
 import { GridToggleService } from '@app/ui/GridToggleService';
 import { WallEdgeVisibilityService } from '@app/ui/WallEdgeVisibilityService';
 import { initParcelBoundarySceneRenderer } from '@app/ui/site/ParcelBoundarySceneRenderer';
+// ADR-0346 / C13 §3.13 (L-2900) — LINKED MODELS: another project's building drawn
+// read-only in this scene, anchored on the shared parcel. Importing the scope module
+// is what registers its C13 owner + ADR-0298 probe (module-scope side effect).
+import { LinkedModelSceneRenderer } from './links/LinkedModelSceneRenderer';
+import { linkedModelController } from './links/linkedModelController';
+import './links/linkedModelScope';
 import { installSiteProjectScope } from '@app/ui/site/siteProjectScope';
 import { ProjectContext, projectContext } from '@pryzm/core-app-model';
 // §CAM-NEAR-SCALES-WITH-STANDOFF (L-2070) — the perspective near plane scales with
@@ -4569,6 +4575,29 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         console.warn('[initScene] ParcelBoundarySceneRenderer init error:', pbErr?.message ?? pbErr);
     }
     // ── End A.8.x parcel-boundary outline ─────────────────────────────────────
+
+    // ── ADR-0346 (L-2900): LINKED MODELS → read-only massing in the host scene ─
+    // A linked model is another PRYZM project's building, drawn here so the user can
+    // see and coordinate against it without owning or editing it. Default is MASSING:
+    // one InstancedMesh per link, one draw call, regardless of how big the linked
+    // project is — the founder's scene is draw-call bound and a full second model
+    // would double it.
+    //
+    // The subtree is non-pickable at all four pick doors and carries the C13 §3.13
+    // `pryzmLink*` tags so `ProjectIsolationAudit`'s `scene.linkedModel` arm can
+    // account for it. Teardown is owned by `links.linkedModels` (a declared
+    // ADR-0298 scope), NOT by this call site.
+    try {
+        linkedModelController.install(
+            new LinkedModelSceneRenderer(world.scene.three as THREE.Scene),
+        );
+        if (import.meta.hot) {
+            import.meta.hot.dispose(() => linkedModelController.uninstall());
+        }
+    } catch (lmErr: any) {
+        console.warn('[initScene] LinkedModelSceneRenderer init error:', lmErr?.message ?? lmErr);
+    }
+    // ── End ADR-0346 linked models ────────────────────────────────────────────
 
     // ── ADR-0077 (§RENDERER-LIVE-SWAP) — live in-place backend swap ───────────
     // Supersedes ADR-0076's persist+reload toggle. The renderer-bound services

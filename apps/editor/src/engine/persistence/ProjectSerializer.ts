@@ -95,6 +95,8 @@ import { handrailTypeStore } from '@pryzm/core-app-model/stores';
 import { requirementStore } from '@pryzm/core-app-model';
 import { assetCatalogStore } from '@pryzm/core-app-model';
 import { dxfOverlayStore } from '@pryzm/file-format';
+// ADR-0346 (L-2900) — the host's linked-model REFERENCE table. Never elements.
+import { linkedModelStore } from '../links/LinkedModelStore';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
@@ -373,6 +375,23 @@ export interface ProjectSnapshot {
             layers: Array<{ name: string; visible: boolean; color: string; linewidth: number }>;
         }>;
     };
+    /**
+     * ADR-0346 / C13 §3.13 (L-2900) — LINKED MODELS: references to OTHER projects
+     * whose buildings are drawn read-only in this one, anchored on the shared parcel.
+     *
+     * ⚠ READ THIS BEFORE ADDING ANYTHING ELSE TO IT. These are REFERENCES, not
+     * elements. The linked project's walls, slabs and rooms are NOT here and must
+     * never be: they enter no element store, so `serialize()` above never sees them
+     * and needs no exclusion filter. That absence of a filter is the DESIGN
+     * WORKING, not an oversight — if a future change ever puts linked elements in
+     * a store, this comment is the record that it broke ADR-0346 D1 and C13 §3.13.
+     *
+     * Shaped exactly like `dxfOverlays` (version + array of plain records), which is
+     * the proven slot for "N serialisable records beside the elements".
+     * Optional for backward compat — C47 §1.2 additive-optional, so a project with
+     * no links is byte-identical to a pre-ADR-0346 snapshot.
+     */
+    linkedModels?: import('@pryzm/schemas').LinkedModelSnapshot;
     /**
      * Phase III — Sheet store snapshot.
      * All SheetDefinition records (viewports, sheet names, sizes).
@@ -1429,6 +1448,11 @@ export class ProjectSerializer {
             // §31 Phase 2 — DXF/DWG underlays
             dxfOverlays: dxfOverlayStore.size() > 0
                 ? dxfOverlayStore.serialize() as ProjectSnapshot['dxfOverlays']
+                : undefined,
+
+            // ADR-0346 / C13 §3.13 — LINKED MODELS (references only; see the type above)
+            linkedModels: linkedModelStore.size() > 0
+                ? linkedModelStore.serialize()
                 : undefined,
 
             // Phase III — Sheets (SheetDefinition records, viewports)

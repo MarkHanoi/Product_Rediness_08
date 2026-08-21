@@ -535,6 +535,33 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     let underlayCount = 0;
     let ifcCount = 0;
     let dxfCount = 0;
+    // §C13-LINKED-MODEL-ARM (ADR-0346 D3 / C13 §3.13, L-2900) — a LINKED MODEL
+    // subtree whose HOST is not the loaded project.
+    //
+    // A linked model is the ONE sanctioned cross-project surface in this repository:
+    // project B's building drawn read-only inside project A. C13 §3.13 makes it legal
+    // only when it is TAGGED, never when it is EXEMPTED — §3.10's rule is that a clean
+    // verdict that never looked is worse than no verdict.
+    //
+    // Note this arm ADDS coverage and weakens nothing. The link subtree deliberately
+    // carries NO `userData.id` and NO `type`, so `sceneElementId`/`sceneElementType`
+    // return null for it and the element-id arm below never saw it in the first place:
+    // there is no exemption anywhere in this file for a link, and `isExemptSceneSingleton`
+    // is untouched. Without this arm the subtree would be invisible — the C13 §7.5
+    // LINEWORK gap, reproduced. With it, a link mounted under the WRONG host is a
+    // finding, exactly as any other cross-project residue is.
+    //
+    // §7.4 rule 3 — ROOT-SCOPED. `pryzmLinkId` is stamped on the subtree root AND on
+    // its instanced mesh (so the perf census can attribute cost per link); matching
+    // unscoped would report one finding per mesh and bury every other finding, which is
+    // exactly what the IFC arm above had to be corrected for.
+    //
+    // §7.4 rule 1 — the PRODUCER of this shape is
+    // `apps/editor/src/engine/links/LinkedModelSceneRenderer.ts` (`_mountLink`), and the
+    // fixture in the test suite is copied from it by file:line, never written to match
+    // this detector.
+    let foreignLinkCount = 0;
+    const foreignLinkIdentity: string[] = [];
     // §C13-SCENE-ID-KEY — deduped so a wall's root + its N part meshes (which all
     // carry the SAME id) count as ONE foreign element, not N.
     const foreignSceneIdSet = new Set<string>();
@@ -616,6 +643,25 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
         if (ud.isDxfOverlay === true || ud.dxfId != null) {
             dxfCount += 1;
         }
+        // §C13-LINKED-MODEL-ARM — see the counter declaration above for the reasoning.
+        const isRealLinkRoot = obj.isRoot === true && typeof ud.pryzmLinkId === 'string';
+        if (isRealLinkRoot) {
+            const linkHost = typeof ud.pryzmLinkHostProjectId === 'string'
+                ? (ud.pryzmLinkHostProjectId as string)
+                : null;
+            if (linkHost !== projectId) {
+                foreignLinkCount += 1;
+                const src = typeof ud.pryzmLinkSourceProjectId === 'string'
+                    ? (ud.pryzmLinkSourceProjectId as string)
+                    : '<source-unknown>';
+                // "held by nobody" and "held by another project" are different facts and
+                // must not print the same — §CONTEXT-DATA-HONESTY.
+                foreignLinkIdentity.push(
+                    `${String(ud.pryzmLinkId)} ⇐ linked model of ${src}, host `
+                    + `${linkHost ?? '<unstamped>'} ≠ loaded ${projectId}`,
+                );
+            }
+        }
         // §C13-AUDIT-BLIND-CLASSES — a coalesced instanced root whose key names a
         // level outside the loaded project is Project A's merged geometry, still
         // drawn. Independent of the element-id path: the merged root carries no
@@ -694,6 +740,7 @@ export function detectLeaks(input: AuditInput): IsolationLeakReport | null {
     if (underlayCount > 0)        findings.push({ surface: 'scene.underlay',        count: underlayCount });
     if (ifcCount > 0)             findings.push({ surface: 'scene.ifc',             count: ifcCount });
     if (dxfCount > 0)             findings.push({ surface: 'scene.dxf',             count: dxfCount });
+    if (foreignLinkCount > 0)     findings.push({ surface: 'scene.linkedModel',     count: foreignLinkCount, details: foreignLinkIdentity.slice(0, 20), identities: foreignLinkIdentity.slice(0, 20) });
     if (foreignSceneIds.length)   findings.push({ surface: 'scene.foreignElement',  count: foreignSceneIds.length, details: foreignSceneIds.slice(0, 20), identities: foreignSceneIds.slice(0, 20).map(id => foreignSceneIdentity.get(id) ?? id) });
     if (foreignCoalesced.size)    findings.push({ surface: 'scene.foreignCoalescedRoot', count: foreignCoalesced.size, details: [...foreignCoalesced.keys()].slice(0, 20), identities: [...foreignCoalesced.values()].slice(0, 20) });
     if (foreignStoreCount > 0)    findings.push({ surface: 'store.foreignElement',  count: foreignStoreCount, details: foreignStoreDetails });

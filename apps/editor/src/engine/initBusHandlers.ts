@@ -1,6 +1,7 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 // BIM 3.0 Phase 4 — read-only graph query verbs (graph.query/neighbors/path).
 import { registerGraphQueryHandlers } from './graphQueryBusHandlers.js';
+import { registerLinkedModelHandlers } from './links/linkBusHandlers';
 // §FEAT-RHINO-CHAT-MATERIAL — the THREE-touching material primitives live with
 // the Rhino importer (the one legitimate owner of the imported scene graph);
 // this file only orchestrates them behind the 'rhino.setMaterial' /
@@ -3025,4 +3026,12 @@ export function initBusHandlers(
     // `graphQueryBusHandlers.ts` (a verb-register-scanned root); registration is
     // wired here onto the same composed bus every other verb uses.
     registerGraphQueryHandlers(runtime);
+
+    // ── ADR-0346 (L-2900) — LINKED MODELS: link.create / remove / setDisplay / setPin
+    // Reference-management verbs: they mutate the host's LinkedModelStore (a table of
+    // references to OTHER projects) and never touch an element store. Declared
+    // `affectedStores: []` and undo NONE deliberately — see linkBusHandlers.ts's
+    // header for why folding "I opened a reference" into the model undo stack is the
+    // worse outcome, and where the escape hatch is.
+    registerLinkedModelHandlers(runtime);
 }
