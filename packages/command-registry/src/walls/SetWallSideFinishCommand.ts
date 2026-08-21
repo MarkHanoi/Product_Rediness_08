@@ -54,6 +54,7 @@ import { childRefusalText } from '../refusal/childRefusalText';
 import { serializeWallSnapshot } from './wallSnapshotUtils';
 import {
     withWallSideFinish,
+    resolveWallSideFinish,
     authoriseRoomScopedSideFinish,
     maskedSideAfterSetting,
     describeSingleLayerRenderLimit,
@@ -338,7 +339,45 @@ export class SetWallSideFinishBatchCommand implements Command {
                     );
                     const r = child.execute(ctx);
                     if (r.success) {
+                        // The child is retained for undo REGARDLESS of the read-back
+                        // below: whatever the store did accept must still be revertible.
                         this.executedChildren.push(child);
+                        // ── §WALL-FINISH-READBACK (L-1670 · C67 rule 12, C16 CA-21) ──
+                        //
+                        // "Set … on 59 of 59 walls" counted successful CALLS, never
+                        // records. `SetWallSideFinishCommand.execute` returns
+                        // `{ success: true }` the moment `updateWall()` returns — and
+                        // `WallStore.updateWall` projects the snapshot onto a field
+                        // WHITELIST, so a field it does not name is dropped in silence
+                        // while the call still succeeds. That is not hypothetical: it is
+                        // exactly L-995, where `sideFinishes` was missing from that
+                        // whitelist and the chat reported 17 of 17 walls over a model
+                        // nothing had touched. The whitelist is fixed, but a COUNT
+                        // DERIVED FROM A RETURN VALUE cannot notice if it regresses.
+                        //
+                        // So the count is now MEASURED: re-read the record from the
+                        // authority and ask the shipped ladder (`resolveWallSideFinish`,
+                        // the one function that answers "what finish does this side
+                        // carry?" — C84 EI-8, not a second spelling here) whether the
+                        // side really carries what we just wrote. A wall that fails is
+                        // NOT counted as changed and is named as a skip, so the failure
+                        // reads as a partial refusal instead of a confident lie.
+                        const after = ctx.stores.wallStore.getById(wallId);
+                        const landed = after
+                            ? resolveWallSideFinish(after as never, this.input.side).materialId === this.input.finish.materialId
+                            : false;
+                        if (!landed) {
+                            this._skipped.push({
+                                wallId,
+                                reason:
+                                    `wall ${wallId}: the store accepted the write and reported success, but reading ` +
+                                    `the record back shows its ${this.input.side} finish is NOT ` +
+                                    `${this.input.finish.materialName ?? this.input.finish.materialId}. The value did ` +
+                                    `not reach the authority, so nothing about this wall changed — do not trust a ` +
+                                    `success count over this wall.`,
+                            });
+                            continue;
+                        }
                         affected.push(wallId);
                         if (maskedSide) this._masked.push({ wallId, maskedSide });
                     } else {
