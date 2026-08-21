@@ -14,7 +14,6 @@ import type { SheetDefinition } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { MoveViewportCommand } from '@pryzm/command-registry';
 import { UpdateViewportScaleCommand } from '@pryzm/command-registry';
-import { RemoveViewportFromSheetCommand } from '@pryzm/command-registry';
 import { SetViewportCropCommand } from '@pryzm/command-registry';
 import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';

@@ -276,6 +276,95 @@ export function composeViewportSvg(
 }
 
 /**
+ * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — THE ONE DEFINITION OF WHERE A
+ * VIEWPORT SITS ON THE PAPER.
+ *
+ * ─── THE DEFECT ────────────────────────────────────────────────────────────
+ * The founder, 2026-08-21: *"when printing in PDF doesn't render"*, with a
+ * screenshot in which the South Elevation is nowhere near where he placed it.
+ *
+ * L-1630 unified the DRAWING: the sheet editor and `PdfExportService` both
+ * compose through `composeViewportSvg`, and both get identical linework at
+ * identical paper sizes. It did NOT unify the PAGE. The two surfaces read
+ * `SheetViewport.position` in two different conventions:
+ *
+ *   · `SheetEditorPanel._buildViewportEl` — BOTTOM-LEFT CORNER. It renders
+ *     `left = position.x`, `top = canvasH - position.y - height`, and the drop
+ *     handler deliberately subtracts half the composed size so that dropping
+ *     centres the drawing on the cursor and STORES a corner.
+ *   · `PdfExportService` — CENTRE. `vpX = position.x - vpW/2`,
+ *     `vpY = pH - (position.y + vpH/2)`, with a comment stating the field is
+ *     the centre.
+ *
+ * `SheetDefinitionTypes` sided with the PDF ("Centre-point position of the
+ * viewport"). Every writer in the product sides with the panel. So the field's
+ * documentation was correct about nothing that writes it, and the PDF placed
+ * every viewport off by half its own size in both axes — which for the
+ * founder's 8020 mm elevation is four metres of paper.
+ *
+ * ─── THE RESOLUTION ────────────────────────────────────────────────────────
+ * BOTTOM-LEFT CORNER wins, because it is what every producer already writes
+ * and because re-pointing the writers would silently move every viewport on
+ * every saved sheet. The doc comment was the wrong half and has been corrected
+ * in place.
+ *
+ * Returning paper millimetres — not pixels and not jsPDF's top-down y — keeps
+ * this free of any one surface's coordinate system. Each consumer applies its
+ * own scale factor and, if it needs one, its own y-flip; neither of those is a
+ * decision about WHERE the viewport is.
+ */
+export interface ViewportPaperRect {
+    /** Distance from the paper's LEFT edge to the viewport's left edge (mm). */
+    leftMm: number;
+    /** Distance from the paper's BOTTOM edge to the viewport's bottom edge (mm). */
+    bottomMm: number;
+    widthMm: number;
+    heightMm: number;
+}
+
+/**
+ * Where `vp` sits on the paper, given the composition that produced its size.
+ *
+ * The size comes from the composition rather than from the viewport, because a
+ * viewport has no size of its own: it is exactly as big as the drawing it shows
+ * at the scale it shows it at. Passing the composition in (rather than
+ * re-composing here) means the rect and the SVG can never be computed from two
+ * different framings.
+ */
+export function viewportPaperRect(
+    vp: { position: { x: number; y: number } },
+    composed: Pick<ComposedViewportSvg, 'widthMm' | 'heightMm'>,
+): ViewportPaperRect {
+    return {
+        leftMm:   vp.position.x,
+        bottomMm: vp.position.y,
+        widthMm:  composed.widthMm,
+        heightMm: composed.heightMm,
+    };
+}
+
+/**
+ * Compose `vp` exactly as the sheet editor does — same scale default, same crop.
+ *
+ * Exists so an export surface cannot forget an option the on-screen surface
+ * applies. `PdfExportService` composed without `cropWorldM`, so a viewport the
+ * founder had cropped on the sheet exported UNCROPPED and at a different size —
+ * the crop was honoured by one of the two consumers of the one producer, which
+ * is the same class of divergence L-1630 was written to end.
+ */
+export function composeForPlacement(
+    vp: { viewId: string; scale?: number | undefined; crop?: { minX: number; minZ: number; maxX: number; maxZ: number } | undefined },
+    extra: Omit<ComposeViewportSvgOptions, 'viewId' | 'scale' | 'cropWorldM'> = {},
+): ComposedViewportSvg {
+    return composeViewportSvg({
+        ...extra,
+        viewId: vp.viewId,
+        scale:  vp.scale ?? 100,
+        ...(vp.crop ? { cropWorldM: vp.crop } : {}),
+    });
+}
+
+/**
  * A crop is usable only when every bound is finite and both extents are
  * strictly positive. Zero-area and inverted rectangles are the two shapes a
  * drag gesture produces on its very first frame, so they are expected input,

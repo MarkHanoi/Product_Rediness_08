@@ -17,12 +17,15 @@
 
 export {
     composeViewportSvg,
+    composeForPlacement,
+    viewportPaperRect,
     DEFAULT_VIEWPORT_WIDTH_MM,
     DEFAULT_VIEWPORT_HEIGHT_MM,
 } from './ViewportSvgComposer';
 export type {
     ComposeViewportSvgOptions,
     ComposedViewportSvg,
+    ViewportPaperRect,
 } from './ViewportSvgComposer';
 
 export { SVGCompositeRenderer } from './SVGCompositeRenderer';

@@ -65,7 +65,25 @@ export interface SheetViewport {
     id:        string;
     /** Reference to the ViewDefinition being placed. */
     viewId:    string;
-    /** Centre-point position of the viewport on the sheet canvas, in millimetres. */
+    /**
+     * §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — the viewport's BOTTOM-LEFT
+     * CORNER on the sheet canvas, in millimetres, measured from the paper's
+     * left and bottom edges.
+     *
+     * ⚠ This comment used to read *"Centre-point position of the viewport"*,
+     * and that was wrong about every writer in the product. `SheetEditorPanel`
+     * renders `left = position.x`, `top = canvasH − position.y − height`, and
+     * its drop handler subtracts half the composed size specifically so that the
+     * stored value is a corner. The only reader that believed the old comment
+     * was `PdfExportService`, which therefore placed every viewport off by half
+     * its own size in both axes — the founder's *"printing in PDF doesn't
+     * render"*.
+     *
+     * The convention is CORNER because that is what the writers write; the
+     * doc comment was the half that was wrong, not the code. Use
+     * `viewportPaperRect()` in `@pryzm/file-format/sheets` rather than
+     * re-deriving the rect, so this stays a single definition.
+     */
     position:  { x: number; y: number };
     /**
      * Override scale denominator for this viewport (e.g. 100 = 1:100).

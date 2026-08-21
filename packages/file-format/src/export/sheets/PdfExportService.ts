@@ -42,7 +42,8 @@ import { svg2pdf } from 'svg2pdf.js';
 import { sheetStore }                from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
-import { composeViewportSvg }       from './ViewportSvgComposer';
+import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { composeForPlacement, viewportPaperRect } from './ViewportSvgComposer';
 import { applyPdfProvenanceAbsence } from '../provenanceAbsence';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -128,48 +129,71 @@ class PdfExportServiceImpl {
 
             const drawing = viewTechnicalDrawingCache.get(vp.viewId);
 
-            // ── Viewport bounds come from the drawing's own content ────────────
-            let vpW = DEFAULT_VP_WIDTH_MM;
-            let vpH = DEFAULT_VP_HEIGHT_MM;
-
             // §SHEET-ONE-VIEWPORT-PRODUCER (L-1630) — framing + composition are no
             // longer computed here. They are computed once, in
-            // `composeViewportSvg`, which the sheet EDITOR now consumes too, so
-            // the placed view and the exported view can no longer disagree.
-            const composed = composeViewportSvg({
-                viewId: vp.viewId,
-                scale,
+            // `composeViewportSvg`, which the sheet EDITOR consumes too, so the
+            // placed view and the exported view cannot disagree about linework
+            // or size.
+            //
+            // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — routed through
+            // `composeForPlacement` rather than calling the composer directly,
+            // because this call site had SILENTLY DROPPED `cropWorldM`. A
+            // viewport the founder cropped on the sheet exported uncropped and
+            // at a different size: one producer, honoured by one of its two
+            // consumers, which is exactly the divergence L-1630 existed to end.
+            const composed = composeForPlacement(vp, {
                 minWidthMm:  DEFAULT_VP_WIDTH_MM,
                 minHeightMm: DEFAULT_VP_HEIGHT_MM,
                 paddingM:    0.5,
                 pocheStyle:  DEFAULT_POCHE_VG as never,
             });
 
-            if (drawing) {
-                if (composed.resolved) {
-                    vpW = composed.widthMm;
-                    vpH = composed.heightMm;
-                    console.log(
-                        `[PdfExportService] bbox-driven viewport for viewId=${vp.viewId}: ` +
-                        `${vpW.toFixed(1)}×${vpH.toFixed(1)}mm at 1:${scale}`,
-                    );
-                } else {
-                    console.warn(
-                        `[PdfExportService] TechnicalDrawingBounds returned null for viewId=${vp.viewId} — ` +
-                        `falling back to ${DEFAULT_VP_WIDTH_MM}×${DEFAULT_VP_HEIGHT_MM}mm defaults`,
-                    );
-                }
+            // ── Viewport size comes from the composition, never a default ──────
+            const rect = viewportPaperRect(vp, composed.resolved
+                ? composed
+                : { widthMm: DEFAULT_VP_WIDTH_MM, heightMm: DEFAULT_VP_HEIGHT_MM });
+            const vpW = rect.widthMm;
+            const vpH = rect.heightMm;
+
+            if (drawing && composed.resolved) {
+                console.log(
+                    `[PdfExportService] composed viewport for viewId=${vp.viewId}: ` +
+                    `${vpW.toFixed(1)}×${vpH.toFixed(1)}mm at 1:${scale}` +
+                    `${composed.cropped ? ' (cropped)' : ''}`,
+                );
+            } else if (drawing) {
+                console.warn(
+                    `[PdfExportService] composition returned '${composed.reason}' for viewId=${vp.viewId} — ` +
+                    `falling back to ${DEFAULT_VP_WIDTH_MM}×${DEFAULT_VP_HEIGHT_MM}mm defaults`,
+                );
             }
 
-            // SheetViewport.position is the centre of the viewport (mm).
-            // jsPDF Y origin is top, so convert sheet canvas bottom-up → top-down.
-            const vpX = Math.max(BORDER_MARGIN, vp.position.x - vpW / 2);
-            const vpY = Math.max(BORDER_MARGIN, pH - (vp.position.y + vpH / 2));
+            // ── §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — BOTTOM-LEFT CORNER ──
+            //
+            // This read `vp.position` as the viewport's CENTRE — `position.x -
+            // vpW/2` — on the authority of a doc comment in
+            // `SheetDefinitionTypes` that no writer in the product agrees with.
+            // The sheet editor renders `left = position.x`, and its drop handler
+            // subtracts half the composed size precisely so that the STORED
+            // value is a corner. So the PDF placed every viewport off by half
+            // its own size in both axes; for the founder's elevation that is
+            // four metres of paper, and it is why his South Elevation landed
+            // somewhere he never put it.
+            //
+            // jsPDF's Y origin is the TOP of the page; the sheet's is the
+            // BOTTOM. The flip is the only conversion this surface owns.
+            const vpX = Math.max(BORDER_MARGIN, rect.leftMm);
+            const vpY = Math.max(BORDER_MARGIN, pH - rect.bottomMm - vpH);
 
             if (!drawing) {
-                // Placeholder for views not yet projected
+                // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — a 3D view has no
+                // vector drawing and never will: `3d`, `render` and
+                // `walkthrough` are excluded from projection by design, so there
+                // is nothing for `SVGCompositeRenderer` to emit. Drawing an
+                // unlabelled dashed rectangle made that read as a broken export.
+                // The placeholder now NAMES the reason on the page.
                 console.warn(
-                    `[PdfExportService] No TechnicalDrawing for viewId=${vp.viewId} — placeholder rendered`,
+                    `[PdfExportService] No TechnicalDrawing for viewId=${vp.viewId} — labelled placeholder rendered`,
                 );
                 this._drawViewportPlaceholder(pdf, vpX, vpY, vpW, vpH, vp.viewId);
                 continue;
@@ -309,14 +333,27 @@ class PdfExportServiceImpl {
         pdf.rect(x, y, w, h);
         pdf.setLineDashPattern([], 0);
 
+        // §SHEET-PDF-PLACES-THE-VIEWPORT (L-1867) — SAY WHICH ABSENCE THIS IS.
+        //
+        // This always printed "View not yet projected", which is true for an
+        // elevation whose projection has not run and FALSE for a 3D view, which
+        // will never have one: `3d`, `render` and `walkthrough` are excluded
+        // from vector projection by design, so no amount of waiting produces
+        // linework for them. Printing "not yet" for a "never" is what made the
+        // founder's empty dashed box read as a broken export rather than as a
+        // capability boundary [context-data-honesty].
+        const view  = viewDefinitionStore.get(viewId);
+        const isRasterOnly = view
+            ? ['3d', 'render', 'walkthrough'].includes(view.viewType as string)
+            : false;
+        const name = view?.name ?? viewId.slice(-8);
+        const reason = isRasterOnly
+            ? `${name} — 3D views have no vector drawing`
+            : `${name} — not yet projected`;
+
         pdf.setFontSize(5);
         pdf.setTextColor('#94a3b8');
-        pdf.text(
-            `View not yet projected (${viewId.slice(-8)})`,
-            x + w / 2,
-            y + h / 2,
-            { align: 'center' },
-        );
+        pdf.text(reason, x + w / 2, y + h / 2, { align: 'center' });
     }
 
     /**

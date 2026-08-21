@@ -17,6 +17,7 @@
     "./title-block": "./src/title-block.ts",
     "./tracing": "./src/tracing.ts",
     "./view-renderer": "./src/view-renderer/index.ts",
+    "./viewport-edit-controller": "./src/view-renderer/viewport-edit-controller.ts",
     "./viewport": "./src/viewport.ts",
     "./widgets": "./src/widgets/index.ts",
     "./widget-tool-palette": "./src/widget-tool-palette.ts"

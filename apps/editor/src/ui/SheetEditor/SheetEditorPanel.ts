@@ -46,11 +46,16 @@ import { sheetCommentStore } from '@pryzm/core-app-model';
 import type { SheetComment } from '@pryzm/core-app-model';
 import { panelManager } from '../PanelManager';
 // §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — the authored, tested model of
-// "which viewport is activated and where is its camera". Imported by SUBPATH,
-// not through `@pryzm/plugin-sheets`'s root barrel: that barrel also pulls the
-// Canvas2D sheet-editor host, every command handler and the whole book exporter
-// into the editor's critical path [scc-no-barrel-access-at-module-load].
-import { ViewportEditController } from '@pryzm/plugin-sheets/view-renderer';
+// "which viewport is activated and where is its camera".
+//
+// Imported by its OWN SUBPATH, not through `@pryzm/plugin-sheets` and not
+// through `/view-renderer`. Both of those reach `sheet-editor-host.ts`, which
+// value-imports `@pryzm/plugin-plan-view` — measured: routing through
+// `/view-renderer` added NINE errors in `plugins/plan-view` to
+// `npx tsc --noEmit`, in files that had never been in the type program.
+// `/viewport-edit-controller` reaches only `view-camera.ts`, which imports
+// nothing [scc-no-barrel-access-at-module-load].
+import { ViewportEditController } from '@pryzm/plugin-sheets/viewport-edit-controller';
 import { activateViewForEditing } from './activateViewForEditing';
 
 // ── Wave 7 WS-B extracted modules ─────────────────────────────────────────

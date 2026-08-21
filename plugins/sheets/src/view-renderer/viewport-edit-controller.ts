@@ -9,11 +9,15 @@
 // optionally commits to persistent `clippingBox` via the
 // `sheet.setViewportClippingBox` handler on gesture-end.
 
-import type { Disposer } from '@pryzm/plugin-sdk';
+// §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — imports the LEAF, not
+// `view-source.js`. `view-source` type-imports `sheet-editor-host.js`, which
+// value-imports `@pryzm/plugin-plan-view`, so importing it here would make every
+// consumer of this controller compile the plan-view barrel. See view-camera.ts.
 import {
   IDENTITY_EDIT_CAMERA,
   type EditCamera,
-} from './view-source.js';
+  type Disposer,
+} from './view-camera.js';
 
 export interface ViewportEditControllerOptions {
   /** Min zoom the user can navigate to (zoom < 1 = zoomed out).  10× is

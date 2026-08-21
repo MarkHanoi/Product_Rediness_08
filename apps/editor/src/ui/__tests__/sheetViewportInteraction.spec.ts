@@ -34,7 +34,7 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { TechnicalDrawingBounds } from '@pryzm/core-app-model';
 import type { SheetDefinition } from '@pryzm/core-app-model';
 
-import { composeViewportSvg } from '@pryzm/file-format/sheets';
+import { composeViewportSvg, composeForPlacement, viewportPaperRect } from '@pryzm/file-format/sheets';
 
 import { SheetEditorPanel } from '../SheetEditor/SheetEditorPanel';
 
@@ -360,3 +360,77 @@ describe('§SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865)', () => {
         expect(after, `viewport camera did not change (${before})`).not.toBe(before);
     });
 });
+
+// ── D. The PDF must place the viewport where the sheet put it ──────────────
+
+describe('§SHEET-PDF-PLACES-THE-VIEWPORT (L-1867)', () => {
+    it('SheetViewport.position is the BOTTOM-LEFT CORNER, and the panel renders it there', () => {
+        const vpEl = openWith(FACADE);
+        const canvasEl = document.querySelector('.sh-canvas') as HTMLElement;
+        const canvasH = parseFloat(canvasEl.style.height);
+
+        // The panel's scale factor is not exposed, so recover it from the paper:
+        // the canvas is `paperW × sf` px wide for an A0-family title block.
+        const composed = composeViewportSvg({ viewId: ELEV_VIEW_ID, scale: SCALE });
+        const rect = viewportPaperRect({ position: { x: 40, y: 120 } }, composed);
+        expect(rect.leftMm).toBe(40);
+        expect(rect.bottomMm).toBe(120);
+
+        const leftPx = parseFloat(vpEl.style.left);
+        const topPx = parseFloat(vpEl.style.top);
+        const heightPx = parseFloat(vpEl.style.height);
+        const sf = leftPx / rect.leftMm;
+
+        // Bottom edge in paper millimetres, recovered from the DOM. The footer
+        // strip is in pixels and cancels out of this difference, which is why
+        // the comparison is done on the bottom edge rather than the top.
+        const bottomMmFromDom = (canvasH - topPx - heightPx) / sf;
+        expect(
+            bottomMmFromDom,
+            'the panel does not render position.y as the bottom-left corner',
+        ).toBeCloseTo(rect.bottomMm, 4);
+    });
+
+    it('composeForPlacement honours the viewport crop that PdfExportService used to drop', () => {
+        viewTechnicalDrawingCache.set(ELEV_VIEW_ID, makeDrawing(ELEV_WITH_DATUM) as never);
+        const crop = { minX: 1, minZ: -8, maxX: 6, maxZ: -1 };
+        const withCrop = composeForPlacement({ viewId: ELEV_VIEW_ID, scale: SCALE, crop });
+        const withoutCrop = composeForPlacement({ viewId: ELEV_VIEW_ID, scale: SCALE });
+
+        expect(withCrop.cropped, 'the crop was silently dropped').toBe(true);
+        expect(withoutCrop.cropped).toBe(false);
+        // 5 m at 1:50 = 100 mm. If the export composed without the crop it would
+        // lay the viewport out at the full content width instead — a different
+        // size AND different content from what the sheet shows.
+        expect(withCrop.widthMm).toBeCloseTo(100, 3);
+        expect(withCrop.widthMm).not.toBeCloseTo(withoutCrop.widthMm, 3);
+    });
+
+    it('a viewport composed for the sheet and for the page has ONE size', () => {
+        viewTechnicalDrawingCache.set(ELEV_VIEW_ID, makeDrawing(ELEV_WITH_DATUM) as never);
+        const vp = { viewId: ELEV_VIEW_ID, scale: SCALE, crop: { minX: 0, minZ: -9, maxX: 7, maxZ: 0 } };
+        // Guard against a vacuous pass: with no cached drawing BOTH sides return
+        // the same unresolved default and the equality proves nothing.
+        expect(composeForPlacement(vp).resolved).toBe(true);
+        const onSheet = composeSheetViewportEquivalent(vp);
+        const onPage = composeForPlacement(vp);
+        expect(onPage.widthMm).toBeCloseTo(onSheet.widthMm, 4);
+        expect(onPage.heightMm).toBeCloseTo(onSheet.heightMm, 4);
+        expect(onPage.lineCount).toBe(onSheet.lineCount);
+    });
+});
+
+/**
+ * What `SheetEditorRendererBridge.composeSheetViewport` does, restated here so
+ * the equality above is between two INDEPENDENT expressions of the rule rather
+ * than a function compared with itself.
+ */
+function composeSheetViewportEquivalent(
+    vp: { viewId: string; scale?: number; crop?: { minX: number; minZ: number; maxX: number; maxZ: number } },
+) {
+    return composeViewportSvg({
+        viewId: vp.viewId,
+        scale: vp.scale ?? 100,
+        ...(vp.crop ? { cropWorldM: vp.crop } : {}),
+    });
+}

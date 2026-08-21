@@ -36,7 +36,15 @@
 //   6. each widget: real renderer via `widgets/registry` (S39)
 
 import type { FrameScheduler } from '@pryzm/plugin-sdk';
-import type { Disposer } from '@pryzm/plugin-sdk';
+// §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — `Disposer` is DEFINED in
+// `view-renderer/view-camera.ts` and re-exported here.
+//
+// It used to be `import type { Disposer } from '@pryzm/plugin-sdk'`, which the
+// SDK does not export; three files in this package did that and none had ever
+// been type-checked, because nothing in the root tsconfig program imported
+// `@pryzm/plugin-sheets` until `apps/editor` wired `ViewportEditController`.
+export type { Disposer } from './view-renderer/view-camera.js';
+import type { Disposer } from './view-renderer/view-camera.js';
 import type {
   ProjectMetadata,
   SheetData,

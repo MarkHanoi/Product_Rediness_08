@@ -10,7 +10,7 @@ import type {
   ViewRenderer,
   ViewportRenderRequest,
 } from '../sheet-editor-host.js';
-import type { Disposer } from '@pryzm/plugin-sdk';
+import type { Disposer } from './view-camera.js';
 import type { ViewRegistry } from './view-registry.js';
 import type { ViewportEditController } from './viewport-edit-controller.js';
 import {

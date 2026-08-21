@@ -40,23 +40,18 @@ export const VIEW_KINDS: readonly ViewKind[] = Object.freeze([
   'plan', 'rcp', 'section', 'elevation', '3d', 'detail', 'drafting', 'schedule',
 ]);
 
-/** Per-viewport edit camera — represents the user's current "activate
- *  viewport" navigation state.  Identity when not navigating. */
-export interface EditCamera {
-  /** World-space pan applied to the viewport's worldBounds centre.
-   *  Units = same as the source view's world units (mm for plan). */
-  readonly panWorldX: number;
-  readonly panWorldY: number;
-  /** Multiplier on the worldBounds extents.  `2` zooms IN by 2× (the
-   *  visible world rect halves); `0.5` zooms OUT by 2×.  MUST be > 0. */
-  readonly zoom: number;
-}
-
-export const IDENTITY_EDIT_CAMERA: EditCamera = Object.freeze({
-  panWorldX: 0,
-  panWorldY: 0,
-  zoom: 1,
-});
+// §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865) — `EditCamera` and
+// `IDENTITY_EDIT_CAMERA` MOVED to `./view-camera.ts` and are re-exported here so
+// no consumer changes.
+//
+// They moved because this module transitively imports `@pryzm/plugin-plan-view`
+// (via the type import from `sheet-editor-host.js` below), which is precisely
+// what the rule at the top of this file forbids. `ViewportEditController` needs
+// only these two declarations, and a controller should not have to pull a canvas
+// host and a sibling plugin into the type program to describe a pan and a zoom.
+export { IDENTITY_EDIT_CAMERA } from './view-camera.js';
+export type { EditCamera, Disposer } from './view-camera.js';
+import type { EditCamera } from './view-camera.js';
 
 /** Request handed to a ViewSource for a single render call. */
 export interface ViewSourceRequest {

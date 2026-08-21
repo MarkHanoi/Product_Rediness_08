@@ -97,6 +97,28 @@ class ViewportPreviewRenderer {
      */
     private _last3dCapture: HTMLCanvasElement | null = null;
 
+    /**
+     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1868) — when `_last3dCapture` was taken,
+     * as `Date.now()`. `null` when there has never been one.
+     *
+     * The founder, 2026-08-21: *"the 3d is not sound — it is not exactly what I
+     * have in the 3d view."*
+     *
+     * L-1843 made a hidden 3D viewport fall back to the last frame captured
+     * while the view was genuinely visible, which fixed a near-black box. But
+     * the fallback SAYS NOTHING, so a frame captured from a camera the user has
+     * since orbited away from presents exactly like a live one. "This is your 3D
+     * view" and "this is a picture of your 3D view from some earlier moment" are
+     * different facts, and the surface rendered them identically — the same
+     * defect shape as the alpha-counting blank detector L-1843 removed, one
+     * level up [context-data-honesty].
+     *
+     * A capture cannot be made live from here (see `_render3DCapture` — P2 keeps
+     * THREE out of L2 and re-rendering costs a frame per viewport), so the
+     * honest move is not to hide the staleness but to DATE it.
+     */
+    private _last3dCaptureAt: number | null = null;
+
     constructor() {
         this._bindEvents();
     }
@@ -292,15 +314,16 @@ class ViewportPreviewRenderer {
 
         if (src && src.width > 0 && src.height > 0 && this._surfaceHasContent(src)) {
             this._remember3DCapture(src);
-            this._paint3DCapture(ctx, viewDef, src, w, h);
+            this._paint3DCapture(ctx, viewDef, src, w, h, null);
             return;
         }
 
         // The live surface is unusable or blank. Fall back to the most recent
-        // frame captured while it WAS usable, if we have one.
+        // frame captured while it WAS usable, if we have one — and SAY that it
+        // is a snapshot, with its age. §SHEET-3D-SNAPSHOT-IS-DATED (L-1868).
         const cached = this._last3dCapture;
         if (cached && cached.width > 0 && cached.height > 0) {
-            this._paint3DCapture(ctx, viewDef, cached, w, h);
+            this._paint3DCapture(ctx, viewDef, cached, w, h, this._last3dCaptureAt);
             return;
         }
 
@@ -349,19 +372,29 @@ class ViewportPreviewRenderer {
             if (!sctx) return;
             sctx.clearRect(0, 0, cw, ch);
             sctx.drawImage(src, 0, 0, cw, ch);
-            this._last3dCapture = store;
+            this._last3dCapture   = store;
+            this._last3dCaptureAt = Date.now();
         } catch {
             /* a failed remember must never break the paint */
         }
     }
 
-    /** Aspect-preserving letterbox blit of `src` into the viewport. */
+    /**
+     * Aspect-preserving letterbox blit of `src` into the viewport.
+     *
+     * `capturedAt` is `null` when `src` is the LIVE surface and a timestamp when
+     * it is a remembered frame. It is a required parameter rather than an
+     * optional one on purpose: every caller must state which of the two it is
+     * handing over, so a future third call site cannot default its way into
+     * presenting a snapshot as live.
+     */
     private _paint3DCapture(
-        ctx:     CanvasRenderingContext2D,
-        viewDef: ViewDefinition,
-        src:     HTMLCanvasElement,
-        w:       number,
-        h:       number,
+        ctx:        CanvasRenderingContext2D,
+        viewDef:    ViewDefinition,
+        src:        HTMLCanvasElement,
+        w:          number,
+        h:          number,
+        capturedAt: number | null,
     ): void {
         ctx.fillStyle = '#0f1520';
         ctx.fillRect(0, 0, w, h);
@@ -378,7 +411,45 @@ class ViewportPreviewRenderer {
         }
 
         ctx.drawImage(src, dx, dy, dw, dh);
+        if (capturedAt !== null) this._drawSnapshotBadge(ctx, capturedAt, w, h);
         this._drawViewTypeBadge(ctx, viewDef.viewType, w, h);
+    }
+
+    /**
+     * §SHEET-3D-SNAPSHOT-IS-DATED (L-1868) — stamp the frame as a snapshot and
+     * say how old it is.
+     *
+     * Age, not a wall-clock time, because the question the founder is actually
+     * asking is *"is this what my 3D view looks like NOW?"*, and "4 min ago"
+     * answers that without him having to work out what time it was when he last
+     * opened the view.
+     *
+     * Drawn INTO the raster rather than as sibling DOM so it survives every
+     * consumer of this canvas — the sheet viewport, the view picker thumbnail
+     * and any future one — instead of being a decoration one surface remembers
+     * to add and the others do not.
+     */
+    private _drawSnapshotBadge(
+        ctx:        CanvasRenderingContext2D,
+        capturedAt: number,
+        w:          number,
+        h:          number,
+    ): void {
+        const label = `snapshot · ${formatAge(Date.now() - capturedAt)}`;
+        const fontPx = Math.max(7, Math.min(11, Math.round(h * 0.09)));
+        ctx.font         = `${fontPx}px sans-serif`;
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'middle';
+
+        const padX = 4;
+        const textW = ctx.measureText(label).width;
+        const boxW  = Math.min(w - 4, textW + padX * 2);
+        const boxH  = fontPx + 6;
+
+        ctx.fillStyle = 'rgba(180, 83, 9, 0.88)';
+        ctx.fillRect(2, 2, boxW, boxH);
+        ctx.fillStyle = '#fffaf2';
+        ctx.fillText(label, 2 + padX, 2 + boxH / 2);
     }
 
     /**
@@ -744,3 +815,20 @@ export const viewportPreviewRenderer = (typeof window !== 'undefined')
     ? new ViewportPreviewRenderer()
     : null as unknown as ViewportPreviewRenderer;
 export type { ViewportPreviewRenderer };
+
+/**
+ * Human-readable age of a capture. Coarse ON PURPOSE — the reader needs to know
+ * whether a snapshot is seconds or hours old, not that it is 187 seconds old,
+ * and a precise number invites the false impression that the frame is tracking
+ * something.
+ */
+function formatAge(ms: number): string {
+    if (!Number.isFinite(ms) || ms < 0) return 'age unknown';
+    const sec = Math.floor(ms / 1000);
+    if (sec < 10) return 'just now';
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} min ago`;
+    const hr = Math.floor(min / 60);
+    return `${hr} h ago`;
+}

@@ -1,4 +1,12 @@
 // View-renderer barrel (S40 / Phase 2C).
+//
+// ⚠ IMPORTING THIS BARREL COMPILES `@pryzm/plugin-plan-view`. `composite.ts` and
+// `view-source.ts` both reach `sheet-editor-host.ts`, which value-imports
+// `CanvasHost` from that package. A consumer that only wants the edit camera
+// should import `@pryzm/plugin-sheets/viewport-edit-controller` instead — that
+// subpath reaches nothing but `view-camera.ts`, which imports nothing at all.
+// §SHEET-NAVIGATE-INSIDE-THE-VIEWPORT (L-1865).
+export type { Disposer } from './view-camera.js';
 export {
   type ViewKind,
   VIEW_KINDS,

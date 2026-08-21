@@ -30,7 +30,7 @@ export class RevisionsTableWidget extends Widget<RevisionsTableWidgetPayload> {
       : new Array(p.headers.length).fill(1);
     const totalWeight = weights.reduce((a, b) => a + b, 0);
     const colWidths = weights.map((w) => (w / totalWeight) * dto.width);
-    const colXs = colWidths.reduce<number[]>((acc, w, i) => {
+    const colXs = colWidths.reduce<number[]>((acc, _w, i) => {
       acc.push((acc[i - 1] ?? 0) + (i === 0 ? 0 : colWidths[i - 1]!));
       return acc;
     }, []);
