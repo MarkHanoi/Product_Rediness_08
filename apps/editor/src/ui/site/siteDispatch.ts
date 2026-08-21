@@ -7038,11 +7038,15 @@ async function applyValenciaZoningThenFallback(
  * miss, in which case the caller shows the existing cited clau-18 refusal (an absent number costs
  * nothing; a wrong one costs credibility).
  *
- * ⚠ THE CALLER GATES THIS ON `BCN_REFOS_OV_CERTIFIED` (default OFF) — this function is not even
- * reached while the L-449 certification is unsigned. When it is reached, the envelope it dispatches
- * is `estimated-ruleset`, NEVER `structured`: the footprint is live Refós DATA but its vintage is
- * uncertified, and the metre height is a floors→metres CONVENTION (Art. 327.2 storey module) applied
- * to a sourced floor count, not a sourced height. Both facts ride as caveats naming the AMB Refós.
+ * ⚠ THE CALLER GATES THIS ON `BCN_REFOS_OV_CERTIFIED` (SIGNED — founder, SIG-3, 2026-08-01) — this
+ * function is not reached while the L-449 certification is unsigned. §BCN-OV-CONFIDENCE (L-1660):
+ * when the PLANTES→metres conversion is TABLE-EXACT (Art. 327.2 storey table), the envelope renders
+ * `block-constructed` — real published inputs (OV footprint + PLANTES, vintage accepted under
+ * SIG-3) + an accepted cited rule + constructed geometry, the ladder's own definition — per the
+ * recorded SIG-5 authorisation (2026-08-21, `sources/VERIFICATION.md`). NEVER `structured`: the
+ * metre height is a floors→metres CONVENTION applied to a sourced floor count, not a sourced
+ * height, and the Refós is a re-edition. An EXTRAPOLATED conversion (beyond the table's range)
+ * stays `estimated-ruleset` exactly as before. Both facts ride as caveats naming the AMB Refós.
  *
  * FRAME: identical to `applyMadridZoningThenFallback` — the OV ring returns WGS84 and is projected
  * into the SAME authoring frame (origin + θ) the parcel already lives in, then clipped to the parcel
@@ -7138,6 +7142,13 @@ async function tryBcnClau18Volumetria(
             zoning: record,
             rulePack,
             explicitAreaFootprint: footprintRing,
+            // §BCN-OV-CONFIDENCE (L-1660) — the SIG-5-backed declaration: the OV_Trames ring is
+            // the ordinance's own per-site volumetric ordering published as geometry (Art. 306),
+            // under the recorded SIG-3 vintage acceptance. The engine stamps `block-constructed`
+            // off it (§L-572). Declared ONLY when the floors→metres conversion is TABLE-EXACT —
+            // an extrapolated height is an estimate, and the determination's tier must not read
+            // stronger than its weakest row (C58 §5.4a applied at source, not just at render).
+            explicitAreaAuthority: h.basis === 'table-exact' ? 'published-site-ordering' : null,
         });
         if (envelope.status !== 'ok' || envelope.insetPolygon.length < 3) {
             console.log(`${TAG} explicit-area clip status=${envelope.status} — refusal stands. caveats: ${envelope.caveats.join(' | ')}`);
@@ -7146,9 +7157,11 @@ async function tryBcnClau18Volumetria(
 
         // (5) The engine leaves height/floors null (the pack states none). Attach the OV-derived
         // floor count + the storey-module height here — the same enrichment shape as the §L-591 20a
-        // FAR fill — and re-derive the study volume. Confidence STAYS `estimated-ruleset` (the engine
-        // never upgrades it: the `block-constructed` upgrade keys on an `alignment.depthBinding` row
-        // that an explicit-area solve does not emit). NEVER `structured`.
+        // FAR fill — and re-derive the study volume. §BCN-OV-CONFIDENCE (L-1660): the tier is
+        // ENGINE-stamped (§L-572) off the `explicitArea.footprintBinding` row that the SIG-5-backed
+        // declaration above makes it emit — `block-constructed` for a table-exact conversion,
+        // `estimated-ruleset` for an extrapolated one (no declaration → no row → no stamp).
+        // NEVER `structured`.
         const totalStoreys = resolution.plantes.totalStoreys;
         const heightBasisNote =
             h.basis === 'table-exact'
@@ -7172,7 +7185,15 @@ async function tryBcnClau18Volumetria(
                     source:
                         `AMB Refós OV_Trames PLANTES=${resolution.plantes.raw} ` +
                         `(${resolution.plantes.floorsAboveGround} above ground) → ${heightBasisNote}`,
-                    fieldProvenance: 'estimated' as const,
+                    // §BCN-OV-CONFIDENCE (L-1660) — a TABLE-EXACT height is the ordinance's own
+                    // Art. 327.2 table value selected by a published floor count: `ordinance-pdf`
+                    // (a curated ordinance read), never `estimated`. The badge used to read
+                    // "Estimated" off this one row (C58 §5.4a hasEstimatedField) even though no
+                    // value in the determination was an estimate. An EXTRAPOLATED height (floor
+                    // count beyond the table's PB+6 range) IS an estimate and keeps the label.
+                    fieldProvenance: (h.basis === 'table-exact' ? 'ordinance-pdf' : 'estimated') as
+                        | 'ordinance-pdf'
+                        | 'estimated',
                     ordinanceRef: BCN_VOLUMETRIA_18_ORDINANCE_REF,
                 },
             ],
@@ -7182,17 +7203,27 @@ async function tryBcnClau18Volumetria(
                     `floor count (${resolution.plantes.raw}) come from the AMB "Refós de Planejament" ` +
                     `OV_Trames layer${resolution.clau ? ` (CLAU ${resolution.clau}` : ''}` +
                     `${resolution.expedient ? `, exp. ${resolution.expedient})` : resolution.clau ? ')' : ''}. ` +
-                    `The Refós is a transcripció gràfica i alfanumèrica whose vintage is ` +
-                    `UNCERTIFIED. The metre height is a floors→metres convention (${heightBasisNote}), not ` +
+                    // §BCN-OV-CONFIDENCE (L-1660) — this caveat used to say "whose vintage is
+                    // UNCERTIFIED", which became FALSE on 2026-08-01 when the founder signed
+                    // SIG-3. Say what is true now: accepted under a recorded sign-off, still a
+                    // re-edition, still not the publisher's certified original.
+                    `The Refós is a transcripció gràfica i alfanumèrica (a re-edition); its vintage ` +
+                    `was accepted under the recorded L-449 sign-off (SIG-3, founder, 2026-08-01) — ` +
+                    `not certified by the publisher. The metre height is a floors→metres convention ` +
+                    `(${heightBasisNote}), not ` +
                     `a sourced clau-18 height.${atticNote} Verify against the fitxa urbanística before relying on it.`,
             ],
         };
 
         dispatchEnvelope(ctx, site.id, enriched, 'muc-catastro');
+        // §BCN-OV-CONFIDENCE (L-1660) — print the DETERMINATION's tier, never a hard-coded one:
+        // this line used to say "estimated-ruleset, gate CERTIFIED" while the card said
+        // "UNCERTIFIED", and neither was reading the actual envelope.
         console.log(
             `${TAG} OV envelope OK → PLANTES=${resolution.plantes.raw} floors=${totalStoreys} ` +
                 `height=${h.height_m.toFixed(2)}m (${h.basis}) inset=${enriched.insetAreaM2.toFixed(1)}m² ` +
-                `clau=${resolution.clau ?? 'n/a'} exp=${resolution.expedient ?? 'n/a'} — estimated-ruleset, gate CERTIFIED.`,
+                `clau=${resolution.clau ?? 'n/a'} exp=${resolution.expedient ?? 'n/a'} — ` +
+                `confidence=${enriched.confidence}, gate CERTIFIED (SIG-3), tier per SIG-5.`,
         );
         return true;
     } catch (e) {

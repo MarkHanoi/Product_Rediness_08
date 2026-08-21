@@ -73,6 +73,20 @@ export const DerivationConstraintSchema = z.enum([
      * the depth was constructed; a stated scalar depth has no binding.
      */
     'alignment.depthBinding',
+    // ─── §BCN-OV-CONFIDENCE (L-1660) — explicit-area footprint binding ────────────────────
+    /**
+     * The explicit-area clip succeeded against a footprint the CALLER declared to be the
+     * ordinance's own PER-SITE ordering published as geometry (e.g. the AMB Refós `OV_Trames`
+     * volumetric footprint, under the recorded L-449/SIG-3 vintage acceptance) — as opposed to
+     * a zone extent (NL *bestemmingsvlak*, L-630) or a ring whose numeric semantics are
+     * discretionary (Madrid NZ-1, deliberately `estimated-ruleset`). Value is
+     * `'footprint-covers-parcel'` or `'clipped-to-published-footprint'`. Present ONLY when the
+     * caller made that declaration (`explicitAreaAuthority: 'published-site-ordering'`); its
+     * presence is what lets §L-572 stamp `block-constructed` on an explicit-area solve — the
+     * same "constructed under an accepted rule from real published inputs" statement as
+     * `alignment.depthBinding`, and like it a property of the DETERMINATION, not of one UI path.
+     */
+    'explicitArea.footprintBinding',
     // ─── §L-590b / ADR-0273 — tiered occupation (PGM Art. 350.2) ──────────────────────────
     /**
      * Art. 350.2.b — the band's area as a share of the BLOCK, **as an equality**. A first-class
