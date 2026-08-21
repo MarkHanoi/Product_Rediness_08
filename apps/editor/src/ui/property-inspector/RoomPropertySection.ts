@@ -18,6 +18,15 @@ import { RoomData, RoomOccupancyType } from '@pryzm/room-topology';
 import { RoomColourSystem, OCCUPANCY_PALETTE } from '@pryzm/room-topology';
 import { RoomRelationshipService } from '@pryzm/room-topology';
 import { resolveRoomFinishes } from '@pryzm/core-app-model';
+// §ROOM-VG-CATEGORY (L-1615) -- the room colour MODE is a `room` VG category
+// property resolved per view, not a field on the mesh builder.
+import {
+    ROOM_COLOUR_MODE_CHOICES,
+    resolveRoomColourIntent,
+    getRoomColourModelId,
+    getActiveRoomColourViewId,
+    type RoomColourMode,
+} from '@pryzm/core-app-model';
 import { worldModelAdapter } from '@pryzm/ai-host';
 
 import {
@@ -565,20 +574,41 @@ export function appendRoomPropertySection(
     }
 
     // Colour-by mode toolbar
+    //
+    // §ROOM-VG-CATEGORY (L-1615) -- the founder's "I want a category for rooms --
+    // and that the user can colour code by room type, size, or colour defined, all
+    // white etc."
+    //
+    // This used to call `window.roomBoundaryBuilder.setVisualisationMode(mode)`
+    // straight from the click handler: a direct write from UI (P6), against a
+    // builder field that no view, no project file and no other renderer could see,
+    // and which the next room rebuild silently discarded. It now DISPATCHES
+    // `room.setColourMode`, which writes the `room` VG category. The 3-D builder and
+    // the plan canvas both re-resolve from there, so plan and elevation agree and
+    // the choice survives save/load.
     {
-        const modes: Array<{ mode: string; label: string }> = [
-            { mode: 'detection',  label: 'Type'       },
-            { mode: 'occupancy',  label: 'Occupancy'  },
-            { mode: 'area',       label: 'Area'       },
-            { mode: 'custom',     label: 'Custom'     },
-            { mode: 'sync-state', label: 'Sync State' },
-        ];
-
         const wrap = document.createElement('div');
-        wrap.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:wrap;`;
+        wrap.style.cssText = `display:flex;flex-direction:column;gap:5px;padding:5px 0;`;
+
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;gap:8px;';
         const lbl = document.createElement('span');
         lbl.style.cssText = LABEL_S;
         lbl.textContent = 'Colour by';
+        head.appendChild(lbl);
+
+        // Scope: the mode is a graphic override, so it belongs to a VIEW by
+        // default (a room plan and a client elevation may legitimately differ)
+        // with an explicit escape hatch to set the project-wide default.
+        const scopeSel = document.createElement('select');
+        scopeSel.style.cssText = `${INPUT_S};width:auto;font-size:10px;padding:2px 4px;`;
+        for (const [value, text] of [['view', 'This view'], ['project', 'Whole project']] as const) {
+            const o = document.createElement('option');
+            o.value = value; o.textContent = text;
+            scopeSel.appendChild(o);
+        }
+        head.appendChild(scopeSel);
+        wrap.appendChild(head);
 
         const grp = document.createElement('div');
         grp.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;';
@@ -586,29 +616,48 @@ export function appendRoomPropertySection(
         const setActive = (activeMode: string) => {
             grp.querySelectorAll<HTMLButtonElement>('button[data-vis]').forEach(b => {
                 const on = b.dataset.vis === activeMode;
-                b.style.background = on ? C.purple    : '#f3f0fb';
-                b.style.color      = on ? '#fff'      : C.textMid;
-                b.style.borderColor= on ? C.purpleDk  : C.cardBorder;
+                b.style.background  = on ? C.purple   : '#f3f0fb';
+                b.style.color       = on ? '#fff'     : C.textMid;
+                b.style.borderColor = on ? C.purpleDk : C.cardBorder;
             });
         };
 
-        const builder = window.roomBoundaryBuilder; // TODO(E.rooms.X): replace with runtime.bus.executeCommand(rooms.build) — Phase E.rooms.X
-        const currentMode = builder?.currentVisualisationMode ?? 'detection';
+        const readCurrentMode = (): RoomColourMode => {
+            const scope = scopeSel.value === 'project' ? undefined : (getActiveRoomColourViewId() ?? undefined);
+            return resolveRoomColourIntent(getRoomColourModelId(), scope).mode;
+        };
 
-        modes.forEach(({ mode, label }) => {
+        // ROOM_COLOUR_MODE_CHOICES is the single list. A mode added to the union
+        // without a button here would be invisible; reading the list means it
+        // cannot happen.
+        for (const { mode, label, hint } of ROOM_COLOUR_MODE_CHOICES) {
             const btn = document.createElement('button');
             btn.textContent = label;
+            btn.title = hint;
             btn.dataset.vis = mode;
             btn.style.cssText = `font-size:10px;padding:3px 8px;border:1px solid ${C.cardBorder};border-radius:5px;background:#f3f0fb;color:${C.textMid};cursor:pointer;transition:all 0.12s;`;
+            const origStyle = btn.style.cssText;
             btn.addEventListener('click', () => {
-                if (builder?.setVisualisationMode) builder.setVisualisationMode(mode);
-                setActive(mode);
+                const scope = scopeSel.value === 'project' ? 'project' : 'view';
+                const viewId = getActiveRoomColourViewId() ?? undefined;
+                if (scope === 'view' && !viewId) {
+                    // ⚠ Say so. A control that quietly restyles the whole project
+                    // when it says "this view" is worse than one that refuses.
+                    showFeedback(btn, '', '✗ no active view', label, origStyle, false);
+                    return;
+                }
+                window.runtime?.bus?.executeCommand('room.setColourMode', { mode, scope, viewId })
+                    ?.then(() => setActive(mode))
+                    ?.catch((e: unknown) => {
+                        console.error('[RoomPropertySection] room.setColourMode failed:', e);
+                        showFeedback(btn, '', '✗ failed', label, origStyle, false);
+                    });
             });
             grp.appendChild(btn);
-        });
+        }
 
-        setActive(currentMode);
-        wrap.appendChild(lbl);
+        scopeSel.addEventListener('change', () => setActive(readCurrentMode()));
+        setActive(readCurrentMode());
         wrap.appendChild(grp);
         id5.body.appendChild(wrap);
     }

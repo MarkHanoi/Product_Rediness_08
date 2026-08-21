@@ -9,6 +9,10 @@ export { UpdateRoomBoundaryCommand } from './UpdateRoomBoundaryCommand';
 export { DeleteRoomCommand }      from './DeleteRoomCommand';
 export { RenameRoomCommand }      from './RenameRoomCommand';
 export { SetRoomOccupancyCommand } from './SetRoomOccupancyCommand';
+// §ROOM-VG-CATEGORY (L-1614) -- HOW rooms are colour-coded (by type / size /
+// user-defined / all white). A VG category write, not a room write.
+export { SetRoomColourModeCommand } from './SetRoomColourModeCommand';
+export type { RoomColourModeScope } from './SetRoomColourModeCommand';
 export { UpdateRoomFinishesCommand } from './UpdateRoomFinishesCommand';
 export { UpdateRoomFinishesBulkCommand } from './UpdateRoomFinishesBulkCommand';
 export type { RoomFinishPatch } from './UpdateRoomFinishesBulkCommand';

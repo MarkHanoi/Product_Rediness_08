@@ -230,6 +230,7 @@ export * from './rooms/ReDetectRoomsCommand';
 export * from './rooms/RenameRoomCommand';
 export * from './rooms/RoomNumbering';
 export * from './rooms/SetRoomOccupancyCommand';
+export * from './rooms/SetRoomColourModeCommand';
 export * from './rooms/UpdateRoomBoundaryCommand';
 export * from './rooms/UpdateRoomCommand';
 export * from './rooms/UpdateRoomFinishesCommand';

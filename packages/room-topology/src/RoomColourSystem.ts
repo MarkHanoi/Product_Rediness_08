@@ -30,6 +30,11 @@
  */
 
 import { RoomData, RoomOccupancyType } from './RoomTypes';
+// TYPE-ONLY. Erased at compile, so this adds NO runtime edge back to
+// core-app-model (which imports this package from PlanViewCanvas). A value
+// import here would close a module-load cycle -- see the SCC note in
+// presentation/ViewRangeIntentResolver.ts.
+import type { RoomColourMode } from '@pryzm/core-app-model/presentation';
 
 // ── Visualisation Mode ────────────────────────────────────────────────────────
 
@@ -41,7 +46,17 @@ import { RoomData, RoomOccupancyType } from './RoomTypes';
  *   custom     — use room.colour override; fall back to occupancy palette
  *   sync-state — G-0.2: colours rooms by SyncState (no-template/planned-only/partial/synced/conflict/derived)
  */
-export type RoomVisualisationMode = 'detection' | 'occupancy' | 'area' | 'custom' | 'sync-state';
+/**
+ * §ROOM-VG-CATEGORY (L-1610) -- this is now an ALIAS of the canonical
+ * `RoomColourMode` declared in `@pryzm/core-app-model/presentation`, which is
+ * also the union stored on the `room` VG category and persisted with the
+ * project. The historical name is kept so existing importers do not churn;
+ * restating the union here would give the codebase two lists to keep in step,
+ * and one of them would rot.
+ *
+ * Adds `uniform` -- "all white" -- which the founder asked for by name.
+ */
+export type RoomVisualisationMode = RoomColourMode;
 
 /**
  * G-0.2 — SyncState → fill colour map for room overlay.
@@ -59,6 +74,26 @@ export const SYNC_STATE_COLOURS: Record<string, string> = {
 };
 
 // ── CSS Design Tokens (also applied in AppTheme.ts) ──────────────────────────
+
+/**
+ * §ROOM-UNCLASSIFIED-IS-NOT-A-COLOUR (L-1610).
+ *
+ * The colour a room takes when the active mode CANNOT be computed for it -- no
+ * measured area to place on a size ramp, no occupancy type, no user-defined
+ * colour. It is deliberately the same neutral the occupancy palette already uses
+ * for `unclassified`, so it READS as "not determined" rather than as a
+ * determination. Failure and emptiness must not become the same value: putting
+ * an un-measured room at ramp position 0 would render it as "the smallest room
+ * in the building", which is a claim nobody made.
+ */
+export const UNCLASSIFIED_FILL = '#E0E0E0';
+
+/** Size ramp endpoints: smallest room -> largest room. */
+export const AREA_RAMP_START = '#FFEB3B';
+export const AREA_RAMP_END   = '#4CAF50';
+
+/** "All white" -- the default single colour for `uniform` mode. */
+export const DEFAULT_UNIFORM_FILL = '#FFFFFF';
 
 export const ROOM_CSS_TOKENS: Record<string, string> = {
   '--room-residential':  '#B8D4F0',
@@ -144,11 +179,11 @@ export class RoomColourSystem {
 
   static resolve(room: Pick<RoomData, 'colour' | 'occupancyType'>): string {
     if (room.colour) return room.colour;
-    return OCCUPANCY_PALETTE[room.occupancyType] ?? '#E0E0E0';
+    return OCCUPANCY_PALETTE[room.occupancyType] ?? UNCLASSIFIED_FILL;
   }
 
   static forOccupancy(occupancyType: RoomOccupancyType): string {
-    return OCCUPANCY_PALETTE[occupancyType] ?? '#E0E0E0';
+    return OCCUPANCY_PALETTE[occupancyType] ?? UNCLASSIFIED_FILL;
   }
 
   static hoverColour(baseHex: string): string {
@@ -175,35 +210,75 @@ export class RoomColourSystem {
     return room.opacity ?? RoomColourSystem.defaultOpacity();
   }
 
+  /**
+   * §ROOM-VG-CATEGORY (L-1610/L-1611) -- resolve the fill colour for one room
+   * under one mode.
+   *
+   * `allRooms` is the SCOPE the ramp is computed against (normally every room on
+   * the level being drawn). `opts.uniformColour` lets the `room` VG category
+   * supply the single colour for `uniform` mode.
+   */
   static resolveForMode(
     room: Pick<RoomData, 'id' | 'colour' | 'occupancyType' | 'computed'>,
     mode: RoomVisualisationMode,
     allRooms?: Array<Pick<RoomData, 'computed'>>,
+    opts?: { uniformColour?: string },
   ): string {
     switch (mode) {
       case 'occupancy':
-        return OCCUPANCY_PALETTE[room.occupancyType] ?? '#E0E0E0';
+        return OCCUPANCY_PALETTE[room.occupancyType] ?? UNCLASSIFIED_FILL;
 
       case 'custom':
-        return room.colour ?? OCCUPANCY_PALETTE[room.occupancyType] ?? '#E0E0E0';
+        // A room nobody assigned a colour to is UNCLASSIFIED under "user-defined".
+        // Falling back to the occupancy palette here is what made the palette look
+        // authored when it was not -- the founder's "seemingly random".
+        return room.colour ?? UNCLASSIFIED_FILL;
+
+      case 'uniform':
+        // Beats every per-room override on purpose: "all white" that leaves the
+        // coloured rooms coloured is not all white.
+        return opts?.uniformColour ?? DEFAULT_UNIFORM_FILL;
 
       case 'area': {
-        if (!allRooms || allRooms.length === 0) return '#90CAF9';
-        const areas  = allRooms.map(r => r.computed?.area ?? 0);
-        const minA   = Math.min(...areas);
-        const maxA   = Math.max(...areas);
-        if (maxA === minA) return '#90CAF9';
-        const t = (room.computed?.area ?? 0 - minA) / (maxA - minA);
-        return RoomColourSystem._lerpHex('#FFEB3B', '#4CAF50', Math.max(0, Math.min(1, t)));
+        // ⭐ (L-1610) The numerator used to read
+        //     `(room.computed?.area ?? 0 - minA)`
+        // and `??` binds LOOSER than `-`, so it parsed as `area ?? (0 - minA)`:
+        // whenever the area EXISTED -- i.e. for every real room -- `minA` was
+        // never subtracted and the ramp position was `area / (maxA - minA)`.
+        // With areas 100/110/120 the smallest room scored t = 5, clamped to 1,
+        // and rendered as the LARGEST room's colour. Exactly inverted, and
+        // invisible to any test that only asserted "a hex string came back".
+        const own = room.computed?.area;
+        // A room with no measured area cannot be placed on a size ramp.
+        if (typeof own !== 'number' || !Number.isFinite(own)) return UNCLASSIFIED_FILL;
+
+        // ...and un-measured rooms must not pin the ramp floor at a phantom 0.
+        const areas = (allRooms ?? [])
+          .map(r => r.computed?.area)
+          .filter((a): a is number => typeof a === 'number' && Number.isFinite(a));
+        if (areas.length === 0) return UNCLASSIFIED_FILL;
+
+        const minA = Math.min(...areas);
+        const maxA = Math.max(...areas);
+        // Every room the same size: the ramp carries no information, so do not
+        // draw one. Mid-ramp would imply a spread that does not exist.
+        if (maxA === minA) return AREA_RAMP_START;
+
+        const t = (own - minA) / (maxA - minA);
+        return RoomColourSystem._lerpHex(AREA_RAMP_START, AREA_RAMP_END, Math.max(0, Math.min(1, t)));
       }
 
       case 'sync-state': {
-        const engine = RoomColourSystem._syncStateEngine ?? (window as any).syncStateEngine;
-        if (!engine || typeof engine.recompute !== 'function') {
-            return OCCUPANCY_PALETTE[room.occupancyType] ?? '#E0E0E0';
-        }
-        const state: string = engine.recompute(room.id) ?? 'no-template';
-        return SYNC_STATE_COLOURS[state] ?? '#CBD5E1';
+        // P4 (L-1610): this used to fall back to a window-any cast on `syncStateEngine`.
+        // The engine is injected explicitly by `initDataPlatform.ts` via
+        // `setSyncStateEngine()`; when it is absent the honest answer is
+        // UNCLASSIFIED -- not the occupancy palette, which would show a
+        // confident type colour on a control that claims to be showing sync state.
+        const engine = RoomColourSystem._syncStateEngine;
+        if (!engine || typeof engine.recompute !== 'function') return UNCLASSIFIED_FILL;
+        const state = engine.recompute(room.id);
+        if (!state) return UNCLASSIFIED_FILL;
+        return SYNC_STATE_COLOURS[state] ?? UNCLASSIFIED_FILL;
       }
 
       case 'detection':

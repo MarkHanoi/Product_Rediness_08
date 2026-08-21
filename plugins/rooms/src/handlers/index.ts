@@ -7,6 +7,7 @@ import { MoveRoomHandler } from './MoveRoom.js';
 import { SetRoomNameHandler } from './SetRoomName.js';
 import { SetRoomNumberHandler } from './SetRoomNumber.js';
 import { SetRoomOccupancyHandler } from './SetRoomOccupancy.js';
+import { SetRoomColourModeHandler } from './SetRoomColourMode.js';
 import { SetRoomMaterialHandler } from './SetRoomMaterial.js';
 import { SetRoomFinishHandler } from './SetRoomFinish.js';
 import { SetRoomHeightOffsetHandler } from './SetRoomHeightOffset.js';
@@ -23,6 +24,9 @@ export const ROOM_HANDLER_TYPES = [
   'room.setName',
   'room.setNumber',
   'room.setOccupancy',
+  // §ROOM-VG-CATEGORY (L-1614) -- HOW rooms are colour-coded (by type / size /
+  // user-defined / all white). A `room` VG CATEGORY write, not a room mutation.
+  'room.setColourMode',
   'room.setMaterial',
   'room.setFinish',
   'room.setHeightOffset',
@@ -54,6 +58,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new SetRoomNameHandler() as unknown as CommandHandler<unknown>,
     new SetRoomNumberHandler() as unknown as CommandHandler<unknown>,
     new SetRoomOccupancyHandler() as unknown as CommandHandler<unknown>,
+    new SetRoomColourModeHandler() as unknown as CommandHandler<unknown>,
     new SetRoomMaterialHandler() as unknown as CommandHandler<unknown>,
     new SetRoomFinishHandler() as unknown as CommandHandler<unknown>,
     new SetRoomHeightOffsetHandler() as unknown as CommandHandler<unknown>,
@@ -76,6 +81,7 @@ export { MoveRoomHandler, type MoveRoomPayload } from './MoveRoom.js';
 export { SetRoomNameHandler, type SetRoomNamePayload } from './SetRoomName.js';
 export { SetRoomNumberHandler, type SetRoomNumberPayload } from './SetRoomNumber.js';
 export { SetRoomOccupancyHandler, type SetRoomOccupancyPayload } from './SetRoomOccupancy.js';
+export { SetRoomColourModeHandler, type SetRoomColourModePayload } from './SetRoomColourMode.js';
 export { SetRoomMaterialHandler, type SetRoomMaterialPayload } from './SetRoomMaterial.js';
 export {
   SetRoomFinishHandler,

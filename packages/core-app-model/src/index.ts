@@ -398,6 +398,23 @@ export type {
     VGGovernanceStoreImpl,
 } from './presentation/VGGovernanceStore.js';
 export { vgGovernanceStore } from './presentation/VGGovernanceStore.js';
+
+// §ROOM-VG-CATEGORY (L-1610) — `room` as a first-class VG category + the per-view
+// resolution of how rooms are colour-coded (by type / size / user-defined / all white).
+export type { RoomColourMode, RoomColourIntent } from './presentation/RoomColourIntent.js';
+export {
+    ROOM_VG_CATEGORY,
+    DEFAULT_ROOM_COLOUR_MODE,
+    DEFAULT_UNIFORM_ROOM_COLOUR,
+    ROOM_COLOUR_MODE_CHOICES,
+    isRoomColourMode,
+    resolveRoomColourIntent,
+    activeRoomColourIntent,
+    getActiveRoomColourViewId,
+    setActiveRoomColourViewId,
+    getRoomColourModelId,
+    setRoomColourModelId,
+} from './presentation/RoomColourIntent.js';
 // §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — the ONE VG→canvas contribution resolver.
 export { resolveVgCanvasStyle } from './presentation/VgCanvasStyleResolver.js';
 export type { VgCanvasStyle } from './presentation/VgCanvasStyleResolver.js';

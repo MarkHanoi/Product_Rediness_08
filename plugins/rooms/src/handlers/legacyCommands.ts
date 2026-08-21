@@ -42,6 +42,7 @@ export {
   CreateTemplateCommand,
   DeleteRoomCommand,
   RenameRoomCommand,
+  SetRoomColourModeCommand,
   SetRoomOccupancyCommand,
   UpdateRoomBoundaryCommand,
   UpdateRoomCommand,

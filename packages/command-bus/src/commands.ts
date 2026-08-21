@@ -780,6 +780,19 @@ export type RoomMutationCommands = {
     'room.updateFinishes':  { roomId: string; finishes: Record<string, unknown> };
 
     /**
+     * §ROOM-VG-CATEGORY (L-1614) -- HOW rooms are colour-coded. NOT a room
+     * mutation: it writes the `room` VG category, which is why it carries no
+     * roomId. `scope: 'view'` (default) styles the active view only; 'project'
+     * sets the default every view inherits. Both persist in the project file via
+     * vgGovernanceStore.serialize().
+     */
+    'room.setColourMode':   {
+        mode: 'detection' | 'occupancy' | 'area' | 'custom' | 'uniform' | 'sync-state';
+        scope?: 'view' | 'project';
+        viewId?: string;
+    };
+
+    /**
      * §FIX-PLAN-MOVE-PARITY / Gate G7 §6 — TRANSLATE a room's boundary.
      *
      * This command was DISPATCHED (by the Plan View Move tool, via the shared

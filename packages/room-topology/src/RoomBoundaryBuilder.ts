@@ -10,9 +10,13 @@ import * as THREE from '@pryzm/renderer-three/three';
 // §GPU-RESOURCE-LIFETIME (ADR-0297 INVARIANT L2) — see removeRoom().
 import { scheduleGpuRelease } from '@pryzm/renderer-three';
 import { RoomData } from './RoomTypes';
-import { RoomColourSystem, RoomVisualisationMode } from './RoomColourSystem';
+import { RoomColourSystem, RoomVisualisationMode, DEFAULT_UNIFORM_FILL } from './RoomColourSystem';
 import { BimManager } from '@pryzm/core-app-model';
 import { UiPreferences } from '@pryzm/core-app-model';
+// §ROOM-VG-CATEGORY (L-1610) -- the room colour MODE is a VG category property
+// resolved per view, not a field on this builder. This builder is the mechanism;
+// vgGovernanceStore is the authority. See core-app-model/presentation/RoomColourIntent.ts.
+import { activeRoomColourIntent } from '@pryzm/core-app-model';
 
 type IRoomStoreLite           = { getAll?: () => RoomData[]; getById?: (id: string) => RoomData | undefined };
 type IWorkspaceControllerLite = { getMode?: () => string };
@@ -37,6 +41,15 @@ export class RoomBoundaryBuilder {
   private meshes: Map<string, THREE.Mesh> = new Map();
   private _volumeMeshes: Map<string, THREE.Mesh> = new Map();
   private visualisationMode: RoomVisualisationMode = 'detection';
+  /** The single colour `uniform` mode paints with (the room VG category fill). */
+  private _uniformColour: string = DEFAULT_UNIFORM_FILL;
+  /**
+   * Scope the `area` ramp is computed against. Cached only for the duration of a
+   * batch repaint -- recomputing `getAll()` once per room would make a level
+   * rebuild O(n^2).
+   */
+  private _scopeCache: RoomData[] | null = null;
+  private _batching = false;
   private _rebuildingRooms = new Set<string>();
   private highlightOverrides: Map<string, string> = new Map();
   private _complianceStatus: Map<string, 'error' | 'warning'> = new Map();
@@ -102,6 +115,24 @@ export class RoomBoundaryBuilder {
       this._refreshAllRoomColours();
     });
 
+    // §ROOM-VG-CATEGORY (L-1610) -- the room colour mode is a per-VIEW VG override,
+    // so the shared 3-D scene has to re-resolve it whenever the active view changes
+    // or the room category is edited. `view-selected` / `vg:*` on `window` is the
+    // channel UnderlayRenderService and CropRegionFilterService already ride; this
+    // subscribes to the same one rather than minting a rival.
+    for (const evt of [
+      'view-selected',
+      'view-closed',
+      'vg:view-style-set',
+      'vg:view-style-reset',
+      'vg:category-style-set',
+      'vg:category-style-reset',
+      'vg:model-template-assigned',
+      'vg:template-updated',
+    ]) {
+      window.addEventListener(evt, () => this.syncFromViewIntent());
+    }
+
     // F.events.14 — pryzm-ui-pref-changed migrated from DOM CustomEvent to runtime.events.
     (window as any).runtime?.events?.on('pryzm-ui-pref-changed', ({ key, value }: { key: string; value: unknown }) => {
       if (key === 'showRoomVolumeColour') {
@@ -121,6 +152,7 @@ export class RoomBoundaryBuilder {
     const opacity = UiPreferences.get('roomVolumeOpacity') as number;
     for (const [, volumeMesh] of this._volumeMeshes) {
       volumeMesh.visible = show;
+      volumeMesh.userData.vgBaseVisible = show;
       if (show) {
         const mat = volumeMesh.material as THREE.MeshBasicMaterial;
         mat.opacity = opacity;
@@ -151,16 +183,67 @@ export class RoomBoundaryBuilder {
     return baseOffset;
   }
 
+  /**
+   * §ROOM-VG-CATEGORY (L-1612) -- THE single place a room fill colour is decided.
+   *
+   * Every paint site in this file goes through here. It used to be
+   * `RoomColourSystem.resolve(room)` (mode-LESS) at build time and
+   * `resolveForMode(...)` only inside `setVisualisationMode()`, which meant the
+   * chosen mode lasted exactly until the next room rebuild -- a rename, a
+   * reshape, an occupancy change -- and then the whole level silently reverted
+   * to the detection palette.
+   */
+  private _fillFor(room: RoomData): string {
+    return RoomColourSystem.resolveForMode(
+      room,
+      this.visualisationMode,
+      this.visualisationMode === 'area' ? this._colourScope() : undefined,
+      { uniformColour: this._uniformColour },
+    );
+  }
+
+  /** Rooms the `area` ramp is measured across. Only computed for `area` mode. */
+  private _colourScope(): RoomData[] | undefined {
+    if (this._scopeCache) return this._scopeCache;
+    const rs = this._resolveRoomStore();
+    const all = rs?.getAll?.() ?? [];
+    if (this._batching) this._scopeCache = all;
+    return all;
+  }
+
+  /**
+   * §ROOM-VG-CATEGORY (L-1610) -- re-read the room colour intent for the view
+   * that is on screen and repaint. This is what makes the mode a VIEW property:
+   * a plan colour-coded by room type and an all-white presentation elevation are
+   * the same model resolved through two different VG view records.
+   */
+  syncFromViewIntent(): void {
+    let intent;
+    try {
+      intent = activeRoomColourIntent();
+    } catch (e) {
+      // A resolution failure must not silently become "detection" -- say so.
+      console.warn('[RoomBoundaryBuilder] room colour intent unresolved; leaving the current mode in place:', e);
+      return;
+    }
+    this.setVisualisationMode(intent.mode, { uniformColour: intent.uniformColour });
+  }
+
   private _refreshAllRoomColours(): void {
     const rs = this._resolveRoomStore();
     if (!rs) return;
     try {
       const allRooms: RoomData[] = rs.getAll?.() ?? [];
+      this._batching = true;
+      this._scopeCache = allRooms;
       for (const room of allRooms) {
         this.updateRoom(room);
       }
     } catch (e) {
       console.warn('[RoomBoundaryBuilder] _refreshAllRoomColours error:', e);
+    } finally {
+      this._batching = false;
+      this._scopeCache = null;
     }
   }
 
@@ -186,11 +269,18 @@ export class RoomBoundaryBuilder {
       return;
     }
 
-    let hex     = RoomColourSystem.resolve(room);
+    // §ROOM-VG-CATEGORY (L-1612) -- was `RoomColourSystem.resolve(room)`, the
+    // MODE-LESS resolver, which is why every chosen mode died at the next rebuild.
+    let hex     = this._fillFor(room);
     const opacity = RoomColourSystem.resolveOpacity(room);
     if (opacity <= 0) return;
 
-    const workspaceMode = this._resolveWorkspaceController()?.getMode?.() as string | undefined;
+    // The inspect/data workspace sync tint is an IMPLICIT overlay. An explicit
+    // user choice of mode outranks it -- otherwise picking "all white" in the
+    // inspect workspace would appear to do nothing.
+    const workspaceMode = this.visualisationMode === 'detection'
+      ? this._resolveWorkspaceController()?.getMode?.() as string | undefined
+      : undefined;
     if (workspaceMode === 'inspect' || workspaceMode === 'data') {
       const hs = this._resolveHierarchyStore();
       if (hs && room.unitId) {
@@ -290,6 +380,11 @@ export class RoomBoundaryBuilder {
     volumeMesh.userData.elementType = 'room';
     volumeMesh.userData.levelId = room.levelId;
     volumeMesh.userData.isRoomVolume = true;
+    // §ROOM-VG-CATEGORY (L-1613) -- the room VG category can HIDE rooms, but VG's
+    // default `visible: true` must not force a volume back on that the user turned
+    // off via the 'showRoomVolumeColour' preference. VGSceneApplicator ANDs its
+    // verdict with this flag rather than overwriting `mesh.visible`.
+    volumeMesh.userData.vgBaseVisible = showVolume;
     volumeMesh.userData.selectable = false;
     volumeMesh.name = `room-volume-${room.id}`;
 
@@ -396,7 +491,7 @@ export class RoomBoundaryBuilder {
         const roomStore = this._resolveRoomStore();
         const room: RoomData | undefined = roomStore?.getById?.(roomId);
         if (room) {
-          mat.color.setStyle(RoomColourSystem.resolve(room));
+          mat.color.setStyle(this._fillFor(room));
         }
       }
     }
@@ -439,7 +534,7 @@ export class RoomBoundaryBuilder {
         const roomStore = this._resolveRoomStore();
         const room: RoomData | undefined = roomStore?.getById?.(roomId);
         if (room) {
-          mat.color.setStyle(RoomColourSystem.resolve(room));
+          mat.color.setStyle(this._fillFor(room));
         }
       }
     }
@@ -458,24 +553,45 @@ export class RoomBoundaryBuilder {
     return this.visualisationMode;
   }
 
-  setVisualisationMode(mode: RoomVisualisationMode): void {
+  /**
+   * §ROOM-VG-CATEGORY (L-1612) -- repaint every room under `mode`.
+   *
+   * Two things changed here beyond the mode plumbing:
+   *   1. The VOLUME meshes are repainted too. They are what an ELEVATION, a
+   *      SECTION and the 3-D view actually show; repainting only the floor fill
+   *      left every non-plan view on the previous palette, which is precisely
+   *      the "make it happen for all view types, elevation etc." half.
+   *   2. `this.visualisationMode` is now read by `_doUpdateRoom()`, so the mode
+   *      survives a rebuild instead of being a one-shot repaint.
+   */
+  setVisualisationMode(mode: RoomVisualisationMode, opts?: { uniformColour?: string }): void {
     this.visualisationMode = mode;
+    if (opts?.uniformColour) this._uniformColour = opts.uniformColour;
     this.clearHighlight();
 
     const roomStore = this._resolveRoomStore();
     if (!roomStore) return;
 
     const allRooms: RoomData[] = typeof roomStore.getAll === 'function' ? roomStore.getAll() : [];
-
-    for (const [roomId, mesh] of this.meshes) {
-      const room: RoomData | undefined = roomStore.getById?.(roomId);
-      if (!room) continue;
-
-      const hex = RoomColourSystem.resolveForMode(room, mode, allRooms);
-      (mesh.material as THREE.MeshBasicMaterial).color.set(hex);
+    this._batching = true;
+    this._scopeCache = allRooms;
+    try {
+      const ids = new Set([...this.meshes.keys(), ...this._volumeMeshes.keys()]);
+      for (const roomId of ids) {
+        const room: RoomData | undefined = roomStore.getById?.(roomId);
+        if (!room) continue;
+        const hex = this._fillFor(room);
+        const fill = this.meshes.get(roomId);
+        if (fill) (fill.material as THREE.MeshBasicMaterial).color.set(hex);
+        const volume = this._volumeMeshes.get(roomId);
+        if (volume) (volume.material as THREE.MeshBasicMaterial).color.set(hex);
+      }
+    } finally {
+      this._batching = false;
+      this._scopeCache = null;
     }
 
-    console.log(`[RoomBoundaryBuilder] Visualisation mode → ${mode}`);
+    console.log(`[RoomBoundaryBuilder] Visualisation mode → ${mode} (uniform=${this._uniformColour})`);
   }
 
   highlightPath(roomIds: string[]): void {

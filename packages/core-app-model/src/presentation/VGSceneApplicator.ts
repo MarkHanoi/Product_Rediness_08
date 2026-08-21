@@ -59,7 +59,10 @@ type VGCategory =
     | 'door' | 'window' | 'curtain-wall' | 'curtain-panel'
     | 'roof' | 'stair' | 'handrail' | 'furniture'
     | 'ceiling'
-    | 'plumbing' | 'grid' | 'level' | 'opening';
+    | 'plumbing' | 'grid' | 'level' | 'opening'
+    // §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- rooms are FILLED REGIONS, not
+    // projected line-work. See applyToMesh()'s `fillGovernedElsewhere` arm.
+    | 'room';
 
 /**
  * DOC-1.13 — VG category → ISO 13567 DXF layer name.
@@ -118,6 +121,9 @@ const ELEMENT_TYPE_TO_VG_CATEGORY: Record<string, VGCategory> = {
     'Grid':          'grid',    'GridLine':      'grid',    'BimGrid':      'grid',
     'Level':         'level',   'LevelLine':     'level',   'BimLevel':     'level',
     'Opening':       'opening',
+    // §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- RoomBoundaryBuilder stamps
+    // userData.elementType = 'room' on both the floor fill and the room volume.
+    'room':          'room',    'Room':          'room',    'RoomVolume':   'room',
 };
 
 // NULL_TYPES: element types that should always be skipped by the VG applicator.
@@ -755,9 +761,18 @@ export class VGSceneApplicator {
         const viewType = viewId ? viewDefinitionStore.get(viewId)?.viewType : undefined;
 
         if (obj instanceof THREE.Mesh) {
+            // §ROOM-VG-CATEGORY (L-1613, lane ROOM1) -- VG's `visible` is a MASK over a
+            // room mesh's own visibility, never a replacement for it. Room volumes are
+            // shown/hidden by the 'showRoomVolumeColour' preference; VG's default
+            // `visible: true` would otherwise force every hidden volume back on at
+            // every view switch.
+            if (cat === 'room' && style.visible && obj.userData?.vgBaseVisible === false) {
+                obj.visible = false;
+                return;
+            }
             // Doc 20: isLineMaterial2 branch removed. Edge overlays are now
             // THREE.LineSegments (not THREE.Mesh), so they reach applyToLine() below.
-            this.applyToMesh(obj, style, viewType);
+            this.applyToMesh(obj, style, viewType, cat === 'room');
         } else if (obj instanceof THREE.Line || obj instanceof THREE.LineSegments) {
             this.applyToLine(obj, style);
         } else {
@@ -862,9 +877,31 @@ export class VGSceneApplicator {
         return false;
     }
 
-    private applyToMesh(mesh: THREE.Mesh, style: VGCategoryStyle, viewType?: string): void {
+    private applyToMesh(
+        mesh: THREE.Mesh,
+        style: VGCategoryStyle,
+        viewType?: string,
+        /**
+         * §ROOM-VG-CATEGORY (L-1610, lane ROOM1) -- the category governs whether and
+         * how strongly this mesh is seen, but NOT its colour, because the colour is a
+         * determination something else owns. Rooms are the case: their fill states the
+         * room's TYPE, SIZE or the user's own choice (RoomColourSystem, driven by the
+         * category's `roomColourMode`), so stamping a single category-wide `fillColor`
+         * over it would erase the very information the wash exists to carry -- except
+         * in `uniform` mode, where RoomColourSystem reads that same `fillColor` itself.
+         * `applyToMesh3D()` is reused verbatim: it is already the "visible +
+         * transparency, never fillColor" leg (§3D-CARRIES-NO-VG-FILL, L-1560).
+         */
+        fillGovernedElsewhere = false,
+    ): void {
         mesh.visible = style.visible;
         if (!style.visible) return;
+
+        if (fillGovernedElsewhere) {
+            this.syncAuthoredSnapshot(mesh);
+            this.applyToMesh3D(mesh, style);
+            return;
+        }
 
         // §AUTHORED-SNAPSHOT-IS-SELF-CORRECTING (L-1562) — take (or RE-take) the
         // authored snapshot. This used to be `if (!MODEL_KEY) { … }`, i.e. once and

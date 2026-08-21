@@ -40,6 +40,15 @@ export interface VGCategoryStyle {
     beyondEdgeColor?:      string;
     beyondVisible?:        boolean;
     fillPattern?: string;
+    /**
+     * §ROOM-VG-CATEGORY (L-1610) — meaningful ONLY on the `room` category.
+     * Rooms are filled regions whose colour is a DETERMINATION (type / size /
+     * user-defined / uniform), so the category carries the determination RULE
+     * rather than a single poche colour. See presentation/RoomColourIntent.ts
+     * for why this rides the VG cascade: it inherits view-override + project
+     * default + project-file persistence with no new schema.
+     */
+    roomColourMode?: import('./RoomColourIntent').RoomColourMode;
 }
 
 export interface AnnotationStyleRecord {
@@ -133,6 +142,10 @@ const BUILT_IN_TEMPLATES: VGTemplate[] = [
             plumbing:      { fillColor: '#4488cc', edgeColor: '#225599', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
             grid:          { fillColor: '#aaaaaa', edgeColor: '#888888', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
             level:         { fillColor: '#44aa44', edgeColor: '#228822', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
+            // §ROOM-VG-CATEGORY (L-1610) — rooms are a first-class category. `visible` and
+            // `transparency` govern the wash; `fillColor` is read ONLY by 'uniform' mode.
+            // All four built-ins ship 'detection' so behaviour is unchanged until the user picks.
+            room:          { fillColor: '#ffffff', edgeColor: '#bbbbbb', lineWeight: 1, transparency: 0,  visible: true, halftone: false, roomColourMode: 'detection' },
             opening:       { fillColor: '#ffffff', edgeColor: '#cccccc', lineWeight: 1, transparency: 80, visible: true, halftone: false },
         },
     },
@@ -158,6 +171,10 @@ const BUILT_IN_TEMPLATES: VGTemplate[] = [
             plumbing:      { fillColor: '#dddddd', edgeColor: '#aaaaaa', lineWeight: 1, transparency: 0,  visible: false, halftone: false },
             grid:          { fillColor: '#aaaaaa', edgeColor: '#888888', lineWeight: 1, transparency: 0,  visible: true,  halftone: false },
             level:         { fillColor: '#44aa44', edgeColor: '#228822', lineWeight: 1, transparency: 0,  visible: true,  halftone: false },
+            // §ROOM-VG-CATEGORY (L-1610) — rooms are a first-class category. `visible` and
+            // `transparency` govern the wash; `fillColor` is read ONLY by 'uniform' mode.
+            // All four built-ins ship 'detection' so behaviour is unchanged until the user picks.
+            room:          { fillColor: '#ffffff', edgeColor: '#bbbbbb', lineWeight: 1, transparency: 0,  visible: true, halftone: false, roomColourMode: 'detection' },
             opening:       { fillColor: '#ffffff', edgeColor: '#cccccc', lineWeight: 1, transparency: 90, visible: true,  halftone: false },
         },
     },
@@ -183,6 +200,10 @@ const BUILT_IN_TEMPLATES: VGTemplate[] = [
             plumbing:      { fillColor: '#2255cc', edgeColor: '#112299', lineWeight: 3, transparency: 0,  visible: true, halftone: false },
             grid:          { fillColor: '#aaaaaa', edgeColor: '#888888', lineWeight: 1, transparency: 0,  visible: true, halftone: true  },
             level:         { fillColor: '#44aa44', edgeColor: '#228822', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
+            // §ROOM-VG-CATEGORY (L-1610) — rooms are a first-class category. `visible` and
+            // `transparency` govern the wash; `fillColor` is read ONLY by 'uniform' mode.
+            // All four built-ins ship 'detection' so behaviour is unchanged until the user picks.
+            room:          { fillColor: '#ffffff', edgeColor: '#bbbbbb', lineWeight: 1, transparency: 0,  visible: true, halftone: false, roomColourMode: 'detection' },
             opening:       { fillColor: '#ffffff', edgeColor: '#cccccc', lineWeight: 1, transparency: 80, visible: true, halftone: false },
         },
     },
@@ -208,6 +229,10 @@ const BUILT_IN_TEMPLATES: VGTemplate[] = [
             plumbing:      { fillColor: '#4488cc', edgeColor: '#225599', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
             grid:          { fillColor: '#aaaaaa', edgeColor: '#888888', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
             level:         { fillColor: '#44aa44', edgeColor: '#228822', lineWeight: 1, transparency: 0,  visible: true, halftone: false },
+            // §ROOM-VG-CATEGORY (L-1610) — rooms are a first-class category. `visible` and
+            // `transparency` govern the wash; `fillColor` is read ONLY by 'uniform' mode.
+            // All four built-ins ship 'detection' so behaviour is unchanged until the user picks.
+            room:          { fillColor: '#ffffff', edgeColor: '#bbbbbb', lineWeight: 1, transparency: 0,  visible: true, halftone: false, roomColourMode: 'detection' },
             opening:       { fillColor: '#ffffff', edgeColor: '#cccccc', lineWeight: 1, transparency: 80, visible: true, halftone: false },
         },
         annotationStyle: {
