@@ -75,6 +75,10 @@
  */
 
 import type { WallFinishSide, WallSideFinish, WallLayer } from './WallTypes';
+// §WALL-FINISH-SHINE-RENDERS (L-1905) — the MASTER's PBR scalars, read at L0.
+// Pure: `@pryzm/schemas/materials` is plain data, no THREE, no DOM, so this
+// module stays exactly as pure as it was (the same ruling `finishRef.ts` cites).
+import { findMaterialRecord } from '@pryzm/schemas/materials';
 
 /** The rung of the ladder an answer came from — carried, never inferred. */
 export type WallSideFinishSource =
@@ -271,9 +275,111 @@ export function resolveLayerRenderFinishColor(
  * the identical pixels. Measure which limit is real before copying a fix.
  */
 export function resolveWholeBodyFinishColor(wall: SideFinishBearingWall): string | null {
+    return pickWholeBodyFinish(wall)?.materialColor ?? null;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §WALL-FINISH-SHINE-RENDERS (L-1905, lane MAT2, 2026-08-21)
+//
+// ⛔ A BRIEF HANDED TO THIS LANE STATED, AS SETTLED, THAT SHINE ALREADY RENDERED
+//    ON A WALL FINISH — *"✅ yes — also scalars, no textures needed"*. IT DOES
+//    NOT, AND THE REFUTATION IS TWO LINES OF THE BUILDER:
+//
+//      instanced arm   `new THREE.MeshStandardMaterial({ color })`
+//                      — THREE's defaults: roughness 1.0, metalness 0.
+//      layered band    `new THREE.MeshStandardMaterial({ color: matColor,
+//                                                        roughness: 0.85, ... })`
+//                      — a HARD-CODED 0.85, identical for every material.
+//
+//    Both arms received a `string` and could not have carried shine if they
+//    wanted to: `resolveWholeBodyFinishColor` RETURNS a colour, so the material's
+//    own `roughness` and `metalness` had nowhere to travel. `WallSideFinish`
+//    carries `materialId` and always has — the value was present at the store and
+//    thrown away one call before the pixel, which is C100 §9.1's shape exactly,
+//    inside the one family C100 §9.1 records as WORKING.
+//
+//    The visible consequence: `Ceramic Tile · Navy Gloss` and `Paint · Deep Navy`
+//    are near the same hue and are DIFFERENT PRODUCTS — one is a wet-looking
+//    glaze, the other a chalky emulsion. Before this slice they rendered
+//    identically, so thirty-four tiles whose whole differentiator is sheen would
+//    have shipped as thirty-four flat rectangles. Naming a row "Gloss" while the
+//    renderer draws matt is a lie in the catalogue (C100 §10.11).
+//
+// ⭐ WHY IT DELEGATES RATHER THAN RE-DERIVES. The colour rule picks a SIDE
+//    (exterior wins, then interior) by testing `materialColor`. If shine repeated
+//    that test independently, a wall whose exterior carried a colour and whose
+//    interior carried a different material could render one material's colour with
+//    another material's sheen — a defect with no name and no reproduction. So
+//    {@link pickWholeBodyFinish} answers "WHICH finish paints this surface?" ONCE
+//    and both readers consume it (C84 EI-8: one producer per question).
+//
+// ⛔ AND IT NEVER SUBSTITUTES. An unresolvable `materialId` returns `null`, and
+//    `null` means "leave today's expression byte-identical" — the caller keeps its
+//    own family default. It does NOT mean "roughness 1". C100 §5: a failure and a
+//    plausible value must not be the same value.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** The PBR scalars a finish contributes. Both are the MASTER's, never invented. */
+export interface WallFinishShine {
+    readonly roughness: number;
+    readonly metalness: number;
+}
+
+/**
+ * WHICH finish paints a wall drawn as ONE solid — the single answer both
+ * {@link resolveWholeBodyFinishColor} and {@link resolveWholeBodyFinishShine}
+ * read, so the two can never name different materials.
+ *
+ * ⚠ The predicate is `materialColor`, not mere presence, and that is deliberate:
+ * it reproduces the pre-existing expression
+ * `sf.exterior?.materialColor ?? sf.interior?.materialColor ?? null` exactly, so
+ * this refactor is behaviour-preserving on the colour leg by construction rather
+ * than by test.
+ */
+function pickWholeBodyFinish(wall: SideFinishBearingWall): WallSideFinish | null {
     const sf = wall.sideFinishes;
     if (!sf) return null;
-    return sf.exterior?.materialColor ?? sf.interior?.materialColor ?? null;
+    if (sf.exterior?.materialColor) return sf.exterior;
+    if (sf.interior?.materialColor) return sf.interior;
+    return null;
+}
+
+/** The master's PBR scalars for `finish`, or `null` — never a substitute. */
+function shineOf(finish: WallSideFinish | null | undefined): WallFinishShine | null {
+    if (!finish?.materialId) return null;
+    const record = findMaterialRecord(finish.materialId);
+    if (!record) return null;
+    return { roughness: record.roughness, metalness: record.metalness };
+}
+
+/**
+ * The PBR scalars a wall drawn as ONE SOLID must render, or `null` to leave the
+ * caller's expression byte-identical. The whole-body sibling of
+ * {@link resolveWholeBodyFinishColor}, off the SAME chosen finish.
+ */
+export function resolveWholeBodyFinishShine(wall: SideFinishBearingWall): WallFinishShine | null {
+    return shineOf(pickWholeBodyFinish(wall));
+}
+
+/**
+ * The PBR scalars the layer mesh at `layerIdx` must render, or `null`.
+ *
+ * Mirrors {@link resolveLayerRenderFinishColor} guard for guard — including the
+ * `layerCount === 1` delegation to the whole-body rule — so a band's colour and
+ * its sheen are always read off the same row.
+ */
+export function resolveLayerRenderFinishShine(
+    wall: SideFinishBearingWall,
+    layerIdx: number,
+    layerCount: number,
+): WallFinishShine | null {
+    if (layerCount <= 0) return null;
+    if (layerCount === 1) return layerIdx === 0 ? resolveWholeBodyFinishShine(wall) : null;
+    const sf = wall.sideFinishes;
+    if (!sf) return null;
+    if (layerIdx === 0 && sf.exterior?.materialColor) return shineOf(sf.exterior);
+    if (layerIdx === layerCount - 1 && sf.interior?.materialColor) return shineOf(sf.interior);
+    return null;
 }
 
 /**

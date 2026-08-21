@@ -12,7 +12,16 @@ import { detachAndReleaseChildren, scheduleGpuRelease } from '@pryzm/renderer-th
 import { WallData, Opening, FragmentEntityMapping, WallLayer } from './WallTypes';
 import { WALL_DEFAULT_BODY_COLOUR } from './WallDefaultBodyColour';
 // §FEAT-WALL-SIDE-FINISH — the per-side override, resolved ONCE, in a pure module.
-import { resolveLayerRenderFinishColor, resolveWholeBodyFinishColor } from './WallSideFinishResolver';
+import {
+    resolveLayerRenderFinishColor,
+    resolveWholeBodyFinishColor,
+    // §WALL-FINISH-SHINE-RENDERS (L-1905) — the master's roughness/metalness for
+    // the SAME finish the colour came from. See that file's block comment for why
+    // both arms below were measured drawing every material at one fixed sheen.
+    resolveLayerRenderFinishShine,
+    resolveWholeBodyFinishShine,
+    type WallFinishShine,
+} from './WallSideFinishResolver';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
 import { buildCurvedLayerGeometry, computeStations, type CurvedProfileHeights } from './CurvedWallLayerBuilder';
@@ -1389,12 +1398,16 @@ export class WallFragmentBuilder {
             // ?? default` and consults no intent colour at all, so a finish already beats
             // everything there. The same wall must not change colour when a neighbour
             // mitres it and moves it to the other arm.
+            // §WALL-FINISH-SHINE-RENDERS (L-1905) — the finish's SHEEN travels with
+            // its colour. `null` for every wall with no authored finish, which is
+            // what keeps this expression byte-identical for them.
             const mat = this._getInstanceMaterial(
                 resolveWholeBodyFinishColor(wall as never)
                 ?? intentColour
                 ?? _layers?.[0]?.materialColor
                 ?? wall.materialColor
                 ?? WALL_DEFAULT_BODY_COLOUR,
+                resolveWholeBodyFinishShine(wall as never),
             );
             this._instanceBridge!.register(wall, resolvedY, joinData, mat);
 
@@ -1990,10 +2003,19 @@ export class WallFragmentBuilder {
                     wall as any, layerIdx, wall.layers!.length,
                 );
                 const matColor = sideOverride ?? layer.materialColor ?? wall.materialColor ?? WALL_DEFAULT_BODY_COLOUR;
+                // §WALL-FINISH-SHINE-RENDERS (L-1905) — 0.85 was HARD-CODED here,
+                // so a gloss tile and a chalk emulsion rendered at one sheen. It
+                // survives as the DEFAULT for every band with no authored finish,
+                // which is what keeps this byte-identical for them; a finish now
+                // brings the master's own scalars, read off the SAME row the
+                // colour above came from.
+                const sideShine = resolveLayerRenderFinishShine(
+                    wall as never, layerIdx, wall.layers!.length,
+                );
                 const mat = new THREE.MeshStandardMaterial({
                     color: matColor,
-                    roughness: 0.85,
-                    metalness: 0.0,
+                    roughness: sideShine?.roughness ?? 0.85,
+                    metalness: sideShine?.metalness ?? 0.0,
                     depthWrite: true,
                     depthTest: true
                 });
@@ -4630,11 +4652,40 @@ export class WallFragmentBuilder {
      * on the instance matrix), so sharing is fully safe. InstanceGroup.dispose() never
      * frees the material; this builder owns their lifetime and frees them in dispose().
      */
-    private _getInstanceMaterial(colour: string | number): THREE.MeshStandardMaterial {
-        const key = new THREE.Color(colour).getHexString();
+    /**
+     * §WALL-FINISH-SHINE-RENDERS (L-1905) — `shine` is the master's roughness /
+     * metalness for the finish `colour` came from, or `null` for a wall with no
+     * authored finish.
+     *
+     * ⛔ THE CACHE KEY HAD TO GROW WITH IT, and this is the half that would have
+     * been silently wrong. The cache was colour-keyed, so `Ceramic Tile · Navy
+     * Gloss` and `Paint · Deep Navy` — near the same hue, opposite sheens — would
+     * have COLLIDED on the first one built and the second would have rendered the
+     * first's material. A cache key narrower than the values it caches is not a
+     * cache, it is a silent overwrite.
+     *
+     * ⚠ `null` shine keeps BOTH the key and the constructed material exactly as
+     * they were, so every wall without a finish is byte-identical to before.
+     *
+     * ⭐ Instancing survives this. `materialInstanceSignature` (renderer-three)
+     * folds `roughness` and `metalness` into its SCALAR_KEYS, so
+     * `dedupInstanceMaterial` will not merge two sheens onto one canonical
+     * material — measured before the key was widened, because a dedup that
+     * ignored them would have undone this one layer further down.
+     */
+    private _getInstanceMaterial(
+        colour: string | number,
+        shine?: WallFinishShine | null,
+    ): THREE.MeshStandardMaterial {
+        const hex = new THREE.Color(colour).getHexString();
+        const key = shine ? `${hex}|r${shine.roughness}|m${shine.metalness}` : hex;
         let mat = this._instanceMaterialCache.get(key);
         if (!mat) {
-            mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(`#${key}`) });
+            mat = new THREE.MeshStandardMaterial(
+                shine
+                    ? { color: new THREE.Color(`#${hex}`), roughness: shine.roughness, metalness: shine.metalness }
+                    : { color: new THREE.Color(`#${hex}`) },
+            );
             this._instanceMaterialCache.set(key, mat);
         }
         return mat;
