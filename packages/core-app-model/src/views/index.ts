@@ -95,7 +95,7 @@ export {
 export { LevelClipPlaneCache, levelClipPlaneCache } from './LevelClipPlaneCache.js';
 
 export type { DrawingBounds } from './TechnicalDrawingBounds.js';
-export { TechnicalDrawingBounds } from './TechnicalDrawingBounds.js';
+export { TechnicalDrawingBounds, NON_CONTENT_LAYERS, isNonContentLayer } from './TechnicalDrawingBounds.js';
 
 export { OrthoPlanCameraLockController } from './OrthoPlanCameraLockController.js';
 

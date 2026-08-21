@@ -581,7 +581,7 @@ export type { ViewPlane } from './views/ViewPlane.js';
 export { viewPlaneFromDefinition, canvasHitToWorld3D, snapToViewPlane } from './views/ViewPlane.js';
 export { LevelClipPlaneCache, levelClipPlaneCache } from './views/LevelClipPlaneCache.js';
 export type { DrawingBounds } from './views/TechnicalDrawingBounds.js';
-export { TechnicalDrawingBounds } from './views/TechnicalDrawingBounds.js';
+export { TechnicalDrawingBounds, NON_CONTENT_LAYERS, isNonContentLayer } from './views/TechnicalDrawingBounds.js';
 export { OrthoPlanCameraLockController } from './views/OrthoPlanCameraLockController.js';
 export { DEFAULT_SNAP_PIXEL_RADIUS, MIN_WORLD_TOLERANCE_M, MAX_WORLD_TOLERANCE_M, LEGACY_FALLBACK_TOLERANCE_M, getWorldToleranceForPixels, getWorldToleranceForActiveCamera } from './views/CameraToleranceService.js';
 export type { ToleranceOptions } from './views/CameraToleranceService.js';
