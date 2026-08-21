@@ -223,6 +223,10 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     if (!elementType || !this._scene) return;
     console.log(`[InspectModeCoordinator] Element type changed: ${elementType}`);
     if (elementType === 'rooms') {
+      // L-2035 — drop the previously focused family FIRST. Without this,
+      // `_applyLensImmediate` sees a stale `_focusedElementType` and re-applies
+      // ghost-with-focus on the old family instead of the room heat map.
+      diagnosticMaterialManager.clearElementFocus();
       if (diagnosticMaterialManager.isActive()) {
         const deltaMap = comparisonEngine.getDeltaMap();
         diagnosticMaterialManager.applyLens(this._activeLens, deltaMap, this._scene, this._selectedRoomId);

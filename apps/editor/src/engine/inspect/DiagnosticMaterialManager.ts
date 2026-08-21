@@ -366,6 +366,23 @@ export class DiagnosticMaterialManager {
   getActiveLens(): InspectLens { return this._activeLens; }
   isActive(): boolean          { return this._active; }
 
+  /**
+   * §INSPECT-FOCUS-IS-NOT-STICKY (L-2035, 2026-08-21) — drop the ghost-with-focus
+   * element type.
+   *
+   * ⛔ THE DEFECT: `_focusedElementType` was set by `applyGhostWithFocus()` and
+   * cleared ONLY by `restore()` (i.e. by leaving Inspect entirely). But
+   * `_applyLensImmediate()` branches on it — `if (this._focusedElementType)
+   * applyGhostWithFocus(...) else _applyGhost(...)`. So once the user had focused
+   * ANY non-room category, switching back to Rooms re-applied the ghost focused on
+   * the OLD family, for the rest of the session: the room volumes stayed ghosted
+   * and the room heat map never came back. The lens remembered a choice the panel
+   * had already moved on from.
+   */
+  clearElementFocus(): void {
+    this._focusedElementType = null;
+  }
+
   // ── §1.3 Pulse animation ───────────────────────────────────────────────────
 
   private _startPulse(): void {
