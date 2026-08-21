@@ -50,6 +50,55 @@ export type {
 } from './types.js';
 export type { PtXZ } from './geometry.js';
 
+// ── THE EDITORIAL LAYER (§GA-EDITORIAL-LAYER, L-1620/L-1621) ─────────────────
+//
+// SPEC-AUTODIMENSION §12 is a DRAFTING STANDARD, not a placement algorithm: what to say,
+// what to leave out, and what moves when two things want the same space. §13 recorded the
+// shape of the gap — "the engine has a sound placement-geometry layer and no editorial
+// layer" — and these three modules are that layer.
+//
+// They are EXPORTED rather than kept private for the same reason `partitionBuildings` is:
+// the tag populators in `apps/editor` (`RoomTagAutoPopulator`, the door/window tag lanes)
+// must resolve collisions against the SAME §12.1/§12.9 tables this engine does, or the
+// drawing acquires two disagreeing priority orders. A consumer that writes its own order
+// is reintroducing SPEC §13 gap 3.
+export {
+  classifyEnclosures,
+  filterInteriorDimensions,
+  planRoomExtents,
+  roomDimensionBudget,
+  DEFAULT_INTERIOR_POLICY,
+  type EnclosureClassification,
+  type InteriorDimensionPolicy,
+  type InteriorCriticality,
+  type RoomDimensionBudget,
+  type InteriorFilterResult,
+  type RoomExtentPlan,
+} from './editorial.js';
+// §GA-EDITORIAL-LAYER (L-1620) — ROOMS as the interior faces of the wall graph. Exported
+// because §12.5's room tags and §12.3's dimensions must agree about what a room IS; a
+// consumer that re-derives its own is the next L-268.
+export { traceRoomFaces, type RoomFace } from './perimeter.js';
+export {
+  optimiseDimensionSet,
+  DEFAULT_MAX_OPTIMISE_ITERATIONS,
+  type OptimiseResult,
+} from './optimise.js';
+export {
+  GA_PRIORITY,
+  GA_COLLISION_ORDER,
+  gaPriorityOf,
+  gaPriorityOfImpl,
+  gaCollisionRuleOf,
+  gaClassOfDimension,
+  gaClassOfDimensionImpl,
+  resolveGaCollision,
+  type GaAnnotationClass,
+  type GaCollisionMove,
+  type GaCollisionRule,
+  type GaCollisionOutcome,
+} from './gaPriority.js';
+
 // ── BUILDING PARTITION (§FIX-AUTODIM-MULTI-BUILDING, L-268) ──────────────────
 //
 // "A BUILDING" as a first-class domain concept, exported because it is NOT a private

@@ -200,6 +200,14 @@ export function placeStrings(
   charWidthM: number = DEFAULT_LABEL_CHAR_WIDTH_M,
   bbox: FootprintBBox | null = null,
   buildingId?: string,
+  // §GA-EDITORIAL-LAYER (L-1620, SPEC §12.3) — INTERNAL dimensions read INSIDE the space
+  // they measure. An exterior string stands off outside the footprint because a dimension
+  // line must never cross the thing it measures (L-281 rule (a)); a corridor width does
+  // not have that problem — the corridor IS the clear space — and standing it off outside
+  // the corridor would draw it in the neighbouring room. So a room extent is placed with
+  // the normal pointing IN, at zero footprint clearance: one tier gap in from its own
+  // wall. Same formula, opposite sign — not a second placement model.
+  inward: boolean = false,
 ): PlacedString[] {
   return planned.map((p) => {
     const coord = anchorCoord(p);
@@ -208,9 +216,10 @@ export function placeStrings(
     // `side` so `leftPerp(measurementDir) · side` == the TRUE outward normal — then every
     // chain lands OUTSIDE the shell (bottom→below, top→above, left→left, right→right).
     // No perimeter (per-wall fallback, centroid null) → default +1.
-    const outN = cardinalOutwardNormal(p, centroid);
+    const away = cardinalOutwardNormal(p, centroid);
+    const outN = inward ? { x: -away.x, z: -away.z } : away;
     const rPerp = leftPerp(measurementDir(p));
-    const side: 1 | -1 = centroid === null ? 1 : (dot(rPerp, outN) >= 0 ? 1 : -1);
+    const side: 1 | -1 = centroid === null && !inward ? 1 : (dot(rPerp, outN) >= 0 ? 1 : -1);
     const bucket = Math.round(coord / BUCKET_EPS_M);
     const groupKey = `${p.orientation}|${side}|${bucket}`;
     return {
@@ -222,8 +231,9 @@ export function placeStrings(
       groupKey,
       // The TIER is the row: rule (b) — openings innermost, the OVERALL outermost.
       rowIndex: tierOfRank(p.rank),
-      // The distance this string must travel just to CLEAR the plate: rule (a).
-      clearanceM: bbox ? bboxClearance(p.p1, outN, bbox) : 0,
+      // The distance this string must travel just to CLEAR the plate: rule (a). An
+      // inward internal dimension has nothing to clear — it is drawn INSIDE the space.
+      clearanceM: bbox && !inward ? bboxClearance(p.p1, outN, bbox) : 0,
       ...(buildingId ? { buildingId } : {}),
     };
   });

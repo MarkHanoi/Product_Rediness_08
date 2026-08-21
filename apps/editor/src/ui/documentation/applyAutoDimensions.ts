@@ -267,6 +267,19 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
         return 0;
       }
 
+      // §GA-EDITORIAL-LAYER (L-1620, SPEC-AUTODIMENSION §12.3) — SAY WHAT WAS LEFT OUT.
+      //
+      // The engine now makes an EDITORIAL decision: on a GA plan, interior dimensions are
+      // kept only where the geometry says they are construction-critical (a corridor
+      // width, a stair width, a service-room layout), and everything else — a dimension
+      // on every room edge — is deliberately not drawn. That is §12.3 and it is what
+      // makes the drawing readable, but a user who is not told will read it as a MISSING
+      // dimension. The count and the reason are surfaced, never inferred.
+      const editorialDrops = report.skipped.filter((s) => s.reason.startsWith('§12'));
+      span.setAttribute('pryzm.autodim.room_count', report.coverage.roomCount);
+      span.setAttribute('pryzm.autodim.interior_dim_count', report.coverage.interiorDimCount);
+      span.setAttribute('pryzm.autodim.editorial_drop_count', editorialDrops.length);
+
       const undim = report.warnings.filter((w) => w.code === 'opening-undimensioned').length;
       // §FIX-AUTODIM-MULTI-BUILDING (L-268) — SAY how many buildings were dimensioned.
       // The original defect was not that the second building was skipped; it was that
@@ -277,13 +290,23 @@ export function applyAutoDimensions(runtime: PryzmRuntime): number {
       toast(
         `Auto-Dimension: created ${annotations.length} dimensions across ${report.coverage.runCount} façade run(s)` +
         (buildings > 1 ? ` on ${buildings} buildings` : '') +
+        (report.coverage.roomCount > 0
+          ? ` — ${report.coverage.interiorDimCount} construction-critical interior dim(s) across ` +
+            `${report.coverage.roomCount} room(s) (§12.3)`
+          : '') +
         (undim > 0 ? ` — ${undim} opening(s) uncovered.` : '.'),
         'success',
       );
       if (undimBuildings.length > 0) {
         toast(`Auto-Dimension: ${undimBuildings[0]!.detail}`, 'warn');
       }
-      console.log('[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage, 'warnings:', report.warnings);
+      console.log(
+        '[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage:', report.coverage,
+        'warnings:', report.warnings,
+        // §GA-EDITORIAL-LAYER (L-1620) — the §12.3 decisions, each with the clause that
+        // made it. INV-3: no dimension is ever omitted without a reason on the record.
+        '§12 editorial:', editorialDrops,
+      );
       return annotations.length;
     } catch (e) {
       span.setAttribute('pryzm.autodim.error_count', -1);

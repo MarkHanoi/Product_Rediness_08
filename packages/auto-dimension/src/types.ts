@@ -5,9 +5,14 @@
 import type {
   DimensionString,
   DimensionKind,
+  DimensionAutoMode,
   DimAnchor,
   DimOrientation,
 } from '@pryzm/schemas/annotation/dimension';
+// §GA-EDITORIAL-LAYER (L-1620) — SPEC-AUTODIMENSION §12.3's thresholds are OPTIONS, not
+// literals buried in the algorithm: "how narrow is a corridor" is a drafting-office
+// convention (C34), not the engine's to declare. See editorial.ts.
+import type { InteriorDimensionPolicy } from './editorial.js';
 import type { PtXZ } from './geometry.js';
 
 // ── Input snapshot (built by the editor executor from the live stores) ──────
@@ -94,6 +99,19 @@ export interface AutoDimOptions {
    * active view and passes it in; the engine never guesses a millimetre value.
    */
   readonly tierGapM?: number;
+  /**
+   * §GA-EDITORIAL-LAYER (L-1620) — SPEC-AUTODIMENSION §12.3's construction-critical
+   * thresholds. Defaults to `DEFAULT_INTERIOR_POLICY`. Supplied by the caller for the
+   * same reason `tierGapM` is: a drafting convention belongs to the drawing standard
+   * (C34), not to the planner.
+   */
+  readonly interiorPolicy?: InteriorDimensionPolicy;
+  /**
+   * §GA-EDITORIAL-LAYER (L-1621) — SPEC §12.12's fixpoint bound. The pass terminates by
+   * construction (every term is monotone — see optimise.ts); this is a belt-and-braces
+   * guard, and hitting it is REPORTED as `optimisation-unconverged`, never swallowed.
+   */
+  readonly maxOptimiseIterations?: number;
 }
 
 // ── Engine-internal types (pure) ────────────────────────────────────────────
@@ -134,6 +152,13 @@ export interface PlannedString {
   readonly axisId: string;
   readonly rank: number;              // 1 overall … 4 location
   readonly rowIndex: number;          // outward stack row
+  /**
+   * §GA-EDITORIAL-LAYER (L-1620, SPEC §12.3) — the emitted `autoMode`, when it is not the
+   * default `'set-out'`. An interior string that survives the §12.3 filter is re-stamped
+   * `'room-bounding'` (the schema's own word) so the drawing can tell an INTERNAL
+   * dimension (§12.1 rank 9) from a perimeter one without re-deriving the classification.
+   */
+  readonly autoMode?: DimensionAutoMode;
   readonly stationSpan: readonly [number, number];
   /** World positions of the two primary measured points (Stage-6 placement). */
   readonly p1: PtXZ;
@@ -207,6 +232,10 @@ export interface ValidationWarning {
     // dimensions. Partial coverage must never be silent again: the founder had two
     // footprints, one came back dimensioned, and nothing said the other had been skipped.
     | 'building-undimensioned'
+    // §GA-EDITORIAL-LAYER (L-1621, SPEC §12.12) — the readability optimisation ran out of
+    // iterations. It cannot happen while every pass stays monotone, which is exactly why
+    // it is surfaced: if it ever fires, a pass has stopped being monotone.
+    | 'optimisation-unconverged'
     | 'degenerate-run';
   readonly detail: string;
 }
@@ -224,6 +253,18 @@ export interface AutoDimReport {
      * simply 1. `0` means no closed perimeter was found and the per-wall fallback ran.
      */
     readonly buildingCount: number;
+    /**
+     * §GA-EDITORIAL-LAYER (L-1620) — enclosures found INSIDE a building: apartment cells,
+     * partition loops, stair wells. They are NOT buildings (L-268 counted them as such,
+     * which is why `buildingCount` read 13 on a 12-room plate) and SPEC §12.3 governs
+     * what, if anything, gets dimensioned inside them.
+     */
+    readonly roomCount: number;
+    /**
+     * §GA-EDITORIAL-LAYER (L-1620) — how many interior dimensions survived §12.3. The
+     * number the founder judges the drawing by; surfaced so it is never inferred.
+     */
+    readonly interiorDimCount: number;
   };
   readonly warnings: readonly ValidationWarning[];
   readonly skipped: readonly { readonly id: string; readonly reason: string }[];

@@ -500,6 +500,11 @@ export function planElevationAutoDimensions(
           // the EXECUTOR's façade selection, not for this planner (see L-268 and the
           // `buildElevationSnapshot` header).
           buildingCount: 1,
+          // §GA-EDITORIAL-LAYER (L-1620) — SPEC §12.3 is a PLAN concept: an elevation has
+          // no enclosures and emits no interior dimensions. Zero here is a statement, not
+          // a placeholder.
+          roomCount: 0,
+          interiorDimCount: 0,
         },
         warnings,
         skipped,
@@ -611,6 +616,8 @@ function emptyReport(
       stringCount: 0,
       runCount: snapshot.levels.length,
       buildingCount: 0,
+      roomCount: 0,
+      interiorDimCount: 0,
     },
     warnings,
     skipped,

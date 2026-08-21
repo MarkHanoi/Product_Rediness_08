@@ -44,6 +44,7 @@ import {
   type PlanarGraphXZ,
 } from '@pryzm/geometry-kernel/pure/planarFaceWalk';
 
+import { withAutoDimSpan } from './tracing.js';
 import type { AutoDimWall } from './types.js';
 import type { DimNode, WallRun, TickRef } from './types.js';
 import {
@@ -342,4 +343,100 @@ function classifyOrientation(axisDir: PtXZ): WallRun['orientation'] {
   if (ax >= COLLINEAR_COS) return 'horizontal'; // runs along world X
   if (az >= COLLINEAR_COS) return 'vertical';   // runs along world Z
   return 'aligned';
+}
+
+// ── ROOM FACES (§GA-EDITORIAL-LAYER, L-1620, SPEC-AUTODIMENSION §12.3) ───────
+//
+// ⭐ THE MEASUREMENT THAT FORCED THIS.
+//
+// §12.3 caps interior dimensions at "MAXIMUM ONE WIDTH AND ONE LENGTH PER ROOM", so the
+// engine must know what a ROOM is. It did not. `tracePerimeters` returns ONE OUTER FACE
+// PER CONNECTED COMPONENT and discards everything else — and on a real plate that is not
+// a room, it is a BAND: the endpoint clustering band (0.20 m) is wider than the gap a
+// generator leaves between adjacent apartment cells (~0.10-0.15 m), so five cells cluster
+// into ONE component whose outer face is the outline of all five.
+//
+// Two consequences, both measured on the GA plate before this was written:
+//   • the interior dimensions the engine DID emit were chain segments along that band
+//     outline — a dimension on every room edge, which is exactly what §12.3 forbids; and
+//   • the dimensions §12.3 REQUIRES — the corridor width, the stair width — were NEVER
+//     PLANNED AT ALL. **§12.3's allow-list was not merely over-supplied; it was partly
+//     UNSUPPLIED.** A filter cannot keep a dimension that was never proposed, so the
+//     editorial layer needs the rooms themselves, not the band they merged into.
+//
+// The rooms are already computed and thrown away: they are the INTERIOR (positive-area,
+// CCW) faces of the same half-edge walk that yields the perimeter. This returns them.
+
+/** One enclosed interior face of the wall graph — a ROOM, in the §12.3 sense. */
+export interface RoomFace {
+  /** Deterministic identity from the face's wall set (never a persisted element id). */
+  readonly id: string;
+  readonly wallIds: readonly string[];
+  readonly polygon: readonly PtXZ[];
+  readonly areaM2: number;
+  /** The face's corner nodes, in ring order — carries each corner's live element+anchor. */
+  readonly nodes: readonly DimNode[];
+}
+
+/**
+ * Every enclosed ROOM on the level: the interior faces of the plane graph, minus the
+ * faces that ARE a building's own envelope.
+ *
+ * @param excludeWallSets the ring wall-id sets of the ENVELOPES. A building's interior
+ *        face is a positive-area face too — the whole plate — and it is emphatically not
+ *        a room. It is excluded by IDENTITY (same wall set), not by an area threshold,
+ *        because "the biggest face is the building" is the kind of rule that holds until
+ *        someone draws a large atrium.
+ * @param minAreaM2 slivers below this are not rooms. A domain judgement, stated at the
+ *        call site (§PTE-FILTERED) rather than buried in the walk.
+ *
+ * Deterministic: faces come back in the walk's own total order and are re-sorted by id.
+ */
+export function traceRoomFaces(
+  graph: DimGraph,
+  excludeWallSets: readonly ReadonlySet<string>[],
+  minAreaM2: number,
+): RoomFace[] {
+  // P8 (INV-6) — this IS pipeline stage 1, so it opens the `graph` span.
+  return withAutoDimSpan('graph', (span) => {
+    const faces = traceRoomFacesImpl(graph, excludeWallSets, minAreaM2);
+    span.setAttribute('pryzm.autodim.room_face_count', faces.length);
+    return faces;
+  });
+}
+
+function traceRoomFacesImpl(
+  graph: DimGraph,
+  excludeWallSets: readonly ReadonlySet<string>[],
+  minAreaM2: number,
+): RoomFace[] {
+  const planar = toPlanarGraph(graph);
+  if (planar.positions.size === 0 || planar.edges.length === 0) return [];
+  const nodeById = new Map<string, DimNode>(graph.nodes.map((n) => [n.id, n]));
+
+  const sameSet = (a: readonly string[], b: ReadonlySet<string>): boolean => {
+    if (a.length !== b.size) return false;
+    for (const x of a) if (!b.has(x)) return false;
+    return true;
+  };
+
+  const out: RoomFace[] = [];
+  for (const face of tracePlanarFacesXZ(planar)) {
+    // Interior faces come back COUNTER-CLOCKWISE (positive shoelace); the face that
+    // encloses a component from outside is negative. See planarFaceWalk's header.
+    if (face.signedAreaM2 <= 0) continue;
+    if (face.signedAreaM2 < minAreaM2) continue;
+    if (excludeWallSets.some((s) => sameSet(face.edgeIds, s))) continue;
+    const nodes = face.nodeIds.map((id) => nodeById.get(id)).filter((n): n is DimNode => !!n);
+    if (nodes.length < 3) continue;
+    out.push({
+      id: `room:${[...face.edgeIds].sort().join('+')}`,
+      wallIds: [...face.edgeIds].sort(),
+      polygon: nodes.map((n) => n.point),
+      areaM2: face.signedAreaM2,
+      nodes,
+    });
+  }
+  out.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return out;
 }
