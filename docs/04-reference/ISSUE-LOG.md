@@ -31796,7 +31796,7 @@ The edge dedup key is a template literal joined by **four literal 0x00 bytes**. 
 separator — and it made the UBG's own core class invisible to line-level search:
 `rg addEdge packages/building-graph/src/BuildingGraph.ts` returns **`binary file matches`** and *no
 lines*. Any sweep asking "who reads the graph / what edge types exist" silently omitted the file that
-defines them. Replaced with the ` ` escape: byte-identical at runtime, greppable in source.
+defines them. Replaced with the `\0` escape: byte-identical at runtime, greppable in source.
 **Verified 0 NUL bytes; grep now returns line numbers.**
 
 ### ⭐ L-3251 — CLOSED: the UBG is now incrementally maintained off the StoreEventBus
@@ -32136,7 +32136,7 @@ the four the builder reads from the record and is the only one a capability coul
   still enforced only by hand (L-3206 is what that inspection catches).
 * **`check-property-rac-matrix` proves a sentence REACHES a command or an answer, never that the
   number is right.** `windowRevealRac.test.ts` closes that gap for the reveal rows **only**; the
-  other 41 BOTH cells remain route-proven and value-unproven.
+  other 36 BOTH cells (41 BOTH minus the 5 reveal rows) remain route-proven and value-unproven.
 * **70 cells remain SILENT.** They are named individually by the gate's ledger, not estimated.
 * **No property-granular refusal was added.** RAC3 deferred it because a refusal table no grammar
   claims is authored-but-unwired; that reasoning still holds and this lane did not build the grammar
