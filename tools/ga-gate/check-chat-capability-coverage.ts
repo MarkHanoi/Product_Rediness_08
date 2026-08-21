@@ -172,6 +172,11 @@ import type {
   ScopeResult,
 } from '../../packages/ai-host/src/intents/ScopeDescriptor.js';
 import { readAcceptanceCorpus } from './lib/acceptanceCorpus.js';
+// §FEAT-RAC-PROPERTY-QUERY (L-2211) — the panel denominator, shared with
+// `check-property-rac-matrix` so the two gates cannot disagree about what
+// "a property a user can see" means. This gate reads HALF A only; see
+// `panelEditableProperties` below for why that is deliberate.
+import { schemaTableProperties } from './lib/panelPropertySurface.js';
 
 /**
  * ⚠ SHRINK-ONLY.
@@ -876,8 +881,8 @@ const MAX_RESOLVER_CASE_ARMS = Number(process.env.PRYZM_CHAT_MAX_CASE_ARMS ?? 27
  */
 const MAX_UNREACHABLE_PROPERTIES = Number(process.env.PRYZM_CHAT_MAX_UNREACHABLE_PROPS ?? 42);
 
-const PROPERTY_PANEL_SCHEMA_FILE =
-  'apps/editor/src/ui/property-panel/PropertyDescriptorGenerator.ts';
+/** Every path in this gate is repo-relative; it is invoked from the repo root. */
+const REPO_ROOT = '.';
 const RESOLVER_FILE = 'packages/ai-host/src/intents/ZeroTokenResolver.ts';
 
 /**
@@ -1096,32 +1101,23 @@ function proveScopeModesHonoured(cap: ChatCapability): {
  * for what this enumeration can and cannot see.
  */
 function panelEditableProperties(): Map<string, Set<string>> {
+  // §FEAT-RAC-PROPERTY-QUERY (L-2211) — the parser MOVED to
+  // `lib/panelPropertySurface.ts`, unchanged, because a SECOND gate now needs
+  // the same denominator: `check-property-rac-matrix` asks whether a property a
+  // user can see is ASKABLE, this one asks whether it is SETTABLE, and two gates
+  // computing "what the panel offers" from two copies of one regex is the
+  // two-sources-of-truth defect that the one which drifts hides silently.
+  //
+  // ⛔ THIS CALL IS DELIBERATELY HALF A ONLY — the SCHEMAS table — so this
+  // check's reading does not move. The shared module ALSO reads the dedicated
+  // WindowSection / DoorSection / RoofPropertySheet panels (limit (1) of
+  // MAX_UNREACHABLE_PROPERTIES above, which is real and large: the window's
+  // whole dimension set lives there). Folding them in here would be a genuine
+  // widening of THIS ratchet and belongs in its own commit with its own
+  // re-baselining decision, not as a side effect of extracting a function.
   const out = new Map<string, Set<string>>();
-  if (!existsSync(PROPERTY_PANEL_SCHEMA_FILE)) return out;
-  const src = readFileSync(PROPERTY_PANEL_SCHEMA_FILE, 'utf8');
-  const start = src.indexOf('const SCHEMAS');
-  if (start === -1) return out;
-  const body = src.slice(start, src.indexOf('\n};', start));
-
-  // Each element-kind block opens at four-space indentation: `wall: {`.
-  const kindRe = /\n {4}'?([a-zA-Z][\w-]*)'?:\s*\{/g;
-  const marks: { kind: string; at: number }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = kindRe.exec(body)) !== null) marks.push({ kind: m[1]!, at: m.index + m[0].length });
-
-  for (let i = 0; i < marks.length; i += 1) {
-    const slice = body.slice(marks[i]!.at, i + 1 < marks.length ? marks[i + 1]!.at : body.length);
-    const kind = normalizeElementKind(marks[i]!.kind);
-    const fields = out.get(kind) ?? new Set<string>();
-    const fieldRe = /\n\s+'?([a-zA-Z][\w.]*)'?:\s*(TEXT|NUMBER|BOOL|ENUM|COLOR|READONLY)\(([^\n]*)/g;
-    let f: RegExpExecArray | null;
-    while ((f = fieldRe.exec(slice)) !== null) {
-      if (f[2] === 'READONLY') continue;
-      // `NUMBER(label, section, category, /* editable */ false, …)`
-      if (/,\s*false\s*[,)]/.test(f[3]!)) continue;
-      fields.add(f[1]!);
-    }
-    out.set(kind, fields);
+  for (const [rawKind, fields] of schemaTableProperties(REPO_ROOT)) {
+    out.set(normalizeElementKind(rawKind), fields);
   }
   return out;
 }

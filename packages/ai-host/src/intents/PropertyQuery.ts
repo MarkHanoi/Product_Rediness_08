@@ -142,7 +142,7 @@ export type PropertyReader = (
  * splays are degrees, and a reader that silently normalised them would be a
  * second unit authority.
  */
-export type PropertyQueryUnit = 'metres' | 'degrees' | 'radians-as-degrees' | 'count';
+export type PropertyQueryUnit = 'metres' | 'degrees' | 'gradient-as-degrees' | 'count';
 
 // ─── The table ───────────────────────────────────────────────────────────────
 
@@ -304,6 +304,25 @@ export const PROPERTY_QUERY_ROWS: readonly PropertyQueryRow[] = Object.freeze([
     unit: 'metres',
   },
   {
+    /**
+     * §FEAT-RAC-PROPERTY-QUERY, second pass — the ANGLE row, added because THIS
+     * FEATURE'S OWN GATE named it. `check-property-rac-matrix`'s first run
+     * reported `wall.rakeAngleDeg` as EXECUTE-ONLY: the founder can say *"make
+     * all walls angled by 70"* and could not then ask what the angle IS.
+     *
+     * Already in DEGREES on the record (`UpdateWallsRakeBatchCommand`'s payload
+     * is `rakeAngleDeg`), so unlike the roof there is no conversion — which is
+     * exactly why the unit is declared per row rather than assumed per type.
+     */
+    id: 'rake-angle',
+    capabilityId: 'set-wall-rake',
+    noun: 'rake',
+    synonyms: ['rake angle', 'vertical angle', 'lean'],
+    adjectives: [],
+    field: 'rakeAngleDeg',
+    unit: 'degrees',
+  },
+  {
     id: 'room-height-offset',
     capabilityId: 'set-room-height-offset',
     noun: 'height offset',
@@ -314,21 +333,40 @@ export const PROPERTY_QUERY_ROWS: readonly PropertyQueryRow[] = Object.freeze([
   },
   {
     /**
-     * ⚠ THE ONE ROW WHOSE UNIT IS NOT METRES, and it is declared rather than
-     * hidden. `RoofData.pitch` is RADIANS in the record (`Roof.ts:73`,
-     * `.min(0).max(π/2 − 0.001)`) while the chat's `set-roof-pitch` speaks
-     * DEGREES and converts on the way in. A read that printed the raw radian
-     * would answer "0.524" to "what is the roof pitch?" — technically the stored
-     * value and useless as an answer — so the conversion is declared on the row
-     * and applied in ONE place (`speak`), the mirror of the write's conversion.
+     * ⚠ THE ONE ROW WHOSE UNIT IS NOT METRES — and it was WRONG on its first
+     * draft, in the exact way this repository keeps re-finding. Kept as a worked
+     * example rather than quietly corrected.
+     *
+     * The draft read `field: 'pitch'`, `unit: 'radians-as-degrees'`, reasoning
+     * from `packages/schemas/src/elements/Roof.ts:73` — where `pitch` really is
+     * radians. **That is the L0 Zod schema, and it is not the record the write
+     * lands in.** `set-roof-pitch` dispatches `roof.update` →
+     * `UpdateRoofCommand` → the GEOMETRY `RoofData`
+     * (`packages/geometry-roof/src/RoofTypes.ts:83`), which carries **`slope`**,
+     * a GRADIENT — `RoofGeometryBuilder` computes `height = slope × distance` —
+     * and the resolver converts with `Math.tan` on the way in
+     * (`ZeroTokenResolver.ts`, the `set-roof-pitch` arm).
+     *
+     * So the draft read a field the record does not have, on the ONE property
+     * where the two record worlds disagree. It would have answered "the stored
+     * record carries no pitch to read back" for every roof in the product — the
+     * honest fallback, and still the wrong answer.
+     *
+     * ⭐ IT WAS CAUGHT BY THIS FEATURE'S OWN GATE, not by review:
+     * `check-property-rac-matrix` reported `roof.slope` as EXECUTE-ONLY, i.e.
+     * *the chat can set this field and cannot read it* — which is precisely what
+     * a read pointed at the wrong field looks like from the outside.
+     *
+     * The conversion is `atan`, the exact mirror of the write's `tan`, applied in
+     * ONE place (`speak`).
      */
     id: 'roof-pitch',
     capabilityId: 'set-roof-pitch',
     noun: 'pitch',
     synonyms: ['roof pitch', 'slope'],
     adjectives: [],
-    field: 'pitch',
-    unit: 'radians-as-degrees',
+    field: 'slope',
+    unit: 'gradient-as-degrees',
   },
 ]);
 
@@ -460,8 +498,10 @@ function speak(row: PropertyQueryRow, raw: number): string {
       return `${round3(raw)} m`;
     case 'degrees':
       return `${round3(raw)}°`;
-    case 'radians-as-degrees':
-      return `${round3((raw * 180) / Math.PI)}°`;
+    case 'gradient-as-degrees':
+      // The exact mirror of the write's `Math.tan(degrees × π/180)`. One
+      // conversion site each way; a second would be a second source of truth.
+      return `${round3((Math.atan(raw) * 180) / Math.PI)}°`;
     case 'count':
       return `${raw}`;
   }

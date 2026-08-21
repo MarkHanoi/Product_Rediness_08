@@ -28435,3 +28435,219 @@ right in a diff and in an editor. Replaced with the `\u0000` escape (same value,
 source); `packages/geometry-roof` **160/160 tests pass** after the repair, and `grep` now reads the
 file as text. ⭐ **Grep your own output for `0x00` / `0x08` before committing anything written
 through a shell heredoc.**
+
+---
+
+## Lane RAC3 — 2026-08-21 — every element property against RAC (ADR-0345)
+
+Founder, verbatim: *"Please do a **deep review of ALL element properties against RAC**.
+**All dims and properties of all elements should be queryable and executable by RAC.**
+Do an **audit — document — plan — and fix**."*
+
+The audit is [ADR-0345](../02-decisions/adrs/ADR-0345-every-dimension-and-property-is-askable-and-settable-or-refused-by-name.md);
+the gate that stops it rotting is `tools/ga-gate/check-property-rac-matrix.ts`. **112
+panel-visible (family × property) cells across 15 families — 36 BOTH · 1 EXECUTE-ONLY ·
+0 QUERY-ONLY · 75 SILENT**, every cell DERIVED on every run rather than transcribed.
+
+### ⭐ L-2200 — THE QUERY HALF OF THE ASK HAD NO IMPLEMENTATION AT ALL — 0 OF 112
+
+"Queryable **and** executable" is one sentence with two verbs, and they were in completely
+different states. EXECUTABLE was largely built. **QUERYABLE was zero.** Four rungs of the
+chat ladder, each declining honestly and none answering:
+
+1. `LocalNaturalLanguageResolver.ts:1428` turns EVERY interrogative into a MISS **by
+   design** — *"Questions are for the LLM — never misread 'how high is this wall?' as a
+   command to change it."* Correct, and **only half a rule**: the ANSWER half was never
+   written.
+2. `QueryEngine.query()` carries exactly **SIX** read-only pattern blocks
+   (`QueryEngine.ts:416, 429, 448, 475, 506, 526`) — command families, command help, model
+   summary, decisions log, element COUNT, level LIST. **Not one reads a property off an
+   element.**
+3. `LlmPlanner`'s entire legal output space is `allChatCapabilities()`, **every one of them
+   an EXECUTION**. A planner made of mutations cannot answer a question.
+4. `SemanticQueryEngine` CAN read the model — and is imported by **exactly one surface**,
+   `apps/editor/src/ui/dataworkbench/NLQueryPanel.ts:165`, the Data Workbench. **The chat
+   does not import it.**
+
+So "how tall is this wall?" ended at `"I'm not sure how to help with that yet."` — not a
+refusal naming the gap. **SILENCE**, the C74 / C78 §1.4 defect class.
+**FIXED for 36 cells** — see L-2210.
+
+### L-2201 — `mark` IS THE MOST COMMON SILENT PROPERTY IN THE PRODUCT — ELEVEN FAMILIES
+
+Every family's Properties panel carries an editable **Mark / Name** row and **nothing in
+chat sets or reports it**. A user can rename a ROOM by sentence (`rename-room`, live) and
+cannot mark a WALL, a DOOR, a WINDOW, a SLAB, a BEAM, a COLUMN, a ROOF, a STAIR, a
+HANDRAIL, a CURTAIN WALL or a piece of FURNITURE. **11 of the 75 SILENT cells are one
+property.** The single widest win left in the matrix.
+
+### L-2202 — THERE IS NO PROPERTY-GRANULAR REFUSAL ANYWHERE IN THE PRODUCT
+
+`CHAT_UNAVAILABLE` holds **52** honest refusals and every one is keyed by a **BUS COMMAND**
+(`wall.move`, `floor.setMaterial`, `door.setFrameColor`). That is a different denominator
+from a PROPERTY: a family can refuse *"move"* by name while **every one of its dimensions
+stays silent**. The matrix therefore contains **zero REFUSES cells** — the product has no
+way to say *"door handle height isn't connected to chat yet; I can change door width,
+height and sill height"*.
+
+⛔ **Deliberately NOT half-built in this lane.** A refusal table that no GRAMMAR CLAIMS is
+*authored-but-unwired*: the user still gets the miss string while the table reads as
+coverage. It needs the grammar and the table in the same commit, and the grammar must be
+generated from the PANEL denominator — an L7 file a pure L2 module cannot import — so it
+needs codegen or a gate-verified hand table. **A design decision, not a patch.**
+Expected value: up to 75 cells move SILENT → REFUSES. ADR-0345 §7 step 2.
+
+### ⭐ L-2203 — THE TWO FAMILIES THE FOUNDER ASKS ABOUT MOST WERE THE TWO LEAST MEASURED
+
+**WINDOW 15 of 18 SILENT. DOOR 14 of 17 SILENT.** And both were largely INVISIBLE to the
+pre-existing measurement. `check-chat-capability-coverage` check 9 has counted
+"panel-editable properties the chat cannot reach" since 2026-08-11, and its own header
+names the reason: *"`WindowSection` / `DoorSection` own width/height/sillHeight/type/colour
+… so window and door look far emptier here than they are."*
+
+Measured: the `SCHEMAS` table gives a window **seven rows, of which exactly ONE (`mark`) is
+editable**, while `packages/geometry-window/src/WindowSection.ts` writes **twelve** fields
+and `packages/geometry-door/src/DoorSection.ts` writes **seventeen**. **33 of the 112 cells
+come from the dedicated sections.** The denominator now lives in
+`tools/ga-gate/lib/panelPropertySurface.ts` and is read by both gates; check 9 still calls
+**half A only**, so its reading is unmoved (verified 49/42, identical across the
+extraction).
+
+### ⭐ L-2204 — TWO RECORD WORLDS PER FAMILY, AND THIS LANE PICKED THE WRONG ONE
+
+`packages/schemas/src/elements/*.ts` (L0 Zod, re-exported as the plugin DTO) and the
+geometry / `core-app-model` record are **different shapes**, and the second is what the
+fragment builders, the IFC exporter and persistence read. Six families checked: DOOR models
+swing as ONE field in L0 (`swing`) and TWO at runtime (`hingesSide` + `swingDirection`);
+SLAB is polygon-only in L0 and box-plus-polygon at runtime; ROOM is flat in L0 and nested at
+runtime; BEAM uses `baseLine` in L0 and `startPoint`/`endPoint` at runtime.
+`Floor.ts:46-50` says outright that **nothing parses a `FloorData` with its own schema
+today.**
+
+⭐ **This bit the lane that logged it, which is why it is a finding and not a footnote.**
+The first draft of the `roof-pitch` query row read `pitch` in RADIANS from
+`schemas/elements/Roof.ts:73`. The WRITE lands `slope` — a GRADIENT — on the geometry
+`RoofData` (`geometry-roof/src/RoofTypes.ts:83`), converted with `Math.tan`. The draft would
+have answered *"the stored record carries no pitch to read back"* for **every roof in the
+product**. **The gate caught it**, reporting `roof.slope` as EXECUTE-ONLY — which is exactly
+what a read pointed at the wrong field looks like from outside. ⚠ **Reason from the record
+the WRITE lands in, never from the schema that shares its name.**
+
+### L-2205 — `wall.materialColor` IS EXECUTE-ONLY, AND THAT IS HONEST
+
+The chat can paint a wall (`set-wall-color` → `wall.updateColorBatch`) and cannot report the
+colour. `PropertyReader`'s contract is NUMERIC (`PropertyReadOutcome` carries a `number`);
+a colour is a hex string. Reporting it needs a second reader shape — a decision, not a
+patch — so it is the **one** declared EXECUTE-ONLY cell rather than a quiet omission. The
+only other one, `wall.rakeAngleDeg`, was **named by this feature's own gate and fixed in the
+same lane**.
+
+### L-2206 — FIVE PANEL SURFACES ARE OUTSIDE THE DENOMINATOR AND CAN ROT
+
+Named in the ledger's `unmeasuredPanels` so the shortfall is countable (C10), not implied:
+
+1. `apps/editor/src/ui/property-inspector/RoomPropertySection.ts` — hand-built cards.
+   Name / Number / Occupancy ARE wired; Fill Colour / Opacity / Colour-by are not; and the
+   read-only **Metrics** card is **six MEASUREMENTS a user can see and cannot ask for** —
+   Gross Area, Net Area, Perimeter, Volume, Height, Vertices.
+2. `CurtainSubElementPanel.ts` — the curtain PANEL and MULLION panels.
+3. `WallLayersEditor.ts` / `SlabLayersEditor.ts` — per-LAYER name / function / thickness /
+   colour. `add-wall-layer` can ADD a layer; **nothing can edit or report one**.
+4. `CurtainGridEditor.ts` / `CurtainPanelEditor.ts`.
+5. `PlacementEditor.ts` — the Spatial block, where **wall LENGTH is editable** (→
+   `wall.updateBaseline`) and belongs to **no family table at all**.
+
+### 🐛 L-2207 — FIVE PRODUCTION `.ts` FILES CARRY LITERAL NUL BYTES AND ARE `grep`-BINARY
+
+L-2094 repaired ONE file and the hazard is wider. Measured 2026-08-21 by counting 0x00
+bytes per file:
+
+| file | NUL bytes |
+|---|---|
+| `packages/building-graph/src/BuildingGraph.ts` | 4 |
+| `apps/editor/src/ui/canvas/ConsequenceReportView.ts` | 2 |
+| `apps/editor/src/ui/apartment-layout/activeRoomAdjacencyOverrides.ts` | 2 |
+| `packages/core-app-model/src/presentation/IntentRuleResolver.ts` | 1 |
+| `packages/site-parcel-data/src/rulepacks/esMadridSpacmAmbitoJoin.ts` | 1 |
+
+`grep -rn` prints `Binary file … matches` for each, so **any audit sweep piping through
+`grep -v` silently loses them** — and `BuildingGraph.ts` is a file `SemanticQueryEngine`
+consumes. Not this lane's files; recorded for their owners. The enumerating command is
+`grep -rIL "" --include=*.ts` over `packages/ apps/ plugins/`.
+
+### ⭐ L-2210 — SHIPPED · §FEAT-RAC-PROPERTY-QUERY — a property that is EXECUTABLE is QUERYABLE, BY CONSTRUCTION
+
+`packages/ai-host/src/intents/PropertyQuery.ts` — **17 rows**, and the design rule is the
+point: every row NAMES the EXECUTE capability it mirrors and reads its element kinds **off
+that capability at call time** (`queryableKinds`), never re-typed. **There is no state in
+which the chat can SET a property and not REPORT it**, and `propertyQuery.test.ts` executes
+that equality per (row × kind) across every `PROBE_ELEMENT_KINDS`.
+
+That is deliberately the inverse of how `packages/input-host/src/operations/
+ElementCapabilities.ts` failed — it advertises Mirror / Offset / Scale on seven families
+whose commands are wall-only, because the claim and the code were two tables that had to
+agree and nothing made them.
+
+- grammar GENERATED from the table; **cannot claim a sentence carrying a measurement**, so
+  it can never nibble at a mutation;
+- **zero new resolver case arms** — membership routing before the switch (that ratchet is
+  already over baseline at 29/27 and is unmoved);
+- `localAction: 'answer'`, the read-only class `visibility-query` established; the bridge's
+  whole handling is `case 'answer': break;`
+- reader INJECTED (`apps/editor/src/ui/ai/chatPropertyReader.ts`) through `storeRegistry` —
+  the ADR-0318 authoritative slot — **never the plugin DTO twin** whose cost
+  `initBusHandlers.ts:1160-1168` records.
+
+**THREE ABSENCES, THREE SENTENCES.** No reader / no such element / **no such field on the
+record**. The third is the most valuable answer in the feature: a field the WRITE claims to
+set and the READ cannot find is evidence the write lands where nothing reads, and the
+product says so instead of inventing a `0`.
+
+### L-2211 — SHIPPED · THE GATE, AND IT CAUGHT TWO DEFECTS IN THE FEATURE IT SHIPPED WITH
+
+`tools/ga-gate/check-property-rac-matrix.ts` — **RC=1 DECLARED-LEVEL** at a ledger pinned
+to its own first run. Four arms: **A** every query row mirrors its write twin (17/17,
+hard-0) · **B** no QUERY-ONLY cell (hard-0, structurally impossible) · **C** every declared
+refusal string still exists · **D** SILENT and EXECUTE-ONLY as NAMED shrink-only lists,
+failing in BOTH directions — a new cell AND a paid cell still listed.
+
+**Negative control EXECUTED three ways before the ledger was trusted** (C74 §6.2): a row's
+`capabilityId` repointed at a capability that does not exist → RC=3 ARM A; a real cell
+removed from the ledger → RC=3 "1 NEW SILENT"; a cell that never existed added → RC=3
+"PAID and still listed". **It discriminates in both directions and is not reading its own
+ledger back to itself.**
+
+⭐ Its findings inside its own lane: `roof.slope` EXECUTE-ONLY (L-2204, the wrong field) and
+`wall.rakeAngleDeg` EXECUTE-ONLY — the founder can say *"make all walls angled by 70"* and
+could not ask what the angle IS. Both fixed.
+
+### L-2212 — TWO "MUTATING" PREDICATES WERE COARSER THAN THE PRODUCT, AND BOTH WERE NARROWED
+
+`capability-acceptance.test.ts` and `check-chat-capability-coverage.ts` both counted
+`kind === 'local'` as a mutation. That was a sound proxy while every local action changed
+something — undo, redo, setActiveLevel, applyVisibilityIntent, activateTool all do.
+**`'answer'` does not**: it is the declared READ-ONLY class and the bridge's entire handling
+of it is `break`. Narrowed in the same commit, in both places, so the gate and the suite
+cannot disagree about what "mutates" means.
+
+⛔ **NOT a relaxation.** A question that dispatches ANYTHING still fails — including
+*"highlight walls taller than 3m"*, the measured P0 where a read-only question silently
+RESIZED GEOMETRY. That sentence resolves to a MISS and would still fail. The two founder
+pins *"how tall is the selected wall?"* and *"what is the height of this wall?"* are now in
+**both** blocks: the acceptance family proves they are ANSWERED, the adversarial block
+proves answering them dispatches nothing.
+
+### L-2213 — ONE PANEL DENOMINATOR, TWO GATES
+
+`tools/ga-gate/lib/panelPropertySurface.ts`. `check-chat-capability-coverage` check 9 asks
+whether a property a user can see is **SETTABLE**; `check-property-rac-matrix` asks whether
+it is **ASKABLE**. Two gates computing "what the panel offers" from two copies of one regex
+is the two-sources-of-truth defect this repository keeps re-finding, and the copy that
+drifts does so silently **in the direction of looking better**. The parser moved unchanged;
+check 9's reading is byte-identical (49/42 before and after).
+
+⚠ The extraction also found a defect the measuring instrument had invented: the dedicated-
+section parser accepted the COMPUTED key in `push({ [field]: v })` and minted a property
+literally named **`window.field`**, which the matrix reported as a SILENT cell. Computed
+keys are skipped now; nothing real was lost (the same four splay sides are written by name
+two lines below).

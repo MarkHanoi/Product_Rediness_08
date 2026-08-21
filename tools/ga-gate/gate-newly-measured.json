@@ -646,6 +646,22 @@
         "THE MOST DANGEROUS SHAPE is not 'no subscriber' but 'a handler that early-returns with no log': lighting, plumbing, ceiling, floor and standalone-opening ids are all DELIVERED to the level-rebuild callback and dropped at `const wall = store.getById(id); if (wall) {` with no else and no line. Those read as handled."
       ],
       "reviewBy": "2026-11-21"
+    },
+    {
+      "gate": "check-property-rac-matrix.ts",
+      "runner": "ga-gate",
+      "addedAt": "2026-08-21",
+      "builtBy": "L-2200..L-2213 - lane RAC3 - ADR-0345 - founder ask 2026-08-21: “deep review of ALL element properties against RAC; all dims and properties of all elements should be queryable and executable; audit, document, plan, fix”",
+      "firstReading": "exit 1 DECLARED-LEVEL at a ledger pinned to THIS reading - 112 panel-visible (family x property) cells across 15 families: 36 BOTH / 1 EXECUTE-ONLY / 0 QUERY-ONLY / 75 SILENT. ARM A 17/17 (every query row mirrors its write twin), ARM B 0 QUERY-ONLY (hard-0), ARM C 0/0 refusals, ARM D 75 SILENT + 1 EXECUTE-ONLY, each NAMED. All five floors met (4 panel files, 112 cells, 63 capabilities executed, 40 settable, 46 askable).",
+      "pinnedTo": "tools/ga-gate/property-rac-matrix.json - `declaredSilent` and `declaredExecuteOnly`, NAMED shrink-only lists, never bare integers: the subject is 112 concurrently-edited cells and a count could not tell 'door.handleHeight was wired' from 'wall.height regressed'.",
+      "negativeControl": "EXECUTED before the ledger was trusted (C74 6.2), THREE ways. (1) ARM A: a query row's `capabilityId` was repointed to a capability that does not exist; the gate went RC=3 'ARM A - 1 query row(s) no longer mirror their EXECUTE capability'. (2) ARM D forward: `door.handleHeight` was removed from declaredSilent; RC=3 '1 NEW SILENT cell'. (3) ARM D stale: a cell that never existed was added; RC=3 '1 SILENT cell(s) on the ledger are PAID and still listed'. Restored after each; RC=1 at 75/1. The gate discriminates in both directions and is not reading its own ledger back to itself.",
+      "predatesTheGate": [
+        "ALL 75 SILENT cells predate the gate. The largest holders are the two families the founder asks about most: WINDOW 15 of 18 and DOOR 14 of 17 - and both were INVISIBLE to the pre-existing check-chat-capability-coverage check 9, whose own header names the reason ('WindowSection / DoorSection own width/height/sillHeight/type/colour ... so window and door look far emptier here than they are'). The shared denominator now reads those dedicated sections; 33 of the 112 cells come from them.",
+        "THE MOST COMMON SILENT PROPERTY IS `mark` - eleven families carry an editable Mark/Name row in the Properties panel and NOTHING in chat sets or reports it. A user can rename a room by sentence and cannot mark a wall.",
+        "stair-railing is 0/6 - not one of its six editable properties is reachable either way, despite `set-stair-railing-type` existing for its TYPE.",
+        "TWO defects were found by this gate IN THE FEATURE IT SHIPPED WITH, which is the strongest evidence it is not decorative: (a) the `roof-pitch` query row read `pitch` in radians from the L0 Zod schema, while the write lands `slope` as a GRADIENT on the geometry RoofData - the gate reported `roof.slope` as EXECUTE-ONLY, which is exactly what a read pointed at the wrong field looks like from outside; (b) `wall.rakeAngleDeg` was EXECUTE-ONLY, i.e. settable by sentence and not askable. Both fixed in the same lane."
+      ],
+      "reviewBy": "2026-11-21"
     }
   ]
 }

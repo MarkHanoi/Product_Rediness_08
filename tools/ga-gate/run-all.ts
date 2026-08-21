@@ -580,6 +580,19 @@ const GATES: Gate[] = [
   // and the vitest spec finishFollowsWallWithNoRecordedRelationship.spec.ts; this gate
   // holds the ~50 cells that NOTHING drives, which is precisely why they rot.
   { name: 'dependent-adapts-on-host-move (C72 · C78 §1.4 · ADR-0344)', script: '../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts' },
+  // ⭐ The SAME defect shape, one axis over, and the founder asked for it on the
+  // SAME DAY: *"All dims and properties of all elements should be queryable and
+  // executable by RAC."* ADR-0344 asks whether a DEPENDENT adapts when its host
+  // moves; ADR-0345 asks whether a PROPERTY a user can see can be asked about and
+  // changed by sentence. SILENT is the finding in both, for the same reason —
+  // "there is no such property" and "nobody wired it" arrive as one answer.
+  //
+  // EXECUTED, not static, and that is the opposite call from its sibling ON
+  // PURPOSE: ADR-0344's subject is "is there a subscriber somewhere in the whole
+  // estate", which no headless world can answer; THIS subject is a pure L2 module
+  // (`applySemanticIntent` over a `ResolverContext`), so every cell is the real
+  // resolver's real answer rather than a claim about one.
+  { name: 'property-rac-matrix (C67 · C68 · ADR-0345)', script: 'check-property-rac-matrix.ts' },
   // §BIM30-CARRIED-ROWS, second batch (2026-08-18) — the GE/CO/PV half. Eight more
   // register rows whose deciding instrument was the phrase "source census" /
   // "source re-measure" / a pair of filenames, and which `bim30-status` therefore

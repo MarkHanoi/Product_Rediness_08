@@ -172,20 +172,46 @@ describe('the value reaches the sentence, in the unit a human uses', () => {
     if (r.kind === 'local') expect(r.summary).toContain('3.2 m');
   });
 
-  it('⭐ roof pitch is stored in RADIANS and spoken in DEGREES', () => {
-    // `RoofData.pitch` is radians (`schemas/elements/Roof.ts:73`) while the
-    // WRITE capability `set-roof-pitch` speaks degrees. A read that printed the
-    // raw radian would answer "0.524" — the stored value, and useless.
-    const r = ask('roof-pitch', ctxOf('roof', reads({ ok: true, value: Math.PI / 6 })));
+  it('⭐ roof pitch is stored as a GRADIENT and spoken in DEGREES', () => {
+    // The geometry `RoofData` carries `slope`, a gradient
+    // (`geometry-roof/src/RoofTypes.ts:83`; RoofGeometryBuilder computes
+    // `height = slope × distance`), and the WRITE converts with `Math.tan`. A
+    // read that printed the raw gradient would answer "0.577" — the stored
+    // value, and useless. `atan` is the exact mirror.
+    //
+    // ⚠ THE FIRST DRAFT OF THIS ROW READ `pitch` IN RADIANS, from the L0 Zod
+    // schema, which is NOT the record the write lands in — see the row's own
+    // comment. This assertion is the one that would have caught it.
+    const r = ask('roof-pitch', ctxOf('roof', reads({ ok: true, value: Math.tan(Math.PI / 6) })));
     expect(r.kind).toBe('local');
     if (r.kind === 'local') expect(r.summary).toContain('30°');
   });
 
+  it('the roof row reads the field the roof WRITE writes', () => {
+    // The structural half of the assertion above: field equality between the
+    // read row and the live write arm, so a future re-route of `set-roof-pitch`
+    // cannot leave the read pointed at a field nothing sets.
+    expect(propertyQueryRow('roof-pitch')!.field).toBe('slope');
+  });
+
   it('the row unit and its speaking are declared, never inferred', () => {
-    // Exactly one row may be non-metric today; a second one arriving without a
-    // deliberate edit here is the drift this assertion catches.
-    const nonMetric = PROPERTY_QUERY_ROWS.filter((r) => r.unit !== 'metres').map((r) => r.id);
-    expect(nonMetric).toEqual(['roof-pitch']);
+    // Every non-metric row is listed WITH its unit, so a new one cannot arrive
+    // without a deliberate edit here. It has already earned its keep once: the
+    // `rake-angle` row was added mid-lane and this assertion is what stopped it
+    // being added silently — and the two angle rows are NOT the same unit
+    // (`rakeAngleDeg` is stored in degrees, `slope` is a gradient), which is
+    // precisely the distinction a "just convert angles" shortcut would erase.
+    const nonMetric = PROPERTY_QUERY_ROWS
+      .filter((r) => r.unit !== 'metres')
+      .map((r) => `${r.id}:${r.unit}`)
+      .sort();
+    expect(nonMetric).toEqual(['rake-angle:degrees', 'roof-pitch:gradient-as-degrees']);
+  });
+
+  it('a rake angle is already in degrees — read back verbatim, never converted twice', () => {
+    const r = ask('rake-angle', ctxOf('wall', reads({ ok: true, value: 70 })));
+    expect(r.kind).toBe('local');
+    if (r.kind === 'local') expect(r.summary).toContain('70°');
   });
 });
 
