@@ -1,6 +1,6 @@
 # SPEC-AUTODIMENSION — Deterministic AutoDimension Engine
 
-> **Stamp**: 2026-07-16 · **Status**: IMPLEMENTED (corrected from DRAFT, L-348 — `packages/auto-dimension` is built, tested, and live-wired into `apps/editor/src/ui/documentation/`)
+> **Stamp**: 2026-07-16 · re-stamped **2026-08-21** (§GA-EDITORIAL-LAYER, L-1620…L-1622: §12.3, §12.12's dimension half and §12.1/§12.9 are implemented — read **§13** for the per-clause ledger, never §12 alone) · **Status**: IMPLEMENTED (corrected from DRAFT, L-348 — `packages/auto-dimension` is built, tested, and live-wired into `apps/editor/src/ui/documentation/`)
 > **Depends on**: [C56](../../02-decisions/contracts/C56-AUTODIMENSION.md) (normative contract), [C24.1](../../02-decisions/contracts/C24.1-AUTO-DOCUMENTATION-SHEETS-PROTOCOL.md), [C03](../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md), [C11](../../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md), [C15](../../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md), [C34](../../02-decisions/contracts/C34-PRINT-AND-DRAWING-STANDARDS.md), [ADR-0118](../../02-decisions/adrs/ADR-0118-autodimension-engine.md), [ADR-0055](../../02-decisions/adrs/ADR-0055-wall-junction-pascal-style.md), [ADR-0061](../../02-decisions/adrs/ADR-0061-building-graph-bidirectional-edit-substrate.md)
 > **Design spike (authoritative depth)**: [SPIKE-AUTODIMENSION-ENGINE](../spikes/spike-autodimension-engine.md) (commit `842dc2be`) — this SPEC is the normative engineering charter; the spike carries the grounded per-line source citations and full pseudocode. Where this SPEC references "the spike", that depth is normative-by-reference.
 > **Owner**: `@pryzm/auto-dimension` (new L2 package) + the `apps/editor` executor
@@ -372,48 +372,139 @@ white space · **immediate comprehension within a few seconds of viewing.**
 
 ---
 
-## §13 — MEASURED GAP against §12 (2026-08-20) — what the engine does NOT yet do
+## §13 — MEASURED GAP against §12 — UPDATED 2026-08-21 (§GA-EDITORIAL-LAYER, L-1620…L-1622)
 
-Recorded so §12 is not mistaken for a description of current behaviour. Evidence: the founder's
-GA screenshot of a real 12-room plate, plus
-`[auto-dimension] §FEAT-AUTODIMENSION-P1 coverage: … warnings: Array(34)`.
+> ⚠ **Read this section as a LEDGER, not a description of §12.** It records, per §12 clause,
+> what is implemented and what is not. Three clauses were closed on 2026-08-21; the rest are
+> unchanged and are still open. **"Auto-dimension improved" is not "§12 is met."**
 
-**What already exists and is sound — do NOT rebuild it:**
-`packages/auto-dimension/src/tiers.ts` implements a **tier model** whose rule is exactly §12.2's
-spirit: every cardinal string is positioned relative to the **building's footprint bbox**, never to
-the wall it happens to measure, so tiers stack outward and stay outside on L-plans, notches and
-courtyards (§FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST, L-281). `perimeter.ts`, `placement.ts`,
-`planners.ts`, `conflicts.ts` and `openings.ts` are the corresponding stages.
+### §13.0 — The before/after, measured on ONE plate
 
-**The gaps, in the order they damage the drawing:**
+Both columns come from running the SAME assertions (`packages/auto-dimension/__tests__/fixtures/judgeGa.ts`)
+against the SAME twelve-room GA plate — first against the engine as it stood at HEAD (its sources
+extracted with `git show` into a scratch tree), then against the engine after this lane. One
+measurement taken twice, not two measurements sharing a name.
 
-1. ⛔ **§12.3 is not implemented at all — this is the dominant defect.** The screenshot shows
-   ~15 interior dimensions on one plate (2016, 2661, 5393, 3317, 2225, 5443, 2563, 2180, 2609,
-   4076 mm …), i.e. **every room edge**, which §12.3 explicitly forbids. There is no
-   construction-critical filter and no one-width-one-length-per-room cap.
-2. ⛔ **§12.2's three NAMED strings with fixed 1200/800/400 offsets do not exist.** The tier model
-   is *relative* (`gap · (tier+1)`, scale-aware per C24). §12 asks for **named strings with
-   declared content and absolute millimetre offsets** — a different, stricter contract.
-3. ⛔ **§12.1's priority table has no representation.** `conflicts.ts` resolves collisions, but not
-   against a declared 10-rank order, so a room tag can currently lose to furniture.
-4. ⛔ **§12.9's resolution ORDER is not encoded** (dimensions fixed → room tags move → door tags
-   rotate → window tags shift → furniture never wins).
-5. ⛔ **§12.5's spiral search (150 mm steps, ≥300 mm from walls) is not implemented** —
-   `RoomTagAutoPopulator` places at centroid and does not search on collision.
-6. ⛔ **§12.10 alignment/banding does not exist.** Nothing snaps tags into bands or enforces even
-   spacing, which is why the screenshot reads as scattered rather than drafted.
-7. ⛔ **§12.12's fixpoint optimisation pass does not exist.** Stage-8 emits *warnings*
-   (`AutoDimReport.warnings`, 34 of them on this plate) and **stops** — it reports unreadability
-   rather than resolving it.
-8. 🟡 **§12.4 diagonal handling is unverified.** The plate has two angled façades and a curved bay;
-   whether short diagonal chains are being emitted was not measured.
+| | HEAD | after L-1620…L-1622 |
+|---|---|---|
+| **INTERIOR dimensions** | **36** | **4** |
+| **`report.warnings`** | **51** | **0** |
+| exterior dimensions | 35 | **35 — unchanged (the regression pin)** |
+| `coverage.buildingCount` | 2 | **1** |
+| `coverage.roomCount` | *(no such concept)* | **12** |
+| interior dims by room | eleven of twelve rooms carried ≥1; several carried three | corridor · stair · WC **only** |
 
-⭐ **The shape of the gap:** the engine has a sound *placement geometry* layer and no *editorial*
-layer. §12 is almost entirely editorial — what to say, what to leave out, and what to move when two
-things want the same space. That is why the output is geometrically defensible and still unreadable.
+The four survivors are exactly what §12.3 names: the **corridor width (1700)**, the **stair width
+(1200)**, and the **WC's two-axis layout (1200 × 1800)**. These are pinned as assertions, not prose,
+in `__tests__/gaPlateMeasurement.test.ts` — a number in a comment rots; a number in an expectation
+fails.
 
-⚠ **Warnings are not a substitute for the optimisation pass.** 34 warnings on one plate is the
-engine correctly noticing it produced an unreadable drawing and shipping it anyway. §12.12 is the
-missing half.
+The plate reproduces the shipped generators' topology rather than a convenient abstraction: a whole
+shell ring (`ResidentialBuildingExecutor._buildShellPerimeter`) that is **never cut** where a
+partition meets it (`weldPartitionsToShell` welds onto the shell CENTRELINE), plus an interior
+partition network that touches the shell **only by coordinate coincidence**. It carries two angled
+façades, a tessellated curved bay and a stair core.
+
+### §13.1 — ⭐ THE ROOT CAUSE, and why it was a CLASSIFICATION defect
+
+The plan planner never asks for interior dimensions. It dimensions the outer face of every
+**BUILDING** (`partitionBuildings`, L-268). The interior flood arrived because that rule —
+*one outer face per connected component*, correct for two buildings on a site — classified **every
+interior partition loop as A BUILDING** and dimensioned it in full: an overall X, an overall Z and a
+chain per side, drawn inside the shell.
+
+⭐ **An enclosure contained inside another enclosure is not a building; it is a ROOM.**
+`classifyEnclosures` (`src/editorial.ts`) makes that distinction once, and §12.3 becomes a small
+readable rule on top of it. Deleting interior strings without it would have been a cosmetic fix that
+also deleted a genuine second building standing in a courtyard.
+
+⭐ **A second measurement forced a second fix. `tracePerimeters` returns only per-component OUTER
+faces, and on a real plate that is not a room — it is a BAND**: the endpoint-clustering band (0.20 m)
+is wider than the gap a generator leaves between adjacent cells (~0.10–0.15 m), so several cells
+arrive as ONE component. The rooms are the **interior faces of the same half-edge walk**, which the
+perimeter tracer computed and discarded; `traceRoomFaces` (`src/perimeter.ts`) returns them.
+
+⭐ **§12.3 was failing in BOTH directions at once.** The plate carried 36 interior dimensions and
+**not one of them was a corridor width**: over-supplied with room edges, and *under-supplied with the
+construction-critical set*. A filter can only fix the first half — a dimension that was never
+proposed cannot be kept. `planRoomExtents` plans the allow-list; `filterInteriorDimensions` removes
+everything else.
+
+### §13.2 — CLOSED on 2026-08-21
+
+| §12 clause | State | Where |
+|---|---|---|
+| **§12.3 interior dimensions** | ✅ **CLOSED** — construction-critical only, max one width + one length per room, enforced twice (the planner proposes ≤1 per axis; the filter re-checks). Criticality is geometric: `service-room` (≤ 6 m²) → both axes · `critical-clearance` (short extent ≤ 1.5 m) → short axis · `corridor-width` (aspect ≥ 2 and short extent ≤ 2.0 m) → short axis · otherwise **nothing**. Thresholds are `AutoDimOptions.interiorPolicy`, not literals. | `src/editorial.ts`, `src/perimeter.ts` (`traceRoomFaces`) |
+| **§12.12 optimisation pass** | 🟡 **PARTIALLY CLOSED** — the *dimension* half: remove duplicate dimensions → straighten chains → push outward, **to fixpoint**. It cannot oscillate: the row is split into two independent monotone terms (`rowIndex = min(baseRow + push, MAX_ROWS)`), so straighten can never undo a push. The iteration bound is belt-and-braces and its breach is **reported** (`optimisation-unconverged`), never swallowed. The *tag* half is NOT implemented — see §13.3. | `src/optimise.ts` |
+| **§12.1 priority table + §12.9 collision ORDER** | ✅ **CLOSED as DATA** — the ten-row table and the five-step order are frozen literals with a pure resolver, exported so the tag populators consume the SAME order. Two dimensions colliding returns `bothFixed` and is handed to §12.12 rather than fudged. **Declared-but-unexercised inside this package**: it emits no tags, so the room/door/window/furniture rows wait on the `apps/editor` tag lanes calling in. | `src/gaPriority.ts` |
+| **§12.4 diagonal façades** | 🟡 **MEASURED — half holds, half does not.** See §13.4. | `__tests__/gaEditorialStandard.test.ts` |
+
+**Two adjacent corrections were required and are recorded so they are not read as suppression:**
+
+- **QA-1 is now scoped to EXTERIOR openings.** §12.3 deliberately leaves interior doors
+  un-dimensioned (a GA locates them by tag + schedule), so warning about each one turns §12.3
+  compliance into a warning storm. §12 wins over §4 where they disagree (§12's preamble). Every such
+  opening is named in `AutoDimReport.skipped` with the clause responsible — declared, never silent.
+- **QA-2 was a FALSE-WARNING FACTORY, and this is most of the "34 warnings".** It fed every
+  `linear-chain` **and** `linear-element` string on a run into one interval list. That includes the
+  rank-4 OPENING LOCATION dims, each measured from the run datum, which nest by construction — so
+  **every façade with more than one opening reported a `chain-overlap`** (42 of the 51 on this
+  plate), none describing a real defect. Two narrowings, both of the INPUT and not of the rule: a
+  location dim is not a chain interval, and the wall chain and the opening chain are **different
+  chains** (§12.2 strings 2 and 3) that must each be checked against the run separately.
+  ⚠ **The honesty check is a test**: `gaEditorialStandard.test.ts` deletes a façade wall and asserts
+  a real `chain-gap` still fires, and asserts an undimensioned exterior opening still reports.
+
+### §13.3 — STILL OPEN (unchanged by this lane — do NOT read these as done)
+
+1. ⛔ **§12.2's three NAMED strings with fixed 1200/800/400 mm offsets do not exist.** The tier model
+   is *relative* (`gap · (tier+1)`, scale-aware per C24) and it is sound — but §12 asks for named
+   strings with declared CONTENT and absolute millimetre offsets, a different and stricter contract.
+2. ⛔ **§12.5's spiral search (150 mm steps, ≥ 300 mm from walls) is not implemented.**
+   `RoomTagAutoPopulator` still places at the centroid and does not search on collision.
+3. ⛔ **§12.6 / §12.7 door- and window-tag placement rules are not implemented.**
+4. ⛔ **§12.8 stairs** — UP arrow / direction are not emitted (the stair *width* now is, via §12.3).
+5. ⛔ **§12.10 alignment/banding does not exist** for TAGS. §12.12's straighten pass now bands
+   DIMENSIONS into continuous lines; nothing bands tags.
+6. ⛔ **§12.11 lineweight hierarchy is not enforced.**
+7. ⛔ **§12.12's tag half** — "align tags", "verify room labels remain readable", "ensure no
+   annotation crosses a door swing" — is not implemented, because this package emits no tags. The
+   `apps/editor` tag populators must call `gaPriority.ts` rather than invent a second order.
+8. ⛔ **§12.3's "kitchen runs" and "structural wall spacing" are NOT implemented, and not pretended.**
+   Both need semantics the engine is not given: a kitchen is a programme fact, and "structural" is a
+   system-type fact (`AutoDimWall.thickness` is a proxy, not the answer — C84/C67 own the attribute).
+
+### §13.4 — §12.4, MEASURED (this was gap 8, "unverified")
+
+- ✅ **Straight ANGLED façades are fine.** `splitRuns` merges collinear edges and ticks each run
+  corner to corner, so façade A (4472 mm) and façade B (5657 mm) each get ONE aligned length. No
+  chain. This half of §12.4 was already satisfied.
+- ⛔ **The CURVED BAY *is* a chain of short diagonals — §12.4 is VIOLATED.** A curved façade reaches
+  the engine already tessellated; each chord turns more than the 15° collinearity gate, so every
+  chord becomes its own RUN with its own aligned length. The bay comes out as
+  **1562 · 1077 · 1077 · 1562** — four short diagonals in a row, exactly what §12.4 forbids.
+- **NOT FIXED, deliberately.** §12.4's remedy is not a filter — it is *"endpoints, overall segment
+  length, angle, and RADIUS IF CURVED"*, which needs the ARC recovered from its tessellation and a
+  `radius` string emitted (SPEC §7 / §10 **P4** curved-wall work). Dropping the short chords without
+  it would leave the bay undimensioned — trading a readability defect for an INCOMPLETENESS defect.
+  The violation is **pinned by an explicit test** so it cannot be mistaken for compliance and cannot
+  worsen unnoticed.
+- ✅ No INTERIOR diagonal dimension is emitted at all (§12.4 + §12.3).
+
+### §13.5 — What did NOT change (the pins)
+
+- **§12.2's exterior strings.** The editorial layer returns an exterior string **by identity** — not
+  rebuilt, not re-ranked, not re-ordered — and this is asserted two ways: the exterior count is
+  unchanged at 35, and on a plate with no rooms the whole layer is a **byte-for-byte no-op**. The
+  tier model (`tiers.ts`, §FIX-OVERALL-DIM-OUTSIDE-AND-OUTERMOST, L-281) was not touched.
+- **INV-1 determinism.** Byte-identical re-run and input-order independence are re-asserted on the
+  GA plate after every new stage.
+- **INV-2 purity.** No stores, no view, no `Date.now`, no RNG, no Map/Set iteration order reaching
+  output. Every new ordering ends in a total-order tiebreak.
+- **INV-3 no silent omission.** Every editorial removal is in `AutoDimReport.skipped` with the §12
+  clause responsible, and the L5 executor prints and toasts the count — a user who is not told will
+  read a deliberate omission as a missing dimension.
+- **L-268 multi-building.** Two detached buildings are still two buildings (`twoBuildings.test.ts`);
+  only *contained* enclosures are reclassified as rooms.
 
 ---
