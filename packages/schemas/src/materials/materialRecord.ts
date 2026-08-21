@@ -23,6 +23,7 @@
 // rather than by care.
 
 import type { MaterialMaps, MaterialTiling } from './materialMaps.js';
+import type { MaterialCarbonFacts } from './materialCarbon.js';
 
 /** C84 §1.1 — the built-in category vocabulary. */
 export type MaterialCategory =
@@ -88,4 +89,25 @@ export interface MaterialRecord {
   readonly maps?: MaterialMaps;
   /** Real-world footprint of one repetition of `maps`. Required whenever `maps` is set. */
   readonly tiling?: MaterialTiling;
+
+  // ── §MATERIAL-CARBON-FACTS (L-3100) — C100 §1.1, the 6D half ──────────────
+  // OPTIONAL and ADDITIVE, exactly as `maps`/`tiling` were: every existing row
+  // stays valid unchanged, and this facet lands without rewriting the catalogue.
+  //
+  // ⭐ THE FIELD IS ON THE RECORD, NOT IN A SIDE TABLE, ON PURPOSE. A parallel
+  // `Record<materialId, factor>` living beside the catalogue would be a SEVENTH
+  // material vocabulary — the exact defect C100 was written to stop — and it
+  // would rot the first time a material was renamed. The VALUES are authored in
+  // `carbonFactorTable.ts` for legibility and merged onto the rows at module
+  // load by `materialCatalog.ts`; what a consumer reads is one record.
+  //
+  // ⛔ ABSENT MEANS NOT MEASURED, NEVER ZERO. Most rows carry nothing here and
+  // that is the intended state — see the header of `carbonFactorTable.ts`.
+
+  /**
+   * Embodied-carbon factor and density, each inseparable from its citation.
+   * See `materialCarbon.ts`; reduce it with `carbonPerCubicMetre()`, which
+   * refuses rather than assumes when a half is missing.
+   */
+  readonly carbon?: MaterialCarbonFacts;
 }

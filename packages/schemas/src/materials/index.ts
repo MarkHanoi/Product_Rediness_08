@@ -18,3 +18,29 @@ export {
     hasAnyMap,
     materialMapsDefect,
 } from './materialMaps.js';
+
+// §MATERIAL-CARBON-FACTS (L-3100/L-3101) — C100 §1.1, the 6D half of the record.
+// Embodied-carbon factors and densities, each INSEPARABLE from its citation. The
+// values live in `carbonFactorTable.ts` and are merged onto `MATERIAL_CATALOG`
+// rows at module load, so a consumer reads ONE record shape.
+export type {
+    CarbonFactorUnit,
+    CarbonScope,
+    CarbonProvenance,
+    CarbonVerification,
+    FactProvenance,
+    DensityFact,
+    CarbonFactorFact,
+    MaterialCarbonFacts,
+    CarbonGapReason,
+    CarbonPerM3,
+    CarbonPerM3Ok,
+    CarbonPerM3Gap,
+} from './materialCarbon.js';
+export { carbonPerCubicMetre, isOutOfScopeForA1A3, isCarbonGap, isCarbonMeasured } from './materialCarbon.js';
+export {
+    CARBON_FACTOR_TABLE,
+    SHIPPED_CARBON_FACTOR_COUNT,
+    findCarbonFacts,
+    carbonFactorOrphans,
+} from './carbonFactorTable.js';

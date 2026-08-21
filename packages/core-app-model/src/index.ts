@@ -545,12 +545,22 @@ export type {
     TakeoffLine, CoverageState, CoverageRow, TakeoffResult,
     TakeoffStores, RateEntry, RateBook, CostedLine, CostedTakeoff, CostSummary,
     UnpricedReason, RateImportResult,
+    // 4D / 6D (lane DIM46, 2026-08-21; ADR-0351) - the same take-off, two more
+    // questions asked of it. There is ONE measurement engine in this product.
+    MaterialVolume,
+    CarbonOverrideBook, CarbonMaterialRow, CarbonLine, CarbonChapterTotal,
+    CarbonGapRow, CarbonSummary, CarbonResult,
+    ConstructionSchedule, ConstructionTask, TaskProgressState, ResolvedTask,
+    TaskStateAt, ScheduleStateAt, ScheduleCoverage,
 } from './quantities/index.js';
 export {
     UNIT_LABEL, TAKEOFF_CHAPTERS,
     computeTakeoff, defaultTakeoffStores, wallBaselineLength, openingVoidArea,
     applyRates, chapterSubtotals,
     takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv,
+    computeCarbon, carbonToCsv, scheduleToCsv,
+    EMPTY_SCHEDULE, resolveTasks, scheduleStateAt, scheduleCoverage, taskFromLine,
+    taskFinishDate, taskWindowMs, taskProgressAt, scheduleWindowMs, taskDefects,
 } from './quantities/index.js';
 
 export type {

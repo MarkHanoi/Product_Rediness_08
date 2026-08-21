@@ -53,6 +53,7 @@ import type {
   TakeoffChapterId,
   TakeoffLine,
   TakeoffResult,
+  MaterialVolume,
 } from './TakeoffTypes.js';
 
 // ── Minimal structural store shapes ───────────────────────────────────────────
@@ -131,6 +132,20 @@ export interface WallReadStore {
 }
 
 /**
+ * One layer of a wall system type, as the take-off reads it. Structurally
+ * satisfied by `WallLayer` from `@pryzm/geometry-wall`; declared narrowly here
+ * for the same reason every other store shape is (a fake built from the header
+ * cannot falsify the header).
+ */
+export interface WallLayerLike {
+  name?: string;
+  /** Metres. */
+  thickness?: number;
+  /** A `MaterialRecord.id`. Absent ⇒ this layer names no material. */
+  materialId?: string;
+}
+
+/**
  * Every store the engine reads. All optional and all injectable — the default
  * bag reads `window.*` exactly as `ScheduleExtractor` does, but a test supplies
  * real element records instead, which is the only way the opening arithmetic can
@@ -152,6 +167,14 @@ export interface TakeoffStores {
   curtainWalls?: ListStore<CountedElementLike> | null;
   /** Resolves a `systemTypeId` to a human type name for the line description. */
   wallTypeName?: ((systemTypeId: string) => string | undefined) | null;
+  /**
+   * §MATERIAL-CARBON-FACTS (L-3102) — resolves a `systemTypeId` to its LAYER
+   * STACK, so a wall's volume can be split per material instead of being
+   * attributed to one. `null`/`undefined` for a type with no stack is a real
+   * answer: the wall then contributes NO material breakdown and 6D reports it as
+   * NOT MEASURED rather than assuming a monolithic material.
+   */
+  wallTypeLayers?: ((systemTypeId: string) => readonly WallLayerLike[] | null | undefined) | null;
   /**
    * Room finish resolution + bounding-wall determination. Injected so the room
    * measurers are testable; defaults to this package's real resolvers, which
@@ -248,6 +271,10 @@ interface Accum {
   basis:       string;
   qualifiers:  Map<string, number>;
   secondary:   Map<string, { label: string; value: number; unit: QuantityUnit }>;
+  /* §MATERIAL-CARBON-FACTS (L-3102) — m3 per material id, summed across the
+     elements this code groups. Keyed by `materialId|note` so a layered wall's
+     insulation and its blockwork stay separate rows. */
+  materials:   Map<string, { materialId: string; volumeM3: number; note?: string }>;
 }
 
 class LineBuilder {
@@ -264,6 +291,10 @@ class LineBuilder {
     basis: string;
     secondary?: readonly SecondaryMeasure[];
     qualifier?: string | null;
+    /* §MATERIAL-CARBON-FACTS — what this ELEMENT contributed, per material.
+       Omitted where the measurer genuinely does not know the material; an
+       omission is reported by 6D as NOT MEASURED, never as zero. */
+    materials?: readonly MaterialVolume[];
   }): void {
     let acc = this._byCode.get(args.code);
     if (!acc) {
@@ -277,6 +308,7 @@ class LineBuilder {
         basis: args.basis,
         qualifiers: new Map(),
         secondary: new Map(),
+        materials: new Map(),
       };
       this._byCode.set(args.code, acc);
     }
@@ -290,6 +322,13 @@ class LineBuilder {
     }
     if (args.qualifier) {
       acc.qualifiers.set(args.qualifier, (acc.qualifiers.get(args.qualifier) ?? 0) + 1);
+    }
+    for (const m of args.materials ?? []) {
+      if (!m.materialId || !(m.volumeM3 > 0)) continue;
+      const key = `${m.materialId}|${m.note ?? ''}`;
+      const cur = acc.materials.get(key);
+      if (cur) cur.volumeM3 += m.volumeM3;
+      else acc.materials.set(key, { materialId: m.materialId, volumeM3: m.volumeM3, note: m.note });
     }
   }
 
@@ -311,6 +350,12 @@ class LineBuilder {
         basis:       a.basis,
         qualifiers:  [...a.qualifiers.entries()].map(([q, n]) => `${n} of ${a.elementIds.length}: ${q}`),
         secondary:   [...a.secondary.values()].map((s) => ({ ...s, value: round(s.value) })),
+        materialBreakdown: [...a.materials.values()]
+          .map((m) => ({ ...m, volumeM3: round(m.volumeM3) }))
+          // A material whose volume rounds away is degenerate geometry, not a
+          // quantity — the same rule the line itself is filtered by above.
+          .filter((m) => m.volumeM3 > 0)
+          .sort((x, y) => y.volumeM3 - x.volumeM3),
       }))
       .sort((x, y) => (x.chapter === y.chapter ? x.code.localeCompare(y.code) : x.chapter.localeCompare(y.chapter)));
   }
@@ -373,6 +418,7 @@ export function defaultTakeoffStores(): TakeoffStores {
     furniture:    fromWindow<ListStore<CountedElementLike>>('furnitureStore'),
     curtainWalls: fromWindow<ListStore<CountedElementLike>>('curtainWallStore'),
     wallTypeName: (id) => wallSystemTypeStore.getById(id)?.name,
+    wallTypeLayers: (id) => wallSystemTypeStore.getById(id)?.layers ?? null,
     roomFinishes: (room) => {
       const f = resolveRoomFinishes(room);
       return { floor: f.floor, walls: f.walls, ceiling: f.ceiling };
@@ -451,6 +497,27 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
             ? `raked wall (${rake.toFixed(1)}°) measured in its authored, un-sheared elevation plane`
             : null;
 
+      // MATERIAL-CARBON-FACTS (L-3102) - split the wall's NET volume across the
+      // system type's LAYERS. Each layer contributes `net x layerThickness`, using
+      // the SAME net face area the m2 line reports, so the opening deduction that
+      // `openingOutline()` computed flows straight through into carbon: an arched
+      // window removes the arch from the insulation too, not its bounding box.
+      //
+      // A layer with no `materialId` contributes NOTHING - not a share of some
+      // other layer's material, and not a zero. It simply is not measured, and the
+      // 6D coverage row says how much volume that cost.
+      const layers = typeId ? stores.wallTypeLayers?.(typeId) : null;
+      const wallMaterials: MaterialVolume[] = [];
+      for (const layer of layers ?? []) {
+        const lt = layer.thickness ?? 0;
+        if (!layer.materialId || !(lt > 0)) continue;
+        wallMaterials.push({
+          materialId: layer.materialId,
+          volumeM3: net * lt,
+          note: `layer: ${layer.name ?? layer.materialId} (${mm(lt)})`,
+        });
+      }
+
       B.add({
         code,
         chapter: 'walls',
@@ -458,6 +525,7 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm2',
         quantity: net,
         elementId: w.id,
+        materials: wallMaterials,
         basis: 'Σ elevation face area (wallProfile ring, else length × height; curved walls measured along the tessellated arc) − Σ opening voids from openingOutline()',
         secondary: [
           { label: 'Gross face',        value: grossFace, unit: 'm2' },
@@ -527,6 +595,11 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
     describe: (key: string, e: PolyElementLike) => string,
     basis: string,
     note: string,
+    /* MATERIAL-CARBON-FACTS - the element's material id, when it HAS one. A
+       family whose grouping key is a FINISH NAME (floors, ceilings) is not the
+       same thing as a material id, so this is a separate accessor and returns
+       undefined rather than reusing `keyOf`. */
+    materialIdOf: (e: PolyElementLike) => string | undefined = (e) => e.materialId,
   ): void => {
     const rows = readList<PolyElementLike>(store, storeName);
     if (rows === null) {
@@ -551,6 +624,14 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         secondary: unit === 'm3'
           ? [{ label: 'Plan area', value: area, unit: 'm2' as QuantityUnit }]
           : t > 0 ? [{ label: 'Volume', value: area * t, unit: 'm3' as QuantityUnit }] : [],
+        // Volume = plan area x total thickness. A family with NO thickness (a
+        // finish applied to a surface) yields no volume, therefore no material
+        // row, therefore NOT MEASURED in 6D rather than a zero-volume line.
+        materials: (() => {
+          const mid = materialIdOf(e);
+          const vol = unit === 'm3' ? qty : area * t;
+          return mid && vol > 0 ? [{ materialId: mid, volumeM3: vol }] : [];
+        })(),
       });
     }
     coverage.push({
@@ -616,6 +697,9 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'ud',
         quantity: 1,
         elementId: c.id,
+        materials: (c.materialId ?? c.material) && (c.width ?? 0) > 0 && (c.depth ?? 0) > 0
+          ? [{ materialId: (c.materialId ?? c.material)!, volumeM3: (c.width ?? 0) * (c.depth ?? 0) * h }]
+          : [],
         basis: 'Count grouped by profile / section. Length and volume ride along as secondary measures',
         secondary: [
           { label: 'Total length', value: h, unit: 'm' },
@@ -649,6 +733,9 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         unit: 'm',
         quantity: span,
         elementId: b.id,
+        materials: (b.materialId ?? b.material) && (b.width ?? 0) > 0 && (b.depth ?? 0) > 0
+          ? [{ materialId: (b.materialId ?? b.material)!, volumeM3: (b.width ?? 0) * (b.depth ?? 0) * span }]
+          : [],
         basis: 'Σ span measured between the beam\'s start and end points',
         secondary: (b.width ?? 0) > 0 && (b.depth ?? 0) > 0
           ? [{ label: 'Gross volume', value: (b.width ?? 0) * (b.depth ?? 0) * span, unit: 'm3' }]

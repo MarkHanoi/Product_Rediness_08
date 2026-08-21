@@ -73,9 +73,11 @@ import { mountLifecyclePanels }              from './buckets/LifecycleBucket';
 // §MEDICIONES (L-2003) — the founder's "4D / 5D / 6D for cost in Data", and the
 // take-off they must stand on. Two of the four tabs are NOT BUILT and say so.
 import { mountTakeoffPanel,
-         mountCostPanel,
-         mountTimePanel,
-         mountCarbonPanel }                  from './buckets/MedicionesBucket';
+         mountCostPanel }                    from './buckets/MedicionesBucket';
+// 4D / 6D (lane DIM46, ADR-0351). Own module: see its header for why (module
+// cycle avoidance). Both were a red NOT BUILT badge until 2026-08-21.
+import { mountTimePanel,
+         mountCarbonPanel }                  from './buckets/MedicionesTimeCarbon';
 import { mountMaterialSchedule,
          mountTypeSchedule,
          wallTypeRows, doorTypeRows, windowTypeRows,
@@ -328,6 +330,8 @@ export class DataWorkbench implements IDataWorkbench {
         mountQuantitySchedules(this._panels.get('quantity-schedules')!, (tab) => this._navigateToTab(tab as TabId));
         if (this._activeTab === 'mz-takeoff') mountTakeoffPanel(this._panels.get('mz-takeoff')!, this.runtime);
         if (this._activeTab === 'mz-cost')    mountCostPanel(this._panels.get('mz-cost')!, this.runtime);
+        if (this._activeTab === 'mz-time')    mountTimePanel(this._panels.get('mz-time')!, this.runtime);
+        if (this._activeTab === 'mz-carbon')  mountCarbonPanel(this._panels.get('mz-carbon')!, this.runtime);
     }
 
     // ── Navigate to a specific tab (auto-selects the right bucket) ─────────────
@@ -500,11 +504,12 @@ export class DataWorkbench implements IDataWorkbench {
         mountTypeSchedule(this._panels.get('data-beam-types')!,   'Beam Types (UB)',   beamTypeRows());
         mountTypeSchedule(this._panels.get('data-stair-types')!,  'Stair Types',       stairTypeRows());
 
-        // MEDICIONES — MedicionesBucket.ts. The two BUILT tabs are re-rendered on
-        // every visit by _showActiveContent(); the two NOT-BUILT tabs are static
-        // and are mounted once here.
-        mountTimePanel(this._panels.get('mz-time')!);
-        mountCarbonPanel(this._panels.get('mz-carbon')!);
+        // MEDICIONES — all four tabs now recompute from the live model on every
+        // visit (_showActiveContent), so a stale quantity, cost, programme or
+        // carbon figure cannot outlive an edit. They are mounted once here so the
+        // panels are non-empty before the first tab switch.
+        mountTimePanel(this._panels.get('mz-time')!, this.runtime);
+        mountCarbonPanel(this._panels.get('mz-carbon')!, this.runtime);
 
         this._rebuildSubTabBar();
     }
@@ -679,6 +684,12 @@ export class DataWorkbench implements IDataWorkbench {
            absent one: it is still signable. */
         if (!isAuditHierarchy && this._activeTab === 'mz-takeoff') {
             mountTakeoffPanel(this._panels.get('mz-takeoff')!, this.runtime);
+        }
+        if (!isAuditHierarchy && this._activeTab === 'mz-time') {
+            mountTimePanel(this._panels.get('mz-time')!, this.runtime);
+        }
+        if (!isAuditHierarchy && this._activeTab === 'mz-carbon') {
+            mountCarbonPanel(this._panels.get('mz-carbon')!, this.runtime);
         }
         if (!isAuditHierarchy && this._activeTab === 'mz-cost') {
             mountCostPanel(this._panels.get('mz-cost')!, this.runtime);

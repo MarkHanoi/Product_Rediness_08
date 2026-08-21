@@ -29,6 +29,7 @@
     "./privacy": "./src/privacy/index.ts",
     "./ifc": "./src/ifc/index.ts",
     "./materials": "./src/materials/index.ts",
+    "./construction": "./src/construction/index.ts",
     "./lighting": "./src/lighting/index.ts",
     "./link": "./src/link/index.ts"
   },

@@ -9,17 +9,22 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * ⛔ THE RULE THIS SURFACE IS BUILT AROUND
  * ─────────────────────────────────────────────────────────────────────────────
- * Two of these four tabs are NOT BUILT, and they say so on their own face, in
- * the product, with the reason and the missing input named. They do not render a
- * plausible number. A cost or a carbon figure gets believed and quoted; an
- * invented one is worse than an absent one, and "authored, reachable, and
- * incapable of holding an answer" is the exact defect shape this lane was opened
- * to stop repeating.
+ * A cost or a carbon figure gets believed and quoted; an invented one is worse
+ * than an absent one, and "authored, reachable, and incapable of holding an
+ * answer" is the exact defect shape this surface was opened to stop repeating.
  *
  *   Take-off (mediciones)  — BUILT.  Real, element-traceable, opening-net.
  *   5D Cost                — BUILT.  Rates come from the USER. Zero ship with it.
- *   4D Time                — NOT BUILT. Panel states what is missing.
- *   6D Carbon              — NOT BUILT. Panel states what is missing.
+ *   4D Time                — BUILT 2026-08-21, lane DIM46 (ADR-0351).
+ *   6D Carbon              — BUILT 2026-08-21, lane DIM46 (ADR-0351).
+ *
+ * ⚠ THIS FILE OWNS ONLY THE FIRST TWO. `mountTimePanel` / `mountCarbonPanel`
+ * live in `MedicionesTimeCarbon.ts` — see that file's header for why they are not
+ * here (module-cycle avoidance, §SCC-NO-BARREL-ACCESS-AT-MODULE-LOAD).
+ *
+ * ⛔ DO NOT restore a `notBuiltPanel()` helper here. Both tabs that used it now
+ * render real, cited answers; a generic "not built" template sitting in the file
+ * is an invitation to ship another authored-but-empty surface.
  *
  * `escapeHtml` is applied to every model-derived string before it reaches
  * innerHTML — element ids, finish names and material ids all originate in
@@ -459,98 +464,4 @@ function renderCost(panel: HTMLElement, runtime: Runtime): void {
         });
         input.click();
     });
-}
-
-// ── 4D TIME — NOT BUILT, and says so ──────────────────────────────────────────
-
-/**
- * Mount the 4D panel. There is no scheduling model in PRYZM; this panel states
- * that, names the four things 4D needs, and renders no timeline.
- */
-export function mountTimePanel(panel: HTMLElement): void {
-    withHandlerSpan('pryzm.mediciones.time.render', { 'pryzm.surface': 'dataworkbench.mediciones.time' }, () => {
-        panel.innerHTML = notBuiltPanel({
-            icon: '◷',
-            title: '4D — Time / sequencing',
-            lede: 'Not built. This tab exists so the gap is visible in the product rather than only in a document — it renders no schedule, because there is nothing in the model to derive one from.',
-            haveTitle: 'What already exists and can be built on',
-            have: [
-                'A real, element-traceable take-off — every 4D task must attach to quantities, and those now exist.',
-                'Levels and a hierarchy (site → building → level → unit → room), which is the natural work-breakdown spine.',
-                'A command bus with undo, so phase assignment would be a normal, undoable edit.',
-            ],
-            needTitle: 'What is missing, named',
-            need: [
-                '<strong>A phase/task element.</strong> There is no schedule entity of any kind in the schemas — no task, no phase, no dependency. It has to be minted (C67/C68 apply).',
-                '<strong>A phase field on every element.</strong> Only slabs carry a stray <code>phase</code> string today; nothing else does, and nothing reads it.',
-                '<strong>Durations.</strong> A duration comes from a quantity divided by an output rate (m²/day). PRYZM ships no output rates for the same reason it ships no prices.',
-                '<strong>A time filter in the viewport.</strong> The visibility system is intent-based (P7); a date-scoped filter would be a new visibility axis, not a UI toggle.',
-            ],
-            close: 'Until those four exist, a 4D tab could only animate an invented sequence. That would look like a plan and be a drawing.',
-        });
-    });
-}
-
-// ── 6D CARBON — NOT BUILT, and says so ────────────────────────────────────────
-
-/**
- * Mount the 6D panel. Embodied carbon needs per-material carbon factors, and
- * this repository contains none — checked, not assumed.
- */
-export function mountCarbonPanel(panel: HTMLElement): void {
-    withHandlerSpan('pryzm.mediciones.carbon.render', { 'pryzm.surface': 'dataworkbench.mediciones.carbon' }, () => {
-        panel.innerHTML = notBuiltPanel({
-            icon: '◍',
-            title: '6D — Sustainability / embodied carbon',
-            lede: 'Not built. An embodied-carbon figure is a quantity multiplied by a carbon factor, and <strong>this repository holds no carbon factors</strong>. Inventing them would produce a number an architect could put in a planning submission.',
-            haveTitle: 'What already exists and can be built on',
-            have: [
-                'Volumes and areas per material group — the left-hand side of every carbon calculation.',
-                'A material library with stable ids, which is the join key a factor table needs.',
-                'Wall/floor system types carrying LAYERS, so per-layer material volumes are derivable once the layers are broken out.',
-            ],
-            needTitle: 'What is missing, named',
-            need: [
-                '<strong>A carbon factor per material</strong> (kgCO₂e per kg or per m³). The material catalogue has no such column — it carries colour, roughness, metalness, opacity. This was checked, not assumed.',
-                '<strong>Densities.</strong> Volume → mass needs kg/m³ per material. Also absent, which is the same gap that blocks structural steel mass in the take-off.',
-                '<strong>A licensed factor database</strong> — ICE (Bath), ÖKOBAUDAT, EPD España or an EPD set. PRYZM cannot redistribute one; the user supplies it, exactly as they supply prices.',
-                '<strong>Layer-level quantities.</strong> Carbon lives in the insulation and the concrete, not in "a wall" — so the per-layer m² breakout listed as the take-off\'s largest gap is a prerequisite.',
-            ],
-            close: 'The honest sequence is: break out system-type layers in the take-off, add a user-supplied factor table keyed exactly as 5D\'s rate book is, then multiply. Steps one and two are not done.',
-        });
-    });
-}
-
-function notBuiltPanel(a: {
-    icon: string; title: string; lede: string;
-    haveTitle: string; have: string[];
-    needTitle: string; need: string[];
-    close: string;
-}): string {
-    const list = (items: string[], colour: string) => `
-        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;">
-            ${items.map((i) => `<li style="font-size:11.5px;line-height:1.65;color:${colour};">${i}</li>`).join('')}
-        </ul>`;
-    return `
-        <div style="height:100%;overflow:auto;padding:22px 20px;">
-            <div style="max-width:640px;margin:0 auto;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                    <span style="font-size:22px;">${a.icon}</span>
-                    <span style="font-size:16px;font-weight:800;color:var(--app-text);">${escapeHtml(a.title)}</span>
-                    <span style="font-size:9.5px;font-weight:800;letter-spacing:.08em;color:#B3261E;background:rgba(179,38,30,.10);border-radius:99px;padding:3px 9px;">NOT BUILT</span>
-                </div>
-                <p style="font-size:12px;line-height:1.75;color:var(--app-text);margin:0 0 18px;">${a.lede}</p>
-
-                <h4 style="margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text-muted);">${escapeHtml(a.haveTitle)}</h4>
-                ${list(a.have, 'var(--app-text-muted)')}
-
-                <h4 style="margin:18px 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text-muted);">${escapeHtml(a.needTitle)}</h4>
-                ${list(a.need, 'var(--app-text)')}
-
-                <p style="margin:18px 0 0;padding:11px 13px;border-left:3px solid var(--app-accent);background:rgba(102,0,255,.05);font-size:11.5px;line-height:1.7;color:var(--app-text);">${a.close}</p>
-                <p style="margin:14px 0 0;font-size:10px;color:var(--app-text-muted);line-height:1.6;">
-                    Recorded in ADR-0350. Nothing on this tab is broken — the capability has not shipped, and this panel exists so that is visible where the decision gets made rather than only in a document.
-                </p>
-            </div>
-        </div>`;
 }

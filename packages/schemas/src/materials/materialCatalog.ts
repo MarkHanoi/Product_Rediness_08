@@ -28,6 +28,11 @@
 // a projection maps the master, it never extends it (C84 §1.3).
 
 import type { MaterialRecord } from './materialRecord.js';
+// §MATERIAL-CARBON-FACTS (L-3101) — the factor VALUES are authored in their own
+// file so each row can carry a full citation without turning a catalogue line
+// into a paragraph. They are merged ONTO the record below, so a consumer still
+// reads ONE record shape and there is no rival material-keyed table (C100 §1.1).
+import { CARBON_FACTOR_TABLE } from './carbonFactorTable.js';
 
 /** The T1 built-in catalogue. Cite `MATERIAL_CATALOG.length`, never a transcribed count. */
 export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
@@ -511,7 +516,15 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
   { source: 'builtin' as const, id: 'tile-matt-rust', label: "Ceramic Tile · Rust Matt", category: 'Ceramic & Tile', color: '#9c4f33', metalness: 0, roughness: 0.8 },
   { source: 'builtin' as const, id: 'tile-matt-almond', label: "Ceramic Tile · Almond Matt", category: 'Ceramic & Tile', color: '#dcc3b6', metalness: 0, roughness: 0.8 },
 ] as Array<Omit<MaterialRecord, 'opacity' | 'transparent'> & { opacity?: number; transparent?: boolean }>)
-  .map((m) => ({ ...m, opacity: m.opacity ?? 1, transparent: m.transparent ?? false }));
+  .map((m) => ({
+    ...m,
+    opacity: m.opacity ?? 1,
+    transparent: m.transparent ?? false,
+    // §MATERIAL-CARBON-FACTS — the merge. `CARBON_FACTOR_TABLE` covers a small,
+    // named subset; every other row gets `undefined`, which is the answer
+    // "NOT MEASURED" and is NEVER rendered as a zero downstream.
+    carbon: CARBON_FACTOR_TABLE[m.id],
+  }));
 
 /** id -> record. Built once; the library shipped no lookup, so 21 importers hand-rolled `.find()`. */
 const BY_ID: ReadonlyMap<string, MaterialRecord> = new Map(MATERIAL_CATALOG.map((m) => [m.id, m]));

@@ -92,6 +92,41 @@ export interface SecondaryMeasure {
   readonly unit:     QuantityUnit;
 }
 
+// ── The material breakdown (the 6D hook) ──────────────────────────────────────
+
+/**
+ * §MATERIAL-CARBON-FACTS (L-3102) — how much of ONE named material a line
+ * measured, in cubic metres.
+ *
+ * ⭐ WHY THIS IS ON THE LINE AND NOT IN A SECOND ENGINE. Embodied carbon is
+ * volume × density × factor. The volume half is *already measured here*, net of
+ * openings, by the same code that cut the mesh. A separate 6D measurer would be
+ * a second engine measuring the same building, and two engines is how two
+ * numbers start disagreeing — so 6D reads THIS, and the take-off gained one
+ * additive field rather than a rival.
+ *
+ * ⚠ A LAYERED WALL PRODUCES SEVERAL ROWS — one per system-type layer, each with
+ * its own material and its own thickness. That is deliberate: carbon lives in the
+ * insulation and the concrete, not in "a wall", and pretending a wall is one
+ * material would have been the single largest error available here.
+ *
+ * ⛔ EMPTY IS A REAL ANSWER. A line whose elements name no material produces an
+ * EMPTY array, and 6D reports it as NOT MEASURED with the reason. It is never
+ * filled in with a guess, and never with a zero volume.
+ */
+export interface MaterialVolume {
+  /** A `MaterialRecord.id` — the SAME vocabulary the catalogue uses (C100 §1.1). */
+  readonly materialId: string;
+  /** Cubic metres of this material measured by the line. Always > 0. */
+  readonly volumeM3:   number;
+  /**
+   * What this volume is, when the answer is not simply "the element" — e.g.
+   * `'layer: Mineral Wool Insulation (90 mm)'`. Shown beside the number so a
+   * per-layer figure can be checked against the system type that produced it.
+   */
+  readonly note?:      string;
+}
+
 // ── The line ──────────────────────────────────────────────────────────────────
 
 export interface TakeoffLine {
@@ -124,6 +159,13 @@ export interface TakeoffLine {
    */
   readonly qualifiers:  readonly string[];
   readonly secondary:   readonly SecondaryMeasure[];
+  /**
+   * §MATERIAL-CARBON-FACTS (L-3102) — m³ per named material, the input 6D reads.
+   * ALWAYS PRESENT, often EMPTY: empty means "these elements name no material",
+   * which is a different answer from "they are made of nothing". See
+   * {@link MaterialVolume}.
+   */
+  readonly materialBreakdown: readonly MaterialVolume[];
 }
 
 // ── Coverage (the honest half) ────────────────────────────────────────────────
