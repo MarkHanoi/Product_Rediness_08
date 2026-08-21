@@ -29320,3 +29320,569 @@ NO/UNKNOWN authoritative store (the largest unmeasured area); the cross-join of 
 `command-registry` subdirectories un-swept for whitelists. **No runtime execution of any kind was
 performed** — no browser, no `tsc`, no build. "Reachable" means *an import/registration edge exists*,
 never *observed executing*. Full blanks list in §13 of the companion document.
+
+---
+
+## L-2600 … L-2615 — AUD-4: **SILENCE** — a robustness sweep of the whole client for the one defect where a failure and a legitimate result are THE SAME VALUE — 2026-08-21 (lane AUD-4, read-only)
+
+**Founder's instruction: *"CHECK THE CODE — NOT THE DOCS … robustness — issues — bugs — gaps —
+error handling. Is all super robust?"*** Every number below came from running a probe or a `grep`
+over `HEAD`. Nothing untraced is ranked. Full evidence, reproduction recipes and the
+what-was-NOT-swept register: [SILENT-FAILURE-REGISTER](SILENT-FAILURE-REGISTER.md).
+
+**Denominator for every count: 4728 `.ts`/`.tsx` source files** (tests, `.d.ts`, `dist`,
+`node_modules`, `__tests__` excluded).
+
+> ⚠ **The probes had to be written through the file-write tool, not a bash heredoc.** The first
+> attempt lost a backslash and died on `SyntaxError: Invalid or unexpected token`; the tokenizer
+> now uses `String.fromCharCode(92)` where a literal backslash is needed. This is L-2094 / L-2214
+> arriving a third and fourth time in one day, in a lane whose subject is silent corruption.
+
+### ⛔ L-2600 — **THE TOP FINDING**: the IFC export silently drops elements — and for the ONE family that is instanced BY DEFAULT it exports the invisible pick-proxy BOX instead of the window
+
+**`20` bare drop points across `10` of the `13` readers, with NO diagnostic of any kind** —
+`if (!mesh) continue;` / `if (!geometry) continue;` at `:17`/`:19` of `BeamReader`, `ColumnReader`,
+`CurtainWallReader`, `FurnitureReader`, `HandrailReader`, `PlumbingReader`, `SlabReader`,
+`StairReader` and `WindowDoorReader` (twice — `:17`/`:19` windows, `:61`/`:63` doors). Nothing
+returns a skip count; `FragmentReader.read()` prints `Total elements gathered: N` — **a count of
+what SURVIVED, with no denominator** — and `ExportIFC.ts:126` then prints
+`✅ IFC EXPORT SUCCESS`.
+
+⭐ **The mechanism that makes it LIVE, not latent.** `FragmentReader.findMesh` (`:352-359`) is
+`scene.traverse` matching `obj.userData?.id === id`. **An InstancedMesh carries no per-element
+`userData.id`** — `InstancedElementRenderer.ts:480` stamps `'instanced-group-<key>'` for the whole
+aggregate. And `ElementInstanceBridge.ts:333-339` ships `window: true, handrail: true,
+stairRailing: true`. Two outcomes, and **the second is worse than absence**:
+
+- **handrail → PARTIAL.** `HandrailFragmentBuilder.ts:533-556`/`:574-594` register every baluster
+  and post with the bridge and add **no mesh**; the rail (`:417`) and infill (`:473`) stay real, so
+  the `continue` never fires. **The exported `IfcRailing` is a rail with no balusters and no posts.**
+- ⭐ **window → WRONG, with a plausible shape.** `WindowBuilder.ts:801` stamps
+  `group.userData.id = win.id`, so `findMesh` DOES find it; `_convertGroupToInstances` (`:1091-1104`)
+  has already removed every real sub-mesh and added **one invisible
+  `BoxGeometry(width, height, frameDepth+0.02)` hit-proxy**. `extractGeometry` (`:384-450`) filters
+  on `child instanceof THREE.Mesh` and **applies no material filter**; `extractColor` takes the
+  proxy's default-white `MeshBasicMaterial`. **Every window in a default-configured project exports
+  to IFC as a solid WHITE BOX.**
+
+**The two states conflated:** *"this project has no beams"* and *"no beam had a scene mesh"* are the
+same empty array; *"this is the window"* and *"this is the invisible proxy standing in for geometry
+that lives in a GPU instance buffer"* are the same `TriangulatedGeometry`.
+
+Diagnostic aid, not the fix: `__pryzmElementInstancing = { window: false }` in the console + rebuild.
+⚠ **NOT measured:** whether a hidden level or a culled LOD also removes an element from
+`scene.traverse`. Plausible, untraced, therefore unranked.
+
+### ⛔ L-2601 — the export's only error channel below a `throw` is `console.debug`, and the alert it DOES show names a log that is OFF BY DEFAULT
+
+`ExportIFC.ts:221-223` catches the whole room-semantic-assembly loop into
+`debug('[ExportIFC] Semantic data assembly error: …')` and returns the **partial** `rooms` array as
+though complete. `debug` (`core-app-model/src/debugOverlay.ts:5-11`) falls to `console.debug` unless
+`window.__PRYZM_SHOW_DEBUG_OVERLAY === true` — and **`console.debug` is DevTools' *Verbose* level,
+hidden by default even with DevTools open.**
+
+⭐ **The sibling arm 60 lines up got this exactly right and the fix was not carried down.**
+`ExportIFC.ts:156-160` reads *"§HONESTY — this used to be silent. An empty `relationships` array is
+what a project with no semantic graph produces AND what a crashed read produces"* and calls
+`console.warn`. **Same file, same function, same defect, fixed once.**
+
+⭐ And the refusal that DOES reach the user names a hatch that does not exist —
+`initUI.ts:1038`: `alert('IFC export failed. See the on-screen log for details.')`. There is no
+on-screen log unless that same hidden global is set. **This is the CHAT_UNAVAILABLE shape.**
+Repo-wide: **24** `debug(...)` calls whose own text says fail/error/cannot/skip/abort; **147**
+`console.debug(` sites.
+
+### ⛔ L-2602 — the repo's OWN named cure for silent command rejection covers **4 of 33** dispatches in the file that defines it, and **0** anywhere else
+
+`PropertyInspectorApply.ts:27-47` declares `surfaceCommandFailure()` under the header
+*"§FIX-COMMAND-REJECTION-SURFACED … **Now every failure reaches the user** on the same `pryzm:toast`
+channel"*. Measured at HEAD in that same file:
+
+```
+grep -c "^function surfaceCommandFailure"  → 1     (the declaration)
+grep -o "surfaceCommandFailure("  | wc -l  → 5     (⇒ 4 CALL SITES)
+grep -o "=> console\.error("      | wc -l  → 29
+grep -rn surfaceCommandFailure  <repo>     → 1 hit outside the file, and it is a COMMENT
+```
+
+**Estate-wide, probe `dispatch.mjs` over 188 optional-chained `?.bus?.executeCommand` sites:
+8 awaited · 143 `.catch(console.*)` LOG-ONLY · 9 real handling · 0 `.then` · 28 fire-and-forget.**
+The 143 concentrate in `PropertyInspectorApply` (28), `PropertyPanelTypeSelector` (13),
+`CopyPlanToolHandler` (13), `RoomPropertySection` (10), `PlanViewInteraction` (10),
+`AlignPlanToolHandler` (8). ⚠ `CommandBus.executeCommand` **THROWS** `CommandBusError` on an
+unregistered type (`CommandBus.ts:346-349`) — the exact wiring defect this class is made of — and
+the panel repaints regardless.
+
+### ⛔ L-2603 — five element-creation plan tools dispatch FIRE-AND-FORGET: no `await`, no `.catch`, no refusal
+
+`ElevationPlanToolHandler.ts:109` · `FloorPlanToolHandler.ts:497` · `RoofPlanToolHandler.ts:284` ·
+`RoomPlanToolHandler.ts:114` · `SlabPlanToolHandler.ts:419` — each a bare
+`window.runtime?.bus?.executeCommand('<kind>.create', …)`. The user draws the element; if the
+command rejects, the rejection is unhandled and **the tool resets its overlay as though it had been
+created.** The other 23 of the 28 are panels (`OverridePanel` ×10, kitchen/wardrobe inspectors,
+`ViewPropertiesPanel`, `AIPanel:1360`).
+
+### ⛔ L-2604 — Save paints **"Saved"** thirteen lines BEFORE it learns the index did not persist — and clears the dirty flag on the way, disarming the `beforeunload` flush
+
+`PlatformSaveController.ts:343` `markCleanLabel(label, serialisedHash)` → pill reads
+`Saved <label>`, dot clean, and `orchestrator.markClean()` sets `hasDirtyChanges = false`,
+`pendingSave = false`, cancels the debounce. **Then** `:356-358` runs the L-269 honesty gate
+`if (!outcome.indexPersisted) { this._reportStorageQuotaFailure(label); return; }`.
+
+`SaveOrchestrator.flushBeforeUnload()` opens `if (!this.hasDirtyChanges) return;`. **So on a
+storage-quota index failure the user is shown "Saved", and the emergency tab-close flush that would
+have protected the work has already been disarmed by the success path.** The L-269 gate is real and
+its message is honest; it simply runs after the success UI and after the state change.
+📋 Recorded not ranked, same file: `flushBeforeUnload` also returns silently on `isLoading` with a
+`console.log` only — untraced to a reproduction.
+
+### ⛔ L-2605 — **the gate built for this exact defect class is COMMITTED AND REGISTERED NOWHERE**
+
+```
+git ls-files tools/ga-gate/ | grep -oE "check-[a-z0-9-]+\.ts$" | sort -u | wc -l   → 67
+grep -oE "check-[a-z0-9-]+\.ts" tools/ga-gate/run-all.ts | sort -u | wc -l         → 91
+comm -23 tracked registered
+    check-material-maps-tiling.ts     ← MATERIALS lane, not mine — named for its owner
+    check-runtime-arg-omitted.ts      ← §RUNTIME-ARG-OMITTED (L-1893), built TODAY
+grep -n "runtime-arg" run-all.ts .github/workflows/ci.yml package.json  → (no output)
+```
+
+It is tracked, it passes (`RC=0`, ARM A `21 / 21`), and it appears in **no** runner, **no** CI job
+and **no** npm script. `run-all.ts:837-869` carries an orphan-gate detector written for exactly this
+— §GATE-AUTHORED-BUT-UNWIRED — and it fires only when someone runs `run-all`. ⭐ **The class the
+gate polices, applied to the gate: authored, committed, reads as coverage, runs nowhere.**
+
+### ⚠ L-2606 — the gate's blind spot is the DOMINANT form of the defect — and the evasions it *could* have had are **NOT REAL**
+
+Probe `gateblind.mjs`: `105` classes match the gate's shape · **`0`** use the optional-marker form
+`runtime?: T` · **`0`** bare constructions split across lines. ⭐ **Stated as a negative because a
+clean result is only worth having if it is stated as loudly as a dirty one: the gate's pattern is
+not being dodged.**
+
+The gap is SCOPE, and the gate's own header says so: **21** ctor-injection sites it sees, against
+**188** module-scope `window.runtime?.bus?.executeCommand(…)` and **224** `runtime?.events?.on(…)`
+it cannot. ⭐ And the deeper gap — **it counts ARGUMENTS, never OUTCOMES.** Fix all 21 and all 143
+log-only dispatches are still silent, because passing a runtime says nothing about whether the
+command it dispatched was accepted.
+
+### ⚠ L-2607 — TWO rival event-payload catalogues; **34 of the 83** names they share DISAGREE about the keys
+
+Probe `eventdiv.mjs`: `packages/runtime-composer/src/types.ts` (`PryzmRuntimeEvents`) declares
+**212**; `packages/event-bus/src/catalog.ts` (`EventCatalog`) declares **201**; **83 in both, 34
+with different key sets**; 129 / 118 exclusive. `catalog.ts:1-5` states it is *"the **single source
+of truth** for typed event communication"* and **84 production files import `@pryzm/event-bus`.**
+Neither file imports the other; nothing compares them.
+
+```
+pryzm-element-selected   composer {annotationId, elementId, elementType, source} · bus {id}
+view-activated           composer {camera, mode, source, type, view}             · bus {viewId}
+view-selected            composer {view, viewId}                                 · bus {view}
+rq-job-progress          composer {id, pct, status}                              · bus {jobId, progress}
+```
+
+⚠ **Recorded as LATENT, deliberately**: every live producer and consumer of `pryzm-element-selected`
+and `rq-job-*` uses the composer shape; the bus rows have zero producers and zero consumers.
+⭐ **It still ranks because the DEAD half is the half that self-describes as authoritative.** A
+listener written tomorrow against `EventCatalog` reads `p.jobId` → `undefined`, does nothing, throws
+nothing, and **type-checks green**. That is L-1563 — *two channels, no bridge* — pre-loaded, with
+34 rounds in it.
+
+### ⚠ L-2608 — `element.changeType`: no route for most families → `console.warn(… — ignored.)`
+
+`initBusHandlers.ts:2204`. The user changes an element's TYPE in the Property panel; for any
+`elementType` without a route the command resolves normally, the panel does not refuse, and the only
+trace has the word *"ignored"* in it. ⭐ **The cure is 30 lines below and was applied to the
+neighbour**: §FIX-ELEMENT-MARK-UNHANDLED (`:2233-2245`) records the identical shape for
+`element.updateMark` — *"the panel showed '✓ Applied' and the mark went nowhere"* — and fixed it.
+
+### ⚠ L-2609 — `ScheduleExtractor` launders "not computed" into `"0.00"` in four columns, **one line above two columns that get it right**
+
+`ScheduleExtractor.ts:238-241` emits `(r.computed?.area ?? 0).toFixed(2)` for `grossArea`,
+`perimeter`, `volume`, `height`. `:247-249` — the very next lines — read
+*"§FIX-BOUNDING-WALLS-UNDETERMINED — a count derived through an UNREAD relationship is not zero, it
+is unknown (C71 §4.4)"* and emit `FINISH_UNDETERMINED`. ⭐ **The rule is stated, contract-cited, and
+applied immediately below the four lines that violate it.** A room whose area was never computed
+appears on the room schedule as `0.00 m²`, indistinguishable from a degenerate room. Same file:
+**26** `(x ?? 0).toFixed(n)` sites. Repo-wide: **2059** `?? 0`/`|| 0`, of which **72** feed a
+formatter. Rendered by `SchedulePanel.ts:181`. ⚠ NOT measured: whether schedule rows reach a sheet
+or a PDF/DXF export.
+
+### ⚠ L-2610 — an undo/redo jump that **THROWS** is silent; one that partially succeeds toasts
+
+`SaveUndoRedoHUD.ts:542-549`: `catch (err) { console.error(…); return; }`. The partial-success path
+below it is exemplary — it reports `completed`, not `requested`, and its docblock explains why.
+⭐ **The worse outcome gets the weaker treatment**: the user clicks a step in the undo popover, the
+popover closes, nothing happens, nothing is said.
+
+### ⚠ L-2611 — **28 of 702** click handlers carry a bare guard-`return` with NO user-visible surface anywhere in the handler
+
+Probe `clickguard.mjs` (no toast, decline, throw, status write, `textContent`/`innerHTML` write,
+`console.warn` or `console.error` in the whole body). Highest blast radius, read in source:
+`VisualizationEnginePanel.ts:772` `if (!enable || !disable) return;` — **the primary Start/Exit
+RENDER button is inert for the whole session if the legacy globals are absent**;
+`:760` `if (!dataUrl) return;` — Screenshot: a failed capture and a successful one both end with no
+file and no message; `OverridePanel.ts:288,311`; `VideoExportPanel.ts:276,488`;
+`RoomPathfinderPanel.ts:168`; `EvacuationSimulatorPanel.ts:172`.
+
+⭐ **The counter-example, and the standard**: `ContextualEditBar._resolveOperationTarget`
+(`:1009-1051`) — **five** refusal arms, **every one** calling `_declineOperation(opLabel, <reason>)`
+with a sentence the user can act on, including one that exists solely to stop a keyboard shortcut
+bypassing a disabled button. **That is what robust looks like in this codebase, and it was written
+here.**
+
+### 📋 L-2612 — the catch census: **1314** catch blocks that tell nobody anything, against **275** places in the entire product where a user can be told
+
+`3865` `catch` blocks in `4728` files: **BARE empty (no comment at all) `0`** — ⭐ genuinely good
+discipline, every swallow is annotated · empty-with-comment `1194` · **`return`-only, no log `243`**
+· **log-only, no rethrow `1071`** · log-then-return `86` · substantive `1271`. Against **275**
+`showToast(`/`toasts.*`/`notify(` call sites client-wide. Production minifies with `esbuild`
+(`vite.config.ts:219`), which does **not** strip `console` — **so the information exists; it exists
+where the founder does not look.**
+
+### ✅ L-2613 — the HONEST NEGATIVES: four things this lane expected to find and did not
+
+- ⭐ **`aria-disabled` without a real `disabled` — CLOSED estate-wide.** L-1554 called this *"worth
+  grepping estate-wide"* and it had not been done. **15 sites; every one pairs it with
+  `btn.disabled = true`** (`BottomActionMenu:1066`, `renderGisActions:111`, `parcelCard:295`,
+  `commandBacking:172`, `TypologyPickerPanel:214`, `envelopeCardSections:367`), and
+  `ContextualEditBar:511` re-checks the attribute in the listener. **Zero new instances.**
+- ⭐ **Every `CHAT_UNAVAILABLE` refusal's escape hatch EXISTS.** `ChatCapabilityRegistry.ts:2953-3005`
+  → *"use the Move tool"* = `operationId:'move'` (`ContextualEditBar.ts:266`); *"Join tool"* `:360`;
+  *"Cut tool"* `:375` (`title:'Cut / Trim'`); *"Modify tools"* = `rotate` `:277` + `mirror` `:390`.
+  Not one dangling hatch in that table.
+- **Counts of CALLS rather than RECORDS — no new instance measured.** 40+ user-facing `N of M`
+  strings sampled; the four read in source (`SaveUndoRedoHUD:555`, `programNotice:143`,
+  `ElementTypeSelectorZone:725`, `capacityPanelSection:169`) all carry a real denominator and
+  several go out of their way to separate *unknown* from *zero*.
+- **`RenderQueuePanel` progress is real state**, not a hard-coded percentage: all four `rq-job-*`
+  events have live emitters including `rq-job-error` on both the failure and the user-cancel path.
+
+### 🔬 L-2614 — the PROPOSED gate, DESIGN ONLY — `check-dispatch-outcome-surfaced.ts`
+
+**Invariant:** every dispatch of a mutating command from a UI surface must have (a) an `await` in a
+`try` whose `catch` reaches a user-visible surface, (b) a `.catch` whose body does, or (c) a
+`// §SILENT-BY-DESIGN: <reason>` annotation. **`console.*` is not a user-visible surface.**
+**Three arms, never folded** (the `commandManager`-counters mistake): **ARM A** fire-and-forget,
+ratchet from **28** → 0, no honest reason for one · **ARM B** log-only, shrink-only from **143**,
+message must name `surfaceCommandFailure` so nobody writes a second cure · **ARM C** census,
+**gates nothing, PRINTS THE DENOMINATOR** (the §L-2612 table beside the `showToast` count).
+The `§SILENT-BY-DESIGN` hatch is mandatory — without it the gate is unsatisfiable for genuine
+best-effort calls, and an unsatisfiable gate is one people disable
+([[unsatisfiable-gate-decomposition-is-the-fix]]). **Register it in `run-all.ts`'s `GATES` array in
+the SAME COMMIT as the file** — see L-2605.
+
+⛔ **What it structurally CANNOT see, stated so no one reads a green as "failures surface":**
+(1) whether the surfaced message is TRUE; (2) ⭐ whether the toast is REACHED — `surfaceCommandFailure`
+emits on `window.runtime?.events?.emit('pryzm:toast', …)`, the very optional chain this whole lane
+is about, so **the gate cannot check its own escape route**; (3) a command that RESOLVES with a
+refusal rather than rejecting — the `previewMoveReweld` laundering shape (L-1571) — passes every
+arm; (4) a dispatch accepted, cascaded away and never seen ([[committed-is-not-reachable]]);
+(5) non-bus mutation (P6 itself tolerates 37 direct writes); (6) silence UPSTREAM of the dispatch —
+L-2611's 28 guard-returns never reach a dispatch, and separating *"a refusal the user needs"* from
+*"a re-entrancy check"* is a judgement, not a pattern; (7) ⭐ **the L-2600 shape entirely** — a
+`continue` inside an export loop is not a dispatch, and *"a loop that skips a record and returns a
+shorter array with no count"* is the gate that would have caught the highest-blast-radius finding in
+this whole sweep. **That is a different gate and it is the one worth building next.**
+
+### 📋 L-2615 — what this lane did NOT sweep
+
+`server/` + `server.js` (in the catch census only — no route/auth/Stripe/Socket.io/DB path read) ·
+every `apps/*` other than `editor` · `plugins/*` (48, counted but individually unread) · DXF, PDF,
+sheet, glTF and Rhino export (only IFC traced end to end) · the CRDT/collab merge path · **any
+runtime behaviour at all** — this was a source read, nothing was executed in a browser, and no
+claim here rests on an observed screen. **Cross-domain, handed to their owners:**
+`check-material-maps-tiling.ts` is the second unregistered orphan gate (materials lane);
+`packages/render-pipeline/` orphan copy (render lane, already L-1514);
+`PlatformSaveController.ts:326` `versionCount: countVersions(…) + 1` assumes the save it is about to
+attempt will land (persistence lane).
+
+---
+
+## L-2500 … L-2512 — AUDIT LANE AUD-3 (PERFORMANCE, end-to-end beyond the frame loop): the scene is drawn **six times per frame**, and two of those six draw the whole model to outline **nothing** — 2026-08-21
+
+Founder, 2026-08-21: *"CHECK THE CODE — NOT THE DOCS."* … *"Is the elements well created towards maximum
+performance? Are there any performance gaps that could be avoided?"* — against a standing report that
+navigation *"is not flowing, it gets stuck sometimes"* and should feel *"like Pascal Editor."*
+
+**Deliverable:** [APPLICATION-PERFORMANCE-LEDGER](APPLICATION-PERFORMANCE-LEDGER.md) — full tables,
+probe output, the prioritised 21-row backlog (saving × confidence × blast radius), nine exact browser
+commands with what each outcome would prove, and an explicit NOT-REACHED register.
+**No source code was changed in this lane.** Sibling lane PERF1 (`L-2150…L-2152`, `46b14397`,
+ADR-0338) owns the frame loop and the pick path; this lane started from its findings and covers the
+rest of the application. **Two of PERF1's framings are corrected below, with the measurement that
+forced each.**
+
+### ⭐ L-2500 — CONFIRMED: `OutlineNode` never bails, and PRYZM wires TWO of them, from boot, forever
+
+PERF1's #1 suspect, verified in `three@0.183.2` source but not in the pipeline. Now verified by
+driving the real `OutlineNode` class from the real vendored build with a counting stub renderer.
+
+**MEASURED — one node, EMPTY selection, per `updateBefore()`:**
+
+```
+scene meshes | full renderer.render() | renderObject() submissions | quad renders | RT switches
+         500 |            2           |            500            |      7       |     10
+        1000 |            2           |           1000            |      7       |     10
+        2000 |            2           |           2000            |      7       |     10
+        3898 |            2           |           3898            |      7       |     10   <- founder's sceneMeshes
+        8000 |            2           |           8000            |      7       |     10
+return value: undefined  (NO bail signal)   updateBeforeType: 'frame'
+```
+
+`OutlinePass.ts:112` and `:137` wire **two** such nodes, so double every row. And
+`initScene.ts:3377-3379` calls `activateOutlines()` **unconditionally on every real-WebGPU session**,
+with no `deactivateOutlines()` on any idle path — **so this is paid from the first frame after boot,
+selection or no selection.**
+
+**The full per-frame census, phase 4, nothing selected:** ScenePass (1 walk, ~3898 submissions) +
+ZonePass (1 walk, few) + 4 outline walks (2 of which submit 3898 each, 2 of which submit 0) + 14
+fullscreen quads = **6 full scene-graph walks and ~11 694 submissions, of which 7 796 (67 %) exist to
+draw a violet edge around nothing.**
+
+**The fix is safe and does NOT risk the ~15 s all-material recompile** that made PERF1 leave it alone.
+Three's own dispatcher has a first-class skip — `NodeFrame.updateBeforeNode`:
+`if ( node.updateBefore( this ) === false ) { nodeUpdateBeforeMap.frameId = previousFrameId; }`.
+Returning `false` touches no material, no shader, no pipeline layout. **MEASURED with a bail: 0
+renders, 0 submissions, 0 quads, 0 RT switches, at every N from 500 to 8 000.** The bail must be **one
+frame late** — the composite reads the outline target every frame, so bailing on the frame the
+selection empties would freeze the previous outline as a ghost.
+
+### ⭐ L-2501 — TWO CORRECTIONS to the brief that commissioned this lane
+
+**(a) It is 2×N extra draw calls, not 4×N.** Four full-scene *walks* is right, but the two passes have
+**opposite predicates** (`OutlineNode.js:466-494`): pass 1 submits everything **not** in the selection
+cache (= all 3 898 when idle); pass 2 submits everything **in** it (= 0). Per node: 2 walks, **one
+walk's worth of submissions**.
+
+**(b) `7591 ≈ 2 × 3898` is numerology.** See L-2502 — on WebGPU that number is not a draw-call count
+at all, so it can corroborate nothing. **The hypothesis is confirmed on its own probe, not on that
+arithmetic.**
+
+### ⭐ L-2502 — THE INSTRUMENT IS MISLABELLED: on WebGPU, PRYZM's `drawCalls` is a CUMULATIVE render-invocation counter
+
+MEASURED from the vendored `three@0.183.2`:
+
+- `info.render.calls` — `three.webgpu.js:58179`; the class's own JSDoc at `:30900` says *"the number
+  of render calls **since the app has been started**"*. `Info.reset()` (`:30988-30998`) zeroes
+  `drawCalls`, `frameCalls`, `triangles`, `points`, `lines` — **it does NOT zero `calls`.**
+- `info.render.drawCalls` — `:30959` — **the real per-frame draw-call count.**
+- `info.render.frameCalls` — `:58180` — render calls this frame.
+
+**PRYZM reads the wrong one in both places:** `initScene.ts:3695-3696` (`?.info?.render?.calls`,
+logged as `§PERF-L02-DRAWCALLS drawCalls=…`) and `pryzmPerfConsole.ts:138` (`drawCalls:
+info.render?.calls`), printed at `:724` with the label `← LAST RENDERED FRAME`, **which is false for
+that row.** On `webgl-classic` the same field *does* mean per-frame draw calls
+(`three.module.js:17483`), so **the same line means two different things on two backends and nothing
+says which.**
+
+⚠ This does **not** weaken PERF1's "draw-call bound, not geometry-bound" conclusion — L-2500 puts
+~11 694 submissions on an idle frame against 470 720 triangles. It means **the number 7591 must stop
+being quoted**, and ADR-0338 §1's *"7589 draw calls"* row needs re-measuring. **This lane did not
+re-measure it.**
+
+### L-2503 — the view-switch outline guard is a NO-OP, and its own comment says it works
+
+`RenderPipelineManager.ts:1279-1310` sets `this._outlinesActive = false` around `rp.render()` when
+`_viewSwitchInProgress`, with the comment *"Temporarily masking `_outlinesActive` via the flag avoids
+this."* **MEASURED:** all three consuming reads (`:3505`, `:3649`, `:4927`) are inside pipeline **BUILD**
+methods (`_buildPipeline` `:3466`, the phase-3 composite `:3629`, `_rebuildPipelineGraphOnly` `:4863`).
+**Nothing reads the flag during `rp.render()`; `OutlineNode` has never heard of it.** The guard
+suppresses nothing — three lines below a large corrected comment in the same method warning about
+exactly this class (C84 §3.5.1 axis (d); the L-809/L-812 shape).
+
+### ⭐ L-2504 — `CreateWallCommand` deep-clones the ENTIRE wall store, once per wall, for an undo path that cannot run
+
+`CreateWallCommand.ts:446` calls `ctx.stores.wallStore.getAll()`, and `WallStore.ts:340-342` is
+`Array.from(this.walls.values()).map(cloneWallData)` — **not** a reference copy (`:63-96`: spread +
+4 fresh Vec3s + `openings.map` + `layers.map` + ≥4 `Object.freeze`). **Creating N walls performs
+`N(N−1)/2` deep clones.**
+
+Three facts make it pure waste on load: `_neighbourSnapshot` is read **only** inside `undo()`
+(`:627-628`); `CommandManagerImpl.ts:655` records *"PROJECT_LOAD: no undo push (Contract 20 GAP-3)"*
+and `ProjectLoader.ts:2643` calls `clearHistory()` anyway; and ⭐ **the identical guard already exists
+200 lines above in the same function** — `CreateWallCommand.ts:245`'s C83 gate is suppressed via
+`_c83Suppressed = __pryzmProjectLoadActive || __pryzmBuildingGenActive`.
+
+MEASURED clone cost (faithful replica of `WallStore.ts:63-96`, node v24.15.0): plain wall
+**1.36-7.63 µs**, layered wall **3.98-17.34 µs**. PROJECTED total: **0.56 s @ 500 walls · 2.2 s @ 1 000
+· 10.0 s @ 2 112 · 20.2 s @ 3 000** (layered). **Mechanism MEASURED · magnitude PROJECTED · the
+founder's N UNMEASURED.** And `WallStore` is the **only** store that deep-clones in `getAll()` —
+`SlabStore` carries the comment *"O(N) array construction only, no per-element deep clone"*.
+
+### ⭐ L-2505 — `WallStore.add()` is where a batch stops being a batch — a MEASURED quadratic
+
+The `*.batch.create` path genuinely collapses the Immer produce, the undo entry, the store-event
+flush and render suppression. It does **not** collapse the `wall.created` fan-out
+(`CommandEventBridge.ts:343`, one emit per element), so N × (VDT register + bimManager register +
+legacy `WallStore.add()` + a `console.log` at `initTools.ts:1288`) still runs.
+
+Inside `add()`, with k walls already on the level: a rebuilt `siblings[]` (`:437-442`) plus two O(k)
+geometric scans — `deriveJoinIntent` (`:445`) and `retreatOntoHostFaces` (`:494`). MEASURED with real
+imports:
+
+```
+N=  50  TOTAL   5.2 ms | deriveJoinIntent   1.4 | retreatOntoHostFaces   3.5 | copies=1225   | 0.103 ms/el
+N= 200  TOTAL  32.1 ms | deriveJoinIntent   8.2 | retreatOntoHostFaces  15.5 | copies=19900  | 0.161 ms/el
+N=1000  TOTAL 368.0 ms | deriveJoinIntent 144.2 | retreatOntoHostFaces 216.6 | copies=499500 | 0.368 ms/el
+```
+
+`499 500 = N(N−1)/2` exactly, and **ms/element rises linearly with N.** The comment at `:429` states
+the per-call cost (*"Cost: O(k)"*) honestly and never notes the aggregate.
+Also: `resolveLevel` cold is **~0.5 s on a 1 000-wall level** (the memo at
+`WallJoinResolveMemo.ts:180` hid this until the probe forced misses) — and
+`beginGenerationResolveCoalesce` has **one** production caller (`ResidentialBuildingExecutor.ts:808`);
+`HouseLayoutExecutor.ts` never opens it, and **no executor ever calls `endGenerationResolveCoalesce`**,
+so closure relies on `_GEN_TERMINAL_QUIET_MS = 1_500` — **a fixed 1.5 s dead-wait per generation**.
+
+### ⭐ L-2506 — `EdgeProjectorService`: 99.6 % of every crop-drag re-projection is provably identical work
+
+`computeClipSignature` (`:1837`) sees only `sectionVolumeBox` + near/far, and
+`resolveSectionVolumeBox` (`:1134`) **returns `null` on its first line for anything not
+`section`/`elevation`** (`:1140`) and otherwise reads only `crop.region[*][1]` — the **vertical**.
+So: **plan-family crops are 100 % projection-invariant**, the **horizontal** crop is 100 % invariant
+everywhere, and only the **vertical** crop is a genuine input.
+
+MEASURED split at 1 800 tris/group (calibrated against the file's own *"~12ms/group"* at `:2458`),
+N = 359:
+
+```
+CROP-INVARIANT (EdgesGeometry + applyMatrix4 + merge) : 4936.7 ms  (99.6%)
+CROP-DEPENDENT (classification banding)               :   21.7 ms  ( 0.4%)
+TOTAL per re-projection                               : 4958.4 ms  (13.81 ms/group)
+with a stage-split cache, one crop step               :  186.8 ms  -> 26.5x  (up to 228x)
+```
+
+⭐ **The 20 `CANCEL-SUPERSEDED` messages are the system working, not the bug.** A chunk is ~72 ms and
+crop events arrive every 80 ms (`PlanViewInteraction.ts:1696`), so each cancelled pass completes ~4 of
+359 groups (1.1 %) — twenty cancels waste ~1.1 s, not ~99 s. **The bug is that a successful pass costs
+4.9 s and the invalidation policy demands one every 80 ms.** And re-projection fires on
+`vd:view-updated` for **any** view-definition change — its own comment at `PlanViewManager.ts:927`
+names *"crop / scope drag, range edit, rename"*. **A rename re-projects 359 groups.**
+
+### ⭐ L-2507 — two caches in series with EXACTLY OPPOSITE crop policies, so one is always 100 % cold
+
+`NativeElementMeshExporter`'s proxy cache keys on `cropKey` — the plan crop at 2 cm precision, or
+`'full'` (`:359-364`). `EdgeProjectorService`'s projection cache keys on `clipSignature` — vertical
+crop for elevation/section, nothing for plan.
+
+```
+                     plan family                   elevation / section
+NME  (cropKey)       crop-SENSITIVE   -> 100% MISS  crop-INDEPENDENT -> HIT
+EPS  (clipSignature) crop-INDEPENDENT -> HIT        crop-SENSITIVE   -> 100% MISS
+```
+
+**Whichever family the founder drags a crop in, exactly one of the two goes fully cold** — and neither
+team can see the other's policy from its own file. `exportForView` also runs **outside** the supersede
+check (`PlanViewManager.ts:993`), so a cancelled pass has already paid for it in full.
+Sibling of `[[three-invalidation-gates-in-series]]`, with the gates in **opposition** rather than in series.
+
+### ⭐ L-2508 — a snapshot's size tracks EDIT HISTORY, not the model — 95 % of the founder's 16.6 MB is not his building
+
+The serialiser is **not** the problem: it copies parameters, never geometry, and MEASURED per-element
+output is **1 133 B** (1 opening, 3 layers) — 287 KB for 259 elements. But `SaveOrchestrator.ts:180`
+records the founder's own **793 elements → ~16.6 MB** = 20.9 KB/element. **~15.7 MB is not element
+data.**
+
+`ProjectSerializer.ts:1387` is `temporalGraph: temporalGraphManager.serialize()`, and
+`TemporalGraph.ts:324-330` returns `mutations: [...this._mutations]` — a full copy of an **append-only
+log** — into **every** snapshot. `MAX_MUTATIONS = 200_000` (`:71`) is **warn-only** (`:391-394`): it
+logs *"Consider archiving old project versions"* and keeps pushing. At 267 B/record:
+**1 k → 0.25 MB/snapshot · 10 k → 2.55 · 100 k → 25.5 · 200 k → 50.9 MB**, and with
+`MAX_VERSIONS_STORED = 20` (`ProjectRepository.ts:141`) the stored total is **up to 1 018 MB and
+O(n²) in log length.** 15.7 MB ÷ 267 B ≈ **59 000 mutation records.**
+
+⚠ **The brief's claim that `:1387` "embeds a full copy in each of 20 snapshots" was WRONG as written**
+— there is no `20` in that file — **but it named the right line.**
+
+### ⭐ L-2509 — `_versionMirror` CONFIRMED, and worse: it eagerly warms EVERY project the user has ever saved
+
+`VersionCacheStore.ts:52` — `const _versionMirror = new Map<string, string>()` — module-level.
+Complete mutation inventory: `.set` at `:127` / `:174` / `:183`, `.get` at `:157`, `.delete` at
+**`:203` only**, and **`.clear()` does not exist**. The single `.delete` is
+`deleteVersions(projectId)` — project **deletion**. **Nothing evicts on project switch, close, view
+change, sign-out or `bim-project-cleared`.**
+
+And `warm()` (`:123-128`) **cursors the ENTIRE `versions` object store**, called by
+`warmVersionCache()` which `ProjectRepository.ts:363-365` documents as running *"once on hub mount …
+and again right before opening a project"*. **Opening the hub loads every project's full compressed
+20-version history into a module Map and it stays for the session.** `_versionBlobCache`
+(`ProjectRepository.ts:184`) is identical. Retention = **Σ over ALL projects, × 2**.
+⭐ `VersionCacheStore` is the outlier: `EdgeProjectorService.clearCwProjectionCache()` (`:2170`) and
+`NativeElementMeshExporter.clearCache()` (`:195`) **are** wired to project teardown — the fix pattern
+already exists in-repo, twice.
+
+### ⭐ L-2510 — a 5.9 MB parser-blocking `<script>` sits ABOVE the landing skeleton, in production only
+
+```
+$ head -6 dist/index.html
+  <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
+  <script src="/cesium/Cesium.js"></script>          <- line 5. no defer. no async. no type=module.
+$ ls -l dist/cesium/Cesium.js | awk '{print $5}'  -> 5909848
+$ gzip -c dist/cesium/Cesium.js | wc -c           -> 1728354
+```
+
+It is **not** in the source `index.html`; `vite-plugin-cesium` (`vite.config.ts:5`, `:181`) injects it
+and Vite head-prepends it — **above the inline boot CSS at line 21**, so the "paint-on-first-byte"
+skeleton documented at `index.html:66-77` cannot paint until 5.9 MB has downloaded, parsed and
+executed. ⚠ **It exists only in production** (`if (isBuild && !rebuildCesium)`), so profiling
+`npm run dev` will never show it. And the `vendor-cesium` manualChunk at `vite.config.ts:293` is
+**dead code** — the plugin marks cesium `external`, so `ls dist/assets/ | grep -i cesium` finds only
+PRYZM's own 231 857 B wrapper. **No `vendor-cesium` chunk was ever emitted.**
+
+**Total paid before first paint: 24 457 491 B raw / 5 935 804 B gzip** across 9 files — 65 % of the
+whole `dist/assets` tree plus the 5.9 MB extra, proved from the emitted bytes
+(`head -c 3000 dist/assets/main-D2Ap4tqs.js` shows static imports of `domain-engine`, `vendor-three`,
+`vendor-thatopen`, `vendor-web-ifc`, `vendor-three-bvh`). ⭐ **`src/main.ts:9-11` claims the opposite:**
+*"Only platform-layer imports here. The engine bundle (Three.js, @thatopen, web-ifc, Cesium, …) is
+deferred via dynamic import."* Three of the four are static; Cesium is worse than static.
+`grep -oF "jurisdiction" dist/assets/main-D2Ap4tqs.js | wc -l` → **330** — the Spanish planning-law
+corpus is on the pre-paint path too.
+⚠ `dist/` is dated 2026-08-18; the config still produces it. **Re-check after the next build.**
+
+### L-2511 — the frame loop is CLEAN, and that is the finding that redirects the search
+
+`grep -n "\.traverse(" packages/core-app-model/src/rendering/UnifiedFrameLoop.ts` → **0**; same for
+`RenderPerformanceService.ts`. All seven traversals in `RenderPipelineManager` are event-driven
+(`scheduleShadowRebuild`, `_applyShadowFreezeState`, `auditShadowCasters`,
+`_neutralizeTransmissionForWebGPU`, `logShadowDiagnostics` ×2, `_recreateLightOwnedShadowMaps`).
+**None per-frame.** A 123-site nested-scan sweep across `apps/editor/src`, `packages/**/src`,
+`plugins/**/src` found **no second 550 ms-class quadratic on an interaction clock.**
+
+⭐ **So navigation stutter is not `scene.traverse`.** It is L-2500's six scene draws plus PERF1's five
+O(model) reads on the **pointer** clock. **Three clocks — frame, pointer, edit — three owners.** They
+should stop being discussed as one problem, and the Scene Registry (ADR-0338 §2) is the right answer
+to the *edit* clock, not to this week's complaint.
+
+⚠ **And the census itself is a worked example of why counts rot.** Four figures were produced for one
+quantity in one session: **316** (`\.traverse(|traverseVisible(`, tests excluded), **332** (`traverse(`,
+no leading dot), **479** (including tests), **363** (a sibling sub-lane's pattern) — and ADR-0302's
+**~120**. **Quote the command or do not quote the number.**
+
+### L-2512 — three honest negatives, recorded so they are not re-audited; and one that is not
+
+**CLEAN, measured:**
+- **`setInterval` is perfectly balanced** — 17 construct sites, and every file containing one also
+  contains a `clearInterval(`, checked file by file.
+- **Observers are near-balanced** — 11 constructed vs **20** `.disconnect()`; the 3 exceptions
+  (`DockingLayout.ts:142`, `ProjectBrowserPanel.ts:335`, `initScene.ts:1827`) are **one-shot at boot,
+  not per-switch**.
+- **`.subscribe(` is disciplined** — disposers captured at every site sampled. **Zero top-level
+  `await` repo-wide.** View switch (`ViewController._cleanupAllListeners:1298-1303`) and tool
+  activation (`ToolManager.ts:543` → `:1129-1132`) genuinely tear down.
+- **The `init*` files are NOT a per-switch leak** — one-shot `ensure()`; their 68 net window listeners
+  are boot cost.
+
+**NOT clean:** `x.on(` = **260** across 63 files in `apps/editor/src` against `.off(` = **8**, and
+**all 8 are maplibre**. There are **zero** `.off()` calls against the PRYZM runtime bus anywhere in
+`apps/editor/src`; every one of the 260 discards the returned `Disposable`. `ImportManagerPanel.ts:120`
+subscribes to **`pryzm-project-switch` itself** — a handler for the switch event that survives the
+switch. And `buildPersistence.ts:342-345` shows `closeProject()` in full: `projectContext.clear()` +
+`setStatus({kind:'idle'})`. **No dispose, no abort, no listener removal — close-without-reopen frees
+nothing**, which is a category the standing *"GPU disposal is strong (ADR-0297)"* position may not
+cover. ⚠ Cross-domain: belongs to whoever owns `ProjectLifecycleController`.
+
+**What this lane did NOT reach** is registered in
+[APPLICATION-PERFORMANCE-LEDGER §11](APPLICATION-PERFORMANCE-LEDGER.md) — the GPU half of L-2500,
+`EdgeProjectorService` stages 8-10, `resolveLevel`'s exponent, the founder's actual wall count, and
+above all **§10.2, the live A/B that is the only thing converting any of this into a felt
+improvement. If it comes back flat, row #1 is over-ranked and this ledger must say so.**
