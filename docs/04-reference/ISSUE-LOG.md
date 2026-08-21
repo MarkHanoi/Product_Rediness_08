@@ -27754,3 +27754,190 @@ ways.
 * **Other level-reconcile consumers were not audited.** Slabs (`triggerRebuild`) and the
   `DETERMINED-STRANDED` kinds (roofs, per C72 §5.1) have their own paths and their own staleness
   question, untouched here.
+
+---
+
+## §INSPECT — the black windows, and the fourteen categories nobody could map (L-2030 … L-2035)
+
+> **Lane INSP1 · 2026-08-21 · founder report on production `071a7b2c`, WebGL.**
+> *"Check this small bug — in Inspect mode, some windows render in black — this should not be the
+> case. Also in Inspect mode all categories should be mapped — all architecturally sound."*
+> Commits `9326b5f0` (L-2030…L-2034) and `bb7ddedc` (L-2035).
+
+### L-2030 — 🟢 FIXED — the windows were not badly coloured. They were the ONLY elements NOT coloured.
+
+**Measured, `apps/editor/src/engine/inspect/DiagnosticMaterialManager.ts` before the fix:**
+
+```ts
+let ancestor: THREE.Object3D | null = obj.parent;
+while (ancestor) {
+  const aType = ((ancestor.userData?.elementType ?? '') as string).toLowerCase();
+  if (aType === 'door' || aType === 'window') return false;   // ⛔
+  ancestor = ancestor.parent;
+}
+```
+
+`return false` in `_applyGhostToNonRoomMesh()` means **apply no ghost material at all**. Every other
+mesh in the model is replaced with a translucent ghost (structural `0.10`, everything else `0.04`,
+all `depthWrite:false`). Doors and windows were therefore **the only element families still wearing
+their AUTHORED, fully opaque materials** in the `ghost`, `spatial`, `openings`, `finishes` and
+`assets` lenses. An opening is then the only opaque, depth-writing thing in the frame — a solid
+silhouette punched through the X-ray. That is the founder's own diagnosis, exactly: *"clearly not
+part of the colour mapping."*
+
+**⚠ THE SKIP WAS ITSELF A "FIX", AND THAT IS THE INTERESTING PART.** The file header records it as
+*"Fix 2 — Ghost profile walls from door/window sub-meshes … Visible ghost profiles (4% white) appear
+over door openings"*. The symptom was real: a `fine`-LOD window is **twelve** sub-boxes (frame,
+mullion, transom, sash, bead, per-cell panes, sill), and twelve stacked `0.04` layers accumulate to
+`1 − 0.96¹² ≈ 0.38` where a one-or-two-mesh wall at `0.10` reaches `≈ 0.19`. **The remedy was the
+error: it answered "too bright" with "not at all".**
+
+**The rule that replaces it: ghost weight is a property of the ELEMENT, not of the mesh count the
+builder happened to use.** Openings ghost at `GHOST_OPENING_OPACITY = 0.015`
+(`1 − 0.985¹² ≈ 0.166`, i.e. a wall's weight) and get **no cyan edge overlay** — twelve
+`EdgesGeometry` outlines per window *is* the ghost-profile artefact Fix 2 was reacting to. The
+decision now lives in `apps/editor/src/engine/inspect/ghostParticipation.ts`, a pure THREE-free leaf
+module, so it is testable without a scene: `__tests__/InspectOpeningsParticipate.test.ts`, 8 cases,
+case 1 fails on the old code.
+
+**⚠ WHAT IS *NOT* MEASURED, and must not be read as measured:** *why the silhouette reads BLACK
+rather than its authored colour.* Two candidate mechanisms were checked and **ruled OUT**:
+the authored frame colour is `#e8e8e8` (`windowFinishColour.ts`, `WINDOW_COLOR_SENTINEL`) and the
+darkest catalogue frame is `#a8b0b8` (`WindowSystemTypeStore.ts`), so no window is *authored* black;
+and `grep -n 'receiveShadow\|castShadow' packages/geometry-window/src/WindowBuilder.ts` → **0 hits**,
+so "fully shadowed" — the L-1940 shape — is not it either. One candidate could **not** be ruled out
+without a browser: the glazing is `MeshPhysicalMaterial{ transmission: 0.9 }`, and the ghost pass
+moves every other surface into the transparent queue, which empties `opaqueObjects` for three.js's
+transmission pass. **The fix does not depend on which term dominates** — after it, the window
+carries the ghost material and cannot show one pixel of its own shading. **Browser confirmation is
+still owed.**
+
+### L-2031 — 🟢 FIXED — an invisible selection proxy was being made visible
+
+`WindowBuilder._convertGroupToInstances()` (and the wall/column instanced paths) leave **one
+invisible hit-proxy per element** — `userData.role = 'hit-proxy'`, `MeshBasicMaterial{ colorWrite:
+false, depthWrite: false }` — purely so raycast selection still resolves the group after its real
+sub-meshes have been folded into an `InstancedMesh`. Three Inspect entry points overwrote that
+material:
+
+* `applyGhostWithFocus()` → `_applyClearWorldGhost()` → a **visible** `MeshPhongMaterial` at 6%;
+* `applyAttributeHeatmap()` — worse: the proxy's ancestor walk resolves to its element's id, so it
+  took the heat colour at **opacity 0.9**, painting a solid window-sized box over the very element it
+  exists to let you click.
+
+`resolveGhostRole()` now returns `skip-hit-proxy` and all three sites honour it. **A mesh whose whole
+contract is "never drawn" is never a ghost subject.**
+
+### L-2032 — 🟢 FIXED — six categories were wired; twenty exist; the shortfall was SILENT
+
+**Measured 2026-08-21** —
+`grep -c '^\s*window\.\w*Store\s*=' apps/editor/src/engine/init*.ts` → **45** store globals, of which
+**20 are element families**. `ELEMENT_TYPE_LABELS` declared **six**: rooms, walls, doors, windows,
+slabs, columns.
+
+**Coverage table, as it stood:**
+
+| state | count | families |
+|---|---|---|
+| **WIRED** (dropdown + matrix + 3D focus) | 6 | rooms · walls · doors · windows · slabs · columns |
+| **ABSENT** (store exists, no category at all) | 14 | floors · ceilings · roofs · beams · openings · curtainWalls · curtainPanels · stairs · stairRailings · handrails · lifts · furniture · lighting · plumbing |
+| **DELIBERATELY EXCLUDED** (now stated with a reason) | 25 | grid · roomBoundingLine · annotation · projectOrigin · constraint · the four `*SystemTypeStore` catalogues · 16 document/view/platform stores |
+
+**⭐ The count is not the defect. The SILENCE is.** A hand-written six-entry object degrades every
+time the model grows and says nothing, anywhere. So:
+
+* the category list is now **ONE declaration** — `apps/editor/src/ui/inspect/audit/inspectCategories.ts`
+  — and `ELEMENT_TYPE_LABELS` / `ELEMENT_TYPE_ICONS` / `storeKeyForType` are **derived** from it;
+* `__tests__/InspectCategoryCoverage.test.ts` **ARM A** reads the same `window.<x>Store =`
+  assignments out of the engine bootstrap and fails when one has neither a category row nor a
+  reasoned `NON_ELEMENT_STORE_GLOBALS` entry. It compares **SETS, never a count** — a correct count
+  with the wrong membership is the failure mode this repo keeps rediscovering. It also asserts it
+  can *find* more than ten globals, so it cannot pass vacuously if the regex or the bootstrap moves.
+
+**A second, quieter half of the same defect: the 3D lens was guessing the mesh type.**
+`applyGhostWithFocus()` derived the `userData.elementType` to match by
+`elementType.toLowerCase().replace(/s$/, '')`. Right for `walls → wall`; **wrong, silently, for every
+hyphenated or irregular family** — `curtainWalls → curtainwall` (builders stamp `curtain-wall`),
+`furniture → furnitur`, `stairRailings → stairrailing`. Those would have focused **nothing**.
+`meshTypeForCategory()` now states it, and the UI puts it in the event payload (ARM B).
+
+### L-2033 — 🟢 FIXED — the Inspect panel held TWO room-attribute ladders, and they disagreed
+
+The dropdown the user **chooses** from was built from `ELEMENT_ATTRIBUTES.rooms` — **21 attributes**.
+The list the user **reads** was rendered by `extractRoomAttrValue()` in `DiscoveryModeZone.ts` — a
+switch handling **8 keys**, `default: return null`.
+
+**So thirteen of twenty-one room attributes were selectable and unreachable.** Pick *Slab Count*,
+*Openings*, *Rooms Above*, *All Contents*, *Gross Area*'s siblings — every row printed `—`, under a
+full `Low → High` legend. And where the two overlapped they gave **different answers**: Clear Height
+is `computed.clearHeight ?? boundary.height` in one and `boundary.height` alone in the other. Same
+label, same panel, two ladders.
+
+`renderDiscoveryMode()` now calls the ONE ladder (`getActiveAttrOption(...).extract`).
+`extractRoomAttrValue` is marked `@deprecated` and kept only because it is exported and covered by
+existing specs; **it must not acquire a caller inside that file again.**
+
+### L-2034 — 🟢 FIXED — the attribute table was hand-written, and an unmappable category drew a ramp anyway
+
+Two halves, both from [[context-data-honesty-family]] — *failure and emptiness were the same value.*
+
+**(a) The table.** `ELEMENT_ATTRIBUTES` is hand-written, so a family with no row had **nothing** to
+be mapped by. It is now demoted to a **curation layer** (labels, units, formatting for fields we can
+name) over a base **derived from the records the panel actually reads**: every top-level finite
+number on any record becomes a mappable attribute, labelled from its own field name
+(`deriveNumericAttributes`). **⚠ Derived from the RECORDS, not from the L0 Zod schema — deliberately.**
+The panel renders records; deriving from the schema would derive from a *different* authority than
+the one rendered, which is L-2033's defect re-minted one layer up.
+
+**(b) The ramp.** `buildHeatmapData()` returned `[]` for *"no elements"*, *"attribute is a label"*,
+*"store unreadable"* and *"nobody measured this"* alike, and both surfaces drew the `Low → High`
+legend regardless. **A legend is a CLAIM that the colours below encode a value.** Drawn over a column
+of dashes it reads as *"all values are equal"*. `buildAttributeMapping()` now returns a discriminated
+`status` — `no-store` · `no-elements` · `no-attribute` · `not-numeric` · `unmeasured` · `mapped` —
+and `renderAttributeRefusal()` prints the reason **instead of** a swatch, e.g.
+*"⌀ NOT MAPPED — "Length" has no measured value on any of the 42 beams. This is UNKNOWN, not zero."*
+**All-zero still maps** (a real answer, flat ramp, said so in words); partially-measured maps and
+paints the unmeasured members `0x888888`, deliberately outside the violet brand ramp. ARM C pins all
+five distinctions.
+
+### L-2035 — 🟢 FIXED — the lens remembered a family the panel had already left
+
+`_focusedElementType` was set by `applyGhostWithFocus()` and cleared **only** by `restore()` — that
+is, by leaving Inspect entirely. But `_applyLensImmediate()` branches on it. So once the user focused
+**any** non-room category, switching back to Rooms re-applied ghost-with-focus **on the old family**
+for the rest of the session: room volumes stayed ghosted and the room heat map never came back.
+`clearElementFocus()` added and called on the `'rooms'` branch, before `applyLens`.
+
+### What was RUN, and its actual output
+
+* `pnpm --filter @pryzm/editor exec vitest run __tests__/InspectOpeningsParticipate.test.ts
+  __tests__/InspectCategoryCoverage.test.ts` → **Test Files 2 passed · Tests 23 passed**.
+* `pnpm --filter @pryzm/editor exec vitest run __tests__/runtimeEventBridge.deferral.test.ts
+  __tests__/userNamedEntityXssEscaping.test.ts` → **2 passed · 26 passed** (the adjacent suites that
+  import these modules).
+* `npx vitest run apps/editor/src/ui/__tests__/auditCountHonesty.spec.ts` (root config) → **1 passed
+  · 5 passed**.
+* `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit --skipLibCheck` → **clean, no output**.
+
+### 🔴 What remains UNPROVEN — do not read this lane as closing more than it did
+
+* **Nothing here was seen in a browser.** Every measurement is static or test-harness. The founder's
+  screenshot has not been reproduced, and **the exact shading term that renders the un-ghosted window
+  black is still unidentified** (see L-2030 — two candidates ruled out, one not).
+* **The fourteen new categories are wired, not exercised.** ARM A proves each family has a category
+  and a store key; it does **not** prove the panel's dropdown offers them in the live app, nor that
+  their records carry the fields the curated descriptors name. A wrong guess there degrades to an
+  honest refusal (L-2034) rather than a wrong number — which is the point of doing (b) before the
+  descriptors — but *"floors are mappable by area"* is **claimed, not measured**.
+* **`GHOST_OPENING_OPACITY = 0.015` is arithmetic, not a look.** It is derived to match a wall's
+  accumulated alpha at 12 sub-meshes. Whether that reads well at 4 sub-meshes (`coarse` LOD) or
+  against a dark background is a judgement no test here makes.
+* **`_restoreMaterials()` still hands back a CLONE, not the original** (`original.clone()`, line
+  ~455). Window/door/wall materials are SHARED and cache-owned (`WindowBuilder._sharedFrameMats`), so
+  one round-trip through Inspect replaces each shared material with a per-mesh clone: the builder's
+  in-place colour patch (`_patchMaterialsInPlace`) then no longer reaches the mesh, and
+  `InstancedElementRenderer`'s material-keyed group hash fragments. **Found, measured by reading,
+  NOT fixed — it is a separate defect with its own blast radius.** Next lane.
+* **Rooms are still the only category with a Discovery surface.** Non-room categories render the
+  polymorphic matrix. That is a real surface with heat bars and it is now honest, but it is not the
+  same affordance, and no decision was taken here about whether it should be.
