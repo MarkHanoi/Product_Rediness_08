@@ -18,6 +18,7 @@ export * from './WallFunction';
 // §FEAT-WALL-SIDE-FINISH — the per-side finish ladder, the render override and
 // the SIDE_CLASSIFICATION_UNKNOWN refusal. Pure; no store, no THREE, no DOM.
 export * from './WallSideFinishResolver';
+export * from './WallPaintSignature';
 
 // ── ADR-057 P1 (OI-053h) — rebuild delta classifier (openings-only fast path) ─
 export * from './WallDeltaClassifier';

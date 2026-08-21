@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, deferWork, type TickListenerDisposer, type DeferWorkCanceller } from '@pryzm/frame-scheduler';
-import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta, composeWallGeometryHash } from '@pryzm/geometry-wall';
+import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta, composeWallGeometryHash, composeWallPaintSignature } from '@pryzm/geometry-wall';
 import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
@@ -292,7 +292,20 @@ export class WallRebuildCoordinator {
         // `WallFragmentBuilder._rakeTag`, and still a memoization (a skipped wall
         // remains provably a no-op).
         const rj = rakeJointSig ? `|RJ[${rakeJointSig}]` : '';
-        return `${composeWallGeometryHash(wall, joinData, slabBaseOffset)}|y${worldY.toFixed(4)}|rm${rm}${rj}`;
+        // §WALL-FINISH-RENDERS (L-1670) — the wall's PAINT is a `buildWall` input
+        // (both arms consume `sideFinishes` / `materialColor` / layer colours since
+        // L-960), and this key is documented as "content key over EVERY input
+        // buildWall consumes" — yet it folded none of them. The founder set the
+        // interior finish on 59 walls; had the flush not already been swallowed by
+        // `_levelWallSig` (same commit, same fold), every one of the 59 would have
+        // been skipped HERE as "clean" and drawn unchanged. Not added to
+        // `composeWallGeometryHash` itself: that composer is the CROSS-SESSION
+        // GEOMETRY hash (vertex-relevant inputs only) and a colour change must not
+        // invalidate persisted geometry buffers — paint changes the material, not
+        // the mesh. This memo is in-memory per-session, so the key-shape change
+        // costs nothing. Still a memoization: a skipped wall remains a provable
+        // no-op, now over paint as well as geometry.
+        return `${composeWallGeometryHash(wall, joinData, slabBaseOffset)}|y${worldY.toFixed(4)}|rm${rm}${rj}|pt[${composeWallPaintSignature(wall)}]`;
     }
 
     /** §PERF-WALL-MOVE-INCREMENTAL-REBUILD — default ON; `false` restores the old unconditional rebuild. */
@@ -1365,7 +1378,9 @@ export class WallRebuildCoordinator {
      * §FIX-WALLFLUSH-NOPROGRESS-GUARD (L-97) — a cheap, stable signature of EVERY input the
      * whole-level `_flush` rebuild consumes: for each wall, id + baseline @ mm + thickness +
      * height + baseOffset + opening set (offset/width/sill/height) + layer thicknesses + curve
-     * control + material (id / colour). `_flush` (resolveLevel → footprint → miter-prism →
+     * control + the full paint signature (`composeWallPaintSignature`: material id/colour,
+     * per-layer colours, and both `sideFinishes` slots — §WALL-FINISH-RENDERS L-1670).
+     * `_flush` (resolveLevel → footprint → miter-prism →
      * hosted-child re-anchor + material) is a pure function of exactly these, so an unchanged
      * signature means a fresh flush can build nothing new. CRITICALLY it covers material /
      * height / baseOffset too, so a legitimate material or elevation edit (which leaves the
@@ -1387,7 +1402,21 @@ export class WallRebuildCoordinator {
                     .join(';');
                 const lys = (w.layers ?? []).map((l: any) => mm(l.thickness)).join(',');
                 const cv = w.curve ? `${mm(w.curve.control?.x)},${mm(w.curve.control?.z)}` : '';
-                const mat = `${w.materialId ?? ''}/${w.materialColor ?? ''}`;
+                // §WALL-FINISH-RENDERS (L-1670) — THE GATE THAT ATE THE FOUNDER'S EDIT.
+                // This signature's own header says it "CRITICALLY … covers material /
+                // height / baseOffset too, so a legitimate material … edit is NEVER
+                // suppressed" — but it folded only `materialId`/`materialColor`, not the
+                // L-960 paint inputs (`sideFinishes`, per-layer colours). A finish-only
+                // batch ("make all interior finish walls white paint", 59 walls) left
+                // every level's signature byte-identical, `anyProgress` stayed false,
+                // and the ENTIRE flush returned at the top — no classify, no buildWall,
+                // no pixels — while the chat truthfully reported the store write. Same
+                // defect shape as §WALL-RAKE-INVALIDATION directly below, one field
+                // family later, and the third recurrence of the L-813 gates-in-series
+                // lesson — so the fold is the ONE shared composer, not a hand-list:
+                // `composeWallPaintSignature` covers materialId/materialColor as well,
+                // superseding the old `m[id/colour]` fold rather than duplicating it.
+                const mat = composeWallPaintSignature(w);
                 // §WALL-RAKE-INVALIDATION (ADR-0310 follow-up) — the lean is a rebuild
                 // input, so it MUST be in the signature. It was not, and that was the
                 // founder's "the wall only gets angled after another element is created
