@@ -178,6 +178,25 @@ describe('§SECTION-3D-CAPABILITY — the bottom-bar Section control', () => {
         expect(tool.enabled).toBe(false);
     });
 
+    it('a backend swap under an ACTIVE cut can still be turned off ([[refusing-half-needs-its-escape-hatch]])', () => {
+        // Turn a section on under WebGL...
+        (window as any).pryzmRenderer = webglRenderer();
+        (window as any).pryzmRendererBackend = 'webgl-only';
+        const menu = new BottomActionMenu(STUB_PROPS);
+        findSectionButton(menu)!.click();
+        expect(tool.enabled).toBe(true);
+
+        // ...then the live swap moves us to WebGPU, where no cut is possible.
+        (window as any).pryzmRenderer = webgpuRenderer();
+        (window as any).pryzmRendererBackend = 'webgpu';
+
+        // The OFF path must still run. Refusing here would strand the tool
+        // enabled with its pointer handlers bound to the viewport.
+        (menu as any)._toggleSectionBox();
+        expect(tool.calls.disable).toBeGreaterThanOrEqual(1);
+        expect(tool.enabled).toBe(false);
+    });
+
     it('an active section reads as ON while it is live', () => {
         (window as any).pryzmRenderer = webglRenderer();
         (window as any).pryzmRendererBackend = 'webgl-only';

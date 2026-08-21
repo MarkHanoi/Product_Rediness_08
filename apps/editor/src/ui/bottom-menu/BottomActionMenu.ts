@@ -943,8 +943,14 @@ export class BottomActionMenu {
         // C06 §13.5 defence in depth — the disabled button attaches no click
         // listener, so this can only be reached programmatically or if the
         // backend swapped between render and click. Refuse, and say why.
+        //
+        // ⚠ The guard covers turning a section ON only. Turning one OFF must
+        // ALWAYS be permitted: if the backend swapped out from under an active
+        // cut, refusing the OFF path would strand the tool enabled with its
+        // pointer handlers still bound to the viewport — a refusal that leaves
+        // the user worse off than the thing it refused.
         const capability = this._sectionCapability();
-        if (!capability.available) {
+        if (!capability.available && !this._sectionBoxActive) {
             console.warn('[BottomActionMenu] §SECTION-3D — refused:', capability.reason);
             this._sectionBoxActive = false;
             this._render();
