@@ -4,9 +4,12 @@
  * Full vector PDF export path for a PRYZM Sheet.
  *
  * Pipeline per viewport:
- *   1. Retrieve cached TechnicalDrawing (ViewTechnicalDrawingCache).
- *   2. Feed it into SVGCompositeRenderer together with AnnotationStore data
- *      to produce a fully-composited SVG string (linework + poche + annotations).
+ *   1. `composeViewportSvg()` — THE one producer of "a view on a sheet"
+ *      (§SHEET-ONE-VIEWPORT-PRODUCER, L-1630). It reads the cached
+ *      TechnicalDrawing, frames it from its own content bounds, and composes
+ *      linework + poche + annotations into an SVG string. The sheet EDITOR
+ *      consumes the same call, which is what stops the placed view and the
+ *      exported view drifting apart (C06 §13.3).
  *   3. Parse the SVG string to a live DOM SVGSVGElement.
  *   4. Embed the SVGSVGElement into the jsPDF document at the viewport's
  *      paper-space position using svg2pdf.js — all lines, text, and fills
@@ -39,10 +42,8 @@ import { svg2pdf } from 'svg2pdf.js';
 import { sheetStore }                from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
-import { annotationStore }           from '@pryzm/plugin-annotations';
-import { SVGCompositeRenderer }      from './SVGCompositeRenderer';
+import { composeViewportSvg }       from './ViewportSvgComposer';
 import { applyPdfProvenanceAbsence } from '../provenanceAbsence';
-import { TechnicalDrawingBounds } from '@pryzm/core-app-model/views';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -127,22 +128,27 @@ class PdfExportServiceImpl {
 
             const drawing = viewTechnicalDrawingCache.get(vp.viewId);
 
-            // ── Compute actual viewport bounds from drawing geometry ───────────
-            // Prefer DrawingViewport.bbox (OBC v3.4 API); falls back to
-            // LineSegments traversal via TechnicalDrawingBounds.compute().
+            // ── Viewport bounds come from the drawing's own content ────────────
             let vpW = DEFAULT_VP_WIDTH_MM;
             let vpH = DEFAULT_VP_HEIGHT_MM;
-            let originX = 0;
-            let originZ = 0;
+
+            // §SHEET-ONE-VIEWPORT-PRODUCER (L-1630) — framing + composition are no
+            // longer computed here. They are computed once, in
+            // `composeViewportSvg`, which the sheet EDITOR now consumes too, so
+            // the placed view and the exported view can no longer disagree.
+            const composed = composeViewportSvg({
+                viewId: vp.viewId,
+                scale,
+                minWidthMm:  DEFAULT_VP_WIDTH_MM,
+                minHeightMm: DEFAULT_VP_HEIGHT_MM,
+                paddingM:    0.5,
+                pocheStyle:  DEFAULT_POCHE_VG as never,
+            });
 
             if (drawing) {
-                const bounds = TechnicalDrawingBounds.compute(drawing);
-                if (bounds) {
-                    const mm = TechnicalDrawingBounds.toMm(bounds, scale, 0.5);
-                    vpW = Math.max(mm.widthMm,  DEFAULT_VP_WIDTH_MM);
-                    vpH = Math.max(mm.heightMm, DEFAULT_VP_HEIGHT_MM);
-                    originX = bounds.minX - mm.padX;
-                    originZ = bounds.minZ - mm.padZ;
+                if (composed.resolved) {
+                    vpW = composed.widthMm;
+                    vpH = composed.heightMm;
                     console.log(
                         `[PdfExportService] bbox-driven viewport for viewId=${vp.viewId}: ` +
                         `${vpW.toFixed(1)}×${vpH.toFixed(1)}mm at 1:${scale}`,
@@ -169,32 +175,9 @@ class PdfExportServiceImpl {
                 continue;
             }
 
-            // Build SVGCompositeRenderer for this viewport
-            const viewBox = {
-                originX,
-                originZ,
-                widthMm:  vpW,
-                heightMm: vpH,
-                scale,
-            };
-
-            const renderer = new SVGCompositeRenderer(viewBox);
-
-            // Wall poche fills
-            renderer.buildWallPoche(drawing, DEFAULT_POCHE_VG as any, 'A-WALL');
-
-            // Projection linework from TechnicalDrawing
-            renderer.setTechnicalDrawing(drawing);
-
-            // Annotation overlay
-            const annotations = annotationStore.getByView(vp.viewId);
-            renderer.setAnnotations(annotations);
-
-            // Render to SVG string
-            const svgString = renderer.renderToSVGString();
-
-            // Parse SVG string → live DOM SVGSVGElement (DOMParser is pure; no live-DOM side-effect)
-            const svgEl = this._parseSvg(svgString);
+            // Parse the composed SVG → live DOM SVGSVGElement
+            // (DOMParser is pure; no live-DOM side-effect)
+            const svgEl = this._parseSvg(composed.svg);
             if (!svgEl) {
                 console.warn(`[PdfExportService] SVG parse failed for viewId=${vp.viewId} — placeholder rendered`);
                 this._drawViewportPlaceholder(pdf, vpX, vpY, vpW, vpH, vp.viewId);

@@ -183,6 +183,19 @@ export class SVGCompositeRenderer {
         return this._pochePolygons;
     }
 
+    /**
+     * §SHEET-ONE-VIEWPORT-PRODUCER (L-1630) — how many projection line segments
+     * were ingested by `setTechnicalDrawing()`.
+     *
+     * Exposed so `composeViewportSvg` can report "this composed N segments"
+     * without re-parsing its own output. A consumer that has to regex its way
+     * back through the string it just produced is a consumer that will
+     * eventually disagree with the producer.
+     */
+    get projectionLineCount(): number {
+        return this._projectionLines.length;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // DOC-3.3 — Technical drawing linework ingestion
     // ─────────────────────────────────────────────────────────────────────────

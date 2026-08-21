@@ -8,6 +8,7 @@
   "types": "./src/index.d.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./sheets": "./src/export/sheets/index.ts",
     "./server": "./src/server.js"
   },
   "files": [

@@ -4,9 +4,11 @@
  * Exports a PRYZM Sheet to a printable format using the browser print API.
  * Uses CSS @media print to render a full-page sheet layout.
  *
- * DOC-3.5: exportToPrint() now injects SVGCompositeRenderer output per viewport
- * so that print output shows real vector linework, wall poche fills, and
- * annotation overlays — not just placeholder boxes.
+ * DOC-3.5 / §SHEET-ONE-VIEWPORT-PRODUCER (L-1630): exportToPrint() composes each
+ * viewport through composeViewportSvg() — THE one producer shared with the PDF
+ * exporter and the sheet editor — so print output shows real vector linework,
+ * wall poche fills and annotation overlays, framed from the drawing's own
+ * content bounds rather than a fixed fraction of the paper.
  *
  * Contract compliance:
  *   §01      — Read-only; no store mutations, no Command routing
@@ -27,9 +29,7 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { sheetStore } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { titleBlockStore } from '@pryzm/core-app-model/views';
-import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
-import { SVGCompositeRenderer } from './SVGCompositeRenderer';
+import { composeViewportSvg } from './ViewportSvgComposer';
 
 const PRINT_STYLE_ID = 'pryzm-sheet-print-style';
 
@@ -307,8 +307,8 @@ class SheetExportServiceImpl {
 
         canvas.appendChild(tbEl);
 
-        // DOC-3.5: Viewports — inject SVGCompositeRenderer output when TechnicalDrawing is cached;
-        // fall back to labelled placeholder for views not yet projected.
+        // DOC-3.5: Viewports — composed vector output when a TechnicalDrawing is
+        // cached; labelled placeholder for views not yet projected.
         const usableW = template.paperWidth  - template.borderWidth;
         const usableH = template.paperHeight;
 
@@ -342,32 +342,22 @@ class SheetExportServiceImpl {
                 background: #ffffff;
             `;
 
-            // ── DOC-3.5: Try to embed real vector SVG from the cache ──────────
-            const drawing = viewTechnicalDrawingCache.get(vp.viewId);
-            if (drawing) {
-                const viewBox = {
-                    originX:  0,
-                    originZ:  0,
-                    widthMm:  vpWMm,
-                    heightMm: vpHMm,
-                    scale,
-                };
-
-                const renderer = new SVGCompositeRenderer(viewBox);
-
-                // Wall poche fills
-                renderer.buildWallPoche(drawing, { fillColor: '#333333', transparency: 0 } as any, 'A-WALL');
-
-                // Projection linework
-                renderer.setTechnicalDrawing(drawing);
-
-                // Annotation overlay
-                const annotations = annotationStore.getByView(vp.viewId);
-                renderer.setAnnotations(annotations);
-
-                // Render to SVG string and embed as a data URI <img>
-                const svgString = renderer.renderToSVGString();
-                const b64 = btoa(unescape(encodeURIComponent(svgString)));
+            // ── §SHEET-ONE-VIEWPORT-PRODUCER (L-1630) ─────────────────────────
+            // This block used to be a SECOND, DEGRADED copy of the PDF path's
+            // composition: it hard-coded `originX/originZ = 0` and sized the
+            // viewBox at a fixed fraction of the paper, so the drawing was framed
+            // about the world origin instead of about its own content, and the
+            // stated scale was not the scale printed. Two copies of a composition
+            // rule is how a third gets written — and how the sheet editor ended up
+            // with a bitmap. Both callers now share one producer.
+            const composed = composeViewportSvg({
+                viewId: vp.viewId,
+                scale,
+                minWidthMm:  vpWMm,
+                minHeightMm: vpHMm,
+            });
+            if (composed.resolved) {
+                const b64 = btoa(unescape(encodeURIComponent(composed.svg)));
                 const imgEl = document.createElement('img');
                 imgEl.src = `data:image/svg+xml;base64,${b64}`;
                 imgEl.style.cssText = 'width:100%; height:100%; object-fit:contain; display:block;';
