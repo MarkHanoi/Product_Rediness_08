@@ -115,6 +115,7 @@ export const layerElements = [
   { type: 'L0', pattern: 'packages/feature-flags/**' },    // [role]  leaf, "no DOM, no THREE, no Node globals"
   { type: 'L0', pattern: 'packages/a11y-tokens/**' },      // [role]  leaf, pure contrast/token tables
   { type: 'L0', pattern: 'packages/perf-budgets/**' },     // [role]  leaf, pure target list
+  { type: 'L0', pattern: 'packages/procedural-textures/**' }, // [role]  leaf, ZERO imports (asserted by its own test suite): pure mm->pixel arithmetic, no THREE, no DOM, no I/O. Placed at the FLOOR rather than L1 because a zero-dependency leaf's floor IS L0, and the strictest correct placement is the one that can never emit a false violation. Consumed from L1+ (renderer/material projection), which is downward and therefore legal.
 
   // ── L1 — primitives. ───────────────────────────────────────────────────────
   { type: 'L1', pattern: 'packages/command-bus/**' },      // [CLAUDE.md]
