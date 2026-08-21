@@ -303,7 +303,19 @@ export async function bootstrap(
             if (bimViewport) SceneTheme.setBackground(colorHex, world, bimViewport);
             window.renderPipelineManager?.setColor(colorHex);
         },
-    });
+    // §VIEW-INTENT-ASSIGN-DISPATCH-IS-DEAD (L-1860) — the runtime argument was
+    // MISSING here, so `this.runtime` was null and every
+    // `this.runtime?.bus?.executeCommand('vg.assignIntent', …)` in the panel
+    // evaluated to `undefined`. Picking a different visibility intent dispatched
+    // NOTHING and the dropdown snapped back to the previous value — the founder's
+    // "I am trying to select another view intent and it doesn't allow me".
+    //
+    // Same shape as §SHEET-MOVE-DISPATCH-IS-DEAD (L-1633), and the panel
+    // constructed immediately ABOVE this one already carries the identical
+    // `runtime ?? null` fix with an "R4 fix: inject runtime" note. One neighbour
+    // was repaired and this one was not, which is exactly how an optional-chain
+    // dispatch site stays dead: `?.` turns a wiring defect into silence.
+    }, runtime ?? null);
     window.viewPropertiesPanel = viewPropertiesPanel;
     window.runtime?.events?.on('view-selected', (payload: unknown) => { // F.events.8
         const view = (payload as { view?: object })?.view;
