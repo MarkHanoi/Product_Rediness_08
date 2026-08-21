@@ -27636,3 +27636,121 @@ recorded only because a relational dashboard makes exactly that query, and it wo
   cannot tell you.
 * **The surface decision was NOT validated against a running build.** It rests on reading
   `WorkspaceController.ts`, `WorkspaceModeBar.ts`, `RailPanelController.ts` and `DataWorkbench.ts`.
+
+---
+
+## L-2050 … L-2053 — ✅ ROOT CAUSE MEASURED + FIXED: move a level and **NOTHING rebuilt** — the wall build cache folded every term of `worldY` except the level's own elevation — 2026-08-21 (lane HOST1, commit `b044f43d`)
+
+**The founder (prod `071a7b2c`):** *"windows on raked wall don't stick when levels do."* Window
+frames floating free in space, detached from any wall, at wrong angles; some hanging mid-air over a
+balcony. The level moves themselves were the accidental datum-drags fixed the same day by lane ELEV1
+(§LEVEL-Z-IS-NOT-A-DRAG-TARGET, L-1868) — **but the hosting failure they exposed is real and
+independent.** A level move is a legitimate operation and hosted openings must survive it.
+
+### L-2050 — ⭐ THE DISCRIMINATOR IS **NOT** RAKE, AND SAYING SO IS THE FINDING
+
+Measured with the **real** `WallFragmentBuilder`, driven through the **exact** call
+`apps/editor/src/engine/initWallLevelSubscribers.ts` makes on a level reconcile —
+`updateWall(wall, null, renderMap)` — with the level moved 3.0 m to 4.3 m:
+
+```
+[PROBE vertical] rake=null base1=3 base2=3 moved=false delta=0
+[PROBE raked70]  rake=70   base1=3 base2=3 moved=false delta=0
+[PROBE forced]              base1=3 base2=4.3 moved=true
+```
+
+A **PLUMB** wall failed **identically** to a raked one. Rake is the **AMPLIFIER**, not the cause: a
+wall that leans stands at a different XZ at every height, so a leaf left at the wrong height is also
+at the wrong **place** and hangs in mid-air — while the same error on a plumb wall leaves the leaf in
+the façade plane merely too low, and nobody files that. **Curvature (`curved=7`) and multi-level were
+never reached**: the failure is already total at one straight, single-level, vertical wall.
+
+**The briefed yaw-only hypothesis is REFUTED.** `hostedElementFrame`'s `rotationY = -angleY` was a
+plausible root, but the rake path is **level-invariant by construction**: `WindowBuilder` passes
+`rakeTopOffset(rake, y - wallBaseY, dir)` where `y = hostedLeafCentreY(wallBaseY, sill, height)`, so
+the argument is `sill + height/2` — a height above the wall **base**, which a datum move cannot
+change. Refuting it was the cheapest part of the lane and it saved the expensive part.
+
+### L-2051 — THE ROOT: the ONE term of three that was missing from the key
+
+`WallFragmentBuilder._composeCacheKey` folded
+`_renderVersion | joinHash | slabBaseOffset | rake | openingProfile`. `_buildWallInternal` seats every
+wall at
+
+```
+worldY = level.elevation + slabBaseOffset + wall.baseOffset
+```
+
+Two of those three were already in the key — `slabBaseOffset` directly, `wall.baseOffset` via
+`_renderVersion`. **`level.elevation` was not**, and it is the only one of the three that can move
+with **no wall record changing**: `BimKernel.updateLevel` writes the LEVEL and fires
+`spatial-authority-reconcile`; no `WallStore.update` occurs, so `_renderVersion` is untouched. The key
+came out byte-identical, `_buildWallInternal` returned at the version guard, and **`publishWallBaseY`
+was never called.** This is the L-813 class again — *three invalidation gates in series* — and it is
+the **third** recurrence in this one function after `§WALL-RAKE-INVALIDATION` and
+`§OPENING-PROFILE-INVALIDATION` (L-1200).
+
+### L-2052 — ⭐ WHY THIS DESTROYS **HOSTED** OPENINGS SPECIFICALLY
+
+`SpatialAuthority.classifyForReconcile` classifies windows and doors **`DETERMINED-HOSTED`** and
+deliberately **EXCLUDES** them from the level reconcile, on the stated ground that they are *"re-
+rendered by the host wall's own rebuild"*. Their **only** re-seat channel is `onWallBaseYChanged`,
+which fires **only** from `publishWallBaseY` **inside a real build**. So one skipped wall rebuild
+silently severs the entire hosted chain — and `WindowBuilder` then reads the **stale** plane back out
+of `resolveWallBaseYOrLevel` and re-seats the leaf exactly where it already was.
+
+**Hosted transforms are DERIVED, not remembered.** No code path stores a hosted world position and
+patches it — the derivation is correct and was simply **never re-run**. That is worth stating plainly,
+because the brief's alternative ("re-seated against a stale host transform") is *nearly* right: the
+transform is stale, but it is stale in a **published datum registry** (`WallVerticalDatum`), not in the
+element record.
+
+### L-2053 — the slab term had to ship in the SAME commit, or the fix would be a worse bug
+
+The level path passed **no `slabBaseOffset` at all** (`builder.updateWall(wall, null, renderMap)` —
+three arguments). That was invisible only because the call never rebuilt anything. Folding the datum
+into the key makes the call **live**, and a live call with a missing slab term seats every wall on a
+raised slab `slabBaseOffset` metres too **LOW**, dragging its hosted openings down with it — turning a
+*stale* wall into a *wrongly-seated* one, which is worse because it looks deliberate. It now resolves
+through the same `resolveSlabBaseOffsetForWall(wall, slabStore)` the edit path uses
+(`WallRebuildCoordinator` :617, :1374, :2241, :2373, :2393), so the two paths cannot seat one wall two
+ways.
+
+### What was run, and what it actually printed
+
+* **`packages/geometry-window/__tests__/L2050LevelMoveReseatsHostedOpening.test.ts`** — new, **5
+  passed**. Geometry against geometry: the hole is read as a real y-break in the **wall's own vertex
+  buffers**, the leaf as its actual world transform from the real `WindowBuilder`. Asserts the raked
+  leaf lands on both hole planes after the move, that the move is **purely vertical** (rake
+  displacement is level-invariant, so XZ must not slide), and that the **cascade fired** —
+  `onWallBaseYChanged` notified twice, second value `4.45`.
+* **NON-VACUITY, measured** — with the key term reverted the same file fails **4 of 5**:
+  `expected 3.15 to be close to 4.45` and the leaf moving **0** instead of **1.3 m**.
+* **`@pryzm/geometry-wall`** — **1069 passed / 1 failed**. The failure
+  (`WJ1MovePropagateRecompute.measure.test.ts` → *"THE NON-VACUITY GUARD"*) is **PRE-EXISTING**,
+  proven by re-running that file against the reverted builder: **identical failure, identical
+  message**.
+* **`@pryzm/geometry-window`** — **158 passed / 4 failed**. All four are the
+  `WindowPlanSymbolBuilder.detailLevel` tests **already logged red at L-1924** by lane WIN1, before
+  this lane opened.
+* **`apps/editor/__tests__/RoofWallClashAnnounced.test.ts`** — **8 passed**; it reaches the changed
+  line (its `wallStore.getById` returns a wall and it asserts `updateWall` was called).
+* **Root `npx tsc --noEmit --skipLibCheck`** (`NODE_OPTIONS=--max-old-space-size=6144`) — **exit 0**.
+
+### 🔴 What remains UNPROVEN — do not read this lane as closing more than it did
+
+* **Not verified in the browser.** Every measurement here is a test-harness one. The founder's
+  screenshot has **not** been reproduced end-to-end, and the *partial-reconciliation* story that best
+  explains it — walls that were edited after the datum drag jumped, walls that were not stayed — is an
+  **inference**, not a measurement.
+* **Doors were not measured.** `DoorDependencyTracker` is the exact twin of the window tracker and
+  subscribes to the same `onWallBaseYChanged`, so the fix should carry — but no door test was written
+  or run.
+* **`curved=7` was never exercised.** A curved **and** raked host takes the conical-sweep arm
+  (`RK1CurvedRakedConicalSweep`) and this lane did not touch it.
+* **The cache key remains blind to any FUTURE term of `worldY`.** Nothing gates the rule *"every term
+  the build consumes is folded into the key"*; this is the third term to be found missing by a founder
+  bug report rather than by a check.
+* **Other level-reconcile consumers were not audited.** Slabs (`triggerRebuild`) and the
+  `DETERMINED-STRANDED` kinds (roofs, per C72 §5.1) have their own paths and their own staleness
+  question, untouched here.
