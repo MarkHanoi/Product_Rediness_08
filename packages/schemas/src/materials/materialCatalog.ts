@@ -565,7 +565,7 @@ const LEGACY_MATERIAL_ID_ALIASES: Readonly<Record<string, string>> = Object.free
  * §CONTEXT-DATA-HONESTY failure this whole contract exists to remove.
  */
 export function findMaterialRecord(id: string): MaterialRecord | undefined {
-  return BY_ID.get(id) ?? BY_ID.get(LEGACY_MATERIAL_ID_ALIASES[id] ?? ' ');
+  return BY_ID.get(id) ?? BY_ID.get(LEGACY_MATERIAL_ID_ALIASES[id] ?? '\u0000');
 }
 
 /** Resolve an id to '#rrggbb'. `undefined` on a miss — see {@link findMaterialRecord}. */

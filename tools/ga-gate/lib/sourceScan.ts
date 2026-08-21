@@ -318,8 +318,21 @@ export function scanFileCoverage(opts: CoverageOptions): CoverageResult {
 // it can under-count a pattern hiding inside a multi-line template literal — a
 // shape none of these gates' patterns legitimately take.
 
-/** Cannot occur in TypeScript source; used only as a lexer probe. */
-const EOL_SENTINEL = ' GA_GATE_EOL ';
+/**
+ * A lexer probe. ⚠ CORRECTED 2026-08-21 (lane UBG1, L-3260): this comment read
+ * *"Cannot occur in TypeScript source"*, and a repo-wide byte sweep of 7 946 source
+ * files falsified it — **ten of them carried a raw 0x00**, this file included. Every
+ * one was a deliberate separator or sentinel written as a literal byte rather than an
+ * escape, so the claim was about intent, not about the bytes on disk.
+ *
+ * The SENTINEL itself is still safe: it is compound (NUL + text + NUL), so a bare NUL
+ * in scanned source cannot collide with it. All ten files have since been rewritten to
+ * use the \u0000 escape — byte-identical at runtime, and greppable, which is the
+ * actual point: a file containing a raw NUL is BINARY to grep and ripgrep, so
+ * `rg somePattern` on it returns "binary file matches" and NO LINES. A source-scanning
+ * gate that is itself invisible to source scanning is the joke this comment used to be.
+ */
+const EOL_SENTINEL = '\u0000GA_GATE_EOL\u0000';
 
 /**
  * Strip `//` and block comments while preserving the line count, so a match's

@@ -269,7 +269,7 @@ export function viewTypeDeclaresCutFill(
     viewPurpose?: string,
 ): boolean {
     // A view type no `viewTypeProfiles` key and no `modifier.viewType` can equal.
-    const SENTINEL_VIEW_TYPE = ' __no-view-type__';
+    const SENTINEL_VIEW_TYPE = '\u0000__no-view-type__';
 
     const withViewType = resolveIntentStyle(
         intentInstance, intent, elementType, 'cut', viewType, target, viewPurpose,

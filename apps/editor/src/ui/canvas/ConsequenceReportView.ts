@@ -211,13 +211,13 @@ export function renderConsequenceReport(panel: HTMLElement, report: ConsequenceR
     if (predicted.length > 0 || actualMetrics !== undefined || report.metricsUndetermined !== undefined) {
         L.push(head('◆ metrics', '#a78bfa'));
         const actualByKey = new Map<string, MetricTransition>();
-        for (const m of actualMetrics ?? []) actualByKey.set(`${m.elementId} ${m.metric}`, m);
+        for (const m of actualMetrics ?? []) actualByKey.set(`${m.elementId}\u0000${m.metric}`, m);
 
         for (const m of predicted) {
             const u = unitLabel(m.unit);
             const before = m.before === undefined ? 'not recorded' : `${num(m.before)}${u ? ' ' + u : ''}`;
             const after = `${num(m.after)}${u ? ' ' + u : ''}`;
-            const act = actualByKey.get(`${m.elementId} ${m.metric}`);
+            const act = actualByKey.get(`${m.elementId}\u0000${m.metric}`);
             // The measured value beside the predicted one — the metric half of
             // predicted-vs-actual. Absent ⇒ nothing is claimed about the actual.
             const measured = act === undefined
