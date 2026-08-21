@@ -196,6 +196,22 @@ export interface ImportProjectStats {
      * The caller removes these levels from the skip-set.
      */
     healedRoomLevelIds: Set<string>;
+    /**
+     * §LOAD-IMPORT-STEPS (L-3050) — per-step wall-clock, in ms, inside the
+     * element import.
+     *
+     * AUD-3 measured the whole import as ONE opaque `element_import` bucket
+     * (APPLICATION-PERFORMANCE-LEDGER §4.1): ~29 s of a 32 s load sat where no
+     * timer could see it, and the founder's 47 s load named no step at all. The
+     * import is 20 ordered steps; this records the wall time each consumed so
+     * the NEXT load names its own bottleneck instead of needing an audit lane.
+     *
+     * Read-only instrumentation: one `performance.now()` per step boundary
+     * (20 per load), no behavioural change.
+     */
+    stepMs: Record<string, number>;
+    /** §LOAD-IMPORT-STEPS — element count each step was handed. */
+    stepN: Record<string, number>;
 }
 
 export interface ImportProjectCommandOptions {
@@ -205,6 +221,18 @@ export interface ImportProjectCommandOptions {
      * never-cancel predicate, matching the legacy ProjectLoader signature.
      */
     isCancelled?: () => boolean;
+    /**
+     * §LOAD-IMPORT-STEPS (L-3050) — fired at every step boundary with the step
+     * about to run and the number of elements it was handed.
+     *
+     * Exists so the caller's hang watchdog can name the step that is CURRENTLY
+     * running rather than the last phase boundary that COMPLETED. The founder's
+     * 47 s load printed `current phase="setup" stuck for 38.5s` — true, but
+     * useless: `setup` is the boundary immediately BEFORE the import, so every
+     * one of the 20 import steps reports as "setup". Synchronous and cheap; the
+     * callback must not throw (the command does not guard it).
+     */
+    onStep?: (step: string, n: number) => void;
 }
 
 export class ImportProjectCommand implements Command {
@@ -258,6 +286,8 @@ export class ImportProjectCommand implements Command {
         warnings: [],
         loadedLevelIds: new Set<string>(),
         healedRoomLevelIds: new Set<string>(),
+        stepMs: {},
+        stepN: {},
     };
 
     constructor(
@@ -411,7 +441,35 @@ export class ImportProjectCommand implements Command {
         // total chunk count — and thus the number of paints — modest.
         const CHUNK = IMPORT_CHUNK_SIZE;
 
+        // ── §LOAD-IMPORT-STEPS (L-3050) — per-step wall-clock ────────────────
+        // See ImportProjectStats.stepMs for why this exists. `__step(name, n)`
+        // CLOSES the previous step (accumulating its wall time) and OPENS the
+        // named one. It must be called at every boundary INCLUDING the last,
+        // hence the `__step('')` on both exits — a step that is never closed
+        // reports 0 ms, which is precisely the defect this replaces
+        // (ProjectLoader's `__phase` printed elapsed=0.0ms for every phase for
+        // the same class of reason, L-3051).
+        let __stepName  = '';
+        let __stepStart = performance.now();
+        const __len = (k: string): number => {
+            const v = (snapshot as unknown as Record<string, unknown>)[k];
+            return Array.isArray(v) ? v.length : 0;
+        };
+        const __step = (name: string, n = 0): void => {
+            const now = performance.now();
+            if (__stepName !== '') {
+                stats.stepMs[__stepName] = (stats.stepMs[__stepName] ?? 0) + (now - __stepStart);
+            }
+            __stepName  = name;
+            __stepStart = now;
+            if (name !== '') {
+                stats.stepN[name] = n;
+                this.opts.onStep?.(name, n);
+            }
+        };
+
         try {
+            __step('clear', 0);
             // ── Step 0: Clear current project ────────────────────────────────
             // ClearProjectCommand resets every element store, the
             // ElementRegistry, the SemanticIndex, the visibility caches, etc.
@@ -441,6 +499,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before levels'] };
             }
 
+            __step('levels', __len('levels'));
             // ── Step 1: Levels (PlanOrdering priority 10) ────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.levels.length} levels`);
             for (const level of snapshot.levels) {
@@ -470,6 +529,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before grids'] };
             }
 
+            __step('grids', __len('grids'));
             // ── Step 2: Grids (PlanOrdering priority 11) ─────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.grids.length} grids`);
             for (const grid of snapshot.grids) {
@@ -487,6 +547,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before columns'] };
             }
 
+            __step('columns', __len('columns'));
             // ── Step 3: Columns (priority 15) ────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.columns.length} columns`);
             for (const col of snapshot.columns) {
@@ -514,6 +575,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before walls'] };
             }
 
+            __step('door_window_records', __len('doors') + __len('windows'));
             // ── B7b: Restore DoorStore / WindowStore from rich snapshot data ──
             // Done BEFORE walls so CreateWallOpeningCommand's `!doorStore.has()`
             // guard prevents duplicate insertion on redo.  ClearProjectCommand
@@ -536,6 +598,7 @@ export class ImportProjectCommand implements Command {
                 console.log(`[ImportProjectCommand] Restored ${snapshot.windows.length} window records from snapshot`);
             }
 
+            __step('walls', __len('walls'));
             // ── Step 4: Walls + per-wall openings (priority 20) ──────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.walls.length} walls`);
             // §WALL-JOIN-INTENT HYDRATION (L-927) — suppress joinIntent DERIVATION for the
@@ -654,6 +717,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before slabs'] };
             }
 
+            __step('slabs', __len('slabs'));
             // ── Step 5: Slabs (priority 21) ──────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.slabs.length} slabs`);
             let _slabChunk = 0;
@@ -724,6 +788,7 @@ export class ImportProjectCommand implements Command {
                 r.success ? stats.loaded++ : recordFail(`Slab ${slab.id}`, r);
             }
 
+            __step('ceilings', __len('ceilings'));
             // ── Step 5b: Ceilings (priority 21.5) ────────────────────────────
             // §LOAD-HEAL-DEGENERATE-POLYGON — DROP ceilings whose persisted
             // polygon is degenerate (an OLD project's collapsed-wall room left a
@@ -771,6 +836,7 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step('floors', __len('floors'));
             // ── Step 5c: Floor finishes (priority 21.8) ──────────────────────
             // §LOAD-HEAL-DEGENERATE-POLYGON — same heal for floor finishes; a
             // floor's ring lives at `.boundary.polygon` (or legacy `.polygon`).
@@ -808,6 +874,7 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step('slab_openings', __len('openings'));
             // ── Step 5d: Standalone slab/floor openings (priority 21.9) ───────
             // §L-B3 (DAILY-USE-AUDIT 2026-05-20) — restore standalone openings
             // (stairwell cuts in slabs, service penetrations, etc.) that the
@@ -856,6 +923,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before stairs'] };
             }
 
+            __step('stairs', __len('stairs'));
             // ── Step 6: Stairs (priority 22) ─────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.stairs.length} stairs`);
             for (const stair of snapshot.stairs) {
@@ -982,6 +1050,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before furniture'] };
             }
 
+            __step('furniture', __len('furniture'));
             // ── Step 7: Furniture (priority 23) ──────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.furniture.length} furniture items`);
             yield; // §LOAD-CHUNKED — paint a frame before the furniture-build step
@@ -1014,6 +1083,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before roofs'] };
             }
 
+            __step('roofs', __len('roofs'));
             // ── Step 8: Roofs (priority 24) ──────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.roofs.length} roofs`);
             yield; // §LOAD-CHUNKED — paint a frame before the roof-build step
@@ -1032,6 +1102,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before handrails'] };
             }
 
+            __step('handrails', __len('handrails'));
             // ── Step 9: Handrails (priority 25) ──────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.handrails.length} handrails`);
             for (const hr of snapshot.handrails) {
@@ -1056,6 +1127,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before plumbing'] };
             }
 
+            __step('plumbing', __len('plumbing'));
             // ── Step 10: Plumbing (priority 25) ──────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.plumbing.length} plumbing fixtures`);
             for (const p of snapshot.plumbing) {
@@ -1083,6 +1155,7 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step('lighting', __len('lighting'));
             // ── Step 10b: Lighting fixtures ──────────────────────────────────
             // §FIX-PERSIST-KITCHEN-WARDROBE-LIGHTING (L-85) — the default-on fast
             // load path (this command) previously had NO lighting restore step, so
@@ -1121,6 +1194,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before curtain walls'] };
             }
 
+            __step('curtain_walls', __len('curtainWalls'));
             // ── Step 11: Curtain walls (priority 26) ─────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.curtainWalls.length} curtain walls`);
             yield; // §LOAD-CHUNKED — paint a frame before the (mullion-grid) curtain-wall build step
@@ -1177,6 +1251,7 @@ export class ImportProjectCommand implements Command {
                 return { success: false, affectedElementIds: [], info: ['Cancelled before beams'] };
             }
 
+            __step('beams', __len('beams'));
             // ── Step 12: Beams (priority 30) ─────────────────────────────────
             console.log(`[ImportProjectCommand] Loading ${snapshot.beams.length} beams`);
             for (const b of snapshot.beams) {
@@ -1225,6 +1300,7 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step('rooms', __len('rooms'));
             // ── Step 13: Rooms (priority 31 — after walls for boundary accuracy) ──
             // §LOAD-HEAL-DEGENERATE-POLYGON — DROP rooms whose persisted boundary
             // ring is degenerate (the collapsed-wall perimeter never sealed). They
@@ -1269,6 +1345,7 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step('room_bounding_lines', __len('roomBoundingLines'));
             // ── Step 13b: Room bounding lines (priority 31.5) ────────────────
             const snapshotRoomBoundingLines = (snapshot as any).roomBoundingLines;
             if (Array.isArray(snapshotRoomBoundingLines) && snapshotRoomBoundingLines.length > 0) {
@@ -1306,6 +1383,8 @@ export class ImportProjectCommand implements Command {
                 }
             }
 
+            __step(''); // §LOAD-IMPORT-STEPS — close the last step (room_bounding_lines)
+
             // Success means the orchestrator did not throw and Clear succeeded.
             // Per-element failures are surfaced through `stats.failed/errors`,
             // which the caller inspects to set its own LoadResult.success flag
@@ -1314,6 +1393,7 @@ export class ImportProjectCommand implements Command {
             return { success: true, affectedElementIds: [] };
 
         } catch (err) {
+            __step(''); // §LOAD-IMPORT-STEPS — attribute the time consumed up to the throw
             const msg = err instanceof Error ? err.message : String(err);
             stats.errors.push(msg);
             console.error('[ImportProjectCommand] Fatal error during import:', err);

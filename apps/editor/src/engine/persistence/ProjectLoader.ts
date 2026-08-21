@@ -420,11 +420,22 @@ export class ProjectLoader {
         // and saw the spinner forever. Now each phase fires `[ProjectLoader]
         // §LOAD-PHASE name=… elapsed=…ms total=…ms` as it completes,
         // making it instantly obvious which phase is the slow one.
+        // §LOAD-PHASE-ELAPSED-ALWAYS-ZERO (L-3051) — the boundary of the phase
+        // that just CLOSED. This used to be read out of `__phase_starts[name]`,
+        // guarded by `if (__phase_starts[name] !== undefined)`. Every phase name
+        // ('setup', 'hydrate', 'event_flush', 'wall_rebuild_flush',
+        // 'redetect_sweep') fires EXACTLY ONCE per load, so that key was ALWAYS
+        // undefined at the moment it was read and `__phase_ms[name]` was NEVER
+        // assigned. Result: every §LOAD-PHASE line printed `elapsed=0.0ms` and
+        // the PHASE_TIMINGS summary printed `setup=0.0ms hydrate=0.0ms
+        // event_flush=0.0ms` on a load whose own `total=` read 47 397.8 ms.
+        // Only the running total was ever real. A phase is the span since the
+        // PREVIOUS boundary, not since the previous call bearing the same name.
+        let __phase_boundary = __t_load_start;
         const __phase = (name: string) => {
             const now = performance.now();
-            if (__phase_starts[name] !== undefined) {
-                __phase_ms[name] = now - __phase_starts[name]!;
-            }
+            __phase_ms[name] = now - __phase_boundary;
+            __phase_boundary = now;
             const sinceLoadStart = now - __t_load_start;
             console.log(
                 `[ProjectLoader] §LOAD-PHASE name=${name} ` +
@@ -485,15 +496,36 @@ export class ProjectLoader {
         // current phase so the user has a heartbeat instead of silence.
         // Self-cleared via clearInterval in the load's finally block (added
         // below where __phase('redetect_sweep') is called).
+        // §LOAD-WATCHDOG-NAMES-THE-WRONG-THING (L-3052) — the live import step.
+        // The watchdog names the last phase boundary that COMPLETED, and the
+        // boundary immediately before the element import is `setup`. So on a
+        // 47 s load, every one of the 20 import steps reported as
+        // `current phase="setup" stuck for 38.5s` — literally true and
+        // diagnostically worthless: it says the load has not reached `hydrate`,
+        // which was never in doubt. ImportProjectCommand now reports each step as
+        // it OPENS (§LOAD-IMPORT-STEPS, L-3050) and the watchdog names it, so a
+        // stuck load says WHICH element family it is stuck in.
+        let __importStep = '';
+        let __importStepN = 0;
+        let __importStepStart = 0;
+        const __onImportStep = (step: string, n: number): void => {
+            __importStep = step;
+            __importStepN = n;
+            __importStepStart = performance.now();
+        };
         const WATCHDOG_MS = 5000;
         const __watchdog = setInterval(() => {
             const now = performance.now();
             const elapsed = now - __t_load_start;
             const lastPhaseName = Object.keys(__phase_starts).pop() ?? '<unknown>';
             const sinceLastPhase = now - (__phase_starts[lastPhaseName] ?? __t_load_start);
+            const stepSuffix = __importStep !== ''
+                ? ` — import step="${__importStep}" (n=${__importStepN}) running for ` +
+                  `${((now - __importStepStart) / 1000).toFixed(1)}s`
+                : '';
             console.warn(
                 `[ProjectLoader] §LOAD-WATCHDOG load still running after ${(elapsed / 1000).toFixed(1)}s ` +
-                `— current phase="${lastPhaseName}" stuck for ${(sinceLastPhase / 1000).toFixed(1)}s ` +
+                `— current phase="${lastPhaseName}" stuck for ${(sinceLastPhase / 1000).toFixed(1)}s${stepSuffix} ` +
                 // §AUTOSAVE-LOAD-DIAG (2026-05-23) — carry the model size on every
                 // heartbeat so the stuck phase AND the workload that's overwhelming it
                 // are visible from a SINGLE repeating line (the architect's "review the
@@ -644,7 +676,11 @@ export class ProjectLoader {
             if (useImportCmd) {
                 // ── New path: one command, one callback fan-out ──────────────
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const importCmd = new ImportProjectCommand(snapshot as any, { isCancelled: cancelled });
+                const importCmd = new ImportProjectCommand(snapshot as any, {
+                    isCancelled: cancelled,
+                    // §LOAD-IMPORT-STEPS (L-3050/L-3052) — feed the hang watchdog.
+                    onStep: __onImportStep,
+                });
 
                 // ── §LOAD-CHUNKED (2026-06-29) — frame-yielding dispatch ──────
                 // The element-creation loop drives SYNCHRONOUS geometry (slab
@@ -672,6 +708,17 @@ export class ProjectLoader {
                 // progressive chunked build unchanged.
                 const __hasElements = snapshotHasElements(snapshot as unknown as Record<string, unknown>);
                 const useChunked = this._useChunkedLoad() && __hasElements;
+                // §LOAD-IMPORT-STEPS (L-3053) — close the PRE-import window before
+                // the drain opens. `__mark_last` is initialised up at the
+                // instrumentation block, so the `element_import` bucket used to
+                // also contain the checksum verify, the watchdog install, the
+                // observer/wall-rebuild pauses, `beginBatch()` and the path
+                // select. `element_import=47168.2ms` therefore did not mean "the
+                // import took 47.2 s" — it meant "everything from the top of the
+                // instrumentation to the end of the import took 47.2 s". Now
+                // `load_setup` carries that prologue and `element_import` is the
+                // drain alone.
+                __mark('load_setup');
                 // §PERF-L03-PHASE (P1.2) — import-drain span start (gated read below).
                 const __tImportDrain = performance.now();
                 let importResult: ReturnType<typeof exec>;
@@ -702,16 +749,47 @@ export class ProjectLoader {
                     let _maxGapMs = 0;
                     let _hiddenYields = 0;
                     let _lastResume = performance.now();
+                    // §LOAD-YIELD-WAIT (L-3054) — the load is COMPUTE + WAITING, and
+                    // only the compute half was ever measured. `_maxGapMs` times the
+                    // synchronous chunk between two yields; the time spent INSIDE
+                    // `yieldForProgress` — i.e. waiting for the frame bus to deliver
+                    // the next frame — was invisible. That matters because the frame
+                    // the loader waits for is drawn by a viewport that is itself
+                    // rendering the half-built scene: if a frame costs 500 ms, every
+                    // yield costs 500 ms, and a load with 30 yields pays 15 s for
+                    // waiting alone with ZERO of it visible in any existing counter.
+                    // Splitting the two is what makes "the import is slow" a
+                    // falsifiable claim rather than a feeling.
+                    let _yieldWaitMs = 0;
+                    let _maxYieldWaitMs = 0;
+                    let _computeMs = 0;
                     const yieldFrame = async (): Promise<void> => {
                         // Time the synchronous chunk that just ran (since the last resume).
                         const gap = performance.now() - _lastResume;
+                        _computeMs += gap;
                         if (gap > _maxGapMs) _maxGapMs = gap;
                         if (isHiddenForProgress()) _hiddenYields++;
+                        const __tWait = performance.now();
                         await yieldForProgress('project-load-chunk', 'post-render');
+                        const __wait = performance.now() - __tWait;
+                        _yieldWaitMs += __wait;
+                        if (__wait > _maxYieldWaitMs) _maxYieldWaitMs = __wait;
                         _yields++;
                         _lastResume = performance.now();
                     };
                     importResult = await this.commandManager.executeChunked(importCmd, yieldFrame);
+                    // §LOAD-YIELD-WAIT (L-3054) — the FINAL chunk. `_maxGapMs` was
+                    // only ever updated at the TOP of `yieldFrame`, so the segment
+                    // between the last yield and the end of the import — which
+                    // contains rooms, room bounding lines and every step after the
+                    // last `yield` in the generator — was never timed at all. On a
+                    // generator whose last yield is at the curtain-wall step, that is
+                    // a large and permanently invisible tail.
+                    {
+                        const __tail = performance.now() - _lastResume;
+                        _computeMs += __tail;
+                        if (__tail > _maxGapMs) _maxGapMs = __tail;
+                    }
                     console.log(
                         `[ProjectLoader] §LOAD-CHUNKED — yielded ${_yields} time(s) during element build; ` +
                         `longest synchronous chunk between yields=${_maxGapMs.toFixed(1)}ms ` +
@@ -721,10 +799,38 @@ export class ProjectLoader {
                               `(macrotask path, rAF was stopped — the load still completed)`
                             : ''}.`,
                     );
+                    // §LOAD-YIELD-WAIT (L-3054) — COMPUTE vs WAITING, on one line.
+                    // If waiting dominates, the fix is the frame loop (or the yield
+                    // cadence), NOT the import; if compute dominates, read
+                    // §LOAD-IMPORT-STEPS below for which element family owns it.
+                    console.log(
+                        `[ProjectLoader] §LOAD-YIELD-WAIT compute=${_computeMs.toFixed(1)}ms ` +
+                        `waiting=${_yieldWaitMs.toFixed(1)}ms yields=${_yields} ` +
+                        `avgWait=${_yields > 0 ? (_yieldWaitMs / _yields).toFixed(1) : '0.0'}ms ` +
+                        `maxWait=${_maxYieldWaitMs.toFixed(1)}ms maxChunk=${_maxGapMs.toFixed(1)}ms ` +
+                        `— waiting is time the loader spent parked in the frame bus, not work.`,
+                    );
                 } else {
                     importResult = exec(importCmd);
                 }
                 __mark('element_import'); // §DIAG-EMPTY-LOAD-HANG — element hydration wall-time
+                // §LOAD-IMPORT-STEPS (L-3050) — the 20-step decomposition of the
+                // bucket that used to be one opaque number. Sorted heaviest-first
+                // and printed unconditionally, because the load a lane needs to see
+                // is always the one that already happened on the founder's machine.
+                try {
+                    const __stepRows = Object.entries(importCmd.stats.stepMs)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k, v]) => `${k}=${v.toFixed(1)}ms/n=${importCmd.stats.stepN[k] ?? 0}`);
+                    if (__stepRows.length > 0) {
+                        console.log(`[ProjectLoader] §LOAD-IMPORT-STEPS ${__stepRows.join(' ')}`);
+                    }
+                } catch (e) {
+                    console.warn('[ProjectLoader] §LOAD-IMPORT-STEPS summary failed (non-fatal):', e);
+                }
+                // §LOAD-IMPORT-STEPS — the import is over; stop the watchdog naming
+                // a step that is no longer running.
+                __importStep = '';
                 // §PERF-L03-PHASE (P1.2) — import-drain total (ImportProjectCommand
                 // element replay, chunked or one-task). Confirms/kills L03 import cost.
                 __perfPhase('import_drain', __tImportDrain, `chunked=${useChunked} elements=${result.loaded}`);
