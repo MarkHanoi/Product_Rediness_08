@@ -16,6 +16,7 @@ export {
     isoToMs,
     msToIso,
     addDays,
+    endOfDayMs,
     taskFinishDate,
     taskWindowMs,
     taskProgressAt,

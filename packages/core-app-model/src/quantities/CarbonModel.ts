@@ -414,27 +414,31 @@ function buildCoverageStatement(a: {
   if (knownVol <= 0) {
     parts.push('Nothing in this model carries a measurable volume, so there is no embodied-carbon figure.');
   } else if (a.measuredVol <= 0) {
-    parts.push(
-      `NO LINE IS MEASURED. ${r4(knownVol)} m³ of material was measured by the take-off and `
-      + 'NONE of it resolves to a carbon factor, so there is no total.',
-    );
+    parts.push(`NO LINE IS MEASURED. ${r4(knownVol)} m³ of material was measured by the take-off and none of it reaches a carbon figure.`);
   } else {
     parts.push(
       `This total covers ${pct(a.measuredVol, knownVol)} of the measured volume `
       + `(${r4(a.measuredVol)} m³ of ${r4(knownVol)} m³).`,
     );
-    if (a.unmeasuredVol > 0) {
-      parts.push(
-        `${r4(a.unmeasuredVol)} m³ carries a material with no usable factor and is EXCLUDED — `
-        + 'it is not zero carbon, it is unmeasured.',
-      );
-    }
-    if (a.unattributedVol > 0) {
-      parts.push(
-        `A further ${r4(a.unattributedVol)} m³ sits on take-off lines that name NO material at all, `
-        + 'so it cannot even be asked about.',
-      );
-    }
+  }
+
+  // ⭐ THE TWO GAPS ARE ALWAYS REPORTED SEPARATELY, and never only inside the
+  // "we have a total" branch. "carries a material with no factor" and "names no
+  // material at all" are DIFFERENT FAILURES with DIFFERENT FIXES — find a factor
+  // versus tag the element — and a sentence that says "none of it resolves to a
+  // factor" about volume that never named a material is itself a false statement.
+  // The first version of this function did exactly that; the test caught it.
+  if (a.unmeasuredVol > 0) {
+    parts.push(
+      `${r4(a.unmeasuredVol)} m³ carries a material with no usable factor and is EXCLUDED — `
+      + 'it is not zero carbon, it is unmeasured.',
+    );
+  }
+  if (a.unattributedVol > 0) {
+    parts.push(
+      `${r4(a.unattributedVol)} m³ sits on take-off lines that name NO material at all, so it `
+      + 'cannot even be asked about — that is fixed by tagging the element, not by finding a factor.',
+    );
   }
 
   const noDensity = a.gaps.filter((g) => g.reason === 'NO_DENSITY');

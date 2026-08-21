@@ -138,6 +138,23 @@ export function addDays(iso: string, days: number): string | null {
   return msToIso(ms + Math.round(days) * MS_PER_DAY);
 }
 
+/**
+ * The LAST instant of `iso` (UTC 23:59:59.999).
+ *
+ * ⭐ WHY THIS IS AN EXPORTED FUNCTION AND NOT AN INLINE `+ MS_PER_DAY - 1`.
+ * {@link taskProgressAt} answers about an INSTANT, and the answer for a task's
+ * finish day depends on which instant you pick: at MIDDAY of the finish day the
+ * task is genuinely still IN_PROGRESS, and at the END of that day it is COMPLETE.
+ * Both are correct; they are answers to different questions. A date scrubber is
+ * asking "has this been built by the end of this day?", so it must pass THIS
+ * instant — and hand-rolling the arithmetic at each call site is how one surface
+ * comes to disagree with another about whether the last day counts.
+ */
+export function endOfDayMs(iso: string): number | null {
+  const ms = isoToMs(iso);
+  return ms === null ? null : ms + MS_PER_DAY - 1;
+}
+
 // ── Task arithmetic ───────────────────────────────────────────────────────────
 
 /**

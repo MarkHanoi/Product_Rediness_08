@@ -56,6 +56,10 @@ import {
     type CarbonOverrideBook,
 } from '@pryzm/core-app-model';
 import type { MaterialCarbonFacts } from '@pryzm/schemas/materials';
+// The scrubber asks "built by the END of this day?", so it must use the ONE
+// spelling of that instant. Hand-rolling `+ MS_DAY - 1` here is how one surface
+// comes to disagree with the engine about whether the last day counts.
+import { endOfDayMs } from '@pryzm/schemas/construction';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { escapeHtml } from './DWHelpers';
 
@@ -226,7 +230,9 @@ function renderTime(panel: HTMLElement, runtime: Runtime): void {
     const w = coverage.windowMs;
     const totalDays = w ? Math.max(1, Math.round((w.endMs - w.startMs) / MS_DAY) + 1) : 0;
     if (ui.dayOffset > Math.max(0, totalDays - 1)) ui.dayOffset = Math.max(0, totalDays - 1);
-    const atMs = w ? w.startMs + ui.dayOffset * MS_DAY + (MS_DAY - 1) : Date.now();
+    const atMs = w
+        ? (endOfDayMs(new Date(w.startMs + ui.dayOffset * MS_DAY).toISOString().slice(0, 10)) ?? w.startMs)
+        : Date.now();
     const atIso = new Date(atMs).toISOString().slice(0, 10);
     const state = scheduleStateAt(schedule, takeoff, atMs);
 
