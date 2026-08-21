@@ -30077,17 +30077,15 @@ performs real Ed25519 verification via `server/pluginSigningService.js:55` with 
 3. `bundleSha256` is taken from the request (`:5273-5276`); `bundleUrl` is stored (`:5310`) and
    **never fetched, never hashed**. Nothing proves the bundle at that URL is the bundle signed.
 
-**⛔ WHAT LANE AUD-5 DID NOT REACH** — the full `server.js` route census (only the 47 mutating routes
-via the gate, plus the marketplace endpoints read directly): no Zod-coverage count, no `res.status(500)`
-shape count, no CORS policy, no `/v1` census on that file. Whether `@pryzm/sdk` was ever published to
-npm. Whether any customer runs the self-host bundle. CORS/CSP on the two API apps. The 1-import
-discrepancy between the gate 173 bypasses and my by-source 172. `plugins/annotations` 16 932 LOC
-internals. `apps/component-editor`, `apps/cli`, `apps/docs-site`. **No browser, no build, no `tsc`
-was run.** "Reachable" throughout means *an import/registration edge exists*, never *observed
-executing* — except in L-2707, which is the one executed measurement here.
-**Cross-domain, not mine:** the `@thatopen/components` ratchet is **breached at 117/113** with 27 in
-`packages/core-app-model` — a packages-layer lane find; and the 214 UNKNOWN verbs from
-`check-verb-liveness` belong to whoever owns C69.
+> ⚠ **CORRECTED within the same session.** This row originally ended with a "DID NOT REACH" block
+> naming the `server.js` route census, Zod coverage, `res.status(500)` shapes, CORS and the `/v1`
+> census as unreached. **All five were subsequently measured** — see **L-2713 … L-2721**. The block
+> is rewritten below rather than left standing, because a stale "we did not measure X" is the same
+> class of defect as a stale "X is enforced": both misdirect the next reader. The corrected register
+> of blanks is at the end of L-2721's block and in §8 of the companion document.
+> ⚠ **This row's headline is also QUALIFIED by L-2716:** `authMiddleware` never returns 401, so
+> *"40 behind authMiddleware"* means *the middleware ran*, not *the route rejects an anonymous
+> caller*. **Read L-2716 before quoting this row's green gate.**
 
 ## L-2800 … L-2814 — AUDIT LANE AUD-6: contract conformance across the per-element block and BIM 3.0 — 2026-08-21
 

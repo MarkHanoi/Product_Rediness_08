@@ -26,7 +26,13 @@ Three separate things are called "the PRYZM API", and each fails for a different
 |---|---|---|
 | `@pryzm/plugin-sdk` (the SDK a third party would compile against) | **NOT SHIPPABLE** | Declares `publishConfig.access: public` as `@pryzm/sdk@1.0.0`, but **all 12 of its `@pryzm/*` runtime dependencies are `private: true`** and every export resolves to a raw `.ts` path. `npm i @pryzm/sdk` cannot install. |
 | `apps/api-gateway` + `apps/marketplace-api` (the versioned `/v1/` REST surface) | **NOT DEPLOYED, AND AUTH IS A HEADER SHIM** | Neither appears in any workflow file; the production Fly app runs `server.js`. Its shipped bootstrap trusts `X-Test-Scopes` / `X-Test-Roles` from the caller. |
-| `server.js` (what is actually deployed) | **DEPLOYED, DEFENDED, BUT NOT AN EXTERNAL API** | See §5 — it is a browser BFF; the question is whether it has a third-party auth mechanism at all. |
+| `server.js` (what is actually deployed) | **DEPLOYED, BUT THERE IS NO CREDENTIAL AN EXTERNAL DEVELOPER CAN OBTAIN** | 158 live routes. No API key, no PAT, no OAuth2 authorization server; `packages/oauth2-pkce/` has **zero consumers**. The only credential is a 30-day, full-account, **unscoped** JWT from `POST /api/auth/signin`. **0 of its 158 routes are documented; the 12 documented paths do not exist.** |
+
+⭐ **The founder's question — "is the API ready for externals?" — has a shorter answer than the
+9 axes suggest: there is no way for an external party to get a credential.** Everything else in this
+document is downstream of that. `apps/docs-site/src/content/docs/api/auth.md:7-10` states OAuth2+PKCE
+is *"its sole authentication mechanism"*; `server.js:446-447` states in a comment that the OAuth2
+grant flow *"is explicitly deferred to S65."* **The docs describe an API that does not exist** (§5.5).
 
 **The single most important finding is §1.3:** the ESLint rule that **C76 §1.1 and C07 §61 both name
 as the enforcement of the SDK boundary is not enabled in `eslint.config.js`.** It is defined, it is
@@ -507,13 +513,29 @@ pin **have never gated a merge.**
 
 ## §5 — `server.js` as an external-facing surface
 
-*(Populated from the lane's own reading plus a dedicated route sweep — see §8 for what remains
-unmeasured.)*
+**The honest headline: `server.js` is the only surface that is deployed, and it is a browser BFF,
+not an external API. An external developer cannot obtain a credential for it at all.**
 
-**The honest headline: `server.js` is the only surface that is deployed and defended, and it is not
-an external API — it is a browser BFF.**
+### §5.1 — Route census
 
-**SOUND — the write-path auth gate passes, hard:**
+**158 route registrations** across `server.js` (6 270 lines) + `server/**`:
+
+| File | routes | mount |
+|---|---:|---|
+| `server.js` | **96** | root |
+| `server/api/v1/routes.js` | 24 | `/api/v1` (`server.js:439`) |
+| `server/jurisdiction/index.js` | 22 | root, absolute paths (`server.js:411`) |
+| `server/aiPublicApiRoutes.js` | 5 | `/v1/ai` (`server.js:448`) |
+| `server/stripeRoutes.js` | 4 | `/api/stripe` (`server.js:2398`) |
+| `server/familyMarketplaceRoutes.js` | 4 | `/api/v1/families` (`server.js:427`) |
+| `server/context-delivery/index.js` | 3 | root (`server.js:406`) |
+| **total** | **158** | |
+
+`server.js`'s 96 by prefix: `/api/projects/*` **27** · `/api/ai/*` **13** · `/marketplace/api/*`
+**12** · `/api/auth/*` **9** · `/api/render/*` 4 · `/api/panorama/*` 4 · `/api/health/*` 3 ·
+`/api/export/*` 3 · `/api/manual-zone/*` 2 · 2 marketing-redirect arrays · 17 singletons.
+
+### §5.2 — SOUND: the write-path gate passes, and it is real
 
 ```
 $ npx tsx tools/ga-gate/check-write-route-auth.ts
@@ -522,40 +544,163 @@ $ npx tsx tools/ga-gate/check-write-route-auth.ts
 RC=0
 ```
 
-**40 of 47 mutating routes behind `authMiddleware`, 7 exempt *with a written rationale*, 0
-undefended.** That is a materially better posture than `apps/api-gateway`'s header shim, and it is
-the correct thing to say to the founder: *the deployed thing is the defended thing.*
+The 7 exemptions are pre-declared in `tools/ga-gate/write-route-auth-exemptions.json` and
+reconciled **bidirectionally**, each with a compensating control: CSP report sink (204, no
+persistence, `server.js:380`) · `/api/leads` (rate + size cap, `:386`) · `/api/overpass`
+(`apiLimiter`, `:398`) · `/api/auth/set-plan` (`x-internal-secret` vs `INTERNAL_PLAN_SECRET`,
+**fail-closed**, `:1834-1836`) · signup (`:1915`) · signin (`:1946`) · Stripe webhook (HMAC,
+`:2152`). **No undeclared unauthenticated write route exists.** This is a genuinely good control and
+it is better than anything in §4.
 
-**SOUND — the marketplace submission endpoint really does verify Ed25519.**
-`server.js:5223` `app.post('/marketplace/api/plugins/submit', authMiddleware, …)` requires an
-authenticated non-anonymous publisher (`:5228-5230`), rejects a missing or malformed signature with
-typed codes `MISSING_SIGNATURE` / `MALFORMED_SIGNATURE` (`:5241-5252`), looks up the publisher's
-registered key (`:5256-5270`, `UNREGISTERED_KEY`), and performs real verification via
-`verifyPluginSignatureNode` (`server/pluginSigningService.js:55`), rejecting with
-`SIGNATURE_VERIFICATION_FAILED` (`:5278-5285`). **This is the best-built external-facing endpoint in
-the repo** and it uses the SDK's own signing scheme.
+### §5.3 — ⛔ DEFECT · But `authMiddleware` **is fail-open**, so "behind authMiddleware" is not "requires auth"
 
-**GAP — three defects in that same endpoint, all traceable:**
+`server.js:787-905`. Read its two terminal branches:
 
-1. **`server.js` never imports `@pryzm/plugin-sdk`** (`grep 'plugin-sdk\|PluginManifestSchema\|validateManifest' server.js` → **0**).
-   The submission is validated against `manifest.id && manifest.name && manifest.version`
-   (`:5233-5235`) — **the locked D1 descriptor schema (ADR-0038) is not enforced at the boundary it
-   exists to defend.** A manifest the SDK would reject is accepted.
-2. **The publisher-key check is skipped when the DB is unavailable.** `:5256-5263` wraps the pool
-   lookup in `try { … } catch { /* DB unavailable — fall through to signature check only */ }`, and
-   the guard at `:5265` is `if (pool && !keyRow)`. With `pool === null` the key-registration check
-   does not run, and the signature is verified against **the public key supplied in the same
-   request** — self-attestation, not authentication.
-3. **`bundleSha256` is self-declared.** `:5273-5276` takes it from the request body or the
-   signature payload; `bundleUrl` is stored (`:5310`) but never fetched and never hashed. **Nothing
-   proves the bundle at that URL is the bundle that was signed.**
+```js
+// server.js:898-899  — token present but INVALID
+req.auth = { userId: 'anonymous', sessionId: null, email: null };
+return next();
+// server.js:903-904  — no token at all
+req.auth = { userId: 'anonymous', sessionId: null };
+return next();
+```
 
-**GAP — two rival marketplace front-ends.** `apps/marketplace` (React/TSX, scripts `dev,build,preview`)
-and `apps/marketplace-web` (vanilla, scripts `dev,build,preview,test,test:watch,typecheck`) both
-target the same `/marketplace/api` base (`apps/marketplace/src/api/client.ts:1`,
-`apps/marketplace-web/src/api/client.ts`). Both are `private: true`. **Neither appears in
-`vite.config.ts` or in any workflow file.** This is C84 EI-9 (one answer per question) at the app
-layer, and it is unrecorded.
+**`authMiddleware` never returns 401.** It is an *identity-population* middleware, not a gate. The
+actual rejection happens per-route in `_httpRequireAccess` (`server.js:959-965`, 403/503),
+`requireBearer` (`server/aiPublicApiRoutes.js:80-89`) and `requireSnapshot`
+(`server/api/v1/routes.js`).
+
+**Consequence for how §5.2 must be read.** The gate's *"40 behind authMiddleware"* means *the
+middleware ran on 40 routes*, not *40 routes reject an anonymous caller*. **Whether each of those 40
+also carries a per-route rejection is UNMEASURED** — the gate does not assert it, and neither did I.
+That is the single most important caveat in this document, because the gate's green is otherwise
+easy to read as "the write path is authenticated."
+
+Coverage across all 158: **105 have an auth middleware applied, 53 do not** — 22 jurisdiction
+routes (`server.js:411` mounts with `apiLimiter` only), 3 context-delivery routes (`:406`), 28 in
+`server.js` itself. One anonymous-readable leak: `GET /api/v1/diagnostic`
+(`server/api/v1/routes.js:142`) uses `req.auth?.userId ?? 'anonymous'` with **no 401 guard** and
+returns DB-configuration probes plus **raw PostgreSQL error strings**.
+
+### §5.4 — ⛔ THE ANSWER TO THE FOUNDER'S QUESTION · There is no credential an external developer can obtain
+
+- Authentication is **Bearer JWT only** — HS256 over `SESSION_SECRET`, `TOKEN_EXPIRY = '30d'`
+  (`server/authStore.js:29`), minted at `authStore.js:99,135,183,219`.
+- **Zero cookies** (`grep -i cookie server.js server/authStore.js` → nothing).
+- **No API key. No personal access token. No OAuth2 authorization server.** There is no
+  `/oauth/authorize`, no `/oauth/token`, no `code_challenge` handling anywhere in `server.js` or
+  `server/**`. `server/oauthService.js` is login-*with*-Google/Microsoft for PRYZM's own users — the
+  opposite direction.
+- **`packages/oauth2-pkce/` is dead code** — `grep -rl "@pryzm/oauth2-pkce"` over `apps/ packages/
+  server/ server.js` returns **only `packages/oauth2-pkce/src/index.ts` itself**.
+- **No scopes.** The JWT carries `sub` + `email`; every token is full-account. There is no scope
+  claim and no scope check anywhere in the deployed server.
+
+**An external developer's only path to a credential is to POST a user's email and password to
+`/api/auth/signin` (`server.js:1946`) and hold a 30-day, full-account, unscoped JWT.** That is not
+an external API; it is credential sharing.
+
+### §5.5 — ⛔ DEFECT · The published documentation describes an API that does not exist
+
+`apps/docs-site/src/content/docs/api/auth.md:7-10`, verbatim:
+
+> *"The PRYZM Public API uses **OAuth2 with PKCE** (RFC 7636) as its **sole** authentication
+> mechanism. There are no API keys, no client secrets, no HTTP Basic Auth — every authenticated
+> request carries a short-lived bearer token obtained through the PKCE flow."*
+
+**None of that is implemented** (§5.4). `server.js:446-447` says the opposite in a code comment:
+*"the OAuth2 grant flow is explicitly deferred to S65; the Bearer/PAT path is the 3A-draft
+contract."* `auth.md:35-38` further declares three scopes; the deployed server has none.
+
+And the OpenAPI document is worse than merely incomplete:
+
+| | |
+|---|---|
+| `packages/api-spec/openapi.yaml` paths | **12** |
+| …of which exist in `server.js` / `server/**` | **0** |
+| `server.js` + `server/**` live routes | **158** |
+| …of which are documented anywhere | **0** |
+
+The 12 documented paths (`/projects/{id}/export.pryzm`, `/projects/import`, `/ai/workflows*`,
+`/admin/ai-spend`, `/admin/overrides*`, `/formulas*`, `/projects/{id}/stream`, `/awareness`) belong
+to `apps/api-gateway` — **the app that is not deployed** (§4 preamble). Against production they fall
+through to the SPA catch-all (`server.js:5949`) and return `index.html`.
+
+`server/aiPublicApiRoutes.js:85` returns `docsUrl: '/api/v1/docs'` in **every 401 body**. That route
+does not exist; it too returns HTML.
+
+**No client SDK, no Postman collection, no served docs endpoint.** An external developer following
+the published docs would build against 12 endpoints that return an HTML page, using an OAuth2 flow
+that does not exist.
+
+### §5.6 — ⛔ DEFECT · The revocation list **fails open**
+
+`server.js:5879-5895`:
+
+```js
+let crl = { revokedPublisherKeysB64: [], revokedPluginIdAtVersion: [], issuedAt: … };
+try { … if (pool) crl = await fetchRevocationList(pool); }
+catch { /* DB unavailable — return empty CRL */ }
+res.setHeader('Cache-Control', 'public, max-age=3600');
+res.json(crl);
+```
+
+⭐ **A CRL that answers "nothing is revoked" when it cannot reach the database is the
+§CONTEXT-DATA-HONESTY defect on a security control — failure and "nothing revoked" are the same
+value** — and it is then cached for an hour. The same fail-open shape appears at
+`GET …/purchase-status` (`:5720-5722` → `purchased:false`) and `GET …/reviews`
+(`:5805-5808` → empty 200, a success-shaped failure).
+
+### §5.7 — SOUND, with three holes: the Ed25519 marketplace path
+
+`POST /marketplace/api/plugins/submit` (`server.js:5223`) is **the best-built external-facing
+endpoint in the repo**: rejects anonymous (`:5228`), requires a signature (`:5241`,
+`MISSING_SIGNATURE` / `MALFORMED_SIGNATURE`), requires the key be registered to the publisher
+(`:5261`, 403 `UNREGISTERED_KEY`), verifies cryptographically via
+`server/pluginSigningService.js:49` (`node:crypto` `createPublicKey` + `verify`, SPKI DER wrapper),
+and inserts as `review_status='pending', is_active=FALSE` (`:5294-5319`). Install re-verifies
+(`:5478`) and refuses unsigned third-party bundles (`:5492-5498`).
+
+**Four traced holes:**
+
+1. **`server.js` never imports `@pryzm/plugin-sdk`** (`grep -n "@pryzm/" server.js` → **0 lines** —
+   the whole file has no workspace imports at all). Manifest validation is
+   `if (!manifest.id || !manifest.name || !manifest.version)` (`:5234`). **The locked D1 descriptor
+   schema (ADR-0038) — the `id` regex, `version` regex, `pryzmPlugin` literal, permission enum, and
+   the `network:fetch` invariant — is not enforced at the boundary it exists to defend.** Requested
+   `permissions` are stored verbatim (`:5312`) with no check against the SDK's permission set.
+2. **`canonicalJSONStringify` is hand-copied.** `server/pluginSigningService.js:35-46` re-implements
+   it, and its own header (`:5-8, :27-29`) says so. **Nothing pins the two implementations to each
+   other** — a divergence produces silent verification failures on valid bundles.
+3. **The publisher-key check is skipped when the DB is down.** `:5256-5263` catches the pool lookup
+   (`catch { /* DB unavailable — fall through to signature check only */ }`) and the guard at
+   `:5265` is `if (pool && !keyRow)`. With `pool === null` the signature verifies against the public
+   key supplied **in the same request** — self-attestation, not authentication.
+4. **`bundleSha256` is self-declared.** `:5273-5276` takes it from the request; `bundleUrl` is
+   stored (`:5310`) and **never fetched, never hashed**. Nothing proves the bundle at that URL is
+   the bundle that was signed. `install` returns only a `bundleUrl` plus instructions text
+   (`:5515-5526`) — **it does not serve the bundle**, so nothing downstream can check it either.
+
+### §5.8 — Other measured gaps on the deployed surface
+
+| Axis | Reading |
+|---|---|
+| **Versioning** | **33 / 158 versioned (20.9 %)** — `/api/v1/*` 24, `/api/v1/families/*` 4, `/v1/ai/*` 5. All 27 `/api/projects/*`, all 12 `/marketplace/api/*`, all 13 `/api/ai/*` and all 22 jurisdiction routes are **unversioned**. The two v1 namespaces are inconsistent (`/api/v1/…` vs `/v1/ai/…`). |
+| **Input validation** | **5 of 53 body-accepting routes are schema-validated (9.4 %)**; **52 raw `req.body` reads**. Zod is imported in exactly 3 non-test server files (`server.js:101`, `aiPublicApiRoutes.js:40`, `api/v1/routes.js:45`). |
+| **Error contract** | Central handler exists (`server.js:5985-6034`) and mints an `errorId` (`:6013`). But **5 distinct JSON error shapes + 7 non-JSON responses**; **`code` is present on only 38 of 247** 4xx/5xx bodies; and casing is split — `SCREAMING_SNAKE` in marketplace (`:5282`) vs `lower_snake` in projects/v1 (`server/errors.js:29`). **A client cannot switch on `code`.** `server.js:1010` returns prose that **names environment variables** (`'No AI upstream configured: set CF_WORKER_URL or ANTHROPIC_API_KEY'`). 91 `res.status(500)` sites total. |
+| **Rate limiting** | Applied (`express-rate-limit`, `server/rateLimiter.js`), **not** `@pryzm/rate-limit` (0 hits in `server/` or `server.js`). ⛔ **`app.use('/api', globalLimiter)` at `server.js:374` does not cover `/marketplace/api/*`** — the path starts `/marketplace`. **All 12 marketplace routes have no limiter of any kind**, including the unauthenticated catalog, reviews and `revocations.json`. ⛔ `globalLimiter` and `apiLimiter` are **disabled outside production** — `skip: SKIP_IN_DEV` (`rateLimiter.js:58,74`; `SKIP_IN_DEV = () => !IS_PROD` at `:21`). |
+| **Idempotency / concurrency** | **UNMEASURED on `server.js`** — I did not sweep it for `If-Match` / `Idempotency-Key` / 412. |
+| **Observability** | **0 OTel spans on the HTTP path** (`grep -nE "opentelemetry|getTracer|startSpan" server.js` → 0). `server/telemetry.js:41-42` no-ops unless `PRYZM_TRACING` is set; the OTLP block (`:48-110`) registers only a `BatchSpanProcessor` with **no HTTP auto-instrumentation**, and `@opentelemetry/sdk-node` is **not installed** (`:104-108` documents this). **0 request-IDs** — `grep -inE "requestId|x-request-id|correlationId" server.js` → 0. No `morgan`/`pino`/`winston`. The only correlation key is the `errorId` minted **at failure time**, so successful requests and multi-hop failures cannot be correlated. |
+| **CORS** | `server.js:370-371` + `server/corsPolicy.js`. In production with `ALLOWED_ORIGIN` unset, `getAllowedOrigins()` returns `[]` — **deny-all cross-origin** (`corsPolicy.js:35-41`). With it set, it is a **static env allowlist** with `credentials: true` (`:51-59`): no dynamic origin callback, no per-client registration, so every third-party origin must be hand-added and the server restarted. **`Access-Control-Allow-Origin: *` can never be emitted in production**, so even the public `GET /marketplace/api/plugins` is unreachable from an arbitrary browser origin. This is a partner-integration model, not a public API. ⚠ Whether the deployed instance sets `ALLOWED_ORIGIN` is **UNMEASURED** (runtime secret; `fly.toml:13` names it only in a comment). |
+| **`GET /embed`** | `server.js:4967` — **unauthenticated**, `applyEmbedHeaders(res)` strips `X-Frame-Options` and sets `frame-ancestors *` so *"any third-party site can embed this route in an iframe"* (`:4974`), and it takes `?token=` in the **query string** (`:4969`) — a JWT in a URL, which lands in referrer headers, proxy logs and browser history. `x-internal-secret` — the header gating `/api/auth/set-plan` — is in the CORS `allowedHeaders` list (`corsPolicy.js:56`). |
+
+### §5.9 — Two rival marketplace front-ends
+
+`apps/marketplace` (React/TSX; scripts `dev,build,preview`) and `apps/marketplace-web` (vanilla;
+scripts `dev,build,preview,test,test:watch,typecheck`) both target the same `/marketplace/api` base
+(`apps/marketplace/src/api/client.ts:1`, `apps/marketplace-web/src/api/client.ts`). Both are
+`private: true`. **Neither appears in `vite.config.ts` or in any workflow file.** This is C84 EI-9
+(one answer per question) at the app layer, and it is recorded nowhere.
 
 ---
 
@@ -573,6 +718,15 @@ layer, and it is unrecorded.
 | `apps/marketplace` vs `apps/marketplace-web` | §5 | Neither is built by any config I found |
 | `apps/marketplace-api` | §4 preamble | **NO** — no Dockerfile, no fly.toml, absent from docker-compose |
 | `pryzm/no-l7-direct-import`, `no-l7-boundary-violation`, `no-l7-allowlist-grow`, `no-direct-pryzm-in-plugins` | `packages/eslint-plugin-pryzm/src/index.js:60-77` | **NO** — 4 rules defined and exported, **none enabled** in `eslint.config.js` (§1.3) |
+| **`packages/oauth2-pkce/`** | `packages/oauth2-pkce/src/index.ts` | **NO** — `grep -rl "@pryzm/oauth2-pkce"` over `apps/ packages/ server/ server.js` returns **only the file itself**. Dead, while `docs-site/api/auth.md` documents PKCE as the *sole* auth mechanism (§5.5) |
+| **2 orphan Express routers, never mounted** | `server/jurisdiction/mucZoningProxy.js:456-457` (`mucRouter`), `server/jurisdiction/mucInstrumentProxy.js:495-496` (`mucInstrumentRouter`) | **NO** — `server/jurisdiction/index.js:224-225` registers the handlers directly instead; no mount exists for either router |
+| **Zero-caller routes** — `GET /api/auth/plan` (`server.js:1822`), `GET /api/me/plan` (`:2850`), `POST /api/auth/set-plan` (`:1834`), `POST /api/import/dwg` (`:2676`) | `server.js` | **NO client caller** in `apps/`, `src/` or `plugins/`. `/api/auth/plan` and `/api/me/plan` are the same question asked twice, and **neither has a caller** |
+| **`POST /api/ai/cache/lookup` + `/store`** (`server.js:1668`, `:1695`) | | Reached **only** via `packages/ai-host/src/AiResponseCache.ts` — no editor UI call site |
+| **Duplicated project CRUD** — `server.js:2891/2972/3165/3236` `/api/projects` vs `server/api/v1/routes.js:482/495/512/538` `/api/v1/projects` | | **BOTH LIVE, neither deprecated.** `/api/projects` is called from 11 editor files; `/api/v1/projects` from 2 — and `apps/editor/src/ui/platform/ProjectHub.ts` calls **both**. This is C84 EI-9 on the most-used route family in the product. |
+| **Duplicated AI surface** — 6× `/api/ai/*` advise/parse (`server.js:1085–1537`) vs `/v1/ai/{query,generate,validate}` (`server/aiPublicApiRoutes.js:318/327/336`) | | Both live; `/api/ai/*` from `apps/editor` + `packages/ai-host`, `/v1/ai/*` only from the undeployed `apps/api-gateway` and `plugins/ai-query/src/descriptor.ts` |
+| **`GET /marketplace/api/plugins/:id/versions`** (`server.js:5158`) | | **LIVE but SYNTHETIC** — comment at `:5156` *"no separate versions table yet"*; always returns exactly one element built from the plugin row (`:5178-5186`) with `revokedAt` hardcoded `null` |
+| **`REFERENCE_PLUGINS_SEED`** — 4 hardcoded plugins, every one `downloads: 0, rating: 5.0` | `server.js:~5030-5091`, served by `:5103` | **LIVE** — it is what `GET /marketplace/api/plugins` serves whenever `getPgPool()` is null |
+| **Stale tables** | — | **None found.** All 8 referenced tables (`marketplace_plugins`, `plugin_publisher_keys`, `plugin_purchases`, `plugin_reviews`, `plugin_revocations`, `ai_response_cache`, `ai_usage`, `template_registry`) are created in `server/dbMigrate.js`. |
 
 ---
 
@@ -580,27 +734,38 @@ layer, and it is unrecorded.
 
 | # | Gap | Why it is ranked here |
 |---:|---|---|
-| **1** | **`apps/api-gateway`'s production bootstrap trusts `X-Test-Roles`/`X-Test-Scopes`** (`src/index.ts:73-81` + `auth-shim.ts:39-44`) | It is shipped in a Dockerfile. Anyone who runs the self-host bundle has an unauthenticated admin API. This is not "not ready", it is *unsafe if used*. Fix: make `authShim` **required**, no default. |
-| **2** | **No token/API-key mechanism exists at all** — `packages/api-rbac/src/index.ts:197-199` disclaims introspection and nothing supplies it | Without this there is no such thing as an external caller. Everything below is moot until it lands. |
-| **3** | **The SDK cannot be installed** (§2.3) — 12 `private:true` deps, raw `.ts` exports, no `dist` | A third-party developer's first command fails. Fix: build to `dist`, bundle or publish the 12, drop `private`. |
-| **4** | **§1.3 — enable `pryzm/no-direct-pryzm-in-plugins`**, or delete the claim from C76 §1.1 and C07 §61 | A contract minted two days ago describes enforcement that does not exist. Either state is fine; the *disagreement* is the defect. Enabling it today fails 173 imports — so land it warn-with-baseline first, and **fix the two wrong citations immediately**. |
-| **5** | **No spec↔implementation conformance gate**, and `@pryzm/api-spec` is imported by nothing | The spec is documentation, not a contract. 4 routes have already drifted undetected. |
-| **6** | **11 element-family stores are ABSENT from the composed runtime** (§3.3) — 7/337 verbs proven | An API that exposes `stair.*` or `roof.*` would expose verbs whose writes nothing can read back. |
-| **7** | **No error schema, no correlation id, 16 wire shapes** (§4 axis 5) | The first thing an integrator needs is a support ticket they can file. |
-| **8** | **No idempotency, no `If-Match`/412** (§4 axis 7) | Every network retry duplicates an effect. |
-| **9** | **0/16 files instrumented** (§4 axis 8), and none of the 10 packages runs in CI (§4.1) | Neither the founder nor an integrator can see what the API did. |
-| **10** | **Marketplace bundle integrity** — SHA self-declared, manifest not schema-checked, key check skipped without a DB (§5) | The signing is real; the three holes make it attestation rather than proof. |
-| **11** | **26 plugins have undeclared dependencies** (§3.4); **12 have zero importers** (§3.1) | Blocks extraction and publication of any plugin as a reference for third parties. |
+| **1** | **There is no credential an external developer can obtain** (§5.4) — no API key, no PAT, no OAuth2 authorization server; `packages/oauth2-pkce/` has zero consumers; the only path is a user's password for a 30-day **unscoped, full-account** JWT | Everything below is moot until this lands. It is also the whole of the founder's question. |
+| **2** | **`apps/api-gateway`'s shipped bootstrap trusts `X-Test-Roles`/`X-Test-Scopes`** (`src/index.ts:73-81` + `auth-shim.ts:39-44`, run by `Dockerfile:68`) | Not merely "not ready" — *unsafe if used*. It ships in `pryzm-selfhost/docker-compose.yml`. Fix is one line: make `authShim` **required**, no default. Mitigated only by the fact that nothing deploys it. |
+| **3** | **The published docs describe an API that does not exist** (§5.5) — `auth.md:7-10` declares OAuth2+PKCE "its sole authentication mechanism"; **0 of `openapi.yaml`'s 12 paths exist in production; 0 of production's 158 routes are documented** | This is worse than no docs. An integrator building against them fails at request one and cannot tell whether the fault is theirs. |
+| **4** | **The SDK cannot be installed** (§2.3) — 12 `private:true` deps, raw `.ts` exports, no `dist` | A third-party developer's first command fails. Fix: build to `dist`, publish or bundle the 12, drop `private`. |
+| **5** | **§1.3 — enable `pryzm/no-direct-pryzm-in-plugins`**, or delete the claim from C76 §1.1 and C07 §61 | A contract minted two days ago describes enforcement that does not exist. Either end state is fine; the *disagreement* is the defect. Enabling it today fails 173 imports — land it warn-with-baseline, and **fix the two wrong citations immediately**. |
+| **6** | **`authMiddleware` is fail-open** (§5.3) — the gate's *"40 behind authMiddleware"* is not *"40 reject an anonymous caller"* | The green gate is easy to misread as "the write path is authenticated." Fix: add an arm that asserts each of the 40 also carries a per-route rejection. |
+| **7** | **Security controls that fail open** (§5.6) — `revocations.json` returns an empty CRL when the DB is down and caches it for an hour; `purchase-status` → `false`; `reviews` → empty 200 | Failure and "nothing revoked" are the same value — §CONTEXT-DATA-HONESTY, on a security control. |
+| **8** | **Marketplace bundle integrity** (§5.7) — SHA self-declared and never recomputed, manifest not checked against `PluginManifestSchema`, publisher-key check skipped with no DB, `canonicalJSONStringify` hand-copied and unpinned | The Ed25519 signing is real; these four make it attestation rather than proof. |
+| **9** | **No spec↔implementation conformance gate**, and `@pryzm/api-spec` is imported by nothing (§4.1) | The spec is documentation, not a contract. 4 routes have already drifted undetected, and its tests never run. |
+| **10** | **Error contract** — 5 shapes + 7 non-JSON on `server.js` with `code` on 38 of 247 bodies in two casing conventions (§5.8); 16 shapes and no correlation id on the gateway (§4 axis 5) | A client cannot switch on `code`, and there is no request id to quote in a support ticket. |
+| **11** | **12 marketplace routes have no rate limiter at all** (§5.8) — `app.use('/api', globalLimiter)` does not match `/marketplace/api/*` | Unauthenticated, uncapped, publicly cacheable endpoints. |
+| **12** | **11 element-family stores are ABSENT from the composed runtime** (§3.3) — 7/337 verbs proven | An API exposing `stair.*` or `roof.*` would expose verbs whose writes nothing can read back. |
+| **13** | **Input validation 5/53 on the deployed surface (9.4 %)** (§5.8) | 52 raw `req.body` reads behind a public HTTP boundary. |
+| **14** | **No idempotency, no `If-Match`/412** on the gateway (§4 axis 7); unmeasured on `server.js` | Every network retry duplicates an effect. |
+| **15** | **0 HTTP spans, 0 request IDs, 0 structured logs on `server.js`** (§5.8); 0/16 files on the gateway (§4 axis 8) | Neither the founder nor an integrator can see what the API did. |
+| **16** | **26 plugins have undeclared dependencies** (§3.4); **12 have zero importers** (§3.1) | Blocks extracting or publishing any plugin as a third-party reference. |
 
 ---
 
 ## §8 — NOT MEASURED (the honest register)
 
-- **`server.js` full route census.** §5 reports the write-path gate (47 mutating routes, 40 behind
-  auth) and the marketplace endpoints I read directly. I did **not** enumerate all `app.*` routes,
-  count Zod coverage across them, count `res.status(500)` shapes, verify CORS policy, or check for
-  `/v1` prefixes on that file. A dedicated sweep was launched and did not return before this
-  document was written.
+- **Whether the 40 `server.js` write routes that run `authMiddleware` also carry a per-route
+  rejection.** §5.3 establishes that `authMiddleware` itself never 401s. The per-route gates
+  (`_httpRequireAccess`, `requireBearer`, `requireSnapshot`) exist; **I did not check them
+  route-by-route.** This is the largest single blank in this document and it sits directly under a
+  green gate.
+- **Idempotency / concurrency on `server.js`** — I swept the gateway for `If-Match` /
+  `Idempotency-Key` / 412 and found zero; **I did not sweep `server.js`.** The 412 re-base the
+  client hit today may be implemented there.
+- **Whether the deployed instance sets `ALLOWED_ORIGIN`** (§5.8) — it is a runtime secret. If unset,
+  production is deny-all cross-origin; if set, it is a static allowlist. Either way it is not a
+  public API, but the two states differ.
 - **Whether `@pryzm/sdk` has ever been published to npm** — I did not query the registry.
 - **Whether the self-host Docker Compose bundle is used by any real customer** — unknown, and it
   determines whether gap #1 is theoretical or live.
@@ -625,4 +790,4 @@ layer, and it is unrecorded.
 - `docs/02-decisions/contracts/C76-PLATFORM-AND-API-SURFACE.md` — §1.1's enforcement claim is false (§1.3); §1.4 (two facades) and §1.5 (uncountable wildcard surface) are both confirmed by this reading
 - `docs/02-decisions/contracts/C69-API-VERB-REGISTER.md` · `docs/04-reference/API-VERB-REGISTER.md`
 - `tools/ga-gate/check-layer-boundaries.ts` · `check-l7-boundary.ts` · `check-verb-liveness.ts` · `check-write-route-auth.ts`
-- `docs/04-reference/ISSUE-LOG.md` — rows **L-2700 … L-2712**
+- `docs/04-reference/ISSUE-LOG.md` — rows **L-2700 … L-2721**
