@@ -1050,6 +1050,16 @@ existing camera-controls events in `apps/editor/src/engine/initScene.ts`.
 not: it leaves `distance ≈ 15` at the exact moment the eye is 5 cm from the façade, so a
 target-keyed rule reproduces the defect. This is the one substitution to refuse on sight.
 
+**MEASURED in the vendor bundle** (`@thatopen/components/dist/index.mjs`,
+`SimpleCamera.newCameraControls()`): OBC constructs `CameraControls` with
+`dollyToCursor = true`, `infinityDolly = true`, `minDistance = 6`. `BimWorld` overrides the
+last two (`false` / `0.2`) and leaves `dollyToCursor` **ON** — which is what walks the eye
+onto whatever the pointer is over, and is the founder's *"sometimes too much"*. It is the
+control behaving as designed, not a defect. `newCameraControls()` is invoked from
+`worlds.onItemSet`, i.e. **once per world**, so a controls binding is stable for the life of
+the world; the CAMERA is not (OBC replaces `world.camera.three` on a projection change), so
+any camera binding MUST hold a thunk, never a reference.
+
 ⚠ **ORTHOGRAPHIC CAMERAS ARE OUT OF SCOPE and MUST stay out.** Plan / elevation / section
 run `near = -1000, far = 1000` — a signed range meaning "in front of and behind the eye",
 not a metric standoff. Applying this policy there moves `near` from -1000 to +0.01 and

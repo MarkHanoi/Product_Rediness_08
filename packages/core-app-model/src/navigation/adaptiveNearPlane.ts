@@ -45,6 +45,18 @@
  *   3. **Level explode.** Geometry moves 10 m per level while the camera stands still, so
  *      a surface can arrive at the eye without any navigation at all.
  *
+ * MEASURED in the vendor bundle (`@thatopen/components/dist/index.mjs`,
+ * `SimpleCamera.newCameraControls()`): OBC constructs its `CameraControls` with
+ * `dollyToCursor = true`, `infinityDolly = true`, `minDistance = 6`. `BimWorld` overrides
+ * the last two (to `false` / `0.2`) and leaves `dollyToCursor` ON — which is what makes
+ * the wheel walk the eye onto whatever the pointer is over. That is the founder's
+ * *"sometimes too much"*, and it is the intended behaviour of the control, not a bug in it.
+ *
+ * `newCameraControls()` is invoked from `worlds.onItemSet`, i.e. ONCE per world, so the
+ * controls object this module binds to is stable for the life of the world and no
+ * re-binding is required. (The CAMERA is not — hence the thunk. See
+ * `installAdaptiveNearPlane`.)
+ *
  * ## The policy
  *
  * `near` scales with the camera's STANDOFF from the model — the distance from the eye to
