@@ -608,6 +608,13 @@ export class CommandBus {
               // top entry (`CommandMetadata.gestureId`) to recognise a
               // dual-dispatch twin by identity instead of by clock proximity.
               gestureId,
+              // §UNDO-HISTORY-DROPDOWN (ADR-0340) — WHAT the user did, in the
+              // one vocabulary that distinguishes create from delete from move
+              // within the same store. `affectedStores` can only ever say
+              // "wall"; `record.type` says `wall.create`, and it was already in
+              // hand here. Label data ONLY — nothing on the undo path reads it,
+              // so an entry pushed without it routes byte-identically.
+              commandType: record.type,
             });
           } catch (err) {
             console.error('[CommandBus] RingBufferUndoStack push failed for type=' + record.type + ':', err);

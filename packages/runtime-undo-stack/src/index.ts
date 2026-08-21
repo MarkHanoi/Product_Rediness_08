@@ -32,4 +32,8 @@ export type {
   PatchSide,
   JsonPatchOp,
   RingBufferUndoStackOptions,
+  // §UNDO-HISTORY-DROPDOWN (ADR-0340) — the frozen, value-free row shape
+  // `listEntries()` returns. Exported so the editor's cross-stack timeline can
+  // type its ring-buffer half without reaching for `PatchPair`.
+  RingBufferEntryView,
 } from './RingBufferUndoStack.js';

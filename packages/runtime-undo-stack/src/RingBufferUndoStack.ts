@@ -82,6 +82,64 @@ export interface PatchPair {
    * gesture.
    */
   readonly gestureId?: string;
+  /**
+   * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the bus verb that minted this entry
+   * (`record.type`, e.g. `wall.create`), stamped by `CommandBus.executeCommand`
+   * at push time.
+   *
+   * WHY IT WAS ADDED. A `PatchPair` carried `affectedStores`, `timestamp` and
+   * `gestureId` — everything undo ROUTING needs and nothing a human can read. A
+   * history dropdown built from this stack could therefore only say *"wall"*
+   * (a store key, and for a multi-store entry not even one), never *"Create
+   * wall"*. The verb is the one fact that distinguishes create from delete from
+   * move within the same store, and the bus already had it in hand two lines
+   * above the push — it was simply dropped on the floor.
+   *
+   * OPTIONAL AND NEVER LOAD-BEARING FOR UNDO. Nothing in `performUndo` /
+   * `performRedo` / `applyRingBufferSide` reads it; it is label data only. Every
+   * pre-existing fixture omits it and behaves identically. A reader that finds
+   * it absent MUST fall back to a store-key-derived label, never to a blank row
+   * — an unnamed row is indistinguishable from a missing one.
+   */
+  readonly commandType?: string;
+}
+
+/**
+ * §UNDO-HISTORY-DROPDOWN (ADR-0340) — an IMMUTABLE, SERIALISABLE view of one
+ * ring-buffer entry, for read-only consumers (the undo/redo history dropdown).
+ *
+ * WHY A VIEW AND NOT THE `PatchPair`. `listEntries()` must not hand a UI the
+ * live entries: `PatchPair.forward.value` holds whole element records, and a
+ * caller that receives them can mutate model state through the undo stack —
+ * P6's "commands are the only mutation path" dies quietly. This view carries
+ * only what a LABEL needs, is frozen, and contains no object the stack still
+ * references.
+ *
+ * `opPaths` is the one field that is not a scalar: the JSON Pointer strings of
+ * the entry's ops, WITHOUT their values. The element ids a row names live in
+ * `path[0]`, and the decoder for that (`fromJsonPointer`) belongs to
+ * `@pryzm/command-bus`, which imports THIS package — so the pointers are handed
+ * out undecoded rather than duplicating the decoder here. Values are never
+ * included.
+ */
+export interface RingBufferEntryView {
+  /** Position in the buffer, oldest = 0. Stable only until the next `push()`. */
+  readonly index: number;
+  /** The bus verb that minted the entry (`wall.create`), or `undefined`. */
+  readonly commandType?: string;
+  /** Store keys the entry's patches target. May be empty (C03 §4.6 U-2). */
+  readonly affectedStores: readonly string[];
+  /** Epoch-ms the command committed, or `undefined` on legacy fixtures. */
+  readonly timestamp?: number;
+  /** The user interaction that produced the entry (§UNDO-GESTURE-ID). */
+  readonly gestureId?: string;
+  /** JSON Pointer paths of the FORWARD ops — no values. See the doc above. */
+  readonly opPaths: readonly string[];
+  /**
+   * `false` while the entry is at or below the cursor (a pending UNDO);
+   * `true` once it has been undone and sits above the cursor (a pending REDO).
+   */
+  readonly isUndone: boolean;
 }
 
 export interface RingBufferUndoStackOptions {
@@ -190,6 +248,60 @@ export class RingBufferUndoStack implements UndoStackBackend {
   /** Total number of entries currently in the buffer (undo + redo combined). */
   get size(): number {
     return this._entries.length;
+  }
+
+  /**
+   * §UNDO-HISTORY-DROPDOWN (ADR-0340) — a READ-ONLY, FROZEN projection of every
+   * entry in the buffer, oldest first, each tagged with whether it is currently
+   * undone (above the cursor).
+   *
+   * THE DEFECT THIS CLOSES. `_entries` and `_cursor` are private and the only
+   * readers were `current()` / `peek()` — the TOP of each direction. A UI could
+   * therefore ask "what would the next Ctrl+Z revert?" but never "what are the
+   * last twenty things I did?", which is precisely the question the founder's
+   * undo dropdown asks. Adding accessors for the private arrays themselves was
+   * rejected: they hold `PatchPair.forward.value`, i.e. whole element records,
+   * and handing those to UI code opens a mutation path into undo state that no
+   * command authored (P6). This returns {@link RingBufferEntryView}s instead —
+   * frozen scalars plus value-free op paths.
+   *
+   * ORDERING is buffer order (oldest → newest), NOT undo order. `isUndone`
+   * partitions it: entries with `isUndone === false` are pending undos (the last
+   * one is what `current()` returns); entries with `isUndone === true` are
+   * pending redos (the first one is what `peek()` returns). Callers that want
+   * undo order reverse the first partition themselves — this method does not
+   * choose an ordering on their behalf, because the cross-stack merge that the
+   * editor performs (C03 §4.6 U-10) has to interleave these with the legacy
+   * stack anyway and a pre-baked order would be thrown away.
+   *
+   * Never throws; returns `[]` for an empty buffer. Does NOT move the cursor.
+   */
+  listEntries(): readonly RingBufferEntryView[] {
+    const out: RingBufferEntryView[] = [];
+    for (let i = 0; i < this._entries.length; i++) {
+      const e = this._entries[i]!;
+      out.push(Object.freeze({
+        index: i,
+        ...(e.commandType !== undefined ? { commandType: e.commandType } : {}),
+        affectedStores: Object.freeze([...(e.affectedStores ?? [])]),
+        ...(e.timestamp !== undefined ? { timestamp: e.timestamp } : {}),
+        ...(e.gestureId !== undefined ? { gestureId: e.gestureId } : {}),
+        // Values are deliberately excluded — see RingBufferEntryView's doc.
+        opPaths: Object.freeze(e.forward.ops.map(o => o.path)),
+        isUndone: i > this._cursor,
+      }));
+    }
+    return Object.freeze(out);
+  }
+
+  /**
+   * Index of the entry the next `undo()` would revert (`-1` when there is
+   * nothing to undo). Exposed so a history view can align
+   * {@link listEntries}'s indices with the undo cursor without inferring it
+   * from `isUndone` — read-only, never moves anything.
+   */
+  get cursorIndex(): number {
+    return this._cursor;
   }
 
   // ── Atomic patch-and-move API (Sprint A33 — C03 §4.1) ────────────────────

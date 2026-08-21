@@ -128,6 +128,93 @@ export interface HistoryEntry {
     structuralChildren?: HistoryEntry[];
 }
 
+/**
+ * §UNDO-HISTORY-DROPDOWN (ADR-0340) — an IMMUTABLE, SERIALISABLE view of one
+ * legacy history entry, for read-only consumers (the undo/redo dropdown).
+ *
+ * WHY THIS EXISTS RATHER THAN `getHistory()`. `getHistory()` already returns a
+ * SHALLOW copy — a fresh array holding the LIVE `HistoryEntry` objects, i.e. the
+ * live `Command` instances. A caller that takes one can call `.execute(ctx)` or
+ * `.undo(ctx)` on it directly, out of band, with no dispatcher, no snapshot and
+ * no history bookkeeping. That is a mutation path into model state that bypasses
+ * the command dispatcher entirely (P6), handed to whoever asks. It is used today
+ * by nothing on the UI path and is left in place rather than removed in this
+ * change, but it is NOT the accessor a UI may use, and this one is.
+ *
+ * Everything here is a scalar or a frozen array of scalars. There is no route
+ * back to a `Command`.
+ */
+export interface LegacyHistoryEntryView {
+    /** Position in the stack, oldest = 0. Stable only until the next mutation. */
+    readonly index: number;
+    /** `Command.id` — the identity a caller can correlate across two reads. */
+    readonly id: string;
+    /** `Command.type` — the enum's string value (survives minification). */
+    readonly type: string;
+    /**
+     * The command's own `describe()` when it authored one and it returned a
+     * non-empty string; otherwise absent. NEVER a manufactured sentence: a
+     * caller must be able to tell "the author wrote this" from "we derived it".
+     */
+    readonly label?: string;
+    /** `Command.timestamp` — epoch-ms at construction. */
+    readonly timestamp?: number;
+    /** §UNDO-GESTURE-ID — the interaction that produced the entry, or absent. */
+    readonly gestureId?: string;
+    /** `Command.targetIds`, frozen. Post-U-9 this names every element touched. */
+    readonly targetIds: readonly string[];
+    /** Who dispatched it. REMOTE never appears — see `getUndoHistoryView`. */
+    readonly source: CommandSource;
+    /**
+     * §L-874-ONE-UNDO — how many STRUCTURAL_CASCADE children this gesture
+     * composed. They are NOT separate rows: one gesture is one row, and undoing
+     * this entry reverts the children with it. Exposed so a view can say "and 2
+     * related changes" instead of silently hiding them.
+     */
+    readonly structuralChildCount: number;
+}
+
+/**
+ * §UNDO-HISTORY-DROPDOWN (ADR-0340) — `describe()`, defensively.
+ *
+ * A command author's `describe()` runs while a menu is being rendered, possibly
+ * long after the command executed and against a context that has moved on. A
+ * throw there must not take the dropdown — or the toolbar — down with it, and an
+ * empty string must not become a blank row (a blank row is indistinguishable
+ * from a missing one). Both cases return `undefined`, and the caller derives a
+ * label from `type` instead.
+ */
+function _safeDescribe(command: Command): string | undefined {
+    try {
+        const d = command.describe?.();
+        if (typeof d !== 'string') return undefined;
+        const t = d.trim();
+        return t.length > 0 ? t : undefined;
+    } catch (err) {
+        console.warn(`[CommandManager] describe() threw for ${String(command?.type ?? 'unknown')}`, err);
+        return undefined;
+    }
+}
+
+/** Freeze one entry into a {@link LegacyHistoryEntryView}. Never throws. */
+function _viewOf(entry: HistoryEntry, index: number): LegacyHistoryEntryView {
+    const cmd = entry.command;
+    const label = _safeDescribe(cmd);
+    const ts = cmd?.timestamp;
+    const gid = entry.metadata?.gestureId;
+    return Object.freeze({
+        index,
+        id: String(cmd?.id ?? ''),
+        type: String(cmd?.type ?? 'unknown'),
+        ...(label !== undefined ? { label } : {}),
+        ...(typeof ts === 'number' && Number.isFinite(ts) ? { timestamp: ts } : {}),
+        ...(typeof gid === 'string' && gid.length > 0 ? { gestureId: gid } : {}),
+        targetIds: Object.freeze(Array.isArray(cmd?.targetIds) ? [...cmd.targetIds] : []),
+        source: entry.metadata?.source ?? 'HUMAN_DIRECT',
+        structuralChildCount: entry.structuralChildren?.length ?? 0,
+    });
+}
+
 export class CommandManager {
     private history: HistoryEntry[] = [];
     private redoStack: HistoryEntry[] = [];
@@ -907,6 +994,49 @@ export class CommandManager {
 
     getHistory(): HistoryEntry[] {
         return [...this.history];
+    }
+
+    /**
+     * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the undo history as FROZEN, LIVE-OBJECT-FREE
+     * rows, oldest first. `[length - 1]` is what the next `undo()` would revert.
+     *
+     * THIS IS THE ACCESSOR A UI MAY USE. `getHistory()` above hands out the live
+     * `Command` instances (see {@link LegacyHistoryEntryView}); this hands out
+     * scalars with no route back to one.
+     *
+     * WHAT IT CANNOT CONTAIN, AND WHY THAT IS THE POINT. A collaborator's edit is
+     * never in `this.history` — `execute()` excludes `source: 'REMOTE'` AND any
+     * command dispatched inside a remote-origin bus dispatch (§UNDO-REMOTE-ORIGIN,
+     * C03 §4.6 U-1). So this projection cannot list another user's action even by
+     * accident: the exclusion is upstream of it, at the push, which is the only
+     * place it can be enforced once. A filter HERE would have been a second,
+     * weaker copy of that rule — and the first copy is the one the two-client
+     * harness measured.
+     *
+     * Never throws. O(n) in history depth (≤ the legacy stack's natural size);
+     * call it on demand when a menu opens, not per frame.
+     */
+    getUndoHistoryView(): readonly LegacyHistoryEntryView[] {
+        try {
+            return Object.freeze(this.history.map((e, i) => _viewOf(e, i)));
+        } catch (err) {
+            console.warn('[CommandManager] getUndoHistoryView failed', err);
+            return Object.freeze([]);
+        }
+    }
+
+    /**
+     * §UNDO-HISTORY-DROPDOWN (ADR-0340) — the redo stack as frozen rows, in
+     * STACK order (oldest push first). `[length - 1]` is what the next `redo()`
+     * would re-apply. Mirror of {@link getUndoHistoryView}; same guarantees.
+     */
+    getRedoHistoryView(): readonly LegacyHistoryEntryView[] {
+        try {
+            return Object.freeze(this.redoStack.map((e, i) => _viewOf(e, i)));
+        } catch (err) {
+            console.warn('[CommandManager] getRedoHistoryView failed', err);
+            return Object.freeze([]);
+        }
     }
 
     // ------------------------------------------------------------------

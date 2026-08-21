@@ -630,6 +630,32 @@ export interface Command {
      * than user actions themselves.  Such commands must provide a no-op undo().
      */
     nonUndoable?: boolean;
+    /**
+     * §UNDO-HISTORY-DROPDOWN (ADR-0340, C16 §5 `CA-22`) — OPTIONAL one-line,
+     * present-tense description of what this command did, for the undo/redo
+     * history dropdown. E.g. `"Move 3 walls"`, `"Set wall height to 3.2 m"`.
+     *
+     * WHY OPTIONAL, AND WHY THIS IS NOT A LOOKUP TABLE IN THE UI. The dropdown
+     * has to name ~200 legacy command classes plus every bus verb. Two designs
+     * were weighed and BOTH are used, in this order:
+     *
+     *  1. `describe()` — the command author states it, in the file that knows
+     *     the payload. Only a command holds "3.2 m"; a UI table never can.
+     *  2. A deterministic derivation from `type` (`UPDATE_WALL_HEIGHT` →
+     *     "Update wall height") when `describe()` is absent.
+     *
+     * A UI-side lookup TABLE was rejected outright: it degrades silently to the
+     * raw enum for every command added after it was written, and nothing fails.
+     * The derivation in (2) is a TRANSFORM, not a table — it is total over every
+     * present and future `CommandType`, so a new command can be unlabelled but
+     * never unnamed.
+     *
+     * MUST be pure, MUST NOT throw, MUST NOT read stores (it is called while
+     * rendering a menu, potentially long after the command executed). A thrown
+     * or empty result falls back to (2). It carries no undo semantics whatsoever
+     * — nothing in `performUndoRedo` or `CommandManager.undo()` reads it.
+     */
+    describe?(): string;
     canExecute(context: CommandContext): CommandValidationResult;
     execute(context: CommandContext): CommandResult;
     undo(context: CommandContext): CommandResult;
