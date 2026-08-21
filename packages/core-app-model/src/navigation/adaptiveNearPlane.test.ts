@@ -266,6 +266,61 @@ describe('§CAM-NEAR-SCALES-WITH-STANDOFF — what must NOT change', () => {
     });
 });
 
+// ── 3b. Eliminating the RIVAL hypothesis, with arithmetic ────────────────────
+
+/**
+ * Depth resolution of a fixed-point depth buffer at view distance `d`, in metres.
+ *
+ * Window-space depth is `z_w = (far/(far-near)) * (1 - near/d)`, so `dz_w/dd = near*far /
+ * ((far-near) * d^2)`. One quantum `q = 2^-bits` of `z_w` therefore spans
+ * `q * (far-near) * d^2 / (near*far)` metres of world depth.
+ */
+function depthResolutionM(d: number, near: number, far: number, bits = 24): number {
+    return (Math.pow(2, -bits) * (far - near) * d * d) / (near * far);
+}
+
+describe('§CAM-NEAR-SCALES-WITH-STANDOFF — depth PRECISION is not the mechanism', () => {
+    it('at the distance the founder reported, depth resolution is NANOMETRES — z-fighting cannot delete a wall there', () => {
+        // The rival hypothesis for "geometry vanishes up close" is depth-precision
+        // dropout from a large far/near ratio. It is arithmetically excluded: a
+        // fixed-point depth buffer is at its FINEST near the near plane, and the founder's
+        // symptom is at 5-20 cm.
+        const atProductionNear = depthResolutionM(0.2, MAX_BIM_NEAR_M, BASELINE_FAR_M);
+        expect(atProductionNear).toBeLessThan(1e-6); // sub-micrometre
+        const atInspectNear = depthResolutionM(0.2, NEAR_INSPECT_M, BASELINE_FAR_M);
+        expect(atInspectNear).toBeLessThan(1e-5);    // still far below any visible artefact
+    });
+
+    it('⚠ the far-field COST is REAL and is pinned here, not waved away', () => {
+        // ⭐ This assertion was first written as `expect(after).toBeLessThan(0.01)` —
+        // "10x coarser is still under a centimetre". IT FAILED, at 0.0596. The prose was
+        // optimistic and the arithmetic was not; the number below is the measured one.
+        //
+        // Eye inside the model (where the 1 cm near applies), context 100 m away,
+        // 24-bit fixed-point depth:
+        const before = depthResolutionM(100, MAX_BIM_NEAR_M, BASELINE_FAR_M);
+        const after = depthResolutionM(100, NEAR_INSPECT_M, BASELINE_FAR_M);
+
+        expect(before).toBeCloseTo(0.00596, 5);  // ~6 mm today
+        expect(after).toBeCloseTo(0.05960, 5);   // ~6 cm after — TEN TIMES coarser
+        expect(after / before).toBeCloseTo(MAX_BIM_NEAR_M / NEAR_INSPECT_M, 2);
+
+        // So: distant coplanar surfaces CAN z-fight more while the eye is close to the
+        // model. That is the trade C04 §CAM-NEAR-SCALES-WITH-STANDOFF takes deliberately,
+        // on L-747's doctrine — a precision artefact on far geometry loses to deleting the
+        // wall in front of the user. It is not a cost-free change and must not be
+        // described as one.
+    });
+
+    it('the cost is confined to the close-standoff regime — beyond the ramp it is ZERO', () => {
+        // At any standoff ≥ NEAR_RAMP_STANDOFF_M the near plane is byte-identical to
+        // production, so aerial / site-scale depth precision is unchanged.
+        expect(nearForStandoff(NEAR_RAMP_STANDOFF_M, BASELINE_FAR_M)).toBeCloseTo(MAX_BIM_NEAR_M, 9);
+        expect(depthResolutionM(100, nearForStandoff(50, BASELINE_FAR_M), BASELINE_FAR_M))
+            .toBeCloseTo(depthResolutionM(100, MAX_BIM_NEAR_M, BASELINE_FAR_M), 9);
+    });
+});
+
 // ── 4. The binding — it must follow the camera OBC swaps out from under it ────
 
 describe('§CAM-NEAR-SCALES-WITH-STANDOFF — installAdaptiveNearPlane', () => {
