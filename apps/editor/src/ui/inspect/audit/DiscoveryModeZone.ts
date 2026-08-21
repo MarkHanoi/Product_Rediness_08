@@ -13,7 +13,7 @@
  *   renderDiscoveryMode          — main discovery panel render
  *   showDiscoveryTooltipFull     — hover tooltip with room dimension details
  *   hideDiscoveryTooltip         — dismiss the shared tooltip element
- *   discoveryBlueColor           — normalised size → rgb colour for room swatches
+ *   (the heat ramp itself lives in ./heatRamp.ts — ONE definition, see §DISCOVERY-RAMP-IS-ONE)
  *   getAllRooms                  — snapshot of all rooms from legacy roomStore
  *   extractRoomAttrValue         — numeric attribute extractor (room object, key)
  *   extractRoomAttrString        — string attribute extractor (room object, key)
@@ -21,6 +21,7 @@
 
 import { selectionBus, boundingWallIdsOrUnknown } from '@pryzm/core-app-model';
 import { escHtml } from '@pryzm/ui-base';
+import { discoveryRampColor, publishDiscoveryRamp } from './heatRamp';
 import {
   type AttrOption,
   type InspectElementType,
@@ -35,16 +36,6 @@ export interface DiscoveryModeState {
   activeElementType: InspectElementType;
   setSelectedRoomId: (id: string) => void;
   onRoomSelect:      (roomId: string) => void;
-}
-
-// ── Colour helpers ────────────────────────────────────────────────────────────
-
-export function discoveryBlueColor(normalisedSize: number): string {
-  // normalisedSize: 0 = smallest (lightest cyan) → 1 = largest (deepest blue)
-  const r = Math.round(0   + (0   - 0  ) * normalisedSize);
-  const g = Math.round(210 + (100 - 210) * normalisedSize);
-  const b = Math.round(240 + (200 - 240) * normalisedSize);
-  return `rgb(${r},${g},${b})`;
 }
 
 // ── Room data helpers ─────────────────────────────────────────────────────────
@@ -168,6 +159,7 @@ export function renderDiscoveryMode(contentZone: HTMLElement, state: DiscoveryMo
 
   const legend = document.createElement('div');
   legend.className = 'aud-discovery-legend';
+  publishDiscoveryRamp(legend);
   const legendMinLabel = isNumeric ? `Low ${attrOpt?.label ?? ''}` : 'A → Z';
   const legendMaxLabel = isNumeric ? `High ${attrOpt?.label ?? ''}` : '';
   legend.innerHTML = `
@@ -186,7 +178,7 @@ export function renderDiscoveryMode(contentZone: HTMLElement, state: DiscoveryMo
   for (const r of sorted) {
     const attrNum    = roomAttrMap.get(r.id) ?? null;
     const norm       = (isNumeric && attrNum != null) ? (attrNum - minVal) / valRange : 1;
-    const color      = isNumeric ? discoveryBlueColor(norm) : 'rgb(0,180,220)';
+    const color      = isNumeric ? discoveryRampColor(norm) : discoveryRampColor(1);
     const isSelected = state.selectedRoomId === r.id;
 
     const row = document.createElement('div');

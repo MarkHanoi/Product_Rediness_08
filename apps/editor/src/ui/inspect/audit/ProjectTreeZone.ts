@@ -135,7 +135,12 @@ export function renderTreeBody(
     const levelIcon = document.createElement('span');
     levelIcon.className = 'aud-tree-icon';
     levelIcon.style.marginLeft = '16px';
-    const _lvlIconColor = isActive ? '#6600FF' : '#8888aa';
+    // §PANEL-BRAND-STANDARD (L-1742) — was `isActive ? '#6600FF' : '#8888aa'`.
+    // The <span> wrapper already carries `.aud-tree-icon { color: var(--app-text-muted) }`,
+    // so the icons inherit the token via currentColor and the active state names
+    // the accent token instead of restating its hex. #8888aa was a grey that
+    // exists in no palette.
+    const _lvlIconColor = isActive ? 'var(--app-accent)' : 'currentColor';
     levelIcon.innerHTML = `<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="8" rx="1" stroke="${_lvlIconColor}" stroke-width="1.1"/><line x1="1" y1="7" x2="13" y2="7" stroke="${_lvlIconColor}" stroke-width="1"/><line x1="3" y1="2.5" x2="11" y2="2.5" stroke="${_lvlIconColor}" stroke-width="1" stroke-linecap="round"/><line x1="5" y1="1" x2="9" y2="1" stroke="${_lvlIconColor}" stroke-width="1" stroke-linecap="round"/></svg>`;
 
     const levelLabel = document.createElement('span');
@@ -308,7 +313,7 @@ export function renderTypesForLevel(
 
             const childIcon = document.createElement('span');
             childIcon.className = 'aud-tree-elem-icon';
-            childIcon.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="#888" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="#888"/></svg>`;
+            childIcon.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="currentColor"/></svg>`;
 
             const childLabelEl = document.createElement('span');
             childLabelEl.className = 'aud-tree-elem-label';
@@ -337,13 +342,13 @@ export function countAllElements(): number {
 }
 
 export function getElementIcon(storeKey: string): string {
-  if (storeKey === 'roomStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="10" height="10" rx="0.5" stroke="#888" stroke-width="1.1"/><path d="M1.5 6h5.5v5.5" stroke="#888" stroke-width="1" stroke-linecap="round"/></svg>`;
-  if (storeKey === 'wallStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="2.5" width="10" height="8" rx="0.5" stroke="#888" stroke-width="1.1"/><line x1="1.5" y1="5.5" x2="11.5" y2="5.5" stroke="#888" stroke-width="1"/><line x1="6.5" y1="5.5" x2="6.5" y2="10.5" stroke="#888" stroke-width="1"/></svg>`;
-  if (storeKey === 'doorStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="#888" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="#888"/></svg>`;
-  if (storeKey === 'windowStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="0.5" stroke="#888" stroke-width="1.1"/><line x1="6.5" y1="2" x2="6.5" y2="11" stroke="#888" stroke-width="1"/><line x1="2" y1="6.5" x2="11" y2="6.5" stroke="#888" stroke-width="1"/></svg>`;
-  if (storeKey === 'slabStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="5" width="11" height="5" rx="0.5" stroke="#888" stroke-width="1.1"/><rect x="1" y="3" width="11" height="2" rx="0.5" stroke="#888" stroke-width="1"/></svg>`;
-  if (storeKey === 'columnStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="4.5" y="1.5" width="4" height="10" rx="0.5" stroke="#888" stroke-width="1.1"/><line x1="2" y1="2.5" x2="11" y2="2.5" stroke="#888" stroke-width="1"/><line x1="2" y1="10.5" x2="11" y2="10.5" stroke="#888" stroke-width="1"/></svg>`;
-  if (storeKey === 'stairStore')     return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10h3V7h3V4h3V1" stroke="#888" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  if (storeKey === 'furnitureStore') return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="3.5" width="9" height="8" rx="1" stroke="#888" stroke-width="1.1"/><path d="M4.5 3.5V3a1.5 1.5 0 013 0v.5" stroke="#888" stroke-width="1"/></svg>`;
-  return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="1" stroke="#888" stroke-width="1"/></svg>`;
+  if (storeKey === 'roomStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="10" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><path d="M1.5 6h5.5v5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
+  if (storeKey === 'wallStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="2.5" width="10" height="8" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="1.5" y1="5.5" x2="11.5" y2="5.5" stroke="currentColor" stroke-width="1"/><line x1="6.5" y1="5.5" x2="6.5" y2="10.5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if (storeKey === 'doorStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="currentColor"/></svg>`;
+  if (storeKey === 'windowStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="6.5" y1="2" x2="6.5" y2="11" stroke="currentColor" stroke-width="1"/><line x1="2" y1="6.5" x2="11" y2="6.5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if (storeKey === 'slabStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="5" width="11" height="5" rx="0.5" stroke="currentColor" stroke-width="1.1"/><rect x="1" y="3" width="11" height="2" rx="0.5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if (storeKey === 'columnStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="4.5" y="1.5" width="4" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="2" y1="2.5" x2="11" y2="2.5" stroke="currentColor" stroke-width="1"/><line x1="2" y1="10.5" x2="11" y2="10.5" stroke="currentColor" stroke-width="1"/></svg>`;
+  if (storeKey === 'stairStore')     return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10h3V7h3V4h3V1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if (storeKey === 'furnitureStore') return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="3.5" width="9" height="8" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4.5 3.5V3a1.5 1.5 0 013 0v.5" stroke="currentColor" stroke-width="1"/></svg>`;
+  return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/></svg>`;
 }

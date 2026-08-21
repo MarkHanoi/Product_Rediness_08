@@ -15,15 +15,15 @@ export const DATA_WORKBENCH_STYLES = `
   position: fixed;
   top: 40px; right: 0; bottom: 0;
   width: 342px;
-  background: var(--app-panel-bg, #ffffff);
-  border-left: 1px solid var(--app-border, #e2e8f0);
-  box-shadow: -4px 0 24px rgba(15,23,42,0.08);
+  background: var(--app-panel-bg);
+  border-left: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-drawer);
   z-index: 110;
   display: flex;
   flex-direction: row;
-  font-family: var(--app-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: var(--app-font);
   font-size: 11.7px;
-  color: var(--app-text, #1a2035);
+  color: var(--app-text);
   overflow: hidden;
   transition: width 0.22s ease;
 }
@@ -35,8 +35,8 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-rail {
   width: 44px;
   flex-shrink: 0;
-  background: var(--app-bg, #f8faff);
-  border-right: 1px solid var(--app-border, #e2e8f0);
+  background: var(--app-bg);
+  border-right: 1px solid var(--app-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -60,16 +60,16 @@ export const DATA_WORKBENCH_STYLES = `
   justify-content: center;
   position: relative;
   transition: background 0.13s, color 0.13s;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   flex-shrink: 0;
 }
 .dw-rail-btn:hover {
-  background: var(--app-border-light, #eef1f8);
-  color: var(--app-text, #1a2035);
+  background: var(--app-border-light);
+  color: var(--app-text);
 }
 .dw-rail-btn--active {
-  background: rgba(102,0,255,0.09);
-  color: var(--app-accent, #6600FF);
+  background: var(--app-violet-soft);
+  color: var(--app-accent);
 }
 .dw-rail-btn--active::before {
   content: '';
@@ -79,7 +79,7 @@ export const DATA_WORKBENCH_STYLES = `
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: var(--app-accent, #6600FF);
+  background: var(--app-accent);
   border-radius: 0 2px 2px 0;
 }
 
@@ -99,8 +99,8 @@ export const DATA_WORKBENCH_STYLES = `
   left: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
-  background: var(--app-text, #1a2035);
-  color: #fff;
+  background: var(--app-text);
+  color: var(--app-on-accent);
   font-size: 11px;
   font-weight: 500;
   padding: 4px 8px;
@@ -110,14 +110,14 @@ export const DATA_WORKBENCH_STYLES = `
   opacity: 0;
   transition: opacity 0.13s;
   z-index: 9999;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  box-shadow: var(--app-shadow-hud);
 }
 .dw-rail-btn:hover::after { opacity: 1; }
 
 .dw-rail-sep {
   width: 20px;
   height: 1px;
-  background: var(--app-border, #e2e8f0);
+  background: var(--app-border);
   margin: 4px 0;
   flex-shrink: 0;
 }
@@ -137,8 +137,8 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 0 14px;
   height: 40px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--app-border, #e2e8f0);
-  background: var(--app-panel-bg, #ffffff);
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-panel-bg);
 }
 
 .dw-content-title {
@@ -146,7 +146,7 @@ export const DATA_WORKBENCH_STYLES = `
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
 }
 
 /* ── Panel content area ───────────────────────────────────────────────────── */
@@ -168,7 +168,7 @@ export const DATA_WORKBENCH_STYLES = `
   justify-content: center;
   flex-direction: column;
   gap: 8px;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   font-size: 13px;
   padding: 24px;
 }
@@ -177,6 +177,15 @@ export const DATA_WORKBENCH_STYLES = `
   opacity: 0.3;
   margin-bottom: 4px;
 }
+/* The empty-state sentence. Was an inline style attribute in DataSheetPanel's
+   HTML string — including its own 'var(--app-text-muted, #7a8aaa)' fallback. */
+.dw-placeholder-text {
+  font-size: 12px;
+  text-align: center;
+  max-width: 200px;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
 
 /* ── Toolbar (inside panels) ─────────────────────────────────────────────── */
 .dw-toolbar {
@@ -184,28 +193,28 @@ export const DATA_WORKBENCH_STYLES = `
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: var(--app-bg, #f8faff);
-  border-bottom: 1px solid var(--app-border-light, #eef1f8);
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--app-border-light);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 .dw-toolbar-btn {
   padding: 4px 9px;
-  background: var(--app-panel-bg, #fff);
-  border: 1px solid var(--app-border, #e2e8f0);
+  background: var(--app-panel-bg);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   cursor: pointer;
   font-family: var(--app-font);
   font-size: 11px;
   font-weight: 600;
-  color: var(--app-text, #1a2035);
+  color: var(--app-text);
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   white-space: nowrap;
 }
 .dw-toolbar-btn:hover {
-  background: rgba(102,0,255,0.07);
-  border-color: var(--app-accent, #6600FF);
-  color: var(--app-accent, #6600FF);
+  background: var(--app-violet-soft);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 
 /* ── Tree scroll area ─────────────────────────────────────────────────────── */
@@ -217,13 +226,13 @@ export const DATA_WORKBENCH_STYLES = `
 }
 .dw-tree-scroll::-webkit-scrollbar { width: 4px; }
 .dw-tree-scroll::-webkit-scrollbar-track { background: transparent; }
-.dw-tree-scroll::-webkit-scrollbar-thumb { background: #d0d4e3; border-radius: 3px; }
+.dw-tree-scroll::-webkit-scrollbar-thumb { background: var(--app-scrollbar-thumb); border-radius: 3px; }
 
 /* ── Tree empty state ─────────────────────────────────────────────────────── */
 .dw-tree-empty {
   padding: 24px 16px;
   text-align: center;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -232,8 +241,8 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-banner {
   margin: 10px 10px 4px;
   padding: 11px 13px;
-  background: linear-gradient(135deg, rgba(102,0,255,0.07) 0%, rgba(59,139,212,0.07) 100%);
-  border: 1px solid rgba(102,0,255,0.18);
+  background: linear-gradient(135deg, var(--app-violet-soft) 0%, var(--app-wash-hover) 100%);
+  border: 1px solid var(--app-wash-ring);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -242,7 +251,7 @@ export const DATA_WORKBENCH_STYLES = `
 }
 .dw-banner-text {
   font-size: 12px;
-  color: var(--app-text, #1a2035);
+  color: var(--app-text);
   line-height: 1.5;
 }
 .dw-banner-actions { display: flex; gap: 6px; }
@@ -255,14 +264,14 @@ export const DATA_WORKBENCH_STYLES = `
   font-size: 11px;
   font-weight: 600;
 }
-.dw-banner-btn--primary { background: var(--app-accent, #6600FF); color: #fff; }
-.dw-banner-btn--primary:hover { background: #7B3FF2; }
+.dw-banner-btn--primary { background: var(--app-accent); color: var(--app-on-accent); }
+.dw-banner-btn--primary:hover { background: var(--app-accent-hover); }
 .dw-banner-btn--ghost {
   background: transparent;
-  border: 1px solid var(--app-border, #e2e8f0);
-  color: var(--app-text-2, #5a6a85);
+  border: 1px solid var(--app-border);
+  color: var(--app-text-2);
 }
-.dw-banner-btn--ghost:hover { background: var(--app-border-light, #eef1f8); }
+.dw-banner-btn--ghost:hover { background: var(--app-border-light); }
 
 /* ── Tree nodes ───────────────────────────────────────────────────────────── */
 .dw-node {
@@ -277,10 +286,10 @@ export const DATA_WORKBENCH_STYLES = `
   min-height: 28px;
   user-select: none;
 }
-.dw-node:hover { background: rgba(102,0,255,0.06); }
+.dw-node:hover { background: var(--app-wash-hover); }
 .dw-node.dw-node--selected {
-  background: rgba(102,0,255,0.10);
-  border: 1px solid rgba(102,0,255,0.18);
+  background: var(--app-wash-selected);
+  border: 1px solid var(--app-wash-ring);
 }
 .dw-node-indent { display: inline-block; flex-shrink: 0; }
 .dw-node-expand {
@@ -288,12 +297,12 @@ export const DATA_WORKBENCH_STYLES = `
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   font-size: 10px;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   background: none; border: none; cursor: pointer; padding: 0;
   border-radius: 3px;
   transition: background 0.10s, transform 0.15s;
 }
-.dw-node-expand:hover { background: var(--app-border, #e2e8f0); }
+.dw-node-expand:hover { background: var(--app-border); }
 .dw-node-expand.dw-node-expand--open { transform: rotate(90deg); }
 .dw-node-expand--leaf { visibility: hidden; }
 .dw-node-icon { flex-shrink: 0; font-size: 13px; line-height: 1; }
@@ -301,14 +310,14 @@ export const DATA_WORKBENCH_STYLES = `
   flex: 1;
   font-size: 12px;
   font-weight: 500;
-  color: var(--app-text, #1a2035);
+  color: var(--app-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .dw-node-meta {
   font-size: 10px;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   white-space: nowrap;
   margin-left: 4px;
 }
@@ -322,14 +331,14 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 4px 12px 4px;
   font-size: 10px;
   font-weight: 600;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 .dw-unassigned-sep::before, .dw-unassigned-sep::after {
-  content: ''; flex: 1; height: 1px; background: var(--app-border-light, #eef1f8);
+  content: ''; flex: 1; height: 1px; background: var(--app-border-light);
 }
-.dw-node--room .dw-node-label { font-weight: 400; color: var(--app-text-2, #5a6a85); }
+.dw-node--room .dw-node-label { font-weight: 400; color: var(--app-text-2); }
 
 /* ── Dialog ──────────────────────────────────────────────────────────────── */
 .dw-dialog-overlay {
@@ -345,40 +354,40 @@ export const DATA_WORKBENCH_STYLES = `
   justify-content: center;
 }
 .dw-dialog {
-  background: var(--app-panel-bg, #fff);
+  background: var(--app-panel-bg);
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  box-shadow: var(--app-shadow-modal);
   padding: 20px 22px;
   min-width: 300px;
   max-width: 400px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: var(--app-font, -apple-system, sans-serif);
+  font-family: var(--app-font);
 }
-.dw-dialog-title { font-size: 14px; font-weight: 700; color: var(--app-text, #1a2035); margin: 0; }
+.dw-dialog-title { font-size: 14px; font-weight: 700; color: var(--app-text); margin: 0; }
 .dw-dialog-body { display: flex; flex-direction: column; gap: 8px; }
 .dw-dialog-label {
   font-size: 11px; font-weight: 600;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .dw-dialog-input {
   width: 100%; padding: 8px 10px;
-  border: 1px solid var(--app-border, #e2e8f0);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   font-family: var(--app-font); font-size: 13px;
-  color: var(--app-text, #1a2035);
+  color: var(--app-text);
   box-sizing: border-box; outline: none;
   transition: border-color 0.12s;
 }
-.dw-dialog-input:focus { border-color: var(--app-accent, #6600FF); }
+.dw-dialog-input:focus { border-color: var(--app-accent); }
 .dw-dialog-select {
   width: 100%; padding: 8px 10px;
-  border: 1px solid var(--app-border, #e2e8f0);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   font-family: var(--app-font); font-size: 12px;
-  color: var(--app-text, #1a2035); background: #fff;
+  color: var(--app-text); background: var(--app-panel-bg);
   box-sizing: border-box;
 }
 .dw-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -386,10 +395,10 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 7px 16px; border-radius: 6px; border: none;
   cursor: pointer; font-family: var(--app-font); font-size: 12px; font-weight: 600;
 }
-.dw-dialog-btn--primary { background: var(--app-accent, #6600FF); color: #fff; }
-.dw-dialog-btn--primary:hover { background: #7B3FF2; }
-.dw-dialog-btn--cancel { background: var(--app-border-light, #eef1f8); color: var(--app-text-2, #5a6a85); }
-.dw-dialog-btn--cancel:hover { background: var(--app-border, #e2e8f0); }
+.dw-dialog-btn--primary { background: var(--app-accent); color: var(--app-on-accent); }
+.dw-dialog-btn--primary:hover { background: var(--app-accent-hover); }
+.dw-dialog-btn--cancel { background: var(--app-border-light); color: var(--app-text-2); }
+.dw-dialog-btn--cancel:hover { background: var(--app-border); }
 .dw-dialog-group { display: flex; flex-direction: column; gap: 4px; }
 
 /* ── Tree rows ───────────────────────────────────────────────────────────── */
@@ -398,47 +407,90 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 5px 10px; cursor: pointer;
   transition: background 0.10s; user-select: none; min-height: 28px;
 }
-.dw-tree-row:hover { background: rgba(102,0,255,0.06); }
+.dw-tree-row:hover { background: var(--app-wash-hover); }
 .dw-tree-row--selected {
-  background: rgba(102,0,255,0.10);
-  border-left: 2px solid var(--app-accent, #6600FF);
+  background: var(--app-wash-selected);
+  border-left: 2px solid var(--app-accent);
 }
 .dw-tree-arrow { width: 14px; display: inline-block; cursor: pointer; font-size: 9px; opacity: 0.6; flex-shrink: 0; }
 .dw-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .dw-tree-divider {
   padding: 4px 12px; font-size: 10px; font-weight: 600;
-  color: var(--app-text-muted, #94a3b8); letter-spacing: 0.04em;
+  color: var(--app-text-muted); letter-spacing: 0.04em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border-bottom: 1px solid var(--app-border-light, #eef1f8); margin: 2px 0;
+  border-bottom: 1px solid var(--app-border-light); margin: 2px 0;
 }
 
 /* ── Setup banner ────────────────────────────────────────────────────────── */
 .dw-setup-banner {
   margin: 8px 10px; padding: 10px 12px;
-  background: linear-gradient(135deg, rgba(102,0,255,0.07) 0%, rgba(59,139,212,0.07) 100%);
-  border: 1px solid rgba(102,0,255,0.2); border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--app-violet-soft) 0%, var(--app-wash-hover) 100%);
+  border: 1px solid var(--app-wash-ring); border-radius: 10px; flex-shrink: 0;
 }
 
 /* ── Data sheet sections ─────────────────────────────────────────────────── */
-.dw-sheet-section { border-bottom: 1px solid var(--app-border-light, #eef1f8); }
+.dw-sheet-section { border-bottom: 1px solid var(--app-border-light); }
 .dw-sheet-section-header {
   padding: 8px 12px 6px;
   font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--app-text-muted, #94a3b8);
-  background: var(--app-bg, #f8faff);
-  border-bottom: 1px solid var(--app-border-light, #eef1f8);
+  color: var(--app-text-muted);
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--app-border-light);
   position: sticky; top: 0; z-index: 1;
 }
 .dw-sheet-content { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 
+/* ── Data sheet root + scroller (§PANEL-BRAND-STANDARD L-1743) ────────────
+   DataSheetPanel used to declare BOTH of these as 'style.cssText' string
+   literals in TypeScript. Two costs, neither cosmetic: §05 §7.6 says panel
+   styling lives in this layer, and — the concrete one — 'scaleCssText()' in
+   uiScale.ts rewrites the INJECTED sheet, so any length written inline is
+   invisible to the ONE density lever. 'padding: 0 0 20px' in TS did not scale
+   while every other length in this panel did. */
+.dw-sheet-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.dw-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0 20px;
+}
+
 /* ── Field groups ────────────────────────────────────────────────────────── */
-.dw-field-group { display: flex; flex-direction: column; gap: 3px; }
+/* §PANEL-BRAND-STANDARD (L-1743) — label/value RHYTHM.
+   These were 'flex-direction: column': every label sat on its own line above
+   its value, so a six-field section was twelve stacked lines and no two values
+   started at the same x. The house idiom for a label/value list is the aligned
+   two-column grid in propertyInspector.ts ('.dw-section-body',
+   grid-template-columns: 108px 1fr) — the same one the door/window sections
+   use. Adopted here at the same 108px so the two read as one product.
+   Every .dw-field-group has exactly two children (label, then value or input),
+   which is what makes the flattening safe. */
+.dw-field-group {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  gap: 4px 12px;
+  align-items: center;
+}
 .dw-field-label {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--app-text-muted, #94a3b8);
+  letter-spacing: 0.04em; color: var(--app-text-muted);
+  align-self: center;
+  min-width: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
-.dw-field-value { font-size: 13px; color: var(--app-text, #1a2035); padding: 2px 0; line-height: 1.4; }
+.dw-field-value {
+  font-size: 13px; color: var(--app-text); padding: 2px 0; line-height: 1.4;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 
 /* ── Badges ──────────────────────────────────────────────────────────────── */
 .dw-badge {
@@ -453,79 +505,79 @@ export const DATA_WORKBENCH_STYLES = `
 }
 .dw-comparison-table thead th {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
-  color: var(--app-text-muted, #94a3b8);
-  border-bottom: 1px solid var(--app-border, #e2e8f0); letter-spacing: 0.04em;
+  color: var(--app-text-muted);
+  border-bottom: 1px solid var(--app-border); letter-spacing: 0.04em;
 }
-.dw-comparison-table tbody tr { border-bottom: 1px solid var(--app-border-light, #eef1f8); }
+.dw-comparison-table tbody tr { border-bottom: 1px solid var(--app-border-light); }
 
 /* ── Hierarchy filter bar ───────────────────────────────────────────────── */
 .dw-filter-bar {
   padding: 6px 8px 4px; flex-shrink: 0;
-  border-bottom: 1px solid var(--app-border-light, #eef1f8);
-  background: var(--app-bg, #e8edf6);
+  border-bottom: 1px solid var(--app-border-light);
+  background: var(--app-bg);
 }
 .dw-filter-row {
   display: flex; align-items: center; gap: 4px; margin-bottom: 5px;
 }
 .dw-filter-input {
   flex: 1; padding: 4px 8px; font-size: 12px;
-  border: 1px solid var(--app-border, #dde3f0);
-  border-radius: var(--app-radius-sm, 6px);
-  background: #fff; color: var(--app-text, #1a2035);
-  font-family: var(--app-font, sans-serif); outline: none;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-panel-bg); color: var(--app-text);
+  font-family: var(--app-font); outline: none;
 }
-.dw-filter-input:focus { border-color: var(--app-accent, #6600FF); }
-.dw-filter-input::placeholder { color: var(--app-text-muted, #7a8aaa); }
+.dw-filter-input:focus { border-color: var(--app-accent); }
+.dw-filter-input::placeholder { color: var(--app-text-muted); }
 .dw-filter-clear {
   padding: 3px 7px; font-size: 11px; cursor: pointer;
-  border: 1px solid var(--app-border, #dde3f0); border-radius: var(--app-radius-sm, 6px);
-  background: #fff; color: var(--app-text-muted, #7a8aaa); flex-shrink: 0;
-  font-family: var(--app-font, sans-serif); transition: background 0.1s;
+  border: 1px solid var(--app-border); border-radius: var(--app-radius-sm);
+  background: var(--app-panel-bg); color: var(--app-text-muted); flex-shrink: 0;
+  font-family: var(--app-font); transition: background 0.1s;
 }
-.dw-filter-clear:hover { background: var(--app-border-light, #eef1f8); }
+.dw-filter-clear:hover { background: var(--app-border-light); }
 .dw-filter-pills { display: flex; flex-wrap: wrap; gap: 4px; }
 .dw-filter-pill {
   padding: 2px 9px; font-size: 10px; font-weight: 600;
-  border-radius: 100px; border: 1px solid var(--app-border, #dde3f0);
-  background: #fff; color: var(--app-text-2, #5a6a85); cursor: pointer;
-  font-family: var(--app-font, sans-serif); transition: all 0.12s; white-space: nowrap;
+  border-radius: 100px; border: 1px solid var(--app-border);
+  background: var(--app-panel-bg); color: var(--app-text-2); cursor: pointer;
+  font-family: var(--app-font); transition: all 0.12s; white-space: nowrap;
   letter-spacing: 0.02em;
 }
-.dw-filter-pill:hover { border-color: var(--app-accent, #6600FF); color: var(--app-accent, #6600FF); }
+.dw-filter-pill:hover { border-color: var(--app-accent); color: var(--app-accent); }
 .dw-filter-pill--active {
-  background: var(--app-accent, #6600FF); color: #fff;
-  border-color: var(--app-accent, #6600FF);
+  background: var(--app-accent); color: var(--app-on-accent);
+  border-color: var(--app-accent);
 }
 .dw-filter-counter {
   padding: 4px 10px; font-size: 10px; font-weight: 600;
-  color: var(--app-text-muted, #7a8aaa); letter-spacing: 0.03em;
-  border-bottom: 1px solid var(--app-border-light, #eef1f8); flex-shrink: 0;
+  color: var(--app-text-muted); letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--app-border-light); flex-shrink: 0;
 }
 .dw-filter-item {
   display: flex; align-items: center; padding: 5px 10px 5px 14px;
   cursor: pointer; transition: background 0.1s; min-height: 26px; gap: 6px;
 }
-.dw-filter-item:hover { background: rgba(102,0,255,0.06); }
-.dw-filter-item--selected { background: rgba(102,0,255,0.10); border-left: 2px solid var(--app-accent,#6600FF); }
+.dw-filter-item:hover { background: var(--app-wash-hover); }
+.dw-filter-item--selected { background: var(--app-wash-selected); border-left: 2px solid var(--app-accent); }
 .dw-filter-item-icon { font-size: 12px; flex-shrink: 0; }
-.dw-filter-item-label { flex: 1; font-size: 12px; color: var(--app-text,#1a2035); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dw-filter-item-meta { font-size: 10px; color: var(--app-text-muted,#7a8aaa); white-space: nowrap; flex-shrink: 0; }
+.dw-filter-item-label { flex: 1; font-size: 12px; color: var(--app-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-filter-item-meta { font-size: 10px; color: var(--app-text-muted); white-space: nowrap; flex-shrink: 0; }
 .dw-filter-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .dw-filter-empty {
   padding: 20px 12px; text-align: center;
-  font-size: 12px; color: var(--app-text-muted,#7a8aaa); line-height: 1.6;
+  font-size: 12px; color: var(--app-text-muted); line-height: 1.6;
 }
 
 /* ── Workbench header (legacy compat) ─────────────────────────────────────── */
 .dw-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--app-border-light, #eef1f8);
+  border-bottom: 1px solid var(--app-border-light);
   flex-shrink: 0;
 }
 .dw-header-title {
   font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--app-text-muted, #94a3b8);
+  letter-spacing: 0.06em; color: var(--app-text-muted);
 }
 .dw-header-actions { display: flex; gap: 4px; align-items: center; }
 
@@ -534,88 +586,88 @@ export const DATA_WORKBENCH_STYLES = `
 /* AppTheme system per §05 §7.6. Colours corrected to light-theme tokens.      */
 .dw-rel-panel {
   display: flex; flex-direction: column; height: 100%; overflow: hidden;
-  font-family: var(--app-font, sans-serif); font-size: 12px;
-  color: var(--app-text, #1a2035);
+  font-family: var(--app-font); font-size: 12px;
+  color: var(--app-text);
 }
 .dw-rel-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 14px; flex-shrink: 0;
-  border-bottom: 1px solid var(--app-border, #dde3f0);
-  background: var(--app-panel-bg, #ffffff);
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-panel-bg);
 }
 .dw-rel-title {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: var(--app-text-muted, #7a8aaa);
+  letter-spacing: 0.06em; color: var(--app-text-muted);
 }
-.dw-rel-count { font-size: 11px; color: var(--app-text-muted, #7a8aaa); }
+.dw-rel-count { font-size: 11px; color: var(--app-text-muted); }
 .dw-rel-infobar {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 14px; flex-shrink: 0;
-  background: var(--app-bg, #e8edf6);
-  border-bottom: 1px solid var(--app-border, #dde3f0);
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--app-border);
 }
-.dw-rel-selected-label { color: var(--app-text-muted, #7a8aaa); font-size: 11px; }
+.dw-rel-selected-label { color: var(--app-text-muted); font-size: 11px; }
 .dw-rel-type-badge {
-  background: var(--app-violet-soft, rgba(102,0,255,0.08));
-  color: var(--app-accent, #6600FF);
+  background: var(--app-violet-soft);
+  color: var(--app-accent);
   border-radius: 4px; padding: 1px 6px;
   font-size: 10px; font-weight: 600; text-transform: uppercase;
 }
 .dw-rel-selected-id {
-  color: var(--app-accent, #6600FF);
+  color: var(--app-accent);
   font-size: 11px; font-family: ui-monospace, monospace;
 }
 .dw-rel-list {
   flex: 1; overflow-y: auto; padding: 4px 0;
-  scrollbar-width: thin; scrollbar-color: #c4cde0 transparent;
+  scrollbar-width: thin; scrollbar-color: var(--app-scrollbar-thumb) transparent;
 }
 .dw-rel-list::-webkit-scrollbar { width: 4px; }
 .dw-rel-list::-webkit-scrollbar-track { background: transparent; }
-.dw-rel-list::-webkit-scrollbar-thumb { background: #c4cde0; border-radius: 3px; }
+.dw-rel-list::-webkit-scrollbar-thumb { background: var(--app-scrollbar-thumb); border-radius: 3px; }
 .dw-rel-group { margin-bottom: 1px; }
 .dw-rel-group-label {
   display: flex; align-items: center; gap: 6px;
   padding: 5px 14px;
-  background: var(--app-bg, #e8edf6);
+  background: var(--app-bg);
   cursor: default; user-select: none;
   position: sticky; top: 0; z-index: 1;
 }
 .dw-rel-icon { font-size: 12px; width: 16px; text-align: center; }
 .dw-rel-type-name {
   flex: 1; font-size: 10px; font-weight: 700;
-  color: var(--app-text-muted, #7a8aaa);
+  color: var(--app-text-muted);
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .dw-rel-group-count {
-  background: var(--app-violet-soft, rgba(102,0,255,0.08));
-  color: var(--app-accent, #6600FF);
+  background: var(--app-violet-soft);
+  color: var(--app-accent);
   border-radius: 10px; padding: 1px 6px;
   font-size: 10px; font-weight: 700;
 }
 .dw-rel-items {
-  border-left: 2px solid var(--app-border, #dde3f0);
+  border-left: 2px solid var(--app-border);
   margin-left: 22px;
 }
 .dw-rel-item {
   display: flex; align-items: center; gap: 6px;
   padding: 5px 10px 5px 8px; cursor: pointer;
   transition: background 0.10s;
-  border-bottom: 1px solid var(--app-border-light, #eef1f8);
+  border-bottom: 1px solid var(--app-border-light);
 }
-.dw-rel-item:hover { background: var(--app-violet-soft, rgba(102,0,255,0.06)); }
+.dw-rel-item:hover { background: var(--app-violet-soft); }
 .dw-rel-dir {
-  color: var(--app-accent, #6600FF); font-weight: 700;
+  color: var(--app-accent); font-weight: 700;
   font-size: 13px; width: 16px;
 }
 .dw-rel-id {
-  font-size: 11px; color: var(--app-text-2, #5a6a85);
+  font-size: 11px; color: var(--app-text-2);
   flex: 1; font-family: ui-monospace, monospace;
 }
 .dw-rel-meta {
-  background: var(--app-bg, #e8edf6);
-  border: 1px solid var(--app-border, #dde3f0);
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
   border-radius: 3px; padding: 1px 4px;
-  font-size: 10px; color: var(--app-text-2, #5a6a85);
+  font-size: 10px; color: var(--app-text-2);
 }
 .dw-rel-highlight-btn {
   background: transparent; border: none; cursor: pointer;
@@ -626,7 +678,7 @@ export const DATA_WORKBENCH_STYLES = `
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   padding: 40px 20px; text-align: center; gap: 10px; flex: 1;
-  color: var(--app-text-muted, #7a8aaa);
+  color: var(--app-text-muted);
 }
 .dw-rel-empty-icon { font-size: 32px; opacity: 0.35; }
 .dw-rel-empty-text { font-size: 12px; line-height: 1.5; }
@@ -635,31 +687,31 @@ export const DATA_WORKBENCH_STYLES = `
 }
 .dw-rel-actions {
   display: flex; gap: 8px; padding: 8px 14px;
-  border-top: 1px solid var(--app-border, #dde3f0);
-  flex-shrink: 0; background: var(--app-panel-bg, #ffffff);
+  border-top: 1px solid var(--app-border);
+  flex-shrink: 0; background: var(--app-panel-bg);
 }
 .dw-rel-action-btn {
   flex: 1; padding: 5px 10px;
-  background: var(--app-panel-bg, #ffffff);
-  border: 1px solid var(--app-border, #dde3f0);
-  border-radius: var(--app-radius-sm, 6px);
-  color: var(--app-text-2, #5a6a85);
+  background: var(--app-panel-bg);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text-2);
   font-size: 11px; font-weight: 600; cursor: pointer;
-  font-family: var(--app-font, sans-serif);
+  font-family: var(--app-font);
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .dw-rel-action-btn:hover {
-  background: var(--app-violet-soft, rgba(102,0,255,0.06));
-  border-color: var(--app-accent, #6600FF);
-  color: var(--app-accent, #6600FF);
+  background: var(--app-violet-soft);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 .dw-rel-action-btn--primary {
-  background: var(--app-accent, #6600FF);
-  border-color: var(--app-accent, #6600FF); color: #fff;
+  background: var(--app-accent);
+  border-color: var(--app-accent); color: var(--app-on-accent);
 }
 .dw-rel-action-btn--primary:hover {
-  background: var(--app-violet-2, #7B3FF2);
-  border-color: var(--app-violet-2, #7B3FF2);
+  background: var(--app-violet-2);
+  border-color: var(--app-violet-2);
 }
 
 /* ── Generative Design Panel (dw-gen-) ──────────────────────────────────── */
@@ -668,11 +720,11 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-gen-title { font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--app-text-muted);margin-bottom:6px;text-transform:uppercase; }
 .dw-gen-mode-toggle { display:flex;gap:4px; }
 .dw-gen-mode-btn { padding:3px 10px;border:1px solid var(--app-border);border-radius:var(--app-radius-sm);background:transparent;font-size:11px;cursor:pointer;color:var(--app-text);font-family:var(--app-font); }
-.dw-gen-mode-btn--active { background:var(--app-gradient);color:#fff;border-color:var(--app-accent); }
+.dw-gen-mode-btn--active { background:var(--app-gradient);color:var(--app-on-accent);border-color:var(--app-accent); }
 .dw-gen-mode-content { flex:1;overflow-y:auto;padding:10px 12px; }
 .dw-gen-field-label { font-size:11px;font-weight:600;color:var(--app-text);margin-bottom:4px;font-family:var(--app-font); }
 .dw-gen-textarea { width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--app-border);border-radius:var(--app-radius-sm);font-size:12px;font-family:var(--app-font);resize:vertical;background:var(--app-panel-bg);color:var(--app-text); }
-.dw-gen-parse-btn { margin-top:8px;width:100%;padding:7px;background:var(--app-gradient);color:#fff;border:none;border-radius:var(--app-radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--app-font); }
+.dw-gen-parse-btn { margin-top:8px;width:100%;padding:7px;background:var(--app-gradient);color:var(--app-on-accent);border:none;border-radius:var(--app-radius-sm);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--app-font); }
 .dw-gen-parse-btn:disabled { opacity:.5;cursor:default; }
 .dw-gen-hint { margin-top:6px;font-size:11px;color:var(--app-text-muted);line-height:1.5; }
 .dw-gen-table-wrap { overflow-x:auto;margin-bottom:8px; }
@@ -682,7 +734,7 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-gen-input { width:100%;box-sizing:border-box;padding:3px 5px;border:1px solid var(--app-border);border-radius:3px;font-size:11px;background:var(--app-panel-bg);color:var(--app-text);font-family:var(--app-font); }
 .dw-gen-input--num { width:60px; }
 .dw-gen-input--adj { min-width:160px; }
-.dw-gen-remove-btn { background:none;border:none;color:var(--app-status-error, #c62828);cursor:pointer;font-size:12px;padding:2px 4px; }
+.dw-gen-remove-btn { background:none;border:none;color:var(--app-status-error);cursor:pointer;font-size:12px;padding:2px 4px; }
 .dw-gen-add-btn { font-size:11px;color:var(--app-accent);background:none;border:1px dashed var(--app-accent);padding:4px 10px;border-radius:var(--app-radius-sm);cursor:pointer;margin-bottom:10px;font-family:var(--app-font); }
 .dw-gen-settings { margin:8px 0;display:flex;flex-direction:column;gap:6px; }
 .dw-gen-settings-row { display:flex;align-items:center;gap:8px; }
@@ -690,15 +742,15 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-gen-bbox { display:flex;align-items:center;gap:4px;font-size:12px;color:var(--app-text); }
 .dw-gen-bbox-sep { font-weight:700;color:var(--app-text-muted); }
 .dw-gen-select { padding:4px 8px;border:1px solid var(--app-border);border-radius:var(--app-radius-sm);font-size:11px;background:var(--app-panel-bg);color:var(--app-text);font-family:var(--app-font); }
-.dw-gen-generate-btn { width:100%;padding:9px;background:var(--app-gradient);color:#fff;border:none;border-radius:var(--app-radius-sm);font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;letter-spacing:.01em;font-family:var(--app-font); }
+.dw-gen-generate-btn { width:100%;padding:9px;background:var(--app-gradient);color:var(--app-on-accent);border:none;border-radius:var(--app-radius-sm);font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;letter-spacing:.01em;font-family:var(--app-font); }
 .dw-gen-generate-btn:disabled { opacity:.5;cursor:default; }
-.dw-gen-error { margin:8px 12px;padding:8px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--app-radius-sm);font-size:11px;color:#b91c1c; }
-.dw-gen-success { margin:8px 12px;padding:8px 10px;background:#f0fdf4;border:1px solid #86efac;border-radius:var(--app-radius-sm);font-size:11px;color:#15803d;line-height:1.5; }
+.dw-gen-error { margin:8px 12px;padding:8px 10px;background:var(--app-status-error-bg);border:1px solid var(--app-status-error-line);border-radius:var(--app-radius-sm);font-size:11px;color:var(--app-status-error-ink); }
+.dw-gen-success { margin:8px 12px;padding:8px 10px;background:var(--app-status-success-bg);border:1px solid var(--app-status-success-line);border-radius:var(--app-radius-sm);font-size:11px;color:var(--app-status-success-ink);line-height:1.5; }
 .dw-gen-advisory { padding:10px 12px;border-top:1px solid var(--app-border); }
-.dw-gen-advisory-title { font-size:11px;font-weight:700;color:#d97706;margin-bottom:6px; }
-.dw-gen-advisory-card { background:#fffbeb;border:1px solid #fde68a;border-radius:var(--app-radius-sm);padding:8px 10px;margin-bottom:6px; }
-.dw-gen-advisory-card-title { font-size:11px;font-weight:700;color:#92400e;margin-bottom:2px; }
-.dw-gen-advisory-card-desc { font-size:11px;color:#78350f;line-height:1.5;margin-bottom:4px; }
+.dw-gen-advisory-title { font-size:11px;font-weight:700;color:var(--app-status-warning-ink);margin-bottom:6px; }
+.dw-gen-advisory-card { background:var(--app-status-warning-bg);border:1px solid var(--app-status-warning-line);border-radius:var(--app-radius-sm);padding:8px 10px;margin-bottom:6px; }
+.dw-gen-advisory-card-title { font-size:11px;font-weight:700;color:var(--app-status-warning-ink);margin-bottom:2px; }
+.dw-gen-advisory-card-desc { font-size:11px;color:var(--app-status-warning-ink);line-height:1.5;margin-bottom:4px; }
 .dw-gen-advisory-apply-btn { font-size:11px;color:var(--app-accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline; }
 
 /* ── Variant Browser Panel (dw-vb-) ─────────────────────────────────────── */
@@ -715,25 +767,25 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-vb-back-btn { font-size:11px;background:none;border:none;color:var(--app-accent);cursor:pointer;font-family:var(--app-font); }
 .dw-vb-grid { display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;overflow-y:auto; }
 .dw-vb-card { border:1px solid var(--app-border);border-radius:var(--app-radius-sm);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s;background:var(--app-panel-bg); }
-.dw-vb-card:hover { border-color:var(--app-accent);box-shadow:0 0 0 2px rgba(102,0,255,0.15); }
-.dw-vb-card.dw-vb-card--selected { border-color:var(--app-accent);box-shadow:0 0 0 2px rgba(102,0,255,0.25); }
+.dw-vb-card:hover { border-color:var(--app-accent);box-shadow:var(--app-focus-ring); }
+.dw-vb-card.dw-vb-card--selected { border-color:var(--app-accent);box-shadow:0 0 0 2px var(--app-accent); }
 .dw-vb-card--noncompliant { opacity:.8; }
-.dw-vb-card-thumb { width:100%;display:block;overflow:hidden;background:#f8fafc; }
+.dw-vb-card-thumb { width:100%;display:block;overflow:hidden;background:var(--app-surface-sunken); }
 .dw-vb-card-thumb svg { display:block;width:100%;height:auto; }
 .dw-vb-card-body { padding:6px 8px; }
 .dw-vb-card-variant { font-size:10px;font-weight:700;color:var(--app-accent); }
 .dw-vb-card-gia { font-size:11px;color:var(--app-text);font-family:var(--app-font); }
 .dw-vb-card-adj { font-size:10px;color:var(--app-text-muted); }
 .dw-vb-card-score { font-size:11px;color:var(--app-text);font-family:var(--app-font); }
-.dw-vb-card-warn { font-size:10px;color:#d97706;margin-top:2px; }
+.dw-vb-card-warn { font-size:10px;color:var(--app-status-warning-ink);margin-top:2px; }
 .dw-vb-select-btn { display:none; }
 .dw-vb-footer { display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--app-border);background:var(--app-bg);flex-wrap:wrap; }
 .dw-vb-selected-label { font-size:11px;color:var(--app-text);flex:1;font-family:var(--app-font); }
-.dw-vb-apply-btn { padding:6px 14px;background:var(--app-gradient);color:#fff;border:none;border-radius:var(--app-radius-sm);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--app-font); }
+.dw-vb-apply-btn { padding:6px 14px;background:var(--app-gradient);color:var(--app-on-accent);border:none;border-radius:var(--app-radius-sm);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--app-font); }
 .dw-vb-merge-btn { padding:6px 10px;background:none;border:1px solid var(--app-border);color:var(--app-text);border-radius:var(--app-radius-sm);font-size:11px;cursor:pointer;font-family:var(--app-font); }
-.dw-vb-applied-ok { font-size:11px;color:#16a34a;font-weight:600;animation:dw-fadeout 3s forwards; }
+.dw-vb-applied-ok { font-size:11px;color:var(--app-status-success-ink);font-weight:600;animation:dw-fadeout 3s forwards; }
 @keyframes dw-fadeout { 0%,70%{opacity:1} 100%{opacity:0} }
-.dw-vb-error { padding:20px;color:#b91c1c;font-size:12px;font-family:var(--app-font); }
+.dw-vb-error { padding:20px;color:var(--app-status-error-ink);font-size:12px;font-family:var(--app-font); }
 .dw-vb-merge-selectors { display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 12px;border-bottom:1px solid var(--app-border); }
 .dw-vb-merge-col-title { font-size:10px;font-weight:700;color:var(--app-text-muted);margin-bottom:4px;text-transform:uppercase; }
 .dw-vb-merge-hint { font-size:11px;color:var(--app-text-muted);padding:8px 12px;background:var(--app-bg); }
@@ -751,8 +803,8 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-bucket-rail {
   width: 56px;
   flex-shrink: 0;
-  background: var(--app-bg, #f8faff);
-  border-right: 1px solid var(--app-border, #e2e8f0);
+  background: var(--app-bg);
+  border-right: 1px solid var(--app-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -779,16 +831,16 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 0;
   position: relative;
   transition: background 0.14s, color 0.14s;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   flex-shrink: 0;
 }
 .dw-bucket-btn:hover {
-  background: rgba(0,0,0,0.05);
-  color: var(--app-text, #1a2035);
+  background: var(--app-wash-hover);
+  color: var(--app-text);
 }
 .dw-bucket-btn--active {
-  background: color-mix(in srgb, var(--bucket-color, #6600FF) 10%, transparent);
-  color: var(--bucket-color, #6600FF);
+  background: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 10%, transparent);
+  color: var(--bucket-color, var(--app-accent));
 }
 .dw-bucket-btn--active::before {
   content: '';
@@ -798,7 +850,7 @@ export const DATA_WORKBENCH_STYLES = `
   transform: translateY(-50%);
   width: 3px;
   height: 28px;
-  background: var(--bucket-color, #6600FF);
+  background: var(--bucket-color, var(--app-accent));
   border-radius: 0 3px 3px 0;
 }
 .dw-bucket-icon {
@@ -838,8 +890,8 @@ export const DATA_WORKBENCH_STYLES = `
   padding: 0 14px;
   height: 44px;
   flex-shrink: 0;
-  background: var(--bucket-header-bg, linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%));
-  color: #fff;
+  background: var(--bucket-header-bg, var(--app-gradient));
+  color: var(--app-on-accent);
 }
 .dw-bucket-header-left {
   display: flex;
@@ -856,15 +908,15 @@ export const DATA_WORKBENCH_STYLES = `
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--app-on-accent);
 }
 .dw-bucket-header-count {
   font-size: 10px;
   font-weight: 600;
-  background: rgba(255,255,255,0.18);
+  background: var(--app-on-accent-veil);
   border-radius: 99px;
   padding: 2px 7px;
-  color: rgba(255,255,255,0.9);
+  color: var(--app-on-accent-dim);
   letter-spacing: 0.03em;
 }
 
@@ -874,8 +926,8 @@ export const DATA_WORKBENCH_STYLES = `
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--app-border, #e2e8f0);
-  background: var(--app-panel-bg, #fff);
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-panel-bg);
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
@@ -888,9 +940,9 @@ export const DATA_WORKBENCH_STYLES = `
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--bucket-color, #6600FF);
+  color: var(--bucket-color, var(--app-accent));
   padding: 2px 7px;
-  background: color-mix(in srgb, var(--bucket-color, #6600FF) 10%, transparent);
+  background: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 10%, transparent);
   border-radius: 100px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -898,7 +950,7 @@ export const DATA_WORKBENCH_STYLES = `
 
 .dw-subtab-sep {
   font-size: 11px;
-  color: var(--app-border, #e2e8f0);
+  color: var(--app-border);
   flex-shrink: 0;
   user-select: none;
 }
@@ -912,23 +964,23 @@ export const DATA_WORKBENCH_STYLES = `
   border: 1px solid transparent;
   background: none;
   cursor: pointer;
-  font-family: var(--app-font, sans-serif);
+  font-family: var(--app-font);
   font-size: 11px;
   font-weight: 600;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .dw-subtab-btn:hover {
-  background: color-mix(in srgb, var(--bucket-color, #6600FF) 8%, transparent);
-  color: var(--bucket-color, #6600FF);
-  border-color: color-mix(in srgb, var(--bucket-color, #6600FF) 30%, transparent);
+  background: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 8%, transparent);
+  color: var(--bucket-color, var(--app-accent));
+  border-color: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 30%, transparent);
 }
 .dw-subtab-btn--active {
-  background: color-mix(in srgb, var(--bucket-color, #6600FF) 12%, transparent);
-  color: var(--bucket-color, #6600FF);
-  border-color: color-mix(in srgb, var(--bucket-color, #6600FF) 35%, transparent);
+  background: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 12%, transparent);
+  color: var(--bucket-color, var(--app-accent));
+  border-color: color-mix(in srgb, var(--bucket-color, var(--app-accent)) 35%, transparent);
 }
 .dw-subtab-icon {
   font-size: 12px;
@@ -951,7 +1003,7 @@ export const DATA_WORKBENCH_STYLES = `
   display: flex;
   flex-direction: column;
   transition: flex 0.22s ease;
-  border-right: 1px solid var(--app-border, #e2e8f0);
+  border-right: 1px solid var(--app-border);
 }
 .dw-audit-tree-pane--narrow {
   flex: 0 0 55%;
@@ -962,7 +1014,7 @@ export const DATA_WORKBENCH_STYLES = `
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--app-panel-bg, #fff);
+  background: var(--app-panel-bg);
   position: relative;
   transition: flex 0.22s ease, opacity 0.18s ease;
 }
@@ -981,8 +1033,8 @@ export const DATA_WORKBENCH_STYLES = `
   height: 20px;
   border-radius: 50%;
   border: none;
-  background: var(--app-border, #e2e8f0);
-  color: var(--app-text-muted, #94a3b8);
+  background: var(--app-border);
+  color: var(--app-text-muted);
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
@@ -993,8 +1045,8 @@ export const DATA_WORKBENCH_STYLES = `
   transition: background 0.12s;
 }
 .dw-audit-sheet-close:hover {
-  background: var(--app-border, #dde3f0);
-  color: var(--app-text, #1a2035);
+  background: var(--app-border);
+  color: var(--app-text);
 }
 
 /* ── Panel container adjustments for lifecycle hub ─────────────────────────── */
@@ -1014,8 +1066,8 @@ export const DATA_WORKBENCH_STYLES = `
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  background: #fafafa;
-  border-bottom: 1px solid var(--app-border, #e2e8f0);
+  background: var(--app-surface-sunken);
+  border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1027,7 +1079,7 @@ export const DATA_WORKBENCH_STYLES = `
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
   margin-right: 4px;
@@ -1039,26 +1091,26 @@ export const DATA_WORKBENCH_STYLES = `
   gap: 3px;
   padding: 3px 9px;
   border-radius: 100px;
-  border: 1px solid var(--app-border, #e2e8f0);
-  background: var(--app-panel-bg, #fff);
+  border: 1px solid var(--app-border);
+  background: var(--app-panel-bg);
   cursor: pointer;
-  font-family: var(--app-font, sans-serif);
+  font-family: var(--app-font);
   font-size: 10px;
   font-weight: 600;
-  color: var(--app-text-muted, #94a3b8);
+  color: var(--app-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .dw-viz-btn:hover {
-  background: rgba(59,139,212,0.08);
-  border-color: #3B8BD4;
-  color: #3B8BD4;
+  background: var(--app-wash-hover);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 .dw-viz-btn--active {
-  background: #3B8BD4;
-  border-color: #3B8BD4;
-  color: #fff;
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: var(--app-on-accent);
 }
 
 /* ── Legend overlay (fixed, bottom-left of 3D viewport) ──────────────────────── */
@@ -1067,17 +1119,22 @@ export const DATA_WORKBENCH_STYLES = `
   bottom: 60px;
   left: 60px;
   z-index: 105;
-  background: rgba(15,23,42,0.82);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 10px;
+  /* §PANEL-BRAND-STANDARD (L-1742) — this legend was the last DARK-THEME island
+     in the Data surface: a slate-900 ground (rgba(15,23,42,0.82)) with
+     white-at-alpha text and a white hairline, floating over a white product. It
+     is now the same glass card every other floating PRYZM panel uses. */
+  background: var(--app-panel-glass);
+  backdrop-filter: var(--app-panel-glass-blur);
+  -webkit-backdrop-filter: var(--app-panel-glass-blur);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+  box-shadow: var(--app-shadow-card);
   padding: 10px 12px;
   display: none;
   flex-direction: column;
   gap: 5px;
   min-width: 160px;
-  font-family: var(--app-font, sans-serif);
+  font-family: var(--app-font);
   pointer-events: none;
 }
 #dw-viz-legend.dw-viz-legend--visible { display: flex; }
@@ -1087,7 +1144,7 @@ export const DATA_WORKBENCH_STYLES = `
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
+  color: var(--app-text-muted);
   margin-bottom: 3px;
 }
 
@@ -1105,7 +1162,7 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-viz-legend-text {
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255,255,255,0.85);
+  color: var(--app-text);
   white-space: nowrap;
 }
 
@@ -1113,8 +1170,8 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-ghost-tooltip {
   position: fixed;
   z-index: 9999;
-  background: rgba(147,51,234,0.90);
-  color: #fff;
+  background: var(--app-accent);
+  color: var(--app-on-accent);
   font-size: 11px;
   font-weight: 600;
   padding: 5px 10px;

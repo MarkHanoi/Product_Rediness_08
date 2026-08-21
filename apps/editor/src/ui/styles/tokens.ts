@@ -248,6 +248,98 @@ export const DESIGN_TOKENS = `
         --pryzm-pill-radius:           8px;
         --pryzm-pill-font-size:        11px;
         --pryzm-pill-shadow:           0 1px 6px rgba(20, 10, 60, 0.10);
+
+        /* ── §PANEL-BRAND-STANDARD (L-1740..L-1744 · C06 §6) ──────────────
+           The founder's report — "the inspect and data sections … don't follow
+           the correct PRYZM ui standards … following the exactly colours" — is
+           this block's whole reason to exist. Measured 2026-08-21, the two mode
+           surfaces between them carried 226 hard-coded colour literals against
+           this file's 60-odd tokens, including FOUR palettes that are not the
+           product's: Tailwind slate (#e2e8f0 · #94a3b8 · #f8fafc · #0f172a), a
+           rival blue accent (#3B8BD4), a rival purple (rgba(147,51,234,.90) —
+           Tailwind purple-600, NOT #6600FF), and a cyan (rgb(0,180,220)).
+
+           The literals were not merely duplicating tokens, they were CONTRADICTING
+           them: 'var(--app-border, #e2e8f0)' appeared 18 times beside
+           'var(--app-border, #dde3f0)' 10 times, for one token whose value is
+           #dde3f0. Every one of those fallbacks is DEAD — AppTheme.injectAppTheme()
+           concatenates DESIGN_TOKENS ahead of every panel sheet into ONE <style>
+           element, so :root is always defined by the time a panel rule is read.
+           A fallback that can never fire and disagrees with the token it backs is
+           a second palette kept alive in comments-that-compile. They are removed,
+           not corrected: correcting them would preserve the second source.
+
+           The tokens below are the roles those literals were reaching for. They
+           are named by ROLE, not by value, so the next panel asks "what is this
+           FOR" instead of picking a hex.
+
+           ⚠ Adding a value here is the ONLY sanctioned way to introduce a colour
+           to a panel. If a role is missing, add the role — do not inline the hex. */
+
+        /* Text/icon colour ON the brand accent, the brand gradient, or any other
+           strong ground (a filled tooltip, an inverted chip). 6.98:1 against
+           #6600FF — AA for normal text, AAA for large. */
+        --app-on-accent:            #ffffff;
+        /* Secondary ink and hairline veil on those same strong grounds — the
+           count pill on a purple header bar, a ghost button inside it. Both
+           panels had these as bare rgba(255,255,255,·) at five different alphas. */
+        --app-on-accent-dim:        rgba(255,255,255,0.90);
+        --app-on-accent-veil:       rgba(255,255,255,0.18);
+        --app-on-accent-veil-hover: rgba(255,255,255,0.30);
+        /* Accent under pointer/press. Same value as --app-violet-2; named
+           separately because a hover is a ROLE and the ramp position is not. */
+        --app-accent-hover:         #7B3FF2;
+
+        /* Sunken surface — the recessed well behind a thumbnail, a code block,
+           or an inset list. Replaces #fafafa / #f8fafc / #f8faff, which were
+           three near-whites doing one job in one file. */
+        --app-surface-sunken:       #f8faff;
+
+        /* The FOUR interaction washes. The two panels used THIRTEEN distinct
+           alphas of #6600FF (.04 .05 .06 .07 .08 .09 .10 .12 .15 .18 .2 .25 .30)
+           for what is four states, so no two rows of the same kind matched.
+           --app-violet-soft (0.08) already existed and is kept as the resting
+           tint; these name the other three. */
+        --app-wash-hover:           rgba(102,0,255,0.06);
+        --app-wash-selected:        rgba(102,0,255,0.12);
+        --app-wash-ring:            rgba(102,0,255,0.18);
+        --app-focus-ring:           0 0 0 2px rgba(102,0,255,0.18);
+
+        /* Elevation. The literals replaced here were rgba(0,0,0,·) — BLACK, which
+           the standing white+purple rule forbids on product surfaces, and which
+           is also why those panels read muddier than the rest of the app. These
+           sit on the same blue-ink axis as --app-shadow-panel/-card. */
+        --app-shadow-drawer:        -4px 0 24px rgba(30,50,120,0.10);
+        --app-shadow-modal:         0 20px 60px rgba(30,50,120,0.18);
+        --app-shadow-hud:           0 2px 12px rgba(30,50,120,0.14);
+
+        /* Scrollbar thumb — the global rule at the foot of this file already
+           paints every scrollbar #c4cde0; three panel rules re-declared it
+           (twice as #c4cde0, once as #d0d4e3, which is a fourth grey). Named so
+           a panel that genuinely needs its own thumb reads the same value. */
+        --app-scrollbar-thumb:      #c4cde0;
+
+        /* ── Status CARDS (soft ground + rule + ink) ──────────────────────
+           --app-status-warning/-success/-error above are FILL colours: dots,
+           bars, badges. They were also being used as TEXT, and as text on white
+           they FAIL WCAG AA — measured on #ffffff: #d97706 is 3.19:1 and
+           #16a34a is 3.30:1, both under the 4.5:1 floor for normal text
+           (C43 §1.5 / SC 1.4.3). The -ink values below are the darkened
+           members of the SAME hue that pass, measured on their own -bg:
+             warn  #92400e on #fffbeb  6.84:1   (on white 7.09:1)
+             ok    #15803d on #f0fdf4  4.79:1   (on white 5.02:1)
+             err   #b91c1c on #fef2f2  5.91:1   (on white 6.47:1)
+           So token-ising these is a contrast FIX, not a restyle. Use -ink for
+           any status text; keep the plain token for fills. */
+        --app-status-warning-bg:    #fffbeb;
+        --app-status-warning-line:  #fde68a;
+        --app-status-warning-ink:   #92400e;
+        --app-status-success-bg:    #f0fdf4;
+        --app-status-success-line:  #86efac;
+        --app-status-success-ink:   #15803d;
+        --app-status-error-bg:      #fef2f2;
+        --app-status-error-line:    #fca5a5;
+        --app-status-error-ink:     #b91c1c;
     }
 
     /* ── Global typography baseline (§05 §2.3 Rule 6) ────────────────────── */

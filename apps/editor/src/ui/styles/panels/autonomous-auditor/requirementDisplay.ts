@@ -13,14 +13,14 @@ export const REQUIREMENT_STYLES = `
   vertical-align: middle;
 }
 
-.req-status-dot.req-pass   { background: #16a34a; }
-.req-status-dot.req-warn   { background: #d97706; }
-.req-status-dot.req-fail   { background: #dc2626; }
+.req-status-dot.req-pass   { background: var(--app-status-success-ink); }
+.req-status-dot.req-warn   { background: var(--app-status-warning-ink); }
+.req-status-dot.req-fail   { background: var(--app-status-error-ink); }
 .req-status-dot.req-miss   { background: var(--app-text-muted); }
 
-.req-delta-positive { color: #d97706; }
+.req-delta-positive { color: var(--app-status-warning-ink); }
 .req-delta-negative { color: var(--app-accent); }
-.req-delta-zero     { color: #16a34a; }
+.req-delta-zero     { color: var(--app-status-success-ink); }
 
 .req-metric-label {
   font-size: 11px;

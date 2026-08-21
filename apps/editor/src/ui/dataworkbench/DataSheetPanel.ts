@@ -23,15 +23,7 @@
 import type { AnyHierarchyEntity } from '@pryzm/core-app-model';
 import type { TemplateDefinition, TemplateAssignment } from '@pryzm/core-app-model';
 import { fetchBenchmark } from '@pryzm/persistence-client/portfolio';
-
-const SYNC_COLOURS: Record<string, string> = {
-    'no-template':  '#9ca3af',
-    'planned-only': '#d1d5db',
-    'partial':      '#3B8BD4',
-    'synced':       '#1D9E75',
-    'conflict':     '#E24B4A',
-    'derived':      '#EF9F27',
-};
+import { syncStateColour, syncStateTint } from './syncStateColours';
 
 const SYNC_LABELS: Record<string, string> = {
     'no-template':  'No template',
@@ -60,7 +52,11 @@ export class DataSheetPanel {
         this.runtime = runtime;
         this._container = container;
         this._root = document.createElement('div');
-        this._root.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;';
+        // §PANEL-BRAND-STANDARD (L-1743) — was an inline cssText literal. See
+        // `.dw-sheet-root` in styles/panels/dataWorkbench.ts: inline lengths are
+        // invisible to the ONE density lever (uiScale.scaleCssText rewrites the
+        // INJECTED sheet only), and §05 §7.6 puts panel styling in that layer.
+        this._root.className = 'dw-sheet-root';
         this._container.appendChild(this._root);
 
         this._renderEmpty();
@@ -87,7 +83,7 @@ export class DataSheetPanel {
         this._root.innerHTML = `
             <div class="dw-placeholder">
                 <div class="dw-placeholder-icon">📋</div>
-                <div style="font-size:12px;text-align:center;max-width:200px;line-height:1.5;color:var(--app-text-muted,#7a8aaa)">
+                <div class="dw-placeholder-text">
                     Select a hierarchy node in the tree to view and edit its data.
                 </div>
             </div>
@@ -109,7 +105,7 @@ export class DataSheetPanel {
         const assignment: TemplateAssignment | undefined = tas?.getForNode(nodeId);
 
         const scroll = document.createElement('div');
-        scroll.style.cssText = 'flex:1;overflow-y:auto;padding:0 0 20px;';
+        scroll.className = 'dw-sheet-scroll';
 
         // 1. Identity section
         scroll.appendChild(this._buildSection('Identity', this._buildIdentityContent(node)));
@@ -166,15 +162,15 @@ export class DataSheetPanel {
         const typeBadge = document.createElement('span');
         typeBadge.className = 'dw-badge';
         typeBadge.textContent = NODE_TYPE_LABELS[node.type] ?? node.type;
-        typeBadge.style.background = '#6600FF22';
-        typeBadge.style.color = '#6600FF';
+        typeBadge.style.background = 'var(--app-violet-soft)';
+        typeBadge.style.color = 'var(--app-accent)';
         badges.appendChild(typeBadge);
 
         const syncBadge = document.createElement('span');
         syncBadge.className = 'dw-badge';
         syncBadge.textContent = SYNC_LABELS[node.syncState] ?? node.syncState;
-        syncBadge.style.background = (SYNC_COLOURS[node.syncState] ?? '#9ca3af') + '22';
-        syncBadge.style.color = SYNC_COLOURS[node.syncState] ?? '#9ca3af';
+        syncBadge.style.background = syncStateTint(node.syncState);
+        syncBadge.style.color = syncStateColour(node.syncState);
         badges.appendChild(syncBadge);
 
         div.appendChild(badges);
@@ -243,8 +239,8 @@ export class DataSheetPanel {
             const codeBadge = document.createElement('span');
             codeBadge.className = 'dw-badge';
             codeBadge.textContent = template.code;
-            codeBadge.style.background = '#6600FF22';
-            codeBadge.style.color = '#6600FF';
+            codeBadge.style.background = 'var(--app-violet-soft)';
+            codeBadge.style.color = 'var(--app-accent)';
             row.appendChild(codeBadge);
 
             const unassignBtn = document.createElement('button');
@@ -600,7 +596,7 @@ export class DataSheetPanel {
             const stateTd = tr.insertCell();
             stateTd.style.padding = '5px 6px';
             const dot = document.createElement('span');
-            dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${SYNC_COLOURS[row.state] ?? '#9ca3af'};`;
+            dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${syncStateColour(row.state)};`;
             dot.title = SYNC_LABELS[row.state] ?? row.state;
             stateTd.appendChild(dot);
 
@@ -699,7 +695,6 @@ export class DataSheetPanel {
         const input = document.createElement('input');
         input.className = 'dw-dialog-input';
         input.value = value;
-        input.style.marginBottom = '0';
 
         let saveTimeout: any;
         input.addEventListener('input', () => {

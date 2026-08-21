@@ -19,7 +19,7 @@ export const STRATEGIZE_STYLES = `
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
@@ -29,9 +29,9 @@ export const STRATEGIZE_STYLES = `
 .strat-catalog-toggle {
   padding: 3px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.35);
-  background: rgba(255,255,255,0.12);
-  color: #fff;
+  border: 1px solid var(--app-on-accent-veil-hover);
+  background: var(--app-on-accent-veil);
+  color: var(--app-on-accent);
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
@@ -40,7 +40,7 @@ export const STRATEGIZE_STYLES = `
 
 .strat-briefer-toggle:hover,
 .strat-catalog-toggle:hover {
-  background: rgba(255,255,255,0.22);
+  background: var(--app-on-accent-veil);
 }
 
 .strat-autobriefing-bar {
@@ -73,7 +73,7 @@ export const STRATEGIZE_STYLES = `
   border-radius: 8px;
   border: none;
   background: var(--app-gradient);
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -90,8 +90,8 @@ export const STRATEGIZE_STYLES = `
   align-items: center;
   gap: 10px;
   padding: 5px 12px;
-  background: rgba(102, 0, 255, 0.04);
-  border-bottom: 2px solid rgba(102, 0, 255, 0.15);
+  background: var(--app-wash-hover);
+  border-bottom: 2px solid var(--app-wash-ring);
   font-size: 11px;
   color: var(--app-text);
 }
@@ -101,7 +101,7 @@ export const STRATEGIZE_STYLES = `
   padding: 4px 12px;
   border-radius: 6px;
   border: 1px solid var(--app-accent);
-  background: rgba(102, 0, 255, 0.06);
+  background: var(--app-wash-hover);
   color: var(--app-accent);
   font-size: 11px;
   cursor: pointer;
@@ -112,7 +112,7 @@ export const STRATEGIZE_STYLES = `
 }
 
 .strat-propagate-btn:hover {
-  background: rgba(102, 0, 255, 0.12);
+  background: var(--app-wash-selected);
 }
 
 /* Power spreadsheet */
@@ -170,7 +170,7 @@ export const STRATEGIZE_STYLES = `
 }
 
 .strat-grid tbody tr.strat-row-selected {
-  background: rgba(102, 0, 255, 0.06);
+  background: var(--app-wash-hover);
 }
 
 .strat-grid tbody td {
@@ -196,8 +196,8 @@ export const STRATEGIZE_STYLES = `
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
-  background: rgba(102, 0, 255, 0.08);
-  border: 1px solid rgba(102, 0, 255, 0.25);
+  background: var(--app-violet-soft);
+  border: 1px solid var(--app-wash-ring);
   border-radius: 10px;
   font-size: 10px;
   color: var(--app-accent);
@@ -240,7 +240,7 @@ export const STRATEGIZE_STYLES = `
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
 }
 
@@ -316,10 +316,10 @@ export const STRATEGIZE_STYLES = `
   flex-shrink: 0;
   width: 22px;
   height: 22px;
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.35);
+  background: var(--app-on-accent-veil);
+  border: 1px solid var(--app-on-accent-veil-hover);
   border-radius: 4px;
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
@@ -331,11 +331,11 @@ export const STRATEGIZE_STYLES = `
 }
 
 .strat-catalog-add-btn:hover {
-  background: rgba(255,255,255,0.28);
+  background: var(--app-on-accent-veil-hover);
 }
 
 .strat-catalog-add-btn--active {
-  background: rgba(255,255,255,0.35);
+  background: var(--app-on-accent-veil-hover);
 }
 
 /* ── Catalog add-item form ──────────────────────────────────────────────── */
@@ -441,7 +441,7 @@ export const STRATEGIZE_STYLES = `
 
 .strat-catalog-add-submit {
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-on-accent);
   border-color: var(--app-accent);
 }
 
@@ -451,10 +451,10 @@ export const STRATEGIZE_STYLES = `
 
 .strat-catalog-add-error {
   font-size: 10px;
-  color: var(--app-error, #e55);
+  color: var(--app-error, var(--app-status-error-ink));
   margin-top: 6px;
   padding: 4px 6px;
-  background: rgba(220, 50, 50, 0.08);
+  background: var(--app-status-error-bg);
   border-radius: 4px;
 }
 

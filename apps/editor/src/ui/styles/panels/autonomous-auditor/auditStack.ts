@@ -32,7 +32,7 @@ export const AUDIT_STACK_STYLES = `
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: #e8edf6;
+  background: var(--app-bg);
 }
 
 .aud-header {
@@ -42,12 +42,12 @@ export const AUDIT_STACK_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%);
-  box-shadow: 0 2px 12px rgba(102,0,255,0.30);
+  background: var(--app-gradient);
+  box-shadow: var(--app-shadow-header);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   flex-shrink: 0;
   font-family: var(--app-font);
@@ -59,10 +59,10 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-header-btn {
-  background: rgba(255,255,255,0.18);
+  background: var(--app-on-accent-veil);
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 10px;
   padding: 3px 8px;
   cursor: pointer;
@@ -70,7 +70,7 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-header-btn:hover {
-  background: rgba(255,255,255,0.3);
+  background: var(--app-on-accent-veil-hover);
 }
 
 /* Tree zone */
@@ -102,7 +102,7 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-tree-node.aud-tree-selected {
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -113,7 +113,7 @@ export const AUDIT_STACK_STYLES = `
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 8px;
-  color: #fff;
+  color: var(--app-on-accent);
   min-width: 34px;
   text-align: center;
 }
@@ -150,7 +150,7 @@ export const AUDIT_STACK_STYLES = `
 
 .aud-filter-pill.aud-filter-active {
   border-color: var(--app-accent);
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -188,7 +188,7 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-table-body tr.aud-row-hover {
-  background: rgba(102, 0, 255, 0.05);
+  background: var(--app-wash-hover);
 }
 
 .aud-table-body td {
@@ -209,9 +209,14 @@ export const AUDIT_STACK_STYLES = `
   flex-shrink: 0;
 }
 
-.aud-status-green  { background: #16a34a; box-shadow: 0 0 4px rgba(22,163,74,0.4); }
-.aud-status-amber  { background: #d97706; box-shadow: 0 0 4px rgba(217,119,6,0.4); }
-.aud-status-red    { background: #dc2626; box-shadow: 0 0 4px rgba(220,38,38,0.4); }
+/* -ink, not the plain fill token: these are 8 px dots on a WHITE panel, and the
+   fill tokens (#22c55e / #f59e0b) read 1.9:1 and 2.1:1 there — under SC 1.4.11's
+   3:1 for a meaningful graphic. The -ink members of the same hues were the values
+   already shipping here; the tokens carry them now. Same values as the status
+   dots in requirementDisplay/validateBucket, which they never matched before. */
+.aud-status-green  { background: var(--app-status-success-ink); box-shadow: 0 0 4px var(--app-status-success-ink); }
+.aud-status-amber  { background: var(--app-status-warning-ink); box-shadow: 0 0 4px var(--app-status-warning-ink); }
+.aud-status-red    { background: var(--app-status-error-ink);   box-shadow: 0 0 4px var(--app-status-error-ink); }
 
 .aud-fix-btn {
   font-size: 10px;
@@ -226,7 +231,7 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-fix-btn:hover {
-  background: rgba(102, 0, 255, 0.08);
+  background: var(--app-violet-soft);
 }
 
 .aud-global-fix-bar {
@@ -236,10 +241,10 @@ export const AUDIT_STACK_STYLES = `
   gap: 8px;
   padding: 8px 12px;
   border-top: none;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   margin: 4px 8px 8px;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(30,50,120,0.07), 0 1px 3px rgba(30,50,120,0.04);
+  box-shadow: var(--app-shadow-card);
 }
 
 .aud-global-fix-btn {
@@ -250,7 +255,7 @@ export const AUDIT_STACK_STYLES = `
   border-radius: 6px;
   border: none;
   background: var(--app-gradient);
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -275,14 +280,14 @@ export const AUDIT_STACK_STYLES = `
 .aud-tree-section {
   flex: 0 0 auto;
   border-bottom: none;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   display: flex;
   flex-direction: column;
   max-height: 38%;
   overflow: hidden;
   margin: 8px 8px 0;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(30,50,120,0.07), 0 1px 3px rgba(30,50,120,0.04);
+  box-shadow: var(--app-shadow-card);
 }
 
 .aud-section-header {
@@ -290,8 +295,8 @@ export const AUDIT_STACK_STYLES = `
   align-items: center;
   justify-content: space-between;
   padding: 9px 12px 8px;
-  background: #ffffff;
-  border-bottom: 1px solid #eef1f8;
+  background: var(--app-panel-bg);
+  border-bottom: 1px solid var(--app-border-light);
   border-radius: 12px 12px 0 0;
   flex-shrink: 0;
   cursor: pointer;
@@ -302,7 +307,7 @@ export const AUDIT_STACK_STYLES = `
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.09em;
-  color: #5a6a85;
+  color: var(--app-text-2);
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -313,14 +318,14 @@ export const AUDIT_STACK_STYLES = `
 .aud-section-collapse {
   background: none;
   border: none;
-  color: #c4cde0;
+  color: var(--app-text-muted);
   font-size: 13px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
   transition: color 0.12s;
 }
-.aud-section-collapse:hover { color: #5a6a85; }
+.aud-section-collapse:hover { color: var(--app-text-2); }
 
 /* ── Project tree scrollable body ─────────────────────────────────────────── */
 /* flex: 1 1 0 collapses to 0px inside a flex: 0 0 auto parent — use an
@@ -331,14 +336,14 @@ export const AUDIT_STACK_STYLES = `
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 0 6px;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   border-radius: 0 0 12px 12px;
 }
 .aud-project-tree--collapsed { display: none; }
 
 .aud-breadcrumb {
   font-size: 10px;
-  color: #7a8aaa;
+  color: var(--app-text-muted);
   padding: 4px 12px 2px;
   letter-spacing: 0.03em;
   font-family: var(--app-font);
@@ -414,7 +419,7 @@ export const AUDIT_STACK_STYLES = `
   font-size: 8px;
   font-weight: 700;
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-on-accent);
   padding: 1px 5px;
   border-radius: 8px;
   letter-spacing: 0.05em;
@@ -437,7 +442,7 @@ export const AUDIT_STACK_STYLES = `
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  color: #8888aa;
+  color: var(--app-text-muted);
 }
 
 .aud-tree-row-label {
@@ -495,7 +500,7 @@ export const AUDIT_STACK_STYLES = `
 .aud-tree-child-row:hover { background: var(--app-bg); }
 
 .aud-tree-elem-row.aud-tree-selected {
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -503,7 +508,7 @@ export const AUDIT_STACK_STYLES = `
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  color: #8888aa;
+  color: var(--app-text-muted);
 }
 
 .aud-tree-elem-label {
@@ -527,18 +532,18 @@ export const AUDIT_STACK_STYLES = `
   gap: 8px;
   padding: 8px 12px;
   border-bottom: none;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   flex-shrink: 0;
   margin: 4px 8px 0;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(30,50,120,0.07), 0 1px 3px rgba(30,50,120,0.04);
+  box-shadow: var(--app-shadow-card);
 }
 
 .aud-selector-label {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.09em;
-  color: #5a6a85;
+  color: var(--app-text-2);
   text-transform: uppercase;
   flex-shrink: 0;
   font-family: var(--app-font);
@@ -565,11 +570,11 @@ export const AUDIT_STACK_STYLES = `
   gap: 8px;
   padding: 7px 12px;
   border-bottom: none;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   flex-shrink: 0;
   margin: 4px 8px 0;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(30,50,120,0.07), 0 1px 3px rgba(30,50,120,0.04);
+  box-shadow: var(--app-shadow-card);
 }
 
 .aud-attr-dropdown {
@@ -593,10 +598,10 @@ export const AUDIT_STACK_STYLES = `
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--app-panel-bg);
   margin: 4px 8px 0;
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(30,50,120,0.07), 0 1px 3px rgba(30,50,120,0.04);
+  box-shadow: var(--app-shadow-card);
 }
 
 /* ── Audit sub-header row ──────────────────────────────────────────────────── */
@@ -641,7 +646,7 @@ export const AUDIT_STACK_STYLES = `
 }
 .aud-audit-room-row:hover { background: var(--app-bg); }
 .aud-audit-room-row.aud-tree-selected {
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
 }
 
@@ -666,7 +671,7 @@ export const AUDIT_STACK_STYLES = `
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: rgb(0, 180, 220);
+  color: var(--app-accent);
 }
 
 .aud-discovery-subtitle {
@@ -693,7 +698,18 @@ export const AUDIT_STACK_STYLES = `
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(to right, rgb(168,230,240), rgb(0,110,180));
+  /* §DISCOVERY-RAMP-IS-ONE (L-1742) — this gradient used to be written out as
+     rgb(168,230,240) -> rgb(0,110,180) while the swatches it legends were
+     produced by discoveryBlueColor() in DiscoveryModeZone.ts, which ramps
+     rgb(0,210,240) → rgb(0,100,200). The legend did not match the scale it
+     legends — two independent definitions of one encoding, and the light end was
+     visibly the wrong colour. Both are now the brand ramp, and the endpoints are
+     PUBLISHED onto this element by the zone from that single function, so the
+     legend cannot drift from the swatches again. Fallbacks are the ramp's own
+     endpoints so a zone that has not published yet still shows the right hues. */
+  background: linear-gradient(to right,
+      var(--aud-ramp-from, rgb(216,203,255)),
+      var(--aud-ramp-to,   rgb(102,0,255)));
 }
 
 /* ── Discovery room list ───────────────────────────────────────────────────── */
@@ -709,11 +725,11 @@ export const AUDIT_STACK_STYLES = `
   padding: 4px 10px;
   cursor: pointer;
   transition: background 0.1s;
-  border-bottom: 1px solid var(--app-border-light, rgba(255,255,255,0.04));
+  border-bottom: 1px solid var(--app-border-light);
 }
 .aud-discovery-row:hover { background: var(--app-bg); }
 .aud-discovery-row.aud-discovery-selected {
-  background: rgba(0, 140, 210, 0.08);
+  background: var(--app-violet-soft);
 }
 
 .aud-discovery-swatch {
@@ -721,7 +737,7 @@ export const AUDIT_STACK_STYLES = `
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid var(--app-border);
 }
 
 .aud-discovery-name {
@@ -748,7 +764,7 @@ export const AUDIT_STACK_STYLES = `
 .aud-disc-value {
   font-size: 10px;
   font-weight: 600;
-  color: rgb(0, 180, 220);
+  color: var(--app-accent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -781,13 +797,13 @@ export const AUDIT_STACK_STYLES = `
   position: fixed;
   z-index: 9999;
   display: none;
-  background: var(--app-panel-bg, #1a1a2e);
-  border: 1px solid rgba(0, 180, 220, 0.4);
+  background: var(--app-panel-bg);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   padding: 8px 10px;
   min-width: 150px;
   max-width: 200px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: var(--app-shadow-panel);
   pointer-events: none;
 }
 
@@ -806,7 +822,7 @@ export const AUDIT_STACK_STYLES = `
   margin-top: 2px;
 }
 .aud-disc-tt-row strong {
-  color: rgb(0, 180, 220);
+  color: var(--app-accent);
   font-size: 11px;
 }
 
@@ -838,7 +854,7 @@ export const AUDIT_STACK_STYLES = `
 }
 
 .aud-matrix-cell-active {
-  background: rgba(102, 0, 255, 0.04);
+  background: var(--app-wash-hover);
 }
 
 .aud-matrix-heat-bar {

@@ -19,7 +19,7 @@ export const VALIDATE_STYLES = `
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
@@ -52,7 +52,7 @@ export const VALIDATE_STYLES = `
 
 .val-tab-active {
   border-color: var(--app-accent);
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
   font-weight: 600;
 }
@@ -107,8 +107,8 @@ export const VALIDATE_STYLES = `
   font-weight: 700;
 }
 
-.val-badge--pass { background: rgba(22, 163, 74, 0.12);  color: #16a34a; }
-.val-badge--fail { background: rgba(220, 38, 38, 0.12);  color: #dc2626; }
-.val-badge--info { background: rgba(102, 0, 255, 0.08);  color: var(--app-accent); }
+.val-badge--pass { background: var(--app-status-success-bg);  color: var(--app-status-success-ink); }
+.val-badge--fail { background: var(--app-status-error-bg);  color: var(--app-status-error-ink); }
+.val-badge--info { background: var(--app-violet-soft);  color: var(--app-accent); }
 
 `;

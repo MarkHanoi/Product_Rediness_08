@@ -19,7 +19,7 @@ export const LIFECYCLE_STYLES = `
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
@@ -53,7 +53,7 @@ export const LIFECYCLE_STYLES = `
 
 .life-filter-active {
   border-color: var(--app-accent);
-  background: rgba(102, 0, 255, 0.07);
+  background: var(--app-violet-soft);
   color: var(--app-accent);
   font-weight: 600;
 }
@@ -108,8 +108,8 @@ export const LIFECYCLE_STYLES = `
   font-weight: 700;
 }
 
-.life-badge--ok      { background: rgba(22, 163, 74, 0.12);  color: #16a34a; }
-.life-badge--due     { background: rgba(217, 119, 6, 0.12);  color: #d97706; }
-.life-badge--overdue { background: rgba(220, 38, 38, 0.12);  color: #dc2626; }
+.life-badge--ok      { background: var(--app-status-success-bg);  color: var(--app-status-success-ink); }
+.life-badge--due     { background: var(--app-status-warning-bg);  color: var(--app-status-warning-ink); }
+.life-badge--overdue { background: var(--app-status-error-bg);  color: var(--app-status-error-ink); }
 
 `;

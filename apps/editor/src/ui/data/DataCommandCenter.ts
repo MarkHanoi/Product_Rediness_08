@@ -330,7 +330,7 @@ export class DataCommandCenter {
         <span class="dcc-tree-node-icon">🚪</span>
         <span class="dcc-tree-node-label" title="${roomId}">${roomName}</span>
         <span class="dcc-tree-health" style="color:${this._healthColor(health)};font-size:10px;font-weight:700;margin-left:auto;">${health}%</span>
-        ${failCount > 0 ? `<span style="font-size:9px;color:var(--app-red,#dc2626);margin-left:4px;">${failCount}✗</span>` : ''}
+        ${failCount > 0 ? `<span style="font-size:9px;color:var(--app-status-error-ink);margin-left:4px;">${failCount}✗</span>` : ''}
       `;
 
       const isSelected = this._selectedRooms.has(roomId);
@@ -495,9 +495,9 @@ export class DataCommandCenter {
   }
 
   private _healthColor(score: number): string {
-    if (score >= 80) return 'var(--app-green, #16a34a)';
-    if (score >= 50) return 'var(--app-amber, #d97706)';
-    return 'var(--app-red, #dc2626)';
+    if (score >= 80) return 'var(--app-status-success-ink)';
+    if (score >= 50) return 'var(--app-status-warning-ink)';
+    return 'var(--app-status-error-ink)';
   }
 }
 

@@ -75,9 +75,18 @@ export function computeHealthScore(entries: readonly DeltaEntry[]): number {
 }
 
 export function healthBadgeColor(score: number): string {
-  if (score >= 80) return 'var(--app-green, #00ff88)';
-  if (score >= 50) return 'var(--app-amber, #ffee00)';
-  return 'var(--app-red, #ff3344)';
+  // §PANEL-BRAND-STANDARD (L-1742). These read
+  //   'var(--app-green, #00ff88)' / 'var(--app-amber, #ffee00)' / 'var(--app-red, #ff3344)'
+  // and --app-green / --app-amber / --app-red DO NOT EXIST — they are in no
+  // stylesheet in this repo. So the fallback fired every time and the health
+  // badge on every audit row was neon green / neon yellow / neon red on a white
+  // BIM panel, with '#000' text on the top two. A var() that names a token
+  // nobody declared is not a token reference, it is a hex with a comment on it.
+  // The same three phantom names appear in DataCommandCenter.ts with a THIRD
+  // set of fallbacks, which is how you can tell nothing was ever resolving them.
+  if (score >= 80) return 'var(--app-status-success-ink)';
+  if (score >= 50) return 'var(--app-status-warning-ink)';
+  return 'var(--app-status-error-ink)';
 }
 
 // ── Room label helper ─────────────────────────────────────────────────────────
@@ -178,7 +187,7 @@ export function renderAuditMode(
     badge.className   = 'aud-health-badge';
     badge.textContent = `${score}%`;
     badge.style.background = healthBadgeColor(score);
-    badge.style.color      = score >= 50 ? '#000' : '#fff';
+    badge.style.color      = 'var(--app-on-accent)';
 
     node.appendChild(dot);
     node.appendChild(lbl);
@@ -186,7 +195,7 @@ export function renderAuditMode(
 
     if (failCount > 0) {
       const fb = document.createElement('span');
-      fb.style.cssText = 'margin-left:4px;font-size:9px;color:var(--app-red,#ff3344);flex-shrink:0;';
+      fb.style.cssText = 'margin-left:4px;font-size:9px;color:var(--app-status-error-ink);flex-shrink:0;';
       fb.textContent = `${failCount}✗`;
       node.appendChild(fb);
     }
@@ -279,7 +288,7 @@ export function renderGrid(tableBody: HTMLElement, state: AuditGridState): void 
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 6;
-    td.style.cssText = 'text-align:center;padding:20px;color:var(--app-text-muted,#888);font-size:11px;';
+    td.style.cssText = 'text-align:center;padding:20px;color:var(--app-text-muted);font-size:11px;';
     td.textContent = 'Click a room above to view its delta analysis';
     tr.appendChild(td);
     tableBody.appendChild(tr);
@@ -296,7 +305,7 @@ export function renderGrid(tableBody: HTMLElement, state: AuditGridState): void 
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.colSpan = 6;
-    td.style.cssText = 'text-align:center;padding:16px;color:var(--app-text-muted,#888);font-size:11px;';
+    td.style.cssText = 'text-align:center;padding:16px;color:var(--app-text-muted);font-size:11px;';
     td.textContent = entries.length === 0
       ? 'No requirements defined for this room'
       : 'No entries match the active filters';
@@ -325,22 +334,22 @@ export function renderGrid(tableBody: HTMLElement, state: AuditGridState): void 
 
     const tdReq = document.createElement('td');
     tdReq.textContent = formatValue(entry.required);
-    tdReq.style.color = 'var(--app-text-muted,#888)';
+    tdReq.style.color = 'var(--app-text-muted)';
 
     const tdActual = document.createElement('td');
     tdActual.textContent = formatValue(entry.actual);
     tdActual.style.color = entry.status === 'PASS'
-      ? 'var(--app-green,#00ff88)'
+      ? 'var(--app-status-success-ink)'
       : entry.status === 'FAIL'
-        ? 'var(--app-red,#ff3344)'
-        : 'var(--app-amber,#ffee00)';
+        ? 'var(--app-status-error-ink)'
+        : 'var(--app-status-warning-ink)';
 
     const tdDelta = document.createElement('td');
     const deltaVal = typeof entry.delta === 'number'
       ? (entry.delta > 0 ? `+${entry.delta.toFixed(2)}` : entry.delta.toFixed(2))
       : String(entry.delta);
     tdDelta.textContent = deltaVal;
-    tdDelta.style.color = 'var(--app-text-muted,#888)';
+    tdDelta.style.color = 'var(--app-text-muted)';
 
     const tdFix = document.createElement('td');
     if (entry.status === 'FAIL') {

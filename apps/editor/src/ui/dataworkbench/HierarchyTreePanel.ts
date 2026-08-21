@@ -57,6 +57,7 @@ import {
     type RoomFacetRefusal,
 } from './roomContentsFacets';
 import { syncStateDetailDrawer } from './SyncStateDetailDrawer';
+import { syncStateColour } from './syncStateColours';
 import {
     addSite, addBuilding, addLevel, addUnit,
     getRoomsForUnit, getUnassignedRooms,
@@ -66,16 +67,6 @@ import {
 // ── Element row types — moved to `roomContentsFacets.ts` (pure, testable);
 //    re-imported above. `RoomElement` stays used here by the furniture group,
 //    which is built in this file (async, SemanticGraph). ──
-
-// ── Sync state → colour mapping (from Phase 7 spec) ───────────────────────
-const SYNC_COLOURS: Record<string, string> = {
-    'no-template':  '#9ca3af',
-    'planned-only': '#d1d5db',
-    'partial':      '#3B8BD4',
-    'synced':       '#1D9E75',
-    'conflict':     '#E24B4A',
-    'derived':      '#EF9F27',
-};
 
 const SYNC_LABELS: Record<string, string> = {
     'no-template':  'no template',
@@ -783,7 +774,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
         // Sync state dot — click opens SyncStateDetailDrawer
         const dot = document.createElement('span');
         dot.className = 'dw-sync-dot';
-        const colour = SYNC_COLOURS[opts.syncState] ?? '#9ca3af';
+        const colour = syncStateColour(opts.syncState);
         dot.title = `${SYNC_LABELS[opts.syncState] ?? opts.syncState} — click to inspect`;
         dot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${colour};flex-shrink:0;margin-left:6px;cursor:pointer;transition:transform 0.12s,box-shadow 0.12s;`;
         dot.addEventListener('mouseenter', () => {
@@ -1054,7 +1045,7 @@ export class HierarchyTreePanel implements HierarchyTreeActionHost {
             const dot = document.createElement('span');
             dot.className = 'dw-filter-item-dot';
             const state = node.syncState ?? 'no-template';
-            dot.style.background = SYNC_COLOURS[state] ?? '#9ca3af';
+            dot.style.background = syncStateColour(state);
             dot.title = SYNC_LABELS[state] ?? state;
 
             item.appendChild(icon);

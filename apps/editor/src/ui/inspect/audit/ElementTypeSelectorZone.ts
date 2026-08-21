@@ -17,6 +17,7 @@
 
 // §GR-10 — the shared honesty seam (C78 §8.1 family; unknown ≠ empty).
 import { relationshipArrayOrUnknown } from '../../relationshipDetermination.js';
+import { discoveryRampColor } from './heatRamp';
 
 // ── Element type definitions ──────────────────────────────────────────────────
 
@@ -111,14 +112,18 @@ function _contents(roomId: string): any | null {
 
 // ── Attribute heatmap colour helper ──────────────────────────────────────────
 
+/**
+ * §DISCOVERY-RAMP-IS-ONE (L-1742) — normalise, then defer to the ONE ramp.
+ *
+ * This used to interpolate its own amber(#ffaa00)→cyan(#00e5ff) scale: a fourth
+ * palette, in the same panel as the discovery ramp, encoding the same idea
+ * (low → high) with different colours and no legend at all. Only the HUE moves;
+ * the normalisation below is the arithmetic that was already here, so the bars
+ * sit at exactly the positions they sat at before.
+ */
 export function attributeHeatColor(value: number, min: number, max: number): string {
-  // amber (#ffaa00) at low → cyan (#00e5ff) at high
   const range = Math.max(max - min, 0.001);
-  const t = Math.min(Math.max((value - min) / range, 0), 1);
-  const r = Math.round(255 + (0   - 255) * t);
-  const g = Math.round(170 + (229 - 170) * t);
-  const b = Math.round(0   + (255 - 0  ) * t);
-  return `rgb(${r},${g},${b})`;
+  return discoveryRampColor((value - min) / range);
 }
 
 // ── Attributes available per element type, in display order ──────────────────

@@ -101,6 +101,20 @@ interface BucketDef {
     id:           BucketId;
     label:        string;
     icon:         string;
+    /* §DATA-BUCKET-ACCENT-IS-ONE (L-1742) — the six buckets used to carry SIX
+       accents: #6600FF, #3B8BD4, #1D9E75, #D4580A, #E24B4A, #0C7A6E. Five of
+       them are not in the product's palette at all, and a six-hue rail is the
+       single most visible reason this surface reads as a different product from
+       the rest of the editor (founder, 2026-08-21: "they don't follow the correct
+       PRYZM ui standards … following the exactly colours"). The standing rule is
+       white + purple, ONE #6600FF, not per-surface approximations.
+
+       All six now resolve to `var(--app-accent)`. The per-bucket HOOK is kept
+       rather than deleted so a future decision to re-differentiate has exactly
+       one place to do it — and so this ruling is one edit to reverse. Bucket
+       identity is still carried by icon, label, the chip, the 3 px active bar and
+       the tinted ground; colour was the fifth redundant channel, and SC 1.4.1
+       forbids it being the only one regardless. */
     accentColor:  string;
     defaultTab:   TabId;
     subTabs:      SubTabDef[];
@@ -113,7 +127,7 @@ const BUCKETS: BucketDef[] = [
         id: 'strategize',
         label: 'STRATEGIZE',
         icon: '◈',
-        accentColor: '#6600FF',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'programme',
         subTabs: [
             { id: 'programme',  label: 'Programme',  icon: '⊫' },
@@ -125,7 +139,7 @@ const BUCKETS: BucketDef[] = [
         id: 'audit',
         label: 'AUDIT',
         icon: '⬡',
-        accentColor: '#3B8BD4',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'hierarchy',
         subTabs: [
             { id: 'hierarchy',          label: 'Hierarchy',  icon: '⬡' },
@@ -139,7 +153,7 @@ const BUCKETS: BucketDef[] = [
         id: 'validate',
         label: 'VALIDATE',
         icon: '◎',
-        accentColor: '#1D9E75',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'compliance',
         subTabs: [
             { id: 'compliance', label: 'Compliance', icon: '◎' },
@@ -151,7 +165,7 @@ const BUCKETS: BucketDef[] = [
         id: 'materials-bucket',
         label: 'MATERIALS',
         icon: '◩',
-        accentColor: '#D4580A',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'materials-library',
         subTabs: [
             { id: 'materials-library', label: 'BIM Materials',    icon: '◩' },
@@ -163,7 +177,7 @@ const BUCKETS: BucketDef[] = [
         id: 'lifecycle-bucket',
         label: 'LIFECYCLE',
         icon: '⏱',
-        accentColor: '#E24B4A',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'design-history',
         subTabs: [
             { id: 'design-history', label: 'History',   icon: '⏱' },
@@ -176,7 +190,7 @@ const BUCKETS: BucketDef[] = [
         id: 'data-schedules',
         label: 'DATA',
         icon: '▦',
-        accentColor: '#0C7A6E',
+        accentColor: 'var(--app-accent)',
         defaultTab: 'data-materials',
         subTabs: [
             { id: 'data-materials',    label: 'Materials', icon: '◩' },

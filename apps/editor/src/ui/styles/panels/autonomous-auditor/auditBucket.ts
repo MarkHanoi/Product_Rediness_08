@@ -19,7 +19,7 @@ export const AUDIT_BUCKET_STYLES = `
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.07em;
-  color: #fff;
+  color: var(--app-on-accent);
   text-transform: uppercase;
   border-bottom: 1px solid var(--app-border);
   flex-shrink: 0;
@@ -46,7 +46,7 @@ export const AUDIT_BUCKET_STYLES = `
   border-radius: 6px;
   border: none;
   background: var(--app-gradient);
-  color: #fff;
+  color: var(--app-on-accent);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -91,7 +91,7 @@ export const AUDIT_BUCKET_STYLES = `
 }
 
 .audit-row--fail {
-  background: rgba(220, 38, 38, 0.03);
+  background: var(--app-status-error-bg);
 }
 
 .audit-table tbody td {
@@ -113,13 +113,13 @@ export const AUDIT_BUCKET_STYLES = `
   white-space: nowrap;
 }
 
-.audit-badge--pass { background: rgba(22, 163, 74, 0.12);  color: #16a34a; }
-.audit-badge--fail { background: rgba(220, 38, 38, 0.12);  color: #dc2626; }
-.audit-badge--warn { background: rgba(217, 119, 6, 0.12);  color: #d97706; }
-.audit-badge--info { background: rgba(102, 0, 255, 0.08);  color: var(--app-accent); }
+.audit-badge--pass { background: var(--app-status-success-bg);  color: var(--app-status-success-ink); }
+.audit-badge--fail { background: var(--app-status-error-bg);  color: var(--app-status-error-ink); }
+.audit-badge--warn { background: var(--app-status-warning-bg);  color: var(--app-status-warning-ink); }
+.audit-badge--info { background: var(--app-violet-soft);  color: var(--app-accent); }
 
-.audit-cell--neg { color: #dc2626; font-weight: 600; }
-.audit-cell--pos { color: #d97706; font-weight: 600; }
+.audit-cell--neg { color: var(--app-status-error-ink); font-weight: 600; }
+.audit-cell--pos { color: var(--app-status-warning-ink); font-weight: 600; }
 
 .audit-fix-btn {
   font-size: 10px;
@@ -133,7 +133,7 @@ export const AUDIT_BUCKET_STYLES = `
 }
 
 .audit-fix-btn:hover {
-  background: rgba(102, 0, 255, 0.08);
+  background: var(--app-violet-soft);
 }
 
 .audit-status-bar {

@@ -71,12 +71,12 @@ export const INSPECT_MODE_STYLES = `
   flex-direction: row;
   gap: 4px;
   padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--app-panel-glass);
   border: 1px solid var(--app-border);
   border-radius: 20px;
   z-index: 110;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  backdrop-filter: var(--app-panel-glass-blur);
+  box-shadow: var(--app-shadow-hud);
 }
 
 .ins-lens-pill {
@@ -102,7 +102,7 @@ export const INSPECT_MODE_STYLES = `
 
 .ins-lens-pill.ins-lens-active {
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-on-accent);
 }
 
 /* Level Explode HUD — floats above the lens bar over the dark 3D canvas.
@@ -118,12 +118,12 @@ export const INSPECT_MODE_STYLES = `
   align-items: center;
   gap: 3px;
   padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--app-panel-glass);
   border: 1px solid var(--app-border);
   border-radius: 20px;
   z-index: 110;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  backdrop-filter: var(--app-panel-glass-blur);
+  box-shadow: var(--app-shadow-hud);
   white-space: nowrap;
 }
 
@@ -150,7 +150,7 @@ export const INSPECT_MODE_STYLES = `
 
 .ins-explode-btn.ins-explode-active {
   background: var(--app-accent);
-  color: #fff;
+  color: var(--app-on-accent);
 }
 
 .ins-explode-sep {
@@ -181,7 +181,7 @@ export const INSPECT_MODE_STYLES = `
 
 /* Ghost asset label (3D canvas overlay) */
 .ins-ghost-label {
-  background: rgba(255,255,255,0.92);
+  background: var(--app-panel-glass);
   color: var(--app-text);
   font-size: 10px;
   font-weight: 600;
