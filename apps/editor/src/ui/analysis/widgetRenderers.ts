@@ -41,6 +41,20 @@
  * Chart.js core has no treemap type and adding a plugin dependency would desync
  * `pnpm-lock.yaml` for every other agent in this tree.
  *
+ * ⚠ AMENDED 2026-08-21 (lane UBG1, L-3256) — there is now ONE exception, and it
+ * is declared rather than quietly taken. `renderGraph()` below draws a NODE-LINK
+ * diagram, which Chart.js cannot express at all: there is no chart type whose
+ * marks are "arbitrary points joined by typed segments at force-solved
+ * positions". So it is SVG.
+ *
+ * ⛔ It is NOT a fifth hand-roll. It delegates to `nodeLinkSvg.ts`, a SHARED
+ * module whose force layout is lifted from `ui/rooms/RoomGraphPanel.ts`
+ * (`_forceLayout`, :122-205) — read first, exactly as SPEC §5's "pick one" rule
+ * requires. That file plus `BuildingGraphOverlay`, `LivingGraphOverlay` and the
+ * plan graph overlay are the four existing hand-rolls; L-3257 tracks collapsing
+ * them into the shared one. This lane published the target and did not migrate
+ * three live overlays blind.
+ *
  * ⛔ Model-derived strings reach the DOM via `textContent`, never `innerHTML`.
  * Element ids, material ids and finish names originate in imported IFC/glTF
  * files (§DW-MATERIAL-COLOR-XSS, L-407). The only `innerHTML` here takes
@@ -55,6 +69,9 @@
 import type { Chart, ChartConfiguration } from 'chart.js';
 
 import { selectionBus, UNIT_LABEL, type CoverageState } from '@pryzm/core-app-model';
+
+import { projectGraph, livenessSentence, nodeDegrees } from './graphReadModel';
+import { renderNodeLink, renderEdgeLegend } from './nodeLinkSvg';
 
 import {
   seriesColour,
@@ -486,4 +503,126 @@ export function renderUnknownWidget(host: HTMLElement, id: string): void {
     ),
   );
   host.appendChild(box);
+}
+
+// ── The relational widget (ADR-0343 §D.7, STR-14 §4) ──────────────────────────
+
+/**
+ * The node-link relationship diagram — the picture the founder asked for.
+ *
+ * ⭐ THREE THINGS SHIP TOGETHER ON THIS CARD, AND THE OTHER TWO ARE NOT GARNISH:
+ *   1. the diagram;
+ *   2. a LIVENESS sentence, because until L-3251 the only honest label for this
+ *      graph was "stale by construction" and there was no code path that could
+ *      say it. A relational view on a surface the reader takes for live must
+ *      state which it is;
+ *   3. a TRUNCATION notice when the model exceeds the node cap, because a
+ *      reader counts what they can see and a silently-clipped graph understates
+ *      the building's connectivity.
+ *
+ * ⛔ Renders ONCE. No animation, no rAF (P3). STR-14 §4.1's "living blob" is a
+ * real deliverable and it is not a dashboard card's to schedule.
+ */
+export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result: AnalysisResult): void {
+  const g = projectGraph();
+
+  // ── The liveness strip, first: it qualifies everything below it ────────────
+  const live = el('div', `anl-strip ${g.liveness?.freshness === 'stale' ? 'anl-strip--err' : 'anl-strip--ok'}`);
+  live.appendChild(el('span', 'anl-strip-text', livenessSentence(g.liveness)));
+  host.appendChild(live);
+
+  if (g.unreachable.length > 0) {
+    host.appendChild(
+      el(
+        'p',
+        'anl-empty',
+        'The Building Graph was not reachable. That is NOT "this building has no relationships" — it is that the ' +
+          'projection has not run yet. Open the editor on a project and press refresh.',
+      ),
+    );
+    return;
+  }
+
+  if (g.nodes.length === 0) {
+    host.appendChild(
+      el(
+        'p',
+        'anl-empty',
+        'The graph projected successfully and contains no nodes. See the relationship-coverage card for which ' +
+          'edge families are wired — four of the ten cannot be populated in this build at all, so an empty ' +
+          'diagram may be a gap in the projection rather than a building with no relationships.',
+      ),
+    );
+    return;
+  }
+
+  // Stable colour index per edge type and per node kind, so the legend, the
+  // lines and the nodes agree and do not renumber between renders.
+  const edgeTypeIndex = new Map<string, number>();
+  for (const e of g.edges) if (!edgeTypeIndex.has(e.type)) edgeTypeIndex.set(e.type, edgeTypeIndex.size);
+  const groupIndex = new Map<string, number>();
+  for (const n of g.nodes) if (!groupIndex.has(n.kind)) groupIndex.set(n.kind, groupIndex.size);
+
+  const degrees = nodeDegrees(g.edges);
+  const nodes = g.nodes.map((n) => ({
+    id: n.id,
+    label: readableLabel(n),
+    group: n.kind,
+    weight: degrees.get(n.id) ?? 1,
+  }));
+
+  if (g.truncated) {
+    host.appendChild(
+      el(
+        'p',
+        'anl-strip anl-strip--warn',
+        `Showing the ${g.nodes.length} most-connected of ${g.totalNodes} elements — a force layout is O(n²) and ` +
+          'above this a node-link diagram is a hairball. Every count on this card is therefore a lower bound.',
+      ),
+    );
+  }
+
+  const box = el('div', 'anl-nodelink-box');
+  host.appendChild(box);
+  renderNodeLink(box, nodes, g.edges, {
+    width: 620,
+    height: 380,
+    edgeTypeIndex,
+    groupIndex,
+    // H4 — click-through to selection, the join between the chart and the model.
+    // Same dispatch shape `selectFigure()` uses, so a graph node and a donut
+    // slice select identically. P6-safe: selection is intent, not mutation.
+    onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
+  });
+
+  const counts = new Map<string, number>();
+  for (const e of g.edges) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+  renderEdgeLegend(host, edgeTypeIndex, counts);
+
+  host.appendChild(
+    el(
+      'p',
+      'anl-card-foot',
+      `${g.truncated ? '≥ ' : ''}${g.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
+        `${nodes.length} of ${g.totalNodes} elements  ·  node size = degree  ·  colour = element kind`,
+    ),
+  );
+}
+
+/**
+ * A human label for a UBG node. Enrichment stamps `name`/`occupancy` on rooms;
+ * everything else falls back to the id's type prefix plus a short suffix.
+ *
+ * ⛔ Never blank, and never the bare ULID — a diagram of twenty identical grey
+ * hex strings is a diagram of nothing.
+ */
+function readableLabel(node: { id: string; kind: string; props?: Record<string, unknown> }): string {
+  const p = node.props ?? {};
+  const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : null;
+  const occ = typeof p.occupancy === 'string' && p.occupancy.trim() ? p.occupancy.trim() : null;
+  if (name) return name;
+  if (occ) return occ;
+  const under = node.id.indexOf('_');
+  const suffix = under > 0 ? node.id.slice(under + 1, under + 5) : node.id.slice(0, 4);
+  return `${node.kind} ${suffix}`;
 }

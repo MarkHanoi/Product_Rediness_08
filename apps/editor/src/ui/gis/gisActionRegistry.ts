@@ -95,12 +95,11 @@ export type GisEntryPointName = keyof GisCapabilityHost;
  * Functional grouping inside the GIS panel. The founder's ask was "stop scattering
  * this chrome", not "give me one flat list of nineteen" — so the panel groups.
  */
-export type GisActionGroup = 'siteViews' | 'display' | 'graphs' | 'utility';
+export type GisActionGroup = 'siteViews' | 'display' | 'utility';
 
 export const GIS_GROUP_LABEL: Readonly<Record<GisActionGroup, string>> = {
     siteViews: 'Site views',
     display:   'Site display',
-    graphs:    'Graphs',
     // Deliberately NOT called "GIS utilities". The one action in here is app-wide, and
     // a group label that implied otherwise would be the host quietly re-scoping the
     // action — the thing C06 §13.7 verdict (d) exists to prevent.
@@ -337,36 +336,34 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         dispatch: () => { /* unavailable — see unavailableReason */ },
     },
 
-    // ── Graphs ──────────────────────────────────────────────────────────────────
+    // ── Graphs — MOVED OUT 2026-08-21 (lane UBG1, ADR-0343 §D.7, L-3259) ────────
     //
-    // "Graph" and "Living Graph" are NOT duplicates — two different overlays, two
-    // different entry points. But living-graph/index.ts states in its own header that
-    // the Living Graph "is intended to SUPERSEDE the static ⚛ Graph view as the
-    // primary graph UI — see the report / SPEC for the exact button-wiring
-    // reconciliation step". That reconciliation has never happened, which is why the
-    // founder sees two adjacent pills for one concept. Retiring `graph.building` would
-    // delete a live capability (verdict (b)), so both stay declared until the founder
-    // makes that call.
-    {
-        id: 'graph.building',
-        label: 'Graph',
-        icon: '⚛',
-        title: 'Building graph — the static relational view of the model.',
-        group: 'graphs',
-        entryPoints: ['pryzmShowBuildingGraph'],
-        absorbs: ['Graph (floating launcher pill)'],
-        dispatch: (h) => { h.pryzmShowBuildingGraph?.(); },
-    },
-    {
-        id: 'graph.living',
-        label: 'Living Graph',
-        icon: '✦',
-        title: 'Living Graph — the force-directed, live space-relationship view.',
-        group: 'graphs',
-        entryPoints: ['pryzmOpenLivingGraph'],
-        absorbs: ['Living Graph (floating launcher pill)'],
-        dispatch: (h) => { h.pryzmOpenLivingGraph?.(); },
-    },
+    // `graph.building` (⚛ Graph) and `graph.living` (✦ Living Graph) used to live
+    // here, as 2 of 15 actions in a `graphs` group declared solely for them. They
+    // are BUILDING concerns and this is the SITE tab; the founder said so, and
+    // ADR-0343 §D.7 specified the move.
+    //
+    // ⛔ The move was BLOCKED, and the block was real: §D.7's binding precondition
+    // was that the Unified Building Graph be StoreEventBus-maintained first
+    // (L-2131). Moving a stale-by-construction view onto a surface the founder
+    // reads as LIVE would have converted a quiet defect into a visible one, and
+    // the move would have been blamed for it. L-3251 discharged the precondition;
+    // this removal is the second half.
+    //
+    // The `window` entry-point seam is UNCHANGED — `installLiveGraphWiring()`
+    // still installs both overlays and both console openers still work. Only the
+    // HOST moved. Their new home is the Analysis surface (F4): the
+    // `relationship-graph` widget and its `relationship-coverage` companion, both
+    // on the default dashboard.
+    //
+    // ⚖ STILL THE FOUNDER'S CALL, DELIBERATELY NOT TAKEN HERE (ADR-0343 §U.1):
+    // whether `graph.building` RETIRES in favour of `graph.living`.
+    // `living-graph/index.ts` states in its own header that the Living Graph "is
+    // intended to SUPERSEDE the static ⚛ Graph view as the primary graph UI", and
+    // that reconciliation has never happened — which is why two adjacent pills
+    // existed for one concept. Retiring it would delete a live capability, so both
+    // overlays remain installed and reachable. The decision costs one edit either
+    // way; this lane surfaced it rather than making it.
 
     // ── Workspace ───────────────────────────────────────────────────────────────
     //

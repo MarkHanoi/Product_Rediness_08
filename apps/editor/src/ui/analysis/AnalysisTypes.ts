@@ -62,7 +62,14 @@ export type AnalysisAxis =
   /** Take-off chapter (capítulo). Quantity queries only. */
   | 'chapter'
   /** Take-off unit (m / m² / m³ / ud / kg). Quantity queries only. */
-  | 'unit';
+  | 'unit'
+  /**
+   * Typed relation family in the Unified Building Graph (`bounds`, `connectsTo`,
+   * `violates`, …). ⛔ Graph queries ONLY — the element census has no relational
+   * axis and never will; relationships live in the UBG, which is a different
+   * substrate with a different authority (ADR-0343 §D.4).
+   */
+  | 'relationship';
 
 /**
  * Where a figure's numbers come from. Each value names ONE authority; a query
@@ -75,7 +82,19 @@ export type AnalysisSource =
   /** `computeTakeoff()` in `@pryzm/core-app-model`. The ONE measurement authority. */
   | 'takeoff'
   /** The current selection, resolved through the census. */
-  | 'selection';
+  | 'selection'
+  /**
+   * The Unified Building Graph. ADR-0343 §D.4 ruled the UBG OUT as the aggregate
+   * substrate (it is a projection, and it was stale by construction) and IN for
+   * the RELATIONAL widgets — *"but only once it is maintained"*. It is maintained
+   * as of L-3251, which is the precondition this source depends on.
+   *
+   * ⛔ A `graph` query may never answer a question the census owns. Counting
+   * walls off the UBG would count the walls that happen to participate in a
+   * projected relationship — a silent undercount that reads as a count, the
+   * exact defect ADR-0343 §C.3.2 exists to name.
+   */
+  | 'graph';
 
 /**
  * The declared cost class. ⚠ SPEC §3: every figure here is ESTIMATED FROM THE
@@ -169,6 +188,12 @@ export type AnalysisWidgetKind =
   | 'treemap'
   | 'table'
   | 'coverage'
+  /**
+   * A node-link relationship diagram over the UBG. Rendered by
+   * `nodeLinkSvg.ts` — the ONE shared node-link renderer (L-3256), not a fifth
+   * private hand-roll.
+   */
+  | 'graph'
   | 'not-built';
 
 /**

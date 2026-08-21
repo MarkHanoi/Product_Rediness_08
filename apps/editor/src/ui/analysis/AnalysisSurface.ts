@@ -58,6 +58,7 @@ import { DEFAULT_LAYOUT, WIDGET_CATALOGUE, widgetById } from './widgetCatalogue'
 import {
   completenessStrip,
   renderChart,
+  renderGraph,
   renderCoverage,
   renderKpi,
   renderNotBuilt,
@@ -321,6 +322,11 @@ export class AnalysisSurface {
       switch (def.kind) {
         case 'kpi':      renderKpi(host, result); break;
         case 'coverage': renderCoverage(host, result); break;
+        // ADR-0343 §D.7 — the relational view, on the Analysis surface at last.
+        // Its precondition (a StoreEventBus-maintained UBG) is met by L-3251;
+        // before that this case could only have drawn a stale picture on a
+        // surface the founder reads as live.
+        case 'graph':    renderGraph(host, def, result); break;
         case 'table':    renderTable(host, def, result); break;
         case 'treemap':  renderTreemap(host, def, result); break;
         case 'donut':

@@ -38,6 +38,7 @@ import {
 } from '../analysisReadModel';
 import { squarify } from '../treemap';
 import { DEFAULT_LAYOUT, WIDGET_CATALOGUE, widgetById } from '../widgetCatalogue';
+import { graphEdgeFamilyTable, livenessSentence } from '../graphReadModel';
 import { seriesColour, ABSENCE_KEYS } from '../AnalysisTypes';
 import type { AnalysisQuery } from '../AnalysisTypes';
 
@@ -338,13 +339,83 @@ describe('§ANALYSIS-CATALOGUE — the refusals name their gap', () => {
   });
 
   it('every BUILT widget declares a query with a cost and a projected axis', () => {
-    const projected = new Set(['category', 'level', 'type', 'chapter', 'unit']);
+    // ⚠ EXTENDED 2026-08-21 (lane UBG1, L-3258): `relationship` is the axis the
+    // UBG projects. It is listed here — and NOT folded in with the census axes —
+    // because it belongs to a DIFFERENT SOURCE with a different authority.
+    // `runQuery` enforces the pairing: a `graph` query grouped by anything but
+    // `relationship` THROWS, and a census query grouped by `relationship` throws
+    // too. Adding the member here without that guard would be exactly the
+    // invented-aggregate defect H3 exists to prevent.
+    const projected = new Set(['category', 'level', 'type', 'chapter', 'unit', 'relationship']);
     for (const w of WIDGET_CATALOGUE.filter((x) => !x.notBuilt)) {
       expect(w.query, `${w.id} is built but has no query`).not.toBeNull();
       expect(projected.has(w.query!.groupBy), `${w.id} groups by an unprojected axis`).toBe(true);
       expect(w.query!.cost.length).toBeGreaterThan(0);
       // Take-off widgets are O(n·m) and MUST be manual — never on-commit.
       if (w.query!.source === 'takeoff') expect(w.refresh, `${w.id} runs an O(n·m) scan on commit`).toBe('manual');
+      // ⛔ The graph source is the ONLY consumer of `relationship`, and it is
+      // manual: re-solving an O(n²) force layout on every commit would make a
+      // dashboard the reason a frame is dropped (ADR-0343 §D.3).
+      if (w.query!.source === 'graph') {
+        expect(w.query!.groupBy, `${w.id} reads the UBG on a non-relational axis`).toBe('relationship');
+        expect(w.refresh, `${w.id} re-solves an O(n²) layout on commit`).toBe('manual');
+      }
+      if (w.query!.groupBy === 'relationship') {
+        expect(w.query!.source, `${w.id} groups by relationship off a non-graph source`).toBe('graph');
+      }
+    }
+  });
+
+  /**
+   * ⭐ §UBG-COVERAGE-HONESTY (L-3258) — the relational widgets must SAY which
+   * edge families they cannot show.
+   *
+   * Measured at HEAD by this lane: four of the UBG's ten declared edge types
+   * cannot be populated in production at all — `derivesFrom` (its three source
+   * families have zero SemanticGraph writers), `circulatesVia`
+   * (`circulationPaths` is never set outside tests), `servesZone` and
+   * `precededBy` (no adapter emits them). An empty `derivesFrom` renders exactly
+   * like a building with no derivations, which is the
+   * [[context-data-honesty-family]] defect: the failure value and the empty
+   * value are the same value.
+   */
+  it('the graph coverage table declares all ten UBG edge families, and refuses the dead four', () => {
+    const table = graphEdgeFamilyTable();
+    const byType = new Map(table.map((f) => [f.type, f]));
+
+    for (const t of [
+      'bounds', 'adjacentTo', 'connectsTo', 'circulatesVia', 'hostedIn',
+      'servesZone', 'derivesFrom', 'dependsOn', 'precededBy', 'violates',
+    ]) {
+      expect(byType.has(t), `${t} is a declared UBG edge type with no coverage row`).toBe(true);
+    }
+    expect(table.length, 'the coverage table must cover every declared family, no more and no fewer').toBe(10);
+
+    // The four that cannot fire must be NOT_MEASURED — never COUNTED_ONLY, which
+    // would read as "wired, and this project has none".
+    for (const dead of ['derivesFrom', 'circulatesVia', 'servesZone', 'precededBy']) {
+      expect(byType.get(dead)!.state, `${dead} cannot be populated but is not declared NOT_MEASURED`).toBe(
+        'NOT_MEASURED',
+      );
+      // …and each names WHY, specifically. "No data" is not a reason.
+      expect(byType.get(dead)!.note.length, `${dead} does not say why it is empty`).toBeGreaterThan(80);
+    }
+  });
+
+  it('the liveness sentence distinguishes stale from live, and never leaves it blank', () => {
+    const base = {
+      lastRebuiltAt: 0, lastDeltaAt: 0, deltasApplied: 0,
+      eventsObserved: 0, rebuilds: 0, lastDelta: null, constraintLegIsEngineFresh: true,
+    };
+    // ⛔ Four distinct states, four distinct sentences. Before L-3251 the only
+    // honest label was "stale by construction" and nothing could say it.
+    expect(livenessSentence(null)).toMatch(/not been built/i);
+    expect(livenessSentence({ ...base, freshness: 'absent' })).toMatch(/not been built/i);
+    expect(livenessSentence({ ...base, freshness: 'stale' })).toMatch(/BEHIND THE MODEL/);
+    expect(livenessSentence({ ...base, freshness: 'rebuilt' })).toMatch(/subscribed/i);
+    expect(livenessSentence({ ...base, freshness: 'maintained', deltasApplied: 3 })).toMatch(/LIVE/);
+    for (const f of ['absent', 'stale', 'rebuilt', 'maintained'] as const) {
+      expect(livenessSentence({ ...base, freshness: f }).length).toBeGreaterThan(30);
     }
   });
 

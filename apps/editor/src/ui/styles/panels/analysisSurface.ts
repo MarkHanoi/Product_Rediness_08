@@ -496,4 +496,45 @@ export const ANALYSIS_SURFACE_STYLES = `
   .anl-grid { grid-template-columns: minmax(0, 1fr); }
   .anl-card--wide { grid-column: 1 / -1; }
 }
+
+/* ── The relationship graph (ADR-0343 D.7, STR-14 4) ──────────────────────
+ *
+ * Every colour here is a TOKEN. The node fills and edge strokes come from
+ * seriesColour() -> --app-cat-1..8, the CVD-simulated categorical scale whose
+ * first value is the PRYZM purple #6600FF. Nothing on this card is black:
+ * text is --app-text / --app-text-2, the plate is --app-surface-sunken.
+ *
+ * The SVG scrolls inside its own box rather than widening the card, so a dense
+ * graph never makes the panel scroll sideways. */
+
+.anl-nodelink-box {
+  overflow-x: auto;
+  border: 1px solid var(--app-border-light);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-sunken);
+  padding: 4px;
+}
+.anl-nodelink { display: block; width: 100%; min-width: 420px; height: auto; }
+.anl-nodelink g[role='button']:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+.anl-nodelink g[role='button']:hover circle { stroke: var(--app-accent); stroke-width: 2.5; }
+
+.anl-nodelink-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 9px;
+  color: var(--app-text-2);
+}
+.anl-nodelink-legend-row { display: inline-flex; align-items: center; gap: 5px; }
+.anl-nodelink-swatch {
+  width: 9px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+  flex: 0 0 auto;
+}
 `;

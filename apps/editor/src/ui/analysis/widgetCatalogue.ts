@@ -134,6 +134,70 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     span: 1,
     notBuilt: null,
   },
+  // ── The RELATIONAL widgets (ADR-0343 §D.7, STR-14 §4) ──────────────────────
+  //
+  // ⭐ These are the widgets the founder actually asked for — his reference
+  // screenshot was a node-link diagram of Walls / Columns / Spaces with typed
+  // edges. They read the Unified Building Graph, which ADR-0343 §D.4 ruled IN
+  // for relational questions *"but only once it is maintained"*. L-3251 made it
+  // maintained; these are the first consumers to depend on that.
+  //
+  // ⛔ They are NOT the census in a different shape. The UBG holds a node only
+  // if some adapter projected a relationship touching it, so these cards answer
+  // "what relates to what", never "how many walls are there".
+  {
+    id: 'relationship-graph',
+    kind: 'graph',
+    title: 'Relationship graph',
+    subtitle:
+      'Elements as nodes, typed relations as edges, read live off the Building Graph. Click a node to select it.',
+    query: {
+      id: 'graph:relationship',
+      source: 'graph',
+      groupBy: 'relationship',
+      measure: 'count',
+      cost: 'O(n)',
+    },
+    // ⛔ NOT 'on-commit'. The graph maintains itself on the frame bus at its own
+    // cadence; re-rendering an O(n²) force layout on every wall move would make
+    // a dashboard the reason a frame is dropped, which §D.3 forbids outright.
+    refresh: 'manual',
+    span: 2,
+    notBuilt: null,
+  },
+  {
+    id: 'relationship-coverage',
+    kind: 'coverage',
+    title: 'Relationship coverage — which edge families are real',
+    subtitle:
+      'The ten declared UBG edge types, each with its measured state. Four cannot be populated in production at all.',
+    query: {
+      id: 'graph:relationship',
+      source: 'graph',
+      groupBy: 'relationship',
+      measure: 'count',
+      cost: 'O(n)',
+    },
+    refresh: 'manual',
+    span: 1,
+    notBuilt: null,
+  },
+  {
+    id: 'relationship-table',
+    kind: 'table',
+    title: 'Relations by family',
+    subtitle: 'Edge count per typed relation. Click a row to select every element that participates in it.',
+    query: {
+      id: 'graph:relationship',
+      source: 'graph',
+      groupBy: 'relationship',
+      measure: 'count',
+      cost: 'O(n)',
+    },
+    refresh: 'manual',
+    span: 1,
+    notBuilt: null,
+  },
   {
     id: 'takeoff-coverage',
     kind: 'coverage',
@@ -291,6 +355,12 @@ export const DEFAULT_LAYOUT: readonly string[] = Object.freeze([
   'takeoff-coverage',
   'selection-breakdown',
   'type-table',
+  // ⭐ The relational pair, on the default dashboard rather than hidden in the
+  // picker: the founder asked for this diagram by screenshot, and its coverage
+  // card ships beside it because a graph that shows four edge families and stays
+  // silent about the six it cannot show is a claim about the building.
+  'relationship-graph',
+  'relationship-coverage',
   'change-table',
 ]);
 

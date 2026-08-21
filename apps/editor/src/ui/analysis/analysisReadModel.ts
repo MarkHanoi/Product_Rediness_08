@@ -37,11 +37,29 @@
  * ═════════════════════════════════════════════════════════════════════════════
  * ⛔ WHAT THIS MODULE MAY NEVER READ
  * ═════════════════════════════════════════════════════════════════════════════
- *  • `window.__pryzmBuildingGraph` / the Unified Building Graph — STALE BY
- *    CONSTRUCTION (ADR-0343 §C.3.1, L-2131). It is rebuilt only when one of the
- *    two graph overlays is opened; nothing subscribes to store events. A
- *    dashboard bound to it reports the model as it stood the last time somebody
- *    opened a graph.
+ *  • `window.__pryzmBuildingGraph` **FOR AGGREGATES** — and the reason has
+ *    CHANGED, so read this rather than the sentence it replaced.
+ *
+ *    ⚠ CORRECTED 2026-08-21 (lane UBG1, L-3258). This bullet read: *"the Unified
+ *    Building Graph — STALE BY CONSTRUCTION (ADR-0343 §C.3.1, L-2131). It is
+ *    rebuilt only when one of the two graph overlays is opened; nothing
+ *    subscribes to store events."* **The second sentence is now false.**
+ *    `engine/buildingGraphMaintainer.ts` subscribes the StoreEventBus and applies
+ *    O(Δ) deltas, and `installLiveGraphWiring()` installs it (L-3251). The graph
+ *    publishes its own freshness at `window.__pryzmUbgLiveness`.
+ *
+ *    ⛔ THE PROHIBITION STANDS ANYWAY, on the OTHER half of §D.4's argument: the
+ *    UBG is a PROJECTION, not a census. A node exists in it only if some adapter
+ *    projected a relationship touching it, so counting walls there counts the
+ *    walls that participate in a projected edge — an undercount that reads as a
+ *    count (§C.3.2). Staleness was never the only reason and is no longer a
+ *    reason at all.
+ *
+ *    ⭐ Relational widgets are the exception §D.4 always carved out (*"The UBG
+ *    keeps the relational widgets… but only once it is maintained"*). That
+ *    precondition is met, so `source: 'graph'` below reads it — for RELATIONS
+ *    only, via `graphReadModel.ts`, which ships a coverage row per edge family
+ *    because four of the ten cannot be populated in production at all.
  *  • `ElementStore.getState()` — LRU-resident subset only, typed `ReadonlyMap`
  *    with no way to tell a partial view from a whole one (§C.3.2, L-2132).
  *  • `ScheduleExtractor`'s STRING fields — `:238` emits
@@ -65,6 +83,8 @@ import {
   type TakeoffResult,
 } from '@pryzm/core-app-model';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
+
+import { projectGraph } from './graphReadModel';
 
 import type {
   AnalysisFigure,
@@ -483,6 +503,40 @@ export function runQuery(query: AnalysisQuery, selectedIds: readonly string[] = 
       let unreachable: readonly string[];
       let over: number;
       let complete: boolean;
+
+      if (query.source === 'graph') {
+        // ⭐ The relational source. ADR-0343 §D.4 ruled the UBG IN for relational
+        // widgets "but only once it is maintained" — L-3251 satisfied that, and
+        // this branch is the first consumer to depend on it.
+        //
+        // ⛔ NOT memoised alongside the census/take-off caches, and deliberately:
+        // those are invalidated by `invalidateAnalysisReadModel()` on a model
+        // event, whereas the UBG is maintained on its OWN cadence (a frame-bus
+        // drain off the StoreEventBus). Caching it here would let a card show a
+        // graph older than the graph, which is the L-2131 defect rebuilt one
+        // layer up. `projectGraph()` is a read of an already-materialised
+        // in-memory structure; re-reading it is cheap and is the correct answer.
+        if (query.groupBy !== 'relationship') {
+          throw new Error(
+            `[analysis] source "graph" projects only the "relationship" axis, not "${query.groupBy}". ` +
+            'The UBG indexes relations, not element attributes — grouping it by level or category ' +
+            'would count only the elements that happen to participate in a projected edge, ' +
+            'which is an undercount that reads as a count (ADR-0343 §C.3.2, §D.6 H3).',
+          );
+        }
+        const g = projectGraph();
+        const result: AnalysisResult = {
+          query,
+          figures: g.figures,
+          coverage: g.coverage,
+          unreachable: g.unreachable,
+          computedAt: Date.now(),
+          computedOverCount: g.totalNodes,
+          complete: g.complete,
+          elapsedMs: Date.now() - t0,
+        };
+        return result;
+      }
 
       if (query.source === 'takeoff') {
         const t = getTakeoff();
