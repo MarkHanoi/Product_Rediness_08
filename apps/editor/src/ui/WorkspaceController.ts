@@ -5,11 +5,20 @@
  * localStorage key: pryzm-workspace-mode
  * Event dispatched: pryzm-workspace-mode  { detail: { mode: WorkspaceMode } }
  *
- * Three named workspace modes:
- *   author  (F1) — full 3D canvas; DataWorkbench hidden
- *   inspect (F2) — 50/50 split: 3D left (+ Z-Slicer + Lens Bar HUDs), AuditStack right
- *   data    (F3) — DataWorkbench full width; Three.js canvas display:none
- *                  (canvas is hidden, NOT destroyed — avoids costly re-init)
+ * ⚠ THE MODE LIST NO LONGER LIVES HERE — §WORKSPACE-MODE-REGISTRY (L-3000).
+ * `ui/platform/workspaceModes.ts` is the ONE table: id, label, shortcut, and the
+ * canvas layout (`full | half | hidden`). This file consumes it. Before ADR-0343
+ * §D.1 the list was written out THREE times — a union literal here, an array
+ * literal inside `WorkspaceModeBar._build()`, and three `if (e.key === 'F…')`
+ * statements below — so a fourth mode was five hand-edits, not a registration.
+ * ⛔ Do NOT reintroduce a mode name as a literal in this file.
+ *
+ * The modes, as the registry declares them:
+ *   author   (F1) — full 3D canvas; DataWorkbench hidden
+ *   inspect  (F2) — 50/50 split: 3D left (+ Z-Slicer + Lens Bar HUDs), AuditStack right
+ *   analysis (F4) — 50/50 split: 3D left, Analysis surface right (ADR-0343)
+ *   data     (F3) — DataWorkbench full width; Three.js canvas display:none
+ *                   (canvas is hidden, NOT destroyed — avoids costly re-init)
  *
  * Contract compliance:
  *   §05 §3  — CSS prefix wsc- claimed in this file
@@ -28,8 +37,15 @@
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { triggerWindowResize } from '../engine/triggerWindowResize'; // F.events.16
+// §WORKSPACE-MODE-REGISTRY (L-3000 · ADR-0343 §D.1) — the ONE mode table.
+import {
+  getWorkspaceMode,
+  isWorkspaceMode,
+  workspaceModeForShortcut,
+  type WorkspaceMode,
+} from './platform/workspaceModes';
 
-export type WorkspaceMode = 'author' | 'inspect' | 'data';
+export type { WorkspaceMode };
 
 const LS_KEY = 'pryzm-workspace-mode';
 // F.events.6 — dispatch migrated to runtime.events; EVENT const retired.
@@ -88,7 +104,11 @@ export class WorkspaceController {
 
   /** Restore the last saved mode from localStorage. Safe to call multiple times. */
   restoreFromStorage(): void {
-    const saved = localStorage.getItem(LS_KEY) as WorkspaceMode | null;
+    // §WORKSPACE-MODE-REGISTRY — validate against the table rather than casting.
+    // A stale localStorage value from a build that had a mode this build does not
+    // would otherwise put the shell into a mode nothing lays out.
+    const raw = localStorage.getItem(LS_KEY);
+    const saved = isWorkspaceMode(raw) ? raw : null;
     if (saved && saved !== this._mode) {
       this._mode = saved;
       this._applyLayout();
@@ -114,30 +134,46 @@ export class WorkspaceController {
 
     document.body.classList.toggle('pryzm-mode-inspect', this._mode === 'inspect');
 
+    // §WORKSPACE-MODE-REGISTRY (L-3000) — the CANVAS half of the layout is now a
+    // table lookup, not a per-mode branch. An unknown id cannot reach here
+    // (restoreFromStorage validates), but if it ever did, treating it as 'full'
+    // leaves the user with a working viewport rather than a blank screen.
+    const def = getWorkspaceMode(this._mode);
+    if (canvas) {
+      switch (def?.canvas ?? 'full') {
+        case 'full':   canvas.style.display = 'block'; canvas.style.width = '';    break;
+        case 'half':   canvas.style.display = 'block'; canvas.style.width = '50%'; break;
+        case 'hidden': canvas.style.display = 'none';                              break;
+      }
+    }
+
+    // The WORKBENCH half stays a per-mode decision: it is not derivable from the
+    // canvas layout, and §L-847 below is a founder ruling that must stay visible.
     switch (this._mode) {
       case 'author':
-        if (canvas) {
-          canvas.style.display = 'block';
-          canvas.style.width   = '';
-        }
         if (dw) dw.setMode('hidden');
         if (propPanel) propPanel.style.display = '';
         break;
 
       case 'inspect':
         // 50/50: canvas takes left half; AuditStack panel takes right half (fixed)
-        if (canvas) {
-          canvas.style.display = 'block';
-          canvas.style.width   = '50%';
-        }
         // DataWorkbench hidden — AuditStack replaces it in inspect mode
         if (dw) dw.setMode('hidden');
         if (propPanel) propPanel.style.display = 'none';
         this._setupInspectHUDs();
         break;
 
+      case 'analysis':
+        // ADR-0343 §D.1 — 50/50: canvas left, AnalysisSurface right (fixed,
+        // #anl-surface, structurally identical to how inspect mounts AuditStack).
+        // The canvas stays VISIBLE because every widget is a selector: a
+        // dashboard that cannot highlight what it describes is the thing this
+        // mode exists to not be.
+        if (dw) dw.setMode('hidden');
+        if (propPanel) propPanel.style.display = 'none';
+        break;
+
       case 'data':
-        if (canvas) canvas.style.display = 'none';
         // §L-847 (2026-08-13, founder decision): DataWorkbench IS the shipped F3
         // Data surface, full width — exactly what this file's own header always
         // said ("data (F3) — DataWorkbench full width"). The line below used to
@@ -153,7 +189,8 @@ export class WorkspaceController {
 
     // Tell Three.js renderer to resize after layout shift.
     // D.7.5: routed through getFrameScheduler() instead of raw rAF.
-    if (this._mode !== 'data') {
+    // Registry-driven: a hidden canvas has nothing to resize.
+    if ((def?.canvas ?? 'full') !== 'hidden') {
       getFrameScheduler().scheduleOnce('workspace-controller-resize', () => triggerWindowResize()); // F.events.16
     }
   }
@@ -514,9 +551,10 @@ export class WorkspaceController {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
 
-      if (e.key === 'F1') { e.preventDefault(); this.setMode('author');  }
-      if (e.key === 'F2') { e.preventDefault(); this.setMode('inspect'); }
-      if (e.key === 'F3') { e.preventDefault(); this.setMode('data');    }
+      // §WORKSPACE-MODE-REGISTRY (L-3000) — was three `if (e.key === 'F…')`
+      // statements, which is why a fourth mode used to mean a fourth `if`.
+      const def = workspaceModeForShortcut(e.key);
+      if (def) { e.preventDefault(); this.setMode(def.id); }
     };
     document.addEventListener('keydown', this._keyListener);
   }

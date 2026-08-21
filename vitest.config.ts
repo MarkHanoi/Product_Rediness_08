@@ -93,6 +93,17 @@ export default defineConfig({
       // that destructive asks gate on the Confirm/Cancel card, and that the miss
       // seam to the LLM stays open.
       'apps/editor/src/ui/ai/__tests__/**/*.spec.ts',
+      // §WORKSPACE-MODE-REGISTRY (L-3000 · ADR-0343 §D.1): the workspace-mode
+      // table and the assertion that no consumer restates the mode ids. The ADR
+      // made the registry conversion a BINDING PRECONDITION of the fourth mode —
+      // so a guard that lets the list silently re-fork would make the precondition
+      // decorative.
+      'apps/editor/src/ui/platform/__tests__/**/*.spec.ts',
+      // §ANALYSIS-SURFACE (L-3001..L-3010 · ADR-0343): the Analysis read model's
+      // honesty envelope — empty / zero / not-computed / unreachable are FOUR
+      // states, and a widget that renders one as another is the defect this
+      // surface exists to not commit.
+      'apps/editor/src/ui/analysis/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

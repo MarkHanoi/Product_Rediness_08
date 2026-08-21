@@ -38,6 +38,8 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
+// §WORKSPACE-MODE-REGISTRY (L-3000) — see _applyModeVisibility.
+import { getWorkspaceMode } from './platform/workspaceModes';
 
 /** Face descriptor */
 interface FaceDef {
@@ -190,7 +192,13 @@ export class ViewCube {
      * Uses inline display (same pattern WorkspaceController uses for #container).
      */
     private _applyModeVisibility(mode: string): void {
-        this._el.style.display = (mode === 'inspect' || mode === 'data') ? 'none' : '';
+        // §WORKSPACE-MODE-REGISTRY (L-3000) — was `mode === 'inspect' || mode === 'data'`,
+        // a hand-written list that a fourth mode silently fell out of: the cube is
+        // anchored `right: 80px`, so in ANY half/hidden mode it lands on top of the
+        // right-hand surface. The rule is not "these two modes", it is "the canvas
+        // does not own the right edge" — so it reads the canvas layout instead.
+        const layout = getWorkspaceMode(mode)?.canvas ?? 'full';
+        this._el.style.display = layout === 'full' ? '' : 'none';
     }
 
     private _createCubeEl(): HTMLElement {

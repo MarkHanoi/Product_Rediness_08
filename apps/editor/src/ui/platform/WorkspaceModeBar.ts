@@ -4,9 +4,12 @@
  * CSS prefix: wmb-   (claimed in §05 §3)
  *
  * A floating pill anchored to the top-centre of the 3-D viewport that lets
- * the user switch between Author / Inspect / Data workspace modes.
+ * the user switch between workspace modes. The modes themselves are declared
+ * ONCE in ./workspaceModes.ts (§WORKSPACE-MODE-REGISTRY, L-3000); this file
+ * renders whatever that table holds and knows no mode by name.
  * It delegates all state mutations to workspaceController (WorkspaceController.ts)
- * which owns the canonical mode state, localStorage persistence, and F1/F2/F3 shortcuts.
+ * which owns the canonical mode state, localStorage persistence, and the
+ * function-key shortcuts (also read from the registry).
  *
  * Contract compliance:
  *   §01 §2   — zero direct store mutations; reads workspaceController only
@@ -16,7 +19,12 @@
  *   §05 §8   — additive only; no removal of existing elements
  */
 
-import { workspaceController, type WorkspaceMode } from '../WorkspaceController';
+import { workspaceController } from '../WorkspaceController';
+// §WORKSPACE-MODE-REGISTRY (L-3000 · ADR-0343 §D.1) — the ONE mode table. This
+// file used to hold a second copy of it as a local array literal inside
+// _build(), which is exactly why adding a mode was a five-site hand edit.
+// ⛔ Do NOT reintroduce a modes array here.
+import { WORKSPACE_MODES, type WorkspaceMode } from './workspaceModes';
 
 // Phase B.2 (S73-WIRE) — runtime threading per S72 §16.2 row B.2 (orchestrator child).
 export class WorkspaceModeBar {
@@ -45,39 +53,7 @@ export class WorkspaceModeBar {
         bar.setAttribute('role', 'toolbar');
         bar.setAttribute('aria-label', 'Workspace mode');
 
-        const modes: Array<{ id: WorkspaceMode; label: string; icon: string; title: string }> = [
-            {
-                id: 'author',
-                label: 'Author',
-                title: 'Author mode — full 3D canvas (F1)',
-                icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 20h9"/>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                </svg>`,
-            },
-            {
-                id: 'inspect',
-                label: 'Inspect',
-                title: 'Inspect mode — 3D + data side-by-side (F2)',
-                icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <line x1="3" y1="9" x2="21" y2="9"/>
-                    <line x1="9" y1="21" x2="9" y2="9"/>
-                </svg>`,
-            },
-            {
-                id: 'data',
-                label: 'Data',
-                title: 'Data mode — full data workbench (F3)',
-                icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                    <path d="M3 5v4c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-                    <path d="M3 9v4c0 1.66 4.03 3 9 3s9-1.34 9-3V9"/>
-                </svg>`,
-            },
-        ];
-
-        for (const m of modes) {
+        for (const m of WORKSPACE_MODES) {
             const btn = document.createElement('button');
             btn.type      = 'button';
             btn.className = 'wmb-btn';
